@@ -1,0 +1,25 @@
+{
+  "name": "europe-motorways",
+  "description": "Full Poland plus a rough European motorway/trunk network for long-distance routing.",
+  "sources": ["poland-latest.osm.pbf", "europe-latest.osm.pbf"],
+  "include": {
+    "countries": ["PL"],
+    "bbox": null,
+    "border_buffer_km": 100,
+    "tiles": {"mode": "auto", "include": [], "exclude": []}
+  },
+  "detail": {
+    "roads": "all",
+    "addresses": true,
+    "pois": "fuel,charging,parking",
+    "admin_boundaries": true,
+    "extra_network": {
+      "bbox": [-12.0, 34.0, 40.0, 72.0],
+      "roads": ["motorway", "trunk", "motorway_link", "trunk_link"]
+    }
+  },
+  "routing": {
+    "profile": "car",
+    "keep_cross_border": true
+  }
+}

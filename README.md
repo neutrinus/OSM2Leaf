@@ -97,6 +97,7 @@ LICENSE                    GPL-3.0
 docs/format/               reverse-engineered on-disk formats
 docs/research/             external sources, comparisons, open questions
 tools/                     small standard-library Python analysis tools
+profiles/                  user-selectable build profiles (JSON)
 archive/                   git-ignored vendor images and extracts
 ```
 
@@ -138,6 +139,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
 - [Claims and evidence ledger](docs/research/claims.md) — **start here when
   checking whether something is a fact or a hypothesis**
 - [US unit in Europe: region gates](docs/research/us-eu-region.md)
+- [Build profiles: user-selectable maps](docs/research/build-profiles.md)
 - [Open questions](docs/research/open-questions.md)
 - [Data handling and licensing](docs/legal.md)
 

@@ -1,0 +1,21 @@
+{
+  "name": "poland-full",
+  "description": "All of Poland, all roads, addresses and POIs, with a border buffer for cross-border routing.",
+  "sources": ["poland-latest.osm.pbf"],
+  "include": {
+    "countries": ["PL"],
+    "bbox": null,
+    "border_buffer_km": 50,
+    "tiles": {"mode": "auto", "include": [], "exclude": []}
+  },
+  "detail": {
+    "roads": "all",
+    "addresses": true,
+    "pois": "all",
+    "admin_boundaries": true
+  },
+  "routing": {
+    "profile": "car",
+    "keep_cross_border": true
+  }
+}

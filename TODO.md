@@ -154,6 +154,22 @@ prerequisite.
 - [ ] Generate a first synthetic dataset at the unit's tile granularity.
 - [ ] Compare generated data with the factory data for the same area.
 
+## P5b — user-selectable build profiles
+
+See [`docs/research/build-profiles.md`](docs/research/build-profiles.md) and
+`profiles/*.json`.
+
+- [x] Define the initial JSON profile shape and three starting profiles
+  (`dolnoslaskie-detail`, `poland-full`, `europe-motorways`).
+- [ ] Add a schema validator and `tools/build.py --profile ...`.
+- [ ] Print a size breakdown before writing an image.
+- [ ] Implement tile selection once the `BxxRyyR` grid is decoded; decide
+  between whole-tile selection and sub-tile clipping.
+- [ ] Keep a border buffer so cross-border routing does not stop at the border.
+- [ ] Decide where ODbL attribution lives on a distributed card/image.
+- [ ] Verify that removing/adding files keeps `DRSTR001.DAT` and the unit
+  consistent.
+
 ## P6 — hardware testing (only after P0–P5)
 
 - [ ] Back up the original card and verify the hash.
