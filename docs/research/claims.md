@@ -166,6 +166,13 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-140 | Confirmed factory data families: roads/names (`MAPAL001`/`RDSTM001`/`LCTBL001`), addresses (`ADDRE`), POIs (`POINT`), intersections (`INTER`), freeways (`FRWAY`), admin (`ICADM`), postal (`ZCODE`/`ZIPFR`). | VERIFIED (presence) | H | file families + partial decodes |
 | C-141 | Building footprints, forest/landuse polygons, explicit water polygons, speed limits and turn restrictions have **not** been found in the decoded records. | UNKNOWN | — | absence of evidence, not proof of absence |
 | C-142 | `MAPAL001` payloads are vector records, so polygon/area record types are technically possible; none identified yet. | UNKNOWN | — | tile grammar partially decoded |
+| C-210 | POI `f11 = (2000*page + slot) & 0xffff`; match rates 99.3 % (POINT004) / 95.4 % (POINT021). | VERIFIED | H | EXP-2026-11-05-08 |
+| C-211 | POI point A is the display point (inside the COORD001 box in 100 %); B is the address reference (matches street ADDRE ids 95 % vs 10 %). | VERIFIED | H | EXP-2026-11-05-08 |
+| C-212 | POI↔ADDRE joins at record level via `(street name, house number)`; the id alone is only a cell. | VERIFIED | H | EXP-2026-11-05-08 |
+| C-213 | `BICON001` is a PNG container: header, 103-icon table, PNGs at `0x1408` (32×32, five 30×30). | VERIFIED | H | EXP-2026-11-05-08 |
+| C-214 | The POI `icon code` → `BICON001` PNG mapping is unknown; `f0` is a table id, not an icon. | UNKNOWN | — | no icon-id table in POINT |
+| C-215 | The bit-packed POI field block cannot be anchored yet: schema offsets need ≥170 bits but only 48 sit between the two ids. | UNKNOWN | — | negative result |
+| C-216 | REFER002 EV facilities are a separate set (0 name overlap with REFER001 POINT002); the join mechanism is the same. | OBSERVED | M | name comparison |
 | C-143 | `REFER002` has 16 files and is a separate EV/charging POI layer, not an uncompressed copy of `REFER001`. | VERIFIED | H | directory listing + schema |
 | C-144 | The FAT contains zero executables; `DRSTR001.DAT` stores logical sizes, not disk offsets, so the FAT is the only location index. | VERIFIED | H | card/FAT research |
 | C-145 | REFER001 display names are plain Latin-1 text inside small inner zlib pages, not encrypted or custom-coded. | VERIFIED | H | `scan_refer_names.py` |

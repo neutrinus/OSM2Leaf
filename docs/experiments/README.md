@@ -79,3 +79,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-05](EXP-2026-11-05-05-firmware-crosscheck.md) | Firmware section table and reader cross-check | done (readers not located) |
 | [EXP-2026-11-05-06](EXP-2026-11-05-06-cmp-writer.md) | `.cmp`/`.ind` writer and byte-identity | done |
 | [EXP-2026-11-05-07](EXP-2026-11-05-07-firmware-readers.md) | Dual-base Ghidra and reader search | done (negative; strategy changed) |
+| [EXP-2026-11-05-08](EXP-2026-11-05-08-poi-joins.md) | POI page mapping, point roles and icons | done (icon-id mapping open) |

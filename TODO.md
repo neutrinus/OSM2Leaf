@@ -128,12 +128,14 @@ Three agents are investigating these; merge their results here when done.
   subtypes `0x54`/`0x58`, `40 XX YY` point encoding, trailer table.
 - [ ] Prove the POI ↔ ADDRE join (shared ids confirmed; record-level join not).
 - [ ] Decode `FRWAY` mesh-id encoding and `INTER` `n` semantics.
-- [x] POI → location: the 4-byte id is the coordinate and matches ADDRE.
-- [ ] Decide which of the two point copies is the display point when they
-  differ.
-- [ ] Map `f11` onto the 1000-record pages of a multi-page shard.
-- [ ] Decode `REFER002/COORD001.DAT` and compare with the same transform.
-- [ ] Locate POI ↔ icon (`BICON001`) mapping.
+- [x] POI → location: A is the display point, B the address reference.
+- [x] `f11 = (2000*page + slot) & 0xffff` (99.3 % / 95.4 % on POINT004/021).
+- [x] POI ↔ ADDRE record join via `(street name, house number)`.
+- [x] `BICON001`: 103 PNG icons extracted; see `docs/format/assets.md`.
+- [ ] Map the POI `icon code` to one of the 103 PNGs.
+- [ ] Anchor the bit-packed POI field block (≥170 bits needed, 48 available).
+- [ ] Explain the second 1000-id block per page.
+- [ ] Isolate REFER002 `xy-coordinates` bits.
 - [ ] Decode `MMAIN001.DAT` + `CMP.LST` update semantics.
 
 ## P2 — tiles and geography

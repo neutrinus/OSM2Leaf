@@ -67,37 +67,52 @@ There are 33 numbered shards, matching the 33 regions:
   records).
 - No icon-id table inside POINT; `BICON001` correlation is **UNKNOWN**.
 
-### POI → location link (partially solved)
+### POI → location link (solved)
 
-The 4-byte id is the POI's coordinate, not an opaque key. It was confirmed by
-cross-matching POINT ids with `ADDRE` records (e.g. 18 of ADDRE017's ids occur
-in POINT017, 31 in POINT008).
+The 4-byte id is the POI's coordinate. Each record has two copies:
 
-What is solved:
+- **A = display point** — inside the `COORD001` region box in 100 % of
+  records.
+- **B = address reference** — on Monaco outside the box in 337/380 records;
+  it matches the street's ADDRE id far more often (95 % vs 10 %).
 
-- POINT record → 4-byte lat/lon id → the same grid as `COORD001`, `ADDRE` and
-  the tile stream keys.
-- POINT ↔ ADDRE share the same ids, so the address record for a POI is
-  reachable by coordinate (and probably by the address string).
+The difference A−B is 0/1/8/12/13 grid units, mostly `(8,8)`/`(12,12)` — a
+re-quantisation, not an entrance-level offset.
 
-What is still open:
+### POI ↔ ADDRE join (record-level)
 
-- The 24-byte index record `f11` is a dense POI id only for single-page
-  shards; on multi-page shards it is not a global record index.
-- `f7`/`f8` join a POI record to the index, but the pair is not unique.
-- The POI `icon code` → `BICON001` mapping is unknown.
-- Two point copies per record: which one is the display point when they differ?
-- `REFER002/POINT002.DAT` (EV layer) has an explicit `xy-coordinates` field;
-  it may document the intended coordinate semantics for all POINTs.
+Join by `(street name, house number)`:
 
-Next experiments:
+```
+POINT017 "AUTO KONCEPT11@BOULEVARD ALBERT 1ER"  A=a0cfd1bd B=a0c3d1b1
+ADDRE017 "BOULEVARD ALBERT 1ER" -> id a0c3d1b1, ranges 17;17, 21;27, 25;25, 27;27
+```
 
-1. Map `f11` onto the 1000-record pages of a multi-page shard (POINT004).
-2. Decode `REFER002/COORD001.DAT` (22 × `0x18` B) and compare with the same
-   transform.
-3. Pick a POI with two different point copies and compare both against the
-   address record / known ground truth.
-4. Decode `BICON001` and map the POI `icon code`.
+ADDRE splits a street by house range; the POI appends its house number, so
+(street, number) selects the record. The id alone is only a cell (Monaco: 239
+streets, 13 ids).
+
+### `f11` index → (page, slot)
+
+```
+f11 = (2000 * page + slot) & 0xffff
+```
+
+`page` is the 0-based record page (1000 records/page), `slot` is 0..999.
+Match rates: POINT004 **99.3 %**, POINT021 **95.4 %**; controls are ~8–10 %.
+The id is 16-bit and the per-page block is 2000, not 1000. On a one-page shard
+this degenerates to `f11 = slot`, which is why the old “dense id” reading only
+held there.
+
+Still open:
+
+- the second 1000-id block per page (hypothesis: `INFORMATION` sub-records),
+- the POI `icon code` → `BICON001` mapping,
+- the bit-packed field block origin,
+- `REFER002/POINT002.DAT` explicit `xy-coordinates` bits.
+
+`BICON001` is a PNG container with 103 icons; see
+[assets.md](assets.md).
 
 ## `INTER0nn` — intersections
 
