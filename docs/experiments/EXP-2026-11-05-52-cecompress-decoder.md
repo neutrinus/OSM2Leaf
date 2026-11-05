@@ -1,4 +1,4 @@
-# EXP-2026-11-05-49: `cecompress.py` — LZSS and LZX decoders for CE ROM sections
+# EXP-2026-11-05-52: `cecompress.py` — LZSS and LZX decoders for CE ROM sections
 
 - **Status:** done (tool, synthetic streams); no vendor image was read, so the
   format identification itself is still unconfirmed
@@ -349,7 +349,7 @@ Proposed claim (C-570, for `docs/research/claims.md`; one table row, paste as
 is):
 
 ```
-| C-570 | `tools/cecompress.py` is a stdlib-only decoder for two candidate CE ROM section codecs: a 4 KiB-window LZSS (flag byte, bit 0 first, 0 = literal, 1 = match, 12-bit offset + 4-bit length-3, stored offset = distance-1) and LZX block framing with an MSB-first 16-bit-LE bit reader, 1-bit intel flag + optional 32-bit filesize + 1 reserved bit, 3-bit block type + 24-bit uncompressed size, and full decoding of uncompressed (stored) blocks; verbatim/aligned blocks raise `UNSUPPORTED(lzx block type …)`, E8 translation is off by default. `detect` returns evidence, reports `confirmed` only when the decoded size equals `expected_size`, and refuses to auto-select a signature-free LZSS candidate. 186 self-test checks prove encoder/decoder symmetry only; no real image section has been decoded, so the codec used by `IMAGE_SCN_COMPRESSED` sections remains UNKNOWN. | VERIFIED (tool, synthetic symmetry) | M | EXP-2026-11-05-49; `python3 tools/cecompress.py --selftest` |
+| C-570 | `tools/cecompress.py` is a stdlib-only decoder for two candidate CE ROM section codecs: a 4 KiB-window LZSS (flag byte, bit 0 first, 0 = literal, 1 = match, 12-bit offset + 4-bit length-3, stored offset = distance-1) and LZX block framing with an MSB-first 16-bit-LE bit reader, 1-bit intel flag + optional 32-bit filesize + 1 reserved bit, 3-bit block type + 24-bit uncompressed size, and full decoding of uncompressed (stored) blocks; verbatim/aligned blocks raise `UNSUPPORTED(lzx block type …)`, E8 translation is off by default. `detect` returns evidence, reports `confirmed` only when the decoded size equals `expected_size`, and refuses to auto-select a signature-free LZSS candidate. 186 self-test checks prove encoder/decoder symmetry only; no real image section has been decoded, so the codec used by `IMAGE_SCN_COMPRESSED` sections remains UNKNOWN. | VERIFIED (tool, synthetic symmetry) | M | EXP-2026-11-05-52; `python3 tools/cecompress.py --selftest` |
 ```
 
 ## Follow-ups

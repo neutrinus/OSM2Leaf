@@ -118,7 +118,7 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-43](EXP-2026-11-05-43-rdstm-schema-tool.md) | RDSTM layout hypothesis harness | done (synthetic) |
 | [EXP-2026-11-05-44](EXP-2026-11-05-44-imf-definition.md) | Intermediate map format (IMF v1) and validator | done (design) |
 | [EXP-2026-11-05-45](EXP-2026-11-05-45-profile-validator.md) | Build-profile schema validator and dry-run builder | done (design) |
-| [EXP-2026-11-05-49](EXP-2026-11-05-49-cecompress-decoder.md) | CE ROM section codec candidates (LZSS/LZX) | done (synthetic symmetry only) |
+| [EXP-2026-11-05-52](EXP-2026-11-05-52-cecompress-decoder.md) | CE ROM section codec candidates (LZSS/LZX) | done (synthetic symmetry only) |
 | [EXP-2026-11-05-48](EXP-2026-11-05-48-cerom-memmap.md) | `cerom.py memmap` / Ghidra memory map (M1.5) | done (synthetic) |
 | [EXP-2026-11-05-47](EXP-2026-11-05-47-cerom-selftest.md) | `cerom.py` synthetic self-test (M1.1) | done (synthetic) |
 | [EXP-2026-11-05-46](EXP-2026-11-05-46-diff-years-tool.md) | Cross-year differential tool (`diff_years.py`) | done (synthetic) |
