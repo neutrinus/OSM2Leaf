@@ -178,9 +178,10 @@ What is pinned down:
 16-byte-stride names), a self-name literal
 (`0x15271c8 − filebase + Vt`), and the shared-`.rdata` clusters.
 
-**Timebox:** if the next round does not recover a base, continue the
-data-side + hardware loop and treat reader-code cross-check as a parallel
-long-running task, not a gate.
+**Decision (2026-11-05): firmware RE is the primary path.** The reader code
+defines the data contract, so the module-base search continues until the
+readers are understood. Data-side round-trips and hardware tests continue in
+parallel but do not replace this work.
 
 ### Readers are name-driven
 

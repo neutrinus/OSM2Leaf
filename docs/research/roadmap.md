@@ -1,7 +1,12 @@
 # Roadmap and confidence gates
 
-> **Last updated:** 2026-11-05. Current position: Gate 0 partially passed,
-> Gate 3 passed for clean tiles, Gate 2 in progress.
+> **Last updated:** 2026-11-05. Current position: Gate 0 is the primary path
+> (firmware RE defines the data contract); Gate 2 passed, Gate 3 passed for
+> all five target tiles.
+
+**Decision:** firmware RE is prioritized. The reader code tells us how the
+format is consumed, which is more valuable for the compiler than guessing from
+bytes alone. Data-side round-trips and hardware tests continue in parallel.
 
 Principle: **two independent sources must agree** before we trust a format.
 

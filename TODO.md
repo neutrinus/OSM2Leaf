@@ -31,7 +31,10 @@ OSM only after that.
    - [ ] Decode the ROM module table at `0x15271c8` (16-byte-stride names).
    - [ ] Self-name anchor / shared-`.rdata` clusters to recover `Vt`.
    - [ ] Re-run `xref_index.py`, `vtable_scan.py`, `solve_delta.py`, `func.py`.
-   - [ ] Timebox: if no base, continue data-side + hardware loop in parallel.
+   - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
+     until the readers define the data contract. No timebox.
+   - [ ] Independently trace the readers from known functions (`0xc438a4`,
+     `0xc0ebf8`, `0xc48380`) via the call graph, not only via module bases.
 2. **Gate 0b — tile payload grammar**
    - [x] All five targets rebuild byte-identically, including dense
      `B30R048R` (`EXP-2026-11-05-12`).
