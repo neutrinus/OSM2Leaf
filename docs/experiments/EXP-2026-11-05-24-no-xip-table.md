@@ -7,7 +7,7 @@
 - **Claims:** C-380…C-387
 - **Supersedes:** the XIP-section-table lead and `module_scan`'s per-module
   `(file_base, va_base)` pairs
-- **Superseded by:** none
+- **Superseded by:** EXP-2026-11-05-32 (the XIP/ROMHDR negative is retracted)
 
 ## Question
 

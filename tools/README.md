@@ -144,6 +144,22 @@ python3 harness.py compose /path/to/B30R060R.DAT /path/to/LEV3456R.DAT \
 Clean tiles (`B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R`) rebuild
 byte-identically. Dense section-4 tiles and drawn roads are still open.
 
+## `cerom.py` — CE ROM header, modules and sections
+
+Reads the Windows CE ROM (`ECEC` → `ROMHDR` → `TOCentry`/`e32_rom`/`o32_rom`,
+`FILESentry`) from the image or from its first 32 MiB. Stdlib only.
+
+```bash
+python3 tools/cerom.py IMAGE romhdr
+python3 tools/cerom.py IMAGE modules
+python3 tools/cerom.py IMAGE sections Navi.exe
+python3 tools/cerom.py IMAGE va2file 0x03498d48     # -> 0x007f5f48
+python3 tools/cerom.py IMAGE extract OBJDLL.dll -o out/   # raw sections
+```
+
+`extract` writes raw section bytes; compressed (`0x2000`) sections are not
+decompressed yet.
+
 ## `solve_data_delta.py`
 
 Window-scored data-delta solver for firmware pools (useful when a module mixes

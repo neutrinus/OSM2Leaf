@@ -99,12 +99,11 @@ Firmware RE is the primary path, but static address recovery is **closed**:
 
 - the ROM is **pre-bound** (imports stripped); no import descriptor names the
   thunks;
-- there is **no XIP/section table** in the image; `ECEC`/`NKOK` are container
-  metadata;
-  **under review (2026-11-05):** this negative came from a string search for
-  `B000FF`/`ROMHDR`, which cannot find a raw CE ROM header. `ECEC` at
-  `0x200240` is at CE image start + `0x40` and may give `pTOC`; see TODO.md
-  "Status review" Step 1 before relying on this item;
+- **use the CE ROM TOC for every address** (EXP-2026-11-05-32): `ECEC` at
+  `0x200240` is the CE ROM signature, image start `0x200200` = VA
+  `0x8cae1000`, `ROMHDR` at `0x01951b78`, 149 modules. Run
+  `tools/cerom.py IMAGE sections <module>` / `va2file` instead of fitting
+  deltas. The old "no XIP table" item (C-380/C-381) is retracted;
 - `module_scan` `(file_base, va_base)` pairs are wrong for most modules;
   the VA map is **not injective** (`0x0367b180` is both a `jsr` target and a
   string);

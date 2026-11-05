@@ -104,3 +104,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-29](EXP-2026-11-05-29-l1-l2-validators.md) | L1/L2 validators for the offline feedback loop | done |
 | [EXP-2026-11-05-30](EXP-2026-11-05-30-image-matrix.md) | Complete map-image archive and cross-year L1 matrix | done |
 | [EXP-2026-11-05-31](EXP-2026-11-05-31-cross-year-l2.md) | Cross-year L2 for the 2014 and 2016 cards | done |
+| [EXP-2026-11-05-32](EXP-2026-11-05-32-ce-romhdr.md) | CE ROM header and module TOC are present | done (C-380/C-381 retracted) |

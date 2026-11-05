@@ -1,8 +1,10 @@
 # Firmware and pre-partition area
 
 > **Evidence status:** byte offsets, strings and the SH-4 code recovery are
-> `VERIFIED` on the EU 2011 image; `SUM4`, `ECEC`, the section-to-VA mapping
-> and the role of the duplicated builds are `OBSERVED`/`HYPOTHESIS`.
+> `VERIFIED` on the EU 2011 image, and so is the CE ROM header / section-to-VA
+> mapping (EXP-2026-11-05-32); `SUM4` and the role of the duplicated builds
+> are `OBSERVED`/`HYPOTHESIS`. Sections below written before EXP-32 that rely
+> on delta fitting are historical; check them with `tools/cerom.py`.
 
 The ~100 MB before the FAT partition contains the navigation firmware. It is
 **not** a plain PE image and it is **not** a compressed container: it is an
@@ -30,8 +32,28 @@ At `0x000001c0` and `0x000003c0` there are 512-byte records ending in
 
 `SUM4` is a tagged checksum field. CRC-32, Adler-32 and plain word sums were
 computed and rejected; the algorithm is **UNKNOWN**. `ECEC` is a fixed field
-present in all payloads; reading it as the WinCE `0x43454345` ROM signature is
-a **HYPOTHESIS**.
+present in all payloads.
+
+### CE ROM header (VERIFIED, EXP-2026-11-05-32)
+
+`ECEC` is the Windows CE ROM signature at CE image start + `0x40`. The CE
+image starts at file `0x200200` (after the `0x200`-byte Clarion header):
+
+```
+0x00200240  "ECEC"  pTOC = 0x8e232978  ROMHDR offset = 0x01751978
+image VA base = 0x8cae1000  ->  file = VA - 0x8cae1000 + 0x200200
+0x01951b78  ROMHDR: physfirst 0x8cae1000, physlast 0x8e233c88,
+            nummods 149, numfiles 1, usCPUType 0x01a6 (SH-4)
+0x01951bcc  TOCentry[149] (32 B), then FILESentry[1] (ReleaseMain.skn)
+```
+
+Every module's `e32_rom`/`o32_rom` gives exact section VA (`o32_realaddr`)
+and file location (`o32_dataptr`); 245 of 527 sections are compressed RW data.
+Use `tools/cerom.py`. The kernel (`nk.exe`, `coredll.dll`) is not in this
+region. **Many conclusions below that were reached by delta fitting are
+superseded** (C-516…C-523); in particular the `0x6fab2c`/`0x6faeb0`/`0x6fb05c`
+chain is in `BT_MGR.dll`, and the real `HDD_INFO`/`SD Import` literals are in
+`Navi.exe` at VA `0x004e7d28` and `0x004e8584`/`0x004e995c`.
 
 ## Payloads and builds
 
@@ -59,8 +81,8 @@ the part number at `+0x250`). The selection logic is **UNKNOWN**.
 
 There are **no PE files**. A byte-by-byte scan of all 104,858,624
 pre-partition bytes found 255 `MZ`, 188 `PE\0\0`, and **0** valid
-`MZ`+`e_lfanew`+`PE\0\0`; also 0 `B000FF` and 0 `ROMHDR`. Modules are in
-WinCE ROM/XIP form (section bodies, headers stripped).
+`MZ`+`e_lfanew`+`PE\0\0`; also 0 `B000FF` strings. Modules are in
+WinCE ROM/XIP form; the `ROMHDR`/TOC is a binary struct (see above).
 
 ## Recovered code and map path
 

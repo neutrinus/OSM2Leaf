@@ -48,37 +48,44 @@ sections below, which are kept as the historical backlog.
 
 ### Step 1 — verify the CE ROM header (one short session, high value)
 
+**Done, confirmed (2026-11-05):** see
+[`EXP-2026-11-05-32`](docs/experiments/EXP-2026-11-05-32-ce-romhdr.md) and
+`tools/cerom.py`. All 149 module names resolve; old anchors agree; the
+`HDD_INFO`/`SD Import` literals are in `Navi.exe` (VA `0x004e7d28`,
+`0x004e8584`, `0x004e995c`). Builds B/C still open (need bytes past 32 MiB).
+
 Needs only the first ~30 MB of the EU 2011 image (`dd bs=1M count=32`).
 
-- [ ] Read `ROMHDR` at file `0x01951b78` (0x54 bytes, little-endian):
+- [x] Read `ROMHDR` at file `0x01951b78` (0x54 bytes, little-endian):
   `dllfirst, dlllast, physfirst, physlast, nummods, ulRAMStart, ulRAMFree,
   ulRAMEnd, ulCopyEntries, ulCopyOffset, ulProfileLen, ulProfileOffset,
   numfiles, ulKernelFlags, ulFSRamPercent, ulDrivglobStart, ulDrivglobLen,
   u16 usCPUType, u16 usMiscFlags, pExtensions, ulTrackingStart,
   ulTrackingLen`.
-- [ ] Sanity checks: `physfirst ≤ 0x8e232978 < physlast`;
+- [x] Sanity checks: `physfirst ≤ 0x8e232978 < physlast`;
   `physfirst` near `0x8cae1000`; `usCPUType` = SH-4 (`0x01a6` /
   `IMAGE_FILE_MACHINE_SH4`); `nummods` and `numfiles` in the tens to low
   hundreds; `dllfirst/dlllast` cover the `0x02xxxxxx–0x03xxxxxx` module band
   seen in the code.
-- [ ] Walk `TOCentry[nummods]` (32 bytes: `attrib, ftTime(8), nFileSize,
+- [x] Walk `TOCentry[nummods]` (32 bytes: `attrib, ftTime(8), nFileSize,
   lpszFileName, ulE32Offset, ulO32Offset, ulLoadOffset`) and then
   `FILESentry[numfiles]`. Every `lpszFileName` must resolve to an ASCII name
   (`nk.exe`, `coredll.dll`, …, the navi modules) through the formula above.
-- [ ] If the formula is off, solve the base from `lpszFileName` pointers
+- [x] ~~If the formula is off~~ (not needed: the formula holds), solve the base from `lpszFileName` pointers
   alone (they must land on NUL-terminated ASCII), not from code literals.
 - [ ] Repeat for builds B (`0x3e00000`) and C (`0x5200000`); B/C have a
   different wrapper layout, so locate `ECEC` first.
-- [ ] Record as a new `EXP-…-ce-romhdr.md`. If confirmed, mark C-380 and
+- [x] Record as a new `EXP-…-ce-romhdr.md`. If confirmed, mark C-380 and
   C-381 `RETRACTED` with `Superseded by`, and update `AGENTS.md`,
   `docs/format/firmware.md` and `roadmap.md` in the same commit.
-- [ ] If refuted, record the exact `ROMHDR` bytes and why each check failed,
+- [x] ~~If refuted~~ (confirmed), record the exact `ROMHDR` bytes and why each check failed,
   so nobody repeats it.
 
 ### Step 2 — turn the ROM into Ghidra-ready modules (if Step 1 holds)
 
-- [ ] Add `tools/cerom.py` (stdlib only): `romhdr`, `modules`, `files`,
-  `sections <module>`, `va2file`, `file2va`, `extract <module> -o dir`.
+- [x] Add `tools/cerom.py` (stdlib only): `romhdr`, `modules`, `files`,
+  `sections <module>`, `va2file`, `file2va`, `extract <module> -o dir`
+  (raw sections; decompression still open).
 - [ ] Rebuild each module as a PE (or as a Ghidra memory map: one block per
   `o32` at `o32_realaddr`, bytes from `o32_dataptr`). Sections with
   `IMAGE_SCN_COMPRESSED` (`0x00002000`) need CE ROM decompression; check
