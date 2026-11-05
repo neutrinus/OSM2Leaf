@@ -261,7 +261,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-640–C-649
 
 - [ ] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: blocked · Owner: — · Critical: yes
   - Depends: — (use M1.2a's offsets once they exist; until then try offsets
     0…32)
   - Goal: find a public decoder whose output length matches.
@@ -276,6 +276,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `vsize`) and plausible content (pointers into `0x8c…`/module VAs,
     strings), or an EXP lists every decoder × offset tried with a positive
     control (each decoder round-trips its own test vector).
+  - Blocker: the checkout has only EXP-49's 30-byte prefix; `probe` needs
+    the full payload. Result: `cecompress.py` adds LZNT1 (published MS-XCA
+    vector), XPRESS skeletons and `probe` (all methods × offsets, statuses,
+    exact-size matches) — EXP-2026-11-05-M1.2b, C-650.
   - Claims: C-650–C-659
 
 - [ ] **M1.2c — Find the ROM decompressor in `nk.exe` and port it**
@@ -323,9 +327,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     lines in the EXP).
   - Claims: C-680–C-689
 
-- [ ] **M1.6b — Resolve all import thunks of all modules**
-  - Status: in progress · Owner: upstream session (draft `tools/cerom_thunks.py`,
-    removed again in `c44db2b` until its EXP lands) · Critical: no
+- [x] **M1.6b — Resolve all import thunks of all modules**
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: M1.6 (PR #5)
   - Goal: a VA → `module!export` label table for every thunk, for Ghidra and
     for call-site search.
@@ -334,6 +337,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `cerom_thunks.py` (or `cerom.py thunks`) `[MODULE|--all] --json` lists stub VA, slot
     VA and name for every A and B module; ≥ 95 % of `Navi.exe`'s 846 slots
     have a stub (report the rest); self-test on a synthetic stub.
+  - Result: `cerom.py thunks` resolves 4/3/2-insn stubs through the OFT and
+    export tables with coverage and `--min-coverage`; synthetic only, the
+    real 846-slot run stays UNKNOWN (EXP-2026-11-05-M1.6b, C-690).
   - Claims: C-690–C-699
 
 - [ ] **M1.7 — Which kernel (B or C) boots with A**
