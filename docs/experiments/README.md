@@ -93,4 +93,5 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-19](EXP-2026-11-05-19-usrextract.md) | The 0x30f008 trail is false; follow USR_Convert_* | done (false trail closed) |
 | [EXP-2026-11-05-20](EXP-2026-11-05-20-reader-trace.md) | Container reader trace: corrections and new anchors | done (readers not found) |
 | [EXP-2026-11-05-21](EXP-2026-11-05-21-hddinfo-builder.md) | Three-filter literals and the HDD_INFO builder | done (parser one hop away) |
+| [EXP-2026-11-05-22](EXP-2026-11-05-22-va-not-injective.md) | The VA map is not injective; XIP table is the key | done (structural blocker) |
 | [EXP-2026-11-05-20](EXP-2026-11-05-20-l1-l2-validators.md) | L1/L2 validators for the offline feedback loop | done |

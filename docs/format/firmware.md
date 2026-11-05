@@ -80,6 +80,21 @@ WinCE ROM/XIP form (section bodies, headers stripped).
   `0xdf6000–0xdfb000` documents `MESH_ID`/`DIVID`, `.cmp`/`.ind`, `HCXCmp`
   descriptors and map filenames.
 
+### The VA map is not injective
+
+A VA does **not** identify a file offset:
+
+- `VA 0x0367b180` is both a `jsr` target in the builder (`0x6faf7e`) and the
+  UTF-16 string `" Debug Common Version 0.1 …"` at file `0xe7b180` under data
+  delta `0x02800000` (one occurrence in the image);
+- `0x0369d400` and `0x036922cc` map onto `0x7c`-pipe string data.
+
+The `0x0360–0x036a` band is a library layer: 1,899 code-target VAs, no export
+directory, no `MSFT`, no `.rgs`; the best delta for its 13 helper VAs reaches
+only 7/13 prologues (need ≥11/13). Cross-module calls therefore **cannot** be
+resolved by literal arithmetic. They need the `romimage` **XIP section table**
+(`file ↔ VA ↔ size`).
+
 ### Section table is a dead end
 
 The 24-byte records at `0x374000`/`0x3e0060` are `o32_rom`-shaped (a clean
@@ -406,17 +421,19 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 Firmware RE remains the primary path.
 
-1. **Pin the `0x0367–0x0369xxxx` module** (three-filter index + self-printed
-   string cluster) and walk from the helper receiving the built path to the
-   `HDD_INFO` open/split/parse.
-2. **Find the `0x2e0xxxx` module export table** (`exports.py`). Its RVA range
+1. **Parse the `romimage` XIP section table** (`file ↔ VA ↔ size`); leads:
+   `ECEC` at container `+0x240`, `NKOK` at `+0x1fc`. This converts every VA to
+   a file offset and unblocks all cross-module calls.
+2. Re-resolve the `0x0367–0x0369` helpers and the map-module delta; then reach
+   the `HDD_INFO` open/split/parse.
+3. **Find the `0x2e0xxxx` module export table** (`exports.py`). Its RVA range
    must cover `0x2e00f98`–`0x2e533e4`; once it does, every `jsr @Rn` target
    becomes a named API and the reader chain closes.
-3. **`.ind` mutation matrix on a spare card** (cheapest empirical test):
+4. **`.ind` mutation matrix on a spare card** (cheapest empirical test):
    change `chunk_size` (4th dword) to `0x20000`/`0x8000`, change `chunk_count`
    by ±1, shift one `chunk_offset`. Accept/reject reveals the `0x10000`
    compare, count trust and seek-vs-scan.
-4. **SD bus capture** (CLK/CMD/DAT0-3) during boot/map entry; decode
+5. **SD bus capture** (CLK/CMD/DAT0-3) during boot/map entry; decode
    CMD17/CMD18 and record the LBA order of `DRSTR001.DAT` vs `.cmp`/`.ind`.
-5. Spare-card `HDD_INFO` matrix for the six-line mapping (89 variants).
-6. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.
+6. Spare-card `HDD_INFO` matrix for the six-line mapping (89 variants).
+7. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.

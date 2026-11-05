@@ -55,8 +55,12 @@ OSM only after that.
    - [x] Three-filter literal method (F1/F2/F3): 236,765 → 95,758.
    - [x] HDD_INFO builder `0x6faeb0` builds the path from fragments; parser
      helpers at `0x0369d400`/`0x036922cc`/`0x0367b180`/`0x0369d3dc`.
-   - [ ] Pin the `0x0367–0x0369` module with the three-filter index and a
-     self-printed string cluster; walk to the parser.
+   - [x] `0x0367–0x0369` cannot be pinned: library band, best delta 7/13,
+     VA map not injective (`0x0367b180` is both jsr target and string).
+   - [ ] Parse the `romimage` XIP section table (`file ↔ VA ↔ size`); leads:
+     `ECEC` at `+0x240`, `NKOK` at `+0x1fc`.
+   - [ ] Re-resolve `0x0367–0x0369` and the map-module delta; reach the parser.
+   - [ ] Find the `0x2e0xxxx` export table.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
      `solve_data_delta.py` added.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue

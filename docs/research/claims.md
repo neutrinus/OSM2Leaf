@@ -189,6 +189,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-355 | Six-line mapping remains unknown; constraints are numeric `Sys`/`SD`, `0..5`, field enum `0x00A2`. | UNKNOWN | — | EXP-2026-11-05-21 |
 | C-356 | The parser helper is one indirection away: `0x0369d400`, `0x036922cc`, `0x0367b180`, `0x0369d3dc` in the `0x0367–0x0369xxxx` module receive the built path. | OBSERVED | M | EXP-2026-11-05-21 |
 | C-357 | Next: pin the `0x0367–0x0369` module with the three-filter index and a self-printed string cluster; else run the 89-variant spare-card matrix. | PLANNED | — | EXP-2026-11-05-21 |
+| C-360 | `0x0360–0x036a` is a library layer, not a pinnable module: 1,899 code-target VAs, no export dir, no `MSFT`, no `.rgs`. | VERIFIED | H | EXP-2026-11-05-22 |
+| C-361 | Entry-point delta solve for the 13 helper VAs peaks at 7/13 prologues (`D≈0x02236a34`), with mid-function bytes; a true delta needs ≥11/13. | VERIFIED (negative) | H | EXP-2026-11-05-22 |
+| C-362 | The VA map is **not injective**: `0x0367b180` is both a `jsr` target and the UTF-16 string at file `0xe7b180`; `0x0369d400`/`0x036922cc` map to string data. | VERIFIED | H | EXP-2026-11-05-22 |
+| C-363 | Cross-module calls cannot be resolved by literal arithmetic; they need the `romimage` XIP section table (`file ↔ VA ↔ size`). | VERIFIED | H | EXP-2026-11-05-22 |
+| C-364 | Intra-module results stand: builder `0x6faeb0` and reporter `0x6fb05c` need no delta. | VERIFIED | H | EXP-2026-11-05-22 |
+| C-365 | Parser, card-vs-built-in and six-line mapping remain unknown; only the `Sys`/`SD`, `0..5`, `0x00A2` constraints are proven. | UNKNOWN | — | EXP-2026-11-05-22 |
+| C-366 | The spare-card matrix is final: 89 length-preserving 72-byte variants with a six-step plan and message oracle. | VERIFIED | H | EXP-2026-11-05-22 |
+| C-367 | Next: parse the XIP section table; `ECEC` at container `+0x240` and `NKOK` at `+0x1fc` are the leads. | PLANNED | — | EXP-2026-11-05-22 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
