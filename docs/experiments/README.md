@@ -90,3 +90,5 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-16](EXP-2026-11-05-16-mapcode-tile-contract.md) | Map-code comparator and tile contract | done (parser still missing) |
 | [EXP-2026-11-05-17](EXP-2026-11-05-17-mapcode-test-package.md) | Comparator corrected; HDD_INFO test package | done (parser behind COM) |
 | [EXP-2026-11-05-18](EXP-2026-11-05-18-verinfo-com.md) | VerInfoCC is not the HDD_INFO parser | done (missing link 0x30f008) |
+| [EXP-2026-11-05-19](EXP-2026-11-05-19-usrextract.md) | The 0x30f008 trail is false; follow USR_Convert_* | done (false trail closed) |
+| [EXP-2026-11-05-19](EXP-2026-11-05-19-l1-l2-validators.md) | L1/L2 validators for the offline feedback loop | done |

@@ -162,6 +162,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-316 | Six-line mapping is unknown; all three compared fields are numbers, and the `Sys` side is likely a compiled-in table. | UNKNOWN / HYPOTHESIS | M | EXP-2026-11-05-18 |
 | C-317 | The missing link is the class behind the SD module's `0x30f008` call; module U only compares. | UNKNOWN | — | EXP-2026-11-05-18 |
 | C-318 | `tools/solve_data_delta.py` recovers VerInfoCC's delta; `hddinfo_variants.py` now emits 89 length-preserving variants (pairwise swaps + reverse). | VERIFIED | H | EXP-2026-11-05-18 |
+| C-320 | `0x30efcc` is a free function `f(obj,mode,flag)`, not a parser; there is no `bsr` to it and the object comes from the caller. The `0x30f008` premise is false. | VERIFIED (negative) | H | EXP-2026-11-05-19 |
+| C-321 | `0x01f83368` is a writable global, not the HDD_INFO path; the code stores into it at `0x31098c`–`0x310996`. | VERIFIED (negative) | H | EXP-2026-11-05-19 |
+| C-322 | The code range is `mspart.dll` (base `0x309200`) / `WAVEAPI.dll` (base `0x30d200`). Their bases overlap, so `base <= file < base+size` attribution is invalid. | VERIFIED | H | EXP-2026-11-05-19 |
+| C-323 | Round-10 “SD module delta `0x1130000` / property 17 path” is retracted in full; the five string hits were store targets to globals. | VERIFIED (retraction) | H | EXP-2026-11-05-19 |
+| C-324 | `0x6fb05c` is a message builder (memsets, descriptors, `sprintf`, field id `0x00A2`, `0..5` check in `userdata_type`, `vtable[5]`), not a parser. | VERIFIED (negative) | H | EXP-2026-11-05-19 |
+| C-325 | Six-line mapping remains unknown; the path-start literal has zero references and module U uses only suffixes; linker suffix merging is the working hypothesis. | UNKNOWN / HYPOTHESIS | M | EXP-2026-11-05-19 |
+| C-326 | Reader location remains unknown; three routes are closed with reasons (0x30f008 object, VerInfoCC, comparator-as-parser). | UNKNOWN | — | EXP-2026-11-05-19 |
+| C-327 | Next direction: `USR_Convert_*`, especially `Set finished mark (file=%s)` at `0xe4dc18`; locate its module with a ≥3-string cluster, then walk from the path argument. | PLANNED | — | EXP-2026-11-05-19 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
@@ -341,6 +349,15 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-123 | The 2019 e-NV200 image is a different engine: `CLA-NAVI06-01` / `X08-03-00` / ZENRIN, `DB_INFO.TXT`, partition at sector 888833, 14,827 files. | VERIFIED | H | image inspection |
 | C-124 | ZE0-era cards carry three volumes: ~100 MiB firmware area, 7.55 GiB FAT32 map partition, and a TFAT16 volume at image offset `0x1C8400400`. | VERIFIED | H | FAT boot sector at that offset (`MSWIN4.1`, `TFAT16`) |
 | C-125 | The `EU_MAPDATA_*.7z` archives are repacks of the card images, not independent builds. | OBSERVED | H | matching `MMAIN001.DAT` hashes |
+
+## Offline validation
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-319 | `tools/cardcheck.py` passes on the EU 2011 root and raw image: 480 files, 39 dirs, 5,173,965,667 bytes, 194/194 `.cmp` pairs, 40 DRSTR nodes / 324 entries, 11/11 MMAIN rows, and an identical `0x06000000` `HDD_INFO` copy. | VERIFIED | H | EXP-2026-11-05-19; `python3 tools/cardcheck.py --root …` / `--image …` |
+| C-320 | `tools/l2check.py` passes on the EU 2011 root: DRSTR byte-identical, 194/194 preserved `.cmp` round-trips, five target tiles byte-identical, four golden geometry digests, and the tile/POI mutation checks. | VERIFIED | H | EXP-2026-11-05-19; `python3 tools/l2check.py --root …` |
+| C-321 | The card's LFN checksum bytes do not match the standard FAT short-name checksum for most entries; the names are still recoverable from contiguous LFN sequences and agree with the `7z`/`mtools` extraction. | OBSERVED | H | EXP-2026-11-05-19; `tools/cardcheck.py` FAT reader |
+| C-322 | `ze0_mutate.py` in non-strict mode could return the source record unchanged, making the one-vertex self-test a silent no-op; it now selects a strictly rebuilt record and refuses an unchanged mutation. | VERIFIED | H | EXP-2026-11-05-19; `tools/ze0-viewer/ze0_mutate.py` |
 
 ## Emulation / feedback loop
 

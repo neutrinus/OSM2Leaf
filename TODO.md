@@ -38,8 +38,11 @@ OSM only after that.
    - [ ] Run the spare-card matrix (highest value, no RE).
    - [x] `VerInfoCC` identified (`0x027cae00`, `GetVersionInfo`) but ruled
      out as the parser (EXP-2026-11-05-18).
-   - [ ] Identify the class behind the SD module's `0x30f008` call and
-     decompile its file-open/split/parse path.
+   - [x] `0x30f008` trail: false (free function; `0x01f83368` is a writable
+     global; mspart/WAVEAPI bases overlap). Round-10 link retracted.
+   - [ ] Follow `USR_Convert_*`, especially `Set finished mark (file=%s)` at
+     `0xe4dc18`; locate its module with a ≥3-string cluster and walk from the
+     path argument.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
      `solve_data_delta.py` added.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
@@ -242,12 +245,14 @@ research spike, not a prerequisite.
 
 - [x] **L0 — primitives:** static decoder + validator (`tools/cmpind.py`,
   `tools/drstr.py`, `tools/selftest.py`).
-- [ ] **L1 — whole-card validator:** MBR/FAT, `DRSTR` tree, sizes, `.ind`
-  offsets, zlib decode, tile inventory, `MMAIN` table, `HDD_INFO` copy. Stable
-  exit code + machine-readable report.
-- [ ] **L2 — semantic/golden:** decode a tile/`.cmp` to a neutral format,
-  render to PNG/GeoJSON, compare with OSM/golden output; byte-identical
-  round-trip for unchanged files, then a tiny mutation.
+- [x] **L1 — whole-card validator:** `tools/cardcheck.py` checks MBR/FAT,
+  `DRSTR` tree, sizes, `.ind` offsets, zlib decode, tile inventory, `MMAIN`
+  table, `HDD_INFO` copy and `CMP.LST`. Stable exit code + JSON report.
+- [x] **L2 — semantic/golden:** `tools/l2check.py` checks `DRSTR` and
+  `.cmp` preserved round-trips, five target tile rebuilds, golden geometry
+  digests, a one-vertex tile mutation and a POI rename. Golden profile:
+  `tools/golden/eu2011.json`.
+  - [ ] Optional OSM comparison remains in `tools/ze0-viewer/compare_osm.py`.
 - [ ] **L3 — function-level SH-4 emulation:** run located reader functions
   under Ghidra P-code with mocked file I/O; compare with the Python reader.
   Requires relative call-graph tracing to locate the readers first.

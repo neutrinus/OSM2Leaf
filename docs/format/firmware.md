@@ -266,17 +266,43 @@ reads a compiled-in constant table.
 The comparator module's data delta `0x02800000` is settled by its string pool
 and the `sprintf` at `0x6fb0d8`.
 
-### Missing link
+### The `0x30f008` trail is false
 
-Module U (comparator) references only suffixes of the `HDD_INFO` path; the
-path start `0x01f83368` is used by the SD module (`0x30effa`, `0x31260e`,
-`0x312630`). Module U compares (`mov.w @(4,r12),r0` at `0x6fb0e6`), the SD
-module uses the path. **The missing link is the class behind `0x30f008`.**
+`0x30efcc` is a **free function** `f(obj, mode, flag)`, not a parser: it masks
+arg2, requires arg3 == 1, and calls `obj->vtable[0](3,&out)` /
+`obj->vtable[1](17,0,*global)`. The object comes from the caller; there is no
+`bsr` to it and no absolute literal under any base.
 
-The six-line mapping is a ranked hypothesis: line 4 `SDC08-EVEUR` →
-manufacturer + destination; QSD lines → `userdata_type`; line 6 part number;
-lines 3/5 version/date. The `Sys` side is a parsed `u16`; the built-in
-`0x06000000` copy is the only system-side `HDD_INFO`, so both are likely used.
+`0x01f83368` is a **writable global**, not the `HDD_INFO` path: the code
+stores into it at `0x31098c`–`0x310996`. The code range is `mspart.dll`
+(base `0x309200`) / `WAVEAPI.dll` (base `0x30d200`).
+
+**Module attribution warning:** those bases overlap, so
+`base ≤ file < base+size` is invalid. Export dirs/names live in the shared
+`.rdata` blob addressed via each module's base+RVA. This was the inference
+error behind round 10.
+
+Round-10 “SD module delta `0x1130000` / property 17” is **retracted**; the
+five string hits were store targets to globals.
+
+`0x6fb05c` is a **message builder**, not a parser: it memsets two buffers,
+fills two 16-byte descriptors, formats `SD Import: …` via `sprintf`, branches
+on field id `0x00A2`, applies `0..5` in `userdata_type`, and calls
+`obj->vtable[5]`.
+
+### Still open
+
+Module U references only suffixes of the `HDD_INFO` path; the path-start
+literal has **zero** references. Linker suffix merging is the working
+hypothesis. The six-line mapping remains a ranked hypothesis: line 4
+`SDC08-EVEUR` → manufacturer + destination; QSD lines → `userdata_type`;
+line 6 part number; lines 3/5 version/date.
+
+**Next direction:** the `USR_Convert_*` family, especially
+`Set finished mark (file=%s)` at `0xe4dc18` — the one function that takes a
+path and opens it. Locate its module with a ≥3-string cluster, then walk
+backwards from the path argument. Do not infer a module from a single
+`V − S` match again.
 
 ### Test package
 
@@ -344,9 +370,9 @@ Firmware RE remains the primary path.
    `tools/hddinfo_variants.py` one line per card, sweep numeric runs 0…5, and
    read the `SD Import: <field>` message if a console is available. This
    settles the six-line mapping and card-vs-built-in question.
-2. **Class behind the SD module's `0x30f008` call:** find where `r8` is
-   constructed (wrapper `0x30efcc` has no direct callers), decompile its
-   file-open/split/parse path. VerInfoCC is ruled out.
+2. **`USR_Convert_*`:** locate the module for `Set finished mark (file=%s)`
+   at `0xe4dc18` with a ≥3-string cluster, then walk backwards from the path
+   argument to the open/parse path. The `0x30f008` trail is false.
 3. **Relative call-graph tracing** from `0xc438a4` (CMP.LST), `0xc48380`
    (message catalogue) and the fd machinery for `.cmp`/`.ind` and `DRSTR`.
 4. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed constraints for the
