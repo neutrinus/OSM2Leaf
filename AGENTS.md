@@ -93,17 +93,37 @@ python3 tools/verify.py --root <root>      # cross-year wrapper for both
   default strategy. zlib-ng (often Python 3.14) reproduces **none** of the
   factory streams. Check the fixtures in `docs/format/cmp-ind.md` first.
 
-## Firmware: do not redo these dead ends
+## Firmware: CE ROM TOC path and dead ends
 
-Firmware RE is the primary path, but static address recovery is **closed**:
+Firmware RE is the primary path. Static **global-VA/delta guessing** is
+closed; the embedded CE ROM TOC replaces it.
+
+### CE ROM TOC (verified, use this first)
+
+The image contains standard Windows CE memory-segment headers. Build A starts
+at `0x00200200` (`ECEC` at `+0x40`, `pTOC = 0x8e232978`, size `0x01751978`),
+with `ROMHDR` at file `0x01951b78`: 149 modules / 1 file, SH-4, physical range
+`0x8cae1000`–`0x8e233c88`. The TOC resolves names including `Navi.exe`,
+`NaviStateCC.dll`, `OBJDLL.dll` and `STDDLL.dll`; builds B/C and duplicate
+copies appear in the same report. The old "no XIP/section table" negative
+(C-380/C-381) is **RETRACTED**; C-088/C-089 supersede it. Do not cite the
+negative as a reason to avoid CE ROM extraction.
+
+```bash
+python3 tools/ce_rom_parse.py \
+  --image archive/images/LEAF_2011-2012_QSD-309-101_navi158_eu.img \
+  --out /tmp/ce-rom-report.json
+```
+
+Expected: five valid SH-4 segments; build A `149` modules / `1` file. Next is
+`TODO.md` Step 2: `tools/cerom.py` (sections, `va2file`, `extract`), then a PE
+or Ghidra memory map, then the readers. See `docs/format/firmware.md` and
+`EXP-2026-11-05-33`/`-34`.
+
+### Do not redo these dead ends
 
 - the ROM is **pre-bound** (imports stripped); no import descriptor names the
   thunks;
-- there is **no XIP/section table** in the image: **retracted** by C-088/C-089.
-  The old negative came from a string search for `B000FF`/`ROMHDR`; `ECEC` at
-  `0x200240` is the CE memory-segment header and `tools/ce_rom_parse.py` now
-  recovers the TOC (`EXP-2026-11-05-34`). Do not use the old negative as a
-  reason to avoid CE ROM extraction.
 - `module_scan` `(file_base, va_base)` pairs are wrong for most modules;
   the VA map is **not injective** (`0x0367b180` is both a `jsr` target and a
   string);
@@ -120,10 +140,11 @@ Map-code check is numeric `Sys[0x%x]` vs `SD[0x%x]` for `manufacturer_id`,
 `0x6fab2c` → `0x6faeb0` → `0x6fb05c`, data delta `0x02800000`. The
 `HDD_INFO` parser sits behind a runtime COM object.
 
-Next reader step is **dynamic**, not static: see
+Next reader step is **static through the CE ROM TOC** (`TODO.md` Step 2).
+Dynamic breaks remain the fallback when hardware is available: see
 `docs/research/dynamic-break-guide.md` (break on `MAL_DataVol_getOffset`,
-then fd methods, then fd thunks). Do not propose another static module-base
-search without new relocation evidence.
+then fd methods, then fd thunks). Do not resume global-VA/module-base guessing
+without new relocation evidence.
 
 ## Documentation and evidence
 
