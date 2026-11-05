@@ -721,11 +721,13 @@ def check_tree(source, report: Report, partial: bool = False,
                ignore_artifacts: bool = False) -> None:
     check = report.add(Check("tree"))
     top = {e.name for e in source.list_dir("") if not is_dump_artifact(e.name, ignore_artifacts)}
-    required = REQUIRED_TOP - ({"VER_INFO"} if partial else set())
+    required = REQUIRED_TOP - ({"VER_INFO"} if partial else set()) - {"TMC"}
+    if not (top & {"TMC", "XMD"}):
+        check.error("missing top-level entry 'TMC' or 'XMD'")
     missing = sorted(required - top)
     for name in missing:
         check.error(f"missing top-level entry {name!r}")
-    extra = sorted(top - REQUIRED_TOP)
+    extra = sorted(top - REQUIRED_TOP - {"XMD"})
     if partial:
         check.stats["partial"] = True
     if extra:
@@ -914,15 +916,48 @@ def check_drstr(source, report: Report, partial: bool = False,
         if partial and path == "" and "VER_INFO" in drstr_names:
             ignored_names.add("VER_INFO")
             check.warn("partial tree: DRSTR lists 'VER_INFO', which is not present")
-        for name in sorted((drstr_names - actual_names) - ignored_names):
-            check.error(f"{path or '/'}: DRSTR lists {name!r}, not on card")
-        for name in sorted(actual_names - drstr_names):
-            check.error(f"{path or '/'}: {name!r} is on card but not in DRSTR")
+        # DRSTR names are fixed 13-byte fields. A longer FAT long name is
+        # stored as its first 13 bytes, and FAT short names may differ only in
+        # case, so compare normalized 13-byte, case-insensitive keys.
+        def _drstr_key(name: str) -> str:
+            return name.lower()[:13]
+
+        drstr_keys: dict[str, str] = {}
+        for name in drstr_names:
+            if name in ignored_names:
+                continue
+            drstr_keys.setdefault(_drstr_key(name), name)
+        actual_keys: dict[str, str] = {}
+        for name in actual_names:
+            actual_keys.setdefault(_drstr_key(name), name)
+
+        for key in sorted(set(drstr_keys) - set(actual_keys)):
+            check.error(f"{path or '/'}: DRSTR lists {drstr_keys[key]!r}, not on card")
+        for key in sorted(set(actual_keys) - set(drstr_keys)):
+            check.error(f"{path or '/'}: {actual_keys[key]!r} is on card but not in DRSTR")
+
         for entry in node["entries"]:
             if entry["name"] in ignored_names:
                 continue
             entry_count += 1
             actual = listing.get(entry["name"])
+            if actual is None:
+                matches = [
+                    item for name, item in listing.items()
+                    if name.lower() == entry["name"].lower()
+                ]
+                if not matches and len(entry["name"]) == 13:
+                    matches = [
+                        item for name, item in listing.items()
+                        if name.lower().startswith(entry["name"].lower())
+                    ]
+                if len(matches) == 1:
+                    actual = matches[0]
+                elif len(matches) > 1:
+                    check.error(
+                        f"{path or '/'}/{entry['name']}: ambiguous DRSTR name"
+                    )
+                    continue
             if actual is None:
                 continue
             expected_dir = entry["type"] == 2
