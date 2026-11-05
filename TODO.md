@@ -50,7 +50,13 @@ OSM only after that.
      `0x2e00f98–0x2e533e4`).
    - [ ] Run the `.ind` mutation matrix on a spare card (chunk_size/count/offset).
    - [ ] SD bus capture (CLK/CMD/DAT) for read order and seek-vs-scan.
-   - [ ] Follow `USR_Convert_*` at `0xe4dc18` with a ≥3-string cluster.
+   - [x] `USR_Convert` module `0x0101e408` retracted (IAT slots); map-module
+     `VER_INFO` refs retracted (call targets).
+   - [x] Three-filter literal method (F1/F2/F3): 236,765 → 95,758.
+   - [x] HDD_INFO builder `0x6faeb0` builds the path from fragments; parser
+     helpers at `0x0369d400`/`0x036922cc`/`0x0367b180`/`0x0369d3dc`.
+   - [ ] Pin the `0x0367–0x0369` module with the three-filter index and a
+     self-printed string cluster; walk to the parser.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
      `solve_data_delta.py` added.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue

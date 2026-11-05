@@ -292,25 +292,63 @@ fills two 16-byte descriptors, formats `SD Import: …` via `sprintf`, branches
 on field id `0x00A2`, applies `0..5` in `userdata_type`, and calls
 `obj->vtable[5]`.
 
+### Three-filter literal analysis
+
+Literal-pool work needs filters in this order:
+
+1. **F1** — code pages only (≥4 prologues / 4 KiB);
+2. **F2** — reject loads whose register is used as a `jsr`/`jmp` target within
+   8 bytes;
+3. **F3** — reject import thunks.
+
+Candidates fall from 236,765 to **95,758**. Without F2/F3, an IAT slot aligned
+against a dense string set manufactures false “clusters”.
+
+Retractions:
+
+- “`USR_Convert` module at `0x0101e408`” — false; those are 12-byte import
+  stubs / IAT slots (`0x1e6c020 − 0xe4dc18 = 0x0101e408`); same for
+  `0x01011478`.
+- “The map module references `VER_INFO\HDD_INFO.TXT`” — false;
+  `0xc0dbda`/`0xc1078c`/`0xc10800` are `jsr` targets.
+
+### The only HDD_INFO builder
+
+Under data delta `0x02800000`, the clean data references are exactly:
+`0x6faf28` (`mSD\VER_INFO\HDD_INFO.TXT`), `0x6faf0e` (`TXT`),
+`0x6faf52` (`til.dll`), `0x6faeee` (`%u`), `0x6fb0ce`
+(`manufacturer_id` format).
+
+`0x6faeb0` builds the path from fragments:
+
+- `mode = *(obj+16)`;
+- modes `0`/`10` append `mSD\VER_INFO\HDD_INFO.TXT` to a buffer holding
+  `\Syste`;
+- other modes append `TXT`;
+- the DLL branch appends `til.dll`;
+- status `2…6` selects `obj+68/76/80`;
+- `0x0367b180` logs `Debug Common Version 0.1`.
+
+The `+12` literal is a fragment, not a suffix pointer. The builder does **no
+I/O** (`memset`, append, status probe, switch).
+
 ### Still open
 
-Module U references only suffixes of the `HDD_INFO` path; the path-start
-literal has **zero** references. Linker suffix merging is the working
-hypothesis. The six-line mapping remains a ranked hypothesis: line 4
-`SDC08-EVEUR` → manufacturer + destination; QSD lines → `userdata_type`;
-line 6 part number; lines 3/5 version/date.
+Six-line mapping remains unknown; constraints are numeric `Sys[0x%x] SD[0x%x]`,
+`0 ≤ v < 6`, field enum `0x00A2`. Card vs `0x06000000` has no code link.
 
-**Next direction:** the `USR_Convert_*` family, especially
-`Set finished mark (file=%s)` at `0xe4dc18` — the one function that takes a
-path and opens it. Locate its module with a ≥3-string cluster, then walk
-backwards from the path argument. Do not infer a module from a single
-`V − S` match again.
+The parser is one indirection away: `0x0369d400`, `0x036922cc`, `0x0367b180`,
+`0x0369d3dc` in the `0x0367–0x0369xxxx` module receive the built path.
+
+**Next direction:** pin that module with the three-filter index and a cluster
+anchored on a string it prints itself; then walk from the helper to the
+open/split/parse. Do not infer a module from a single `V − S` match.
 
 ### Test package
 
-`tools/hddinfo_variants.py` generates 73 length-preserving variants (all 72 B)
-for a spare-card matrix: one line per card, `0…5` sweeps on numeric runs, and
-uppercase-word replacements. A debug console prints the exact
+`tools/hddinfo_variants.py` generates **89** length-preserving variants (all
+72 B): content edits, `0…5` sweeps, uppercase-word replacements, pairwise line
+swaps and a reverse. A debug console prints the exact
 `SD Import: <field> is different Sys[0x%x] SD[0x%x]` message.
 
 ### Tile contract from diagnostics
@@ -368,16 +406,17 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 Firmware RE remains the primary path.
 
-1. **Find the `0x2e0xxxx` module export table** (`exports.py`). Its RVA range
+1. **Pin the `0x0367–0x0369xxxx` module** (three-filter index + self-printed
+   string cluster) and walk from the helper receiving the built path to the
+   `HDD_INFO` open/split/parse.
+2. **Find the `0x2e0xxxx` module export table** (`exports.py`). Its RVA range
    must cover `0x2e00f98`–`0x2e533e4`; once it does, every `jsr @Rn` target
    becomes a named API and the reader chain closes.
-2. **`.ind` mutation matrix on a spare card** (cheapest empirical test):
+3. **`.ind` mutation matrix on a spare card** (cheapest empirical test):
    change `chunk_size` (4th dword) to `0x20000`/`0x8000`, change `chunk_count`
    by ±1, shift one `chunk_offset`. Accept/reject reveals the `0x10000`
    compare, count trust and seek-vs-scan.
-3. **SD bus capture** (CLK/CMD/DAT0-3) during boot/map entry; decode
+4. **SD bus capture** (CLK/CMD/DAT0-3) during boot/map entry; decode
    CMD17/CMD18 and record the LBA order of `DRSTR001.DAT` vs `.cmp`/`.ind`.
-4. **`USR_Convert_*` path opener** at `0xe4dc18`; multi-string cluster, then
-   walk from the path argument.
-5. Spare-card `HDD_INFO` matrix for the six-line mapping.
+5. Spare-card `HDD_INFO` matrix for the six-line mapping (89 variants).
 6. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.

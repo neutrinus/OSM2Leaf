@@ -181,6 +181,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-338 | `0xc0ebf8` is mid-function; `0x1ac` is an argument to `0x2e533e4`, also called with negative values; the level-table allocation claim is unproven. | VERIFIED (retraction) | H | EXP-2026-11-05-20 |
 | C-339 | The data contract is unaffected: `.cmp` chunked zlib and DRSTR 40/324 remain data-confirmed; hardcoded filenames, `0xc438a4` opener and `0x02200000` are contradicted. | VERIFIED | H | EXP-2026-11-05-20 |
 | C-340 | Next trace: find the `0x2e0xxxx` module export table; run `.ind` mutation (chunk_size/count/offset) on a spare card; SD bus capture. | PLANNED | — | EXP-2026-11-05-20 |
+| C-350 | Literal-pool analysis needs F1 code pages, F2 reject loads used as `jsr`/`jmp` targets, F3 reject import thunks; candidates fall 236,765 → 95,758. | VERIFIED (method) | H | EXP-2026-11-05-21 |
+| C-351 | “USR_Convert module at `0x0101e408`” is retracted: those are 12-byte import stubs / IAT slots; same for `0x01011478`. | VERIFIED (retraction) | H | EXP-2026-11-05-21 |
+| C-352 | “The map module references `VER_INFO\HDD_INFO.TXT`” is retracted: `0xc0dbda`/`0xc1078c`/`0xc10800` are `jsr` targets. | VERIFIED (retraction) | H | EXP-2026-11-05-21 |
+| C-353 | Only one builder touches the HDD_INFO path: clean refs at `0x6faf28`, `0x6faf0e`, `0x6faf52`, `0x6faeee`, `0x6fb0ce`; path start/UserSD/fields have zero clean refs. | VERIFIED | H | EXP-2026-11-05-21 |
+| C-354 | `0x6faeb0` builds the path from fragments (modes 0/10 append `mSD\VER_INFO\HDD_INFO.TXT` to `\Syste`; other modes `TXT`; DLL branch `til.dll`); it does no I/O. | VERIFIED | H | EXP-2026-11-05-21 |
+| C-355 | Six-line mapping remains unknown; constraints are numeric `Sys`/`SD`, `0..5`, field enum `0x00A2`. | UNKNOWN | — | EXP-2026-11-05-21 |
+| C-356 | The parser helper is one indirection away: `0x0369d400`, `0x036922cc`, `0x0367b180`, `0x0369d3dc` in the `0x0367–0x0369xxxx` module receive the built path. | OBSERVED | M | EXP-2026-11-05-21 |
+| C-357 | Next: pin the `0x0367–0x0369` module with the three-filter index and a self-printed string cluster; else run the 89-variant spare-card matrix. | PLANNED | — | EXP-2026-11-05-21 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
