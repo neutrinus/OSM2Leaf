@@ -153,18 +153,29 @@ therefore **not purely thunks**.
 `0x1d0f8a8` is a **RAM global context** used 23× in NaviStateCC; no store
 exists in that module, so the framework/loader initializes it.
 
-The vtable is **constructed, not static**: 233 constructor stores write 175
-method VAs (`0x0260xxxx–0x0262xxxx`); the densest build is
-`0x170f100–0x170f2b0`. For any single file base the best mapping is **15/175**
-prologue hits (a correct per-section map would be ~80–90 %); the methods are
-spread over independently placed sections.
+The constructed vtable at `0x170f100–0x170f2b0` is **iPodCC's, not
+NaviStateCC's**: `iPodCC.DLL` file base `0x1709200`, link-time space
+`0x0260xxxx` (symbols `CiPodIPC`, `SetTrackTotalNum`, `ReadListCategory`, …).
+`0x2e00eb8` is therefore a **shared COM runtime helper**, not NaviStateCC's
+class factory; the round-4 COM branch led to the wrong module.
 
-The fd/IOB layer functions are **COM methods** reached through that vtable; no
+Slot tables: constructor A 18 slots, constructor B 14 slots. 158/175 method
+VAs map under some delta (`0x11a3xxxx`/`0x1182xxxx` → file
+`0x145xxxx–0x14axxxx`), but the assignment is non-unique (low confidence).
+The vtable contains **no** MAL/fd/zlib/DRSTR/tile methods.
+
+There is **no NaviStateCC vtable** as a contiguous pointer table under
+`0x1f07d5c`: a ≥8-pointer prologue-target run scan found 0. The fd/IOB layer
+functions are COM methods reached through a runtime-materialized vtable; no
 static `bsr`/vtable reference reaches them. Structural scan: `0xc42e48` debug
 dumper, `0xc49f98` virtual dispatcher, `0xc438a4` stats formatter. There is
 **no `0x10000` pool literal or `mov #1; shll16`** near the fd layer, so the
 `.ind` reader likely uses `chunk_size` as a buffer size rather than a
 comparison.
+
+**Correct static anchor:** the writer/initializer of NaviStateCC's class data
+at `0x1d0f8a8`, which is not in NaviStateCC. If that initializer is absent
+from the ROM, static is closed.
 
 **Negative lead:** `0x6faf30` is not the reader — it is a `jsr @r3` in the
 Bluetooth/OPP handler at `0x6faeb0` (`OppAccess::msg_opp_comp_ind` at
@@ -490,16 +501,18 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 Firmware RE remains the primary path.
 
-1. **Dynamic break on the MAL chain** (highest value): break at
+1. **Find the writer/initializer of `0x1d0f8a8`** (NaviStateCC class data).
+   It should install the class factory and the object vtable containing
+   `0xc42520`, `0xc426a4`, `0xc438a4`. If absent from the ROM, static is
+   closed.
+2. **Per-section relocation data** (only if needed for other modules); the
+   175-method vtable is iPodCC's and does not contain the reader.
+3. **Dynamic break on the MAL chain (deferred, no hardware):**
    `MAL_DataVol_getOffset` (VA `0x03498d48`, file `0x7f5f48`) or `getSize`
-   (VA `0x03498d28`, file `0x7f5f28`) while opening a map page. Its caller is
-   the `.ind` wrapper; the return address gives the reader and the object slot
-   its vtable index.
-2. **`.ind` mutation matrix on a spare card:** `size_8000` answers buffer size
-   vs `0x10000` compare; `off_last_m1` answers exact seek vs `78 9c` scan.
-3. **Per-section relocation data:** needed to map the 175 method VAs; the
-   single-base wall is 15/175. The XIP table itself is **not** in the image.
-4. **SD bus capture** (CLK/CMD/DAT0-3) during boot/map entry; decode
-   CMD17/CMD18 and record the LBA order of `DRSTR001.DAT` vs `.cmp`/`.ind`.
-5. Spare-card `HDD_INFO` matrix for the six-line mapping (89 variants).
-6. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.
+   (VA `0x03498d28`, file `0x7f5f28`); caller is the `.ind` wrapper.
+4. **`.ind` mutation matrix (deferred, no hardware):** `size_8000` answers
+   buffer size vs `0x10000` compare; `off_last_m1` answers exact seek vs
+   `78 9c` scan.
+5. **SD bus capture (deferred):** CLK/CMD/DAT0-3 during boot/map entry.
+6. Spare-card `HDD_INFO` matrix for the six-line mapping (89 variants; deferred).
+7. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.

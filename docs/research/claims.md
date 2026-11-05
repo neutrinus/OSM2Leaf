@@ -232,6 +232,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-406 | The `.cmp`/`.ind` reader address is still unknown; a COM method is likely but not proven. | UNKNOWN | — | EXP-2026-11-05-26 |
 | C-407 | Highest-value break: `MAL_DataVol_getOffset` (VA `0x03498d48`, file `0x7f5f48`) or `getSize` (VA `0x03498d28`, file `0x7f5f28`); its caller is the `.ind` wrapper. | PLANNED | — | EXP-2026-11-05-26 |
 | C-408 | Card matrix `size_8000` answers buffer-vs-compare; `off_last_m1` answers exact seek vs `78 9c` scan. | PLANNED | — | EXP-2026-11-05-26 |
+| C-410 | The 175 method VAs belong to **iPodCC.DLL** (file base `0x1709200`, link-time `0x0260xxxx`), not NaviStateCC. | VERIFIED | H | EXP-2026-11-05-27 |
+| C-411 | `0x2e00eb8` is a **shared COM runtime helper**, not NaviStateCC's class factory; the round-4 COM branch led to the wrong module. | VERIFIED (correction) | H | EXP-2026-11-05-27 |
+| C-412 | iPodCC slot tables: constructor A 18 slots (`+0x00,+0x04,+0x70…+0x9c,+0xa4…+0xc0`), B 14 slots (`+0x00,+0x04,+0x08,+0x50,+0x70…+0x94`). | VERIFIED | H | EXP-2026-11-05-27 |
+| C-413 | 158/175 method VAs map under some delta (`0x11a3xxxx`/`0x1182xxxx` → file `0x145xxxx–0x14axxxx`), but confidence is low and the assignment is non-unique. | VERIFIED (coverage) / LOW confidence | M | EXP-2026-11-05-27 |
+| C-414 | The iPodCC vtable contains no MAL/fd/zlib/DRSTR/tile methods. | VERIFIED (negative) | H | EXP-2026-11-05-27 |
+| C-415 | No NaviStateCC vtable exists as a contiguous pointer table under `0x1f07d5c`; a ≥8-pointer run scan found 0. | VERIFIED (negative) | H | EXP-2026-11-05-27 |
+| C-416 | Next anchor: find the writer/initializer of `0x1d0f8a8`; it should install the NaviStateCC class factory/vtable containing `0xc42520`, `0xc426a4`, `0xc438a4`. | PLANNED | — | EXP-2026-11-05-27 |
+| C-417 | If the initializer is absent from the ROM, static is closed; use the MAL breakpoint or the card matrix. | PLANNED | — | EXP-2026-11-05-27 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 

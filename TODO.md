@@ -68,16 +68,15 @@ OSM only after that.
      86 thunks unnamed.
    - [x] NaviStateCC is a COM DLL, not a flat library; fd layer are COM
      methods behind a load-time vtable.
-   - [x] `DllGetClassObject` real target `0x171e9e8`; vtable is constructed
-     (175 method VAs, 15/175 single-base wall).
+   - [x] The 175-method vtable is **iPodCC**, not NaviStateCC; `0x2e00eb8`
+     is a shared COM helper. No NaviStateCC vtable exists as a contiguous
+     pointer table.
    - [x] `0x6faf30` is a Bluetooth/OPP handler, not the reader.
-   - [ ] Dynamic break on `MAL_DataVol_getOffset` (VA `0x03498d48`) or
-     `getSize` (`0x03498d28`); caller is the `.ind` wrapper.
-   - [ ] **No hardware access currently (2026-11-05):** defer the dynamic break
-     and the card matrices; continue static vtable/section reconstruction.
-   - [ ] Reconstruct the 175-method vtable from the constructor stores at
-     `0x170f100–0x170f2b0`; map object slots to methods.
-   - [ ] Obtain per-section relocation data for the 175 method VAs.
+   - [ ] Find the writer/initializer of `0x1d0f8a8` (NaviStateCC class data);
+     it should install the class factory/vtable with `0xc42520`/`0xc426a4`/
+     `0xc438a4`.
+   - [ ] **No hardware access currently (2026-11-05):** defer dynamic break,
+     SD bus and card matrices; continue static.
    - [ ] Prepare a hardware kit (JTAG/serial + card matrix) for later.
    - [x] `tools/ind_mutate.py` generates 8 `.ind` variants for the spare-card
      matrix.
