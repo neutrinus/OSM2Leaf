@@ -87,3 +87,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-13](EXP-2026-11-05-13-firmware-import-anchor.md) | Import anchor fails; ROM module table next | done (navi base still open) |
 | [EXP-2026-11-05-14](EXP-2026-11-05-14-firmware-static-va.md) | Static VA recovery is exhausted | done (method change) |
 | [EXP-2026-11-05-15](EXP-2026-11-05-15-tile-section4-roads.md) | Section-4 index, road names and streaming decoder | done (attributes partial) |
+| [EXP-2026-11-05-16](EXP-2026-11-05-16-mapcode-tile-contract.md) | Map-code comparator and tile contract | done (parser still missing) |

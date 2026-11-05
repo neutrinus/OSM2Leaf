@@ -137,6 +137,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-284 | `harness.py compare-tiles` gives ZERO DIFF on an unchanged copy and DIFFERS on a one-vertex mutation. | VERIFIED | H | EXP-2026-11-05-15 |
 | C-285 | The viewer's negative RDSTM/LCTBL cross-reference is incomplete and superseded by `docs/format/rdstm.md` (LCTBL has 517 name streams; RDSTM has no zlib). | VERIFIED (correction) | H | EXP-2026-11-05-15 |
 | C-286 | Section-4 binary fields between country and names are not fully mapped; there is no ZE0 section-4 encoder. | UNKNOWN | — | EXP-2026-11-05-15 |
+| C-290 | Map-code comparator at file `0x6fafe4`–`0x6fb194`, data delta `0x02800000`; numeric `Sys[0x%x]` vs `SD[0x%x]` for `manufacturer_id`, `userdata_type`, `destination_id`. | VERIFIED | H | EXP-2026-11-05-16 |
+| C-291 | One field is range-checked `0 <= v < 6`; mismatches report “finished not found” / “type not correct”. | VERIFIED | H | EXP-2026-11-05-16 |
+| C-292 | A second module at file `0x1683xxx` uses code delta `0x0200e438` (4/7 pointers land on function starts). | OBSERVED | M | EXP-2026-11-05-16 |
+| C-293 | The six `HDD_INFO` lines ↔ three fields mapping is unknown; `SDC08`/`EVEUR` resemblance is a guess. | UNKNOWN | — | EXP-2026-11-05-16 |
+| C-294 | Tile contract: intra-mesh coordinates are `0..2047` (11-bit); `MESHMAX_LEV1` mesh validation exists; structures `area_link`, `cvdata`, `rgd_t`, `RGD_commem`. | VERIFIED | H | diagnostic strings |
+| C-295 | Dump headers document a six-level table (`VTb Tp;Lv;…|L1..L6|Sz;Adr`) and the file descriptor (`HFile;FileID;Tp;Lv;V#;la Lo`). | OBSERVED | H | strings at `0xdf65a1`, `0xdf6621` |
+| C-296 | `0x1ac` is **not** the tile level table: it is a 428-byte per-object OSM buffer for `obj+0x40`. | VERIFIED (retraction) | H | EXP-2026-11-05-16 |
+| C-297 | Closure experiment: one HDD_INFO line per spare card, preserve length/CRLF, sweep numeric lines 0…5, read the debug `SD Import: <field>` message. | PLANNED | — | EXP-2026-11-05-16 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 

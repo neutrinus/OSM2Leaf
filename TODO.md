@@ -31,6 +31,12 @@ OSM only after that.
    - [x] ROM module table / self-name / adjacency routes: all refuted
      (`EXP-2026-11-05-14`).
    - [x] Static VA recovery from this image is exhausted.
+   - [x] Map-code comparator located at `0x6fafe4`–`0x6fb194`: numeric
+     `Sys`/`SD` per field, one `0..5` range check.
+   - [ ] Find callers of `0x6fafe4` and the `HDD_INFO` open/split/parse path;
+     map six lines to `manufacturer_id`/`userdata_type`/`destination_id`.
+   - [ ] Spare-card closure: one HDD_INFO line per card, preserve length/CRLF,
+     sweep numeric lines 0…5, read the debug field message.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
      until the readers define the data contract. No timebox.
    - [ ] Relative call-graph tracing from `0xc438a4`, `0xc0ebf8`, `0xc48380`.

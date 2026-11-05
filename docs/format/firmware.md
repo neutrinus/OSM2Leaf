@@ -230,12 +230,39 @@ SD Import: destination_id is different Sys[0x%x] SD[0x%x]
 SD Import : application type not correct.
 ```
 
-The image embeds a byte-identical `HDD_INFO.TXT` at `0x06000000`; it is
-probably the system-side reference. The exact line↔field mapping is unknown.
-The comparison function is not located; the `shll2`-scaled index into
-`0xa9cf8c` is missing, and the best candidate caller is `0x132e06c`
-(delta `0x2180000`, unproven). The literal `"DIFFERENT MAP CODE"` is absent
-from build A; nearest hits are unrelated.
+The comparator is **located** at file `0x6fafe4`–`0x6fb194` (data delta
+`0x02800000`). It performs a numeric `Sys[0x%x]` vs `SD[0x%x]` comparison per
+field for `manufacturer_id`, `userdata_type` and `destination_id`; one field is
+range-checked `0 ≤ v < 6`. Failures report “finished not found” / “type not
+correct”.
+
+A second module is involved: pool pointers `0x0369xxxx` land in file
+`0x1683xxx` with code delta `0x0200e438` (4/7 land on function starts).
+
+The six `HDD_INFO` lines ↔ three fields mapping is **UNKNOWN**; the
+`SDC08`/`EVEUR` split is a shape-based guess only. The parser
+(open/split/parse) is not reached, and the module containing it has no
+recoverable code delta. The image embeds a byte-identical `HDD_INFO.TXT` at
+`0x06000000`; it is probably the system-side reference. The literal
+`"DIFFERENT MAP CODE"` is absent from build A; nearest hits are unrelated.
+
+### Tile contract from diagnostics
+
+The map layer's own strings pin the contract:
+
+- intra-mesh coordinates are **`0..2047` (11-bit)**
+  (`RGD_JLocGet : t_start_x = 0,2047`, …);
+- `MESHMAX_LEV1` exists and mesh numbers are validated;
+- per-mesh structures `area_link`, `cvdata`, `rgd_t`, `RGD_commem`;
+- link fields `subl->lseg.sttpos/.endpos`, `links_p->linkp`;
+- turn/curve enums `RGD_DIRTYPE_*` (9), `RGD_CRSTYPE_*` (14),
+  `RGD_DIRSUBTYPE_*`, `RGD_TMTYPE_*` at `0xcc90c4`+;
+- dump headers document a six-level table (`VTb Tp;Lv;…|L1..L6|Sz;Adr`,
+  `0xdf65a1`) and the file descriptor (`HFile;FileID;Tp;Lv;V#;la Lo`,
+  `0xdf6621`).
+
+**Retraction:** the `0x1ac` allocation is **not** the tile level table; it is
+a 428-byte per-object OSM buffer for `obj+0x40` (allocator at `0xc0eba0`).
 
 No runtime map-content checksum was found beyond zlib Adler-32. A generic
 ASN.1/crypto provider exists (`0x1668070`, `md5WithRSASignature`, `desEDE`, …)
@@ -269,15 +296,14 @@ round-trip validator for the whole-card feedback loop.
 
 ## Next steps
 
-Firmware RE remains the primary path, but **not** via static VA recovery.
+Firmware RE remains the primary path.
 
-1. **Relative call-graph tracing:** expand outward from `0xc438a4` (CMP.LST),
-   `0xc0ebf8` (0x1ac), `0xc48380` (message catalogue) using file offsets and
-   relative `jsr` targets.
-2. **Ghidra P-code / emulation** on selected routines to recover structure
-   offsets and buffer sizes.
-3. **Hardware/dynamic tracing** (JTAG/serial or a spare-card trial loop) if
-   static relative tracing stalls.
-4. Cross-check any reader against the data contract; keep the data-side facts
-   as the current contract until then.
+1. **Callers of `0x6fafe4`:** find the `HDD_INFO` open/split/parse path and map
+   the six lines to `manufacturer_id` / `userdata_type` / `destination_id`.
+2. **Relative call-graph tracing** from `0xc438a4` (CMP.LST), `0xc48380`
+   (message catalogue) and the fd machinery for `.cmp`/`.ind` and `DRSTR`.
+3. **Spare-card closure loop:** edit one `HDD_INFO` line per card, preserve
+   length/CRLF, sweep numeric lines 0…5, read the debug
+   `SD Import: <field> is different` message.
+4. Use the `0..2047` bound and `MESHMAX_LEV1` as hard tile-writer constraints.
 5. QEMU remains out of scope for this blocker.
