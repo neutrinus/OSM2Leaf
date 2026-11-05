@@ -5,6 +5,47 @@ Actionable backlog. For "what we do not know yet" see
 evidence status of each claim see
 [`docs/research/claims.md`](docs/research/claims.md).
 
+## Next up (ordered by dependency)
+
+These are the leaves that actually unblock the compiler. The detailed backlog
+below is the long tail.
+
+1. **Tile payload grammar** — blocks geometry writing and the viewer.
+   - [ ] Cluster non-448-byte payloads in `B30R048R`; diff 188 vs 176 vs 128.
+   - [ ] Decode recurring constants `20 1e`, `07 ff`, separator `45 xx 12`.
+   - [ ] Test the quadtree hypothesis on the 4-unit sub-lattice.
+   - [ ] Anchor one block to a known city (Cologne in `B48R060R`) and look for
+     street names/node counts.
+   - Deliverable: tile record spec + a local viewer/exporter.
+2. **Card build + map-code feedback loop** — blocks all hardware validation.
+   - [ ] Whole-card 16 GB SDHC clone; keep TFAT16; verify SHA-256.
+   - [ ] No-op recompression control, then the POI rename
+     (`EXP-2026-11-05-02`).
+   - [ ] Map-code test: `HDD_INFO` line 1 alone, then also the `0x06000000`
+     copy.
+   - Deliverable: clone checklist + first accepted card.
+3. **Writer round-trip** — unblocks content edits.
+   - [x] `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte.
+   - [ ] `.cmp`/`.ind` writer: unchanged input → byte-identical output, or
+     document the non-deterministic bytes.
+   - [ ] Tile writer (after item 1).
+4. **Content joins** — addresses/POIs, independent of tile grammar.
+   - [ ] Map `f11` to the 1000-record pages.
+   - [ ] Decide which of the two POI point copies is the display point.
+   - [ ] Prove the record-level POI ↔ ADDRE join.
+   - [ ] Decode `BICON001` and the POI `icon code` mapping.
+5. **OSM build pipeline** — can start now.
+   - [ ] Profile validator + `tools/build.py` + size estimator.
+   - [ ] Encoder for roads/names/addresses at the tile granularity.
+   - [ ] Decide charset (Polish diacritics) and turn-restriction handling.
+6. **Firmware section table** — parallel, lower priority.
+   - [ ] Decode ROM sections at `0x374000`/`0x3e0060` → stable `VA − rva`.
+   - [ ] Find `inflate`/`uncompress` callers and the `.ind` reader.
+
+Parallelizable: 1, 2 and 5 are independent; 3 depends on 1; 4 is independent.
+Do **not** start a full QEMU machine before 1/3 work — it is not the critical
+path.
+
 ## P0 — research groundwork
 
 - [ ] Wait for the owner's **US 2011 SD dump**; record SHA-256 and store it in
