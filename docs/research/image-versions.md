@@ -1,8 +1,9 @@
 # Map image lineage (2011 → 2019)
 
 Samples downloaded from `https://files.viaaq.eu/maps/` and
-`https://files.viaaq.eu/sd-images/` into
-`/home/marek/projekty/leafre-work/images/` (55 GB, SHA-256 verified).
+`https://files.viaaq.eu/sd-images/` into `archive/images/` (55 GB, SHA-256
+verified; git-ignored). The old `/home/marek/projekty/leafre-work/images/`
+paths are symlinks to the archive.
 
 ## Inventory
 
@@ -15,6 +16,24 @@ Samples downloaded from `https://files.viaaq.eu/maps/` and
 | `EU_MAPDATA_16-17.7z` | 6,635,659,459 | map tree = 2016 image |
 | `ENV200_2016_EU_QSD-390-100.img` | 7,969,177,600 | e-NV200, EU 2016 |
 | `ENV200_2019_25920-6WX1C-EUR.img` | 16,039,018,496 | e-NV200 2019, **different generation** |
+
+## L1 validation matrix
+
+`tools/cardcheck.py` results on the archived set (see
+[`EXP-2026-11-05-27`](../experiments/EXP-2026-11-05-27-image-matrix.md)):
+
+| Sample | L1 result | Note |
+| --- | --- | --- |
+| 2011 EU image | PASS | reference; 194/194 `.cmp`, DRSTR 40/324, MMAIN 11/11 |
+| 2014 EU image | PASS | `TFTBL001` warning |
+| 2016 e-NV200 image | PASS | requires `--ignore-dump-artifacts` (AppleDouble files) |
+| 2013-14 map tree | PASS | requires `--partial`; DRSTR has a stale `VER_INFO` node |
+| 2014-15 map tree | PASS | requires `--partial`; same stale `VER_INFO` |
+| 2016-17 map tree | PASS | requires `--partial`; same stale `VER_INFO` |
+| 2019 e-NV200 image | FAIL | different engine (`CLA-NAVI06-01`/ZENRIN); not a ZE0 sample |
+
+L2 remains 2011-specific for the dense `B30R048R` rebuild and the `POINT032`
+mutation fixture; see the experiment.
 
 ## `VER_INFO/HDD_INFO.TXT` (2011–2016)
 

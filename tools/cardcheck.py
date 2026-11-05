@@ -72,6 +72,15 @@ REQUIRED_TOP = {
     "TMC",
     "VER_INFO",
 }
+DUMP_ARTIFACTS = {".fseventsd", ".Spotlight-V100", ".Trashes", "System Volume Information"}
+
+
+def is_dump_artifact(name: str, ignore: bool = False) -> bool:
+    return bool(ignore) and (name.startswith("._") or name in DUMP_ARTIFACTS)
+
+
+def path_has_artifact(path: str, ignore: bool = False) -> bool:
+    return any(is_dump_artifact(part, ignore) for part in path.split("/") if part)
 
 
 # ---------------------------------------------------------------------------
@@ -598,12 +607,16 @@ def decode_cmp(cmp_data: bytes, ind_data: bytes) -> tuple[bytes, dict]:
     }
 
 
-def logical_listing(source, rel: str, cache: dict | None = None) -> dict[str, LogicalEntry]:
+def logical_listing(source, rel: str, cache: dict | None = None,
+                    ignore_artifacts: bool = False) -> dict[str, LogicalEntry]:
     """Map logical names (DRSTR names) to actual entries in one directory."""
-    if cache is not None and rel in cache:
-        return cache[rel]
+    cache_key = (rel, ignore_artifacts)
+    if cache is not None and cache_key in cache:
+        return cache[cache_key]
     out: dict[str, LogicalEntry] = {}
     for entry in source.list_dir(rel):
+        if is_dump_artifact(entry.name, ignore_artifacts):
+            continue
         if entry.name == "DRSTR001.DAT" or entry.name.endswith(".ind"):
             continue
         if entry.name.endswith(".cmp"):
@@ -617,17 +630,21 @@ def logical_listing(source, rel: str, cache: dict | None = None) -> dict[str, Lo
             out[logical] = LogicalEntry(logical, False, usize, entry.name)
         elif entry.is_dir:
             out[entry.name] = LogicalEntry(
-                entry.name, True, tree_size(source, entry.path, cache), entry.name
+                entry.name, True,
+                tree_size(source, entry.path, cache, ignore_artifacts),
+                entry.name,
             )
         else:
             out[entry.name] = LogicalEntry(entry.name, False, entry.size, entry.name)
     if cache is not None:
-        cache[rel] = out
+        cache[cache_key] = out
     return out
 
 
-def tree_size(source, rel: str, cache: dict | None = None) -> int:
-    return sum(e.size for e in logical_listing(source, rel, cache).values()) & 0xFFFFFFFF
+def tree_size(source, rel: str, cache: dict | None = None,
+              ignore_artifacts: bool = False) -> int:
+    return sum(e.size for e in logical_listing(source, rel, cache,
+                                               ignore_artifacts).values()) & 0xFFFFFFFF
 
 
 def safe_list_dir(source, rel: str) -> list[Entry]:
@@ -637,19 +654,21 @@ def safe_list_dir(source, rel: str) -> list[Entry]:
         return []
 
 
-def logical_tree(source) -> tuple[dict[str, dict[str, LogicalEntry]], set[str]]:
-    cache: dict[str, dict[str, LogicalEntry]] = {}
+def logical_tree(source, ignore_artifacts: bool = False) -> tuple[dict[str, dict[str, LogicalEntry]], set[str]]:
+    cache: dict[tuple[str, bool], dict[str, LogicalEntry]] = {}
+    by_path: dict[str, dict[str, LogicalEntry]] = {}
     dirs: set[str] = set()
 
     def rec(rel: str):
         dirs.add(rel)
-        listing = logical_listing(source, rel, cache)
+        listing = logical_listing(source, rel, cache, ignore_artifacts)
+        by_path[rel] = listing
         for entry in listing.values():
             if entry.is_dir:
                 rec(f"{rel}/{entry.name}".strip("/"))
 
     rec("")
-    return cache, dirs
+    return by_path, dirs
 
 
 # ---------------------------------------------------------------------------
@@ -698,17 +717,23 @@ def check_fat(source, report: Report) -> None:
         check.error("FAT total sectors exceed the partition size")
 
 
-def check_tree(source, report: Report) -> None:
+def check_tree(source, report: Report, partial: bool = False,
+               ignore_artifacts: bool = False) -> None:
     check = report.add(Check("tree"))
-    top = {e.name for e in source.list_dir("")}
-    missing = sorted(REQUIRED_TOP - top)
+    top = {e.name for e in source.list_dir("") if not is_dump_artifact(e.name, ignore_artifacts)}
+    required = REQUIRED_TOP - ({"VER_INFO"} if partial else set())
+    missing = sorted(required - top)
     for name in missing:
         check.error(f"missing top-level entry {name!r}")
     extra = sorted(top - REQUIRED_TOP)
+    if partial:
+        check.stats["partial"] = True
     if extra:
         check.warn(f"unexpected top-level entries: {', '.join(extra)}")
     files = dirs = total = 0
     for entry in source.walk():
+        if path_has_artifact(entry.path, ignore_artifacts):
+            continue
         if entry.is_dir:
             dirs += 1
         else:
@@ -731,11 +756,13 @@ def check_tree(source, report: Report) -> None:
         check.error("REFER001 contains no .ind files")
 
 
-def check_headers(source, report: Report) -> None:
+def check_headers(source, report: Report, ignore_artifacts: bool = False) -> None:
     check = report.add(Check("headers"))
     targets = ["MMAIN001.DAT"]
     for rel in ("MAPAL001", "RDSTM001", "REFER002"):
         for entry in safe_list_dir(source, rel):
+            if is_dump_artifact(entry.name, ignore_artifacts):
+                continue
             if not entry.is_dir and entry.name.endswith(".DAT"):
                 targets.append(entry.path)
     if any(e.name == "BICON001.DAT" for e in safe_list_dir(source, "BICON001")):
@@ -755,7 +782,8 @@ def check_headers(source, report: Report) -> None:
     check.stats["ok"] = checked
 
 
-def check_cmp(source, report: Report, fast: bool = False) -> None:
+def check_cmp(source, report: Report, fast: bool = False,
+              ignore_artifacts: bool = False) -> None:
     check = report.add(Check("cmp"))
     directory = "REFER001"
     pairs = 0
@@ -763,6 +791,8 @@ def check_cmp(source, report: Report, fast: bool = False) -> None:
     headers_ok = 0
     listing = safe_list_dir(source, directory)
     for entry in sorted(listing, key=lambda e: e.name):
+        if is_dump_artifact(entry.name, ignore_artifacts):
+            continue
         if not entry.name.endswith(".ind"):
             continue
         pairs += 1
@@ -793,7 +823,8 @@ def check_cmp(source, report: Report, fast: bool = False) -> None:
         check.error(f"{pairs - headers_ok} decompressed file(s) lack the common header")
 
 
-def check_drstr(source, report: Report) -> None:
+def check_drstr(source, report: Report, partial: bool = False,
+                ignore_artifacts: bool = False) -> None:
     check = report.add(Check("drstr"))
     try:
         data = source.read("DRSTR001.DAT")
@@ -856,17 +887,20 @@ def check_drstr(source, report: Report) -> None:
         check.warn(f"DRSTR has {len(data) - prev_end} trailing bytes")
 
     try:
-        logical, actual_dirs = logical_tree(source)
+        logical, actual_dirs = logical_tree(source, ignore_artifacts)
     except (OSError, ValueError) as exc:
         check.error(f"cannot build logical tree: {exc}")
         return
 
     drstr_dirs = set(paths.values())
-    if drstr_dirs != actual_dirs:
-        for path in sorted(drstr_dirs - actual_dirs):
-            check.error(f"DRSTR directory {path!r} does not exist")
-        for path in sorted(actual_dirs - drstr_dirs):
-            check.error(f"directory {path!r} is not listed in DRSTR")
+    missing_dirs = drstr_dirs - actual_dirs
+    if partial:
+        allowed = {p for p in missing_dirs if p == "VER_INFO" or p.startswith("VER_INFO/")}
+        missing_dirs -= allowed
+    for path in sorted(missing_dirs):
+        check.error(f"DRSTR directory {path!r} does not exist")
+    for path in sorted(actual_dirs - drstr_dirs):
+        check.error(f"directory {path!r} is not listed in DRSTR")
 
     entry_count = 0
     for i, node in enumerate(nodes):
@@ -876,11 +910,17 @@ def check_drstr(source, report: Report) -> None:
             continue
         drstr_names = {e["name"] for e in node["entries"]}
         actual_names = set(listing)
-        for name in sorted(drstr_names - actual_names):
+        ignored_names: set[str] = set()
+        if partial and path == "" and "VER_INFO" in drstr_names:
+            ignored_names.add("VER_INFO")
+            check.warn("partial tree: DRSTR lists 'VER_INFO', which is not present")
+        for name in sorted((drstr_names - actual_names) - ignored_names):
             check.error(f"{path or '/'}: DRSTR lists {name!r}, not on card")
         for name in sorted(actual_names - drstr_names):
             check.error(f"{path or '/'}: {name!r} is on card but not in DRSTR")
         for entry in node["entries"]:
+            if entry["name"] in ignored_names:
+                continue
             entry_count += 1
             actual = listing.get(entry["name"])
             if actual is None:
@@ -907,7 +947,7 @@ def check_drstr(source, report: Report) -> None:
     )
 
 
-def check_mmain(source, report: Report) -> None:
+def check_mmain(source, report: Report, ignore_artifacts: bool = False) -> None:
     check = report.add(Check("mmain"))
     try:
         mmain = source.read("MMAIN001.DAT")
@@ -923,7 +963,8 @@ def check_mmain(source, report: Report) -> None:
 
     tiles = [
         e for e in safe_list_dir(source, "MAPAL001")
-        if not e.is_dir and e.name.endswith(".DAT")
+        if not is_dump_artifact(e.name, ignore_artifacts)
+        and not e.is_dir and e.name.endswith(".DAT")
     ]
     tile_names = {e.name for e in tiles}
     for entry in tiles:
@@ -973,32 +1014,37 @@ def check_mmain(source, report: Report) -> None:
     check.stats.update(tiles=len(tiles), rows=rows, ok=ok)
 
 
-def check_version(source, report: Report) -> None:
+def check_version(source, report: Report, partial: bool = False) -> None:
     check = report.add(Check("version"))
+    hdd = b""
     try:
         hdd = source.read("VER_INFO/HDD_INFO.TXT")
     except OSError as exc:
-        check.error(f"VER_INFO/HDD_INFO.TXT: {exc}")
-        return
-    check.stats["hdd_size"] = len(hdd)
-    lines = hdd.split(b"\r\n")
-    if len(lines) != 6:
-        check.error(f"HDD_INFO.TXT has {len(lines)} CRLF-separated lines, expected 6")
-    for i, line in enumerate(lines):
-        if not line:
-            check.error(f"HDD_INFO.TXT line {i + 1} is empty")
-        if any(b < 0x20 or b > 0x7E for b in line):
-            check.error(f"HDD_INFO.TXT line {i + 1} is not printable ASCII")
-    if hdd.endswith(b"\r\n"):
-        check.warn("HDD_INFO.TXT ends with CRLF; the factory file does not")
-
-    label = getattr(source, "label", "")
-    if label and len(lines) >= 2:
-        line2 = lines[1].decode("ascii", "replace")
-        if line2 != label:
-            check.error(f"HDD_INFO line 2 {line2!r} != FAT label {label!r}")
+        if partial:
+            check.warn(f"partial tree: VER_INFO/HDD_INFO.TXT missing ({exc})")
         else:
-            check.stats["label_match"] = True
+            check.error(f"VER_INFO/HDD_INFO.TXT: {exc}")
+            return
+    if hdd:
+        check.stats["hdd_size"] = len(hdd)
+        lines = hdd.split(b"\r\n")
+        if len(lines) != 6:
+            check.error(f"HDD_INFO.TXT has {len(lines)} CRLF-separated lines, expected 6")
+        for i, line in enumerate(lines):
+            if not line:
+                check.error(f"HDD_INFO.TXT line {i + 1} is empty")
+            if any(b < 0x20 or b > 0x7E for b in line):
+                check.error(f"HDD_INFO.TXT line {i + 1} is not printable ASCII")
+        if hdd.endswith(b"\r\n"):
+            check.warn("HDD_INFO.TXT ends with CRLF; the factory file does not")
+
+        label = getattr(source, "label", "")
+        if label and len(lines) >= 2:
+            line2 = lines[1].decode("ascii", "replace")
+            if line2 != label:
+                check.error(f"HDD_INFO line 2 {line2!r} != FAT label {label!r}")
+            else:
+                check.stats["label_match"] = True
 
     try:
         cmp_list = source.read("CMP.LST")
@@ -1050,6 +1096,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="treat warnings as errors")
     parser.add_argument("--fast", action="store_true",
                         help="skip zlib decompression of .cmp payloads")
+    parser.add_argument("--partial", action="store_true",
+                        help="map-only tree: allow a missing VER_INFO directory")
+    parser.add_argument("--ignore-dump-artifacts", action="store_true",
+                        help="ignore macOS ._*, .fseventsd, System Volume Information")
     parser.add_argument("--hash", action="store_true",
                         help="compute the image SHA-256 (slow)")
     parser.add_argument("--expect-sha256",
@@ -1080,12 +1130,15 @@ def main(argv: list[str] | None = None) -> int:
         report = Report("L1", source_info)
         check_mbr(source, report)
         check_fat(source, report)
-        check_tree(source, report)
-        check_headers(source, report)
-        check_cmp(source, report, fast=args.fast)
-        check_drstr(source, report)
-        check_mmain(source, report)
-        check_version(source, report)
+        check_tree(source, report, partial=args.partial,
+                   ignore_artifacts=args.ignore_dump_artifacts)
+        check_headers(source, report, ignore_artifacts=args.ignore_dump_artifacts)
+        check_cmp(source, report, fast=args.fast,
+                  ignore_artifacts=args.ignore_dump_artifacts)
+        check_drstr(source, report, partial=args.partial,
+                    ignore_artifacts=args.ignore_dump_artifacts)
+        check_mmain(source, report, ignore_artifacts=args.ignore_dump_artifacts)
+        check_version(source, report, partial=args.partial)
         if args.hash:
             check_hash(source, report, args.expect_sha256)
         result = report.finish(strict=args.strict)

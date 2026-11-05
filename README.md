@@ -168,6 +168,7 @@ python3 tools/l2check.py --root /path/to/root
 - [Build profiles: user-selectable maps](docs/research/build-profiles.md)
 - [Minimal-change experiment](docs/research/minimal-change.md)
 - [Feedback loop and emulation options](docs/research/feedback-loop.md)
+- [L3: running the original readers under Ghidra](docs/research/l3-ghidra.md)
 - [Open questions](docs/research/open-questions.md)
 - [Data handling and licensing](docs/legal.md)
 

@@ -206,6 +206,12 @@ Expected on the EU 2011 sample: `RESULT: PASS`, with `files=480`,
 Exit codes: `0` pass, `1` validation error, `2` bad source. Warnings do not
 fail unless `--strict` is used. `--fast` skips `.cmp` decompression.
 
+`--partial` validates a map-only tree (the archived `EU_MAPDATA_*.7z` trees)
+where `VER_INFO/` is absent; it treats the missing directory as a warning.
+`--ignore-dump-artifacts` ignores macOS `._*`, `.fseventsd` and
+`System Volume Information` entries. It is needed for the 2016 e-NV200 image
+and the 2019 image, but keep it explicit: it can hide a real extra file.
+
 ## `l2check.py` — L2 semantic / golden checks
 
 Checks that a root still round-trips and that the decoded geometry matches a
@@ -237,6 +243,11 @@ one removed and one added feature.
 `--no-golden` skips profile comparisons (useful for a newly built card);
 `--include-lev` adds the slow `LEV3456R.DAT` geometry digest; `--hash-image`
 checks the raw image hash against the profile.
+
+L2 is currently validated on the 2011 reference. On the 2013–2016 map trees,
+`B30R048R.DAT` fails the byte-identical rebuild at `0x807`/`0x808`, and the
+`POINT032` mutation fixture is 2011-specific. Use `--no-golden --skip-mutation`
+for cross-year structural checks until those are parameterised.
 
 ## Golden profile
 

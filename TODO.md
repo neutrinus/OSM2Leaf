@@ -282,9 +282,21 @@ research spike, not a prerequisite.
   digests, a one-vertex tile mutation and a POI rename. Golden profile:
   `tools/golden/eu2011.json`.
   - [ ] Optional OSM comparison remains in `tools/ze0-viewer/compare_osm.py`.
-- [ ] **L3 — function-level SH-4 emulation:** run located reader functions
-  under Ghidra P-code with mocked file I/O; compare with the Python reader.
-  Requires relative call-graph tracing to locate the readers first.
+- [ ] **L3 — function-level SH-4 emulation (complete harness).**
+  Design: [`docs/research/l3-ghidra.md`](docs/research/l3-ghidra.md).
+  - [ ] Locate the `CMP.LST`/map-path opener, `.cmp`/`.ind` reader, `DRSTR`
+    parser and tile reader by relative call-graph tracing.
+  - [ ] Build a headless Ghidra P-code harness with a documented memory map.
+  - [ ] Stub WinCE file I/O (`CreateFile`, `ReadFile`, `SetFilePointer`,
+    `CloseHandle`), allocator, `memset`/`memcpy` and `OSM_Printf`/`OSM_LogMsg`.
+  - [ ] Add the test corpus: factory, no-op rebuild, recompressed, POI rename,
+    corrupted `.ind`, truncated `.cmp`, factory/generated tile, `DRSTR`
+    variants, `HDD_INFO` variants.
+  - [ ] Compare accept/reject and normalised output with the Python readers.
+  - [ ] Require one generated `.cmp` and one generated tile to be accepted by
+    the firmware reader.
+  - [ ] Record every run as an `EXP-...`; mark un-runnable functions `UNKNOWN`
+    with the exact blocker.
 - [ ] **L4 — bench hardware-in-the-loop:** spare unit, 12 V, `TEST_B1`, CAN
   simulator, SD extension + host writer, power relay, screen capture. First
   pass: boot + map screen; then no-op control; then POI rename.
