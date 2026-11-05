@@ -82,6 +82,8 @@ Three agents are investigating these; merge their results here when done.
 - [x] Descriptor tables `0x1ac` (LOD) and `0x2ac` (bboxes in arc-minutes).
 - [x] Stream key: `(A = 32768 + lat*192, B = 52736 + lon*128, section tag)`.
 - [ ] Decode the record grammar inside real (non-448-byte) tile payloads.
+- [ ] Determine whether tiles contain polygon/area records (buildings,
+  landuse, water) or only road geometry.
 - [ ] Explain `LEV3456R.DAT` (rows B20–B78, cols R040–R078, levels 3–6).
 - [ ] Build a small standalone tile viewer/exporter.
 - [ ] Decode `COORD001` `level`, `ZCODE` offset base, `ICODE001` trie roots.

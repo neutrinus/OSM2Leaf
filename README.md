@@ -147,6 +147,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
 - [US unit in Europe: region gates](docs/research/us-eu-region.md)
 - [Map image lineage 2011 → 2019](docs/research/image-versions.md)
 - [OSM data pipeline](docs/research/osm-pipeline.md)
+- [Data coverage: factory map vs OSM](docs/research/data-coverage.md)
 - [Build profiles: user-selectable maps](docs/research/build-profiles.md)
 - [Open questions](docs/research/open-questions.md)
 - [Data handling and licensing](docs/legal.md)
