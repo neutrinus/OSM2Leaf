@@ -462,7 +462,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-800–C-809
 
 - [ ] **M2.10 — What `TestMode.exe` (image C) can show or do**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.10-testmode · Critical: no
   - Depends: —
   - Goal: find diagnostics relevant to map data (version screens, SD tests,
     map-code display, log dumps) usable later on the bench.
