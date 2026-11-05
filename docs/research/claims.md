@@ -433,31 +433,31 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-423 | `tools/cardcheck.py` passes on the EU 2011 root and raw image: 480 files, 39 dirs, 5,173,965,667 bytes, 194/194 `.cmp` pairs, 40 DRSTR nodes / 324 entries, 11/11 MMAIN rows, and an identical `0x06000000` `HDD_INFO` copy. | VERIFIED | H | EXP-2026-11-05-29; `python3 tools/cardcheck.py --root …` / `--image …` |
-| C-424 | `tools/l2check.py` passes on the EU 2011 root: DRSTR byte-identical, 194/194 preserved `.cmp` round-trips, five target tiles byte-identical, four golden geometry digests, and the tile/POI mutation checks. | VERIFIED | H | EXP-2026-11-05-29; `python3 tools/l2check.py --root …` |
-| C-425 | The card's LFN checksum bytes do not match the standard FAT short-name checksum for most entries; the names are still recoverable from contiguous LFN sequences and agree with the `7z`/`mtools` extraction. | OBSERVED | H | EXP-2026-11-05-29; `tools/cardcheck.py` FAT reader |
-| C-426 | `ze0_mutate.py` in non-strict mode could return the source record unchanged, making the one-vertex self-test a silent no-op; it now selects a strictly rebuilt record and refuses an unchanged mutation. | VERIFIED | H | EXP-2026-11-05-29; `tools/ze0-viewer/ze0_mutate.py` |
+| C-505 | `tools/cardcheck.py` passes on the EU 2011 root and raw image: 480 files, 39 dirs, 5,173,965,667 bytes, 194/194 `.cmp` pairs, 40 DRSTR nodes / 324 entries, 11/11 MMAIN rows, and an identical `0x06000000` `HDD_INFO` copy. | VERIFIED | H | EXP-2026-11-05-29; `python3 tools/cardcheck.py --root …` / `--image …` |
+| C-506 | `tools/l2check.py` passes on the EU 2011 root: DRSTR byte-identical, 194/194 preserved `.cmp` round-trips, five target tiles byte-identical, four golden geometry digests, and the tile/POI mutation checks. | VERIFIED | H | EXP-2026-11-05-29; `python3 tools/l2check.py --root …` |
+| C-507 | The card's LFN checksum bytes do not match the standard FAT short-name checksum for most entries; the names are still recoverable from contiguous LFN sequences and agree with the `7z`/`mtools` extraction. | OBSERVED | H | EXP-2026-11-05-29; `tools/cardcheck.py` FAT reader |
+| C-508 | `ze0_mutate.py` in non-strict mode could return the source record unchanged, making the one-vertex self-test a silent no-op; it now selects a strictly rebuilt record and refuses an unchanged mutation. | VERIFIED | H | EXP-2026-11-05-29; `tools/ze0-viewer/ze0_mutate.py` |
 
 ## Emulation / feedback loop
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-427 | Wine is a Win32 compatibility layer, not a CPU emulator; it cannot execute the Leaf's SH-4 Windows CE ROM modules. | VERIFIED (design) | H | Wine "about"/README: Win32 API on a compatible host CPU; no SH-4/WinCE target |
-| C-428 | QEMU system-mode SH-4 has only the `r2d` machine; `linux-user` SH-4 exists but runs Linux ELF, not WinCE. | VERIFIED | H | QEMU `hw/sh4/Kconfig`, `linux-user/sh4/target_syscall.h` |
-| C-429 | MAME has SH-4/SH7750-family CPU models, but no CETUS_SH4 board model was found; its SH-4 on-board peripherals are still incomplete. | VERIFIED | H | MAME `src/devices/cpu/sh/sh4.cpp` header and device types |
-| C-430 | sh3-emu is MIT-licensed, emulates SH-3 Windows CE 1.x/2.x (including a Clarion AutoPC 310C), and is not an SH-4/CE5 emulator. | VERIFIED | H | sh3-emu README, `docs/hardware.md`, `docs/machines/autopc.md`, `LICENSE` |
-| C-431 | CERF has no SH-4 CPU core; its CPUs are ARM/StrongARM/XScale/MIPS, and its current licence is custom non-commercial. | VERIFIED | H | CERF `src/cpu` tree and `LICENSE` |
-| C-432 | A true 4-bit SDIO card emulator is typically FPGA-level work; an SD extender plus a host-side writer is the cheap hardware-in-the-loop alternative. | OBSERVED | M | external SD-emulation projects; not tested on the Leaf |
+| C-509 | Wine is a Win32 compatibility layer, not a CPU emulator; it cannot execute the Leaf's SH-4 Windows CE ROM modules. | VERIFIED (design) | H | Wine "about"/README: Win32 API on a compatible host CPU; no SH-4/WinCE target |
+| C-510 | QEMU system-mode SH-4 has only the `r2d` machine; `linux-user` SH-4 exists but runs Linux ELF, not WinCE. | VERIFIED | H | QEMU `hw/sh4/Kconfig`, `linux-user/sh4/target_syscall.h` |
+| C-511 | MAME has SH-4/SH7750-family CPU models, but no CETUS_SH4 board model was found; its SH-4 on-board peripherals are still incomplete. | VERIFIED | H | MAME `src/devices/cpu/sh/sh4.cpp` header and device types |
+| C-512 | sh3-emu is MIT-licensed, emulates SH-3 Windows CE 1.x/2.x (including a Clarion AutoPC 310C), and is not an SH-4/CE5 emulator. | VERIFIED | H | sh3-emu README, `docs/hardware.md`, `docs/machines/autopc.md`, `LICENSE` |
+| C-513 | CERF has no SH-4 CPU core; its CPUs are ARM/StrongARM/XScale/MIPS, and its current licence is custom non-commercial. | VERIFIED | H | CERF `src/cpu` tree and `LICENSE` |
+| C-514 | A true 4-bit SDIO card emulator is typically FPGA-level work; an SD extender plus a host-side writer is the cheap hardware-in-the-loop alternative. | OBSERVED | M | external SD-emulation projects; not tested on the Leaf |
 
 ## Image archive / cross-year validation
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-418 | The complete public mirror set (four SD images and three map archives) is stored in `archive/images/` and all seven SHA-256 sums match. | VERIFIED | H | EXP-2026-11-05-30; `sha256sum -c archive/images/SHA256SUMS` |
-| C-419 | L1 passes on the 2011, 2014 and 2016 ZE0-era SD images; 2016 requires `--ignore-dump-artifacts` because of AppleDouble files. The 2019 e-NV200 image fails because it is the different `CLA-NAVI06-01`/ZENRIN engine. | VERIFIED | H | EXP-2026-11-05-30; `tools/cardcheck.py --image …` |
-| C-420 | L1 passes on the 2013-14, 2014-15 and 2016-17 map trees with `--partial --ignore-dump-artifacts`; their `DRSTR001.DAT` lists a `VER_INFO` directory that is absent from the archive. | VERIFIED | H | EXP-2026-11-05-30; `tools/cardcheck.py --root … --partial` |
-| C-421 | Before the cross-year fixes, L2 was 2011-specific: `B30R048R.DAT` failed the byte-identical rebuild at `0x807`/`0x808` on the 2013–2016 archives, and the `POINT032` page `0x4200` POI mutation was a 2011 fixture. Superseded by C-422. | OBSERVED (historical) | H | EXP-2026-11-05-30; `tools/l2check.py --no-golden` |
-| C-422 | L2 now passes on full 2014 and 2016 roots with `--no-golden --ignore-dump-artifacts`: `B30R048R` is byte-identical via a preserved-layout fallback, the REFER fixture is discovered per year, and `validate_mutation.py --drstr-dir` disambiguates `REFER001`/`REFER002`. | VERIFIED | H | EXP-2026-11-05-31; `tools/l2check.py`, `tools/ze0-viewer/ze0_tile_io.py` |
+| C-500 | The complete public mirror set (four SD images and three map archives) is stored in `archive/images/` and all seven SHA-256 sums match. | VERIFIED | H | EXP-2026-11-05-30; `sha256sum -c archive/images/SHA256SUMS` |
+| C-501 | L1 passes on the 2011, 2014 and 2016 ZE0-era SD images; 2016 requires `--ignore-dump-artifacts` because of AppleDouble files. The 2019 e-NV200 image fails because it is the different `CLA-NAVI06-01`/ZENRIN engine. | VERIFIED | H | EXP-2026-11-05-30; `tools/cardcheck.py --image …` |
+| C-502 | L1 passes on the 2013-14, 2014-15 and 2016-17 map trees with `--partial --ignore-dump-artifacts`; their `DRSTR001.DAT` lists a `VER_INFO` directory that is absent from the archive. | VERIFIED | H | EXP-2026-11-05-30; `tools/cardcheck.py --root … --partial` |
+| C-503 | Before the cross-year fixes, L2 was 2011-specific: `B30R048R.DAT` failed the byte-identical rebuild at `0x807`/`0x808` on the 2013–2016 archives, and the `POINT032` page `0x4200` POI mutation was a 2011 fixture. Superseded by C-504. | OBSERVED (historical) | H | EXP-2026-11-05-30; `tools/l2check.py --no-golden` |
+| C-504 | L2 now passes on full 2014 and 2016 roots with `--no-golden --ignore-dump-artifacts`: `B30R048R` is byte-identical via a preserved-layout fallback, the REFER fixture is discovered per year, and `validate_mutation.py --drstr-dir` disambiguates `REFER001`/`REFER002`. | VERIFIED | H | EXP-2026-11-05-31; `tools/l2check.py`, `tools/ze0-viewer/ze0_tile_io.py` |
 
 ## How to use this ledger
 

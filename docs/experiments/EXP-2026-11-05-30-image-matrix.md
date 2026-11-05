@@ -1,12 +1,12 @@
-# EXP-2026-11-05-27: full map-image archive and cross-year L1 matrix
+# EXP-2026-11-05-30: full map-image archive and cross-year L1 matrix
 
 - **Status:** done
 - **Date:** 2026-11-05
 - **Sample:** all seven files from `files.viaaq.eu` (four SD images and three
   map archives)
-- **Claims:** C-409, C-410, C-411, C-412
+- **Claims:** C-500, C-501, C-502, C-503
 - **Supersedes:** none
-- **Superseded by:** none
+- **Superseded by:** EXP-2026-11-05-31 (L2 cross-year conclusion)
 
 ## Question
 

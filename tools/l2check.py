@@ -28,9 +28,11 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
+import zlib
 from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
@@ -80,11 +82,15 @@ def file_info(path: Path) -> dict:
     return {"size": path.stat().st_size, "sha256": sha256_file(path)}
 
 
-def census(root: Path) -> dict:
+def census(root: Path, ignore_artifacts: bool = False) -> dict:
     files = dirs = total = 0
     for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames
+                       if not drstr_ze0.is_dump_artifact(d, ignore_artifacts)]
         dirs += len(dirnames)
         for name in filenames:
+            if drstr_ze0.is_dump_artifact(name, ignore_artifacts):
+                continue
             files += 1
             total += (Path(dirpath) / name).stat().st_size
     return {"files": files, "dirs": dirs, "bytes": total}
@@ -124,7 +130,8 @@ def _import_viewer():
         sys.path.insert(0, tools_ze0)
     import clarion_tile  # noqa: F401
     import stream_decode  # noqa: F401
-    return clarion_tile, stream_decode
+    import ze0_tile_io
+    return clarion_tile, stream_decode, ze0_tile_io
 
 
 def feature_sig(feature: dict):
@@ -168,11 +175,12 @@ def load_profile(path: Path) -> dict | None:
 # golden generation
 
 
-def generate_golden(root: Path, image: Path | None, include_lev: bool) -> dict:
+def generate_golden(root: Path, image: Path | None, include_lev: bool,
+                    ignore_artifacts: bool = False) -> dict:
     profile: dict = {
         "profile_version": 1,
         "sample": "LEAF_2011-2012_QSD-309-101_navi158_eu.img",
-        "tree": census(root),
+        "tree": census(root, ignore_artifacts),
         "drstr": file_info(root / "DRSTR001.DAT"),
         "cmp": cmp_stats(root),
         "mmain": mmain_stats(root),
@@ -205,7 +213,7 @@ def generate_golden(root: Path, image: Path | None, include_lev: bool) -> dict:
     if include_lev:
         semantic.append(LEV_TILE)
     try:
-        _clarion_tile, stream_decode = _import_viewer()
+        _clarion_tile, stream_decode, _ze0_tile_io = _import_viewer()
     except ImportError as exc:
         profile["viewer_error"] = str(exc)
     else:
@@ -238,9 +246,10 @@ def generate_golden(root: Path, image: Path | None, include_lev: bool) -> dict:
 # checks
 
 
-def check_census(root: Path, profile: dict | None, report: cardcheck.Report) -> None:
+def check_census(root: Path, profile: dict | None, report: cardcheck.Report,
+                  ignore_artifacts: bool = False) -> None:
     check = report.add(cardcheck.Check("census"))
-    actual = census(root)
+    actual = census(root, ignore_artifacts)
     check.stats.update(actual)
     if profile and "tree" in profile:
         expected = profile["tree"]
@@ -268,7 +277,8 @@ def check_files(root: Path, profile: dict | None, report: cardcheck.Report) -> N
             check.error(f"{rel}: sha256 differs from golden")
 
 
-def check_drstr(root: Path, profile: dict | None, report: cardcheck.Report) -> None:
+def check_drstr(root: Path, profile: dict | None, report: cardcheck.Report,
+                ignore_artifacts: bool = False) -> None:
     check = report.add(cardcheck.Check("drstr_roundtrip"))
     path = root / "DRSTR001.DAT"
     if not path.is_file():
@@ -276,7 +286,7 @@ def check_drstr(root: Path, profile: dict | None, report: cardcheck.Report) -> N
         return
     reference = path.read_bytes()
     try:
-        built = drstr_ze0.build(root)
+        built = drstr_ze0.build(root, ignore_dump=ignore_artifacts)
     except (OSError, ValueError) as exc:
         check.error(f"build failed: {exc}")
         return
@@ -342,10 +352,11 @@ def check_tile_roundtrip(root: Path, profile: dict | None,
                          report: cardcheck.Report, tiles: list[str]) -> None:
     check = report.add(cardcheck.Check("tile_roundtrip"))
     try:
-        clarion_tile, _stream_decode = _import_viewer()
+        clarion_tile, _stream_decode, ze0_tile_io = _import_viewer()
     except ImportError as exc:
         check.error(f"viewer not available: {exc}; run tools/ze0-viewer/setup.sh")
         return
+    preserved = 0
     for name in tiles:
         path = root / "MAPAL001" / name
         if not path.is_file():
@@ -354,10 +365,13 @@ def check_tile_roundtrip(root: Path, profile: dict | None,
         try:
             data = path.read_bytes()
             tile = clarion_tile.read_tile(data)
-            out = clarion_tile.write_tile(tile)
+            out = ze0_tile_io.write_tile(tile)
         except Exception as exc:  # noqa: BLE001 - report every tile
             check.error(f"{name}: {exc}")
             continue
+        if tile.get("_preserved"):
+            preserved += 1
+            check.warn(f"{name}: unchanged tile uses preserved layout")
         if out != data:
             first = next((i for i in range(min(len(out), len(data))) if out[i] != data[i]),
                          min(len(out), len(data)))
@@ -369,6 +383,7 @@ def check_tile_roundtrip(root: Path, profile: dict | None,
             if sha256_file(path) != expected.get("sha256"):
                 check.error(f"{name}: sha256 differs from golden")
     check.stats["tiles"] = len(tiles)
+    check.stats["preserved"] = preserved
 
 
 def check_tile_semantic(root: Path, profile: dict | None,
@@ -376,7 +391,7 @@ def check_tile_semantic(root: Path, profile: dict | None,
                         include_lev: bool) -> None:
     check = report.add(cardcheck.Check("tile_semantic"))
     try:
-        _clarion_tile, stream_decode = _import_viewer()
+        _clarion_tile, stream_decode, _ze0_tile_io = _import_viewer()
     except ImportError as exc:
         check.error(f"viewer not available: {exc}; run tools/ze0-viewer/setup.sh")
         return
@@ -414,7 +429,7 @@ def check_tile_mutation(root: Path, report: cardcheck.Report,
         check.error(f"MAPAL001/{tile}: missing")
         return
     try:
-        clarion_tile, stream_decode = _import_viewer()
+        clarion_tile, stream_decode, _ze0_tile_io = _import_viewer()
     except ImportError as exc:
         check.error(f"viewer not available: {exc}; run tools/ze0-viewer/setup.sh")
         return
@@ -465,20 +480,127 @@ def check_tile_mutation(root: Path, report: cardcheck.Report,
             check.error("mutated vertex did not move")
 
 
+def _refer_blob(cmp_path: Path) -> bytes:
+    obj = cmpind_writer.CmpFile.from_files(cmp_path, cmp_path.with_suffix(".ind"))
+    return obj.decode()
+
+
+def _inner_page(blob: bytes, page: int) -> tuple[bytes, int] | None:
+    try:
+        dec = zlib.decompressobj()
+        inner = dec.decompress(blob[page:])
+        used = len(blob[page:]) - len(dec.unused_data)
+    except zlib.error:
+        return None
+    return inner, used
+
+
+def _refer_candidate(inner: bytes, page: int, used: int,
+                     start: int, old: str):
+    """Return a same-length replacement that still fits the next page."""
+    old_b = old.encode("latin-1")
+    limit = (page + used + 0xFF) & ~0xFF
+    for ch in "XYZ0123456789":
+        if ch == old[-1]:
+            continue
+        new = old[:-1] + ch
+        new_b = new.encode("latin-1")
+        if len(new_b) != len(old_b):
+            continue
+        new_inner = inner[:start] + new_b + inner[start + len(old_b):]
+        new_stream = zlib.compress(new_inner, 6)
+        if page + len(new_stream) <= limit:
+            return old, new
+    return None
+
+
+def find_refer_fixture(root: Path):
+    """Find a same-length POI rename that works on this year.
+
+    The 2011 page 0x4200/``VATICAN MUSEUM`` fixture is tried first.  Other
+    years use a deterministic scan of ``POINT*.DAT.cmp`` inner pages for a
+    unique printable run, then replace its last character.
+    """
+    known = root / "REFER001" / f"{REFER_POI}.cmp"
+    if known.is_file():
+        try:
+            blob = _refer_blob(known)
+            page = _inner_page(blob, REFER_PAGE)
+            if page is not None:
+                inner, used = page
+                old_b = REFER_OLD.encode("latin-1")
+                new_b = REFER_NEW.encode("latin-1")
+                if inner.count(old_b) == 1:
+                    limit = (REFER_PAGE + used + 0xFF) & ~0xFF
+                    new_inner = inner.replace(old_b, new_b, 1)
+                    if len(new_b) == len(old_b) and \
+                            REFER_PAGE + len(zlib.compress(new_inner, 6)) <= limit:
+                        return REFER_POI, REFER_PAGE, REFER_OLD, REFER_NEW, max(0x1000, used)
+                    fit = _refer_candidate(inner, REFER_PAGE, used, inner.find(old_b), REFER_OLD)
+                    if fit is not None:
+                        return REFER_POI, REFER_PAGE, fit[0], fit[1], max(0x1000, used)
+        except (OSError, ValueError):
+            pass
+
+    for cmp_path in sorted((root / "REFER001").glob("POINT*.DAT.cmp")):
+        try:
+            blob = _refer_blob(cmp_path)
+        except (OSError, ValueError):
+            continue
+        pos = 0
+        while True:
+            page = blob.find(b"\x78\x9c", pos)
+            if page < 0:
+                break
+            parsed = _inner_page(blob, page)
+            if parsed is None:
+                pos = page + 2
+                continue
+            inner, used = parsed
+            for match in re.finditer(rb"[ -~]{8,}", inner):
+                old = match.group().decode("latin-1").strip()
+                if len(old) < 8 or len(old) > 80:
+                    continue
+                if sum(ch.isalnum() for ch in old) < 6:
+                    continue
+                old_b = old.encode("latin-1")
+                if inner.count(old_b) != 1:
+                    continue
+                fit = _refer_candidate(inner, page, used, match.start(), old)
+                if fit is None:
+                    continue
+                return (
+                    cmp_path.name[:-4],
+                    page,
+                    fit[0],
+                    fit[1],
+                    max(0x1000, used),
+                )
+            pos = page + max(used, 2)
+    return None
+
+
 def check_refer_mutation(root: Path, report: cardcheck.Report) -> None:
     check = report.add(cardcheck.Check("refer_mutation"))
-    cmp_path = root / "REFER001" / f"{REFER_POI}.cmp"
-    ind_path = root / "REFER001" / f"{REFER_POI}.ind"
+    fixture = find_refer_fixture(root)
+    if fixture is None:
+        check.warn("no same-length REFER001 fixture found for this year")
+        check.stats["skipped"] = "no fixture"
+        return
+    name, page, old, new, page_len = fixture
+    check.stats.update(file=name, page=hex(page), old=old, new=new)
+    cmp_path = root / "REFER001" / f"{name}.cmp"
+    ind_path = root / "REFER001" / f"{name}.ind"
     drstr_path = root / "DRSTR001.DAT"
     if not cmp_path.is_file() or not ind_path.is_file():
-        check.error(f"{REFER_POI}.cmp/.ind is missing")
+        check.error(f"{name}.cmp/.ind is missing")
         return
     with tempfile.TemporaryDirectory(prefix="l2-refer-") as tmp:
         outdir = Path(tmp) / "mut"
         proc = subprocess.run(
             [sys.executable, str(TOOLS / "mutate_refer_poi.py"),
              str(cmp_path), str(ind_path), str(outdir),
-             "--page", hex(REFER_PAGE), "--old", REFER_OLD, "--new", REFER_NEW],
+             "--page", hex(page), "--old", old, "--new", new],
             capture_output=True, text=True,
         )
         if proc.returncode != 0:
@@ -486,9 +608,10 @@ def check_refer_mutation(root: Path, report: cardcheck.Report) -> None:
             return
         proc = subprocess.run(
             [sys.executable, str(TOOLS / "validate_mutation.py"),
-             str(root / "REFER001"), str(outdir), REFER_POI,
-             "--page", hex(REFER_PAGE), "--drstr", str(drstr_path),
-             "--inner-page", hex(REFER_PAGE)],
+             str(root / "REFER001"), str(outdir), name,
+             "--page", hex(page), "--page-len", hex(max(page_len, 0x300)),
+             "--drstr", str(drstr_path), "--drstr-dir", "REFER001",
+             "--inner-page", hex(page)],
             capture_output=True, text=True,
         )
         check.stats["validate"] = proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else ""
@@ -529,6 +652,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--no-golden", action="store_true",
                         help="skip all profile comparisons")
+    parser.add_argument("--ignore-dump-artifacts", action="store_true",
+                        help="ignore macOS ._*, .fseventsd, System Volume Information")
     parser.add_argument("--cmp-limit", type=int, default=0,
                         help="check only the first N .cmp pairs (0 = all)")
     parser.add_argument("--no-cmp", action="store_true")
@@ -557,7 +682,8 @@ def main(argv: list[str] | None = None) -> int:
     image = Path(args.image) if args.image else None
 
     if args.update_golden:
-        profile = generate_golden(root, image, args.include_lev)
+        profile = generate_golden(root, image, args.include_lev,
+                                  args.ignore_dump_artifacts)
         out = Path(args.update_golden)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
@@ -572,9 +698,9 @@ def main(argv: list[str] | None = None) -> int:
                   "running semantic checks only", file=sys.stderr)
 
     report = cardcheck.Report("L2", {"kind": "root", "path": str(root)})
-    check_census(root, profile, report)
+    check_census(root, profile, report, args.ignore_dump_artifacts)
     check_files(root, profile, report)
-    check_drstr(root, profile, report)
+    check_drstr(root, profile, report, args.ignore_dump_artifacts)
     if not args.no_cmp:
         check_cmp_roundtrip(root, profile, report, limit=args.cmp_limit)
     if not args.no_tiles:

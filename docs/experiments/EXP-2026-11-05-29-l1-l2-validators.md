@@ -1,10 +1,10 @@
-# EXP-2026-11-05-26: L1/L2 validators for the offline feedback loop
+# EXP-2026-11-05-29: L1/L2 validators for the offline feedback loop
 
 - **Status:** done
 - **Date:** 2026-11-05
 - **Sample:** EU 2011 image
   `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`
-- **Claims:** C-399, C-400, C-401, C-402
+- **Claims:** C-505, C-506, C-507, C-508
 - **Supersedes:** none
 - **Superseded by:** none
 

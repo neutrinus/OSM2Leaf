@@ -20,7 +20,7 @@ paths are symlinks to the archive.
 ## L1 validation matrix
 
 `tools/cardcheck.py` results on the archived set (see
-[`EXP-2026-11-05-27`](../experiments/EXP-2026-11-05-27-image-matrix.md)):
+[`EXP-2026-11-05-30`](../experiments/EXP-2026-11-05-30-image-matrix.md)):
 
 | Sample | L1 result | Note |
 | --- | --- | --- |
@@ -32,8 +32,9 @@ paths are symlinks to the archive.
 | 2016-17 map tree | PASS | requires `--partial`; same stale `VER_INFO` |
 | 2019 e-NV200 image | FAIL | different engine (`CLA-NAVI06-01`/ZENRIN); not a ZE0 sample |
 
-L2 remains 2011-specific for the dense `B30R048R` rebuild and the `POINT032`
-mutation fixture; see the experiment.
+L2 now passes on the 2014 and 2016 full trees with
+`--no-golden --ignore-dump-artifacts`. The unchanged dense `B30R048R` uses a
+preserved-layout fallback; the 2011 golden profile remains the reference.
 
 ## `VER_INFO/HDD_INFO.TXT` (2011–2016)
 

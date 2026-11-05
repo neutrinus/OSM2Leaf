@@ -2,7 +2,7 @@
 
 > **Status:** analysis and decision record, 2026-11-05. No emulator was built.
 > Facts about external tools are `VERIFIED` from their source or documentation;
-> effort estimates are `HYPOTHESIS`. See [`claims.md`](claims.md) C-403…C-408.
+> effort estimates are `HYPOTHESIS`. See [`claims.md`](claims.md) C-509…C-514.
 
 ## The problem
 
@@ -34,7 +34,7 @@ acceptance.
   unchanged `DRSTR`.
 - L1 `tools/cardcheck.py` and L2 `tools/l2check.py` — whole-card structure and
   semantic/golden round-trips; both pass on the EU 2011 sample
-  ([`EXP-2026-11-05-26`](../experiments/EXP-2026-11-05-26-l1-l2-validators.md)).
+  ([`EXP-2026-11-05-29`](../experiments/EXP-2026-11-05-29-l1-l2-validators.md)).
 - Firmware RE — readers are not located yet; full-system QEMU was rejected
   in [`../format/firmware.md`](../format/firmware.md).
 - `TODO.md` P4b already defines layers L0–L5 for the feedback loop.

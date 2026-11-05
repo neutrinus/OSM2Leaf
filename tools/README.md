@@ -244,10 +244,13 @@ one removed and one added feature.
 `--include-lev` adds the slow `LEV3456R.DAT` geometry digest; `--hash-image`
 checks the raw image hash against the profile.
 
-L2 is currently validated on the 2011 reference. On the 2013–2016 map trees,
-`B30R048R.DAT` fails the byte-identical rebuild at `0x807`/`0x808`, and the
-`POINT032` mutation fixture is 2011-specific. Use `--no-golden --skip-mutation`
-for cross-year structural checks until those are parameterised.
+L2 now passes on full 2014 and 2016 roots with
+`--no-golden --ignore-dump-artifacts`. The unchanged dense `B30R048R.DAT`
+uses a preserved-layout fallback (reported as a warning); changed tiles still
+go through the writer. The REFER001 mutation fixture is discovered per year,
+and `validate_mutation.py --drstr-dir REFER001` avoids the
+`REFER001`/`REFER002` name collision. The 2011 golden profile remains the
+reference; per-year golden profiles are optional.
 
 ## Golden profile
 

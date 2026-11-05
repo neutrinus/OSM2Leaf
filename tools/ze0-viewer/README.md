@@ -65,6 +65,11 @@ python3 compare_osm.py out/B30R060R.geojson osm-extract.osm
 strict mode, so a mutation cannot be silently discarded. `harness.py selftest`
 on `B30R060R.DAT` passes after this change.
 
+`ze0_tile_io.py` wraps `clarion_tile.write_tile`: it runs the real writer
+first, and for an unchanged factory tile whose shared/non-monotonic layout the
+writer would compact (2013–2016 `B30R048R`) it returns the source bytes and
+reports `preserved layout`. Changed tiles still use the writer.
+
 ## What the ZE0 patch fixes
 
 1. zlib header is `78 9c` (upstream hardcodes `58 85`).

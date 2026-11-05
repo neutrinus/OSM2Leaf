@@ -99,6 +99,7 @@ def main():
     struct.pack_into('>II', body, rec['k'] * 8, len(comp) // 2, len(new_plain) // 2)
     slot['body'] = bytes(body)
 
+    tile['_dirty'] = True
     out = clarion_tile.write_tile(tile)
     open(args.dst, 'wb').write(out)
 

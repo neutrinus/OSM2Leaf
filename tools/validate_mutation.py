@@ -59,6 +59,8 @@ def main() -> int:
     ap.add_argument("--page-len", type=lambda s: int(s, 0), default=0x300)
     ap.add_argument("--drstr", default=None,
                     help="DRSTR001.DAT to check the size field against")
+    ap.add_argument("--drstr-dir", default=None,
+                    help="restrict the DRSTR lookup to this top-level directory")
     ap.add_argument("--inner-page", type=lambda s: int(s, 0), default=None,
                     help="also inflate this inner zlib page and compare its payload")
     args = ap.parse_args()
@@ -104,8 +106,9 @@ def main() -> int:
     if args.drstr:
         orig_tree = D.read(Path(args.drstr))
         stem = args.name.rsplit(".", 1)[0]
-        found = [e for d in orig_tree["dirs"] for e in d["entries"]
-                 if e["name"] == args.name]
+        found = [e for d in orig_tree["dirs"]
+                 if args.drstr_dir is None or d["name"] == args.drstr_dir
+                 for e in d["entries"] if e["name"] == args.name]
         if not found:
             print(f"DRSTR            {args.name} not listed")
         else:

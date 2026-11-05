@@ -30,6 +30,11 @@ import sys
 from pathlib import Path
 
 DREC, CREC, NAMELEN = 0x28, 0x20, 20
+DUMP_ARTIFACTS = {".fseventsd", ".Spotlight-V100", ".Trashes", "System Volume Information"}
+
+
+def is_dump_artifact(name: str, ignore: bool = False) -> bool:
+    return bool(ignore) and (name.startswith("._") or name in DUMP_ARTIFACTS)
 
 
 def read(path: Path) -> dict:
@@ -58,9 +63,11 @@ def read(path: Path) -> dict:
     return {"count": n, "dirs": dirs}
 
 
-def listing(root: Path):
+def listing(root: Path, ignore_dump: bool = False):
     out = []
     for e in os.scandir(root):
+        if is_dump_artifact(e.name, ignore_dump):
+            continue
         if e.name == "DRSTR001.DAT":
             continue
         if e.name.endswith(".ind"):
@@ -70,17 +77,17 @@ def listing(root: Path):
             size = struct.unpack("<I", ind.read_bytes()[:4])[0]
             out.append((e.name[:-4], False, size))
         elif e.is_dir():
-            out.append((e.name, True, tree_size(Path(e.path))))
+            out.append((e.name, True, tree_size(Path(e.path), ignore_dump)))
         else:
             out.append((e.name, False, e.stat().st_size))
     return out
 
 
-def tree_size(path: Path) -> int:
-    return sum(size for _, _, size in listing(path)) & 0xFFFFFFFF
+def tree_size(path: Path, ignore_dump: bool = False) -> int:
+    return sum(size for _, _, size in listing(path, ignore_dump)) & 0xFFFFFFFF
 
 
-def build(root: Path) -> bytes:
+def build(root: Path, ignore_dump: bool = False) -> bytes:
     # breadth-first, readdir order (matches the card's own index)
     dirs = []
     queue = [(root, "/", 1)]
@@ -88,11 +95,12 @@ def build(root: Path) -> bytes:
         path, name, parent = queue.pop(0)
         my_id = len(dirs) + 1
         dirs.append((path, name, parent))
-        for child, is_dir, _ in listing(path):
+        for child, is_dir, _ in listing(path, ignore_dump):
             if is_dir:
                 queue.append((path / child, child, my_id))
 
-    blocks = [[(n, d, s & 0xFFFFFFFF) for n, d, s in listing(p)] for p, _, _ in dirs]
+    blocks = [[(n, d, s & 0xFFFFFFFF) for n, d, s in listing(p, ignore_dump)]
+              for p, _, _ in dirs]
     out = bytearray(len(dirs) * DREC)
     off = len(out)
     for i, ((_, name, parent), rows) in enumerate(zip(dirs, blocks)):

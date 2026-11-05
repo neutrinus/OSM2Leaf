@@ -37,6 +37,7 @@ import clarion_tile
 import tile_scan
 import ze0_roads
 import ze0_decode
+import ze0_tile_io
 
 
 def sha256(path):
@@ -107,9 +108,11 @@ def cmd_info(path):
 def cmd_roundtrip(path):
     data = open(path, 'rb').read()
     tile = clarion_tile.read_tile(data)
-    out = clarion_tile.write_tile(tile)
+    out = ze0_tile_io.write_tile(tile)
     if out == data:
-        print('%s: byte-identical rebuild OK (%d bytes)' % (path, len(data)))
+        note = ' (preserved layout)' if tile.get('_preserved') else ''
+        print('%s: byte-identical rebuild OK (%d bytes)%s'
+              % (path, len(data), note))
         return True
     i = next((i for i in range(min(len(data), len(out))) if data[i] != out[i]),
              min(len(data), len(out)))
@@ -181,7 +184,7 @@ def cmd_verify(path, quiet=False):
                                     errors.append('graph record: %r' % e)
     rt = cmd_roundtrip(path) if not quiet else True
     if quiet:
-        out = clarion_tile.write_tile(tile)
+        out = ze0_tile_io.write_tile(tile)
         rt = out == data
     print('%s: records ok %d bad %d | background rebuild ok %d bad %d (opaque %d) | graph parse ok %d bad %d | roundtrip %s'
           % (path, ok_rec, bad_rec, ok_bg, bad_bg, opaque, ok_graph, bad_graph, 'OK' if rt else 'FAIL'))
