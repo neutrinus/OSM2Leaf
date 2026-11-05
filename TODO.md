@@ -574,7 +574,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-890–C-899
 
 - [ ] **M4.2 — `RDSTM001`: link attributes (speed class, one-way, class)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.2-rdstm-link-attrs · Critical: yes
   - Depends: M4.1
   - Done when: attribute values correlate with ≥ 5 known roads (OSM tags)
     in an EXP table.
