@@ -68,8 +68,11 @@ Three agents are investigating these; merge their results here when done.
   and road attributes; locate speed/direction/turn restrictions.
 - [ ] Join `LCTBL` name indices to `RDSTM` road records and tile mesh codes.
 - [ ] Validate the hex `B/R` grid with Prague geometry from OSM.
-- [ ] Decode `REFER001`/`REFER002` record formats: addresses, POIs,
-  coordinates, street names, `MESHID`/`POI`/`Pre`/`Next` relationships.
+- [x] Common REFER anatomy, 33-country sharding, POINT schema/pages, INTER,
+  ICADM, ZIPFR (`docs/format/refer.md`).
+- [ ] Decode `ADDRE0nn` address records and their link to `COORD`/`POINT`.
+- [ ] Decode `FRWAY` mesh-id encoding and `INTER` `n` semantics.
+- [ ] Locate POI coordinates (not in POINT) and POI ↔ icon mapping.
 - [ ] Decode `MMAIN001.DAT` + `CMP.LST` update semantics.
 
 ## P2 — tiles and geography

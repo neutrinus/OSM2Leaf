@@ -139,6 +139,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
 - [`MAPAL001` map tiles](docs/format/map-tiles.md)
 - [`RDSTM001` / `LCTBL001` road data](docs/format/rdstm.md)
 - [`COORD001`, `ZCODE*`, `ICODE001`](docs/format/coord-zcode-icode.md)
+- [`REFER001` / `REFER002` families](docs/format/refer.md)
 - [Firmware and pre-partition area](docs/format/firmware.md)
 - [Research sources and external links](docs/research/sources.md)
 - [Claims and evidence ledger](docs/research/claims.md) — **start here when
