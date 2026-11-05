@@ -139,6 +139,40 @@ class CERom:
             vsize, rva, psize, dataptr, real, flags = struct.unpack_from("<6I", self.d, o + O32_SIZE * i)
             yield dict(vsize=vsize, rva=rva, psize=psize, dataptr=dataptr, realaddr=real, flags=flags)
 
+    def imports(self, mod):
+        """Import slots of ``mod`` from the uncompressed OriginalFirstThunk table.
+
+        Yields (dll, slot_va, name_or_None, ordinal_or_None). ``slot_va`` is the
+        process VA of the FirstThunk entry (vbase + RVA). Names come from the
+        OFT, so compressed sections (where FirstThunk may live) are not needed.
+        """
+        e = self.e32(mod)
+        base = e["vbase"]
+        off = self.rva2file(mod, e["imp"][0])
+        if off is None:
+            return
+        while True:
+            oft, _ts, _fw, name_rva, ft = struct.unpack_from("<5I", self.d, off)
+            if not (oft or name_rva or ft):
+                break
+            dll_off = self.rva2file(mod, name_rva)
+            dll = self.d[dll_off:self.d.find(b"\0", dll_off)].decode("latin1") if dll_off else "?"
+            thunk = self.rva2file(mod, oft or ft)
+            i = 0
+            while thunk is not None:
+                (v,) = struct.unpack_from("<I", self.d, thunk + 4 * i)
+                if v == 0:
+                    break
+                slot = base + ft + 4 * i
+                if v & 0x80000000:
+                    yield dll, slot, None, v & 0xFFFF
+                else:
+                    no = self.rva2file(mod, v)
+                    nm = self.d[no + 2:self.d.find(b"\0", no + 2)].decode("latin1") if no is not None else "?"
+                    yield dll, slot, nm, None
+                i += 1
+            off += 20
+
     def rva2file(self, mod, rva):
         """File offset of an RVA in an uncompressed section of ``mod`` (or None)."""
         for sec in self.o32(mod):
@@ -793,6 +827,7 @@ def main(argv=None):
     sub.add_parser("files")
     p = sub.add_parser("sections"); p.add_argument("module")
     p = sub.add_parser("exports"); p.add_argument("module")
+    p = sub.add_parser("imports"); p.add_argument("module")
     p = sub.add_parser("va2file"); p.add_argument("va", type=lambda s: int(s, 0))
     p = sub.add_parser("file2va"); p.add_argument("off", type=lambda s: int(s, 0))
     p = sub.add_parser("extract"); p.add_argument("module"); p.add_argument("-o", required=True)
@@ -849,6 +884,9 @@ def main(argv=None):
     elif a.cmd == "exports":
         for ordinal, name, rva in sorted(r.exports(r.module(a.module))):
             print("%5d %-40s rva=%08x" % (ordinal, name, rva))
+    elif a.cmd == "imports":
+        for dll, slot, nm, ordn in r.imports(r.module(a.module)):
+            print("%-20s slot=%08x %s" % (dll, slot, nm if nm is not None else "#%d" % ordn))
     elif a.cmd == "va2file":
         print("0x%08x" % r.va2file(a.va))
     elif a.cmd == "file2va":
