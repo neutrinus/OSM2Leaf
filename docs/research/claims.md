@@ -223,6 +223,15 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-396 | The `.cmp`/`.ind` reader is not located. | UNKNOWN | — | EXP-2026-11-05-25 |
 | C-397 | Contract unchanged; “NaviStateCC is a flat library” is contradicted (it is COM). | VERIFIED (correction) | H | EXP-2026-11-05-25 |
 | C-398 | Next: disassemble `0x171ea2c` → `CreateInstance`/object vtable (or the `0x1d0f8a8` writer); run the `.ind` mutation matrix. | PLANNED | — | EXP-2026-11-05-25 |
+| C-400 | `DllGetClassObject`'s real entry is file `0x171e9e8`, not `0x171ea2c`; its pool holds link-time VAs `0x0260xxxx`, while the called thunk table is runtime-placed in `0x02e0xxxx` (different section delta `0x16e64d0`). | VERIFIED | H | EXP-2026-11-05-26 |
+| C-401 | `0x1d0f8a8` is a RAM global context used 23× in NaviStateCC; no store in that module, so the framework/loader initializes it. | VERIFIED | H | EXP-2026-11-05-26 |
+| C-402 | The vtable is constructed, not static: 233 constructor stores write 175 method VAs (`0x0260xxxx–0x0262xxxx`); densest build at `0x170f100–0x170f2b0`. | VERIFIED | H | EXP-2026-11-05-26 |
+| C-403 | Relocation wall: best single-base mapping gives 15/175 prologue hits; a correct per-section map would be ~80–90 %. | VERIFIED (negative) | H | EXP-2026-11-05-26 |
+| C-404 | `0x6faf30` is not the reader: it is a `jsr @r3` in the Bluetooth/OPP handler at `0x6faeb0` (`OppAccess::msg_opp_comp_ind`). | VERIFIED (negative) | H | EXP-2026-11-05-26 |
+| C-405 | No `0x10000` pool literal, no `mov #1; shll16`, no 4-dword header read near the fd layer; `chunk_size` is likely an output-buffer size, not a comparison. | OBSERVED | M | EXP-2026-11-05-26 |
+| C-406 | The `.cmp`/`.ind` reader address is still unknown; a COM method is likely but not proven. | UNKNOWN | — | EXP-2026-11-05-26 |
+| C-407 | Highest-value break: `MAL_DataVol_getOffset` (VA `0x03498d48`, file `0x7f5f48`) or `getSize` (VA `0x03498d28`, file `0x7f5f28`); its caller is the `.ind` wrapper. | PLANNED | — | EXP-2026-11-05-26 |
+| C-408 | Card matrix `size_8000` answers buffer-vs-compare; `off_last_m1` answers exact seek vs `78 9c` scan. | PLANNED | — | EXP-2026-11-05-26 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 

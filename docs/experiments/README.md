@@ -97,5 +97,6 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-23](EXP-2026-11-05-23-import-thunks.md) | 0x2e0xxxx is an import-thunk area | done (new anchors) |
 | [EXP-2026-11-05-24](EXP-2026-11-05-24-no-xip-table.md) | No XIP table; module bases are wrong | done (static VA exhausted) |
 | [EXP-2026-11-05-25](EXP-2026-11-05-25-navi-com.md) | No import descriptor; NaviStateCC is COM | done (reader not located) |
+| [EXP-2026-11-05-26](EXP-2026-11-05-26-com-relocation.md) | COM framework, relocation wall and breakpoint | done (dynamic path identified) |
 | [EXP-2026-11-05-26](EXP-2026-11-05-26-l1-l2-validators.md) | L1/L2 validators for the offline feedback loop | done |
 | [EXP-2026-11-05-27](EXP-2026-11-05-27-image-matrix.md) | Complete map-image archive and cross-year L1 matrix | done |

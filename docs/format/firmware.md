@@ -142,15 +142,33 @@ remain unnamed (140 ordinal-ILT runs exist, none matching the navi IAT).
 
 `NaviStateCC.DLL` (file base `0xc32200`) is a **COM DLL** with only four
 exports: `DllCanUnloadNow`, `DllGetClassObject`, `DllRegisterServer`,
-`DllUnregisterServer`. `DllGetClassObject` forwards to framework thunk
-`0x2e00eb8` (file `0x171ea2c`), class data `0x1d0f8a8` (RAM).
+`DllUnregisterServer`.
 
-The fd/IOB layer functions are **COM methods** reached through a load-time
-vtable; no static `bsr`/vtable reference reaches them. Structural scan:
-`0xc42e48` debug dumper, `0xc49f98` virtual dispatcher, `0xc438a4` stats
-formatter. There is **no `0x10000` pool literal or `mov #1; shll16`** near the
-fd layer, so the `.ind` reader likely uses `chunk_size` as a buffer size rather
-than a comparison.
+`DllGetClassObject` (`0xc434cc`) loads `0x2e00eb8` and jumps; the real entry is
+the prologue at **file `0x171e9e8`** (not `0x171ea2c`). Its pool holds
+link-time VAs `0x0260xxxx`, while the called thunk table is runtime-placed in
+`0x02e0xxxx` (different section delta `0x16e64d0`). The `0x2e0xxxx` band is
+therefore **not purely thunks**.
+
+`0x1d0f8a8` is a **RAM global context** used 23× in NaviStateCC; no store
+exists in that module, so the framework/loader initializes it.
+
+The vtable is **constructed, not static**: 233 constructor stores write 175
+method VAs (`0x0260xxxx–0x0262xxxx`); the densest build is
+`0x170f100–0x170f2b0`. For any single file base the best mapping is **15/175**
+prologue hits (a correct per-section map would be ~80–90 %); the methods are
+spread over independently placed sections.
+
+The fd/IOB layer functions are **COM methods** reached through that vtable; no
+static `bsr`/vtable reference reaches them. Structural scan: `0xc42e48` debug
+dumper, `0xc49f98` virtual dispatcher, `0xc438a4` stats formatter. There is
+**no `0x10000` pool literal or `mov #1; shll16`** near the fd layer, so the
+`.ind` reader likely uses `chunk_size` as a buffer size rather than a
+comparison.
+
+**Negative lead:** `0x6faf30` is not the reader — it is a `jsr @r3` in the
+Bluetooth/OPP handler at `0x6faeb0` (`OppAccess::msg_opp_comp_ind` at
+`0x6c7e98`).
 
 ### MAL volume chain and NaviStateCC
 
@@ -472,20 +490,16 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 Firmware RE remains the primary path.
 
-1. **Parse the `romimage` XIP section table** (`file ↔ VA ↔ size`); leads:
-   `ECEC` at container `+0x240`, `NKOK` at `+0x1fc`. This converts every VA to
-   a file offset and unblocks all cross-module calls.
-2. Re-resolve the `0x0367–0x0369` helpers and the map-module delta; then reach
-   the `HDD_INFO` open/split/parse.
-3. **COM class factory:** disassemble `0x171ea2c`
-   (`DllGetClassObject`) and find `CreateInstance` + the object vtable. The
-   vtable is likely built at runtime; search for the literal `0x1d0f8a8` and
-   the code writing it. The fd layer and reader are its methods.
-4. **`.ind` mutation matrix on a spare card** (cheapest empirical test):
-   change `chunk_size` (4th dword) to `0x20000`/`0x8000`, change `chunk_count`
-   by ±1, shift one `chunk_offset`. Accept/reject reveals the `0x10000`
-   compare, count trust and seek-vs-scan.
-5. **SD bus capture** (CLK/CMD/DAT0-3) during boot/map entry; decode
+1. **Dynamic break on the MAL chain** (highest value): break at
+   `MAL_DataVol_getOffset` (VA `0x03498d48`, file `0x7f5f48`) or `getSize`
+   (VA `0x03498d28`, file `0x7f5f28`) while opening a map page. Its caller is
+   the `.ind` wrapper; the return address gives the reader and the object slot
+   its vtable index.
+2. **`.ind` mutation matrix on a spare card:** `size_8000` answers buffer size
+   vs `0x10000` compare; `off_last_m1` answers exact seek vs `78 9c` scan.
+3. **Per-section relocation data:** needed to map the 175 method VAs; the
+   single-base wall is 15/175. The XIP table itself is **not** in the image.
+4. **SD bus capture** (CLK/CMD/DAT0-3) during boot/map entry; decode
    CMD17/CMD18 and record the LBA order of `DRSTR001.DAT` vs `.cmp`/`.ind`.
-6. Spare-card `HDD_INFO` matrix for the six-line mapping (89 variants).
-7. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.
+5. Spare-card `HDD_INFO` matrix for the six-line mapping (89 variants).
+6. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.

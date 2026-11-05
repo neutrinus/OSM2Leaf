@@ -68,8 +68,12 @@ OSM only after that.
      86 thunks unnamed.
    - [x] NaviStateCC is a COM DLL, not a flat library; fd layer are COM
      methods behind a load-time vtable.
-   - [ ] Disassemble `0x171ea2c` (`DllGetClassObject`) → `CreateInstance` +
-     object vtable; search for the `0x1d0f8a8` writer.
+   - [x] `DllGetClassObject` real target `0x171e9e8`; vtable is constructed
+     (175 method VAs, 15/175 single-base wall).
+   - [x] `0x6faf30` is a Bluetooth/OPP handler, not the reader.
+   - [ ] Dynamic break on `MAL_DataVol_getOffset` (VA `0x03498d48`) or
+     `getSize` (`0x03498d28`); caller is the `.ind` wrapper.
+   - [ ] Obtain per-section relocation data for the 175 method VAs.
    - [x] `tools/ind_mutate.py` generates 8 `.ind` variants for the spare-card
      matrix.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
