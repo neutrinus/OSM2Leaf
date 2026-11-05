@@ -122,6 +122,151 @@ module, section and file offset.
    C-068, C-370…C-375, the `0x1952b00` copy-list claims, EXP-22/23/25/26/27/28/29.
 8. [ ] **Untangle TODO P3/P7.** Mark as done or merge into this section.
 
+### Path to the goal — what is left, in small tasks
+
+**Goal:** a Leaf ZE0 map SD card built from OpenStreetMap (first
+Dolnośląskie, then Poland, then Europe) that the unit accepts, displays and
+routes on. Done so far: container, `DRSTR`, tile grid, five tiles and L1/L2
+validators (data side), and the CE ROM address model (firmware side).
+
+Each task below is sized for one session (≤ 1 EXP record, ≤ 1 commit group)
+and states **done when**. IDs are stable; tick and reference them in commits.
+Order inside a milestone matters; milestones M1–M4 can run in parallel.
+
+#### M1 — Firmware tooling (finish the address model)
+
+- [ ] **M1.1** `cerom.py` unit test: pin `romhdr`/`va2file`/`exports` results
+  for images A, B, C against fixed expected values (use a tiny synthetic ROM,
+  not vendor bytes). *Done when* `tools/selftest.py` runs it.
+- [ ] **M1.2** Identify the compression of one `IMAGE_SCN_COMPRESSED` section
+  (`NaviMapCC.dll` `.data`, psize `0x2c6`, vsize `0x5b8`): try CE
+  `CECompress`/LZX variants. *Done when* output length equals `vsize` and the
+  bytes look like valid data.
+- [ ] **M1.3** Add `cerom.py decompress` and run it on all 245 sections.
+  *Done when* every output length equals `vsize` (report failures).
+- [ ] **M1.4** Same for `FILESentry` payloads (`comp != real`: `UpdateNK.skn`,
+  `default.hv`, …). *Done when* `ReleaseMain.skn`-style files extract.
+- [ ] **M1.5** `cerom.py ghidra` : emit a memory-map JSON/script (one block per
+  `o32` at `o32_realaddr`) for a chosen module set. *Done when* Ghidra opens
+  `Navi.exe` with correct addresses (check one known string).
+- [ ] **M1.6** Resolve import thunks: map each module's IAT slots to
+  `module!export` (needs `exports` of all modules). *Done when* a call in
+  `Navi.exe` shows `OBJDLL!MAL_DataVol_getOffset`, not a raw VA.
+- [ ] **M1.7** Decide which kernel (B or C) boots with A (check `ulRAM*`,
+  `pExtensions`, update flow in `UpdateMng.exe`). Record as an EXP.
+
+#### M2 — Map-code / activation (why the unit rejects a card)
+
+- [ ] **M2.1** Disassemble the `Navi.exe` function that references VA
+  `0x004e7d28`/`0x004e7d2c` (`HDD_INFO.TXT` paths). *Done when* its name,
+  arguments and callers are written down.
+- [ ] **M2.2** Same for the comparator referencing `0x004e8584`/`0x004e995c`
+  (`SD Import: … is different`). *Done when* the compared fields and the
+  `0 < userdata_type < 6` check are traced to the struct offsets.
+- [ ] **M2.3** Parse step: find where `HDD_INFO.TXT` text becomes the fields
+  (line order, separators, six-line mapping). *Done when* a table
+  `line → field → type` exists in `docs/format/`.
+- [ ] **M2.4** Run the parser in Ghidra P-code on the 89
+  `hddinfo_variants.py` files. *Done when* each variant has a predicted
+  accept/reject result.
+- [ ] **M2.5** Find the "DIFFERENT MAP CODE" message source and its input
+  (line 1 vs `0x06000000` copy vs NAND record). *Done when* one input is named.
+- [ ] **M2.6** Read `MapUpdate.exe` (image B, file `0x04344200`): how it
+  validates/installs map data and which files it checks. *Done when* a
+  summary with function VAs is in `docs/format/firmware.md`.
+- [ ] **M2.7** US vs EU: find where region/market is decided (strings, config,
+  `ceconfig.h`, registry hives `boot.hv`/`default.hv`). *Done when* it is
+  known whether an EU-format card can work in a US unit.
+
+#### M3 — Reader contract (what the unit does with our bytes)
+
+- [ ] **M3.1** From `OBJDLL!MAL_DataVol_getOffset/getSize` callers, find the
+  `.ind` wrapper. *Done when* one function VA is named.
+- [ ] **M3.2** Trace `.ind` handling: `chunk_size` use, seek vs `78 9c` scan.
+  *Done when* both questions are answered from code, not guessed.
+- [ ] **M3.3** Run the `.ind` reader under P-code against the
+  `ind_mutate.py` corpus (8 variants). *Done when* accept/reject per variant
+  is recorded.
+- [ ] **M3.4** Find the `DRSTR001.DAT` parser; list what it validates
+  (counts, ordering, sentinels). *Done when* a validation list is in
+  `docs/format/drstr.md`.
+- [ ] **M3.5** Find the tile reader entry (`MESH_ID`/`DIVID`, six-level
+  table `VTb Tp;Lv;…`). *Done when* the level-table layout is confirmed.
+- [ ] **M3.6** Tile payload: which sections the renderer reads vs ignores
+  (section 4 especially). *Done when* each section has "read by / ignored".
+- [ ] **M3.7** Router: find how `RDSTM001`/`REFER` road records are read
+  (graph tuples, speed, one-way, restrictions). *Done when* the record fields
+  used by the router are listed.
+
+#### M4 — Data format gaps (no firmware needed)
+
+- [ ] **M4.1** `RDSTM001`: decode a record and one node/link tuple; round-trip
+  byte-identical. *Done when* a decoder + test exist.
+- [ ] **M4.2** `RDSTM001`: link attributes (speed class, one-way, class).
+  *Done when* values are correlated with known roads.
+- [ ] **M4.3** Turn restrictions / connectivity encoding. *Done when* a known
+  restriction is found and decoded.
+- [ ] **M4.4** Tile section 4: decode fields or prove it can stay verbatim for
+  a modified tile. *Done when* a one-tile edit keeps the unit-relevant parts.
+- [ ] **M4.5** `MMAIN001.DAT`: full field meaning and writer (11 entries).
+  *Done when* the writer reproduces the file byte-identically.
+- [ ] **M4.6** Explain the `B30R048R` 2013–2016 rebuild difference at
+  `0x807`/`0x808` (EXP-30). *Done when* the writer needs no fallback.
+- [ ] **M4.7** Names/addresses: `ADDRE`/`POINT`/`ZCODE`/`LCTBL` write path
+  for a changed name. *Done when* a renamed POI passes L2.
+- [ ] **M4.8** Coordinate transform: confirm mesh/level formulas against all
+  five target tiles and write `tools/coord.py` (lat/lon ↔ mesh, 0..2047).
+  *Done when* known POIs land within a few metres.
+
+#### M5 — OSM compiler vertical slice (Dolnośląskie)
+
+(See `docs/research/osm-vertical-slice.md` and
+`profiles/dolnoslaskie-test.*`.)
+
+- [ ] **M5.1** OSM ingest: read a Dolnośląskie `.osm.pbf` extract and keep
+  only drivable roads with tags needed (highway, oneway, maxspeed, name, ref).
+- [ ] **M5.2** Mesh splitter: assign each way to meshes with the confirmed
+  coordinate transform; clip at mesh borders.
+- [ ] **M5.3** Road class / speed mapping table OSM → Clarion classes (from
+  M4.2); document unmapped values.
+- [ ] **M5.4** Tile writer: emit one tile with roads only, using factory
+  neighbours for the parts not yet understood. *Done when* it passes L2.
+- [ ] **M5.5** Connectivity: nodes and links across tile borders.
+- [ ] **M5.6** Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST` for the changed
+  tile set. *Done when* L1 passes on the output card tree.
+- [ ] **M5.7** Names: street names into the name sections (M4.7).
+- [ ] **M5.8** One-tile diff report against the factory tile (what changed,
+  what was preserved) as an automatic artifact.
+
+#### M6 — Validation and hardware
+
+- [ ] **M6.1** Finish the L3 oracle for the chosen readers (P-code with
+  stubbed file API) on `.ind`, `DRSTR`, one tile (M3.3–M3.5).
+- [ ] **M6.2** Get the owner's US 2011 SD dump (read-only), record SHA-256
+  (needed for M2.7).
+- [ ] **M6.3** Spare-card plan: whole-card clone + no-op control first, then
+  one changed tile. Define pass/fail before touching a car.
+- [ ] **M6.4** Recovery/safety: how to return the unit to the factory map
+  (keep original card, updater behaviour from M2.6). Write the checklist.
+- [ ] **M6.5** First on-device test with the no-op clone; record the result.
+- [ ] **M6.6** First on-device test with one changed tile (display only).
+- [ ] **M6.7** Routing test across the changed tile.
+
+#### M7 — Scale and release
+
+- [ ] **M7.1** Full Dolnośląskie run, performance and size budget (card
+  capacity, `.cmp` sizes).
+- [ ] **M7.2** All-Poland road network (rough classes only).
+- [ ] **M7.3** Europe motorway/trunk network for cross-border routing.
+- [ ] **M7.4** Build profiles (`profiles/`), reproducible build script,
+  license/attribution notice for OSM data.
+- [ ] **M7.5** User guide + risk statement; keep "research only" until M6.7
+  has passed.
+
+**Critical path:** M1.2–M1.3 → M2.1–M2.3 (what makes the unit accept a
+card) → M3.1–M3.5 (what the unit reads) → M5.4 → M6.5–M6.6. M4 feeds M5 in
+parallel. Anything that needs hardware (M6.2–M6.7) is last.
+
 ### Step 2 — turn the ROM into Ghidra-ready modules (if Step 1 holds)
 
 - [x] Add `tools/cerom.py` (stdlib only): `romhdr`, `modules`, `files`,
