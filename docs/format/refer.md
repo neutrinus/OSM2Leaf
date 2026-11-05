@@ -1,7 +1,8 @@
 # `REFER001` / `REFER002` families
 
-`REFER001` stores 194 logical databases as `.DAT.cmp` + `.DAT.ind`; `REFER002`
-holds the same logical names uncompressed. The families are sharded by
+`REFER001` stores 194 logical databases as `.DAT.cmp` + `.DAT.ind`.
+`REFER002` is **not** an uncompressed copy: it has only 16 files and is a
+separate EV/charging-station POI layer. The families are sharded by
 **country**, not by arbitrary number.
 
 > **Evidence status:** the common anatomy and several record layouts are

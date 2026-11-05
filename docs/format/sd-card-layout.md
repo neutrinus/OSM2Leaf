@@ -48,7 +48,7 @@ DRSTR001.DAT       11,968 B      directory index
 CMP.LST                19 B      "\SystemSD\REFER001\"
 MAPAL001/          46 tiles      map geometry tiles + LEV3456R.DAT
 REFER001/          194 pairs     compressed address/POI data (.DAT.cmp + .ind)
-REFER002/          194 files     uncompressed address/POI data (.DAT)
+REFER002/           16 files     uncompressed EV/charging POI layer (.DAT)
 RDSTM001/          2 files       road/street data + lookup table
 BICON001/          1 file        icon data
 OPNG/              1 file        PNG-like assets
