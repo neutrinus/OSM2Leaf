@@ -64,16 +64,22 @@ WinCE ROM/XIP form (section bodies, headers stripped).
 
 ## Recovered code and map path
 
-- Ghidra project: `/tmp/opencode/research-firmware/ghidra-project`, processor
-  `SuperH4:LE:32:default`, base `0x02200000`.
-- For the map module's data, `VA = file_offset + 0x02000000` (verified with 21
-  independent pointer literals). Code literals use at least one other delta,
-  so the ROM has section-based (not linear) address placement. This is the
-  main caveat for further analysis.
-- **Verified map path:** the function at `0xc438a4` builds `"\CMP.LST"`, walks
-  the UTF-16 directory string and opens `\SystemSD\REFER001\`. The map
-  module's string pool at `0xdf6000`–`0xdfb000` documents `MESH_ID`/`DIVID`
-  tile reads, `.cmp`/`.ind`, `HCXCmp` file descriptors and map filenames.
+- **Retraction:** `0xc438a4` is a **memory/fd statistics formatter**, not the
+  `CMP.LST` opener. Its pool `0xc439d0 = 0x02df9450` → file `0xdf9450` =
+  `"ize  :%d\r\n"`. The real `"\CMP.LST"` is at `0xdf945d` and has **zero**
+  pointer references in build A.
+- For the map module's `.rdata`, `VA = file_offset + 0x02000000` (21 pointer
+  literals). This is a **data** mapping only.
+- **Code delta is not `+0x02200000`.** A per-instruction `{VA, flag}` table at
+  `0x12fa000–0x132d200` lists all nine known function entries in the
+  **`0x02b0xxxx–0x02b5xxxx`** band; best fit is `VA = file + 0x01f07d5c`
+  (band certain, exact value has a small even alias).
+- **Never apply the data delta to a `jsr` target:** it collides with shared
+  `.rdata` and produces string fragments.
+- The map module `.text` is file `0xc00000–0xc4b000`; its string pool
+  `0xdf6000–0xdfb000` documents `MESH_ID`/`DIVID`, `.cmp`/`.ind`, `HCXCmp`
+  descriptors and map filenames.
+
 ### Section table is a dead end
 
 The 24-byte records at `0x374000`/`0x3e0060` are `o32_rom`-shaped (a clean
@@ -82,38 +88,34 @@ record at `0x3221b0` has `psize == round_up(vsize, 0x200)`), but the table is
 fill (stale build-time offsets), and consecutive records do not share a
 `realaddr − rva` delta. Do not build on it.
 
-### Two deltas that do work
+### New anchors: OBJDLL, STDDLL and zlib copies
 
-For the map module:
+- **`OBJDLL.dll`**: file base `0x7dd200`, export dir `0x82816c`, **1294
+  named exports**. Map Access Layer API: `MAL_DataVol_getSize` (`0x7f5f28`),
+  `MAL_DataVol_getOffset` (`0x7f5f48`), `MAL_DataVol_getAreaRect`
+  (`0x7f5f68`), `OBJ_DiscInfo_readDiscVol` (`0x7f65d8`),
+  `writeDiscVol` (`0x7f710c`), `readPublicLv` (`0x7f66f8`).
+- **`STDDLL.dll`**: file base `0x834200`, **310 exports**.
+- **Six zlib copies** (1.1.3/1.1.4, lbase/dbase, `z_errmsg`):
+  `0x5e5f98`, `0x8b5f10`, `0xa34f48`, `0xe88f78`, `0x15c7e88`, `0x1619848`.
 
-- code: file `0xc00000–0xc4b000` ↔ VA `0x02e00000–0x02e4b000`,
-  `VA = file + 0x02200000`;
-- `.rdata`: file `0xdf6000–0xe10000`, `VA = file + 0x02000000`.
-
-Ghidra recovered 136 functions at `0x02e00000` and 84 at `0x02e10000`; code
-density collapses after `0xc4b000`.
-
-The deltas are **local to this module**, not global. Other modules map the
-same shared `.rdata` at other VAs. A 10-slot pointer array at
-`0xa9cf8c..0xa9cfb8`, minus `0x02200000`, resolves to real UTF-16 strings
-(`\UserSD\VER_INFO\HDD_INFO.TXT`, `SD Import: userdata_type is different
-Sys[0x%x] SD[0x%x]`, …). Accept a new module delta only when at least four
-pointer slots resolve to real strings.
+The 10-slot table at `0xa9cf8c` resolves under data delta `0x02200000`; that is
+a data mapping, not a code delta.
 
 ### Reader-related functions found
 
 | Address | Role |
 | --- | --- |
-| `0xc438a4` | opens `\CMP.LST` (only such site) and returns the handle |
-| `0xc42520` | file-descriptor dump; `+0xC4` is a **type tag** (switch 7…15), not `hcxcmp` |
-| `0xc426a4` | directory-info dump (`dir cnt`, `file cnt`) |
+| `0xc438a4` | memory/fd statistics formatter (not CMP.LST) |
+| `0xc42520` | IOB/fd dump; type tag **`+0xC0`** (7–15), fields `+0xAC…+0xC4` |
+| `0xc426a4` | directory/disc dump; type tag **`+0xB4`** (2, 18/19), second field `+0xBC` |
 | `0xc48380` | writes message-catalogue strings (`MAP_DATA READ`, `DBgetLnk`, …), **not** a DB vtable |
-| `0xc0ebf8` | allocates `0x1ac` (the level-table size) |
+| `0xc0e998` | true entry of the function containing `0xc0ebf8`; `0x1ac` is an argument to `0x2e533e4`, also called with negative values |
 
 **Retraction:** `obj+0x78…+0x9c` is a **message catalogue**, not a vtable; every
 stored value is a string pointer. The four functions `0xc412ca`/`0xc42a7a`/
 `0xc42ba6`/`0xc42e30` are read-only classifiers, not fd writers. The struct is
-a state descriptor keyed by `(0xAC,0xB4,0xB8)`; `+0xC4` is a separate type tag.
+a state descriptor keyed by `(0xAC,0xB4,0xB8)`; `+0xC4` is not the type tag.
 Image-wide, 28 dispatches through `+0x78…+0x9c` exist, but zero in the map
 module; the map module dispatches through `+0x04/+0x08/+0x18`.
 
@@ -366,15 +368,16 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 Firmware RE remains the primary path.
 
-1. **Spare-card matrix** (highest value, no RE): run
-   `tools/hddinfo_variants.py` one line per card, sweep numeric runs 0…5, and
-   read the `SD Import: <field>` message if a console is available. This
-   settles the six-line mapping and card-vs-built-in question.
-2. **`USR_Convert_*`:** locate the module for `Set finished mark (file=%s)`
-   at `0xe4dc18` with a ≥3-string cluster, then walk backwards from the path
-   argument to the open/parse path. The `0x30f008` trail is false.
-3. **Relative call-graph tracing** from `0xc438a4` (CMP.LST), `0xc48380`
-   (message catalogue) and the fd machinery for `.cmp`/`.ind` and `DRSTR`.
-4. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed constraints for the
-   tile writer (not plain-u16 storage).
-5. QEMU remains out of scope for this blocker.
+1. **Find the `0x2e0xxxx` module export table** (`exports.py`). Its RVA range
+   must cover `0x2e00f98`–`0x2e533e4`; once it does, every `jsr @Rn` target
+   becomes a named API and the reader chain closes.
+2. **`.ind` mutation matrix on a spare card** (cheapest empirical test):
+   change `chunk_size` (4th dword) to `0x20000`/`0x8000`, change `chunk_count`
+   by ±1, shift one `chunk_offset`. Accept/reject reveals the `0x10000`
+   compare, count trust and seek-vs-scan.
+3. **SD bus capture** (CLK/CMD/DAT0-3) during boot/map entry; decode
+   CMD17/CMD18 and record the LBA order of `DRSTR001.DAT` vs `.cmp`/`.ind`.
+4. **`USR_Convert_*` path opener** at `0xe4dc18`; multi-string cluster, then
+   walk from the path argument.
+5. Spare-card `HDD_INFO` matrix for the six-line mapping.
+6. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.

@@ -170,6 +170,17 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-325 | Six-line mapping remains unknown; the path-start literal has zero references and module U uses only suffixes; linker suffix merging is the working hypothesis. | UNKNOWN / HYPOTHESIS | M | EXP-2026-11-05-19 |
 | C-326 | Reader location remains unknown; three routes are closed with reasons (0x30f008 object, VerInfoCC, comparator-as-parser). | UNKNOWN | — | EXP-2026-11-05-19 |
 | C-327 | Next direction: `USR_Convert_*`, especially `Set finished mark (file=%s)` at `0xe4dc18`; locate its module with a ≥3-string cluster, then walk from the path argument. | PLANNED | — | EXP-2026-11-05-19 |
+| C-330 | `0xc438a4` is a memory/fd statistics formatter, not the CMP.LST opener; the real `\CMP.LST` is at `0xdf945d` with **zero** pointer references. | VERIFIED (retraction) | H | EXP-2026-11-05-20 |
+| C-331 | `DRSTR001.DAT`, `.ind`, `.IND`, `REFER001.DAT`, `MAPAL001`, `LEV3456R.DAT` have zero literal references; `.cmp` has one (debug dumper). | VERIFIED (negative) | H | EXP-2026-11-05-20 |
+| C-332 | The map module code is **not** `file+0x02200000`. A per-instruction `{VA,flag}` table at `0x12fa000–0x132d200` puts nine known entries in `0x02b0xxxx–0x02b5xxxx`; best fit `+0x01f07d5c`. | VERIFIED (band) / OBSERVED (exact) | H | EXP-2026-11-05-20 |
+| C-333 | `0xc438a4` call targets are code VAs in another module; applying the data delta to a `jsr` target is invalid. | VERIFIED | H | EXP-2026-11-05-20 |
+| C-334 | `OBJDLL.dll` file base `0x7dd200`, 1294 exports incl. `MAL_DataVol_getSize/getOffset/getAreaRect` and `OBJ_DiscInfo_*`. | VERIFIED | H | EXP-2026-11-05-20 |
+| C-335 | `STDDLL.dll` file base `0x834200`, 310 exports. | VERIFIED | H | EXP-2026-11-05-20 |
+| C-336 | Six zlib copies are mapped (1.1.3/1.1.4, lbase/dbase): `0x5e5f98`, `0x8b5f10`, `0xa34f48`, `0xe88f78`, `0x15c7e88`, `0x1619848`. | VERIFIED | H | EXP-2026-11-05-20 |
+| C-337 | FD type tag is `+0xC0` (7–15), not `+0xC4`; dir/disc tag is `+0xB4`, second field `+0xBC`. | VERIFIED (correction) | H | EXP-2026-11-05-20 |
+| C-338 | `0xc0ebf8` is mid-function; `0x1ac` is an argument to `0x2e533e4`, also called with negative values; the level-table allocation claim is unproven. | VERIFIED (retraction) | H | EXP-2026-11-05-20 |
+| C-339 | The data contract is unaffected: `.cmp` chunked zlib and DRSTR 40/324 remain data-confirmed; hardcoded filenames, `0xc438a4` opener and `0x02200000` are contradicted. | VERIFIED | H | EXP-2026-11-05-20 |
+| C-340 | Next trace: find the `0x2e0xxxx` module export table; run `.ind` mutation (chunk_size/count/offset) on a spare card; SD bus capture. | PLANNED | — | EXP-2026-11-05-20 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 

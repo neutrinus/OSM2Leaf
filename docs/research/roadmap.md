@@ -35,7 +35,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | comparator chain settled; VerInfoCC ruled out; `0x30f008` trail is false | next is the `USR_Convert_*` path-opening family, plus the spare-card matrix |
+| Firmware addressing | reader trace corrected (`0xc438a4` not CMP.LST; code delta band `0x02b0xxxx`); OBJDLL/STDDLL anchors | next is the `0x2e0xxxx` export table and the `.ind` mutation matrix |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 

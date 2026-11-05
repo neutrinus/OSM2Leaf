@@ -40,9 +40,17 @@ OSM only after that.
      out as the parser (EXP-2026-11-05-18).
    - [x] `0x30f008` trail: false (free function; `0x01f83368` is a writable
      global; mspart/WAVEAPI bases overlap). Round-10 link retracted.
-   - [ ] Follow `USR_Convert_*`, especially `Set finished mark (file=%s)` at
-     `0xe4dc18`; locate its module with a ≥3-string cluster and walk from the
-     path argument.
+   - [x] `0xc438a4` retracted: memory/fd stats formatter, not CMP.LST; real
+     CMP.LST at `0xdf945d` has zero refs (EXP-2026-11-05-20).
+   - [x] Code delta `+0x02200000` retracted; per-instruction table gives band
+     `0x02b0xxxx–0x02b5xxxx`, best fit `+0x01f07d5c`.
+   - [x] New anchors: OBJDLL (`0x7dd200`, 1294 exports), STDDLL
+     (`0x834200`), six zlib copies.
+   - [ ] Find the `0x2e0xxxx` module export table (RVA range must cover
+     `0x2e00f98–0x2e533e4`).
+   - [ ] Run the `.ind` mutation matrix on a spare card (chunk_size/count/offset).
+   - [ ] SD bus capture (CLK/CMD/DAT) for read order and seek-vs-scan.
+   - [ ] Follow `USR_Convert_*` at `0xe4dc18` with a ≥3-string cluster.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
      `solve_data_delta.py` added.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
