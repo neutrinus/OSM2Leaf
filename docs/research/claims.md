@@ -145,13 +145,17 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | --- | --- | --- | --- | --- |
 | C-060 | A firmware container begins at `0x200000` with `82FX210ECNI.158`, `SUM4`, `470-2824-34`, `NKOK`, `ECEC`, and a size-like `u32 0x01751978`. | VERIFIED | H | hexdump |
 | C-061 | No valid PE file exists in the pre-partition area. | VERIFIED | H | byte-by-byte `MZ` scan validating `e_lfanew` and `PE\0\0` returned 0 files |
-| C-062 | The firmware payload is duplicated at several offsets and separated by `0xff` gaps. | VERIFIED | H | entropy map and byte comparison |
-| C-063 | The firmware uses a custom compression/container instead of plain PE modules. | HYPOTHESIS | M | `HCXCmpLib`/`hcxcmp` strings, `ECEC` marker, packed copies; not yet decoded |
-| C-064 | `ECEC` is a compression magic. | HYPOTHESIS | L | position in the container header |
-| C-065 | `HCXCmp` also applies to map `.DAT` payloads. | HYPOTHESIS | L | contradicted for `REFER001` (plain zlib) and tiles (plain zlib); may apply only to firmware |
+| C-062 | The firmware area contains five payloads / three builds: A `470-2824-34` at `0x200000`/`0x2000000` (byte-identical), B `470-2759-01` at `0x3e00000`/`0x4800000`, C `470-3142-00` at `0x5200000`. | VERIFIED | H | header hashes + part-number search |
+| C-063 | The payload is **uncompressed** SH-4/WinCE code, not a custom-compressed container: entropy ~6.03, capstone decodes clean SH-4, strings/PDB names present. | VERIFIED | H | capstone + strings |
+| C-064 | `ECEC` is a fixed field present in all payloads; reading it as the WinCE ROM signature is a hypothesis. | OBSERVED | M | five payloads |
+| C-065 | `HCXCmp` is **not** used for map `.DAT` payloads (those are plain zlib). Its firmware role is unknown. | VERIFIED (negative) | H | map decompression + strings |
 | C-066 | Firmware strings reference `Navi.exe`, `NaviAPL`, `NaviSearchCC.dll`, `NaviDrawCC.dll`, `NaviRouteCC.dll`, `NaviMapScrollCC.dll`, `NaviRegCC.dll`, `TelemaRouteCC.dll`, `CETUS_SH4`, `C:\WINCE500\PBWorkspaces\10eNavi_UpdateNK`. | VERIFIED | H | `strings` scan |
 | C-067 | Firmware strings reference mesh IDs (`MESHID[0x%08X]`, `Mesh[LV1:0x%08X LV2:0x%08X]`, `mesh=%08X x:y=%07d:%07d`). | VERIFIED | H | `strings` scan |
-| C-068 | The firmware reader/decompressor logic is not yet inspected. | UNKNOWN | — | PE files not extractable yet |
+| C-068 | The map path is partially recovered: function at `0xc438a4` builds `\CMP.LST` and opens `\SystemSD\REFER001\`. | OBSERVED | M | Ghidra/capstone analysis |
+| C-069 | A TFAT16 volume starts at image offset `0x1C8400400` (OEM `MSWIN4.1`), with a WinCE TFAT hidden root (`DONT_DEL*`). | VERIFIED | H | FAT boot sector |
+| C-085 | `SUM4` is a tagged checksum, but CRC-32, Adler-32 and plain word sums were rejected; the algorithm is unknown. | UNKNOWN | — | checksum probes |
+| C-086 | For the map module's data, `VA = file_offset + 0x02000000`; code literals use at least one other delta, so the ROM is section-based. | OBSERVED | M | 21 pointer literals |
+| C-087 | The pre-partition payload length is declared as `0x01752c88` (24,456,328 bytes) at `0x200000`; the bytes immediately after that offset are not a zero gap. | VERIFIED | H | header + byte check |
 
 ## Market / version
 

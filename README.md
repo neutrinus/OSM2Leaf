@@ -81,15 +81,15 @@ offsets live in [`docs/format/`](docs/format/).
   40 name-first 40-byte node records, then 32-byte directory entries (13-byte
   name + metadata, logical size at `+0x1c`). Each node's listing matches its
   own directory; see [`docs/format/drstr.md`](docs/format/drstr.md).
-- **Firmware is packed, not a plain WinCE image.** The 100 MB before the FAT
-  partition contains Clarion boot sectors and a firmware container starting
-  at `0x00200000` with the strings `82FX210ECNI.158`, `SUM4`,
-  `470-2824-34`, `NKOK` and the marker `ECEC`. No valid PE files can be carved
-  without unpacking it. Firmware strings reference `HCXCmpLib` / `hcxcmp`
-  and SH-4 WinCE binaries such as `Navi.exe`, `NaviAPL`,
-  `NaviSearchCC.dll`, `NaviDrawCC.dll`, `NaviRouteCC.dll`.
-- **Post-partition tail.** The last 402,652,160 bytes of the image are not
-  part of the FAT partition and are almost entirely non-zero. Purpose unknown.
+- **Firmware is an uncompressed Clarion wrapper around a WinCE ROM image.**
+  The 100 MB before the FAT partition contains Clarion boot sectors and a
+  firmware container at `0x00200000` (`82FX210ECNI.158`, `SUM4`,
+  `470-2824-34`, `NKOK`, `ECEC`). There are **no PE files**; the payload is
+  SH-4/WinCE ROM code (capstone decodes it cleanly). Ghidra analysis recovered
+  the code path that opens `\CMP.LST` and `\SystemSD\REFER001\`.
+- **Post-partition tail.** The last 402,652,160 bytes are not part of the FAT
+  partition. They contain a TFAT16 volume at `0x1C8400400` and `0xff` padding;
+  the rest is unexplained.
 
 ## Repository layout
 
