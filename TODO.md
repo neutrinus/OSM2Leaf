@@ -563,8 +563,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 ## M4 — Data formats (no firmware or hardware needed)
 
-- [ ] **M4.1 — `RDSTM001`: decode one record and one node/link tuple**
-  - Status: in progress · Owner: task/m4.1-rdstm-record · Critical: yes
+- [x] **M4.1 — `RDSTM001`: decode one record and one node/link tuple**
+  - Status: done · Owner: task/m4.1-rdstm-record · Critical: yes
+  - Result: EXP-2026-11-05-M4.1-rdstm-record (`tools/rdstm_record.py`; synthetic self-test OK; 10 real rows at 0x1000 round-trip; field meanings still HYPOTHESIS)
   - Depends: —
   - Input: `tools/rdstm_schema.py`, `tools/rdstm_scan.py`, `ROOT`,
     `docs/format/rdstm.md` (status table, ranked unknowns).
