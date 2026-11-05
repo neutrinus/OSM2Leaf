@@ -526,6 +526,8 @@ Built without vendor data; every row states what is synthetic-only.
 | C-566 | The EU 2011 tile space is a 63-cell addressable lattice (rows `B28`–`B68`, columns `R048`–`R078`) of which 45 exist as files; the 18 sea/empty cells cannot be enumerated without vendor data, so lattice-derived counts are upper bounds. | OBSERVED | M | `docs/format/map-tiles.md`; EXP-2026-11-05-45 |
 | C-567 | `tools/build.py --dry-run` estimates 44.6 MB (`dolnoslaskie-detail`), 178.4 MB (`poland-full`) and 253.4 MB (`europe-motorways`) from documented road budgets plus placeholder refer/POI/admin budgets; every breakdown is labelled ESTIMATE and no writer exists yet. | OBSERVED (tool) | M | EXP-2026-11-05-45; `python3 tools/build.py --profile … --dry-run` |
 
+| C-568 | `tools/cerom.py --selftest` pins the parser on a generated CE ROM: all 22 ROMHDR fields, `va2file`/`file2va` round-trip, TOC module/file names, per-section flags and file offsets, named exports and a corrupt-`ECEC` negative case (46 checks). Images A/B/C are still not pinned end-to-end. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-47; `python3 tools/cerom.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

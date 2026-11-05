@@ -135,9 +135,10 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
 
 #### M1 — Firmware tooling (finish the address model)
 
-- [ ] **M1.1** `cerom.py` unit test: pin `romhdr`/`va2file`/`exports` results
+- [x] **M1.1** `cerom.py` unit test: pin `romhdr`/`va2file`/`exports` results
   for images A, B, C against fixed expected values (use a tiny synthetic ROM,
   not vendor bytes). *Done when* `tools/selftest.py` runs it.
+  Done: `tools/cerom.py --selftest` (46 checks, EXP-2026-11-05-47, C-568).
 - [ ] **M1.2** Identify the compression of one `IMAGE_SCN_COMPRESSED` section
   (`NaviMapCC.dll` `.data`, psize `0x2c6`, vsize `0x5b8`): try CE
   `CECompress`/LZX variants. *Done when* output length equals `vsize` and the
