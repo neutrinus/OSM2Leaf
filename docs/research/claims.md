@@ -530,6 +530,8 @@ Built without vendor data; every row states what is synthetic-only.
 
 | C-569 | `tools/cerom.py memmap` (alias `ghidra`) emits the `rommap.py` section table for one CE segment: one block per `o32_rom` at `o32_realaddr` (`size` = `psize`, plus `vsize`/`rwx`), flags `IMAGE_SCN_COMPRESSED` and never emits compressed bytes as data, optionally writes a `createMemoryBlock` Ghidra script, and passes `rommap.py convert --skip-compressed` + `validate`. Synthetic ROM only. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-48; `python3 tools/cerom.py --selftest` (93 checks) |
 
+| C-570 | `tools/cecompress.py` decodes two candidate CE-ROM codecs without vendor data: 4 KiB-window LZSS (flag byte, 0=literal/1=match, 12-bit offset, 4-bit length−3) and LZX block framing with an MSB-first 16-bit-LE bit reader, full decoding of stored blocks, and explicit `UNSUPPORTED` for verbatim/aligned; `detect` marks a candidate `confirmed` only when the decoded size equals `expected_size`. 186 checks prove symmetry only, so the codec used by real `IMAGE_SCN_COMPRESSED` sections remains UNKNOWN. | VERIFIED (tool, synthetic) | M | EXP-2026-11-05-52; `python3 tools/cecompress.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
