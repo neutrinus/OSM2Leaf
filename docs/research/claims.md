@@ -202,6 +202,15 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-181 | For the map module, two deltas suffice: code `VA = file + 0x02200000` (`0xc00000–0xc4b000`), `.rdata` `VA = file + 0x02000000` (`0xdf6000–0xe10000`). | VERIFIED | H | Ghidra code density + 21 literals |
 | C-182 | Reader-related functions: `0xc438a4` opens `\CMP.LST`; `0xc42520` dumps a file descriptor incl. `hcxcmp`; `0xc426a4` dumps dir/file counts; `0xc48380` installs `MAP_DATA READ`; `0xc0ebf8` allocates `0x1ac`. | OBSERVED | H | EXP-2026-11-05-05 |
 | C-183 | The `.ind`/`.cmp` reader, `DRSTR` parser and tile reader are not located yet: filenames use a fixed 16-byte table at `0xdf8120`, and constants (`0x10000`, `40`, `0x1ac`) are built from immediates+shifts. | UNKNOWN | — | EXP-2026-11-05-05 |
+| C-200 | Map filenames have **zero literal references** in the payload for every plausible delta; readers are name-driven through `DRSTR001.DAT` and `CMP.LST`. | VERIFIED (negative) | H | EXP-2026-11-05-07 |
+| C-201 | The 16-byte table at `0xdf8120` is reporting/update-tool data, not the runtime tile/file selector. | OBSERVED | M | EXP-2026-11-05-07 |
+| C-202 | The two-delta model is local to the module at `0xc00000–0xc4b000`; shared `.rdata` is mapped at other VAs elsewhere. Accept a delta only when ≥4 pointer slots resolve to real strings. | VERIFIED | H | 10-slot table at `0xa9cf8c` |
+| C-203 | Map-code check is a text/field comparison of `HDD_INFO.TXT` (`Sys[...] SD[...]`, `userdata_type`, `manufacturer_id`, `destination_id`), not crypto. | VERIFIED | H | strings |
+| C-204 | The `0x06000000` copy is likely the system-side reference for that comparison; the exact line↔field mapping is unknown. | HYPOTHESIS | M | string context |
+| C-205 | The literal `"DIFFERENT MAP CODE"` is absent from build A; nearest hits are unrelated. | VERIFIED (negative) | H | string scan |
+| C-206 | No runtime map-content checksum beyond zlib Adler-32; the ASN.1/crypto provider is not linked to the map path. | VERIFIED | H | xref/call scan |
+| C-207 | fd field `+0xC4` is a type tag (switch 7…15), not `hcxcmp`. | VERIFIED | H | decompilation |
+| C-208 | `DRSTR` layout is confirmed file-side but the parser code is silent (no 40-byte stride multiply in the map module). | VERIFIED / UNKNOWN | H | file arithmetic + code scan |
 
 ## Validation / checksums
 

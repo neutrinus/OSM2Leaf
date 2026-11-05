@@ -93,24 +93,67 @@ For the map module:
 Ghidra recovered 136 functions at `0x02e00000` and 84 at `0x02e10000`; code
 density collapses after `0xc4b000`.
 
+The deltas are **local to this module**, not global. Other modules map the
+same shared `.rdata` at other VAs. A 10-slot pointer array at
+`0xa9cf8c..0xa9cfb8`, minus `0x02200000`, resolves to real UTF-16 strings
+(`\UserSD\VER_INFO\HDD_INFO.TXT`, `SD Import: userdata_type is different
+Sys[0x%x] SD[0x%x]`, …). Accept a new module delta only when at least four
+pointer slots resolve to real strings.
+
 ### Reader-related functions found
 
 | Address | Role |
 | --- | --- |
 | `0xc438a4` | opens `\CMP.LST` (only such site) and returns the handle |
-| `0xc42520` | file-descriptor dump; prints `.cmp` and `hcxcmp` at `+0xAC…+0xC8` |
+| `0xc42520` | file-descriptor dump; `+0xC4` is a **type tag** (switch 7…15), not `hcxcmp` |
 | `0xc426a4` | directory-info dump (`dir cnt`, `file cnt`) |
 | `0xc48380` | installs `MAP_DATA READ START/END` / `RGD_DATA READ START/END` |
 | `0xc0ebf8` | allocates `0x1ac` (the level-table size) |
 
+### Readers are name-driven
+
 The `.ind`/`.cmp` reader, `DRSTR` parser and tile reader are **not located
-yet**. Reasons: filenames have no direct pointer (only a fixed 16-byte table
-at `0xdf8120`), and constants such as `0x10000`, `40` and `0x1ac` are built
-from immediates+shifts, so literal-pool search does not find them.
+yet**, and filename-xref search cannot find them:
+
+- map filenames (`REFER001.DAT`, `MAPAL001`, `LEV3456R.DAT`,
+  `DRSTR001.DAT`, `.ind`) have **zero literal references** anywhere in the
+  payload, for every plausible delta;
+- names are supplied at runtime by the `DRSTR001.DAT` directory tree, with
+  `CMP.LST` giving the root directory;
+- the 16-byte table at `0xdf8120` is reporting/update-tool data, not the
+  runtime selector;
+- constants such as `0x10000`, `40` and `0x1ac` are built from
+  immediates+shifts.
+
+Anchor instead on the descriptor struct (`obj+0x78…+0x9c`) and the fd field
+setters.
 
 `HCXCmp`/`hcxcmp` strings exist, but no public documentation was found and the
 map `.DAT` payloads themselves use plain zlib. Treat `HCXCmp` as a
 firmware-side library, not as the map compression.
+
+## Map-code check
+
+The check is **textual/field-based, not cryptographic**. Strings at
+`0xe53368`/`0xe533a8`:
+
+```
+\SystemSD\VER_INFO\HDD_INFO.TXT
+\UserSD\VER_INFO\HDD_INFO.TXT
+SD Import: userdata_type is different Sys[0x%x] SD[0x%x]
+SD Import: manufacturer_id is different Sys[0x%x] SD[0x%x]
+SD Import: destination_id is different Sys[0x%x] SD[0x%x]
+SD Import : application type not correct.
+```
+
+The image embeds a byte-identical `HDD_INFO.TXT` at `0x06000000`; it is
+probably the system-side reference. The exact line↔field mapping is unknown.
+The literal `"DIFFERENT MAP CODE"` is absent from build A; nearest hits are
+unrelated.
+
+No runtime map-content checksum was found beyond zlib Adler-32. A generic
+ASN.1/crypto provider exists (`0x1668070`, `md5WithRSASignature`, `desEDE`, …)
+but nothing links it to the map path.
 
 ## TFAT16 volume
 
@@ -140,12 +183,12 @@ round-trip validator for the whole-card feedback loop.
 
 ## Next steps
 
-1. **Dual-base Ghidra:** import at `0x02000000` for `.rdata` alongside the
-   existing `0x02200000` code project; export string xrefs.
-2. **File-descriptor API:** walk from `0xc42520`; the setter of `hcxcmp` is
-   the `.cmp` decompression entry.
-3. **Filename table:** find the user of the 16-byte table at `0xdf8120`
-   (scaled by 16) to locate the `MAPAL001`/`LEV3456R` selector and tile reader.
-4. Then find `inflate`/`uncompress` callers and the `.ind` parser.
+1. **Descriptor struct:** find `jsr @rN` where `rN` is loaded from
+   `obj+0x78…+0x9c`; walk to the `.ind` parse.
+2. **fd setters:** decompile `0xc412ca`, `0xc42a7a`, `0xc42ba6`, `0xc42e30`;
+   locate the `.cmp`/zlib entry.
+3. **HDD_INFO comparison:** find the `shll2`-scaled index into the table at
+   `0xa9cf8c` and its caller; map the six lines to fields.
+4. Find `inflate`/`uncompress` callers and the `.ind` parser.
 5. Diff builds A/B/C for the unit-ID → build selection logic.
 6. Only then decide whether a custom QEMU machine is worth the effort.
