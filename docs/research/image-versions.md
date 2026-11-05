@@ -75,6 +75,46 @@ Clarion part number.
   as 2016. `13-14` has a stale `VER_INFO` node in `DRSTR001.DAT` but no
   `VER_INFO/` folder.
 
+## US 2011 sample
+
+`archive/leaf_2011_usa_sddump.img` is a North America ZE0 2011 card:
+
+- SHA-256: `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383`
+- size: 8,057,257,984 bytes
+- FAT label: `QSD-301-103`
+- `HDD_INFO.TXT`:
+  - `QSD-301-100`
+  - `QSD-301-103`
+  - `02-100100-00`
+  - `SDC08-EVNAM`
+  - `10-30`
+  - `470282203030`
+- firmware version: `X210NBNI.147`
+- `MMAIN001.DAT`: `DATA VERSION 10/08/12/01`
+- CE ROM: 151 modules, 1 file, physical range
+  `0x8cae1000`–`0x8e2788e0`
+- map coverage: North America, lat `16.00..80.00 N`,
+  lon `-172.00..-52.00 E`
+- `MAPAL001`: 113 files (112 `BxxRyyR.DAT` + `LEV3456R.DAT`)
+- `REFER001`: 58 `.cmp`/`.ind` pairs, 3,743,680,000 logical bytes
+- `REFER001` shards: 11 (`ADDRE001..011`, `POINT001..011`, etc.)
+- `REFER002`: only `COORD001.DAT` and `POINT001.DAT`
+- top-level has `XMD` instead of `TMC`
+- `SPEECH` has only `CF` and `US`
+
+Validator results on this sample:
+
+- `cardcheck.py --image`: PASS after handling market-specific top-level
+  names and 13-byte DRSTR names.
+- `l2check.py --no-golden --ignore-dump-artifacts`: PASS for census,
+  DRSTR round-trip and `.cmp`/`.ind` round-trip (58/58).
+- L2 tile checks are skipped because the EU golden tile names are absent;
+  tile byte-identical rebuilds must be run per available tile.
+- `cmpind_writer.py verify`: 58/58 OK.
+
+The card is structurally valid. Its differences from the EU 2011 image are
+market and map coverage, not corruption.
+
 ## 2019 is a different engine
 
 `ENV200_2019_25920-6WX1C-EUR.img` is **not** ZE0:

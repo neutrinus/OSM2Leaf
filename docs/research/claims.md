@@ -417,7 +417,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-070 | The US 2011 card layout is assumed to be close to the EU one but is not verified. | HYPOTHESIS | L | same ZE0 generation, different market |
+| C-070 | The US 2011 card uses the same `CLA-NAVI05-01` / `X08-02-00` format family as the EU 2011 card, but with market-specific data: label `QSD-301-103`, region code `SDC08-EVNAM`, firmware `X210NBNI.147`, 11 shards, 113 North America tiles, `XMD` instead of `TMC`, and `HDD_INFO` line 1 `QSD-301-100`. | VERIFIED | H | cardcheck, l2check, `tools/ce_rom_parse.py`; EXP-2026-11-05-35 |
 | C-071 | Newer map sets contain additional files such as `TFTBL001` absent from the 2011 EU image. | OBSERVED | M | wiki screenshot; must be confirmed against a real newer image |
 | C-072 | The exact meaning of `SDC08-EVEUR` is unknown (likely map/region/version code). | UNKNOWN | — | only appears in `HDD_INFO.TXT` |
 | C-073 | In the EU image, `\x82FX210ECNI.158` starts at `0x00200014` and the version digits `158` start at `0x0020001f`. | VERIFIED | H | `leaf2011.img` hexdump |
