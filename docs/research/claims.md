@@ -197,6 +197,15 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-365 | Parser, card-vs-built-in and six-line mapping remain unknown; only the `Sys`/`SD`, `0..5`, `0x00A2` constraints are proven. | UNKNOWN | — | EXP-2026-11-05-22 |
 | C-366 | The spare-card matrix is final: 89 length-preserving 72-byte variants with a six-step plan and message oracle. | VERIFIED | H | EXP-2026-11-05-22 |
 | C-367 | Next: parse the XIP section table; `ECEC` at container `+0x240` and `NKOK` at `+0x1fc` are the leads. | PLANNED | — | EXP-2026-11-05-22 |
+| C-370 | The ROM export directory is 9 dwords (timestamp first); a corrected scan finds 135 export modules. | VERIFIED | H | EXP-2026-11-05-23 |
+| C-371 | No module's RVA range covers `0x2e00f98–0x2e533e4`; `0x2e0xxxx` is an **import-thunk area**, not an export module. | VERIFIED (negative) | H | EXP-2026-11-05-23 |
+| C-372 | The 86-entry thunk table at `0x1724eb8–0x17252c0` uses 12-byte thunks (best delta `0x16e248c`), IAT `0x1ab9000–0x1ab9440`; import names at `0x1708000–0x170a200`. | VERIFIED | H | EXP-2026-11-05-23 |
+| C-373 | The underlying module is a non-exporting shared library at file ≈`0x171c000–0x1724eb8`, VA ≈`0x2e00000`; its name is unknown. | OBSERVED | M | EXP-2026-11-05-23 |
+| C-374 | MAL chain: `OBJ_DiscInfo_readDiscVol` → `MAL_DataVol_getOffset` → `getSize`; OBJDLL VA base `0x03480000`; only 3 call sites, all in OBJDLL. | VERIFIED | H | EXP-2026-11-05-23 |
+| C-375 | The fd/IOB layer is in `NaviStateCC.DLL`, file base `0xc32200`; it is table-dispatched. | VERIFIED | H | EXP-2026-11-05-23 |
+| C-376 | The data contract is unchanged: `.cmp` zlib and `.ind`/DRSTR layouts are data-confirmed; firmware is silent. | VERIFIED | H | EXP-2026-11-05-23 |
+| C-377 | `tools/ind_mutate.py` generates 8 `.ind` variants (chunk_size/count/offset) for the spare-card matrix. | VERIFIED | H | EXP-2026-11-05-23 |
+| C-378 | Next: name the 86 thunks via the import descriptor (`FirstThunk=0x1ab9000`, `COREDLL.dll`) and scan NaviStateCC for ≥3 fd thunks + local zlib. | PLANNED | — | EXP-2026-11-05-23 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 

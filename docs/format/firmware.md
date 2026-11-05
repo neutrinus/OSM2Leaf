@@ -117,6 +117,38 @@ fill (stale build-time offsets), and consecutive records do not share a
 The 10-slot table at `0xa9cf8c` resolves under data delta `0x02200000`; that is
 a data mapping, not a code delta.
 
+### `0x2e0xxxx` is an import-thunk area
+
+A corrected export scan (export directory is **9 dwords**, timestamp first)
+finds **135 export modules**, but **no module's RVA range covers
+`0x2e00f98–0x2e533e4`**. The band is the navi modules' import-thunk area:
+
+- 86-entry table at `0x1724eb8–0x17252c0`;
+- 12-byte thunks `mov.l @(disp,PC),r0; mov.l @r0,r0; jmp @r0; nop;
+  .long iat_slot`, best delta `0x16e248c`;
+- IAT slots are RAM `0x1ab9000–0x1ab9440`; the loader writes the pointers;
+- import names at `0x1708000–0x170a200` (`COREDLL.dll`, `BT_DB`, `WS2`,
+  `OBJDLL`, `STDDLL`, `ICLDLL`, `DCM_API`, `Cws_Apl`, `TelemaDLCCLib`).
+
+The underlying non-exporting shared library is at file
+≈`0x171c000–0x1724eb8`, VA ≈`0x2e00000`; its name is unknown.
+
+### MAL volume chain and NaviStateCC
+
+```
+OBJ_DiscInfo_readDiscVol (0x7f65d8, VA 0x034993d8)
+  -> MAL_DataVol_getOffset (0x7f5f48, VA 0x03498d48)
+  -> MAL_DataVol_getSize   (0x7f5f28, VA 0x03498d28)
+  -> read at base + offset*2, length size*2
+```
+
+OBJDLL VA base `0x03480000` is proven by three literal sites. Only three sites
+call `MAL_DataVol_getOffset/getSize`, all in OBJDLL (`0x7f6694`, `0x7f6aa4`,
+`0x7f6b84`); the map module uses a higher-level wrapper still missing.
+
+The fd/IOB layer is in `NaviStateCC.DLL`, file base `0xc32200` (`0xc42520`,
+`0xc426a4`, `0xc438a4`), table-dispatched.
+
 ### Reader-related functions found
 
 | Address | Role |
@@ -426,9 +458,10 @@ Firmware RE remains the primary path.
    a file offset and unblocks all cross-module calls.
 2. Re-resolve the `0x0367–0x0369` helpers and the map-module delta; then reach
    the `HDD_INFO` open/split/parse.
-3. **Find the `0x2e0xxxx` module export table** (`exports.py`). Its RVA range
-   must cover `0x2e00f98`–`0x2e533e4`; once it does, every `jsr @Rn` target
-   becomes a named API and the reader chain closes.
+3. **Name the 86 import thunks:** find the 20-byte import descriptor with
+   `FirstThunk = 0x1ab9000` and `Name = COREDLL.dll`; then scan
+   `NaviStateCC` (`0xc32200–0xc4c200`) for a function calling ≥3 fd thunks
+   **and** a local zlib (`lbase`/`dbase`/`z_errmsg`).
 4. **`.ind` mutation matrix on a spare card** (cheapest empirical test):
    change `chunk_size` (4th dword) to `0x20000`/`0x8000`, change `chunk_count`
    by ±1, shift one `chunk_offset`. Accept/reject reveals the `0x10000`

@@ -60,7 +60,15 @@ OSM only after that.
    - [ ] Parse the `romimage` XIP section table (`file ↔ VA ↔ size`); leads:
      `ECEC` at `+0x240`, `NKOK` at `+0x1fc`.
    - [ ] Re-resolve `0x0367–0x0369` and the map-module delta; reach the parser.
-   - [ ] Find the `0x2e0xxxx` export table.
+   - [x] `0x2e0xxxx` is an import-thunk area, not an export module; 86
+     thunks, IAT `0x1ab9000`, import names at `0x1708000`.
+   - [x] MAL chain (`OBJ_DiscInfo_readDiscVol` → `MAL_DataVol_getOffset` →
+     `getSize`) and NaviStateCC fd layer anchored.
+   - [ ] Name the 86 thunks via the import descriptor (`FirstThunk=0x1ab9000`,
+     `COREDLL.dll`).
+   - [ ] Scan NaviStateCC for ≥3 fd thunks + local zlib (`lbase`/`z_errmsg`).
+   - [ ] `tools/ind_mutate.py` generates 8 `.ind` variants for the spare-card
+     matrix.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
      `solve_data_delta.py` added.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
