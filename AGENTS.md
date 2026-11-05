@@ -25,7 +25,9 @@ take a task". The short version:
    names (`[ID]` in the title).
 2. **First commit:** change only your task's line in `TODO.md` to
    `Status: in progress · Owner: <branch>` (subject `todo: start <ID>`),
-   push, and open a draft PR `[ID] short title`.
+   then **`git push -u origin <branch>` immediately**, before any other
+   work, and open a draft PR `[ID] short title`. An unpushed in-progress
+   commit claims nothing: no other agent can see it.
 3. Do the work on that branch: one task per PR, only the files the task
    names. Name EXP records `EXP-YYYY-MM-DD-<ID>-slug.md` and use only the
    task's reserved claim IDs.
