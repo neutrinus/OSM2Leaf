@@ -526,22 +526,34 @@ P-code emulation headlessly. Use those for selected routines; use the Python
 round-trip validator for the whole-card feedback loop. The full option matrix
 is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
-## CE ROM segment recovery (planned, not yet verified)
+## CE ROM segment recovery (verified, build A)
 
-The next recovery route is the standard Windows CE ROM segment embedded in the
-Clarion wrapper, **not** further global-VA/delta guessing. Leads to validate
-with a tool such as `extract-wince-rom` or equivalent `B000FF`/NB0/XIP logic
-before treating them as facts:
+`tools/ce_rom_parse.py` now parses the embedded Windows CE ROM segment directly.
+Build A's segment starts at image offset `0x00200200`:
 
-- CE ROM segment starts at image offset `0x00200200`;
-- `ECEC` at `+0x40` (i.e. `0x00200240`);
+- `ECEC` at `0x00200240`;
 - `pTOC = 0x8e232978`;
-- size `0x01751978`.
+- size `0x01751978`;
+- ROMHDR at file offset `0x01951b78`;
+- 149 modules, 1 file;
+- CPU `0x01a6` (SH-4);
+- physical range `0x8cae1000`–`0x8e233c88`.
 
-These values are **leads from the container header**, not verified extractions.
-Do not claim module bases or reader locations until a parser actually runs and
-validates the TOC (module/file counts, `physfirst`/`physlast`, copy entries,
-module names such as `Navi.exe`/`Navi*CC.dll`/`OBJDLL`/`STDDLL`).
+The TOC resolves module names including `gwes.exe`, `fatfsd.dll`,
+`diskcache.dll`, `fatutil.dll`, `shell.exe`, `toolhelp.dll`, `commctrl.dll`,
+`OBJDLL.dll`, `STDDLL.dll`, `Navi.exe` and `NaviStateCC.dll`.
+
+The same parser also recovers builds B and C and their duplicate copies:
+
+| Build | Segment base | Modules | Files | Physical range |
+| --- | --- | ---: | ---: | --- |
+| A | `0x00200200` / `0x02000200` | 149 | 1 | `0x8cae1000`–`0x8e233c88` |
+| B | `0x03e00200` / `0x04800200` | 91 | 11 | `0x88000000`–`0x886e18a4` |
+| C | `0x05200200` | 88 | 10 | `0x88000000`–`0x886683d8` |
+
+This does **not** mean the map readers are located. It replaces global
+VA-delta guessing with module names and bases for the next Ghidra step. See
+`EXP-2026-11-05-33`.
 
 ## Next steps
 

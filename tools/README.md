@@ -282,6 +282,21 @@ census, `DRSTR`/`MMAIN` hashes, selected file hashes and the tile geometry
 digests. It contains no vendor data, only hashes and counts. Update it only
 when a decoder change is intentional, and record the reason in an experiment.
 
+## `ce_rom_parse.py`
+
+Parse the embedded Clarion/Windows CE ROM segments and print their TOCs.
+
+```bash
+python3 tools/ce_rom_parse.py \
+  --image archive/images/LEAF_2011-2012_QSD-309-101_navi158_eu.img \
+  --out /tmp/ce-rom-report.json
+```
+
+Expected on the EU 2011 sample: five valid SH-4 segments; build A has
+`149` modules and `1` file, physical range `0x8cae1000`–`0x8e233c88`, and
+resolves names such as `Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll` and
+`STDDLL.dll`.
+
 ## Conventions
 
 - Read-only. Scripts that write require an explicit output path.

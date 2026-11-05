@@ -503,9 +503,9 @@ See [`docs/research/build-profiles.md`](docs/research/build-profiles.md) and
 Do not continue the old global-VA/delta guessing. Use the Clarion wrapper’s
 standard Windows CE ROM segment header instead.
 
-- [ ] Extract the firmware segment starting at image offset `0x00200200`
-  (ECEC at `+0x40`, `pTOC = 0x8e232978`, size `0x01751978`) with a CE ROM
-  parser such as `extract-wince-rom` or equivalent `B000FF`/NB0/XIP logic.
+- [x] Extract the firmware segment starting at image offset `0x00200200`
+  (ECEC at `+0x40`, `pTOC = 0x8e232978`, size `0x01751978`) with
+  `tools/ce_rom_parse.py` (149 modules, 1 file, SH-4; key modules recovered).
 - [ ] Validate the extracted TOC: module count, file count, `physfirst/physlast`,
   copy entries, and module names (`Navi.exe`, `Navi*CC.dll`, `OBJDLL`,
   `STDDLL`).
