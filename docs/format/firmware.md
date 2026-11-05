@@ -134,11 +134,31 @@ ROM sections use independent `(file offset, VA)` pairs, and the shared
 clusters of ≥4 pointer slots are trustworthy. Heavily-importing modules also
 make call-target statistics useless for delta recovery.
 
-The next target is the copy/section descriptor list at `0x1952b00` (32-byte
-records: two VAs ~0x70 apart, a page-aligned value, size `0xc4`, flags
-`0x00001007`/`...1006`), plus export tables (`TFAT.dll`/`FSDMGR` names at
-`0x29eec0–0x29f700`). Builds B/C can serve as a Rosetta stone for relative
-placement.
+### Export-directory anchor works
+
+PE export directories give a stable file base. A directory at `0x29f26c`
+solves to **`TFAT.dll`, file base `0x28e200`**: 35/35 name-RVAs resolve and
+34/35 exports are SH-4 prologues. Therefore `file = file_base + RVA` holds
+throughout a module.
+
+`module_scan.py` maps **26 modules** (TFAT, DISKCACHE, FATUTIL, OLEAUT32, …).
+VA base is recovered by constant `V − RVA` across exports; OLEAUT32
+(`Vb = 0x03930000`) is verified with 282 literal sites, 166 of them `jsr`.
+
+### `0x1952b00` is not a section map
+
+The 32-byte records are a **RAM copy list** (`srcVA`, `srcVA+0x70`, page-aligned
+`dstVA`, flags, timestamp ≈2011, size, VA). There is no file offset, sizes do
+not tile, and the value is not a CRC32. Retracted as a section-map lead.
+
+### Navi modules lack exports
+
+The navi/map modules are EXEs or non-exporting DLLs; there is no export
+directory in `0x44xxxx–0x1952c88`. The import-descriptor anchor is the way in,
+but the first pass is noisy (`Navi.exe`≈`0x8581f4`, `MapCC.DLL`≈`0xab79d4`,
+…), with unaligned bases and truncated names. Harden it by requiring
+`OriginalFirstThunk` to point at ≥4 VA-like thunks and the IAT to contain a
+run of VAs belonging to one of the 26 mapped modules.
 
 ### Readers are name-driven
 
@@ -215,13 +235,12 @@ round-trip validator for the whole-card feedback loop.
 
 ## Next steps
 
-1. **Decode the copy/section descriptor list at `0x1952b00`** (32-byte
-   records). Success = `(VA,size)` pairs that tile a VA range.
-2. **Anchor on export tables:** `TFAT.dll`/`FSDMGR` names at
-   `0x29eec0–0x29f700` map name → RVA; file offset + RVA ⇒ module base.
-3. **Use builds B/C as a Rosetta stone:** identical functions at different
-   file offsets pin relative placement.
-4. With a module base, re-run `xref_index.py`, `vtable_scan.py`,
-   `solve_delta.py` and `func.py`.
-5. Then find `uncompress`/`.ind` callers and the `HDD_INFO` comparator.
-6. Only then decide whether a custom QEMU machine is worth the effort.
+1. **Harden the import anchor:** require `OriginalFirstThunk` to point at ≥4
+   VA-like thunks and the IAT to contain a run of VAs belonging to one of the
+   26 mapped modules.
+2. Recover the navi/map module bases; then re-run `xref_index.py`,
+   `vtable_scan.py`, `solve_delta.py`, `func.py`.
+3. Use builds B/C as a Rosetta stone if the anchor still fails.
+4. Then find `uncompress`/`.ind` callers, the tile reader and the `HDD_INFO`
+   comparator.
+5. Only then decide whether a custom QEMU machine is worth the effort.

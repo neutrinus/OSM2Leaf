@@ -82,3 +82,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-08](EXP-2026-11-05-08-poi-joins.md) | POI page mapping, point roles and icons | done (icon-id mapping open) |
 | [EXP-2026-11-05-09](EXP-2026-11-05-09-firmware-round4.md) | Firmware round 4: retractions and Lib.out32 | done (readers still not located) |
 | [EXP-2026-11-05-10](EXP-2026-11-05-10-firmware-round5.md) | Firmware round 5: section placement is the blocker | done (readers still not located) |
+| [EXP-2026-11-05-11](EXP-2026-11-05-11-firmware-exports.md) | Export anchors and the RAM copy list | done (26 modules mapped; navi modules open) |

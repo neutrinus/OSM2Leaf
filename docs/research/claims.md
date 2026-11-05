@@ -230,6 +230,13 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-233 | Root cause: ROM sections use independent `(file offset, VA)` pairs and shared `.rdata` has ≥3 deltas; single literal→string hits are unreliable. | VERIFIED | H | EXP-2026-11-05-10 |
 | C-234 | Record `0x3221b0` decodes only if `dataptr` is payload-relative (`0x11000 → 0x211000`), implying delta `0x8c97b000`; 0/21 literals land on prologues. | OBSERVED | M | open lead |
 | C-235 | Next targets: copy/section descriptor list at `0x1952b00` (32-byte records) and export tables at `0x29eec0–0x29f700`. | PLANNED | — | EXP-2026-11-05-10 |
+| C-240 | PE export directories give a stable file base: TFAT.dll at `0x28e200`, 35/35 name-RVAs resolve, 34/35 exports are SH-4 prologues; `file = Fb + RVA`. | VERIFIED | H | EXP-2026-11-05-11 |
+| C-241 | `module_scan.py` maps 26 modules (TFAT, DISKCACHE, FATUTIL, OLEAUT32, …). | VERIFIED | H | EXP-2026-11-05-11 |
+| C-242 | VA base is recovered as constant `V − RVA` across exports; OLEAUT32 `Vb=0x03930000` verified with 282 literal sites (166 `jsr`). | VERIFIED | H | EXP-2026-11-05-11 |
+| C-243 | `0x1952b00` is a RAM copy list, not a section map: no file offsets, sizes do not tile, and the value is not a CRC32. | VERIFIED (negative) | H | EXP-2026-11-05-11 |
+| C-244 | The navi/map modules have no export directory in `0x44xxxx–0x1952c88`. | VERIFIED (negative) | H | EXP-2026-11-05-11 |
+| C-245 | Import-descriptor candidates for navi modules are noisy/unverified; harden with ≥4 VA-like thunks + an IAT run into one of the 26 mapped modules. | OBSERVED | M | EXP-2026-11-05-11 |
+| C-246 | The readers are still not located; nothing about the data formats is contradicted. | UNKNOWN | — | EXP-2026-11-05-11 |
 
 ## Validation / checksums
 

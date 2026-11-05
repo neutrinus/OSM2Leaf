@@ -24,11 +24,13 @@ OSM only after that.
    - [x] `Lib.out32` code delta: not pinnable (data-only pool, flat scoring).
    - [x] `.ind` allocation-shape search: 0 sites; parser not detectable this way.
    - [x] `HDD_INFO` candidate `0x132e06c`: data, not code.
-   - [ ] Decode the copy/section descriptor list at `0x1952b00` (32-byte
-     records).
-   - [ ] Anchor module bases via export tables at `0x29eec0–0x29f700`.
-   - [ ] Use builds B/C as a Rosetta stone for relative placement.
-   - [ ] Re-run `xref_index.py`, `vtable_scan.py`, `solve_delta.py`, `func.py`.
+   - [x] `0x1952b00`: RAM copy list, not a section map (retracted).
+   - [x] Export anchor works: 26 modules mapped, `file = Fb + RVA`.
+   - [ ] Harden the import anchor for navi modules (≥4 thunks + IAT run into a
+     mapped module).
+   - [ ] Recover navi/map module bases; re-run `xref_index.py`,
+     `vtable_scan.py`, `solve_delta.py`, `func.py`.
+   - [ ] Use builds B/C as a Rosetta stone if the anchor fails.
 2. **Gate 0b — tile payload grammar**
    - [x] Clean tiles: `B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R` rebuild
      byte-identically; viewer renders coast/land (`tools/ze0-viewer/`).
