@@ -1,0 +1,21 @@
+{
+  "name": "dolnoslaskie-test",
+  "description": "Tiny vertical-slice test: one tile (B48R058R) covering Dolnośląskie, core road network only. Factory REFER/ADDRE/POI data is preserved in the first slice.",
+  "sources": ["Wroclaw.osm.pbf"],
+  "include": {
+    "countries": ["PL"],
+    "bbox": [14.0, 49.9, 17.9, 51.9],
+    "border_buffer_km": 10,
+    "tiles": {"mode": "whole", "include": ["B48R058R"], "exclude": []}
+  },
+  "detail": {
+    "roads": "core",
+    "addresses": false,
+    "pois": "none",
+    "admin_boundaries": false
+  },
+  "routing": {
+    "profile": "car",
+    "keep_cross_border": false
+  }
+}
