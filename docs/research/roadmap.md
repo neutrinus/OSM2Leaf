@@ -37,7 +37,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | 175-method vtable is **iPodCC**, not NaviStateCC; `0x2e00eb8` is a shared COM helper; no NaviStateCC vtable | next is the writer/initializer of `0x1d0f8a8`; if absent, static is closed |
+| Firmware addressing | initializer `0xc43430` found; `0x1d0f8a8` never written; vtable built at runtime; no static vtable with fd methods | last static chance is `0x171e9e8`; otherwise dynamic break needs hardware |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 

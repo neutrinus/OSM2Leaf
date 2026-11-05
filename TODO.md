@@ -72,9 +72,10 @@ OSM only after that.
      is a shared COM helper. No NaviStateCC vtable exists as a contiguous
      pointer table.
    - [x] `0x6faf30` is a Bluetooth/OPP handler, not the reader.
-   - [ ] Find the writer/initializer of `0x1d0f8a8` (NaviStateCC class data);
-     it should install the class factory/vtable with `0xc42520`/`0xc426a4`/
-     `0xc438a4`.
+   - [x] Initializer `0xc43430` found; `0x1d0f8a8` never written by ROM;
+     no static vtable contains the fd methods.
+   - [ ] Decompile the shared COM helper `0x171e9e8` for a slot template /
+     construction map (last static chance).
    - [ ] **No hardware access currently (2026-11-05):** defer dynamic break,
      SD bus and card matrices; continue static.
    - [ ] Prepare a hardware kit (JTAG/serial + card matrix) for later.
@@ -289,6 +290,9 @@ research spike, not a prerequisite.
   `.cmp` preserved round-trips, five target tile rebuilds, golden geometry
   digests, a one-vertex tile mutation and a POI rename. Golden profile:
   `tools/golden/eu2011.json`.
+  - [x] Cross-year L2 for full 2014/2016 roots (`--no-golden
+    --ignore-dump-artifacts`); unchanged dense tile uses preserved layout.
+  - [ ] Optional per-year golden profiles.
   - [ ] Optional OSM comparison remains in `tools/ze0-viewer/compare_osm.py`.
 - [ ] **L3 — function-level SH-4 emulation (complete harness).**
   Design: [`docs/research/l3-ghidra.md`](docs/research/l3-ghidra.md).

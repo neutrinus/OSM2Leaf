@@ -240,6 +240,15 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-415 | No NaviStateCC vtable exists as a contiguous pointer table under `0x1f07d5c`; a ≥8-pointer run scan found 0. | VERIFIED (negative) | H | EXP-2026-11-05-27 |
 | C-416 | Next anchor: find the writer/initializer of `0x1d0f8a8`; it should install the NaviStateCC class factory/vtable containing `0xc42520`, `0xc426a4`, `0xc438a4`. | PLANNED | — | EXP-2026-11-05-27 |
 | C-417 | If the initializer is absent from the ROM, static is closed; use the MAL breakpoint or the card matrix. | PLANNED | — | EXP-2026-11-05-27 |
+| C-420 | NaviStateCC initializer `0xc43430` writes `0x1d0f720`, `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to `0x1d0f888…894`. | VERIFIED | H | EXP-2026-11-05-28 |
+| C-421 | `0x1d0f8a8` itself is never written by the ROM; the only direct store is destructor `0xc4ac6a` zeroing `+96/+100/+104`. | VERIFIED (negative) | H | EXP-2026-11-05-28 |
+| C-422 | `0xc43430` has no static caller; its only pointer occurrence is the per-instruction table at `0x1302760`; invocation is dynamic. | VERIFIED (negative) | H | EXP-2026-11-05-31 |
+| C-423 | The RAM copy list at `0x1952b00` does not cover the NaviStateCC block (it covers OS modules at `0x8D/0x8F`). | VERIFIED (negative) | H | EXP-2026-11-05-28 |
+| C-424 | No static vtable contains the fd methods: `0x2b4a27c`/`0x2b4a400`/`0x2b4b600` occur once in the per-instruction table, never in a ≥8-pointer run. | VERIFIED (negative) | H | EXP-2026-11-05-28 |
+| C-425 | The object vtable is built at runtime by the shared COM helper `0x171e9e8`/loader. | OBSERVED | M | EXP-2026-11-05-28 |
+| C-426 | Reader address and vtable slot layout are not in the ROM; `chunk_size` compare vs buffer size remains a hypothesis. | UNKNOWN | — | EXP-2026-11-05-28 |
+| C-427 | Static fallback: break on MAL `getOffset/getSize`, fd methods, or fd thunks; hardware is the only route to the reader address. | PLANNED | — | EXP-2026-11-05-28 |
+| C-428 | Next static attempt: decompile `0x171e9e8` for a slot template/construction map; also prepare the dynamic guide and hardware kit. | PLANNED | — | EXP-2026-11-05-28 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
@@ -424,30 +433,31 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-399 | `tools/cardcheck.py` passes on the EU 2011 root and raw image: 480 files, 39 dirs, 5,173,965,667 bytes, 194/194 `.cmp` pairs, 40 DRSTR nodes / 324 entries, 11/11 MMAIN rows, and an identical `0x06000000` `HDD_INFO` copy. | VERIFIED | H | EXP-2026-11-05-26; `python3 tools/cardcheck.py --root …` / `--image …` |
-| C-400 | `tools/l2check.py` passes on the EU 2011 root: DRSTR byte-identical, 194/194 preserved `.cmp` round-trips, five target tiles byte-identical, four golden geometry digests, and the tile/POI mutation checks. | VERIFIED | H | EXP-2026-11-05-26; `python3 tools/l2check.py --root …` |
-| C-401 | The card's LFN checksum bytes do not match the standard FAT short-name checksum for most entries; the names are still recoverable from contiguous LFN sequences and agree with the `7z`/`mtools` extraction. | OBSERVED | H | EXP-2026-11-05-26; `tools/cardcheck.py` FAT reader |
-| C-402 | `ze0_mutate.py` in non-strict mode could return the source record unchanged, making the one-vertex self-test a silent no-op; it now selects a strictly rebuilt record and refuses an unchanged mutation. | VERIFIED | H | EXP-2026-11-05-26; `tools/ze0-viewer/ze0_mutate.py` |
+| C-423 | `tools/cardcheck.py` passes on the EU 2011 root and raw image: 480 files, 39 dirs, 5,173,965,667 bytes, 194/194 `.cmp` pairs, 40 DRSTR nodes / 324 entries, 11/11 MMAIN rows, and an identical `0x06000000` `HDD_INFO` copy. | VERIFIED | H | EXP-2026-11-05-29; `python3 tools/cardcheck.py --root …` / `--image …` |
+| C-424 | `tools/l2check.py` passes on the EU 2011 root: DRSTR byte-identical, 194/194 preserved `.cmp` round-trips, five target tiles byte-identical, four golden geometry digests, and the tile/POI mutation checks. | VERIFIED | H | EXP-2026-11-05-29; `python3 tools/l2check.py --root …` |
+| C-425 | The card's LFN checksum bytes do not match the standard FAT short-name checksum for most entries; the names are still recoverable from contiguous LFN sequences and agree with the `7z`/`mtools` extraction. | OBSERVED | H | EXP-2026-11-05-29; `tools/cardcheck.py` FAT reader |
+| C-426 | `ze0_mutate.py` in non-strict mode could return the source record unchanged, making the one-vertex self-test a silent no-op; it now selects a strictly rebuilt record and refuses an unchanged mutation. | VERIFIED | H | EXP-2026-11-05-29; `tools/ze0-viewer/ze0_mutate.py` |
 
 ## Emulation / feedback loop
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-403 | Wine is a Win32 compatibility layer, not a CPU emulator; it cannot execute the Leaf's SH-4 Windows CE ROM modules. | VERIFIED (design) | H | Wine "about"/README: Win32 API on a compatible host CPU; no SH-4/WinCE target |
-| C-404 | QEMU system-mode SH-4 has only the `r2d` machine; `linux-user` SH-4 exists but runs Linux ELF, not WinCE. | VERIFIED | H | QEMU `hw/sh4/Kconfig`, `linux-user/sh4/target_syscall.h` |
-| C-405 | MAME has SH-4/SH7750-family CPU models, but no CETUS_SH4 board model was found; its SH-4 on-board peripherals are still incomplete. | VERIFIED | H | MAME `src/devices/cpu/sh/sh4.cpp` header and device types |
-| C-406 | sh3-emu is MIT-licensed, emulates SH-3 Windows CE 1.x/2.x (including a Clarion AutoPC 310C), and is not an SH-4/CE5 emulator. | VERIFIED | H | sh3-emu README, `docs/hardware.md`, `docs/machines/autopc.md`, `LICENSE` |
-| C-407 | CERF has no SH-4 CPU core; its CPUs are ARM/StrongARM/XScale/MIPS, and its current licence is custom non-commercial. | VERIFIED | H | CERF `src/cpu` tree and `LICENSE` |
-| C-408 | A true 4-bit SDIO card emulator is typically FPGA-level work; an SD extender plus a host-side writer is the cheap hardware-in-the-loop alternative. | OBSERVED | M | external SD-emulation projects; not tested on the Leaf |
+| C-427 | Wine is a Win32 compatibility layer, not a CPU emulator; it cannot execute the Leaf's SH-4 Windows CE ROM modules. | VERIFIED (design) | H | Wine "about"/README: Win32 API on a compatible host CPU; no SH-4/WinCE target |
+| C-428 | QEMU system-mode SH-4 has only the `r2d` machine; `linux-user` SH-4 exists but runs Linux ELF, not WinCE. | VERIFIED | H | QEMU `hw/sh4/Kconfig`, `linux-user/sh4/target_syscall.h` |
+| C-429 | MAME has SH-4/SH7750-family CPU models, but no CETUS_SH4 board model was found; its SH-4 on-board peripherals are still incomplete. | VERIFIED | H | MAME `src/devices/cpu/sh/sh4.cpp` header and device types |
+| C-430 | sh3-emu is MIT-licensed, emulates SH-3 Windows CE 1.x/2.x (including a Clarion AutoPC 310C), and is not an SH-4/CE5 emulator. | VERIFIED | H | sh3-emu README, `docs/hardware.md`, `docs/machines/autopc.md`, `LICENSE` |
+| C-431 | CERF has no SH-4 CPU core; its CPUs are ARM/StrongARM/XScale/MIPS, and its current licence is custom non-commercial. | VERIFIED | H | CERF `src/cpu` tree and `LICENSE` |
+| C-432 | A true 4-bit SDIO card emulator is typically FPGA-level work; an SD extender plus a host-side writer is the cheap hardware-in-the-loop alternative. | OBSERVED | M | external SD-emulation projects; not tested on the Leaf |
 
 ## Image archive / cross-year validation
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-409 | The complete public mirror set (four SD images and three map archives) is stored in `archive/images/` and all seven SHA-256 sums match. | VERIFIED | H | EXP-2026-11-05-27; `sha256sum -c archive/images/SHA256SUMS` |
-| C-410 | L1 passes on the 2011, 2014 and 2016 ZE0-era SD images; 2016 requires `--ignore-dump-artifacts` because of AppleDouble files. The 2019 e-NV200 image fails because it is the different `CLA-NAVI06-01`/ZENRIN engine. | VERIFIED | H | EXP-2026-11-05-27; `tools/cardcheck.py --image …` |
-| C-411 | L1 passes on the 2013-14, 2014-15 and 2016-17 map trees with `--partial --ignore-dump-artifacts`; their `DRSTR001.DAT` lists a `VER_INFO` directory that is absent from the archive. | VERIFIED | H | EXP-2026-11-05-27; `tools/cardcheck.py --root … --partial` |
-| C-412 | L2 is not yet cross-year: `B30R048R.DAT` fails the byte-identical rebuild at `0x807`/`0x808` on the 2013–2016 archives, and the `POINT032` page `0x4200` POI mutation is a 2011-specific fixture. | OBSERVED | H | EXP-2026-11-05-27; `tools/l2check.py --no-golden` |
+| C-418 | The complete public mirror set (four SD images and three map archives) is stored in `archive/images/` and all seven SHA-256 sums match. | VERIFIED | H | EXP-2026-11-05-30; `sha256sum -c archive/images/SHA256SUMS` |
+| C-419 | L1 passes on the 2011, 2014 and 2016 ZE0-era SD images; 2016 requires `--ignore-dump-artifacts` because of AppleDouble files. The 2019 e-NV200 image fails because it is the different `CLA-NAVI06-01`/ZENRIN engine. | VERIFIED | H | EXP-2026-11-05-30; `tools/cardcheck.py --image …` |
+| C-420 | L1 passes on the 2013-14, 2014-15 and 2016-17 map trees with `--partial --ignore-dump-artifacts`; their `DRSTR001.DAT` lists a `VER_INFO` directory that is absent from the archive. | VERIFIED | H | EXP-2026-11-05-30; `tools/cardcheck.py --root … --partial` |
+| C-421 | Before the cross-year fixes, L2 was 2011-specific: `B30R048R.DAT` failed the byte-identical rebuild at `0x807`/`0x808` on the 2013–2016 archives, and the `POINT032` page `0x4200` POI mutation was a 2011 fixture. Superseded by C-422. | OBSERVED (historical) | H | EXP-2026-11-05-30; `tools/l2check.py --no-golden` |
+| C-422 | L2 now passes on full 2014 and 2016 roots with `--no-golden --ignore-dump-artifacts`: `B30R048R` is byte-identical via a preserved-layout fallback, the REFER fixture is discovered per year, and `validate_mutation.py --drstr-dir` disambiguates `REFER001`/`REFER002`. | VERIFIED | H | EXP-2026-11-05-31; `tools/l2check.py`, `tools/ze0-viewer/ze0_tile_io.py` |
 
 ## How to use this ledger
 

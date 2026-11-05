@@ -173,9 +173,21 @@ dumper, `0xc49f98` virtual dispatcher, `0xc438a4` stats formatter. There is
 `.ind` reader likely uses `chunk_size` as a buffer size rather than a
 comparison.
 
-**Correct static anchor:** the writer/initializer of NaviStateCC's class data
-at `0x1d0f8a8`, which is not in NaviStateCC. If that initializer is absent
-from the ROM, static is closed.
+**Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
+`0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to
+`0x1d0f888…894`. But:
+
+- `0x1d0f8a8` itself is **never written by the ROM**; the only direct store is
+  destructor `0xc4ac6a` zeroing `+96/+100/+104`;
+- `0xc43430` has **no static caller** (only a per-instruction table entry at
+  `0x1302760`); invocation is dynamic;
+- the `0x1952b00` RAM copy list does not cover this block;
+- **no static vtable** contains the fd methods: `0x2b4a27c`/`0x2b4a400`/
+  `0x2b4b600` occur once in the per-instruction table, never in a ≥8-pointer
+  run.
+
+The object vtable is built at runtime by the shared COM helper `0x171e9e8` /
+loader. Reader address and slot layout are not in the ROM.
 
 **Negative lead:** `0x6faf30` is not the reader — it is a `jsr @r3` in the
 Bluetooth/OPP handler at `0x6faeb0` (`OppAccess::msg_opp_comp_ind` at
@@ -501,10 +513,9 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 Firmware RE remains the primary path.
 
-1. **Find the writer/initializer of `0x1d0f8a8`** (NaviStateCC class data).
-   It should install the class factory and the object vtable containing
-   `0xc42520`, `0xc426a4`, `0xc438a4`. If absent from the ROM, static is
-   closed.
+1. **Decompile the shared COM helper `0x171e9e8`** for a slot template or
+   construction map; that is the last static chance to recover the object
+   vtable containing `0xc42520`, `0xc426a4`, `0xc438a4`.
 2. **Per-section relocation data** (only if needed for other modules); the
    175-method vtable is iPodCC's and does not contain the reader.
 3. **Dynamic break on the MAL chain (deferred, no hardware):**
