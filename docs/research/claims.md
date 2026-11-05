@@ -528,6 +528,8 @@ Built without vendor data; every row states what is synthetic-only.
 
 | C-568 | `tools/cerom.py --selftest` pins the parser on a generated CE ROM: all 22 ROMHDR fields, `va2file`/`file2va` round-trip, TOC module/file names, per-section flags and file offsets, named exports and a corrupt-`ECEC` negative case (46 checks). Images A/B/C are still not pinned end-to-end. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-47; `python3 tools/cerom.py --selftest` |
 
+| C-569 | `tools/cerom.py memmap` (alias `ghidra`) emits the `rommap.py` section table for one CE segment: one block per `o32_rom` at `o32_realaddr` (`size` = `psize`, plus `vsize`/`rwx`), flags `IMAGE_SCN_COMPRESSED` and never emits compressed bytes as data, optionally writes a `createMemoryBlock` Ghidra script, and passes `rommap.py convert --skip-compressed` + `validate`. Synthetic ROM only. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-48; `python3 tools/cerom.py --selftest` (93 checks) |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

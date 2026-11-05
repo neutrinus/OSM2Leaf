@@ -18,13 +18,28 @@ Usage:
   cerom.py IMG va2file VA
   cerom.py IMG file2va OFFSET
   cerom.py IMG extract MODULE -o DIR   # raw o32 sections, uncompressed only
+  cerom.py IMG memmap [--modules M1,M2] [--out FILE] [--pretty]
+                      [--exclude-compressed] [--ghidra-script FILE]
+  cerom.py IMG ghidra ...              # alias of memmap
   cerom.py --selftest                  # synthetic ROM, no vendor data
 
-See docs/experiments/EXP-2026-11-05-47-cerom-selftest.md.
+``memmap`` emits the section table ``tools/l3_harness/rommap.py`` consumes:
+one block per ``o32_rom`` record of the selected modules, at ``o32_realaddr``,
+with the bytes at ``p2f(o32_dataptr)``.  ``size`` is ``o32_psize`` (the stored
+extent); ``vsize`` (the runtime extent) and ``rwx`` are extra keys.  Compressed
+sections (``IMAGE_SCN_COMPRESSED``, 0x2000) are always flagged and are never
+written out as raw section bytes; ``--exclude-compressed`` drops them from the
+JSON and reports the count instead.  ``--ghidra-script`` additionally writes a
+small Jython script that maps the same blocks with ``createMemoryBlock``.
+
+See docs/experiments/EXP-2026-11-05-47-cerom-selftest.md and
+docs/experiments/EXP-2026-11-05-48-cerom-memmap.md.
 """
 import argparse
 import contextlib
+import hashlib
 import io
+import json
 import os
 import struct
 import sys
@@ -40,6 +55,14 @@ TOC_SIZE = 32
 FILES_SIZE = 28
 O32_SIZE = 24
 IMAGE_SCN_COMPRESSED = 0x00002000
+CNT_CODE = 0x00000020
+CNT_UNINITIALIZED_DATA = 0x00000080
+MEM_EXECUTE = 0x20000000
+MEM_READ = 0x40000000
+MEM_WRITE = 0x80000000
+
+MEMMAP_SCHEMA = "osm2leaf.cerom.memmap/v1"
+MEMMAP_GENERATOR = "tools/cerom.py memmap"
 
 
 class CERom:
@@ -142,6 +165,206 @@ class CERom:
             if m["name"] and m["name"].lower() == name.lower():
                 return m
         raise KeyError(name)
+
+
+# --------------------------------------------------------------------------
+# Memory map (`memmap` / `ghidra`): the section table rommap.py consumes.
+# --------------------------------------------------------------------------
+
+
+def hx(value):
+    """Format an integer the way the L3 JSON contract does."""
+    return "0x%x" % value
+
+
+def rwx_bits(flags):
+    """CE section flags -> ``rwx`` triple, same rule as rommap.py."""
+    if flags & (MEM_EXECUTE | MEM_READ | MEM_WRITE):
+        read = bool(flags & MEM_READ)
+        execute = bool(flags & MEM_EXECUTE)
+        write = bool(flags & MEM_WRITE)
+    else:
+        # No MEM_* bits: fall back to the content flags.
+        read = True
+        execute = bool(flags & CNT_CODE)
+        write = bool(flags & CNT_UNINITIALIZED_DATA)
+    return ("r" if read else "-") + ("w" if write else "-") + ("x" if execute else "-")
+
+
+def section_record(cerom, module_name, section, index):
+    """One ``o32_rom`` record in the shape ``rommap.py`` reads.
+
+    ``size`` is ``o32_psize`` (bytes actually stored in the image) and
+    ``vsize`` keeps the unpacked runtime extent; ``compressed`` is never a
+    guess, it comes from ``IMAGE_SCN_COMPRESSED``.  A section with no stored
+    bytes (``psize == 0``, typically BSS) gets ``file_offset: null``.
+    """
+    compressed = bool(section["flags"] & IMAGE_SCN_COMPRESSED)
+    if section["psize"]:
+        offset = cerom.va2file(section["dataptr"])
+        if not (0 <= offset and offset + section["psize"] <= len(cerom.d)):
+            raise ValueError(
+                "%s/%d: stored bytes 0x%x..0x%x lie outside the image (%d bytes)"
+                % (module_name, index, offset, offset + section["psize"], len(cerom.d)))
+    else:
+        offset = None
+    return {
+        "name": "sec%d" % index,
+        "va": hx(section["realaddr"]),
+        "file_offset": offset,
+        "size": section["psize"],
+        "vsize": section["vsize"],
+        "characteristics": hx(section["flags"]),
+        "compressed": compressed,
+        "rwx": rwx_bits(section["flags"]),
+    }
+
+
+def build_memmap_report(cerom, image_name, image_size, image_sha256=None,
+                        modules=None, exclude_compressed=False, sha256_scope=None):
+    """Build the ``memmap`` document for one CE segment.
+
+    ``modules`` is a list of module names (case-insensitive); ``None`` keeps
+    every named module.  The result is directly usable as the ``--report``
+    input of ``tools/l3_harness/rommap.py convert``.
+    """
+    all_modules = [m for m in cerom.modules() if m["name"]]
+    if modules:
+        available = {m["name"].lower() for m in all_modules}
+        missing = [name for name in modules if name.lower() not in available]
+        if missing:
+            raise KeyError(missing[0])
+        wanted = {name.lower() for name in modules}
+        selected = [m for m in all_modules if m["name"].lower() in wanted]
+    else:
+        selected = all_modules
+
+    blocks = []
+    skipped_modules = []
+    counts = {"modules": 0, "sections": 0, "compressed": 0, "skipped_compressed": 0}
+    for module in selected:
+        sections = []
+        for index, section in enumerate(cerom.o32(module)):
+            record = section_record(cerom, module["name"], section, index)
+            if record["compressed"]:
+                if exclude_compressed:
+                    counts["skipped_compressed"] += 1
+                    continue
+                counts["compressed"] += 1
+            sections.append(record)
+        if not sections:
+            skipped_modules.append(module["name"])
+            continue
+        blocks.append({
+            # ``module`` is the flat name TODO M9.1 asks for; ``name`` is the
+            # key rommap.py reads.  ``vbase`` is the module's link-time base.
+            "module": module["name"],
+            "name": module["name"],
+            "vbase": hx(cerom.e32(module)["vbase"]),
+            "sections": sections,
+        })
+        counts["sections"] += len(sections)
+
+    counts["modules"] = len(blocks)
+    counts["skipped_modules"] = skipped_modules
+    segment = {
+        "segment_index": 0,
+        "segment_base": hx(cerom.start),
+        "phys_base": hx(cerom.hdr["physfirst"]),
+        "pTOC": hx(cerom.ptoc),
+        "romhdr": dict(cerom.hdr),
+        "counts": counts,
+        "modules": blocks,
+    }
+    return {
+        "schema": MEMMAP_SCHEMA,
+        "generator": MEMMAP_GENERATOR,
+        "image": os.path.basename(image_name),
+        "image_size": image_size,
+        "image_sha256": image_sha256,
+        "image_sha256_scope": sha256_scope,
+        "segments": [segment],
+    }
+
+
+def sha256_scope_text(data_length, image_size):
+    """Describe what the reported SHA-256 covers (the tool reads a window)."""
+    if data_length >= image_size:
+        return "whole file (%d bytes)" % image_size
+    return "first %d of %d bytes" % (data_length, image_size)
+
+
+GHIDRA_TEMPLATE = """\
+# Ghidra script generated by `python3 tools/cerom.py IMG memmap --ghidra-script`.
+# One memory block per o32 section, at o32_realaddr, bytes read from
+# p2f(o32_dataptr).  Compressed sections (IMAGE_SCN_COMPRESSED, 0x2000) are
+# NOT mapped: their stored bytes are not the section contents and no CE
+# decompressor exists yet (TODO M1.2/M1.3).
+__OMITTED__# Usage: analyzeHeadless <project> <name> -process <program> -noanalysis \\
+#            -scriptPath <dir> -postScript <this file>
+# @category OSM2Leaf
+# @runtime Jython
+
+from java.io import RandomAccessFile
+from jarray import zeros
+
+IMAGE = __IMAGE__
+# (name, va, file_offset or None, size, read, write, execute)
+BLOCKS = [
+__BLOCKS__]
+
+mem = currentProgram.getMemory()
+fh = RandomAccessFile(IMAGE, "r")
+mapped = 0
+try:
+    for name, va, offset, size, read, write, execute in BLOCKS:
+        addr = toAddr(va)
+        block = mem.createMemoryBlock(name, addr, size, False)
+        block.setRead(read)
+        block.setWrite(write)
+        block.setExecute(execute)
+        if offset is not None:
+            buffer = zeros(size, 'b')
+            fh.seek(offset)
+            fh.readFully(buffer)
+            block.putBytes(addr, buffer)
+        mapped += 1
+finally:
+    fh.close()
+print("cerom memmap: mapped " + str(mapped) + " block(s)")
+"""
+
+
+def write_ghidra_script(path, image_path, report):
+    """Write a Jython script mapping the report's blocks; return the count."""
+    lines = []
+    omitted = []
+    for segment in report["segments"]:
+        for module in segment["modules"]:
+            for section in module["sections"]:
+                name = "%s/%s" % (module["name"], section["name"])
+                if section["compressed"]:
+                    omitted.append(name)
+                    continue
+                offset = section["file_offset"]
+                lines.append("    (%r, %s, %s, %d, %s, %s, %s),"
+                             % (name, section["va"],
+                                "None" if offset is None else "0x%x" % offset,
+                                section["size"],
+                                section["rwx"][0] == "r",
+                                section["rwx"][1] == "w",
+                                section["rwx"][2] == "x"))
+    text = GHIDRA_TEMPLATE.replace("__IMAGE__", repr(os.path.abspath(image_path)))
+    text = text.replace("__BLOCKS__", "\n".join(lines) + ("\n" if lines else ""))
+    text = text.replace(
+        "__OMITTED__",
+        "# Omitted compressed sections: " + ", ".join(omitted) + "\n" if omitted else "")
+    directory = os.path.dirname(os.path.abspath(path))
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    return len(lines)
 
 
 # --------------------------------------------------------------------------
@@ -364,6 +587,139 @@ def selftest():
             ok("cli exports exit", main([path, "exports", "NK.EXE"]), 0)
         ok("cli exports name", exp["export_names"][0] in buf.getvalue(), True)
 
+        # --- memmap / ghidra: the section table rommap.py consumes (M1.5) ---
+        sha = hashlib.sha256(rom).hexdigest()
+        mm = build_memmap_report(r, path, len(rom), sha)
+        seg = mm["segments"][0]
+        ok("memmap schema", mm["schema"], MEMMAP_SCHEMA)
+        ok("memmap generator", mm["generator"], MEMMAP_GENERATOR)
+        ok("memmap image basename", mm["image"], "synthetic-rom.img")
+        ok("memmap image size", mm["image_size"], len(rom))
+        ok("memmap image sha256", mm["image_sha256"], sha)
+        ok("memmap segment base", seg["segment_base"], "0x%x" % exp["image_start"])
+        ok("memmap phys base", seg["phys_base"], "0x%x" % exp["va_base"])
+        ok("memmap pTOC", seg["pTOC"], "0x%x" % exp["ptoc"])
+        ok("memmap romhdr is ROMHDR", seg["romhdr"], exp["hdr"])
+        ok("memmap module names", [m["name"] for m in seg["modules"]], ["NK.EXE", "NAVI.EXE"])
+        ok("memmap module alias", [m["module"] for m in seg["modules"]], ["NK.EXE", "NAVI.EXE"])
+        ok("memmap vbase", [m["vbase"] for m in seg["modules"]], ["0x8ce00000", "0x8d000000"])
+        ok("memmap block count",
+           sum(len(m["sections"]) for m in seg["modules"]), 4)
+        mod0 = seg["modules"][0]["sections"]
+        ok("memmap section key order", sorted(mod0[0]),
+           ["characteristics", "compressed", "file_offset", "name", "rwx", "size", "va", "vsize"])
+        ok("memmap mod0 name/va/file/size",
+           [(s["name"], s["va"], s["file_offset"], s["size"]) for s in mod0],
+           [("sec0", "0x8ce01000", 0x5000, 0x400),
+            ("sec1", "0x8ce02000", 0x5400, 0x100)])
+        ok("memmap mod0 vsize", [s["vsize"] for s in mod0], [0x400, 0x800])
+        ok("memmap mod0 characteristics",
+           [s["characteristics"] for s in mod0], ["0xc0000040", "0xc0002040"])
+        ok("memmap compressed flags",
+           [s["compressed"] for s in mod0], [False, True])
+        ok("memmap rwx mod0", [s["rwx"] for s in mod0], ["rw-", "rw-"])
+        ok("memmap mod1 name/va/file/size",
+           [(s["name"], s["va"], s["file_offset"], s["size"])
+            for s in seg["modules"][1]["sections"]],
+           [("sec0", "0x8d001000", 0x6400, 0x200),
+            ("sec1", "0x8d002000", 0x6600, 0x80)])
+        ok("memmap rwx mod1",
+           [s["rwx"] for s in seg["modules"][1]["sections"]], ["r-x", "rw-"])
+        ok("memmap counts", seg["counts"],
+           {"modules": 2, "sections": 4, "compressed": 2,
+            "skipped_compressed": 0, "skipped_modules": []})
+
+        filtered = build_memmap_report(r, path, len(rom), None, modules=["navi.exe"])
+        ok("memmap module filter case-insensitive",
+           [m["name"] for m in filtered["segments"][0]["modules"]], ["NAVI.EXE"])
+        ok("memmap module filter block count",
+           len(filtered["segments"][0]["modules"][0]["sections"]), 2)
+        try:
+            build_memmap_report(r, path, len(rom), None, modules=["Navi.exe", "Nope.dll"])
+        except KeyError as exc:
+            ok("memmap unknown module rejected", exc.args[0], "Nope.dll")
+        else:
+            raise AssertionError("build_memmap_report() accepted an unknown module")
+
+        excluded = build_memmap_report(r, path, len(rom), None, exclude_compressed=True)
+        ok("memmap --exclude-compressed keeps only raw sections",
+           [s["compressed"] for m in excluded["segments"][0]["modules"]
+            for s in m["sections"]], [False, False])
+        ok("memmap --exclude-compressed count",
+           excluded["segments"][0]["counts"]["skipped_compressed"], 2)
+        ok("memmap --exclude-compressed section count",
+           excluded["segments"][0]["counts"]["sections"], 2)
+
+        # The report must go into rommap.py unchanged (C-559).
+        rommap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "l3_harness", "rommap.py")
+        if os.path.exists(rommap_path):
+            if os.path.dirname(rommap_path) not in sys.path:
+                sys.path.insert(0, os.path.dirname(rommap_path))
+            import rommap
+            doc = rommap.convert(mm, skip_compressed=True)
+            ok("memmap -> rommap.validate", rommap.validate(doc), [])
+            ok("memmap -> rommap blocks",
+               [b["name"] for b in doc["blocks"]],
+               ["NK.EXE/sec0", "NAVI.EXE/sec0"])
+            ok("memmap -> rommap address/size",
+               [(b["address"], b["size"]) for b in doc["blocks"]],
+               [("0x8ce01000", 0x400), ("0x8d001000", 0x200)])
+            ok("memmap -> rommap permissions",
+               [b["permissions"] for b in doc["blocks"]], ["rw-", "r-x"])
+            ok("memmap -> rommap skipped compressed", len(doc["skipped"]), 2)
+            try:
+                rommap.convert(mm)
+            except rommap.RommapError as exc:
+                ok("rommap rejects compressed by default",
+                   any("compressed" in p for p in exc.problems), True)
+            else:
+                raise AssertionError("rommap.convert() mapped a compressed section")
+        else:
+            ok("memmap section schema keys (rommap.py absent)", sorted(mod0[0]),
+               ["characteristics", "compressed", "file_offset", "name", "rwx",
+                "size", "va", "vsize"])
+
+        # CLI: JSON file, --pretty, alias, script and the module-filter error.
+        out_json = os.path.join(td, "memmap.json")
+        out_script = os.path.join(td, "map_rom.py")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli memmap exit", main([path, "memmap", "--modules", "NAVI.EXE,NK.EXE",
+                                        "--out", out_json, "--pretty",
+                                        "--ghidra-script", out_script]), 0)
+        ok("cli memmap summary", "section(s)" in buf.getvalue(), True)
+        with open(out_json, "r", encoding="utf-8") as fh:
+            written = json.load(fh)
+        ok("cli memmap file module order",
+           [m["name"] for m in written["segments"][0]["modules"]], ["NK.EXE", "NAVI.EXE"])
+        ok("cli memmap file blocks",
+           sum(len(m["sections"]) for m in written["segments"][0]["modules"]), 4)
+
+        with open(out_script, "r", encoding="utf-8") as fh:
+            script = fh.read()
+        ok("ghidra script uses createMemoryBlock", "createMemoryBlock" in script, True)
+        ok("ghidra script image path", repr(os.path.abspath(path)) in script, True)
+        ok("ghidra script maps raw sections only",
+           ("('NK.EXE/sec0'" in script) and ("('NK.EXE/sec1'" not in script), True)
+        ok("ghidra script lists omitted compressed",
+           "Omitted compressed sections: NK.EXE/sec1, NAVI.EXE/sec1" in script, True)
+        ok("ghidra script block count", script.count("\n    ('"), 2)
+
+        alias_json = os.path.join(td, "alias.json")
+        with contextlib.redirect_stdout(io.StringIO()):
+            ok("cli ghidra alias exit", main([path, "ghidra", "--out", alias_json]), 0)
+        with open(alias_json, "r", encoding="utf-8") as fh:
+            ok("cli ghidra alias matches memmap",
+               json.load(fh)["segments"][0]["counts"], seg["counts"])
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli memmap unknown module exit",
+               main([path, "memmap", "--modules", "Nope.dll"]), 2)
+        ok("cli memmap unknown module message", "Nope.dll" in err.getvalue(), True)
+
+
         # Negative control: a corrupt ECEC must fail loudly, never guess.
         bad = bytearray(rom)
         bad[exp["image_start"] + 0x40:exp["image_start"] + 0x44] = b"XXXX"
@@ -382,6 +738,49 @@ def selftest():
     return 0
 
 
+def memmap_command(args, cerom, data):
+    """Run ``memmap``/``ghidra``: write the JSON and the optional script."""
+    modules = None
+    if args.modules:
+        modules = [name.strip() for name in args.modules.split(",") if name.strip()]
+        if not modules:
+            print("error: --modules names no module", file=sys.stderr)
+            return 2
+
+    image_size = os.path.getsize(args.image)
+    try:
+        report = build_memmap_report(
+            cerom, args.image, image_size, hashlib.sha256(data).hexdigest(),
+            modules=modules, exclude_compressed=args.exclude_compressed,
+            sha256_scope=sha256_scope_text(len(data), image_size))
+    except KeyError as exc:
+        print("error: no module named %s in this ROM" % exc.args[0], file=sys.stderr)
+        return 2
+    except ValueError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
+
+    text = json.dumps(report, indent=2 if args.pretty else None) + "\n"
+    counts = report["segments"][0]["counts"]
+    summary = ("%d module(s), %d section(s), %d compressed"
+               % (counts["modules"], counts["sections"], counts["compressed"]))
+    if counts["skipped_compressed"]:
+        summary += ", %d compressed omitted" % counts["skipped_compressed"]
+    if args.out:
+        directory = os.path.dirname(os.path.abspath(args.out))
+        os.makedirs(directory, exist_ok=True)
+        with open(args.out, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        print("wrote %s (%s)" % (args.out, summary))
+    else:
+        sys.stdout.write(text)
+
+    if args.ghidra_script:
+        mapped = write_ghidra_script(args.ghidra_script, args.image, report)
+        print("wrote %s (%d block(s))" % (args.ghidra_script, mapped))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("image", nargs="?", help="raw image (or at least its first ~32 MiB)")
@@ -397,6 +796,15 @@ def main(argv=None):
     p = sub.add_parser("va2file"); p.add_argument("va", type=lambda s: int(s, 0))
     p = sub.add_parser("file2va"); p.add_argument("off", type=lambda s: int(s, 0))
     p = sub.add_parser("extract"); p.add_argument("module"); p.add_argument("-o", required=True)
+    p = sub.add_parser("memmap", aliases=["ghidra"],
+                       help="memory-map JSON for rommap.py (alias: ghidra)")
+    p.add_argument("--modules", help="comma-separated module names (default: all)")
+    p.add_argument("--out", help="write the JSON here (default: stdout)")
+    p.add_argument("--pretty", action="store_true", help="indent the JSON")
+    p.add_argument("--exclude-compressed", action="store_true",
+                   help="omit IMAGE_SCN_COMPRESSED sections and report the count")
+    p.add_argument("--ghidra-script", metavar="FILE",
+                   help="also write a Ghidra Jython script mapping the same blocks")
     a = ap.parse_args(argv)
 
     if a.selftest:
@@ -405,12 +813,14 @@ def main(argv=None):
         ap.error("the following arguments are required: image")
     if a.cmd is None:
         ap.error("a subcommand is required (romhdr, modules, files, sections, exports, "
-                 "va2file, file2va, extract)")
+                 "va2file, file2va, extract, memmap)")
 
     with open(a.image, "rb") as fh:
         data = fh.read(128 << 20)
     r = CERom(data, a.image_start)
 
+    if a.cmd in ("memmap", "ghidra"):
+        return memmap_command(a, r, data)
     if a.cmd == "romhdr":
         print("image_start  0x%08x" % r.start)
         print("va_base      0x%08x" % r.va_base)

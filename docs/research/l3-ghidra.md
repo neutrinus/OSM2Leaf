@@ -255,8 +255,9 @@ python3 tools/l3_harness/runner.py plan  --manifest <m.json> --rommap <r.json>
 
 ## How to use L3 (target workflow)
 
-> Planned interface (TODO M9). Commands below do not exist yet; they define
-> what M9 must deliver. Update this section when a tool lands.
+> Planned interface (TODO M9). Only `tools/cerom.py memmap` exists so far
+> (EXP-2026-11-05-48); the other commands below define what M9 must deliver.
+> Update this section when a tool lands.
 
 ### Tool layout
 
@@ -276,7 +277,8 @@ python3 tools/l3_harness/runner.py plan  --manifest <m.json> --rommap <r.json>
 ```bash
 # image slice: the firmware lives in the first ~110 MB
 curl -r 0-109999999 -o fw.img https://files.viaaq.eu/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img
-python3 tools/cerom.py fw.img memmap --image A,B -o work/memmap.json
+python3 tools/cerom.py fw.img memmap --out work/memmap.json --pretty \
+  --ghidra-script work/memmap_ghidra.py        # one CE segment per run
 python3 tools/l3/ghidra_import.py fw.img work/memmap.json --project work/ghidra   # analysis
 ```
 

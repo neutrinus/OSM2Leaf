@@ -149,9 +149,11 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
   *Done when* every output length equals `vsize` (report failures).
 - [ ] **M1.4** Same for `FILESentry` payloads (`comp != real`: `UpdateNK.skn`,
   `default.hv`, …). *Done when* `ReleaseMain.skn`-style files extract.
-- [ ] **M1.5** `cerom.py ghidra` : emit a memory-map JSON/script (one block per
+- [x] **M1.5** `cerom.py memmap`/`ghidra`: emit a memory-map JSON/script (one block per
   `o32` at `o32_realaddr`) for a chosen module set. *Done when* Ghidra opens
   `Navi.exe` with correct addresses (check one known string).
+  Done: JSON blocks pass `l3_harness/rommap.py convert --skip-compressed` + `validate`
+  (EXP-2026-11-05-48, C-569); a real Ghidra open still needs the image.
 - [ ] **M1.6** Resolve import thunks: map each module's IAT slots to
   `module!export` (needs `exports` of all modules). *Done when* a call in
   `Navi.exe` shows `OBJDLL!MAL_DataVol_getOffset`, not a raw VA.
