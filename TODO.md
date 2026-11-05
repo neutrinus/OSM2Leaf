@@ -5,6 +5,145 @@ Actionable backlog. For "what we do not know yet" see
 evidence status of each claim see
 [`docs/research/claims.md`](docs/research/claims.md).
 
+## Status review and next steps (2026-11-05)
+
+**Read this section first.** It supersedes the ordering of the older
+sections below, which are kept as the historical backlog.
+
+### Where the work is stuck
+
+1. **Firmware: a static VA-guessing loop.** EXP-05 … EXP-29 (about 20
+   experiments) tried to recover module virtual addresses by fitting deltas,
+   scanning literals, export/import anchors and vtable runs. Almost every round
+   retracted the previous one (C-068, C-182, C-234, C-262, C-380, C-381, …)
+   and ended with "static is closed, go dynamic". Dynamic work needs hardware,
+   which is unavailable, so the firmware track has stopped.
+2. **The "no XIP table" negative (C-380/C-381) is probably wrong.** It was
+   based on a search for the strings `B000FF` and `ROMHDR`. `B000FF` only
+   exists in `.bin` files, not in a raw/NB0 ROM, and `ROMHDR` is a binary
+   struct with no signature string. A standard Windows CE ROM image has the
+   `ECEC` signature at **image start + `0x40`**, followed by `pTOC` (the VA of
+   `ROMHDR`) and the `ROMHDR` offset from image start. That is exactly what
+   sits at `0x200240`: `ECEC`, `0x8e232978`, `0x01751978`. So:
+   - CE image start = `0x200200` (the Clarion wrapper header is `0x200` bytes);
+   - `ROMHDR` should be at file `0x200200 + 0x01751978 = 0x01951b78`;
+   - VA → file: `file = VA − 0x8e232978 + 0x01951b78`
+     (i.e. image VA base `0x8cae1000` ↔ file `0x200200`);
+   - the "tail table" at `0x1951ee0` (32-byte records, all pointers in
+     `0x8C…0x8E`) is right after `ROMHDR` and matches the 32-byte
+     `TOCentry` layout. C-381 tested bases on a coarse grid
+     (`0x8BE00000…0x8DE00000`); `0x8cae1000` is not on that grid.
+   If this holds, the ROM TOC gives every module's `e32_rom`/`o32_rom` records,
+   i.e. exact `o32_realaddr` (VA) and `o32_dataptr` (ROM location) per section.
+   That replaces all delta guessing and unblocks the reader search statically.
+3. **Process problems.** `AGENTS.md` lists "no XIP/section table" as a dead end
+   that must not be redone, which blocks the most promising path. TODO.md has
+   three overlapping firmware sections (Gate 0a, P3, P7) and many items that
+   are already done elsewhere but still unchecked (tile viewer, writers). Each
+   new session re-derived context instead of acting.
+4. **Format track is in good shape but parked.** Containers, `DRSTR`, tile
+   grid and five target tiles round-trip byte-identically; L1/L2 validators
+   work cross-year. What remains on the data side does not need firmware or
+   hardware.
+
+### Step 1 — verify the CE ROM header (one short session, high value)
+
+Needs only the first ~30 MB of the EU 2011 image (`dd bs=1M count=32`).
+
+- [ ] Read `ROMHDR` at file `0x01951b78` (0x54 bytes, little-endian):
+  `dllfirst, dlllast, physfirst, physlast, nummods, ulRAMStart, ulRAMFree,
+  ulRAMEnd, ulCopyEntries, ulCopyOffset, ulProfileLen, ulProfileOffset,
+  numfiles, ulKernelFlags, ulFSRamPercent, ulDrivglobStart, ulDrivglobLen,
+  u16 usCPUType, u16 usMiscFlags, pExtensions, ulTrackingStart,
+  ulTrackingLen`.
+- [ ] Sanity checks: `physfirst ≤ 0x8e232978 < physlast`;
+  `physfirst` near `0x8cae1000`; `usCPUType` = SH-4 (`0x01a6` /
+  `IMAGE_FILE_MACHINE_SH4`); `nummods` and `numfiles` in the tens to low
+  hundreds; `dllfirst/dlllast` cover the `0x02xxxxxx–0x03xxxxxx` module band
+  seen in the code.
+- [ ] Walk `TOCentry[nummods]` (32 bytes: `attrib, ftTime(8), nFileSize,
+  lpszFileName, ulE32Offset, ulO32Offset, ulLoadOffset`) and then
+  `FILESentry[numfiles]`. Every `lpszFileName` must resolve to an ASCII name
+  (`nk.exe`, `coredll.dll`, …, the navi modules) through the formula above.
+- [ ] If the formula is off, solve the base from `lpszFileName` pointers
+  alone (they must land on NUL-terminated ASCII), not from code literals.
+- [ ] Repeat for builds B (`0x3e00000`) and C (`0x5200000`); B/C have a
+  different wrapper layout, so locate `ECEC` first.
+- [ ] Record as a new `EXP-…-ce-romhdr.md`. If confirmed, mark C-380 and
+  C-381 `RETRACTED` with `Superseded by`, and update `AGENTS.md`,
+  `docs/format/firmware.md` and `roadmap.md` in the same commit.
+- [ ] If refuted, record the exact `ROMHDR` bytes and why each check failed,
+  so nobody repeats it.
+
+### Step 2 — turn the ROM into Ghidra-ready modules (if Step 1 holds)
+
+- [ ] Add `tools/cerom.py` (stdlib only): `romhdr`, `modules`, `files`,
+  `sections <module>`, `va2file`, `file2va`, `extract <module> -o dir`.
+- [ ] Rebuild each module as a PE (or as a Ghidra memory map: one block per
+  `o32` at `o32_realaddr`, bytes from `o32_dataptr`). Sections with
+  `IMAGE_SCN_COMPRESSED` (`0x00002000`) need CE ROM decompression; check
+  whether this is the `HCXCmp` mystery or plain `CECompress`.
+- [ ] Re-check the old `o32_rom` records (C-180, C-234, C-262) against the
+  TOC: they are probably real `o32_rom` entries read with the wrong base.
+- [ ] Use `ulCopyEntries`/`ulCopyOffset` to explain the RAM copies; this
+  should explain why the VA map looked "not injective" (EXP-22, `0x0367b180`).
+- [ ] Export tables come with `e32_rom`; COM class factories follow from
+  `DllGetClassObject`, so the NaviStateCC vtable can be found statically
+  (constructor → vtable store), contrary to EXP-29.
+- [ ] Re-run the existing anchors (`0x6fab2c` → `0x6faeb0` → `0x6fb05c`,
+  `MAL_DataVol_getOffset`, `0x0369d400`) with exact VAs. Target: the `.ind`
+  reader, the `DRSTR` parser, the tile reader and the `HDD_INFO` parser.
+- [ ] Replace the ad-hoc `scripts/rommap.py` (not in the repo) with
+  `tools/cerom.py`; never keep firmware scripts only in `/tmp`.
+
+### Step 3 — L3 contract oracle (after Step 2)
+
+Follow [`docs/research/l3-ghidra.md`](docs/research/l3-ghidra.md), now with a
+real memory map:
+
+- [ ] Start with the `.ind`/`.cmp` reader: run it under Ghidra P-code with
+  stubbed `CreateFile`/`ReadFile`/`SetFilePointer` and the corpus from
+  `tools/ind_mutate.py`. This answers the `chunk_size` and seek-vs-scan
+  questions **without a spare card**.
+- [ ] Then the `HDD_INFO` comparator with `tools/hddinfo_variants.py`: this
+  answers which fields cause `DIFFERENT MAP CODE` without hardware.
+- [ ] Then `DRSTR` and one tile reader.
+
+### Parallel track — data side, no firmware or hardware needed
+
+Ordered by value for the first OSM tile:
+
+- [ ] `RDSTM001`: decode records, graph tuples and road attributes (speed,
+  one-way, turn restrictions). Routing is the scope priority and nothing is
+  known yet about how the router reads the graph.
+- [ ] Section 4 of the tiles: map the binary fields and write the encoder,
+  or prove it can be kept verbatim for a changed tile.
+- [ ] Gate 1: `MMAIN001.DAT` (4,096 bytes, 11 entries) round-trip and field
+  meaning; the `0x180` header block.
+- [ ] Explain the `B30R048R` 2013–2016 rebuild difference at `0x807`
+  (EXP-30); it is probably a header/writer variant worth one diff session.
+- [ ] Cross-year differential (2011 → 2014 → 2016 cards): diff `HDD_INFO`,
+  headers, `MMAIN`, `DRSTR` leading `u32` and tile descriptors to see which
+  fields change with the map code. This is the cheapest substitute for the
+  card matrix.
+- [ ] P9 vertical slice: one tile from OSM through `osm2clarion`, preserving
+  factory REFER data, rebuilt `DRSTR`/`MMAIN`, passing L1 and L2.
+
+### Hardware (deferred, keep ready)
+
+- [ ] Get the owner's US 2011 SD dump (read-only, record SHA-256).
+- [ ] Spare-card kit: 16 GB SDHC whole-card clone, no-op control, POI rename,
+  `HDD_INFO` and `.ind` matrices. Steps 1–3 should shrink these matrices to a
+  few confirming cases.
+
+### Housekeeping
+
+- [ ] Merge the firmware sections (Gate 0a, P3, P7, P8) into one list after
+  Step 1; tick items that are done (tile viewer, `.cmp`/`DRSTR`/tile
+  writers, `rdstm.md`/`refer.md` exist).
+- [ ] Per session: one experiment, one `EXP-…` record, one commit. Stop a
+  firmware line after two rounds without new evidence and write down why.
+
 ## Next up (confidence gates)
 
 See [`docs/research/roadmap.md`](docs/research/roadmap.md). The rule: data
