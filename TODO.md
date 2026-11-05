@@ -664,8 +664,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: each is decoded with a test, in `coord-zcode-icode.md`.
   - Claims: C-1000–C-1009
 
-- [ ] **M4.13 — Strings: length limits, collation, Polish diacritics**
-  - Status: in progress · Owner: task/m4.13-strings · Critical: no
+- [x] **M4.13 — Strings: length limits, collation, Polish diacritics**
+  - Status: done · Owner: task/m4.13-strings · Critical: no
+  - Result: EXP-2026-11-05-M4.13-strings (`tools/name_strings.py`; 297,295 text strings in 517 streams; decode errors 0; Polish letters present; writer rule: reject non-Latin-2; collation UNKNOWN)
   - Depends: —
   - Goal: max name length per field, character set, sort order and whether
     `ą ę ł ń ó ś ź ż` are representable (Czech/German names in the EU image
