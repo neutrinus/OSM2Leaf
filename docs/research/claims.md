@@ -98,17 +98,32 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-040 | There are 46 tiles named `BxxRyyR.DAT` plus `LEV3456R.DAT` (76,066,304 bytes). | VERIFIED | H | directory listing |
-| C-041 | Tiles start with the common 512-byte header, then a sparse descriptor area. | VERIFIED | H | hexdump |
-| C-042 | Tiles contain many small independent zlib streams (`78 9c`). | VERIFIED | H | successful `zlib.decompress` from `0x5200` in several tiles, `0xbe00` in `LEV3456R.DAT` |
-| C-043 | Decompressed streams are structured records, not raster imagery. | OBSERVED | M | first bytes look like record/coordinate data |
-| C-044 | The first stream starts at `0x5200` for ordinary tiles and `0xbe00` for `LEV3456R.DAT`. | OBSERVED | M | sample of 4 files; must be checked on all 46 |
-| C-045 | The `B`/`R` filename components encode a mesh/grid position. | HYPOTHESIS | L | naming pattern only; no decoded mapping |
-| C-046 | `LEV3456R.DAT` is a shared multi-level table. | HYPOTHESIS | L | name and size |
-| C-047 | The descriptor at `0x2b0` contains signed fixed-point deltas. | HYPOTHESIS | L | values such as `0xfd30` = -720 look like deltas |
-| C-048 | The tile-to-latitude/longitude mapping is unknown. | UNKNOWN | — | no correlation with coordinates yet |
-| C-049 | The record format inside decompressed tile streams is unknown. | UNKNOWN | — | not decoded |
+| C-040 | There are **45** `BxxRyyR.DAT` tiles plus `LEV3456R.DAT` (76,066,304 bytes), i.e. 46 files. | VERIFIED | H | directory listing + `tools/mesh_grid.py` |
+| C-041 | Tiles start with the common 512-byte header, then descriptor tables at `0x1ac` and `0x2ac`. | VERIFIED | H | hexdump |
+| C-042 | Tiles contain many small independent zlib streams (`78 9c`). | VERIFIED | H | successful decompression; 3,497,371 streams |
+| C-043 | Decompressed streams are structured records, not raster imagery. | VERIFIED | H | 6-byte keys and 16-bit word bodies |
+| C-044 | The first stream starts at `0x5200` for ordinary tiles and `0xbe00` for `LEV3456R.DAT`. | VERIFIED | H | all tiles checked |
+| C-045 | Tile grid: B/R are hex; `lat_min = int(B,16)*2/3`, `lon_max = 108-int(R,16)`, cell 5.333°×8°. | VERIFIED | H | 45/45 descriptor boxes inside; 44/45 share an exact edge |
+| C-046 | `LEV3456R.DAT` is a shared coarse overview covering rows B20–B78 / cols R040–R078 at levels 3–6. | OBSERVED | M | stream keys and levels; role not proven |
+| C-047 | `0x2ac` holds 10-byte entries `(level, flags, i16 lat_top, lat_bottom, lon_left, lon_right)` in signed arc-minutes. | VERIFIED | H | boxes match tile names |
+| C-048 | Stream prefix: `A = 32768 + lat*192`, `B = 52736 + lon*128`, `u16 tag` selects a table. | VERIFIED | H | 3,497,371 streams, 0 exceptions |
+| C-049 | The record grammar inside real payloads is unknown; most payloads are default 448-byte pages. | UNKNOWN | — | 2,374/3,769 in B30R048R; 13 distinct bodies |
 | C-050 | Road geometry is split between `MAPAL001` and `RDSTM001` in an unknown way. | UNKNOWN | — | `RDSTM001` has street-like data, tiles have geometry-like data |
+| C-051 | There is no `u32` offset table in the tile header; streams are back-to-back with 0–3 bytes padding. | VERIFIED (negative) | H | 4/200 coincidental matches only |
+| C-052 | `0x1ac` holds `00 | n_tables | {table_id, n_entries, (level, kind, u16 count)} | 00`. | VERIFIED | H | structure parses in all tiles |
+| C-053 | `COORD001` uses longitude origin 52742; the tile stream prefix uses 52736. The 6-unit difference (~0.047°) is unexplained. | OBSERVED | M | independent fits |
+
+## `COORD001` / `ZCODE*` / `ICODE001`
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-110 | `COORD001` is a 33-entry table of region bounding boxes at `0x1010`, 14-byte big-endian records, sentinel-terminated; not a point list. | VERIFIED | H | `coord.py` fit |
+| C-111 | Coordinate encoding: `lat = (x-32768)/192`, `lon = (y-52742)/128`; rms ~0.031° lat / ~0.073° lon over 33 regions. | VERIFIED | H | least-squares + outlier checks |
+| C-112 | `ZCODE0nn` is a character/digit trie; postal-code text is never stored, so `strings` cannot extract it. | VERIFIED (negative) | H | full walk of ZCODE001/010/018 |
+| C-113 | ZCODE directory entries are 12 bytes `(size, 0, tag, 0, count, offset)`; leaf records are 8 bytes `(x, y, sub_x, sub_y)` with 11-bit sub-positions. | VERIFIED | H | decoded records |
+| C-114 | `ICODE001` starts with 33 per-country administrative schemas, then a flat ASCII place-name database. | VERIFIED | H | schema parse; 111 MB payload |
+| C-115 | Region numbering 001–033 is alphabetical by German country name (001 Andorra … 033 United Kingdom). | OBSERVED | H | ICODE schemas + several bounding boxes |
+| C-116 | The 2011 map covers Western/Central Europe only; Iceland, Malta, Cyprus, Turkey, Belarus, Ukraine, Russia, Moldova and the Balkans are absent. | OBSERVED | M | 33-region list |
 
 ## `RDSTM001.DAT` / `LCTBL001.DAT`
 

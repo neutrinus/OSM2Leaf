@@ -69,10 +69,14 @@ offsets live in [`docs/format/`](docs/format/).
   Each chunk is an independent zlib stream inside `.cmp`.
   **All 194 `.ind`/`.cmp` pairs in the EU 2011 image decode with exactly the
   declared uncompressed size.**
-- **`MAPAL001/` map tiles.** 46 files named `BxxRyyR.DAT` (mesh-like tile
-  IDs) plus `LEV3456R.DAT`. Each has the common 512-byte header followed by a
-  tile-specific index/descriptor area and many small independent zlib streams.
-  The tile-to-latitude/longitude mapping is not yet decoded.
+- **`MAPAL001/` map tiles.** 45 files named `BxxRyyR.DAT` plus `LEV3456R.DAT`.
+  The grid is decoded: `B`/`R` are hexadecimal, `lat_min = int(B,16)*2/3`,
+  `lon_max = 108-int(R,16)`, cell 5.333° × 8°. Each tile has the common
+  header, descriptor tables at `0x1ac`/`0x2ac`, and many small independent
+  zlib streams addressed by `(lat, lon, section)` keys.
+- **Coordinates.** `COORD001` stores 33 region bounding boxes at `0x1010`
+  (14-byte BE records); `lat = (x-32768)/192`, `lon = (y-52742)/128`
+  (~0.03° rms). The same grid underlies the tile names and stream keys.
 - **`DRSTR001.DAT`.** The only manifest: no header, root node `/` at `0x0000`,
   40 name-first 40-byte node records, then 32-byte directory entries (13-byte
   name + metadata, logical size at `+0x1c`). Each node's listing matches its
@@ -134,6 +138,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
 - [`DRSTR001.DAT` directory index](docs/format/drstr.md)
 - [`MAPAL001` map tiles](docs/format/map-tiles.md)
 - [`RDSTM001` / `LCTBL001` road data](docs/format/rdstm.md)
+- [`COORD001`, `ZCODE*`, `ICODE001`](docs/format/coord-zcode-icode.md)
 - [Firmware and pre-partition area](docs/format/firmware.md)
 - [Research sources and external links](docs/research/sources.md)
 - [Claims and evidence ledger](docs/research/claims.md) — **start here when

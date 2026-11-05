@@ -74,14 +74,15 @@ Three agents are investigating these; merge their results here when done.
 
 ## P2 — tiles and geography
 
-- [ ] Determine the `BxxRyyR` naming convention and the tile-to-lat/lon
-  mapping. Start from known map coverage (Europe) and correlate tile extents.
-- [ ] Decode the tile descriptor area at `0x2b0` and the LOD-like table at
-  `0x1ac`.
-- [ ] Decode the zlib stream boundaries and the record format inside a
-  decompressed tile stream.
-- [ ] Explain `LEV3456R.DAT` (76 MB) and its relationship to per-tile files.
+- [x] Tile grid: B/R hex, `lat_min = B*2/3`, `lon_max = 108-R`,
+  5.333°×8°; `tools/mesh_grid.py` and `docs/format/map-tiles.md`.
+- [x] Descriptor tables `0x1ac` (LOD) and `0x2ac` (bboxes in arc-minutes).
+- [x] Stream key: `(A = 32768 + lat*192, B = 52736 + lon*128, section tag)`.
+- [ ] Decode the record grammar inside real (non-448-byte) tile payloads.
+- [ ] Explain `LEV3456R.DAT` (rows B20–B78, cols R040–R078, levels 3–6).
 - [ ] Build a small standalone tile viewer/exporter.
+- [ ] Decode `COORD001` `level`, `ZCODE` offset base, `ICODE001` trie roots.
+- [ ] Reconcile longitude origin 52742 (`COORD001`) vs 52736 (tile streams).
 
 ## P2b — presentation, assets and extras
 

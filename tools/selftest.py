@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import cmpind  # noqa: E402
 import drstr  # noqa: E402
+import mesh_grid  # noqa: E402
 
 
 def test_cmpind() -> None:
@@ -90,9 +91,18 @@ def test_drstr() -> None:
     assert tree["nodes"][0]["entries"][0]["value"] == 123
 
 
+def test_mesh_grid() -> None:
+    lat_min, lat_max, lon_min, lon_max = mesh_grid.tile_box("B48R058R.DAT")
+    assert abs(lat_min - 48.0) < 1e-9
+    assert abs(lat_max - 53.3333333333) < 1e-6
+    assert abs(lon_min - 12.0) < 1e-9
+    assert abs(lon_max - 20.0) < 1e-9
+
+
 def main() -> int:
     test_cmpind()
     test_drstr()
+    test_mesh_grid()
     print("selftest: OK")
     return 0
 

@@ -59,6 +59,12 @@ a car without a verified backup and a spare SD card.
   about a “one-node shift” were a parsing bug; do not reintroduce it.
 - `MAPAL001/*.DAT` tiles are **not raster images**. They are a header plus many
   small zlib records. Do not assume a bitmap or a single compressed blob.
+- Tile grid is **verified**: B/R are hex, `lat_min = int(B,16)*2/3`,
+  `lon_max = 108-int(R,16)`, cell 5.333° × 8°. Stream keys are
+  `A = 32768 + lat*192`, `B = 52736 + lon*128`, plus a `u16` table tag.
+  Use `tools/mesh_grid.py` rather than re-deriving it.
+- `COORD001` is a 33-entry region-bbox table at `0x1010`, not a point list:
+  `lat = (x-32768)/192`, `lon = (y-52742)/128`.
 - `tools/leafimg.py header` decodes only the text region by design;
   `tools/drstr.py parse` stops at the first listing by design.
 
@@ -68,8 +74,8 @@ a car without a verified backup and a spare SD card.
 QY8x format (`CLA-NAVI06-01`, `X08-03-00`) with a tile grid, zlib record tree,
 `DRSTR001.DAT`, `REFER001` and `LEV3456R.DAT`. External research claims:
 
-- grid: `lat_min = B_hex * 2/3`, `lon_max = 108 - R_hex`, cell 5.333° × 8°;
-- tiles are addressed by index order, not only by filename;
+- tiles are addressed by index order, not only by filename (grid itself is
+  now verified on ZE0 — see above);
 - `VER_INFO/HDD_INFO.TXT` line 1 is the base card code; editing it is reported
   to fix `DIFFERENT MAP CODE`;
 - SD lock is a CMD42 password, not file encryption.

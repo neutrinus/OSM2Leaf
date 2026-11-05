@@ -1,19 +1,57 @@
 # `MAPAL001` map tiles
 
-> **Evidence status:** the 512-byte header, the presence of zlib streams and
-> the stream offsets are `VERIFIED`/`OBSERVED`; the descriptor meaning, record
-> format and tile grid are `HYPOTHESIS` or `UNKNOWN`. See
-> [`../research/claims.md`](../research/claims.md).
+> **Evidence status:** the tile grid and coordinate encoding are `VERIFIED`
+> on the EU 2011 image; the stream/record layout is `OBSERVED`; the `0x1ac`
+> and `0x2b0` descriptor semantics remain `HYPOTHESIS`/`UNKNOWN`.
 
 `MAPAL001/` holds the map geometry. In the EU 2011 image it contains:
 
-- 46 files named `BxxRyyR.DAT`, for example `B28R070R.DAT`,
-  `B30R048R.DAT`, `B68R058R.DAT`
+- 45 files named `BxxRyyR.DAT` (plus `LEV3456R.DAT`)
 - `LEV3456R.DAT` (76,066,304 bytes) — much larger than every other tile
 
-The tile set is small: 46 tiles cover the whole of Europe at the coarse
-level, which suggests a hierarchy of tile sizes/levels rather than a uniform
-grid. The exact grid convention is **not yet decoded**.
+## Verified tile grid
+
+`B` and `R` in the filename are **hexadecimal**. One grid unit is **1° of
+longitude** and **2/3° of latitude**; a tile is 8 × 8 units:
+
+```
+lat_min = int(B, 16) * 2/3
+lat_max = lat_min + 8 * 2/3      # 5.333°
+lon_max = 108 - int(R, 16)
+lon_min = lon_max - 8            # 8°
+```
+
+Examples:
+
+| Tile | lat | lon | Size |
+| --- | --- | --- | --: |
+| `B48R060R` | 48.00–53.33 °N | 4–12 °E (Germany/Benelux/Alps) | 436.0 MB |
+| `B40R060R` | 42.67–48.00 °N | 4–12 °E (France/Alps) | 359.4 MB |
+| `B48R058R` | 48.00–53.33 °N | 12–20 °E (E Germany/Poland) | 289.3 MB |
+| `B38R070R` | 37.33–42.67 °N | −12…−4 °E (Iberia/Atlantic) | 165.4 MB |
+| `B68R058R` | 69.33–74.67 °N | 12–20 °E (north Norway) | 1.57 MB |
+| `B58R070R` | 58.67–64.00 °N | −12…−4 °E (Norwegian Sea) | 0.11 MB |
+
+The 45 tiles form a 9 × 7 lattice stepping by 8. The smallest tiles are sea;
+`R = 0x78` (lon −20…−12) exists only at `B28`/`B30`, i.e. Atlantic coast off
+Morocco, nowhere on land.
+
+The same grid is used by `COORD001` (see
+[coord-zcode-icode.md](coord-zcode-icode.md)), which is independent
+confirmation of the rule.
+
+## Coordinate encoding (from `COORD001`)
+
+`COORD001` stores per-region bounding boxes in grid units at 1/128 resolution:
+
+```
+lat = (x - 32768) / 192        # 192 = 128 * 3/2
+lon = (y - 52742) / 128
+```
+
+A least-squares fit over 33 regions gives ~0.03° latitude / ~0.07° longitude
+rms. The asymmetric divisors are exactly the grid: 1 grid unit = 1° lon =
+2/3° lat, stored at 1/128.
 
 ## File structure
 
@@ -54,9 +92,21 @@ imagery. The first bytes of a decoded stream are typically:
 95 1f c8 02 00 fa ff ff ff ff 00 00 00 00 ff ff 00 00 00 0b 00 28 ...
 ```
 
-## Descriptor area around `0x2b0`
+## Descriptor tables (`0x1ac` and `0x2ac`)
 
-`B28R070R.DAT`:
+Both are the same container:
+
+```
+00 | n_tables | { table_id, n_entries, entries... } | 00
+```
+
+- `0x1ac`: entries are `(level, kind, u16 count)`; this is the
+  level-of-detail table.
+- `0x2ac`: entries are 10 bytes
+  `(level, flags, i16 lat_top, i16 lat_bottom, i16 lon_left, i16 lon_right)`
+  in **signed arc-minutes**.
+
+`B28R070R.DAT` `0x2ac`:
 
 ```
 02 01 02 02 00 07 80 06 95 fd 30 fd ce 01
@@ -65,53 +115,60 @@ imagery. The first bytes of a decoded stream are typically:
 00 07 80 07 1a fd 30 fd 9f
 ```
 
-`B30R048R.DAT`:
+`0x0780` = 1920′ = 32.00°, `0x0695` = 1685′ = 28.08°, `0xfd30` = −720′ =
+−12.00°, `0xfdce` = −562′ = −9.37°. Every box lies inside the tile rectangle
+computed from the filename (0 violations over all 45 tiles).
+
+## Stream prefix = absolute coordinates
+
+Every zlib stream starts with a 6-byte key:
 
 ```
-03 01 02 02 00 08 b1 08 5c 06 90 07 80 01
-00 08 b0 08 5c 06 90 07 80 02
-02 02 00 08 9d 08 70 06 90 06 a7 01
-00 08 9c 08 72 06 90 06 f2 04 01 01 00 08 8b 08 76 06 90 06 9f
+u16 BE A = 32768 + lat * 192      # 1024 units per 5.333° row
+u16 BE B = 52736 + lon * 128      # 1024 units per 8° column
+u16 BE section_tag
 ```
 
-The repeating 16-bit values (`fd30` = -720, `fdce` = -562) look like signed
-fixed-point deltas. The `07 80`, `06 95`, `08 b1` values may be tile-local
-coordinates, level-of-detail IDs or record counts. This is a promising place
-to start the tile decoder.
+- Both axes quantise to exactly 1024 units per grid cell; 1 unit ≈ 600 m.
+- The tag is a table selector: `0x00fa` → table 1, `0x0000` → table 2,
+  `0x0009`/`0x000a` → table 4. The section count equals `n_tables` in 46/46
+  files.
+- 3,497,371 streams decoded with zero exceptions.
+- `COORD001` uses longitude origin `52742`; the stream prefix uses `52736`.
+  The 6-unit difference (~0.047°) is not yet explained.
 
-## Header descriptor at `0x1ac`
+## Stream layout
 
-All tiles share a pattern:
+- First stream at `0x5200` (ordinary tiles) or `0xbe00` (`LEV3456R.DAT`).
+- Streams are back-to-back with 0–3 bytes of padding (93 % of gaps).
+- Number of streams per tile: 3,769–216,332.
+- Block order is monotone in `A` and `B`.
+- **Negative result:** there is no `u32` offset table in the header; the
+  streams are effectively a random-access page array addressed by `(A,B,tag)`.
 
-```
-00 02 01 06 06 80 00 00 05 90 00 00 04 91 00 00 03 91 00 00
-02 91 00 02 01 92 00 0f 02 04 05 91 00 00 04 91 00 00 02 91 00
-01 01 90 00 05 ...
-```
+## Payload structure
 
-`LEV3456R.DAT` uses mostly `01` where ordinary tiles use `00`, and has a
-larger descriptor. This is consistent with a **level-of-detail table**: each
-entry names a level and a count/offset. Field-by-field decoding is TODO.
+Each stream is one ~600 m block: a 6-byte key plus a body of 16-bit
+big-endian words (`0xffff` = empty).
+
+- In `B30R048R.DAT`, 2,374 of 3,769 payloads are exactly 448 bytes and only
+  13 distinct bodies exist (2,256 are byte-identical apart from the key).
+  These are empty/default pages; they compress to ~77 bytes.
+- The remaining ~1 % (128/132/176/188/592 bytes…) carry real data with an
+  undecoded grammar. Recurring constants: `20 1e`, `07 ff`, separator
+  `45 xx 12`.
+- The `(A,B)` values occupy a 4-unit sub-lattice (low 2 bits look like a
+  4-way quadrant), suggesting a quadtree address.
 
 ## Key questions
 
-1. What do `B` and `R` mean, and how do `xx`/`yy` map to latitude/longitude?
-   Likely a Japanese-style mesh code or a Clarion proprietary block/row grid.
-2. Are the zlib streams addressed by the `0x200`–`0x5200` descriptor area, or
-   simply concatenated in order?
-3. What is the record format inside a decompressed stream?
-4. What is the relationship between `LEV3456R.DAT` and the per-tile files?
+1. What is the record grammar inside a real (non-448-byte) payload?
+2. What do the `20 1e` / `07 ff` constants mean? Is `20 1e` a packed `(dx,dy)`
+   pair at 4-bit granularity?
+3. Is the 4-unit sub-lattice really a quadtree?
+4. What is the relationship between `LEV3456R.DAT` (rows B20–B78, cols
+   R040–R078, levels 3–6) and the per-tile files?
 5. How are roads split between `MAPAL001` (geometry) and `RDSTM001`
    (street/attribute data)?
-
-## Hypotheses (not verified)
-
-- The `BxxRyyR` name encodes a tile at some mesh level: `B` = block/row
-  index, `R` = row, suffix `R` = region or revision.
-- `LEV3456R.DAT` is a shared multi-level table used by all tiles (hence the
-  `LEV` and `3456` in the name).
-- The many small zlib streams are per-object or per-tile-chunk records
-  addressed by the preceding index, similar to `.cmp`/`.ind` but inline.
-
-Do not rely on these hypotheses in code until they are checked against
-multiple tiles and, ideally, the US dump.
+6. Does the unit accept a tile with only part of its geographic cell
+   populated? (Build profiles currently ship whole tiles.)

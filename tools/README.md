@@ -78,6 +78,16 @@ python3 tools/rdstm_scan.py zlib RDSTM001.DAT --bruteforce
 python3 tools/rdstm_scan.py codes RDSTM001.DAT --lctbl LCTBL001.DAT
 ```
 
+## `mesh_grid.py`
+
+Map `MAPAL001/BxxRyyR.DAT` names to latitude/longitude (B/R are hex).
+
+```bash
+python3 tools/mesh_grid.py list MAPAL001
+python3 tools/mesh_grid.py matrix MAPAL001
+python3 tools/mesh_grid.py cell B48R058
+```
+
 ## `selftest.py`
 
 Runs synthetic tests for `cmpind.py` and `drstr.py` without any vendor data:
