@@ -119,7 +119,8 @@ qemu-system-misc gdb-multiarch`.
   (EXP-50).
 - **Compression is the one firmware unknown.** Code is never compressed
   (C-530); RW data sections and some `FILESentry` payloads are. zlib, LZMA
-  and bz2 fail from the stream start (EXP-49, EXP-51). The streams share a
+  and bz2 fail from the stream start (EXP-49, EXP-51); `tools/cecompress.py` has LZSS/LZX candidates tested
+  on synthetic streams only (EXP-52). The streams share a
   header (see M1.2a).
 - **Full-system emulation is possible, not hopeless.** Stock QEMU
   `-M none -cpu sh7785` runs B's `nk.exe` into the scheduler (EXP-37). This
@@ -137,7 +138,7 @@ qemu-system-misc gdb-multiarch`.
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
 | H | Housekeeping: ledger, docs, tool overlap | H1, H2, H3, H4 |
-| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2a, M1.2b, M1.2c, M1.6b, M1.7, M1.8 |
+| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2a, M1.2b, M1.2c, M1.8 (M1.6b, M1.7 claimed) |
 | M2 | Map code, activation, updater, error screens | M2.1, M2.6, M2.7, M2.8, M2.9, M2.10 |
 | M3 | Reader contract (what the unit reads from the card) | M3.1, M3.4, M3.5 |
 | M4 | Data formats (no firmware needed) | M4.1, M4.3, M4.4, M4.5, M4.6, M4.7, M4.8, M4.9–M4.14 |
@@ -224,7 +225,8 @@ widens knowledge or tooling in parallel and is equally welcome.
 
 Done: M1.1 (synthetic self-test, EXP-47), M1.5 (`cerom.py memmap`/`ghidra`,
 EXP-48; the real Ghidra open is M9.2), M1.6 (`cerom.py imports`, EXP-50,
-PR #5).
+PR #5). Tool half of M1.2b: `tools/cecompress.py` (4 KiB LZSS and LZX
+stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M1.2a — Parse the compressed-section header**
   - Status: open · Owner: — · Critical: yes
@@ -250,7 +252,9 @@ PR #5).
   - Depends: — (use M1.2a's offsets once they exist; until then try offsets
     0…32)
   - Goal: find a public decoder whose output length matches.
-  - Input: the two EXP-49 sections; candidates: Xpress "plain LZ77" and
+  - Input: the two EXP-49 sections; `tools/cecompress.py` (LZSS + LZX
+    stored blocks already implemented and self-tested, EXP-52: run it on the
+    real sections first, at the M1.2a payload offset); further candidates: Xpress "plain LZ77" and
     "LZ77+Huffman" and LZNT1 ([MS-XCA], open spec), LZX, and the CE
     romimage/`CECompress` formats as described by public ROM tools (cite the
     source in `docs/research/sources.md`; link, do not copy incompatible
@@ -301,19 +305,21 @@ PR #5).
   - Claims: C-680–C-689
 
 - [ ] **M1.6b — Resolve all import thunks of all modules**
-  - Status: open · Owner: — · Critical: no
+  - Status: claimed · Owner: upstream session (draft `tools/cerom_thunks.py`,
+    removed again in `c44db2b` until its EXP lands) · Critical: no
   - Depends: M1.6 (PR #5)
   - Goal: a VA → `module!export` label table for every thunk, for Ghidra and
     for call-site search.
   - Input: EXP-50 stub pattern (`mov.l @(disp,PC),R0; mov.l @R0,R0; jmp @R0;
     nop`), `cerom.py imports` and `exports`.
-  - Done when: `cerom.py thunks [MODULE|--all] --json` lists stub VA, slot
+  - Done when: `cerom_thunks.py` (or `cerom.py thunks`) `[MODULE|--all] --json` lists stub VA, slot
     VA and name for every A and B module; ≥ 95 % of `Navi.exe`'s 846 slots
     have a stub (report the rest); self-test on a synthetic stub.
   - Claims: C-690–C-699
 
 - [ ] **M1.7 — Which kernel (B or C) boots with A**
-  - Status: open · Owner: — · Critical: no
+  - Status: claimed · Owner: upstream session (draft `tools/kernel_select.py`,
+    removed again in `c44db2b` until its EXP lands) · Critical: no
   - Depends: —
   - Goal: know which kernel and drivers the unit really runs.
   - Input: `ROMHDR` `ulRAM*`, `pExtensions` of B and C (`cerom.py romhdr`);
