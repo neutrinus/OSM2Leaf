@@ -147,10 +147,11 @@ def cmd_info(args: argparse.Namespace) -> int:
 
 
 def decode_header(blob: bytes) -> list[str]:
-    text = blob.decode("utf-16-be", "replace")
+    # Only the first 0x180 bytes are text; the rest is a binary descriptor.
+    text = blob[:0x180].decode("utf-16-be", "replace")
     fields = []
     for part in text.split("\uffff"):
-        cleaned = part.strip("\x00 ")
+        cleaned = "".join(ch for ch in part if 0x20 <= ord(ch) <= 0x7E).strip()
         if cleaned:
             fields.append(cleaned)
     return fields
