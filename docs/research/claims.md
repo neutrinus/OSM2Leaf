@@ -18,6 +18,10 @@ Confidence: **H** = high, **M** = medium, **L** = low.
 When a claim changes status, update this file and note the evidence in the
 commit message. Do not silently promote a hypothesis to a fact.
 
+Evidence should cite the relevant `docs/experiments/EXP-...` record and/or a
+`tools/` command. The experiment log is append-only; if a result is corrected,
+add a new experiment and mark `Supersedes` / `Superseded by`.
+
 ## Reference sample
 
 | Item | Value |
@@ -83,7 +87,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-030 | `DRSTR001.DAT` has **no header**. The node table starts at `0x0000` with the root node `/`; the 2011 sample has 40 nodes. `0x2f` is the ASCII `/` of the root name, not a count. | VERIFIED | H | `40*40 + 324*32 = 11968`; cross-checked on 2014/2016 |
+| C-030 | `DRSTR001.DAT` has **no header**. The node table starts at `0x0000` with the root node `/`; the 2011 sample has 40 nodes. `0x2f` is the ASCII `/` of the root name, not a count. | VERIFIED | H | EXP-2026-11-05-01; `40*40 + 324*32 = 11968` |
 | C-031 | Node records are 40 bytes, name-first: `name[8]` at `+0x00`, `next_index` at `+0x14`, `parent_index+1` at `+0x16`, `entry_count` at `+0x18`, `listing_offset` at `+0x24`. | VERIFIED | H | 40/40 parse; invariants pass |
 | C-032 | Listings are 32-byte entries: `name[13]` at `+0x00`, `type` at `+0x16` (0 = file, 2 = dir), `value` at `+0x1c`. | VERIFIED | H | 324 entries; names match FAT |
 | C-033 | An earlier "one-node shift" was a parsing artefact: the table starts at `0x0000`, not `0x28`, and each node describes its own listing. | VERIFIED | H | corrected `tools/drstr.py`; listings tile exactly to EOF |
@@ -159,7 +163,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-143 | `REFER002` has 16 files and is a separate EV/charging POI layer, not an uncompressed copy of `REFER001`. | VERIFIED | H | directory listing + schema |
 | C-144 | The FAT contains zero executables; `DRSTR001.DAT` stores logical sizes, not disk offsets, so the FAT is the only location index. | VERIFIED | H | card/FAT research |
 | C-145 | REFER001 display names are plain Latin-1 text inside small inner zlib pages, not encrypted or custom-coded. | VERIFIED | H | `scan_refer_names.py` |
-| C-146 | A same-length POI rename in `POINT032.DAT` was produced offline: logical size unchanged, changes confined to page `0x4200`, DRSTR unchanged, `cmpind.py verify` 1/1 OK. | VERIFIED | H | `mutate_refer_poi.py` + `validate_mutation.py` |
+| C-146 | A same-length POI rename in `POINT032.DAT` was produced offline: logical size unchanged, changes confined to page `0x4200`, DRSTR unchanged, `cmpind.py verify` 1/1 OK. | VERIFIED | H | EXP-2026-11-05-02; `mutate_refer_poi.py` + `validate_mutation.py` |
 | C-147 | No per-file checksum was found in the 512-byte header, `.ind`, `DRSTR001.DAT` or `MMAIN001.DAT`. | VERIFIED (negative) | H | targeted probes |
 | C-148 | A whole-card image is the only externally validated clone method; file-level and FAT-only clones are unreported. One OEM tile is fragmented, so contiguity/file order/timestamps do not matter. | OBSERVED | M | card research |
 | C-149 | The 2011 image is larger than a common 8 GB card in sectors; use a 16 GB SDHC (not SDXC) for a clone. | OBSERVED | M | sector count + forum reports |

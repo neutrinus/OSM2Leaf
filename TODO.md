@@ -205,3 +205,9 @@ See [`docs/research/build-profiles.md`](docs/research/build-profiles.md) and
 - [x] Add a `tools/README.md` with exact commands and expected output.
 - [x] Add `tools/selftest.py` covering `cmpind.py` and `drstr.py` without
   vendor data.
+- [x] Add `docs/experiments/README.md` and `TEMPLATE.md` with the append-only
+  experiment convention.
+- [ ] Add an `EXP-...` record for every hardware test and every material
+  format correction.
+- [ ] When a hypothesis is refuted, add a new experiment with `Supersedes`
+  rather than rewriting the old record.

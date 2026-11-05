@@ -19,7 +19,8 @@ All repo content (code, docs, commits) is English. Conversation may be Polish.
 - No package manager, build system, CI, lint or typecheck. The deliverables are
   docs plus small Python CLIs.
 - `tools/` — Python 3.10+, standard library only. Entrypoints are run directly.
-- `docs/format/` — on-disk format facts and hypotheses.
+- `docs/format/` — on-disk format facts and hypotheses (current knowledge).
+- `docs/experiments/` — append-only experiment records.
 - `docs/research/` — claim ledger, sources, open questions.
 - `archive/` — git-ignored vendor data. Never commit its contents.
 - Working data lives outside the repo; on this machine:
@@ -92,18 +93,33 @@ EU 2011 sample and record the outcome in `claims.md` before building on them.
   incompatible projects; link to it.
 - Original SD card is read-only: back up, verify hash, test on a spare card.
 
-## Documentation and evidence
+## Documentation model
 
+Three layers, each with one job:
+
+| Layer | Location | Rule |
+| --- | --- | --- |
+| Current knowledge | `docs/format/*.md` | Living document: the best answer today |
+| Experiment log | `docs/experiments/EXP-*.md` | Append-only: one record per experiment, never rewritten |
+| Claim ledger | `docs/research/claims.md` | Index: every claim has an ID, status and evidence |
+
+Flow: `format doc -> claim ID -> EXP record -> tool command`.
+
+- Start a new experiment from `docs/experiments/TEMPLATE.md`; name it
+  `EXP-YYYYMMDD-NN-slug.md`.
+- Record the sample SHA-256, exact commands, raw observations, then
+  interpretation. Do not mix observation with interpretation.
+- When a result changes the current knowledge, update the format doc and the
+  claim ledger in the same commit. Do **not** rewrite the old experiment; add
+  a new one and set `Supersedes` / `Superseded by`.
 - Register every new claim in `docs/research/claims.md` with the next free ID
   and status `VERIFIED`, `OBSERVED`, `HYPOTHESIS` or `UNKNOWN`.
-- `VERIFIED` requires a reproducible command/check; every non-obvious claim
-  needs a pointer (offset, byte pattern, command or URL). Otherwise it is a
-  hypothesis.
-- Put format details in `docs/format/`, external links in
-  `docs/research/sources.md`, unresolved questions in
-  `docs/research/open-questions.md`.
-- State the sample and its SHA-256 when a finding depends on one. Negative
-  results are useful; record the method and scope.
+- `VERIFIED` requires a reproducible command/check; non-obvious claims cite an
+  `EXP-...` ID and/or a `tools/` command. Otherwise they are hypotheses.
+- External links go in `docs/research/sources.md`; unresolved questions in
+  `docs/research/open-questions.md`; loose threads in `TODO.md`.
+- State the sample and its SHA-256. Negative results are useful; record the
+  method and scope.
 
 ## Commit style
 
