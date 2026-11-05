@@ -449,8 +449,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     card properties a cloned card must reproduce.
   - Claims: C-790–C-799
 
-- [ ] **M2.9 — Error-screen catalogue from firmware strings**
-  - Status: in progress · Owner: task/m2.9-error-catalogue · Critical: no
+- [x] **M2.9 — Error-screen catalogue from firmware strings**
+  - Status: done · Owner: task/m2.9-error-catalogue · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: for each error (`NAVI VERSION NG`, `DIFFERENT MAP CODE`, `MAP DATA
     BASE UNMATCH`, `SD UNLOCK NG`, others found), the module, string VA and
@@ -460,6 +460,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: a table is in `docs/format/validation.md` (error → module →
     string VA → referencing function VA or `UNKNOWN`).
   - Claims: C-800–C-809
+  - Result: docs/experiments/EXP-2026-11-05-M2.9-error-catalogue.md; catalogue in docs/format/validation.md
 
 - [ ] **M2.10 — What `TestMode.exe` (image C) can show or do**
   - Status: in progress · Owner: task/m2.10-testmode · Critical: no

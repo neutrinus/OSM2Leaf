@@ -416,6 +416,21 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-167 | `BICON001.DAT` is the only map file with a different data version (`11/04/08/01` vs `11/06/27/01`). | OBSERVED | M | header comparison |
 | C-168 | Only ~61 % of a tile's post-`0x5200` payload is inside zlib streams; the rest is alignment padding and fixed tables. There is no per-tile digest. | VERIFIED | H | stream accounting |
 
+## Error screens (AppLaunch.dll)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-800 | The unit's error screens are a UTF-16LE string block in `AppLaunch.dll` (builds B and C); build A has none of them. | VERIFIED | H | string search over all modules in all three builds; `docs/format/validation.md` |
+| C-801 | Build B holds the block at file `0x41369cc`–`0x4136af8` (physical VA `0x883367cc`–`0x88336af8`); build C at `0x55409cc`–`0x5540ad8` (`0x883407cc`–`0x88340ad8`). | VERIFIED | H | `cerom.py file2va` |
+| C-802 | The block contains 25 entries in build B and 24 in build C; build C omits `NO SERVICE TOOL`. | VERIFIED | H | extraction of the UTF-16LE block |
+| C-803 | `MAP DATA BASE UNMATCH`, `DIFFERENT MAP CODE` and `NAVI VERSION NG` are entries in this block (C-165 refined: they are in `AppLaunch.dll`, not `Navi.exe`). | VERIFIED | H | string search |
+| C-804 | Every entry in the block is referenced by exactly one function per build: `0x8834ffb8` (B) and `0x88359c90` (C). | VERIFIED | H | literal-pool xref + prologue scan |
+| C-805 | The showing function is a single dispatcher that selects a screen from an error code; `UNKNOWN ERROR` is the fallback. | HYPOTHESIS | M | single ref per string, shared literal pool |
+| C-806 | No module other than `AppLaunch.dll` in builds A/B/C contains this error-screen string set (UTF-16 and ASCII search). | VERIFIED (negative) | H | whole-image string search |
+| C-807 | Function-entry VAs above were recovered by a nearest-`sts.l pr` (`0x4f22`) prologue heuristic over the shared literal pool; exact boundaries are not symbol-confirmed. | OBSERVED | M | prologue scan |
+| C-808 | Build A contains none of these strings (negative result). | VERIFIED (negative) | H | whole-image search over 149 modules |
+| C-809 | The VAs in this catalogue are physical VAs from `cerom.py file2va`; module-internal VAs differ by the module vbase. | VERIFIED | H | `cerom.py` |
+
 ## Writers
 
 | ID | Claim | Status | Confidence | Evidence |
