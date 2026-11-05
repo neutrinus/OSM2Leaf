@@ -125,6 +125,7 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-44](EXP-2026-11-05-44-imf-definition.md) | Intermediate map format (IMF v1) and validator | done (design) |
 | [EXP-2026-11-05-45](EXP-2026-11-05-45-profile-validator.md) | Build-profile schema validator and dry-run builder | done (design) |
 | [EXP-2026-11-05-53](EXP-2026-11-05-53-cerom-decompress.md) | `cerom.py decompress` for compressed sections (M1.3) | done (synthetic) |
+| [EXP-2026-11-05-M1.2b](EXP-2026-11-05-M1.2b-decoder-probe.md) | Public LZ decoders and offset probe (M1.2b) | blocked: no real payload |
 | [EXP-2026-11-05-M1.6b](EXP-2026-11-05-M1.6b-thunks.md) | Full import-thunk resolver (M1.6b) | done (synthetic; real coverage UNKNOWN) |
 | [EXP-2026-11-05-M1.2a](EXP-2026-11-05-M1.2a-comphdr.md) | Compressed-section header parser (M1.2a) | done (2 real prefixes) |
 | [EXP-2026-11-05-55](EXP-2026-11-05-55-filesentry-extract.md) | Compressed FILESentry extraction (M1.4) | done (synthetic) |

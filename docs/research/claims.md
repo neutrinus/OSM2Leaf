@@ -546,6 +546,8 @@ Built without vendor data; every row states what is synthetic-only.
 
 | C-690 | `tools/cerom.py thunks [MODULE\|--all] [--json] [--min-coverage N]` finds the 4-insn stub and its 3-/2-insn variants in uncompressed code sections, computes `stub_va` = realaddr + offset and `slot_va` as the loaded literal, resolves it through the importing module OFT and the exporter export table, and emits stable records with confidence plus stub/slot coverage; `--min-coverage` exits 1 below the threshold. 344 synthetic checks; the real `Navi.exe` 846-slot coverage is UNKNOWN. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-M1.6b; `python3 tools/cerom.py --selftest` |
 
+| C-650 | `tools/cecompress.py` adds an LZNT1 decoder ([MS-XCA] 2.5: 4 KiB chunks, 16-bit header with payload−1 in bits 11…0, signature 3 in bits 14…12, flag bit 15, literal/match tokens with displacement−1 high and length−3 low at a `max(4, bits(u−1))` split, zero header terminates) validated against the spec's 59-byte example (142-byte output), XPRESS LZ77/Huffman skeletons that parse their header then raise `UNSUPPORTED`, and `probe FILE --size N [--offsets 0-32] [--methods …]` which tries every method × offset, records one status per attempt and reports only exact-size matches with content evidence; 391 checks. No real payload exists in the checkout, so the image codec is UNKNOWN. | VERIFIED (tool, synthetic + spec vector) | H | EXP-2026-11-05-M1.2b; `python3 tools/cecompress.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

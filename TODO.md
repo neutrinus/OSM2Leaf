@@ -260,7 +260,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-640–C-649
 
 - [ ] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: blocked · Owner: — · Critical: yes
   - Depends: — (use M1.2a's offsets once they exist; until then try offsets
     0…32)
   - Goal: find a public decoder whose output length matches.
@@ -275,6 +275,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `vsize`) and plausible content (pointers into `0x8c…`/module VAs,
     strings), or an EXP lists every decoder × offset tried with a positive
     control (each decoder round-trips its own test vector).
+  - Blocker: the checkout has only EXP-49's 30-byte prefix; `probe` needs
+    the full payload. Result: `cecompress.py` adds LZNT1 (published MS-XCA
+    vector), XPRESS skeletons and `probe` (all methods × offsets, statuses,
+    exact-size matches) — EXP-2026-11-05-M1.2b, C-650.
   - Claims: C-650–C-659
 
 - [ ] **M1.2c — Find the ROM decompressor in `nk.exe` and port it**
