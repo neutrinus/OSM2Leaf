@@ -30,7 +30,9 @@ front has fewer, add the next tasks (see rule 9).
 3. **First commit: mark the task `in progress`.** Within your first 10
    minutes create a branch and make a commit that changes **only** your
    task's line to `Status: in progress · Owner: <branch>` (subject
-   `todo: start <ID>`). Push it and open a **draft PR** titled
+   `todo: start <ID>`). **Push it at once** (`git push -u origin
+   <branch>`), before any other work: an unpushed in-progress commit is
+   invisible to the other agents and claims nothing. Then open a **draft PR** titled
    `[ID] short title`. The draft PR makes the claim visible before it
    merges. If two PRs claim the same ID, the lower PR number wins; the other
    agent closes its PR and picks another task.
