@@ -1,981 +1,947 @@
 # TODO
 
-Actionable backlog. For "what we do not know yet" see
-[`docs/research/open-questions.md`](docs/research/open-questions.md); for the
-evidence status of each claim see
-[`docs/research/claims.md`](docs/research/claims.md).
+The task board for parallel work. About 15 agents take tasks from this file
+at the same time, so every task is self-contained: it says what to do, what
+to start from, when it is done, what it waits for, and who owns it.
 
-## Status review and next steps (2026-11-05)
-
-**Read this section first.** It supersedes the ordering of the older
-sections below, which are kept as the historical backlog.
-
-### Where the work is stuck
-
-1. **Firmware: a static VA-guessing loop.** EXP-05 … EXP-29 (about 20
-   experiments) tried to recover module virtual addresses by fitting deltas,
-   scanning literals, export/import anchors and vtable runs. Almost every round
-   retracted the previous one (C-068, C-182, C-234, C-262, C-380, C-381, …)
-   and ended with "static is closed, go dynamic". Dynamic work needs hardware,
-   which is unavailable, so the firmware track has stopped.
-2. **The "no XIP table" negative (C-380/C-381) is probably wrong.** It was
-   based on a search for the strings `B000FF` and `ROMHDR`. `B000FF` only
-   exists in `.bin` files, not in a raw/NB0 ROM, and `ROMHDR` is a binary
-   struct with no signature string. A standard Windows CE ROM image has the
-   `ECEC` signature at **image start + `0x40`**, followed by `pTOC` (the VA of
-   `ROMHDR`) and the `ROMHDR` offset from image start. That is exactly what
-   sits at `0x200240`: `ECEC`, `0x8e232978`, `0x01751978`. So:
-   - CE image start = `0x200200` (the Clarion wrapper header is `0x200` bytes);
-   - `ROMHDR` should be at file `0x200200 + 0x01751978 = 0x01951b78`;
-   - VA → file: `file = VA − 0x8e232978 + 0x01951b78`
-     (i.e. image VA base `0x8cae1000` ↔ file `0x200200`);
-   - the "tail table" at `0x1951ee0` (32-byte records, all pointers in
-     `0x8C…0x8E`) is right after `ROMHDR` and matches the 32-byte
-     `TOCentry` layout. C-381 tested bases on a coarse grid
-     (`0x8BE00000…0x8DE00000`); `0x8cae1000` is not on that grid.
-   If this holds, the ROM TOC gives every module's `e32_rom`/`o32_rom` records,
-   i.e. exact `o32_realaddr` (VA) and `o32_dataptr` (ROM location) per section.
-   That replaces all delta guessing and unblocks the reader search statically.
-3. **Process problems.** `AGENTS.md` lists "no XIP/section table" as a dead end
-   that must not be redone, which blocks the most promising path. TODO.md has
-   three overlapping firmware sections (Gate 0a, P3, P7) and many items that
-   are already done elsewhere but still unchecked (tile viewer, writers). Each
-   new session re-derived context instead of acting.
-4. **Format track is in good shape but parked.** Containers, `DRSTR`, tile
-   grid and five target tiles round-trip byte-identically; L1/L2 validators
-   work cross-year. What remains on the data side does not need firmware or
-   hardware.
-
-### Step 1 — verify the CE ROM header (one short session, high value)
-
-**Done, confirmed (2026-11-05):** see
-[`EXP-2026-11-05-35`](docs/experiments/EXP-2026-11-05-35-ce-romhdr.md) and
-`tools/cerom.py`. All 149 module names resolve; old anchors agree; the
-`HDD_INFO`/`SD Import` literals are in `Navi.exe` (VA `0x004e7d28`,
-`0x004e8584`, `0x004e995c`). Builds B/C still open (need bytes past 32 MiB).
-
-Needs only the first ~30 MB of the EU 2011 image (`dd bs=1M count=32`).
-
-- [x] Read `ROMHDR` at file `0x01951b78` (0x54 bytes, little-endian):
-  `dllfirst, dlllast, physfirst, physlast, nummods, ulRAMStart, ulRAMFree,
-  ulRAMEnd, ulCopyEntries, ulCopyOffset, ulProfileLen, ulProfileOffset,
-  numfiles, ulKernelFlags, ulFSRamPercent, ulDrivglobStart, ulDrivglobLen,
-  u16 usCPUType, u16 usMiscFlags, pExtensions, ulTrackingStart,
-  ulTrackingLen`.
-- [x] Sanity checks: `physfirst ≤ 0x8e232978 < physlast`;
-  `physfirst` near `0x8cae1000`; `usCPUType` = SH-4 (`0x01a6` /
-  `IMAGE_FILE_MACHINE_SH4`); `nummods` and `numfiles` in the tens to low
-  hundreds; `dllfirst/dlllast` cover the `0x02xxxxxx–0x03xxxxxx` module band
-  seen in the code.
-- [x] Walk `TOCentry[nummods]` (32 bytes: `attrib, ftTime(8), nFileSize,
-  lpszFileName, ulE32Offset, ulO32Offset, ulLoadOffset`) and then
-  `FILESentry[numfiles]`. Every `lpszFileName` must resolve to an ASCII name
-  (`nk.exe`, `coredll.dll`, …, the navi modules) through the formula above.
-- [x] ~~If the formula is off~~ (not needed: the formula holds), solve the base from `lpszFileName` pointers
-  alone (they must land on NUL-terminated ASCII), not from code literals.
-- [x] Repeat for builds B (`0x3e00000`) and C (`0x5200000`); B/C have a
-  different wrapper layout, so locate `ECEC` first.
-- [x] Record as a new `EXP-…-ce-romhdr.md`. If confirmed, mark C-380 and
-  C-381 `RETRACTED` with `Superseded by`, and update `AGENTS.md`,
-  `docs/format/firmware.md` and `roadmap.md` in the same commit.
-- [x] ~~If refuted~~ (confirmed), record the exact `ROMHDR` bytes and why each check failed,
-  so nobody repeats it.
-
-### Step 1b — tasks after EXP-35 (ordered; each ends with an EXP + claims)
-
-Rule for all of these: **start from `tools/cerom.py`, never from fitted
-deltas.** A new firmware address is only a claim once `cerom.py` names its
-module, section and file offset.
-
-1. [x] **Full-image sweep** (done, EXP-2026-11-05-36; B/C are kernel regions) (needs the full image, not only 32 MiB): locate
-   every `ECEC` (builds A at `0x200000`/`0x2000000`, B at `0x3e00000`/
-   `0x4800000`, C at `0x5200000`), run `cerom.py` on each (`--image-start`),
-   and diff the module lists. Record which builds contain which modules
-   (the map code is only in A; B/C differ by 4 bytes in the header area).
-2. [x] **Kernel region** (done: images B/C, COREDLL ordinals via `cerom.py exports`; original note:) `nk.exe`/`coredll.dll`/`filesys.exe` are not in this
-   TOC; `pExtensions = 0x880030a4` and the `0x88…` addresses point to another
-   XIP region. Find it (look for a second `ROMHDR`-shaped block or an `NKOK`
-   region elsewhere) to name COREDLL ordinals (e.g. 719 behind `0x0369d400`).
-3. [ ] **Decompress `IMAGE_SCN_COMPRESSED` sections** (245/527). Try
-   CE `CECompress` (LZX/"romimage" block format) on a small one first
-   (`NaviMapCC.dll` `.data`, psize `0x2c6`, vsize `0x5b8`): the output size
-   must equal `vsize`. Add `cerom.py decompress` and a unit test on that
-   section. This also answers the `HCXCmp` question.
-4. [ ] **Ghidra memory maps.** Generate one block per `o32` at
-   `o32_realaddr` for the navi-relevant modules (`Navi.exe`, `NaviStateCC`,
-   `NaviMapCC`, `NaviSetCC`, `OBJDLL`, `STDDLL`, `BT_MGR`, `VerInfoCC`,
-   `oleaut32`); add the script to `tools/`, not to `/tmp`.
-5. [ ] **`MapUpdate.exe` (image B, file `0x04344200`)**: a second source for how the unit validates/installs map data; read it alongside the next item.
-5b. [ ] **`Navi.exe` HDD_INFO / SD Import.** Disassemble around the pools at
-   VA `0x004e7d28` (paths) and `0x004e8584`/`0x004e995c` (comparator
-   messages). Name the function that reads `HDD_INFO.TXT`, the field parser
-   and the six-line mapping; answer which fields trigger
-   `DIFFERENT MAP CODE`. Compare with `tools/hddinfo_variants.py`.
-6. [ ] **Reader chain.** From `OBJDLL` `MAL_DataVol_getOffset`/`getSize`
-   callers, then the `.ind`/`.cmp` reader and `DRSTR`/tile readers, now with
-   exact VAs. Answer `chunk_size` (buffer vs compare against `0x10000`) and
-   seek-vs-scan.
-7. [ ] **Audit the old firmware claims.** Go through
-   `docs/format/firmware.md` and C-0xx…C-3xx: mark each claim that rested on
-   delta fitting as `RETRACTED`/`superseded` or re-verify it with `cerom.py`
-   (retraction rule, same commit). Candidates: C-180, C-234, C-262, C-182,
-   C-068, C-370…C-375, the `0x1952b00` copy-list claims, EXP-22/23/25/26/27/28/29.
-8. [ ] **Untangle TODO P3/P7.** Mark as done or merge into this section.
-
-### Path to the goal — what is left, in small tasks
+- Unknowns: [`docs/research/open-questions.md`](docs/research/open-questions.md).
+- Evidence status of every claim: [`docs/research/claims.md`](docs/research/claims.md).
+- The previous backlog (Gates 0–7, P0–P10, Steps 1–3) is frozen in
+  [`docs/research/todo-history-2026-11-05.md`](docs/research/todo-history-2026-11-05.md).
+  Its open items were moved here or listed under [Retired leads](#retired-leads).
 
 **Goal:** a Leaf ZE0 map SD card built from OpenStreetMap (first
 Dolnośląskie, then Poland, then Europe) that the unit accepts, displays and
-routes on. Done so far: container, `DRSTR`, tile grid, five tiles and L1/L2
-validators (data side), and the CE ROM address model (firmware side).
+routes on.
 
-Each task below is sized for one session (≤ 1 EXP record, ≤ 1 commit group)
-and states **done when**. IDs are stable; tick and reference them in commits.
-Order inside a milestone matters; milestones M1–M4 can run in parallel.
+**Strategy (2026-11-05): go wide.** Work runs on nine fronts at once
+(workstreams below). No front waits for another unless a task names an
+explicit dependency. Each front always keeps at least two tasks in state
+`open` with all dependencies done; when you close a task and see that your
+front has fewer, add the next tasks (see rule 9).
 
-#### M1 — Firmware tooling (finish the address model)
+## How to take a task
 
-- [x] **M1.1** `cerom.py` unit test: pin `romhdr`/`va2file`/`exports` results
-  for images A, B, C against fixed expected values (use a tiny synthetic ROM,
-  not vendor bytes). *Done when* `tools/selftest.py` runs it.
-  Done: `tools/cerom.py --selftest` (46 checks, EXP-2026-11-05-47, C-568).
-- [ ] **M1.2** Identify the compression of one `IMAGE_SCN_COMPRESSED` section
-  (`NaviMapCC.dll` `.data`, psize `0x2c6`, vsize `0x5b8`): try CE
-  `CECompress`/LZX variants. *Done when* output length equals `vsize` and the
-  bytes look like valid data. Alternative route: run the kernel's own ROM
-  decompressor from `nk.exe` under emulation (M8.E1) or via L3 (M9.6). Only RW data sections are
-  compressed; code is not (C-530).
-  Tool half done: `cerom.py decompress` + `tools/cecompress.py`
-  (C-570/C-571, EXP-49/53); a real section still has to decode to `vsize`.
-  Tool half done: `tools/cecompress.py` decodes LZSS and LZX stored blocks
-  and refuses verbatim/aligned (C-570, EXP-2026-11-05-52). Still open: decode
-  one real section to `vsize`.
-- [ ] **M1.3** Add `cerom.py decompress` and run it on all 245 sections.
-  *Done when* every output length equals `vsize` (report failures).
-- [ ] **M1.4** Same for `FILESentry` payloads (`comp != real`: `UpdateNK.skn`,
-  `default.hv`, …). *Done when* `ReleaseMain.skn`-style files extract.
-- [x] **M1.5** `cerom.py memmap`/`ghidra`: emit a memory-map JSON/script (one block per
-  `o32` at `o32_realaddr`) for a chosen module set. *Done when* Ghidra opens
-  `Navi.exe` with correct addresses (check one known string).
-  Done: JSON blocks pass `l3_harness/rommap.py convert --skip-compressed` + `validate`
-  (EXP-2026-11-05-48, C-569); a real Ghidra open still needs the image.
-- [x] **M1.6** (EXP-2026-11-05-50) Resolve import thunks: map each module's IAT slots to
-  `module!export` (needs `exports` of all modules). *Done when* a call in
-  `Navi.exe` shows `OBJDLL!MAL_DataVol_getOffset`, not a raw VA.
-- [x] **M1.7** Decide which kernel (B or C) boots with A (check `ulRAM*`,
-  `pExtensions`, update flow in `UpdateMng.exe`). Record as an EXP.
-  Done: `tools/kernel_select.py` (seven criteria, refuses a verdict on ties);
-  the recorded B/C fields still yield `UNKNOWN` (C-572, EXP-2026-11-05-54).
+1. **Pick.** Choose a task with `Status: open` whose `Depends` are all done
+   (`[x]` in this file or merged on `main`). Prefer tasks marked
+   `Critical: yes`, then the front with the fewest active owners.
+2. **Check for a claim.** A task is taken if its `Owner` is set, or an open PR
+   has the task ID in its title (`[M2.1] …`). Look at both before starting.
+3. **First commit: mark the task `in progress`.** Within your first 10
+   minutes create a branch and make a commit that changes **only** your
+   task's line to `Status: in progress · Owner: <branch>` (subject
+   `todo: start <ID>`). Push it and open a **draft PR** titled
+   `[ID] short title`. The draft PR makes the claim visible before it
+   merges. If two PRs claim the same ID, the lower PR number wins; the other
+   agent closes its PR and picks another task.
+4. **One task per PR, small PRs.** Touch only the files your task names, your
+   own EXP record(s), your claim rows, and your task block in `TODO.md`.
+   Do not reformat, reorder or "fix up" other tasks or other people's text.
+   A finding outside your task becomes a new task (rule 9), not an edit.
+5. **Rebase on `main` before you mark the PR ready**, and again if `main`
+   moved while it waits. In `TODO.md`, `claims.md` and index tables keep
+   both sides of a conflict; never drop another task's lines.
+6. **Last commit: the work plus `done`.** Commit the actual work, and in the
+   same commit set `Status: done`, tick `[x]` and add one line `Result:`
+   naming the EXP (subject in the normal style, e.g. `tools: …`). Run `python3 tools/selftest.py` (and the task's
+   own check) and paste the result into the PR body. Mark the PR ready.
+   The maintainer merges.
+7. **Blocked or negative.** If the done-when cannot be reached, set
+   `Status: blocked`, write the exact blocker in one line, record the
+   negative result as an EXP (method, scope, positive control), and add the
+   follow-up tasks it suggests. A negative with a control is a result.
+8. **Stale claims.** A claim with no push for 24 h may be released by the
+   coordinator (`Status: open`, `Owner: —`). Push work in progress often.
+9. **New tasks.** Add them at the end of the right workstream with the next
+   free ID of that stream, the full field set, and `Owner: —`. Take the next
+   free claim block from [ID allocation](#id-allocation).
+10. **Methodology and data rules** in `AGENTS.md` apply to every task: start
+    from `tools/cerom.py` for any firmware address (never fitted deltas),
+    tools go in `tools/` with a synthetic self-test, observation and
+    interpretation stay apart, and **vendor bytes never enter the repo**
+    (only offsets, counts, hashes, short header bytes).
 
-#### M2 — Map-code / activation (why the unit rejects a card)
+### ID allocation
 
-- [ ] **M2.1** Disassemble the `Navi.exe` function that references VA
-  `0x004e7d28`/`0x004e7d2c` (`HDD_INFO.TXT` paths). *Done when* its name,
-  arguments and callers are written down.
-- [ ] **M2.2** Same for the comparator referencing `0x004e8584`/`0x004e995c`
-  (`SD Import: … is different`). *Done when* the compared fields and the
-  `0 < userdata_type < 6` check are traced to the struct offsets.
-- [ ] **M2.3** Parse step: find where `HDD_INFO.TXT` text becomes the fields
-  (line order, separators, six-line mapping). *Done when* a table
-  `line → field → type` exists in `docs/format/`.
-- [ ] **M2.4** Run the parser in Ghidra P-code on the 89
-  `hddinfo_variants.py` files. *Done when* each variant has a predicted
-  accept/reject result.
-- [ ] **M2.5** Find the "DIFFERENT MAP CODE" message source and its input
-  (line 1 vs `0x06000000` copy vs NAND record). *Done when* one input is named.
-- [ ] **M2.6** Read `MapUpdate.exe` (image B, file `0x04344200`): how it
-  validates/installs map data and which files it checks. *Done when* a
-  summary with function VAs is in `docs/format/firmware.md`.
-- [ ] **M2.7** US vs EU: find where region/market is decided (strings, config,
-  `ceconfig.h`, registry hives `boot.hv`/`default.hv`). *Done when* it is
-  known whether an EU-format card can work in a US unit.
+Parallel agents collided on `EXP-…-48` and on several claim IDs (C-520,
+C-521, C-528…C-533 were proposed twice). From now on:
 
-#### M3 — Reader contract (what the unit does with our bytes)
+- **EXP records:** `docs/experiments/EXP-YYYY-MM-DD-<TASK>-<slug>.md`, for
+  example `EXP-2026-11-06-M1.2a-comp-header.md`. A second record for the
+  same task adds `-2`, `-3`. The task ID makes the name unique because each
+  task has one owner. Old numbered records keep their names.
+- **Claim IDs:** every task below has a reserved block of ten (`Claims:
+  C-600–C-609`). Use only your block. If you need more, or you add a new
+  task, take the next free block: the highest block in this file plus ten.
+- **Tool names:** a new tool states its file name in the task (`Input`
+  or `Done when`); if two tasks would create the same file, the later one
+  depends on the earlier.
 
-- [ ] **M3.1** From `OBJDLL!MAL_DataVol_getOffset/getSize` callers, find the
-  `.ind` wrapper. *Done when* one function VA is named.
-- [ ] **M3.2** Trace `.ind` handling: `chunk_size` use, seek vs `78 9c` scan.
-  *Done when* both questions are answered from code, not guessed.
-- [ ] **M3.3** Run the `.ind` reader under P-code against the
-  `ind_mutate.py` corpus (8 variants). *Done when* accept/reject per variant
-  is recorded.
-- [ ] **M3.4** Find the `DRSTR001.DAT` parser; list what it validates
-  (counts, ordering, sentinels). *Done when* a validation list is in
-  `docs/format/drstr.md`.
-- [ ] **M3.5** Find the tile reader entry (`MESH_ID`/`DIVID`, six-level
-  table `VTb Tp;Lv;…`). *Done when* the level-table layout is confirmed.
-- [ ] **M3.6** Tile payload: which sections the renderer reads vs ignores
-  (section 4 especially). *Done when* each section has "read by / ignored".
-- [ ] **M3.7** Router: find how `RDSTM001`/`REFER` road records are read
-  (graph tuples, speed, one-way, restrictions). *Done when* the record fields
-  used by the router are listed.
+### Task fields
 
-#### M4 — Data format gaps (no firmware needed)
+```text
+- [ ] **ID — title**
+  - Status: open | in progress | blocked | done · Owner: — | <branch> · Critical: yes | no
+  - Depends: — | IDs
+  - Goal: one sentence.
+  - Input: files, offsets, tools, samples.
+  - Done when: a check that can fail.
+  - Claims: C-xxx–C-xxx
+```
 
-- [ ] **M4.1** `RDSTM001`: decode a record and one node/link tuple; round-trip
-  byte-identical. *Done when* a decoder + test exist.
-- [ ] **M4.2** `RDSTM001`: link attributes (speed class, one-way, class).
-  *Done when* values are correlated with known roads.
-- [ ] **M4.3** Turn restrictions / connectivity encoding. *Done when* a known
-  restriction is found and decoded.
-- [ ] **M4.4** Tile section 4: decode fields or prove it can stay verbatim for
-  a modified tile. *Done when* a one-tile edit keeps the unit-relevant parts.
-- [ ] **M4.5** `MMAIN001.DAT`: full field meaning and writer (11 entries).
-  *Done when* the writer reproduces the file byte-identically.
-- [ ] **M4.6** Explain the `B30R048R` 2013–2016 rebuild difference at
-  `0x807`/`0x808` (EXP-30). *Done when* the writer needs no fallback.
-- [ ] **M4.7** Names/addresses: `ADDRE`/`POINT`/`ZCODE`/`LCTBL` write path
-  for a changed name. *Done when* a renamed POI passes L2.
-- [ ] **M4.8** Coordinate transform: confirm mesh/level formulas against all
-  five target tiles and write `tools/coord.py` (lat/lon ↔ mesh, 0..2047).
-  *Done when* known POIs land within a few metres.
+### Shared inputs
 
-#### M5 — OSM compiler vertical slice (Dolnośląskie)
+| Name | How to get it | SHA-256 |
+| --- | --- | --- |
+| `IMG256` (firmware: A, B, C) | `curl -r 0-268435455 -o head256.img https://files.viaaq.eu/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` | `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9` |
+| `IMG` (full EU 2011 card, 7.5 GB) | same URL without `-r`; resume with `curl -C -` | `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` |
+| `ROOT` (extracted map tree) | `python3 tools/verify.py --image IMG` (extracts to `archive/work/`) | — |
+| Other years/markets | `https://files.viaaq.eu/maps/`, `docs/research/image-versions.md` | record per EXP |
 
-(See `docs/research/osm-vertical-slice.md` and
-`profiles/dolnoslaskie-test.*`.)
+CE images inside the card image: **A** (apps, `Navi.exe`) `--image-start
+0x200200` (copy at `0x2000200`), **B** (kernel + updaters) `0x3e00200` (copy
+at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
+in the cloud environment: `apt-get install binutils-sh4-linux-gnu
+qemu-system-misc gdb-multiarch`.
 
-- [x] **M5.0** Intermediate format: IMF v1 (JSON Lines, whole `BxxRyyR`
-  cells, integer cm/s, ODbL header) and `tools/imf_check.py` (22 rules,
-  `--assign-tiles`) — `docs/research/intermediate-format.md`, C-542/C-543.
-- [ ] **M5.1** OSM ingest: read a Dolnośląskie `.osm.pbf` extract and keep
-  only drivable roads with tags needed (highway, oneway, maxspeed, name, ref).
-- [ ] **M5.2** Mesh splitter: assign each way to meshes with the confirmed
-  coordinate transform; clip at mesh borders.
-- [ ] **M5.3** Road class / speed mapping table OSM → Clarion classes (from
-  M4.2); document unmapped values.
-- [ ] **M5.4** Tile writer: emit one tile with roads only, using factory
-  neighbours for the parts not yet understood. *Done when* it passes L2.
-- [ ] **M5.5** Connectivity: nodes and links across tile borders.
-- [ ] **M5.6** Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST` for the changed
-  tile set. *Done when* L1 passes on the output card tree.
-- [ ] **M5.7** Names: street names into the name sections (M4.7).
-- [ ] **M5.8** One-tile diff report against the factory tile (what changed,
-  what was preserved) as an automatic artifact.
+## State after EXP-35…51 (what changed)
 
-#### M6 — Validation and hardware
+- **The address model is solved.** `tools/cerom.py` parses `ROMHDR`, the
+  module TOC, `e32`/`o32` and `FILESentry` for A, B and C (EXP-35, -36),
+  with `exports`, `memmap`/`ghidra` (EXP-48) and a synthetic self-test
+  (EXP-47). `imports` is in PR #5 (EXP-50, M1.6). Every old delta-based
+  address is suspect until re-derived through `cerom.py`.
+- **The old map-code chain was in the wrong module.** `0x6fab2c` →
+  `0x6faeb0` → `0x6fb05c` and `0x0369d400` (`sprintf` thunk) are `BT_MGR.dll`
+  code (C-520, C-528). The real `HDD_INFO.TXT` / `SD Import` literals are in
+  `Navi.exe` (C-521): VA `0x004e7d28` (paths), `0x004e8584` / `0x004e995c`
+  (comparator messages).
+- **First reader entry is anchored.** `Navi.exe` calls
+  `OBJDLL!MAL_DataVol_getOffset` at `0x003778b2` and `0x00377b46`, `getSize`
+  at `0x003778bc` and `0x00377b52`, through thunks `0x003d1bb0` / `0x003d1ba4`
+  (EXP-50).
+- **Compression is the one firmware unknown.** Code is never compressed
+  (C-530); RW data sections and some `FILESentry` payloads are. zlib, LZMA
+  and bz2 fail from the stream start (EXP-49, EXP-51); `tools/cecompress.py` has LZSS/LZX candidates tested
+  on synthetic streams only (EXP-52). The streams share a
+  header (see M1.2a).
+- **Full-system emulation is possible, not hopeless.** Stock QEMU
+  `-M none -cpu sh7785` runs B's `nk.exe` into the scheduler (EXP-37). This
+  supersedes the old "L5: full-system QEMU is not realistic" verdict.
+- **B carries the updater set** (`UpdateMng.exe`, `MapUpdate.exe`,
+  `PRGUpdate.exe`, …) and C carries `TestMode.exe` (C-526): new, direct
+  sources for how the unit checks and installs map data.
+- **Data-side tools landed:** `hddinfo.py` (EXP-41), `section4.py` (EXP-42),
+  `rdstm_schema.py` (EXP-43), IMF v1 + `imf_check.py` (EXP-44),
+  `profile_validate.py` + `build.py --dry-run` (EXP-45), `diff_years.py`
+  (EXP-46), `header_block.py` (EXP-40), `tools/l3_harness/` (EXP-38).
 
-- [ ] **M6.1** Finish the L3 oracle for the chosen readers (P-code with
-  stubbed file API) on `.ind`, `DRSTR`, one tile (M3.3–M3.5). The harness
-  should map all A/B modules at their `o32_realaddr` and stub `COREDLL`
-  exports ("CE-HLE", `full-system-emulation.md` §5), with Ghidra or QEMU
-  (`-M none`, gdbstub) as the engine.
-- [ ] **M6.2** Get the owner's US 2011 SD dump (read-only), record SHA-256
-  (needed for M2.7).
-- [ ] **M6.3** Spare-card plan: whole-card clone + no-op control first, then
-  one changed tile. Define pass/fail before touching a car.
-- [ ] **M6.4** Recovery/safety: how to return the unit to the factory map
-  (keep original card, updater behaviour from M2.6). Write the checklist.
-- [ ] **M6.5** First on-device test with the no-op clone; record the result.
-- [ ] **M6.6** First on-device test with one changed tile (display only).
-- [ ] **M6.7** Routing test across the changed tile.
+## Workstreams at a glance
 
-#### M7 — Scale and release
+| Stream | Front | Ready now (no open deps) |
+| --- | --- | --- |
+| H | Housekeeping: ledger, docs, tool overlap | H1, H2, H3, H4 |
+| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2a, M1.2b, M1.2c, M1.8 (M1.6b, M1.7 in progress) |
+| M2 | Map code, activation, updater, error screens | M2.1, M2.6, M2.7, M2.8, M2.9, M2.10 |
+| M3 | Reader contract (what the unit reads from the card) | M3.1, M3.4, M3.5 |
+| M4 | Data formats (no firmware needed) | M4.1, M4.3, M4.4, M4.5, M4.6, M4.7, M4.8, M4.9–M4.14 |
+| M5 | OSM compiler vertical slice (Dolnośląskie) | M5.1, M5.8 |
+| M6 | Hardware and safety (planning now, tests later) | M6.3, M6.8 |
+| M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
+| M9 | L3 toolkit (run firmware functions on our data) | M9.1, M9.3, M9.4 |
 
-- [ ] **M7.1** Full Dolnośląskie run, performance and size budget (card
-  capacity, `.cmp` sizes).
-- [ ] **M7.2** All-Poland road network (rough classes only).
-- [ ] **M7.3** Europe motorway/trunk network for cross-border routing.
-- [ ] **M7.4** Build profiles (`profiles/`), reproducible build script,
-  license/attribution notice for OSM data. Schema validator and
-  `tools/build.py --dry-run` exist (C-564–C-567); migration to schema v2 and
-  the writer remain.
-- [ ] **M7.5** User guide + risk statement; keep "research only" until M6.7
-  has passed.
+**Critical path to a first accepted card:** M1.8 → M2.1 → M2.2 → M2.3 (why a
+card is accepted) · M3.1 → M3.2 (what is read) · M1.2 → M1.3 (initialised
+data for L3) · M9.2 → M9.5 → M2.4 / M3.3 (checks against the real code) ·
+M4.1/M4.2 → M5.3 → M5.4 → M5.6 · then hardware M6.5–M6.7. Every other task
+widens knowledge or tooling in parallel and is equally welcome.
 
-#### M8 — Full-system emulation (QEMU `ze0` machine)
+---
+
+## H — Housekeeping
+
+- [ ] **H1 — Repair the claim ledger and the EXP index**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: one ID per claim and every proposed claim registered.
+  - Input: `docs/research/claims.md` (duplicate IDs C-070, C-110, C-543,
+    C-546, C-558); claims proposed in EXP-38 (C-532/C-533), EXP-41
+    (C-528…C-531), EXP-42 (C-520/C-521), EXP-43, EXP-44, EXP-46, EXP-47,
+    EXP-48 that collide with existing rows or were never added;
+    `docs/experiments/README.md` index (two EXP-29 and two EXP-35 files).
+  - Done when: a new `tools/claims_check.py` (in `tools/selftest.py`) reports
+    zero duplicate IDs and every "proposed claim" in an EXP either has a row
+    (new ID from this block, with `Was proposed as C-xxx in EXP-…`) or a
+    one-line reason it was dropped; the EXP index lists the duplicate-number
+    files with distinct labels. No EXP file is renamed (append-only).
+  - Claims: C-600–C-609
+
+- [ ] **H2 — Refresh AGENTS.md and research docs after EXP-35…51**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: no guide still sends agents down a retired lead.
+  - Input: `AGENTS.md` "Firmware" section (still starts from
+    `ce_rom_parse.py`, still describes the BT_MGR chain `0x6fab2c` →
+    `0x6faeb0` → `0x6fb05c` with "data delta `0x02800000`" as the map-code
+    check, still points to "TODO Step 2"); `docs/research/l3-ghidra.md`
+    status table ("Reader entry points: only the map-code comparator chain");
+    `docs/research/feedback-loop.md` L5 verdict (superseded by EXP-37);
+    `docs/format/cerom.md` §5/§11 (`e32`/`o32` still `HYPOTHESIS`, now
+    verified by EXP-35/-36/-48); `docs/research/roadmap.md`; links to old
+    TODO sections (`Step 1b`, `Step 2`, `Gate 0a`, `P3`, `P7`) anywhere in
+    `docs/` (`grep -rn "TODO Step\|TODO.md Step\|Gate 0a" docs`).
+  - Done when: `grep -n "0x6faeb0\|0x02800000"` in these files only hits
+    dead-end lists that name C-520/C-528; the first firmware command in
+    AGENTS.md is `cerom.py`; the L5 verdict carries `Superseded by
+    EXP-2026-11-05-37`; claims updated in the same commit.
+  - Claims: C-610–C-619
+
+- [ ] **H3 — One CE ROM tool: fold `ce_rom_parse.py` into `cerom.py`**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: one parser for the CE ROM, so fixes land once.
+  - Input: `tools/ce_rom_parse.py` (full-image `ECEC` scan + JSON report),
+    `tools/cerom.py`, `tools/l3_harness/rommap.py` (docstring says it reads
+    `ce_rom_parse.py` JSON).
+  - Done when: `cerom.py scan IMG` lists every `ECEC` segment as the old tool
+    did (same counts on `IMG256`: A 149 modules, B, C, copies);
+    `ce_rom_parse.py` becomes a thin wrapper or prints a deprecation pointer;
+    `rommap.py` docs name `cerom.py memmap`; both self-tests pass.
+  - Claims: C-620–C-629
+
+- [ ] **H4 — Audit the delta-era firmware claims**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: every firmware claim from EXP-05…29 is either re-verified through
+    `cerom.py` or retracted.
+  - Input: `docs/research/claims.md` C-0xx…C-3xx firmware rows (candidates:
+    C-068, C-180, C-182, C-234, C-262, C-370…C-375, the `0x1952b00` copy-list
+    claims), EXP-13…29, `docs/format/firmware.md`; `cerom.py file2va`.
+  - Done when: each candidate row has a new status (`RETRACTED` with
+    `Superseded by`, or `VERIFIED` with the `cerom.py` module/section/offset);
+    one EXP lists every row checked and the command used.
+  - Claims: C-630–C-639
+
+---
+
+## M1 — Firmware tooling
+
+Done: M1.1 (synthetic self-test, EXP-47), M1.5 (`cerom.py memmap`/`ghidra`,
+EXP-48; the real Ghidra open is M9.2), M1.6 (`cerom.py imports`, EXP-50,
+PR #5). Tool half of M1.2b: `tools/cecompress.py` (4 KiB LZSS and LZX
+stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
+
+- [ ] **M1.2a — Parse the compressed-section header**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: know where the compressed payload starts and how long it is.
+  - Input: EXP-49 bytes. Section 1 (`NaviMapCC.dll` rva `0x13000`, psize
+    `0x2c6`, vsize `0x5b8`) starts `84 04 00 | c6 02 00 | 10 00 00 00 |
+    84 04 00 00 | b0 02 00 00 | 84 04 00 00 | 5b 80 …`; section 2 (psize
+    `0x68c`, vsize `0xcc0`) starts `c0 0c 00 | 8c 06 00 | 10 00 00 00 |
+    c0 0c 00 00 | 76 06 00 00 | c0 0c 00 00 | …`. Hypothesis to test: a
+    22-byte header (`0x2c6 − 0x2b0 = 0x68c − 0x676 = 22`), a 24-bit
+    uncompressed and compressed length, then per-block records
+    (uncompressed size, compressed size); `0x484` would be the real data
+    length of section 1 with the rest of vsize zero-filled. All 245
+    compressed sections via `cerom.py sections`.
+  - Done when: `cerom.py comphdr MODULE|--all` prints the parsed header for
+    every compressed section and the hypothesis holds (or is refuted) on all
+    245, with a count of exceptions; a synthetic self-test pins the parser.
+  - Claims: C-640–C-649
+
+- [ ] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (use M1.2a's offsets once they exist; until then try offsets
+    0…32)
+  - Goal: find a public decoder whose output length matches.
+  - Input: the two EXP-49 sections; `tools/cecompress.py` (LZSS + LZX
+    stored blocks already implemented and self-tested, EXP-52: run it on the
+    real sections first, at the M1.2a payload offset); further candidates: Xpress "plain LZ77" and
+    "LZ77+Huffman" and LZNT1 ([MS-XCA], open spec), LZX, and the CE
+    romimage/`CECompress` formats as described by public ROM tools (cite the
+    source in `docs/research/sources.md`; link, do not copy incompatible
+    code).
+  - Done when: one decoder gives exactly the expected length (`0x484` or
+    `vsize`) and plausible content (pointers into `0x8c…`/module VAs,
+    strings), or an EXP lists every decoder × offset tried with a positive
+    control (each decoder round-trips its own test vector).
+  - Claims: C-650–C-659
+
+- [ ] **M1.2c — Find the ROM decompressor in `nk.exe` and port it**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M1.8 helps)
+  - Goal: read the kernel's own decompression routine instead of guessing.
+  - Input: image B `nk.exe` (`cerom.py --image-start 0x3e00200 IMG sections
+    nk.exe`), the loader path that tests `o32_flags & 0x2000`
+    (`IMAGE_SCN_COMPRESSED`) and copies `o32` data to RAM; the kernel's
+    `ulCopyEntries` handling; `sh4-linux-gnu-objdump -b binary -m sh4
+    --adjust-vma=VA`.
+  - Done when: the decompressor's VA and prototype are recorded, and either
+    a Python port (`tools/cedecomp.py`, synthetic self-test) decodes the two
+    EXP-49 sections to the M1.2a lengths, or its VA is handed to M8.E1 as a
+    call target.
+  - Claims: C-660–C-669
+
+- [ ] **M1.3 — `cerom.py decompress` on all 245 sections**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M1.2b or M1.2c
+  - Goal: complete RW data for every module.
+  - Input: the decoder from M1.2b/c; `cerom.py extract`.
+  - Tool: `cerom.py decompress` is implemented and self-tested (LZSS/LZX
+    dispatch, per-section OK/UNSUPPORTED/FAIL, `--check`/`--out`/`--json`);
+    only the real 245-section run is left (EXP-53, C-571).
+  - Done when: `cerom.py extract --decompress` writes all 245 sections and
+    every output length equals the header length (failures listed); IAT
+    `FirstThunk` of `Navi.exe` (`0x0054d000`) decodes to slot values that
+    `imports` predicts.
+  - Claims: C-670–C-679
+
+- [ ] **M1.4 — Extract compressed `FILESentry` payloads**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.2b or M1.2c
+  - Goal: read `boot.hv`, `default.hv`, `user.hv`, `ceconfig.h`,
+    `initobj.dat`, `UpdateNK.skn`.
+  - Input: EXP-51 (first `u16` equals the real size for three small files;
+    `boot.hv` has a step-`0x4a` table); `cerom.py --image-start 0x3e00200
+    IMG files`; image C has the same names with other sizes.
+  - Done when: `cerom.py extract-file NAME` writes payloads whose length is
+    `real` and `ceconfig.h` is readable text (do not commit it; quote ≤ 3
+    lines in the EXP).
+  - Claims: C-680–C-689
+
+- [ ] **M1.6b — Resolve all import thunks of all modules**
+  - Status: in progress · Owner: upstream session (draft `tools/cerom_thunks.py`,
+    removed again in `c44db2b` until its EXP lands) · Critical: no
+  - Depends: M1.6 (PR #5)
+  - Goal: a VA → `module!export` label table for every thunk, for Ghidra and
+    for call-site search.
+  - Input: EXP-50 stub pattern (`mov.l @(disp,PC),R0; mov.l @R0,R0; jmp @R0;
+    nop`), `cerom.py imports` and `exports`.
+  - Done when: `cerom_thunks.py` (or `cerom.py thunks`) `[MODULE|--all] --json` lists stub VA, slot
+    VA and name for every A and B module; ≥ 95 % of `Navi.exe`'s 846 slots
+    have a stub (report the rest); self-test on a synthetic stub.
+  - Claims: C-690–C-699
+
+- [ ] **M1.7 — Which kernel (B or C) boots with A**
+  - Status: open · Owner: — · Critical: no
+  - Tool: `tools/kernel_select.py` scores B vs C on seven criteria and
+    refuses a verdict on ties; fed the recorded B/C fields it returns
+    `UNKNOWN` (EXP-54, C-572), so the decision still needs `ulRAMFree`/`End`
+    or the `pExtensions` region from the image.
+  - Depends: —
+  - Goal: know which kernel and drivers the unit really runs.
+  - Input: `ROMHDR` `ulRAM*`, `pExtensions` of B and C (`cerom.py romhdr`);
+    `UpdateMng.exe` / `PRGUpdate.exe` strings and code in B; the 4-byte
+    header difference between B and C; C-535 boot chain.
+  - Done when: an EXP states B, C or "IPL-selected" with the evidence, and
+    the boot-argument field that selects it if any (feeds M8.B4).
+  - Claims: C-700–C-709
+
+- [ ] **M1.8 — SH-4 disassembly and xref helper**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: one command answers "which code loads VA X" and "what does
+    function Y call", the step every M2/M3 task needs.
+  - Input: `cerom.py` (module sections at their VAs), `sh4-linux-gnu-objdump`,
+    EXP-50 method (`mov.l @(disp,PC),Rn` = `0xDnnn`, literal at
+    `(PC & ~3) + 4 + disp*4`; `jsr @Rn` = `0x4n0B`; `bsr`).
+  - Done when: `tools/sh4xref.py IMG MODULE --to 0x004e7d28` lists every
+    instruction that loads that literal with the enclosing function start
+    (prologue heuristic) and `--calls FUNC` lists its call targets named via
+    exports/thunks; it reproduces EXP-50's four call sites; self-test on
+    synthetic SH-4 bytes.
+  - Claims: C-710–C-719
+
+---
+
+## M2 — Map code, activation, updater
+
+- [ ] **M2.1 — `Navi.exe` function that opens `HDD_INFO.TXT`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M1.8 helps)
+  - Goal: name the function, its arguments and callers.
+  - Input: literals at `Navi.exe` VA `0x004e7d28` / `0x004e7d2c` (C-521);
+    `cerom.py --image-start 0x200200 IMG sections Navi.exe`; `imports`
+    (CreateFile/ReadFile ordinals of `COREDLL`).
+  - Done when: the EXP gives the function VA, the file API calls it makes,
+    the buffer it fills, and its callers (VA list).
+  - Claims: C-720–C-729
+
+- [ ] **M2.2 — The `SD Import: … is different` comparator**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M2.1 helps)
+  - Goal: which fields are compared, against what, and with which checks.
+  - Input: literals at `Navi.exe` `0x004e8584` / `0x004e995c`; the
+    `Sys[0x%x]` vs `SD[0x%x]` formats; `tools/hddinfo.py` model M0.
+  - Done when: each compared field is traced to a struct offset and a
+    source (card vs system copy), and the `0 < userdata_type < 6` check is
+    confirmed or refuted in this module.
+  - Claims: C-730–C-739
+
+- [ ] **M2.3 — `HDD_INFO.TXT` text → fields**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M2.1
+  - Goal: the line order, separators and the six-line mapping.
+  - Input: the M2.1 function and its callee that parses the buffer;
+    `tools/hddinfo.py`.
+  - Done when: a `line → field → type → struct offset` table is in
+    `docs/format/validation.md` and `hddinfo.py` follows it (self-test
+    updated).
+  - Claims: C-740–C-749
+
+- [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M2.2, M2.3, M9.5
+  - Goal: run the real parser + comparator on `tools/hddinfo_variants.py`.
+  - Input: L3 runner (M9.5), corpus (M9.7).
+  - Done when: each variant has a firmware verdict and it is compared with
+    `hddinfo.py classify`.
+  - Claims: C-750–C-759
+
+- [ ] **M2.5 — Source of `DIFFERENT MAP CODE`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M2.2 (M2.9 helps)
+  - Goal: which input decides the message: line 1, the `0x06000000` copy,
+    or a NAND/system record.
+  - Input: the message string (M2.9), M2.2 comparator.
+  - Done when: the deciding input is named with the code path VA.
+  - Claims: C-760–C-769
+
+- [ ] **M2.6 — Read `MapUpdate.exe` (image B)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.8 helps)
+  - Goal: how the unit validates and installs map data; which files it
+    checks and what it writes.
+  - Input: `cerom.py --image-start 0x3e00200 IMG sections MapUpdate.exe`
+    (file around `0x04344200`), its `imports`, strings.
+  - Done when: `docs/format/firmware.md` has a "MapUpdate.exe" summary with
+    function VAs, the files it opens, and every check it performs.
+  - Claims: C-770–C-779
+
+- [ ] **M2.7 — US vs EU market decision**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (registry part needs M1.4)
+  - Goal: where the market/region is decided and whether an EU-format card
+    can work in a US unit.
+  - Input: strings and code in A/B/C, `ceconfig.h`/hives after M1.4,
+    `docs/research/us-eu-region.md`.
+  - Done when: an EXP names the deciding value(s) and module(s) and updates
+    `us-eu-region.md`.
+  - Claims: C-780–C-789
+
+- [ ] **M2.8 — SD card identity and lock (`SdCardLch.exe`)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: does the firmware check CID/CSD, an SD lock password or the FAT
+    serial/label before using the card (`SD UNLOCK NG`)?
+  - Input: `SdCardLch.exe` and `SDHC.dll` (find the image with `cerom.py
+    modules` on A/B/C), their imports and strings.
+  - Done when: an EXP lists every identity check with VA, and states which
+    card properties a cloned card must reproduce.
+  - Claims: C-790–C-799
+
+- [ ] **M2.9 — Error-screen catalogue from firmware strings**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.8 helps)
+  - Goal: for each error (`NAVI VERSION NG`, `DIFFERENT MAP CODE`, `MAP DATA
+    BASE UNMATCH`, `SD UNLOCK NG`, others found), the module, string VA and
+    the function that shows it.
+  - Input: string search over all A/B/C modules (UTF-16 and ASCII),
+    `cerom.py file2va`.
+  - Done when: a table is in `docs/format/validation.md` (error → module →
+    string VA → referencing function VA or `UNKNOWN`).
+  - Claims: C-800–C-809
+
+- [ ] **M2.10 — What `TestMode.exe` (image C) can show or do**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: find diagnostics relevant to map data (version screens, SD tests,
+    map-code display, log dumps) usable later on the bench.
+  - Input: `cerom.py --image-start 0x5200200 IMG sections TestMode.exe`,
+    strings, imports.
+  - Done when: an EXP lists the menus/functions with VAs and how test mode
+    is entered (if found).
+  - Claims: C-810–C-819
+
+---
+
+## M3 — Reader contract
+
+- [ ] **M3.1 — The `.ind` wrapper above `MAL_DataVol_getOffset`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M1.6 done in PR #5)
+  - Goal: name the `Navi.exe` function(s) around the four known call sites.
+  - Input: call sites `0x003778b2`, `0x003778bc`, `0x00377b46`, `0x00377b52`
+    (EXP-50); `OBJDLL.dll` exports `MAL_*`/`OBJ_*`.
+  - Done when: the enclosing function VAs, their arguments and their callers
+    are recorded, with what is done with offset/size.
+  - Claims: C-820–C-829
+
+- [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.1
+  - Goal: answer from code whether `chunk_size` sizes a buffer or is
+    compared against `0x10000`, and whether the reader seeks by offset or
+    scans for `78 9c`.
+  - Input: M3.1 functions; `docs/format/cmp-ind.md`; `tools/ind_mutate.py`.
+  - Done when: both answers are in `cmp-ind.md` with VAs.
+  - Claims: C-830–C-839
+
+- [ ] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.2, M9.5
+  - Done when: accept/reject per variant is recorded and compared with
+    `cmpind.py`.
+  - Claims: C-840–C-849
+
+- [ ] **M3.4 — `DRSTR001.DAT` parser and what it validates**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.8 helps)
+  - Goal: find the parser and list its checks (counts, ordering,
+    sentinels, the leading `u32` = 47).
+  - Input: re-run the filename search with real VAs: the old "map filenames
+    have zero literal references" negative was made under the wrong
+    address model, so search `DRSTR`, `CMP.LST`, `MAPAL` strings in
+    `Navi.exe`, `NaviMapCC.dll`, `OBJDLL.dll`, `STDDLL.dll` and their xrefs.
+  - Done when: a validation list is in `docs/format/drstr.md` with VAs, or
+    an EXP shows the string search with a positive control and no xref.
+  - Claims: C-850–C-859
+
+- [ ] **M3.5 — Tile reader entry and the level table**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.8 helps)
+  - Goal: find the `MESH_ID`/`DIVID` code and confirm the six-level table
+    (`VTb Tp;Lv;…`).
+  - Input: `NaviMapCC.dll` strings and exports; `docs/format/map-tiles.md`.
+  - Done when: the reader VA and the level-table layout are recorded in
+    `map-tiles.md`.
+  - Claims: C-860–C-869
+
+- [ ] **M3.6 — Which tile sections the renderer reads**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M3.5
+  - Done when: each tile section has "read by VA" or "ignored" in
+    `map-tiles.md` (section 4 especially).
+  - Claims: C-870–C-879
+
+- [ ] **M3.7 — How the router reads `RDSTM001` / `REFER` road records**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.8 helps)
+  - Goal: the record fields the router uses (graph tuples, speed, one-way,
+    restrictions).
+  - Input: route/guide modules in A (`cerom.py modules`), `RDSTM` strings,
+    `docs/format/rdstm.md`.
+  - Done when: a field list with VAs is in `rdstm.md`; it feeds M4.1–M4.3.
+  - Claims: C-880–C-889
+
+---
+
+## M4 — Data formats (no firmware or hardware needed)
+
+- [ ] **M4.1 — `RDSTM001`: decode one record and one node/link tuple**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Input: `tools/rdstm_schema.py`, `tools/rdstm_scan.py`, `ROOT`,
+    `docs/format/rdstm.md` (status table, ranked unknowns).
+  - Done when: a decoder with a synthetic test exists and one real record
+    round-trips byte-identically.
+  - Claims: C-890–C-899
+
+- [ ] **M4.2 — `RDSTM001`: link attributes (speed class, one-way, class)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.1
+  - Done when: attribute values correlate with ≥ 5 known roads (OSM tags)
+    in an EXP table.
+  - Claims: C-900–C-909
+
+- [ ] **M4.3 — Turn restrictions and connectivity encoding**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M4.1 helps)
+  - Done when: one known restriction (OSM `restriction=*` at a named
+    junction) is found and decoded.
+  - Claims: C-910–C-919
+
+- [ ] **M4.4 — Tile section 4 under a road edit**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: prove section 4 (place-name index, `section4.py`) can stay
+    verbatim when roads change, or map the fields that must change.
+  - Input: `tools/section4.py preserve/verify`, `harness.py mutate`.
+  - Done when: a one-tile road edit with verbatim section 4 passes L2 and
+    the EXP states which section-4 fields depend on road content (or none).
+  - Claims: C-920–C-929
+
+- [ ] **M4.5 — `MMAIN001.DAT` meaning and writer**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Done when: a writer reproduces the 4,096-byte file (11 entries)
+    byte-identically and every field has a meaning or `UNKNOWN`.
+  - Claims: C-930–C-939
+
+- [ ] **M4.6 — The `B30R048R` 2013–2016 rebuild difference**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Input: EXP-30, `tools/diff_years.py`, 2014/2016 roots.
+  - Done when: the difference at `0x807`/`0x808` is explained and the writer
+    needs no fallback.
+  - Claims: C-940–C-949
+
+- [ ] **M4.7 — Rename path for names/addresses**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Input: `ADDRE`/`POINT`/`ZCODE`/`LCTBL` (`docs/format/refer.md`,
+    `tools/mutate_refer_poi.py`, `tools/lctbl_names.py`).
+  - Done when: a renamed POI with a different-length name passes L2.
+  - Claims: C-950–C-959
+
+- [ ] **M4.8 — Coordinate transform tool**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Input: `tools/mesh_grid.py`, `docs/format/coord-zcode-icode.md`, the
+    five target tiles, the 52742 vs 52736 longitude origin question.
+  - Done when: `tools/coord.py` converts lat/lon ↔ mesh/0..2047 and ≥ 10
+    known POIs land within a few metres.
+  - Claims: C-960–C-969
+
+- [ ] **M4.9 — `ADDRE` remaining grammar**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: 6-/12-byte index cells, `c0` vs `c8` grammar, subtypes
+    `0x54`/`0x58`, `40 XX YY` point encoding, trailer table.
+  - Done when: each item is decoded or `UNKNOWN` with a method in
+    `refer.md`, with a test on a synthetic record.
+  - Claims: C-970–C-979
+
+- [ ] **M4.10 — POI icon code → `BICON001` PNG**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Done when: a mapping table for ≥ 20 POI categories is in
+    `docs/format/assets.md` (icons are not committed).
+  - Claims: C-980–C-989
+
+- [ ] **M4.11 — `LEV3456R.DAT` coarse levels 3–5 semantics**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: what the overview levels contain and how to regenerate them from
+    OSM (needed for zoomed-out display).
+  - Done when: `map-tiles.md` describes levels 3–5 content and a rebuild of
+    one level from decoded records is byte-identical.
+  - Claims: C-990–C-999
+
+- [ ] **M4.12 — `COORD001`/`ZCODE`/`ICODE001` remaining fields**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: `COORD001` `level`, the `ZCODE` offset base, `ICODE001` trie roots.
+  - Done when: each is decoded with a test, in `coord-zcode-icode.md`.
+  - Claims: C-1000–C-1009
+
+- [ ] **M4.13 — Strings: length limits, collation, Polish diacritics**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: max name length per field, character set, sort order and whether
+    `ą ę ł ń ó ś ź ż` are representable (Czech/German names in the EU image
+    are the control).
+  - Done when: an EXP with counts per field and a charset table, and the
+    IMF/writer rule for unsupported characters.
+  - Claims: C-1010–C-1019
+
+- [ ] **M4.14 — Cross-year and cross-market archive**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: a table of every image on `files.viaaq.eu` (year, market, map
+    code, `HDD_INFO`, header versions, tile counts) via `diff_years.py`.
+  - Done when: `docs/research/image-versions.md` has the table with SHA-256
+    per image and the fields that change with the map code.
+  - Claims: C-1020–C-1029
+
+---
+
+## M5 — OSM compiler vertical slice (Dolnośląskie)
+
+Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
+`docs/research/osm-vertical-slice.md` and `profiles/dolnoslaskie-test.*`.
+
+- [ ] **M5.1 — OSM ingest to IMF**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: read a Dolnośląskie `.osm.pbf` (Geofabrik) and write IMF v1 with
+    drivable roads and the tags the compiler needs.
+  - Input: `docs/research/intermediate-format.md`, `tools/imf_check.py`.
+  - Done when: `tools/osm_ingest.py` produces IMF that passes `imf_check.py`
+    on the region; extract date and SHA-256 recorded; stdlib only or a
+    documented optional dependency.
+  - Claims: C-1030–C-1039
+
+- [ ] **M5.2 — Mesh splitter**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.8, M5.1
+  - Done when: every way is assigned to meshes and clipped at borders, and
+    `imf_check.py --assign-tiles` agrees.
+  - Claims: C-1040–C-1049
+
+- [ ] **M5.3 — OSM → Clarion road class/speed table**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.2
+  - Done when: a table covers every `highway=*` value in the region with
+    unmapped values listed.
+  - Claims: C-1050–C-1059
+
+- [ ] **M5.4 — Tile writer: roads only**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.2 (M5.3 for classes)
+  - Input: `tools/ze0-viewer/vendor/osm2clarion`, factory neighbours,
+    `section4.py preserve`.
+  - Done when: one generated tile passes L2.
+  - Claims: C-1060–C-1069
+
+- [ ] **M5.5 — Connectivity across tile borders**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M5.4, M4.3
+  - Claims: C-1070–C-1079
+
+- [ ] **M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.4, M4.5
+  - Done when: L1 passes on the output card tree.
+  - Claims: C-1080–C-1089
+
+- [ ] **M5.7 — Street names into the name sections**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.7, M5.4
+  - Claims: C-1090–C-1099
+
+- [ ] **M5.8 — One-tile diff report**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: an automatic report of what changed vs what was preserved between
+    a factory and a generated/mutated tile (sections, records, bytes).
+  - Input: `harness.py compare-tiles`, `section4.py`.
+  - Done when: `tools/tile_diff.py A B --json` works on a factory tile and
+    on the `harness.py mutate` output.
+  - Claims: C-1100–C-1109
+
+---
+
+## M6 — Hardware and safety
+
+No hardware is available now. Planning tasks are open; tests wait.
+
+- [ ] **M6.3 — Spare-card test plan**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M2.8 refines it)
+  - Done when: `docs/research/card-test-plan.md` defines the whole-card
+    clone, the no-op control, then one changed tile, with pass/fail
+    criteria and what to photograph.
+  - Claims: C-1110–C-1119
+
+- [ ] **M6.4 — Recovery checklist**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M2.6
+  - Done when: a checklist for returning the unit to the factory map is in
+    the test plan.
+  - Claims: C-1120–C-1129
+
+- [ ] **M6.8 — Bench kit list and serial/JTAG access plan**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M8.A6 for the debug UART)
+  - Goal: what to buy and wire (12 V supply, `TEST_B1`, CAN simulator, SD
+    extender, UART at the SCIF `0xffe46000` pins if found).
+  - Done when: a parts list with costs and a wiring note is in
+    `docs/research/dynamic-break-guide.md`.
+  - Claims: C-1130–C-1139
+
+- [ ] **M6.2** Owner's US 2011 SD dump (read-only, SHA-256). Status: blocked
+  (hardware) · Owner: Marek. Claims: C-1140–C-1149
+- [ ] **M6.5** First on-device test with the no-op clone. Status: blocked
+  (hardware; Depends M6.3). Claims: C-1150–C-1159
+- [ ] **M6.6** First on-device test with one changed tile. Status: blocked
+  (Depends M6.5, M5.6). Claims: C-1160–C-1169
+- [ ] **M6.7** Routing test across the changed tile. Status: blocked
+  (Depends M6.6). Claims: C-1170–C-1179
+
+---
+
+## M7 — Scale and release (later)
+
+- [ ] **M7.1** Full Dolnośląskie run, size budget. Depends M5.6. Claims:
+  C-1180–C-1189
+- [ ] **M7.2** All-Poland road network. Depends M7.1. Claims: C-1190–C-1199
+- [ ] **M7.3** Europe motorway/trunk network. Depends M7.2. Claims:
+  C-1200–C-1209
+- [ ] **M7.4** Profiles schema v2 migration and the writer behind
+  `tools/build.py` (validator and `--dry-run` exist, C-564–C-567). Status:
+  open · Depends: —. Done when the three profiles validate as v2 and
+  `build.py` calls M5 stages. Claims: C-1210–C-1219
+- [ ] **M7.5** User guide and risk statement; "research only" until M6.7.
+  Depends M6.7. Claims: C-1220–C-1229
+
+---
+
+## M8 — Full-system emulation (QEMU `ze0` machine)
 
 Background: [`docs/research/full-system-emulation.md`](docs/research/full-system-emulation.md),
-EXP-2026-11-05-37. Stock QEMU's `sh7785` CPU already runs `nk.exe` into the
-scheduler (`tools/ce_qemu_probe.py`). Stages: **F0** boot log → **F1** stable
-kernel → **F2** drivers loaded → **F3** SD mounted → **F4** `Navi.exe`
-headless → **F5** screen. Time box F0+F1: one week; stop and record why if F1
-is not reached. F2+ only after M8.D (decision). Rules for every task: the QEMU
-code lives in `tools/qemu-ze0/` as a patch/out-of-tree machine with no vendor
-bytes; each new register model cites the nk/driver code it was read from
-(VA via `cerom.py`); each stage ends with an EXP record.
-
-##### M8.A — F0: kernel boot log (step by step)
-
-- [ ] **M8.A1 Build env.** Script `tools/qemu-ze0/build.sh`: fetch a pinned
-  QEMU release (≥ 8.2), apply our patch, `configure --target-list=sh4-softmmu`,
-  build. *Done when* `qemu-system-sh4 -M ze0` lists the new machine.
-- [ ] **M8.A2 Machine skeleton** `hw/sh4/ze0.c`: CPU `sh7785`; RAM at phys
-  `0x08000000` (start with 128 MiB, `0x08000000`–`0x10000000`; grow if the
-  kernel probes above); alias the RAM in P1/P2 the same way `r2d` does;
-  unimplemented-device catch-all (`create_unimplemented_device`) over
-  `0xff800000`–`0xffffffff` and area 4/6 so unknown accesses log instead of
-  abort. *Done when* `ce_qemu_probe.py`'s access list is reproduced with
-  `-M ze0` and the same patch.
-- [ ] **M8.A3 Built-in loader** (`-kernel IMAGE`, options `kernel=0x3e00200`,
-  `app=0x200200`): parse `ECEC`/`ROMHDR` like `cerom.py`, copy B/C and A to
-  `physfirst & 0x1fffffff`, set PC to the `nk.exe` entry. Port the logic,
-  do not shell out. *Done when* booting needs no `-device loader` lines.
-- [ ] **M8.A4 CPU control block.** Factor the CCN/MMU part of
-  `hw/sh4/sh7750.c` (`PTEH`, `PTEL`, `TTB`, `TEA`, `MMUCR`, `CCR`, `EXPEVT`,
-  `INTEVT`, `TRA`, and the IC/OC/UTLB/ITLB address arrays at
-  `0xf0000000`–`0xf7ffffff`) into something `ze0` can instantiate without the
-  SH7750 peripherals. *Done when* `MMUCR` writes take effect and the
-  kernel-page call to VA `0x5b90` no longer faults.
-- [ ] **M8.A5 Boot-blocker stubs** (read-back registers with fixed reset
-  values): `0xffe70000` block (`+0x808` reads `0xc0000000`), CPG
-  `0xffc80000` (`MSTPCR*` read back, `MSTPACK` mirrors `MSTPCR`),
-  `0xfff80000`, `0xff200000` (UBC), area 6 `0x19300000`. Remove the
-  `--patch` need. *Done when* the unpatched kernel reaches the same point as
-  the patched probe.
-- [ ] **M8.A6 Debug serial.** Map QEMU `sh_serial` (SCIF mode) at
-  `0xffe46000` to `-serial stdio`; other SCIF channels to `null`. Check
-  whether the kernel ever calls the writer at `0x8804cfa4` (its pointer is
-  loaded at `0x8804ce78`); if retail output is disabled, find the flag and
-  record it (patch only in emulation, never on a card). *Done when* the
-  `Windows CE Kernel for Hitachi SH` / `Booting Windows CE version …` lines
-  appear on stdout, or an EXP shows why they cannot.
-- [ ] **M8.A7 Trace tooling.** `tools/qemu-ze0/run.sh` wrapper: `-d
-  unimp,guest_errors,int`, gdbstub, a log filter reusing
-  `ce_qemu_probe.summarize_log`, and a gdb script that prints the CE thread
-  list and the current module (`cerom.py` VA → module). *Done when* one
-  command boots and leaves a log + access summary in a work dir.
-- [ ] **M8.A8 EXP + docs.** Record F0 as an EXP; add a register table
-  (address, size, reset value, read from) to `docs/format/firmware.md`.
-
-##### M8.B — F1: stable kernel (interrupts and time)
-
-- [ ] **M8.B1 INTC** (`0xff802000`–`0xff802064`, `0xff804000`–`0xff804088`):
-  read `OEMInterruptEnable/Disable/Done` and the ISR (`VBR+0x600`) in nk;
-  name priority, mask-set (`+0x40`) and mask-clear (`+0x44`) registers and
-  the `INTEVT` codes. Model it in `ze0`. *Done when* a TMU0 interrupt is
-  delivered and acknowledged.
-- [ ] **M8.B2 TMU** (`0xffd80000` ch 0–2, `0xffd81000` ch 3–5): reuse
-  `hw/timer/sh_timer.c` with the right base/IRQs; find the tick rate from
-  the OAL. *Done when* the scheduler ticks (gdb shows `CurMSec` advancing)
-  and `OEMIdle` wakes.
-- [ ] **M8.B3 RTC / time** if the kernel reads one (look for
-  `OEMGetRealTime`). *Done when* the date read is deterministic.
-- [ ] **M8.B4 Boot arguments.** The kernel reads phys `0x08000020`–
-  `0x0800002b`: name the fields the IPL writes there (boot source, B/C
-  selection, flags). *Done when* documented and settable as `ze0` options.
-- [ ] **M8.B5 Milestone F1.** *Done when* `filesys.exe` and `device.exe`
-  start (log or gdb) and the kernel survives 60 s without a fault.
-
-##### M8.C — F2…F5: one task per peripheral
-
-Each task: read the driver's init path and its `MmMapIoSpace` / registry
-`IoBase`/`Irq` (after M8.E2), decide **stub** (driver initialises and fails
-gracefully), **model** (behaviour needed) or **HLE** (replace the driver's
-exported entry points by host code). *Done when* the driver's init returns
-without hanging boot, and the decision is recorded in the register table.
-
-| ID | Peripheral | Driver / evidence | Stage | First step |
-| --- | --- | --- | --- | --- |
-| M8.C1 | DMAC (`0xff801000`) + DMA mux/clock (`0xffc08000`) | `serial_scif`, `SDHC`, `wavessi*`, nk | F2/F3 | map channel registers from `SDHC.dll` (it needs DMA first) |
-| M8.C2 | SCIF ch 0–7 (`0xffe40000`–`0xffe48000`) | `serial_scif` (`SCIF0`…`SCIF7`, `SCIFH`, `Scif3SendThread`) | F2 | which channel talks to which chip; reuse `sh_serial` |
-| M8.C3 | External UARTs (`0x19b00000`–`0x19e00000`) | `serial_uat` | F2/F4 | identify the UART type (16550-like?) from register use |
-| M8.C4 | Vehicle micon / power state | `PowerMonitor`, `ActivateCtlDriver`, `IOLIB`, `VIN`, `SYS_INF` | F2/F4 | find the boot handshake (ACC/ignition, "system ready"); script replies |
-| M8.C5 | CAN (`0x19400000` area) | `CAN.dll` (`VCAN_R_VDC`, …) | F4 | is CAN a register block or a sub-micon over serial? list the frames the app waits for |
-| M8.C6 | GPIO (`0xffc41000`–`0xffc43000`, `0x19400000`) | `GPIO.dll` | F2 | pin roles from callers (power, mute, reset lines) |
-| M8.C7 | I²C (`0xffc71000`) | `I2C.dll` | F2 | which devices are on the bus (tuner, audio DSP, display?) |
-| M8.C8 | NOR flash / settings | `flash.dll`, `FlashManager.dll` (`0x09b40000` buffer), `UpdateNK.skn` | F2 | find the flash window; model CFI flash with an empty/erased image |
-| M8.C9 | Battery-backed RAM | `VSram.dll` (`0x09a40000`, `0x09ac0000`) | F2 | plain RAM with persistence file |
-| M8.C10 | **SD host** (`0xffe4c000`, `0xffe4d000`) | `SDHC.dll`, `SdCardLch.exe`, `fatfsd`, `mspart` | **F3** | read `SDHC.dll` command path; choose model (+ QEMU `sd-card` backed by the image) vs HLE block driver; *done when* `\Storage Card`-style volume lists the map tree |
-| M8.C11 | Card identity (SD lock / CID) | `SdCardLch`, `Navi.exe` `HDD_INFO` | F3/F4 | does the firmware read CID/CSD? the model must return the real card's values (record from bench) |
-| M8.C12 | USB host (OHCI, phys `0x07ff0000`?) | `UsbOhci`, `usbd`, `usbhid` (image C) | F2 | stub "no device" |
-| M8.C13 | Audio: SSI (`0xffe00000`), DSP, beep, mute | `wavessi1/2`, `DspDrv`, `BeepDrv`, `MuteDrv`, `anwdrv` | F2 | stub; capture PCM to a file later |
-| M8.C14 | Timers for GPS/odometer (`0xffc5a000`, `0xffc5b000`) | `navdrv`, `kepdrv` (`KEPI:TmuStcon…`) | F4 | feed constant speed pulses; find gyro/ADC inputs |
-| M8.C15 | GPS receiver | `navdrv` (`0x19800000`), a SCIF channel | F4 | NMEA or baseband? replay a fixed position |
-| M8.C16 | FM multiplex / RDS-TMC (`0xffc55000`) | `fmmdrv` | F4 | stub "no signal" |
-| M8.C17 | Bluetooth, telematics, DTV, beacon | `BT_*`, `COMD/COMH/FOMAB`, `dtvdrv`, `bcndrv`, `Bolero` (`0x19a00000`) | F4 | stub "not present"; verify the app tolerates it |
-| M8.C18 | **Display controller / LCD** | `lcddrv`, `gdisubdrv`, `ddddifull`, `auirtdll` | **F4/F5** | find the frame-buffer address and pixel format; expose it as a QEMU display surface (dumb FB first) |
-| M8.C19 | **2D/3D graphics engine** (area 4, `0x10000000`?) | `gdisubdrv`, `ddddifull`, `DspDrv` | **F5** | list registers and command lists; decide if a minimal model can draw the map or if F5 stops here |
-| M8.C20 | **Touch panel and keys** | `kepdrv`, `auiapp`, `hidparse` | F5 | find the input path (ADC touch vs micon key frames); inject events from QEMU input |
-| M8.C21 | Video input / camera | `VIN.dll`, `CameraCC` | F5 | stub "no signal" |
-| M8.C22 | Watchdog / reset | search nk/`PowerMonitor` for WDT | F1/F2 | stub that never fires; log kicks |
-
-##### M8.D — Decision gates
-
-- [ ] **M8.D1** After F1: continue to F2/F3 only if L3 (M9) is blocked by
-  runtime state, or an automatic regression loop without hardware is wanted.
-  Re-estimate F2–F4 with the register table. Record the decision.
-- [ ] **M8.D2** After F3: go to F4 only if the micon/CAN handshake (M8.C4/C5)
-  looks scriptable. F5 stays out of scope unless M8.C19 shows a simple
-  frame-buffer path.
-
-##### M8.E — Use the running kernel as a tool
-
-- [ ] **M8.E1** Run the kernel's ROM decompressor on all 245 compressed
-  sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
-- [ ] **M8.E2** Dump the registry as loaded (`boot.hv`, `default.hv`,
-  `user.hv`): driver list, `IoBase`, `Irq`, load order. Feeds every M8.C task.
-- [ ] **M8.E3** Dump fully loaded process images (`Navi.exe` + DLLs) after
-  init, for the M9 harness (initialised globals, COM objects).
-
-#### M9 — L3 toolkit: run firmware functions against our data
-
-Design and usage: [`docs/research/l3-ghidra.md`](docs/research/l3-ghidra.md).
-Goal: one command runs a named firmware function (or call chain) on a test
-file and prints a JSON verdict, so every format change can be checked against
-the real reader. Code in `tools/l3/`; pure-Python parts covered by
-`tools/selftest.py`.
-
-- [ ] **M9.1 Module map.** `cerom.py memmap --image A,B` → JSON (one block per
-  `o32`: module, section, `realaddr`, size, file offset, compressed flag,
-  `rwx`). Shared by the Ghidra loader, the QEMU engine and the stub table.
-  *Done when* every A+B section is listed and a selftest checks the format
-  on a synthetic ROM.
-- [ ] **M9.2 Ghidra project builder.** `tools/l3/ghidra_import.py`
-  (pyghidra, headless): create a project with all A+B sections at their VAs,
-  name every export (`cerom.py exports`), label IAT thunks (M1.6), apply the
-  SH-4 calling convention. *Done when* `Navi.exe` shows `OBJDLL!…` calls and
-  the `HDD_INFO` string xref at `0x004e7d28`.
-- [ ] **M9.3 Stub table.** `tools/l3/coredll_stubs.py`: Python
-  implementations of the `COREDLL` exports the readers use (file I/O over a
-  virtual FS, `LocalAlloc`/`malloc` heap, string/`sprintf`, critical
-  sections as no-ops, `GetTickCount` fixed, registry from a JSON fixture).
-  Stubs are keyed by export name and bound to VAs from M9.1. Unknown export
-  ⇒ stop with "missing stub: NAME". *Done when* a selftest calls each stub
-  through the dispatcher.
-- [ ] **M9.4 Engine interface** `tools/l3/engine.py`: `map(blocks)`,
-  `write/read mem`, `set_regs`, `call(va, args)`, `on_exec(va, handler)`.
-  Two back ends: Ghidra P-code (`EmulatorHelper`, for stepping and
-  inspection) and QEMU (`ze0` or `-M none` + gdbstub, for speed). *Done when*
-  both run a synthetic SH-4 snippet (add, loop, call to a stub) with
-  identical results.
-- [ ] **M9.5 Runner CLI** `tools/l3/run.py FUNC --input FILE [--engine
-  ghidra|qemu] [--json]`: FUNC from a registry of named targets
-  (`tools/l3/targets.json`: VA, prototype, setup, expected outputs).
-  Output JSON: `accepted`, return value, stub call log, output buffers
-  digest, instruction count. *Done when* a target runs end-to-end.
-- [ ] **M9.6 First target: compressed data decompressor** (if M1.2 is still
-  open) or the `HDD_INFO` comparator (M2.2), whichever is located first.
-- [ ] **M9.7 Corpora.** Wire `tools/hddinfo_variants.py` (89 files),
-  `tools/ind_mutate.py` (8 variants), `DRSTR` and tile mutations into
-  `tools/l3/corpus.py`; each case carries the Python reader's expected
-  verdict. *Done when* `run.py --corpus hddinfo` prints a table firmware vs
-  Python.
-- [ ] **M9.8 `l3check.py`** (L3 level of the verification ladder, next to
-  `cardcheck`/`l2check`): run all targets on a card root, exit non-zero on
-  any firmware/Python disagreement. Add it to AGENTS.md "Verification
-  ladder" once it runs. *Done when* it passes on the EU 2011 root.
-- [ ] **M9.9 Documentation.** Keep `l3-ghidra.md` "How to use L3" current:
-  setup, adding a target, adding a stub, reading a JSON result, known
-  limits. Each target gets an EXP the first time it runs.
-
-**Critical path:** M1.2–M1.3 → M2.1–M2.3 (what makes the unit accept a
-card) → M3.1–M3.5 (what the unit reads) → M5.4 → M6.5–M6.6. M4 feeds M5 in
-parallel. Anything that needs hardware (M6.2–M6.7) is last. M9 (L3 toolkit)
-is how M2.4, M3.3 and M6.1 get done; M8.A–B (boot log, stable kernel) is a
-parallel time-boxed track that also feeds M1.3 and M9 (M8.E).
-
-### Step 2 — turn the ROM into Ghidra-ready modules (if Step 1 holds)
-
-- [x] Add `tools/cerom.py` (stdlib only): `romhdr`, `modules`, `files`,
-  `sections <module>`, `va2file`, `file2va`, `extract <module> -o dir`
-  (raw sections; decompression still open).
-- [ ] Rebuild each module as a PE (or as a Ghidra memory map: one block per
-  `o32` at `o32_realaddr`, bytes from `o32_dataptr`). Sections with
-  `IMAGE_SCN_COMPRESSED` (`0x00002000`) need CE ROM decompression; check
-  whether this is the `HCXCmp` mystery or plain `CECompress`.
-- [ ] Re-check the old `o32_rom` records (C-180, C-234, C-262) against the
-  TOC: they are probably real `o32_rom` entries read with the wrong base.
-- [ ] Use `ulCopyEntries`/`ulCopyOffset` to explain the RAM copies; this
-  should explain why the VA map looked "not injective" (EXP-22, `0x0367b180`).
-- [ ] Export tables come with `e32_rom`; COM class factories follow from
-  `DllGetClassObject`, so the NaviStateCC vtable can be found statically
-  (constructor → vtable store), contrary to EXP-29.
-- [ ] Re-run the existing anchors (`0x6fab2c` → `0x6faeb0` → `0x6fb05c`,
-  `MAL_DataVol_getOffset`, `0x0369d400`) with exact VAs. Target: the `.ind`
-  reader, the `DRSTR` parser, the tile reader and the `HDD_INFO` parser.
-- [ ] Replace the ad-hoc `scripts/rommap.py` (not in the repo) with
-  `tools/cerom.py`; never keep firmware scripts only in `/tmp`.
-
-### Step 3 — L3 contract oracle (after Step 2)
-
-Follow [`docs/research/l3-ghidra.md`](docs/research/l3-ghidra.md), now with a
-real memory map:
-
-- [ ] Start with the `.ind`/`.cmp` reader: run it under Ghidra P-code with
-  stubbed `CreateFile`/`ReadFile`/`SetFilePointer` and the corpus from
-  `tools/ind_mutate.py`. This answers the `chunk_size` and seek-vs-scan
-  questions **without a spare card**.
-- [ ] Then the `HDD_INFO` comparator with `tools/hddinfo_variants.py`: this
-  answers which fields cause `DIFFERENT MAP CODE` without hardware.
-- [ ] Then `DRSTR` and one tile reader.
-
-### Parallel track — data side, no firmware or hardware needed
-
-Ordered by value for the first OSM tile:
-
-- [ ] `RDSTM001`: decode records, graph tuples and road attributes (speed,
-  one-way, turn restrictions). Routing is the scope priority and nothing is
-  known yet about how the router reads the graph.
-- [ ] Section 4 of the tiles: map the binary fields and write the encoder,
-  or prove it can be kept verbatim for a changed tile.
-- [ ] Gate 1: `MMAIN001.DAT` (4,096 bytes, 11 entries) round-trip and field
-  meaning; the `0x180` header block.
-- [ ] Explain the `B30R048R` 2013–2016 rebuild difference at `0x807`
-  (EXP-30); it is probably a header/writer variant worth one diff session.
-- [ ] Cross-year differential (2011 → 2014 → 2016 cards): diff `HDD_INFO`,
-  headers, `MMAIN`, `DRSTR` leading `u32` and tile descriptors to see which
-  fields change with the map code. This is the cheapest substitute for the
-  card matrix.
-- [ ] P9 vertical slice: one tile from OSM through `osm2clarion`, preserving
-  factory REFER data, rebuilt `DRSTR`/`MMAIN`, passing L1 and L2.
-
-### Hardware (deferred, keep ready)
-
-- [ ] Get the owner's US 2011 SD dump (read-only, record SHA-256).
-- [ ] Spare-card kit: 16 GB SDHC whole-card clone, no-op control, POI rename,
-  `HDD_INFO` and `.ind` matrices. Steps 1–3 should shrink these matrices to a
-  few confirming cases.
-
-### Housekeeping
-
-- [ ] Merge the firmware sections (Gate 0a, P3, P7, P8) into one list after
-  Step 1; tick items that are done (tile viewer, `.cmp`/`DRSTR`/tile
-  writers, `rdstm.md`/`refer.md` exist).
-- [ ] Per session: one experiment, one `EXP-…` record, one commit. Stop a
-  firmware line after two rounds without new evidence and write down why.
-
-## Next up (confidence gates)
-
-See [`docs/research/roadmap.md`](docs/research/roadmap.md). The rule: data
-archaeology + firmware RE must agree, then round-trip proves the tooling.
-OSM only after that.
-
-1. **Gate 0a — firmware reader cross-check**
-   - [x] Section table at `0x374000`/`0x3e0060`: unusable (stale `dataptr`).
-   - [x] Two-delta model (local to the module) and reader-related functions
-     (`0xc438a4`, `0xc42520`, `0xc48380`, `0xc0ebf8`).
-   - [x] Dual-base Ghidra: **negative** — filenames have zero literal
-     references; readers are name-driven via `DRSTR`/`CMP.LST`.
-   - [x] Map-code check: textual `HDD_INFO` field comparison; `0x06000000`
-     copy is likely the system-side reference.
-   - [x] Retracted: `obj+0x78…+0x9c` is a message catalogue, not a vtable;
-     the four fd functions are classifiers, not writers.
-   - [x] `Lib.out32` code delta: not pinnable (data-only pool, flat scoring).
-   - [x] `.ind` allocation-shape search: 0 sites; parser not detectable this way.
-   - [x] `HDD_INFO` candidate `0x132e06c`: data, not code.
-   - [x] `0x1952b00`: RAM copy list, not a section map (retracted).
-   - [x] Export anchor works: 26 modules mapped, `file = Fb + RVA`.
-   - [x] Hardened import anchor: 0 candidates — pre-bound WinCE ROM strips
-     imports (retracted).
-   - [x] ROM module table / self-name / adjacency routes: all refuted
-     (`EXP-2026-11-05-14`).
-   - [x] Static VA recovery from this image is exhausted.
-   - [x] Comparator chain corrected: `0x6fab2c` → `0x6faeb0` → `0x6fb05c`;
-     `userdata_type` is the `0<v<6` field (EXP-2026-11-05-17).
-   - [x] Test package: `tools/hddinfo_variants.py` generates 73
-     length-preserving HDD_INFO variants.
-   - [ ] Run the spare-card matrix (highest value, no RE).
-   - [x] `VerInfoCC` identified (`0x027cae00`, `GetVersionInfo`) but ruled
-     out as the parser (EXP-2026-11-05-18).
-   - [x] `0x30f008` trail: false (free function; `0x01f83368` is a writable
-     global; mspart/WAVEAPI bases overlap). Round-10 link retracted.
-   - [x] `0xc438a4` retracted: memory/fd stats formatter, not CMP.LST; real
-     CMP.LST at `0xdf945d` has zero refs (EXP-2026-11-05-20).
-   - [x] Code delta `+0x02200000` retracted; per-instruction table gives band
-     `0x02b0xxxx–0x02b5xxxx`, best fit `+0x01f07d5c`.
-   - [x] New anchors: OBJDLL (`0x7dd200`, 1294 exports), STDDLL
-     (`0x834200`), six zlib copies.
-   - [ ] Find the `0x2e0xxxx` module export table (RVA range must cover
-     `0x2e00f98–0x2e533e4`).
-   - [ ] Run the `.ind` mutation matrix on a spare card (chunk_size/count/offset).
-   - [ ] SD bus capture (CLK/CMD/DAT) for read order and seek-vs-scan.
-   - [x] `USR_Convert` module `0x0101e408` retracted (IAT slots); map-module
-     `VER_INFO` refs retracted (call targets).
-   - [x] Three-filter literal method (F1/F2/F3): 236,765 → 95,758.
-   - [x] HDD_INFO builder `0x6faeb0` builds the path from fragments; parser
-     helpers at `0x0369d400`/`0x036922cc`/`0x0367b180`/`0x0369d3dc`.
-   - [x] `0x0367–0x0369` cannot be pinned: library band, best delta 7/13,
-     VA map not injective (`0x0367b180` is both jsr target and string).
-   - [ ] Parse the `romimage` XIP section table (`file ↔ VA ↔ size`); leads:
-     `ECEC` at `+0x240`, `NKOK` at `+0x1fc`.
-   - [ ] Re-resolve `0x0367–0x0369` and the map-module delta; reach the parser.
-   - [x] `0x2e0xxxx` is an import-thunk area, not an export module; 86
-     thunks, IAT `0x1ab9000`, import names at `0x1708000`.
-   - [x] MAL chain (`OBJ_DiscInfo_readDiscVol` → `MAL_DataVol_getOffset` →
-     `getSize`) and NaviStateCC fd layer anchored.
-   - [x] Import descriptor `FirstThunk=0x1ab9000`: absent (pre-bound IAT);
-     86 thunks unnamed.
-   - [x] NaviStateCC is a COM DLL, not a flat library; fd layer are COM
-     methods behind a load-time vtable.
-   - [x] The 175-method vtable is **iPodCC**, not NaviStateCC; `0x2e00eb8`
-     is a shared COM helper. No NaviStateCC vtable exists as a contiguous
-     pointer table.
-   - [x] `0x6faf30` is a Bluetooth/OPP handler, not the reader.
-   - [x] Initializer `0xc43430` found; `0x1d0f8a8` never written by ROM;
-     no static vtable contains the fd methods.
-   - [x] `0x171e9e8` is a type-library helper, not a vtable builder; no
-     static template; **static closed for the reader**.
-   - [x] Dynamic guide written: `docs/research/dynamic-break-guide.md`.
-   - [ ] **No hardware access currently (2026-11-05):** dynamic break, SD bus
-     and card matrices deferred.
-   - [ ] Prepare a hardware kit (JTAG/serial + card matrix) for later.
-   - [ ] While waiting: build the compiler/offline validators (`tools/build.py`,
-     profile validator, round-trip checks).
-   - [x] `tools/ind_mutate.py` generates 8 `.ind` variants for the spare-card
-     matrix.
-   - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
-     `solve_data_delta.py` added.
-   - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
-     via the CE ROM segment recovery in P7 (do not resume global-VA/delta
-     guessing); until the readers define the data contract. No timebox.
-   - [ ] Relative call-graph tracing from extracted CE ROM modules (P7); `0xc438a4`
-     is retracted as an opener and must not be used as an anchor.
-   - [ ] Ghidra P-code/emulation on selected routines.
-   - [ ] Hardware/dynamic tracing (JTAG/serial or spare-card loop) if static
-     relative tracing stalls.
-2. **Gate 0b — tile payload grammar**
-   - [x] All five targets rebuild byte-identically, including dense
-     `B30R048R` (`EXP-2026-11-05-12`).
-   - [x] Road-shape records decoded/rendered; streaming writer works.
-   - [x] `LEV3456R` level 6 decoded; coarse levels 3–5 rebuild with 0 failures.
-   - [x] Section 4 classified: administrative/place-name index, 20 records /
-     68 names in `B30R048R`; GeoJSON points.
-   - [x] Road names decoded via the odd partner record; streaming decoder
-     handles 436 MB at 242 MB RSS.
-   - [x] `compare-tiles` acceptance: zero diff on unchanged, differs on a
-     one-vertex mutation.
-   - [ ] Map section-4 binary fields and build a ZE0 section-4 encoder.
-   - [ ] Validate one-way/speed against a known street/sign; draw layers 4/6.
-   - [ ] Attach names in streaming mode.
-   - Deliverable: full tile record spec + viewer.
-3. **Gate 1 — uncompressed round-trip (byte-identical)**
-   - [x] `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte.
-   - [ ] `MMAIN001.DAT`, headers, `REFER002`, `ADDRE` index areas.
-4. **Gate 2 — compressed round-trip**
-   - [x] `.cmp`/`.ind` preserved-stream writer: 194/194 byte-identical
-     (`EXP-2026-11-05-06`).
-   - [x] Stock zlib 1.3.1 settings reproduce all 36,581 factory chunks;
-     zlib-ng does not.
-   - [x] Build rule: preserve unchanged, hybrid for changed, pin compressor
-     for new files.
-5. **Gate 3 — tile round-trip**
-   - [x] Clean tiles byte-identical (`EXP-2026-11-05-04`).
-   - [x] Dense `B30R048R` byte-identical (`EXP-2026-11-05-12`).
-   - [x] One-vertex mutation changes exactly one vertex and still round-trips
-     (harness `mutate`).
-   - [x] `compare-tiles` zero diff on unchanged input.
-   - [ ] Section-4 binary fields/encoder (content is an index, not geometry).
-6. **Gate 5/6 — activation and card feedback**
-   - [ ] Whole-card 16 GB SDHC clone; keep TFAT16; verify SHA-256.
-   - [ ] No-op control, then POI rename (`EXP-2026-11-05-02`).
-   - [ ] Map-code test: `HDD_INFO` line 1, then also the `0x06000000` copy.
-7. **Gate 7 — OSM compiler** (only after 0–6)
-   - [ ] Profile validator + `tools/build.py` + size estimator.
-   - [ ] Encoder for roads/names/addresses/POIs.
-   - [ ] Charset and turn-restriction decisions.
-
-Content joins (POI/ADDRE/icon) and `LEV3456R` remain independent leaves; they do
-not block the gates above.
-
-## P0 — research groundwork
-
-- [ ] Wait for the owner's **US 2011 SD dump**; record SHA-256 and store it in
-  `archive/` (git-ignored).
-- [ ] Compare the US dump against the EU 2011 image:
-  - [ ] `VER_INFO/HDD_INFO.TXT` values
-  - [ ] top-level directory set (does `TFTBL001` exist?)
-  - [ ] `DRSTR001.DAT` node/entry layout
-  - [ ] tile names and count
-  - [ ] common 512-byte header version strings
-- [ ] Collect all map images from `files.viaaq.eu` and build a year/market
-  comparison table (subagent in progress).
-- [ ] Consolidate external research into `docs/research/sources.md` with
-  FACT/HYPOTHESIS labels (subagent in progress).
-
-## P0b — region / US unit in Europe
-
-See [`docs/research/us-eu-region.md`](docs/research/us-eu-region.md).
-
-- [ ] Read-only: unlock and image the US card; dump the unit NAND if possible.
-- [ ] Determine whether the US 2011 card is tiled (`MAPAL001/*.DAT`) or
-  monolithic (JDM-style ~1 GB `MMAIN001.DAT`). This decides whether a software
-  patch is plausible.
-- [ ] Record the unit's PROD `A022`, `NAVI-1`, map record and SD lock state.
-- [ ] Card-only: US image + EU data except `VER_INFO`, re-locked with the US
-  password.
-- [ ] Card-only: patch `0x20001f` (`NAVI VERSION NG`), line 1 of
-  `HDD_INFO.TXT` (`DIFFERENT MAP CODE`), then full EU `VER_INFO`.
-- [ ] Bench harness: 12 V, ground `TEST_B1` to bypass `SECURE`, capture error
-  screens.
-- [ ] Spare unit only: PROD `A022` `0x20→0x30` + checksum.
-- [ ] Spare unit only: donor EU `NB04`/`NB00`; evaluate audio and `SECURE`
-  risks.
-- [ ] Update the layer matrix with what is proven vs still hearsay.
-
-## P0c — validation, card and minimal change
-
-Three agents are investigating these; merge their results here when done.
-
-- [x] **Checksums/validation:** no per-file checksum; `SUM4`/updater formulas
-  reproduced; map code is a text/market check (`docs/format/validation.md`).
-- [ ] **Map-code hardware test:** change only `HDD_INFO` line 1, then also the
-  `0x06000000` copy; observe `DIFFERENT MAP CODE`.
-- [ ] **Card/FAT/boot:** whole-card clone is the only externally validated
-  method; 16 GB SDHC; keep TFAT16. Still to test: FAT-only clone, pre-partition
-  zeroed, changed label/serial.
-- [x] **Minimal accepted change:** same-length POI rename validated offline
-  (`docs/research/minimal-change.md`, EXP-2026-11-05-02). Hardware pending.
-
-## P1 — finish the map container description
-
-- [ ] Decode `MMAIN001.DAT`: what do the 4,096 bytes describe? Are there
-  pointers into other databases?
-- [ ] Decode the `0x180` descriptor block in the common header field by field.
-- [ ] Determine the `DRSTR001.DAT` leading `u32` meaning (47 in the EU image).
-- [ ] Confirm whether entry `value` for tiles is the total decompressed size.
-- [x] `LCTBL001`: catalog, 12-column schema, 517-stream name database
-  (`docs/format/rdstm.md`).
-- [ ] `RDSTM001`: decode the `0x1000` record size, graph tuples, record fields
-  and road attributes; locate speed/direction/turn restrictions.
-- [ ] Join `LCTBL` name indices to `RDSTM` road records and tile mesh codes.
-- [ ] Validate the hex `B/R` grid with Prague geometry from OSM.
-- [x] Common REFER anatomy, 33-country sharding, POINT schema/pages, INTER,
-  ICADM, ZIPFR (`docs/format/refer.md`).
-- [x] `ADDRE`: container, 22-byte index, schema, record tags and 4-byte
-  lat/lon ids (`docs/format/refer.md`).
-- [ ] `ADDRE` remaining: 6-/12-byte index cells, `c0` vs `c8` grammar,
-  subtypes `0x54`/`0x58`, `40 XX YY` point encoding, trailer table.
-- [ ] Prove the POI ↔ ADDRE join (shared ids confirmed; record-level join not).
-- [ ] Decode `FRWAY` mesh-id encoding and `INTER` `n` semantics.
-- [x] POI → location: A is the display point, B the address reference.
-- [x] `f11 = (2000*page + slot) & 0xffff` (99.3 % / 95.4 % on POINT004/021).
-- [x] POI ↔ ADDRE record join via `(street name, house number)`.
-- [x] `BICON001`: 103 PNG icons extracted; see `docs/format/assets.md`.
-- [ ] Map the POI `icon code` to one of the 103 PNGs.
-- [ ] Anchor the bit-packed POI field block (≥170 bits needed, 48 available).
-- [ ] Explain the second 1000-id block per page.
-- [ ] Isolate REFER002 `xy-coordinates` bits.
-- [ ] Decode `MMAIN001.DAT` + `CMP.LST` update semantics.
-
-## P2 — tiles and geography
-
-- [x] Tile grid: B/R hex, `lat_min = B*2/3`, `lon_max = 108-R`,
-  5.333°×8°; `tools/mesh_grid.py` and `docs/format/map-tiles.md`.
-- [x] Descriptor tables `0x1ac` (LOD) and `0x2ac` (bboxes in arc-minutes).
-- [x] Stream key: `(A = 32768 + lat*192, B = 52736 + lon*128, section tag)`.
-- [ ] Decode the record grammar inside real (non-448-byte) tile payloads.
-- [ ] Determine whether tiles contain polygon/area records (buildings,
-  landuse, water) or only road geometry.
-- [ ] Explain `LEV3456R.DAT` (rows B20–B78, cols R040–R078, levels 3–6).
-- [ ] Build a small standalone tile viewer/exporter.
-- [ ] Decode `COORD001` `level`, `ZCODE` offset base, `ICODE001` trie roots.
-- [ ] Reconcile longitude origin 52742 (`COORD001`) vs 52736 (tile streams).
-
-## P2b — presentation, assets and extras
-
-- [ ] Decode map rendering attributes: LOD/zoom levels, label priority,
-  colours, road widths, visibility rules.
-- [ ] Determine string limits and collation: max name length, Polish
-  diacritics, sorting, transliteration fallback.
-- [ ] Decode `BICON001.DAT` (POI icons) and the `BASSW7C`/`OPNG` asset container.
-- [ ] Decode the simple `AGM`/`TTS`/`GID` archive format (header, entry table)
-  in case icons/voice are needed later.
-- [ ] Decide whether `TMC/reception.dat` affects map compilation or is a
-  separate data channel.
-
-## P3 — firmware / reader
-
-- [ ] Decode the firmware container at `0x200000` (`NKOK`, `ECEC`, `SUM4`,
-  32-bit table at `0x200200`).
-- [ ] Identify or disprove `HCXCmp` as the compression algorithm.
-- [ ] Extract `Navi.exe` / `NaviAPL` / `Navi*CC.dll` SH-4 modules.
-- [ ] Load them in Ghidra (SuperH4) or rizin and find:
-  - [ ] file-open/read path for `.cmp`/`.ind`
-  - [ ] calls to `inflate` / zlib
-  - [ ] `DRSTR001.DAT` parser
-  - [ ] tile reader and `MESHID` logic
-  - [ ] map validity/activation check
-- [ ] Inspect the 402,652,160-byte post-partition tail.
-
-## P3b — update, error and recovery behavior
-
-- [ ] Catalogue every error screen and what triggers it (`NAVI VERSION NG`,
-  `DIFFERENT MAP CODE`, `MAP DATA BASE UNMATCH`, `SD UNLOCK NG`, blue screen).
-- [ ] Determine whether the unit can roll back to the previous card or NAND
-  slot after a bad map/firmware.
-- [ ] Document the recovery path (test pin, NAND restore, spare card swap).
-- [ ] Check `SECURE`/CAN/VIN behaviour before moving a unit between cars.
-
-## P4 — writer / round-trip
-
-- [ ] Implement a `.cmp`/`.ind` **writer** and verify byte-identical output
-  for unchanged files (or document which bytes differ and why).
-- [ ] Implement a `DRSTR001.DAT` writer and verify re-parse equality.
-- [ ] Implement a tile container writer for an unchanged tile.
-- [ ] Determine all checksums/signatures and where they are stored.
-- [x] Build a minimal synthetic change (same-length POI rename in
-  `POINT032.DAT`) and validate it offline: size unchanged, page-confined,
-  DRSTR unchanged, 1/1 verify (`docs/research/minimal-change.md`).
-- [ ] Run the no-op recompression control on the **US** card/unit.
-- [ ] Run the rename test on a spare card; record screens and rollback.
-
-## P4b — feedback loop / emulation
-
-See [`docs/research/feedback-loop.md`](docs/research/feedback-loop.md) for the
-analysis. Build the cheap layers first; full-system emulation is a timeboxed
-research spike, not a prerequisite.
-
-- [x] **L0 — primitives:** static decoder + validator (`tools/cmpind.py`,
-  `tools/drstr.py`, `tools/selftest.py`).
-- [x] **L1 — whole-card validator:** `tools/cardcheck.py` checks MBR/FAT,
-  `DRSTR` tree, sizes, `.ind` offsets, zlib decode, tile inventory, `MMAIN`
-  table, `HDD_INFO` copy and `CMP.LST`. Stable exit code + JSON report.
-- [x] **L2 — semantic/golden:** `tools/l2check.py` checks `DRSTR` and
-  `.cmp` preserved round-trips, five target tile rebuilds, golden geometry
-  digests, a one-vertex tile mutation and a POI rename. Golden profile:
-  `tools/golden/eu2011.json`.
-  - [x] Cross-year L2 for full 2014/2016 roots (`--no-golden
-    --ignore-dump-artifacts`); unchanged dense tile uses preserved layout.
-  - [x] Unified cross-year wrapper `tools/verify.py` (auto-detects year/flags;
-    2019 returns `UNSUPPORTED`).
-  - [ ] Optional per-year golden profiles.
-  - [ ] Optional OSM comparison remains in `tools/ze0-viewer/compare_osm.py`.
-- [ ] **L3 — function-level SH-4 emulation (complete harness).**
-  Design: [`docs/research/l3-ghidra.md`](docs/research/l3-ghidra.md).
-  - [ ] Locate the `CMP.LST`/map-path opener, `.cmp`/`.ind` reader, `DRSTR`
-    parser and tile reader by relative call-graph tracing.
-  - [ ] Build a headless Ghidra P-code harness with a documented memory map.
-  - [ ] Stub WinCE file I/O (`CreateFile`, `ReadFile`, `SetFilePointer`,
-    `CloseHandle`), allocator, `memset`/`memcpy` and `OSM_Printf`/`OSM_LogMsg`.
-  - [ ] Add the test corpus: factory, no-op rebuild, recompressed, POI rename,
-    corrupted `.ind`, truncated `.cmp`, factory/generated tile, `DRSTR`
-    variants, `HDD_INFO` variants.
-  - [ ] Compare accept/reject and normalised output with the Python readers.
-  - [ ] Require one generated `.cmp` and one generated tile to be accepted by
-    the firmware reader.
-  - [ ] Record every run as an `EXP-...`; mark un-runnable functions `UNKNOWN`
-    with the exact blocker.
-- [ ] **L4 — bench hardware-in-the-loop:** spare unit, 12 V, `TEST_B1`, CAN
-  simulator, SD extension + host writer, power relay, screen capture. First
-  pass: boot + map screen; then no-op control; then POI rename.
-- [x] **L5 verdict:** full-system QEMU is not realistic. QEMU has only the
-  `r2d` SH-4 machine, `sh7750.c` aborts on unknown registers, and most
-  peripherals/BSP are missing. Use QEMU `r2d` only as a bare-metal SH-4 bench;
-  MAME's SH-4 core is the reference if a custom machine is ever needed.
-- [x] **Decision record:** Wine rejected (Win32 layer, not SH-4/WinCE);
-  QEMU/MAME/sh3-emu assessed; offline contracts + bench HIL recommended.
-  See `docs/research/feedback-loop.md`.
-
-## P5 — OSM pipeline
-
-- [ ] Define the intermediate format (roads, nodes, names, addresses, POIs).
-- [ ] Import OSM extract for Dolnośląskie.
-- [ ] Map OSM tags to the unit's road classes/attributes.
-- [ ] Generate a first synthetic dataset at the unit's tile granularity.
-- [ ] Compare generated data with the factory data for the same area.
-
-## P5b — user-selectable build profiles
-
-See [`docs/research/build-profiles.md`](docs/research/build-profiles.md) and
-`profiles/*.json`.
-
-- [x] Define the initial JSON profile shape and three starting profiles
-  (`dolnoslaskie-detail`, `poland-full`, `europe-motorways`).
-- [ ] Add a schema validator and `tools/build.py --profile ...`.
-- [ ] Print a size breakdown before writing an image.
-- [x] Decide tile selection: **whole tiles only**, no sub-tile clipping
-  (`docs/research/build-profiles.md`).
-- [ ] Implement whole-tile selection once the `BxxRyyR` grid is decoded.
-- [ ] Keep a border buffer so cross-border routing does not stop at the border.
-- [ ] Decide where ODbL attribution lives on a distributed card/image.
-- [ ] Verify that removing/adding files keeps `DRSTR001.DAT` and the unit
-  consistent.
-
-## P6 — hardware testing (only after P0–P5)
-
-- [ ] Back up the original card and verify the hash.
-- [ ] Write a modified image to a **spare** SD card.
-- [ ] Test in the car; record every screen/error message.
-- [ ] Document recovery steps.
-
-## P7 — firmware recovery via standard CE ROM format
-
-Do not continue the old global-VA/delta guessing. Use the Clarion wrapper’s
-standard Windows CE ROM segment header instead.
-
-- [x] Extract the firmware segment starting at image offset `0x00200200`
-  (ECEC at `+0x40`, `pTOC = 0x8e232978`, size `0x01751978`) with
-  `tools/ce_rom_parse.py` (149 modules, 1 file, SH-4; key modules recovered).
-- [ ] Validate the extracted TOC: module count, file count, `physfirst/physlast`,
-  copy entries, and module names (`Navi.exe`, `Navi*CC.dll`, `OBJDLL`,
-  `STDDLL`).
-- [ ] Reconstruct each module as a PE for Ghidra and record file/VA bases.
-- [ ] Locate the `.cmp`/`.ind` reader, `DRSTR001.DAT` parser, tile reader and
-  `CMP.LST` path builder in the extracted modules.
-- [ ] Locate the map-code comparator and the `HDD_INFO` open/split/parse path.
-- [ ] Build L3 function-level emulation for at least one reader, with mock
-  WinCE file I/O and a fixed corpus.
-- [ ] Add reproducible firmware-analysis scripts to `tools/` instead of ad-hoc
-  `/tmp` scripts; record commands in `EXP-...`.
-
-## P8 — documentation and claim hygiene
-
-- [ ] Correct stale firmware claims:
-  - `claims.md` C-068 and C-182 (`0xc438a4` as `CMP.LST` opener),
-  - `roadmap.md` reader-path row,
-  - TODO entries that say static VA recovery is still the active route.
-- [ ] Mark old VA/delta experiments as superseded by the CE ROM-segment
-  recovery path.
-- [ ] Add an experiment record for the ECEC/pTOC recovery and any extracted
-  module analysis.
-- [ ] Keep `claims.md` as the single source of truth when correcting hypotheses.
-
-## P9 — narrow OSM compiler vertical slice
-
-Use `tools/ze0-viewer/vendor/osm2clarion` as the base rather than reimplementing
-its tile writer.
-
-- [ ] Select one target tile and one profile (`dolnoslaskie-detail` or a tiny
-  test profile).
-- [ ] Generate roads/coast/landuse for that tile from OSM.
-- [ ] Preserve factory REFER/ADDRE/POI data in the first slice.
-- [ ] Rebuild `DRSTR001.DAT` and `MMAIN001.DAT`.
-- [ ] Run L1 and L2 on the rebuilt card.
-- [ ] Implement a ZE0 section-4 encoder or explicitly document why section 4 is
-  preserved verbatim.
-- [ ] Decode and validate road classes, names, one-way and speed attributes.
-- [ ] Decide the address/POI import strategy after the first tile passes.
-
-## P10 — differential and hardware validation
-
-- [ ] Compare 2011/2014/2016 tiles, section 4 and REFER to identify map-code and
-  activation-related fields.
-- [ ] Prepare a spare-card matrix: whole-card clone, no-op recompression, then
-  same-length POI rename.
-- [ ] Run the `HDD_INFO` variant matrix and record every accepted/rejected case.
-- [ ] Record SD lock, map-code and any map-data error behaviour.
-- [ ] Keep the original card read-only and test only on spare media.
-
-## P10b — differential follow-ups (2011/2014/2016)
-
-- [ ] `B30R048R`: map the directory/block differences at `0x807`/`0x808` and
-  either implement a layout-aware writer or formally adopt the preserved-layout
-  fallback for edited dense tiles.
-- [ ] Map-code/activation: run the spare-card `HDD_INFO` variant matrix and
-  record which lines/fields are accepted or rejected.
-- [ ] Section 4: decode the binary fields between the country code and names;
-  verify the 20/24/24 record delta; build a ZE0 section-4 encoder.
-- [ ] `REFER002`/`ICODE001`: compare region schemas and place-name counts
-  across years.
-- [ ] Cross-year POI mutation: parameterise the fixture per year (2014
-  `POINT001.DAT` page `0x39700`; 2016 `0x3d700`).
-- [ ] Add per-year golden profiles only if digest comparison beyond factory
-  data is wanted.
-- [ ] Decide `TFTBL001` and speech-language packaging scope.
-
-## Documentation / housekeeping
-
-- [ ] Add a `docs/format/rdstm.md` once `RDSTM001` is decoded.
-- [ ] Add a `docs/format/refer.md` once address/POI records are decoded.
-- [ ] Keep `claims.md` updated whenever a hypothesis is confirmed or refuted.
-- [x] Add tiny synthetic fixtures (not vendor data) for the tools.
-- [x] Add a `tools/README.md` with exact commands and expected output.
-- [x] Add `tools/selftest.py` covering `cmpind.py` and `drstr.py` without
-  vendor data.
-- [x] Add `docs/experiments/README.md` and `TEMPLATE.md` with the append-only
-  experiment convention.
-- [ ] Add an `EXP-...` record for every hardware test and every material
-  format correction.
-- [ ] When a hypothesis is refuted, add a new experiment with `Supersedes`
-  rather than rewriting the old record.
+EXP-37. Stages: **F0** boot log → **F1** stable kernel → **F2** drivers →
+**F3** SD mounted → **F4** `Navi.exe` headless → **F5** screen. Rules: QEMU
+code lives in `tools/qemu-ze0/` as an out-of-tree patch with no vendor bytes;
+each register model cites the nk/driver code it was read from (VA via
+`cerom.py`); each stage ends with an EXP. Time box F0+F1: one week from the
+first M8.A claim; F2+ only after M8.D1.
+
+**Ownership rule for M8:** M8.A1 creates `tools/qemu-ze0/build.sh` and the
+patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
+`-M none` (as `ce_qemu_probe.py` does) and rebase onto M8.A1 when it lands.
+
+- [ ] **M8.A1 — Build env** `tools/qemu-ze0/build.sh`: pinned QEMU (≥ 8.2),
+  patch, `--target-list=sh4-softmmu`. Done when `qemu-system-sh4 -M ze0`
+  lists the machine. Status: open · Owner: — · Depends: —. Claims:
+  C-1230–C-1239
+- [ ] **M8.A2 — Machine skeleton** `hw/sh4/ze0.c`: `sh7785`, RAM at phys
+  `0x08000000` (128 MiB), P1/P2 aliases, unimplemented-device catch-all
+  over `0xff800000`–`0xffffffff` and areas 4/6. Done when
+  `ce_qemu_probe.py`'s access list is reproduced with `-M ze0`. Status:
+  open · Depends: — (M8.A1 to merge). Claims: C-1240–C-1249
+- [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
+  parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
+  `nk.exe` entry. Done when booting needs no `-device loader`. Status: open
+  · Depends: M8.A2. Claims: C-1250–C-1259
+- [ ] **M8.A4 — CPU control block** (CCN/MMU from `hw/sh4/sh7750.c`: `PTEH`,
+  `PTEL`, `TTB`, `TEA`, `MMUCR`, `CCR`, `EXPEVT`, `INTEVT`, `TRA`, TLB
+  arrays). Done when the kernel-page call to VA `0x5b90` no longer faults.
+  Status: open · Depends: —. Claims: C-1260–C-1269
+- [ ] **M8.A5 — Boot-blocker stubs** (`0xffe70000` block with `+0x808` =
+  `0xc0000000`, CPG `0xffc80000`, `0xfff80000`, UBC `0xff200000`, area 6
+  `0x19300000`). Done when the unpatched kernel reaches the patched probe's
+  point. Status: open · Depends: —. Claims: C-1270–C-1279
+- [ ] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
+  `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
+  appears or an EXP shows why not. Status: open · Depends: M8.A2. Claims:
+  C-1280–C-1289
+- [ ] **M8.A7 — Trace tooling** `tools/qemu-ze0/run.sh` (logs, gdbstub,
+  `summarize_log`, gdb script printing thread list + current module).
+  Status: open · Depends: —. Claims: C-1290–C-1299
+- [ ] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
+  Depends: M8.A3…A6. Claims: C-1300–C-1309
+- [ ] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from
+  `OEMInterrupt*` and the ISR at `VBR+0x600`). Done when a TMU0 interrupt is
+  delivered and acknowledged. Depends: M8.A2. Claims: C-1310–C-1319
+- [ ] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
+  Done when `CurMSec` advances. Depends: M8.B1. Claims: C-1320–C-1329
+- [ ] **M8.B3 — RTC/time** (`OEMGetRealTime`). Depends: M8.A2. Claims:
+  C-1330–C-1339
+- [ ] **M8.B4 — Boot arguments** at phys `0x08000020`–`0x0800002b`. Static
+  read of nk is enough to start. Depends: — (M1.7 helps). Claims:
+  C-1340–C-1349
+- [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
+  without a fault. Depends: M8.B1, M8.B2. Claims: C-1350–C-1359
+- [ ] **M8.C — one task per peripheral** (C1…C22, table in
+  [`todo-history-2026-11-05.md`](docs/research/todo-history-2026-11-05.md),
+  section M8.C). Each: read the driver init, decide stub / model / HLE,
+  done when its init returns without hanging boot. Static reading of a
+  driver's init can start now (Depends: —); the model waits for M8.B5.
+  Claim one row at a time as `[M8.C10]` etc.; claim block: C-1360 +
+  10 × row number (C1 → C-1370–C-1379, …, C22 → C-1580–C-1589). Priority
+  rows: **C10 SD host**, C4 micon/power, C8 NOR flash, C18 display.
+- [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
+  file). Owner: coordinator with Marek. Claims: C-1590–C-1599
+- [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M1.2c (decompressor VA). Does **not** need F1: call the
+    function directly under `-M none` + gdbstub with RAM-only state, like an
+    L3 call.
+  - Done when: the two EXP-49 sections decode to the M1.2a lengths, then
+    all 245 sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
+  - Claims: C-1600–C-1609
+- [ ] **M8.E2 — Registry as loaded** (`boot.hv`, `default.hv`, `user.hv`):
+  driver list, `IoBase`, `Irq`, load order. Two routes: static hive parser
+  after M1.4, or a RAM dump after M8.B5. Done when the driver table is in
+  `firmware.md`. Depends: M1.4 or M8.B5. Claims: C-1610–C-1619
+- [ ] **M8.E3 — Dump loaded process images** (`Navi.exe` + DLLs after init)
+  for L3. Depends: F4. Claims: C-1620–C-1629
+
+---
+
+## M9 — L3 toolkit: run firmware functions against our data
+
+Design: [`docs/research/l3-ghidra.md`](docs/research/l3-ghidra.md). Code
+lives in **`tools/l3_harness/`** (exists: `manifest.py`, `stubs.py`,
+`rommap.py`, `runner.py` with `check`/`plan`; `run` is blocked). Pure-Python
+parts are covered by `tools/l3_harness/selftest.py`.
+
+- [ ] **M9.1 — Module map on the real image**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (tool done: `cerom.py memmap`, EXP-48)
+  - Done when: `cerom.py memmap` on `IMG256` lists every A + B section,
+    `rommap.py convert --skip-compressed` + `validate` pass, and counts per
+    module are recorded in an EXP.
+  - Claims: C-1630–C-1639
+- [ ] **M9.2 — Ghidra project builder**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M9.1 (M1.6b for thunk labels)
+  - Goal: `tools/l3_harness/ghidra_import.py` (pyghidra, headless): all
+    A + B sections at their VAs, exports named, thunks labelled, SH-4
+    calling convention.
+  - Done when: Ghidra shows `OBJDLL!MAL_DataVol_getOffset` at the EXP-50
+    call sites and the `HDD_INFO` string xref at `0x004e7d28` (this also
+    closes the M1.5 Ghidra check).
+  - Claims: C-1640–C-1649
+- [ ] **M9.3 — Bind the stub table to real VAs**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M1.6b for automatic binding)
+  - Goal: `stubs.py` (14 modeled, 3 planned) keyed by `COREDLL` export
+    name/ordinal (`cerom.py exports coredll.dll`, C-527); model `sprintf`
+    (ordinal 719), file I/O over a virtual FS, heap, critical sections,
+    registry from JSON.
+  - Done when: a selftest calls each stub through the dispatcher and an
+    unknown export stops with `missing stub: NAME`.
+  - Claims: C-1650–C-1659
+- [ ] **M9.4 — Engine interface with two back ends**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: `tools/l3_harness/engine.py`: `map`, `read/write mem`,
+    `set_regs`, `call(va, args)`, `on_exec(va, handler)`; back ends Ghidra
+    P-code (`EmulatorHelper`) and QEMU `-M none` + gdbstub.
+  - Done when: both run a synthetic SH-4 snippet (add, loop, call to a stub)
+    with identical results.
+  - Claims: C-1660–C-1669
+- [ ] **M9.5 — Runner `run` end-to-end**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M9.2 or M9.4, M9.3
+  - Goal: `runner.py run FUNC --input FILE [--engine ghidra|qemu] --json`
+    with targets in `tools/l3_harness/targets.json`.
+  - Done when: one target runs end-to-end and prints `accepted`, return
+    value, stub log, digests.
+  - Claims: C-1670–C-1679
+- [ ] **M9.6 — First real target**: the decompressor (if M1.2 is still open
+  when M9.5 lands) or the `HDD_INFO` comparator (M2.2). Depends: M9.5 and
+  M1.2c or M2.2. Claims: C-1680–C-1689
+- [ ] **M9.7 — Corpora** (`hddinfo_variants.py` 89, `ind_mutate.py` 8,
+  `DRSTR` and tile mutations) in `tools/l3_harness/corpus.py`, each with
+  the Python reader's verdict. Depends: —. Done when `manifest.py build`
+  consumes them. Claims: C-1690–C-1699
+- [ ] **M9.8 — `l3check.py`** (L3 rung of the verification ladder). Depends:
+  M9.5, M9.7. Claims: C-1700–C-1709
+- [ ] **M9.9 — Keep `l3-ghidra.md` "How to use L3" current.** Done with each
+  M9 PR (no separate claim needed).
+
+---
+
+## Retired leads
+
+Do not take these up again; each was superseded by the CE ROM TOC
+(EXP-35/-36) or by a later experiment.
+
+| Old item (history file) | Why retired | Replaced by |
+| --- | --- | --- |
+| Global VA / module-base / delta fitting (EXP-05…29, Gate 0a) | exact addresses come from `cerom.py` | M1.*, H4 |
+| `HDD_INFO` chain `0x6fab2c` → `0x6faeb0` → `0x6fb05c`, data delta `0x02800000`, helpers `0x0369d400`/`0x036922cc`/`0x0367b180` | `BT_MGR.dll` code, `sprintf` thunk (C-520, C-528) | M2.1–M2.3 in `Navi.exe` |
+| "Find the `0x2e0xxxx` module export table" | import-thunk area, not a module | M1.6, M1.6b |
+| "Parse the `romimage` XIP section table" | done: `cerom.py` | — |
+| "Re-resolve `0x0367–0x0369` and the map-module delta" | VA map is exact now; `0x0367b180` is BT_MGR (C-519) | — |
+| "No XIP table" (C-380/C-381) | retracted | — |
+| "Static is closed for the reader" (EXP-29) | made under the wrong address model | M3.1, M3.4, M3.5 |
+| "Map filenames have zero literal references" | same; must be re-run with real VAs | M3.4 |
+| L5 "full-system QEMU is not realistic" | `nk.exe` reaches the scheduler (EXP-37) | M8 |
+| `tools/l3/` as the L3 location | the harness lives in `tools/l3_harness/` | M9 |
+| Spare-card `HDD_INFO`/`.ind` matrices as next steps | no hardware; shrink them with M2.4/M3.3 first | M6.3 |
+| `NaviStateCC` vtable hunts (EXP-27…29) | parked; COM objects come from runtime or `DllGetClassObject` with real VAs | M9 / M8.E3 if needed |

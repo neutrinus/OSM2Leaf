@@ -11,9 +11,29 @@ All repo content (code, docs, commits) is English. Conversation may be Polish.
 1. `README.md` — scope, verified findings, documentation index.
 2. `docs/research/claims.md` — canonical claim ledger. Trust it over prose.
 3. `docs/format/*.md` — current per-format knowledge.
-4. `TODO.md` — active work; `docs/research/roadmap.md` — gates;
+4. `TODO.md` — the task board: read "How to take a task" before starting
+   (claim by draft PR, one task per PR, EXP and claim IDs per task); `docs/research/roadmap.md` — gates;
    `docs/research/open-questions.md` — unknowns.
 5. `tools/README.md` — exact commands and expected output.
+
+## Taking a task (parallel agents)
+
+About 15 agents work from `TODO.md` at once. Full rules: `TODO.md` "How to
+take a task". The short version:
+
+1. Pick an `open` task whose dependencies are done and that no open PR
+   names (`[ID]` in the title).
+2. **First commit:** change only your task's line in `TODO.md` to
+   `Status: in progress · Owner: <branch>` (subject `todo: start <ID>`),
+   push, and open a draft PR `[ID] short title`.
+3. Do the work on that branch: one task per PR, only the files the task
+   names. Name EXP records `EXP-YYYY-MM-DD-<ID>-slug.md` and use only the
+   task's reserved claim IDs.
+4. **Last commit:** the actual work, and in the same commit `Status: done`,
+   `[x]` and a `Result:` line naming the EXP. Rebase on `main`, run
+   `python3 tools/selftest.py`, mark the PR ready.
+5. Cannot finish: `Status: blocked` with the blocker in one line, plus a
+   negative-result EXP and follow-up tasks.
 
 ## Repo shape
 
@@ -156,7 +176,7 @@ python3 tools/ce_rom_parse.py \
 ```
 
 Expected: five valid SH-4 segments; build A `149` modules / `1` file. Next is
-`TODO.md` Step 2: `tools/cerom.py` (sections, `va2file`, `extract`), then a PE
+`TODO.md` streams M1/M2/M3: `tools/cerom.py` (sections, `va2file`, `extract`), then a PE
 or Ghidra memory map, then the readers. See `docs/format/firmware.md` and
 `EXP-2026-11-05-33`/`-34`.
 
@@ -184,7 +204,7 @@ Map-code check is numeric `Sys[0x%x]` vs `SD[0x%x]` for `manufacturer_id`,
 `0x6fab2c` → `0x6faeb0` → `0x6fb05c`, data delta `0x02800000`. The
 `HDD_INFO` parser sits behind a runtime COM object.
 
-Next reader step is **static through the CE ROM TOC** (`TODO.md` Step 2).
+Next reader step is **static through the CE ROM TOC** (`TODO.md` M1.8, M2.1–M2.3, M3.1).
 Dynamic breaks remain the fallback when hardware is available: see
 `docs/research/dynamic-break-guide.md` (break on `MAL_DataVol_getOffset`,
 then fd methods, then fd thunks). Do not resume global-VA/module-base guessing
