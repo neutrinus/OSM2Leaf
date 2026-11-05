@@ -206,8 +206,8 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-376 | The data contract is unchanged: `.cmp` zlib and `.ind`/DRSTR layouts are data-confirmed; firmware is silent. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-377 | `tools/ind_mutate.py` generates 8 `.ind` variants (chunk_size/count/offset) for the spare-card matrix. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-378 | Next: name the 86 thunks via the import descriptor (`FirstThunk=0x1ab9000`, `COREDLL.dll`) and scan NaviStateCC for ≥3 fd thunks + local zlib. | PLANNED | — | EXP-2026-11-05-23 |
-| C-380 | There is **no XIP section table** in the image: 0 `B000FF`/`ROMHDR`; `CECE`/`ECEC`/`NKOK` are container metadata. | VERIFIED (negative) | H | EXP-2026-11-05-24 |
-| C-381 | The `0x1951ee0` tail table is not a VA→file map: pointers are kernel-space `0x8C–0x8E`; no candidate base maps them into the payload. | VERIFIED (negative) | H | EXP-2026-11-05-24 |
+| C-380 | RETRACTED: the image does contain a CE ROM/XIP TOC. The old "no XIP/section table" negative came from a string search for `B000FF`/`ROMHDR` and is superseded. | RETRACTED | H | Superseded by C-088/C-089; EXP-2026-11-05-34 |
+| C-381 | RETRACTED: `0x1951ee0` is the CE ROM TOC after `ROMHDR`; its pointers resolve through the recovered physical base (`0x8cae1000`). | RETRACTED | H | Superseded by C-088/C-089; EXP-2026-11-05-34 |
 | C-382 | `module_scan` `(file_base, va_base)` pairs are wrong for most modules: only OLEAUT32-class deltas hold (65 % prologues); TFAT 0 %, FATUTIL 3 %, commctrl 1 %, WAVEAPI 4 %. | VERIFIED (negative) | H | EXP-2026-11-05-24 |
 | C-383 | The container stores **section groups**, not full PE images at `base + RVA`; the per-module base claim is retracted. | VERIFIED (retraction) | H | EXP-2026-11-05-24 |
 | C-384 | `0x0367b180` is still both a `jsr` target and the UTF-16 string at `0xe7b180`; the collision is unresolved. | UNKNOWN | — | EXP-2026-11-05-24 |

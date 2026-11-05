@@ -50,29 +50,29 @@ sections below, which are kept as the historical backlog.
 
 Needs only the first ~30 MB of the EU 2011 image (`dd bs=1M count=32`).
 
-- [ ] Read `ROMHDR` at file `0x01951b78` (0x54 bytes, little-endian):
+- [x] Read `ROMHDR` at file `0x01951b78` (0x54 bytes, little-endian):
   `dllfirst, dlllast, physfirst, physlast, nummods, ulRAMStart, ulRAMFree,
   ulRAMEnd, ulCopyEntries, ulCopyOffset, ulProfileLen, ulProfileOffset,
   numfiles, ulKernelFlags, ulFSRamPercent, ulDrivglobStart, ulDrivglobLen,
   u16 usCPUType, u16 usMiscFlags, pExtensions, ulTrackingStart,
   ulTrackingLen`.
-- [ ] Sanity checks: `physfirst ≤ 0x8e232978 < physlast`;
+- [x] Sanity checks: `physfirst ≤ 0x8e232978 < physlast`;
   `physfirst` near `0x8cae1000`; `usCPUType` = SH-4 (`0x01a6` /
   `IMAGE_FILE_MACHINE_SH4`); `nummods` and `numfiles` in the tens to low
   hundreds; `dllfirst/dlllast` cover the `0x02xxxxxx–0x03xxxxxx` module band
   seen in the code.
-- [ ] Walk `TOCentry[nummods]` (32 bytes: `attrib, ftTime(8), nFileSize,
+- [x] Walk `TOCentry[nummods]` (32 bytes: `attrib, ftTime(8), nFileSize,
   lpszFileName, ulE32Offset, ulO32Offset, ulLoadOffset`) and then
   `FILESentry[numfiles]`. Every `lpszFileName` must resolve to an ASCII name
   (`nk.exe`, `coredll.dll`, …, the navi modules) through the formula above.
-- [ ] If the formula is off, solve the base from `lpszFileName` pointers
+- [x] If the formula is off, solve the base from `lpszFileName` pointers
   alone (they must land on NUL-terminated ASCII), not from code literals.
-- [ ] Repeat for builds B (`0x3e00000`) and C (`0x5200000`); B/C have a
+- [x] Repeat for builds B (`0x3e00000`) and C (`0x5200000`); B/C have a
   different wrapper layout, so locate `ECEC` first.
-- [ ] Record as a new `EXP-…-ce-romhdr.md`. If confirmed, mark C-380 and
+- [x] Record as a new `EXP-…-ce-romhdr.md`. If confirmed, mark C-380 and
   C-381 `RETRACTED` with `Superseded by`, and update `AGENTS.md`,
   `docs/format/firmware.md` and `roadmap.md` in the same commit.
-- [ ] If refuted, record the exact `ROMHDR` bytes and why each check failed,
+- [x] If refuted, record the exact `ROMHDR` bytes and why each check failed,
   so nobody repeats it.
 
 ### Step 2 — turn the ROM into Ghidra-ready modules (if Step 1 holds)

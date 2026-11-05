@@ -551,9 +551,10 @@ The same parser also recovers builds B and C and their duplicate copies:
 | B | `0x03e00200` / `0x04800200` | 91 | 11 | `0x88000000`–`0x886e18a4` |
 | C | `0x05200200` | 88 | 10 | `0x88000000`–`0x886683d8` |
 
-This does **not** mean the map readers are located. It replaces global
-VA-delta guessing with module names and bases for the next Ghidra step. See
-`EXP-2026-11-05-33`.
+This supersedes the old "no XIP/section table" negative (C-380/C-381), which is
+now retracted. It does **not** mean the map readers are located. It replaces
+global VA-delta guessing with module names and bases for the next Ghidra step.
+See `EXP-2026-11-05-33` and `EXP-2026-11-05-34`.
 
 ## Next steps
 
