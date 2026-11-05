@@ -12,6 +12,62 @@ Sample: EU 2011 image
 > field semantics are `OBSERVED`/`HYPOTHESIS`; speed/direction/turn
 > restrictions are `UNKNOWN`.
 
+## Status: what the sample supports
+
+`tools/rdstm_schema.py` scores candidate framings and joins; it does not
+decode fields. Splitting the two files' evidence by kind gives the table
+below. Nothing in it is a decode: a score ranks a hypothesis, it does not
+confirm one.
+
+| Item | Status | Effect on the work | Evidence |
+| --- | --- | --- | --- |
+| 512-byte Clarion/Hitachi container header | VERIFIED | fixed preamble; structure starts at `0x1000` | `tools/rdstm_scan.py layout`, `tools/leafimg.py header`; C-010 |
+| no zlib streams, no inline ASCII names | VERIFIED (negative) | names must be indices into `LCTBL001` | `tools/rdstm_scan.py zlib --bruteforce`; C-104 |
+| 2-byte codes shared with the LCTBL catalog | VERIFIED | the two files are linked by code, not by pointer | `tools/rdstm_scan.py codes --lctbl`; C-105 |
+| `0x1000` starts a table of ~16-byte rows | HYPOTHESIS | scanner default start; not a proven record size | C-106; `tools/rdstm_schema.py scan` |
+| records below `0x1a700` are graph tuples | HYPOTHESIS | node/link shape, roles unchecked | `tools/rdstm_schema.py layout` |
+| framing drift at `0x10a0` (`+14` → `+4`) | OBSERVED | one record size does not fit the whole file | C-106 |
+| name-index mapping (code → LCTBL name) | UNKNOWN | the join rate is a bound, not a decode | `tools/rdstm_schema.py join` |
+| speed / one-way / turn restrictions | UNKNOWN | routing cannot be built yet | C-108 (targeted scans negative) |
+| synthetic scorer + join self-test | VERIFIED (tool) | the harness itself, no vendor bytes | `tools/rdstm_schema.py --selftest` |
+
+Exact commands (vendor files are not in the repository):
+
+```bash
+python3 tools/rdstm_schema.py --selftest                    # no vendor data
+python3 tools/rdstm_schema.py scan RDSTM001.DAT --top 12
+python3 tools/rdstm_schema.py layout RDSTM001.DAT \
+  --layout "link=0:u16:id,4:u32:ref,8:u16:src,10:u16:dst,12:u16:code,14:u16" \
+  --record-size 0x10 --lctbl LCTBL001.DAT
+python3 tools/rdstm_schema.py join RDSTM001.DAT --lctbl LCTBL001.DAT \
+  --code-offset 0xe --record-size 0x10
+```
+
+`--json` prints machine-readable rows. The self-test is synthetic only, so the
+table records status rather than measured scores. Run the three vendor
+commands (or a copy with a different `--layout`) before quoting any number as
+a measurement of the sample.
+
+### Ranked unknowns
+
+Routing needs the first three, and none of them is settled.
+
+1. **speed / one-way / turn restrictions.** No field is known to carry them
+   (C-108). They may not exist in this file at all; the tail 4-byte entries
+   with `0x40/0x60/0x80/0xe0` tags are the only candidates observed so far.
+2. **record size and framing.** The `0x1000` table drifts at `0x10a0`, so
+   either the rows are variable length or the table ends there. A grid score
+   cannot settle it; it can only show where a constant size stops fitting.
+3. **graph tuple roles.** A `(src, dst)` reading of the `0x1a700` arrays is a
+   hypothesis. `--layout` reports reciprocity and back references as
+   diagnostics: high reciprocity is what a road graph should show, but other
+   structures (index pairs, shared references) would score the same.
+4. **name index.** Whether the 2-byte code indexes the LCTBL catalog, the
+   name records or a class code is unknown; `join` only reports how often a
+   code is a known LCTBL code, which is necessary but not sufficient.
+5. **code position drift.** Why the code moves from `+14` to `+4` at `0x10a0`
+   is unanswered; it is the main reason to distrust any single layout.
+
 ## `LCTBL001.DAT` — catalog + compressed name database
 
 It is **not** a raw string table or a road-class lookup. It is a data
