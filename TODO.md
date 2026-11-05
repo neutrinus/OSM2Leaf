@@ -145,6 +145,9 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
   bytes look like valid data. Alternative route: run the kernel's own ROM
   decompressor from `nk.exe` under emulation (M8.E1) or via L3 (M9.6). Only RW data sections are
   compressed; code is not (C-530).
+  Tool half done: `tools/cecompress.py` decodes LZSS and LZX stored blocks
+  and refuses verbatim/aligned (C-570, EXP-2026-11-05-49). Still open: decode
+  one real section to `vsize`.
 - [ ] **M1.3** Add `cerom.py decompress` and run it on all 245 sections.
   *Done when* every output length equals `vsize` (report failures).
 - [ ] **M1.4** Same for `FILESentry` payloads (`comp != real`: `UpdateNK.skn`,
