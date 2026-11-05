@@ -81,18 +81,18 @@ Needs only the first ~30 MB of the EU 2011 image (`dd bs=1M count=32`).
 - [x] ~~If refuted~~ (confirmed), record the exact `ROMHDR` bytes and why each check failed,
   so nobody repeats it.
 
-### Step 1b — tasks after EXP-32 (ordered; each ends with an EXP + claims)
+### Step 1b — tasks after EXP-35 (ordered; each ends with an EXP + claims)
 
 Rule for all of these: **start from `tools/cerom.py`, never from fitted
 deltas.** A new firmware address is only a claim once `cerom.py` names its
 module, section and file offset.
 
-1. [ ] **Full-image sweep** (needs the full image, not only 32 MiB): locate
+1. [x] **Full-image sweep** (done, EXP-2026-11-05-36; B/C are kernel regions) (needs the full image, not only 32 MiB): locate
    every `ECEC` (builds A at `0x200000`/`0x2000000`, B at `0x3e00000`/
    `0x4800000`, C at `0x5200000`), run `cerom.py` on each (`--image-start`),
    and diff the module lists. Record which builds contain which modules
    (the map code is only in A; B/C differ by 4 bytes in the header area).
-2. [ ] **Kernel region.** `nk.exe`/`coredll.dll`/`filesys.exe` are not in this
+2. [x] **Kernel region** (done: images B/C, COREDLL ordinals via `cerom.py exports`; original note:) `nk.exe`/`coredll.dll`/`filesys.exe` are not in this
    TOC; `pExtensions = 0x880030a4` and the `0x88…` addresses point to another
    XIP region. Find it (look for a second `ROMHDR`-shaped block or an `NKOK`
    region elsewhere) to name COREDLL ordinals (e.g. 719 behind `0x0369d400`).
@@ -105,7 +105,8 @@ module, section and file offset.
    `o32_realaddr` for the navi-relevant modules (`Navi.exe`, `NaviStateCC`,
    `NaviMapCC`, `NaviSetCC`, `OBJDLL`, `STDDLL`, `BT_MGR`, `VerInfoCC`,
    `oleaut32`); add the script to `tools/`, not to `/tmp`.
-5. [ ] **`Navi.exe` HDD_INFO / SD Import.** Disassemble around the pools at
+5. [ ] **`MapUpdate.exe` (image B, file `0x04344200`)**: a second source for how the unit validates/installs map data; read it alongside the next item.
+5b. [ ] **`Navi.exe` HDD_INFO / SD Import.** Disassemble around the pools at
    VA `0x004e7d28` (paths) and `0x004e8584`/`0x004e995c` (comparator
    messages). Name the function that reads `HDD_INFO.TXT`, the field parser
    and the six-line mapping; answer which fields trigger

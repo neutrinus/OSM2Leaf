@@ -153,6 +153,7 @@ Reads the Windows CE ROM (`ECEC` → `ROMHDR` → `TOCentry`/`e32_rom`/`o32_rom`
 python3 tools/cerom.py IMAGE romhdr
 python3 tools/cerom.py IMAGE modules
 python3 tools/cerom.py IMAGE sections Navi.exe
+python3 tools/cerom.py IMAGE --image-start 0x3e00200 exports coredll.dll   # B/C need --image-start
 python3 tools/cerom.py IMAGE va2file 0x03498d48     # -> 0x007f5f48
 python3 tools/cerom.py IMAGE extract OBJDLL.dll -o out/   # raw sections
 ```

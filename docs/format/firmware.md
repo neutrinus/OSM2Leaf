@@ -3,7 +3,7 @@
 > **Evidence status:** byte offsets, strings and the SH-4 code recovery are
 > `VERIFIED` on the EU 2011 image, and so is the CE ROM header / section-to-VA
 > mapping (EXP-2026-11-05-35); `SUM4` and the role of the duplicated builds
-> are `OBSERVED`/`HYPOTHESIS`. Sections below written before EXP-32 that rely
+> are `OBSERVED`/`HYPOTHESIS`. Sections below written before EXP-35 that rely
 > on delta fitting are historical; check them with `tools/cerom.py`.
 
 The ~100 MB before the FAT partition contains the navigation firmware. It is
@@ -56,6 +56,11 @@ chain is in `BT_MGR.dll`, and the real `HDD_INFO`/`SD Import` literals are in
 `Navi.exe` at VA `0x004e7d28` and `0x004e8584`/`0x004e995c`.
 
 ## Payloads and builds
+
+> EXP-2026-11-05-36: each payload is a complete CE ROM. A (VA `0x8cae1000`, 149
+> modules) is the application layer; B and C (VA `0x88000000`) are kernel
+> regions with `nk.exe`/`coredll.dll`; B adds the updater set, C the test mode.
+> Use `tools/cerom.py --image-start`.
 
 Five payloads, three distinct builds:
 

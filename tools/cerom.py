@@ -14,6 +14,7 @@ Usage:
   cerom.py IMG modules
   cerom.py IMG files
   cerom.py IMG sections MODULE
+  cerom.py IMG exports MODULE
   cerom.py IMG va2file VA
   cerom.py IMG file2va OFFSET
   cerom.py IMG extract MODULE -o DIR   # raw o32 sections, uncompressed only
@@ -109,6 +110,27 @@ class CERom:
             vsize, rva, psize, dataptr, real, flags = struct.unpack_from("<6I", self.d, o + O32_SIZE * i)
             yield dict(vsize=vsize, rva=rva, psize=psize, dataptr=dataptr, realaddr=real, flags=flags)
 
+    def rva2file(self, mod, rva):
+        """File offset of an RVA in an uncompressed section of ``mod`` (or None)."""
+        for sec in self.o32(mod):
+            if sec["rva"] <= rva < sec["rva"] + sec["psize"] and not sec["flags"] & IMAGE_SCN_COMPRESSED:
+                return self.va2file(sec["dataptr"]) + rva - sec["rva"]
+        return None
+
+    def exports(self, mod):
+        """Yield (ordinal, name, rva) for the named exports of ``mod``."""
+        e = self.e32(mod)
+        o = self.rva2file(mod, e["export"][0])
+        if o is None or not e["export"][1]:
+            return
+        _fl, _ts, _mj, _mn, _name, base, nfun, nnam, aof, aon, aoo = struct.unpack_from("<IIHHIIIIIII", self.d, o)
+        names = struct.unpack_from("<%dI" % nnam, self.d, self.rva2file(mod, aon))
+        ords = struct.unpack_from("<%dH" % nnam, self.d, self.rva2file(mod, aoo))
+        funcs = struct.unpack_from("<%dI" % nfun, self.d, self.rva2file(mod, aof))
+        for n, i in zip(names, ords):
+            p = self.rva2file(mod, n)
+            yield i + base, self.d[p:self.d.find(b"\0", p)].decode("latin1"), funcs[i]
+
     def module(self, name):
         for m in self.modules():
             if m["name"] and m["name"].lower() == name.lower():
@@ -125,13 +147,14 @@ def main(argv=None):
     sub.add_parser("modules")
     sub.add_parser("files")
     p = sub.add_parser("sections"); p.add_argument("module")
+    p = sub.add_parser("exports"); p.add_argument("module")
     p = sub.add_parser("va2file"); p.add_argument("va", type=lambda s: int(s, 0))
     p = sub.add_parser("file2va"); p.add_argument("off", type=lambda s: int(s, 0))
     p = sub.add_parser("extract"); p.add_argument("module"); p.add_argument("-o", required=True)
     a = ap.parse_args(argv)
 
     with open(a.image, "rb") as fh:
-        data = fh.read(64 << 20)
+        data = fh.read(128 << 20)
     r = CERom(data, a.image_start)
 
     if a.cmd == "romhdr":
@@ -159,6 +182,9 @@ def main(argv=None):
             print("  rva=%08x vsize=%08x psize=%08x dataptr=%08x (file 0x%08x) realaddr=%08x flags=%08x%s"
                   % (s["rva"], s["vsize"], s["psize"], s["dataptr"], r.va2file(s["dataptr"]),
                      s["realaddr"], s["flags"], " COMPRESSED" if s["flags"] & IMAGE_SCN_COMPRESSED else ""))
+    elif a.cmd == "exports":
+        for ordinal, name, rva in sorted(r.exports(r.module(a.module))):
+            print("%5d %-40s rva=%08x" % (ordinal, name, rva))
     elif a.cmd == "va2file":
         print("0x%08x" % r.va2file(a.va))
     elif a.cmd == "file2va":

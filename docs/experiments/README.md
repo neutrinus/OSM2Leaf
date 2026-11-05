@@ -108,3 +108,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-33](EXP-2026-11-05-33-ce-rom-segment.md) | CE ROM segment recovery with `ce_rom_parse.py` | done |
 | [EXP-2026-11-05-34](EXP-2026-11-05-34-ce-rom-segment-parser.md) | CE ROM segment parser | done |
 | [EXP-2026-11-05-35](EXP-2026-11-05-35-ce-romhdr.md) | CE ROM header and module TOC are present | done (C-380/C-381 retracted) |
+| [EXP-2026-11-05-36](EXP-2026-11-05-36-all-ce-images.md) | Three CE images; B/C are kernel regions; COREDLL ordinals | done |
