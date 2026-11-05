@@ -665,7 +665,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1000–C-1009
 
 - [ ] **M4.13 — Strings: length limits, collation, Polish diacritics**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.13-strings · Critical: no
   - Depends: —
   - Goal: max name length per field, character set, sort order and whether
     `ą ę ł ń ó ś ź ż` are representable (Czech/German names in the EU image
