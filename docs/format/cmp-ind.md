@@ -1,5 +1,9 @@
 # `.cmp` / `.ind` compressed containers
 
+> **Evidence status:** the layout and decompression below are `VERIFIED`
+> against all 194 pairs in the EU 2011 image. See
+> [`../research/claims.md`](../research/claims.md).
+
 `REFER001/` contains 194 logical databases. Each logical file `NAME.DAT` is
 stored as:
 

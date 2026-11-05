@@ -1,5 +1,10 @@
 # `MAPAL001` map tiles
 
+> **Evidence status:** the 512-byte header, the presence of zlib streams and
+> the stream offsets are `VERIFIED`/`OBSERVED`; the descriptor meaning, record
+> format and tile grid are `HYPOTHESIS` or `UNKNOWN`. See
+> [`../research/claims.md`](../research/claims.md).
+
 `MAPAL001/` holds the map geometry. In the EU 2011 image it contains:
 
 - 46 files named `BxxRyyR.DAT`, for example `B28R070R.DAT`,

@@ -1,5 +1,9 @@
 # Firmware and pre-partition area
 
+> **Evidence status:** the byte offsets and strings are `VERIFIED`; the
+> container format, `ECEC` meaning and `HCXCmp` role are `HYPOTHESIS` /
+> `UNKNOWN`. See [`../research/claims.md`](../research/claims.md).
+
 The 100 MB before the FAT partition contains the navigation firmware and
 possibly update/recovery data. It is **not** a plain Windows CE image, and
 classic PE carving does not work on it.

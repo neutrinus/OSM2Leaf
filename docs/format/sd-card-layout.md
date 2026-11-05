@@ -1,5 +1,9 @@
 # SD card and image layout
 
+> **Evidence convention:** `VERIFIED` means reproduced from the sample bytes;
+> `OBSERVED` means seen but not fully explained; `HYPOTHESIS` / `UNKNOWN` are
+> marked explicitly. See [`../research/claims.md`](../research/claims.md).
+
 Sample: `LEAF_2011-2012_QSD-309-101_navi158_eu.img`
 
 - Size: 8,057,257,984 bytes (7.5 GiB)

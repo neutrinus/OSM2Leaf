@@ -1,5 +1,9 @@
 # Common 512-byte file header
 
+> **Evidence convention:** field offsets below are `VERIFIED` against the
+> listed samples; the meaning of the `0x180` block is partly `HYPOTHESIS`.
+> See [`../research/claims.md`](../research/claims.md).
+
 Most map data files begin with the same 512-byte header. Verified on
 `MMAIN001.DAT`, `MAPAL001/*.DAT`, `RDSTM001/*.DAT`, `BICON001.DAT`,
 `REFER002/*.DAT` and on the decompressed `REFER001/*.cmp` output.
