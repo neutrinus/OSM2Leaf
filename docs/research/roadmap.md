@@ -6,7 +6,9 @@
 
 **Decision:** firmware RE is prioritized. The reader code tells us how the
 format is consumed, which is more valuable for the compiler than guessing from
-bytes alone. Data-side round-trips and hardware tests continue in parallel.
+bytes alone. Hardware access is currently unavailable (2026-11-05), so the
+dynamic break and card matrices are deferred; the static vtable/section
+reconstruction continues.
 
 Principle: **two independent sources must agree** before we trust a format.
 

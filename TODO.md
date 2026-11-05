@@ -73,7 +73,12 @@ OSM only after that.
    - [x] `0x6faf30` is a Bluetooth/OPP handler, not the reader.
    - [ ] Dynamic break on `MAL_DataVol_getOffset` (VA `0x03498d48`) or
      `getSize` (`0x03498d28`); caller is the `.ind` wrapper.
+   - [ ] **No hardware access currently (2026-11-05):** defer the dynamic break
+     and the card matrices; continue static vtable/section reconstruction.
+   - [ ] Reconstruct the 175-method vtable from the constructor stores at
+     `0x170f100–0x170f2b0`; map object slots to methods.
    - [ ] Obtain per-section relocation data for the 175 method VAs.
+   - [ ] Prepare a hardware kit (JTAG/serial + card matrix) for later.
    - [x] `tools/ind_mutate.py` generates 8 `.ind` variants for the spare-card
      matrix.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
