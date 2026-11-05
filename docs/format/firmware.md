@@ -540,7 +540,14 @@ without understanding the recovery path.
 
 ## Emulation verdict
 
-Full-system QEMU is **not realistic** today:
+> **Update (EXP-2026-11-05-37):** superseded in part. Stock QEMU's `sh7785`
+> CPU on the `none` machine runs the real kernel into the scheduler; the SoC
+> peripheral map and a staged plan (F0–F5) are in
+> [`../research/full-system-emulation.md`](../research/full-system-emulation.md).
+> The `r2d` points below remain true; the conclusion "not realistic" now holds
+> only for stages F4–F5 (app and screen).
+
+Original verdict (before the ROM TOC): full-system QEMU is **not realistic** today:
 
 - QEMU has one SH-4 machine, `r2d` (SH7751R + SM501), not this board.
 - `hw/sh4/sh7750.c` calls `abort()` on an unknown register; a custom BSP dies
