@@ -153,6 +153,15 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-305 | The `Sys` side is a parsed `u16`; the built-in `0x06000000` copy is the only system-side HDD_INFO, so both are likely used. | HYPOTHESIS | M | EXP-2026-11-05-17 |
 | C-306 | `tools/hddinfo_variants.py` generates 73 length-preserving 72-byte HDD_INFO variants for the spare-card matrix. | VERIFIED | H | EXP-2026-11-05-17 |
 | C-307 | The `0..2047` bound is runtime/derived, not storage: raw REFER001 u16 values exceed it, so coordinates are bit-packed/masked. | OBSERVED | H | EXP-2026-11-05-17 |
+| C-310 | The COM class is `VerInfoCC.DLL`, CoClass `VerInfoCtrl`, CLSID `{408BB0AC-…}`; file base `0xa15200`. | VERIFIED | H | EXP-2026-11-05-18 |
+| C-311 | VerInfoCC code delta is `0x027cae00`, VA base `0x031e0000`, proven by vptr identity (`0x031e14e4`). | VERIFIED | H | EXP-2026-11-05-18 |
+| C-312 | VerInfoCC's public surface is `GetVersionInfo(LONG dwType, VARIANT* pVal)`; there is no setter and no path parameter. | VERIFIED | H | embedded type library |
+| C-313 | “Property 17 carries the HDD_INFO path” is retracted: the call site is `obj->method#1(17,0,path)` on a different object. | VERIFIED (retraction) | H | EXP-2026-11-05-18 |
+| C-314 | VerInfoCC does not parse HDD_INFO: no path, no file-I/O string, data from a compiled-in constant table. | VERIFIED (negative) | H | EXP-2026-11-05-18 |
+| C-315 | The comparator module's data delta `0x02800000` is settled by its string pool and the `sprintf` at `0x6fb0d8`. | VERIFIED | H | EXP-2026-11-05-18 |
+| C-316 | Six-line mapping is unknown; all three compared fields are numbers, and the `Sys` side is likely a compiled-in table. | UNKNOWN / HYPOTHESIS | M | EXP-2026-11-05-18 |
+| C-317 | The missing link is the class behind the SD module's `0x30f008` call; module U only compares. | UNKNOWN | — | EXP-2026-11-05-18 |
+| C-318 | `tools/solve_data_delta.py` recovers VerInfoCC's delta; `hddinfo_variants.py` now emits 89 length-preserving variants (pairwise swaps + reverse). | VERIFIED | H | EXP-2026-11-05-18 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 

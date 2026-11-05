@@ -245,15 +245,38 @@ The comparator chain is **located** (data delta `0x02800000`):
 - `0x6fafe4` is only a 0x18-byte teardown stub (retracted as the comparator).
 
 A second module (SD format/validate) has data delta `0x1130000` and code file
-`0x30d000–0x315000`; its wrapper `0x30efcc` passes the path to **COM property
-17**. FATUTIL is not the parser.
+`0x30d000–0x315000`. FATUTIL is not the parser.
 
-The file parser is behind an **unnamed COM class**; the comparator module's
-code delta is unrecoverable, so static tracing stops there. The six-line
-mapping is a ranked hypothesis: line 4 `SDC08-EVEUR` → manufacturer +
-destination; QSD lines → `userdata_type`; line 6 part number; lines 3/5
-version/date. The `Sys` side is a parsed `u16`; the built-in `0x06000000` copy
-is the only system-side `HDD_INFO`, so both are likely used.
+### VerInfoCC is a version provider, not the parser
+
+The COM class reached nearby is **`VerInfoCC.DLL`**, CoClass `VerInfoCtrl`
+(CLSID `{408BB0AC-…}`), file base `0xa15200`, code delta `0x027cae00`
+(VA `0x031e0000`, proven by vptr `0x031e14e4`). Its embedded type library
+exposes only:
+
+```
+GetVersionInfo(LONG dwType, VARIANT* pVal)
+```
+
+There is **no setter and no path parameter**. “Property 17 carries the
+`HDD_INFO` path” and “VerInfoCC parses `HDD_INFO`” are **retracted/refuted**:
+the call site is `obj->method#1(17, 0, path)` on a different object; VerInfoCC
+reads a compiled-in constant table.
+
+The comparator module's data delta `0x02800000` is settled by its string pool
+and the `sprintf` at `0x6fb0d8`.
+
+### Missing link
+
+Module U (comparator) references only suffixes of the `HDD_INFO` path; the
+path start `0x01f83368` is used by the SD module (`0x30effa`, `0x31260e`,
+`0x312630`). Module U compares (`mov.w @(4,r12),r0` at `0x6fb0e6`), the SD
+module uses the path. **The missing link is the class behind `0x30f008`.**
+
+The six-line mapping is a ranked hypothesis: line 4 `SDC08-EVEUR` →
+manufacturer + destination; QSD lines → `userdata_type`; line 6 part number;
+lines 3/5 version/date. The `Sys` side is a parsed `u16`; the built-in
+`0x06000000` copy is the only system-side `HDD_INFO`, so both are likely used.
 
 ### Test package
 
@@ -321,9 +344,9 @@ Firmware RE remains the primary path.
    `tools/hddinfo_variants.py` one line per card, sweep numeric runs 0…5, and
    read the `SD Import: <field>` message if a console is available. This
    settles the six-line mapping and card-vs-built-in question.
-2. **COM class behind property 17:** use the `.rgs`/CLSID registration data in
-   the image to identify the class, then decompile its `Set(17, path)`
-   implementation — the `HDD_INFO` parser.
+2. **Class behind the SD module's `0x30f008` call:** find where `r8` is
+   constructed (wrapper `0x30efcc` has no direct callers), decompile its
+   file-open/split/parse path. VerInfoCC is ruled out.
 3. **Relative call-graph tracing** from `0xc438a4` (CMP.LST), `0xc48380`
    (message catalogue) and the fd machinery for `.cmp`/`.ind` and `DRSTR`.
 4. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed constraints for the

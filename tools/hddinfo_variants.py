@@ -8,8 +8,18 @@ All output variants keep the file **byte length identical** to the input (and th
 same CRLF layout), so that any offset/size check in the firmware cannot be the
 reason a variant is rejected.
 
+Two variant families are produced:
+
+1. **content edits** - one line at a time (last character, a digit-run sweep,
+   uppercase-word replacement), keeping every line's byte length;
+2. **line permutations** - swap two lines, or reverse the whole file.  These
+   keep the total byte length trivially and answer a different question: does
+   the firmware care *which line* a value is on, or only that the values are
+   somewhere in the file?  If a swap is accepted, the six lines are matched by
+   content, not by position.
+
 Usage:
-  python3 hddinfo_variants.py <HDD_INFO.TXT> <out_dir> [--sweep 0-5]
+  python3 hddinfo_variants.py <HDD_INFO.TXT> <out_dir> [--sweep 0-5] [--no-permute]
 
 Safety: reads the input read-only; writes only under <out_dir>.
 """
@@ -69,6 +79,7 @@ def main():
     ap.add_argument('hdd_info')
     ap.add_argument('out_dir')
     ap.add_argument('--sweep', default='0-5')
+    ap.add_argument('--no-permute', action='store_true')
     args = ap.parse_args()
 
     lo, hi = (int(x) for x in args.sweep.split('-'))
@@ -93,6 +104,27 @@ def main():
             with open(path, 'wb') as fh:
                 fh.write(blob)
             manifest.append((name, idx + 1, label, line, new))
+
+    if not args.no_permute and len(parts) > 2:
+        trailer = b'\r\n' if raw.endswith(b'\r\n') else b''
+        body = parts[:-1] if trailer else parts
+
+        def emit(name, label, lines):
+            blob = b'\r\n'.join(lines) + trailer
+            if blob == raw:
+                return
+            assert len(blob) == original_len, 'length changed!'
+            with open(os.path.join(args.out_dir, name), 'wb') as fh:
+                fh.write(blob)
+            manifest.append((name, 0, label, b'<lines permuted>', b'<see name>'))
+
+        for i in range(len(body)):
+            for j in range(i + 1, len(body)):
+                lines = list(body)
+                lines[i], lines[j] = lines[j], lines[i]
+                emit('swap_%d_%d.HDD_INFO.TXT' % (i + 1, j + 1),
+                     'swap lines %d+%d' % (i + 1, j + 1), lines)
+        emit('reverse.HDD_INFO.TXT', 'reverse all lines', list(reversed(body)))
 
     with open(os.path.join(args.out_dir, 'MANIFEST.txt'), 'w') as fh:
         fh.write('input: %s (%d bytes)\n' % (args.hdd_info, original_len))

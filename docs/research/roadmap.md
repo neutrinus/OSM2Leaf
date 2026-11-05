@@ -35,7 +35,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | export anchor maps 26 modules; map-code comparator chain located; `userdata_type` range-checked | HDD_INFO parser is behind COM property 17; next is the spare-card matrix or COM-class identification |
+| Firmware addressing | comparator chain and `0x02800000` delta settled; VerInfoCC identified but ruled out as parser | missing link is the class behind SD `0x30f008`; spare-card matrix can settle the six-line mapping |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 

@@ -36,8 +36,12 @@ OSM only after that.
    - [x] Test package: `tools/hddinfo_variants.py` generates 73
      length-preserving HDD_INFO variants.
    - [ ] Run the spare-card matrix (highest value, no RE).
-   - [ ] Identify the COM class behind property 17 via `.rgs`/CLSID and
-     decompile its `Set(17, path)` parser.
+   - [x] `VerInfoCC` identified (`0x027cae00`, `GetVersionInfo`) but ruled
+     out as the parser (EXP-2026-11-05-18).
+   - [ ] Identify the class behind the SD module's `0x30f008` call and
+     decompile its file-open/split/parse path.
+   - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
+     `solve_data_delta.py` added.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
      until the readers define the data contract. No timebox.
    - [ ] Relative call-graph tracing from `0xc438a4`, `0xc0ebf8`, `0xc48380`.

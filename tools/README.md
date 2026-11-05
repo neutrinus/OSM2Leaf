@@ -144,6 +144,16 @@ python3 harness.py compose /path/to/B30R060R.DAT /path/to/LEV3456R.DAT \
 Clean tiles (`B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R`) rebuild
 byte-identically. Dense section-4 tiles and drawn roads are still open.
 
+## `solve_data_delta.py`
+
+Window-scored data-delta solver for firmware pools (useful when a module mixes
+data and code pointers). It recovered VerInfoCC's `0x027cae00` where a
+0x1000-only grid would fail.
+
+```bash
+python3 tools/solve_data_delta.py IMAGE --around 0x6fb000 --span 0x2000
+```
+
 ## `hddinfo_variants.py`
 
 Generate length-preserving `HDD_INFO.TXT` variants for the spare-card
