@@ -157,7 +157,7 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
   `Navi.exe` with correct addresses (check one known string).
   Done: JSON blocks pass `l3_harness/rommap.py convert --skip-compressed` + `validate`
   (EXP-2026-11-05-48, C-569); a real Ghidra open still needs the image.
-- [ ] **M1.6** Resolve import thunks: map each module's IAT slots to
+- [x] **M1.6** (EXP-2026-11-05-50) Resolve import thunks: map each module's IAT slots to
   `module!export` (needs `exports` of all modules). *Done when* a call in
   `Navi.exe` shows `OBJDLL!MAL_DataVol_getOffset`, not a raw VA.
 - [ ] **M1.7** Decide which kernel (B or C) boots with A (check `ulRAM*`,
