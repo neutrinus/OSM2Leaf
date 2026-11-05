@@ -17,10 +17,16 @@ Do **not** rewrite the old experiment; add a new one and link
 ## Naming
 
 ```
-EXP-YYYYMMDD-NN-short-slug.md
+EXP-YYYY-MM-DD-<TASK>-short-slug.md
 ```
 
-Example: `EXP-2026-11-05-01-drstr-node-table.md`.
+Example: `EXP-2026-11-06-M1.2a-comp-header.md`, where `<TASK>` is the
+`TODO.md` task ID the experiment belongs to. A second record for the same
+task adds `-2`, `-3`. Many agents work in parallel and each task has one
+owner, so the task ID keeps names unique; sequential numbers collided
+(two `EXP-2026-11-05-48` drafts). Records made before 2026-11-06 keep their
+old `EXP-YYYY-MM-DD-NN-slug.md` names. Claim IDs come from the task's
+reserved block (see `TODO.md` "ID allocation").
 
 ## Status values
 
