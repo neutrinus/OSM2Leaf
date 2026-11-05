@@ -1,7 +1,10 @@
 # L3: running the original readers under Ghidra
 
-> **Status:** design / TODO. No L3 harness exists yet. This is the plan for a
-> complete L3, not a claim that the readers are already located.
+> **Status:** design plus a runnable skeleton (`tools/l3_harness/`). The
+> manifest, stub table and memory map can be validated today; the runner
+> refuses to claim a pass without Ghidra and a located reader. No reader is
+> located and no Ghidra harness script exists yet, so **no L3 result is
+> claimed**.
 
 ## Goal
 
@@ -131,6 +134,78 @@ stable digest of parsed records. Do not compare raw pointers or heap addresses.
 - Negative results are recorded: any function we cannot run is marked
   `UNKNOWN` with the exact blocker.
 
+## Interface contract (implemented skeleton)
+
+`tools/l3_harness/` is the executable contract between the firmware report,
+the corpus and Ghidra. It needs no vendor data and no Ghidra for `check` and
+`plan`.
+
+```text
+ce_rom_parse.py JSON + sections[] ──rommap.py──> memory map JSON ──> Ghidra loader
+   (sections filled by tools/cerom.py)                 (one segment per build)
+
+corpus staging root ──manifest.py──> manifest JSON ──runner.py run──> result JSON
+   (factory + mutated files)            (path/sha256/size/verdict)      (verdicts)
+
+stubs.py ──> stub table + JSON Schema ──> plan output and the Ghidra script
+```
+
+| Boundary | Produced by | Consumed by | Contract |
+| --- | --- | --- | --- |
+| ROM section table | `tools/cerom.py` (next step) | `rommap.py` | `segments[].modules[].sections[]` with `name`, `va`, `file_offset`, `size`, `characteristics`, `compressed`; `o32_rom` aliases (`realaddr`, `dataptr`, `vsize`, `psize`, `flags`) accepted |
+| Memory map | `rommap.py` | Ghidra script | `osm2leaf.l3.rommap/v1`: `source`, `processor` (`verified: false`), `ram`, `blocks[]` with `address`/`size`/`file_offset`/`permissions`/`loadable`; sorted, non-overlapping |
+| Corpus manifest | `manifest.py build` | `runner.py`, Ghidra script | `osm2leaf.l3.manifest/v1`: `id`, `case`, `reader`, `path`, `sha256`, `size`, `expected` (`ACCEPT`/`REJECT`) |
+| Stub table | `stubs.py` | `runner.py plan`, Ghidra script | `osm2leaf.l3.stubs/v1`: signature, args, returns, binding, ordered side effects, `modeled`/`planned` |
+| Run result | Ghidra script | `runner.py` | `{"cases": [{"id", "verdict"}]}`; a missing case is a mismatch, never a pass |
+
+`rommap.py` never imports `tools/cerom.py`; the JSON contract is the only
+coupling. Compressed sections are rejected because no CE decompressor exists,
+so a build containing them needs an explicit `--skip-compressed` and has a
+smaller, incomplete map.
+
+### Status
+
+| Component | Status | Notes |
+| --- | --- | --- |
+| corpus manifest (`manifest.py`) | **implemented** | build/validate/refresh/schema; synthetic self-test |
+| stub table (`stubs.py`) | **implemented, 14 modeled / 3 planned** | `sprintf`, `OSM_LogMsg`, `StatusData` are deliberately `planned`/`unresolved` |
+| ROM report -> memory map (`rommap.py`) | **implemented** | overlaps, zero size, compressed sections and out-of-image ranges rejected; real section table still needs `tools/cerom.py` |
+| `runner.py check` | **implemented** | validates manifest (+ hashes with `--root`) and memory map |
+| `runner.py plan` | **implemented** | prints trace targets, per-reader stubs and blockers |
+| `runner.py run` | **blocked** | exit `3` without Ghidra, exit `4` without the harness script/reader/image; never `0` |
+| Ghidra P-code script (`ghidra/l3_run.py`) | **not started** | next code step after a reader is located |
+| Reader entry points | **UNKNOWN** | only the map-code comparator chain has file offsets (`0x6fab2c` -> `0x6faeb0` -> `0x6fb05c`); it is a helper, not a file reader |
+| Real corpus | **blocked** | vendor data is absent from this checkout; only synthetic files were used |
+
+### What the first real run needs
+
+1. `tools/cerom.py` emitting one build's section table with `va`,
+   `file_offset`, `size`, `characteristics` and `compressed` (empty or
+   explicitly skipped compressed sections).
+2. One located reader entry point, with its VA taken from the memory map, not
+   from a global delta. Candidates remain the `.cmp`/`.ind` reader, the tile
+   reader, the `DRSTR` parser and the `HDD_INFO` parser.
+3. Ghidra 12.2 or newer with a supported JDK and `analyzeHeadless`; export
+   `GHIDRA_INSTALL_DIR` or pass `--headless`.
+4. `tools/l3_harness/ghidra/l3_run.py`: map the blocks, place the stubs, set
+   PC/stack/registers, run to return or a stub breakpoint, emit the result
+   JSON.
+5. A corpus staging root that matches the manifest, including the factory
+   baseline, the no-op rebuild, a recompressed file, the same-length POI
+   rename and the negative `.ind`/truncated cases.
+6. The vendor image for `-import` (never committed) and a writable project
+   directory such as `/tmp/opencode/l3-ghidra`.
+7. An `EXP-...` record with the exact memory map, stub set, hashes and
+   commands. Until then every reader stays `UNKNOWN`.
+
+Quick check of the skeleton:
+
+```bash
+python3 tools/l3_harness/selftest.py
+python3 tools/l3_harness/runner.py check --manifest <m.json> --rommap <r.json>
+python3 tools/l3_harness/runner.py plan  --manifest <m.json> --rommap <r.json>
+```
+
 ## Risks
 
 - The navi/map modules have no export/import anchor; static VA recovery is
@@ -153,6 +228,10 @@ stable digest of parsed records. Do not compare raw pointers or heap addresses.
 
 ## First steps
 
+- [x] Skeleton: manifest, stub table, ROM report -> memory map, `check`/`plan`
+      runner and a synthetic self-test
+      ([`tools/l3_harness/`](../../tools/l3_harness/README.md),
+      `EXP-2026-11-05-38`).
 - [ ] Trace the `CMP.LST` opener and map-path function from the known anchors.
 - [ ] Build a minimal Ghidra headless harness for one function with a fake
       `CreateFile`/`ReadFile`.
