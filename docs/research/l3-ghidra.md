@@ -184,7 +184,7 @@ smaller, incomplete map.
 | `runner.py plan` | **implemented** | prints trace targets, per-reader stubs and blockers |
 | `runner.py run` | **blocked** | exit `3` without Ghidra, exit `4` without the harness script/reader/image; never `0` |
 | Ghidra P-code script (`ghidra/l3_run.py`) | **not started** | next code step after a reader is located |
-| Reader entry points | **UNKNOWN** | only the map-code comparator chain has file offsets (`0x6fab2c` -> `0x6faeb0` -> `0x6fb05c`); it is a helper, not a file reader |
+| Reader entry points | **UNKNOWN** | the old map-code comparator chain is a retired lead (`BT_MGR.dll`, C-520/C-528); the real `HDD_INFO`/`SD Import` literals are in `Navi.exe` (C-521: `0x004e7d28`, `0x004e8584`/`0x004e995c`), and `MAL_DataVol_getOffset` call sites are at `0x003778b2`/`0x00377b46` (EXP-50); no `.cmp`/`.ind`, `DRSTR` or tile reader is located yet (M2/M3) |
 | Real corpus | **blocked** | vendor data is absent from this checkout; only synthetic files were used |
 
 ### What the first real run needs

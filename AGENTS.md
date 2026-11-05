@@ -170,15 +170,17 @@ copies appear in the same report. The old "no XIP/section table" negative
 negative as a reason to avoid CE ROM extraction.
 
 ```bash
-python3 tools/ce_rom_parse.py \
-  --image archive/images/LEAF_2011-2012_QSD-309-101_navi158_eu.img \
-  --out /tmp/ce-rom-report.json
+python3 tools/cerom.py \
+  --image-start 0x200200 \
+  archive/images/LEAF_2011-2012_QSD-309-101_navi158_eu.img \
+  romhdr
 ```
 
-Expected: five valid SH-4 segments; build A `149` modules / `1` file. Next is
-`TODO.md` streams M1/M2/M3: `tools/cerom.py` (sections, `va2file`, `extract`), then a PE
-or Ghidra memory map, then the readers. See `docs/format/firmware.md` and
-`EXP-2026-11-05-33`/`-34`.
+Expected: `nummods=149 numfiles=1 cpu=0x01a6 physfirst=0x8cae1000
+physlast=0x8e233c88`. Next is `TODO.md` streams M1/M2/M3: `tools/cerom.py`
+(sections, `va2file`, `extract`, `memmap`, `decompress`), then a PE or Ghidra
+memory map, then the readers. See `docs/format/firmware.md` and
+`EXP-2026-11-05-35`/`-36`.
 
 ### Do not redo these dead ends
 
@@ -198,11 +200,15 @@ or Ghidra memory map, then the readers. See `docs/format/firmware.md` and
 - `NaviStateCC` is a COM DLL; its vtable is built at runtime and no static
   vtable contains the fd methods (`0xc42520`, `0xc426a4`, `0xc438a4`);
 - `0x6faf30` is a Bluetooth/OPP handler, not the reader.
+- the old map-code comparator chain `0x6fab2c` → `0x6faeb0` → `0x6fb05c`
+  with data delta `0x02800000` is `BT_MGR.dll` code, not the map-code check
+  (C-520, C-528); the real `HDD_INFO`/`SD Import` literals are in `Navi.exe`
+  (C-521).
 
 Map-code check is numeric `Sys[0x%x]` vs `SD[0x%x]` for `manufacturer_id`,
-`userdata_type` (range `0..5`) and `destination_id`; comparator chain at
-`0x6fab2c` → `0x6faeb0` → `0x6fb05c`, data delta `0x02800000`. The
-`HDD_INFO` parser sits behind a runtime COM object.
+`userdata_type` (range `0..5`) and `destination_id`; the old comparator chain
+and its data delta are a retired lead (C-520, C-528). The `HDD_INFO` parser
+sits behind a runtime COM object.
 
 Next reader step is **static through the CE ROM TOC** (`TODO.md` M1.8, M2.1–M2.3, M3.1).
 Dynamic breaks remain the fallback when hardware is available: see

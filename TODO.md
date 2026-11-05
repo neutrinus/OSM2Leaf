@@ -176,8 +176,8 @@ widens knowledge or tooling in parallel and is equally welcome.
     files with distinct labels. No EXP file is renamed (append-only).
   - Claims: C-600–C-609
 
-- [ ] **H2 — Refresh AGENTS.md and research docs after EXP-35…51**
-  - Status: in progress · Owner: task/h2-docs-refresh · Critical: no
+- [x] **H2 — Refresh AGENTS.md and research docs after EXP-35…51**
+  - Status: done · Owner: task/h2-docs-refresh · Critical: no
   - Depends: —
   - Goal: no guide still sends agents down a retired lead.
   - Input: `AGENTS.md` "Firmware" section (still starts from
@@ -195,6 +195,7 @@ widens knowledge or tooling in parallel and is equally welcome.
     AGENTS.md is `cerom.py`; the L5 verdict carries `Superseded by
     EXP-2026-11-05-37`; claims updated in the same commit.
   - Claims: C-610–C-619
+  - Result: docs refresh across AGENTS.md, cerom.md, l3-ghidra.md, feedback-loop.md, roadmap.md, open-questions.md, claims.md (C-610–C-619); no EXP (docs-only)
 
 - [ ] **H3 — One CE ROM tool: fold `ce_rom_parse.py` into `cerom.py`**
   - Status: open · Owner: — · Critical: no
@@ -454,8 +455,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     string VA → referencing function VA or `UNKNOWN`).
   - Claims: C-800–C-809
 
-- [ ] **M2.10 — What `TestMode.exe` (image C) can show or do**
-  - Status: in progress · Owner: task/m2.10-testmode · Critical: no
+- [x] **M2.10 — What `TestMode.exe` (image C) can show or do**
+  - Status: done · Owner: task/m2.10-testmode · Critical: no
   - Depends: —
   - Goal: find diagnostics relevant to map data (version screens, SD tests,
     map-code display, log dumps) usable later on the bench.
@@ -464,6 +465,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: an EXP lists the menus/functions with VAs and how test mode
     is entered (if found).
   - Claims: C-810–C-819
+  - Result: EXP-2026-11-05-M2.10-testmode (menus/functions with VAs; entry via image C launch table + boot-mode flag; physical trigger unknown)
 
 ---
 

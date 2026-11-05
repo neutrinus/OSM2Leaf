@@ -8,8 +8,7 @@
 **Decision:** firmware RE is prioritized. The reader code tells us how the
 format is consumed, which is more valuable for the compiler than guessing from
 bytes alone. The route is now: wrapper container → CE ROM TOC
-(`tools/ce_rom_parse.py`) → Ghidra-ready modules (`tools/cerom.py`, TODO
-Step 2) → readers → L3 oracle (TODO Step 3). Global-VA/module-base guessing
+(`tools/cerom.py`) → readers → L3 oracle (M9). Global-VA/module-base guessing
 from literals, deltas and prologue scores is **closed and superseded**
 (`C-332`, `C-382`, `C-383`, `C-434`); do not restart it. Hardware access is
 unavailable (2026-11-05), so the dynamic break and card matrices are deferred.
@@ -36,7 +35,7 @@ Current status:
 
 | Area | Data side | Firmware side |
 | --- | --- | --- |
-| `.cmp`/`.ind` | verified | reader not located; `0xc438a4` retracted as opener (`C-330`); CE ROM TOC recovered, module extraction next (TODO Step 2) |
+| `.cmp`/`.ind` | verified | reader not located; `0xc438a4` retracted as opener (`C-330`); CE ROM TOC recovered; module extraction is M1.8/M2.1–M2.3/M3.1 |
 | `DRSTR001.DAT` | verified | opened by media manager; runtime use unproven; parser to be found in the extracted modules |
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
@@ -51,12 +50,12 @@ Current path:
 
 1. `tools/ce_rom_parse.py` — ECEC/ROMHDR/TOC and module names (**done**,
    `C-088`–`C-094`).
-2. `tools/cerom.py` — sections, `va2file`/`file2va`, `extract <module>`
-   (TODO Step 2).
+2. `tools/cerom.py` — sections, `va2file`/`file2va`, `extract`, `memmap`,
+   `decompress` (M1.1–M1.3, M1.5, M1.6).
 3. Rebuild each module as a PE or a Ghidra memory map (one block per `o32`);
    walk from `Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll`, `STDDLL.dll`.
-4. L3 Ghidra P-code oracle over the `tools/ind_mutate.py` /
-   `hddinfo_variants.py` corpora (TODO Step 3).
+4. L3 Ghidra/QEMU oracle over the `tools/ind_mutate.py` /
+   `hddinfo_variants.py` corpora (M9).
 
 Superseded reader-path attempts — kept for history, do **not** re-run:
 
@@ -76,7 +75,7 @@ Superseded reader-path attempts — kept for history, do **not** re-run:
 cross-check, or is explicitly marked open.
 
 Firmware cross-checks now start from the CE ROM modules (`C-088`), so a reader
-area may stay `UNKNOWN` with TODO Step 2/3 as its planned experiment instead of
+area may stay `UNKNOWN` with M1.8/M2/M3/M9 as its planned experiment instead of
 another literal-delta search.
 
 ## Gate 1 — uncompressed layer round-trip
@@ -144,7 +143,7 @@ file order) is not semantic. Define and document the canonical image.
 
 From firmware:
 
-- start from the modules extracted in TODO Step 2 instead of literal deltas;
+- start from the modules extracted with `tools/cerom.py` instead of literal deltas;
 - confirm whether the unit checks map content at runtime (none found
   statically so far);
 - identify the exact `DIFFERENT MAP CODE` input (line 1 vs `0x06000000` copy
@@ -181,7 +180,7 @@ proven.
 - Full-system QEMU (not the critical path; see
   [`feedback-loop.md`](feedback-loop.md)).
 - Full firmware decompile before the modules are extracted from the CE ROM TOC
-  (`tools/cerom.py`, TODO Step 2).
+  (`tools/cerom.py`, M1.8/M2/M3).
 - Any new literal/prologue delta search or module-base guess: use the CE ROM
   TOC (`C-088`) or new relocation evidence.
 - OSM encoder before the format gates.
