@@ -177,7 +177,7 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Claims: C-600–C-609
 
 - [ ] **H2 — Refresh AGENTS.md and research docs after EXP-35…51**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/h2-docs-refresh · Critical: no
   - Depends: —
   - Goal: no guide still sends agents down a retired lead.
   - Input: `AGENTS.md` "Firmware" section (still starts from
