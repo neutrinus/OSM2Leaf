@@ -152,6 +152,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
   checking whether something is a fact or a hypothesis**
 - [Experiment log](docs/experiments/README.md) — append-only record of what
   was tried, with commands and raw results
+- [Roadmap and confidence gates](docs/research/roadmap.md)
 - [US unit in Europe: region gates](docs/research/us-eu-region.md)
 - [Map image lineage 2011 → 2019](docs/research/image-versions.md)
 - [OSM data pipeline](docs/research/osm-pipeline.md)

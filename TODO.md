@@ -5,46 +5,43 @@ Actionable backlog. For "what we do not know yet" see
 evidence status of each claim see
 [`docs/research/claims.md`](docs/research/claims.md).
 
-## Next up (ordered by dependency)
+## Next up (confidence gates)
 
-These are the leaves that actually unblock the compiler. The detailed backlog
-below is the long tail.
+See [`docs/research/roadmap.md`](docs/research/roadmap.md). The rule: data
+archaeology + firmware RE must agree, then round-trip proves the tooling.
+OSM only after that.
 
-1. **Tile payload grammar** — blocks geometry writing and the viewer.
-   - [ ] Cluster non-448-byte payloads in `B30R048R`; diff 188 vs 176 vs 128.
-   - [ ] Decode recurring constants `20 1e`, `07 ff`, separator `45 xx 12`.
-   - [ ] Test the quadtree hypothesis on the 4-unit sub-lattice.
-   - [ ] Anchor one block to a known city (Cologne in `B48R060R`) and look for
-     street names/node counts.
-   - Deliverable: tile record spec + a local viewer/exporter.
-2. **Card build + map-code feedback loop** — blocks all hardware validation.
-   - [ ] Whole-card 16 GB SDHC clone; keep TFAT16; verify SHA-256.
-   - [ ] No-op recompression control, then the POI rename
-     (`EXP-2026-11-05-02`).
-   - [ ] Map-code test: `HDD_INFO` line 1 alone, then also the `0x06000000`
-     copy.
-   - Deliverable: clone checklist + first accepted card.
-3. **Writer round-trip** — unblocks content edits.
-   - [x] `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte.
-   - [ ] `.cmp`/`.ind` writer: unchanged input → byte-identical output, or
-     document the non-deterministic bytes.
-   - [ ] Tile writer (after item 1).
-4. **Content joins** — addresses/POIs, independent of tile grammar.
-   - [ ] Map `f11` to the 1000-record pages.
-   - [ ] Decide which of the two POI point copies is the display point.
-   - [ ] Prove the record-level POI ↔ ADDRE join.
-   - [ ] Decode `BICON001` and the POI `icon code` mapping.
-5. **OSM build pipeline** — can start now.
-   - [ ] Profile validator + `tools/build.py` + size estimator.
-   - [ ] Encoder for roads/names/addresses at the tile granularity.
-   - [ ] Decide charset (Polish diacritics) and turn-restriction handling.
-6. **Firmware section table** — parallel, lower priority.
+1. **Gate 0a — firmware reader cross-check**
    - [ ] Decode ROM sections at `0x374000`/`0x3e0060` → stable `VA − rva`.
-   - [ ] Find `inflate`/`uncompress` callers and the `.ind` reader.
+   - [ ] Find file open/read and `inflate`/`uncompress` callers.
+   - [ ] Map the reader paths for `.cmp`/`.ind`, `DRSTR`, tiles, `MESH_ID`.
+   - [ ] Decompile the map-code/activation check.
+2. **Gate 0b — tile payload grammar**
+   - [ ] Cluster non-448-byte payloads in `B30R048R`; diff 188 vs 176 vs 128.
+   - [ ] Decode `20 1e`, `07 ff`, separator `45 xx 12`.
+   - [ ] Test the quadtree hypothesis.
+   - [ ] Anchor a block to Cologne in `B48R060R`.
+   - Deliverable: tile record spec + viewer.
+3. **Gate 1 — uncompressed round-trip (byte-identical)**
+   - [x] `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte.
+   - [ ] `MMAIN001.DAT`, headers, `REFER002`, `ADDRE` index areas.
+4. **Gate 2 — compressed round-trip**
+   - [ ] `.cmp`/`.ind`: preserve original streams → byte-identical.
+   - [ ] Changed content: `decode(repack(x)) == x`, stable chunking.
+   - [ ] Document zlib encoder determinism.
+5. **Gate 3 — tile round-trip**
+   - [ ] Unchanged tile byte-identical; changed tile same keys/inventory.
+6. **Gate 5/6 — activation and card feedback**
+   - [ ] Whole-card 16 GB SDHC clone; keep TFAT16; verify SHA-256.
+   - [ ] No-op control, then POI rename (`EXP-2026-11-05-02`).
+   - [ ] Map-code test: `HDD_INFO` line 1, then also the `0x06000000` copy.
+7. **Gate 7 — OSM compiler** (only after 0–6)
+   - [ ] Profile validator + `tools/build.py` + size estimator.
+   - [ ] Encoder for roads/names/addresses/POIs.
+   - [ ] Charset and turn-restriction decisions.
 
-Parallelizable: 1, 2 and 5 are independent; 3 depends on 1; 4 is independent.
-Do **not** start a full QEMU machine before 1/3 work — it is not the critical
-path.
+Content joins (POI/ADDRE/icon) and `LEV3456R` remain independent leaves; they do
+not block the gates above.
 
 ## P0 — research groundwork
 
