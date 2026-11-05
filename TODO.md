@@ -44,16 +44,15 @@ See [`docs/research/us-eu-region.md`](docs/research/us-eu-region.md).
 
 Three agents are investigating these; merge their results here when done.
 
-- [ ] **Checksums/validation:** does the unit check `.cmp`, `DRSTR001.DAT`,
-  `MMAIN001.DAT`, `HDD_INFO.TXT`, file sizes or the whole card? Reproduce the
-  `SUM4`/NK checksum if relevant. Build a mutation matrix.
-- [ ] **Card/FAT/boot:** does the unit read the pre-partition firmware area or
-  the post-partition tail? Determine required partition offset, cluster size,
-  label, volume ID, contiguity, capacity and lock state. Build a clone
-  checklist.
-- [ ] **Minimal accepted change:** mutation ladder from renamed POI/street to
-  added file; define offline validation and the first hardware experiment with
-  rollback.
+- [x] **Checksums/validation:** no per-file checksum; `SUM4`/updater formulas
+  reproduced; map code is a text/market check (`docs/format/validation.md`).
+- [ ] **Map-code hardware test:** change only `HDD_INFO` line 1, then also the
+  `0x06000000` copy; observe `DIFFERENT MAP CODE`.
+- [ ] **Card/FAT/boot:** whole-card clone is the only externally validated
+  method; 16 GB SDHC; keep TFAT16. Still to test: FAT-only clone, pre-partition
+  zeroed, changed label/serial.
+- [x] **Minimal accepted change:** same-length POI rename validated offline
+  (`docs/research/minimal-change.md`, EXP-2026-11-05-02). Hardware pending.
 
 ## P1 — finish the map container description
 
