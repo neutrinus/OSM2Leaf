@@ -232,7 +232,7 @@ PR #5). Tool half of M1.2b: `tools/cecompress.py` (4 KiB LZSS and LZX
 stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M1.2a — Parse the compressed-section header**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: know where the compressed payload starts and how long it is.
   - Input: EXP-49 bytes. Section 1 (`NaviMapCC.dll` rva `0x13000`, psize
@@ -251,7 +251,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-640–C-649
 
 - [ ] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (use M1.2a's offsets once they exist; until then try offsets
     0…32)
   - Goal: find a public decoder whose output length matches.
