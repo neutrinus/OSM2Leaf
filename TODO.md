@@ -378,7 +378,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 ## M2 — Map code, activation, updater
 
 - [ ] **M2.1 — `Navi.exe` function that opens `HDD_INFO.TXT`**
-  - Status: in progress · Owner: task/m2.1-navi-hddinfo-open · Critical: yes
+  - Status: blocked · Owner: task/m2.1-navi-hddinfo-open · Critical: yes
+  - Blocker: COREDLL export table not in the image module list; ordinals 1047, 1145, 1143, 59, 66, 1118 unnamed.
+  - Result (partial, negative): EXP-2026-11-05-M2.1-hddinfo-fn (fn `0x004e7b8c`; callers only via pool `0x004dd1e4` in `fn 0x004dd028`)
   - Depends: — (M1.8 helps)
   - Goal: name the function, its arguments and callers.
   - Input: literals at `Navi.exe` VA `0x004e7d28` / `0x004e7d2c` (C-521);
