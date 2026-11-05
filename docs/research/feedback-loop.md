@@ -35,6 +35,8 @@ acceptance.
 - L1 `tools/cardcheck.py` and L2 `tools/l2check.py` — whole-card structure and
   semantic/golden round-trips; both pass on the EU 2011 sample
   ([`EXP-2026-11-05-29`](../experiments/EXP-2026-11-05-29-l1-l2-validators.md)).
+- `tools/verify.py` — one cross-year wrapper: auto-detects 2011/2014/2016,
+  applies the artifact/partial flags, and reports QY8x 2019 as unsupported.
 - Firmware RE — readers are not located yet; full-system QEMU was rejected
   in [`../format/firmware.md`](../format/firmware.md).
 - `TODO.md` P4b already defines layers L0–L5 for the feedback loop.

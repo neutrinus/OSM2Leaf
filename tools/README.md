@@ -252,6 +252,29 @@ and `validate_mutation.py --drstr-dir REFER001` avoids the
 `REFER001`/`REFER002` name collision. The 2011 golden profile remains the
 reference; per-year golden profiles are optional.
 
+## `verify.py` — cross-year wrapper
+
+Detects the card generation and runs L1 and L2 with the right flags in one
+command. For `--image` it extracts the map tree to `archive/work/` for L2
+(`--no-l2` avoids the extraction).
+
+```bash
+python3 tools/verify.py --root /path/to/root
+python3 tools/verify.py --image archive/images/LEAF_2014_EU_QSD-357-101.img
+python3 tools/verify.py --image ... --no-l2 --json report.json
+```
+
+Behaviour:
+
+* ZE0 2011: golden L2 profile;
+* ZE0 2014/2016: `--no-golden --ignore-dump-artifacts`;
+* map-only tree: `--partial`;
+* QY8x 2019 (`CLA-NAVI06-01` / ZENRIN): `UNSUPPORTED`, exit 3.
+
+Exit codes: `0` pass, `1` validation error, `2` bad source, `3` unsupported
+engine. `--strict` treats warnings as errors; `--keep-work` keeps the
+extracted L2 root.
+
 ## Golden profile
 
 `tools/golden/eu2011.json` stores the reference sample's image hash, tree

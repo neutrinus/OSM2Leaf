@@ -456,6 +456,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-512 | sh3-emu is MIT-licensed, emulates SH-3 Windows CE 1.x/2.x (including a Clarion AutoPC 310C), and is not an SH-4/CE5 emulator. | VERIFIED | H | sh3-emu README, `docs/hardware.md`, `docs/machines/autopc.md`, `LICENSE` |
 | C-513 | CERF has no SH-4 CPU core; its CPUs are ARM/StrongARM/XScale/MIPS, and its current licence is custom non-commercial. | VERIFIED | H | CERF `src/cpu` tree and `LICENSE` |
 | C-514 | A true 4-bit SDIO card emulator is typically FPGA-level work; an SD extender plus a host-side writer is the cheap hardware-in-the-loop alternative. | OBSERVED | M | external SD-emulation projects; not tested on the Leaf |
+| C-515 | `tools/verify.py` auto-detects the ZE0 year and runs L1/L2 with the right flags: 2011 uses the golden profile, 2014/2016 use `--no-golden --ignore-dump-artifacts`, map-only trees add `--partial`, and the QY8x 2019 image returns `UNSUPPORTED` (exit 3). | VERIFIED | H | `python3 tools/verify.py --root/--image …`; EXP-2026-11-05-31 |
 
 ## Image archive / cross-year validation
 

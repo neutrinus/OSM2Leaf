@@ -295,6 +295,8 @@ research spike, not a prerequisite.
   `tools/golden/eu2011.json`.
   - [x] Cross-year L2 for full 2014/2016 roots (`--no-golden
     --ignore-dump-artifacts`); unchanged dense tile uses preserved layout.
+  - [x] Unified cross-year wrapper `tools/verify.py` (auto-detects year/flags;
+    2019 returns `UNSUPPORTED`).
   - [ ] Optional per-year golden profiles.
   - [ ] Optional OSM comparison remains in `tools/ze0-viewer/compare_osm.py`.
 - [ ] **L3 — function-level SH-4 emulation (complete harness).**

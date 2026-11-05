@@ -278,7 +278,7 @@ def check_files(root: Path, profile: dict | None, report: cardcheck.Report) -> N
 
 
 def check_drstr(root: Path, profile: dict | None, report: cardcheck.Report,
-                ignore_artifacts: bool = False) -> None:
+                ignore_artifacts: bool = False, partial: bool = False) -> None:
     check = report.add(cardcheck.Check("drstr_roundtrip"))
     path = root / "DRSTR001.DAT"
     if not path.is_file():
@@ -292,14 +292,21 @@ def check_drstr(root: Path, profile: dict | None, report: cardcheck.Report,
         return
     check.stats["size"] = len(built)
     if built != reference:
-        first = next(
-            (i for i in range(min(len(built), len(reference))) if built[i] != reference[i]),
-            min(len(built), len(reference)),
-        )
-        check.error(
-            f"rebuilt DRSTR differs: {len(built)} vs {len(reference)} bytes, "
-            f"first diff 0x{first:x}"
-        )
+        if partial and not (root / "VER_INFO").is_dir():
+            check.warn(
+                "partial tree: DRSTR reference lists VER_INFO; "
+                "byte-identical rebuild skipped"
+            )
+            check.stats["skipped"] = "partial VER_INFO"
+        else:
+            first = next(
+                (i for i in range(min(len(built), len(reference))) if built[i] != reference[i]),
+                min(len(built), len(reference)),
+            )
+            check.error(
+                f"rebuilt DRSTR differs: {len(built)} vs {len(reference)} bytes, "
+                f"first diff 0x{first:x}"
+            )
     if profile and "drstr" in profile:
         actual = file_info(path)
         if actual["size"] != profile["drstr"]["size"]:
@@ -654,6 +661,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="skip all profile comparisons")
     parser.add_argument("--ignore-dump-artifacts", action="store_true",
                         help="ignore macOS ._*, .fseventsd, System Volume Information")
+    parser.add_argument("--partial", action="store_true",
+                        help="map-only tree without VER_INFO")
     parser.add_argument("--cmp-limit", type=int, default=0,
                         help="check only the first N .cmp pairs (0 = all)")
     parser.add_argument("--no-cmp", action="store_true")
@@ -700,7 +709,8 @@ def main(argv: list[str] | None = None) -> int:
     report = cardcheck.Report("L2", {"kind": "root", "path": str(root)})
     check_census(root, profile, report, args.ignore_dump_artifacts)
     check_files(root, profile, report)
-    check_drstr(root, profile, report, args.ignore_dump_artifacts)
+    check_drstr(root, profile, report, args.ignore_dump_artifacts,
+                args.partial)
     if not args.no_cmp:
         check_cmp_roundtrip(root, profile, report, limit=args.cmp_limit)
     if not args.no_tiles:

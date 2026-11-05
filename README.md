@@ -140,6 +140,10 @@ python3 tools/cardcheck.py --image /path/to/leaf2011.img
 
 # L2 semantic and golden checks
 python3 tools/l2check.py --root /path/to/root
+
+# One cross-year verifier (auto-detects 2011/2014/2016; rejects QY8x 2019)
+python3 tools/verify.py --image /path/to/leaf2011.img
+python3 tools/verify.py --root /path/to/root
 ```
 
 ## Documentation
