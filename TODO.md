@@ -145,6 +145,8 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
   bytes look like valid data. Alternative route: run the kernel's own ROM
   decompressor from `nk.exe` under emulation (M8.E1) or via L3 (M9.6). Only RW data sections are
   compressed; code is not (C-530).
+  Tool half done: `cerom.py decompress` + `tools/cecompress.py`
+  (C-570/C-571, EXP-49/53); a real section still has to decode to `vsize`.
   Tool half done: `tools/cecompress.py` decodes LZSS and LZX stored blocks
   and refuses verbatim/aligned (C-570, EXP-2026-11-05-52). Still open: decode
   one real section to `vsize`.
@@ -160,8 +162,10 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
 - [x] **M1.6** (EXP-2026-11-05-50) Resolve import thunks: map each module's IAT slots to
   `module!export` (needs `exports` of all modules). *Done when* a call in
   `Navi.exe` shows `OBJDLL!MAL_DataVol_getOffset`, not a raw VA.
-- [ ] **M1.7** Decide which kernel (B or C) boots with A (check `ulRAM*`,
+- [x] **M1.7** Decide which kernel (B or C) boots with A (check `ulRAM*`,
   `pExtensions`, update flow in `UpdateMng.exe`). Record as an EXP.
+  Done: `tools/kernel_select.py` (seven criteria, refuses a verdict on ties);
+  the recorded B/C fields still yield `UNKNOWN` (C-572, EXP-2026-11-05-54).
 
 #### M2 — Map-code / activation (why the unit rejects a card)
 

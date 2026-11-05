@@ -21,6 +21,9 @@ Usage:
   cerom.py IMG memmap [--modules M1,M2] [--out FILE] [--pretty]
                       [--exclude-compressed] [--ghidra-script FILE]
   cerom.py IMG ghidra ...              # alias of memmap
+  cerom.py IMG decompress [--modules M1,M2] [--section NAME]
+                          [--method auto|lzss|lzx] [--out DIR]
+                          [--check] [--json]
   cerom.py --selftest                  # synthetic ROM, no vendor data
 
 ``memmap`` emits the section table ``tools/l3_harness/rommap.py`` consumes:
@@ -32,8 +35,23 @@ written out as raw section bytes; ``--exclude-compressed`` drops them from the
 JSON and reports the count instead.  ``--ghidra-script`` additionally writes a
 small Jython script that maps the same blocks with ``createMemoryBlock``.
 
-See docs/experiments/EXP-2026-11-05-47-cerom-selftest.md and
-docs/experiments/EXP-2026-11-05-48-cerom-memmap.md.
+``decompress`` is the M1.3 counterpart: it walks every ``o32_rom`` record with
+``IMAGE_SCN_COMPRESSED`` in every discovered CE segment (builds A/B are stored
+twice; the copy is reported once and not walked again) and passes exactly
+``o32_psize`` stored bytes to ``tools/cecompress.py`` with
+``expected_size=o32_vsize``.  Each section is classified ``OK`` (decoded length
+equals ``vsize``), ``UNSUPPORTED`` (codec or block type not implemented) or
+``FAIL`` (decode error); the record keeps module, section name, rva, vsize,
+psize, a SHA-256 with its scope (``decoded`` or ``stored``) and the first
+error.  Compressed bytes are never written as section data: only an ``OK``
+decode produces ``<module>.<rva>.bin`` (under ``DIR/seg<N>/`` when more than
+one segment is walked).  ``--check`` writes nothing.  Exit codes: 0 when every
+requested section is ``OK``, 1 when some are ``UNSUPPORTED``/``FAIL``, 2 on a
+usage or I/O error.
+
+See docs/experiments/EXP-2026-11-05-47-cerom-selftest.md,
+docs/experiments/EXP-2026-11-05-48-cerom-memmap.md and
+docs/experiments/EXP-2026-11-05-53-cerom-decompress.md.
 """
 import argparse
 import contextlib
@@ -63,6 +81,9 @@ MEM_WRITE = 0x80000000
 
 MEMMAP_SCHEMA = "osm2leaf.cerom.memmap/v1"
 MEMMAP_GENERATOR = "tools/cerom.py memmap"
+DECOMPRESS_SCHEMA = "osm2leaf.cerom.decompress/v1"
+DECOMPRESS_GENERATOR = "tools/cerom.py decompress"
+SEGMENT_MAX_MODULES = 4096
 
 
 class CERom:
@@ -402,6 +423,310 @@ def write_ghidra_script(path, image_path, report):
 
 
 # --------------------------------------------------------------------------
+# Compressed sections (`decompress`): `IMAGE_SCN_COMPRESSED` bodies decoded
+# through tools/cecompress.py.  Which codec the image uses is still UNKNOWN
+# (EXP-2026-11-05-49/52), so this command reports what happens per section
+# instead of assuming one.
+# --------------------------------------------------------------------------
+
+
+def cecompress_module():
+    """Import and return the sibling ``tools/cecompress.py`` module."""
+    directory = os.path.dirname(os.path.abspath(__file__))
+    if directory not in sys.path:
+        sys.path.insert(0, directory)
+    import cecompress
+    return cecompress
+
+
+def find_segments(data, image_start=None):
+    """Return ``(segments, duplicates)`` for every valid CE segment in ``data``.
+
+    A candidate is accepted only when ``ECEC`` sits at ``start + 0x40`` and the
+    ``ROMHDR`` it points at is self-consistent: ``physfirst <= pTOC < physlast``,
+    ``0 < nummods <= 4096`` and a TOC that ends inside the bytes read.  Builds A
+    and B are each stored twice; a copy (same ``pTOC``, ``physfirst``,
+    ``physlast``, ``nummods`` and ``numfiles``) is listed once under
+    ``duplicates`` instead of being walked again.
+    """
+    if image_start is None:
+        candidates = []
+        found = 0
+        while True:
+            found = data.find(b"ECEC", found)
+            if found < 0:
+                break
+            if found >= 0x40 and (found - 0x40) not in candidates:
+                candidates.append(found - 0x40)
+            found += 1
+    else:
+        candidates = [image_start]
+
+    segments, keys, duplicates = [], [], []
+    for start in candidates:
+        try:
+            segment = CERom(data, start)
+        except (ValueError, struct.error):
+            continue
+        header = segment.hdr
+        if not 0 < header["nummods"] <= SEGMENT_MAX_MODULES:
+            continue
+        if not header["physfirst"] <= segment.ptoc < header["physlast"]:
+            continue
+        toc_end = (segment.hdr_off + ROMHDR_SIZE + TOC_SIZE * header["nummods"]
+                   + FILES_SIZE * header["numfiles"])
+        if toc_end > len(data):
+            continue
+        key = (segment.ptoc, header["physfirst"], header["physlast"],
+               header["nummods"], header["numfiles"])
+        if key in keys:
+            duplicates.append({"segment_base": hx(start),
+                               "duplicate_of": keys.index(key)})
+            continue
+        keys.append(key)
+        segments.append(segment)
+    if not segments:
+        if image_start is not None:
+            raise ValueError("no valid CE segment at image_start 0x%x" % image_start)
+        raise ValueError("no valid CE segment found in %d bytes" % len(data))
+    return segments, duplicates
+
+
+def section_selector(text):
+    """Return a matcher for ``--section``: ``secN``, ``MODULE/secN`` or an RVA.
+
+    The matcher takes ``(module_name, section_index, section_rva)``.  A bare
+    number is an RVA only in hex form (``0x2000``); section indexes need the
+    ``sec`` prefix so the two readings never collide.
+    """
+    raw = text.strip()
+    if not raw:
+        raise ValueError("--section names nothing")
+    module = None
+    name = raw
+    if "/" in raw:
+        module, name = (part.strip() for part in raw.split("/", 1))
+        if not module or not name:
+            raise ValueError("--section %r needs MODULE/secN or secN" % text)
+    lowered = name.lower()
+    if lowered.startswith("sec") and lowered[3:].isdigit():
+        index = int(lowered[3:])
+
+        def matches_index(module_name, section_index, section_rva):
+            return ((module is None or module_name.lower() == module.lower())
+                    and section_index == index)
+
+        return matches_index
+    try:
+        rva = int(name, 0)
+    except ValueError:
+        raise ValueError(
+            "--section %r is not sec<N>, MODULE/sec<N> or an RVA" % text) from None
+
+    def matches_rva(module_name, section_index, section_rva):
+        return ((module is None or module_name.lower() == module.lower())
+                and section_rva == rva)
+
+    return matches_rva
+
+
+def section_out_dir(out_dir, segment_index, segment_count):
+    """Per-segment subdirectory only when more than one segment is walked."""
+    if segment_count > 1:
+        return os.path.join(out_dir, "seg%d" % segment_index)
+    return out_dir
+
+
+def decompress_report(data, image_name, image_size=None, image_sha256=None,
+                      sha256_scope=None, modules=None, section=None,
+                      method="auto", out_dir=None, check=True, image_start=None):
+    """Classify the decode of every compressed ``o32`` section.
+
+    ``check`` (or a missing ``out_dir``) writes nothing.  Only an ``OK`` decode
+    is written, as ``<module>.<rva>.bin``; a section whose stored range is
+    empty/outside the image, whose codec is not implemented or whose decode
+    fails is recorded and never written.  The document is stable JSON: every
+    section record carries the same keys whatever its status.
+    """
+    cc = cecompress_module()
+    method = cc.normalise_method(method)
+    segments, duplicates = find_segments(data, image_start)
+
+    wanted = None
+    if modules:
+        available = set()
+        for segment in segments:
+            for module in segment.modules():
+                if module["name"]:
+                    available.add(module["name"].lower())
+        missing = [name for name in modules if name.lower() not in available]
+        if missing:
+            raise KeyError(missing[0])
+        wanted = {name.lower() for name in modules}
+
+    write = bool(out_dir) and not check
+    if write:
+        out_dir = os.path.abspath(out_dir)
+    records, errors = [], []
+    for segment_index, segment in enumerate(segments):
+        for module in segment.modules():
+            name = module["name"]
+            if not name:
+                continue
+            if wanted is not None and name.lower() not in wanted:
+                continue
+            try:
+                sections = list(segment.o32(module))
+            except struct.error as exc:
+                errors.append({"segment": segment_index, "module": name,
+                               "error_type": "struct.error",
+                               "error": str(exc)})
+                continue
+            for index, sec in enumerate(sections):
+                if not sec["flags"] & IMAGE_SCN_COMPRESSED:
+                    continue
+                if section is not None and not section(name, index, sec["rva"]):
+                    continue
+                record = {
+                    "segment": segment_index,
+                    "module": name,
+                    "section": "sec%d" % index,
+                    "rva": hx(sec["rva"]),
+                    "vsize": sec["vsize"],
+                    "psize": sec["psize"],
+                    "flags": hx(sec["flags"]),
+                    "file_offset": None,
+                    "status": None,
+                    "method": method,
+                    "method_used": None,
+                    "detected": None,
+                    "output_size": None,
+                    "sha256": None,
+                    "sha256_scope": None,
+                    "out": None,
+                    "error_type": None,
+                    "error": None,
+                }
+                offset = segment.va2file(sec["dataptr"])
+                record["file_offset"] = offset
+                blob = None
+                if not sec["psize"]:
+                    record["status"] = "FAIL"
+                    record["error_type"] = "EmptySection"
+                    record["error"] = ("IMAGE_SCN_COMPRESSED with psize 0: "
+                                       "nothing stored to decode")
+                elif not (0 <= offset and offset + sec["psize"] <= len(data)):
+                    record["status"] = "FAIL"
+                    record["error_type"] = "RangeError"
+                    record["error"] = (
+                        "stored bytes 0x%x..0x%x lie outside the image (%d bytes)"
+                        % (offset, offset + sec["psize"], len(data)))
+                else:
+                    payload = data[offset:offset + sec["psize"]]
+                    record["sha256"] = hashlib.sha256(payload).hexdigest()
+                    record["sha256_scope"] = "stored"
+                    try:
+                        blob, info = cc.decompress_info(
+                            payload, sec["vsize"], method)
+                    except cc.UnsupportedFormat as exc:
+                        record["status"] = "UNSUPPORTED"
+                        record["error_type"] = type(exc).__name__
+                        record["error"] = str(exc)
+                    except cc.CeCompressError as exc:
+                        record["status"] = "FAIL"
+                        record["error_type"] = type(exc).__name__
+                        record["error"] = str(exc)
+                    except Exception as exc:  # noqa: BLE001 - one bad section must not stop the walk
+                        record["status"] = "FAIL"
+                        record["error_type"] = type(exc).__name__
+                        record["error"] = str(exc)
+                    else:
+                        record["status"] = "OK"
+                        record["method_used"] = info.get("method")
+                        record["detected"] = info.get("detected") or None
+                        record["output_size"] = len(blob)
+                        record["sha256"] = hashlib.sha256(blob).hexdigest()
+                        record["sha256_scope"] = "decoded"
+                if record["status"] == "OK" and write:
+                    directory = section_out_dir(out_dir, segment_index, len(segments))
+                    os.makedirs(directory, exist_ok=True)
+                    path = os.path.join(directory,
+                                        "%s.%08x.bin" % (name, sec["rva"]))
+                    with open(path, "wb") as handle:
+                        handle.write(blob)
+                    record["out"] = path
+                records.append(record)
+
+    counts = {"sections": len(records), "ok": 0, "unsupported": 0, "fail": 0,
+              "errors": len(errors)}
+    for record in records:
+        counts[record["status"].lower()] += 1
+
+    segment_records = []
+    for index, segment in enumerate(segments):
+        segment_records.append({
+            "segment_index": index,
+            "segment_base": hx(segment.start),
+            "phys_base": hx(segment.hdr["physfirst"]),
+            "pTOC": hx(segment.ptoc),
+            "nummods": segment.hdr["nummods"],
+            "numfiles": segment.hdr["numfiles"],
+        })
+    return {
+        "schema": DECOMPRESS_SCHEMA,
+        "generator": DECOMPRESS_GENERATOR,
+        "image": os.path.basename(image_name),
+        "image_size": image_size,
+        "image_sha256": image_sha256,
+        "image_sha256_scope": sha256_scope,
+        "method": method,
+        "check": not write,
+        "out_dir": out_dir if write else None,
+        "segments": segment_records,
+        "duplicate_segments": duplicates,
+        "counts": counts,
+        "errors": errors,
+        "sections": records,
+    }
+
+
+def print_decompress_text(report):
+    """Print one line per section plus a summary (the non-``--json`` view)."""
+    for record in report["sections"]:
+        label = "%s/%s" % (record["module"], record["section"])
+        line = ("%-11s %-34s rva=%s vsize=0x%x psize=0x%x"
+                % (record["status"], label, record["rva"],
+                   record["vsize"], record["psize"]))
+        if record["sha256"]:
+            line += " %s=%s" % (record["sha256_scope"], record["sha256"])
+        if record["out"]:
+            line += " -> %s" % record["out"]
+        if record["error"]:
+            line += " error=%s" % record["error"]
+        print(line)
+    for error in report["errors"]:
+        print("module error: %s (segment %d): %s: %s"
+              % (error["module"], error["segment"], error["error_type"],
+                 error["error"]))
+    counts = report["counts"]
+    summary = ("%d compressed section(s) in %d segment(s): %d OK, "
+               "%d UNSUPPORTED, %d FAIL"
+               % (counts["sections"], len(report["segments"]), counts["ok"],
+                  counts["unsupported"], counts["fail"]))
+    written = sum(1 for record in report["sections"] if record["out"])
+    if written:
+        summary += ", %d file(s) written" % written
+    elif report["check"]:
+        summary += ", nothing written (check)"
+    print(summary)
+    if report["duplicate_segments"]:
+        print("%d duplicate segment copy/copies not walked: %s"
+              % (len(report["duplicate_segments"]),
+                 ", ".join("0x%x" % int(d["segment_base"], 16)
+                           for d in report["duplicate_segments"])))
+
+
+# --------------------------------------------------------------------------
 # Synthetic ROM for --selftest.  No vendor bytes: every offset below is built
 # from scratch, so the layout doubles as executable documentation of the
 # structures the parser expects.
@@ -438,12 +763,23 @@ def build_synthetic_rom():
     Layout: ``ECEC`` at image start + 0x40, ROMHDR at +0x1000, two 32-byte
     ``TOCentry`` records, one 28-byte ``FILESentry``.  Module 0 has an
     uncompressed section carrying a two-export directory plus one
-    ``IMAGE_SCN_COMPRESSED`` section; module 1 has no exports.
+    ``IMAGE_SCN_COMPRESSED`` section; module 1 has no exports.  The compressed
+    bodies are real streams from ``tools/cecompress.py``: module 0 stores an
+    LZSS stream produced by ``encode_lzss`` (decodes to ``vsize`` bytes) and
+    module 1 stores an LZX **verbatim** block header, which the decoder must
+    refuse as UNSUPPORTED rather than emit bytes for.
     """
+    cc = cecompress_module()
+    lzss_plain = (b"ZE0 LZSS section: MAL_DataVol_getOffset " * 128)[:0x800]
+    lzss_stream, lzss_stats = cc.encode_lzss(lzss_plain)
+    unsupported_stream = cc._build_lzx_block_header(1, 16)   # block type verbatim
+
     d = bytearray(SYNTH_SIZE)
     layout = dict(image_start=SYNTH_IMAGE_START, va_base=SYNTH_VA_BASE,
                   toc_off=SYNTH_TOC_OFF, hdr_off=SYNTH_HDR_OFF,
-                  ptoc=synth_va(SYNTH_HDR_OFF), hdr=synth_romhdr())
+                  ptoc=synth_va(SYNTH_HDR_OFF), hdr=synth_romhdr(),
+                  lzss_plain=lzss_plain, lzss_stream=lzss_stream,
+                  lzss_stats=lzss_stats, unsupported_stream=unsupported_stream)
 
     struct.pack_into("<4sII", d, SYNTH_IMAGE_START + 0x40, b"ECEC",
                      layout["ptoc"], SYNTH_TOC_OFF)
@@ -504,12 +840,14 @@ def build_synthetic_rom():
     # o32_rom: vsize, rva, psize, dataptr, realaddr, flags.
     struct.pack_into("<6I", d, 0x4200, 0x400, 0x1000, 0x400, synth_va(0x5000),
                      0x8CE01000, 0xC0000040)                  # not compressed
-    struct.pack_into("<6I", d, 0x4218, 0x800, 0x2000, 0x100, synth_va(0x5400),
-                     0x8CE02000, 0xC0002040)                  # COMPRESSED
+    struct.pack_into("<6I", d, 0x4218, 0x800, 0x2000, len(lzss_stream),
+                     synth_va(0x5400), 0x8CE02000, 0xC0002040)  # COMPRESSED, LZSS
     struct.pack_into("<6I", d, 0x6200, 0x300, 0x1000, 0x200, synth_va(0x6400),
                      0x8D001000, 0x60000020)
-    struct.pack_into("<6I", d, 0x6218, 0x100, 0x2000, 0x80, synth_va(0x6600),
-                     0x8D002000, 0xC0002040)                  # COMPRESSED
+    struct.pack_into("<6I", d, 0x6218, 0x100, 0x2000, len(unsupported_stream),
+                     synth_va(0x6600), 0x8D002000, 0xC0002040)  # COMPRESSED, LZX verbatim
+    d[0x5400:0x5400 + len(lzss_stream)] = lzss_stream
+    d[0x6600:0x6600 + len(unsupported_stream)] = unsupported_stream
 
     # FILESentry: attrib, ftl, fth, real size, compressed size, name, load.
     struct.pack_into("<7I", d, toc + TOC_SIZE * 2,
@@ -595,12 +933,13 @@ def selftest():
                               r.va2file(s["dataptr"]), s["realaddr"], s["flags"])
                              for s in secs],
            [(0x1000, 0x400, 0x400, 0x5000, 0x8CE01000, 0xC0000040),
-            (0x2000, 0x800, 0x100, 0x5400, 0x8CE02000, 0xC0002040)])
+            (0x2000, 0x800, len(exp["lzss_stream"]), 0x5400, 0x8CE02000, 0xC0002040)])
         ok("compressed flags mod0",
            [bool(s["flags"] & IMAGE_SCN_COMPRESSED) for s in secs], [False, True])
         ok("sections mod1", [(s["rva"], s["psize"], r.va2file(s["dataptr"]), s["flags"])
                              for s in r.o32(mods[1])],
-           [(0x1000, 0x200, 0x6400, 0x60000020), (0x2000, 0x80, 0x6600, 0xC0002040)])
+           [(0x1000, 0x200, 0x6400, 0x60000020),
+            (0x2000, len(exp["unsupported_stream"]), 0x6600, 0xC0002040)])
         ok("rva2file uncompressed", r.rva2file(mods[0], 0x1010), 0x5010)
         ok("rva2file compressed -> None", r.rva2file(mods[0], 0x2010), None)
 
@@ -645,7 +984,7 @@ def selftest():
         ok("memmap mod0 name/va/file/size",
            [(s["name"], s["va"], s["file_offset"], s["size"]) for s in mod0],
            [("sec0", "0x8ce01000", 0x5000, 0x400),
-            ("sec1", "0x8ce02000", 0x5400, 0x100)])
+            ("sec1", "0x8ce02000", 0x5400, len(exp["lzss_stream"]))])
         ok("memmap mod0 vsize", [s["vsize"] for s in mod0], [0x400, 0x800])
         ok("memmap mod0 characteristics",
            [s["characteristics"] for s in mod0], ["0xc0000040", "0xc0002040"])
@@ -656,7 +995,7 @@ def selftest():
            [(s["name"], s["va"], s["file_offset"], s["size"])
             for s in seg["modules"][1]["sections"]],
            [("sec0", "0x8d001000", 0x6400, 0x200),
-            ("sec1", "0x8d002000", 0x6600, 0x80)])
+            ("sec1", "0x8d002000", 0x6600, len(exp["unsupported_stream"]))])
         ok("memmap rwx mod1",
            [s["rwx"] for s in seg["modules"][1]["sections"]], ["r-x", "rw-"])
         ok("memmap counts", seg["counts"],
@@ -753,6 +1092,214 @@ def selftest():
                main([path, "memmap", "--modules", "Nope.dll"]), 2)
         ok("cli memmap unknown module message", "Nope.dll" in err.getvalue(), True)
 
+        # --- decompress: every IMAGE_SCN_COMPRESSED section (M1.3) ----------
+        segs, dupes = find_segments(rom)
+        ok("decompress segment discovery",
+           [(s.start, s.va_base) for s in segs],
+           [(exp["image_start"], exp["va_base"])])
+        ok("decompress segment duplicates", dupes, [])
+        segs2, dupes2 = find_segments(rom + rom)
+        ok("decompress duplicate segment not walked", len(segs2), 1)
+        ok("decompress duplicate segment reported", dupes2,
+           [{"segment_base": hx(len(rom) + exp["image_start"]),
+             "duplicate_of": 0}])
+
+        # Two distinct segments in one file: both are walked, one output
+        # directory each, so equal `<module>.<rva>.bin` names cannot collide.
+        twin = bytearray(rom + rom)
+        struct.pack_into("<I", twin, len(rom) + exp["hdr_off"] + 0x0c,
+                         exp["hdr"]["physlast"] + 0x1000)
+        twin_path = os.path.join(td, "twin.img")
+        with open(twin_path, "wb") as fh:
+            fh.write(twin)
+        twin_dir = os.path.join(td, "twin-out")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress two segments exit",
+               main([twin_path, "decompress", "--out", twin_dir]), 1)
+        ok("decompress two segments were walked",
+           "4 compressed section(s) in 2 segment(s)" in buf.getvalue(), True)
+        ok("decompress writes one directory per segment",
+           sorted(os.listdir(twin_dir)), ["seg0", "seg1"])
+        ok("decompress per-segment file names",
+           [sorted(os.listdir(os.path.join(twin_dir, name)))
+            for name in ("seg0", "seg1")],
+           [["NK.EXE.00002000.bin"], ["NK.EXE.00002000.bin"]])
+
+        check_dir = os.path.join(td, "check-only")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress --check --json exit",
+               main([path, "decompress", "--check", "--json", "--out", check_dir]), 1)
+        doc = json.loads(buf.getvalue())
+        ok("decompress schema", doc["schema"], DECOMPRESS_SCHEMA)
+        ok("decompress generator", doc["generator"], DECOMPRESS_GENERATOR)
+        ok("decompress image basename", doc["image"], "synthetic-rom.img")
+        ok("decompress image sha256", doc["image_sha256"], hashlib.sha256(rom).hexdigest())
+        ok("decompress method", doc["method"], "auto")
+        ok("decompress check flag", doc["check"], True)
+        ok("decompress out_dir not written", doc["out_dir"], None)
+        ok("decompress --check wrote nothing", os.path.exists(check_dir), False)
+        ok("decompress segment record", doc["segments"],
+           [{"segment_index": 0, "segment_base": hx(exp["image_start"]),
+             "phys_base": hx(exp["va_base"]), "pTOC": hx(exp["ptoc"]),
+             "nummods": 2, "numfiles": 1}])
+        ok("decompress counts", doc["counts"],
+           {"sections": 2, "ok": 1, "unsupported": 1, "fail": 0, "errors": 0})
+        ok("decompress module errors", doc["errors"], [])
+        ok("decompress record key order", sorted(doc["sections"][0]),
+           ["detected", "error", "error_type", "file_offset", "flags", "method",
+            "method_used", "module", "out", "output_size", "psize", "rva",
+            "section", "segment", "sha256", "sha256_scope", "status", "vsize"])
+        ok("decompress records",
+           [(r["segment"], r["module"], r["section"], r["rva"], r["vsize"], r["psize"])
+            for r in doc["sections"]],
+           [(0, "NK.EXE", "sec1", "0x2000", 0x800, len(exp["lzss_stream"])),
+            (0, "NAVI.EXE", "sec1", "0x2000", 0x100, len(exp["unsupported_stream"]))])
+        ok("decompress stored file offsets",
+           [r["file_offset"] for r in doc["sections"]], [0x5400, 0x6600])
+        ok("decompress compressed flags",
+           [r["flags"] for r in doc["sections"]], ["0xc0002040", "0xc0002040"])
+        lz = doc["sections"][0]
+        ok("decompress LZSS status/method", (lz["status"], lz["method_used"]), ("OK", "lzss"))
+        ok("decompress LZSS output size", lz["output_size"], 0x800)
+        ok("decompress LZSS sha256 scope", lz["sha256_scope"], "decoded")
+        ok("decompress LZSS sha256",
+           lz["sha256"], hashlib.sha256(exp["lzss_plain"]).hexdigest())
+        ok("decompress LZSS detected confidence",
+           lz["detected"]["confidence"], "confirmed")
+        ok("decompress LZSS no error", (lz["error"], lz["error_type"]), (None, None))
+        ok("decompress LZSS wrote nothing in check mode", lz["out"], None)
+        bad = doc["sections"][1]
+        ok("decompress unsupported status",
+           (bad["status"], bad["error_type"]), ("UNSUPPORTED", "UnsupportedFormat"))
+        ok("decompress unsupported message",
+           "UNSUPPORTED(lzx block type verbatim" in bad["error"], True)
+        ok("decompress unsupported keeps the stored hash",
+           (bad["sha256_scope"], bad["sha256"]),
+           ("stored", hashlib.sha256(exp["unsupported_stream"]).hexdigest()))
+        ok("decompress unsupported has no output",
+           (bad["output_size"], bad["out"], bad["method_used"]), (None, None, None))
+
+        out_dir = os.path.join(td, "sections")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress --out exit", main([path, "decompress", "--out", out_dir]), 1)
+        ok("decompress wrote only the OK section",
+           sorted(os.listdir(out_dir)), ["NK.EXE.00002000.bin"])
+        with open(os.path.join(out_dir, "NK.EXE.00002000.bin"), "rb") as fh:
+            ok("decompress written bytes", fh.read(), exp["lzss_plain"])
+        ok("decompress text summary",
+           "1 OK, 1 UNSUPPORTED, 0 FAIL" in buf.getvalue(), True)
+        ok("decompress text writes one file", "1 file(s) written" in buf.getvalue(), True)
+        ok("decompress text names the refusal",
+           "UNSUPPORTED(lzx block type verbatim" in buf.getvalue(), True)
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress --method lzss exit",
+               main([path, "decompress", "--method", "lzss", "--json"]), 1)
+        doc = json.loads(buf.getvalue())
+        ok("decompress --method lzss counts",
+           (doc["counts"]["ok"], doc["counts"]["unsupported"], doc["counts"]["fail"]),
+           (1, 0, 1))
+        ok("decompress --method lzss FAIL record",
+           (doc["sections"][1]["status"], doc["sections"][1]["error_type"]),
+           ("FAIL", "DecodeError"))
+        ok("decompress --method lzss FAIL says the length",
+           "expected 256" in (doc["sections"][1]["error"] or ""), True)
+
+        # Truncated images: an unreachable stored range is FAIL (never data),
+        # and a module whose e32/o32 cannot be read is an error, not a crash.
+        with open(os.path.join(td, "cut-data.img"), "wb") as fh:
+            fh.write(rom[:0x6602])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress out-of-image exit",
+               main([os.path.join(td, "cut-data.img"), "decompress", "--json"]), 1)
+        doc = json.loads(buf.getvalue())
+        ok("decompress out-of-image counts",
+           (doc["counts"]["ok"], doc["counts"]["fail"]), (1, 1))
+        ok("decompress out-of-image record",
+           (doc["sections"][1]["status"], doc["sections"][1]["error_type"],
+            doc["sections"][1]["out"]), ("FAIL", "RangeError", None))
+        ok("decompress out-of-image message",
+           "lie outside the image" in doc["sections"][1]["error"], True)
+
+        with open(os.path.join(td, "cut-module.img"), "wb") as fh:
+            fh.write(rom[:0x6000])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress unreadable module exit",
+               main([os.path.join(td, "cut-module.img"), "decompress", "--json"]), 1)
+        doc = json.loads(buf.getvalue())
+        ok("decompress unreadable module recorded", doc["errors"],
+           [{"segment": 0, "module": "NAVI.EXE", "error_type": "struct.error",
+             "error": doc["errors"][0]["error"]}])
+        ok("decompress unreadable module error is not silent",
+           "unpack_from requires a buffer" in doc["errors"][0]["error"], True)
+        ok("decompress unreadable module counts",
+           (doc["counts"]["sections"], doc["counts"]["errors"]), (1, 1))
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress --modules NK.EXE exits 0",
+               main([path, "decompress", "--modules", "NK.EXE", "--json"]), 0)
+        doc = json.loads(buf.getvalue())
+        ok("decompress module filter", [r["module"] for r in doc["sections"]],
+           ["NK.EXE"])
+        ok("decompress module filter counts",
+           (doc["counts"]["sections"], doc["counts"]["ok"]), (1, 1))
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress --section MODULE/secN exit",
+               main([path, "decompress", "--section", "NAVI.EXE/sec1", "--json"]), 1)
+        ok("decompress section selector",
+           [(r["module"], r["section"]) for r in json.loads(buf.getvalue())["sections"]],
+           [("NAVI.EXE", "sec1")])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli decompress --section RVA exit",
+               main([path, "decompress", "--section", "0x2000", "--json"]), 1)
+        ok("decompress RVA selector",
+           len(json.loads(buf.getvalue())["sections"]), 2)
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli decompress unknown module exit",
+               main([path, "decompress", "--modules", "Nope.dll"]), 2)
+        ok("cli decompress unknown module message", "Nope.dll" in err.getvalue(), True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli decompress empty --modules exit",
+               main([path, "decompress", "--modules", ",,"]), 2)
+        ok("cli decompress empty --modules message",
+           "--modules names no module" in err.getvalue(), True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli decompress bad --section exit",
+               main([path, "decompress", "--section", "nonsense"]), 2)
+        ok("cli decompress bad --section message",
+           "is not sec<N>" in err.getvalue(), True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli decompress bad --method exit",
+               main([path, "decompress", "--method", "lzma"]), 2)
+        ok("cli decompress bad --method message",
+           "UNSUPPORTED(method 'lzma')" in err.getvalue(), True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli decompress no match exit",
+               main([path, "decompress", "--section", "sec0"]), 2)
+        ok("cli decompress no match message",
+           "no IMAGE_SCN_COMPRESSED section matched" in err.getvalue(), True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli decompress missing image exit",
+               main([os.path.join(td, "nope.img"), "decompress"]), 2)
+        ok("cli decompress missing image message", "error:" in err.getvalue(), True)
+
 
         # Negative control: a corrupt ECEC must fail loudly, never guess.
         bad = bytearray(rom)
@@ -768,8 +1315,75 @@ def selftest():
             else:
                 raise AssertionError("%s: CERom() accepted a corrupt image" % label)
 
+        # The discovery must not invent a segment (or crash) on the same bytes.
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli decompress corrupt image exit",
+               main([os.path.join(td, "corrupt.img"), "decompress"]), 2)
+        ok("cli decompress corrupt image message",
+           "no valid CE segment" in err.getvalue(), True)
+
     print("cerom selftest: %d checks OK (synthetic ROM, no vendor data)" % len(checks))
     return 0
+
+
+def decompress_command(args, data):
+    """Run ``decompress``: classify (and optionally write) compressed sections."""
+    try:
+        cc = cecompress_module()
+    except ImportError as exc:
+        print("error: cannot import tools/cecompress.py: %s" % exc, file=sys.stderr)
+        return 2
+
+    modules = None
+    if args.modules is not None:
+        modules = [name.strip() for name in args.modules.split(",") if name.strip()]
+        if not modules:
+            print("error: --modules names no module", file=sys.stderr)
+            return 2
+    selector = None
+    if args.section is not None:
+        try:
+            selector = section_selector(args.section)
+        except ValueError as exc:
+            print("error: %s" % exc, file=sys.stderr)
+            return 2
+
+    image_size = os.path.getsize(args.image)
+    try:
+        report = decompress_report(
+            data, args.image, image_size, hashlib.sha256(data).hexdigest(),
+            sha256_scope=sha256_scope_text(len(data), image_size),
+            modules=modules, section=selector, method=args.method,
+            out_dir=args.out, check=args.check, image_start=args.image_start)
+    except cc.CeCompressError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+    except KeyError as exc:
+        print("error: no module named %s in this ROM" % exc.args[0], file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+    except ValueError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+
+    if not report["counts"]["sections"]:
+        print("error: no IMAGE_SCN_COMPRESSED section matched "
+              "(--modules %s, --section %s)" % (args.modules, args.section),
+              file=sys.stderr)
+        return 2
+
+    if args.json:
+        sys.stdout.write(json.dumps(report, indent=2) + "\n")
+    else:
+        print_decompress_text(report)
+
+    counts = report["counts"]
+    if counts["errors"]:
+        return 1
+    return 0 if counts["ok"] == counts["sections"] else 1
 
 
 def memmap_command(args, cerom, data):
@@ -840,6 +1454,18 @@ def main(argv=None):
                    help="omit IMAGE_SCN_COMPRESSED sections and report the count")
     p.add_argument("--ghidra-script", metavar="FILE",
                    help="also write a Ghidra Jython script mapping the same blocks")
+    p = sub.add_parser("decompress",
+                       help="decode IMAGE_SCN_COMPRESSED o32 sections (M1.3)")
+    p.add_argument("--modules", help="comma-separated module names (default: all)")
+    p.add_argument("--section", metavar="NAME",
+                   help="only sec<N>, MODULE/sec<N> or an RVA in hex")
+    p.add_argument("--method", default="auto",
+                   help="auto (default), lzss/cecompress or lzx")
+    p.add_argument("--out", metavar="DIR",
+                   help="write each OK decode as <module>.<rva>.bin")
+    p.add_argument("--check", action="store_true",
+                   help="decode only, write nothing (default without --out)")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
     a = ap.parse_args(argv)
 
     if a.selftest:
@@ -848,10 +1474,18 @@ def main(argv=None):
         ap.error("the following arguments are required: image")
     if a.cmd is None:
         ap.error("a subcommand is required (romhdr, modules, files, sections, exports, "
-                 "va2file, file2va, extract, memmap)")
+                 "va2file, file2va, extract, memmap, decompress)")
 
-    with open(a.image, "rb") as fh:
-        data = fh.read(128 << 20)
+    try:
+        with open(a.image, "rb") as fh:
+            data = fh.read(128 << 20)
+    except OSError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+
+    if a.cmd == "decompress":
+        return decompress_command(a, data)
+
     r = CERom(data, a.image_start)
 
     if a.cmd in ("memmap", "ghidra"):
