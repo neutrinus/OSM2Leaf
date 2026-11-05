@@ -29,6 +29,27 @@ logical   2390610176 bytes
 stored    1421900190 bytes
 ```
 
+## `cmpind_writer.py`
+
+Read/write `.cmp`/`.ind`. Two modes:
+
+```bash
+# Preserve original streams; rebuild only the index (byte-identical)
+python3.13 tools/cmpind_writer.py preserve \
+    REFER001/COORD001.DAT.cmp REFER001/COORD001.DAT.ind out COORD001.DAT
+
+# Recompress from scratch (semantic; byte-identical only with matching zlib)
+python3.13 tools/cmpind_writer.py recompress \
+    REFER001/COORD001.DAT.cmp REFER001/COORD001.DAT.ind out COORD001.DAT
+
+# Verify every pair
+python3.13 tools/cmpind_writer.py verify REFER001
+```
+
+Factory-identical recompression needs stock zlib 1.3.1, level 6, wbits 15,
+memLevel 8, default strategy. zlib-ng (sometimes Python 3.14) does **not**
+reproduce the bytes; use `preserve`.
+
 ## `leafimg.py`
 
 Inspect a raw SD card image and the common 512-byte map-file header.

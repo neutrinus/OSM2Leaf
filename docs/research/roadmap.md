@@ -53,8 +53,9 @@ This is the strongest and cheapest proof.
 
 ## Gate 2 — compressed container round-trip
 
-**Status:** in progress (writer under test). Preserved-stream round-trip is the
-target; semantic round-trip is the fallback for changed content.
+**Status:** passed for preserved streams (194/194 byte-identical). Full
+recompression is byte-identical with stock zlib 1.3.1; zlib-ng requires
+preserved streams.
 
 Targets:
 

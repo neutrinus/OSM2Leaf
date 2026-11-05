@@ -33,9 +33,12 @@ OSM only after that.
    - [x] `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte.
    - [ ] `MMAIN001.DAT`, headers, `REFER002`, `ADDRE` index areas.
 4. **Gate 2 — compressed round-trip**
-   - [ ] `.cmp`/`.ind`: preserve original streams → byte-identical.
-   - [ ] Changed content: `decode(repack(x)) == x`, stable chunking.
-   - [ ] Document zlib encoder determinism.
+   - [x] `.cmp`/`.ind` preserved-stream writer: 194/194 byte-identical
+     (`EXP-2026-11-05-06`).
+   - [x] Stock zlib 1.3.1 settings reproduce all 36,581 factory chunks;
+     zlib-ng does not.
+   - [x] Build rule: preserve unchanged, hybrid for changed, pin compressor
+     for new files.
 5. **Gate 3 — tile round-trip**
    - [x] Clean tiles byte-identical (`EXP-2026-11-05-04`).
    - [ ] Dense section-4 tile byte-identical.

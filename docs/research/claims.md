@@ -217,6 +217,17 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-167 | `BICON001.DAT` is the only map file with a different data version (`11/04/08/01` vs `11/06/27/01`). | OBSERVED | M | header comparison |
 | C-168 | Only ~61 % of a tile's post-`0x5200` payload is inside zlib streams; the rest is alignment padding and fixed tables. There is no per-tile digest. | VERIFIED | H | stream accounting |
 
+## Writers
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-190 | A preserved-stream `.cmp`/`.ind` writer rebuilds all 194 pairs byte-identically. | VERIFIED | H | EXP-2026-11-05-06 |
+| C-191 | Stock zlib 1.3.1 at level 6 / wbits 15 / memLevel 8 / default strategy reproduces all 36,581 factory chunks. | VERIFIED | H | EXP-2026-11-05-06 |
+| C-192 | zlib-ng reproduces 0/194 `.cmp` files; on such a machine, byte-identity requires preserved streams. | VERIFIED | H | EXP-2026-11-05-06 |
+| C-193 | Build rule: unchanged files preserve streams; changed files recompress only affected 64 KiB chunks; new files pin a fixture-checked compressor. | VERIFIED (procedure) | H | EXP-2026-11-05-06 |
+| C-194 | The `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte (11,968 B). | VERIFIED | H | EXP-2026-11-05-06 |
+| C-195 | Pre-write fixtures: `COORD001` `6074a93c…`, `POINT032` `1dac3ae6…`, `ADDRE001` `bbeb60f2…` (`.cmp` SHA-256). | VERIFIED | H | EXP-2026-11-05-06 |
+
 ## Market / version
 
 | ID | Claim | Status | Confidence | Evidence |

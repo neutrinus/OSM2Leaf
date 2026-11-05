@@ -81,6 +81,39 @@ Notes:
 - The decompressed payload still begins with the common 512-byte header
   described in [file-header.md](file-header.md).
 
+## Writing
+
+`tools/cmpind_writer.py` implements two modes:
+
+| Mode | Behaviour | Byte-identity |
+| --- | --- | --- |
+| `preserve` | keep the original compressed chunk bytes, rebuild only `.ind` | **194/194 `.cmp` and `.ind` identical** |
+| `recompress` | inflate, split into 64 KiB chunks, deflate from scratch | factory-identical only with matching zlib |
+
+Factory-identical stock zlib settings (verified on all 36,581 chunks):
+
+```
+level 6, wbits 15, memLevel 8, Z_DEFAULT_STRATEGY, DEFLATED
+```
+
+**Important:** Python 3.14 may link **zlib-ng**, which reproduces **0/194**
+factory `.cmp` files even though the payload is correct. On such a machine,
+byte-identity requires `preserve`. This is a property of the compressor build,
+not of the format.
+
+Build rule:
+
+1. unchanged file → preserve streams (or copy the original pair);
+2. changed file → recompress only the 64 KiB chunks containing changed bytes,
+   keep all other streams verbatim, rebuild `.ind` offsets;
+3. new/whole-file rewrite → pin stock zlib 1.3.1 and check these fixtures:
+
+```
+COORD001.DAT.cmp  6074a93c27081bf3e770411a549f4427721cd5bd44ef3198473ef03742956ed1
+POINT032.DAT.cmp  1dac3ae6d330414686a69df6749b3bb8b563029ce00ecefad1bba02170f1bba7
+ADDRE001.DAT.cmp  bbeb60f242a57f297d2d2c6d7180b8b68e57a2bec90fcbfd699eead7271a7025
+```
+
 ## Verification
 
 `python3 tools/cmpind.py verify REFER001` checks every pair and reports:

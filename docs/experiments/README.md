@@ -77,3 +77,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-03](EXP-2026-11-05-03-checksums.md) | Firmware checksums and per-file integrity | done |
 | [EXP-2026-11-05-04](EXP-2026-11-05-04-tile-roundtrip.md) | ZE0 tile round-trip and viewer | done for clean tiles; dense tiles open |
 | [EXP-2026-11-05-05](EXP-2026-11-05-05-firmware-crosscheck.md) | Firmware section table and reader cross-check | done (readers not located) |
+| [EXP-2026-11-05-06](EXP-2026-11-05-06-cmp-writer.md) | `.cmp`/`.ind` writer and byte-identity | done |
