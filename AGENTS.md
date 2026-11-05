@@ -1,125 +1,166 @@
 # AGENTS.md
 
 Research repo for generating Nissan Leaf ZE0 (2011–2012) navigation maps from
-OpenStreetMap. **Research only** — nothing here has been validated in a car.
+OpenStreetMap. **Research only** — nothing here is validated in a car, and
+hardware access is currently unavailable.
 
 All repo content (code, docs, commits) is English. Conversation may be Polish.
 
 ## Read first
 
 1. `README.md` — scope, verified findings, documentation index.
-2. `docs/research/claims.md` — canonical claim ledger (IDs + status). Trust
-   this over prose in other docs.
-3. `docs/format/*.md` — per-format notes.
-4. `TODO.md` — actionable work; `docs/research/open-questions.md` — unknowns.
-5. `tools/README.md` — exact tool commands.
+2. `docs/research/claims.md` — canonical claim ledger. Trust it over prose.
+3. `docs/format/*.md` — current per-format knowledge.
+4. `TODO.md` — active work; `docs/research/roadmap.md` — gates;
+   `docs/research/open-questions.md` — unknowns.
+5. `tools/README.md` — exact commands and expected output.
 
 ## Repo shape
 
-- No package manager, build system, CI, lint or typecheck. The deliverables are
-  docs plus small Python CLIs.
-- `tools/` — Python 3.10+, standard library only. Entrypoints are run directly.
-- `docs/format/` — on-disk format facts and hypotheses (current knowledge).
+- No package manager, build system or CI. Deliverables are docs plus small
+  Python CLIs; run entrypoints directly.
+- `tools/` — Python 3.10+, standard library only. `tools/ze0-viewer/` clones a
+  pinned `osm2clarion` via `setup.sh` (git-ignored vendor tree).
+- `docs/format/` — living format knowledge.
 - `docs/experiments/` — append-only experiment records.
-- `docs/research/` — claim ledger, sources, open questions.
+- `docs/research/` — claims, roadmap, protocols, comparisons.
+- `profiles/` — user-selectable build profiles (JSON; whole tiles only).
 - `archive/` — git-ignored vendor data. Never commit its contents.
-- Working data lives outside the repo; on this machine:
+- Working data lives outside the repo; on this machine
   `/home/marek/projekty/leafre-work/` (`leaf2011.img`, extracted `root/`).
-  The reference image SHA-256 is `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`.
+  Reference image SHA-256:
+  `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`.
 
-## Commands
+## Verification ladder
+
+Run in this order for a data/code change:
 
 ```bash
-python3 tools/selftest.py                 # no vendor data needed; run before committing
-python3 tools/cmpind.py verify <REFER001> # expect 194/194 OK on the EU 2011 image
-python3 tools/leafimg.py info <image>
-python3 tools/leafimg.py header <file>
-python3 tools/drstr.py parse <DRSTR001.DAT>
+python3 tools/selftest.py                  # synthetic, no vendor data
+python3 tools/cmpind.py verify <REFER001>  # expect 194/194 OK
+python3 tools/cardcheck.py --root <root>   # L1 structural: expect PASS
+python3 tools/l2check.py --root <root>     # L2 round-trip + golden: expect PASS
+python3 tools/verify.py --root <root>      # cross-year wrapper for both
 ```
 
-There is no other test suite. For a decoder change, run it against a real
-sample and state the result in the commit body. Never test a modified image in
-a car without a verified backup and a spare SD card.
+- `cardcheck.py --image` adds MBR/FAT checks and the `0x06000000` copy.
+- `--partial` for map-only trees, `--ignore-dump-artifacts` for 2016/2019
+  images; keep them explicit.
+- `l2check.py --cmp-limit 20 --no-tiles` for a fast check;
+  `--update-golden` only after an intentional decoder change, never to make a
+  failing run pass.
+- Tile-level check: `cd tools/ze0-viewer && ./setup.sh && python3 harness.py
+  verify <tile>`. Expect byte-identical for `B28R070R`, `B30R060R`,
+  `B58R070R`, `B30R048R`, `LEV3456R`.
+- Every verification is pinned to a sample SHA-256; record the result in the
+  commit body or the experiment record.
 
-## Format gotchas that are easy to get wrong
+## Format facts agents get wrong
 
-- The common 512-byte header text is **UTF-16 big-endian**, not little-endian.
-  Only `0x000`–`0x17f` is text; `0x180` onward is binary.
-- `REFER001/*.cmp` is **not** one zlib stream. It is `chunk_count` independent
-  zlib streams indexed by `.ind`. Plain `zlib.decompress()` silently returns
-  only the first 64 KiB chunk. Use `tools/cmpind.py`.
-- `.ind` = `u32 uncompressed_size, u32 compressed_size, u32 chunk_count,
-  u32 chunk_size (0x10000), u32 chunk_offset[chunk_count]`. Decompressed
-  payloads still include the 512-byte header.
-- `DRSTR001.DAT` has **no header**. Node 0 is the root `/` at `0x0000`; the
-  EU 2011 image has 40 nodes of 40 bytes, then 324 entries of 32 bytes
-  (`40*40 + 324*32 = 11968`). Node fields: `next_index` `+0x14`,
-  `parent_index+1` `+0x16`, `entry_count` `+0x18`, `listing_offset` `+0x24`.
-  Entry fields: `name[13]`, `type` `+0x16`, `value` `+0x1c` (file size; for a
-  directory, recursive subtree total). `0x2f` is `/`, not a count. Older notes
-  about a “one-node shift” were a parsing bug; do not reintroduce it.
-- `MAPAL001/*.DAT` tiles are **not raster images**. They are a header plus many
-  small zlib records. Do not assume a bitmap or a single compressed blob.
-- Tile grid is **verified**: B/R are hex, `lat_min = int(B,16)*2/3`,
-  `lon_max = 108-int(R,16)`, cell 5.333° × 8°. Stream keys are
-  `A = 32768 + lat*192`, `B = 52736 + lon*128`, plus a `u16` table tag.
-  Use `tools/mesh_grid.py` rather than re-deriving it.
+- Common header text is **UTF-16 big-endian**, only `0x000`–`0x17f`; `0x180`
+  onward is binary.
+- `REFER001/*.cmp` is **not** one zlib stream: `chunk_count` independent
+  streams indexed by `.ind`. `zlib.decompress()` silently returns only the
+  first 64 KiB chunk.
+- `.ind` = `u32 uncompressed, u32 compressed, u32 count, u32 chunk_size
+  (0x10000), u32 offsets[count]`. Payloads keep the 512-byte header.
+- `REFER002` has **16 files**, not 194; it is a separate EV/charging layer.
+- `DRSTR001.DAT` has **no header**: root `/` at `0x0000`, 40-byte nodes, then
+  32-byte entries (2011: `40*40 + 324*32 = 11968`). Entry `value` is logical
+  size for `.cmp`, **on-disk** size for `MAPAL001` tiles, recursive total for
+  directories. `0x2f` is `/`, not a count.
+- `MAPAL001` has **45** `BxxRyyR.DAT` + `LEV3456R.DAT`; not raster. B/R are
+  hex: `lat_min = int(B,16)*2/3`, `lon_max = 108-int(R,16)`, 5.333° × 8°.
+  Stream keys: `A = 32768 + lat*192`, `B = 52736 + lon*128`, plus a table tag.
 - `COORD001` is a 33-entry region-bbox table at `0x1010`, not a point list:
-  `lat = (x-32768)/192`, `lon = (y-52742)/128`.
-- `tools/leafimg.py header` decodes only the text region by design;
-  `tools/drstr.py parse` stops at the first listing by design.
+  `lat = (x-32768)/192`, `lon = (y-52742)/128`. The same formula covers
+  `ADDRE`/`POINT` ids; `ADDRE`/`POINT` share ids (POI↔address join is by
+  street + house number).
+- Tile **section 4 is an administrative/place-name index**, not geometry.
+  Road names come from the odd partner record's names section.
+- The `0..2047` coordinate bound is a runtime/bit-packed constraint, not a
+  plain-u16 storage rule; raw payloads contain larger `u16` values.
+- Use `tools/mesh_grid.py`, `tools/cmpind.py`, `tools/cmpind_writer.py`
+  instead of re-deriving these.
 
-## Closest prior art (external, verify before relying)
+## Writing data back
 
-`https://github.com/albertbm/osm2clarion` documents a closely related Clarion
-QY8x format (`CLA-NAVI06-01`, `X08-03-00`) with a tile grid, zlib record tree,
-`DRSTR001.DAT`, `REFER001` and `LEV3456R.DAT`. External research claims:
+- **Unchanged file:** preserve original streams (or copy the pair) —
+  byte-identical on any machine.
+- **Changed file:** recompress only 64 KiB chunks containing changed bytes,
+  keep the rest verbatim, rebuild `.ind` offsets.
+- **New/whole-file rewrite:** stock zlib 1.3.1, level 6, wbits 15, memLevel 8,
+  default strategy. zlib-ng (often Python 3.14) reproduces **none** of the
+  factory streams. Check the fixtures in `docs/format/cmp-ind.md` first.
 
-- tiles are addressed by index order, not only by filename (grid itself is
-  now verified on ZE0 — see above);
-- `VER_INFO/HDD_INFO.TXT` line 1 is the base card code; editing it is reported
-  to fix `DIFFERENT MAP CODE`;
-- SD lock is a CMD42 password, not file encryption.
+## Firmware: do not redo these dead ends
 
-These are **leads from research, not verified on ZE0**. Check them against the
-EU 2011 sample and record the outcome in `claims.md` before building on them.
+Firmware RE is the primary path, but static address recovery is **closed**:
 
-## Data, license, safety
+- the ROM is **pre-bound** (imports stripped); no import descriptor names the
+  thunks;
+- there is **no XIP/section table** in the image; `ECEC`/`NKOK` are container
+  metadata;
+- `module_scan` `(file_base, va_base)` pairs are wrong for most modules;
+  the VA map is **not injective** (`0x0367b180` is both a `jsr` target and a
+  string);
+- `0xc438a4` does **not** open `CMP.LST` (it is a stats formatter); map
+  filenames have zero literal references;
+- `+0x02200000` is **not** the map code delta; the per-instruction table gives
+  a `0x02b0xxxx` band;
+- `NaviStateCC` is a COM DLL; its vtable is built at runtime and no static
+  vtable contains the fd methods (`0xc42520`, `0xc426a4`, `0xc438a4`);
+- `0x6faf30` is a Bluetooth/OPP handler, not the reader.
 
-- Never commit vendor data: images, dumps, firmware, `.DAT`, `.cmp`, `.ind`,
-  `.AGM`, `.TTS`, `.GID`. `.gitignore` also drops `*.img`/`*.7z`. Keep them in
-  `archive/` or outside the repo. `git add -f` only for tiny synthetic fixtures.
-- Code is GPL-3.0-or-later; OSM-derived data is ODbL-1.0. Do not copy code from
-  incompatible projects; link to it.
-- Original SD card is read-only: back up, verify hash, test on a spare card.
+Map-code check is numeric `Sys[0x%x]` vs `SD[0x%x]` for `manufacturer_id`,
+`userdata_type` (range `0..5`) and `destination_id`; comparator chain at
+`0x6fab2c` → `0x6faeb0` → `0x6fb05c`, data delta `0x02800000`. The
+`HDD_INFO` parser sits behind a runtime COM object.
 
-## Documentation model
+Next reader step is **dynamic**, not static: see
+`docs/research/dynamic-break-guide.md` (break on `MAL_DataVol_getOffset`,
+then fd methods, then fd thunks). Do not propose another static module-base
+search without new relocation evidence.
+
+## Documentation and evidence
 
 Three layers, each with one job:
 
 | Layer | Location | Rule |
 | --- | --- | --- |
-| Current knowledge | `docs/format/*.md` | Living document: the best answer today |
-| Experiment log | `docs/experiments/EXP-*.md` | Append-only: one record per experiment, never rewritten |
-| Claim ledger | `docs/research/claims.md` | Index: every claim has an ID, status and evidence |
+| Current knowledge | `docs/format/*.md` | living: best answer today |
+| Experiment log | `docs/experiments/EXP-*.md` | append-only: never rewritten |
+| Claim ledger | `docs/research/claims.md` | every claim has ID, status, evidence |
 
-Flow: `format doc -> claim ID -> EXP record -> tool command`.
+Flow: `format doc → claim ID → EXP record → tool command`.
 
-- Start a new experiment from `docs/experiments/TEMPLATE.md`; name it
+- New experiment: copy `docs/experiments/TEMPLATE.md`, name
   `EXP-YYYYMMDD-NN-slug.md`.
-- Record the sample SHA-256, exact commands, raw observations, then
-  interpretation. Do not mix observation with interpretation.
-- When a result changes the current knowledge, update the format doc and the
-  claim ledger in the same commit. Do **not** rewrite the old experiment; add
-  a new one and set `Supersedes` / `Superseded by`.
-- Register every new claim in `docs/research/claims.md` with the next free ID
-  and status `VERIFIED`, `OBSERVED`, `HYPOTHESIS` or `UNKNOWN`.
-- `VERIFIED` requires a reproducible command/check; non-obvious claims cite an
-  `EXP-...` ID and/or a `tools/` command. Otherwise they are hypotheses.
-- External links go in `docs/research/sources.md`; unresolved questions in
-  `docs/research/open-questions.md`; loose threads in `TODO.md`.
-- State the sample and its SHA-256. Negative results are useful; record the
-  method and scope.
+- Record sample SHA-256, exact commands, raw observations, then
+  interpretation. Never mix observation and interpretation.
+- Statuses: `VERIFIED` (reproducible check), `OBSERVED`, `HYPOTHESIS`,
+  `UNKNOWN`.
+- When a result changes knowledge, update the format doc and `claims.md` in the
+  same commit.
+- **Retraction rule:** never delete a claim row. Mark it `RETRACTED` (or
+  `VERIFIED (retraction)` for a proven negative), keep its ID, and add a new
+  claim with `Supersedes: C-xxx`. Correction experiments set
+  `Supersedes` / `Superseded by`.
+- External links → `docs/research/sources.md`; unknowns →
+  `docs/research/open-questions.md`; loose threads → `TODO.md`.
+- Negative results are first-class; record the method and scope.
+
+## Data, license, safety
+
+- Never commit vendor data: images, dumps, firmware, `.DAT`, `.cmp`, `.ind`,
+  `.AGM`, `.TTS`, `.GID`. `.gitignore` also drops `*.img`/`*.7z`. Keep them in
+  `archive/` or outside the repo; `git add -f` only for tiny synthetic
+  fixtures.
+- Code is GPL-3.0-or-later; OSM-derived data is ODbL-1.0. Link to incompatible
+  projects instead of copying code.
+- Original SD card is read-only: back up, verify hash, test on a spare card.
+- Hardware access is currently unavailable, so card matrices and dynamic
+  breaks are deferred; do not present them as ready next actions.
 
 ## Commit style
 
