@@ -88,6 +88,21 @@ Clarion part number.
 This is the QY8x family documented by `osm2clarion`, not the ZE0 format. Do
 not use it as a ZE0 reference except for cross-checking the format family.
 
+## Cross-year differential (2011/2014/2016)
+
+A direct comparison of the three ZE0-era images shows the same 46 tile names,
+194 `REFER001` pairs and 11 `MMAIN` rows in every year, but growing data:
+
+- `HDD_INFO.TXT` line 1 is constant (`QSD-302-100`); lines 2, 3, 5 and 6 track
+  map set, build, year-month and part number.
+- `B30R048R.DAT` section 4 has 20/24/24 records and 68/126/129 names.
+- `REFER002` grows from 15 `POINT` shards in 2011 to 29 in 2016, with
+  `ICODE001.DAT` appearing from 2013.
+- `TFTBL001` and a larger speech set appear from 2014.
+
+These are observed cross-year differences, not proof of which fields the unit
+validates. See `EXP-2026-11-05-32`.
+
 ## Implications
 
 - The ZE0-era map format is stable across 2011–2016; a compiler target can be

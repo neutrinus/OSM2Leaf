@@ -556,6 +556,23 @@ its tile writer.
 - [ ] Record SD lock, map-code and any map-data error behaviour.
 - [ ] Keep the original card read-only and test only on spare media.
 
+## P10b — differential follow-ups (2011/2014/2016)
+
+- [ ] `B30R048R`: map the directory/block differences at `0x807`/`0x808` and
+  either implement a layout-aware writer or formally adopt the preserved-layout
+  fallback for edited dense tiles.
+- [ ] Map-code/activation: run the spare-card `HDD_INFO` variant matrix and
+  record which lines/fields are accepted or rejected.
+- [ ] Section 4: decode the binary fields between the country code and names;
+  verify the 20/24/24 record delta; build a ZE0 section-4 encoder.
+- [ ] `REFER002`/`ICODE001`: compare region schemas and place-name counts
+  across years.
+- [ ] Cross-year POI mutation: parameterise the fixture per year (2014
+  `POINT001.DAT` page `0x39700`; 2016 `0x3d700`).
+- [ ] Add per-year golden profiles only if digest comparison beyond factory
+  data is wanted.
+- [ ] Decide `TFTBL001` and speech-language packaging scope.
+
 ## Documentation / housekeeping
 
 - [ ] Add a `docs/format/rdstm.md` once `RDSTM001` is decoded.
