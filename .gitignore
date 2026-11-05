@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+# Proprietary / third-party map data
+# ---------------------------------------------------------------------------
+# Original Nissan/Clarion map images, SD card dumps, extracted filesystems and
+# any other vendor data must never be committed. Keep them in archive/.
+/archive/*
+!/archive/.gitkeep
+
+# Working directories that may contain extracted or carved vendor data.
+/work/
+/scratch/
+/root/
+/pe/
+/images/
+*.img
+*.IMG
+*.7z
+*.iso
+*.vhd
+*.dd
+
+# Raw map containers extracted from SD images. These may be vendor data or may
+# be large generated artifacts; both are kept out of Git.
+*.DAT
+*.cmp
+*.ind
+*.AGM
+*.TTS
+*.GID
+
+# ---------------------------------------------------------------------------
+# Build / tooling
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.cache/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
