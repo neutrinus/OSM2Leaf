@@ -17,10 +17,12 @@
 > public format/arithmetic, not yet exercised on this image; `UNKNOWN` = no
 > data. Every section carries its own status.
 >
-> **Tool.** `tools/ce_rom_parse.py` is the only firmware parser in the repo.
-> It reads the wrapper, the segment header, `ROMHDR` and the TOC. It does
-> **not** parse `e32_rom`, `o32_rom` or the copy table — those sections below
-> are format knowledge, not tool output.
+> **Tool.** `tools/cerom.py` is the firmware parser of record: it reads the
+> wrapper, the segment header, `ROMHDR`, the TOC, `e32_rom`/`o32_rom`,
+> `va2file`/`file2va`, `extract`, `memmap`/`ghidra` and (synthetic) `decompress`.
+> `tools/ce_rom_parse.py` is the legacy whole-image `ECEC` scanner (H3 folds it
+> into `cerom.py`). Sections below are now partly tool output (§5, §7); the
+> copy table (§6) and compression scheme (§5) remain format knowledge.
 
 ---
 
@@ -253,9 +255,10 @@ so module names/bases from the report are trustworthy for all builds.
 
 ## 5. `e32_rom` and `o32_rom` — module metadata
 
-**Status: HYPOTHESIS** for this image (layout from the public CE
-`ROMLDR.H`/`PEHDR.H`; **no tool in the repo parses these yet**, so nothing
-below is verified against the sample).
+**Status: VERIFIED** for the layout and field decoding on this image
+(`tools/cerom.py` `sections`/`exports`/`imports`/`memmap`; EXP-2026-11-05-35,
+-36, -48); the CE compression scheme (§5, `IMAGE_SCN_COMPRESSED`) and the
+per-section initial-value policy remain UNKNOWN (M1.2/M1.3).
 
 Each module has one `e32_rom` (module header) and `e32_objcnt` `o32_rom`
 records (sections), addressed by the TOC VAs. `o32_rom` is **24 bytes**
@@ -355,7 +358,7 @@ pattern exists at all.
 
 **What it does not explain:** the `0x0367b180` collision. That VA is a `jsr`
 target in the builder *and* the UTF-16 string at file `0xe7b180` under the
-guessed data delta `0x02800000` (EXP-2026-11-05-22, C-384). The string only
+a single guessed data delta (EXP-2026-11-05-22, C-384). The string only
 lands there because a single global delta was applied across sections; the
 real cause is the missing per-section map (§5), not the copy table. Nor does
 the copy table explain the failed prologue scoring of `module_scan` (C-382).
@@ -446,7 +449,7 @@ express.
   `0x200240`; C-088/C-089 supersede the negative.
 - **A single constant cannot be injective.** The map module's `.rdata` fits
   `+0x02000000` (C-086), OBJDLL's `VA 0x03480000` against file `0x7dd200`
-  gives `+0x02ca2e00`, the comparator module's data gives `+0x02800000`, and
+  gives `+0x02ca2e00`, the comparator module's data gives yet another delta, and
   the per-instruction band sits at `+0x01f07d5c`. Sections are placed
   independently, so each has its own delta.
 - **The collision is structural.** EXP-2026-11-05-22: `0x0367b180` is both a
@@ -582,7 +585,7 @@ Code vs documentation, all checked by reading
 | 8 | "15 × u32 table" at `0x00200200`; it is the `0x40`-byte CE boot block, i.e. 16 dwords up to `ECEC` at `+0x40`. Also it is the segment base, not container metadata. | `firmware.md`, EXP-24 | mislabels the CE entry block |
 | 9 | "Section table is a dead end" (records at `0x374000`, `0x3e0060`): both offsets lie inside build A's segment (`0x200200`–`0x1952e88`), so they can be genuine `o32_rom` arrays reached via `ulO32Offset`. `0x3e0060` is **not** in build B's wrapper (B starts at `0x03e00000`, about 58 MiB higher). | `firmware.md` | stale negative, re-check with the TOC |
 | 10 | "`0x1952b00` is a RAM copy list (32-byte records)": both `0x1951ee0` and `0x1952b00` are TOC entries at phase `0x14` (the `ulE32Offset` field). Real `COPYentry` is 16 bytes. | `firmware.md`, EXP-29 | wrong structure identification |
-| 11 | `ROMHDR` sanity checks are ticked in `TODO.md` but no values were recorded for `dllfirst`/`dlllast`/`ulRAM*`/`ulCopy*`/`pExtensions`/`ulTracking*`. | `TODO.md` Step 1 | cannot be re-derived without the image |
+| 11 | `ROMHDR` sanity checks are ticked in `TODO.md` but no values were recorded for `dllfirst`/`dlllast`/`ulRAM*`/`ulCopy*`/`pExtensions`/`ulTracking*`. | `TODO.md` (Gate 0) | cannot be re-derived without the image |
 | 12 | `e32_rom`/`o32_rom` sizes quoted in older notes (`0x1c`, `0x28`) do not match the CE 3–5 headers (`0x20 + 8*ROM_EXTRA + 2`; `0x18`). | older notes | do not hard-code a record size |
 
 ---
@@ -594,17 +597,20 @@ Code vs documentation, all checked by reading
    `lpszFileName`, `ulLoadOffset`), and stop at `physlast`.
 2. Add the missing `ROMHDR` fields and convert every pointer field through
    `p2f`, flagging any pointer outside `physfirst…physlast`.
-3. Read the first two `e32_rom` records and settle `ROM_EXTRA` / record size
-   from the data, then dump `o32_rom` for one small module (`toolhelp.dll`) and
-   one large one (`Navi.exe`), including `o32_flags` with
-   `IMAGE_SCN_COMPRESSED`.
+3. **Done** — `ROM_EXTRA`/record size settled from the data and `o32_rom`
+   dumped for every module via `tools/cerom.py sections MODULE` (EXP-2026-11-05-35/36/48);
+   `IMAGE_SCN_COMPRESSED` sections are flagged and excluded from raw section
+   bytes until M1.2/M1.3. Remaining: dump the `COPYentry` array (item 4) and
+   confirm writable-section initial values.
 4. Dump the `COPYentry` array and test whether writable sections' `realaddr`
    are RAM copies of their `dataptr` template.
-5. Then the `TODO.md` Step 2 goal: `tools/cerom.py` with `romhdr`, `modules`,
-   `files`, `sections`, `va2file`, `file2va`, `extract`, plus a Ghidra memory
-   map or reconstructed PE per module.
-6. Re-run the known anchors with exact VAs: `0x6fab2c` → `0x6faeb0` →
-   `0x6fb05c`, `MAL_DataVol_getOffset`, `0x0369d400`.
+5. `tools/cerom.py` now implements `romhdr`, `modules`, `files`, `sections`,
+   `exports`, `imports`, `va2file`, `file2va`, `extract`, `memmap`/`ghidra`
+   and `decompress` (EXP-2026-11-05-35…-53); remaining follow-ups are M1.2
+   (compressed-section header/decoder), M1.3 (all 245 sections), M1.6b (thunk
+   labels) and M9.2 (Ghidra project import).
+6. Re-run the known anchors with exact VAs: the retired comparator chain
+   (C-520, C-528), `MAL_DataVol_getOffset`, `0x0369d400`.
 
 See [`firmware.md`](firmware.md) for the surrounding wrapper, code recovery and
 the dead-end list, and `docs/experiments/EXP-2026-11-05-33`/`-34` for the raw

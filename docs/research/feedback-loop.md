@@ -37,8 +37,9 @@ acceptance.
   ([`EXP-2026-11-05-29`](../experiments/EXP-2026-11-05-29-l1-l2-validators.md)).
 - `tools/verify.py` — one cross-year wrapper: auto-detects 2011/2014/2016,
   applies the artifact/partial flags, and reports QY8x 2019 as unsupported.
-- Firmware RE — readers are not located yet; full-system QEMU was rejected
-  in [`../format/firmware.md`](../format/firmware.md).
+- Firmware RE — readers are not located yet; full-system QEMU was re-evaluated
+  by EXP-2026-11-05-37 (stock QEMU's SH-4A CPU reaches the scheduler) and is
+  tracked as L5/M8, not as a rejected option.
 - `TODO.md` P4b already defines layers L0–L5 for the feedback loop.
 
 The missing piece is not another decoder. It is an **acceptance oracle** that
@@ -118,10 +119,12 @@ current blocker in firmware RE is not instruction semantics — it is module
 placement and reader identification. QEMU does not solve that; it only gives a
 place to run code once we already know what to run.
 
-**Verdict: not now.** It is a legitimate long-term research spike, but it is
-not a prerequisite for the map compiler and it is not the cheapest path to a
-yes/no answer. If attempted, timebox it (for example 2–4 weeks) and stop if the
-kernel does not reach a stable idle loop; do not let it crowd out the data work.
+**Verdict: not now.** The old "full-system QEMU is not realistic" claim is
+**Superseded by EXP-2026-11-05-37** (stock QEMU's SH-4A CPU runs B's `nk.exe`
+into the scheduler); it remains a legitimate long-term research spike (M8), not
+a prerequisite for the map compiler, and not the cheapest path to a yes/no
+answer. If attempted, timebox it and stop if the kernel does not reach a stable
+idle loop; do not let it crowd out the data work.
 
 ## Option C — MAME custom machine
 
