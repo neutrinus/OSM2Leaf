@@ -172,6 +172,12 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-082 | `SECURE` is a CAN/VIN anti-theft check; clearing PROD `A0A0–A0A3` or grounding `TEST_B1` disables it. | OBSERVED | M | external research |
 | C-083 | A full, reproducible US→EU conversion recipe is unknown; commercial converters exist but success/audio survival is unproven. | UNKNOWN | — | no published recipe |
 | C-084 | The map database is not region-locked at file level; the blocker is unit region/coordinate/firmware logic. | HYPOTHESIS | M | follows from C-080; not proven |
+| C-120 | 2011, 2014 and 2016 ZE0-era images share `CLA-NAVI05-01` / `X08-02-00` / `V05.00.00`, the same 45 tile names and 194 `.cmp`/`.ind` pairs. | VERIFIED | H | image comparison |
+| C-121 | In `HDD_INFO.TXT`, line 1 is a constant base code, line 2 tracks the map set and matches the FAT volume label, line 5 is year-month. | OBSERVED | H | 2011/2014/2016 comparison |
+| C-122 | `TFTBL001/` appears in the 2014 and 2016 sets but not 2011; `REFER002/ICODE001.DAT` appears from 2013. | OBSERVED | H | top-level diff |
+| C-123 | The 2019 e-NV200 image is a different engine: `CLA-NAVI06-01` / `X08-03-00` / ZENRIN, `DB_INFO.TXT`, partition at sector 888833, 14,827 files. | VERIFIED | H | image inspection |
+| C-124 | ZE0-era cards carry three volumes: ~100 MiB firmware area, 7.55 GiB FAT32 map partition, and a TFAT16 volume at image offset `0x1C8400400`. | VERIFIED | H | FAT boot sector at that offset (`MSWIN4.1`, `TFAT16`) |
+| C-125 | The `EU_MAPDATA_*.7z` archives are repacks of the card images, not independent builds. | OBSERVED | H | matching `MMAIN001.DAT` hashes |
 
 ## How to use this ledger
 
