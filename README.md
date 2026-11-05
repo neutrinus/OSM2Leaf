@@ -55,6 +55,9 @@ offsets live in [`docs/format/`](docs/format/).
   `TMC/`, `VER_INFO/`.
 - **Version file.** `VER_INFO/HDD_INFO.TXT` contains `QSD-302-100`,
   `QSD-309-101`, `02-110100-00`, `SDC08-EVEUR`, `11-05`, `470323501005`.
+  The same 72-byte block appears byte-identically at image offset `0x06000000`.
+- **Firmware version string.** `\x82FX210ECNI.158` starts at `0x00200014`; the
+  digits `158` start at `0x0020001f`.
 - **Common file header.** Most map files start with a 512-byte header of
   UTF-16**BE** strings: `CLARION`, `HITACHI`, `CLA-NAVI05-01`,
   `FORMAT VERSION X08-02-00`, `DATA VERSION 11/06/27/01`, `V05.00.00`,
@@ -133,6 +136,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
 - [Research sources and external links](docs/research/sources.md)
 - [Claims and evidence ledger](docs/research/claims.md) — **start here when
   checking whether something is a fact or a hypothesis**
+- [US unit in Europe: region gates](docs/research/us-eu-region.md)
 - [Open questions](docs/research/open-questions.md)
 - [Data handling and licensing](docs/legal.md)
 

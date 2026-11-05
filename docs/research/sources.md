@@ -17,6 +17,21 @@ note about what they contain and how reliable they are.
 | <https://files.viaaq.eu/maps/> | Mirror of map data archives | Used for cross-version comparison |
 | <https://files.viaaq.eu/sd-images/> | Full SD card images | Source of `LEAF_2011-2012_QSD-309-101_navi158_eu.img` |
 
+## Format, region and teardown sources
+
+| Source | What it is | Status |
+| --- | --- | --- |
+| <https://github.com/albertbm/osm2clarion> | Closest prior art: QY8x Clarion format, tile grid, zlib record tree, `DRSTR001`, `REFER001`, `LEV3456R` | Primary lead; verify against ZE0 |
+| <https://www.drive2.com/l/676021531272284166/> | ZE0/QY7 teardown, full map tree, `VER_INFO`, "Different map code" | Secondary evidence |
+| <https://4pda.to/forum/index.php?showtopic=808016&st=120> | `NAVI VERSION NG`, firmware offsets, `SUM4`, PROD block | Secondary evidence |
+| <https://github.com/developerfromjokela/leafsdtools/issues/3> | Report of a US unit booting EU map files | Secondary evidence |
+| <https://zelemar.eu/nissan-leaf-sd-card-protection-how-to-obtain-sd-card-password/> | SD CMD42 password / protection | Secondary evidence |
+| <https://www.gtr.co.uk/threads/hack-the-hdd-for-euro-maps-on-us-car.249354/> | Same map tree on GT-R HDD / Renault Carminat | Secondary evidence |
+| <https://www.goingelectric.de/forum/viewtopic.php?t=71081> | Partitions, `dd` cloning | Secondary evidence |
+| <https://www.kiwi-w.org/index_eng.html> | KIWI/JIS mesh-code background | Reference |
+| <https://gist.github.com/developerfromjokela/0acf80b6292c22f7a2aa7a3227883e82> | Mesh-ID converter notes | Secondary evidence |
+| <https://gist.github.com/developerfromjokela/de143f2a0b05cd34c2e210b6edd6c650> | `.cmp` decompressor + `DRSTR` notes | Secondary evidence |
+
 ## Standards and licensing
 
 | Source | What it is |
