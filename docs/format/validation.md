@@ -44,8 +44,9 @@ sizes.
 
 ## Map code (`DIFFERENT MAP CODE`)
 
-The UTF-16 string `DIFFERENT MAP CODE` is at firmware `0x04136abc`, next to
-`MAP DATA BASE UNMATCH` and `NAVI VERSION NG`. Nearby launcher code reads
+The UTF-16 string `DIFFERENT MAP CODE` is in `AppLaunch.dll` at physical VA
+`0x883368bc` (build B) / `0x8834089c` (build C), next to `MAP DATA BASE
+UNMATCH` and `NAVI VERSION NG`. Nearby launcher code reads
 `\SystemSD\VER_INFO\HDD_INFO.TXT`, logs `VerInf:%s / HddInf:%s` and checks
 `MapDBVer : %d <= [%d] <= %d`.
 
@@ -122,6 +123,76 @@ The field derivation is the only unverified part and can be settled without
 hardware by reaching the parser through the CE ROM TOC
 (`tools/ce_rom_parse.py`, `docs/format/firmware.md`). Until either that or the
 spare-card matrix happens, every verdict from the tool is a prediction.
+
+## Error screens (`AppLaunch.dll`)
+
+The unit's error screens are **not** in `Navi.exe`: they are a UTF-16LE string block
+in `AppLaunch.dll` (builds B and C; build A has none of them, C-205/C-808). The block
+is in the module's uncompressed section (rva `0x1000`). Every string in the block is
+referenced by exactly one function per build, so the screen is selected by an error
+code indexing into this table, not by a separate string per call site.
+
+VAs below are **physical** VAs from `cerom.py file2va` (build B image start `0x3e00200`,
+build C `0x5200200`); the same bytes reappear in the build-B copy at `0x4800200`.
+
+| Build | Error string | Module | String VA | Showing function VA |
+| --- | --- | --- | --- | --- |
+| B | `UNKNOWN ERROR` | AppLaunch.dll | `0x883367cc` | `0x8834ffb8` |
+| B | `SD ACCESS NG` | AppLaunch.dll | `0x883367e8` | `0x8834ffb8` |
+| B | `SD INIT NG` | AppLaunch.dll | `0x88336804` | `0x8834ffb8` |
+| B | `SD UNLOCK NG` | AppLaunch.dll | `0x8833681c` | `0x8834ffb8` |
+| B | `NO SD CARD` | AppLaunch.dll | `0x88336838` | `0x8834ffb8` |
+| B | `NAVI STARTUP NG` | AppLaunch.dll | `0x88336850` | `0x8834ffb8` |
+| B | `NO SERVICE TOOL` | AppLaunch.dll | `0x88336870` | `0x8834ffb8` |
+| B | `MAP DATA BASE UNMATCH` | AppLaunch.dll | `0x88336890` | `0x8834ffb8` |
+| B | `DIFFERENT MAP CODE` | AppLaunch.dll | `0x883368bc` | `0x8834ffb8` |
+| B | `NAVI VERSION NG` | AppLaunch.dll | `0x883368e4` | `0x8834ffb8` |
+| B | `NAVI-2 FILE READ NG` | AppLaunch.dll | `0x88336904` | `0x8834ffb8` |
+| B | `NO NAVI-2 FILE` | AppLaunch.dll | `0x8833692c` | `0x8834ffb8` |
+| B | `MAIN TEST FILE READ NG` | AppLaunch.dll | `0x8833694c` | `0x8834ffb8` |
+| B | `MAIN TEST FILE SIZE NG` | AppLaunch.dll | `0x8833697c` | `0x8834ffb8` |
+| B | `NO MAIN TEST FILE` | AppLaunch.dll | `0x883369ac` | `0x8834ffb8` |
+| B | `TEST FILE READ NG` | AppLaunch.dll | `0x883369d0` | `0x8834ffb8` |
+| B | `TEST FILE SIZE NG` | AppLaunch.dll | `0x883369f4` | `0x8834ffb8` |
+| B | `NO TEST FILE` | AppLaunch.dll | `0x88336a18` | `0x8834ffb8` |
+| B | `UPDATE FILE READ NG` | AppLaunch.dll | `0x88336a34` | `0x8834ffb8` |
+| B | `UPDATE FILE SIZE NG` | AppLaunch.dll | `0x88336a5c` | `0x8834ffb8` |
+| B | `NO UPDATE FILE` | AppLaunch.dll | `0x88336a84` | `0x8834ffb8` |
+| B | `NAVI-1 NG` | AppLaunch.dll | `0x88336aa4` | `0x8834ffb8` |
+| B | `NO NAVI-1 FILE` | AppLaunch.dll | `0x88336ab8` | `0x8834ffb8` |
+| B | `TARGET INFO NG` | AppLaunch.dll | `0x88336ad8` | `0x8834ffb8` |
+| B | `E-BOOT NG` | AppLaunch.dll | `0x88336af8` | `0x8834ffb8` |
+| C | `UNKNOWN ERROR` | AppLaunch.dll | `0x883407cc` | `0x88359c90` |
+| C | `SD ACCESS NG` | AppLaunch.dll | `0x883407e8` | `0x88359c90` |
+| C | `SD INIT NG` | AppLaunch.dll | `0x88340804` | `0x88359c90` |
+| C | `SD UNLOCK NG` | AppLaunch.dll | `0x8834081c` | `0x88359c90` |
+| C | `NO SD CARD` | AppLaunch.dll | `0x88340838` | `0x88359c90` |
+| C | `NAVI STARTUP NG` | AppLaunch.dll | `0x88340850` | `0x88359c90` |
+| C | `MAP DATA BASE UNMATCH` | AppLaunch.dll | `0x88340870` | `0x88359c90` |
+| C | `DIFFERENT MAP CODE` | AppLaunch.dll | `0x8834089c` | `0x88359c90` |
+| C | `NAVI VERSION NG` | AppLaunch.dll | `0x883408c4` | `0x88359c90` |
+| C | `NAVI-2 FILE READ NG` | AppLaunch.dll | `0x883408e4` | `0x88359c90` |
+| C | `NO NAVI-2 FILE` | AppLaunch.dll | `0x8834090c` | `0x88359c90` |
+| C | `MAIN TEST FILE READ NG` | AppLaunch.dll | `0x8834092c` | `0x88359c90` |
+| C | `MAIN TEST FILE SIZE NG` | AppLaunch.dll | `0x8834095c` | `0x88359c90` |
+| C | `NO MAIN TEST FILE` | AppLaunch.dll | `0x8834098c` | `0x88359c90` |
+| C | `TEST FILE READ NG` | AppLaunch.dll | `0x883409b0` | `0x88359c90` |
+| C | `TEST FILE SIZE NG` | AppLaunch.dll | `0x883409d4` | `0x88359c90` |
+| C | `NO TEST FILE` | AppLaunch.dll | `0x883409f8` | `0x88359c90` |
+| C | `UPDATE FILE READ NG` | AppLaunch.dll | `0x88340a14` | `0x88359c90` |
+| C | `UPDATE FILE SIZE NG` | AppLaunch.dll | `0x88340a3c` | `0x88359c90` |
+| C | `NO UPDATE FILE` | AppLaunch.dll | `0x88340a64` | `0x88359c90` |
+| C | `NAVI-1 NG` | AppLaunch.dll | `0x88340a84` | `0x88359c90` |
+| C | `NO NAVI-1 FILE` | AppLaunch.dll | `0x88340a98` | `0x88359c90` |
+| C | `TARGET INFO NG` | AppLaunch.dll | `0x88340ab8` | `0x88359c90` |
+| C | `E-BOOT NG` | AppLaunch.dll | `0x88340ad8` | `0x88359c90` |
+
+Build A contains none of these strings (string search over all 149 modules). The build-B copy at image offset `0x4800200` is byte-identical to build B, so its VAs are the same.
+
+The showing-function VAs were recovered by the nearest `sts.l pr,@-r15` (`0x4f22`) prologue
+preceding the literal pool that holds all of the string pointers; exact function boundaries are
+a heuristic (C-807). The function is the single dispatcher that selects a screen from an error
+code; `UNKNOWN ERROR` is the fallback.
 
 ## Offline mutation matrix
 
