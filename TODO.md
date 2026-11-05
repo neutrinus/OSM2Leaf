@@ -338,8 +338,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the boot-argument field that selects it if any (feeds M8.B4).
   - Claims: C-700–C-709
 
-- [ ] **M1.8 — SH-4 disassembly and xref helper**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M1.8 — SH-4 disassembly and xref helper**
+  - Status: done · Owner: claude/project-thread-wn7y0u · Critical: yes
   - Depends: —
   - Goal: one command answers "which code loads VA X" and "what does
     function Y call", the step every M2/M3 task needs.
@@ -352,6 +352,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     exports/thunks; it reproduces EXP-50's four call sites; self-test on
     synthetic SH-4 bytes.
   - Claims: C-710–C-719
+  - Result: EXP-2026-11-05-M1.8-sh4xref (`tools/sh4xref.py`; 17 self-test checks; reproduces the four EXP-50 call sites; HDD_INFO slot 0x004e7d28 read at 0x004e7bec in fn 0x004e7b8c)
 
 ---
 
