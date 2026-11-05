@@ -598,8 +598,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the EXP states which section-4 fields depend on road content (or none).
   - Claims: C-920–C-929
 
-- [ ] **M4.5 — `MMAIN001.DAT` meaning and writer**
-  - Status: in progress · Owner: task/m4.5-mmain001 · Critical: no
+- [x] **M4.5 — `MMAIN001.DAT` meaning and writer**
+  - Status: done · Owner: task/m4.5-mmain001 · Critical: no
+  - Result: EXP-2026-11-05-M4.5-mmain001 (`tools/mmain.py`; a FAT root-directory log, 51 records, 12 live; round-trip OK; the task said 11 entries)
   - Depends: —
   - Done when: a writer reproduces the 4,096-byte file (11 entries)
     byte-identically and every field has a meaning or `UNKNOWN`.
