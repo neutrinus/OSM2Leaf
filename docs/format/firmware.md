@@ -1,8 +1,10 @@
 # Firmware and pre-partition area
 
 > **Evidence status:** byte offsets, strings and the SH-4 code recovery are
-> `VERIFIED` on the EU 2011 image; `SUM4`, `ECEC`, the section-to-VA mapping
-> and the role of the duplicated builds are `OBSERVED`/`HYPOTHESIS`.
+> `VERIFIED` on the EU 2011 image; `SUM4` and the role of the duplicated
+> builds are `OBSERVED`/`HYPOTHESIS`. The `ECEC`/`ROMHDR`/TOC layer is
+> `VERIFIED` and documented in [`cerom.md`](cerom.md); the section-to-VA map is
+> still `HYPOTHESIS` there (§5, §7).
 
 The ~100 MB before the FAT partition contains the navigation firmware. It is
 **not** a plain PE image and it is **not** a compressed container: it is an
@@ -18,20 +20,26 @@ At `0x000001c0` and `0x000003c0` there are 512-byte records ending in
 ## Firmware container at `0x00200000`
 
 ```
-0x00200000  u32 0x01752c88        payload length (24,456,328 bytes)
+0x00200000  u32 0x01752c88        ROM payload length == physlast-physfirst
 0x00200014  "\x82FX210ECNI.158"   Clarion version string
 0x0020002c  "SUM4" + u32 0xcdf87db0
 0x00200034  "470-2824-34"         Clarion part number
 0x002001fc  "NKOK"
-0x00200200  15 x u32 table
-0x00200240  "ECEC" (43 45 43 45)
-0x00200248  u32 0x01751978
+0x00200200  CE segment base: 0x40-byte boot block (SH-4 entry)
+0x00200240  "ECEC"                bytes 45 43 45 43, not 43 45 43 45
+0x00200244  u32 0x8e232978        pTOC = VA of ROMHDR
+0x00200248  u32 0x01751978        ROMHDR offset from segment base
 ```
 
 `SUM4` is a tagged checksum field. CRC-32, Adler-32 and plain word sums were
-computed and rejected; the algorithm is **UNKNOWN**. `ECEC` is a fixed field
-present in all payloads; reading it as the WinCE `0x43454345` ROM signature is
-a **HYPOTHESIS**.
+computed and rejected; the algorithm is **UNKNOWN**.
+
+**Superseded (C-380/C-381, resolved):** `ECEC` at segment base `+0x40` is the
+WinCE ROM signature, and the payload contains a standard XIP TOC. The old
+listing called the `0x40` bytes at `0x00200200` a "15 × u32 table" and the
+block "container metadata"; it is the CE boot block, 16 dwords ending exactly
+at `ECEC`, and it is the start of the ROM image, not of the wrapper. Details:
+[`cerom.md`](cerom.md) §1–§2.
 
 ## Payloads and builds
 
@@ -43,8 +51,11 @@ Five payloads, three distinct builds:
 | B | `470-2759-01` | `0x3e00000` and `0x4800000` |
 | C | `470-3142-00` | `0x5200000` |
 
-A/B/C use slightly different header layouts (B/C put the ID at `+0x220` and
-the part number at `+0x250`). The selection logic is **UNKNOWN**.
+A/B/C use slightly different wrapper layouts: B/C put the ID at `+0x220` and
+the part number at `+0x250`, i.e. CE segment `+0x20`/`+0x50`, while A keeps them
+inside the `0x200`-byte wrapper. The CE anchor (`ECEC` at segment base `+0x40`)
+is identical for all builds — see [`cerom.md`](cerom.md) §1. The selection logic
+is **UNKNOWN**.
 
 ## The payload is uncompressed SH-4 code
 
@@ -60,7 +71,10 @@ the part number at `+0x250`). The selection logic is **UNKNOWN**.
 There are **no PE files**. A byte-by-byte scan of all 104,858,624
 pre-partition bytes found 255 `MZ`, 188 `PE\0\0`, and **0** valid
 `MZ`+`e_lfanew`+`PE\0\0`; also 0 `B000FF` and 0 `ROMHDR`. Modules are in
-WinCE ROM/XIP form (section bodies, headers stripped).
+WinCE ROM/XIP form: section bodies without `MZ`/PE headers, with per-module
+metadata in `e32_rom`/`o32_rom` records addressed by the TOC
+([`cerom.md`](cerom.md) §4–§5). The `MZ`/`PE`/`B000FF`/`ROMHDR` counts are
+literal/probe counts, not a validity test for a CE XIP.
 
 ## Recovered code and map path
 
@@ -93,15 +107,24 @@ The `0x0360–0x036a` band is a library layer: 1,899 code-target VAs, no export
 directory, no `MSFT`, no `.rgs`; the best delta for its 13 helper VAs reaches
 only 7/13 prologues (need ≥11/13). Cross-module calls therefore **cannot** be
 resolved by literal arithmetic. They need the `romimage` **XIP section table**
-(`file ↔ VA ↔ size`).
+(`file ↔ VA ↔ size`) — recovered since; the per-section map and its domain are
+in [`cerom.md`](cerom.md) §5 and §7.
 
 ### Section table is a dead end
 
-The 24-byte records at `0x374000`/`0x3e0060` are `o32_rom`-shaped (a clean
-record at `0x3221b0` has `psize == round_up(vsize, 0x200)`), but the table is
-**not usable as a file map**: its `dataptr` fields point into pure `0xff`
-fill (stale build-time offsets), and consecutive records do not share a
-`realaddr − rva` delta. Do not build on it.
+**Superseded for builds A–C by the TOC** ([`cerom.md`](cerom.md) §4–§5). Both
+offsets lie inside build A's segment (`0x00200200`–`0x01952e88`), and
+`0x3e0060` is **not** in build B's wrapper (B starts at `0x03e00000`), so these
+are probably genuine `o32_rom` arrays reached through a module's
+`ulO32Offset`. The historical claim below stands only for the ad-hoc table:
+
+> The 24-byte records at `0x374000`/`0x3e0060` are `o32_rom`-shaped (a clean
+> record at `0x3221b0` has `psize == round_up(vsize, 0x200)`), but the table is
+> **not usable as a file map**: its `dataptr` fields point into pure `0xff`
+> fill (stale build-time offsets), and consecutive records do not share a
+> `realaddr − rva` delta. Do not build on it.
+
+Use the per-module `ulO32Offset` instead.
 
 ### New anchors: OBJDLL, STDDLL and zlib copies
 
@@ -273,9 +296,17 @@ VA base is recovered by constant `V − RVA` across exports; OLEAUT32
 
 ### `0x1952b00` is not a section map
 
-The 32-byte records are a **RAM copy list** (`srcVA`, `srcVA+0x70`, page-aligned
-`dstVA`, flags, timestamp ≈2011, size, VA). There is no file offset, sizes do
-not tile, and the value is not a CRC32. Retracted as a section-map lead.
+**Superseded (structure mis-identified).** `0x1951ee0` and `0x1952b00` both sit
+at `TOC + idx*0x20 + 0x14`, i.e. inside build A's TOC entries (24 and 121) at
+the `ulE32Offset` field. The "≈2011 timestamp" is `ftTime`, the "size" is
+`nFileSize`, and the `0x8C…0x8E` pointers are the name/e32/o32/load VAs of
+consecutive `TOCentry` records. The real RAM copy table is a 16-byte
+`COPYentry` array at `ulCopyOffset` ([`cerom.md`](cerom.md) §6).
+
+The 32-byte records were described as a **RAM copy list** (`srcVA`,
+`srcVA+0x70`, page-aligned `dstVA`, flags, timestamp ≈2011, size, VA). There is
+no file offset, sizes do not tile, and the value is not a CRC32. Retracted as
+a section-map lead — and as a copy-list identification (superseded above).
 
 ### Navi modules: neither export nor import anchor
 
@@ -526,43 +557,37 @@ P-code emulation headlessly. Use those for selected routines; use the Python
 round-trip validator for the whole-card feedback loop. The full option matrix
 is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
-## CE ROM segment recovery (verified, build A)
+## CE ROM segment (pointer)
 
-`tools/ce_rom_parse.py` now parses the embedded Windows CE ROM segment directly.
-Build A's segment starts at image offset `0x00200200`:
+The full layout — wrapper header, `ROMHDR` field table, TOC, `e32`/`o32`,
+`IMAGE_SCN_COMPRESSED`, RAM copy table, VA↔file formula, commands and the
+discrepancy list — is in [`cerom.md`](cerom.md). This section used to duplicate
+it; the authoritative version moved.
 
-- `ECEC` at `0x00200240`;
-- `pTOC = 0x8e232978`;
-- size `0x01751978`;
-- ROMHDR at file offset `0x01951b78`;
-- 149 modules, 1 file;
-- CPU `0x01a6` (SH-4);
-- physical range `0x8cae1000`–`0x8e233c88`.
+In one paragraph: the ~24.5 MB Clarion payload is an uncompressed Windows CE 5
+/ SH-4 XIP image. Build A starts at `0x00200200`, `ECEC` at `+0x40`,
+`pTOC = 0x8e232978`, `size = 0x01751978`, `ROMHDR` at file `0x01951b78`,
+149 modules / 1 file, physical span `0x8cae1000`–`0x8e233c88`. The TOC resolves
+`Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll`, `STDDLL.dll` and more among the
+149 module names.
+`tools/ce_rom_parse.py` finds five segments (A, A copy, B, B copy, C); B and C
+are smaller (91/88 modules, 7.2/6.7 MB) and are probably a separate XIP image.
 
-The TOC resolves module names including `gwes.exe`, `fatfsd.dll`,
-`diskcache.dll`, `fatutil.dll`, `shell.exe`, `toolhelp.dll`, `commctrl.dll`,
-`OBJDLL.dll`, `STDDLL.dll`, `Navi.exe` and `NaviStateCC.dll`.
-
-The same parser also recovers builds B and C and their duplicate copies:
-
-| Build | Segment base | Modules | Files | Physical range |
-| --- | --- | ---: | ---: | --- |
-| A | `0x00200200` / `0x02000200` | 149 | 1 | `0x8cae1000`–`0x8e233c88` |
-| B | `0x03e00200` / `0x04800200` | 91 | 11 | `0x88000000`–`0x886e18a4` |
-| C | `0x05200200` | 88 | 10 | `0x88000000`–`0x886683d8` |
-
-This supersedes the old "no XIP/section table" negative (C-380/C-381), which is
-now retracted. It does **not** mean the map readers are located. It replaces
-global VA-delta guessing with module names and bases for the next Ghidra step.
-See `EXP-2026-11-05-33` and `EXP-2026-11-05-34`.
+This supersedes the old "no XIP/section table" negative (C-380/C-381, now
+RETRACTED; C-088/C-089). It does **not** mean the map readers are located —
+[`cerom.md`](cerom.md) §9 lists what remains unknown. Raw runs:
+`EXP-2026-11-05-33` and `EXP-2026-11-05-34`.
 
 ## Next steps
 
-Firmware RE remains the primary path.
+Next is `TODO.md` Step 2: fix the file-TOC stride, add `e32`/`o32` and the copy
+table to the parser, then build `tools/cerom.py` and a Ghidra memory map — see
+[`cerom.md`](cerom.md) §11. Firmware RE remains the primary path.
 
-1. **Static is closed for the reader.** Use the dynamic guide when hardware is
-   available: break on MAL `getOffset/getSize`, then fd methods, then fd
-   thunks.
+1. **Static global-VA guessing is closed; static TOC extraction is open.** The
+   reader is still unlocated and the dynamic guide (break on MAL
+   `getOffset/getSize`, then fd methods, then fd thunks) remains the fallback
+   when hardware is available.
 2. **While waiting:** build the compiler/offline validators so the first
    hardware session can test a real card immediately.
 3. **Dynamic break on the MAL chain (deferred, no hardware):**

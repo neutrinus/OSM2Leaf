@@ -89,8 +89,12 @@ offsets live in [`docs/format/`](docs/format/).
   The 100 MB before the FAT partition contains Clarion boot sectors and a
   firmware container at `0x00200000` (`82FX210ECNI.158`, `SUM4`,
   `470-2824-34`, `NKOK`, `ECEC`). There are **no PE files**; the payload is
-  SH-4/WinCE ROM code (capstone decodes it cleanly). Ghidra analysis recovered
-  the code path that opens `\CMP.LST` and `\SystemSD\REFER001\`.
+  SH-4/WinCE ROM code (capstone decodes it cleanly). The image is a standard
+  Windows CE ROM: build A starts at `0x00200200`, with `ROMHDR` at file
+  `0x01951b78`, 149 modules and 1 file. `tools/ce_rom_parse.py` recovers the
+  TOC, module names and section records; see
+  [`docs/format/cerom.md`](docs/format/cerom.md). The `\CMP.LST` opener is
+  **not** located: the old `0xc438a4` pointer was retracted (C-330).
 - **Post-partition tail.** The last 402,652,160 bytes are not part of the FAT
   partition. They contain a TFAT16 volume at `0x1C8400400` and `0xff` padding;
   the rest is unexplained.
@@ -159,6 +163,7 @@ python3 tools/verify.py --root /path/to/root
 - [Asset containers (`BICON`, `OPNG`, `SPEECH`)](docs/format/assets.md)
 - [Validation, checksums and map code](docs/format/validation.md)
 - [Firmware and pre-partition area](docs/format/firmware.md)
+- [Embedded Windows CE ROM (`ECEC`/`ROMHDR`/TOC)](docs/format/cerom.md)
 - [Research sources and external links](docs/research/sources.md)
 - [Claims and evidence ledger](docs/research/claims.md) — **start here when
   checking whether something is a fact or a hypothesis**
@@ -168,6 +173,7 @@ python3 tools/verify.py --root /path/to/root
 - [US unit in Europe: region gates](docs/research/us-eu-region.md)
 - [Map image lineage 2011 → 2019](docs/research/image-versions.md)
 - [OSM data pipeline](docs/research/osm-pipeline.md)
+- [Intermediate map format (IMF v1)](docs/research/intermediate-format.md)
 - [Data coverage: factory map vs OSM](docs/research/data-coverage.md)
 - [Build profiles: user-selectable maps](docs/research/build-profiles.md)
 - [Minimal-change experiment](docs/research/minimal-change.md)
