@@ -206,13 +206,13 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-376 | The data contract is unchanged: `.cmp` zlib and `.ind`/DRSTR layouts are data-confirmed; firmware is silent. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-377 | `tools/ind_mutate.py` generates 8 `.ind` variants (chunk_size/count/offset) for the spare-card matrix. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-378 | Next: name the 86 thunks via the import descriptor (`FirstThunk=0x1ab9000`, `COREDLL.dll`) and scan NaviStateCC for ≥3 fd thunks + local zlib. | PLANNED | — | EXP-2026-11-05-23 |
-| C-380 | RETRACTED: the image does contain a CE ROM/XIP TOC. The old "no XIP/section table" negative came from a string search for `B000FF`/`ROMHDR` and is superseded. | RETRACTED | H | Superseded by C-088/C-089; EXP-2026-11-05-34 |
-| C-381 | RETRACTED: `0x1951ee0` is the CE ROM TOC after `ROMHDR`; its pointers resolve through the recovered physical base (`0x8cae1000`). | RETRACTED | H | Superseded by C-088/C-089; EXP-2026-11-05-34 |
+| C-380 | ~~There is no XIP section table in the image~~: the search for `B000FF`/`ROMHDR` strings could not find a raw CE ROM header. Superseded by C-516 (and C-088/C-089). | RETRACTED | — | EXP-2026-11-05-24; superseded by EXP-2026-11-05-35 |
+| C-381 | ~~The `0x1951ee0` tail table is not a VA→file map~~: it lies inside the `TOCentry` array (`0x1951bcc–0x1952e6c`, 149 × 32 B) right after `ROMHDR`; the base `0x8cae1000` was off the coarse test grid. The "`0x1952b00` RAM copy list" (C-273) is in the same array. Superseded by C-517. | RETRACTED | — | EXP-2026-11-05-24; superseded by EXP-2026-11-05-35 |
 | C-382 | `module_scan` `(file_base, va_base)` pairs are wrong for most modules: only OLEAUT32-class deltas hold (65 % prologues); TFAT 0 %, FATUTIL 3 %, commctrl 1 %, WAVEAPI 4 %. | VERIFIED (negative) | H | EXP-2026-11-05-24 |
 | C-383 | The container stores **section groups**, not full PE images at `base + RVA`; the per-module base claim is retracted. | VERIFIED (retraction) | H | EXP-2026-11-05-24 |
-| C-384 | `0x0367b180` is still both a `jsr` target and the UTF-16 string at `0xe7b180`; the collision is unresolved. | UNKNOWN | — | EXP-2026-11-05-24 |
-| C-385 | 148 `RSDS`/PDB records + 155 DLL names give file-side module identity; `rommap.py` maps `0x032560c3` → TFAT `0x2942c3`, but `0x0369d400` → UNKNOWN. | VERIFIED | H | EXP-2026-11-05-24 |
-| C-386 | Readers remain blocked at the `0x0369d400` cross-module call; six-line/card-vs-built-in remain unknown. | UNKNOWN | — | EXP-2026-11-05-24 |
+| C-384 | `0x0367b180` is still both a `jsr` target and the UTF-16 string at `0xe7b180`; the collision is unresolved. Superseded by C-519. | RETRACTED | — | EXP-2026-11-05-24; EXP-2026-11-05-35 |
+| C-385 | 148 `RSDS`/PDB records + 155 DLL names give file-side module identity; `rommap.py` maps `0x032560c3` → TFAT `0x2942c3`, but `0x0369d400` → UNKNOWN. Superseded by C-518/C-520. | VERIFIED (superseded) | H | EXP-2026-11-05-24; EXP-2026-11-05-35 |
+| C-386 | Readers remain blocked at the `0x0369d400` cross-module call; six-line/card-vs-built-in remain unknown. Superseded by C-520/C-521. | UNKNOWN (superseded) | — | EXP-2026-11-05-24; EXP-2026-11-05-35 |
 | C-387 | Static VA reasoning is exhausted; next are a dynamic break after `0x6faf30` or the 89-variant card matrix. | PLANNED | — | EXP-2026-11-05-24 |
 | C-390 | The standard import descriptor with `FirstThunk=0x1ab9000` is absent; 219 descriptor-shaped records, none matching. The navi IAT is pre-bound. | VERIFIED (negative) | H | EXP-2026-11-05-25 |
 | C-391 | The 86 thunks remain unnamed; 140 ordinal-ILT runs exist but none matches the navi IAT. | VERIFIED (negative) | H | EXP-2026-11-05-25 |
@@ -387,6 +387,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-273 | The `0x1952b00` field `+0x10` is a Unix timestamp (2011-06-22…07-29), not a checksum; the round-6 checksum claim is retracted. | VERIFIED | H | EXP-2026-11-05-14 |
 | C-274 | The round-2 “call-to-string paradox” is withdrawn: `0x02200000` is plausible as the code delta, though not proven. | OBSERVED | M | EXP-2026-11-05-14 |
 | C-275 | Static VA recovery from this image is exhausted; reader work must shift to relative call-graph tracing or hardware/dynamic tracing. | VERIFIED (negative) | H | EXP-2026-11-05-14 |
+| C-516 | `ECEC` at `0x200240` is the CE ROM signature at image start + `0x40`: CE image start = file `0x200200`, VA `0x8cae1000`; `file = VA − 0x8cae1000 + 0x200200` for the whole region. `ROMHDR` at file `0x01951b78`: `physfirst 0x8cae1000`, `physlast 0x8e233c88`, `nummods 149`, `numfiles 1`, `usCPUType 0x01a6` (SH-4). | VERIFIED | H | EXP-2026-11-05-35; `tools/cerom.py` |
+| C-517 | All 149 `TOCentry` names resolve to ASCII through C-516; `e32_rom` (112 B) / `o32_rom` (24 B) give exact `o32_realaddr`/`o32_dataptr` for 527 sections, 245 of them `IMAGE_SCN_COMPRESSED` RW data. | VERIFIED | H | EXP-2026-11-05-35; `tools/cerom.py` |
+| C-518 | The TOC agrees exactly with the earlier anchors: OBJDLL `0x03480000`, `MAL_DataVol_getOffset` file `0x7f5f48` ↔ VA `0x03498d48`, OLEAUT32 `0x03930000`, VerInfoCC `0x031e0000`, NaviStateCC `0x02df0000`, iPodCC `0x02620000`; "TFAT" is `fatfsd.dll`. | VERIFIED | H | EXP-2026-11-05-35; `tools/cerom.py` |
+| C-519 | `0x0367b180` is `BT_MGR.dll` code (file `0x6ef380`, prologue); file `0xe7b180` is `Navi.exe` VA `0x1fcf80`. No VA collision. | VERIFIED | H | EXP-2026-11-05-35; `tools/cerom.py` |
+| C-520 | `0x0369d400` is a `BT_MGR.dll` import thunk (file `0x711600`) → IAT `0x01e72074` = `COREDLL.dll` ordinal 719. The chain `0x6fab2c`/`0x6faeb0`/`0x6fb05c` is in `BT_MGR.dll`. | VERIFIED | H | EXP-2026-11-05-35; `tools/cerom.py` |
+| C-521 | The `HDD_INFO.TXT` and `SD Import: …` strings belong to `Navi.exe`; their absolute literals are in `Navi.exe` `.text` at VA `0x004e7d28` (paths) and `0x004e8584`/`0x004e995c` (comparator messages). The old `0x02800000` data-delta link to BT_MGR was a coincidence. | VERIFIED | H | EXP-2026-11-05-35; `tools/cerom.py` |
+| C-522 | The "`0x2e0xxxx` thunk area / unknown shared library" is `NaviStateCC.dll` itself; `0x1d0f8a8` is in its compressed RW data; the "map module `.text` `0xc00000–0xc4b000`" spans NaviSetCC, NaviDrawCC and NaviStateCC. | VERIFIED | H | EXP-2026-11-05-35; `tools/cerom.py` |
+| C-523 | `nk.exe`/`coredll.dll` are not in this ROM region; a kernel XIP region (`pExtensions 0x880030a4`) exists elsewhere. | HYPOTHESIS | M | EXP-2026-11-05-35; `tools/cerom.py` |
 
 ## Validation / checksums
 

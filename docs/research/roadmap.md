@@ -37,7 +37,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | CE ROM TOC recovered: build A has 149 modules and 1 file, SH-4, phys `0x8cae1000`–`0x8e233c88`; reader functions still to be located in extracted modules | module extraction/Ghidra next; dynamic break remains fallback |
+| Firmware addressing | CE `ROMHDR`/TOC found (EXP-2026-11-05-35): exact VA↔file per section via `tools/cerom.py` | static work reopened: decompress RW sections, build Ghidra maps, follow `Navi.exe` `HDD_INFO` pools |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 
