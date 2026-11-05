@@ -4,9 +4,9 @@ A thin ZE0-specific layer on top of the GPL-3.0 `albertbm/osm2clarion` tools.
 It decodes `MAPAL001` background geometry to GeoJSON/PNG and round-trips
 tiles.
 
-> **Status:** works byte-identically for `B28R070R`, `B30R060R`, `B58R070R`
-> and `LEV3456R`. Dense tiles with section 4 (`B30R048R`, `B40R050R`) are not
-> fully decoded. Drawn road shapes are not rendered yet.
+> **Status:** all five target tiles (`B28R070R`, `B30R060R`, `B58R070R`,
+> `B30R048R`, `LEV3456R`) rebuild byte-identically. Road-shape records decode
+> and render; section-4 content (`w2=0x0009`) is still opaque.
 
 ## Setup
 
@@ -37,6 +37,13 @@ python3 harness.py render /path/to/B30R060R.DAT out/B30R060R.png
 python3 harness.py compose /path/to/B30R060R.DAT /path/to/LEV3456R.DAT \
     out/B30R060R_composite.png --cell B30R060R
 
+# Decode/render roads (section 1, even pair)
+python3 harness.py roads /path/to/B30R060R.DAT
+python3 ze0_roads.py /path/to/B30R060R.DAT --dump
+
+# Streaming copy of a large tile (8 MiB chunks, ~120 MB RSS)
+python3 harness.py stream /path/to/B40R050R.DAT out/B40R050_copy.DAT
+
 # One-vertex mutation + round-trip check
 python3 harness.py mutate /path/to/B58R070R.DAT out/mutated.DAT
 
@@ -58,12 +65,13 @@ The bounding-box table is fixed at `0x2ac`; `VER_INFO/HDD_INFO.TXT` replaces
 
 ## Known limits
 
-- `B30R048R` (section 4, directory `0x2146`) does not round-trip yet.
+- Section-4 content (`w2=0x0009`) is opaque; the container round-trips but the
+  geometry is not decoded.
+- Road names/classes/speeds/one-way are not decoded; layers 4/6 are parsed but
+  not drawn.
 - `read_tile` is not streaming; a 73 MB tile peaked at ~20 GB RSS. Use
-  `harness.py scan` for large tiles.
-- Drawn road-shape records (even pair) are not decoded, so the PNG has no
-  roads.
-- `LEV3456R` levels 3–5 work; level 6 has a different layer layout.
+  `harness.py stream` / `stream_writer.py` (max RSS ~120 MB).
+- 1,722 coarse records are preserved but not structurally modelled.
 - No address/POI reader exists in `osm2clarion`; it has writers only.
 
 ## Licensing

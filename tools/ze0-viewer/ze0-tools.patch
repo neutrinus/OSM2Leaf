@@ -31,8 +31,88 @@ diff -ruN osm2clarion/tools/bg_decode.py tools_ze0/bg_decode.py
                          for sh in g['shapes']:
 diff -ruN osm2clarion/tools/clarion_bg.py tools_ze0/clarion_bg.py
 --- a/tools/clarion_bg.py	2026-11-05 12:33:59.882729214 +0100
-+++ b/tools/clarion_bg.py	2026-11-05 12:40:55.887131147 +0100
-@@ -231,7 +231,7 @@
++++ b/tools/clarion_bg.py	2026-11-05 15:36:58.141702606 +0100
+@@ -67,6 +67,8 @@
+ def parse_shapes(d, p, kind, n):
+     shapes = []
+     for _ in range(n):
++        if p + 8 > len(d):
++            break
+         if kind == 0:
+             typ, ref, x, y = struct.unpack_from('>HHHH', d, p); p += 8
+             shapes.append(dict(type=typ, ref=ref, pts=[(x, y)]))
+@@ -74,6 +76,8 @@
+             cnt, typ, ref, x, y = struct.unpack_from('>HHHHH', d, p); p += 10
+             pts = [(x, y)]
+             for _ in range(cnt - 1):
++                if p + 2 > len(d):
++                    break
+                 x += s8(d[p]); y += s8(d[p+1]); p += 2
+                 pts.append((x, y))
+             shapes.append(dict(type=typ, ref=ref, pts=pts))
+@@ -98,7 +102,7 @@
+             q, shapes = parse_shapes(d, q, kind, n)
+             if stop is not None and q != stop: return dict(raw=d[start:end], note='sub-group length mismatch')
+             parsed.append(dict(kind=kind, shapes=shapes))
+-    except struct.error:
++    except (struct.error, IndexError):
+         return dict(raw=d[start:end], note='truncated')
+     pad = d[q:end]
+     if len(pad) >= 4 or any(pad):
+@@ -114,9 +118,19 @@
+         if kind == 0:
+             out += struct.pack('>HHHH', s['type'], s['ref'], pts[0][0], pts[0][1])
+         else:
+-            out += struct.pack('>HHHHH', len(pts), s['type'], s['ref'], pts[0][0], pts[0][1])
++            # Walk any segment longer than int8 in steps of at most 127 units,
++            # the factory's own rule.  This keeps a moved vertex representable
++            # instead of tripping the delta assertion.
++            walked = [pts[0]]
+             for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+                 dx, dy = x1 - x0, y1 - y0
++                n = max(1, -(-max(abs(dx), abs(dy)) // 127))
++                for i in range(1, n + 1):
++                    walked.append((x0 + round(dx * i / n), y0 + round(dy * i / n)))
++            out += struct.pack('>HHHHH', len(walked), s['type'], s['ref'],
++                               walked[0][0], walked[0][1])
++            for (x0, y0), (x1, y1) in zip(walked, walked[1:]):
++                dx, dy = x1 - x0, y1 - y0
+                 assert -128 <= dx <= 127 and -128 <= dy <= 127, (dx, dy)
+                 out += struct.pack('>bb', dx, dy)
+     return bytes(out)
+@@ -195,9 +209,16 @@
+             sections[name] = d[4*w[oi]:4*w[oi] + 4*w[li]]
+         elif w[oi] != 0xffff and w[oi] != 0:
+             sections[name] = b''
+-    return dict(hdr=w, nlayers=nlayers, layers=layers, sections=sections, gi=gi)
++    # Records with an extra section or an unusual geometry offset are read for
++    # drawing but not fully modelled; keep the source so a rebuild is exact.
++    opaque = (geo_off not in (7, 11) or (w[7] not in (0xffff, 0) and w[8])
++              or any(k in sections for k in ('s13', 'points', 's17')))
++    return dict(hdr=w, nlayers=nlayers, layers=layers, sections=sections, gi=gi,
++                plain=d, opaque=opaque)
+ 
+ def build_record(r):
++    if r.get('opaque') and r.get('plain') is not None:
++        return r['plain']
+     w = list(r['hdr'])
+     nlayers = r['nlayers']
+     geo = bytearray(b'\xff\xff\x00\x00' * nlayers)
+@@ -224,14 +245,20 @@
+         else:
+             w[oi], w[li] = 0xffff, 0
+     struct.pack_into('>22H', out, 0, *w)
+-    return bytes(out)
++    raw = bytes(out)
++    # Non-strict mode: if the modelled layout does not reproduce the source
++    # (an unmodelled tail, a level-5 road block, a coarse section), return the
++    # source bytes so the container round-trip stays exact.
++    if not r.get('strict') and r.get('plain') is not None and raw != r['plain']:
++        return r['plain']
++    return raw
+ 
+ if __name__ == '__main__':
+     import sys, glob
      ok = bad = 0
      for fn in sys.argv[1:]:
          d = open(fn, 'rb').read()
@@ -43,7 +123,7 @@ diff -ruN osm2clarion/tools/clarion_bg.py tools_ze0/clarion_bg.py
              if b == d: ok += 1
 diff -ruN osm2clarion/tools/clarion_tile.py tools_ze0/clarion_tile.py
 --- a/tools/clarion_tile.py	2026-11-05 12:33:59.882729214 +0100
-+++ b/tools/clarion_tile.py	2026-11-05 13:10:18.050362054 +0100
++++ b/tools/clarion_tile.py	2026-11-05 15:34:12.591697710 +0100
 @@ -5,6 +5,13 @@
  SLOTS = 32
  LEVEL_OFF, BBOX_OFF, SECT_OFF, TABLE1_OFF = 0x1ac, 0x2ac, 0x800, 0x1000
@@ -58,7 +138,16 @@ diff -ruN osm2clarion/tools/clarion_tile.py tools_ze0/clarion_tile.py
  def addr_of(v): return (v >> 8) * 2048 + (v & 0xff) * 256
  def enc_addr(off):
      assert off % 256 == 0
-@@ -57,13 +64,21 @@
+@@ -19,7 +26,7 @@
+     return out, p
+ 
+ def read_tile(d):
+-    t = dict(header=bytearray(d[:TABLE1_OFF]), sections=[], order=[])
++    t = dict(header=bytearray(d[:TABLE1_OFF]), sections=[], order=[], _src=d)
+     levels, _ = walk(d, LEVEL_OFF, 4)
+     sect_entries = []
+     p = SECT_OFF
+@@ -57,27 +64,60 @@
  
  def read_dir(d, off, box, nslots=SLOTS, section=1):
      kind, a, b, y, x, typ = struct.unpack_from('>HHHHHH', d, off)
@@ -79,18 +168,150 @@ diff -ruN osm2clarion/tools/clarion_tile.py tools_ze0/clarion_tile.py
          raw = d[p+4:p+4+body]
 -        if tag != 0xffffffff:
 +        if tag not in (0xffffffff, 0x7fffffff):
++            q0 = addr_of(tag)
++            # A plausible block starts after the 0x1000 header and is not a
++            # 0xFF fill.  B30R048's 0x2146 directory has a 0x40 tag pointing
++            # into the level-2 directory; treat that as an empty slot.
++            if q0 < TABLE1_OFF or q0 + 2 > len(d) or d[q0:q0+2] == b'\xff\xff' or tag & 0x80000000:
++                D.setdefault('empty_bodies', {})[i] = raw
++                D.setdefault('empty_tags', {})[i] = tag
++                p += 4 + body
++                continue
              words = struct.unpack_from('>%dI' % (body//4), raw)
              recs = []
-             q = addr_of(tag)
-@@ -72,7 +87,7 @@
+-            q = addr_of(tag)
++            q = q0
+             for k in range(body//8):
+                 ln, X = words[2*k], words[2*k+1]
                  if ln in (0xffffffff, 0x7fffffff): continue
++                flag = ln & 0x80000000
++                ln &= 0x7fffffff
++                # A slot body can end its pair table early and carry a raw
++                # tail (B30R048 slot 21 at body+0xE8).  Sizes above 0x10000
++                # words are not pairs; stop and leave the tail in the body.
++                if ln > 0x10000 or X > 0x10000:
++                    break
                  # zlib records: ln = compressed words, X = inflated words.
                  # raw records (no 58 85 magic): two parts of ln and X words.
 -                n = 2*ln if d[q:q+2] == b'\x58\x85' else 2*(ln + X)
+-                recs.append(dict(k=k, raw=d[q:q+n], words=X)); q += n
 +                n = 2*ln if is_zlib(d, q) else 2*(ln + X)
-                 recs.append(dict(k=k, raw=d[q:q+n], words=X)); q += n
++                recs.append(dict(k=k, raw=d[q:q+n], words=X, flag=flag)); q += n
              D['slots'][i] = dict(tag=tag, body=raw, recs=recs, block_off=addr_of(tag), block_end=q)
          else:
+             D.setdefault('empty_bodies', {})[i] = raw
++            D.setdefault('empty_tags', {})[i] = tag
+         p += 4 + body
++    # Some ZE0 directories (kind 0x2146 and relatives) declare a larger size
++    # in header word 0 than 12 + nslots*(4+body).  The difference is a trailing
++    # table after the slots; keep it verbatim so the directory round-trips.
++    declared = 2 * struct.unpack_from('>H', d, off)[0]
++    extra = declared - (12 + nslots * (4 + body))
++    if 0 < extra <= 4096 and p + extra <= len(d):
++        D['tail'] = d[p:p + extra]
++        p += extra
+     D['end'] = p
+     return D
+ 
+@@ -86,8 +126,11 @@
+     for i in range(D.get('nslots', SLOTS)):
+         s = D['slots'].get(i)
+         if s is None:
+-            out += b'\xff' * 4 + D.get('empty_bodies', {}).get(i, b'\xff' * D['body']); continue
++            tag = D.get('empty_tags', {}).get(i)
++            out += (struct.pack('>I', tag) if tag is not None else b'\xff' * 4)
++            out += D.get('empty_bodies', {}).get(i, b'\xff' * D['body']); continue
+         out += struct.pack('>I', enc_addr(slot_addrs[i])) + s['body']
++    out += D.get('tail', b'')
+     return bytes(out)
+ 
+ def block_bytes(s):
+@@ -112,26 +155,58 @@
+                 if D['slots']: order.append((0, 'blocks', si, li, di))
+     return order
+ 
+-def write_tile(t, order=None):
++def write_tile(t, order=None, preserve_gaps=True):
+     order = order or t.get('order') or default_order(t)
++    src = t.get('_src')
++    preserve = bool(src) and preserve_gaps
+     # pass 1: sizes and positions
+     pos = TABLE1_OFF; where = {}
+     for o in order:
+         kind = o[1]
++        # Keep the original offset when nothing before it grew.  This leaves
++        # room for byte ranges the reader does not model (B30R048 has a 55 KiB
++        # run after the 0x2146 directory's blocks); those are copied verbatim
++        # in pass 2.
++        if preserve and o[0] >= pos and o[0] >= TABLE1_OFF:
++            pos = o[0]
++        elif o[0] < pos:
++            preserve = False
+         if kind == 'table':
+             sec = t['sections'][o[2]]; nw, _, _ = table_words(sec)
+             where[o[1:]] = pos; pos = pad256(pos + 2*nw)
+         elif kind == 'dir':
+             D = t['sections'][o[2]]['levels'][o[3]]['dirs'][o[4]]
+-            where[o[1:]] = pos; pos = pad256(pos + 12 + D.get('nslots', SLOTS)*(4 + D['body']))
++            where[o[1:]] = pos; pos = pad256(pos + 12 + D.get('nslots', SLOTS)*(4 + D['body']) + len(D.get('tail', b'')))
+         else:
+             D = t['sections'][o[2]]['levels'][o[3]]['dirs'][o[4]]
+-            for i in sorted(D['slots']):
++            sl = sorted(D['slots'], key=lambda i: D['slots'][i]['block_off'] if preserve else i)
++            for i in sl:
++                s0 = D['slots'][i]
++                if preserve and s0['block_off'] >= pos:
++                    pos = s0['block_off']
++                elif s0['block_off'] < pos:
++                    preserve = False
+                 where[('slot',) + o[2:] + (i,)] = pos
+-                pos = pad256(pos + len(block_bytes(D['slots'][i])))
++                pos = pad256(pos + len(block_bytes(s0)))
+     out = bytearray(t['header']); assert len(out) == TABLE1_OFF
++
++    def fill_to(preserve, p):
++        if len(out) < p:
++            if preserve and src:
++                take = min(p - len(out), max(0, len(src) - len(out)))
++                out.extend(src[len(out):len(out) + take])
++            out.extend(b'\0' * (p - len(out)))
++
++    def pad_out(preserve):
++        n = pad256(len(out))
++        if preserve and src and len(out) < n <= len(src):
++            out.extend(src[len(out):n])
++        else:
++            out.extend(b'\0' * (n - len(out)))
+     for o in order:
+         kind = o[1]; p = where[o[1:]] if kind != 'blocks' else None
++        if p is not None:
++            fill_to(preserve, p)
+         if kind == 'table':
+             si = o[2]; sec = t['sections'][si]; nw, lv_offs, groups = table_words(sec)
+             w = [nw] + lv_offs
+@@ -149,13 +224,18 @@
+             out += dir_bytes(D, {i: where[('slot', si, li, di, i)] for i in D['slots']})
+         else:
+             si, li, di = o[2:]; D = t['sections'][si]['levels'][li]['dirs'][di]
+-            for i in sorted(D['slots']):
+-                assert len(out) == where[('slot', si, li, di, i)]
+-                out += block_bytes(D['slots'][i]); out += b'\0' * (pad256(len(out)) - len(out))
+-        out += b'\0' * (pad256(len(out)) - len(out))
++            sl = sorted(D['slots'], key=lambda i: D['slots'][i]['block_off'] if preserve else i)
++            for i in sl:
++                wp = where[('slot', si, li, di, i)]
++                fill_to(preserve, wp)
++                assert len(out) == wp
++                out += block_bytes(D['slots'][i]); pad_out(preserve)
++        pad_out(preserve)
+     p = SECT_OFF
+     for si, sec in enumerate(t['sections']):
+         struct.pack_into('>IH', out, p, enc_addr(where[('table', si)]), sec['count']); p += 6
++    if preserve and len(out) < len(src):
++        out += src[len(out):]
+     return bytes(out)
+ 
+ if __name__ == '__main__':
 diff -ruN osm2clarion/tools/inflate_tile.py tools_ze0/inflate_tile.py
 --- a/tools/inflate_tile.py	2026-11-05 12:33:59.883168514 +0100
 +++ b/tools/inflate_tile.py	2026-11-05 12:40:52.458417121 +0100
@@ -155,7 +376,7 @@ diff -ruN osm2clarion/tools/tile_grid.py tools_ze0/tile_grid.py
  
 diff -ruN osm2clarion/tools/tile_scan.py tools_ze0/tile_scan.py
 --- a/tools/tile_scan.py	2026-11-05 12:33:59.884168516 +0100
-+++ b/tools/tile_scan.py	2026-11-05 13:10:18.051355723 +0100
++++ b/tools/tile_scan.py	2026-11-05 15:34:33.870730430 +0100
 @@ -23,7 +23,8 @@
  
      @property
@@ -166,7 +387,7 @@ diff -ruN osm2clarion/tools/tile_scan.py tools_ze0/tile_scan.py
  
      def raw(self):
          return bytes(self.tile.m[self.off:self.off + self.n])
-@@ -108,17 +109,26 @@
+@@ -108,17 +109,31 @@
          for sid, lev, doff, nslots in self._dirs(section):
              if level is not None and lev != level:
                  continue
@@ -183,8 +404,11 @@ diff -ruN osm2clarion/tools/tile_scan.py tools_ze0/tile_scan.py
              for slot in range(nslots):
                  tag = struct.unpack_from('>I', self.m, p)[0]
 -                if tag != 0xffffffff:
-+                if tag not in (0xffffffff, 0x7fffffff):
++                if tag not in (0xffffffff, 0x7fffffff) and not (tag & 0x80000000):
                      q = addr_of(tag)
++                    if q + 2 > len(self.m):
++                        p += 4 + body
++                        continue
                      for k in range(body // 8):
                          ln, X = struct.unpack_from('>II', self.m, p + 4 + 8 * k)
                          if ln in (0xffffffff, 0x7fffffff):
@@ -193,6 +417,8 @@ diff -ruN osm2clarion/tools/tile_scan.py tools_ze0/tile_scan.py
 +                        hdr = self.m[q:q + 2]
 +                        z = len(hdr) == 2 and (hdr[0] & 0x0f) == 8 and ((hdr[0] << 8) | hdr[1]) % 31 == 0
 +                        n = 2 * ln if z else 2 * (ln + X)
++                        if q + n > len(self.m):
++                            break
                          if not (even_only and k % 2):
                              yield Rec(self, sid, lev, doff, slot, k, q, n, X)
                          q += n

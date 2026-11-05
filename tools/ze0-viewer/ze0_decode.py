@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(HERE, 'tools_ze0'))
 
 import clarion_bg
 import clarion_tile
+import ze0_roads
 
 # Mesh coordinates: y = lat * 1.5, x = lon + 924.  A directory header stores
 # x as (mesh_x - 1024), i.e. a signed value around -120..-20.
@@ -69,6 +70,83 @@ def _is_background(level, k):
     return (k % 2 == 1) if ppc == 2 else True
 
 
+def _road_features(plain, level, dir_y, dir_x, row, col):
+    """Road-shape record (even pair) to line features.
+
+    Layer 5 is the main road layer; 6 is the second road layer, 4 other
+    network, 0 ferries.  Style/value/id are parsed but not yet used for
+    colour or direction.
+    """
+    rec = ze0_roads.parse_record(plain)
+    lon0, lat0, w, h = parcel_origin(level, dir_y, dir_x, row, col)
+    for layer, shapes in rec['layers'].items():
+        if layer not in (0, 5):      # 5 = drawn roads, 0 = ferries; 4/6 unknown
+            continue
+        for sh in shapes:
+            for line in sh.get('lines') or [sh.get('points', [])]:
+                if len(line) < 2:
+                    continue
+                coords = [(lon0 + x / clarion_bg.UNITS * w,
+                           lat0 + y / clarion_bg.UNITS * h)
+                          for x, y, *_ in line]
+                yield {
+                    'level': level,
+                    'dir_y': dir_y,
+                    'dir_x': _signed16(dir_x) + 1024,
+                    'row': row,
+                    'col': col,
+                    'layer': 200 + layer,
+                    'kind': 0x40,
+                    'type': 0x1000 | layer,
+                    'road': True,
+                    'coords': coords,
+                }
+
+
+def _level6_features(plain, dir_y, dir_x):
+    """Level-6 record: 26 (offset, point-count) pairs from word 11.
+
+    The second number is a total point count, not a shape count; the group
+    header carries the shape count.  Parse each subgroup's shapes and map the
+    2048-unit sheet to the whole database box.
+    """
+    hdr = struct.unpack_from('>22H', plain, 0)
+    base = 4 * hdr[9]
+    pairs = [struct.unpack_from('>HH', plain, base + 4 * k) for k in range(26)]
+    lon0, lat0, w, h = parcel_origin(6, dir_y, dir_x, 0, 0)
+    for layer, (off, _points) in enumerate(pairs):
+        if off == 0xffff:
+            continue
+        q = base + 4 * off
+        nsub, hw = struct.unpack_from('>HH', plain, q)
+        if not (1 <= nsub <= 8):
+            continue
+        q += 4
+        for _ in range(nsub):
+            if q + 2 > len(plain):
+                break
+            kind, count = plain[q], plain[q + 1]
+            q += 2
+            if _ < nsub - 1:
+                q += 2                 # word offset where this subgroup ends
+            try:
+                q, shapes = clarion_bg.parse_shapes(plain, q, kind, count)
+            except Exception:
+                break
+            for sh in shapes:
+                coords = [(lon0 + x / clarion_bg.UNITS * w,
+                           lat0 + y / clarion_bg.UNITS * h) for x, y in sh['pts']]
+                if not coords:
+                    continue
+                yield {
+                    'level': 6, 'dir_y': dir_y,
+                    'dir_x': _signed16(dir_x) + 1024,
+                    'row': 0, 'col': 0,
+                    'layer': layer, 'kind': kind, 'type': sh['type'],
+                    'coords': coords,
+                }
+
+
 def _record_col(level, k):
     ppc = LEVEL_LAYOUT[level][3]
     return k // 2 if ppc == 2 else k
@@ -103,14 +181,37 @@ def decode_records(path, levels=None, bbox=None):
         for d in lvl['dirs']:
             for row, slot in d['slots'].items():
                 for rec in slot['recs']:
-                    if not _is_background(level, rec['k']):
+                    try:
+                        plain = (zlib.decompress(rec['raw'])
+                                 if clarion_tile.is_zlib(rec['raw']) else rec['raw'])
+                        word2 = struct.unpack_from('>H', plain, 4)[0]
+                    except Exception:
                         continue
-                    if not clarion_tile.is_zlib(rec['raw']):
+                    if not _is_background(level, rec['k']):
+                        if word2 != 0xfa:          # even pair: road shapes
+                            continue
+                        try:
+                            for f in _road_features(plain, level, d['y'], d['x'],
+                                                    row, _record_col(level, rec['k'])):
+                                if bbox and not any(bbox[0] <= q[0] <= bbox[2]
+                                                    and bbox[1] <= q[1] <= bbox[3]
+                                                    for q in f['coords']):
+                                    continue
+                                features.append(f)
+                        except Exception:
+                            pass
+                        continue
+                    if level == 6 and word2 == 0xfa:
+                        for f in _level6_features(plain, d['y'], d['x']):
+                            if bbox and not any(bbox[0] <= q[0] <= bbox[2]
+                                                and bbox[1] <= q[1] <= bbox[3]
+                                                for q in f['coords']):
+                                continue
+                            features.append(f)
+                        continue
+                    if word2 not in (0xfa, 0x19):
                         continue
                     try:
-                        plain = zlib.decompress(rec['raw'])
-                        if struct.unpack_from('>H', plain, 4)[0] not in (0xfa, 0x19):
-                            continue
                         parsed = clarion_bg.parse_record(plain)
                     except Exception:
                         continue
@@ -127,7 +228,7 @@ def decode_records(path, levels=None, bbox=None):
                                 (lon0 + x / clarion_bg.UNITS * w,
                                  lat0 + y / clarion_bg.UNITS * h)
                                 for x, y in shape['pts']]
-                            if not coords:
+                            if not coords or len(coords) > 8192:
                                 continue
                             if bbox and not any(bbox[0] <= q[0] <= bbox[2]
                                                 and bbox[1] <= q[1] <= bbox[3]

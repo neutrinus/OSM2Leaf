@@ -28,7 +28,7 @@ Current status:
 | `.cmp`/`.ind` | verified | reader path partially found (`0xc438a4` opens `REFER001`) |
 | `DRSTR001.DAT` | verified | opened by media manager; runtime use unproven |
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
-| Tile payload grammar | clean tiles round-trip byte-identically; dense section 4 open | not yet mapped |
+| Tile payload grammar | all five targets round-trip byte-identically; roads decoded; section-4 content open | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
 | Firmware addressing | export anchor maps 26 modules (`file = Fb + RVA`); OLEAUT32 VA base verified | navi/map modules lack exports; import-anchor hardening is the next blocker; readers not located |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
@@ -75,8 +75,9 @@ exact encoder parameters.
 
 ## Gate 3 — tile round-trip
 
-**Status:** passed for clean tiles (`B28R070R`, `B30R060R`, `B58R070R`,
-`LEV3456R`). Dense section-4 tiles and drawn roads are open.
+**Status:** passed for all five targets, including dense `B30R048R`
+(byte-identical). Roads decode/render; section-4 content and road attributes
+are open.
 
 - Enumerate all inner streams with their keys.
 - Preserve unchanged streams; re-encode changed ones.

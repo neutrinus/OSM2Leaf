@@ -32,12 +32,13 @@ OSM only after that.
      `vtable_scan.py`, `solve_delta.py`, `func.py`.
    - [ ] Use builds B/C as a Rosetta stone if the anchor fails.
 2. **Gate 0b — tile payload grammar**
-   - [x] Clean tiles: `B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R` rebuild
-     byte-identically; viewer renders coast/land (`tools/ze0-viewer/`).
-   - [ ] Dense tile `B30R048R`: decode section 4 and directory `0x2146`.
-   - [ ] Decode the drawn road-shape records (even pair) and render roads.
-   - [ ] Add a streaming writer for large tiles (>20 MB).
-   - [ ] Model `LEV3456R` level 6.
+   - [x] All five targets rebuild byte-identically, including dense
+     `B30R048R` (`EXP-2026-11-05-12`).
+   - [x] Road-shape records decoded/rendered; streaming writer works.
+   - [x] `LEV3456R` level 6 decoded; coarse levels 3–5 rebuild with 0 failures.
+   - [ ] Decode section-4 content (`w2=0x0009`).
+   - [ ] Road names/classes/speeds/one-way; draw layers 4/6.
+   - [ ] Streaming decoder for the 436 MB tile.
    - Deliverable: full tile record spec + viewer.
 3. **Gate 1 — uncompressed round-trip (byte-identical)**
    - [x] `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte.
@@ -51,9 +52,10 @@ OSM only after that.
      for new files.
 5. **Gate 3 — tile round-trip**
    - [x] Clean tiles byte-identical (`EXP-2026-11-05-04`).
-   - [ ] Dense section-4 tile byte-identical.
-   - [ ] One-vertex mutation changes exactly one vertex and still round-trips
+   - [x] Dense `B30R048R` byte-identical (`EXP-2026-11-05-12`).
+   - [x] One-vertex mutation changes exactly one vertex and still round-trips
      (harness `mutate`).
+   - [ ] Section-4 geometry decoded (container is exact, content opaque).
 6. **Gate 5/6 — activation and card feedback**
    - [ ] Whole-card 16 GB SDHC clone; keep TFAT16; verify SHA-256.
    - [ ] No-op control, then POI rename (`EXP-2026-11-05-02`).

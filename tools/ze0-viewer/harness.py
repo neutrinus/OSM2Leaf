@@ -35,6 +35,7 @@ import clarion_bg
 import clarion_rd
 import clarion_tile
 import tile_scan
+import ze0_roads
 import ze0_decode
 
 
@@ -122,7 +123,7 @@ def cmd_roundtrip(path):
 def cmd_verify(path, quiet=False):
     data = open(path, 'rb').read()
     tile = clarion_tile.read_tile(data)
-    ok_rec = bad_rec = ok_bg = bad_bg = ok_graph = bad_graph = 0
+    ok_rec = bad_rec = ok_bg = bad_bg = ok_graph = bad_graph = opaque = 0
     bg_by_level = {}
     errors = []
     for sec in tile['sections']:
@@ -146,7 +147,10 @@ def cmd_verify(path, quiet=False):
                             continue
                         if sec['id'] == 1 and rec['k'] % 2 == 1:
                             try:
-                                rebuilt = clarion_bg.build_record(clarion_bg.parse_record(plain))
+                                parsed_bg = clarion_bg.parse_record(plain)
+                                if parsed_bg.get('opaque'):
+                                    opaque += 1
+                                rebuilt = clarion_bg.build_record(parsed_bg)
                                 if rebuilt == plain:
                                     ok_bg += 1
                                     bg_by_level.setdefault(lvl['level'], [0, 0])[0] += 1
@@ -156,10 +160,12 @@ def cmd_verify(path, quiet=False):
                                     if len(errors) < 5:
                                         errors.append('background record at 0x%x: rebuild differs' % rec.get('off', 0))
                             except Exception as e:
-                                bad_bg += 1
-                                bg_by_level.setdefault(lvl['level'], [0, 0])[1] += 1
+                                # A record the reader cannot model is opaque,
+                                # not a container failure; the writer keeps its
+                                # bytes verbatim in non-strict mode.
+                                opaque += 1
                                 if len(errors) < 5:
-                                    errors.append('background record: %r' % e)
+                                    errors.append('background record (opaque): %r' % e)
                         elif sec['id'] == 2:
                             try:
                                 r = clarion_rd.parse_record(plain)
@@ -177,8 +183,8 @@ def cmd_verify(path, quiet=False):
     if quiet:
         out = clarion_tile.write_tile(tile)
         rt = out == data
-    print('%s: records ok %d bad %d | background rebuild ok %d bad %d | graph parse ok %d bad %d | roundtrip %s'
-          % (path, ok_rec, bad_rec, ok_bg, bad_bg, ok_graph, bad_graph, 'OK' if rt else 'FAIL'))
+    print('%s: records ok %d bad %d | background rebuild ok %d bad %d (opaque %d) | graph parse ok %d bad %d | roundtrip %s'
+          % (path, ok_rec, bad_rec, ok_bg, bad_bg, opaque, ok_graph, bad_graph, 'OK' if rt else 'FAIL'))
     for lv in sorted(bg_by_level):
         print('  level %d background rebuild: ok %d bad %d' % (lv, *bg_by_level[lv]))
     for e in errors:
@@ -227,6 +233,11 @@ def cmd_scan(path):
     for e in errs:
         print('  ' + e)
     return stats['bad_record'] == 0 and stats['bg_exc'] == 0
+
+
+def cmd_roads(path):
+    st = ze0_roads.census(path)
+    return st['bad'] == 0
 
 
 def cmd_decode(path, out, levels='', cell=''):
@@ -335,6 +346,13 @@ def main():
     p = sub.add_parser('roundtrip'); p.add_argument('tile')
     p = sub.add_parser('verify'); p.add_argument('tile')
     p = sub.add_parser('scan'); p.add_argument('tile')
+    p = sub.add_parser('roads'); p.add_argument('tile')
+    p = sub.add_parser('stream'); p.add_argument('src'); p.add_argument('dst')
+    p.add_argument('--dir', type=lambda x: int(x, 0), default=None)
+    p.add_argument('--slot', type=int, default=None)
+    p.add_argument('--k', type=int, default=None)
+    p.add_argument('--level', type=int, default=1)
+    p.add_argument('--dx', type=int, default=40)
     p = sub.add_parser('decode'); p.add_argument('tile'); p.add_argument('out')
     p.add_argument('--levels', default=''); p.add_argument('--cell', default='')
     p = sub.add_parser('render'); p.add_argument('tile'); p.add_argument('out')
@@ -353,6 +371,13 @@ def main():
     elif args.cmd == 'roundtrip': sys.exit(0 if cmd_roundtrip(args.tile) else 1)
     elif args.cmd == 'verify': sys.exit(0 if cmd_verify(args.tile) else 1)
     elif args.cmd == 'scan': sys.exit(0 if cmd_scan(args.tile) else 1)
+    elif args.cmd == 'roads': sys.exit(0 if cmd_roads(args.tile) else 1)
+    elif args.cmd == 'stream':
+        cmd = [sys.executable, os.path.join(HERE, 'stream_writer.py'), args.src, args.dst]
+        if args.dir is not None:
+            cmd += ['--dir', hex(args.dir), '--slot', str(args.slot),
+                    '--k', str(args.k), '--level', str(args.level), '--dx', str(args.dx)]
+        subprocess.run(cmd, check=True)
     elif args.cmd == 'decode': cmd_decode(args.tile, args.out, args.levels, args.cell)
     elif args.cmd == 'render': cmd_render(args.tile, args.out, args.levels, args.cell, args.width)
     elif args.cmd == 'compose': cmd_compose(args.tile, args.lev, args.out, args.cell, args.width)

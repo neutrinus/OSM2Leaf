@@ -26,6 +26,10 @@ COLORS = {
     9: (120, 112, 84),
     11: (90, 70, 40),      # coastline
     25: (220, 50, 50),     # point labels / markers
+    200: (70, 130, 220),   # ferry
+    204: (130, 90, 60),    # other network
+    205: (40, 40, 40),     # main road layer
+    206: (190, 90, 30),    # second road layer
 }
 DEFAULT_COLOR = (140, 140, 140)
 BG = (204, 196, 174)   # land is implicit in this format: sea is drawn, land is not
@@ -86,7 +90,8 @@ def render_pil(features, out, width, height, coverage=(), view=None):
             d.rectangle([min(a[0], b[0]), min(a[1], b[1]),
                          max(a[0], b[0]), max(a[1], b[1])], fill=LAND)
         order = sorted(feats_by_level.get(level, []),
-                       key=lambda f: (f['properties'].get('layer') == 11,
+                       key=lambda f: (1 if f['properties'].get('road') else 0,
+                                      f['properties'].get('layer') == 11,
                                       f['properties'].get('layer') == 25,
                                       f['properties'].get('layer') == 0))
         for f in order:
@@ -99,7 +104,8 @@ def render_pil(features, out, width, height, coverage=(), view=None):
                 if len(ring) >= 3:
                     d.polygon(ring, fill=color)
             elif geom['type'] == 'LineString':
-                d.line([px(q) for q in geom['coordinates']], fill=color, width=1)
+                d.line([px(q) for q in geom['coordinates']], fill=color,
+                       width=2 if p.get('road') else 1)
             else:
                 x, y = px(geom['coordinates'])
                 d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=color)

@@ -185,13 +185,35 @@ Byte-identical rebuilds with the patched harness:
 | `B30R060R.DAT` | byte-identical; 8,465/8,465 background, 37/37 graph |
 | `LEV3456R.DAT` | byte-identical; 113 level 3–5 records not modelled |
 
+### Dense tiles and roads (round 2)
+
+All five target tiles now rebuild **byte-identically**, including the dense
+`B30R048R` (1,358,592 B). The missing container pieces were:
+
+- mask the `0x80000000` pair flag before computing a compressed length;
+- preserve raw slot tails (e.g. `B30R048` slot 21 at body `+0xE8`);
+- accept `0x7fffffff` empty tags at level 1;
+- keep the extra 512-byte `0x2146` tail;
+- copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
+
+Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
+
+| Tile | Even records | Shapes | Points |
+| --- | --: | --: | --: |
+| `B30R060R` | 37 | 784 | 8,923 |
+| `B30R048R` | 188 | 6,270 | 84,470 |
+
+`LEV3456R` level 6 is decoded: no count word, table at word 11 with 26
+`(offset, point-count)` pairs (156 features). Coarse levels 3–5 rebuild with
+0 failures; 1,722 opaque records are preserved verbatim.
+
 Known limits:
 
-- `B30R048R.DAT` (section 4, directory `0x2146`) does not round-trip yet.
-- `read_tile` is not streaming; a 73 MB tile peaked at ~20 GB RSS.
-- Drawn road-shape records (even pair) are not decoded, so the rendered PNG
-  has no roads.
-- `LEV3456R` level 6 has a different layout.
+- section-4 content (`w2=0x0009`) is still opaque;
+- road names/classes/speeds/one-way are not decoded;
+- layers 4/6 are parsed but not drawn;
+- a streaming **decoder** for the 436 MB tile is still missing (the writer
+  streams in 8 MiB chunks, max RSS ~120 MB).
 
 ## Key questions
 

@@ -122,6 +122,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-173 | The tile bbox table is fixed at `0x2ac`; ZE0 has 45 grid tiles + `LEV`, not 52. | VERIFIED | H | viewer harness |
 | C-174 | There is no layer-11 coastline; the coast is the sea-polygon edge. | OBSERVED | M | decoded geometry |
 | C-175 | Drawn road-shape records (even pair) are not decoded yet, so the PNG has no roads; `read_tile` is not streaming. | OBSERVED | H | viewer harness |
+| C-250 | Dense `B30R048R` now round-trips byte-identically (1,358,592 B): mask pair flag `0x80000000`, preserve raw slot tails, accept `0x7fffffff`, keep the extra `0x2146` tail and the 55 KiB unreferenced gap. | VERIFIED | H | EXP-2026-11-05-12 |
+| C-251 | All five target tiles (`B28R070R`, `B30R060R`, `B58R070R`, `B30R048R`, `LEV3456R`) rebuild byte-identically. | VERIFIED | H | EXP-2026-11-05-12 |
+| C-252 | Road-shape records: section 1, even pair, `w2=0x00fa`; level 1 uses a 12-pair layer table, level 2 uses 11 pairs from word 22; shapes are start node + link headers + points + end node. | VERIFIED | H | EXP-2026-11-05-12 |
+| C-253 | `B30R060R` roads: 37/37 parsed, 784 shapes, 8,923 points; `B30R048R`: 188/188, 6,270 shapes, 84,470 points; rebuild byte-identical. | VERIFIED | H | EXP-2026-11-05-12 |
+| C-254 | Streaming writer handles 73 MB `B40R050R` exactly, max RSS ~120 MB, 0.30 s; grows by relocating the row to EOF and patching the slot tag. | VERIFIED | H | EXP-2026-11-05-12 |
+| C-255 | `LEV3456R` level 6: no count word, table at word 11 with 26 `(offset,point-count)` pairs; 156 features, bbox lon −16.05..67.96, lat 30.01..63.18. | VERIFIED | H | EXP-2026-11-05-12 |
+| C-256 | Coarse levels 3–5 now rebuild with 0 failures; 1,722 opaque records are preserved verbatim. | VERIFIED | H | EXP-2026-11-05-12 |
+| C-257 | Section-4 content (`w2=0x0009`) is still opaque; road names/classes/speeds/one-way and layers 4/6 rendering remain open. | UNKNOWN | — | EXP-2026-11-05-12 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
