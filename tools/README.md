@@ -107,6 +107,22 @@ python3 tools/validate_mutation.py REFER001 /tmp/mut POINT032.DAT \
 coordinate nudge). `drstr_ze0.py` is the reader/writer helper used by the
 validator. See [`../docs/research/minimal-change.md`](../docs/research/minimal-change.md).
 
+## ZE0 tile viewer / round-trip
+
+`tools/ze0-viewer/` clones a pinned `osm2clarion`, applies the ZE0 patch and
+provides a harness that decodes tiles to GeoJSON/PNG and round-trips them.
+
+```bash
+cd tools/ze0-viewer
+./setup.sh
+python3 harness.py verify /path/to/B58R070R.DAT
+python3 harness.py compose /path/to/B30R060R.DAT /path/to/LEV3456R.DAT \
+    out/B30R060R_composite.png --cell B30R060R
+```
+
+Clean tiles (`B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R`) rebuild
+byte-identically. Dense section-4 tiles and drawn roads are still open.
+
 ## `selftest.py`
 
 Runs synthetic tests for `cmpind.py` and `drstr.py` without any vendor data:

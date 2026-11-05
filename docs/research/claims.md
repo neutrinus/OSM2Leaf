@@ -116,6 +116,12 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-051 | There is no `u32` offset table in the tile header; streams are back-to-back with 0–3 bytes padding. | VERIFIED (negative) | H | 4/200 coincidental matches only |
 | C-052 | `0x1ac` holds `00 | n_tables | {table_id, n_entries, (level, kind, u16 count)} | 00`. | VERIFIED | H | structure parses in all tiles |
 | C-053 | `COORD001` uses longitude origin 52742; the tile stream prefix uses 52736. The 6-unit difference (~0.047°) is unexplained. | OBSERVED | M | independent fits |
+| C-170 | ZE0 tiles use zlib `78 9c`; background record kind is `0x00fa` at both levels; the even/odd record pair separates road-shape from background. | VERIFIED | H | EXP-2026-11-05-04 |
+| C-171 | `B28R070R`, `B30R060R`, `B58R070R` and `LEV3456R` rebuild byte-identically from the decoded model. | VERIFIED | H | EXP-2026-11-05-04 |
+| C-172 | Dense tile `B30R048R` (section 4, directory `0x2146`) does not round-trip yet. | OBSERVED | H | EXP-2026-11-05-04 |
+| C-173 | The tile bbox table is fixed at `0x2ac`; ZE0 has 45 grid tiles + `LEV`, not 52. | VERIFIED | H | viewer harness |
+| C-174 | There is no layer-11 coastline; the coast is the sea-polygon edge. | OBSERVED | M | decoded geometry |
+| C-175 | Drawn road-shape records (even pair) are not decoded yet, so the PNG has no roads; `read_tile` is not streaming. | OBSERVED | H | viewer harness |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 

@@ -75,3 +75,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-01](EXP-2026-11-05-01-drstr-node-table.md) | Correct DRSTR001.DAT node table | done |
 | [EXP-2026-11-05-02](EXP-2026-11-05-02-refer-poi-rename.md) | Same-length POI rename in REFER001 | done offline; hardware pending |
 | [EXP-2026-11-05-03](EXP-2026-11-05-03-checksums.md) | Firmware checksums and per-file integrity | done |
+| [EXP-2026-11-05-04](EXP-2026-11-05-04-tile-roundtrip.md) | ZE0 tile round-trip and viewer | done for clean tiles; dense tiles open |

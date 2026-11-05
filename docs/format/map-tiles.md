@@ -160,6 +160,39 @@ big-endian words (`0xffff` = empty).
 - The `(A,B)` values occupy a 4-unit sub-lattice (low 2 bits look like a
   4-way quadrant), suggesting a quadtree address.
 
+## ZE0-specific record structure (viewer-verified)
+
+The `osm2clarion` QY8x tools need four ZE0 fixes (see
+[`tools/ze0-viewer/`](../../tools/ze0-viewer/README.md)):
+
+1. zlib streams start with `78 9c`; upstream hardcodes `58 85`.
+2. Background record kind is `0x00fa` at both levels; the **even/odd record
+   pair** separates road-shape (even) from background (odd).
+3. Directory slot-body size follows the directory kind: section-2 level-2 is
+   `0x2046` with 512-byte bodies, not 256.
+4. Empty slots may use `0x7fffffff` as well as `0xffffffff`.
+
+The bbox table is fixed at `0x2ac`. ZE0 has 45 grid tiles + `LEV3456R`, not
+the 52 of the QY8x family. There is no layer-11 coastline; the coast is the
+sea-polygon edge.
+
+Byte-identical rebuilds with the patched harness:
+
+| Tile | Result |
+| --- | --- |
+| `B58R070R.DAT` | byte-identical; 459/459 background records |
+| `B28R070R.DAT` | byte-identical; 7,103/7,103 background, 455/455 graph |
+| `B30R060R.DAT` | byte-identical; 8,465/8,465 background, 37/37 graph |
+| `LEV3456R.DAT` | byte-identical; 113 level 3–5 records not modelled |
+
+Known limits:
+
+- `B30R048R.DAT` (section 4, directory `0x2146`) does not round-trip yet.
+- `read_tile` is not streaming; a 73 MB tile peaked at ~20 GB RSS.
+- Drawn road-shape records (even pair) are not decoded, so the rendered PNG
+  has no roads.
+- `LEV3456R` level 6 has a different layout.
+
 ## Key questions
 
 1. What is the record grammar inside a real (non-448-byte) payload?

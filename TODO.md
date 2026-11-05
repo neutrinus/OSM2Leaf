@@ -17,11 +17,13 @@ OSM only after that.
    - [ ] Map the reader paths for `.cmp`/`.ind`, `DRSTR`, tiles, `MESH_ID`.
    - [ ] Decompile the map-code/activation check.
 2. **Gate 0b — tile payload grammar**
-   - [ ] Cluster non-448-byte payloads in `B30R048R`; diff 188 vs 176 vs 128.
-   - [ ] Decode `20 1e`, `07 ff`, separator `45 xx 12`.
-   - [ ] Test the quadtree hypothesis.
-   - [ ] Anchor a block to Cologne in `B48R060R`.
-   - Deliverable: tile record spec + viewer.
+   - [x] Clean tiles: `B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R` rebuild
+     byte-identically; viewer renders coast/land (`tools/ze0-viewer/`).
+   - [ ] Dense tile `B30R048R`: decode section 4 and directory `0x2146`.
+   - [ ] Decode the drawn road-shape records (even pair) and render roads.
+   - [ ] Add a streaming writer for large tiles (>20 MB).
+   - [ ] Model `LEV3456R` level 6.
+   - Deliverable: full tile record spec + viewer.
 3. **Gate 1 — uncompressed round-trip (byte-identical)**
    - [x] `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte.
    - [ ] `MMAIN001.DAT`, headers, `REFER002`, `ADDRE` index areas.
@@ -30,7 +32,10 @@ OSM only after that.
    - [ ] Changed content: `decode(repack(x)) == x`, stable chunking.
    - [ ] Document zlib encoder determinism.
 5. **Gate 3 — tile round-trip**
-   - [ ] Unchanged tile byte-identical; changed tile same keys/inventory.
+   - [x] Clean tiles byte-identical (`EXP-2026-11-05-04`).
+   - [ ] Dense section-4 tile byte-identical.
+   - [ ] One-vertex mutation changes exactly one vertex and still round-trips
+     (harness `mutate`).
 6. **Gate 5/6 — activation and card feedback**
    - [ ] Whole-card 16 GB SDHC clone; keep TFAT16; verify SHA-256.
    - [ ] No-op control, then POI rename (`EXP-2026-11-05-02`).
