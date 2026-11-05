@@ -12,7 +12,8 @@ start. See docs/experiments/EXP-2026-11-05-35-ce-romhdr.md.
 Usage:
   cerom.py IMG romhdr
   cerom.py IMG modules
-  cerom.py IMG files
+  cerom.py IMG files [--extract DIR] [--decompress]
+                      [--method auto|lzss|lzx] [--json]
   cerom.py IMG sections MODULE
   cerom.py IMG exports MODULE
   cerom.py IMG va2file VA
@@ -49,9 +50,29 @@ one segment is walked).  ``--check`` writes nothing.  Exit codes: 0 when every
 requested section is ``OK``, 1 when some are ``UNSUPPORTED``/``FAIL``, 2 on a
 usage or I/O error.
 
+``files`` lists the ``FILESentry`` table; the default text view is unchanged.
+``--extract DIR`` also writes the stored ``csize`` bytes of every entry whose
+``csize != rsize`` as ``<name>.<index>.stored.bin``.  ``--decompress`` passes
+those bytes to ``tools/cecompress.py`` with ``expected_size=rsize`` under
+``--method auto|lzss|lzx`` and classifies the entry ``OK`` (decoded length ==
+``rsize``, written as ``<name>.<index>.bin``), ``UNSUPPORTED`` (codec or block
+type not implemented) or ``FAIL`` (empty, out-of-image or undecodable payload);
+a decode whose length differs from ``rsize`` is refused and never written.  An
+entry with ``csize == rsize`` is ``UNCOMPRESSED`` (nothing extracted) and one
+whose stored bytes were written without ``--decompress`` is ``STORED``.
+``--json`` emits one record per entry with the stable keys ``index, name,
+attrib, rsize, csize, load, status, method_used, output_size, sha256, error``
+(``sha256`` always covers the stored bytes).  EXP-2026-11-05-51 showed that the
+real compressed ``FILESentry`` payloads are not a stdlib format, so what the
+real image decodes to with this classifier remains UNKNOWN.  Exit codes: 0 when
+what was asked for succeeded, 1 when a requested decode is
+``UNSUPPORTED``/``FAIL`` or an ``--extract`` entry could not be written, 2 on a
+usage or I/O error.
+
 See docs/experiments/EXP-2026-11-05-47-cerom-selftest.md,
-docs/experiments/EXP-2026-11-05-48-cerom-memmap.md and
-docs/experiments/EXP-2026-11-05-53-cerom-decompress.md.
+docs/experiments/EXP-2026-11-05-48-cerom-memmap.md,
+docs/experiments/EXP-2026-11-05-53-cerom-decompress.md and
+docs/experiments/EXP-2026-11-05-55-filesentry-extract.md.
 """
 import argparse
 import contextlib
@@ -83,6 +104,10 @@ MEMMAP_SCHEMA = "osm2leaf.cerom.memmap/v1"
 MEMMAP_GENERATOR = "tools/cerom.py memmap"
 DECOMPRESS_SCHEMA = "osm2leaf.cerom.decompress/v1"
 DECOMPRESS_GENERATOR = "tools/cerom.py decompress"
+FILES_SCHEMA = "osm2leaf.cerom.files/v1"
+FILES_GENERATOR = "tools/cerom.py files"
+FILES_RECORD_KEYS = ("index", "name", "attrib", "rsize", "csize", "load",
+                     "status", "method_used", "output_size", "sha256", "error")
 SEGMENT_MAX_MODULES = 4096
 
 
@@ -727,6 +752,226 @@ def print_decompress_text(report):
 
 
 # --------------------------------------------------------------------------
+# FILESentry extraction (`files`): stored payloads, optional decode
+# --------------------------------------------------------------------------
+
+
+def stored_name(name, index):
+    """Filesystem-safe stem for one ``FILESentry`` payload name."""
+    base = name if name else "entry%d" % index
+    for ch in '/\\:*?"<>|':
+        base = base.replace(ch, "_")
+    base = base.strip()
+    return base or "entry%d" % index
+
+
+def files_report(cerom, data, image_name, image_size=None, image_sha256=None,
+                 sha256_scope=None, extract_dir=None, decompress=False,
+                 method="auto"):
+    """List ``FILESentry`` records and classify their stored payloads.
+
+    ``sha256`` always covers the stored ``csize`` bytes.  A record is
+    ``UNCOMPRESSED`` when ``csize == rsize`` (nothing to extract or decode),
+    ``STORED`` when the stored bytes were written but no decode was requested,
+    ``OK`` when ``tools/cecompress.py`` decoded them to exactly ``rsize`` bytes,
+    ``UNSUPPORTED`` when the codec/block type is not implemented and ``FAIL``
+    for an empty, out-of-image or undecodable payload.  Only an ``OK`` decode is
+    ever written as file contents; a decode whose length differs from ``rsize``
+    is refused, never written.
+    """
+    cc = cecompress_module()
+    method = cc.normalise_method(method)
+    write = bool(extract_dir)
+    if write:
+        extract_dir = os.path.abspath(extract_dir)
+
+    records, extracted = [], []
+    for entry in cerom.files():
+        record = {
+            "index": entry["index"],
+            "name": entry["name"],
+            "attrib": entry["attrib"],
+            "rsize": entry["rsize"],
+            "csize": entry["csize"],
+            "load": entry["load"],
+            "status": None,
+            "method_used": None,
+            "output_size": None,
+            "sha256": None,
+            "error": None,
+        }
+        compressed = entry["csize"] != entry["rsize"]
+        offset = cerom.va2file(entry["load"])
+        stored = None
+        blob = None
+        if not entry["csize"]:
+            if entry["rsize"]:
+                record["status"] = "FAIL"
+                record["error"] = ("csize 0 with rsize %d: nothing stored to "
+                                   "extract" % entry["rsize"])
+            else:
+                record["status"] = "UNCOMPRESSED"
+        elif not (0 <= offset and offset + entry["csize"] <= len(data)):
+            record["status"] = "FAIL"
+            record["error"] = (
+                "stored bytes 0x%x..0x%x lie outside the image (%d bytes)"
+                % (offset, offset + entry["csize"], len(data)))
+        else:
+            stored = data[offset:offset + entry["csize"]]
+            record["sha256"] = hashlib.sha256(stored).hexdigest()
+            if not compressed:
+                record["status"] = "UNCOMPRESSED"
+            elif not decompress:
+                record["status"] = "STORED"
+            else:
+                try:
+                    blob, info = cc.decompress_info(
+                        stored, entry["rsize"], method)
+                except cc.UnsupportedFormat as exc:
+                    record["status"] = "UNSUPPORTED"
+                    record["error"] = str(exc)
+                except cc.CeCompressError as exc:
+                    record["status"] = "FAIL"
+                    record["error"] = str(exc)
+                except Exception as exc:  # noqa: BLE001 - one bad entry must not stop the walk
+                    record["status"] = "FAIL"
+                    record["error"] = "%s: %s" % (type(exc).__name__, exc)
+                else:
+                    # Belt and braces: never accept bytes that are not rsize.
+                    if len(blob) != entry["rsize"]:
+                        decoded_size = len(blob)
+                        blob = None
+                        record["status"] = "FAIL"
+                        record["error"] = ("decoded %d bytes, expected %d"
+                                           % (decoded_size, entry["rsize"]))
+                    else:
+                        record["status"] = "OK"
+                        record["method_used"] = info.get("method")
+                        record["output_size"] = len(blob)
+
+        if stored is not None and write and compressed:
+            os.makedirs(extract_dir, exist_ok=True)
+            stem = "%s.%d" % (stored_name(entry["name"], entry["index"]),
+                              entry["index"])
+            stored_path = os.path.join(extract_dir, stem + ".stored.bin")
+            with open(stored_path, "wb") as handle:
+                handle.write(stored)
+            paths = {"index": entry["index"], "stored_out": stored_path,
+                     "out": None}
+            if record["status"] == "OK" and blob is not None:
+                decoded_path = os.path.join(extract_dir, stem + ".bin")
+                with open(decoded_path, "wb") as handle:
+                    handle.write(blob)
+                paths["out"] = decoded_path
+            extracted.append(paths)
+        records.append(record)
+
+    counts = {"files": len(records), "compressed": 0, "uncompressed": 0,
+              "stored": 0, "ok": 0, "unsupported": 0, "fail": 0}
+    for record in records:
+        if record["csize"] != record["rsize"]:
+            counts["compressed"] += 1
+        else:
+            counts["uncompressed"] += 1
+        status = record["status"]
+        if status == "STORED":
+            counts["stored"] += 1
+        elif status == "OK":
+            counts["ok"] += 1
+        elif status == "UNSUPPORTED":
+            counts["unsupported"] += 1
+        elif status == "FAIL":
+            counts["fail"] += 1
+
+    return {
+        "schema": FILES_SCHEMA,
+        "generator": FILES_GENERATOR,
+        "image": os.path.basename(image_name),
+        "image_size": image_size,
+        "image_sha256": image_sha256,
+        "image_sha256_scope": sha256_scope,
+        "method": method,
+        "decompress": bool(decompress),
+        "extract_dir": extract_dir if write else None,
+        "counts": counts,
+        "extracted": extracted,
+        "files": records,
+    }
+
+
+def print_files_text(report, cerom):
+    """Print the FILESentry listing, plus extraction status when asked."""
+    for record in report["files"]:
+        print("%3d %-28s attr=%04x real=%8d comp=%8d load=%08x (file 0x%08x)"
+              % (record["index"], record["name"], record["attrib"],
+                 record["rsize"], record["csize"], record["load"],
+                 cerom.va2file(record["load"])))
+    if not (report["decompress"] or report["extract_dir"]):
+        return
+    paths = {item["index"]: item for item in report["extracted"]}
+    for record in report["files"]:
+        if record["csize"] == record["rsize"]:
+            continue
+        line = ("%-11s %-28s real=%8d comp=%8d"
+                % (record["status"], record["name"], record["rsize"],
+                   record["csize"]))
+        item = paths.get(record["index"])
+        if item and item["stored_out"]:
+            line += " stored=%s" % item["stored_out"]
+        if item and item["out"]:
+            line += " decoded=%s" % item["out"]
+        if record["error"]:
+            line += " error=%s" % record["error"]
+        print(line)
+    counts = report["counts"]
+    summary = ("%d compressed of %d file entr(ies): %d OK, %d UNSUPPORTED, %d FAIL"
+               % (counts["compressed"], counts["files"], counts["ok"],
+                  counts["unsupported"], counts["fail"]))
+    if counts["stored"]:
+        summary += ", %d stored only" % counts["stored"]
+    written = sum(1 for item in report["extracted"] if item["stored_out"])
+    written += sum(1 for item in report["extracted"] if item["out"])
+    if written:
+        summary += ", %d file(s) written" % written
+    print(summary)
+
+
+def files_command(args, cerom, data):
+    """Run ``files``: listing, optional stored extraction and decode."""
+    try:
+        cc = cecompress_module()
+    except ImportError as exc:
+        print("error: cannot import tools/cecompress.py: %s" % exc, file=sys.stderr)
+        return 2
+
+    image_size = os.path.getsize(args.image)
+    try:
+        report = files_report(
+            cerom, data, args.image, image_size, hashlib.sha256(data).hexdigest(),
+            sha256_scope=sha256_scope_text(len(data), image_size),
+            extract_dir=args.extract, decompress=args.decompress,
+            method=args.method)
+    except cc.CeCompressError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+
+    if args.json:
+        sys.stdout.write(json.dumps(report, indent=2) + "\n")
+    else:
+        print_files_text(report, cerom)
+
+    counts = report["counts"]
+    if args.decompress and (counts["unsupported"] or counts["fail"]):
+        return 1
+    if args.extract and counts["fail"]:
+        return 1
+    return 0
+
+
+# --------------------------------------------------------------------------
 # Synthetic ROM for --selftest.  No vendor bytes: every offset below is built
 # from scratch, so the layout doubles as executable documentation of the
 # structures the parser expects.
@@ -751,35 +996,47 @@ def synth_romhdr():
         physlast=SYNTH_VA_BASE + 0x90000, nummods=2,
         ulRAMStart=0x8E000000, ulRAMFree=0x8E100000, ulRAMEnd=0x8F000000,
         ulCopyEntries=0, ulCopyOffset=0, ulProfileLen=0, ulProfileOffset=0,
-        numfiles=1, ulKernelFlags=0x00000002, ulFSRamPercent=0x80808080,
+        numfiles=3, ulKernelFlags=0x00000002, ulFSRamPercent=0x80808080,
         ulDrivglobStart=0, ulDrivglobLen=0, usCPUType=0x01A6,
         usMiscFlags=0x0002, pExtensions=0, ulTrackingStart=0, ulTrackingLen=0,
     )
 
 
 def build_synthetic_rom():
-    """Return ``(bytes, layout)`` for a two-module, one-file CE ROM.
+    """Return ``(bytes, layout)`` for a two-module, three-file CE ROM.
 
     Layout: ``ECEC`` at image start + 0x40, ROMHDR at +0x1000, two 32-byte
-    ``TOCentry`` records, one 28-byte ``FILESentry``.  Module 0 has an
+    ``TOCentry`` records, three 28-byte ``FILESentry`` records.  Module 0 has an
     uncompressed section carrying a two-export directory plus one
     ``IMAGE_SCN_COMPRESSED`` section; module 1 has no exports.  The compressed
     bodies are real streams from ``tools/cecompress.py``: module 0 stores an
     LZSS stream produced by ``encode_lzss`` (decodes to ``vsize`` bytes) and
     module 1 stores an LZX **verbatim** block header, which the decoder must
     refuse as UNSUPPORTED rather than emit bytes for.
+
+    The three files cover the ``FILESentry`` cases EXP-2026-11-05-51 found in
+    the real image: ``default.hv`` is LZSS-compressed and decodes to ``rsize``,
+    ``boot.hv`` stores the same LZX verbatim header (UNSUPPORTED under
+    ``--method auto``), and ``wince.nls`` is stored with ``csize == rsize``
+    (UNCOMPRESSED, not extracted).  Storage is keyed on ``csize != rsize``,
+    never on the unverified ``attrib`` bit.
     """
     cc = cecompress_module()
     lzss_plain = (b"ZE0 LZSS section: MAL_DataVol_getOffset " * 128)[:0x800]
     lzss_stream, lzss_stats = cc.encode_lzss(lzss_plain)
     unsupported_stream = cc._build_lzx_block_header(1, 16)   # block type verbatim
+    hive_plain = (b"ZE0 FILESentry: default.hv registry hive " * 16)[:0x200]
+    hive_stream, hive_stats = cc.encode_lzss(hive_plain)
+    raw_plain = b"\xA5" * 0x40
 
     d = bytearray(SYNTH_SIZE)
     layout = dict(image_start=SYNTH_IMAGE_START, va_base=SYNTH_VA_BASE,
                   toc_off=SYNTH_TOC_OFF, hdr_off=SYNTH_HDR_OFF,
                   ptoc=synth_va(SYNTH_HDR_OFF), hdr=synth_romhdr(),
                   lzss_plain=lzss_plain, lzss_stream=lzss_stream,
-                  lzss_stats=lzss_stats, unsupported_stream=unsupported_stream)
+                  lzss_stats=lzss_stats, unsupported_stream=unsupported_stream,
+                  file_hive_plain=hive_plain, file_hive_stream=hive_stream,
+                  file_hive_stats=hive_stats, file_raw_plain=raw_plain)
 
     struct.pack_into("<4sII", d, SYNTH_IMAGE_START + 0x40, b"ECEC",
                      layout["ptoc"], SYNTH_TOC_OFF)
@@ -789,10 +1046,10 @@ def build_synthetic_rom():
                      hdr["usCPUType"], hdr["usMiscFlags"], hdr["pExtensions"],
                      hdr["ulTrackingStart"], hdr["ulTrackingLen"])
 
-    # NUL-terminated names at 0x2000: module 2x, file 1x.
+    # NUL-terminated names at 0x2000: module 2x, file 3x.
     name_off = {}
     off = 0x2000
-    for name in (b"NK.EXE", b"NAVI.EXE", b"default.hv"):
+    for name in (b"NK.EXE", b"NAVI.EXE", b"default.hv", b"boot.hv", b"wince.nls"):
         d[off:off + len(name) + 1] = name + b"\0"
         name_off[name.decode()] = off
         off += len(name) + 1
@@ -850,10 +1107,25 @@ def build_synthetic_rom():
     d[0x6600:0x6600 + len(unsupported_stream)] = unsupported_stream
 
     # FILESentry: attrib, ftl, fth, real size, compressed size, name, load.
-    struct.pack_into("<7I", d, toc + TOC_SIZE * 2,
-                     0x00000040, 0x55667788, 0x00000000, 0x200, 0x100,
-                     synth_va(name_off["default.hv"]), synth_va(0x7000))
-    d[0x7000:0x7000 + 0x200] = b"\xA5" * 0x200
+    # keyed on csize != rsize: LZSS (0x6c00), LZX verbatim (0x7100), stored
+    # as-is (0x7200).  The 0x0800 attrib follows EXP-2026-11-05-51 but the
+    # status classification never reads it.
+    files_at = toc + TOC_SIZE * 2
+    struct.pack_into("<7I", d, files_at,
+                     0x00000800, 0x55667788, 0x00000000, len(hive_plain),
+                     len(hive_stream),
+                     synth_va(name_off["default.hv"]), synth_va(0x6C00))
+    struct.pack_into("<7I", d, files_at + FILES_SIZE,
+                     0x00000800, 0x55667788, 0x00000001, 0x100,
+                     len(unsupported_stream),
+                     synth_va(name_off["boot.hv"]), synth_va(0x7100))
+    struct.pack_into("<7I", d, files_at + 2 * FILES_SIZE,
+                     0x00000007, 0x55667788, 0x00000002, len(raw_plain),
+                     len(raw_plain),
+                     synth_va(name_off["wince.nls"]), synth_va(0x7200))
+    d[0x6C00:0x6C00 + len(hive_stream)] = hive_stream
+    d[0x7100:0x7100 + len(unsupported_stream)] = unsupported_stream
+    d[0x7200:0x7200 + len(raw_plain)] = raw_plain
 
     layout["name_off"] = name_off
     layout["export_names"] = [n.decode() for n in exp_names]
@@ -885,7 +1157,7 @@ def selftest():
         ok("ROMHDR file offset", r.hdr_off, exp["hdr_off"])
         ok("ROMHDR fields", r.hdr, exp["hdr"])
         ok("nummods/numfiles/usCPUType",
-           (r.hdr["nummods"], r.hdr["numfiles"], r.hdr["usCPUType"]), (2, 1, 0x01A6))
+           (r.hdr["nummods"], r.hdr["numfiles"], r.hdr["usCPUType"]), (2, 3, 0x01A6))
         ok("physfirst/physlast",
            (r.hdr["physfirst"], r.hdr["physlast"]),
            (SYNTH_VA_BASE, SYNTH_VA_BASE + 0x90000))
@@ -914,10 +1186,16 @@ def selftest():
            dict(attrib=0x1C, ft=0x0000000155667788, size=0x4000,
                 e32=synth_va(0x6000), o32=synth_va(0x6200), load=0x8D000000))
         files = list(r.files())
-        ok("file count", len(files), 1)
-        ok("file name", files[0]["name"], "default.hv")
-        ok("file sizes", (files[0]["rsize"], files[0]["csize"]), (0x200, 0x100))
-        ok("file payload offset", r.va2file(files[0]["load"]), 0x7000)
+        ok("file count", len(files), 3)
+        ok("file names", [f["name"] for f in files],
+           ["default.hv", "boot.hv", "wince.nls"])
+        ok("file sizes", [(f["rsize"], f["csize"]) for f in files],
+           [(0x200, len(exp["file_hive_stream"])),
+            (0x100, len(exp["unsupported_stream"])), (0x40, 0x40)])
+        ok("file attribs", [f["attrib"] for f in files],
+           [0x0800, 0x0800, 0x0007])
+        ok("file payload offsets", [r.va2file(f["load"]) for f in files],
+           [0x6C00, 0x7100, 0x7200])
         ok("case-insensitive module lookup", r.module("navi.exe")["index"], 1)
 
         # e32_rom and the two o32_rom sections (one compressed).
@@ -1143,7 +1421,7 @@ def selftest():
         ok("decompress segment record", doc["segments"],
            [{"segment_index": 0, "segment_base": hx(exp["image_start"]),
              "phys_base": hx(exp["va_base"]), "pTOC": hx(exp["ptoc"]),
-             "nummods": 2, "numfiles": 1}])
+             "nummods": 2, "numfiles": 3}])
         ok("decompress counts", doc["counts"],
            {"sections": 2, "ok": 1, "unsupported": 1, "fail": 0, "errors": 0})
         ok("decompress module errors", doc["errors"], [])
@@ -1300,6 +1578,158 @@ def selftest():
                main([os.path.join(td, "nope.img"), "decompress"]), 2)
         ok("cli decompress missing image message", "error:" in err.getvalue(), True)
 
+        # --- files: FILESentry listing, extraction and decode (M1.4) --------
+        listing = files_report(r, data, path, len(rom), sha)
+        ok("files schema", listing["schema"], FILES_SCHEMA)
+        ok("files generator", listing["generator"], FILES_GENERATOR)
+        ok("files image basename", listing["image"], "synthetic-rom.img")
+        ok("files record keys", list(listing["files"][0]), list(FILES_RECORD_KEYS))
+        ok("files listing decompress flag", listing["decompress"], False)
+        ok("files listing extract dir", listing["extract_dir"], None)
+        ok("files listing statuses",
+           [x["status"] for x in listing["files"]],
+           ["STORED", "STORED", "UNCOMPRESSED"])
+        ok("files listing stored hash", listing["files"][0]["sha256"],
+           hashlib.sha256(exp["file_hive_stream"]).hexdigest())
+        ok("files listing raw hash", listing["files"][2]["sha256"],
+           hashlib.sha256(exp["file_raw_plain"]).hexdigest())
+        ok("files listing counts", listing["counts"],
+           {"files": 3, "compressed": 2, "uncompressed": 1, "stored": 2,
+            "ok": 0, "unsupported": 0, "fail": 0})
+        ok("files listing writes nothing", listing["extracted"], [])
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli files exit", main([path, "files"]), 0)
+        lines = buf.getvalue().splitlines()
+        ok("cli files text line count", len(lines), 3)
+        ok("cli files text first line",
+           lines[0].startswith("  0 default.hv") and " real=     512 comp=" in lines[0],
+           True)
+        ok("cli files text has no summary",
+           [line for line in lines if "compressed of" in line], [])
+
+        stored_dir = os.path.join(td, "files-stored")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli files --extract exit",
+               main([path, "files", "--extract", stored_dir]), 0)
+        ok("files --extract names", sorted(os.listdir(stored_dir)),
+           ["boot.hv.1.stored.bin", "default.hv.0.stored.bin"])
+        ok("files --extract sizes",
+           [os.path.getsize(os.path.join(stored_dir, n)) for n in
+            ("default.hv.0.stored.bin", "boot.hv.1.stored.bin")],
+           [len(exp["file_hive_stream"]), len(exp["unsupported_stream"])])
+        with open(os.path.join(stored_dir, "default.hv.0.stored.bin"), "rb") as fh:
+            ok("files --extract stored bytes", fh.read(), exp["file_hive_stream"])
+        ok("files --extract leaves uncompressed out",
+           os.path.exists(os.path.join(stored_dir, "wince.nls.2.stored.bin")), False)
+        ok("files --extract text summary",
+           "2 compressed of 3 file entr(ies): 0 OK, 0 UNSUPPORTED, 0 FAIL, "
+           "2 stored only, 2 file(s) written" in buf.getvalue(), True)
+
+        out_dir = os.path.join(td, "files-out")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli files --extract --decompress --json exit",
+               main([path, "files", "--extract", out_dir, "--decompress",
+                     "--json"]), 1)
+        doc = json.loads(buf.getvalue())
+        ok("files json schema", doc["schema"], FILES_SCHEMA)
+        ok("files json method", doc["method"], "auto")
+        ok("files json decompress flag", doc["decompress"], True)
+        ok("files json extract dir", doc["extract_dir"], out_dir)
+        ok("files json keys", list(doc["files"][0]), list(FILES_RECORD_KEYS))
+        ok("files json statuses",
+           [(x["index"], x["name"], x["status"], x["method_used"])
+            for x in doc["files"]],
+           [(0, "default.hv", "OK", "lzss"),
+            (1, "boot.hv", "UNSUPPORTED", None),
+            (2, "wince.nls", "UNCOMPRESSED", None)])
+        ok("files json counts", doc["counts"],
+           {"files": 3, "compressed": 2, "uncompressed": 1, "stored": 0,
+            "ok": 1, "unsupported": 1, "fail": 0})
+        hive, boot, raw = doc["files"]
+        ok("files json decoded size", hive["output_size"], 0x200)
+        ok("files json record sizes", (hive["rsize"], hive["csize"]),
+           (0x200, len(exp["file_hive_stream"])))
+        ok("files json stored hash", hive["sha256"],
+           hashlib.sha256(exp["file_hive_stream"]).hexdigest())
+        ok("files json unsupported has no output",
+           (boot["output_size"], boot["method_used"]), (None, None))
+        ok("files json unsupported message",
+           "UNSUPPORTED(lzx block type verbatim" in (boot["error"] or ""), True)
+        ok("files json raw is not decoded", (raw["output_size"], raw["sha256"]),
+           (None, hashlib.sha256(exp["file_raw_plain"]).hexdigest()))
+        ok("files json extracted paths",
+           [(x["index"], x["stored_out"] is not None, x["out"] is not None)
+            for x in doc["extracted"]],
+           [(0, True, True), (1, True, False)])
+
+        ok("files decoded tree", sorted(os.listdir(out_dir)),
+           ["boot.hv.1.stored.bin", "default.hv.0.bin",
+            "default.hv.0.stored.bin"])
+        with open(os.path.join(out_dir, "default.hv.0.bin"), "rb") as fh:
+            ok("files decoded bytes", fh.read(), exp["file_hive_plain"])
+        ok("files decoded size equals rsize",
+           os.path.getsize(os.path.join(out_dir, "default.hv.0.bin")), 0x200)
+        with open(os.path.join(out_dir, "boot.hv.1.stored.bin"), "rb") as fh:
+            ok("files unsupported stores the raw stream",
+               fh.read(), exp["unsupported_stream"])
+
+        text_dir = os.path.join(td, "files-text")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli files text extract exit",
+               main([path, "files", "--extract", text_dir, "--decompress"]), 1)
+        ok("files text statuses",
+           ("OK" in buf.getvalue() and "UNSUPPORTED" in buf.getvalue()), True)
+        ok("files text summary",
+           "2 compressed of 3 file entr(ies): 1 OK, 1 UNSUPPORTED, 0 FAIL, "
+           "3 file(s) written" in buf.getvalue(), True)
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli files --decompress --method lzss exit",
+               main([path, "files", "--decompress", "--method", "lzss",
+                     "--json"]), 1)
+        doc = json.loads(buf.getvalue())
+        ok("files lzss boot.hv is FAIL",
+           (doc["files"][1]["status"], doc["files"][1]["output_size"]),
+           ("FAIL", None))
+        ok("files lzss FAIL says the length",
+           "expected 256" in (doc["files"][1]["error"] or ""), True)
+        ok("files --decompress without --extract writes nothing",
+           (doc["extracted"], doc["extract_dir"]), ([], None))
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli files bad --method exit",
+               main([path, "files", "--decompress", "--method", "lzma"]), 2)
+        ok("cli files bad --method message",
+           "UNSUPPORTED(method 'lzma')" in err.getvalue(), True)
+
+        with open(os.path.join(td, "cut-files.img"), "wb") as fh:
+            fh.write(rom[:0x6C01])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli files out-of-image exit",
+               main([os.path.join(td, "cut-files.img"), "files",
+                     "--decompress", "--json"]), 1)
+        doc = json.loads(buf.getvalue())
+        ok("files out-of-image statuses",
+           [x["status"] for x in doc["files"]], ["FAIL", "FAIL", "FAIL"])
+        ok("files out-of-image message",
+           "lie outside the image" in (doc["files"][0]["error"] or ""), True)
+        ok("files out-of-image counts", doc["counts"]["fail"], 3)
+
+        cut_extract = os.path.join(td, "cut-extract")
+        with contextlib.redirect_stdout(io.StringIO()):
+            ok("cli files out-of-image --extract exit",
+               main([os.path.join(td, "cut-files.img"), "files",
+                     "--extract", cut_extract]), 1)
+        ok("files out-of-image --extract wrote nothing",
+           os.path.exists(cut_extract), False)
 
         # Negative control: a corrupt ECEC must fail loudly, never guess.
         bad = bytearray(rom)
@@ -1438,7 +1868,15 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("romhdr")
     sub.add_parser("modules")
-    sub.add_parser("files")
+    p = sub.add_parser("files",
+                       help="list FILESentry records; optionally extract/decode")
+    p.add_argument("--extract", metavar="DIR",
+                   help="write the stored csize bytes of every csize != rsize entry")
+    p.add_argument("--decompress", action="store_true",
+                   help="decode extracted payloads through tools/cecompress.py")
+    p.add_argument("--method", default="auto",
+                   help="auto (default), lzss/cecompress or lzx")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
     p = sub.add_parser("sections"); p.add_argument("module")
     p = sub.add_parser("exports"); p.add_argument("module")
     p = sub.add_parser("imports"); p.add_argument("module")
@@ -1502,9 +1940,7 @@ def main(argv=None):
             print("%3d %-28s attr=%04x size=%8d load=%08x vbase=%08x objs=%d"
                   % (m["index"], m["name"], m["attrib"], m["size"], m["load"], e["vbase"], e["objcnt"]))
     elif a.cmd == "files":
-        for f in r.files():
-            print("%3d %-28s attr=%04x real=%8d comp=%8d load=%08x (file 0x%08x)"
-                  % (f["index"], f["name"], f["attrib"], f["rsize"], f["csize"], f["load"], r.va2file(f["load"])))
+        return files_command(a, r, data)
     elif a.cmd == "sections":
         m = r.module(a.module)
         e = r.e32(m)
