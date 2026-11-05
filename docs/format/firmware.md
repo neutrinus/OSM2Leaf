@@ -526,6 +526,23 @@ P-code emulation headlessly. Use those for selected routines; use the Python
 round-trip validator for the whole-card feedback loop. The full option matrix
 is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
+## CE ROM segment recovery (planned, not yet verified)
+
+The next recovery route is the standard Windows CE ROM segment embedded in the
+Clarion wrapper, **not** further global-VA/delta guessing. Leads to validate
+with a tool such as `extract-wince-rom` or equivalent `B000FF`/NB0/XIP logic
+before treating them as facts:
+
+- CE ROM segment starts at image offset `0x00200200`;
+- `ECEC` at `+0x40` (i.e. `0x00200240`);
+- `pTOC = 0x8e232978`;
+- size `0x01751978`.
+
+These values are **leads from the container header**, not verified extractions.
+Do not claim module bases or reader locations until a parser actually runs and
+validates the TOC (module/file counts, `physfirst`/`physlast`, copy entries,
+module names such as `Navi.exe`/`Navi*CC.dll`/`OBJDLL`/`STDDLL`).
+
 ## Next steps
 
 Firmware RE remains the primary path.

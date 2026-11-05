@@ -32,7 +32,7 @@ Current status:
 
 | Area | Data side | Firmware side |
 | --- | --- | --- |
-| `.cmp`/`.ind` | verified | reader path partially found (`0xc438a4` opens `REFER001`) |
+| `.cmp`/`.ind` | verified | reader not located; `0xc438a4` retracted as opener; CE ROM segment recovery is next |
 | `DRSTR001.DAT` | verified | opened by media manager; runtime use unproven |
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |

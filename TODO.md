@@ -226,8 +226,10 @@ OSM only after that.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
      `solve_data_delta.py` added.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
-     until the readers define the data contract. No timebox.
-   - [ ] Relative call-graph tracing from `0xc438a4`, `0xc0ebf8`, `0xc48380`.
+     via the CE ROM segment recovery in P7 (do not resume global-VA/delta
+     guessing); until the readers define the data contract. No timebox.
+   - [ ] Relative call-graph tracing from extracted CE ROM modules (P7); `0xc438a4`
+     is retracted as an opener and must not be used as an anchor.
    - [ ] Ghidra P-code/emulation on selected routines.
    - [ ] Hardware/dynamic tracing (JTAG/serial or spare-card loop) if static
      relative tracing stalls.
