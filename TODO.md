@@ -88,5 +88,7 @@ evidence status of each claim see
 - [ ] Add a `docs/format/rdstm.md` once `RDSTM001` is decoded.
 - [ ] Add a `docs/format/refer.md` once address/POI records are decoded.
 - [ ] Keep `claims.md` updated whenever a hypothesis is confirmed or refuted.
-- [ ] Add tiny synthetic fixtures (not vendor data) for the tools.
-- [ ] Add a `tools/README.md` with exact commands and expected output.
+- [x] Add tiny synthetic fixtures (not vendor data) for the tools.
+- [x] Add a `tools/README.md` with exact commands and expected output.
+- [x] Add `tools/selftest.py` covering `cmpind.py` and `drstr.py` without
+  vendor data.
