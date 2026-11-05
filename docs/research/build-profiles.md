@@ -82,9 +82,12 @@ writing an image.
 **Decision (2026-11-05): build and ship whole tiles. Do not clip inside a
 tile.**
 
-External prior art suggests tiles are about **5.333° × 8°**. All of
-Dolnośląskie falls into 2–3 tiles, so “only Dolnośląskie” means “the full
-tiles that contain Dolnośląskie”, including whatever else those tiles cover.
+Tiles are **5.333° × 8°** on the verified `BxxRyyR` grid
+([`../format/map-tiles.md`](../format/map-tiles.md)). The whole Dolnośląskie
+bbox (14.0–17.9 E, 49.9–51.9 N) plus a 50 km buffer lies inside the single
+tile **`B48R058R`** (48.00–53.33 N, 12–20 E), so “only Dolnośląskie” means
+“that one full tile”, including whatever else it covers (C-539). An earlier
+“2–3 tiles” estimate is superseded.
 That is accepted: a correct, dense tile is more valuable than a sparse tile
 whose behaviour on the unit is unproven.
 
