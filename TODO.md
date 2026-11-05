@@ -64,10 +64,13 @@ OSM only after that.
      thunks, IAT `0x1ab9000`, import names at `0x1708000`.
    - [x] MAL chain (`OBJ_DiscInfo_readDiscVol` → `MAL_DataVol_getOffset` →
      `getSize`) and NaviStateCC fd layer anchored.
-   - [ ] Name the 86 thunks via the import descriptor (`FirstThunk=0x1ab9000`,
-     `COREDLL.dll`).
-   - [ ] Scan NaviStateCC for ≥3 fd thunks + local zlib (`lbase`/`z_errmsg`).
-   - [ ] `tools/ind_mutate.py` generates 8 `.ind` variants for the spare-card
+   - [x] Import descriptor `FirstThunk=0x1ab9000`: absent (pre-bound IAT);
+     86 thunks unnamed.
+   - [x] NaviStateCC is a COM DLL, not a flat library; fd layer are COM
+     methods behind a load-time vtable.
+   - [ ] Disassemble `0x171ea2c` (`DllGetClassObject`) → `CreateInstance` +
+     object vtable; search for the `0x1d0f8a8` writer.
+   - [x] `tools/ind_mutate.py` generates 8 `.ind` variants for the spare-card
      matrix.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;
      `solve_data_delta.py` added.

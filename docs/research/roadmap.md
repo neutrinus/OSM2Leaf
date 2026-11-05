@@ -35,7 +35,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | three-filter method; builder `0x6faeb0`; VA map not injective; `0x2e0xxxx` is an import-thunk area; MAL/NaviStateCC anchors | need the XIP table + named import thunks; then the fd layer reader |
+| Firmware addressing | builder `0x6faeb0`; VA map not injective; no XIP table; no import descriptor; NaviStateCC is COM | next is the COM class factory at `0x171ea2c` → `CreateInstance`/vtable, or the `.ind` mutation matrix |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 

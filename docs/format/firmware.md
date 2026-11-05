@@ -133,6 +133,25 @@ finds **135 export modules**, but **no module's RVA range covers
 The underlying non-exporting shared library is at file
 ≈`0x171c000–0x1724eb8`, VA ≈`0x2e00000`; its name is unknown.
 
+### No import descriptor; NaviStateCC is COM
+
+A standard 20-byte import descriptor with `FirstThunk = 0x1ab9000` is
+**absent**: 219 descriptor-shaped records, none matching. `0x1ab9000` occurs
+only as an IAT slot/pool/EH value. The navi IAT is **pre-bound**; the 86 thunks
+remain unnamed (140 ordinal-ILT runs exist, none matching the navi IAT).
+
+`NaviStateCC.DLL` (file base `0xc32200`) is a **COM DLL** with only four
+exports: `DllCanUnloadNow`, `DllGetClassObject`, `DllRegisterServer`,
+`DllUnregisterServer`. `DllGetClassObject` forwards to framework thunk
+`0x2e00eb8` (file `0x171ea2c`), class data `0x1d0f8a8` (RAM).
+
+The fd/IOB layer functions are **COM methods** reached through a load-time
+vtable; no static `bsr`/vtable reference reaches them. Structural scan:
+`0xc42e48` debug dumper, `0xc49f98` virtual dispatcher, `0xc438a4` stats
+formatter. There is **no `0x10000` pool literal or `mov #1; shll16`** near the
+fd layer, so the `.ind` reader likely uses `chunk_size` as a buffer size rather
+than a comparison.
+
 ### MAL volume chain and NaviStateCC
 
 ```
@@ -458,10 +477,10 @@ Firmware RE remains the primary path.
    a file offset and unblocks all cross-module calls.
 2. Re-resolve the `0x0367–0x0369` helpers and the map-module delta; then reach
    the `HDD_INFO` open/split/parse.
-3. **Name the 86 import thunks:** find the 20-byte import descriptor with
-   `FirstThunk = 0x1ab9000` and `Name = COREDLL.dll`; then scan
-   `NaviStateCC` (`0xc32200–0xc4c200`) for a function calling ≥3 fd thunks
-   **and** a local zlib (`lbase`/`dbase`/`z_errmsg`).
+3. **COM class factory:** disassemble `0x171ea2c`
+   (`DllGetClassObject`) and find `CreateInstance` + the object vtable. The
+   vtable is likely built at runtime; search for the literal `0x1d0f8a8` and
+   the code writing it. The fd layer and reader are its methods.
 4. **`.ind` mutation matrix on a spare card** (cheapest empirical test):
    change `chunk_size` (4th dword) to `0x20000`/`0x8000`, change `chunk_count`
    by ±1, shift one `chunk_offset`. Accept/reject reveals the `0x10000`

@@ -206,6 +206,23 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-376 | The data contract is unchanged: `.cmp` zlib and `.ind`/DRSTR layouts are data-confirmed; firmware is silent. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-377 | `tools/ind_mutate.py` generates 8 `.ind` variants (chunk_size/count/offset) for the spare-card matrix. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-378 | Next: name the 86 thunks via the import descriptor (`FirstThunk=0x1ab9000`, `COREDLL.dll`) and scan NaviStateCC for ≥3 fd thunks + local zlib. | PLANNED | — | EXP-2026-11-05-23 |
+| C-380 | There is **no XIP section table** in the image: 0 `B000FF`/`ROMHDR`; `CECE`/`ECEC`/`NKOK` are container metadata. | VERIFIED (negative) | H | EXP-2026-11-05-24 |
+| C-381 | The `0x1951ee0` tail table is not a VA→file map: pointers are kernel-space `0x8C–0x8E`; no candidate base maps them into the payload. | VERIFIED (negative) | H | EXP-2026-11-05-24 |
+| C-382 | `module_scan` `(file_base, va_base)` pairs are wrong for most modules: only OLEAUT32-class deltas hold (65 % prologues); TFAT 0 %, FATUTIL 3 %, commctrl 1 %, WAVEAPI 4 %. | VERIFIED (negative) | H | EXP-2026-11-05-24 |
+| C-383 | The container stores **section groups**, not full PE images at `base + RVA`; the per-module base claim is retracted. | VERIFIED (retraction) | H | EXP-2026-11-05-24 |
+| C-384 | `0x0367b180` is still both a `jsr` target and the UTF-16 string at `0xe7b180`; the collision is unresolved. | UNKNOWN | — | EXP-2026-11-05-24 |
+| C-385 | 148 `RSDS`/PDB records + 155 DLL names give file-side module identity; `rommap.py` maps `0x032560c3` → TFAT `0x2942c3`, but `0x0369d400` → UNKNOWN. | VERIFIED | H | EXP-2026-11-05-24 |
+| C-386 | Readers remain blocked at the `0x0369d400` cross-module call; six-line/card-vs-built-in remain unknown. | UNKNOWN | — | EXP-2026-11-05-24 |
+| C-387 | Static VA reasoning is exhausted; next are a dynamic break after `0x6faf30` or the 89-variant card matrix. | PLANNED | — | EXP-2026-11-05-24 |
+| C-390 | The standard import descriptor with `FirstThunk=0x1ab9000` is absent; 219 descriptor-shaped records, none matching. The navi IAT is pre-bound. | VERIFIED (negative) | H | EXP-2026-11-05-25 |
+| C-391 | The 86 thunks remain unnamed; 140 ordinal-ILT runs exist but none matches the navi IAT. | VERIFIED (negative) | H | EXP-2026-11-05-25 |
+| C-392 | NaviStateCC is a COM DLL with only 4 exports; `DllGetClassObject` forwards to `0x2e00eb8` (file `0x171ea2c`), class data `0x1d0f8a8`. | VERIFIED | H | EXP-2026-11-05-25 |
+| C-393 | The fd/IOB layer functions are COM methods reached through a load-time vtable; no static `bsr`/vtable reference reaches them. | VERIFIED | H | EXP-2026-11-05-25 |
+| C-394 | Structural scan: `0xc42e48` debug dumper, `0xc49f98` virtual dispatcher, `0xc438a4` stats formatter; fd thunk sets listed in the EXP. | OBSERVED | H | EXP-2026-11-05-25 |
+| C-395 | No `0x10000` pool literal or `mov #1; shll16` near the fd layer; the `.ind` reader likely uses `chunk_size` as a buffer size, not a comparison. | OBSERVED | M | EXP-2026-11-05-25 |
+| C-396 | The `.cmp`/`.ind` reader is not located. | UNKNOWN | — | EXP-2026-11-05-25 |
+| C-397 | Contract unchanged; “NaviStateCC is a flat library” is contradicted (it is COM). | VERIFIED (correction) | H | EXP-2026-11-05-25 |
+| C-398 | Next: disassemble `0x171ea2c` → `CreateInstance`/object vtable (or the `0x1d0f8a8` writer); run the `.ind` mutation matrix. | PLANNED | — | EXP-2026-11-05-25 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
