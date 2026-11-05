@@ -123,6 +123,12 @@ The archive is complete and verified. L1 is a cross-year structural validator
 for ZE0-era cards. L2 remains validated on the 2011 reference and needs
 per-year fixtures before it can be called cross-year.
 
+Do not confuse the two "other architectures": 2013–2016 is a different vehicle
+generation (AZE0) but the **same navigation format family**
+(`CLA-NAVI05-01` / `X08-02-00`); the L2 `B30R048R` difference is a writer/header
+variant. Only the 2019 e-NV200 image is a genuinely different navigation engine
+(`CLA-NAVI06-01` / ZENRIN / QY8x).
+
 ## Follow-ups
 
 - [ ] Investigate the `B30R048R` 2013–2016 rebuild difference at `0x807`.

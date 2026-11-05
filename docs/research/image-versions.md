@@ -89,8 +89,11 @@ not use it as a ZE0 reference except for cross-checking the format family.
 
 ## Implications
 
-- The ZE0 format is stable across 2011–2016; a compiler target can be defined
-  once.
+- The ZE0-era map format is stable across 2011–2016; a compiler target can be
+  defined once. 2013+ cars are the AZE0 vehicle generation, but the navigation
+  format family is still `CLA-NAVI05-01` / `X08-02-00`.
+- The L2 `B30R048R` difference at `0x807` is a tile-section/header variant
+  inside that family, not a new architecture.
 - `TFTBL001` is optional for the 2011 baseline; decide later whether to
   support it.
 - The 2019 image is a useful comparison for the QY8x/`osm2clarion` lead, but
