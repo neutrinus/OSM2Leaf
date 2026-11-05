@@ -25,6 +25,7 @@ Usage:
   cerom.py IMG decompress [--modules M1,M2] [--section NAME]
                           [--method auto|lzss|lzx] [--out DIR]
                           [--check] [--json]
+  cerom.py IMG comphdr MODULE | --all [--json]
   cerom.py --selftest                  # synthetic ROM, no vendor data
 
 ``memmap`` emits the section table ``tools/l3_harness/rommap.py`` consumes:
@@ -50,6 +51,19 @@ one segment is walked).  ``--check`` writes nothing.  Exit codes: 0 when every
 requested section is ``OK``, 1 when some are ``UNSUPPORTED``/``FAIL``, 2 on a
 usage or I/O error.
 
+``comphdr`` parses the hypothesised 22-byte compressed-section header of
+M1.2a (``u24 uncompressed_len``, ``u24 compressed_total``, ``u32 flags``,
+``u32 uncompressed_len``, ``u32 payload_len``, ``u32 uncompressed_len``,
+payload at +22) and validates it per section: ``compressed_total == psize``,
+``payload_len == psize - 22``, the three length words equal, ``flags == 0x10``
+and ``uncompressed_len <= vsize``.  A section is ``HOLDS`` when every check
+passes, ``REFUTED`` when the header parses but a check fails, and ``UNPARSED``
+when there are fewer than 22 stored bytes or the bytes lie outside the image.
+``MODULE`` selects one module (case-insensitive, in every segment); ``--all``
+walks every ``IMAGE_SCN_COMPRESSED`` section.  Exit codes: 0 when every parsed
+section ``HOLDS``, 1 when any is ``REFUTED``/``UNPARSED``, 2 on a usage or I/O
+error.
+
 ``files`` lists the ``FILESentry`` table; the default text view is unchanged.
 ``--extract DIR`` also writes the stored ``csize`` bytes of every entry whose
 ``csize != rsize`` as ``<name>.<index>.stored.bin``.  ``--decompress`` passes
@@ -71,8 +85,9 @@ usage or I/O error.
 
 See docs/experiments/EXP-2026-11-05-47-cerom-selftest.md,
 docs/experiments/EXP-2026-11-05-48-cerom-memmap.md,
-docs/experiments/EXP-2026-11-05-53-cerom-decompress.md and
-docs/experiments/EXP-2026-11-05-55-filesentry-extract.md.
+docs/experiments/EXP-2026-11-05-53-cerom-decompress.md,
+docs/experiments/EXP-2026-11-05-55-filesentry-extract.md and
+docs/experiments/EXP-2026-11-05-M1.2a-comphdr.md.
 """
 import argparse
 import contextlib
@@ -93,6 +108,8 @@ ROMHDR_SIZE = 0x54
 TOC_SIZE = 32
 FILES_SIZE = 28
 O32_SIZE = 24
+COMPHDR_SIZE = 22
+COMPHDR_FLAGS = 0x10
 IMAGE_SCN_COMPRESSED = 0x00002000
 CNT_CODE = 0x00000020
 CNT_UNINITIALIZED_DATA = 0x00000080
@@ -104,6 +121,8 @@ MEMMAP_SCHEMA = "osm2leaf.cerom.memmap/v1"
 MEMMAP_GENERATOR = "tools/cerom.py memmap"
 DECOMPRESS_SCHEMA = "osm2leaf.cerom.decompress/v1"
 DECOMPRESS_GENERATOR = "tools/cerom.py decompress"
+COMPHDR_SCHEMA = "osm2leaf.cerom.comphdr/v1"
+COMPHDR_GENERATOR = "tools/cerom.py comphdr"
 FILES_SCHEMA = "osm2leaf.cerom.files/v1"
 FILES_GENERATOR = "tools/cerom.py files"
 FILES_RECORD_KEYS = ("index", "name", "attrib", "rsize", "csize", "load",
@@ -752,6 +771,241 @@ def print_decompress_text(report):
 
 
 # --------------------------------------------------------------------------
+# Compressed-section header (`comphdr`): the 22-byte layout M1.2a tests.
+# --------------------------------------------------------------------------
+
+
+def u24le(blob, offset):
+    """Little-endian 24-bit unsigned integer at ``offset``."""
+    return blob[offset] | (blob[offset + 1] << 8) | (blob[offset + 2] << 16)
+
+
+def parse_comphdr(blob):
+    """Parse the hypothesised 22-byte compressed-section header.
+
+    Layout, all little-endian: ``u24 uncompressed_len``, ``u24
+    compressed_total``, ``u32 flags``, ``u32 uncompressed_len``, ``u32
+    payload_len``, ``u32 uncompressed_len``; the payload starts at +22.  The
+    repeated length words are kept apart (``len_u24``/``len_a``/``len_b``) so a
+    disagreement is visible instead of hidden by the parse.  Returns ``None``
+    when fewer than 22 bytes are available.
+    """
+    if blob is None or len(blob) < COMPHDR_SIZE:
+        return None
+    return {
+        "len_u24": u24le(blob, 0),
+        "compressed_total": u24le(blob, 3),
+        "flags": struct.unpack_from("<I", blob, 6)[0],
+        "len_a": struct.unpack_from("<I", blob, 10)[0],
+        "payload_len": struct.unpack_from("<I", blob, 14)[0],
+        "len_b": struct.unpack_from("<I", blob, 18)[0],
+        "payload_offset": COMPHDR_SIZE,
+    }
+
+
+COMPHDR_CHECK_LABELS = {
+    "compressed_total_is_psize": "compressed_total == psize",
+    "payload_len_is_psize_minus_22": "payload_len == psize - 22",
+    "lengths_agree": "uncompressed_len words agree",
+    "flags_is_0x10": "flags == 0x10",
+    "uncompressed_len_within_vsize": "uncompressed_len <= vsize",
+}
+
+
+def comphdr_checks(fields, psize, vsize):
+    """Evaluate the M1.2a invariants; return ``(checks, failed_keys)``."""
+    checks = {
+        "compressed_total_is_psize": fields["compressed_total"] == psize,
+        "payload_len_is_psize_minus_22":
+            fields["payload_len"] == psize - COMPHDR_SIZE,
+        "lengths_agree": fields["len_u24"] == fields["len_a"] == fields["len_b"],
+        "flags_is_0x10": fields["flags"] == COMPHDR_FLAGS,
+        "uncompressed_len_within_vsize": fields["len_u24"] <= vsize,
+    }
+    return checks, [name for name in checks if not checks[name]]
+
+
+def classify_comphdr(blob, psize, vsize):
+    """Parse and validate one stored compressed section.
+
+    Returns the header half of a report record with stable keys whatever the
+    verdict.  ``HOLDS`` means every invariant in ``COMPHDR_CHECK_LABELS``
+    passed, ``REFUTED`` that the header parsed but a check failed, and
+    ``UNPARSED`` that there was no 22-byte header to read.
+    """
+    record = {
+        "verdict": "UNPARSED",
+        "uncompressed_len": None,
+        "compressed_total": None,
+        "flags": None,
+        "payload_len": None,
+        "payload_offset": None,
+        "within_vsize": None,
+        "checks": None,
+        "failed": [],
+        "error": None,
+    }
+    if not psize:
+        record["error"] = "IMAGE_SCN_COMPRESSED with psize 0: nothing stored"
+        return record
+    if psize < COMPHDR_SIZE:
+        record["error"] = ("psize 0x%x is shorter than the %d-byte header"
+                           % (psize, COMPHDR_SIZE))
+        return record
+    fields = parse_comphdr(blob)
+    if fields is None:
+        record["error"] = ("stored bytes shorter than the %d-byte header"
+                           % COMPHDR_SIZE)
+        return record
+    checks, failed = comphdr_checks(fields, psize, vsize)
+    record.update(
+        verdict="HOLDS" if not failed else "REFUTED",
+        uncompressed_len=fields["len_u24"],
+        compressed_total=fields["compressed_total"],
+        flags=hx(fields["flags"]),
+        payload_len=fields["payload_len"],
+        payload_offset=fields["payload_offset"],
+        within_vsize=checks["uncompressed_len_within_vsize"],
+        checks=checks,
+        failed=failed,
+    )
+    return record
+
+
+def comphdr_report(data, image_name, image_size=None, image_sha256=None,
+                   sha256_scope=None, module=None, all_sections=False,
+                   image_start=None):
+    """Parse the 22-byte header of every selected compressed ``o32`` section.
+
+    ``module`` selects one module by name (case-insensitive, in every segment);
+    ``all_sections`` walks every ``IMAGE_SCN_COMPRESSED`` section instead.  A
+    section whose stored range is empty, shorter than the header or outside the
+    image is ``UNPARSED`` and carries the reason.  ``counts["exceptions"]`` is
+    the number of sections that did not ``HOLDS``.
+    """
+    segments, duplicates = find_segments(data, image_start)
+
+    if not all_sections:
+        if not module:
+            raise ValueError("comphdr needs a module name or --all")
+        available = set()
+        for segment in segments:
+            for entry in segment.modules():
+                if entry["name"]:
+                    available.add(entry["name"].lower())
+        if module.lower() not in available:
+            raise KeyError(module)
+
+    records, errors = [], []
+    for segment_index, segment in enumerate(segments):
+        for entry in segment.modules():
+            name = entry["name"]
+            if not name:
+                continue
+            if not all_sections and name.lower() != module.lower():
+                continue
+            try:
+                sections = list(segment.o32(entry))
+            except struct.error as exc:
+                errors.append({"segment": segment_index, "module": name,
+                               "error_type": "struct.error",
+                               "error": str(exc)})
+                continue
+            for index, sec in enumerate(sections):
+                if not sec["flags"] & IMAGE_SCN_COMPRESSED:
+                    continue
+                offset = segment.va2file(sec["dataptr"])
+                record = {
+                    "segment": segment_index,
+                    "module": name,
+                    "section": "sec%d" % index,
+                    "rva": hx(sec["rva"]),
+                    "vsize": sec["vsize"],
+                    "psize": sec["psize"],
+                    "file_offset": offset,
+                }
+                if sec["psize"] and not (
+                        0 <= offset and offset + sec["psize"] <= len(data)):
+                    record.update(classify_comphdr(None, sec["psize"], sec["vsize"]))
+                    record["error"] = (
+                        "stored bytes 0x%x..0x%x lie outside the image (%d bytes)"
+                        % (offset, offset + sec["psize"], len(data)))
+                else:
+                    blob = (data[offset:offset + sec["psize"]]
+                            if sec["psize"] else None)
+                    record.update(classify_comphdr(blob, sec["psize"], sec["vsize"]))
+                records.append(record)
+
+    counts = {"sections": len(records), "holds": 0, "refuted": 0, "unparsed": 0,
+              "exceptions": 0, "errors": len(errors)}
+    for record in records:
+        counts[record["verdict"].lower()] += 1
+    counts["exceptions"] = counts["refuted"] + counts["unparsed"]
+
+    segment_records = []
+    for index, segment in enumerate(segments):
+        segment_records.append({
+            "segment_index": index,
+            "segment_base": hx(segment.start),
+            "phys_base": hx(segment.hdr["physfirst"]),
+            "pTOC": hx(segment.ptoc),
+            "nummods": segment.hdr["nummods"],
+            "numfiles": segment.hdr["numfiles"],
+        })
+    return {
+        "schema": COMPHDR_SCHEMA,
+        "generator": COMPHDR_GENERATOR,
+        "image": os.path.basename(image_name),
+        "image_size": image_size,
+        "image_sha256": image_sha256,
+        "image_sha256_scope": sha256_scope,
+        "scope": "all" if all_sections else module,
+        "header_size": COMPHDR_SIZE,
+        "segments": segment_records,
+        "duplicate_segments": duplicates,
+        "counts": counts,
+        "errors": errors,
+        "sections": records,
+    }
+
+
+def print_comphdr_text(report):
+    """Print one line per compressed section plus the exception count."""
+    for record in report["sections"]:
+        label = "%s/%s" % (record["module"], record["section"])
+        line = ("%-8s %-34s rva=%s vsize=0x%x psize=0x%x"
+                % (record["verdict"], label, record["rva"], record["vsize"],
+                   record["psize"]))
+        if record["verdict"] == "UNPARSED":
+            line += " error=%s" % record["error"]
+        else:
+            line += (" uncompressed_len=0x%x compressed_total=0x%x flags=%s "
+                     "payload_len=0x%x%s"
+                     % (record["uncompressed_len"],
+                        record["compressed_total"], record["flags"],
+                        record["payload_len"],
+                        "" if record["within_vsize"] else " OVER-VSIZE"))
+            if record["failed"]:
+                line += " failed=[%s]" % ", ".join(record["failed"])
+        print(line)
+    for error in report["errors"]:
+        print("module error: %s (segment %d): %s: %s"
+              % (error["module"], error["segment"], error["error_type"],
+                 error["error"]))
+    counts = report["counts"]
+    summary = ("%d compressed section(s) in %d segment(s): %d HOLDS, "
+               "%d REFUTED, %d UNPARSED (exceptions: %d)"
+               % (counts["sections"], len(report["segments"]), counts["holds"],
+                  counts["refuted"], counts["unparsed"], counts["exceptions"]))
+    print(summary)
+    if report["duplicate_segments"]:
+        print("%d duplicate segment copy/copies not walked: %s"
+              % (len(report["duplicate_segments"]),
+                 ", ".join("0x%x" % int(d["segment_base"], 16)
+                           for d in report["duplicate_segments"])))
+
+
+# --------------------------------------------------------------------------
 # FILESentry extraction (`files`): stored payloads, optional decode
 # --------------------------------------------------------------------------
 
@@ -983,6 +1237,34 @@ SYNTH_TOC_OFF = 0x1000
 SYNTH_HDR_OFF = SYNTH_IMAGE_START + SYNTH_TOC_OFF
 SYNTH_SIZE = 0x7400
 
+# The two compressed-section prefixes recorded in EXP-2026-11-05-49 (30 bytes
+# each: the 22-byte header plus 8 payload bytes).  They are quoted in the repo
+# docs, not read from the vendor image, and only feed the comphdr self-test.
+COMPHDR_FIXTURES = (
+    {
+        "module": "NAVIMAPCC.DLL",
+        "rva": 0x13000,
+        "vsize": 0x5B8,
+        "psize": 0x2C6,
+        "flags": 0xC0002040,
+        "prefix": bytes.fromhex(
+            "840400c602001000000084040000b0020000840400005b80808d00204048"),
+        "fields": {"len_u24": 0x484, "compressed_total": 0x2C6, "flags": 0x10,
+                   "len_a": 0x484, "payload_len": 0x2B0, "len_b": 0x484},
+    },
+    {
+        "module": "NAVIMAPCC.DLL",
+        "rva": 0x14000,
+        "vsize": 0xCC0,
+        "psize": 0x68C,
+        "flags": 0x48002040,
+        "prefix": bytes.fromhex(
+            "c00c008c060010000000c00c000076060000c00c00005b80808d002001cc"),
+        "fields": {"len_u24": 0xCC0, "compressed_total": 0x68C, "flags": 0x10,
+                   "len_a": 0xCC0, "payload_len": 0x676, "len_b": 0xCC0},
+    },
+)
+
 
 def synth_va(off):
     """Map a file offset of the synthetic image to a VA (and back)."""
@@ -1130,6 +1412,43 @@ def build_synthetic_rom():
     layout["name_off"] = name_off
     layout["export_names"] = [n.decode() for n in exp_names]
     return bytes(d), layout
+
+
+def build_comphdr_rom(prefix, vsize, psize, module_name="NAVIMAPCC.DLL",
+                      rva=0x13000, section_flags=0xC0002040):
+    """Return a one-module synthetic ROM whose only stored section is compressed.
+
+    ``prefix`` is copied verbatim at the start of the ``psize`` stored bytes and
+    the rest is zero padding: enough for the header probe, never a decode.  The
+    prefixes in ``COMPHDR_FIXTURES`` are the recorded 30-byte starts from
+    EXP-2026-11-05-49.
+    """
+    if len(prefix) > psize:
+        raise ValueError("prefix is longer than psize")
+    if 0x5000 + psize > SYNTH_SIZE:
+        raise ValueError("section does not fit the synthetic image")
+    d = bytearray(SYNTH_SIZE)
+    struct.pack_into("<4sII", d, SYNTH_IMAGE_START + 0x40, b"ECEC",
+                     synth_va(SYNTH_HDR_OFF), SYNTH_TOC_OFF)
+    hdr = dict(synth_romhdr(), nummods=1, numfiles=0)
+    struct.pack_into("<17IHHIII", d, SYNTH_HDR_OFF,
+                     *[hdr[k] for k in ROMHDR_FIELDS], hdr["usCPUType"],
+                     hdr["usMiscFlags"], hdr["pExtensions"],
+                     hdr["ulTrackingStart"], hdr["ulTrackingLen"])
+
+    name = module_name.encode("ascii") + b"\0"
+    d[0x2000:0x2000 + len(name)] = name
+    toc = SYNTH_HDR_OFF + ROMHDR_SIZE
+    struct.pack_into("<8I", d, toc, 0x0000001C, 0x11223344, 0x00000001,
+                     0x8000, synth_va(0x2000), synth_va(0x4000),
+                     synth_va(0x4200), 0x8CB00000)
+    struct.pack_into("<HHIIHHIIIII", d, 0x4000, 1, 0x0002, 0x1000,
+                     0x8CB00000, 1, 0, 0x1000, 0x20000, 0, 0, 0x5F000000)
+    struct.pack_into("<18I", d, 0x4000 + 36, *([0] * 18))
+    struct.pack_into("<6I", d, 0x4200, vsize, rva, psize, synth_va(0x5000),
+                     SYNTH_VA_BASE + rva, section_flags)
+    d[0x5000:0x5000 + len(prefix)] = prefix
+    return bytes(d)
 
 
 def selftest():
@@ -1731,6 +2050,161 @@ def selftest():
         ok("files out-of-image --extract wrote nothing",
            os.path.exists(cut_extract), False)
 
+        # --- comphdr: the 22-byte compressed-section header (M1.2a) --------
+        # The two real prefixes recorded in EXP-2026-11-05-49 (30 bytes each)
+        # are the acceptance vectors; no other vendor bytes are used.
+        for fixture in COMPHDR_FIXTURES:
+            label = "%s rva 0x%x" % (fixture["module"], fixture["rva"])
+            ok("comphdr %s recorded prefix length" % label,
+               len(fixture["prefix"]), 30)
+            fields = parse_comphdr(fixture["prefix"])
+            ok("comphdr %s header fields" % label, fields,
+               dict(fixture["fields"], payload_offset=22))
+            invariants, failed = comphdr_checks(
+                fields, fixture["psize"], fixture["vsize"])
+            ok("comphdr %s invariants" % label, failed, [])
+            ok("comphdr %s every check true" % label,
+               sorted(invariants.values()), [True] * len(invariants))
+            ok("comphdr %s verdict" % label,
+               classify_comphdr(fixture["prefix"], fixture["psize"],
+                                fixture["vsize"])["verdict"], "HOLDS")
+
+        base = COMPHDR_FIXTURES[0]
+        for label, patch, psize, vsize, failed_keys in (
+                ("wrong flags", (6, 0x11), base["psize"], base["vsize"],
+                 ["flags_is_0x10"]),
+                ("compressed_total mismatch", (3, 0xC7), base["psize"],
+                 base["vsize"], ["compressed_total_is_psize"]),
+                ("payload_len mismatch", (14, 0xB1), base["psize"],
+                 base["vsize"], ["payload_len_is_psize_minus_22"]),
+                ("length words disagree", (10, 0x85), base["psize"],
+                 base["vsize"], ["lengths_agree"]),
+                ("length over vsize", None, base["psize"], 0x400,
+                 ["uncompressed_len_within_vsize"])):
+            blob = bytearray(base["prefix"])
+            if patch is not None:
+                blob[patch[0]] = patch[1]
+            record = classify_comphdr(bytes(blob), psize, vsize)
+            ok("comphdr %s is REFUTED" % label, record["verdict"], "REFUTED")
+            ok("comphdr %s names the failed check" % label,
+               record["failed"], failed_keys)
+        ok("comphdr over-vsize sets within_vsize",
+           classify_comphdr(base["prefix"], base["psize"], 0x400)
+           ["within_vsize"], False)
+
+        for label, blob, psize in (
+                ("psize 0", None, 0),
+                ("psize below the header", base["prefix"][:16], 0x10),
+                ("stored bytes truncated", base["prefix"][:16], base["psize"])):
+            record = classify_comphdr(blob, psize, base["vsize"])
+            ok("comphdr %s is UNPARSED" % label, record["verdict"], "UNPARSED")
+            ok("comphdr %s has no header fields" % label,
+               (record["uncompressed_len"], record["checks"]), (None, None))
+            ok("comphdr %s keeps the reason" % label,
+               bool(record["error"]), True)
+
+        for fixture in COMPHDR_FIXTURES:
+            rom_c = build_comphdr_rom(fixture["prefix"], fixture["vsize"],
+                                      fixture["psize"], rva=fixture["rva"])
+            fixture_path = os.path.join(
+                td, "comphdr-%05x.img" % fixture["rva"])
+            with open(fixture_path, "wb") as fh:
+                fh.write(rom_c)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ok("cli comphdr --all exit",
+                   main([fixture_path, "comphdr", "--all", "--json"]), 0)
+            doc = json.loads(buf.getvalue())
+            ok("comphdr schema", doc["schema"], COMPHDR_SCHEMA)
+            ok("comphdr generator", doc["generator"], COMPHDR_GENERATOR)
+            ok("comphdr header size", doc["header_size"], COMPHDR_SIZE)
+            ok("comphdr scope", doc["scope"], "all")
+            ok("comphdr counts", doc["counts"],
+               {"sections": 1, "holds": 1, "refuted": 0, "unparsed": 0,
+                "exceptions": 0, "errors": 0})
+            record = doc["sections"][0]
+            ok("comphdr record key set", sorted(record),
+               ["checks", "compressed_total", "error", "failed",
+                "file_offset", "flags", "module", "payload_len",
+                "payload_offset", "psize", "rva", "section", "segment",
+                "uncompressed_len", "verdict", "vsize", "within_vsize"])
+            ok("comphdr record identity",
+               (record["segment"], record["module"], record["section"],
+                record["rva"], record["vsize"], record["psize"],
+                record["file_offset"]),
+               (0, fixture["module"], "sec0", hx(fixture["rva"]),
+                fixture["vsize"], fixture["psize"], 0x5000))
+            ok("comphdr record header fields",
+               (record["verdict"], record["uncompressed_len"],
+                record["compressed_total"], record["flags"],
+                record["payload_len"], record["payload_offset"]),
+               ("HOLDS", fixture["fields"]["len_u24"],
+                fixture["fields"]["compressed_total"], "0x10",
+                fixture["fields"]["payload_len"], COMPHDR_SIZE))
+            ok("comphdr record within vsize", record["within_vsize"], True)
+            ok("comphdr record no failure", (record["failed"], record["error"]),
+               ([], None))
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ok("cli comphdr MODULE exit",
+                   main([fixture_path, "comphdr", "navimapcc.dll"]), 0)
+            text = buf.getvalue()
+            ok("comphdr text verdict", text.startswith("HOLDS"), True)
+            ok("comphdr text lengths",
+               "uncompressed_len=0x%x" % fixture["fields"]["len_u24"] in text,
+               True)
+            ok("comphdr text summary",
+               "1 HOLDS, 0 REFUTED, 0 UNPARSED (exceptions: 0)" in text, True)
+
+        # A corrupt flag byte must refute, not crash or silently hold.
+        bad_rom = bytearray(build_comphdr_rom(base["prefix"], base["vsize"],
+                                              base["psize"]))
+        bad_rom[0x5000 + 6] = 0x11
+        bad_path = os.path.join(td, "comphdr-bad.img")
+        with open(bad_path, "wb") as fh:
+            fh.write(bad_rom)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli comphdr corrupt exit",
+               main([bad_path, "comphdr", "--all"]), 1)
+        ok("comphdr corrupt verdict in text", "REFUTED" in buf.getvalue(), True)
+        ok("comphdr corrupt names the check",
+           "flags_is_0x10" in buf.getvalue(), True)
+        ok("comphdr corrupt summary",
+           "0 HOLDS, 1 REFUTED, 0 UNPARSED (exceptions: 1)" in buf.getvalue(),
+           True)
+
+        # Negative control on the main synthetic ROM: its LZSS/LZX streams do
+        # not carry this header, so --all must refute both, not bless them.
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli comphdr --all on non-M1.2a streams exit",
+               main([path, "comphdr", "--all", "--json"]), 1)
+        doc = json.loads(buf.getvalue())
+        ok("comphdr refutes the LZSS stream and cannot parse the 4-byte LZX one",
+           (doc["counts"]["refuted"], doc["counts"]["holds"],
+            doc["counts"]["unparsed"]), (1, 0, 1))
+        ok("comphdr exception count includes every non-HOLDS",
+           doc["counts"]["exceptions"], 2)
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli comphdr needs MODULE or --all exit",
+               main([path, "comphdr"]), 2)
+        ok("comphdr usage message", "MODULE or --all" in err.getvalue(), True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli comphdr rejects MODULE plus --all",
+               main([path, "comphdr", "NK.EXE", "--all"]), 2)
+        ok("comphdr both-selection message",
+           "not both" in err.getvalue(), True)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli comphdr unknown module exit",
+               main([path, "comphdr", "Nope.dll"]), 2)
+        ok("comphdr unknown module message", "Nope.dll" in err.getvalue(), True)
+
         # Negative control: a corrupt ECEC must fail loudly, never guess.
         bad = bytearray(rom)
         bad[exp["image_start"] + 0x40:exp["image_start"] + 0x44] = b"XXXX"
@@ -1814,6 +2288,42 @@ def decompress_command(args, data):
     if counts["errors"]:
         return 1
     return 0 if counts["ok"] == counts["sections"] else 1
+
+
+def comphdr_command(args, data):
+    """Run ``comphdr``: parse and validate the 22-byte section header."""
+    if args.all_sections and args.module:
+        print("error: give MODULE or --all, not both", file=sys.stderr)
+        return 2
+    if not args.all_sections and not args.module:
+        print("error: comphdr needs MODULE or --all", file=sys.stderr)
+        return 2
+
+    image_size = os.path.getsize(args.image)
+    try:
+        report = comphdr_report(
+            data, args.image, image_size, hashlib.sha256(data).hexdigest(),
+            sha256_scope=sha256_scope_text(len(data), image_size),
+            module=args.module, all_sections=args.all_sections,
+            image_start=args.image_start)
+    except KeyError as exc:
+        print("error: no module named %s in this ROM" % exc.args[0],
+              file=sys.stderr)
+        return 2
+    except (OSError, ValueError) as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+
+    if not report["counts"]["sections"]:
+        print("error: no IMAGE_SCN_COMPRESSED section matched (module %s, "
+              "--all %s)" % (args.module, args.all_sections), file=sys.stderr)
+        return 2
+
+    if args.json:
+        sys.stdout.write(json.dumps(report, indent=2) + "\n")
+    else:
+        print_comphdr_text(report)
+    return 0 if report["counts"]["exceptions"] == 0 else 1
 
 
 def memmap_command(args, cerom, data):
@@ -1904,6 +2414,13 @@ def main(argv=None):
     p.add_argument("--check", action="store_true",
                    help="decode only, write nothing (default without --out)")
     p.add_argument("--json", action="store_true", help="machine-readable output")
+    p = sub.add_parser("comphdr",
+                       help="parse the 22-byte compressed-section header (M1.2a)")
+    p.add_argument("module", nargs="?",
+                   help="module name to inspect (case-insensitive)")
+    p.add_argument("--all", dest="all_sections", action="store_true",
+                   help="every IMAGE_SCN_COMPRESSED section in every segment")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
     a = ap.parse_args(argv)
 
     if a.selftest:
@@ -1912,7 +2429,7 @@ def main(argv=None):
         ap.error("the following arguments are required: image")
     if a.cmd is None:
         ap.error("a subcommand is required (romhdr, modules, files, sections, exports, "
-                 "va2file, file2va, extract, memmap, decompress)")
+                 "va2file, file2va, extract, memmap, decompress, comphdr)")
 
     try:
         with open(a.image, "rb") as fh:
@@ -1923,6 +2440,9 @@ def main(argv=None):
 
     if a.cmd == "decompress":
         return decompress_command(a, data)
+
+    if a.cmd == "comphdr":
+        return comphdr_command(a, data)
 
     r = CERom(data, a.image_start)
 

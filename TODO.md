@@ -231,8 +231,8 @@ EXP-48; the real Ghidra open is M9.2), M1.6 (`cerom.py imports`, EXP-50,
 PR #5). Tool half of M1.2b: `tools/cecompress.py` (4 KiB LZSS and LZX
 stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
-- [ ] **M1.2a — Parse the compressed-section header**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+- [x] **M1.2a — Parse the compressed-section header**
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: know where the compressed payload starts and how long it is.
   - Input: EXP-49 bytes. Section 1 (`NaviMapCC.dll` rva `0x13000`, psize
@@ -248,6 +248,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `cerom.py comphdr MODULE|--all` prints the parsed header for
     every compressed section and the hypothesis holds (or is refuted) on all
     245, with a count of exceptions; a synthetic self-test pins the parser.
+  - Result: `cerom.py comphdr`; both recorded prefixes HOLDS, 0 exceptions;
+    243 sections unmeasured (EXP-2026-11-05-M1.2a-comphdr, C-640/C-641).
   - Claims: C-640–C-649
 
 - [ ] **M1.2b — Try the public CE / Microsoft LZ formats after the header**

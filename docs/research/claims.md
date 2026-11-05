@@ -541,6 +541,9 @@ Built without vendor data; every row states what is synthetic-only.
 
 | C-573 | `tools/cerom.py files` keeps its default listing and, with `--extract DIR`, writes the stored `csize` bytes of every entry whose `csize != rsize`; `--decompress` classifies each via `tools/cecompress.py` with `expected_size=rsize` as `OK` (length == rsize, the only bytes written as contents), `UNSUPPORTED` or `FAIL`, with stable `--json` records. 223 synthetic checks; real payloads stay UNKNOWN (EXP-51). | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-55; `python3 tools/cerom.py --selftest` |
 
+| C-640 | A compressed `IMAGE_SCN_COMPRESSED` `o32` section starts with a 22-byte little-endian header: `u24 uncompressed_len`, `u24 compressed_total` (= `psize`), `u32 flags = 0x10`, `u32 uncompressed_len`, `u32 payload_len` (= `psize − 22`), `u32 uncompressed_len`; payload at `+22`. Holds on both recorded prefixes (`0x484/0x2c6/0x10/0x484/0x2b0/0x484` and `0xcc0/0x68c/0x10/0xcc0/0x676/0xcc0`); 243 of 245 sections unmeasured. | VERIFIED (2 recorded prefixes) | M | EXP-2026-11-05-M1.2a-comphdr; `python3 tools/cerom.py comphdr` |
+| C-641 | `cerom.py comphdr` reports `HOLDS` only when all five header checks pass, `REFUTED` when a check fails and `UNPARSED` below 22 stored bytes; a one-byte `flags` change and the synthetic LZSS stream are correctly classified. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-M1.2a-comphdr; `python3 tools/cerom.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
