@@ -54,6 +54,30 @@ python3 tools/drstr.py parse DRSTR001.DAT --json
 The parser stops at the first listing, because the node table ends where the
 first 32-byte entry begins.
 
+## `lctbl_names.py`
+
+Decode the `LCTBL001.DAT` catalog and compressed name database.
+
+```bash
+python3 tools/lctbl_names.py verify LCTBL001.DAT
+python3 tools/lctbl_names.py catalog LCTBL001.DAT
+python3 tools/lctbl_names.py names LCTBL001.DAT --sample 10
+```
+
+`verify` on the EU 2011 image prints `streams 517 / plain 11481060 /
+records 328628 / OK`.
+
+## `rdstm_scan.py`
+
+Inspect `RDSTM001.DAT`: block layout, negative zlib result, and the 2-byte
+codes shared with the LCTBL catalog.
+
+```bash
+python3 tools/rdstm_scan.py layout RDSTM001.DAT
+python3 tools/rdstm_scan.py zlib RDSTM001.DAT --bruteforce
+python3 tools/rdstm_scan.py codes RDSTM001.DAT --lctbl LCTBL001.DAT
+```
+
 ## `selftest.py`
 
 Runs synthetic tests for `cmpind.py` and `drstr.py` without any vendor data:

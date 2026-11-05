@@ -83,13 +83,16 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-030 | The file starts with `u32 0x2f` (47) followed by zero padding to `0x28`. The value is **not** the node count; its meaning is unknown. | VERIFIED (bytes) / UNKNOWN (meaning) | H | first `0x28` bytes; only 39 nodes parse |
-| C-031 | There are 39 node records of 40 bytes starting at `0x28`, **name first**: `name[8]` at `+0x00`, zeros at `+0x08..+0x13`, `next_index` at `+0x14`, `type` at `+0x16`, `entry_count` at `+0x18`, `listing_offset` at `+0x24`. | VERIFIED | H | 39/39 clean parse; listings match FAT |
-| C-032 | Listings are 32-byte entries: `name[12]` at `+0x00`, zeros, `type` at `+0x16` (0 = file, 2 = dir), `value` at `+0x1c` (logical size for files). | VERIFIED | H | `REFER001`/`REFER002` sizes match `.ind` uncompressed sizes |
-| C-033 | An earlier "one-node shift" was a parsing artefact: the record name is at `+0x00`, not `+0x18`. With the correct layout each node describes its own listing. | VERIFIED | H | corrected `tools/drstr.py`; 39 nodes, each listing matches its directory |
-| C-034 | The meaning of `next_index` is not proven (it increases by one per record). | OBSERVED | M | field values 2,3,4,… |
+| C-030 | `DRSTR001.DAT` has **no header**. The node table starts at `0x0000` with the root node `/`; the 2011 sample has 40 nodes. `0x2f` is the ASCII `/` of the root name, not a count. | VERIFIED | H | `40*40 + 324*32 = 11968`; cross-checked on 2014/2016 |
+| C-031 | Node records are 40 bytes, name-first: `name[8]` at `+0x00`, `next_index` at `+0x14`, `parent_index+1` at `+0x16`, `entry_count` at `+0x18`, `listing_offset` at `+0x24`. | VERIFIED | H | 40/40 parse; invariants pass |
+| C-032 | Listings are 32-byte entries: `name[13]` at `+0x00`, `type` at `+0x16` (0 = file, 2 = dir), `value` at `+0x1c`. | VERIFIED | H | 324 entries; names match FAT |
+| C-033 | An earlier "one-node shift" was a parsing artefact: the table starts at `0x0000`, not `0x28`, and each node describes its own listing. | VERIFIED | H | corrected `tools/drstr.py`; listings tile exactly to EOF |
+| C-034 | `next_index` is always `index + 1`; its purpose is unknown. | OBSERVED | H | all 40 nodes |
 | C-035 | `CMP.LST` contains exactly `\SystemSD\REFER001\` (19 bytes, no newline). | VERIFIED | H | hexdump |
-| C-036 | `value` at entry `+0x1c` is the logical uncompressed size for files. For map tiles it can exceed the on-disk size and is probably the total decompressed payload. | OBSERVED | M | `MAPAL001` entries vs file sizes |
+| C-036 | For file entries, `value` is the logical size (`.ind` uncompressed size, 194/194). For directory entries it is the recursive subtree total (verified for all 39 dirs). | VERIFIED | H | size invariants + FAT cross-check |
+| C-037 | `MMAIN001.DAT` is **not** a manifest: no file names, offsets or checksums. It is a format/version descriptor (common header, per-language code list at `0x18c`, 3-section descriptor at `0x1ac`). | VERIFIED (negative) | H | full-byte analysis; CRC/Adler/sum probes negative |
+| C-038 | There is no checksum/signature file on the card and no checksum field in `DRSTR001.DAT` or `MMAIN001.DAT`. Integrity of `REFER001` is zlib Adler-32 per 64 KiB chunk. | VERIFIED | H | 194/194 decompressions; field accounting |
+| C-039 | The fixed data before the payload may extend to `0x5d6`, not 512 bytes: the 10-byte sequence `80 00 00 00 05 00 fb 50 0b 0b` appears at `0x5cc` in many files. | OBSERVED | M | cross-file hexdump; parser boundary not proven |
 
 ## `MAPAL001` tiles
 
@@ -106,6 +109,20 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-048 | The tile-to-latitude/longitude mapping is unknown. | UNKNOWN | — | no correlation with coordinates yet |
 | C-049 | The record format inside decompressed tile streams is unknown. | UNKNOWN | — | not decoded |
 | C-050 | Road geometry is split between `MAPAL001` and `RDSTM001` in an unknown way. | UNKNOWN | — | `RDSTM001` has street-like data, tiles have geometry-like data |
+
+## `RDSTM001.DAT` / `LCTBL001.DAT`
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-100 | `LCTBL001.DAT` is a catalog + zlib-compressed name database, not a raw string table: catalog at `0x1000`, 517 streams from `0x316600`. | VERIFIED | H | `tools/lctbl_names.py verify` |
+| C-101 | The catalog has 90 `Location Data` descriptors and a 12-column road schema (`kind code`, `road no`, `road name`, `first/second name`, `area ref`, `liner ref`, offsets, `urban`, exit/junction, Inter-section code). | VERIFIED (names) / HYPOTHESIS (semantics) | H | descriptor hexdumps |
+| C-102 | The 517 streams decompress to 11,481,060 bytes containing 328,628 NUL-terminated Latin-2 strings (231,033 unique). | VERIFIED | H | `lctbl_names.py verify` |
+| C-103 | The name hierarchy runs continent → country → region → district → municipality → street; Czech names are first, Norwegian/French last. | OBSERVED | H | `lctbl_names.py names` |
+| C-104 | `RDSTM001.DAT` has no zlib streams and no inline ASCII names; it is dense packed binary. | VERIFIED (negative) | H | `rdstm_scan.py zlib --bruteforce` |
+| C-105 | The `0x1000` table in `RDSTM001.DAT` shares 2-byte codes with the LCTBL catalog (10/16 first rows match). | VERIFIED | H | `rdstm_scan.py codes` |
+| C-106 | The `0x1000` record framing is not a constant 16 bytes; it changes after `0x10a0`. | OBSERVED | H | hexdump |
+| C-107 | Grid hypothesis: B/R are hex; `lat_min = int(B,16)*2/3`, `lon_max = 108-int(R,16)`, cell 5.333°×8°. `B48R058R` covers Prague and Czech names are first. | HYPOTHESIS | M | fits one sample; not proven |
+| C-108 | Speed, direction, turn restrictions and `INTER`/`FRWAY` IDs were not found in `RDSTM001`/`LCTBL001`. | UNKNOWN | — | targeted scans negative |
 
 ## Firmware
 

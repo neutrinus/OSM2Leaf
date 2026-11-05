@@ -62,8 +62,12 @@ Three agents are investigating these; merge their results here when done.
 - [ ] Decode the `0x180` descriptor block in the common header field by field.
 - [ ] Determine the `DRSTR001.DAT` leading `u32` meaning (47 in the EU image).
 - [ ] Confirm whether entry `value` for tiles is the total decompressed size.
-- [ ] Decode `RDSTM001` and `LCTBL001`: record types, string table, road
-  attributes.
+- [x] `LCTBL001`: catalog, 12-column schema, 517-stream name database
+  (`docs/format/rdstm.md`).
+- [ ] `RDSTM001`: decode the `0x1000` record size, graph tuples, record fields
+  and road attributes; locate speed/direction/turn restrictions.
+- [ ] Join `LCTBL` name indices to `RDSTM` road records and tile mesh codes.
+- [ ] Validate the hex `B/R` grid with Prague geometry from OSM.
 - [ ] Decode `REFER001`/`REFER002` record formats: addresses, POIs,
   coordinates, street names, `MESHID`/`POI`/`Pre`/`Next` relationships.
 - [ ] Decode `MMAIN001.DAT` + `CMP.LST` update semantics.
@@ -135,10 +139,12 @@ prerequisite.
   PNG/GeoJSON, compare with OSM.
 - [ ] Layer 2: round-trip an unchanged file byte-identically, then a tiny
   mutation.
-- [ ] Layer 3: run extracted SH-4 decoder functions under Unicorn/QEMU
-  user-mode.
-- [ ] Layer 4: full WinCE/SH-4 boot in QEMU (QY8x/osm2clarion tooling as prior
-  art).
+- [ ] Layer 3: run extracted SH-4 decoder functions in Ghidra P-code
+  emulation (works today) and compare with the Python reader.
+- [x] Layer 4 verdict: full-system QEMU is not realistic. QEMU has only the
+  `r2d` SH-4 board, `sh7750.c` aborts on unknown registers, and most
+  peripherals/BSP are missing. Use QEMU `r2d` only as a bare-metal SH-4 bench;
+  MAME's SH-4 core is the reference if a custom machine is ever needed.
 
 ## P5 — OSM pipeline
 
