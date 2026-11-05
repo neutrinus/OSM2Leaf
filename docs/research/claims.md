@@ -402,6 +402,21 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-528 | `0x0369d400` (C-520) is the `BT_MGR` thunk for `COREDLL!sprintf`; the `0x6faeb0` path-builder is BT_MGR code unrelated to the map-code check; the real `HDD_INFO` logic is in `Navi.exe` (C-521). | VERIFIED | H | EXP-2026-11-05-36; `tools/cerom.py` |
 | C-529 | Which kernel image (B or C) boots with A, and the compression of `IMAGE_SCN_COMPRESSED` sections and `FILESentry` payloads, are unknown. | UNKNOWN | — | EXP-2026-11-05-36; `tools/cerom.py` |
 
+## Test mode (image C, M2.10)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-810 | `TestMode.exe` is module #82 of image C: 334848 bytes, `load=0x887e9000`, `vbase=0x00010000`, 4 sections (2 uncompressed, 2 `IMAGE_SCN_COMPRESSED`). | VERIFIED | H | `tools/cerom.py --image-start 0x5200200 IMG sections TestMode.exe` |
+| C-811 | `TestMode.exe` imports `COREDLL`, `CEDDK`, `commondll` (`CApi_GetSoftwareVersion`, `CApi_GetPartsNumber`, `CApi_GetDeviceVersion`, `CApi_GetBootMode`/`SetBootMode`/`GetBootModeEx`), `SYS_INF` (`SYS_DiagLogisCurrent`), `BT_ENG`, `BT_DB`. | VERIFIED | H | `tools/cerom.py ... imports TestMode.exe` |
+| C-812 | The menu dispatcher is `0x0002b17c` and prints `CTestModeManager::TestModeFunctionMain >> Invalid MenuNo` (`0x00011b80`) / `Get Mode Error` (`0x00011bf8`). | VERIFIED | H | `tools/sh4xref.py --to 0x00011b80` |
+| C-813 | The title/status screen is `0x0002bd04` (`Clarion Testmode` `0x00011ccc`, `Standby`/`Busy` `0x00011cbc`/`0x00011cf8`). | VERIFIED | H | `tools/sh4xref.py --to 0x00011ccc` |
+| C-814 | `TestMode.exe` contains a version screen reading software/parts numbers including `GetMapVersion`/`GetMapPno` (`CVersionReadFunction`), calling `CApi_GetSoftwareVersion`/`CApi_GetPartsNumber`/`CApi_GetDeviceVersion`. | OBSERVED | M | strings at `0x00025cce`/`0x00026a86` (no literal-pool hit) |
+| C-815 | `TestMode.exe` contains an SD read/write ageing test (`RUNNING [SD R/W (%s)]` `0x00011ef8`, `INSERT TEST DISC` `0x00011ec0`, `SD ERR`/`MECHA ERR`/`SLOPE ERR`) operating on `\SystemSD`, `\SystemSD2`, `\UserSD\AGING.csv`. | OBSERVED | M | strings; ageing manager error labels |
+| C-816 | `TestMode.exe` contains a log writer (`create Log file failed!!` `0x00012ab8` referenced by `0x0002e678`/`0x0002ee28`; `CAgingManager::WriteLog` `0x000130a8` referenced by `0x0002ea94`). | VERIFIED | H | `tools/sh4xref.py --to …` |
+| C-817 | `TestMode.exe` is registered in image C's launch table at file offset `0x55559cc` (VA `0x883557cc`) as `\windows\TestMode.exe`. | VERIFIED | H | raw image scan |
+| C-818 | Entry into test mode appears gated by a boot-mode flag (`CApi_GetBootMode`/`SetBootMode`/`GetBootModeEx` imported); no key-combination string was found, so the physical trigger (service menu vs. boot flag) is unknown. | HYPOTHESIS | L | imports + string scan |
+| C-819 | The two compressed `TestMode.exe` sections (`rva 0x4f000`, `0x5b000`) may contain additional menus; they are not decoded (codec unsupported, EXP-52/53). | UNKNOWN | — | `tools/cerom.py decompress --modules TestMode.exe` |
+
 ## Validation / checksums
 
 | ID | Claim | Status | Confidence | Evidence |
