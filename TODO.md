@@ -47,11 +47,16 @@ front has fewer, add the next tasks (see rule 9).
    same commit set `Status: done`, tick `[x]` and add one line `Result:`
    naming the EXP (subject in the normal style, e.g. `tools: …`). Run `python3 tools/selftest.py` (and the task's
    own check) and paste the result into the PR body. Mark the PR ready.
-   The maintainer merges.
+   **Then merge it to `main` yourself** (merge the PR, or rebase on
+   `origin/main` and `git push origin HEAD:main`; on a rejected push rebase
+   and retry, never force-push `main`). A task is done only when its commits
+   are on `origin/main`. **Afterwards delete your branch** (remote and local)
+   and close any leftover draft PR.
 7. **Blocked or negative.** If the done-when cannot be reached, set
    `Status: blocked`, write the exact blocker in one line, record the
    negative result as an EXP (method, scope, positive control), and add the
    follow-up tasks it suggests. A negative with a control is a result.
+   Merge it to `main` and clean up the branch as in rule 6.
 8. **Stale claims.** A claim with no push for 24 h may be released by the
    coordinator (`Status: open`, `Owner: —`). Push work in progress often.
 9. **New tasks.** Add them at the end of the right workstream with the next
