@@ -25,15 +25,28 @@ take a task". The short version:
    names (`[ID]` in the title).
 2. **First commit:** change only your task's line in `TODO.md` to
    `Status: in progress · Owner: <branch>` (subject `todo: start <ID>`),
-   push, and open a draft PR `[ID] short title`.
+   then **`git push -u origin <branch>` immediately**, before any other
+   work, and open a draft PR `[ID] short title`. An unpushed in-progress
+   commit claims nothing: no other agent can see it.
 3. Do the work on that branch: one task per PR, only the files the task
    names. Name EXP records `EXP-YYYY-MM-DD-<ID>-slug.md` and use only the
    task's reserved claim IDs.
 4. **Last commit:** the actual work, and in the same commit `Status: done`,
    `[x]` and a `Result:` line naming the EXP. Rebase on `main`, run
    `python3 tools/selftest.py`, mark the PR ready.
-5. Cannot finish: `Status: blocked` with the blocker in one line, plus a
-   negative-result EXP and follow-up tasks.
+5. **Merge to `main` yourself.** A task is done only when its work is on
+   `main`; "done on my branch" is not done. Merge your PR (GitHub merge
+   button / API, or, if you cannot, `git fetch origin main && git rebase
+   origin/main && python3 tools/selftest.py && git push origin
+   HEAD:main`). If `main` moved and the push is rejected, rebase and retry;
+   never force-push `main`. Check that your commits are on `origin/main`
+   (`git branch -r --contains HEAD`) before you report the task finished.
+6. **Clean up.** After the merge delete your branch, remote and local
+   (`git push origin --delete <branch>`, `git branch -D <branch>`), and
+   close any draft PR that is left over. Leave no stale branches behind.
+7. Cannot finish: `Status: blocked` with the blocker in one line, plus a
+   negative-result EXP and follow-up tasks; merge that to `main` too, so
+   the board shows it.
 
 ## Repo shape
 
