@@ -27,11 +27,13 @@ front has fewer, add the next tasks (see rule 9).
    `Critical: yes`, then the front with the fewest active owners.
 2. **Check for a claim.** A task is taken if its `Owner` is set, or an open PR
    has the task ID in its title (`[M2.1] …`). Look at both before starting.
-3. **Claim within your first 10 minutes.** Create a branch, commit **only**
-   the change of your task's `Status` line to `claimed` and `Owner` to your
-   branch name, push, and open a **draft PR** titled `[ID] short title`.
-   The draft PR is the claim. If two PRs claim the same ID, the lower PR
-   number wins; the other agent closes its PR and picks another task.
+3. **First commit: mark the task `in progress`.** Within your first 10
+   minutes create a branch and make a commit that changes **only** your
+   task's line to `Status: in progress · Owner: <branch>` (subject
+   `todo: start <ID>`). Push it and open a **draft PR** titled
+   `[ID] short title`. The draft PR makes the claim visible before it
+   merges. If two PRs claim the same ID, the lower PR number wins; the other
+   agent closes its PR and picks another task.
 4. **One task per PR, small PRs.** Touch only the files your task names, your
    own EXP record(s), your claim rows, and your task block in `TODO.md`.
    Do not reformat, reorder or "fix up" other tasks or other people's text.
@@ -39,8 +41,9 @@ front has fewer, add the next tasks (see rule 9).
 5. **Rebase on `main` before you mark the PR ready**, and again if `main`
    moved while it waits. In `TODO.md`, `claims.md` and index tables keep
    both sides of a conflict; never drop another task's lines.
-6. **Finish.** Set `Status: done` and tick `[x]` in your PR, with one line
-   `Result:` naming the EXP. Run `python3 tools/selftest.py` (and the task's
+6. **Last commit: the work plus `done`.** Commit the actual work, and in the
+   same commit set `Status: done`, tick `[x]` and add one line `Result:`
+   naming the EXP (subject in the normal style, e.g. `tools: …`). Run `python3 tools/selftest.py` (and the task's
    own check) and paste the result into the PR body. Mark the PR ready.
    The maintainer merges.
 7. **Blocked or negative.** If the done-when cannot be reached, set
@@ -78,7 +81,7 @@ C-521, C-528…C-533 were proposed twice). From now on:
 
 ```text
 - [ ] **ID — title**
-  - Status: open | claimed | blocked | done · Owner: — | <branch> · Critical: yes | no
+  - Status: open | in progress | blocked | done · Owner: — | <branch> · Critical: yes | no
   - Depends: — | IDs
   - Goal: one sentence.
   - Input: files, offsets, tools, samples.
@@ -138,7 +141,7 @@ qemu-system-misc gdb-multiarch`.
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
 | H | Housekeeping: ledger, docs, tool overlap | H1, H2, H3, H4 |
-| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2a, M1.2b, M1.2c, M1.8 (M1.6b, M1.7 claimed) |
+| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2a, M1.2b, M1.2c, M1.8 (M1.6b, M1.7 in progress) |
 | M2 | Map code, activation, updater, error screens | M2.1, M2.6, M2.7, M2.8, M2.9, M2.10 |
 | M3 | Reader contract (what the unit reads from the card) | M3.1, M3.4, M3.5 |
 | M4 | Data formats (no firmware needed) | M4.1, M4.3, M4.4, M4.5, M4.6, M4.7, M4.8, M4.9–M4.14 |
@@ -305,7 +308,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-680–C-689
 
 - [ ] **M1.6b — Resolve all import thunks of all modules**
-  - Status: claimed · Owner: upstream session (draft `tools/cerom_thunks.py`,
+  - Status: in progress · Owner: upstream session (draft `tools/cerom_thunks.py`,
     removed again in `c44db2b` until its EXP lands) · Critical: no
   - Depends: M1.6 (PR #5)
   - Goal: a VA → `module!export` label table for every thunk, for Ghidra and
@@ -318,7 +321,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-690–C-699
 
 - [ ] **M1.7 — Which kernel (B or C) boots with A**
-  - Status: claimed · Owner: upstream session (draft `tools/kernel_select.py`,
+  - Status: in progress · Owner: upstream session (draft `tools/kernel_select.py`,
     removed again in `c44db2b` until its EXP lands) · Critical: no
   - Depends: —
   - Goal: know which kernel and drivers the unit really runs.

@@ -16,6 +16,25 @@ All repo content (code, docs, commits) is English. Conversation may be Polish.
    `docs/research/open-questions.md` — unknowns.
 5. `tools/README.md` — exact commands and expected output.
 
+## Taking a task (parallel agents)
+
+About 15 agents work from `TODO.md` at once. Full rules: `TODO.md` "How to
+take a task". The short version:
+
+1. Pick an `open` task whose dependencies are done and that no open PR
+   names (`[ID]` in the title).
+2. **First commit:** change only your task's line in `TODO.md` to
+   `Status: in progress · Owner: <branch>` (subject `todo: start <ID>`),
+   push, and open a draft PR `[ID] short title`.
+3. Do the work on that branch: one task per PR, only the files the task
+   names. Name EXP records `EXP-YYYY-MM-DD-<ID>-slug.md` and use only the
+   task's reserved claim IDs.
+4. **Last commit:** the actual work, and in the same commit `Status: done`,
+   `[x]` and a `Result:` line naming the EXP. Rebase on `main`, run
+   `python3 tools/selftest.py`, mark the PR ready.
+5. Cannot finish: `Status: blocked` with the blocker in one line, plus a
+   negative-result EXP and follow-up tasks.
+
 ## Repo shape
 
 - No package manager, build system or CI. Deliverables are docs plus small
