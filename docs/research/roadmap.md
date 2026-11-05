@@ -35,7 +35,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | export anchor maps 26 modules; static VA recovery exhausted; map-code comparator located | HDD_INFO parser module still missing; next is caller tracing + spare-card line sweep |
+| Firmware addressing | export anchor maps 26 modules; map-code comparator chain located; `userdata_type` range-checked | HDD_INFO parser is behind COM property 17; next is the spare-card matrix or COM-class identification |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 
@@ -140,7 +140,8 @@ proven.
 
 ## What not to do yet
 
-- Full-system QEMU (not the critical path).
+- Full-system QEMU (not the critical path; see
+  [`feedback-loop.md`](feedback-loop.md)).
 - Full firmware decompile before the section table.
 - OSM encoder before the format gates.
 - Buildings/forest/water before a polygon record is proven.

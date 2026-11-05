@@ -144,6 +144,18 @@ python3 harness.py compose /path/to/B30R060R.DAT /path/to/LEV3456R.DAT \
 Clean tiles (`B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R`) rebuild
 byte-identically. Dense section-4 tiles and drawn roads are still open.
 
+## `hddinfo_variants.py`
+
+Generate length-preserving `HDD_INFO.TXT` variants for the spare-card
+map-code matrix (all outputs stay 72 bytes):
+
+```bash
+python3 tools/hddinfo_variants.py VER_INFO/HDD_INFO.TXT /tmp/variants --sweep 0-5
+```
+
+It emits a last-character change, `0…5` sweeps over digit runs, and
+uppercase-word replacements, plus `MANIFEST.txt`.
+
 ## `selftest.py`
 
 Runs synthetic tests for `cmpind.py` and `drstr.py` without any vendor data:

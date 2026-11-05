@@ -230,28 +230,46 @@ SD Import: destination_id is different Sys[0x%x] SD[0x%x]
 SD Import : application type not correct.
 ```
 
-The comparator is **located** at file `0x6fafe4`–`0x6fb194` (data delta
-`0x02800000`). It performs a numeric `Sys[0x%x]` vs `SD[0x%x]` comparison per
-field for `manufacturer_id`, `userdata_type` and `destination_id`; one field is
-range-checked `0 ≤ v < 6`. Failures report “finished not found” / “type not
-correct”.
+The comparator chain is **located** (data delta `0x02800000`):
 
-A second module is involved: pool pointers `0x0369xxxx` land in file
-`0x1683xxx` with code delta `0x0200e438` (4/7 land on function starts).
+| Address | Role |
+| --- | --- |
+| `0x6fab2c` | entry wrapper → `0x6faeb0` |
+| `0x6faeb0` | mode/path selector (`*(obj+0x10)`; modes 0/10 → path A; status selects `+68/+76/+80`) |
+| `0x6fb05c` | field comparison: `manufacturer_id`, `userdata_type`, `destination_id`, `Sys[0x%x]` vs `SD[0x%x]` |
 
-The six `HDD_INFO` lines ↔ three fields mapping is **UNKNOWN**; the
-`SDC08`/`EVEUR` split is a shape-based guess only. The parser
-(open/split/parse) is not reached, and the module containing it has no
-recoverable code delta. The image embeds a byte-identical `HDD_INFO.TXT` at
-`0x06000000`; it is probably the system-side reference. The literal
-`"DIFFERENT MAP CODE"` is absent from build A; nearest hits are unrelated.
+- **`userdata_type` is the range-checked field** (`0 < v < 6`);
+  `manufacturer_id` and `destination_id` are arbitrary `u16`.
+- The unit selects among multiple `HDD_INFO` locations by mode/status:
+  `\SystemSD\…` vs `\UserSD\…` plus three object-relative paths.
+- `0x6fafe4` is only a 0x18-byte teardown stub (retracted as the comparator).
+
+A second module (SD format/validate) has data delta `0x1130000` and code file
+`0x30d000–0x315000`; its wrapper `0x30efcc` passes the path to **COM property
+17**. FATUTIL is not the parser.
+
+The file parser is behind an **unnamed COM class**; the comparator module's
+code delta is unrecoverable, so static tracing stops there. The six-line
+mapping is a ranked hypothesis: line 4 `SDC08-EVEUR` → manufacturer +
+destination; QSD lines → `userdata_type`; line 6 part number; lines 3/5
+version/date. The `Sys` side is a parsed `u16`; the built-in `0x06000000` copy
+is the only system-side `HDD_INFO`, so both are likely used.
+
+### Test package
+
+`tools/hddinfo_variants.py` generates 73 length-preserving variants (all 72 B)
+for a spare-card matrix: one line per card, `0…5` sweeps on numeric runs, and
+uppercase-word replacements. A debug console prints the exact
+`SD Import: <field> is different Sys[0x%x] SD[0x%x]` message.
 
 ### Tile contract from diagnostics
 
 The map layer's own strings pin the contract:
 
-- intra-mesh coordinates are **`0..2047` (11-bit)**
-  (`RGD_JLocGet : t_start_x = 0,2047`, …);
+- intra-mesh coordinates are **`0..2047` (11-bit)** at runtime
+  (`RGD_JLocGet : t_start_x = 0,2047`, …). This is **not** a storage rule:
+  raw `REFER001` bodies contain 4–7 % non-fill `u16` values in `2048–4095`
+  and 23–26 % ≥ 4096, so coordinates are bit-packed/masked;
 - `MESHMAX_LEV1` exists and mesh numbers are validated;
 - per-mesh structures `area_link`, `cvdata`, `rgd_t`, `RGD_commem`;
 - link fields `subl->lseg.sttpos/.endpos`, `links_p->linkp`;
@@ -292,18 +310,22 @@ Full-system QEMU is **not realistic** today:
 
 What works: QEMU `r2d` as a bare-metal SH-4 bench, and Ghidra 12.2 SuperH4
 P-code emulation headlessly. Use those for selected routines; use the Python
-round-trip validator for the whole-card feedback loop.
+round-trip validator for the whole-card feedback loop. The full option matrix
+is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 ## Next steps
 
 Firmware RE remains the primary path.
 
-1. **Callers of `0x6fafe4`:** find the `HDD_INFO` open/split/parse path and map
-   the six lines to `manufacturer_id` / `userdata_type` / `destination_id`.
-2. **Relative call-graph tracing** from `0xc438a4` (CMP.LST), `0xc48380`
+1. **Spare-card matrix** (highest value, no RE): run
+   `tools/hddinfo_variants.py` one line per card, sweep numeric runs 0…5, and
+   read the `SD Import: <field>` message if a console is available. This
+   settles the six-line mapping and card-vs-built-in question.
+2. **COM class behind property 17:** use the `.rgs`/CLSID registration data in
+   the image to identify the class, then decompile its `Set(17, path)`
+   implementation — the `HDD_INFO` parser.
+3. **Relative call-graph tracing** from `0xc438a4` (CMP.LST), `0xc48380`
    (message catalogue) and the fd machinery for `.cmp`/`.ind` and `DRSTR`.
-3. **Spare-card closure loop:** edit one `HDD_INFO` line per card, preserve
-   length/CRLF, sweep numeric lines 0…5, read the debug
-   `SD Import: <field> is different` message.
-4. Use the `0..2047` bound and `MESHMAX_LEV1` as hard tile-writer constraints.
+4. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed constraints for the
+   tile writer (not plain-u16 storage).
 5. QEMU remains out of scope for this blocker.

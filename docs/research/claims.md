@@ -145,6 +145,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-295 | Dump headers document a six-level table (`VTb Tp;Lv;…|L1..L6|Sz;Adr`) and the file descriptor (`HFile;FileID;Tp;Lv;V#;la Lo`). | OBSERVED | H | strings at `0xdf65a1`, `0xdf6621` |
 | C-296 | `0x1ac` is **not** the tile level table: it is a 428-byte per-object OSM buffer for `obj+0x40`. | VERIFIED (retraction) | H | EXP-2026-11-05-16 |
 | C-297 | Closure experiment: one HDD_INFO line per spare card, preserve length/CRLF, sweep numeric lines 0…5, read the debug `SD Import: <field>` message. | PLANNED | — | EXP-2026-11-05-16 |
+| C-300 | Comparator chain: `0x6fab2c` wrapper → `0x6faeb0` mode/path selector → `0x6fb05c` field comparison. `0x6fafe4` is a 0x18-byte teardown stub (retracted). | VERIFIED | H | EXP-2026-11-05-17 |
+| C-301 | `userdata_type` is the range-checked field (`0 < v < 6`); `manufacturer_id` and `destination_id` are arbitrary `u16`. | VERIFIED | H | EXP-2026-11-05-17 |
+| C-302 | SD format/validate module: data delta `0x1130000`, code file `0x30d000–0x315000`; wrapper `0x30efcc` passes the path to COM property 17. FATUTIL is not the parser. | OBSERVED | H | EXP-2026-11-05-17 |
+| C-303 | The file parser is behind an unnamed COM class (`Set(17, path)`); the comparator module's code delta is unrecoverable, so static tracing stops there. | UNKNOWN | — | EXP-2026-11-05-17 |
+| C-304 | Six-line mapping is a ranked hypothesis: line 4 `SDC08-EVEUR` → manufacturer+destination; QSD lines → userdata_type; line 6 part number; lines 3/5 version/date. | HYPOTHESIS | M | EXP-2026-11-05-17 |
+| C-305 | The `Sys` side is a parsed `u16`; the built-in `0x06000000` copy is the only system-side HDD_INFO, so both are likely used. | HYPOTHESIS | M | EXP-2026-11-05-17 |
+| C-306 | `tools/hddinfo_variants.py` generates 73 length-preserving 72-byte HDD_INFO variants for the spare-card matrix. | VERIFIED | H | EXP-2026-11-05-17 |
+| C-307 | The `0..2047` bound is runtime/derived, not storage: raw REFER001 u16 values exceed it, so coordinates are bit-packed/masked. | OBSERVED | H | EXP-2026-11-05-17 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
@@ -324,6 +332,17 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-123 | The 2019 e-NV200 image is a different engine: `CLA-NAVI06-01` / `X08-03-00` / ZENRIN, `DB_INFO.TXT`, partition at sector 888833, 14,827 files. | VERIFIED | H | image inspection |
 | C-124 | ZE0-era cards carry three volumes: ~100 MiB firmware area, 7.55 GiB FAT32 map partition, and a TFAT16 volume at image offset `0x1C8400400`. | VERIFIED | H | FAT boot sector at that offset (`MSWIN4.1`, `TFAT16`) |
 | C-125 | The `EU_MAPDATA_*.7z` archives are repacks of the card images, not independent builds. | OBSERVED | H | matching `MMAIN001.DAT` hashes |
+
+## Emulation / feedback loop
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-298 | Wine is a Win32 compatibility layer, not a CPU emulator; it cannot execute the Leaf's SH-4 Windows CE ROM modules. | VERIFIED (design) | H | Wine "about"/README: Win32 API on a compatible host CPU; no SH-4/WinCE target |
+| C-299 | QEMU system-mode SH-4 has only the `r2d` machine; `linux-user` SH-4 exists but runs Linux ELF, not WinCE. | VERIFIED | H | QEMU `hw/sh4/Kconfig`, `linux-user/sh4/target_syscall.h` |
+| C-300 | MAME has SH-4/SH7750-family CPU models, but no CETUS_SH4 board model was found; its SH-4 on-board peripherals are still incomplete. | VERIFIED | H | MAME `src/devices/cpu/sh/sh4.cpp` header and device types |
+| C-301 | sh3-emu is MIT-licensed, emulates SH-3 Windows CE 1.x/2.x (including a Clarion AutoPC 310C), and is not an SH-4/CE5 emulator. | VERIFIED | H | sh3-emu README, `docs/hardware.md`, `docs/machines/autopc.md`, `LICENSE` |
+| C-302 | CERF has no SH-4 CPU core; its CPUs are ARM/StrongARM/XScale/MIPS, and its current licence is custom non-commercial. | VERIFIED | H | CERF `src/cpu` tree and `LICENSE` |
+| C-303 | A true 4-bit SDIO card emulator is typically FPGA-level work; an SD extender plus a host-side writer is the cheap hardware-in-the-loop alternative. | OBSERVED | M | external SD-emulation projects; not tested on the Leaf |
 
 ## How to use this ledger
 

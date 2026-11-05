@@ -31,12 +31,13 @@ OSM only after that.
    - [x] ROM module table / self-name / adjacency routes: all refuted
      (`EXP-2026-11-05-14`).
    - [x] Static VA recovery from this image is exhausted.
-   - [x] Map-code comparator located at `0x6fafe4`–`0x6fb194`: numeric
-     `Sys`/`SD` per field, one `0..5` range check.
-   - [ ] Find callers of `0x6fafe4` and the `HDD_INFO` open/split/parse path;
-     map six lines to `manufacturer_id`/`userdata_type`/`destination_id`.
-   - [ ] Spare-card closure: one HDD_INFO line per card, preserve length/CRLF,
-     sweep numeric lines 0…5, read the debug field message.
+   - [x] Comparator chain corrected: `0x6fab2c` → `0x6faeb0` → `0x6fb05c`;
+     `userdata_type` is the `0<v<6` field (EXP-2026-11-05-17).
+   - [x] Test package: `tools/hddinfo_variants.py` generates 73
+     length-preserving HDD_INFO variants.
+   - [ ] Run the spare-card matrix (highest value, no RE).
+   - [ ] Identify the COM class behind property 17 via `.rgs`/CLSID and
+     decompile its `Set(17, path)` parser.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
      until the readers define the data contract. No timebox.
    - [ ] Relative call-graph tracing from `0xc438a4`, `0xc0ebf8`, `0xc48380`.
@@ -229,23 +230,33 @@ Three agents are investigating these; merge their results here when done.
 - [ ] Run the no-op recompression control on the **US** card/unit.
 - [ ] Run the rename test on a spare card; record screens and rollback.
 
-## P4b — emulation / feedback loop
+## P4b — feedback loop / emulation
 
-Build the cheap layers first; full-system boot is a research spike, not a
-prerequisite.
+See [`docs/research/feedback-loop.md`](docs/research/feedback-loop.md) for the
+analysis. Build the cheap layers first; full-system emulation is a timeboxed
+research spike, not a prerequisite.
 
-- [x] Layer 0: static decoder + validator (`tools/cmpind.py`,
+- [x] **L0 — primitives:** static decoder + validator (`tools/cmpind.py`,
   `tools/drstr.py`, `tools/selftest.py`).
-- [ ] Layer 1: decode a tile/`.cmp` to a neutral format, render to
-  PNG/GeoJSON, compare with OSM.
-- [ ] Layer 2: round-trip an unchanged file byte-identically, then a tiny
-  mutation.
-- [ ] Layer 3: run extracted SH-4 decoder functions in Ghidra P-code
-  emulation (works today) and compare with the Python reader.
-- [x] Layer 4 verdict: full-system QEMU is not realistic. QEMU has only the
-  `r2d` SH-4 board, `sh7750.c` aborts on unknown registers, and most
+- [ ] **L1 — whole-card validator:** MBR/FAT, `DRSTR` tree, sizes, `.ind`
+  offsets, zlib decode, tile inventory, `MMAIN` table, `HDD_INFO` copy. Stable
+  exit code + machine-readable report.
+- [ ] **L2 — semantic/golden:** decode a tile/`.cmp` to a neutral format,
+  render to PNG/GeoJSON, compare with OSM/golden output; byte-identical
+  round-trip for unchanged files, then a tiny mutation.
+- [ ] **L3 — function-level SH-4 emulation:** run located reader functions
+  under Ghidra P-code with mocked file I/O; compare with the Python reader.
+  Requires relative call-graph tracing to locate the readers first.
+- [ ] **L4 — bench hardware-in-the-loop:** spare unit, 12 V, `TEST_B1`, CAN
+  simulator, SD extension + host writer, power relay, screen capture. First
+  pass: boot + map screen; then no-op control; then POI rename.
+- [x] **L5 verdict:** full-system QEMU is not realistic. QEMU has only the
+  `r2d` SH-4 machine, `sh7750.c` aborts on unknown registers, and most
   peripherals/BSP are missing. Use QEMU `r2d` only as a bare-metal SH-4 bench;
   MAME's SH-4 core is the reference if a custom machine is ever needed.
+- [x] **Decision record:** Wine rejected (Win32 layer, not SH-4/WinCE);
+  QEMU/MAME/sh3-emu assessed; offline contracts + bench HIL recommended.
+  See `docs/research/feedback-loop.md`.
 
 ## P5 — OSM pipeline
 

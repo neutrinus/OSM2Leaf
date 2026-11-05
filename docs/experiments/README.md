@@ -88,3 +88,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-14](EXP-2026-11-05-14-firmware-static-va.md) | Static VA recovery is exhausted | done (method change) |
 | [EXP-2026-11-05-15](EXP-2026-11-05-15-tile-section4-roads.md) | Section-4 index, road names and streaming decoder | done (attributes partial) |
 | [EXP-2026-11-05-16](EXP-2026-11-05-16-mapcode-tile-contract.md) | Map-code comparator and tile contract | done (parser still missing) |
+| [EXP-2026-11-05-17](EXP-2026-11-05-17-mapcode-test-package.md) | Comparator corrected; HDD_INFO test package | done (parser behind COM) |

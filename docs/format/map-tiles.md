@@ -136,6 +136,10 @@ u16 BE section_tag
 - 3,497,371 streams decoded with zero exceptions.
 - `COORD001` uses longitude origin `52742`; the stream prefix uses `52736`.
   The 6-unit difference (~0.047°) is not yet explained.
+- Firmware diagnostics impose a runtime intra-mesh bound of **`0..2047`**
+  (11-bit) and validate `MESHMAX_LEV1`. This is not a storage rule: raw
+  `REFER001` bodies contain `u16` values above 2047, so coordinates are
+  bit-packed/masked rather than plain `u16`.
 
 ## Stream layout
 
