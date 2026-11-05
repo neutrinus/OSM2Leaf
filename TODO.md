@@ -592,13 +592,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     byte-identically and every field has a meaning or `UNKNOWN`.
   - Claims: C-930–C-939
 
-- [ ] **M4.6 — The `B30R048R` 2013–2016 rebuild difference**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.6 — The `B30R048R` 2013–2016 rebuild difference**
+  - Status: done · Owner: task/m4.6-b30r048r-diff · Critical: no
   - Depends: —
   - Input: EXP-30, `tools/diff_years.py`, 2014/2016 roots.
   - Done when: the difference at `0x807`/`0x808` is explained and the writer
     needs no fallback.
   - Claims: C-940–C-949
+  - Result: EXP-2026-11-05-M4.6-b30r048r-diff; non-monotonic shared-block layout + non-canonical addr_of tags; clarion_tile.write_tile now byte-identical for 2011/2014/2016 (preserved=0)
 
 - [ ] **M4.7 — Rename path for names/addresses**
   - Status: open · Owner: — · Critical: no

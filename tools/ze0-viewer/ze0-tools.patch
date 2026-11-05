@@ -123,7 +123,7 @@ diff -ruN osm2clarion/tools/clarion_bg.py tools_ze0/clarion_bg.py
              if b == d: ok += 1
 diff -ruN osm2clarion/tools/clarion_tile.py tools_ze0/clarion_tile.py
 --- a/tools/clarion_tile.py	2026-11-05 12:33:59.882729214 +0100
-+++ b/tools/clarion_tile.py	2026-11-05 15:34:12.591697710 +0100
++++ b/tools/clarion_tile.py	2026-11-05 21:12:42.464002367 +0100
 @@ -5,6 +5,13 @@
  SLOTS = 32
  LEVEL_OFF, BBOX_OFF, SECT_OFF, TABLE1_OFF = 0x1ac, 0x2ac, 0x800, 0x1000
@@ -138,7 +138,7 @@ diff -ruN osm2clarion/tools/clarion_tile.py tools_ze0/clarion_tile.py
  def addr_of(v): return (v >> 8) * 2048 + (v & 0xff) * 256
  def enc_addr(off):
      assert off % 256 == 0
-@@ -19,7 +26,7 @@
+@@ -19,19 +26,19 @@
      return out, p
  
  def read_tile(d):
@@ -147,7 +147,30 @@ diff -ruN osm2clarion/tools/clarion_tile.py tools_ze0/clarion_tile.py
      levels, _ = walk(d, LEVEL_OFF, 4)
      sect_entries = []
      p = SECT_OFF
-@@ -57,27 +64,60 @@
+     while True:
+         a, c = struct.unpack_from('>IH', d, p); p += 6
+         if a == 0xffffffff: break
+-        sect_entries.append((addr_of(a), c))
+-    for (sid, lv), (taddr, count) in zip(levels, sect_entries):
++        sect_entries.append((addr_of(a), c, a))
++    for (sid, lv), (taddr, count, ttag) in zip(levels, sect_entries):
+         nlev = len(lv)
+         nw = struct.unpack_from('>H', d, taddr)[0]
+         w = struct.unpack_from('>%dH' % nw, d, taddr)
+-        sec = dict(id=sid, count=count, taddr=taddr, levels=[], table_words=nw)
++        sec = dict(id=sid, count=count, taddr=taddr, ttag=ttag, levels=[], table_words=nw)
+         si = len(t['sections']); t['order'].append((taddr, 'table', si))
+         for li, e in enumerate(lv):
+             level, typ, cnt = e[0], e[1], struct.unpack('>H', e[2:])[0]
+@@ -44,6 +51,7 @@
+                     y1, y0, x0, x1, z, tg = w[o+2+6*k:o+8+6*k]
+                     D = read_dir(d, addr_of((z << 16) | tg), box=(y1, y0, x0, x1), nslots=16 if level == 3 else SLOTS,
+                                 section=sid)
++                    D['ptr_tag'] = (z << 16) | tg
+                     di = len(L['dirs']); L['dirs'].append(D)
+                     t['order'].append((D['off'], 'dir', si, li, di))
+                     if D['slots']:
+@@ -57,27 +65,60 @@
  
  def read_dir(d, off, box, nslots=SLOTS, section=1):
      kind, a, b, y, x, typ = struct.unpack_from('>HHHHHH', d, off)
@@ -213,29 +236,147 @@ diff -ruN osm2clarion/tools/clarion_tile.py tools_ze0/clarion_tile.py
      D['end'] = p
      return D
  
-@@ -86,8 +126,11 @@
+@@ -86,8 +127,16 @@
      for i in range(D.get('nslots', SLOTS)):
          s = D['slots'].get(i)
          if s is None:
 -            out += b'\xff' * 4 + D.get('empty_bodies', {}).get(i, b'\xff' * D['body']); continue
+-        out += struct.pack('>I', enc_addr(slot_addrs[i])) + s['body']
 +            tag = D.get('empty_tags', {}).get(i)
 +            out += (struct.pack('>I', tag) if tag is not None else b'\xff' * 4)
 +            out += D.get('empty_bodies', {}).get(i, b'\xff' * D['body']); continue
-         out += struct.pack('>I', enc_addr(slot_addrs[i])) + s['body']
++        addr = slot_addrs[i]
++        if addr == s['block_off']:
++            tag = s['tag']
++        else:
++            tag = enc_addr(addr)
++        out += struct.pack('>I', tag) + s['body']
 +    out += D.get('tail', b'')
      return bytes(out)
  
  def block_bytes(s):
-@@ -112,26 +155,58 @@
+@@ -112,26 +161,169 @@
                  if D['slots']: order.append((0, 'blocks', si, li, di))
      return order
  
 -def write_tile(t, order=None):
++def _try_preserve_random(t, order, src):
++    """Place every component at its original offset (random access).
++
++    Returns the rebuilt bytes when the tile is unchanged (all component bytes
++    match src at their original offsets and intervals are disjoint), else None.
++    Handles non-monotonic layouts such as B30R048R, where a slot block can live
++    in an earlier gap."""
++    where = {}
++    for o in order:
++        kind = o[1]
++        if kind == 'table':
++            where[('table', o[2])] = o[0]
++        elif kind == 'dir':
++            where[('dir', o[2], o[3], o[4])] = o[0]
++        else:
++            si, li, di = o[2:]
++            D = t['sections'][si]['levels'][li]['dirs'][di]
++            for i in D['slots']:
++                where[('slot', si, li, di, i)] = D['slots'][i]['block_off']
++
++    intervals = []
++    slot_bytes = {}
++    for o in order:
++        if o[1] != 'blocks':
++            continue
++        si, li, di = o[2:]
++        D = t['sections'][si]['levels'][li]['dirs'][di]
++        for i in D['slots']:
++            bb = block_bytes(D['slots'][i])
++            off = where[('slot', si, li, di, i)]
++            slot_bytes[('slot', si, li, di, i)] = bb
++            if off < TABLE1_OFF or off + len(bb) > len(src):
++                return None
++            if src[off:off + len(bb)] != bb:
++                return None
++            intervals.append((off, off + pad256(len(bb))))
++
++    dir_bytes_map = {}
++    for o in order:
++        if o[1] != 'dir':
++            continue
++        si, li, di = o[2:]
++        D = t['sections'][si]['levels'][li]['dirs'][di]
++        db = dir_bytes(D, {i: where[('slot', si, li, di, i)] for i in D['slots']})
++        dir_bytes_map[('dir', si, li, di)] = db
++        off = where[('dir', si, li, di)]
++        if off < TABLE1_OFF or off + len(db) > len(src):
++            return None
++        if src[off:off + len(db)] != db:
++            return None
++        intervals.append((off, off + pad256(len(db))))
++
++    table_bytes_map = {}
++    for o in order:
++        if o[1] != 'table':
++            continue
++        si = o[2]
++        sec = t['sections'][si]
++        nw, lv_offs, groups = table_words(sec)
++        w = [nw] + lv_offs
++        for L in groups:
++            li = sec['levels'].index(L)
++            w += [2 + 6 * len(L['dirs']), len(L['dirs'])]
++            for di, D in enumerate(L['dirs']):
++                off_dir = where[('dir', si, li, di)]
++                if off_dir == D['off'] and 'ptr_tag' in D:
++                    a = D['ptr_tag']
++                else:
++                    a = enc_addr(off_dir)
++                w += [D['box'][0], D['box'][1], D['box'][2], D['box'][3], a >> 16, a & 0xffff]
++        tb = struct.pack('>%dH' % nw, *w)
++        table_bytes_map[('table', si)] = tb
++        off = where[('table', si)]
++        if off < TABLE1_OFF or off + len(tb) > len(src):
++            return None
++        # compare against src using original table tag if unchanged
++        # rebuild the raw section-table entry comparison is done below; here compare tb
++        # but tb uses enc_addr for dir pointers which may differ in canonical form.
++        # For unchanged tiles the factory may use non-canonical encodings for dir
++        # pointers too; handle by using original tags when offset matches.
++        if src[off:off + len(tb)] != tb:
++            return None
++        intervals.append((off, off + pad256(len(tb))))
++
++    out = bytearray(src)
++    out[0:TABLE1_OFF] = t['header']
++    for key, data in table_bytes_map.items():
++        out[where[key]:where[key] + len(data)] = data
++    for key, data in dir_bytes_map.items():
++        out[where[key]:where[key] + len(data)] = data
++    for key, data in slot_bytes.items():
++        out[where[key]:where[key] + len(data)] = data
++    p = SECT_OFF
++    for si, sec in enumerate(t['sections']):
++        # use original section table tag when unchanged
++        orig = sec.get('ttag') if where[('table', si)] == sec['taddr'] else None
++        tag = orig if orig is not None else enc_addr(where[('table', si)])
++        struct.pack_into('>IH', out, p, tag, sec['count'])
++        p += 6
++    if len(out) != len(src):
++        return None
++    return bytes(out)
++
++
 +def write_tile(t, order=None, preserve_gaps=True):
      order = order or t.get('order') or default_order(t)
+-    # pass 1: sizes and positions
 +    src = t.get('_src')
 +    preserve = bool(src) and preserve_gaps
-     # pass 1: sizes and positions
++
++    if preserve:
++        res = _try_preserve_random(t, order, src)
++        if res is not None:
++            return res
++
++    # original sequential path (compact / fallback)
++    preserve = False
      pos = TABLE1_OFF; where = {}
      for o in order:
          kind = o[1]
@@ -289,7 +430,7 @@ diff -ruN osm2clarion/tools/clarion_tile.py tools_ze0/clarion_tile.py
          if kind == 'table':
              si = o[2]; sec = t['sections'][si]; nw, lv_offs, groups = table_words(sec)
              w = [nw] + lv_offs
-@@ -149,13 +224,18 @@
+@@ -149,13 +341,18 @@
              out += dir_bytes(D, {i: where[('slot', si, li, di, i)] for i in D['slots']})
          else:
              si, li, di = o[2:]; D = t['sections'][si]['levels'][li]['dirs'][di]
