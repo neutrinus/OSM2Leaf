@@ -314,6 +314,24 @@ Expected on the EU 2011 sample: five valid SH-4 segments; build A has
 resolves names such as `Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll` and
 `STDDLL.dll`.
 
+## `ce_qemu_probe.py` — boot the CE kernel under stock QEMU
+
+Plays the (on-board) bootloader: copies kernel image B (or C) and app image A
+to their physical load addresses, starts `nk.exe` on QEMU's `none` machine with
+an `sh7785` (SH-4A) CPU, and lists every unmodelled SoC register access in
+first-seen order, the CPU exceptions and the final PC. Needs
+`qemu-system-sh4` (`apt install qemu-system-misc`). See
+`docs/research/full-system-emulation.md` and EXP-2026-11-05-37.
+
+```bash
+python3 tools/ce_qemu_probe.py IMAGE --seconds 4                       # stops polling 0xffe70808
+python3 tools/ce_qemu_probe.py IMAGE --patch 0x88048b70=0900           # skip that poll
+python3 tools/ce_qemu_probe.py IMAGE --kernel 0x5200200                # image C
+```
+
+Expected with the patch (EU 2011): 50 distinct register accesses, one
+`0x180 illegal_instruction` at `pc=0x00005b90`, final PC `0x8803d266`.
+
 ## Conventions
 
 - Read-only. Scripts that write require an explicit output path.

@@ -67,6 +67,8 @@ and Windows CE/SH-4 parts of the work.
 | <https://www.stat.go.jp/english/data/mesh/> | Japanese grid/mesh code reference (JIS X 0410) |
 | <https://learn.microsoft.com/en-us/windows/win32/debug/pe-format> | PE/COFF format reference |
 | <https://rizin.re/> | Reverse-engineering framework used for SH-4 analysis |
+| <https://qemu.googlesource.com/qemu/+/refs/heads/master/hw/sh4> | QEMU SH-4 board/SoC code (`r2d.c`, `sh7750.c`); `sh_serial`/`sh_timer` live in `hw/char`, `hw/timer`. Primary (source). Basis for a `ze0` machine (EXP-2026-11-05-37). |
+| Renesas SH-NaviJ press coverage (SH77721, 2008; SH77722) | Secondary: SH-4A 333 MHz, 2D/3D graphics, USB, SD host, CAN, GPS baseband, FM multiplex. Matches the firmware driver set; part number for this unit unproven (C-531). |
 
 ## Pending research
 

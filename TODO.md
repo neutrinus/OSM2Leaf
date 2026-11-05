@@ -141,7 +141,9 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
 - [ ] **M1.2** Identify the compression of one `IMAGE_SCN_COMPRESSED` section
   (`NaviMapCC.dll` `.data`, psize `0x2c6`, vsize `0x5b8`): try CE
   `CECompress`/LZX variants. *Done when* output length equals `vsize` and the
-  bytes look like valid data.
+  bytes look like valid data. Alternative route: run the kernel's own ROM
+  decompressor from `nk.exe` under emulation (M8.4). Only RW data sections are
+  compressed; code is not (C-530).
 - [ ] **M1.3** Add `cerom.py decompress` and run it on all 245 sections.
   *Done when* every output length equals `vsize` (report failures).
 - [ ] **M1.4** Same for `FILESentry` payloads (`comp != real`: `UpdateNK.skn`,
@@ -241,7 +243,10 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
 #### M6 — Validation and hardware
 
 - [ ] **M6.1** Finish the L3 oracle for the chosen readers (P-code with
-  stubbed file API) on `.ind`, `DRSTR`, one tile (M3.3–M3.5).
+  stubbed file API) on `.ind`, `DRSTR`, one tile (M3.3–M3.5). The harness
+  should map all A/B modules at their `o32_realaddr` and stub `COREDLL`
+  exports ("CE-HLE", `full-system-emulation.md` §5), with Ghidra or QEMU
+  (`-M none`, gdbstub) as the engine.
 - [ ] **M6.2** Get the owner's US 2011 SD dump (read-only), record SHA-256
   (needed for M2.7).
 - [ ] **M6.3** Spare-card plan: whole-card clone + no-op control first, then
@@ -262,6 +267,33 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
   license/attribution notice for OSM data.
 - [ ] **M7.5** User guide + risk statement; keep "research only" until M6.7
   has passed.
+
+#### M8 — Full-system emulation spike (optional, time-boxed)
+
+See [`docs/research/full-system-emulation.md`](docs/research/full-system-emulation.md)
+and EXP-2026-11-05-37. Stock QEMU's `sh7785` CPU already runs `nk.exe` into
+the scheduler (`tools/ce_qemu_probe.py`). Time box for M8.1–M8.3: one week;
+stop and record why if M8.3 is not reached.
+
+- [ ] **M8.1** Name the blocks the probe hits: read `OEMInit` and the
+  `0xffe70000`, `0xff802000`/`0xff804000` (INTC) and `0xfff80000` code in
+  `nk.exe`; add a register table to `docs/format/firmware.md`. *Done when*
+  each of the 50 probe addresses has a role or `UNKNOWN`.
+- [ ] **M8.2** `ze0` QEMU machine (F0): RAM from `0x08000000`, CCN/MMU and
+  cache arrays from `hw/sh4/sh7750.c`, `sh_serial` at `0xffe46000`, read-back
+  stubs, built-in CE image loader; keep the patch in `tools/qemu-ze0/` (no
+  vendor bytes). *Done when* the kernel passes the `0x5b90` kernel-page call
+  and, if retail output is enabled, prints its boot banner.
+- [ ] **M8.3** F1: INTC + TMU0 interrupt so the scheduler ticks. *Done when*
+  `filesys.exe` is started (visible in the debug log or via gdb).
+- [ ] **M8.4** Use the F1 kernel as a tool: run its ROM decompressor on all
+  245 compressed sections (cross-check M1.3) and dump `boot.hv`/`default.hv`
+  as loaded (IRQ numbers, driver base addresses). *Done when* outputs match
+  `vsize` and the hives parse.
+- [ ] **M8.5** Decide on F2–F4 (drivers, SD host model or HLE block driver,
+  headless `Navi.exe`): only if L3 (M2/M3) stalls on runtime state (COM
+  objects, threads). Re-estimate effort first. F5 (screen) is out of scope;
+  visual acceptance stays on the bench (M6).
 
 **Critical path:** M1.2–M1.3 → M2.1–M2.3 (what makes the unit accept a
 card) → M3.1–M3.5 (what the unit reads) → M5.4 → M6.5–M6.6. M4 feeds M5 in

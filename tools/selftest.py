@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import cardcheck  # noqa: E402
+import ce_qemu_probe  # noqa: E402
 import cmpind  # noqa: E402
 import drstr  # noqa: E402
 import mesh_grid  # noqa: E402
@@ -190,11 +191,37 @@ def test_cardcheck_helpers() -> None:
         assert cardcheck.tree_size(source, "") == 105
 
 
+def test_ce_qemu_probe_log() -> None:
+    log = "\n".join([
+        "Invalid write at addr 0xFF00001C, size 4, region '(null)', reason: rejected",
+        "Invalid write at addr 0xFF00001C, size 4, region '(null)', reason: rejected",
+        "Invalid read at addr 0xFFE70808, size 4, region '(null)', reason: rejected",
+        "Invalid write at addr 0xF4000020, size 4, region '(null)', reason: rejected",
+        "Invalid write at addr 0xF4007FE0, size 4, region '(null)', reason: rejected",
+        "exception 0x180 [illegal_instruction] raised",
+        "pc=0x00005b90 sr=0x40008001 pr=0x880237b8 fpscr=0x00040001",
+    ])
+    accesses, exceptions = ce_qemu_probe.summarize_log(log)
+    assert accesses == [("write", 0xFF00001C), ("read", 0xFFE70808), ("write", 0xF4000000)], accesses
+    assert exceptions == [(0x180, "illegal_instruction", 0x5B90)], exceptions
+
+    rom_a = bytearray(16)
+    ce_qemu_probe.apply_patch([(0x88000000, rom_a)], 0x88000004, b"\x09\x00")
+    assert rom_a[4:6] == b"\x09\x00"
+    try:
+        ce_qemu_probe.apply_patch([(0x88000000, rom_a)], 0x88000010, b"\x00")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("patch outside the image must fail")
+
+
 def main() -> int:
     test_cmpind()
     test_drstr()
     test_mesh_grid()
     test_cardcheck_helpers()
+    test_ce_qemu_probe_log()
     print("selftest: OK")
     return 0
 
