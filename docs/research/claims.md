@@ -224,6 +224,12 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-223 | The `HDD_INFO` comparison function is not located; the `shll2`-scaled index into `0xa9cf8c` is missing. Best candidate caller is `0x132e06c` (delta `0x2180000`), unproven. | UNKNOWN | — | EXP-2026-11-05-09 |
 | C-224 | No 40-byte stride, `mov #5`+`shll3`, or `0x28` multiply exists in the payload; the DRSTR parser is not located from code. | VERIFIED (negative) | H | EXP-2026-11-05-09 |
 | C-225 | The tile reader is not located; it depended on the non-existent vtable. Only the `MAP_DATA`/`MESH_ID` strings and the `0x1ac` allocation remain. | UNKNOWN | — | EXP-2026-11-05-09 |
+| C-230 | The `Lib.out32` code delta is not pinnable: its pool is only data-referenced, and prologue scoring over 473 targets is flat. The module identity is weakened, not refuted. | VERIFIED (negative) | H | EXP-2026-11-05-10 |
+| C-231 | The `.ind` parser is not detectable by the tested shapes: 0 sites for `mov #1; shll16`, 0 literal `0x10000`, 0 runs of four `mov.l @Rm+,Rn`. | VERIFIED (negative) | H | EXP-2026-11-05-10 |
+| C-232 | `0x132e06c` is data, not code; the `0xa9cf8c` table has no literal reference. The `HDD_INFO` comparator remains unknown. | VERIFIED (negative) | H | EXP-2026-11-05-10 |
+| C-233 | Root cause: ROM sections use independent `(file offset, VA)` pairs and shared `.rdata` has ≥3 deltas; single literal→string hits are unreliable. | VERIFIED | H | EXP-2026-11-05-10 |
+| C-234 | Record `0x3221b0` decodes only if `dataptr` is payload-relative (`0x11000 → 0x211000`), implying delta `0x8c97b000`; 0/21 literals land on prologues. | OBSERVED | M | open lead |
+| C-235 | Next targets: copy/section descriptor list at `0x1952b00` (32-byte records) and export tables at `0x29eec0–0x29f700`. | PLANNED | — | EXP-2026-11-05-10 |
 
 ## Validation / checksums
 

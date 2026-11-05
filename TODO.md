@@ -21,12 +21,14 @@ OSM only after that.
      copy is likely the system-side reference.
    - [x] Retracted: `obj+0x78…+0x9c` is a message catalogue, not a vtable;
      the four fd functions are classifiers, not writers.
-   - [ ] Pin the `Lib.out32.dll` code delta (data delta `0x01e00000`) and hunt
-     `uncompress(dst,&len,src,srclen)`.
-   - [ ] Find `.ind` by allocation shape: `mov #1; shll16` + `shll2` + call,
-     across the whole payload.
-   - [ ] Resolve the `HDD_INFO` caller around `0x132e06c` and map six lines
-     to fields.
+   - [x] `Lib.out32` code delta: not pinnable (data-only pool, flat scoring).
+   - [x] `.ind` allocation-shape search: 0 sites; parser not detectable this way.
+   - [x] `HDD_INFO` candidate `0x132e06c`: data, not code.
+   - [ ] Decode the copy/section descriptor list at `0x1952b00` (32-byte
+     records).
+   - [ ] Anchor module bases via export tables at `0x29eec0–0x29f700`.
+   - [ ] Use builds B/C as a Rosetta stone for relative placement.
+   - [ ] Re-run `xref_index.py`, `vtable_scan.py`, `solve_delta.py`, `func.py`.
 2. **Gate 0b — tile payload grammar**
    - [x] Clean tiles: `B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R` rebuild
      byte-identically; viewer renders coast/land (`tools/ze0-viewer/`).

@@ -122,7 +122,23 @@ module; the map module dispatches through `+0x04/+0x08/+0x18`.
 File `0x877740` holds UTF-16 `Lib.out32.dll` and a string-pointer table with
 data delta `0x01e00000`. Four entries land on a zlib copy's `z_errmsg` strings
 (`need dictionary`, `file error`, `stream error`, `buffer error`). The module's
-**code delta is unknown**, so the decompressor itself is not reached yet.
+**code delta is not pinnable**: its pool is only data-referenced, and prologue
+scoring over 473 targets is flat (a Lib module imports from many modules). The
+module identity is weakened, not refuted.
+
+### Section placement is the root blocker
+
+ROM sections use independent `(file offset, VA)` pairs, and the shared
+`.rdata` is mapped under at least three deltas (`0x01e00000`, `0x02000000`,
+`0x02200000`). Isolated literal→string hits are therefore meaningless; only
+clusters of ≥4 pointer slots are trustworthy. Heavily-importing modules also
+make call-target statistics useless for delta recovery.
+
+The next target is the copy/section descriptor list at `0x1952b00` (32-byte
+records: two VAs ~0x70 apart, a page-aligned value, size `0xc4`, flags
+`0x00001007`/`...1006`), plus export tables (`TFAT.dll`/`FSDMGR` names at
+`0x29eec0–0x29f700`). Builds B/C can serve as a Rosetta stone for relative
+placement.
 
 ### Readers are name-driven
 
@@ -199,12 +215,13 @@ round-trip validator for the whole-card feedback loop.
 
 ## Next steps
 
-1. **Pin the `Lib.out32` code delta** (data delta `0x01e00000`) and hunt
-   `uncompress(dst,&len,src,srclen)` in that module.
-2. **Find `.ind` by allocation shape:** `mov #1,rN; shll16` + `shll2` + call,
-   searched across the whole payload (not just the map module).
-3. **Resolve the `HDD_INFO` caller** via `shll2` + table base around
-   `0x132e06c`; map the six lines to fields.
-4. Find `inflate`/`uncompress` callers and the `.ind` parser.
-5. Diff builds A/B/C for the unit-ID → build selection logic.
+1. **Decode the copy/section descriptor list at `0x1952b00`** (32-byte
+   records). Success = `(VA,size)` pairs that tile a VA range.
+2. **Anchor on export tables:** `TFAT.dll`/`FSDMGR` names at
+   `0x29eec0–0x29f700` map name → RVA; file offset + RVA ⇒ module base.
+3. **Use builds B/C as a Rosetta stone:** identical functions at different
+   file offsets pin relative placement.
+4. With a module base, re-run `xref_index.py`, `vtable_scan.py`,
+   `solve_delta.py` and `func.py`.
+5. Then find `uncompress`/`.ind` callers and the `HDD_INFO` comparator.
 6. Only then decide whether a custom QEMU machine is worth the effort.

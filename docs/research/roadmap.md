@@ -30,7 +30,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | clean tiles round-trip byte-identically; dense section 4 open | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | two-delta model (`+0x02200000` code, `+0x02000000` rdata), local to the module | section table unusable; `+0x78…+0x9c` is a message catalogue, not a vtable; new `Lib.out32` zlib anchor; readers not located |
+| Firmware addressing | section placement is the root blocker; shared `.rdata` has ≥3 deltas | section table unusable; `+0x78…+0x9c` is a message catalogue; `Lib.out32` code delta not pinnable; readers not located |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 
