@@ -1,5 +1,8 @@
 # Roadmap and confidence gates
 
+> **Last updated:** 2026-11-05. Current position: Gate 0 partially passed,
+> Gate 3 passed for clean tiles, Gate 2 in progress.
+
 Principle: **two independent sources must agree** before we trust a format.
 
 1. **Data archaeology** — inspecting the card gives a hypothesis about the
@@ -25,8 +28,8 @@ Current status:
 | `.cmp`/`.ind` | verified | reader path partially found (`0xc438a4` opens `REFER001`) |
 | `DRSTR001.DAT` | verified | opened by media manager; runtime use unproven |
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
-| Tile payload grammar | open | not yet mapped |
-| ADDRE/POINT/ZCODE | mostly decoded | not yet mapped |
+| Tile payload grammar | clean tiles round-trip byte-identically; dense section 4 open | not yet mapped |
+| ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 
@@ -49,6 +52,9 @@ This is the strongest and cheapest proof.
 
 ## Gate 2 — compressed container round-trip
 
+**Status:** in progress (writer under test). Preserved-stream round-trip is the
+target; semantic round-trip is the fallback for changed content.
+
 Targets:
 
 - `REFER001/*.cmp` + `.ind`
@@ -66,6 +72,9 @@ versions/settings. Do not promise it; either preserve streams or document the
 exact encoder parameters.
 
 ## Gate 3 — tile round-trip
+
+**Status:** passed for clean tiles (`B28R070R`, `B30R060R`, `B58R070R`,
+`LEV3456R`). Dense section-4 tiles and drawn roads are open.
 
 - Enumerate all inner streams with their keys.
 - Preserve unchanged streams; re-encode changed ones.
