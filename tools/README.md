@@ -156,6 +156,7 @@ python3 tools/cerom.py IMAGE sections Navi.exe
 python3 tools/cerom.py IMAGE --image-start 0x3e00200 exports coredll.dll   # B/C need --image-start
 python3 tools/cerom.py IMAGE va2file 0x03498d48     # -> 0x007f5f48
 python3 tools/cerom.py IMAGE extract OBJDLL.dll -o out/   # raw sections
+python3 tools/cerom.py --image-start 0x200200 IMAGE imports Navi.exe   # IAT slots, names from the OFT
 ```
 
 `extract` writes raw section bytes; compressed (`0x2000`) sections are not
