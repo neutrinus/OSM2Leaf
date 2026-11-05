@@ -207,13 +207,30 @@ Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
 `(offset, point-count)` pairs (156 features). Coarse levels 3–5 rebuild with
 0 failures; 1,722 opaque records are preserved verbatim.
 
+### Section 4, road names and streaming
+
+Section 4 is a per-parcel **administrative/place-name index**, not geometry.
+`B30R048R` has 20 records / 68 names; record word 2 = `0x0009`, word 8 = ISO
+3166 numeric country (300 = Greece). Names are `0=NAME` strings (`RODOS`,
+`LINDOS`, `PARALIP AFANTOU`, …). `ze0_section4.py` emits GeoJSON points.
+
+Road names: shape header word 4 is the name offset in the **odd partner
+record's** names section. `B30R060R` has 297/1,195 named lines; `B30R048R`
+1,972/10,667. Style bits are raw; one-way/speed mapping is a **hypothesis**
+(`0x201e` two-way, `0x001e` ferry).
+
+Streaming decoder: `B48R060R` (436 MB) → 2,710,087 features, ~40 s, 242 MB
+RSS. `harness.py compare-tiles FACTORY BUILT` gives **ZERO DIFF** on an
+unchanged copy and `DIFFERS` on a one-vertex mutation.
+
 Known limits:
 
-- section-4 content (`w2=0x0009`) is still opaque;
-- road names/classes/speeds/one-way are not decoded;
-- layers 4/6 are parsed but not drawn;
-- a streaming **decoder** for the 436 MB tile is still missing (the writer
-  streams in 8 MiB chunks, max RSS ~120 MB).
+- section-4 binary fields between country and names are not fully mapped; no
+  ZE0 section-4 encoder;
+- one-way/speed mapping needs validation against a known street/sign;
+- streaming mode does not attach road names yet;
+- `RDSTM001`/`LCTBL001` cross-reference is still unresolved — use
+  [`rdstm.md`](rdstm.md), not the viewer's incomplete negative.
 
 ## Key questions
 

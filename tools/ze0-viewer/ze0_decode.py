@@ -70,7 +70,33 @@ def _is_background(level, k):
     return (k % 2 == 1) if ppc == 2 else True
 
 
-def _road_features(plain, level, dir_y, dir_x, row, col):
+def valid_coords(coords):
+    return all(-180 <= x <= 180 and -90 <= y <= 90 for x, y in coords)
+
+
+def parse_names_section(ns):
+    """Road-name entries: word offset -> (name, ref)."""
+    out = {}
+    i = 0
+    while i + 10 <= len(ns):
+        typ, flags, x, y, ln = struct.unpack_from('>HHHHH', ns, i)
+        if typ == 0x00ff and 0 < ln <= len(ns) - i - 10:
+            text = ns[i + 10:i + 10 + ln].decode('latin1', 'replace')
+            text = text.split('\x00')[0]
+            name = ref = ''
+            for part in text.split(';'):
+                if part.startswith('1='):
+                    name = part[2:]
+                elif part.startswith('2='):
+                    ref = part[2:]
+            out[i // 2] = (name.strip(), ref.strip())
+            i += 10 + ln + (ln & 1)
+        else:
+            i += 2
+    return out
+
+
+def _road_features(plain, level, dir_y, dir_x, row, col, names=None):
     """Road-shape record (even pair) to line features.
 
     Layer 5 is the main road layer; 6 is the second road layer, 4 other
@@ -83,12 +109,24 @@ def _road_features(plain, level, dir_y, dir_x, row, col):
         if layer not in (0, 5):      # 5 = drawn roads, 0 = ferries; 4/6 unknown
             continue
         for sh in shapes:
-            for line in sh.get('lines') or [sh.get('points', [])]:
+            w4 = sh['words'][4] if len(sh['words']) >= 5 else 0xffff
+            name, ref = (names or {}).get(w4, ('', ''))
+            lines = sh.get('lines') or [sh.get('points', [])]
+            for li, line in enumerate(lines):
                 if len(line) < 2:
                     continue
+                link = (sh.get('links') or [{}] * len(lines))[li] if li < len(sh.get('links') or []) else {}
+                style = link.get('style')
+                speed = None; oneway = None
+                if style is not None:
+                    if style & 0x20:
+                        speed = ((style & 0x1f) + 1) * 5       # HYPOTHESIS, 2017 rule
+                    oneway = not (style & 0x3000)              # HYPOTHESIS: 0x3000 = two-way
                 coords = [(lon0 + x / clarion_bg.UNITS * w,
                            lat0 + y / clarion_bg.UNITS * h)
                           for x, y, *_ in line]
+                if not valid_coords(coords):
+                    continue
                 yield {
                     'level': level,
                     'dir_y': dir_y,
@@ -99,6 +137,9 @@ def _road_features(plain, level, dir_y, dir_x, row, col):
                     'kind': 0x40,
                     'type': 0x1000 | layer,
                     'road': True,
+                    'name': name, 'ref': ref,
+                    'style': style, 'speed': speed, 'oneway': oneway,
+                    'class_word': sh['words'][3] if len(sh['words']) >= 4 else None,
                     'coords': coords,
                 }
 
@@ -190,9 +231,21 @@ def decode_records(path, levels=None, bbox=None):
                     if not _is_background(level, rec['k']):
                         if word2 != 0xfa:          # even pair: road shapes
                             continue
+                        names = {}
+                        try:
+                            partner = next((rr for rr in slot['recs']
+                                            if rr['k'] == rec['k'] + 1), None)
+                            if partner is not None:
+                                bp = (zlib.decompress(partner['raw'])
+                                      if clarion_tile.is_zlib(partner['raw']) else partner['raw'])
+                                br = clarion_bg.parse_record(bp)
+                                if br['sections'].get('names'):
+                                    names = parse_names_section(br['sections']['names'])
+                        except Exception:
+                            names = {}
                         try:
                             for f in _road_features(plain, level, d['y'], d['x'],
-                                                    row, _record_col(level, rec['k'])):
+                                                    row, _record_col(level, rec['k']), names):
                                 if bbox and not any(bbox[0] <= q[0] <= bbox[2]
                                                     and bbox[1] <= q[1] <= bbox[3]
                                                     for q in f['coords']):
@@ -228,7 +281,7 @@ def decode_records(path, levels=None, bbox=None):
                                 (lon0 + x / clarion_bg.UNITS * w,
                                  lat0 + y / clarion_bg.UNITS * h)
                                 for x, y in shape['pts']]
-                            if not coords or len(coords) > 8192:
+                            if not coords or len(coords) > 8192 or not valid_coords(coords):
                                 continue
                             if bbox and not any(bbox[0] <= q[0] <= bbox[2]
                                                 and bbox[1] <= q[1] <= bbox[3]

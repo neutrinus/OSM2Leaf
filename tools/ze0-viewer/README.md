@@ -44,6 +44,16 @@ python3 ze0_roads.py /path/to/B30R060R.DAT --dump
 # Streaming copy of a large tile (8 MiB chunks, ~120 MB RSS)
 python3 harness.py stream /path/to/B40R050R.DAT out/B40R050_copy.DAT
 
+# Streaming decode/stats (436 MB tile, ~242 MB RSS)
+python3 stream_decode.py /path/to/B48R060R.DAT --stats
+python3 stream_decode.py /path/to/B48R060R.DAT --out out/crop.geojson --bbox 4,33,12,38
+
+# Section-4 administrative/place-name index
+python3 ze0_section4.py /path/to/B30R048R.DAT out/B30R048_section4.geojson
+
+# Compiler acceptance: zero diff on an unchanged copy
+python3 harness.py compare-tiles FACTORY.DAT BUILT.DAT --cell B30R060R --levels 1,2
+
 # One-vertex mutation + round-trip check
 python3 harness.py mutate /path/to/B58R070R.DAT out/mutated.DAT
 
@@ -65,12 +75,12 @@ The bounding-box table is fixed at `0x2ac`; `VER_INFO/HDD_INFO.TXT` replaces
 
 ## Known limits
 
-- Section-4 content (`w2=0x0009`) is opaque; the container round-trips but the
-  geometry is not decoded.
-- Road names/classes/speeds/one-way are not decoded; layers 4/6 are parsed but
-  not drawn.
-- `read_tile` is not streaming; a 73 MB tile peaked at ~20 GB RSS. Use
-  `harness.py stream` / `stream_writer.py` (max RSS ~120 MB).
+- Section 4 is an administrative/place-name index, not geometry; its binary
+  fields between country and names are not fully mapped.
+- Road names are decoded; one-way/speed mapping from style bits is a
+  hypothesis and needs validation.
+- Streaming mode does not attach road names yet.
+- `read_tile` is not streaming; use `stream_decode.py` / `stream_writer.py`.
 - 1,722 coarse records are preserved but not structurally modelled.
 - No address/POI reader exists in `osm2clarion`; it has writers only.
 

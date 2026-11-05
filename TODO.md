@@ -42,9 +42,15 @@ OSM only after that.
      `B30R048R` (`EXP-2026-11-05-12`).
    - [x] Road-shape records decoded/rendered; streaming writer works.
    - [x] `LEV3456R` level 6 decoded; coarse levels 3–5 rebuild with 0 failures.
-   - [ ] Decode section-4 content (`w2=0x0009`).
-   - [ ] Road names/classes/speeds/one-way; draw layers 4/6.
-   - [ ] Streaming decoder for the 436 MB tile.
+   - [x] Section 4 classified: administrative/place-name index, 20 records /
+     68 names in `B30R048R`; GeoJSON points.
+   - [x] Road names decoded via the odd partner record; streaming decoder
+     handles 436 MB at 242 MB RSS.
+   - [x] `compare-tiles` acceptance: zero diff on unchanged, differs on a
+     one-vertex mutation.
+   - [ ] Map section-4 binary fields and build a ZE0 section-4 encoder.
+   - [ ] Validate one-way/speed against a known street/sign; draw layers 4/6.
+   - [ ] Attach names in streaming mode.
    - Deliverable: full tile record spec + viewer.
 3. **Gate 1 — uncompressed round-trip (byte-identical)**
    - [x] `DRSTR001.DAT` writer reproduces the EU 2011 file byte-for-byte.
@@ -61,7 +67,8 @@ OSM only after that.
    - [x] Dense `B30R048R` byte-identical (`EXP-2026-11-05-12`).
    - [x] One-vertex mutation changes exactly one vertex and still round-trips
      (harness `mutate`).
-   - [ ] Section-4 geometry decoded (container is exact, content opaque).
+   - [x] `compare-tiles` zero diff on unchanged input.
+   - [ ] Section-4 binary fields/encoder (content is an index, not geometry).
 6. **Gate 5/6 — activation and card feedback**
    - [ ] Whole-card 16 GB SDHC clone; keep TFAT16; verify SHA-256.
    - [ ] No-op control, then POI rename (`EXP-2026-11-05-02`).

@@ -250,13 +250,16 @@ def cmd_decode(path, out, levels='', cell=''):
     print('%s: %d features, %d covered parcels' % (out, len(feats), len(cov)))
 
 
-def cmd_render(path, out, levels='', cell='', width=1400):
+def cmd_render(path, out, levels='', cell='', width=1400, labels=False):
     tmp = tempfile.NamedTemporaryFile(suffix='.geojson', delete=False)
     tmp.close()
     try:
         cmd_decode(path, tmp.name, levels, cell)
-        subprocess.run([sys.executable, os.path.join(HERE, 'render_geojson.py'),
-                        tmp.name, out, '--width', str(width)], check=True)
+        cmd = [sys.executable, os.path.join(HERE, 'render_geojson.py'),
+               tmp.name, out, '--width', str(width)]
+        if labels:
+            cmd.append('--labels')
+        subprocess.run(cmd, check=True)
     finally:
         os.unlink(tmp.name)
 
@@ -287,6 +290,58 @@ def flatten_geometry(f):
     if g['type'] == 'LineString':
         return c
     return [p for ring in c for p in ring]
+
+
+def _sig(f):
+    return (f['level'], f['layer'], f['type'], bool(f.get('road')),
+            tuple((round(x, 7), round(y, 7)) for x, y in f['coords']))
+
+
+def cmd_compare_tiles(a_path, b_path, cell='', levels='1,2'):
+    """Build-vs-factory comparison over identical coverage.
+
+    Both tiles are decoded to the same neutral features and keyed by
+    (level, layer, type, road, rounded coordinates).  An unchanged build has
+    an empty multiset difference: zero added, zero removed.
+    """
+    from collections import Counter
+    lv = {int(x) for x in levels.split(',') if x.strip()} or None
+    bbox = ze0_decode.cell_bbox(cell) if cell else None
+    fa, _ = ze0_decode.decode_records(a_path, lv, bbox)
+    fb, _ = ze0_decode.decode_records(b_path, lv, bbox)
+    ka = Counter(_sig(f) for f in fa)
+    kb = Counter(_sig(f) for f in fb)
+    removed = list((ka - kb).elements())
+    added = list((kb - ka).elements())
+    print('factory %d features, built %d features' % (len(fa), len(fb)))
+    print('added %d, removed %d, unchanged %d'
+          % (len(added), len(removed), sum((ka & kb).values())))
+    if not added and not removed:
+        print('RESULT: ZERO DIFF (identical geometry sets)')
+        return 0
+    # nearest vertex distance for the first unmatched pair(s)
+    maxd = 0.0
+    rem = sorted(removed, key=lambda k: (k[0], k[1], k[2], k[3]))[:20]
+    add = sorted(added, key=lambda k: (k[0], k[1], k[2], k[3]))[:20]
+    for k in rem:
+        pts = k[-1]
+        best = 0.0
+        for p in pts[:50]:
+            near = 1e9
+            for k2 in add:
+                if k[:4] != k2[:4]:
+                    continue
+                for q in k2[-1][:50]:
+                    d = max(abs(p[0] - q[0]), abs(p[1] - q[1]))
+                    if d < near:
+                        near = d
+            if near < 1e9:
+                best = max(best, near)
+        maxd = max(maxd, best)
+    print('largest nearest changed vertex: %.8f deg (~%.1f m)'
+          % (maxd, maxd * 111320))
+    print('RESULT: DIFFERS')
+    return 1
 
 
 def cmd_compare(a_path, b_path):
@@ -358,12 +413,15 @@ def main():
     p = sub.add_parser('render'); p.add_argument('tile'); p.add_argument('out')
     p.add_argument('--levels', default=''); p.add_argument('--cell', default='')
     p.add_argument('--width', type=int, default=1400)
+    p.add_argument('--labels', action='store_true')
     p = sub.add_parser('compose'); p.add_argument('tile'); p.add_argument('lev'); p.add_argument('out')
     p.add_argument('--cell', required=True); p.add_argument('--width', type=int, default=1400)
     p = sub.add_parser('mutate'); p.add_argument('src'); p.add_argument('dst')
     p.add_argument('--dx', type=int, default=40); p.add_argument('--dy', type=int, default=0)
     p.add_argument('--level', type=int, default=1)
     p = sub.add_parser('compare'); p.add_argument('a'); p.add_argument('b')
+    p = sub.add_parser('compare-tiles'); p.add_argument('factory'); p.add_argument('built')
+    p.add_argument('--cell', default=''); p.add_argument('--levels', default='1,2')
     p = sub.add_parser('selftest'); p.add_argument('tile')
     args = ap.parse_args()
 
@@ -379,13 +437,15 @@ def main():
                     '--k', str(args.k), '--level', str(args.level), '--dx', str(args.dx)]
         subprocess.run(cmd, check=True)
     elif args.cmd == 'decode': cmd_decode(args.tile, args.out, args.levels, args.cell)
-    elif args.cmd == 'render': cmd_render(args.tile, args.out, args.levels, args.cell, args.width)
+    elif args.cmd == 'render': cmd_render(args.tile, args.out, args.levels, args.cell, args.width, args.labels)
     elif args.cmd == 'compose': cmd_compose(args.tile, args.lev, args.out, args.cell, args.width)
     elif args.cmd == 'mutate':
         subprocess.run([sys.executable, os.path.join(HERE, 'ze0_mutate.py'),
                         args.src, args.dst, '--level', str(args.level),
                         '--dx', str(args.dx), '--dy', str(args.dy)], check=True)
     elif args.cmd == 'compare': cmd_compare(args.a, args.b)
+    elif args.cmd == 'compare-tiles':
+        sys.exit(cmd_compare_tiles(args.factory, args.built, args.cell, args.levels))
     elif args.cmd == 'selftest': sys.exit(0 if cmd_selftest(args.tile) else 1)
 
 

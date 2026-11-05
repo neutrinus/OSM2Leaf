@@ -130,6 +130,13 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-255 | `LEV3456R` level 6: no count word, table at word 11 with 26 `(offset,point-count)` pairs; 156 features, bbox lon −16.05..67.96, lat 30.01..63.18. | VERIFIED | H | EXP-2026-11-05-12 |
 | C-256 | Coarse levels 3–5 now rebuild with 0 failures; 1,722 opaque records are preserved verbatim. | VERIFIED | H | EXP-2026-11-05-12 |
 | C-257 | Section-4 content (`w2=0x0009`) is still opaque; road names/classes/speeds/one-way and layers 4/6 rendering remain open. | UNKNOWN | — | EXP-2026-11-05-12 |
+| C-280 | Section 4 is a per-parcel **administrative/place-name index**, not geometry: `B30R048R` has 20 records / 68 names; word 8 is the ISO country (300 = Greece). | VERIFIED | H | EXP-2026-11-05-15 |
+| C-281 | Road names: shape header word 4 is the name offset in the odd partner record; 297/1,195 named in `B30R060R`, 1,972/10,667 in `B30R048R`. | VERIFIED | H | EXP-2026-11-05-15 |
+| C-282 | Road style/class is raw; one-way/speed mapping from style bits is a hypothesis (`0x201e` two-way, `0x001e` ferry). | HYPOTHESIS | M | EXP-2026-11-05-15 |
+| C-283 | Streaming decoder handles 436 MB `B48R060R`: 2,710,087 features, ~40 s, 242 MB RSS. | VERIFIED | H | EXP-2026-11-05-15 |
+| C-284 | `harness.py compare-tiles` gives ZERO DIFF on an unchanged copy and DIFFERS on a one-vertex mutation. | VERIFIED | H | EXP-2026-11-05-15 |
+| C-285 | The viewer's negative RDSTM/LCTBL cross-reference is incomplete and superseded by `docs/format/rdstm.md` (LCTBL has 517 name streams; RDSTM has no zlib). | VERIFIED (correction) | H | EXP-2026-11-05-15 |
+| C-286 | Section-4 binary fields between country and names are not fully mapped; there is no ZE0 section-4 encoder. | UNKNOWN | — | EXP-2026-11-05-15 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
