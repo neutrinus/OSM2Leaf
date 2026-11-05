@@ -359,7 +359,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 ## M2 — Map code, activation, updater
 
 - [ ] **M2.1 — `Navi.exe` function that opens `HDD_INFO.TXT`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/project-thread-wn7y0u · Critical: yes
   - Depends: — (M1.8 helps)
   - Goal: name the function, its arguments and callers.
   - Input: literals at `Navi.exe` VA `0x004e7d28` / `0x004e7d2c` (C-521);
