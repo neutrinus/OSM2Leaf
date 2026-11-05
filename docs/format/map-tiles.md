@@ -32,7 +32,10 @@ Examples:
 | `B68R058R` | 69.33–74.67 °N | 12–20 °E (north Norway) | 1.57 MB |
 | `B58R070R` | 58.67–64.00 °N | −12…−4 °E (Norwegian Sea) | 0.11 MB |
 
-The 45 tiles form a 9 × 7 lattice stepping by 8. The smallest tiles are sea;
+The 45 files occupy a **63-cell** addressable lattice (rows `B28`–`B68`,
+9 values; columns `R048`–`R078`, 7 values, step 8); 45 cells exist as files and
+18 are absent (sea/empty), so lattice-derived counts are upper bounds (C-540).
+The smallest tiles are sea;
 `R = 0x78` (lon −20…−12) exists only at `B28`/`B30`, i.e. Atlantic coast off
 Morocco, nowhere on land.
 
@@ -217,6 +220,66 @@ Section 4 is a per-parcel **administrative/place-name index**, not geometry.
 `B30R048R` has 20 records / 68 names; record word 2 = `0x0009`, word 8 = ISO
 3166 numeric country (300 = Greece). Names are `0=NAME` strings (`RODOS`,
 `LINDOS`, `PARALIP AFANTOU`, …). `ze0_section4.py` emits GeoJSON points.
+
+#### Section 4 grammar
+
+> **Status:** the zlib framing and the fields at `0x00`/`0x02`/`0x04`/`0x10`
+> are `OBSERVED`; the binary span between `0x06` and `0x0f` and the name-list
+> placement are `UNKNOWN`. There is still no ZE0 section-4 encoder.
+
+A section-4 payload is a sequence of independent zlib streams, one record per
+stream, like every other tile stream. A single decompressed record may also be
+supplied as plain bytes. There is no record-length field. Record sizes observed
+so far are 84–684 bytes.
+
+Documented per-record offsets (big-endian):
+
+| Offset | Size | Field | Status |
+| --: | --: | --- | --- |
+| `0x00` | u16 | parcel word 0 (level-1 code) | OBSERVED |
+| `0x02` | u16 | parcel word 1 (level-1 code) | OBSERVED |
+| `0x04` | u16 | record type, `0x0009` | OBSERVED |
+| `0x06` | 10 B | unexplained | UNKNOWN |
+| `0x10` | u16 | ISO 3166 numeric country (`0x012c` = 300 = Greece) | VERIFIED |
+| `0x12` | … | unexplained binary, then the name list | UNKNOWN / OBSERVED |
+
+Names are `d=TEXT` with a one-digit prefix (`0=` and `1=` observed), normally
+NUL-terminated; adjacent names sometimes omit the NUL
+(`LINDOS0=RODOS`). Text is ASCII or Latin-1; valid UTF-8 is also accepted. The
+name-list start offset, its terminator rule and any count/length prefix are
+**not** mapped. The only documented u32 view is the parcel code at `0x00`
+(two u16 words); no other `u32` offset is interpreted. `tools/section4.py`
+prints every non-documented span as hex instead of guessing.
+
+**HYPOTHESIS:** the undocumented words at `0x06..0x0f` locate or count the name
+list (offset/count/length); the tool deliberately does not use them.
+
+**Reference case.** `B30R048R.DAT` section 4 (directory kind `0x1146`,
+256-byte bodies, section type `0x93`):
+
+| Year | Records | Names | Record delta vs 2011 |
+| --- | --: | --: | --: |
+| 2011 | 20 | 68 | — |
+| 2014 | 24 | 126 | +4 |
+| 2016 | 24 | 129 | +4 |
+
+This is `OBSERVED` reference data from `EXP-2026-11-05-32` (claim C-126),
+counted with the viewer's `0=` splitter. The record counts (20/24/24) are
+the stable part; a stricter name decoder may change the 68/126/129 name
+counts. It is not a claim that every year parses identically.
+
+**Verbatim-preservation rule.** An unchanged tile copies the original
+section-4 zlib streams byte-for-byte. An edited tile must also preserve the
+whole section-4 payload verbatim, because only the documented fields above can
+be rebuilt. `tools/section4.py encode build` rewrites those fields and refuses
+with exit 3 whenever names, unknown binary or a missing opaque map would force
+it to invent bytes; `encode preserve` is the default for unchanged tiles.
+
+```bash
+python3 tools/section4.py parse PAYLOAD --json-out model.json
+python3 tools/section4.py encode preserve model.json payload.out
+python3 tools/section4.py verify PAYLOAD
+```
 
 Road names: shape header word 4 is the name offset in the **odd partner
 record's** names section. `B30R060R` has 297/1,195 named lines; `B30R048R`
