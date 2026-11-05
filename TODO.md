@@ -70,13 +70,17 @@ Three agents are investigating these; merge their results here when done.
 - [ ] Validate the hex `B/R` grid with Prague geometry from OSM.
 - [x] Common REFER anatomy, 33-country sharding, POINT schema/pages, INTER,
   ICADM, ZIPFR (`docs/format/refer.md`).
-- [ ] Decode `ADDRE0nn` address records and their link to `COORD`/`POINT`.
+- [x] `ADDRE`: container, 22-byte index, schema, record tags and 4-byte
+  lat/lon ids (`docs/format/refer.md`).
+- [ ] `ADDRE` remaining: 6-/12-byte index cells, `c0` vs `c8` grammar,
+  subtypes `0x54`/`0x58`, `40 XX YY` point encoding, trailer table.
+- [ ] Prove the POI ↔ ADDRE join (shared ids confirmed; record-level join not).
 - [ ] Decode `FRWAY` mesh-id encoding and `INTER` `n` semantics.
-- [ ] Solve the POI → location join. Candidates: the 4-byte point pair in
-  each POINT record, the 24-byte index `f11`, the address link to `ADDRE`,
-  and `REFER002/COORD001.DAT` (22 × 0x18 B).
-- [ ] Decode `REFER002/COORD001.DAT` and test the transform on a known POI.
+- [x] POI → location: the 4-byte id is the coordinate and matches ADDRE.
+- [ ] Decide which of the two point copies is the display point when they
+  differ.
 - [ ] Map `f11` onto the 1000-record pages of a multi-page shard.
+- [ ] Decode `REFER002/COORD001.DAT` and compare with the same transform.
 - [ ] Locate POI ↔ icon (`BICON001`) mapping.
 - [ ] Decode `MMAIN001.DAT` + `CMP.LST` update semantics.
 

@@ -147,7 +147,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-131 | Families are sharded by country: 33 numbered regions matching `COORD001`/`ICODE001`; `COORD`/`ICODE`/`ZIPFR` are global. | VERIFIED | H | shard table + region list |
 | C-132 | POINT carries an internal ASCII field dictionary with per-field **bit offsets** (area, category, name, address, dndc-id). | VERIFIED | H | `poipoint.py schema` |
 | C-133 | POINT records are bit-packed and length-prefixed (`byte[1]=length/2`), stored in pages of exactly 1000. | VERIFIED | H | POINT004/021 counts |
-| C-134 | POINT contains no lat/lon, no mesh ID, no `Pre`/`Next` links and no icon-id table. | VERIFIED (negative) | H | targeted scans |
+| C-134 | POINT has no **named** lat/lon field, no mesh ID, no `Pre`/`Next` links and no icon-id table; the 4-byte id still decodes as a coordinate. | VERIFIED (negative + decode) | H | targeted scans + coordinate formula |
 | C-135 | INTER has a 12-byte record table at `0x1108` plus three zlib streams; offsets index a 6-byte element table. | VERIFIED | H | `decode.py inter` |
 | C-136 | ICADM has 33 blocks of 462-byte stride, 7 slots × 64 bytes, with big-endian ISO-3166 numeric codes. | VERIFIED | H | all 33 codes matched |
 | C-137 | ZIPFR has 14-byte records `char key[10] + u32 mask`; 36,881 records, 119 distinct masks. | VERIFIED | H | `decode.py zipfr` |
@@ -163,9 +163,13 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-147 | No per-file checksum was found in the 512-byte header, `.ind`, `DRSTR001.DAT` or `MMAIN001.DAT`. | VERIFIED (negative) | H | targeted probes |
 | C-148 | A whole-card image is the only externally validated clone method; file-level and FAT-only clones are unreported. One OEM tile is fragmented, so contiguity/file order/timestamps do not matter. | OBSERVED | M | card research |
 | C-149 | The 2011 image is larger than a common 8 GB card in sectors; use a 16 GB SDHC (not SDXC) for a clone. | OBSERVED | M | sector count + forum reports |
-| C-150 | POINT records have no explicit lat/lon field, but each contains a 4-byte point pair (two `u16`), usually equal; the projection/units are unknown. | OBSERVED | M | POINT032/POINT001 records |
+| C-150 | POINT's 4-byte id decodes as `lat=(x-32768)/192`, `lon=(y-52742)/128`; the two copies are usually equal, sometimes differ by a small delta. | VERIFIED | H | cross-match with ADDRE/Monaco/Andorra |
 | C-151 | The 24-byte POI index joins the record via `f7`/`f8`; `f11` is a dense POI id only for single-page shards. | OBSERVED | M | five single-page shards |
 | C-152 | `REFER002/POINT002.DAT` adds an explicit `xy-coordinates` field; `REFER002/COORD001.DAT` has 22 × 0x18-byte projection-like records. | OBSERVED | M | schema + payload |
+| C-153 | ADDRE has a constant `0x500` template, a 22-byte index chain (20,000 records/block), one `0x100` schema block and a variable-length address-record chain. | VERIFIED | H | 33-shard survey |
+| C-154 | ADDRE address records contain a 4-byte coordinate id, street-segment end points and upper-case Latin-1 names; the only numeric strings are `:N:;:N:` house-number ranges. | VERIFIED | H | record decode |
+| C-155 | POINT and ADDRE share the same 4-byte coordinate ids; ADDRE017 ids occur in POINT017/POINT008. None occur in INTER/FRWAY/ZCODE/ZIPFR. | VERIFIED | H | cross-shard search |
+| C-156 | `REFER002` ships no ADDRE and only 15 of 33 POINT shards. | VERIFIED | H | directory listing |
 
 ## Firmware
 
@@ -184,6 +188,20 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-085 | `SUM4` is a tagged checksum, but CRC-32, Adler-32 and plain word sums were rejected; the algorithm is unknown. | UNKNOWN | — | checksum probes |
 | C-086 | For the map module's data, `VA = file_offset + 0x02000000`; code literals use at least one other delta, so the ROM is section-based. | OBSERVED | M | 21 pointer literals |
 | C-087 | The pre-partition payload length is declared as `0x01752c88` (24,456,328 bytes) at `0x200000`; the bytes immediately after that offset are not a zero gap. | VERIFIED | H | header + byte check |
+
+## Validation / checksums
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-160 | Main ROM `SUM4` is at header `+0x34`, computed as the sum of LE `u32` words over `[0x200200, 0x200200+length)`, length `0x01752c88`; value `0xcdf87db0`. It ends before the FAT partition. | VERIFIED | H | recomputed from bytes |
+| C-161 | Updater image checksum: `u16` at `+0x230`, `u32` length at `+0x232`, byte sum over `[0x200, 0x200+len)` with the checksum bytes zeroed; value `0x12aa`. | VERIFIED | H | recomputed from bytes |
+| C-162 | No per-file checksum/signature exists in `DRSTR001.DAT`, `MMAIN001.DAT`, headers or `HDD_INFO`; 23-file hash hunt found 0 hits. | VERIFIED (negative) | H | `hash_hunt.py` |
+| C-163 | `DRSTR001.DAT` covers every logical file exactly once (285 files + 39 dirs); only `DRSTR001.DAT` itself is absent. | VERIFIED | H | full accounting |
+| C-164 | `MMAIN001.DAT` `0x1ac` 11-entry table equals the sum over all 46 `MAPAL001` files (incl. `LEV3456R`), 11/11. | VERIFIED | H | table comparison |
+| C-165 | `DIFFERENT MAP CODE` is a UTF-16 string at firmware `0x04136abc`; nearby launcher code reads `HDD_INFO.TXT` and checks `MapDBVer`. Line 1 is likely a market/family code (JP 300, US 301, EU 302), not a per-card activation. | OBSERVED / HYPOTHESIS | M | firmware strings + external QY-7204 |
+| C-166 | The 402 MB post-partition tail is a second FAT16/TFAT16 volume containing skin data, not map data. | OBSERVED | M | FAT header + contents |
+| C-167 | `BICON001.DAT` is the only map file with a different data version (`11/04/08/01` vs `11/06/27/01`). | OBSERVED | M | header comparison |
+| C-168 | Only ~61 % of a tile's post-`0x5200` payload is inside zlib streams; the rest is alignment padding and fixed tables. There is no per-tile digest. | VERIFIED | H | stream accounting |
 
 ## Market / version
 

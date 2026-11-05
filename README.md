@@ -77,6 +77,10 @@ offsets live in [`docs/format/`](docs/format/).
 - **Coordinates.** `COORD001` stores 33 region bounding boxes at `0x1010`
   (14-byte BE records); `lat = (x-32768)/192`, `lon = (y-52742)/128`
   (~0.03° rms). The same grid underlies the tile names and stream keys.
+- **POI/address coordinates.** `ADDRE` and `POINT` records carry a 4-byte
+  lat/lon id using the same formula. POINT and ADDRE share ids, so the POI →
+  address link is partially solved. `COORD001` entry *i* is the bbox of
+  `ADDRE(i).DAT`.
 - **`DRSTR001.DAT`.** The only manifest: no header, root node `/` at `0x0000`,
   40 name-first 40-byte node records, then 32-byte directory entries (13-byte
   name + metadata, logical size at `+0x1c`). Each node's listing matches its
