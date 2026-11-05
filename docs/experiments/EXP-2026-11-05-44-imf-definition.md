@@ -7,7 +7,7 @@
   SHA-256 `aea27532b1a036b19e595a41bc03d9ea752e2d0749add0f2c4a2c7cdae079bb1`.
   Tool: `tools/imf_check.py`, SHA-256
   `942f1b1c44958c95a702298dce569deaf147ade49c4a3a5f2d6182f06dea7f4f`.
-- **Claims:** C-516 (design only; ledger row proposed, not added by this
+- **Claims:** C-542 (design only; ledger row proposed, not added by this
   change)
 - **Supersedes:** none
 - **Superseded by:** none
@@ -208,7 +208,7 @@ the `TODO.md` P5 checkbox are left for the coordinating session.
 
 Proposed claim (status **design only**, not verified against any writer):
 
-> **C-516** — IMF v1 is a UTF-8 JSON Lines file (`imf=1`) with one header
+> **C-542** — IMF v1 is a UTF-8 JSON Lines file (`imf=1`) with one header
 > (pinned source + ODbL attribution), then nodes, ways and the
 > restriction/boundary/route relation subset. Each record carries a stable
 > `n|w|r<osm id>` id and a whole `BxxRyyR` cell; a way's `tile` is its first
@@ -220,7 +220,7 @@ Proposed claim (status **design only**, not verified against any writer):
 
 ## Follow-ups
 
-- [ ] Add C-516 to `docs/research/claims.md` (design-only section) and tick
+- [ ] Add C-542 to `docs/research/claims.md` (design-only section) and tick
       "Define the intermediate format" in `TODO.md` P5.
 - [ ] Add `EXP-2026-11-05-44` to the `docs/experiments/README.md` index.
 - [ ] Run the extractor on the pinned Dolnośląskie snapshot and validate the

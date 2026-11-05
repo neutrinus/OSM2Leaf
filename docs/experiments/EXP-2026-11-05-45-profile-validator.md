@@ -1,4 +1,4 @@
-# EXP-2026-11-05-36: Profile schema, validator and dry-run estimator
+# EXP-2026-11-05-45: Profile schema, validator and dry-run estimator
 
 - **Status:** done
 - **Date:** 2026-11-05
@@ -8,7 +8,7 @@
   `profiles/dolnoslaskie-test.json` `386ada53…a36e`,
   `profiles/poland-full.json` `ee913786…3dc4`,
   `profiles/europe-motorways.json` `4ec0ad0d…5997`
-- **Claims:** proposed C-538–C-541 (claim text in *Conclusion*; the ledger is
+- **Claims:** proposed C-564–C-567 (claim text in *Conclusion*; the ledger is
   not edited by this experiment)
 - **Supersedes:** none
 - **Superseded by:** none
@@ -184,25 +184,25 @@ Added, without touching vendor data:
 Proposed claim text for `docs/research/claims.md` (next free IDs, not added by
 this experiment):
 
-- **C-538 (VERIFIED):** `tools/profile_validate.py` accepts all four shipped
+- **C-564 (VERIFIED):** `tools/profile_validate.py` accepts all four shipped
   version-1 profiles through the legacy adapter and resolves 1 / 1 / 4 / 56
   whole tiles for `dolnoslaskie-detail`, `dolnoslaskie-test`, `poland-full`,
   `europe-motorways`; evidence `python3 tools/profile_validate.py profiles/*.json`,
-  EXP-2026-11-05-36.
-- **C-539 (VERIFIED):** The whole Dolnośląskie bbox (14.0–17.9 E, 49.9–51.9 N)
+  EXP-2026-11-05-45.
+- **C-565 (VERIFIED):** The whole Dolnośląskie bbox (14.0–17.9 E, 49.9–51.9 N)
   plus a 50 km buffer lies inside the single tile `B48R058R` (48.00–53.33 N,
   12–20 E); the "2–3 tiles" estimate in `docs/research/build-profiles.md` is
-  superseded for that bbox. Evidence EXP-2026-11-05-36.
-- **C-540 (OBSERVED):** The EU 2011 tile space is a 9 × 7 addressable lattice
+  superseded for that bbox. Evidence EXP-2026-11-05-45.
+- **C-566 (OBSERVED):** The EU 2011 tile space is a 9 × 7 addressable lattice
   (rows `B28`–`B68`, columns `R048`–`R078`, 63 cells) of which 45 cells exist;
   lattice-derived tile counts are upper bounds because the 18 sea/empty cells
   are not enumerable without vendor data. Evidence `docs/format/map-tiles.md`,
-  EXP-2026-11-05-36; the shipped 45-name subset is still vendor data.
-- **C-541 (OBSERVED):** `tools/build.py --dry-run` estimates 44.6 MB for
+  EXP-2026-11-05-45; the shipped 45-name subset is still vendor data.
+- **C-567 (OBSERVED):** `tools/build.py --dry-run` estimates 44.6 MB for
   `dolnoslaskie-detail`, 178.4 MB for `poland-full` and 253.4 MB for
   `europe-motorways` using documented road budgets and placeholder
   refer/POI/admin budgets; the rows are labelled ESTIMATE. Evidence
-  EXP-2026-11-05-36.
+  EXP-2026-11-05-45.
 
 Open: nothing in this experiment was validated on hardware or against a real
 encoder; `TODO.md` items "Add a schema validator and `tools/build.py --profile`"
@@ -221,6 +221,6 @@ owner.
       and test that an extra card file keeps the `DRSTR001.DAT` manifest valid.
 - [ ] Implement the writer behind `tools/build.py` (currently exit 3).
 - [ ] Reconcile the "2–3 tiles" sentence in `docs/research/build-profiles.md`
-      with C-539.
+      with C-565.
 - [ ] Investigate the unrelated `tools/cerom.py --selftest` `struct.pack_into`
       failure before the next full `tools/selftest.py` gate.

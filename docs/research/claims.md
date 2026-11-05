@@ -4,20 +4,6 @@ This is the canonical list of what we know, what we think we know, and what we
 do not know. Other researchers and agents should use these IDs when referring
 to a finding, disputing it, or extending it.
 
-> **Audit 2026-11-05 — CE ROM TOC.** The firmware rows were re-checked against
-> `EXP-2026-11-05-33`/`-34` and `tools/ce_rom_parse.py`. `C-380`/`C-381`
-> ("no XIP/section table", `0x1951ee0` as the TOC) are **RETRACTED**;
-> `C-088`/`C-089` and the new `C-090`–`C-094` supersede them. Rows that still
-> cited retracted anchors as live were re-statused, not deleted: `0xc438a4`
-> as the `CMP.LST` opener (`C-068`, `C-182`), `+0x02200000` as the map-code
-> delta (`C-181`), `0x1952b00` as a section map (`C-235`), `0x15271c8`
-> (`C-266`), `0x2e0xxxx` (`C-340`), `0x6faf30` (`C-387`), `0x171ea2c`
-> (`C-398`), `0x171e9e8` (`C-428`). The `+0xC4` type tag, the property-17
-> parser, the two-delta model and the runtime-vtable rows were corrected the
-> same way (`C-202`, `C-207`, `C-264`, `C-302`, `C-303`, `C-317`, `C-425`).
-> No active row cites a retracted anchor as live. Per-claim commands are in
-> [How to verify](#how-to-verify).
-
 ## Status labels
 
 | Label | Meaning |
@@ -26,9 +12,6 @@ to a finding, disputing it, or extending it.
 | **OBSERVED** | Seen in the data, but the interpretation is not proven. |
 | **HYPOTHESIS** | A plausible explanation that fits current evidence but has not been confirmed. |
 | **UNKNOWN** | No reliable answer yet. |
-| **RETRACTED** | The original assertion is false or unsupported. The row stays for history and names the superseding claim. |
-| **SUPERSEDED** | A plan or intermediate result displaced by a later claim; not an active answer. |
-| **DONE** | A planned step that has been carried out; the result lives in the named claim. |
 
 Confidence: **H** = high, **M** = medium, **L** = low.
 
@@ -131,7 +114,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-049 | The record grammar inside real payloads is unknown; most payloads are default 448-byte pages. | UNKNOWN | — | 2,374/3,769 in B30R048R; 13 distinct bodies |
 | C-050 | Road geometry is split between `MAPAL001` and `RDSTM001` in an unknown way. | UNKNOWN | — | `RDSTM001` has street-like data, tiles have geometry-like data |
 | C-051 | There is no `u32` offset table in the tile header; streams are back-to-back with 0–3 bytes padding. | VERIFIED (negative) | H | 4/200 coincidental matches only |
-| C-052 | `0x1ac` holds `00 \| n_tables \| {table_id, n_entries, (level, kind, u16 count)} \| 00`. | VERIFIED | H | structure parses in all tiles |
+| C-052 | `0x1ac` holds `00 | n_tables | {table_id, n_entries, (level, kind, u16 count)} | 00`. | VERIFIED | H | structure parses in all tiles |
 | C-053 | `COORD001` uses longitude origin 52742; the tile stream prefix uses 52736. The 6-unit difference (~0.047°) is unexplained. | OBSERVED | M | independent fits |
 | C-170 | ZE0 tiles use zlib `78 9c`; background record kind is `0x00fa` at both levels; the even/odd record pair separates road-shape from background. | VERIFIED | H | EXP-2026-11-05-04 |
 | C-171 | `B28R070R`, `B30R060R`, `B58R070R` and `LEV3456R` rebuild byte-identically from the decoded model. | VERIFIED | H | EXP-2026-11-05-04 |
@@ -156,16 +139,16 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-286 | Section-4 binary fields between country and names are not fully mapped; there is no ZE0 section-4 encoder. | UNKNOWN | — | EXP-2026-11-05-15 |
 | C-290 | Map-code comparator at file `0x6fafe4`–`0x6fb194`, data delta `0x02800000`; numeric `Sys[0x%x]` vs `SD[0x%x]` for `manufacturer_id`, `userdata_type`, `destination_id`. | VERIFIED | H | EXP-2026-11-05-16 |
 | C-291 | One field is range-checked `0 <= v < 6`; mismatches report “finished not found” / “type not correct”. | VERIFIED | H | EXP-2026-11-05-16 |
-| C-292 | A second module at file `0x1683xxx` uses code delta `0x0200e438` (4/7 pointers land on function starts). Re-check via the TOC (C-088); per-module bases are not reliable (C-383). | OBSERVED | M | EXP-2026-11-05-16; C-088 |
+| C-292 | A second module at file `0x1683xxx` uses code delta `0x0200e438` (4/7 pointers land on function starts). | OBSERVED | M | EXP-2026-11-05-16 |
 | C-293 | The six `HDD_INFO` lines ↔ three fields mapping is unknown; `SDC08`/`EVEUR` resemblance is a guess. | UNKNOWN | — | EXP-2026-11-05-16 |
 | C-294 | Tile contract: intra-mesh coordinates are `0..2047` (11-bit); `MESHMAX_LEV1` mesh validation exists; structures `area_link`, `cvdata`, `rgd_t`, `RGD_commem`. | VERIFIED | H | diagnostic strings |
-| C-295 | Dump headers document a six-level table (`VTb Tp;Lv;…\|L1..L6\|Sz;Adr`) and the file descriptor (`HFile;FileID;Tp;Lv;V#;la Lo`). | OBSERVED | H | strings at `0xdf65a1`, `0xdf6621` |
+| C-295 | Dump headers document a six-level table (`VTb Tp;Lv;…|L1..L6|Sz;Adr`) and the file descriptor (`HFile;FileID;Tp;Lv;V#;la Lo`). | OBSERVED | H | strings at `0xdf65a1`, `0xdf6621` |
 | C-296 | `0x1ac` is **not** the tile level table: it is a 428-byte per-object OSM buffer for `obj+0x40`. | VERIFIED (retraction) | H | EXP-2026-11-05-16 |
 | C-297 | Closure experiment: one HDD_INFO line per spare card, preserve length/CRLF, sweep numeric lines 0…5, read the debug `SD Import: <field>` message. | PLANNED | — | EXP-2026-11-05-16 |
 | C-300 | Comparator chain: `0x6fab2c` wrapper → `0x6faeb0` mode/path selector → `0x6fb05c` field comparison. `0x6fafe4` is a 0x18-byte teardown stub (retracted). | VERIFIED | H | EXP-2026-11-05-17 |
 | C-301 | `userdata_type` is the range-checked field (`0 < v < 6`); `manufacturer_id` and `destination_id` are arbitrary `u16`. | VERIFIED | H | EXP-2026-11-05-17 |
-| C-302 | ~~SD format/validate module: data delta `0x1130000`, code file `0x30d000–0x315000`, wrapper `0x30efcc` passes the path to COM property 17.~~ **RETRACTED in full** (C-323); FATUTIL is not the parser. | RETRACTED | H | EXP-2026-11-05-17 → -19; superseded by C-323 |
-| C-303 | ~~The file parser is behind an unnamed COM class (`Set(17, path)`); static tracing stops there.~~ **RETRACTED**: the call site is `obj->method#1(17,0,path)` on a different object (C-313); the parser remains unlocated and is searched through the extracted modules (C-088). | RETRACTED | H | EXP-2026-11-05-17 → -18; superseded by C-313/C-323 |
+| C-302 | SD format/validate module: data delta `0x1130000`, code file `0x30d000–0x315000`; wrapper `0x30efcc` passes the path to COM property 17. FATUTIL is not the parser. | OBSERVED | H | EXP-2026-11-05-17 |
+| C-303 | The file parser is behind an unnamed COM class (`Set(17, path)`); the comparator module's code delta is unrecoverable, so static tracing stops there. | UNKNOWN | — | EXP-2026-11-05-17 |
 | C-304 | Six-line mapping is a ranked hypothesis: line 4 `SDC08-EVEUR` → manufacturer+destination; QSD lines → userdata_type; line 6 part number; lines 3/5 version/date. | HYPOTHESIS | M | EXP-2026-11-05-17 |
 | C-305 | The `Sys` side is a parsed `u16`; the built-in `0x06000000` copy is the only system-side HDD_INFO, so both are likely used. | HYPOTHESIS | M | EXP-2026-11-05-17 |
 | C-306 | `tools/hddinfo_variants.py` generates 73 length-preserving 72-byte HDD_INFO variants for the spare-card matrix. | VERIFIED | H | EXP-2026-11-05-17 |
@@ -177,7 +160,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-314 | VerInfoCC does not parse HDD_INFO: no path, no file-I/O string, data from a compiled-in constant table. | VERIFIED (negative) | H | EXP-2026-11-05-18 |
 | C-315 | The comparator module's data delta `0x02800000` is settled by its string pool and the `sprintf` at `0x6fb0d8`. | VERIFIED | H | EXP-2026-11-05-18 |
 | C-316 | Six-line mapping is unknown; all three compared fields are numbers, and the `Sys` side is likely a compiled-in table. | UNKNOWN / HYPOTHESIS | M | EXP-2026-11-05-18 |
-| C-317 | The missing link is the class behind the SD module's `0x30f008` call; module U only compares. | SUPERSEDED | — | C-320 (`0x30f008` premise is false; `0x30efcc` is a free function); EXP-2026-11-05-18 |
+| C-317 | The missing link is the class behind the SD module's `0x30f008` call; module U only compares. | UNKNOWN | — | EXP-2026-11-05-18 |
 | C-318 | `tools/solve_data_delta.py` recovers VerInfoCC's delta; `hddinfo_variants.py` now emits 89 length-preserving variants (pairwise swaps + reverse). | VERIFIED | H | EXP-2026-11-05-18 |
 | C-320 | `0x30efcc` is a free function `f(obj,mode,flag)`, not a parser; there is no `bsr` to it and the object comes from the caller. The `0x30f008` premise is false. | VERIFIED (negative) | H | EXP-2026-11-05-19 |
 | C-321 | `0x01f83368` is a writable global, not the HDD_INFO path; the code stores into it at `0x31098c`–`0x310996`. | VERIFIED (negative) | H | EXP-2026-11-05-19 |
@@ -186,7 +169,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-324 | `0x6fb05c` is a message builder (memsets, descriptors, `sprintf`, field id `0x00A2`, `0..5` check in `userdata_type`, `vtable[5]`), not a parser. | VERIFIED (negative) | H | EXP-2026-11-05-19 |
 | C-325 | Six-line mapping remains unknown; the path-start literal has zero references and module U uses only suffixes; linker suffix merging is the working hypothesis. | UNKNOWN / HYPOTHESIS | M | EXP-2026-11-05-19 |
 | C-326 | Reader location remains unknown; three routes are closed with reasons (0x30f008 object, VerInfoCC, comparator-as-parser). | UNKNOWN | — | EXP-2026-11-05-19 |
-| C-327 | Next direction: `USR_Convert_*`, especially `Set finished mark (file=%s)` at `0xe4dc18`; locate its module with a ≥3-string cluster, then walk from the path argument. | SUPERSEDED | — | C-352 (import stubs) and C-088 (use the CE ROM TOC, not literal clusters); EXP-2026-11-05-19 |
+| C-327 | Next direction: `USR_Convert_*`, especially `Set finished mark (file=%s)` at `0xe4dc18`; locate its module with a ≥3-string cluster, then walk from the path argument. | PLANNED | — | EXP-2026-11-05-19 |
 | C-330 | `0xc438a4` is a memory/fd statistics formatter, not the CMP.LST opener; the real `\CMP.LST` is at `0xdf945d` with **zero** pointer references. | VERIFIED (retraction) | H | EXP-2026-11-05-20 |
 | C-331 | `DRSTR001.DAT`, `.ind`, `.IND`, `REFER001.DAT`, `MAPAL001`, `LEV3456R.DAT` have zero literal references; `.cmp` has one (debug dumper). | VERIFIED (negative) | H | EXP-2026-11-05-20 |
 | C-332 | The map module code is **not** `file+0x02200000`. A per-instruction `{VA,flag}` table at `0x12fa000–0x132d200` puts nine known entries in `0x02b0xxxx–0x02b5xxxx`; best fit `+0x01f07d5c`. | VERIFIED (band) / OBSERVED (exact) | H | EXP-2026-11-05-20 |
@@ -197,23 +180,23 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-337 | FD type tag is `+0xC0` (7–15), not `+0xC4`; dir/disc tag is `+0xB4`, second field `+0xBC`. | VERIFIED (correction) | H | EXP-2026-11-05-20 |
 | C-338 | `0xc0ebf8` is mid-function; `0x1ac` is an argument to `0x2e533e4`, also called with negative values; the level-table allocation claim is unproven. | VERIFIED (retraction) | H | EXP-2026-11-05-20 |
 | C-339 | The data contract is unaffected: `.cmp` chunked zlib and DRSTR 40/324 remain data-confirmed; hardcoded filenames, `0xc438a4` opener and `0x02200000` are contradicted. | VERIFIED | H | EXP-2026-11-05-20 |
-| C-340 | Next trace: find the `0x2e0xxxx` module export table; run `.ind` mutation (chunk_size/count/offset) on a spare card; SD bus capture. | SUPERSEDED | — | C-371 (`0x2e0xxxx` is a thunk area); the card items stay deferred; EXP-2026-11-05-20 |
+| C-340 | Next trace: find the `0x2e0xxxx` module export table; run `.ind` mutation (chunk_size/count/offset) on a spare card; SD bus capture. | PLANNED | — | EXP-2026-11-05-20 |
 | C-350 | Literal-pool analysis needs F1 code pages, F2 reject loads used as `jsr`/`jmp` targets, F3 reject import thunks; candidates fall 236,765 → 95,758. | VERIFIED (method) | H | EXP-2026-11-05-21 |
 | C-351 | “USR_Convert module at `0x0101e408`” is retracted: those are 12-byte import stubs / IAT slots; same for `0x01011478`. | VERIFIED (retraction) | H | EXP-2026-11-05-21 |
 | C-352 | “The map module references `VER_INFO\HDD_INFO.TXT`” is retracted: `0xc0dbda`/`0xc1078c`/`0xc10800` are `jsr` targets. | VERIFIED (retraction) | H | EXP-2026-11-05-21 |
 | C-353 | Only one builder touches the HDD_INFO path: clean refs at `0x6faf28`, `0x6faf0e`, `0x6faf52`, `0x6faeee`, `0x6fb0ce`; path start/UserSD/fields have zero clean refs. | VERIFIED | H | EXP-2026-11-05-21 |
 | C-354 | `0x6faeb0` builds the path from fragments (modes 0/10 append `mSD\VER_INFO\HDD_INFO.TXT` to `\Syste`; other modes `TXT`; DLL branch `til.dll`); it does no I/O. | VERIFIED | H | EXP-2026-11-05-21 |
 | C-355 | Six-line mapping remains unknown; constraints are numeric `Sys`/`SD`, `0..5`, field enum `0x00A2`. | UNKNOWN | — | EXP-2026-11-05-21 |
-| C-356 | The parser helper is one indirection away: `0x0369d400`, `0x036922cc`, `0x0367b180`, `0x0369d3dc` in the `0x0367–0x0369xxxx` module receive the built path. The VA collisions in C-362 must be resolved through the TOC (C-088). | OBSERVED | M | EXP-2026-11-05-21; C-362/C-088 |
-| C-357 | Next: pin the `0x0367–0x0369` module with the three-filter index and a self-printed string cluster; else run the 89-variant spare-card matrix. | SUPERSEDED | — | C-360/C-362 (library layer, non-injective VA map); EXP-2026-11-05-21 |
+| C-356 | The parser helper is one indirection away: `0x0369d400`, `0x036922cc`, `0x0367b180`, `0x0369d3dc` in the `0x0367–0x0369xxxx` module receive the built path. | OBSERVED | M | EXP-2026-11-05-21 |
+| C-357 | Next: pin the `0x0367–0x0369` module with the three-filter index and a self-printed string cluster; else run the 89-variant spare-card matrix. | PLANNED | — | EXP-2026-11-05-21 |
 | C-360 | `0x0360–0x036a` is a library layer, not a pinnable module: 1,899 code-target VAs, no export dir, no `MSFT`, no `.rgs`. | VERIFIED | H | EXP-2026-11-05-22 |
 | C-361 | Entry-point delta solve for the 13 helper VAs peaks at 7/13 prologues (`D≈0x02236a34`), with mid-function bytes; a true delta needs ≥11/13. | VERIFIED (negative) | H | EXP-2026-11-05-22 |
 | C-362 | The VA map is **not injective**: `0x0367b180` is both a `jsr` target and the UTF-16 string at file `0xe7b180`; `0x0369d400`/`0x036922cc` map to string data. | VERIFIED | H | EXP-2026-11-05-22 |
-| C-363 | Cross-module calls cannot be resolved by literal arithmetic; they need the `romimage` XIP section table (`file ↔ VA ↔ size`). That table is now recovered via the CE ROM TOC (C-088/C-091). | VERIFIED | H | EXP-2026-11-05-22; C-088 |
+| C-363 | Cross-module calls cannot be resolved by literal arithmetic; they need the `romimage` XIP section table (`file ↔ VA ↔ size`). | VERIFIED | H | EXP-2026-11-05-22 |
 | C-364 | Intra-module results stand: builder `0x6faeb0` and reporter `0x6fb05c` need no delta. | VERIFIED | H | EXP-2026-11-05-22 |
 | C-365 | Parser, card-vs-built-in and six-line mapping remain unknown; only the `Sys`/`SD`, `0..5`, `0x00A2` constraints are proven. | UNKNOWN | — | EXP-2026-11-05-22 |
 | C-366 | The spare-card matrix is final: 89 length-preserving 72-byte variants with a six-step plan and message oracle. | VERIFIED | H | EXP-2026-11-05-22 |
-| C-367 | Next: parse the XIP section table; `ECEC` at container `+0x240` and `NKOK` at `+0x1fc` are the leads. | DONE | — | Carried out: C-088/C-090–C-094; EXP-2026-11-05-33/34 |
+| C-367 | Next: parse the XIP section table; `ECEC` at container `+0x240` and `NKOK` at `+0x1fc` are the leads. | PLANNED | — | EXP-2026-11-05-22 |
 | C-370 | The ROM export directory is 9 dwords (timestamp first); a corrected scan finds 135 export modules. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-371 | No module's RVA range covers `0x2e00f98–0x2e533e4`; `0x2e0xxxx` is an **import-thunk area**, not an export module. | VERIFIED (negative) | H | EXP-2026-11-05-23 |
 | C-372 | The 86-entry thunk table at `0x1724eb8–0x17252c0` uses 12-byte thunks (best delta `0x16e248c`), IAT `0x1ab9000–0x1ab9440`; import names at `0x1708000–0x170a200`. | VERIFIED | H | EXP-2026-11-05-23 |
@@ -222,24 +205,24 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-375 | The fd/IOB layer is in `NaviStateCC.DLL`, file base `0xc32200`; it is table-dispatched. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-376 | The data contract is unchanged: `.cmp` zlib and `.ind`/DRSTR layouts are data-confirmed; firmware is silent. | VERIFIED | H | EXP-2026-11-05-23 |
 | C-377 | `tools/ind_mutate.py` generates 8 `.ind` variants (chunk_size/count/offset) for the spare-card matrix. | VERIFIED | H | EXP-2026-11-05-23 |
-| C-378 | Next: name the 86 thunks via the import descriptor (`FirstThunk=0x1ab9000`, `COREDLL.dll`) and scan NaviStateCC for ≥3 fd thunks + local zlib. | SUPERSEDED | — | C-390/C-391 (no standard import descriptor; thunks stay unnamed); EXP-2026-11-05-23 |
-| C-380 | ~~The image contains no XIP/section table.~~ **RETRACTED**: the image does contain a standard CE ROM TOC. The old negative came from a string search for `B000FF`/`ROMHDR` and stopped there. | RETRACTED | H | Superseded by C-088/C-090; EXP-2026-11-05-24 → -33/34 |
-| C-381 | ~~`0x1951ee0` is the CE ROM TOC and its pointers resolve through the physical base.~~ **RETRACTED**: the TOC is reached from ROMHDR at `0x1951b78` (`TOC` at `+0x54`); `0x1951ee0` is not the entry point. | RETRACTED | H | Superseded by C-088/C-092; EXP-2026-11-05-24 → -33/34 |
+| C-378 | Next: name the 86 thunks via the import descriptor (`FirstThunk=0x1ab9000`, `COREDLL.dll`) and scan NaviStateCC for ≥3 fd thunks + local zlib. | PLANNED | — | EXP-2026-11-05-23 |
+| C-380 | ~~There is no XIP section table in the image~~: the search for `B000FF`/`ROMHDR` strings could not find a raw CE ROM header. Superseded by C-516 (and C-088/C-089). | RETRACTED | — | EXP-2026-11-05-24; superseded by EXP-2026-11-05-35 |
+| C-381 | ~~The `0x1951ee0` tail table is not a VA→file map~~: it lies inside the `TOCentry` array (`0x1951bcc–0x1952e6c`, 149 × 32 B) right after `ROMHDR`; the base `0x8cae1000` was off the coarse test grid. The "`0x1952b00` RAM copy list" (C-273) is in the same array. Superseded by C-517. | RETRACTED | — | EXP-2026-11-05-24; superseded by EXP-2026-11-05-35 |
 | C-382 | `module_scan` `(file_base, va_base)` pairs are wrong for most modules: only OLEAUT32-class deltas hold (65 % prologues); TFAT 0 %, FATUTIL 3 %, commctrl 1 %, WAVEAPI 4 %. | VERIFIED (negative) | H | EXP-2026-11-05-24 |
 | C-383 | The container stores **section groups**, not full PE images at `base + RVA`; the per-module base claim is retracted. | VERIFIED (retraction) | H | EXP-2026-11-05-24 |
-| C-384 | `0x0367b180` is still both a `jsr` target and the UTF-16 string at `0xe7b180`; the collision is unresolved. | UNKNOWN | — | EXP-2026-11-05-24 |
-| C-385 | 148 `RSDS`/PDB records + 155 DLL names give file-side module identity; `rommap.py` maps `0x032560c3` → TFAT `0x2942c3`, but `0x0369d400` → UNKNOWN. The ad-hoc `rommap.py` is not in the repo; `tools/cerom.py` replaces it in Step 2. | VERIFIED | H | EXP-2026-11-05-24; C-088 |
-| C-386 | Readers remain blocked at the `0x0369d400` cross-module call; six-line/card-vs-built-in remain unknown. The TOC (C-088) now provides the module map needed to resolve that call. | UNKNOWN | — | EXP-2026-11-05-24; C-088 |
-| C-387 | Static VA reasoning is exhausted; next are a dynamic break after `0x6faf30` or the 89-variant card matrix. | SUPERSEDED | — | C-404 (`0x6faf30` is a Bluetooth/OPP handler); static path replaced by C-088; EXP-2026-11-05-24 |
+| C-384 | `0x0367b180` is still both a `jsr` target and the UTF-16 string at `0xe7b180`; the collision is unresolved. Superseded by C-519. | RETRACTED | — | EXP-2026-11-05-24; EXP-2026-11-05-35 |
+| C-385 | 148 `RSDS`/PDB records + 155 DLL names give file-side module identity; `rommap.py` maps `0x032560c3` → TFAT `0x2942c3`, but `0x0369d400` → UNKNOWN. Superseded by C-518/C-520. | VERIFIED (superseded) | H | EXP-2026-11-05-24; EXP-2026-11-05-35 |
+| C-386 | Readers remain blocked at the `0x0369d400` cross-module call; six-line/card-vs-built-in remain unknown. Superseded by C-520/C-521. | UNKNOWN (superseded) | — | EXP-2026-11-05-24; EXP-2026-11-05-35 |
+| C-387 | Static VA reasoning is exhausted; next are a dynamic break after `0x6faf30` or the 89-variant card matrix. | PLANNED | — | EXP-2026-11-05-24 |
 | C-390 | The standard import descriptor with `FirstThunk=0x1ab9000` is absent; 219 descriptor-shaped records, none matching. The navi IAT is pre-bound. | VERIFIED (negative) | H | EXP-2026-11-05-25 |
 | C-391 | The 86 thunks remain unnamed; 140 ordinal-ILT runs exist but none matches the navi IAT. | VERIFIED (negative) | H | EXP-2026-11-05-25 |
-| C-392 | NaviStateCC is a COM DLL with only 4 exports; `DllGetClassObject` forwards to `0x2e00eb8` (file `0x171ea2c`, real entry `0x171e9e8` — C-400), class data `0x1d0f8a8`. `0x2e00eb8` is a shared COM helper, not the class factory (C-411). | VERIFIED (correction) | H | EXP-2026-11-05-25 → -27; C-400/C-411 |
+| C-392 | NaviStateCC is a COM DLL with only 4 exports; `DllGetClassObject` forwards to `0x2e00eb8` (file `0x171ea2c`), class data `0x1d0f8a8`. | VERIFIED | H | EXP-2026-11-05-25 |
 | C-393 | The fd/IOB layer functions are COM methods reached through a load-time vtable; no static `bsr`/vtable reference reaches them. | VERIFIED | H | EXP-2026-11-05-25 |
 | C-394 | Structural scan: `0xc42e48` debug dumper, `0xc49f98` virtual dispatcher, `0xc438a4` stats formatter; fd thunk sets listed in the EXP. | OBSERVED | H | EXP-2026-11-05-25 |
 | C-395 | No `0x10000` pool literal or `mov #1; shll16` near the fd layer; the `.ind` reader likely uses `chunk_size` as a buffer size, not a comparison. | OBSERVED | M | EXP-2026-11-05-25 |
 | C-396 | The `.cmp`/`.ind` reader is not located. | UNKNOWN | — | EXP-2026-11-05-25 |
 | C-397 | Contract unchanged; “NaviStateCC is a flat library” is contradicted (it is COM). | VERIFIED (correction) | H | EXP-2026-11-05-25 |
-| C-398 | Next: disassemble `0x171ea2c` → `CreateInstance`/object vtable (or the `0x1d0f8a8` writer); run the `.ind` mutation matrix. | SUPERSEDED | — | C-400 (real entry `0x171e9e8`), C-430 (type-library helper); static route reopens via C-088; EXP-2026-11-05-25 |
+| C-398 | Next: disassemble `0x171ea2c` → `CreateInstance`/object vtable (or the `0x1d0f8a8` writer); run the `.ind` mutation matrix. | PLANNED | — | EXP-2026-11-05-25 |
 | C-400 | `DllGetClassObject`'s real entry is file `0x171e9e8`, not `0x171ea2c`; its pool holds link-time VAs `0x0260xxxx`, while the called thunk table is runtime-placed in `0x02e0xxxx` (different section delta `0x16e64d0`). | VERIFIED | H | EXP-2026-11-05-26 |
 | C-401 | `0x1d0f8a8` is a RAM global context used 23× in NaviStateCC; no store in that module, so the framework/loader initializes it. | VERIFIED | H | EXP-2026-11-05-26 |
 | C-402 | The vtable is constructed, not static: 233 constructor stores write 175 method VAs (`0x0260xxxx–0x0262xxxx`); densest build at `0x170f100–0x170f2b0`. | VERIFIED | H | EXP-2026-11-05-26 |
@@ -255,25 +238,25 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-413 | 158/175 method VAs map under some delta (`0x11a3xxxx`/`0x1182xxxx` → file `0x145xxxx–0x14axxxx`), but confidence is low and the assignment is non-unique. | VERIFIED (coverage) / LOW confidence | M | EXP-2026-11-05-27 |
 | C-414 | The iPodCC vtable contains no MAL/fd/zlib/DRSTR/tile methods. | VERIFIED (negative) | H | EXP-2026-11-05-27 |
 | C-415 | No NaviStateCC vtable exists as a contiguous pointer table under `0x1f07d5c`; a ≥8-pointer run scan found 0. | VERIFIED (negative) | H | EXP-2026-11-05-27 |
-| C-416 | Next anchor: find the writer/initializer of `0x1d0f8a8`; it should install the NaviStateCC class factory/vtable containing `0xc42520`, `0xc426a4`, `0xc438a4`. | SUPERSEDED | — | C-421 (never written by the ROM), C-434 (static closed); vtable search reopens through the extracted COM modules (C-088); EXP-2026-11-05-27 |
-| C-417 | If the initializer is absent from the ROM, static is closed; use the MAL breakpoint or the card matrix. | SUPERSEDED | — | C-421/C-434 (initializer absent); C-088 reopens a static module-level path; EXP-2026-11-05-27 |
+| C-416 | Next anchor: find the writer/initializer of `0x1d0f8a8`; it should install the NaviStateCC class factory/vtable containing `0xc42520`, `0xc426a4`, `0xc438a4`. | PLANNED | — | EXP-2026-11-05-27 |
+| C-417 | If the initializer is absent from the ROM, static is closed; use the MAL breakpoint or the card matrix. | PLANNED | — | EXP-2026-11-05-27 |
 | C-420 | NaviStateCC initializer `0xc43430` writes `0x1d0f720`, `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to `0x1d0f888…894`. | VERIFIED | H | EXP-2026-11-05-28 |
 | C-421 | `0x1d0f8a8` itself is never written by the ROM; the only direct store is destructor `0xc4ac6a` zeroing `+96/+100/+104`. | VERIFIED (negative) | H | EXP-2026-11-05-28 |
 | C-422 | `0xc43430` has no static caller; its only pointer occurrence is the per-instruction table at `0x1302760`; invocation is dynamic. | VERIFIED (negative) | H | EXP-2026-11-05-31 |
 | C-423 | The RAM copy list at `0x1952b00` does not cover the NaviStateCC block (it covers OS modules at `0x8D/0x8F`). | VERIFIED (negative) | H | EXP-2026-11-05-28 |
 | C-424 | No static vtable contains the fd methods: `0x2b4a27c`/`0x2b4a400`/`0x2b4b600` occur once in the per-instruction table, never in a ≥8-pointer run. | VERIFIED (negative) | H | EXP-2026-11-05-28 |
-| C-425 | ~~The object vtable is built at runtime by the shared COM helper `0x171e9e8`/loader.~~ **RETRACTED**: `0x171e9e8` is a type-library registration/lookup helper (C-430); the vtable's builder is still unknown. | RETRACTED | M | EXP-2026-11-05-28; superseded by C-430 |
-| C-426 | The reader address and vtable slot layout are not visible to static pointer scans; the extracted modules may still contain the constructor (C-088). `chunk_size` compare vs buffer size remains a hypothesis. | UNKNOWN | — | EXP-2026-11-05-28; C-088 |
+| C-425 | The object vtable is built at runtime by the shared COM helper `0x171e9e8`/loader. | OBSERVED | M | EXP-2026-11-05-28 |
+| C-426 | Reader address and vtable slot layout are not in the ROM; `chunk_size` compare vs buffer size remains a hypothesis. | UNKNOWN | — | EXP-2026-11-05-28 |
 | C-427 | Static fallback: break on MAL `getOffset/getSize`, fd methods, or fd thunks; hardware is the only route to the reader address. | PLANNED | — | EXP-2026-11-05-28 |
-| C-428 | Next static attempt: decompile `0x171e9e8` for a slot template/construction map; also prepare the dynamic guide and hardware kit. | SUPERSEDED | — | C-430 (type-library helper, not a vtable builder); EXP-2026-11-05-28 |
+| C-428 | Next static attempt: decompile `0x171e9e8` for a slot template/construction map; also prepare the dynamic guide and hardware kit. | PLANNED | — | EXP-2026-11-05-28 |
 | C-430 | `0x171e9e8` is a COM type-library registration/lookup routine, not a class factory/vtable builder: GUIDs `44ec053b…`/`44ec053a…`, strings `LoadTypeLib`/`RegisterTypeLib`/`REGISTRY`/`Module`/`oleaut32.dll`/`.tlb`. | VERIFIED | H | EXP-2026-11-05-29 |
 | C-431 | Its callees are `oleaut32`/`ole32` thunks; the indirect calls are `ITypeLib`/`ITypeInfo` methods, not NaviStateCC methods. | VERIFIED | H | EXP-2026-11-05-29 |
 | C-432 | No static vtable template exists and no static vtable contains `0xc42520`/`0xc426a4`/`0xc438a4`; the fd VAs occur once in the per-instruction table. | VERIFIED (negative) | H | EXP-2026-11-05-29 |
 | C-433 | `0x1d0f8a8` is RAM BSS, never written by the ROM; COM resolution goes through the registry. | VERIFIED (negative) | H | EXP-2026-11-05-29 |
-| C-434 | Static is closed for the NaviStateCC vtable and reader **by literal/prologue search**; the object vtable is a run-time artifact. The CE ROM TOC (C-088) reopens module-level static extraction. | VERIFIED (negative) | H | EXP-2026-11-05-29; C-088 |
+| C-434 | Static is closed for the NaviStateCC vtable and reader; the object vtable is a run-time artifact. | VERIFIED (negative) | H | EXP-2026-11-05-29 |
 | C-435 | Dynamic guide: break on MAL `getOffset/getSize`, then fd methods, then fd thunks; offline `.ind` variants settle `chunk_size`/seek. | VERIFIED (procedure) | H | EXP-2026-11-05-29 |
 | C-436 | The only remaining unknown for the reader is the runtime-built NaviStateCC object vtable/slot layout. | UNKNOWN | — | EXP-2026-11-05-29 |
-| C-437 | With no hardware access, the next productive work is the CE ROM module extraction (C-088) and the compiler/offline validators; the hardware kit stays prepared but deferred. | PLANNED | — | EXP-2026-11-05-29; C-088 |
+| C-437 | With no hardware access, the next productive work is the compiler/offline validators plus a prepared hardware kit. | PLANNED | — | EXP-2026-11-05-29 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 
@@ -348,47 +331,42 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-061 | No valid PE file exists in the pre-partition area. | VERIFIED | H | byte-by-byte `MZ` scan validating `e_lfanew` and `PE\0\0` returned 0 files |
 | C-062 | The firmware area contains five payloads / three builds: A `470-2824-34` at `0x200000`/`0x2000000` (byte-identical), B `470-2759-01` at `0x3e00000`/`0x4800000`, C `470-3142-00` at `0x5200000`. | VERIFIED | H | header hashes + part-number search |
 | C-063 | The payload is **uncompressed** SH-4/WinCE code, not a custom-compressed container: entropy ~6.03, capstone decodes clean SH-4, strings/PDB names present. | VERIFIED | H | capstone + strings |
-| C-064 | `ECEC` is the little-endian CE ROM signature (`CECE`, `0x43454345`); it marks a memory-segment header in every payload, and build A's header resolves a real ROMHDR. | VERIFIED | H | C-088; EXP-2026-11-05-33/34; `tools/ce_rom_parse.py` |
+| C-064 | `ECEC` is a fixed field present in all payloads; reading it as the WinCE ROM signature is a hypothesis. | OBSERVED | M | five payloads |
 | C-065 | `HCXCmp` is **not** used for map `.DAT` payloads (those are plain zlib). Its firmware role is unknown. | VERIFIED (negative) | H | map decompression + strings |
 | C-066 | Firmware strings reference `Navi.exe`, `NaviAPL`, `NaviSearchCC.dll`, `NaviDrawCC.dll`, `NaviRouteCC.dll`, `NaviMapScrollCC.dll`, `NaviRegCC.dll`, `TelemaRouteCC.dll`, `CETUS_SH4`, `C:\WINCE500\PBWorkspaces\10eNavi_UpdateNK`. | VERIFIED | H | `strings` scan |
 | C-067 | Firmware strings reference mesh IDs (`MESHID[0x%08X]`, `Mesh[LV1:0x%08X LV2:0x%08X]`, `mesh=%08X x:y=%07d:%07d`). | VERIFIED | H | `strings` scan |
-| C-068 | ~~`0xc438a4` opens `\CMP.LST`.~~ **RETRACTED**: `0xc438a4` is a memory/fd statistics formatter; the real `\CMP.LST` is at `0xdf945d` with zero pointer references. | VERIFIED (retraction) | H | EXP-2026-11-05-05 → -20; superseded by C-330 |
+| C-068 | RETRACTED: `0xc438a4` is a memory/fd statistics formatter, not the `\CMP.LST` opener; the real `\CMP.LST` is at `0xdf945d` with zero pointer references. | VERIFIED (retraction) | H | EXP-2026-11-05-20 |
 | C-069 | A TFAT16 volume starts at image offset `0x1C8400400` (OEM `MSWIN4.1`), with a WinCE TFAT hidden root (`DONT_DEL*`). | VERIFIED | H | FAT boot sector |
 | C-085 | `SUM4` is a tagged checksum, but CRC-32, Adler-32 and plain word sums were rejected; the algorithm is unknown. | UNKNOWN | — | checksum probes |
-| C-086 | For the map module's data, `VA = file_offset + 0x02000000`; code literals use at least one other delta, so the segment is section-based (confirmed by the TOC, C-088). | OBSERVED | M | 21 pointer literals; C-088 |
+| C-086 | For the map module's data, `VA = file_offset + 0x02000000`; code literals use at least one other delta, so the ROM is section-based. | OBSERVED | M | 21 pointer literals |
 | C-087 | The pre-partition payload length is declared as `0x01752c88` (24,456,328 bytes) at `0x200000`; the bytes immediately after that offset are not a zero gap. | VERIFIED | H | header + byte check |
-| C-088 | Build A's CE ROM segment parses as a standard XIP TOC: 149 modules, 1 file, CPU `0x01a6` (SH-4), physical range `0x8cae1000`–`0x8e233c88`; header/ROMHDR addresses are in C-090. | VERIFIED | H | EXP-2026-11-05-33/34; `python3 tools/ce_rom_parse.py --image <img> --out /tmp/ce-rom-report.json` |
-| C-089 | The TOC resolves module names including `Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll` and `STDDLL.dll`; the image holds five segments: build A twice, build B twice, build C once. | VERIFIED | H | EXP-2026-11-05-33/34; `tools/ce_rom_parse.py` (see C-093) |
-| C-090 | The CE memory-segment header of build A is at image `0x00200200`: `ECEC` at `+0x40`, `pTOC = 0x8e232978`, size `0x01751978`; ROMHDR resolves to file `0x01951b78`. B/C use the same `+0x40`/`+0x44`/`+0x48` field placement. | VERIFIED | H | `tools/ce_rom_parse.py` (`resolve_romhdr`); EXP-2026-11-05-33/34 |
-| C-091 | `va2file` for a CE ROM segment: `file = segment_base + (VA − phys_base)` — build A `segment_base = 0x00200200`, `phys_base = 0x8cae1000`. It resolves TOC name pointers and `o32`/`e32` targets inside the segment; it is **not** a global code/data delta (C-332). | VERIFIED | H | `tools/ce_rom_parse.py` (`p2f`); EXP-2026-11-05-33/34 |
-| C-092 | `TOCentry` is 32 bytes at `ROMHDR + 0x54`: `dwFileAttributes +0x00`, `ftTime +0x04` (8 B), `nFileSize +0x0C`, `lpszFileName +0x10`, `ulE32Offset +0x14`, `ulO32Offset +0x18`, `ulLoadOffset +0x1C`. The first `nummods` entries are modules; `numfiles` file entries follow. | VERIFIED | H | `tools/ce_rom_parse.py` (`parse_romhdr`); EXP-2026-11-05-34 |
-| C-093 | The five segments are A `0x00200200`/`0x02000200` (149 modules, 1 file, phys `0x8cae1000`–`0x8e233c88`), B `0x03e00200`/`0x04800200` (91/11, `0x88000000`–`0x886e18a4`), C `0x05200200` (88/10, `0x88000000`–`0x886683d8`); all CPU `0x01a6`. | VERIFIED | H | EXP-2026-11-05-33/34; `tools/ce_rom_parse.py` output table |
-| C-094 | `FILESentry`: file entries follow the module array; the name pointer sits at `+0x10` in both `TOCentry` (0x20) and the CE5 `FILESentry` (expected 0x18). `tools/ce_rom_parse.py` reads the file region with the 0x20 module stride, so build A's single file name resolves but the 11/10 names of B/C are not yet validated. | HYPOTHESIS (stride) / UNKNOWN | M | parser code; CE5 `romimage` structs; EXP-2026-11-05-34 |
-| C-180 | The 24-byte ROM section records at `0x374000`/`0x3e0060` are `o32_rom`-shaped, but their `dataptr` fields point into `0xff` fill and the records do not share a delta. The table is **not usable** as a file map. Re-check against the TOC in Step 2 (C-088). | VERIFIED (negative) | H | EXP-2026-11-05-05 |
-| C-181 | `.rdata` mapping `VA = file + 0x02000000` (`0xdf6000–0xe10000`) stands; the code-delta half (`VA = file + 0x02200000`) is **RETRACTED** — the per-instruction table gives a `0x02b0xxxx` band (C-332). | RETRACTED (code) / VERIFIED (data) | H | EXP-2026-11-05-05 → -20; superseded by C-332/C-264 |
-| C-182 | Reader-related functions: `0xc438a4` is a memory/fd statistics formatter (not `\CMP.LST`); `0xc42520` dumps a file descriptor incl. `hcxcmp`; `0xc426a4` dumps dir/file counts; `0xc48380` only writes message-catalogue strings (`MAP_DATA READ`, …). The earlier “installs `MAP_DATA READ`” and “`0xc0ebf8` allocates `0x1ac`” readings are retracted (C-220, C-338). | VERIFIED (correction) | H | EXP-2026-11-05-05, -09, -20 |
-| C-183 | The `.ind`/`.cmp` reader, `DRSTR` parser and tile reader are not located yet: filenames use a fixed 16-byte table at `0xdf8120`, and constants (`0x10000`, `40`, `0x1ac`) are built from immediates+shifts. Search now moves to the extracted CE ROM modules (C-088). | UNKNOWN | — | EXP-2026-11-05-05; C-088 |
+| C-088 | Build A's CE ROM segment parses as a standard XIP TOC: 149 modules, 1 file, CPU `0x01a6` (SH-4), physical range `0x8cae1000`–`0x8e233c88`, ROMHDR at file `0x01951b78`. | VERIFIED | H | `tools/ce_rom_parse.py`; EXP-2026-11-05-33 |
+| C-089 | The CE ROM TOC resolves module names including `Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll` and `STDDLL.dll`; builds A, B and C each have a duplicate copy in the image. | VERIFIED | H | `tools/ce_rom_parse.py`; EXP-2026-11-05-33 |
+| C-180 | The 24-byte ROM section records at `0x374000`/`0x3e0060` are `o32_rom`-shaped, but their `dataptr` fields point into `0xff` fill and the records do not share a delta. The table is **not usable** as a file map. | VERIFIED (negative) | H | EXP-2026-11-05-05 |
+| C-181 | For the map module, two deltas suffice: code `VA = file + 0x02200000` (`0xc00000–0xc4b000`), `.rdata` `VA = file + 0x02000000` (`0xdf6000–0xe10000`). | VERIFIED | H | Ghidra code density + 21 literals |
+| C-182 | Reader-related functions: `0xc438a4` is a memory/fd statistics formatter (retracted as `\CMP.LST` opener; real `\CMP.LST` at `0xdf945d` has zero refs); `0xc42520` dumps a file descriptor incl. `hcxcmp`; `0xc426a4` dumps dir/file counts; `0xc48380` installs `MAP_DATA READ`; `0xc0ebf8` allocates `0x1ac`. | VERIFIED (retraction) | H | EXP-2026-11-05-05, EXP-2026-11-05-20 |
+| C-183 | The `.ind`/`.cmp` reader, `DRSTR` parser and tile reader are not located yet: filenames use a fixed 16-byte table at `0xdf8120`, and constants (`0x10000`, `40`, `0x1ac`) are built from immediates+shifts. | UNKNOWN | — | EXP-2026-11-05-05 |
 | C-200 | Map filenames have **zero literal references** in the payload for every plausible delta; readers are name-driven through `DRSTR001.DAT` and `CMP.LST`. | VERIFIED (negative) | H | EXP-2026-11-05-07 |
 | C-201 | The 16-byte table at `0xdf8120` is reporting/update-tool data, not the runtime tile/file selector. | OBSERVED | M | EXP-2026-11-05-07 |
-| C-202 | ~~The two-delta model is local to the module at `0xc00000–0xc4b000`; shared `.rdata` is mapped at other VAs elsewhere.~~ **SUPERSEDED**: the code half is retracted (C-332); only the `.rdata` mapping stands. Accept a mapping only when ≥4 pointer slots resolve to real strings. | SUPERSEDED | H | C-332/C-383; 10-slot table at `0xa9cf8c` |
+| C-202 | The two-delta model is local to the module at `0xc00000–0xc4b000`; shared `.rdata` is mapped at other VAs elsewhere. Accept a delta only when ≥4 pointer slots resolve to real strings. | VERIFIED | H | 10-slot table at `0xa9cf8c` |
 | C-203 | Map-code check is a text/field comparison of `HDD_INFO.TXT` (`Sys[...] SD[...]`, `userdata_type`, `manufacturer_id`, `destination_id`), not crypto. | VERIFIED | H | strings |
 | C-204 | The `0x06000000` copy is likely the system-side reference for that comparison; the exact line↔field mapping is unknown. | HYPOTHESIS | M | string context |
 | C-205 | The literal `"DIFFERENT MAP CODE"` is absent from build A; nearest hits are unrelated. | VERIFIED (negative) | H | string scan |
 | C-206 | No runtime map-content checksum beyond zlib Adler-32; the ASN.1/crypto provider is not linked to the map path. | VERIFIED | H | xref/call scan |
-| C-207 | ~~fd field `+0xC4` is the type tag (switch 7…15).~~ **RETRACTED**: the type tag is `+0xC0` (7–15); `+0xC4` is a separate field (C-337). | VERIFIED (retraction) | H | decompilation; superseded by C-337 |
+| C-207 | fd field `+0xC4` is a type tag (switch 7…15), not `hcxcmp`. | VERIFIED | H | decompilation |
 | C-208 | `DRSTR` layout is confirmed file-side but the parser code is silent (no 40-byte stride multiply in the map module). | VERIFIED / UNKNOWN | H | file arithmetic + code scan |
 | C-220 | `obj+0x78…+0x9c` is a **message catalogue**, not a vtable: the stored values are string pointers. Image-wide there are 28 dispatches through those slots, but zero in the map module; the map module dispatches through `+0x04/+0x08/+0x18`. | VERIFIED | H | EXP-2026-11-05-09 |
-| C-221 | The four functions `0xc412ca`/`0xc42a7a`/`0xc42ba6`/`0xc42e30` are read-only classifiers, not fd writers. The struct is a state descriptor keyed by `(0xAC,0xB4,0xB8)`; the type tag is `+0xC0` (C-337), not `+0xC4`. | VERIFIED | H | EXP-2026-11-05-09; C-337 |
+| C-221 | The four functions `0xc412ca`/`0xc42a7a`/`0xc42ba6`/`0xc42e30` are read-only classifiers, not fd writers. The struct is a state descriptor keyed by `(0xAC,0xB4,0xB8)`; `+0xC4` is a separate type tag. | VERIFIED | H | EXP-2026-11-05-09 |
 | C-222 | File `0x877740` holds `Lib.out32.dll` and a string table with data delta `0x01e00000`; it contains a zlib copy (`z_errmsg` strings). Its code delta is unknown. | OBSERVED | H | EXP-2026-11-05-09 |
-| C-223 | The `HDD_INFO` comparison function is not located; the `shll2`-scaled index into `0xa9cf8c` is missing. Best candidate caller is `0x132e06c` (delta `0x2180000`), unproven. | SUPERSEDED | — | C-232 (`0x132e06c` is data, not code); search moves to the extracted modules (C-088); EXP-2026-11-05-09 |
+| C-223 | The `HDD_INFO` comparison function is not located; the `shll2`-scaled index into `0xa9cf8c` is missing. Best candidate caller is `0x132e06c` (delta `0x2180000`), unproven. | UNKNOWN | — | EXP-2026-11-05-09 |
 | C-224 | No 40-byte stride, `mov #5`+`shll3`, or `0x28` multiply exists in the payload; the DRSTR parser is not located from code. | VERIFIED (negative) | H | EXP-2026-11-05-09 |
 | C-225 | The tile reader is not located; it depended on the non-existent vtable. Only the `MAP_DATA`/`MESH_ID` strings and the `0x1ac` allocation remain. | UNKNOWN | — | EXP-2026-11-05-09 |
 | C-230 | The `Lib.out32` code delta is not pinnable: its pool is only data-referenced, and prologue scoring over 473 targets is flat. The module identity is weakened, not refuted. | VERIFIED (negative) | H | EXP-2026-11-05-10 |
 | C-231 | The `.ind` parser is not detectable by the tested shapes: 0 sites for `mov #1; shll16`, 0 literal `0x10000`, 0 runs of four `mov.l @Rm+,Rn`. | VERIFIED (negative) | H | EXP-2026-11-05-10 |
 | C-232 | `0x132e06c` is data, not code; the `0xa9cf8c` table has no literal reference. The `HDD_INFO` comparator remains unknown. | VERIFIED (negative) | H | EXP-2026-11-05-10 |
 | C-233 | Root cause: ROM sections use independent `(file offset, VA)` pairs and shared `.rdata` has ≥3 deltas; single literal→string hits are unreliable. | VERIFIED | H | EXP-2026-11-05-10 |
-| C-234 | Record `0x3221b0` decodes only if `dataptr` is payload-relative (`0x11000 → 0x211000`), implying delta `0x8c97b000`; 0/21 literals land on prologues. Re-check the `o32` records against the TOC (C-088). | OBSERVED | M | EXP-2026-11-05-10; C-088 |
-| C-235 | Next targets: copy/section descriptor list at `0x1952b00` (32-byte records) and export tables at `0x29eec0–0x29f700`. | SUPERSEDED | — | C-243 (RAM copy list, not a section map); export anchor landed in C-241/C-261; EXP-2026-11-05-10 |
+| C-234 | Record `0x3221b0` decodes only if `dataptr` is payload-relative (`0x11000 → 0x211000`), implying delta `0x8c97b000`; 0/21 literals land on prologues. | OBSERVED | M | open lead |
+| C-235 | Next targets: copy/section descriptor list at `0x1952b00` (32-byte records) and export tables at `0x29eec0–0x29f700`. | PLANNED | — | EXP-2026-11-05-10 |
 | C-240 | PE export directories give a stable file base: TFAT.dll at `0x28e200`, 35/35 name-RVAs resolve, 34/35 exports are SH-4 prologues; `file = Fb + RVA`. | VERIFIED | H | EXP-2026-11-05-11 |
 | C-241 | `module_scan.py` maps 26 modules (TFAT, DISKCACHE, FATUTIL, OLEAUT32, …). | VERIFIED | H | EXP-2026-11-05-11 |
 | C-242 | VA base is recovered as constant `V − RVA` across exports; OLEAUT32 `Vb=0x03930000` verified with 282 literal sites (166 `jsr`). | VERIFIED | H | EXP-2026-11-05-11 |
@@ -398,17 +376,31 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-246 | The readers are still not located; nothing about the data formats is contradicted. | UNKNOWN | — | EXP-2026-11-05-11 |
 | C-260 | The hardened import anchor returns 0 candidates: the ROM is pre-bound, so import directories are stripped. The round-6 import-anchor lead is retracted. | VERIFIED (negative) | H | EXP-2026-11-05-13 |
 | C-261 | The export anchor still holds (26 modules), but navi/map modules have no export directory in `0x44xxxx–0x1952c88`. | VERIFIED | H | EXP-2026-11-05-13 |
-| C-262 | The `o32_rom` section records do not cover the navi modules: no `dataptr` matches a known module file base. Re-check against the TOC in Step 2 (C-088). | VERIFIED (negative) | H | EXP-2026-11-05-13 |
-| C-263 | B/C builds differ by 4 bytes but lack build A's map code (`0xc42410`, `0xc438a4`); `0xc438a4` occurs 4× in A and is a stats formatter (C-330). B/C cannot pin A's map module. | VERIFIED | H | EXP-2026-11-05-13 |
-| C-264 | Map module `.text` is file `0xc00000–0xc4b000`; `.rdata` is file `0xdf6000` = data VA `0x02df6000`. The old `Vt < 0x02df6000` bound came from the retracted code delta (C-332). | VERIFIED (file ranges) / RETRACTED (Vt bound) | H | EXP-2026-11-05-13; Vt bound superseded by C-332 |
-| C-265 | ~~`jsr` targets at `0x02e0xxxx` belong to a different code module (delta `0x02200000`).~~ **RETRACTED**: `0x2e0xxxx` is the navi import-thunk area, and `+0x02200000` is not the code delta (C-332, C-371). | RETRACTED | H | EXP-2026-11-05-13; superseded by C-332/C-371 |
-| C-266 | Next anchor: ROM module table at `0x15271c8` (16-byte-stride names), self-name literal and shared-`.rdata` clusters. | SUPERSEDED | — | C-270 (packed name strings; not a table); EXP-2026-11-05-13 |
+| C-262 | The `o32_rom` section records do not cover the navi modules: no `dataptr` matches a known module file base. | VERIFIED (negative) | H | EXP-2026-11-05-13 |
+| C-263 | B/C builds differ by 4 bytes but lack build A's map code (`0xc42410`, `0xc438a4`); `0xc438a4` occurs 4× in A. B/C cannot pin A's map module. | VERIFIED | H | EXP-2026-11-05-13 |
+| C-264 | Map module `.text` is file `0xc00000–0xc4b000`; `.rdata` is file `0xdf6000` = VA `0x02df6000`; `Vt < 0x02df6000`. | VERIFIED | H | EXP-2026-11-05-13 |
+| C-265 | `jsr` targets at `0x02e0xxxx` belong to a different module (file `0xc00000`, delta `0x02200000`), not the map module. | VERIFIED | H | EXP-2026-11-05-13 |
+| C-266 | Next anchor: ROM module table at `0x15271c8` (16-byte-stride names), self-name literal and shared-`.rdata` clusters. | PLANNED | — | EXP-2026-11-05-13 |
 | C-270 | `0x15271c8` is not a module table: it is 4-byte-aligned packed module-name strings in a resource blob, padded to 4/16 bytes. | VERIFIED (negative) | H | EXP-2026-11-05-14 |
 | C-271 | Self-name anchor cannot apply: the navi name strings belong to a different module; only 12 scattered hits, no ≥4-pointer cluster. | VERIFIED (negative) | H | EXP-2026-11-05-14 |
 | C-272 | Adjacency `Vt=0x02dab000` is wrong (830 literals point at embedded PNG data); the call-target scan is flat (18/1122 prologues). | VERIFIED (negative) | H | EXP-2026-11-05-14 |
 | C-273 | The `0x1952b00` field `+0x10` is a Unix timestamp (2011-06-22…07-29), not a checksum; the round-6 checksum claim is retracted. | VERIFIED | H | EXP-2026-11-05-14 |
-| C-274 | ~~`0x02200000` is plausible as the map-module code delta.~~ **RETRACTED**: the per-instruction table gives a `0x02b0xxxx` band (C-332). | RETRACTED | H | EXP-2026-11-05-14; superseded by C-332 |
-| C-275 | Literal/prologue static VA recovery from this image is exhausted; the CE ROM TOC (C-088) is the static replacement, and relative call-graph tracing plus hardware/dynamic tracing remain the fallbacks. | VERIFIED (historical) | H | EXP-2026-11-05-14; C-088 |
+| C-274 | The round-2 “call-to-string paradox” is withdrawn: `0x02200000` is plausible as the code delta, though not proven. | OBSERVED | M | EXP-2026-11-05-14 |
+| C-275 | Static VA recovery from this image is exhausted; reader work must shift to relative call-graph tracing or hardware/dynamic tracing. | VERIFIED (negative) | H | EXP-2026-11-05-14 |
+| C-516 | `ECEC` at `0x200240` is the CE ROM signature at image start + `0x40`: CE image start = file `0x200200`, VA `0x8cae1000`; `file = VA − 0x8cae1000 + 0x200200` for the whole region. `ROMHDR` at file `0x01951b78`: `physfirst 0x8cae1000`, `physlast 0x8e233c88`, `nummods 149`, `numfiles 1`, `usCPUType 0x01a6` (SH-4). | VERIFIED | H | EXP-2026-11-05-32; `tools/cerom.py` |
+| C-517 | All 149 `TOCentry` names resolve to ASCII through C-516; `e32_rom` (112 B) / `o32_rom` (24 B) give exact `o32_realaddr`/`o32_dataptr` for 527 sections, 245 of them `IMAGE_SCN_COMPRESSED` RW data. | VERIFIED | H | EXP-2026-11-05-32; `tools/cerom.py` |
+| C-518 | The TOC agrees exactly with the earlier anchors: OBJDLL `0x03480000`, `MAL_DataVol_getOffset` file `0x7f5f48` ↔ VA `0x03498d48`, OLEAUT32 `0x03930000`, VerInfoCC `0x031e0000`, NaviStateCC `0x02df0000`, iPodCC `0x02620000`; "TFAT" is `fatfsd.dll`. | VERIFIED | H | EXP-2026-11-05-32; `tools/cerom.py` |
+| C-519 | `0x0367b180` is `BT_MGR.dll` code (file `0x6ef380`, prologue); file `0xe7b180` is `Navi.exe` VA `0x1fcf80`. No VA collision. | VERIFIED | H | EXP-2026-11-05-32; `tools/cerom.py` |
+| C-520 | `0x0369d400` is a `BT_MGR.dll` import thunk (file `0x711600`) → IAT `0x01e72074` = `COREDLL.dll` ordinal 719. The chain `0x6fab2c`/`0x6faeb0`/`0x6fb05c` is in `BT_MGR.dll`. | VERIFIED | H | EXP-2026-11-05-32; `tools/cerom.py` |
+| C-521 | The `HDD_INFO.TXT` and `SD Import: …` strings belong to `Navi.exe`; their absolute literals are in `Navi.exe` `.text` at VA `0x004e7d28` (paths) and `0x004e8584`/`0x004e995c` (comparator messages). The old `0x02800000` data-delta link to BT_MGR was a coincidence. | VERIFIED | H | EXP-2026-11-05-32; `tools/cerom.py` |
+| C-522 | The "`0x2e0xxxx` thunk area / unknown shared library" is `NaviStateCC.dll` itself; `0x1d0f8a8` is in its compressed RW data; the "map module `.text` `0xc00000–0xc4b000`" spans NaviSetCC, NaviDrawCC and NaviStateCC. | VERIFIED | H | EXP-2026-11-05-32; `tools/cerom.py` |
+| C-523 | `nk.exe`/`coredll.dll` are not in this ROM region; a kernel XIP region (`pExtensions 0x880030a4`) exists elsewhere. | HYPOTHESIS | M | EXP-2026-11-05-32; `tools/cerom.py` |
+| C-524 | Every payload has a CE ROM header: `ECEC` at `0x200240`, `0x2000240` (A, 149 modules, VA base `0x8cae1000`, copies byte-identical), `0x3e00240`, `0x4800240` (B, 91 modules, VA base `0x88000000`), `0x5200240` (C, 88 modules, VA base `0x88000000`). | VERIFIED | H | EXP-2026-11-05-36; `tools/cerom.py` |
+| C-525 | B and C are kernel regions (`nk.exe`, `coredll.dll`, `filesys.exe`, `gwes.exe`, `device.exe`, drivers); A has no kernel and imports `COREDLL`/`Errlogdll`/`SYS_INF`/`commondll` from them. | VERIFIED | H | EXP-2026-11-05-36; `tools/cerom.py` |
+| C-526 | B contains the updater set (`UpdateMng.exe`, `PRGUpdate.exe`, `MapUpdate.exe`, `BtUpdate.exe`, `DisplayUpdate.exe`, …) and `UpdateNK.skn`; C contains `TestMode.exe`, `SdCardLch.exe`, USB and BT stacks. | VERIFIED | H | EXP-2026-11-05-36; `tools/cerom.py` |
+| C-527 | `coredll.dll` (B, `vbase 0x03fa0000`) exports 1651 names, ordinal base 2: ordinal 719 = `sprintf`, 1071 = `strncpy`, 35 = `LocalSize`. | VERIFIED | H | EXP-2026-11-05-36; `tools/cerom.py` |
+| C-528 | `0x0369d400` (C-520) is the `BT_MGR` thunk for `COREDLL!sprintf`; the `0x6faeb0` path-builder is BT_MGR code unrelated to the map-code check; the real `HDD_INFO` logic is in `Navi.exe` (C-521). | VERIFIED | H | EXP-2026-11-05-36; `tools/cerom.py` |
+| C-529 | Which kernel image (B or C) boots with A, and the compression of `IMAGE_SCN_COMPRESSED` sections and `FILESentry` payloads, are unknown. | UNKNOWN | — | EXP-2026-11-05-36; `tools/cerom.py` |
 
 ## Validation / checksums
 
@@ -439,7 +431,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-070 | The US 2011 card layout is assumed to be close to the EU one but is not verified. | HYPOTHESIS | L | same ZE0 generation, different market |
+| C-070 | The US 2011 card uses the same `CLA-NAVI05-01` / `X08-02-00` format family as the EU 2011 card, but with market-specific data: label `QSD-301-103`, region code `SDC08-EVNAM`, firmware `X210NBNI.147`, 11 shards, 113 North America tiles, `XMD` instead of `TMC`, and `HDD_INFO` line 1 `QSD-301-100`. | VERIFIED | H | cardcheck, l2check, `tools/ce_rom_parse.py`; EXP-2026-11-05-35 |
 | C-071 | Newer map sets contain additional files such as `TFTBL001` absent from the 2011 EU image. | OBSERVED | M | wiki screenshot; must be confirmed against a real newer image |
 | C-072 | The exact meaning of `SDC08-EVEUR` is unknown (likely map/region/version code). | UNKNOWN | — | only appears in `HDD_INFO.TXT` |
 | C-073 | In the EU image, `\x82FX210ECNI.158` starts at `0x00200014` and the version digits `158` start at `0x0020001f`. | VERIFIED | H | `leaf2011.img` hexdump |
@@ -482,6 +474,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-513 | CERF has no SH-4 CPU core; its CPUs are ARM/StrongARM/XScale/MIPS, and its current licence is custom non-commercial. | VERIFIED | H | CERF `src/cpu` tree and `LICENSE` |
 | C-514 | A true 4-bit SDIO card emulator is typically FPGA-level work; an SD extender plus a host-side writer is the cheap hardware-in-the-loop alternative. | OBSERVED | M | external SD-emulation projects; not tested on the Leaf |
 | C-515 | `tools/verify.py` auto-detects the ZE0 year and runs L1/L2 with the right flags: 2011 uses the golden profile, 2014/2016 use `--no-golden --ignore-dump-artifacts`, map-only trees add `--partial`, and the QY8x 2019 image returns `UNSUPPORTED` (exit 3). | VERIFIED | H | `python3 tools/verify.py --root/--image …`; EXP-2026-11-05-31 |
+| C-530 | In the CE ROM images, code (`.text`) sections are never `IMAGE_SCN_COMPRESSED`; only RW data sections are. Driver and kernel code can be disassembled today. | VERIFIED | H | EXP-2026-11-05-37; `tools/cerom.py sections` |
+| C-531 | The SoC is a Renesas SH-4A car-navigation part of the SH-Navi/SH-NaviJ family (SH7772x); BSP string `R0P7772A00020S`, OEM platform `CETUS`. Exact part number unproven. | HYPOTHESIS | M | EXP-2026-11-05-37 (PDB paths, driver set, QEMU `sh7785` run) |
+| C-532 | On-chip peripherals used by the firmware: SCIF `0xffe40000`–`0xffe48000`, SD hosts `0xffe4c000`/`0xffe4d000`, TMU `0xffd80000`/`0xffd81000`, INTC-like `0xff802000`/`0xff804000`, CPG `MSTPCR` `0xffc80030`–`0xffc80044`, GPIO `0xffc41000`–`0xffc43000`, I2C `0xffc71000`, SSI `0xffe00000`, DMA-related `0xff801000`/`0xffc08000`; external devices in area 6 (`0x19300000`–`0x19e00000`). Not the SH7750/SH7751 map. | OBSERVED | M | EXP-2026-11-05-37 (literal pools of nk and drivers) |
+| C-533 | Stock QEMU 8.2 (`-M none -cpu sh7785`, RAM only) runs image B `nk.exe` from its entry `0x8800ebd0` into the scheduler after one patched poll (`0xffe70808`); it stops because `MMUCR` is unmodelled (kernel-page call to VA `0x5b90` faults) and no timer interrupt arrives. | VERIFIED | H | EXP-2026-11-05-37; `tools/ce_qemu_probe.py --patch 0x88048b70=0900` |
+| C-534 | The kernel debug port is an SCIF at `0xffe46000` (`SCFTDR +0x0c`, `SCFSR +0x10`, `TDFE 0x20`), register-compatible with QEMU `sh_serial`. | VERIFIED | H | EXP-2026-11-05-37; nk `0x8804cfa4` |
+| C-535 | The SD card holds no bootloader (MBR only before `0x200000`); the IPL is on-board and loads B/C at phys `0x08000000` and A at `0x0cae1000`. Each CE image header starts with `u32` = `physlast − physfirst`. | OBSERVED | H | EXP-2026-11-05-37; ROMHDR, pre-partition scan |
+| C-536 | Physical RAM layout: kernel XIP `0x08000000`, driver DMA buffers `0x09980000`–`0x09e40000`, CE RAM `0x09e40000`–`0x0cae1000`, app XIP `0x0cae1000`–`0x0e233c88`; area 4 (`0x10000000`) is used by the graphics/DSP drivers. | OBSERVED | M | EXP-2026-11-05-37; ROMHDR + driver literals |
+| C-537 | Full-system emulation effort: F0 (debug log) days, F1 (stable kernel) 1–2 weeks, F2/F3 (drivers, SD) weeks each, F4 (`Navi.exe` headless) months, F5 (screen) open-ended. | HYPOTHESIS | L | `docs/research/full-system-emulation.md` §4 |
 
 ## Image archive / cross-year validation
 
@@ -499,32 +499,32 @@ Built without vendor data; every row states what is synthetic-only.
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-516 | IMF v1 is a UTF-8 JSON Lines file (`imf=1`) with one header (pinned source + ODbL attribution), then nodes, ways and a restriction/boundary/route relation subset. Each record carries a stable `n\|w\|r<osm id>` id and a whole `BxxRyyR` cell; a way's `tile` is its first node's cell and `tiles` is the sorted set of all its nodes' cells. Speeds are integer cm/s, coordinates WGS84 degrees at 1e-7. Design only: the writer mapping is still undecided. | OBSERVED (design) | M | EXP-2026-11-05-44; `docs/research/intermediate-format.md` |
-| C-517 | `tools/imf_check.py` enforces 22 IMF schema/consistency rules (`E001`–`E022`), with one synthetic failure case per rule, and provides `--assign-tiles` (cell assignment round-trips byte-identically) and `--sample`. | VERIFIED (tool) | H | EXP-2026-11-05-44; `python3 tools/imf_check.py --selftest` |
-| C-518 | `tools/diff_years.py` compares two ZE0 roots or raw images in seven read-only categories: tree census, `HDD_INFO.TXT` (plus the `0x06000000` copy), common header (text + `0x180`), `DRSTR001.DAT`, `MMAIN001` level table, tile inventory with `0x1ac`/`0x2ac` descriptors, and SHA-256 hashes. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-37; `python3 tools/diff_years.py --selftest` |
-| C-519 | In `diff_years.py`, `--partial` suppresses only differences caused by an absent `VER_INFO` subtree and `--ignore-dump-artifacts` only macOS dump entries; neither hides unrelated data differences. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-37; synthetic mutation runs |
-| C-520 | Section-4 records expose only the parcel words at `0x00`/`0x02`, type `0x0009` at `0x04` and ISO 3166 country at `0x10`; bytes `0x06..0x0f` and the name-list placement remain `UNKNOWN`, and `tools/section4.py parse` reports them as hex. | VERIFIED (tool) | H | EXP-2026-11-05-42; `python3 tools/section4.py --selftest` |
-| C-521 | Section-4 `preserve` re-emits the payload byte-identically; `build` refuses records with names or uncovered opaque bytes (exit 3). Until the grammar is mapped, edited tiles must carry section 4 verbatim. | VERIFIED (tool) | H | EXP-2026-11-05-42; `section4.py encode preserve/build` |
-| C-522 | The `0x180`–`0x1ff` header block has four documented regions: prefix `0x180`–`0x18b`, class area `0x18c`–`0x19f`, `ff` run `0x1a0`–`0x1ab`, and the descriptor container at `0x1ac`. | OBSERVED | M | `docs/format/file-header.md`; four published samples |
-| C-523 | `MMAIN001.DAT` and `REFER002/COORD001.DAT` are identical in the documented header fields; no header-only REFER/MMAIN discriminator is known, so a bare header is reported `AMBIGUOUS`. | OBSERVED | M | `tools/header_block.py class`; published hexdumps |
-| C-524 | The `0x1ac` container is `00`, `n_tables`, then `table_id`, `n_entries` and 4-byte `(level:u8, kind:u8, count:u16 LE)` entries; `n_tables` is 3 for MMAIN/REFER, 2 for MAPAL and 1 for RDSTM in the documented samples. | OBSERVED (VERIFIED for MAPAL via C-052) | M | C-052; `MAPAL001/B28R070R.DAT`, `MMAIN001.DAT`, `RDSTM001.DAT` at `0x1ac` |
-| C-525 | The eight-byte list `05 04 02 07 0a 06 08 14` at `0x18c` is a per-language/code list. | HYPOTHESIS | L | C-037; `MMAIN001.DAT` at `0x18c`; no code→language mapping |
-| C-526 | The `3f` bytes at `0x18c`–`0x19f` and the `ff` bytes at `0x1a0`–`0x1ab` are fill/reserved markers. | HYPOTHESIS | L | four published samples; no mutation experiment |
-| C-527 | `tools/header_block.py` checks the 512-byte size, UTF-16BE magic, `0x180` prefix, descriptor container and block trailer, reports `OBSERVED` rules as warnings, and passes 37/37 synthetic self-tests. | VERIFIED (tool) | H | EXP-2026-11-05-40; `python3 tools/header_block.py --selftest` |
-| C-528 | The 72-byte `HDD_INFO.TXT` layout is six CRLF-separated lines with **no** trailing CRLF; the six documented lines reproduce SHA-256 `9f014643…`, and appending CRLF gives 74 bytes. | VERIFIED | H | EXP-2026-11-05-41; reconstructed-bytes SHA-256 |
-| C-529 | `tools/hddinfo.py` parses/serialises the block byte-identically (including arbitrary tail bytes) and passes 34 synthetic self-test checks. | VERIFIED (tool) | H | `python3 tools/hddinfo.py --selftest` |
-| C-530 | Model M0 derives the three compared numbers as the family digit of line 1, the digits of the line-4 prefix and the line-4 suffix token, with `userdata_type` bounded to `0..5`; it predicts ACCEPT/DIFFERENT MAP CODE per variant. Every prediction is unvalidated until the spare-card matrix runs. | HYPOTHESIS | L | EXP-2026-11-05-41; comparator chain C-300/C-301, mapping guess C-304 |
-| C-531 | `tools/hddinfo.py matrix` annotates the 89 length-preserving variants (73 with `--no-permute`) with an M0 prediction in `MANIFEST.txt`, delegating generation to `tools/hddinfo_variants.py`. | VERIFIED (tool) | H | EXP-2026-11-05-41; `python3 tools/hddinfo.py matrix …` |
-| C-532 | The L3 harness skeleton (`tools/l3_harness/`) is a vendor-free, Ghidra-free contract layer: manifest build/validate with exact ACCEPT/REJECT verdicts and SHA-256/size checks, a declarative WinCE stub table with JSON Schemas, and `cerom`-report→Ghidra memory-map conversion. `runner run` exits 3 (`MISSING_GHIDRA`) or 4 (`BLOCKED`) instead of reporting a pass. | VERIFIED (tool) | H | EXP-2026-11-05-38; `python3 tools/l3_harness/selftest.py` |
-| C-533 | `l3_harness/rommap.py` accepts `segments[].modules[].sections[]` with `name`/`va`/`file_offset`/`size`/`characteristics`/`compressed` (plus `realaddr`/`dataptr`/`vsize`/`psize`/`flags` aliases), derives `r`/`w`/`x` from CE flags, keeps a BSS section loadable with `file_offset: null`, and rejects overlapping, zero-size, compressed, out-of-image and bad-selector sections. | VERIFIED (tool) | H | EXP-2026-11-05-38; `rommap.py selftest` |
-| C-534 | `tools/rdstm_schema.py scan` scores block/record framings by column diversity, small-int density, in-window `u32` pointers and modal tuple shape, with a printed `multiple_of` penalty; it ranks the true layout first on a synthetic 16-byte fixture. | VERIFIED (tool, synthetic) | M | EXP-2026-11-05-43; `python3 tools/rdstm_schema.py --selftest` |
-| C-535 | `rdstm_schema.py layout` decodes a user layout and reports graph reciprocity, back-reference and pointer rates (256/256 records on the synthetic graph). High reciprocity is consistent with, but does not prove, a `(src, dst)` reading. | VERIFIED (tool, synthetic) | M | EXP-2026-11-05-43; `layout` output |
-| C-536 | `rdstm_schema.py join` reports the share of 2-byte codes that occur as LCTBL catalog codes or name-string prefixes (100 % at `+0xc`, 0 % on padding `+0xe` in the synthetic fixture). The rate is a necessary condition, not a decoded index; the real-file rate is unmeasured. | VERIFIED (tool, synthetic) | M | EXP-2026-11-05-43; `join` output |
-| C-537 | `tools/selftest.py` now runs named built-in suites and auto-discovers `--selftest` in every `tools/*.py` (subprocess, 60 s timeout), with `--list`, `--only`, `--json`, `--verbose` and `--include-dir`; a missing tool is `SKIP`, never a failure. | VERIFIED (tool) | H | `python3 tools/selftest.py --list`; deliberate failing probe |
-| C-538 | `tools/profile_validate.py` accepts all four shipped version-1 profiles through a legacy adapter and resolves 1 / 1 / 4 / 56 whole tiles for `dolnoslaskie-detail`, `dolnoslaskie-test`, `poland-full`, `europe-motorways`. | VERIFIED (tool) | H | EXP-2026-11-05-36; `python3 tools/profile_validate.py profiles/*.json` |
-| C-539 | The whole Dolnośląskie bbox (14.0–17.9 E, 49.9–51.9 N) plus a 50 km buffer lies inside the single tile `B48R058R` (48.00–53.33 N, 12–20 E). The earlier “2–3 tiles” estimate is superseded. | VERIFIED | H | EXP-2026-11-05-36; tile formula in `docs/format/map-tiles.md` |
-| C-540 | The EU 2011 tile space is a 63-cell addressable lattice (rows `B28`–`B68`, columns `R048`–`R078`) of which 45 exist as files; the 18 sea/empty cells cannot be enumerated without vendor data, so lattice-derived counts are upper bounds. | OBSERVED | M | `docs/format/map-tiles.md`; EXP-2026-11-05-36 |
-| C-541 | `tools/build.py --dry-run` estimates 44.6 MB (`dolnoslaskie-detail`), 178.4 MB (`poland-full`) and 253.4 MB (`europe-motorways`) from documented road budgets plus placeholder refer/POI/admin budgets; every breakdown is labelled ESTIMATE and no writer exists yet. | OBSERVED (tool) | M | EXP-2026-11-05-36; `python3 tools/build.py --profile … --dry-run` |
+| C-542 | IMF v1 is a UTF-8 JSON Lines file (`imf=1`) with one header (pinned source + ODbL attribution), then nodes, ways and a restriction/boundary/route relation subset. Each record carries a stable `n\|w\|r<osm id>` id and a whole `BxxRyyR` cell; a way's `tile` is its first node's cell and `tiles` is the sorted set of all its nodes' cells. Speeds are integer cm/s, coordinates WGS84 degrees at 1e-7. Design only: the writer mapping is still undecided. | OBSERVED (design) | M | EXP-2026-11-05-44; `docs/research/intermediate-format.md` |
+| C-543 | `tools/imf_check.py` enforces 22 IMF schema/consistency rules (`E001`–`E022`), with one synthetic failure case per rule, and provides `--assign-tiles` (cell assignment round-trips byte-identically) and `--sample`. | VERIFIED (tool) | H | EXP-2026-11-05-44; `python3 tools/imf_check.py --selftest` |
+| C-544 | `tools/diff_years.py` compares two ZE0 roots or raw images in seven read-only categories: tree census, `HDD_INFO.TXT` (plus the `0x06000000` copy), common header (text + `0x180`), `DRSTR001.DAT`, `MMAIN001` level table, tile inventory with `0x1ac`/`0x2ac` descriptors, and SHA-256 hashes. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-46; `python3 tools/diff_years.py --selftest` |
+| C-545 | In `diff_years.py`, `--partial` suppresses only differences caused by an absent `VER_INFO` subtree and `--ignore-dump-artifacts` only macOS dump entries; neither hides unrelated data differences. | VERIFIED (tool, synthetic) | H | EXP-2026-11-05-46; synthetic mutation runs |
+| C-546 | Section-4 records expose only the parcel words at `0x00`/`0x02`, type `0x0009` at `0x04` and ISO 3166 country at `0x10`; bytes `0x06..0x0f` and the name-list placement remain `UNKNOWN`, and `tools/section4.py parse` reports them as hex. | VERIFIED (tool) | H | EXP-2026-11-05-42; `python3 tools/section4.py --selftest` |
+| C-547 | Section-4 `preserve` re-emits the payload byte-identically; `build` refuses records with names or uncovered opaque bytes (exit 3). Until the grammar is mapped, edited tiles must carry section 4 verbatim. | VERIFIED (tool) | H | EXP-2026-11-05-42; `section4.py encode preserve/build` |
+| C-548 | The `0x180`–`0x1ff` header block has four documented regions: prefix `0x180`–`0x18b`, class area `0x18c`–`0x19f`, `ff` run `0x1a0`–`0x1ab`, and the descriptor container at `0x1ac`. | OBSERVED | M | `docs/format/file-header.md`; four published samples |
+| C-549 | `MMAIN001.DAT` and `REFER002/COORD001.DAT` are identical in the documented header fields; no header-only REFER/MMAIN discriminator is known, so a bare header is reported `AMBIGUOUS`. | OBSERVED | M | `tools/header_block.py class`; published hexdumps |
+| C-550 | The `0x1ac` container is `00`, `n_tables`, then `table_id`, `n_entries` and 4-byte `(level:u8, kind:u8, count:u16 LE)` entries; `n_tables` is 3 for MMAIN/REFER, 2 for MAPAL and 1 for RDSTM in the documented samples. | OBSERVED (VERIFIED for MAPAL via C-052) | M | C-052; `MAPAL001/B28R070R.DAT`, `MMAIN001.DAT`, `RDSTM001.DAT` at `0x1ac` |
+| C-551 | The eight-byte list `05 04 02 07 0a 06 08 14` at `0x18c` is a per-language/code list. | HYPOTHESIS | L | C-037; `MMAIN001.DAT` at `0x18c`; no code→language mapping |
+| C-552 | The `3f` bytes at `0x18c`–`0x19f` and the `ff` bytes at `0x1a0`–`0x1ab` are fill/reserved markers. | HYPOTHESIS | L | four published samples; no mutation experiment |
+| C-553 | `tools/header_block.py` checks the 512-byte size, UTF-16BE magic, `0x180` prefix, descriptor container and block trailer, reports `OBSERVED` rules as warnings, and passes 37/37 synthetic self-tests. | VERIFIED (tool) | H | EXP-2026-11-05-40; `python3 tools/header_block.py --selftest` |
+| C-554 | The 72-byte `HDD_INFO.TXT` layout is six CRLF-separated lines with **no** trailing CRLF; the six documented lines reproduce SHA-256 `9f014643…`, and appending CRLF gives 74 bytes. | VERIFIED | H | EXP-2026-11-05-41; reconstructed-bytes SHA-256 |
+| C-555 | `tools/hddinfo.py` parses/serialises the block byte-identically (including arbitrary tail bytes) and passes 34 synthetic self-test checks. | VERIFIED (tool) | H | `python3 tools/hddinfo.py --selftest` |
+| C-556 | Model M0 derives the three compared numbers as the family digit of line 1, the digits of the line-4 prefix and the line-4 suffix token, with `userdata_type` bounded to `0..5`; it predicts ACCEPT/DIFFERENT MAP CODE per variant. Every prediction is unvalidated until the spare-card matrix runs. | HYPOTHESIS | L | EXP-2026-11-05-41; comparator chain C-300/C-301, mapping guess C-304 |
+| C-557 | `tools/hddinfo.py matrix` annotates the 89 length-preserving variants (73 with `--no-permute`) with an M0 prediction in `MANIFEST.txt`, delegating generation to `tools/hddinfo_variants.py`. | VERIFIED (tool) | H | EXP-2026-11-05-41; `python3 tools/hddinfo.py matrix …` |
+| C-558 | The L3 harness skeleton (`tools/l3_harness/`) is a vendor-free, Ghidra-free contract layer: manifest build/validate with exact ACCEPT/REJECT verdicts and SHA-256/size checks, a declarative WinCE stub table with JSON Schemas, and `cerom`-report→Ghidra memory-map conversion. `runner run` exits 3 (`MISSING_GHIDRA`) or 4 (`BLOCKED`) instead of reporting a pass. | VERIFIED (tool) | H | EXP-2026-11-05-38; `python3 tools/l3_harness/selftest.py` |
+| C-559 | `l3_harness/rommap.py` accepts `segments[].modules[].sections[]` with `name`/`va`/`file_offset`/`size`/`characteristics`/`compressed` (plus `realaddr`/`dataptr`/`vsize`/`psize`/`flags` aliases), derives `r`/`w`/`x` from CE flags, keeps a BSS section loadable with `file_offset: null`, and rejects overlapping, zero-size, compressed, out-of-image and bad-selector sections. | VERIFIED (tool) | H | EXP-2026-11-05-38; `rommap.py selftest` |
+| C-560 | `tools/rdstm_schema.py scan` scores block/record framings by column diversity, small-int density, in-window `u32` pointers and modal tuple shape, with a printed `multiple_of` penalty; it ranks the true layout first on a synthetic 16-byte fixture. | VERIFIED (tool, synthetic) | M | EXP-2026-11-05-43; `python3 tools/rdstm_schema.py --selftest` |
+| C-561 | `rdstm_schema.py layout` decodes a user layout and reports graph reciprocity, back-reference and pointer rates (256/256 records on the synthetic graph). High reciprocity is consistent with, but does not prove, a `(src, dst)` reading. | VERIFIED (tool, synthetic) | M | EXP-2026-11-05-43; `layout` output |
+| C-562 | `rdstm_schema.py join` reports the share of 2-byte codes that occur as LCTBL catalog codes or name-string prefixes (100 % at `+0xc`, 0 % on padding `+0xe` in the synthetic fixture). The rate is a necessary condition, not a decoded index; the real-file rate is unmeasured. | VERIFIED (tool, synthetic) | M | EXP-2026-11-05-43; `join` output |
+| C-563 | `tools/selftest.py` now runs named built-in suites and auto-discovers `--selftest` in every `tools/*.py` (subprocess, 60 s timeout), with `--list`, `--only`, `--json`, `--verbose` and `--include-dir`; a missing tool is `SKIP`, never a failure. | VERIFIED (tool) | H | `python3 tools/selftest.py --list`; deliberate failing probe |
+| C-564 | `tools/profile_validate.py` accepts all four shipped version-1 profiles through a legacy adapter and resolves 1 / 1 / 4 / 56 whole tiles for `dolnoslaskie-detail`, `dolnoslaskie-test`, `poland-full`, `europe-motorways`. | VERIFIED (tool) | H | EXP-2026-11-05-45; `python3 tools/profile_validate.py profiles/*.json` |
+| C-565 | The whole Dolnośląskie bbox (14.0–17.9 E, 49.9–51.9 N) plus a 50 km buffer lies inside the single tile `B48R058R` (48.00–53.33 N, 12–20 E). The earlier “2–3 tiles” estimate is superseded. | VERIFIED | H | EXP-2026-11-05-45; tile formula in `docs/format/map-tiles.md` |
+| C-566 | The EU 2011 tile space is a 63-cell addressable lattice (rows `B28`–`B68`, columns `R048`–`R078`) of which 45 exist as files; the 18 sea/empty cells cannot be enumerated without vendor data, so lattice-derived counts are upper bounds. | OBSERVED | M | `docs/format/map-tiles.md`; EXP-2026-11-05-45 |
+| C-567 | `tools/build.py --dry-run` estimates 44.6 MB (`dolnoslaskie-detail`), 178.4 MB (`poland-full`) and 253.4 MB (`europe-motorways`) from documented road budgets plus placeholder refer/POI/admin budgets; every breakdown is labelled ESTIMATE and no writer exists yet. | OBSERVED (tool) | M | EXP-2026-11-05-45; `python3 tools/build.py --profile … --dry-run` |
 
 ## How to verify
 
@@ -534,22 +534,9 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 
 | Active claims | Command | Expected |
 | --- | --- | --- |
-| C-001–C-007, C-069, C-073, C-074, C-124, C-505 | `sha256sum <img>` then `python3 tools/cardcheck.py --image <img>` | `105e2032…76307`; `RESULT: PASS`, files 480 / dirs 39 / pairs 194 |
-| C-004, C-030–C-039, C-144, C-163–C-168, C-194, C-506 | `python3 tools/cardcheck.py --root <root>` and `python3 tools/l2check.py --root <root>` | `PASS`; `DRSTR001.DAT` byte-identical; `MMAIN` rows 11/11 |
-| C-020–C-025, C-130, C-146, C-190–C-195 | `python3 tools/cmpind.py verify REFER001` and `python3 tools/cmpind_writer.py verify REFER001` | `194/194 OK`; logical 2,390,610,176 B |
-| C-010–C-013 | `python3 tools/leafimg.py header <tile>` | UTF-16BE strings and the `0x180` descriptor block |
-| C-040–C-048, C-173 | `python3 tools/mesh_grid.py list MAPAL001` | 45 `BxxRyyR` tiles + `LEV3456R` |
-| C-100–C-106 | `python3 tools/lctbl_names.py verify LCTBL001.DAT`; `python3 tools/rdstm_scan.py zlib RDSTM001.DAT --bruteforce` | `streams 517 … OK`; no zlib in `RDSTM001` |
-| C-170–C-175, C-250–C-257, C-280–C-286 | `cd tools/ze0-viewer && ./setup.sh && python3 harness.py verify <tile>` | byte-identical for `B28R070R`, `B30R060R`, `B58R070R`, `B30R048R`, `LEV3456R` |
-| C-060–C-094, C-160, C-180–C-183 | `python3 tools/ce_rom_parse.py --image <img> --out /tmp/ce-rom-report.json` | five SH-4 segments; build A 149 modules / 1 file; phys `0x8cae1000`–`0x8e233c88`; `SUM4`/updater sums recomputed per EXP-2026-11-05-03 |
-| C-180–C-437 (firmware code rows) | no single command: each row's literal/xref probe is in its `EXP-...`; re-run only from the extracted modules (C-088) or with new relocation evidence | see the named EXP; active readers are `UNKNOWN` |
-| C-306, C-318, C-366 | `python3 tools/hddinfo_variants.py VER_INFO/HDD_INFO.TXT /tmp/variants --sweep 0-5` | 89 length-preserving 72-byte variants |
-| C-377, C-408 | `python3 tools/ind_mutate.py --ind <REFER001/ADDRE001.DAT.ind> --out /tmp/mut` | 8 `.ind` variants |
-| The `verify.py` wrapper (C-515) | `python3 tools/verify.py --root <root>` / `--image <img>` | `PASS`; 2019 image → `UNSUPPORTED` (exit 3) |
-| C-500–C-504 | `sha256sum -c archive/images/SHA256SUMS`; `python3 tools/verify.py --image <img>` | hashes match; year-specific flags as in C-501/C-504 |
-| C-517–C-521, C-527, C-529, C-531, C-534–C-537 | `python3 tools/selftest.py` (or `--only <tool>`) | every `tool:*` suite `PASS`; `selftest: OK` |
-| C-532–C-533 | `python3 tools/l3_harness/selftest.py`; `python3 tools/l3_harness/runner.py run …` | `selftest: OK (19 checks)`; `MISSING_GHIDRA` exit 3 until Ghidra is installed |
-| C-520–C-521 | `python3 tools/section4.py verify SECTION4.bin` | parse→preserve byte-identical; `build` exit 3 with the unknown-field list |
+| C-543–C-547, C-553, C-555, C-557, C-560–C-563 | `python3 tools/selftest.py` (or `--only <tool>`) | every `tool:*` suite `PASS`; `selftest: OK` |
+| C-558–C-559 | `python3 tools/l3_harness/selftest.py`; `python3 tools/l3_harness/runner.py run …` | `selftest: OK (19 checks)`; `MISSING_GHIDRA` exit 3 until Ghidra is installed |
+| C-546–C-547 | `python3 tools/section4.py verify SECTION4.bin` | parse→preserve byte-identical; `build` exit 3 with the unknown-field list |
 | C-070–C-084, C-120–C-126, C-509–C-514 | no local command: external teardown/upstream sources only | see `sources.md`/`feedback-loop.md`; not reproduced here |
 | C-110–C-116, C-132–C-142, C-150–C-156, C-210–C-216 | helpers `coord.py`/`poipoint.py`/`decode.py` are **not in `tools/`**; use `l2check.py` as the regression gate | original method in the named EXP |
 

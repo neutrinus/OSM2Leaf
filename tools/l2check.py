@@ -364,11 +364,13 @@ def check_tile_roundtrip(root: Path, profile: dict | None,
         check.error(f"viewer not available: {exc}; run tools/ze0-viewer/setup.sh")
         return
     preserved = 0
+    checked = 0
     for name in tiles:
         path = root / "MAPAL001" / name
         if not path.is_file():
-            check.error(f"MAPAL001/{name}: missing")
+            check.warn(f"MAPAL001/{name}: not present on this card; skipped")
             continue
+        checked += 1
         try:
             data = path.read_bytes()
             tile = clarion_tile.read_tile(data)
@@ -389,8 +391,10 @@ def check_tile_roundtrip(root: Path, profile: dict | None,
                 check.error(f"{name}: size {len(data)} != golden {expected.get('size')}")
             if sha256_file(path) != expected.get("sha256"):
                 check.error(f"{name}: sha256 differs from golden")
-    check.stats["tiles"] = len(tiles)
+    check.stats["tiles"] = checked
     check.stats["preserved"] = preserved
+    if checked == 0:
+        check.warn("none of the requested tiles are present on this card")
 
 
 def check_tile_semantic(root: Path, profile: dict | None,
@@ -402,11 +406,13 @@ def check_tile_semantic(root: Path, profile: dict | None,
     except ImportError as exc:
         check.error(f"viewer not available: {exc}; run tools/ze0-viewer/setup.sh")
         return
+    checked = 0
     for name in tiles:
         path = root / "MAPAL001" / name
         if not path.is_file():
-            check.error(f"MAPAL001/{name}: missing")
+            check.warn(f"MAPAL001/{name}: not present on this card; skipped")
             continue
+        checked += 1
         levels = tile_levels(name, include_lev)
         if levels is None:
             continue
@@ -433,7 +439,8 @@ def check_tile_mutation(root: Path, report: cardcheck.Report,
     check = report.add(cardcheck.Check("tile_mutation"))
     src = root / "MAPAL001" / tile
     if not src.is_file():
-        check.error(f"MAPAL001/{tile}: missing")
+        check.warn(f"MAPAL001/{tile}: not present on this card; skipped")
+        check.stats["skipped"] = "tile missing"
         return
     try:
         clarion_tile, stream_decode, _ze0_tile_io = _import_viewer()

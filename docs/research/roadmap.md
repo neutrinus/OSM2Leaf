@@ -41,7 +41,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | wrapper/container layout at `0x200000` documented; `SUM4`/updater sums and `va2file` reproduced | CE ROM TOC verified: five SH-4 segments, build A 149 modules / 1 file (`C-088`–`C-094`); reader functions still to be located in the extracted modules |
+| Firmware addressing | wrapper/container layout at `0x200000` documented; `SUM4`/updater sums and `va2file` reproduced. CE ROM TOC verified (EXP-2026-11-05-35, C-516): five SH-4 segments, build A 149 modules / 1 file, exact VA↔file per section via `tools/cerom.py` | static work reopened: decompress RW sections, build Ghidra maps, follow the `Navi.exe` `HDD_INFO` pools; reader functions not yet located |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 

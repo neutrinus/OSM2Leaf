@@ -82,11 +82,11 @@ a ready-made Leaf ZE0 emulator.
 These are not Leaf-specific but are potentially useful for the mesh-code
 and Windows CE/SH-4 parts of the work.
 
-| Source | What it is | Type |
-| --- | --- | --- |
 | <https://www.stat.go.jp/english/data/mesh/> | Japanese grid/mesh code reference (JIS X 0410) | reference |
 | <https://learn.microsoft.com/en-us/windows/win32/debug/pe-format> | PE/COFF format reference | FACT |
 | <https://rizin.re/> | Reverse-engineering framework used for SH-4 analysis | reference |
+| <https://qemu.googlesource.com/qemu/+/refs/heads/master/hw/sh4> | QEMU SH-4 board/SoC code (`r2d.c`, `sh7750.c`); `sh_serial`/`sh_timer` in `hw/char`/`hw/timer`. Basis for a `ze0` machine (EXP-2026-11-05-37). | FACT (source) |
+| Renesas SH-NaviJ press coverage (SH77721, 2008; SH77722) | SH-4A 333 MHz, 2D/3D graphics, USB, SD host, CAN, GPS baseband, FM multiplex; matches the driver set, part number unproven (C-531). | reference (secondary) |
 
 ## Pending research
 

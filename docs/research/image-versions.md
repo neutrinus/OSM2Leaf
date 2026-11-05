@@ -23,6 +23,7 @@ complete cards.
 | `EU_MAPDATA_14-15.7z` (map tree) | EU | 2014–15 | unverified | `X08-02-00` | ZE0 (`CLA-NAVI05-01`) | 503 / 57 / unverified | 194 | unverified | FAIL (informational L2; see note) | [EXP-30](../experiments/EXP-2026-11-05-30-image-matrix.md); C-125, C-502 |
 | `EU_MAPDATA_16-17.7z` (map tree) | EU | 2016–17 | unverified | `X08-02-00` | ZE0 (`CLA-NAVI05-01`) | 504 / 57 / unverified | 194 | unverified | FAIL (informational L2; see note) | [EXP-30](../experiments/EXP-2026-11-05-30-image-matrix.md); C-125, C-502 |
 | `ENV200_2019_25920-6WX1C-EUR.img` (SD image) | EU | 2019 | unverified | `X08-03-00` | QY8X (`CLA-NAVI06-01` / ZENRIN) | 14,827 / unverified / unverified | unverified | 53 | not run; `verify.py` returns `UNSUPPORTED` (exit 3) | [EXP-30](../experiments/EXP-2026-11-05-30-image-matrix.md); C-123, C-515 |
+| `leaf_2011_usa_sddump.img` (SD image) | US | 2011 | `QSD-301-103` | `X08-02-00` | ZE0 (`CLA-NAVI05-01`) | 113 tiles; files/bytes unverified | 58 | 113 (112 + `LEV3456R`) | PASS (`--no-golden --ignore-dump-artifacts`; tiles skipped) | EXP-2026-11-05-35; C-070 |
 
 Notes on the table:
 
@@ -54,6 +55,7 @@ Notes on the table:
 | `LEAF_2014_EU_QSD-357-101.img` | 7,969,177,600 | `4a8a21f477e9fc511f94406976b8d67037842f9c043f49ab24e1adc82d6da89b` | EXP-30, EXP-32 |
 | `ENV200_2016_EU_QSD-390-100.img` | 7,969,177,600 | `f53d55f159fd4232caa0b100b9b12e3910c8fe3849201871a71ee38ac19007fb` | EXP-30, EXP-32 |
 | `ENV200_2019_25920-6WX1C-EUR.img` | 16,039,018,496 | unverified | EXP-30 |
+| `leaf_2011_usa_sddump.img` | 8,057,257,984 | `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383` | EXP-2026-11-05-35 |
 | `EU_MAPDATA_13-14.7z` | 6,088,466,708 | unverified | EXP-30 |
 | `EU_MAPDATA_14-15.7z` | 6,273,414,589 | unverified | EXP-30 |
 | `EU_MAPDATA_16-17.7z` | 6,635,659,459 | unverified | EXP-30 |
@@ -93,14 +95,54 @@ marked `unverified` here.
 
 ## What remains unverified
 
-- **No US sample.** The examined set is all EU/mirror samples. The US 2011
-  layout is assumed to be close to the EU one but unverified (C-070); the US
-  dump is still missing.
+- **US sample now examined.** `archive/leaf_2011_usa_sddump.img` is a North
+  America ZE0 2011 card (SHA-256 `53342430…c5383`, label `QSD-301-103`);
+  see the section below and EXP-2026-11-05-35. C-070 still stands for other
+  US vintages only.
 - **Map-tree identity.** Card labels cannot be read because there is no
   `VER_INFO/` folder; byte totals and tile-file counts for the three map trees
   are not in any experiment record.
 - **2019 census.** The directory count, filesystem byte total, `.cmp` pair
-  count and card label for the 2019 image are not recorded. The old prose
-  label `485-3651-01` has no EXP or claim row and is therefore `unverified`.
+  count are not recorded; the card label `485-3651-01` is now backed by
+  EXP-2026-11-05-30 (C-123).
 - **2013-14 build date.** The old inventory's `13/06/17` build label is not
   recorded in EXP-30, so it is omitted rather than repeated.
+
+## US 2011 sample
+
+`archive/leaf_2011_usa_sddump.img` is a North America ZE0 2011 card:
+
+- SHA-256: `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383`
+- size: 8,057,257,984 bytes
+- FAT label: `QSD-301-103`
+- `HDD_INFO.TXT`: `QSD-301-100`, `QSD-301-103`, `02-100100-00`,
+  `SDC08-EVNAM`, `10-30`, `470282203030`
+- firmware version: `X210NBNI.147`
+- `MMAIN001.DAT`: `DATA VERSION 10/08/12/01`
+- CE ROM: 151 modules, 1 file, physical range
+  `0x8cae1000`–`0x8e2788e0`
+- map coverage: North America, lat `16.00..80.00 N`, lon `-172.00..-52.00 E`
+- `MAPAL001`: 113 files (112 `BxxRyyR.DAT` + `LEV3456R.DAT`)
+- `REFER001`: 58 `.cmp`/`.ind` pairs, 3,743,680,000 logical bytes
+- `REFER001` shards: 11 (`ADDRE001..011`, `POINT001..011`, etc.)
+- `REFER002`: only `COORD001.DAT` and `POINT001.DAT`
+- top level has `XMD` instead of `TMC`; `SPEECH` has only `CF` and `US`
+
+Validation: `cardcheck.py --image` PASS (after market-specific top-level
+names and 13-byte DRSTR names), `l2check.py --no-golden
+--ignore-dump-artifacts` PASS for census/DRSTR/`.cmp` round-trip (58/58), and
+`cmpind_writer.py verify` 58/58 OK. Tile rebuilds are skipped because the EU
+golden tile names are absent. The card is structurally valid; the differences
+are market and map coverage, not corruption (EXP-2026-11-05-35).
+
+## Implications
+
+- The ZE0-era format is stable across 2011–2016; one compiler target is
+  enough. 2013+ cars are AZE0, but the navigation format family is still
+  `CLA-NAVI05-01` / `X08-02-00`.
+- The L2 `B30R048R` difference at `0x807` is a tile-section/header variant
+  inside that family, not a new architecture.
+- `TFTBL001` is optional for the 2011 baseline; decide later.
+- The 2019 image is useful for the QY8x/`osm2clarion` lead, not for ZE0.
+- Market differences are real (US: 151 modules, 113 tiles, 58 pairs); keep
+  market and coverage columns separate when adding a vintage.

@@ -144,6 +144,23 @@ python3 harness.py compose /path/to/B30R060R.DAT /path/to/LEV3456R.DAT \
 Clean tiles (`B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R`) rebuild
 byte-identically. Dense section-4 tiles and drawn roads are still open.
 
+## `cerom.py` — CE ROM header, modules and sections
+
+Reads the Windows CE ROM (`ECEC` → `ROMHDR` → `TOCentry`/`e32_rom`/`o32_rom`,
+`FILESentry`) from the image or from its first 32 MiB. Stdlib only.
+
+```bash
+python3 tools/cerom.py IMAGE romhdr
+python3 tools/cerom.py IMAGE modules
+python3 tools/cerom.py IMAGE sections Navi.exe
+python3 tools/cerom.py IMAGE --image-start 0x3e00200 exports coredll.dll   # B/C need --image-start
+python3 tools/cerom.py IMAGE va2file 0x03498d48     # -> 0x007f5f48
+python3 tools/cerom.py IMAGE extract OBJDLL.dll -o out/   # raw sections
+```
+
+`extract` writes raw section bytes; compressed (`0x2000`) sections are not
+decompressed yet.
+
 ## `solve_data_delta.py`
 
 Window-scored data-delta solver for firmware pools (useful when a module mixes
@@ -247,6 +264,45 @@ python3 tools/imf_check.py assign-tiles sample.imf.jsonl --out fixed.imf.jsonl
 
 The spec is [`../docs/research/intermediate-format.md`](../docs/research/intermediate-format.md).
 `--selftest` exercises every error rule (`E001`–`E022`).
+
+## `rdstm_schema.py`
+
+Hypothesis harness for `RDSTM001.DAT`; no vendor data needed to exercise it.
+
+```bash
+python3 tools/rdstm_schema.py scan RDSTM001.DAT
+python3 tools/rdstm_schema.py layout RDSTM001.DAT --layout 'link=0:u16:id,4:u32:ref,8:u16:src,10:u16:dst,12:u16:code,14:u16'
+python3 tools/rdstm_schema.py join RDSTM001.DAT --lctbl LCTBL001.DAT --code-offset 0xc
+```
+
+`scan` ranks block/record framings; `layout` reports reciprocity and pointer
+rates; `join` gives an LCTBL hit rate (necessary, not sufficient). No decode is
+claimed. See [`../docs/format/rdstm.md`](../docs/format/rdstm.md).
+
+## `profile_validate.py` and `build.py`
+
+Validate a build profile against `profiles/schema.json` and print a dry-run
+size estimate; nothing is written yet.
+
+```bash
+python3 tools/profile_validate.py profiles/dolnoslaskie-detail.json
+python3 tools/build.py --profile profiles/dolnoslaskie-detail.json --dry-run
+```
+
+`build.py` without `--dry-run` exits `3` (writer not implemented). Estimates
+are labelled and based on documented budgets, not measurements.
+
+## `l3_harness/` — L3 contract layer
+
+```bash
+python3 tools/l3_harness/selftest.py
+python3 tools/l3_harness/rommap.py convert --report cerom.json --out ghidra-map.json
+python3 tools/l3_harness/runner.py check --manifest corpus.json
+```
+
+`runner.py run` exits `3` (`MISSING_GHIDRA`) until Ghidra is installed and a
+harness script exists; it never reports an unearned pass. See
+[`../docs/research/l3-ghidra.md`](../docs/research/l3-ghidra.md).
 
 ## `selftest.py`
 
@@ -383,6 +439,24 @@ Expected on the EU 2011 sample: five valid SH-4 segments; build A has
 `149` modules and `1` file, physical range `0x8cae1000`–`0x8e233c88`, and
 resolves names such as `Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll` and
 `STDDLL.dll`.
+
+## `ce_qemu_probe.py` — boot the CE kernel under stock QEMU
+
+Plays the (on-board) bootloader: copies kernel image B (or C) and app image A
+to their physical load addresses, starts `nk.exe` on QEMU's `none` machine with
+an `sh7785` (SH-4A) CPU, and lists every unmodelled SoC register access in
+first-seen order, the CPU exceptions and the final PC. Needs
+`qemu-system-sh4` (`apt install qemu-system-misc`). See
+`docs/research/full-system-emulation.md` and EXP-2026-11-05-37.
+
+```bash
+python3 tools/ce_qemu_probe.py IMAGE --seconds 4                       # stops polling 0xffe70808
+python3 tools/ce_qemu_probe.py IMAGE --patch 0x88048b70=0900           # skip that poll
+python3 tools/ce_qemu_probe.py IMAGE --kernel 0x5200200                # image C
+```
+
+Expected with the patch (EU 2011): 50 distinct register accesses, one
+`0x180 illegal_instruction` at `pc=0x00005b90`, final PC `0x8803d266`.
 
 ## Conventions
 

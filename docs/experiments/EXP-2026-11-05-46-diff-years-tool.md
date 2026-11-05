@@ -1,10 +1,10 @@
-# EXP-2026-11-05-37: cross-year differential tool (`diff_years.py`)
+# EXP-2026-11-05-46: cross-year differential tool (`diff_years.py`)
 
 - **Status:** done
 - **Date:** 2026-11-05
 - **Sample:** synthetic roots only (`--selftest`); no vendor data in this
   environment, so no image/file SHA-256 is pinned.
-- **Claims:** C-518, C-519 (proposed; `claims.md` was not edited in this
+- **Claims:** C-544, C-545 (proposed; `claims.md` was not edited in this
   session)
 - **Supersedes:** none
 - **Superseded by:** none
@@ -168,12 +168,12 @@ The `--json` run produced valid JSON with
 Added `tools/diff_years.py` (stdlib only, read-only). No format knowledge
 changed, so `docs/format/*.md` was not touched. Proposed ledger rows:
 
-- **C-518** — `tools/diff_years.py` compares two ZE0 roots or raw images in
+- **C-544** — `tools/diff_years.py` compares two ZE0 roots or raw images in
   seven read-only categories (tree census, `HDD_INFO.TXT` + `0x06000000` copy,
   common header, `DRSTR001.DAT`, `MMAIN001.DAT` level table, `MAPAL001`
   inventory/`0x1ac`/`0x2ac` descriptors, SHA-256 hashes) and emits human text
   or JSON. **VERIFIED** (synthetic selftest), confidence **H**.
-- **C-519** — In `diff_years.py`, `--partial` suppresses only differences
+- **C-545** — In `diff_years.py`, `--partial` suppresses only differences
   caused by an absent `VER_INFO` subtree/`HDD_INFO.TXT`, and
   `--ignore-dump-artifacts` suppresses only macOS dump artifacts; neither flag
   hides unrelated data differences. **VERIFIED** (synthetic selftest),

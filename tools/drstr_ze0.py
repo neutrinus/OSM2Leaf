@@ -87,23 +87,81 @@ def tree_size(path: Path, ignore_dump: bool = False) -> int:
     return sum(size for _, _, size in listing(path, ignore_dump)) & 0xFFFFFFFF
 
 
-def build(root: Path, ignore_dump: bool = False) -> bytes:
-    # breadth-first, readdir order (matches the card's own index)
-    dirs = []
-    queue = [(root, "/", 1)]
-    while queue:
-        path, name, parent = queue.pop(0)
-        my_id = len(dirs) + 1
-        dirs.append((path, name, parent))
-        for child, is_dir, _ in listing(path, ignore_dump):
-            if is_dir:
-                queue.append((path / child, child, my_id))
+def _read_order(data: bytes) -> dict[str, list[str]]:
+    """Recover directory/file order from an existing DRSTR001.DAT."""
+    dirs: list[dict] = []
+    off = 0
+    while off + DREC <= len(data):
+        raw = data[off:off + DREC]
+        name = raw[:NAMELEN].split(b"\0")[0].decode("ascii", "replace")
+        if not name:
+            break
+        own, parent, children = struct.unpack_from("<HHH", raw, 0x14)
+        listing_off = struct.unpack_from("<I", raw, 0x24)[0]
+        entries = []
+        for j in range(children):
+            e = listing_off + j * CREC
+            if e + CREC > len(data):
+                break
+            ename = data[e:e + NAMELEN].split(b"\0")[0].decode("ascii", "replace")
+            entries.append(ename)
+        dirs.append({"own": own, "parent": parent, "name": name,
+                     "entries": entries})
+        off += DREC
 
-    blocks = [[(n, d, s & 0xFFFFFFFF) for n, d, s in listing(p, ignore_dump)]
-              for p, _, _ in dirs]
+    paths: dict[int, str] = {}
+    order: dict[str, list[str]] = {}
+    for i, node in enumerate(dirs):
+        if i == 0:
+            path = ""
+        else:
+            parent_idx = node["parent"] - 1
+            parent_path = paths.get(parent_idx, "")
+            path = f"{parent_path}/{node['name']}".strip("/")
+        paths[i] = path
+        order[path] = node["entries"]
+    return order
+
+
+def build(root: Path, ignore_dump: bool = False,
+         order: dict[str, list[str]] | None = None) -> bytes:
+    if order is None:
+        ref = root / "DRSTR001.DAT"
+        if ref.is_file():
+            try:
+                order = _read_order(ref.read_bytes())
+            except (OSError, ValueError):
+                order = None
+
+    # breadth-first.  Preserve an existing DRSTR's order when validating an
+    # unchanged tree; otherwise use a deterministic sorted order.
+    dirs = []
+    queue = [(root, "", "/", 1)]
+    while queue:
+        path, relpath, name, parent = queue.pop(0)
+        my_id = len(dirs) + 1
+        rows = listing(path, ignore_dump)
+        by_name = {row[0]: row for row in rows}
+        if order is not None and relpath in order:
+            ordered = [name for name in order[relpath] if name in by_name]
+            ordered += sorted(name for name in by_name if name not in set(order[relpath]))
+            rows = [by_name[name] for name in ordered]
+        else:
+            rows = sorted(rows, key=lambda row: row[0])
+        dirs.append((path, relpath, name, parent, rows))
+        for row in rows:
+            child = row[0]
+            if not row[1]:
+                continue
+            child_rel = f"{relpath}/{child}".strip("/")
+            queue.append((path / child, child_rel, child, my_id))
+
+    blocks = [[(n, d, s & 0xFFFFFFFF) for n, d, s in rowset]
+              for _, _, _, _, rowset in dirs]
     out = bytearray(len(dirs) * DREC)
     off = len(out)
-    for i, ((_, name, parent), rows) in enumerate(zip(dirs, blocks)):
+    for i, (entry, rows) in enumerate(zip(dirs, blocks)):
+        _, _, name, parent, _ = entry
         struct.pack_into("<20sHHH", out, i * DREC, name.encode().ljust(20, b"\0"),
                          i + 1, parent, len(rows))
         struct.pack_into("<I", out, i * DREC + 0x24, off)

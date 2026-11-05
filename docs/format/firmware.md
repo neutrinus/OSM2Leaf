@@ -1,10 +1,11 @@
 # Firmware and pre-partition area
 
 > **Evidence status:** byte offsets, strings and the SH-4 code recovery are
-> `VERIFIED` on the EU 2011 image; `SUM4` and the role of the duplicated
-> builds are `OBSERVED`/`HYPOTHESIS`. The `ECEC`/`ROMHDR`/TOC layer is
-> `VERIFIED` and documented in [`cerom.md`](cerom.md); the section-to-VA map is
-> still `HYPOTHESIS` there (§5, §7).
+> `VERIFIED` on the EU 2011 image, and so is the CE ROM header / section-to-VA
+> mapping (EXP-2026-11-05-35); `SUM4` and the role of the duplicated builds
+> are `OBSERVED`/`HYPOTHESIS`. Sections below written before EXP-35 that rely
+> on delta fitting are historical; check them with `tools/cerom.py`. Field
+> tables and per-section status: [`cerom.md`](cerom.md).
 
 The ~100 MB before the FAT partition contains the navigation firmware. It is
 **not** a plain PE image and it is **not** a compressed container: it is an
@@ -32,16 +33,38 @@ At `0x000001c0` and `0x000003c0` there are 512-byte records ending in
 ```
 
 `SUM4` is a tagged checksum field. CRC-32, Adler-32 and plain word sums were
-computed and rejected; the algorithm is **UNKNOWN**.
+computed and rejected; the algorithm is **UNKNOWN**. `ECEC` is a fixed field
+present in all payloads.
 
-**Superseded (C-380/C-381, resolved):** `ECEC` at segment base `+0x40` is the
-WinCE ROM signature, and the payload contains a standard XIP TOC. The old
-listing called the `0x40` bytes at `0x00200200` a "15 × u32 table" and the
-block "container metadata"; it is the CE boot block, 16 dwords ending exactly
-at `ECEC`, and it is the start of the ROM image, not of the wrapper. Details:
-[`cerom.md`](cerom.md) §1–§2.
+### CE ROM header (VERIFIED, EXP-2026-11-05-35)
+
+`ECEC` is the Windows CE ROM signature at CE image start + `0x40`. The CE
+image starts at file `0x200200` (after the `0x200`-byte Clarion header):
+
+```
+0x00200240  "ECEC"  pTOC = 0x8e232978  ROMHDR offset = 0x01751978
+image VA base = 0x8cae1000  ->  file = VA - 0x8cae1000 + 0x200200
+0x01951b78  ROMHDR: physfirst 0x8cae1000, physlast 0x8e233c88,
+            nummods 149, numfiles 1, usCPUType 0x01a6 (SH-4)
+0x01951bcc  TOCentry[149] (32 B), then FILESentry[1] (ReleaseMain.skn)
+```
+
+Every module's `e32_rom`/`o32_rom` gives exact section VA (`o32_realaddr`)
+and file location (`o32_dataptr`); 245 of 527 sections are compressed RW data.
+Use `tools/cerom.py`. The kernel (`nk.exe`, `coredll.dll`) is not in this
+region. **Many conclusions below that were reached by delta fitting are
+superseded** (C-516…C-523); in particular the `0x6fab2c`/`0x6faeb0`/`0x6fb05c`
+chain is in `BT_MGR.dll`, and the real `HDD_INFO`/`SD Import` literals are in
+`Navi.exe` at VA `0x004e7d28` and `0x004e8584`/`0x004e995c`.
+
+Field tables and per-section status: [`cerom.md`](cerom.md).
 
 ## Payloads and builds
+
+> EXP-2026-11-05-36: each payload is a complete CE ROM. A (VA `0x8cae1000`, 149
+> modules) is the application layer; B and C (VA `0x88000000`) are kernel
+> regions with `nk.exe`/`coredll.dll`; B adds the updater set, C the test mode.
+> Use `tools/cerom.py --image-start`.
 
 Five payloads, three distinct builds:
 
@@ -70,11 +93,8 @@ is **UNKNOWN**.
 
 There are **no PE files**. A byte-by-byte scan of all 104,858,624
 pre-partition bytes found 255 `MZ`, 188 `PE\0\0`, and **0** valid
-`MZ`+`e_lfanew`+`PE\0\0`; also 0 `B000FF` and 0 `ROMHDR`. Modules are in
-WinCE ROM/XIP form: section bodies without `MZ`/PE headers, with per-module
-metadata in `e32_rom`/`o32_rom` records addressed by the TOC
-([`cerom.md`](cerom.md) §4–§5). The `MZ`/`PE`/`B000FF`/`ROMHDR` counts are
-literal/probe counts, not a validity test for a CE XIP.
+`MZ`+`e_lfanew`+`PE\0\0`; also 0 `B000FF` strings. Modules are in
+WinCE ROM/XIP form; the `ROMHDR`/TOC is a binary struct (see above).
 
 ## Recovered code and map path
 
@@ -544,7 +564,14 @@ without understanding the recovery path.
 
 ## Emulation verdict
 
-Full-system QEMU is **not realistic** today:
+> **Update (EXP-2026-11-05-37):** superseded in part. Stock QEMU's `sh7785`
+> CPU on the `none` machine runs the real kernel into the scheduler; the SoC
+> peripheral map and a staged plan (F0–F5) are in
+> [`../research/full-system-emulation.md`](../research/full-system-emulation.md).
+> The `r2d` points below remain true; the conclusion "not realistic" now holds
+> only for stages F4–F5 (app and screen).
+
+Original verdict (before the ROM TOC): full-system QEMU is **not realistic** today:
 
 - QEMU has one SH-4 machine, `r2d` (SH7751R + SM501), not this board.
 - `hw/sh4/sh7750.c` calls `abort()` on an unknown register; a custom BSP dies

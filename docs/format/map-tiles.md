@@ -34,7 +34,7 @@ Examples:
 
 The 45 files occupy a **63-cell** addressable lattice (rows `B28`–`B68`,
 9 values; columns `R048`–`R078`, 7 values, step 8); 45 cells exist as files and
-18 are absent (sea/empty), so lattice-derived counts are upper bounds (C-540).
+18 are absent (sea/empty), so lattice-derived counts are upper bounds (C-566).
 The smallest tiles are sea;
 `R = 0x78` (lon −20…−12) exists only at `B28`/`B30`, i.e. Atlantic coast off
 Morocco, nowhere on land.

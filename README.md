@@ -179,6 +179,7 @@ python3 tools/verify.py --root /path/to/root
 - [Minimal-change experiment](docs/research/minimal-change.md)
 - [Feedback loop and emulation options](docs/research/feedback-loop.md)
 - [L3: running the original readers under Ghidra](docs/research/l3-ghidra.md)
+- [Full-system emulation vs. L3 (SoC map, QEMU boot probe)](docs/research/full-system-emulation.md)
 - [Open questions](docs/research/open-questions.md)
 - [Data handling and licensing](docs/legal.md)
 

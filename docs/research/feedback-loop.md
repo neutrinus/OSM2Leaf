@@ -84,6 +84,11 @@ firmware.
 
 ## Option B — Full-system QEMU fork
 
+> **Update 2026-11-05 (EXP-2026-11-05-37):** the kernel runs on stock QEMU's
+> SH-4A CPU without a board model up to the scheduler; see
+> [`full-system-emulation.md`](full-system-emulation.md) for the SoC map,
+> staged plan and the current recommendation (L3 first, one-week F0–F1 spike).
+
 Upstream QEMU does not have a machine close to this board. The facts checked
 against QEMU master:
 

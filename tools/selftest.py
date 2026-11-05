@@ -38,9 +38,13 @@ import tempfile
 import time
 import traceback
 import zlib
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ce_qemu_probe  # noqa: E402
 
 TOOLS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TOOLS_DIR.parent
@@ -59,6 +63,7 @@ if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
 import cardcheck  # noqa: E402
+import ce_qemu_probe  # noqa: E402
 import cmpind  # noqa: E402
 import drstr  # noqa: E402
 import mesh_grid  # noqa: E402
@@ -252,6 +257,31 @@ class Suite:
     has_selftest: bool = False
 
 
+
+def test_ce_qemu_probe_log() -> None:
+    log = "\n".join([
+        "Invalid write at addr 0xFF00001C, size 4, region '(null)', reason: rejected",
+        "Invalid write at addr 0xFF00001C, size 4, region '(null)', reason: rejected",
+        "Invalid read at addr 0xFFE70808, size 4, region '(null)', reason: rejected",
+        "Invalid write at addr 0xF4000020, size 4, region '(null)', reason: rejected",
+        "Invalid write at addr 0xF4007FE0, size 4, region '(null)', reason: rejected",
+        "exception 0x180 [illegal_instruction] raised",
+        "pc=0x00005b90 sr=0x40008001 pr=0x880237b8 fpscr=0x00040001",
+    ])
+    accesses, exceptions = ce_qemu_probe.summarize_log(log)
+    assert accesses == [("write", 0xFF00001C), ("read", 0xFFE70808), ("write", 0xF4000000)], accesses
+    assert exceptions == [(0x180, "illegal_instruction", 0x5B90)], exceptions
+
+    rom_a = bytearray(16)
+    ce_qemu_probe.apply_patch([(0x88000000, rom_a)], 0x88000004, b"\x09\x00")
+    assert rom_a[4:6] == b"\x09\x00"
+    try:
+        ce_qemu_probe.apply_patch([(0x88000000, rom_a)], 0x88000010, b"\x00")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("patch outside the image must fail")
+
 def builtin_suites() -> list[Suite]:
     """The synthetic suites, in their historical execution order."""
     return [
@@ -278,6 +308,12 @@ def builtin_suites() -> list[Suite]:
             "builtin",
             "cardcheck L1 helpers: level table, header, LFN, .cmp, listing",
             func=test_cardcheck_helpers,
+        ),
+        Suite(
+            "ce_qemu_probe",
+            "builtin",
+            "ce_qemu_probe QEMU log summary and patch guard",
+            func=test_ce_qemu_probe_log,
         ),
     ]
 
