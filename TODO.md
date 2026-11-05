@@ -12,10 +12,15 @@ archaeology + firmware RE must agree, then round-trip proves the tooling.
 OSM only after that.
 
 1. **Gate 0a — firmware reader cross-check**
-   - [ ] Decode ROM sections at `0x374000`/`0x3e0060` → stable `VA − rva`.
-   - [ ] Find file open/read and `inflate`/`uncompress` callers.
-   - [ ] Map the reader paths for `.cmp`/`.ind`, `DRSTR`, tiles, `MESH_ID`.
-   - [ ] Decompile the map-code/activation check.
+   - [x] Section table at `0x374000`/`0x3e0060` investigated: unusable
+     (stale `dataptr`, mixed deltas).
+   - [x] Two-delta model (`+0x02200000` code, `+0x02000000` `.rdata`) and
+     reader-related functions (`0xc438a4`, `0xc42520`, `0xc48380`, `0xc0ebf8`).
+   - [ ] Dual-base Ghidra (`0x02000000` for `.rdata` + `0x02200000` code).
+   - [ ] Walk the file-descriptor API; find the `hcxcmp` setter (`.cmp` entry).
+   - [ ] Find the user of the 16-byte filename table at `0xdf8120`
+     (tile/`LEV` selector).
+   - [ ] Map the `.ind`, `DRSTR` and tile readers; decompile map-code check.
 2. **Gate 0b — tile payload grammar**
    - [x] Clean tiles: `B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R` rebuild
      byte-identically; viewer renders coast/land (`tools/ze0-viewer/`).

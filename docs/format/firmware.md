@@ -74,8 +74,39 @@ WinCE ROM/XIP form (section bodies, headers stripped).
   the UTF-16 directory string and opens `\SystemSD\REFER001\`. The map
   module's string pool at `0xdf6000`–`0xdfb000` documents `MESH_ID`/`DIVID`
   tile reads, `.cmp`/`.ind`, `HCXCmp` file descriptors and map filenames.
-- Section tables appear at `0x374000` and `0x3e0060` with 24-byte records and
-  PE flags (`0x60000020`, `0x40000040`). Decoding them is the next step.
+### Section table is a dead end
+
+The 24-byte records at `0x374000`/`0x3e0060` are `o32_rom`-shaped (a clean
+record at `0x3221b0` has `psize == round_up(vsize, 0x200)`), but the table is
+**not usable as a file map**: its `dataptr` fields point into pure `0xff`
+fill (stale build-time offsets), and consecutive records do not share a
+`realaddr − rva` delta. Do not build on it.
+
+### Two deltas that do work
+
+For the map module:
+
+- code: file `0xc00000–0xc4b000` ↔ VA `0x02e00000–0x02e4b000`,
+  `VA = file + 0x02200000`;
+- `.rdata`: file `0xdf6000–0xe10000`, `VA = file + 0x02000000`.
+
+Ghidra recovered 136 functions at `0x02e00000` and 84 at `0x02e10000`; code
+density collapses after `0xc4b000`.
+
+### Reader-related functions found
+
+| Address | Role |
+| --- | --- |
+| `0xc438a4` | opens `\CMP.LST` (only such site) and returns the handle |
+| `0xc42520` | file-descriptor dump; prints `.cmp` and `hcxcmp` at `+0xAC…+0xC8` |
+| `0xc426a4` | directory-info dump (`dir cnt`, `file cnt`) |
+| `0xc48380` | installs `MAP_DATA READ START/END` / `RGD_DATA READ START/END` |
+| `0xc0ebf8` | allocates `0x1ac` (the level-table size) |
+
+The `.ind`/`.cmp` reader, `DRSTR` parser and tile reader are **not located
+yet**. Reasons: filenames have no direct pointer (only a fixed 16-byte table
+at `0xdf8120`), and constants such as `0x10000`, `40` and `0x1ac` are built
+from immediates+shifts, so literal-pool search does not find them.
 
 `HCXCmp`/`hcxcmp` strings exist, but no public documentation was found and the
 map `.DAT` payloads themselves use plain zlib. Treat `HCXCmp` as a
@@ -109,10 +140,12 @@ round-trip validator for the whole-card feedback loop.
 
 ## Next steps
 
-1. Decode the ROM section table (`0x374000`, `0x3e0060`) to get a stable
-   `VA − rva` per module.
-2. Find `inflate`/`uncompress` and its callers; expect references to
-   `MAP_DATA READ START` and a buffer sized from `.ind`.
-3. Brute-force `SUM4` against builds A, B and C.
-4. Diff builds A/B/C to find the unit-ID → build selection logic.
-5. Only then decide whether a custom QEMU machine is worth the effort.
+1. **Dual-base Ghidra:** import at `0x02000000` for `.rdata` alongside the
+   existing `0x02200000` code project; export string xrefs.
+2. **File-descriptor API:** walk from `0xc42520`; the setter of `hcxcmp` is
+   the `.cmp` decompression entry.
+3. **Filename table:** find the user of the 16-byte table at `0xdf8120`
+   (scaled by 16) to locate the `MAPAL001`/`LEV3456R` selector and tile reader.
+4. Then find `inflate`/`uncompress` callers and the `.ind` parser.
+5. Diff builds A/B/C for the unit-ID → build selection logic.
+6. Only then decide whether a custom QEMU machine is worth the effort.

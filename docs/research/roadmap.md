@@ -30,6 +30,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | clean tiles round-trip byte-identically; dense section 4 open | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
+| Firmware addressing | two-delta model (`+0x02200000` code, `+0x02000000` rdata) | section table unusable; readers not located |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 
