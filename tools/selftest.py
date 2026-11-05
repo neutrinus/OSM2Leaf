@@ -59,36 +59,35 @@ def test_cmpind() -> None:
 
 
 def test_drstr() -> None:
-    header = struct.pack("<I", 0x2F) + b"\0" * 36
-    listing_offset = 0x28 + 40
-    name = b"TESTDIR\0"
+    # Node 0 is the root "/". The table starts at 0x00; there is no header.
+    listing_offset = 40
     node = (
-        name
+        b"/\0\0\0\0\0\0\0"
         + b"\0" * 12
-        + struct.pack("<HH", 2, 1)
-        + struct.pack("<I", 1)
-        + struct.pack("<II", 0, 0)
+        + struct.pack("<HH", 1, 1)  # next=1, parent_plus_one=1 (root)
+        + struct.pack("<I", 1)      # entry_count
+        + struct.pack("<II", 0, 0)  # reserved
         + struct.pack("<I", listing_offset)
     )
     assert len(node) == 40
 
     entry = (
-        b"FILE.TXT\0\0\0\0"
-        + b"\0" * 10
-        + struct.pack("<H", 0)
-        + struct.pack("<I", 0)
-        + struct.pack("<I", 123)
+        b"FILE.TXT\0\0\0\0\0"       # 13-byte name field
+        + b"\0" * 9
+        + struct.pack("<H", 0)      # type 0 = file
+        + struct.pack("<I", 0)      # reserved
+        + struct.pack("<I", 123)    # logical size
     )
     assert len(entry) == 32
 
-    tree = drstr.parse(header + node + entry)
-    assert tree["header_word"] == 0x2F
+    tree = drstr.parse(node + entry)
     assert tree["node_count"] == 1
-    assert tree["nodes"][0]["name"] == "TESTDIR"
-    assert tree["nodes"][0]["type"] == 1
+    assert tree["table_end"] == 40
+    assert tree["nodes"][0]["name"] == "/"
+    assert tree["nodes"][0]["parent"] == 0
     assert tree["nodes"][0]["entry_count"] == 1
     assert tree["nodes"][0]["entries"][0]["name"] == "FILE.TXT"
-    assert tree["nodes"][0]["entries"][0]["size"] == 123
+    assert tree["nodes"][0]["entries"][0]["value"] == 123
 
 
 def main() -> int:

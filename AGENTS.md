@@ -50,11 +50,13 @@ a car without a verified backup and a spare SD card.
 - `.ind` = `u32 uncompressed_size, u32 compressed_size, u32 chunk_count,
   u32 chunk_size (0x10000), u32 chunk_offset[chunk_count]`. Decompressed
   payloads still include the 512-byte header.
-- `DRSTR001.DAT` node records are **name-first**: `name[8]` at `+0x00`,
-  `next_index`/`type` at `+0x14`, `entry_count` at `+0x18`,
-  `listing_offset` at `+0x24`. In the EU 2011 image the node table has 39
-  records and ends where the first 32-byte entry starts. Older notes about a
-  “one-node shift” were a parsing bug; do not reintroduce it.
+- `DRSTR001.DAT` has **no header**. Node 0 is the root `/` at `0x0000`; the
+  EU 2011 image has 40 nodes of 40 bytes, then 324 entries of 32 bytes
+  (`40*40 + 324*32 = 11968`). Node fields: `next_index` `+0x14`,
+  `parent_index+1` `+0x16`, `entry_count` `+0x18`, `listing_offset` `+0x24`.
+  Entry fields: `name[13]`, `type` `+0x16`, `value` `+0x1c` (file size; for a
+  directory, recursive subtree total). `0x2f` is `/`, not a count. Older notes
+  about a “one-node shift” were a parsing bug; do not reintroduce it.
 - `MAPAL001/*.DAT` tiles are **not raster images**. They are a header plus many
   small zlib records. Do not assume a bitmap or a single compressed blob.
 - `tools/leafimg.py header` decodes only the text region by design;

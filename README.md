@@ -73,10 +73,10 @@ offsets live in [`docs/format/`](docs/format/).
   IDs) plus `LEV3456R.DAT`. Each has the common 512-byte header followed by a
   tile-specific index/descriptor area and many small independent zlib streams.
   The tile-to-latitude/longitude mapping is not yet decoded.
-- **`DRSTR001.DAT`.** A directory index: a 40-byte header, 39 name-first
-  40-byte node records, then 32-byte directory entries (12-byte name +
-  metadata, logical size at `+0x1c`). Each node's listing matches its own
-  directory; see [`docs/format/drstr.md`](docs/format/drstr.md).
+- **`DRSTR001.DAT`.** The only manifest: no header, root node `/` at `0x0000`,
+  40 name-first 40-byte node records, then 32-byte directory entries (13-byte
+  name + metadata, logical size at `+0x1c`). Each node's listing matches its
+  own directory; see [`docs/format/drstr.md`](docs/format/drstr.md).
 - **Firmware is packed, not a plain WinCE image.** The 100 MB before the FAT
   partition contains Clarion boot sectors and a firmware container starting
   at `0x00200000` with the strings `82FX210ECNI.158`, `SUM4`,
@@ -132,6 +132,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
 - [`.cmp` / `.ind` compressed containers](docs/format/cmp-ind.md)
 - [`DRSTR001.DAT` directory index](docs/format/drstr.md)
 - [`MAPAL001` map tiles](docs/format/map-tiles.md)
+- [`RDSTM001` / `LCTBL001` road data](docs/format/rdstm.md)
 - [Firmware and pre-partition area](docs/format/firmware.md)
 - [Research sources and external links](docs/research/sources.md)
 - [Claims and evidence ledger](docs/research/claims.md) — **start here when
