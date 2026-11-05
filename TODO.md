@@ -163,8 +163,9 @@ See [`docs/research/build-profiles.md`](docs/research/build-profiles.md) and
   (`dolnoslaskie-detail`, `poland-full`, `europe-motorways`).
 - [ ] Add a schema validator and `tools/build.py --profile ...`.
 - [ ] Print a size breakdown before writing an image.
-- [ ] Implement tile selection once the `BxxRyyR` grid is decoded; decide
-  between whole-tile selection and sub-tile clipping.
+- [x] Decide tile selection: **whole tiles only**, no sub-tile clipping
+  (`docs/research/build-profiles.md`).
+- [ ] Implement whole-tile selection once the `BxxRyyR` grid is decoded.
 - [ ] Keep a border buffer so cross-border routing does not stop at the border.
 - [ ] Decide where ODbL attribution lives on a distributed card/image.
 - [ ] Verify that removing/adding files keeps `DRSTR001.DAT` and the unit

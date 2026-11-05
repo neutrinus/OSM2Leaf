@@ -33,7 +33,7 @@ format rules.
     "countries": ["PL"],
     "bbox": null,
     "border_buffer_km": 50,
-    "tiles": {"mode": "auto", "include": [], "exclude": []}
+    "tiles": {"mode": "whole", "include": [], "exclude": []}
   },
   "detail": {
     "roads": "all",
@@ -77,21 +77,32 @@ format rules.
 These are estimates; the compiler should print a size breakdown before
 writing an image.
 
-## Tile-granularity caveat
+## Decision: whole tiles only
+
+**Decision (2026-11-05): build and ship whole tiles. Do not clip inside a
+tile.**
 
 External prior art suggests tiles are about **5.333° × 8°**. All of
-Dolnośląskie would fall into 2–3 tiles, so “only Dolnośląskie” cannot be
-implemented by dropping whole tiles without also dropping neighbouring
-regions. Two options:
+Dolnośląskie falls into 2–3 tiles, so “only Dolnośląskie” means “the full
+tiles that contain Dolnośląskie”, including whatever else those tiles cover.
+That is accepted: a correct, dense tile is more valuable than a sparse tile
+whose behaviour on the unit is unproven.
 
-1. **Selected records in a full tile**: keep the tile container, generate
-   records only for the selected area, leave the rest empty. Requires proof
-   that the unit tolerates sparse tiles.
-2. **Whole-tile selection**: simpler, but the user gets a coarser region
-   (e.g. “central Europe”) rather than a voivodeship.
+Consequences:
 
-Until the tile format is decoded, treat `include.tiles` as a build-time hint,
-not a promise of sub-tile clipping.
+- A profile selects **tile IDs**, not a polygon and not a bbox.
+- `bbox`/`countries` are only used to decide which tiles to include and to
+  build the routing graph; they do not clip tile contents.
+- All data from the source extract that belongs to a selected tile is
+  generated, including neighbouring-country roads inside the same tile.
+- The border buffer is therefore mostly automatic at tile granularity, but
+  the routing graph still needs explicit cross-border ways.
+- “Dolnośląskie detail” is expected to be coarser than the voivodeship
+  border; document that in the profile description.
+- Do not implement sub-tile clipping unless the format and the unit are later
+  proven to support it.
+
+`include.tiles.mode` is therefore `"whole"` in every profile.
 
 ## Card output rules
 

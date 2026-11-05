@@ -6,7 +6,7 @@
     "countries": ["PL"],
     "bbox": null,
     "border_buffer_km": 100,
-    "tiles": {"mode": "auto", "include": [], "exclude": []}
+    "tiles": {"mode": "whole", "include": [], "exclude": []}
   },
   "detail": {
     "roads": "all",

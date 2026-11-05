@@ -1,12 +1,12 @@
 {
   "name": "dolnoslaskie-detail",
-  "description": "Full detail for Dolnośląskie with a border buffer for cross-border routing. Experimental sub-tile clipping.",
+  "description": "Full detail for Dolnośląskie, delivered as the full containing tiles (may include neighbouring regions).",
   "sources": ["poland-latest.osm.pbf"],
   "include": {
     "countries": ["PL"],
     "bbox": [14.0, 49.9, 17.9, 51.9],
     "border_buffer_km": 50,
-    "tiles": {"mode": "auto", "include": [], "exclude": []}
+    "tiles": {"mode": "whole", "include": [], "exclude": []}
   },
   "detail": {
     "roads": "all",
