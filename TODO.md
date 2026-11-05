@@ -74,11 +74,14 @@ OSM only after that.
    - [x] `0x6faf30` is a Bluetooth/OPP handler, not the reader.
    - [x] Initializer `0xc43430` found; `0x1d0f8a8` never written by ROM;
      no static vtable contains the fd methods.
-   - [ ] Decompile the shared COM helper `0x171e9e8` for a slot template /
-     construction map (last static chance).
-   - [ ] **No hardware access currently (2026-11-05):** defer dynamic break,
-     SD bus and card matrices; continue static.
+   - [x] `0x171e9e8` is a type-library helper, not a vtable builder; no
+     static template; **static closed for the reader**.
+   - [x] Dynamic guide written: `docs/research/dynamic-break-guide.md`.
+   - [ ] **No hardware access currently (2026-11-05):** dynamic break, SD bus
+     and card matrices deferred.
    - [ ] Prepare a hardware kit (JTAG/serial + card matrix) for later.
+   - [ ] While waiting: build the compiler/offline validators (`tools/build.py`,
+     profile validator, round-trip checks).
    - [x] `tools/ind_mutate.py` generates 8 `.ind` variants for the spare-card
      matrix.
    - [x] `hddinfo_variants.py` now emits 89 length-preserving variants;

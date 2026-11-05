@@ -189,6 +189,23 @@ comparison.
 The object vtable is built at runtime by the shared COM helper `0x171e9e8` /
 loader. Reader address and slot layout are not in the ROM.
 
+### Static is closed
+
+`0x171e9e8` is a **COM type-library registration/lookup routine**, not a
+class factory/vtable builder: GUIDs `44ec053b-400f-11d0-9dcd-00a0c90391d3` /
+`44ec053a-400f-11d0-9dcd-00a0c90391d3`, strings `LoadTypeLib`,
+`RegisterTypeLib`, `UnRegisterTypeLib`, `REGISTRY`, `Module`,
+`oleaut32.dll`, `.tlb`; callees are `oleaut32`/`ole32` thunks and the
+indirect calls are `ITypeLib`/`ITypeInfo` methods.
+
+There is no slot table, no constructor table and no memcpy from a ROM template.
+No static vtable contains `0xc42520`/`0xc426a4`/`0xc438a4`; each fd VA occurs
+once in the per-instruction table. `0x1d0f8a8` is RAM BSS, never written by the
+ROM; COM resolution goes through the registry.
+
+**Static is closed for the vtable and the reader.** The exact dynamic capture
+plan is in [`../research/dynamic-break-guide.md`](../research/dynamic-break-guide.md).
+
 **Negative lead:** `0x6faf30` is not the reader — it is a `jsr @r3` in the
 Bluetooth/OPP handler at `0x6faeb0` (`OppAccess::msg_opp_comp_ind` at
 `0x6c7e98`).
@@ -513,11 +530,11 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 Firmware RE remains the primary path.
 
-1. **Decompile the shared COM helper `0x171e9e8`** for a slot template or
-   construction map; that is the last static chance to recover the object
-   vtable containing `0xc42520`, `0xc426a4`, `0xc438a4`.
-2. **Per-section relocation data** (only if needed for other modules); the
-   175-method vtable is iPodCC's and does not contain the reader.
+1. **Static is closed for the reader.** Use the dynamic guide when hardware is
+   available: break on MAL `getOffset/getSize`, then fd methods, then fd
+   thunks.
+2. **While waiting:** build the compiler/offline validators so the first
+   hardware session can test a real card immediately.
 3. **Dynamic break on the MAL chain (deferred, no hardware):**
    `MAL_DataVol_getOffset` (VA `0x03498d48`, file `0x7f5f48`) or `getSize`
    (VA `0x03498d28`, file `0x7f5f28`); caller is the `.ind` wrapper.

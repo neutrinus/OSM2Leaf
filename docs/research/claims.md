@@ -249,6 +249,14 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-426 | Reader address and vtable slot layout are not in the ROM; `chunk_size` compare vs buffer size remains a hypothesis. | UNKNOWN | — | EXP-2026-11-05-28 |
 | C-427 | Static fallback: break on MAL `getOffset/getSize`, fd methods, or fd thunks; hardware is the only route to the reader address. | PLANNED | — | EXP-2026-11-05-28 |
 | C-428 | Next static attempt: decompile `0x171e9e8` for a slot template/construction map; also prepare the dynamic guide and hardware kit. | PLANNED | — | EXP-2026-11-05-28 |
+| C-430 | `0x171e9e8` is a COM type-library registration/lookup routine, not a class factory/vtable builder: GUIDs `44ec053b…`/`44ec053a…`, strings `LoadTypeLib`/`RegisterTypeLib`/`REGISTRY`/`Module`/`oleaut32.dll`/`.tlb`. | VERIFIED | H | EXP-2026-11-05-29 |
+| C-431 | Its callees are `oleaut32`/`ole32` thunks; the indirect calls are `ITypeLib`/`ITypeInfo` methods, not NaviStateCC methods. | VERIFIED | H | EXP-2026-11-05-29 |
+| C-432 | No static vtable template exists and no static vtable contains `0xc42520`/`0xc426a4`/`0xc438a4`; the fd VAs occur once in the per-instruction table. | VERIFIED (negative) | H | EXP-2026-11-05-29 |
+| C-433 | `0x1d0f8a8` is RAM BSS, never written by the ROM; COM resolution goes through the registry. | VERIFIED (negative) | H | EXP-2026-11-05-29 |
+| C-434 | Static is closed for the NaviStateCC vtable and reader; the object vtable is a run-time artifact. | VERIFIED (negative) | H | EXP-2026-11-05-29 |
+| C-435 | Dynamic guide: break on MAL `getOffset/getSize`, then fd methods, then fd thunks; offline `.ind` variants settle `chunk_size`/seek. | VERIFIED (procedure) | H | EXP-2026-11-05-29 |
+| C-436 | The only remaining unknown for the reader is the runtime-built NaviStateCC object vtable/slot layout. | UNKNOWN | — | EXP-2026-11-05-29 |
+| C-437 | With no hardware access, the next productive work is the compiler/offline validators plus a prepared hardware kit. | PLANNED | — | EXP-2026-11-05-29 |
 
 ## `COORD001` / `ZCODE*` / `ICODE001`
 

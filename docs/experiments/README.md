@@ -100,6 +100,7 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-26](EXP-2026-11-05-26-com-relocation.md) | COM framework, relocation wall and breakpoint | done (dynamic path identified) |
 | [EXP-2026-11-05-27](EXP-2026-11-05-27-ipodcc-vtable.md) | The 175-method vtable is iPodCC, not NaviStateCC | done (wrong module corrected) |
 | [EXP-2026-11-05-28](EXP-2026-11-05-28-initializer-runtime-vtable.md) | Initializer found; vtable built at runtime | done (reader still unknown) |
+| [EXP-2026-11-05-29](EXP-2026-11-05-29-static-closed.md) | Static is closed for the NaviStateCC vtable | done (dynamic guide ready) |
 | [EXP-2026-11-05-29](EXP-2026-11-05-29-l1-l2-validators.md) | L1/L2 validators for the offline feedback loop | done |
 | [EXP-2026-11-05-30](EXP-2026-11-05-30-image-matrix.md) | Complete map-image archive and cross-year L1 matrix | done |
 | [EXP-2026-11-05-31](EXP-2026-11-05-31-cross-year-l2.md) | Cross-year L2 for the 2014 and 2016 cards | done |
