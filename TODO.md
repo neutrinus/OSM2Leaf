@@ -315,9 +315,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     lines in the EXP).
   - Claims: C-680–C-689
 
-- [ ] **M1.6b — Resolve all import thunks of all modules**
-  - Status: in progress · Owner: upstream session (draft `tools/cerom_thunks.py`,
-    removed again in `c44db2b` until its EXP lands) · Critical: no
+- [x] **M1.6b — Resolve all import thunks of all modules**
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: M1.6 (PR #5)
   - Goal: a VA → `module!export` label table for every thunk, for Ghidra and
     for call-site search.
@@ -326,6 +325,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `cerom_thunks.py` (or `cerom.py thunks`) `[MODULE|--all] --json` lists stub VA, slot
     VA and name for every A and B module; ≥ 95 % of `Navi.exe`'s 846 slots
     have a stub (report the rest); self-test on a synthetic stub.
+  - Result: `cerom.py thunks` resolves 4/3/2-insn stubs through the OFT and
+    export tables with coverage and `--min-coverage`; synthetic only, the
+    real 846-slot run stays UNKNOWN (EXP-2026-11-05-M1.6b, C-690).
   - Claims: C-690–C-699
 
 - [ ] **M1.7 — Which kernel (B or C) boots with A**

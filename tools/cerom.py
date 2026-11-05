@@ -26,6 +26,7 @@ Usage:
                           [--method auto|lzss|lzx] [--out DIR]
                           [--check] [--json]
   cerom.py IMG comphdr MODULE | --all [--json]
+  cerom.py IMG thunks [MODULE | --all] [--json] [--min-coverage N]
   cerom.py --selftest                  # synthetic ROM, no vendor data
 
 ``memmap`` emits the section table ``tools/l3_harness/rommap.py`` consumes:
@@ -64,6 +65,28 @@ walks every ``IMAGE_SCN_COMPRESSED`` section.  Exit codes: 0 when every parsed
 section ``HOLDS``, 1 when any is ``REFUTED``/``UNPARSED``, 2 on a usage or I/O
 error.
 
+``thunks`` resolves the import stubs of every selected module (M1.6b).  A
+stub is the EXP-50 pattern ``mov.l @(disp,PC),Rn; mov.l @Rn,R0; jmp @R0; nop``
+or the direct variant ``mov.l @(disp,PC),Rn; jmp @Rn`` (with or without a
+delay-slot ``nop``); only uncompressed code sections
+(``CNT_CODE``/``MEM_EXECUTE``) are scanned, and a stub's VA is its section
+``realaddr`` plus the offset.  The literal the stub loads is the process VA of
+an IAT slot; the slot is resolved through the importing module's
+OriginalFirstThunk (``imports``) and the exporting module's export table, so a
+record names ``module!export`` and its ordinal, not a raw VA.  ``--all`` walks
+every module of every discovered segment.  ``confidence`` is ``high`` (EXP-50
+pattern plus an export-table confirmation), ``medium`` (EXP-50 pattern without
+that confirmation, or the 3-instruction variant confirmed) or ``low`` (the
+2-instruction variant, or unresolved).  Unresolved stubs keep their ``slot_va``
+and carry the reason: ``slot outside image``, ``no export match`` or
+``ambiguous duplicate (…)``.  Coverage is printed as ``resolved/total`` with a
+percentage: stub coverage (named stubs over detected stubs) and slot coverage
+(import slots that have at least one stub, over all import slots — the M1.6b
+measure of "846 slots have a stub").  ``--min-coverage N`` exits 1 when either
+coverage is below ``N`` percent; without it the exit code is 0 once the report
+is produced.  Exit codes: 0 report produced, 1 coverage below
+``--min-coverage``, 2 on a usage or I/O error.
+
 ``files`` lists the ``FILESentry`` table; the default text view is unchanged.
 ``--extract DIR`` also writes the stored ``csize`` bytes of every entry whose
 ``csize != rsize`` as ``<name>.<index>.stored.bin``.  ``--decompress`` passes
@@ -86,10 +109,12 @@ usage or I/O error.
 See docs/experiments/EXP-2026-11-05-47-cerom-selftest.md,
 docs/experiments/EXP-2026-11-05-48-cerom-memmap.md,
 docs/experiments/EXP-2026-11-05-53-cerom-decompress.md,
-docs/experiments/EXP-2026-11-05-55-filesentry-extract.md and
-docs/experiments/EXP-2026-11-05-M1.2a-comphdr.md.
+docs/experiments/EXP-2026-11-05-55-filesentry-extract.md,
+docs/experiments/EXP-2026-11-05-M1.2a-comphdr.md and
+docs/experiments/EXP-2026-11-05-M1.6b-thunks.md.
 """
 import argparse
+import array
 import contextlib
 import hashlib
 import io
@@ -125,6 +150,12 @@ COMPHDR_SCHEMA = "osm2leaf.cerom.comphdr/v1"
 COMPHDR_GENERATOR = "tools/cerom.py comphdr"
 FILES_SCHEMA = "osm2leaf.cerom.files/v1"
 FILES_GENERATOR = "tools/cerom.py files"
+THUNKS_SCHEMA = "osm2leaf.cerom.thunks/v1"
+THUNKS_GENERATOR = "tools/cerom.py thunks"
+THUNKS_RECORD_KEYS = ("stub_va", "slot_va", "module", "export", "ordinal",
+                      "section", "confidence", "status", "reason", "pattern",
+                      "owner", "segment")
+THUNKS_PATTERN_RANK = {"4-insn": 2, "3-insn": 1, "2-insn": 0}
 FILES_RECORD_KEYS = ("index", "name", "attrib", "rsize", "csize", "load",
                      "status", "method_used", "output_size", "sha256", "error")
 SEGMENT_MAX_MODULES = 4096
@@ -1006,6 +1037,405 @@ def print_comphdr_text(report):
 
 
 # --------------------------------------------------------------------------
+# Import stubs (`thunks`): the EXP-50 stub pattern -> module!export (M1.6b)
+# --------------------------------------------------------------------------
+
+
+def movl_pc_literal(addr, word):
+    """Literal VA of ``mov.l @(disp,PC),Rn`` (``0xDnnn``), else None.
+
+    SH-4 reads PC as the instruction address + 4 and clears the low two bits:
+    ``((addr + 4) & ~3) + disp*4`` (same rule as ``tools/sh4xref.py``).
+    """
+    if word & 0xF000 != 0xD000:
+        return None
+    return ((addr + 4) & ~3) + (word & 0xFF) * 4
+
+
+def stub_pattern(words, index):
+    """Pattern name of the import stub whose first word is ``words[index]``.
+
+    ``4-insn`` is the EXP-50 stub (``mov.l @(disp,PC),Rn; mov.l @Rn,R0;
+    jmp @R0; nop``), ``3-insn`` the direct ``mov.l @(disp,PC),Rn; jmp @Rn``
+    variant with its delay-slot ``nop`` and ``2-insn`` the variant without it.
+    Returns None when the word does not start a stub.
+    """
+    total = len(words)
+    first = words[index]
+    if first & 0xF000 != 0xD000:
+        return None
+    reg = (first >> 8) & 0xF
+    if (index + 3 < total and words[index + 1] == (0x6002 | reg << 8)
+            and words[index + 2] == 0x402B and words[index + 3] == 0x0009):
+        return "4-insn"
+    if index + 1 < total and words[index + 1] == (0x402B | reg << 8):
+        if index + 2 < total and words[index + 2] == 0x0009:
+            return "3-insn"
+        return "2-insn"
+    return None
+
+
+def section_words(data, offset, size):
+    """Little-endian ``u16`` view of ``size`` stored section bytes."""
+    words = array.array("H")
+    words.frombytes(data[offset:offset + (size & ~1)])
+    if sys.byteorder != "little":
+        words.byteswap()
+    return words
+
+
+def read_u32_va(cerom, data, va):
+    """32-bit word stored at ``va`` in the image, or None when not stored."""
+    offset = cerom.va2file(va)
+    if 0 <= offset and offset + 4 <= len(data):
+        return struct.unpack_from("<I", data, offset)[0]
+    return None
+
+
+def scan_section_stubs(cerom, data, section, index):
+    """Import stubs stored in one uncompressed code section.
+
+    Each record carries ``stub_va`` (``o32_realaddr`` + offset), ``slot_va``
+    (the literal value the stub loads, i.e. the IAT slot VA), ``section``
+    (``sec<N>``) and ``pattern``.  A candidate whose literal is not stored in
+    the image is not a thunk and is skipped; the literal is never dereferenced,
+    so a compressed ``.data`` slot does not matter.
+    """
+    offset = cerom.va2file(section["dataptr"])
+    size = section["psize"]
+    if not size or not (0 <= offset and offset + size <= len(data)):
+        return []
+    words = section_words(data, offset, size)
+    base = section["realaddr"]
+    stubs = []
+    for position, word in enumerate(words):
+        if word & 0xF000 != 0xD000:
+            continue
+        pattern = stub_pattern(words, position)
+        if pattern is None:
+            continue
+        stub_va = base + 2 * position
+        slot = read_u32_va(cerom, data, movl_pc_literal(stub_va, word))
+        if slot is None:
+            continue
+        stubs.append({
+            "stub_va": stub_va,
+            "slot_va": slot,
+            "section": "sec%d" % index,
+            "pattern": pattern,
+        })
+    return stubs
+
+
+def build_thunk_index(segment, segment_index=0):
+    """Return ``(imports_at, exports_by_dll, module_names, errors)``.
+
+    ``imports_at`` maps an IAT slot VA of this segment to the import entries
+    that name it, ``exports_by_dll`` maps a lower-cased DLL name to its export
+    table (``by_name`` / ``by_ordinal``) and ``module_names`` maps a lower-cased
+    module name to the TOC spelling.  Kept per segment: builds A and B can map
+    the same slot VA to different imports.
+    """
+    imports_at, exports_by_dll, module_names, errors = {}, {}, {}, []
+    for entry in segment.modules():
+        name = entry["name"]
+        if not name:
+            continue
+        module_names.setdefault(name.lower(), name)
+        try:
+            exports = list(segment.exports(entry))
+        except (struct.error, ValueError, TypeError, IndexError) as exc:
+            exports = []
+            errors.append({"segment": segment_index, "module": name,
+                           "error_type": type(exc).__name__, "error": str(exc)})
+        if exports:
+            table = exports_by_dll.setdefault(name.lower(),
+                                              {"by_name": {}, "by_ordinal": {}})
+            for ordinal, export_name, _rva in exports:
+                table["by_name"].setdefault(export_name, ordinal)
+                table["by_ordinal"].setdefault(ordinal, export_name)
+        try:
+            imports = list(segment.imports(entry))
+        except (struct.error, ValueError, TypeError, IndexError) as exc:
+            imports = []
+            errors.append({"segment": segment_index, "module": name,
+                           "error_type": type(exc).__name__, "error": str(exc)})
+        for dll, slot, import_name, ordinal in imports:
+            record = {"dll": dll, "name": import_name, "ordinal": ordinal}
+            bucket = imports_at.setdefault(slot, [])
+            if record not in bucket:
+                bucket.append(record)
+    return imports_at, exports_by_dll, module_names, errors
+
+
+def resolve_thunk(slot, data, cerom, imports_at, exports_by_dll, module_names):
+    """Resolve one stub slot VA to ``module!export`` (ordinal) plus a reason.
+
+    ``reason`` is None when resolved, else ``slot outside image`` (the literal
+    is not a readable VA), ``no export match`` (no import entry names the slot,
+    or an ordinal import whose exporter is absent) or
+    ``ambiguous duplicate (…)`` (two different import entries claim the slot).
+    ``confirmed`` is True when the exporter's own export table supplied or
+    confirmed the name, which is what raises the confidence to ``high``.
+    """
+    unresolved = {"module": None, "export": None, "ordinal": None,
+                  "reason": None, "confirmed": False}
+    offset = cerom.va2file(slot)
+    if not (0 <= offset and offset + 4 <= len(data)):
+        unresolved["reason"] = "slot outside image"
+        return unresolved
+    entries = imports_at.get(slot) or []
+    if not entries:
+        unresolved["reason"] = "no export match"
+        return unresolved
+    if len(entries) > 1:
+        labels = ", ".join(
+            "%s!%s" % (entry["dll"],
+                       entry["name"] if entry["name"] is not None
+                       else "#%s" % entry["ordinal"]) for entry in entries)
+        unresolved["reason"] = "ambiguous duplicate (%s)" % labels
+        return unresolved
+
+    entry = entries[0]
+    table = exports_by_dll.get(entry["dll"].lower())
+    module = module_names.get(entry["dll"].lower(), entry["dll"])
+    if entry["name"] is not None:
+        ordinal = entry["ordinal"]
+        confirmed = bool(table and entry["name"] in table["by_name"])
+        if confirmed:
+            ordinal = table["by_name"][entry["name"]]
+        return {"module": module, "export": entry["name"], "ordinal": ordinal,
+                "reason": None, "confirmed": confirmed}
+    if (entry["ordinal"] is not None and table
+            and entry["ordinal"] in table["by_ordinal"]):
+        return {"module": module,
+                "export": table["by_ordinal"][entry["ordinal"]],
+                "ordinal": entry["ordinal"], "reason": None, "confirmed": True}
+    unresolved["reason"] = "no export match"
+    return unresolved
+
+
+def thunk_confidence(rank, confirmed, resolved):
+    """Confidence label of one stub (see ``thunks_report``)."""
+    if not resolved:
+        return "low"
+    if rank >= 2:
+        return "high" if confirmed else "medium"
+    if rank >= 1:
+        return "medium" if confirmed else "low"
+    return "low"
+
+
+def coverage_percent(part, whole):
+    """Coverage percentage rounded to one decimal; 100.0 for an empty whole."""
+    if not whole:
+        return 100.0
+    return round(100.0 * part / whole, 1)
+
+
+def thunks_report(data, image_name, image_size=None, image_sha256=None,
+                  sha256_scope=None, module=None, all_modules=False,
+                  image_start=None):
+    """Resolve every import stub of the selected modules (M1.6b).
+
+    See the module docstring for the pattern, the confidence table and the two
+    coverage measures.  ``module`` selects one module by name (case-insensitive,
+    in every segment); ``all_modules`` walks every module of every discovered
+    segment.  Records keep the EXP-50 stub VA and the slot VA it loads even when
+    the slot cannot be named.
+    """
+    segments, duplicates = find_segments(data, image_start)
+
+    if not all_modules:
+        if not module:
+            raise ValueError("thunks needs a module name or --all")
+        available = set()
+        for segment in segments:
+            for entry in segment.modules():
+                if entry["name"]:
+                    available.add(entry["name"].lower())
+        if module.lower() not in available:
+            raise KeyError(module)
+
+    records, module_records, errors = [], [], []
+    for segment_index, segment in enumerate(segments):
+        imports_at, exports_by_dll, module_names, index_errors = build_thunk_index(
+            segment, segment_index)
+        errors.extend(index_errors)
+        for entry in segment.modules():
+            name = entry["name"]
+            if not name:
+                continue
+            if not all_modules and name.lower() != module.lower():
+                continue
+
+            slot_map = {}
+            try:
+                for dll, slot, stub_name, ordinal in segment.imports(entry):
+                    slot_map.setdefault(slot, (dll, stub_name, ordinal))
+            except (struct.error, ValueError, TypeError, IndexError) as exc:
+                errors.append({"segment": segment_index, "module": name,
+                               "error_type": type(exc).__name__,
+                               "error": str(exc)})
+            try:
+                sections = list(segment.o32(entry))
+            except (struct.error, ValueError) as exc:
+                sections = []
+                errors.append({"segment": segment_index, "module": name,
+                               "error_type": type(exc).__name__,
+                               "error": str(exc)})
+
+            found, scanned = [], 0
+            for index, sec in enumerate(sections):
+                if sec["flags"] & IMAGE_SCN_COMPRESSED:
+                    continue
+                if not sec["flags"] & (CNT_CODE | MEM_EXECUTE):
+                    continue
+                if not sec["psize"]:
+                    continue
+                scanned += 1
+                found.extend(scan_section_stubs(segment, data, sec, index))
+
+            module_stubs = []
+            for stub in found:
+                resolution = resolve_thunk(stub["slot_va"], data, segment,
+                                           imports_at, exports_by_dll,
+                                           module_names)
+                resolved = resolution["reason"] is None
+                rank = THUNKS_PATTERN_RANK.get(stub["pattern"], 0)
+                record = {
+                    "stub_va": hx(stub["stub_va"]),
+                    "slot_va": hx(stub["slot_va"]),
+                    "module": resolution["module"],
+                    "export": resolution["export"],
+                    "ordinal": resolution["ordinal"],
+                    "section": stub["section"],
+                    "confidence": thunk_confidence(rank,
+                                                   resolution["confirmed"],
+                                                   resolved),
+                    "status": "resolved" if resolved else "unresolved",
+                    "reason": resolution["reason"],
+                    "pattern": stub["pattern"],
+                    "owner": name,
+                    "segment": segment_index,
+                }
+                module_stubs.append(record)
+                records.append(record)
+
+            stub_slots = {stub["slot_va"] for stub in found}
+            covered = len(stub_slots & set(slot_map))
+            resolved_count = sum(1 for record in module_stubs
+                                 if record["status"] == "resolved")
+            module_records.append({
+                "segment": segment_index,
+                "module": name,
+                "scanned_sections": scanned,
+                "stubs": len(module_stubs),
+                "resolved": resolved_count,
+                "unresolved": len(module_stubs) - resolved_count,
+                "import_slots": len(slot_map),
+                "covered_slots": covered,
+                "stub_coverage": coverage_percent(resolved_count,
+                                                  len(module_stubs)),
+                "slot_coverage": coverage_percent(covered, len(slot_map)),
+            })
+
+    total = sum(entry["stubs"] for entry in module_records)
+    resolved = sum(entry["resolved"] for entry in module_records)
+    import_slots = sum(entry["import_slots"] for entry in module_records)
+    covered = sum(entry["covered_slots"] for entry in module_records)
+    counts = {
+        "segments": len(segments),
+        "modules": len(module_records),
+        "scanned_sections": sum(entry["scanned_sections"]
+                                for entry in module_records),
+        "stubs": total,
+        "resolved": resolved,
+        "unresolved": total - resolved,
+        "import_slots": import_slots,
+        "covered_slots": covered,
+        "outside_image": sum(1 for record in records
+                             if record["reason"] == "slot outside image"),
+        "no_export": sum(1 for record in records
+                         if record["reason"] == "no export match"),
+        "ambiguous": sum(1 for record in records
+                         if (record["reason"] or "").startswith(
+                             "ambiguous duplicate")),
+        "errors": len(errors),
+    }
+    coverage = {
+        "stubs": {"resolved": resolved, "total": total,
+                  "percent": coverage_percent(resolved, total)},
+        "slots": {"covered": covered, "total": import_slots,
+                  "percent": coverage_percent(covered, import_slots)},
+    }
+    segment_records = [{
+        "segment_index": index,
+        "segment_base": hx(segment.start),
+        "phys_base": hx(segment.hdr["physfirst"]),
+        "pTOC": hx(segment.ptoc),
+        "nummods": segment.hdr["nummods"],
+        "numfiles": segment.hdr["numfiles"],
+    } for index, segment in enumerate(segments)]
+    return {
+        "schema": THUNKS_SCHEMA,
+        "generator": THUNKS_GENERATOR,
+        "image": os.path.basename(image_name),
+        "image_size": image_size,
+        "image_sha256": image_sha256,
+        "image_sha256_scope": sha256_scope,
+        "scope": "all" if all_modules else module,
+        "segments": segment_records,
+        "duplicate_segments": duplicates,
+        "counts": counts,
+        "coverage": coverage,
+        "modules": module_records,
+        "stubs": records,
+        "errors": errors,
+    }
+
+
+def print_thunks_text(report):
+    """Print one block per module: its stubs, then stub and slot coverage."""
+    grouped = {}
+    for record in report["stubs"]:
+        grouped.setdefault((record["segment"], record["owner"]), []).append(record)
+    for module in report["modules"]:
+        print("%s (segment %d)" % (module["module"], module["segment"]))
+        for record in grouped.get((module["segment"], module["module"]), []):
+            if record["status"] == "resolved":
+                label = "%s!%s (#%s)" % (
+                    record["module"], record["export"],
+                    record["ordinal"] if record["ordinal"] is not None else "?")
+            else:
+                label = "UNRESOLVED (%s)" % record["reason"]
+            print("  %-4s stub=%s slot=%s %-6s %-6s %s"
+                  % (record["section"], record["stub_va"], record["slot_va"],
+                     record["pattern"], record["confidence"], label))
+        print("  coverage %d/%d stub(s) (%.1f %%), %d/%d slot(s) (%.1f %%)"
+              % (module["resolved"], module["stubs"], module["stub_coverage"],
+                 module["covered_slots"], module["import_slots"],
+                 module["slot_coverage"]))
+    for error in report["errors"]:
+        print("module error: %s (segment %d): %s: %s"
+              % (error["module"], error["segment"], error["error_type"],
+                 error["error"]))
+    counts, coverage = report["counts"], report["coverage"]
+    print("%d stub(s) in %d module(s), %d segment(s): %d resolved, %d unresolved"
+          " (stubs %d/%d, %.1f %%; slots %d/%d, %.1f %%)"
+          % (counts["stubs"], counts["modules"], counts["segments"],
+             counts["resolved"], counts["unresolved"],
+             coverage["stubs"]["resolved"], coverage["stubs"]["total"],
+             coverage["stubs"]["percent"], coverage["slots"]["covered"],
+             coverage["slots"]["total"], coverage["slots"]["percent"]))
+    if report["duplicate_segments"]:
+        print("%d duplicate segment copy/copies not walked: %s"
+              % (len(report["duplicate_segments"]),
+                 ", ".join("0x%x" % int(d["segment_base"], 16)
+                           for d in report["duplicate_segments"])))
+
+
+# --------------------------------------------------------------------------
 # FILESentry extraction (`files`): stored payloads, optional decode
 # --------------------------------------------------------------------------
 
@@ -1449,6 +1879,116 @@ def build_comphdr_rom(prefix, vsize, psize, module_name="NAVIMAPCC.DLL",
                      SYNTH_VA_BASE + rva, section_flags)
     d[0x5000:0x5000 + len(prefix)] = prefix
     return bytes(d)
+
+
+def build_thunks_rom():
+    """Return ``(bytes, layout)`` for a two-module ROM with three import stubs.
+
+    ``OBJDLL.DLL`` exports two functions with export base 5 (ordinals 5 and 6).
+    ``NAVI.EXE`` has one import descriptor for that DLL with two slots — one
+    imported by name, one by ordinal — and one code section holding three
+    stubs: the EXP-50 four-instruction pattern for the named slot, the direct
+    three-instruction variant for the ordinal slot, and a fourth stub whose
+    literal is a VA outside the image.  Section ``realaddr`` values follow the
+    image's linear VA mapping, so a stub's literal is a real image read and the
+    import slot VAs computed by ``cerom.py imports`` are the same VAs the stubs
+    load.
+    """
+    code_off, code_rva = 0x5000, 0x1000
+    data_off, data_rva = 0x6000, 0x2000
+    obj_off, obj_rva = 0x3600, 0x1000
+    navi_vbase = synth_va(code_off) - code_rva
+    code_va = navi_vbase + code_rva
+    data_va = navi_vbase + data_rva
+    obj_vbase = synth_va(obj_off) - obj_rva
+    slot0 = navi_vbase + 0x2100
+    slot1 = slot0 + 4
+
+    d = bytearray(SYNTH_SIZE)
+    struct.pack_into("<4sII", d, SYNTH_IMAGE_START + 0x40, b"ECEC",
+                     synth_va(SYNTH_HDR_OFF), SYNTH_TOC_OFF)
+    hdr = dict(synth_romhdr(), nummods=2, numfiles=0)
+    struct.pack_into("<17IHHIII", d, SYNTH_HDR_OFF,
+                     *[hdr[k] for k in ROMHDR_FIELDS], hdr["usCPUType"],
+                     hdr["usMiscFlags"], hdr["pExtensions"],
+                     hdr["ulTrackingStart"], hdr["ulTrackingLen"])
+
+    name_off = {}
+    off = 0x2000
+    for name in (b"OBJDLL.DLL", b"NAVI.EXE"):
+        d[off:off + len(name) + 1] = name + b"\0"
+        name_off[name.decode()] = off
+        off += len(name) + 1
+
+    # Export directory of module 0: base 5, two names, function RVAs arbitrary.
+    exp_names = (b"MAL_DataVol_getOffset", b"MAL_DataVol_getSize")
+    name_rvas = []
+    off = 0x3640
+    for name in exp_names:
+        d[off:off + len(name) + 1] = name + b"\0"
+        name_rvas.append(obj_rva + off - obj_off)
+        off += len(name) + 1
+    struct.pack_into("<IIHHIIIIIII", d, obj_off, 0, 0x5F000000, 0, 0,
+                     name_rvas[0], 5, 2, 2, 0x1028, 0x1030, 0x1038)
+    struct.pack_into("<2I", d, obj_off + 0x28, 0x1100, 0x1200)
+    struct.pack_into("<2I", d, obj_off + 0x30, *name_rvas)
+    struct.pack_into("<2H", d, obj_off + 0x38, 0, 1)      # ordinals -> 5, 6
+
+    toc = SYNTH_HDR_OFF + ROMHDR_SIZE
+    struct.pack_into("<8I", d, toc, 0x0000001C, 0x11223344, 0x00000001, 0x2000,
+                     synth_va(name_off["OBJDLL.DLL"]), synth_va(0x3000),
+                     synth_va(0x3200), obj_vbase)
+    struct.pack_into("<8I", d, toc + TOC_SIZE, 0x0000001C, 0x55667788,
+                     0x00000001, 0x4000, synth_va(name_off["NAVI.EXE"]),
+                     synth_va(0x4000), synth_va(0x4200), navi_vbase)
+
+    # e32_rom: exporter with an export dir and no imports; importer with an
+    # import dir at rva 0x2000 and no exports.
+    struct.pack_into("<HHIIHHIIIII", d, 0x3000, 1, 0x0002, 0, obj_vbase,
+                     1, 0, 0x1000, 0x2000, 0, 0, 0x5F000000)
+    struct.pack_into("<18I", d, 0x3000 + 36, *([0x1000, 0x80, 0, 0, 0, 0]
+                                               + [0] * 12))
+    struct.pack_into("<HHIIHHIIIII", d, 0x4000, 2, 0x2002, 0x1000, navi_vbase,
+                     1, 0, 0x800, 0x4000, 0, 0, 0x5F010000)
+    struct.pack_into("<18I", d, 0x4000 + 36, *([0, 0, 0x2000, 0xA0, 0, 0]
+                                               + [0] * 12))
+
+    # o32_rom: exporter data section, importer code section + data section.
+    struct.pack_into("<6I", d, 0x3200, 0x200, obj_rva, 0x200,
+                     synth_va(obj_off), obj_vbase + obj_rva, 0xC0000040)
+    struct.pack_into("<6I", d, 0x4200, 0x400, code_rva, 0x400,
+                     synth_va(code_off), code_va, 0x60000020)
+    struct.pack_into("<6I", d, 0x4218, 0x200, data_rva, 0x200,
+                     synth_va(data_off), data_va, 0xC0000040)
+
+    # Import descriptor (OFT, timestamp, forwarder, DLL name, FirstThunk).
+    struct.pack_into("<5I", d, data_off, 0x2040, 0, 0, 0x2020, 0x2100)
+    struct.pack_into("<5I", d, data_off + 20, 0, 0, 0, 0, 0)
+    d[data_off + 0x20:data_off + 0x20 + 11] = b"OBJDLL.DLL\0"
+    struct.pack_into("<3I", d, data_off + 0x40, 0x2060, 0x80000006, 0)
+    struct.pack_into("<H", d, data_off + 0x60, 0)         # hint
+    hint = data_off + 0x62
+    d[hint:hint + len(exp_names[0]) + 1] = exp_names[0] + b"\0"
+
+    # Three stubs, each with its literal 8 bytes after the first instruction.
+    for base_off, opcodes, literal in (
+            (code_off, (0xD001, 0x6002, 0x402B, 0x0009), slot0),
+            (code_off + 0x20, (0xD001, 0x402B, 0x0009), slot1),
+            (code_off + 0x40, (0xD001, 0x6002, 0x402B, 0x0009), 0x7FFF0000)):
+        for position, word in enumerate(opcodes):
+            struct.pack_into("<H", d, base_off + 2 * position, word)
+        struct.pack_into("<I", d, base_off + 8, literal)
+
+    layout = dict(image_start=SYNTH_IMAGE_START, va_base=SYNTH_VA_BASE,
+                  toc_off=SYNTH_TOC_OFF, hdr_off=SYNTH_HDR_OFF,
+                  ptoc=synth_va(SYNTH_HDR_OFF), hdr=hdr,
+                  navi_vbase=navi_vbase, obj_vbase=obj_vbase,
+                  code_va=code_va, data_va=data_va,
+                  slots=(slot0, slot1),
+                  stub_vas=(code_va, code_va + 0x20, code_va + 0x40),
+                  export_names=[name.decode() for name in exp_names],
+                  export_ordinals=(5, 6), import_slots=2, stub_count=3)
+    return bytes(d), layout
 
 
 def selftest():
@@ -2205,6 +2745,157 @@ def selftest():
                main([path, "comphdr", "Nope.dll"]), 2)
         ok("comphdr unknown module message", "Nope.dll" in err.getvalue(), True)
 
+        # --- thunks: EXP-50 stubs resolved through OFT + exports (M1.6b) ---
+        thunk_rom, thunk_exp = build_thunks_rom()
+        tpath = os.path.join(td, "thunks-rom.img")
+        with open(tpath, "wb") as fh:
+            fh.write(thunk_rom)
+        tdata = thunk_rom
+        tr = CERom(tdata, thunk_exp["image_start"])
+        ok("thunks VA mapping is linear",
+           (tr.va2file(thunk_exp["code_va"]), tr.va2file(thunk_exp["data_va"])),
+           (0x5000, 0x6000))
+        ok("thunks import slots match the stubs' literals",
+           sorted(slot for _dll, slot, _n, _o in tr.imports(tr.module("NAVI.EXE"))),
+           sorted(thunk_exp["slots"]))
+
+        tsha = hashlib.sha256(thunk_rom).hexdigest()
+        thunks = thunks_report(thunk_rom, tpath, len(thunk_rom), tsha,
+                               all_modules=True)
+        ok("thunks schema", thunks["schema"], THUNKS_SCHEMA)
+        ok("thunks generator", thunks["generator"], THUNKS_GENERATOR)
+        ok("thunks image basename", thunks["image"], "thunks-rom.img")
+        ok("thunks image sha256", thunks["image_sha256"], tsha)
+        ok("thunks scope is all", thunks["scope"], "all")
+        ok("thunks record key order", list(thunks["stubs"][0]),
+           list(THUNKS_RECORD_KEYS))
+
+        stubs = thunks["stubs"]
+        ok("thunks stub count", len(stubs), thunk_exp["stub_count"])
+        ok("thunks stub VAs", [stub["stub_va"] for stub in stubs],
+           [hx(va) for va in thunk_exp["stub_vas"]])
+        ok("thunks slot VAs",
+           [stub["slot_va"] for stub in stubs],
+           [hx(thunk_exp["slots"][0]), hx(thunk_exp["slots"][1]), "0x7fff0000"])
+        ok("thunks section labels", [stub["section"] for stub in stubs],
+           ["sec0", "sec0", "sec0"])
+        ok("thunks patterns", [stub["pattern"] for stub in stubs],
+           ["4-insn", "3-insn", "4-insn"])
+        ok("thunks owner", [stub["owner"] for stub in stubs],
+           ["NAVI.EXE", "NAVI.EXE", "NAVI.EXE"])
+        ok("thunks segment index", [stub["segment"] for stub in stubs], [0, 0, 0])
+        ok("thunks resolved module/export/ordinal",
+           [(stub["module"], stub["export"], stub["ordinal"])
+            for stub in stubs[:2]],
+           [("OBJDLL.DLL", thunk_exp["export_names"][0],
+             thunk_exp["export_ordinals"][0]),
+            ("OBJDLL.DLL", thunk_exp["export_names"][1],
+             thunk_exp["export_ordinals"][1])])
+        ok("thunks confidence table",
+           [stub["confidence"] for stub in stubs], ["high", "medium", "low"])
+        ok("thunks unresolved status/reason",
+           (stubs[2]["status"], stubs[2]["reason"]),
+           ("unresolved", "slot outside image"))
+        ok("thunks unresolved record has no name",
+           (stubs[2]["module"], stubs[2]["export"], stubs[2]["ordinal"]),
+           (None, None, None))
+        ok("thunks counts",
+           (thunks["counts"]["stubs"], thunks["counts"]["resolved"],
+            thunks["counts"]["unresolved"], thunks["counts"]["outside_image"],
+            thunks["counts"]["no_export"], thunks["counts"]["ambiguous"]),
+           (3, 2, 1, 1, 0, 0))
+        ok("thunks import slot counts",
+           (thunks["counts"]["import_slots"],
+            thunks["counts"]["covered_slots"]), (2, 2))
+        ok("thunks stub coverage", thunks["coverage"]["stubs"],
+           {"resolved": 2, "total": 3, "percent": 66.7})
+        ok("thunks slot coverage", thunks["coverage"]["slots"],
+           {"covered": 2, "total": 2, "percent": 100.0})
+        ok("thunks module summary",
+           [(entry["module"], entry["stubs"], entry["resolved"],
+             entry["import_slots"], entry["covered_slots"],
+             entry["stub_coverage"], entry["slot_coverage"])
+            for entry in thunks["modules"]],
+           [("OBJDLL.DLL", 0, 0, 0, 0, 100.0, 100.0),
+            ("NAVI.EXE", 3, 2, 2, 2, 66.7, 100.0)])
+        ok("thunks scanned section count",
+           [entry["scanned_sections"] for entry in thunks["modules"]], [0, 1])
+
+        # Resolution reasons that the synthetic stubs do not produce.
+        ambiguous = resolve_thunk(
+            thunk_exp["slots"][0], tdata, tr,
+            {thunk_exp["slots"][0]: [
+                {"dll": "A.dll", "name": "x", "ordinal": None},
+                {"dll": "B.dll", "name": "y", "ordinal": None}]},
+            {}, {})
+        ok("thunks ambiguous duplicate reason",
+           ambiguous["reason"].startswith("ambiguous duplicate ("), True)
+        missing = resolve_thunk(thunk_exp["data_va"], tdata, tr, {}, {}, {})
+        ok("thunks no export match reason", missing["reason"],
+           "no export match")
+
+        # CLI: --all --json, MODULE selection, text layout, --min-coverage.
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli thunks --all --json exit",
+               main([tpath, "thunks", "--all", "--json"]), 0)
+        doc = json.loads(buf.getvalue())
+        ok("thunks json schema", doc["schema"], THUNKS_SCHEMA)
+        ok("thunks json key order", list(doc["stubs"][0]),
+           list(THUNKS_RECORD_KEYS))
+        ok("thunks json stub VAs", [stub["stub_va"] for stub in doc["stubs"]],
+           [hx(va) for va in thunk_exp["stub_vas"]])
+        ok("thunks json coverage", doc["coverage"], thunks["coverage"])
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli thunks MODULE exit (case-insensitive)",
+               main([tpath, "thunks", "navi.exe"]), 0)
+        text = buf.getvalue()
+        ok("thunks text groups by module", "NAVI.EXE (segment 0)" in text, True)
+        ok("thunks text prints stub coverage", "2/3 stub(s) (66.7 %)" in text,
+           True)
+        ok("thunks text prints slot coverage", "2/2 slot(s) (100.0 %)" in text,
+           True)
+        ok("thunks text prints the unresolved reason",
+           "UNRESOLVED (slot outside image)" in text, True)
+
+        for label, threshold, want in (("--min-coverage below", 60, 0),
+                                       ("--min-coverage at the value", 66.7, 0),
+                                       ("--min-coverage above", 67, 1)):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    ok("cli thunks %s exit" % label,
+                       main([tpath, "thunks", "--all",
+                             "--min-coverage", str(threshold)]), want)
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli thunks unknown module exit",
+               main([tpath, "thunks", "Nope.dll"]), 2)
+        ok("thunks unknown module message", "Nope.dll" in err.getvalue(), True)
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli thunks needs MODULE or --all exit",
+               main([tpath, "thunks"]), 2)
+        ok("thunks usage message", "MODULE or --all" in err.getvalue(), True)
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            ok("cli thunks rejects MODULE plus --all",
+               main([tpath, "thunks", "NAVI.EXE", "--all"]), 2)
+        ok("thunks both-selection message", "not both" in err.getvalue(), True)
+
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()):
+            with contextlib.redirect_stderr(err):
+                ok("cli thunks module with no stub exit",
+                   main([tpath, "thunks", "OBJDLL.DLL"]), 2)
+        ok("thunks no-stub message", "no import stub matched" in err.getvalue(),
+           True)
+
         # Negative control: a corrupt ECEC must fail loudly, never guess.
         bad = bytearray(rom)
         bad[exp["image_start"] + 0x40:exp["image_start"] + 0x44] = b"XXXX"
@@ -2369,6 +3060,61 @@ def memmap_command(args, cerom, data):
     return 0
 
 
+def thunks_command(args, data):
+    """Run ``thunks``: resolve the import stubs and print the coverage."""
+    if args.all_modules and args.module:
+        print("error: give MODULE or --all, not both", file=sys.stderr)
+        return 2
+    if not args.all_modules and not args.module:
+        print("error: thunks needs MODULE or --all", file=sys.stderr)
+        return 2
+    if args.min_coverage is not None and not 0 <= args.min_coverage <= 100:
+        print("error: --min-coverage must be 0..100", file=sys.stderr)
+        return 2
+
+    image_size = os.path.getsize(args.image)
+    try:
+        report = thunks_report(
+            data, args.image, image_size, hashlib.sha256(data).hexdigest(),
+            sha256_scope=sha256_scope_text(len(data), image_size),
+            module=args.module, all_modules=args.all_modules,
+            image_start=args.image_start)
+    except KeyError as exc:
+        print("error: no module named %s in this ROM" % exc.args[0],
+              file=sys.stderr)
+        return 2
+    except (OSError, ValueError) as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+
+    if not report["counts"]["stubs"]:
+        print("error: no import stub matched (module %s, --all %s)"
+              % (args.module, args.all_modules), file=sys.stderr)
+        return 2
+
+    if args.json:
+        sys.stdout.write(json.dumps(report, indent=2) + "\n")
+    else:
+        print_thunks_text(report)
+
+    if args.min_coverage is not None:
+        below = []
+        for label in ("stubs", "slots"):
+            measure = report["coverage"][label]
+            if not measure["total"]:
+                continue
+            if measure["percent"] < args.min_coverage:
+                below.append("%s %d/%d (%.1f %%)"
+                             % (label, measure.get("resolved",
+                                                   measure.get("covered")),
+                                measure["total"], measure["percent"]))
+        if below:
+            print("error: coverage below --min-coverage %g: %s"
+                  % (args.min_coverage, ", ".join(below)), file=sys.stderr)
+            return 1
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("image", nargs="?", help="raw image (or at least its first ~32 MiB)")
@@ -2421,6 +3167,15 @@ def main(argv=None):
     p.add_argument("--all", dest="all_sections", action="store_true",
                    help="every IMAGE_SCN_COMPRESSED section in every segment")
     p.add_argument("--json", action="store_true", help="machine-readable output")
+    p = sub.add_parser("thunks",
+                       help="resolve import stubs to module!export (M1.6b)")
+    p.add_argument("module", nargs="?",
+                   help="module name to inspect (case-insensitive)")
+    p.add_argument("--all", dest="all_modules", action="store_true",
+                   help="every module in every discovered segment")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
+    p.add_argument("--min-coverage", type=float, default=None, metavar="N",
+                   help="exit 1 when stub or slot coverage is below N percent")
     a = ap.parse_args(argv)
 
     if a.selftest:
@@ -2429,7 +3184,7 @@ def main(argv=None):
         ap.error("the following arguments are required: image")
     if a.cmd is None:
         ap.error("a subcommand is required (romhdr, modules, files, sections, exports, "
-                 "va2file, file2va, extract, memmap, decompress, comphdr)")
+                 "va2file, file2va, extract, memmap, decompress, comphdr, thunks)")
 
     try:
         with open(a.image, "rb") as fh:
@@ -2443,6 +3198,9 @@ def main(argv=None):
 
     if a.cmd == "comphdr":
         return comphdr_command(a, data)
+
+    if a.cmd == "thunks":
+        return thunks_command(a, data)
 
     r = CERom(data, a.image_start)
 
