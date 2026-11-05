@@ -64,6 +64,44 @@ There are 33 numbered shards, matching the 33 regions:
   structures, not on-disk POINT fields.
 - No icon-id table inside POINT; `BICON001` correlation is **UNKNOWN**.
 
+### POI → location link (open)
+
+The POI's map location is **not solved**. Current evidence:
+
+- The POINT field dictionary has **no coordinate field** (area code, category,
+  sub-category, detailed code, index, facility name, address, dndc-id).
+- Each POI record contains a 4-byte "point pair": two `u16` values, usually
+  equal, sometimes differing by a small delta (e.g. `(8,8)` in Vatican
+  records). This is the strongest candidate for fixed-point coordinates, but
+  the projection/units are **UNKNOWN**.
+- The 24-byte index record has twelve big-endian `u16`. `f7`/`f8` match fields
+  in the POI record, so that is the POI ↔ index join. `f11` is a dense POI id
+  only for single-page shards; on multi-page shards it is not a global record
+  index.
+- `REFER002/POINT002.DAT` (EV/charging layer) adds an explicit
+  `xy-coordinates` field to the schema. It is a promising Rosetta stone, but
+  only 16 `REFER002` files exist and they are not the general POI layer.
+- `REFER002/COORD001.DAT` has 22 records of `0x18` bytes at `0x1000`,
+  projection-looking, not yet decoded.
+
+Candidate join paths, none proven:
+
+1. POI record's 4-byte point pair → the same 1/128 grid used by `COORD001`
+   and tile stream keys.
+2. POI → 24-byte index `f11` → a separate coordinate/page table.
+3. POI → address string → `ADDRE0nn` record → address coordinates/mesh.
+4. POI → tile block `(A,B)` via a mesh id that we have not located.
+
+Next experiments:
+
+1. Decode `REFER002/COORD001.DAT` (22 × `0x18` B) and fit known Vatican /
+   Andorra coordinates; test the same transform on the POI point pair.
+2. Map `f11` onto the 1000-record pages of a multi-page shard (POINT004).
+3. Join a POI with a 4-byte item list to `ADDRE`/`ZCODE` and see whether the
+   item list is an address/postcode reference.
+4. Search `REFER002/POINT*` for a known charging station and compare its
+   explicit `xy-coordinates` with the `REFER001` point pair.
+
 ## `INTER0nn` — intersections
 
 - Table 1 at `0x1108`, behind an 8-byte block header.

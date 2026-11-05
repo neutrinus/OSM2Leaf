@@ -72,7 +72,12 @@ Three agents are investigating these; merge their results here when done.
   ICADM, ZIPFR (`docs/format/refer.md`).
 - [ ] Decode `ADDRE0nn` address records and their link to `COORD`/`POINT`.
 - [ ] Decode `FRWAY` mesh-id encoding and `INTER` `n` semantics.
-- [ ] Locate POI coordinates (not in POINT) and POI ↔ icon mapping.
+- [ ] Solve the POI → location join. Candidates: the 4-byte point pair in
+  each POINT record, the 24-byte index `f11`, the address link to `ADDRE`,
+  and `REFER002/COORD001.DAT` (22 × 0x18 B).
+- [ ] Decode `REFER002/COORD001.DAT` and test the transform on a known POI.
+- [ ] Map `f11` onto the 1000-record pages of a multi-page shard.
+- [ ] Locate POI ↔ icon (`BICON001`) mapping.
 - [ ] Decode `MMAIN001.DAT` + `CMP.LST` update semantics.
 
 ## P2 — tiles and geography
