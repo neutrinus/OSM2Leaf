@@ -166,17 +166,104 @@ python3 tools/hddinfo_variants.py VER_INFO/HDD_INFO.TXT /tmp/variants --sweep 0-
 It emits a last-character change, `0…5` sweeps over digit runs, and
 uppercase-word replacements, plus `MANIFEST.txt`.
 
+## `hddinfo.py`
+
+Parse the 72-byte `VER_INFO/HDD_INFO.TXT` block and predict the map-code
+verdict with model **M0**. The model is a **HYPOTHESIS** taken from the
+firmware comparator chain (`0x6fab2c` → `0x6faeb0` → `0x6fb05c`); no verdict is
+validated until the spare-card matrix runs. See
+[`docs/format/validation.md`](../docs/format/validation.md).
+
+```bash
+python3 tools/hddinfo.py parse root/VER_INFO/HDD_INFO.TXT
+python3 tools/hddinfo.py --selftest
+python3 tools/hddinfo.py classify SYS.HDD_INFO.TXT root/VER_INFO/HDD_INFO.TXT
+python3 tools/hddinfo.py matrix root/VER_INFO/HDD_INFO.TXT /tmp/variants --sweep 0-5
+```
+
+Exit codes: `0` success/ACCEPT, `1` DIFFERENT MAP CODE, `2` usage/parse/IO
+error. `matrix` calls `hddinfo_variants.py`, keeps every variant length-equal,
+and writes a `MANIFEST.txt` with one predicted verdict per variant.
+
+## `diff_years.py`
+
+Read-only differential between two extracted card roots or two raw images:
+tree census, `VER_INFO/HDD_INFO.TXT` (and the `0x06000000` copy), common
+headers, `DRSTR001.DAT` layout, `MMAIN001` level table, tile inventory and
+`0x1ac`/`0x2ac` descriptors, plus SHA-256 hashes.
+
+```bash
+python3 tools/diff_years.py root2011 root2014
+python3 tools/diff_years.py --image a.img --image b.img --json report.json
+```
+
+`--partial` suppresses only a missing `VER_INFO`; `--ignore-dump-artifacts`
+suppresses only macOS dump entries. Exit codes: `0` identical, `1` different,
+`2` bad source. `--selftest` builds two synthetic roots.
+
+## `header_block.py`
+
+Inspect and validate the `0x180` binary block of the common 512-byte header.
+
+```bash
+python3 tools/header_block.py dump FILE
+python3 tools/header_block.py class FILE
+python3 tools/header_block.py compare A B
+python3 tools/header_block.py check FILE
+```
+
+Classification uses the UTF-16BE family text plus the `0x1ac` descriptor
+signature; a bare `MMAIN`/`REFER` header is reported as `AMBIGUOUS` because the
+documented header fields do not distinguish them. See
+[`../docs/format/file-header.md`](../docs/format/file-header.md). `--selftest`
+builds synthetic headers for all four classes.
+
+## `section4.py`
+
+Parse and re-emit the tile section-4 administrative/place-name index. Only the
+parcel words, the `0x0009` type tag and the ISO country are understood, so
+`encode preserve` is the supported path and `encode build` refuses records with
+names or unmapped bytes.
+
+```bash
+python3 tools/section4.py parse SECTION4.bin
+python3 tools/section4.py encode preserve SECTION4.bin out.bin
+python3 tools/section4.py verify SECTION4.bin
+```
+
+Exit code `3` means "grammar not known, refusing to invent bytes". See
+[`../docs/format/map-tiles.md`](../docs/format/map-tiles.md).
+
+## `imf_check.py`
+
+Validate the intermediate map format (IMF v1, JSON Lines) used between OSM and
+the future tile writer, and assign whole `BxxRyyR` cells.
+
+```bash
+python3 tools/imf_check.py sample --out sample.imf.jsonl
+python3 tools/imf_check.py check sample.imf.jsonl
+python3 tools/imf_check.py assign-tiles sample.imf.jsonl --out fixed.imf.jsonl
+```
+
+The spec is [`../docs/research/intermediate-format.md`](../docs/research/intermediate-format.md).
+`--selftest` exercises every error rule (`E001`–`E022`).
+
 ## `selftest.py`
 
-Runs synthetic tests for the primitive parsers without any vendor data. It
-covers `cmpind.py`, `drstr.py`, `mesh_grid.py` and the L1 helpers (level table,
-common header, LFN, `.cmp` decode, logical listing):
+Runs synthetic tests for the primitive parsers without any vendor data, and
+auto-discovers `--selftest` in every other `tools/*.py`.
 
 ```bash
 python3 tools/selftest.py
+python3 tools/selftest.py --list
+python3 tools/selftest.py --only cmpind,drstr
+python3 tools/selftest.py --json
 ```
 
-Expected: `selftest: OK`.
+Built-in suites cover `cmpind`, `drstr`, `mesh_grid` and the L1 helpers (level
+table, common header, LFN, `.cmp` decode, logical listing). Tools without a
+self-test show `SKIP`; a missing tool is never a failure. Expected:
+`selftest: OK`.
 
 ## `cardcheck.py` — L1 whole-card validator
 

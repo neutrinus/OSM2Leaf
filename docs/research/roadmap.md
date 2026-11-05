@@ -1,14 +1,18 @@
 # Roadmap and confidence gates
 
-> **Last updated:** 2026-11-05. Current position: Gate 0 is the primary path
-> (firmware RE defines the data contract); Gate 2 passed, Gate 3 passed for
-> all five target tiles.
+> **Last updated:** 2026-11-05 (CE ROM TOC audit). Current position: Gate 0 is
+> the primary path. The firmware reader path is static through the recovered CE
+> ROM TOC (`C-088`–`C-094`, `EXP-2026-11-05-33`/`-34`), not through
+> global-VA/delta guessing. Gates 2 and 3 pass for all five target tiles.
 
 **Decision:** firmware RE is prioritized. The reader code tells us how the
 format is consumed, which is more valuable for the compiler than guessing from
-bytes alone. Hardware access is currently unavailable (2026-11-05), so the
-dynamic break and card matrices are deferred; the static vtable/section
-reconstruction continues.
+bytes alone. The route is now: wrapper container → CE ROM TOC
+(`tools/ce_rom_parse.py`) → Ghidra-ready modules (`tools/cerom.py`, TODO
+Step 2) → readers → L3 oracle (TODO Step 3). Global-VA/module-base guessing
+from literals, deltas and prologue scores is **closed and superseded**
+(`C-332`, `C-382`, `C-383`, `C-434`); do not restart it. Hardware access is
+unavailable (2026-11-05), so the dynamic break and card matrices are deferred.
 
 Principle: **two independent sources must agree** before we trust a format.
 
@@ -32,17 +36,48 @@ Current status:
 
 | Area | Data side | Firmware side |
 | --- | --- | --- |
-| `.cmp`/`.ind` | verified | reader not located; `0xc438a4` retracted as opener; CE ROM segment recovery is next |
-| `DRSTR001.DAT` | verified | opened by media manager; runtime use unproven |
+| `.cmp`/`.ind` | verified | reader not located; `0xc438a4` retracted as opener (`C-330`); CE ROM TOC recovered, module extraction next (TODO Step 2) |
+| `DRSTR001.DAT` | verified | opened by media manager; runtime use unproven; parser to be found in the extracted modules |
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | CE ROM TOC recovered: build A has 149 modules and 1 file, SH-4, phys `0x8cae1000`–`0x8e233c88`; reader functions still to be located in extracted modules | module extraction/Ghidra next; dynamic break remains fallback |
+| Firmware addressing | wrapper/container layout at `0x200000` documented; `SUM4`/updater sums and `va2file` reproduced | CE ROM TOC verified: five SH-4 segments, build A 149 modules / 1 file (`C-088`–`C-094`); reader functions still to be located in the extracted modules |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 
+### Reader path (current) and superseded attempts
+
+Current path:
+
+1. `tools/ce_rom_parse.py` — ECEC/ROMHDR/TOC and module names (**done**,
+   `C-088`–`C-094`).
+2. `tools/cerom.py` — sections, `va2file`/`file2va`, `extract <module>`
+   (TODO Step 2).
+3. Rebuild each module as a PE or a Ghidra memory map (one block per `o32`);
+   walk from `Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll`, `STDDLL.dll`.
+4. L3 Ghidra P-code oracle over the `tools/ind_mutate.py` /
+   `hddinfo_variants.py` corpora (TODO Step 3).
+
+Superseded reader-path attempts — kept for history, do **not** re-run:
+
+| Attempt | Outcome | Superseded by |
+| --- | --- | --- |
+| `0xc438a4` opens `\CMP.LST` | contradicted: stats formatter; `\CMP.LST` has zero pointer refs | C-330 |
+| Map code delta `+0x02200000` | contradicted: per-instruction table gives a `0x02b0xxxx` band | C-332 |
+| `0x2e0xxxx` is an export module | import-thunk area | C-371 |
+| `0x1952b00` is a section map | RAM copy list | C-243 |
+| `0x15271c8` is a ROM module table | packed module-name strings | C-270 |
+| `0x6faf30` is the reader | Bluetooth/OPP handler | C-404 |
+| `0x171ea2c`/`0x171e9e8` builds the vtable | real entry `0x171e9e8` is a type-library helper | C-400/C-430 |
+| `0x1951ee0` is the CE ROM TOC | retracted: TOC is reached from ROMHDR `0x1951b78` | C-381 → C-088 |
+| "no XIP/section table" | retracted: ECEC/ROMHDR parses | C-380 → C-088 |
+
 **Exit criterion:** every critical area has a data test and a firmware
 cross-check, or is explicitly marked open.
+
+Firmware cross-checks now start from the CE ROM modules (`C-088`), so a reader
+area may stay `UNKNOWN` with TODO Step 2/3 as its planned experiment instead of
+another literal-delta search.
 
 ## Gate 1 — uncompressed layer round-trip
 
@@ -109,6 +144,7 @@ file order) is not semantic. Define and document the canonical image.
 
 From firmware:
 
+- start from the modules extracted in TODO Step 2 instead of literal deltas;
 - confirm whether the unit checks map content at runtime (none found
   statically so far);
 - identify the exact `DIFFERENT MAP CODE` input (line 1 vs `0x06000000` copy
@@ -144,6 +180,9 @@ proven.
 
 - Full-system QEMU (not the critical path; see
   [`feedback-loop.md`](feedback-loop.md)).
-- Full firmware decompile before the section table.
+- Full firmware decompile before the modules are extracted from the CE ROM TOC
+  (`tools/cerom.py`, TODO Step 2).
+- Any new literal/prologue delta search or module-base guess: use the CE ROM
+  TOC (`C-088`) or new relocation evidence.
 - OSM encoder before the format gates.
 - Buildings/forest/water before a polygon record is proven.

@@ -104,3 +104,11 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-29](EXP-2026-11-05-29-l1-l2-validators.md) | L1/L2 validators for the offline feedback loop | done |
 | [EXP-2026-11-05-30](EXP-2026-11-05-30-image-matrix.md) | Complete map-image archive and cross-year L1 matrix | done |
 | [EXP-2026-11-05-31](EXP-2026-11-05-31-cross-year-l2.md) | Cross-year L2 for the 2014 and 2016 cards | done |
+| [EXP-2026-11-05-32](EXP-2026-11-05-32-cross-year-differential.md) | Cross-year differential (2011 vs 2014 vs 2016) | done |
+| [EXP-2026-11-05-33](EXP-2026-11-05-33-ce-rom-segment.md) | CE ROM segment recovery | done |
+| [EXP-2026-11-05-34](EXP-2026-11-05-34-ce-rom-segment-parser.md) | CE ROM segment parser | done |
+| [EXP-2026-11-05-37](EXP-2026-11-05-37-diff-years-tool.md) | Cross-year differential tool (`diff_years.py`) | done (synthetic) |
+| [EXP-2026-11-05-40](EXP-2026-11-05-40-header-block-tool.md) | Header `0x180` block tool and field inventory | done (synthetic) |
+| [EXP-2026-11-05-41](EXP-2026-11-05-41-hddinfo-model.md) | HDD_INFO parser and offline map-code model M0 | done (model unvalidated) |
+| [EXP-2026-11-05-42](EXP-2026-11-05-42-section4-tool.md) | Section-4 parse/preserve tool | done (preserve only) |
+| [EXP-2026-11-05-44](EXP-2026-11-05-44-imf-definition.md) | Intermediate map format (IMF v1) and validator | done (design) |
