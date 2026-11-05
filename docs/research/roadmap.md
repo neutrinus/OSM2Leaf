@@ -30,7 +30,7 @@ Current status:
 | Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
 | Tile payload grammar | all five targets round-trip byte-identically; roads decoded; section-4 content open | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
-| Firmware addressing | export anchor maps 26 modules (`file = Fb + RVA`); OLEAUT32 VA base verified | navi/map modules lack exports; import-anchor hardening is the next blocker; readers not located |
+| Firmware addressing | export anchor maps 26 modules (`file = Fb + RVA`); OLEAUT32 VA base verified | navi modules have neither export nor usable import dirs (pre-bound ROM); ROM module table at `0x15271c8` is next |
 | Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 

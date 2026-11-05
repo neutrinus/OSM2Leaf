@@ -26,11 +26,12 @@ OSM only after that.
    - [x] `HDD_INFO` candidate `0x132e06c`: data, not code.
    - [x] `0x1952b00`: RAM copy list, not a section map (retracted).
    - [x] Export anchor works: 26 modules mapped, `file = Fb + RVA`.
-   - [ ] Harden the import anchor for navi modules (≥4 thunks + IAT run into a
-     mapped module).
-   - [ ] Recover navi/map module bases; re-run `xref_index.py`,
-     `vtable_scan.py`, `solve_delta.py`, `func.py`.
-   - [ ] Use builds B/C as a Rosetta stone if the anchor fails.
+   - [x] Hardened import anchor: 0 candidates — pre-bound WinCE ROM strips
+     imports (retracted).
+   - [ ] Decode the ROM module table at `0x15271c8` (16-byte-stride names).
+   - [ ] Self-name anchor / shared-`.rdata` clusters to recover `Vt`.
+   - [ ] Re-run `xref_index.py`, `vtable_scan.py`, `solve_delta.py`, `func.py`.
+   - [ ] Timebox: if no base, continue data-side + hardware loop in parallel.
 2. **Gate 0b — tile payload grammar**
    - [x] All five targets rebuild byte-identically, including dense
      `B30R048R` (`EXP-2026-11-05-12`).

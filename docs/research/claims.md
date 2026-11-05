@@ -245,6 +245,13 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-244 | The navi/map modules have no export directory in `0x44xxxx–0x1952c88`. | VERIFIED (negative) | H | EXP-2026-11-05-11 |
 | C-245 | Import-descriptor candidates for navi modules are noisy/unverified; harden with ≥4 VA-like thunks + an IAT run into one of the 26 mapped modules. | OBSERVED | M | EXP-2026-11-05-11 |
 | C-246 | The readers are still not located; nothing about the data formats is contradicted. | UNKNOWN | — | EXP-2026-11-05-11 |
+| C-260 | The hardened import anchor returns 0 candidates: the ROM is pre-bound, so import directories are stripped. The round-6 import-anchor lead is retracted. | VERIFIED (negative) | H | EXP-2026-11-05-13 |
+| C-261 | The export anchor still holds (26 modules), but navi/map modules have no export directory in `0x44xxxx–0x1952c88`. | VERIFIED | H | EXP-2026-11-05-13 |
+| C-262 | The `o32_rom` section records do not cover the navi modules: no `dataptr` matches a known module file base. | VERIFIED (negative) | H | EXP-2026-11-05-13 |
+| C-263 | B/C builds differ by 4 bytes but lack build A's map code (`0xc42410`, `0xc438a4`); `0xc438a4` occurs 4× in A. B/C cannot pin A's map module. | VERIFIED | H | EXP-2026-11-05-13 |
+| C-264 | Map module `.text` is file `0xc00000–0xc4b000`; `.rdata` is file `0xdf6000` = VA `0x02df6000`; `Vt < 0x02df6000`. | VERIFIED | H | EXP-2026-11-05-13 |
+| C-265 | `jsr` targets at `0x02e0xxxx` belong to a different module (file `0xc00000`, delta `0x02200000`), not the map module. | VERIFIED | H | EXP-2026-11-05-13 |
+| C-266 | Next anchor: ROM module table at `0x15271c8` (16-byte-stride names), self-name literal and shared-`.rdata` clusters. | PLANNED | — | EXP-2026-11-05-13 |
 
 ## Validation / checksums
 

@@ -151,14 +151,36 @@ The 32-byte records are a **RAM copy list** (`srcVA`, `srcVA+0x70`, page-aligned
 `dstVA`, flags, timestamp ≈2011, size, VA). There is no file offset, sizes do
 not tile, and the value is not a CRC32. Retracted as a section-map lead.
 
-### Navi modules lack exports
+### Navi modules: neither export nor import anchor
 
 The navi/map modules are EXEs or non-exporting DLLs; there is no export
-directory in `0x44xxxx–0x1952c88`. The import-descriptor anchor is the way in,
-but the first pass is noisy (`Navi.exe`≈`0x8581f4`, `MapCC.DLL`≈`0xab79d4`,
-…), with unaligned bases and truncated names. Harden it by requiring
-`OriginalFirstThunk` to point at ≥4 VA-like thunks and the IAT to contain a
-run of VAs belonging to one of the 26 mapped modules.
+directory in `0x44xxxx–0x1952c88`.
+
+The hardened import anchor (aligned base, clean DLL name, ≥4 thunks, IAT run
+into a mapped module) returns **0 candidates**. Cause: this is a **pre-bound
+WinCE ROM** — `romimage` turns imports into direct calls, so import
+directories are stripped. Only 1,222 descriptor-shaped records exist and
+almost none are coherent; the earlier 380 candidates were coincidental.
+
+The section table does not cover these modules either (no `dataptr` matches a
+known module base). Builds B/C differ by 4 bytes but lack build A's map code,
+so they cannot pin A's map module.
+
+What is pinned down:
+
+- map module `.text` = file `0xc00000–0xc4b000`;
+- map module `.rdata` = file `0xdf6000` = VA `0x02df6000`;
+- therefore `Vt < 0x02df6000`; the `jsr` targets at `0x02e0xxxx` belong to a
+  different module (file `0xc00000`, delta `0x02200000`).
+
+**Next anchor:** the ROM module table at `0x15271c8`
+(`NaviSearchCC.dll`, `NaviDrawCC.dll`, `NaviStateCC.dll` back-to-back as
+16-byte-stride names), a self-name literal
+(`0x15271c8 − filebase + Vt`), and the shared-`.rdata` clusters.
+
+**Timebox:** if the next round does not recover a base, continue the
+data-side + hardware loop and treat reader-code cross-check as a parallel
+long-running task, not a gate.
 
 ### Readers are name-driven
 
@@ -235,12 +257,12 @@ round-trip validator for the whole-card feedback loop.
 
 ## Next steps
 
-1. **Harden the import anchor:** require `OriginalFirstThunk` to point at ≥4
-   VA-like thunks and the IAT to contain a run of VAs belonging to one of the
-   26 mapped modules.
-2. Recover the navi/map module bases; then re-run `xref_index.py`,
-   `vtable_scan.py`, `solve_delta.py`, `func.py`.
-3. Use builds B/C as a Rosetta stone if the anchor still fails.
-4. Then find `uncompress`/`.ind` callers, the tile reader and the `HDD_INFO`
-   comparator.
+1. **Decode the ROM module table at `0x15271c8`** (16-byte-stride names).
+   Success = `{name, VA, size}` with a 64 KiB-aligned VA matching a
+   prologue-dense file range.
+2. **Self-name anchor:** the literal pointing at `0x15271c8` is
+   `0x15271c8 − filebase + Vt`; score `Vt` against string-pointer clusters.
+3. **Shared-`.rdata` clusters:** enumerate them under the known deltas; `Vt`
+   follows if `.text` is adjacent to `.rdata` in VA.
+4. Then re-run the reader search and the format cross-check.
 5. Only then decide whether a custom QEMU machine is worth the effort.
