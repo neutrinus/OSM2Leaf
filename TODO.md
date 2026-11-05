@@ -339,7 +339,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-700–C-709
 
 - [ ] **M1.8 — SH-4 disassembly and xref helper**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/project-thread-wn7y0u · Critical: yes
   - Depends: —
   - Goal: one command answers "which code loads VA X" and "what does
     function Y call", the step every M2/M3 task needs.
