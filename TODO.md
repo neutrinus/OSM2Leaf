@@ -450,7 +450,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-790–C-799
 
 - [ ] **M2.9 — Error-screen catalogue from firmware strings**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.9-error-catalogue · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: for each error (`NAVI VERSION NG`, `DIFFERENT MAP CODE`, `MAP DATA
     BASE UNMATCH`, `SD UNLOCK NG`, others found), the module, string VA and
