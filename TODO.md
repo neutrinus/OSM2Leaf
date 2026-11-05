@@ -142,7 +142,7 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
   (`NaviMapCC.dll` `.data`, psize `0x2c6`, vsize `0x5b8`): try CE
   `CECompress`/LZX variants. *Done when* output length equals `vsize` and the
   bytes look like valid data. Alternative route: run the kernel's own ROM
-  decompressor from `nk.exe` under emulation (M8.4). Only RW data sections are
+  decompressor from `nk.exe` under emulation (M8.E1) or via L3 (M9.6). Only RW data sections are
   compressed; code is not (C-530).
 - [ ] **M1.3** Add `cerom.py decompress` and run it on all 245 sections.
   *Done when* every output length equals `vsize` (report failures).
@@ -268,36 +268,187 @@ Order inside a milestone matters; milestones M1–M4 can run in parallel.
 - [ ] **M7.5** User guide + risk statement; keep "research only" until M6.7
   has passed.
 
-#### M8 — Full-system emulation spike (optional, time-boxed)
+#### M8 — Full-system emulation (QEMU `ze0` machine)
 
-See [`docs/research/full-system-emulation.md`](docs/research/full-system-emulation.md)
-and EXP-2026-11-05-37. Stock QEMU's `sh7785` CPU already runs `nk.exe` into
-the scheduler (`tools/ce_qemu_probe.py`). Time box for M8.1–M8.3: one week;
-stop and record why if M8.3 is not reached.
+Background: [`docs/research/full-system-emulation.md`](docs/research/full-system-emulation.md),
+EXP-2026-11-05-37. Stock QEMU's `sh7785` CPU already runs `nk.exe` into the
+scheduler (`tools/ce_qemu_probe.py`). Stages: **F0** boot log → **F1** stable
+kernel → **F2** drivers loaded → **F3** SD mounted → **F4** `Navi.exe`
+headless → **F5** screen. Time box F0+F1: one week; stop and record why if F1
+is not reached. F2+ only after M8.D (decision). Rules for every task: the QEMU
+code lives in `tools/qemu-ze0/` as a patch/out-of-tree machine with no vendor
+bytes; each new register model cites the nk/driver code it was read from
+(VA via `cerom.py`); each stage ends with an EXP record.
 
-- [ ] **M8.1** Name the blocks the probe hits: read `OEMInit` and the
-  `0xffe70000`, `0xff802000`/`0xff804000` (INTC) and `0xfff80000` code in
-  `nk.exe`; add a register table to `docs/format/firmware.md`. *Done when*
-  each of the 50 probe addresses has a role or `UNKNOWN`.
-- [ ] **M8.2** `ze0` QEMU machine (F0): RAM from `0x08000000`, CCN/MMU and
-  cache arrays from `hw/sh4/sh7750.c`, `sh_serial` at `0xffe46000`, read-back
-  stubs, built-in CE image loader; keep the patch in `tools/qemu-ze0/` (no
-  vendor bytes). *Done when* the kernel passes the `0x5b90` kernel-page call
-  and, if retail output is enabled, prints its boot banner.
-- [ ] **M8.3** F1: INTC + TMU0 interrupt so the scheduler ticks. *Done when*
-  `filesys.exe` is started (visible in the debug log or via gdb).
-- [ ] **M8.4** Use the F1 kernel as a tool: run its ROM decompressor on all
-  245 compressed sections (cross-check M1.3) and dump `boot.hv`/`default.hv`
-  as loaded (IRQ numbers, driver base addresses). *Done when* outputs match
-  `vsize` and the hives parse.
-- [ ] **M8.5** Decide on F2–F4 (drivers, SD host model or HLE block driver,
-  headless `Navi.exe`): only if L3 (M2/M3) stalls on runtime state (COM
-  objects, threads). Re-estimate effort first. F5 (screen) is out of scope;
-  visual acceptance stays on the bench (M6).
+##### M8.A — F0: kernel boot log (step by step)
+
+- [ ] **M8.A1 Build env.** Script `tools/qemu-ze0/build.sh`: fetch a pinned
+  QEMU release (≥ 8.2), apply our patch, `configure --target-list=sh4-softmmu`,
+  build. *Done when* `qemu-system-sh4 -M ze0` lists the new machine.
+- [ ] **M8.A2 Machine skeleton** `hw/sh4/ze0.c`: CPU `sh7785`; RAM at phys
+  `0x08000000` (start with 128 MiB, `0x08000000`–`0x10000000`; grow if the
+  kernel probes above); alias the RAM in P1/P2 the same way `r2d` does;
+  unimplemented-device catch-all (`create_unimplemented_device`) over
+  `0xff800000`–`0xffffffff` and area 4/6 so unknown accesses log instead of
+  abort. *Done when* `ce_qemu_probe.py`'s access list is reproduced with
+  `-M ze0` and the same patch.
+- [ ] **M8.A3 Built-in loader** (`-kernel IMAGE`, options `kernel=0x3e00200`,
+  `app=0x200200`): parse `ECEC`/`ROMHDR` like `cerom.py`, copy B/C and A to
+  `physfirst & 0x1fffffff`, set PC to the `nk.exe` entry. Port the logic,
+  do not shell out. *Done when* booting needs no `-device loader` lines.
+- [ ] **M8.A4 CPU control block.** Factor the CCN/MMU part of
+  `hw/sh4/sh7750.c` (`PTEH`, `PTEL`, `TTB`, `TEA`, `MMUCR`, `CCR`, `EXPEVT`,
+  `INTEVT`, `TRA`, and the IC/OC/UTLB/ITLB address arrays at
+  `0xf0000000`–`0xf7ffffff`) into something `ze0` can instantiate without the
+  SH7750 peripherals. *Done when* `MMUCR` writes take effect and the
+  kernel-page call to VA `0x5b90` no longer faults.
+- [ ] **M8.A5 Boot-blocker stubs** (read-back registers with fixed reset
+  values): `0xffe70000` block (`+0x808` reads `0xc0000000`), CPG
+  `0xffc80000` (`MSTPCR*` read back, `MSTPACK` mirrors `MSTPCR`),
+  `0xfff80000`, `0xff200000` (UBC), area 6 `0x19300000`. Remove the
+  `--patch` need. *Done when* the unpatched kernel reaches the same point as
+  the patched probe.
+- [ ] **M8.A6 Debug serial.** Map QEMU `sh_serial` (SCIF mode) at
+  `0xffe46000` to `-serial stdio`; other SCIF channels to `null`. Check
+  whether the kernel ever calls the writer at `0x8804cfa4` (its pointer is
+  loaded at `0x8804ce78`); if retail output is disabled, find the flag and
+  record it (patch only in emulation, never on a card). *Done when* the
+  `Windows CE Kernel for Hitachi SH` / `Booting Windows CE version …` lines
+  appear on stdout, or an EXP shows why they cannot.
+- [ ] **M8.A7 Trace tooling.** `tools/qemu-ze0/run.sh` wrapper: `-d
+  unimp,guest_errors,int`, gdbstub, a log filter reusing
+  `ce_qemu_probe.summarize_log`, and a gdb script that prints the CE thread
+  list and the current module (`cerom.py` VA → module). *Done when* one
+  command boots and leaves a log + access summary in a work dir.
+- [ ] **M8.A8 EXP + docs.** Record F0 as an EXP; add a register table
+  (address, size, reset value, read from) to `docs/format/firmware.md`.
+
+##### M8.B — F1: stable kernel (interrupts and time)
+
+- [ ] **M8.B1 INTC** (`0xff802000`–`0xff802064`, `0xff804000`–`0xff804088`):
+  read `OEMInterruptEnable/Disable/Done` and the ISR (`VBR+0x600`) in nk;
+  name priority, mask-set (`+0x40`) and mask-clear (`+0x44`) registers and
+  the `INTEVT` codes. Model it in `ze0`. *Done when* a TMU0 interrupt is
+  delivered and acknowledged.
+- [ ] **M8.B2 TMU** (`0xffd80000` ch 0–2, `0xffd81000` ch 3–5): reuse
+  `hw/timer/sh_timer.c` with the right base/IRQs; find the tick rate from
+  the OAL. *Done when* the scheduler ticks (gdb shows `CurMSec` advancing)
+  and `OEMIdle` wakes.
+- [ ] **M8.B3 RTC / time** if the kernel reads one (look for
+  `OEMGetRealTime`). *Done when* the date read is deterministic.
+- [ ] **M8.B4 Boot arguments.** The kernel reads phys `0x08000020`–
+  `0x0800002b`: name the fields the IPL writes there (boot source, B/C
+  selection, flags). *Done when* documented and settable as `ze0` options.
+- [ ] **M8.B5 Milestone F1.** *Done when* `filesys.exe` and `device.exe`
+  start (log or gdb) and the kernel survives 60 s without a fault.
+
+##### M8.C — F2…F5: one task per peripheral
+
+Each task: read the driver's init path and its `MmMapIoSpace` / registry
+`IoBase`/`Irq` (after M8.E2), decide **stub** (driver initialises and fails
+gracefully), **model** (behaviour needed) or **HLE** (replace the driver's
+exported entry points by host code). *Done when* the driver's init returns
+without hanging boot, and the decision is recorded in the register table.
+
+| ID | Peripheral | Driver / evidence | Stage | First step |
+| --- | --- | --- | --- | --- |
+| M8.C1 | DMAC (`0xff801000`) + DMA mux/clock (`0xffc08000`) | `serial_scif`, `SDHC`, `wavessi*`, nk | F2/F3 | map channel registers from `SDHC.dll` (it needs DMA first) |
+| M8.C2 | SCIF ch 0–7 (`0xffe40000`–`0xffe48000`) | `serial_scif` (`SCIF0`…`SCIF7`, `SCIFH`, `Scif3SendThread`) | F2 | which channel talks to which chip; reuse `sh_serial` |
+| M8.C3 | External UARTs (`0x19b00000`–`0x19e00000`) | `serial_uat` | F2/F4 | identify the UART type (16550-like?) from register use |
+| M8.C4 | Vehicle micon / power state | `PowerMonitor`, `ActivateCtlDriver`, `IOLIB`, `VIN`, `SYS_INF` | F2/F4 | find the boot handshake (ACC/ignition, "system ready"); script replies |
+| M8.C5 | CAN (`0x19400000` area) | `CAN.dll` (`VCAN_R_VDC`, …) | F4 | is CAN a register block or a sub-micon over serial? list the frames the app waits for |
+| M8.C6 | GPIO (`0xffc41000`–`0xffc43000`, `0x19400000`) | `GPIO.dll` | F2 | pin roles from callers (power, mute, reset lines) |
+| M8.C7 | I²C (`0xffc71000`) | `I2C.dll` | F2 | which devices are on the bus (tuner, audio DSP, display?) |
+| M8.C8 | NOR flash / settings | `flash.dll`, `FlashManager.dll` (`0x09b40000` buffer), `UpdateNK.skn` | F2 | find the flash window; model CFI flash with an empty/erased image |
+| M8.C9 | Battery-backed RAM | `VSram.dll` (`0x09a40000`, `0x09ac0000`) | F2 | plain RAM with persistence file |
+| M8.C10 | **SD host** (`0xffe4c000`, `0xffe4d000`) | `SDHC.dll`, `SdCardLch.exe`, `fatfsd`, `mspart` | **F3** | read `SDHC.dll` command path; choose model (+ QEMU `sd-card` backed by the image) vs HLE block driver; *done when* `\Storage Card`-style volume lists the map tree |
+| M8.C11 | Card identity (SD lock / CID) | `SdCardLch`, `Navi.exe` `HDD_INFO` | F3/F4 | does the firmware read CID/CSD? the model must return the real card's values (record from bench) |
+| M8.C12 | USB host (OHCI, phys `0x07ff0000`?) | `UsbOhci`, `usbd`, `usbhid` (image C) | F2 | stub "no device" |
+| M8.C13 | Audio: SSI (`0xffe00000`), DSP, beep, mute | `wavessi1/2`, `DspDrv`, `BeepDrv`, `MuteDrv`, `anwdrv` | F2 | stub; capture PCM to a file later |
+| M8.C14 | Timers for GPS/odometer (`0xffc5a000`, `0xffc5b000`) | `navdrv`, `kepdrv` (`KEPI:TmuStcon…`) | F4 | feed constant speed pulses; find gyro/ADC inputs |
+| M8.C15 | GPS receiver | `navdrv` (`0x19800000`), a SCIF channel | F4 | NMEA or baseband? replay a fixed position |
+| M8.C16 | FM multiplex / RDS-TMC (`0xffc55000`) | `fmmdrv` | F4 | stub "no signal" |
+| M8.C17 | Bluetooth, telematics, DTV, beacon | `BT_*`, `COMD/COMH/FOMAB`, `dtvdrv`, `bcndrv`, `Bolero` (`0x19a00000`) | F4 | stub "not present"; verify the app tolerates it |
+| M8.C18 | **Display controller / LCD** | `lcddrv`, `gdisubdrv`, `ddddifull`, `auirtdll` | **F4/F5** | find the frame-buffer address and pixel format; expose it as a QEMU display surface (dumb FB first) |
+| M8.C19 | **2D/3D graphics engine** (area 4, `0x10000000`?) | `gdisubdrv`, `ddddifull`, `DspDrv` | **F5** | list registers and command lists; decide if a minimal model can draw the map or if F5 stops here |
+| M8.C20 | **Touch panel and keys** | `kepdrv`, `auiapp`, `hidparse` | F5 | find the input path (ADC touch vs micon key frames); inject events from QEMU input |
+| M8.C21 | Video input / camera | `VIN.dll`, `CameraCC` | F5 | stub "no signal" |
+| M8.C22 | Watchdog / reset | search nk/`PowerMonitor` for WDT | F1/F2 | stub that never fires; log kicks |
+
+##### M8.D — Decision gates
+
+- [ ] **M8.D1** After F1: continue to F2/F3 only if L3 (M9) is blocked by
+  runtime state, or an automatic regression loop without hardware is wanted.
+  Re-estimate F2–F4 with the register table. Record the decision.
+- [ ] **M8.D2** After F3: go to F4 only if the micon/CAN handshake (M8.C4/C5)
+  looks scriptable. F5 stays out of scope unless M8.C19 shows a simple
+  frame-buffer path.
+
+##### M8.E — Use the running kernel as a tool
+
+- [ ] **M8.E1** Run the kernel's ROM decompressor on all 245 compressed
+  sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
+- [ ] **M8.E2** Dump the registry as loaded (`boot.hv`, `default.hv`,
+  `user.hv`): driver list, `IoBase`, `Irq`, load order. Feeds every M8.C task.
+- [ ] **M8.E3** Dump fully loaded process images (`Navi.exe` + DLLs) after
+  init, for the M9 harness (initialised globals, COM objects).
+
+#### M9 — L3 toolkit: run firmware functions against our data
+
+Design and usage: [`docs/research/l3-ghidra.md`](docs/research/l3-ghidra.md).
+Goal: one command runs a named firmware function (or call chain) on a test
+file and prints a JSON verdict, so every format change can be checked against
+the real reader. Code in `tools/l3/`; pure-Python parts covered by
+`tools/selftest.py`.
+
+- [ ] **M9.1 Module map.** `cerom.py memmap --image A,B` → JSON (one block per
+  `o32`: module, section, `realaddr`, size, file offset, compressed flag,
+  `rwx`). Shared by the Ghidra loader, the QEMU engine and the stub table.
+  *Done when* every A+B section is listed and a selftest checks the format
+  on a synthetic ROM.
+- [ ] **M9.2 Ghidra project builder.** `tools/l3/ghidra_import.py`
+  (pyghidra, headless): create a project with all A+B sections at their VAs,
+  name every export (`cerom.py exports`), label IAT thunks (M1.6), apply the
+  SH-4 calling convention. *Done when* `Navi.exe` shows `OBJDLL!…` calls and
+  the `HDD_INFO` string xref at `0x004e7d28`.
+- [ ] **M9.3 Stub table.** `tools/l3/coredll_stubs.py`: Python
+  implementations of the `COREDLL` exports the readers use (file I/O over a
+  virtual FS, `LocalAlloc`/`malloc` heap, string/`sprintf`, critical
+  sections as no-ops, `GetTickCount` fixed, registry from a JSON fixture).
+  Stubs are keyed by export name and bound to VAs from M9.1. Unknown export
+  ⇒ stop with "missing stub: NAME". *Done when* a selftest calls each stub
+  through the dispatcher.
+- [ ] **M9.4 Engine interface** `tools/l3/engine.py`: `map(blocks)`,
+  `write/read mem`, `set_regs`, `call(va, args)`, `on_exec(va, handler)`.
+  Two back ends: Ghidra P-code (`EmulatorHelper`, for stepping and
+  inspection) and QEMU (`ze0` or `-M none` + gdbstub, for speed). *Done when*
+  both run a synthetic SH-4 snippet (add, loop, call to a stub) with
+  identical results.
+- [ ] **M9.5 Runner CLI** `tools/l3/run.py FUNC --input FILE [--engine
+  ghidra|qemu] [--json]`: FUNC from a registry of named targets
+  (`tools/l3/targets.json`: VA, prototype, setup, expected outputs).
+  Output JSON: `accepted`, return value, stub call log, output buffers
+  digest, instruction count. *Done when* a target runs end-to-end.
+- [ ] **M9.6 First target: compressed data decompressor** (if M1.2 is still
+  open) or the `HDD_INFO` comparator (M2.2), whichever is located first.
+- [ ] **M9.7 Corpora.** Wire `tools/hddinfo_variants.py` (89 files),
+  `tools/ind_mutate.py` (8 variants), `DRSTR` and tile mutations into
+  `tools/l3/corpus.py`; each case carries the Python reader's expected
+  verdict. *Done when* `run.py --corpus hddinfo` prints a table firmware vs
+  Python.
+- [ ] **M9.8 `l3check.py`** (L3 level of the verification ladder, next to
+  `cardcheck`/`l2check`): run all targets on a card root, exit non-zero on
+  any firmware/Python disagreement. Add it to AGENTS.md "Verification
+  ladder" once it runs. *Done when* it passes on the EU 2011 root.
+- [ ] **M9.9 Documentation.** Keep `l3-ghidra.md` "How to use L3" current:
+  setup, adding a target, adding a stub, reading a JSON result, known
+  limits. Each target gets an EXP the first time it runs.
 
 **Critical path:** M1.2–M1.3 → M2.1–M2.3 (what makes the unit accept a
 card) → M3.1–M3.5 (what the unit reads) → M5.4 → M6.5–M6.6. M4 feeds M5 in
-parallel. Anything that needs hardware (M6.2–M6.7) is last.
+parallel. Anything that needs hardware (M6.2–M6.7) is last. M9 (L3 toolkit)
+is how M2.4, M3.3 and M6.1 get done; M8.A–B (boot log, stable kernel) is a
+parallel time-boxed track that also feeds M1.3 and M9 (M8.E).
 
 ### Step 2 — turn the ROM into Ghidra-ready modules (if Step 1 holds)
 

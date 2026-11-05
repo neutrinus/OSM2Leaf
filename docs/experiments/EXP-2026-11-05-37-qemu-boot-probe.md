@@ -180,8 +180,8 @@ C-530…C-537, TODO M8.
 
 ## Follow-ups
 
-- [ ] M8.1: `ze0` QEMU machine to F0 (debug log).
-- [ ] M8.2: INTC + TMU for F1.
+- [ ] M8.A: `ze0` QEMU machine to F0 (debug log).
+- [ ] M8.B: INTC + TMU for F1.
 - [ ] Find the kernel-page setup and `OEMInit` in `nk.exe` and name the
   `0xffe70000` block.
 - [ ] Read the IPL handshake area `0x08000020`–`0x0800002b` (boot arguments?).

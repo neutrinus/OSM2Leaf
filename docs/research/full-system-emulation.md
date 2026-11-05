@@ -198,7 +198,7 @@ for the HLE harness.
    the `HDD_INFO` code → run it under the harness with
    `tools/hddinfo_variants.py`. Build the harness so that the engine is
    swappable (Ghidra now, QEMU-gdbstub when speed matters).
-2. **Full-system spike, time-boxed to one week** (TODO M8.1–M8.3): reach F0,
+2. **Full-system spike, time-boxed to one week** (TODO M8.A–M8.B): reach F0,
    then F1. Deliverables: a `ze0` QEMU machine (out-of-tree patch in
    `tools/qemu-ze0/`), the kernel log, and a peripheral-register table in
    `docs/format/firmware.md`. Stop if F1 is not reached within the box and
