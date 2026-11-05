@@ -85,3 +85,4 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-11](EXP-2026-11-05-11-firmware-exports.md) | Export anchors and the RAM copy list | done (26 modules mapped; navi modules open) |
 | [EXP-2026-11-05-12](EXP-2026-11-05-12-tile-dense-roads.md) | Dense tile, roads and streaming writer | done (container); roads partial |
 | [EXP-2026-11-05-13](EXP-2026-11-05-13-firmware-import-anchor.md) | Import anchor fails; ROM module table next | done (navi base still open) |
+| [EXP-2026-11-05-14](EXP-2026-11-05-14-firmware-static-va.md) | Static VA recovery is exhausted | done (method change) |

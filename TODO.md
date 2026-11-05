@@ -28,13 +28,15 @@ OSM only after that.
    - [x] Export anchor works: 26 modules mapped, `file = Fb + RVA`.
    - [x] Hardened import anchor: 0 candidates — pre-bound WinCE ROM strips
      imports (retracted).
-   - [ ] Decode the ROM module table at `0x15271c8` (16-byte-stride names).
-   - [ ] Self-name anchor / shared-`.rdata` clusters to recover `Vt`.
-   - [ ] Re-run `xref_index.py`, `vtable_scan.py`, `solve_delta.py`, `func.py`.
+   - [x] ROM module table / self-name / adjacency routes: all refuted
+     (`EXP-2026-11-05-14`).
+   - [x] Static VA recovery from this image is exhausted.
    - [ ] Firmware RE is the **primary path** (decision 2026-11-05): continue
      until the readers define the data contract. No timebox.
-   - [ ] Independently trace the readers from known functions (`0xc438a4`,
-     `0xc0ebf8`, `0xc48380`) via the call graph, not only via module bases.
+   - [ ] Relative call-graph tracing from `0xc438a4`, `0xc0ebf8`, `0xc48380`.
+   - [ ] Ghidra P-code/emulation on selected routines.
+   - [ ] Hardware/dynamic tracing (JTAG/serial or spare-card loop) if static
+     relative tracing stalls.
 2. **Gate 0b — tile payload grammar**
    - [x] All five targets rebuild byte-identically, including dense
      `B30R048R` (`EXP-2026-11-05-12`).

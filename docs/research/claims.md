@@ -252,6 +252,12 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-264 | Map module `.text` is file `0xc00000–0xc4b000`; `.rdata` is file `0xdf6000` = VA `0x02df6000`; `Vt < 0x02df6000`. | VERIFIED | H | EXP-2026-11-05-13 |
 | C-265 | `jsr` targets at `0x02e0xxxx` belong to a different module (file `0xc00000`, delta `0x02200000`), not the map module. | VERIFIED | H | EXP-2026-11-05-13 |
 | C-266 | Next anchor: ROM module table at `0x15271c8` (16-byte-stride names), self-name literal and shared-`.rdata` clusters. | PLANNED | — | EXP-2026-11-05-13 |
+| C-270 | `0x15271c8` is not a module table: it is 4-byte-aligned packed module-name strings in a resource blob, padded to 4/16 bytes. | VERIFIED (negative) | H | EXP-2026-11-05-14 |
+| C-271 | Self-name anchor cannot apply: the navi name strings belong to a different module; only 12 scattered hits, no ≥4-pointer cluster. | VERIFIED (negative) | H | EXP-2026-11-05-14 |
+| C-272 | Adjacency `Vt=0x02dab000` is wrong (830 literals point at embedded PNG data); the call-target scan is flat (18/1122 prologues). | VERIFIED (negative) | H | EXP-2026-11-05-14 |
+| C-273 | The `0x1952b00` field `+0x10` is a Unix timestamp (2011-06-22…07-29), not a checksum; the round-6 checksum claim is retracted. | VERIFIED | H | EXP-2026-11-05-14 |
+| C-274 | The round-2 “call-to-string paradox” is withdrawn: `0x02200000` is plausible as the code delta, though not proven. | OBSERVED | M | EXP-2026-11-05-14 |
+| C-275 | Static VA recovery from this image is exhausted; reader work must shift to relative call-graph tracing or hardware/dynamic tracing. | VERIFIED (negative) | H | EXP-2026-11-05-14 |
 
 ## Validation / checksums
 

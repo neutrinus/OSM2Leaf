@@ -173,10 +173,21 @@ What is pinned down:
 - therefore `Vt < 0x02df6000`; the `jsr` targets at `0x02e0xxxx` belong to a
   different module (file `0xc00000`, delta `0x02200000`).
 
-**Next anchor:** the ROM module table at `0x15271c8`
-(`NaviSearchCC.dll`, `NaviDrawCC.dll`, `NaviStateCC.dll` back-to-back as
-16-byte-stride names), a self-name literal
-(`0x15271c8 − filebase + Vt`), and the shared-`.rdata` clusters.
+### Static VA recovery is exhausted
+
+The three remaining static routes also fail:
+
+- `0x15271c8` is **not** a module table: it is 4-byte-aligned packed
+  module-name strings in a resource blob (padding was mistaken for a stride);
+- the self-name anchor cannot apply because the navi names belong to a
+  different module;
+- adjacency (`Vt = 0x02dab000`) is wrong — 830 literals there point at embedded
+  PNG data — and the call-target scan is flat (18/1122 prologues).
+
+The map module's placement metadata is not present in a statically
+recoverable form in this image. The method changes to **relative call-graph
+tracing from known functions** and, if needed, hardware/dynamic tracing. QEMU
+does not help: the blocker is placement metadata, not instruction semantics.
 
 **Decision (2026-11-05): firmware RE is the primary path.** The reader code
 defines the data contract, so the module-base search continues until the
@@ -258,12 +269,15 @@ round-trip validator for the whole-card feedback loop.
 
 ## Next steps
 
-1. **Decode the ROM module table at `0x15271c8`** (16-byte-stride names).
-   Success = `{name, VA, size}` with a 64 KiB-aligned VA matching a
-   prologue-dense file range.
-2. **Self-name anchor:** the literal pointing at `0x15271c8` is
-   `0x15271c8 − filebase + Vt`; score `Vt` against string-pointer clusters.
-3. **Shared-`.rdata` clusters:** enumerate them under the known deltas; `Vt`
-   follows if `.text` is adjacent to `.rdata` in VA.
-4. Then re-run the reader search and the format cross-check.
-5. Only then decide whether a custom QEMU machine is worth the effort.
+Firmware RE remains the primary path, but **not** via static VA recovery.
+
+1. **Relative call-graph tracing:** expand outward from `0xc438a4` (CMP.LST),
+   `0xc0ebf8` (0x1ac), `0xc48380` (message catalogue) using file offsets and
+   relative `jsr` targets.
+2. **Ghidra P-code / emulation** on selected routines to recover structure
+   offsets and buffer sizes.
+3. **Hardware/dynamic tracing** (JTAG/serial or a spare-card trial loop) if
+   static relative tracing stalls.
+4. Cross-check any reader against the data contract; keep the data-side facts
+   as the current contract until then.
+5. QEMU remains out of scope for this blocker.
