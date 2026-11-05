@@ -599,7 +599,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-920–C-929
 
 - [ ] **M4.5 — `MMAIN001.DAT` meaning and writer**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.5-mmain001 · Critical: no
   - Depends: —
   - Done when: a writer reproduces the 4,096-byte file (11 entries)
     byte-identically and every field has a meaning or `UNKNOWN`.
