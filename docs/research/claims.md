@@ -218,6 +218,12 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-206 | No runtime map-content checksum beyond zlib Adler-32; the ASN.1/crypto provider is not linked to the map path. | VERIFIED | H | xref/call scan |
 | C-207 | fd field `+0xC4` is a type tag (switch 7…15), not `hcxcmp`. | VERIFIED | H | decompilation |
 | C-208 | `DRSTR` layout is confirmed file-side but the parser code is silent (no 40-byte stride multiply in the map module). | VERIFIED / UNKNOWN | H | file arithmetic + code scan |
+| C-220 | `obj+0x78…+0x9c` is a **message catalogue**, not a vtable: the stored values are string pointers. Image-wide there are 28 dispatches through those slots, but zero in the map module; the map module dispatches through `+0x04/+0x08/+0x18`. | VERIFIED | H | EXP-2026-11-05-09 |
+| C-221 | The four functions `0xc412ca`/`0xc42a7a`/`0xc42ba6`/`0xc42e30` are read-only classifiers, not fd writers. The struct is a state descriptor keyed by `(0xAC,0xB4,0xB8)`; `+0xC4` is a separate type tag. | VERIFIED | H | EXP-2026-11-05-09 |
+| C-222 | File `0x877740` holds `Lib.out32.dll` and a string table with data delta `0x01e00000`; it contains a zlib copy (`z_errmsg` strings). Its code delta is unknown. | OBSERVED | H | EXP-2026-11-05-09 |
+| C-223 | The `HDD_INFO` comparison function is not located; the `shll2`-scaled index into `0xa9cf8c` is missing. Best candidate caller is `0x132e06c` (delta `0x2180000`), unproven. | UNKNOWN | — | EXP-2026-11-05-09 |
+| C-224 | No 40-byte stride, `mov #5`+`shll3`, or `0x28` multiply exists in the payload; the DRSTR parser is not located from code. | VERIFIED (negative) | H | EXP-2026-11-05-09 |
+| C-225 | The tile reader is not located; it depended on the non-existent vtable. Only the `MAP_DATA`/`MESH_ID` strings and the `0x1ac` allocation remain. | UNKNOWN | — | EXP-2026-11-05-09 |
 
 ## Validation / checksums
 

@@ -19,10 +19,14 @@ OSM only after that.
      references; readers are name-driven via `DRSTR`/`CMP.LST`.
    - [x] Map-code check: textual `HDD_INFO` field comparison; `0x06000000`
      copy is likely the system-side reference.
-   - [ ] Anchor on `obj+0x78…+0x9c` and walk to the `.ind` parser.
-   - [ ] Decompile fd setters `0xc412ca`, `0xc42a7a`, `0xc42ba6`, `0xc42e30`;
-     find the `.cmp`/zlib entry.
-   - [ ] Find the `HDD_INFO` comparison (`shll2` index into `0xa9cf8c`).
+   - [x] Retracted: `obj+0x78…+0x9c` is a message catalogue, not a vtable;
+     the four fd functions are classifiers, not writers.
+   - [ ] Pin the `Lib.out32.dll` code delta (data delta `0x01e00000`) and hunt
+     `uncompress(dst,&len,src,srclen)`.
+   - [ ] Find `.ind` by allocation shape: `mov #1; shll16` + `shll2` + call,
+     across the whole payload.
+   - [ ] Resolve the `HDD_INFO` caller around `0x132e06c` and map six lines
+     to fields.
 2. **Gate 0b — tile payload grammar**
    - [x] Clean tiles: `B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R` rebuild
      byte-identically; viewer renders coast/land (`tools/ze0-viewer/`).

@@ -107,8 +107,22 @@ pointer slots resolve to real strings.
 | `0xc438a4` | opens `\CMP.LST` (only such site) and returns the handle |
 | `0xc42520` | file-descriptor dump; `+0xC4` is a **type tag** (switch 7…15), not `hcxcmp` |
 | `0xc426a4` | directory-info dump (`dir cnt`, `file cnt`) |
-| `0xc48380` | installs `MAP_DATA READ START/END` / `RGD_DATA READ START/END` |
+| `0xc48380` | writes message-catalogue strings (`MAP_DATA READ`, `DBgetLnk`, …), **not** a DB vtable |
 | `0xc0ebf8` | allocates `0x1ac` (the level-table size) |
+
+**Retraction:** `obj+0x78…+0x9c` is a **message catalogue**, not a vtable; every
+stored value is a string pointer. The four functions `0xc412ca`/`0xc42a7a`/
+`0xc42ba6`/`0xc42e30` are read-only classifiers, not fd writers. The struct is
+a state descriptor keyed by `(0xAC,0xB4,0xB8)`; `+0xC4` is a separate type tag.
+Image-wide, 28 dispatches through `+0x78…+0x9c` exist, but zero in the map
+module; the map module dispatches through `+0x04/+0x08/+0x18`.
+
+### New anchor: `Lib.out32.dll`
+
+File `0x877740` holds UTF-16 `Lib.out32.dll` and a string-pointer table with
+data delta `0x01e00000`. Four entries land on a zlib copy's `z_errmsg` strings
+(`need dictionary`, `file error`, `stream error`, `buffer error`). The module's
+**code delta is unknown**, so the decompressor itself is not reached yet.
 
 ### Readers are name-driven
 
@@ -148,8 +162,10 @@ SD Import : application type not correct.
 
 The image embeds a byte-identical `HDD_INFO.TXT` at `0x06000000`; it is
 probably the system-side reference. The exact line↔field mapping is unknown.
-The literal `"DIFFERENT MAP CODE"` is absent from build A; nearest hits are
-unrelated.
+The comparison function is not located; the `shll2`-scaled index into
+`0xa9cf8c` is missing, and the best candidate caller is `0x132e06c`
+(delta `0x2180000`, unproven). The literal `"DIFFERENT MAP CODE"` is absent
+from build A; nearest hits are unrelated.
 
 No runtime map-content checksum was found beyond zlib Adler-32. A generic
 ASN.1/crypto provider exists (`0x1668070`, `md5WithRSASignature`, `desEDE`, …)
@@ -183,12 +199,12 @@ round-trip validator for the whole-card feedback loop.
 
 ## Next steps
 
-1. **Descriptor struct:** find `jsr @rN` where `rN` is loaded from
-   `obj+0x78…+0x9c`; walk to the `.ind` parse.
-2. **fd setters:** decompile `0xc412ca`, `0xc42a7a`, `0xc42ba6`, `0xc42e30`;
-   locate the `.cmp`/zlib entry.
-3. **HDD_INFO comparison:** find the `shll2`-scaled index into the table at
-   `0xa9cf8c` and its caller; map the six lines to fields.
+1. **Pin the `Lib.out32` code delta** (data delta `0x01e00000`) and hunt
+   `uncompress(dst,&len,src,srclen)` in that module.
+2. **Find `.ind` by allocation shape:** `mov #1,rN; shll16` + `shll2` + call,
+   searched across the whole payload (not just the map module).
+3. **Resolve the `HDD_INFO` caller** via `shll2` + table base around
+   `0x132e06c`; map the six lines to fields.
 4. Find `inflate`/`uncompress` callers and the `.ind` parser.
 5. Diff builds A/B/C for the unit-ID → build selection logic.
 6. Only then decide whether a custom QEMU machine is worth the effort.
