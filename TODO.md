@@ -357,6 +357,64 @@ See [`docs/research/build-profiles.md`](docs/research/build-profiles.md) and
 - [ ] Test in the car; record every screen/error message.
 - [ ] Document recovery steps.
 
+## P7 — firmware recovery via standard CE ROM format
+
+Do not continue the old global-VA/delta guessing. Use the Clarion wrapper’s
+standard Windows CE ROM segment header instead.
+
+- [ ] Extract the firmware segment starting at image offset `0x00200200`
+  (ECEC at `+0x40`, `pTOC = 0x8e232978`, size `0x01751978`) with a CE ROM
+  parser such as `extract-wince-rom` or equivalent `B000FF`/NB0/XIP logic.
+- [ ] Validate the extracted TOC: module count, file count, `physfirst/physlast`,
+  copy entries, and module names (`Navi.exe`, `Navi*CC.dll`, `OBJDLL`,
+  `STDDLL`).
+- [ ] Reconstruct each module as a PE for Ghidra and record file/VA bases.
+- [ ] Locate the `.cmp`/`.ind` reader, `DRSTR001.DAT` parser, tile reader and
+  `CMP.LST` path builder in the extracted modules.
+- [ ] Locate the map-code comparator and the `HDD_INFO` open/split/parse path.
+- [ ] Build L3 function-level emulation for at least one reader, with mock
+  WinCE file I/O and a fixed corpus.
+- [ ] Add reproducible firmware-analysis scripts to `tools/` instead of ad-hoc
+  `/tmp` scripts; record commands in `EXP-...`.
+
+## P8 — documentation and claim hygiene
+
+- [ ] Correct stale firmware claims:
+  - `claims.md` C-068 and C-182 (`0xc438a4` as `CMP.LST` opener),
+  - `roadmap.md` reader-path row,
+  - TODO entries that say static VA recovery is still the active route.
+- [ ] Mark old VA/delta experiments as superseded by the CE ROM-segment
+  recovery path.
+- [ ] Add an experiment record for the ECEC/pTOC recovery and any extracted
+  module analysis.
+- [ ] Keep `claims.md` as the single source of truth when correcting hypotheses.
+
+## P9 — narrow OSM compiler vertical slice
+
+Use `tools/ze0-viewer/vendor/osm2clarion` as the base rather than reimplementing
+its tile writer.
+
+- [ ] Select one target tile and one profile (`dolnoslaskie-detail` or a tiny
+  test profile).
+- [ ] Generate roads/coast/landuse for that tile from OSM.
+- [ ] Preserve factory REFER/ADDRE/POI data in the first slice.
+- [ ] Rebuild `DRSTR001.DAT` and `MMAIN001.DAT`.
+- [ ] Run L1 and L2 on the rebuilt card.
+- [ ] Implement a ZE0 section-4 encoder or explicitly document why section 4 is
+  preserved verbatim.
+- [ ] Decode and validate road classes, names, one-way and speed attributes.
+- [ ] Decide the address/POI import strategy after the first tile passes.
+
+## P10 — differential and hardware validation
+
+- [ ] Compare 2011/2014/2016 tiles, section 4 and REFER to identify map-code and
+  activation-related fields.
+- [ ] Prepare a spare-card matrix: whole-card clone, no-op recompression, then
+  same-length POI rename.
+- [ ] Run the `HDD_INFO` variant matrix and record every accepted/rejected case.
+- [ ] Record SD lock, map-code and any map-data error behaviour.
+- [ ] Keep the original card read-only and test only on spare media.
+
 ## Documentation / housekeeping
 
 - [ ] Add a `docs/format/rdstm.md` once `RDSTM001` is decoded.
