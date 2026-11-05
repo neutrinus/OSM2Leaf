@@ -149,6 +149,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
 - [OSM data pipeline](docs/research/osm-pipeline.md)
 - [Data coverage: factory map vs OSM](docs/research/data-coverage.md)
 - [Build profiles: user-selectable maps](docs/research/build-profiles.md)
+- [Minimal-change experiment](docs/research/minimal-change.md)
 - [Open questions](docs/research/open-questions.md)
 - [Data handling and licensing](docs/legal.md)
 

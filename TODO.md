@@ -131,8 +131,11 @@ Three agents are investigating these; merge their results here when done.
 - [ ] Implement a `DRSTR001.DAT` writer and verify re-parse equality.
 - [ ] Implement a tile container writer for an unchanged tile.
 - [ ] Determine all checksums/signatures and where they are stored.
-- [ ] Build a minimal synthetic change (e.g. one renamed POI) and validate it
-  offline by re-reading with our own tools.
+- [x] Build a minimal synthetic change (same-length POI rename in
+  `POINT032.DAT`) and validate it offline: size unchanged, page-confined,
+  DRSTR unchanged, 1/1 verify (`docs/research/minimal-change.md`).
+- [ ] Run the no-op recompression control on the **US** card/unit.
+- [ ] Run the rename test on a spare card; record screens and rollback.
 
 ## P4b — emulation / feedback loop
 

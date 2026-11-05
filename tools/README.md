@@ -88,6 +88,25 @@ python3 tools/mesh_grid.py matrix MAPAL001
 python3 tools/mesh_grid.py cell B48R058
 ```
 
+## REFER mutation helpers
+
+```bash
+# List Latin-1 names inside inner zlib pages
+python3 tools/scan_refer_names.py POINT032.DAT.cmp --min 8
+
+# Same-length POI rename (writes a new .cmp/.ind pair)
+python3 tools/mutate_refer_poi.py POINT032.DAT.cmp POINT032.DAT.ind /tmp/mut \
+    --page 0x4200 --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE"
+
+# Offline acceptance check
+python3 tools/validate_mutation.py REFER001 /tmp/mut POINT032.DAT \
+    --page 0x4200 --drstr DRSTR001.DAT --inner-page 0x4200
+```
+
+`mutate_refer_page.py` applies a same-length in-page byte patch (e.g. a
+coordinate nudge). `drstr_ze0.py` is the reader/writer helper used by the
+validator. See [`../docs/research/minimal-change.md`](../docs/research/minimal-change.md).
+
 ## `selftest.py`
 
 Runs synthetic tests for `cmpind.py` and `drstr.py` without any vendor data:
