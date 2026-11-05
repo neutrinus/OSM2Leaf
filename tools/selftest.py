@@ -16,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import cardcheck  # noqa: E402
 import cmpind  # noqa: E402
 import drstr  # noqa: E402
 import mesh_grid  # noqa: E402
@@ -99,10 +100,101 @@ def test_mesh_grid() -> None:
     assert abs(lon_max - 20.0) < 1e-9
 
 
+def _lfn_entry(seq: int, text: str) -> bytes:
+    entry = bytearray(32)
+    entry[0] = seq
+    entry[11] = 0x0F
+    raw = text.encode("utf-16le")
+    if len(raw) < 26:
+        raw += b"\x00\x00"
+    raw = raw[:26].ljust(26, b"\xff")
+    entry[1:11] = raw[:10]
+    entry[14:26] = raw[10:22]
+    entry[28:32] = raw[22:26]
+    return bytes(entry)
+
+
+def _short_entry(name: str, attr: int = 0x20, cluster: int = 0, size: int = 0) -> bytes:
+    entry = bytearray(32)
+    encoded = name.encode("ascii")
+    entry[0:11] = encoded.ljust(11, b" ")[:11]
+    entry[11] = attr
+    struct.pack_into("<H", entry, 20, cluster >> 16)
+    struct.pack_into("<H", entry, 26, cluster & 0xFFFF)
+    struct.pack_into("<I", entry, 28, size)
+    return bytes(entry)
+
+
+def test_cardcheck_helpers() -> None:
+    # Level table: one section, one row.
+    table = struct.pack(">HBBBBH", 1, 1, 1, 2, 0x91, 123)
+    groups = cardcheck.parse_level_table(table, 0)
+    assert groups == [
+        {"section": 1, "rows": [{"level": 2, "type": 0x91, "count": 123}]}
+    ]
+
+    # Common header fields.
+    header = bytearray(0x180)
+    for off, text in (
+        (0x00, "CLARION"),
+        (0x40, "HITACHI"),
+        (0x80, "CLA-NAVI05-01"),
+        (0xA0, "FORMAT VERSION X08-02-00"),
+        (0xE0, "DATA VERSION 11/06/27/01"),
+    ):
+        raw = text.encode("utf-16-be")
+        header[off : off + len(raw)] = raw
+    fields = cardcheck.header_fields(bytes(header))
+    assert fields["clarion"] == "CLARION"
+    assert fields["model"] == "CLA-NAVI05-01"
+    assert fields["format"] == "FORMAT VERSION X08-02-00"
+
+    # LFN + short entry.  The card's WinCE FAT checksums do not match the
+    # standard algorithm, so the parser deliberately trusts a contiguous
+    # sequence instead.
+    directory = _lfn_entry(0x41, "TESTFILE.TXT") + _short_entry(
+        "TESTFI~1TXT", size=42
+    )
+    entries = cardcheck.parse_dir_entries(directory)
+    assert len(entries) == 1
+    assert entries[0]["name"] == "TESTFILE.TXT"
+    assert entries[0]["size"] == 42
+
+    # .cmp/.ind decode helper.
+    chunk0 = b"A" * 0x10000
+    chunk1 = b"B" * 100
+    stream0 = zlib.compress(chunk0)
+    stream1 = zlib.compress(chunk1)
+    packed = stream0 + stream1
+    ind = (
+        struct.pack("<IIII", len(chunk0) + len(chunk1), len(packed), 2, 0x10000)
+        + struct.pack("<II", 0, len(stream0))
+    )
+    blob, info = cardcheck.decode_cmp(packed, ind)
+    assert blob == chunk0 + chunk1
+    assert info["chunks"] == 2
+
+    # Logical listing: .cmp/.ind maps to the .ind uncompressed size; DRSTR
+    # itself and .ind files are not logical entries.
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "A.DAT.cmp").write_bytes(b"x")
+        (root / "A.DAT.ind").write_bytes(struct.pack("<I", 100))
+        (root / "B.DAT").write_bytes(b"12345")
+        (root / "DRSTR001.DAT").write_bytes(b"x")
+        source = cardcheck.RootSource(root)
+        listing = cardcheck.logical_listing(source, "")
+        assert set(listing) == {"A.DAT", "B.DAT"}
+        assert listing["A.DAT"].size == 100
+        assert listing["B.DAT"].size == 5
+        assert cardcheck.tree_size(source, "") == 105
+
+
 def main() -> int:
     test_cmpind()
     test_drstr()
     test_mesh_grid()
+    test_cardcheck_helpers()
     print("selftest: OK")
     return 0
 

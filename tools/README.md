@@ -168,11 +168,82 @@ uppercase-word replacements, plus `MANIFEST.txt`.
 
 ## `selftest.py`
 
-Runs synthetic tests for `cmpind.py` and `drstr.py` without any vendor data:
+Runs synthetic tests for the primitive parsers without any vendor data. It
+covers `cmpind.py`, `drstr.py`, `mesh_grid.py` and the L1 helpers (level table,
+common header, LFN, `.cmp` decode, logical listing):
 
 ```bash
 python3 tools/selftest.py
 ```
+
+Expected: `selftest: OK`.
+
+## `cardcheck.py` — L1 whole-card validator
+
+Validates a raw image or an extracted card root. It reads MBR/FAT32 in image
+mode, checks the required tree, common headers, every `.cmp`/`.ind` pair,
+`DRSTR001.DAT` against the real tree, `MMAIN001` level-table totals against
+every tile header, `HDD_INFO.TXT`, `CMP.LST` and the image copy at
+`0x06000000`.
+
+```bash
+# Extracted root (fast)
+python3 tools/cardcheck.py --root /path/to/root
+
+# Raw image (also checks MBR, FAT and the 0x06000000 copy)
+python3 tools/cardcheck.py --image /path/to/leaf2011.img
+
+# Machine-readable report and image hash
+python3 tools/cardcheck.py --image /path/to/leaf2011.img \
+    --json report.json --hash \
+    --expect-sha256 105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307
+```
+
+Expected on the EU 2011 sample: `RESULT: PASS`, with `files=480`,
+`dirs=39`, `bytes=5173965667`, `pairs=194`, `logical=2390610176`,
+`stored=1421900190`, `tiles=46`, `rows=11`, `ok=11`.
+
+Exit codes: `0` pass, `1` validation error, `2` bad source. Warnings do not
+fail unless `--strict` is used. `--fast` skips `.cmp` decompression.
+
+## `l2check.py` — L2 semantic / golden checks
+
+Checks that a root still round-trips and that the decoded geometry matches a
+stored golden profile:
+
+* `DRSTR001.DAT` rebuilt from the tree is byte-identical;
+* every `REFER001` pair survives a preserved-stream round-trip;
+* five target tiles rebuild byte-identically;
+* decoded geometry of four target tiles matches the golden digest;
+* a one-vertex tile mutation changes exactly one vertex;
+* a same-length POI rename passes `validate_mutation.py`.
+
+```bash
+# Full L2 run against tools/golden/eu2011.json
+python3 tools/l2check.py --root /path/to/root
+
+# Quick run: 20 .cmp pairs, no tile checks
+python3 tools/l2check.py --root /path/to/root --cmp-limit 20 --no-tiles
+
+# Regenerate the golden profile after an intentional decoder change
+python3 tools/l2check.py --root /path/to/root \
+    --update-golden tools/golden/eu2011.json --image /path/to/leaf2011.img
+```
+
+Expected on the EU 2011 sample: `RESULT: PASS`, with `pairs=194`, `ok=194`,
+five round-trip tiles, four geometry digests, and `tile_mutation` reporting
+one removed and one added feature.
+
+`--no-golden` skips profile comparisons (useful for a newly built card);
+`--include-lev` adds the slow `LEV3456R.DAT` geometry digest; `--hash-image`
+checks the raw image hash against the profile.
+
+## Golden profile
+
+`tools/golden/eu2011.json` stores the reference sample's image hash, tree
+census, `DRSTR`/`MMAIN` hashes, selected file hashes and the tile geometry
+digests. It contains no vendor data, only hashes and counts. Update it only
+when a decoder change is intentional, and record the reason in an experiment.
 
 ## Conventions
 

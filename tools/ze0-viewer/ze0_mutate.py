@@ -25,7 +25,7 @@ import clarion_bg
 import clarion_tile
 
 
-def first_background(tile, level):
+def first_background(tile, level, dx=0, dy=0):
     for sec in tile['sections']:
         if sec['id'] != 1:
             continue
@@ -36,8 +36,32 @@ def first_background(tile, level):
                 for row, slot in sorted(d['slots'].items()):
                     for rec in slot['recs']:
                         if rec['k'] % 2 == 1 and clarion_tile.is_zlib(rec['raw']):
-                            return d, slot, rec
-    raise SystemExit('no background record at level %d' % level)
+                            plain = zlib.decompress(rec['raw'])
+                            try:
+                                parsed = clarion_bg.parse_record(plain)
+                            except Exception:
+                                continue
+                            # The non-strict builder returns the source bytes when
+                            # it cannot model a record.  Pick a record that it
+                            # rebuilds exactly, so a mutation cannot be silently
+                            # discarded.
+                            if parsed.get('opaque'):
+                                continue
+                            if clarion_bg.build_record(parsed) != plain:
+                                continue
+                            for group in parsed['layers'].values():
+                                if 'shapes' not in group:
+                                    continue
+                                for shape in group['shapes']:
+                                    pts = shape.get('pts', [])
+                                    if len(pts) < 3:
+                                        continue
+                                    for i, (x, y) in enumerate(pts):
+                                        nx = min(2047, max(0, x + dx))
+                                        ny = min(2047, max(0, y + dy))
+                                        if (nx, ny) != (x, y):
+                                            return d, slot, rec, parsed, plain, group, shape, i
+    raise SystemExit('no safe background record at level %d' % level)
 
 
 def main():
@@ -50,20 +74,18 @@ def main():
 
     data = open(args.src, 'rb').read()
     tile = clarion_tile.read_tile(data)
-    d, slot, rec = first_background(tile, args.level)
+    d, slot, rec, parsed, plain, group, shape, i = first_background(
+        tile, args.level, args.dx, args.dy)
 
-    plain = zlib.decompress(rec['raw'])
-    parsed = clarion_bg.parse_record(plain)
-    layer = next(li for li, g in parsed['layers'].items() if 'shapes' in g and g['shapes'])
-    shape = next(g['shapes'][0] for g in parsed['layers'].values()
-                 if 'shapes' in g and len(g['shapes'][0]['pts']) >= 3)
     old = list(shape['pts'])
-    i = len(old) // 2
     x, y = old[i]
     shape['pts'] = list(old)
     shape['pts'][i] = (min(2047, max(0, x + args.dx)),
                        min(2047, max(0, y + args.dy)))
+    parsed['strict'] = True
     new_plain = clarion_bg.build_record(parsed)
+    if new_plain == plain:
+        raise SystemExit('mutation did not change the record')
 
     comp = zlib.compress(new_plain, 6)
     if len(comp) % 2:
@@ -85,7 +107,8 @@ def main():
     assert clarion_tile.write_tile(again) == out, 'mutated tile does not round-trip'
     print('wrote %s (%d bytes, was %d)' % (args.dst, len(out), len(data)))
     print('shifted record level %d dir %d/%d row %d k %d layer %d: vertex %d %s -> %s'
-          % (args.level, d['y'], d['x'], 0, rec['k'], layer, i, old[i],
+          % (args.level, d['y'], d['x'], 0, rec['k'],
+             next(li for li, g in parsed['layers'].items() if g is group), i, old[i],
              shape['pts'][i]))
 
 

@@ -32,6 +32,21 @@ note about what they contain and how reliable they are.
 | <https://gist.github.com/developerfromjokela/0acf80b6292c22f7a2aa7a3227883e82> | Mesh-ID converter notes | Secondary evidence |
 | <https://gist.github.com/developerfromjokela/de143f2a0b05cd34c2e210b6edd6c650> | `.cmp` decompressor + `DRSTR` notes | Secondary evidence |
 
+## Emulation / verification tooling
+
+These are assessed in [`feedback-loop.md`](feedback-loop.md). None of them is
+a ready-made Leaf ZE0 emulator.
+
+| Source | What it is | Status |
+| --- | --- | --- |
+| <https://github.com/qemu/qemu/blob/master/hw/sh4/Kconfig> | QEMU system-mode SH-4 machine list (`r2d` only); `linux-user/sh4` exists but targets Linux ELF | Checked; not sufficient for WinCE |
+| <https://github.com/mamedev/mame/blob/master/src/devices/cpu/sh/sh4.cpp> | MAME SH-4/SH7750-family CPU core (BSD-3-Clause); no CETUS_SH4 board, on-board peripherals incomplete | Checked; fallback only |
+| <https://github.com/Gadgetoid/sh3-emu> | MIT SH-3 Windows CE 1.x/2.x emulator; includes a Clarion AutoPC 310C machine | Closest architectural prior art; not SH-4/CE5 |
+| <https://github.com/gweslab/cerf> | Universal Windows CE emulator; ARM/StrongARM/XScale/MIPS only, no SH core; custom non-commercial licence | Checked; not suitable |
+| <https://www.hackaday.io/project/19783-sd-card-emulation> | FPGA SD card emulation, including 4-bit conversion | Reference for a possible SD emulator |
+| <https://github.com/ZipCPU/sdspi> | SD-card controller RTL (SPI/SDIO) | Reference only |
+| <https://www.winehq.org/about> | Wine: Win32 compatibility layer, not a CPU emulator; no SH-4/WinCE | Checked; rejected |
+
 ## Standards and licensing
 
 | Source | What it is |

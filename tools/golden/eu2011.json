@@ -1,0 +1,143 @@
+{
+  "cmp": {
+    "logical": 2390610176,
+    "pairs": 194,
+    "stored": 1421900190
+  },
+  "drstr": {
+    "sha256": "2b7f2fb8901bf18a2ad48334154a6d604c23a775083cb84754626d64417b25f6",
+    "size": 11968
+  },
+  "files": {
+    "BICON001/BICON001.DAT": {
+      "sha256": "f245f07c5ad6f01a3beb264873965d7cb7fdc5d0e19b827d3d043a0211ec59e6",
+      "size": 114598
+    },
+    "CMP.LST": {
+      "sha256": "88883eb953dd526d56e56ce9de9afa957a8b4f0e4781fb4ced0ccd7547761162",
+      "size": 19
+    },
+    "DRSTR001.DAT": {
+      "sha256": "2b7f2fb8901bf18a2ad48334154a6d604c23a775083cb84754626d64417b25f6",
+      "size": 11968
+    },
+    "MAPAL001/B28R070R.DAT": {
+      "sha256": "0e4df38b659e99129c1e55f1ad16219d73e713677edd4ee3756b8ce7e74b2ddb",
+      "size": 1083392
+    },
+    "MAPAL001/B30R048R.DAT": {
+      "sha256": "0916101547246d6c6ed240aeb4724b4cd6e826c97a6b782e2b649fbe09a5eb28",
+      "size": 1358592
+    },
+    "MAPAL001/B30R060R.DAT": {
+      "sha256": "8ca92bd5601e33bd97ab3bbab62b4394448cbe0e2adf31ba6046eebb52b8b62d",
+      "size": 1294336
+    },
+    "MAPAL001/B58R070R.DAT": {
+      "sha256": "f8aae7e4d0df35e450377255f536a97324ac72b93cb9fd1c005a9605dd5477d7",
+      "size": 110592
+    },
+    "MAPAL001/LEV3456R.DAT": {
+      "sha256": "08a584feacf049cc39260ff29f742c3dcf1b53059cb98bd3e9798e7ab819df35",
+      "size": 76066304
+    },
+    "MMAIN001.DAT": {
+      "sha256": "240e7c9774197fff0ea85276d463658d1291f4147970ccd5fdec60ffd23e9a05",
+      "size": 4096
+    },
+    "RDSTM001/LCTBL001.DAT": {
+      "sha256": "8cab17754114b5f7ca47d4f46d55c95c6acf841629e1fcc42e6da45063353e9d",
+      "size": 7489024
+    },
+    "RDSTM001/RDSTM001.DAT": {
+      "sha256": "f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49",
+      "size": 23335680
+    },
+    "REFER001/ADDRE001.DAT.cmp": {
+      "sha256": "bbeb60f242a57f297d2d2c6d7180b8b68e57a2bec90fcbfd699eead7271a7025",
+      "size": 48852
+    },
+    "REFER001/ADDRE001.DAT.ind": {
+      "sha256": "98030b99834c30cd87c64d39f3f31ba94c6067248ce41529689baebe6a5df540",
+      "size": 24
+    },
+    "REFER001/POINT032.DAT.cmp": {
+      "sha256": "1dac3ae6d330414686a69df6749b3bb8b563029ce00ecefad1bba02170f1bba7",
+      "size": 5143
+    },
+    "REFER001/POINT032.DAT.ind": {
+      "sha256": "5108c90b7d9aaab2dfe9b8486f59f1f99161937a6f92cb7a14e47e25a771ca9e",
+      "size": 20
+    },
+    "REFER002/COORD001.DAT": {
+      "sha256": "29fbd1a90f404e3681841c740a52d6eac6dc9fcc6ae784e716af03f46280cd1f",
+      "size": 4352
+    },
+    "VER_INFO/HDD_INFO.TXT": {
+      "sha256": "9f014643ed9f4e1359d418f415f264f943e027669b872fc7675f3d99d9bc650a",
+      "size": 72
+    }
+  },
+  "image": {
+    "sha256": "105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307",
+    "size": 8057257984
+  },
+  "mmain": {
+    "rows": 11,
+    "sha256": "240e7c9774197fff0ea85276d463658d1291f4147970ccd5fdec60ffd23e9a05",
+    "size": 4096
+  },
+  "profile_version": 1,
+  "sample": "LEAF_2011-2012_QSD-309-101_navi158_eu.img",
+  "tiles": {
+    "B28R070R.DAT": {
+      "digest": "a23c2937ee9b388c5e0cea2036b867c65898f6191ed7b0adade2887fd07ea8fc",
+      "features": 7790,
+      "levels": [
+        1,
+        2
+      ],
+      "sha256": "0e4df38b659e99129c1e55f1ad16219d73e713677edd4ee3756b8ce7e74b2ddb",
+      "size": 1083392
+    },
+    "B30R048R.DAT": {
+      "digest": "138f904f9f63f4cb9ec212c2bd4af2149b45ca4c1469ff53812a679236126363",
+      "features": 16684,
+      "levels": [
+        1,
+        2
+      ],
+      "sha256": "0916101547246d6c6ed240aeb4724b4cd6e826c97a6b782e2b649fbe09a5eb28",
+      "size": 1358592
+    },
+    "B30R060R.DAT": {
+      "digest": "a336d893485898486db0abc0154dcecb63d8f81ffc8a992bff0f5bab8f649adf",
+      "features": 15844,
+      "levels": [
+        1,
+        2
+      ],
+      "sha256": "8ca92bd5601e33bd97ab3bbab62b4394448cbe0e2adf31ba6046eebb52b8b62d",
+      "size": 1294336
+    },
+    "B58R070R.DAT": {
+      "digest": "88f247c6aefe3d600b48425efc995d8121e26619b3aac3404af71ff31d6f0a53",
+      "features": 480,
+      "levels": [
+        1,
+        2
+      ],
+      "sha256": "f8aae7e4d0df35e450377255f536a97324ac72b93cb9fd1c005a9605dd5477d7",
+      "size": 110592
+    },
+    "LEV3456R.DAT": {
+      "sha256": "08a584feacf049cc39260ff29f742c3dcf1b53059cb98bd3e9798e7ab819df35",
+      "size": 76066304
+    }
+  },
+  "tree": {
+    "bytes": 5173965667,
+    "dirs": 39,
+    "files": 480
+  }
+}

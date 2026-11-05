@@ -61,6 +61,10 @@ python3 harness.py mutate /path/to/B58R070R.DAT out/mutated.DAT
 python3 compare_osm.py out/B30R060R.geojson osm-extract.osm
 ```
 
+`ze0_mutate.py` selects a record that the builder reproduces exactly and sets
+strict mode, so a mutation cannot be silently discarded. `harness.py selftest`
+on `B30R060R.DAT` passes after this change.
+
 ## What the ZE0 patch fixes
 
 1. zlib header is `78 9c` (upstream hardcodes `58 85`).

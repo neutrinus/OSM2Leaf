@@ -133,6 +133,13 @@ python3 tools/cmpind.py verify REFER001
 
 # Parse DRSTR001.DAT as a directory tree
 python3 tools/drstr.py parse DRSTR001.DAT
+
+# L1 whole-card validator (root or raw image)
+python3 tools/cardcheck.py --root /path/to/root
+python3 tools/cardcheck.py --image /path/to/leaf2011.img
+
+# L2 semantic and golden checks
+python3 tools/l2check.py --root /path/to/root
 ```
 
 ## Documentation
@@ -160,6 +167,7 @@ python3 tools/drstr.py parse DRSTR001.DAT
 - [Data coverage: factory map vs OSM](docs/research/data-coverage.md)
 - [Build profiles: user-selectable maps](docs/research/build-profiles.md)
 - [Minimal-change experiment](docs/research/minimal-change.md)
+- [Feedback loop and emulation options](docs/research/feedback-loop.md)
 - [Open questions](docs/research/open-questions.md)
 - [Data handling and licensing](docs/legal.md)
 
