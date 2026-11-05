@@ -81,6 +81,46 @@ Needs only the first ~30 MB of the EU 2011 image (`dd bs=1M count=32`).
 - [x] ~~If refuted~~ (confirmed), record the exact `ROMHDR` bytes and why each check failed,
   so nobody repeats it.
 
+### Step 1b — tasks after EXP-32 (ordered; each ends with an EXP + claims)
+
+Rule for all of these: **start from `tools/cerom.py`, never from fitted
+deltas.** A new firmware address is only a claim once `cerom.py` names its
+module, section and file offset.
+
+1. [ ] **Full-image sweep** (needs the full image, not only 32 MiB): locate
+   every `ECEC` (builds A at `0x200000`/`0x2000000`, B at `0x3e00000`/
+   `0x4800000`, C at `0x5200000`), run `cerom.py` on each (`--image-start`),
+   and diff the module lists. Record which builds contain which modules
+   (the map code is only in A; B/C differ by 4 bytes in the header area).
+2. [ ] **Kernel region.** `nk.exe`/`coredll.dll`/`filesys.exe` are not in this
+   TOC; `pExtensions = 0x880030a4` and the `0x88…` addresses point to another
+   XIP region. Find it (look for a second `ROMHDR`-shaped block or an `NKOK`
+   region elsewhere) to name COREDLL ordinals (e.g. 719 behind `0x0369d400`).
+3. [ ] **Decompress `IMAGE_SCN_COMPRESSED` sections** (245/527). Try
+   CE `CECompress` (LZX/"romimage" block format) on a small one first
+   (`NaviMapCC.dll` `.data`, psize `0x2c6`, vsize `0x5b8`): the output size
+   must equal `vsize`. Add `cerom.py decompress` and a unit test on that
+   section. This also answers the `HCXCmp` question.
+4. [ ] **Ghidra memory maps.** Generate one block per `o32` at
+   `o32_realaddr` for the navi-relevant modules (`Navi.exe`, `NaviStateCC`,
+   `NaviMapCC`, `NaviSetCC`, `OBJDLL`, `STDDLL`, `BT_MGR`, `VerInfoCC`,
+   `oleaut32`); add the script to `tools/`, not to `/tmp`.
+5. [ ] **`Navi.exe` HDD_INFO / SD Import.** Disassemble around the pools at
+   VA `0x004e7d28` (paths) and `0x004e8584`/`0x004e995c` (comparator
+   messages). Name the function that reads `HDD_INFO.TXT`, the field parser
+   and the six-line mapping; answer which fields trigger
+   `DIFFERENT MAP CODE`. Compare with `tools/hddinfo_variants.py`.
+6. [ ] **Reader chain.** From `OBJDLL` `MAL_DataVol_getOffset`/`getSize`
+   callers, then the `.ind`/`.cmp` reader and `DRSTR`/tile readers, now with
+   exact VAs. Answer `chunk_size` (buffer vs compare against `0x10000`) and
+   seek-vs-scan.
+7. [ ] **Audit the old firmware claims.** Go through
+   `docs/format/firmware.md` and C-0xx…C-3xx: mark each claim that rested on
+   delta fitting as `RETRACTED`/`superseded` or re-verify it with `cerom.py`
+   (retraction rule, same commit). Candidates: C-180, C-234, C-262, C-182,
+   C-068, C-370…C-375, the `0x1952b00` copy-list claims, EXP-22/23/25/26/27/28/29.
+8. [ ] **Untangle TODO P3/P7.** Mark as done or merge into this section.
+
 ### Step 2 — turn the ROM into Ghidra-ready modules (if Step 1 holds)
 
 - [x] Add `tools/cerom.py` (stdlib only): `romhdr`, `modules`, `files`,
