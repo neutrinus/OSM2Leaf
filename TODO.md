@@ -726,14 +726,15 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `hddinfo.py classify`.
   - Claims: C-750–C-759
 
-- [ ] **M2.5 — Source of `DIFFERENT MAP CODE`**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M2.5 — Source of `DIFFERENT MAP CODE`**
+  - Status: done · Owner: task/m2.5-different-map-code · Critical: yes
   - Depends: M2.2 (M2.9 helps)
   - Goal: which input decides the message: line 1, the `0x06000000` copy,
     or a NAND/system record.
   - Input: the message string (M2.9), M2.2 comparator.
   - Done when: the deciding input is named with the code path VA.
   - Claims: C-760–C-769
+  - Result: EXP-2026-11-06-M2.5-different-map-code (IMG256 `92aa525d…`). `DIFFERENT MAP CODE` = AppLaunch B dispatcher `0x03bcafb8` error code `0x50`, produced by router `fn 0x03bd2ecc` (B, `0x03bd2ed4/0x03bd2eda–0x03bd2ee2`; C mirror pools `0x03bb2c54`→`0x03bb2858`, `0x03bb2c64`→`0x03bb2a64`) when `fn 0x03bd2ad8` (B; C `0x03bb2858`) returns 0. Deciding input: **NAND/system kernel target-info** `KernelIoControl(0x0101302C)` output `+0x60` (11 bytes) vs **card `\SystemSD\VER_INFO\HDD_INFO.TXT` parsed line-1/`base_code`** (11 bytes), byte-for-byte (`0x03bd2c1e–0x03bd2c3e`); logs `VerInf:%s / HddInf:%s`. **Not** the `0x06000000` copy, **not** an HDD_INFO text record in NAND (C-766).
 
 - [x] **M2.6 — Read `MapUpdate.exe` (image B)**
   - Status: done · Owner: task/m2.6-mapupdate · Critical: no
