@@ -613,7 +613,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-05-M1.8-sh4xref (`tools/sh4xref.py`; 17 self-test checks; reproduces the four EXP-50 call sites; HDD_INFO slot 0x004e7d28 read at 0x004e7bec in fn 0x004e7b8c)
 
 - [ ] **M1.2d — The second compressed-section header form (58 sections)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.2d-comphdr-form2 · Critical: yes
   - Depends: —
   - Goal: `comphdr` parses all 245 sections, so M1.3 knows every payload.
   - Input: `cerom.py --image-start 0x200200 IMG256 comphdr --all` (58
