@@ -1902,7 +1902,7 @@ first M8.A claim; F2+ only after M8.D1.
 patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 `-M none` (as `ce_qemu_probe.py` does) and rebase onto M8.A1 when it lands.
 
-- [ ] **M8.A1 — Build env** `tools/qemu-ze0/build.sh`: pinned QEMU (≥ 8.2),
+- [x] **M8.A1 — Build env** `tools/qemu-ze0/build.sh`: pinned QEMU (≥ 8.2),
   patch, `--target-list=sh4-softmmu`. Done when `qemu-system-sh4 -M ze0`
   lists the machine. Status: done · Owner: session-ZMxuBT · Depends: —. Claims:
   C-1230–C-1239

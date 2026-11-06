@@ -1201,6 +1201,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-2020 | `tools/imgpatch.py` replaces one file inside an existing factory image by writing into its cluster chain: only data clusters, the short dir entry, FAT links + FSInfo on a cluster-count change, and the optional 72-byte `0x06000000` copy; a write-envelope check aborts anything outside the partition and that copy window, so pre-partition and tail bytes are never written. Same-length patch touches only differing bytes; resize re-links both FATs, adjusts FSInfo by the exact delta, and zero-fills slack. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M5.13-imgpatch; `python3 tools/imgpatch.py --selftest` |
 
+| C-1230 | `tools/qemu-ze0/build.sh` pins QEMU 8.2.7 (tarball sha256 `1f0604f2…65b55`, 132,676,368 B, tag `v8.2.7`), verifies size/hash, keeps source/build outside the repo, applies `patches/*.patch`, configures `--target-list=sh4-softmmu --disable-werror`, and requires `qemu-system-sh4 -M help` to list `ze0`; offline `--selftest` (42 checks) proves the plan, the root/in-repo refusals, dry-run neutrality and the gate. A stock 8.2.7 build here lists only `none`/`r2d`/`shix`, as expected before M8.A2. | VERIFIED (environment) | H | EXP-2026-11-06-M8.A1-build-env; `bash tools/qemu-ze0/build.sh --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
