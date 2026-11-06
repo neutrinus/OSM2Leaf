@@ -437,7 +437,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-690–C-699
 
 - [ ] **M1.7 — Which kernel (B or C) boots with A**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.7-kernel-select · Critical: no
   - Tool: `tools/kernel_select.py` scores B vs C on seven criteria and
     refuses a verdict on ties; fed the recorded B/C fields it returns
     `UNKNOWN` (EXP-54, C-572), so the decision still needs `ulRAMFree`/`End`
