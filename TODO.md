@@ -1187,9 +1187,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     not in uncompressed code (positive controls); likely Navi.exe comp sec1/sec2.
   - Claims: C-2060–C-2069
 
-- [ ] **M3.11 — The `POINT` record reader in `Navi.exe`**
-  - Status: in progress · Owner: task/m3.11-point-reader · Critical: yes
+- [x] **M3.11 — The `POINT` record reader in `Navi.exe`**
+  - Status: blocked · Owner: task/m3.11-point-reader · Critical: yes
   - Depends: —
+  - Blocker: record-walk/name-copy functions (tag `0x60|0x68`, `len2`, stride `2*len2`) **not found** in any uncompressed build-A o32 section (527 searched; 0 aligned tag pairs, 0 mask walkers, 0 stride sequences; 49 tag sites + `fn 0x003715a0` rejected with controls). Navi.exe sec1 is `IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, M1.3 0/245, M1.2f/M8.E1 open) — walker likely in sec1. VAs/args/output remain UNKNOWN. Access-path anchors confirmed (`0x003fbed8`/`0x0040b358`/`0x004125a8` `0x14e8`→`REFER001`+`INDEX003.DAT`). Decode sec1 (M1.2f/M8.E1) or dynamic trace to unblock M9.10.
   - Goal: the function that walks a decoded `POINT0xx` page (`tag,len2`
     records, `0x60`/`0x68`, record size `2*len2`) and copies a POI name out.
     It is the first target of the software check of the US rename (M9.10)
@@ -1204,6 +1205,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     and output (where the name lands), each tied to the record framing in
     `refer.md`; or the EXP lists every candidate examined with a positive
     control and the exact blocker.
+  - Result: blocked with evidence — `EXP-2026-11-06-M3.11-point-reader.md`, C-2120–C-2127 (C-2128–C-2129 reserved); `docs/format/firmware.md` M3.11 anchors+blocker. No walker/name-copy VA found in uncompressed code; sec1 compressed.
   - Claims: C-2120–C-2129
 
 - [ ] **M3.12 — `INDEX003.DAT`: is it the POI name search index?**

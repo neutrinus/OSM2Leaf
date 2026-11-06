@@ -232,6 +232,22 @@ no callers in any uncompressed A section (527 searched); Navi.exe sec1/sec2 are
 compressed (M1.3 0/245, M1.2f open), so the `.ind` `chunk_offset[]` consumer /
 M3.2a,b remain open. Dynamic breakpoints: `0x542148`, `0x41c7e8`, `0x542256`.
 
+**M3.11 (EXP-2026-11-06, C-2120–C-2127, blocked):** `POINT`/`REFER001` access
+path anchors in uncompressed Navi.exe sec0 (A): file-name builder
+`fn 0x003fbed8` selects the `POINT0` volume id (`0x00179364`, C-881; pools
+`0x003fc050`/`0x003fc05e`) and calls volume lookup `fn 0x0040b358` (`0x003fc084`;
+28-byte entries, count `+24`, list `+32`); descriptor switch `fn 0x004125a8`
+maps type `0x14e8` → `REFER001` `0x00178c68` + `INDEX003.DAT` `0x0017a118`
+(and `0x14e4` → `LCTBL001.DAT`/`RDSTM001`, C-880). The decoded-`POINT0xx`
+name-page record walker (`tag 0x60|0x68`, `len2` at `+1`, stride `2*len2`,
+refer.md C-952/C-953) and the POI name-copy function were **not located** in
+any uncompressed build-A o32 section (527 searched): 0 aligned tag pairs, 0
+mask walkers, 0 `@(1,ptr)→2*len2` stride sequences; `fn 0x003715a0` (`&0x70==0x60`)
+is a single-record consumer, not the walker. **Blocker:** Navi.exe sec1 is
+`IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, M1.3 0/245, M1.2f/M8.E1 open), so the
+walker/name-copy (VAs/args/output) remain **UNKNOWN** — likely in sec1; decode
+sec1 or trace dynamically to answer M9.10.
+
 **Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
 `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to
 `0x1d0f888…894`. But:
