@@ -1208,8 +1208,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: blocked with evidence — `EXP-2026-11-06-M3.11-point-reader.md`, C-2120–C-2127 (C-2128–C-2129 reserved); `docs/format/firmware.md` M3.11 anchors+blocker. No walker/name-copy VA found in uncompressed code; sec1 compressed.
   - Claims: C-2120–C-2129
 
-- [ ] **M3.12 — `INDEX003.DAT`: is it the POI name search index?**
-  - Status: in progress · Owner: task/m3.12-index003-poi-search · Critical: yes
+- [x] **M3.12 — `INDEX003.DAT`: is it the POI name search index?**
+  - Status: done · Owner: task/m3.12-index003-poi-search · Critical: yes
   - Depends: — (M5.12c overlaps: coordinate the scan)
   - Goal: know whether the unit finds a POI by name through a second copy
     of the name (then the S2 rename must update it too) or through pointers
@@ -1221,6 +1221,12 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     to say, for the US POI `HANA HEALTH CENTER` (`POINT010`, page `0x840ba0`,
     record 0), which `INDEX003` entry refers to it and whether that entry
     holds name bytes; the EXP gives counts and offsets only.
+  - Result: `INDEX003.DAT` absent from EU 2011 and US 2011 stock FAT/DRSTR
+    (EU REFER001 388/0 INDEX*, US 116/only INDEX001; firmware string refs at
+    US 14679280/46136560, EU 14648088/46105368, no FAT file). No `INDEX003`
+    entry refers to HANA HEALTH CENTER on these images; S2 POI rename does
+    not need to update `INDEX003` on these images. Record layout UNKNOWN
+    (needs an image that ships the file). EXP-2026-11-06-M3.12-index003-poi-search.
   - Claims: C-2130–C-2139
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**

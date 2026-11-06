@@ -343,6 +343,41 @@ each `COORD001` entry, and the 22-byte index record fields.
 Tool: `tools/addre.py` (`layout`, `table`, `cells`, `records`, `stats`,
 `trailer`, `verify`, `--selftest`).
 
+## `INDEX001` / `INDEX003` — POI/name search index files
+
+> **Evidence status:** `OBSERVED` (on-disk absence on EU/US 2011 stock) +
+> `UNKNOWN` (record layout). Firmware mapping `0x14e8` → `REFER001` +
+> `INDEX003.DAT` is `VERIFIED` in code refs (C-880/C-2122).
+
+`REFER001/INDEX003.DAT` (the `0x14e8` descriptor target, C-880) is **absent as
+an on-disk file** from the EU 2011 (`leaf2011.img`) and US 2011
+(`53342430…`, 8,057,257,984 B) stock card images examined:
+
+| Check | EU 2011 (`REFER001` 388 files) | US 2011 (`REFER001` 116 files) |
+| --- | --- | --- |
+| `INDEX003.DAT` / `.cmp` / `.ind` in FAT | absent (0 `INDEX*` hits in `REFER001`, none in FAT) | absent (0 `INDEX003` hits; only `INDEX001` pair present) |
+| `INDEX003` in `DRSTR001.DAT` | absent | absent (`INDEX001` named at DRSTR offset `0x1780`) |
+| `INDEX003` bytes in raw image | offsets `14648088`, `46105368` (firmware/string area, not a FAT file) | offsets `14679280`, `46136560` (firmware/string area, not a FAT file) |
+
+The only INDEX-family file present is US `REFER001/INDEX001.DAT.cmp`/`.ind`
+(logical 552448 B, 9 × 65536-byte chunks, compressed 142292 B); decoded
+content is binary with no long ASCII name runs observed. `INDEX001` is not the
+`0x14e8` target and its record layout/role remain **UNKNOWN**.
+
+**Implication for POI name search / S2 rename (scoped to these images):**
+because `INDEX003` is absent on these stock images, POI lookup cannot go
+through a second copy of the POI name stored in an on-disk `INDEX003` file on
+these images. No `INDEX003` entry refers to the US POI `HANA HEALTH CENTER`
+(`POINT010`, page `0x840ba0`, record 0, M5.12/C-1980) on these images, so an
+S2-style POI rename on these images does **not** need to update an `INDEX003`
+file.
+
+**Record layout:** **UNKNOWN.** Cannot be determined from the EU/US 2011 stock
+images (file absent). The open question — whether an `INDEX003` entry holds
+name bytes or pointers into `POINT` pages — requires an image version that
+ships the file. Factory vs mutated comparison (M5.12 mutated only `POINT010`)
+is N/A on these images.
+
 ## What this means for the compiler
 
 - Name strings (`ADDRE`, `POINT`, `LCTBL001`) are single-byte CP1252/Latin-1
@@ -359,3 +394,7 @@ Tool: `tools/addre.py` (`layout`, `table`, `cells`, `records`, `stats`,
   `COORD001`/`REFER002`/tile links; the join is still unknown.
 - `REFER002` is not a backup copy; it has extra EV fields. Do not overwrite it
   with a copy of `REFER001`.
+- `INDEX003.DAT` (firmware `0x14e8` target, C-880) is absent on EU/US 2011
+  stock images; treat its record layout as **UNKNOWN** and do not assume an
+  on-disk `INDEX003` name copy must be updated for an S2 POI rename on these
+  images. Re-check on any image version that ships the file.

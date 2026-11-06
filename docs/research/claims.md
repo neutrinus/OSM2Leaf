@@ -857,6 +857,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-2128 | reserved. | UNKNOWN | — | — |
 | C-2129 | reserved. | UNKNOWN | — | — |
 
+## M3.12 — INDEX003.DAT POI name search index (C-2130–C-2139)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2130 | `REFER001/INDEX003.DAT` (plain or `.cmp`/`.ind` pair) is absent from the EU 2011 `leaf2011.img` and US 2011 factory image (`53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383`) stock card images: not present in the FAT (EU `REFER001` 388 files, 0 `INDEX*`; US `REFER001` 116 files, only `INDEX001.DAT.cmp`/`.ind`; full-FAT walk finds no `INDEX003*` in either). | VERIFIED (negative, scoped) | H | EXP-2026-11-06-M3.12-index003-poi-search; `mkcard` FAT listing |
+| C-2131 | `INDEX003` is absent from `DRSTR001.DAT` name tables on both images (US `DRSTR001.DAT` names `INDEX001` at offset `0x1780` but not `INDEX003`; EU `DRSTR001.DAT` has no `INDEX*`). | VERIFIED (negative, scoped) | H | EXP-2026-11-06-M3.12-index003-poi-search |
+| C-2132 | The ASCII string `INDEX003` occurs in both raw images at early offsets consistent with firmware/string data (US `14679280`, `46136560`; EU `14648088`, `46105368`), but no corresponding on-disk map-data file is present (C-2130). Consistent with the C-880/C-2122 firmware descriptor mapping `0x14e8` → `REFER001`+`INDEX003.DAT`. | OBSERVED | H | EXP-2026-11-06-M3.12-index003-poi-search; C-880, C-2122 |
+| C-2133 | On the US 2011 image the only INDEX-family file in `REFER001` is `INDEX001.DAT.cmp`/`.ind`: logical 552448 B, 9 × 65536-byte chunks, compressed 142292 B (`.ind` 52 B); decoded content is binary with no long ASCII name runs observed. `INDEX001` is not the `0x14e8` target; its role/record layout remain UNKNOWN. | OBSERVED | M | EXP-2026-11-06-M3.12-index003-poi-search; `cmpind.py extract` |
+| C-2134 | Scoped to EU/US 2011 stock images: because `INDEX003` is absent, POI name lookup cannot use a second copy of the name stored in an on-disk `INDEX003` file, and no `INDEX003` entry refers to `HANA HEALTH CENTER` (`POINT010`, page `0x840ba0`, record 0, M5.12/C-1980); an S2 POI rename on these images does not need to update an `INDEX003` file. `INDEX003` on-disk record layout (name bytes vs `POINT` pointers) and its presence on other image versions remain UNKNOWN. | VERIFIED (negative, scoped) / UNKNOWN (layout, other versions) | H/M | EXP-2026-11-06-M3.12-index003-poi-search; M5.12/C-1980 |
+| C-2135 | reserved. | UNKNOWN | — | — |
+| C-2136 | reserved. | UNKNOWN | — | — |
+| C-2137 | reserved. | UNKNOWN | — | — |
+| C-2138 | reserved. | UNKNOWN | — | — |
+| C-2139 | reserved. | UNKNOWN | — | — |
+
 ## M3.5 — Tile reader entry and the level table (C-860–C-869)
 
 | ID | Claim | Status | Confidence | Evidence |
