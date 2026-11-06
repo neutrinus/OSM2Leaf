@@ -425,7 +425,7 @@ Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M
   - Claims: C-2110–C-2119
 
 - [ ] **H11 — Reader-coverage matrix: one row per file type we generate**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: one page that shows, for every file the OSM compiler must write,
     how far we are from "the firmware reads it correctly" (rule 13).
@@ -1646,7 +1646,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1100–C-1109
 
 - [ ] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M5.12 for the edited pair)
   - Goal: the S1/S2 cards for Marek's unit must differ from S0 only in the
     changed file (one variable per card, `card-test-plan.md`). `mkcard.py`'s
@@ -1838,7 +1838,7 @@ No hardware is available now. Planning tasks are open; tests wait.
     uses the changed road.
   - Claims: C-1170–C-1179
 - [ ] **M6.12 — Clarion debug console (MONI `FW>`, `DSW=0006`) access procedure**
-  - Status: open · Owner: — · Critical: no · **Runner: non-Claude** (needs
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no · **Runner: non-Claude** (needs
     hardware; planning is doable now, the procedure is unverified until bench)
   - Depends: M6.8 (bench kit / access plan); complements M8.A6 and
     `docs/research/dynamic-break-guide.md`
@@ -1902,7 +1902,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 
 - [ ] **M8.A1 — Build env** `tools/qemu-ze0/build.sh`: pinned QEMU (≥ 8.2),
   patch, `--target-list=sh4-softmmu`. Done when `qemu-system-sh4 -M ze0`
-  lists the machine. Status: open · Owner: — · Depends: —. Claims:
+  lists the machine. Status: in progress · Owner: session-ZMxuBT · Depends: —. Claims:
   C-1230–C-1239
 - [ ] **M8.A2 — Machine skeleton** `hw/sh4/ze0.c`: `sh7785`, RAM at phys
   `0x08000000` (128 MiB), P1/P2 aliases, unimplemented-device catch-all
