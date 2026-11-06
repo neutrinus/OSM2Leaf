@@ -225,6 +225,12 @@ trailing bytes of each `COORD001` entry, and the per-file trailer table.
 
 ## What this means for the compiler
 
+- Name strings (`ADDRE`, `POINT`, `LCTBL001`) are single-byte CP1252/Latin-1
+  with letters outside Latin-1 transliterated by dropping the diacritic; the
+  firmware's fixed field capacities and its own collation table are in
+  [rdstm.md](rdstm.md#writer-rules-for-names-m39) (`EXP-2026-11-06-M3.9`).
+  Do not write ISO-8859-2 bytes: the reader converts them as CP_ACP, so `č`
+  would become a symbol, not a letter.
 - Address/POI sharding is per country, so a `poland-full` profile touches
   shard 021 plus any neighbouring-country shards needed for whole tiles.
 - POI records are bit-packed; the field dictionary must be read from the

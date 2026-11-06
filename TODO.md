@@ -860,8 +860,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     big-endian on the card. `tools/ce_strfind.py` added.
   - Claims: C-1780–C-1789
 
-- [ ] **M3.9 — Name length limits and collation in the firmware**
-  - Status: open · Owner: — · Critical: no
+- [x] **M3.9 — Name length limits and collation in the firmware**
+  - Status: done · Owner: task/m3.9-name-collation · Critical: no
   - Depends: — (M1.9 helps)
   - Goal: the rules a writer must follow for names (EXP-2026-11-05-M4.13
     left length limit and sort order UNKNOWN).
@@ -873,6 +873,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     for names, with VAs; `M4.13` writer rule updated in `refer.md` or the
     names doc.
   - Claims: C-1790–C-1799
+  - Result: EXP-2026-11-06-M3.9-name-collation (C-1790–C-1799): name compare is `OBJDLL!OBJ_PntName_compare` `0x0349c540` → `STD_StringImp_compare` `0x03466ae0`; ordering is the custom weight table (`OBJ_Sort_cmpStr` `0x0349d3b4`, table `0x03485400`/`0x03485500`) and `STD_StringImp_comparePriority` `0x03467d84` for binary search; caps 32/64/128 chars; text is CP1252/Latin-1, not ISO-8859-2; `rdstm.md` writer rules updated.
 
 - [ ] **M3.10 — Decode the `DRSTR001`/`CMP.LST` functions found by M3.4**
   - Status: open · Owner: — · Critical: no
