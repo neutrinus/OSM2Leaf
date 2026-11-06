@@ -2067,8 +2067,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   M9.5, M9.7. Status: done · Owner: session-ZMxuBT. Result:
   `tools/l3check.py` runs every target (1 PASS, 5 BLOCKED), exit 3 when
   nothing is runnable (EXP-2026-11-06-M9.8-l3check). Claims: C-1700–C-1709
-- [ ] **M9.9 — Keep `l3-ghidra.md` "How to use L3" current.** Done with each
-  M9 PR (no separate claim needed).
+- [x] **M9.9 — Keep `l3-ghidra.md` "How to use L3" current.** Done with each
+  M9 PR (no separate claim needed). Done: current commands, statuses, targets
+  and the seven-step reader procedure (EXP-2026-11-06-M9.9-l3-docs).
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
   - Status: open · Owner: — · Critical: yes

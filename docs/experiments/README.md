@@ -201,4 +201,5 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M3.8](EXP-2026-11-06-M3.8-mmain-read.md) | Firmware read of MMAIN001.DAT (M3.8) | done |
 | [EXP-2026-11-06-M4.9](EXP-2026-11-06-M4.9-addre-grammar.md) | ADDRE remaining grammar (M4.9) | done |
 | [EXP-2026-11-06-M4.10](EXP-2026-11-06-M4.10-poi-icons.md) | POI icon code to BICON001 mapping (M4.10) | done |
+| [EXP-2026-11-06-M9.9](EXP-2026-11-06-M9.9-l3-docs.md) | L3 guide refreshed to the real commands (M9.9) | done (docs) |
 | [EXP-2026-11-06-M9.8](EXP-2026-11-06-M9.8-l3check.md) | `l3check.py`, L3 rung of the ladder (M9.8) | done (synthetic) |
