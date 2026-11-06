@@ -1205,6 +1205,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1270 | A self-contained QEMU device `ze0-stubs` maps five read-back windows (`0xffe70000` with `0xffe70808` = constant `0xc0000000`, CPG `0xffc80000` with `MSTPCR0..3` and `MSTPACK` = their OR, `0xfff80000`, UBC `0xff200000` with no break, area-6 `0x19300000`), intended to let the unpatched kernel pass the `0xffe70808` wait and reach the point the `--patch` probe reaches. The patch applies to pinned 8.2.7, compiles and passes qtest; the kernel-boot done-when is HYPOTHESIS (no vendor image here). | VERIFIED (patch/qtest) / HYPOTHESIS (boot) | H | EXP-2026-11-06-M8.A5-boot-stubs; `git apply --check` + qtest |
 
+| C-1290 | `tools/qemu-ze0/run.sh` boots the ZE0 images with `-M ze0` when available else `-M none -cpu sh7785 -m 512M`, always logging `-d unimp,guest_errors,int`, optional gdbstub, wall-clock timeout, work dir (log, registers, memmap, kernel/app slices), `--dry-run` that writes nothing and `MISSING_QEMU` exit 3, then prints `ce_qemu_probe.summarize_log()`; `gdb-ze0.py` maps a PC to module/section from `cerom.py memmap` (P1 alias retry, smallest extent) and lists CE threads, with 30 synthetic checks. Stand-in QEMU only. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M8.A7-trace-tooling; `gdb-ze0.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

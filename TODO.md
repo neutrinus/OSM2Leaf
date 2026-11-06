@@ -1930,9 +1930,12 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not. Status: open · Depends: M8.A2. Claims:
   C-1280–C-1289
-- [ ] **M8.A7 — Trace tooling** `tools/qemu-ze0/run.sh` (logs, gdbstub,
+- [x] **M8.A7 — Trace tooling** `tools/qemu-ze0/run.sh` (logs, gdbstub,
   `summarize_log`, gdb script printing thread list + current module).
   Status: open · Depends: —. Claims: C-1290–C-1299
+  Status: done · Owner: session-ZMxuBT. Result: `run.sh` (machine select,
+  log+summary, timeout, dry-run) and `gdb-ze0.py` (PC->module, 30 checks);
+  stand-in QEMU only (EXP-2026-11-06-M8.A7-trace-tooling).
 - [ ] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
   Depends: M8.A3…A6. Claims: C-1300–C-1309
 - [ ] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from
