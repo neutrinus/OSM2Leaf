@@ -157,14 +157,16 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-H3](EXP-2026-11-06-H3-ce-rom-tool-fold.md) | Fold `ce_rom_parse.py` into `cerom.py` (H3) | done |
 | [EXP-2026-11-06-H4](EXP-2026-11-06-H4-audit-delta-claims.md) | Audit the delta-era firmware claims (H4) | done |
 | [EXP-2026-11-06-H5](EXP-2026-11-06-H5-pm-review.md) | Board review; real-image checks of synthetic-only results (H5) | done |
+| [EXP-2026-11-06-H3](EXP-2026-11-06-H3-ce-rom-tool-fold.md) | Fold `ce_rom_parse.py` into `cerom.py` (H3) | done |
+| [EXP-2026-11-06-H4](EXP-2026-11-06-H4-audit-delta-claims.md) | Audit the delta-era firmware claims (H4) | done |
 | [EXP-2026-11-06-H6](EXP-2026-11-06-H6-drstr-docs.md) | `drstr.md` ↔ `MMAIN001.DAT` reconciliation and `tools_ze0` provenance (H6) | done |
 | [EXP-2026-11-06-H7](EXP-2026-11-06-H7-realcheck.md) | `tools/realcheck.py`, a pinned real-image regression run (H7) | done (tool); `IMG256` run pending |
-| [EXP-2026-11-06-M1.7](EXP-2026-11-06-M1.7-kernel-select.md) | Which kernel (B or C) boots with A (M1.7) | done (verdict: IPL-selected) |
-| [EXP-2026-11-06-M2.6](EXP-2026-11-06-M2.6-mapupdate.md) | Read `MapUpdate.exe` (image B, M2.6) | done |
-| [EXP-2026-11-06-M2.8](EXP-2026-11-06-M2.8-sdcard-lock.md) | SD card identity and lock (`SdCardLch.exe`, M2.8) | done |
-| [EXP-2026-11-06-M3.4](EXP-2026-11-06-M3.4-drstr-parser.md) | `DRSTR001.DAT` / `CMP.LST` / `MAPAL001` string search in build A (M3.4) | done |
-| [EXP-2026-11-06-M3.5](EXP-2026-11-06-M3.5-tile-reader.md) | `MESH_ID` / `DIVID` code and the six-level tile table in `Navi.exe` (M3.5) | done |
-| [EXP-2026-11-06-M4.4](EXP-2026-11-06-M4.4-section4-road-edit.md) | Tile section 4 under a road edit (M4.4) | done |
+| [EXP-2026-11-06-M1.7](EXP-2026-11-06-M1.7-kernel-select.md) | Which kernel boots with A: IPL-selected (M1.7) | done |
+| [EXP-2026-11-06-M2.6](EXP-2026-11-06-M2.6-mapupdate.md) | `MapUpdate.exe` checks and install path (M2.6) | done |
+| [EXP-2026-11-06-M2.8](EXP-2026-11-06-M2.8-sdcard-lock.md) | SD identity: lock password only, no CID/CSD (M2.8) | done |
+| [EXP-2026-11-06-M3.4](EXP-2026-11-06-M3.4-drstr-parser.md) | `DRSTR001`/`CMP.LST` xrefs under real VAs (M3.4) | done |
+| [EXP-2026-11-06-M3.5](EXP-2026-11-06-M3.5-tile-reader.md) | Tile reader entry and six-level table (M3.5) | done |
+| [EXP-2026-11-06-M4.4](EXP-2026-11-06-M4.4-section4-road-edit.md) | Section 4 verbatim under a road edit (M4.4) | done |
 | [EXP-2026-11-06-M4.8](EXP-2026-11-06-M4.8-coord.md) | Coordinate transform tool `tools/coord.py` (M4.8) | done (tool); real-POI check open |
-| [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year and cross-market archive (M4.14) | done |
+| [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year/market image inventory (M4.14) | done |
 | [EXP-2026-11-06-M6.4](EXP-2026-11-06-M6.4-recovery.md) | Recovery checklist for a bad card test (M6.4) | done (plan only; no card run) |
