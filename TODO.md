@@ -1259,7 +1259,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1050–C-1059
 
 - [ ] **M5.4 — Tile writer: roads only**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: M5.2 (M5.3 for classes)
   - Input: `tools/ze0-viewer/vendor/osm2clarion`, factory neighbours,
     `section4.py preserve`.
@@ -1306,7 +1306,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     (EXP-2026-11-06-M5.9-tile-diff); factory-vs-mutate pending.
   - Claims: C-1850–C-1859
 
-- [ ] **M5.10 — Card image builder (`tools/mkcard.py`)**
+- [x] **M5.10 — Card image builder (`tools/mkcard.py`)**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M2.13 for the lock state; M3.8 for `MMAIN001`)
   - Goal: turn a card tree into an SD image the unit could read: the missing
@@ -1323,6 +1323,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     explained: timestamps, free-cluster order); `cardcheck.py --image out.img`
     passes; synthetic self-test on a small FAT32 image; the EXP says what the
     tool cannot reproduce (SD lock state, CID).
+  - Result: `tools/mkcard.py` rebuilds the FAT32 partition from a tree while
+    copying MBR/pre-partition/tail verbatim; unchanged tree is byte-identical
+    and the result passes L1 (EXP-2026-11-06-M5.10-mkcard); real IMG round-trip
+    pending.
   - Claims: C-1910–C-1919
 
 - [ ] **M5.11 — End-to-end: one generated tile on an accepted card image**

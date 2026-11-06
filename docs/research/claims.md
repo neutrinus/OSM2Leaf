@@ -974,6 +974,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1040 | `tools/mesh_split.py` splits every IMF way at `BxxRyyR` borders (`lat = 16/3 k`, `lon = 4+8 k`), inserting the exact intersection and a copy pressed ≤1e-7° inside the other cell (half-open cells), so each fragment has exactly one `tile` and `imf_check --assign-tiles` reproduces the output byte-identically; split ids are `w<osm><BB><RRR><nn>`. Synthetic double-crossing/roundabout/border fixture: 6 ways → 11 fragments, 9 new nodes, 0 errors. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M5.2-mesh-splitter; `python3 tools/mesh_split.py --selftest` |
 
+| C-1910 | `tools/mkcard.py` rebuilds a ZE0 card image from a tree while keeping the factory container: MBR, pre-partition area and tail copied verbatim, FAT32 geometry/label/volume id/FAT count/cluster size taken from the source, and only tree-driven bytes patched (FATs, directory slots, clusters, FSInfo delta, `0x06000000` copy). An unchanged synthetic tree yields a byte-identical image; one flipped byte yields one 1-byte range; create/delete/grow round-trip and pass `cardcheck` L1. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M5.10-mkcard; `python3 tools/mkcard.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
