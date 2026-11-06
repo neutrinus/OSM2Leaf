@@ -563,8 +563,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     and a self-test case reproduces it.
   - Claims: C-1750–C-1759
 
-- [ ] **M1.9 — Cross-image import names (A → B's `coredll.dll`)**
-  - Status: in progress · Owner: task/m1.9-cross-image-imports · Critical: yes
+- [x] **M1.9 — Cross-image import names (A → B's `coredll.dll`)**
+  - Status: done · Owner: task/m1.9-cross-image-imports · Critical: yes
   - Depends: —
   - Goal: every import of every A module named, not just numbered.
   - Input: `cerom.py --image-start 0x3e00200 IMG256 exports coredll.dll`
@@ -574,6 +574,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `--names FILE` JSON) prints `COREDLL!_wfopen` instead of `#1145` for all
     846 `Navi.exe` slots, unresolved ones listed; `sh4xref.py --calls` uses
     the names; synthetic self-test.
+  - Result: `tools/cerom.py imports --resolve-with/--names` resolves ordinal
+    imports via B/C exporter tables and lists unresolved slots;
+    `tools/sh4xref.py --calls/--resolve-with/--names` uses resolved names.
+    IMG256 (A `0x200200`, B `0x3e00200`, sha256 `92aa525d…`): Navi.exe 846
+    slots, 697 resolved, 149 unresolved (no exporter in B, e.g. XGLDLL/OSMDLL);
+    `COREDLL!_wfopen` at slot `0x0055d118` (1145). Synthetic self-tests in
+    `cerom.py` (359 checks) and `sh4xref.py`; `tools/selftest.py` 30/0/19.
+    EXP-2026-11-06-M1.9-cross-image-imports.md; claims C-1760–C-1769.
   - Claims: C-1760–C-1769
 
 ---

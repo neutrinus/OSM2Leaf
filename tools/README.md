@@ -236,10 +236,27 @@ python3 tools/cerom.py IMAGE --image-start 0x3e00200 exports coredll.dll   # B/C
 python3 tools/cerom.py IMAGE va2file 0x03498d48     # -> 0x007f5f48
 python3 tools/cerom.py IMAGE extract OBJDLL.dll -o out/   # raw sections
 python3 tools/cerom.py --image-start 0x200200 IMAGE imports Navi.exe   # IAT slots, names from the OFT
+# resolve ordinal imports via exporter segments/names in the same image (M1.9):
+python3 tools/cerom.py --image-start 0x200200 IMAGE imports Navi.exe --resolve-with 0x3e00200
+python3 tools/cerom.py --image-start 0x200200 IMAGE imports Navi.exe --names exports.json
 ```
 
 `extract` writes raw section bytes; compressed (`0x2000`) sections are not
-decompressed yet.
+decompressed yet. `imports --resolve-with`/`--names` resolves ordinals to
+`MODULE!export` and lists unresolved slots with reasons.
+
+## `sh4xref.py` — SH-4 literal/call xrefs
+
+Finds code that loads a literal VA and labels call targets via imports/exports.
+
+```bash
+python3 tools/sh4xref.py IMG Navi.exe --image-start 0x200200 --to 0x004e7d28
+python3 tools/sh4xref.py IMG Navi.exe --image-start 0x200200 --calls 0x004e7b8c
+# resolve ordinal import labels the same way as cerom.py (M1.9):
+python3 tools/sh4xref.py IMG Navi.exe --image-start 0x200200 --calls 0x004e7b8c \
+    --resolve-with 0x3e00200
+python3 tools/sh4xref.py --selftest
+```
 
 ## `ce_strfind.py` — string search across every CE ROM module
 

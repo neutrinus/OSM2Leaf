@@ -1168,6 +1168,170 @@ def build_thunk_index(segment, segment_index=0):
     return imports_at, exports_by_dll, module_names, errors
 
 
+def collect_exports(segment):
+    """Return ``(exports_by_dll, module_names)`` for every module in ``segment``.
+
+    ``exports_by_dll`` maps a lower-cased DLL/module name to
+    ``{"display": name, "by_name": {name: ordinal}, "by_ordinal": {ordinal: name}}``.
+    Modules with no export directory are still registered in ``module_names``
+    (display spelling) but not in ``exports_by_dll``.  Errors from malformed
+    modules are skipped: a resolver table is best-effort.
+    """
+    exports_by_dll, module_names = {}, {}
+    for entry in segment.modules():
+        name = entry["name"]
+        if not name:
+            continue
+        module_names.setdefault(name.lower(), name)
+        try:
+            exports = list(segment.exports(entry))
+        except (struct.error, ValueError, TypeError, IndexError):
+            continue
+        if not exports:
+            continue
+        table = exports_by_dll.setdefault(
+            name.lower(), {"display": name, "by_name": {}, "by_ordinal": {}})
+        table.setdefault("display", name)
+        for ordinal, export_name, _rva in exports:
+            table["by_name"].setdefault(export_name, ordinal)
+            table["by_ordinal"].setdefault(ordinal, export_name)
+    return exports_by_dll, module_names
+
+
+def merge_export_tables(*tables):
+    """Merge several ``exports_by_dll`` tables (earlier entries win per key)."""
+    merged = {}
+    for table in tables:
+        for key, value in (table or {}).items():
+            dest = merged.setdefault(
+                key, {"display": value.get("display", key),
+                      "by_name": {}, "by_ordinal": {}})
+            dest.setdefault("display", value.get("display", key))
+            for name, ordinal in value.get("by_name", {}).items():
+                dest["by_name"].setdefault(name, ordinal)
+            for ordinal, name in value.get("by_ordinal", {}).items():
+                dest["by_ordinal"].setdefault(ordinal, name)
+    return merged
+
+
+def merge_module_names(*tables):
+    merged = {}
+    for table in tables:
+        for key, value in (table or {}).items():
+            merged.setdefault(key, value)
+    return merged
+
+
+def load_names_json(path):
+    """Load a cross-image export-names DB.
+
+    Accepted shapes:
+      * ``{"modules": {"coredll.dll": {"1145": "_wfopen", ...}, ...}}``
+      * ``{"coredll.dll": {"1145": "_wfopen"}, ...}``
+      * a list of ``{"module"/"dll", "ordinal", "name"}`` records
+    Returns ``(exports_by_dll, module_names)``.
+    """
+    with open(path, "r", encoding="utf-8") as fh:
+        doc = json.load(fh)
+    exports_by_dll, module_names = {}, {}
+    if isinstance(doc, dict) and "modules" in doc and isinstance(doc["modules"], dict):
+        doc = doc["modules"]
+    if isinstance(doc, list):
+        items = []
+        for rec in doc:
+            mod = rec.get("module") or rec.get("dll")
+            if mod and rec.get("name") is not None and rec.get("ordinal") is not None:
+                items.append((mod, rec["ordinal"], rec["name"]))
+        for mod, ordinal, name in items:
+            key = mod.lower()
+            module_names.setdefault(key, mod)
+            table = exports_by_dll.setdefault(
+                key, {"display": mod, "by_name": {}, "by_ordinal": {}})
+            table.setdefault("display", mod)
+            try:
+                ordv = int(ordinal)
+            except (TypeError, ValueError):
+                continue
+            table["by_name"].setdefault(name, ordv)
+            table["by_ordinal"].setdefault(ordv, name)
+        return exports_by_dll, module_names
+    if isinstance(doc, dict):
+        for mod, mapping in doc.items():
+            key = mod.lower()
+            module_names.setdefault(key, mod)
+            table = exports_by_dll.setdefault(
+                key, {"display": mod, "by_name": {}, "by_ordinal": {}})
+            table.setdefault("display", mod)
+            if not isinstance(mapping, dict):
+                continue
+            for ordk, name in mapping.items():
+                try:
+                    ordv = int(ordk)
+                except (TypeError, ValueError):
+                    continue
+                if name is None:
+                    continue
+                table["by_name"].setdefault(str(name), ordv)
+                table["by_ordinal"].setdefault(ordv, str(name))
+    return exports_by_dll, module_names
+
+
+def load_resolver_tables(data, resolve_starts, names_path=None):
+    """Build merged cross-image export tables.
+
+    ``resolve_starts`` is a list of ``--image-start`` offsets (ints) to load as
+    additional CE segments from the same image bytes; ``names_path`` is an
+    optional JSON names DB.  Returns ``(exports_by_dll, module_names)``.
+    """
+    tables, names = [], []
+    for start in resolve_starts or []:
+        seg = CERom(data, start)
+        ex, mn = collect_exports(seg)
+        tables.append(ex)
+        names.append(mn)
+    if names_path:
+        ex, mn = load_names_json(names_path)
+        tables.append(ex)
+        names.append(mn)
+    return merge_export_tables(*tables), merge_module_names(*names)
+
+
+def display_module_name(dll, module_names):
+    """Canonical display name for a DLL/module key (uppercased base, keeps ext)."""
+    display = (module_names or {}).get(dll.lower(), dll)
+    # Strip extension for the MODULE!symbol form when it reads cleaner; keep if
+    # that's surprising? The task example shows COREDLL!_wfopen (no .dll).
+    base = display
+    if base.lower().endswith(".dll"):
+        base = base[:-4]
+    elif base.lower().endswith(".exe"):
+        base = base[:-4]
+    return base.upper()
+
+
+def resolve_import_entry(dll, name, ordinal, exports_by_dll, module_names):
+    """Resolve one import to ``(symbol, resolved, note)``.
+
+    ``symbol`` is ``MODULE!name`` when a name is known (from the import itself
+    or from the export table), else ``#ordinal`` / ``#ordinal (unresolved)``.
+    ``resolved`` is True when the name came from the export table or the import
+    already carried a name.  ``note`` is a short reason for unresolved ordinals.
+    """
+    mod = display_module_name(dll, module_names)
+    table = (exports_by_dll or {}).get(dll.lower())
+    if name is not None:
+        # Name import: keep it; optionally confirm ordinal from exporter.
+        if table and name in table.get("by_name", {}):
+            return "%s!%s" % (mod, name), True, None
+        return "%s!%s" % (mod, name), True, None
+    if ordinal is not None and table and ordinal in table.get("by_ordinal", {}):
+        return "%s!%s" % (mod, table["by_ordinal"][ordinal]), True, None
+    if ordinal is not None:
+        reason = "no export table for %s" % dll if not table else "ordinal %d not in %s exports" % (ordinal, dll)
+        return "#%d" % ordinal, False, reason
+    return "?", False, "no name and no ordinal"
+
+
 def resolve_thunk(slot, data, cerom, imports_at, exports_by_dll, module_names):
     """Resolve one stub slot VA to ``module!export`` (ordinal) plus a reason.
 
@@ -2918,6 +3082,89 @@ def selftest():
         ok("cli decompress corrupt image message",
            "no valid CE segment" in err.getvalue(), True)
 
+        # --- cross-image import name resolution (M1.9) --------------------
+        sym, resolved, note = resolve_import_entry(
+            "COREDLL.DLL", None, 1145,
+            {"coredll.dll": {"display": "coredll.dll",
+                             "by_name": {"_wfopen": 1145},
+                             "by_ordinal": {1145: "_wfopen"}}},
+            {"coredll.dll": "coredll.dll"})
+        ok("resolve ordinal 1145 -> COREDLL!_wfopen", (sym, resolved),
+           ("COREDLL!_wfopen", True))
+        sym2, resolved2, note2 = resolve_import_entry(
+            "COREDLL.DLL", None, 9999, {}, {})
+        ok("resolve unknown ordinal stays unresolved",
+           (sym2, resolved2, note2 is not None and "no export table" in note2),
+           ("#9999", False, True))
+        sym3, resolved3, _ = resolve_import_entry(
+            "SYS_INF.DLL", "SomeName", None, {}, {})
+        ok("resolve named import keeps MODULE!name", (sym3, resolved3),
+           ("SYS_INF!SomeName", True))
+
+        names_path = os.path.join(td, "names.json")
+        with open(names_path, "w", encoding="utf-8") as fh:
+            json.dump({"modules": {"coredll.dll": {"1145": "_wfopen"},
+                                   "commondll.dll": {"7": "Foo"}}}, fh)
+        ex_n, mn_n = load_names_json(names_path)
+        ok("load_names_json modules shape",
+           ex_n["coredll.dll"]["by_ordinal"][1145], "_wfopen")
+        names_path2 = os.path.join(td, "names2.json")
+        with open(names_path2, "w", encoding="utf-8") as fh:
+            json.dump({"COREDLL.DLL": {"1145": "_wfopen"}}, fh)
+        ex_n2, _ = load_names_json(names_path2)
+        ok("load_names_json flat shape",
+           ex_n2["coredll.dll"]["by_ordinal"][1145], "_wfopen")
+
+        trom, tlayout = build_thunks_rom()
+        tpath = os.path.join(td, "thunks.img")
+        with open(tpath, "wb") as fh:
+            fh.write(trom)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli imports no resolver exit", main([tpath, "imports", "NAVI.EXE"]), 0)
+        out = buf.getvalue()
+        ok("cli imports no resolver shows ordinal #6",
+           "OBJDLL.DLL" in out and "#6" in out, True)
+        ok("cli imports no resolver shows named import",
+           "MAL_DataVol_getOffset" in out, True)
+
+        obj_names = os.path.join(td, "objnames.json")
+        with open(obj_names, "w", encoding="utf-8") as fh:
+            json.dump({"OBJDLL.DLL": {"6": "MAL_DataVol_getSize"}}, fh)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli imports --names exit",
+               main([tpath, "imports", "NAVI.EXE", "--names", obj_names]), 0)
+        out = buf.getvalue()
+        ok("cli imports --names resolves ordinal",
+           "OBJDLL!MAL_DataVol_getSize" in out, True)
+        ok("cli imports --names summary",
+           "resolved" in out and "unresolved" in out, True)
+        ok("cli imports --names no #6 left unresolved in lines",
+           "\n" in out and "  OBJDLL" not in out.replace("OBJDLL!MAL_DataVol_getSize", ""), True)
+
+        # --resolve-with: exporter and importer in the same synthetic image
+        # (thunks ROM has OBJDLL exporter + NAVI importer). Resolving against
+        # the same segment start proves the loader path.
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli imports --resolve-with exit",
+               main([tpath, "imports", "NAVI.EXE",
+                     "--resolve-with", "0x%x" % tlayout["image_start"]]), 0)
+        out = buf.getvalue()
+        ok("cli imports --resolve-with resolves ordinal 6",
+           "OBJDLL!MAL_DataVol_getSize" in out, True)
+
+        # Realistic coredll #1145 case via --names (end-to-end shape).
+        coredll_names = os.path.join(td, "coredll.json")
+        with open(coredll_names, "w", encoding="utf-8") as fh:
+            json.dump({"modules": {"coredll.dll": {"1145": "_wfopen"}}}, fh)
+        ex_c, mn_c = load_names_json(coredll_names)
+        sym_c, res_c, _ = resolve_import_entry(
+            "COREDLL.DLL", None, 1145, ex_c, mn_c)
+        ok("coredll #1145 -> COREDLL!_wfopen via names file",
+           (sym_c, res_c), ("COREDLL!_wfopen", True))
+
     print("cerom selftest: %d checks OK (synthetic ROM, no vendor data)" % len(checks))
     return 0
 
@@ -3263,7 +3510,15 @@ def main(argv=None):
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p = sub.add_parser("sections"); p.add_argument("module")
     p = sub.add_parser("exports"); p.add_argument("module")
-    p = sub.add_parser("imports"); p.add_argument("module")
+    p = sub.add_parser("imports",
+                       help="list import slots; resolve ordinals via --resolve-with/--names")
+    p.add_argument("module")
+    p.add_argument("--resolve-with", action="append", type=lambda s: int(s, 0),
+                   metavar="IMAGE_START",
+                   help="CE segment image-start (hex) in the same image whose exports "
+                        "resolve ordinal imports (repeatable, e.g. 0x3e00200)")
+    p.add_argument("--names", metavar="FILE",
+                   help="JSON export-names DB used to resolve ordinal imports")
     p = sub.add_parser("va2file"); p.add_argument("va", type=lambda s: int(s, 0))
     p = sub.add_parser("file2va"); p.add_argument("off", type=lambda s: int(s, 0))
     p = sub.add_parser("extract"); p.add_argument("module"); p.add_argument("-o", required=True)
@@ -3367,8 +3622,28 @@ def main(argv=None):
         for ordinal, name, rva in sorted(r.exports(r.module(a.module))):
             print("%5d %-40s rva=%08x" % (ordinal, name, rva))
     elif a.cmd == "imports":
+        try:
+            ex_tables, mod_names = load_resolver_tables(
+                data, getattr(a, "resolve_with", None), getattr(a, "names", None))
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            print("error: %s" % exc, file=sys.stderr)
+            return 2
+        unresolved = []
+        total = 0
         for dll, slot, nm, ordn in r.imports(r.module(a.module)):
-            print("%-20s slot=%08x %s" % (dll, slot, nm if nm is not None else "#%d" % ordn))
+            total += 1
+            symbol, resolved, note = resolve_import_entry(
+                dll, nm, ordn, ex_tables, mod_names)
+            print("%-20s slot=%08x %s" % (dll, slot, symbol))
+            if not resolved and ordn is not None:
+                unresolved.append((dll, slot, ordn, note))
+        if getattr(a, "resolve_with", None) or getattr(a, "names", None):
+            resolved_n = total - len(unresolved)
+            print("%d/%d resolved, %d unresolved" % (resolved_n, total, len(unresolved)))
+            if unresolved:
+                print("unresolved:")
+                for dll, slot, ordn, note in unresolved:
+                    print("  %-20s slot=%08x #%d  %s" % (dll, slot, ordn, note or ""))
     elif a.cmd == "va2file":
         print("0x%08x" % r.va2file(a.va))
     elif a.cmd == "file2va":

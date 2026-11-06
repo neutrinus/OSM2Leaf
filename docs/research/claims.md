@@ -979,3 +979,18 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-1882 | The unit unlocked the card with this PIN on its own `SD PIN` service screen (`Unlocking. OK`), confirming the value works on real hardware; the unit exposes a built-in SD LOCK/UNLOCK menu. | OBSERVED | H | owner service-screen photo 2026-11-06 (not committed) |
 | C-1883 | The displayed PIN is 20 characters but a CMD42 SD-lock password is at most 16 bytes, so the displayed string is not a raw CMD42 password; the byte form CMD42 uses is UNKNOWN (M2.13b). | VERIFIED (spec) / UNKNOWN (form) | M | EXP-2026-11-06-M2.13; SD physical-layer spec |
 | C-1884 | The `SDHC_SecurityUnLock` xref to the C-1880 literal is not yet traced because `SDHC.dll`'s code section is `IMAGE_SCN_COMPRESSED` (M1.2); the tie is behavioural (C-1882), not static. | OBSERVED — RETRACTED on the compression point by C-1950 (`.text` is uncompressed) | M | EXP-2026-11-06-M2.13; `cerom.py sections SDHC.dll` |
+
+## Cross-image import names (M1.9)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1760 | `tools/cerom.py imports` accepts `--resolve-with IMAGE_START` (CE segment image-start in the same image, repeatable) and `--names FILE` (JSON export-names DB) to resolve ordinal imports via merged exporter tables; `collect_exports`/`load_resolver_tables`/`resolve_import_entry` implement the resolution. | VERIFIED (tool) | H | EXP-2026-11-06-M1.9; `python3 tools/cerom.py --selftest` (359 checks) |
+| C-1761 | `load_names_json` accepts `{"modules": {"dll": {"ordinal": "name"}}}`, flat `{"dll": {"ordinal": "name"}}`, and list-of-record shapes for cross-image name databases. | VERIFIED (synthetic) | H | EXP-2026-11-06-M1.9; `cerom.py --selftest` |
+| C-1762 | `resolve_import_entry` maps `(dll, ordinal)` to `MODULE!export` when a merged export table contains the ordinal, returns `#ordinal` with a reason when unresolved, and keeps named imports as `MODULE!name`. | VERIFIED (synthetic) | H | EXP-2026-11-06-M1.9; `cerom.py --selftest` |
+| C-1763 | When resolving is requested, `cerom.py imports` prints `MODULE!name` for resolved imports and a `resolved/total, N unresolved` summary followed by an `unresolved:` list naming each slot, ordinal and reason. | VERIFIED (tool) | H | EXP-2026-11-06-M1.9 |
+| C-1764 | On IMG256 (`92aa525d…`, A `--image-start 0x200200`, resolver B `0x3e00200`), `Navi.exe` reports 846 import slots: 697 resolved, 149 unresolved. Unresolved slots are listed with `no export table for <DLL>` (exporter DLLs absent from segment B, e.g. `XGLDLL.dll`, `OSMDLL.dll`). | VERIFIED (IMG256) | H | EXP-2026-11-06-M1.9 |
+| C-1765 | `COREDLL.dll` ordinal 1145 at slot `0x0055d118` resolves to `COREDLL!_wfopen` using B's `coredll.dll` exports. | VERIFIED (IMG256) | H | EXP-2026-11-06-M1.9; `cerom.py imports Navi.exe --resolve-with 0x3e00200` |
+| C-1766 | 136 `COREDLL!` import symbols are named for `Navi.exe` via B segment exports under the same command. | VERIFIED (IMG256) | H | EXP-2026-11-06-M1.9 |
+| C-1767 | `tools/sh4xref.py load_module` and `--calls` accept `--resolve-with`/`--names` and populate import labels with resolved `MODULE!name` values instead of ordinal placeholders. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M1.9; `python3 tools/sh4xref.py --selftest` |
+| C-1768 | Cross-image resolution is best-effort over the supplied exporter segments/names DBs: ordinals whose exporting DLL is absent remain reported as unresolved and are never silently dropped. | VERIFIED | H | EXP-2026-11-06-M1.9; C-1764 |
+| C-1769 | `python3 tools/selftest.py` passes with M1.9 in place (`passed=30 failed=0 skipped=19 total=49`, 2026-11-06). | VERIFIED | H | EXP-2026-11-06-M1.9 |

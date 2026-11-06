@@ -259,7 +259,7 @@ def query_calls(mem, func, label):
 # Image binding
 # --------------------------------------------------------------------------
 
-def load_module(img_path, image_start, module):
+def load_module(img_path, image_start, module, resolve_with=None, names_path=None):
     with open(img_path, "rb") as fh:
         data = fh.read(128 << 20)
     r = cerom.CERom(data, image_start)
@@ -274,9 +274,17 @@ def load_module(img_path, image_start, module):
         if s["flags"] & 0x20000000:  # MEM_EXECUTE
             exec_segs.append((s["realaddr"], blob))
     mem = Mem(segs)
+    ex_tables, mod_names = cerom.load_resolver_tables(data, resolve_with, names_path)
     imports = {}
     for dll, slot, nm, ordn in r.imports(m):
-        imports[slot] = "%s!%s" % (dll, nm if nm is not None else "#%d" % ordn)
+        symbol, resolved, _note = cerom.resolve_import_entry(
+            dll, nm, ordn, ex_tables, mod_names)
+        if resolved or nm is not None:
+            imports[slot] = symbol
+        elif ordn is not None:
+            imports[slot] = "%s!#%d" % (cerom.display_module_name(dll, mod_names), ordn)
+        else:
+            imports[slot] = "%s!?" % cerom.display_module_name(dll, mod_names)
     exports = {}
     try:
         for ordinal, name, rva in r.exports(m):
@@ -380,6 +388,29 @@ def selftest():
           any("jsr @r3 -> 0x00010040" in l for l in calls), True)
     check("--calls stops at rts", any("rts" in l for l in calls), True)
 
+    # cross-image import resolution (M1.9): load_module resolves ordinal imports
+    import json as _json
+    import tempfile as _tempfile
+    trom, tlayout = cerom.build_thunks_rom()
+    with _tempfile.TemporaryDirectory(prefix="sh4xref-m19-") as td:
+        tpath = os.path.join(td, "thunks.img")
+        with open(tpath, "wb") as fh:
+            fh.write(trom)
+        _m, _es, imps_raw, _ex = load_module(tpath, None, "NAVI.EXE")
+        check("load_module without resolver keeps ordinal",
+              any(v.endswith("!#6") for v in imps_raw.values()), True)
+        names_path = os.path.join(td, "names.json")
+        with open(names_path, "w", encoding="utf-8") as fh:
+            _json.dump({"OBJDLL.DLL": {"6": "MAL_DataVol_getSize"}}, fh)
+        _m2, _es2, imps_res, _ex2 = load_module(
+            tpath, None, "NAVI.EXE", names_path=names_path)
+        slot1 = tlayout["slots"][1]
+        check("load_module --names resolves ordinal slot to symbol",
+              imps_res.get(slot1), "OBJDLL!MAL_DataVol_getSize")
+        lab2 = Labeller(_m2, imps_res, _ex2)
+        check("Labeller import table contains resolved name",
+              "OBJDLL!MAL_DataVol_getSize" in imps_res.values(), True)
+
     print("sh4xref selftest: %s" % ("OK" if not fails else "FAILED %d" % len(fails)))
     return 0 if not fails else 1
 
@@ -395,13 +426,22 @@ def main(argv=None):
     ap.add_argument("--image-start", type=lambda s: int(s, 0), default=None)
     ap.add_argument("--to", type=lambda s: int(s, 0))
     ap.add_argument("--calls", type=lambda s: int(s, 0))
+    ap.add_argument("--resolve-with", action="append", type=lambda s: int(s, 0),
+                    metavar="IMAGE_START",
+                    help="CE segment image-start(s) whose exports resolve ordinal "
+                         "imports (repeatable, e.g. 0x3e00200)")
+    ap.add_argument("--names", metavar="FILE",
+                    help="JSON export-names DB used to resolve ordinal imports")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
     if not a.image or not a.module or (a.to is None and a.calls is None):
         ap.error("IMG MODULE and one of --to / --calls are required (or --selftest)")
-    mem, exec_segs, imports, exports = load_module(a.image, a.image_start, a.module)
+    mem, exec_segs, imports, exports = load_module(
+        a.image, a.image_start, a.module,
+        resolve_with=getattr(a, "resolve_with", None),
+        names_path=getattr(a, "names", None))
     lab = Labeller(mem, imports, exports)
     if a.to is not None:
         for line in query_to(mem, exec_segs, a.to, lab):
