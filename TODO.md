@@ -235,11 +235,11 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping: ledger, docs, tool overlap | H8 |
+| H | Housekeeping: ledger, docs, tool overlap | H8, H9 |
 | M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.9, M1.6c, M1.2b**, M1.2c, M1.2d |
 | M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12, M2.13b** (M2.7 in PR; M2.13, M2.11 done) |
-| M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 in PR) |
-| M4 | Data formats (no firmware needed) | **M4.15**, M4.3, M4.8b, M4.12 (M4.9, M4.10, M4.11, M4.18 in PR; M4.7 done) |
+| M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 done) |
+| M4 | Data formats (no firmware needed) | **M4.15**, M4.3, M4.8b, M4.12, M4.19 (M4.9, M4.10, M4.11, M4.18 done) |
 | M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.1, M5.10**, M5.9; M5.1b after M5.1 (non-Claude runner) |
 | M6 | Hardware and safety (planning now, tests later) | M6.9 (non-Claude runner); tests need hardware |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
@@ -387,6 +387,23 @@ widens knowledge or tooling in parallel and is equally welcome.
     run once in the EXP; the two sentences match `docs/format/ze0-tools.md`;
     `realcheck.py` pins the `coredll.dll` ordinals of C-1710 (H7 follow-up).
   - Claims: C-1890–C-1899
+
+- [ ] **H9 — Guard recompression tools against zlib-ng false failures**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: a correct rebuild must not report `FAIL` because the interpreter
+    links zlib-ng (Python 3.14 here), and a user must learn why.
+  - Input: `tools/lev3456.py verify/rebuild`, `tools/cmpind_writer.py`,
+    `tools/ind_mutate.py`, `tools/cmpind.py`; the 2026-11-06 observation that
+    `python3` 3.14 (`zlib 1.3.1.zlib-ng`) reports `stream differs … plain
+    True` on `LEV3456R.DAT` while `python3.13` (stock `1.3.1`) returns
+    byte-identical, matching `docs/format/cmp-ind.md` and `AGENTS.md`.
+  - Done when: every tool that recompresses prints the zlib runtime version
+    and warns (or refuses `verify`/`rebuild` when a byte-identical result is
+    claimed) on `zlib-ng`, without changing synthetic `--selftest` results;
+    one EXP records the 3.13-vs-3.14 run on the same `LEV3456R.DAT` SHA-256
+    and the exit codes; `tools/README.md` states the requirement.
+  - Claims: C-1970–C-1979
 
 ---
 
@@ -1115,6 +1132,23 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     non-empty/max 36,461/10, 66,189/85, 243,907/99, 109,944/64;
     `tools/lctbl_records.py` round-trips all 517 streams byte-identically and
     the 2014/2016 controls use the same layout.
+
+- [ ] **M4.19 — `(XX, YY)` point coordinate arithmetic**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M4.9 leaves this `UNKNOWN`; M4.12 helps)
+  - Goal: turn the `40 XX YY` point token into a geographic coordinate, the
+    last missing piece between an ADDRE record and a map position.
+  - Input: `tools/addre.py` (`cells`, `records`, `stats`),
+    `docs/format/refer.md` ADDRE section, point tags `02..05` with the
+    `40 XX YY` payload on `ADDRE001`/`017`/`003`, `COORD001` region boxes,
+    `POINT0nn` coordinates; the Monaco box is degenerate, so pick a second
+    country as the control.
+  - Done when: the `(XX, YY)` → latitude/longitude (or tile/mesh position)
+    mapping is decoded with a control that fails on a wrong hypothesis, or
+    it is proven not derivable from these fields alone with the method
+    recorded; `refer.md` and `tools/addre.py` carry the rule and a synthetic
+    test.
+  - Claims: C-1960–C-1969
 
 ---
 
