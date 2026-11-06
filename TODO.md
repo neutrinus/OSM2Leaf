@@ -745,7 +745,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1880–C-1889
 
 - [ ] **M2.13b — The CMD42 byte form and the runtime prefix**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/project-thread-9ynrai · Critical: yes
   - Depends: M2.13 (M1.2b/c for the `SDHC.dll` xref; M1.9 for names)
   - Goal: turn the known PIN into the exact ≤16-byte password a cloned card
     must carry, and name where the 8-digit prefix comes from.
@@ -759,7 +759,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the EXP confirms the 16-byte form, names the source of the 4
     unit-specific bytes (serial/model, with a code path), and states whether
     an independently locked card (not re-locked by the same unit) is feasible.
-  - Claims: C-1940–C-1949
+  - Claims: C-1950–C-1959 (moved: C-1940–C-1949 is M6.11, taken first)
 
 ---
 
