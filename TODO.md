@@ -824,7 +824,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-870–C-879
 
 - [ ] **M3.7 — How the router reads `RDSTM001` / `REFER` road records**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.7-router-rdstm · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: the record fields the router uses (graph tuples, speed, one-way,
     restrictions).
