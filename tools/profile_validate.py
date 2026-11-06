@@ -26,7 +26,10 @@ What is checked beyond JSON Schema:
   (``docs/format/map-tiles.md``);
 * include/exclude do not overlap and at least one tile resolves;
 * ``limits.max_tiles`` is enforced against the resolved tile count;
-* unknown keys are warnings (``--strict`` turns them into errors).
+* unknown keys are warnings (``--strict`` turns them into errors);
+* informational findings are **notes** (``N001``), printed with the report but
+  never promoted by ``--strict`` -- a wide selection is a property of the tile
+  lattice (sea/empty cells), not a defect of the profile.
 
 Tile geometry comes from ``tools/mesh_grid.py`` (imported, not copied). Exit
 codes: ``0`` valid (warnings allowed), ``1`` validation errors, ``2`` usage or
@@ -38,11 +41,17 @@ Usage::
     python3 tools/profile_validate.py profiles/*.json --json
     python3 tools/profile_validate.py profiles/poland-full.json --strict
     python3 tools/profile_validate.py --selftest
+
+``profiles/*.json`` also expands to ``profiles/schema.json``; that file is the
+schema, not a profile, so it is skipped with a message instead of failing the
+run.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import math
 import os
@@ -116,7 +125,7 @@ RULES = {
     "W006": "included tile is off the delivered lattice and will be skipped",
     "W007": "border buffer is at least one tile of latitude",
     "W008": "search area extends outside the delivered lattice",
-    "W009": "selection is wider than the 45 tiles the factory image ships",
+    "N001": "selection is wider than the 45 tiles the factory image ships (upper bound)",
 }
 
 SUPPORTED_KEYWORDS = {
@@ -186,6 +195,7 @@ class Report:
     tier_counts: dict[str, int] = field(default_factory=dict)
     errors: list[Issue] = field(default_factory=list)
     warnings: list[Issue] = field(default_factory=list)
+    notes: list[Issue] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -196,6 +206,9 @@ class Report:
 
     def warn(self, code: str, path: str, message: str) -> None:
         self.warnings.append(Issue(code, path, message, severity="warning"))
+
+    def note(self, code: str, path: str, message: str) -> None:
+        self.notes.append(Issue(code, path, message, severity="note"))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -211,6 +224,7 @@ class Report:
             "tier_counts": dict(sorted(self.tier_counts.items())),
             "errors": [issue.to_dict() for issue in self.errors],
             "warnings": [issue.to_dict() for issue in self.warnings],
+            "notes": [issue.to_dict() for issue in self.notes],
         }
 
 
@@ -846,8 +860,8 @@ def resolve_tiles(report: Report, doc: dict[str, Any]) -> dict[str, str]:
         report.add("E025", "tiles", "no whole tile resolves for this profile")
 
     if len(selected) > SHIPPED_TILE_COUNT:
-        report.warn(
-            "W009",
+        report.note(
+            "N001",
             "tiles",
             f"{len(selected)} addressable cells selected, but the factory image ships "
             f"only {SHIPPED_TILE_COUNT}; sea/empty cells inflate the tile count and the "
@@ -987,6 +1001,9 @@ def print_report(report: Report, file: Any = None) -> None:
                 f"{tile['lon_min']:7.2f}..{tile['lon_max']:6.2f} E  tier={tile['tier']}",
                 file=stream,
             )
+    for issue in report.notes:
+        location = f" at {issue.path}" if issue.path else ""
+        print(f"note      {issue.code} {issue.message}{location}", file=stream)
     for issue in report.warnings:
         location = f" at {issue.path}" if issue.path else ""
         print(f"warning {issue.code} {issue.message}{location}", file=stream)
@@ -1030,12 +1047,26 @@ def main(argv: list[str] | None = None) -> int:
     global SCHEMA_PATH
     SCHEMA_PATH = Path(args.schema)
 
+    schema_path = SCHEMA_PATH.resolve()
     reports: list[Report] = []
+    skipped: list[str] = []
     try:
         for path in args.profile:
+            if Path(path).resolve() == schema_path:
+                skipped.append(str(path))
+                continue
             reports.append(validate_path(path, strict=args.strict))
     except SchemaError as exc:
         print(f"error: schema: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
+    for path in skipped:
+        print(f"skip      {path} (the schema, not a profile)", file=sys.stderr)
+    if not reports:
+        print(
+            "error: no profile given (only the schema file was passed)",
+            file=sys.stderr,
+        )
         return EXIT_USAGE
 
     if args.json:
@@ -1283,9 +1314,11 @@ def selftest() -> int:
     check("unknown key warns", lenient.ok and any(i.code == "W001" for i in lenient.warnings))
     check("strict rejects warning", not strict.ok and strict.warnings == [])
 
-    # 9. Shipped profiles (no vendor data) still validate.
+    # 9. Shipped profiles are schema version 2 and pass --strict with no
+    #    warnings. The tile counts are the regression values from EXP-45.
     for name, expected in (
         ("dolnoslaskie-detail.json", 1),
+        ("dolnoslaskie-test.json", 1),
         ("poland-full.json", 4),
         ("europe-motorways.json", 56),
     ):
@@ -1293,13 +1326,52 @@ def selftest() -> int:
         if not path.exists():
             check(f"shipped {name}", False, "missing")
             continue
-        shipped = validate_path(path)
-        check(f"shipped {name} valid", shipped.ok, str([i.message for i in shipped.errors]))
+        shipped = validate_path(path, strict=True)
+        check(
+            f"shipped {name} strict valid",
+            shipped.ok,
+            str([i.message for i in shipped.errors]),
+        )
+        check(
+            f"shipped {name} has no warnings",
+            shipped.warnings == [],
+            str([i.code for i in shipped.warnings]),
+        )
+        check(f"shipped {name} is version 2", shipped.shape == "version 2", shipped.shape)
         check(
             f"shipped {name} tiles={expected}",
             len(shipped.tiles) == expected,
             str([tile["tile"] for tile in shipped.tiles]),
         )
+
+    # 10. A wide selection is an informational note, so it never fails --strict.
+    doc = _valid_v2()
+    doc["region"]["bbox"] = list(lattice_bbox())
+    doc["border_buffer_deg"] = 0.0
+    wide = validate_document(doc, "<selftest-wide-selection>")
+    check("wide selection is valid", wide.ok, str([i.message for i in wide.errors]))
+    check("wide selection is a note", any(i.code == "N001" for i in wide.notes),
+          str([i.code for i in wide.notes]))
+    check("notes are not warnings", wide.warnings == [],
+          str([i.code for i in wide.warnings]))
+
+    # 11. A shell wildcard that expands to the schema skips it, not fails.
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        code = main(
+            [str(SCHEMA_PATH), str(REPO_ROOT / "profiles" / "poland-full.json")]
+        )
+    check("schema file is skipped", code == EXIT_OK, str(code))
+    check(
+        "skip is explained",
+        "the schema, not a profile" in err.getvalue(),
+        err.getvalue(),
+    )
+    check(
+        "real profile still reported",
+        "poland-full" in out.getvalue(),
+        out.getvalue()[:200],
+    )
 
     print(f"\nchecks: {checks}, failures: {len(failures)}")
     if failures:

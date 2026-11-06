@@ -1,21 +1,38 @@
 {
+  "version": 2,
   "name": "dolnoslaskie-test",
-  "description": "Tiny vertical-slice test: one tile (B48R058R) covering Dolnośląskie, core road network only. Factory REFER/ADDRE/POI data is preserved in the first slice.",
+  "description": "Tiny vertical-slice test: one whole tile (B48R058R) covering Dolnośląskie, core road network only; factory REFER/ADDRE/POI data is preserved in the first slice.",
   "sources": ["Wroclaw.osm.pbf"],
-  "include": {
-    "countries": ["PL"],
+  "region": {
+    "name": "Dolnośląskie",
     "bbox": [14.0, 49.9, 17.9, 51.9],
-    "border_buffer_km": 10,
-    "tiles": {"mode": "whole", "include": ["B48R058R"], "exclude": []}
+    "countries": ["PL"]
   },
-  "detail": {
-    "roads": "core",
-    "addresses": false,
-    "pois": "none",
-    "admin_boundaries": false
+  "coverage": {
+    "default": "detail",
+    "tiers": [
+      {
+        "id": "detail",
+        "description": "Core road network only, no addresses, POIs or boundaries; the factory tables stay untouched.",
+        "roads": "core",
+        "addresses": false,
+        "pois": "none",
+        "admin_boundaries": false
+      }
+    ]
   },
-  "routing": {
-    "profile": "car",
-    "keep_cross_border": false
+  "tiles": {"mode": "whole-tiles", "include": ["B48R058R"], "exclude": []},
+  "border_buffer_deg": 0.09,
+  "attribution": {
+    "text": "Map data © OpenStreetMap contributors, ODbL 1.0",
+    "location": "manifest",
+    "odbl_version": "1.0"
+  },
+  "limits": {"max_tiles": 1},
+  "outputs": {
+    "image_name": "dolnoslaskie-test.img",
+    "manifest": true,
+    "verify": true,
+    "card_label": "OSM-DSTEST"
   }
 }

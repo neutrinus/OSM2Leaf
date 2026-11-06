@@ -1,25 +1,47 @@
 {
+  "version": 2,
   "name": "europe-motorways",
-  "description": "Full Poland plus a rough European motorway/trunk network for long-distance routing.",
+  "description": "All of Poland at full detail plus a rough European motorway/trunk network for long-distance routing, delivered as whole tiles.",
   "sources": ["poland-latest.osm.pbf", "europe-latest.osm.pbf"],
-  "include": {
-    "countries": ["PL"],
-    "bbox": null,
-    "border_buffer_km": 100,
-    "tiles": {"mode": "whole", "include": [], "exclude": []}
+  "region": {
+    "name": "Poland with a European corridor",
+    "bbox": [14.12, 49.0, 24.15, 54.84],
+    "countries": ["PL"]
   },
-  "detail": {
-    "roads": "all",
-    "addresses": true,
-    "pois": "fuel,charging,parking",
-    "admin_boundaries": true,
-    "extra_network": {
-      "bbox": [-12.0, 34.0, 40.0, 72.0],
-      "roads": ["motorway", "trunk", "motorway_link", "trunk_link"]
-    }
+  "coverage": {
+    "default": "detail",
+    "tiers": [
+      {
+        "id": "detail",
+        "description": "Poland: every drivable road, addresses, fuel/charging/parking POIs, boundaries.",
+        "roads": "all",
+        "addresses": true,
+        "pois": ["fuel", "charging", "parking"],
+        "admin_boundaries": true
+      },
+      {
+        "id": "corridor",
+        "description": "European long-distance corridor outside Poland: motorway and trunk only, names for routing.",
+        "region": {"name": "Europe corridor", "bbox": [-12.0, 34.0, 40.0, 72.0]},
+        "roads": ["motorway", "trunk", "motorway_link", "trunk_link"],
+        "addresses": false,
+        "pois": "none",
+        "admin_boundaries": false
+      }
+    ]
   },
-  "routing": {
-    "profile": "car",
-    "keep_cross_border": true
+  "tiles": {"mode": "whole-tiles", "include": [], "exclude": []},
+  "border_buffer_deg": 0.9,
+  "attribution": {
+    "text": "Map data © OpenStreetMap contributors, ODbL 1.0",
+    "location": "manifest",
+    "odbl_version": "1.0"
+  },
+  "limits": {"max_tiles": 63},
+  "outputs": {
+    "image_name": "europe-motorways.img",
+    "manifest": true,
+    "verify": true,
+    "card_label": "OSM-EU"
   }
 }

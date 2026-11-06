@@ -1,21 +1,38 @@
 {
+  "version": 2,
   "name": "poland-full",
-  "description": "All of Poland, all roads, addresses and POIs, with a border buffer for cross-border routing.",
+  "description": "All of Poland, all roads, addresses and POIs, delivered as whole tiles with a border buffer for cross-border routing.",
   "sources": ["poland-latest.osm.pbf"],
-  "include": {
-    "countries": ["PL"],
-    "bbox": null,
-    "border_buffer_km": 50,
-    "tiles": {"mode": "whole", "include": [], "exclude": []}
+  "region": {
+    "name": "Poland",
+    "bbox": [14.12, 49.0, 24.15, 54.84],
+    "countries": ["PL"]
   },
-  "detail": {
-    "roads": "all",
-    "addresses": true,
-    "pois": "all",
-    "admin_boundaries": true
+  "coverage": {
+    "default": "detail",
+    "tiers": [
+      {
+        "id": "detail",
+        "description": "Every drivable road, both address kinds, all POIs, administrative boundaries.",
+        "roads": "all",
+        "addresses": true,
+        "pois": "all",
+        "admin_boundaries": true
+      }
+    ]
   },
-  "routing": {
-    "profile": "car",
-    "keep_cross_border": true
+  "tiles": {"mode": "whole-tiles", "include": [], "exclude": []},
+  "border_buffer_deg": 0.45,
+  "attribution": {
+    "text": "Map data © OpenStreetMap contributors, ODbL 1.0",
+    "location": "manifest",
+    "odbl_version": "1.0"
+  },
+  "limits": {"max_tiles": 63},
+  "outputs": {
+    "image_name": "poland-full.img",
+    "manifest": true,
+    "verify": true,
+    "card_label": "OSM-PL"
   }
 }

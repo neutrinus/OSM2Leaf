@@ -1,21 +1,38 @@
 {
+  "version": 2,
   "name": "dolnoslaskie-detail",
-  "description": "Full detail for Dolnośląskie, delivered as the full containing tiles (may include neighbouring regions).",
+  "description": "Full detail for Dolnośląskie, delivered as the whole B48R058R tile, which extends past the voivodeship into neighbouring regions.",
   "sources": ["poland-latest.osm.pbf"],
-  "include": {
-    "countries": ["PL"],
+  "region": {
+    "name": "Dolnośląskie",
     "bbox": [14.0, 49.9, 17.9, 51.9],
-    "border_buffer_km": 50,
-    "tiles": {"mode": "whole", "include": [], "exclude": []}
+    "countries": ["PL"]
   },
-  "detail": {
-    "roads": "all",
-    "addresses": true,
-    "pois": "all",
-    "admin_boundaries": true
+  "coverage": {
+    "default": "detail",
+    "tiers": [
+      {
+        "id": "detail",
+        "description": "Every drivable road, both address kinds, all POIs, administrative boundaries.",
+        "roads": "all",
+        "addresses": true,
+        "pois": "all",
+        "admin_boundaries": true
+      }
+    ]
   },
-  "routing": {
-    "profile": "car",
-    "keep_cross_border": true
+  "tiles": {"mode": "whole-tiles", "include": [], "exclude": []},
+  "border_buffer_deg": 0.45,
+  "attribution": {
+    "text": "Map data © OpenStreetMap contributors, ODbL 1.0",
+    "location": "manifest",
+    "odbl_version": "1.0"
+  },
+  "limits": {"max_tiles": 63},
+  "outputs": {
+    "image_name": "dolnoslaskie-detail.img",
+    "manifest": true,
+    "verify": true,
+    "card_label": "OSM-DS"
   }
 }

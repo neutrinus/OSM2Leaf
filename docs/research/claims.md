@@ -964,6 +964,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1890 | `tools/mmain.py` has two named parsers: `parse_mmain`/`write_mmain` for the 4,096-byte `MMAIN001.DAT` header (UTF-16BE header, `0x184` BE i16 bounds, `0x18c` codes, `0x1ac` three-table descriptor) and `parse_fat_root`/`write_fat_root` (only via `--fat-root`); both round-trip synthetically and the real header round-trips byte-identically (`240e7c97…`) while root-directory bytes are refused by default. | VERIFIED | H | EXP-2026-11-06-H8-mmain-fix; `python3 tools/mmain.py --selftest` |
 
+| C-1210 | All four shipped build profiles are schema v2 (whole tiles, degrees, tiers, attribution, limits, outputs) and pass `profile_validate.py --strict` with zero errors/warnings while resolving 1/1/4/56 tiles; `build.py --dry-run` prints the M5 stage chain with each stage marked NOT IMPLEMENTED and exits 3 without `--dry-run`. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M7.4-profiles-v2; `python3 tools/profile_validate.py --strict profiles/*.json` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

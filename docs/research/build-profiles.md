@@ -18,64 +18,122 @@ user intent, routing scope and build time, not about saving megabytes.
 > chooses a profile when **building the card image**; different profiles mean
 > different cards/images, not a menu in the car.
 
-## Proposed profile format
+## Profile format (version 2, shipped 2026-11-06)
 
-A profile is a small JSON file under `profiles/`. It describes *what to
-include*, not *how to encode it*. The compiler decides encoding from the
-format rules.
+A profile is a small JSON file under `profiles/`, validated against
+[`profiles/schema.json`](../../profiles/schema.json). It describes *what to
+include*, not *how to encode it*; the compiler decides encoding from the format
+rules. The four shipped profiles were migrated from the 2026-11-05 version-1
+draft to version 2 (EXP-2026-11-06-M7.4); version 1 is now accepted only
+through the legacy adapter in `tools/profile_validate.py`.
 
 ```json
 {
+  "version": 2,
   "name": "poland-full",
-  "description": "All of Poland, full detail, with a border buffer for cross-border routing.",
+  "description": "All of Poland, all roads, addresses and POIs, delivered as whole tiles with a border buffer for cross-border routing.",
   "sources": ["poland-latest.osm.pbf"],
-  "include": {
-    "countries": ["PL"],
-    "bbox": null,
-    "border_buffer_km": 50,
-    "tiles": {"mode": "whole", "include": [], "exclude": []}
+  "region": {
+    "name": "Poland",
+    "bbox": [14.12, 49.0, 24.15, 54.84],
+    "countries": ["PL"]
   },
-  "detail": {
-    "roads": "all",
-    "addresses": true,
-    "pois": "all",
-    "admin_boundaries": true
+  "coverage": {
+    "default": "detail",
+    "tiers": [
+      {
+        "id": "detail",
+        "description": "Every drivable road, both address kinds, all POIs, administrative boundaries.",
+        "roads": "all",
+        "addresses": true,
+        "pois": "all",
+        "admin_boundaries": true
+      }
+    ]
   },
-  "routing": {
-    "profile": "car",
-    "keep_cross_border": true
+  "tiles": {"mode": "whole-tiles", "include": [], "exclude": []},
+  "border_buffer_deg": 0.45,
+  "attribution": {
+    "text": "Map data © OpenStreetMap contributors, ODbL 1.0",
+    "location": "manifest",
+    "odbl_version": "1.0"
+  },
+  "limits": {"max_tiles": 63},
+  "outputs": {
+    "image_name": "poland-full.img",
+    "manifest": true,
+    "verify": true,
+    "card_label": "OSM-PL"
   }
 }
 ```
 
 ### Fields
 
-- `sources`: Geofabrik extracts to read. Prefer a national extract plus a
-  border buffer over a voivodeship cut, because a voivodeship cut severs
-  cross-border roads.
-- `include.countries` / `bbox`: coarse selection.
-- `border_buffer_km`: keep roads just outside the selected area so routing
-  does not stop at the border.
-- `include.tiles`: `auto` (derive from the region), or explicit tile IDs once
-  the `BxxRyyR` grid is decoded. `exclude` is for experiments.
-- `detail.roads`: `all`, `core` (motorway–secondary), or a class list.
-- `detail.addresses`: keep both node and way addresses; two thirds of Polish
-  addresses are on buildings.
-- `detail.pois`: `all`, `none`, or a category list (fuel, charging, parking,
-  amenity, shop, tourism…).
-- `detail.admin_boundaries`: needed for region/city search.
-- `routing.keep_cross_border`: keep the border buffer in the routing graph.
+- `version`: `2`. The schema is closed for this shape; new keys need a schema
+  change and a validator update.
+- `region.bbox`: `[west, south, east, north]` in degrees. `countries` is
+  provenance only; the bbox is authoritative.
+- `coverage.tiers`: tried in array order, **first match wins**. One profile can
+  therefore mix "Poland at full detail" with "the European corridor at
+  motorway/trunk only", which is what `europe-motorways` does.
+- `coverage.tiers[].roads`: `all`, `core` (motorway–secondary), `none`, or an
+  explicit OSM class list. `addresses` keeps node and way addresses; two
+  thirds of Polish addresses are on buildings.
+- `coverage.tiers[].pois`: `all`, `none`, or a category list (fuel,
+  charging, parking, amenity, shop, tourism…).
+- `coverage.tiers[].admin_boundaries`: needed for region/city search.
+- `tiles.mode`: always `whole-tiles`. `include` is an explicit tile list;
+  empty means derive from `region` + buffer. `exclude` is for experiments.
+- `border_buffer_deg`: buffer in latitude degrees (1° lat = 111.32 km); the
+  longitude padding is divided by `cos(mid-latitude)`. The buffer keeps roads
+  just outside the selected area so routing does not stop at the border.
+- `attribution`: ODbL text plus where it ships (`card-file`, `download`,
+  `manifest`).
+- `limits`: `max_image_bytes`, `max_tiles`, `min_free_bytes`; `build.py`
+  enforces all three against the estimate.
+- `outputs`: image name, manifest and verify flags, FAT card label.
+- `routing` from the version-1 shape is deliberately **not** in version 2: no
+  routing graph is built yet, so keeping it would be a promise the tools cannot
+  keep. When the graph lands it gets a real schema block.
 
-## Starting profiles
+## Shipped profiles
 
-| Profile | Purpose | Expected size |
-| --- | --- | --- |
-| `dolnoslaskie-detail` | full detail for Dolnośląskie + border buffer | ~20–40 MB |
-| `poland-full` | all Poland, all roads, addresses, POIs | ~200–300 MB |
-| `europe-motorways` | Poland full + European motorway/trunk network | ~300–400 MB |
+Resolved counts come from `tools/mesh_grid.py` through
+`tools/profile_validate.py`; sizes are the `build.py --dry-run` **ESTIMATE**
+(roads anchored to a measurement, refer/POI/admin placeholders).
 
-These are estimates; the compiler should print a size breakdown before
-writing an image.
+| Profile | Purpose | Tiles | Estimate |
+| --- | --- | --: | --: |
+| `dolnoslaskie-detail` | full detail for Dolnośląskie + 50 km buffer, whole `B48R058R` | 1 | 44.6 MB |
+| `dolnoslaskie-test` | one-tile vertical slice, core roads only | 1 | 1.5 MB |
+| `poland-full` | all Poland, all roads, addresses, POIs | 4 | 178.4 MB |
+| `europe-motorways` | Poland full + European motorway/trunk corridor | 56 | 253.4 MB |
+
+The `dolnoslaskie-detail` estimate is 44.6 MB rather than the 20–40 MB first
+guessed here, because whole-tile delivery makes that profile carry the rest of
+south-west Poland inside `B48R058R`. `europe-motorways` resolves 56 addressable
+cells (11 more than the 45 shipped tiles); the extra cells are sea/empty, so the
+count and the estimate are upper bounds (`N001`, informational, never a
+`--strict` failure).
+
+These values are the regression constants in `tools/profile_validate.py
+--selftest` (1 / 1 / 4 / 56 tiles) and `tools/build.py --selftest`
+(44.6 / 1.5 / 178.4 / 253.4 MB).
+
+## How a build runs (planned)
+
+`tools/build.py --dry-run` prints the M5 compiler spine and marks every step
+`NOT IMPLEMENTED`; it executes no stage and writes nothing. Without `--dry-run`
+it exits `3`.
+
+| # | Stage | Input → output | Status |
+| --: | --- | --- | --- |
+| 1 | `osm_ingest` | `.osm.pbf` → IMF v1 | **NOT IMPLEMENTED** in `build.py` (tool exists, M5.1) |
+| 2 | `mesh_split` | IMF v1 → whole `BxxRyyR` tiles | **NOT IMPLEMENTED** (M5.2) |
+| 3 | tile writer | tile model → tile `.DAT`/`.cmp` | **NOT IMPLEMENTED** (M5.4) |
+| 4 | manifests | tiles → `DRSTR`/`MMAIN`/`.ind` | **NOT IMPLEMENTED** (M5.6) |
+| 5 | card image | card tree → `<image>.img` | **NOT IMPLEMENTED** (M5.10) |
 
 ## Decision: whole tiles only
 
@@ -105,7 +163,7 @@ Consequences:
 - Do not implement sub-tile clipping unless the format and the unit are later
   proven to support it.
 
-`include.tiles.mode` is therefore `"whole"` in every profile.
+`tiles.mode` is therefore `"whole-tiles"` in every profile.
 
 ## Card output rules
 
@@ -130,5 +188,7 @@ browser. Decide early whether to:
 - ship attribution with the image/download, and
 - keep the database provenance in `manifest.json` next to the build output.
 
-This is a legal decision, not only a technical one; record it before
-distributing images.
+All four shipped profiles currently use `attribution.location: "manifest"`:
+the text ships with the build output, not on the card. That is a placeholder
+decision, not a legal conclusion — the `card-file` option still needs the
+manifest test above, and the final choice belongs with the distribution plan.

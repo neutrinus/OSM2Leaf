@@ -6,16 +6,21 @@ encoded. Profiles are whole-tile only (decision in
 profile selects complete `BxxRyyR` tiles, and the border buffer extends the
 tile search and the routing graph but never clips a tile.
 
-| File | Shape | Tiles |
-| --- | --- | --- |
-| `schema.json` | JSON Schema draft 2020-12 for version 2 | — |
-| `dolnoslaskie-detail.json` | version 1 (legacy) | 1 (`B48R058R`) |
-| `dolnoslaskie-test.json` | version 1 (legacy) | 1 (`B48R058R`) |
-| `poland-full.json` | version 1 (legacy) | 4 |
-| `europe-motorways.json` | version 1 (legacy) | 56 |
+All shipped profiles use **schema version 2**
+([`schema.json`](schema.json)). Version 1 (the 2026-11-05
+`include`/`detail`/`routing` shape) is still accepted by the validator through
+a documented legacy adapter so old archives keep working, but no file here uses
+it and `--strict` rejects it.
+
+| File | Region | Buffer | Tiles | Tiers |
+| --- | --- | --: | --: | --- |
+| `dolnoslaskie-detail.json` | Dolnośląskie 14.0–17.9 E, 49.9–51.9 N | 0.45° (50 km) | 1 | `detail` 1 |
+| `dolnoslaskie-test.json` | same, explicit `B48R058R` | 0.09° (10 km) | 1 | `detail` 1 |
+| `poland-full.json` | PL 14.12–24.15 E, 49.0–54.84 N | 0.45° (50 km) | 4 | `detail` 4 |
+| `europe-motorways.json` | PL + corridor −12–40 E, 34–72 N | 0.90° (100 km) | 56 | `detail` 4, `corridor` 52 |
 
 `dolnoslaskie-test.toml` is a separate build profile for the pinned
-`tools/ze0-viewer/vendor/osm2clarion` slice; it is not read by these tools.
+`tools/ze0-viewer` `osm2clarion` slice; it is not read by these tools.
 
 ## Version 2 (canonical)
 
@@ -23,14 +28,19 @@ tile search and the routing graph but never clips a tile.
 {
   "version": 2,
   "name": "dolnoslaskie-detail",
-  "description": "Full detail for Dolnośląskie, delivered as the full containing tiles.",
+  "description": "Full detail for Dolnośląskie, delivered as the whole B48R058R tile, which extends past the voivodeship into neighbouring regions.",
   "sources": ["poland-latest.osm.pbf"],
-  "region": {"bbox": [14.0, 49.9, 17.9, 51.9], "countries": ["PL"]},
+  "region": {
+    "name": "Dolnośląskie",
+    "bbox": [14.0, 49.9, 17.9, 51.9],
+    "countries": ["PL"]
+  },
   "coverage": {
     "default": "detail",
     "tiers": [
       {
         "id": "detail",
+        "description": "Every drivable road, both address kinds, all POIs, administrative boundaries.",
         "roads": "all",
         "addresses": true,
         "pois": "all",
@@ -46,7 +56,12 @@ tile search and the routing graph but never clips a tile.
     "odbl_version": "1.0"
   },
   "limits": {"max_tiles": 63},
-  "outputs": {"image_name": "dolnoslaskie-detail.img", "manifest": true}
+  "outputs": {
+    "image_name": "dolnoslaskie-detail.img",
+    "manifest": true,
+    "verify": true,
+    "card_label": "OSM-DS"
+  }
 }
 ```
 
@@ -58,22 +73,22 @@ Fields, in schema order:
 | `name` | Stable slug; the default output stem. |
 | `description` | Purpose. Say that whole tiles extend past the region. |
 | `sources` | Extract names, provenance only; the validator never opens them. |
+| `region.name` | Optional human label. |
 | `region.bbox` | `[west, south, east, north]` in WGS84 degrees. |
-| `region.countries` | ISO 3166-1 alpha-2 provenance. |
+| `region.countries` | ISO 3166-1 alpha-2 provenance; the bbox is authoritative. |
 | `coverage.default` | Tier id used when no tier region matches a tile. |
 | `coverage.tiers` | Spatial coverage tiers. Tried in order, first match wins. `roads` is `all`, `core`, `none` or an OSM class list; `pois` is `all`, `none` or a category list. A tier may carry its own `region`, which is how one profile mixes "Poland at full detail" with "Europe at motorway/trunk only". |
 | `tiles.mode` | Always `whole-tiles`. There is no sub-tile clipping. |
 | `tiles.include` | Explicit tile ids. Non-empty means exactly these tiles (minus `exclude`). |
 | `tiles.exclude` | Tiles removed after resolution, for experiments. |
 | `border_buffer_deg` | Buffer in latitude degrees (1° lat = 111.32 km). The tile search pads longitude by `buffer / cos(mid-latitude)` so the buffer is roughly isotropic on the ground. |
-| `attribution` | ODbL text plus where it ships (`card-file`, `download`, `manifest`). The legal choice is still open. |
+| `attribution` | ODbL text plus where it ships (`card-file`, `download`, `manifest`). All shipped profiles use `manifest`; the legal choice is still open (see [`docs/research/build-profiles.md`](../docs/research/build-profiles.md#attribution)). |
 | `limits` | `max_image_bytes`, `max_tiles`, `min_free_bytes`; enforced by the tools. |
 | `outputs` | Image name, manifest and verify flags, card label. |
 
-## Version 1 (legacy)
+## Version 1 (legacy, not shipped)
 
-The four `*.json` profiles shipped on 2026-11-05 use
-`name`/`description`/`sources`/`include`/`detail`/`routing`:
+The adapter maps `name`/`description`/`sources`/`include`/`detail`/`routing`:
 
 - `include.countries` and `include.bbox` become `region`;
   `include.bbox: null` is replaced by a coarse national bbox from
@@ -92,21 +107,31 @@ profiles must use version 2; `--strict` rejects the legacy shape.
 ## Validate and estimate
 
 ```bash
-# Validate one profile or all of them
+# Validate one profile or all four shipped profiles
 python3 tools/profile_validate.py profiles/dolnoslaskie-detail.json
-python3 tools/profile_validate.py profiles/*.json
+python3 tools/profile_validate.py \
+  profiles/dolnoslaskie-detail.json profiles/dolnoslaskie-test.json \
+  profiles/poland-full.json profiles/europe-motorways.json
 
 # Machine-readable, and warnings-as-errors
 python3 tools/profile_validate.py profiles/poland-full.json --json
-python3 tools/profile_validate.py profiles/poland-full.json --strict
+python3 tools/profile_validate.py profiles/europe-motorways.json --strict
 
-# Size breakdown, no writing
+# Stage plan + size breakdown, no writing and no stage executed
 python3 tools/build.py --profile profiles/dolnoslaskie-detail.json --dry-run
 ```
+
+`profiles/*.json` also expands to `profiles/schema.json`; the validator skips
+that file (it is the schema, not a profile) and validates the rest.
 
 Exit codes: `profile_validate.py` 0 valid, 1 validation errors, 2 usage/I/O.
 `build.py` 0 dry run, 1 invalid profile or over its own limits, 2 usage,
 **3 writer not implemented** (any invocation without `--dry-run`).
+
+Notes (`N001`) are informational: a selection wider than the 45 tiles the
+factory image ships is printed with the report but never fails `--strict`,
+because the 18 extra lattice cells are sea/empty (a property of the lattice,
+not a profile defect). Warnings (`W001`–`W008`) are promoted by `--strict`.
 
 Both tools have synthetic self-tests and are picked up by
 `python3 tools/selftest.py`:
@@ -116,6 +141,27 @@ python3 tools/profile_validate.py --selftest
 python3 tools/build.py --selftest
 ```
 
+The self-tests pin the shipped profiles as a regression: they must validate as
+version 2 under `--strict` with zero warnings and resolve **1 / 1 / 4 / 56**
+tiles, and `build.py` must estimate **44.6 / 1.5 / 178.4 / 253.4 MB**.
+
+## M5 stage plan printed by `build.py --dry-run`
+
+`build.py` does not run any stage. It prints the compiler spine from `TODO.md`
+and marks every step `NOT IMPLEMENTED`:
+
+```text
+plan      M5 stage chain (planning only; --dry-run executes nothing)
+  1  osm_ingest   *.osm.pbf -> IMF v1            NOT IMPLEMENTED in build.py (tool exists, M5.1)
+  2  mesh_split   IMF v1 -> whole BxxRyyR tiles  NOT IMPLEMENTED in build.py (TODO M5.2)
+  3  tile writer  tile model -> tile .DAT/.cmp   NOT IMPLEMENTED in build.py (TODO M5.4)
+  4  manifests    tiles -> DRSTR/MMAIN/.ind      NOT IMPLEMENTED in build.py (TODO M5.6)
+  -> card image   card tree -> <image>.img       NOT IMPLEMENTED (TODO M5.10); --dry-run only, exit 3 otherwise
+```
+
+Only `osm_ingest` has a tool (`tools/osm_ingest.py`, M5.1); it is not wired into
+`build.py`. The `--json` payload carries the same list under `stages`.
+
 ## Resolved tile counts
 
 The tile geometry comes from `tools/mesh_grid.py`
@@ -123,15 +169,14 @@ The tile geometry comes from `tools/mesh_grid.py`
 The EU 2011 map addresses a **9 × 7 lattice** of `BxxRyyR` cells (rows
 `B28`–`B68`, columns `R048`–`R078`, 63 cells), but only **45** cells exist as
 files; the rest are sea or empty and the exact subset is vendor data, so a
-resolved count of cells is an **upper bound**. `W009` flags selections wider
-than 45 cells.
+resolved count of cells is an **upper bound** (`N001`).
 
 | Profile | Region | Buffer | Tiles | Tier split |
 | --- | --- | --- | --: | --- |
-| `dolnoslaskie-detail` | 14.0–17.9 E, 49.9–51.9 N | 50 km (0.45°) | 1 | `detail` 1 (`B48R058R`) |
-| `dolnoslaskie-test` | same, explicit include | 10 km (0.09°) | 1 | `detail` 1 (`B48R058R`) |
-| `poland-full` | PL extent 14.12–24.15 E, 49.0–54.84 N | 50 km (0.45°) | 4 | `detail` 4 (`B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`) |
-| `europe-motorways` | PL extent + corridor `[-12, 34, 40, 72]` | 100 km (0.90°) | 56 | `detail` 4, `corridor` 52 |
+| `dolnoslaskie-detail` | 14.0–17.9 E, 49.9–51.9 N | 0.45° (50 km) | 1 | `detail` 1 (`B48R058R`) |
+| `dolnoslaskie-test` | same, explicit include | 0.09° (10 km) | 1 | `detail` 1 (`B48R058R`) |
+| `poland-full` | PL extent 14.12–24.15 E, 49.0–54.84 N | 0.45° (50 km) | 4 | `detail` 4 (`B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`) |
+| `europe-motorways` | PL extent + corridor `[-12, 34, 40, 72]` | 0.90° (100 km) | 56 | `detail` 4, `corridor` 52 |
 
 Notes:
 

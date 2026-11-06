@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""Dry-run the size estimate for a ZE0 OSM build profile.
+"""Dry-run the size estimate and the stage plan for a ZE0 OSM build profile.
 
 This is the skeleton of ``tools/build.py``: it validates the profile, resolves
-the whole ``BxxRyyR`` tiles the profile selects, and prints a size breakdown.
-It **never writes an image**. Without ``--dry-run`` it exits with code 3 and
-says so; the writer is the remaining work in ``TODO.md`` ("Print a size
-breakdown before writing an image", "Implement whole-tile selection").
+the whole ``BxxRyyR`` tiles the profile selects, prints the M5 stage chain and a
+size breakdown. It **never writes an image** and executes no stage. Without
+``--dry-run`` it exits with code 3 and says so; the writer is the remaining
+work in ``TODO.md`` (M5.10, M7.4).
+
+The stage plan is the compiler spine from ``TODO.md``::
+
+    osm_ingest -> mesh_split -> tile writer -> manifests -> card image
+
+Every stage is marked **NOT IMPLEMENTED** in ``build.py``: ``tools/osm_ingest.py``
+exists (M5.1) but is not wired in, and M5.2/M5.4/M5.6/M5.10 are open.
 
 The breakdown is an **ESTIMATE**, not a measurement:
 
@@ -47,7 +54,53 @@ EXIT_INVALID = 1
 EXIT_USAGE = 2
 EXIT_NOT_IMPLEMENTED = 3
 
+TOOLS_DIR = Path(__file__).resolve().parent
+REPO_ROOT = TOOLS_DIR.parent
+
 MB = 1_000_000
+
+#: The M5 compiler spine, in execution order (TODO.md). ``build.py`` only
+#: prints this plan: every stage is marked NOT IMPLEMENTED because none of them
+#: is wired into this tool yet.
+M5_STAGES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "osm_ingest",
+        "flow": "*.osm.pbf -> IMF v1",
+        "tool": "tools/osm_ingest.py",
+        "status": "NOT IMPLEMENTED in build.py (tool exists, M5.1)",
+        "implemented": False,
+    },
+    {
+        "id": "mesh_split",
+        "flow": "IMF v1 -> whole BxxRyyR tiles",
+        "tool": "none",
+        "status": "NOT IMPLEMENTED in build.py (TODO M5.2)",
+        "implemented": False,
+    },
+    {
+        "id": "tile writer",
+        "flow": "tile model -> tile .DAT/.cmp",
+        "tool": "none",
+        "status": "NOT IMPLEMENTED in build.py (TODO M5.4)",
+        "implemented": False,
+    },
+    {
+        "id": "manifests",
+        "flow": "tiles -> DRSTR/MMAIN/.ind",
+        "tool": "none",
+        "status": "NOT IMPLEMENTED in build.py (TODO M5.6)",
+        "implemented": False,
+    },
+)
+
+#: The image writer is the rung after the four stages (TODO.md M5.10).
+WRITER_STAGE = {
+    "id": "card image",
+    "flow": "card tree -> <image>.img",
+    "tool": "none",
+    "status": "NOT IMPLEMENTED (TODO M5.10); --dry-run only, exit 3 otherwise",
+    "implemented": False,
+}
 
 #: Free space reported in docs/research/build-profiles.md ("about 2.35 GB").
 CARD_FREE_BYTES = 2_350_000_000
@@ -233,6 +286,29 @@ def print_estimate(payload: dict[str, Any], doc: dict[str, Any], file: Any = Non
     )
 
 
+def stage_plan() -> list[dict[str, Any]]:
+    """The M5 stage chain plus the image writer, as plain dictionaries."""
+    return [dict(stage) for stage in M5_STAGES] + [dict(WRITER_STAGE)]
+
+
+def print_plan(file: Any = None) -> None:
+    stream = file or sys.stdout
+    print(
+        "plan      M5 stage chain (planning only; --dry-run executes nothing)",
+        file=stream,
+    )
+    for index, stage in enumerate(M5_STAGES, start=1):
+        print(
+            f"  {index}  {stage['id']:<12s} {stage['flow']:<30s} {stage['status']}",
+            file=stream,
+        )
+    print(
+        f"  -> {WRITER_STAGE['id']:<12s} {WRITER_STAGE['flow']:<30s} "
+        f"{WRITER_STAGE['status']}",
+        file=stream,
+    )
+
+
 def check_limits(payload: dict[str, Any], doc: dict[str, Any]) -> list[str]:
     problems: list[str] = []
     limits = doc.get("limits") or {}
@@ -270,6 +346,8 @@ def print_profile_summary(report: profile_validate.Report, file: Any) -> None:
     )
     tiles = ", ".join(tile["tile"] for tile in report.tiles)
     print(f"tiles     {len(report.tiles)}: {tiles}", file=file)
+    for issue in report.notes:
+        print(f"note      {issue.code} {issue.message}", file=file)
     for issue in report.warnings:
         print(f"warning   {issue.code} {issue.message}", file=file)
 
@@ -308,7 +386,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run:
         print(
             "error: the ZE0 map writer is not implemented yet; only --dry-run is "
-            "available (see TODO.md, 'OSM pipeline and build profiles')",
+            "available (see TODO.md M5.10/M7.4)",
             file=sys.stderr,
         )
         return EXIT_NOT_IMPLEMENTED
@@ -335,6 +413,7 @@ def main(argv: list[str] | None = None) -> int:
                     "name": report.name,
                     "border_buffer_deg": report.border_buffer_deg,
                     "tiles": report.tiles,
+                    "stages": stage_plan(),
                     "estimate": payload,
                     "problems": problems,
                 },
@@ -344,6 +423,8 @@ def main(argv: list[str] | None = None) -> int:
     else:
         stream = sys.stderr if problems else sys.stdout
         print_profile_summary(report, stream)
+        print(file=stream)
+        print_plan(stream)
         print(file=stream)
         print_estimate(payload, doc, stream)
         for problem in problems:
@@ -452,6 +533,38 @@ def selftest() -> int:
         check("refer row is a placeholder", "refer placeholder" in text, text)
         check("placeholder sources line", "PLACEHOLDER" in text)
 
+        # 1b. The dry run prints the M5 stage chain with explicit markers.
+        positions = [text.find(stage["id"]) for stage in M5_STAGES]
+        check(
+            "plan lists the four M5 stages in order",
+            all(position >= 0 for position in positions)
+            and positions == sorted(positions),
+            str(positions),
+        )
+        check(
+            "every M5 stage is marked NOT IMPLEMENTED",
+            all(stage["status"] in text for stage in M5_STAGES),
+            text,
+        )
+        check("image writer is marked NOT IMPLEMENTED", WRITER_STAGE["status"] in text)
+
+        # 1c. --json carries the same plan.
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["--profile", good, "--dry-run", "--json"])
+        check("json dry run exits 0", code == EXIT_OK, str(code))
+        payload = json.loads(out.getvalue())
+        check(
+            "json lists the four stages plus the writer",
+            len(payload["stages"]) == len(M5_STAGES) + 1,
+            str(len(payload["stages"])),
+        )
+        check(
+            "json stages are flagged not implemented",
+            all(stage["implemented"] is False for stage in payload["stages"]),
+            str(payload["stages"]),
+        )
+
         # 2. Legacy profile: same pipeline, legacy warnings surface.
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
@@ -518,6 +631,38 @@ def selftest() -> int:
         )
         check("minor class list uses all-roads budget", mixed["roads"] == BUDGET_ROADS_ALL)
         check("POI subset uses the some-POI budget", mixed["poi"] == BUDGET_POI_SOME)
+
+        # 10. Shipped-profile regression: the resolved counts and ESTIMATE
+        #     totals recorded in EXP-2026-11-05-45 must not drift when the
+        #     profiles move to schema version 2.
+        for name, expected_tiles, expected_total in (
+            ("dolnoslaskie-detail.json", 1, 44_600_000),
+            ("dolnoslaskie-test.json", 1, 1_500_000),
+            ("poland-full.json", 4, 178_400_000),
+            ("europe-motorways.json", 56, 253_400_000),
+        ):
+            path = REPO_ROOT / "profiles" / name
+            if not path.exists():
+                check(f"shipped {name} estimate", False, "missing")
+                continue
+            shipped_report = profile_validate.validate_path(str(path), strict=True)
+            document = _load_profile_document(str(path))
+            shipped_payload = estimate(document, shipped_report)
+            check(
+                f"shipped {name} strict valid",
+                shipped_report.ok,
+                str([issue.message for issue in shipped_report.errors]),
+            )
+            check(
+                f"shipped {name} tiles={expected_tiles}",
+                shipped_payload["tiles"] == expected_tiles,
+                str(shipped_payload["tiles"]),
+            )
+            check(
+                f"shipped {name} total={expected_total / MB:.1f} MB",
+                shipped_payload["total"] == expected_total,
+                str(shipped_payload["total"]),
+            )
 
     print(f"\nchecks: {checks}, failures: {len(failures)}")
     if failures:

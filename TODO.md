@@ -1465,7 +1465,7 @@ No hardware is available now. Planning tasks are open; tests wait.
 - [ ] **M7.2** All-Poland road network. Depends M7.1. Claims: C-1190–C-1199
 - [ ] **M7.3** Europe motorway/trunk network. Depends M7.2. Claims:
   C-1200–C-1209
-- [ ] **M7.4** Profiles schema v2 migration and the writer behind
+- [x] **M7.4** Profiles schema v2 migration and the writer behind
   `tools/build.py` (validator and `--dry-run` exist, C-564–C-567). Status:
   open · Depends: —. Done when the three profiles validate as v2 and
   `build.py` calls M5 stages. Claims: C-1210–C-1219
