@@ -209,7 +209,7 @@ widens knowledge or tooling in parallel and is equally welcome.
 ## H — Housekeeping
 
 - [ ] **H1 — Repair the claim ledger and the EXP index**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: one ID per claim and every proposed claim registered.
   - Input: `docs/research/claims.md` (duplicate IDs C-070, C-110, C-543,
@@ -250,7 +250,7 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Result: docs refresh across AGENTS.md, cerom.md, l3-ghidra.md, feedback-loop.md, roadmap.md, open-questions.md, claims.md (C-610–C-619); no EXP (docs-only)
 
 - [ ] **H3 — One CE ROM tool: fold `ce_rom_parse.py` into `cerom.py`**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: one parser for the CE ROM, so fixes land once.
   - Input: `tools/ce_rom_parse.py` (full-image `ECEC` scan + JSON report),
@@ -263,7 +263,7 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Claims: C-620–C-629
 
 - [ ] **H4 — Audit the delta-era firmware claims**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: every firmware claim from EXP-05…29 is either re-verified through
     `cerom.py` or retracted.
@@ -287,7 +287,7 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Claims: C-1710–C-1719
 
 - [ ] **H6 — Reconcile `drstr.md` with the `MMAIN001` layout; document `tools_ze0`**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: no format doc contradicts a verified result.
   - Input: EXP-2026-11-05-M4.5 (`0x18c`/`0x1ac` fall inside FAT directory
@@ -824,7 +824,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-950–C-959
 
 - [ ] **M4.8 — Coordinate transform tool**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Input: `tools/mesh_grid.py`, `docs/format/coord-zcode-icode.md`, the
     five target tiles, the 52742 vs 52736 longitude origin question.
@@ -942,7 +942,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 `docs/research/osm-vertical-slice.md` and `profiles/dolnoslaskie-test.*`.
 
 - [ ] **M5.1 — OSM ingest to IMF**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: read a Dolnośląskie `.osm.pbf` (Geofabrik) and write IMF v1 with
     drivable roads and the tags the compiler needs.
@@ -1032,7 +1032,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 No hardware is available now. Planning tasks are open; tests wait.
 
 - [ ] **M6.3 — Spare-card test plan**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: — (M2.8 refines it)
   - Done when: `docs/research/card-test-plan.md` defines the whole-card
     clone, the no-op control, then one changed tile, with pass/fail
@@ -1040,14 +1040,14 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Claims: C-1110–C-1119
 
 - [ ] **M6.4 — Recovery checklist**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: M2.6
   - Done when: a checklist for returning the unit to the factory map is in
     the test plan.
   - Claims: C-1120–C-1129
 
 - [ ] **M6.8 — Bench kit list and serial/JTAG access plan**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: — (M8.A6 for the debug UART)
   - Goal: what to buy and wire (12 V supply, `TEST_B1`, CAN simulator, SD
     extender, UART at the SCIF `0xffe46000` pins if found).
@@ -1200,7 +1200,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     unknown export stops with `missing stub: NAME`.
   - Claims: C-1650–C-1659
 - [ ] **M9.4 — Engine interface with two back ends**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: `tools/l3_harness/engine.py`: `map`, `read/write mem`,
     `set_regs`, `call(va, args)`, `on_exec(va, handler)`; back ends Ghidra
