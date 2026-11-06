@@ -257,7 +257,8 @@ def main(argv: list[str] | None = None) -> int:
                     for check in l2.get("checks", []):
                         stats = check.get("stats", {})
                         if check["id"] in ("cmp_roundtrip", "tile_roundtrip",
-                                           "tile_semantic", "refer_mutation"):
+                                           "tile_semantic", "refer_mutation",
+                                           "refer_rename_resize"):
                             detail = ", ".join(
                                 f"{k}={v}" for k, v in stats.items()
                                 if isinstance(v, (int, str, float))

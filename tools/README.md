@@ -138,10 +138,20 @@ python3 tools/scan_refer_names.py POINT032.DAT.cmp --min 8
 python3 tools/mutate_refer_poi.py POINT032.DAT.cmp POINT032.DAT.ind /tmp/mut \
     --page 0x4200 --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE"
 
+# Different-length POI rename: patch the record length byte and shift the page
+python3 tools/mutate_refer_poi.py POINT032.DAT.cmp POINT032.DAT.ind /tmp/mut \
+    --page 0x4200 --resize --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE POI"
+
 # Offline acceptance check
 python3 tools/validate_mutation.py REFER001 /tmp/mut POINT032.DAT \
     --page 0x4200 --drstr DRSTR001.DAT --inner-page 0x4200
 ```
+
+`--resize` understands the POINT name-page framing (`docs/format/refer.md`):
+`u8 tag (0x60/0x68) | u8 len2` records of `2*len2` bytes, ending `ff ff`.
+It refuses a page that is not a record chain, an odd name delta (the length is
+stored as `size/2`) and a recompressed page that would cross the next stream.
+`--selftest` covers the framing and those refusals on a synthetic page.
 
 `mutate_refer_page.py` applies a same-length in-page byte patch (e.g. a
 coordinate nudge). `drstr_ze0.py` is the reader/writer helper used by the
@@ -450,7 +460,10 @@ stored golden profile:
 * five target tiles rebuild byte-identically;
 * decoded geometry of four target tiles matches the golden digest;
 * a one-vertex tile mutation changes exactly one vertex;
-* a same-length POI rename passes `validate_mutation.py`.
+* a same-length POI rename passes `validate_mutation.py`;
+* a different-length POI rename passes `validate_mutation.py` and re-parses as
+  the same records with only the renamed one changed (2011: POINT032 page
+  `0x4200`, +4 bytes).
 
 ```bash
 # Full L2 run against tools/golden/eu2011.json

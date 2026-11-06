@@ -67,6 +67,41 @@ There are 33 numbered shards, matching the 33 regions:
   records).
 - No icon-id table inside POINT; `BICON001` correlation is **UNKNOWN**.
 
+### POI name page framing (page level)
+
+A POINT inner zlib page that carries display names is a chain of
+self-describing records, not a table:
+
+```
+u8 tag (0x60 | 0x68) | u8 len2 | body | text | ff ff
+```
+
+- Record size is `2 * len2` bytes, so every record is even-sized and the
+  length can only be stored in 2-byte units.
+- Records are packed back to back with no gaps and the page has no offset
+  table; record *n+1* starts at `record_n.offset + 2 * record_n.len2`.
+- The last two bytes of a record are `ff ff`. The display text is the
+  printable Latin-1 suffix before it; the text ends with NUL in some
+  records and directly at `ff ff` in others
+  (`VATICAN MUSEUM@VIALE VATICANO\0`, `...SAN PIETRO` + `ff ff`).
+- The fixed prefix before the text (tag + length + body) is 48 bytes, or 88
+  when the record carries a dozen `02 XX 04 00` / `40 XX YY` coordinate
+  pairs (POINT032 page `0x4200`: 25 records with 48, 14 with 88; text
+  regions 26–40 bytes, all even).
+
+Only some pages are record pages. In the EU 2011 `REFER001` tree 1,834 of
+12,965 zlib pages are record chains (POINT021: 117 of 623; POINT032: 1 of
+8); the others start `00 xx 00 yy` and are a different (bit-packed) page
+type.
+
+Consequence for a rename: a different-length name needs only the record's
+`len2` byte updated; the rest of the page shifts, and the `.DAT` logical
+size does not change because the page keeps its absolute offset. The byte
+delta must be **even**. The recompressed page must still fit in the space
+before the next stream (POINT032 page `0x4200`: 655 bytes used, next stream
+at `0x4500`, 768 bytes reserved). `tools/mutate_refer_poi.py --resize`
+implements this and refuses anything else.
+
 ### POI → location link (solved)
 
 The 4-byte id is the POI's coordinate. Each record has two copies:
@@ -109,6 +144,8 @@ Still open:
 - the second 1000-id block per page (hypothesis: `INFORMATION` sub-records),
 - the POI `icon code` → `BICON001` mapping,
 - the bit-packed field block origin,
+- the `body` grammar of a name record (48/88-byte variants measured, not
+  decoded),
 - `REFER002/POINT002.DAT` explicit `xy-coordinates` bits.
 
 `BICON001` is a PNG container with 103 icons; see

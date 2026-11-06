@@ -169,6 +169,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M3.5](EXP-2026-11-06-M3.5-tile-reader.md) | Tile reader entry and six-level table (M3.5) | done |
 | [EXP-2026-11-06-M3.7](EXP-2026-11-06-M3.7-router-rdstm.md) | Road-record field set and the router split (M3.7) | done |
 | [EXP-2026-11-06-M4.4](EXP-2026-11-06-M4.4-section4-road-edit.md) | Section 4 verbatim under a road edit (M4.4) | done |
+| [EXP-2026-11-06-M4.7](EXP-2026-11-06-M4.7-poi-rename-resize.md) | POI rename with a different-length name (M4.7) | done (offline; no hardware) |
 | [EXP-2026-11-06-M4.8](EXP-2026-11-06-M4.8-coord.md) | Coordinate transform tool `tools/coord.py` (M4.8) | done (tool); real-POI check open |
 | [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year/market image inventory (M4.14) | done |
 | [EXP-2026-11-06-M4.18](EXP-2026-11-06-M4.18-lctbl-framing.md) | `LCTBL001` record framing and per-field lengths (M4.18) | done |
