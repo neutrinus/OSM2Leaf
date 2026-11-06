@@ -495,7 +495,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-640–C-649
 
 - [ ] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.2b-xpress-lz77 · Critical: yes
   - Depends: — (M1.2a done: payload after the 22-byte header)
   - Goal: find a public decoder whose output length matches.
   - Input: the two EXP-49 sections; `tools/cecompress.py` (LZSS + LZX
