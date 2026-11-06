@@ -86,7 +86,7 @@ Targets:
 - `MMAIN001.DAT`
 - common 512-byte / `0x5d6` headers
 - `REFER002` uncompressed files
-- uncompressed index areas in `ADDRE`
+- `ADDRE` 6-byte cell payload and `40 XX YY` point arithmetic (C-972, C-976)
 
 **Criterion:** unpack → repack → **byte-identical SHA-256**.
 

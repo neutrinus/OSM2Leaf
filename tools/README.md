@@ -402,6 +402,33 @@ python3 tools/section4.py verify SECTION4.bin
 Exit code `3` means "grammar not known, refusing to invent bytes". See
 [`../docs/format/map-tiles.md`](../docs/format/map-tiles.md).
 
+## `addre.py`
+
+Parse the `REFER001/ADDRE0nn.DAT` address database: the 12-byte name-initial
+directory at `0x1108`, the 6-byte cell array at `0x2000`, the `c0`/`c8`
+records (coordinate id, `40 XX YY` point tokens, `:N:;:M:` range slots, name
+section) and the record-block trailer TOC. Reads the `.cmp`/`.ind` pair
+without extracting it.
+
+```bash
+python3 tools/addre.py --selftest
+python3 tools/addre.py layout  REFER001/ADDRE001.DAT.cmp
+python3 tools/addre.py table   REFER001/ADDRE001.DAT.cmp
+python3 tools/addre.py cells   REFER001/ADDRE001.DAT.cmp --id A
+python3 tools/addre.py records REFER001/ADDRE001.DAT.cmp --limit 5
+python3 tools/addre.py stats   REFER001/ADDRE001.DAT.cmp
+python3 tools/addre.py trailer REFER001/ADDRE001.DAT.cmp
+python3 tools/addre.py verify  REFER001/ADDRE001.DAT.cmp
+```
+
+`verify` runs 14 structural checks (index alignment, directory ids, cell
+shapes, `c0`/`c8` name rule, name length prefix, range grammar, no unknown
+token bytes, trailer/block agreement). `--cell-base` reproduces the
+`0x2000` control. The 6-byte cell payload and the point arithmetic are
+`UNKNOWN`; the tool prints them raw. See
+[`../docs/format/refer.md`](../docs/format/refer.md) and
+EXP-2026-11-06-M4.9.
+
 ## `imf_check.py`
 
 Validate the intermediate map format (IMF v1, JSON Lines) used between OSM and

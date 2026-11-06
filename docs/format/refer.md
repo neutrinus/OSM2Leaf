@@ -6,8 +6,9 @@ separate EV/charging-station POI layer. The families are sharded by
 **country**, not by arbitrary number.
 
 > **Evidence status:** the common anatomy and several record layouts are
-> `VERIFIED`; field semantics are `OBSERVED`/`HYPOTHESIS`. `ADDRE` is still
-> being decoded.
+> `VERIFIED`; field semantics are `OBSERVED`/`HYPOTHESIS`. `ADDRE` is decoded
+> down to the 6-byte cell payload and the `40 XX YY` point arithmetic, which
+> stay `UNKNOWN` (C-972, C-976).
 
 ## Common anatomy
 
@@ -185,17 +186,18 @@ Still open:
 
 ## `ADDRE0nn` — addresses
 
-Decoded at the container/record level. Each of the 33 shards has the same
-skeleton:
+Each of the 33 shards has the same skeleton:
 
 ```
 0x000  512-byte common header
 0x200  0x500-byte constant template, byte-identical in all 33 files
-0x700  uncompressed index area (0xFF fill + 6-/12-byte cells)
+0x700  0xFF fill
+0x1108 12-byte directory cells (name-initial table)
+0x2000 6-byte cell array addressed by the directory
   I    zlib block chain -> 22-byte index records (20,000 per full block)
   S    exactly one 0x100-byte schema block
   R    zlib block chain -> variable-length address records
-  T    zero padding + trailer of big-endian u32
+  T    zero padding, then the record-block TOC, then zero padding to EOF
 ```
 
 - The `0x200–0x6ff` template is **constant across all 33 files**. The old
@@ -203,28 +205,126 @@ skeleton:
   information.
 - Schema block signature: `ff ff 00 10 ff ff ff ff 00 00 00 00 ff ff ff ff`,
   exactly once, `0x100`-aligned. Fields: `STREET`, `area code`, `street name`,
-  `dndc-id`.
+  `dndc-id`. The record chain starts exactly at `S + 0x100`.
 - Inner blocks are plain **zlib streams** (`78 01/5e/9c/da`) with 0–3 bytes
-  padding, **no length prefix**.
+  padding, **no length prefix**. The index chain is preceded by an 8-byte
+  `4e 20 00 00` header plus a `u32` offset array (300 B at `ADDRE021`, 604 B at
+  `ADDRE033`); the record chain has no header.
 - Index records: 22 bytes = 11 big-endian `u16`; full blocks are 440,000 B =
-  20,000 records.
-- Address records: variable length, separated by `0xff`; `c0`/`c8` starts a
-  record (`c8` length = `2*L-1`). Fields:
-  - `06 xx` + **4-byte coordinate id**
-  - `02/03/04/05 40 XX YY` — street-segment end points
-  - `06/07` + subtype + NUL-terminated upper-case Latin-1 string
-  - `:N:;:N:` — house-number range (N = 1..341)
-- Coordinate id: `x = id >> 16`, `y = id & 0xffff`,
+  20,000 records. `ADDRE003` carries 12 full blocks + one 108,768 B block
+  (244,944 records); `ADDRE021` 73 + one 357,698 B block (1,476,259 records).
+
+### 12-byte directory cells (`0x1108`)
+
+```
+struct addre_dir {
+    uint8_t  initial;   // ASCII name initial: '1'..'9', 'A'..'Z', '\'', '/'
+    uint8_t  zero;
+    uint16_t count;     // number of 22-byte index records for this initial
+    uint16_t block;     // 0 on single-block shards; 0..6 on large shards
+    uint16_t offset;    // byte offset into the 6-byte cell array at 0x2000
+    uint16_t length;    // byte length of the cell run (multiple of 6)
+    uint16_t tail;      // 0, or 0xffff on the last row (sentinel length)
+};
+```
+
+- Verified on `ADDRE001`, `ADDRE002`, `ADDRE003`, `ADDRE004`, `ADDRE005`,
+  `ADDRE017`, `ADDRE021`, `ADDRE033`: every `initial` is printable and the
+  sequence is the shard's name-initial set (Andorra `1A..VX`, Poland
+  `1..9A..Z`).
+- `count` sums to the 22-byte index-record count exactly on the two
+  single-block shards (`ADDRE001` 2621/2621, `ADDRE017` 1616/1616). On larger
+  shards the sum is lower (`ADDRE003` 179,408/244,944, `ADDRE021`
+  689,827/1,476,259); why is **UNKNOWN** (hypothesis: only named index records
+  are counted, or each index block has its own directory).
+- `block` is zero on all rows of `ADDRE001`/`ADDRE017`; on large shards it is
+  0,1,2,3 or 6. The cell base for `block > 0` is **UNKNOWN** and the tool does
+  not decode those runs.
+
+### 6-byte cells (`0x2000`)
+
+Each directory run is an array of 6-byte cells. Two shapes are verified
+(`ADDRE001`: 113 value + 20 pointer; `ADDRE017`: 99 value + 19 pointer +
+1 empty; `ADDRE003` block 0: 0 unknown):
+
+```
+(0x0000..0x0003, value, count)   // value cell; first field is a small kind
+(pointer, 0xff00, 0x0000)        // pointer cell; pointer is 6-byte aligned
+```
+
+- The base `0x2000` is proven by a control: `verify` at base `0x2000` finds
+  0 unknown cells, at `0x1108` 133, at `0x1000` 121 and at `0x2010` 32
+  (`tools/addre.py verify --cell-base`).
+- Every pointer is a multiple of 6 and lands on another cell, so the array is
+  a linked structure. The meaning of `value`/`count` is **UNKNOWN**: all 113
+  values in `ADDRE001` are below the record-stream length, but only 1 lands on
+  a record start and 2 on a name start — so they are not simple offsets into
+  `R`; 0 of the 20 pointers lands on a value cell, so the link target is not
+  the payload either.
+
+### Address records (`c0` / `c8`)
+
+- Both tags use the same framing: `tag + L`, record size **exactly `2*L`**
+  (the old `c8 = 2*L-1` was the size minus one trailing `ff`).
+- `ADDRE021`/`ADDRE033` additionally contain tag **`0xc1`** records whose
+  body is a long point list and whose length is **not** `2*L` (`0x0f` at the
+  observed sample, body ≈540 B). Their framing is `UNKNOWN`; `tools/addre.py`
+  stops at the first one, so `verify` is claimed only for 001/017/003.
+- **`c0` always carries a name section, `c8` never does** — 692/692 vs 0/349
+  (`ADDRE001`), 249/249 vs 0/360 (`ADDRE017`), 56,988/56,988 vs 0/38,445
+  (`ADDRE003`).
+- Name section: `TT LL 00 ff` where `TT` is `0x03` on `ADDRE001`/`ADDRE017`
+  and `0x04` on `ADDRE003` (per-shard), `LL = ceil(name_len/2)`. The name is
+  the **last `2*LL` bytes of the record** (NUL-padded when `name_len` is odd);
+  the 4–8 bytes between the marker and the name are a small header whose
+  meaning is **UNKNOWN**.
+- Coordinate id: first `TT ss` id token (tags `0x06`, `0x0a`, `0x12` observed)
+  followed by 4 bytes: `x = id >> 16`, `y = id & 0xffff`,
   `lat = (x-32768)/192`, `lon = (y-52742)/128`. Verified against Andorra,
   Luxembourg, Monaco and Lazio.
+- House-number ranges: token `prefix subtype 00 00 :N:;:M:` with
+  `prefix ∈ {0x06, 0x07, 0x08}` and `subtype ∈ {0x54, 0x58, 0x64, 0x68}`.
+  The **low nibble** of the subtype splits the token into two slots
+  (4 vs 8) — the two sides of the street. Parity is **not** encoded by the
+  subtype: Monaco (odd/even numbering) shows a 69 %/75 % parity bias per slot,
+  while Andorra (consecutive numbering per side) shows none. `prefix`
+  (`06`/`07`/`08`) is a second, still **UNKNOWN** class axis.
+- Point tokens: `TT 40 XX YY` (4 bytes). `0x40` is a **constant marker**, not a
+  sign; `TT` is a role tag (`0x02`/`0x03`/`0x04`/`0x05` for the primary
+  start/end pair, `0x40`+8k for interior vertices, e.g. `0x40`, `0x48`,
+  `0x50`, `0x60`, `0x80`, `0x98`, `0xb0`). The two primary points of a record
+  share `XX` in
+  95.4 % (Andorra), 97.7 % (Monaco) and 97.6 % (Bulgaria) of records, so `XX`
+  is a per-record quantity (length/radius/cell) and `YY` a per-endpoint one.
+  The reconstruction of `(XX, YY)` into packed coordinates is **UNKNOWN**:
+  no independent absolute position exists in ADDRE, and the `COORD001` boxes
+  are too coarse (Monaco's box is 14 × 1 units and its ids spill outside it).
+
+### Trailer table (`T`)
+
+- Located by the last `01 f4 00 00` marker in the file. Each row is 12 bytes,
+  big-endian `(start, length, value)`; rows are **one per record zlib block**,
+  and `start` is the cumulative sum of `length` (contiguous partition, 3/3,
+  2/2, 191/191, 1377/1377 and 3893/3893 rows on the shards tested).
+- Semantic (verified): `value` = **uncompressed block size / 2**
+  (191/191 exact on `ADDRE003`, 3/3 on `ADDRE001`) and `length` =
+  **compressed block size / 2**, within ±4 bytes because the packer counts
+  16-bit words while streams are padded to 2/4-byte alignment. It is a
+  random-access TOC for the record chain, not a coordinate index.
 
 `REFER002` ships **no ADDRE at all**; only 15 of 33 POINT shards exist there.
 `COORD001` table entry *i* is the region box of `ADDRE(i).DAT` (31/33 shards
-100 % inside; two spill at borders).
+100 % inside; two spill at borders; Monaco's box is degenerate, so it cannot
+be used as a point-decoding control).
 
-Still open: the uncompressed 6-/12-byte index cells, the exact `c0` vs `c8`
-tag grammar, subtypes `0x54`/`0x58`, the `40 XX YY` point encoding, the 6
-trailing bytes of each `COORD001` entry, and the per-file trailer table.
+Still open: the 6-byte cell payload (`value`/`count`), the `prefix`
+`0x06/0x07/0x08` axis of the range tokens, the `(XX, YY)` point arithmetic,
+the cell base for directory `block > 0`, why `count` under-covers large
+shards, the 6 trailing bytes of each `COORD001` entry, and the 22-byte index
+record fields.
+
+Tool: `tools/addre.py` (`layout`, `table`, `cells`, `records`, `stats`,
+`trailer`, `verify`, `--selftest`).
 
 ## What this means for the compiler
 

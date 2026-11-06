@@ -999,13 +999,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `coord.py` self-test pins the chosen constants.
   - Claims: C-1900–C-1909
 
-- [ ] **M4.9 — `ADDRE` remaining grammar**
-  - Status: in progress · Owner: task/m4.9-addre-grammar · Critical: no
+- [x] **M4.9 — `ADDRE` remaining grammar**
+  - Status: done · Owner: task/m4.9-addre-grammar · Critical: no
   - Depends: —
   - Goal: 6-/12-byte index cells, `c0` vs `c8` grammar, subtypes
     `0x54`/`0x58`, `40 XX YY` point encoding, trailer table.
   - Done when: each item is decoded or `UNKNOWN` with a method in
     `refer.md`, with a test on a synthetic record.
+  - Result: 12-byte directory, 6-byte cell framing, `c0`/`c8`, name section,
+    range slots and the trailer TOC are decoded; cell payload and point
+    arithmetic are `UNKNOWN` with controls. `tools/addre.py` (14/14 checks on
+    001/017/003). EXP-2026-11-06-M4.9-addre-grammar.
   - Claims: C-970–C-979
 
 - [x] **M4.10 — POI icon code → `BICON001` PNG**
