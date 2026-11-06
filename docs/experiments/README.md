@@ -76,6 +76,10 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 
 ## Index
 
+Duplicate `EXP-YYYY-MM-DD-NN` numbers are real: two records were written for the
+same day and number (`-29` and `-35`). The files are append-only and are never
+renamed, so each duplicated pair carries the file's slug in the link text.
+
 | ID | Title | Status |
 | --- | --- | --- |
 | [EXP-2026-11-05-01](EXP-2026-11-05-01-drstr-node-table.md) | Correct DRSTR001.DAT node table | done |
@@ -134,6 +138,9 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-54](EXP-2026-11-05-54-kernel-select.md) | Kernel B/C selection criteria (M1.7) | done (synthetic; real image gives UNKNOWN) |
 | [EXP-2026-11-05-52](EXP-2026-11-05-52-cecompress-decoder.md) | CE ROM section codec candidates (LZSS/LZX) | done (synthetic symmetry only) |
 | [EXP-2026-11-05-48](EXP-2026-11-05-48-cerom-memmap.md) | `cerom.py memmap` / Ghidra memory map (M1.5) | done (synthetic) |
+| [EXP-2026-11-05-49](EXP-2026-11-05-49-compressed-section-probe.md) | Compressed `.data` section: standard-decoder probe | inconclusive |
+| [EXP-2026-11-05-50](EXP-2026-11-05-50-import-thunks.md) | Import thunks of `Navi.exe`, resolved to OBJDLL names (M1.6) | done |
+| [EXP-2026-11-05-51](EXP-2026-11-05-51-filesentry-compressed-probe.md) | FILESentry compressed payloads: standard-decoder probe (M1.4) | inconclusive |
 | [EXP-2026-11-05-47](EXP-2026-11-05-47-cerom-selftest.md) | `cerom.py` synthetic self-test (M1.1) | done (synthetic) |
 | [EXP-2026-11-05-46](EXP-2026-11-05-46-diff-years-tool.md) | Cross-year differential tool (`diff_years.py`) | done (synthetic) |
 | [EXP-2026-11-05-M1.8](EXP-2026-11-05-M1.8-sh4xref.md) | SH-4 literal/xref helper `sh4xref.py` (M1.8) | done |
@@ -146,4 +153,18 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-M4.6](EXP-2026-11-05-M4.6-b30r048r-diff.md) | `B30R048R` 2013–2016 rebuild difference (M4.6) | done |
 | [EXP-2026-11-05-M4.13](EXP-2026-11-05-M4.13-strings.md) | Name strings: charset, lengths, Polish letters (M4.13) | done (collation UNKNOWN) |
 | [EXP-2026-11-05-M5.8](EXP-2026-11-05-M5.8-tile-diff.md) | One-tile diff report `tile_diff.py` (M5.8) | done |
+| [EXP-2026-11-06-H1](EXP-2026-11-06-H1-ledger-repair.md) | Claim ledger and EXP index repair (H1) | done |
+| [EXP-2026-11-06-H3](EXP-2026-11-06-H3-ce-rom-tool-fold.md) | Fold `ce_rom_parse.py` into `cerom.py` (H3) | done |
+| [EXP-2026-11-06-H4](EXP-2026-11-06-H4-audit-delta-claims.md) | Audit the delta-era firmware claims (H4) | done |
 | [EXP-2026-11-06-H5](EXP-2026-11-06-H5-pm-review.md) | Board review; real-image checks of synthetic-only results (H5) | done |
+| [EXP-2026-11-06-H6](EXP-2026-11-06-H6-drstr-docs.md) | `drstr.md` ↔ `MMAIN001.DAT` reconciliation and `tools_ze0` provenance (H6) | done |
+| [EXP-2026-11-06-H7](EXP-2026-11-06-H7-realcheck.md) | `tools/realcheck.py`, a pinned real-image regression run (H7) | done (tool); `IMG256` run pending |
+| [EXP-2026-11-06-M1.7](EXP-2026-11-06-M1.7-kernel-select.md) | Which kernel (B or C) boots with A (M1.7) | done (verdict: IPL-selected) |
+| [EXP-2026-11-06-M2.6](EXP-2026-11-06-M2.6-mapupdate.md) | Read `MapUpdate.exe` (image B, M2.6) | done |
+| [EXP-2026-11-06-M2.8](EXP-2026-11-06-M2.8-sdcard-lock.md) | SD card identity and lock (`SdCardLch.exe`, M2.8) | done |
+| [EXP-2026-11-06-M3.4](EXP-2026-11-06-M3.4-drstr-parser.md) | `DRSTR001.DAT` / `CMP.LST` / `MAPAL001` string search in build A (M3.4) | done |
+| [EXP-2026-11-06-M3.5](EXP-2026-11-06-M3.5-tile-reader.md) | `MESH_ID` / `DIVID` code and the six-level tile table in `Navi.exe` (M3.5) | done |
+| [EXP-2026-11-06-M4.4](EXP-2026-11-06-M4.4-section4-road-edit.md) | Tile section 4 under a road edit (M4.4) | done |
+| [EXP-2026-11-06-M4.8](EXP-2026-11-06-M4.8-coord.md) | Coordinate transform tool `tools/coord.py` (M4.8) | done (tool); real-POI check open |
+| [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year and cross-market archive (M4.14) | done |
+| [EXP-2026-11-06-M6.4](EXP-2026-11-06-M6.4-recovery.md) | Recovery checklist for a bad card test (M6.4) | done (plan only; no card run) |
