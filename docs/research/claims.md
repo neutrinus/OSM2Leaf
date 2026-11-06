@@ -976,6 +976,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1910 | `tools/mkcard.py` rebuilds a ZE0 card image from a tree while keeping the factory container: MBR, pre-partition area and tail copied verbatim, FAT32 geometry/label/volume id/FAT count/cluster size taken from the source, and only tree-driven bytes patched (FATs, directory slots, clusters, FSInfo delta, `0x06000000` copy). An unchanged synthetic tree yields a byte-identical image; one flipped byte yields one 1-byte range; create/delete/grow round-trip and pass `cardcheck` L1. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M5.10-mkcard; `python3 tools/mkcard.py --selftest` |
 
+| C-1670 | `tools/l3_harness/runner.py run TARGET --input FILE [--engine pysh4\|ghidra\|qemu] --json` runs a declared target end-to-end: loads the input into the dispatcher virtual FS, installs `module!export`/ordinal stubs as `on_exec` hooks over engine memory, executes `probe_zlib_cmf_v1` on PySh4 and reports `accepted`, `r0`, the stub call log, steps and backend; it returns ACCEPT iff the served first byte is the zlib CMF `0x78`, MISMATCH when the expected verdict differs, BLOCKED (4) for an unlocated reader or missing stub, SKIP (3, `accepted: null`) for an absent backend, and records `l3_claim: false`. | VERIFIED (tool, synthetic corpus) | H | EXP-2026-11-06-M9.5-runner; `python3 tools/l3_harness/runner.py run probe-zlib-cmf --corpus …` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

@@ -1,0 +1,277 @@
+{
+  "schema": "osm2leaf.l3.targets/v1",
+  "notes": [
+    "Named L3 targets (TODO M9.5). One entry = one function to run on one corpus family.",
+    "entry.kind=synthetic: a program shipped with tools/l3_harness/runner.py, run on the",
+    "reference engine PySh4 (Ghidra/QEMU lazily); it proves the runner/dispatcher path,",
+    "NOT a firmware reader verdict. entry.kind=blocked: the reader entry point is not",
+    "located, so every run reports BLOCKED (exit 4) and no verdict is claimed.",
+    "VAs are guest addresses of the synthetic program, never a fitted image delta.",
+    "corpus.path is relative to a corpus root built by tools/l3_harness/corpus.py;",
+    "corpus.case/reader must match that manifest entry so the Python verdict can be",
+    "checked when the manifest is present."
+  ],
+  "targets": [
+    {
+      "name": "probe-zlib-cmf",
+      "reader": "synthetic",
+      "what": "synthetic SH-4 probe: 2x sprintf, CreateFileW, ReadFile, CloseHandle",
+      "module": null,
+      "entry": {
+        "kind": "synthetic",
+        "program": "probe_zlib_cmf_v1",
+        "va": "0x8c100000",
+        "note": "code 0x8c100000, stack 0x8c1ff000..0x8c200000, data 0x8c200000, heap 0x8c202000"
+      },
+      "stubs": [
+        {
+          "id": "sprintf_path",
+          "va": "0x8c100200",
+          "module": "coredll",
+          "target": "sprintf",
+          "arity": 3,
+          "note": "builds the ANSI path used in the log line (%s)"
+        },
+        {
+          "id": "createfile",
+          "va": "0x8c100210",
+          "module": "coredll",
+          "target": "CreateFileW",
+          "arity": 7,
+          "note": "args 5-7 OPEN_EXISTING/0/0 are at 0(r15), 4(r15), 8(r15)"
+        },
+        {
+          "id": "readfile",
+          "va": "0x8c100220",
+          "module": "coredll",
+          "target": "ReadFile",
+          "arity": 5,
+          "note": "one byte into the read buffer, count at frame+12; arg 5 at 0(r15)"
+        },
+        {
+          "id": "closehandle",
+          "va": "0x8c100230",
+          "module": "coredll",
+          "target": "CloseHandle",
+          "arity": 1,
+          "note": "the handle is closed before the log line is formatted"
+        },
+        {
+          "id": "sprintf_log",
+          "va": "0x8c100240",
+          "module": "coredll",
+          "target": "#719",
+          "arity": 4,
+          "note": "ordinal 719 = sprintf (C-527); formats '%s|%d|%x'"
+        }
+      ],
+      "corpus": {
+        "path": "cmp/factory/ADDRE001.DAT.cmp",
+        "guest_path": "\\Storage Card\\REFER001\\ADDRE001.DAT.cmp",
+        "reader": "cmp_ind",
+        "case": "factory"
+      },
+      "expect": {
+        "verdict": "ACCEPT",
+        "python_verdict": "ACCEPT",
+        "agrees_with_python": true,
+        "rule": "first served byte is 0x78, the zlib CMF every .cmp stream starts with; the probe is a pipeline fixture, not the firmware container reader"
+      },
+      "notes": [
+        "Positive control: the same input the Python cmp_ind reader accepts, served",
+        "through the virtual FS and the stub dispatcher.",
+        "The probe does not implement the full SH-4 ABI (r8-r13 are not saved); it is",
+        "registers-and-memory deterministic, not a compiler output."
+      ]
+    },
+    {
+      "name": "hddinfo_compare",
+      "reader": "hdd_info",
+      "what": "VER_INFO/HDD_INFO.TXT map-code parser and comparator",
+      "module": null,
+      "entry": {
+        "kind": "blocked",
+        "program": null,
+        "va": null,
+        "reason": "the HDD_INFO parser is reached through a runtime COM object; only the SD Import/HDD_INFO literals are located in Navi.exe (C-521) and no entry VA exists (M2.1-M2.3)"
+      },
+      "stubs": [
+        "CreateFileW",
+        "ReadFile",
+        "CloseHandle",
+        "memcpy",
+        "sprintf",
+        "OSM_Printf",
+        "OSM_LogMsg"
+      ],
+      "corpus": {
+        "path": "hdd_info/factory/HDD_INFO.TXT",
+        "guest_path": "\\Storage Card\\VER_INFO\\HDD_INFO.TXT",
+        "reader": "hdd_info",
+        "case": "hdd_info_factory"
+      },
+      "expect": {
+        "verdict": "ACCEPT",
+        "python_verdict": "ACCEPT",
+        "agrees_with_python": null,
+        "rule": "an unmodified HDD_INFO.TXT must keep the map code accepted; the firmware side is BLOCKED until the parser is located"
+      },
+      "notes": [
+        "The retired map-code comparator chain is BT_MGR.dll code (C-520, C-528) and",
+        "must not be used as this target."
+      ]
+    },
+    {
+      "name": "cmp_ind_reader",
+      "reader": "cmp_ind",
+      "what": "REFER/ADDRE/POINT .cmp + .ind container reader",
+      "module": null,
+      "entry": {
+        "kind": "blocked",
+        "program": null,
+        "va": null,
+        "reason": "no .cmp/.ind reader entry point has been located; map filenames have zero literal references and the reader must be found from the CE ROM TOC (M3)"
+      },
+      "stubs": [
+        "CreateFileW",
+        "CreateFileA",
+        "ReadFile",
+        "SetFilePointer",
+        "GetFileSize",
+        "CloseHandle",
+        "HeapAlloc",
+        "HeapFree",
+        "memset",
+        "memcpy",
+        "OSM_Printf",
+        "OSM_LogMsg"
+      ],
+      "corpus": {
+        "path": "cmp/factory/ADDRE001.DAT.cmp",
+        "guest_path": "\\Storage Card\\REFER001\\ADDRE001.DAT.cmp",
+        "reader": "cmp_ind",
+        "case": "factory"
+      },
+      "expect": {
+        "verdict": "ACCEPT",
+        "python_verdict": "ACCEPT",
+        "agrees_with_python": null,
+        "rule": "the factory pair must be accepted; corrupt-ind and truncated cases in the manifest must be rejected"
+      },
+      "notes": [
+        "The probe-zlib-cmf target exercises the same input path through the stubs",
+        "but is not this reader."
+      ]
+    },
+    {
+      "name": "tile_reader",
+      "reader": "tile",
+      "what": "MAPAL001 BxxRyyR.DAT tile reader (MESH_ID/DIVID, 0x1ac level table)",
+      "module": null,
+      "entry": {
+        "kind": "blocked",
+        "program": null,
+        "va": null,
+        "reason": "no tile reader entry point has been recovered (M3)"
+      },
+      "stubs": [
+        "CreateFileW",
+        "ReadFile",
+        "SetFilePointer",
+        "GetFileSize",
+        "CloseHandle",
+        "HeapAlloc",
+        "HeapFree",
+        "memset",
+        "memcpy",
+        "OSM_Printf",
+        "OSM_LogMsg"
+      ],
+      "corpus": {
+        "path": "tile/B28R070R.DAT",
+        "guest_path": "\\Storage Card\\MAPAL001\\B28R070R.DAT",
+        "reader": "tile",
+        "case": "tile_factory"
+      },
+      "expect": {
+        "verdict": "ACCEPT",
+        "python_verdict": "ACCEPT",
+        "agrees_with_python": null,
+        "rule": "the factory tile must decode; a first byte other than 0x78 is not evidence either way, the tile is not a zlib stream at offset 0"
+      },
+      "notes": [
+        "Do not point probe-zlib-cmf at this file and call the REJECT a reader verdict."
+      ]
+    },
+    {
+      "name": "drstr_parser",
+      "reader": "drstr",
+      "what": "DRSTR001.DAT tree parser (40-byte nodes, 32-byte entries)",
+      "module": null,
+      "entry": {
+        "kind": "blocked",
+        "program": null,
+        "va": null,
+        "reason": "no DRSTR001.DAT parser entry point has been recovered (M3)"
+      },
+      "stubs": [
+        "CreateFileW",
+        "ReadFile",
+        "SetFilePointer",
+        "CloseHandle",
+        "LocalAlloc",
+        "LocalFree",
+        "HeapAlloc",
+        "memset",
+        "memcpy",
+        "OSM_Printf",
+        "OSM_LogMsg"
+      ],
+      "corpus": {
+        "path": "drstr/DRSTR001.DAT",
+        "guest_path": "\\Storage Card\\DRSTR001.DAT",
+        "reader": "drstr",
+        "case": "drstr_factory"
+      },
+      "expect": {
+        "verdict": "ACCEPT",
+        "python_verdict": "ACCEPT",
+        "agrees_with_python": null,
+        "rule": "the factory tree must parse; the size-mismatch tree in the manifest must be rejected"
+      },
+      "notes": []
+    },
+    {
+      "name": "mapcode_comparator",
+      "reader": "hdd_info",
+      "what": "retired map-code comparator chain (Sys[...] vs SD[...])",
+      "module": null,
+      "entry": {
+        "kind": "blocked",
+        "program": null,
+        "va": null,
+        "reason": "the chain 0x6fab2c -> 0x6faeb0 -> 0x6fb05c is BT_MGR.dll code, not the map-code check (C-520, C-528); no runnable target exists, do not revive it"
+      },
+      "stubs": [
+        "sprintf",
+        "OSM_Printf"
+      ],
+      "corpus": {
+        "path": "hdd_info/variants/line1_digits_4_002.HDD_INFO.TXT",
+        "guest_path": "\\Storage Card\\VER_INFO\\HDD_INFO.TXT",
+        "reader": "hdd_info",
+        "case": "hdd_info_mismatch"
+      },
+      "expect": {
+        "verdict": "REJECT",
+        "python_verdict": "REJECT",
+        "agrees_with_python": null,
+        "rule": "recorded only to keep the retired lead blocked; it must never be presented as a reader"
+      },
+      "notes": [
+        "Kept as a BLOCKED entry so a future run cannot silently resurrect the",
+        "retired BT_MGR chain as if it were the map-code check."
+      ]
+    }
+  ]
+}

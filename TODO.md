@@ -1595,7 +1595,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `MISSING_GHIDRA`. Result: EXP-2026-11-06-M9.2-ghidra-import, C-1640.
   - Claims: C-1640–C-1649
 - [x] **M9.3 — Bind the stub table to real VAs**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M1.6b for automatic binding)
   - Goal: `stubs.py` (14 modeled, 3 planned) keyed by `COREDLL` export
     name/ordinal (`cerom.py exports coredll.dll`, C-527); model `sprintf`
@@ -1618,13 +1618,16 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: `l3_harness/engine.py` (PySh4 reference, Ghidra/QEMU adapters);
     snippet parity proven, real engines SKIP (EXP-2026-11-06-M9.4-engine).
   - Claims: C-1660–C-1669
-- [ ] **M9.5 — Runner `run` end-to-end**
+- [x] **M9.5 — Runner `run` end-to-end**
   - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: M9.2 or M9.4, M9.3
   - Goal: `runner.py run FUNC --input FILE [--engine ghidra|qemu] --json`
     with targets in `tools/l3_harness/targets.json`.
   - Done when: one target runs end-to-end and prints `accepted`, return
     value, stub log, digests.
+  - Result: `runner.py run` executes `probe-zlib-cmf` end-to-end on PySh4 with
+    the stub dispatcher, emitting ACCEPT/MISMATCH/BLOCKED/SKIP and a stub call
+    log (EXP-2026-11-06-M9.5-runner); pipeline result, not a reader verdict.
   - Claims: C-1670–C-1679
 - [ ] **M9.6 — First real target**: the decompressor (if M1.2 is still open
   when M9.5 lands) or the `HDD_INFO` comparator (M2.2). Depends: M9.5 and
