@@ -1325,8 +1325,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     test.
   - Claims: C-1960–C-1969
 
-- [ ] **M4.20 — US `DRSTR001` round-trip diff at `0x1ae0`**
-  - Status: in progress · Owner: task/m4.20-us-drstr-roundtrip · Critical: yes
+- [x] **M4.20 — US `DRSTR001` round-trip diff at `0x1ae0`**
+  - Status: done · Owner: task/m4.20-us-drstr-roundtrip · Critical: yes
   - Depends: —
   - Goal: M5.6 writes `DRSTR001.DAT` for generated cards, so the model must
     round-trip on both markets. On the untouched US factory tree
@@ -1336,6 +1336,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the field at `0x1ae0` is explained in `drstr.md` and the
     rebuild is byte-identical for US (7,456 B) and EU, with a self-test case
     for the US form.
+  - Result: EXP-2026-11-06-M4.20-us-drstr-roundtrip; `drstr_ze0.build()` preserves DRSTR-stored entry name case (US `XMD/ltntbl.dat` @0x1ae0); US+EU byte-identical, `drstr_ze0 --selftest` OK.
   - Claims: C-2100–C-2109
 
 ---

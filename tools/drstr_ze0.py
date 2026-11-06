@@ -142,10 +142,22 @@ def build(root: Path, ignore_dump: bool = False,
         my_id = len(dirs) + 1
         rows = listing(path, ignore_dump)
         by_name = {row[0]: row for row in rows}
+        by_upper = {row[0].upper(): row for row in rows}
         if order is not None and relpath in order:
-            ordered = [name for name in order[relpath] if name in by_name]
-            ordered += sorted(name for name in by_name if name not in set(order[relpath]))
-            rows = [by_name[name] for name in ordered]
+            ordered_rows = []
+            seen_upper = set()
+            for ref_name in order[relpath]:
+                row = by_name.get(ref_name) or by_upper.get(ref_name.upper())
+                if row is None:
+                    continue
+                # Preserve the DRSTR's stored name (factory case may differ from
+                # the on-disk/FAT name, e.g. US XMD records ltntbl.dat lowercase).
+                ordered_rows.append((ref_name, row[1], row[2]))
+                seen_upper.add(row[0].upper())
+            for row in sorted(rows, key=lambda r: r[0]):
+                if row[0].upper() not in seen_upper:
+                    ordered_rows.append(row)
+            rows = ordered_rows
         else:
             rows = sorted(rows, key=lambda row: row[0])
         dirs.append((path, relpath, name, parent, rows))
@@ -173,7 +185,53 @@ def build(root: Path, ignore_dump: bool = False,
     return bytes(out)
 
 
+def _selftest() -> int:
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="drstr-ze0-") as tmp:
+        root = Path(tmp)
+        # Synthetic tree: root has XMD/ with one file whose on-disk name is
+        # uppercase but the factory DRSTR records it lowercase (US M4.20 case).
+        (root / "XMD").mkdir()
+        (root / "XMD" / "LTNTBL.DAT").write_bytes(b"x" * 320)
+        first = build(root)
+        # Patch the entry name to lowercase in the DRSTR bytes, preserving
+        # the 20-byte name field layout used by this builder.
+        data = bytearray(first)
+        # find XMD node
+        n = struct.unpack_from("<I", data, 0x24)[0] // DREC
+        patched = bytearray(first)
+        for i in range(n):
+            b = i * DREC
+            name = patched[b:b + NAMELEN].split(b"\0")[0].decode("ascii")
+            if name != "XMD":
+                continue
+            children = struct.unpack_from("<H", patched, b + 0x18)[0]
+            off = struct.unpack_from("<I", patched, b + 0x24)[0]
+            for j in range(children):
+                e = off + j * CREC
+                en = patched[e:e + NAMELEN].split(b"\0")[0].decode("ascii")
+                if en == "LTNTBL.DAT":
+                    patched[e:e + len(b"ltntbl.dat")] = b"ltntbl.dat"
+                    # keep rest of 20-byte field zero
+                    patched[e + len(b"ltntbl.dat"):e + NAMELEN] = b"\0" * (
+                        NAMELEN - len(b"ltntbl.dat"))
+        if patched == data:
+            print("FAIL: synthetic patch did not change DRSTR")
+            return 1
+        (root / "DRSTR001.DAT").write_bytes(bytes(patched))
+        rebuilt = build(root)
+        if rebuilt != bytes(patched):
+            diffs = [i for i,(a,b) in enumerate(zip(patched, rebuilt)) if a!=b]
+            print(f"FAIL: case-preserving rebuild differs at {diffs[:5]}")
+            return 1
+        print("OK: case-preserving round-trip (US name form)")
+    return 0
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--selftest":
+        raise SystemExit(_selftest())
     root = Path(sys.argv[1])
     ref = Path(sys.argv[2])
     got = build(root)

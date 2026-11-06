@@ -1263,7 +1263,7 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | --- | --- | --- | --- | --- |
 | C-1980 | On US 2011 image `53342430…c5383` (8057257984 B, `QSD-301-103`, 113 tiles, 58 cmp pairs), `REFER001/POINT010.DAT` inner page `0x840ba0` (1000-record `0x60/0x68` chain) record 0 (`tag=0x60,len2=64,total=128`) was renamed same-length `HANA HEALTH CENTER` → `OSM2LEAF TEST POI1` (18 B ASCII); decompressed inner payload differs only in those name bytes, logical size 9715200 unchanged, DRSTR untouched. | VERIFIED (offline) | H | EXP-2026-11-06-M5.12-us-poi-rename; `validate_mutation.py` PASS |
 | C-1981 | `cmpind.py verify` on mutated US `REFER001` reports 58/58 pairs OK (logical 3743680000, stored 2215910259). | VERIFIED | H | EXP-2026-11-06-M5.12-us-poi-rename |
-| C-1982 | `l2check.py --root <us_mut> --no-golden --skip-mutation --ignore-dump-artifacts --no-tiles` (TMPDIR on leafre-work): census/files OK, `cmp_roundtrip` 58/58 OK; `drstr_roundtrip` FAIL at `0x1ae0` (7456 B) — identical on unmodified US factory root, so pre-existing US DRSTR round-trip difference, not a regression from M5.12. EU golden/tile fixtures inapplicable to US. | OBSERVED | M | EXP-2026-11-06-M5.12-us-poi-rename |
+| C-1982 | `l2check.py --root <us_mut> --no-golden --skip-mutation --ignore-dump-artifacts --no-tiles` (TMPDIR on leafre-work): census/files OK, `cmp_roundtrip` 58/58 OK; `drstr_roundtrip` FAIL at `0x1ae0` (7456 B) — identical on unmodified US factory root, so pre-existing US DRSTR round-trip difference, not a regression from M5.12. EU golden/tile fixtures inapplicable to US. Explained and fixed M4.20 (C-2100). | OBSERVED | M | EXP-2026-11-06-M5.12-us-poi-rename; EXP-2026-11-06-M4.20-us-drstr-roundtrip |
 | C-1983 | `mkcard.py --from-image LEAF_2011-2012_US.img --tree root_mut -o us_m5.12_renamed.img` rebuilt a 8057257984 B image; `cardcheck.py --image` reports `RESULT: PASS` (exit 0), 248 files, 119 headers OK, 58 cmp pairs OK, DRSTR OK, mmain 113 tiles, `image_copy=identical`, warning "no volume label". | VERIFIED | H | EXP-2026-11-06-M5.12-us-poi-rename |
 | C-1984 | `mutate_refer_poi.py` needed a zlib level-9 fallback when L6 recompression of a large US record page exceeded the original slot; decompressed content unchanged. (Tool fix kept, selftest OK.) | VERIFIED (tool) | M | EXP-2026-11-06-M5.12-us-poi-rename |
 | C-1985 | `mkcard.py` LFN directory slot ordering was fixed for multi-part names (e.g. `POINT010.DAT.cmp`), which otherwise produced mangled FAT names on rebuilt US images; fix verified by mkcard selftest and correct naming in rebuilt image. | VERIFIED (tool) | H | EXP-2026-11-06-M5.12-us-poi-rename |
@@ -1302,3 +1302,18 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-1638 | reserved (M9.1). | UNKNOWN | — | — |
 | C-1639 | reserved (M9.1). | UNKNOWN | — | — |
 
+
+## M4.20 — US `DRSTR001` round-trip diff at `0x1ae0` (EXP-2026-11-06-M4.20)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2100 | On the untouched US factory `DRSTR001.DAT` (7456 B, image `53342430…`), file offset `0x1ae0` is the name field (+0x00, 13-byte view / NUL-terminated in the 32-byte entry) of `XMD` entry index 2: factory stores `ltntbl.dat` (lowercase, bytes `6c 74 6e 74 62 6c 2e 64 61 74 00`), value 320, type file. The on-disk file is `LTNTBL.DAT`. `tools/drstr_ze0.build()` (pre-fix) produced `LTNTBL.DAT` by substituting the disk name after an exact-case order lookup missed the entry, yielding 9 byte diffs at `0x1ae0..0x1ae9` (C-1982). | VERIFIED (cause) | H | EXP-2026-11-06-M4.20-us-drstr-roundtrip |
+| C-2101 | `tools/drstr_ze0.build()` now reconciles an existing DRSTR's entry order case-insensitively and emits the **DRSTR-stored name** (`ref_name`), preserving factory case that differs from the on-disk/FAT name. Rebuild is byte-identical to the factory `DRSTR001.DAT` for the US root (7456 B) and the EU root (11968 B, `105e2032e480e8ba…`). | VERIFIED (tool) | H | EXP-2026-11-06-M4.20-us-drstr-roundtrip; `drstr_ze0.py --selftest` |
+| C-2102 | `l2check.py drstr_roundtrip` passes on the unmodified US factory root (`--no-golden --skip-mutation --ignore-dump-artifacts --no-tiles --no-cmp`: `[drstr_roundtrip] OK (size=7456)`, RESULT PASS). | VERIFIED (tool, real data) | H | EXP-2026-11-06-M4.20-us-drstr-roundtrip |
+| C-2103 | Entry names longer than 13 bytes are stored across the 13-byte name field and `unknown[9]` (NUL-terminated before `type` at +0x16). OBSERVED on US `XMD/bsatbldata.dat` (14 chars); `tools/drstr.py`'s 13-byte name view truncates it, while `drstr_ze0`'s 20-byte read preserves it. The factory node/entry unknown/reserved fields are otherwise zero on the US and EU samples checked. | OBSERVED | M | EXP-2026-11-06-M4.20-us-drstr-roundtrip |
+| C-2104 | reserved. | UNKNOWN | — | — |
+| C-2105 | reserved. | UNKNOWN | — | — |
+| C-2106 | reserved. | UNKNOWN | — | — |
+| C-2107 | reserved. | UNKNOWN | — | — |
+| C-2108 | reserved. | UNKNOWN | — | — |
+| C-2109 | reserved. | UNKNOWN | — | — |

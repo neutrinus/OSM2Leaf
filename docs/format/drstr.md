@@ -59,12 +59,23 @@ struct entry {
 };
 ```
 
-- The writer stores **13** name bytes. `reception.dat` (13 characters) uses
-  the 13th byte at `+0x0c`.
+- The name field is **13** bytes. `reception.dat` (13 characters) uses the
+  13th byte at `+0x0c`. Names longer than 13 bytes are stored (the name runs
+  into `unknown[9]` and remains NUL-terminated before `type`); the 13-byte
+  view in `tools/drstr.py` truncates such names (OBSERVED: US `XMD`
+  `bsatbldata.dat`, 14 chars).
 - For files, `value` is the logical uncompressed size (for `REFER001` it
   matches the `.ind` size exactly; 194/194).
 - For directories, `value` is the recursive total size of the subtree
   (verified for all 39 directories).
+- **Name case is preserved as stored.** A factory DRSTR may record an entry
+  name in a different case than the on-disk/FAT filename. On the untouched US
+  factory tree (image SHA-256 `53342430…`, 7456 B DRSTR, C-1982) the `XMD`
+  entry at file offset `0x1ae0` stores `ltntbl.dat` (lowercase, bytes
+  `6c 74 6e 74 62 6c 2e 64 61 74 00`) while the file is `LTNTBL.DAT`; EU
+  stores `LCTBL001.DAT` uppercase and round-trips. A byte-identical rebuild of
+  an existing tree must keep the DRSTR-stored name, not substitute the disk
+  case (`tools/drstr_ze0.build`, case-insensitive match, M4.20 / C-2100).
 
 ## Examples
 
