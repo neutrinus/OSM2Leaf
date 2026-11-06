@@ -59,6 +59,7 @@
 | OQ-40 | Can the unit run on a bench, and what is the `SECURE`/CAN/VIN risk? | hardware | UNKNOWN | deferred | hardware | Bench harness plus a documented recovery path. | C-082; TODO Hardware; [us-eu-region](us-eu-region.md) |
 | OQ-41 | Where is the reader at runtime, and what is the actual SD read order? | hardware | UNKNOWN | deferred | hardware | Break on MAL `getOffset`/fd methods; SD bus capture. | C-407, C-408, C-427, C-435; TODO Hardware; [dynamic-break-guide](dynamic-break-guide.md) |
 | OQ-42 | Is a reproducible US→EU conversion possible, including audio? | hardware | UNKNOWN | deferred | hardware | A controlled conversion with screen and audio evidence. | C-080–C-083; TODO Hardware; [us-eu-region](us-eu-region.md) |
+| OQ-43 | Does the runtime `HDD_INFO` field-0 numeric check ever get a 12-wchar string, given that the parser allows 11 and every factory line 1 is `QSD-302-100` (11)? | firmware | UNKNOWN | now | none | A dump of the real SystemSD/UserSD files or an L3 run of `fn 0x004e7d4c` on both lengths; explains whether the success branch is reachable or only the state-1 bypass is. | C-1777–C-1779; EXP-2026-11-06-M2.11-hddinfo-trigger; [validation](../format/validation.md) |
 
 ## Answered
 
