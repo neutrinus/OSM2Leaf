@@ -545,7 +545,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Tool: `cerom.py files --extract --decompress` writes stored bytes,
     classifies OK/UNSUPPORTED/FAIL and never writes a wrong-length decode
     (EXP-55, C-573); EXP-51 says the real payload is not a stdlib format.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: M1.2b or M1.2c
   - Goal: read `boot.hv`, `default.hv`, `user.hv`, `ceconfig.h`,
     `initobj.dat`, `UpdateNK.skn`.
@@ -1919,14 +1919,14 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [x] **M8.A4 — CPU control block** (CCN/MMU from `hw/sh4/sh7750.c`: `PTEH`,
   `PTEL`, `TTB`, `TEA`, `MMUCR`, `CCR`, `EXPEVT`, `INTEVT`, `TRA`, TLB
   arrays). Done when the kernel-page call to VA `0x5b90` no longer faults.
-  Status: open · Depends: —. Claims: C-1260–C-1269
+  Depends: —. Claims: C-1260–C-1269
   Status: done · Owner: session-ZMxuBT. Result: `m8a4-0001..0003` factor
   the CCN/MMU into `sh4-ccn`; applies to 8.2.7, builds, instantiates; runtime
   UNVERIFIED (EXP-2026-11-06-M8.A4-cpu-control).
 - [x] **M8.A5 — Boot-blocker stubs** (`0xffe70000` block with `+0x808` =
   `0xc0000000`, CPG `0xffc80000`, `0xfff80000`, UBC `0xff200000`, area 6
   `0x19300000`). Done when the unpatched kernel reaches the patched probe's
-  point. Status: open · Depends: —. Claims: C-1270–C-1279
+  point. Depends: —. Claims: C-1270–C-1279
   Status: done · Owner: session-ZMxuBT. Result: `ze0-stubs` device patch
   applies to 8.2.7, compiles, qtest-checked; kernel boot UNVERIFIED
   (EXP-2026-11-06-M8.A5-boot-stubs).
@@ -1936,7 +1936,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   C-1280–C-1289
 - [x] **M8.A7 — Trace tooling** `tools/qemu-ze0/run.sh` (logs, gdbstub,
   `summarize_log`, gdb script printing thread list + current module).
-  Status: open · Depends: —. Claims: C-1290–C-1299
+  Depends: —. Claims: C-1290–C-1299
   Status: done · Owner: session-ZMxuBT. Result: `run.sh` (machine select,
   log+summary, timeout, dry-run) and `gdb-ze0.py` (PC->module, 30 checks);
   stand-in QEMU only (EXP-2026-11-06-M8.A7-trace-tooling).
@@ -2104,7 +2104,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   `tools/l3check.py` runs every target (1 PASS, 5 BLOCKED), exit 3 when
   nothing is runnable (EXP-2026-11-06-M9.8-l3check). Claims: C-1700–C-1709
 - [x] **M9.9 — Keep `l3-ghidra.md` "How to use L3" current.** Done with each
-  M9 PR (no separate claim needed). Done: current commands, statuses, targets
+  M9 PR (no separate claim needed). Status: done · Owner: session-ZMxuBT.
+  Done: current commands, statuses, targets
   and the seven-step reader procedure (EXP-2026-11-06-M9.9-l3-docs).
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
