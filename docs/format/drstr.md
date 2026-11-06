@@ -71,6 +71,32 @@ struct entry {
 - `MAPAL001` at `0x7c0`: 46 `BxxRyyR.DAT` tiles.
 - `REFER001` at `0xde0`: 194 logical `*.DAT` entries with uncompressed sizes.
 
+## Firmware references (build A, real VAs)
+
+Under the CE ROM TOC address model, `DRSTR001.DAT` and `\\CMP.LST` *do* have
+code references in `Navi.exe` (this retracts part of C-331, "zero literal
+references", which was produced under the wrong address model). `MAPAL001`
+survives only as a static filename-table entry.
+
+| String | String VA | Literal pool | Loaded at | Function VA | Caller VA |
+| --- | --- | --- | --- | --- | --- |
+| `DRSTR001.DAT` | `0x0017ab24` | `0x00419870` | `0x00419732` (r5) | `0x00419684` | `0x00419d24` |
+| `\\CMP.LST` | `0x0017b25c` | `0x0041bbb0` | `0x0041bad0` (r5) | `0x0041ba90` | `0x00419ca0` |
+| `LEV3456R.DAT` | `0x00179fa4` | `0x0040a0ec` | `0x0040a022` (r5) | `0x0040a014` | — |
+| `MAPAL001` | `0x00179f98` | `0x00179cf8`/`0x00179d04`/`0x00179d10` (static table) | none | none | none |
+
+- `RDSTM001` (`0x00179398`) is also referenced by code (fns `0x003fbed8`,
+  `0x004125a8`); `REFER001.DAT`/`REFER002`/`INTER001.DAT`/etc. share the
+  static filename table at `0x00179cf0`…`0x00179d34`.
+- The two referencing functions (`0x00419684`, `0x0041ba90`) are
+  CD-ROM/media-manager routines invoked during media initialisation; no
+  count/order/sentinel check on the DRSTR layout (40 nodes, 324 entries,
+  leading `u32 = 0x0000002f`) was identified in them.
+- Search covered the uncompressed sections of `Navi.exe`, `NaviMapCC.dll`,
+  `OBJDLL.dll`, `STDDLL.dll` (build A); the literals occur only in
+  `Navi.exe`. Raw-image scan of the first 256 MiB found only the two
+  build-A copies of `DRSTR001.DAT`.
+
 ## What it is used for
 
 Static firmware evidence shows `DRSTR001.DAT` and `MMAIN001.DAT` are opened by
