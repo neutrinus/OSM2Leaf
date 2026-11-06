@@ -237,7 +237,7 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 | --- | --- | --- |
 | H | Housekeeping: ledger, docs, tool overlap | H8 |
 | M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.9, M1.6c, M1.2b**, M1.2c, M1.2d |
-| M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12, M2.13** (M2.7, M2.11 in PR) |
+| M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12, M2.13b** (M2.7, M2.11 in PR; M2.13 done) |
 | M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 in PR) |
 | M4 | Data formats (no firmware needed) | **M4.15**, M4.3, M4.8b, M4.12 (M4.7, M4.9, M4.10, M4.11, M4.18 in PR) |
 | M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.1, M5.10**, M5.9; M5.1b after M5.1 (non-Claude runner) |
@@ -729,21 +729,37 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     updated.
   - Claims: C-1870–C-1879
 
-- [ ] **M2.13 — Recover the SD unlock password (`SDHC.dll`)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M2.13 — The SD unlock PIN (firmware half found)**
+  - Status: done · Owner: claude/project-thread-euxe0q · Critical: yes
   - Depends: — (M1.9 helps)
-  - Goal: a generated card must reproduce the SD lock state the firmware
-    accepts (C-798: the only identity check); recover the password or prove it
-    cannot be read statically.
-  - Input: `SDHC.dll` `SDHC_SecurityUnLock` / `SDHC_Lock_Unlock_Card`
-    `0x039b2498` and the `byFlag`/`byPasswordLen`/`dPassword` logging
-    (EXP-2026-11-06-M2.8); `cerom.py --image-start 0x5200200 IMG sections
-    SDHC.dll`; the password buffer the unlock call reads from.
-  - Done when: the EXP gives the password bytes and length (quote the buffer,
-    do not commit vendor bytes beyond the short value), or shows the password
-    is computed/fetched at runtime with the code path; and states what a
-    cloned card must do with CMD42.
+  - Result: EXP-2026-11-06-M2.13-sd-password. The owner's `SD PIN` service
+    screen showed the full unlock PIN; its 12-char tail is a hardcoded
+    `ProductTestData`/`SecurityCheck` literal in `PRGUpdate.exe` (VA
+    `0x12498`) and `TestMode.exe` (VA `0x157f8`) — verified in `IMG256`
+    (sha256 `249e0da5…`, plaintext not committed). The 8-digit prefix is
+    runtime-generated (not a literal). The unit unlocked with it
+    (`Unlocking. OK`), so the value is behaviourally confirmed.
+  - Open (→ M2.13b): the ≤16-byte CMD42 form (the display is 20 chars > the
+    SD 16-byte limit), the prefix derivation, and the `SDHC_SecurityUnLock`
+    xref (its code is `COMPRESSED`, needs M1.2).
   - Claims: C-1880–C-1889
+
+- [ ] **M2.13b — The CMD42 byte form and the runtime prefix**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M2.13 (M1.2b/c for the `SDHC.dll` xref; M1.9 for names)
+  - Goal: turn the known PIN into the exact ≤16-byte password a cloned card
+    must carry, and name where the 8-digit prefix comes from.
+  - Input: EXP-2026-11-06-M2.13 (literal VAs, the 20-vs-16 problem);
+    `PRGUpdate.exe` around VA `0x12498` and its `CApi_GetModelCode` import
+    (C-526); `SDHC.dll` `SDHC_SecurityUnLock` `0x039b2498` once decompressed;
+    `byPasswordLen` logging (EXP-M2.8).
+  - Lead (EXP-M2.13): the PIN is almost certainly 16 bytes = 4 unit bytes
+    (the 8 hex digits of the displayed prefix) + the 12-byte ASCII literal,
+    matching C-075. Confirm the 4 bytes = hex of the prefix.
+  - Done when: the EXP confirms the 16-byte form, names the source of the 4
+    unit-specific bytes (serial/model, with a code path), and states whether
+    an independently locked card (not re-locked by the same unit) is feasible.
+  - Claims: C-1940–C-1949
 
 ---
 
@@ -1213,9 +1229,13 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Depends: — (M2.13 for the real password)
   - Goal: know that we can put a card into the lock state the unit expects
     (C-798) before buying bench hardware.
-  - Input: EXP-2026-11-06-M2.8 (CMD42 lock/unlock, `SD UNLOCK NG`);
-    `mmc-utils` / Linux `mmc` sysfs on a native SDHCI slot (USB readers do
-    not pass CMD42); a spare card.
+  - Note (EXP-2026-11-06-M2.13): the unit has its own SD LOCK/UNLOCK menu, so
+    a card used in that same unit can be (un)locked by the unit — a PC CMD42
+    station is only needed to lock a card the unit has not seen, or to verify
+    the lock state off-bench. Scope M6.9 to that off-bench verification.
+  - Input: EXP-2026-11-06-M2.8 (CMD42 lock/unlock, `SD UNLOCK NG`),
+    EXP-2026-11-06-M2.13; `mmc-utils` / Linux `mmc` sysfs on a native SDHCI
+    slot (USB readers do not pass CMD42); a spare card.
   - Done when: `docs/research/card-test-plan.md` has a tested procedure to
     set, check and clear a CMD42 password on a spare card from Linux, with
     the reader model that worked; or the EXP shows which host hardware is

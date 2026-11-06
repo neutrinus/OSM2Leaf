@@ -173,3 +173,4 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M9.7](EXP-2026-11-06-M9.7-corpus.md) | Synthetic L3 corpus, 108 entries (M9.7) | done |
 | [EXP-2026-11-06-M5.1](EXP-2026-11-06-M5.1-osm-ingest.md) | OSM XML/PBF ingest to IMF v1 (M5.1) | done (synthetic; real extract is M5.1b) |
 | [EXP-2026-11-06-M6.4](EXP-2026-11-06-M6.4-recovery.md) | Recovery checklist for a bad card test (M6.4) | done (plan only; no card run) |
+| [EXP-2026-11-06-M2.13](EXP-2026-11-06-M2.13-sd-password.md) | SD unlock PIN: firmware half found in PRGUpdate/TestMode (M2.13) | done (static half; CMD42 form open) |

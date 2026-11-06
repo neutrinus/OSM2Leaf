@@ -511,7 +511,7 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-072 | The exact meaning of `SDC08-EVEUR` is unknown (likely map/region/version code). | UNKNOWN | — | only appears in `HDD_INFO.TXT` |
 | C-073 | In the EU image, `\x82FX210ECNI.158` starts at `0x00200014` and the version digits `158` start at `0x0020001f`. | VERIFIED | H | `leaf2011.img` hexdump |
 | C-074 | The 72-byte `HDD_INFO.TXT` block appears byte-identically at image offset `0x06000000`. | VERIFIED | H | byte comparison |
-| C-075 | SD lock is a CMD42 password (4 unit-specific bytes + ASCII `Clarion95321`), not file encryption; the unit stores it in flash near `0xA100`. | OBSERVED | M | external teardown/forum research; not tested by us |
+| C-075 | SD lock is a CMD42 password (4 unit-specific bytes + ASCII `Clarion95321`), not file encryption; the unit stores it in flash near `0xA100`. | OBSERVED → part VERIFIED | M-H | external teardown/forum research; the ASCII `Clarion95321` half is now firmware-VERIFIED (C-1880, EXP-2026-11-06-M2.13) and the unit unlocked with the full PIN (C-1882); the 4 unit-specific bytes stay OBSERVED |
 | C-076 | `NAVI VERSION NG` compares the ASCII version at SD `0x20001f` with the unit's `NAVI-1`. | HYPOTHESIS | M | external research |
 | C-077 | `DIFFERENT MAP CODE` compares `HDD_INFO.TXT` line 1 with the unit's stored map record. | HYPOTHESIS | M | external research |
 | C-078 | The unit market is a PROD-block byte at `0xA022` (`0x10` JP/world, `0x20` US, `0x30` EU, `0x40` RU, `0x50` CN), checked by `AppLaunch.dll` via `CApi_GetModelArea`. | HYPOTHESIS | M | external research |
@@ -823,3 +823,13 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
   disagree.
 - Do not promote `OBSERVED`/`HYPOTHESIS` to `VERIFIED` without a reproducible
   check that another agent can run.
+
+## SD unlock PIN (M2.13)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1880 | The 12-character tail of the unit's displayed SD unlock PIN is a hardcoded NUL-terminated ASCII literal in `PRGUpdate.exe` (image B, VA `0x00012498`) and `TestMode.exe` (image C, VA `0x000157f8`), among `SecurityCheck`/`ProductTestData` strings; it appears in both B copies. SHA-256 of the 12 bytes `249e0da5d349ebe359d7465bbbae29658482138d6b4bd0bd146475d3824f939f`. Plaintext not committed (manufacturer data). | VERIFIED | H | EXP-2026-11-06-M2.13; `IMG256` `92aa525d…`; `tools/cerom.py` |
+| C-1881 | The 8-digit prefix of the displayed PIN is not a literal anywhere in `IMG256` (no ASCII or UTF-16LE match), so the full PIN is assembled at runtime from a runtime prefix and the C-1880 tail. | VERIFIED (negative) | H | EXP-2026-11-06-M2.13 |
+| C-1882 | The unit unlocked the card with this PIN on its own `SD PIN` service screen (`Unlocking. OK`), confirming the value works on real hardware; the unit exposes a built-in SD LOCK/UNLOCK menu. | OBSERVED | H | owner service-screen photo 2026-11-06 (not committed) |
+| C-1883 | The displayed PIN is 20 characters but a CMD42 SD-lock password is at most 16 bytes, so the displayed string is not a raw CMD42 password; the byte form CMD42 uses is UNKNOWN (M2.13b). | VERIFIED (spec) / UNKNOWN (form) | M | EXP-2026-11-06-M2.13; SD physical-layer spec |
+| C-1884 | The `SDHC_SecurityUnLock` xref to the C-1880 literal is not yet traced because `SDHC.dll`'s code section is `IMAGE_SCN_COMPRESSED` (M1.2); the tie is behavioural (C-1882), not static. | OBSERVED | M | EXP-2026-11-06-M2.13; `cerom.py sections SDHC.dll` |
