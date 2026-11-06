@@ -629,6 +629,18 @@ Built without vendor data; every row states what is synthetic-only.
 | C-858 | The search covered all uncompressed sections of `Navi.exe`, `NaviMapCC.dll`, `OBJDLL.dll`, `STDDLL.dll` (build A); `DRSTR001.DAT`/`CMP.LST` literals occur only in `Navi.exe`. Raw-image scan of the first 256 MiB found only the two build-A copies of the `DRSTR001.DAT` literal. | VERIFIED | H | EXP-2026-11-06-M3.4-drstr-parser |
 | C-859 | The leading `u32 = 0x0000002f` of `DRSTR001.DAT` equals the ASCII root name `/`; no code in build A was found that compares against this constant, so the candidate check remains unverified. | UNKNOWN | — | EXP-2026-11-06-M3.4-drstr-parser |
 
+## Board review 2026-11-06 (H5)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1710 | `coredll.dll` (image B) names the ordinals used by `Navi.exe` `fn 0x004e7b8c`: 1145 `_wfopen`, 1143 `fgetws`, 59 `wcschr`, 66 `wcsncpy`, 1047 `memset`, 1118 `fclose`; and by `fn 0x004dd028`: 496 `Sleep`, 65 `wcsncmp`. The M2.1 blocker "COREDLL export table not in the image" is wrong: the table is in B, not A. | VERIFIED | H | EXP-2026-11-06-H5-pm-review; `cerom.py --image-start 0x3e00200 IMG256 exports coredll.dll` |
+| C-1711 | `fn 0x004e7b8c` opens `HDD_INFO.TXT` with `_wfopen`, reads it line by line with `fgetws`, splits with `wcschr` and copies fields with `wcsncpy`; it is the text parser M2.3 needs. | OBSERVED | M | C-1710; call list from EXP-2026-11-05-M2.1-hddinfo-fn |
+| C-1712 | On `IMG256` image A, `cerom.py comphdr --all` gives 187 HOLDS, 58 REFUTED, 0 UNPARSED of 245 compressed sections. | VERIFIED | H | EXP-2026-11-06-H5-pm-review |
+| C-1713 | The 58 REFUTED sections share a second header form whose flag word is `0x10000000 \| psize`. | HYPOTHESIS | M | EXP-2026-11-06-H5-pm-review (rows sampled, not all checked) |
+| C-1714 | `cerom.py thunks` matches no import stub in any module of real image A (error on `Navi.exe` and `--all`); C-690's real coverage is 0 %, not UNKNOWN. | VERIFIED (negative) | H | EXP-2026-11-06-H5-pm-review |
+| C-1715 | On the real `NaviMapCC.dll` sections 1 and 2, `cecompress.py probe` finds no exact-size match for lzss, lzx, lznt1 and xpress-huffman at offsets 0…40 (sizes `0x484`, `0x5b8`, `0xcc0`); xpress-lz77 is untested (skeleton). | VERIFIED (negative) | H | EXP-2026-11-06-H5-pm-review |
+| C-1716 | From this cloud environment, `download.geofabrik.de`, `overpass-api.de` and `api.openstreetmap.org` are refused by the network policy (proxy 403); only `files.viaaq.eu` is allowed. | OBSERVED | H | EXP-2026-11-06-H5-pm-review |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

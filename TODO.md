@@ -67,6 +67,15 @@ front has fewer, add the next tasks (see rule 9).
     tools go in `tools/` with a synthetic self-test, observation and
     interpretation stay apart, and **vendor bytes never enter the repo**
     (only offsets, counts, hashes, short header bytes).
+11. **Run on the real image before you close.** A firmware or format task is
+    not `done` on synthetic data alone, and "no image in the checkout" is not
+    a blocker: `IMG256` downloads in about a minute (see Shared inputs).
+    Run your tool on it and put the real counts in the EXP. EXP-2026-11-06-H5
+    found two tools that pass their self-test but match nothing on real bytes,
+    and one blocker that the image itself answers.
+12. **Network.** Only `files.viaaq.eu` (and package registries) are reachable
+    from the cloud sandbox; OSM hosts return proxy 403 (C-1716). A task that
+    needs another host is `blocked (network: <host>)`, not negative.
 
 ### ID allocation
 
@@ -111,6 +120,36 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
+## Review 2026-11-06 (what changed since PR #11)
+
+Merged since the last board update: M1.2a, M1.2b (tool), M1.6b (tool), M1.8,
+M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
+`IMG256` in EXP-2026-11-06-H5:
+
+- **M2.1 was not blocked.** `coredll.dll` is in kernel image B, and its export
+  table names every ordinal: `fn 0x004e7b8c` calls `_wfopen`, `fgetws`,
+  `wcschr`, `wcsncpy`, `memset`, `fclose` (C-1710). It reads `HDD_INFO.TXT`
+  line by line, so it is also the parser M2.3 needs (C-1711). M2.1 is open
+  again with the names in its input.
+- **Compression:** the M1.2a header model holds for 187 of 245 sections; the
+  other 58 look like a second form with flag `0x10000000 | psize` (C-1712,
+  C-1713 → M1.2d). On the real `NaviMapCC.dll` sections, lzss, lzx, lznt1 and
+  xpress-huffman give no match at offsets 0…40; plain XPRESS LZ77 is the one
+  untested candidate (C-1715 → M1.2b reopened).
+- **`cerom.py thunks` finds no stub on the real image** (C-1714 → M1.6c);
+  `sh4xref.py` does. M1.6b stays done as a tool, its real coverage is 0 %.
+- **Data side:** `RDSTM001` rows decode and round-trip, meanings unproven
+  (M4.1 → M4.15, M4.16); `MMAIN001.DAT` is a FAT root-directory log, not a
+  manifest, and contradicts `drstr.md` at `0x18c`/`0x1ac` (M4.5 → H6, M3.8);
+  names are ISO-8859-2 with all Polish letters present, collation and length
+  limits unknown (M4.13 → M3.9, M4.18); `tile_diff.py` and the vendored
+  `tools_ze0` make one-tile edits measurable (M5.8 → M5.9).
+- **OSM is unreachable from the sandbox** (C-1716): M4.2 and the region run of
+  M5.1 (now M5.1b) wait for `download.geofabrik.de` to be allowed or an
+  extract on `files.viaaq.eu`. M4.17 attacks link attributes without OSM.
+- **Stale claims released:** PR #8 (`[M2.1]`, superseded). M1.7 is claimed by
+  PR #15.
+
 ## State after EXP-35…51 (what changed)
 
 - **The address model is solved.** `tools/cerom.py` parses `ROMHDR`, the
@@ -147,20 +186,22 @@ qemu-system-misc gdb-multiarch`.
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping: ledger, docs, tool overlap | H1, H2, H3, H4 |
-| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2a, M1.2b, M1.2c, M1.8 (M1.6b, M1.7 in progress) |
-| M2 | Map code, activation, updater, error screens | M2.1, M2.6, M2.7, M2.8, M2.9, M2.10 |
-| M3 | Reader contract (what the unit reads from the card) | M3.1, M3.4, M3.5 |
-| M4 | Data formats (no firmware needed) | M4.1, M4.3, M4.4, M4.5, M4.6, M4.7, M4.8, M4.9–M4.14 |
-| M5 | OSM compiler vertical slice (Dolnośląskie) | M5.1, M5.8 |
+| H | Housekeeping: ledger, docs, tool overlap | H1, H3, H4, H6, H7 |
+| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2b, M1.2c, M1.2d, M1.6c, M1.9 (M1.7 in PR #15) |
+| M2 | Map code, activation, updater, error screens | M2.1, M2.2, M2.6, M2.7, M2.8, M2.11 |
+| M3 | Reader contract (what the unit reads from the card) | M3.1, M3.4, M3.5, M3.7, M3.8, M3.9 |
+| M4 | Data formats (no firmware needed) | M4.3, M4.4, M4.7, M4.8, M4.9–M4.12, M4.14, M4.15, M4.18 |
+| M5 | OSM compiler vertical slice (Dolnośląskie) | M5.1 (synthetic), M5.9; M5.1b blocked on network |
 | M6 | Hardware and safety (planning now, tests later) | M6.3, M6.8 |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
 | M9 | L3 toolkit (run firmware functions on our data) | M9.1, M9.3, M9.4 |
 
-**Critical path to a first accepted card:** M1.8 → M2.1 → M2.2 → M2.3 (why a
-card is accepted) · M3.1 → M3.2 (what is read) · M1.2 → M1.3 (initialised
-data for L3) · M9.2 → M9.5 → M2.4 / M3.3 (checks against the real code) ·
-M4.1/M4.2 → M5.3 → M5.4 → M5.6 · then hardware M6.5–M6.7. Every other task
+**Critical path to a first accepted card:** M2.1 → M2.3 + M2.2 → M2.5 (why
+a card is accepted; M1.8 done, ordinals named) · M3.1 → M3.2 (what is read) ·
+M1.2b/M1.2c/M1.2d → M1.3 (initialised data for L3) · M1.6c/M1.9 → M9.2 →
+M9.5 → M2.4 / M3.3 (checks against the real code) · M4.15 → M4.16 →
+M4.2/M4.17 → M5.3 → M5.4 → M5.6 · M5.1 → M5.1b (needs OSM access) · then
+hardware M6.5–M6.7. Every other task
 widens knowledge or tooling in parallel and is equally welcome.
 
 ---
@@ -176,6 +217,10 @@ widens knowledge or tooling in parallel and is equally welcome.
     (C-528…C-531), EXP-42 (C-520/C-521), EXP-43, EXP-44, EXP-46, EXP-47,
     EXP-48 that collide with existing rows or were never added;
     `docs/experiments/README.md` index (two EXP-29 and two EXP-35 files).
+    Also unregistered (2026-11-06): the blocks of M2.1 (C-720…), M4.1
+    (C-890…), M4.2 (C-900…), M4.5 (C-930…), M4.13 (C-1010…) and M5.8
+    (C-1100…) have no rows; their EXPs state the findings. The ten missing
+    `EXP-…-M*` index rows were added by H5.
   - Done when: a new `tools/claims_check.py` (in `tools/selftest.py`) reports
     zero duplicate IDs and every "proposed claim" in an EXP either has a row
     (new ID from this block, with `Was proposed as C-xxx in EXP-…`) or a
@@ -230,6 +275,48 @@ widens knowledge or tooling in parallel and is equally welcome.
     one EXP lists every row checked and the command used.
   - Claims: C-630–C-639
 
+- [x] **H5 — Board review 2026-11-06 and real-image checks**
+  - Status: done · Owner: claude/project-thread-euxe0q · Critical: no
+  - Depends: —
+  - Goal: check merged work against `IMG256` and update the board.
+  - Done when: every "synthetic only"/"blocked" result since PR #11 is rerun
+    on `IMG256` or its blocker re-checked; new tasks added.
+  - Result: EXP-2026-11-06-H5-pm-review (C-1710–C-1716): M2.1 unblocked,
+    `thunks` 0 % on real data, comphdr 187/245, M1.2b probe negative except
+    xpress-lz77, OSM hosts 403.
+  - Claims: C-1710–C-1719
+
+- [ ] **H6 — Reconcile `drstr.md` with the `MMAIN001` layout; document `tools_ze0`**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: no format doc contradicts a verified result.
+  - Input: EXP-2026-11-05-M4.5 (`0x18c`/`0x1ac` fall inside FAT directory
+    records `ER_INFO`); `docs/format/drstr.md` (per-language list at `0x18c`,
+    3-section descriptor at `0x1ac`) and the claims behind it;
+    `tools/ze0-viewer/tools_ze0/PROVENANCE.md` vs `setup.sh` and the
+    `AGENTS.md` sentence "`tools/ze0-viewer/` clones a pinned `osm2clarion`".
+  - Done when: the `drstr.md` claim is retracted or re-scoped to the file it
+    really describes (new claim with `Supersedes`); `AGENTS.md` and
+    `tools/README.md` say which copy of `tools_ze0` the harness uses and how
+    the two are kept in step.
+  - Claims: C-1720–C-1729
+
+- [ ] **H7 — `tools/realcheck.py`: real-image regression run**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: a tool that passes its self-test but fails on real bytes is caught
+    the same day (C-1714).
+  - Input: EXP-2026-11-06-H5 commands and counts; `IMG256`.
+  - Done when: `python3 tools/realcheck.py IMG256` runs `romhdr` (A: 149
+    modules), `exports coredll.dll` on B (1651 names, ordinal 719 =
+    `sprintf`), `imports Navi.exe` (846), `comphdr --all` (187/58), `thunks
+    Navi.exe` (expected count, currently 0 → reported as FAIL), the
+    `sh4xref.py` EXP-50 call sites, and `probe` on the two `NaviMapCC.dll`
+    sections; each check prints PASS/FAIL against a pinned value and the
+    script exits non-zero on any FAIL; `IMG256` SHA-256 is checked first;
+    `tools/README.md` and rule 11 point to it. No vendor bytes in the repo.
+  - Claims: C-1730–C-1739
+
 ---
 
 ## M1 — Firmware tooling
@@ -261,9 +348,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-640–C-649
 
 - [ ] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
-  - Status: blocked · Owner: — · Critical: yes
-  - Depends: — (use M1.2a's offsets once they exist; until then try offsets
-    0…32)
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M1.2a done: payload after the 22-byte header)
   - Goal: find a public decoder whose output length matches.
   - Input: the two EXP-49 sections; `tools/cecompress.py` (LZSS + LZX
     stored blocks already implemented and self-tested, EXP-52: run it on the
@@ -276,10 +362,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `vsize`) and plausible content (pointers into `0x8c…`/module VAs,
     strings), or an EXP lists every decoder × offset tried with a positive
     control (each decoder round-trips its own test vector).
-  - Blocker: the checkout has only EXP-49's 30-byte prefix; `probe` needs
-    the full payload. Result: `cecompress.py` adds LZNT1 (published MS-XCA
-    vector), XPRESS skeletons and `probe` (all methods × offsets, statuses,
-    exact-size matches) — EXP-2026-11-05-M1.2b, C-650.
+  - Old blocker resolved: the full payloads are in `IMG256` (file
+    `0x01580ce0` len `0x2c6`, `0x015aca7c` len `0x68c`; extract with `dd`, see
+    EXP-2026-11-06-H5). Real run so far: lzss, lzx, lznt1, xpress-huffman give
+    0 matches at offsets 0…40 (C-1715). **Next step:** implement the XPRESS
+    plain-LZ77 match decode ([MS-XCA] 2.3/2.4) with the spec's vector as
+    control, rerun `probe`, then try per-block decoding using the M1.2a block
+    records (`84 04 00 00 | b0 02 00 00 | …`: the stream may be framed in
+    blocks rather than one run). Tool so far: EXP-2026-11-05-M1.2b, C-650.
   - Claims: C-650–C-659
 
 - [ ] **M1.2c — Find the ROM decompressor in `nk.exe` and port it**
@@ -307,7 +397,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     only the real 245-section run is left (EXP-53, C-571).
   - Done when: `cerom.py extract --decompress` writes all 245 sections and
     every output length equals the header length (failures listed); IAT
-    `FirstThunk` of `Navi.exe` (`0x0054d000`) decodes to slot values that
+    `FirstThunk` of `Navi.exe` (`0x0054d000` here; `imports` prints the first
+    slot at `0x0055d000`, check which is right) decodes to slot values that
     `imports` predicts.
   - Claims: C-670–C-679
 
@@ -373,21 +464,66 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-710–C-719
   - Result: EXP-2026-11-05-M1.8-sh4xref (`tools/sh4xref.py`; 17 self-test checks; reproduces the four EXP-50 call sites; HDD_INFO slot 0x004e7d28 read at 0x004e7bec in fn 0x004e7b8c)
 
+- [ ] **M1.2d — The second compressed-section header form (58 sections)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: `comphdr` parses all 245 sections, so M1.3 knows every payload.
+  - Input: `cerom.py --image-start 0x200200 IMG256 comphdr --all` (58
+    REFUTED rows, e.g. `InfoBarCC.dll/sec2`, `Vehicle.exe/sec1`/`sec2`);
+    hypothesis C-1713: flag word `0x10000000 | psize`, perhaps a multi-block
+    or stored form.
+  - Done when: `comphdr` recognises the second form (synthetic self-test for
+    it) and reports `245 HOLDS` or lists the exceptions with their bytes;
+    the EXP says whether form 2 is multi-block, stored, or another codec.
+  - Claims: C-1740–C-1749
+
+- [ ] **M1.6c — Make `cerom.py thunks` work on the real image**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: thunk labels for Ghidra (M9.2) and stubs (M9.3) from real bytes.
+  - Input: C-1714 (`thunks Navi.exe` and `--all`: "no import stub matched");
+    EXP-50 thunks `0x003d1bb0` (`getOffset`) and `0x003d1ba4` (`getSize`);
+    `sh4xref.py`, which resolves them; `imports Navi.exe` (846 slots from
+    `0x0055d000`); also `cerom.py va2file 0x003d1bb0` prints `0x-8c50f250`
+    (module-relative VAs are not mapped — fix or document).
+  - Done when: `thunks Navi.exe --min-coverage 95` exits 0 on `IMG256` and
+    labels both EXP-50 thunks correctly; the cause of the miss is in the EXP
+    and a self-test case reproduces it.
+  - Claims: C-1750–C-1759
+
+- [ ] **M1.9 — Cross-image import names (A → B's `coredll.dll`)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: every import of every A module named, not just numbered.
+  - Input: `cerom.py --image-start 0x3e00200 IMG256 exports coredll.dll`
+    (1651 names, C-527, C-1710); `imports` of A modules; other B/C
+    exporters (`commondll.dll`, `SYS_INF.dll`, `Errlogdll`, `CEDDK.dll`).
+  - Done when: `cerom.py imports MODULE --resolve-with 0x3e00200` (or a
+    `--names FILE` JSON) prints `COREDLL!_wfopen` instead of `#1145` for all
+    846 `Navi.exe` slots, unresolved ones listed; `sh4xref.py --calls` uses
+    the names; synthetic self-test.
+  - Claims: C-1760–C-1769
+
 ---
 
 ## M2 — Map code, activation, updater
 
 - [ ] **M2.1 — `Navi.exe` function that opens `HDD_INFO.TXT`**
-  - Status: blocked · Owner: task/m2.1-navi-hddinfo-open · Critical: yes
-  - Blocker: COREDLL export table not in the image module list; ordinals 1047, 1145, 1143, 59, 66, 1118 unnamed.
-  - Result (partial, negative): EXP-2026-11-05-M2.1-hddinfo-fn (fn `0x004e7b8c`; callers only via pool `0x004dd1e4` in `fn 0x004dd028`)
+  - Status: open · Owner: — · Critical: yes
+  - Partial: EXP-2026-11-05-M2.1-hddinfo-fn (fn `0x004e7b8c`; callers only
+    via pool `0x004dd1e4` in `fn 0x004dd028`). The blocker was wrong
+    (C-1710): the ordinals are `memset` (1047), `_wfopen` (1145), `fgetws`
+    (1143), `wcschr` (59), `wcsncpy` (66), `fclose` (1118), from image B's
+    `coredll.dll`. Left: the arguments, the buffer it fills (destination of
+    `wcsncpy`, size of `memset`), the `fgetws` line buffer size.
   - Depends: — (M1.8 helps)
   - Goal: name the function, its arguments and callers.
   - Input: literals at `Navi.exe` VA `0x004e7d28` / `0x004e7d2c` (C-521);
     `cerom.py --image-start 0x200200 IMG sections Navi.exe`; `imports`
     (CreateFile/ReadFile ordinals of `COREDLL`).
   - Done when: the EXP gives the function VA, the file API calls it makes,
-    the buffer it fills, and its callers (VA list).
+    the buffer it fills (base register, offsets, lengths), and its callers
+    (VA list).
   - Claims: C-720–C-729
 
 - [ ] **M2.2 — The `SD Import: … is different` comparator**
@@ -405,8 +541,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Status: open · Owner: — · Critical: yes
   - Depends: M2.1
   - Goal: the line order, separators and the six-line mapping.
-  - Input: the M2.1 function and its callee that parses the buffer;
-    `tools/hddinfo.py`.
+  - Input: the M2.1 function `0x004e7b8c` itself (C-1711: `fgetws` loop,
+    `wcschr` split, `wcsncpy` copy) and the buffer M2.1 names;
+    `tools/hddinfo.py`. Can start now on the `fgetws` loop; M2.1 gives the
+    struct base.
   - Done when: a `line → field → type → struct offset` table is in
     `docs/format/validation.md` and `hddinfo.py` follows it (self-test
     updated).
@@ -488,6 +626,19 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-810–C-819
   - Result: EXP-2026-11-05-M2.10-testmode (menus/functions with VAs; entry via image C launch table + boot-mode flag; physical trigger unknown)
 
+- [ ] **M2.11 — When the unit reads `HDD_INFO.TXT` (`fn 0x004dd028`)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.9 helps)
+  - Goal: know the trigger (boot, SD insert, menu) and the retry logic, so a
+    test card is inserted at the right moment.
+  - Input: `fn 0x004dd028` (calls `0x004e7b8c` twice, plus `Sleep` and
+    `wcsncmp`, C-1710), its only reference: pool word `0x004dd2e4`
+    (a dispatch/vtable entry); `sh4xref.py --to`.
+  - Done when: the EXP names the table at `0x004dd2e4`, the caller of the
+    entry, why the read is done twice, what the `Sleep` loop waits for, and
+    what `wcsncmp` compares against (string at its literal).
+  - Claims: C-1770–C-1779
+
 ---
 
 ## M3 — Reader contract
@@ -559,6 +710,33 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: a field list with VAs is in `rdstm.md`; it feeds M4.1–M4.3.
   - Claims: C-880–C-889
 
+- [ ] **M3.8 — Does the firmware read `MMAIN001.DAT`?**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.9 helps)
+  - Goal: decide whether M5.6 must regenerate `MMAIN001.DAT` (a FAT
+    root-directory log, EXP-2026-11-05-M4.5) or can copy it.
+  - Input: string search for `MMAIN` (ASCII and UTF-16) in all A/B/C modules
+    with a positive control (`HDD_INFO.TXT` must be found the same way);
+    `sh4xref.py --to` on the hits.
+  - Done when: the EXP lists every reference with module/VA and what the code
+    checks (label, record count, cluster), or shows no reference with the
+    control; `docs/format/` and M5.6 input updated.
+  - Claims: C-1780–C-1789
+
+- [ ] **M3.9 — Name length limits and collation in the firmware**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.9 helps)
+  - Goal: the rules a writer must follow for names (EXP-2026-11-05-M4.13
+    left length limit and sort order UNKNOWN).
+  - Input: imports of `wcscmp`/`_wcsicmp`/`CompareString`/`LCMapString`
+    and their callers in name-search code (`Navi.exe`, `OBJDLL.dll`, search
+    DLLs); any ISO-8859-2 → UTF-16 table; `tools/name_strings.py`.
+  - Done when: the EXP names the compare function used for name search and
+    its sort order (byte, locale, custom table), and any fixed buffer length
+    for names, with VAs; `M4.13` writer rule updated in `refer.md` or the
+    names doc.
+  - Claims: C-1790–C-1799
+
 ---
 
 ## M4 — Data formats (no firmware or hardware needed)
@@ -574,9 +752,12 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-890–C-899
 
 - [ ] **M4.2 — `RDSTM001`: link attributes (speed class, one-way, class)**
-  - Status: blocked · Owner: task/m4.2-rdstm-link-attrs · Critical: yes
-  - Blocker: no OSM ground truth reachable from the sandbox, and RDSTM rows have no decoded coordinates (see EXP-2026-11-05-M4.2-rdstm-link-attrs).
-  - Depends: M4.1
+  - Status: blocked · Owner: — · Critical: yes
+  - Blocker: network (`download.geofabrik.de` refused, C-1716) and no
+    row → coordinate mapping (EXP-2026-11-05-M4.2-rdstm-link-attrs). Reopen
+    when OSM access exists and M4.16 is done; M4.17 tries the same question
+    without OSM.
+  - Depends: M4.1, M4.16, OSM access
   - Done when: attribute values correlate with ≥ 5 known roads (OSM tags)
     in an EXP table.
   - Claims: C-900–C-909
@@ -684,6 +865,56 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     per image and the fields that change with the map code.
   - Claims: C-1020–C-1029
 
+- [ ] **M4.15 — `RDSTM001` framing and node reciprocity**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.1
+  - Goal: prove the record size and the `src`/`dst` reading on the whole
+    file, not 10 rows.
+  - Input: `tools/rdstm_record.py`, `rdstm_schema.py`, `rdstm_scan.py`;
+    `RDSTM001.DAT` from `IMG` (SHA-256 `f822044c…`, EXP-M4.1); the framing
+    drift at `0x10a0`; rows below `0x1a700`; `docs/format/rdstm.md` ranked
+    unknowns 1–3.
+  - Done when: the EXP explains the drift (header, variable record, block
+    boundary), gives the row count per region, and reports a reciprocity
+    test (every `dst` appears as a `src`, or the share that does) against a
+    shuffled-field control; `rdstm.md` updated.
+  - Claims: C-1800–C-1809
+
+- [ ] **M4.16 — Place `RDSTM001` rows on the map**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.15 (M4.8 helps)
+  - Goal: a row → tile/mesh → coordinate link, which M4.2, M4.3 and M5.3 need.
+  - Input: `ref`/`src`/`dst` values (M4.1), tile road records
+    (`tools_ze0`, `harness.py`), `COORD001` mesh formula, `mesh_grid.py`.
+  - Done when: ≥ 20 rows are matched to tile road segments with coordinates,
+    with the join key named and a random-key control showing ~0 matches.
+  - Claims: C-1810–C-1819
+
+- [ ] **M4.17 — Link attributes without OSM: road numbers as ground truth**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.15
+  - Goal: find the road-class field from roads whose class is known by their
+    number (`A4`, `A18`, `S8`, `E40`, `DK94`… are motorways/expressways/
+    national roads by definition).
+  - Input: road-number strings in `LCTBL001` (`tools/name_strings.py`) and
+    tile name sections; the RDSTM candidate fields (`code`, `tail`, `pad2`).
+  - Done when: an EXP table maps ≥ 5 numbered roads of different classes to
+    their record field values, with a control (unnumbered streets), or shows
+    there is no link.
+  - Claims: C-1820–C-1829
+
+- [ ] **M4.18 — `LCTBL001` record framing**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: per-field name counts and lengths (M4.13 could only count per
+    stream).
+  - Input: the 517 zlib streams (`tools/name_strings.py`), NUL-separated
+    pieces (1,329,518), `rdstm.md` notes on `LCTBL`, `tools/lctbl_names.py`.
+  - Done when: the record layout inside a stream is decoded (or `UNKNOWN`
+    with method), a parser round-trips one stream byte-identically, and the
+    EXP gives counts and max length per field.
+  - Claims: C-1830–C-1839
+
 ---
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
@@ -697,10 +928,21 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Goal: read a Dolnośląskie `.osm.pbf` (Geofabrik) and write IMF v1 with
     drivable roads and the tags the compiler needs.
   - Input: `docs/research/intermediate-format.md`, `tools/imf_check.py`.
-  - Done when: `tools/osm_ingest.py` produces IMF that passes `imf_check.py`
-    on the region; extract date and SHA-256 recorded; stdlib only or a
-    documented optional dependency.
+  - Done when: `tools/osm_ingest.py` reads `.osm` XML and `.osm.pbf`
+    (stdlib PBF decoder or a documented optional dependency) and produces IMF
+    that passes `imf_check.py` on a synthetic fixture generated by its
+    self-test (a few ways, a roundabout, a one-way, a turn restriction). The
+    region run is M5.1b, because OSM hosts are blocked here (C-1716).
   - Claims: C-1030–C-1039
+
+- [ ] **M5.1b — Ingest the real Dolnośląskie extract**
+  - Status: blocked · Owner: — · Critical: yes
+  - Blocker: network: `download.geofabrik.de` not allowed (C-1716); Marek to
+    allow it or place an extract on `files.viaaq.eu`.
+  - Depends: M5.1, OSM access
+  - Done when: IMF for the region passes `imf_check.py`; extract date,
+    URL and SHA-256 recorded; counts of ways/nodes per `highway=*` in the EXP.
+  - Claims: C-1840–C-1849
 
 - [ ] **M5.2 — Mesh splitter**
   - Status: open · Owner: — · Critical: yes
@@ -731,7 +973,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [ ] **M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST`**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M5.4, M4.5
+  - Depends: M5.4, M4.5 (M3.8 decides whether `MMAIN001` is copied or
+    rebuilt: it is a FAT root-directory log, EXP-2026-11-05-M4.5)
   - Done when: L1 passes on the output card tree.
   - Claims: C-1080–C-1089
 
@@ -743,6 +986,18 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 - [x] **M5.8 — One-tile diff report**
   - Status: done · Owner: task/m5.8-tile-diff · Critical: no
   - Result: EXP-2026-11-05-M5.8-tile-diff (`tools/tile_diff.py`; factory vs mutate output: 148 bytes in 2 ranges; `tools_ze0` package committed as `tools/ze0-viewer/tools_ze0/`)
+
+- [ ] **M5.9 — `tile_diff.py`: match moved streams and name the records**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: a generated tile's diff reads as "changed record X", not as
+    remove + add at another offset.
+  - Input: `tools/tile_diff.py` (offset-based matching), `tools_ze0`
+    (`clarion_tile.py` section/record layout), `section4.py`.
+  - Done when: on the M5.8 mutate output the report shows 1 changed stream
+    (0 added/removed) and the level/record/vertex that changed; self-test
+    covers a moved stream.
+  - Claims: C-1850–C-1859
   - Depends: —
   - Goal: an automatic report of what changed vs what was preserved between
     a factory and a generated/mutated tile (sections, records, bytes).
