@@ -436,8 +436,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     real 846-slot run stays UNKNOWN (EXP-2026-11-05-M1.6b, C-690).
   - Claims: C-690–C-699
 
-- [ ] **M1.7 — Which kernel (B or C) boots with A**
-  - Status: in progress · Owner: task/m1.7-kernel-select · Critical: no
+- [x] **M1.7 — Which kernel (B or C) boots with A**
+  - Status: done · Owner: task/m1.7-kernel-select · Critical: no
   - Tool: `tools/kernel_select.py` scores B vs C on seven criteria and
     refuses a verdict on ties; fed the recorded B/C fields it returns
     `UNKNOWN` (EXP-54, C-572), so the decision still needs `ulRAMFree`/`End`
@@ -450,6 +450,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: an EXP states B, C or "IPL-selected" with the evidence, and
     the boot-argument field that selects it if any (feeds M8.B4).
   - Claims: C-700–C-709
+  - Result: EXP-2026-11-06-M1.7-kernel-select (verdict: IPL-selected; 12-byte boot arg is a Navi version string, not a selector)
 
 - [x] **M1.8 — SH-4 disassembly and xref helper**
   - Status: done · Owner: claude/project-thread-wn7y0u · Critical: yes

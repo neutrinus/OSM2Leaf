@@ -402,6 +402,21 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-528 | `0x0369d400` (C-520) is the `BT_MGR` thunk for `COREDLL!sprintf`; the `0x6faeb0` path-builder is BT_MGR code unrelated to the map-code check; the real `HDD_INFO` logic is in `Navi.exe` (C-521). | VERIFIED | H | EXP-2026-11-05-36; `tools/cerom.py` |
 | C-529 | Which kernel image (B or C) boots with A, and the compression of `IMAGE_SCN_COMPRESSED` sections and `FILESentry` payloads, are unknown. | UNKNOWN | — | EXP-2026-11-05-36; `tools/cerom.py` |
 
+## Kernel selection (M1.7)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-700 | Builds B and C have identical `ulRAMStart` (`0x89e40000`), `ulRAMFree` (`0x89e73000`), `pExtensions` (`0x880030a4`) and `usCPUType` (`0x01a6`); both carry `nk.exe`, `coredll.dll`, `filesys.exe`, `device.exe`, `gwes.exe`. | VERIFIED | H | `tools/cerom.py --image-start 0x3e00200/0x5200200 IMG romhdr`; EXP-2026-11-06-M1.7 |
+| C-701 | `ulRAMEnd` is `0x8e600000` for both B and C, i.e. above A's image (`0x8cae1000`–`0x8e233c88`) and not closing at A's `physfirst`; the two are indistinguishable on this field. | OBSERVED | H | ROMHDR above; EXP-2026-11-06-M1.7 |
+| C-702 | The `pExtensions` block at `0x880030a4` is byte-identical between B and C except one character of a build-path string (`d:\` vs `c:\wince500\...\loader.c`); it is the standard WinCE `nk` debug string pool and carries no selection flag. | VERIFIED | H | raw image bytes at `0x3e032a4`/`0x52032a4`; EXP-2026-11-06-M1.7 |
+| C-703 | The 4-byte header difference between B and C is the `nk.exe` entry point stored at image offset +12: B `0x8800ebd0`, C `0x8800ebb0` (bytes `d0 eb 00 88` vs `b0 eb 00 88`). | VERIFIED | H | raw image bytes; `cerom.py e32`; EXP-2026-11-06-M1.7 |
+| C-704 | Across all modules of build B, the only code referencing any of `phys 0x08000020`–`0x0800002b` (P2 `0xa8000020`–`0xa800002b`) is `nk.exe` at `0x8804ccd6`...`0x8804cd2e` (12 `mov.l` loads). | VERIFIED | H | full-module literal scan; EXP-2026-11-06-M1.7 |
+| C-705 | Those 12 bytes are consumed solely by `nk.exe`'s AERTRACE dump (`0x8804cc42`) and formatted as `"Navi Version : %c%c%c%c%c%c%c%c-%c%c%c"`; no comparison, mask or branch on them exists in `nk.exe`. | OBSERVED | H | strings at `0x8800e5a8`/`0x8800e7a0`; EXP-2026-11-06-M1.7 |
+| C-706 | The SD image carries no bootloader (C-535); the on-board IPL selects which of B/C is copied to phys `0x08000000`. The SD image alone does not determine the boot choice. | OBSERVED | H | C-535; EXP-2026-11-06-M1.7 |
+| C-707 | `PRGUpdate.exe` (B) manages two kernel slots (`NK1`, `NK2`) plus `BOOTLOADER` in flash (`UpdateToFlash`/`UpdateToSysSD`/`UpdateToUnfrm`, `NK1VerChk`/`NK2VerChk`); this is a maintenance/update path, not the SD boot selector. | OBSERVED | M | strings in `PRGUpdate.exe`; EXP-2026-11-06-M1.7 |
+| C-708 | Image C is the test-mode build: `TestMode.exe` imports `CApi_GetBootMode`/`SetBootMode`/`GetBootModeEx` and is launched from image C's launch table (C-818); reaching it requires the IPL/boot-mode flag. | HYPOTHESIS | M | imports + launch table; EXP-2026-11-06-M1.7 |
+| C-709 | Verdict for M1.7: the kernel is **IPL-selected**; the 12-byte boot-argument block (`0x08000020`–`0x0800002b`) is a Navi version string, not a kernel selector, and should be seeded as the factory version bytes for M8.B4. | VERIFIED (conclusion) | H | C-704, C-705, C-706; EXP-2026-11-06-M1.7 |
+
 ## Test mode (image C, M2.10)
 
 | ID | Claim | Status | Confidence | Evidence |
