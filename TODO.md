@@ -889,7 +889,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 ## M3 — Reader contract
 
 - [ ] **M3.1 — The `.ind` wrapper above `MAL_DataVol_getOffset`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.1-ind-wrapper · Critical: yes
   - Depends: — (M1.6 done in PR #5)
   - Goal: name the `Navi.exe` function(s) around the four known call sites.
   - Input: call sites `0x003778b2`, `0x003778bc`, `0x00377b46`, `0x00377b52`
