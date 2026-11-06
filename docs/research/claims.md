@@ -949,6 +949,21 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 | C-748 | Factory EU 2011 file structure (read-only, not committed) is consistent with the 6-line mapping and lengths: 6 ASCII CRLF lines, no tail, line values fit within the M2.1 `wcsncpy` maxima. | OBSERVED | H | EXP-2026-11-06-M2.3-hddinfo-fields |
 | C-749 | `wcschr` is used to strip CR/LF terminators from the read line (not to split key:value pairs); `wcsncpy` copies the whole stripped line into the destination field. This matches the observed simple per-line values. | VERIFIED (static) | H | EXP-2026-11-06-M2.1-hddinfo-fn-complete (C-727, `wcschr`×2 CR/LF); EXP-2026-11-06-M2.3-hddinfo-fields |
 
+## M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants (C-750–C-759, blocked)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-750 | `hddinfo_variants.py` generates 89 length-preserving variants of the factory `HDD_INFO.TXT`. | VERIFIED (tool) | H | EXP-2026-11-06-M2.4-hddinfo-variants |
+| C-751 | model M0 (`hddinfo.py classify`) predicts 66 ACCEPT / 23 DIFFERENT MAP CODE across the 89 variants. | VERIFIED (offline) | M | EXP-2026-11-06-M2.4-hddinfo-variants |
+| C-752 | Firmware verdicts for the 89 variants are pending M9.6 (real L3 target); no firmware was run. | BLOCKED | — | EXP-2026-11-06-M2.4-hddinfo-variants |
+| C-753 | reserved. | UNKNOWN | — | — |
+| C-754 | reserved. | UNKNOWN | — | — |
+| C-755 | reserved. | UNKNOWN | — | — |
+| C-756 | reserved. | UNKNOWN | — | — |
+| C-757 | reserved. | UNKNOWN | — | — |
+| C-758 | reserved. | UNKNOWN | — | — |
+| C-759 | reserved. | UNKNOWN | — | — |
+
 ## M2.5 — Source of `DIFFERENT MAP CODE` (C-760–C-769)
 
 | ID | Claim | Status | Confidence | Evidence |
