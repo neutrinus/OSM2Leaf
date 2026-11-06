@@ -338,6 +338,26 @@ python3 tools/cedecomp.py info
 python3 tools/cedecomp.py --selftest
 ```
 
+**Note (M8.E1/C-1600):** M1.2c VAs above are **refuted** for IMG256 image B
+(patterns/bytes not found); real decompressor VA pending M8.E1b
+(EXP-2026-11-06-M8.E1-rom-decomp-tool).
+
+## `cedecomp_run.py` — QEMU+gdbstub ROM decompressor runner (M8.E1, blocked)
+
+```bash
+python3 tools/cedecomp_run.py --selftest
+python3 tools/cedecomp_run.py info
+python3 tools/cedecomp_run.py probe --image IMG256 [--qemu qemu-system-sh4eb]
+python3 tools/cedecomp_run.py exp49 --image IMG256 --entry 0xVA
+```
+
+Execution framework for calling nk.exe (image B, `0x3e00200`) ROM decompressor
+with RAM-only state: `qemu-system-sh4eb -M none -cpu sh7785 -S -gdb` +
+`-device loader` + GDB RSP. Refuses M1.2c-refuted VAs. EXP-49 decode
+(sec1→0x484/vsize 0x5b8, sec2→0xcc0) and all-245/FILESentry **blocked** until
+M8.E1b locates the real VA/prototype. Requires `qemu-system-sh4eb` (e.g.
+podman `localhost/osm2leaf-qemu`). See EXP-2026-11-06-M8.E1-rom-decomp-tool.
+
 ## `solve_data_delta.py`
 
 Window-scored data-delta solver for firmware pools (useful when a module mixes

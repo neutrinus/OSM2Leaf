@@ -1953,13 +1953,43 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
   file). Owner: coordinator with Marek. Claims: C-1590–C-1599
 - [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: task/m8.e1-rom-decomp-tool · Critical: yes
   - Depends: M1.2c (decompressor VA). Does **not** need F1: call the
     function directly under `-M none` + gdbstub with RAM-only state, like an
     L3 call.
+  - Blocker: M1.2c-recorded VAs (`DECOMP_WRAP 0x88037590` / `DECOMP_SECT
+    0x88037464`, flag test `0x88038666`) are **refuted** for IMG256 image B
+    nk.exe (sha256 `92aa525d…`): M1.2c's flag-test pattern and
+    `mov #0x20,rN; shll8 rN` 0x2000 test are absent (0 hits in nk.exe sec0
+    and whole IMG256); bytes/literals at the cited VAs do not match M1.2c's
+    disassembly (capstone/PySh4 verified). Real decompressor VA/prototype
+    unknown, so EXP-49 sections cannot be decoded. QEMU execution framework
+    (`qemu-system-sh4eb -M none -cpu sh7785` + `-device loader` + gdbstub)
+    works with positive controls; tool `tools/cedecomp_run.py` is ready.
+  - Result: EXP-2026-11-06-M8.E1-rom-decomp-tool (blocked). EXP-49 decode:
+    **not achieved** (sec1→0x484/within vsize 0x5b8, sec2→0xcc0 pending real
+    VA). Prototype not confirmed. All-245/FILESentry not run. C-1600–C-1609.
+    Follow-up: M8.E1b (re-derive real decompressor VA/prototype, correct M1.2c
+    C-660–C-665), then resume M8.E1.
   - Done when: the two EXP-49 sections decode to the M1.2a lengths, then
     all 245 sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
   - Claims: C-1600–C-1609
+- [ ] **M8.E1b — Re-derive nk.exe ROM decompressor VA/prototype (M1.2c reverify)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (has IMG256; M1.2d framing known)
+  - Goal: locate the real compressed-section loader/decompressor in nk.exe
+    image B (IMG256, `--image-start 0x3e00200`) from actual bytes; correct
+    M1.2c C-660–C-665.
+  - Input: nk.exe sec0 (0x88001000, 0x4c800). Leads from M8.E1: 1 literal
+    `0x00002000` at 0x88042298 (no PC-rel ref found); 5 `add #24,rN` o32-walk
+    sites at 0x880128e4/0x88019b6c/0x8803a748/0x8803acbe/0x88047744; marker
+    `0x8d80805b` bytes at 0x8804d786 (sec0 end, not code-referenced per M1.2c).
+    Must handle M1.2a/M1.2d form 1/2 framing and LZXD-like `0x8d80805b` blocks.
+  - Done when: verified VA+prototype recorded with capstone disassembly and a
+    byte-level positive control (pattern found and reaches a decompressor call
+    that takes src/psize/dest/vsize or equivalent); M1.2c EXP/claims
+    retracted/corrected; M8.E1 unblocked.
+  - Claims: C-1690–C-1699
 - [ ] **M8.E2 — Registry as loaded** (`boot.hv`, `default.hv`, `user.hv`):
   driver list, `IoBase`, `Irq`, load order. Two routes: static hive parser
   after M1.4, or a RAM dump after M8.B5. Done when the driver table is in
