@@ -841,6 +841,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-1808 | reserved. | UNKNOWN | — | — |
 | C-1809 | reserved. | UNKNOWN | — | — |
 
+## M4.16 — `RDSTM001` row → tile/mesh → coordinate placement (C-1810–C-1819)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1810 | `tools/rdstm_place.py probe` finds no segment-specific join: M4.1 `src/dst/code` vs sec1/sec2 link ids match at chance given the dense u16 lid space (sec1 lids 25147/65536, all 0–255 present, 8 tiles); `ref` vs section-1/2 parcel and stream `(A,B)` keys gives 0 hits (random control 0). | VERIFIED (negative) | M | EXP-2026-11-06-M4.16-rdstm-placement; `python3 tools/rdstm_place.py probe RDSTM001.DAT MAPAL001 --limit-tiles 8 --limit-rows 34` |
+| C-1811 | `RDSTM001` `ref` (M4.1 u32 at +4, 500 unique values, 0x1000–0x1a700) appears as LE/BE 4-byte sequences in `INTER001`–`INTER005` more often than 500 random u32 (seed 42; e.g. INTER002 95 vs 1, INTER005 116 vs 7); unaligned byte-pattern lead, not an aligned-record or segment join. | OBSERVED | L | EXP-2026-11-06-M4.16-rdstm-placement |
+| C-1812 | M4.16 done-when (≥20 rows→tile road segments with coordinates, join key named, ~0 random-key control) is blocked: M4.15/C-884 leave the record framing/field directory undecoded and M3.7/C-887 show `RDSTM001` is TMC, not a mesh-keyed routing graph. | OBSERVED | M | EXP-2026-11-06-M4.16-rdstm-placement; C-1800–C-1802,C-884,C-887 |
+| C-1813 | reserved. | UNKNOWN | — | — |
+| C-1814 | reserved. | UNKNOWN | — | — |
+| C-1815 | reserved. | UNKNOWN | — | — |
+| C-1816 | reserved. | UNKNOWN | — | — |
+| C-1817 | reserved. | UNKNOWN | — | — |
+| C-1818 | reserved. | UNKNOWN | — | — |
+| C-1819 | reserved. | UNKNOWN | — | — |
+
 ## M4.11 — `LEV3456R.DAT` coarse levels 3–5 (C-990–C-999)
 
 | ID | Claim | Status | Confidence | Evidence |

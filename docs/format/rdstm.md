@@ -313,6 +313,20 @@ must follow for `LCTBL001` names and for the `ADDRE`/`POINT` name strings.
    the binary search uses `STD_StringImp_comparePriority` (`0x03467d84`).
    Nothing in the file format depends on reproducing that order.
 
+## Placement / join key (M4.16, negative)
+
+No join key from M4.1 16-byte row fields (`id,pad2,ref,src,dst,code,tail`) to
+tile road segments was identified (EXP-2026-11-06-M4.16-rdstm-placement,
+C-1810–C-1812). `src/dst/code` vs section 1/2 link ids match at chance given
+the dense lid value space (sec1 lids 25,147/65,536, all 0–255 present, 8 tiles);
+`ref` vs section-1/2 parcel and stream `(A,B)` keys gives 0 hits (random
+control 0). `INTER001`–`INTER005` show `ref` LE/BE byte-pattern enrichment vs
+random u32 (e.g. 95/1, 116/7) — an unverified aligned-record lead, not a
+segment join. M4.15/C-884 (undecoded per-record field directory) and
+M3.7/C-887 (RDSTM is TMC, not a mesh-keyed graph) mean placement likely needs
+the per-record/TMC→location decode or an `INTER/FRWAY`→mesh→coordinate chain.
+Tool: `tools/rdstm_place.py`.
+
 ## `RDSTM001.DAT` — uncompressed packed binary
 
 **Negative result (verified):** no zlib streams. A sequential `78 9c` scan and
