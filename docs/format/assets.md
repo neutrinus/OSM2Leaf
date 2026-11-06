@@ -2,8 +2,10 @@
 
 These are not map data, but they matter for POI icons and voice prompts.
 
-> **Evidence status:** `BICON001` layout is `VERIFIED`; `OPNG`/`SPEECH` are
-> `OBSERVED` and not needed for the first compiler milestone.
+> **Evidence status:** `BICON001` layout and the 34-row category/brand →
+> icon table are `VERIFIED`/`OBSERVED` (EXP-2026-11-06-M4.10-poi-icons);
+> `OPNG`/`SPEECH` are `OBSERVED` and not needed for the first compiler
+> milestone.
 
 ## `BICON001/BICON001.DAT` — POI icons
 
@@ -12,15 +14,90 @@ These are not map data, but they matter for POI icons and voice prompts.
 ```
 0x0000  512-byte common header
 0x1000  header; u16 at 0x100a = 0x0067 = 103 icons
-0x1016  u32 table (start, size), cumulative
-0x1408  103 PNGs (32x32; five 30x30)
+0x100e  103 * (u32 start, u32 size), big-endian, in 2-byte units
+0x1408  first PNG; offset = 0x1408 + 2*start, length = 2*size
 ```
 
-- `tools/point2.py bicon --out icons` extracts all 103.
-- The POI `icon code` → PNG mapping is **UNKNOWN**. There is no icon-id table
-  inside POINT, and `f0` is constant per file (0/3/16/20), i.e. a table id.
+- 98 icons are 32×32 chain logos; the five 30×30 entries are the generic
+  glyphs 0, 18, 19, 20 and 21.
+- Four slots are byte-identical copies of the Holiday Inn logo (25/60/75/76)
+  and two of Crowne Plaza (23/59); duplicate slots are not distinct brands.
+- `tools/poi_icons.py bicon <BICON001.DAT>` lists the table and PNG sizes.
 - `BICON001.DAT` is the only map file with a different data version
   (`11/04/08/01` vs `11/06/27/01`).
+
+### POI category/brand code → icon
+
+A `POINT0nn` facility name is bracketed by two 16-bit codes:
+
+```
+<tag> <category:u16> NAME \0 [house@street] <brand:u16>
+```
+
+The code before the name is the top-level category; the last two bytes of
+the record are the brand sub-category. They are equal for brand-coded fuel
+stations (`ARAL` → `0x01bc` both) and differ for a shop inside a fuel
+station (`CORA` → category `0x0190`, brand `0x01e2`). For hotels the
+category is always `0x0dac` and the brand code selects the chain logo.
+
+Observed ranges: `0x01xx` fuel/shop, `0x03xx` restaurant, `0x0dxx`–`0x0exx`
+hotel. The icons are not stored in code order (Comfort `0x0dd1` is icon 34,
+Campanile `0x0dc3` is icon 35), so use this table rather than a rank.
+
+| Code | Dec | Icon | Depicts | Rows in scan |
+| --- | --: | --: | --- | --: |
+| `0x0190` | 400 | 0 | fuel pump (generic) | 29,511 |
+| `0x0391` | 913 | 18 | knife & fork (generic) | 48,147 |
+| `0x0dac` | 3500 | 21 | bed (generic hotel) | 171,102 |
+| `0x0193` | 403 | 1 | BP | 1,325 |
+| `0x0195` | 405 | 2 | ASDA | 174 |
+| `0x01a1` | 417 | 3 | Carrefour | 337 |
+| `0x01bc` | 444 | 6 | Aral | 2,381 |
+| `0x01be` | 446 | 7 | Intermarché | 1,533 |
+| `0x01cf` | 463 | 8 | Preem | 383 |
+| `0x01d9` | 473 | 9 | Tamoil | 2,520 |
+| `0x01e2` | 482 | 12 | Cora | 61 |
+| `0x0dad` | 3501 | 22 | Best Western | 1,055 |
+| `0x0db1` | 3505 | 23 | Crowne Plaza | 48 |
+| `0x0db7` | 3511 | 24 | Hilton | 117 |
+| `0x0db8` | 3512 | 25 | Holiday Inn | 245 |
+| `0x0dbb` | 3515 | 26 | InterContinental | 13 |
+| `0x0dbe` | 3518 | 27 | balladins | 174 |
+| `0x0dbf` | 3519 | 28 | Quality | 109 |
+| `0x0dc6` | 3526 | 31 | Sheraton | 37 |
+| `0x0dcc` | 3532 | 33 | Concorde | 18 |
+| `0x0dc3` | 3523 | 35 | Campanile | 387 |
+| `0x0dd1` | 3537 | 34 | Comfort | 140 |
+| `0x0dda` | 3546 | 36 | Golden Tulip | 75 |
+| `0x0dbc` | 3516 | 37 | B&B Hotels | 104 |
+| `0x0df2` | 3570 | 39 | Mercure | 435 |
+| `0x0e0d` | 3597 | 44 | Scandic | 100 |
+| `0x0dbd` | 3517 | 62 | Marriott | 31 |
+| `0x0dc0` | 3520 | 29 | Radisson (first block) | 15 |
+| `0x0e2e` | 3630 | 57 | Radisson Blu (second block) | 82 |
+| `0x0e2a` | 3626 | 53 | Radisson Edwardian | 11 |
+| `0x0e24` | 3620 | 47 | Clarion | 51 |
+| `0x0e29` | 3625 | 51 | Park Inn | 73 |
+| `0x0e32` | 3634 | 61 | Andaz | 2 |
+| `0x0e39` | 3641 | 65 | Citadines | 41 |
+
+Counts are POINT records with that brand code and a name starting with the
+chain name, over shards 002/004/005/008/011/018/020/021/022/025/026/029/030/033.
+The generic glyphs 19 (pharmacy cross) and 20 (parking) exist but their codes
+are not isolated yet.
+
+Reproduce with:
+
+```bash
+python3 tools/poi_icons.py bicon BICON001/BICON001.DAT
+python3 tools/poi_icons.py codes /tmp/poi
+python3 tools/poi_icons.py verify /tmp/poi --bicon BICON001/BICON001.DAT
+```
+
+`/tmp/poi` holds `POINT0nn.DAT` files extracted with `tools/cmpind.py
+extract`. The join is by logo identity; the runtime's static lookup table is
+not stored in the map data (C-988). Full method and evidence:
+`docs/experiments/EXP-2026-11-06-M4.10-poi-icons.md`.
 
 ## `OPNG/` — images
 

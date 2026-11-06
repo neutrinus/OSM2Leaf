@@ -65,7 +65,9 @@ There are 33 numbered shards, matching the 33 regions:
   `lat = (x-32768)/192`, `lon = (y-52742)/128`. The two copies are usually
   equal; the second can differ by a small delta (e.g. `(8,8)` in Vatican
   records).
-- No icon-id table inside POINT; `BICON001` correlation is **UNKNOWN**.
+- Each facility name is bracketed by a 16-bit category code and a 16-bit
+  brand code (last two bytes of the record). The brand code selects the
+  `BICON001` logo; see [assets.md](assets.md) for the verified table.
 
 ### POI name page framing (page level)
 
@@ -142,7 +144,8 @@ held there.
 Still open:
 
 - the second 1000-id block per page (hypothesis: `INFORMATION` sub-records),
-- the POI `icon code` → `BICON001` mapping,
+- the pharmacy/parking brand codes (the `BICON001` mapping is in
+  [assets.md](assets.md); two generic glyphs are still unmapped),
 - the bit-packed field block origin,
 - the `body` grammar of a name record (48/88-byte variants measured, not
   decoded),

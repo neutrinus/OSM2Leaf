@@ -107,6 +107,20 @@ records 247089 / fields (36461, 66189, 243907, 109944) / OK`; `roundtrip`
 re-encodes every stream byte-identically. See
 [`../docs/format/rdstm.md`](../docs/format/rdstm.md) "Record layout".
 
+## `poi_icons.py`
+
+List the `BICON001` PNG table and join `POINT` category/brand codes to icons.
+
+```bash
+python3 tools/poi_icons.py bicon BICON001/BICON001.DAT
+python3 tools/poi_icons.py codes /tmp/poi      # extracted POINT0nn.DAT files
+python3 tools/poi_icons.py verify /tmp/poi --bicon BICON001/BICON001.DAT
+```
+
+`codes`/`verify` read `POINT0nn.DAT` files that were first extracted with
+`tools/cmpind.py extract`. `verify` checks all 34 rows of the mapping in
+`docs/format/assets.md` and prints `RESULT: PASS`.
+
 ## `rdstm_scan.py`
 
 Inspect `RDSTM001.DAT`: block layout, negative zlib result, and the 2-byte
