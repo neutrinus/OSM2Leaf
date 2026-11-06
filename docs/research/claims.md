@@ -1207,6 +1207,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1290 | `tools/qemu-ze0/run.sh` boots the ZE0 images with `-M ze0` when available else `-M none -cpu sh7785 -m 512M`, always logging `-d unimp,guest_errors,int`, optional gdbstub, wall-clock timeout, work dir (log, registers, memmap, kernel/app slices), `--dry-run` that writes nothing and `MISSING_QEMU` exit 3, then prints `ce_qemu_probe.summarize_log()`; `gdb-ze0.py` maps a PC to module/section from `cerom.py memmap` (P1 alias retry, smallest extent) and lists CE threads, with 30 synthetic checks. Stand-in QEMU only. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M8.A7-trace-tooling; `gdb-ze0.py --selftest` |
 
+| C-1260 | `m8a4-0001..0003` factor the SH-4 CCN/MMU block out of `hw/sh4/sh7750.c` into an `sh4-ccn` device: the `0xff000000` page registers (`PTEH/PTEL/TTB/TEA/MMUCR/CCR/TRA/EXPEVT/INTEVT/PVR/PTEA/CVR/PRR`) and the `0xf0000000`–`0xf7ffffff` arrays, keeping the register file in `CPUSH4State` and preserving TI invalidation, PTEH ASID flush and UTLB/ITLB dispatch, built under `CONFIG_SH4_CCN` selected by `SH7750`. Applies to pristine 8.2.7 in both orders with M8.A5, builds and instantiates; kernel `0x5b90` behaviour unverified. | VERIFIED (tool) / UNVERIFIED (runtime) | H | EXP-2026-11-06-M8.A4-cpu-control; `git apply --check`, `ninja qemu-system-sh4` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

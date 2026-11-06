@@ -1,0 +1,233 @@
+SH-4 CCN/MMU control block extracted from hw/sh4/sh7750.c.
+
+Base: QEMU 8.2.7 (tag v8.2.7), the pin in tools/qemu-ze0/README.md.
+Generated against the real file; see patches/README.md for the apply
+order and the verification status.
+diff --git a/hw/sh4/sh7750.c b/hw/sh4/sh7750.c
+--- a/hw/sh4/sh7750.c
++++ b/hw/sh4/sh7750.c
+@@ -28,6 +28,7 @@
+ #include "hw/sysbus.h"
+ #include "hw/irq.h"
+ #include "hw/sh4/sh.h"
++#include "hw/sh4/sh4_ccn.h"
+ #include "sysemu/sysemu.h"
+ #include "hw/qdev-properties.h"
+ #include "hw/qdev-properties-system.h"
+@@ -48,7 +49,8 @@
+     MemoryRegion iomem_ff8;
+     MemoryRegion iomem_1fc;
+     MemoryRegion iomem_ffc;
+-    MemoryRegion mmct_iomem;
++    /* CCN/MMU control block, shared with the "ze0" machine */
++    SH4CCNState *ccn;
+     /* CPU */
+     SuperHCPU *cpu;
+     /* Peripheral frequency in Hz */
+@@ -76,9 +78,6 @@
+     uint16_t periph_pdtrb;    /* Imposed by the peripherals */
+     uint16_t periph_portdirb; /* Direction seen from the peripherals */
+     sh7750_io_device *devices[NB_DEVICES]; /* External peripherals */
+-
+-    /* Cache */
+-    uint32_t ccr;
+ 
+     struct intc_desc intc;
+ } SH7750State;
+@@ -281,23 +280,16 @@
+         ignore_access("long read", addr);
+         return 0;
+     case SH7750_MMUCR_A7:
+-        return s->cpu->env.mmucr;
+     case SH7750_PTEH_A7:
+-        return s->cpu->env.pteh;
+     case SH7750_PTEL_A7:
+-        return s->cpu->env.ptel;
+     case SH7750_TTB_A7:
+-        return s->cpu->env.ttb;
+     case SH7750_TEA_A7:
+-        return s->cpu->env.tea;
+     case SH7750_TRA_A7:
+-        return s->cpu->env.tra;
+     case SH7750_EXPEVT_A7:
+-        return s->cpu->env.expevt;
+     case SH7750_INTEVT_A7:
+-        return s->cpu->env.intevt;
+     case SH7750_CCR_A7:
+-        return s->ccr;
++        /* CPU control block, shared with the "ze0" machine */
++        return sh4_ccn_reg_read(s->ccn, addr - SH7750_A7_BASE);
+     case 0x1f000030: /* Processor version */
+         scc = SUPERH_CPU_GET_CLASS(s->cpu);
+         return scc->pvr;
+@@ -420,41 +412,17 @@
+         portb_changed(s, temp);
+         return;
+     case SH7750_MMUCR_A7:
+-        if (mem_value & MMUCR_TI) {
+-            cpu_sh4_invalidate_tlb(&s->cpu->env);
+-        }
+-        s->cpu->env.mmucr = mem_value & ~MMUCR_TI;
+-        return;
+     case SH7750_PTEH_A7:
+-        /* If asid changes, clear all registered tlb entries. */
+-        if ((s->cpu->env.pteh & 0xff) != (mem_value & 0xff)) {
+-            tlb_flush(CPU(s->cpu));
+-        }
+-        s->cpu->env.pteh = mem_value;
+-        return;
+     case SH7750_PTEL_A7:
+-        s->cpu->env.ptel = mem_value;
+-        return;
+     case SH7750_PTEA_A7:
+-        s->cpu->env.ptea = mem_value & 0x0000000f;
+-        return;
+     case SH7750_TTB_A7:
+-        s->cpu->env.ttb = mem_value;
+-        return;
+     case SH7750_TEA_A7:
+-        s->cpu->env.tea = mem_value;
+-        return;
+     case SH7750_TRA_A7:
+-        s->cpu->env.tra = mem_value & 0x000007ff;
+-        return;
+     case SH7750_EXPEVT_A7:
+-        s->cpu->env.expevt = mem_value & 0x000007ff;
+-        return;
+     case SH7750_INTEVT_A7:
+-        s->cpu->env.intevt = mem_value & 0x000007ff;
+-        return;
+     case SH7750_CCR_A7:
+-        s->ccr = mem_value;
++        /* CPU control block, shared with the "ze0" machine */
++        sh4_ccn_reg_write(s->ccn, addr - SH7750_A7_BASE, mem_value);
+         return;
+     default:
+         error_access("long write", addr);
+@@ -658,111 +626,6 @@
+  * Memory mapped cache and TLB
+  */
+ 
+-#define MM_REGION_MASK   0x07000000
+-#define MM_ICACHE_ADDR   (0)
+-#define MM_ICACHE_DATA   (1)
+-#define MM_ITLB_ADDR     (2)
+-#define MM_ITLB_DATA     (3)
+-#define MM_OCACHE_ADDR   (4)
+-#define MM_OCACHE_DATA   (5)
+-#define MM_UTLB_ADDR     (6)
+-#define MM_UTLB_DATA     (7)
+-#define MM_REGION_TYPE(addr)  ((addr & MM_REGION_MASK) >> 24)
+-
+-static uint64_t invalid_read(void *opaque, hwaddr addr)
+-{
+-    abort();
+-
+-    return 0;
+-}
+-
+-static uint64_t sh7750_mmct_read(void *opaque, hwaddr addr,
+-                                 unsigned size)
+-{
+-    SH7750State *s = opaque;
+-    uint32_t ret = 0;
+-
+-    if (size != 4) {
+-        return invalid_read(opaque, addr);
+-    }
+-
+-    switch (MM_REGION_TYPE(addr)) {
+-    case MM_ICACHE_ADDR:
+-    case MM_ICACHE_DATA:
+-        /* do nothing */
+-        break;
+-    case MM_ITLB_ADDR:
+-        ret = cpu_sh4_read_mmaped_itlb_addr(&s->cpu->env, addr);
+-        break;
+-    case MM_ITLB_DATA:
+-        ret = cpu_sh4_read_mmaped_itlb_data(&s->cpu->env, addr);
+-        break;
+-    case MM_OCACHE_ADDR:
+-    case MM_OCACHE_DATA:
+-        /* do nothing */
+-        break;
+-    case MM_UTLB_ADDR:
+-        ret = cpu_sh4_read_mmaped_utlb_addr(&s->cpu->env, addr);
+-        break;
+-    case MM_UTLB_DATA:
+-        ret = cpu_sh4_read_mmaped_utlb_data(&s->cpu->env, addr);
+-        break;
+-    default:
+-        abort();
+-    }
+-
+-    return ret;
+-}
+-
+-static void invalid_write(void *opaque, hwaddr addr,
+-                          uint64_t mem_value)
+-{
+-    abort();
+-}
+-
+-static void sh7750_mmct_write(void *opaque, hwaddr addr,
+-                              uint64_t mem_value, unsigned size)
+-{
+-    SH7750State *s = opaque;
+-
+-    if (size != 4) {
+-        invalid_write(opaque, addr, mem_value);
+-    }
+-
+-    switch (MM_REGION_TYPE(addr)) {
+-    case MM_ICACHE_ADDR:
+-    case MM_ICACHE_DATA:
+-        /* do nothing */
+-        break;
+-    case MM_ITLB_ADDR:
+-        cpu_sh4_write_mmaped_itlb_addr(&s->cpu->env, addr, mem_value);
+-        break;
+-    case MM_ITLB_DATA:
+-        cpu_sh4_write_mmaped_itlb_data(&s->cpu->env, addr, mem_value);
+-        abort();
+-        break;
+-    case MM_OCACHE_ADDR:
+-    case MM_OCACHE_DATA:
+-        /* do nothing */
+-        break;
+-    case MM_UTLB_ADDR:
+-        cpu_sh4_write_mmaped_utlb_addr(&s->cpu->env, addr, mem_value);
+-        break;
+-    case MM_UTLB_DATA:
+-        cpu_sh4_write_mmaped_utlb_data(&s->cpu->env, addr, mem_value);
+-        break;
+-    default:
+-        abort();
+-        break;
+-    }
+-}
+-
+-static const MemoryRegionOps sh7750_mmct_ops = {
+-    .read = sh7750_mmct_read,
+-    .write = sh7750_mmct_write,
+-    .endianness = DEVICE_NATIVE_ENDIAN,
+-};
+-
+ SH7750State *sh7750_init(SuperHCPU *cpu, MemoryRegion *sysmem)
+ {
+     SH7750State *s;
+@@ -800,9 +663,11 @@
+                              &s->iomem, 0x1fc00000, 0x1000);
+     memory_region_add_subregion(sysmem, 0xffc00000, &s->iomem_ffc);
+ 
+-    memory_region_init_io(&s->mmct_iomem, NULL, &sh7750_mmct_ops, s,
+-                          "cache-and-tlb", 0x08000000);
+-    memory_region_add_subregion(sysmem, 0xf0000000, &s->mmct_iomem);
++    s->ccn = SH4_CCN(object_new(TYPE_SH4_CCN));
++    sh4_ccn_set_cpu(s->ccn, cpu);
++    qdev_realize(DEVICE(s->ccn), NULL, &error_fatal);
++    memory_region_add_subregion(sysmem, SH4_CCN_ARRAY_BASE,
++                                sh4_ccn_arrays(s->ccn));
+ 
+     sh_intc_init(sysmem, &s->intc, NR_SOURCES,
+                  _INTC_ARRAY(mask_registers),

@@ -1,0 +1,412 @@
+SH-4 CCN/MMU control block extracted from hw/sh4/sh7750.c.
+
+Base: QEMU 8.2.7 (tag v8.2.7), the pin in tools/qemu-ze0/README.md.
+Generated against the real file; see patches/README.md for the apply
+order and the verification status.
+diff --git a/include/hw/sh4/sh4_ccn.h b/include/hw/sh4/sh4_ccn.h
+new file mode 100644
+--- /dev/null
++++ b/include/hw/sh4/sh4_ccn.h
+@@ -0,0 +1,73 @@
++/*
++ * SH-4/SH-4A CPU control block: CCN/MMU registers and cache/TLB arrays.
++ *
++ * This is the part of the SH7750 that a machine needs before any
++ * peripheral model exists: the P4 register page at 0xff000000 (PTEH,
++ * PTEL, TTB, TEA, MMUCR, CCR, TRA, EXPEVT, INTEVT, PTEA and the
++ * read-only PVR/CVR/PRR) and the IC/OC/UTLB/ITLB window at
++ * 0xf0000000-0xf7ffffff.
++ *
++ * It used to be handled inline in hw/sh4/sh7750.c.  Factoring it out lets
++ * a machine map the CPU control block without instantiating the SH7750
++ * INTC, timers, SCI, RTC, PCI and GPIO models.  The architectural
++ * register file stays in CPUSH4State, exactly as before; this device is
++ * the MMIO front end and the code that applies the SH-4 side effects
++ * (MMUCR.TI invalidation, PTEH ASID change) to it.
++ *
++ * Copyright (c) 2026 OSM2Leaf contributors
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#ifndef HW_SH4_SH4_CCN_H
++#define HW_SH4_SH4_CCN_H
++
++#include "exec/memory.h"
++#include "hw/qdev-core.h"
++#include "qom/object.h"
++#include "target/sh4/cpu-qom.h"
++
++#define TYPE_SH4_CCN "sh4-ccn"
++OBJECT_DECLARE_SIMPLE_TYPE(SH4CCNState, SH4_CCN)
++
++/* Register offsets inside the P4 page at 0xff000000 (sh7750_regs.h). */
++enum {
++    SH4_CCN_PTEH   = 0x000,
++    SH4_CCN_PTEL   = 0x004,
++    SH4_CCN_TTB    = 0x008,
++    SH4_CCN_TEA    = 0x00c,
++    SH4_CCN_MMUCR  = 0x010,
++    SH4_CCN_CCR    = 0x01c,
++    SH4_CCN_TRA    = 0x020,
++    SH4_CCN_EXPEVT = 0x024,
++    SH4_CCN_INTEVT = 0x028,
++    SH4_CCN_PVR    = 0x030,
++    SH4_CCN_PTEA   = 0x034,
++    SH4_CCN_CVR    = 0x040,
++    SH4_CCN_PRR    = 0x044,
++};
++
++#define SH4_CCN_IOMEM_BASE  0xff000000
++#define SH4_CCN_IOMEM_SIZE  0x1000
++#define SH4_CCN_ARRAY_BASE  0xf0000000
++#define SH4_CCN_ARRAY_SIZE  0x08000000
++
++struct SH4CCNState {
++    DeviceState parent_obj;
++
++    MemoryRegion iomem;
++    MemoryRegion arrays;
++
++    /* CPU whose CPUSH4State holds the architectural register file. */
++    SuperHCPU *cpu;
++
++    /* CCR has no CPU-side storage and stays in the device. */
++    uint32_t ccr;
++};
++
++void sh4_ccn_set_cpu(SH4CCNState *s, SuperHCPU *cpu);
++uint32_t sh4_ccn_reg_read(SH4CCNState *s, unsigned int reg);
++void sh4_ccn_reg_write(SH4CCNState *s, unsigned int reg, uint32_t value);
++MemoryRegion *sh4_ccn_iomem(SH4CCNState *s);
++MemoryRegion *sh4_ccn_arrays(SH4CCNState *s);
++
++#endif /* HW_SH4_SH4_CCN_H */
+
+diff --git a/hw/sh4/sh4_ccn.c b/hw/sh4/sh4_ccn.c
+new file mode 100644
+--- /dev/null
++++ b/hw/sh4/sh4_ccn.c
+@@ -0,0 +1,323 @@
++/*
++ * SH-4/SH-4A CPU control block: CCN/MMU registers and cache/TLB arrays.
++ *
++ * See include/hw/sh4/sh4_ccn.h.  Behaviour is identical to the code that
++ * used to live in hw/sh4/sh7750.c:
++ *
++ *  - the P4 registers read and write CPUSH4State, with the MMUCR.TI
++ *    invalidation and the PTEH ASID-change TLB flush applied as before;
++ *  - the cache/TLB window 0xf0000000-0xf7ffffff dispatches on the region
++ *    bits exactly like sh7750_mmct_read/write did: IC/OC arrays are
++ *    ignored, UTLB/ITLB address and data arrays go through the SH-4
++ *    helpers.  Those arrays are software managed: the kernel fills them
++ *    and QEMU tracks the effective entries in its softmmu TLB.
++ *
++ * Copyright (c) 2026 OSM2Leaf contributors
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#include "qemu/osdep.h"
++#include "qemu/log.h"
++#include "qemu/module.h"
++#include "exec/exec-all.h"
++#include "hw/sh4/sh4_ccn.h"
++#include "migration/vmstate.h"
++#include "target/sh4/cpu.h"
++
++#define MM_REGION_MASK   0x07000000
++#define MM_ICACHE_ADDR   (0)
++#define MM_ICACHE_DATA   (1)
++#define MM_ITLB_ADDR     (2)
++#define MM_ITLB_DATA     (3)
++#define MM_OCACHE_ADDR   (4)
++#define MM_OCACHE_DATA   (5)
++#define MM_UTLB_ADDR     (6)
++#define MM_UTLB_DATA     (7)
++#define MM_REGION_TYPE(addr)  ((addr & MM_REGION_MASK) >> 24)
++
++void sh4_ccn_set_cpu(SH4CCNState *s, SuperHCPU *cpu)
++{
++    s->cpu = cpu;
++}
++
++MemoryRegion *sh4_ccn_iomem(SH4CCNState *s)
++{
++    return &s->iomem;
++}
++
++MemoryRegion *sh4_ccn_arrays(SH4CCNState *s)
++{
++    return &s->arrays;
++}
++
++uint32_t sh4_ccn_reg_read(SH4CCNState *s, unsigned int reg)
++{
++    CPUSH4State *env;
++    SuperHCPUClass *scc;
++
++    if (!s->cpu) {
++        return 0;
++    }
++    env = &s->cpu->env;
++
++    switch (reg) {
++    case SH4_CCN_MMUCR:
++        return env->mmucr;
++    case SH4_CCN_PTEH:
++        return env->pteh;
++    case SH4_CCN_PTEL:
++        return env->ptel;
++    case SH4_CCN_TTB:
++        return env->ttb;
++    case SH4_CCN_TEA:
++        return env->tea;
++    case SH4_CCN_TRA:
++        return env->tra;
++    case SH4_CCN_EXPEVT:
++        return env->expevt;
++    case SH4_CCN_INTEVT:
++        return env->intevt;
++    case SH4_CCN_CCR:
++        return s->ccr;
++    case SH4_CCN_PVR:
++        scc = SUPERH_CPU_GET_CLASS(s->cpu);
++        return scc->pvr;
++    case SH4_CCN_CVR:
++        scc = SUPERH_CPU_GET_CLASS(s->cpu);
++        return scc->cvr;
++    case SH4_CCN_PRR:
++        scc = SUPERH_CPU_GET_CLASS(s->cpu);
++        return scc->prr;
++    default:
++        qemu_log_mask(LOG_UNIMP,
++                      "sh4-ccn: unimplemented read 0x%03x\n", reg);
++        return 0;
++    }
++}
++
++void sh4_ccn_reg_write(SH4CCNState *s, unsigned int reg, uint32_t value)
++{
++    CPUSH4State *env;
++
++    if (!s->cpu) {
++        return;
++    }
++    env = &s->cpu->env;
++
++    switch (reg) {
++    case SH4_CCN_MMUCR:
++        if (value & MMUCR_TI) {
++            cpu_sh4_invalidate_tlb(env);
++        }
++        env->mmucr = value & ~MMUCR_TI;
++        return;
++    case SH4_CCN_PTEH:
++        /* If asid changes, clear all registered tlb entries. */
++        if ((env->pteh & 0xff) != (value & 0xff)) {
++            tlb_flush(CPU(s->cpu));
++        }
++        env->pteh = value;
++        return;
++    case SH4_CCN_PTEL:
++        env->ptel = value;
++        return;
++    case SH4_CCN_TTB:
++        env->ttb = value;
++        return;
++    case SH4_CCN_TEA:
++        env->tea = value;
++        return;
++    case SH4_CCN_TRA:
++        env->tra = value & 0x000007ff;
++        return;
++    case SH4_CCN_EXPEVT:
++        env->expevt = value & 0x000007ff;
++        return;
++    case SH4_CCN_INTEVT:
++        env->intevt = value & 0x000007ff;
++        return;
++    case SH4_CCN_CCR:
++        s->ccr = value;
++        return;
++    case SH4_CCN_PTEA:
++        env->ptea = value & 0x0000000f;
++        return;
++    default:
++        qemu_log_mask(LOG_UNIMP,
++                      "sh4-ccn: unimplemented write 0x%03x = 0x%08x\n",
++                      reg, value);
++        return;
++    }
++}
++
++static uint64_t sh4_ccn_iomem_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return sh4_ccn_reg_read(opaque, addr);
++}
++
++static void sh4_ccn_iomem_write(void *opaque, hwaddr addr, uint64_t value,
++                                unsigned size)
++{
++    sh4_ccn_reg_write(opaque, addr, value);
++}
++
++static const MemoryRegionOps sh4_ccn_iomem_ops = {
++    .read = sh4_ccn_iomem_read,
++    .write = sh4_ccn_iomem_write,
++    .endianness = DEVICE_NATIVE_ENDIAN,
++    .valid = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    },
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 4,
++    },
++};
++
++static uint64_t sh4_ccn_arrays_read(void *opaque, hwaddr addr, unsigned size)
++{
++    SH4CCNState *s = opaque;
++    CPUSH4State *env;
++    uint32_t ret = 0;
++
++    if (!s->cpu) {
++        return 0;
++    }
++    env = &s->cpu->env;
++
++    if (size != 4) {
++        abort();
++    }
++
++    switch (MM_REGION_TYPE(addr)) {
++    case MM_ICACHE_ADDR:
++    case MM_ICACHE_DATA:
++        /* do nothing */
++        break;
++    case MM_ITLB_ADDR:
++        ret = cpu_sh4_read_mmaped_itlb_addr(env, addr);
++        break;
++    case MM_ITLB_DATA:
++        ret = cpu_sh4_read_mmaped_itlb_data(env, addr);
++        break;
++    case MM_OCACHE_ADDR:
++    case MM_OCACHE_DATA:
++        /* do nothing */
++        break;
++    case MM_UTLB_ADDR:
++        ret = cpu_sh4_read_mmaped_utlb_addr(env, addr);
++        break;
++    case MM_UTLB_DATA:
++        ret = cpu_sh4_read_mmaped_utlb_data(env, addr);
++        break;
++    default:
++        abort();
++    }
++
++    return ret;
++}
++
++static void sh4_ccn_arrays_write(void *opaque, hwaddr addr, uint64_t value,
++                                 unsigned size)
++{
++    SH4CCNState *s = opaque;
++    CPUSH4State *env;
++
++    if (!s->cpu) {
++        return;
++    }
++    env = &s->cpu->env;
++
++    if (size != 4) {
++        abort();
++    }
++
++    switch (MM_REGION_TYPE(addr)) {
++    case MM_ICACHE_ADDR:
++    case MM_ICACHE_DATA:
++        /* do nothing */
++        break;
++    case MM_ITLB_ADDR:
++        cpu_sh4_write_mmaped_itlb_addr(env, addr, value);
++        break;
++    case MM_ITLB_DATA:
++        cpu_sh4_write_mmaped_itlb_data(env, addr, value);
++        abort();
++        break;
++    case MM_OCACHE_ADDR:
++    case MM_OCACHE_DATA:
++        /* do nothing */
++        break;
++    case MM_UTLB_ADDR:
++        cpu_sh4_write_mmaped_utlb_addr(env, addr, value);
++        break;
++    case MM_UTLB_DATA:
++        cpu_sh4_write_mmaped_utlb_data(env, addr, value);
++        break;
++    default:
++        abort();
++        break;
++    }
++}
++
++static const MemoryRegionOps sh4_ccn_arrays_ops = {
++    .read = sh4_ccn_arrays_read,
++    .write = sh4_ccn_arrays_write,
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
++static void sh4_ccn_reset(DeviceState *dev)
++{
++    SH4CCNState *s = SH4_CCN(dev);
++
++    /*
++     * The architectural registers are reset by the CPU target.  CCR is
++     * device state because CPUSH4State has no ccr field.
++     */
++    s->ccr = 0;
++}
++
++static void sh4_ccn_realize(DeviceState *dev, Error **errp)
++{
++    SH4CCNState *s = SH4_CCN(dev);
++
++    memory_region_init_io(&s->iomem, OBJECT(dev), &sh4_ccn_iomem_ops, s,
++                          "sh4-ccn.iomem", SH4_CCN_IOMEM_SIZE);
++    memory_region_init_io(&s->arrays, OBJECT(dev), &sh4_ccn_arrays_ops, s,
++                          "sh4-ccn.arrays", SH4_CCN_ARRAY_SIZE);
++}
++
++static const VMStateDescription vmstate_sh4_ccn = {
++    .name = TYPE_SH4_CCN,
++    .version_id = 1,
++    .minimum_version_id = 1,
++    .fields = (VMStateField[]) {
++        VMSTATE_UINT32(ccr, SH4CCNState),
++        VMSTATE_END_OF_LIST()
++    },
++};
++
++static void sh4_ccn_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++
++    dc->realize = sh4_ccn_realize;
++    dc->reset = sh4_ccn_reset;
++    dc->vmsd = &vmstate_sh4_ccn;
++    dc->desc = "SH-4 CCN/MMU control block";
++}
++
++static const TypeInfo sh4_ccn_info = {
++    .name = TYPE_SH4_CCN,
++    .parent = TYPE_DEVICE,
++    .instance_size = sizeof(SH4CCNState),
++    .class_init = sh4_ccn_class_init,
++};
++
++static void sh4_ccn_register_types(void)
++{
++    type_register_static(&sh4_ccn_info);
++}
++
++type_init(sh4_ccn_register_types)

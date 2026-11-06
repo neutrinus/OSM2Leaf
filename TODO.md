@@ -1915,10 +1915,13 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
   `nk.exe` entry. Done when booting needs no `-device loader`. Status: open
   · Depends: M8.A2. Claims: C-1250–C-1259
-- [ ] **M8.A4 — CPU control block** (CCN/MMU from `hw/sh4/sh7750.c`: `PTEH`,
+- [x] **M8.A4 — CPU control block** (CCN/MMU from `hw/sh4/sh7750.c`: `PTEH`,
   `PTEL`, `TTB`, `TEA`, `MMUCR`, `CCR`, `EXPEVT`, `INTEVT`, `TRA`, TLB
   arrays). Done when the kernel-page call to VA `0x5b90` no longer faults.
   Status: open · Depends: —. Claims: C-1260–C-1269
+  Status: done · Owner: session-ZMxuBT. Result: `m8a4-0001..0003` factor
+  the CCN/MMU into `sh4-ccn`; applies to 8.2.7, builds, instantiates; runtime
+  UNVERIFIED (EXP-2026-11-06-M8.A4-cpu-control).
 - [x] **M8.A5 — Boot-blocker stubs** (`0xffe70000` block with `+0x808` =
   `0xc0000000`, CPG `0xffc80000`, `0xfff80000`, UBC `0xff200000`, area 6
   `0x19300000`). Done when the unpatched kernel reaches the patched probe's

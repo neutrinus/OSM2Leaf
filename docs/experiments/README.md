@@ -205,4 +205,5 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M9.8](EXP-2026-11-06-M9.8-l3check.md) | `l3check.py`, L3 rung of the ladder (M9.8) | done (synthetic) |
 | [EXP-2026-11-06-M8.A1](EXP-2026-11-06-M8.A1-build-env.md) | QEMU build environment, pin 8.2.7 (M8.A1) | done |
 | [EXP-2026-11-06-M8.A7](EXP-2026-11-06-M8.A7-trace-tooling.md) | QEMU run wrapper and PC→module gdb script (M8.A7) | done (synthetic) |
+| [EXP-2026-11-06-M8.A4](EXP-2026-11-06-M8.A4-cpu-control.md) | SH-4 CCN/MMU factored into `sh4-ccn` (M8.A4) | builds; runtime unverified |
 | [EXP-2026-11-06-M8.A5](EXP-2026-11-06-M8.A5-boot-stubs.md) | QEMU `ze0-stubs` boot-blocker device (M8.A5) | patch compiles; boot unverified |

@@ -1,9 +1,9 @@
 # QEMU `ze0` patches: CPU control block (TODO M8.A4)
 
 Out-of-tree QEMU patch series that factors the SH-4 **CCN/MMU control
-block** out of `hw/sh4/sh7750.c` so a `ze0` machine can map it without
-instantiating any SH7750 peripheral model. Basis: **QEMU 8.2.7**, the
-8.2 LTS pin of [`../README.md`](../README.md).
+block** out of `hw/sh4/sh7750.c` into the standalone `sh4-ccn` device, so a
+`ze0` machine can map it without instantiating any SH7750 peripheral model.
+Basis: **QEMU 8.2.7**, the 8.2 LTS pin of [`../README.md`](../README.md).
 
 Companion record: [`EXP-2026-11-06-M8.A4-cpu-control`](../../../docs/experiments/EXP-2026-11-06-M8.A4-cpu-control.md).
 Context and the register work-list: [`docs/research/full-system-emulation.md`](../../../docs/research/full-system-emulation.md)
@@ -11,13 +11,13 @@ Context and the register work-list: [`docs/research/full-system-emulation.md`](.
 
 | | |
 | --- | --- |
-| Base tree | `qemu` tag **`v8.2.7`** (8.2 LTS; tarball `qemu-8.2.7.tar.xz`, SHA-256 `1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55`, 132676368 bytes — the pin in [`../README.md`](../README.md)) |
-| Base commit | `git rev-parse v8.2.7^{commit}` — **not resolvable here**: no QEMU object database on this machine, so no SHA is printed rather than an invented one. Record it (and `git hash-object` of the three touched files) in the pin table in §2 on first apply. |
+| Base tree | tag **`v8.2.7`**; tarball `qemu-8.2.7.tar.xz`, SHA-256 `1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55`, 132676368 bytes |
+| Base commit | `git rev-parse v8.2.7^{commit}` — not resolvable inside this repository (no QEMU object database); record it in the pin table in §2 on first apply |
 | Target | `--target-list=sh4-softmmu` |
-| Apply tool | `patch -p1` from the extracted tree root, which is what `tools/qemu-ze0/build.sh` runs, with `git apply --check` as the pre-flight; the patches have no `From:`/`Subject:` lines, so `git am` does not apply |
-| Licence | patch text is original, GPL-2.0-or-later, same as the files it touches |
-| Status | **patch text only — compilation and runtime UNVERIFIED** (no QEMU tree here) |
-| Sibling series | `0002-sh4-ze0-boot-stubs.patch` (TODO M8.A5) is a different task in the same directory and is independent of this one. It also edits `hw/sh4/meson.build`, at a different offset; apply the two series in either order. |
+| Apply tool | `patch -p1` (what `tools/qemu-ze0/build.sh` runs) and `git apply`; both verified in §5 |
+| Licence | GPL-2.0-or-later, same as the files it touches |
+| Status | **verified:** applies to pristine 8.2.7, compiles, `sh4-ccn` instantiates, `r2d` still initialises. **Not verified:** MMU behaviour under the ZE0 kernel — that needs the `ze0` machine (M8.A2) and the boot stubs (M8.A5) |
+| Sibling series | `0002-sh4-ze0-boot-stubs.patch` (M8.A5) edits `hw/sh4/meson.build` at a different offset and adds its own file; the two series apply in either order (§5) |
 
 The `m8a4-` prefix keeps the numbering distinct from the sibling series:
 two tasks writing into one directory both produced a `0002-…` file.
@@ -27,17 +27,18 @@ two tasks writing into one directory both produced a `0002-…` file.
 `EXP-2026-11-05-37` booted the ZE0 kernel in stock QEMU (`-M none`,
 `-cpu sh7785`, RAM only) up to the first missing board feature: the MMU
 control registers. The kernel writes `CCR`/`MMUCR` at `0xff00001c` /
-`0xff000010`, flushes the cache arrays at `0xf0000000`–`0xf7ffffff`, then
-calls a kernel-page stub at user VA `0x00005b90`; with no MMU model the
-address resolves to empty RAM and QEMU raises `illegal_instruction`.
+`0xff000010`, flushes the cache/TLB arrays at `0xf0000000`–`0xf7ffffff`,
+then calls a kernel-page stub at user VA `0x00005b90`; with no MMU model
+the address resolves to empty RAM and QEMU raises `illegal_instruction`.
 
-In 8.2 that register block lives inside `hw/sh4/sh7750.c`, which also
-builds the SH7750 INTC, TMU012, SCI, RTC, PCI and GPIO models and aborts
-on unknown P4 addresses. Linking the whole SH7750 SoC into `ze0` would
-put a foreign peripheral map under the ZE0 kernel; the kernel's own
-register accesses at `0xffe4*`/`0xffc*` would then land in SH7750
-devices. Factoring the control block out gives `ze0` exactly the CPU
-side and nothing else.
+In 8.2.7 the registers are handled in the monolithic `sh7750_mem_readl` /
+`sh7750_mem_writel` switch, keyed by the `*_A7` addresses (`0x1f000000`
+base) and reached through `s->iomem`, which is aliased at both
+`0x1f000000` and `0xff000000`; the arrays live in a separate
+`mmct_iomem` region at `0xf0000000`. None of that needs the SH7750 INTC,
+TMU, SCI, RTC, PCI or GPIO models, but `hw/sh4/sh7750.c` builds them all
+and aborts on unknown P4 addresses. Factoring the block out gives `ze0`
+exactly the CPU side and nothing else.
 
 ## 2. Apply order
 
@@ -50,21 +51,20 @@ P=/path/to/OSM2Leaf/tools/qemu-ze0/patches
 git apply --check "$P/m8a4-0001-hw-sh4-add-sh4-ccn-device.patch"
 git apply --check "$P/m8a4-0002-hw-sh4-build-sh4-ccn.patch"
 git apply --check "$P/m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch"
-git apply         "$P/m8a4-0001-hw-sh4-add-sh4-ccn-device.patch"
-git apply         "$P/m8a4-0002-hw-sh4-build-sh4-ccn.patch"
-git apply         "$P/m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch"
+git apply --check "$P/0002-sh4-ze0-boot-stubs.patch"          # M8.A5, either order
+
+git apply "$P/m8a4-0001-hw-sh4-add-sh4-ccn-device.patch"
+git apply "$P/m8a4-0002-hw-sh4-build-sh4-ccn.patch"
+git apply "$P/m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch"
 ```
 
-Expected `git apply --check`: **rc=0 for all three on a clean `v8.2.7`
-checkout**. That expectation is *not* verified in this repository (there
-is no QEMU tree); §5 shows what could be verified instead.
+`tools/qemu-ze0/build.sh` does the same loop with
+`patch -p1 --forward --batch` over every `*.patch` in sorted order
+(`0002-sh4-ze0-boot-stubs.patch` sorts before `m8a4-*`). Both tools and
+both orders were verified against a pristine 8.2.7 tree (§5).
 
-`m8a4-0003` is a de-duplication of `r2d`; it is **not needed for `ze0`**.
-Patches `m8a4-0001`+`m8a4-0002` alone give the `ze0` machine the whole control
-block.
-
-Pin (fill on first apply; empty here because none could be resolved
-offline):
+Pin (fill on first apply; empty because none could be resolved inside this
+repository):
 
 | Item | Value |
 | --- | --- |
@@ -72,57 +72,54 @@ offline):
 | `git hash-object hw/sh4/sh7750.c` | |
 | `git hash-object hw/sh4/meson.build` | |
 | `git hash-object hw/sh4/Kconfig` | |
-| QEMU build (`qemu-system-sh4 --version`) | |
+| `qemu-system-sh4 --version` | |
 
-If `m8a4-0003` rejects on the real tree, keep the old inline model in
-`sh7750.c` and continue with `m8a4-0001`+`m8a4-0002`.
-
-`build.sh` applies every `*.patch` in the directory in **sorted order**,
-so the sibling `0002-sh4-ze0-boot-stubs.patch` (M8.A5) runs before this
-series. It appends at the end of `hw/sh4/meson.build` (after
-`hw_arch += {'sh4': sh4_ss}`), so it shifts neither this series' hunk nor
-its behaviour; the recorded sorted order is in the M8.A5 section below.
+`m8a4-0003` only de-duplicates `r2d`. A `ze0` machine needs
+`m8a4-0001`+`m8a4-0002` and its own `select SH4_CCN`; if `0003` is ever
+dropped, `r2d` keeps its inline model and nothing else changes.
 
 ## 3. Hunk table
 
-### `m8a4-0001-hw-sh4-add-sh4-ccn-device.patch` — new device, no QEMU file touched
+### `m8a4-0001-hw-sh4-add-sh4-ccn-device.patch` — new device
 
 | Hunk | File | Intent |
 | --- | --- | --- |
-| 1 | `include/hw/sh4/sh4_ccn.h` (new, 87 lines) | `TYPE_SH4_CCN`, `SH4CCNState`, the nine P4 offsets, `MMUCR.AT`/`MMUCR.TI`, window constants, `SH4CCNHooks` (read/write write-through to the CPU target), and the four exported functions. |
-| 2 | `hw/sh4/sh4_ccn.c` (new, 242 lines) | 32-bit MMIO ops for `0xff000000`; a sink for the `0xf0000000`–`0xf7ffffff` IC/OC/UTLB/ITLB window (writes dropped, reads 0, same as the old inline model); register file with optional hooks; reset; vmstate v1; `type_init`. |
+| 1 | `include/hw/sh4/sh4_ccn.h` (new, 73 lines) | `TYPE_SH4_CCN`, `SH4CCNState`, the P4 offsets, the window constants, and the five exported functions. |
+| 2 | `hw/sh4/sh4_ccn.c` (new, 323 lines) | MMIO front end for `0xff000000`; the array window dispatcher; MMUCR/PTEH side effects; CCR storage; PVR/CVR/PRR from `SuperHCPUClass`; reset; vmstate; `type_init`. |
 
-Design notes that matter for the kernel:
+The register file stays in `CPUSH4State`; the device is the MMIO front end
+and the code that applies the SH-4 side effects:
 
-* The P4 page holds only the registers the kernel actually touches
-  (`PTEH 0x000`, `PTEL 0x004`, `TTB 0x008`, `TEA 0x00c`, `MMUCR 0x010`,
-  `TRA 0x014`, `CCR 0x01c`, `EXPEVT 0x024`, `INTEVT 0x028`). Anything
-  else logs `LOG_UNIMP` and reads 0, replacing the old "invalid access"
-  spam in the probe log with a named message.
-* Access size is 4 bytes only, as in the old `sh7750_mmct_ops`.
-* The array window is deliberately a sink. On SH-4 the TLB is software
-  managed: the `0x100` (TLB miss) handler writes `PTEH`/`PTEL` and
-  executes `LDTLB`; QEMU keeps the effective entry in its softmmu TLB.
-  Nothing reads the UTLB arrays back, so modelling them would add state
-  the kernel does not observe.
-* With no hooks installed the device is a plain register file, so it can
-  be unit-instantiated on `-M none` before the machine exists.
+* `MMUCR`: a write with `MMUCR.TI` calls `cpu_sh4_invalidate_tlb()`, then
+  stores `value & ~MMUCR_TI` — identical to the old switch case.
+* `PTEH`: an ASID change (`value & 0xff`) triggers `tlb_flush()` before
+  the store — identical to the old switch case.
+* `TRA`/`EXPEVT`/`INTEVT` mask to 11 bits; `PTEA` masks to 4 bits.
+* `CCR` is device state (`CPUSH4State` has no `ccr` field), as it was
+  `SH7750State.ccr` before.
+* `PVR` (0x030), `CVR` (0x040), `PRR` (0x044) are read-only and come from
+  `SuperHCPUClass`, matching the three literal-address cases in
+  `sh7750.c`.
+* The array window dispatches on `(addr & 0x07000000) >> 24` exactly like
+  `sh7750_mmct_read/write`: IC/OC arrays are ignored; UTLB/ITLB address
+  and data arrays go through `cpu_sh4_{read,write}_mmapped_*` (the ITLB
+  data write keeps the historical `abort()`).
 
 ### `m8a4-0002-hw-sh4-build-sh4-ccn.patch`
 
 | Hunk | File | Intent |
 | --- | --- | --- |
 | 1 | `hw/sh4/meson.build` | Compile `sh4_ccn.c` into `sh4_ss` when `CONFIG_SH4_CCN` is set. |
-| 2 | `hw/sh4/Kconfig` | Define `CONFIG_SH4_CCN` (bool); `R2D` selects it so the de-duplicated `sh7750.c` still links. |
+| 2 | `hw/sh4/Kconfig` (top) | Define `CONFIG_SH4_CCN` (bool). |
+| 3 | `hw/sh4/Kconfig` (`SH7750`) | `select SH4_CCN`; both `R2D` and `SHIX` select `SH7750`, so both keep linking after `0003`. |
 
-The `ze0` machine patch (TODO **M8.A1**) must add `select SH4_CCN` to
-its own `config ZE0` stanza; this series cannot do that because the
-machine does not exist yet. One line:
+The `ze0` machine patch (TODO **M8.A2**) must `select SH4_CCN` in its own
+`config ZE0` stanza — it must not select `SH7750`, which would pull the
+peripherals back in. One line:
 
 ```kconfig
 config ZE0
     bool
-    select SH4
     select SH4_CCN
     ...
 ```
@@ -131,108 +128,101 @@ config ZE0
 
 | Hunk | File | Intent |
 | --- | --- | --- |
-| 1 | `hw/sh4/sh7750.c` | Add `#include "hw/qdev-core.h"` and `"hw/sh4/sh4_ccn.h"`; add `SH4CCNState *ccn` to `SH7750State`; drop the `iomem_ff0`/`iomem_cache` regions; replace `sh7750_mmct_readl/writel` and `sh7750_mm_cache_readl/writel` + their `MemoryRegionOps` with two hook functions that read/write the same CPU-target fields (`s->cpu->pteh`…) the inline model used. |
-| 2 | `hw/sh4/sh7750.c` | In `sh7750_init`, create/realize the CCN, install the hooks, and map its two regions at `0xff000000` and `0xf0000000`; delete the two `memory_region_init_io`/`add_subregion` pairs. |
+| 1 | `hw/sh4/sh7750.c` includes | Add `hw/sh4/sh4_ccn.h`. |
+| 2 | `SH7750State` | Replace `MemoryRegion mmct_iomem` with `SH4CCNState *ccn`. |
+| 3 | `SH7750State` | Drop the `/* Cache */ uint32_t ccr;` field (now in the device). |
+| 4 | `sh7750_mem_readl` | Collapse the nine `*_A7` cases into one call to `sh4_ccn_reg_read(s->ccn, addr - SH7750_A7_BASE)`. |
+| 5 | `sh7750_mem_writel` | Collapse the ten `*_A7` cases (incl. `PTEA`) into one call to `sh4_ccn_reg_write()`. |
+| 6 | cache/TLB block | Delete `MM_REGION_*`, `invalid_read/write`, `sh7750_mmct_read/write` and `sh7750_mmct_ops`; the device owns them now. |
+| 7 | `sh7750_init` | Create/realize the CCN, bind the CPU, map `sh4_ccn_arrays()` at `0xf0000000` instead of `mmct_iomem`. |
 
-Behavioural deltas of `m8a4-0003`, all intentional:
-
-* The `0xff000000` region shrinks from `0x4000` to `0x1000`. The MMU
-  registers end at `0x02c`; nothing in the old range was modelled.
-* The "unimplemented MMU register" log line moves into the device and
-  names the register offset instead of the absolute address.
-* `CCR`, `EXPEVT` and `INTEVT` were not forwarded to the CPU target
-  before and are not now: the hook does not claim them, so reads return
-  zero exactly as they did.
+The `0xff000000` / `0x1f000000` aliases of `s->iomem` stay in place: they
+serve the whole A7 page (including the registers that remain in
+`sh7750.c`), and the MMU cases now delegate to the CCN. `r2d` therefore
+never maps `sh4_ccn_iomem()`; only a `ze0` machine does. `sh4_ccn_arrays()`
+*is* mapped for both, so r2d exercises the moved array code.
 
 ## 4. What this series does **not** do
 
-* No `ze0` machine (`-M ze0`), RAM map or loader — that is M8.A1 and the
+* No `ze0` machine (`-M ze0`), RAM map or loader — M8.A2 and the
   `ce_qemu_probe.py` loader logic.
 * No boot-blocker stubs (`0xffe70000` with `+0x808 = 0xc0000000`, CPG,
   UBC, area 6) — M8.A5. Without them the unpatched kernel still spins
   before it ever reaches the `0x5b90` call.
 * No INTC, TMU, SCIF, DMAC, SD host — M8.A6/M8.B*.
-* No change to `target/sh4` (MMU translation, `LDTLB`, TB flags).
+* No change to `target/sh4` (translation, `LDTLB`, TB flags).
 
-## 5. Verification performed here, and its limits
+## 5. Verification performed
 
-There is no QEMU tree in this repository and the environment is offline,
-so `git apply --check` cannot run against `v8.2.7`. What was run:
+Against a pristine `qemu-8.2.7` tree (real tree, not a fixture):
 
-1. `git apply --stat` on the series (syntax + hunk arithmetic) — passes.
-2. A **synthetic pre-image fixture** (`/tmp`, not committed): the
-   pre-image of every touched file is rebuilt from the patch's own
-   context lines, then each patch is checked and applied against it.
-   Result: rc=0 for all three, and the post-image is the intended code.
-   This proves hunk offsets/context are self-consistent; it proves
-   nothing about the real 8.2 file contents.
+```text
+git apply --check m8a4-0001-hw-sh4-add-sh4-ccn-device.patch   rc=0
+git apply --check m8a4-0002-hw-sh4-build-sh4-ccn.patch        rc=0
+git apply --check m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch   rc=0
+patch -p1 --dry-run (all three, build.sh invocation)          rc=0
+```
 
-The patches were authored so that every hunk **ends on a context line**:
-`git apply` 2.53 here rejects a hunk whose last line is an addition
-(`patch -p1` accepts it with fuzz), so the Kconfig change is one merged
-hunk rather than two.
+Both orders with `0002-sh4-ze0-boot-stubs.patch` (M8.A5) apply cleanly:
+(A5 then A4) and (A4 then A5).
 
-Still to be checked on a machine with the tree:
+Build:
 
-* `git apply --check` result on `v8.2.7` (expected rc=0), then the
-  `tools/qemu-ze0/build.sh --force` run that applies the series with
-  `patch -p1` and builds `qemu-system-sh4`.
-* Compilation (`ninja qemu-system-sh4`) — **UNVERIFIED**.
-* Runtime (`-device sh4-ccn`, `info mtree` shows the two regions) —
-  **UNVERIFIED**.
-* The exact spelling of the CPU-state access in `sh7750.c`. The patch
-  assumes `s->cpu->pteh` etc., matching the inline switch it replaces.
-  If 8.2 spells it `s->cpu->env.pteh`, adapt the six lines in hunk 1 of
-  `m8a4-0003`; `m8a4-0001`/`m8a4-0002` are unaffected.
+```bash
+../configure --target-list=sh4-softmmu --disable-werror --disable-docs
+ninja qemu-system-sh4
+# 1493 targets, rc=0; QEMU emulator version 8.2.7
+```
 
-The `hw/sh4/meson.build` hunk is the one piece of real 8.2 context that
-could be cross-checked here: the M8.A5 patch in this directory shows the
-file starts with a multi-line `sh4_ss.add(files(` block listing
-`sh7750.c` and `sh7750_regnames.c`, followed (after a blank line) by the
-`R2D`/`SHIX` lines. `m8a4-0002` therefore anchors on the `R2D`/`SHIX`
-pair and inserts immediately before it, which does not depend on whether
-the blank line is present. The `Kconfig` and `sh7750.c` contexts remain
-reconstruction only.
+Runtime smoke tests on the resulting binary:
+
+```text
+$ qemu-system-sh4 -M none -device sh4-ccn,help
+There are no options for sh4-ccn.
+$ timeout 3 qemu-system-sh4 -M r2d -nographic -serial none -monitor none
+qemu-system-sh4: terminating on signal 15 from pid … (timeout)
+```
+
+So the device registers and realizes, and `r2d` goes through
+`sh7750_init()` (CCN creation + array region) without aborting.
+
+Not verified here: MMU behaviour with the real kernel. That needs
+`-M ze0` (M8.A2) and the M8.A5 stubs; see §6.
 
 ## 6. Acceptance on a machine with QEMU 8.2.7
 
 ```bash
-# the repository's own path: extract the pinned tarball, apply every
-# patches/*.patch in sorted order with patch -p1, configure, build
 tools/qemu-ze0/build.sh --force
 
 QEMU=~/.cache/qemu-ze0/build/qemu-system-sh4
-"$QEMU" -M none -device sh4-ccn,help        # the device exists
+"$QEMU" -M help | grep ze0
 
 # once the ze0 machine (M8.A2) and the 0xffe70000 stub (M8.A5) exist:
 "$QEMU" -M ze0 -cpu sh7785 -m 512M -nographic \
     -d unimp,guest_errors,int -D qemu.log
-grep -c '0xff000010' qemu.log     # MMUCR now has a model, no 'Invalid write'
+grep -c '0xff000010' qemu.log     # MMUCR has a model: no 'Invalid write'
 ```
 
 TODO M8.A4 is done when the kernel-page call to VA `0x5b90` no longer
-faults. With this series that is expected to happen as: `MMUCR.AT` is
-stored and reaches the CPU target → the access to `0x5b90` takes the
-`0x100` TLB-miss exception instead of `illegal_instruction` → the kernel
-handler writes `PTEH`/`PTEL` and executes `LDTLB` → the retry
-translates. Two things must be confirmed on the real tree, in this
-order:
+faults. Expected sequence: `MMUCR.AT` reaches `CPUSH4State` → the access
+to `0x5b90` takes the `0x100` TLB-miss exception instead of
+`illegal_instruction` → the kernel handler writes `PTEH`/`PTEL` and
+executes `LDTLB` → the retry translates. Two checks, in this order:
 
-1. **TLB invalidation on `MMUCR` writes.** If `target/sh4` bakes the
-   `MMUCR.AT` bit into TB flags (as `cpu_mmu_index()` does), a write of
-   `MMUCR.AT=1` through the hook must flush translation blocks, or the
-   already-translated kernel code keeps running untranslated. The old
-   inline model did not do this either (the probe never got far enough
-   to tell), so this is a likely follow-up hunk in `sh7750_ccn_write()`
-   or in the `ze0` CPU glue: `tlb_flush()`/`tb_flush()` when the AT bit
-   changes.
-2. **`LDTLB` reads the same values.** The helper uses the CPU target's
-   `pteh`/`ptel`/`mmucr`; the hook writes those exact fields, so this
-   should hold — verify with a breakpoint on `0x5b90` and
-   `info registers` showing the expected `PTEH`/`PTEL`.
+1. **`LDTLB` reads the same values.** The helper uses
+   `CPUSH4State.pteh/ptel/mmucr`, which the device writes; confirm with a
+   breakpoint on `0x5b90` and `info registers` after the `0x100` handler.
+2. **TLB invalidation on `MMUCR` writes.** QEMU's SH-4 target already
+   invalidates on `MMUCR.TI` and flushes on a PTEH ASID change, and those
+   calls are preserved. What is *not* established is whether toggling
+   `MMUCR.AT` needs a TB flush so already-translated code starts
+   translating; `EXP-2026-11-05-37` never got far enough to tell. If the
+   access still executes untranslated, add `tb_flush()` on the AT
+   transition (a follow-up hunk in `sh4_ccn_reg_write()` or the `ze0`
+   CPU glue) and record it.
 
-Record the result in the claim ledger under the M8.A4 block
-(`C-1260`–`C-1269`); `C-1260` is the patch-level claim in the EXP.
+Record the result under the M8.A4 claims block (`C-1260`–`C-1269`);
+`C-1260` is the patch-level claim in the EXP.
 
 ---
 
@@ -292,12 +282,12 @@ ninja -C build qemu-system-sh4        # or: make -j"$(nproc)"
 `build.sh` invocation) was also checked: rc=0 on pristine 8.2.7 and rc=0
 with a simulated CCN line inserted after line 1 (hunk applied at offset 1).
 
-**Blocker for a full `build.sh` run (2026-11-06):** the sibling
-`m8a4-0002-…` and `m8a4-0003-…` hunks were written against 8.2.0 and do
-**not** apply to the pinned 8.2.7 tree — `patch --dry-run` fails both hunks
-of 0002 and both hunks of 0003. `build.sh` stops at the first failed patch,
-so M8.A4 has to rebase before a full run reaches this file. M8.A5 itself is
-independent of that series.
+**Update (2026-11-06, later):** the earlier M8.A4 patches were drafted
+against 8.2.0 and failed on 8.2.7. They have since been regenerated against
+the real 8.2.7 files: `git apply --check` and `patch -p1 --dry-run` now
+return rc=0 for all three, in **both** orders with this patch, and the
+resulting `sh4-softmmu` build succeeds. See §5 of the M8.A4 section above.
+A full `build.sh` run is no longer blocked by M8.A4.
 
 ## B.3 Device and invocation
 
