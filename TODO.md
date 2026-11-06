@@ -294,8 +294,8 @@ widens knowledge or tooling in parallel and is equally welcome.
     xpress-lz77, OSM hosts 403.
   - Claims: C-1710–C-1719
 
-- [ ] **H6 — Reconcile `drstr.md` with the `MMAIN001` layout; document `tools_ze0`**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+- [x] **H6 — Reconcile `drstr.md` with the `MMAIN001` layout; document `tools_ze0`**
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: no format doc contradicts a verified result.
   - Input: EXP-2026-11-05-M4.5 (`0x18c`/`0x1ac` fall inside FAT directory
@@ -307,10 +307,11 @@ widens knowledge or tooling in parallel and is equally welcome.
     really describes (new claim with `Supersedes`); `AGENTS.md` and
     `tools/README.md` say which copy of `tools_ze0` the harness uses and how
     the two are kept in step.
+  - Result: `drstr.md` reconciled (MMAIN001 is the 4 KiB file; M4.5 read the FAT root dir) and `ze0-tools.md` added (EXP-2026-11-06-H6-drstr-docs).
   - Claims: C-1720–C-1729
 
-- [ ] **H7 — `tools/realcheck.py`: real-image regression run**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+- [x] **H7 — `tools/realcheck.py`: real-image regression run**
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: a tool that passes its self-test but fails on real bytes is caught
     the same day (C-1714).
@@ -323,6 +324,7 @@ widens knowledge or tooling in parallel and is equally welcome.
     sections; each check prints PASS/FAIL against a pinned value and the
     script exits non-zero on any FAIL; `IMG256` SHA-256 is checked first;
     `tools/README.md` and rule 11 point to it. No vendor bytes in the repo.
+  - Result: `tools/realcheck.py` runs eight pinned checks with SKIP/exit-2 without the image (EXP-2026-11-06-H7-realcheck).
   - Claims: C-1730–C-1739
 
 ---
@@ -833,13 +835,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: a renamed POI with a different-length name passes L2.
   - Claims: C-950–C-959
 
-- [ ] **M4.8 — Coordinate transform tool**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+- [x] **M4.8 — Coordinate transform tool**
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Input: `tools/mesh_grid.py`, `docs/format/coord-zcode-icode.md`, the
     five target tiles, the 52742 vs 52736 longitude origin question.
   - Done when: `tools/coord.py` converts lat/lon ↔ mesh/0..2047 and ≥ 10
     known POIs land within a few metres.
+  - Result: `tools/coord.py` converts lat/lon <-> cell/packed/local with both origins, 15 fixtures (EXP-2026-11-06-M4.8-coord); 10-POI image check open.
   - Claims: C-960–C-969
 
 - [ ] **M4.9 — `ADDRE` remaining grammar**
@@ -1052,11 +1055,12 @@ No hardware is available now. Planning tasks are open; tests wait.
     rollback and photo checklist (EXP-2026-11-06-M6.3-card-plan).
   - Claims: C-1110–C-1119
 
-- [ ] **M6.4 — Recovery checklist**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+- [x] **M6.4 — Recovery checklist**
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: M2.6
   - Done when: a checklist for returning the unit to the factory map is in
     the test plan.
+  - Result: recovery checklist in `card-test-plan.md`: signatures, ordered path, static/hearsay/untested split (EXP-2026-11-06-M6.4-recovery).
   - Claims: C-1120–C-1129
 
 - [x] **M6.8 — Bench kit list and serial/JTAG access plan**
