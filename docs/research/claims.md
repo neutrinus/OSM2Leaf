@@ -743,6 +743,16 @@ Built without vendor data; every row states what is synthetic-only.
 | C-1028 | `ENV200_2019_25920-6WX1C-EUR.img` is a different engine family (`CLA-NAVI06-01` / `X08-03-00` / `ZENRIN`, `DB_INFO.TXT`, 53 tiles, 200 `.cmp` pairs) and is not a ZE0 reference. | VERIFIED | H | `cardcheck`; `EXP-2026-11-06-M4.14` |
 | C-1029 | `tools/diff_years.py` reproduces all of the above field-level differences on the 2011/2014/2016 roots. | VERIFIED | H | `diff_years.py --json`; `EXP-2026-11-06-M4.14` |
 
+## M6.11 — RP2040 SD CMD42 lock/unlock tool (C-1940–C-1949)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1940 | The unit's CMD42 password is 16 bytes: the 8 hex digits of the "SD PIN" service screen as 4 raw bytes, then the 12-character ASCII suffix of C-075; the 8 digits read as ASCII would make 20 bytes, above the SD `PWD_LEN` limit of 16. The byte order of the 4 unit bytes is UNKNOWN. | HYPOTHESIS | M | SD Physical Layer Simplified Spec §4.3.7 (`PWD_LEN` ≤ 16); C-075; same structure reached independently by C-1883 (EXP-2026-11-06-M2.13); EXP-2026-11-06-M6.11-pico-sdlock |
+| C-1941 | `tools/sdlock-pico` sends only CMD0/8/9/13/16/42/55/ACMD41/58, can never emit a CMD42 block with ERASE or a reserved bit, and ends every set/lock/unlock/verify/clear in the expected lock state; the host test (572 checks) detects each of three seeded mutations. | VERIFIED (simulator) | H | `python3 tools/sdlock_pico_check.py`; EXP-2026-11-06-M6.11-pico-sdlock |
+| C-1942 | A plain CMD42 unlock lasts one power session and a card with a password always powers up locked, so a locked card is rewritten on a PC by clear → write → set+lock, not by unlock. | FACT (spec) / PLANNED (test) | H | SD spec §4.3.7; `docs/hardware/sd-blocker-pico.md` §2, §7.3 |
+| C-1943 | The firmware `.uf2` was not built in the Claude sandbox (external SDK build refused); `sd_proto.c` and `sd_card.c` compile for Cortex-M0+ with `-Werror`. | OBSERVED | H | EXP-2026-11-06-M6.11-pico-sdlock |
+| C-1944 | Whether real cards and the unit accept a card locked by the Pico tool is UNKNOWN until M6.9 (procedure §7.1) and M6.5. | UNKNOWN | — | `docs/hardware/sd-blocker-pico.md` §10 |
+
 ## Claim ledger (H1)
 
 | ID | Claim | Status | Confidence | Evidence |
