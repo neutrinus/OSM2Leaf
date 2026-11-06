@@ -187,6 +187,42 @@ python3 harness.py compose /path/to/B30R060R.DAT /path/to/LEV3456R.DAT \
 Clean tiles (`B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R`) rebuild
 byte-identically. Dense section-4 tiles and drawn roads are still open.
 
+## `lev3456.py` — coarse levels 3–5 of `LEV3456R.DAT`
+
+Read directories, records and streams of the whole-database coarse file, count
+what each overview level holds, and rebuild a level from decoded records.
+Standard library only. `verify`/`rebuild` recompress with stock zlib, so run
+them under Python 3.10–3.13 (Python 3.14 often ships zlib-ng, which does not
+reproduce the factory streams).
+
+```bash
+# Header, directory geometry and content counts per level
+python3 tools/lev3456.py info MAPAL001/LEV3456R.DAT
+
+# Decode, re-encode and rebuild levels 3/4/5 (level 5 is strict)
+python3.13 tools/lev3456.py verify MAPAL001/LEV3456R.DAT
+
+# Rebuild one level from decoded records; byte-identical on the 2011 file
+python3.13 tools/lev3456.py rebuild MAPAL001/LEV3456R.DAT --level 5 -o lev5.DAT
+cmp lev5.DAT MAPAL001/LEV3456R.DAT
+
+python3 tools/lev3456.py --selftest
+```
+
+Expected `verify` on the EU 2011 file:
+
+```
+section 1 level 3: ... opaque 1677, region identical 51040512 B
+section 1 level 4: ... region identical 10017280 B
+section 1 level 5: records 62, plain 62/62, streams 62/62, opaque 0, region identical 904960 B
+section 2 level 4: ... region identical 12794112 B
+section 2 level 5: ... region identical 1261568 B
+OK (section 1 level 5 strict; levels 3/4 best-effort)
+```
+
+See [`../docs/format/map-tiles.md`](../docs/format/map-tiles.md) "LEV3456R.DAT:
+coarse levels 3–5".
+
 ## `cerom.py` — CE ROM header, modules and sections
 
 Reads the Windows CE ROM (`ECEC` → `ROMHDR` → `TOCentry`/`e32_rom`/`o32_rom`,
