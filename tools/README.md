@@ -466,6 +466,19 @@ python3 tools/rdstm_schema.py join RDSTM001.DAT --lctbl LCTBL001.DAT --code-offs
 rates; `join` gives an LCTBL hit rate (necessary, not sufficient). No decode is
 claimed. See [`../docs/format/rdstm.md`](../docs/format/rdstm.md).
 
+## `rdstm_place.py`
+
+Probes candidate join keys between M4.1 16-byte `RDSTM001` rows
+(`ref/src/dst/code`) and tile road identifiers (section 1 link ids, section 2
+graph ids, parcels, stream keys). Reports hits, expected rate and a random-key
+control; verdict is `NO JOIN` when hits are at chance. M4.16 result: no
+segment-specific join found (C-1810).
+
+```bash
+python3 tools/rdstm_place.py probe RDSTM001.DAT MAPAL001 --limit-tiles 8 --limit-rows 34
+python3 tools/rdstm_place.py --selftest
+```
+
 ## `profile_validate.py` and `build.py`
 
 Validate a build profile against `profiles/schema.json` and print a dry-run

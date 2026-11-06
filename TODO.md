@@ -1194,15 +1194,45 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     shuffled-field control; `rdstm.md` updated.
   - Claims: C-1800–C-1809
 
-- [ ] **M4.16 — Place `RDSTM001` rows on the map**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.16 — Place `RDSTM001` rows on the map** (blocked: no join key)
+  - Status: blocked · Owner: task/m4.16-rdstm-placement · Critical: yes
   - Depends: M4.15 (M4.8 helps)
   - Goal: a row → tile/mesh → coordinate link, which M4.2, M4.3 and M5.3 need.
   - Input: `ref`/`src`/`dst` values (M4.1), tile road records
     (`tools_ze0`, `harness.py`), `COORD001` mesh formula, `mesh_grid.py`.
-  - Done when: ≥ 20 rows are matched to tile road segments with coordinates,
-    with the join key named and a random-key control showing ~0 matches.
+  - Blocker: M4.1 16-byte fields (`ref/src/dst/code`) give no segment-specific
+    join (hits at chance vs dense lid space; `ref`∩parcel/AB=0; C-1810) and
+    M4.15/M3.7 leave framing/TMC semantics undecoded. `INTER*` `ref` byte-pattern
+    enrichment (real>>random) is an unverified lead (C-1811).
+  - Result: EXP-2026-11-06-M4.16-rdstm-placement; `tools/rdstm_place.py` probe
+    + selftest. Join key NOT identified; done-when not met (negative).
   - Claims: C-1810–C-1819
+
+- [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.15
+  - Goal: reproduce the per-record length/offset directory walk from bytes to
+    recover true TMC field boundaries, then re-run `tools/rdstm_place.py` on
+    decoded fields (location/area/front/rear/inter-section).
+  - Done when: ≥20 decoded records map to tile/mesh/coordinates with a named
+    join key and ~0 random-key control, or the mapping is proven impossible
+    with method recorded.
+  - Claims: C-1840–C-1849
+
+- [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.16
+  - Goal: test C-1811 as aligned u32 fields (not byte scan) in `INTER*`/
+    `FRWAY*`, decode the mesh/link reference, and test `INTER→tile/mesh→
+    coordinate` with random-key control.
+  - Claims: C-1950–C-1959
+
+- [ ] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.16b, M4.7
+  - Goal: if `RDSTM001` is TMC (C-882), test placement through the TMC
+    location table chain rather than raw row bytes.
+  - Claims: C-1960–C-1969
 
 - [ ] **M4.17 — Link attributes without OSM: road numbers as ground truth**
   - Status: open · Owner: — · Critical: no
