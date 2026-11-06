@@ -1919,10 +1919,13 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   `PTEL`, `TTB`, `TEA`, `MMUCR`, `CCR`, `EXPEVT`, `INTEVT`, `TRA`, TLB
   arrays). Done when the kernel-page call to VA `0x5b90` no longer faults.
   Status: open · Depends: —. Claims: C-1260–C-1269
-- [ ] **M8.A5 — Boot-blocker stubs** (`0xffe70000` block with `+0x808` =
+- [x] **M8.A5 — Boot-blocker stubs** (`0xffe70000` block with `+0x808` =
   `0xc0000000`, CPG `0xffc80000`, `0xfff80000`, UBC `0xff200000`, area 6
   `0x19300000`). Done when the unpatched kernel reaches the patched probe's
   point. Status: open · Depends: —. Claims: C-1270–C-1279
+  Status: done · Owner: session-ZMxuBT. Result: `ze0-stubs` device patch
+  applies to 8.2.7, compiles, qtest-checked; kernel boot UNVERIFIED
+  (EXP-2026-11-06-M8.A5-boot-stubs).
 - [ ] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not. Status: open · Depends: M8.A2. Claims:

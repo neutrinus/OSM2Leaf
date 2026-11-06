@@ -1,0 +1,334 @@
+ZE0 boot-blocker register stubs: 0xffe70000 (+0x808 reads 0xc0000000),
+CPG 0xffc80000 (MSTPCR* read back, MSTPACK mirrors them), 0xfff80000,
+UBC 0xff200000 and area 6 0x19300000, as a read-back device.
+
+Base: QEMU 8.2.7 (tag v8.2.7).  See patches/README.md for the apply order,
+the register table and the verification status.
+
+diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
+index 424d567..56c83ba 100644
+--- a/hw/sh4/meson.build
++++ b/hw/sh4/meson.build
+@@ -7,3 +7,4 @@ sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
+ sh4_ss.add(when: 'CONFIG_SHIX', if_true: files('shix.c'))
+ 
+ hw_arch += {'sh4': sh4_ss}
++sh4_ss.add(files('ze0_stubs.c'))
+diff --git a/hw/sh4/ze0_stubs.c b/hw/sh4/ze0_stubs.c
+new file mode 100644
+index 0000000..29c4180
+--- /dev/null
++++ b/hw/sh4/ze0_stubs.c
+@@ -0,0 +1,312 @@
++/*
++ * ZE0 (Nissan Leaf ZE0 navigation unit, SH-4A) boot-blocker register stubs
++ *
++ * The retail Windows CE kernel touches five register windows before it can
++ * reach its scheduler: an unnamed block at 0xffe70000, the CPG at
++ * 0xffc80000, 0xfff80000, the UBC at 0xff200000 and an external device in
++ * area 6 at 0x19300000.  Until a real model exists for any of them, all the
++ * kernel needs is a register file that reads back what was written and two
++ * fixed responses:
++ *
++ *   - 0xffe70808 must read 0xc0000000 (the kernel polls bits 31:30);
++ *   - CPG MSTPACK (0xffc80044) must reflect the MSTPCR module-stop bits.
++ *
++ * With these stubs the unpatched kernel reaches the point that otherwise
++ * needs `ce_qemu_probe.py --patch 0x88048b70=0900`.
++ *
++ * The addresses, the access sequence and the fixed value come from
++ * EXP-2026-11-05-37 (claims C-532, C-533); the stub semantics are claim
++ * C-1270 (docs/experiments/EXP-2026-11-06-M8.A5-boot-stubs.md).  See
++ * tools/qemu-ze0/patches/README.md for the register table.
++ *
++ * Deliberately not modelled: the five blocks have no side effects.  The CPG
++ * does not gate clocks, the UBC never raises a break, area 6 never asserts
++ * status and the 0xffe70000 block never signals completion beyond 0xffe70808.
++ *
++ * Instantiate with `-device ze0-stubs` (the ze0 machine may also create it
++ * itself).  This is a research stub, not a hardware model.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++#include "qemu/osdep.h"
++#include "qemu/bitops.h"
++#include "qemu/bswap.h"
++#include "qemu/module.h"
++#include "qapi/error.h"
++#include "exec/address-spaces.h"
++#include "exec/memory.h"
++#include "hw/qdev-core.h"
++
++#define TYPE_ZE0_STUBS "ze0-stubs"
++OBJECT_DECLARE_SIMPLE_TYPE(Ze0Stubs, ZE0_STUBS)
++
++/*
++ * A 32-bit register with a read behaviour other than plain read-back.  Every
++ * other byte in a block is ordinary storage: writes latch and reads return
++ * the latched byte, with no side effects.
++ */
++typedef struct Ze0Reg {
++    uint32_t off;
++    uint32_t reset;
++    uint32_t flags;
++    uint32_t force;          /* ZE0_REG_FORCE: value returned by every read */
++    const uint32_t *mirror;  /* ZE0_REG_MIRROR: word offsets OR-ed together */
++    unsigned nmirror;
++} Ze0Reg;
++
++#define ZE0_REG_RO     (1u << 0) /* writes ignored */
++#define ZE0_REG_FORCE  (1u << 1) /* reads return @force, not the storage */
++#define ZE0_REG_MIRROR (1u << 2) /* reads return the OR of @mirror words */
++
++typedef struct Ze0BlockDesc {
++    const char *name;
++    uint32_t base;
++    uint32_t size;
++    const Ze0Reg *regs;
++    unsigned nregs;
++} Ze0BlockDesc;
++
++/*
++ * 0xffe70000 block.  The kernel sets bit 7 of +0x858, writes 1 to +0x800,
++ * writes 1 then 3 to +0x804 and polls +0x808 until (value & 0xc0000000) ==
++ * 0xc0000000 (EXP-2026-11-05-37).  +0x808 is the first boot blocker, so it
++ * is a constant; the other touched registers are plain read-back storage.
++ */
++static const Ze0Reg nk_regs[] = {
++    {
++        .off = 0x808,
++        .reset = 0xc0000000,
++        .flags = ZE0_REG_RO | ZE0_REG_FORCE,
++        .force = 0xc0000000,
++    },
++};
++
++/*
++ * CPG.  MSTPCR0..3 are read-back so a read-modify-write of the module-stop
++ * bits survives; MSTPACK returns the OR of the four (the set of stopped
++ * modules).  Reset is zero so MSTPACK and the MSTPCRs agree at power-on and
++ * a cleared bit clears in MSTPACK too.  The model does not gate any clock.
++ */
++static const uint32_t mstpcr_offsets[] = { 0x30, 0x34, 0x38, 0x3c };
++
++static const Ze0Reg cpg_regs[] = {
++    { .off = 0x30, .reset = 0x00000000 },
++    { .off = 0x34, .reset = 0x00000000 },
++    { .off = 0x38, .reset = 0x00000000 },
++    { .off = 0x3c, .reset = 0x00000000 },
++    {
++        .off = 0x44,
++        .flags = ZE0_REG_RO | ZE0_REG_MIRROR,
++        .mirror = mstpcr_offsets,
++        .nmirror = ARRAY_SIZE(mstpcr_offsets),
++    },
++};
++
++#define ZE0_NUM_BLOCKS 5
++
++static const Ze0BlockDesc ze0_blocks[ZE0_NUM_BLOCKS] = {
++    {
++        .name = "ze0-stub-nk-ffe70000",
++        .base = 0xffe70000,
++        .size = 0x1000,
++        .regs = nk_regs,
++        .nregs = ARRAY_SIZE(nk_regs),
++    },
++    {
++        .name = "ze0-stub-cpg-ffc80000",
++        .base = 0xffc80000,
++        .size = 0x100,
++        .regs = cpg_regs,
++        .nregs = ARRAY_SIZE(cpg_regs),
++    },
++    {
++        .name = "ze0-stub-fff80000",
++        .base = 0xfff80000,
++        .size = 0x100,
++    },
++    {
++        .name = "ze0-stub-ubc-ff200000",
++        .base = 0xff200000,
++        .size = 0x100,
++    },
++    {
++        .name = "ze0-stub-area6-19300000",
++        .base = 0x19300000,
++        .size = 0x100,
++    },
++};
++
++G_STATIC_ASSERT(ARRAY_SIZE(ze0_blocks) == ZE0_NUM_BLOCKS);
++
++typedef struct Ze0Block {
++    MemoryRegion mr;
++    const Ze0BlockDesc *desc;
++    uint8_t *mem;
++} Ze0Block;
++
++struct Ze0Stubs {
++    DeviceState parent_obj;
++
++    Ze0Block blocks[ZE0_NUM_BLOCKS];
++};
++
++static const Ze0Reg *ze0_reg_find(const Ze0BlockDesc *desc, hwaddr off)
++{
++    unsigned i;
++
++    for (i = 0; i < desc->nregs; i++) {
++        const Ze0Reg *reg = &desc->regs[i];
++
++        if (off >= reg->off && off < reg->off + 4) {
++            return reg;
++        }
++    }
++    return NULL;
++}
++
++static uint32_t ze0_reg_word(Ze0Block *block, const Ze0Reg *reg)
++{
++    uint32_t val = 0;
++    unsigned i;
++
++    if (reg->flags & ZE0_REG_FORCE) {
++        return reg->force;
++    }
++    if (reg->flags & ZE0_REG_MIRROR) {
++        for (i = 0; i < reg->nmirror; i++) {
++            val |= ldl_le_p(block->mem + reg->mirror[i]);
++        }
++        return val;
++    }
++    return ldl_le_p(block->mem + reg->off);
++}
++
++static uint64_t ze0_block_read(void *opaque, hwaddr addr, unsigned size)
++{
++    Ze0Block *block = opaque;
++    uint64_t val = 0;
++    unsigned i;
++
++    for (i = 0; i < size; i++) {
++        hwaddr off = addr + i;
++        const Ze0Reg *reg;
++        uint32_t word;
++        unsigned shift;
++
++        if (off >= block->desc->size) {
++            break;
++        }
++        reg = ze0_reg_find(block->desc, off);
++        if (reg) {
++            word = ze0_reg_word(block, reg);
++            shift = 8 * (off - reg->off);
++        } else {
++            word = block->mem[off];
++            shift = 0;
++        }
++        val |= (uint64_t)((word >> shift) & 0xff) << (8 * i);
++    }
++    return val;
++}
++
++static void ze0_block_write(void *opaque, hwaddr addr, uint64_t value,
++                            unsigned size)
++{
++    Ze0Block *block = opaque;
++    unsigned i;
++
++    for (i = 0; i < size; i++) {
++        hwaddr off = addr + i;
++        const Ze0Reg *reg;
++
++        if (off >= block->desc->size) {
++            break;
++        }
++        reg = ze0_reg_find(block->desc, off);
++        if (reg && (reg->flags & (ZE0_REG_RO | ZE0_REG_MIRROR))) {
++            continue;
++        }
++        block->mem[off] = (value >> (8 * i)) & 0xff;
++    }
++}
++
++static const MemoryRegionOps ze0_block_ops = {
++    .read = ze0_block_read,
++    .write = ze0_block_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = {
++        .min_access_size = 1,
++        .max_access_size = 4,
++    },
++    .impl = {
++        .min_access_size = 1,
++        .max_access_size = 4,
++    },
++};
++
++static void ze0_stubs_reset(DeviceState *dev)
++{
++    Ze0Stubs *s = ZE0_STUBS(dev);
++    unsigned i, j;
++
++    for (i = 0; i < ZE0_NUM_BLOCKS; i++) {
++        Ze0Block *block = &s->blocks[i];
++        const Ze0BlockDesc *desc = &ze0_blocks[i];
++
++        if (!block->mem) {
++            continue;
++        }
++        memset(block->mem, 0, desc->size);
++        for (j = 0; j < desc->nregs; j++) {
++            stl_le_p(block->mem + desc->regs[j].off, desc->regs[j].reset);
++        }
++    }
++}
++
++static void ze0_stubs_realize(DeviceState *dev, Error **errp)
++{
++    Ze0Stubs *s = ZE0_STUBS(dev);
++    MemoryRegion *sysmem = get_system_memory();
++    unsigned i;
++
++    for (i = 0; i < ZE0_NUM_BLOCKS; i++) {
++        Ze0Block *block = &s->blocks[i];
++        const Ze0BlockDesc *desc = &ze0_blocks[i];
++
++        block->desc = desc;
++        block->mem = g_malloc0(desc->size);
++        memory_region_init_io(&block->mr, OBJECT(dev), &ze0_block_ops, block,
++                              desc->name, desc->size);
++        /*
++         * Priority 1: the machine's unimplemented-device catch-all is at
++         * priority 0 and must not shadow these windows.
++         */
++        memory_region_add_subregion_overlap(sysmem, desc->base, &block->mr, 1);
++    }
++    ze0_stubs_reset(dev);
++}
++
++static void ze0_stubs_class_init(ObjectClass *oc, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(oc);
++
++    dc->realize = ze0_stubs_realize;
++    dc->reset = ze0_stubs_reset;
++    dc->desc = "ZE0 (SH-4A nav unit) boot-blocker register stubs";
++    set_bit(DEVICE_CATEGORY_MISC, dc->categories);
++}
++
++static const TypeInfo ze0_stubs_type_info = {
++    .name = TYPE_ZE0_STUBS,
++    .parent = TYPE_DEVICE,
++    .instance_size = sizeof(Ze0Stubs),
++    .class_init = ze0_stubs_class_init,
++};
++
++static void ze0_stubs_register_types(void)
++{
++    type_register_static(&ze0_stubs_type_info);
++}
++
++type_init(ze0_stubs_register_types)

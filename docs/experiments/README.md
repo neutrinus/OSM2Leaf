@@ -204,3 +204,4 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M9.9](EXP-2026-11-06-M9.9-l3-docs.md) | L3 guide refreshed to the real commands (M9.9) | done (docs) |
 | [EXP-2026-11-06-M9.8](EXP-2026-11-06-M9.8-l3check.md) | `l3check.py`, L3 rung of the ladder (M9.8) | done (synthetic) |
 | [EXP-2026-11-06-M8.A1](EXP-2026-11-06-M8.A1-build-env.md) | QEMU build environment, pin 8.2.7 (M8.A1) | done |
+| [EXP-2026-11-06-M8.A5](EXP-2026-11-06-M8.A5-boot-stubs.md) | QEMU `ze0-stubs` boot-blocker device (M8.A5) | patch compiles; boot unverified |

@@ -1203,6 +1203,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1230 | `tools/qemu-ze0/build.sh` pins QEMU 8.2.7 (tarball sha256 `1f0604f2…65b55`, 132,676,368 B, tag `v8.2.7`), verifies size/hash, keeps source/build outside the repo, applies `patches/*.patch`, configures `--target-list=sh4-softmmu --disable-werror`, and requires `qemu-system-sh4 -M help` to list `ze0`; offline `--selftest` (42 checks) proves the plan, the root/in-repo refusals, dry-run neutrality and the gate. A stock 8.2.7 build here lists only `none`/`r2d`/`shix`, as expected before M8.A2. | VERIFIED (environment) | H | EXP-2026-11-06-M8.A1-build-env; `bash tools/qemu-ze0/build.sh --selftest` |
 
+| C-1270 | A self-contained QEMU device `ze0-stubs` maps five read-back windows (`0xffe70000` with `0xffe70808` = constant `0xc0000000`, CPG `0xffc80000` with `MSTPCR0..3` and `MSTPACK` = their OR, `0xfff80000`, UBC `0xff200000` with no break, area-6 `0x19300000`), intended to let the unpatched kernel pass the `0xffe70808` wait and reach the point the `--patch` probe reaches. The patch applies to pinned 8.2.7, compiles and passes qtest; the kernel-boot done-when is HYPOTHESIS (no vendor image here). | VERIFIED (patch/qtest) / HYPOTHESIS (boot) | H | EXP-2026-11-06-M8.A5-boot-stubs; `git apply --check` + qtest |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
