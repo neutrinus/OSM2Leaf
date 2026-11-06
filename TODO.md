@@ -1297,7 +1297,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1850–C-1859
 
 - [ ] **M5.10 — Card image builder (`tools/mkcard.py`)**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: in progress · Owner: task/m5.10-mkcard · Critical: yes
   - Depends: — (M2.13 for the lock state; M3.8 for `MMAIN001`)
   - Goal: turn a card tree into an SD image the unit could read: the missing
     link between every writer and the first bench test (M6.5, S0/S1 of
