@@ -117,6 +117,61 @@ survives only as a static filename-table entry.
   `0x064e5a60` (root cluster `0x064e5400` + entry offset `0x660`). No fourth
   string exists in that range.
 
+### Firmware validation / checks (build A, M3.10, Navi.exe)
+
+EXP-2026-11-06-M3.10 decodes `0x00419684`/`0x0041ba90` and their parsers
+(C-1860–C-1869). File I/O is via `Navi.exe` wrappers over coredll: open
+`sub_0041b3bc` → `fopen` #1113/`strcmp`; close `sub_0041b650` → `fclose` #1118;
+read `sub_0041b4f8` → `clearerr` #1127, `fread` #1120, `ferror` #1126;
+seek/pos `sub_0041b470` → `fseek` #1130, `ftell` #1131 (whence < 2); size
+`sub_0041ba28`/`sub_0041b69c` → `ftell` #1131. No raw DRSTR/CMP.LST bytes are
+handed to another module in these paths.
+
+**`0x00419684` (DRSTR001, caller `0x00419d24@0x419d2c`):** builds
+`\SystemSD\DRSTR001.DAT` (260-byte buffer, `memset` #1047, `wcstombs`,
+`strncat` of `\`@`0x0017a9ec` and `DRSTR001.DAT`@`0x0017ab24`). Path-length
+compares (not file data): `0x4196ce` `cmp/hs` wcstombs result vs `0x102` (258),
+`0x4196ec`/`0x41971c` `cmp/ge` vs 260. Opens `sub_0041b3bc(path,"rb"@0x0017ab20)`,
+parses with `sub_00419350(fd)` at `0x41974c`, closes at `0x419754`. Post-parse
+uses `sub_00418dfc`/`sub_00418748` on in-memory structures (no file reads,
+no 0x2f/40/324 sentinel compare observed).
+
+**`sub_00419350(fd)` (DRSTR parser):** heap whole-file buffer `*0x009cfcdc`,
+max `0x77220` bytes; stack 40-byte record `sp+36`. Reads whole file
+(`sub_0041b4f8@0x4193a2`), seeks to 0 (`sub_0041b470@0x4193c4`), reads first 40
+bytes (`sub_0041b4f8@0x4193d6`). Compares/tests on size/read data:
+
+| VA | Test | Meaning |
+| --- | --- | --- |
+| `0x419388` | `cmp/ge` size vs `0x77220` | reject if file size >= 488992 (error 26) |
+| `0x4193da` | `cmp/eq #40,r0` | first 40-byte read must return exactly 40 |
+| `0x4193e4` | `cmp/eq` read count vs file size | whole file read must equal `size` (error 23) |
+| `0x419462-0x419468` | `_modlu(size,40)` #`0x003d1484` then `tst` | `size mod 40 == 0` required (error 20); *observed code path — `sp+72` size source vs 11968-byte mixed 40/32-byte file not reconciled* |
+| `0x419496-0x4194a6` | `size/40` vs `0xc8` (200), `cmp/hs` | record count `size/40 >= 200` required (error 10); *same reconciliation caveat* |
+
+**No 0x2f / 40 / 324 compare found:** the first 40 bytes are copied/passed to
+parsers, but no compare of the root leading `u32 = 0x2f` (`/`), node count ==
+40, or entry count == 324 was found in `0x00419684`/`sub_00419350` or the
+scanned delegates (strengthens C-859: no-check-found in examined path).
+Delegate `sub_004191d0` (`0x419500`, reads entries via `sub_00418b00/0x418bbc`)
+loads node `entry_count` at `+24` (`0x419200`) and rejects if
+`entry_count + r7 > 15000` (`0x41920a`, bound `0x3a98`, pool `0x4192aa`; error
+11), iterating with a 28-byte in-memory stride (`0x41926e`); no exact 324 or
+0x2f check observed. Offline invariants (C-030–C-039) remain the M5.6 data
+contract.
+
+**`0x0041ba90` (CMP.LST, caller `0x00419ca0@0x419cae`, media-mount state
+machine):** builds `\SystemSD\CMP.LST` (`wcstombs` of `\SystemSD`,
+`strncat` `\CMP.LST`@`0x0017b25c`, length 8), opens `sub_0041b3bc(...,"rb")` at
+`0x41bade`, then **immediately closes** `sub_0041b650` at `0x41baea`. **No
+`fread`/content read and no compare on CMP.LST bytes** — the firmware check is
+open/existence only (plus `*0x009cfd18` gate at `0x41baca`). Post-close it runs
+a 4-iteration init loop (`0x41bb2a-0x41bb4e`) calling `sub_0041bd88`
+(`NKDbgPrintfW`, `Initialize/Enter/LeaveCriticalSection`, `sub_0041bc98` with
+descriptor `0x00d995e0`), which is synchronized init, not content validation.
+M5.6: keep `CMP.LST` present/openable; content (`\SystemSD\REFER001\`, 19 bytes)
+is not compared by this path.
+
 ## What it is used for
 
 Static firmware evidence names `DRSTR001.DAT` and `\CMP.LST` in `Navi.exe`

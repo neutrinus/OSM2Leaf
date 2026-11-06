@@ -1033,8 +1033,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1790–C-1799
   - Result: EXP-2026-11-06-M3.9-name-collation (C-1790–C-1799): name compare is `OBJDLL!OBJ_PntName_compare` `0x0349c540` → `STD_StringImp_compare` `0x03466ae0`; ordering is the custom weight table (`OBJ_Sort_cmpStr` `0x0349d3b4`, table `0x03485400`/`0x03485500`) and `STD_StringImp_comparePriority` `0x03467d84` for binary search; caps 32/64/128 chars; text is CP1252/Latin-1, not ISO-8859-2; `rdstm.md` writer rules updated.
 
-- [ ] **M3.10 — Decode the `DRSTR001`/`CMP.LST` functions found by M3.4**
-  - Status: in progress · Owner: task/m3.10-drstr-cmplst-fns · Critical: no
+- [x] **M3.10 — Decode the `DRSTR001`/`CMP.LST` functions found by M3.4**
+  - Status: done · Owner: task/m3.10-drstr-cmplst-fns · Critical: no
   - Depends: — (M1.9 helps)
   - Goal: find the checks the firmware applies to `DRSTR001.DAT` and
     `CMP.LST` (count, order, sentinel, leading `u32 = 0x2f`), which M5.6 must
@@ -1048,6 +1048,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     VAs in `drstr.md`; or the EXP shows the data is handed to another
     module (named) without checks.
   - Claims: C-1860–C-1869
+  - Result: EXP-2026-11-06-M3.10-drstr-cmplst-fns (C-1860–C-1869). `0x0041ba90` (CMP.LST) does only `fopen`/`fclose` — no content read/compare (existence check). `0x00419684`→`sub_00419350` reads/parses DRSTR001 (heap `*0x009cfcdc` ≤`0x77220`, stack 40B) with size/read checks at `0x419388,0x4193da,0x4193e4,0x419462-0x419468,0x419496-0x4194a6` (`_modlu`/`>=200` caveat noted) but **no 0x2f root / 40-node / 324-entry compare found** (C-1864, strengthens C-859); `sub_004191d0` bounds `entry_count+1 < 15000` at `0x41920a`. All in `Navi.exe`, coredll ordinals named. `drstr.md` updated.
 
 - [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
   - Status: open · Owner: — · Critical: yes
