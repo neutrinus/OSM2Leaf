@@ -22,14 +22,17 @@ says otherwise.  See ``docs/format/map-tiles.md`` and
 Commands::
 
     python3 tools/lev3456.py info FILE
-    python3 tools/lev3456.py verify FILE [--level 5]
-    python3 tools/lev3456.py rebuild FILE --level 5 -o OUT.DAT
+    python3 tools/lev3456.py verify FILE [--level 5] [--require-stock-zlib]
+    python3 tools/lev3456.py rebuild FILE --level 5 -o OUT.DAT [--require-stock-zlib]
     python3 tools/lev3456.py --selftest
 
 ``verify`` and ``rebuild`` compare compressed bytes too, so they need stock
-zlib 1.3.1 (Python 3.10-3.13).  Python 3.14 often ships zlib-ng, which
-reproduces none of the factory streams; the tool says so instead of failing
-silently.
+zlib 1.3.1.  Python builds that link zlib-ng (some 3.14 builds) reproduce none
+of the factory streams; the tools print the runtime version through
+``tools/zlibinfo.py`` and report a byte-identity mismatch as ``UNVERIFIABLE``
+(exit 3) instead of ``FAIL`` (exit 1) on such a build, because the payload is
+correct and only the compressor differs.  ``--require-stock-zlib`` refuses to
+start on zlib-ng at all.
 """
 
 from __future__ import annotations
@@ -38,6 +41,8 @@ import argparse
 import struct
 import sys
 import zlib
+
+import zlibinfo
 
 SECT_OFF = 0x800
 LEVEL_OFF = 0x1ac
@@ -1059,11 +1064,63 @@ def sha256(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def identity_only_error(exc: BaseException) -> bool:
+    """A rebuild error that only the compressor build can explain.
+
+    ``rebuild_level`` raises ``stream differs at 0x… (plain True)`` when the
+    decoded record re-encodes to the same payload but not to the same stream.
+    That is a compressor mismatch (zlib-ng), not a model error; the other
+    errors name lengths or byte offsets and are real failures.
+    """
+    msg = str(exc)
+    return msg.startswith("stream differs") and msg.endswith("(plain True)")
+
+
+def verify_verdict(rt, data_bad, identity_bad, tool="lev3456.py verify"):
+    """The exit code for the verify counters, separating data from identity.
+
+    ``data_bad`` = the decoded model or payload is wrong -> ``FAIL`` (1).
+    ``identity_bad`` = payloads reproduce but the streams/region do not.  That
+    is only a ``FAIL`` on a trusted compressor; on zlib-ng it is
+    ``UNVERIFIABLE`` (3), because the same source would pass on stock zlib.
+    """
+    if data_bad:
+        print("FAIL: %d data check(s) failed (decoded payloads or model)"
+              % data_bad)
+        return 1
+    if identity_bad:
+        if rt.ok:
+            print("FAIL: %d byte-identity check(s) failed on the reference zlib"
+                  % identity_bad)
+            return 1
+        return zlibinfo.unverifiable(
+            rt, tool,
+            "%d byte-identity check(s) differ while every payload re-encodes; "
+            "the compressor, not the data, differs" % identity_bad)
+    print("OK (section 1 level 5 strict; levels 3/4 best-effort)")
+    return 0
+
+
+def rebuild_verdict(rt, same, plain, records, tool="lev3456.py rebuild"):
+    """The exit code after writing a rebuilt level."""
+    if same:
+        return 0
+    if not rt.ok and plain == records:
+        return zlibinfo.unverifiable(
+            rt, tool,
+            "the rebuilt file differs although every decoded record re-encodes "
+            "to its factory payload")
+    return 1
+
+
 def cmd_verify(args):
+    tool = "lev3456.py verify"
+    rt = zlibinfo.guard(tool=tool, require_stock=args.require_stock_zlib,
+                        claims_identity=True)
     data = open(args.file, "rb").read()
     cont = Container(data)
     levels = args.level or [3, 4, 5]
-    bad = 0
+    data_bad = identity_bad = 0
     for sid in (1, 2):
         for lvl in levels:
             L = cont.level(sid, lvl)
@@ -1082,34 +1139,48 @@ def cmd_verify(args):
                 plain = encode_record(rec, lvl)
                 plain_ok += plain == r.plain
                 stream_ok += compress_record(plain) == r.comp
+            region_diff = False
             try:
                 _b, st = rebuild_level(cont, sid, lvl)
                 region = "identical %d B" % st["bytes"]
             except ValueError as e:
                 region = "DIFFERS: %s" % e
-                bad += 1
+                region_diff = True
             print("section %d level %d: records %d, plain %d/%d, streams %d/%d,"
                   " opaque %d, region %s"
                   % (sid, lvl, n, plain_ok, n, stream_ok, n, opaque, region))
+            plain_match = plain_ok == n
             if sid == 1 and lvl == 5:
                 # the decoded-record proof is strict at level 5
-                if plain_ok != n or stream_ok != n or opaque:
-                    bad += 1
-            if "DIFFERS" in region:
-                bad += 1
-    if bad:
-        print("FAIL")
-        return 1
-    print("OK (section 1 level 5 strict; levels 3/4 best-effort)")
-    return 0
+                if not plain_match or opaque:
+                    data_bad += 1
+                if stream_ok != n:
+                    identity_bad += 1
+            if region_diff:
+                # a region that differs while every payload reproduces can
+                # only come from the compressor; otherwise the model is wrong
+                if plain_match:
+                    identity_bad += 1
+                else:
+                    data_bad += 1
+    return verify_verdict(rt, data_bad, identity_bad)
 
 
 def cmd_rebuild(args):
+    tool = "lev3456.py rebuild --level %d" % args.level
+    rt = zlibinfo.guard(tool=tool, require_stock=args.require_stock_zlib,
+                        claims_identity=True)
     data = open(args.file, "rb").read()
     cont = Container(data)
     lvl = args.level
     start, next_off, used_end = level_extent(cont, 1, lvl)
-    body, st = rebuild_level(cont, 1, lvl)
+    try:
+        body, st = rebuild_level(cont, 1, lvl)
+    except ValueError as exc:
+        if not rt.ok and identity_only_error(exc):
+            return zlibinfo.unverifiable(rt, tool, str(exc))
+        print("rebuild failed: %s" % exc)
+        return 1
     if len(body) != next_off - start:
         # keep the source padding if the rebuilt level is shorter
         pad = data[start + len(body):next_off]
@@ -1119,10 +1190,11 @@ def cmd_rebuild(args):
             raise SystemExit("rebuilt level leaves non-zero source bytes")
     out = data[:start] + body + data[next_off:]
     open(args.output, "wb").write(out)
+    same = out == data
     print("level %d rebuilt from %d records: %d B, %d plain, %d streams; %s"
           % (lvl, st["records"], st["bytes"], st["plain"], st["streams"],
-             "byte-identical" if out == data else "DIFFERS"))
-    return 0 if out == data else 1
+             "byte-identical" if same else "DIFFERS"))
+    return rebuild_verdict(rt, same, st["plain"], st["records"], tool=tool)
 
 
 # ---------------------------------------------------------------------------
@@ -1182,6 +1254,36 @@ def selftest():
     assert encode_record(rec, 5) == plain, "level-5 record round-trip"
     z = compress_record(plain)
     assert zlib.decompress(z) == plain, "compressed stream"
+
+    # the zlib guard: a fake zlib-ng runtime must not produce a data FAIL
+    ng = zlibinfo.classify("1.3.1.zlib-ng", "1.3.1.zlib-ng")
+    stock = zlibinfo.classify("1.3.1", "1.3.1")
+    assert not ng.ok and ng.flavour == zlibinfo.ZLIB_NG and stock.ok
+    assert identity_only_error(
+        ValueError("stream differs at 0x1200 (plain True)"))
+    assert not identity_only_error(ValueError("stream differs at 0x1200 (plain False)"))
+    assert not identity_only_error(ValueError("level differs at 0x1200 (aa vs bb)"))
+    try:
+        zlibinfo.guard(tool="lev3456.py verify", require_stock=True,
+                       runtime=ng, stream=zlibinfo._null())
+    except SystemExit as exc:
+        assert exc.code == zlibinfo.EXIT_UNVERIFIABLE, exc.code
+    else:
+        raise AssertionError("--require-stock-zlib must refuse on zlib-ng")
+
+    # verdicts: identity-only mismatch is UNVERIFIABLE on zlib-ng, FAIL on stock
+    import contextlib
+    import io
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert verify_verdict(ng, 0, 1) == zlibinfo.EXIT_UNVERIFIABLE
+        assert verify_verdict(stock, 0, 1) == 1
+        assert verify_verdict(ng, 1, 1) == 1
+        assert verify_verdict(ng, 0, 0) == 0
+        assert rebuild_verdict(ng, False, 62, 62) == zlibinfo.EXIT_UNVERIFIABLE
+        assert rebuild_verdict(ng, False, 61, 62) == 1
+        assert rebuild_verdict(stock, False, 62, 62) == 1
+        assert rebuild_verdict(ng, True, 62, 62) == 0
     print("selftest OK")
     return 0
 
@@ -1197,10 +1299,20 @@ def main(argv=None):
     p = sub.add_parser("verify", help="decode and rebuild records and level regions")
     p.add_argument("file")
     p.add_argument("--level", type=int, action="append")
+    p.add_argument(
+        "--require-stock-zlib",
+        action="store_true",
+        help="refuse to run (exit 3, unverifiable) when zlib is not stock 1.3.1",
+    )
     p = sub.add_parser("rebuild", help="write a copy with one level rebuilt")
     p.add_argument("file")
     p.add_argument("--level", type=int, required=True)
     p.add_argument("-o", "--output", required=True)
+    p.add_argument(
+        "--require-stock-zlib",
+        action="store_true",
+        help="refuse to run (exit 3, unverifiable) when zlib is not stock 1.3.1",
+    )
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:

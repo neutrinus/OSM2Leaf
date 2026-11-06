@@ -26,6 +26,11 @@ Two write modes matter:
     only when the compressor matches (see docs/format/cmp-ind.md: stock zlib 1.3.1, level 6,
     windowBits 15, memLevel 8, default strategy reproduced every tested chunk;
     zlib-ng did not).
+
+Both CLI commands print the zlib runtime via ``tools/zlibinfo.py``.
+``recompress`` warns on zlib-ng and ``--require-stock-zlib`` refuses to run
+(exit 3, *unverifiable*, distinct from a data failure exit 1).  ``verify`` only
+inflates, so its verdict is data-level and unchanged on any build.
 """
 
 from __future__ import annotations
@@ -34,6 +39,8 @@ import struct
 import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import zlibinfo
 
 CHUNK = 0x10000
 IND_HEADER = 16
@@ -210,12 +217,19 @@ def repack_semantic(cmp_path, ind_path, outdir, stem, **kw):
 def _main(argv: list[str] | None = None) -> int:
     import argparse
     import hashlib
+    import json
 
     ap = argparse.ArgumentParser(description="Leaf ZE0 .cmp/.ind writer")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     pv = sub.add_parser("verify", help="decode and check every .ind/.cmp pair in a directory")
     pv.add_argument("directory")
+    pv.add_argument("--json", action="store_true", help="machine-readable report")
+    pv.add_argument(
+        "--require-stock-zlib",
+        action="store_true",
+        help="refuse to run (exit 3, unverifiable) when zlib is not stock 1.3.1",
+    )
 
     pp = sub.add_parser("preserve", help="byte-identical rebuild from existing streams")
     pp.add_argument("cmp")
@@ -232,14 +246,29 @@ def _main(argv: list[str] | None = None) -> int:
     pr.add_argument("--wbits", type=int, default=15)
     pr.add_argument("--mem-level", type=int, default=8)
     pr.add_argument("--strategy", type=int, default=zlib.Z_DEFAULT_STRATEGY)
+    pr.add_argument(
+        "--require-stock-zlib",
+        action="store_true",
+        help="refuse to run (exit 3, unverifiable) when zlib is not stock 1.3.1",
+    )
 
     args = ap.parse_args(argv)
 
     if args.cmd == "verify":
+        import sys
+
+        rt = zlibinfo.guard(
+            tool="cmpind_writer.py verify",
+            require_stock=args.require_stock_zlib,
+            claims_identity=True,
+            # keep stdout pure JSON when --json is requested
+            stream=sys.stderr if args.json else sys.stdout,
+        )
         root = Path(args.directory)
         inds = sorted(root.glob("*.ind"))
         ok = fail = 0
         total = 0
+        failures = []
         for ind in inds:
             cmp_path = ind.with_suffix(".cmp")
             try:
@@ -249,13 +278,29 @@ def _main(argv: list[str] | None = None) -> int:
                 total += c.usize
             except Exception as exc:  # noqa: BLE001 - CLI reports everything
                 fail += 1
+                failures.append({"path": str(ind), "error": str(exc)})
                 print(f"FAIL {ind}: {exc}")
-        print(f"checked {len(inds)}  ok {ok}  failed {fail}  logical {total}")
+        if args.json:
+            print(json.dumps({
+                "checked": len(inds),
+                "ok": ok,
+                "failed": fail,
+                "logical": total,
+                "failures": failures,
+                "zlib": rt.as_dict(),
+            }, indent=2))
+        else:
+            print(f"checked {len(inds)}  ok {ok}  failed {fail}  logical {total}")
         return 0 if fail == 0 else 1
 
     if args.cmd == "preserve":
         cmp_out, ind_out = repack_preserve(args.cmp, args.ind, args.outdir, args.stem)
     else:
+        zlibinfo.guard(
+            tool="cmpind_writer.py recompress",
+            require_stock=args.require_stock_zlib,
+            claims_identity=True,
+        )
         cmp_out, ind_out, c = repack_semantic(
             args.cmp, args.ind, args.outdir, args.stem,
             level=args.level, wbits=args.wbits,

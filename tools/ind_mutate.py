@@ -14,10 +14,17 @@ The default sample (ADDRE001.DAT.ind) is 24 bytes:
   uncompressed 0x13600, compressed 0xbed4, count 2,
   chunk_size 0x10000, offsets [0x0, 0x8a17]
 The .cmp has zlib headers 78 9c at 0x0 and 0x8a17.
+
+This tool never recompresses: it only rewrites the 16-byte index and the
+offset table, and pairs with the ORIGINAL .cmp.  A non-stock zlib (zlib-ng)
+therefore cannot affect the variants; on such a build the tool says so once
+through ``tools/zlibinfo.py``.
 """
 import argparse
 import os
 import struct
+
+import zlibinfo
 
 DEFAULT_IND = '/home/marek/projekty/leafre-work/root/REFER001/ADDRE001.DAT.ind'
 
@@ -40,6 +47,12 @@ def main():
     ap.add_argument('--ind', default=DEFAULT_IND)
     ap.add_argument('--out', default='mut')
     args = ap.parse_args()
+
+    zlibinfo.note_if_nonstock(
+        tool='ind_mutate.py',
+        note='the variants reuse the ORIGINAL .cmp, so the zlib build does '
+             'not affect them; no byte-identity claim is made here',
+    )
 
     src, u, comp, n, cs = read_ind(args.ind)
     os.makedirs(args.out, exist_ok=True)

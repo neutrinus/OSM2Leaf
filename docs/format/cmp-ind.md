@@ -114,6 +114,41 @@ POINT032.DAT.cmp  1dac3ae6d330414686a69df6749b3bb8b563029ce00ecefad1bba02170f1bb
 ADDRE001.DAT.cmp  bbeb60f242a57f297d2d2c6d7180b8b68e57a2bec90fcbfd699eead7271a7025
 ```
 
+## zlib runtime guard
+
+Byte-identity is a property of the compressor, not of the format, so a tool
+must not report `FAIL` when the interpreter links zlib-ng. `tools/zlibinfo.py`
+classifies the running library from `zlib.ZLIB_VERSION` (header) and
+`zlib.ZLIB_RUNTIME_VERSION` (loaded library) and every tool that recompresses
+prints that line:
+
+```
+zlib: zlib 1.3.1, runtime 1.3.1 (stock, reference build)
+```
+
+The verdicts are kept apart:
+
+| Output | Exit | Meaning |
+| --- | --- | --- |
+| `OK` | 0 | byte-identical |
+| `FAIL` | 1 | decoded payload or model is wrong |
+| `UNVERIFIABLE` | 3 | payload reproduces, the compressor build differs |
+
+On zlib-ng (`flavour zlib-ng`) or any unrecognised build the identity check is
+reported as `UNVERIFIABLE` and the tool names the runtime; the data-level
+checks still run. `--require-stock-zlib` (on `lev3456.py verify`/`rebuild` and
+`cmpind_writer.py recompress`/`verify`) refuses before doing any work with the
+same exit 3. `cmpind.py verify` only decompresses, so it prints a non-stock
+note instead of failing, and `--json` carries the runtime in a `zlib` field.
+`ind_mutate.py` never recompresses (it rewrites only `.ind` bytes), so a
+non-stock build gets an informational note only.
+
+```bash
+python3 tools/zlibinfo.py                     # one line
+python3 tools/zlibinfo.py --json              # ok / zlib_version / runtime_version / flavour / reference
+python3 tools/zlibinfo.py --require-stock-zlib  # exit 3 when untrusted
+```
+
 ## Verification
 
 `python3 tools/cmpind.py verify REFER001` checks every pair and reports:

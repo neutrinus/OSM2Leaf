@@ -428,7 +428,7 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Claims: C-1730–C-1739
 
 - [ ] **H8 — Fix what H6 reported: `mmain.py`, `setup.sh`, two doc sentences**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: — (coordinate with PR #35 `[M3.8]`, which reads `MMAIN001`)
   - Goal: no tool or guide still describes `MMAIN001.DAT` as a FAT log or
     `tools_ze0` as a network clone.
@@ -442,7 +442,7 @@ widens knowledge or tooling in parallel and is equally welcome.
     `realcheck.py` pins the `coredll.dll` ordinals of C-1710 (H7 follow-up).
   - Claims: C-1890–C-1899
 
-- [ ] **H9 — Guard recompression tools against zlib-ng false failures**
+- [x] **H9 — Guard recompression tools against zlib-ng false failures**
   - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: a correct rebuild must not report `FAIL` because the interpreter
@@ -457,6 +457,8 @@ widens knowledge or tooling in parallel and is equally welcome.
     claimed) on `zlib-ng`, without changing synthetic `--selftest` results;
     one EXP records the 3.13-vs-3.14 run on the same `LEV3456R.DAT` SHA-256
     and the exit codes; `tools/README.md` states the requirement.
+  - Result: `tools/zlibinfo.py` (stock/zlib-ng/unknown, exit 3 = unverifiable)
+    wired into lev3456/cmpind_writer/cmpind/ind_mutate (EXP-2026-11-06-H9-zlib-ng-guard).
   - Claims: C-1970–C-1979
 
 ---

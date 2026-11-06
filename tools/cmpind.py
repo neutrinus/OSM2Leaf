@@ -15,15 +15,24 @@ Format::
 
 Each chunk is an independent zlib stream.  Concatenating the decompressed
 chunks yields exactly ``uncompressed_size`` bytes.
+
+Decoding is independent of the zlib build.  On a build that is not stock
+zlib 1.3.1 (e.g. zlib-ng) ``verify`` prints a note through
+``tools/zlibinfo.py``: the pairs are still verified, but byte-identical
+*recompression* needs stock zlib.  ``verify --json`` carries the runtime in a
+``zlib`` field.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import struct
 import sys
 import zlib
 from pathlib import Path
+
+import zlibinfo
 
 HEADER = 16
 
@@ -135,6 +144,14 @@ def cmd_verify(args: argparse.Namespace) -> int:
         print(f"error: {root} is not a directory", file=sys.stderr)
         return 2
 
+    rt = zlibinfo.note_if_nonstock(
+        tool="cmpind.py verify",
+        note=(
+            "decoding is unaffected, but byte-identical recompression needs "
+            "stock zlib %s" % zlibinfo.REFERENCE_VERSION
+        ),
+    )
+
     inds = sorted(root.glob("*.ind"))
     if not inds:
         print(f"error: no .ind files in {root}", file=sys.stderr)
@@ -158,6 +175,20 @@ def cmd_verify(args: argparse.Namespace) -> int:
         ok += 1
         total_uncompressed += info["uncompressed_size"]
         total_compressed += info["compressed_size"]
+
+    if args.json:
+        print(json.dumps({
+            "checked": len(inds),
+            "ok": ok,
+            "failed": len(failures),
+            "logical": total_uncompressed,
+            "stored": total_compressed,
+            "failures": [
+                {"path": str(path), "error": reason} for path, reason in failures
+            ],
+            "zlib": rt.as_dict(),
+        }, indent=2))
+        return 0 if not failures else 1
 
     print(f"checked   {len(inds)} pair(s)")
     print(f"ok        {ok}")
@@ -185,6 +216,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_verify = sub.add_parser("verify", help="verify every .cmp/.ind pair in a directory")
     p_verify.add_argument("directory")
+    p_verify.add_argument("--json", action="store_true", help="machine-readable report")
     p_verify.set_defaults(func=cmd_verify)
 
     return parser
