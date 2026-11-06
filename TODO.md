@@ -1209,7 +1209,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2120–C-2129
 
 - [ ] **M3.12 — `INDEX003.DAT`: is it the POI name search index?**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.12-index003-poi-search · Critical: yes
   - Depends: — (M5.12c overlaps: coordinate the scan)
   - Goal: know whether the unit finds a POI by name through a second copy
     of the name (then the S2 rename must update it too) or through pointers
