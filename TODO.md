@@ -520,7 +520,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-840–C-849
 
 - [ ] **M3.4 — `DRSTR001.DAT` parser and what it validates**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.4-drstr-parser · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: find the parser and list its checks (counts, ordering,
     sentinels, the leading `u32` = 47).
