@@ -1835,7 +1835,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
   file). Owner: coordinator with Marek. Claims: C-1590–C-1599
 - [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m8.e1-rom-decomp-tool · Critical: yes
   - Depends: M1.2c (decompressor VA). Does **not** need F1: call the
     function directly under `-M none` + gdbstub with RAM-only state, like an
     L3 call.
