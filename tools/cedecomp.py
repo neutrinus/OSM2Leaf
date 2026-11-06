@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""CE ROM section decompressor metadata and M8.E1 call targets (M1.2c).
+"""CE ROM section decompressor metadata and M8.E1 call targets (M1.2c/M8.E1b).
 
 Stdlib only. This module records the nk.exe (image B, ``--image-start
-0x3e00200``) decompressor chain found by static RE of ``IMG256`` (SHA-256
-``92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9``).
+0x3e00200``) decompressor chain, **verified on IMG256 LE SH-4 bytes**
+(SHA-256 ``92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9``).
 
-**Status.** The decompressor VAs and call chain are identified; the block
-codec (LZXD-like, ``0x8d80805b`` marker, cecompress reports block type 4 / E8
-framing) is not yet ported to pure Python. ``decode_section`` therefore raises
-``UnsupportedDecompression`` and hands the call target to M8.E1 (emulated
-execution of ``DECOMP_WRAP``/``DECOMP_SECT`` in nk.exe). See
-docs/experiments/EXP-2026-11-06-M1.2c-rom-decompressor.md.
+**Status (M8.E1b, 2026-11-06).** VAs/prototypes VERIFIED (M1.2c confirmed;
+M8.E1's refutation was a BE-vs-LE endianness artifact, C-2290–C-2296).
+SH-4 instructions in nk.exe are LE-encoded. The block codec (LZXD-like,
+``0x8d80805b`` marker, 8-byte block header, block type 4/E8 framing) is not
+yet ported to pure Python. ``decode_section`` raises
+``UnsupportedDecompression`` and names the call targets for M8.E1 runtime
+execution under ``qemu-system-sh4`` (LE); DECOMP_WRAP requires kernel
+lock/context stubs (C-2293). See
+docs/experiments/EXP-2026-11-06-M8.E1b-nk-decompressor-derive.md.
 
 Usage:
   cedecomp.py info
@@ -90,10 +93,13 @@ def info():
             "wrap": DECOMP_WRAP,
             "sect": DECOMP_SECT,
             "blk": DECOMP_BLK,
+            "alloc": DECOMP_ALLOC,
         },
         "prototypes": PROTOTYPES,
         "img256_sha256": IMG256_SHA256,
-        "status": "VAs/prototypes recorded; block codec unported -> M8.E1 call target",
+        "sh4_encoding": "little-endian (C-2290)",
+        "status": "VAs/prototypes VERIFIED on IMG256 LE bytes (M8.E1b, C-2290-2293); "
+                  "block codec unported -> M8.E1 runtime (qemu-system-sh4 LE; DECOMP_WRAP needs kernel-context stubs)",
     }
 
 
@@ -119,8 +125,10 @@ def decode_section(stored, vsize, ulen=None):
         )
     raise UnsupportedDecompression(
         "LZXD block codec (block type 4 / CE variant) not ported; "
-        "hand to M8.E1: call DECOMP_WRAP 0x88037590 or DECOMP_SECT 0x88037464 "
-        "in nk.exe (--image-start 0x3e00200) with (src, psize, dest, vsize)",
+        "hand to M8.E1 (VAs verified M8.E1b, LE SH-4): call DECOMP_WRAP 0x88037590 "
+        "or DECOMP_SECT 0x88037464 in nk.exe (--image-start 0x3e00200) with "
+        "(src, psize, dest, vsize) under qemu-system-sh4 (LE); DECOMP_WRAP needs "
+        "kernel lock/context stubs (C-2293)",
         call_target=DECOMP_WRAP,
     )
 

@@ -5,20 +5,20 @@ Loads nk.exe (image B, ``--image-start 0x3e00200``) sections and test buffers
 via QEMU ``-device loader``, controls execution through the gdbstub, and reads
 back the decompressed output.  RAM-only state (``-M none -cpu sh7785``).
 
-**Status (EXP-2026-11-06-M8.E1).** QEMU execution framework works (positive
-controls: trivial SH-4 snippet executes and returns r0=42; nk.exe sections
-load; loader-mapped execution is viable).  The M1.2c-recorded decompressor VAs
-(``DECOMP_WRAP 0x88037590`` / ``DECOMP_SECT 0x88037464``) are **refuted** for
-IMG256 image B nk.exe sec0: M1.2c's flag-test pattern (``e220 5385 4218 2329
-2338 8b03``) and ``mov #0x20,rN; shll8 rN`` 0x2000 construction are absent from
-IMG256 (0 hits in nk.exe sec0 and whole image); capstone/PySh4 show different
-bytes at the recorded VAs.  Actual decode is blocked pending M1.2c
-re-verification / real decompressor location.  ``exp49`` refuses M1.2c VAs.
+**Status (M8.E1b, 2026-11-06).** M1.2c decompressor VAs **VERIFIED** on IMG256
+nk.exe B LE SH-4 bytes (C-2290–C-2293): M8.E1's refutation was a BE endianness
+artifact (C-1600 superseded). Use ``qemu-system-sh4`` (LE), not sh4eb.
+``DECOMP_WRAP 0x88037590(src,psize,dest,vsize)`` calls kernel lock/context
+helpers (pools 0x88037614/1c/24/28, ctx 0x89e6ade0) so bare-metal execution
+needs stubs; ``DECOMP_SECT 0x88037464`` is the core framing entry (C-2293).
+QEMU loader/gdbstub framework is ready (C-1601); runtime EXP-49 decode remains
+a follow-up pending LE QEMU + context stubs.
 
-Requires ``qemu-system-sh4eb``.  On this host run via podman, e.g.:
+Requires ``qemu-system-sh4`` (LE) for nk.exe. On this host run via podman
+(adapt image to provide qemu-system-sh4), e.g.:
   podman run --rm -i --security-opt label=disable \\
     -v /tmp/opencode/m8.e1-wt:/wt:ro -v /tmp/opencode/img256.img:/img:ro \\
-    localhost/osm2leaf-qemu python3 /wt/tools/cedecomp_run.py --selftest
+    <sh4-le-image> python3 /wt/tools/cedecomp_run.py --selftest
 
 Usage:
   cedecomp_run.py --selftest
@@ -40,7 +40,7 @@ NK_IMAGE_START = 0x3E00200
 NK_NAME = "nk.exe"
 M1_2C_WRAP = 0x88037590
 M1_2C_SECT = 0x88037464
-M1_2C_REFUTED = True
+M1_2C_VERIFIED_LE = True  # M8.E1b: M1.2c VAs confirmed; M8.E1 BE refutation superseded (C-2290)
 EXP49 = [
     {"name": "NaviMapCC.dll/sec1", "file_off": 0x01580CE0, "psize": 0x2C6, "vsize": 0x5B8, "ulen": 0x484},
     {"name": "NaviMapCC.dll/sec2", "file_off": 0x015ACA7C, "psize": 0x68C, "vsize": 0xCC0, "ulen": 0xCC0},
@@ -144,8 +144,8 @@ def shutil_which(cmd):
 def _probe(args):
     image = args.image
     if not os.path.isfile(image): return {"status":"MISSING_IMAGE","image":image}
-    qemu = args.qemu or "qemu-system-sh4eb"
-    if not shutil_which(qemu): return {"status":"MISSING_QEMU","qemu":qemu,"note":"install qemu-system-sh4eb or use osm2leaf-qemu container"}
+    qemu = args.qemu or "qemu-system-sh4"
+    if not shutil_which(qemu): return {"status":"MISSING_QEMU","qemu":qemu,"note":"install qemu-system-sh4 (LE, for nk.exe) or provide a container image"}
     nk, o32s, secs = load_nk_sections(image)
     with tempfile.TemporaryDirectory() as tmp:
         loaders = []
@@ -179,7 +179,7 @@ def selftest():
     check(len(EXP49)==2,"two EXP-49 vectors")
     check(EXP49[0]["ulen"]==0x484 and EXP49[0]["vsize"]==0x5B8,"sec1 ulen/vsize")
     check(EXP49[1]["ulen"]==0xCC0 and EXP49[1]["vsize"]==0xCC0,"sec2 lengths")
-    check(M1_2C_REFUTED is True,"M1.2c refutation flag")
+    check(M1_2C_VERIFIED_LE is True,"M1.2c/M8.E1b VAs verified (LE)")
     vb=vector_blob(); check(len(vb)==0x800 and vb[0:2]==b"\xaf\xff","vector blob")
     for img in ["/tmp/opencode/img256.img", str(Path(__file__).resolve().parents[1]/".."/"img256.img")]:
         if os.path.isfile(img):
@@ -197,19 +197,21 @@ def main():
     ap.add_argument("--selftest", action="store_true")
     sp=ap.add_subparsers(dest="cmd")
     sp.add_parser("info")
-    pp=sp.add_parser("probe"); pp.add_argument("--image",required=True); pp.add_argument("--qemu",default=os.environ.get("QEMU_SYSTEM_SH4EB","qemu-system-sh4eb"))
-    ep=sp.add_parser("exp49"); ep.add_argument("--image",required=True); ep.add_argument("--entry",required=True); ep.add_argument("--qemu",default=os.environ.get("QEMU_SYSTEM_SH4EB","qemu-system-sh4eb"))
+    pp=sp.add_parser("probe"); pp.add_argument("--image",required=True); pp.add_argument("--qemu",default=os.environ.get("QEMU_SYSTEM_SH4","qemu-system-sh4"))
+    ep=sp.add_parser("exp49"); ep.add_argument("--image",required=True); ep.add_argument("--entry",required=True); ep.add_argument("--qemu",default=os.environ.get("QEMU_SYSTEM_SH4","qemu-system-sh4"))
     args=ap.parse_args()
     if args.selftest: raise SystemExit(selftest())
     if args.cmd=="info":
         print(json.dumps({"tool":"cedecomp_run.py","m1_2c_wrap":hex(M1_2C_WRAP),"m1_2c_sect":hex(M1_2C_SECT),
-                          "m1_2c_refuted_for_img256_b":M1_2C_REFUTED,"exp49":EXP49,"img256_sha256":IMG256_SHA256,
-                          "status":"framework ready; decode blocked until real decompressor VA located"}, indent=2))
+                          "m1_2c_verified_le":M1_2C_VERIFIED_LE,"decomp_alloc":hex(M1_2C_ALLOC),"decomp_blk":hex(M1_2C_BLK),"exp49":EXP49,"img256_sha256":IMG256_SHA256,
+                          "status":"M8.E1b VAs verified (LE,C-2290-2293); framework ready; runtime decode needs qemu-system-sh4 (LE) + DECOMP_WRAP kernel-context stubs"}, indent=2))
     elif args.cmd=="probe":
         res=_probe(args); print(json.dumps(res, indent=2)); raise SystemExit(0 if res.get("status")=="PASS" else 1)
     elif args.cmd=="exp49":
         entry=int(args.entry,0)
-        if entry in (M1_2C_WRAP,M1_2C_SECT): print(f"ERROR: {entry:#x} refuted M1.2c VA (M8.E1).", file=sys.stderr); raise SystemExit(4)
+        if entry in (M1_2C_WRAP,M1_2C_SECT,M1_2C_ALLOC,M1_2C_BLK):
+            print(f"NOTE: {entry:#x} is a verified M8.E1b VA (LE). Runtime execution needs qemu-system-sh4 (LE) and kernel-context stubs for DECOMP_WRAP; DECOMP_SECT is the core framing entry.", file=sys.stderr)
+            print(json.dumps({"status":"NOT_IMPLEMENTED","entry":hex(entry),"verified":True,"blocker":"qemu-system-sh4 (LE) + kernel-context stubs for DECOMP_WRAP; C-2293/C-2294"}), indent=2); raise SystemExit(4)
         print(json.dumps({"status":"NOT_IMPLEMENTED","entry":hex(entry),"reason":"real decompressor VA+prototype not verified"}), indent=2); raise SystemExit(4)
     else: ap.print_help(); raise SystemExit(2)
 
