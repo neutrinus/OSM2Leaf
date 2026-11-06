@@ -1093,7 +1093,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2080–C-2089
 
 - [ ] **M2.16 — `HDD_CHK.ATT` on real cards and `sub_0001e3f4`**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.16-hddchk-att-realcards · Critical: no
   - Depends: — (M2.12)
   - Goal: M2.12 shows `HDD_CHK.ATT` is read only by `MapUpdate.exe`; confirm
     whether factory cards carry it at all and close the layout question.
