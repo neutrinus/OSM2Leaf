@@ -1023,3 +1023,19 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-1757 | `--min-coverage` gates on slot coverage (import slots with ≥1 stub/call site, the M1.6b primary measure). Stub coverage is reported but not the gate, because per-call-site detection yields multiple records per slot and non-name-resolved cases vary with resolver input. | VERIFIED (tool) | H | EXP-2026-11-06-M1.6c |
 | C-1758 | `tools/realcheck.py` thunks check/pin updated to the measured IMG256 result: `stubs=3728, import_slots=846, covered_slots=845, slot_coverage=99.9%` (replaces H7's aspirational `stubs=846, import_slots=846` written without a real-image run while C-1714 showed 0). `realcheck.py IMG256` reports 8 PASS, 0 FAIL, 0 SKIP. | VERIFIED (IMG256) | H | EXP-2026-11-06-M1.6c; `realcheck.py IMG256` |
 | C-1759 | `tools/selftest.py` passes after M1.6c (`passed=32 failed=0 skipped=19 total=51`, 2026-11-06); `cerom.py --selftest` 367 checks OK; `sh4xref.py --selftest` OK; `realcheck.py --selftest` OK. | VERIFIED | H | EXP-2026-11-06-M1.6c |
+
+## M5.10 — Card image builder
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1910 | `tools/mkcard.py --from-image IMG --tree ROOT -o out.img` copies firmware/pre-partition regions (including the `0x06000000` HDD_INFO copy) verbatim from IMG and rebuilds/writes the FAT32 map partition from ROOT. | VERIFIED (tool) | H | EXP-2026-11-06-M5.10; `python3 tools/mkcard.py --selftest`; EU 2011 IMG `105e2032…76307` |
+| C-1911 | For an unchanged tree (content identical to IMG's map partition), mkcard produces an output byte-identical to IMG (EU 2011: SHA-256 `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`, `diff_ranges=0`). | VERIFIED | H | EXP-2026-11-06-M5.10 |
+| C-1912 | `cardcheck.py --image` passes on the mkcard-rebuilt EU 2011 image with reference counts (480 files, 39 dirs, 194 cmp pairs, 46 tiles/11 rows, `image_copy=identical`). | VERIFIED | H | EXP-2026-11-06-M5.10 |
+| C-1913 | mkcard reproduces/follows factory layout from IMG: MBR/FAT32 partition 0 (LBA 204802, 0x6400400), 64 KiB clusters (128 sectors), 2 FATs × 900 sectors, reserved 32, root cluster 2, label `QSD-309-101`, OEM `MSDOS5.0`; MMAIN001.DAT is present in the root directory cluster. | OBSERVED/FACT (from IMG) | H | EXP-2026-11-06-M5.10; `leafimg.py info`/probe |
+| C-1914 | The 72-byte HDD_INFO copy at `0x06000000` (checked by `cardcheck.py --image`) is in the pre-partition region and is preserved verbatim by mkcard. | VERIFIED | H | EXP-2026-11-06-M5.10; synthetic + real image |
+| C-1915 | For changed trees, mkcard reports differing byte ranges vs the source image with explanations (FAT copies, reserved/BPB/FSInfo/backup, data-area clusters, pre-partition/firmware, `0x06000000`). | VERIFIED (tool) | H | EXP-2026-11-06-M5.10; selftest `diff_ranges`/`explain_range` |
+| C-1916 | For changed trees, mkcard's fresh FAT32 rebuild preserves pre-partition/`0x06000000` and produces a readable filesystem (synthetic: changed root file and subdir file read back correctly). | VERIFIED (synthetic) | M | EXP-2026-11-06-M5.10 |
+| C-1917 | mkcard cannot reproduce SD lock state or the card CID; these remain external prerequisites (M2.13/M6.5). The EXP/tool report this explicitly. | VERIFIED (scope) | H | EXP-2026-11-06-M5.10 |
+| C-1918 | A fresh-built (non-byte-identical) image's timestamps, LFN encoding details, free-cluster order and directory allocation may differ from factory layout; unit acceptance of such differences is UNKNOWN until bench test M6.5/S0/S1. | HYPOTHESIS/UNKNOWN | L | EXP-2026-11-06-M5.10 |
+| C-1919 | mkcard has a synthetic self-test (sparse FAT32 image, no vendor data) and is auto-discovered by `tools/selftest.py`; repo selftest passes with it in place (`passed=34 failed=0 skipped=19 total=53`, 2026-11-06). | VERIFIED | H | EXP-2026-11-06-M5.10 |
+>>>>>>> 12c41bf (tools: add mkcard.py card image builder (M5.10))

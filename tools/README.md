@@ -544,6 +544,31 @@ where `VER_INFO/` is absent; it treats the missing directory as a warning.
 `System Volume Information` entries. It is needed for the 2016 e-NV200 image
 and the 2019 image, but keep it explicit: it can hide a real extra file.
 
+## `mkcard.py` — SD card image builder
+
+Builds an SD card image from a map tree, following the factory layout from a
+source image: copies the MBR and all firmware/pre-partition bytes (including the
+`0x06000000` HDD_INFO copy checked by `cardcheck.py --image`) verbatim and
+rebuilds the FAT32 map partition from the tree (64 KiB clusters, label/root
+layout derived from the source).
+
+```bash
+# Compare a tree to the source image (no output written)
+python3 tools/mkcard.py --from-image IMG --tree ROOT --compare-only -v
+
+# Rebuild the map partition and write an image
+python3 tools/mkcard.py --from-image IMG --tree ROOT -o out.img --cardcheck
+
+# Synthetic test (no vendor data)
+python3 tools/mkcard.py --selftest
+```
+
+For an unchanged tree the output is byte-identical to `IMG` (verified on the EU
+2011 reference: SHA-256 unchanged, `cardcheck.py --image` PASS). For a changed
+tree, differing byte ranges vs the source are reported and explained
+(timestamps, allocation/free-cluster order, FAT/reserved/data-area changes); the
+tool cannot reproduce the SD lock state or the card CID.
+
 ## `l2check.py` — L2 semantic / golden checks
 
 Checks that a root still round-trips and that the decoded geometry matches a

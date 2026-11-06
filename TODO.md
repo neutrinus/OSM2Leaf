@@ -1296,8 +1296,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     covers a moved stream.
   - Claims: C-1850–C-1859
 
-- [ ] **M5.10 — Card image builder (`tools/mkcard.py`)**
-  - Status: in progress · Owner: task/m5.10-mkcard · Critical: yes
+- [x] **M5.10 — Card image builder (`tools/mkcard.py`)**
+  - Status: done · Owner: task/m5.10-mkcard · Critical: yes
   - Depends: — (M2.13 for the lock state; M3.8 for `MMAIN001`)
   - Goal: turn a card tree into an SD image the unit could read: the missing
     link between every writer and the first bench test (M6.5, S0/S1 of
@@ -1314,6 +1314,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     passes; synthetic self-test on a small FAT32 image; the EXP says what the
     tool cannot reproduce (SD lock state, CID).
   - Claims: C-1910–C-1919
+  - Result: EXP-2026-11-06-M5.10-mkcard.md — `mkcard.py` copies firmware/pre-partition/0x06000000 verbatim and rebuilds the FAT32 map partition from a tree. Real EU 2011 unchanged-tree rebuild: byte-identical to IMG (SHA-256 `105e2032…76307`, 0 diff ranges), `cardcheck.py --image` PASS (480 files, 194 pairs, 46 tiles). Synthetic self-test OK (sparse FAT32, 0x06000000 preserved, changed-tree fresh build reads back). Diff ranges explained; cannot reproduce SD lock state/CID. `selftest.py` 34 passed.
 
 - [ ] **M5.11 — End-to-end: one generated tile on an accepted card image**
   - Status: open · Owner: — · Critical: yes
