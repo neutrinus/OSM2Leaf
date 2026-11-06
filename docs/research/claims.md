@@ -968,6 +968,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1850 | `tools/tile_diff.py` matches tile streams by inflated SHA-256 and pairs the rest by structural position (section/level/row/column/slot/record), so a moved+recompressed record is one `changed` entry with `offset_a`/`offset_b`; content-only moves are `moved`, pure recompression stays `same` with `reencoded`, background changes are named to layer/shape/vertex and section-4 changes by parcel/type/country/name. `--by-offset` keeps the old view; JSON `format` is `tile-diff/2`. | VERIFIED (synthetic tile) | H | EXP-2026-11-06-M5.9-tile-diff; `python3 tools/tile_diff.py --selftest` |
 
+| C-1640 | `tools/l3_harness/ghidra_import.py` turns a `cerom.py memmap` document into a headless Ghidra plan (one block per `o32` at `realaddr`, runtime `vsize`, stored `psize`, rwx, zero-filled BSS, compressed rejected via `rommap.py`, `MODULE::name` exports, thunk labels, SH-4 convention) and a two-phase `analyzeHeadless` run; `--plan` runs nothing, absent Ghidra exits 3 `MISSING_GHIDRA` with `pass_claimed: false`, a failing headless exits 4; `PASS` requires matching read-back. | OBSERVED (tool, synthetic) | H | EXP-2026-11-06-M9.2-ghidra-import; `python3 tools/l3_harness/ghidra_import.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

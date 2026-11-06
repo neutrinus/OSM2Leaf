@@ -1289,7 +1289,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-05-M5.8-tile-diff (`tools/tile_diff.py`; factory vs mutate output: 148 bytes in 2 ranges; `tools_ze0` package committed as `tools/ze0-viewer/tools_ze0/`)
 
 - [x] **M5.9 — `tile_diff.py`: match moved streams and name the records**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+  - Status: blocked · Owner: — · Critical: yes · Critical: no
   - Depends: —
   - Goal: a generated tile's diff reads as "changed record X", not as
     remove + add at another offset.
@@ -1583,6 +1583,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: Ghidra shows `OBJDLL!MAL_DataVol_getOffset` at the EXP-50
     call sites and the `HDD_INFO` string xref at `0x004e7d28` (this also
     closes the M1.5 Ghidra check).
+  - Blocker: Ghidra 12.2+ and the vendor image are absent; the tool writes and
+    validates the two-phase plan (`--plan`, 13 checks) and exits 3
+    `MISSING_GHIDRA`. Result: EXP-2026-11-06-M9.2-ghidra-import, C-1640.
   - Claims: C-1640–C-1649
 - [ ] **M9.3 — Bind the stub table to real VAs**
   - Status: in progress · Owner: session-ZMxuBT · Critical: yes

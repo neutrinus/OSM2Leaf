@@ -16,7 +16,9 @@ the unit accepts a card; that is L4.
 | `manifest.py` | build/validate the corpus manifest (paths, SHA-256, size, reader, case, verdict) |
 | `corpus.py` | build/check a synthetic corpus (cmp, DRSTR, tile, hdd_info) and its manifest; `build DIR`, `check DIR`, `--selftest` |
 | `stubs.py` | declarative WinCE stub table with signatures, side effects and notes; emits JSON Schema |
+| `dispatch.py` | `module!export`/ordinal dispatcher and deterministic hosts: virtual FS, heap, critical sections, registry; see [`EXP-2026-11-06-M9.3-stub-bind.md`](../../docs/experiments/EXP-2026-11-06-M9.3-stub-bind.md) |
 | `rommap.py` | `ce_rom_parse.py` JSON -> Ghidra loader memory-map JSON |
+| `ghidra_import.py` | headless Ghidra project from a `cerom.py memmap`: sections at their VAs, export/thunk labels, SH-4 calling convention; `--plan`, `--json`, `--selftest` — see [`EXP-2026-11-06-M9.2-ghidra-import.md`](../../docs/experiments/EXP-2026-11-06-M9.2-ghidra-import.md) |
 | `runner.py` | `check`, `plan`, `run`; stable exit codes, never fakes a pass |
 | `engine.py` | one engine interface, three SH-4 back ends (`PySh4`, Ghidra, QEMU); `--selftest`, `--probe`, `--demo` — see [`EXP-2026-11-06-M9.4-engine.md`](../../docs/experiments/EXP-2026-11-06-M9.4-engine.md) |
 | `selftest.py` | 19 synthetic checks (no network, no vendor data, no Ghidra) |
