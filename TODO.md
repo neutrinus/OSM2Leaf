@@ -981,7 +981,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M3.5-tile-reader (reader VAs 0x0041f26c/0x004259bc/0x0042757a in Navi.exe; six-level table `VTb Tp;Lv;St;F#|L1..L6|Sz;Adr`; NaviMapCC.dll has no reader code)
 
 - [ ] **M3.6 — Which tile sections the renderer reads**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.6-tile-sections-renderer · Critical: no
   - Depends: M3.5
   - Done when: each tile section has "read by VA" or "ignored" in
     `map-tiles.md` (section 4 especially).
