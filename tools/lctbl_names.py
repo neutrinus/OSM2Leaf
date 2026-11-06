@@ -20,10 +20,13 @@ This tool:
 * ``names``    extracts NUL-terminated name strings from the plain text;
 * ``verify``   re-runs the stream scan and asserts the documented totals.
 
-Record framing inside the plain text is only partially decoded (see docs/format/rdstm.md):
-each record is a 16-byte metadata block, a 2-byte class code and one or more
-NUL-terminated Latin-2 strings.  ``names`` therefore extracts strings, not
-whole records, and reports the two bytes that precede each string.
+Record framing inside the plain text is decoded by ``tools/lctbl_records.py``
+(M4.18, ``docs/format/rdstm.md`` "Record layout"): every record is a 16-byte
+header, four even-length name slots and an opaque footer.  Names are padded to
+an even byte length with ``0x00``, so this tool's NUL scan counts text runs
+(328,628), not records (247,089) or name slots (456,501).  ``names`` remains a
+string extractor: it reports the two bytes before each run, which for the
+first field of a record is the header tail.
 """
 
 from __future__ import annotations
@@ -116,11 +119,11 @@ def looks_like_name(run: bytes) -> bool:
 
 
 def extract_names(plain: bytes) -> list[dict]:
-    """Extract NUL-terminated strings and their 2-byte prefix.
+    """Extract NUL-terminated text runs and the two bytes that precede them.
 
-    The prefix is the class code for the first string of a record and the tail
-    of the previous string's record for continuation strings, so treat it as
-    advisory only.
+    The prefix is whatever the binary framing happens to place before the run
+    (header tail, footer, or padding), so treat it as advisory only.  Use
+    ``tools/lctbl_records.py`` for field-aware records.
     """
     records: list[dict] = []
     pattern = re.compile(rb"[\x20-\xff]{2,200}\x00")

@@ -86,7 +86,26 @@ python3 tools/lctbl_names.py names LCTBL001.DAT --sample 10
 ```
 
 `verify` on the EU 2011 image prints `streams 517 / plain 11481060 /
-records 328628 / OK`.
+records 328628 / OK`. The last number is a **text-run scan**, not the record
+count; use `lctbl_records.py` for the framed records.
+
+## `lctbl_records.py`
+
+Decode the fixed records inside the `LCTBL001.DAT` zlib streams: a 16-byte
+header, four even-padded name slots and an opaque footer.
+
+```bash
+python3 tools/lctbl_records.py stats LCTBL001.DAT
+python3 tools/lctbl_records.py dump LCTBL001.DAT --stream 2 --limit 10
+python3 tools/lctbl_records.py roundtrip LCTBL001.DAT --all
+python3 tools/lctbl_records.py verify LCTBL001.DAT
+python3 tools/lctbl_records.py --selftest          # synthetic, no vendor data
+```
+
+`verify` on the EU 2011 image prints `streams 517 / plain 11481060 /
+records 247089 / fields (36461, 66189, 243907, 109944) / OK`; `roundtrip`
+re-encodes every stream byte-identically. See
+[`../docs/format/rdstm.md`](../docs/format/rdstm.md) "Record layout".
 
 ## `rdstm_scan.py`
 
