@@ -126,8 +126,10 @@ PINS_JSON = r"""
     "image_start": "0x200200",
     "module": "Navi.exe",
     "expect": {
-      "stubs": 846,
-      "import_slots": 846
+      "stubs": 3728,
+      "import_slots": 846,
+      "covered_slots": 845,
+      "slot_coverage": 99.9
     }
   },
   "sh4xref": {
@@ -316,11 +318,12 @@ def check_thunks(ctx, pin):
         ctx.data, ctx.path, ctx.image_size, ctx.sha256,
         module=pin["module"], image_start=int(pin["image_start"], 0))
     counts = report["counts"]
+    cov = report["coverage"]
     return {
         "stubs": counts["stubs"],
         "import_slots": counts["import_slots"],
-        "resolved": counts["resolved"],
         "covered_slots": counts["covered_slots"],
+        "slot_coverage": cov["slots"]["percent"],
     }
 
 
