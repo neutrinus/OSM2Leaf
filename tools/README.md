@@ -386,7 +386,7 @@ steps: `docs/hardware/sd-blocker-pico.md`.
 
 ```bash
 python3 tools/sdlock_pico_check.py -v   # host test against a simulated card
-# expected last line: sdlock host test: 572 checks, 0 failed
+# expected last line: sdlock host test: 580 checks, 0 failed
 ```
 
 ## `selftest.py`

@@ -83,6 +83,19 @@ int sdp_lock_block(uint8_t flags, const uint8_t *pwd, size_t pwd_len,
  */
 int sdp_parse_password(const char *spec, uint8_t out[SDP_PWD_MAX]);
 
+/* Placeholder value of the firmware's PASS variable (main.c). */
+#define SDP_PASS_PLACEHOLDER "Changeme"
+
+/*
+ * Parse the built-in default password PASS.  Same token format as
+ * sdp_parse_password(); a value without any "hex:"/"ascii:" token is taken
+ * as plain ASCII.  Returns the byte count, or:
+ *   -5  PASS is still the placeholder "Changeme" (nothing is loaded, so a
+ *       card can never be locked with the placeholder by accident)
+ *   or any sdp_parse_password() error.
+ */
+int sdp_parse_default_pass(const char *pass, uint8_t out[SDP_PWD_MAX]);
+
 /* Command class bit 7 ("lock card") from a 16-byte CSD (CCC = CSD[95:84]). */
 int sdp_csd_has_lock_class(const uint8_t csd[16]);
 

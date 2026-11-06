@@ -5,8 +5,10 @@
  * Wiring (SPI0): GP16 MISO, GP17 CS, GP18 SCK, GP19 MOSI, 3V3(OUT), GND.
  * See docs/hardware/sd-blocker-pico.md.
  *
- * The password is entered at run time with `pw ...` and kept only in RAM;
- * nothing is stored in flash and no password is compiled in.
+ * Password: the built-in default PASS below (loaded into RAM at start-up),
+ * or `pw ...` at run time.  PASS ships as the placeholder "Changeme", which
+ * is never loaded.  Set the real value only in your local copy or at build
+ * time (cmake -DSDLOCK_PASS=...); never commit it.
  */
 #include <stdio.h>
 #include <string.h>
@@ -58,11 +60,47 @@ static uint32_t pico_millis(void *ctx)
 
 static const sd_bus_t bus = {pico_xfer, pico_cs, pico_fast, pico_millis, NULL};
 
+/* ---- default password -------------------------------------------------- */
+
+/*
+ * PASS: the card password this build uses by default.
+ * Format: the same tokens as the `pw` command, concatenated in order,
+ *   "hex:<8 digits from the unit's SD PIN screen> ascii:<12-char suffix>"
+ * or plain text without tokens.  At most 16 bytes.
+ * Override at build time without editing this file:
+ *   cmake -S . -B build -DSDLOCK_PASS="hex:... ascii:..."
+ * "Changeme" is a placeholder and is ignored.  DO NOT COMMIT A REAL VALUE.
+ */
+#ifndef SDLOCK_PASS
+#define SDLOCK_PASS SDP_PASS_PLACEHOLDER
+#endif
+static const char PASS[] = SDLOCK_PASS;
+
 /* ---- state ------------------------------------------------------------- */
 
 static sd_card_t card;
 static uint8_t pwd[SDP_PWD_MAX];
 static size_t pwd_len;
+
+/* Load PASS into the RAM password buffer; print what happened. */
+static void load_default_pass(void)
+{
+    uint8_t tmp[SDP_PWD_MAX];
+    int n = sdp_parse_default_pass(PASS, tmp);
+    if (n == -5) {
+        printf("PASS is the placeholder \"%s\": no default password. "
+               "Set PASS (or -DSDLOCK_PASS) or use pw.\n", SDP_PASS_PLACEHOLDER);
+        return;
+    }
+    if (n < 0) {
+        printf("PASS is invalid (error %d, max 16 bytes): ignored.\n", n);
+        return;
+    }
+    memcpy(pwd, tmp, (size_t)n);
+    memset(tmp, 0, sizeof tmp);
+    pwd_len = (size_t)n;
+    printf("password: %d bytes from PASS (not shown)\n", n);
+}
 
 static void led(int on)
 {
@@ -171,6 +209,7 @@ static void help(void)
         "                         hex:<hex digits>  ascii:<text>  (max 16 bytes)\n"
         "  pw                   show password length\n"
         "  pwforget             wipe password from RAM\n"
+        "  pwdefault            reload the built-in PASS\n"
         "  setlock YES          SET_PWD + LOCK on a card WITHOUT a password\n"
         "  lock                 LOCK a card that already has this password\n"
         "  unlock               temporary unlock (card re-locks at power-up)\n"
@@ -217,6 +256,8 @@ static void dispatch(char *line)
         memset(tmp, 0, sizeof tmp);
         pwd_len = (size_t)n;
         printf("password: %d bytes in RAM (not shown)\n", n);
+    } else if (!strcmp(line, "pwdefault")) {
+        load_default_pass();
     } else if (!strcmp(line, "pwforget")) {
         memset(pwd, 0, sizeof pwd);
         pwd_len = 0;
@@ -267,6 +308,8 @@ int main(void)
             sleep_ms(200);
             printf("\n");
             help();
+            if (pwd_len == 0)
+                load_default_pass();
             printf("> ");
         }
         was_connected = connected;
