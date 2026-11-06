@@ -9,8 +9,10 @@ Sample: EU 2011 image
   SHA-256 `8cab17754114b5f7ca47d4f46d55c95c6acf841629e1fcc42e6da45063353e9d`
 
 > **Evidence status:** block layouts and stream counts are `VERIFIED`;
-> field semantics are `OBSERVED`/`HYPOTHESIS`; speed/direction/turn
-> restrictions are `UNKNOWN`.
+> field semantics are `OBSERVED`/`HYPOTHESIS`; the firmware-side record field
+> set and order are `VERIFIED` (EXP-2026-11-06-M3.7-router-rdstm);
+> speed/direction/turn restrictions are **not** in this file (verified
+> negative within the firmware accessor set).
 
 ## Status: what the sample supports
 
@@ -25,10 +27,10 @@ confirm one.
 | no zlib streams, no inline ASCII names | VERIFIED (negative) | names must be indices into `LCTBL001` | `tools/rdstm_scan.py zlib --bruteforce`; C-104 |
 | 2-byte codes shared with the LCTBL catalog | VERIFIED | the two files are linked by code, not by pointer | `tools/rdstm_scan.py codes --lctbl`; C-105 |
 | `0x1000` starts a table of ~16-byte rows | HYPOTHESIS | scanner default start; not a proven record size | C-106; `tools/rdstm_schema.py scan` |
-| records below `0x1a700` are graph tuples | HYPOTHESIS | node/link shape, roles unchecked | `tools/rdstm_schema.py layout` |
-| framing drift at `0x10a0` (`+14` → `+4`) | OBSERVED | one record size does not fit the whole file | C-106 |
+| records below `0x1a700` are graph tuples | HYPOTHESIS | node/link shape, roles unchecked; the firmware record set at `0x1000` is the twelve TMC fields (C-882), so any graph tuples must be elsewhere | `tools/rdstm_schema.py layout` |
+| framing drift at `0x10a0` (`+14` → `+4`) | OBSERVED | records are variable length: the firmware walks a per-record field directory | C-106, C-884 |
 | name-index mapping (code → LCTBL name) | UNKNOWN | the join rate is a bound, not a decode | `tools/rdstm_schema.py join` |
-| speed / one-way / turn restrictions | UNKNOWN | routing cannot be built yet | C-108 (targeted scans negative) |
+| speed / one-way / turn restrictions | UNKNOWN (not in `RDSTM`) | routing speed comes from elsewhere | C-885; M3.7 field set |
 | synthetic scorer + join self-test | VERIFIED (tool) | the harness itself, no vendor bytes | `tools/rdstm_schema.py --selftest` |
 
 Exact commands (vendor files are not in the repository):
@@ -52,12 +54,15 @@ a measurement of the sample.
 
 Routing needs the first three, and none of them is settled.
 
-1. **speed / one-way / turn restrictions.** No field is known to carry them
-   (C-108). They may not exist in this file at all; the tail 4-byte entries
-   with `0x40/0x60/0x80/0xe0` tags are the only candidates observed so far.
+1. **speed / one-way / turn restrictions.** Not present in the record field set
+   the firmware reads (C-885, EXP-2026-11-06-M3.7-router-rdstm), so they must
+   come from elsewhere (`MAPAL001` tiles, `INTER001`/`FRWAY001`) — not from
+   this file.
 2. **record size and framing.** The `0x1000` table drifts at `0x10a0`, so
    either the rows are variable length or the table ends there. A grid score
    cannot settle it; it can only show where a constant size stops fitting.
+   The firmware decodes records through a per-record length/offset directory
+   (C-884), which supports variable length but is not yet reproducible offline.
 3. **graph tuple roles.** A `(src, dst)` reading of the `0x1a700` arrays is a
    hypothesis. `--layout` reports reciprocity and back references as
    diagnostics: high reciprocity is what a road graph should show, but other
@@ -66,7 +71,77 @@ Routing needs the first three, and none of them is settled.
    name records or a class code is unknown; `join` only reports how often a
    code is a known LCTBL code, which is necessary but not sufficient.
 5. **code position drift.** Why the code moves from `+14` to `+4` at `0x10a0`
-   is unanswered; it is the main reason to distrust any single layout.
+   is unexplained by a fixed layout; the firmware's per-record field directory
+   (C-884) is the likely reason, but the concrete walk is not yet reproduced
+   offline.
+
+## What the firmware reads (field list with VAs)
+
+Source: EXP-2026-11-06-M3.7-router-rdstm (build A, `Navi.exe`). The record is
+the **TMC location record** of the `RDSTM001` volume; it is not a graph edge.
+
+### Volume resolution
+
+| Item | VA | Meaning |
+| --- | --- | --- |
+| `RDSTM001` (volume id) | `0x00179398` | 8-char id in the volume table at `0x00179338` |
+| `LCTBL001.DAT` (file) | `0x0017a1f8` | name table opened together with the volume |
+| data type `0x14e4` | code `0x004125a8`, compare at `0x004125fa` | selects `RDSTM001` + `LCTBL001.DAT` (kind 1) |
+| volume lookup | `0x0040b358` | `(volume, name)` → entry index, 28-byte entries (`count` at `+24`, list at `+32`) |
+| literal `RDSTM001.DAT` | `0x00179f7c` | **no code reference**; the file name is built from the id (`0x003fbed8`) |
+
+### Record fields
+
+`0x003bc960` decodes one raw record into a 496-byte (`0x1f0`) struct at
+`0x006f3918`; `0x003bbf6c` (`sdl_TMC_InitDataRecode`) clears it and sets the
+ordered codes to `0xffff`. The twelve fields and their accessors:
+
+| # | Field | decoded offset | raw field index | extractor | getter (name string VA) |
+| --- | --- | --- | --- | --- | --- |
+| 1 | location code | `+0x04` u16 | 0 | `0x003f66b8` | `0x003bbfe0` (`0x00045020`) |
+| 2 | road number (string) | `+0x12` count, `+0x1c` block | 1 | `0x003bc028` | `0x003bc100` (`0x00045038`) |
+| 3 | road name (string) | `+0x14` count, `+0x40` block | 2 | `0x003bc194` | `0x003bc26c` (`0x00045070`) |
+| 4 | primary location (string) | `+0x16` count, `+0xc4` block | 3 | `0x003bc300` | `0x003bc3d8` (`0x000450a0`) |
+| 5 | secondary location (string) | `+0x18` count, `+0x148` block | 4 | `0x003bc470` | `0x003bc548` (`0x000450e0`) |
+| 6 | area code | `+0x06` u16 | 5 | `0x003f6734` | `0x003bc5e0` (`0x00045120`) |
+| 7 | liner code | `+0x08` u16 | 6 | `0x003f6780` | `0x003bc628` (`0x0004513c`) |
+| 8 | front code | `+0x0a` u16 | 7 | `0x003f67cc` | `0x003bc670` (`0x0004515c`) |
+| 9 | rear code | `+0x0c` u16 | 8 | `0x003f6818` | `0x003bc6b8` (`0x0004517c`) |
+| 10 | urban attribute | `+0x0e` u16 | 9 | `0x003f6864` | `0x003bc700` (`0x00045198`) |
+| 11 | exit/junction (string) | `+0x1a` count, `+0x1cc` block | 10 | `0x003bc748` | `0x003bc820` (`0x000451b4`) |
+| 12 | inter-section code | `+0x10` u16 | 11 | `0x003f68bc` | `0x003bc8b8` (`0x000451fc`) |
+
+The field order is the `LCTBL001` catalog column order (see the schema table
+below), so the catalog's column offsets are the record's field order — the
+byte offsets themselves are looked up per record, not fixed.
+
+### Per-record field directory
+
+The record does not have a constant stride. `0x003f61bc(record, ?, index)`
+returns a pointer to field `index`; it uses `0x003f51e0` (schema/record-kind
+descriptor), `0x003f56bc` and `0x003f5d98` (walk the per-record length table at
+`record + 2*u16[record+2]`) and `0x003f5e10` (accumulate to the byte/bit
+offset). That is the mechanism behind the framing drift at `0x10a0` (C-106)
+and it replaces the fixed-16-byte hypothesis.
+
+### Table dump
+
+`0x003a0034` prints the twelve fields in order; its format strings are at
+`0x0003cbb0` (`hdlm recorde info`), then `0x0003cb90` `LocationCode(%d)`,
+`0x0003cb68`, `0x0003cb44`, `0x0003cb18`, `0x0003caec`, `0x0003cac8`,
+`0x0003caa4`, `0x0003ca80`, `0x0003ca5c`, `0x0003ca3c`, `0x0003ca0c`,
+`0x0003c9e8`.
+
+### Consumer split
+
+- Search / guidance text uses this record, keyed by `(country,
+  location-database no, location code)` (`0x003bcb48` request, type `0x14e4`).
+- The routing graph is mesh-keyed: `link[mesh(0x%x),no(%d),rdtype(%d)]`
+  (`0x00011eb2`), `...,lktype(%d),rdtype(%d)` (`0x00011f0e`),
+  `dir(%d),speed(%d)` (`0x00011f46`), `RGD(TurnList)` (`0x00020f30`).
+  Nothing in the `RGD`/`RPF` bands references this volume or these getters.
+- Consequence for the writer: `RDSTM001` must carry the twelve TMC attributes
+  above; speed, one-way and restrictions are **not** here.
 
 ## `LCTBL001.DAT` — catalog + compressed name database
 
@@ -185,15 +260,19 @@ the mesh-code encoding still need decoding.
 
 | Attribute | Location | Status |
 | --- | --- | --- |
-| kind code | LCTBL column 0 (record offset `0x23`) | column verified; values unknown |
-| road no | column 1 (`0x2f`) | column verified; values unknown |
-| road/first/second name | columns 2–4 (`0x3c/0x49/0x57`) | column verified; name index mapping hypothesis |
-| area / liner ref | columns 5–6 (`0x63/0x70`) | column verified; meaning unknown |
-| negative/positive offset | columns 7–8 (`0x80/0x90`) | column verified; meaning unknown |
-| urban | column 9 (`0x9b`) | column verified |
-| exit/junction no | column 10 (`0xab`) | column verified |
-| Inter-section code | column 11 | column verified |
-| speed / direction / turn restrictions | not found | UNKNOWN |
+| kind code | LCTBL column 0 (record offset `0x23`) | column verified; read as "location code" (`0x003f66b8`) |
+| road no | column 1 (`0x2f`) | string field, getter `0x003bc100` |
+| road/first/second name | columns 2–4 (`0x3c/0x49/0x57`) | string fields, getters `0x003bc26c`/`0x003bc3d8`/`0x003bc548` |
+| area / liner ref | columns 5–6 (`0x63/0x70`) | u16 codes, extractors `0x003f6734`/`0x003f6780` |
+| negative/positive offset | columns 7–8 (`0x80/0x90`) | front/rear code, extractors `0x003f67cc`/`0x003f6818` |
+| urban | column 9 (`0x9b`) | u16, extractor `0x003f6864` |
+| exit/junction no | column 10 (`0xab`) | string field, extractor `0x003bc748` |
+| Inter-section code | column 11 | u16, extractor `0x003f68bc` |
+| speed / direction / turn restrictions | not in the record | VERIFIED (negative, C-885) |
+
+The byte offsets `0x23…0xab` are the `LCTBL001` catalog column offsets; the
+firmware resolves the same twelve fields through a per-record field directory
+instead of fixed offsets, in the same order.
 
 `INTER`/`FRWAY` IDs were not located in these two files (see
 [inter-frway.md](inter-frway.md)).
