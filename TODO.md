@@ -126,6 +126,29 @@ qemu-system-misc gdb-multiarch`.
 
 ## Priorities (product review 2026-11-06, third pass)
 
+> **Near-term pivot (Marek, 2026-11-06): edit a tile that is already in the US
+> map, not a freshly compiled Polish one.** Marek's only hardware is a US ZE0
+> unit, so the first on-device proof should use the unit's own map. This is the
+> lowest-risk first test on every axis and it moves ahead of the OSM compiler:
+>
+> - **Hardware + region match.** The region lock is the *unit*, not the card
+>   (M2.7); a US card in a US unit trips no market gate. An edited US tile keeps
+>   the native map code `QSD-301-103` / `X08-02-00`.
+> - **Data is in hand.** The US 2011 image is on the allowed host
+>   (`https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img`,
+>   sha256 `53342430…c5383`, 113 tiles, N-America), so building and checking an
+>   edited US card needs no new download permission and no card dump.
+> - **Smallest proven change.** An in-place one-tile edit with section 4 kept
+>   verbatim already passes L2 (M4.4, M5.8) — far less than the full
+>   OSM→tile compiler (M5.2–M5.6).
+> - **It exercises the real loop early:** accept → display → route on the actual
+>   unit, which the EU/Poland path can never do on Marek's bench.
+>
+> So the new nearest milestone is **M5.12** (an edited US card image, built now
+> against the US image) → **M6.2** (clone Marek's own card as the no-op
+> baseline) → **M6.5/M6.6/M6.7** on the US card. The OSM→Poland compiler
+> (M5.1→M5.11) stays the end goal and the US edit de-risks its accept path first.
+
 **Where we are against the goal.** The two hard gates are now largely
 answered. **Card identity is solved:** the SD lock is a 16-byte CMD42
 password = 4 unit bytes + the 12-char ASCII tail, verified in `SDHC.dll`
@@ -270,8 +293,8 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 | M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.6c, M1.2b**, M1.2c, M1.2d (M1.9 done) |
 | M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12** (M2.7, M2.11, M2.13, M2.13b done) |
 | M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 done) |
-| M4 | Data formats (no firmware needed) | **M4.8b, M4.15**, M4.3, M4.12, M4.19 (M4.7, M4.9, M4.10, M4.11, M4.18 done) |
-| M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.2, M5.10, M5.11**, M5.9 (M5.1 done); M5.1b non-Claude runner |
+| M4 | Data formats (no firmware needed) | **M4.8b, M4.8c, M4.15**, M4.3, M4.12, M4.19 (M4.7, M4.9, M4.10, M4.11, M4.18 done) |
+| M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.12 (US edit, nearest), M5.2, M5.10, M5.11**, M5.9; M5.1b non-Claude |
 | M6 | Hardware and safety (planning now, tests later) | M6.9 (non-Claude runner); tests need hardware |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
 | M9 | L3 toolkit (run firmware functions on our data) | **M9.2, M9.3**, M9.1, M9.5, M9.8 (M9.4, M9.7 done) |
@@ -1306,7 +1329,37 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     `out.img` against every known accept/reject gate (HDD_INFO fields,
     map-code comparator inputs, attestation, SD lock) and states, per gate,
     pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
-  - Claims: C-1960–C-1969
+  - Claims: C-1970–C-1979
+
+- [ ] **M5.12 — Edited US tile on a rebuilt US card image**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.10 (M4.8c for a named target; uses existing mutate tooling)
+  - Goal: the near-term milestone — one visibly-changed tile in the US map,
+    on a card image, built and checked offline, ready for Marek's unit.
+  - Input: `LEAF_2011-2012_US.img` from
+    `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` (extract `ROOT`
+    with `tools/verify.py --image`); `tools/ze0-viewer/harness.py mutate` +
+    `tools_ze0`; `tools/section4.py preserve`; `tools/tile_diff.py`;
+    `tools/mkcard.py` (M5.10); a US tile over a road Marek can recognise
+    (pick with M4.8c). No vendor bytes committed (offsets/counts/hashes only).
+  - Done when: one US tile is edited in place (a moved or renamed road)
+    with section 4 byte-identical; `harness.py verify` and `l2check.py`
+    PASS; `tile_diff.py` shows only the intended change; `mkcard.py` rebuilds
+    the card image and `cardcheck.py --image` passes; the EXP names the tile,
+    the road and the exact change so Marek can spot it on screen.
+  - Claims: C-1980–C-1989
+
+- [ ] **M4.8c — Confirm `coord.py` on the US grid**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.8
+  - Goal: target a specific US road by lat/lon, which M5.12 needs.
+  - Input: `tools/coord.py`; US tiles use `R ≥ 0xA0` (lon −172…−52, so
+    `lon_max = 108 − int(R,16)` goes negative); `LEAF_2011-2012_US.img`
+    `COORD001`/tile bboxes; the 52742-vs-52736 origin question (M4.8).
+  - Done when: `coord.py` maps ≥ 5 known US landmarks (coordinates from
+    Wikipedia/Wikidata, not OSM) into the right US tile and cell within a few
+    hundred metres, and the self-test pins a US fixture.
+  - Claims: C-1990–C-1999
   - Depends: —
   - Goal: an automatic report of what changed vs what was preserved between
     a factory and a generated/mutated tile (sections, records, bytes).
@@ -1388,14 +1441,15 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Claims: C-1940–C-1949
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
   EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939
-- [ ] **M6.2** Owner's US 2011 SD dump (read-only, SHA-256). Status: blocked
-  (hardware) · Owner: Marek. Claims: C-1140–C-1149
-- [ ] **M6.5** First on-device test with the no-op clone. Status: blocked
-  (hardware; Depends M6.3). Claims: C-1150–C-1159
-- [ ] **M6.6** First on-device test with one changed tile. Status: blocked
-  (Depends M6.5, M5.6). Claims: C-1160–C-1169
-- [ ] **M6.7** Routing test across the changed tile. Status: blocked
-  (Depends M6.6). Claims: C-1170–C-1179
+- [ ] **M6.2** Clone Marek's own US 2011 card (read-only, SHA-256) as the
+  no-op baseline for the on-device tests. Now the near-term hardware step (the
+  pivot above). Status: blocked (hardware) · Owner: Marek. Claims: C-1140–C-1149
+- [ ] **M6.5** First on-device test with the no-op clone of the US card.
+  Status: blocked (hardware; Depends M6.2, M6.3). Claims: C-1150–C-1159
+- [ ] **M6.6** First on-device test with the US card carrying one changed tile
+  (M5.12). Status: blocked (hardware; Depends M6.5, M5.12). Claims: C-1160–C-1169
+- [ ] **M6.7** Routing/display test across the changed US tile. Status: blocked
+  (hardware; Depends M6.6). Claims: C-1170–C-1179
 
 ---
 
