@@ -605,6 +605,94 @@ RETRACTED; C-088/C-089). It does **not** mean the map readers are located —
 [`cerom.md`](cerom.md) §9 lists what remains unknown. Raw runs:
 `EXP-2026-11-05-33` and `EXP-2026-11-05-34`.
 
+## MapUpdate.exe (image B, M2.6)
+
+`MapUpdate.exe` is module #81 of image B: 65536 bytes, `load=0x88a9b000`,
+`vbase=0x00010000`, entry `0x0001e0d4`; three sections, the last one
+(`rva 0x12000`, vsize `0x358`) is `IMAGE_SCN_COMPRESSED` and is **not**
+decoded (M1.2). Imports `COREDLL.dll`, `CEDDK.dll` (`MmMapIoSpace`/
+`MmUnmapIoSpace`) and `commondll.dll` (`CApi_GetSramVirtualAddress`,
+`CApi_CommitSram`, `CApi_GetModelCode`, `CApi_MakeCRC16`); it loads
+`fatutil.dll` dynamically for `FormatVolume`. Function VAs below come from
+the `sh4xref.py` prologue heuristic on the uncompressed code section.
+
+### Entry points
+
+| VA | Role |
+| --- | --- |
+| `0x0001e0d4` | process entry: calls `0x0001e15c`, `0x0001988c`, `0x0001e264` |
+| `0x0001988c` | main: creates `MUTEX_MAP_UPDATE` (errors if already running), allocates the manager, calls `ManageInit` |
+| `0x00019b70` | `CMapUpdate::MapUpdateInit`: opens `SDC1:`/`FMD1:`/`CEN1:` stores, loads `fatutil.dll`/`FormatVolume`, maps flash with `MmMapIoSpace`, opens event `RCV_FLAP_OPERATE_STATUS` |
+| `0x0001d888` | `ManageInit` (thread creation + `ClassCreate`) |
+| `0x0001d170` | `ClassCreate` (allocates `CMapUpdate` + `CMapUpIpc`) |
+| `0x0001c980` | `MapUpIpcInit` / `IpcClassCreate` (queues `MSG_QUEUE_MAP_UPDATE`, `MSG_QUEUE_MNGER`, `MSG_QUEUE_PRG_UPDATE_CC`) |
+| `0x0001d71c` | `MapUpSequenceMain` (dispatches check / proc / format) |
+| `0x0001d3a4` | `MapUpdateProc` (copy-user-data path) |
+| `0x0001d57e` | `MapUpSdCardFormat` (delete/create partitions, security release) |
+
+### Validation / checks
+
+| VA | Method |
+| --- | --- |
+| `0x0001a8c0` | `SdCardExists` (`IOCTL_SDC_GET_SDCARD_STATUS` on `DSK1:`/`DSK8:`) |
+| `0x0001a9b2` | `CheckSdInfoBuban` |
+| `0x0001aa78` | `CheckNK1HeaderDBVer` / `CheckNK1HeaderBuban` |
+| `0x0001ab64` | `ValidateReplaceMapCard` |
+| `0x0001acac` | `ValidateRewritedCard` |
+| `0x0001aec8` | `FlashTargetInfRead` (`IOCTL_FMD_READ`) |
+| `0x0001ac78` / `0x0001adfc` | `FlashVerUpInfRead` |
+| `0x0001b0fa` | `GetAdmSdInfo` (`\UserSD\HDD_ADM.TXT` / `\SystemSD\HDD_ADM.TXT`) |
+| `0x0001b292` | `GetTxtSdInfo` (`\UserSD\VER_INFO\HDD_INFO.TXT` / `\SystemSD\...`) |
+| `0x0001a314` | `CheckFlashNK1Code` (checksum / size / end mark) |
+| `0x0001c210` | `SilentAuthenticate` (CRC16 attestation over `HDD_CHK.ATT`) |
+| `0x0001b3a0` | `SecurityUnLock` |
+| `0x0001b572` | `SecurityLockSet` |
+| `0x0001b8dc` | `SecurityRelease` / `GetSecurityStatus` |
+| `0x0001bfe6` / `0x0001c0ac` | `GetVSramCompleteFlag` / `SetVSramCompleteFlag` |
+| `0x0001d268` | `MapUpSdCardCheck` |
+
+### Install / copy / partition work
+
+| VA | Method |
+| --- | --- |
+| `0x0001a3cc` | `MapUpCopyFile` (src/dst copy, size limit, canonical paths) |
+| `0x0001bad0` | `CopyFile` |
+| `0x0001bcf2` | `UpdateDisk` (partition enumeration, fail-safe) |
+| `0x0001c74c` | `DeleteAndCreatePartition` / `DeleteAllPartition` |
+| `0x0001c58c` | `DriveFormat` (`FormatVolume`) |
+| `0x0001c3ec` | `CopyUserData` (`\UserSD2\PRIVATE` / `\SystemSD2\PRIVATE`) |
+| `0x0001a044` | `UnmountAllPart` |
+| `0x0001a11c` | `GetFileCount` (`MPFFFFFF.FFF`) |
+| `0x0001c060` | `AllocCopyBuffer` (`VirtualAlloc`) |
+| `0x0001cc74` | `MapUpThreadEnd` |
+| `0x0001ccfc` | `CheckForReplace` (recovery) |
+| `0x0001d7c8` | `MapUpProcessThread` |
+| `0x0001d800` | `MapUpCreateThread` |
+
+### Files it opens
+
+- Stores: `SDC1:`, `FMD1:`, `CEN1:`, `DSK1:`, `DSK8:` (and `DSK%d:`).
+- SD card: `\UserSD\VER_INFO\HDD_INFO.TXT`, `\SystemSD\VER_INFO\HDD_INFO.TXT`,
+  `\UserSD\HDD_ADM.TXT`, `\SystemSD\HDD_ADM.TXT`,
+  `\UserSD\HDD_CHK.ATT`, `\SystemSD\HDD_CHK.ATT`,
+  `\UserSD\ClarionUpdate.key`, `\SystemSD\ClarionUpdate.key`,
+  `\SystemSD\MapFinish.key`, `\UserSD2\PRIVATE`, `\SystemSD2\PRIVATE`.
+- IPC queues: `MSG_QUEUE_MAP_UPDATE`, `MSG_QUEUE_MNGER`,
+  `MSG_QUEUE_PRG_UPDATE_CC`.
+- Event: `RCV_FLAP_OPERATE_STATUS`; mutex: `MUTEX_MAP_UPDATE`.
+- Dynamic library: `fatutil.dll` (`FormatVolume`).
+- Patterns: `MPFFFFFF.FFF`, `Part%02d`.
+
+### Summary
+
+`MapUpdate.exe` is the card-install/update agent. It does not parse map tile
+geometry; it checks SD card presence, attestation and header/version data,
+then formats partitions and copies files, signalling progress over message
+queues. Acceptance of a rebuilt card depends on the attestation files above
+and the flash/NK version checks, together with the runtime `Navi.exe`
+comparator (M2.1/M2.2). The byte-level attestation algorithm and the
+compressed section remain unknown.
+
 ## Next steps
 
 Next is `TODO.md` Step 2: fix the file-TOC stride, add `e32`/`o32` and the copy

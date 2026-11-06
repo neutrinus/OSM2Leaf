@@ -430,8 +430,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the deciding input is named with the code path VA.
   - Claims: C-760–C-769
 
-- [ ] **M2.6 — Read `MapUpdate.exe` (image B)**
-  - Status: in progress · Owner: task/m2.6-mapupdate · Critical: no
+- [x] **M2.6 — Read `MapUpdate.exe` (image B)**
+  - Status: done · Owner: task/m2.6-mapupdate · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: how the unit validates and installs map data; which files it
     checks and what it writes.
@@ -440,6 +440,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `docs/format/firmware.md` has a "MapUpdate.exe" summary with
     function VAs, the files it opens, and every check it performs.
   - Claims: C-770–C-779
+  - Result: docs/experiments/EXP-2026-11-06-M2.6-mapupdate.md; MapUpdate.exe summary in docs/format/firmware.md
 
 - [ ] **M2.7 — US vs EU market decision**
   - Status: open · Owner: — · Critical: no
