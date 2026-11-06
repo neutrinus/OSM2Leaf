@@ -262,8 +262,9 @@ widens knowledge or tooling in parallel and is equally welcome.
     `rommap.py` docs name `cerom.py memmap`; both self-tests pass.
   - Claims: C-620–C-629
 
-- [ ] **H4 — Audit the delta-era firmware claims**
-  - Status: open · Owner: — · Critical: no
+- [x] **H4 — Audit the delta-era firmware claims**
+  - Status: done · Owner: task/h4-audit-delta-claims · Critical: no
+  - Result: docs/experiments/EXP-2026-11-06-H4-audit-delta-claims.md; claims C-630–C-639; candidate rows re-verified or retracted
   - Depends: —
   - Goal: every firmware claim from EXP-05…29 is either re-verified through
     `cerom.py` or retracted.
