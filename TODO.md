@@ -1648,7 +1648,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1100–C-1109
 
 - [ ] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: done (planning) · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M5.12 for the edited pair)
   - Goal: the S1/S2 cards for Marek's unit must differ from S0 only in the
     changed file (one variable per card, `card-test-plan.md`). `mkcard.py`'s
@@ -1839,7 +1839,7 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Done when: an EXP shows the moved vertex on screen and one route that
     uses the changed road.
   - Claims: C-1170–C-1179
-- [ ] **M6.12 — Clarion debug console (MONI `FW>`, `DSW=0006`) access procedure**
+- [x] **M6.12 — Clarion debug console (MONI `FW>`, `DSW=0006`) access procedure**
   - Status: in progress · Owner: session-ZMxuBT · Critical: no · **Runner: non-Claude** (needs
     hardware; planning is doable now, the procedure is unverified until bench)
   - Depends: M6.8 (bench kit / access plan); complements M8.A6 and

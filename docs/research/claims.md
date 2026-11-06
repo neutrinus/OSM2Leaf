@@ -1195,6 +1195,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-2030 | `tools/mkcard.py` fresh builds copy the source root attr-`0x08` label slot verbatim to slot 0 and keep the factory root order for names present in the tree, appending new names alphabetically with a report line; `--label` overrides only the root entry (BPB `BS_VolLab` unchanged) and a mismatch is reported. Synthetic fixture only; the real US/EU rebuild still needs the image. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M5.12b-root-label; `python3 tools/mkcard.py --selftest` |
 
+| C-2010 | The only reported route to the Clarion monitor (`MONI`, `FW>` prompt, `DSW=0006`) is the zelemar.eu service-connector description (TE 1674312-1 named, Rx/Tx/Mode); no `FW>`/`MONI`/`DSW`/`1674312` string exists in the repo or the analysed CE image and no step has been run on a unit, so the whole procedure is UNVERIFIED until a bench session captures the prompt and one memory read matching a known image string. | VERIFIED (repo negative) / UNVERIFIED (procedure) | H / L | EXP-2026-11-06-M6.12-debug-console; `dynamic-break-guide.md` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
