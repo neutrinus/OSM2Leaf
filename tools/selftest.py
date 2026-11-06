@@ -63,6 +63,7 @@ if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
 import cardcheck  # noqa: E402
+import claims_check  # noqa: E402
 import ce_qemu_probe  # noqa: E402
 import cmpind  # noqa: E402
 import drstr  # noqa: E402
@@ -150,6 +151,17 @@ def test_mesh_grid() -> None:
     assert abs(lat_max - 53.3333333333) < 1e-6
     assert abs(lon_min - 12.0) < 1e-9
     assert abs(lon_max - 20.0) < 1e-9
+
+def test_claims_check() -> None:
+    claims_text = claims_check.CLAIMS_PATH.read_text(encoding="utf-8")
+    exp_files = {}
+    if claims_check.EXP_DIR.exists():
+        for p in claims_check.EXP_DIR.glob("*.md"):
+            exp_files[p.name] = p.read_text(encoding="utf-8")
+    result = claims_check.check(claims_text, exp_files)
+    assert not result["duplicate_ids"], result["duplicate_ids"]
+    assert not result["unregistered_proposed"], result["unregistered_proposed"]
+    assert not result["bad_annotations"], result["bad_annotations"]
 
 
 def _lfn_entry(seq: int, text: str) -> bytes:
@@ -308,6 +320,12 @@ def builtin_suites() -> list[Suite]:
             "builtin",
             "cardcheck L1 helpers: level table, header, LFN, .cmp, listing",
             func=test_cardcheck_helpers,
+        ),
+        Suite(
+            "claims_check",
+            "builtin",
+            "claim ledger: duplicate IDs and proposed-claim registration",
+            func=test_claims_check,
         ),
         Suite(
             "ce_qemu_probe",
