@@ -134,3 +134,14 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-48](EXP-2026-11-05-48-cerom-memmap.md) | `cerom.py memmap` / Ghidra memory map (M1.5) | done (synthetic) |
 | [EXP-2026-11-05-47](EXP-2026-11-05-47-cerom-selftest.md) | `cerom.py` synthetic self-test (M1.1) | done (synthetic) |
 | [EXP-2026-11-05-46](EXP-2026-11-05-46-diff-years-tool.md) | Cross-year differential tool (`diff_years.py`) | done (synthetic) |
+| [EXP-2026-11-05-M1.8](EXP-2026-11-05-M1.8-sh4xref.md) | SH-4 literal/xref helper `sh4xref.py` (M1.8) | done |
+| [EXP-2026-11-05-M2.1](EXP-2026-11-05-M2.1-hddinfo-fn.md) | `Navi.exe` `HDD_INFO.TXT` function `0x004e7b8c` (M2.1) | partial; blocker refuted by EXP-2026-11-06-H5 |
+| [EXP-2026-11-05-M2.9](EXP-2026-11-05-M2.9-error-catalogue.md) | Error-screen catalogue (M2.9) | done |
+| [EXP-2026-11-05-M2.10](EXP-2026-11-05-M2.10-testmode.md) | `TestMode.exe` diagnostics (M2.10) | done |
+| [EXP-2026-11-05-M4.1](EXP-2026-11-05-M4.1-rdstm-record.md) | One `RDSTM001` row, decode and round-trip (M4.1) | done (semantics HYPOTHESIS) |
+| [EXP-2026-11-05-M4.2](EXP-2026-11-05-M4.2-rdstm-link-attrs.md) | `RDSTM001` link attributes vs OSM (M4.2) | blocked (no OSM access, no coordinates) |
+| [EXP-2026-11-05-M4.5](EXP-2026-11-05-M4.5-mmain001.md) | `MMAIN001.DAT` is a FAT root-directory log (M4.5) | done |
+| [EXP-2026-11-05-M4.6](EXP-2026-11-05-M4.6-b30r048r-diff.md) | `B30R048R` 2013–2016 rebuild difference (M4.6) | done |
+| [EXP-2026-11-05-M4.13](EXP-2026-11-05-M4.13-strings.md) | Name strings: charset, lengths, Polish letters (M4.13) | done (collation UNKNOWN) |
+| [EXP-2026-11-05-M5.8](EXP-2026-11-05-M5.8-tile-diff.md) | One-tile diff report `tile_diff.py` (M5.8) | done |
+| [EXP-2026-11-06-H5](EXP-2026-11-06-H5-pm-review.md) | Board review; real-image checks of synthetic-only results (H5) | done |
