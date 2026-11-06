@@ -1001,7 +1001,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-970–C-979
 
 - [ ] **M4.10 — POI icon code → `BICON001` PNG**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.10-poi-icon · Critical: no
   - Depends: —
   - Done when: a mapping table for ≥ 20 POI categories is in
     `docs/format/assets.md` (icons are not committed).
