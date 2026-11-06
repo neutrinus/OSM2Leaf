@@ -24,6 +24,12 @@ that a card image written on a PC can be used in the car.
 - In **SPI mode** every SD card accepts CMD42. An RP2040 has a hardware SPI
   block, 3.3 V GPIO and USB, and costs about €5. That is all it takes.
 
+The unit also has its own SD LOCK/UNLOCK service menu (EXP-2026-11-06-M2.13,
+C-1882), so a card that stays with one unit can be (un)locked there. The Pico
+tool is for what the menu cannot do: locking a card the unit has never seen,
+checking a card's lock state off the bench, and the image-then-lock flow
+without the unit.
+
 Locking and unlocking change only the card's security state. They do not
 read, write or move any data block (as long as the ERASE bit is never sent;
 section 8).
@@ -58,12 +64,14 @@ it lives in RAM only and is gone when the Pico is unplugged.
 What is known (claims ledger):
 
 - Scheme: **4 unit-specific bytes followed by a fixed 12-character ASCII
-  suffix** (C-075, external research, `OBSERVED`/hearsay). The suffix is
-  quoted in C-075; the unit stores the password in flash near `0xA100`.
+  suffix** (C-075). The suffix is a firmware literal in `PRGUpdate.exe` and
+  `TestMode.exe` (C-1880, VERIFIED, EXP-2026-11-06-M2.13); the 8-digit
+  prefix is assembled at run time per unit (C-1881).
 - The 4 unit bytes are shown on the unit's service screen **"SD PIN"** as
   8 hexadecimal digits (reported by Marek from a real unit; the exact value
   stays out of the repo). M2.13 recovers the bytes from `SDHC.dll`
-  (`byPasswordLen`/`dPassword` logging, C-792/C-793).
+  (`byPasswordLen`/`dPassword` logging, C-792/C-793); M2.13b traces how the
+  prefix is derived.
 - **Encoding (C-1940, HYPOTHESIS, strong):** an SD password is at most
   **16 bytes** (`PWD_LEN` ≤ 16). 8 digits typed as ASCII plus the 12-character
   suffix would be 20 bytes, which no SD card accepts. 4 raw bytes + 12 ASCII
