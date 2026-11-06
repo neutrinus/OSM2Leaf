@@ -179,6 +179,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M4.18](EXP-2026-11-06-M4.18-lctbl-framing.md) | `LCTBL001` record framing and per-field lengths (M4.18) | done |
 | [EXP-2026-11-06-M5.2](EXP-2026-11-06-M5.2-mesh-splitter.md) | Mesh splitter with border clipping (M5.2) | done (synthetic) |
 | [EXP-2026-11-06-M5.10](EXP-2026-11-06-M5.10-mkcard.md) | Card image builder `mkcard.py` (M5.10) | done (synthetic; real IMG pending) |
+| [EXP-2026-11-06-M5.4](EXP-2026-11-06-M5.4-tilewriter.md) | Roads-only tile writer, tool half (M5.4) | blocked: no vendor tile |
 | [EXP-2026-11-06-M5.9](EXP-2026-11-06-M5.9-tile-diff.md) | Content-matched tile diff with record naming (M5.9) | done (synthetic) |
 | [EXP-2026-11-06-M7.4](EXP-2026-11-06-M7.4-profiles-v2.md) | Build profiles migrated to schema v2 (M7.4) | done |
 | [EXP-2026-11-06-M9.2](EXP-2026-11-06-M9.2-ghidra-import.md) | Ghidra project importer, tool half (M9.2) | blocked: no Ghidra/image |

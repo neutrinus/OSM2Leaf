@@ -1264,6 +1264,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Input: `tools/ze0-viewer/vendor/osm2clarion`, factory neighbours,
     `section4.py preserve`.
   - Done when: one generated tile passes L2.
+  - Blocker: no vendor tile or card tree here, and M5.3/M4.2 own the real
+    class/speed table. Tool half: `tools/tilewriter.py` splices road records
+    into a factory tile, preserves header/tables and section 4, and passes
+    48/48 synthetic checks (EXP-2026-11-06-M5.4-tilewriter, C-1060).
   - Claims: C-1060–C-1069
 
 - [ ] **M5.5 — Connectivity across tile borders**
@@ -1619,7 +1623,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     snippet parity proven, real engines SKIP (EXP-2026-11-06-M9.4-engine).
   - Claims: C-1660–C-1669
 - [x] **M9.5 — Runner `run` end-to-end**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: blocked · Owner: — · Critical: yes · Critical: yes
   - Depends: M9.2 or M9.4, M9.3
   - Goal: `runner.py run FUNC --input FILE [--engine ghidra|qemu] --json`
     with targets in `tools/l3_harness/targets.json`.

@@ -978,6 +978,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1670 | `tools/l3_harness/runner.py run TARGET --input FILE [--engine pysh4\|ghidra\|qemu] --json` runs a declared target end-to-end: loads the input into the dispatcher virtual FS, installs `module!export`/ordinal stubs as `on_exec` hooks over engine memory, executes `probe_zlib_cmf_v1` on PySh4 and reports `accepted`, `r0`, the stub call log, steps and backend; it returns ACCEPT iff the served first byte is the zlib CMF `0x78`, MISMATCH when the expected verdict differs, BLOCKED (4) for an unlocated reader or missing stub, SKIP (3, `accepted: null`) for an absent backend, and records `l3_claim: false`. | VERIFIED (tool, synthetic corpus) | H | EXP-2026-11-06-M9.5-runner; `python3 tools/l3_harness/runner.py run probe-zlib-cmf --corpus …` |
 
+| C-1060 | `tools/tilewriter.py` writes a roads-only ZE0 tile from mesh-split IMF: with `--factory` it copies the `0x1000` header, level table `0x1ac`, box table `0x2ac` and section table `0x800` byte-for-byte, carries section 4 through `section4.py encode preserve` (aborting on any change) and rewrites only section-1 `0x00fa` road records for populated parcels; records come from `fa_encode` for a caller-supplied class table (a miss is an error) and are recompressed as `78 9c`; the key is `(A,B,0x00fa)` with the parcel_code low byte. Synthetic factory tile: 30,720→30,806 B, header/tables/sections 2 and 4 identical, one pair replaced and one created, 48/48 checks. Real-tile L2 remains blocked on the vendor tile and M5.3/M4.2. | VERIFIED (tool, synthetic) | M | EXP-2026-11-06-M5.4-tilewriter; `python3 tools/tilewriter.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
