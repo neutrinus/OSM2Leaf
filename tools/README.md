@@ -162,6 +162,25 @@ python3 tools/cerom.py --image-start 0x200200 IMAGE imports Navi.exe   # IAT slo
 `extract` writes raw section bytes; compressed (`0x2000`) sections are not
 decompressed yet.
 
+## `ce_strfind.py` — string search across every CE ROM module
+
+Walks the TOC and searches each module's sections for an ASCII, UTF-16LE or
+UTF-16BE needle; reports `module / section / RVA / VA / file offset / context`.
+Compressed sections are offered to `cecompress` and listed as `UNSUPPORTED`
+when it cannot decode them, so a section is never skipped silently. Use
+`--control` for the mandatory positive control.
+
+```bash
+python3 tools/ce_strfind.py IMAGE MMAIN --control HDD_INFO.TXT --encoding all
+python3 tools/ce_strfind.py --image-start 0x3e00200 IMAGE MMAIN --control HDD_INFO.TXT
+python3 tools/ce_strfind.py IMAGE MMAIN --module Navi.exe --json
+python3 tools/ce_strfind.py --selftest
+```
+
+Exit 0 = at least one hit and every control found; 1 = no hit or a control
+miss. The read is capped at 128 MiB (builds A/B/C all live below that), so an
+8 GB image is not loaded whole.
+
 ## `realcheck.py` — pinned real-image regression
 
 Replays the real-image checks recorded in
