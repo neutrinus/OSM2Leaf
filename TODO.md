@@ -519,8 +519,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `cmpind.py`.
   - Claims: C-840–C-849
 
-- [ ] **M3.4 — `DRSTR001.DAT` parser and what it validates**
-  - Status: in progress · Owner: task/m3.4-drstr-parser · Critical: no
+- [x] **M3.4 — `DRSTR001.DAT` parser and what it validates**
+  - Status: done · Owner: task/m3.4-drstr-parser · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: find the parser and list its checks (counts, ordering,
     sentinels, the leading `u32` = 47).
@@ -531,7 +531,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: a validation list is in `docs/format/drstr.md` with VAs, or
     an EXP shows the string search with a positive control and no xref.
   - Claims: C-850–C-859
-
+  - Result: EXP-2026-11-06-M3.4-drstr-parser (DRSTR/CMP.LST xrefs in Navi.exe at 0x00419684/0x0041ba90; MAPAL only static table; no count/order/sentinel check identified)
 - [ ] **M3.5 — Tile reader entry and the level table**
   - Status: open · Owner: — · Critical: no
   - Depends: — (M1.8 helps)
