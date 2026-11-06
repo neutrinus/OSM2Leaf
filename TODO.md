@@ -701,7 +701,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-05-M2.10-testmode (menus/functions with VAs; entry via image C launch table + boot-mode flag; physical trigger unknown)
 
 - [ ] **M2.11 — When the unit reads `HDD_INFO.TXT` (`fn 0x004dd028`)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.11-hddinfo-trigger · Critical: no
   - Depends: — (M1.9 helps)
   - Goal: know the trigger (boot, SD insert, menu) and the retry logic, so a
     test card is inserted at the right moment.
