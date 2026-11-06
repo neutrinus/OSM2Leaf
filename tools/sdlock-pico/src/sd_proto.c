@@ -97,6 +97,25 @@ int sdp_parse_password(const char *spec, uint8_t out[SDP_PWD_MAX])
     return n == 0 ? -4 : (int)n;
 }
 
+int sdp_parse_default_pass(const char *pass, uint8_t out[SDP_PWD_MAX])
+{
+    if (pass == NULL || strcmp(pass, SDP_PASS_PLACEHOLDER) == 0)
+        return -5;
+    if (strstr(pass, "hex:") == NULL && strstr(pass, "ascii:") == NULL) {
+        size_t n = strlen(pass);
+        if (n == 0)
+            return -4;
+        if (n > SDP_PWD_MAX)
+            return -3;
+        for (size_t i = 0; i < n; i++)
+            if ((unsigned char)pass[i] < 0x21 || (unsigned char)pass[i] > 0x7E)
+                return -1;
+        memcpy(out, pass, n);
+        return (int)n;
+    }
+    return sdp_parse_password(pass, out);
+}
+
 int sdp_csd_has_lock_class(const uint8_t csd[16])
 {
     /* CSD bits [95:84] = CCC.  Byte 4 holds bits 95..88, byte 5 high

@@ -327,6 +327,18 @@ static void test_proto(void)
     check(sdp_parse_password("   ", pw) == -4, "empty spec accepted");
     check(sdp_parse_password("hex:00", pw) == 1 && pw[0] == 0, "hex:00");
 
+    /* Built-in default password PASS. */
+    check(sdp_parse_default_pass("Changeme", pw) == -5, "placeholder loaded");
+    check(sdp_parse_default_pass(SDP_PASS_PLACEHOLDER, pw) == -5, "placeholder");
+    check(sdp_parse_default_pass(NULL, pw) == -5, "NULL pass");
+    n = sdp_parse_default_pass("hex:DEADBEEF ascii:TestSuffix12", pw);
+    check(n == 16 && pw[0] == 0xDE && pw[15] == '2', "PASS tokens -> %d", n);
+    n = sdp_parse_default_pass("test1234", pw);
+    check(n == 8 && pw[0] == 't' && pw[7] == '4', "PASS plain -> %d", n);
+    check(sdp_parse_default_pass("12345678901234567", pw) == -3, "PASS 17 bytes");
+    check(sdp_parse_default_pass("", pw) == -4, "PASS empty");
+    check(sdp_parse_default_pass("has space", pw) == -1, "PASS with space");
+
     uint8_t csd[16] = {0};
     csd[4] = 0x08; /* CCC bit 7 */
     check(sdp_csd_has_lock_class(csd) == 1, "lock class bit");

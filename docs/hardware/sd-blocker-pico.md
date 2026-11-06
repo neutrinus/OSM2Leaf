@@ -58,9 +58,19 @@ then **`setlock`** again (section 7).
 ## 3. The password
 
 **Do not commit the password.** The repo rule (`card-test-plan.md`, "Do not
-attempt") is not to publish the CMD42 password; the firmware therefore has
-no password compiled in. You type it into the tool at run time (`pw ...`),
-it lives in RAM only and is gone when the Pico is unplugged.
+attempt") is not to publish the CMD42 password. The firmware has one
+variable for it, `PASS` in `tools/sdlock-pico/src/main.c`, which ships as the
+placeholder **`PASS="Changeme"`**. The placeholder is never loaded, so a card
+cannot be locked with it by accident. Two ways to use the real password:
+
+- **Build it in (local only):** set `PASS` in your local copy, or better
+  pass it at build time so no source file changes:
+  `cmake -S . -B build -DSDLOCK_PASS="hex:<8 digits> ascii:<suffix>"`.
+  The tool loads it into RAM at start-up (`password: 16 bytes from PASS`);
+  `pwdefault` reloads it. The value is then in `build/CMakeCache.txt` and in
+  the `.uf2` (both git-ignored): never commit them or share the `.uf2`.
+- **Type it at run time:** `pw ...` (RAM only, gone when the Pico is
+  unplugged). `pw` always overrides `PASS` until `pwdefault`.
 
 What is known (claims ledger):
 
@@ -197,7 +207,7 @@ export PICO_SDK_PATH=~/pico-sdk
 
 ```bash
 python3 tools/sdlock_pico_check.py -v
-# expected last line: sdlock host test: 572 checks, 0 failed
+# expected last line: sdlock host test: 580 checks, 0 failed
 ```
 
 ### 6.3 Firmware
@@ -205,6 +215,8 @@ python3 tools/sdlock_pico_check.py -v
 ```bash
 cd tools/sdlock-pico
 cmake -S . -B build -DPICO_BOARD=pico      # pico_w / pico2 for other boards
+# optional, the unit's password built in (section 3; never commit it):
+#   cmake -S . -B build -DPICO_BOARD=pico -DSDLOCK_PASS="hex:<8 digits> ascii:<suffix>"
 cmake --build build -j
 ls build/sdlock.uf2
 ```
@@ -271,8 +283,9 @@ Use a throw-away password here, not the unit's, e.g. `pw ascii:test1234`.
 
    (`cardcheck.py --image` / M5.10 for checking the image itself.)
 2. Eject, move the card to the Pico. `init` → `unlocked`, class 7 `yes`.
-3. `pw hex:<SD PIN digits> ascii:<C-075 suffix>` → `password: 16 bytes`.
-   Anything other than 16 bytes means a typo.
+3. With `PASS` built in, the banner shows `password: 16 bytes from PASS`.
+   Otherwise `pw hex:<SD PIN digits> ascii:<C-075 suffix>` →
+   `password: 16 bytes`. Anything other than 16 bytes means a typo.
 4. `setlock YES` → `LOCKED`.
 5. Reseat, `init`, `status` → `LOCKED`; `verify` → `OK`.
 6. `pwforget`, unplug the Pico. Label the card (which unit, which byte
@@ -353,5 +366,5 @@ Use a throw-away password here, not the unit's, e.g. `pw ascii:test1234`.
 - Password byte order and length from firmware (M2.13).
 - The `.uf2` was not built in the Claude sandbox (building the external SDK
   was not permitted there); `sd_proto.c`/`sd_card.c` compile for Cortex-M0+
-  with `-Werror`. First local build: record the result in the M6.9 EXP
-  (C-1943).
+  with `-Werror`, and `main.c` type-checks against stub SDK declarations.
+  First local build: record the result in the M6.9 EXP (C-1943).
