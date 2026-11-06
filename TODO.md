@@ -653,7 +653,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: docs/experiments/EXP-2026-11-06-M2.6-mapupdate.md; MapUpdate.exe summary in docs/format/firmware.md
 
 - [ ] **M2.7 — US vs EU market decision**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.7-us-eu-market · Critical: no
   - Depends: — (registry part needs M1.4)
   - Goal: where the market/region is decided and whether an EU-format card
     can work in a US unit.
