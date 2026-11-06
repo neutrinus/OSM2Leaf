@@ -101,13 +101,26 @@ count as a reader):
 `HDD_INFO.TXT`, `DRSTR001.DAT` and `CMP.LST` have located readers; their L3
 targets are blocked on engine/corpus work, not on address discovery.
 
-**The installed base of this list is compression (sixth pass).** M3.11 and
-M3.2b both searched every uncompressed build-A section (527 of them) and found
-the access path but not the record walker, then named the same escape:
-`Navi.exe` sec1 is `IMAGE_SCN_COMPRESSED` (`psize 0x457c`, `vsize
-0xff16ae`). 245 of the 527 o32 sections are compressed and undecodable today
-(M1.3, M1.2f), so a static search that skips them can only produce this kind
-of negative. Rule 14 now requires a task to say so before it starts.
+**The installed base of this list is compression.** M3.11 (`POINT`), M3.2b
+(`.cmp`) and M3.13 (`ADDRE`) each searched every uncompressed build-A section,
+found the access path and not the record walker, and named the same escape.
+The budget, measured with `cerom.py memmap --json` on `IMG256` (build A,
+2026-11-06):
+
+| Measure | Value |
+| --- | --- |
+| Section virtual size, build A | 53,725,980 B |
+| Of which `IMAGE_SCN_COMPRESSED` | 30,212,810 B (**56.2 %**) |
+| o32 sections, total / compressed | 527 / 245 |
+| Modules with at least one compressed section | 133 / 149 |
+| **`Navi.exe` (the module every reader task targets)** | 5.55 MB readable, **16.78 MB compressed (75.1 %)**, all in `sec1` (16.7 MB) + `sec2` |
+| `OBJDLL.dll` | 30.2 % compressed; `XGLDLL.dll` 77.9 % |
+
+A "searched every uncompressed section" negative therefore describes at most
+44 % of the bytes and 25 % of `Navi.exe`. That is why rule 14 makes
+`Precheck`/`Scope`/`Stop` mandatory and why **M1.12**
+(`tools/reader_precheck.py`) exists: the share is printed before the first
+`grep`, not discovered in the EXP.
 
 ## L3 targets and what they actually prove
 

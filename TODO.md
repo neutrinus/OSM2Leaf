@@ -90,16 +90,43 @@ front has fewer, add the next tasks (see rule 9).
     matrix in [`docs/research/reader-coverage.md`](docs/research/reader-coverage.md)
     (H11); update its row in the same PR as your task.
 
-14. **A scoped negative must name its escape (PM, 2026-11-06, sixth pass).**
-    "Not found" is a result only when the search covered every place the thing
-    can live. Check `cerom.py sections` first: 245 of build A's 527 o32
-    sections carry `IMAGE_SCN_COMPRESSED` and are undecodable today (M1.3,
-    M1.2f). An EXP whose search covered only uncompressed sections must say so
-    in the first line of its `Result` and name the task that would open the
-    rest (M1.2f, M8.E1, or a dynamic break). The same applies to data: "no
-    vendor image on this machine" is not a result — every image is on
-    `https://files.viaaq.eu/sd-images/` (rule 11, **H16**). M3.11 and M3.2b
-    both ended as correct-but-predictable negatives for exactly this reason.
+14. **A search task must pass its precheck before anyone searches (PM,
+    2026-11-06, seventh pass).** M3.11, M3.2b and M3.13 each spent a session
+    proving the same thing: the record walker is not in the readable code and
+    probably sits in `Navi.exe` sec1. Build A is **56 % compressed by bytes**
+    (30.2 MB of 53.7 MB of section vsize) and `Navi.exe` is **75 % compressed**
+    (16.7 MB in sec1/sec2) — the module every reader task targets. A task that
+    says "find the reader in `Navi.exe`" without `Depends: M1.2f` asks for a
+    search of one quarter of the module. So:
+    - every task whose subject is a firmware address or reader carries a
+      `Precheck:` line whose command can fail (module, compressed share, anchor
+      xref in decodable bytes — `tools/reader_precheck.py`, M1.12);
+    - if the precheck says the target lives in compressed bytes, the task is
+      `Depends: M1.2f` (or a dynamic break) from the start, not after an EXP;
+    - `Scope:` names the bytes the search will cover, `Stop:` says when to
+      report `blocked` instead of trying a fourth angle.
+    The negative is still a result and must say which range it covered — but
+    the board's job is to not ask for it twice.
+
+15. **A merge re-opens what it unblocks (PM, 2026-11-06, seventh pass).** A
+    `blocked` task is not a dead task: it is a ticket waiting for one thing.
+    Every blocked task names it in `Unblock:`, and the PR that lands that task
+    sets the waiting ones back to `Status: open · Owner: —` in the same commit,
+    with the blocker line kept as a note. The negative EXP stays — it is the
+    reason the re-run has a `Precheck` and a `Scope`. So M3.13 returns to the
+    pool the day M1.2f merges, not before, and not with the same ticket.
+
+16. **Method is a spec, not a narrative (PM, 2026-11-06, eighth pass).** An
+    EXP must let another agent reproduce it from the repo plus the named
+    sample. Concretely: sample **and** SHA-256 (or `none (tool-only task)`);
+    the tool with its version; commands that run as written — a scan that
+    lives in a heredoc belongs in `tools/` with `--selftest` (AGENTS rule 7),
+    and `# ...` in a Method block is a defect; one positive control and one
+    negative control, or an explicit statement why none applies; the corpus
+    counted (`282 sections / 23.6 MB`), never "all"; and the falsifier before
+    the result. `docs/experiments/TEMPLATE.md` carries the five-part form.
+    A task's `Done when` is what makes it `done`: if the check did not pass,
+    the status is `blocked`, not `done`.
 
 ### ID allocation
 
@@ -124,10 +151,19 @@ C-521, C-528…C-533 were proposed twice). From now on:
   - Status: open | in progress | blocked | done · Owner: — | <branch> · Critical: yes | no [· Runner: non-Claude]
   - Depends: — | IDs
   - Goal: one sentence.
+  - Precheck: the command that decides whether the task is possible at all
+    (mandatory for any task that searches firmware code or reads vendor data).
+  - Scope: the bytes/files the task covers, and what it deliberately excludes.
   - Input: files, offsets, tools, samples.
   - Done when: a check that can fail.
+  - Stop: when to set `blocked` and write the EXP instead of a fourth attempt.
+  - Unblock: only on `blocked` — the task that turns this one back to `open`.
   - Claims: C-xxx–C-xxx
 ```
+
+`Precheck`, `Scope` and `Stop` exist because of three sessions lost to
+M3.11/M3.2b/M3.13: each reported "not found in the uncompressed sections" — a
+true statement about 44 % of build A and 25 % of `Navi.exe` (rule 14).
 
 ### Shared inputs
 
@@ -221,16 +257,22 @@ the download as an explicit input.
    then **M6.2** (S0) and **M5.12c** (now narrow).
 3. **M9.11** in its new scope (call `0x41c7e8` on the three `POINT010` pairs),
    then **M9.12**; **M9.6** with M2.15's exact bytes, then **M2.4**.
-4. **H16** and **H14** — the infrastructure debt that keeps costing rounds.
+4. **M1.12** (one-command precheck) with **H16** and **H14** — the
+   infrastructure debt that keeps costing rounds.
 5. **M8.A2 → M8.A3** (F0 on a real boot log).
 6. Compiler spine unchanged: **M5.4 → M5.6 → M5.11**, with the H11 writers
    after their M3 readers.
 
-**Methodology note (sixth pass).** Two failure modes cost this round:
-(1) *searching only what is readable and reporting "not found"* — M3.11,
-M3.2b; (2) *citing an absent image* — M5.13, M5.12b, M8.A4, M8.A5. Rule 14
-covers the first, H16 the second, and both are now part of the task template's
-`Input` field rather than advice.
+**Methodology note (sixth pass, corrected the same day by Marek).** The
+searches were not the failure; **the tickets were**. M3.11, M3.2b and M3.13 all
+asked "find the reader in `Navi.exe`" while the board already knew that 56 % of
+build A's section bytes are compressed and that `Navi.exe` is 75 % compressed
+(16.7 MB in `sec1`). A correct search of the readable quarter can only produce
+"not found", so the third case (M3.13) was predictable before it started. The
+second failure mode — *citing an absent image* (M5.13, M5.12b, M8.A4, M8.A5) —
+has the same shape: the ticket never said where the image comes from, although
+rule 11 does. Rule 14 is therefore a definition-of-ready rule, and the task
+template now requires `Precheck`, `Scope` and `Stop`.
 
 **Needs Marek:** S0 on the unit (M6.2); the Pico `.uf2` built locally (M6.11);
 the non-Claude tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal
@@ -259,10 +301,10 @@ The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H13, H14, H16** |
-| M1 | Firmware tooling (decompression) | **M1.2f, M1.10, M1.11**; M1.4 after M1.2f; M1.2e non-Claude |
+| H | Housekeeping | **H13, H14, H16, H19**; H17/H18 done |
+| M1 | Firmware tooling (decompression) | **M1.2f, M1.10, M1.11, M1.12**; M1.4 after M1.2f; M1.2e non-Claude |
 | M2 | Map code, activation, updater | **M2.16, M2.14**; M2.4 after M9.6 |
-| M3 | Reader contract | **M3.13, M3.14, M3.15, M3.16, M3.17, M3.18**; M3.2b/M3.11 blocked on M1.2f |
+| M3 | Reader contract | **M3.14, M3.15, M3.16, M3.17, M3.18, M3.19**; M3.2b/M3.11/M3.13 blocked on M1.2f |
 | M4 | Data formats | **M4.16b, M4.22, M4.8b**, M4.16c, M4.16d, M4.3, M4.17; M4.21 after M3.6; M4.2 non-Claude |
 | M5 | Compiler + US edits | **M5.13b, M5.12c, M5.4, M5.1c**; M5.14/M5.20 after M5.13b; M5.1b non-Claude; M5.16–M5.19 after their M3 readers |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5/M6.6 after M5.13b; M6.7 after M5.14 |
@@ -556,6 +598,117 @@ M4.16b → M4.2/M5.3.
     and gain the two newer images.
   - Claims: none
 
+- [x] **H17 — PM review, seventh pass: the tickets were under-specified (2026-11-06)**
+  - Status: done · Owner: session-PM · Critical: no
+  - Depends: —
+  - Goal: three sessions in a row (M3.11, M3.2b, M3.13) produced "not found in
+    the uncompressed sections". Marek's diagnosis: unclear task definition, not
+    agent methodology. Make the template carry the feasibility test.
+  - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 memmap
+    --json`, then sum compressed versus uncompressed section bytes per module
+    (done: 56.2 % / `Navi.exe` 75.1 %).
+  - Done when: `Precheck`, `Scope` and `Stop` are mandatory fields in the task
+    template, rule 14 is a definition-of-ready rule, and every open reader task
+    (M3.14–M3.16, M3.18) carries them.
+  - Result: EXP-2026-11-06-H17-task-definition. Template extended, rule 14
+    rewritten, four open reader tasks retrofitted, M1.12 added (the one-command
+    precheck), reader-coverage gains the measured compression budget.
+  - Claims: none (a review creates no format claim)
+
+- [ ] **M1.12 — `tools/reader_precheck.py`: can this reader be found statically?**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: make rule 14's `Precheck` one command instead of a session. The
+    board now needs, per module: how much of it is compressed, which sections,
+    and whether a given anchor (string literal, pool VA) has an xref in
+    decodable bytes.
+  - Precheck: the baseline below is already measured; if `cerom.py memmap
+    --json` on `IMG256` does not reproduce it, stop and record the difference.
+  - Scope: build A (B/C on request); static only; no vendor bytes committed.
+  - Input: `cerom.py memmap --json` (per-section `compressed`, `vsize`,
+    `file_offset`), `sh4xref.py` (literal-pool resolution); measured baseline
+    for build A: 53,725,980 B of section vsize, 30,212,810 B compressed
+    (56.2 %), 133/149 modules with a compressed section, `Navi.exe`
+    16,778,254 B compressed (75.1 %, `sec1` 16.7 MB).
+  - Done when: `python3 tools/reader_precheck.py IMG --image-start 0x200200
+    --module Navi.exe [--anchor 0x00179364]` prints the module's compressed
+    share and section list, says for each anchor whether it is referenced from
+    decodable bytes, and exits non-zero when the anchor's only xref is inside a
+    compressed section; `--table` prints the per-module table quoted in
+    `docs/format/firmware.md`; `--selftest` pins the build-A counts above and
+    covers both verdicts.
+  - Stop: if the counts cannot be reproduced on `IMG256`, record the
+    discrepancy and stop — do not re-derive the map by hand.
+  - Claims: C-2510–C-2519
+
+- [x] **H18 — PM review, eighth pass: method audit of the last 24 h (2026-11-06)**
+  - Status: done · Owner: session-PM · Critical: no
+  - Depends: —
+  - Goal: the board now demands a precheck; the records must be checkable too.
+    Audit every record dated 2026-11-06 for sample+hash, runnable commands,
+    controls, scope and falsifier, and fix the template where they were never
+    asked for.
+  - Precheck: `ls docs/experiments/EXP-2026-11-06-*.md | wc -l` → 89 records;
+    the audit script is in the EXP.
+  - Scope: all 89 records dated 2026-11-06; no vendor bytes read.
+  - Done when: the audit table is in an EXP and every gap is either fixed in
+    `TEMPLATE.md`/rule 16 or has a task.
+  - Result: EXP-2026-11-06-H18-method-audit. 8 records with no command block,
+    8 with no sample hash, 39 that never mention a control, 1 with `# ...`;
+    the load-bearing gaps are now M3.19 (committed SH-4 scanner) and H19
+    (re-verify the five thinnest records). `TEMPLATE.md` gained the five-part
+    Method, `Tools`, `Falsifier` and a `Reproduction` block.
+  - Claims: none (a review creates no format claim)
+
+- [ ] **H19 — Re-verify the five thinnest records of the last 24 h**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M3.19 (for the VAs that come from a scan)
+  - Goal: five records carry a result in under 40 lines or with no command
+    block at all (M2.6 `MapUpdate.exe` 32 lines, M3.5 tile reader 19, M3.10
+    `DRSTR` calls, M9.1 module map, M8.E1). Their claims are load-bearing for
+    M9.13/M9.14 and for the `MapUpdate` summary, so each needs one runnable
+    check.
+  - Precheck: `cerom.py sections MODULE` + `sh4xref.py --to VA` on `IMG256`;
+    if a VA does not resolve to the module the record names, that is the
+    finding.
+  - Scope: only the VAs/counts those five records assert; no re-derivation, no
+    new format work.
+  - Done when: one EXP with a table `record / claim / command / reproduced?`
+    for every VA and count in the five records, using committed tools, and any
+    VA that does not reproduce is marked retracted with a new claim ID from
+    this task's block.
+  - Stop: after the table is complete; disagreements go to `claims.md`, not to
+    a second round of analysis.
+  - Claims: C-2520–C-2529
+
+- [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: M3.11, M3.13 and M3.2b are correct negatives that **cannot be
+    re-run**: the tag/stride/mask searches are prose plus heredocs, and M3.2b
+    contains `# ... anchor search over IMG256 ...`. Rule 16 makes that a
+    defect; this task fixes it and gives M1.12 its engine.
+  - Precheck: the counts to reproduce are published — 527 build-A o32 sections,
+    26 aligned `cmp/eq #0x60` and 23 `cmp/eq #0x68` hits in `Navi.exe` sec0,
+    0 tag pairs, 1 `and #0x70`+`#0x60` mask hit, 0 `@(1)+2*L` stride
+    candidates, 282 sections / 23.6 MB for the M3.13 corpus, 14 zlib markers.
+    If the tool cannot reproduce them, the published numbers are the problem —
+    report that, do not adjust the tool to fit.
+  - Scope: build A (and B/C on `--image-start`); LE halfwords; uncompressed and
+    compressed sections both listed, with the compressed share printed.
+  - Input: EXP-2026-11-06-M3.11, -M3.13, -M3.2b (counts and patterns),
+    `cerom.py memmap --json`, `sh4xref.py`; `capstone` must not be required
+    (a pattern scan is halfword arithmetic, not disassembly).
+  - Done when: `python3 tools/sh4scan.py IMG --image-start 0x200200 tags
+    --module Navi.exe`, `--pattern <hex>`, `stride`, `mask-pair` and `anchors`
+    run on `IMG256`, reproduce every count above, print the corpus in bytes and
+    sections, and `--selftest` pins the pattern semantics on synthetic
+    halfwords (including the misaligned false positives M3.11 rejected); M1.12
+    imports it rather than duplicating the scan.
+  - Stop: if the counts differ, record the discrepancy in an EXP and stop —
+    the difference is the result.
+  - Claims: C-2530–C-2539
+
 ---
 
 ## M1 — Firmware tooling
@@ -832,7 +985,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `cedecomp`/`cecompress` decodes EXP-49 sec1 to `0x484` and sec2
     to `0xcc0` with no QEMU, and `cerom.py decompress --check` reports
     `245 OK` (or lists the exceptions with their bytes); one self-test vector
-    is taken from the disassembly; M1.3/M1.4 then unblock.
+    is taken from the disassembly.
+  - Re-opens on merge (rule 15): **M3.2b, M3.11, M3.13, M9.10** and the
+    precheck-gated **M3.14–M3.16, M3.18**; M1.3/M1.4 follow directly. Put the
+    re-open in the same commit as the `done`.
   - Claims: C-2360–C-2369
 
 ---
@@ -1121,6 +1277,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
   - Status: blocked · Owner: task/m3.2-ind-handling · Critical: yes
+  - Unblock: M3.2b's re-run (the chunk engine and its caller), or M1.2f when
+    the `.ind` layer turns out to be in `Navi.exe` sec1.
   - Blocker: `.ind` chunk reader (chunk_count/chunk_size/chunk_offset consumer) not identified; `fn 0x00418748` is a resolver only. See EXP-2026-11-06-M3.2-ind-handling.
   - Depends: M3.1
   - Goal: answer from code whether `chunk_size` sizes a buffer or is
@@ -1234,6 +1392,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
   - Status: blocked · Owner: task/m3.2b-cmp-chunk-reader-inflate · Critical: yes
+  - Unblock: M1.2f (port `DECOMP_BLK`) or M8.E1 (call `DECOMP_WRAP`); a
+    dynamic break on `0x542148`/`0x41c7e8` also re-opens it.
   - Blocker: inflate + chunk decompression engine found (Navi.exe A: `inflateInit2_ 0x542256`, `inflate 0x54233c`, `inflateEnd 0x54220c`, wrapper `0x542148`, chunked decompressor `fn 0x41c7e8`, C-2060–C-2063/2065), but the `.ind` `chunk_offset[]` consumer / table builder has no callers in any uncompressed A o32 section (527 searched, positive controls) and Navi.exe sec1/sec2 are compressed (M1.3 0/245) — M3.2a,b unanswered. Needs M1.2f/M8.E1 decode of sec1/sec2 or dynamic break on `0x542148`/`0x41c7e8`. The chunk engine itself is already usable: see M9.11.
   - Depends: M1.2f (blocked) or a dynamic break
   - Goal: M3.1/M3.2 show the `MAL_DataVol_*` and `.IND` string leads miss the
@@ -1257,6 +1417,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M3.11 — The `POINT` record reader in `Navi.exe`**
   - Status: blocked · Owner: task/m3.11-point-reader · Critical: yes
   - Depends: M1.2f (blocked) or a dynamic break
+  - Unblock: M1.2f, then re-run the tag/stride search in `Navi.exe` sec1; or a
+    dynamic break on the `0x14e8` POINT read path.
   - Blocker: record-walk/name-copy functions (tag `0x60|0x68`, `len2`, stride `2*len2`) **not found** in any uncompressed build-A o32 section (527 searched; 0 aligned tag pairs, 0 mask walkers, 0 stride sequences; 49 tag sites + `fn 0x003715a0` rejected with controls). Navi.exe sec1 is `IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, M1.3 0/245, M1.2f/M8.E1 open) — walker likely in sec1. VAs/args/output remain UNKNOWN. Access-path anchors confirmed (`0x003fbed8`/`0x0040b358`/`0x004125a8` `0x14e8`→`REFER001`+`INDEX003.DAT`). Decode sec1 (M1.2f/M8.E1) or dynamic trace to unblock M9.10.
   - Goal: the function that walks a decoded `POINT0xx` page (`tag,len2`
     records, `0x60`/`0x68`, record size `2*len2`) and copies a POI name out.
@@ -1298,6 +1460,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
   - Status: blocked · Owner: task/m3.13-addre-reader · Critical: yes
+  - Unblock: M1.2f, then re-run the tag/stride/point-marker search in
+    `Navi.exe` sec1; or a dynamic break on the `0x14e8`/`ADDRE0` read path.
   - Blocker: ADDRE record parser consuming M4.9 grammar (C-970–C-979) not found in any uncompressed build-A o32 section (282 sections / 23.6 MB searched, 0 `c0/c8` tag pairs/mask/`2*L`/point-marker walkers); Navi.exe sec1 `IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, psize `0x457c`, M1.3 245/245 UNSUPPORTED, M1.2f/M8.E1 open) is the likely location and undecodable. No reader VA or C-970–C-979 consuming-instruction mapping can be named (fields not ruled "never read").
   - Depends: — (M3.11 shows the pattern for `REFER001` families)
   - Goal: confirm the `ADDRE` grammar (M4.9) against the code that reads it.
@@ -1311,7 +1475,16 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
   - Status: open · Owner: — · Critical: yes
-  - Depends: —
+  - Depends: — (M4.12 already decoded the layout from bytes; this task only
+    looks for the consuming code)
+  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — `Navi.exe` is
+    75 % compressed (`sec1` 16.7 MB, `sec2`), so a walker in `sec1` is not
+    findable today; if the anchors have no xref in the decodable bytes, this
+    task is `Depends: M1.2f` and stops in the first hour.
+  - Scope: build-A uncompressed sections only; `Navi.exe` sec1/sec2 excluded
+    until M1.2f. `Stop:` after the listed anchors are exhausted, or when the
+    precheck shows the target is compressed — then `blocked` + EXP, no fourth
+    search angle.
   - Goal: the region/index/coordinate tables decide where a generated
     Poland map lives; confirm their layout (C-110, C-1992,
     `coord-zcode-icode.md`) from the code.
@@ -1323,6 +1496,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
   - Status: open · Owner: — · Critical: yes
   - Depends: — (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`)
+  - Precheck: `tools/reader_precheck.py --module OBJDLL.dll` (M1.12) — OBJDLL
+    is 30 % compressed and `Navi.exe` 75 %, so the walk can land in bytes we
+    cannot read; if the anchors have no xref in the decodable bytes, this task
+    is `Depends: M1.2f` and stops in the first hour.
+  - Scope: build-A uncompressed sections only; `Navi.exe` sec1/sec2 excluded
+    until M1.2f. `Stop:` after the listed anchors are exhausted, or when the
+    precheck shows the target is compressed — then `blocked` + EXP, no fourth
+    search angle.
   - Goal: Polish street/place names go through this table (M4.18 framing,
     M3.9 collation); confirm framing and encoding from the code.
   - Done when: `refer.md` (or `rdstm.md`) names the record-walk and
@@ -1332,6 +1513,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
   - Status: open · Owner: — · Critical: no
   - Depends: — (M4.16c for the `ref` lead)
+  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — `Navi.exe` is
+    75 % compressed (`sec1` 16.7 MB, `sec2`), so a walker in `sec1` is not
+    findable today; if the anchors have no xref in the decodable bytes, this
+    task is `Depends: M1.2f` and stops in the first hour.
+  - Scope: build-A uncompressed sections only; `Navi.exe` sec1/sec2 excluded
+    until M1.2f. `Stop:` after the listed anchors are exhausted, or when the
+    precheck shows the target is compressed — then `blocked` + EXP, no fourth
+    search angle.
   - Done when: the reader VAs and consumed fields are in `refer.md`.
   - Claims: C-2210–C-2219
 
@@ -1348,7 +1537,16 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
   - Status: open · Owner: — · Critical: no
-  - Depends: — (M3.11 shows the pattern for `REFER001` families)
+  - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
+    families and the same compression wall)
+  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — `Navi.exe` is
+    75 % compressed (`sec1` 16.7 MB, `sec2`), so a walker in `sec1` is not
+    findable today; if the anchors have no xref in the decodable bytes, this
+    task is `Depends: M1.2f` and stops in the first hour.
+  - Scope: build-A uncompressed sections only; `Navi.exe` sec1/sec2 excluded
+    until M1.2f. `Stop:` after the listed anchors are exhausted, or when the
+    precheck shows the target is compressed — then `blocked` + EXP, no fourth
+    search angle.
   - Goal: the two families with no reader task at all. Both carry content a
     Poland card must generate (`ICADM` country/admin terms, `ZIPFR`
     postal/freeway masks), so a wrong writer is undetectable today.
@@ -1545,6 +1743,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Goal: a row → tile/mesh → coordinate link, which M4.2, M4.3 and M5.3 need.
   - Input: `ref`/`src`/`dst` values (M4.1), tile road records
     (`tools_ze0`, `harness.py`), `COORD001` mesh formula, `mesh_grid.py`.
+  - Unblock: M4.16b (per-record field directory), or M4.16c (the `INTER`/`FRWAY`
+    `ref` lead) if the directory does not resolve the join.
   - Blocker: M4.1 16-byte fields (`ref/src/dst/code`) give no segment-specific
     join (hits at chance vs dense lid space; `ref`∩parcel/AB=0; C-1810) and
     M4.15/M3.7 leave framing/TMC semantics undecoded. `INTER*` `ref` byte-pattern
@@ -2151,6 +2351,8 @@ No hardware is available now. Planning tasks are open; tests wait.
 
 - [ ] **M6.11 — RP2040 (Raspberry Pi Pico) SD lock/unlock tool**
   - Status: blocked · Owner: claude/project-thread-9ynrai · Critical: no
+  - Unblock: build the `.uf2` locally (Pico SDK is not installable in the
+    sandbox); that build is step 1 of M6.9 and needs a non-Claude runner.
   - Blocker: `.uf2` not built; the Claude sandbox refused building the external Pico SDK, so the build runs locally (doc §6) as the first step of M6.9.
   - Depends: — (M2.13 for the real password; M6.9 runs the bench test)
   - Goal: a cheap SPI-mode CMD42 host, so M6.9 does not depend on finding a
@@ -2167,7 +2369,8 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Claims: C-1940–C-1949
 
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
-  EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939
+  EXP-2026-11-06-M6.4). Status: blocked (hardware). Unblock: bench access
+  (the first S0 run, M6.2). Claims: C-1930–C-1939
 - [ ] **M6.2 — S0 on Marek's unit: factory clone of the US card**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
   - Depends: — (a spare 16 GB SDHC card; `card-test-plan.md` P1–P6)
@@ -2499,6 +2702,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
   - Status: blocked · Owner: — · Critical: yes
+  - Unblock: M3.11's re-run (i.e. M1.2f), or a dynamic break on the POINT read
+    path once hardware exists.
   - Blocker: the `POINT` page walker is in no uncompressed build-A section
     (M3.11) and probably lives in `Navi.exe` sec1 (`IMAGE_SCN_COMPRESSED`,
     vsize `0xff16ae`); unblock = M1.2f, then the M3.11 re-run. M9.11 does not

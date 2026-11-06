@@ -8,7 +8,8 @@
   re-measured here; every number below is quoted from the record named with it.
 - **Claims:** none — a review creates no format claim.
 - **Supersedes:** none
-- **Superseded by:** none
+- **Superseded by:** EXP-2026-11-06-H17 (the diagnosis: the ticket, not
+  the search; every fact in this record stands)
 
 ## Question
 
