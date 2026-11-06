@@ -872,6 +872,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-2138 | reserved. | UNKNOWN | — | — |
 | C-2139 | reserved. | UNKNOWN | — | — |
 
+## M3.13 — ADDRE (address) reader in `Navi.exe` (C-2180–C-2189, blocked)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2180 | ADDRE is resolved through the same `REFER001` family mechanism as POINT (C-880/C-881/C-2122): descriptor type `0x14e8` in `fn 0x004125a8` maps to `REFER001` (`0x00178c68`) + `INDEX003.DAT` (`0x0017a118`) via volume lookup `jsr 0x0040b358`; the volume-id table `0x00179338` contains `ADDRE0` (`0x0017935c`, adjacent to `INTER0`/`FRWAY0`/`POINT0`, raw `0xdf755c`) selected by name builder `fn 0x003fbed8` (pool `0x003fc0d8`→id table, `jsr 0x0040b358` at `0x003fc084`) and additionally resolved by `fn 0x0040114e` (`r5=ADDRE0` loaded at `0x00401216` from pool `0x00401254`, name/digit build + COREDLL string ops, `jsr 0x0040b358` at `0x0040123c`). `ADDRE001.DAT` (`0x00179f30`, pool `0x00179dbc`) has no executable-section literal ref. Navi.exe build A, IMG256 `92aa525d…`, sec0 uncompressed. | VERIFIED | H | EXP-2026-11-06-M3.13-addre-reader; `sh4xref.py --to 0x0017935c/0x00179f30/0x0040114e --calls 0x0040114e`; disasm; C-880, C-881 |
+| C-2181 | No ADDRE record parser consuming the M4.9 grammar (C-970–C-979) was found in any **uncompressed** build-A o32 section. Search over 282 uncompressed sections / 23,559,542 B (`IMAGE_SCN_COMPRESSED` clear): `cmp/eq #0xc0` 56 / `#0xc8` 24 (Navi.exe 19/13) with **0** aligned `c0`/`c8` tag pairs within 24 B and **0** `and #0xf7`+`cmp/eq #0xc0` mask walkers; `cmp/eq #0xc1` 24 (Navi.exe 6) unpaired; `mov.b @(1,Rm),R0`+`cmp/eq #0x40` (point `TT 40 XX YY` marker) **1** (Speech.exe, non-walker, rejected); `mov.b @(1,Rm),R0`+`shll R0` (2*L stride) **5** (Speech.exe/CC.dll/IOLIB, no tag/loop/record structure, rejected). Navi.exe individual `c0/c8/c1` hits inspected as unpaired immediates (same standard as M3.11). | VERIFIED (negative, scoped) | H | EXP-2026-11-06-M3.13-addre-reader |
+| C-2182 | Grammar-field → consuming-instruction mapping for C-970–C-979: **no consuming instruction VA in uncompressed build-A code can be named** for any field (C-970 container/dir/cells/index/schema/trailer layout, C-971 12-byte directory, C-972 6-byte cells, C-973 `c0/c8/c1` `2*L` framing, C-974 name `TT LL 00 ff`, C-975 range `prefix subtype :N:;:M:`, C-976/C-1964 point `TT 40 XX YY`, C-977 trailer TOC). Fields are **not** ruled "never read" — the parser may reside in compressed Navi.exe sec1/sec2; mapping is blocked pending decode/dynamic trace. C-978 is a repo tool (n/a); C-979 negative scope unchanged. | OBSERVED (mapping blocked) | M | EXP-2026-11-06-M3.13-addre-reader; C-970–C-979 |
+| C-2183 | Exact blocker (class M3.11): Navi.exe sec1 rva `0x55c000` vsize `0xff16ae` psize `0x457c` and sec2 rva `0x154e000` vsize `0xed60` psize `0x8884` are `IMAGE_SCN_COMPRESSED`; M1.3 reports 245 compressed o32 sections 0 OK / 245 UNSUPPORTED (CE codec unresolved; M1.2f/M8.E1 open). The ADDRE record parser consuming decoded `REFER001/ADDRE0xx` data is most likely in sec1 and is undecodable with current repo tools. | OBSERVED | H | EXP-2026-11-06-M3.13-addre-reader; `cerom.py` section table; M1.3 |
+| C-2184 | reserved. | UNKNOWN | — | — |
+| C-2185 | reserved. | UNKNOWN | — | — |
+| C-2186 | reserved. | UNKNOWN | — | — |
+| C-2187 | reserved. | UNKNOWN | — | — |
+| C-2188 | reserved. | UNKNOWN | — | — |
+| C-2189 | reserved. | UNKNOWN | — | — |
+
 ## M3.5 — Tile reader entry and the level table (C-860–C-869)
 
 | ID | Claim | Status | Confidence | Evidence |

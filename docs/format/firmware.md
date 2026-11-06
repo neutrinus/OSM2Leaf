@@ -248,6 +248,22 @@ is a single-record consumer, not the walker. **Blocker:** Navi.exe sec1 is
 walker/name-copy (VAs/args/output) remain **UNKNOWN** — likely in sec1; decode
 sec1 or trace dynamically to answer M9.10.
 
+**M3.13 (EXP-2026-11-06, C-2180–C-2183, blocked):** `ADDRE`/`REFER001` access
+path confirmed as the same REFER001 family mechanism (Navi.exe sec0, A):
+`fn 0x004125a8` maps type `0x14e8` → `REFER001`+`INDEX003.DAT` (C-880);
+`fn 0x003fbed8` selects from the volume-id table `0x00179338` including `ADDRE0`
+`0x0017935c` and calls `fn 0x0040b358` (`0x003fc084`); `fn 0x0040114e` resolves
+`ADDRE0` (`r5` at `0x00401216`) via `jsr 0x0040b358` at `0x0040123c`. The
+decoded-`ADDRE0xx` record parser consuming the M4.9 grammar (C-970–C-979:
+`c0/c8/c1` `2*L` framing, name `TT LL 00 ff`, point `TT 40 XX YY`, range tokens,
+trailer TOC) was **not located** in any uncompressed build-A o32 section
+(282 sections / 23.6 MB): 0 `c0/c8` tag pairs, 0 mask/`2*L`/point-marker
+walkers; non-Navi stride/marker hits (Speech*/IOLIB) rejected. No reader VA and
+no C-970–C-979 consuming-instruction mapping can be named; fields not ruled
+"never read". **Blocker:** Navi.exe sec1 `IMAGE_SCN_COMPRESSED` (vsize
+`0xff16ae`, M1.3 0/245, M1.2f/M8.E1 open) — decode sec1 or trace dynamically.
+See `docs/format/refer.md` "Firmware reader (M3.13)".
+
 **Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
 `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to
 `0x1d0f888…894`. But:

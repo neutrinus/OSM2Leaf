@@ -1297,7 +1297,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2130–C-2139
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
-  - Status: in progress · Owner: task/m3.13-addre-reader · Critical: yes
+  - Status: blocked · Owner: task/m3.13-addre-reader · Critical: yes
+  - Blocker: ADDRE record parser consuming M4.9 grammar (C-970–C-979) not found in any uncompressed build-A o32 section (282 sections / 23.6 MB searched, 0 `c0/c8` tag pairs/mask/`2*L`/point-marker walkers); Navi.exe sec1 `IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, psize `0x457c`, M1.3 245/245 UNSUPPORTED, M1.2f/M8.E1 open) is the likely location and undecodable. No reader VA or C-970–C-979 consuming-instruction mapping can be named (fields not ruled "never read").
   - Depends: — (M3.11 shows the pattern for `REFER001` families)
   - Goal: confirm the `ADDRE` grammar (M4.9) against the code that reads it.
   - Input: id table `0x00179338` (`ADDRE0`), name builder `0x003fbed8`, lookup
@@ -1306,6 +1307,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     (C-970–C-979) to the instruction that consumes it, or lists the fields
     the firmware never reads.
   - Claims: C-2180–C-2189
+  - Result: `EXP-2026-11-06-M3.13-addre-reader.md` (C-2180–C-2183). ADDRE confirmed on same REFER001 family mechanism (`0x14e8`→`REFER001`+`INDEX003.DAT`, `0x003fbed8`/`0x0040b358`/`0x004125a8`, `fn 0x0040114e` resolves `ADDRE0`); no parser VA in uncompressed code; `refer.md`/`firmware.md` updated with access path and blocked grammar-field→instruction table.
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
   - Status: open · Owner: — · Critical: yes

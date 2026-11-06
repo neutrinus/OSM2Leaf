@@ -343,6 +343,51 @@ each `COORD001` entry, and the 22-byte index record fields.
 Tool: `tools/addre.py` (`layout`, `table`, `cells`, `records`, `stats`,
 `trailer`, `verify`, `--selftest`).
 
+### Firmware reader (M3.13, build A, IMG256 `92aa525d…`, blocked)
+
+> **Status:** access path `VERIFIED`; record parser / consuming-instruction VAs
+> **not found** in decodable (uncompressed) code; grammar-field mapping
+> **blocked** (Navi.exe compressed sec1/sec2). See
+> `EXP-2026-11-06-M3.13-addre-reader.md`, C-2180–C-2183.
+
+ADDRE is resolved through the same `REFER001` family mechanism as POINT
+(M3.11, C-880/C-881/C-2122): descriptor type `0x14e8` in `fn 0x004125a8` (Navi.exe
+sec0) maps to `REFER001` (`0x00178c68`) + `INDEX003.DAT` (`0x0017a118`) via
+volume lookup `jsr 0x0040b358` (`fn 0x0040b358`, 28-byte table, count `+24`,
+list `+32`). The volume-id table `0x00179338` contains `ADDRE0` (`0x0017935c`)
+selected by name builder `fn 0x003fbed8` (dispatch on `*(r10+124)`, pool
+`0x003fc0d8`→id table, `jsr 0x0040b358` at `0x003fc084`); `fn 0x0040114e`
+additionally resolves `ADDRE0` (`r5` loaded at `0x00401216` from pool
+`0x00401254`, name/digit build + COREDLL string ops, `jsr 0x0040b358` at
+`0x0040123c`). `ADDRE001.DAT` (`0x00179f30`) has no executable-section literal
+ref.
+
+**Reader/parser VAs:** none named. No ADDRE record parser consuming the M4.9
+grammar was found in any uncompressed build-A o32 section (282 sections /
+23,559,542 B searched): 0 `c0`/`c8` tag pairs, 0 `and #0xf7`+`cmp/eq #0xc0`
+walkers, 0 `@(1)+cmp #0x40` point-marker walkers, 0 Navi.exe `@(1)+shll` `2*L`
+stride walkers (5 non-ADDRE hits in Speech*/IOLIB rejected). Navi.exe sec1
+(vsize `0xff16ae`, psize `0x457c`, `IMAGE_SCN_COMPRESSED`) and sec2 are
+undecodable (M1.3 245/245 UNSUPPORTED; M1.2f/M8.E1 open) — the likely parser
+location.
+
+**Grammar field (C-970–C-979) → consuming instruction:** no consuming
+instruction VA in uncompressed build-A code can be named for any field. Fields
+are *not* ruled "never read" (parser may be in compressed sec1/sec2).
+
+| Field (claim) | Consuming instruction VA | Status |
+| --- | --- | --- |
+| Container/layout: dir `0x1108`, cells `0x2000`, index `4e 20 00 00`+`u32` offsets, schema `+0x100`, record chain, trailer (C-970) | — | not found in uncompressed A (possible compressed sec1/sec2) |
+| 12-byte directory `(initial,0,count,block,offset,length,tail)` (C-971) | — | not found in uncompressed A |
+| 6-byte cells `(0..3,value,count)` / `(pointer,0xff00,0)` (C-972) | — | not found in uncompressed A |
+| `c0`/`c8`/`c1` records, `2*L` framing (C-973) | — | not found in uncompressed A (0 tag pairs/mask/`2*L` stride in Navi.exe) |
+| name `TT LL 00 ff`, `LL=ceil(name_len/2)`, last `2*LL` bytes (C-974) | — | not found in uncompressed A |
+| range `prefix subtype 00 00 :N:;:M:` (low-nibble slot; prefix/slot meaning UNKNOWN) (C-975) | — | not found in uncompressed A |
+| point `TT 40 XX YY` (`0x40` constant, role `TT`; 2D arithmetic UNKNOWN) (C-976, C-1964) | — | not found in uncompressed A (0 in-module `@(1)+cmp #0x40` walkers) |
+| trailer TOC `(start,length,value)` per block (C-977) | — | not found in uncompressed A |
+| `tools/addre.py` (offline, C-978) | n/a | repo tool, not firmware |
+| negative scope (cell payload / `XX,YY` arithmetic, C-979) | — | unchanged; no firmware reader found to confirm/deny |
+
 ## `INDEX001` / `INDEX003` — POI/name search index files
 
 > **Evidence status:** `OBSERVED` (on-disk absence on EU/US 2011 stock) +
