@@ -239,7 +239,7 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 | M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.9, M1.6c, M1.2b**, M1.2c, M1.2d |
 | M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12, M2.13b** (M2.7 in PR; M2.13, M2.11 done) |
 | M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 in PR) |
-| M4 | Data formats (no firmware needed) | **M4.15**, M4.3, M4.8b, M4.12 (M4.7, M4.9, M4.10, M4.11, M4.18 in PR) |
+| M4 | Data formats (no firmware needed) | **M4.15**, M4.3, M4.8b, M4.12 (M4.9, M4.10, M4.11, M4.18 in PR; M4.7 done) |
 | M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.1, M5.10**, M5.9; M5.1b after M5.1 (non-Claude runner) |
 | M6 | Hardware and safety (planning now, tests later) | M6.9 (non-Claude runner); tests need hardware |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
@@ -948,12 +948,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-940–C-949
   - Result: EXP-2026-11-05-M4.6-b30r048r-diff; non-monotonic shared-block layout + non-canonical addr_of tags; clarion_tile.write_tile now byte-identical for 2011/2014/2016 (preserved=0)
 
-- [ ] **M4.7 — Rename path for names/addresses**
-  - Status: in progress · Owner: task/m4.7-rename-path · Critical: no
+- [x] **M4.7 — Rename path for names/addresses**
+  - Status: done · Owner: task/m4.7-rename-path · Critical: no
   - Depends: —
   - Input: `ADDRE`/`POINT`/`ZCODE`/`LCTBL` (`docs/format/refer.md`,
     `tools/mutate_refer_poi.py`, `tools/lctbl_names.py`).
   - Done when: a renamed POI with a different-length name passes L2.
+  - Result: `POINT` name pages are `tag,len2` record chains; `--resize` patches
+    `len2` and shifts the page, and the new L2 `refer_rename_resize` check
+    passes on 2011 (POINT032, +4) and 2014 (POINT002, 1,000 records)
+    (EXP-2026-11-06-M4.7-poi-rename-resize). `ADDRE`/`LCTBL` remain open
+    (C-957, C-958).
   - Claims: C-950–C-959
 
 - [x] **M4.8 — Coordinate transform tool**
