@@ -243,7 +243,7 @@ tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal internet.
 | M1 | Firmware tooling (decompression) | **M1.2c**, M1.2e (non-Claude) |
 | M2 | Map code, activation, updater | **M2.15**, M2.16, M2.14 |
 | M3 | Reader contract | **M3.11, M3.2b, M3.12, M3.13, M3.14, M3.15, M3.10**, M3.6, M3.16, M3.17 |
-| M4 | Data formats | **M4.20, M4.16b**, M4.8b, M4.16c, M4.16d, M4.3, M4.12, M4.17, M4.19; M4.2 non-Claude |
+| M4 | Data formats | **M4.20, M4.16b**, M4.8b, M4.16c, M4.16d, M4.3, M4.12, M4.17; M4.2 non-Claude |
 | M5 | Compiler + US edits | **M5.13, M5.12c, M5.4**, M5.12b; M5.14 after M5.13; M5.1b non-Claude |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5–M6.7 follow M5.13/M5.14 |
 | M8 | Full-system emulation | M8.A1, M8.A2, M8.A4, M8.A5; M8.E1 after M1.2c |
@@ -1396,8 +1396,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `tools/lctbl_records.py` round-trips all 517 streams byte-identically and
     the 2014/2016 controls use the same layout.
 
-- [ ] **M4.19 — `(XX, YY)` point coordinate arithmetic**
-  - Status: in progress · Owner: task/m4.19-addre-point-coords · Critical: no
+- [x] **M4.19 — `(XX, YY)` point coordinate arithmetic**
+  - Status: done · Owner: task/m4.19-addre-point-coords · Critical: no
   - Depends: — (M4.9 leaves this `UNKNOWN`; M4.12 helps)
   - Goal: turn the `40 XX YY` point token into a geographic coordinate, the
     last missing piece between an ADDRE record and a map position.
@@ -1412,6 +1412,15 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     recorded; `refer.md` and `tools/addre.py` carry the rule and a synthetic
     test.
   - Claims: C-1960–C-1969
+  - Result: EXP-2026-11-06-M4.19-addre-point-coords. 2D geographic `(lat,lon)`
+    not derivable from `(coord,XX,YY,tag)` alone (C-1964, supersedes C-976
+    arithmetic / narrows C-979): `YY` 0–255 full, `XX` shard-capped (23/50/58),
+    95–98 % same-`XX` simple pairs contradicts fixed 2D geographic axes;
+    controls: whole-unit `cx+XX,cy+YY` 14.0 % in Andorra box (~4 km segs, wrong)
+    vs 1/256 candidate 100 % (~16 m, scale only, not verified 2D). Monaco box
+    degenerate (non-discriminating). No independent 2D anchor from these fields.
+    `refer.md` + `tools/addre.py` (`assess_point_coords`, `--selftest`) carry the
+    rule.
 
 - [x] **M4.20 — US `DRSTR001` round-trip diff at `0x1ae0`**
   - Status: done · Owner: task/m4.20-us-drstr-roundtrip · Critical: yes

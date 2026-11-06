@@ -178,6 +178,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M4.11](EXP-2026-11-06-M4.11-lev-coarse.md) | `LEV3456R.DAT` coarse levels 3–5 decoded; level 5 rebuilt byte-identically (M4.11) | done (levels 3/4 partly preserved) |
 | [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year/market image inventory (M4.14) | done |
 | [EXP-2026-11-06-M4.18](EXP-2026-11-06-M4.18-lctbl-framing.md) | `LCTBL001` record framing and per-field lengths (M4.18) | done |
+| [EXP-2026-11-06-M4.19](EXP-2026-11-06-M4.19-addre-point-coords.md) | ADDRE `TT 40 XX YY` point coordinate arithmetic (M4.19) | done (2D geographic not derivable; controls) |
 | [EXP-2026-11-06-M5.2](EXP-2026-11-06-M5.2-mesh-splitter.md) | Mesh splitter with border clipping (M5.2) | done (synthetic) |
 | [EXP-2026-11-06-M5.10](EXP-2026-11-06-M5.10-mkcard.md) | Card image builder `mkcard.py` (M5.10) | done (synthetic; real IMG pending) |
 | [EXP-2026-11-06-M5.4](EXP-2026-11-06-M5.4-tilewriter.md) | Roads-only tile writer, tool half (M5.4) | blocked: no vendor tile |

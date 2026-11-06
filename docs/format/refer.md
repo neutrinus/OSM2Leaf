@@ -7,8 +7,10 @@ separate EV/charging-station POI layer. The families are sharded by
 
 > **Evidence status:** the common anatomy and several record layouts are
 > `VERIFIED`; field semantics are `OBSERVED`/`HYPOTHESIS`. `ADDRE` is decoded
-> down to the 6-byte cell payload and the `40 XX YY` point arithmetic, which
-> stay `UNKNOWN` (C-972, C-976).
+> down to the 6-byte cell payload (`UNKNOWN`, C-972) and the `TT 40 XX YY`
+> point tokens (frame `VERIFIED`; 2D geographic not derivable from
+> `coord,XX,YY,tag` alone, frame/`XX` meaning `UNKNOWN`, C-976 refined by
+> M4.19/C-1960–C-1969).
 
 ## Common anatomy
 
@@ -292,13 +294,27 @@ Each directory run is an array of 6-byte cells. Two shapes are verified
 - Point tokens: `TT 40 XX YY` (4 bytes). `0x40` is a **constant marker**, not a
   sign; `TT` is a role tag (`0x02`/`0x03`/`0x04`/`0x05` for the primary
   start/end pair, `0x40`+8k for interior vertices, e.g. `0x40`, `0x48`,
-  `0x50`, `0x60`, `0x80`, `0x98`, `0xb0`). The two primary points of a record
-  share `XX` in
-  95.4 % (Andorra), 97.7 % (Monaco) and 97.6 % (Bulgaria) of records, so `XX`
-  is a per-record quantity (length/radius/cell) and `YY` a per-endpoint one.
-  The reconstruction of `(XX, YY)` into packed coordinates is **UNKNOWN**:
-  no independent absolute position exists in ADDRE, and the `COORD001` boxes
-  are too coarse (Monaco's box is 14 × 1 units and its ids spill outside it).
+  `0x50`, `0x60`, `0x80`, `0x98`, `0xb0`). `YY` uses the full 0–255 range in
+  every shard observed (001/002/003/017); `XX` is capped well below 255 and the
+  cap is shard-dependent (max 23/50/58, distinct = max+1). In simple 2-point
+  (primary tag 2–5) segments the two endpoints share `XX` in 95.4 % (Andorra),
+  97.7 % (Monaco) and 97.6 % (Bulgaria) of records, while in multi-point
+  polylines `XX` varies between sub-segment groups (2.6 %/11.1 %/4.9 %
+  constant across all points). `YY`'s 0–255 span is consistent with a
+  1/256-packed-unit subdivision of one packed unit relative to the record's
+  packed `coord` id, but **a 2D geographic `(lat, lon)` is not derivable from
+  `(coord, XX, YY, tag)` alone** (M4.19, C-1960–C-1969): interpreting
+  `(XX,YY)` as orthogonal fractions on fixed geographic axes contradicts the
+  ~97 % same-`XX` (it would make simple segments axis-aligned, geographically
+  implausible across countries), and ADDRE provides no independent 2D absolute
+  position to anchor a frame (`COORD001` boxes are coarse and Monaco's is
+  degenerate at 14 × 1 units with spilling ids). Control (wrong hypothesis):
+  whole-unit addition `cx+XX, cy+YY` places only 14.0 % of Andorra points
+  inside the region box (+2 margin, 304/2168) with median primary-segment
+  length 7 packed units (~4 km); the fractional 1/256 candidate places 100 %
+  inside with ~0.027 packed units (~16 m) but is **not a verified 2D
+  geographic mapping** (axis/frame unknown). The exact `(XX,YY)` arithmetic
+  (2D frame, axis assignment, and the meaning of `XX`) remains `UNKNOWN`.
 
 ### Trailer table (`T`)
 
@@ -318,10 +334,11 @@ Each directory run is an array of 6-byte cells. Two shapes are verified
 be used as a point-decoding control).
 
 Still open: the 6-byte cell payload (`value`/`count`), the `prefix`
-`0x06/0x07/0x08` axis of the range tokens, the `(XX, YY)` point arithmetic,
-the cell base for directory `block > 0`, why `count` under-covers large
-shards, the 6 trailing bytes of each `COORD001` entry, and the 22-byte index
-record fields.
+`0x06/0x07/0x08` axis of the range tokens, the `(XX, YY)` 2D frame / axis
+assignment and the meaning of `XX` (2D geographic not derivable from
+`coord,XX,YY,tag` alone; M4.19/C-1960–C-1969), the cell base for directory
+`block > 0`, why `count` under-covers large shards, the 6 trailing bytes of
+each `COORD001` entry, and the 22-byte index record fields.
 
 Tool: `tools/addre.py` (`layout`, `table`, `cells`, `records`, `stats`,
 `trailer`, `verify`, `--selftest`).

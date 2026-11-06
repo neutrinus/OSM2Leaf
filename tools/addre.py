@@ -12,15 +12,28 @@ What is decoded here (see `docs/format/refer.md`):
   `offset`/`length`; two shapes are recognised: `(0, value, count)` and
   `(pointer, 0xff00, 0)`, where the pointer is 6-byte aligned;
 * the address records (`c0`/`c8`, size `2 * L`), their coordinate id,
-  point tokens (`02..05 40 XX YY`), house-range tokens (`06/07 54/58
-  :N:;:M:`) and the `03 LL 00 ff` name section;
+  point tokens (`TT 40 XX YY`), house-range tokens (`06/07 54/58
+  :N:;:M:`) and the `03/04 LL 00 ff` name section;
 * the per-file trailer (`01 f4 00 00` marker, then 12-byte
   `(start, length, value)` rows that form a contiguous partition): one row
   per record zlib block, `length` = compressed size / 2 and `value` =
   uncompressed size / 2, both in 16-bit words.
 
-The *semantics* of the point magnitudes and of the trailer key space are
-still `UNKNOWN`; the tool prints them raw and never invents coordinates.
+Point token rule (M4.19, C-1960–C-1969): ``(XX, YY)`` are sub-cell byte
+tokens relative to the record's packed ``coord`` id ``(cx, cy)`` (COORD001/
+POINT origin 52742). ``YY`` uses the full 0–255 range (consistent with a
+1/256-packed-unit subdivision of one packed unit); ``XX`` is shard-capped
+(<< 255, e.g. 23/50/58 observed) and is constant for both endpoints of a
+simple 2-point segment in ~95–98 % of records, while in multi-point
+polylines it varies between sub-segment groups. A 2D geographic
+``(lat, lon)`` is **not derivable** from ``(coord, XX, YY, tag)`` alone:
+interpreting ``(XX, YY)`` as orthogonal fractions on fixed geographic axes
+implies ~97 % of simple segments are axis-aligned (geographically
+implausible across countries), and no independent 2D absolute position
+exists in ADDRE to choose or confirm an axis/frame. Whole-unit addition
+``cx+XX, cy+YY`` is a wrong hypothesis (control: 14.0 % in the Andorra
+region box, median segment ~4 km vs ~11–17 m for fractional scale).
+The tool reports the evidence and never invents a 2D coordinate.
 
 Usage::
 
@@ -361,6 +374,136 @@ def read_trailer(blob: bytes) -> dict:
 
 
 # --------------------------------------------------------------------------
+# Point token (XX, YY) analysis — M4.19
+# --------------------------------------------------------------------------
+#
+# Rule (C-1960–C-1969, EXP-2026-11-06-M4.19-addre-point-coords): ``(XX, YY)``
+# in ``TT 40 XX YY`` are sub-cell byte tokens relative to the record's packed
+# coordinate id ``(cx, cy)`` (``x = id>>16, y = id&0xffff``, COORD001/POINT
+# origin 52742). ``YY`` is 0–255 (full byte) in every shard observed;
+# ``XX`` is capped well below 255 and the cap is shard-dependent (e.g.
+# 0–23/0–50/0–58). In simple 2-point (primary tag 2–5) segments ``XX`` is
+# constant for both endpoints in ~95–98 % of records; in multi-point
+# polylines ``XX`` varies between sub-segment groups. ``YY``'s range is
+# consistent with a 1/256-packed-unit subdivision of one packed unit, but a
+# 2D geographic ``(lat, lon)`` is NOT derivable from ``(coord, XX, YY, tag)``
+# alone: no fixed (XX→axis, YY→axis) geographic assignment is supported
+# (constant-XX would make ~97 % of simple segments axis-aligned, which is
+# geographically implausible across countries) and ADDRE provides no
+# independent 2D absolute position to anchor a frame. Whole-unit addition is
+# a wrong hypothesis (control).
+
+POINT_SUBDIV = 256  # candidate subdivision (YY uses the full 0–255 range)
+PRIMARY_TAGS = frozenset((0x02, 0x03, 0x04, 0x05))
+
+
+def point_fractional_candidate(coord: tuple[int, int], xx: int, yy: int,
+                               subdiv: int = POINT_SUBDIV) -> tuple[float, float]:
+    """Return the candidate 1/subdiv packed-unit offset from ``coord``.
+
+    **NOT a verified 2D geographic mapping.** ``YY``'s 0–255 range is
+    consistent with this scale, but the axis assignment of ``XX``/``YY`` and
+    the 2D geographic meaning are unknown (M4.19: 2D geographic not derivable
+    from these fields alone). Use for scale/range analysis only.
+    """
+    cx, cy = coord
+    return (cx + xx / subdiv, cy + yy / subdiv)
+
+
+def assess_point_coords(parsed_records: list[dict],
+                        region_box: tuple[int, int, int, int] | None = None,
+                        subdiv: int = POINT_SUBDIV,
+                        margin: int = 2) -> dict:
+    """Assess ``(XX, YY)`` point-token evidence and controls (M4.19).
+
+    ``parsed_records`` are dicts as returned by :func:`parse_record`.
+    ``region_box`` is ``(x0, y0, x1, y1)`` packed coords (COORD001/52742), or
+    None. Returns a dict with ranges, invariants, the whole-unit control
+    (M1, wrong) and the fractional-scale control, and the rule:
+    ``geographic_2d_derivable`` is always False.
+    """
+    xs, ys, pts_n = [], [], 0
+    primary_pairs = 0
+    same_x_primary = 0
+    multi = 0
+    multi_x_const = 0
+    m1_in = m1_n = 0
+    mf_in = mf_n = 0
+    m1_seg = []
+    mf_seg = []
+
+    def inbox(x, y):
+        if region_box is None:
+            return True
+        x0, y0, x1, y1 = region_box
+        return (x0 - margin) <= x <= (x1 + margin) and (y0 - margin) <= y <= (y1 + margin)
+
+    for p in parsed_records:
+        if not p["points"]:
+            continue
+        for q in p["points"]:
+            xs.append(q["x"])
+            ys.append(q["y"])
+            pts_n += 1
+            if p["coord"] is not None:
+                cx, cy = p["coord"]
+                mf_n += 1
+                m1_n += 1
+                fx, fy = point_fractional_candidate((cx, cy), q["x"], q["y"], subdiv)
+                if inbox(fx, fy):
+                    mf_in += 1
+                if inbox(cx + q["x"], cy + q["y"]):
+                    m1_in += 1
+        prim = [q for q in p["points"] if q["tag"] in PRIMARY_TAGS]
+        if len(prim) == 2:
+            primary_pairs += 1
+            if prim[0]["x"] == prim[1]["x"]:
+                same_x_primary += 1
+            if p["coord"] is not None:
+                cx, cy = p["coord"]
+                a1, b1 = prim[0], prim[1]
+                m1_seg.append(((cx + a1["x"] - (cx + b1["x"])) ** 2
+                               + (cy + a1["y"] - (cy + b1["y"])) ** 2) ** 0.5)
+                af = point_fractional_candidate((cx, cy), a1["x"], a1["y"], subdiv)
+                bf = point_fractional_candidate((cx, cy), b1["x"], b1["y"], subdiv)
+                mf_seg.append(((af[0] - bf[0]) ** 2 + (af[1] - bf[1]) ** 2) ** 0.5)
+        if len(p["points"]) > 2:
+            multi += 1
+            if len({q["x"] for q in p["points"]}) == 1:
+                multi_x_const += 1
+
+    def med(vals):
+        if not vals:
+            return None
+        s = sorted(vals)
+        n = len(s)
+        return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2
+
+    return {
+        "points": pts_n,
+        "xx_min": min(xs) if xs else None,
+        "xx_max": max(xs) if xs else None,
+        "yy_min": min(ys) if ys else None,
+        "yy_max": max(ys) if ys else None,
+        "primary_pairs": primary_pairs,
+        "same_xx_primary": same_x_primary,
+        "multi_point_records": multi,
+        "multi_xx_constant": multi_x_const,
+        "control_whole_unit_inbox": (m1_in, m1_n),
+        "control_fractional_inbox": (mf_in, mf_n),
+        "control_whole_unit_median_seg": med(m1_seg),
+        "control_fractional_median_seg": med(mf_seg),
+        "subdiv_candidate": subdiv,
+        "geographic_2d_derivable": False,
+        "rule": ("(XX,YY)->2D geographic (lat,lon) not derivable from "
+                 "(coord,XX,YY,tag) alone; YY 0-255 consistent with 1/256 "
+                 "packed-unit subdivision, XX shard-capped/segment-constant "
+                 "in simple pairs, fixed 2D geographic axis assignment "
+                 "contradicted by ~97% same-XX (M4.19)."),
+    }
+
+
+# --------------------------------------------------------------------------
 # Summary and verification
 # --------------------------------------------------------------------------
 
@@ -581,6 +724,33 @@ def selftest() -> int:
     check("verify all PASS", all(ok for _, ok, _ in checks),
           "; ".join(name for name, ok, _ in checks if not ok))
 
+    # M4.19 (C-1960–C-1969): (XX,YY)->2D geographic not derivable from these
+    # fields alone. Synthetic control: whole-unit addition (wrong hypothesis)
+    # drives points outside a region box while fractional 1/256 stays inside.
+    synth = [
+        {"coord": (100, 100), "points": [
+            {"tag": 2, "x": 20, "y": 10}, {"tag": 3, "x": 20, "y": 200}]},
+        {"coord": (100, 100), "points": [
+            {"tag": 2, "x": 5, "y": 0}, {"tag": 3, "x": 5, "y": 255}]},
+    ]
+    box = (90, 90, 110, 110)
+    assess = assess_point_coords(synth, region_box=box)
+    check("M4.19 2D geographic not derivable", assess["geographic_2d_derivable"] is False)
+    check("M4.19 YY uses full byte range in synth", assess["yy_max"] == 255 and assess["yy_min"] == 0)
+    check("M4.19 same-XX primary pairs", assess["same_xx_primary"] == assess["primary_pairs"] == 2)
+    m1_in, m1_n = assess["control_whole_unit_inbox"]
+    mf_in, mf_n = assess["control_fractional_inbox"]
+    check("M4.19 control whole-unit fails in-box", m1_in < mf_in and m1_in <= m1_n // 2,
+          f"whole={m1_in}/{m1_n} frac={mf_in}/{mf_n}")
+    check("M4.19 control fractional in-box", mf_in == mf_n, f"{mf_in}/{mf_n}")
+    check("M4.19 fractional segment << whole-unit",
+          assess["control_fractional_median_seg"] < 1
+          and assess["control_whole_unit_median_seg"] > 5,
+          f"frac={assess['control_fractional_median_seg']} whole={assess['control_whole_unit_median_seg']}")
+    cand = point_fractional_candidate((100, 100), 20, 200)
+    check("M4.19 fractional candidate value", abs(cand[0] - 100.078125) < 1e-9 and abs(cand[1] - 100.78125) < 1e-9,
+          str(cand))
+
     if failures:
         print(f"\nselftest FAILED ({len(failures)}): " + ", ".join(failures))
         return 1
@@ -648,8 +818,10 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     equal_x = 0
     tags = {}
     ranges = {}
+    parsed_all = []
     for rec in recs:
         p = parse_record(rec)
+        parsed_all.append(p)
         counts[p["path"]] += 1
         if p["name"] is not None:
             counts[p["path"] + "_named"] += 1
@@ -673,6 +845,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     print(f"equal-X pairs  {equal_x}" + (f" ({equal_x / pairs:.4f})" if pairs else ""))
     print("point tags     " + " ".join(f"{k:#04x}:{v}" for k, v in sorted(tags.items())))
     print("range tokens   " + " ".join(f"{p:#04x}/{s:#04x}:{n}" for (p, s), n in sorted(ranges.items())))
+    a = assess_point_coords(parsed_all)
+    print(f"XX range       {a['xx_min']}..{a['xx_max']}  YY range {a['yy_min']}..{a['yy_max']}")
+    print(f"2D geographic  not derivable from (coord,XX,YY,tag) alone (M4.19)")
     return 0
 
 
