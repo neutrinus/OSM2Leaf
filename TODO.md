@@ -785,8 +785,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     junction) is found and decoded.
   - Claims: C-910–C-919
 
-- [ ] **M4.4 — Tile section 4 under a road edit**
-  - Status: in progress · Owner: task/m4.4-section4-road-edit · Critical: no
+- [x] **M4.4 — Tile section 4 under a road edit**
+  - Status: done · Owner: task/m4.4-section4-road-edit · Critical: no
+  - Result: EXP-2026-11-06-M4.4-section4-road-edit; in-place one-vertex road edit of B30R048R.DAT changes 116 bytes and keeps section 4 byte-identical (20 records / 68 names, sha256 4cbf...); harness verify and l2check --no-golden PASS
   - Depends: —
   - Goal: prove section 4 (place-name index, `section4.py`) can stay
     verbatim when roads change, or map the fields that must change.
