@@ -171,4 +171,5 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year/market image inventory (M4.14) | done |
 | [EXP-2026-11-06-M9.4](EXP-2026-11-06-M9.4-engine.md) | SH-4 engine interface and back ends (M9.4) | done (PySh4; Ghidra/QEMU SKIP) |
 | [EXP-2026-11-06-M9.7](EXP-2026-11-06-M9.7-corpus.md) | Synthetic L3 corpus, 108 entries (M9.7) | done |
+| [EXP-2026-11-06-M5.1](EXP-2026-11-06-M5.1-osm-ingest.md) | OSM XML/PBF ingest to IMF v1 (M5.1) | done (synthetic; real extract is M5.1b) |
 | [EXP-2026-11-06-M6.4](EXP-2026-11-06-M6.4-recovery.md) | Recovery checklist for a bad card test (M6.4) | done (plan only; no card run) |
