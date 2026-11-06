@@ -806,8 +806,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1770–C-1779
   - Result: docs/experiments/EXP-2026-11-06-M2.11-hddinfo-trigger.md (trigger = NaviSetCC message 0x841000f7, not boot/SD insert; two reads = SystemSD vs UserSD; Sleep polls SDC1: IOCTL 0x80032004 state 4 six times; wcsncmp compares line 1; C-1770–C-1779)
 
-- [ ] **M2.12 — `HDD_CHK.ATT` CRC16 attestation (`SilentAuthenticate`)**
-  - Status: in progress · Owner: task/m2.12-hdd-chk-att · Critical: yes
+- [x] **M2.12 — `HDD_CHK.ATT` CRC16 attestation (`SilentAuthenticate`)**
+  - Status: done · Owner: task/m2.12-hdd-chk-att · Critical: yes
   - Depends: — (M1.9 helps)
   - Goal: know whether the unit requires a CRC16 attestation file on the card,
     and how it is computed, because a generated card must reproduce or satisfy
@@ -821,6 +821,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     (not just the updater) checks it at boot; `docs/format/validation.md`
     updated.
   - Claims: C-1870–C-1879
+  - Result: docs/experiments/EXP-2026-11-06-M2.12-hdd-chk-att.md (HDD_CHK.ATT UTF-16LE only in MapUpdate.exe/B; Navi.exe has no ref, HDD_INFO.TXT control found in A; `SilentAuthenticate` 0x0001c210 reads 0x80 bytes, decodes 20 hex chars from ctx+120 → 10 bytes, `CApi_MakeCRC16`/commondll 0x03c04214 = CRC-16/CCITT reflected/KERMIT seed 0 poly 0x8408 must yield 0, then `sub_0001e3f4` verifies 128 bytes; C-1870–C-1879; validation.md updated)
 
 - [x] **M2.13 — The SD unlock PIN (firmware half found)**
   - Status: done · Owner: claude/project-thread-euxe0q · Critical: yes

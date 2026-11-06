@@ -223,6 +223,31 @@ preceding the literal pool that holds all of the string pointers; exact function
 a heuristic (C-807). The function is the single dispatcher that selects a screen from an error
 code; `UNKNOWN ERROR` is the fallback.
 
+## HDD_CHK.ATT attestation (updater path)
+
+> **Evidence status:** static firmware analysis of `MapUpdate.exe`/`commondll.dll`
+> in image B (`IMG256` `92aa525d…`) is `VERIFIED` for the code path and CRC16
+> algorithm; the on-disk `HDD_CHK.ATT` record layout and the final
+> `sub_0001e3f4` verification semantics are `OBSERVED`/`UNKNOWN`. Boot-time
+> absence in `Navi.exe` is a `VERIFIED` static negative with a positive control,
+> not a runtime proof. EXP-2026-11-06-M2.12-hdd-chk-att, C-1870–C-1879.
+
+`MapUpdate.exe` (image B) `SilentAuthenticate` (VA `0x0001c210`) checks
+`\SystemSD\HDD_CHK.ATT` and `\UserSD\HDD_CHK.ATT` (called for both copies). It
+reads `0x80` bytes, decodes 20 hex ASCII chars from an updater-context field
+(`ctx+120`) into 10 bytes via `sub_00019eb4`, and requires
+`commondll!CApi_MakeCRC16(decoded, 10) == 0`. The CRC16 is bitwise, LSB-first
+(reflected): seed `0x0000`, polynomial constant `0x00008408` (CRC-16/CCITT
+reflected / KERMIT form, normal poly `0x1021`), no final XOR. On CRC==0 it
+calls `sub_0001e3f4(file_buf, decoded, 0x80)`; `sub_0001e3f4` is not a plain
+memcmp (it rejects `len > 0xc0` and performs a multi-step check) and its exact
+semantics and the `HDD_CHK.ATT` byte layout remain UNKNOWN.
+
+**Which modules check it:** only `MapUpdate.exe` references `HDD_CHK.ATT` by
+string in IMG256 (B/B-copy). **`Navi.exe` (image A) has no `HDD_CHK.ATT`
+reference** (positive control `HDD_INFO.TXT` found in Navi's A segment); image C
+has none. Navi boot-path dependence is not indicated by static evidence.
+
 ## Offline mutation matrix
 
 | Mutation | Detected by our tools |
@@ -233,6 +258,7 @@ code; `UNKNOWN ERROR` is the fallback.
 | `.cmp` legitimately recompressed | no (passes) |
 | `DRSTR` size changed | **silent** |
 | `HDD_INFO` line 1 changed | **silent** (map-code knob) |
+| `HDD_CHK.ATT` changed/missing | silent to our tools; **rejected by `MapUpdate.exe` updater path** (M2.12) |
 | tile byte flip inside a stream | silent until zlib use |
 | tile byte flip in padding / `MMAIN` change | silent |
 
@@ -245,11 +271,19 @@ code; `UNKNOWN ERROR` is the fallback.
    `tools/cmpind.py`, `tools/drstr.py` and a round-trip writer.
 5. Treat the map code as a text/market check until a hardware test says
    otherwise.
+6. If the card is installed/validated through `MapUpdate.exe`, keep
+   `\SystemSD\HDD_CHK.ATT` and `\UserSD\HDD_CHK.ATT` valid for its
+   `SilentAuthenticate` check (CRC-16/KERMIT residue 0 over the decoded
+   10-byte field and `sub_0001e3f4` acceptance of the 128-byte record). The
+   exact record layout is still open (M2.12); Navi boot-path dependence is not
+   indicated by static evidence.
 
 ## Open questions
 
 - Is `DIFFERENT MAP CODE` line 1, the `0x06000000` copy, or a NAND record?
 - Does `MMAIN001.DAT`'s `0x1ac` table need to match the tile set exactly, or
-  is it informational?
+   is it informational?
 - What is the `BICON001.DAT` data version `11/04/08/01` (vs `11/06/27/01`)?
 - Is the TFAT16 volume required at boot, or only for skin/recovery?
+- What is the exact on-disk `HDD_CHK.ATT` layout and what does
+  `MapUpdate.exe` `sub_0001e3f4` verify (byte range / binding to `ctx+120`)?
