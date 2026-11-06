@@ -1241,11 +1241,14 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     URL and SHA-256 recorded; counts of ways/nodes per `highway=*` in the EXP.
   - Claims: C-1840–C-1849
 
-- [ ] **M5.2 — Mesh splitter**
+- [x] **M5.2 — Mesh splitter**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: M4.8, M5.1
   - Done when: every way is assigned to meshes and clipped at borders, and
     `imf_check.py --assign-tiles` agrees.
+  - Result: `tools/mesh_split.py` clips ways at cell borders with exact
+    intersections and per-side nodes; `imf_check --assign-tiles` agrees
+    (EXP-2026-11-06-M5.2-mesh-splitter).
   - Claims: C-1040–C-1049
 
 - [ ] **M5.3 — OSM → Clarion road class/speed table**
@@ -1575,7 +1578,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     module are recorded in an EXP.
   - Claims: C-1630–C-1639
 - [ ] **M9.2 — Ghidra project builder**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: M9.1 (M1.6b for thunk labels)
   - Goal: `tools/l3_harness/ghidra_import.py` (pyghidra, headless): all
     A + B sections at their VAs, exports named, thunks labelled, SH-4

@@ -972,6 +972,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1650 | `tools/l3_harness/stubs.py` binds all 24 stub entries to `module`/`export`/`ordinal` with `module!export` and `module!#ordinal` indices (only `coredll!#719` = `sprintf` is bound by the ledger); `dispatch.py` resolves a target to the deterministic host models (virtual FS, heap with 8-byte alignment and poison, critical sections, JSON registry, `sprintf`/`OSM_Printf` `%s %d %u %x %%`) and any unmodelled or planned export stops with exactly `missing stub: NAME`. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M9.3-stub-bind; `python3 tools/l3_harness/stubs.py --selftest` |
 
+| C-1040 | `tools/mesh_split.py` splits every IMF way at `BxxRyyR` borders (`lat = 16/3 k`, `lon = 4+8 k`), inserting the exact intersection and a copy pressed ≤1e-7° inside the other cell (half-open cells), so each fragment has exactly one `tile` and `imf_check --assign-tiles` reproduces the output byte-identically; split ids are `w<osm><BB><RRR><nn>`. Synthetic double-crossing/roundabout/border fixture: 6 ways → 11 fragments, 9 new nodes, 0 errors. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M5.2-mesh-splitter; `python3 tools/mesh_split.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
