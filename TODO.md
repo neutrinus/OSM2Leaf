@@ -889,14 +889,15 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 ## M3 — Reader contract
 
-- [ ] **M3.1 — The `.ind` wrapper above `MAL_DataVol_getOffset`**
-  - Status: in progress · Owner: task/m3.1-ind-wrapper · Critical: yes
+- [x] **M3.1 — The `.ind` wrapper above `MAL_DataVol_getOffset`**
+  - Status: done · Owner: task/m3.1-ind-wrapper · Critical: yes
   - Depends: — (M1.6 done in PR #5)
   - Goal: name the `Navi.exe` function(s) around the four known call sites.
   - Input: call sites `0x003778b2`, `0x003778bc`, `0x00377b46`, `0x00377b52`
     (EXP-50); `OBJDLL.dll` exports `MAL_*`/`OBJ_*`.
   - Done when: the enclosing function VAs, their arguments and their callers
     are recorded, with what is done with offset/size.
+  - Result: EXP-2026-11-06-M3.1-ind-wrapper; `fn 0x00377870` (vols {3,4,7,8} fingerprint, `memcmp` on `*2`-scaled off/size, status `0x03f1`/`0x03f7`, caller `fn 0x00377ae0@0x377ce4`) and `fn 0x00377ae0` (vol 7 `getOffset/getSize`→`memcpy` from `0x01205040+off*2`, disc/version checks; caller none in uncompressed `.text`); OBJDLL `MAL_*` #1-#6; C-820–C-829.
   - Claims: C-820–C-829
 
 - [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**

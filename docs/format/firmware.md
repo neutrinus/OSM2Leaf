@@ -262,9 +262,19 @@ OBJ_DiscInfo_readDiscVol (0x7f65d8, VA 0x034993d8)
   -> read at base + offset*2, length size*2
 ```
 
-OBJDLL VA base `0x03480000` is proven by three literal sites. Only three sites
-call `MAL_DataVol_getOffset/getSize`, all in OBJDLL (`0x7f6694`, `0x7f6aa4`,
-`0x7f6b84`); the map module uses a higher-level wrapper still missing.
+OBJDLL VA base `0x03480000` is proven by three literal sites. In OBJDLL, three
+sites call `MAL_DataVol_getOffset/getSize` (`0x7f6694`, `0x7f6aa4`,
+`0x7f6b84`). In `Navi.exe` (CE A, `--image-start 0x200200`), two wrapper
+functions call them via thunks `0x003d1bb0`/`0x003d1ba4` (C-820–C-826,
+EXP-2026-11-06-M3.1): `fn 0x00377870` probes volume ids `{3,4,7,8}` with
+`getOffset/getSize(id,&u16)` and `memcmp`s `*2`-scaled (off,size) windows
+(status `0x03f1`/`0x03f7`; args `r4=ctx, r5=baseA, r6=baseB`; only caller
+found `fn 0x00377ae0` at `0x00377ce4`); `fn 0x00377ae0` reads into mapped base
+`0x01205040` (`OBJ_DriveInfo_readDataVol`), queries **volume 7** and
+`memcpy`s `base + off*2`, `size*2` to a local buffer, then runs disc/version
+checks (`SYS_CdVerCmp`, `OBJ_DiscInfo_*`) and calls `fn 0x00377870`. The
+`*2` unit and `fn 0x00377ae0`'s caller (none in uncompressed `.text`;
+`.rdata`/`.data` compressed) remain open.
 
 The fd/IOB layer is in `NaviStateCC.DLL`, file base `0xc32200` (`0xc42520`,
 `0xc426a4`, `0xc438a4`), table-dispatched.
