@@ -162,6 +162,41 @@ python3 tools/cerom.py --image-start 0x200200 IMAGE imports Navi.exe   # IAT slo
 `extract` writes raw section bytes; compressed (`0x2000`) sections are not
 decompressed yet.
 
+## `realcheck.py` — pinned real-image regression
+
+Replays the real-image checks recorded in
+[`../docs/experiments/EXP-2026-11-06-H5-pm-review.md`](../docs/experiments/EXP-2026-11-06-H5-pm-review.md)
+on the shared `IMG256` slice and prints `PASS`/`FAIL` per check, so a tool that
+passes its synthetic self-test but fails on real bytes is caught immediately
+(C-1714). Every expected value lives in the `PINS` table in the file; the run
+never re-pins itself.
+
+```bash
+python3 tools/realcheck.py IMG256              # exit 0 = all PASS
+python3 tools/realcheck.py IMG256 --require-image
+python3 tools/realcheck.py --selftest
+```
+
+It checks, in order: input SHA-256 and size, image A `romhdr` (149 modules / 1
+file / `0x01a6` / `0x8cae1000`…`0x8e233c88`), image B `exports coredll.dll`
+(1651 names, ordinal 719 = `sprintf`), image A `imports Navi.exe` (846 slots),
+`comphdr --all` (245 sections, 187 HOLDS / 58 REFUTED / 0 UNPARSED),
+`thunks Navi.exe` (846 stubs / 846 slots — currently 0 stubs, so this check is
+the `FAIL` that tracks C-1714), the four EXP-50 `sh4xref.py` call sites, and
+`cecompress.py probe` on the two `NaviMapCC.dll` sections (0 matches in 205
+attempts each).
+
+Exit codes: `0` all PASS, `1` any FAIL, `2` image missing/unreadable (every
+check prints `SKIP no image`; `--require-image` turns those into FAILs), `3`
+`--update` refused because `--write` was not given. `--update` alone prints a
+new table built from the run and writes nothing; `--update --write` is the
+deliberate re-pin. `--selftest` builds `cerom.build_synthetic_rom()` and proves
+the PASS/FAIL/SKIP classification without vendor bytes.
+
+The image is not in the repository. `IMG256` is the first 256 MiB
+(`curl -r 0-268435455`) of
+`LEAF_2011-2012_QSD-309-101_navi158_eu.img`; its SHA-256 is pinned in the table.
+
 ## `solve_data_delta.py`
 
 Window-scored data-delta solver for firmware pools (useful when a module mixes
