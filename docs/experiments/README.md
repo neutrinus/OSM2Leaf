@@ -160,6 +160,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-H10](EXP-2026-11-06-H10-pm-review.md) | PM review 4: US image checks of M5.12 (label loss, zlib-build dependence) (H10) | done |
 | [EXP-2026-11-06-H3](EXP-2026-11-06-H3-ce-rom-tool-fold.md) | Fold `ce_rom_parse.py` into `cerom.py` (H3) | done |
 | [EXP-2026-11-06-H4](EXP-2026-11-06-H4-audit-delta-claims.md) | Audit the delta-era firmware claims (H4) | done |
+| [EXP-2026-11-06-H11](EXP-2026-11-06-H11-reader-coverage.md) | Reader-coverage matrix, 30 file types (H11) | done |
 | [EXP-2026-11-06-H8](EXP-2026-11-06-H8-mmain-fix.md) | `mmain.py`, `setup.sh`, docs and realcheck pins (H8) | done |
 | [EXP-2026-11-06-H9](EXP-2026-11-06-H9-zlib-ng-guard.md) | zlib runtime guard (H9) | done (simulated zlib-ng) |
 | [EXP-2026-11-06-H6](EXP-2026-11-06-H6-drstr-docs.md) | `drstr.md` ↔ `MMAIN001.DAT` reconciliation and `tools_ze0` provenance (H6) | done |

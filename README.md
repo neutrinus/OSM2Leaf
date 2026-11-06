@@ -170,6 +170,7 @@ python3 tools/verify.py --root /path/to/root
 - [Experiment log](docs/experiments/README.md) — append-only record of what
   was tried, with commands and raw results
 - [Roadmap and confidence gates](docs/research/roadmap.md)
+- [Reader coverage: every file type vs its firmware reader](docs/research/reader-coverage.md)
 - [US unit in Europe: region gates](docs/research/us-eu-region.md)
 - [Map image lineage 2011 → 2019](docs/research/image-versions.md)
 - [OSM data pipeline](docs/research/osm-pipeline.md)

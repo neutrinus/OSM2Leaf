@@ -74,6 +74,10 @@ Superseded reader-path attempts — kept for history, do **not** re-run:
 **Exit criterion:** every critical area has a data test and a firmware
 cross-check, or is explicitly marked open.
 
+Per-file coverage — writer, offline proof, reader VA and L3 target for every
+type the compiler must write — is tracked in
+[`reader-coverage.md`](reader-coverage.md).
+
 Firmware cross-checks now start from the CE ROM modules (`C-088`), so a reader
 area may stay `UNKNOWN` with M1.8/M2/M3/M9 as its planned experiment instead of
 another literal-delta search.

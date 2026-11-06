@@ -1,0 +1,207 @@
+# Reader coverage: every file the compiler writes
+
+> **Snapshot:** 2026-11-06, EU 2011 sample
+> `LEAF_2011-2012_QSD-309-101_navi158_eu.img`
+> (SHA-256 `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`).
+> **Status: survey only.** This page restates existing claims and task states;
+> it creates no new fact and promotes nothing. A row may say "read by
+> firmware" only where the claim ledger already has a located VA and an EXP.
+> Task: H11. Experiment record:
+> [`EXP-2026-11-06-H11-reader-coverage`](../experiments/EXP-2026-11-06-H11-reader-coverage.md).
+
+The compiler is only as finished as the weakest cell in the chain:
+
+```
+writer exists  ->  offline L1/L2 proof  ->  firmware reader located  ->  L3 run
+```
+
+A file can round-trip byte-identically and still be read wrongly (or not read
+at all) by `Navi.exe`; conversely a located reader without a writer does not
+produce a card. The two sides are tracked separately below.
+
+## How to read a cell
+
+| Cell | Values |
+| --- | --- |
+| **Gen** | `copy` — never generated, byte-copied; `generate · exists` — writer reproduces factory bytes and/or writes a new file; `generate · partial` — writer covers only a slice (rename, one section, re-encode); `generate · none` — no writer |
+| **Offline** | `L1` = `tools/cardcheck.py`; `L2` = `tools/l2check.py`; `tool` = a named tool plus its `--selftest`/real-sample run; `synthetic` = synthetic fixture only; `claim` = decoded outside the repo, not reproducible from a committed tool |
+| **Reader** | `located` + VA + M3 task; `partial` = load/path located but not the record walk; `unlocated` + M3 task; `not needed` = copy-only, no format consumption |
+| **L3** | a `targets.json` name with `blocked`/`synthetic`, or `planned` = an M9 task with no `targets.json` entry yet, or `—` |
+| **L3 result** | `BLOCKED (4)` = the runner exits 4 and claims nothing; `—` = never run |
+| **F4** | full `Navi.exe` on a generated card, `M8.E4`; every row is `—` until that EXP exists |
+
+No cell below is a hardware result. The verification ladder stops at L2/L3;
+the car is L4 and has not run (`docs/research/card-test-plan.md`).
+
+## Matrix
+
+| # | File type / path | Gen | Format doc | Offline proof | Firmware reader (M3) | L3 target (M9) | L3 result | F4 (M8.E4) | Cross-year / market | Evidence (claims, EXPs) | Next action |
+| --: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Card image: MBR + FAT32 + firmware area + TFAT16 tail | generate · exists — `tools/mkcard.py` | [sd-card-layout](../format/sd-card-layout.md) | `L1 --image`; `mkcard --selftest`; unchanged tree byte-identical | not a file reader; media-mount state machine `0x00419ca0` (M3.10) | M9.16 planned | — | — | 2011/2014/2016 L1 pass; 2019 QY8x unsupported | C-001–C-004, C-148, C-166, C-1910–C-1918; EXP-M5.10, EXP-30 | M5.12b |
+| 2 | Common 512-byte header (all map files) | generate · exists — copied by every writer; checked by `tools/header_block.py` | [file-header](../format/file-header.md) | `L1` magic; `header_block.py check`; 37/37 synthetic | no semantic check located; `MMAIN001` reader copies `0x1000` and byte-swaps, no label compare (M3.8) | — (covered by per-file rows) | — | — | `BICON001` carries a different data version; US/EU format family identical | C-010, C-011, C-025, C-167, C-548–C-553, C-1781–C-1789; EXP-H8, EXP-M3.8 | M5.6 |
+| 3 | `MMAIN001.DAT` | generate · exists — `tools/mmain.py` | [drstr §MMAIN](../format/drstr.md#mmain001dat--the-4-kib-database-header) | `L1` level totals; `mmain.py` round-trip `240e7c97…` | located `0x0041a438` (open `0x0041b780`, read `0x0041b954`); exactly `0x1000` bytes, no label/count check (M3.8) | no target — gap (see G1) | — | — | record counts change with the tile set; US 2011 same class | C-037, C-164, C-550, C-1720–C-1724, C-1780–C-1789, C-1890, C-1026; EXP-M3.8, EXP-H8 | M5.6 |
+| 4 | `DRSTR001.DAT` | generate · exists — `drstr_ze0.build` | [drstr](../format/drstr.md) | `L1` tree check; `L2` `drstr_rebuild`; byte-identical EU 11,968 B / US 7,456 B | located `0x00419684` → parser `sub_00419350`; size/read checks, no `0x2f`/40/324 compare (M3.4, M3.10) | `drstr_parser` — blocked | BLOCKED (4) | — | US stores lowercase `ltntbl.dat` while the file is `LTNTBL.DAT`; 2014/2016 L2 pass | C-030–C-039, C-194, C-850–C-859, C-1860–C-1869, C-1982, C-2100–C-2101; EXP-M3.4, EXP-M3.10, EXP-M4.20, EXP-H6 | M9.14 |
+| 5 | `CMP.LST` | copy — constant 19 bytes; no writer needed | [drstr §related](../format/drstr.md#related-files) | `L1` exact-content check | located `0x0041ba90`; `fopen`/`fclose` only, no read/compare (M3.10) | — (existence-only; L3 adds nothing) | — | — | content `\SystemSD\REFER001\`; US/EU unmeasured | C-035, C-1866, C-1869; EXP-M3.10 | M5.6 |
+| 6 | `REFER001` container `.cmp` + `.ind` | generate · exists — `tools/cmpind_writer.py` (preserve/recompress) | [cmp-ind](../format/cmp-ind.md) | `L1` 194/194; `L2` preserved 194/194; writer fixtures | unlocated — M3.2b (M3.2 blocked); old `0xc438a4` retracted | `cmp_ind_reader` — blocked; M9.11 planned | BLOCKED (4) | — | EU 194 pairs, US 58; zlib-ng reproduces 0/194 | C-020–C-029, C-190–C-195, C-505–C-506, C-820–C-839, C-330; EXP-06, EXP-M3.1, EXP-M3.2 | M3.2b |
+| 7 | `REFER001/COORD001` | generate · none (layout known) | [coord-zcode-icode](../format/coord-zcode-icode.md) | `L1`/`L2` pair only; `coord.py` grid fit; no file writer | unlocated — M3.14 | M9.15 planned | — | — | 33 region boxes in `REFER001`; `REFER002/COORD001` has 15 | C-110, C-111, C-053, C-152, C-960; EXP-M4.8 | M3.14 |
+| 8 | `REFER001/ZCODE0nn` | generate · none | [coord-zcode-icode](../format/coord-zcode-icode.md) | `L1`/`L2` pair only; field decode is claim-only (no repo tool) | unlocated — M3.14 | M9.15 planned | — | — | 33 shards in the EU set; US shard set unmeasured | C-112, C-113, C-131; EXP (ZCODE walk, not committed) | M3.14 |
+| 9 | `REFER001/ICODE001` | generate · none | [coord-zcode-icode](../format/coord-zcode-icode.md) | `L1`/`L2` pair only; field decode is claim-only | unlocated — M3.14 | M9.15 planned | — | — | `REFER002/ICODE001` appears from 2013 | C-114, C-115, C-122, C-1025; EXP-M4.14 | M3.14 |
+| 10 | `REFER001/POINT0nn` | generate · partial — `mutate_refer_poi.py` renames only; no page builder | [refer §POINT](../format/refer.md#point0nn--pois) | `L1`/`L2` pair; `L2` same- and different-length rename checks; `scan_refer_names.py` | unlocated — M3.11 | `poi_record_decode` planned (M9.10), not yet in `targets.json` | — | — | rename framing holds 2011/2014/2016; US shard set differs | C-132–C-135, C-145, C-146, C-150–C-152, C-210–C-212, C-952–C-957; EXP-M4.7, EXP-M5.12 | M3.11 |
+| 11 | `REFER001/ADDRE0nn` | generate · none | [refer §ADDRE](../format/refer.md#addre0nn--addresses) | `L1`/`L2` pair; `addre.py verify` 3 shards; 6-byte cells/TOC verified | unlocated — M3.13 | M9.15 planned | — | — | 33 shards; US 11; street-name resize still UNKNOWN | C-153–C-156, C-970–C-979, C-1960–C-1969, C-957; EXP-M4.9, EXP-M4.19 | M3.13 |
+| 12 | `REFER001/INTER0nn` | generate · none | [refer §INTER](../format/refer.md#inter0nn--intersections) | `L1`/`L2` pair only; table decode is claim-only | unlocated — M3.16 | no target — gap (see G2) | — | — | 33 shards; `FRWAY` only 24 | C-135, C-140, C-1810–C-1812; EXP-M4.16 | M3.16 |
+| 13 | `REFER001/FRWAY0nn` | generate · none | [refer §FRWAY](../format/refer.md#frway0nn--freewaysroutes) | `L1`/`L2` pair only; table decode is claim-only | unlocated — M3.16 | no target — gap (see G2) | — | — | 24 shards vs 33 for other families | C-140, C-1810–C-1812; EXP-M4.16 | M3.16 |
+| 14 | `REFER001/ICADM0nn` | generate · none | [refer §ICADM](../format/refer.md#icadm0nn--administrative-country-data) | `L1`/`L2` pair only; field decode is claim-only | unlocated — no M3 task (see G2) | no target — gap (see G2) | — | — | 33 blocks; country terms verified | C-136, C-1799 | propose M3.18 |
+| 15 | `REFER001/ZIPFR001` | generate · none | [refer §ZIPFR](../format/refer.md#zipfr001--postalfreeway-masks) | `L1`/`L2` pair only; field decode is claim-only | unlocated — no M3 task (see G2) | no target — gap (see G2) | — | — | 36,881 records, 119 masks; cross-year unmeasured | C-137 | propose M3.18 |
+| 16 | `REFER001/INDEX003.DAT` | generate · none | [refer](../format/refer.md) (no section yet) | `L1` tree census only; layout not decoded | partial: load `0x004125a8` / string `0x0017a118`; record walk unlocated — M3.12 | no target — gap (see G2) | — | — | EU and US 2011; layout unknown | C-880; EXP-M3.7; C-2130–C-2139 reserved | M3.12 |
+| 17 | `MAPAL001/BxxRyyR.DAT` container, level/box tables, section 1 roads | generate · partial — `tools/tilewriter.py` splices roads into a factory tile | [map-tiles](../format/map-tiles.md) | `L2` five tiles byte-identical; `tilewriter` 48/48 synthetic; real-tile L2 open | partial: VAs `0x0041f26c`, `0x004259bc`, `0x0042757a` (M3.5); no runnable entry | `tile_reader` — blocked; M9.13 planned | BLOCKED (4) | — | 2011/2014/2016 `B30R048R` identical; QY8x 2019 differs (52 tiles, layer 11) | C-050–C-053, C-120–C-129, C-171, C-250–C-256, C-860–C-869, C-943–C-944, C-1060; EXP-04, EXP-12, EXP-M4.6, EXP-M5.4 | M5.4 |
+| 18 | `MAPAL001` tile section 2 (router graph) | copy — always preserved verbatim | [map-tiles](../format/map-tiles.md) | `L2` `tile_roundtrip` byte-identical; graph records not decoded | unlocated — M3.6 (which sections the renderer reads) | `tile_reader` — blocked; M9.13 planned | BLOCKED (4) | — | 2011/2014/2016 preserved; graph grammar unknown | C-998, C-923; EXP-M4.11, EXP-M4.4 | M3.6 |
+| 19 | `MAPAL001` tile section 4 (admin/place-name index) | generate · partial — `section4.py preserve` verified; `build` refuses (exit 3); `sec4_write.py` unverified | [map-tiles §section 4](../format/map-tiles.md#section-4-road-names-and-streaming) | `L2` tile mutation with section 4 verbatim; payload hashes | unlocated — M3.6 (section 4 especially) | `tile_reader` — blocked; M9.13 planned | BLOCKED (4) | — | records/names 20/68, 24/126, 24/129 (2011/2014/2016) | C-126, C-546–C-547, C-920–C-929; EXP-M4.4 | M3.6; then see G3 |
+| 20 | `MAPAL001/LEV3456R.DAT` | generate · partial — `tools/lev3456.py` re-encodes levels 3–6; no OSM writer | [map-tiles §LEV3456R](../format/map-tiles.md#lev3456rdat-coarse-levels-35) | `L2` byte-identical; `lev3456.py verify` + `cmp` silent (level 5 whole file) | partial: filename load `0x0040a014`/`0x0040a022` (M3.4); content reader unlocated — M3.6 | `tile_reader` covers `BxxRyyR` only — gap (see G8) | — | — | whole-database directory shape; 2014/2016 unmeasured | C-852, C-990–C-999, C-256; EXP-M4.11 | propose M5.16 (see G4) |
+| 21 | `RDSTM001/RDSTM001.DAT` | generate · none — record framing unresolved | [rdstm](../format/rdstm.md) | `L1` header; `rdstm_record.py` 10-row round-trip; `rdstm_scan`/`schema`; no writer | located `0x003bc960` decoder, 12 getters, `0x003f61bc` field directory (M3.7) | no target — gap (see G2) | — | — | EU uses `TMC`; US uses `XMD` instead | C-104–C-106, C-880–C-889, C-1800–C-1812, C-070; EXP-M3.7, EXP-M4.1, EXP-M4.15, EXP-M4.16 | M4.16b |
+| 22 | `RDSTM001/LCTBL001.DAT` | generate · partial — `lctbl_records.py` re-encodes records; no file/catalog builder | [rdstm §LCTBL](../format/rdstm.md#lctbl001dat--catalog--compressed-name-database) | `L1` tree/header; `lctbl_records verify` all 517 streams; `lctbl_names verify`; no full-file rebuild | partial: load `0x004125a8`; record walk unlocated — M3.15 | M9.15 planned | — | — | 2011/2014/2016 framing identical, counts grow; US DRSTR name lowercase | C-880, C-1790–C-1799, C-1830–C-1839; EXP-M3.7, EXP-M3.9, EXP-M4.18 | M3.15; then see G5 |
+| 23 | `VER_INFO/HDD_INFO.TXT` (+ `0x06000000` copy) | generate · exists — `tools/hddinfo.py`; `mkcard.py` writes the image copy | [validation §HDD_INFO](../format/validation.md#hdd_infoTXT-text-layout-m21m23-verified-static) | `L1` 6 lines, ASCII, label match, image copy; `hddinfo.py` byte-identical round-trip | reader `0x004e7b8c` located (M2.1); comparator `0x03bd2ad8`/`0x03bd2ecc` located but runtime COM/unit state | `hddinfo_compare` — blocked; M9.6 planned | BLOCKED (4) | — | US line 1 `QSD-301-100`, `SDC08-EVNAM`, label `QSD-301-103`; EU values differ | C-005, C-074, C-721–C-728, C-740–C-749, C-766, C-1710–C-1711, C-1770–C-1779, C-070; EXP-M2.1, EXP-M2.3, EXP-M2.5, EXP-M2.11 | M9.6 |
+| 24 | `REFER002/*` (16 files, EV layer) | copy | [refer §REFER002](../format/refer.md) | `L1` census; format decode is claim-only; no writer | not needed for copy; schema `OBSERVED`, no reader task | — | — | — | 15 POINT shards (2011) → 29 (2016); `ICODE001` from 2013 | C-138, C-143, C-152, C-156, C-1025; EXP-M4.14 | M3.17 |
+| 25 | `BICON001/BICON001.DAT` | copy | [assets §BICON](../format/assets.md#bicon001bicon001dat--poi-icons) | `L1` header; `poi_icons.py bicon` 103 icons | not needed for map correctness (icon display) | — | — | — | data version `11/04/08/01` differs from other map files | C-213, C-980–C-989, C-167; EXP-M4.10 | M3.17 |
+| 26 | `OPNG/*` | copy | [assets §OPNG](../format/assets.md#opng--images) | `L1` census; no parser | not needed | — | — | — | 2016 sample carries `OIXXEVNI.001`; US unmeasured | no claim; `assets.md` | M3.17 |
+| 27 | `SPEECH/<lang>/…` | copy | [assets §SPEECH](../format/assets.md#speech--voice-prompts) | `L1` census; archive shape `OBSERVED`; no parser | not needed | — | — | — | language sets and `TFTBL001` grow in 2014/2016 | C-1027; EXP-M4.14 | M3.17 |
+| 28 | `TMC/reception.dat` (US: `XMD`) | copy | [data-coverage §traffic](data-coverage.md) | `L1` census; no parser | not needed | — | — | — | EU `TMC` vs US `XMD`; TMC is a separate data source | C-070; EXP (image matrix) | M3.17 |
+| 29 | `TFTBL001/*` (2014+ only) | copy when present; not generated for 2011 | [image-versions](image-versions.md) | `L1` warns; no parser | not needed for 2011; function unknown | — | — | — | absent in 2011; present 2014/2016 | C-122, C-1027; OQ-31, OQ-36 | M3.17 |
+| 30 | US `XMD/LTNTBL.DAT` (DRSTR stores `ltntbl.dat`) | copy | [drstr](../format/drstr.md) | `L2`/`drstr_ze0.build` case-insensitive rebuild byte-identical | not needed | — | — | — | only the US card; EU stores `LCTBL001.DAT` | C-1982, C-2100–C-2101; EXP-M4.20 | M5.6 |
+
+**Row count: 30.** Of these, 21 are generated (a writer exists or is missing)
+and 9 are copy-only (`CMP.LST`, tile section 2, `REFER002`, `BICON001`,
+`OPNG`, `SPEECH`, `TMC`, `TFTBL001`, and the US `LTNTBL` spelling); the
+per-status counts are in
+[EXP-2026-11-06-H11](../experiments/EXP-2026-11-06-H11-reader-coverage.md).
+
+## Unlocated readers
+
+Rows where the record-walking reader has no VA (a load/path anchor does not
+count as a reader):
+
+| Family | What is missing | Task |
+| --- | --- | --- |
+| `.cmp`/`.ind` chunk reader | the caller of `inflate` that loops over `chunk_offset[]` | M3.2b |
+| `COORD001` | the table reader | M3.14 |
+| `ZCODE0nn` | the trie/leaf reader | M3.14 |
+| `ICODE001` | the schema/name reader | M3.14 |
+| `POINT0nn` | the `tag,len2` record walk and name copy | M3.11 |
+| `ADDRE0nn` | the directory/cell/record readers | M3.13 |
+| `INTER0nn` | the 12-byte table and blob readers | M3.16 |
+| `FRWAY0nn` | the table and route-ref readers | M3.16 |
+| `ICADM0nn` | no M3 task at all | proposed M3.18 (G2) |
+| `ZIPFR001` | no M3 task at all | proposed M3.18 (G2) |
+| `INDEX003.DAT` | record layout and its consumer | M3.12 |
+| Tile section 1/2/4 | which sections the renderer reads; section-4 consumer especially | M3.6 |
+| `LEV3456R.DAT` content | reader beyond the filename load | M3.6 |
+| `LCTBL001.DAT` | the record walk and name decode | M3.15 |
+| `MMAIN001.DAT` | **not** unlocated: `0x0041a438` reads it, but no L3 target exists | proposed G1 |
+| `RDSTM001.DAT` | **not** unlocated: `0x003bc960` + `0x003f61bc` are located, but no L3 target exists | proposed G2 |
+
+`HDD_INFO.TXT`, `DRSTR001.DAT` and `CMP.LST` have located readers; their L3
+targets are blocked on engine/corpus work, not on address discovery.
+
+## L3 targets and what they actually prove
+
+`tools/l3_harness/targets.json` currently has six entries. Only one is
+runnable, and it is a pipeline fixture, not a firmware reader.
+
+| Target | Kind | Reader | Corpus | Result | Matrix rows |
+| --- | --- | --- | --- | --- | --- |
+| `probe-zlib-cmf` | synthetic | `synthetic` | `REFER001/ADDRE001.DAT.cmp` | ACCEPT (pipeline only) | row 6 note only |
+| `hddinfo_compare` | blocked | `hdd_info` | `VER_INFO/HDD_INFO.TXT` | BLOCKED (4) | 23 |
+| `cmp_ind_reader` | blocked | `cmp_ind` | `REFER001/ADDRE001.DAT.cmp` | BLOCKED (4) | 6 |
+| `tile_reader` | blocked | `tile` | `MAPAL001/B28R070R.DAT` | BLOCKED (4) | 17, 18, 19 |
+| `drstr_parser` | blocked | `drstr` | `DRSTR001.DAT` | BLOCKED (4) | 4 |
+| `mapcode_comparator` | blocked (retired) | `hdd_info` | HDD_INFO variant | BLOCKED (4) | 23 — must never be revived |
+
+No row may say "read by firmware" on the strength of `probe-zlib-cmf`; the
+target notes say so explicitly. The retired comparator chain
+`0x6fab2c → 0x6faeb0 → 0x6fb05c` is `BT_MGR.dll` code (C-520, C-528) and is
+kept blocked on purpose.
+
+## Gaps: reader and L3 tasks that do not exist yet
+
+H11's brief owns this document, the roadmap/README link lines and its own EXP
+only; it does **not** edit `TODO.md`. The proposals below use the next free
+blocks (highest current block is `C-2280–C-2289`, so the next is
+`C-2290–C-2299`); the coordinator should insert them into `TODO.md` and
+re-block if another task takes an ID first.
+
+| Gap | Missing task | Scope | Proposed claims |
+| --- | --- | --- | --- |
+| G1 | M9.17 — L3 `mmain_reader` target | run `0x0041a438` on the factory `MMAIN001.DAT` and on a rebuilt header; record the `0x1000` read and the absence of a label/count check | C-2290–C-2299 |
+| G2 | M3.18 — `ICADM`/`ZIPFR` readers | the two families with no M3 task; also propose an L3 target under M9.15 or a new M9.18 for `INDEX003`, `INTER`, `FRWAY`, `RDSTM` | C-2300–C-2309 |
+| G3 | M4.21 — tile section-4 writer | turn `section4.py encode build` from "refuses" into a writer for a changed parcel set (C-929); needs the M3.6 consumer answer | C-2310–C-2319 |
+| G4 | M5.16 — `LEV3456R` generator | OSM → levels 3–5 writer; `lev3456.py` can already re-encode factory records, but the whole-database rebuild assumptions (44/11 columns) are unproven on 2014/2016 | C-2320–C-2329 |
+| G5 | M5.17 — `LCTBL001` writer | file-level builder (catalog + 500-record pages) after M3.15; `lctbl_records.py` only re-encodes streams | C-2330–C-2339 |
+| G6 | M5.18 — `ADDRE`/`ZCODE`/`ICODE`/`COORD` writers | one writer per family after M3.13/M3.14; `ADDRE` is the hard one (C-957) | C-2340–C-2349 |
+| G7 | M5.19 — `RDSTM001` writer | only after M4.16b resolves the per-record field directory; must carry the twelve TMC fields (C-889) | C-2350–C-2359 |
+| G8 | M9.19 — L3 targets for `LEV3456R` and tile sections | extend `tile_reader` beyond `B28R070R`; add the section-4 consumer once M3.6 names it | C-2360–C-2369 |
+
+G1/G2 are reader/L3 gaps; G3–G7 are writer gaps. G8 is the missing coverage for
+rows 18–20.
+
+## How to keep this current
+
+1. **Same PR rule.** A task that changes a writer, a reader VA, an L3 target or
+   a corpus updates the matching row here in the same commit. A row change is
+   part of that task's "Done when", not a follow-up.
+2. **Promotion rule.** A reader cell may say `located` only with a claim ID and
+   an EXP that gives the VA and the call path; an L3 cell may say `PASS/REJECT`
+   only from a `runner.py run` verdict with the stub log in an EXP; a row may
+   say "read by firmware" only when both exist. Otherwise use `partial`,
+   `unlocated`, `BLOCKED` or `—`.
+3. **New file family = new row.** Do not fold a new file type into "other";
+   add it with mode, format doc, writer, offline proof, reader and L3.
+4. **Copy set changes only with evidence.** Moving a file from `generate` to
+   `copy` (or back) needs a claim and an EXP, because M5.6 and M3.17 depend on
+   it.
+5. **Freshness check.** At the start of any M5/M9 task run
+   `python3 tools/claims_check.py` and `python3 tools/selftest.py`; at the end
+   compare this page's row count and unlocated list with the current
+   `targets.json` and `TODO.md`. H11 owns the refresh; a stale matrix is a bug.
+
+## Sources and evidence key
+
+Claim IDs refer to [`claims.md`](claims.md). This page adds no claim; the H11
+block `C-2170–C-2179` is intentionally unused because `claims.md` is
+read-only for this task.
+
+| Short | Experiment record |
+| --- | --- |
+| EXP-04 | [`EXP-2026-11-05-04-tile-roundtrip`](../experiments/EXP-2026-11-05-04-tile-roundtrip.md) |
+| EXP-06 | [`EXP-2026-11-05-06-cmp-writer`](../experiments/EXP-2026-11-05-06-cmp-writer.md) |
+| EXP-12 | [`EXP-2026-11-05-12-tile-dense-roads`](../experiments/EXP-2026-11-05-12-tile-dense-roads.md) |
+| EXP-29 | [`EXP-2026-11-05-29-l1-l2-validators`](../experiments/EXP-2026-11-05-29-l1-l2-validators.md) |
+| EXP-30 | [`EXP-2026-11-05-30-image-matrix`](../experiments/EXP-2026-11-05-30-image-matrix.md) |
+| EXP-M2.1 | [`EXP-2026-11-06-M2.1-hddinfo-fn-complete`](../experiments/EXP-2026-11-06-M2.1-hddinfo-fn-complete.md) |
+| EXP-M2.3 | [`EXP-2026-11-06-M2.3-hddinfo-fields`](../experiments/EXP-2026-11-06-M2.3-hddinfo-fields.md) |
+| EXP-M2.5 | [`EXP-2026-11-06-M2.5-different-map-code`](../experiments/EXP-2026-11-06-M2.5-different-map-code.md) |
+| EXP-M2.11 | [`EXP-2026-11-06-M2.11-hddinfo-trigger`](../experiments/EXP-2026-11-06-M2.11-hddinfo-trigger.md) |
+| EXP-M3.1 | [`EXP-2026-11-06-M3.1-ind-wrapper`](../experiments/EXP-2026-11-06-M3.1-ind-wrapper.md) |
+| EXP-M3.2 | [`EXP-2026-11-06-M3.2-ind-handling`](../experiments/EXP-2026-11-06-M3.2-ind-handling.md) |
+| EXP-M3.4 | [`EXP-2026-11-06-M3.4-drstr-parser`](../experiments/EXP-2026-11-06-M3.4-drstr-parser.md) |
+| EXP-M3.5 | [`EXP-2026-11-06-M3.5-tile-reader`](../experiments/EXP-2026-11-06-M3.5-tile-reader.md) |
+| EXP-M3.7 | [`EXP-2026-11-06-M3.7-router-rdstm`](../experiments/EXP-2026-11-06-M3.7-router-rdstm.md) |
+| EXP-M3.8 | [`EXP-2026-11-06-M3.8-mmain-read`](../experiments/EXP-2026-11-06-M3.8-mmain-read.md) |
+| EXP-M3.9 | [`EXP-2026-11-06-M3.9-name-collation`](../experiments/EXP-2026-11-06-M3.9-name-collation.md) |
+| EXP-M3.10 | [`EXP-2026-11-06-M3.10-drstr-cmplst-fns`](../experiments/EXP-2026-11-06-M3.10-drstr-cmplst-fns.md) |
+| EXP-M4.4 | [`EXP-2026-11-06-M4.4-section4-road-edit`](../experiments/EXP-2026-11-06-M4.4-section4-road-edit.md) |
+| EXP-M4.6 | [`EXP-2026-11-05-M4.6-b30r048r-diff`](../experiments/EXP-2026-11-05-M4.6-b30r048r-diff.md) |
+| EXP-M4.7 | [`EXP-2026-11-06-M4.7-poi-rename-resize`](../experiments/EXP-2026-11-06-M4.7-poi-rename-resize.md) |
+| EXP-M4.8 | [`EXP-2026-11-06-M4.8-coord`](../experiments/EXP-2026-11-06-M4.8-coord.md) |
+| EXP-M4.9 | [`EXP-2026-11-06-M4.9-addre-grammar`](../experiments/EXP-2026-11-06-M4.9-addre-grammar.md) |
+| EXP-M4.10 | [`EXP-2026-11-06-M4.10-poi-icons`](../experiments/EXP-2026-11-06-M4.10-poi-icons.md) |
+| EXP-M4.11 | [`EXP-2026-11-06-M4.11-lev-coarse`](../experiments/EXP-2026-11-06-M4.11-lev-coarse.md) |
+| EXP-M4.14 | [`EXP-2026-11-06-M4.14-cross-year-archive`](../experiments/EXP-2026-11-06-M4.14-cross-year-archive.md) |
+| EXP-M4.16 | [`EXP-2026-11-06-M4.16-rdstm-placement`](../experiments/EXP-2026-11-06-M4.16-rdstm-placement.md) |
+| EXP-M4.18 | [`EXP-2026-11-06-M4.18-lctbl-framing`](../experiments/EXP-2026-11-06-M4.18-lctbl-framing.md) |
+| EXP-M4.19 | [`EXP-2026-11-06-M4.19-addre-point-coords`](../experiments/EXP-2026-11-06-M4.19-addre-point-coords.md) |
+| EXP-M4.20 | [`EXP-2026-11-06-M4.20-us-drstr-roundtrip`](../experiments/EXP-2026-11-06-M4.20-us-drstr-roundtrip.md) |
+| EXP-M5.4 | [`EXP-2026-11-06-M5.4-tilewriter`](../experiments/EXP-2026-11-06-M5.4-tilewriter.md) |
+| EXP-M5.10 | [`EXP-2026-11-06-M5.10-mkcard`](../experiments/EXP-2026-11-06-M5.10-mkcard.md) |
+| EXP-M5.12 | [`EXP-2026-11-06-M5.12-us-poi-rename`](../experiments/EXP-2026-11-06-M5.12-us-poi-rename.md) |
+| EXP-H6 | [`EXP-2026-11-06-H6-drstr-docs`](../experiments/EXP-2026-11-06-H6-drstr-docs.md) |
+| EXP-H8 | [`EXP-2026-11-06-H8-mmain-fix`](../experiments/EXP-2026-11-06-H8-mmain-fix.md) |
+| EXP-H11 | [`EXP-2026-11-06-H11-reader-coverage`](../experiments/EXP-2026-11-06-H11-reader-coverage.md) |

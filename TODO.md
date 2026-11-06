@@ -426,7 +426,7 @@ Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M
     re-scoped, M6.2/M6.5–M6.7 rewritten as S0–S3 for Marek.
   - Claims: C-2110–C-2119
 
-- [ ] **H11 — Reader-coverage matrix: one row per file type we generate**
+- [x] **H11 — Reader-coverage matrix: one row per file type we generate**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: one page that shows, for every file the OSM compiler must write,
@@ -1840,7 +1840,7 @@ No hardware is available now. Planning tasks are open; tests wait.
     uses the changed road.
   - Claims: C-1170–C-1179
 - [x] **M6.12 — Clarion debug console (MONI `FW>`, `DSW=0006`) access procedure**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no · **Runner: non-Claude** (needs
+  - Status: done · Owner: session-ZMxuBT · Critical: no · **Runner: non-Claude** (needs
     hardware; planning is doable now, the procedure is unverified until bench)
   - Depends: M6.8 (bench kit / access plan); complements M8.A6 and
     `docs/research/dynamic-break-guide.md`
