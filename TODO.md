@@ -807,7 +807,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: docs/experiments/EXP-2026-11-06-M2.11-hddinfo-trigger.md (trigger = NaviSetCC message 0x841000f7, not boot/SD insert; two reads = SystemSD vs UserSD; Sleep polls SDC1: IOCTL 0x80032004 state 4 six times; wcsncmp compares line 1; C-1770–C-1779)
 
 - [ ] **M2.12 — `HDD_CHK.ATT` CRC16 attestation (`SilentAuthenticate`)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m2.12-hdd-chk-att · Critical: yes
   - Depends: — (M1.9 helps)
   - Goal: know whether the unit requires a CRC16 attestation file on the card,
     and how it is computed, because a generated card must reproduce or satisfy
