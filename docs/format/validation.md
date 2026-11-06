@@ -94,6 +94,43 @@ The cheapest test pair on a spare card:
 
 That distinguishes hypotheses 1/2 without touching the unit.
 
+### HDD_INFO.TXT text layout (M2.1/M2.3, VERIFIED static)
+
+> **Status: VERIFIED (static).** Reader layout from `Navi.exe` `fn 0x004e7b8c`
+> (build A, IMG256 `92aa525d…`), disassembled and traced in
+> EXP-2026-11-06-M2.1-hddinfo-fn-complete (C-721–C-728) and mapped here
+> (EXP-2026-11-06-M2.3-hddinfo-fields, C-740–C-749). The file content values are
+> grounded on the factory EU 2011 `VER_INFO/HDD_INFO.TXT` (sha256
+> `9f014643…c650a`, 72 bytes, 6 CRLF ASCII lines, no trailing CRLF); vendor
+> content is not committed.
+
+`HDD_INFO_read(r4 ignored, r5 selector, r6 output struct base r8)` reads 6
+lines from `\SystemSD\VER_INFO\HDD_INFO.TXT` (`r5==0`) or
+`\UserSD\VER_INFO\HDD_INFO.TXT` (`r5==1`) with
+`fgetws(buf=r15+0x40, count=0x20 wchar_t)`. It strips CR (U+000D) and LF
+(U+000A) via `wcschr` and copies the **whole stripped line** with `wcsncpy`
+into inline wide-char fields of the output struct at `r8` in sequence. There is
+no key:value split; the separator is the CRLF line boundary. The accept check
+requires the measured line length `< (max_wchars - 1)`. The line read buffer is
+`r15+0x40` (0x20 `wchar_t`), cleared by `memset(r15+0x42, 0, 0x3e)` plus a
+leading NUL word.
+
+| Line | Field name (`tools/hddinfo.py`) | On-disk type | In-memory type (firmware) | Struct offset (`r8+`) | `wcsncpy` max (`wchar_t`) | Factory EU 2011 example |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `base_code` | ASCII text line, CRLF-terminated | `wchar_t[]` (UTF-16LE in memory) | `0x00` | 12 | `QSD-302-100` |
+| 2 | `map_set` | ASCII text line, CRLF-terminated | `wchar_t[]` (UTF-16LE in memory) | `0x18` | 12 | `QSD-309-101` |
+| 3 | `build` | ASCII text line, CRLF-terminated | `wchar_t[]` (UTF-16LE in memory) | `0x30` | 13 | `02-110100-00` |
+| 4 | `map_code` | ASCII text line, CRLF-terminated | `wchar_t[]` (UTF-16LE in memory) | `0x4a` | 12 | `SDC08-EVEUR` |
+| 5 | `year_month` | ASCII text line, CRLF-terminated | `wchar_t[]` (UTF-16LE in memory) | `0x62` | 12 | `11-05` |
+| 6 | `part_number` | ASCII text line, CRLF-terminated | `wchar_t[]` (UTF-16LE in memory) | `0x7a` | 13 | `470323501005` |
+
+Evidence: M2.1 `--calls 0x004e7b8c --resolve-with 0x3e00200` names
+`_wfopen`/`fgetws`/`wcschr`×2/`wcsncpy`/`memset`/`fclose`; dest-pointer table
+`r15+0x10+r9` = `r8+{0x00,0x18,0x30,0x4a,0x62,0x7a}` and max table `r15+0x28+r9`
+= `{12,12,13,12,12,13}` (C-723–C-727, C-1711). `tools/hddinfo.py` exposes this
+as `HDD_INFO_FIELDS` (canonical, self-tested) and keeps byte-identical
+parse/serialise of the on-disk file.
+
 ### HYPOTHESIS: offline comparator model M0 (`tools/hddinfo.py`)
 
 > **Status: HYPOTHESIS, not validated.** The model below is derived from the
@@ -111,8 +148,9 @@ way the documentation says the unit does: `Sys[0x%x]` vs `SD[0x%x]` for
 is the built-in copy at image offset `0x06000000`; `SD` is the card's
 `VER_INFO/HDD_INFO.TXT`.
 
-Because the line→field parser is still unknown, the field derivation is part
-of the hypothesis:
+M2.3 (above) verifies the reader line→slot/struct-offset mapping; model M0's
+semantic numeric derivation from lines 1/4 remains part of the hypothesis
+(scope note C-735/M2.2):
 
 | Field | Model rule | Source |
 | --- | --- | --- |
