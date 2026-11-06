@@ -427,7 +427,7 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Result: `tools/realcheck.py` runs eight pinned checks with SKIP/exit-2 without the image (EXP-2026-11-06-H7-realcheck).
   - Claims: C-1730–C-1739
 
-- [ ] **H8 — Fix what H6 reported: `mmain.py`, `setup.sh`, two doc sentences**
+- [x] **H8 — Fix what H6 reported: `mmain.py`, `setup.sh`, two doc sentences**
   - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: — (coordinate with PR #35 `[M3.8]`, which reads `MMAIN001`)
   - Goal: no tool or guide still describes `MMAIN001.DAT` as a FAT log or
@@ -440,10 +440,13 @@ widens knowledge or tooling in parallel and is equally welcome.
     synthetic); `setup.sh` applies the patch to `tools_ze0/` paths and is
     run once in the EXP; the two sentences match `docs/format/ze0-tools.md`;
     `realcheck.py` pins the `coredll.dll` ordinals of C-1710 (H7 follow-up).
+  - Result: `mmain.py` parses the real 4 KiB header and refuses root dirs; setup.sh
+    audits/regenerates `tools_ze0`; docs and realcheck ordinal pins fixed
+    (EXP-2026-11-06-H8-mmain-fix).
   - Claims: C-1890–C-1899
 
 - [x] **H9 — Guard recompression tools against zlib-ng false failures**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: a correct rebuild must not report `FAIL` because the interpreter
     links zlib-ng (Python 3.14 here), and a user must learn why.

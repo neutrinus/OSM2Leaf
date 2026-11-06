@@ -173,15 +173,22 @@ validator. See [`../docs/research/minimal-change.md`](../docs/research/minimal-c
 
 ## ZE0 tile viewer / round-trip
 
-`tools/ze0-viewer/` clones a pinned `osm2clarion`, applies the ZE0 patch and
-provides a harness that decodes tiles to GeoJSON/PNG and round-trips them.
+`tools/ze0-viewer/` ships a checked-in copy of the pinned `osm2clarion` tools
+(`tools_ze0/`, patched by `ze0-tools.patch`) and a harness that decodes tiles to
+GeoJSON/PNG and round-trips them. `harness.py` imports that copy directly;
+`setup.sh` only audits or regenerates it against a git-ignored `vendor/` clone
+and is not needed to run the harness
+(see [`../docs/format/ze0-tools.md`](../docs/format/ze0-tools.md)).
 
 ```bash
 cd tools/ze0-viewer
-./setup.sh
 python3 harness.py verify /path/to/B58R070R.DAT
 python3 harness.py compose /path/to/B30R060R.DAT /path/to/LEV3456R.DAT \
     out/B30R060R_composite.png --cell B30R060R
+
+# Only after a pin or patch change: rebuild and compare the checked-in copy
+./setup.sh              # clone/fetch the pin, rebuild, diff (no write)
+./setup.sh --update     # replace tools_ze0/ with the rebuild
 ```
 
 Clean tiles (`B28R070R`, `B30R060R`, `B58R070R`, `LEV3456R`) rebuild
@@ -294,7 +301,9 @@ python3 tools/realcheck.py --selftest
 
 It checks, in order: input SHA-256 and size, image A `romhdr` (149 modules / 1
 file / `0x01a6` / `0x8cae1000`…`0x8e233c88`), image B `exports coredll.dll`
-(1651 names, ordinal 719 = `sprintf`), image A `imports Navi.exe` (846 slots),
+(1651 names and the C-1710 ordinals: 719 `sprintf`, 1145 `_wfopen`, 1143
+`fgetws`, 59 `wcschr`, 66 `wcsncpy`, 1047 `memset`, 1118 `fclose`, 496 `Sleep`,
+65 `wcsncmp`), image A `imports Navi.exe` (846 slots),
 `comphdr --all` (245 sections, 187 HOLDS / 58 REFUTED / 0 UNPARSED),
 `thunks Navi.exe` (846 stubs / 846 slots — currently 0 stubs, so this check is
 the `FAIL` that tracks C-1714), the four EXP-50 `sh4xref.py` call sites, and

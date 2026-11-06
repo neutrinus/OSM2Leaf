@@ -52,8 +52,10 @@ take a task". The short version:
 
 - No package manager, build system or CI. Deliverables are docs plus small
   Python CLIs; run entrypoints directly.
-- `tools/` — Python 3.10+, standard library only. `tools/ze0-viewer/` clones a
-  pinned `osm2clarion` via `setup.sh` (git-ignored vendor tree).
+- `tools/` — Python 3.10+, standard library only. `tools/ze0-viewer/` ships a
+  checked-in copy of the pinned `osm2clarion` tools in `tools_ze0/` (patched by
+  `ze0-tools.patch`); `setup.sh` only audits or regenerates it against a
+  git-ignored `vendor/` clone — see `docs/format/ze0-tools.md`.
 - `docs/format/` — living format knowledge.
 - `docs/experiments/` — append-only experiment records.
 - `docs/research/` — claims, roadmap, protocols, comparisons.
@@ -82,9 +84,10 @@ python3 tools/verify.py --root <root>      # cross-year wrapper for both
 - `l2check.py --cmp-limit 20 --no-tiles` for a fast check;
   `--update-golden` only after an intentional decoder change, never to make a
   failing run pass.
-- Tile-level check: `cd tools/ze0-viewer && ./setup.sh && python3 harness.py
-  verify <tile>`. Expect byte-identical for `B28R070R`, `B30R060R`,
-  `B58R070R`, `B30R048R`, `LEV3456R`.
+- Tile-level check: `cd tools/ze0-viewer && python3 harness.py verify <tile>`
+  (the checked-in `tools_ze0/` is imported directly; `setup.sh` is only the
+  audit/regeneration path and needs network). Expect byte-identical for
+  `B28R070R`, `B30R060R`, `B58R070R`, `B30R048R`, `LEV3456R`.
 - Every verification is pinned to a sample SHA-256; record the result in the
   commit body or the experiment record.
 

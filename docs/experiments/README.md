@@ -159,6 +159,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-H5](EXP-2026-11-06-H5-pm-review.md) | Board review; real-image checks of synthetic-only results (H5) | done |
 | [EXP-2026-11-06-H3](EXP-2026-11-06-H3-ce-rom-tool-fold.md) | Fold `ce_rom_parse.py` into `cerom.py` (H3) | done |
 | [EXP-2026-11-06-H4](EXP-2026-11-06-H4-audit-delta-claims.md) | Audit the delta-era firmware claims (H4) | done |
+| [EXP-2026-11-06-H8](EXP-2026-11-06-H8-mmain-fix.md) | `mmain.py`, `setup.sh`, docs and realcheck pins (H8) | done |
 | [EXP-2026-11-06-H9](EXP-2026-11-06-H9-zlib-ng-guard.md) | zlib runtime guard (H9) | done (simulated zlib-ng) |
 | [EXP-2026-11-06-H6](EXP-2026-11-06-H6-drstr-docs.md) | `drstr.md` ↔ `MMAIN001.DAT` reconciliation and `tools_ze0` provenance (H6) | done |
 | [EXP-2026-11-06-H7](EXP-2026-11-06-H7-realcheck.md) | `tools/realcheck.py`, a pinned real-image regression run (H7) | done (tool); `IMG256` run pending |

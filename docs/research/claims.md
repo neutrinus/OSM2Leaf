@@ -962,6 +962,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 | C-979 | M4.9 is a partial negative: the 6-byte cell payload and the `(XX,YY)` point arithmetic resist all tested interpretations (record/name/index offsets, cell-base scan, COORD001 containment, parity), so they stay UNKNOWN with their methods and controls recorded rather than guessed. | VERIFIED (negative, scoped) | H | EXP-2026-11-06-M4.9-addre-grammar |
 | C-1970 | `tools/zlibinfo.py` classifies the linked zlib from `ZLIB_VERSION`/`ZLIB_RUNTIME_VERSION` as stock/zlib-ng/unknown and reserves exit 3 = unverifiable, distinct from exit 1 = data FAIL; `lev3456.py`, `cmpind_writer.py`, `cmpind.py` and `ind_mutate.py` use it so a correct rebuild is never reported as a data failure on zlib-ng. | VERIFIED (tool, simulated versions) | H | EXP-2026-11-06-H9-zlib-ng-guard; `python3 tools/zlibinfo.py --selftest` |
 
+| C-1890 | `tools/mmain.py` has two named parsers: `parse_mmain`/`write_mmain` for the 4,096-byte `MMAIN001.DAT` header (UTF-16BE header, `0x184` BE i16 bounds, `0x18c` codes, `0x1ac` three-table descriptor) and `parse_fat_root`/`write_fat_root` (only via `--fat-root`); both round-trip synthetically and the real header round-trips byte-identically (`240e7c97…`) while root-directory bytes are refused by default. | VERIFIED | H | EXP-2026-11-06-H8-mmain-fix; `python3 tools/mmain.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

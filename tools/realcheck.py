@@ -9,7 +9,7 @@ Checks, in order:
 
   input     SHA-256 and size of the file itself (the IMG256 slice)
   romhdr    build A ROMHDR: modules, files, CPU, physfirst, physlast
-  exports   image B ``coredll.dll``: export count and ordinal 719
+  exports   image B ``coredll.dll``: export count and the C-1710 ordinals
   imports   image A ``Navi.exe``: import slot count
   comphdr   image A, every compressed section: HOLDS/REFUTED/UNPARSED
   thunks    image A ``Navi.exe``: detected stubs and import slots
@@ -80,12 +80,28 @@ PINS_JSON = r"""
     "image_start": "0x3e00200",
     "module": "coredll.dll",
     "ordinals": [
-      719
+      719,
+      1145,
+      1143,
+      59,
+      66,
+      1047,
+      1118,
+      496,
+      65
     ],
     "expect": {
       "names": 1651,
       "ordinals": {
-        "719": "sprintf"
+        "719": "sprintf",
+        "1145": "_wfopen",
+        "1143": "fgetws",
+        "59": "wcschr",
+        "66": "wcsncpy",
+        "1047": "memset",
+        "1118": "fclose",
+        "496": "Sleep",
+        "65": "wcsncmp"
       }
     }
   },
@@ -590,6 +606,23 @@ def selftest():
               for spec in CHECKS),
           [spec.id for spec in CHECKS
            if spec.id not in PINS or "expect" not in PINS[spec.id]])
+
+    # C-1710: the coredll.dll ordinals Navi.exe imports by name, plus C-527's
+    # 719 = sprintf and 1651 named exports.  These are check *selectors* and
+    # expectations, so a re-pin must touch this guard deliberately too.
+    c1710 = {719: "sprintf", 1145: "_wfopen", 1143: "fgetws", 59: "wcschr",
+             66: "wcsncpy", 1047: "memset", 1118: "fclose", 496: "Sleep",
+             65: "wcsncmp"}
+    export_pin = PINS["exports"]
+    check("real exports pin: 1651 names",
+          export_pin["expect"]["names"] == 1651,
+          export_pin["expect"]["names"])
+    check("real exports pin: C-1710 ordinals exact",
+          export_pin["expect"]["ordinals"] == {str(k): v for k, v in c1710.items()},
+          export_pin["expect"]["ordinals"])
+    check("real exports pin: selectors cover expected ordinals",
+          sorted(export_pin["ordinals"]) == sorted(c1710),
+          export_pin["ordinals"])
 
     mem, exec_segs = sh4xref._synthetic()
     check("sh4xref helper finds the synthetic jsr site",
