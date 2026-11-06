@@ -1701,13 +1701,14 @@ lives in **`tools/l3_harness/`** (exists: `manifest.py`, `stubs.py`,
 `rommap.py`, `runner.py` with `check`/`plan`; `run` is blocked). Pure-Python
 parts are covered by `tools/l3_harness/selftest.py`.
 
-- [ ] **M9.1 — Module map on the real image**
-  - Status: in progress · Owner: task/m9.1-module-map · Critical: no
+- [x] **M9.1 — Module map on the real image**
+  - Status: done · Owner: task/m9.1-module-map · Critical: no
   - Depends: — (tool done: `cerom.py memmap`, EXP-48)
   - Done when: `cerom.py memmap` on `IMG256` lists every A + B section,
     `rommap.py convert --skip-compressed` + `validate` pass, and counts per
     module are recorded in an EXP.
   - Claims: C-1630–C-1639
+  - Result: EXP-2026-11-06-M9.1-module-map (IMG256 `92aa525d…`); A: 149 modules/527 sections (245 compressed), B: 91/307 (133 compressed). Per-module `rommap.py convert --skip-compressed`+`validate` PASS 239/240; B `nk.exe` sec1 zero-stored-size BSS (vsize 7168, CNT_UNINITIALIZED_DATA) → rommap `size must be positive` (limitation, C-1632). Combined all-module maps overlap at EXE VA 0x11000 (inherent). Counts per module in EXP.
 - [ ] **M9.2 — Ghidra project builder**
   - Status: blocked · Owner: — · Critical: yes
   - Depends: M9.1 (M1.6b for thunk labels)

@@ -1256,3 +1256,19 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-1987 | reserved. | UNKNOWN | — | — |
 | C-1988 | reserved. | UNKNOWN | — | — |
 | C-1989 | reserved. | UNKNOWN | — | — |
+
+## M9.1 — Module map on real image (EXP-2026-11-06-M9.1)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1630 | `cerom.py memmap` on `IMG256` (`92aa525d…`, 256 MiB, A `--image-start 0x200200`, B `0x3e00200`) lists every A and B section: A segment_base `0x200200` = 149 modules / 527 sections (245 compressed, 282 uncompressed); B segment_base `0x3e00200` = 91 modules / 307 sections (133 compressed, 174 uncompressed). | VERIFIED (tool, real data) | H | EXP-2026-11-06-M9.1-module-map |
+| C-1631 | Per-module `rommap.py convert --report <memmap-excl-compressed> --skip-compressed --module <name>` + `rommap.py validate` passes for 239/240 A+B modules on IMG256 (all A pass; all B except `nk.exe` pass). | VERIFIED (tool, real data) | H | EXP-2026-11-06-M9.1-module-map |
+| C-1632 | B `nk.exe` sec1 is a BSS/uninitialized section (va `0x89e40000`, file_offset null, stored size 0, vsize 7168, characteristics `0xc0000080`, not compressed); `rommap.py convert` rejects it as `size must be positive` under `--skip-compressed` — a `rommap.py` size/representation limitation for zero-stored-size BSS, not a memmap/compression data error. | OBSERVED | H | EXP-2026-11-06-M9.1-module-map |
+| C-1633 | A combined all-modules memmap cannot pass `rommap.py` overlap validation because multiple EXE modules share preferred section VA `0x11000` (e.g. `gwes.exe` sec0 `[0x11000..0x96200)` vs `shell.exe` sec0 `[0x11000..0x1fe00)`); inherent non-co-resident EXE address spaces, not a data error. Per-module maps are the meaningful L3/Ghidra unit. | OBSERVED | H | EXP-2026-11-06-M9.1-module-map |
+| C-1634 | Counts per module (sections/compressed/uncompressed) for every A and B module are recorded in EXP-2026-11-06-M9.1-module-map. | VERIFIED (record) | H | EXP-2026-11-06-M9.1-module-map |
+| C-1635 | reserved (M9.1). | UNKNOWN | — | — |
+| C-1636 | reserved (M9.1). | UNKNOWN | — | — |
+| C-1637 | reserved (M9.1). | UNKNOWN | — | — |
+| C-1638 | reserved (M9.1). | UNKNOWN | — | — |
+| C-1639 | reserved (M9.1). | UNKNOWN | — | — |
+
