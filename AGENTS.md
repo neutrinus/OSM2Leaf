@@ -2,122 +2,136 @@
 
 Research repo for generating Nissan Leaf ZE0 (2011–2012) navigation maps from
 OpenStreetMap. **Research only** — nothing here is validated in a car, and
-hardware access is currently unavailable.
+hardware access is currently unavailable. All repo content (code, docs,
+commits) is English; conversation may be Polish.
 
-All repo content (code, docs, commits) is English. Conversation may be Polish.
+## Where the truth lives
 
-## Read first
+| Question | File |
+| --- | --- |
+| Is this fact established? | `docs/research/claims.md` — canonical ledger, trust it over prose |
+| What does this format look like? | `docs/format/*.md` — living pages |
+| What is being done now? | `TODO.md` — the board, rules 1–16, task blocks |
+| Can the firmware read our file? | `docs/research/reader-coverage.md` — 30-row matrix |
+| What was tried and why did it fail? | `docs/experiments/EXP-*.md` — append-only |
 
-1. `README.md` — scope, verified findings, documentation index.
-2. `docs/research/claims.md` — canonical claim ledger. Trust it over prose.
-3. `docs/format/*.md` — current per-format knowledge.
-4. `TODO.md` — the task board: read "How to take a task" before starting
-   (claim by draft PR, one task per PR, EXP and claim IDs per task); `docs/research/roadmap.md` — gates;
-   `docs/research/open-questions.md` — unknowns.
-5. `tools/README.md` — exact commands and expected output.
+Evidence flow: `format doc → claim ID → EXP record → tool command`. A claim
+without a reproducible command is a hypothesis; mark it so.
 
 ## Taking a task (parallel agents)
 
-About 15 agents work from `TODO.md` at once. Full rules: `TODO.md` "How to
-take a task". The short version:
+~15 agents work from `TODO.md` at once. The full rules are in `TODO.md`
+("How to take a task"); the ones that get broken:
 
-1. Pick an `open` task whose dependencies are done and that no open PR
-   names (`[ID]` in the title).
-2. **First commit:** change only your task's line in `TODO.md` to
-   `Status: in progress · Owner: <branch>` (subject `todo: start <ID>`),
-   then **`git push -u origin <branch>` immediately**, before any other
-   work, and open a draft PR `[ID] short title`. An unpushed in-progress
-   commit claims nothing: no other agent can see it.
-3. Do the work on that branch: one task per PR, only the files the task
-   names. Name EXP records `EXP-YYYY-MM-DD-<ID>-slug.md` and use only the
-   task's reserved claim IDs.
-4. **Last commit:** the actual work, and in the same commit `Status: done`,
-   `[x]` and a `Result:` line naming the EXP. Rebase on `main`, run
-   `python3 tools/selftest.py`, mark the PR ready.
-5. **Merge to `main` yourself.** A task is done only when its work is on
-   `main`; "done on my branch" is not done. Merge your PR (GitHub merge
-   button / API, or, if you cannot, `git fetch origin main && git rebase
-   origin/main && python3 tools/selftest.py && git push origin
-   HEAD:main`). If `main` moved and the push is rejected, rebase and retry;
-   never force-push `main`. Check that your commits are on `origin/main`
-   (`git branch -r --contains HEAD`) before you report the task finished.
-6. **Clean up.** After the merge delete your branch, remote and local
-   (`git push origin --delete <branch>`, `git branch -D <branch>`), and
-   close any draft PR that is left over. Leave no stale branches behind.
-7. Cannot finish: `Status: blocked` with the blocker in one line, plus a
-   negative-result EXP and follow-up tasks; merge that to `main` too, so
-   the board shows it.
+1. Pick an `open` task whose `Depends` are `done` and whose ID appears in no
+   open PR title.
+2. **First commit claims it**: change only your task's line to
+   `Status: in progress · Owner: <branch>`, then `git push -u origin <branch>`
+   before any other work, and open a draft PR `[ID] short title`. An unpushed
+   claim is invisible.
+3. One task per PR; touch only your task's files, your EXP, your claim rows.
+4. **Last commit**: the work plus `Status: done`, `[x]` and a `Result:` line
+   naming the EXP. `done` requires the task's own `Done when` check to pass —
+   if it did not, the status is `blocked`, never `done`.
+5. **Merge to `main` yourself** (a task is done only when its commits are on
+   `origin/main`), delete the branch, close leftover drafts. Never force-push
+   `main`.
+6. Blocked is a result: `Status: blocked` + a one-line blocker + `Unblock:`
+   naming the task that re-opens it + a negative EXP. When the unblocking task
+   merges, its PR sets you back to `open` (rule 15).
+
+## Before you search firmware code
+
+Two facts cost this project whole sessions:
+
+- **SH-4 code in this image is little-endian.** A big-endian search finds
+  nothing *and looks like a refutation* (M8.E1 vs M8.E1b). Decode halfwords LE.
+- **56.2 % of build A's section bytes are compressed** (30.2 MB of 53.7 MB;
+  245 of 527 o32 sections). `Navi.exe` is **75.1 % compressed** (16.7 MB in
+  `sec1`, flagged `rw-`, not `r-x` — so "executable sections" excludes it).
+  A "searched every uncompressed section, not found" negative describes ~44 %
+  of the image and ~25 % of `Navi.exe`; it is expected, not informative.
+
+So: run `cerom.py memmap --json` first and put the covered corpus in the EXP.
+Compressed sections are undecodable until M1.2f (port `DECOMP_BLK`) or M8.E1;
+the decompressor entry points are verified: `DECOMP_WRAP 0x88037590`,
+`DECOMP_SECT 0x88037464`, `DECOMP_BLK 0x8803a384` (loader flag test
+`0x88038666` in `fn 0x880385e4`).
+
+## Commands
+
+Vendor images are **not** required for most work, and "no image on this
+machine" is never a blocker (rule 11): `https://files.viaaq.eu/sd-images/`
+serves the EU 2011, US 2011 and 2014/2016 images (7.4–7.5 GB each; `curl -r
+0-268435455` gets the 256 MiB firmware head in about a minute).
+
+```bash
+python3 tools/selftest.py                 # all tools that have --selftest
+python3 tools/selftest.py --only imgpatch # one tool
+python3 tools/claims_check.py             # ledger: duplicates, unregistered claims
+python3 tools/realcheck.py IMG256         # pinned checks on real bytes (exit 2 = no image)
+python3 tools/l3check.py --build-corpus   # L3 rung; exit 3 = nothing runnable, never a pass
+```
+
+Verification ladder for a data/code change, in order:
+
+```bash
+python3 tools/cmpind.py verify REFER001     # expect 194/194 OK
+python3 tools/cardcheck.py --root <root>    # L1 structural
+python3 tools/l2check.py --root <root>      # L2 round-trip + golden
+cd tools/ze0-viewer && python3 harness.py verify <tile>   # byte-identical tiles
+```
+
+- `l2check.py --cmp-limit 20 --no-tiles` for a fast pass; `--update-golden`
+  only after an intentional decoder change, never to make a failure pass.
+- Recompression needs **stock zlib 1.3.1** (`python3.13`). zlib-ng (often
+  Python 3.14) reproduces none of the factory streams; `tools/zlibinfo.py`
+  reports the runtime and exits 3 when a byte-identical claim is unverifiable.
+- Firmware image starts: A (apps, `Navi.exe`) `0x200200`, B (kernel/updaters)
+  `0x3e00200`, C (kernel/test mode) `0x5200200`.
 
 ## Repo shape
 
-- No package manager, build system or CI. Deliverables are docs plus small
-  Python CLIs; run entrypoints directly.
-- `tools/` — Python 3.10+, standard library only. `tools/ze0-viewer/` ships a
-  checked-in copy of the pinned `osm2clarion` tools in `tools_ze0/` (patched by
-  `ze0-tools.patch`); `setup.sh` only audits or regenerates it against a
-  git-ignored `vendor/` clone — see `docs/format/ze0-tools.md`.
-- `docs/format/` — living format knowledge.
-- `docs/experiments/` — append-only experiment records.
-- `docs/research/` — claims, roadmap, protocols, comparisons.
-- `profiles/` — user-selectable build profiles (JSON; whole tiles only).
-- `archive/` — git-ignored vendor data. Never commit its contents.
-- Working data lives outside the repo; on this machine
-  `/home/marek/projekty/leafre-work/` (`leaf2011.img`, extracted `root/`).
-  Reference image SHA-256:
-  `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`.
-
-## Verification ladder
-
-Run in this order for a data/code change:
-
-```bash
-python3 tools/selftest.py                  # synthetic, no vendor data
-python3 tools/cmpind.py verify <REFER001>  # expect 194/194 OK
-python3 tools/cardcheck.py --root <root>   # L1 structural: expect PASS
-python3 tools/l2check.py --root <root>     # L2 round-trip + golden: expect PASS
-python3 tools/verify.py --root <root>      # cross-year wrapper for both
-```
-
-- `cardcheck.py --image` adds MBR/FAT checks and the `0x06000000` copy.
-- `--partial` for map-only trees, `--ignore-dump-artifacts` for 2016/2019
-  images; keep them explicit.
-- `l2check.py --cmp-limit 20 --no-tiles` for a fast check;
-  `--update-golden` only after an intentional decoder change, never to make a
-  failing run pass.
-- Tile-level check: `cd tools/ze0-viewer && python3 harness.py verify <tile>`
-  (the checked-in `tools_ze0/` is imported directly; `setup.sh` is only the
-  audit/regeneration path and needs network). Expect byte-identical for
-  `B28R070R`, `B30R060R`, `B58R070R`, `B30R048R`, `LEV3456R`.
-- Every verification is pinned to a sample SHA-256; record the result in the
-  commit body or the experiment record.
+- `tools/` — Python 3.10+, standard library only, entrypoints run directly.
+  `tools/selftest.py` auto-discovers `--selftest`; new tools must have one.
+- `tools/ze0-viewer/` — viewer plus a **checked-in** copy of the pinned
+  `osm2clarion` tools in `tools_ze0/`; `setup.sh` only audits/regenerates it
+  against a git-ignored `vendor/` clone (see `docs/format/ze0-tools.md`).
+- `docs/format/` living format knowledge · `docs/experiments/` append-only
+  records (`TEMPLATE.md` carries the required five-part Method) ·
+  `docs/research/` claims, roadmap, protocols · `profiles/` build profiles.
+- `archive/` — git-ignored vendor data. Working data lives outside the repo;
+  on this machine the full EU 2011 image is
+  `/home/marek/projekty/leafre-work/leaf2011.img` (SHA-256 `105e2032…76307`),
+  extracted tree `leafre-work/root/`.
 
 ## Format facts agents get wrong
 
-- Common header text is **UTF-16 big-endian**, only `0x000`–`0x17f`; `0x180`
+- Common header text is UTF-16 **big-endian**, only `0x000`–`0x17f`; `0x180`
   onward is binary.
 - `REFER001/*.cmp` is **not** one zlib stream: `chunk_count` independent
-  streams indexed by `.ind`. `zlib.decompress()` silently returns only the
-  first 64 KiB chunk.
+  streams indexed by `.ind`.
 - `.ind` = `u32 uncompressed, u32 compressed, u32 count, u32 chunk_size
   (0x10000), u32 offsets[count]`. Payloads keep the 512-byte header.
 - `REFER002` has **16 files**, not 194; it is a separate EV/charging layer.
 - `DRSTR001.DAT` has **no header**: root `/` at `0x0000`, 40-byte nodes, then
-  32-byte entries (2011: `40*40 + 324*32 = 11968`). Entry `value` is logical
-  size for `.cmp`, **on-disk** size for `MAPAL001` tiles, recursive total for
-  directories. `0x2f` is `/`, not a count.
-- `MAPAL001` has **45** `BxxRyyR.DAT` + `LEV3456R.DAT`; not raster. B/R are
-  hex: `lat_min = int(B,16)*2/3`, `lon_max = 108-int(R,16)`, 5.333° × 8°.
-  Stream keys: `A = 32768 + lat*192`, `B = 52736 + lon*128`, plus a table tag.
-- `COORD001` is a 33-entry region-bbox table at `0x1010`, not a point list:
+  32-byte entries. Entry `value` = logical size for `.cmp`, on-disk size for
+  `MAPAL001` tiles, recursive total for directories. Entry case is preserved
+  (US stores `ltntbl.dat`).
+- `MAPAL001` has 45 `BxxRyyR.DAT` + `LEV3456R.DAT`; B/R are hex:
+  `lat_min = int(B,16)*2/3`, `lon_max = 108-int(R,16)`, 5.333° × 8°. Stream
+  keys `A = 32768 + lat*192`, `B = 52736 + lon*128`, plus a table tag.
+- `COORD001` is a 33-entry region-bbox table at `0x1010`:
   `lat = (x-32768)/192`, `lon = (y-52742)/128`. The same formula covers
-  `ADDRE`/`POINT` ids; `ADDRE`/`POINT` share ids (POI↔address join is by
-  street + house number).
-- Tile **section 4 is an administrative/place-name index**, not geometry.
-  Road names come from the odd partner record's names section.
+  `ADDRE`/`POINT` ids; `ADDRE`/`POINT` share ids (join is street + house no.).
+- Tile **section 4 is an administrative/place-name index**, not geometry. Road
+  names come from the odd partner record's names section.
+- `REFER001/INDEX003.DAT` does **not exist** on EU/US 2011 cards; the firmware
+  string exists but the path is conditional (M3.12).
 - The `0..2047` coordinate bound is a runtime/bit-packed constraint, not a
   plain-u16 storage rule; raw payloads contain larger `u16` values.
-- Use `tools/mesh_grid.py`, `tools/cmpind.py`, `tools/cmpind_writer.py`
-  instead of re-deriving these.
+- Prefer `tools/mesh_grid.py`, `tools/cmpind.py`, `tools/cmpind_writer.py`,
+  `tools/coord.py` over re-deriving any of the above.
 
 ## Writing data back
 
@@ -126,139 +140,68 @@ python3 tools/verify.py --root <root>      # cross-year wrapper for both
 - **Changed file:** recompress only 64 KiB chunks containing changed bytes,
   keep the rest verbatim, rebuild `.ind` offsets.
 - **New/whole-file rewrite:** stock zlib 1.3.1, level 6, wbits 15, memLevel 8,
-  default strategy. zlib-ng (often Python 3.14) reproduces **none** of the
-  factory streams. Check the fixtures in `docs/format/cmp-ind.md` first.
+  default strategy.
+- **One-variable test cards:** `tools/imgpatch.py` writes a file into its
+  existing cluster chain (FAT layout, timestamps, root label untouched);
+  `tools/mkcard.py` rebuilds the whole partition for generated trees.
 
-## Methodology (read before any experiment)
+## Firmware: use the CE ROM TOC, and do not redo these dead ends
 
-Lessons from EXP-05…29 (about 20 firmware rounds that mostly retracted each
-other) and from EXP-32 (which solved the problem in one session):
-
-1. **Look for the standard structure before inventing a model.** Windows CE
-   ROMs, FAT, zlib and PE have public layouts. When a format is a known one,
-   first test the textbook header (here `ECEC`/`ROMHDR`) with its documented
-   field order, and only then fit parameters.
-2. **A negative needs a positive control.** "String X is absent" or "no
-   base fits" is only valid if the same method finds a case known to exist
-   (a `ROMHDR` has no signature string; a coarse base grid cannot hit
-   `0x8cae1000`). Record the control in the EXP.
-3. **Derive addresses from structure, not from code literals.** Use header
-   fields, tables and names that must resolve (e.g. every `lpszFileName`
-   must land on NUL-terminated ASCII). Code-literal scoring with
-   prologue percentages is a last resort and never proves a base alone.
-4. **Prefer checks that can fail loudly.** Pick a test where a wrong
-   hypothesis gives 0 %, not 40 %: names resolve, `physfirst` equals the
-   image base, sections land inside `physfirst…physlast`, an old independent
-   anchor reproduces exactly.
-5. **One module, one claim.** Never infer a module from one `V − S` match;
-   attribute every address through `cerom.py` (module, section, offset) and
-   say so in the claim.
-6. **Stop condition.** After two retractions in a row on the same topic, stop
-   and re-read the structure (headers, spec, a known-good sample) instead of
-   running a third variant. Do not write "static is closed" or "needs
-   hardware" until a textbook structure has been ruled out with a control.
-7. **Tools live in `tools/`, with a test.** No firmware logic in `/tmp` or in
-   scripts that are not in the repo; the EXP must be reproducible from the
-   repo plus the named image.
-8. **Evidence hygiene.** Keep OBSERVED and interpretation apart; retract by
-   adding a new claim and marking the old one (never delete); fix the
-   dead-end lists in `AGENTS.md` in the same commit as the retraction.
-9. **Cheap before expensive.** Use ranged reads of the image (the firmware is
-   in the first ~100 MB), cross-year diffs and the offline validators before
-   asking for hardware, a spare card or a full-image download.
-10. **Data safety.** Commit offsets, counts, hashes and short header bytes
-    only; never commit vendor firmware, map data or extracted modules.
-
-## Firmware: CE ROM TOC path and dead ends
-
-Firmware RE is the primary path. Static **global-VA/delta guessing** is
-closed; the embedded CE ROM TOC replaces it.
-
-### CE ROM TOC (verified, use this first)
-
-The image contains standard Windows CE memory-segment headers. Build A starts
-at `0x00200200` (`ECEC` at `+0x40`, `pTOC = 0x8e232978`, size `0x01751978`),
-with `ROMHDR` at file `0x01951b78`: 149 modules / 1 file, SH-4, physical range
-`0x8cae1000`–`0x8e233c88`. The TOC resolves names including `Navi.exe`,
-`NaviStateCC.dll`, `OBJDLL.dll` and `STDDLL.dll`; builds B/C and duplicate
-copies appear in the same report. The old "no XIP/section table" negative
-(C-380/C-381) is **RETRACTED**; C-088/C-089 supersede it. Do not cite the
-negative as a reason to avoid CE ROM extraction.
+Start every address with `tools/cerom.py` (never fitted deltas):
 
 ```bash
-python3 tools/cerom.py \
-  --image-start 0x200200 \
-  archive/images/LEAF_2011-2012_QSD-309-101_navi158_eu.img \
-  romhdr
+python3 tools/cerom.py --image-start 0x200200 IMG256 romhdr
+# expect: nummods=149 numfiles=1 cpu=0x01a6 physfirst=0x8cae1000 physlast=0x8e233c88
 ```
 
-Expected: `nummods=149 numfiles=1 cpu=0x01a6 physfirst=0x8cae1000
-physlast=0x8e233c88`. Next is `TODO.md` streams M1/M2/M3: `tools/cerom.py`
-(sections, `va2file`, `extract`, `memmap`, `decompress`), then a PE or Ghidra
-memory map, then the readers. See `docs/format/firmware.md` and
-`EXP-2026-11-05-35`/`-36`.
+`ROMHDR` sits at file `0x01951b78`; `tools/cerom.py` also does `sections`,
+`va2file`, `file2va`, `extract`, `memmap`, `comphdr`, `imports`, `exports`,
+`thunks`. `tools/sh4xref.py` answers "who loads this VA" and "what does this
+function call" — use it instead of ad-hoc scanning.
 
-### Do not redo these dead ends
+Retired, with no re-run: the `0x6fab2c → 0x6faeb0 → 0x6fb05c` "map-code
+check" (it is `BT_MGR.dll`, C-520); global VA / module-base / delta fitting;
+"no XIP table" (C-380/381, retracted); "static is closed for the reader"
+(EXP-29, wrong address model); `NaviStateCC` vtable hunting; `+0x02200000`
+as a map-code delta. `docs/research/todo-history-*.md` keeps the details.
 
-- the ROM is **pre-bound** (imports stripped); no import descriptor names the
-  thunks;
-- **use the CE ROM TOC for every address** (`tools/cerom.py`, EXP-2026-11-05-35),
-  not fitted deltas: `ECEC` at `0x200240`, image start `0x200200` = VA
-  `0x8cae1000`, `ROMHDR` at `0x01951b78`, 149 modules. The old "no XIP table"
-  item (C-380/C-381) is retracted;
-- `module_scan` `(file_base, va_base)` pairs are wrong for most modules;
-  the VA map is **not injective** (`0x0367b180` is both a `jsr` target and a
-  string);
-- `0xc438a4` does **not** open `CMP.LST` (it is a stats formatter); map
-  filenames have zero literal references;
-- `+0x02200000` is **not** the map code delta; the per-instruction table gives
-  a `0x02b0xxxx` band;
-- `NaviStateCC` is a COM DLL; its vtable is built at runtime and no static
-  vtable contains the fd methods (`0xc42520`, `0xc426a4`, `0xc438a4`);
-- `0x6faf30` is a Bluetooth/OPP handler, not the reader.
-- the old map-code comparator chain `0x6fab2c` → `0x6faeb0` → `0x6fb05c`
-  with data delta `0x02800000` is `BT_MGR.dll` code, not the map-code check
-  (C-520, C-528); the real `HDD_INFO`/`SD Import` literals are in `Navi.exe`
-  (C-521).
+Map-code checks (M2.5, M2.15): 11 bytes of kernel target info
+(`KernelIoControl 0x0101302C` `+0x60`) vs `HDD_INFO.TXT` line 1, and a
+`MapDBVer` range check — **not** the `0x06000000` copy, and `HDD_CHK.ATT` is
+read only by `MapUpdate.exe`, not by `Navi.exe` at boot.
 
-Map-code check is numeric `Sys[0x%x]` vs `SD[0x%x]` for `manufacturer_id`,
-`userdata_type` (range `0..5`) and `destination_id`; the old comparator chain
-and its data delta are a retired lead (C-520, C-528). The `HDD_INFO` parser
-sits behind a runtime COM object.
+## Method that this repo already paid for
 
-Next reader step is **static through the CE ROM TOC** (`TODO.md` M1.8, M2.1–M2.3, M3.1).
-Dynamic breaks remain the fallback when hardware is available: see
-`docs/research/dynamic-break-guide.md` (break on `MAL_DataVol_getOffset`,
-then fd methods, then fd thunks). Do not resume global-VA/module-base guessing
-without new relocation evidence.
+- **Test the textbook structure before inventing a model.** CE ROMs, FAT, zlib
+  and PE have public layouts; start from `ECEC`/`ROMHDR` with its documented
+  field order. EXP-05…29 were ~20 rounds of fitted parameters that mostly
+  retracted each other.
+- **Addresses come from structure, not code literals.** `cerom.py` gives
+  module/section/offset; literal scoring with prologue percentages never
+  proves a base (and `V − S` matches are not injective here).
+- **Prefer checks that can fail loudly** — a wrong hypothesis should give 0 %,
+  not 40 %. "The name resolves", "physfirst equals the image base", "an
+  independent anchor reproduces" are tests that can fail.
+- **One module, one claim.** Attribute every VA through `cerom.py` and say so
+  in the claim row.
+- **Cheap before expensive.** The firmware is in the first ~100 MB, so use
+  ranged reads, cross-year diffs and the offline validators before asking for
+  hardware, a spare card or a full download.
 
-## Documentation and evidence
-
-Three layers, each with one job:
-
-| Layer | Location | Rule |
-| --- | --- | --- |
-| Current knowledge | `docs/format/*.md` | living: best answer today |
-| Experiment log | `docs/experiments/EXP-*.md` | append-only: never rewritten |
-| Claim ledger | `docs/research/claims.md` | every claim has ID, status, evidence |
-
-Flow: `format doc → claim ID → EXP record → tool command`.
+## Evidence and retraction
 
 - New experiment: copy `docs/experiments/TEMPLATE.md`, name
-  `EXP-YYYYMMDD-NN-slug.md`.
-- Record sample SHA-256, exact commands, raw observations, then
-  interpretation. Never mix observation and interpretation.
-- Statuses: `VERIFIED` (reproducible check), `OBSERVED`, `HYPOTHESIS`,
-  `UNKNOWN`.
-- When a result changes knowledge, update the format doc and `claims.md` in the
-  same commit.
-- **Retraction rule:** never delete a claim row. Mark it `RETRACTED` (or
-  `VERIFIED (retraction)` for a proven negative), keep its ID, and add a new
-  claim with `Supersedes: C-xxx`. Correction experiments set
-  `Supersedes` / `Superseded by`.
+  `EXP-YYYY-MM-DD-<TASK>-slug.md`. Record sample SHA-256, runnable commands,
+  controls (positive and negative), the counted corpus, and the falsifier —
+  then observations, then interpretation. Never mix the two.
+- A claim is never deleted: mark `RETRACTED` (keep the ID) and add a new claim
+  with `Supersedes: C-xxx`.
 - External links → `docs/research/sources.md`; unknowns →
   `docs/research/open-questions.md`; loose threads → `TODO.md`.
-- Negative results are first-class; record the method and scope.
+- Negative results are first-class; a negative without a positive control is
+  not a result.
+- Rule 13: a generated format is *confirmed* only when its firmware reader has
+  a VA in `docs/format/`, and *accepted* only when an L3/M8 run reads our file.
 
 ## Data, license, safety
 
@@ -266,14 +209,14 @@ Flow: `format doc → claim ID → EXP record → tool command`.
   `.AGM`, `.TTS`, `.GID`. `.gitignore` also drops `*.img`/`*.7z`. Keep them in
   `archive/` or outside the repo; `git add -f` only for tiny synthetic
   fixtures.
-- Code is GPL-3.0-or-later; OSM-derived data is ODbL-1.0. Link to incompatible
-  projects instead of copying code.
-- Original SD card is read-only: back up, verify hash, test on a spare card.
-- Hardware access is currently unavailable, so card matrices and dynamic
-  breaks are deferred; do not present them as ready next actions.
+- Code is GPL-3.0-or-later; OSM-derived data is ODbL-1.0. Link to
+  incompatible projects instead of copying code.
+- The original SD card is read-only: back up, verify the hash, test on a
+  spare card.
+- Commit only offsets, counts, hashes and short header bytes from vendor data.
 
 ## Commit style
 
-Small, logical, self-contained commits. Imperative subject ≤ ~72 chars, no
-trailing period; prefixes `docs:`, `tools:`, `format:`, `fix:`, `chore:`.
-Explain *why* in the body. Never commit binaries, caches or vendor data.
+Small, logical commits. Imperative subject ≤ ~72 chars, no trailing period;
+prefixes `docs:`, `tools:`, `format:`, `fix:`, `chore:`. Explain *why* in the
+body.
