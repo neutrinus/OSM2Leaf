@@ -1000,12 +1000,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `refer.md`, with a test on a synthetic record.
   - Claims: C-970–C-979
 
-- [ ] **M4.10 — POI icon code → `BICON001` PNG**
-  - Status: in progress · Owner: task/m4.10-poi-icon · Critical: no
+- [x] **M4.10 — POI icon code → `BICON001` PNG**
+  - Status: done · Owner: task/m4.10-poi-icon · Critical: no
   - Depends: —
   - Done when: a mapping table for ≥ 20 POI categories is in
     `docs/format/assets.md` (icons are not committed).
   - Claims: C-980–C-989
+  - Result: EXP-2026-11-06-M4.10-poi-icons; 34-row table in `assets.md`;
+    `tools/poi_icons.py` reproduces the scan
 
 - [ ] **M4.11 — `LEV3456R.DAT` coarse levels 3–5 semantics**
   - Status: open · Owner: — · Critical: no
