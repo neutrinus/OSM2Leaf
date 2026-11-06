@@ -144,7 +144,150 @@ observation into the EXP:
 
 ## Recovery
 
-> Placeholder — M6.4 (C-1120–C-1129) adds the full recovery checklist here.
-> Until then: power off, remove the test card, refit the untouched original
-> card, verify the unit boots the factory map. The original is never edited, so
-> firmware/NAND recovery is out of scope for this plan.
+> M6.4 checklist (C-1120–C-1129; claim text in
+> [`EXP-2026-11-06-M6.4-recovery`](../experiments/EXP-2026-11-06-M6.4-recovery.md)).
+> Nothing here has run on a unit. Scope: return a **spare** unit to the factory
+> map by card swap. Unit-side NAND/settings repair is out of scope — caveat and
+> do-not-attempt list below. Abort criteria above still apply.
+
+### Before each test — all ticked, or do not start
+
+- [ ] **Original card off-bench and hashed.** Write-protected, stored away from
+  the bench, SHA-256 on file with the P1 record (US `53342430…c5383`, EU
+  `105e2032…76307`). It is **never** inserted during a test, not even as a
+  control.
+- [ ] **Known-good clone kept aside.** A second card written from the same
+  market-matched image, hash-verified
+  (`cardcheck.py --image … --hash --expect-sha256 …`), locked, and booted once
+  before the series. Labelled, untouched, never written by a stage.
+- [ ] **Unit power baseline recorded.** No-card boot at a 2 A current limit:
+  which screen appears and when, whether `SECURE` clears under `TEST_B1`
+  (M6.8). Every later boot is compared against that baseline.
+- [ ] **Run card identified.** The card in the unit is a run card with
+  stage/run ID and its written hash logged; hash it again after power-off.
+- [ ] **Recovery within reach.** Card slot reachable via the extender without
+  dismantling, 12 V switch and camera in reach, spare unit only.
+- [ ] **Stop rule agreed.** First unpredicted screen, first post-run hash
+  change, or a second identical failed boot ends the run.
+
+### Failure signatures and first action
+
+Signatures are verbatim from the `AppLaunch.dll` block (C-800–C-809); "known"
+is what static analysis actually established.
+
+| Signature | What is actually known | First action |
+| --- | --- | --- |
+| `NAVI VERSION NG` | String + module + one dispatcher per build (C-803, C-804, C-805). That SD `0x0020001f` is compared with a unit-side `NAVI-1` value is **external hearsay** (C-076); the compared bytes are UNKNOWN. | Power off. Refit the hash-verified known-good clone and boot once. It boots → quarantine the run card, record the screen; still NG → step 3 of the ordered path. Do not edit version bytes on the run card first. |
+| `DIFFERENT MAP CODE` | String + dispatcher (C-803, C-804). Three candidate inputs: `HDD_INFO` line 1, the `0x06000000` copy, a NAND-side record (C-165; M2.5). Which one decides is UNKNOWN; `hddinfo.py` model M0 is HYPOTHESIS. | Same: known-good clone, boot once. Do not "fix" the map code before the clone boots — the screen does not say which copy was read. |
+| `SD UNLOCK NG` | String + dispatcher (C-790). No CID/CSD check and no FAT serial/label check was found in `SDHC.dll`, `AppLaunch.dll`, `SdCardLch.exe` (C-794, C-795). The gate is the SD security state, and "no security" is an error too (C-797, HYPOTHESIS). The CMD42 scheme itself is external (C-075); the four unit-specific
+password bytes are not in this repo. | Power off. Re-seat the card and inspect the extender (intermittent NG is a contact fault first). Re-lock the run card with the unit's own flow and retry **once**. Same screen on the known-good clone → lock/reader/bench fault, not map data → step 3. |
+| `MAP DATA BASE UNMATCH` | String + dispatcher (C-803, C-804). Launcher code carries `MapDBVer : %d <= [%d] <= %d` (string OBSERVED; range semantics HYPOTHESIS, `validation.md`). | Known-good clone. If the clone shows it too, the unit's accepted DB range and the card's map set disagree: a market/version mismatch, not a recovery fault (gates 2–3 in `us-eu-region.md`). Record, do not patch. |
+| Blue screen / no boot (no map frame, black > 60 s, reboot loop, `SECURE`, `SD ACCESS NG`, `SD INIT NG`, `NO SD CARD`) | The listed error strings are in the same `AppLaunch.dll` block (C-800–C-809); causes UNKNOWN. `SECURE` is a separate anti-theft screen whose CAN/VIN cause and `TEST_B1` bypass are **external** (C-082). | Power off at once; keep the 2 A limit. Remove the run card and boot with **no card**: baseline screen → card fault → ordered path; no boot with no card → power/unit, stop and check supply, ground, `TEST_B1` and CAN ignition frames. Do not reinsert the same card. |
+
+### Ordered recovery path
+
+- [ ] **0 — Capture, then discard the run card.** Power off, remove it, hash
+  it. Hash changed → the unit wrote to the card: mark it disposable, never
+  reuse it in the unit. Photograph the screen with its exact text.
+- [ ] **1 — Untouched known-good clone.** Insert the pre-test clone. Boot once.
+  Map renders, no dialog → the unit and bench are healthy and the fault is the
+  run card; quarantine it and stop. Record either outcome.
+- [ ] **2 — Re-lock.** If step 1 gives `SD UNLOCK NG`, re-lock that clone with
+  the target unit's own flow (or LeafSDTools; external, C-075) and retry
+  **once**. Never re-lock the original. Still NG → step 3.
+- [ ] **3 — Factory card.** Power off, refit the untouched original, boot once.
+  Factory map renders → bench and unit are intact; the fault is in every clone,
+  so revisit P4/P5 (clone hash, lock) before any further run. Original also
+  fails → the unit or bench is at fault, not the map data: stop, edit no card.
+- [ ] **4 — Updater path, only if the unit offers it.** If the unit shows a
+  map-update/import prompt or menu, use a **disposable** clone of the
+  market-matched factory image carrying the files `MapUpdate.exe` opens
+  (`VER_INFO/HDD_INFO.TXT`, `HDD_ADM.TXT`, `HDD_CHK.ATT`,
+  `ClarionUpdate.key`, `SystemSD/MapFinish.key`; C-775) exactly as the factory
+  card ships them. Expect validation, then partition format and file copy
+  (`MapUpSdCardFormat` `0x0001d57e`, `DeleteAndCreatePartition` `0x0001c74c`,
+  `DriveFormat` `0x0001c58c`; C-774, C-776): the card is consumed. Capture every
+  screen and the post-run hash. No prompt on this unit → this step does not
+  exist; go to step 5.
+- [ ] **5 — Stop line.** Step 3 failed and step 4 unavailable → leave the unit
+  powered off. Unit-side repair (NAND/flash/settings) is out of scope: it needs
+  a verified NAND dump taken **before** the first run, test-pin access and a
+  known-good image, none of which exists today (hardware unavailable). Report
+  `blocked`, do not improvise.
+
+### Proven by static analysis (reproducible offline)
+
+- [ ] Error strings, module, VAs, one dispatcher per build — C-790, C-800–C-809.
+- [ ] No CID/CSD check and no FAT serial/label check in the three SD modules —
+  C-794, C-795 (negative, limited to those modules; no hardware confirmation).
+- [ ] `MapUpdate.exe` file list, validation/format functions and VAs, CRC16
+  attestation over `HDD_CHK.ATT` — C-774, C-775, C-776, C-778.
+- [ ] `HDD_INFO` is 72 bytes with a byte-identical copy at `0x06000000` —
+  C-005, C-074.
+
+These say where the strings live and which files the updater opens. None of
+them says what the unit displays or accepts.
+
+### External hearsay only (not reproduced here)
+
+- [ ] CMD42 password scheme, 4 unit bytes + ASCII `Clarion95321`, stored near
+  `0xA100`, unlock at boot — C-075.
+- [ ] `SECURE` is a CAN/VIN check; clearing PROD `A0A0–A0A3` or grounding
+  `TEST_B1` disables it — C-082.
+- [ ] `NAVI VERSION NG` compares SD `0x0020001f` with the unit's `NAVI-1` —
+  C-076.
+- [ ] Market byte in the PROD block at `A022` (`0x10`/`0x20`/`0x30`…), `NB00`
+  card vs `NB04` NAND builds — `us-eu-region.md` table.
+- [ ] A US QY7210NN once drew European streets from an EU card — leafsdtools
+  issue #3.
+- [ ] Test-pin + NAND restore as the way back from a bad region/firmware flash.
+
+Treat all of these as leads, not as procedure.
+
+### Untested (no unit has run this)
+
+- [ ] Every screen-to-cause mapping in the table above.
+- [ ] Whether a host-side re-lock yields a card the unit accepts.
+- [ ] Whether the unit offers any updater/import prompt at all.
+- [ ] Whether `MapUpdate.exe` accepts a card we assembled rather than a factory
+  one, and what it does to the card when it refuses.
+- [ ] Whether the unit writes to the card during boot.
+- [ ] Whether a card swap leaves unit NAND and settings untouched.
+
+### NAND / settings-restore caveat
+
+- [ ] The only recovery asset in this plan is a card. Nothing here backs up or
+  restores unit-side state: PROD block (`A022` market, `A0A0–A0A3`),
+  `NAVI-1`/map record, the SRAM/VSRAM complete flag
+  (`GetVSramCompleteFlag`/`SetVSramCompleteFlag`, C-774), radio and other user
+  settings (`CopyUserData`, `\UserSD2\PRIVATE`, C-776).
+- [ ] `MapUpdate.exe` sets the VSRAM complete flag and formats partitions, so a
+  card-side "recovery" can change unit state too. Record it; do not assume the
+  unit is untouched.
+- [ ] A real NAND/settings restore needs a dump taken before the first run,
+  test-pin access and a known-good image. No dump exists and hardware is
+  unavailable; until it does, NAND work is out of scope and must not be sold as
+  recovery.
+- [ ] A factory-card swap restores the map the unit **reads from SD**. It does
+  not prove internal state is unchanged — confirm with the no-card baseline and
+  the original-card boot.
+
+### Do not attempt
+
+- [ ] Do not reinsert, write, lock or unlock the original card after a failure.
+- [ ] Do not run the updater/format path (`MapUpSdCardFormat`, `DriveFormat`,
+  `DeleteAndCreatePartition`) on the original or on the only good clone.
+- [ ] Do not edit NAND/flash/PROD bytes, write firmware, or restore a NAND image
+  as a recovery step.
+- [ ] Do not synthesise `HDD_CHK.ATT`, `ClarionUpdate.key` or `MapFinish.key`;
+  they are factory attestation/install files (C-775, C-778), not card metadata.
+- [ ] Do not spoof CID/CSD/FAT serial/volume label: nothing checks them
+  (C-794, C-795) and it changes nothing.
+- [ ] Do not bypass, brute-force or publish the CMD42 password.
+- [ ] Do not power-cycle a reboot loop more than twice, and never with the
+  original card.
+- [ ] Do not probe test pins, JTAG/BDM or UART on a live unit without the M6.8
+  kit and a confirmed pinout.
+- [ ] Do not run any of this on the owner's only unit or only card.
+- [ ] Do not report a successful recovery as a format result: it restores the
+  baseline and proves nothing about card acceptance.
