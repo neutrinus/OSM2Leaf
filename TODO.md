@@ -1260,7 +1260,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1050–C-1059
 
 - [ ] **M5.4 — Tile writer: roads only**
-  - Status: done · Owner: session-ZMxuBT · Critical: yes
+  - Status: blocked · Owner: — · Critical: yes
   - Depends: M5.2 (M5.3 for classes)
   - Input: `tools/ze0-viewer/vendor/osm2clarion`, factory neighbours,
     `section4.py preserve`.
@@ -1297,7 +1297,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-05-M5.8-tile-diff (`tools/tile_diff.py`; factory vs mutate output: 148 bytes in 2 ranges; `tools_ze0` package committed as `tools/ze0-viewer/tools_ze0/`)
 
 - [x] **M5.9 — `tile_diff.py`: match moved streams and name the records**
-  - Status: blocked · Owner: — · Critical: yes · Critical: no
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: a generated tile's diff reads as "changed record X", not as
     remove + add at another offset.
@@ -1491,8 +1491,9 @@ No hardware is available now. Planning tasks are open; tests wait.
   C-1200–C-1209
 - [x] **M7.4** Profiles schema v2 migration and the writer behind
   `tools/build.py` (validator and `--dry-run` exist, C-564–C-567). Status:
-  open · Depends: —. Done when the three profiles validate as v2 and
-  `build.py` calls M5 stages. Claims: C-1210–C-1219
+  done · Owner: session-ZMxuBT. All four profiles are v2 and `--strict` clean;
+  `build.py --dry-run` prints the M5 stage chain. Result:
+  EXP-2026-11-06-M7.4-profiles-v2, C-1210. Claims: C-1210–C-1219
 - [ ] **M7.5** User guide and risk statement; "research only" until M6.7.
   Depends M6.7. Claims: C-1220–C-1229
 
@@ -1596,7 +1597,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     module are recorded in an EXP.
   - Claims: C-1630–C-1639
 - [ ] **M9.2 — Ghidra project builder**
-  - Status: done · Owner: session-ZMxuBT · Critical: yes
+  - Status: blocked · Owner: — · Critical: yes
   - Depends: M9.1 (M1.6b for thunk labels)
   - Goal: `tools/l3_harness/ghidra_import.py` (pyghidra, headless): all
     A + B sections at their VAs, exports named, thunks labelled, SH-4
@@ -1633,7 +1634,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     snippet parity proven, real engines SKIP (EXP-2026-11-06-M9.4-engine).
   - Claims: C-1660–C-1669
 - [x] **M9.5 — Runner `run` end-to-end**
-  - Status: blocked · Owner: — · Critical: yes · Critical: yes
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: M9.2 or M9.4, M9.3
   - Goal: `runner.py run FUNC --input FILE [--engine ghidra|qemu] --json`
     with targets in `tools/l3_harness/targets.json`.
