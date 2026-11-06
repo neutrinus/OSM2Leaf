@@ -1675,7 +1675,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2020–C-2029
 
 - [x] **M5.12b — `mkcard.py`: keep the volume label and factory root order on a fresh build**
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: — (M5.13 is the path for the hardware cards; this is for M5.11)
   - Goal: a fresh build should not drop the root attr-`0x08` entry
     (`QSD-301-103` US, check the EU label) or reorder the root.
