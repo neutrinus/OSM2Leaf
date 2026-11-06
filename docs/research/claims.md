@@ -811,6 +811,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-1797 | Place-name capacity: `OBJDLL!OBJ_PntName_initPrm` (`0x0349c4d4`) allocates four string fields of 64/64/128/128 characters at headers `+0`/`+0x108`/`+0x210`/`+0x418`; `OBJ_PntName_show` (`0x0349c3ac`) labels them Country (`0x03484748`), State (`0x03484724`), County (`0x03484708`), City (`0x034846ec`). The object is `0x620` bytes, read by `OBJ_PntInfo_readPntString` (`0x034a6350`, size word at `0x034a638e`) and written by `OBJ_PntInfo_writePntString` (`0x034a6494`). | VERIFIED | H | capstone; EXP-2026-11-06-M3.9-name-collation |
 | C-1798 | The search module converts card text to wide characters with `MultiByteToWideChar` and `CodePage = 0` (CP_ACP) at `0x02ed41fc`/`0x02ed4222` in `NaviSearchCC.dll` fn `0x02ed41b0` (`mov #0,r4` at `0x02ed41f8`/`0x02ed4216`); `STDDLL.dll` classifies ISO-8859-1 (`0x034655d4`), -5 (`0x03464e60`), -6 (`0x03464ee8`) and -9 (`0x0346563c`) but exports no ISO-8859-2 classifier or table. | VERIFIED | H | `cerom.py exports STDDLL.dll`; capstone; EXP-2026-11-06-M3.9-name-collation |
 | C-1799 | The shipped name text is ASCII + Latin-1/CP1252 with letters outside Latin-1 transliterated by dropping the diacritic: in the `LCTBL001.DAT` plain text `München` occurs 234× (`0xfc` kept), `Cesk` 214× vs `Česk` (`0xc8`) 0×, `stredn` 13× vs `středn` (`0xb9`) 0×, `Zizkov` 66× vs `Žižkov` (`0xbe`) 0×, and Poland's `ICADM021` names are ASCII (`KEPNO`, `SLOWINO`, `DABROWA`, `WRZESNIA`). The LCTBL name streams are **not** sorted in the firmware weight order (240,619/477,173 adjacent pairs ascending = 50.4 %, 1/513 streams fully sorted), so a writer must not sort them. Supersedes the ISO-8859-2/"all Polish letters" part of C-1010. | VERIFIED | H | `lctbl_names.py`; weight table from `0x03485400`/`0x03485500`; EXP-2026-11-06-M3.9-name-collation |
+## M4.15 — `RDSTM001` framing and node reciprocity (C-1800–C-1809)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1800 | 16-byte rows from `0x1000` decode byte-cleanly but yield 0/10 reciprocity (src set {0,180,256,512} vs dst {2304,560,1119,992,798,1354,1923,1965,744,907}); shuffled control 0/10. | VERIFIED (negative) | M | EXP-2026-11-06-M4.15-rdstm-framing; `rdstm_record.py` |
+| C-1801 | Framing drifts at `0x10a0` (after 10 rows) and reaches zero padding at `0x1220`. | OBSERVED | M | EXP-2026-11-06-M4.15-rdstm-framing |
+| C-1802 | `rdstm_schema.py scan` prefers a 2-byte record (score 0.371) over 16 bytes; the 16-byte size is likely a multiple of the true unit. | OBSERVED | M | EXP-2026-11-06-M4.15-rdstm-framing; `rdstm_schema.py scan` |
+| C-1803 | reserved. | UNKNOWN | — | — |
+| C-1804 | reserved. | UNKNOWN | — | — |
+| C-1805 | reserved. | UNKNOWN | — | — |
+| C-1806 | reserved. | UNKNOWN | — | — |
+| C-1807 | reserved. | UNKNOWN | — | — |
+| C-1808 | reserved. | UNKNOWN | — | — |
+| C-1809 | reserved. | UNKNOWN | — | — |
+
 ## M4.11 — `LEV3456R.DAT` coarse levels 3–5 (C-990–C-999)
 
 | ID | Claim | Status | Confidence | Evidence |

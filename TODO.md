@@ -1175,8 +1175,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     per image and the fields that change with the map code.
   - Claims: C-1020–C-1029
 
-- [ ] **M4.15 — `RDSTM001` framing and node reciprocity**
-  - Status: in progress · Owner: task/m4.15-rdstm-framing · Critical: yes
+- [x] **M4.15 — `RDSTM001` framing and node reciprocity**
+  - Status: done · Owner: task/m4.15-rdstm-framing · Critical: yes
+  - Result: EXP-2026-11-06-M4.15-rdstm-framing — 16-byte rows from 0x1000 give 0/10 reciprocity; drift at 0x10a0; schema prefers 2-byte record (0.371). Negative on the 16-byte hypothesis.
   - Depends: M4.1
   - Goal: prove the record size and the `src`/`dst` reading on the whole
     file, not 10 rows.
