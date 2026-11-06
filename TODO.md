@@ -823,8 +823,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `map-tiles.md` (section 4 especially).
   - Claims: C-870–C-879
 
-- [ ] **M3.7 — How the router reads `RDSTM001` / `REFER` road records**
-  - Status: open · Owner: — · Critical: no
+- [x] **M3.7 — How the router reads `RDSTM001` / `REFER` road records**
+  - Status: done · Owner: — · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: the record fields the router uses (graph tuples, speed, one-way,
     restrictions).
@@ -832,6 +832,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `docs/format/rdstm.md`.
   - Done when: a field list with VAs is in `rdstm.md`; it feeds M4.1–M4.3.
   - Claims: C-880–C-889
+  - Result: EXP-2026-11-06-M3.7-router-rdstm (`RDSTM001` is the TMC location
+    record: volume+`LCTBL001.DAT` under type `0x14e4`, twelve fields with
+    getters/VAs, per-record field directory; routing is mesh-keyed and no
+    speed/one-way/restriction accessor exists — M4.2 must not look here)
 
 - [x] **M3.8 — Does the firmware read `MMAIN001.DAT`?**
   - Status: done · Owner: task/m3.8-mmain-read · Critical: no
