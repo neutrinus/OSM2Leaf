@@ -1010,7 +1010,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `tools/poi_icons.py` reproduces the scan
 
 - [ ] **M4.11 — `LEV3456R.DAT` coarse levels 3–5 semantics**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.11-lev-coarse · Critical: no
   - Depends: —
   - Goal: what the overview levels contain and how to regenerate them from
     OSM (needed for zoomed-out display).
