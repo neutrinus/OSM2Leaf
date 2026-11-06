@@ -124,190 +124,108 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (product review 2026-11-06, third pass)
+## Priorities (product review 2026-11-06, fourth pass)
 
-> **Near-term pivot (Marek, 2026-11-06): edit a tile that is already in the US
-> map, not a freshly compiled Polish one.** Marek's only hardware is a US ZE0
-> unit, so the first on-device proof should use the unit's own map. This is the
-> lowest-risk first test on every axis and it moves ahead of the OSM compiler:
->
-> - **Hardware + region match.** The region lock is the *unit*, not the card
->   (M2.7); a US card in a US unit trips no market gate. An edited US tile keeps
->   the native map code `QSD-301-103` / `X08-02-00`.
-> - **Data is in hand.** The US 2011 image is on the allowed host
->   (`https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img`,
->   sha256 `53342430…c5383`, 113 tiles, N-America), so building and checking an
->   edited US card needs no new download permission and no card dump.
-> - **Smallest proven change.** An in-place one-tile edit with section 4 kept
->   verbatim already passes L2 (M4.4, M5.8) — far less than the full
->   OSM→tile compiler (M5.2–M5.6).
-> - **It exercises the real loop early:** accept → display → route on the actual
->   unit, which the EU/Poland path can never do on Marek's bench.
->
-> So the new nearest milestone is **M5.12** (an edited US card image, built now
-> against the US image) → **M6.2** (clone Marek's own card as the no-op
-> baseline) → **M6.5/M6.6/M6.7** on the US card. The OSM→Poland compiler
-> (M5.1→M5.11) stays the end goal and the US edit de-risks its accept path first.
+Earlier passes and the two older "what changed" sections are frozen in
+[`docs/research/todo-history-2026-11-06.md`](docs/research/todo-history-2026-11-06.md).
 
-**Where we are against the goal.** The two hard gates are now largely
-answered. **Card identity is solved:** the SD lock is a 16-byte CMD42
-password = 4 unit bytes + the 12-char ASCII tail, verified in `SDHC.dll`
-(.text uncompressed), independent locking is feasible, and there is a tool to
-set it (M2.13, M2.13b, M6.11). **The firmware is readable:** `cerom.py`
-resolves 697/846 `Navi.exe` imports to names (M1.9), so every later firmware
-read is cheaper. **The compiler has a front end:** `osm_ingest.py` turns a
-`.osm`/`.pbf` into IMF (M5.1), and `coord.py` converts coordinates (M4.8).
-Most on-card formats decode and round-trip.
+**Nearest milestone: Marek's US unit shows a name we wrote.** The US path
+(Marek, 2026-11-06) stays ahead of the OSM compiler because it tests the
+real accept → display → route loop on the only hardware we have, with the
+unit's own map code `QSD-301-103` (the region lock is the unit, M2.7).
 
-What is still open splits into three fronts, none of them owned:
+| Stage (`card-test-plan.md`) | Card | Built by | Status |
+| --- | --- | --- | --- |
+| S0 factory clone | `LEAF_2011-2012_US.img` as is (`53342430…c5383`) | `dd` | ready for Marek now (**M6.2**) |
+| S1 no-op recompression | `POINT010` page `0x840ba0` recompressed unchanged | **M5.13** | open |
+| S2 POI rename | `HANA HEALTH CENTER` → `OSM2LEAF TEST POI1` (Hana, Maui, HI) | M5.12 done; image via **M5.13** | edit done, image must be rebuilt |
+| S3 geometry | one road vertex moved in a US tile | **M5.14** | open |
 
-1. **Acceptance logic** — *why* a card is accepted, not just mounted:
-   `HDD_INFO` parse and compare (M2.1→M2.3, M2.2→M2.5) and the `HDD_CHK.ATT`
-   attestation (M2.12). Until these are read, a generated card might mount and
-   still be rejected.
-2. **The compiler spine** — IMF → tiles → card tree → image:
-   M5.2 (mesh splitter, **now ready**: its deps M4.8 and M5.1 are done),
-   M5.4 (tile writer), M5.6 (rebuild `DRSTR`/`MMAIN`/`.ind`), M5.10 (card
-   image). This is the straight line to a card we can test.
-3. **The L3 runner** — run the real firmware checks on our data: M9.2
-   (Ghidra), M9.3 (stubs), M9.5 (runner). M9.4 (engine) and M9.7 (corpus)
-   are done; M1.6c (thunks on the real image) feeds M9.2.
+**Why the M5.12 image must not go on the unit as is (PM check on the real
+US image).** The factory US root directory starts with a volume-label entry
+`QSD-301-103` (attr `0x08`, root slot 0; the BPB label is `NO NAME`).
+`mkcard.py`'s fresh-build path (used for any changed tree) never writes that
+entry, which is why M5.12's `cardcheck` warned "no volume label"; it also
+re-lays out the whole FAT. That card would test three variables at once
+(label, FAT layout, changed file). **M5.13** writes the changed file into its
+existing cluster chain in a copy of the factory image, so S1/S2 differ from
+S0 only in that file. **M5.12b** fixes `mkcard.py` for the compiler path.
+
+**What the last round established (verified on the files, 2026-11-06):**
+
+- **Acceptance gates are now mostly named.** `DIFFERENT MAP CODE` is decided
+  in `AppLaunch.dll` (B/C) by an 11-byte compare of the unit's target-info
+  record (`KernelIoControl 0x0101302C` +0x60) against the card's
+  `VER_INFO/HDD_INFO.TXT`, *not* the `0x06000000` copy (M2.5).
+  `HDD_CHK.ATT` (CRC-16/KERMIT) is read only by `MapUpdate.exe`, the updater,
+  not by `Navi.exe` at boot (M2.12). The `SD Import … is different` messages
+  validate user data (`*.slc`/`*.hlc`), not the map (M2.2). `HDD_INFO.TXT`
+  line→field table is in `validation.md` (M2.3). Consequence: a US card that
+  keeps `VER_INFO` untouched should pass the map-code gate on a US unit; for
+  Poland we still need the exact 11 bytes and the `MAP DATA BASE UNMATCH`
+  input (**M2.15**).
+- **The compiler spine has tools, not yet a real tile.** `mesh_split.py`
+  (M5.2), `tilewriter.py` (M5.4, synthetic 48/48), `mkcard.py` (M5.10,
+  EU no-op rebuild byte-identical), `tile_diff.py` (M5.9). M5.4 was marked
+  blocked on "no vendor tile" — that is not a blocker under rule 11; it is
+  **open again** with a provisional class table until M5.3.
+- **Compression is still unsolved:** 0/245 sections decode (M1.3); XPRESS
+  LZ77 is ruled out too (M1.2b). Next: read the kernel's own routine
+  (**M1.2c**) and try public CE ROM decoders (**M1.2e**, non-Claude).
+- **The `.ind` reader was not where we looked.** `MAL_DataVol_*` are
+  disc/data-volume fingerprint helpers (M3.1), `fn 0x00418748` only builds
+  `.IND` paths (M3.2). New angle: find zlib's `inflate` and walk up (**M3.2b**).
+- **`RDSTM001` 16-byte framing is refuted** (M4.15, 0/10 reciprocity) and no
+  join key places rows on the map (M4.16) → M4.16b/c/d stay open.
+- **L3 runner works end to end** on a probe (M9.5, PySh4 + stubs); the first
+  real target should now be the map-code compare that M2.5 found (**M9.6**,
+  re-scoped), which unblocks **M2.4**. Ghidra (M9.2) cannot be installed in
+  the Claude sandbox → `Runner: non-Claude`.
+- **US `DRSTR001` does not round-trip** (`l2check` diff at `0x1ae0`, also on
+  the untouched factory tree, M5.12) → **M4.20**; M5.6 must write DRSTR for
+  generated cards, so the model has to be right on both markets.
 
 **Take these first (critical, ready, unowned), in this order:**
 
-1. **M5.2 → M5.4 → M5.6 → M5.10**: the compiler spine. M5.2 can start now;
-   each step feeds the next and ends at a card image. This is the shortest
-   path to the Phase-2 milestone below.
-2. **M2.1 → M2.3** and **M2.2 → M2.5**, then **M2.12**: acceptance. These
-   decide whether the card from front 1 will be accepted, so they run in
-   parallel with it.
-3. **M9.2 + M9.3 → M9.5** (with **M1.6c** first): lets us run M2's checks
-   and M3.3's `.ind` reader against real inputs instead of reasoning.
-4. **M4.8b** (confirm `coord.py` on 10 real POIs — M5.2 depends on it) and
-   **M4.15 → M4.16** (`RDSTM` framing and placement → feeds M5.3 road classes).
-5. **M1.2b / M1.2d / M1.2c**: compression, which still gates M1.3/M1.4 (full
-   module data, the registry hives for M2.7/M8.E2) and the compressed parts of
-   `MapUpdate.exe`/`TestMode.exe`.
-6. **M3.1 → M3.2 → M3.3**: the `.ind` reader contract.
+1. **M5.13** (in-place image patch → S1/S2 cards for Marek), then **M5.12c**
+   (where else the renamed name lives, so Marek knows what to expect on
+   screen). Marek can run **M6.2** (S0) today, in parallel.
+2. **M5.14** (US vertex move, S3); M4.8c (coord on the US grid) is done, so it is ready.
+3. **M2.15** + **M9.6** → **M2.4**: the exact map-code bytes, run on the real
+   comparator.
+4. **M5.4** (real tile, provisional classes) → **M4.20** → **M5.6** →
+   **M5.12b** → **M5.11**: the Dolnośląskie spine.
+5. **M1.2c** (+ **M1.2e** non-Claude) → M1.3/M1.4/M8.E1: compression.
+6. **M3.2b** → M3.2 → M3.3: the `.cmp`/`.ind` reader.
 
-**Phase-2 milestone (definition of done):** *one generated Dolnośląskie tile
-on a card image the unit would accept.* Concretely: `osm_ingest` (M5.1) →
-mesh split (M5.2) → one tile written (M5.4) → tree rebuilt with matching
-`DRSTR`/`MMAIN`/`.ind` (M5.6) → `mkcard.py` image (M5.10) that passes L1 + L2
-+ `realcheck.py`, **and** the acceptance facts (M2.3, M2.5, M2.12) say nothing
-in that card trips a reject. The new integration task **M5.11** ties this
-together. The earlier "S1 no-op card" is the first rung of M5.10 (rebuild the
-factory tree unchanged, byte-identical) before any generated content.
+**Phase-2 milestone (unchanged):** one OSM-generated Dolnośląskie tile on a
+card image that passes L1 + L2 + `realcheck.py` and every known gate (M5.11).
+The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).
 
-**What changed since the second pass (verified on `IMG256` where checkable):**
-
-- **M2.13b closed the card-identity gate.** The CMD42 password is 16 bytes
-  (4 unit bytes as hex + the 12-char ASCII tail); `SDHC.dll` `.text` is *uncompressed*,
-  so the IOCTL→CMD42 flag map was read directly. This **retracts my earlier
-  C-1884** ("SDHC code compressed") — a good self-correction by that task.
-- **M1.9** resolves cross-image imports (697/846 `Navi.exe` slots →
-  `COREDLL!name`; 149 unresolved because their exporters are outside segment
-  B). Verified: `COREDLL!_wfopen` resolves.
-- **M5.1** `osm_ingest.py` (XML + PBF → IMF) passes its self-test; one real
-  defect (PBF string-table index origin) was found and fixed.
-- **M6.11** adds an RP2040 SD-lock tool (`tools/sdlock-pico/`, 580 host-test
-  checks pass); the PIN is taken at run time, never committed (the committed
-  `PASS="Changeme"` is an inert placeholder, refused at load — not a leak).
-- **M2.7, M2.11, M3.7, M3.8, M3.9, M4.7, M4.9, M4.10, M4.11, M4.18** landed
-  (market decision, `HDD_INFO` read trigger, router fields, `MMAIN` read,
-  name collation, POI rename/resize, `ADDRE` grammar, POI icons, coarse
-  levels, `LCTBL` framing). M3.9 replaces M4.13's ISO-8859-2 writer rule with
-  CP1252 + transliteration (feeds the M5.7 name encoder).
-
-**Process note.** M4.8 is still `done` with its 10-POI check unmet; that check
-is M4.8b (open) and M5.2 should not trust the local scale until it passes.
-
-## Review 2026-11-06 (what changed since PR #11)## Review 2026-11-06 (what changed since PR #11)
-
-Merged since the last board update: M1.2a, M1.2b (tool), M1.6b (tool), M1.8,
-M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
-`IMG256` in EXP-2026-11-06-H5:
-
-- **M2.1 was not blocked.** `coredll.dll` is in kernel image B, and its export
-  table names every ordinal: `fn 0x004e7b8c` calls `_wfopen`, `fgetws`,
-  `wcschr`, `wcsncpy`, `memset`, `fclose` (C-1710). It reads `HDD_INFO.TXT`
-  line by line, so it is also the parser M2.3 needs (C-1711). M2.1 is open
-  again with the names in its input.
-- **Compression:** the M1.2a header model holds for 187 of 245 sections; the
-  other 58 look like a second form with flag `0x10000000 | psize` (C-1712,
-  C-1713 → M1.2d). On the real `NaviMapCC.dll` sections, lzss, lzx, lznt1 and
-  xpress-huffman give no match at offsets 0…40; plain XPRESS LZ77 is the one
-  untested candidate (C-1715 → M1.2b reopened).
-- **`cerom.py thunks` finds no stub on the real image** (C-1714 → M1.6c);
-  `sh4xref.py` does. M1.6b stays done as a tool, its real coverage is 0 %.
-- **Data side:** `RDSTM001` rows decode and round-trip, meanings unproven
-  (M4.1 → M4.15, M4.16); `MMAIN001.DAT` is a FAT root-directory log, not a
-  manifest, and contradicts `drstr.md` at `0x18c`/`0x1ac` (M4.5 → H6, M3.8);
-  names are ISO-8859-2 with all Polish letters present, collation and length
-  limits unknown (M4.13 → M3.9, M4.18); `tile_diff.py` and the vendored
-  `tools_ze0` make one-tile edits measurable (M5.8 → M5.9).
-- **OSM is unreachable from the sandbox** (C-1716): M4.2 and the region run of
-  M5.1 (now M5.1b) wait for `download.geofabrik.de` to be allowed or an
-  extract on `files.viaaq.eu`; they are marked `Runner: non-Claude` (rule
-  12). M4.17 attacks link attributes without OSM.
-- **Stale claims released:** PR #8 (`[M2.1]`, superseded). M1.7 is claimed by
-  PR #15.
-
-## State after EXP-35…51 (what changed)
-
-- **The address model is solved.** `tools/cerom.py` parses `ROMHDR`, the
-  module TOC, `e32`/`o32` and `FILESentry` for A, B and C (EXP-35, -36),
-  with `exports`, `memmap`/`ghidra` (EXP-48) and a synthetic self-test
-  (EXP-47). `imports` is in PR #5 (EXP-50, M1.6). Every old delta-based
-  address is suspect until re-derived through `cerom.py`.
-- **The old map-code chain was in the wrong module.** `0x6fab2c` →
-  `0x6faeb0` → `0x6fb05c` and `0x0369d400` (`sprintf` thunk) are `BT_MGR.dll`
-  code (C-520, C-528). The real `HDD_INFO.TXT` / `SD Import` literals are in
-  `Navi.exe` (C-521): VA `0x004e7d28` (paths), `0x004e8584` / `0x004e995c`
-  (comparator messages).
-- **First reader entry is anchored.** `Navi.exe` calls
-  `OBJDLL!MAL_DataVol_getOffset` at `0x003778b2` and `0x00377b46`, `getSize`
-  at `0x003778bc` and `0x00377b52`, through thunks `0x003d1bb0` / `0x003d1ba4`
-  (EXP-50).
-- **Compression is the one firmware unknown.** Code is never compressed
-  (C-530); RW data sections and some `FILESentry` payloads are. zlib, LZMA
-  and bz2 fail from the stream start (EXP-49, EXP-51); `tools/cecompress.py` has LZSS/LZX candidates tested
-  on synthetic streams only (EXP-52). The streams share a
-  header (see M1.2a).
-- **Full-system emulation is possible, not hopeless.** Stock QEMU
-  `-M none -cpu sh7785` runs B's `nk.exe` into the scheduler (EXP-37). This
-  supersedes the old "L5: full-system QEMU is not realistic" verdict.
-- **B carries the updater set** (`UpdateMng.exe`, `MapUpdate.exe`,
-  `PRGUpdate.exe`, …) and C carries `TestMode.exe` (C-526): new, direct
-  sources for how the unit checks and installs map data.
-- **Data-side tools landed:** `hddinfo.py` (EXP-41), `section4.py` (EXP-42),
-  `rdstm_schema.py` (EXP-43), IMF v1 + `imf_check.py` (EXP-44),
-  `profile_validate.py` + `build.py --dry-run` (EXP-45), `diff_years.py`
-  (EXP-46), `header_block.py` (EXP-40), `tools/l3_harness/` (EXP-38).
+**Needs Marek:** S0 on the unit (M6.2); building the Pico `.uf2` locally if
+the unit's own SD LOCK menu is not used (M6.11); running the non-Claude
+tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal internet.
 
 ## Workstreams at a glance
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping: ledger, docs, tool overlap | H8, H9 |
-| M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.2b**, M1.2c, M1.2d (M1.9, M1.6c done) |
-| M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12** (M2.7, M2.11, M2.13, M2.13b done) |
-| M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 done) |
-| M4 | Data formats (no firmware needed) | **M4.8b, M4.8c, M4.15**, M4.3, M4.12, M4.19 (M4.7, M4.9, M4.10, M4.11, M4.18 done) |
-| M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.12 (US POI rename, nearest), M5.2, M5.10, M5.11**, M5.9; M5.1b non-Claude |
-| M6 | Hardware and safety (planning now, tests later) | M6.9 (non-Claude runner); tests need hardware |
-| M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
-| M9 | L3 toolkit (run firmware functions on our data) | **M9.2, M9.3**, M9.1, M9.5, M9.8 (M9.4, M9.7 done) |
+| H | Housekeeping | — |
+| M1 | Firmware tooling (decompression) | **M1.2c**, M1.2e (non-Claude) |
+| M2 | Map code, activation, updater | **M2.15**, M2.16, M2.14 |
+| M3 | Reader contract | **M3.2b**, M3.6, M3.10 |
+| M4 | Data formats | **M4.20, M4.16b**, M4.8b, M4.16c, M4.16d, M4.3, M4.12, M4.17, M4.19; M4.2 non-Claude |
+| M5 | Compiler + US edits | **M5.13, M5.12c, M5.4**, M5.12b; M5.14 after M5.13; M5.1b non-Claude |
+| M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5–M6.7 follow M5.13/M5.14 |
+| M8 | Full-system emulation | M8.A1, M8.A2, M8.A4, M8.A5; M8.E1 after M1.2c |
+| M9 | L3 toolkit | **M9.6** (re-scoped), M9.8; M9.2 non-Claude (M9.1 done) |
 
-**Critical path to a first accepted card (updated):** card identity is
-done (M2.13/M2.13b/M6.11). Two live strands now meet at M5.11:
-· **acceptance:** M2.1 → M2.3 + M2.2 → M2.5 + M2.12 (why a card is accepted)
-· **compiler spine:** M5.1 (done) → M5.2 → M5.4 → M5.6 → M5.10 → **M5.11**
-(generated tile on an accepted card image) → hardware M6.5–M6.7.
-Supporting: M3.1 → M3.2 → M3.3 (reader `.ind`) · M4.8b + M4.15 → M4.16 →
-M4.2/M4.17 → M5.3 (road classes) · M1.2b/c/d → M1.3 (L3 data) ·
-M1.6c → M9.2 → M9.5 → M2.4 / M3.3 (run the real checks). Every other task
-widens knowledge or tooling in parallel and is equally welcome.
+**Critical path to a first accepted card:**
+· **US (nearest):** M6.2 S0 → M5.13 → M6.5 S1 → M6.6 S2 (M5.12 + M5.12c) →
+M5.14 → M6.7 S3.
+· **Poland (goal):** M5.1 → M5.2 → M5.4 → M4.20 + M5.6 → M5.12b → **M5.11**,
+gated by M2.15 + M9.6/M2.4 (map code) and M5.3 ← M4.2 (road classes).
+Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M5.3.
 
 ---
 
@@ -463,6 +381,19 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Result: `tools/zlibinfo.py` (stock/zlib-ng/unknown, exit 3 = unverifiable)
     wired into lev3456/cmpind_writer/cmpind/ind_mutate (EXP-2026-11-06-H9-zlib-ng-guard).
   - Claims: C-1970–C-1979
+
+- [x] **H10 — PM review, fourth pass (2026-11-06)**
+  - Status: done · Owner: claude/project-thread-wne7u7 · Critical: no
+  - Depends: —
+  - Goal: check what landed since the third pass on the real files and
+    re-plan the board.
+  - Done when: priorities and workstreams reflect the merged results, stale
+    review text is moved to a history file, and every follow-up has a task.
+  - Result: EXP-2026-11-06-H10-pm-review; old review sections in
+    `docs/research/todo-history-2026-11-06.md`; new tasks M1.2e, M2.15, M2.16,
+    M3.2b, M4.20, M5.12b, M5.12c, M5.13, M5.14; M5.4 reopened, M9.6
+    re-scoped, M6.2/M6.5–M6.7 rewritten as S0–S3 for Marek.
+  - Claims: C-2110–C-2119
 
 ---
 
@@ -667,6 +598,21 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     EXP-2026-11-06-M1.9-cross-image-imports.md; claims C-1760–C-1769.
   - Claims: C-1760–C-1769
 
+- [ ] **M1.2e — Try public CE ROM decoders on the two EXP-49 sections**
+  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs GitHub/source downloads, rule 12)
+  - Depends: —
+  - Goal: M1.2b/M1.3 rule out lzss, lzx, lznt1, xpress-huffman and plain XPRESS
+    LZ77 (0/245). Before porting the kernel routine (M1.2c), test the decoders
+    that public Windows CE ROM tools already carry.
+  - Input: lead, unverified — Willem Hengeveld's `dumprom` / `eimgfs` (nlitsme on
+    GitHub) and itsutils handle compressed CE ROM sections; the two EXP-49
+    sections and the M1.2a/M1.2d header forms (`cerom.py comphdr`).
+  - Done when: one decoder gives exactly the M1.2a lengths for both sections
+    (then port it into `tools/cecompress.py` with licence and attribution checked
+    and rerun M1.3), or the EXP lists each tool, version, URL, SHA-256 and the
+    output it gave.
+  - Claims: C-2070–C-2079
+
 ---
 
 ## M2 — Map code, activation, updater
@@ -720,9 +666,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
   - Status: blocked · Owner: task/m2.4-hddinfo-variants · Critical: yes
   - Blocker: firmware verdicts require the real L3 target (M9.6), unavailable offline; offline model-M0 gives 66 ACCEPT / 23 DIFFERENT. See EXP-2026-11-06-M2.4-hddinfo-variants.
-  - Depends: M2.2, M2.3, M9.5
+  - Depends: M2.3, M9.6 (M2.15 for the offline model)
   - Goal: run the real parser + comparator on `tools/hddinfo_variants.py`.
-  - Input: L3 runner (M9.5), corpus (M9.7).
+  - Input: L3 runner (M9.5), corpus (M9.7). The map-code comparator is
+    `AppLaunch.dll` `fn 0x03bd2ad8` (M2.5), not M2.2's user-data check.
   - Done when: each variant has a firmware verdict and it is compared with
     `hddinfo.py classify`.
   - Claims: C-750–C-759
@@ -890,6 +837,35 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     bytes only).
   - Claims: C-2000–C-2009
 
+- [ ] **M2.15 — The exact `HDD_INFO` bytes behind `DIFFERENT MAP CODE` and `MAP DATA BASE UNMATCH`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M2.5, M2.3 done)
+  - Goal: for the Poland card we must know which `HDD_INFO.TXT` bytes the
+    unit compares, and against what. M2.5 found the two launcher checks but
+    left the parsed line/offset of the 11-byte compare and the `0x03bd2ce4`
+    range check open.
+  - Input: `AppLaunch.dll` B `fn 0x03bd2ad8` / C `0x03bb2858` (11-byte compare
+    vs target-info `+0x60`), B `fn 0x03bd2ce4` / C `0x03bb2a64` (MapDBVer
+    range, target-info `+112/+114`), the HDD_INFO parse state machine (`*r9`
+    global `0x1f74b30`); EXP-2026-11-06-M2.5, `validation.md`, `hddinfo.py`.
+  - Done when: `validation.md` names, for both checks, the HDD_INFO line,
+    byte offset and length and the unit-side source, with VAs; `hddinfo.py
+    classify` follows it (self-test pins one pass and one fail per check);
+    the 89 M2.4 variants are re-classified with the new model.
+  - Claims: C-2080–C-2089
+
+- [ ] **M2.16 — `HDD_CHK.ATT` on real cards and `sub_0001e3f4`**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M2.12)
+  - Goal: M2.12 shows `HDD_CHK.ATT` is read only by `MapUpdate.exe`; confirm
+    whether factory cards carry it at all and close the layout question.
+  - Input: EU and US images (Shared inputs); `MapUpdate.exe!SilentAuthenticate`
+    (B `0x0001c210`), `sub_0001e3f4`, `ctx+120`.
+  - Done when: the EXP says per image whether `HDD_CHK.ATT` exists (path,
+    size, SHA-256 only) and `sub_0001e3f4` is decoded or explicitly deferred
+    with what blocks it.
+  - Claims: C-2090–C-2099
+
 ---
 
 ## M3 — Reader contract
@@ -1015,6 +991,22 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     VAs in `drstr.md`; or the EXP shows the data is handed to another
     module (named) without checks.
   - Claims: C-1860–C-1869
+
+- [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: M3.1/M3.2 show the `MAL_DataVol_*` and `.IND` string leads miss the
+    reader. Every `.cmp` chunk is zlib, so the reader must call `inflate`.
+  - Input: image A modules (`cerom.py sections`); zlib message strings
+    (`incorrect header check`, `invalid distance too far back`,
+    `invalid stored block lengths`), the zlib version string and the
+    `inflate … Copyright` banner as anchors; `sh4xref.py --to`;
+    `docs/format/cmp-ind.md`.
+  - Done when: the module and VAs of `inflateInit2_`/`inflate`/`inflateEnd`
+    are recorded, their callers are listed, and the caller that loops over
+    `chunk_offset[]` is named (then answer M3.2's two questions); or the EXP
+    shows, with a positive control, that zlib sits in a compressed section.
+  - Claims: C-2060–C-2069
 
 ---
 
@@ -1281,6 +1273,19 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     test.
   - Claims: C-1960–C-1969
 
+- [ ] **M4.20 — US `DRSTR001` round-trip diff at `0x1ae0`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: M5.6 writes `DRSTR001.DAT` for generated cards, so the model must
+    round-trip on both markets. On the untouched US factory tree
+    `l2check.py` `drstr_roundtrip` fails at `0x1ae0` (EXP-2026-11-06-M5.12).
+  - Input: US image (Shared inputs / M5.12), `tools/drstr.py`,
+    `docs/format/drstr.md`, `l2check.py`.
+  - Done when: the field at `0x1ae0` is explained in `drstr.md` and the
+    rebuild is byte-identical for US (7,456 B) and EU, with a self-test case
+    for the US form.
+  - Claims: C-2100–C-2109
+
 ---
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
@@ -1331,15 +1336,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1050–C-1059
 
 - [ ] **M5.4 — Tile writer: roads only**
-  - Status: blocked · Owner: — · Critical: yes
-  - Depends: M5.2 (M5.3 for classes)
-  - Input: `tools/ze0-viewer/vendor/osm2clarion`, factory neighbours,
-    `section4.py preserve`.
-  - Done when: one generated tile passes L2.
-  - Blocker: no vendor tile or card tree here, and M5.3/M4.2 own the real
-    class/speed table. Tool half: `tools/tilewriter.py` splices road records
-    into a factory tile, preserves header/tables and section 4, and passes
-    48/48 synthetic checks (EXP-2026-11-06-M5.4-tilewriter, C-1060).
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.2 (M5.3 for final classes, not needed to start)
+  - Input: `tools/tilewriter.py` (splices road records into a factory tile,
+    keeps header/tables and section 4; 48/48 synthetic checks,
+    EXP-2026-11-06-M5.4-tilewriter, C-1060); `tools/ze0-viewer/vendor/osm2clarion`,
+    factory neighbours, `section4.py preserve`. Use the real EU tile that
+    covers Dolnośląskie (`IMG`, rule 11) and a synthetic or small hand-made
+    `.osm` for that area (no OSM download needed).
+  - Note (PM 2026-11-06): the earlier blocker "no vendor tile here" is not a
+    blocker under rule 11. Until M5.3 lands, use a provisional class table
+    (each generated road takes the class of the factory road it replaces, or
+    the tile's most common local class) and say so in the EXP.
+  - Done when: one generated tile from the real factory tile passes L2.
   - Claims: C-1060–C-1069
 
 - [ ] **M5.5 — Connectivity across tile borders**
@@ -1408,7 +1417,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [ ] **M5.11 — End-to-end: one generated tile on an accepted card image**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M5.4, M5.6, M5.10 (M2.3, M2.5, M2.12 for the accept check)
+  - Depends: M5.4, M5.6, M5.10, M5.12b, M4.20 (accept facts: M2.3, M2.5, M2.12
+    done; M2.15 and M9.6/M2.4 for the exact map-code bytes)
   - Goal: the Phase-2 milestone — turn OSM input into a card image that the
     firmware would accept, with one tile actually regenerated from OSM (not
     just a verbatim rebuild).
@@ -1485,6 +1495,70 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     on the `harness.py mutate` output.
   - Claims: C-1100–C-1109
 
+- [ ] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M5.12 for the edited pair)
+  - Goal: the S1/S2 cards for Marek's unit must differ from S0 only in the
+    changed file (one variable per card, `card-test-plan.md`). `mkcard.py`'s
+    fresh build re-lays out the FAT and drops the root volume-label entry
+    `QSD-301-103` (PM check 2026-11-06: factory US root slot 0 is an
+    attr-`0x08` entry, BPB label `NO NAME`; M5.12 `cardcheck` warned "no
+    volume label").
+  - Input: `LEAF_2011-2012_US.img`; `mkcard.py` FAT helpers
+    (`open_map_partition`, `_resolve`, `chain`); `mutate_refer_poi.py` and the
+    M5.12 edit (`REFER001/POINT010.DAT.cmp`/`.ind`, page `0x840ba0`; 65
+    contiguous clusters). Compressed output depends on the zlib build
+    (EXP-2026-11-06-H10): record the zlib version and the SHA-256 of every
+    file and image you produce.
+  - Done when: `imgpatch.py --image IMG --replace REL=FILE … -o OUT` writes the
+    new bytes into the file's existing cluster chain (grows/shrinks the chain
+    in both FATs and FSInfo only when the cluster count changes) and updates
+    the directory entry size; synthetic self-test; on the US image it builds
+    **S1** (page `0x840ba0` recompressed unchanged) and **S2** (the M5.12
+    rename), and the EXP gives each image's SHA-256 and shows every diff
+    range lies in the replaced files' clusters or their directory entries;
+    `cardcheck.py --image` passes with the label present. Images stay outside
+    the repo; the EXP gives Marek the exact commands to rebuild them locally.
+  - Claims: C-2020–C-2029
+
+- [ ] **M5.12b — `mkcard.py`: keep the volume label and factory root order on a fresh build**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M5.13 is the path for the hardware cards; this is for M5.11)
+  - Goal: a fresh build should not drop the root attr-`0x08` entry
+    (`QSD-301-103` US, check the EU label) or reorder the root.
+  - Input: `tools/mkcard.py` `build_fresh_partition`/`populate_dir`;
+    `cardcheck.py` `_read_volume_label`.
+  - Done when: the fresh build writes the source volume-label entry as root
+    slot 0 and keeps the source directory order where names match; the
+    self-test covers it; the M5.12 rebuild reports the label with no warning.
+  - Claims: C-2030–C-2039
+
+- [ ] **M5.12c — Every copy of the renamed POI name on the US card**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M5.12)
+  - Goal: tell Marek which screens should show `OSM2LEAF TEST POI1` (map
+    label, POI list, name search) and whether an index still holds the old
+    name.
+  - Input: US tree; decompress all 58 `.cmp` pairs (`cmpind.py`) and scan them
+    and every uncompressed file for `HANA HEALTH CENTER`, `HANA HEALTH` and the
+    bytes that follow the name in record 0 of page `0x840ba0`.
+  - Done when: the EXP lists every hit (file, logical offset, structure);
+    if a search/sort index also holds the name, either extend the edit (new
+    S2 via M5.13) or state what Marek should expect on screen.
+  - Claims: C-2040–C-2049
+
+- [ ] **M5.14 — US geometry edit: move one road vertex (S3)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.13, M4.8c
+  - Goal: the first geometry change Marek's unit renders, on the proven
+    one-vertex path (M4.4: section 4 preserved, L2 pass on EU).
+  - Input: US tree; `tools/tile_diff.py`, `section4.py preserve`, the M4.4
+    mutate path, `coord.py` (M4.8c) to pick a recognisable road.
+  - Done when: `tile_diff.py` shows only that vertex changed; the US tile
+    checks pass (or the US-specific gap is named); M5.13 builds **S3**; the
+    EXP names the road, tile and lat/lon before/after so Marek can find it.
+  - Claims: C-2050–C-2059
+
 ---
 
 ## M6 — Hardware and safety
@@ -1558,17 +1632,39 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Claims: C-1940–C-1949
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
   EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939
-- [ ] **M6.2** Marek's own US 2011 card. The dump already exists: it is
-  `LEAF_2011-2012_US.img` on `files.viaaq.eu` (sha256 `53342430…c5383`), which
-  Marek supplied. So the data half is in hand; what remains (hardware) is
-  writing a no-op clone to a spare card and confirming it boots his unit.
-  Status: blocked (hardware) · Owner: Marek. Claims: C-1140–C-1149
-- [ ] **M6.5** First on-device test with the no-op clone of the US card.
-  Status: blocked (hardware; Depends M6.2, M6.3). Claims: C-1150–C-1159
-- [ ] **M6.6** First on-device test with the US card carrying one changed tile
-  (M5.12). Status: blocked (hardware; Depends M6.5, M5.12). Claims: C-1160–C-1169
-- [ ] **M6.7** Routing/display test across the changed US tile. Status: blocked
-  (hardware; Depends M6.6). Claims: C-1170–C-1179
+- [ ] **M6.2 — S0 on Marek's unit: factory clone of the US card**
+  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+  - Depends: — (a spare 16 GB SDHC card; `card-test-plan.md` P1–P6)
+  - Goal: prove that a byte-exact clone we write boots the unit; it is the
+    control for every later card.
+  - Input: `LEAF_2011-2012_US.img` (sha256 `53342430…c5383`, Marek's own card);
+    `card-test-plan.md` S0; lock with the unit's own SD LOCK menu (M2.13) or
+    the Pico tool (M6.11).
+  - Done when: an EXP records the card model, image and read-back SHA-256,
+    lock method, screens in order, boot time to map, and the card hash after
+    the run; pass/fail per S0.
+  - Claims: C-1140–C-1149
+- [ ] **M6.5 — S1: no-op recompressed `POINT010` on the US unit**
+  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+  - Depends: M6.2, M5.13 (S1 image)
+  - Done when: an EXP records S1 per `card-test-plan.md` (boot, POI list
+    opens, no dialog, card hash after the run). A reject here means the unit
+    wants factory-exact compressed bytes: stop and re-plan before S2.
+  - Claims: C-1150–C-1159
+- [ ] **M6.6 — S2: the renamed POI on the US unit**
+  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+  - Depends: M6.5, M5.13 (S2 image), M5.12c (what to expect on screen)
+  - Goal: see `OSM2LEAF TEST POI1` where `HANA HEALTH CENTER` was (Hana, Maui,
+    Hawaii: scroll the map there, and try the POI name search).
+  - Done when: an EXP records each screen checked (map label, POI list, name
+    search) with a photo and pass/fail.
+  - Claims: C-1160–C-1169
+- [ ] **M6.7 — S3: display and routing across the moved US road**
+  - Status: open · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
+  - Depends: M6.6, M5.14
+  - Done when: an EXP shows the moved vertex on screen and one route that
+    uses the changed road.
+  - Claims: C-1170–C-1179
 - [ ] **M6.12 — Clarion debug console (MONI `FW>`, `DSW=0006`) access procedure**
   - Status: open · Owner: — · Critical: no · **Runner: non-Claude** (needs
     hardware; planning is doable now, the procedure is unverified until bench)
@@ -1717,7 +1813,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-1630–C-1639
   - Result: EXP-2026-11-06-M9.1-module-map (IMG256 `92aa525d…`); A: 149 modules/527 sections (245 compressed), B: 91/307 (133 compressed). Per-module `rommap.py convert --skip-compressed`+`validate` PASS 239/240; B `nk.exe` sec1 zero-stored-size BSS (vsize 7168, CNT_UNINITIALIZED_DATA) → rommap `size must be positive` (limitation, C-1632). Combined all-module maps overlap at EXE VA 0x11000 (inherent). Counts per module in EXP.
 - [ ] **M9.2 — Ghidra project builder**
-  - Status: blocked · Owner: — · Critical: yes
+  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (Ghidra
+    cannot be installed in the Claude sandbox; the tool and `--plan` are done)
   - Depends: M9.1 (M1.6b for thunk labels)
   - Goal: `tools/l3_harness/ghidra_import.py` (pyghidra, headless): all
     A + B sections at their VAs, exports named, thunks labelled, SH-4
@@ -1764,9 +1861,20 @@ parts are covered by `tools/l3_harness/selftest.py`.
     the stub dispatcher, emitting ACCEPT/MISMATCH/BLOCKED/SKIP and a stub call
     log (EXP-2026-11-06-M9.5-runner); pipeline result, not a reader verdict.
   - Claims: C-1670–C-1679
-- [ ] **M9.6 — First real target**: the decompressor (if M1.2 is still open
-  when M9.5 lands) or the `HDD_INFO` comparator (M2.2). Depends: M9.5 and
-  M1.2c or M2.2. Claims: C-1680–C-1689
+- [ ] **M9.6 — First real target: the map-code compare**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M9.5, M2.5 done; M2.15 helps)
+  - Goal: run the real `AppLaunch.dll` compare (B `fn 0x03bd2ad8`, M2.5) on
+    our `HDD_INFO.TXT` inputs, which unblocks M2.4. (Re-scoped 2026-11-06:
+    M2.2's `SD Import` comparator checks user data, not the map; the
+    decompressor stays the second target once M1.2c names it.)
+  - Input: `tools/l3_harness/runner.py`, `stubs.py` (stub
+    `KernelIoControl 0x0101302C` with a target-info record whose `+0x60` holds
+    the factory 11 bytes), corpus `hddinfo_variants.py` (M9.7).
+  - Done when: `runner.py run` returns a firmware verdict for the factory
+    `HDD_INFO.TXT` (accept) and for one edited line-1 variant (reject), with
+    the stub log in the EXP.
+  - Claims: C-1680–C-1689
 - [x] **M9.7 — Corpora** (`hddinfo_variants.py` 89, `ind_mutate.py` 8,
   `DRSTR` and tile mutations) in `tools/l3_harness/corpus.py`, each with
   the Python reader's verdict. Depends: —. Done when `manifest.py build`
