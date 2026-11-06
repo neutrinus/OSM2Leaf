@@ -536,7 +536,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-660–C-669
 
 - [ ] **M1.3 — `cerom.py decompress` on all 245 sections**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.3-decompress-all · Critical: yes
   - Depends: M1.2b or M1.2c
   - Goal: complete RW data for every module.
   - Input: the decoder from M1.2b/c; `cerom.py extract`.
