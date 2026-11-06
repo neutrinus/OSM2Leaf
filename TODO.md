@@ -1459,8 +1459,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     `mutate_refer_poi.py` L9 fallback, `mkcard.py` LFN slot order (selftests).
   - Claims: C-1980–C-1989
 
-- [ ] **M4.8c — Confirm `coord.py` on the US grid**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.8c — Confirm `coord.py` on the US grid**
+  - Status: done · Owner: task/m4.8c-coord-us-grid · Critical: yes
   - Depends: M4.8
   - Goal: target a specific US road by lat/lon, which M5.12 needs.
   - Input: `tools/coord.py`; US tiles use `R ≥ 0xA0` (lon −172…−52, so
@@ -1470,6 +1470,13 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     Wikipedia/Wikidata, not OSM) into the right US tile and cell within a few
     hundred metres, and the self-test pins a US fixture.
   - Claims: C-1990–C-1999
+  - Result: EXP-2026-11-06-M4.8c-coord-us-grid.md. 5 Wikipedia landmarks
+    (Statue of Liberty, White House, Golden Gate Bridge, Space Needle, Willis
+    Tower) → correct US tiles (`B38R0B0R`,`B38R0B8R`,`B38R0E0R`,`B40R0E0R`,
+    `B38R0C0R`), in cell, 189–300 m round-trip. US `COORD001` (11 regions)
+    matches EU layout/origin 52742; `MAPAL001` stream key B confirmed origin
+    52736 on US (`B38R0B0R` keys inside box only @52736). `coord.py --selftest`
+    pins US fixtures (18 checks).
   - Depends: —
   - Goal: an automatic report of what changed vs what was preserved between
     a factory and a generated/mutated tile (sections, records, bytes).

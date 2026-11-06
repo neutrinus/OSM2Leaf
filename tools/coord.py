@@ -117,6 +117,12 @@ EPS = 1e-9                          # float noise on exact cell boundaries
 SHIPPED_B = tuple(range(0x28, 0x69, 8))
 SHIPPED_R = tuple(range(0x48, 0x79, 8))
 
+#: 2011 US / N-America tile space: 112 files, R in 0x0A0..0x110 (lon_max
+#: 108-R gives −172..−52), B in 0x18..0x70. Not a full rectangle (gaps, plus
+#: Hawaii/Alaska). The per-tile box formula and packed/local formulas are
+#: identical to EU; only the lattice and longitudes differ (EXP-…-M4.8c).
+US_TILE_COUNT = 112
+
 TILE_RE = re.compile(r"^B([0-9A-F]{2})R([0-9A-F]{3})R?$")
 
 LEVEL_CELL = 6
@@ -549,8 +555,8 @@ def cmd_cell(args: argparse.Namespace) -> int:
     print(f"lat {args.lat:.6f}  lon {args.lon:.6f}")
     print(f"cell {cell}  (level {LEVEL_CELL})")
     print(f"box  {fmt_box(result['box'])}")
-    state = "shipped lattice" if result["shipped_lattice"] else "outside the shipped lattice"
-    print(f"lattice: {state} (rows B28-B68, columns R048-R078, step 8)")
+    state = "EU shipped lattice" if result["shipped_lattice"] else "outside the EU shipped lattice"
+    print(f"lattice: {state} (EU 2011: rows B28-B68, columns R048-R078, step 8)")
     if not result["cell_start"]:
         print("warning: B/R are not multiples of 8, not an 8 x 8 cell")
     return 0
@@ -859,6 +865,69 @@ def selftest() -> int:
     check(
         "R057 is not a cell start",
         not is_cell_start("B48R057R") and is_cell_start("B48R058R"),
+    )
+
+    # 15. US grid (EXP-…-M4.8c): R >= 0xA0 gives lon_max = 108-R < 0 (negative
+    #     longitudes). Same formula, 3-digit R, B/R multiples of 8.
+    us_boxes = {
+        "B38R0B0R": (37.0 + 1.0 / 3.0, 42.0 + 2.0 / 3.0, -76.0, -68.0),
+        "B38R0B8R": (37.0 + 1.0 / 3.0, 42.0 + 2.0 / 3.0, -84.0, -76.0),
+        "B38R0E0R": (37.0 + 1.0 / 3.0, 42.0 + 2.0 / 3.0, -124.0, -116.0),
+        "B40R0E0R": (42.0 + 2.0 / 3.0, 48.0, -124.0, -116.0),
+        "B38R0C0R": (37.0 + 1.0 / 3.0, 42.0 + 2.0 / 3.0, -92.0, -84.0),
+        "B18R100R": (16.0, 21.0 + 1.0 / 3.0, -156.0, -148.0),  # Hawaii
+        "B48R110R": (48.0, 53.0 + 1.0 / 3.0, -172.0, -164.0),  # Aleutians
+    }
+    us_boxes_ok = all(
+        all(abs(a - b) < 1e-9 for a, b in zip(cell_box(n), exp))
+        and is_cell_start(n)
+        and not in_shipped_lattice(n)
+        for n, exp in us_boxes.items()
+    )
+    check("US cell boxes (R>=0xA0, neg lon)", us_boxes_ok, f"{len(us_boxes)} cells")
+
+    # 16. US landmarks (Wikipedia coords, not OSM) -> correct tile/cell, inside
+    #     box, local in bounds, packed round-trip error < 350 m (quantisation).
+    us_landmarks = [
+        # (name, lat, lon, cell, local_x_s2, local_y_s2)
+        ("Statue of Liberty", 40.689249, -74.044500, "B38R0B0R", 1289, 501),
+        ("White House", 38.897676, -77.036530, "B38R0B8R", 601, 1783),
+        ("Golden Gate Bridge", 37.819929, -122.478255, "B38R0E0R", 187, 390),
+        ("Space Needle", 47.620506, -122.349277, "B40R0E0R", 1902, 423),
+        ("Willis Tower", 41.878876, -87.635915, "B38R0C0R", 1745, 1117),
+    ]
+    us_lm_ok = True
+    for _, lat, lon, want, lx_w, ly_w in us_landmarks:
+        cell = cell_for(lat, lon)
+        x, y = latlon_to_xy(lat, lon, LON_ORIGIN_COORD)
+        lat2, lon2 = xy_to_latlon(x, y, LON_ORIGIN_COORD)
+        lx, ly = latlon_to_local(lat, lon, cell)
+        dlat = (lat2 - lat) * 111320.0
+        dlon = (lon2 - lon) * 111320.0 * math.cos(math.radians(lat))
+        err = math.hypot(dlat, dlon)
+        if (cell != want or not cell_contains(cell, lat, lon)
+                or (lx, ly) != (lx_w, ly_w) or not local_in_bounds(lx, ly)
+                or err > 350.0):
+            us_lm_ok = False
+    check(
+        "US landmarks -> tile/cell (<350 m)",
+        us_lm_ok,
+        f"{len(us_landmarks)} landmarks, Wikipedia coords",
+    )
+
+    # 17. US packed round-trip over negative longitudes, both origins.
+    us_pairs = [(39951, 43010), (40580, 43264), (40236, 42881),
+                (41911, 37081), (40809, 41525)]
+    us_xy_ok = True
+    for origin in ORIGIN_CHOICES:
+        for x, y in us_pairs:
+            lat, lon = xy_to_latlon(x, y, origin)
+            if latlon_to_xy(lat, lon, origin) != (x, y) or lon >= 0:
+                us_xy_ok = False
+    check(
+        "US packed (x,y) round-trip (lon<0)",
+        us_xy_ok,
+        f"{len(us_pairs)} pairs x 2 origins",
     )
 
     print(

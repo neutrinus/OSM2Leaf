@@ -1257,6 +1257,21 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-1988 | reserved. | UNKNOWN | — | — |
 | C-1989 | reserved. | UNKNOWN | — | — |
 
+## M4.8c — `coord.py` confirmed on the US grid (C-1990–C-1999)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1990 | `tools/coord.py` maps WGS84 lat/lon to the correct US `BxxRyyR` tile/cell on the US grid (`R ≥ 0xA0`, 3-digit R, `lon_max = 108 − int(R,16)` negative). 5 Wikipedia-sourced landmarks (Statue of Liberty, White House, Golden Gate Bridge, Space Needle, Willis Tower; not OSM) land in the correct factory tile (`B38R0B0R`,`B38R0B8R`,`B38R0E0R`,`B40R0E0R`,`B38R0C0R`, all present in `LEAF_2011-2012_US.img` `53342430…`) inside the cell with packed round-trip error 189–300 m. | VERIFIED | H | EXP-2026-11-06-M4.8c-coord-us-grid; `coord.py --selftest` (US fixtures) |
+| C-1991 | US `MAPAL001` stream key `B` uses origin **52736** (`B = 52736 + lon*128`): decompressed 6-byte stream headers `(A,B,tag)` from `B38R0B0R.DAT` (lon −76..−68) decode inside the tile box with 52736 and outside with 52742. C-048 holds on the US grid. | VERIFIED | H | EXP-2026-11-06-M4.8c-coord-us-grid |
+| C-1992 | US `COORD001` (`REFER001/COORD001.DAT.{cmp,ind}`, decompressed 4352 B) has the same layout as EU (C-110): 11 region boxes, 14-byte big-endian records at `0x1010`, guard `0x56`/count 11/`val7` 7 at `0x1000`. Decoded with origin 52742 it yields plausible N-America bounding boxes (incl. Hawaii/Alaska/Canada reach), consistent with C-111. | VERIFIED | H | EXP-2026-11-06-M4.8c-coord-us-grid |
+| C-1993 | The 52742-vs-52736 origin split (C-053) holds on US: 52742 for `COORD001`/`POINT`/`ADDRE` ids, 52736 for `MAPAL001` stream key `B`; difference 6/128 = 0.046875° longitude. Tile/cell and `latlon_to_local` are origin-independent. | VERIFIED (split) / OBSERVED (ids) | H | EXP-2026-11-06-M4.8c-coord-us-grid; C-048/C-111/C-053 |
+| C-1994 | `coord.py --selftest` pins US fixtures (18 checks total): US cell boxes (negative lon, Hawaii `B18R100R`, Aleutians `B48R110R`, R≥0xA0/3-digit R), 5 Wikipedia landmarks → tile/cell/local (<350 m), packed round-trip over negative longitudes (both origins). Core math unchanged; lattice message clarified to "EU shipped lattice". | VERIFIED (tool) | H | EXP-2026-11-06-M4.8c-coord-us-grid; `python3 tools/coord.py --selftest` |
+| C-1995 | Local scale factor 2 (`0..2047`, C-960 hypothesis) is consistent with US landmark local coords but not pinned by byte-level US intra-mesh/ZCODE samples in M4.8c. | HYPOTHESIS | M | EXP-2026-11-06-M4.8c-coord-us-grid |
+| C-1996 | reserved. | UNKNOWN | — | — |
+| C-1997 | reserved. | UNKNOWN | — | — |
+| C-1998 | reserved. | UNKNOWN | — | — |
+| C-1999 | reserved. | UNKNOWN | — | — |
+
 ## M9.1 — Module map on real image (EXP-2026-11-06-M9.1)
 
 | ID | Claim | Status | Conf. | Evidence |
