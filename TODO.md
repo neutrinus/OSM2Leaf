@@ -741,7 +741,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1090–C-1099
 
 - [ ] **M5.8 — One-tile diff report**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m5.8-tile-diff · Critical: no
   - Depends: —
   - Goal: an automatic report of what changed vs what was preserved between
     a factory and a generated/mutated tile (sections, records, bytes).
