@@ -1040,12 +1040,15 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 No hardware is available now. Planning tasks are open; tests wait.
 
-- [ ] **M6.3 — Spare-card test plan**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+- [x] **M6.3 — Spare-card test plan**
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: — (M2.8 refines it)
   - Done when: `docs/research/card-test-plan.md` defines the whole-card
     clone, the no-op control, then one changed tile, with pass/fail
     criteria and what to photograph.
+  - Result: `docs/research/card-test-plan.md` (S0 clone, S1 no-op
+    recompression, S2 POI rename, S3 tile, S4 map-code) with pass/fail,
+    rollback and photo checklist (EXP-2026-11-06-M6.3-card-plan).
   - Claims: C-1110–C-1119
 
 - [ ] **M6.4 — Recovery checklist**

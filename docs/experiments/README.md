@@ -128,6 +128,7 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-M1.2b](EXP-2026-11-05-M1.2b-decoder-probe.md) | Public LZ decoders and offset probe (M1.2b) | blocked: no real payload |
 | [EXP-2026-11-05-M1.6b](EXP-2026-11-05-M1.6b-thunks.md) | Full import-thunk resolver (M1.6b) | done (synthetic; real coverage UNKNOWN) |
 | [EXP-2026-11-05-M1.2a](EXP-2026-11-05-M1.2a-comphdr.md) | Compressed-section header parser (M1.2a) | done (2 real prefixes) |
+| [EXP-2026-11-06-M6.3](EXP-2026-11-06-M6.3-card-plan.md) | Spare-card test plan (M6.3) | done (planning) |
 | [EXP-2026-11-06-M6.8](EXP-2026-11-06-M6.8-bench-kit.md) | Bench kit and access plan (M6.8) | done (planning; no hardware) |
 | [EXP-2026-11-05-55](EXP-2026-11-05-55-filesentry-extract.md) | Compressed FILESentry extraction (M1.4) | done (synthetic) |
 | [EXP-2026-11-05-54](EXP-2026-11-05-54-kernel-select.md) | Kernel B/C selection criteria (M1.7) | done (synthetic; real image gives UNKNOWN) |
