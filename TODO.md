@@ -74,8 +74,12 @@ front has fewer, add the next tasks (see rule 9).
     found two tools that pass their self-test but match nothing on real bytes,
     and one blocker that the image itself answers.
 12. **Network.** Only `files.viaaq.eu` (and package registries) are reachable
-    from the cloud sandbox; OSM hosts return proxy 403 (C-1716). A task that
-    needs another host is `blocked (network: <host>)`, not negative.
+    from the Claude cloud sandbox; OSM hosts fail there (C-1716). Tasks that
+    need such a host carry **`Runner: non-Claude`** in their status line:
+    they are open and meant for agents outside that sandbox (with normal
+    internet access). Claude sandbox agents skip them. Such a task records
+    the download URL, date and SHA-256 of what it fetched, and never commits
+    OSM extracts.
 
 ### ID allocation
 
@@ -97,7 +101,7 @@ C-521, C-528…C-533 were proposed twice). From now on:
 
 ```text
 - [ ] **ID — title**
-  - Status: open | in progress | blocked | done · Owner: — | <branch> · Critical: yes | no
+  - Status: open | in progress | blocked | done · Owner: — | <branch> · Critical: yes | no [· Runner: non-Claude]
   - Depends: — | IDs
   - Goal: one sentence.
   - Input: files, offsets, tools, samples.
@@ -146,7 +150,8 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
   `tools_ze0` make one-tile edits measurable (M5.8 → M5.9).
 - **OSM is unreachable from the sandbox** (C-1716): M4.2 and the region run of
   M5.1 (now M5.1b) wait for `download.geofabrik.de` to be allowed or an
-  extract on `files.viaaq.eu`. M4.17 attacks link attributes without OSM.
+  extract on `files.viaaq.eu`; they are marked `Runner: non-Claude` (rule
+  12). M4.17 attacks link attributes without OSM.
 - **Stale claims released:** PR #8 (`[M2.1]`, superseded). M1.7 is claimed by
   PR #15.
 
@@ -191,7 +196,7 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 | M2 | Map code, activation, updater, error screens | M2.1, M2.2, M2.3, M2.7, M2.8, M2.11 (M2.6 has a branch) |
 | M3 | Reader contract (what the unit reads from the card) | M3.1, M3.5, M3.7, M3.8, M3.9, M3.10 |
 | M4 | Data formats (no firmware needed) | M4.3, M4.4, M4.7, M4.8, M4.9–M4.12, M4.14, M4.15, M4.18 |
-| M5 | OSM compiler vertical slice (Dolnośląskie) | M5.1 (synthetic), M5.9; M5.1b blocked on network |
+| M5 | OSM compiler vertical slice (Dolnośląskie) | M5.1, M5.9; M5.1b after M5.1 (non-Claude runner) |
 | M6 | Hardware and safety (planning now, tests later) | M6.3, M6.8 |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
 | M9 | L3 toolkit (run firmware functions on our data) | M9.1, M9.3, M9.4 |
@@ -200,7 +205,7 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 a card is accepted; M1.8 done, ordinals named) · M3.1 → M3.2 (what is read) ·
 M1.2b/M1.2c/M1.2d → M1.3 (initialised data for L3) · M1.6c/M1.9 → M9.2 →
 M9.5 → M2.4 / M3.3 (checks against the real code) · M4.15 → M4.16 →
-M4.2/M4.17 → M5.3 → M5.4 → M5.6 · M5.1 → M5.1b (needs OSM access) · then
+M4.2/M4.17 → M5.3 → M5.4 → M5.6 · M5.1 → M5.1b (non-Claude runner) · then
 hardware M6.5–M6.7. Every other task
 widens knowledge or tooling in parallel and is equally welcome.
 
@@ -208,8 +213,8 @@ widens knowledge or tooling in parallel and is equally welcome.
 
 ## H — Housekeeping
 
-- [ ] **H1 — Repair the claim ledger and the EXP index**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+- [x] **H1 — Repair the claim ledger and the EXP index**
+  - Status: done · Owner: task/h1-claim-ledger · Critical: no
   - Depends: —
   - Goal: one ID per claim and every proposed claim registered.
   - Input: `docs/research/claims.md` (duplicate IDs C-070, C-110, C-543,
@@ -227,6 +232,7 @@ widens knowledge or tooling in parallel and is equally welcome.
     one-line reason it was dropped; the EXP index lists the duplicate-number
     files with distinct labels. No EXP file is renamed (append-only).
   - Claims: C-600–C-609
+  - Result: tools/claims_check.py (selftest green) reports 0 duplicate IDs and 0 unregistered proposed claims; ledger annotated; EXP index relabeled.
 
 - [x] **H2 — Refresh AGENTS.md and research docs after EXP-35…51**
   - Status: done · Owner: task/h2-docs-refresh · Critical: no
@@ -435,8 +441,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     real 846-slot run stays UNKNOWN (EXP-2026-11-05-M1.6b, C-690).
   - Claims: C-690–C-699
 
-- [ ] **M1.7 — Which kernel (B or C) boots with A**
-  - Status: open · Owner: — · Critical: no
+- [x] **M1.7 — Which kernel (B or C) boots with A**
+  - Status: done · Owner: task/m1.7-kernel-select · Critical: no
   - Tool: `tools/kernel_select.py` scores B vs C on seven criteria and
     refuses a verdict on ties; fed the recorded B/C fields it returns
     `UNKNOWN` (EXP-54, C-572), so the decision still needs `ulRAMFree`/`End`
@@ -449,6 +455,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: an EXP states B, C or "IPL-selected" with the evidence, and
     the boot-argument field that selects it if any (feeds M8.B4).
   - Claims: C-700–C-709
+  - Result: EXP-2026-11-06-M1.7-kernel-select (verdict: IPL-selected; 12-byte boot arg is a Navi version string, not a selector)
 
 - [x] **M1.8 — SH-4 disassembly and xref helper**
   - Status: done · Owner: claude/project-thread-wn7y0u · Critical: yes
@@ -687,8 +694,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     an EXP shows the string search with a positive control and no xref.
   - Claims: C-850–C-859
   - Result: EXP-2026-11-06-M3.4-drstr-parser (DRSTR/CMP.LST xrefs in Navi.exe at 0x00419684/0x0041ba90; MAPAL only static table; no count/order/sentinel check identified)
-- [ ] **M3.5 — Tile reader entry and the level table**
-  - Status: open · Owner: — · Critical: no
+- [x] **M3.5 — Tile reader entry and the level table**
+  - Status: done · Owner: task/m3.5-tile-reader-final · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: find the `MESH_ID`/`DIVID` code and confirm the six-level table
     (`VTb Tp;Lv;…`).
@@ -696,6 +703,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the reader VA and the level-table layout are recorded in
     `map-tiles.md`.
   - Claims: C-860–C-869
+  - Result: EXP-2026-11-06-M3.5-tile-reader (reader VAs 0x0041f26c/0x004259bc/0x0042757a in Navi.exe; six-level table `VTb Tp;Lv;St;F#|L1..L6|Sz;Adr`; NaviMapCC.dll has no reader code)
 
 - [ ] **M3.6 — Which tile sections the renderer reads**
   - Status: open · Owner: — · Critical: no
@@ -772,12 +780,11 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-890–C-899
 
 - [ ] **M4.2 — `RDSTM001`: link attributes (speed class, one-way, class)**
-  - Status: blocked · Owner: — · Critical: yes
-  - Blocker: network (`download.geofabrik.de` refused, C-1716) and no
-    row → coordinate mapping (EXP-2026-11-05-M4.2-rdstm-link-attrs). Reopen
-    when OSM access exists and M4.16 is done; M4.17 tries the same question
-    without OSM.
-  - Depends: M4.1, M4.16, OSM access
+  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
+  - Note: EXP-2026-11-05-M4.2-rdstm-link-attrs failed for lack of OSM access
+    and of a row → coordinate mapping. M4.17 tries the same question without
+    OSM.
+  - Depends: M4.1, M4.16
   - Done when: attribute values correlate with ≥ 5 known roads (OSM tags)
     in an EXP table.
   - Claims: C-900–C-909
@@ -877,8 +884,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     IMF/writer rule for unsupported characters.
   - Claims: C-1010–C-1019
 
-- [ ] **M4.14 — Cross-year and cross-market archive**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.14 — Cross-year and cross-market archive**
+  - Status: done · Owner: task/m4.14-cross-year-archive · Critical: no
+  - Result: docs/research/image-versions.md inventory + fields table; docs/experiments/EXP-2026-11-06-M4.14-cross-year-archive.md; claims C-1020–C-1029
   - Depends: —
   - Goal: a table of every image on `files.viaaq.eu` (year, market, map
     code, `HDD_INFO`, header versions, tile counts) via `diff_years.py`.
@@ -957,10 +965,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1030–C-1039
 
 - [ ] **M5.1b — Ingest the real Dolnośląskie extract**
-  - Status: blocked · Owner: — · Critical: yes
-  - Blocker: network: `download.geofabrik.de` not allowed (C-1716); Marek to
-    allow it or place an extract on `files.viaaq.eu`.
-  - Depends: M5.1, OSM access
+  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
+  - Input: `https://download.geofabrik.de/europe/poland/dolnoslaskie-latest.osm.pbf`.
+  - Depends: M5.1
   - Done when: IMF for the region passes `imf_check.py`; extract date,
     URL and SHA-256 recorded; counts of ways/nodes per `highway=*` in the EXP.
   - Claims: C-1840–C-1849

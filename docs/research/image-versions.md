@@ -54,11 +54,11 @@ Notes on the table:
 | `LEAF_2011-2012_QSD-309-101_navi158_eu.img` | 8,057,257,984 | `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` | C-001, EXP-32 |
 | `LEAF_2014_EU_QSD-357-101.img` | 7,969,177,600 | `4a8a21f477e9fc511f94406976b8d67037842f9c043f49ab24e1adc82d6da89b` | EXP-30, EXP-32 |
 | `ENV200_2016_EU_QSD-390-100.img` | 7,969,177,600 | `f53d55f159fd4232caa0b100b9b12e3910c8fe3849201871a71ee38ac19007fb` | EXP-30, EXP-32 |
-| `ENV200_2019_25920-6WX1C-EUR.img` | 16,039,018,496 | unverified | EXP-30 |
-| `leaf_2011_usa_sddump.img` | 8,057,257,984 | `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383` | EXP-2026-11-05-35 |
-| `EU_MAPDATA_13-14.7z` | 6,088,466,708 | unverified | EXP-30 |
-| `EU_MAPDATA_14-15.7z` | 6,273,414,589 | unverified | EXP-30 |
-| `EU_MAPDATA_16-17.7z` | 6,635,659,459 | unverified | EXP-30 |
+| `ENV200_2019_25920-6WX1C-EUR.img` | 16,039,018,496 | `8e95b1d6fd8772fe613ed0dd1902eb9fde48b8247f96ff084f8b1ceb72839f94` | EXP-2026-11-06-M4.14-cross-year-archive |
+| `LEAF_2011-2012_US.img` | 8,057,257,984 | `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383` | EXP-2026-11-05-35, EXP-2026-11-06-M4.14 |
+| `EU_MAPDATA_13-14.7z` | 6,088,466,708 | `68d8b2f02b992c785c7fc33f9f1b1ea7ba2d74502e6904658b31a03655a45232` | EXP-2026-11-06-M4.14 |
+| `EU_MAPDATA_14-15.7z` | 6,273,414,589 | `b61d0844557ab71ab6524a2a84b81a294e4b86bafeb135eedc81f0ea1fd6f442` | EXP-2026-11-06-M4.14 |
+| `EU_MAPDATA_16-17.7z` | 6,635,659,459 | `7a215501d6b8e2bbcf0050dcc984f40ec26ab7c0a18d53536b6a9e608c659f59` | EXP-2026-11-06-M4.14 |
 
 C-500 records that all seven files match the archived `SHA256SUMS`, but the
 individual archive sums are not committed to this repository, so they are
@@ -134,6 +134,39 @@ names and 13-byte DRSTR names), `l2check.py --no-golden
 `cmpind_writer.py verify` 58/58 OK. Tile rebuilds are skipped because the EU
 golden tile names are absent. The card is structurally valid; the differences
 are market and map coverage, not corruption (EXP-2026-11-05-35).
+
+## Fields that change with the map code
+
+Derived from `tools/diff_years.py` on the 2011/2014/2016 EU roots
+(`EXP-2026-11-06-M4.14-cross-year-archive`). "Constant" means identical in
+all three EU ZE0 samples; "changes" means reported by `diff_years.py`.
+
+| Field | Constant across ZE0 EU samples | Changes with the map code |
+| --- | --- | --- |
+| `VER_INFO/HDD_INFO.TXT` line 1 | `QSD-302-100` | — |
+| `VER_INFO/HDD_INFO.TXT` line 2 (map set) | — | `QSD-309-101` → `QSD-357-101` → `QSD-390-100` |
+| `VER_INFO/HDD_INFO.TXT` line 3 (build) | — | `02-110100-00` → `02-140300-00` → `02-160500-00` |
+| `VER_INFO/HDD_INFO.TXT` line 4 (region) | `SDC08-EVEUR` | — |
+| `VER_INFO/HDD_INFO.TXT` line 5 (year-month) | — | `11-05` → `14-06` → `16-02` |
+| `VER_INFO/HDD_INFO.TXT` line 6 (part number) | — | `470323501005` → `470516001006` → `470677200002` |
+| Common header `FORMAT VERSION` | `X08-02-00` | — |
+| Common header `DATA VERSION` | — | `11/06/27/01` → `14/04/12/01` → `16/08/01/01` |
+| Common header model / engine | `CLA-NAVI05-01` / `V05.00.00` | — |
+| `0x180` binary block (10 bytes) | — | changes with the data version |
+| `MMAIN001.DAT` level-table counts | — | section 1/2/4, levels 1/2 record counts grow |
+| `MAPAL001` tile set | 45 `BxxRyyR.DAT` + `LEV3456R.DAT` | — |
+| `MAPAL001` tile sizes / descriptors | — | sizes, record counts and bboxes change per tile |
+| `REFER001` `.cmp`/`.ind` pairs | 194 | — (count stable; bytes change) |
+| `REFER001` logical byte total | — | 2,390,610,176 → 3,113,173,760 → 3,290,088,192 |
+| `REFER002` file set | — | grows: 2 files/15 POINT shards (2011) → 16 files/29 shards (2016); `ICODE001` from 2013 |
+| `DRSTR001.DAT` entry `value` | — | file sizes change |
+| `DRSTR001.DAT` directory set | — | `TFTBL001`, extra `SPEECH` languages appear from 2014 |
+| `0x06000000` image copy | tracks `HDD_INFO.TXT` when an image is available | tracks `HDD_INFO.TXT` |
+
+The US 2011 sample uses the same ZE0 format family but a different map code
+(`QSD-301-103`, `SDC08-EVNAM`, `DATA VERSION 10/08/12/01`, 113 tiles,
+58 `.cmp` pairs). The 2019 sample is a different engine family and is excluded
+from this table (see the examined-samples row).
 
 ## Implications
 

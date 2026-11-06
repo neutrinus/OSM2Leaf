@@ -5,7 +5,7 @@
 - **Sample:** synthetic CE ROM built by `tools/cerom.py` (no vendor bytes);
   SHA-256 `46aca5325bcacaed645380f094d708b8888843ff29b93dce6165542cc0195622`,
   29696 bytes
-- **Claims:** C-569
+- **Claims:** C-569 (proposed; ledger row added by H1)
 - **Supersedes:** none
 - **Superseded by:** none
 
