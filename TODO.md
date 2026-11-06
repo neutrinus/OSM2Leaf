@@ -187,9 +187,10 @@ S0 only in that file. **M5.12b** fixes `mkcard.py` for the compiler path.
 
 **Take these first (critical, ready, unowned), in this order:**
 
-1. **M5.13** (in-place image patch → S1/S2 cards for Marek), then **M5.12c**
-   (where else the renamed name lives, so Marek knows what to expect on
-   screen). Marek can run **M6.2** (S0) today, in parallel.
+1. **M3.11 → M9.10** and **M3.2b → M9.11 → M9.12**: the software gate for
+   the US rename. In parallel **M5.13** (in-place image patch → S1/S2
+   images), **M5.12c** and **M3.12** (other copies of the name). M6.2 (S0)
+   is optional now; the edited cards wait for the gate.
 2. **M5.14** (US vertex move, S3); M4.8c (coord on the US grid) is done, so it is ready.
 3. **M2.15** + **M9.6** → **M2.4**: the exact map-code bytes, run on the real
    comparator.
@@ -197,6 +198,15 @@ S0 only in that file. **M5.12b** fixes `mkcard.py` for the compiler path.
    **M5.12b** → **M5.11**: the Dolnośląskie spine.
 5. **M1.2c** (+ **M1.2e** non-Claude) → M1.3/M1.4/M8.E1: compression.
 6. **M3.2b** → M3.2 → M3.3: the `.cmp`/`.ind` reader.
+
+**Software before the car (Marek, 2026-11-06).** A car test is expensive,
+so every edited card first passes the firmware's own code in L3:
+**M3.11** (find the `POINT` reader) → **M9.10** (it returns
+`OSM2LEAF TEST POI1`, software S2) and **M3.2b** → **M9.11** (the firmware's
+`.cmp` layer reads our recompressed pair, software S1) → **M9.12**
+(`l3check.py --card`, the gate). **M3.12** says whether the name search
+holds a second copy. M6.5/M6.6 depend on these; only S0 (the factory
+clone) may go into the car before them.
 
 **Phase-2 milestone (unchanged):** one OSM-generated Dolnośląskie tile on a
 card image that passes L1 + L2 + `realcheck.py` and every known gate (M5.11).
@@ -213,16 +223,16 @@ tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal internet.
 | H | Housekeeping | — |
 | M1 | Firmware tooling (decompression) | **M1.2c**, M1.2e (non-Claude) |
 | M2 | Map code, activation, updater | **M2.15**, M2.16, M2.14 |
-| M3 | Reader contract | **M3.2b**, M3.6, M3.10 |
+| M3 | Reader contract | **M3.11, M3.2b, M3.12**, M3.6, M3.10 |
 | M4 | Data formats | **M4.20, M4.16b**, M4.8b, M4.16c, M4.16d, M4.3, M4.12, M4.17, M4.19; M4.2 non-Claude |
 | M5 | Compiler + US edits | **M5.13, M5.12c, M5.4**, M5.12b; M5.14 after M5.13; M5.1b non-Claude |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5–M6.7 follow M5.13/M5.14 |
 | M8 | Full-system emulation | M8.A1, M8.A2, M8.A4, M8.A5; M8.E1 after M1.2c |
-| M9 | L3 toolkit | **M9.6** (re-scoped), M9.8; M9.2 non-Claude (M9.1 done) |
+| M9 | L3 toolkit | **M9.6** (re-scoped), M9.8; M9.10–M9.12 after M3.11/M3.2b; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
-· **US (nearest):** M6.2 S0 → M5.13 → M6.5 S1 → M6.6 S2 (M5.12 + M5.12c) →
-M5.14 → M6.7 S3.
+· **US (nearest):** software gate M3.11 → M9.10, M3.2b → M9.11 → M9.12;
+images M5.13; then car M6.2 S0 → M6.5 S1 → M6.6 S2 → (M5.14) M6.7 S3.
 · **Poland (goal):** M5.1 → M5.2 → M5.4 → M4.20 + M5.6 → M5.12b → **M5.11**,
 gated by M2.15 + M9.6/M2.4 (map code) and M5.3 ← M4.2 (road classes).
 Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M5.3.
@@ -1008,6 +1018,40 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     shows, with a positive control, that zlib sits in a compressed section.
   - Claims: C-2060–C-2069
 
+- [ ] **M3.11 — The `POINT` record reader in `Navi.exe`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: the function that walks a decoded `POINT0xx` page (`tag,len2`
+    records, `0x60`/`0x68`, record size `2*len2`) and copies a POI name out.
+    It is the first target of the software check of the US rename (M9.10)
+    and of every later POI edit.
+  - Input: the 8-char volume id table at `0x00179338` (`POINT0`, C-881), the
+    file-name builder `0x003fbed8`, the volume lookup `0x0040b358` and the
+    descriptor switch at `0x004125a8` (C-880: `0x14e8` → `REFER001` +
+    `INDEX003.DAT`); `docs/format/refer.md` (record framing, C-952/C-953);
+    `sh4xref.py`, `cerom.py` on `IMG256`.
+  - Done when: `firmware.md` names the record-walk function and the
+    name-copy function with VAs, arguments (buffer, length, index or offset)
+    and output (where the name lands), each tied to the record framing in
+    `refer.md`; or the EXP lists every candidate examined with a positive
+    control and the exact blocker.
+  - Claims: C-2120–C-2129
+
+- [ ] **M3.12 — `INDEX003.DAT`: is it the POI name search index?**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M5.12c overlaps: coordinate the scan)
+  - Goal: know whether the unit finds a POI by name through a second copy
+    of the name (then the S2 rename must update it too) or through pointers
+    into the `POINT` pages.
+  - Input: `REFER001/INDEX003.DAT` on the EU and US images (`cmpind.py
+    extract` if it is a `.cmp` pair); C-880 (`0x14e8` resolves `REFER001` +
+    `INDEX003.DAT`); M3.11 output.
+  - Done when: `refer.md` describes the `INDEX003` record layout well enough
+    to say, for the US POI `HANA HEALTH CENTER` (`POINT010`, page `0x840ba0`,
+    record 0), which `INDEX003` entry refers to it and whether that entry
+    holds name bytes; the EXP gives counts and offsets only.
+  - Claims: C-2130–C-2139
+
 ---
 
 ## M4 — Data formats (no firmware or hardware needed)
@@ -1646,14 +1690,15 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Claims: C-1140–C-1149
 - [ ] **M6.5 — S1: no-op recompressed `POINT010` on the US unit**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
-  - Depends: M6.2, M5.13 (S1 image)
+  - Depends: M6.2, M5.13 (S1 image), **M9.11 + M9.12 pass on the S1 image first**
   - Done when: an EXP records S1 per `card-test-plan.md` (boot, POI list
     opens, no dialog, card hash after the run). A reject here means the unit
     wants factory-exact compressed bytes: stop and re-plan before S2.
   - Claims: C-1150–C-1159
 - [ ] **M6.6 — S2: the renamed POI on the US unit**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
-  - Depends: M6.5, M5.13 (S2 image), M5.12c (what to expect on screen)
+  - Depends: M6.5, M5.13 (S2 image), M5.12c + M3.12 (what to expect on
+    screen), **M9.10 + M9.12 pass on the S2 image first**
   - Goal: see `OSM2LEAF TEST POI1` where `HANA HEALTH CENTER` was (Hana, Maui,
     Hawaii: scroll the map there, and try the POI name search).
   - Done when: an EXP records each screen checked (map label, POI list, name
@@ -1884,6 +1929,52 @@ parts are covered by `tools/l3_harness/selftest.py`.
   M9.5, M9.7. Claims: C-1700–C-1709
 - [ ] **M9.9 — Keep `l3-ghidra.md` "How to use L3" current.** Done with each
   M9 PR (no separate claim needed).
+
+- [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.11, M9.5
+  - Goal: before any card goes into the car, run `Navi.exe`'s own `POINT`
+    reader on the decoded factory page and on the renamed page, and read
+    the name it returns. Pages are fed already decompressed (the `.cmp`
+    layer is M9.11).
+  - Input: `tools/l3_harness/runner.py` + `stubs.py`; a new target
+    `poi_record_decode` in `targets.json`; US `POINT010.DAT` page `0x840ba0`
+    factory and after `mutate_refer_poi.py` (EXP-2026-11-06-M5.12, -H10).
+    Corpus files stay outside the repo (hashes only).
+  - Done when: `runner.py run poi_record_decode` returns
+    `HANA HEALTH CENTER` for the factory page and `OSM2LEAF TEST POI1` for
+    the renamed page, record 0, with the stub log in the EXP; plus one
+    negative control (a corrupted `len2`) that the reader handles
+    differently from the Python parser or the same way, recorded.
+  - Claims: C-2140–C-2149
+
+- [ ] **M9.11 — L3: read the edited `.cmp`/`.ind` pair through the firmware (software S1)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.2b (reader VA), M9.10
+  - Goal: prove in software what S1 would prove in the car: the firmware's
+    `.cmp`/`.ind` layer + its zlib accept our recompressed bytes and return
+    the same logical page. Fills the `cmp_ind_reader` target that is
+    `blocked` in `targets.json`.
+  - Input: M3.2b (`inflate` and the chunk reader), `stubs.py` file I/O
+    (`CreateFileW`/`ReadFile`/`SetFilePointer`) over a virtual
+    `\Storage Card\REFER001\`; factory, S1 (no-op recompressed) and S2
+    `POINT010` pairs.
+  - Done when: for all three pairs the firmware reader returns page
+    `0x840ba0` byte-identical to `cmpind.py extract`, and chained with M9.10
+    yields the expected name; one corrupt-`.ind` case is rejected.
+  - Claims: C-2150–C-2159
+
+- [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M9.10, M9.11 (M9.8 for the tool skeleton)
+  - Goal: one command that a card image must pass before Marek puts it in
+    the unit: run every available L3 target (map-code compare M9.6, `.cmp`
+    reader M9.11, POI reader M9.10, later tile reader) on the files that
+    differ from the factory image.
+  - Done when: `l3check.py --card OUT.img --factory IMG` lists per target
+    pass / fail / not-yet-available, exits non-zero on a fail, and the EXP
+    shows it on S0 (all pass), S1 and S2.
+  - Claims: C-2160–C-2169
 
 ---
 
