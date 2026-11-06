@@ -190,7 +190,7 @@ Byte-identical rebuilds with the patched harness:
 | `B58R070R.DAT` | byte-identical; 459/459 background records |
 | `B28R070R.DAT` | byte-identical; 7,103/7,103 background, 455/455 graph |
 | `B30R060R.DAT` | byte-identical; 8,465/8,465 background, 37/37 graph |
-| `LEV3456R.DAT` | byte-identical; 113 level 3–5 records not modelled |
+| `LEV3456R.DAT` | byte-identical; level 5 decoded and rebuilt exactly (see below) |
 
 ### Dense tiles and roads (round 2)
 
@@ -298,6 +298,227 @@ Known limits:
 - streaming mode does not attach road names yet;
 - `RDSTM001`/`LCTBL001` cross-reference is still unresolved — use
   [`rdstm.md`](rdstm.md), not the viewer's incomplete negative.
+
+## `LEV3456R.DAT`: coarse levels 3–5
+
+`LEV3456R.DAT` is the **whole-database** coarse file. Section 1 holds levels 6,
+5, 4 and 3 (no levels 1–2), section 2 holds levels 5 and 4 (the router graph).
+One level is one grid over the whole database extent (lat 21.33–80 °N,
+lon −20–68 °E in the 2011 build), not one file per `BxxRyyR` cell. Everything
+below is `VERIFIED` on the EU 2011 file
+(`MAPAL001/LEV3456R.DAT`, 76,066,304 B, SHA-256
+`08a584feacf049cc39260ff29f742c3dcf1b53059cb98bd3e9798e7ab819df35`) with
+`tools/lev3456.py` unless marked otherwise.
+
+### Directory geometry
+
+| Level | Directories | Grid | Parcel | Pairs per row | Slot body | Type |
+| --- | --- | --- | --- | --- | --- | --- |
+| 3 | 45 (one per cell) | 16 × 16 | 30′ × 20′ | 32 (16 columns × 2) | 256 B | `0x91` |
+| 4 | 1 | 44 × 44 | 2° × 4/3° | 88 (44 columns × 2) | 704 B | `0x91` |
+| 5 | 1 | 11 × 11 | 8° × 16/3° | 11 | 88 B | `0x90` |
+| 6 | 1 | 1 × 1 | whole database | 1 | raw | `0x80` |
+
+A directory head is six big-endian `u16`: `size/2, rows, cols, y, x, typ`,
+where `x` is stored as `x0 − 1024`. Rows are at `y = 1.5 × lat` and columns at
+`x = lon + 924`, so the coarse grid is `y 32..120`, `x 904..992`. Each row is a
+`u32` block address (`0xffffffff` when the row is empty) and one
+`(compressed words, plain words)` pair per record slot. Level 6 is one raw
+record (not zlib) and is preserved verbatim.
+
+### What the three levels contain
+
+| Level | Records | Road-shape records | Background records | Road shapes | Background shapes | Points (road / background) |
+| --- | --: | --: | --: | --: | --: | --: |
+| 3 | 12,059 | 4,882 | 7,177 | 888,736 | 275,957 decoded | 3,349,300 / 13,492,596 |
+| 4 | 1,021 | 380 | 641 | 227,934 | 52,964 | 814,503 / 3,938,982 |
+| 5 | 62 | 34 road blocks | 62 | 27,951 | 16,306 | 94,151 / 324,720 |
+
+- **Level 3 (2 and 4 km).** Even slot = one **road-shape record** (kind
+  `0x00fa`, eleven layer pairs, geometry at w7/w8, classes 3–7 plus ferries).
+  Odd slot = one **background record** (sea, coast, rivers, land/area polygons,
+  point labels, and a name/point index). 1,677 of the 7,177 background records
+  carry a point-index section at w15/w16 that is not decoded here and is
+  preserved verbatim; the shape counts above exclude them.
+- **Level 4 (10 and 16 km).** Same split: 380 even-slot road records and 641
+  odd-slot background records. Background shapes use the same group grammar as
+  level 5; road records use the same shape grammar as level 5's road block.
+- **Level 5 (64 km).** One record per non-empty 8° × 16/3° parcel (62 of the
+  121 slots). A record holds a background block **and**, in 34 cases, a road
+  block in the same record; 48 records carry a level-5 names section.
+
+Background shape types. Most level-3 types use `0xa..` and most level-4/5 types
+`0x8..`, but the high nibble is not a strict level selector: level 3 also has
+16,471 `0x800c`, 6 `0x8026` and 21 `0x8049` shapes. The low byte is the class.
+
+| Type | Meaning | Level 5 | Level 4 | Level 3 |
+| --- | --- | --: | --: | --: |
+| `0x..07` | coastline | 439 | 597 | 953 |
+| `0x..08/09` | island/coast variant (UNKNOWN) | 1,142 | 8,364 | 8,565 |
+| `0x..0c` | point label anchor | 176 | 1,247 | 16,471 + 1,986 (`0xa00c`) |
+| `0x..10` | land/area polygon (UNKNOWN) | 10,795 | 8,824 | 15,977 |
+| `0x..11` | unknown area | 254 | 842 | 1,258 |
+| `0x..12` | sea polygon | 1,192 | 5,353 | 18,610 |
+| `0x..14` | river/stream line | 1,866 | 1,941 | 1,888 |
+| `0x..15` | water polygon | 420 | 1,412 | 16,128 |
+| `0x..1a` | forest/wood polygon | — | 16,619 | 96,793 |
+| `0x..1b` | heath/open land | — | 408 | 809 |
+| `0x..1d` | park polygon | — | 74 | 904 |
+| `0x..26` | unknown line | — | 93 | 651 |
+| `0x..2b` | generic land/urban area | 22 | 6,814 | 94,501 |
+| `0x..49` | unknown point | — | — | 213 |
+
+The remaining rare types (`0x801c`, `0x8049`, `0x8023`, …) are counted by
+`lev3456.py info`.
+
+Road classes in the shape's top nibble (`class << 12`). The shipped 2011 data
+uses classes 1–7 and ferries 10–12; classes 8–9 are rare (26/89 shapes at level
+3) and their meaning is `UNKNOWN`.
+
+| Class | Road | Where |
+| --- | --- | --- |
+| 3 | motorway | levels 3, 4, 5 layer 6 |
+| 4 | trunk | levels 3, 4, 5 layer 6 |
+| 5 | primary | levels 3, 4, 5 layer 6 |
+| 6 | secondary | levels 3, 4, 5 layer 6 |
+| 7 | tertiary | level 3 (and a few level-4 shapes) |
+| 1–2 | minor/local | level 5 layer 7; rare at level 4 |
+| 10–12 | ferry | layer 0 |
+
+### Level-5 record layout
+
+The 22-word (44-byte) header is seven `(offset, length)` pairs in 4-byte units
+from the record start, plus the parcel code and a token:
+
+| Words | Content |
+| --- | --- |
+| w0, w1 | parcel code, absolute on the 20′ × 30′ code grid |
+| w2 | record kind, `0x00fa` |
+| w3–w6 | `ffff ffff 0000 0000` |
+| w7, w8 | **road block**: offset/length; `ffff/0000` when absent |
+| w9, w10 | **background block**: offset/length |
+| w11, w12 | **names section**: offset/length; `ffff/0000` when absent |
+| w13–w18 | unused sections, `ffff/0000` |
+| w19, w20 | `0000` + per-parcel token |
+| w21 | second token word (value varies) |
+
+19 of the 62 records place a **2–6-word unidentified segment at unit 11**,
+before the road block (`w7` is 12–14 instead of 11). Its values look like
+small coordinates (e.g. `033a 0000`, `0114 017c 01b6 01ec 02f4 0000`). It is
+preserved verbatim; its meaning is `UNKNOWN`.
+
+### Background block grammar (levels 3–5)
+
+A background block is a table of **26** `(offset, length)` pairs in 4-byte
+units, then the layer data. The table's size is the first non-empty offset
+(26 here; a road block reserves 11). Each layer is one group:
+
+```
+group:  0001 0003, kind byte, count byte, shapes, zero-pad to 4 bytes
+shape:  u16 point count, u16 type, u16 ref, u16 x0, u16 y0,
+        (count-1) × (int8 dx, int8 dy)          # polygon/polyline
+point:  u16 type, u16 ref, u16 x, u16 y          # kind 0
+```
+
+**The count byte is one byte and wraps.** The Ireland/Scotland level-5 layer 8
+holds **604** islet polygons and its count byte says **92** (604 mod 256); the
+layer length is the authority and every shape is self-delimiting. Walking to
+the layer end, not to the count, reproduces all 62 level-5 background blocks
+byte for byte. Layer data may end with up to three zero bytes of 4-byte padding.
+
+### Road shape grammar (levels 3–5)
+
+A road block (level 5) or road-shape record (levels 3/4) is eleven
+`(offset in 4-byte units, shape count)` pairs and then the shapes. Level 5
+keeps classes 3–6 in layer 6, minor classes 1–2 in layer 7 and ferries in
+layer 0; levels 3/4 put all roads in layer 6.
+
+```
+w0  length in words (0x2000/0x4000 add 1/2 header words)
+w1  0x8000 | point count   (level 3: point count alone)
+w2  class << 12
+w3  style/flag word (0x3000 unnamed, 0x0004 or 0x0144 named, 0x6000 observed)
+w4  name reference (word offset into the names section) or ffff
+w5, w6  0
+w7, w8  start point, x | 0x0800, y (level 5)
+        then per link: id, x|0x2000, y|0x4800; last point 0x3000/0x4000
+```
+
+Levels 4 and 5 carry a link id per link; level 3 has no ids. `tools/lev3456.py`
+decodes and re-encodes every level-5 road block (27,951 shapes) and every
+level-3/4 road record without a mismatch on the factory data.
+
+### Level-5 names section
+
+```
+u16 version (6), u16 count, five (offset, length) pairs (all ffff/0000)
+then count entries:
+  8-byte key: type, flags, x, y
+  optional u16 0x2c00 when the key's second word is 0x4800 (place label)
+  u16 byte length, text, no terminator
+```
+
+The section is zero-padded to a 4-byte boundary. The 2011 level 5 has 2,985
+entries: 2,726 route references (`00ff 2800`, text `2=A-92;…`), 176 place
+labels (`8068 4800`, extra `2c00`) and 83 sea labels (`8089 2800`).
+Levels 3 and 4 use a different, partly-subtable names layout (437 and 3,646
+sections) that is preserved verbatim and not interpreted here.
+
+### Streams and a byte-identical level rebuild
+
+Every record is one `78 9c` zlib stream. Stock zlib 1.3.1 reproduces all of
+them with **level 6, windowBits 15, memLevel 8**; the compressed stream is then
+zero-padded to a **4-byte** boundary (the directory pair stores
+`(compressed words, plain words)`). zlib-ng (often Python 3.14) does not
+reproduce them; use Python 3.10–3.13.
+
+The rebuild proof is section 1 **level 5**:
+
+```bash
+python3.13 tools/lev3456.py verify MAPAL001/LEV3456R.DAT
+python3.13 tools/lev3456.py rebuild MAPAL001/LEV3456R.DAT --level 5 -o lev5.DAT
+cmp lev5.DAT MAPAL001/LEV3456R.DAT
+```
+
+All 62 records decode, re-encode and recompress byte-identically; the rebuilt
+directory and all row blocks are identical, and the resulting file is
+**byte-identical to the 76,066,304-byte factory file** (`cmp` silent). The whole
+`verify` command also reports section 1 levels 3/4 and section 2 region-identical
+(level 4: 980/1,021 records fully decoded, 41 preserved; level 3: 10,363/10,382
+records, 1,677 preserved).
+
+### Regenerating levels 3–5 from OSM
+
+The coarse levels are a whole-database statement: a build replaces every
+parcel of the level, not just the cells in a profile, and the unit refuses a
+widened directory (it assumes 44 level-4 and 11 level-5 columns). The chain is:
+
+1. **Roads** – decode OSM `highway=*` ways, chain them across way boundaries
+   where class and `ref` agree, clip to parcels, simplify and quantise to
+   `0..2047`. Map `motorway* → 3`, `trunk* → 4`, `primary* → 5`,
+   `secondary* → 6`, `tertiary* → 7` (level 3 only); `route=ferry` → class
+   10–12 in layer 0. Classes 3–6 go to layer 6 at level 5, minor roads 1–2 to
+   layer 7; levels 3/4 keep all roads in layer 6.
+2. **Background** – build land/sea from `natural=coastline`/land polygons
+   (sea = complement of land inside the parcel, one rectangle for an all-sea
+   parcel), `natural=water` → water polygon, `waterway=river` → river line,
+   `landuse=forest` → forest, `leisure=park` → park, other `landuse=*` →
+   `0x802b` area, `place=*` → point label at `0x..0c`. Types carry the level
+   band in the high nibble (`0xa` level 3, `0x8` levels 4/5).
+3. **Names** – level 5 route references come from OSM `ref`
+   (`2=REF;2=REF:…`), place labels from `name` on `place=*`, sea labels from
+   the water body name. Levels 3/4 names are written by the factory in the
+   level-2 subtable layout, which is not decoded here.
+4. **Write** – encode one record per parcel, compress with stock zlib as above,
+   lay directories and row blocks out at 256-byte boundaries, and rebuild the
+   level region. Regenerated bytes are **not** expected to match the factory
+   bytes; byte-identity is the regression test for the round trip, not a
+   requirement for OSM data.
+
+Known limits: 1,677 level-3 background records with a w15/w16 point index,
+437/3,646 level-3/4 names sections, the 19 level-5 pre-road segments and all
+section-2 graph records are preserved verbatim rather than regenerated. None of
+this has been validated in a car.
 
 ## Firmware tile reader (build A, `Navi.exe`)
 

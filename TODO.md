@@ -1009,8 +1009,11 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M4.10-poi-icons; 34-row table in `assets.md`;
     `tools/poi_icons.py` reproduces the scan
 
-- [ ] **M4.11 — `LEV3456R.DAT` coarse levels 3–5 semantics**
-  - Status: in progress · Owner: task/m4.11-lev-coarse · Critical: no
+- [x] **M4.11 — `LEV3456R.DAT` coarse levels 3–5 semantics**
+  - Status: done · Owner: task/m4.11-lev-coarse · Critical: no
+  - Result: EXP-2026-11-06-M4.11-lev-coarse (`tools/lev3456.py`; level 5
+    62/62 records decoded and recompressed, whole 76,066,304-byte file
+    byte-identical; levels 3/4 region-identical with 1,677/41 preserved)
   - Depends: —
   - Goal: what the overview levels contain and how to regenerate them from
     OSM (needed for zoomed-out display).
