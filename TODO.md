@@ -982,11 +982,12 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-860–C-869
   - Result: EXP-2026-11-06-M3.5-tile-reader (reader VAs 0x0041f26c/0x004259bc/0x0042757a in Navi.exe; six-level table `VTb Tp;Lv;St;F#|L1..L6|Sz;Adr`; NaviMapCC.dll has no reader code)
 
-- [ ] **M3.6 — Which tile sections the renderer reads**
-  - Status: open · Owner: — · Critical: no
+- [x] **M3.6 — Which tile sections the renderer reads**
+  - Status: done · Owner: task/m3.6-tile-sections-renderer · Critical: no
   - Depends: M3.5
   - Done when: each tile section has "read by VA" or "ignored" in
     `map-tiles.md` (section 4 especially).
+  - Result: EXP-2026-11-06-M3.6-tile-sections-renderer (MAP_DATA `0x00425f40`=renderer, RGD_DATA `0x004266ec`=router, shared `0x0041ee14`; LEV sec1→MAP, sec2→RGD; grid sec1→MAP; sec4 no read VA in MAP/RGD paths, C-870–C-876).
   - Claims: C-870–C-879
 
 - [x] **M3.7 — How the router reads `RDSTM001` / `REFER` road records**
@@ -1964,13 +1965,39 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
   file). Owner: coordinator with Marek. Claims: C-1590–C-1599
 - [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: open · Owner: — · Critical: yes
-  - Depends: M1.2c (decompressor VA). Does **not** need F1: call the
-    function directly under `-M none` + gdbstub with RAM-only state, like an
-    L3 call.
+  - Status: open (VA/prototype unblocked by M8.E1b; runtime decode pending) · Owner: — · Critical: yes
+  - Depends: M8.E1b (VAs verified, C-2290–C-2293). Does **not** need F1: call
+    the function under `-M none` + gdbstub with RAM-only state (LE SH-4).
+  - Note: M8.E1's initial "VA refuted" blocker was a BE endianness artifact,
+    corrected by M8.E1b (C-1600/C-1603 superseded). Verified entries (LE):
+    `DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464` (core framing) /
+    `DECOMP_BLK 0x8803a384`, loader flag test `0x88038666` in `fn 0x880385e4`.
+    Use `qemu-system-sh4` (LE). DECOMP_WRAP needs kernel lock/context stubs
+    (C-2293); calling SECT with an initialised frame may bypass that.
+  - Result: EXP-2026-11-06-M8.E1-rom-decomp-tool (corrected by M8.E1b).
+    QEMU+gdbstub framework `tools/cedecomp_run.py` (LE-updated) ready.
+    EXP-49 runtime decode **not yet achieved** (LE QEMU + kernel-context
+    stubs/bypass, C-2294). All-245/FILESentry not run.
   - Done when: the two EXP-49 sections decode to the M1.2a lengths, then
     all 245 sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
   - Claims: C-1600–C-1609
+- [x] **M8.E1b — Re-derive nk.exe ROM decompressor VA/prototype (M1.2c reverify)**
+  - Status: done · Owner: task/m8.e1b-nk-decompressor-derive · Critical: yes
+  - Depends: — (has IMG256; M1.2d framing known)
+  - Goal: locate the real compressed-section loader/decompressor in nk.exe
+    image B (IMG256, `--image-start 0x3e00200`) from actual bytes; correct
+    M1.2c C-660–C-665.
+  - Input: nk.exe sec0 (0x88001000, 0x4c800). Leads from M8.E1: 1 literal
+    `0x00002000` at 0x88042298 (no PC-rel ref found); 5 `add #24,rN` o32-walk
+    sites at 0x880128e4/0x88019b6c/0x8803a748/0x8803acbe/0x88047744; marker
+    `0x8d80805b` bytes at 0x8804d786 (sec0 end, not code-referenced per M1.2c).
+    Must handle M1.2a/M1.2d form 1/2 framing and LZXD-like `0x8d80805b` blocks.
+  - Done when: verified VA+prototype recorded with capstone disassembly and a
+    byte-level positive control (pattern found and reaches a decompressor call
+    that takes src/psize/dest/vsize or equivalent); M1.2c EXP/claims
+    retracted/corrected; M8.E1 unblocked.
+  - Claims: C-2290–C-2299
+  - Result: EXP-2026-11-06-M8.E1b-nk-decompressor-derive — M8.E1 refutation was a BE-vs-LE endianness artifact (C-1600/C-1603 superseded). **Verified (LE, IMG256 `92aa525d…`):** `fn 0x880385e4` o32 walk + `o32_flags & 0x2000` at `0x88038666`; compressed branch → `DECOMP_ALLOC 0x88034d94` then `DECOMP_WRAP 0x88037590(dataptr,psize,dest,vsize)`; chain `0x88037590`→`DECOMP_SECT 0x88037464`→`DECOMP_BLK 0x8803a384` (pool-confirmed). M1.2c C-660–C-663,C-665 restored (C-2290–C-2294). EXP-49 runtime decode not executed (needs `qemu-system-sh4` LE + DECOMP_WRAP kernel-context stubs, C-2294); M8.E1 unblocked (real VA/prototype known). Tools updated: `cedecomp.py`, `cedecomp_run.py`, README.
 - [ ] **M8.E2 — Registry as loaded** (`boot.hv`, `default.hv`, `user.hv`):
   driver list, `IoBase`, `Irq`, load order. Two routes: static hive parser
   after M1.4, or a RAM dump after M8.B5. Done when the driver table is in

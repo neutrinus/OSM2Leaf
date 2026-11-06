@@ -562,6 +562,38 @@ per-object descriptor is unrelated (C-296 retraction). See
 `docs/research/claims.md` C-860–C-869 and
 `docs/experiments/EXP-2026-11-06-M3.5-tile-reader.md`.
 
+### Which sections the renderer/router reads (M3.6, build A Navi.exe)
+
+> **Status:** `OBSERVED` for the MAP_DATA/RGD_DATA path split and section roles;
+> **VERIFIED (negative, scoped)** for section 4 not being read by the located
+> tile-load paths. Evidence: IMG256 `92aa525d…`, `Navi.exe` `.text` at
+> `0x00011000` (`--image-start 0x200200`), `sh4xref.py` + capstone SH4 LE
+> disassembly, EXP-2026-11-06-M3.6-tile-sections-renderer, C-870–C-879.
+
+Two distinct tile-data load paths share loader `0x0041ee14` (type/record
+validator: `0x0041ebc0` classifies `@(8,rec)` codes `0x0fa0/0x0fa1/0x0fa2` and
+others with `@(10,rec)` subtypes, `0x0041e7a8` dispatches subtypes
+`0x14/0x264/0x269/0x385`; C-874):
+
+| Data path | Load fn VA | String / xref | Role | Slot table |
+| --- | --- | --- | --- | --- |
+| `MAP_DATA READ` | `0x00425f40` | pool `0x00426128`→`0x00426088` loads `0x0017c3ec` "MAP_DATA READ START MESH_ID=%08x DIVID=%04x"; callers `0x00426cfc`, `0x0042752c` (CELL_TBL MAKE START, entry `0x0042757a`) | map display (renderer) data | `0xe8fa88`, stride `0x109a4` |
+| `RGD_DATA READ` | `0x004266ec` | pool `0x004268ac`→`0x0042680e` loads `0x0017c4ac` "RGD_DATA READ START MESH_ID=%08x DIVID=%04x"; callers `0x00426cfc`, `0x00427870` | routing/guide (RGD) data | `0xea675c`/`0xec3954`/`0xe99698`, 20-byte entries |
+
+Per-section status (each tile section = "read by VA" or "not read by located paths / ignored"):
+
+| File / section | Content (format) | Read by | Evidence / note |
+| --- | --- | --- | --- |
+| Grid `BxxRyyR.DAT` **section 1** | road-shape (even pairs) + background (odd pairs), display geometry (`w2=0x00fa`; C-170/C-252) | **read by VA `0x00425f40`** (`MAP_DATA`, renderer/display path) | C-870/C-871/C-873 (OBSERVED from path role + section content) |
+| Grid `BxxRyyR.DAT` **section 4** | admin/place-name index, `w2=0x0009`, dir kind `0x1146`, section type `0x93`, "not geometry" (C-280/C-133) | **not read by located tile-load paths** `0x00425f40` (MAP_DATA), `0x004266ec` (RGD_DATA), `0x0041ee14`/`0x0041ebc0`; **no section-4-specific read VA found** (UNKNOWN whether a separate label/place-name or search subsystem reads it) | C-875/C-876. Searched Navi.exe .text: 0 `cmp/eq #9,r0`; 0x1146 hits coincidental instruction bytes (no data-literal compare); 0x93 only in data/string areas; MAP/RGD call graph (107 fns, depth 4) has no `0x0009/0x1146/0x0093` compare; `0x0041ebc0` does not accept `0x0009` |
+| `LEV3456R.DAT` **section 1** | coarse geometry, levels 6,5,4,3 (display) | **read by VA `0x00425f40`** (`MAP_DATA`, renderer/display path) | C-870/C-872 (OBSERVED) |
+| `LEV3456R.DAT` **section 2** | router graph, levels 5,4 | **read by VA `0x004266ec`** (`RGD_DATA`, router path) — **not** read by renderer/MAP_DATA path | C-870–C-872; cross-ref RGD handlers C-887 (OBSERVED) |
+
+**Section 4 (especially):** not geometry (C-280). No evidence of access by the
+located MAP_DATA or RGD_DATA tile-load paths; no section-4-specific handler VA
+was located. It may be consumed by a separate name/search/label subsystem or be
+unused at render time — **UNKNOWN** from this analysis.
+
 ## Key questions
 
 1. What is the record grammar inside a real (non-448-byte) payload?

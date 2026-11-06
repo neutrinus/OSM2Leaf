@@ -321,22 +321,40 @@ The image is not in the repository. `IMG256` is the first 256 MiB
 (`curl -r 0-268435455`) of
 `LEAF_2011-2012_QSD-309-101_navi158_eu.img`; its SHA-256 is pinned in the table.
 
-## `cedecomp.py` — nk.exe ROM section decompressor (M1.2c, VAs + M8.E1 handoff)
+## `cedecomp.py` — nk.exe ROM section decompressor (M1.2c, verified M8.E1b)
 
 Records the nk.exe (image B, `--image-start 0x3e00200`) `IMAGE_SCN_COMPRESSED`
-loader/decompressor chain found by static RE (EXP-2026-11-06-M1.2c, IMG256
-`92aa525d…`): loader `fn 0x880385e4` tests `o32_flags & 0x2000` at `0x88038666`;
-decompressor `0x88037590` (wrapper) → `0x88037464` (section framing, form 1/2 +
-`0x8d80805b` blocks) → `0x8803a384` (per-block CE LZXD-like, block type 4 in
-cecompress terms). Pure-Python block decode is **not** ported: `decode_section`
-raises `UnsupportedDecompression` naming the **M8.E1** call target
-(`DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464`, args
-`(r4=src, r5=psize, r6=dest, r7=vsize)`).
+loader/decompressor chain, **verified on IMG256 LE SH-4 bytes**
+(EXP-2026-11-06-M8.E1b, C-2290–C-2293; M8.E1's BE-refutation C-1600
+superseded). Loader `fn 0x880385e4` tests `o32_flags & 0x2000` at `0x88038666`
+(o32 walk, stride 24); compressed branch → `DECOMP_ALLOC 0x88034d94` then
+`DECOMP_WRAP 0x88037590 (src,psize,dest,vsize)` → `DECOMP_SECT 0x88037464`
+(form 1/2 framing) → `DECOMP_BLK 0x8803a384` (LZXD-like, `0x8d80805b`, 8-byte
+block header). Pure-Python block decode is **not** ported: `decode_section`
+raises `UnsupportedDecompression` naming the M8.E1 runtime call target
+(`qemu-system-sh4` LE; DECOMP_WRAP needs kernel lock/context stubs, C-2293).
 
 ```bash
 python3 tools/cedecomp.py info
 python3 tools/cedecomp.py --selftest
 ```
+
+## `cedecomp_run.py` — QEMU+gdbstub ROM decompressor runner (M8.E1, unblocked)
+
+```bash
+python3 tools/cedecomp_run.py --selftest
+python3 tools/cedecomp_run.py info
+python3 tools/cedecomp_run.py probe --image IMG256 [--qemu qemu-system-sh4]
+python3 tools/cedecomp_run.py exp49 --image IMG256 --entry 0x88037464
+```
+
+Execution framework for calling nk.exe (image B, `0x3e00200`) ROM decompressor
+with RAM-only state: `qemu-system-sh4 -M none -cpu sh7785 -S -gdb` (LE SH-4) +
+`-device loader` + GDB RSP. M8.E1b verified VAs (C-2290–C-2293); EXP-49 runtime
+decode (sec1→0x484/vsize 0x5b8, sec2→0xcc0) and all-245/FILESentry still need
+LE QEMU and kernel-context stubs for DECOMP_WRAP (or a direct SECT call with
+initialised frame), C-2294. Requires `qemu-system-sh4`. See
+EXP-2026-11-06-M8.E1b-nk-decompressor-derive.
 
 ## `solve_data_delta.py`
 
