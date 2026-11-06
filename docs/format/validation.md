@@ -287,10 +287,21 @@ code; `UNKNOWN ERROR` is the fallback.
 
 > **Evidence status:** static firmware analysis of `MapUpdate.exe`/`commondll.dll`
 > in image B (`IMG256` `92aa525d…`) is `VERIFIED` for the code path and CRC16
-> algorithm; the on-disk `HDD_CHK.ATT` record layout and the final
-> `sub_0001e3f4` verification semantics are `OBSERVED`/`UNKNOWN`. Boot-time
-> absence in `Navi.exe` is a `VERIFIED` static negative with a positive control,
-> not a runtime proof. EXP-2026-11-06-M2.12-hdd-chk-att, C-1870–C-1879.
+> algorithm. `sub_0001e3f4` is **partially decoded** (structure/return semantics,
+> CRLF+8B parse) with crypto primitives and the full on-disk layout **deferred**
+> (`OBSERVED`/`UNKNOWN`). **Factory EU/US cards carry no `HDD_CHK.ATT` file**
+> (verified). Boot-time absence in `Navi.exe` is a `VERIFIED` static negative
+> with a positive control, not a runtime proof. EXP-2026-11-06-M2.12-hdd-chk-att,
+> EXP-2026-11-06-M2.16-hddchk-att-realcards, C-1870–C-1879, C-2090–C-2096.
+
+**Presence on factory cards (M2.16, C-2090–C-2091):** neither EU `leaf2011.img`
+(SHA `105e2032…`) nor US `LEAF_2011-2012_US.img` (SHA `53342430…`) contains an
+`HDD_CHK.ATT` data file (extracted roots: `VER_INFO/HDD_INFO.TXT` present,
+`*hdd_chk*` absent; full-image chunked search: only the 4 UTF-16LE
+`\UserSD`/`\SystemSD\HDD_CHK.ATT` path strings inside `MapUpdate.exe` sec1, CE B
++ its byte-identical copy, same offsets on both images — firmware strings, not
+card files). The file is therefore not a factory-card artifact; it is consumed by
+the updater path when present/required.
 
 `MapUpdate.exe` (image B) `SilentAuthenticate` (VA `0x0001c210`) checks
 `\SystemSD\HDD_CHK.ATT` and `\UserSD\HDD_CHK.ATT` (called for both copies). It
@@ -298,10 +309,23 @@ reads `0x80` bytes, decodes 20 hex ASCII chars from an updater-context field
 (`ctx+120`) into 10 bytes via `sub_00019eb4`, and requires
 `commondll!CApi_MakeCRC16(decoded, 10) == 0`. The CRC16 is bitwise, LSB-first
 (reflected): seed `0x0000`, polynomial constant `0x00008408` (CRC-16/CCITT
-reflected / KERMIT form, normal poly `0x1021`), no final XOR. On CRC==0 it
-calls `sub_0001e3f4(file_buf, decoded, 0x80)`; `sub_0001e3f4` is not a plain
-memcmp (it rejects `len > 0xc0` and performs a multi-step check) and its exact
-semantics and the `HDD_CHK.ATT` byte layout remain UNKNOWN.
+reflected / KERMIT form, normal poly `0x1021`), no final XOR. On CRC==0 it calls
+`sub_0001e3f4(file_buf=ctx+0x11a, decoded=r14+8, bytesRead=0x80)`.
+
+**`sub_0001e3f4` (VA `0x0001e3f4`, M2.16, C-2092–C-2095, partially decoded):**
+not a plain memcmp. Returns **1** if `bytesRead > 0xC0`; derives device/transform
+material via `*0x21300` ids 5/6 (`sub_199b8`/`sub_19978`) and transforms template
+`"VerUp Secret KEY\0\0\0\0"` (`0x157ec`, 16B) / buffers via `sub_1e2d4` (type-2
+crypto-context path `0x1e6f8/0x1e834`; transform `!=16` => **return 2**). It
+copies `file_buf` (0x80) to `*0x212d8`, incorporates `decoded[0..7]`/`file_buf[0..7]`,
+and returns **`sub_1e330`'s result** (saved over `sub_1e270` cleanup).
+`sub_1e330` scans the file buffer for CRLF (`0x0d,0x0a`; not found => **3**),
+takes the 8 bytes after CRLF as `[p,~p]`, verifies via `sub_1e2d4` against
+`0x157ec`, and compares to the derived check value => **0 accept / 3 reject**.
+This constrains the 0x80 record to contain CRLF + ≥8B payload; the **exact
+on-disk layout, byte-range binding, and crypto primitives remain DEFERRED**
+(blocks: CE crypto/provider dispatch identity unresolved; no genuine
+`HDD_CHK.ATT` sample on factory cards, C-2096).
 
 **Which modules check it:** only `MapUpdate.exe` references `HDD_CHK.ATT` by
 string in IMG256 (B/B-copy). **`Navi.exe` (image A) has no `HDD_CHK.ATT`
@@ -318,7 +342,7 @@ has none. Navi boot-path dependence is not indicated by static evidence.
 | `.cmp` legitimately recompressed | no (passes) |
 | `DRSTR` size changed | **silent** |
 | `HDD_INFO` line 1 changed | **silent** (map-code knob) |
-| `HDD_CHK.ATT` changed/missing | silent to our tools; **rejected by `MapUpdate.exe` updater path** (M2.12) |
+| `HDD_CHK.ATT` changed/missing | silent to our tools; **rejected by `MapUpdate.exe` updater path** (M2.12); **absent on factory EU/US cards** (M2.16, C-2090–2091) |
 | tile byte flip inside a stream | silent until zlib use |
 | tile byte flip in padding / `MMAIN` change | silent |
 
@@ -350,5 +374,9 @@ has none. Navi boot-path dependence is not indicated by static evidence.
    is it informational?
 - What is the `BICON001.DAT` data version `11/04/08/01` (vs `11/06/27/01`)?
 - Is the TFAT16 volume required at boot, or only for skin/recovery?
-- What is the exact on-disk `HDD_CHK.ATT` layout and what does
-  `MapUpdate.exe` `sub_0001e3f4` verify (byte range / binding to `ctx+120`)?
+- What is the exact on-disk `HDD_CHK.ATT` layout and the full
+  `MapUpdate.exe` `sub_0001e3f4`/`sub_1e330` binding to `ctx+120`/`decoded`?
+  M2.16 partially decoded it (CRLF+8B-after parse, `sub_1e2d4` crypto-context
+  path, returns 0/1/2/3) and confirmed factory EU/US cards carry no
+  `HDD_CHK.ATT` file; **deferred** — CE crypto dispatch identity unresolved and
+  no genuine sample (C-2092–C-2096).

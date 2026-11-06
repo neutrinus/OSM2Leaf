@@ -1248,8 +1248,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     10 MapDBVer changes noted.
   - Claims: C-2080–C-2089
 
-- [ ] **M2.16 — `HDD_CHK.ATT` on real cards and `sub_0001e3f4`**
-  - Status: open · Owner: — · Critical: no
+- [x] **M2.16 — `HDD_CHK.ATT` on real cards and `sub_0001e3f4`**
+  - Status: done · Owner: task/m2.16-hddchk-att-realcards · Critical: no
   - Depends: — (M2.12)
   - Goal: M2.12 shows `HDD_CHK.ATT` is read only by `MapUpdate.exe`; confirm
     whether factory cards carry it at all and close the layout question.
@@ -1259,6 +1259,16 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     size, SHA-256 only) and `sub_0001e3f4` is decoded or explicitly deferred
     with what blocks it.
   - Claims: C-2090–C-2099
+  - Result: EXP-2026-11-06-M2.16-hddchk-att-realcards — EU/US factory cards
+    carry **no** `HDD_CHK.ATT` file (roots + full-image scan; only MapUpdate.exe
+    UTF-16LE path strings in CE B/copy at `0x4346eac/ed8,0x4d46eac/ed8`,
+    C-2090–2091). `sub_0001e3f4` (MapUpdate.exe B `0x1e3f4`) **partially
+    decoded**: not memcmp; `bytesRead>0xC0`→1; `*0x21300` id5/6 + `"VerUp
+    Secret KEY"`/`sub_1e2d4` crypto-context transforms; returns `sub_1e330`
+    which requires CRLF in 0x80 buf, verifies 8B-after via `sub_1e2d4` (0/3)
+    (C-2092–2095). **Deferred** (C-2096): CE crypto dispatch identity
+    (`0x1e6f8/834/9c0/aa0/ed9c`, `*0x21300/*0x21760`), exact decoded↔file_buf
+    binding/0x582 XOR operands, full on-disk layout — no factory sample.
 
 ---
 

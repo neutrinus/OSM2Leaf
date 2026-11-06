@@ -761,7 +761,7 @@ the `sh4xref.py` prologue heuristic on the uncompressed code section.
 | `0x0001b0fa` | `GetAdmSdInfo` (`\UserSD\HDD_ADM.TXT` / `\SystemSD\HDD_ADM.TXT`) |
 | `0x0001b292` | `GetTxtSdInfo` (`\UserSD\VER_INFO\HDD_INFO.TXT` / `\SystemSD\...`) |
 | `0x0001a314` | `CheckFlashNK1Code` (checksum / size / end mark) |
-| `0x0001c210` | `SilentAuthenticate` (CRC16 attestation over `HDD_CHK.ATT`) |
+| `0x0001c210` | `SilentAuthenticate` (CRC16 attestation over `HDD_CHK.ATT`); calls `sub_0001e3f4` (`0x1e3f4`, CRLF+8B parse via `sub_1e330`/`sub_1e2d4`, partially decoded M2.16 C-2092–2096) |
 | `0x0001b3a0` | `SecurityUnLock` |
 | `0x0001b572` | `SecurityLockSet` |
 | `0x0001b8dc` | `SecurityRelease` / `GetSecurityStatus` |
@@ -791,7 +791,8 @@ the `sh4xref.py` prologue heuristic on the uncompressed code section.
 - Stores: `SDC1:`, `FMD1:`, `CEN1:`, `DSK1:`, `DSK8:` (and `DSK%d:`).
 - SD card: `\UserSD\VER_INFO\HDD_INFO.TXT`, `\SystemSD\VER_INFO\HDD_INFO.TXT`,
   `\UserSD\HDD_ADM.TXT`, `\SystemSD\HDD_ADM.TXT`,
-  `\UserSD\HDD_CHK.ATT`, `\SystemSD\HDD_CHK.ATT`,
+  `\UserSD\HDD_CHK.ATT`, `\SystemSD\HDD_CHK.ATT` (updater attestation; **absent
+  as files on factory EU/US cards**, M2.16 C-2090–2091),
   `\UserSD\ClarionUpdate.key`, `\SystemSD\ClarionUpdate.key`,
   `\SystemSD\MapFinish.key`, `\UserSD2\PRIVATE`, `\SystemSD2\PRIVATE`.
 - IPC queues: `MSG_QUEUE_MAP_UPDATE`, `MSG_QUEUE_MNGER`,
