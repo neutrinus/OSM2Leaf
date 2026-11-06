@@ -641,6 +641,21 @@ Built without vendor data; every row states what is synthetic-only.
 
 | C-650 | `tools/cecompress.py` adds an LZNT1 decoder ([MS-XCA] 2.5: 4 KiB chunks, 16-bit header with payload−1 in bits 11…0, signature 3 in bits 14…12, flag bit 15, literal/match tokens with displacement−1 high and length−3 low at a `max(4, bits(u−1))` split, zero header terminates) validated against the spec's 59-byte example (142-byte output), XPRESS LZ77/Huffman skeletons that parse their header then raise `UNSUPPORTED`, and `probe FILE --size N [--offsets 0-32] [--methods …]` which tries every method × offset, records one status per attempt and reports only exact-size matches with content evidence; 391 checks. No real payload exists in the checkout, so the image codec is UNKNOWN. | VERIFIED (tool, synthetic + spec vector) | H | EXP-2026-11-05-M1.2b; `python3 tools/cecompress.py --selftest` |
 
+## Housekeeping / CE ROM tool consolidation (H3)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-620 | `tools/cerom.py scan IMG` scans the whole image for `ECEC` segments (including duplicate copies) and reports the same 5 segments as the legacy scanner on `IMG256`: A (149 modules), A copy (149), B (91), B copy (91), C (88). | VERIFIED | H | `python3 tools/cerom.py /tmp/opencode/IMG256 scan`; EXP-2026-11-06-H3 |
+| C-621 | `scan` reuses `CERom`/`find_segments` validation (`nummods`, `physfirst <= pTOC < physlast`, TOC in bounds) and does not collapse duplicate copies, unlike `find_segments`. | VERIFIED (tool) | H | `tools/cerom.py` `scan_all_segments()` |
+| C-622 | `tools/ce_rom_parse.py` is now a thin wrapper that forwards `--image`/`--offset`/`--out` (and positional image) to `tools/cerom.py scan` and prints a deprecation notice on stderr. | VERIFIED | H | `python3 tools/ce_rom_parse.py --image /tmp/opencode/IMG256` |
+| C-623 | `tools/l3_harness/rommap.py` documentation names `tools/cerom.py ... memmap` as the report source (legacy scanner noted as fallback). | VERIFIED | H | `tools/l3_harness/rommap.py` module docstring |
+| C-624 | `tools/cerom.py --selftest` (344 checks) and `tools/l3_harness/rommap.py selftest` (19 checks) both pass after the change. | VERIFIED | H | `python3 tools/selftest.py` |
+| C-625 | `scan --out FILE` writes a JSON report in the legacy `ce_rom_parse.py` shape (segment base, `pTOC`, `size`, `romhdr`, modules, files). | VERIFIED | H | `python3 tools/cerom.py IMG scan --out /tmp/scan.json` |
+| C-626 | `scan` reads the whole input file (not the 128 MiB window used by other subcommands) so segments beyond 128 MiB are still found. | VERIFIED | H | `tools/cerom.py` `main()` scan branch |
+| C-627 | `scan --offset N` restricts candidates to segment bases at or after `N`, matching the legacy `--offset` filter. | VERIFIED | H | `tools/cerom.py scan --offset` |
+| C-628 | No vendor data was committed; only code, docs and the task/claim updates. | VERIFIED | H | `git status` |
+| C-629 | H3 complete: one CE ROM parser (`tools/cerom.py`) with `scan` for whole-image segment discovery; `ce_rom_parse.py` is a deprecated wrapper. | VERIFIED | H | EXP-2026-11-06-H3 |
+
 ## Delta-era firmware claim audit (H4)
 
 | ID | Claim | Status | Confidence | Evidence |

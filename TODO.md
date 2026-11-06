@@ -249,8 +249,8 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Claims: C-610–C-619
   - Result: docs refresh across AGENTS.md, cerom.md, l3-ghidra.md, feedback-loop.md, roadmap.md, open-questions.md, claims.md (C-610–C-619); no EXP (docs-only)
 
-- [ ] **H3 — One CE ROM tool: fold `ce_rom_parse.py` into `cerom.py`**
-  - Status: in progress · Owner: task/h3-ce-rom-tool · Critical: no
+- [x] **H3 — One CE ROM tool: fold `ce_rom_parse.py` into `cerom.py`**
+  - Status: done · Owner: task/h3-ce-rom-tool · Critical: no
   - Depends: —
   - Goal: one parser for the CE ROM, so fixes land once.
   - Input: `tools/ce_rom_parse.py` (full-image `ECEC` scan + JSON report),
@@ -261,6 +261,7 @@ widens knowledge or tooling in parallel and is equally welcome.
     `ce_rom_parse.py` becomes a thin wrapper or prints a deprecation pointer;
     `rommap.py` docs name `cerom.py memmap`; both self-tests pass.
   - Claims: C-620–C-629
+  - Result: tools/cerom.py scan + wrapper + rommap docs (EXP-2026-11-06-H3); selftest OK
 
 - [x] **H4 — Audit the delta-era firmware claims**
   - Status: done · Owner: task/h4-audit-delta-claims · Critical: no

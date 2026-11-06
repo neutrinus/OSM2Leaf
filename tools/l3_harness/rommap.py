@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Convert a CE ROM TOC report into a Ghidra loader memory map (JSON).
 
-Input is the plain JSON report produced by ``tools/ce_rom_parse.py`` plus a
+Input is the JSON report produced by ``tools/cerom.py ... memmap`` (or the
+legacy ``tools/ce_rom_parse.py``) plus a
 section table per module::
 
     {
@@ -376,7 +377,7 @@ def _collect(report, selection, selected_modules, skip_compressed):
             "image": Path(str(image_name)).name if image_name else None,
             "image_size": image_size if _is_int(image_size) else None,
             "image_sha256": report.get("image_sha256"),
-            "report_schema": "ce_rom_parse.py JSON, sections normalised",
+            "report_schema": "cerom.py memmap JSON, sections normalised",
             "segment_index": index,
             "segment_base": _hex(segment_base) if segment_base is not None else None,
             "phys_base": _hex(phys_base) if phys_base is not None else None,
