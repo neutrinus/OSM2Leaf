@@ -162,11 +162,12 @@ zlib 1.3.1, not zlib-ng (H9).
 
 **What the fifth pass verified (2026-11-06, on `main`):**
 
-- `python3 tools/selftest.py` → 45 passed / 0 failed / 18 skipped, 63 suites
-  (was 61: `imgpatch` and `l3check` are discovered by their `--selftest`);
-  `tools/claims_check.py` → 0 duplicate IDs, 0 unregistered claims. Every
-  claim block the ten merged tasks reserved (C-1230…C-1290, C-1700,
-  C-2010–C-2039, C-2290–C-2299) has its rows, so the ledger is current.
+- `python3 tools/selftest.py` → 45 passed / 0 failed / 18 skipped over 63
+  suites (was 61: `imgpatch` and `l3check` are discovered by their
+  `--selftest`, and the M4.12 tool adds a third); `tools/claims_check.py` → 0
+  duplicate IDs, 0 unregistered claims. Every claim block the ten merged
+  tasks reserved (C-1230…C-1290, C-1700, C-2010–C-2039, C-2290–C-2299) has
+  its rows, so the ledger is current.
 - **H11 gives the first whole-project coverage number:** 30 file families —
   6 writers exist, 5 are partial, 10 have no writer at all, 9 are copy-only.
   **12 families have no record-walking reader** and 4 have only a
@@ -238,22 +239,23 @@ The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H11** (reader-coverage matrix) |
-| M1 | Firmware tooling (decompression) | **M1.2c**, M1.2e (non-Claude) |
+| H | Housekeeping | **H13, H14** |
+| M1 | Firmware tooling (decompression) | **M1.2f, M1.10, M1.11**; M1.4 after M1.2f; M1.2e non-Claude |
 | M2 | Map code, activation, updater | **M2.15**, M2.16, M2.14 |
-| M3 | Reader contract | **M3.11, M3.2b, M3.12, M3.13, M3.14, M3.15, M3.10**, M3.6, M3.16, M3.17 |
-| M4 | Data formats | **M4.20, M4.16b**, M4.8b, M4.16c, M4.16d, M4.3, M4.12, M4.17; M4.2 non-Claude |
-| M5 | Compiler + US edits | **M5.13, M5.12c, M5.4**, M5.12b; M5.14 after M5.13; M5.1b non-Claude |
-| M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5–M6.7 follow M5.13/M5.14 |
-| M8 | Full-system emulation | M8.A1, M8.A2, M8.A4, M8.A5; M8.E1 after M1.2c |
-| M9 | L3 toolkit | **M9.6, M9.13** (ready), M9.8; M9.10–M9.12, M9.14–M9.16 after their M3 readers; M9.2 non-Claude |
+| M3 | Reader contract | **M3.11, M3.2b, M3.12, M3.13, M3.14, M3.15, M3.16, M3.17, M3.18** |
+| M4 | Data formats | **M4.16b, M4.22, M4.8b**, M4.16c, M4.16d, M4.3, M4.17; M4.21 after M3.6; M4.2 non-Claude |
+| M5 | Compiler + US edits | **M5.13b, M5.12c, M5.4, M5.1c**; M5.14/M5.20 after M5.13b; M5.1b non-Claude; M5.16–M5.19 after their M3 readers |
+| M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5/M6.6 after M5.13b; M6.7 after M5.14 |
+| M8 | Full-system emulation | **M8.A2, M8.E1**; M8.A3 after M8.A2 |
+| M9 | L3 toolkit | **M9.6, M9.13, M9.17, M9.20**; M9.10–M9.12, M9.14–M9.16, M9.18 after their M3 readers; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
-· **US (nearest):** software gate M3.11 → M9.10, M3.2b → M9.11 → M9.12;
-images M5.13; then car M6.2 S0 → M6.5 S1 → M6.6 S2 → (M5.14) M6.7 S3.
-· **Poland (goal):** M5.1 → M5.2 → M5.4 → M4.20 + M5.6 → M5.12b → **M5.11**,
+· **US (nearest):** **M5.13b** (the two images) → car M6.2 S0 → M6.5 S1 →
+M6.6 S2 → (M5.14) M6.7 S3; gated by M3.11 → M9.10 and M3.2b → M9.11 → M9.12.
+· **Poland (goal):** M5.1 → M5.1c → M5.2 → M5.4 → M5.7/M5.18 → M5.6 → **M5.11**,
 gated by M2.15 + M9.6/M2.4 (map code) and M5.3 ← M4.2 (road classes).
-Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M5.3.
+Supporting: M1.2f / M8.E1 (compression) · M3.2b → M3.2 → M3.3 ·
+M8.A2 → M8.A3 → M8.A6 (F0) · M4.16b → M4.2/M5.3.
 
 ---
 
@@ -444,6 +446,55 @@ Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M
     `—`; every row whose reader or L3 target has no task gets one (next
     free IDs) in the same PR.
   - Claims: C-2170–C-2179
+
+- [x] **H12 — PM review, fifth pass (2026-11-06)**
+  - Status: done · Owner: session-PM · Critical: no
+  - Depends: —
+  - Goal: check the ten tasks merged since the fourth pass against the real
+    files and re-plan the board.
+  - Done when: every merged task's `Result` matches its EXP, the follow-up
+    lists of all 149 records are mined for uncovered work, and each new item
+    has a task or a row in the retired-leads list.
+  - Result: EXP-2026-11-06-H12-pm-review. Four claim blocks re-issued
+    (C-2300…C-2349); H11's gaps G1–G8 became M9.17, M3.18, M4.21, M5.16–M5.19
+    and M9.18; the follow-up sweep added M5.13b, M1.2f, M1.10, M1.11, M4.22,
+    M5.1c, M5.20, M9.20, H13 and H14; the M5.8/M4.8c field mix-up is repaired.
+  - Claims: none (a review creates no format claim)
+
+- [ ] **H13 — Doc debt: `tools/README.md` rows for `imgpatch`/`qemu-ze0`; refresh `roadmap.md`**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: a new agent must find every tool in `tools/README.md`, and
+    `roadmap.md` must stop calling full-system QEMU out of scope while M8 is an
+    active workstream.
+  - Input: `tools/README.md` (no `imgpatch` row, no `qemu-ze0` row — checked
+    2026-11-06); `docs/research/roadmap.md` ("Last updated 2026-11-05",
+    "What not to do yet → Full-system QEMU", Gate 0 rows that predate
+    M3.1–M3.10); `docs/research/full-system-emulation.md`.
+  - Done when: `grep -n "imgpatch\|qemu-ze0" tools/README.md` finds both,
+    `roadmap.md` names the current stage model (M1–M9 plus H11) instead of the
+    retired gate text, and no row of it contradicts `TODO.md` or
+    `reader-coverage.md`.
+  - Claims: none
+
+- [ ] **H14 — Verification debt: the checks the EXPs promised but never ran**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: five follow-ups ask for the same thing — run the pinned checks on
+    the real samples once, so the `realcheck`/`harness` pins mean something.
+  - Input: `cd tools/ze0-viewer && python3 harness.py verify` on the five
+    pinned tiles (`B28R070R`, `B30R060R`, `B58R070R`, `B30R048R`, `LEV3456R` —
+    EXP-2026-11-06-H8 follow-up); `tools/realcheck.py IMG256` with the extra
+    `coredll.dll` ordinals 59/65/66/496/1047 (EXP-H7); `lev3456.py
+    verify`/`rebuild --level 5` on the 2011 file (EXP-H9); `bash
+    tools/qemu-ze0/build.sh --selftest` and `python3
+    tools/qemu-ze0/gdb-ze0.py --selftest` in `tools/selftest.py` (EXP-M8.A7);
+    `tools/l3_harness/ghidra_import.py --selftest` in the L3 selftest.
+  - Done when: each command has a recorded result with the sample SHA-256,
+    `tools/selftest.py` covers the qemu-ze0 scripts (SKIP when absent, never a
+    silent pass), and a new pin is added only where the measured value is
+    stable.
+  - Claims: none
 
 ---
 
@@ -656,6 +707,39 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     EXP-2026-11-06-M1.9-cross-image-imports.md; claims C-1760–C-1769.
   - Claims: C-1760–C-1769
 
+- [ ] **M1.10 — Name the last 149 `Navi.exe` import slots**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.9 done)
+  - Goal: 149 of 846 slots stay `#NNN` because the exporter is not in build B
+    (`XGLDLL`, `OSMDLL`). Unnamed slots weaken every Ghidra and L3 label.
+  - Input: `cerom.py imports Navi.exe --resolve-with 0x3e00200` (unresolved
+    list); `cerom.py exports` over the **image A** modules (the exporters may
+    be A modules, not B) and over `commondll.dll`, `SYS_INF.dll`, `Errlogdll`,
+    `CEDDK.dll`; `va2file` for the module base.
+  - Done when: every slot is either named (`MODULE!export`) or listed as "no
+    exporter in any image" with the search that showed it (positive control: a
+    slot that already resolves); coverage is reported and the remaining names
+    are in the EXP.
+  - Claims: C-2470–C-2479
+
+- [ ] **M1.11 — SH-4 decoder in `tools/`, with the LE convention pinned**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: four EXPs stopped at "needs SH-4 disassembly tooling"
+    (M3.4, M3.9, M3.10, M8.E1b) and M8.E1 lost a whole round to a BE/LE
+    confusion. One repo tool must decode the subset and state the endianness
+    it assumes.
+  - Input: `tools/sh4xref.py` (shells out to `sh4-linux-gnu-objdump`),
+    EXP-2026-11-06-M8.E1b (LE halfwords; pattern `20e28553184229233823038b`
+    at `0x88038666`), the 4-instruction import stub (M1.6b), `cerom.py sections`.
+  - Done when: `tools/sh4dis.py` decodes the subset the reader work uses
+    (`mov.l/mov.b/mov.w/add/sub/cmp/eq/tst/bf/bt/jsr/bsr/jmp/rts/nop/shl/and/
+    or`) from LE halfwords, prints VA + mnemonic + resolved literal target,
+    reproduces the `0x880385e4` prologue and the flag test at `0x88038666`,
+    and `sh4xref.py` can use it when objdump is absent (same output on the
+    pinned call sites); `--selftest` includes the BE trap case.
+  - Claims: C-2480–C-2489
+
 - [ ] **M1.2e — Try public CE ROM decoders on the two EXP-49 sections**
   - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs GitHub/source downloads, rule 12)
   - Depends: —
@@ -670,6 +754,24 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     and rerun M1.3), or the EXP lists each tool, version, URL, SHA-256 and the
     output it gave.
   - Claims: C-2070–C-2079
+
+- [ ] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M8.E1b verified the VAs; M1.2a/M1.2d frame the payload)
+  - Goal: decode every `IMAGE_SCN_COMPRESSED` section without QEMU. M8.E1b
+    ended the address question; what is missing is the codec inside
+    `0x8803a384`, not the entry point.
+  - Input: `DECOMP_BLK 0x8803a384` (8-byte block header, block type 4/E8,
+    LZXD-like — M1.2c, M8.E1b), `DECOMP_SECT 0x88037464` (3-byte frame sizes,
+    form 1/2 block loop), `DECOMP_ALLOC 0x88034d94`; `tools/cecompress.py`
+    (LZSS/LZX-stored already present), `tools/cedecomp.py`; the two EXP-49
+    sections (file `0x01580ce0` len `0x2c6`, `0x015aca7c` len `0x68c`) as the
+    positive control; `IMG256`/`IMG` for the other 243.
+  - Done when: `cedecomp`/`cecompress` decodes EXP-49 sec1 to `0x484` and sec2
+    to `0xcc0` with no QEMU, and `cerom.py decompress --check` reports
+    `245 OK` (or lists the exceptions with their bytes); one self-test vector
+    is taken from the disassembly; M1.3/M1.4 then unblock.
+  - Claims: C-2360–C-2369
 
 ---
 
@@ -1150,6 +1252,20 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `reader-coverage.md` with the reason; any *generate* gets a task.
   - Claims: C-2220–C-2229
 
+- [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M3.11 shows the pattern for `REFER001` families)
+  - Goal: the two families with no reader task at all. Both carry content a
+    Poland card must generate (`ICADM` country/admin terms, `ZIPFR`
+    postal/freeway masks), so a wrong writer is undetectable today.
+  - Input: id table `0x00179338`, name builder `0x003fbed8`, lookup
+    `0x0040b358`, descriptor switch `0x004125a8`; `refer.md` ICADM/ZIPFR
+    sections (C-136, C-137); `reader-coverage.md` rows 14–15.
+  - Done when: `refer.md` names the reader VAs and the fields each consumes
+    (or shows the firmware copies the block and reads no field, with a
+    positive control), and matrix rows 14–15 carry the result.
+  - Claims: C-2380–C-2389
+
 ---
 
 ## M4 — Data formats (no firmware or hardware needed)
@@ -1352,7 +1468,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: ≥20 decoded records map to tile/mesh/coordinates with a named
     join key and ~0 random-key control, or the mapping is proven impossible
     with method recorded.
-  - Claims: C-1840–C-1849
+  - Claims: C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b)
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no
@@ -1360,14 +1476,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Goal: test C-1811 as aligned u32 fields (not byte scan) in `INTER*`/
     `FRWAY*`, decode the mesh/link reference, and test `INTER→tile/mesh→
     coordinate` with random-key control.
-  - Claims: C-1950–C-1959
+  - Claims: C-2310–C-2319 (was C-1950–C-1959, already used by M2.13b)
 
 - [ ] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
   - Status: open · Owner: — · Critical: no
   - Depends: M4.16b, M4.7
   - Goal: if `RDSTM001` is TMC (C-882), test placement through the TMC
     location table chain rather than raw row bytes.
-  - Claims: C-1960–C-1969
+  - Claims: C-2320–C-2329 (was C-1960–C-1969, already used by M4.19)
 
 - [ ] **M4.17 — Link attributes without OSM: road numbers as ground truth**
   - Status: open · Owner: — · Critical: no
@@ -1439,6 +1555,38 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M4.20-us-drstr-roundtrip; `drstr_ze0.build()` preserves DRSTR-stored entry name case (US `XMD/ltntbl.dat` @0x1ae0); US+EU byte-identical, `drstr_ze0 --selftest` OK.
   - Claims: C-2100–C-2109
 
+- [ ] **M4.21 — Tile section-4 writer (place-name index, H11 G3)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M3.6 (who consumes it), M4.4 (preserve path)
+  - Goal: `section4.py build` refuses (exit 3) and every tile edit so far
+    keeps section 4 verbatim, so a tile whose place names must change — any
+    generated Dolnośląskie tile — cannot be written.
+  - Input: `tools/section4.py` (`parse`/`verify`/`build`), EXP-2026-11-06-M4.4
+    (preserve under a road edit; 20 records / 68 names), the undisclosed bytes
+    `0x06..0x0f`, M3.6's answer on the section-4 consumer, 2011/2014/2016
+    samples.
+  - Done when: `section4.py build` writes a section 4 for a changed parcel set
+    that `verify` accepts and `l2check` passes on all three years, or the EXP
+    shows with a control that the section is never read and `--empty` is safe.
+  - Claims: C-2390–C-2399
+
+- [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: three identity fields are still unexplained and a generated card
+    copies them blind: the six words at common-header `0x180`, the
+    per-language list at `DRSTR001` `0x18c`, and `BICON001`'s data version
+    `11/04/08/01` (every other map file differs).
+  - Input: `tools/header_block.py`, `docs/format/file-header.md`, `drstr.md`,
+    `assets.md`; the code table `05 04 02 07 0a 06 08 14`; EU 2011, US 2011 and
+    2014/2016 images (`diff_years.py`); EXP-2026-11-05-40, EXP-2026-11-05-03,
+    EXP-2026-11-06-H6.
+  - Done when: `file-header.md` gives each field's meaning or `UNKNOWN` with
+    the mutation that would settle it, the language codes are matched to the
+    `SPEECH/` language sets, and `header_block.py check` runs on the four real
+    samples; `drstr.md`/`assets.md` updated in the same commit.
+  - Claims: C-2490–C-2499
+
 ---
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
@@ -1469,7 +1617,23 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Depends: M5.1
   - Done when: IMF for the region passes `imf_check.py`; extract date,
     URL and SHA-256 recorded; counts of ways/nodes per `highway=*` in the EXP.
-  - Claims: C-1840–C-1849
+  - Claims: C-2340–C-2349 (was C-1840–C-1849, a collision with M4.16b)
+
+- [ ] **M5.1c — OSM node tags: POIs, addresses and places into IMF**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.1
+  - Goal: the compiler can build roads only. A card also needs `POINT` POIs,
+    `ADDRE` addresses and place names, and none of them has an IMF
+    representation (EXP-2026-11-06-M5.1 follow-up).
+  - Input: `tools/osm_ingest.py` (ways only), `docs/research/intermediate-format.md`,
+    `imf_check.py`; the tag sets implied by `refer.md` POINT/ADDRE and by
+    M3.9's name caps (32/64/128 chars, CP1252); a synthetic fixture with
+    `place=*`, `amenity=*`, `addr:*` and one Polish name with diacritics.
+  - Done when: `osm_ingest.py` emits POI/address/place records with the fields
+    the writers need, `imf_check.py --strict` validates them, the diacritic
+    round-trip is tested, and the record counts for a synthetic extract are in
+    the EXP. The region run stays M5.1b.
+  - Claims: C-2450–C-2459
 
 - [x] **M5.2 — Mesh splitter**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
@@ -1527,6 +1691,13 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [x] **M5.8 — One-tile diff report**
   - Status: done · Owner: task/m5.8-tile-diff · Critical: no
+  - Depends: —
+  - Goal: an automatic report of what changed vs what was preserved between a
+    factory and a generated/mutated tile (sections, records, bytes).
+  - Input: `harness.py compare-tiles`, `section4.py`.
+  - Done when: `tools/tile_diff.py A B --json` works on a factory tile and on
+    the `harness.py mutate` output.
+  - Claims: C-1100–C-1109
   - Result: EXP-2026-11-05-M5.8-tile-diff (`tools/tile_diff.py`; factory vs mutate output: 148 bytes in 2 ranges; `tools_ze0` package committed as `tools/ze0-viewer/tools_ze0/`)
 
 - [x] **M5.9 — `tile_diff.py`: match moved streams and name the records**
@@ -1584,7 +1755,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     `out.img` against every known accept/reject gate (HDD_INFO fields,
     map-code comparator inputs, attestation, SD lock) and states, per gate,
     pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
-  - Claims: C-1970–C-1979
+  - Claims: C-2330–C-2339 (was C-1970–C-1979, already used by H9)
 
 - [x] **M5.12 — Rename a POI (or place name) on the US card image**
   - Status: done · Owner: task/m5.12-us-poi-rename · Critical: yes
@@ -1640,16 +1811,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     matches EU layout/origin 52742; `MAPAL001` stream key B confirmed origin
     52736 on US (`B38R0B0R` keys inside box only @52736). `coord.py --selftest`
     pins US fixtures (18 checks).
-  - Depends: —
-  - Goal: an automatic report of what changed vs what was preserved between
-    a factory and a generated/mutated tile (sections, records, bytes).
-  - Input: `harness.py compare-tiles`, `section4.py`.
-  - Done when: `tools/tile_diff.py A B --json` works on a factory tile and
-    on the `harness.py mutate` output.
-  - Claims: C-1100–C-1109
 
 - [x] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
-  - Status: done (planning) · Owner: session-ZMxuBT · Critical: yes
+  - Status: done (tool; the real S1/S2 images are **M5.13b**, C-2027
+    `UNKNOWN`) · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M5.12 for the edited pair)
   - Goal: the S1/S2 cards for Marek's unit must differ from S0 only in the
     changed file (one variable per card, `card-test-plan.md`). `mkcard.py`'s
@@ -1673,6 +1838,24 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     `cardcheck.py --image` passes with the label present. Images stay outside
     the repo; the EXP gives Marek the exact commands to rebuild them locally.
   - Claims: C-2020–C-2029
+
+- [ ] **M5.13b — Build the real S1 and S2 US images with `imgpatch.py`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M5.13 tool and M5.12 edit are done; needs the US image)
+  - Goal: the two cards the nearest milestone needs do not exist. C-2027 is
+    `UNKNOWN` because `imgpatch.py` was only ever run on a synthetic fixture.
+  - Input: `LEAF_2011-2012_US.img` (sha256 `53342430…c5383`); EXP-2026-11-06-
+    M5.13 "Follow-ups" (the exact `imgpatch.py` command lines); the M5.12
+    edited `POINT010` pair; `cmpind_writer.py` with **stock zlib 1.3.1**
+    (`python3.13`, not zlib-ng — H9/`tools/zlibinfo.py`); `cardcheck.py --image`.
+  - Done when: `us_S1.img` and `us_S2.img` exist with SHA-256 recorded and
+    `cardcheck.py --image` PASS **with the volume label present** for each;
+    every byte-diff range versus the factory image and versus S1 lies inside
+    the replaced files' clusters or their 32-byte directory entries (listed in
+    the EXP); the M5.12b control also runs — `mkcard.py` fresh build of the US
+    tree reports the label with no warning; the commands are in the EXP so
+    Marek can rebuild both images locally. Images stay outside the repo.
+  - Claims: C-2350–C-2359
 
 - [x] **M5.12b — `mkcard.py`: keep the volume label and factory root order on a fresh build**
   - Status: done · Owner: session-ZMxuBT · Critical: no
@@ -1733,6 +1916,83 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     adds its family. OSM extracts stay outside the repo (rule 12).
   - Claims: C-2280–C-2289
 
+- [ ] **M5.16 — `LEV3456R.DAT` generator: levels 3–6 from OSM (H11 G4)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.11, M5.4
+  - Goal: `lev3456.py` re-encodes factory records byte-identically but nothing
+    builds a level set from OSM, so a generated Poland card would show the
+    factory coarse layers over the new roads.
+  - Input: `tools/lev3456.py`, `map-tiles.md` §LEV3456R, EXP-2026-11-06-M4.11
+    (level 5 62/62 decoded, levels 3/4 1,677/41 preserved), M4.11's open items
+    (level-3 point index, the 2–6-word level-5 segment, background types),
+    2014/2016 files as controls.
+  - Done when: one level-3/4/5 set built from a mesh split of a synthetic
+    extract is accepted by `lev3456.py verify` and (with M9.18) the firmware
+    reader returns the same records; an unchanged input rebuilds
+    byte-identically.
+  - Claims: C-2400–C-2409
+
+- [ ] **M5.17 — `LCTBL001.DAT` file builder (H11 G5)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.15, M4.18
+  - Goal: `lctbl_records.py` re-encodes streams, but no tool builds the
+    catalog plus the 500-record pages, so a Poland card cannot carry Polish
+    street and place names.
+  - Input: `tools/lctbl_records.py` (all 517 streams byte-identical),
+    `lctbl_names.py`, `rdstm.md` §LCTBL, M4.18's open items (header `+7..+13`
+    attributes, the 0–22 B footer, the 500-record page cap), M3.9 collation
+    (`OBJ_Sort_cmpStr` weight table) and the CP1252 rule.
+  - Done when: a builder writes a complete `LCTBL001.DAT` for a synthetic name
+    set, the header/catalog/page framing matches the factory layout, the
+    output passes L1/L2, and an unchanged input rebuilds byte-identically;
+    the sort order matches the firmware's weight table (`--selftest`).
+  - Claims: C-2410–C-2419
+
+- [ ] **M5.18 — `POINT` and `ADDRE` writers, the two families Poland must generate (H11 G6)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.11, M3.13, M5.7, M5.1c (one PR per family: `[M5.18] POINT …`)
+  - Goal: H11 G6, narrowed: `COORD001`/`ZCODE`/`ICODE001` for Poland already
+    exist in the EU card and are copy-eligible (M3.17), so only the POI and
+    address layers have to be generated.
+  - Input: `refer.md` §POINT/§ADDRE, `mutate_refer_poi.py` (rename only),
+    `addre.py` (grammar; `(XX,YY)` is not derivable 2D, C-1964), M4.9's open
+    items (6-byte cell payload, `block>0` base, 22-byte index records),
+    `INDEX003.DAT` (M3.12), `poi_icons.py` (34-row table; M4.10's open brand
+    codes), the IMF output of M5.1c.
+  - Done when: for each family a page/shard is built from IMF records, the
+    firmware reader (M9.15) returns the expected name/coordinate, `l2check`
+    passes on the rebuilt pair, and the `INDEX003` name-search entry either
+    updates or is proven unnecessary.
+  - Claims: C-2420–C-2429
+
+- [ ] **M5.19 — `RDSTM001` writer (H11 G7)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.16b (record framing), M3.7
+  - Goal: every `RDSTM001` row is copied verbatim from the factory card today;
+    a Poland card needs rows that describe Polish segments.
+  - Input: `rdstm.md` (twelve TMC fields with getters, C-882–C-889),
+    `rdstm_record.py`, `rdstm_schema.py`, `0x003f61bc` field directory,
+    EXP-2026-11-06-M4.16b.
+  - Done when: a writer produces a file the firmware decoder walks with the
+    expected values for ≥ 20 rows (an L3 target), or the EXP shows that
+    copying is correct because the rows are region-independent.
+  - Claims: C-2430–C-2439
+
+- [ ] **M5.20 — `mkcard.py --reconcile`: minimal-diff build for a changed tree**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M5.13b
+  - Goal: EXP-2026-11-06-M5.10 follow-up. `imgpatch.py` gives one-variable
+    cards, but the compiler path still rebuilds the whole FAT, so a generated
+    card differs from the factory in hundreds of ranges and one bad byte is
+    invisible.
+  - Input: `tools/mkcard.py` (`build_fresh_partition`, the M5.12b label/order
+    preservation), `tools/imgpatch.py` (chain writer), `mkcard.diff_ranges`.
+  - Done when: on the US and EU trees, a tree with one changed file yields an
+    image whose diff against the factory lies only in that file's clusters and
+    its directory entry (the property `imgpatch.py` gives), the unchanged-tree
+    build stays byte-identical, and `--selftest` covers the reconcile path.
+  - Claims: C-2460–C-2469
+
 ---
 
 ## M6 — Hardware and safety
@@ -1788,6 +2048,7 @@ No hardware is available now. Planning tasks are open; tests wait.
     the reader model that worked; or the EXP shows which host hardware is
     needed.
   - Claims: C-1920–C-1929
+
 - [ ] **M6.11 — RP2040 (Raspberry Pi Pico) SD lock/unlock tool**
   - Status: blocked · Owner: claude/project-thread-9ynrai · Critical: no
   - Blocker: `.uf2` not built; the Claude sandbox refused building the external Pico SDK, so the build runs locally (doc §6) as the first step of M6.9.
@@ -1804,6 +2065,7 @@ No hardware is available now. Planning tasks are open; tests wait.
     ERASE unreachable, 3 mutants caught); `.uf2` not built, see Blocker
     (EXP-2026-11-06-M6.11-pico-sdlock).
   - Claims: C-1940–C-1949
+
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
   EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939
 - [ ] **M6.2 — S0 on Marek's unit: factory clone of the US card**
@@ -1818,6 +2080,7 @@ No hardware is available now. Planning tasks are open; tests wait.
     lock method, screens in order, boot time to map, and the card hash after
     the run; pass/fail per S0.
   - Claims: C-1140–C-1149
+
 - [ ] **M6.5 — S1: no-op recompressed `POINT010` on the US unit**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
   - Depends: M6.2, M5.13 (S1 image), **M9.11 + M9.12 pass on the S1 image first**
@@ -1825,6 +2088,7 @@ No hardware is available now. Planning tasks are open; tests wait.
     opens, no dialog, card hash after the run). A reject here means the unit
     wants factory-exact compressed bytes: stop and re-plan before S2.
   - Claims: C-1150–C-1159
+
 - [ ] **M6.6 — S2: the renamed POI on the US unit**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
   - Depends: M6.5, M5.13 (S2 image), M5.12c + M3.12 (what to expect on
@@ -1834,12 +2098,14 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Done when: an EXP records each screen checked (map label, POI list, name
     search) with a photo and pass/fail.
   - Claims: C-1160–C-1169
+
 - [ ] **M6.7 — S3: display and routing across the moved US road**
   - Status: open · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
   - Depends: M6.6, M5.14
   - Done when: an EXP shows the moved vertex on screen and one route that
     uses the changed road.
   - Claims: C-1170–C-1179
+
 - [x] **M6.12 — Clarion debug console (MONI `FW>`, `DSW=0006`) access procedure**
   - Status: done · Owner: session-ZMxuBT · Critical: no · **Runner: non-Claude** (needs
     hardware; planning is doable now, the procedure is unverified until bench)
@@ -1908,10 +2174,22 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   lists the machine. Status: done · Owner: session-ZMxuBT · Depends: —. Claims:
   C-1230–C-1239
 - [ ] **M8.A2 — Machine skeleton** `hw/sh4/ze0.c`: `sh7785`, RAM at phys
-  `0x08000000` (128 MiB), P1/P2 aliases, unimplemented-device catch-all
-  over `0xff800000`–`0xffffffff` and areas 4/6. Done when
-  `ce_qemu_probe.py`'s access list is reproduced with `-M ze0`. Status:
-  open · Depends: — (M8.A1 to merge). Claims: C-1240–C-1249
+  `0x08000000` (128 MiB), P1/P2 aliases, unimplemented-device catch-all over
+  `0xff800000`–`0xffffffff` and areas 4/6, `select SH4_CCN` with
+  `sh4_ccn_iomem()` at `0xff000000` and `sh4_ccn_arrays()` at `0xf0000000`,
+  and one `ze0-stubs` instance.
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M8.A1, M8.A4 and M8.A5 are merged)
+  - Note (PM 2026-11-06): the three series were never built together. M8.A1 saw
+    `m8a4-0002/0003` rejected on 8.2.7; M8.A4/M8.A5 report them applying (the
+    0003 banner says "Base: QEMU 8.2.7"). One clean `build.sh --force` over
+    `patches/*.patch` settles it — record the resulting patch order.
+  - Done when: `bash tools/qemu-ze0/build.sh --force` applies every patch,
+    builds, and `qemu-system-sh4 -M help` lists `ze0`; `-M ze0` reproduces the
+    `ce_qemu_probe.py` access list; the run log and the final patch order are in
+    the EXP.
+  - Claims: C-1240–C-1249
+
 - [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
   parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
   `nk.exe` entry. Done when booting needs no `-device loader`. Status: open
@@ -1965,9 +2243,12 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
   file). Owner: coordinator with Marek. Claims: C-1590–C-1599
 - [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: open (VA/prototype unblocked by M8.E1b; runtime decode pending) · Owner: — · Critical: yes
+  - Status: open (VA/prototype verified by M8.E1b; runtime decode pending) · Owner: — · Critical: yes
   - Depends: M8.E1b (VAs verified, C-2290–C-2293). Does **not** need F1: call
     the function under `-M none` + gdbstub with RAM-only state (LE SH-4).
+    M8.A1 now builds a LE `qemu-system-sh4` from the pinned 8.2.7 tarball, so
+    the toolchain half is done. M1.2f is the parallel Python route to the same
+    two vectors — whichever lands first unblocks M1.3/M1.4.
   - Note: M8.E1's initial "VA refuted" blocker was a BE endianness artifact,
     corrected by M8.E1b (C-1600/C-1603 superseded). Verified entries (LE):
     `DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464` (core framing) /
@@ -1981,6 +2262,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: the two EXP-49 sections decode to the M1.2a lengths, then
     all 245 sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
   - Claims: C-1600–C-1609
+
 - [x] **M8.E1b — Re-derive nk.exe ROM decompressor VA/prototype (M1.2c reverify)**
   - Status: done · Owner: task/m8.e1b-nk-decompressor-derive · Critical: yes
   - Depends: — (has IMG256; M1.2d framing known)
@@ -2045,6 +2327,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     validates the two-phase plan (`--plan`, 13 checks) and exits 3
     `MISSING_GHIDRA`. Result: EXP-2026-11-06-M9.2-ghidra-import, C-1640.
   - Claims: C-1640–C-1649
+
 - [x] **M9.3 — Bind the stub table to real VAs**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M1.6b for automatic binding)
@@ -2058,6 +2341,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     heap, critical sections, registry and `sprintf`; unknown exports stop with
     `missing stub: NAME` (EXP-2026-11-06-M9.3-stub-bind).
   - Claims: C-1650–C-1659
+
 - [x] **M9.4 — Engine interface with two back ends**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
@@ -2069,6 +2353,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: `l3_harness/engine.py` (PySh4 reference, Ghidra/QEMU adapters);
     snippet parity proven, real engines SKIP (EXP-2026-11-06-M9.4-engine).
   - Claims: C-1660–C-1669
+
 - [x] **M9.5 — Runner `run` end-to-end**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: M9.2 or M9.4, M9.3
@@ -2080,6 +2365,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     the stub dispatcher, emitting ACCEPT/MISMATCH/BLOCKED/SKIP and a stub call
     log (EXP-2026-11-06-M9.5-runner); pipeline result, not a reader verdict.
   - Claims: C-1670–C-1679
+
 - [ ] **M9.6 — First real target: the map-code compare**
   - Status: open · Owner: — · Critical: yes
   - Depends: — (M9.5, M2.5 done; M2.15 helps)
@@ -2094,6 +2380,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `HDD_INFO.TXT` (accept) and for one edited line-1 variant (reject), with
     the stub log in the EXP.
   - Claims: C-1680–C-1689
+
 - [x] **M9.7 — Corpora** (`hddinfo_variants.py` 89, `ind_mutate.py` 8,
   `DRSTR` and tile mutations) in `tools/l3_harness/corpus.py`, each with
   the Python reader's verdict. Depends: —. Done when `manifest.py build`
@@ -2192,6 +2479,48 @@ parts are covered by `tools/l3_harness/selftest.py`.
     shows the same run on the S2 tree; `l3check.py --card` (M9.12) calls it.
   - Claims: C-2260–C-2269
 
+- [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M9.5 (M3.8 located the reader)
+  - Goal: `MMAIN001.DAT` is the only generated file whose reader is located
+    and whose L3 target does not exist.
+  - Input: reader `0x0041a438` (open `0x0041b780`, read `0x0041b954`, exactly
+    `0x1000` bytes, no label/count check — C-1780–C-1789); the factory
+    `MMAIN001.DAT` (EU and US); a `mmain_reader` entry in `targets.json` and a
+    `corpus.py` row.
+  - Done when: the target runs and returns the `0x1000`-byte read for the
+    factory file and for a rebuilt one, rejects a 4095-byte file, and matrix
+    row 3 carries the L3 result.
+  - Claims: C-2370–C-2379
+
+- [ ] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M9.13 (matrix rows 18–20)
+  - Goal: `tile_reader` covers `B28R070R` only; the coarse database and the
+    section-4 consumer have no L3 target at all.
+  - Input: the `LEV3456R` filename load `0x0040a014`, M3.6's section answers,
+    `lev3456.py`, `section4.py`, `targets.json`, `corpus.py`.
+  - Done when: the coarse-level reader and the section-4 consumer return the
+    same records/name list as the Python tools for one factory tile and one
+    generated tile, and rows 18–20 carry the verdicts.
+  - Claims: C-2440–C-2449
+
+- [ ] **M9.20 — L3 plumbing: firmware entry kind, `engine_hook`, `ghidra/l3_run.py`**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: the M9.5/M9.9 follow-ups that stop a real reader from running even
+    when M3 has found its VA.
+  - Input: EXP-2026-11-06-M9.5 (`entry.kind = "module"`), EXP-2026-11-06-M9.3
+    (`StubDispatcher.engine_hook(target)` reading r4–r7), EXP-2026-11-06-M9.9
+    (`tools/l3_harness/ghidra/l3_run.py`, README refresh), `targets.json`,
+    `runner.py`, `tools/README.md`.
+  - Done when: `runner.py run` can call a function at a module VA without a
+    hand-built `-device loader` map, the stub dispatcher exposes argument
+    registers to a target handler, the Ghidra back end has one documented
+    entry script, `tools/l3_harness/README.md` and `tools/README.md` match the
+    code, and the L3 selftest covers all three.
+  - Claims: C-2500–C-2509
+
 ---
 
 ## Retired leads
@@ -2212,4 +2541,5 @@ Do not take these up again; each was superseded by the CE ROM TOC
 | L5 "full-system QEMU is not realistic" | `nk.exe` reaches the scheduler (EXP-37) | M8 |
 | `tools/l3/` as the L3 location | the harness lives in `tools/l3_harness/` | M9 |
 | Spare-card `HDD_INFO`/`.ind` matrices as next steps | no hardware; shrink them with M2.4/M3.3 first | M6.3 |
+| Building S1/S2 with `mkcard.py`'s fresh build | re-lays out the whole FAT and drops the root volume-label entry (200 diff ranges), so three variables change at once | M5.13 `imgpatch.py`, M5.13b |
 | `NaviStateCC` vtable hunts (EXP-27…29) | parked; COM objects come from runtime or `DllGetClassObject` with real VAs | M9 / M8.E3 if needed |

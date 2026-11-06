@@ -37,7 +37,7 @@ the car is L4 and has not run (`docs/research/card-test-plan.md`).
 
 | # | File type / path | Gen | Format doc | Offline proof | Firmware reader (M3) | L3 target (M9) | L3 result | F4 (M8.E4) | Cross-year / market | Evidence (claims, EXPs) | Next action |
 | --: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Card image: MBR + FAT32 + firmware area + TFAT16 tail | generate · exists — `tools/mkcard.py` | [sd-card-layout](../format/sd-card-layout.md) | `L1 --image`; `mkcard --selftest`; unchanged tree byte-identical | not a file reader; media-mount state machine `0x00419ca0` (M3.10) | M9.16 planned | — | — | 2011/2014/2016 L1 pass; 2019 QY8x unsupported | C-001–C-004, C-148, C-166, C-1910–C-1918; EXP-M5.10, EXP-30 | M5.12b |
+| 1 | Card image: MBR + FAT32 + firmware area + TFAT16 tail | generate · exists — `tools/mkcard.py` (full rebuild) and `tools/imgpatch.py` (in-place patch) | [sd-card-layout](../format/sd-card-layout.md) | `L1 --image`; `mkcard --selftest`; unchanged tree byte-identical | not a file reader; media-mount state machine `0x00419ca0` (M3.10) | M9.16 planned | — | — | 2011/2014/2016 L1 pass; 2019 QY8x unsupported | C-001–C-004, C-148, C-166, C-1910–C-1918, C-2020–C-2029; EXP-M5.10, EXP-M5.13, EXP-30 | M5.13b |
 | 2 | Common 512-byte header (all map files) | generate · exists — copied by every writer; checked by `tools/header_block.py` | [file-header](../format/file-header.md) | `L1` magic; `header_block.py check`; 37/37 synthetic | no semantic check located; `MMAIN001` reader copies `0x1000` and byte-swaps, no label compare (M3.8) | — (covered by per-file rows) | — | — | `BICON001` carries a different data version; US/EU format family identical | C-010, C-011, C-025, C-167, C-548–C-553, C-1781–C-1789; EXP-H8, EXP-M3.8 | M5.6 |
 | 3 | `MMAIN001.DAT` | generate · exists — `tools/mmain.py` | [drstr §MMAIN](../format/drstr.md#mmain001dat--the-4-kib-database-header) | `L1` level totals; `mmain.py` round-trip `240e7c97…` | located `0x0041a438` (open `0x0041b780`, read `0x0041b954`); exactly `0x1000` bytes, no label/count check (M3.8) | no target — gap (see G1) | — | — | record counts change with the tile set; US 2011 same class | C-037, C-164, C-550, C-1720–C-1724, C-1780–C-1789, C-1890, C-1026; EXP-M3.8, EXP-H8 | M5.6 |
 | 4 | `DRSTR001.DAT` | generate · exists — `drstr_ze0.build` | [drstr](../format/drstr.md) | `L1` tree check; `L2` `drstr_rebuild`; byte-identical EU 11,968 B / US 7,456 B | located `0x00419684` → parser `sub_00419350`; size/read checks, no `0x2f`/40/324 compare (M3.4, M3.10) | `drstr_parser` — blocked | BLOCKED (4) | — | US stores lowercase `ltntbl.dat` while the file is `LTNTBL.DAT`; 2014/2016 L2 pass | C-030–C-039, C-194, C-850–C-859, C-1860–C-1869, C-1982, C-2100–C-2101; EXP-M3.4, EXP-M3.10, EXP-M4.20, EXP-H6 | M9.14 |
@@ -50,8 +50,8 @@ the car is L4 and has not run (`docs/research/card-test-plan.md`).
 | 11 | `REFER001/ADDRE0nn` | generate · none | [refer §ADDRE](../format/refer.md#addre0nn--addresses) | `L1`/`L2` pair; `addre.py verify` 3 shards; 6-byte cells/TOC verified | unlocated — M3.13 | M9.15 planned | — | — | 33 shards; US 11; street-name resize still UNKNOWN | C-153–C-156, C-970–C-979, C-1960–C-1969, C-957; EXP-M4.9, EXP-M4.19 | M3.13 |
 | 12 | `REFER001/INTER0nn` | generate · none | [refer §INTER](../format/refer.md#inter0nn--intersections) | `L1`/`L2` pair only; table decode is claim-only | unlocated — M3.16 | no target — gap (see G2) | — | — | 33 shards; `FRWAY` only 24 | C-135, C-140, C-1810–C-1812; EXP-M4.16 | M3.16 |
 | 13 | `REFER001/FRWAY0nn` | generate · none | [refer §FRWAY](../format/refer.md#frway0nn--freewaysroutes) | `L1`/`L2` pair only; table decode is claim-only | unlocated — M3.16 | no target — gap (see G2) | — | — | 24 shards vs 33 for other families | C-140, C-1810–C-1812; EXP-M4.16 | M3.16 |
-| 14 | `REFER001/ICADM0nn` | generate · none | [refer §ICADM](../format/refer.md#icadm0nn--administrative-country-data) | `L1`/`L2` pair only; field decode is claim-only | unlocated — no M3 task (see G2) | no target — gap (see G2) | — | — | 33 blocks; country terms verified | C-136, C-1799 | propose M3.18 |
-| 15 | `REFER001/ZIPFR001` | generate · none | [refer §ZIPFR](../format/refer.md#zipfr001--postalfreeway-masks) | `L1`/`L2` pair only; field decode is claim-only | unlocated — no M3 task (see G2) | no target — gap (see G2) | — | — | 36,881 records, 119 masks; cross-year unmeasured | C-137 | propose M3.18 |
+| 14 | `REFER001/ICADM0nn` | generate · none | [refer §ICADM](../format/refer.md#icadm0nn--administrative-country-data) | `L1`/`L2` pair only; field decode is claim-only | unlocated — no M3 task (see G2) | no target — gap (see G2) | — | — | 33 blocks; country terms verified | C-136, C-1799 | M3.18 |
+| 15 | `REFER001/ZIPFR001` | generate · none | [refer §ZIPFR](../format/refer.md#zipfr001--postalfreeway-masks) | `L1`/`L2` pair only; field decode is claim-only | unlocated — no M3 task (see G2) | no target — gap (see G2) | — | — | 36,881 records, 119 masks; cross-year unmeasured | C-137 | M3.18 |
 | 16 | `REFER001/INDEX003.DAT` | generate · none | [refer](../format/refer.md) (no section yet) | `L1` tree census only; layout not decoded | partial: load `0x004125a8` / string `0x0017a118`; record walk unlocated — M3.12 | no target — gap (see G2) | — | — | EU and US 2011; layout unknown | C-880; EXP-M3.7; C-2130–C-2139 reserved | M3.12 |
 | 17 | `MAPAL001/BxxRyyR.DAT` container, level/box tables, section 1 roads | generate · partial — `tools/tilewriter.py` splices roads into a factory tile | [map-tiles](../format/map-tiles.md) | `L2` five tiles byte-identical; `tilewriter` 48/48 synthetic; real-tile L2 open | partial: VAs `0x0041f26c`, `0x004259bc`, `0x0042757a` (M3.5); no runnable entry | `tile_reader` — blocked; M9.13 planned | BLOCKED (4) | — | 2011/2014/2016 `B30R048R` identical; QY8x 2019 differs (52 tiles, layer 11) | C-050–C-053, C-120–C-129, C-171, C-250–C-256, C-860–C-869, C-943–C-944, C-1060; EXP-04, EXP-12, EXP-M4.6, EXP-M5.4 | M5.4 |
 | 18 | `MAPAL001` tile section 2 (router graph) | copy — always preserved verbatim | [map-tiles](../format/map-tiles.md) | `L2` `tile_roundtrip` byte-identical; graph records not decoded | unlocated — M3.6 (which sections the renderer reads) | `tile_reader` — blocked; M9.13 planned | BLOCKED (4) | — | 2011/2014/2016 preserved; graph grammar unknown | C-998, C-923; EXP-M4.11, EXP-M4.4 | M3.6 |
@@ -89,13 +89,13 @@ count as a reader):
 | `ADDRE0nn` | the directory/cell/record readers | M3.13 |
 | `INTER0nn` | the 12-byte table and blob readers | M3.16 |
 | `FRWAY0nn` | the table and route-ref readers | M3.16 |
-| `ICADM0nn` | no M3 task at all | proposed M3.18 (G2) |
-| `ZIPFR001` | no M3 task at all | proposed M3.18 (G2) |
+| `ICADM0nn` | no M3 task at all | M3.18 (G2) |
+| `ZIPFR001` | no M3 task at all | M3.18 (G2) |
 | `INDEX003.DAT` | record layout and its consumer | M3.12 |
 | Tile section 1/2/4 | which sections the renderer reads; section-4 consumer especially | M3.6 |
 | `LEV3456R.DAT` content | reader beyond the filename load | M3.6 |
 | `LCTBL001.DAT` | the record walk and name decode | M3.15 |
-| `MMAIN001.DAT` | **not** unlocated: `0x0041a438` reads it, but no L3 target exists | proposed G1 |
+| `MMAIN001.DAT` | **not** unlocated: `0x0041a438` reads it, but no L3 target exists | M9.17 (G1) |
 | `RDSTM001.DAT` | **not** unlocated: `0x003bc960` + `0x003f61bc` are located, but no L3 target exists | proposed G2 |
 
 `HDD_INFO.TXT`, `DRSTR001.DAT` and `CMP.LST` have located readers; their L3
@@ -123,24 +123,33 @@ kept blocked on purpose.
 ## Gaps: reader and L3 tasks that do not exist yet
 
 H11's brief owns this document, the roadmap/README link lines and its own EXP
-only; it does **not** edit `TODO.md`. The proposals below use the next free
-blocks (highest current block is `C-2280–C-2289`, so the next is
-`C-2290–C-2299`); the coordinator should insert them into `TODO.md` and
-re-block if another task takes an ID first.
+only; it does **not** edit `TODO.md`. H12 (fifth PM pass, 2026-11-06) inserted
+the gaps below as real tasks and re-issued the claim blocks, because H11's
+proposal handed G1 `C-2290–C-2299` while M8.E1b took that block first. The IDs
+below are the ones now in `TODO.md`.
 
-| Gap | Missing task | Scope | Proposed claims |
+| Gap | Task | Scope | Claim block |
 | --- | --- | --- | --- |
-| G1 | M9.17 — L3 `mmain_reader` target | run `0x0041a438` on the factory `MMAIN001.DAT` and on a rebuilt header; record the `0x1000` read and the absence of a label/count check | C-2290–C-2299 |
-| G2 | M3.18 — `ICADM`/`ZIPFR` readers | the two families with no M3 task; also propose an L3 target under M9.15 or a new M9.18 for `INDEX003`, `INTER`, `FRWAY`, `RDSTM` | C-2300–C-2309 |
-| G3 | M4.21 — tile section-4 writer | turn `section4.py encode build` from "refuses" into a writer for a changed parcel set (C-929); needs the M3.6 consumer answer | C-2310–C-2319 |
-| G4 | M5.16 — `LEV3456R` generator | OSM → levels 3–5 writer; `lev3456.py` can already re-encode factory records, but the whole-database rebuild assumptions (44/11 columns) are unproven on 2014/2016 | C-2320–C-2329 |
-| G5 | M5.17 — `LCTBL001` writer | file-level builder (catalog + 500-record pages) after M3.15; `lctbl_records.py` only re-encodes streams | C-2330–C-2339 |
-| G6 | M5.18 — `ADDRE`/`ZCODE`/`ICODE`/`COORD` writers | one writer per family after M3.13/M3.14; `ADDRE` is the hard one (C-957) | C-2340–C-2349 |
-| G7 | M5.19 — `RDSTM001` writer | only after M4.16b resolves the per-record field directory; must carry the twelve TMC fields (C-889) | C-2350–C-2359 |
-| G8 | M9.19 — L3 targets for `LEV3456R` and tile sections | extend `tile_reader` beyond `B28R070R`; add the section-4 consumer once M3.6 names it | C-2360–C-2369 |
+| G1 | **M9.17** — L3 `mmain_reader` target | run `0x0041a438` on the factory `MMAIN001.DAT` and on a rebuilt header; record the `0x1000` read and the absence of a label/count check | C-2370–C-2379 |
+| G2 | **M3.18** — `ICADM`/`ZIPFR` readers | the two families with no M3 task; an L3 target for `INDEX003`, `INTER`, `FRWAY`, `RDSTM` follows under M9.15 | C-2380–C-2389 |
+| G3 | **M4.21** — tile section-4 writer | turn `section4.py build` from "refuses" into a writer for a changed parcel set (C-929); needs the M3.6 consumer answer | C-2390–C-2399 |
+| G4 | **M5.16** — `LEV3456R` generator | OSM → levels 3–5 writer; `lev3456.py` can already re-encode factory records, but the whole-database rebuild (44/11 columns) is unproven on 2014/2016 | C-2400–C-2409 |
+| G5 | **M5.17** — `LCTBL001` writer | file-level builder (catalog + 500-record pages) after M3.15; `lctbl_records.py` only re-encodes streams | C-2410–C-2419 |
+| G6 | **M5.18** — `POINT`/`ADDRE` writers | narrowed by H12: the region tables (`COORD`/`ZCODE`/`ICODE`) are copy-eligible for Poland (M3.17), so only the POI and address layers must be generated; `ADDRE` is the hard one (C-957) | C-2420–C-2429 |
+| G7 | **M5.19** — `RDSTM001` writer | only after M4.16b resolves the per-record field directory; must carry the twelve TMC fields (C-889) | C-2430–C-2439 |
+| G8 | **M9.18** — L3 targets for `LEV3456R` and tile sections | extend `tile_reader` beyond `B28R070R`; add the section-4 consumer once M3.6 names it (H11's EXP says `M9.18` in its conclusion and `M9.19` in its table; the ID used is **M9.18**) | C-2440–C-2449 |
 
 G1/G2 are reader/L3 gaps; G3–G7 are writer gaps. G8 is the missing coverage for
 rows 18–20.
+
+## Notes on the card image (rows 1 and 6)
+
+The image has two writers with different jobs. `mkcard.py` rebuilds the FAT32
+partition from a tree (the compiler path; byte-identical on an unchanged tree;
+a minimal-diff mode is M5.20). `imgpatch.py` writes one file into its existing
+cluster chain, so a test card differs from the factory in exactly that file
+(M5.13). `imgpatch.py` is verified on a synthetic fixture only — C-2027 stays
+`UNKNOWN` until **M5.13b** builds the S1 and S2 images.
 
 ## How to keep this current
 

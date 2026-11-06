@@ -1,9 +1,12 @@
 # Roadmap and confidence gates
 
-> **Last updated:** 2026-11-05 (CE ROM TOC audit). Current position: Gate 0 is
-> the primary path. The firmware reader path is static through the recovered CE
-> ROM TOC (`C-088`–`C-094`, `EXP-2026-11-05-33`/`-34`), not through
-> global-VA/delta guessing. Gates 2 and 3 pass for all five target tiles.
+> **Last updated:** 2026-11-06 (fifth PM pass, `EXP-2026-11-06-H12`). The live
+> board is [`TODO.md`](../../TODO.md) and the per-file status is
+> [`reader-coverage.md`](reader-coverage.md); where this page and those two
+> disagree, they win. Current position: the firmware path is static through the
+> recovered CE ROM TOC (`C-088`–`C-094`, `EXP-2026-11-05-33`/`-34`), gates 2
+> and 3 pass for all five target tiles, and the open work is the reader/L3
+> layer (M3/M9) plus the writers H11 counts as missing (M5.16–M5.19, M4.21).
 
 **Decision:** firmware RE is prioritized. The reader code tells us how the
 format is consumed, which is more valuable for the compiler than guessing from
@@ -35,13 +38,13 @@ Current status:
 
 | Area | Data side | Firmware side |
 | --- | --- | --- |
-| `.cmp`/`.ind` | verified | reader not located; `0xc438a4` retracted as opener (`C-330`); CE ROM TOC recovered; module extraction is M1.8/M2.1–M2.3/M3.1 |
-| `DRSTR001.DAT` | verified | opened by media manager; runtime use unproven; parser to be found in the extracted modules |
-| Tile grid/stream keys | verified | string pool references `MESH_ID`/`DIVID`; reader not decompiled |
+| `.cmp`/`.ind` | verified | reader not located; `0xc438a4` retracted (`C-330`); the wrapper above `MAL_DataVol_*` is `fn 0x00377870`/`0x00377ae0` (M3.1); next is the `inflate` caller (M3.2b) |
+| `DRSTR001.DAT` | verified | parsed by `0x00419684` → `sub_00419350` (M3.10): size/read checks only, no count/order compare; `CMP.LST` is opened and closed, never read |
+| Tile grid/stream keys | verified | reader VAs `0x0041f26c`/`0x004259bc`/`0x0042757a` (M3.5), renderer/router split `0x00425f40`/`0x004266ec` (M3.6); no runnable L3 entry (M9.13) |
 | Tile payload grammar | all five targets round-trip byte-identically; roads + names decoded; section 4 classified as an admin/place index; streaming decoder works | not yet mapped |
 | ADDRE/POINT/ZCODE | mostly decoded; POI↔ADDRE ids shared | not yet mapped |
 | Firmware addressing | wrapper/container layout at `0x200000` documented; `SUM4`/updater sums and `va2file` reproduced. CE ROM TOC verified (EXP-2026-11-05-35, C-516): five SH-4 segments, build A 149 modules / 1 file, exact VA↔file per section via `tools/cerom.py` | static work reopened: decompress RW sections, build Ghidra maps, follow the `Navi.exe` `HDD_INFO` pools; reader functions not yet located |
-| Map code/activation | text/market hypothesis | launcher strings found; check not decompiled |
+| Map code/activation | text/market hypothesis | `DIFFERENT MAP CODE` decided in `AppLaunch.dll` `fn 0x03bd2ad8`, 11 bytes of `KernelIoControl(0x0101302C)`+0x60 vs `HDD_INFO` line 1 (M2.5); the exact bytes are M2.15 |
 | Checksums | no per-file checksum found | `SUM4`/updater formulas reproduced; FAT not covered |
 
 ### Reader path (current) and superseded attempts
@@ -181,8 +184,11 @@ proven.
 
 ## What not to do yet
 
-- Full-system QEMU (not the critical path; see
-  [`feedback-loop.md`](feedback-loop.md)).
+- Treating the QEMU machine as speculative: the build environment and the
+  `sh4-ccn`/`ze0-stubs` devices exist (M8.A1/A4/A5); what is missing is the
+  `ze0` machine itself (**M8.A2**), so do not start F0 work without it.
+- Re-doing the `M8.E1` "decompressor VA refuted" conclusion: it was a
+  big-endian artifact (M8.E1b, C-2290). Use the verified LE entry points.
 - Full firmware decompile before the modules are extracted from the CE ROM TOC
   (`tools/cerom.py`, M1.8/M2/M3).
 - Any new literal/prologue delta search or module-base guess: use the CE ROM
