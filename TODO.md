@@ -1215,7 +1215,8 @@ No hardware is available now. Planning tasks are open; tests wait.
     (C-798) before buying bench hardware.
   - Input: EXP-2026-11-06-M2.8 (CMD42 lock/unlock, `SD UNLOCK NG`);
     `mmc-utils` / Linux `mmc` sysfs on a native SDHCI slot (USB readers do
-    not pass CMD42); a spare card.
+    not pass CMD42); a spare card. Host without SDHCI: the RP2040 tool of
+    M6.11, `docs/hardware/sd-blocker-pico.md` §7.1.
   - Done when: `docs/research/card-test-plan.md` has a tested procedure to
     set, check and clear a CMD42 password on a spare card from Linux, with
     the reader model that worked; or the EXP shows which host hardware is
@@ -1232,6 +1233,9 @@ No hardware is available now. Planning tasks are open; tests wait.
     build, flash and operator steps; `tools/sdlock-pico/` builds a `.uf2`
     with the Pico SDK; its host self-test proves no frame can carry ERASE;
     no password literal is committed.
+  - Result: hardware doc + firmware + host self-test (572 checks, ERASE
+    unreachable, 3 mutants caught); `.uf2` build and real cards left to
+    M6.9 (EXP-2026-11-06-M6.11-pico-sdlock).
   - Claims: C-1940–C-1949
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
   EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939

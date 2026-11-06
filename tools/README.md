@@ -340,6 +340,17 @@ python3 tools/l3_harness/runner.py check --manifest corpus.json
 harness script exists; it never reports an unearned pass. See
 [`../docs/research/l3-ghidra.md`](../docs/research/l3-ghidra.md).
 
+## `sdlock-pico/` and `sdlock_pico_check.py` — SD CMD42 lock tool
+
+RP2040 firmware (C, Pico SDK) that sets, locks, unlocks and clears an SD
+card's CMD42 password over SPI; no erase path. Hardware, build and operator
+steps: `docs/hardware/sd-blocker-pico.md`.
+
+```bash
+python3 tools/sdlock_pico_check.py -v   # host test against a simulated card
+# expected last line: sdlock host test: 572 checks, 0 failed
+```
+
 ## `selftest.py`
 
 Runs synthetic tests for the primitive parsers without any vendor data, and
