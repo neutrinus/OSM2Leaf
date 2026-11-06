@@ -980,11 +980,12 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-860–C-869
   - Result: EXP-2026-11-06-M3.5-tile-reader (reader VAs 0x0041f26c/0x004259bc/0x0042757a in Navi.exe; six-level table `VTb Tp;Lv;St;F#|L1..L6|Sz;Adr`; NaviMapCC.dll has no reader code)
 
-- [ ] **M3.6 — Which tile sections the renderer reads**
-  - Status: open · Owner: — · Critical: no
+- [x] **M3.6 — Which tile sections the renderer reads**
+  - Status: done · Owner: task/m3.6-tile-sections-renderer · Critical: no
   - Depends: M3.5
   - Done when: each tile section has "read by VA" or "ignored" in
     `map-tiles.md` (section 4 especially).
+  - Result: EXP-2026-11-06-M3.6-tile-sections-renderer (MAP_DATA `0x00425f40`=renderer, RGD_DATA `0x004266ec`=router, shared `0x0041ee14`; LEV sec1→MAP, sec2→RGD; grid sec1→MAP; sec4 no read VA in MAP/RGD paths, C-870–C-876).
   - Claims: C-870–C-879
 
 - [x] **M3.7 — How the router reads `RDSTM001` / `REFER` road records**
