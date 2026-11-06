@@ -1424,7 +1424,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1970–C-1979
 
 - [ ] **M5.12 — Rename a POI (or place name) on the US card image**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m5.12-us-poi-rename · Critical: yes
   - Depends: M5.10 (M4.8c helps locate the target)
   - Goal: the near-term milestone — one on-screen name changed in the US map,
     on a rebuilt card image, checked offline, ready for Marek's unit. A name
