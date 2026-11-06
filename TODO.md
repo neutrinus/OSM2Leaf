@@ -456,6 +456,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the boot-argument field that selects it if any (feeds M8.B4).
   - Claims: C-700–C-709
   - Result: EXP-2026-11-06-M1.7-kernel-select (verdict: IPL-selected; 12-byte boot arg is a Navi version string, not a selector)
+  - Result: EXP-2026-11-06-M1.7-kernel-select (verdict: IPL-selected; 12-byte boot arg is a Navi version string, not a selector)
 
 - [x] **M1.8 — SH-4 disassembly and xref helper**
   - Status: done · Owner: claude/project-thread-wn7y0u · Critical: yes
