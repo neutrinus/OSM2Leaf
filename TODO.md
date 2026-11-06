@@ -1223,7 +1223,8 @@ No hardware is available now. Planning tasks are open; tests wait.
     needed.
   - Claims: C-1920–C-1929
 - [ ] **M6.11 — RP2040 (Raspberry Pi Pico) SD lock/unlock tool**
-  - Status: in progress · Owner: claude/project-thread-9ynrai · Critical: no
+  - Status: blocked · Owner: claude/project-thread-9ynrai · Critical: no
+  - Blocker: `.uf2` not built; the Claude sandbox refused building the external Pico SDK, so the build runs locally (doc §6) as the first step of M6.9.
   - Depends: — (M2.13 for the real password; M6.9 runs the bench test)
   - Goal: a cheap SPI-mode CMD42 host, so M6.9 does not depend on finding a
     native SDHCI slot (USB readers do not pass CMD42).
@@ -1233,9 +1234,9 @@ No hardware is available now. Planning tasks are open; tests wait.
     build, flash and operator steps; `tools/sdlock-pico/` builds a `.uf2`
     with the Pico SDK; its host self-test proves no frame can carry ERASE;
     no password literal is committed.
-  - Result: hardware doc + firmware + host self-test (572 checks, ERASE
-    unreachable, 3 mutants caught); `.uf2` build and real cards left to
-    M6.9 (EXP-2026-11-06-M6.11-pico-sdlock).
+  - Result (partial): hardware doc + firmware + host self-test (572 checks,
+    ERASE unreachable, 3 mutants caught); `.uf2` not built, see Blocker
+    (EXP-2026-11-06-M6.11-pico-sdlock).
   - Claims: C-1940–C-1949
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
   EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939
