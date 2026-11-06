@@ -405,7 +405,38 @@ SD Import: userdata_type is different Sys[0x%x] SD[0x%x]
 SD Import: manufacturer_id is different Sys[0x%x] SD[0x%x]
 SD Import: destination_id is different Sys[0x%x] SD[0x%x]
 SD Import : application type not correct.
+SD Import : finished not found.
 ```
+
+### SD Import location-record comparators (Navi.exe, build A, M2.2 — VERIFIED)
+
+The `Sys[0x%x] SD[0x%x]` message emitters (task literals `0x004e8584` /
+`0x004e995c`, both → `0x001d5438` "destination_id is different") are in
+`Navi.exe` build A (IMG256 `92aa525d…`, `--image-start 0x200200`): `sub_004e84c4`
+(`0x004e84c4`, stored location, caller `fn 0x004e90c8` `jsr 0x004e91e6`) and
+`sub_004e989c` (`0x004e989c`, home location, caller `fn 0x004ea402` `jsr 0x004ea502`).
+Both validate a 256-byte record read by `sub_004df31c` (`0x004df31c`,
+CreateFileW + ReadFile 0x100 bytes) from a `\UserSD\userdata\*` file:
+`\UserSD\userdata\storedlocation.slc` (`"userdata"` `0x19a2bc` + `"storedlocation.slc"`
+`0x19a294`, format `\UserSD\%s\%s` @ `0x001cf504`) or
+`\UserSD\userdata\homelocation.hlc` (`"homelocation.hlc"` `0x19a2a8`). C-730–C-732.
+
+| SD record (base `r8`, `sub_004df31c` dest) | check | SD source | Sys/reference source |
+| --- | --- | --- | --- |
+| `+0x0c` u16 `destination_id` | equality `extu.w` vs `r15_comp+0x18` | `\UserSD\userdata\*.{slc,hlc}` (0x100 B) | caller stack `r15_comp+0x18` (0x85fc); **upstream producer unresolved** (C-733/C-738) |
+| `+0x0e` u16 `manufacturer_id` | equality vs `r15_comp+0x1a` | same file | caller stack `r15_comp+0x1a` (0x85fd); **upstream unresolved** |
+| `+0x12` u16 `userdata_type` | **equality to constant** (`cmp/eq`), not a dynamic Sys field: `0x1010` (`0x004e84c4`, EA `0x004e857e`) / `0x1011` (`0x004e989c`, EA `0x004e9956`) | same file | **code constant** (printf `Sys` arg = const), C-734 |
+| `+0x03` u8 `finished` | must be nonzero (`tst`/`bf`) | same file | validity flag |
+| `+0x02` u8 `application type` | must be in `{0x01,0x21,0x31}` (`cmp/eq #1,#0x21,#0x31`) | same file | value-set check |
+
+On any failure `*r9=0` (and fail return `r0=0xff`); on pass `*r9=1`, `r0=0` (C-736).
+**`0 < userdata_type < 6` is refuted in this module** (C-735): `r8+0x12` is checked
+by `cmp/eq` to `0x1010`/`0x1011` only; no range test. `r8+0x02` accepts `{1,0x21,0x31}`,
+not `1..5`. This is the SD location-record (`.slc`/`.hlc`) comparator — distinct from
+the `HDD_INFO.TXT` line field mapping in `tools/hddinfo.py` M0 (HYPOTHESIS) and from the
+retired BT_MGR comparator chain (C-301, C-520/C-528/C-611). The Sys-ref producer for
+`+0x0c`/`+0x0e` and the full `.slc`/`.hlc` layout remain open (C-738, C-739).
+See `EXP-2026-11-06-M2.2-sd-import-comparator.md`.
 
 The comparator chain is **located** (data delta `0x02800000`):
 

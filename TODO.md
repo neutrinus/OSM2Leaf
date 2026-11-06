@@ -689,8 +689,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     on partial EXP-2026-11-05-M2.1-hddinfo-fn (C-720); C-721–C-728.
   - Claims: C-720–C-729
 
-- [ ] **M2.2 — The `SD Import: … is different` comparator**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M2.2 — The `SD Import: … is different` comparator**
+  - Status: done · Owner: task/m2.2-sd-import-comparator · Critical: yes
   - Depends: — (M2.1 helps)
   - Goal: which fields are compared, against what, and with which checks.
   - Input: literals at `Navi.exe` `0x004e8584` / `0x004e995c`; the
@@ -699,6 +699,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     source (card vs system copy), and the `0 < userdata_type < 6` check is
     confirmed or refuted in this module.
   - Claims: C-730–C-739
+  - Result: docs/experiments/EXP-2026-11-06-M2.2-sd-import-comparator.md (Navi.exe build A: `sub_004e84c4`/`sub_004e989c` validate `\UserSD\userdata\storedlocation.slc`/`homelocation.hlc` read by `sub_004df31c`; SD rec `r8+0x0c` destination_id vs caller `r15+0x18`, `+0x0e` manufacturer_id vs `r15+0x1a` [Sys refs upstream/unresolved], `+0x12` userdata_type `cmp/eq` const `0x1010`/`0x1011`, `+0x03` finished!=0, `+0x02` app type in `{1,0x21,0x31}`; `0 < userdata_type < 6` **refuted in this module**, C-730–C-739)
 
 - [ ] **M2.3 — `HDD_INFO.TXT` text → fields**
   - Status: open · Owner: — · Critical: yes

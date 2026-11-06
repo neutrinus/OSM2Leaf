@@ -116,7 +116,7 @@ of the hypothesis:
 
 | Field | Model rule | Source |
 | --- | --- | --- |
-| `userdata_type` | leading digit of the first number on line 1 (`QSD-3…` → 3); outside `0..5` ⇒ `DIFFERENT MAP CODE` | range check at `0x6fb122`; QSD family guess (C-304) |
+| `userdata_type` | leading digit of the first number on line 1 (`QSD-3…` → 3); outside `0..5` ⇒ `DIFFERENT MAP CODE` | range check at `0x6fb122`; QSD family guess (C-304). **Scope (C-735/M2.2):** the Navi.exe SD Import *location-record* comparators (`.slc`/`.hlc`, `sub_004e84c4`/`sub_004e989c`) check a *different* `userdata_type` word (`r8+0x12`) by `cmp/eq` to constants `0x1010`/`0x1011`, not `0<x<6` — distinct from this HDD_INFO.TXT model and from the retired chain (C-301/C-521/C-611). |
 | `manufacturer_id` | digits of the line-4 prefix (`SDC08` → `0x08`) | shape-based guess (C-304) |
 | `destination_id` | line-4 suffix (`EVEUR`) through a model-local token table; unknown tokens compare by text equality | shape-based guess (C-304) |
 
