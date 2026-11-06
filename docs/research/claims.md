@@ -457,6 +457,21 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-828 | `fn 0x00377ae0` acts as a disc/data-volume validation & update routine (DiscInfo refuse/judge/publicLv, `SYS_CdVerCmp`, `initNewDisc*`, timer); its caller is likely reached through a compressed dispatch/vtable (unresolved). | HYPOTHESIS | M | EXP-2026-11-06-M3.1-ind-wrapper |
 | C-829 | Exact `u16` layout/semantics written by `getOffset`/`getSize` in `OBJDLL.dll`, the full meaning of base `0x01205040` and volume-id set `{3,4,7,8}`, and `fn 0x00377ae0`'s caller remain unknown. | UNKNOWN | — | EXP-2026-11-06-M3.1-ind-wrapper |
 
+## M3.2 — `.ind` handling (C-830–C-839, blocked)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-830 | `.IND`/`.ind` string at `0x0017a9dc` in `Navi.exe` (CE A); xref to pool `0x004189f8`, load `0x00418846` in `fn 0x00418748`. | VERIFIED | H | EXP-2026-11-06-M3.2-ind-handling; `sh4xref --to 0x0017a9dc` |
+| C-831 | `fn 0x00418748` is a file/volume resolver using the `.IND`/`.ind` template; it does not read `chunk_count`/`chunk_size`/`chunk_offset`. | VERIFIED (negative) | M | EXP-2026-11-06-M3.2-ind-handling |
+| C-832 | Whether `chunk_size` sizes a buffer or is compared to `0x10000` is UNKNOWN. | UNKNOWN | — | EXP-2026-11-06-M3.2-ind-handling |
+| C-833 | Whether the reader seeks by offset or scans for `78 9c` is UNKNOWN. | UNKNOWN | — | EXP-2026-11-06-M3.2-ind-handling |
+| C-834 | reserved. | UNKNOWN | — | — |
+| C-835 | reserved. | UNKNOWN | — | — |
+| C-836 | reserved. | UNKNOWN | — | — |
+| C-837 | reserved. | UNKNOWN | — | — |
+| C-838 | reserved. | UNKNOWN | — | — |
+| C-839 | reserved. | UNKNOWN | — | — |
+
 ## MapUpdate.exe / updater (image B, M2.6)
 
 | ID | Claim | Status | Confidence | Evidence |
