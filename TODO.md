@@ -903,7 +903,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-820–C-829
 
 - [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.2-ind-handling · Critical: yes
   - Depends: M3.1
   - Goal: answer from code whether `chunk_size` sizes a buffer or is
     compared against `0x10000`, and whether the reader seeks by offset or
