@@ -1297,7 +1297,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2130–C-2139
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.13-addre-reader · Critical: yes
   - Depends: — (M3.11 shows the pattern for `REFER001` families)
   - Goal: confirm the `ADDRE` grammar (M4.9) against the code that reads it.
   - Input: id table `0x00179338` (`ADDRE0`), name builder `0x003fbed8`, lookup
