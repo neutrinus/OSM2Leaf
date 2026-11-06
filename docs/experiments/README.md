@@ -147,3 +147,12 @@ format doc  ->  claim ID  ->  EXP record  ->  tool command
 | [EXP-2026-11-05-M4.13](EXP-2026-11-05-M4.13-strings.md) | Name strings: charset, lengths, Polish letters (M4.13) | done (collation UNKNOWN) |
 | [EXP-2026-11-05-M5.8](EXP-2026-11-05-M5.8-tile-diff.md) | One-tile diff report `tile_diff.py` (M5.8) | done |
 | [EXP-2026-11-06-H5](EXP-2026-11-06-H5-pm-review.md) | Board review; real-image checks of synthetic-only results (H5) | done |
+| [EXP-2026-11-06-H3](EXP-2026-11-06-H3-ce-rom-tool-fold.md) | Fold `ce_rom_parse.py` into `cerom.py` (H3) | done |
+| [EXP-2026-11-06-H4](EXP-2026-11-06-H4-audit-delta-claims.md) | Audit the delta-era firmware claims (H4) | done |
+| [EXP-2026-11-06-M1.7](EXP-2026-11-06-M1.7-kernel-select.md) | Which kernel boots with A: IPL-selected (M1.7) | done |
+| [EXP-2026-11-06-M2.6](EXP-2026-11-06-M2.6-mapupdate.md) | `MapUpdate.exe` checks and install path (M2.6) | done |
+| [EXP-2026-11-06-M2.8](EXP-2026-11-06-M2.8-sdcard-lock.md) | SD identity: lock password only, no CID/CSD (M2.8) | done |
+| [EXP-2026-11-06-M3.4](EXP-2026-11-06-M3.4-drstr-parser.md) | `DRSTR001`/`CMP.LST` xrefs under real VAs (M3.4) | done |
+| [EXP-2026-11-06-M3.5](EXP-2026-11-06-M3.5-tile-reader.md) | Tile reader entry and six-level table (M3.5) | done |
+| [EXP-2026-11-06-M4.4](EXP-2026-11-06-M4.4-section4-road-edit.md) | Section 4 verbatim under a road edit (M4.4) | done |
+| [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year/market image inventory (M4.14) | done |

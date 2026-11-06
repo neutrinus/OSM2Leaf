@@ -191,18 +191,20 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping: ledger, docs, tool overlap | H3, H6, H7 (H1, H4 have branches) |
-| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2b, M1.2c, M1.2d, M1.6c, M1.9 (M1.7 in PR #15) |
-| M2 | Map code, activation, updater, error screens | M2.1, M2.2, M2.3, M2.7, M2.8, M2.11 (M2.6 has a branch) |
-| M3 | Reader contract (what the unit reads from the card) | M3.1, M3.5, M3.7, M3.8, M3.9, M3.10 |
-| M4 | Data formats (no firmware needed) | M4.3, M4.4, M4.7, M4.8, M4.9–M4.12, M4.14, M4.15, M4.18 |
+| H | Housekeeping: ledger, docs, tool overlap | H6, H7 (H1, H3, H4 done) |
+| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2b, M1.2c, M1.2d, M1.6c, M1.9 (M1.7 done) |
+| M2 | Map code, activation, updater, error screens | M2.1, M2.2, M2.3, M2.7, M2.11, M2.12, M2.13 (M2.6, M2.8 done) |
+| M3 | Reader contract (what the unit reads from the card) | M3.1, M3.6, M3.7, M3.8, M3.9, M3.10 (M3.5 done) |
+| M4 | Data formats (no firmware needed) | M4.3, M4.7, M4.8, M4.9–M4.12, M4.15, M4.18 (M4.4, M4.14 done) |
 | M5 | OSM compiler vertical slice (Dolnośląskie) | M5.1, M5.9; M5.1b after M5.1 (non-Claude runner) |
-| M6 | Hardware and safety (planning now, tests later) | M6.3, M6.8 |
+| M6 | Hardware and safety (planning now, tests later) | M6.4 (M6.3, M6.8 done; tests need hardware) |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
 | M9 | L3 toolkit (run firmware functions on our data) | M9.1, M9.3, M9.4 |
 
 **Critical path to a first accepted card:** M2.1 → M2.3 + M2.2 → M2.5 (why
-a card is accepted; M1.8 done, ordinals named) · M3.1 → M3.2 (what is read) ·
+a card is accepted; M1.8 done, ordinals named) · M2.12 (attestation) + M2.13
+(SD unlock password) — the two card-identity checks M2.6/M2.8 surfaced ·
+M3.1 → M3.2 (what is read) ·
 M1.2b/M1.2c/M1.2d → M1.3 (initialised data for L3) · M1.6c/M1.9 → M9.2 →
 M9.5 → M2.4 / M3.3 (checks against the real code) · M4.15 → M4.16 →
 M4.2/M4.17 → M5.3 → M5.4 → M5.6 · M5.1 → M5.1b (non-Claude runner) · then
@@ -456,7 +458,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the boot-argument field that selects it if any (feeds M8.B4).
   - Claims: C-700–C-709
   - Result: EXP-2026-11-06-M1.7-kernel-select (verdict: IPL-selected; 12-byte boot arg is a Navi version string, not a selector)
-  - Result: EXP-2026-11-06-M1.7-kernel-select (verdict: IPL-selected; 12-byte boot arg is a Navi version string, not a selector)
 
 - [x] **M1.8 — SH-4 disassembly and xref helper**
   - Status: done · Owner: claude/project-thread-wn7y0u · Critical: yes
@@ -650,6 +651,38 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     entry, why the read is done twice, what the `Sleep` loop waits for, and
     what `wcsncmp` compares against (string at its literal).
   - Claims: C-1770–C-1779
+
+- [ ] **M2.12 — `HDD_CHK.ATT` CRC16 attestation (`SilentAuthenticate`)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M1.9 helps)
+  - Goal: know whether the unit requires a CRC16 attestation file on the card,
+    and how it is computed, because a generated card must reproduce or satisfy
+    it.
+  - Input: `MapUpdate.exe` `SilentAuthenticate` `0x0001c210` and
+    `CApi_MakeCRC16` (EXP-2026-11-06-M2.6, `docs/format/firmware.md`
+    "MapUpdate.exe"); search `HDD_CHK.ATT` (ASCII and UTF-16) across A/B/C
+    with a positive control; `sh4xref.py --calls`.
+  - Done when: the EXP states which modules read `HDD_CHK.ATT`, the CRC16
+    polynomial/seed and the byte range it covers, and whether `Navi.exe`
+    (not just the updater) checks it at boot; `docs/format/validation.md`
+    updated.
+  - Claims: C-1870–C-1879
+
+- [ ] **M2.13 — Recover the SD unlock password (`SDHC.dll`)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M1.9 helps)
+  - Goal: a generated card must reproduce the SD lock state the firmware
+    accepts (C-798: the only identity check); recover the password or prove it
+    cannot be read statically.
+  - Input: `SDHC.dll` `SDHC_SecurityUnLock` / `SDHC_Lock_Unlock_Card`
+    `0x039b2498` and the `byFlag`/`byPasswordLen`/`dPassword` logging
+    (EXP-2026-11-06-M2.8); `cerom.py --image-start 0x5200200 IMG sections
+    SDHC.dll`; the password buffer the unlock call reads from.
+  - Done when: the EXP gives the password bytes and length (quote the buffer,
+    do not commit vendor bytes beyond the short value), or shows the password
+    is computed/fetched at runtime with the code path; and states what a
+    cloned card must do with CMD42.
+  - Claims: C-1880–C-1889
 
 ---
 
