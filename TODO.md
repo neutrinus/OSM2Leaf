@@ -686,7 +686,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-850–C-859
   - Result: EXP-2026-11-06-M3.4-drstr-parser (DRSTR/CMP.LST xrefs in Navi.exe at 0x00419684/0x0041ba90; MAPAL only static table; no count/order/sentinel check identified)
 - [ ] **M3.5 — Tile reader entry and the level table**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.5-tile-reader · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: find the `MESH_ID`/`DIVID` code and confirm the six-level table
     (`VTb Tp;Lv;…`).
