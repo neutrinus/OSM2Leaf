@@ -1188,7 +1188,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2060–C-2069
 
 - [ ] **M3.11 — The `POINT` record reader in `Navi.exe`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.11-point-reader · Critical: yes
   - Depends: —
   - Goal: the function that walks a decoded `POINT0xx` page (`tag,len2`
     records, `0x60`/`0x68`, record size `2*len2`) and copies a POI name out.
