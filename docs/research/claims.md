@@ -753,6 +753,19 @@ Built without vendor data; every row states what is synthetic-only.
 | C-1028 | `ENV200_2019_25920-6WX1C-EUR.img` is a different engine family (`CLA-NAVI06-01` / `X08-03-00` / `ZENRIN`, `DB_INFO.TXT`, 53 tiles, 200 `.cmp` pairs) and is not a ZE0 reference. | VERIFIED | H | `cardcheck`; `EXP-2026-11-06-M4.14` |
 | C-1029 | `tools/diff_years.py` reproduces all of the above field-level differences on the 2011/2014/2016 roots. | VERIFIED | H | `diff_years.py --json`; `EXP-2026-11-06-M4.14` |
 
+## M2.13b — SDHC.dll CMD42 flags and boot password source (C-1950–C-1959)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1950 | `SDHC.dll` sec 0 (`.text`, rva `0x1000`, flags `0x60000020`) is not compressed in images B and C; only its two data sections carry the `0x2000` flag. | VERIFIED | H | `cerom.py sections SDHC.dll` (B, C); EXP-2026-11-06-M2.13b-sdhc-cmd42 |
+| C-1951 | Disk IOCTLs map to CMD42 flags: `0x80032014` SET_PWD `0x01`, `0x80032018` LOCK `0x04`, `0x8003201C` UNLOCK `0x00`, `0x80032020` CLR_PWD `0x02`, `0x80032024` forced ERASE `0x08` (`CDSKMain` vtable `0x039b1c30` slots 107–111, B; same in C). | VERIFIED | H | objdump of B/C `.text`; EXP-2026-11-06-M2.13b-sdhc-cmd42 |
+| C-1952 | The IOCTL wrappers pass the caller's buffer and `(u8)nInBufSize` unchanged to `CSDHCMain::SDHC_Lock_Unlock_Card` (vtable slot 108, `0x039b7df4`), so the card password is exactly the caller's bytes (16 for LeafSDTools, C-1945). | VERIFIED | H | EXP-2026-11-06-M2.13b-sdhc-cmd42; C-792 |
+| C-1953 | The driver builds the spec CMD42 frame: command byte `0x6a`, data `[flag & 0x0F, len, password]`, block length `len + 2` (1 for ERASE) then restored; it accepts flags `0,1,2,4,5,8`, `len <= 16`, and checks command class 7. | VERIFIED | H | `0x039baa0c`, `0x039bc050` (B); EXP-2026-11-06-M2.13b-sdhc-cmd42 |
+| C-1954 | At boot `CSDHCMain` slot 109 (`0x039b6ac4`, called from `CDSKMain::Init`) fetches 16 bytes through import slot `0x01f38050` with code `0x01013008` and sends UNLOCK (`0x00`, len 16) with them, in one branch after a LOCK (`0x04`). | OBSERVED | H | EXP-2026-11-06-M2.13b-sdhc-cmd42 |
+| C-1955 | `0x01013008` is `CTL_CODE(FILE_DEVICE_HAL, 0xC02)`; in `nk.exe` (B) its table record `{0x01013008, 1, 0x8804a568}` at `0x88009220` leads to a 16-byte copy from RAM `0x89e439b8 + 0x100`. That this RAM is the PROD block shadow is a hypothesis matching C-1945. | OBSERVED / HYPOTHESIS | M | EXP-2026-11-06-M2.13b-sdhc-cmd42 |
+| C-1956 | The 4 unit bytes are stored per unit (PROD `+0x100`), not derived at runtime on this path; a card given the same 16 bytes by SET_PWD or SET_PWD+LOCK (Pico `setlock`) is in the state the boot unlock expects, so an independently locked card is feasible. | HYPOTHESIS | M | C-1951–C-1955, C-1945; bench test M6.9/M6.5 |
+| C-1957 | LeafSDTools "SD LOCK" (`0x80032014`) is SET_PWD only, so the card locks at the next power-up; its "SD UNLOCK" (`0x80032020`) is CLR_PWD, which removes the password for good. | VERIFIED | H | C-1951; EXP-2026-11-06-M6.11-2-leafsdtools |
+
 ## M6.11 — RP2040 SD CMD42 lock/unlock tool (C-1940–C-1949)
 
 | ID | Claim | Status | Confidence | Evidence |
@@ -764,7 +777,7 @@ Built without vendor data; every row states what is synthetic-only.
 | C-1945 | LeafSDTools uses as CMD42 password the 16 bytes at NAND flash `0xA100` (PROD block 5 + `0x100`; block 2 on NEW_NAV), passed unchanged to the unit's SD driver via `DSK8:` IOCTL `0x80032014` (lock) / `0x80032020` (unlock); this confirms C-075's location and the 16-byte length of C-1940/C-1883. | VERIFIED (third-party source) | H | leafsdtools `422c653` `Flash.cpp` `ReadFullSDPin`, `ChangeSDLock`; EXP-2026-11-06-M6.11-2-leafsdtools |
 | C-1946 | The 8 hex digits on the "SD PIN" screen are PIN bytes 0–3 in buffer order (each printed `%02X`), so the byte-order UNKNOWN of C-1940 is resolved: `hex:<digits as shown>`. | VERIFIED (third-party source) | H | leafsdtools `SDPinControl.cpp`; EXP-2026-11-06-M6.11-2-leafsdtools |
 | C-1947 | The "SD PIN" lock/unlock screen is LeafSDTools' menu run on the unit, not a factory menu; C-1882's "the unit's own menu" holds only for a unit running LeafSDTools. | OBSERVED | H | leafsdtools `SDPinControl.cpp`; EXP-2026-11-06-M6.11-2-leafsdtools |
-| C-1948 | Which CMD42 flags the SD driver sends for IOCTL `0x80032014` (LOCK only, or SET_PWD+LOCK on a card without a password) is UNKNOWN; it is in `SDHC.dll` (C-792), not in LeafSDTools. | UNKNOWN | — | EXP-2026-11-06-M6.11-2-leafsdtools |
+| C-1948 | Which CMD42 flags the SD driver sends for IOCTL `0x80032014` (LOCK only, or SET_PWD+LOCK on a card without a password) is UNKNOWN; it is in `SDHC.dll` (C-792), not in LeafSDTools. | UNKNOWN — resolved by C-1951 (`0x80032014` = SET_PWD only) | — | EXP-2026-11-06-M6.11-2-leafsdtools |
 | C-1944 | Whether real cards and the unit accept a card locked by the Pico tool is UNKNOWN until M6.9 (procedure §7.1) and M6.5. | UNKNOWN | — | `docs/hardware/sd-blocker-pico.md` §10 |
 
 ## Claim ledger (H1)
@@ -882,4 +895,4 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-1881 | The 8-digit prefix of the displayed PIN is not a literal anywhere in `IMG256` (no ASCII or UTF-16LE match), so the full PIN is assembled at runtime from a runtime prefix and the C-1880 tail. | VERIFIED (negative) | H | EXP-2026-11-06-M2.13 |
 | C-1882 | The unit unlocked the card with this PIN on its own `SD PIN` service screen (`Unlocking. OK`), confirming the value works on real hardware; the unit exposes a built-in SD LOCK/UNLOCK menu. | OBSERVED | H | owner service-screen photo 2026-11-06 (not committed) |
 | C-1883 | The displayed PIN is 20 characters but a CMD42 SD-lock password is at most 16 bytes, so the displayed string is not a raw CMD42 password; the byte form CMD42 uses is UNKNOWN (M2.13b). | VERIFIED (spec) / UNKNOWN (form) | M | EXP-2026-11-06-M2.13; SD physical-layer spec |
-| C-1884 | The `SDHC_SecurityUnLock` xref to the C-1880 literal is not yet traced because `SDHC.dll`'s code section is `IMAGE_SCN_COMPRESSED` (M1.2); the tie is behavioural (C-1882), not static. | OBSERVED | M | EXP-2026-11-06-M2.13; `cerom.py sections SDHC.dll` |
+| C-1884 | The `SDHC_SecurityUnLock` xref to the C-1880 literal is not yet traced because `SDHC.dll`'s code section is `IMAGE_SCN_COMPRESSED` (M1.2); the tie is behavioural (C-1882), not static. | OBSERVED — RETRACTED on the compression point by C-1950 (`.text` is uncompressed) | M | EXP-2026-11-06-M2.13; `cerom.py sections SDHC.dll` |

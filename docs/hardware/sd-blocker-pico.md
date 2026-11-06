@@ -57,6 +57,13 @@ then **`setlock`** again (section 7).
 
 ## 3. The password
 
+What the unit's own driver does (`SDHC.dll`, EXP-2026-11-06-M2.13b): at boot
+it takes 16 bytes from the kernel (HAL IOCTL `0x01013008`) and sends CMD42
+UNLOCK with them; its disk IOCTLs map to SET_PWD, LOCK, UNLOCK, CLR_PWD and
+ERASE (C-1951). LeafSDTools' "SD LOCK" is SET_PWD only and its "SD UNLOCK" is
+CLR_PWD (C-1957), so the Pico's `setlock` and `clear` leave a card in the
+same state after power-up.
+
 **Do not commit the password.** The repo rule (`card-test-plan.md`, "Do not
 attempt") is not to publish the CMD42 password. The firmware has one
 variable for it, `PASS` in `tools/sdlock-pico/src/main.c`, which ships as the
@@ -363,7 +370,8 @@ Use a throw-away password here, not the unit's, e.g. `pw ascii:test1234`.
   `SET_PWD`+`LOCK` in one command locks immediately on them (the firmware
   falls back to a separate `LOCK` if not).
 - Whether the unit accepts a card locked by this tool (M6.5, needs a unit).
-- Password byte order and length from firmware (M2.13).
+- ~~Password byte order and length from firmware~~: resolved, 16 bytes in
+  buffer order (C-1946, C-1952).
 - The `.uf2` was not built in the Claude sandbox (building the external SDK
   was not permitted there); `sd_proto.c`/`sd_card.c` compile for Cortex-M0+
   with `-Werror`, and `main.c` type-checks against stub SDK declarations.

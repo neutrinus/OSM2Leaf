@@ -177,4 +177,5 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M6.4](EXP-2026-11-06-M6.4-recovery.md) | Recovery checklist for a bad card test (M6.4) | done (plan only; no card run) |
 | [EXP-2026-11-06-M6.11](EXP-2026-11-06-M6.11-pico-sdlock.md) | RP2040 SD CMD42 lock/unlock tool (M6.11) | blocked (`.uf2` built locally; simulator passes) |
 | [EXP-2026-11-06-M6.11-2](EXP-2026-11-06-M6.11-2-leafsdtools.md) | How LeafSDTools reads and applies the SD PIN (M6.11) | done (source reading) |
+| [EXP-2026-11-06-M2.13b](EXP-2026-11-06-M2.13b-sdhc-cmd42.md) | SDHC.dll CMD42 flags and boot password source (M2.13b) | done (static, B and C) |
 | [EXP-2026-11-06-M2.13](EXP-2026-11-06-M2.13-sd-password.md) | SD unlock PIN: firmware half found in PRGUpdate/TestMode (M2.13) | done (static half; CMD42 form open) |
