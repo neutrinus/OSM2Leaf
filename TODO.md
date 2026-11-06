@@ -989,7 +989,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 `docs/research/osm-vertical-slice.md` and `profiles/dolnoslaskie-test.*`.
 
 - [ ] **M5.1 — OSM ingest to IMF**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: read a Dolnośląskie `.osm.pbf` (Geofabrik) and write IMF v1 with
     drivable roads and the tags the compiler needs.
@@ -1251,7 +1251,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: a selftest calls each stub through the dispatcher and an
     unknown export stops with `missing stub: NAME`.
   - Claims: C-1650–C-1659
-- [ ] **M9.4 — Engine interface with two back ends**
+- [x] **M9.4 — Engine interface with two back ends**
   - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: `tools/l3_harness/engine.py`: `map`, `read/write mem`,
@@ -1259,6 +1259,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
     P-code (`EmulatorHelper`) and QEMU `-M none` + gdbstub.
   - Done when: both run a synthetic SH-4 snippet (add, loop, call to a stub)
     with identical results.
+  - Result: `l3_harness/engine.py` (PySh4 reference, Ghidra/QEMU adapters);
+    snippet parity proven, real engines SKIP (EXP-2026-11-06-M9.4-engine).
   - Claims: C-1660–C-1669
 - [ ] **M9.5 — Runner `run` end-to-end**
   - Status: open · Owner: — · Critical: yes
@@ -1271,10 +1273,11 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.6 — First real target**: the decompressor (if M1.2 is still open
   when M9.5 lands) or the `HDD_INFO` comparator (M2.2). Depends: M9.5 and
   M1.2c or M2.2. Claims: C-1680–C-1689
-- [ ] **M9.7 — Corpora** (`hddinfo_variants.py` 89, `ind_mutate.py` 8,
+- [x] **M9.7 — Corpora** (`hddinfo_variants.py` 89, `ind_mutate.py` 8,
   `DRSTR` and tile mutations) in `tools/l3_harness/corpus.py`, each with
   the Python reader's verdict. Depends: —. Done when `manifest.py build`
-  consumes them. Claims: C-1690–C-1699
+  consumes them. Claims: C-1690–C-1699. Done: `l3_harness/corpus.py`
+  builds 108 entries (EXP-2026-11-06-M9.7-corpus).
 - [ ] **M9.8 — `l3check.py`** (L3 rung of the verification ladder). Depends:
   M9.5, M9.7. Claims: C-1700–C-1709
 - [ ] **M9.9 — Keep `l3-ghidra.md` "How to use L3" current.** Done with each
