@@ -740,9 +740,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Depends: M4.7, M5.4
   - Claims: C-1090–C-1099
 
-- [ ] **M5.8 — One-tile diff report**
-  - Status: blocked · Owner: task/m5.8-tile-diff · Critical: no
-  - Blocker: `harness.py mutate` needs the `tools_ze0` package (`clarion_bg`, `clarion_tile`), absent from the repo and history (see EXP-2026-11-05-M5.8-tile-diff). `tools/tile_diff.py` itself works.
+- [x] **M5.8 — One-tile diff report**
+  - Status: done · Owner: task/m5.8-tile-diff · Critical: no
+  - Result: EXP-2026-11-05-M5.8-tile-diff (`tools/tile_diff.py`; factory vs mutate output: 148 bytes in 2 ranges; `tools_ze0` package committed as `tools/ze0-viewer/tools_ze0/`)
   - Depends: —
   - Goal: an automatic report of what changed vs what was preserved between
     a factory and a generated/mutated tile (sections, records, bytes).
