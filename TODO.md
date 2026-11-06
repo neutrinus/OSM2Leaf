@@ -718,7 +718,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-740–C-749
 
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: task/m2.4-hddinfo-variants · Critical: yes
+  - Blocker: firmware verdicts require the real L3 target (M9.6), unavailable offline; offline model-M0 gives 66 ACCEPT / 23 DIFFERENT. See EXP-2026-11-06-M2.4-hddinfo-variants.
   - Depends: M2.2, M2.3, M9.5
   - Goal: run the real parser + comparator on `tools/hddinfo_variants.py`.
   - Input: L3 runner (M9.5), corpus (M9.7).
