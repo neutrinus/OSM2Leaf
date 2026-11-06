@@ -428,7 +428,7 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Claims: C-1730–C-1739
 
 - [ ] **H8 — Fix what H6 reported: `mmain.py`, `setup.sh`, two doc sentences**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: — (coordinate with PR #35 `[M3.8]`, which reads `MMAIN001`)
   - Goal: no tool or guide still describes `MMAIN001.DAT` as a FAT log or
     `tools_ze0` as a network clone.
@@ -443,7 +443,7 @@ widens knowledge or tooling in parallel and is equally welcome.
   - Claims: C-1890–C-1899
 
 - [ ] **H9 — Guard recompression tools against zlib-ng false failures**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: a correct rebuild must not report `FAIL` because the interpreter
     links zlib-ng (Python 3.14 here), and a user must learn why.
@@ -1237,7 +1237,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1840–C-1849
 
 - [ ] **M5.2 — Mesh splitter**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: M4.8, M5.1
   - Done when: every way is assigned to meshes and clipped at borders, and
     `imf_check.py --assign-tiles` agrees.
@@ -1284,7 +1284,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-05-M5.8-tile-diff (`tools/tile_diff.py`; factory vs mutate output: 148 bytes in 2 ranges; `tools_ze0` package committed as `tools/ze0-viewer/tools_ze0/`)
 
 - [ ] **M5.9 — `tile_diff.py`: match moved streams and name the records**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: a generated tile's diff reads as "changed record X", not as
     remove + add at another offset.
@@ -1296,7 +1296,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1850–C-1859
 
 - [ ] **M5.10 — Card image builder (`tools/mkcard.py`)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M2.13 for the lock state; M3.8 for `MMAIN001`)
   - Goal: turn a card tree into an SD image the unit could read: the missing
     link between every writer and the first bench test (M6.5, S0/S1 of
@@ -1567,7 +1567,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     module are recorded in an EXP.
   - Claims: C-1630–C-1639
 - [ ] **M9.2 — Ghidra project builder**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: M9.1 (M1.6b for thunk labels)
   - Goal: `tools/l3_harness/ghidra_import.py` (pyghidra, headless): all
     A + B sections at their VAs, exports named, thunks labelled, SH-4
@@ -1577,7 +1577,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     closes the M1.5 Ghidra check).
   - Claims: C-1640–C-1649
 - [ ] **M9.3 — Bind the stub table to real VAs**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M1.6b for automatic binding)
   - Goal: `stubs.py` (14 modeled, 3 planned) keyed by `COREDLL` export
     name/ordinal (`cerom.py exports coredll.dll`, C-527); model `sprintf`
