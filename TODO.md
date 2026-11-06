@@ -861,7 +861,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1780–C-1789
 
 - [ ] **M3.9 — Name length limits and collation in the firmware**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.9-name-collation · Critical: no
   - Depends: — (M1.9 helps)
   - Goal: the rules a writer must follow for names (EXP-2026-11-05-M4.13
     left length limit and sort order UNKNOWN).
