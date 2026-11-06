@@ -208,8 +208,8 @@ widens knowledge or tooling in parallel and is equally welcome.
 
 ## H — Housekeeping
 
-- [ ] **H1 — Repair the claim ledger and the EXP index**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+- [x] **H1 — Repair the claim ledger and the EXP index**
+  - Status: done · Owner: task/h1-claim-ledger · Critical: no
   - Depends: —
   - Goal: one ID per claim and every proposed claim registered.
   - Input: `docs/research/claims.md` (duplicate IDs C-070, C-110, C-543,
