@@ -1221,6 +1221,18 @@ No hardware is available now. Planning tasks are open; tests wait.
     the reader model that worked; or the EXP shows which host hardware is
     needed.
   - Claims: C-1920–C-1929
+- [ ] **M6.11 — RP2040 (Raspberry Pi Pico) SD lock/unlock tool**
+  - Status: in progress · Owner: claude/project-thread-9ynrai · Critical: no
+  - Depends: — (M2.13 for the real password; M6.9 runs the bench test)
+  - Goal: a cheap SPI-mode CMD42 host, so M6.9 does not depend on finding a
+    native SDHCI slot (USB readers do not pass CMD42).
+  - Input: EXP-2026-11-06-M2.8 (C-790–C-799), C-075; SD Physical Layer
+    Simplified Spec (CMD42, CMD13 R2, SPI data tokens).
+  - Done when: `docs/hardware/sd-blocker-pico.md` gives parts, wiring,
+    build, flash and operator steps; `tools/sdlock-pico/` builds a `.uf2`
+    with the Pico SDK; its host self-test proves no frame can carry ERASE;
+    no password literal is committed.
+  - Claims: C-1940–C-1949
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
   EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939
 - [ ] **M6.2** Owner's US 2011 SD dump (read-only, SHA-256). Status: blocked
