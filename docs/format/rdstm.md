@@ -186,8 +186,13 @@ index.
 - The plain text is **not** a flat string table. It is 247,089 fixed-format
   **records** grouped into pages: each stream holds at most 500 records
   (487 of the 517 streams are full).
-- Content is hierarchical: `Evropa` → `střední Evropa` → `Česká Republika` →
-  `Praha` → `Hl. m. Praha` → `kraj` → `okres` → municipality → street.
+- The name bytes are ASCII + Latin-1/CP1252, **not** ISO-8859-2: letters
+  outside Latin-1 are transliterated by dropping the diacritic (`Č`→`C`,
+  `ř`→`r`, `ł`→`l`), while Latin-1 letters survive (`München` keeps `ü`).
+  See [Writer rules for names](#writer-rules-for-names-m39).
+- Content is hierarchical: `Evropa` → `strední Evropa` → `Ceská Republika` →
+  `Praha` → `Hl. m. Praha` → `kraj` → `okres` → municipality → street
+  (the háček/caron letters are already stripped in the data).
 - Last streams are Norwegian and French.
 
 #### Record layout (verified)
@@ -206,12 +211,13 @@ binary footer. All header integers are big-endian.
 +14  u16  class        hierarchy level / record kind (semantics HYPOTHESIS)
 ```
 
-Then four name slots, each exactly `2 * lenN` bytes. A slot holds a Latin-2
-name padded to an **even byte length with `0x00`** — so an even-length name
-fills its slot exactly and an odd-length name carries one trailing NUL. Two
-consecutive names therefore have no separator when the first is even-length.
-This is why a NUL-scan over the plain text miscounts: it sees padding, not
-terminators.
+Then four name slots, each exactly `2 * lenN` bytes. A slot holds a
+single-byte name (CP1252/Latin-1, see [Writer rules for
+names](#writer-rules-for-names-m39)) padded to an **even byte length with
+`0x00`** — so an even-length name fills its slot exactly and an odd-length
+name carries one trailing NUL. Two consecutive names therefore have no
+separator when the first is even-length. This is why a NUL-scan over the plain
+text miscounts: it sees padding, not terminators.
 
 The remainder (`size_words*2 - 16 - sum(2*lenN)`, 0–22 bytes, always even) is
 a footer this repo has **not** decoded; `tools/lctbl_records.py` keeps it
@@ -272,6 +278,40 @@ The old `names` count (328,628 "NUL-terminated strings") is a string-scan
 artifact: it counts text runs, not records. The canonical counts are 247,089
 records and 456,501 non-empty name slots (C-1832, C-1839).
 
+### Writer rules for names (M3.9)
+
+The firmware side is decoded in
+`EXP-2026-11-06-M3.9-name-collation` (build A); these are the rules a writer
+must follow for `LCTBL001` names and for the `ADDRE`/`POINT` name strings.
+
+1. **Encoding.** One byte per character in the system ANSI code page
+   (CP_ACP). The firmware converts with `MultiByteToWideChar(CodePage = 0, …)`
+   (VA `0x02ed41fc` in `NaviSearchCC.dll`). The shipped text is ASCII +
+   Latin-1/CP1252. There is no ISO-8859-2 path: `STDDLL.dll` classifies
+   ISO-8859-1/5/6/9 only, and the data contains no Latin-2 letter codes.
+2. **Characters outside Latin-1.** Transliterate by dropping the diacritic,
+   exactly as the vendor data does (`Cesk`, `stredn`, `Zizkov`, `Plzen`;
+   Polish admin names `KEPNO`, `SLOWINO`, `DABROWA`). Do not emit ISO-8859-2
+   bytes and do not substitute digraphs: a Latin-2 byte would be read as a
+   CP1252 symbol or another accented letter.
+3. **Length.** On the card, a name is a padded slot of `2 * lenN` bytes
+   (max observed: field 1 10 B, field 2 86 B, field 3 100 B, field 4 64 B;
+   see "Record layout"). At runtime the firmware copies names into
+   fixed-capacity string objects (`STD_StringImp_initPrm` `0x03465760`,
+   `input` `0x03465888`, which truncates): road formal name **32** chars,
+   road common name **128** (`OBJ_RoadName_initPrm` `0x0349fb60`); place
+   country/state **64**, county/city **128** (`OBJ_PntName_initPrm`
+   `0x0349c4d4`). Keep names inside both bounds; do not rely on truncation.
+4. **Order.** The on-card name streams are **unordered** with respect to the
+   firmware collation (50.4 % of adjacent pairs ascend under the firmware's
+   own key; 1 of 513 streams is sorted), so a writer must not sort or
+   binary-search them. Sorting happens at runtime.
+5. **Collation.** Where the firmware sorts (registered points, phone book), it
+   uses its own table (`OBJDLL!OBJ_Sort_cmpStr` `0x0349d3b4`, weights at
+   `0x03485400`/`0x03485500`): case-insensitive, accent-folding, letters
+   (`0x47`–`0x60`) < digits (`0x64`–`0x6d`) < punctuation, ties by length;
+   the binary search uses `STD_StringImp_comparePriority` (`0x03467d84`).
+   Nothing in the file format depends on reproducing that order.
 
 ## `RDSTM001.DAT` — uncompressed packed binary
 
