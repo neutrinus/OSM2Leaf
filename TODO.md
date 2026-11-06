@@ -564,7 +564,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1750–C-1759
 
 - [ ] **M1.9 — Cross-image import names (A → B's `coredll.dll`)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.9-cross-image-imports · Critical: yes
   - Depends: —
   - Goal: every import of every A module named, not just numbered.
   - Input: `cerom.py --image-start 0x3e00200 IMG256 exports coredll.dll`
