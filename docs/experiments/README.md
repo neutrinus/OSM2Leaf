@@ -169,6 +169,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M4.4](EXP-2026-11-06-M4.4-section4-road-edit.md) | Section 4 verbatim under a road edit (M4.4) | done |
 | [EXP-2026-11-06-M4.8](EXP-2026-11-06-M4.8-coord.md) | Coordinate transform tool `tools/coord.py` (M4.8) | done (tool); real-POI check open |
 | [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year/market image inventory (M4.14) | done |
+| [EXP-2026-11-06-M4.18](EXP-2026-11-06-M4.18-lctbl-framing.md) | `LCTBL001` record framing and per-field lengths (M4.18) | done |
 | [EXP-2026-11-06-M9.4](EXP-2026-11-06-M9.4-engine.md) | SH-4 engine interface and back ends (M9.4) | done (PySh4; Ghidra/QEMU SKIP) |
 | [EXP-2026-11-06-M9.7](EXP-2026-11-06-M9.7-corpus.md) | Synthetic L3 corpus, 108 entries (M9.7) | done |
 | [EXP-2026-11-06-M5.1](EXP-2026-11-06-M5.1-osm-ingest.md) | OSM XML/PBF ingest to IMF v1 (M5.1) | done (synthetic; real extract is M5.1b) |

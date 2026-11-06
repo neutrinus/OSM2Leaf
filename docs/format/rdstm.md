@@ -108,25 +108,95 @@ index.
 
 - 517 independent zlib streams, all decompress cleanly to EOF.
 - Total plain size 11,481,060 bytes; compressed 4,234,414 bytes.
-- 328,628 NUL-terminated **Latin-2** strings (231,033 unique); 11,827 match a
-  road-number pattern (`N18`, `A21 - E34`, `B3232`).
+- The plain text is **not** a flat string table. It is 247,089 fixed-format
+  **records** grouped into pages: each stream holds at most 500 records
+  (487 of the 517 streams are full).
 - Content is hierarchical: `Evropa` → `střední Evropa` → `Česká Republika` →
   `Praha` → `Hl. m. Praha` → `kraj` → `okres` → municipality → street.
 - Last streams are Norwegian and French.
-- Record framing is partly decoded: 16-byte metadata block + `u16` class/level
-  + NUL-terminated strings. The `u16` behaves like a hierarchy level
-  (100 continent, 200 sub-continent, 300 country, 700 sub-region, 800 admin
-  region, 900 district, 1000 municipality, 10500 street/POI). The meaning of
-  metadata bytes `+0x01`, `+0x03`, `+0x07` and the 2-byte string prefix is
-  **UNKNOWN**.
+
+#### Record layout (verified)
+
+Every record is a 16-byte header, four fixed-size name slots and an opaque
+binary footer. All header integers are big-endian.
+
+```
++0   u16  size_words   record size in bytes = 2 * size_words
++2   u8   marker       always 0x01
++3   u8   len1         name slot 1 size in words (0 = slot absent)
++4   u8   len2
++5   u8   len3
++6   u8   len4
++7   7 B  attributes   roles UNKNOWN (kept verbatim)
++14  u16  class        hierarchy level / record kind (semantics HYPOTHESIS)
+```
+
+Then four name slots, each exactly `2 * lenN` bytes. A slot holds a Latin-2
+name padded to an **even byte length with `0x00`** — so an even-length name
+fills its slot exactly and an odd-length name carries one trailing NUL. Two
+consecutive names therefore have no separator when the first is even-length.
+This is why a NUL-scan over the plain text miscounts: it sees padding, not
+terminators.
+
+The remainder (`size_words*2 - 16 - sum(2*lenN)`, 0–22 bytes, always even) is
+a footer this repo has **not** decoded; `tools/lctbl_records.py` keeps it
+opaque. `0x00` is common as its first byte.
+
+#### Per-field counts and lengths (EU 2011)
+
+| Field | Non-empty | Empty | Min | Median | Max | Slot max | Distinct |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 36,461 | 210,628 | 1 | 4 | 10 | 10 | 17,028 |
+| 2 | 66,189 | 180,900 | 1 | 14 | 85 | 86 | 16,566 |
+| 3 | 243,907 | 3,182 | 1 | 11 | 99 | 100 | 142,139 |
+| 4 | 109,944 | 137,145 | 1 | 5 | 64 | 64 | 47,458 |
+
+`Slot max` is the largest padded slot; `Max` is the longest actual name. The
+record size ranges 18–170 bytes (mean 46.5).
+
+Field roles are partly observed:
+
+- **Field 3** is the record's primary name and is present in 98.7 % of records:
+  the hierarchy names, municipalities and street names.
+- **Field 1** holds road numbers (`D5`, `I/34`, `II/243`); 54 % match a
+  road-number pattern. It is non-empty in 36,461 records across 299 of the
+  517 streams; stream 1, a route list, is the clearest example.
+- **Field 2** and **field 4** hold aliases/second names; fields 2 and 4 carry
+  a road number in 1.5 % / 31 % of their values. Mapping them to the catalog
+  columns (`road name`/`first name`/`second name`) is still a hypothesis.
+
+The four slot-presence combinations in order of frequency:
+`0010` 90,425; `0011` 60,598; `0110` 45,083; `1011` 28,268; `0111` 11,616;
+`1111` 7,887 (1 = present).
+
+#### Cross-year control
+
+The same layout tiles the 2014 and 2016 samples exactly:
+
+| Sample | Streams | Plain bytes | Records | Full 500-record pages | Max record |
+| --- | --- | --- | --- | --- | --- |
+| EU 2011 | 517 | 11,481,060 | 247,089 | 487 | 170 |
+| 2014 | 665 | 16,233,466 | 329,296 | 651 | 228 |
+| 2016 | 693 | 16,792,922 | 342,891 | 679 | 228 |
+
+Field maxima grow to 10/85/118/118 in 2014/2016 (longer street names), but the
+framing, marker, half-length encoding and 500-record page cap are unchanged.
 
 Reproduce:
 
 ```bash
-python3 tools/lctbl_names.py verify LCTBL001.DAT     # streams 517, plain 11481060, records 328628
+python3 tools/lctbl_names.py verify LCTBL001.DAT     # streams 517, plain 11481060, strings 328628
 python3 tools/lctbl_names.py catalog LCTBL001.DAT
-python3 tools/lctbl_names.py names LCTBL001.DAT --sample 10
+python3 tools/lctbl_records.py stats LCTBL001.DAT    # records 247089, per-field table
+python3 tools/lctbl_records.py dump LCTBL001.DAT --stream 2 --limit 10
+python3 tools/lctbl_records.py roundtrip LCTBL001.DAT --all   # every stream OK
+python3 tools/lctbl_records.py verify LCTBL001.DAT   # totals + all-stream round-trip
 ```
+
+The old `names` count (328,628 "NUL-terminated strings") is a string-scan
+artifact: it counts text runs, not records. The canonical counts are 247,089
+records and 456,501 non-empty name slots (C-1832, C-1839).
+
 
 ## `RDSTM001.DAT` — uncompressed packed binary
 

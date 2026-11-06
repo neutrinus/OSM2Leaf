@@ -1066,8 +1066,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     there is no link.
   - Claims: C-1820–C-1829
 
-- [ ] **M4.18 — `LCTBL001` record framing**
-  - Status: in progress · Owner: task/m4.18-lctbl-framing · Critical: no
+- [x] **M4.18 — `LCTBL001` record framing**
+  - Status: done · Owner: task/m4.18-lctbl-framing · Critical: no
   - Depends: —
   - Goal: per-field name counts and lengths (M4.13 could only count per
     stream).
@@ -1077,6 +1077,11 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     with method), a parser round-trips one stream byte-identically, and the
     EXP gives counts and max length per field.
   - Claims: C-1830–C-1839
+  - Result: EXP-2026-11-06-M4.18-lctbl-framing — 16-byte header + four
+    even-padded name slots + opaque footer; 247,089 records, per-field
+    non-empty/max 36,461/10, 66,189/85, 243,907/99, 109,944/64;
+    `tools/lctbl_records.py` round-trips all 517 streams byte-identically and
+    the 2014/2016 controls use the same layout.
 
 ---
 
