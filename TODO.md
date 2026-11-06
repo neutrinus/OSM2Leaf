@@ -727,7 +727,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-750–C-759
 
 - [ ] **M2.5 — Source of `DIFFERENT MAP CODE`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m2.5-different-map-code · Critical: yes
   - Depends: M2.2 (M2.9 helps)
   - Goal: which input decides the message: line 1, the `0x06000000` copy,
     or a NAND/system record.
