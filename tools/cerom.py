@@ -3115,6 +3115,128 @@ def thunks_command(args, data):
     return 0
 
 
+def scan_all_segments(data, offset=0):
+    """Return every valid CE segment in ``data`` (copies included).
+
+    Unlike :func:`find_segments`, duplicates are NOT collapsed: the result
+    mirrors the legacy ``tools/ce_rom_parse.py`` whole-image scan, which lists
+    build A, its copy, build B, its copy and build C as five segments.
+    """
+    candidates = []
+    found = 0
+    while True:
+        found = data.find(b"ECEC", found)
+        if found < 0:
+            break
+        if found >= 0x40 and (found - 0x40) not in candidates and (found - 0x40) >= offset:
+            candidates.append(found - 0x40)
+        found += 1
+
+    segments = []
+    for start in candidates:
+        try:
+            segment = CERom(data, start)
+        except (ValueError, struct.error):
+            continue
+        header = segment.hdr
+        if not 0 < header["nummods"] <= SEGMENT_MAX_MODULES:
+            continue
+        if not header["physfirst"] <= segment.ptoc < header["physlast"]:
+            continue
+        toc_end = (segment.hdr_off + ROMHDR_SIZE + TOC_SIZE * header["nummods"]
+                   + FILES_SIZE * header["numfiles"])
+        if toc_end > len(data):
+            continue
+        segments.append(segment)
+    return segments
+
+
+def scan_report(data, image_name, image_size, image_sha256=None, offset=0):
+    """Build a JSON report in the legacy ``ce_rom_parse.py`` shape."""
+    segments_out = []
+    for seg in scan_all_segments(data, offset=offset):
+        modules = []
+        for m in seg.modules():
+            modules.append({
+                "index": m["index"],
+                "kind": "module",
+                "dwFileAttributes": m["attrib"],
+                "ftTime": m["ft"],
+                "nFileSize": m["size"],
+                "lpszFileName_ptr": m["e32"],
+                "name": m["name"],
+                "ulE32Offset": m["e32"],
+                "ulO32Offset": m["o32"],
+                "ulLoadOffset": m["load"],
+            })
+        files = []
+        for f in seg.files():
+            files.append({
+                "index": f["index"],
+                "kind": "file",
+                "dwFileAttributes": f["attrib"],
+                "ftTime": f["ft"],
+                "nFileSize": f["rsize"],
+                "rsize": f["rsize"],
+                "csize": f["csize"],
+                "name": f["name"],
+                "ulLoadOffset": f["load"],
+            })
+        segments_out.append({
+            "segment_base": seg.start,
+            "ecec_offset": seg.start + 0x40,
+            "pTOC": seg.ptoc,
+            "size": seg.toc_off,
+            "romhdr_offset": seg.hdr_off,
+            "phys_base": seg.hdr["physfirst"],
+            "romhdr": dict(seg.hdr),
+            "modules": modules,
+            "files": files,
+        })
+    return {
+        "image": os.path.abspath(image_name),
+        "image_size": image_size,
+        "image_sha256": image_sha256,
+        "segments": segments_out,
+    }
+
+
+def print_scan_text(report, segments):
+    print("image: %s" % report["image"])
+    print("sha256: %s" % report["image_sha256"])
+    print("segments: %d" % len(segments))
+    for seg in segments:
+        rh = seg.hdr
+        print("--- segment base 0x%x (ECEC 0x%x) ---" % (seg.start, seg.start + 0x40))
+        print("pTOC=0x%x size=0x%x romhdr=0x%x phys_base=0x%x" % (seg.ptoc, seg.toc_off, seg.hdr_off, rh["physfirst"]))
+        print("nummods=%d numfiles=%d cpu=0x%04x physfirst=0x%x physlast=0x%x ulCopyEntries=%d pExtensions=0x%x"
+              % (rh["nummods"], rh["numfiles"], rh["usCPUType"], rh["physfirst"], rh["physlast"],
+                 rh["ulCopyEntries"], rh["pExtensions"]))
+        mod_names = [m["name"] for m in seg.modules() if m["name"]]
+        print("modules (%d): %s" % (len(mod_names), " ".join(mod_names)))
+        file_names = [f["name"] for f in seg.files() if f["name"]]
+        if file_names:
+            print("files (%d): %s" % (len(file_names), " ".join(file_names)))
+
+
+def scan_command(args, data):
+    offset = getattr(args, "offset", 0) or 0
+    segments = scan_all_segments(data, offset=offset)
+    image_sha = hashlib.sha256(data).hexdigest()
+    report = scan_report(data, args.image, len(data), image_sha, offset=offset)
+    if getattr(args, "out", None):
+        import os as _os
+        _os.makedirs(_os.path.dirname(_os.path.abspath(args.out)), exist_ok=True)
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+    if getattr(args, "json", False):
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0
+    print_scan_text(report, segments)
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("image", nargs="?", help="raw image (or at least its first ~32 MiB)")
@@ -3124,6 +3246,12 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("romhdr")
     sub.add_parser("modules")
+    p = sub.add_parser("scan",
+                       help="scan the whole image for CE ROM (ECEC) segments")
+    p.add_argument("--offset", type=lambda x: int(x, 0), default=0,
+                   help="only segments at or after this file offset (default 0)")
+    p.add_argument("--out", help="write a JSON report to this path")
+    p.add_argument("--json", action="store_true", help="print the JSON report")
     p = sub.add_parser("files",
                        help="list FILESentry records; optionally extract/decode")
     p.add_argument("--extract", metavar="DIR",
@@ -3183,15 +3311,21 @@ def main(argv=None):
     if a.image is None:
         ap.error("the following arguments are required: image")
     if a.cmd is None:
-        ap.error("a subcommand is required (romhdr, modules, files, sections, exports, "
+        ap.error("a subcommand is required (scan, romhdr, modules, files, sections, exports, "
                  "va2file, file2va, extract, memmap, decompress, comphdr, thunks)")
 
     try:
         with open(a.image, "rb") as fh:
-            data = fh.read(128 << 20)
+            if a.cmd == "scan":
+                data = fh.read()
+            else:
+                data = fh.read(128 << 20)
     except OSError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 2
+
+    if a.cmd == "scan":
+        return scan_command(a, data)
 
     if a.cmd == "decompress":
         return decompress_command(a, data)
