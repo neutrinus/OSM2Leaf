@@ -221,6 +221,17 @@ dumper, `0xc49f98` virtual dispatcher, `0xc438a4` stats formatter. There is
 `.ind` reader likely uses `chunk_size` as a buffer size rather than a
 comparison.
 
+**M3.2b (EXP-2026-11-06, C-2060–C-2066, partial):** zlib 1.1.3 is statically
+linked in `Navi.exe` uncompressed sec0 (A). Inflate API:
+`inflateInit2_ 0x542256`, `inflate 0x54233c` (tramp `0x54232c`),
+`inflateEnd 0x54220c`, `inflateReset 0x5421c4`, `inflate_blocks 0x54332a`.
+Call chain: chunked decompressor `fn 0x41c7e8` (20-byte chunk table at
+`@(28,ctx)`, direct compressed pointer, no seek/no `78 9c` scan, no `0x10000`
+compare in this layer) → one-shot wrapper `0x542148` → inflate. `0x41c7e8` has
+no callers in any uncompressed A section (527 searched); Navi.exe sec1/sec2 are
+compressed (M1.3 0/245, M1.2f open), so the `.ind` `chunk_offset[]` consumer /
+M3.2a,b remain open. Dynamic breakpoints: `0x542148`, `0x41c7e8`, `0x542256`.
+
 **Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
 `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to
 `0x1d0f888…894`. But:

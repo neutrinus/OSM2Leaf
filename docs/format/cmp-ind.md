@@ -169,3 +169,32 @@ This is the easiest writable part of the format: the compressor is plain
 zlib, the index is simple, and regenerated files can be validated offline
 before touching a card. Address/POI data is therefore a good first target for
 a round-trip writer.
+
+## Firmware reader (build A, Navi.exe — partial, M3.2b)
+
+> Evidence: `EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate.md`, C-2060–C-2066.
+> Status: **inflate + chunk decompression engine VERIFIED; `.ind` chunk_offset[]
+> consumer / M3.2a,b NOT YET LOCATED** (likely in Navi.exe compressed sec1/sec2).
+
+`Navi.exe` (A, `--image-start 0x200200`, sec0 uncompressed) statically links
+zlib 1.1.3 and provides:
+
+| Function | VA | Role |
+| --- | --- | --- |
+| `inflateInit2_` | `0x542256` | version `'1'`/stream_size `56` check; init + reset |
+| `inflate` | `0x54233c` (tramp `0x54232c`) | outer z_stream state machine |
+| `inflateEnd` | `0x54220c` | free blocks/state |
+| one-shot wrapper | `0x542148` | `inflateInit2_` + `inflate`(Z_FINISH=4) + `inflateEnd` |
+| chunked decompressor | `fn 0x41c7e8` | random-access: 20-byte-stride chunk table at `@(28,ctx)`, reads `+8` uncomp offset / `+12` uncomp extent, passes `+16`/`+4` to wrapper (`0x542148`), `memcpy`s slice via `0x003d146c` |
+
+**M3.2 (partial, `fn 0x41c7e8` layer only):** (a) `+12` is used as an
+uncompressed extent for range math — **no compare against `0x10000` observed** in
+this function. (b) compressed data is consumed by direct pointer — **no seek,
+no `78 9c` scan** in this function. This does *not* answer whether the `.ind`
+*parser* validates `chunk_size==0x10000` or seeks by `chunk_offset[]` vs scans:
+`0x41c7e8` has no callers in uncompressed A o32 sections (527 searched) and
+Navi.exe sec1/sec2 are compressed/undecoded (M1.3 0/245; M1.2f/M8.E1). The
+`.ind` `chunk_offset[]` consumer remains open.
+
+Dynamic fallback (when available): break on `0x542148` / `0x41c7e8` / `0x542256`
+while opening `REFER001/*.cmp`.

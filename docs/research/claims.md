@@ -472,6 +472,21 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-838 | reserved. | UNKNOWN | — | — |
 | C-839 | reserved. | UNKNOWN | — | — |
 
+## M3.2b — `.cmp` chunk reader via `inflate` (C-2060–C-2069)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2060 | Build A statically links zlib (1.1.3/1.1.4) in **uncompressed** sec0 of `auirtdll.dll`, `IconDrawCC.dll`, `XGLDLL.dll`, `Navi.exe`, `TelemaImageDrawCC.dll`, `Telema.exe` (14 markers mapped via `file = dataptr - va_base + image_start`; lbase prefix `3,4,5,6,7,8,9,10,11,13,15,17` confirmed; inflate banners present). No `inflate*` export/symbol string in IMG256. | VERIFIED | H | EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate |
+| C-2061 | Navi.exe (A, realaddr VA, zlib 1.1.3): `inflateInit2_ 0x542256` (ver check `0x31`/stream_size `56`), `inflate 0x54233c` (tramp `0x54232c`), `inflateEnd 0x54220c`, `inflateReset 0x5421c4`, `inflate_blocks 0x54332a`. | VERIFIED | H | EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate |
+| C-2062 | Navi.exe one-shot wrapper `0x542148`: `inflateInit2_` (pool `0x5421b8→0x54232c`) + `inflate` Z_FINISH=4 (pool `0x5421bc→0x54233c`) + `inflateEnd` (pool `0x5421c0→0x54220c`), 56-byte stack `z_stream`, updates `next_in` at `*r5`. | VERIFIED | H | EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate |
+| C-2063 | Navi.exe `fn 0x41c7e8` (uncomp sec0) is a chunked random-access decompressor: 20-byte-stride table at `@(28,ctx)`, reads `+8` uncomp offset, `+12` uncomp extent, passes `+16`/`+4` to inflate wrapper (pool `0x41c8bc→0x542148`), then `memcpy` `0x003d146c` (pool `0x41c8c0`). No seek, no `78 9c` scan, no `0x10000` chunk-size compare in this function. | VERIFIED | H | EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate |
+| C-2064 | No literal/bsr caller of `0x41c7e8` found in any uncompressed A o32 section (527 searched). Navi.exe sec1 (`psize 0x457c`, comp) and sec2 (`psize 0x8884`, comp) undecodable now (M1.3 0/245); the `.ind` `chunk_offset[]` consumer/table builder is not locatable in uncompressed code. Positive controls: `0x542148` ref at `0x41c8bc`; auirtdll error-string xrefs resolve. | OBSERVED (scoped negative) | M | EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate |
+| C-2065 | auirtdll.dll (A) zlib 1.1.4 in uncomp sec0: `inflateInit2_ 0x38033c2`, `inflate 0x38034b4` (tramp `0x38034a8`), `inflateEnd 0x3803378`, `inflateReset 0x3803330`; "incorrect header check" `0x37bad24` loaded at `0x3803582`. | VERIFIED | H | EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate |
+| C-2066 | The `.ind`/`.cmp` file-layer reader consuming `chunk_count`/`chunk_size`/`chunk_offset[]` and feeding `0x41c7e8` likely lives in Navi.exe compressed sec1/sec2 or is runtime-dispatched; M3.2a/b open until decoded (M1.2f/M8.E1) or traced dynamically (break on `0x542148`/`0x41c7e8`/`0x542256`). | HYPOTHESIS | M | EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate |
+| C-2067 | reserved. | UNKNOWN | — | — |
+| C-2068 | reserved. | UNKNOWN | — | — |
+| C-2069 | reserved. | UNKNOWN | — | — |
+
 ## MapUpdate.exe / updater (image B, M2.6)
 
 | ID | Claim | Status | Confidence | Evidence |

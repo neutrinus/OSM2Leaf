@@ -1166,7 +1166,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M3.10-drstr-cmplst-fns (C-1860–C-1869). `0x0041ba90` (CMP.LST) does only `fopen`/`fclose` — no content read/compare (existence check). `0x00419684`→`sub_00419350` reads/parses DRSTR001 (heap `*0x009cfcdc` ≤`0x77220`, stack 40B) with size/read checks at `0x419388,0x4193da,0x4193e4,0x419462-0x419468,0x419496-0x4194a6` (`_modlu`/`>=200` caveat noted) but **no 0x2f root / 40-node / 324-entry compare found** (C-1864, strengthens C-859); `sub_004191d0` bounds `entry_count+1 < 15000` at `0x41920a`. All in `Navi.exe`, coredll ordinals named. `drstr.md` updated.
 
 - [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
-  - Status: in progress · Owner: task/m3.2b-cmp-chunk-reader-inflate · Critical: yes
+  - Status: blocked · Owner: task/m3.2b-cmp-chunk-reader-inflate · Critical: yes
+  - Blocker: inflate + chunk decompression engine found (Navi.exe A: `inflateInit2_ 0x542256`, `inflate 0x54233c`, `inflateEnd 0x54220c`, wrapper `0x542148`, chunked decompressor `fn 0x41c7e8`, C-2060–C-2063/2065), but the `.ind` `chunk_offset[]` consumer / table builder has no callers in any uncompressed A o32 section (527 searched, positive controls) and Navi.exe sec1/sec2 are compressed (M1.3 0/245) — M3.2a,b unanswered. Needs M1.2f/M8.E1 decode of sec1/sec2 or dynamic break on `0x542148`/`0x41c7e8`.
   - Depends: —
   - Goal: M3.1/M3.2 show the `MAL_DataVol_*` and `.IND` string leads miss the
     reader. Every `.cmp` chunk is zlib, so the reader must call `inflate`.
@@ -1179,6 +1180,11 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     are recorded, their callers are listed, and the caller that loops over
     `chunk_offset[]` is named (then answer M3.2's two questions); or the EXP
     shows, with a positive control, that zlib sits in a compressed section.
+  - Result: EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate.md (partial). zlib
+    found in uncomp sec0 of 6 A modules (not compressed); Navi.exe inflate API +
+    wrapper `0x542148` + chunked decompressor `fn 0x41c7e8` recorded (no seek/no
+    `78 9c` scan/no `0x10000` compare in that layer). `chunk_offset[]` consumer
+    not in uncompressed code (positive controls); likely Navi.exe comp sec1/sec2.
   - Claims: C-2060–C-2069
 
 - [ ] **M3.11 — The `POINT` record reader in `Navi.exe`**
