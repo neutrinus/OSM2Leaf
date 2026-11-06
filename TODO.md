@@ -1764,7 +1764,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1810–C-1819
 
 - [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.16b-rdstm-field-directory · Critical: yes
   - Depends: M4.15
   - Goal: reproduce the per-record length/offset directory walk from bytes to
     recover true TMC field boundaries, then re-run `tools/rdstm_place.py` on
