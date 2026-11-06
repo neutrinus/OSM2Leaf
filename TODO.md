@@ -834,7 +834,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-880–C-889
 
 - [ ] **M3.8 — Does the firmware read `MMAIN001.DAT`?**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.8-mmain-read · Critical: no
   - Depends: — (M1.9 helps)
   - Goal: decide whether M5.6 must regenerate `MMAIN001.DAT` (a FAT
     root-directory log, EXP-2026-11-05-M4.5) or can copy it.
