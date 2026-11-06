@@ -124,51 +124,82 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (product review 2026-11-06, second pass)
+## Priorities (product review 2026-11-06, third pass)
 
-**Where we are against the goal.** Knowledge of the card *format* is
-broad: most files decode and round-trip, one-tile edits pass L2, and the
-coordinate tool exists. What is still missing is the other half of the goal,
-the *unit's acceptance*: we cannot yet say why the firmware accepts or
-rejects a card, and no tool builds a card image. Of the 11 tasks in draft
-PRs right now, 9 are non-critical format/reader widening; **none of the
-critical acceptance or compiler tasks has an owner.** Breadth stays the
-strategy, but agents should take the list below first.
+**Where we are against the goal.** The two hard gates are now largely
+answered. **Card identity is solved:** the SD lock is a 16-byte CMD42
+password = 4 unit bytes + the 12-char ASCII tail, verified in `SDHC.dll`
+(.text uncompressed), independent locking is feasible, and there is a tool to
+set it (M2.13, M2.13b, M6.11). **The firmware is readable:** `cerom.py`
+resolves 697/846 `Navi.exe` imports to names (M1.9), so every later firmware
+read is cheaper. **The compiler has a front end:** `osm_ingest.py` turns a
+`.osm`/`.pbf` into IMF (M5.1), and `coord.py` converts coordinates (M4.8).
+Most on-card formats decode and round-trip.
+
+What is still open splits into three fronts, none of them owned:
+
+1. **Acceptance logic** — *why* a card is accepted, not just mounted:
+   `HDD_INFO` parse and compare (M2.1→M2.3, M2.2→M2.5) and the `HDD_CHK.ATT`
+   attestation (M2.12). Until these are read, a generated card might mount and
+   still be rejected.
+2. **The compiler spine** — IMF → tiles → card tree → image:
+   M5.2 (mesh splitter, **now ready**: its deps M4.8 and M5.1 are done),
+   M5.4 (tile writer), M5.6 (rebuild `DRSTR`/`MMAIN`/`.ind`), M5.10 (card
+   image). This is the straight line to a card we can test.
+3. **The L3 runner** — run the real firmware checks on our data: M9.2
+   (Ghidra), M9.3 (stubs), M9.5 (runner). M9.4 (engine) and M9.7 (corpus)
+   are done; M1.6c (thunks on the real image) feeds M9.2.
 
 **Take these first (critical, ready, unowned), in this order:**
 
-1. **M1.9** cross-image import names: one task that turns every `#1145` into
-   `_wfopen` for all later firmware reading (M2.x, M3.x). Cheapest
-   multiplier on the board.
-2. **M2.13** SD unlock password and **M2.12** `HDD_CHK.ATT` attestation:
-   the two card-identity gates. Without the password no clone or generated
-   card can be read by the unit, whatever its content.
-3. **M2.1 → M2.3**, then **M2.2 → M2.5**: the `HDD_INFO` parser and the
-   map-code comparator (why a card is accepted).
-4. **M5.10** card image builder (new): there is no tool that turns a card
-   tree into a FAT32 image. M6.5 (first device test) cannot start without it,
-   so it is now on the critical path.
-5. **M5.1** OSM ingest (reopened: marked done without a tool) and
-   **M4.15 → M4.16** (`RDSTM` framing and placement): the compiler front.
-6. **M1.6c** thunks fix, then **M9.3 → M9.5**: run real firmware functions
-   (M9.4 engine and M9.7 corpus are done).
-7. **M1.2b** (XPRESS LZ77) / **M1.2d** / **M1.2c**: compression, which gates
-   M1.3/M1.4, the registry (M2.7, M8.E2) and the compressed parts of
-   `TestMode.exe` and `MapUpdate.exe`.
+1. **M5.2 → M5.4 → M5.6 → M5.10**: the compiler spine. M5.2 can start now;
+   each step feeds the next and ends at a card image. This is the shortest
+   path to the Phase-2 milestone below.
+2. **M2.1 → M2.3** and **M2.2 → M2.5**, then **M2.12**: acceptance. These
+   decide whether the card from front 1 will be accepted, so they run in
+   parallel with it.
+3. **M9.2 + M9.3 → M9.5** (with **M1.6c** first): lets us run M2's checks
+   and M3.3's `.ind` reader against real inputs instead of reasoning.
+4. **M4.8b** (confirm `coord.py` on 10 real POIs — M5.2 depends on it) and
+   **M4.15 → M4.16** (`RDSTM` framing and placement → feeds M5.3 road classes).
+5. **M1.2b / M1.2d / M1.2c**: compression, which still gates M1.3/M1.4 (full
+   module data, the registry hives for M2.7/M8.E2) and the compressed parts of
+   `MapUpdate.exe`/`TestMode.exe`.
+6. **M3.1 → M3.2 → M3.3**: the `.ind` reader contract.
 
-**Next milestone (definition of done for this phase):** an offline "S1
-no-op card": `IMG256`-checked firmware facts say which files and identity
-checks matter (M2.3, M2.12, M2.13), and `tools/mkcard.py` (M5.10) rebuilds
-the factory card tree into an image that L1 + L2 + `realcheck.py` accept.
-That is exactly what M6.5 needs on the bench, and it is reachable without
-hardware.
+**Phase-2 milestone (definition of done):** *one generated Dolnośląskie tile
+on a card image the unit would accept.* Concretely: `osm_ingest` (M5.1) →
+mesh split (M5.2) → one tile written (M5.4) → tree rebuilt with matching
+`DRSTR`/`MMAIN`/`.ind` (M5.6) → `mkcard.py` image (M5.10) that passes L1 + L2
++ `realcheck.py`, **and** the acceptance facts (M2.3, M2.5, M2.12) say nothing
+in that card trips a reject. The new integration task **M5.11** ties this
+together. The earlier "S1 no-op card" is the first rung of M5.10 (rebuild the
+factory tree unchanged, byte-identical) before any generated content.
 
-**Process notes.** Rule 11 again: M4.8 and M5.1 were marked done with their
-done-when unmet (M4.8 has no real-POI check, M5.1 has no `osm_ingest.py`);
-both are corrected below. Draft PR #25 (`[M3.5]`) is left over after the
-merge and was closed.
+**What changed since the second pass (verified on `IMG256` where checkable):**
 
-## Review 2026-11-06 (what changed since PR #11)
+- **M2.13b closed the card-identity gate.** The CMD42 password is 16 bytes
+  (4 unit bytes as hex + the 12-char ASCII tail); `SDHC.dll` `.text` is *uncompressed*,
+  so the IOCTL→CMD42 flag map was read directly. This **retracts my earlier
+  C-1884** ("SDHC code compressed") — a good self-correction by that task.
+- **M1.9** resolves cross-image imports (697/846 `Navi.exe` slots →
+  `COREDLL!name`; 149 unresolved because their exporters are outside segment
+  B). Verified: `COREDLL!_wfopen` resolves.
+- **M5.1** `osm_ingest.py` (XML + PBF → IMF) passes its self-test; one real
+  defect (PBF string-table index origin) was found and fixed.
+- **M6.11** adds an RP2040 SD-lock tool (`tools/sdlock-pico/`, 580 host-test
+  checks pass); the PIN is taken at run time, never committed (the committed
+  `PASS="Changeme"` is an inert placeholder, refused at load — not a leak).
+- **M2.7, M2.11, M3.7, M3.8, M3.9, M4.7, M4.9, M4.10, M4.11, M4.18** landed
+  (market decision, `HDD_INFO` read trigger, router fields, `MMAIN` read,
+  name collation, POI rename/resize, `ADDRE` grammar, POI icons, coarse
+  levels, `LCTBL` framing). M3.9 replaces M4.13's ISO-8859-2 writer rule with
+  CP1252 + transliteration (feeds the M5.7 name encoder).
+
+**Process note.** M4.8 is still `done` with its 10-POI check unmet; that check
+is M4.8b (open) and M5.2 should not trust the local scale until it passes.
+
+## Review 2026-11-06 (what changed since PR #11)## Review 2026-11-06 (what changed since PR #11)
 
 Merged since the last board update: M1.2a, M1.2b (tool), M1.6b (tool), M1.8,
 M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
@@ -236,23 +267,23 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
 | H | Housekeeping: ledger, docs, tool overlap | H8, H9 |
-| M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.9, M1.6c, M1.2b**, M1.2c, M1.2d |
-| M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12, M2.13b** (M2.7 in PR; M2.13, M2.11 done) |
+| M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.6c, M1.2b**, M1.2c, M1.2d (M1.9 done) |
+| M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12** (M2.7, M2.11, M2.13, M2.13b done) |
 | M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 done) |
-| M4 | Data formats (no firmware needed) | **M4.15**, M4.3, M4.8b, M4.12, M4.19 (M4.9, M4.10, M4.11, M4.18 done) |
-| M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.1, M5.10**, M5.9; M5.1b after M5.1 (non-Claude runner) |
+| M4 | Data formats (no firmware needed) | **M4.8b, M4.15**, M4.3, M4.12, M4.19 (M4.7, M4.9, M4.10, M4.11, M4.18 done) |
+| M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.2, M5.10, M5.11**, M5.9 (M5.1 done); M5.1b non-Claude runner |
 | M6 | Hardware and safety (planning now, tests later) | M6.9 (non-Claude runner); tests need hardware |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
-| M9 | L3 toolkit (run firmware functions on our data) | **M9.3**, M9.1, M9.8 after M9.5 (M9.4, M9.7 done) |
+| M9 | L3 toolkit (run firmware functions on our data) | **M9.2, M9.3**, M9.1, M9.5, M9.8 (M9.4, M9.7 done) |
 
-**Critical path to a first accepted card:** M2.1 → M2.3 + M2.2 → M2.5 (why
-a card is accepted; M1.8 done, ordinals named) · M2.12 (attestation) + M2.13
-(SD unlock password) — the two card-identity checks M2.6/M2.8 surfaced ·
-M3.1 → M3.2 (what is read) ·
-M1.2b/M1.2c/M1.2d → M1.3 (initialised data for L3) · M1.6c/M1.9 → M9.2 →
-M9.5 → M2.4 / M3.3 (checks against the real code) · M4.15 → M4.16 →
-M4.2/M4.17 → M5.3 → M5.4 → M5.6 · M5.1 → M5.1b (non-Claude runner) · M5.10
-(card image builder) → hardware M6.5–M6.7. Every other task
+**Critical path to a first accepted card (updated):** card identity is
+done (M2.13/M2.13b/M6.11). Two live strands now meet at M5.11:
+· **acceptance:** M2.1 → M2.3 + M2.2 → M2.5 + M2.12 (why a card is accepted)
+· **compiler spine:** M5.1 (done) → M5.2 → M5.4 → M5.6 → M5.10 → **M5.11**
+(generated tile on an accepted card image) → hardware M6.5–M6.7.
+Supporting: M3.1 → M3.2 → M3.3 (reader `.ind`) · M4.8b + M4.15 → M4.16 →
+M4.2/M4.17 → M5.3 (road classes) · M1.2b/c/d → M1.3 (L3 data) ·
+M1.6c → M9.2 → M9.5 → M2.4 / M3.3 (run the real checks). Every other task
 widens knowledge or tooling in parallel and is equally welcome.
 
 ---
@@ -1259,6 +1290,23 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     passes; synthetic self-test on a small FAT32 image; the EXP says what the
     tool cannot reproduce (SD lock state, CID).
   - Claims: C-1910–C-1919
+
+- [ ] **M5.11 — End-to-end: one generated tile on an accepted card image**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.4, M5.6, M5.10 (M2.3, M2.5, M2.12 for the accept check)
+  - Goal: the Phase-2 milestone — turn OSM input into a card image that the
+    firmware would accept, with one tile actually regenerated from OSM (not
+    just a verbatim rebuild).
+  - Input: `osm_ingest.py` (M5.1), the mesh splitter (M5.2), the tile writer
+    (M5.4), the tree rebuild (M5.6), `mkcard.py` (M5.10); the acceptance
+    facts from M2.3/M2.5/M2.12 and `realcheck.py`.
+  - Done when: a script (or documented pipeline) produces `out.img` from a
+    Dolnośląskie extract where exactly one tile is OSM-generated and the rest
+    is factory; `cardcheck.py --image` + `l2check.py` pass; and an EXP checks
+    `out.img` against every known accept/reject gate (HDD_INFO fields,
+    map-code comparator inputs, attestation, SD lock) and states, per gate,
+    pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
+  - Claims: C-1960–C-1969
   - Depends: —
   - Goal: an automatic report of what changed vs what was preserved between
     a factory and a generated/mutated tile (sections, records, bytes).

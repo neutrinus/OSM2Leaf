@@ -183,3 +183,8 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M6.11-2](EXP-2026-11-06-M6.11-2-leafsdtools.md) | How LeafSDTools reads and applies the SD PIN (M6.11) | done (source reading) |
 | [EXP-2026-11-06-M2.13b](EXP-2026-11-06-M2.13b-sdhc-cmd42.md) | SDHC.dll CMD42 flags and boot password source (M2.13b) | done (static, B and C) |
 | [EXP-2026-11-06-M2.13](EXP-2026-11-06-M2.13-sd-password.md) | SD unlock PIN: firmware half found in PRGUpdate/TestMode (M2.13) | done (static half; CMD42 form open) |
+| [EXP-2026-11-06-M1.9](EXP-2026-11-06-M1.9-cross-image-imports.md) | Cross-image import name resolution (M1.9) | done |
+| [EXP-2026-11-06-M2.7](EXP-2026-11-06-M2.7-us-eu-market.md) | US vs EU market decision chain (M2.7) | done |
+| [EXP-2026-11-06-M3.8](EXP-2026-11-06-M3.8-mmain-read.md) | Firmware read of MMAIN001.DAT (M3.8) | done |
+| [EXP-2026-11-06-M4.9](EXP-2026-11-06-M4.9-addre-grammar.md) | ADDRE remaining grammar (M4.9) | done |
+| [EXP-2026-11-06-M4.10](EXP-2026-11-06-M4.10-poi-icons.md) | POI icon code to BICON001 mapping (M4.10) | done |
