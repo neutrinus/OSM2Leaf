@@ -1048,13 +1048,15 @@ No hardware is available now. Planning tasks are open; tests wait.
     the test plan.
   - Claims: C-1120–C-1129
 
-- [ ] **M6.8 — Bench kit list and serial/JTAG access plan**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: no
+- [x] **M6.8 — Bench kit list and serial/JTAG access plan**
+  - Status: done · Owner: session-ZMxuBT · Critical: no
   - Depends: — (M8.A6 for the debug UART)
   - Goal: what to buy and wire (12 V supply, `TEST_B1`, CAN simulator, SD
     extender, UART at the SCIF `0xffe46000` pins if found).
   - Done when: a parts list with costs and a wiring note is in
     `docs/research/dynamic-break-guide.md`.
+  - Result: bench kit + access order in `dynamic-break-guide.md`; prices
+    ESTIMATE, SCIF pins UNKNOWN (EXP-2026-11-06-M6.8-bench-kit).
   - Claims: C-1130–C-1139
 
 - [ ] **M6.2** Owner's US 2011 SD dump (read-only, SHA-256). Status: blocked
