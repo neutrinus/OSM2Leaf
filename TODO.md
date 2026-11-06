@@ -1647,7 +1647,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     on the `harness.py mutate` output.
   - Claims: C-1100–C-1109
 
-- [ ] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
+- [x] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
   - Status: done (planning) · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M5.12 for the edited pair)
   - Goal: the S1/S2 cards for Marek's unit must differ from S0 only in the
@@ -1904,7 +1904,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 
 - [ ] **M8.A1 — Build env** `tools/qemu-ze0/build.sh`: pinned QEMU (≥ 8.2),
   patch, `--target-list=sh4-softmmu`. Done when `qemu-system-sh4 -M ze0`
-  lists the machine. Status: in progress · Owner: session-ZMxuBT · Depends: —. Claims:
+  lists the machine. Status: done · Owner: session-ZMxuBT · Depends: —. Claims:
   C-1230–C-1239
 - [ ] **M8.A2 — Machine skeleton** `hw/sh4/ze0.c`: `sh7785`, RAM at phys
   `0x08000000` (128 MiB), P1/P2 aliases, unimplemented-device catch-all
