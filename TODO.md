@@ -237,7 +237,7 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 | --- | --- | --- |
 | H | Housekeeping: ledger, docs, tool overlap | H8 |
 | M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.9, M1.6c, M1.2b**, M1.2c, M1.2d |
-| M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12, M2.13b** (M2.7, M2.11 in PR; M2.13 done) |
+| M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12, M2.13b** (M2.7 in PR; M2.13, M2.11 done) |
 | M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 in PR) |
 | M4 | Data formats (no firmware needed) | **M4.15**, M4.3, M4.8b, M4.12 (M4.7, M4.9, M4.10, M4.11, M4.18 in PR) |
 | M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.1, M5.10**, M5.9; M5.1b after M5.1 (non-Claude runner) |
@@ -652,8 +652,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-770–C-779
   - Result: docs/experiments/EXP-2026-11-06-M2.6-mapupdate.md; MapUpdate.exe summary in docs/format/firmware.md
 
-- [ ] **M2.7 — US vs EU market decision**
-  - Status: open · Owner: — · Critical: no
+- [x] **M2.7 — US vs EU market decision**
+  - Status: done · Owner: task/m2.7-us-eu-market · Critical: no
   - Depends: — (registry part needs M1.4)
   - Goal: where the market/region is decided and whether an EU-format card
     can work in a US unit.
@@ -662,6 +662,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: an EXP names the deciding value(s) and module(s) and updates
     `us-eu-region.md`.
   - Claims: C-780–C-789
+  - Result: docs/experiments/EXP-2026-11-06-M2.7-us-eu-market.md (Target ID byte `+5` → `commondll!CApi_GetModelArea` → `AppLaunch` launch mask; card cannot set area; C-780–C-789)
 
 - [x] **M2.8 — SD card identity and lock (`SdCardLch.exe`)**
   - Status: done · Owner: task/m2.8-sdcard-lock · Critical: no
@@ -700,8 +701,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-810–C-819
   - Result: EXP-2026-11-05-M2.10-testmode (menus/functions with VAs; entry via image C launch table + boot-mode flag; physical trigger unknown)
 
-- [ ] **M2.11 — When the unit reads `HDD_INFO.TXT` (`fn 0x004dd028`)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M2.11 — When the unit reads `HDD_INFO.TXT` (`fn 0x004dd028`)**
+  - Status: done · Owner: task/m2.11-hddinfo-trigger · Critical: no
   - Depends: — (M1.9 helps)
   - Goal: know the trigger (boot, SD insert, menu) and the retry logic, so a
     test card is inserted at the right moment.
@@ -712,6 +713,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     entry, why the read is done twice, what the `Sleep` loop waits for, and
     what `wcsncmp` compares against (string at its literal).
   - Claims: C-1770–C-1779
+  - Result: docs/experiments/EXP-2026-11-06-M2.11-hddinfo-trigger.md (trigger = NaviSetCC message 0x841000f7, not boot/SD insert; two reads = SystemSD vs UserSD; Sleep polls SDC1: IOCTL 0x80032004 state 4 six times; wcsncmp compares line 1; C-1770–C-1779)
 
 - [ ] **M2.12 — `HDD_CHK.ATT` CRC16 attestation (`SilentAuthenticate`)**
   - Status: open · Owner: — · Critical: yes

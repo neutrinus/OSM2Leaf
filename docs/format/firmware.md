@@ -507,17 +507,38 @@ Under data delta `0x02800000`, the clean data references are exactly:
 The `+12` literal is a fragment, not a suffix pointer. The builder does **no
 I/O** (`memset`, append, status probe, switch).
 
+### Runtime consistency check in `Navi.exe` (M2.11)
+
+This is a second, separate `HDD_INFO` path from the updater's
+`Sys[0x%x]`/`SD[0x%x]` ID comparison above. `fn 0x004e7b8c` opens the path
+selected by its second argument — `0` = `\SystemSD\VER_INFO\HDD_INFO.TXT`,
+`1` = `\UserSD\VER_INFO\HDD_INFO.TXT` — and fills a six-field struct with
+inline wchar fields at `+0`, `+0x18`, `+0x30`, `+0x4a`, `+0x62`, `+0x7a`
+(buffer sizes 12/12/13/12/12/13 wchar, one `fgetws` line each).
+`fn 0x004dd028` reads both copies into two stack structs, compares field 0
+(line 1) with `wcsncmp(..., 11)`, then compares the numeric tail of field 0
+through `fn 0x004e7d4c` (literal `L"000"` at `0x001d51e4`); it accepts when
+the SystemSD value is greater than the UserSD value and sets the validation
+flag `0x00b00228`.
+
+The reader is driven by a COM request (no boot-time or SD-insertion path to it
+was found): `NaviSetCC.dll` routine `0x02e3eef8` (function-pointer table
+entries `0x02e335b4` and `0x02e34494`) sends message `0x841000f7`;
+`Navi.exe`'s dispatcher `0x004bda44` routes it to `0x004beae0`, which runs
+init (`0x004dd61c`) → read/compare (`0x004dd270`) → validate (`0x004dd700`) →
+teardown (`0x004dd214`). `SDC1:` is polled with `DeviceIoControl`
+`0x80032004` every 100 ms for decoded state 4 (six attempts, each retried
+4×50 ms); `DSK8:` is queried with `0x80032010`. See
+EXP-2026-11-06-M2.11-hddinfo-trigger, C-1770–C-1779.
+
 ### Still open
 
-Six-line mapping remains unknown; constraints are numeric `Sys[0x%x] SD[0x%x]`,
-`0 ≤ v < 6`, field enum `0x00A2`. Card vs `0x06000000` has no code link.
-
-The parser is one indirection away: `0x0369d400`, `0x036922cc`, `0x0367b180`,
-`0x0369d3dc` in the `0x0367–0x0369xxxx` module receive the built path.
-
-**Next direction:** pin that module with the three-filter index and a cluster
-anchored on a string it prints itself; then walk from the helper to the
-open/split/parse. Do not infer a module from a single `V − S` match.
+The six parser lines map one-to-one to the six fields in `fn 0x004e7b8c`
+(line *i* → field *i*, C-1779), but the semantic name of each field is still
+guessed, and the numeric helper requires 12 wchar of field 0 while every
+factory file has an 11-wchar line 1 (C-1779). Card vs `0x06000000` has no code
+link. The `SD Import: ...` ID comparison is the updater side (C-775), not this
+runtime check.
 
 ### Test package
 
@@ -692,6 +713,43 @@ queues. Acceptance of a rebuilt card depends on the attestation files above
 and the flash/NK version checks, together with the runtime `Navi.exe`
 comparator (M2.1/M2.2). The byte-level attestation algorithm and the
 compressed section remain unknown.
+
+## Model area and Target ID (market, M2.7)
+
+`commondll.dll` exports `CApi_GetModelArea` (build B `0x03c0398c`, C
+`0x03be3994`, ordinal 39; next to `CApi_GetModelCode`/`GetModelBaseType`).
+The stub dispatches to a runtime model-info object; build B's object is built
+in `0x03c070d8` and the area binder reaches the target-ID object
+`vtable 0x03c032dc`, slot 2 `0x03c0c908`, which returns byte `+5` (build C:
+vtable `0x03be32e4`, slot 2 `0x03beca64`). There is no `CApi_SetModelArea`
+export.
+
+The object is filled lazily in B `0x03c0c830` / C `0x03bec98c` by
+`KernelIoControl` (coredll ordinal 557) with IOCTL `0x01013208`, a 4-byte
+input `{1}` and a 4-byte output. Byte `+4` must be non-zero and not `0xFF`;
+the four bytes are logged as `Target ID Code >> %02X%02X%02X%02X`
+(B `0x03c03328`). Byte `+5` is the model area.
+
+`AppLaunch.dll` turns it into a market name and a launch-table mask
+(B `0x03bcba58` / C `0x03bab580`):
+
+| Area | Name | Mask |
+| --- | --- | --- |
+| `0x10` | Japan | `0x00010000` |
+| `0x20` | USA | `0x00020000` |
+| `0x30` | Euro | `0x00040000` |
+| `0x40` | Russia | `0x00080000` |
+| `0x50` | China | `0x00100000` |
+| other | WorldWide | `-1` |
+
+Unknown areas fall back to `KernelIoControl(0x0101304C)` ("Env Variable").
+The mask filters the launcher table (B `0x03bcc5b0`/`0x03bcc564`), i.e. it
+selects processes/drivers, not the map database. The map/navigation modules do
+not import the area API. The card's `HDD_INFO.TXT` is checked against unit-side
+target info read by `KernelIoControl(0x0101302C)` (11-byte record at `+96`,
+map-DB bounds at `+112`/`+114`); no card value sets the area.
+
+Details and the negative controls: `EXP-2026-11-06-M2.7` and C-780–C-789.
 
 ## Next steps
 

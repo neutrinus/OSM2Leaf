@@ -50,13 +50,42 @@ UNMATCH` and `NAVI VERSION NG`. Nearby launcher code reads
 `\SystemSD\VER_INFO\HDD_INFO.TXT`, logs `VerInf:%s / HddInf:%s` and checks
 `MapDBVer : %d <= [%d] <= %d`.
 
+Firmware path for the two launcher checks
+(EXP-2026-11-06-M2.7, VERIFIED statically in builds B and C):
+
+- the unit side is fetched with `KernelIoControl(0x0101302C)` and is **not**
+  read from the card or from the `0x06000000` copy: B `0x03bd2ad8` / C
+  `0x03bb2858` compares an 11-byte unit record (target info `+96`) with the
+  card's `HDD_INFO` and logs `VerInf:%s / HddInf:%s`; B `0x03bd2ce4` / C
+  `0x03bb2a64` range-checks the card's map-DB value against unit target-info
+  bounds `+112`/`+114` and logs `MapDBVer : %d <= [%d] <= %d`.
+- **no market/area value is involved** in either function, and no card value
+  sets the unit side. The market area (`CApi_GetModelArea`) is a separate
+  unit-side value used for UI/launch decisions (see `firmware.md`).
+
+This does **not** prove the `0x06000000` copy is unused everywhere; it only
+rules it out for these two launcher checks.
+
 Hypotheses, in order:
 
 1. **Market/family code.** `HDD_INFO` line 1 is `QSD-300-100` on JP cards,
    `301` US, `302` EU. It is a family check, not a per-card activation.
 2. **Raw-copy comparison.** The unit may compare `HDD_INFO` against the
-   byte-identical copy at image offset `0x06000000`.
-3. **Unknown activation record.** A NAND-side record that we have not found.
+   byte-identical copy at image offset `0x06000000`. **Unsupported for the two
+   launcher checks above**; remains open for other modules.
+3. **Unknown activation record.** A NAND-side record; the M2.7 evidence shows
+   the launcher's unit side is a kernel target-info record, which is the
+   candidate for this "record".
+
+A separate runtime check exists in `Navi.exe`: `fn 0x004dd028` reads both
+`\SystemSD\VER_INFO\HDD_INFO.TXT` and `\UserSD\VER_INFO\HDD_INFO.TXT`
+through `fn 0x004e7b8c`, compares field 0 (line 1) with
+`wcsncmp(..., 11)` and then the numeric tail, and sets a validation flag when
+the SystemSD value is greater than the UserSD value. It is triggered by the
+`NaviSetCC.dll` request message `0x841000f7`, not at boot or on SD insertion
+(EXP-2026-11-06-M2.11-hddinfo-trigger, C-1770–C-1779). The
+`SD Import: Sys[0x%x] SD[0x%x]` ID comparison belongs to the updater path
+(C-775), not this check.
 
 The cheapest test pair on a spare card:
 
