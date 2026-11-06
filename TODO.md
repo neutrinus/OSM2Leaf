@@ -223,7 +223,9 @@ format doc cites its VAs (M3.5, M3.10, M3.11–M3.16); (2) an L3 target runs
 that reader on our file (M9.10, M9.11, M9.13–M9.15) and the map-load chain
 runs on a whole tree (M9.16, the "mock `Navi.exe`"); (3) full `Navi.exe` in
 the emulated unit (M8 → F4 → M8.E4). **H11** keeps the per-file matrix;
-nothing goes into the car before its rows reach level 2.
+nothing goes into the car before its rows reach level 2. **M5.15** wires it into one
+command: factory image + OSM → card image → L1/L2/L3 checks (+ M8.E4 when
+the emulator reaches F4).
 
 **Phase-2 milestone (unchanged):** one OSM-generated Dolnośląskie tile on a
 card image that passes L1 + L2 + `realcheck.py` and every known gate (M5.11).
@@ -1696,6 +1698,27 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     checks pass (or the US-specific gap is named); M5.13 builds **S3**; the
     EXP names the road, tile and lat/lon before/after so Marek can find it.
   - Claims: C-2050–C-2059
+
+- [ ] **M5.15 — `build.py` writes a card: factory image + OSM → card image → checks**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.11 (one tile end to end); grows with each writer (M5.4–M5.7, H11 rows)
+  - Goal: the one command Marek described: take a factory card image, drop
+    the map data the profile replaces, write OSM-generated files in the
+    confirmed formats, keep the verbatim-copy set (M3.17), rebuild
+    `DRSTR001`/`MMAIN001`/`CMP.LST`/`.ind`, pack the card image, then run the
+    checks. `build.py` today only dry-runs (exit 3 without `--dry-run`).
+  - Input: `tools/build.py` + profiles (M7.4 schema v2), `osm_ingest.py`,
+    `mesh_split.py`, `tilewriter.py`, the M5.6 rebuild, `mkcard.py` (with
+    M5.12b) or `imgpatch.py` (M5.13); checks `cardcheck.py`, `l2check.py`,
+    `realcheck.py`, `l3check.py --card` (M9.12/M9.16) and, once F4 exists,
+    the M8.E4 emulator run.
+  - Done when: `build.py --profile profiles/dolnoslaskie-test.json --from-image
+    IMG --osm EXTRACT -o out.img` writes an image and a report listing, per
+    file family, *generated / copied / not yet generated (factory kept)*,
+    then each check's verdict; it refuses to report success if any check
+    fails. First milestone: one generated tile (= M5.11); every new writer
+    adds its family. OSM extracts stay outside the repo (rule 12).
+  - Claims: C-2280–C-2289
 
 ---
 
