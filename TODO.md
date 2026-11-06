@@ -1326,7 +1326,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1960–C-1969
 
 - [ ] **M4.20 — US `DRSTR001` round-trip diff at `0x1ae0`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.20-us-drstr-roundtrip · Critical: yes
   - Depends: —
   - Goal: M5.6 writes `DRSTR001.DAT` for generated cards, so the model must
     round-trip on both markets. On the untouched US factory tree
