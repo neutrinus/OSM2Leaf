@@ -1397,7 +1397,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the 2014/2016 controls use the same layout.
 
 - [ ] **M4.19 — `(XX, YY)` point coordinate arithmetic**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.19-addre-point-coords · Critical: no
   - Depends: — (M4.9 leaves this `UNKNOWN`; M4.12 helps)
   - Goal: turn the `40 XX YY` point token into a geographic coordinate, the
     last missing piece between an ADDRE record and a map position.
