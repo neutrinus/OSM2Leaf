@@ -81,6 +81,15 @@ front has fewer, add the next tasks (see rule 9).
     the download URL, date and SHA-256 of what it fetched, and never commits
     OSM extracts.
 
+13. **Firmware confirms every format we write (Marek, 2026-11-06).** A file
+    type we generate counts as *confirmed* only when its reader in the
+    firmware is located (an M3 task, VAs in `docs/format/`) and as
+    *accepted* only when an L3 target runs that reader on our generated file
+    and gets the expected values (an M9 task). Round-trip tools and L2 are
+    necessary, not sufficient. The live status of each file type is the
+    matrix in [`docs/research/reader-coverage.md`](docs/research/reader-coverage.md)
+    (H11); update its row in the same PR as your task.
+
 ### ID allocation
 
 Parallel agents collided on `EXP-…-48` and on several claim IDs (C-520,
@@ -208,6 +217,16 @@ so every edited card first passes the firmware's own code in L3:
 holds a second copy. M6.5/M6.6 depend on these; only S0 (the factory
 clone) may go into the car before them.
 
+**Every generated format is confirmed by the firmware (Marek, 2026-11-06,
+rule 13).** Three levels, cheapest first: (1) the reader is located and the
+format doc cites its VAs (M3.5, M3.10, M3.11–M3.16); (2) an L3 target runs
+that reader on our file (M9.10, M9.11, M9.13–M9.15) and the map-load chain
+runs on a whole tree (M9.16, the "mock `Navi.exe`"); (3) full `Navi.exe` in
+the emulated unit (M8 → F4 → M8.E4). **H11** keeps the per-file matrix;
+nothing goes into the car before its rows reach level 2. **M5.15** wires it into one
+command: factory image + OSM → card image → L1/L2/L3 checks (+ M8.E4 when
+the emulator reaches F4).
+
 **Phase-2 milestone (unchanged):** one OSM-generated Dolnośląskie tile on a
 card image that passes L1 + L2 + `realcheck.py` and every known gate (M5.11).
 The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).
@@ -220,15 +239,15 @@ tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal internet.
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | — |
+| H | Housekeeping | **H11** (reader-coverage matrix) |
 | M1 | Firmware tooling (decompression) | **M1.2c**, M1.2e (non-Claude) |
 | M2 | Map code, activation, updater | **M2.15**, M2.16, M2.14 |
-| M3 | Reader contract | **M3.11, M3.2b, M3.12**, M3.6, M3.10 |
+| M3 | Reader contract | **M3.11, M3.2b, M3.12, M3.13, M3.14, M3.15, M3.10**, M3.6, M3.16, M3.17 |
 | M4 | Data formats | **M4.20, M4.16b**, M4.8b, M4.16c, M4.16d, M4.3, M4.12, M4.17, M4.19; M4.2 non-Claude |
 | M5 | Compiler + US edits | **M5.13, M5.12c, M5.4**, M5.12b; M5.14 after M5.13; M5.1b non-Claude |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5–M6.7 follow M5.13/M5.14 |
 | M8 | Full-system emulation | M8.A1, M8.A2, M8.A4, M8.A5; M8.E1 after M1.2c |
-| M9 | L3 toolkit | **M9.6** (re-scoped), M9.8; M9.10–M9.12 after M3.11/M3.2b; M9.2 non-Claude |
+| M9 | L3 toolkit | **M9.6, M9.13** (ready), M9.8; M9.10–M9.12, M9.14–M9.16 after their M3 readers; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
 · **US (nearest):** software gate M3.11 → M9.10, M3.2b → M9.11 → M9.12;
@@ -404,6 +423,26 @@ Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M
     M3.2b, M4.20, M5.12b, M5.12c, M5.13, M5.14; M5.4 reopened, M9.6
     re-scoped, M6.2/M6.5–M6.7 rewritten as S0–S3 for Marek.
   - Claims: C-2110–C-2119
+
+- [ ] **H11 — Reader-coverage matrix: one row per file type we generate**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: one page that shows, for every file the OSM compiler must write,
+    how far we are from "the firmware reads it correctly" (rule 13).
+  - Input: `docs/format/sd-card-layout.md` (top-level tree), `docs/format/*.md`,
+    `claims.md`, `tools/l3_harness/targets.json`, the M3/M9/M8 tasks below.
+    Rows at least: `MAPAL001` tiles (`B*R.DAT`), `LEV3456R.DAT`, `REFER001`
+    `POINT*`, `ADDRE*`, `ZCODE*`, `ICODE001`, `COORD001`, `LCTBL001`,
+    `INTER*`, `FRWAY*`, `INDEX003`, the `.cmp`/`.ind` container, `DRSTR001`,
+    `CMP.LST`, `MMAIN001`, `VER_INFO/HDD_INFO.TXT`, `RDSTM001`, and the
+    verbatim-copy set (`BICON001`, `OPNG`, `SPEECH`, `TMC`, `REFER002`).
+  - Done when: `docs/research/reader-coverage.md` has the matrix with
+    columns *generate or copy* · format doc · writer tool · offline
+    round-trip (L1/L2) · firmware reader VA (M3 task) · L3 target (M9 task) ·
+    L3 result · full-system result (M8 F4) — each cell a link, a task ID or
+    `—`; every row whose reader or L3 target has no task gets one (next
+    free IDs) in the same PR.
+  - Claims: C-2170–C-2179
 
 ---
 
@@ -1060,6 +1099,54 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     holds name bytes; the EXP gives counts and offsets only.
   - Claims: C-2130–C-2139
 
+- [ ] **M3.13 — The `ADDRE` (address) reader**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M3.11 shows the pattern for `REFER001` families)
+  - Goal: confirm the `ADDRE` grammar (M4.9) against the code that reads it.
+  - Input: id table `0x00179338` (`ADDRE0`), name builder `0x003fbed8`, lookup
+    `0x0040b358`, descriptor switch `0x004125a8`; `refer.md`, EXP-2026-11-06-M4.9.
+  - Done when: `refer.md` names the reader VA(s) and maps each grammar field
+    (C-970–C-979) to the instruction that consumes it, or lists the fields
+    the firmware never reads.
+  - Claims: C-2180–C-2189
+
+- [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: the region/index/coordinate tables decide where a generated
+    Poland map lives; confirm their layout (C-110, C-1992,
+    `coord-zcode-icode.md`) from the code.
+  - Input: id table `0x00179338` (`ZCODE0`), `coord-zcode-icode.md`, M4.8c, M4.12.
+  - Done when: `coord-zcode-icode.md` gives the reader VA per file and which
+    fields each one uses, with VAs.
+  - Claims: C-2190–C-2199
+
+- [ ] **M3.15 — The `LCTBL001` name-table reader**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`)
+  - Goal: Polish street/place names go through this table (M4.18 framing,
+    M3.9 collation); confirm framing and encoding from the code.
+  - Done when: `refer.md` (or `rdstm.md`) names the record-walk and
+    string-decode VAs and states the encoding the code assumes.
+  - Claims: C-2200–C-2209
+
+- [ ] **M3.16 — `INTER` / `FRWAY` readers**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M4.16c for the `ref` lead)
+  - Done when: the reader VAs and consumed fields are in `refer.md`.
+  - Claims: C-2210–C-2219
+
+- [ ] **M3.17 — Which files can be copied verbatim to a Poland card**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H11
+  - Goal: decide, with evidence, which files we never generate
+    (`BICON001`, `OPNG`, `SPEECH`, `TMC`, `REFER002`, `RDSTM001`) and whether
+    any of them carries region-specific content that must be emptied or
+    rebuilt for Poland (e.g. US EV POIs in `REFER002`, US TMC tables).
+  - Done when: each file has *copy / empty / generate* in
+    `reader-coverage.md` with the reason; any *generate* gets a task.
+  - Claims: C-2220–C-2229
+
 ---
 
 ## M4 — Data formats (no firmware or hardware needed)
@@ -1612,6 +1699,27 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     EXP names the road, tile and lat/lon before/after so Marek can find it.
   - Claims: C-2050–C-2059
 
+- [ ] **M5.15 — `build.py` writes a card: factory image + OSM → card image → checks**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.11 (one tile end to end); grows with each writer (M5.4–M5.7, H11 rows)
+  - Goal: the one command Marek described: take a factory card image, drop
+    the map data the profile replaces, write OSM-generated files in the
+    confirmed formats, keep the verbatim-copy set (M3.17), rebuild
+    `DRSTR001`/`MMAIN001`/`CMP.LST`/`.ind`, pack the card image, then run the
+    checks. `build.py` today only dry-runs (exit 3 without `--dry-run`).
+  - Input: `tools/build.py` + profiles (M7.4 schema v2), `osm_ingest.py`,
+    `mesh_split.py`, `tilewriter.py`, the M5.6 rebuild, `mkcard.py` (with
+    M5.12b) or `imgpatch.py` (M5.13); checks `cardcheck.py`, `l2check.py`,
+    `realcheck.py`, `l3check.py --card` (M9.12/M9.16) and, once F4 exists,
+    the M8.E4 emulator run.
+  - Done when: `build.py --profile profiles/dolnoslaskie-test.json --from-image
+    IMG --osm EXTRACT -o out.img` writes an image and a report listing, per
+    file family, *generated / copied / not yet generated (factory kept)*,
+    then each check's verdict; it refuses to report success if any check
+    fails. First milestone: one generated tile (= M5.11); every new writer
+    adds its family. OSM extracts stay outside the repo (rule 12).
+  - Claims: C-2280–C-2289
+
 ---
 
 ## M6 — Hardware and safety
@@ -1848,6 +1956,15 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   `firmware.md`. Depends: M1.4 or M8.B5. Claims: C-1610–C-1619
 - [ ] **M8.E3 — Dump loaded process images** (`Navi.exe` + DLLs after init)
   for L3. Depends: F4. Claims: C-1620–C-1629
+- [ ] **M8.E4 — Full `Navi.exe` on a generated card (F4 acceptance run)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: F4 (`Navi.exe` headless, M8.D1/D2 gates), M9.16
+  - Goal: the strongest software check before the car: boot the emulated
+    unit with a card image and log every map file `Navi.exe` opens and
+    every error screen it raises.
+  - Done when: the factory US image and the S2 image both reach the map
+    state with no error screen, with the file-open logs compared in an EXP.
+  - Claims: C-2270–C-2279
 
 ---
 
@@ -1984,6 +2101,44 @@ parts are covered by `tools/l3_harness/selftest.py`.
     pass / fail / not-yet-available, exits non-zero on a fail, and the EXP
     shows it on S0 (all pass), S1 and S2.
   - Claims: C-2160–C-2169
+
+- [ ] **M9.13 — L3 target `tile_reader` on factory and generated tiles**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M9.5 (M3.5 reader VAs `0x0041f26c`/`0x004259bc`/`0x0042757a`; M3.6 helps)
+  - Goal: the tile is the core generated format; run the firmware's tile
+    reader on it. Fills `tile_reader` (now `blocked`) in `targets.json`.
+  - Done when: the reader returns the same level table / section offsets as
+    `clarion_tile.read_tile` for one factory tile and for the M4.4 one-vertex
+    tile; later for an M5.4 generated tile.
+  - Claims: C-2230–C-2239
+
+- [ ] **M9.14 — L3 target `drstr_parser`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.10, M9.5
+  - Done when: the firmware parser accepts the factory `DRSTR001.DAT` (EU and
+    US) and one rebuilt by M5.6, and rejects one corrupted case, recorded.
+  - Claims: C-2240–C-2249
+
+- [ ] **M9.15 — L3 targets for `ADDRE`, `ZCODE`/`ICODE`/`COORD`, `LCTBL`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M9.10 (pattern), and per family M3.13 / M3.14 / M3.15
+  - Goal: the same check as M9.10 for every other `REFER001` family; one PR
+    per family (title `[M9.15] ADDRE …`), each updating its matrix row.
+  - Done when: for each family the firmware reader returns the expected
+    value for one factory record and one edited record.
+  - Claims: C-2250–C-2259
+
+- [ ] **M9.16 — L3 map-load chain: open a whole card the way `Navi.exe` does**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M9.11, M9.13, M9.14 (M9.2 Ghidra helps to find the call order)
+  - Goal: between single-function L3 and full-system emulation: call the
+    firmware's own sequence (`HDD_INFO` → `DRSTR001` → `.cmp`/`.ind` →
+    tile / `POINT` readers) against a virtual card tree, with COREDLL file
+    I/O stubbed. This is the "mock `Navi.exe`" check of a generated card.
+  - Done when: `runner.py chain --tree ROOT` runs the chain on the factory
+    US tree without a stub miss, prints each step's verdict, and the EXP
+    shows the same run on the S2 tree; `l3check.py --card` (M9.12) calls it.
+  - Claims: C-2260–C-2269
 
 ---
 
