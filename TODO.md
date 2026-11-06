@@ -494,8 +494,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     243 sections unmeasured (EXP-2026-11-05-M1.2a-comphdr, C-640/C-641).
   - Claims: C-640–C-649
 
-- [ ] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
-  - Status: in progress · Owner: task/m1.2b-xpress-lz77 · Critical: yes
+- [x] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
+  - Status: done · Owner: task/m1.2b-xpress-lz77 · Critical: yes
+  - Result: EXP-2026-11-06-M1.2b-xpress-lz77 — implemented XPRESS plain LZ77 in tools/cecompress.py + tools/xpress.py (selftest green); real sections 1/2 give 0 matches in 115 attempts each (xpress-lz77 raises corrupt offset); codec still unknown.
   - Depends: — (M1.2a done: payload after the 22-byte header)
   - Goal: find a public decoder whose output length matches.
   - Input: the two EXP-49 sections; `tools/cecompress.py` (LZSS + LZX

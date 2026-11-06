@@ -696,6 +696,20 @@ Built without vendor data; every row states what is synthetic-only.
 
 | C-650 | `tools/cecompress.py` adds an LZNT1 decoder ([MS-XCA] 2.5: 4 KiB chunks, 16-bit header with payload−1 in bits 11…0, signature 3 in bits 14…12, flag bit 15, literal/match tokens with displacement−1 high and length−3 low at a `max(4, bits(u−1))` split, zero header terminates) validated against the spec's 59-byte example (142-byte output), XPRESS LZ77/Huffman skeletons that parse their header then raise `UNSUPPORTED`, and `probe FILE --size N [--offsets 0-32] [--methods …]` which tries every method × offset, records one status per attempt and reports only exact-size matches with content evidence; 391 checks. No real payload exists in the checkout, so the image codec is UNKNOWN. | VERIFIED (tool, synthetic + spec vector) | H | EXP-2026-11-05-M1.2b; `python3 tools/cecompress.py --selftest` |
 
+## M1.2b — XPRESS plain LZ77 implemented and probed (C-651–C-659)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-651 | XPRESS plain LZ77 is now implemented (ported from the klauspost/compress Go reference) in `tools/cecompress.py` (`_xpress_lz77_decode`, `decompress_xpress_lz77`) and standalone `tools/xpress.py`; positive control: `cecompress.py --selftest` (390 checks) and `xpress.py selftest` (8 checks), including a 32-literal + end-marker round trip and the shared-nibble/raw-length tiers. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M1.2b-xpress-lz77; `python3 tools/cecompress.py --selftest` |
+| C-652 | XPRESS plain LZ77 does not decode either real section at any offset 0..40: at the documented payload start it raises `corrupt offset` (first match word decodes an offset larger than the output so far). | VERIFIED (negative, real image) | M | EXP-2026-11-06-M1.2b-xpress-lz77; `cecompress probe` on both payloads |
+| C-653 | None of lzss, lzx, lznt1, xpress-lz77, xpress-huffman produces the expected uncompressed length for either real section at offsets 0..40 (0 matches in 115 attempts per section). | VERIFIED (negative, real image) | M | EXP-2026-11-06-M1.2b-xpress-lz77; `cecompress probe --methods all` |
+| C-654 | The M1.2a 22-byte header and per-block record layout remain valid (187/245 form 1); only the codec behind the payload is unidentified. | OBSERVED | M | EXP-2026-11-06-M1.2b-xpress-lz77; M1.2a/M1.2d |
+| C-655 | The next lead is the CE ROM's own decompressor in `nk.exe` (M1.2c) and the per-block framing of form 2 (M1.2d). | HYPOTHESIS | L | EXP-2026-11-06-M1.2b-xpress-lz77 |
+| C-656 | reserved. | UNKNOWN | — | — |
+| C-657 | reserved. | UNKNOWN | — | — |
+| C-658 | reserved. | UNKNOWN | — | — |
+| C-659 | reserved. | UNKNOWN | — | — |
+
 ## Housekeeping / CE ROM tool consolidation (H3)
 
 | ID | Claim | Status | Confidence | Evidence |

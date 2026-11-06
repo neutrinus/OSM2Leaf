@@ -940,20 +940,122 @@ def _xpress_huffman_decode(data, expected_size=None,
 
 
 def _xpress_lz77_decode(data, expected_size=None, max_output=DEFAULT_MAX_OUTPUT):
-    """Parse the first flag DWORD of a plain LZ77 stream, then refuse to decode."""
-    if len(data) < 4:
+    """Decode an XPRESS plain LZ77 stream; return ``(bytes, info)``.
+
+    Port of the klauspost/compress (Go) plain LZ77 decoder. Self-terminating.
+    """
+    out = bytearray()
+    base = 0
+    pending_len = -1
+    flags = 0
+    flags_left = 0
+    i = 0
+    n = len(data)
+    literals = 0
+    matches = 0
+    match_bytes = 0
+    max_length = 0
+    max_offset = 0
+
+    while True:
+        if flags_left == 0:
+            if i == n:
+                break
+            if n - i < 4:
+                raise DecodeError(
+                    "xpress-lz77: truncated flags at byte %d" % i
+                )
+            flags = int.from_bytes(data[i:i + 4], "little")
+            i += 4
+            flags_left = 32
+
+        flags_left -= 1
+        if (flags >> flags_left) & 1 == 0:
+            if i >= n:
+                raise DecodeError(
+                    "xpress-lz77: truncated literal at byte %d" % i
+                )
+            out.append(data[i])
+            i += 1
+            literals += 1
+            if len(out) - base > max_output:
+                raise DecodeError("xpress-lz77: output exceeds limit")
+            continue
+
+        # set bit => match; no input left => end-of-data
+        if i >= n:
+            break
+        if n - i < 2:
+            raise DecodeError("xpress-lz77: truncated match at byte %d" % i)
+        mb = int.from_bytes(data[i:i + 2], "little")
+        i += 2
+        moff = (mb >> 3) + 1
+        mlen = (mb & 7) + 3
+
+        if (mb & 7) == 7:
+            if pending_len == -1:
+                if i >= n:
+                    raise DecodeError("xpress-lz77: truncated nibble at byte %d" % i)
+                nib = data[i] & 0x0F
+                pending_len = i
+                i += 1
+            else:
+                nib = (data[pending_len] >> 4) & 0x0F
+                pending_len = -1
+            if nib == 15:
+                if i >= n:
+                    raise DecodeError("xpress-lz77: truncated raw length at byte %d" % i)
+                v = data[i]
+                i += 1
+                if v == 255:
+                    if n - i < 2:
+                        raise DecodeError("xpress-lz77: truncated u16 length")
+                    v = int.from_bytes(data[i:i + 2], "little")
+                    i += 2
+                    if v == 0:
+                        if n - i < 4:
+                            raise DecodeError("xpress-lz77: truncated u32 length")
+                        v = int.from_bytes(data[i:i + 4], "little")
+                        i += 4
+                    if v < 15 + 7:
+                        raise DecodeError("xpress-lz77: corrupt raw length")
+                    if v > max_output:
+                        raise DecodeError("xpress-lz77: too large")
+                    mlen = int(v) + 3
+                else:
+                    mlen = int(v) + 25
+            else:
+                mlen = nib + 10
+
+        if mlen > max_output - (len(out) - base):
+            raise DecodeError("xpress-lz77: too large")
+        if moff > len(out) - base:
+            raise DecodeError("xpress-lz77: corrupt offset (moff %d > %d)" % (moff, len(out) - base))
+        start = len(out) - moff
+        for j in range(mlen):
+            out.append(out[start + j])
+        matches += 1
+        match_bytes += mlen
+        if mlen > max_length:
+            max_length = mlen
+        if moff > max_offset:
+            max_offset = moff
+
+    info = {
+        "method": "xpress-lz77",
+        "input_size": len(data),
+        "output_size": len(out),
+        "literals": literals,
+        "matches": matches,
+        "match_bytes": match_bytes,
+        "max_length": max_length,
+        "max_offset": max_offset,
+    }
+    if expected_size is not None and len(out) != expected_size:
         raise DecodeError(
-            "xpress-lz77: %d byte(s) is shorter than the 4-byte flag DWORD that "
-            "starts a plain LZ77 stream" % len(data)
+            "xpress-lz77: decoded %d bytes, expected %d" % (len(out), expected_size)
         )
-    flags = int.from_bytes(data[:4], "little")
-    literal_flags = LZ77_FLAG_TOKEN_BITS - bin(flags).count("1")
-    raise UnsupportedFormat(
-        "UNSUPPORTED(xpress-lz77: plain LZ77 is headerless; first 32-bit flag "
-        "DWORD 0x%08x parses (%d of %d literal flag(s) set), but the "
-        "match/length-tier decode is not implemented)"
-        % (flags, literal_flags, LZ77_FLAG_TOKEN_BITS)
-    )
+    return bytes(out), info
 
 
 def decompress_xpress_huffman(data, expected_size=None,
@@ -964,8 +1066,8 @@ def decompress_xpress_huffman(data, expected_size=None,
 
 def decompress_xpress_lz77(data, expected_size=None,
                            max_output=DEFAULT_MAX_OUTPUT):
-    """Never returns bytes: raises `UnsupportedFormat` after the header check."""
-    _xpress_lz77_decode(data, expected_size, max_output)
+    """Decode an XPRESS plain LZ77 stream; return bytes."""
+    return _xpress_lz77_decode(data, expected_size, max_output)[0]
 
 
 
@@ -1804,17 +1906,18 @@ def selftest():
                  "xpress-huffman")
     ok("xpress-huffman over-subscribed message",
        "over-subscribed" in str(exc), True)
-    exc = raises(UnsupportedFormat, "xpress-lz77 refuses after the flag DWORD",
+    # xpress-lz77 is now implemented (M1.2b): a truncated stream raises DecodeError.
+    exc = raises(DecodeError, "xpress-lz77 truncated stream rejected",
                  decompress, b"\x00\x00\x00\x00literal", None, "lz77")
-    ok("xpress-lz77 refusal names the sub-format",
-       str(exc).startswith("UNSUPPORTED(xpress-lz77:"), True)
-    ok("xpress-lz77 refusal reports the parsed flag DWORD",
-       "0x00000000" in str(exc) and "32 of 32 literal flag(s)" in str(exc), True)
-    ok("xpress-lz77 refusal says what is missing",
-       "not implemented" in str(exc), True)
+    ok("xpress-lz77 truncated message names the sub-format",
+       str(exc).startswith("xpress-lz77:"), True)
+    exc2 = decompress(b"\x00\x00\x00\x00" + b"A" * 32 + b"\x00\x00\x00\x80", None, "lz77")
+    ok("xpress-lz77 decodes 32 literals + end marker",
+       exc2 == b"A" * 32, True)
     raises(DecodeError, "xpress-lz77 shorter than one DWORD rejected",
            decompress, b"\x00\x00", None, "xpress-lz77")
-    for method in ("xpress-lz77", "xpress-huffman"):
+    # xpress-huffman is still a skeleton (refuses); xpress-lz77 is now implemented.
+    for method in ("xpress-huffman",):
         for sample in (b"", b"\x00", b"\xff" * 300):
             try:
                 decompress(sample, None, method)
@@ -1825,7 +1928,7 @@ def selftest():
                     "%s returned bytes for %r; skeletons must refuse"
                     % (method, sample[:8])
                 )
-    checks.append("xpress skeletons refuse instead of guessing")
+    checks.append("xpress-huffman skeleton refuses instead of guessing")
 
     # --- probe: a hidden LZSS stream behind a 22-byte prefix ----------------
     probe_plain = b"ZE0 probe payload " * 40
@@ -1867,8 +1970,8 @@ def selftest():
        "no expected_size" in no_size["notes"][0], True)
     xpress_probe = probe(probe_file, len(probe_plain), [22],
                          ["xpress-lz77", "xpress-huffman"])
-    ok("probe xpress-lz77 is unsupported",
-       xpress_probe["attempts"][0]["status"], "unsupported")
+    ok("probe xpress-lz77 is implemented (no longer unsupported)",
+       xpress_probe["attempts"][0]["status"] in ("match", "mismatch", "error"), True)
     ok("probe xpress-huffman never matches",
        xpress_probe["attempts"][1]["status"] in ("unsupported", "error"), True)
     ok("probe xpress attempts explain themselves",
