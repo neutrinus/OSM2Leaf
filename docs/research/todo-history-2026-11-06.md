@@ -291,3 +291,107 @@ The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).
 **Needs Marek:** S0 on the unit (M6.2); building the Pico `.uf2` locally if
 the unit's own SD LOCK menu is not used (M6.11); running the non-Claude
 tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal internet.
+
+---
+
+## Priorities (product review 2026-11-06, fifth pass)
+
+Earlier passes are frozen in
+[`docs/research/todo-history-2026-11-06.md`](docs/research/todo-history-2026-11-06.md).
+
+**Nearest milestone:** Marek's US unit shows a name we wrote. Every tool it
+needs is on `main`; the two card images still do not exist.
+
+| Stage (`card-test-plan.md`) | Card | Built by | Status |
+| --- | --- | --- | --- |
+| S0 factory clone | `LEAF_2011-2012_US.img` as is (`53342430…c5383`) | `dd` | ready for Marek (**M6.2**) |
+| S1 no-op recompression | `POINT010` pair recompressed unchanged, patched into a copy | **M5.13b** (tool: M5.13 done) | image open |
+| S2 POI rename | `HANA HEALTH CENTER` → `OSM2LEAF TEST POI1` | **M5.13b** (edit: M5.12 done) | image open |
+| S3 geometry | one road vertex moved in a US tile | **M5.14** | open |
+
+**Fifth-pass finding: the S-chain stopped one step short.** `tools/imgpatch.py`
+(M5.13) is verified on a synthetic FAT32 fixture (46 checks): a same-length
+patch changes only the differing bytes, a cluster-count change re-links both
+FATs and FSInfo, and every write is envelope-checked to the map partition plus
+the 72-byte `0x06000000` window. What it has **not** done is run on the real US
+image: EXP-2026-11-06-M5.13 records C-2027 as `UNKNOWN` and its own follow-ups
+are the exact commands. The board line read `done (planning)`, which is why
+S1/S2 looked ready. **M5.13b** is that one run (S1 and S2 images, SHA-256, diff
+ranges, `cardcheck --image` with the label present), plus the real-image check
+M5.12b still owes (`mkcard` fresh build reporting the label). It needs stock
+zlib 1.3.1, not zlib-ng (H9).
+
+**What the fifth pass verified (2026-11-06, on `main`):**
+
+- `python3 tools/selftest.py` → 45 passed / 0 failed / 18 skipped over 63
+  suites (was 61: `imgpatch` and `l3check` are discovered by their
+  `--selftest`, and the M4.12 tool adds a third); `tools/claims_check.py` → 0
+  duplicate IDs, 0 unregistered claims. Every claim block the ten merged
+  tasks reserved (C-1230…C-1290, C-1700, C-2010–C-2039, C-2290–C-2299) has
+  its rows, so the ledger is current.
+- **H11 gives the first whole-project coverage number:** 30 file families —
+  6 writers exist, 5 are partial, 10 have no writer at all, 9 are copy-only.
+  **12 families have no record-walking reader** and 4 have only a
+  filename/path anchor. No row has an L3 verdict. That is the real distance to
+  a Poland card, and it is larger than the board suggested.
+- **M8 went from a plan to a reproducible toolchain, with zero boots.**
+  `tools/qemu-ze0/build.sh` pins QEMU 8.2.7 (tarball SHA-256, offline
+  `--selftest` of 42 checks, a `-M ze0` gate that fails loudly); the CCN/MMU
+  block is factored into a `sh4-ccn` device (applies, builds, instantiates,
+  `-M r2d` still starts); a `ze0-stubs` device models the five boot-blocker
+  windows and is qtest-checked; `run.sh` + `gdb-ze0.py` give logs and a
+  PC→module map. **No kernel has been booted with any of it** — the three
+  series were never applied and built together. M8.A1 saw `m8a4-0002/0003`
+  rejected on 8.2.7 while M8.A4/M8.A5 report them applying; that conflict must
+  die in one clean `build.sh --force` run inside **M8.A2**.
+- **M8.E1 was "refuted" by an endianness error.** M8.E1b shows nk.exe SH-4 is
+  little-endian, the flag-test pattern is present at `0x88038666` (1 hit) and
+  the M1.2c VAs/pools are correct: `DECOMP_WRAP 0x88037590` → `DECOMP_SECT
+  0x88037464` → `DECOMP_BLK 0x8803a384`. Compression is no longer an address
+  problem but a codec problem, so two cheap routes now run in parallel:
+  **M1.2f** (port the block codec to Python) and **M8.E1** (call the real
+  function — a LE `qemu-system-sh4` can now be built from M8.A1).
+- **L3 is a skeleton that refuses to lie.** `l3check.py` runs every target and
+  reports 1 PASS (a synthetic pipeline probe) / 5 BLOCKED; a blocked target
+  exits 3 and claims no verdict. Correct — and it still means no map file has
+  ever been read by firmware code.
+- M1.2c, M5.12b, M6.12 (planning), M9.8, M9.9 landed as claimed; M4.20 fixed
+  the US `DRSTR001` round-trip at `0x1ae0` (stored entry-name case), so both
+  markets rebuild byte-identically.
+
+**Take these first (critical, ready, unowned), in this order:**
+
+1. **M5.13b** — the only thing between the board and two test cards. Then
+   **M6.2** (S0) and **M5.12c** (every other copy of the old name).
+2. **M9.6** (map-code compare: the one L3 target whose address and corpus
+   exist), **M3.11 → M9.10**, **M3.2b → M9.11 → M9.12**: the software gate.
+3. **M1.2f** and **M8.E1** in parallel: 245 sections, `FILESentry`, F3/F4.
+4. **M8.A2** → **M8.A3** → **M8.A6**: F0 on a real boot log.
+5. **M5.12c → M5.14** (S3), then the compiler spine
+   **M5.4 → M5.6 → M5.11**.
+6. The writers H11 shows missing: **M5.18** (`POINT`/`ADDRE`), **M5.17**
+   (`LCTBL001`), **M5.16** (`LEV3456R`), **M4.21** (tile section 4), **M5.19**
+   (`RDSTM001`) — each after its M3 reader.
+
+**Needs Marek:** S0 on the unit (M6.2); the Pico `.uf2` built locally (M6.11);
+the non-Claude tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal
+internet; and a host that holds the US image for M5.13b (it is on the allowed
+host, `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img`).
+
+**Software before the car (Marek, 2026-11-06).** A car test is expensive, so
+every edited card first passes the firmware's own code in L3: **M3.11** (find
+the `POINT` reader) → **M9.10**, and **M3.2b** → **M9.11** (the firmware's
+`.cmp` layer reads our recompressed pair) → **M9.12** (`l3check.py --card`,
+the gate). M6.5/M6.6 depend on these; only S0 may go into the car before them.
+
+**Every generated format is confirmed by the firmware (rule 13).** Three
+levels, cheapest first: (1) the reader is located and the format doc cites its
+VAs (M3.5, M3.10, M3.11–M3.18); (2) an L3 target runs that reader on our file
+(M9.10, M9.11, M9.13–M9.18) and the map-load chain runs on a whole tree
+(M9.16); (3) full `Navi.exe` in the emulated unit (M8 → F4 → M8.E4). **H11**
+keeps the per-file matrix; nothing goes into the car before its rows reach
+level 2. **M5.15** wires it into one command.
+
+**Phase-2 milestone (unchanged):** one OSM-generated Dolnośląskie tile on a
+card image that passes L1 + L2 + `realcheck.py` and every known gate (M5.11).
+The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).

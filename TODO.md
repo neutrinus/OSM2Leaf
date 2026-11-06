@@ -90,6 +90,17 @@ front has fewer, add the next tasks (see rule 9).
     matrix in [`docs/research/reader-coverage.md`](docs/research/reader-coverage.md)
     (H11); update its row in the same PR as your task.
 
+14. **A scoped negative must name its escape (PM, 2026-11-06, sixth pass).**
+    "Not found" is a result only when the search covered every place the thing
+    can live. Check `cerom.py sections` first: 245 of build A's 527 o32
+    sections carry `IMAGE_SCN_COMPRESSED` and are undecodable today (M1.3,
+    M1.2f). An EXP whose search covered only uncompressed sections must say so
+    in the first line of its `Result` and name the task that would open the
+    rest (M1.2f, M8.E1, or a dynamic break). The same applies to data: "no
+    vendor image on this machine" is not a result — every image is on
+    `https://files.viaaq.eu/sd-images/` (rule 11, **H16**). M3.11 and M3.2b
+    both ended as correct-but-predictable negatives for exactly this reason.
+
 ### ID allocation
 
 Parallel agents collided on `EXP-…-48` and on several claim IDs (C-520,
@@ -125,7 +136,14 @@ C-521, C-528…C-533 were proposed twice). From now on:
 | `IMG256` (firmware: A, B, C) | `curl -r 0-268435455 -o head256.img https://files.viaaq.eu/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` | `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9` |
 | `IMG` (full EU 2011 card, 7.5 GB) | same URL without `-r`; resume with `curl -C -` | `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` |
 | `ROOT` (extracted map tree) | `python3 tools/verify.py --image IMG` (extracts to `archive/work/`) | — |
+| `US` (Marek's US 2011 card, 7.5 GB) | `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` | `53342430…c5383` |
+| `EU2014` (7.4 GB) | `https://files.viaaq.eu/sd-images/LEAF_2014_EU_QSD-357-101.img` | record per EXP |
+| `EU2016` (7.4 GB) | `https://files.viaaq.eu/sd-images/ENV200_2016_EU_QSD-390-100.img` | record per EXP |
 | Other years/markets | `https://files.viaaq.eu/maps/`, `docs/research/image-versions.md` | record per EXP |
+
+`https://files.viaaq.eu/sd-images/` is reachable from the sandbox; **H16** turns
+these rows into one command (`tools/fetch_image.py`). Listing is not a
+blocker (rule 14 / rule 11).
 
 CE images inside the card image: **A** (apps, `Navi.exe`) `--image-start
 0x200200` (copy at `0x2000200`), **B** (kernel + updaters) `0x3e00200` (copy
@@ -133,103 +151,105 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (product review 2026-11-06, fifth pass)
+## Priorities (product review 2026-11-06, sixth pass)
 
 Earlier passes are frozen in
 [`docs/research/todo-history-2026-11-06.md`](docs/research/todo-history-2026-11-06.md).
 
-**Nearest milestone:** Marek's US unit shows a name we wrote. Every tool it
-needs is on `main`; the two card images still do not exist.
+**The headline: the software gate moved behind compression.** Three tasks
+merged since the fifth pass; two of them are scoped negatives with the same
+cause.
 
-| Stage (`card-test-plan.md`) | Card | Built by | Status |
-| --- | --- | --- | --- |
-| S0 factory clone | `LEAF_2011-2012_US.img` as is (`53342430…c5383`) | `dd` | ready for Marek (**M6.2**) |
-| S1 no-op recompression | `POINT010` pair recompressed unchanged, patched into a copy | **M5.13b** (tool: M5.13 done) | image open |
-| S2 POI rename | `HANA HEALTH CENTER` → `OSM2LEAF TEST POI1` | **M5.13b** (edit: M5.12 done) | image open |
-| S3 geometry | one road vertex moved in a US tile | **M5.14** | open |
+- **M3.11** (`POINT` reader) searched all 527 uncompressed build-A o32
+  sections: 0 aligned `0x60|0x68` tag pairs, 0 mask walkers, 0 `2*len2` stride
+  sequences. The access path *is* there (`0x003fbed8` → `0x0040b358` →
+  `0x004125a8`, `0x14e8` → `REFER001`+`INDEX003.DAT`); the page walker is not.
+- **M3.2b** (`.cmp` reader) found Navi.exe's statically linked zlib 1.1.3
+  (`inflateInit2_ 0x542256`, `inflate 0x54233c`, `inflateEnd 0x54220c`), the
+  one-shot wrapper `0x542148` and the chunked decompressor `fn 0x41c7e8`
+  (20-byte-stride table, no seek, no `78 9c` scan) — and then found **no
+  caller of `0x41c7e8` in any uncompressed section**.
+- Both name the same escape: **Navi.exe sec1 is `IMAGE_SCN_COMPRESSED`**
+  (`psize 0x457c`, `vsize 0xff16ae` — 16 MB of code we cannot read), and sec2
+  likewise.
 
-**Fifth-pass finding: the S-chain stopped one step short.** `tools/imgpatch.py`
-(M5.13) is verified on a synthetic FAT32 fixture (46 checks): a same-length
-patch changes only the differing bytes, a cluster-count change re-links both
-FATs and FSInfo, and every write is envelope-checked to the map partition plus
-the 72-byte `0x06000000` window. What it has **not** done is run on the real US
-image: EXP-2026-11-06-M5.13 records C-2027 as `UNKNOWN` and its own follow-ups
-are the exact commands. The board line read `done (planning)`, which is why
-S1/S2 looked ready. **M5.13b** is that one run (S1 and S2 images, SHA-256, diff
-ranges, `cardcheck --image` with the label present), plus the real-image check
-M5.12b still owes (`mkcard` fresh build reporting the label). It needs stock
-zlib 1.3.1, not zlib-ng (H9).
+So **M1.2f is the single critical path** for M3.2b, M3.11, M1.3, M1.4, M9.10,
+M9.11 and M9.12. Two sessions proved that a reader is not in the readable 47 %
+of the code — a correct result, but the board should have sequenced the decoder
+first. **Rule 14** makes that escape explicit from now on.
 
-**What the fifth pass verified (2026-11-06, on `main`):**
+**The sixth pass also found a cheaper path through M3.2b's negative.** The
+chunked decompressor `fn 0x41c7e8` takes its chunk table from the caller
+(`@(28,ctx)`, 20-byte entries). S1 only has to prove that the firmware's own
+zlib accept our recompressed bytes: the harness can build that table from
+`.ind` itself and call `0x41c7e8` directly, without ever locating the `.ind`
+parser that lives in sec1. **M9.11** is re-scoped that way and is runnable
+now; M3.2b keeps the file-layer question for later.
 
-- `python3 tools/selftest.py` → 45 passed / 0 failed / 18 skipped over 63
-  suites (was 61: `imgpatch` and `l3check` are discovered by their
-  `--selftest`, and the M4.12 tool adds a third); `tools/claims_check.py` → 0
-  duplicate IDs, 0 unregistered claims. Every claim block the ten merged
-  tasks reserved (C-1230…C-1290, C-1700, C-2010–C-2039, C-2290–C-2299) has
-  its rows, so the ledger is current.
-- **H11 gives the first whole-project coverage number:** 30 file families —
-  6 writers exist, 5 are partial, 10 have no writer at all, 9 are copy-only.
-  **12 families have no record-walking reader** and 4 have only a
-  filename/path anchor. No row has an L3 verdict. That is the real distance to
-  a Poland card, and it is larger than the board suggested.
-- **M8 went from a plan to a reproducible toolchain, with zero boots.**
-  `tools/qemu-ze0/build.sh` pins QEMU 8.2.7 (tarball SHA-256, offline
-  `--selftest` of 42 checks, a `-M ze0` gate that fails loudly); the CCN/MMU
-  block is factored into a `sh4-ccn` device (applies, builds, instantiates,
-  `-M r2d` still starts); a `ze0-stubs` device models the five boot-blocker
-  windows and is qtest-checked; `run.sh` + `gdb-ze0.py` give logs and a
-  PC→module map. **No kernel has been booted with any of it** — the three
-  series were never applied and built together. M8.A1 saw `m8a4-0002/0003`
-  rejected on 8.2.7 while M8.A4/M8.A5 report them applying; that conflict must
-  die in one clean `build.sh --force` run inside **M8.A2**.
-- **M8.E1 was "refuted" by an endianness error.** M8.E1b shows nk.exe SH-4 is
-  little-endian, the flag-test pattern is present at `0x88038666` (1 hit) and
-  the M1.2c VAs/pools are correct: `DECOMP_WRAP 0x88037590` → `DECOMP_SECT
-  0x88037464` → `DECOMP_BLK 0x8803a384`. Compression is no longer an address
-  problem but a codec problem, so two cheap routes now run in parallel:
-  **M1.2f** (port the block codec to Python) and **M8.E1** (call the real
-  function — a LE `qemu-system-sh4` can now be built from M8.A1).
-- **L3 is a skeleton that refuses to lie.** `l3check.py` runs every target and
-  reports 1 PASS (a synthetic pipeline probe) / 5 BLOCKED; a blocked target
-  exits 3 and claims no verdict. Correct — and it still means no map file has
-  ever been read by firmware code.
-- M1.2c, M5.12b, M6.12 (planning), M9.8, M9.9 landed as claimed; M4.20 fixed
-  the US `DRSTR001` round-trip at `0x1ae0` (stored entry-name case), so both
-  markets rebuild byte-identically.
+**What else the sixth pass verified:**
+
+- **M2.15** specified both launcher checks byte-for-byte (C-2080–C-2084): the
+  card side is `HDD_INFO.TXT` line 1 and `MapDBVer`; the unit side is kernel
+  target-info `KernelIoControl(0x0101302C)` `+96`/`+112`/`+114`, **not** the
+  `0x06000000` copy. The unit values are unknown statically (C-2087), so
+  check 2 stays bounds-gated. **M2.4's blocker ("unavailable offline") was
+  wrong**: M9.6 runs the comparator offline, is ready, and is unowned.
+- **M3.12 removed a risk we were planning around:** `REFER001/INDEX003.DAT`
+  does not exist on the EU 2011 or the US 2011 image (no FAT entry, no
+  `DRSTR` entry). The S2 rename cannot be shadowed by an on-disk search index
+  on those images, so **M5.12c** narrows to the name DB and the tile/label
+  copies.
+- `python3 tools/selftest.py` → 45 passed / 0 failed / 18 skipped (63 suites);
+  `tools/claims_check.py` clean.
+
+**Images are not a blocker (Marek, 2026-11-06).**
+`https://files.viaaq.eu/sd-images/` lists `LEAF_2011-2012_US.img` (7.5 G), the
+EU 2011 image (7.5 G), the 2014 EU image (7.4 G) and
+`ENV200_2016_EU_QSD-390-100.img` (7.4 G). Four records still cite "no vendor
+image on this machine" in their scope (M5.13, M5.12b, M8.A4, M8.A5) although
+the host is reachable and rule 11 already forbids that blocker. **H16** adds
+one fetch helper with pinned URLs, sizes and SHA-256, and **M5.13b** now lists
+the download as an explicit input.
 
 **Take these first (critical, ready, unowned), in this order:**
 
-1. **M5.13b** — the only thing between the board and two test cards. Then
-   **M6.2** (S0) and **M5.12c** (every other copy of the old name).
-2. **M9.6** (map-code compare: the one L3 target whose address and corpus
-   exist), **M3.11 → M9.10**, **M3.2b → M9.11 → M9.12**: the software gate.
-3. **M1.2f** and **M8.E1** in parallel: 245 sections, `FILESentry`, F3/F4.
-4. **M8.A2** → **M8.A3** → **M8.A6**: F0 on a real boot log.
-5. **M5.12c → M5.14** (S3), then the compiler spine
-   **M5.4 → M5.6 → M5.11**.
-6. The writers H11 shows missing: **M5.18** (`POINT`/`ADDRE`), **M5.17**
-   (`LCTBL001`), **M5.16** (`LEV3456R`), **M4.21** (tile section 4), **M5.19**
-   (`RDSTM001`) — each after its M3 reader.
+1. **M1.2f** — port `DECOMP_BLK`. It unblocks M3.2b, M3.11, M9.10, M1.3, M1.4;
+   nothing else on the software side moves without it. **M8.E1** is the
+   parallel route through the real function and should take Navi.exe sec1 as
+   its third vector.
+2. **M5.13b** — the S1/S2 images (download the US image from the allowed host),
+   then **M6.2** (S0) and **M5.12c** (now narrow).
+3. **M9.11** in its new scope (call `0x41c7e8` on the three `POINT010` pairs),
+   then **M9.12**; **M9.6** with M2.15's exact bytes, then **M2.4**.
+4. **H16** and **H14** — the infrastructure debt that keeps costing rounds.
+5. **M8.A2 → M8.A3** (F0 on a real boot log).
+6. Compiler spine unchanged: **M5.4 → M5.6 → M5.11**, with the H11 writers
+   after their M3 readers.
+
+**Methodology note (sixth pass).** Two failure modes cost this round:
+(1) *searching only what is readable and reporting "not found"* — M3.11,
+M3.2b; (2) *citing an absent image* — M5.13, M5.12b, M8.A4, M8.A5. Rule 14
+covers the first, H16 the second, and both are now part of the task template's
+`Input` field rather than advice.
 
 **Needs Marek:** S0 on the unit (M6.2); the Pico `.uf2` built locally (M6.11);
 the non-Claude tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal
-internet; and a host that holds the US image for M5.13b (it is on the allowed
-host, `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img`).
+internet.
 
 **Software before the car (Marek, 2026-11-06).** A car test is expensive, so
-every edited card first passes the firmware's own code in L3: **M3.11** (find
-the `POINT` reader) → **M9.10**, and **M3.2b** → **M9.11** (the firmware's
-`.cmp` layer reads our recompressed pair) → **M9.12** (`l3check.py --card`,
-the gate). M6.5/M6.6 depend on these; only S0 may go into the car before them.
+every edited card first passes the firmware's own code in L3: **M9.11** (the
+firmware's chunk decoder reads our recompressed pair) and **M9.10** (its POI
+reader returns the new name, once M1.2f finds the walker) → **M9.12**
+(`l3check.py --card`, the gate). M6.5/M6.6 depend on these; only S0 may go into
+the car before them.
 
 **Every generated format is confirmed by the firmware (rule 13).** Three
 levels, cheapest first: (1) the reader is located and the format doc cites its
-VAs (M3.5, M3.10, M3.11–M3.18); (2) an L3 target runs that reader on our file
-(M9.10, M9.11, M9.13–M9.18) and the map-load chain runs on a whole tree
-(M9.16); (3) full `Navi.exe` in the emulated unit (M8 → F4 → M8.E4). **H11**
-keeps the per-file matrix; nothing goes into the car before its rows reach
-level 2. **M5.15** wires it into one command.
+VAs (M3.5, M3.10, M2.15, M3.11–M3.18); (2) an L3 target runs that reader on
+our file (M9.10, M9.11, M9.13–M9.18) and the map-load chain runs on a whole
+tree (M9.16); (3) full `Navi.exe` in the emulated unit (M8 → F4 → M8.E4).
+**H11** keeps the per-file matrix; nothing goes into the car before its rows
+reach level 2. **M5.15** wires it into one command.
 
 **Phase-2 milestone (unchanged):** one OSM-generated Dolnośląskie tile on a
 card image that passes L1 + L2 + `realcheck.py` and every known gate (M5.11).
@@ -239,23 +259,26 @@ The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H13, H14** |
+| H | Housekeeping | **H13, H14, H16** |
 | M1 | Firmware tooling (decompression) | **M1.2f, M1.10, M1.11**; M1.4 after M1.2f; M1.2e non-Claude |
-| M2 | Map code, activation, updater | M2.16, M2.14 |
-| M3 | Reader contract | **M3.11, M3.2b, M3.12, M3.13, M3.14, M3.15, M3.16, M3.17, M3.18** |
+| M2 | Map code, activation, updater | **M2.16, M2.14**; M2.4 after M9.6 |
+| M3 | Reader contract | **M3.13, M3.14, M3.15, M3.16, M3.17, M3.18**; M3.2b/M3.11 blocked on M1.2f |
 | M4 | Data formats | **M4.16b, M4.22, M4.8b**, M4.16c, M4.16d, M4.3, M4.17; M4.21 after M3.6; M4.2 non-Claude |
 | M5 | Compiler + US edits | **M5.13b, M5.12c, M5.4, M5.1c**; M5.14/M5.20 after M5.13b; M5.1b non-Claude; M5.16–M5.19 after their M3 readers |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5/M6.6 after M5.13b; M6.7 after M5.14 |
 | M8 | Full-system emulation | **M8.A2, M8.E1**; M8.A3 after M8.A2 |
-| M9 | L3 toolkit | **M9.6, M9.13, M9.17, M9.20**; M9.10–M9.12, M9.14–M9.16, M9.18 after their M3 readers; M9.2 non-Claude |
+| M9 | L3 toolkit | **M9.6, M9.11, M9.13, M9.17, M9.20**; M9.12 after M9.11; M9.10/M9.14–M9.16/M9.18 after their readers; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
+· **Compression first (sixth pass):** **M1.2f** (or **M8.E1**) gates M3.2b,
+M3.11, M1.3, M1.4 and therefore M9.10 and M9.12.
 · **US (nearest):** **M5.13b** (the two images) → car M6.2 S0 → M6.5 S1 →
-M6.6 S2 → (M5.14) M6.7 S3; gated by M3.11 → M9.10 and M3.2b → M9.11 → M9.12.
+M6.6 S2 → (M5.14) M6.7 S3; gated by **M9.11** (chunk decoder, runnable now)
+and M9.10 (after M1.2f) → M9.12.
 · **Poland (goal):** M5.1 → M5.1c → M5.2 → M5.4 → M5.7/M5.18 → M5.6 → **M5.11**,
-gated by M2.15 + M9.6/M2.4 (map code) and M5.3 ← M4.2 (road classes).
-Supporting: M1.2f / M8.E1 (compression) · M3.2b → M3.2 → M3.3 ·
-M8.A2 → M8.A3 → M8.A6 (F0) · M4.16b → M4.2/M5.3.
+gated by M9.6/M2.4 (map code) and M5.3 ← M4.2 (road classes).
+Supporting: M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0) ·
+M4.16b → M4.2/M5.3.
 
 ---
 
@@ -494,6 +517,43 @@ M8.A2 → M8.A3 → M8.A6 (F0) · M4.16b → M4.2/M5.3.
     `tools/selftest.py` covers the qemu-ze0 scripts (SKIP when absent, never a
     silent pass), and a new pin is added only where the measured value is
     stable.
+  - Claims: none
+
+- [x] **H15 — PM review, sixth pass (2026-11-06)**
+  - Status: done · Owner: session-PM · Critical: no
+  - Depends: —
+  - Goal: audit the three results merged after the fifth pass and re-sequence
+    the board around what they proved.
+  - Done when: the two scoped negatives change the priority order, every
+    follow-up they create has a task, and the rule that would have prevented
+    them exists.
+  - Result: EXP-2026-11-06-H15-pm-review. Compression (M1.2f/M8.E1) is now the
+    single gate for the software side; M9.11 re-scoped to the located chunk
+    decoder `0x41c7e8` and runnable now; M9.10 and M3.11 marked blocked;
+    M2.4's invalid "unavailable offline" blocker removed; M5.12c narrowed by
+    M3.12; rule 14 added; H16 added.
+  - Claims: none (a review creates no format claim)
+
+- [ ] **H16 — `tools/fetch_image.py`: pinned downloads so "no image" stops being a blocker**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: four records (M5.13, M5.12b, M8.A4, M8.A5) list "no vendor image on
+    this machine" in their scope although the host is reachable and rule 11
+    forbids that blocker. One helper with pinned URLs, sizes and SHA-256
+    removes the excuse and the transcription risk.
+  - Input: `https://files.viaaq.eu/sd-images/` (listed 2026-11-06):
+    `LEAF_2011-2012_QSD-309-101_navi158_eu.img` (7.5 G, sha256
+    `105e2032…76307`), `LEAF_2011-2012_US.img` (7.5 G, sha256 `53342430…c5383`),
+    `LEAF_2014_EU_QSD-357-101.img` (7.4 G), `ENV200_2016_EU_QSD-390-100.img`
+    (7.4 G); the existing `curl -r 0-268435455` recipe for `IMG256` (sha256
+    `92aa525d…`); `docs/research/image-versions.md`.
+  - Done when: `tools/fetch_image.py --list` prints the four images with size
+    and SHA-256; `--image IMG256|US|EU2011|EU2014|EU2016 [--part 256M] -o PATH`
+    downloads (resumable), verifies size and SHA-256 and leaves no partial
+    file on failure; `--verify PATH` checks an existing file; `--selftest`
+    covers the refusal paths against a local `file://` fixture (no network in
+    tests); `tools/README.md`, rule 11 and the Shared-inputs table point to it
+    and gain the two newer images.
   - Claims: none
 
 ---
@@ -760,7 +820,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Depends: — (M8.E1b verified the VAs; M1.2a/M1.2d frame the payload)
   - Goal: decode every `IMAGE_SCN_COMPRESSED` section without QEMU. M8.E1b
     ended the address question; what is missing is the codec inside
-    `0x8803a384`, not the entry point.
+    `0x8803a384`, not the entry point. **Sixth pass: this is the single gate
+    for the software side** — M3.2b and M3.11 both ended at "the reader is in
+    Navi.exe sec1", so M9.10 and M9.12 wait here too.
   - Input: `DECOMP_BLK 0x8803a384` (8-byte block header, block type 4/E8,
     LZXD-like — M1.2c, M8.E1b), `DECOMP_SECT 0x88037464` (3-byte frame sizes,
     form 1/2 block loop), `DECOMP_ALLOC 0x88034d94`; `tools/cecompress.py`
@@ -824,9 +886,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-740–C-749
 
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: blocked · Owner: task/m2.4-hddinfo-variants · Critical: yes
-  - Blocker: firmware verdicts require the real L3 target (M9.6), unavailable offline; offline model-M0 gives 66 ACCEPT / 23 DIFFERENT. See EXP-2026-11-06-M2.4-hddinfo-variants.
-  - Depends: M2.3, M9.6 (M2.15 for the offline model)
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M9.6 (ready, unowned), M2.15 (done), M2.3 (done)
+  - Note (sixth pass): the old blocker ("firmware verdicts need the L3 target,
+    unavailable offline") was **wrong** — M9.6 runs the comparator offline with
+    a stubbed `KernelIoControl(0x0101302C)`, and M2.15 supplied the exact card
+    bytes plus the `+96`/`+112`/`+114` unit fields. Only M9.6 is missing.
+    The offline model-M0 gives 66 ACCEPT / 23 DIFFERENT
+    (EXP-2026-11-06-M2.4-hddinfo-variants).
   - Goal: run the real parser + comparator on `tools/hddinfo_variants.py`.
   - Input: L3 runner (M9.5), corpus (M9.7). The map-code comparator is
     `AppLaunch.dll` `fn 0x03bd2ad8` (M2.5), not M2.2's user-data check.
@@ -1167,8 +1234,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
   - Status: blocked · Owner: task/m3.2b-cmp-chunk-reader-inflate · Critical: yes
-  - Blocker: inflate + chunk decompression engine found (Navi.exe A: `inflateInit2_ 0x542256`, `inflate 0x54233c`, `inflateEnd 0x54220c`, wrapper `0x542148`, chunked decompressor `fn 0x41c7e8`, C-2060–C-2063/2065), but the `.ind` `chunk_offset[]` consumer / table builder has no callers in any uncompressed A o32 section (527 searched, positive controls) and Navi.exe sec1/sec2 are compressed (M1.3 0/245) — M3.2a,b unanswered. Needs M1.2f/M8.E1 decode of sec1/sec2 or dynamic break on `0x542148`/`0x41c7e8`.
-  - Depends: —
+  - Blocker: inflate + chunk decompression engine found (Navi.exe A: `inflateInit2_ 0x542256`, `inflate 0x54233c`, `inflateEnd 0x54220c`, wrapper `0x542148`, chunked decompressor `fn 0x41c7e8`, C-2060–C-2063/2065), but the `.ind` `chunk_offset[]` consumer / table builder has no callers in any uncompressed A o32 section (527 searched, positive controls) and Navi.exe sec1/sec2 are compressed (M1.3 0/245) — M3.2a,b unanswered. Needs M1.2f/M8.E1 decode of sec1/sec2 or dynamic break on `0x542148`/`0x41c7e8`. The chunk engine itself is already usable: see M9.11.
+  - Depends: M1.2f (blocked) or a dynamic break
   - Goal: M3.1/M3.2 show the `MAL_DataVol_*` and `.IND` string leads miss the
     reader. Every `.cmp` chunk is zlib, so the reader must call `inflate`.
   - Input: image A modules (`cerom.py sections`); zlib message strings
@@ -1187,9 +1254,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     not in uncompressed code (positive controls); likely Navi.exe comp sec1/sec2.
   - Claims: C-2060–C-2069
 
-- [x] **M3.11 — The `POINT` record reader in `Navi.exe`**
+- [ ] **M3.11 — The `POINT` record reader in `Navi.exe`**
   - Status: blocked · Owner: task/m3.11-point-reader · Critical: yes
-  - Depends: —
+  - Depends: M1.2f (blocked) or a dynamic break
   - Blocker: record-walk/name-copy functions (tag `0x60|0x68`, `len2`, stride `2*len2`) **not found** in any uncompressed build-A o32 section (527 searched; 0 aligned tag pairs, 0 mask walkers, 0 stride sequences; 49 tag sites + `fn 0x003715a0` rejected with controls). Navi.exe sec1 is `IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, M1.3 0/245, M1.2f/M8.E1 open) — walker likely in sec1. VAs/args/output remain UNKNOWN. Access-path anchors confirmed (`0x003fbed8`/`0x0040b358`/`0x004125a8` `0x14e8`→`REFER001`+`INDEX003.DAT`). Decode sec1 (M1.2f/M8.E1) or dynamic trace to unblock M9.10.
   - Goal: the function that walks a decoded `POINT0xx` page (`tag,len2`
     records, `0x60`/`0x68`, record size `2*len2`) and copies a POI name out.
@@ -1869,7 +1936,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Depends: — (M5.13 tool and M5.12 edit are done; needs the US image)
   - Goal: the two cards the nearest milestone needs do not exist. C-2027 is
     `UNKNOWN` because `imgpatch.py` was only ever run on a synthetic fixture.
-  - Input: `LEAF_2011-2012_US.img` (sha256 `53342430…c5383`); EXP-2026-11-06-
+  - Input: `LEAF_2011-2012_US.img`, 7.5 G, sha256 `53342430…c5383`, from
+    `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` (allowed host,
+    rule 11; `tools/fetch_image.py` in H16 automates it); EXP-2026-11-06-
     M5.13 "Follow-ups" (the exact `imgpatch.py` command lines); the M5.12
     edited `POINT010` pair; `cmpind_writer.py` with **stock zlib 1.3.1**
     (`python3.13`, not zlib-ng — H9/`tools/zlibinfo.py`); `cardcheck.py --image`.
@@ -1898,11 +1967,15 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Status: open · Owner: — · Critical: yes
   - Depends: — (M5.12)
   - Goal: tell Marek which screens should show `OSM2LEAF TEST POI1` (map
-    label, POI list, name search) and whether an index still holds the old
-    name.
+    label, POI list, name search) and whether any other file still holds the
+    old name. **M3.12 removed the index risk**: `REFER001/INDEX003.DAT` does
+    not exist on the EU 2011 or US 2011 image, so nothing there can shadow the
+    rename.
   - Input: US tree; decompress all 58 `.cmp` pairs (`cmpind.py`) and scan them
     and every uncompressed file for `HANA HEALTH CENTER`, `HANA HEALTH` and the
-    bytes that follow the name in record 0 of page `0x840ba0`.
+    bytes that follow the name in record 0 of page `0x840ba0`; `LCTBL001`, the
+    US-only `REFER001/INDEX001.DAT` (552448 B, M3.12) and the tile name
+    sections.
   - Done when: the EXP lists every hit (file, logical offset, structure);
     if a search/sort index also holds the name, either extend the edit (new
     S2 via M5.13) or state what Marek should expect on screen.
@@ -2285,7 +2358,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     EXP-49 runtime decode **not yet achieved** (LE QEMU + kernel-context
     stubs/bypass, C-2294). All-245/FILESentry not run.
   - Done when: the two EXP-49 sections decode to the M1.2a lengths, then
-    all 245 sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
+    `Navi.exe` sec1/sec2 (the sections M3.2b and M3.11 need: sec1
+    `psize 0x457c` / `vsize 0xff16ae`, sec2 `psize 0x8884`), then all 245
+    sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
   - Claims: C-1600–C-1609
 
 - [x] **M8.E1b — Re-derive nk.exe ROM decompressor VA/prototype (M1.2c reverify)**
@@ -2421,8 +2496,12 @@ parts are covered by `tools/l3_harness/selftest.py`.
   and the seven-step reader procedure (EXP-2026-11-06-M9.9-l3-docs).
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
-  - Status: open · Owner: — · Critical: yes
-  - Depends: M3.11, M9.5
+  - Status: blocked · Owner: — · Critical: yes
+  - Blocker: the `POINT` page walker is in no uncompressed build-A section
+    (M3.11) and probably lives in `Navi.exe` sec1 (`IMAGE_SCN_COMPRESSED`,
+    vsize `0xff16ae`); unblock = M1.2f, then the M3.11 re-run. M9.11 does not
+    wait for it.
+  - Depends: M3.11 (blocked), M9.5
   - Goal: before any card goes into the car, run `Navi.exe`'s own `POINT`
     reader on the decoded factory page and on the renamed page, and read
     the name it returns. Pages are fed already decompressed (the `.cmp`
@@ -2438,25 +2517,31 @@ parts are covered by `tools/l3_harness/selftest.py`.
     differently from the Python parser or the same way, recorded.
   - Claims: C-2140–C-2149
 
-- [ ] **M9.11 — L3: read the edited `.cmp`/`.ind` pair through the firmware (software S1)**
+- [ ] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M3.2b (reader VA), M9.10
-  - Goal: prove in software what S1 would prove in the car: the firmware's
-    `.cmp`/`.ind` layer + its zlib accept our recompressed bytes and return
-    the same logical page. Fills the `cmp_ind_reader` target that is
-    `blocked` in `targets.json`.
-  - Input: M3.2b (`inflate` and the chunk reader), `stubs.py` file I/O
-    (`CreateFileW`/`ReadFile`/`SetFilePointer`) over a virtual
-    `\Storage Card\REFER001\`; factory, S1 (no-op recompressed) and S2
-    `POINT010` pairs.
-  - Done when: for all three pairs the firmware reader returns page
-    `0x840ba0` byte-identical to `cmpind.py extract`, and chained with M9.10
-    yields the expected name; one corrupt-`.ind` case is rejected.
+  - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
+  - Goal: prove in software what S1 would prove in the car: the firmware's own
+    zlib + chunk loop accept our recompressed bytes and return the same
+    logical page. Re-scoped in the sixth pass: `fn 0x41c7e8` (M3.2b, C-2063)
+    takes its 20-byte-stride chunk table from the caller, so the harness can
+    build that table from `.ind` and never needs the `.ind` parser that lives
+    in `Navi.exe` compressed sec1.
+  - Input: `fn 0x41c7e8` (`@(28,ctx)` table; `+8` uncompressed offset, `+12`
+    uncompressed length, `+16` compressed source, `+4` passed as r7), one-shot
+    wrapper `0x542148`, `inflateInit2_ 0x542256`, `inflate 0x54233c`,
+    `inflateEnd 0x54220c`; `runner.py` + `stubs.py`; the factory, S1 and S2
+    `POINT010` pairs; `cmpind.py extract` as the reference page.
+  - Done when: for all three pairs the firmware path returns page `0x840ba0`
+    byte-identical to `cmpind.py extract`, one corrupt-`.ind` case is rejected,
+    and one deliberately wrong table field (e.g. swapped `+4`/`+8`) is shown to
+    fail — so the table layout is proven, not assumed. Fills the
+    `cmp_ind_reader` target in `targets.json`.
   - Claims: C-2150–C-2159
 
 - [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M9.10, M9.11 (M9.8 for the tool skeleton)
+  - Depends: M9.11 (runnable now), M9.10 (blocked — the first run reports the
+    POI reader as "not yet available"), M9.6, M9.8 (tool skeleton)
   - Goal: one command that a card image must pass before Marek puts it in
     the unit: run every available L3 target (map-code compare M9.6, `.cmp`
     reader M9.11, POI reader M9.10, later tile reader) on the files that
