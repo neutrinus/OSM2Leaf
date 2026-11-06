@@ -591,7 +591,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-780–C-789
 
 - [ ] **M2.8 — SD card identity and lock (`SdCardLch.exe`)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.8-sdcard-lock · Critical: no
   - Depends: —
   - Goal: does the firmware check CID/CSD, an SD lock password or the FAT
     serial/label before using the card (`SD UNLOCK NG`)?
