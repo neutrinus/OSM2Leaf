@@ -1034,7 +1034,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M3.9-name-collation (C-1790–C-1799): name compare is `OBJDLL!OBJ_PntName_compare` `0x0349c540` → `STD_StringImp_compare` `0x03466ae0`; ordering is the custom weight table (`OBJ_Sort_cmpStr` `0x0349d3b4`, table `0x03485400`/`0x03485500`) and `STD_StringImp_comparePriority` `0x03467d84` for binary search; caps 32/64/128 chars; text is CP1252/Latin-1, not ISO-8859-2; `rdstm.md` writer rules updated.
 
 - [ ] **M3.10 — Decode the `DRSTR001`/`CMP.LST` functions found by M3.4**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.10-drstr-cmplst-fns · Critical: no
   - Depends: — (M1.9 helps)
   - Goal: find the checks the firmware applies to `DRSTR001.DAT` and
     `CMP.LST` (count, order, sentinel, leading `u32 = 0x2f`), which M5.6 must
