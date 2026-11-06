@@ -535,8 +535,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     call target.
   - Claims: C-660–C-669
 
-- [ ] **M1.3 — `cerom.py decompress` on all 245 sections**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M1.3 — `cerom.py decompress` on all 245 sections**
+  - Status: done · Owner: task/m1.3-decompress-all · Critical: yes
+  - Result: EXP-2026-11-06-M1.3-decompress-all — 245 sections, 0 OK / 245 UNSUPPORTED / 0 FAIL; codec unidentified (M1.2c next).
   - Depends: M1.2b or M1.2c
   - Goal: complete RW data for every module.
   - Input: the decoder from M1.2b/c; `cerom.py extract`.
