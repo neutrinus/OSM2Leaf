@@ -949,7 +949,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-05-M4.6-b30r048r-diff; non-monotonic shared-block layout + non-canonical addr_of tags; clarion_tile.write_tile now byte-identical for 2011/2014/2016 (preserved=0)
 
 - [ ] **M4.7 — Rename path for names/addresses**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.7-rename-path · Critical: no
   - Depends: —
   - Input: `ADDRE`/`POINT`/`ZCODE`/`LCTBL` (`docs/format/refer.md`,
     `tools/mutate_refer_poi.py`, `tools/lctbl_names.py`).
