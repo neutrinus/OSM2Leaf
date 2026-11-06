@@ -186,10 +186,10 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping: ledger, docs, tool overlap | H1, H3, H4, H6, H7 |
+| H | Housekeeping: ledger, docs, tool overlap | H3, H6, H7 (H1, H4 have branches) |
 | M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2b, M1.2c, M1.2d, M1.6c, M1.9 (M1.7 in PR #15) |
-| M2 | Map code, activation, updater, error screens | M2.1, M2.2, M2.6, M2.7, M2.8, M2.11 |
-| M3 | Reader contract (what the unit reads from the card) | M3.1, M3.4, M3.5, M3.7, M3.8, M3.9 |
+| M2 | Map code, activation, updater, error screens | M2.1, M2.2, M2.3, M2.7, M2.8, M2.11 (M2.6 has a branch) |
+| M3 | Reader contract (what the unit reads from the card) | M3.1, M3.5, M3.7, M3.8, M3.9, M3.10 |
 | M4 | Data formats (no firmware needed) | M4.3, M4.4, M4.7, M4.8, M4.9–M4.12, M4.14, M4.15, M4.18 |
 | M5 | OSM compiler vertical slice (Dolnośląskie) | M5.1 (synthetic), M5.9; M5.1b blocked on network |
 | M6 | Hardware and safety (planning now, tests later) | M6.3, M6.8 |
@@ -736,6 +736,22 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     for names, with VAs; `M4.13` writer rule updated in `refer.md` or the
     names doc.
   - Claims: C-1790–C-1799
+
+- [ ] **M3.10 — Decode the `DRSTR001`/`CMP.LST` functions found by M3.4**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.9 helps)
+  - Goal: find the checks the firmware applies to `DRSTR001.DAT` and
+    `CMP.LST` (count, order, sentinel, leading `u32 = 0x2f`), which M5.6 must
+    satisfy.
+  - Input: EXP-2026-11-06-M3.4 (`Navi.exe` `0x00419684`, `0x0041ba90`,
+    callers `0x00419d24`/`0x00419ca0`, filename table `0x00179cf8`); M3.4 had
+    no disassembler: `apt-get install binutils-sh4-linux-gnu` works here,
+    then `sh4xref.py --calls` and `objdump -b binary -m sh4`.
+  - Done when: each function's file API calls (named via C-1710/M1.9), the
+    buffer it reads into, and every compare on the read data are listed with
+    VAs in `drstr.md`; or the EXP shows the data is handed to another
+    module (named) without checks.
+  - Claims: C-1860–C-1869
 
 ---
 
