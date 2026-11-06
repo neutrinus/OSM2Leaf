@@ -462,7 +462,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-650–C-659
 
 - [ ] **M1.2c — Find the ROM decompressor in `nk.exe` and port it**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.2c-rom-decompressor · Critical: yes
   - Depends: — (M1.8 helps)
   - Goal: read the kernel's own decompression routine instead of guessing.
   - Input: image B `nk.exe` (`cerom.py --image-start 0x3e00200 IMG sections
