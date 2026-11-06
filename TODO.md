@@ -550,7 +550,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1740–C-1749
 
 - [ ] **M1.6c — Make `cerom.py thunks` work on the real image**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.6c-thunks-real-image · Critical: yes
   - Depends: —
   - Goal: thunk labels for Ghidra (M9.2) and stubs (M9.3) from real bytes.
   - Input: C-1714 (`thunks Navi.exe` and `--all`: "no import stub matched");
