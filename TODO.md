@@ -669,14 +669,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 ## M2 — Map code, activation, updater
 
-- [ ] **M2.1 — `Navi.exe` function that opens `HDD_INFO.TXT`**
-  - Status: in progress · Owner: task/m2.1-hddinfo-fn · Critical: yes
-  - Partial: EXP-2026-11-05-M2.1-hddinfo-fn (fn `0x004e7b8c`; callers only
-    via pool `0x004dd1e4` in `fn 0x004dd028`). The blocker was wrong
-    (C-1710): the ordinals are `memset` (1047), `_wfopen` (1145), `fgetws`
-    (1143), `wcschr` (59), `wcsncpy` (66), `fclose` (1118), from image B's
-    `coredll.dll`. Left: the arguments, the buffer it fills (destination of
-    `wcsncpy`, size of `memset`), the `fgetws` line buffer size.
+- [x] **M2.1 — `Navi.exe` function that opens `HDD_INFO.TXT`**
+  - Status: done · Owner: task/m2.1-hddinfo-fn · Critical: yes
   - Depends: — (M1.8 helps)
   - Goal: name the function, its arguments and callers.
   - Input: literals at `Navi.exe` VA `0x004e7d28` / `0x004e7d2c` (C-521);
@@ -685,6 +679,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the EXP gives the function VA, the file API calls it makes,
     the buffer it fills (base register, offsets, lengths), and its callers
     (VA list).
+  - Result: EXP-2026-11-06-M2.1-hddinfo-fn-complete (IMG256 `92aa525d…`): `fn 0x004e7b8c`
+    (0x004e7b8c..0x004e7cfc) `HDD_INFO_read(r4 ignored,r5 selector,r6 out@r8)`,
+    named calls `memset,_wfopen,fgetws,wcschr×2,wcsncpy,fclose,sub_004dd1f0`;
+    line buffer `r15+0x40` (0x20 wchar, `memset(r15+0x42,0,0x3e)`+lead word),
+    `fgetws(...,0x20,FILE*)`; output `r8+{0,0x18,0x30,0x4a,0x62,0x7a}` with
+    `wcsncpy` maxima `12,12,13,12,12,13` wchar; callers only `0x004dd15e`,`0x004dd16c`
+    in `fn 0x004dd028` (pool `0x004dd1e4`, no bsr, exhaustive dword scan). Builds
+    on partial EXP-2026-11-05-M2.1-hddinfo-fn (C-720); C-721–C-728.
   - Claims: C-720–C-729
 
 - [ ] **M2.2 — The `SD Import: … is different` comparator**

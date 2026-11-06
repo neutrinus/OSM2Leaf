@@ -510,11 +510,18 @@ I/O** (`memset`, append, status probe, switch).
 ### Runtime consistency check in `Navi.exe` (M2.11)
 
 This is a second, separate `HDD_INFO` path from the updater's
-`Sys[0x%x]`/`SD[0x%x]` ID comparison above. `fn 0x004e7b8c` opens the path
-selected by its second argument — `0` = `\SystemSD\VER_INFO\HDD_INFO.TXT`,
-`1` = `\UserSD\VER_INFO\HDD_INFO.TXT` — and fills a six-field struct with
-inline wchar fields at `+0`, `+0x18`, `+0x30`, `+0x4a`, `+0x62`, `+0x7a`
-(buffer sizes 12/12/13/12/12/13 wchar, one `fgetws` line each).
+`Sys[0x%x]`/`SD[0x%x]` ID comparison above. `fn 0x004e7b8c`
+(`Navi.exe` build A, `0x004e7b8c..0x004e7cfc`, args `r4` ignored, `r5` selector,
+`r6` output @`r8`) opens the path selected by `r5` — `0` =
+`\SystemSD\VER_INFO\HDD_INFO.TXT` (pool `0x004e7d2c`), `1` =
+`\UserSD\VER_INFO\HDD_INFO.TXT` (pool `0x004e7d28`) — via
+`COREDLL!_wfopen` (mode @`0x004e7d34`), reads ≤6 lines with
+`COREDLL!fgetws(r15+0x40, 0x20 wchar, FILE*)` (line buffer `r15+0x40`,
+`memset(r15+0x42,0,0x3e)`), strips CR/LF (`wcschr 0x0d/0x0a`), and
+`wcsncpy`s into inline wchar fields at `r8+0`, `+0x18`, `+0x30`, `+0x4a`,
+`+0x62`, `+0x7a` with maxima 12/12/13/12/12/13 `wchar_t`; `fclose` on exit.
+Callers (complete): `0x004dd15e`,`0x004dd16c` in `fn 0x004dd028` only (pool
+`0x004dd1e4`; EXP-2026-11-06-M2.1-hddinfo-fn-complete, C-721–C-728).
 `fn 0x004dd028` reads both copies into two stack structs, compares field 0
 (line 1) with `wcsncmp(..., 11)`, then compares the numeric tail of field 0
 through `fn 0x004e7d4c` (literal `L"000"` at `0x001d51e4`); it accepts when
