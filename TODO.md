@@ -294,7 +294,7 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 | M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12** (M2.7, M2.11, M2.13, M2.13b done) |
 | M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 done) |
 | M4 | Data formats (no firmware needed) | **M4.8b, M4.8c, M4.15**, M4.3, M4.12, M4.19 (M4.7, M4.9, M4.10, M4.11, M4.18 done) |
-| M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.12 (US edit, nearest), M5.2, M5.10, M5.11**, M5.9; M5.1b non-Claude |
+| M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.12 (US POI rename, nearest), M5.2, M5.10, M5.11**, M5.9; M5.1b non-Claude |
 | M6 | Hardware and safety (planning now, tests later) | M6.9 (non-Claude runner); tests need hardware |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
 | M9 | L3 toolkit (run firmware functions on our data) | **M9.2, M9.3**, M9.1, M9.5, M9.8 (M9.4, M9.7 done) |
@@ -1332,22 +1332,28 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
   - Claims: C-1970–C-1979
 
-- [ ] **M5.12 — Edited US tile on a rebuilt US card image**
+- [ ] **M5.12 — Rename a POI (or place name) on the US card image**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M5.10 (M4.8c for a named target; uses existing mutate tooling)
-  - Goal: the near-term milestone — one visibly-changed tile in the US map,
-    on a card image, built and checked offline, ready for Marek's unit.
-  - Input: `LEAF_2011-2012_US.img` from
+  - Depends: M5.10 (M4.8c helps locate the target)
+  - Goal: the near-term milestone — one on-screen name changed in the US map,
+    on a rebuilt card image, checked offline, ready for Marek's unit. A name
+    change is picked over a moved road because it is the most visible edit and
+    the rename path is already proven (M4.7 passes L2, different length too).
+  - Input: `LEAF_2011-2012_US.img` (= Marek's own card) from
     `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` (extract `ROOT`
-    with `tools/verify.py --image`); `tools/ze0-viewer/harness.py mutate` +
-    `tools_ze0`; `tools/section4.py preserve`; `tools/tile_diff.py`;
-    `tools/mkcard.py` (M5.10); a US tile over a road Marek can recognise
-    (pick with M4.8c). No vendor bytes committed (offsets/counts/hashes only).
-  - Done when: one US tile is edited in place (a moved or renamed road)
-    with section 4 byte-identical; `harness.py verify` and `l2check.py`
-    PASS; `tile_diff.py` shows only the intended change; `mkcard.py` rebuilds
-    the card image and `cardcheck.py --image` passes; the EXP names the tile,
-    the road and the exact change so Marek can spot it on screen.
+    with `tools/verify.py --image`); the rename tooling from M4.7
+    (`tools/mutate_refer_poi.py`, `tools/lctbl_names.py`, `docs/format/refer.md`);
+    `tools/section4.py` (place-name index), `tools/tile_diff.py`,
+    `tools/mkcard.py` (M5.10). The target POI/place is Marek's choice (he must
+    recognise it on screen); M4.8c/`coord.py` confirm which tile holds it.
+    No vendor bytes committed (offsets/counts/hashes only).
+  - Done when: one POI or place name in a US tile is changed (a plain example:
+    swap a city/POI label for a clearly different ASCII string) and L2 passes;
+    `tile_diff.py` shows only the name change; `mkcard.py` rebuilds the card
+    image and `cardcheck.py --image` passes; the EXP names the tile, the
+    original name and the new one so Marek can confirm it on the unit. If a
+    place name touches section 4 or the name DB in a way M4.7 did not cover,
+    record what changed and fall back to a POI rename (the proven path).
   - Claims: C-1980–C-1989
 
 - [ ] **M4.8c — Confirm `coord.py` on the US grid**
@@ -1442,9 +1448,11 @@ No hardware is available now. Planning tasks are open; tests wait.
   - Claims: C-1940–C-1949
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
   EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939
-- [ ] **M6.2** Clone Marek's own US 2011 card (read-only, SHA-256) as the
-  no-op baseline for the on-device tests. Now the near-term hardware step (the
-  pivot above). Status: blocked (hardware) · Owner: Marek. Claims: C-1140–C-1149
+- [ ] **M6.2** Marek's own US 2011 card. The dump already exists: it is
+  `LEAF_2011-2012_US.img` on `files.viaaq.eu` (sha256 `53342430…c5383`), which
+  Marek supplied. So the data half is in hand; what remains (hardware) is
+  writing a no-op clone to a spare card and confirming it boots his unit.
+  Status: blocked (hardware) · Owner: Marek. Claims: C-1140–C-1149
 - [ ] **M6.5** First on-device test with the no-op clone of the US card.
   Status: blocked (hardware; Depends M6.2, M6.3). Claims: C-1150–C-1159
 - [ ] **M6.6** First on-device test with the US card carrying one changed tile
