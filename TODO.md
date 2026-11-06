@@ -190,7 +190,7 @@ S0 only in that file. **M5.12b** fixes `mkcard.py` for the compiler path.
 1. **M5.13** (in-place image patch → S1/S2 cards for Marek), then **M5.12c**
    (where else the renamed name lives, so Marek knows what to expect on
    screen). Marek can run **M6.2** (S0) today, in parallel.
-2. **M5.14** (US vertex move, S3) with **M4.8c** (coord on the US grid).
+2. **M5.14** (US vertex move, S3); M4.8c (coord on the US grid) is done, so it is ready.
 3. **M2.15** + **M9.6** → **M2.4**: the exact map-code bytes, run on the real
    comparator.
 4. **M5.4** (real tile, provisional classes) → **M4.20** → **M5.6** →
@@ -214,11 +214,11 @@ tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal internet.
 | M1 | Firmware tooling (decompression) | **M1.2c**, M1.2e (non-Claude) |
 | M2 | Map code, activation, updater | **M2.15**, M2.16, M2.14 |
 | M3 | Reader contract | **M3.2b**, M3.6, M3.10 |
-| M4 | Data formats | **M4.8c, M4.20, M4.16b**, M4.8b, M4.16c, M4.16d, M4.3, M4.12, M4.17, M4.19; M4.2 non-Claude |
-| M5 | Compiler + US edits | **M5.13, M5.12c, M5.4**, M5.12b, M5.14 (after M5.13); M5.1b non-Claude |
+| M4 | Data formats | **M4.20, M4.16b**, M4.8b, M4.16c, M4.16d, M4.3, M4.12, M4.17, M4.19; M4.2 non-Claude |
+| M5 | Compiler + US edits | **M5.13, M5.12c, M5.4**, M5.12b; M5.14 after M5.13; M5.1b non-Claude |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5–M6.7 follow M5.13/M5.14 |
 | M8 | Full-system emulation | M8.A1, M8.A2, M8.A4, M8.A5; M8.E1 after M1.2c |
-| M9 | L3 toolkit | **M9.6** (re-scoped), M9.8; M9.2 non-Claude; M9.1 in progress |
+| M9 | L3 toolkit | **M9.6** (re-scoped), M9.8; M9.2 non-Claude (M9.1 done) |
 
 **Critical path to a first accepted card:**
 · **US (nearest):** M6.2 S0 → M5.13 → M6.5 S1 → M6.6 S2 (M5.12 + M5.12c) →
