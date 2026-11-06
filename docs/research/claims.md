@@ -1241,4 +1241,18 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-1917 | mkcard cannot reproduce SD lock state or the card CID; these remain external prerequisites (M2.13/M6.5). The EXP/tool report this explicitly. | VERIFIED (scope) | H | EXP-2026-11-06-M5.10 |
 | C-1918 | A fresh-built (non-byte-identical) image's timestamps, LFN encoding details, free-cluster order and directory allocation may differ from factory layout; unit acceptance of such differences is UNKNOWN until bench test M6.5/S0/S1. | HYPOTHESIS/UNKNOWN | L | EXP-2026-11-06-M5.10 |
 | C-1919 | mkcard has a synthetic self-test (sparse FAT32 image, no vendor data) and is auto-discovered by `tools/selftest.py`; repo selftest passes with it in place (`passed=34 failed=0 skipped=19 total=53`, 2026-11-06). | VERIFIED | H | EXP-2026-11-06-M5.10 |
->>>>>>> 12c41bf (tools: add mkcard.py card image builder (M5.10))
+
+## M5.12 — Rename a POI on the US card image (C-1980–C-1989)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1980 | On US 2011 image `53342430…c5383` (8057257984 B, `QSD-301-103`, 113 tiles, 58 cmp pairs), `REFER001/POINT010.DAT` inner page `0x840ba0` (1000-record `0x60/0x68` chain) record 0 (`tag=0x60,len2=64,total=128`) was renamed same-length `HANA HEALTH CENTER` → `OSM2LEAF TEST POI1` (18 B ASCII); decompressed inner payload differs only in those name bytes, logical size 9715200 unchanged, DRSTR untouched. | VERIFIED (offline) | H | EXP-2026-11-06-M5.12-us-poi-rename; `validate_mutation.py` PASS |
+| C-1981 | `cmpind.py verify` on mutated US `REFER001` reports 58/58 pairs OK (logical 3743680000, stored 2215910259). | VERIFIED | H | EXP-2026-11-06-M5.12-us-poi-rename |
+| C-1982 | `l2check.py --root <us_mut> --no-golden --skip-mutation --ignore-dump-artifacts --no-tiles` (TMPDIR on leafre-work): census/files OK, `cmp_roundtrip` 58/58 OK; `drstr_roundtrip` FAIL at `0x1ae0` (7456 B) — identical on unmodified US factory root, so pre-existing US DRSTR round-trip difference, not a regression from M5.12. EU golden/tile fixtures inapplicable to US. | OBSERVED | M | EXP-2026-11-06-M5.12-us-poi-rename |
+| C-1983 | `mkcard.py --from-image LEAF_2011-2012_US.img --tree root_mut -o us_m5.12_renamed.img` rebuilt a 8057257984 B image; `cardcheck.py --image` reports `RESULT: PASS` (exit 0), 248 files, 119 headers OK, 58 cmp pairs OK, DRSTR OK, mmain 113 tiles, `image_copy=identical`, warning "no volume label". | VERIFIED | H | EXP-2026-11-06-M5.12-us-poi-rename |
+| C-1984 | `mutate_refer_poi.py` needed a zlib level-9 fallback when L6 recompression of a large US record page exceeded the original slot; decompressed content unchanged. (Tool fix kept, selftest OK.) | VERIFIED (tool) | M | EXP-2026-11-06-M5.12-us-poi-rename |
+| C-1985 | `mkcard.py` LFN directory slot ordering was fixed for multi-part names (e.g. `POINT010.DAT.cmp`), which otherwise produced mangled FAT names on rebuilt US images; fix verified by mkcard selftest and correct naming in rebuilt image. | VERIFIED (tool) | H | EXP-2026-11-06-M5.12-us-poi-rename |
+| C-1986 | Unit acceptance/display of the renamed US POI on Marek's US hardware remains UNKNOWN (offline only; mkcard does not reproduce SD lock/CID). | UNKNOWN | — | EXP-2026-11-06-M5.12-us-poi-rename |
+| C-1987 | reserved. | UNKNOWN | — | — |
+| C-1988 | reserved. | UNKNOWN | — | — |
+| C-1989 | reserved. | UNKNOWN | — | — |

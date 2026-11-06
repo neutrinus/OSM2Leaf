@@ -1423,8 +1423,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
   - Claims: C-1970–C-1979
 
-- [ ] **M5.12 — Rename a POI (or place name) on the US card image**
-  - Status: in progress · Owner: task/m5.12-us-poi-rename · Critical: yes
+- [x] **M5.12 — Rename a POI (or place name) on the US card image**
+  - Status: done · Owner: task/m5.12-us-poi-rename · Critical: yes
   - Depends: M5.10 (M4.8c helps locate the target)
   - Goal: the near-term milestone — one on-screen name changed in the US map,
     on a rebuilt card image, checked offline, ready for Marek's unit. A name
@@ -1445,6 +1445,18 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     original name and the new one so Marek can confirm it on the unit. If a
     place name touches section 4 or the name DB in a way M4.7 did not cover,
     record what changed and fall back to a POI rename (the proven path).
+  - Result: EXP-2026-11-06-M5.12-us-poi-rename.md — US image `53342430…c5383`
+    (8,057,257,984 B). REFER001/POINT010.DAT, inner page `0x840ba0`, record 0
+    (`tag=0x60,len2=64,total=128`): renamed **`HANA HEALTH CENTER` →
+    `OSM2LEAF TEST POI1`** (18 B, same length; decompressed name bytes differ,
+    logical size/DRSTR unchanged). `validate_mutation.py` PASS; `cmpind.py
+    verify REFER001` 58/58 OK; `l2check.py --no-golden --skip-mutation
+    --ignore-dump-artifacts --no-tiles` (TMPDIR on leafre-work) `cmp_roundtrip`
+    58/58 OK (DRSTR round-trip diff at 0x1ae0 matches unmodified US factory,
+    pre-existing, not regression; EU golden/tiles inapplicable). `mkcard.py`
+    rebuilt `us_m5.12_renamed.img`; `cardcheck.py --image` **PASS** (exit 0,
+    113 tiles, 58 pairs, DRSTR OK, `image_copy=identical`). Tool fixes kept:
+    `mutate_refer_poi.py` L9 fallback, `mkcard.py` LFN slot order (selftests).
   - Claims: C-1980–C-1989
 
 - [ ] **M4.8c — Confirm `coord.py` on the US grid**
@@ -1690,7 +1702,7 @@ lives in **`tools/l3_harness/`** (exists: `manifest.py`, `stubs.py`,
 parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.1 — Module map on the real image**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m9.1-module-map · Critical: no
   - Depends: — (tool done: `cerom.py memmap`, EXP-48)
   - Done when: `cerom.py memmap` on `IMG256` lists every A + B section,
     `rommap.py convert --skip-compressed` + `validate` pass, and counts per

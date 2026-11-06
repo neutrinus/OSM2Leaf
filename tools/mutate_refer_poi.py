@@ -410,13 +410,21 @@ def main(argv: list[str] | None = None) -> int:
     # find the next page boundary after the original stream; must fit
     limit = (page + consumed + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
     new_stream = zlib.compress(new_inner, 6)
+    level_used = 6
     if page + len(new_stream) > limit:
-        raise SystemExit(
-            f"refusing: recompressed page is {len(new_stream)} bytes, "
-            f"only {limit - page} available before {limit:#x}"
-        )
+        # zlib-ng or content changes can make level 6 grow; level 9 may fit.
+        new_stream9 = zlib.compress(new_inner, 9)
+        if page + len(new_stream9) <= limit:
+            new_stream = new_stream9
+            level_used = 9
+        else:
+            raise SystemExit(
+                f"refusing: recompressed page is {len(new_stream)} bytes (L6) / "
+                f"{len(new_stream9)} bytes (L9), only {limit - page} available "
+                f"before {limit:#x}"
+            )
     print(f"inner page recompressed: {len(new_stream)} bytes "
-          f"(was {consumed}), {limit - page - len(new_stream)} bytes spare")
+          f"(was {consumed}, L{level_used}), {limit - page - len(new_stream)} bytes spare")
 
     new_blob = bytearray(blob)
     new_blob[page:limit] = new_stream + bytes(limit - page - len(new_stream))

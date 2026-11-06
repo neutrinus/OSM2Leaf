@@ -462,7 +462,8 @@ def make_dir_slots(name: str, short11: bytes, attr: int, cluster: int, size: int
         need_lfn = True
     if not need_lfn:
         return make_short_entry(short11, attr, cluster, size, dos_time, dos_date)
-    # LFN slots
+    # LFN slots: parts[0] is the first 13 UTF-16 chars of the name (seq 1),
+    # stored last physically; parts[-1] is last and stored first with 0x40.
     u = name.encode("utf-16le")
     parts = [u[i:i+26] for i in range(0, len(u) + 2, 26)]
     # pad last with 0x0000 terminator then 0xffff
@@ -474,7 +475,8 @@ def make_dir_slots(name: str, short11: bytes, attr: int, cluster: int, size: int
     csum = lfn_checksum(short11)
     slots = bytearray()
     total = len(parts)
-    for seq, part in enumerate(reversed(parts), 1):
+    for seq in range(total, 0, -1):
+        part = parts[seq - 1]
         seqb = seq | (0x40 if seq == total else 0)
         e = bytearray(32)
         e[0] = seqb
