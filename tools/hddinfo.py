@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-"""Parse the 72-byte ``VER_INFO/HDD_INFO.TXT`` block and model the map-code check.
+"""Parse ``VER_INFO/HDD_INFO.TXT`` and model the map-code check.
 
-The block is six CRLF-separated ASCII lines and no trailing CRLF::
+On-disk the block is six CRLF-separated ASCII lines (no trailing CRLF in the
+factory 72-byte form); ``parse``/``to_bytes`` round-trip byte-identically,
+including any bytes after the sixth line (``tail``).
 
-    QSD-302-100
-    QSD-309-101
-   02-110100-00
-    SDC08-EVEUR
-    11-05
-    470323501005
+The firmware reader ``HDD_INFO_read`` at ``Navi.exe`` ``0x004e7b8c`` (build A,
+C-1711/C-721–C-728, EXP-2026-11-06-M2.1-hddinfo-fn-complete) reads the file
+with ``fgetws(buf=r15+0x40, count=0x20 wchar_t)``, strips CR/LF via
+``wcschr`` (whole stripped line per field, not a key:value split), and copies
+each of the six lines with ``wcsncpy`` into inline wide-char fields of the
+output struct at base ``r8`` in order.  The ``HDD_INFO_FIELDS`` table below is
+the canonical line→field→type→struct-offset mapping (M2.3, C-740+); see
+``docs/format/validation.md`` and
+``docs/experiments/EXP-2026-11-06-M2.3-hddinfo-fields.md``.
 
-``parse``/``to_bytes`` round-trip byte-identically, including any bytes after
-the sixth line (``tail``).
-
-The map-code model (``M0``) reproduces only what the firmware comparator chain
-documents: a numeric ``Sys[0x%x]`` vs ``SD[0x%x]`` comparison of
-``manufacturer_id``, ``userdata_type`` (range ``0..5``) and ``destination_id``.
-It is a **HYPOTHESIS** derived from ``0x6fab2c -> 0x6faeb0 -> 0x6fb05c``
-(EXP-2026-11-05-17), not from hardware.  Every verdict is unvalidated until
-the spare-card matrix in ``docs/format/validation.md`` runs.  In particular the
-line->field mapping below is a guess, not a decoded parser:
-
-* ``userdata_type``  - leading digit of the first number on line 1 (family),
-* ``manufacturer_id``- digits of the line-4 prefix (``SDC08`` -> 8),
-* ``destination_id`` - line-4 suffix via a model-local token table.
+The map-code model (``M0``) reproduces only what the retired firmware
+comparator chain documents: a numeric ``Sys[0x%x]`` vs ``SD[0x%x]``
+comparison of ``manufacturer_id``, ``userdata_type`` (range ``0..5``) and
+``destination_id``. It is a **HYPOTHESIS** derived from
+``0x6fab2c -> 0x6faeb0 -> 0x6fb05c`` (EXP-2026-11-05-17), not from hardware.
+Every verdict is unvalidated until the spare-card matrix in
+``docs/format/validation.md`` runs.  In particular the model's numeric
+derivations from line 1/4 are a guess (scope noted at C-735/M2.2): they do
+not follow from the M2.1/M2.3 reader layout.
 
 Exit codes: 0 success / ACCEPT, 1 DIFFERENT MAP CODE, 2 usage/parse/IO error.
 
@@ -42,7 +42,6 @@ variants, then annotates each one with the model's prediction and replaces
 excluded from the manifest with a warning, so a changed ``--sweep`` or
 ``--no-permute`` cannot silently mix matrices.
 """
-
 from __future__ import annotations
 
 import argparse
@@ -56,14 +55,44 @@ from dataclasses import dataclass
 from pathlib import Path
 
 SIZE = 72
-LINE_NAMES = (
-    "base_code",    # line 1, QSD-302-100 - market/family base code
-    "map_set",      # line 2, QSD-309-101 - tracks the map set / FAT label
-    "build",        # line 3, 02-110100-00 - build/version string
-    "map_code",     # line 4, SDC08-EVEUR - manufacturer + destination
-    "year_month",   # line 5, 11-05 - year-month
-    "part_number",  # line 6, 470323501005 - part number
+
+
+@dataclass(frozen=True)
+class FieldDef:
+    """One HDD_INFO field as read by ``HDD_INFO_read`` (C-1711/C-721+)."""
+
+    line: int            # 1-based line number in HDD_INFO.TXT
+    name: str            # semantic name used by this tool
+    file_type: str       # on-disk representation
+    mem_type: str        # in-memory representation (firmware)
+    offset: int          # byte offset in output struct base r8
+    max_wchars: int      # wcsncpy wchar_t count (firmware max)
+    description: str
+
+
+# Canonical line -> field -> type -> struct offset mapping (M2.3).
+# Source: Navi.exe fn 0x004e7b8c (build A) reads 6 CRLF lines with fgetws
+# (r15+0x40, 0x20 wchar_t), strips CR/LF via wcschr, wcsncpy's the whole
+# stripped line into r8+offset with max_wchars. Accept check: len < max-1.
+# EXP-2026-11-06-M2.1-hddinfo-fn-complete (C-721-C-728), C-1711.
+HDD_INFO_FIELDS = (
+    FieldDef(1, "base_code",   "ASCII text line (CRLF)", "wchar_t[] (UTF-16LE in memory)", 0x00, 12,
+             "market/family base code, e.g. QSD-302-100"),
+    FieldDef(2, "map_set",     "ASCII text line (CRLF)", "wchar_t[] (UTF-16LE in memory)", 0x18, 12,
+             "map set code, tracks FAT volume label"),
+    FieldDef(3, "build",       "ASCII text line (CRLF)", "wchar_t[] (UTF-16LE in memory)", 0x30, 13,
+             "build/version string"),
+    FieldDef(4, "map_code",    "ASCII text line (CRLF)", "wchar_t[] (UTF-16LE in memory)", 0x4a, 12,
+             "manufacturer + destination token, e.g. SDC08-EVEUR"),
+    FieldDef(5, "year_month",  "ASCII text line (CRLF)", "wchar_t[] (UTF-16LE in memory)", 0x62, 12,
+             "map data year-month"),
+    FieldDef(6, "part_number", "ASCII text line (CRLF)", "wchar_t[] (UTF-16LE in memory)", 0x7a, 13,
+             "part number"),
 )
+HDD_INFO_FIELD_BY_NAME = {f.name: f for f in HDD_INFO_FIELDS}
+HDD_INFO_FIELD_BY_OFFSET = {f.offset: f for f in HDD_INFO_FIELDS}
+
+LINE_NAMES = tuple(f.name for f in HDD_INFO_FIELDS)
 
 FIELD_ORDER = ("manufacturer_id", "userdata_type", "destination_id")
 USERDATA_MIN, USERDATA_MAX = 0, 5
@@ -264,6 +293,22 @@ def classify(sys_record: HddInfo, sd_record: HddInfo) -> dict:
     }
 
 
+def field_layout_json() -> list[dict]:
+    return [
+        {
+            "line": f.line,
+            "name": f.name,
+            "file_type": f.file_type,
+            "mem_type": f.mem_type,
+            "struct_offset": "0x%02x" % f.offset,
+            "struct_offset_bytes": f.offset,
+            "max_wchars": f.max_wchars,
+            "description": f.description,
+        }
+        for f in HDD_INFO_FIELDS
+    ]
+
+
 def record_json(record: HddInfo, path: Path, raw: bytes) -> dict:
     return {
         "path": str(path),
@@ -272,6 +317,7 @@ def record_json(record: HddInfo, path: Path, raw: bytes) -> dict:
         "sha256": sha256(raw),
         "lines": {name: record.text(name) for name in LINE_NAMES},
         "tail_hex": record.tail.hex(),
+        "field_layout": field_layout_json(),
         "model_fields": {
             name: {
                 "raw": read.raw,
@@ -294,13 +340,17 @@ def format_record(record: HddInfo, path: Path, raw: bytes) -> str:
         ),
         "  sha256       %s" % sha256(raw),
     ]
-    for name in LINE_NAMES:
-        out.append("  %-12s %r" % (name, record.text(name)))
+    for f in HDD_INFO_FIELDS:
+        out.append(
+            "  L%d %-12s r8+0x%02x max=%-2d  %r"
+            % (f.line, f.name, f.offset, f.max_wchars, record.text(f.name))
+        )
     out.append("  %-12s %s" % ("tail", record.tail.hex() if record.tail else "(none)"))
+    out.append("  mapping      Navi.exe fn 0x004e7b8c (C-1711/C-721+): 6 CRLF lines, fgetws/wcschr/wcsncpy")
     for name, read in model_fields(record).items():
         flag = "  OUT OF RANGE" if read.out_of_range else ""
         out.append(
-            "  %-12s %s  %s%s"
+            "  M0 %-10s %s  %s%s"
             % (name, read.raw if read.raw is not None else "(missing)", hexval(read.value), flag)
         )
     return "\n".join(out)
@@ -565,6 +615,21 @@ def cmd_selftest(json_out: bool = False) -> int:
     check(record.to_bytes() == raw, "parse/serialise round-trip is byte-identical")
     check(record.lines == synthetic, "all six named lines retain their bytes")
     check(record.tail == b"", "no tail bytes in the canonical block")
+
+    # M2.3 line->field->type->struct offset mapping (C-1711/C-721-C-728).
+    check(len(HDD_INFO_FIELDS) == 6, "mapping has 6 HDD_INFO fields")
+    check(tuple(f.name for f in HDD_INFO_FIELDS) == LINE_NAMES, "LINE_NAMES follows mapping order")
+    check(tuple(f.line for f in HDD_INFO_FIELDS) == (1, 2, 3, 4, 5, 6), "mapping lines are 1..6 in order")
+    check(tuple(f.offset for f in HDD_INFO_FIELDS) == (0x00, 0x18, 0x30, 0x4a, 0x62, 0x7a),
+          "struct offsets match M2.1 (r8+0x00,18,30,4a,62,7a)")
+    check(tuple(f.max_wchars for f in HDD_INFO_FIELDS) == (12, 12, 13, 12, 12, 13),
+          "max wchar_t counts match M2.1 wcsncpy maxima")
+    check(all(f.file_type.startswith("ASCII text line") for f in HDD_INFO_FIELDS),
+          "file type is ASCII CRLF text lines")
+    check(all("wchar_t" in f.mem_type for f in HDD_INFO_FIELDS),
+          "memory type is wchar_t[] per M2.1 reader")
+    check(HDD_INFO_FIELD_BY_NAME["map_code"].offset == 0x4a, "map_code (line 4) is r8+0x4a")
+    check(HDD_INFO_FIELD_BY_OFFSET[0x7a].name == "part_number", "r8+0x7a is part_number (line 6)")
 
     trailing = HddInfo.parse(raw + b"\r\n")
     check(trailing.to_bytes() == raw + b"\r\n", "trailing CRLF is retained")

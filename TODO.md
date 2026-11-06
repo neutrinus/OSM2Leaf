@@ -701,8 +701,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-730–C-739
   - Result: docs/experiments/EXP-2026-11-06-M2.2-sd-import-comparator.md (Navi.exe build A: `sub_004e84c4`/`sub_004e989c` validate `\UserSD\userdata\storedlocation.slc`/`homelocation.hlc` read by `sub_004df31c`; SD rec `r8+0x0c` destination_id vs caller `r15+0x18`, `+0x0e` manufacturer_id vs `r15+0x1a` [Sys refs upstream/unresolved], `+0x12` userdata_type `cmp/eq` const `0x1010`/`0x1011`, `+0x03` finished!=0, `+0x02` app type in `{1,0x21,0x31}`; `0 < userdata_type < 6` **refuted in this module**, C-730–C-739)
 
-- [ ] **M2.3 — `HDD_INFO.TXT` text → fields**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M2.3 — `HDD_INFO.TXT` text → fields**
+  - Status: done · Owner: task/m2.3-hddinfo-fields · Critical: yes
+  - Result: EXP-2026-11-06-M2.3-hddinfo-fields (tools/hddinfo.py FieldDef/HDD_INFO_FIELDS + field_layout; validation.md table; selftest 43 checks)
   - Depends: M2.1
   - Goal: the line order, separators and the six-line mapping.
   - Input: the M2.1 function `0x004e7b8c` itself (C-1711: `fgetws` loop,
