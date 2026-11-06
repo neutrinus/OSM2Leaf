@@ -786,7 +786,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-910–C-919
 
 - [ ] **M4.4 — Tile section 4 under a road edit**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.4-section4-road-edit · Critical: no
   - Depends: —
   - Goal: prove section 4 (place-name index, `section4.py`) can stay
     verbatim when roads change, or map the fields that must change.
