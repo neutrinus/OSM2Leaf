@@ -725,6 +725,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-658 | reserved. | UNKNOWN | — | — |
 | C-659 | reserved. | UNKNOWN | — | — |
 
+## M1.2c — ROM decompressor in `nk.exe` (C-660–C-669)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-660 | In image B nk.exe (`--image-start 0x3e00200`, sec0 `.text` at `0x88001000`), section loader `fn 0x880385e4` walks o32 records (stride 24, `add #24,r8`) and tests `o32_flags & IMAGE_SCN_COMPRESSED (0x2000)` at `0x88038666` (`mov #0x20,r2; shll8 r2; mov.l @(20,r8),r3; and/tst; bf` compressed path to `0x8803867a`). | VERIFIED | H | EXP-2026-11-06-M1.2c-rom-decompressor; `cerom.py sections nk.exe`; SH-4 disassembly of `IMG256 92aa525d…` |
+| C-661 | The compressed path loads `vsize=@r8`, `psize=@(8,r8)`, `dataptr=@(12,r8)` and calls `fn 0x88037590(r4=dataptr, r5=psize, r6=dest, r7=vsize)` at `0x88038694`. Not-compressed returns `rva=@(4,r8)`, `dataptr=@(12,r8)`. | VERIFIED | H | EXP-2026-11-06-M1.2c-rom-decompressor |
+| C-662 | Decompressor chain (nk.exe VAs): wrapper `0x88037590` (~0x82 B, 5 call sites `0x880260d2,0x88026cdc,0x88038694,0x880390d2,0x88039112`) → section-framing handler `0x88037464` (~0x11e B, 2 call sites `0x880375de,0x88037bec`, parses src header, loops calling block decompressor) → per-block `0x8803a384` (~0x9c B, called at `0x88037542`). | VERIFIED | H | EXP-2026-11-06-M1.2c-rom-decompressor; literal-pool xrefs |
+| C-663 | `0x88037464` prototype (OBSERVED): `r0 fn(r4=src, r5=psize, r6=dest_ctx, r7=vsize)`; reads stream from `r10` (src), builds state on `r14`, invokes `0x8803a384` per block and returns decompressed size/status from `@(4,r14)`. `r6` exact role (dest buffer vs context from `0x88034d94`) needs M8.E1 confirmation. | OBSERVED | M | EXP-2026-11-06-M1.2c-rom-decompressor |
+| C-664 | The block codec is a CE LZXD variant (payloads carry `0x8d80805b` marker; `cecompress` LZX detects E8 framing but reports `block type unknown(4)`), not decodable by the implemented CAB-LZX/LZSS/LZNT1/XPRESS decoders. | VERIFIED (negative, real image) | M | EXP-2026-11-06-M1.2c-rom-decompressor; M1.2b/C-653; `cecompress` on EXP-49 form-1 payloads |
+| C-665 | EXP-49 form-1 sections (`NaviMapCC.dll` sec1 `0x13000` ulen `0x484`, sec2 `0x14000` ulen `0xcc0`) do not decode to expected lengths with current pure-Python codecs (0 matches). VAs/prototypes handed to M8.E1 as call targets (`DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464`, nk.exe B). | VERIFIED (handoff) | H | EXP-2026-11-06-M1.2c-rom-decompressor; `tools/cedecomp.py --selftest` |
+| C-666 | reserved (block-codec port / M8.E1 decode confirmation of EXP-49 to 0x484/0xcc0). | UNKNOWN | — | — |
+| C-667 | reserved. | UNKNOWN | — | — |
+| C-668 | reserved. | UNKNOWN | — | — |
+| C-669 | reserved. | UNKNOWN | — | — |
+
 ## M1.3 — `cerom.py decompress` on all 245 sections (C-670–C-679)
 
 | ID | Claim | Status | Confidence | Evidence |

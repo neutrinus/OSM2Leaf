@@ -321,6 +321,23 @@ The image is not in the repository. `IMG256` is the first 256 MiB
 (`curl -r 0-268435455`) of
 `LEAF_2011-2012_QSD-309-101_navi158_eu.img`; its SHA-256 is pinned in the table.
 
+## `cedecomp.py` — nk.exe ROM section decompressor (M1.2c, VAs + M8.E1 handoff)
+
+Records the nk.exe (image B, `--image-start 0x3e00200`) `IMAGE_SCN_COMPRESSED`
+loader/decompressor chain found by static RE (EXP-2026-11-06-M1.2c, IMG256
+`92aa525d…`): loader `fn 0x880385e4` tests `o32_flags & 0x2000` at `0x88038666`;
+decompressor `0x88037590` (wrapper) → `0x88037464` (section framing, form 1/2 +
+`0x8d80805b` blocks) → `0x8803a384` (per-block CE LZXD-like, block type 4 in
+cecompress terms). Pure-Python block decode is **not** ported: `decode_section`
+raises `UnsupportedDecompression` naming the **M8.E1** call target
+(`DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464`, args
+`(r4=src, r5=psize, r6=dest, r7=vsize)`).
+
+```bash
+python3 tools/cedecomp.py info
+python3 tools/cedecomp.py --selftest
+```
+
 ## `solve_data_delta.py`
 
 Window-scored data-delta solver for firmware pools (useful when a module mixes
