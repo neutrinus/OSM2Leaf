@@ -718,7 +718,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-740–C-749
 
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m2.4-hddinfo-variants · Critical: yes
   - Depends: M2.2, M2.3, M9.5
   - Goal: run the real parser + comparator on `tools/hddinfo_variants.py`.
   - Input: L3 runner (M9.5), corpus (M9.7).
