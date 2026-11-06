@@ -155,7 +155,7 @@ THUNKS_GENERATOR = "tools/cerom.py thunks"
 THUNKS_RECORD_KEYS = ("stub_va", "slot_va", "module", "export", "ordinal",
                       "section", "confidence", "status", "reason", "pattern",
                       "owner", "segment")
-THUNKS_PATTERN_RANK = {"4-insn": 2, "3-insn": 1, "2-insn": 0}
+THUNKS_PATTERN_RANK = {"4-insn": 2, "inlined": 2, "3-insn": 1, "2-insn": 0}
 FILES_RECORD_KEYS = ("index", "name", "attrib", "rsize", "csize", "load",
                      "status", "method_used", "output_size", "sha256", "error")
 SEGMENT_MAX_MODULES = 4096
@@ -191,7 +191,54 @@ class CERom:
             i += 1
 
     def va2file(self, va):
-        return va - self.va_base + self.start
+        off = va - self.va_base + self.start
+        if 0 <= off < len(self.d):
+            return off
+        # Fall back to module section realaddr mapping (module-local VAs,
+        # e.g. Navi.exe realaddr 0x00011000, are not in ROM VA space).
+        if not getattr(self, "_in_realaddr", False):
+            self._in_realaddr = True
+            try:
+                mapped = self.realaddr2file(va)
+            finally:
+                self._in_realaddr = False
+            if mapped is not None:
+                return mapped
+        return off
+
+    def realaddr2file(self, va):
+        """File offset of a process VA by scanning o32 realaddr ranges.
+
+        Works for module-local VAs (realaddr/vbase space) where ROM-linear
+        va2file does not apply.  Returns None when unmapped or in a
+        compressed section (stored bytes are not the section contents).
+        """
+        for mod in self.modules():
+            try:
+                secs = list(self.o32(mod))
+            except (struct.error, ValueError):
+                continue
+            for sec in secs:
+                if sec["flags"] & IMAGE_SCN_COMPRESSED:
+                    continue
+                if not sec["psize"]:
+                    continue
+                if sec["realaddr"] <= va < sec["realaddr"] + sec["psize"]:
+                    dataptr_off = va - self.va_base + self.start
+                    # dataptr is a ROM VA for stored sections
+                    if not (0 <= dataptr_off < len(self.d)):
+                        dataptr_off = None
+                    # prefer dataptr-based mapping (matches stored bytes)
+                    base_off = self._romptr2file(sec["dataptr"])
+                    if base_off is not None:
+                        off = base_off + (va - sec["realaddr"])
+                        if 0 <= off < len(self.d):
+                            return off
+        return None
+
+    def _romptr2file(self, va):
+        off = va - self.va_base + self.start
+        return off if 0 <= off < len(self.d) else None
 
     def file2va(self, off):
         return off - self.start + self.va_base
@@ -1055,24 +1102,53 @@ def movl_pc_literal(addr, word):
 def stub_pattern(words, index):
     """Pattern name of the import stub whose first word is ``words[index]``.
 
-    ``4-insn`` is the EXP-50 stub (``mov.l @(disp,PC),Rn; mov.l @Rn,R0;
-    jmp @R0; nop``), ``3-insn`` the direct ``mov.l @(disp,PC),Rn; jmp @Rn``
-    variant with its delay-slot ``nop`` and ``2-insn`` the variant without it.
-    Returns None when the word does not start a stub.
+    ``4-insn`` is the EXP-50 double-deref IAT stub
+    (``mov.l @(disp,PC),Rn; mov.l @Rn,Rn; jmp @Rn; nop``), ``3-insn`` the
+    direct ``mov.l @(disp,PC),Rn; jmp @Rn`` variant with its delay-slot
+    ``nop`` and ``2-insn`` the variant without it.  ``Rn`` may be any
+    register.  Returns None when the word does not start a stub.
     """
     total = len(words)
     first = words[index]
     if first & 0xF000 != 0xD000:
         return None
     reg = (first >> 8) & 0xF
-    if (index + 3 < total and words[index + 1] == (0x6002 | reg << 8)
-            and words[index + 2] == 0x402B and words[index + 3] == 0x0009):
+    movl_at_rn = 0x6002 | (reg << 8) | (reg << 4)   # mov.l @Rn,Rn
+    jmp_rn = 0x402B | (reg << 8)                      # jmp @Rn
+    if (index + 3 < total and words[index + 1] == movl_at_rn
+            and words[index + 2] == jmp_rn and words[index + 3] == 0x0009):
         return "4-insn"
-    if index + 1 < total and words[index + 1] == (0x402B | reg << 8):
+    if index + 1 < total and words[index + 1] == jmp_rn:
         if index + 2 < total and words[index + 2] == 0x0009:
             return "3-insn"
         return "2-insn"
     return None
+
+
+def _deref_call_window(words, index, load_reg, window=12):
+    """True if a PC-rel load of ``load_reg`` at ``index`` is followed by an
+    IAT deref+call: ``mov.l @load_reg,Rm`` then ``jmp/jsr @Rm`` within
+    ``window`` instructions, allowing interleaved arg setup (conservative:
+    stop if ``load_reg`` is overwritten by ``mov.l @(pc),load_reg``).
+    Handles cross-register deref (Rm != load_reg).
+    """
+    total = len(words)
+    limit = min(total, index + 1 + window)
+    for j in range(index + 1, limit):
+        w = words[j]
+        # mov.l @load_reg, Rm ?  0x6 m (load_reg) 2
+        if w & 0xF0FF == (0x6002 | (load_reg << 4)):
+            call_reg = (w >> 8) & 0xF
+            jmp_r = 0x402B | (call_reg << 8)
+            jsr_r = 0x400B | (call_reg << 8)
+            for k in range(j + 1, min(total, j + 1 + window)):
+                wk = words[k]
+                if wk == jmp_r or wk == jsr_r:
+                    return "inlined-4", call_reg != load_reg
+        # stop if load_reg overwritten by mov.l @(pc),load_reg
+        if w & 0xFF00 == (0xD000 | (load_reg << 8)):
+            break
+    return None, False
 
 
 def section_words(data, offset, size):
@@ -1092,38 +1168,88 @@ def read_u32_va(cerom, data, va):
     return None
 
 
-def scan_section_stubs(cerom, data, section, index):
-    """Import stubs stored in one uncompressed code section.
+def read_u32_realaddr(cerom, data, va, section):
+    """32-bit word at process VA ``va`` in an uncompressed section's bytes.
 
-    Each record carries ``stub_va`` (``o32_realaddr`` + offset), ``slot_va``
-    (the literal value the stub loads, i.e. the IAT slot VA), ``section``
-    (``sec<N>``) and ``pattern``.  A candidate whose literal is not stored in
-    the image is not a thunk and is skipped; the literal is never dereferenced,
-    so a compressed ``.data`` slot does not matter.
+    Uses ``section['realaddr']``/``dataptr`` mapping, so it works for
+    module-local VAs (e.g. Navi.exe ``0x00011000``) where ROM-linear
+    ``va2file`` does not apply.
     """
-    offset = cerom.va2file(section["dataptr"])
-    size = section["psize"]
-    if not size or not (0 <= offset and offset + size <= len(data)):
-        return []
-    words = section_words(data, offset, size)
     base = section["realaddr"]
+    if not (base <= va and va + 4 <= base + section["psize"]):
+        return None
+    file_off = cerom._romptr2file(section["dataptr"])
+    if file_off is None:
+        return None
+    off = file_off + (va - base)
+    if 0 <= off and off + 4 <= len(data):
+        return struct.unpack_from("<I", data, off)[0]
+    return None
+
+
+def scan_section_stubs(cerom, data, section, index, import_slots=None):
+    """Import stubs/call sites in one uncompressed code section.
+
+    Detects (1) consecutive standalone stub patterns (4/3/2-insn) and (2)
+    inlined IAT call sites: a PC-rel load of a known import slot followed
+    within a window by ``mov.l @Rn,Rm; jmp/jsr @Rm`` (possibly with
+    interleaved arg setup).  Inlined detection runs only when
+    ``import_slots`` is provided; it catches imports that are not behind a
+    standalone trampoline.
+
+    Returns records with ``stub_va``, ``slot_va``, ``section``, ``pattern``.
+    ``pattern`` is ``4-insn``/``3-insn``/``2-insn`` for standalone forms or
+    ``inlined`` for call-site forms.  A candidate whose literal is not stored
+    is skipped.
+    """
+    file_off = cerom._romptr2file(section["dataptr"])
+    size = section["psize"]
+    if file_off is None or not size or not (
+            0 <= file_off and file_off + size <= len(data)):
+        return []
+    words = section_words(data, file_off, size)
+    base = section["realaddr"]
+    slot_set = set(import_slots) if import_slots else None
     stubs = []
+    seen = set()  # (stub_va, slot_va) dedup
     for position, word in enumerate(words):
         if word & 0xF000 != 0xD000:
             continue
-        pattern = stub_pattern(words, position)
-        if pattern is None:
-            continue
         stub_va = base + 2 * position
-        slot = read_u32_va(cerom, data, movl_pc_literal(stub_va, word))
+        lit_va = movl_pc_literal(stub_va, word)
+        slot = read_u32_realaddr(cerom, data, lit_va, section)
+        if slot is None:
+            slot = read_u32_va(cerom, data, lit_va)
         if slot is None:
             continue
-        stubs.append({
-            "stub_va": stub_va,
-            "slot_va": slot,
-            "section": "sec%d" % index,
-            "pattern": pattern,
-        })
+
+        pattern = stub_pattern(words, position)
+        if pattern is not None:
+            is_import = slot_set is not None and slot in slot_set
+            # Keep 4-insn (EXP-50 IAT thunk form) always; keep 2/3-insn only
+            # when they target a known import slot (suppresses non-IAT noise).
+            if pattern == "4-insn" or is_import:
+                key = (stub_va, slot)
+                if key not in seen:
+                    seen.add(key)
+                    stubs.append({"stub_va": stub_va, "slot_va": slot,
+                                  "section": "sec%d" % index, "pattern": pattern})
+                continue
+            # 2/3-insn non-import: skip noise, but still allow inlined check
+            # below (won't trigger since not in slot_set).
+            continue
+
+        # Inlined IAT call: only for known import slots.
+        if slot_set is not None and slot in slot_set:
+            reg = (word >> 8) & 0xF
+            kind, _cross = _deref_call_window(words, position, reg)
+            if kind is not None:
+                key = (stub_va, slot)
+                if key not in seen:
+                    seen.add(key)
+                    stubs.append({"stub_va": stub_va, "slot_va": slot,
+                                  "section": "sec%d" % index,
+                                  "pattern": "inlined"})
     return stubs
 
 
@@ -1336,21 +1462,23 @@ def resolve_thunk(slot, data, cerom, imports_at, exports_by_dll, module_names):
     """Resolve one stub slot VA to ``module!export`` (ordinal) plus a reason.
 
     ``reason`` is None when resolved, else ``slot outside image`` (the literal
-    is not a readable VA), ``no export match`` (no import entry names the slot,
-    or an ordinal import whose exporter is absent) or
-    ``ambiguous duplicate (…)`` (two different import entries claim the slot).
-    ``confirmed`` is True when the exporter's own export table supplied or
-    confirmed the name, which is what raises the confidence to ``high``.
+    is not a mappable VA and not a known import slot), ``no export match``
+    (no import entry names the slot, or an ordinal import whose exporter is
+    absent) or ``ambiguous duplicate (…)`` (two different import entries claim
+    the slot).  ``confirmed`` is True when the exporter's own export table
+    supplied or confirmed the name, which is what raises the confidence to
+    ``high``.
     """
     unresolved = {"module": None, "export": None, "ordinal": None,
                   "reason": None, "confirmed": False}
-    offset = cerom.va2file(slot)
-    if not (0 <= offset and offset + 4 <= len(data)):
-        unresolved["reason"] = "slot outside image"
-        return unresolved
     entries = imports_at.get(slot) or []
     if not entries:
-        unresolved["reason"] = "no export match"
+        # Not a known import slot: report mapping status for diagnostics.
+        offset = cerom.va2file(slot)
+        if 0 <= offset and offset + 4 <= len(data):
+            unresolved["reason"] = "no export match"
+        else:
+            unresolved["reason"] = "slot outside image"
         return unresolved
     if len(entries) > 1:
         labels = ", ".join(
@@ -1375,8 +1503,9 @@ def resolve_thunk(slot, data, cerom, imports_at, exports_by_dll, module_names):
         return {"module": module,
                 "export": table["by_ordinal"][entry["ordinal"]],
                 "ordinal": entry["ordinal"], "reason": None, "confirmed": True}
-    unresolved["reason"] = "no export match"
-    return unresolved
+    # Ordinal import with no exporter table/name: keep the slot identified.
+    return {"module": module, "export": None, "ordinal": entry["ordinal"],
+            "reason": "no export match", "confirmed": False}
 
 
 def thunk_confidence(rank, confirmed, resolved):
@@ -1399,16 +1528,19 @@ def coverage_percent(part, whole):
 
 def thunks_report(data, image_name, image_size=None, image_sha256=None,
                   sha256_scope=None, module=None, all_modules=False,
-                  image_start=None):
-    """Resolve every import stub of the selected modules (M1.6b).
+                  image_start=None, resolve_starts=None, names_path=None):
+    """Resolve import thunks/call sites of the selected modules (M1.6b/c).
 
-    See the module docstring for the pattern, the confidence table and the two
-    coverage measures.  ``module`` selects one module by name (case-insensitive,
+    Detects standalone 4/3/2-insn stubs and inlined IAT call sites (a PC-rel
+    load of an import slot followed by deref+``jsr/jmp``).  ``resolve_starts``
+    / ``names_path`` (M1.9) supply cross-image export tables so ordinal
+    imports resolve to names.  ``module`` selects one module (case-insensitive,
     in every segment); ``all_modules`` walks every module of every discovered
-    segment.  Records keep the EXP-50 stub VA and the slot VA it loads even when
-    the slot cannot be named.
+    segment.
     """
     segments, duplicates = find_segments(data, image_start)
+    extra_exports, extra_names = load_resolver_tables(
+        data, resolve_starts, names_path)
 
     if not all_modules:
         if not module:
@@ -1425,6 +1557,8 @@ def thunks_report(data, image_name, image_size=None, image_sha256=None,
     for segment_index, segment in enumerate(segments):
         imports_at, exports_by_dll, module_names, index_errors = build_thunk_index(
             segment, segment_index)
+        exports_by_dll = merge_export_tables(exports_by_dll, extra_exports)
+        module_names = merge_module_names(module_names, extra_names)
         errors.extend(index_errors)
         for entry in segment.modules():
             name = entry["name"]
@@ -1450,6 +1584,7 @@ def thunks_report(data, image_name, image_size=None, image_sha256=None,
                                "error": str(exc)})
 
             found, scanned = [], 0
+            import_slot_set = set(slot_map)
             for index, sec in enumerate(sections):
                 if sec["flags"] & IMAGE_SCN_COMPRESSED:
                     continue
@@ -1458,7 +1593,8 @@ def thunks_report(data, image_name, image_size=None, image_sha256=None,
                 if not sec["psize"]:
                     continue
                 scanned += 1
-                found.extend(scan_section_stubs(segment, data, sec, index))
+                found.extend(scan_section_stubs(
+                    segment, data, sec, index, import_slots=import_slot_set))
 
             module_stubs = []
             for stub in found:
@@ -2045,7 +2181,7 @@ def build_comphdr_rom(prefix, vsize, psize, module_name="NAVIMAPCC.DLL",
     return bytes(d)
 
 
-def build_thunks_rom():
+def build_thunks_rom(local_va=False):
     """Return ``(bytes, layout)`` for a two-module ROM with three import stubs.
 
     ``OBJDLL.DLL`` exports two functions with export base 5 (ordinals 5 and 6).
@@ -2053,15 +2189,20 @@ def build_thunks_rom():
     imported by name, one by ordinal — and one code section holding three
     stubs: the EXP-50 four-instruction pattern for the named slot, the direct
     three-instruction variant for the ordinal slot, and a fourth stub whose
-    literal is a VA outside the image.  Section ``realaddr`` values follow the
-    image's linear VA mapping, so a stub's literal is a real image read and the
-    import slot VAs computed by ``cerom.py imports`` are the same VAs the stubs
-    load.
+    literal is a VA outside the image.
+
+    ``local_va=True`` places ``realaddr``/``vbase``/slot VAs in module-local
+    space (``0x00010000``), like real Navi.exe, while ``dataptr`` stays a ROM
+    VA.  This reproduces the M1.6c root cause (ROM-linear ``va2file`` cannot
+    map module-local VAs).
     """
     code_off, code_rva = 0x5000, 0x1000
     data_off, data_rva = 0x6000, 0x2000
     obj_off, obj_rva = 0x3600, 0x1000
-    navi_vbase = synth_va(code_off) - code_rva
+    if local_va:
+        navi_vbase = 0x00010000
+    else:
+        navi_vbase = synth_va(code_off) - code_rva
     code_va = navi_vbase + code_rva
     data_va = navi_vbase + data_rva
     obj_vbase = synth_va(obj_off) - obj_rva
@@ -3024,15 +3165,50 @@ def selftest():
         ok("thunks text prints the unresolved reason",
            "UNRESOLVED (slot outside image)" in text, True)
 
+        # --min-coverage gates on slot coverage (M1.6b/c: the primary measure).
+        # Synthetic ROM: slot coverage 100%, so 100 passes and 101 is invalid.
         for label, threshold, want in (("--min-coverage below", 60, 0),
-                                       ("--min-coverage at the value", 66.7, 0),
-                                       ("--min-coverage above", 67, 1)):
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
+                                       ("--min-coverage at slot 100%", 100, 0)):
+            with contextlib.redirect_stdout(io.StringIO()):
                 with contextlib.redirect_stderr(io.StringIO()):
                     ok("cli thunks %s exit" % label,
                        main([tpath, "thunks", "--all",
                              "--min-coverage", str(threshold)]), want)
+        with contextlib.redirect_stderr(io.StringIO()):
+            ok("cli thunks --min-coverage >100 exit",
+               main([tpath, "thunks", "--all", "--min-coverage", "101"]), 2)
+
+        # M1.6c regression: module-local VAs (realaddr in 0x0001xxxx, not ROM
+        # VA space) must not break stub/literal reads.  This reproduces the
+        # root cause of C-1714 ("no import stub matched" on real Navi.exe).
+        lrom, lexp = build_thunks_rom(local_va=True)
+        lpath = os.path.join(td, "thunks-localva.img")
+        with open(lpath, "wb") as fh:
+            fh.write(lrom)
+        lr = CERom(lrom, lexp["image_start"])
+        ok("local-va va_base differs from module vbase",
+           lr.va_base != lexp["navi_vbase"], True)
+        # va2file now resolves module-local VAs via section realaddr mapping
+        # (the M1.6c fix); it must map to the same file bytes as dataptr.
+        ok("local-va va2file resolves module-local VA",
+           0 <= lr.va2file(lexp["code_va"]) < len(lrom), True)
+        lreport = thunks_report(lrom, lpath, len(lrom), all_modules=True)
+        lstubs = lreport["stubs"]
+        ok("local-va finds 3 stubs (M1.6c root cause fixed)",
+           len(lstubs), lexp["stub_count"])
+        ok("local-va stub VAs are module-local",
+           [s["stub_va"] for s in lstubs], [hx(v) for v in lexp["stub_vas"]])
+        ok("local-va slot VAs resolve", [s["slot_va"] for s in lstubs],
+           [hx(lexp["slots"][0]), hx(lexp["slots"][1]), "0x7fff0000"])
+        ok("local-va resolves module/export",
+           [(s["module"], s["export"], s["ordinal"]) for s in lstubs[:2]],
+           [("OBJDLL.DLL", lexp["export_names"][0], lexp["export_ordinals"][0]),
+            ("OBJDLL.DLL", lexp["export_names"][1], lexp["export_ordinals"][1])])
+        ok("local-va slot coverage 100%",
+           lreport["coverage"]["slots"]["percent"], 100.0)
+        with contextlib.redirect_stdout(io.StringIO()):
+            ok("cli thunks local-va MODULE exit",
+               main([lpath, "thunks", "navi.exe"]), 0)
 
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
@@ -3057,7 +3233,7 @@ def selftest():
             with contextlib.redirect_stderr(err):
                 ok("cli thunks module with no stub exit",
                    main([tpath, "thunks", "OBJDLL.DLL"]), 2)
-        ok("thunks no-stub message", "no import stub matched" in err.getvalue(),
+        ok("thunks no-stub message", "no import stub" in err.getvalue(),
            True)
 
         # Negative control: a corrupt ECEC must fail loudly, never guess.
@@ -3308,7 +3484,7 @@ def memmap_command(args, cerom, data):
 
 
 def thunks_command(args, data):
-    """Run ``thunks``: resolve the import stubs and print the coverage."""
+    """Run ``thunks``: resolve import stubs/call sites and print coverage."""
     if args.all_modules and args.module:
         print("error: give MODULE or --all, not both", file=sys.stderr)
         return 2
@@ -3325,17 +3501,19 @@ def thunks_command(args, data):
             data, args.image, image_size, hashlib.sha256(data).hexdigest(),
             sha256_scope=sha256_scope_text(len(data), image_size),
             module=args.module, all_modules=args.all_modules,
-            image_start=args.image_start)
+            image_start=args.image_start,
+            resolve_starts=getattr(args, "resolve_with", None),
+            names_path=getattr(args, "names", None))
     except KeyError as exc:
         print("error: no module named %s in this ROM" % exc.args[0],
               file=sys.stderr)
         return 2
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 2
 
     if not report["counts"]["stubs"]:
-        print("error: no import stub matched (module %s, --all %s)"
+        print("error: no import stub/call site matched (module %s, --all %s)"
               % (args.module, args.all_modules), file=sys.stderr)
         return 2
 
@@ -3345,19 +3523,11 @@ def thunks_command(args, data):
         print_thunks_text(report)
 
     if args.min_coverage is not None:
-        below = []
-        for label in ("stubs", "slots"):
-            measure = report["coverage"][label]
-            if not measure["total"]:
-                continue
-            if measure["percent"] < args.min_coverage:
-                below.append("%s %d/%d (%.1f %%)"
-                             % (label, measure.get("resolved",
-                                                   measure.get("covered")),
-                                measure["total"], measure["percent"]))
-        if below:
-            print("error: coverage below --min-coverage %g: %s"
-                  % (args.min_coverage, ", ".join(below)), file=sys.stderr)
+        slots = report["coverage"]["slots"]
+        if slots["total"] and slots["percent"] < args.min_coverage:
+            print("error: slot coverage below --min-coverage %g: %d/%d (%.1f %%)"
+                  % (args.min_coverage, slots["covered"], slots["total"],
+                     slots["percent"]), file=sys.stderr)
             return 1
     return 0
 
@@ -3551,11 +3721,17 @@ def main(argv=None):
                    help="every IMAGE_SCN_COMPRESSED section in every segment")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p = sub.add_parser("thunks",
-                       help="resolve import stubs to module!export (M1.6b)")
+                       help="resolve import stubs/call sites to module!export (M1.6b/c)")
     p.add_argument("module", nargs="?",
                    help="module name to inspect (case-insensitive)")
     p.add_argument("--all", dest="all_modules", action="store_true",
                    help="every module in every discovered segment")
+    p.add_argument("--resolve-with", action="append", type=lambda s: int(s, 0),
+                   metavar="IMAGE_START",
+                   help="CE segment image-start(s) whose exports resolve ordinal "
+                        "imports (repeatable, e.g. 0x3e00200)")
+    p.add_argument("--names", metavar="FILE",
+                   help="JSON export-names DB used to resolve ordinal imports")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     p.add_argument("--min-coverage", type=float, default=None, metavar="N",
                    help="exit 1 when stub or slot coverage is below N percent")

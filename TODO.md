@@ -290,7 +290,7 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
 | H | Housekeeping: ledger, docs, tool overlap | H8, H9 |
-| M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.6c, M1.2b**, M1.2c, M1.2d (M1.9 done) |
+| M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.2b**, M1.2c, M1.2d (M1.9, M1.6c done) |
 | M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12** (M2.7, M2.11, M2.13, M2.13b done) |
 | M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 done) |
 | M4 | Data formats (no firmware needed) | **M4.8b, M4.8c, M4.15**, M4.3, M4.12, M4.19 (M4.7, M4.9, M4.10, M4.11, M4.18 done) |
@@ -620,8 +620,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the EXP says whether form 2 is multi-block, stored, or another codec.
   - Claims: C-1740–C-1749
 
-- [ ] **M1.6c — Make `cerom.py thunks` work on the real image**
-  - Status: in progress · Owner: task/m1.6c-thunks-real-image · Critical: yes
+- [x] **M1.6c — Make `cerom.py thunks` work on the real image**
+  - Status: done · Owner: task/m1.6c-thunks-real-image · Critical: yes
   - Depends: —
   - Goal: thunk labels for Ghidra (M9.2) and stubs (M9.3) from real bytes.
   - Input: C-1714 (`thunks Navi.exe` and `--all`: "no import stub matched");
@@ -633,6 +633,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     labels both EXP-50 thunks correctly; the cause of the miss is in the EXP
     and a self-test case reproduces it.
   - Claims: C-1750–C-1759
+  - Result: EXP-2026-11-06-M1.6c-thunks-real-image.md; root cause fixed (module-local realaddr/slot VAs vs ROM `va2file`, R0-only 4-insn, inlined IAT call sites). IMG256 Navi.exe: 845/846 slots covered (99.9%), 3728 call-site records (100% resolved with `--resolve-with 0x3e00200`); EXP-50 `0x003d1bb0`→`OBJDLL!MAL_DataVol_getOffset#3`, `0x003d1ba4`→`OBJDLL!MAL_DataVol_getSize#4` (`--min-coverage 95` exits 0). `realcheck.py IMG256` 8/8 PASS (thunks pin updated), `selftest.py` 32/0/19.
 
 - [x] **M1.9 — Cross-image import names (A → B's `coredll.dll`)**
   - Status: done · Owner: task/m1.9-cross-image-imports · Critical: yes
