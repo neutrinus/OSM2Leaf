@@ -124,6 +124,50 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
+## Priorities (product review 2026-11-06, second pass)
+
+**Where we are against the goal.** Knowledge of the card *format* is
+broad: most files decode and round-trip, one-tile edits pass L2, and the
+coordinate tool exists. What is still missing is the other half of the goal,
+the *unit's acceptance*: we cannot yet say why the firmware accepts or
+rejects a card, and no tool builds a card image. Of the 11 tasks in draft
+PRs right now, 9 are non-critical format/reader widening; **none of the
+critical acceptance or compiler tasks has an owner.** Breadth stays the
+strategy, but agents should take the list below first.
+
+**Take these first (critical, ready, unowned), in this order:**
+
+1. **M1.9** cross-image import names: one task that turns every `#1145` into
+   `_wfopen` for all later firmware reading (M2.x, M3.x). Cheapest
+   multiplier on the board.
+2. **M2.13** SD unlock password and **M2.12** `HDD_CHK.ATT` attestation:
+   the two card-identity gates. Without the password no clone or generated
+   card can be read by the unit, whatever its content.
+3. **M2.1 → M2.3**, then **M2.2 → M2.5**: the `HDD_INFO` parser and the
+   map-code comparator (why a card is accepted).
+4. **M5.10** card image builder (new): there is no tool that turns a card
+   tree into a FAT32 image. M6.5 (first device test) cannot start without it,
+   so it is now on the critical path.
+5. **M5.1** OSM ingest (reopened: marked done without a tool) and
+   **M4.15 → M4.16** (`RDSTM` framing and placement): the compiler front.
+6. **M1.6c** thunks fix, then **M9.3 → M9.5**: run real firmware functions
+   (M9.4 engine and M9.7 corpus are done).
+7. **M1.2b** (XPRESS LZ77) / **M1.2d** / **M1.2c**: compression, which gates
+   M1.3/M1.4, the registry (M2.7, M8.E2) and the compressed parts of
+   `TestMode.exe` and `MapUpdate.exe`.
+
+**Next milestone (definition of done for this phase):** an offline "S1
+no-op card": `IMG256`-checked firmware facts say which files and identity
+checks matter (M2.3, M2.12, M2.13), and `tools/mkcard.py` (M5.10) rebuilds
+the factory card tree into an image that L1 + L2 + `realcheck.py` accept.
+That is exactly what M6.5 needs on the bench, and it is reachable without
+hardware.
+
+**Process notes.** Rule 11 again: M4.8 and M5.1 were marked done with their
+done-when unmet (M4.8 has no real-POI check, M5.1 has no `osm_ingest.py`);
+both are corrected below. Draft PR #25 (`[M3.5]`) is left over after the
+merge and was closed.
+
 ## Review 2026-11-06 (what changed since PR #11)
 
 Merged since the last board update: M1.2a, M1.2b (tool), M1.6b (tool), M1.8,
@@ -191,15 +235,15 @@ M2.9, M2.10, M4.1, M4.5, M4.6, M4.13, M5.8, H2, LZNT1. Checked against
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping: ledger, docs, tool overlap | H6, H7 (H1, H3, H4 done) |
-| M1 | Firmware tooling (decompression, disassembly, xrefs) | M1.2b, M1.2c, M1.2d, M1.6c, M1.9 (M1.7 done) |
-| M2 | Map code, activation, updater, error screens | M2.1, M2.2, M2.3, M2.7, M2.11, M2.12, M2.13 (M2.6, M2.8 done) |
-| M3 | Reader contract (what the unit reads from the card) | M3.1, M3.6, M3.7, M3.8, M3.9, M3.10 (M3.5 done) |
-| M4 | Data formats (no firmware needed) | M4.3, M4.7, M4.8, M4.9–M4.12, M4.15, M4.18 (M4.4, M4.14 done) |
-| M5 | OSM compiler vertical slice (Dolnośląskie) | M5.1, M5.9; M5.1b after M5.1 (non-Claude runner) |
-| M6 | Hardware and safety (planning now, tests later) | M6.4 (M6.3, M6.8 done; tests need hardware) |
+| H | Housekeeping: ledger, docs, tool overlap | H8 |
+| M1 | Firmware tooling (decompression, disassembly, xrefs) | **M1.9, M1.6c, M1.2b**, M1.2c, M1.2d |
+| M2 | Map code, activation, updater, error screens | **M2.1, M2.2, M2.12, M2.13** (M2.7, M2.11 in PR) |
+| M3 | Reader contract (what the unit reads from the card) | **M3.1**, M3.6, M3.10 (M3.7, M3.8, M3.9 in PR) |
+| M4 | Data formats (no firmware needed) | **M4.15**, M4.3, M4.8b, M4.12 (M4.7, M4.9, M4.10, M4.11, M4.18 in PR) |
+| M5 | OSM compiler vertical slice (Dolnośląskie) | **M5.1, M5.10**, M5.9; M5.1b after M5.1 (non-Claude runner) |
+| M6 | Hardware and safety (planning now, tests later) | M6.9 (non-Claude runner); tests need hardware |
 | M8 | Full-system emulation (QEMU `ze0`) | M8.A1, M8.A2, M8.A4, M8.A5, M8.E1 (after M1.2c) |
-| M9 | L3 toolkit (run firmware functions on our data) | M9.1, M9.3, M9.4 |
+| M9 | L3 toolkit (run firmware functions on our data) | **M9.3**, M9.1, M9.8 after M9.5 (M9.4, M9.7 done) |
 
 **Critical path to a first accepted card:** M2.1 → M2.3 + M2.2 → M2.5 (why
 a card is accepted; M1.8 done, ordinals named) · M2.12 (attestation) + M2.13
@@ -207,8 +251,8 @@ a card is accepted; M1.8 done, ordinals named) · M2.12 (attestation) + M2.13
 M3.1 → M3.2 (what is read) ·
 M1.2b/M1.2c/M1.2d → M1.3 (initialised data for L3) · M1.6c/M1.9 → M9.2 →
 M9.5 → M2.4 / M3.3 (checks against the real code) · M4.15 → M4.16 →
-M4.2/M4.17 → M5.3 → M5.4 → M5.6 · M5.1 → M5.1b (non-Claude runner) · then
-hardware M6.5–M6.7. Every other task
+M4.2/M4.17 → M5.3 → M5.4 → M5.6 · M5.1 → M5.1b (non-Claude runner) · M5.10
+(card image builder) → hardware M6.5–M6.7. Every other task
 widens knowledge or tooling in parallel and is equally welcome.
 
 ---
@@ -328,6 +372,21 @@ widens knowledge or tooling in parallel and is equally welcome.
     `tools/README.md` and rule 11 point to it. No vendor bytes in the repo.
   - Result: `tools/realcheck.py` runs eight pinned checks with SKIP/exit-2 without the image (EXP-2026-11-06-H7-realcheck).
   - Claims: C-1730–C-1739
+
+- [ ] **H8 — Fix what H6 reported: `mmain.py`, `setup.sh`, two doc sentences**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (coordinate with PR #35 `[M3.8]`, which reads `MMAIN001`)
+  - Goal: no tool or guide still describes `MMAIN001.DAT` as a FAT log or
+    `tools_ze0` as a network clone.
+  - Input: EXP-2026-11-06-H6 "Not edited, reported" and follow-ups;
+    `tools/mmain.py`; `tools/ze0-viewer/setup.sh` and `PROVENANCE.md`;
+    `AGENTS.md` and `tools/README.md` sentences on `setup.sh`.
+  - Done when: the root-directory parser is renamed for what it reads and a
+    `MMAIN001.DAT` header parser round-trips the real file (self-test
+    synthetic); `setup.sh` applies the patch to `tools_ze0/` paths and is
+    run once in the EXP; the two sentences match `docs/format/ze0-tools.md`;
+    `realcheck.py` pins the `coredll.dll` ordinals of C-1710 (H7 follow-up).
+  - Claims: C-1890–C-1899
 
 ---
 
@@ -846,6 +905,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [x] **M4.5 — `MMAIN001.DAT` meaning and writer**
   - Status: done · Owner: task/m4.5-mmain001 · Critical: no
   - Result: EXP-2026-11-05-M4.5-mmain001 (`tools/mmain.py`; a FAT root-directory log, 51 records, 12 live; round-trip OK; the task said 11 entries)
+  - Correction (EXP-2026-11-06-H6): `tools/mmain.py` parsed the FAT root
+    directory, not `MMAIN001.DAT`; the real 4 KiB header is described in
+    `drstr.md`. The "FAT log" reading is retracted; H8 re-scopes the tool.
   - Depends: —
   - Done when: a writer reproduces the 4,096-byte file (11 entries)
     byte-identically and every field has a meaning or `UNKNOWN`.
@@ -877,6 +939,21 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     known POIs land within a few metres.
   - Result: `tools/coord.py` converts lat/lon <-> cell/packed/local with both origins, 15 fixtures (EXP-2026-11-06-M4.8-coord); 10-POI image check open.
   - Claims: C-960–C-969
+
+- [ ] **M4.8b — Check `coord.py` on 10 real POIs**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.8
+  - Goal: the original M4.8 done-when, unmet at merge: prove the transform
+    on real data before M5.2 splits OSM ways with it.
+  - Input: `tools/coord.py`; `IMG` (full card, `ROOT` via `verify.py`);
+    `POINT`/`ADDRE` records (`docs/format/refer.md`) for ≥ 10 named POIs whose
+    position is known independently (well-known landmarks: town halls,
+    railway stations; take coordinates from Wikipedia/Wikidata pages, not
+    OSM, rule 12); EXP-M4.8 follow-ups (2x local scale, 52742 vs 52736 origin).
+  - Done when: the EXP lists ≥ 10 POIs with decoded vs reference lat/lon and
+    the error in metres, states which origin and local scale fit, and
+    `coord.py` self-test pins the chosen constants.
+  - Claims: C-1900–C-1909
 
 - [ ] **M4.9 — `ADDRE` remaining grammar**
   - Status: open · Owner: — · Critical: no
@@ -989,7 +1066,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 `docs/research/osm-vertical-slice.md` and `profiles/dolnoslaskie-test.*`.
 
 - [ ] **M5.1 — OSM ingest to IMF**
-  - Status: done · Owner: session-ZMxuBT · Critical: yes
+  - Status: open · Owner: — · Critical: yes
+  - Note: set to `done` in a8a1994 without `tools/osm_ingest.py` on `main`;
+    reopened by the 2026-11-06 review.
   - Depends: —
   - Goal: read a Dolnośląskie `.osm.pbf` (Geofabrik) and write IMF v1 with
     drivable roads and the tags the compiler needs.
@@ -1063,6 +1142,25 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     (0 added/removed) and the level/record/vertex that changed; self-test
     covers a moved stream.
   - Claims: C-1850–C-1859
+
+- [ ] **M5.10 — Card image builder (`tools/mkcard.py`)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M2.13 for the lock state; M3.8 for `MMAIN001`)
+  - Goal: turn a card tree into an SD image the unit could read: the missing
+    link between every writer and the first bench test (M6.5, S0/S1 of
+    `card-test-plan.md`).
+  - Input: the factory layout from `IMG` (MBR, FAT32 partition 0, 64 KiB
+    clusters, label `QSD-309-101`, root order incl. `MMAIN001.DAT` in
+    cluster 2, the `0x06000000` copy that `cardcheck.py --image` checks);
+    `cardcheck.py`, `l2check.py`, `realcheck.py`; firmware partitions are
+    copied verbatim from the source image, never committed.
+  - Done when: `tools/mkcard.py --from-image IMG --tree ROOT -o out.img`
+    rebuilds the map partition from an unchanged tree and the result is
+    byte-identical to `IMG` (or every differing byte range is listed and
+    explained: timestamps, free-cluster order); `cardcheck.py --image out.img`
+    passes; synthetic self-test on a small FAT32 image; the EXP says what the
+    tool cannot reproduce (SD lock state, CID).
+  - Claims: C-1910–C-1919
   - Depends: —
   - Goal: an automatic report of what changed vs what was preserved between
     a factory and a generated/mutated tile (sections, records, bytes).
@@ -1107,6 +1205,22 @@ No hardware is available now. Planning tasks are open; tests wait.
     ESTIMATE, SCIF pins UNKNOWN (EXP-2026-11-06-M6.8-bench-kit).
   - Claims: C-1130–C-1139
 
+- [ ] **M6.9 — Set and verify an SD lock password from a PC**
+  - Status: open · Owner: — · Critical: no · **Runner: non-Claude** (needs a
+    physical SD host; Marek or a local agent)
+  - Depends: — (M2.13 for the real password)
+  - Goal: know that we can put a card into the lock state the unit expects
+    (C-798) before buying bench hardware.
+  - Input: EXP-2026-11-06-M2.8 (CMD42 lock/unlock, `SD UNLOCK NG`);
+    `mmc-utils` / Linux `mmc` sysfs on a native SDHCI slot (USB readers do
+    not pass CMD42); a spare card.
+  - Done when: `docs/research/card-test-plan.md` has a tested procedure to
+    set, check and clear a CMD42 password on a spare card from Linux, with
+    the reader model that worked; or the EXP shows which host hardware is
+    needed.
+  - Claims: C-1920–C-1929
+- [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
+  EXP-2026-11-06-M6.4). Status: blocked (hardware). Claims: C-1930–C-1939
 - [ ] **M6.2** Owner's US 2011 SD dump (read-only, SHA-256). Status: blocked
   (hardware) · Owner: Marek. Claims: C-1140–C-1149
 - [ ] **M6.5** First on-device test with the no-op clone. Status: blocked

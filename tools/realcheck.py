@@ -124,8 +124,8 @@ PINS_JSON = r"""
     "expect": {
       "jsr_sites": [
         "0x003778b2",
-        "0x00377b46",
         "0x003778bc",
+        "0x00377b46",
         "0x00377b52"
       ],
       "fn_sites": [
