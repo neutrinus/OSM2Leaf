@@ -24,8 +24,9 @@ that a card image written on a PC can be used in the car.
 - In **SPI mode** every SD card accepts CMD42. An RP2040 has a hardware SPI
   block, 3.3 V GPIO and USB, and costs about €5. That is all it takes.
 
-The unit also has its own SD LOCK/UNLOCK service menu (EXP-2026-11-06-M2.13,
-C-1882), so a card that stays with one unit can be (un)locked there. The Pico
+A unit that runs LeafSDTools can also (un)lock a card through its "SD PIN"
+menu (EXP-2026-11-06-M2.13, C-1947), so a card that stays with one such unit
+can be handled there. The Pico
 tool is for what the menu cannot do: locking a card the unit has never seen,
 checking a card's lock state off the bench, and the image-then-lock flow
 without the unit.
@@ -83,12 +84,12 @@ What is known (claims ledger):
 
   The tool refuses anything longer than 16 bytes, so the 20-byte reading
   cannot be sent by accident.
-- **Byte order is UNKNOWN** (C-1940): the screen may print the 4 bytes in
-  memory order or as a little-endian number. Use the order shown first. If
-  the unit then says `SD UNLOCK NG`, `clear` the card with the password you
-  set (you know it, so nothing is lost) and try the reversed byte order
-  (section 7.4). M2.13 should settle this from the firmware; prefer its
-  result when it lands.
+- **Source and byte order (C-1945, C-1946, from the LeafSDTools source):**
+  the 16 bytes are stored per unit in NAND flash at `0xA100` (PROD block 5 +
+  `0x100`) and passed unchanged to the SD driver. The "SD PIN" screen is
+  LeafSDTools' menu; it prints bytes 0–3 as hex **in buffer order**, then the
+  text. So type the 8 digits exactly as shown. The reversed-order attempt of
+  section 7.4 is only a last resort.
 
 Keep a paper/offline note of **which password each card was locked with**.
 A card whose password is lost can only be recovered by forced erase, which
