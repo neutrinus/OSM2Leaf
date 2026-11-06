@@ -998,7 +998,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2000–C-2009
 
 - [ ] **M2.15 — The exact `HDD_INFO` bytes behind `DIFFERENT MAP CODE` and `MAP DATA BASE UNMATCH`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m2.15-hddinfo-bytes-mapcode · Critical: yes
   - Depends: — (M2.5, M2.3 done)
   - Goal: for the Poland card we must know which `HDD_INFO.TXT` bytes the
     unit compares, and against what. M2.5 found the two launcher checks but
