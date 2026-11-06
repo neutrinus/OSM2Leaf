@@ -710,6 +710,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-658 | reserved. | UNKNOWN | — | — |
 | C-659 | reserved. | UNKNOWN | — | — |
 
+## M1.3 — `cerom.py decompress` on all 245 sections (C-670–C-679)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-670 | `cerom.py decompress --check` on IMG256 build A reports 245 compressed sections: 0 OK, 245 UNSUPPORTED, 0 FAIL. | VERIFIED (negative, real image) | M | EXP-2026-11-06-M1.3-decompress-all; `cerom.py decompress --check` |
+| C-671 | No compressed section of build A decodes with the currently implemented codecs (LZSS, LZX-stored, LZNT1, XPRESS plain, XPRESS Huffman); `detect()` cannot pick a method for any of them. | VERIFIED (negative, real image) | M | EXP-2026-11-06-M1.3-decompress-all; M1.2b |
+| C-672 | The M1.2a 22-byte header and M1.2d form 2 multi-block framing correctly delimit every payload (no FAIL; only UNSUPPORTED), so framing is not the blocker. | OBSERVED | M | EXP-2026-11-06-M1.3-decompress-all; M1.2a/M1.2d |
+| C-673 | The codec is the remaining unknown; M1.2c (the kernel's own decompressor in `nk.exe`) is the next lead. | HYPOTHESIS | L | EXP-2026-11-06-M1.3-decompress-all |
+| C-674 | reserved. | UNKNOWN | — | — |
+| C-675 | reserved. | UNKNOWN | — | — |
+| C-676 | reserved. | UNKNOWN | — | — |
+| C-677 | reserved. | UNKNOWN | — | — |
+| C-678 | reserved. | UNKNOWN | — | — |
+| C-679 | reserved. | UNKNOWN | — | — |
+
 ## Housekeeping / CE ROM tool consolidation (H3)
 
 | ID | Claim | Status | Confidence | Evidence |
