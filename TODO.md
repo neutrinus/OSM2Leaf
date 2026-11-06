@@ -1067,7 +1067,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1820–C-1829
 
 - [ ] **M4.18 — `LCTBL001` record framing**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.18-lctbl-framing · Critical: no
   - Depends: —
   - Goal: per-field name counts and lengths (M4.13 could only count per
     stream).
