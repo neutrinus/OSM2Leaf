@@ -177,6 +177,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M4.11](EXP-2026-11-06-M4.11-lev-coarse.md) | `LEV3456R.DAT` coarse levels 3–5 decoded; level 5 rebuilt byte-identically (M4.11) | done (levels 3/4 partly preserved) |
 | [EXP-2026-11-06-M4.14](EXP-2026-11-06-M4.14-cross-year-archive.md) | Cross-year/market image inventory (M4.14) | done |
 | [EXP-2026-11-06-M4.18](EXP-2026-11-06-M4.18-lctbl-framing.md) | `LCTBL001` record framing and per-field lengths (M4.18) | done |
+| [EXP-2026-11-06-M5.9](EXP-2026-11-06-M5.9-tile-diff.md) | Content-matched tile diff with record naming (M5.9) | done (synthetic) |
 | [EXP-2026-11-06-M7.4](EXP-2026-11-06-M7.4-profiles-v2.md) | Build profiles migrated to schema v2 (M7.4) | done |
 | [EXP-2026-11-06-M9.4](EXP-2026-11-06-M9.4-engine.md) | SH-4 engine interface and back ends (M9.4) | done (PySh4; Ghidra/QEMU SKIP) |
 | [EXP-2026-11-06-M9.7](EXP-2026-11-06-M9.7-corpus.md) | Synthetic L3 corpus, 108 entries (M9.7) | done |

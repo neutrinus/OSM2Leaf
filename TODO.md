@@ -1242,7 +1242,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1840–C-1849
 
 - [ ] **M5.2 — Mesh splitter**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: M4.8, M5.1
   - Done when: every way is assigned to meshes and clipped at borders, and
     `imf_check.py --assign-tiles` agrees.
@@ -1288,7 +1288,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Status: done · Owner: task/m5.8-tile-diff · Critical: no
   - Result: EXP-2026-11-05-M5.8-tile-diff (`tools/tile_diff.py`; factory vs mutate output: 148 bytes in 2 ranges; `tools_ze0` package committed as `tools/ze0-viewer/tools_ze0/`)
 
-- [ ] **M5.9 — `tile_diff.py`: match moved streams and name the records**
+- [x] **M5.9 — `tile_diff.py`: match moved streams and name the records**
   - Status: in progress · Owner: session-ZMxuBT · Critical: no
   - Depends: —
   - Goal: a generated tile's diff reads as "changed record X", not as
@@ -1298,6 +1298,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: on the M5.8 mutate output the report shows 1 changed stream
     (0 added/removed) and the level/record/vertex that changed; self-test
     covers a moved stream.
+  - Result: content-hash matching + structural record naming; a moved+changed
+    record is one `changed` entry, `--by-offset` keeps the old view
+    (EXP-2026-11-06-M5.9-tile-diff); factory-vs-mutate pending.
   - Claims: C-1850–C-1859
 
 - [ ] **M5.10 — Card image builder (`tools/mkcard.py`)**

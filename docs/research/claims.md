@@ -966,6 +966,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1210 | All four shipped build profiles are schema v2 (whole tiles, degrees, tiers, attribution, limits, outputs) and pass `profile_validate.py --strict` with zero errors/warnings while resolving 1/1/4/56 tiles; `build.py --dry-run` prints the M5 stage chain with each stage marked NOT IMPLEMENTED and exits 3 without `--dry-run`. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M7.4-profiles-v2; `python3 tools/profile_validate.py --strict profiles/*.json` |
 
+| C-1850 | `tools/tile_diff.py` matches tile streams by inflated SHA-256 and pairs the rest by structural position (section/level/row/column/slot/record), so a moved+recompressed record is one `changed` entry with `offset_a`/`offset_b`; content-only moves are `moved`, pure recompression stays `same` with `reencoded`, background changes are named to layer/shape/vertex and section-4 changes by parcel/type/country/name. `--by-offset` keeps the old view; JSON `format` is `tile-diff/2`. | VERIFIED (synthetic tile) | H | EXP-2026-11-06-M5.9-tile-diff; `python3 tools/tile_diff.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
