@@ -2063,8 +2063,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   the Python reader's verdict. Depends: —. Done when `manifest.py build`
   consumes them. Claims: C-1690–C-1699. Done: `l3_harness/corpus.py`
   builds 108 entries (EXP-2026-11-06-M9.7-corpus).
-- [ ] **M9.8 — `l3check.py`** (L3 rung of the verification ladder). Depends:
-  M9.5, M9.7. Claims: C-1700–C-1709
+- [x] **M9.8 — `l3check.py`** (L3 rung of the verification ladder). Depends:
+  M9.5, M9.7. Status: done · Owner: session-ZMxuBT. Result:
+  `tools/l3check.py` runs every target (1 PASS, 5 BLOCKED), exit 3 when
+  nothing is runnable (EXP-2026-11-06-M9.8-l3check). Claims: C-1700–C-1709
 - [ ] **M9.9 — Keep `l3-ghidra.md` "How to use L3" current.** Done with each
   M9 PR (no separate claim needed).
 

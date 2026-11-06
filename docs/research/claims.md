@@ -1197,6 +1197,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-2010 | The only reported route to the Clarion monitor (`MONI`, `FW>` prompt, `DSW=0006`) is the zelemar.eu service-connector description (TE 1674312-1 named, Rx/Tx/Mode); no `FW>`/`MONI`/`DSW`/`1674312` string exists in the repo or the analysed CE image and no step has been run on a unit, so the whole procedure is UNVERIFIED until a bench session captures the prompt and one memory read matching a known image string. | VERIFIED (repo negative) / UNVERIFIED (procedure) | H / L | EXP-2026-11-06-M6.12-debug-console; `dynamic-break-guide.md` |
 
+| C-1700 | `tools/l3check.py` is the L3 rung: it builds or validates a corpus manifest (size/SHA-256), runs every `targets.json` target through `runner.run_target` on the requested engine, and reports reader/entry/claims/status per target. PASS requires the engine verdict to equal the expectation; an unlocated reader is BLOCKED, an absent backend SKIP, a missing/tampered corpus FAIL; exit 0 only when at least one target ran and all runnable targets passed, 1 on failure, 2 usage, 3 when nothing was runnable. A reader/claim table is re-checked against `targets.json` on every run. | VERIFIED (tool, synthetic corpus) | H | EXP-2026-11-06-M9.8-l3check; `python3 tools/l3check.py --corpus …` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

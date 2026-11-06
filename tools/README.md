@@ -521,6 +521,57 @@ python3 tools/l3_harness/runner.py check --manifest corpus.json
 harness script exists; it never reports an unearned pass. See
 [`../docs/research/l3-ghidra.md`](../docs/research/l3-ghidra.md).
 
+## `l3check.py` — L3 rung of the verification ladder
+
+Runs every target declared in `tools/l3_harness/targets.json` through
+`tools/l3_harness/runner.py`, on a corpus built by
+`tools/l3_harness/corpus.py` (or one supplied with `--corpus`), and prints one
+status per target with its reader and claim IDs. It is the L3 counterpart of
+`cardcheck.py` (L1) and `l2check.py` (L2).
+
+```bash
+# Fresh synthetic corpus in a new temporary directory (kept; path printed)
+python3 tools/l3check.py --build-corpus
+
+# A corpus you built yourself (manifest.json is validated before any target runs)
+python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus
+python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus \
+    --target probe-zlib-cmf --json
+python3 tools/l3check.py --selftest
+```
+
+Statuses and exit codes:
+
+* `PASS` — the engine verdict matched the target's `expect.verdict`;
+* `FAIL` — a mismatch, an invalid/missing corpus file, or a target that could
+  not run (never silently skipped);
+* `SKIP` — the requested `--engine` back end is absent; nothing is claimed;
+* `BLOCKED` — the reader has no located entry point in `targets.json`;
+  nothing is claimed.
+
+Exit `0` only when every runnable target passed (blocked/skipped targets are
+counted and printed, not failed), `1` on a failure or invalid input, `2` on a
+usage error, `3` when nothing was runnable. Expected run on the 108-entry
+synthetic corpus with no Ghidra/QEMU (2026-11-06):
+
+```
+target              reader     entry      claims         RESULT
+probe-zlib-cmf      synthetic  synthetic  C-1670,C-1690  PASS
+hddinfo_compare     hdd_info   blocked    C-521          BLOCKED
+cmp_ind_reader      cmp_ind    blocked    -              BLOCKED
+tile_reader         tile       blocked    -              BLOCKED
+drstr_parser        drstr      blocked    -              BLOCKED
+mapcode_comparator  hdd_info   blocked    C-520,C-528    BLOCKED
+
+counts   pass=1 fail=0 skip=0 blocked=5 runnable=1/6
+RESULT: PASS (every runnable target passed; 5 blocked, 0 skipped)
+```
+
+A synthetic `PASS` proves the runner/dispatcher path, not that the firmware
+accepts a card. `--root` and `--image` are accepted for the ladder interface but
+only recorded: card-level L3 (`l3check.py --card`) is M9.12. Claim C-1700; see
+[`../docs/experiments/EXP-2026-11-06-M9.8-l3check.md`](../docs/experiments/EXP-2026-11-06-M9.8-l3check.md).
+
 ## `sdlock-pico/` and `sdlock_pico_check.py` — SD CMD42 lock tool
 
 RP2040 firmware (C, Pico SDK) that sets, locks, unlocks and clears an SD
