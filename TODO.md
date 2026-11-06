@@ -670,7 +670,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 ## M2 — Map code, activation, updater
 
 - [ ] **M2.1 — `Navi.exe` function that opens `HDD_INFO.TXT`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m2.1-hddinfo-fn · Critical: yes
   - Partial: EXP-2026-11-05-M2.1-hddinfo-fn (fn `0x004e7b8c`; callers only
     via pool `0x004dd1e4` in `fn 0x004dd028`). The blocker was wrong
     (C-1710): the ordinals are `memset` (1047), `_wfopen` (1145), `fgetws`
