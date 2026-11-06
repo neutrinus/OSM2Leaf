@@ -170,6 +170,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M2.6](EXP-2026-11-06-M2.6-mapupdate.md) | `MapUpdate.exe` checks and install path (M2.6) | done |
 | [EXP-2026-11-06-M2.8](EXP-2026-11-06-M2.8-sdcard-lock.md) | SD identity: lock password only, no CID/CSD (M2.8) | done |
 | [EXP-2026-11-06-M2.11](EXP-2026-11-06-M2.11-hddinfo-trigger.md) | `HDD_INFO` trigger is NaviSetCC message `0x841000f7`; two reads = SystemSD/UserSD (M2.11) | done |
+| [EXP-2026-11-06-M2.15](EXP-2026-11-06-M2.15-hddinfo-bytes-mapcode.md) | Exact HDD_INFO bytes for `DIFFERENT MAP CODE` / `MAP DATA BASE UNMATCH` (M2.15) | done |
 | [EXP-2026-11-06-M3.4](EXP-2026-11-06-M3.4-drstr-parser.md) | `DRSTR001`/`CMP.LST` xrefs under real VAs (M3.4) | done |
 | [EXP-2026-11-06-M3.5](EXP-2026-11-06-M3.5-tile-reader.md) | Tile reader entry and six-level table (M3.5) | done |
 | [EXP-2026-11-06-M3.7](EXP-2026-11-06-M3.7-router-rdstm.md) | Road-record field set and the router split (M3.7) | done |

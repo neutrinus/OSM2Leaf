@@ -42,43 +42,57 @@
 tile stream is corrupted, zlib catches it; the outer structures only carry
 sizes.
 
-## Map code (`DIFFERENT MAP CODE`)
+## Map code (`DIFFERENT MAP CODE`) and `MAP DATA BASE UNMATCH`
 
-The UTF-16 string `DIFFERENT MAP CODE` is in `AppLaunch.dll` at physical VA
-`0x883368bc` (build B) / `0x8834089c` (build C), next to `MAP DATA BASE
-UNMATCH` and `NAVI VERSION NG`. The AppLaunch dispatcher
+The UTF-16 strings are in `AppLaunch.dll`: `DIFFERENT MAP CODE` at physical VA
+`0x883368bc` (build B) / `0x8834089c` (build C), `MAP DATA BASE UNMATCH` at
+`0x88336890` (B) / `0x88340870` (C). The AppLaunch dispatcher
 `fn 0x03bcafb8` (B) maps error code `0x50` → `DIFFERENT MAP CODE` and
 `0x51` → `MAP DATA BASE UNMATCH` (C-761).
 
-### Deciding input (M2.5, VERIFIED static, IMG256 `92aa525d…`)
+### Launcher checks (M2.5, M2.15, VERIFIED static, IMG256 `92aa525d…`)
 
-`AppLaunch.dll` B router `fn 0x03bd2ecc` (`0x03bd2ed4/0x03bd2eda–0x03bd2ee2`;
-C mirror via pools `0x03bb2c54`→`0x03bb2858`, `0x03bb2c64`→`0x03bb2a64`)
-calls `fn 0x03bd2ad8` (B; C `0x03bb2858`) and, on `r0==0`, dispatches
-`DIFFERENT MAP CODE` (code `0x50`). `fn 0x03bd2ad8` compares 11 bytes
-byte-for-byte (`0x03bd2c1e–0x03bd2c3e`):
+`AppLaunch.dll` B router `fn 0x03bd2ecc` (C mirror via pools
+`0x03bb2c54`→`0x03bb2858`, `0x03bb2c64`→`0x03bb2a64`) evaluates both checks
+independently and dispatches an error for each that fails (it does **not** skip
+check 2 when check 1 fails): `0x03bd2ed4/0x03bd2eda–0x03bd2ee2` call check 1
+and dispatch `0x50` on `r0==0`, then `0x03bd2ee4/0x03bd2eea–0x03bd2ef2` call
+check 2 and dispatch `0x51` on `r0==0`. The two HDD_INFO-parsing functions
+share a parse cache at global `0x01f74b30` (pool `0x03bd2cb8` in B check 1,
+`0x03bd2ea8` in B check 2): if `*0x01f74b30 != 0` they use the cached slots,
+otherwise they open `\SystemSD\VER_INFO\HDD_INFO.TXT` (`pool 0x03bd2cc0`/`0x03bd2eb0`),
+read 0x60 bytes and parse CRLF/LF-separated lines into **16-byte slots** at
+`0x01f74b30` (slot 0 = line 1 at offset 0, slot 1 = line 2 at offset 16,
+slot 2 = line 3 at offset 32, …; up to 15 chars copied per slot). The card-side
+values below are taken from these slots (and therefore from the stripped line
+content of the HDD_INFO file).
 
-1. **Unit (NAND/system/kernel target-info):** `KernelIoControl(IOCTL 0x0101302C)`
-   output offset `+0x60` (+96), 11 bytes (`0x03bd2b2c`, `0x03bd2b36–0x03bd2b56`).
-2. **Card:** 11 bytes parsed from the card filesystem file
-   `\SystemSD\VER_INFO\HDD_INFO.TXT` (`pool 0x03bd2cc0` → `\SystemSD\VER_INFO\HDD_INFO.TXT`,
-   parsed/extracted at `0x03bd2c06–0x03bd2c1e`; consistent with line 1
-   `base_code`, C-740–C-743).
+#### Check 1 — `DIFFERENT MAP CODE` (error `0x50`)
 
-On mismatch it logs `VerInf:%s / HddInf:%s` and returns 0 → `DIFFERENT MAP CODE`.
-On match it proceeds to `fn 0x03bd2ce4` (B; C `0x03bb2a64`), the MapDBVer range
-check against unit target-info bounds `+112`/`+114` (logs
-`MapDBVer : %d <= [%d] <= %d`), which on failure dispatches `MAP DATA BASE
-UNMATCH` (code `0x51`).
+| | Value |
+| --- | --- |
+| B function / VAs | `fn 0x03bd2ad8` (C `fn 0x03bb2858`); unit read `KernelIoControl(0x0101302C)` `0x03bd2b2c` (pool `0x0101302c`/thunk `0x03bca3e8`), copy unit `+0x60` at `0x03bd2b36–0x03bd2b56` (C `0x03bb28bc`, `add #96`); copy card slot 0 `0x03bd2c06–0x03bd2c1e`; 11-byte compare `0x03bd2c1e–0x03bd2c3e`; mismatch log `VerInf:%s / HddInf:%s` (`pool 0x03bc9330`) |
+| HDD_INFO source | line **1** (`base_code`, M2.3 C-740), **slot 0** bytes **0–10** = first **11 bytes** of the stripped line content. In the file this is **file offset `0x00`, length 11** for a standard 11-char line 1 (e.g. `QSD-302-100` = `51 53 44 2d 33 30 32 2d 31 30 30`); compared byte-for-byte as 11 bytes. |
+| Unit-side source | `KernelIoControl(IOCTL 0x0101302C)` output, **offset `+0x60` (+96)**, **11 bytes** (NAND/system/kernel target-info record). |
+| Verdict | mismatch → log `VerInf:%s / HddInf:%s\r\n`, return 0 → `DIFFERENT MAP CODE`. Match → proceed to check 2. |
 
-**The deciding input for `DIFFERENT MAP CODE` is the NAND/system kernel
-target-info record (`0x0101302C` +96) compared against the card's
-`\SystemSD\VER_INFO\HDD_INFO.TXT` parsed line-1/`base_code` field. It is NOT
-the `0x06000000` raw HDD_INFO copy and NOT an HDD_INFO text record stored in
-NAND.** The `0x06000000` copy is not an input on this path (C-766,
-EXP-2026-11-06-M2.5). This extends M2.7/C-783: the `0x06000000` copy is ruled
-out for these two launcher checks; it does **not** prove `0x06000000` is unused
-everywhere.
+#### Check 2 — `MAP DATA BASE UNMATCH` (error `0x51`)
+
+| | Value |
+| --- | --- |
+| B function / VAs | `fn 0x03bd2ce4` (C `fn 0x03bb2a64`); unit read `KernelIoControl(0x0101302C)` (pool `0x0101302c`/thunk `0x03bca3e8`), unit `+114` (16-bit BE) read at `0x03bd2d38` (`add #114`) stored `r15+0x24`, unit `+112` (16-bit BE) read at `0x03bd2d8a` (`add #112`) stored `r15+0x20`; card MapDBVer extract `0x03bd2e3a–0x03bd2e68` (C `0x03bb2bba`); range `0x03bd2e6c–0x03bd2e7a`; log `MapDBVer : %d <= [%d] <= %d` (`pool 0x03bc9360`, `0x03bd2e7c–0x03bd2e82`). |
+| HDD_INFO source | line **3** (`build`, M2.3 C-740, **slot 2** at global offset 32), **stripped-line positions 5, 6, 7** (0-based, global offsets 37/38/39). Each byte is converted by `fn 0x03bd2a40` (B; 22-char table `0-9a-fA-F` → 0–15, not-found → 0) and combined as **3 nibbles**: `MapDBVer = ((d5*16)+d6)*16 + d7`. For factory EU 2011 line 3 `02-110100-00` (file offset 26, content `30 32 2d 31 31 30 31 30 30 30 2d 30 30`) positions 5,6,7 are `'0','1','0'` (file offsets 31–33) → `0x010` = 16. |
+| Unit-side source | `KernelIoControl(IOCTL 0x0101302C)` output, **offset `+112` (+0x70)** = 16-bit big-endian **minimum** and **offset `+114` (+0x72)** = 16-bit big-endian **maximum** (NAND/system/kernel target-info record). |
+| Verdict | `target[+112] <= MapDBVer <= target[+114]` (unsigned 16-bit) → pass. Otherwise log `MapDBVer : %d <= [%d] <= %d\r\n` (value, min, max) and return 0 → `MAP DATA BASE UNMATCH`. |
+
+**The deciding inputs for these two launcher checks are the NAND/system kernel
+target-info record (`0x0101302C` +96/+112/+114) compared against the card's
+`\SystemSD\VER_INFO\HDD_INFO.TXT` parsed line 1 (bytes 0–10) and line 3
+(positions 5–7). They are NOT the `0x06000000` raw HDD_INFO copy and NOT an
+HDD_INFO text record stored in NAND** (C-766, EXP-2026-11-06-M2.5,
+EXP-2026-11-06-M2.15). The `0x06000000` copy is not an input on this path; this
+rules it out for these two launcher checks but does **not** prove `0x06000000`
+is unused everywhere (M2.7/C-783).
 
 No market/area value is involved in either function (C-783). The market area
 (`CApi_GetModelArea`) is a separate unit-side UI/launch value (see `firmware.md`).
@@ -326,12 +340,12 @@ has none. Navi boot-path dependence is not indicated by static evidence.
 
 ## Open questions
 
-- `DIFFERENT MAP CODE` (AppLaunch code `0x50`, M2.5/C-766): decided by **kernel
-  target-info** `KernelIoControl(0x0101302C)` +96 (11 bytes, NAND/system) vs the
-  card's `\SystemSD\VER_INFO\HDD_INFO.TXT` parsed line-1/`base_code` (11 bytes)
-  — **not** the `0x06000000` copy, **not** an HDD_INFO text record in NAND, on
-  this path. The `0x06000000` copy remains unimplicated here but could be used
-  by other (unobserved) paths.
+- The exact **values** of the unit/kernel target-info record
+  (`KernelIoControl(0x0101302C)` output `+96`/`+112`/`+114`) for each
+  market/unit are not known statically (they live in NAND/system target-info);
+  the card-side HDD_INFO bytes and the comparison/range logic are now fully
+  specified (M2.15, checks above). The `0x06000000` copy remains unimplicated
+  by these two launcher checks but could be used by other (unobserved) paths.
 - Does `MMAIN001.DAT`'s `0x1ac` table need to match the tile set exactly, or
    is it informational?
 - What is the `BICON001.DAT` data version `11/04/08/01` (vs `11/06/27/01`)?

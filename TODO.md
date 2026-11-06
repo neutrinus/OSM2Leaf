@@ -241,7 +241,7 @@ The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).
 | --- | --- | --- |
 | H | Housekeeping | **H13, H14** |
 | M1 | Firmware tooling (decompression) | **M1.2f, M1.10, M1.11**; M1.4 after M1.2f; M1.2e non-Claude |
-| M2 | Map code, activation, updater | **M2.15**, M2.16, M2.14 |
+| M2 | Map code, activation, updater | M2.16, M2.14 |
 | M3 | Reader contract | **M3.11, M3.2b, M3.12, M3.13, M3.14, M3.15, M3.16, M3.17, M3.18** |
 | M4 | Data formats | **M4.16b, M4.22, M4.8b**, M4.16c, M4.16d, M4.3, M4.17; M4.21 after M3.6; M4.2 non-Claude |
 | M5 | Compiler + US edits | **M5.13b, M5.12c, M5.4, M5.1c**; M5.14/M5.20 after M5.13b; M5.1b non-Claude; M5.16–M5.19 after their M3 readers |
@@ -997,8 +997,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     bytes only).
   - Claims: C-2000–C-2009
 
-- [ ] **M2.15 — The exact `HDD_INFO` bytes behind `DIFFERENT MAP CODE` and `MAP DATA BASE UNMATCH`**
-  - Status: in progress · Owner: task/m2.15-hddinfo-bytes-mapcode · Critical: yes
+- [x] **M2.15 — The exact `HDD_INFO` bytes behind `DIFFERENT MAP CODE` and `MAP DATA BASE UNMATCH`**
+  - Status: done · Owner: task/m2.15-hddinfo-bytes-mapcode · Critical: yes
   - Depends: — (M2.5, M2.3 done)
   - Goal: for the Poland card we must know which `HDD_INFO.TXT` bytes the
     unit compares, and against what. M2.5 found the two launcher checks but
@@ -1012,6 +1012,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     byte offset and length and the unit-side source, with VAs; `hddinfo.py
     classify` follows it (self-test pins one pass and one fail per check);
     the 89 M2.4 variants are re-classified with the new model.
+  - Result: EXP-2026-11-06-M2.15-hddinfo-bytes-mapcode. Check 1 (0x50, B
+    `fn 0x03bd2ad8`/C `0x03bb2858`): HDD_INFO line 1 `base_code` slot 0 bytes
+    0-10, file off `0x00` len 11 vs `KernelIoControl(0x0101302C)` +0x60 (11 B).
+    Check 2 (0x51, B `fn 0x03bd2ce4`/C `0x03bb2a64`): line 3 `build` pos 5,6,7
+    (file off 31-33 factory) → 3 nibbles `MapDBVer=((d5*16)+d6)*16+d7` (fn
+    `0x03bd2a40`, `0-9a-fA-F`→0-15) vs target +112 min/+114 max (u16 BE);
+    parse cache global `0x01f74b30` (16-byte slots). `validation.md` and
+    `hddinfo.py classify` (M2.15 model, self-test 44 checks, pass+fail per
+    check) updated. 89 M2.4 variants reclassified (M2.15): check 1 69 PASS /
+    20 `DIFFERENT MAP CODE`, check 2 89 `BOUNDS_UNKNOWN` (unit bounds unknown),
+    10 MapDBVer changes noted.
   - Claims: C-2080–C-2089
 
 - [ ] **M2.16 — `HDD_CHK.ATT` on real cards and `sub_0001e3f4`**
