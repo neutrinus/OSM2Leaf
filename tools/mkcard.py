@@ -7,12 +7,20 @@ layout (MBR, FAT32 partition 0, 64 KiB clusters, label QSD-309-101, root
 order including MMAIN001.DAT in the root directory cluster 2, and the
 0x06000000 HDD_INFO copy that cardcheck.py --image checks).
 
+On a fresh build the root volume-label entry (attr 0x08, factory EU
+`QSD-309-101`, US `QSD-301-103`; the US BPB label is `NO NAME`) and the
+factory root directory order are preserved from the source image. The BPB
+label is copied verbatim with the reserved sectors and is independent of
+the root label entry. `--label` overrides the root label entry,
+`--no-preserve-root-order` falls back to alphabetical root order.
+
 For an unchanged tree the output is byte-identical to the source image (or
 every differing byte range is listed and explained). The tool cannot
 reproduce the SD lock state or the card CID.
 
 Usage:
     python3 tools/mkcard.py --from-image IMG --tree ROOT -o out.img
+    python3 tools/mkcard.py --from-image IMG --tree ROOT -o out.img --label QSD-301-103
     python3 tools/mkcard.py --from-image IMG --tree ROOT --compare-only
     python3 tools/mkcard.py --selftest
 """
@@ -289,6 +297,47 @@ def img_list_dir(handle, geo, fat, rel: str = "") -> list[RawEntry]:
     return parse_dir_raw(data)
 
 
+@dataclass
+class RootLayout:
+    label_raw: bytes | None   # exact 32-byte attr-0x08 slot, if present
+    label_name: str           # decoded label, "" when absent
+    order: list[str]          # live root entries in on-disk order
+
+
+def root_layout(handle, geo: FatGeo, fat: bytes) -> RootLayout:
+    """Read the factory root label entry and the live root entry order.
+
+    `parse_dir_raw` deliberately drops attr-0x08 entries and deleted slots, so
+    the label slot is read separately and `order` keeps only live file/dir
+    entries in the order they appear on disk.
+    """
+    data = read_chain(handle, geo, fat, geo.root_cluster)
+    label_raw = None
+    label_name = ""
+    for i in range(0, len(data) - 31, 32):
+        entry = data[i : i + 32]
+        if entry[0] == 0x00:
+            break
+        if entry[0] == 0xE5:
+            continue
+        if entry[11] == 0x08 and label_raw is None:
+            label_raw = bytes(entry)
+            label_name = entry[0:11].decode("ascii", "replace").strip()
+    return RootLayout(label_raw, label_name, [e.name for e in parse_dir_raw(data)])
+
+
+def make_label_entry(name: str) -> bytes:
+    """Build a 32-byte volume-label slot (attr 0x08, no cluster/size)."""
+    text = name.strip().upper()
+    if not text or len(text) > 11:
+        raise ValueError(f"volume label must be 1..11 characters: {name!r}")
+    try:
+        raw = text.encode("ascii").ljust(11, b" ")
+    except UnicodeEncodeError as exc:
+        raise ValueError(f"volume label must be ASCII: {name!r}") from exc
+    return make_short_entry(raw, 0x08, 0, 0)
+
+
 def img_read(handle, geo, fat, rel: str) -> bytes:
     entry, _ = _resolve(handle, geo, fat, rel)
     if entry is None or entry.is_dir:
@@ -543,16 +592,39 @@ def write_chain(handle, geo: FatGeo, clusters: list[int], data: bytes) -> None:
         handle.write(padded[i * cb : (i + 1) * cb])
 
 
-def build_fresh_partition(handle, geo: FatGeo, src_handle, src_geo: FatGeo, tree: Path) -> None:
+def build_fresh_partition(handle, geo: FatGeo, src_handle, src_geo: FatGeo,
+                          tree: Path, label: str | None = None,
+                          preserve_root_order: bool = True) -> dict:
     """Build a fresh FAT32 filesystem in the map partition from tree.
+
     Copies BPB/reserved layout and FSInfo/backup boot from source; resets FAT
-    and data. This produces a valid card but NOT byte-identical timestamps/order
-    to factory images."""
+    and data. The factory root volume-label entry (attr 0x08) is written as
+    root slot 0 and the source root entry order is kept for names that also
+    exist in the tree. Returns a report of what was preserved.
+
+    This still produces a valid card but NOT byte-identical timestamps/LFN
+    quirks/allocation to factory images.
+    """
     # copy reserved sectors (BPB + FSInfo + backup boot) from source
     src_handle.seek(src_geo.part_offset)
     reserved = src_handle.read(src_geo.reserved * src_geo.bps)
     handle.seek(geo.part_offset)
     handle.write(reserved)
+    # factory root label + order from the source image
+    src_root = root_layout(src_handle, src_geo, read_fat(src_handle, src_geo))
+    source_label = src_root.label_name
+    requested = label.strip().upper() if label is not None else None
+    if requested is not None:
+        if src_root.label_raw is not None and source_label == requested:
+            label_raw = src_root.label_raw
+            label_action = "preserved"
+        else:
+            label_raw = make_label_entry(requested)
+            label_action = "overridden" if source_label else "created"
+    else:
+        label_raw = src_root.label_raw
+        label_action = "preserved" if label_raw is not None else "absent"
+    label_mismatch = (requested is not None and source_label not in ("", requested))
     # fresh FATs
     fat = bytearray(geo.fat_bytes)
     # cluster 0,1 media/eoc
@@ -569,6 +641,7 @@ def build_fresh_partition(handle, geo: FatGeo, src_handle, src_geo: FatGeo, tree
 
     # We'll build directory contents bottom-up isn't necessary; do recursively.
     dir_cluster_map = {"": geo.root_cluster}
+    root_names = set(os.listdir(tree))
 
     def populate_dir(rel: str, parent_cluster: int):
         dir_path = tree / rel if rel else tree
@@ -590,17 +663,17 @@ def build_fresh_partition(handle, geo: FatGeo, src_handle, src_geo: FatGeo, tree
                 subdirs.append(name)
             else:
                 files.append(name)
-        # directories first? preserve some order; factory has specific order.
-        # Use a stable order: match source root order if root, else alpha.
+        # Factory root slot 0 is the attr-0x08 volume label, then the live
+        # entries in the source order. Subdirectories stay alphabetical.
         ordered = list(names)
         if not rel:
-            # try to follow a reasonable order: vol label handled in reserved;
-            # put MMAIN001.DAT early as factory does
-            preferred = ["MMAIN001.DAT", "DRSTR001.DAT", "CMP.LST", "BICON001",
-                         "MAPAL001", "OPNG", "RDSTM001", "REFER001", "REFER002",
-                         "SPEECH", "TMC", "VER_INFO"]
-            rest = [n for n in ordered if n not in preferred]
-            ordered = [n for n in preferred if n in ordered] + sorted(rest)
+            if label_raw is not None:
+                slots.extend(label_raw)
+            if preserve_root_order and src_root.order:
+                wanted = [n for n in src_root.order if n in names]
+                ordered = wanted + sorted(n for n in names if n not in wanted)
+            else:
+                ordered = sorted(names)
         for name in ordered:
             p = dir_path / name
             base11 = (name.upper().replace('.', '')[:8].ljust(8) + (name.upper().split('.')[-1][:3].ljust(3) if '.' in name else '   ')).encode('ascii','replace')
@@ -677,6 +750,56 @@ def build_fresh_partition(handle, geo: FatGeo, src_handle, src_geo: FatGeo, tree
         except Exception:
             pass
 
+    # report what the written root actually contains
+    actual = root_layout(handle, geo, bytes(fat))
+    src_index = {n: i for i, n in enumerate(src_root.order)}
+    matched = [n for n in actual.order if n in src_index]
+    in_order = all(src_index[matched[i]] < src_index[matched[i + 1]]
+                   for i in range(len(matched) - 1))
+    return {
+        "label": label_raw[0:11].decode("ascii", "replace").strip() if label_raw else None,
+        "label_action": label_action,
+        "label_mismatch": label_mismatch,
+        "source_label": source_label or None,
+        "requested_label": requested,
+        "bpb_label": src_geo.label or "NO NAME",
+        "root_order_mode": "source" if preserve_root_order else "alpha",
+        "root_order": actual.order,
+        "root_order_source": src_root.order,
+        "root_order_total": len(src_root.order),
+        "root_order_preserved": len(matched),
+        "root_order_in_source_order": in_order,
+        "root_order_appended": [n for n in actual.order if n not in src_index],
+        "root_order_removed": [n for n in src_root.order if n not in root_names],
+    }
+
+
+def format_root_report(rep: dict | None) -> str:
+    """One-line summary of the preserved root label and order."""
+    if not rep:
+        return "root: not rebuilt (unchanged tree)"
+    if rep["label"]:
+        line = (f"root: label '{rep['label']}' (attr 0x08) {rep['label_action']} "
+                f"at slot 0 (BPB label '{rep['bpb_label']}' unchanged)")
+    else:
+        line = "root: no root volume-label entry (source had none)"
+    if rep["label_mismatch"]:
+        line += (f"; LABEL MISMATCH: source '{rep['source_label']}' vs "
+                 f"requested '{rep['requested_label']}'")
+    if rep["root_order_mode"] == "source":
+        line += (f"; order preserved for {rep['root_order_preserved']}"
+                 f"/{rep['root_order_total']} source entries")
+        if not rep["root_order_in_source_order"]:
+            line += " (ORDER MISMATCH)"
+        if rep["root_order_appended"]:
+            line += f"; appended: {', '.join(rep['root_order_appended'])}"
+        if rep["root_order_removed"]:
+            line += f"; not in tree: {', '.join(rep['root_order_removed'])}"
+    else:
+        line += (f"; order NOT preserved (--no-preserve-root-order): "
+                 f"{', '.join(rep['root_order'][:20])}")
+    return line
+
 # --- high-level operations ---
 
 def copy_image(src: Path, dst: Path) -> None:
@@ -697,7 +820,9 @@ def copy_image(src: Path, dst: Path) -> None:
 
 
 def mkcard(from_image: Path, tree: Path, out: Path, compare_only: bool = False,
-           explain: bool = True, verbose: bool = False) -> dict:
+           explain: bool = True, verbose: bool = False,
+           label: str | None = None,
+           preserve_root_order: bool = True) -> dict:
     result = {"ok": False, "identical": False, "diffs": [], "ranges": [],
               "cannot_reproduce": ["SD lock state", "SD card CID"]}
     tree_diffs = compare_tree_to_image(from_image, tree)
@@ -739,7 +864,9 @@ def mkcard(from_image: Path, tree: Path, out: Path, compare_only: bool = False,
         _, sgeo, _ = open_map_partition(sh)
         # zero the map partition data+FAT area for a clean rebuild? That would
         # destroy layout but be valid. Safer: rebuild in place.
-        build_fresh_partition(h, geo, sh, sgeo, tree)
+        result["root_report"] = build_fresh_partition(
+            h, geo, sh, sgeo, tree, label=label,
+            preserve_root_order=preserve_root_order)
 
     # report diffs vs source
     result["ranges_raw"] = diff_ranges(from_image, out)
@@ -967,6 +1094,106 @@ def selftest() -> int:
             else:
                 print("  ok: 0x06000000 HDD_INFO preserved")
 
+        # 3) fresh build keeps the factory root label entry (attr 0x08) and
+        #    the source root order; a --label mismatch is reported.
+        order_files = {"BETA.TXT": b"beta\n", "ALPHA.TXT": b"alpha\n"}
+        label_img = make_synthetic_image(td / "label.img", order_files,
+                                         label="QSD-301-103")
+        with label_img.open("rb") as h:
+            _, lgeo, lfat = open_map_partition(h)
+            src_root = root_layout(h, lgeo, lfat)
+        if (src_root.label_name != "QSD-301-103"
+                or src_root.label_raw is None or src_root.label_raw[11] != 0x08):
+            print(f"  FAIL: synthetic source label: {src_root.label_name!r}")
+            errors += 1
+        else:
+            print("  ok: synthetic source label entry (attr 0x08)")
+        if src_root.order != ["BETA.TXT", "ALPHA.TXT"]:
+            print(f"  FAIL: synthetic source root order: {src_root.order}")
+            errors += 1
+        else:
+            print("  ok: synthetic source root order is non-alphabetical")
+        label_tree = td / "label_tree"; label_tree.mkdir()
+        (label_tree / "BETA.TXT").write_bytes(b"beta changed\n")
+        (label_tree / "ALPHA.TXT").write_bytes(b"alpha\n")
+        label_out = td / "label_out.img"
+        lres = mkcard(label_img, label_tree, label_out)
+        lrep = lres.get("root_report") or {}
+        try:
+            with label_out.open("rb") as h:
+                _, ogeo, ofat = open_map_partition(h)
+                out_root = root_layout(h, ogeo, ofat)
+            ok_label = (out_root.label_raw is not None
+                        and out_root.label_raw[11] == 0x08
+                        and out_root.label_name == "QSD-301-103")
+            if not ok_label:
+                print(f"  FAIL: fresh build label: {out_root.label_name!r} "
+                      f"attr={out_root.label_raw[11] if out_root.label_raw else None}")
+                errors += 1
+            else:
+                print("  ok: fresh build keeps root label QSD-301-103 (attr 0x08)")
+            if out_root.order != ["BETA.TXT", "ALPHA.TXT"]:
+                print(f"  FAIL: fresh build root order: {out_root.order}")
+                errors += 1
+            else:
+                print("  ok: fresh build keeps source root order")
+            if (lrep.get("root_order_preserved") != 2
+                    or not lrep.get("root_order_in_source_order")):
+                print(f"  FAIL: fresh build root report: {lrep}")
+                errors += 1
+            else:
+                print("  ok: fresh build reports preserved root order")
+            line = format_root_report(lrep)
+            if "preserved" not in line or "QSD-301-103" not in line:
+                print(f"  FAIL: root report line: {line}")
+                errors += 1
+            else:
+                print(f"  ok: root report -> {line}")
+        except Exception as e:
+            print(f"  FAIL: fresh build label verify: {e}")
+            errors += 1
+        # --label override: new root label, mismatch against source reported
+        override_out = td / "label_override.img"
+        ores = mkcard(label_img, label_tree, override_out, label="QSD-999-999")
+        orep = ores.get("root_report") or {}
+        try:
+            with override_out.open("rb") as h:
+                _, ogeo, ofat = open_map_partition(h)
+                oroot = root_layout(h, ogeo, ofat)
+            if oroot.label_name != "QSD-999-999" or oroot.label_raw[11] != 0x08:
+                print(f"  FAIL: --label override: {oroot.label_name!r}")
+                errors += 1
+            elif not orep.get("label_mismatch"):
+                print(f"  FAIL: --label mismatch not flagged: {orep}")
+                errors += 1
+            elif "LABEL MISMATCH" not in format_root_report(orep):
+                print("  FAIL: --label mismatch missing from report line")
+                errors += 1
+            else:
+                print("  ok: --label override + mismatch reported")
+        except Exception as e:
+            print(f"  FAIL: --label override verify: {e}")
+            errors += 1
+        # --no-preserve-root-order: alphabetical fallback reported
+        alpha_out = td / "label_alpha.img"
+        ares = mkcard(label_img, label_tree, alpha_out, preserve_root_order=False)
+        arep = ares.get("root_report") or {}
+        try:
+            with alpha_out.open("rb") as h:
+                _, ogeo, ofat = open_map_partition(h)
+                aroot = root_layout(h, ogeo, ofat)
+            if aroot.order != ["ALPHA.TXT", "BETA.TXT"]:
+                print(f"  FAIL: --no-preserve-root-order: {aroot.order}")
+                errors += 1
+            elif "NOT preserved" not in format_root_report(arep):
+                print("  FAIL: --no-preserve-root-order not reported")
+                errors += 1
+            else:
+                print("  ok: --no-preserve-root-order reports alphabetical order")
+        except Exception as e:
+            print(f"  FAIL: --no-preserve-root-order verify: {e}")
+            errors += 1
+
     if errors:
         print(f"mkcard self-test: {errors} FAILED")
         return 1
@@ -983,6 +1210,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="compare tree to image; do not write output")
     p.add_argument("--no-explain", action="store_true", help="skip diff verification/explanation")
     p.add_argument("--cardcheck", action="store_true", help="run cardcheck --image on output")
+    p.add_argument("--label", help="override the root volume-label entry (attr 0x08, max 11 chars)")
+    p.add_argument("--preserve-root-order", action=argparse.BooleanOptionalAction,
+                   default=True,
+                   help="keep the source root directory order on a fresh build (default: on)")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
@@ -997,7 +1228,8 @@ def main(argv: list[str] | None = None) -> int:
     res = mkcard(Path(args.from_image), Path(args.tree),
                  Path(args.out) if args.out else Path("/dev/null"),
                  compare_only=args.compare_only, explain=not args.no_explain,
-                 verbose=args.verbose)
+                 verbose=args.verbose, label=args.label,
+                 preserve_root_order=args.preserve_root_order)
     if args.compare_only:
         print(f"tree_diffs={len(res['tree_diffs'])} identical={res['identical']}")
         for d in res["tree_diffs"]:
@@ -1006,6 +1238,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"wrote {args.out}")
     print(f"identical={res['identical']} tree_diffs={len(res['tree_diffs'])} diff_ranges={len(res['ranges'])}")
+    print(format_root_report(res.get("root_report")))
     print(f"cannot reproduce: {', '.join(res['cannot_reproduce'])}")
     if res["ranges"] and not res["identical"]:
         shown = 0

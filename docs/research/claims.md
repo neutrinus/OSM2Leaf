@@ -1193,6 +1193,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 
 | C-1060 | `tools/tilewriter.py` writes a roads-only ZE0 tile from mesh-split IMF: with `--factory` it copies the `0x1000` header, level table `0x1ac`, box table `0x2ac` and section table `0x800` byte-for-byte, carries section 4 through `section4.py encode preserve` (aborting on any change) and rewrites only section-1 `0x00fa` road records for populated parcels; records come from `fa_encode` for a caller-supplied class table (a miss is an error) and are recompressed as `78 9c`; the key is `(A,B,0x00fa)` with the parcel_code low byte. Synthetic factory tile: 30,720→30,806 B, header/tables/sections 2 and 4 identical, one pair replaced and one created, 48/48 checks. Real-tile L2 remains blocked on the vendor tile and M5.3/M4.2. | VERIFIED (tool, synthetic) | M | EXP-2026-11-06-M5.4-tilewriter; `python3 tools/tilewriter.py --selftest` |
 
+| C-2030 | `tools/mkcard.py` fresh builds copy the source root attr-`0x08` label slot verbatim to slot 0 and keep the factory root order for names present in the tree, appending new names alphabetically with a report line; `--label` overrides only the root entry (BPB `BS_VolLab` unchanged) and a mismatch is reported. Synthetic fixture only; the real US/EU rebuild still needs the image. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M5.12b-root-label; `python3 tools/mkcard.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact

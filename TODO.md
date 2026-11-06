@@ -279,6 +279,8 @@ Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M
     one-line reason it was dropped; the EXP index lists the duplicate-number
     files with distinct labels. No EXP file is renamed (append-only).
   - Claims: C-600–C-609
+  Result: root label slot copied verbatim, source order kept, `--label`
+  override reported (EXP-2026-11-06-M5.12b-root-label, C-2030–C-2033).
   - Result: tools/claims_check.py (selftest green) reports 0 duplicate IDs and 0 unregistered proposed claims; ledger annotated; EXP index relabeled.
 
 - [x] **H2 — Refresh AGENTS.md and research docs after EXP-35…51**
@@ -425,7 +427,7 @@ Supporting: M1.2c → M1.3/M8.E1 · M3.2b → M3.2 → M3.3 · M4.16b → M4.2/M
   - Claims: C-2110–C-2119
 
 - [ ] **H11 — Reader-coverage matrix: one row per file type we generate**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
   - Goal: one page that shows, for every file the OSM compiler must write,
     how far we are from "the firmware reads it correctly" (rule 13).
@@ -1671,7 +1673,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     the repo; the EXP gives Marek the exact commands to rebuild them locally.
   - Claims: C-2020–C-2029
 
-- [ ] **M5.12b — `mkcard.py`: keep the volume label and factory root order on a fresh build**
+- [x] **M5.12b — `mkcard.py`: keep the volume label and factory root order on a fresh build**
   - Status: open · Owner: — · Critical: no
   - Depends: — (M5.13 is the path for the hardware cards; this is for M5.11)
   - Goal: a fresh build should not drop the root attr-`0x08` entry
