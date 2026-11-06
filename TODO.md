@@ -431,7 +431,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-760–C-769
 
 - [ ] **M2.6 — Read `MapUpdate.exe` (image B)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.6-mapupdate · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: how the unit validates and installs map data; which files it
     checks and what it writes.
