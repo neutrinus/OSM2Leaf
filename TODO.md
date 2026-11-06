@@ -1304,7 +1304,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1850–C-1859
 
 - [ ] **M5.10 — Card image builder (`tools/mkcard.py`)**
-  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
+  - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M2.13 for the lock state; M3.8 for `MMAIN001`)
   - Goal: turn a card tree into an SD image the unit could read: the missing
     link between every writer and the first bench test (M6.5, S0/S1 of
@@ -1587,7 +1587,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     validates the two-phase plan (`--plan`, 13 checks) and exits 3
     `MISSING_GHIDRA`. Result: EXP-2026-11-06-M9.2-ghidra-import, C-1640.
   - Claims: C-1640–C-1649
-- [ ] **M9.3 — Bind the stub table to real VAs**
+- [x] **M9.3 — Bind the stub table to real VAs**
   - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: — (M1.6b for automatic binding)
   - Goal: `stubs.py` (14 modeled, 3 planned) keyed by `COREDLL` export
@@ -1596,6 +1596,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     registry from JSON.
   - Done when: a selftest calls each stub through the dispatcher and an
     unknown export stops with `missing stub: NAME`.
+  - Result: 24 stubs keyed by `module!export`/ordinal, dispatcher with virtual FS,
+    heap, critical sections, registry and `sprintf`; unknown exports stop with
+    `missing stub: NAME` (EXP-2026-11-06-M9.3-stub-bind).
   - Claims: C-1650–C-1659
 - [x] **M9.4 — Engine interface with two back ends**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
