@@ -1000,7 +1000,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1900–C-1909
 
 - [ ] **M4.9 — `ADDRE` remaining grammar**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.9-addre-grammar · Critical: no
   - Depends: —
   - Goal: 6-/12-byte index cells, `c0` vs `c8` grammar, subtypes
     `0x54`/`0x58`, `40 XX YY` point encoding, trailer table.
