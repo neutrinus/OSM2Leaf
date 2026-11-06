@@ -590,8 +590,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `us-eu-region.md`.
   - Claims: C-780–C-789
 
-- [ ] **M2.8 — SD card identity and lock (`SdCardLch.exe`)**
-  - Status: in progress · Owner: task/m2.8-sdcard-lock · Critical: no
+- [x] **M2.8 — SD card identity and lock (`SdCardLch.exe`)**
+  - Status: done · Owner: task/m2.8-sdcard-lock · Critical: no
   - Depends: —
   - Goal: does the firmware check CID/CSD, an SD lock password or the FAT
     serial/label before using the card (`SD UNLOCK NG`)?
@@ -600,6 +600,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: an EXP lists every identity check with VA, and states which
     card properties a cloned card must reproduce.
   - Claims: C-790–C-799
+  - Result: docs/experiments/EXP-2026-11-06-M2.8-sdcard-lock.md (SD lock password only; no CID/CSD/FAT serial/label check; C-790–C-799)
 
 - [x] **M2.9 — Error-screen catalogue from firmware strings**
   - Status: done · Owner: task/m2.9-error-catalogue · Critical: no

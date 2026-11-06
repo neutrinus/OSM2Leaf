@@ -431,6 +431,21 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-167 | `BICON001.DAT` is the only map file with a different data version (`11/04/08/01` vs `11/06/27/01`). | OBSERVED | M | header comparison |
 | C-168 | Only ~61 % of a tile's post-`0x5200` payload is inside zlib streams; the rest is alignment padding and fixed tables. There is no per-tile digest. | VERIFIED | H | stream accounting |
 
+## SD card identity and lock (SDHC.dll / AppLaunch.dll)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-790 | `SD UNLOCK NG` is an entry in the `AppLaunch.dll` error-screen block (build B physical VA `0x8833681c`, build C `0x8834081c`), shown by the dispatcher at `0x8834ffb8` (B) / `0x88359c90` (C); a failed SD security-unlock maps to this screen. | VERIFIED | H | string search + M2.9 catalogue |
+| C-791 | `AppLaunch.dll` checks the SD card security-lock state before launch and logs `AppLch >> Error!!! SD Card is [Security lock state] or [no Security]....` (B `0x88336278`, C `0x88340278`) and `AppLch >> SD Card Security Unlocked!` (B `0x88336310`, C `0x88340310`); referencing functions B `0x8834f5f4`, C `0x883592cc`. | VERIFIED | H | string search + sh4xref |
+| C-792 | `SDHC.dll` implements the SD card password lock (CMD42) through `CDSKMain::Init`/`SDHC_SecurityUnLock` (B `0x884743c8`, C `0x8847f3c8`) which calls `CSDHCMain::SDHC_Lock_Unlock_Card` (B `0x88476df4`, C `0x88481df4`); failure returns `ERROR_ACCESS_DENIED` and leads to `SD UNLOCK NG`. | HYPOTHESIS | M | strings + sh4xref (no hardware) |
+| C-793 | The unlock password is a firmware-side value: `SDHC.dll` logs it byte-by-byte as `dPassword[%02X]` with `byPasswordLen` (B `0x88471476`/`0x88471498`, C `0x8847c476`/`0x8847c498`); no derivation from CID, CSD, FAT serial or volume label is visible in the strings or code paths examined. | HYPOTHESIS | M | string search + sh4xref |
+| C-794 | No SD CID or CSD-register check exists in `SDHC.dll`, `AppLaunch.dll` or `SdCardLch.exe`: the only UTF-16 `CID`/`CSD` occurrences are identifiers (`CSDCMain`, `CSDHCMain`, `CSDDirectAccess`) or unrelated telecom modules. | VERIFIED (negative) | H | whole-image + module string search |
+| C-795 | No FAT volume serial number or volume-label check exists in `SDHC.dll`, `AppLaunch.dll` or `SdCardLch.exe`; `SdCardLch.exe` reads `partInfo.szVolumeName`/`szFileSys` only for mounting and logging. | VERIFIED (negative) | H | string search over the three modules |
+| C-796 | `SdCardLch.exe` (image C, module #79) is an SD-card launcher/mounter only: it mounts `DSK1:`/`DSK8:`, logs partition/volume/filesystem names (including `RELIANCE`) and never compares an identity value. | OBSERVED | M | string search |
+| C-797 | The firmware rejects a card for `SD UNLOCK NG` when it is in a security-lock state with a password that does not match, or when it has no security (no password set); it accepts only a card locked with the firmware's known password. | HYPOTHESIS | M | AppLaunch/SDHC strings (no hardware) |
+| C-798 | A cloned card must reproduce the SD security-lock state / unlock password (locked with the firmware password); based on the firmware strings analysed it need not reproduce CID, CSD, FAT serial number or volume label. | HYPOTHESIS | M | C-794, C-795, C-797 |
+| C-799 | The VAs above are physical VAs from `cerom.py file2va`; module-internal execution VAs differ by the module vbase (`SDHC.dll` `0x039b0000`/`0x03980000`, `AppLaunch.dll` `0x03bb0000`/`0x03b90000`). | VERIFIED | H | `cerom.py` |
+
 ## Error screens (AppLaunch.dll)
 
 | ID | Claim | Status | Confidence | Evidence |
