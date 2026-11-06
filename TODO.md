@@ -1195,7 +1195,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1800–C-1809
 
 - [ ] **M4.16 — Place `RDSTM001` rows on the map**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.16-rdstm-placement · Critical: yes
   - Depends: M4.15 (M4.8 helps)
   - Goal: a row → tile/mesh → coordinate link, which M4.2, M4.3 and M5.3 need.
   - Input: `ref`/`src`/`dst` values (M4.1), tile road records
