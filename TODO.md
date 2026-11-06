@@ -227,6 +227,7 @@ widens knowledge or tooling in parallel and is equally welcome.
     one-line reason it was dropped; the EXP index lists the duplicate-number
     files with distinct labels. No EXP file is renamed (append-only).
   - Claims: C-600–C-609
+  - Result: tools/claims_check.py (selftest green) reports 0 duplicate IDs and 0 unregistered proposed claims; ledger annotated; EXP index relabeled.
 
 - [x] **H2 — Refresh AGENTS.md and research docs after EXP-35…51**
   - Status: done · Owner: task/h2-docs-refresh · Critical: no
@@ -687,8 +688,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     an EXP shows the string search with a positive control and no xref.
   - Claims: C-850–C-859
   - Result: EXP-2026-11-06-M3.4-drstr-parser (DRSTR/CMP.LST xrefs in Navi.exe at 0x00419684/0x0041ba90; MAPAL only static table; no count/order/sentinel check identified)
-- [ ] **M3.5 — Tile reader entry and the level table**
-  - Status: open · Owner: — · Critical: no
+- [x] **M3.5 — Tile reader entry and the level table**
+  - Status: done · Owner: task/m3.5-tile-reader-final · Critical: no
   - Depends: — (M1.8 helps)
   - Goal: find the `MESH_ID`/`DIVID` code and confirm the six-level table
     (`VTb Tp;Lv;…`).
@@ -696,6 +697,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the reader VA and the level-table layout are recorded in
     `map-tiles.md`.
   - Claims: C-860–C-869
+  - Result: EXP-2026-11-06-M3.5-tile-reader (reader VAs 0x0041f26c/0x004259bc/0x0042757a in Navi.exe; six-level table `VTb Tp;Lv;St;F#|L1..L6|Sz;Adr`; NaviMapCC.dll has no reader code)
 
 - [ ] **M3.6 — Which tile sections the renderer reads**
   - Status: open · Owner: — · Critical: no

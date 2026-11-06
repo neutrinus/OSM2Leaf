@@ -698,6 +698,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-1715 | On the real `NaviMapCC.dll` sections 1 and 2, `cecompress.py probe` finds no exact-size match for lzss, lzx, lznt1 and xpress-huffman at offsets 0…40 (sizes `0x484`, `0x5b8`, `0xcc0`); xpress-lz77 is untested (skeleton). | VERIFIED (negative) | H | EXP-2026-11-06-H5-pm-review |
 | C-1716 | From this cloud environment, `download.geofabrik.de`, `overpass-api.de` and `api.openstreetmap.org` are refused by the network policy (proxy 403); only `files.viaaq.eu` is allowed. | OBSERVED | H | EXP-2026-11-06-H5-pm-review |
 
+## M3.5 — Tile reader entry and the level table (C-860–C-869)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-860 | `NaviMapCC.dll` (build A) exposes only the four COM entry points (`DllCanUnloadNow`, `DllGetClassObject`, `DllRegisterServer`, `DllUnregisterServer`) and contains no `MESH_ID`, `DIVID` or `VTb` literals in its uncompressed sections. | VERIFIED (negative) | H | `tools/cerom.py extract`; grep over `/tmp/opencode/nmc/*.bin`; EXP-2026-11-06-M3.5-tile-reader |
+| C-861 | The `MESH_ID`/`DIVID`/tile reader code lives in `Navi.exe` (build A), whose first section (VA `0x00011000`, `psize 0x0054be00`) holds the full diagnostic string set (`CELL_TBL MAKE …`, `MAP_DATA READ …`, `RGD_DATA READ …`, `MESH_ID = %08x \| DIV_CODE = %04x`, …). | VERIFIED | H | `tools/cerom.py extract Navi.exe`; EXP-2026-11-06-M3.5-tile-reader |
+| C-862 | `CELL_TBL MAKE START MESH_ID=%08x DIVID=%04x` (and the `DIVID=----` variant) is stored at VA `0x0017c358`/`0x0017c388` and has code xrefs: literal pool `0x00425aa8` → load `0x00425a3a` (r4) in function `0x004259bc`, and pool `0x00427858` → load `0x004277c4` (r4) in function `0x0042752c` (entry `0x0042757a`). | VERIFIED | H | `tools/sh4xref.py`; EXP-2026-11-06-M3.5-tile-reader |
+| C-863 | `CELL_TBL MAKE END MESH_ID=%08x DIVID=%04x` (and the `DIVID=----` variant) is stored at VA `0x0017be4c`/`0x0017be1c` and has a code xref: pool `0x0041f3d0` → load `0x0041f2e4` (r4) in function `0x0041f26c`. | VERIFIED | H | `tools/sh4xref.py`; EXP-2026-11-06-M3.5-tile-reader |
+| C-864 | Reader VAs (Navi.exe, build A): cell-table MAKE (START) `0x004259bc` and `0x0042757a`; cell-table MAKE (END) `0x0041f26c`. These are the tile/cell-table make/read paths. | OBSERVED | M | xref graph; EXP-2026-11-06-M3.5-tile-reader |
+| C-865 | The dump header `VTb Tp;Lv;St;F# \| L1;L2;L3;L4;L5;L6 \| Sz;Adr` is stored at VA `0x001783a1` and has **no** direct `mov.l` xref; it is reached through the pointer table at `0x003ec3d4`…`0x003ec414` (which contains `0x001783a0` at `0x003ec400`). | VERIFIED (negative for direct xref) | H | `tools/sh4xref.py --to 0x001783a1` (no hits); table scan; EXP-2026-11-06-M3.5-tile-reader |
+| C-866 | The `VTb` dump documents a six-level table whose per-entry fields are: type `Tp`, level `Lv`, status `St`, file number `F#`, six level slots `L1`…`L6`, size `Sz`, address `Adr`. | VERIFIED | H | format string at `0x001783a1`; EXP-2026-11-06-M3.5-tile-reader |
+| C-867 | C-225 ("tile reader not located; only `MAP_DATA`/`MESH_ID` strings and the `0x1ac` allocation remain") is superseded in part: the reader code is now located in `Navi.exe` at the VAs in C-864; the `0x1ac` allocation is unrelated (C-296 retraction stands). Superseded by C-860–C-864. | VERIFIED (retraction) | H | EXP-2026-11-06-M3.5-tile-reader |
+| C-868 | C-295 ("dump headers document a six-level table `VTb Tp;Lv;…`") is confirmed: the six-level table is a firmware concept (debug dump) and its field layout is now recorded (C-866); it is **not** the `0x1ac` tile descriptor (C-296) and is not stored in the tile files. | VERIFIED | H | format string + xrefs; EXP-2026-11-06-M3.5-tile-reader |
+| C-869 | The tile files (`BxxRyyR.DAT`, `LEV3456R.DAT`) carry no firmware six-level table in their headers; the `VTb` table is a runtime/firmware structure, so `map-tiles.md`'s on-disk format description is unchanged by this task. | VERIFIED | H | EXP-2026-11-06-M3.5-tile-reader; `docs/format/map-tiles.md` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
