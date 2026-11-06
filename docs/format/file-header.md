@@ -40,8 +40,12 @@ same class can differ in it, and the same class can share it.
 > fitted interpretation. `UNKNOWN` means there is no evidence; it carries an
 > explicit TODO and the tool emits it as unknown rather than guessing.
 
-All multi-byte values below are read **little-endian**. Only the byte layout
-and the descriptor *structure* are established; no field has a proven
+Byte order is **big-endian** on the card for the fields with proven semantics:
+the `0x184` bounds (C-1724) and the `0x1ac`/`0x1b0` counts (C-1788). The
+`MMAIN001.DAT` reader byte-swaps the whole 4,096 bytes to little-endian in
+memory (`sub_0041a304`, M3.8). The `0x180` prefix words have no proven reading
+order, so do not build their meaning on either endianness. Only the byte
+layout and the descriptor *structure* are established; no field has a proven
 semantic meaning beyond the class patterns.
 
 ### Common prefix and class area
@@ -62,7 +66,7 @@ semantic meaning beyond the class patterns.
 | `0x1ad` | 1 | `VERIFIED` | `n_tables` | `03` MMAIN/REFER, `02` MAPAL, `01` RDSTM | `MMAIN001.DAT` @ `0x1ad`; `REFER002/COORD001.DAT` @ `0x1ad`; `MAPAL001/B28R070R.DAT` @ `0x1ad`; `RDSTM001/RDSTM001.DAT` @ `0x1ad`; C-052 |
 | `0x1ae` | 1 | `VERIFIED` | first `table_id` | `01` MMAIN/REFER/MAPAL, `03` RDSTM | `MMAIN001.DAT` @ `0x1ae`; `REFER002/COORD001.DAT` @ `0x1ae`; `MAPAL001/B28R070R.DAT` @ `0x1ae`; `RDSTM001/RDSTM001.DAT` @ `0x1ae`; C-052 |
 | `0x1af` | 1 | `VERIFIED` | first `n_entries` | `06` MMAIN/REFER/MAPAL, `02` RDSTM | `MMAIN001.DAT` @ `0x1af`; `REFER002/COORD001.DAT` @ `0x1af`; `MAPAL001/B28R070R.DAT` @ `0x1af`; `RDSTM001/RDSTM001.DAT` @ `0x1af`; C-052 |
-| `0x1b0` | 4 each | `VERIFIED` structure, `HYPOTHESIS` meaning | descriptor entry | `(level: u8, kind: u8, count: u16 LE)` | `MAPAL001/B28R070R.DAT` @ `0x1b0` (`06 80 00 00`); `MMAIN001.DAT` @ `0x1b0` (`06 80 00 01`); `RDSTM001/RDSTM001.DAT` @ `0x1b0` (`04 ff ff ff`); TODO: level/kind/count semantics unknown |
+| `0x1b0` | 4 each | `VERIFIED` structure, `HYPOTHESIS` meaning | descriptor entry | `(level: u8, kind: u8, count: u16 BE on the card)` | `MAPAL001/B28R070R.DAT` @ `0x1b0` (`06 80 00 00`); `MMAIN001.DAT` @ `0x1b0` (`06 80 00 01`); `RDSTM001/RDSTM001.DAT` @ `0x1b0` (`04 ff ff ff`); TODO: level/kind/count semantics unknown; C-1788 |
 | variable | 1 | `VERIFIED` for tiles, `OBSERVED` elsewhere | container terminator | `00` after the last table | C-052; `MAPAL001/B28R070R.DAT` @ descriptor end |
 | variable | — | `UNKNOWN` | descriptor tail | bytes after the parsed container up to `0x1ff` | TODO: not mapped in any sample; do not interpret |
 

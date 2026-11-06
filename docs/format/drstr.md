@@ -109,9 +109,9 @@ survives only as a static filename-table entry.
 ## What it is used for
 
 Static firmware evidence names `DRSTR001.DAT` and `\CMP.LST` in `Navi.exe`
-functions `0x00419684`/`0x0041ba90` (EXP-2026-11-06-M3.4). No code reference to
-`MMAIN001.DAT` has been recorded in this repo: the filename is `UNKNOWN` on the
-firmware side. The remaining database base names (`ZCODE0`, `ADDRE0`,
+functions `0x00419684`/`0x0041ba90` (EXP-2026-11-06-M3.4), and
+`MMAIN001.DAT` in `Navi.exe` `0x0041a438` (M3.8, see below). The remaining
+database base names (`ZCODE0`, `ADDRE0`,
 `POINT0`, `FRWAY0`, `INTER0`, `LCTBL0`) belong to the same static filename
 table family; no loader for them is identified (`UNKNOWN`).
 
@@ -146,6 +146,10 @@ maps.
   `MAPAL001` files (`C-164`: 11/11), which is what an independent builder
   assumes (`tools_ze0/make_mmain.py`, see
   [`ze0-tools.md`](ze0-tools.md)).
+- The counts are **big-endian** `u16` on the card (C-1788): the EU 2011 rows
+  read `0001 0001 0001 002d 008a 06b5` = 1, 1, 1, 45, 138, 1717. The firmware
+  byte-swaps the whole file on read (below); `tools_ze0/make_mmain.py` and
+  `tools/cardcheck.py` already parse/write `>H`.
 - The `0x184`/`0x5d0` word pair repeats the lat/lon bounds (`0x05d0`:
   `05 00 fb 50 0b 0b`) and is written big-endian by the same builder.
 - The `0x18c` codes are **not** mapped to languages in this repo. That the
@@ -164,3 +168,35 @@ maps.
 > `240e7c97…` and starts with UTF-16BE `CLARION` (C-1720). All statements
 > above are re-read from that file; the "FAT log" reading is RETRACTED and
 > superseded.
+
+### Firmware references (build A, M3.8)
+
+`MMAIN001.DAT` has exactly one code reference in all three builds
+(EXP-2026-11-06-M3.8, C-1780–C-1789):
+
+- ASCII literal at `Navi.exe` VA `0x0017adac` (RVA `0x0016adac`, file
+  `0x00df8fac`), loaded once at `0x0041a47a` from pool `0x0041a514` in
+  function `0x0041a438`. Builds B and C contain no `MMAIN` string (ASCII or
+  UTF-16); the positive control `HDD_INFO.TXT` was found by the same scan.
+- `0x0041a438` builds `\SystemSD\MMAIN001.DAT` — `wcstombs` of the UTF-16
+  `\SystemSD` at `0x00049fd4`, then `strncat` of `\` (`0x0017a9ec`) and
+  `MMAIN001.DAT` — opens it with `0x0041b780`, and reads the fd with
+  `0x0041b954(fd, dest, 0x1000, 1)`.
+- **Checks:** the path-buffer bound (`converted_len + 13 < 260`), the open
+  status, and that the read returns exactly `0x1000` bytes. No label,
+  version, record-count, cluster or checksum check: `QSD-309-101` and
+  `DATA VERSION` are not literals in build A, so no code compares the header
+  text.
+- The path is part of the **media-mount state machine**: handler table
+  `0x0017ab38` row `status = 0`, entry `0x00419ca0`, is the caller; it reads
+  `CMP.LST` first and sets global `0x009cfce0 = 1` on success. The debug-only
+  `0x0041a52c` dump is a separate "Info Show" path.
+- After the read, `0x0041a304` byte-swaps every `u16` (4096 bytes big-endian
+  file → little-endian memory) and passes the buffer to OBJDLL
+  `OBJ_DriveInfo_writeDataVol` (export #244, VA `0x034b984c`), which copies
+  `0x1000` bytes into `obj+8`. The debug dump walks 128 32-byte records and
+  prints `MGR ADR` at `+0` and `VOL ADR` at `+0x800` (two `0x800` areas).
+- Consequence for M5.6: a verbatim copy satisfies the reader; the `0x1ac`
+  totals are an offline `cardcheck` rule, not a firmware check. Regenerate
+  the file when the tile set changes (see `TODO.md` M5.6).
+

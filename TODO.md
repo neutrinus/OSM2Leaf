@@ -833,17 +833,21 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: a field list with VAs is in `rdstm.md`; it feeds M4.1–M4.3.
   - Claims: C-880–C-889
 
-- [ ] **M3.8 — Does the firmware read `MMAIN001.DAT`?**
-  - Status: in progress · Owner: task/m3.8-mmain-read · Critical: no
+- [x] **M3.8 — Does the firmware read `MMAIN001.DAT`?**
+  - Status: done · Owner: task/m3.8-mmain-read · Critical: no
   - Depends: — (M1.9 helps)
-  - Goal: decide whether M5.6 must regenerate `MMAIN001.DAT` (a FAT
-    root-directory log, EXP-2026-11-05-M4.5) or can copy it.
+  - Goal: decide whether M5.6 must regenerate `MMAIN001.DAT` (the 4 KiB
+    database header, C-1720) or can copy it.
   - Input: string search for `MMAIN` (ASCII and UTF-16) in all A/B/C modules
     with a positive control (`HDD_INFO.TXT` must be found the same way);
     `sh4xref.py --to` on the hits.
   - Done when: the EXP lists every reference with module/VA and what the code
     checks (label, record count, cluster), or shows no reference with the
     control; `docs/format/` and M5.6 input updated.
+  - Result: EXP-2026-11-06-M3.8-mmain-read — one ASCII literal in
+    `Navi.exe` `0x0017adac` (fn `0x0041a438`), no B/C reference; the reader
+    requires exactly `0x1000` bytes and checks no label/count; the file is
+    big-endian on the card. `tools/ce_strfind.py` added.
   - Claims: C-1780–C-1789
 
 - [ ] **M3.9 — Name length limits and collation in the firmware**
@@ -1135,8 +1139,12 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [ ] **M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST`**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M5.4, M4.5 (M3.8 decides whether `MMAIN001` is copied or
-    rebuilt: it is a FAT root-directory log, EXP-2026-11-05-M4.5)
+  - Depends: M5.4, M4.5 (M3.8: a verbatim `MMAIN001` copy is enough for the
+    mount; the firmware checks only the 4096-byte length — EXP-2026-11-06-M3.8)
+  - Input: copy `MMAIN001.DAT` verbatim when the tile set is unchanged; if
+    tiles change, regenerate the `0x1ac` totals (C-164, big-endian) with
+    `tools_ze0/make_mmain.py`, because `cardcheck` enforces the sum even
+    though the firmware read path does not. Keep the file big-endian (C-1788).
   - Done when: L1 passes on the output card tree.
   - Claims: C-1080–C-1089
 
