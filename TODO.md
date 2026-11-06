@@ -1175,7 +1175,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1020–C-1029
 
 - [ ] **M4.15 — `RDSTM001` framing and node reciprocity**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.15-rdstm-framing · Critical: yes
   - Depends: M4.1
   - Goal: prove the record size and the `src`/`dst` reading on the whole
     file, not 10 rows.
