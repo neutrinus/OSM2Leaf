@@ -117,8 +117,8 @@ PINS_JSON = r"""
     "all": true,
     "expect": {
       "sections": 245,
-      "holds": 187,
-      "refuted": 58,
+      "holds": 245,
+      "refuted": 0,
       "unparsed": 0
     }
   },

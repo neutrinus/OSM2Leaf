@@ -605,10 +605,12 @@ Code vs documentation, all checked by reading
 4. Dump the `COPYentry` array and test whether writable sections' `realaddr`
    are RAM copies of their `dataptr` template.
 5. `tools/cerom.py` now implements `romhdr`, `modules`, `files`, `sections`,
-   `exports`, `imports`, `va2file`, `file2va`, `extract`, `memmap`/`ghidra`
-   and `decompress` (EXP-2026-11-05-35…-53); remaining follow-ups are M1.2
-   (compressed-section header/decoder), M1.3 (all 245 sections), M1.6b (thunk
-   labels) and M9.2 (Ghidra project import).
+   `exports`, `imports`, `va2file`, `file2va`, `extract`, `memmap`/`ghidra`,
+   `decompress` and `comphdr` (EXP-2026-11-05-35…-53, M1.2d). `comphdr` parses
+   all 245 compressed sections of build A (187 form 1, 22-byte; 58 form 2,
+   multi-block `[u24×n][0x10,0x1000,X,0x1000]` + `0x8d80805b` blocks, `n−1`
+   blocks, last `u24 == psize`). Remaining: M1.2b/c (block codec/decoder),
+   M1.3 (decode all 245 sections), M1.6b (thunk labels) and M9.2 (Ghidra).
 6. Re-run the known anchors with exact VAs: the retired comparator chain
    (C-520, C-528), `MAL_DataVol_getOffset`, `0x0369d400`.
 

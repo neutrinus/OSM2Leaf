@@ -612,8 +612,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-710–C-719
   - Result: EXP-2026-11-05-M1.8-sh4xref (`tools/sh4xref.py`; 17 self-test checks; reproduces the four EXP-50 call sites; HDD_INFO slot 0x004e7d28 read at 0x004e7bec in fn 0x004e7b8c)
 
-- [ ] **M1.2d — The second compressed-section header form (58 sections)**
-  - Status: in progress · Owner: task/m1.2d-comphdr-form2 · Critical: yes
+- [x] **M1.2d — The second compressed-section header form (58 sections)**
+  - Status: done · Owner: task/m1.2d-comphdr-form2 · Critical: yes
   - Depends: —
   - Goal: `comphdr` parses all 245 sections, so M1.3 knows every payload.
   - Input: `cerom.py --image-start 0x200200 IMG256 comphdr --all` (58
@@ -624,6 +624,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     it) and reports `245 HOLDS` or lists the exceptions with their bytes;
     the EXP says whether form 2 is multi-block, stored, or another codec.
   - Claims: C-1740–C-1749
+  - Result: `comphdr` parses 245/245 (187 form 1, 58 form 2 multi-block
+    `[u24×n][0x10,0x1000,X,0x1000]+0x8d80805b`, `n-1` blocks, `u24[-1]==psize`;
+    not stored), 0 exceptions; IMG256 245 HOLDS (EXP-2026-11-06-M1.2d-comphdr-form2,
+    C-1740–C-1746). `realcheck` 8/8, `selftest` 34/0/19, `cerom --selftest` 411.
 
 - [x] **M1.6c — Make `cerom.py thunks` work on the real image**
   - Status: done · Owner: task/m1.6c-thunks-real-image · Critical: yes
@@ -851,6 +855,31 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `0x01013008` (copy from `0x89e439b8+0x100`, PROD shadow hypothesis);
     independent locking feasible (EXP-2026-11-06-M2.13b-sdhc-cmd42).
   - Claims: C-1950–C-1959 (moved: C-1940–C-1949 is M6.11, taken first)
+
+- [ ] **M2.14 — Unit NOR "EEPROM" area at `0x0000A000` (zelemar) vs our images**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.4 helps if a hive/config payload is found)
+  - Goal: test, on data we actually have, the zelemar claim that the Clarion
+    main MCU NOR flash (SST 38VF6401, SH-4A) keeps an "EEPROM area" at
+    `0x0000A000` holding identification numbers, configuration data, the SD
+    card password and other info (the password's last 12 bytes are ASCII
+    `Clarion95321`).
+  - Input: zelemar.eu "NISSAN LEAF SD card protection. How to obtain SD card
+    password?" (hex view of EEPROM area) — treat as an external lead to verify,
+    not as evidence; `IMG256` / `IMG` (Shared inputs); the 12-byte tail literal
+    already found in `PRGUpdate.exe`/`TestMode.exe` (EXP-2026-11-06-M2.13) as a
+    positive control. Note: `0xA000` is an offset in the *unit's* internal NOR
+    dump, not in the SD card image — confirm whether our CE segments map to any
+    NOR region or only to the card-resident ROM images.
+  - Done when: an EXP (1) locates every occurrence of `Clarion95321` in
+    `IMG256`/`IMG` (with file/VA via `cerom.py`) and compares context to the
+    zelemar "EEPROM" fields, (2) states whether any bytes at/near a NOR-style
+    `0xA000` anchor exist in the available images (with a control search that
+    *can* find a known string), and (3) records the result as OBSERVED + a
+    clearly labeled HYPOTHESIS or negative; `docs/research/sources.md` cites
+    the article; no vendor bytes committed (offsets/counts/hashes/short header
+    bytes only).
+  - Claims: C-2000–C-2009
 
 ---
 
@@ -1479,6 +1508,35 @@ No hardware is available now. Planning tasks are open; tests wait.
   (M5.12). Status: blocked (hardware; Depends M6.5, M5.12). Claims: C-1160–C-1169
 - [ ] **M6.7** Routing/display test across the changed US tile. Status: blocked
   (hardware; Depends M6.6). Claims: C-1170–C-1179
+- [ ] **M6.12 — Clarion debug console (MONI `FW>`, `DSW=0006`) access procedure**
+  - Status: open · Owner: — · Critical: no · **Runner: non-Claude** (needs
+    hardware; planning is doable now, the procedure is unverified until bench)
+  - Depends: M6.8 (bench kit / access plan); complements M8.A6 and
+    `docs/research/dynamic-break-guide.md`
+  - Goal: a tested, step-by-step procedure to reach the Clarion firmware monitor
+    on ZE0-era units and use it for memory reads / dumps relevant to map/auth
+    work (a fallback/companion to the dynamic breaks plan).
+  - Input: zelemar.eu "SD Card Toolbox – Nissan Leaf navigation interface"
+    (debug interface, `Rx`/`Tx`/Mode select, no disassembly needed; TE
+    Connectivity **1674312-1**; MONI mode `DSW=0006` → `FW>` prompt; commands
+    `?`/`h`, `r`, `g`, `mb/mh/mw` [read memory], `e`, `s`, `w/wr`, `m1/m2`,
+    `cb/ch/cw`, `mv`; modes/prompts confirmed in comments: `FACT`/`NORM(EVA)`→
+    `>>`, `MONI`→`FW>`, `PROD`→`clarion>`); zelemar.eu "NISSAN CAN filter
+    installation" (Vehicle I/F + signal connector pinouts:
+    `nissan-leaf-signal-connector.jpg`, `nissan-leaf-power-connector.jpg`);
+    `docs/research/dynamic-break-guide.md`; M6.8 bench kit. Note hardware
+    variance from comments: QY5017HC uses SST38VF6401 (WinCE+XIP), QY8602/QY8350
+    use MICRON PC28F512 with no 2nd SD — confirm unit model before assuming a
+    layout.
+  - Done when: `docs/research/dynamic-break-guide.md` (or a linked note) has a
+    procedure listing the connector pins, level-shifting/wiring, mode-select
+    setting, baud/terminal settings (or `UNKNOWN` with how to measure), and the
+    safe read-only command subset (`mb/mh/mw`, `r`) vs write/exec commands
+    (`e`, `g`, `w`) marked **bench-only / risky**; on hardware, an EXP records a
+    successful `FW>` prompt and one verified memory read (e.g. a known string or
+    vector) — until then the task stays open with the procedure marked
+    **UNVERIFIED**.
+  - Claims: C-2010–C-2019
 
 ---
 

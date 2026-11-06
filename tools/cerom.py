@@ -52,18 +52,18 @@ one segment is walked).  ``--check`` writes nothing.  Exit codes: 0 when every
 requested section is ``OK``, 1 when some are ``UNSUPPORTED``/``FAIL``, 2 on a
 usage or I/O error.
 
-``comphdr`` parses the hypothesised 22-byte compressed-section header of
-M1.2a (``u24 uncompressed_len``, ``u24 compressed_total``, ``u32 flags``,
-``u32 uncompressed_len``, ``u32 payload_len``, ``u32 uncompressed_len``,
-payload at +22) and validates it per section: ``compressed_total == psize``,
-``payload_len == psize - 22``, the three length words equal, ``flags == 0x10``
-and ``uncompressed_len <= vsize``.  A section is ``HOLDS`` when every check
-passes, ``REFUTED`` when the header parses but a check fails, and ``UNPARSED``
-when there are fewer than 22 stored bytes or the bytes lie outside the image.
-``MODULE`` selects one module (case-insensitive, in every segment); ``--all``
-walks every ``IMAGE_SCN_COMPRESSED`` section.  Exit codes: 0 when every parsed
-section ``HOLDS``, 1 when any is ``REFUTED``/``UNPARSED``, 2 on a usage or I/O
-error.
+``comphdr`` parses and validates the compressed-section framing header so M1.3
+knows every payload.  Form 1 (M1.2a, 22 bytes, 187/245 on build A): ``u24
+uncompressed_len``, ``u24 compressed_total`` (= ``psize``), ``u32 flags`` (0x10),
+three ``u32`` length words (agree, ``payload_len == psize - 22``), payload at
++22.  Form 2 (M1.2d, variable, 58/245): a multi-block table of ``n`` little-
+endian ``u24`` values (``u24[0]`` = uncompressed data length ``<= vsize``,
+``u24[n-1] == psize``) plus a 16-byte trailer ``[0x10, 0x1000, block_bytes,
+0x1000]``, then the payload at ``3*n + 16`` starting with the CE LZXD block
+marker ``0x8d80805b`` (``5b 80 80 8d``); ``n - 1`` blocks.  A section is
+``HOLDS`` when its header is parsed and valid, ``REFUTED`` when neither form
+matches, ``UNPARSED`` when unreadable.  ``MODULE`` or ``--all`` selects scope.
+Exit codes: 0 all ``HOLDS``, 1 any ``REFUTED``/``UNPARSED``, 2 usage/I/O error.
 
 ``thunks`` resolves the import stubs of every selected module (M1.6b).  A
 stub is the EXP-50 pattern ``mov.l @(disp,PC),Rn; mov.l @Rn,R0; jmp @R0; nop``
@@ -849,8 +849,12 @@ def print_decompress_text(report):
 
 
 # --------------------------------------------------------------------------
-# Compressed-section header (`comphdr`): the 22-byte layout M1.2a tests.
+# Compressed-section header (`comphdr`): M1.2a form 1 and M1.2d form 2.
 # --------------------------------------------------------------------------
+
+COMPHDR2_MARKER = b"\x5b\x80\x80\x8d"  # CE LZXD block signature, u32 0x8d80805b
+COMPHDR2_TRAILER = 16                   # 4 u32s: 0x10, 0x1000, block_bytes, 0x1000
+COMPHDR2_MIN_N = 3                      # minimum u24 table entries seen/accepted
 
 
 def u24le(blob, offset):
@@ -859,7 +863,7 @@ def u24le(blob, offset):
 
 
 def parse_comphdr(blob):
-    """Parse the hypothesised 22-byte compressed-section header.
+    """Parse the form-1 22-byte compressed-section header (M1.2a).
 
     Layout, all little-endian: ``u24 uncompressed_len``, ``u24
     compressed_total``, ``u32 flags``, ``u32 uncompressed_len``, ``u32
@@ -891,7 +895,7 @@ COMPHDR_CHECK_LABELS = {
 
 
 def comphdr_checks(fields, psize, vsize):
-    """Evaluate the M1.2a invariants; return ``(checks, failed_keys)``."""
+    """Evaluate the M1.2a form-1 invariants; return ``(checks, failed_keys)``."""
     checks = {
         "compressed_total_is_psize": fields["compressed_total"] == psize,
         "payload_len_is_psize_minus_22":
@@ -903,16 +907,70 @@ def comphdr_checks(fields, psize, vsize):
     return checks, [name for name in checks if not checks[name]]
 
 
+def parse_comphdr_form2(blob, psize, vsize):
+    """Parse the form-2 multi-block compressed-section header (M1.2d).
+
+    Form 2 frames the compressed payload with a variable-length table:
+    ``n`` little-endian ``u24`` values followed by a 16-byte trailer, total
+    ``3*n + 16`` bytes, then the compressed data starting with the CE LZXD
+    block signature ``0x8d80805b`` (``5b 80 80 8d``).  The trailer is four
+    ``u32`` words ``[0x00000010, 0x00001000, block_bytes, 0x00001000]``;
+    ``u24[n-1] == psize`` (the whole stored extent, header included) and
+    ``u24[0]`` is the uncompressed data length (``<= vsize``; the section's
+    ``vsize`` is the allocation and may be larger).  The table carries
+    ``n - 1`` block descriptors, matching the ``n - 1`` ``0x5b80808d`` block
+    headers in the payload (multi-block compressed framing; the block-level
+    codec is the CE compressed-block format indicated by that marker).
+
+    Derived from every REFUTED section of build A, ``IMG256`` SHA-256
+    ``92aa525d…007f9`` (58/58 fit this structure).  Returns a field dict on a
+    structural match, else ``None``.
+    """
+    if blob is None or not psize:
+        return None
+    marker = blob.find(COMPHDR2_MARKER)
+    if marker < COMPHDR2_MIN_N * 3 + COMPHDR2_TRAILER:
+        return None
+    if (marker - COMPHDR2_TRAILER) % 3 != 0:
+        return None
+    n = (marker - COMPHDR2_TRAILER) // 3
+    if n < COMPHDR2_MIN_N or 3 * n + COMPHDR2_TRAILER != marker:
+        return None
+    if marker > len(blob):
+        return None
+    u24s = [u24le(blob, i * 3) for i in range(n)]
+    if u24s[-1] != psize:
+        return None
+    trailer = struct.unpack_from("<4I", blob, 3 * n)
+    if trailer[0] != COMPHDR_FLAGS or trailer[1] != 0x1000 or trailer[3] != 0x1000:
+        return None
+    return {
+        "form": 2,
+        "uncompressed_len": u24s[0],
+        "compressed_total": u24s[-1],
+        "flags": trailer[0],
+        "payload_len": psize - marker,
+        "payload_offset": marker,
+        "block_count": n - 1,
+        "table": u24s,
+        "trailer": list(trailer),
+        "header_size": marker,
+    }
+
+
 def classify_comphdr(blob, psize, vsize):
-    """Parse and validate one stored compressed section.
+    """Parse and validate one stored compressed section (form 1 or 2).
 
     Returns the header half of a report record with stable keys whatever the
-    verdict.  ``HOLDS`` means every invariant in ``COMPHDR_CHECK_LABELS``
-    passed, ``REFUTED`` that the header parsed but a check failed, and
-    ``UNPARSED`` that there was no 22-byte header to read.
+    verdict.  ``HOLDS`` means the section's header is parsed and its
+    invariants hold (form 1: all M1.2a checks; form 2: the multi-block table
+    and trailer are structurally valid, ``u24[0] <= vsize``, last ``u24 ==
+    psize``).  ``REFUTED`` means neither form matched.  ``UNPARSED`` means the
+    stored bytes could not be read as a header.
     """
     record = {
         "verdict": "UNPARSED",
+        "form": None,
         "uncompressed_len": None,
         "compressed_total": None,
         "flags": None,
@@ -922,6 +980,8 @@ def classify_comphdr(blob, psize, vsize):
         "checks": None,
         "failed": [],
         "error": None,
+        "block_count": None,
+        "header_size": None,
     }
     if not psize:
         record["error"] = "IMAGE_SCN_COMPRESSED with psize 0: nothing stored"
@@ -936,8 +996,49 @@ def classify_comphdr(blob, psize, vsize):
                            % COMPHDR_SIZE)
         return record
     checks, failed = comphdr_checks(fields, psize, vsize)
+    if not failed:
+        record.update(
+            verdict="HOLDS",
+            form=1,
+            uncompressed_len=fields["len_u24"],
+            compressed_total=fields["compressed_total"],
+            flags=hx(fields["flags"]),
+            payload_len=fields["payload_len"],
+            payload_offset=fields["payload_offset"],
+            within_vsize=checks["uncompressed_len_within_vsize"],
+            checks=checks,
+            failed=failed,
+            header_size=COMPHDR_SIZE,
+        )
+        return record
+
+    form2 = parse_comphdr_form2(blob, psize, vsize)
+    if form2 is not None:
+        within = form2["uncompressed_len"] <= vsize
+        f2checks = {"last_u24_is_psize": form2["compressed_total"] == psize,
+                    "marker_present": True,
+                    "trailer_shape": True,
+                    "uncompressed_len_within_vsize": within}
+        f2failed = [name for name in f2checks if not f2checks[name]]
+        record.update(
+            verdict="HOLDS" if not f2failed else "REFUTED",
+            form=2,
+            uncompressed_len=form2["uncompressed_len"],
+            compressed_total=form2["compressed_total"],
+            flags=hx(form2["flags"]),
+            payload_len=form2["payload_len"],
+            payload_offset=form2["payload_offset"],
+            within_vsize=within,
+            checks=f2checks,
+            failed=f2failed,
+            block_count=form2["block_count"],
+            header_size=form2["header_size"],
+        )
+        return record
+
     record.update(
-        verdict="HOLDS" if not failed else "REFUTED",
+        verdict="REFUTED",
+        form=1,
         uncompressed_len=fields["len_u24"],
         compressed_total=fields["compressed_total"],
         flags=hx(fields["flags"]),
@@ -946,6 +1047,7 @@ def classify_comphdr(blob, psize, vsize):
         within_vsize=checks["uncompressed_len_within_vsize"],
         checks=checks,
         failed=failed,
+        header_size=COMPHDR_SIZE,
     )
     return record
 
@@ -1057,12 +1159,17 @@ def print_comphdr_text(report):
         if record["verdict"] == "UNPARSED":
             line += " error=%s" % record["error"]
         else:
+            form = record.get("form")
+            if form is not None:
+                line += " form=%s" % form
             line += (" uncompressed_len=0x%x compressed_total=0x%x flags=%s "
-                     "payload_len=0x%x%s"
+                     "payload_len=0x%x payload_off=%s%s"
                      % (record["uncompressed_len"],
                         record["compressed_total"], record["flags"],
-                        record["payload_len"],
+                        record["payload_len"], record["payload_offset"],
                         "" if record["within_vsize"] else " OVER-VSIZE"))
+            if record.get("block_count") is not None:
+                line += " blocks=%d" % record["block_count"]
             if record["failed"]:
                 line += " failed=[%s]" % ", ".join(record["failed"])
         print(line)
@@ -1075,6 +1182,13 @@ def print_comphdr_text(report):
                "%d REFUTED, %d UNPARSED (exceptions: %d)"
                % (counts["sections"], len(report["segments"]), counts["holds"],
                   counts["refuted"], counts["unparsed"], counts["exceptions"]))
+    form_counts = {}
+    for record in report["sections"]:
+        if record["verdict"] == "HOLDS" and record.get("form"):
+            form_counts[record["form"]] = form_counts.get(record["form"], 0) + 1
+    if form_counts:
+        summary += " forms=[%s]" % ", ".join(
+            "f%d:%d" % (k, form_counts[k]) for k in sorted(form_counts))
     print(summary)
     if report["duplicate_segments"]:
         print("%d duplicate segment copy/copies not walked: %s"
@@ -2181,6 +2295,43 @@ def build_comphdr_rom(prefix, vsize, psize, module_name="NAVIMAPCC.DLL",
     return bytes(d)
 
 
+def build_comphdr_form2(u24s, vsize, block_bytes=0x800, module_name="FORM2.DLL",
+                        rva=0x1000, section_flags=0xC0002040,
+                        payload_fill=b"\x00"):
+    """Return a synthetic ROM whose compressed section uses the form-2 header.
+
+    ``u24s`` is the complete table of ``n`` little-endian 24-bit values
+    (``n >= 3``): ``u24s[0]`` is the uncompressed data length (``<= vsize``)
+    and ``u24s[-1]`` is ``psize`` (the whole stored extent).  The blob is
+    ``[u24 table][trailer 0x10,0x1000,block_bytes,0x1000][0x5b80808d marker
+    + payload_fill padding]`` of total length ``psize``.  The marker/payload
+    bytes are framing only (no real decode); ``parse_comphdr_form2`` validates
+    the structure.  No vendor bytes.
+    """
+    n = len(u24s)
+    if n < COMPHDR2_MIN_N:
+        raise ValueError("form 2 needs at least %d u24 entries" % COMPHDR2_MIN_N)
+    psize = u24s[-1]
+    marker_off = 3 * n + COMPHDR2_TRAILER
+    if marker_off + len(COMPHDR2_MARKER) > psize:
+        raise ValueError("header does not fit psize")
+    if 0x5000 + psize > SYNTH_SIZE:
+        raise ValueError("section does not fit the synthetic image")
+    blob = bytearray(psize)
+    for i, val in enumerate(u24s):
+        blob[i * 3] = val & 0xFF
+        blob[i * 3 + 1] = (val >> 8) & 0xFF
+        blob[i * 3 + 2] = (val >> 16) & 0xFF
+    struct.pack_into("<4I", blob, 3 * n,
+                     COMPHDR_FLAGS, 0x1000, block_bytes, 0x1000)
+    blob[marker_off:marker_off + len(COMPHDR2_MARKER)] = COMPHDR2_MARKER
+    if payload_fill:
+        for i in range(marker_off + len(COMPHDR2_MARKER), psize):
+            blob[i] = payload_fill[i % len(payload_fill)]
+    return build_comphdr_rom(bytes(blob), vsize, psize, module_name, rva,
+                             section_flags)
+
+
 def build_thunks_rom(local_va=False):
     """Return ``(bytes, layout)`` for a two-module ROM with three import stubs.
 
@@ -2895,9 +3046,9 @@ def selftest():
         ok("files out-of-image --extract wrote nothing",
            os.path.exists(cut_extract), False)
 
-        # --- comphdr: the 22-byte compressed-section header (M1.2a) --------
-        # The two real prefixes recorded in EXP-2026-11-05-49 (30 bytes each)
-        # are the acceptance vectors; no other vendor bytes are used.
+        # --- comphdr: form 1 (M1.2a) and form 2 (M1.2d) -------------------
+        # Form 1 acceptance vectors: the two real prefixes recorded in
+        # EXP-2026-11-05-49 (30 bytes each); no other vendor bytes used.
         for fixture in COMPHDR_FIXTURES:
             label = "%s rva 0x%x" % (fixture["module"], fixture["rva"])
             ok("comphdr %s recorded prefix length" % label,
@@ -2907,12 +3058,13 @@ def selftest():
                dict(fixture["fields"], payload_offset=22))
             invariants, failed = comphdr_checks(
                 fields, fixture["psize"], fixture["vsize"])
-            ok("comphdr %s invariants" % label, failed, [])
-            ok("comphdr %s every check true" % label,
-               sorted(invariants.values()), [True] * len(invariants))
-            ok("comphdr %s verdict" % label,
-               classify_comphdr(fixture["prefix"], fixture["psize"],
-                                fixture["vsize"])["verdict"], "HOLDS")
+            ok("comphdr %s invariants hold" % label,
+               (all(invariants.values()), failed), (True, []))
+            record = classify_comphdr(fixture["prefix"], fixture["psize"],
+                                      fixture["vsize"])
+            ok("comphdr %s verdict" % label, record["verdict"], "HOLDS")
+            ok("comphdr %s form" % label, record["form"], 1)
+            ok("comphdr %s header_size" % label, record["header_size"], 22)
 
         base = COMPHDR_FIXTURES[0]
         for label, patch, psize, vsize, failed_keys in (
@@ -2933,6 +3085,7 @@ def selftest():
             ok("comphdr %s is REFUTED" % label, record["verdict"], "REFUTED")
             ok("comphdr %s names the failed check" % label,
                record["failed"], failed_keys)
+            ok("comphdr %s keeps form" % label, record["form"], 1)
         ok("comphdr over-vsize sets within_vsize",
            classify_comphdr(base["prefix"], base["psize"], 0x400)
            ["within_vsize"], False)
@@ -2969,10 +3122,11 @@ def selftest():
                 "exceptions": 0, "errors": 0})
             record = doc["sections"][0]
             ok("comphdr record key set", sorted(record),
-               ["checks", "compressed_total", "error", "failed",
-                "file_offset", "flags", "module", "payload_len",
-                "payload_offset", "psize", "rva", "section", "segment",
-                "uncompressed_len", "verdict", "vsize", "within_vsize"])
+               ["block_count", "checks", "compressed_total", "error", "failed",
+                "file_offset", "flags", "form", "header_size", "module",
+                "payload_len", "payload_offset", "psize", "rva", "section",
+                "segment", "uncompressed_len", "verdict", "vsize",
+                "within_vsize"])
             ok("comphdr record identity",
                (record["segment"], record["module"], record["section"],
                 record["rva"], record["vsize"], record["psize"],
@@ -2980,12 +3134,13 @@ def selftest():
                (0, fixture["module"], "sec0", hx(fixture["rva"]),
                 fixture["vsize"], fixture["psize"], 0x5000))
             ok("comphdr record header fields",
-               (record["verdict"], record["uncompressed_len"],
+               (record["verdict"], record["form"], record["uncompressed_len"],
                 record["compressed_total"], record["flags"],
-                record["payload_len"], record["payload_offset"]),
-               ("HOLDS", fixture["fields"]["len_u24"],
+                record["payload_len"], record["payload_offset"],
+                record["header_size"]),
+               ("HOLDS", 1, fixture["fields"]["len_u24"],
                 fixture["fields"]["compressed_total"], "0x10",
-                fixture["fields"]["payload_len"], COMPHDR_SIZE))
+                fixture["fields"]["payload_len"], COMPHDR_SIZE, 22))
             ok("comphdr record within vsize", record["within_vsize"], True)
             ok("comphdr record no failure", (record["failed"], record["error"]),
                ([], None))
@@ -2999,6 +3154,7 @@ def selftest():
             ok("comphdr text lengths",
                "uncompressed_len=0x%x" % fixture["fields"]["len_u24"] in text,
                True)
+            ok("comphdr text form", "form=1" in text, True)
             ok("comphdr text summary",
                "1 HOLDS, 0 REFUTED, 0 UNPARSED (exceptions: 0)" in text, True)
 
@@ -3020,8 +3176,77 @@ def selftest():
            "0 HOLDS, 1 REFUTED, 0 UNPARSED (exceptions: 1)" in buf.getvalue(),
            True)
 
+        # Form 2 (M1.2d): multi-block header [u24 × n][0x10,0x1000,X,0x1000]
+        # + 0x5b80808d marker.  Synthetic, structure derived from all 58
+        # REFUTED build-A sections (IMG256 92aa525d…007f9); no vendor bytes.
+        form2_cases = [
+            # n=3, one block, unc==vsize (shape of the 33 marker@25 sections)
+            {"u24s": [0x200, 0x0030, 0x0050], "vsize": 0x200,
+             "block_bytes": 0x0020, "name": "F2SYN1.DLL"},
+            # n=4, two blocks, unc==vsize
+            {"u24s": [0x400, 0x0030, 0x0048, 0x0060], "vsize": 0x400,
+             "block_bytes": 0x0028, "name": "F2SYN2.DLL"},
+            # n=6, five blocks, unc==vsize (gwes.exe/sec2 shape class)
+            {"u24s": [0x800, 0x0020, 0x0038, 0x0050, 0x0068, 0x0080],
+             "vsize": 0x800, "block_bytes": 0x0040, "name": "F2SYN3.DLL"},
+            # n=3, unc < vsize (actual data shorter than allocation, 21 real cases)
+            {"u24s": [0x180, 0x0028, 0x0048], "vsize": 0x600,
+             "block_bytes": 0x0018, "name": "F2SYN4.DLL"},
+        ]
+        for fc in form2_cases:
+            rom_f2 = build_comphdr_form2(
+                fc["u24s"], fc["vsize"], block_bytes=fc["block_bytes"],
+                module_name=fc["name"])
+            f2psize = fc["u24s"][-1]
+            f2marker = 3 * len(fc["u24s"]) + COMPHDR2_TRAILER
+            with open(os.path.join(td, "%s.img" % fc["name"]), "wb") as fh:
+                fh.write(rom_f2)
+            blob_f2 = rom_f2[0x5000:0x5000 + f2psize]
+            rec_f2 = classify_comphdr(blob_f2, f2psize, fc["vsize"])
+            ok("comphdr form2 %s HOLDS" % fc["name"], rec_f2["verdict"], "HOLDS")
+            ok("comphdr form2 %s form" % fc["name"], rec_f2["form"], 2)
+            ok("comphdr form2 %s fields" % fc["name"],
+               (rec_f2["uncompressed_len"], rec_f2["compressed_total"],
+                rec_f2["payload_offset"], rec_f2["payload_len"],
+                rec_f2["block_count"], rec_f2["header_size"]),
+               (fc["u24s"][0], f2psize, f2marker, f2psize - f2marker,
+                len(fc["u24s"]) - 1, f2marker))
+            ok("comphdr form2 %s within_vsize" % fc["name"],
+               rec_f2["within_vsize"], fc["u24s"][0] <= fc["vsize"])
+            ok("comphdr form2 %s marker" % fc["name"],
+               blob_f2[f2marker:f2marker + 4], COMPHDR2_MARKER)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ok("cli comphdr form2 %s exit" % fc["name"],
+                   main([os.path.join(td, "%s.img" % fc["name"]),
+                         "comphdr", "--all", "--json"]), 0)
+            doc_f2 = json.loads(buf.getvalue())
+            ok("comphdr form2 %s counts" % fc["name"], doc_f2["counts"],
+               {"sections": 1, "holds": 1, "refuted": 0, "unparsed": 0,
+                "exceptions": 0, "errors": 0})
+            ok("comphdr form2 %s record form" % fc["name"],
+               doc_f2["sections"][0]["form"], 2)
+
+        # Form 2 negative controls.
+        base_f2 = build_comphdr_form2([0x1000, 0x0800, 0x00400], 0x1000)
+        blob_f2b = bytearray(base_f2[0x5000:0x5000 + 0x400])
+        struct.pack_into("<I", blob_f2b, 3 * 3 + 4, 0x2000)  # bad trailer[1]
+        rec_bad = classify_comphdr(bytes(blob_f2b), 0x400, 0x1000)
+        ok("comphdr form2 bad trailer not form2 HOLDS",
+           not (rec_bad["verdict"] == "HOLDS" and rec_bad["form"] == 2), True)
+        blob_f2c = bytearray(base_f2[0x5000:0x5000 + 0x400])
+        blob_f2c[6] = 0x01; blob_f2c[7] = 0x04; blob_f2c[8] = 0x00  # last!=psize
+        rec_bad2 = classify_comphdr(bytes(blob_f2c), 0x400, 0x1000)
+        ok("comphdr form2 last!=psize not form2 HOLDS",
+           not (rec_bad2["verdict"] == "HOLDS" and rec_bad2["form"] == 2), True)
+        blob_f2d = bytearray(base_f2[0x5000:0x5000 + 0x400])
+        blob_f2d[25:29] = b"\x00\x00\x00\x00"  # erase marker
+        rec_bad3 = classify_comphdr(bytes(blob_f2d), 0x400, 0x1000)
+        ok("comphdr form2 no marker not form2 HOLDS",
+           not (rec_bad3["verdict"] == "HOLDS" and rec_bad3["form"] == 2), True)
+
         # Negative control on the main synthetic ROM: its LZSS/LZX streams do
-        # not carry this header, so --all must refute both, not bless them.
+        # not carry form 1 or form 2, so --all must still refute/unparse them.
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             ok("cli comphdr --all on non-M1.2a streams exit",
