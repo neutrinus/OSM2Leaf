@@ -693,6 +693,43 @@ and the flash/NK version checks, together with the runtime `Navi.exe`
 comparator (M2.1/M2.2). The byte-level attestation algorithm and the
 compressed section remain unknown.
 
+## Model area and Target ID (market, M2.7)
+
+`commondll.dll` exports `CApi_GetModelArea` (build B `0x03c0398c`, C
+`0x03be3994`, ordinal 39; next to `CApi_GetModelCode`/`GetModelBaseType`).
+The stub dispatches to a runtime model-info object; build B's object is built
+in `0x03c070d8` and the area binder reaches the target-ID object
+`vtable 0x03c032dc`, slot 2 `0x03c0c908`, which returns byte `+5` (build C:
+vtable `0x03be32e4`, slot 2 `0x03beca64`). There is no `CApi_SetModelArea`
+export.
+
+The object is filled lazily in B `0x03c0c830` / C `0x03bec98c` by
+`KernelIoControl` (coredll ordinal 557) with IOCTL `0x01013208`, a 4-byte
+input `{1}` and a 4-byte output. Byte `+4` must be non-zero and not `0xFF`;
+the four bytes are logged as `Target ID Code >> %02X%02X%02X%02X`
+(B `0x03c03328`). Byte `+5` is the model area.
+
+`AppLaunch.dll` turns it into a market name and a launch-table mask
+(B `0x03bcba58` / C `0x03bab580`):
+
+| Area | Name | Mask |
+| --- | --- | --- |
+| `0x10` | Japan | `0x00010000` |
+| `0x20` | USA | `0x00020000` |
+| `0x30` | Euro | `0x00040000` |
+| `0x40` | Russia | `0x00080000` |
+| `0x50` | China | `0x00100000` |
+| other | WorldWide | `-1` |
+
+Unknown areas fall back to `KernelIoControl(0x0101304C)` ("Env Variable").
+The mask filters the launcher table (B `0x03bcc5b0`/`0x03bcc564`), i.e. it
+selects processes/drivers, not the map database. The map/navigation modules do
+not import the area API. The card's `HDD_INFO.TXT` is checked against unit-side
+target info read by `KernelIoControl(0x0101302C)` (11-byte record at `+96`,
+map-DB bounds at `+112`/`+114`); no card value sets the area.
+
+Details and the negative controls: `EXP-2026-11-06-M2.7` and C-780–C-789.
+
 ## Next steps
 
 Next is `TODO.md` Step 2: fix the file-TOC stride, add `e32`/`o32` and the copy

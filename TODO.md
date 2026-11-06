@@ -652,8 +652,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-770–C-779
   - Result: docs/experiments/EXP-2026-11-06-M2.6-mapupdate.md; MapUpdate.exe summary in docs/format/firmware.md
 
-- [ ] **M2.7 — US vs EU market decision**
-  - Status: open · Owner: — · Critical: no
+- [x] **M2.7 — US vs EU market decision**
+  - Status: done · Owner: task/m2.7-us-eu-market · Critical: no
   - Depends: — (registry part needs M1.4)
   - Goal: where the market/region is decided and whether an EU-format card
     can work in a US unit.
@@ -662,6 +662,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: an EXP names the deciding value(s) and module(s) and updates
     `us-eu-region.md`.
   - Claims: C-780–C-789
+  - Result: docs/experiments/EXP-2026-11-06-M2.7-us-eu-market.md (Target ID byte `+5` → `commondll!CApi_GetModelArea` → `AppLaunch` launch mask; card cannot set area; C-780–C-789)
 
 - [x] **M2.8 — SD card identity and lock (`SdCardLch.exe`)**
   - Status: done · Owner: task/m2.8-sdcard-lock · Critical: no
