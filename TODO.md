@@ -879,8 +879,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     IMF/writer rule for unsupported characters.
   - Claims: C-1010–C-1019
 
-- [ ] **M4.14 — Cross-year and cross-market archive**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.14 — Cross-year and cross-market archive**
+  - Status: done · Owner: task/m4.14-cross-year-archive · Critical: no
+  - Result: docs/research/image-versions.md inventory + fields table; docs/experiments/EXP-2026-11-06-M4.14-cross-year-archive.md; claims C-1020–C-1029
   - Depends: —
   - Goal: a table of every image on `files.viaaq.eu` (year, market, map
     code, `HDD_INFO`, header versions, tile counts) via `diff_years.py`.

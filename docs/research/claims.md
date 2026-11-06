@@ -713,6 +713,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-868 | C-295 ("dump headers document a six-level table `VTb Tp;Lv;…`") is confirmed: the six-level table is a firmware concept (debug dump) and its field layout is now recorded (C-866); it is **not** the `0x1ac` tile descriptor (C-296) and is not stored in the tile files. | VERIFIED | H | format string + xrefs; EXP-2026-11-06-M3.5-tile-reader |
 | C-869 | The tile files (`BxxRyyR.DAT`, `LEV3456R.DAT`) carry no firmware six-level table in their headers; the `VTb` table is a runtime/firmware structure, so `map-tiles.md`'s on-disk format description is unchanged by this task. | VERIFIED | H | EXP-2026-11-06-M3.5-tile-reader; `docs/format/map-tiles.md` |
 
+## M4.14 — Cross-year and cross-market archive (C-1020–C-1029)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1020 | The complete inventory of `files.viaaq.eu` map images/archives is eight files, each with a verified SHA-256 (see `docs/research/image-versions.md`). | VERIFIED | H | `sha256sum`; `EXP-2026-11-06-M4.14-cross-year-archive` |
+| C-1021 | Within the ZE0 family (2011–2016, EU and US), `FORMAT VERSION` (`X08-02-00`), model (`CLA-NAVI05-01`) and engine (`V05.00.00`) are constant; only `DATA VERSION` changes with the map build. | VERIFIED | H | `cardcheck.header_fields`; `EXP-2026-11-06-M4.14` |
+| C-1022 | `HDD_INFO.TXT` lines 1 (`QSD-302-100`) and 4 (`SDC08-EVEUR`) are constant across EU ZE0 samples; lines 2, 3, 5 and 6 track the map code, build, year-month and part number. | VERIFIED | H | `diff_years.py` (2011 vs 2014/2016); `EXP-2026-11-06-M4.14` |
+| C-1023 | The `MAPAL001` tile set stays 45 `BxxRyyR.DAT` + `LEV3456R.DAT` across EU ZE0 samples, but tile sizes, record counts and bboxes change with the map build. | OBSERVED | H | `diff_years.py`; `EXP-2026-11-06-M4.14` |
+| C-1024 | `REFER001` keeps 194 `.cmp`/`.ind` pairs in every ZE0 sample; the logical byte total grows with the map build. | VERIFIED | H | `cardcheck`; `EXP-2026-11-06-M4.14` |
+| C-1025 | `REFER002` grows from 2 files / 15 POINT shards (2011) to 16 files / 29 shards (2016); `ICODE001.DAT` appears from the 2013 map set. | OBSERVED | M | directory census; `EXP-2026-11-06-M4.14` |
+| C-1026 | `MMAIN001.DAT` level-table record counts (sections 1/2/4, levels 1/2) change with the map build. | OBSERVED | H | `diff_years.py`; `EXP-2026-11-06-M4.14` |
+| C-1027 | `DRSTR001.DAT` entry `value`s (file sizes) and its directory set (`TFTBL001`, extra `SPEECH` languages) change with the map build. | OBSERVED | H | `diff_years.py`; `EXP-2026-11-06-M4.14` |
+| C-1028 | `ENV200_2019_25920-6WX1C-EUR.img` is a different engine family (`CLA-NAVI06-01` / `X08-03-00` / `ZENRIN`, `DB_INFO.TXT`, 53 tiles, 200 `.cmp` pairs) and is not a ZE0 reference. | VERIFIED | H | `cardcheck`; `EXP-2026-11-06-M4.14` |
+| C-1029 | `tools/diff_years.py` reproduces all of the above field-level differences on the 2011/2014/2016 roots. | VERIFIED | H | `diff_years.py --json`; `EXP-2026-11-06-M4.14` |
+ (docs: M4.14 cross-year archive inventory and fields that change with map code)
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
