@@ -461,8 +461,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     blocks rather than one run). Tool so far: EXP-2026-11-05-M1.2b, C-650.
   - Claims: C-650–C-659
 
-- [ ] **M1.2c — Find the ROM decompressor in `nk.exe` and port it**
-  - Status: in progress · Owner: task/m1.2c-rom-decompressor · Critical: yes
+- [x] **M1.2c — Find the ROM decompressor in `nk.exe` and port it**
+  - Status: done · Owner: task/m1.2c-rom-decompressor · Critical: yes
   - Depends: — (M1.8 helps)
   - Goal: read the kernel's own decompression routine instead of guessing.
   - Input: image B `nk.exe` (`cerom.py --image-start 0x3e00200 IMG sections
@@ -475,6 +475,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     EXP-49 sections to the M1.2a lengths, or its VA is handed to M8.E1 as a
     call target.
   - Claims: C-660–C-669
+  - Result: EXP-2026-11-06-M1.2c-rom-decompressor. nk.exe (B, `0x3e00200`)
+    loader `fn 0x880385e4` tests `o32_flags & 0x2000` at `0x88038666` and calls
+    `0x88037590(dataptr,psize,dest,vsize)`. Decompressor chain
+    `0x88037590`→`0x88037464` (section framing, form 1/2 block loop)→`0x8803a384`
+    (per-block CE LZXD-like, block type 4/E8). VAs+prototypes recorded;
+    `tools/cedecomp.py` self-test ok but pure-Python block decode **not** ported
+    (EXP-49 sections: 0 matches with cecompress) — **M8.E1 call target** handed
+    off (`DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464`).
 
 - [x] **M1.3 — `cerom.py decompress` on all 245 sections**
   - Status: done · Owner: task/m1.3-decompress-all · Critical: yes

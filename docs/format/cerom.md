@@ -609,8 +609,14 @@ Code vs documentation, all checked by reading
    `decompress` and `comphdr` (EXP-2026-11-05-35…-53, M1.2d). `comphdr` parses
    all 245 compressed sections of build A (187 form 1, 22-byte; 58 form 2,
    multi-block `[u24×n][0x10,0x1000,X,0x1000]` + `0x8d80805b` blocks, `n−1`
-   blocks, last `u24 == psize`). Remaining: M1.2b/c (block codec/decoder),
-   M1.3 (decode all 245 sections), M1.6b (thunk labels) and M9.2 (Ghidra).
+   blocks, last `u24 == psize`). **M1.2c (EXP-2026-11-06):** in nk.exe, image B
+   (`--image-start 0x3e00200`), `fn 0x880385e4` tests `o32_flags & 0x2000` at
+   `0x88038666` and calls `0x88037590(dataptr,psize,dest,vsize)`; decompressor
+   chain `0x88037590` (wrapper) → `0x88037464` (section framing, block loop) →
+   `0x8803a384` (per-block CE LZXD-like, `0x8d80805b`; `cecompress` sees block
+   type 4/E8, not CAB-LZX). VAs/prototypes handed to M8.E1 (`tools/cedecomp.py`);
+   pure-Python block decode still unported. Remaining: M1.2c block-codec port /
+   M8.E1 decode, M1.3 (decode all 245), M9.2 (Ghidra).
 6. Re-run the known anchors with exact VAs: the retired comparator chain
    (C-520, C-528), `MAL_DataVol_getOffset`, `0x0369d400`.
 

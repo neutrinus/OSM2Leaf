@@ -50,7 +50,12 @@ image VA base = 0x8cae1000  ->  file = VA - 0x8cae1000 + 0x200200
 ```
 
 Every module's `e32_rom`/`o32_rom` gives exact section VA (`o32_realaddr`)
-and file location (`o32_dataptr`); 245 of 527 sections are compressed RW data.
+and file location (`o32_dataptr`); 245 of 527 sections are compressed RW data
+(framing: M1.2a form 1 22 B / M1.2d form 2 `u24` table + `0x8d80805b` LZXD-like
+blocks; codec CE variant, block type 4 in cecompress terms). The nk.exe loader
+(build B, `0x3e00200`) tests `o32_flags & 0x2000` at `0x88038666` (`fn
+0x880385e4`) and calls decompressor chain `0x88037590`→`0x88037464`→
+`0x8803a384` (EXP-2026-11-06-M1.2c, `tools/cedecomp.py`; M8.E1 call target).
 Use `tools/cerom.py`. The kernel (`nk.exe`, `coredll.dll`) is not in this
 region. **Many conclusions below that were reached by delta fitting are
 superseded** (C-516…C-523); in particular the `0x6fab2c`/`0x6faeb0`/`0x6fb05c`
