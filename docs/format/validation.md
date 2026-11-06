@@ -77,6 +77,16 @@ Hypotheses, in order:
    the launcher's unit side is a kernel target-info record, which is the
    candidate for this "record".
 
+A separate runtime check exists in `Navi.exe`: `fn 0x004dd028` reads both
+`\SystemSD\VER_INFO\HDD_INFO.TXT` and `\UserSD\VER_INFO\HDD_INFO.TXT`
+through `fn 0x004e7b8c`, compares field 0 (line 1) with
+`wcsncmp(..., 11)` and then the numeric tail, and sets a validation flag when
+the SystemSD value is greater than the UserSD value. It is triggered by the
+`NaviSetCC.dll` request message `0x841000f7`, not at boot or on SD insertion
+(EXP-2026-11-06-M2.11-hddinfo-trigger, C-1770–C-1779). The
+`SD Import: Sys[0x%x] SD[0x%x]` ID comparison belongs to the updater path
+(C-775), not this check.
+
 The cheapest test pair on a spare card:
 
 1. Change only `HDD_INFO` line 1 → observe `DIFFERENT MAP CODE`.
