@@ -10,7 +10,10 @@ tools still understand the data and that a rebuild is faithful:
 * the five target tiles rebuild byte-identically;
 * the decoded geometry of the target tiles matches a stored golden digest;
 * a one-vertex tile mutation changes exactly one vertex;
-* a same-length POI rename passes the offline mutation validator.
+* a same-length POI rename passes the offline mutation validator;
+* a different-length POI rename passes the offline mutation validator and the
+  page re-parses into the same records (one record changed, the rest byte
+  identical modulo the shift).
 
 A golden profile for the EU 2011 sample lives in ``tools/golden/eu2011.json``.
 Generate or refresh it intentionally with ``--update-golden``; do not update it
@@ -42,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cardcheck  # noqa: E402
 import cmpind_writer  # noqa: E402
 import drstr_ze0  # noqa: E402
+import mutate_refer_poi  # noqa: E402
 
 TOOLS = Path(__file__).resolve().parent
 VIEWER = TOOLS / "ze0-viewer"
@@ -64,6 +68,9 @@ REFER_POI = "POINT032.DAT"
 REFER_PAGE = 0x4200
 REFER_OLD = "VATICAN MUSEUM"
 REFER_NEW = "OSM2LEAF PROBE"
+REFER_RESIZE_OLD = "VATICAN MUSEUM"
+REFER_RESIZE_NEW = "OSM2LEAF PROBE POI"
+RESIZE_SUFFIX = " OSM"
 
 
 # ---------------------------------------------------------------------------
@@ -633,6 +640,222 @@ def check_refer_mutation(root: Path, report: cardcheck.Report) -> None:
             check.error(f"validate_mutation.py failed: {proc.stderr.strip() or proc.stdout.strip()}")
 
 
+def _page_gap(page: int, used: int) -> int:
+    """Bytes reserved for the stream, up to the next 0x100-aligned offset."""
+    return ((page + used + 0xFF) & ~0xFF) - page
+
+
+def _page_records(inner: bytes) -> list[dict] | None:
+    try:
+        return mutate_refer_poi.parse_page(inner)
+    except mutate_refer_poi.PageError:
+        return None
+
+
+def _resize_candidate(inner: bytes, page: int, used: int,
+                      old: str, new: str) -> tuple[str, str] | None:
+    """Return ``(old, new)`` when the rename parses and fits the page."""
+    old_b, new_b = old.encode("latin-1"), new.encode("latin-1")
+    if not old_b or len(old_b) == len(new_b):
+        return None
+    if inner.count(old_b) != 1:
+        return None
+    try:
+        new_inner, _info = mutate_refer_poi.resize_name(inner, old_b, new_b)
+    except mutate_refer_poi.PageError:
+        return None
+    if page + len(zlib.compress(new_inner, 6)) > page + _page_gap(page, used):
+        return None
+    return old, new
+
+
+def find_resize_fixture(root: Path):
+    """Find a POI name page where a different-length rename fits.
+
+    The 2011 ``POINT032`` page ``0x4200`` fixture is tried first; other years
+    fall back to a deterministic scan of POINT name pages for a unique
+    printable string and append an even-length suffix.
+    """
+    known = root / "REFER001" / f"{REFER_POI}.cmp"
+    if known.is_file():
+        try:
+            blob = _refer_blob(known)
+            parsed = _inner_page(blob, REFER_PAGE)
+            if parsed is not None:
+                inner, used = parsed
+                fit = _resize_candidate(
+                    inner, REFER_PAGE, used, REFER_RESIZE_OLD, REFER_RESIZE_NEW
+                )
+                if fit is not None:
+                    return (
+                        REFER_POI,
+                        REFER_PAGE,
+                        fit[0],
+                        fit[1],
+                        _page_gap(REFER_PAGE, used),
+                    )
+        except (OSError, ValueError):
+            pass
+
+    for cmp_path in sorted((root / "REFER001").glob("POINT*.DAT.cmp")):
+        if cmp_path == known:
+            continue
+        try:
+            blob = _refer_blob(cmp_path)
+        except (OSError, ValueError):
+            continue
+        pos = 0
+        while True:
+            page = blob.find(b"\x78\x9c", pos)
+            if page < 0:
+                break
+            parsed = _inner_page(blob, page)
+            if parsed is None:
+                pos = page + 2
+                continue
+            inner, used = parsed
+            records = _page_records(inner)
+            if records is not None:
+                for record in records:
+                    for match in re.finditer(rb"[ -~]{8,60}\x00", record["bytes"]):
+                        old = match.group()[:-1].decode("latin-1")
+                        if sum(ch.isalpha() for ch in old) < 4:
+                            continue
+                        new = old + RESIZE_SUFFIX
+                        fit = _resize_candidate(inner, page, used, old, new)
+                        if fit is not None:
+                            return (
+                                cmp_path.name[:-4],
+                                page,
+                                fit[0],
+                                fit[1],
+                                _page_gap(page, used),
+                            )
+            pos = page + max(used, 2)
+    return None
+
+
+def check_refer_rename_resize(root: Path, report: cardcheck.Report) -> None:
+    """Mutate a POI name to a different length and prove the page still parses."""
+    check = report.add(cardcheck.Check("refer_rename_resize"))
+    fixture = find_resize_fixture(root)
+    if fixture is None:
+        check.warn("no different-length REFER001 fixture found for this year")
+        check.stats["skipped"] = "no fixture"
+        return
+    name, page, old, new, page_len = fixture
+    delta = len(new) - len(old)
+    check.stats.update(file=name, page=hex(page), old=old, new=new, delta=delta)
+    cmp_path = root / "REFER001" / f"{name}.cmp"
+    ind_path = root / "REFER001" / f"{name}.ind"
+    drstr_path = root / "DRSTR001.DAT"
+    if not cmp_path.is_file() or not ind_path.is_file():
+        check.error(f"{name}.cmp/.ind is missing")
+        return
+    with tempfile.TemporaryDirectory(prefix="l2-refer-resize-") as tmp:
+        outdir = Path(tmp) / "mut"
+        proc = subprocess.run(
+            [sys.executable, str(TOOLS / "mutate_refer_poi.py"),
+             str(cmp_path), str(ind_path), str(outdir),
+             "--page", hex(page), "--resize", "--old", old, "--new", new],
+            capture_output=True, text=True,
+        )
+        if proc.returncode != 0:
+            check.error(
+                f"mutate_refer_poi.py --resize failed: "
+                f"{proc.stderr.strip() or proc.stdout.strip()}"
+            )
+            return
+        proc = subprocess.run(
+            [sys.executable, str(TOOLS / "validate_mutation.py"),
+             str(root / "REFER001"), str(outdir), name,
+             "--page", hex(page), "--page-len", hex(page_len),
+             "--drstr", str(drstr_path), "--drstr-dir", "REFER001",
+             "--inner-page", hex(page)],
+            capture_output=True, text=True,
+        )
+        check.stats["validate"] = (
+            proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else ""
+        )
+        if proc.returncode != 0 or "PASS" not in proc.stdout:
+            check.error(
+                f"validate_mutation.py failed: "
+                f"{proc.stderr.strip() or proc.stdout.strip()}"
+            )
+            return
+
+        # Independent record-level check: the page must still be a record
+        # chain with the same record count, exactly one changed record, and
+        # every other record byte-identical after the shift.
+        try:
+            old_blob = _refer_blob(cmp_path)
+            new_blob = (outdir / name).read_bytes()
+        except (OSError, ValueError) as exc:
+            check.error(f"cannot reload the mutated pair: {exc}")
+            return
+        old_page = _inner_page(old_blob, page)
+        new_page = _inner_page(new_blob, page)
+        if old_page is None or new_page is None:
+            check.error("inner page does not inflate after the mutation")
+            return
+        old_records = _page_records(old_page[0])
+        new_records = _page_records(new_page[0])
+        if old_records is None or new_records is None:
+            check.error("page is not a record chain before or after the mutation")
+            return
+        check.stats["records"] = len(new_records)
+        if len(new_records) != len(old_records):
+            check.error(
+                f"record count changed {len(old_records)} -> {len(new_records)}"
+            )
+            return
+        changed = [
+            index
+            for index, (before, after) in enumerate(zip(old_records, new_records))
+            if before["bytes"] != after["bytes"]
+        ]
+        old_b = old.encode("latin-1")
+        renamed = [
+            index for index, record in enumerate(old_records)
+            if old_b in record["bytes"]
+        ]
+        check.stats["changed_records"] = len(changed)
+        if len(renamed) != 1:
+            check.error(f"old text occurs in {len(renamed)} records; need exactly 1")
+            return
+        if changed != renamed:
+            check.error(
+                f"expected exactly record {renamed[0]} to change, got {changed}"
+            )
+            return
+        record = new_records[changed[0]]
+        before = old_records[changed[0]]["bytes"]
+        after = record["bytes"]
+        hit = before.find(old_b)
+        if hit < 2:
+            check.error("old text is not in the header-free part of the record")
+            return
+        new_total = len(before) + delta
+        expected = (
+            before[:1]
+            + bytes([new_total // 2])
+            + before[2:hit]
+            + new.encode("latin-1")
+            + before[hit + len(old_b):]
+        )
+        if after != expected:
+            check.error(
+                f"record {changed[0]} is not the rename-only edit "
+                f"(got {len(after)} bytes, expected {new_total})"
+            )
+            return
+        if record["total"] != new_total:
+            check.error(
+                f"record {changed[0]} is {record['total']} bytes, "
+                f"expected {new_total}"
+            )
+
+
 def check_image(image: Path | None, profile: dict | None,
                 report: cardcheck.Report) -> None:
     check = report.add(cardcheck.Check("image"))
@@ -729,6 +952,7 @@ def main(argv: list[str] | None = None) -> int:
             check_tile_mutation(root, report)
     if not args.skip_mutation:
         check_refer_mutation(root, report)
+        check_refer_rename_resize(root, report)
     if args.hash_image:
         check_image(image, profile, report)
     result = report.finish(strict=args.strict)
