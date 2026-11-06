@@ -1259,7 +1259,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1050–C-1059
 
 - [ ] **M5.4 — Tile writer: roads only**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: M5.2 (M5.3 for classes)
   - Input: `tools/ze0-viewer/vendor/osm2clarion`, factory neighbours,
     `section4.py preserve`.
@@ -1615,7 +1615,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     snippet parity proven, real engines SKIP (EXP-2026-11-06-M9.4-engine).
   - Claims: C-1660–C-1669
 - [ ] **M9.5 — Runner `run` end-to-end**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: session-ZMxuBT · Critical: yes
   - Depends: M9.2 or M9.4, M9.3
   - Goal: `runner.py run FUNC --input FILE [--engine ghidra|qemu] --json`
     with targets in `tools/l3_harness/targets.json`.
