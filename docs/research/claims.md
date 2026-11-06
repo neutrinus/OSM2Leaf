@@ -795,6 +795,11 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 | C-1726 | The FAT root directory has 12 live entries; the DRSTR root node has 11 (the same list without `DRSTR001.DAT`, C-163); the third `DRSTR` string in the M3.4 raw scan (`0x064e5a60`) is that directory entry. | VERIFIED | H | EXP-2026-11-06-H6-drstr-docs; EXP-2026-11-06-M3.4-drstr-parser |
 
 
+| C-1030 | `tools/osm_ingest.py` reads `.osm` XML and `.osm.pbf` (stdlib protobuf wire decoder) and writes IMF v1; both encodings of the synthetic fixture produce byte-identical output (12 nodes / 5 ways / 1 restriction) that passes `imf_check` with 0 errors. The PBF string table stores index 0; history files and out-of-order blobs are refused. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M5.1-osm-ingest; `python3 tools/osm_ingest.py --selftest` |
+| C-1660 | `tools/l3_harness/engine.py` exposes one engine API (`map/read_mem/write_mem/set_regs/get_regs/call/on_exec/run_until`) over a pure-Python SH-4 reference interpreter, a lazy Ghidra P-code adapter and a QEMU gdbstub adapter; the synthetic add/loop/jsr-to-stub snippet runs identically on PySh4 (26 cycles, `r0=0x5a5a`) and on any available back end, and an absent back end raises `MISSING_GHIDRA`/`MISSING_QEMU` and is reported SKIP, never pass. | VERIFIED (tool, synthetic) | M | EXP-2026-11-06-M9.4-engine; `python3 tools/l3_harness/engine.py --selftest` |
+| C-1690 | `tools/l3_harness/corpus.py` builds a 108-entry vendor-byte-free L3 corpus (13 cmp/ind incl. all 8 `ind_mutate` variants, 3 DRSTR, 2 tile, 90 HDD_INFO incl. the 89 variants) with a `manifest.py`-valid `manifest.json`, a PASS `check`, a skipped `factory` slot when absent, and per-case expected reader verdicts. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-M9.7-corpus; `python3 tools/l3_harness/corpus.py --selftest` |
+| C-1730 | `tools/realcheck.py` is a single-command real-image regression runner importing `cerom`, `sh4xref` and `cecompress`: eight pinned checks, PASS/FAIL per check, exit 0 all-PASS, 1 any-FAIL, 2 missing image, 3 `--update` without `--write`; pins are refuse-by-default and the synthetic CE ROM self-test covers PASS/FAIL/SKIP. | VERIFIED (tool, synthetic) | H | EXP-2026-11-06-H7-realcheck; `python3 tools/realcheck.py --selftest` |
+
 ## How to verify
 
 Every active claim names an `EXP-...` record; this table gives the exact
