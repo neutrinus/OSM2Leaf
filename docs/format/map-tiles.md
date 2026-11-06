@@ -299,6 +299,48 @@ Known limits:
 - `RDSTM001`/`LCTBL001` cross-reference is still unresolved — use
   [`rdstm.md`](rdstm.md), not the viewer's incomplete negative.
 
+## Firmware tile reader (build A, `Navi.exe`)
+
+The map/tile handling code is in `Navi.exe`, not in `NaviMapCC.dll`
+(which exposes only the four COM entry points). Reader VAs (build A):
+
+| Path | Function VA | String referenced |
+| --- | --- | --- |
+| cell-table MAKE (START) | `0x004259bc`, `0x0042757a` | `CELL_TBL MAKE START MESH_ID=%08x DIVID=%04x` (and `DIVID=----`) at `0x0017c358`/`0x0017c388` |
+| cell-table MAKE (END) | `0x0041f26c` | `CELL_TBL MAKE END MESH_ID=%08x DIVID=%04x` (and `DIVID=----`) at `0x0017be4c`/`0x0017be1c` |
+
+`MESH_ID`/`DIVID` diagnostics also include `MAP_DATA READ …`, `RGD_DATA READ …`,
+`RGD MESH_ID=…`, `OWN_MESH_ID=…` (`0x0017c400`–`0x0017c73d`) and
+`MESH_ID = %08x | DIV_CODE/DIV_STS = …` (`0x00181e96`/`0x00181fa1`).
+
+### Six-level table (`VTb`)
+
+The firmware documents a six-level tile table via a debug dump header stored at
+VA `0x001783a1`:
+
+```
+VTb Tp;Lv;St;F#|L1;L2;L3;L4;L5;L6|Sz;Adr
+```
+
+Per entry the fields are:
+
+- `Tp` — type
+- `Lv` — level
+- `St` — status
+- `F#` — file number
+- `L1`…`L6` — six level slots
+- `Sz` — size
+- `Adr` — address
+
+The header has no direct `mov.l` xref; it is reached through the pointer table
+at `0x003ec3d4`…`0x003ec414` (which holds `0x001783a0` at `0x003ec400`).
+
+This is a **runtime/firmware structure**, not an on-disk tile header: the tile
+files (`BxxRyyR.DAT`, `LEV3456R.DAT`) carry no such table, and the `0x1ac`
+per-object descriptor is unrelated (C-296 retraction). See
+`docs/research/claims.md` C-860–C-869 and
+`docs/experiments/EXP-2026-11-06-M3.5-tile-reader.md`.
+
 ## Key questions
 
 1. What is the record grammar inside a real (non-448-byte) payload?
