@@ -46,36 +46,42 @@ sizes.
 
 The UTF-16 string `DIFFERENT MAP CODE` is in `AppLaunch.dll` at physical VA
 `0x883368bc` (build B) / `0x8834089c` (build C), next to `MAP DATA BASE
-UNMATCH` and `NAVI VERSION NG`. Nearby launcher code reads
-`\SystemSD\VER_INFO\HDD_INFO.TXT`, logs `VerInf:%s / HddInf:%s` and checks
-`MapDBVer : %d <= [%d] <= %d`.
+UNMATCH` and `NAVI VERSION NG`. The AppLaunch dispatcher
+`fn 0x03bcafb8` (B) maps error code `0x50` → `DIFFERENT MAP CODE` and
+`0x51` → `MAP DATA BASE UNMATCH` (C-761).
 
-Firmware path for the two launcher checks
-(EXP-2026-11-06-M2.7, VERIFIED statically in builds B and C):
+### Deciding input (M2.5, VERIFIED static, IMG256 `92aa525d…`)
 
-- the unit side is fetched with `KernelIoControl(0x0101302C)` and is **not**
-  read from the card or from the `0x06000000` copy: B `0x03bd2ad8` / C
-  `0x03bb2858` compares an 11-byte unit record (target info `+96`) with the
-  card's `HDD_INFO` and logs `VerInf:%s / HddInf:%s`; B `0x03bd2ce4` / C
-  `0x03bb2a64` range-checks the card's map-DB value against unit target-info
-  bounds `+112`/`+114` and logs `MapDBVer : %d <= [%d] <= %d`.
-- **no market/area value is involved** in either function, and no card value
-  sets the unit side. The market area (`CApi_GetModelArea`) is a separate
-  unit-side value used for UI/launch decisions (see `firmware.md`).
+`AppLaunch.dll` B router `fn 0x03bd2ecc` (`0x03bd2ed4/0x03bd2eda–0x03bd2ee2`;
+C mirror via pools `0x03bb2c54`→`0x03bb2858`, `0x03bb2c64`→`0x03bb2a64`)
+calls `fn 0x03bd2ad8` (B; C `0x03bb2858`) and, on `r0==0`, dispatches
+`DIFFERENT MAP CODE` (code `0x50`). `fn 0x03bd2ad8` compares 11 bytes
+byte-for-byte (`0x03bd2c1e–0x03bd2c3e`):
 
-This does **not** prove the `0x06000000` copy is unused everywhere; it only
-rules it out for these two launcher checks.
+1. **Unit (NAND/system/kernel target-info):** `KernelIoControl(IOCTL 0x0101302C)`
+   output offset `+0x60` (+96), 11 bytes (`0x03bd2b2c`, `0x03bd2b36–0x03bd2b56`).
+2. **Card:** 11 bytes parsed from the card filesystem file
+   `\SystemSD\VER_INFO\HDD_INFO.TXT` (`pool 0x03bd2cc0` → `\SystemSD\VER_INFO\HDD_INFO.TXT`,
+   parsed/extracted at `0x03bd2c06–0x03bd2c1e`; consistent with line 1
+   `base_code`, C-740–C-743).
 
-Hypotheses, in order:
+On mismatch it logs `VerInf:%s / HddInf:%s` and returns 0 → `DIFFERENT MAP CODE`.
+On match it proceeds to `fn 0x03bd2ce4` (B; C `0x03bb2a64`), the MapDBVer range
+check against unit target-info bounds `+112`/`+114` (logs
+`MapDBVer : %d <= [%d] <= %d`), which on failure dispatches `MAP DATA BASE
+UNMATCH` (code `0x51`).
 
-1. **Market/family code.** `HDD_INFO` line 1 is `QSD-300-100` on JP cards,
-   `301` US, `302` EU. It is a family check, not a per-card activation.
-2. **Raw-copy comparison.** The unit may compare `HDD_INFO` against the
-   byte-identical copy at image offset `0x06000000`. **Unsupported for the two
-   launcher checks above**; remains open for other modules.
-3. **Unknown activation record.** A NAND-side record; the M2.7 evidence shows
-   the launcher's unit side is a kernel target-info record, which is the
-   candidate for this "record".
+**The deciding input for `DIFFERENT MAP CODE` is the NAND/system kernel
+target-info record (`0x0101302C` +96) compared against the card's
+`\SystemSD\VER_INFO\HDD_INFO.TXT` parsed line-1/`base_code` field. It is NOT
+the `0x06000000` raw HDD_INFO copy and NOT an HDD_INFO text record stored in
+NAND.** The `0x06000000` copy is not an input on this path (C-766,
+EXP-2026-11-06-M2.5). This extends M2.7/C-783: the `0x06000000` copy is ruled
+out for these two launcher checks; it does **not** prove `0x06000000` is unused
+everywhere.
+
+No market/area value is involved in either function (C-783). The market area
+(`CApi_GetModelArea`) is a separate unit-side UI/launch value (see `firmware.md`).
 
 A separate runtime check exists in `Navi.exe`: `fn 0x004dd028` reads both
 `\SystemSD\VER_INFO\HDD_INFO.TXT` and `\UserSD\VER_INFO\HDD_INFO.TXT`
@@ -87,12 +93,14 @@ the SystemSD value is greater than the UserSD value. It is triggered by the
 `SD Import: Sys[0x%x] SD[0x%x]` ID comparison belongs to the updater path
 (C-775), not this check.
 
-The cheapest test pair on a spare card:
+The cheapest test pair on a spare card (bench, prediction — `0x06000000` not
+implicated by this path):
 
-1. Change only `HDD_INFO` line 1 → observe `DIFFERENT MAP CODE`.
-2. Change line 1 **and** the `0x06000000` copy → observe again.
-
-That distinguishes hypotheses 1/2 without touching the unit.
+1. Change only `HDD_INFO` line 1 (`base_code`) to differ from the unit target
+   record → expect `DIFFERENT MAP CODE` (VerInf vs HddInf mismatch).
+2. Change line 1 **and** the `0x06000000` copy → if only this path triggers,
+   result should be the same as (1); any difference would indicate another
+   path using `0x06000000`.
 
 ### HDD_INFO.TXT text layout (M2.1/M2.3, VERIFIED static)
 
@@ -318,7 +326,12 @@ has none. Navi boot-path dependence is not indicated by static evidence.
 
 ## Open questions
 
-- Is `DIFFERENT MAP CODE` line 1, the `0x06000000` copy, or a NAND record?
+- `DIFFERENT MAP CODE` (AppLaunch code `0x50`, M2.5/C-766): decided by **kernel
+  target-info** `KernelIoControl(0x0101302C)` +96 (11 bytes, NAND/system) vs the
+  card's `\SystemSD\VER_INFO\HDD_INFO.TXT` parsed line-1/`base_code` (11 bytes)
+  — **not** the `0x06000000` copy, **not** an HDD_INFO text record in NAND, on
+  this path. The `0x06000000` copy remains unimplicated here but could be used
+  by other (unobserved) paths.
 - Does `MMAIN001.DAT`'s `0x1ac` table need to match the tile set exactly, or
    is it informational?
 - What is the `BICON001.DAT` data version `11/04/08/01` (vs `11/06/27/01`)?
