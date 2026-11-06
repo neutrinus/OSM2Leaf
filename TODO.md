@@ -1976,7 +1976,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     all 245 sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
   - Claims: C-1600–C-1609
 - [ ] **M8.E1b — Re-derive nk.exe ROM decompressor VA/prototype (M1.2c reverify)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m8.e1b-nk-decompressor-derive · Critical: yes
   - Depends: — (has IMG256; M1.2d framing known)
   - Goal: locate the real compressed-section loader/decompressor in nk.exe
     image B (IMG256, `--image-start 0x3e00200`) from actual bytes; correct
