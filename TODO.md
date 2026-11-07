@@ -107,6 +107,10 @@ front has fewer, add the next tasks (see rule 9).
       report `blocked` instead of trying a fourth angle.
     The negative is still a result and must say which range it covered — but
     the board's job is to not ask for it twice.
+    **Correction (2026-11-07):** compressed sections in build A are all data
+    (C-2128); a reader search is never blocked by compression. The precheck
+    counts executable bytes (`point_walk_l3.py sections`); the real failure in
+    M3.11 pass 1 was the search pattern (byte immediates), not the scope.
 
 15. **A merge re-opens what it unblocks (PM, 2026-11-06, seventh pass).** A
     `blocked` task is not a dead task: it is a ticket waiting for one thing.
@@ -188,6 +192,20 @@ in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
 ## Priorities (product review 2026-11-06, sixth pass)
+
+> **Correction (2026-11-07, M3.11 pass 2 — read this before the headline
+> below).** "Navi.exe is 75 % compressed" is true of its **bytes**, not of its
+> **code**: build A has **0 compressed executable sections** (149 code
+> sections, all readable; the 245 compressed ones are `.data`/resources —
+> C-2128, re-measure with `python3 tools/point_walk_l3.py sections IMG256`).
+> The `POINT` walker is `fn 0x003f5194` in sec0 and already runs on the real
+> US page (C-2540/C-2541). So **M1.2f is not a gate for reader searches**
+> (it still matters for M1.3/M1.4 and for reading `.data` tables), M9.10 is
+> open again, and M3.2b/M3.13 should be re-run with two changes: search for
+> mask constants instead of byte immediates (`0x3ff`/`0xfc00` found the
+> walker), and read "no static caller" as an indirect call through a pointer
+> in `.data`, not as hidden code. Rule 14's precheck must count **executable**
+> compressed bytes, not all compressed bytes.
 
 Earlier passes are frozen in
 [`docs/research/todo-history-2026-11-06.md`](docs/research/todo-history-2026-11-06.md).
@@ -1425,27 +1443,102 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2060–C-2069
 
 - [ ] **M3.11 — The `POINT` record reader in `Navi.exe`**
-  - Status: blocked · Owner: task/m3.11-point-reader · Critical: yes
-  - Depends: M1.2f (blocked) or a dynamic break
-  - Unblock: M1.2f, then re-run the tag/stride search in `Navi.exe` sec1; or a
-    dynamic break on the `0x14e8` POINT read path.
-  - Blocker: record-walk/name-copy functions (tag `0x60|0x68`, `len2`, stride `2*len2`) **not found** in any uncompressed build-A o32 section (527 searched; 0 aligned tag pairs, 0 mask walkers, 0 stride sequences; 49 tag sites + `fn 0x003715a0` rejected with controls). Navi.exe sec1 is `IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, M1.3 0/245, M1.2f/M8.E1 open) — walker likely in sec1. VAs/args/output remain UNKNOWN. Access-path anchors confirmed (`0x003fbed8`/`0x0040b358`/`0x004125a8` `0x14e8`→`REFER001`+`INDEX003.DAT`). Decode sec1 (M1.2f/M8.E1) or dynamic trace to unblock M9.10.
+  - Status: open (walk done, name open → M3.11b/M3.11c) · Owner: — · Critical: yes
+  - Depends: — (**not** M1.2f: no compressed section of build A is code, C-2128)
   - Goal: the function that walks a decoded `POINT0xx` page (`tag,len2`
     records, `0x60`/`0x68`, record size `2*len2`) and copies a POI name out.
     It is the first target of the software check of the US rename (M9.10)
     and of every later POI edit.
-  - Input: the 8-char volume id table at `0x00179338` (`POINT0`, C-881), the
-    file-name builder `0x003fbed8`, the volume lookup `0x0040b358` and the
-    descriptor switch at `0x004125a8` (C-880: `0x14e8` → `REFER001` +
-    `INDEX003.DAT`); `docs/format/refer.md` (record framing, C-952/C-953);
-    `sh4xref.py`, `cerom.py` on `IMG256`.
-  - Done when: `firmware.md` names the record-walk function and the
-    name-copy function with VAs, arguments (buffer, length, index or offset)
-    and output (where the name lands), each tied to the record framing in
-    `refer.md`; or the EXP lists every candidate examined with a positive
-    control and the exact blocker.
-  - Result: blocked with evidence — `EXP-2026-11-06-M3.11-point-reader.md`, C-2120–C-2127 (C-2128–C-2129 reserved); `docs/format/firmware.md` M3.11 anchors+blocker. No walker/name-copy VA found in uncompressed code; sec1 compressed.
-  - Claims: C-2120–C-2129
+  - Result, pass 1 (2026-11-06): `EXP-2026-11-06-M3.11-point-reader.md`,
+    C-2120–C-2127 — access path `0x003fbed8` → `0x0040b358` → `0x004125a8`
+    (`0x14e8` → `REFER001`+`INDEX003.DAT`); no `#0x60/#0x68` tag test and no
+    `@(1,Rm)` length read anywhere (still true). Its blocker "walker in
+    compressed sec1" is **refuted** (C-2129): sec1 is `.data` (`0xc8002040`).
+  - Result, pass 2 (2026-11-07): `EXP-2026-11-07-M3.11-point-reader-2.md`,
+    C-2128, C-2129, C-2540–C-2546, tool `tools/point_walk_l3.py`.
+    **Walker = `fn 0x003f5194(r4=page, r5=n)` → pointer to record n or 0.**
+    The header is one big-endian u16: `type = w>>10` (`0x60`→`0x18`,
+    `0x68`→`0x1a`), `len = w & 0x3ff` words, `0xfc00` escape = `0x4e8` words,
+    `len 0` ends. Run from the ROM bytes in PySh4 (LE) on the real US
+    `POINT010` page `0x840ba0` it returns the `parse_page` offsets (9/9
+    sampled n, incl. the end); the unswapped page fails (negative control).
+  - Hints for the next agent (what is known, what to skip):
+    - **Do not** search for `cmp/eq #0x60`, `#0x68`, `and #0xf7`,
+      `mov.b @(1,Rm)`: the firmware never tests the tag byte. Search for the
+      masks `0x03ff`/`0xfc00` (`point_walk_l3.py consts`: 35 + 13 loads,
+      cluster `0x3f39d6–0x3f8d54`, the `HDLMAP_*` layer).
+    - **Do not** wait for M1.2f: `point_walk_l3.py sections` → 0 compressed
+      executable sections. "No caller found" = indirect call through a
+      pointer in `.data` (sec1), not hidden code.
+    - Page API: dispatcher `0x003f5cdc` (buffer table `0x00d53500`), skip-n
+      `0x003f39c0`, globals page base `0x00d5e4e4` / count `0x00d5e4d0`
+      (getter `0x003f3314`), escape test `0x003f8a0c`, body `rec+4`
+      (`0x003f5c40`), 8-byte trailer (`0x003f5c90`).
+    - Name side: start from the debug dump `fn 0x003a03b4` (strings
+      `" pPoiStr     : %s"` `0x3ceac`, `" nPoiLen     : %d"` `0x3cec0`) →
+      `sdl_poi_get_data_recorde` `fn 0x003cd910(db, rec, out)` → name accessor
+      `fn 0x003d1150(ctx, rec, &ptr)` (`len = rec[14]`, `ptr = rec+21`; else
+      `0x003d09a0` splits on the byte at `*0x005628e8`), copy `0x003d1188`.
+      The offsets do not match POINT record 0 (name at `+0x5e`) — M3.11c.
+    - Debug strings are rich (`[SDL]…`, `sdl_poi_*`, `HDLMAP_*`, 27,996
+      printable runs in sec0): `sh4xref --to <string-1>` when a string has no
+      pool hit (the pool often points one byte earlier, at a `\n`).
+    - `PySh4` is big-endian (C-2546): reuse `point_walk_l3.le_engine()` until
+      M9.21 lands.
+  - Done when (whole task): `firmware.md` names the record-walk function
+    (done) and the name-copy function with VAs, arguments and output, each
+    tied to the record framing in `refer.md`.
+  - Claims: C-2120–C-2129, C-2540–C-2549
+
+- [ ] **M3.11b — Where the `POINT` page becomes native u16**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M9.11 helps: its run shows the bytes the chunk decoder hands back)
+  - Goal: `0x3f5194` reads `mov.w @page` and only walks a 16-bit-swapped
+    page (C-2541). Find the code that swaps the inflated page (or copies the
+    record) before the walker, so M9.10 feeds the firmware what the unit
+    feeds it, not our guess.
+  - Precheck: `python3 tools/point_walk_l3.py walk IMG256 --cmp … --ind …
+    --page 0x840ba0 --page-len 42848` passes (needs the US pair, EXP
+    M3.11-2 "Method" shows the range fetch).
+  - Scope: Navi.exe sec0 only (all code). Already excluded: a
+    `mov.w`/`swap.b`/`mov.w` loop with a back-branch (0 of 4,884 `swap.b`).
+  - Input: try in order — (1) writers of `*0x00d5e4e4` / `0x00d53500` slots
+    (`sh4xref --to 0x00d5e4e4`: `0x3f3314`, `0x3f39b4`, `0x3f3a00`,
+    `0x3f40c2`, `0x411df4`); (2) byte-pair swaps written as
+    `mov.b`+`shll8`+`or`, or 32-bit `swap.b; swap.w; swap.b`; (3) the tail of
+    `0x41c7e8` / `0x542148` (M3.2b); (4) dynamic: run M9.11's chunk decoder,
+    then watch the buffer.
+  - Done when: VA + loop of the swap (or proof that the walker gets a copy),
+    with the factory page swapped by the firmware code itself in PySh4 and
+    byte-equal to `point_walk_l3.swap16`.
+  - Stop: after (1)–(3) without a hit, write the EXP and let M9.11's dynamic
+    run answer it.
+  - Claims: C-2547 (and the rest of C-2540–C-2549 as needed)
+
+- [ ] **M3.11c — The name accessor for a `POINT` record**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M3.11b only for the final L3 run)
+  - Goal: the function that turns a `POINT` record (record 0 of US page
+    `0x840ba0`: `60 40 8f 9c …`, name `HANA HEALTH CENTER4590@HANA HWY` at
+    `+0x5e`) into the name string the UI shows — VA, args, output.
+  - Precheck: `sh4xref --to 0x3ceac` hits `fn 0x003a03b4` (the dump).
+  - Scope: Navi.exe sec0, functions reachable from `0x003cd910`,
+    `0x003d1150`, `0x003d1188`, `0x003cc93c`, `0x003f5c40`, `0x003f6220`, and
+    the other `0x3ff` sites in `0x3f5900–0x3f9400`.
+  - Input: C-2544 (SDL chain), C-2545 (offset mismatch). Leads: (1) is
+    `rec+4+14` / `rec+4+21` in the **swapped** record the name length/text?
+    In native order record 0's bytes pair-swap; check `rec[18]`/`rec+25`
+    after `swap16`. (2) The body has sub-records (`02 40 03 02`, `09 54 …`,
+    `28 ff …`): maybe `0x3cc93c` walks them with the same u16 header — try
+    `0x3f5194` on `rec+4`. (3) `refer.md`'s per-file field dictionary
+    ("facility name 111" bits): look for a bit-field reader taking a bit
+    offset. (4) Run `0x003d1150` in PySh4 on record 0 (raw and swapped) and
+    print what `*ptr` points at.
+  - Done when: PySh4 run of the accessor on record 0 returns
+    `HANA HEALTH CENTER` (length + pointer or copied buffer), and on the
+    M5.12 renamed page `OSM2LEAF TEST POI1`; `firmware.md` records VA/args.
+  - Stop: if the accessor needs `bt/s`/`bf/s`, do M9.21 first.
+  - Claims: C-2548–C-2549 (then take a new block)
 
 - [x] **M3.12 — `INDEX003.DAT`: is it the POI name search index?**
   - Status: done · Owner: task/m3.12-index003-poi-search · Critical: yes
@@ -2711,14 +2804,14 @@ parts are covered by `tools/l3_harness/selftest.py`.
   and the seven-step reader procedure (EXP-2026-11-06-M9.9-l3-docs).
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
-  - Status: blocked · Owner: — · Critical: yes
-  - Unblock: M3.11's re-run (i.e. M1.2f), or a dynamic break on the POINT read
-    path once hardware exists.
-  - Blocker: the `POINT` page walker is in no uncompressed build-A section
-    (M3.11) and probably lives in `Navi.exe` sec1 (`IMAGE_SCN_COMPRESSED`,
-    vsize `0xff16ae`); unblock = M1.2f, then the M3.11 re-run. M9.11 does not
-    wait for it.
-  - Depends: M3.11 (blocked), M9.5
+  - Status: open (walk part runnable; name part waits for M3.11c) · Owner: — · Critical: yes
+  - Note (2026-11-07): the old blocker ("walker in compressed sec1") was wrong
+    (C-2128/C-2129). The walker `0x003f5194` already runs on the factory page
+    via `tools/point_walk_l3.py walk` (C-2541). Port that into a
+    `poi_record_walk` target now; add the name check when M3.11c names the
+    accessor. Feed the page in the byte order M3.11b finds (until then:
+    `swap16`, stated as an assumption).
+  - Depends: M3.11c (name), M3.11b (byte order), M9.5, M9.21 (LE engine)
   - Goal: before any card goes into the car, run `Navi.exe`'s own `POINT`
     reader on the decoded factory page and on the renamed page, and read
     the name it returns. Pages are fed already decompressed (the `.cmp`
@@ -2848,6 +2941,24 @@ parts are covered by `tools/l3_harness/selftest.py`.
     code, and the L3 selftest covers all three.
   - Claims: C-2500–C-2509
 
+
+- [ ] **M9.21 — `PySh4`: little-endian mode and `bt/s`/`bf/s`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: the L3 interpreter can run `Navi.exe` code as it is in the ROM.
+    Today `PySh4` fetches, loads and stores big-endian and rejects
+    `bt/s`/`bf/s` (C-2546); `Navi.exe` is little-endian and uses `bf/s` in
+    the POINT path (`0x3f39c0`, `0x3cd910`).
+  - Precheck: `python3 tools/point_walk_l3.py walk …` passes with its local
+    LE subclass (EXP-2026-11-07-M3.11-point-reader-2).
+  - Input: `tools/l3_harness/engine.py` (`_load`/`_store`/`_fetch`,
+    `cmp/str`, the `bt/s`/`bf/s` refusal), SH-4 manual for the delay-slot
+    rule; `point_walk_l3.le_engine()` as the reference.
+  - Done when: `PySh4(endian="little")` (default unchanged for the existing
+    self-tests), `bt/s`/`bf/s` modelled with a self-test vector each,
+    `point_walk_l3.py` uses it instead of its subclass, and `0x3f39c0` runs
+    on the US page with the globals `0x00d5e4e4`/`0x00d5e4d0` set.
+  - Claims: C-2550–C-2559
 ---
 
 ## Retired leads
