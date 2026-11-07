@@ -527,7 +527,7 @@ M4.16b → M4.2/M5.3.
   - Claims: none (a review creates no format claim)
 
 - [ ] **H13 — Doc debt: `tools/README.md` rows for `imgpatch`/`qemu-ze0`; refresh `roadmap.md`**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/project-thread-9ynrai · Critical: no
   - Depends: —
   - Goal: a new agent must find every tool in `tools/README.md`, and
     `roadmap.md` must stop calling full-system QEMU out of scope while M8 is an
