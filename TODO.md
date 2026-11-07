@@ -924,8 +924,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     EXP-2026-11-06-M1.9-cross-image-imports.md; claims C-1760–C-1769.
   - Claims: C-1760–C-1769
 
-- [ ] **M1.10 — Name the last 149 `Navi.exe` import slots**
-  - Status: open · Owner: — · Critical: no
+- [x] **M1.10 — Name the last 149 `Navi.exe` import slots**
+  - Status: done · Owner: claude/m1.10-import-names · Critical: no
   - Depends: — (M1.9 done)
   - Goal: 149 of 846 slots stay `#NNN` because the exporter is not in build B
     (`XGLDLL`, `OSMDLL`). Unnamed slots weaken every Ghidra and L3 label.
@@ -937,6 +937,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     exporter in any image" with the search that showed it (positive control: a
     slot that already resolves); coverage is reported and the remaining names
     are in the EXP.
+  - Result: `Navi.exe` 846/846 named once images A, B and C are all resolvers;
+    the 149 gaps were `XGLDLL` (108) and `OSMDLL` (41), exporters in image A
+    (EXP-2026-11-07-M1.10-import-names). Call-site check moved to M9 (C-2476).
   - Claims: C-2470–C-2479
 
 - [ ] **M1.11 — SH-4 decoder in `tools/`, with the LE convention pinned**

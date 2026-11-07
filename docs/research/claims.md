@@ -1018,6 +1018,18 @@ Built without vendor data; every row states what is synthetic-only.
 | C-1948 | Which CMD42 flags the SD driver sends for IOCTL `0x80032014` (LOCK only, or SET_PWD+LOCK on a card without a password) is UNKNOWN; it is in `SDHC.dll` (C-792), not in LeafSDTools. | UNKNOWN — resolved by C-1951 (`0x80032014` = SET_PWD only) | — | EXP-2026-11-06-M6.11-2-leafsdtools |
 | C-1944 | Whether real cards and the unit accept a card locked by the Pico tool is UNKNOWN until M6.9 (procedure §7.1) and M6.5. | UNKNOWN | — | `docs/hardware/sd-blocker-pico.md` §10 |
 
+## M1.10 — Navi.exe import slot names (C-2470–C-2479)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2470 | With images A, B and C as resolvers, all 846 `Navi.exe` import slots are named; none is left as "no exporter in any image". | VERIFIED | H | `cerom.py imports Navi.exe --resolve-with 0x200200 --resolve-with 0x3e00200 --resolve-with 0x5200200`; EXP-2026-11-07-M1.10-import-names |
+| C-2471 | The 149 previously unnamed slots are ordinal imports from `XGLDLL.dll` (108) and `OSMDLL.dll` (41), whose exporters are modules of image A (`0x200200`), not B. | VERIFIED | H | `cerom.py` module census; EXP-2026-11-07-M1.10-import-names |
+| C-2472 | Neither image B nor image C contains `XGLDLL.dll` or `OSMDLL.dll`. | VERIFIED | H | module census of `0x3e00200` (91 modules) and `0x5200200` (88); EXP-2026-11-07-M1.10-import-names |
+| C-2473 | Adding image A to the resolver leaves the 697 name-resolved slots unchanged (0 changed, 0 duplicate slot addresses): positive control for the resolver scope. | VERIFIED | H | slot-by-slot diff; EXP-2026-11-07-M1.10-import-names |
+| C-2474 | The `XGLDLL` export names are graphics-library calls (`xgl*`) as they appear in the export directory. | OBSERVED | M | `cerom.py exports XGLDLL.dll`; EXP-2026-11-07-M1.10-import-names |
+| C-2475 | The `OSMDLL` export names are the OSM runtime API (`OSM_*`, `taskLib*`) as they appear in the export directory. | OBSERVED | M | `cerom.py exports OSMDLL.dll`; EXP-2026-11-07-M1.10-import-names |
+| C-2476 | The ordinal-to-name mapping of `XGLDLL` and `OSMDLL` is correct: 218/219 and 110/110 exports land in executable sections (the exception is data export `g_hWnd`, not imported by `Navi.exe`); no call-site check yet. | HYPOTHESIS | M | `cerom.py sections`/`exports`; M9 follow-up |
+
 ## Claim ledger (H1)
 
 | ID | Claim | Status | Confidence | Evidence |
