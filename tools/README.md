@@ -783,6 +783,48 @@ python3 tools/ce_qemu_probe.py IMAGE --kernel 0x5200200                # image C
 Expected with the patch (EU 2011): 50 distinct register accesses, one
 `0x180 illegal_instruction` at `pc=0x00005b90`, final PC `0x8803d266`.
 
+## `imgpatch.py` — patch one file inside a card image in place
+
+Writes one file's new bytes into its **existing** clusters of a card image,
+without a FAT rebuild, so a byte diff against the input shows only that file's
+clusters, its 32-byte directory entry and, on a resize, the FAT/FSInfo entries.
+Refuses size changes unless `--allow-resize`; refuses to overwrite the source
+image (`-o` must differ). `--dry-run` writes nothing; `--verify` checks an
+image against the new bytes. Exit codes: 0 ok, 1 verify mismatch, 2 usage,
+3 refused by a guard.
+
+```bash
+python3 tools/imgpatch.py --image IMG --file REFER001/POINT010.DAT.cmp \
+    --from POINT010.DAT.cmp -o OUT.img
+python3 tools/imgpatch.py --verify --image OUT.img \
+    --file REFER001/POINT010.DAT.cmp --from POINT010.DAT.cmp
+python3 tools/imgpatch.py --selftest      # synthetic image, 46 checks
+```
+
+Use it instead of `mkcard.py` when a test must change only the file under test
+(M5.13b, M6.5–M6.7). Background: the docstring in `imgpatch.py`.
+
+## `qemu-ze0/` — pinned QEMU for the `ze0` SH-4 machine
+
+Out-of-tree home of the M8 emulator work. No QEMU source is vendored: the
+directory holds `build.sh` (fetches the pinned QEMU 8.2.7 tarball, checks its
+SHA-256, applies `patches/*.patch`, builds the SH-4 target only and checks that
+`qemu-system-sh4 -M help` lists `ze0`), `run.sh` (boots the CE images in a
+work directory) and `gdb-ze0.py`. The pin and its SHA-256 are in
+[`qemu-ze0/README.md`](qemu-ze0/README.md). Source and build trees go under
+`--srcdir` (default `~/.cache/qemu-ze0`), outside the repository.
+
+```bash
+tools/qemu-ze0/build.sh --dry-run    # print every command; write nothing
+tools/qemu-ze0/build.sh              # fetch, verify, patch, build, check `ze0`
+tools/qemu-ze0/run.sh --help         # boot orchestrator (stage F0, M8.A7)
+```
+
+Status: `ze0` machine not yet written (M8.A2); until it exists `run.sh` falls
+back to stock `-M none -cpu sh7785`. Stages F0–F5 and their gates are in
+[`docs/research/full-system-emulation.md`](../docs/research/full-system-emulation.md)
+and TODO M8.
+
 ## Conventions
 
 - Read-only. Scripts that write require an explicit output path.

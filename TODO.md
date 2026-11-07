@@ -526,8 +526,8 @@ M4.16b → M4.2/M5.3.
     M5.1c, M5.20, M9.20, H13 and H14; the M5.8/M4.8c field mix-up is repaired.
   - Claims: none (a review creates no format claim)
 
-- [ ] **H13 — Doc debt: `tools/README.md` rows for `imgpatch`/`qemu-ze0`; refresh `roadmap.md`**
-  - Status: in progress · Owner: claude/project-thread-9ynrai · Critical: no
+- [x] **H13 — Doc debt: `tools/README.md` rows for `imgpatch`/`qemu-ze0`; refresh `roadmap.md`**
+  - Status: done · Owner: claude/project-thread-9ynrai · Critical: no
   - Depends: —
   - Goal: a new agent must find every tool in `tools/README.md`, and
     `roadmap.md` must stop calling full-system QEMU out of scope while M8 is an
@@ -540,6 +540,10 @@ M4.16b → M4.2/M5.3.
     `roadmap.md` names the current stage model (M1–M9 plus H11) instead of the
     retired gate text, and no row of it contradicts `TODO.md` or
     `reader-coverage.md`.
+  - Result: `tools/README.md` has `imgpatch.py` and `qemu-ze0/` rows (their
+    `--selftest` / `--help` pass); `roadmap.md` has a current stage model
+    (M1–M9, H11, M8 F0–F5) and marks the 2026-11-05 gates as history
+    (`selftest.py`: passed=29 failed=0 skipped=20; `claims_check.py`: OK).
   - Claims: none
 
 - [ ] **H14 — Verification debt: the checks the EXPs promised but never ran**
