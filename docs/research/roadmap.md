@@ -1,14 +1,38 @@
 # Roadmap and confidence gates
 
-> **Last updated:** 2026-11-06 (fifth PM pass, `EXP-2026-11-06-H12`). The live
-> board is [`TODO.md`](../../TODO.md) and the per-file status is
+> **Last updated:** 2026-11-07 (H13). The live board is
+> [`TODO.md`](../../TODO.md) and the per-file status is
 > [`reader-coverage.md`](reader-coverage.md); where this page and those two
-> disagree, they win. Current position: the firmware path is static through the
-> recovered CE ROM TOC (`C-088`–`C-094`, `EXP-2026-11-05-33`/`-34`), gates 2
-> and 3 pass for all five target tiles, and the open work is the reader/L3
-> layer (M3/M9) plus the writers H11 counts as missing (M5.16–M5.19, M4.21).
+> disagree, they win. The gate list below is the 2026-11-05 history, kept for
+> its evidence. The current stage model is in "Current stage model" below.
+> Position: the firmware path is static through the recovered CE ROM TOC
+> (`C-088`–`C-094`), gates 2 and 3 pass for all five target tiles, and the
+> open work is spread across the workstreams M1–M9 plus the H11 coverage
+> matrix.
 
-**Decision:** firmware RE is prioritized. The reader code tells us how the
+## Current stage model (2026-11-07)
+
+Work is organised as workstreams in `TODO.md`, not as a single gate ladder.
+Each one has its own open tasks and claims:
+
+| Workstream | Subject | Where it stands |
+| --- | --- | --- |
+| M1 | Firmware tooling (`cerom.py`, `.cmp` / XPRESS, `nk.exe` codec) | TOC, compressed header (M1.2a) and XPRESS (M1.2b) done; M1.2c–f open |
+| M2 | Map code, activation, updater, SD lock | SD password firmware path verified (M2.13, M2.13b) |
+| M3 | Reader contract (`.ind`, `POINT`, `ADDRE`, `RDSTM`, `LCTBL`) | `DRSTR` parser (M3.4) and tile reader (M3.5) done; the other readers open |
+| M4 | Data formats (no firmware or hardware) | `ADDRE` grammar (M4.9) and `LCTBL` framing (M4.18) done; `RDSTM` link attributes (M4.2) need a non-Claude runner |
+| M5 | OSM compiler vertical slice (Dolnośląskie) | ingest done on synthetic data; real extract M5.1b open |
+| M6 | Hardware and safety | planning; the bench needs hardware (M6.9–M6.11) |
+| M7 | Scale and release | later |
+| M8 | Full-system emulation (`ze0` QEMU) | stages F0 → F5, see below; M8.A2 is the blocker for F0 |
+| M9 | L3 toolkit (firmware functions on our data) | engine (M9.4) and corpus (M9.7) done; first real target open |
+| H11 | Reader-coverage matrix: one row per file type we generate | done (H11) |
+
+M8 stages (`docs/research/full-system-emulation.md`): **F0** boot log →
+**F1** stable kernel → **F2** drivers → **F3** SD mounted → **F4** `Navi.exe`
+headless → **F5** screen. Each stage ends with an EXP.
+
+**Decision (2026-11-05, still in force):** firmware RE is prioritized. The reader code tells us how the
 format is consumed, which is more valuable for the compiler than guessing from
 bytes alone. The route is now: wrapper container → CE ROM TOC
 (`tools/cerom.py`) → readers → L3 oracle (M9). Global-VA/module-base guessing
@@ -26,7 +50,7 @@ Principle: **two independent sources must agree** before we trust a format.
 
 Only after those gates do we build the OSM compiler.
 
-## Gate 0 — format model converged
+## Gate 0 — format model converged (history, 2026-11-05)
 
 For each format area, we need either:
 
