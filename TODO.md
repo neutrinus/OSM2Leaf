@@ -925,7 +925,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1760–C-1769
 
 - [ ] **M1.10 — Name the last 149 `Navi.exe` import slots**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m1.10-import-names · Critical: no
   - Depends: — (M1.9 done)
   - Goal: 149 of 846 slots stay `#NNN` because the exporter is not in build B
     (`XGLDLL`, `OSMDLL`). Unnamed slots weaken every Ghidra and L3 label.
