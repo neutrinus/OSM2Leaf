@@ -248,6 +248,26 @@ is a single-record consumer, not the walker. **Blocker:** Navi.exe sec1 is
 walker/name-copy (VAs/args/output) remain **UNKNOWN** — likely in sec1; decode
 sec1 or trace dynamically to answer M9.10.
 
+**M3.11 pass 2 (EXP-2026-11-07, C-2128, C-2129, C-2540–C-2546):** the
+"likely in sec1" above is refuted — sec1 is `.data` (`0xc8002040`), and build A
+has no compressed executable section. **POINT page walker:
+`fn 0x003f5194(r4 = page, r5 = n)` → pointer to record n, or 0.** Header =
+one native u16 `w` (file bytes `tag,len2` big-endian): `len = w & 0x3ff`
+words, `(w & 0xfc00) == 0xfc00` → escape of `0x4e8` words, `len 0` → end,
+at most 20000 records, advance `2*len`. Dispatcher `fn 0x003f5cdc` (buffer
+table `0x00d53500`; also `0x3f5b88`), skip-n `fn 0x003f39c0` (globals page
+base `0x00d5e4e4`, count `0x00d5e4d0`; getter `fn 0x003f3314`), escape test
+`fn 0x003f8a0c`, body `rec+4` `fn 0x003f5c40`, 8-byte trailer
+`fn 0x003f5c90`. Executed in PySh4 (LE) on the US `POINT010` page `0x840ba0`
+(swapped to native u16) it returns `parse_page`'s offsets; the unswapped page
+does not (`tools/point_walk_l3.py walk`). Name side (OBSERVED, not yet tied to
+POINT bytes): debug dump `fn 0x003a03b4` → `sdl_poi_get_data_recorde`
+`fn 0x003cd910(db, rec, out)` (`out+12` u16 length, `out+16` name pointer) →
+`fn 0x003d1150(ctx, rec, &ptr)` (`len = rec[14]`, `ptr = rec+21`; else
+`fn 0x003d09a0` splits on the byte at `*0x005628e8`), copy `fn 0x003d1188`.
+Open: M3.11b (where the page is swapped), M3.11c (name accessor for a POINT
+record).
+
 **M3.13 (EXP-2026-11-06, C-2180–C-2183, blocked):** `ADDRE`/`REFER001` access
 path confirmed as the same REFER001 family mechanism (Navi.exe sec0, A):
 `fn 0x004125a8` maps type `0x14e8` → `REFER001`+`INDEX003.DAT` (C-880);

@@ -156,6 +156,11 @@ python3 tools/mutate_refer_poi.py POINT032.DAT.cmp POINT032.DAT.ind /tmp/mut \
 python3 tools/mutate_refer_poi.py POINT032.DAT.cmp POINT032.DAT.ind /tmp/mut \
     --page 0x4200 --resize --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE POI"
 
+# Run Navi.exe's own POINT record walker (fn 0x003f5194) on a real page (M3.11)
+python3 tools/point_walk_l3.py sections head256.img        # 0 compressed code sections
+python3 tools/point_walk_l3.py walk head256.img --cmp POINT010.DAT.cmp \
+    --ind POINT010.DAT.ind --page 0x840ba0 --page-len 42848
+
 # Offline acceptance check
 python3 tools/validate_mutation.py REFER001 /tmp/mut POINT032.DAT \
     --page 0x4200 --drstr DRSTR001.DAT --inner-page 0x4200
