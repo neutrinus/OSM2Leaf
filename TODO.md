@@ -2866,7 +2866,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-1670–C-1679
 
 - [ ] **M9.6 — First real target: the map-code compare**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m9.6-mapcode-compare · Critical: yes
   - Depends: — (M9.5, M2.5 done; M2.15 helps)
   - Goal: run the real `AppLaunch.dll` compare (B `fn 0x03bd2ad8`, M2.5) on
     our `HDD_INFO.TXT` inputs, which unblocks M2.4. (Re-scoped 2026-11-06:
