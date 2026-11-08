@@ -2788,7 +2788,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     vendor-root L1 pass not re-run locally (no extracted root available).
 
 - [ ] **M5.7 — Street names into the name sections**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m5.7-street-names-sections · Critical: no
   - Depends: M4.7, M5.4
   - Claims: C-1090–C-1099
 
