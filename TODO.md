@@ -1284,8 +1284,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     difference is explained (encoder version vs logic bug).
   - Claims: C-2730–C-2739
 
-- [ ] **M1.17 — Verify factory zlib params across non-POINT generated file types**
-  - Status: open · Owner: — · Critical: no
+- [x] **M1.17 — Verify factory zlib params across non-POINT generated file types**
+  - Status: done · Owner: task/m1.17-zlib-params-nonpoint · Critical: no
   - Depends: M1.13
   - Goal: M1.13 reproduced 471/471 factory inner pages of `REFER001/POINT001–009`
     with stock zlib L6/memLevel 8. The compiler also writes/repacks `ADDRE*`,
@@ -1308,6 +1308,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: after one representative pair per family (more only when the first
     disagrees); do not brute-force every pair in the image.
   - Claims: C-2740–C-2749
+  - Result: EXP-2026-11-08-M1.17-zlib-params-nonpoint. EU 2011 representative
+    samples (stock zlib 1.3.2, H9 context): L6/m8/default/wbits15 sufficient for
+    all losslessly-recovered streams across ADDRE/ZCODE/ICODE/COORD/INTER/FRWAY
+    outer+inner, LCTBL001 embedded, MAPAL001 tile embedded, and LEV3456R L5
+    strict + L3/L4 model-plain-matching decoded (21571 streams/pages reproduced,
+    0 mismatches where plain recovered). LEV3456R L3/L4 model gaps/opaque
+    records left as zlib-untested follow-up. (Recovered/re-merged after
+    coordinator merge error.)
 
 ---
 

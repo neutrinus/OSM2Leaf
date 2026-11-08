@@ -1834,6 +1834,21 @@ EXP-2026-11-08-M4.23-restriction-encoding.
 | C-2578 | The outer 64 KiB `.cmp` chunk streams (the `.ind` layer) of POINT001–009 were not tested, so whether they are also L6/memLevel 8 is open. | UNKNOWN | L | EXP-2026-11-08-M1.13-factory-encoder, Method step 4 (scope) |
 | C-2579 | Cause hypothesis for the five M5.12c records whose edited stream overflows its slot: the edited content grew, not the factory encoder being smaller (factory bytes are L6/memLevel 8, and stock L6 reproduces them). Untested: the edited pages are not in this corpus. | HYPOTHESIS | L | EXP-2026-11-08-M1.13-factory-encoder, Interpretation |
 
+## M1.17 — Factory zlib params across non-POINT families (C-2740–C-2749)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2740 | On EU 2011 representative factory samples (stock zlib 1.3.2, Python 3.13.17; H9 stock context; release-indistinguishable with 1.1.3–1.3.2 per C-2571), the outer `.cmp` chunk streams of sampled REFER001 families reproduce byte-for-byte with stock zlib level 6, memLevel 8, default strategy, wbits 15: ADDRE001 2/2, ZCODE001 1/1, ICODE001 1700/1700, COORD001 1/1, INTER001 1/1, FRWAY002 2/2 (EU has no FRWAY001; FRWAY002 sampled). No sampled family required different params. | VERIFIED | H | EXP-2026-11-08-M1.17-zlib-params-nonpoint; `factory_zlib.py`/task checks on EU2011 samples |
+| C-2741 | Inner 0x100-aligned REFER001 pages of sampled families reproduce with stock L6/m8/default/wbits15 where present: ADDRE001 1/1 (grid survivors L6m7s0,L6m8s0; L6/m8 sufficient), INTER001 2/2 (grid only L6m8s0), FRWAY002 2/2 (grid only L6m8s0); ZCODE001/ICODE001/COORD001 had 0 inner pages found in sampled files. | VERIFIED | M | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
+| C-2742 | Embedded zlib streams (eos scan) in sampled plain `.DAT` families reproduce 517/517 for `RDSTM001/LCTBL001.DAT` and 7937/7937 for `MAPAL001/B28R070R.DAT` with stock L6/m8/default/wbits15 (0 mismatches). | VERIFIED | H | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
+| C-2743 | `LEV3456R.DAT` section-1 level-5 strict streams reproduce 62/62 (EU) and 181/181 (US) with stock L6/m8/default/wbits15 (`lev3456.py verify` OK on EU+US samples). | VERIFIED | H | EXP-2026-11-08-M1.17-zlib-params-nonpoint; `lev3456.py verify` |
+| C-2744 | For LEV3456R section-1 L3/L4, of decoded records whose plain round-trips the `lev3456` model, recompressed streams match: EU L3 10363/10363, L4 980/980; US L3 26043/26043, L4 2341/2341. Records with model plain-round-trip gaps or opaque/model-skipped status were **not zlib-tested** (model gap, not param failure). | VERIFIED (scoped) | M | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
+| C-2745 | Across losslessly-recovered sampled streams/pages in M1.17 (1707 outer REFER001 + 5 inner + 517 LCTBL + 7937 tile + 11405 LEV3456R model-matching decoded incl. 243 strict L5 = 21571), 0 mismatches were found where plain was recovered; stock zlib L6/m8/default/wbits15 is sufficient for these families. | VERIFIED | H | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
+| C-2746 | LEV3456R L3/L4 `lev3456` model plain-round-trip gaps and opaque records leave zlib params untested for those specific records; future L3/L4 writer work should close model gaps or keep such records verbatim. | OBSERVED (follow-up) | M | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
+| C-2747 | Scope limited to one representative per sampled family on EU 2011 (plus LEV3456R EU+US noted); EU 2014/2016, other shards, and LEV3456R section 2 not tested. No sampled family disagreed. | OBSERVED | M | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
+| C-2748 | RESERVED (M1.17). | — | — | — |
+| C-2749 | RESERVED (M1.17). | — | — | — |
+
 ## M9.14 — L3 run of the M3.10 DRSTR reader, reopened (C-2240–C-2249)
 
 | ID | Claim | Status | Confidence | Evidence |
