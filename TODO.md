@@ -653,7 +653,7 @@ M4.16b → M4.2/M5.3 · M4.23 → M4.3.
   - Claims: none (a review creates no format claim)
 
 - [ ] **M1.12 — `tools/reader_precheck.py`: can this reader be found statically?**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m1.12-reader-precheck · Critical: yes
   - Depends: —
   - Goal: make rule 14's `Precheck` one command instead of a session. The
     board now needs, per module: how much of it is compressed, which sections,
