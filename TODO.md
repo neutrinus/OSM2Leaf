@@ -3049,8 +3049,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     is a page-relocation design (pointer tables), a separate task.
   - Claims: C-2580–C-2589
 
-- [ ] **M5.22 — Tile writer: model non-`0x2046` directory kinds**
-  - Status: in progress · Owner: task/m5.22-tilewriter-non2046 · Critical: yes
+- [x] **M5.22 — Tile writer: model non-`0x2046` directory kinds**
+  - Status: done · Owner: task/m5.22-tilewriter-non2046 · Critical: yes
   - Depends: M5.4 (done)
   - Goal: M5.4 splices only `0x2046` directories (18 parcels in `B48R058R`)
     and refuses other kinds; 575 of 1,023 non-`0x2046` slots in that tile are
@@ -3068,7 +3068,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     opaque-preserve-only with the invariant that justifies it.
   - Stop: if a kind needs reader semantics the parser does not have, record it
     and keep the writer in refuse/preserve mode for that kind.
-  - Claims: C-2810–C-2819 (was C-2650–C-2659, collision with M1.15/M4.26/M5.23 fixed by H23)
+  - Result: preserve-only branch satisfied. EU 2011 sec1 lv1 `0x2n46` kinds
+    (0x2146/2246/2346/2446/2546/2646/2746/2946, observed B48R058R/B30R048R;
+    5 pinned + B48R058R `clarion_tile` round-trip byte-identical) have a
+    modelled container (header/tags/512-byte pair bodies/declared tail) but
+    often non-zlib / `X=0xffffffff` pair fields make record boundaries unsafe
+    for mutation. `tools/tilewriter.py` now classifies 0x2046 spliceable and
+    0x2x46 preserve-only (mutation refused with invariant), detects same-offset
+    block aliasing in `shared_slot_blocks`, and `verify_factory` checks
+    preserve-only dir bytes unchanged. `--selftest` 59/59; M5.4 B48R058R splice
+    reproduced byte-identical (`a1292979…`) and `l2check --no-golden
+    --skip-mutation` PASS on the real tile containing those kinds.
+    EXP-2026-11-08-M5.22-tilewriter-non2046.
+  - Claims: C-2810–C-2814 (was C-2650–C-2659, collision with M1.15/M4.26/M5.23 fixed by H23)
 
 - [ ] **M5.23 — Confirm road-record country word and provisional class mapping**
   - Status: open · Owner: — · Critical: no

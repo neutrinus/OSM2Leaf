@@ -200,7 +200,12 @@ All five target tiles now rebuild **byte-identically**, including the dense
 - mask the `0x80000000` pair flag before computing a compressed length;
 - preserve raw slot tails (e.g. `B30R048` slot 21 at body `+0xE8`);
 - accept `0x7fffffff` empty tags at level 1;
-- keep the extra 512-byte `0x2146` tail;
+- keep declared-size directory tails: the EU 2011 section-1 level-1 `0x2n46`
+  family carries an extra `n*512`-byte tail for `n=1–7` observed (e.g. 512 B
+  for `0x2146`, 3584 B for `0x2746`; `0x2946` had 0 in `B48R058R`). Their
+  slot-table container (header/tag/body/tail) round-trips, but many blocks hold
+  non-zlib records / `0xffffffff` pair fields, so `tilewriter` preserves these
+  kinds and refuses mutation inside them (M5.22, C-2810–C-2813);
 - copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
 
 Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:

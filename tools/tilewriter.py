@@ -115,12 +115,24 @@ ZW_MEMLEVEL = 8
 #: Section-1 record tag of a road-shape record, and its pair parity (even).
 ROAD_TAG = 0x00FA
 PAIR_ROAD = 0
-#: Directory kinds whose slot tables the reader models exactly.  On the EU
-#: tile B48R058R every slot of a 0x2046 directory is a clean block of zlib
-#: records (960 of 960).  The other kinds (0x2146, 0x2246, ...) have 0..90 %
-#: slots whose tag or body table does not match that model, so a splice there
-#: could rewrite bytes that belong to other slots (EXP-2026-11-08-M5.4).
-MODELLED_DIR_KINDS = {0x2046}
+#: Directory kinds whose section-1 road-pair blocks the writer may regenerate
+#: (splice).  Only 0x2046 slots are cleanly parseable as zlib road records on
+#: EU 2011 tiles (EXP-2026-11-08-M5.4).
+SPLICEABLE_DIR_KINDS = {0x2046}
+#: Section-1 level-1 kinds whose directory slot-table container (12-byte header,
+#: 32 x (4-byte tag + 512-byte pair table), optional declared-size tail) is
+#: modelled and round-trips byte-identically via clarion_tile.  Their record
+#: content is often non-zlib and pair-table fields (e.g. 0xffffffff in the X
+#: word) defeat reliable block-boundary parsing, so mutation is refused and the
+#: writer preserves them byte-for-byte (EXP-2026-11-08-M5.22).  Observed in
+#: B48R058R and B30R048R; LEV3456R/B28R070R/B30R060R/B58R070R carry no
+#: non-0x2046 section-1 road directories.
+PRESERVE_ONLY_DIR_KINDS = {
+    0x2146, 0x2246, 0x2346, 0x2446, 0x2546, 0x2646, 0x2746, 0x2946,
+}
+KNOWN_DIR_KINDS = SPLICEABLE_DIR_KINDS | PRESERVE_ONLY_DIR_KINDS
+# Compatibility alias (M5.4 name); "modelled for mutation" means spliceable.
+MODELLED_DIR_KINDS = SPLICEABLE_DIR_KINDS
 
 #: Parcel size per level in degrees (see ``clarion_bg.LEVELS``).
 PARCEL_DEG = {1: (1.0 / 32.0, 1.0 / 48.0), 2: (1.0 / 8.0, 1.0 / 12.0)}
@@ -675,16 +687,28 @@ def shared_slot_blocks(tile):
 
     Every slot of every section and level is considered.  A slot whose tag
     points at bytes another slot also reads is not the sole owner of them.
+
+    The parser can misread non-0x2046 record boundaries (0xffffffff pair fields,
+    non-zlib content), leaving ``block_end == block_off`` while the real block
+    is larger or while several slots alias the same offset (EXP M5.22,
+    B48R058R).  Treat a repeated ``block_off`` as shared, and use the parsed
+    record bytes as a lower bound on the span.
     """
     spans = []
+    offs = collections.Counter()
     for sec in tile["sections"]:
         for lv in sec["levels"]:
             for directory in lv["dirs"]:
                 for slot in directory["slots"].values():
-                    if slot["block_end"] > slot["block_off"]:
-                        spans.append((slot["block_off"], slot["block_end"]))
+                    off = slot["block_off"]
+                    offs[off] += 1
+                    end = slot["block_end"]
+                    parsed = sum(len(r.get("raw", b"")) for r in slot.get("recs", ()))
+                    end = max(end, off + parsed)
+                    if end > off:
+                        spans.append((off, end))
+    shared = {off for off, n in offs.items() if n > 1}
     spans.sort()
-    shared = set()
     for i, (a0, a1) in enumerate(spans):
         for b0, b1 in spans[i + 1:]:
             if b0 >= a1:
@@ -718,10 +742,17 @@ def splice_factory(factory: bytes, level: int, built):
                 % (level, y0, x0)
             )
         kind = dirs[(y0, x0)]["kind"]
-        if kind not in MODELLED_DIR_KINDS:
+        if kind not in SPLICEABLE_DIR_KINDS:
+            if kind in PRESERVE_ONLY_DIR_KINDS:
+                raise WriterError(
+                    "directory y=%d x=%d has kind 0x%04x: slot-table structure "
+                    "is modelled and preserved, but record boundaries are not "
+                    "safe to mutate; refused (see PRESERVE_ONLY_DIR_KINDS, "
+                    "EXP-2026-11-08-M5.22)" % (y0, x0, kind)
+                )
             raise WriterError(
                 "directory y=%d x=%d has kind 0x%04x, whose slot tables the "
-                "reader does not model; refused (see MODELLED_DIR_KINDS)"
+                "reader does not model; refused (see SPLICEABLE_DIR_KINDS)"
                 % (y0, x0, kind)
             )
         groups.setdefault((y0, x0, row), {})[2 * col + PAIR_ROAD] = rec
@@ -786,6 +817,22 @@ def verify_factory(factory: bytes, blob: bytes, level: int, built):
     for section_id in (2, 3, 4):
         if sector_fingerprint(before, section_id) != sector_fingerprint(after, section_id):
             raise CheckFailed("section %d is not byte-identical" % section_id)
+    # Opaque (preserve-only, not spliceable) dirs: their slot tables (header,
+    # tags, pair bodies, tail) must be byte-identical when no parcel was written
+    # into them (M5.22).  Record content in these dirs is often not safely
+    # parseable, so the record-level check below may under-cover them.
+    written_dirs = {(p[0], p[1]) for p in built}
+    sec1b = _section(before, 1)
+    if sec1b:
+        for entry in sec1b["levels"]:
+            for directory in entry["dirs"]:
+                dx = dir_x0(directory)
+                if directory["kind"] in PRESERVE_ONLY_DIR_KINDS and (directory["y"], dx) not in written_dirs:
+                    if factory[directory["off"]:directory["end"]] != blob[directory["off"]:directory["end"]]:
+                        raise CheckFailed(
+                            "preserve-only directory %r (kind 0x%04x) changed but was not regenerated"
+                            % ((directory["y"], dx), directory["kind"])
+                        )
     old = records_by_position(before, 1)
     new = records_by_position(after, 1)
     changed = set()
@@ -1172,8 +1219,42 @@ def _section4_directory(y0, x0, slots):
                 empty_bodies={}, empty_tags={})
 
 
-def make_factory(cell="B48R058R", level=1):
-    """A three-section synthetic factory tile at ``cell`` (no vendor data)."""
+def _opaque_directory(kind, level, y0, x0, typ=146, tail_size=None):
+    """A preserve-only section-1 directory (e.g. 0x2146) with a tail.
+
+    The slot table structure matches EU 2011 B48R058R: ab=(32,32), 32 slots,
+    body 512, one clean zlib road record in slot 0, and a declared-size tail.
+    Mutation of such kinds is refused by the writer (M5.22).
+    """
+    spec = clarion_bg.LEVELS[level]
+    body = spec["body"]
+    nslots = spec["slots"]
+    span = DIR_MESHES[level]
+    if tail_size is None:
+        n = (kind >> 8) & 0xF
+        tail_size = n * 512 if 1 <= n <= 7 else 0
+    with _class_mapping(default_class_table()):
+        plain, _ = fa_encode.build_record(
+            level, y0, x0, 0, 0, [(0x100, 0x100), (0x200, 0x200)],
+            [[(1, 0, 1, [(0x200, 0x200)])]], hws=["residential"], country=616)
+    comp = compress(plain)
+    slots = {0: _slot(comp, len(plain) // 2, body, pair=0, level=level)}
+    empty = b"".join(_empty_pair(k, level) for k in range(body // 8))
+    D = dict(kind=kind, ab=(nslots, nslots), y=y0, x=x_field(x0), typ=typ,
+             body=body, nslots=nslots, slots=slots,
+             empty_bodies={i: empty for i in range(nslots) if i not in slots},
+             box=(y0 + span, y0, x0, x0 + span))
+    if tail_size:
+        D["tail"] = bytes((i * 7 + 3) & 0xFF for i in range(tail_size))
+    return D
+
+
+def make_factory(cell="B48R058R", level=1, extra_dirs=None):
+    """A three-section synthetic factory tile at ``cell`` (no vendor data).
+
+    ``extra_dirs`` maps ``level -> [dir_dict, ...]`` of additional directories
+    added to section 1 (e.g. preserve-only 0x2146 dirs for M5.22 tests).
+    """
     yb, xb = cell_mesh(cell)
     background = _background_record([(300, 400), (340, 440), (300, 440)])
     bg_comp = compress(background)
@@ -1189,11 +1270,12 @@ def make_factory(cell="B48R058R", level=1):
     section1 = {0: _slot(bg_comp, len(background) // 2, 512, pair=1, level=level),
                 4: _slot(compress(stub_plain), len(stub_plain) // 2, 512,
                          pair=6, level=level)}
+    extra = list((extra_dirs or {}).get(level, []))
     section4_plain = _section4_payload()
     section4_comp = compress(section4_plain)
     sections = [
         dict(id=1, count=0, levels=[dict(level=lvl, typ=typ,
-                                         dirs=[_directory(level, yb, xb, section1)]
+                                         dirs=[_directory(level, yb, xb, section1)] + extra
                                          if lvl == level else [])
                                    for lvl, typ in tile_header.LEVELS[1]]),
         dict(id=2, count=0, levels=[dict(level=lvl, typ=typ, dirs=[])
@@ -1352,8 +1434,22 @@ def selftest():
             2: {"block_off": 300, "block_end": 400}}}]}]}]}
         check("overlapping slot blocks are shared", shared_slot_blocks(overlap)
               == {100, 150}, sorted(shared_slot_blocks(overlap)))
-        check("kind 0x2046 is the only modelled directory kind",
-              MODELLED_DIR_KINDS == {0x2046}, sorted(MODELLED_DIR_KINDS))
+        # M5.22: misparsed slots can report block_end == block_off while aliasing
+        # the same address; same block_off must be treated as shared.
+        aliased = {"sections": [{"levels": [{"dirs": [{"slots": {
+            0: {"block_off": 0x500, "block_end": 0x500, "recs": []},
+            1: {"block_off": 0x500, "block_end": 0x700,
+                "recs": [dict(raw=b"x" * 0x200)]},
+            2: {"block_off": 0x900, "block_end": 0xa00, "recs": []}}}]}]}]}
+        check("same block_off alias is shared", 0x500 in shared_slot_blocks(aliased),
+              sorted(shared_slot_blocks(aliased)))
+        check("kind 0x2046 is the only spliceable directory kind",
+              SPLICEABLE_DIR_KINDS == {0x2046} and MODELLED_DIR_KINDS == {0x2046},
+              sorted(SPLICEABLE_DIR_KINDS))
+        check("preserve-only 0x2x46 kinds modelled for structure",
+              PRESERVE_ONLY_DIR_KINDS == {0x2146, 0x2246, 0x2346, 0x2446,
+                                          0x2546, 0x2646, 0x2746, 0x2946},
+              sorted(PRESERVE_ONLY_DIR_KINDS))
         check("stream is 78 9c", bytes(record["raw"][:2]) == b"\x78\x9c",
               bytes(record["raw"][:2]).hex())
         check("report key matches the record",
@@ -1369,6 +1465,48 @@ def selftest():
         again, _report = build(str(imf_path), cell, factory_path=str(factory_path),
                                level=1, country=616)
         check("deterministic bytes", again == blob)
+
+        # M5.22: a factory splice must preserve a non-spliceable (opaque) directory
+        # whose slot-table structure is modelled (header/tags/bodies/tail), and
+        # must refuse to write parcels into it.
+        yb, xb = cell_mesh(cell)
+        opaque = _opaque_directory(0x2146, 1, yb, xb + 1)
+        factory_opaque = make_factory(cell, extra_dirs={1: [opaque]})
+        t_fo = clarion_tile.read_tile(factory_opaque)
+        fo_entry = road_level(t_fo, 1)
+        fo_opaque = [d for d in fo_entry["dirs"] if d["kind"] == 0x2146][0]
+        opaque_off, opaque_end = fo_opaque["off"], fo_opaque["end"]
+        opaque_before = factory_opaque[opaque_off:opaque_end]
+        fop = root / (cell + ".opaque.DAT")
+        fop.write_bytes(factory_opaque)
+        blob_op, rep_op = build(str(imf_path), cell, factory_path=str(fop),
+                                level=1, country=616)
+        check("splice preserves 0x2146 dir bytes",
+              blob_op[opaque_off:opaque_end] == opaque_before,
+              (opaque_off, opaque_end))
+        t_op = clarion_tile.read_tile(blob_op)
+        op_opaque = [d for d in road_level(t_op, 1)["dirs"] if d["kind"] == 0x2146][0]
+        check("0x2146 tail preserved",
+              bytes(op_opaque.get("tail", b"")) == bytes(fo_opaque.get("tail", b"")))
+        check("0x2146 slot table preserved",
+              sector_fingerprint(t_fo, 2) == sector_fingerprint(t_op, 2)
+              and sector_fingerprint(t_fo, 4) == sector_fingerprint(t_op, 4))
+        # Refuse mutation into a preserve-only directory.
+        mut_rec = build_road_record(
+            1, (yb, xb + 1, 0, 0),
+            [([(clarion_bg.mesh_to_lon(xb + 1) + 0.001,
+                clarion_bg.mesh_to_lat(yb) + 0.001),
+               (clarion_bg.mesh_to_lon(xb + 1) + 0.002,
+                clarion_bg.mesh_to_lat(yb) + 0.002)], "residential")],
+            default_class_table(), 616)
+        refused = ""
+        try:
+            splice_factory(factory_opaque, 1, {(yb, xb + 1, 0, 0): dict(plain=mut_rec[0], comp=mut_rec[1])})
+        except WriterError as exc:
+            refused = str(exc)
+        check("splice into 0x2146 refused", "kind 0x2146" in refused and "preserved" in refused, refused)
+        check("opaque factory round-trips",
+              clarion_tile.write_tile(clarion_tile.read_tile(factory_opaque)) == factory_opaque)
 
         # A factory that does not cover the parcel must be refused, not guessed.
         other = root / "B48R050R.DAT"
