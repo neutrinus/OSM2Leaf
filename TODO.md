@@ -1058,7 +1058,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2570–C-2579
 
 - [ ] **M1.14 — SH-4 decoder debt: one LE reader, a pinned `mov.w` and an oracle**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.14-sh4dec-debt · Critical: no
   - Depends: — (M1.11 done)
   - Goal: M1.11 landed `tools/sh4dis.py`, but its follow-ups leave three
     holes: the LE halfword reader is now duplicated in `sh4scan.py`, one
