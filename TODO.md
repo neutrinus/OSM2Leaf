@@ -1685,7 +1685,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
 
 - [ ] **M4.25 — Regulation-word test: the no_* turns without a from-word, and the only_* encoding**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.25-regulation-word-test · Critical: no
   - Depends: — (M4.23 tool)
   - Goal: explain why most `no_*` to-entries carry no from-word (`rd_restrictions.py match`: 152/411 and 128/235) and find the `only_*` encoding.
   - Precheck: `match --level 1` and `--level 2` on B48R058R reproduce 152/411 and 128/235.
