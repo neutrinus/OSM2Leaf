@@ -2012,7 +2012,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2130–C-2139
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.13-addre-reader · Critical: yes
   - Depends: — (**not** M1.2f: no executable section is compressed, C-2128)
   - Re-opened (ninth pass, 2026-11-08). The pass-1 blocker ("parser in sec1")
     is refuted the same way as M3.2b's. What the search proved is narrower: no
