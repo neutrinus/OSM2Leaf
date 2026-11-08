@@ -3023,7 +3023,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 
 - [ ] **M9.21 — `PySh4`: little-endian mode and `bt/s`/`bf/s`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m9.21-pysh4-le · Critical: yes
   - Depends: —
   - Goal: the L3 interpreter can run `Navi.exe` code as it is in the ROM.
     Today `PySh4` fetches, loads and stores big-endian and rejects
