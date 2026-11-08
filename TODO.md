@@ -1140,7 +1140,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2070–C-2079
 
 - [ ] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.2f-decomp-blk-python · Critical: yes
   - Depends: — (M8.E1b verified the VAs; M1.2a/M1.2d frame the payload)
   - Goal: decode every `IMAGE_SCN_COMPRESSED` section without QEMU. M8.E1b
     ended the address question; what is missing is the codec inside
