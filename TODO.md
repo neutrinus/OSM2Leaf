@@ -3077,7 +3077,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2660–C-2669
 
 - [ ] **M5.24 — `imgpatch` diff check: derive cluster ranges from BPB, not the write offset**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m5.24-imgpatch-diff-bpb · Critical: no
   - Depends: M5.13b (done)
   - Goal: M5.13b's byte-diff check derived the cluster base from the `imgpatch`
     write offset, not from an independent BPB/FAT read. Harden the check so the
