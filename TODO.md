@@ -709,7 +709,9 @@ M4.16b → M4.2/M5.3.
   - Claims: C-2520–C-2529
 
 - [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: claude/m3.19-sh4scan · Critical: yes
+  - Unblock: M3.20 (name the register-AND mask variant; correct M3.11's pattern text).
+  - Blocker: M3.11's mask count 1 is not reproduced: its one site (Navi.exe `0x3715c8–0x3715cc`) is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`, a register AND, and `and #0x70,R0` + `cmp/eq #0x60` finds 0. The other seven published counts reproduce. See EXP-2026-11-08-M3.19-sh4scan.
   - Depends: —
   - Goal: M3.11, M3.13 and M3.2b are correct negatives that **cannot be
     re-run**: the tag/stride/mask searches are prose plus heredocs, and M3.2b
@@ -735,6 +737,25 @@ M4.16b → M4.2/M5.3.
   - Stop: if the counts differ, record the discrepancy in an EXP and stop —
     the difference is the result.
   - Claims: C-2530–C-2539
+
+- [ ] **M3.20 — Name the register-AND mask variant; correct the M3.11 pattern text**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.19
+  - Goal: M3.11 §2 reports `and #0x70,r0` then `cmp/eq #0x60` as 1 hit in build
+    A. The one site is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`
+    (Navi.exe `0x3715c8–0x3715cc`), a register AND that the immediate pattern
+    cannot match (EXP-2026-11-08-M3.19-sh4scan §5).
+  - Precheck: `python3 tools/sh4scan.py IMG --image-start 0x200200 dump --module Navi.exe --va 0x3715c0 --count 8`
+    shows those three halfwords.
+  - Scope: `tools/sh4scan.py` only (a `mask-pair --via-reg` variant, stdlib,
+    with a synthetic self-test); build A uncompressed sections; no other task's
+    lines.
+  - Done when: `mask-pair --via-reg --cmp 60` runs on `IMAGE_START 0x200200`,
+    its selftest pins the variant, and M3.11's pattern text is corrected by a
+    new claim row (no deletion, per the ledger rules). The count is the result,
+    not a precondition: report whatever it is.
+  - Stop: if the variant count is not 1, record it in an EXP and stop.
+  - Claims: C-2560–C-2569
 
 ---
 
