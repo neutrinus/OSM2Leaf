@@ -1598,6 +1598,21 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2556 | Input identity: US `REFER001/POINT010.DAT.cmp` (4,240,574 B, SHA-256 `48812f8c…d4657`), `.ind` (612 B, SHA-256 `7ac54e3b…c326e`), EU `archive/head256.img` (SHA-256 `92aa525d…a007f9`) and `archive/sd-images/LEAF_2011-2012_US.img` (SHA-256 `53342430…c5383`) are the files the EXP names. | VERIFIED | H | EXP-2026-11-08-M9.21-pysh4-le; `sha256sum` (Method, step 1) |
 | C-2557 | Scope limit: M9.21 makes `bt/s` and `bf/s` executable in `PySh4`, but no firmware target has been run on real bytes that executes a `bt/s`; C-2552 covers only `bf/s` in `0x3f39c0`. | UNKNOWN | H | EXP-2026-11-08-M9.21-pysh4-le (Scope) |
 
+## M9.22 — B30R048R rebuild assertion (C-2630–C-2639)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2630 | `B30R048R.DAT` (SHA-256 `0916101547…5eb28`) round-trips byte-identically at tile level under `harness.py verify` on python3 (zlib-ng 1.3.1) and python3.13 (zlib 1.3.2), exit 0: records 3,396 bad 0, background rebuild ok 2,955 bad 0. | VERIFIED | H | EXP-2026-11-08-M9.22-b30r048r-rebuild; `harness.py verify B30R048R.DAT` |
+| C-2631 | Three level-1 background records of `B30R048R` (dir `0x2ad00`, slots 6, 8, 11, `k = 1`, file offsets `0x3a014`, `0x3e050`, `0x4ae4c`) are refused by `clarion_bg.parse_record` with `AssertionError((6, 29))`; the record count is 2,958 odd background records. | VERIFIED | H | EXP-2026-11-08-M9.22-b30r048r-rebuild; `bg_refused.py B30R048R.DAT` |
+| C-2632 | The failing invariant is `nlayers == len(table)`: the header names `geo_off 11, geo_len 26`; all 26 pairs of the geometry region are `(0xffff, 0)`; the table read by the parser has 29 entries; the non-empty pairs sit past the region end (index 28 `(6, 20)` and index 32 `(8, 20)`, or the same offsets with other lengths). | VERIFIED | H | EXP-2026-11-08-M9.22-b30r048r-rebuild; `bg_refused.py --selftest` |
+| C-2633 | Capping the layer table at `geo_len` entries rebuilds the three refused records byte-identically in strict mode (no non-strict fallback). | VERIFIED | H | EXP-2026-11-08-M9.22-b30r048r-rebuild; `bg_refused.py --selftest` ("bounded rebuild equals source") |
+| C-2634 | The cap never binds on the 2,955 records that parse today in `B30R048R` (parsed table length is at most `geo_len`), and on no record of B28R070R, B30R060R or B58R070R (zero refusals). Necessary condition only: the bounded rebuild of parsed records is not run. | VERIFIED | H | EXP-2026-11-08-M9.22-b30r048r-rebuild; `bg_refused.py --selftest` (control checks) |
+| C-2635 | Among the four pinned tiles, the refusal occurs only in `B30R048R`; the other three tiles have zero refused background records. | VERIFIED | H | EXP-2026-11-08-M9.22-b30r048r-rebuild; `harness.py verify` on the three controls ("parse refused 0") |
+| C-2636 | Scope: `harness.py verify` counts 65 opaque background records in `B30R048R` (62 flagged by design, 3 refused) and keeps their source bytes; the tile-level round-trip therefore does not show that those 65 records rebuild from the model. | VERIFIED | H | EXP-2026-11-08-M9.22-b30r048r-rebuild (Observations); `harness.py verify B30R048R.DAT` |
+| C-2637 | The L2 pin for `B30R048R` holds: `l2check.py` tile round-trip OK (5 tiles) and tile semantic digest OK (16,684 features); `tools/golden/eu2011.json` is unchanged and was not regenerated. The overall `l2check` FAIL is the partial extracted root (only `MAPAL001/`), not this tile. | VERIFIED | H | EXP-2026-11-08-M9.22-b30r048r-rebuild; `l2check.py --root leafre-work/root` |
+| C-2638 | The B30R048R byte-identical pin is trusted at tile level (C-2630), with C-2636 as the caveat: the background model does not rebuild 65 of its 2,958 odd background records on its own. | VERIFIED (scope) | H | EXP-2026-11-08-M9.22-b30r048r-rebuild (Conclusion) |
+| C-2639 | Why the three records are unmodelled is a HYPOTHESIS: a layer table longer than the geometry region, with used entries after the region end; whether those entries are layers, shared data or padding is not established. | HYPOTHESIS | M | EXP-2026-11-08-M9.22-b30r048r-rebuild (Interpretation); follow-up M9.23 |
+
 ## M1.11 — SH-4 decoder with the LE convention pinned (C-2480–C-2489)
 
 | ID | Claim | Status | Confidence | Evidence |
