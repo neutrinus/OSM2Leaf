@@ -596,6 +596,30 @@ skipped (back end missing), `4` blocked, `5` mismatch. See
 [`l3_harness/README.md`](l3_harness/README.md) and
 [`../docs/research/l3-ghidra.md`](../docs/research/l3-ghidra.md).
 
+## `progress_report.py` — L1–L4 progress dashboard (H27)
+
+Aggregates existing sources of truth (`reader-coverage.md`, `claims.md`,
+`TODO.md`, tool JSON) into one `progress.json`/`progress.md` view that separates
+**udowodnione offline** (L1/L2), **udowodnione przez firmware/L3** (only
+non-synthetic `l3_claim` PASS targets), and **wymaga auta** (L4 S0–S3, explicit
+manual status). It never promotes L2 to L3/L4, never auto-passes L4, and
+requires no vendor data for `--selftest` or JSON-based aggregation.
+
+`reader-coverage.md` is parsed only under an explicit matrix-table contract
+(header `| # | File type / path |`, fixed 12 leading columns); a contract
+mismatch is reported as a problem, never guessed.
+
+```bash
+python3 tools/progress_report.py --selftest
+python3 tools/l1l2_fixtures.py --json /tmp/opencode/h27-l1l2.json --md /tmp/opencode/h27-l1l2.md --no-stdout-md
+python3 tools/l3check.py --build-corpus --json > /tmp/opencode/h27-l3.json
+python3 tools/progress_report.py --l1l2-json /tmp/opencode/h27-l1l2.json \
+    --l3-json /tmp/opencode/h27-l3.json --json progress.json --md progress.md --no-stdout
+```
+
+Schema: `osm2leaf.progress_report/v1`. Claims C-2770–C-2779; see
+[`../docs/experiments/EXP-2026-11-08-H27-progress-dashboard.md`](../docs/experiments/EXP-2026-11-08-H27-progress-dashboard.md).
+
 ## `l3check.py` — L3 rung of the verification ladder
 
 Runs every target declared in `tools/l3_harness/targets.json` through

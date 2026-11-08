@@ -2340,3 +2340,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2407 | RESERVED (M5.16). | — | — | — |
 | C-2408 | RESERVED (M5.16). | — | — | — |
 | C-2409 | RESERVED (M5.16). | — | — | — |
+
+## H27 — L1–L4 progress dashboard (C-2770–C-2779)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2770 | `tools/progress_report.py` (schema `osm2leaf.progress_report/v1`, `--selftest`, no vendor data) aggregates L1/L2 (`l1l2_fixtures` JSON), L3 (`l3check --json`), `docs/research/reader-coverage.md`, bounded TODO task states and explicit L4 status into `progress.json`/`progress.md`, separating "udowodnione offline", "udowodnione przez firmware/L3", and "wymaga auta". | VERIFIED (tool) | H | EXP-2026-11-08-H27-progress-dashboard; `python3 tools/progress_report.py --selftest` |
+| C-2771 | The dashboard counts L3 firmware proof only for targets with `status==PASS && synthetic==false && l3_claim==true`; a synthetic PASS (e.g. `probe-zlib-cmf`, `l3_claim=false`) is reported separately and never as firmware proof. | VERIFIED (tool) | H | EXP-2026-11-08-H27-progress-dashboard; selftest "synthetic PASS not counted as firmware proof" |
+| C-2772 | L4 stages S0–S3 default to `NOT RUN`; a `PASS` is accepted only with explicit recorded evidence (`--l4-status`), otherwise demoted/reported — no automatic L4 PASS. | VERIFIED (tool) | H | EXP-2026-11-08-H27-progress-dashboard; selftest L4 demotion/explicit-evidence cases |
+| C-2773 | `reader-coverage.md` is parsed only under an explicit matrix-table contract (header prefix `\| # \| File type / path \|`, fixed 12 leading columns, rows until blank/non-table line); contract mismatch/unreadable input yields `problems` and no guessed statuses. | VERIFIED (tool) | H | EXP-2026-11-08-H27-progress-dashboard; selftest parse 30 rows + unreadable/bad-header cases |
+| C-2774 | Example report on repo files + no-vendor tool JSON (2026-11-08): reader-coverage 30 rows, L3 firmware proof passes 0, synthetic non-proof passes 1, 5 BLOCKED, L4 S0–S3 NOT RUN, problems 0. | OBSERVED (tool run) | H | EXP-2026-11-08-H27-progress-dashboard; `/tmp/opencode/h27-progress.json` reproduction command |
+| C-2775 | RESERVED (H27). | — | — | — |
+| C-2776 | RESERVED (H27). | — | — | — |
+| C-2777 | RESERVED (H27). | — | — | — |
+| C-2778 | RESERVED (H27). | — | — | — |
+| C-2779 | RESERVED (H27). | — | — | — |
