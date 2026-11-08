@@ -3045,8 +3045,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     code, and the L3 selftest covers all three.
   - Claims: C-2500–C-2509
   - Result: EXP-2026-11-08-M9.20-l3-plumbing (synthetic module and hook checks
-    pass; EU 2011 head: Navi.exe sec0 mapped, walker stops at ILLEGAL_INSN
-    0x4362 as C-2546 predicts; no Ghidra run, out of scope and not installed)
+    pass; EU 2011 head: Navi.exe sec0 mapped; the walker stops at ILLEGAL_INSN
+    0x4362 under big-endian decode and runs under little-endian until its
+    unmapped page argument; no Ghidra run, out of scope and not installed)
 
 
 - [x] **M9.21 — `PySh4`: little-endian mode and `bt/s`/`bf/s`**
