@@ -291,7 +291,7 @@ firmware/L3 confirmation chain (rule 13).
 | H | Housekeeping | **H19, H21**; H13–H18/H20 done |
 | M1 | Firmware tooling | **M1.11c, M1.12, M1.14**; M1.2f for `.data`/M1.3/M1.4; M1.2e non-Claude; M1.13 done |
 | M2 | Map code, activation, updater | **M2.4, M2.14, M2.17**; M2.15/M2.16 done |
-| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.17, M3.18, M3.20**; blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.19 done |
+| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.20**; blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.17, M3.19 done |
 | M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.25, M4.26, M4.27, M4.29**; blocked: M4.2 (no RDSTM row key), M4.3/M4.23 (→M4.24–M4.26), M4.8b (→M4.8d), M4.16b (→M1.11c), M4.22 (OQ-44), M4.28 (→M4.27); M4.21 after M3.6 |
 | M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20, M5.21, M5.22, M5.23**; blocked: M5.12c (scan unfinished); M5.4/M5.13b done; M5.16–M5.19 after their M3 readers |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5/M6.6 after M5.13b (done); M6.7 after M5.14 |
@@ -1833,8 +1833,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the reader VAs and consumed fields are in `refer.md`.
   - Claims: C-2210–C-2219
 
-- [ ] **M3.17 — Which files can be copied verbatim to a Poland card**
-  - Status: in progress · Owner: task/m3.17-verbatim-copy · Critical: no
+- [x] **M3.17 — Which files can be copied verbatim to a Poland card**
+  - Status: done · Owner: task/m3.17-verbatim-copy · Critical: no
   - Depends: H11
   - Goal: decide, with evidence, which files we never generate
     (`BICON001`, `OPNG`, `SPEECH`, `TMC`, `REFER002`, `RDSTM001`) and whether
@@ -1843,6 +1843,12 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: each file has *copy / empty / generate* in
     `reader-coverage.md` with the reason; any *generate* gets a task.
   - Claims: C-2220–C-2229
+  - Result: EXP-2026-11-08-M3.17-verbatim-copy (C-2220–C-2229). EU-base Poland:
+    `BICON001`/`OPNG`/`SPEECH`/EU `TMC` **copy** (assets/market config);
+    `REFER002` **copy** EU market-correct (never US→EU; no empty without reader
+    evidence, EV schema undecoded); `RDSTM001.DAT`+`LCTBL001.DAT` **generate**
+    (M5.19, M5.17). `COORD001`/`ZCODE0nn`/`ICODE001` copy-eligible (G6).
+    `reader-coverage.md` rows 7–9,21–22,24–28 updated; no new task required.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
   - Status: open · Owner: — · Critical: no
