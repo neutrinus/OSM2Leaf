@@ -781,7 +781,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     `claims_check.py: OK`.
 
 - [ ] **H24 — `todo_check.py`: lint TODO syntax, claim allocations and task fields; make selftests tmp-safe**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/h24-todo-check · Critical: yes
   - Depends: H23
   - Goal: prevent rule 9 / claim-block collisions, malformed tasks and
     incomplete metadata from recurring, and stop environment fragility from
