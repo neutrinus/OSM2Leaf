@@ -3154,18 +3154,22 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2230–C-2239
 
 - [ ] **M9.14 — L3 target `drstr_parser`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: claude/m9.14-reopen · Critical: yes
   - Re-opened (ninth pass, rule 15): **M9.20 merged** (`562215a`) with the
-    module entry kind and `engine_hook`, so the blocker below no longer holds;
-    the EXP stays as the record of why the first run produced no verdict.
-  - Depends: M3.10, M9.5
+    module entry kind and `engine_hook`, so the first blocker no longer holds.
+    The reopened run (EXP-2026-11-08-M9.14-reopen) ran the module entry on the real head image:
+    the reader's data is in compressed `sec1`, so it stops at once.
+  - Depends: M3.10, M9.5 (both done)
   - Done when: the firmware parser accepts the factory `DRSTR001.DAT` (EU and
     US) and one rebuilt by M5.6, and rejects one corrupted case, recorded.
   - Claims: C-2240–C-2249
-  - Blocker: `runner.py` has no module-entry kind (`entry.kind = "module"`),
-    which is M9.20 (open on main); `drstr_parser` stays BLOCKED (exit 4).
-  - Unblock: M9.20
-  - Result: EXP-2026-11-08-M9.14-drstr-reader (negative, controls PASS/MISMATCH; no claim).
+  - Blocker: `sub_00419350` reads its coredll imports and buffer global from
+    compressed `Navi.exe` `sec1` (UNMAPPED at `0x0055d8fc`); the Done-when also
+    needs a DRSTR rebuilt by M5.6, which is open.
+  - Unblock: M1.2f (decompress `sec1`), then M9.24 (import binding and coredll
+    file stubs); the Done-when also waits on M5.6.
+  - Result: EXP-2026-11-08-M9.14-reopen (negative, controls: M9.20 point-walker
+    reproduced, compressed and outside-VA negatives; no DRSTR verdict; C-2240–C-2243).
 
 - [ ] **M9.15 — L3 targets for `ADDRE`, `ZCODE`/`ICODE`/`COORD`, `LCTBL`**
   - Status: open · Owner: — · Critical: yes
@@ -3295,6 +3299,22 @@ parts are covered by `tools/l3_harness/selftest.py`.
     them as opaque in the EXP and stop; do not weaken the check.
   - Claims: next free block (C-2630–C-2639 are taken by M9.22).
   - Unblock: none.
+
+- [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M1.2f (`sec1` of `Navi.exe` must be decompressed first)
+  - Goal: `runner.py` writes stub VAs into the module's COREDLL import slots
+    (`0x0055d000`+ in `sec1`), models coredll `fopen`/`fread`/`fseek`/`ftell`/
+    `ferror`/`clearerr`/`fclose`/`_modlu`/`wcstombs`/`strncat`, and models
+    stack arguments for module entries, so `sub_00419350` (and its caller
+    `0x00419684`, which reads above the stack top) runs on a file. Ordinals
+    come from M3.10 and must be re-derived first (`cerom.py exports coredll`
+    raises `KeyError` on this image). Input: EXP-2026-11-08-M9.14-reopen.
+  - Done when: `runner.py run drstr_parser` on the EU factory `DRSTR001.DAT`
+    returns a verdict or a named blocker with the faulting PC, and a
+    `verdict_map` is written from the decoded return codes (not guessed).
+  - Claims: C-2640–C-2649
+
 ---
 
 ## Retired leads
