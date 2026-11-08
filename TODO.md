@@ -1632,7 +1632,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2120–C-2129, C-2540–C-2549
 
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m3.11b-point-byteorder · Critical: yes
   - Depends: — (M9.11 helps: its run shows the bytes the chunk decoder hands back)
   - Goal: `0x3f5194` reads `mov.w @page` and only walks a 16-bit-swapped
     page (C-2541). Find the code that swaps the inflated page (or copies the
