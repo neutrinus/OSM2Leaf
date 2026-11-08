@@ -2115,3 +2115,13 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2937 | RESERVED (M4.8d). | — | — | — |
 | C-2938 | RESERVED (M4.8d). | — | — | — |
 | C-2939 | RESERVED (M4.8d). | — | — | — |
+
+## M5.16 — LEV3456R.DAT generator, levels 3-6 from OSM (C-2400–C-2409)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2400 | `tools/lev3456gen.py` generates section-1 level-3/4/5 road-shape records from a mesh-split synthetic OSM extract (JSON roads, lat/lon nodes, coarse class) using `lev3456`'s record/shape encoders and `cmpind_codec.factory_compress`; generated records decode without `opaque` and `encode_record(decode_record(plain))==plain` for levels 3,4,5. | VERIFIED (tool, synthetic extract + EU 2011 template) | M | EXP-2026-11-08-M5.16-lev3456-generator; `python3.13 tools/lev3456gen.py --selftest` |
+| C-2401 | A level-3/4/5 set built by `lev3456gen.generate()` (template-spliced into EU 2011 `LEV3456R.DAT` SHA-256 `08a584fe…`) is accepted by `lev3456.py verify --level 3 --level 4 --level 5` (exit 0): L5 strict 62/62 plain+stream, 0 opaque; L3/L4 best-effort consistent with factory preserved opaque/non-decoded records. Geographic parcel/row-order fidelity and firmware display not proven. | VERIFIED (tool/grammar, 1 template, 1 synthetic extract) | M | EXP-2026-11-08-M5.16-lev3456-generator; `lev3456.py verify` on generated output |
+| C-2402 | `lev3456gen`'s EU 2011 container writer (`container_to_sections`+`write_container`) round-trips the factory template byte-identically (76,066,304 B), and `generate()` is deterministic: an unchanged synthetic input produces byte-identical output. | VERIFIED | H | EXP-2026-11-08-M5.16-lev3456-generator; selftest `unchanged template round-trip: byte-identical OK`, `generate determinism: OK` |
+| C-2403 | The template-splice preserves factory backgrounds, names, level 6, section 2 and factory-opaque L3/L4 records byte-for-byte (stored as original compressed/raw bytes); only road slots touched by the mesh-split extract are regenerated. | OBSERVED | M | EXP-2026-11-08-M5.16-lev3456-generator; L3 opaque 1677 / L4 plain counts match factory preserved pattern |
+| C-2404 | M5.16 firmware-acceptance clause ("with M9.18 the firmware reader returns the same records") is **not verified**: no LEV3456/section-4 L3 target exists (M9.18 open). lev3456.verify acceptance is necessary but not sufficient for firmware acceptance (rule 13). | OBSERVED (blocker) | H | EXP-2026-11-08-M5.16-lev3456-generator; TODO M9.18 |

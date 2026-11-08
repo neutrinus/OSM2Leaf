@@ -3003,7 +3003,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2280–C-2289
 
 - [ ] **M5.16 — `LEV3456R.DAT` generator: levels 3–6 from OSM (H11 G4)**
-  - Status: in progress · Owner: task/m5.16-lev3456-generator · Critical: no
+  - Status: blocked · Owner: task/m5.16-lev3456-generator · Critical: no
   - Depends: M4.11, M5.4
   - Goal: `lev3456.py` re-encodes factory records byte-identically but nothing
     builds a level set from OSM, so a generated Poland card would show the
@@ -3016,7 +3016,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     extract is accepted by `lev3456.py verify` and (with M9.18) the firmware
     reader returns the same records; an unchanged input rebuilds
     byte-identically.
-  - Claims: C-2400–C-2409
+  - Claims: C-2400–C-2404 (C-2405–C-2409 reserved)
+  - Blocker: M9.18 firmware-acceptance clause not verified (no LEV3456/section-4 L3 target). lev3456.verify acceptance and deterministic/byte-identical rebuild are proven.
+  - Unblock: M9.18 (firmware reader verdict for generated L3/4/5).
+  - Result: EXP-2026-11-08-M5.16-lev3456-generator. `tools/lev3456gen.py` (selftest OK, python3.13 stock zlib): generates L3/4/5 road records from mesh-split synthetic extract, template-splices EU 2011 LEV3456R; unchanged template round-trip byte-identical (76,066,304 B); generated L3/4/5 accepted by `lev3456.py verify` (exit 0, L5 strict 62/62 plain+stream, 0 opaque; L3/L4 best-effort matches factory preserved pattern); `generate()` deterministic. Not `[x]`: M9.18 firmware-reader clause unmet.
 
 - [ ] **M5.17 — `LCTBL001.DAT` file builder (H11 G5)**
   - Status: open · Owner: — · Critical: yes
