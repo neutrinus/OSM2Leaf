@@ -1744,8 +1744,11 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2190–C-2199
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
-  - Status: open · Owner: — · Critical: yes
-  - Depends: — (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`)
+  - Status: blocked · Owner: claude/m3.15-lctbl-reader · Critical: yes
+  - Blocker: the record walker and string decoder are reached only through compressed `Navi.exe` sec1 helpers (`0x0055d924`, `0x0055d954`), and no inflate table is in decodable bytes (C-2200–C-2206).
+  - Unblock: M1.2f
+  - Result: EXP-2026-11-08-M3.15-lctbl-reader (negative; done-when not met).
+  - Depends: M1.2f (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`; rule 14 precheck put the target in compressed bytes)
   - Precheck: `tools/reader_precheck.py --module OBJDLL.dll` (M1.12) — all
     executable sections are readable (C-2128); OBJDLL's compressed bytes are
     data. Derive the signature from an L3 run or the writer's inverse, not from
