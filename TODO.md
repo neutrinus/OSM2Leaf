@@ -2668,7 +2668,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2680–C-2689
 
 - [ ] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.29-classcode-control-r2 · Critical: no
   - Depends: M4.17 (done)
   - Goal: M4.17 found class-pure `class_code` values (motorway codes recurring
     EU 2011/2014) but LORO failed over all joined rows, so `class_code` is a
