@@ -69,9 +69,9 @@ class PageError(ValueError):
 class FitError(PageError):
     """The edited page does not fit its slot minus headroom."""
 
-    def __init__(self, message: str, row: dict):
+    def __init__(self, message: str, row: dict | None = None):
         super().__init__(message)
-        self.row = row
+        self.row = row if row is not None else {"decision": "refuse", "reason": message}
 
 
 # ---------------------------------------------------------------------------
@@ -136,10 +136,17 @@ def _deflate(data: bytes, level: int, mem_level: int) -> bytes:
 
 
 ENCODERS = [(level, mem) for mem in (8, 9) for level in range(9, 0, -1)]
+# Wider search for exact reproduction (M5.12c/M5.25): an unchanged page must
+# round-trip to the same stream bytes when the original encoder is found.
+REPRODUCE_ENCODERS = [
+    (level, mem)
+    for mem in (8, 9, 7, 6, 5, 4, 3, 2, 1)
+    for level in (9, 6, 8, 7, 5, 4, 3, 2, 1)
+]
 
 
-def reproducing_encoder(original: bytes, inner: bytes):
-    for level, mem in ENCODERS:
+def reproducing_encoder(original: bytes, inner: bytes, *, wide: bool = True):
+    for level, mem in (REPRODUCE_ENCODERS if wide else ENCODERS):
         if _deflate(inner, level, mem) == original:
             return level, mem
     return None
