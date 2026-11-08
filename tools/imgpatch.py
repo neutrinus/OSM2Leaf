@@ -531,6 +531,145 @@ def patch_image(image, file, source, output=None, *, allow_resize: bool = False,
     return report
 
 
+# --- independent diff check (M5.24) ----------------------------------------
+
+def _merge_ranges(ranges):
+    merged: list[list[int]] = []
+    for start, end in sorted(ranges):
+        if merged and start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return [(a, b) for a, b in merged]
+
+
+def _ranges_contained(ranges, allowed) -> bool:
+    """Whether every differing run fits inside the union of allowed ranges."""
+    merged = _merge_ranges(allowed)
+    return all(any(a <= start and end <= b for a, b in merged)
+               for start, end in ranges)
+
+
+def _outside_ranges(ranges, allowed):
+    """Diff ranges (or parts) not covered by the allowed union."""
+    merged = _merge_ranges(allowed)
+    outside = []
+    for start, end in ranges:
+        cur = start
+        for a, b in merged:
+            if b <= cur:
+                continue
+            if a >= end:
+                break
+            if a > cur:
+                outside.append((cur, min(a, end)))
+            cur = max(cur, b)
+            if cur >= end:
+                break
+        if cur < end:
+            outside.append((cur, end))
+    return outside
+
+
+def allowed_ranges_from_bpb(image, files) -> dict:
+    """Resolve each replaced file's clusters and dir entry from an independent
+    BPB+FAT read, not from a patch plan or write offset.
+
+    ``image`` is the patched image. Returns the allowed byte ranges (cluster
+    data for each file's chain plus its 32-byte directory entry) and the
+    per-file metadata the independent read produced.
+    """
+    image_path = Path(image)
+    if not image_path.is_file():
+        raise PatchError("image-not-found", f"{image_path}: no such image")
+    rels = [_rel(f) for f in files]
+    try:
+        with image_path.open("rb") as handle:
+            try:
+                _part, geo, fat = mkcard.open_map_partition(handle)
+            except ValueError as exc:
+                raise PatchError("not-fat32", f"{image_path}: {exc}") from exc
+            per_file = []
+            allowed = []
+            for rel in rels:
+                info = _locate(handle, geo, fat, rel)
+                chain_list = mkcard.chain(fat, info["cluster"]) if info["cluster"] else []
+                clusters = []
+                for cluster in chain_list:
+                    off = geo.cluster_offset(cluster)
+                    clusters.append({"cluster": cluster, "offset": off,
+                                     "length": geo.cluster_bytes})
+                    allowed.append((off, off + geo.cluster_bytes))
+                entry = {"offset": info["dir_entry_offset"], "length": 32}
+                allowed.append((entry["offset"], entry["offset"] + 32))
+                per_file.append({
+                    "file": rel,
+                    "method": "independent BPB+FAT read (mkcard.open_map_partition/_locate)",
+                    "start_cluster": info["cluster"],
+                    "size": info["size"],
+                    "chain": chain_list,
+                    "cluster_ranges": clusters,
+                    "dir_entry": entry,
+                })
+    except PatchError:
+        raise
+    except (ValueError, struct.error, OSError) as exc:
+        raise PatchError("bad-image", f"{image_path}: {exc}") from exc
+    return {
+        "image": str(image_path),
+        "files": per_file,
+        "allowed_ranges": _merge_ranges(allowed),
+    }
+
+
+def check_diff_ranges(image, reference, files, *, limit: int = 10**7) -> dict:
+    """Verify every byte diff lies in replaced-file clusters/dir entries.
+
+    The allowed ranges come from ``allowed_ranges_from_bpb`` on ``image`` (an
+    independent BPB+FAT read), never from patch write offsets. Reports a
+    mismatch when any diff range falls outside the allowed union.
+    """
+    ref_path = Path(reference)
+    img_path = Path(image)
+    if not ref_path.is_file():
+        raise PatchError("image-not-found", f"{ref_path}: no such image")
+    allowed = allowed_ranges_from_bpb(image, files)
+    diff = mkcard.diff_ranges(ref_path, img_path, limit=limit)
+    outside = _outside_ranges(diff, allowed["allowed_ranges"])
+    result = {
+        "mode": "check-diff",
+        "ok": not outside,
+        "image": str(img_path),
+        "reference": str(ref_path),
+        "method": "mkcard.diff_ranges classified against independent BPB+FAT ranges",
+        "diff_range_count": len(diff),
+        "diff_ranges_sample": diff[:50],
+        "outside_range_count": len(outside),
+        "outside_ranges_sample": outside[:50],
+        "files": allowed["files"],
+        "allowed_ranges": allowed["allowed_ranges"],
+    }
+    return result
+
+
+def _print_check_diff(result: dict) -> None:
+    state = "OK" if result["ok"] else "MISMATCH"
+    print(f"check-diff: {state}")
+    print(f"  image:     {result['image']}")
+    print(f"  reference: {result['reference']}")
+    print(f"  method:    {result['method']}")
+    print(f"  diffs: {result['diff_range_count']} range(s), "
+          f"outside: {result['outside_range_count']}")
+    for item in result["files"]:
+        print(f"  file: {item['file']}  start {item['start_cluster']}  "
+              f"clusters {item['chain']}")
+        print(f"        dir entry 0x{item['dir_entry']['offset']:08x}  "
+              f"(independent BPB+FAT read)")
+    if result["outside_ranges_sample"]:
+        for start, end in result["outside_ranges_sample"][:10]:
+            print(f"  OUTSIDE 0x{start:08x}-0x{end:08x}  ({end - start} B)")
+
+
 # --- reporting -------------------------------------------------------------
 
 def _print_patch(report: dict) -> None:
@@ -571,9 +710,12 @@ def _print_verify(result: dict) -> None:
               f"{'OK' if copy['matches'] else 'MISMATCH'}")
 
 
-def _emit(report: dict, as_json: bool, verify_only: bool = False) -> None:
+def _emit(report: dict, as_json: bool, verify_only: bool = False,
+          check_diff: bool = False) -> None:
     if as_json:
         print(json.dumps(report, indent=2))
+    elif check_diff:
+        _print_check_diff(report)
     elif verify_only:
         _print_verify(report)
     else:
@@ -649,14 +791,7 @@ def _cluster_offset(path: Path, cluster: int) -> int:
 
 def _contained(ranges, allowed) -> bool:
     """Whether every differing run fits inside the union of planned writes."""
-    merged: list[list[int]] = []
-    for start, end in sorted(allowed):
-        if merged and start <= merged[-1][1]:
-            merged[-1][1] = max(merged[-1][1], end)
-        else:
-            merged.append([start, end])
-    return all(any(a <= start and end <= b for a, b in merged)
-               for start, end in ranges)
+    return _ranges_contained(ranges, allowed)
 
 
 def expect_refusal(reason: str, func, *args, **kwargs) -> PatchError:
@@ -887,6 +1022,103 @@ def selftest() -> int:
             code = exc.code
         check("cli: --same-length with --allow-resize is a usage error (2)", code == 2)
 
+        # --- 9. independent BPB+FAT diff check (M5.24) ---------------
+        # Positive: S2-style case on synthetic image. 'same' differs from
+        # 'fixture' only in NOTE.TXT's cluster/dir entry; allowed ranges
+        # come from an independent BPB+FAT read, not write offsets.
+        dc = check_diff_ranges(same, fixture, ["NOTE.TXT"])
+        check("check-diff: in-range diffs pass", dc["ok"])
+        check("check-diff: diffs found", dc["diff_range_count"] > 0)
+        check("check-diff: no outside ranges", dc["outside_range_count"] == 0)
+        check("check-diff: method names independent BPB+FAT read",
+              "independent BPB+FAT read" in dc["files"][0]["method"])
+        check("check-diff: chain resolved from BPB/FAT",
+              dc["files"][0]["chain"] == [7])
+
+        # Multi-file: grow changed SMALL.BIN vs same. A resize also changes
+        # FAT/FSInfo (legitimate metadata); the cluster+dir-entry check from
+        # an independent BPB+FAT read must contain the file's data diffs, and
+        # any outside ranges must be only FAT/FSInfo metadata.
+        dc2 = check_diff_ranges(grow, same, ["SMALL.BIN"])
+        with grow.open("rb") as handle:
+            _part, geo, _fat = mkcard.open_map_partition(handle)
+            meta = [(geo.fat_offset, geo.fat_offset + geo.fat_count * geo.fat_bytes)]
+            for sec in [geo.fsinfo_sector] + ([geo.backup_boot + geo.fsinfo_sector]
+                                               if geo.backup_boot else []):
+                if sec and sec < geo.reserved:
+                    off = geo.part_offset + sec * geo.bps
+                    meta.append((off, off + geo.bps))
+        file_allowed = dc2["allowed_ranges"]
+        file_ok = _ranges_contained(
+            [r for r in mkcard.diff_ranges(same, grow)
+             if _ranges_contained([r], file_allowed)
+             or not _ranges_contained([r], _merge_ranges(meta))],
+            file_allowed)  # no non-meta, non-file diffs
+        meta_outside = _outside_ranges(
+            mkcard.diff_ranges(same, grow), file_allowed)
+        check("check-diff: resize file clusters/dir found by BPB+FAT",
+              any(f["chain"] for f in dc2["files"]))
+        check("check-diff: resize outside diffs are only FAT/FSInfo metadata",
+              _ranges_contained(meta_outside, meta),
+              f"outside={[r for r in meta_outside[:3]]}")
+
+        # easier multi-file positive: fixture vs grow allows NOTE+SMALL.
+        # fixture had original NOTE/SMALL; grow has new NOTE? no - grow was
+        # built from 'same' (patched NOTE) then SMALL grown. So fixture->grow
+        # differs in NOTE.TXT and SMALL.BIN.
+        dc3 = check_diff_ranges(grow, fixture, ["NOTE.TXT", "SMALL.BIN"])
+        meta_outside3 = _outside_ranges(mkcard.diff_ranges(fixture, grow),
+                                        dc3["allowed_ranges"])
+        check("check-diff: multi-file clusters/dir resolved independently",
+              len(dc3["files"]) == 2 and dc3["files"][0]["chain"] == [7])
+        check("check-diff: multi-file outside diffs only FAT/FSInfo metadata",
+              _ranges_contained(meta_outside3, meta),
+              f"outside={dc3['outside_range_count']}")
+
+        # Negative: flip one byte outside every allowed range and report.
+        bad_img = tmp / "bad-diff.img"
+        mkcard.copy_image(grow, bad_img)
+        allowed_union = _merge_ranges(
+            (c["offset"], c["offset"] + c["length"])
+            for f in dc3["files"] for c in f["cluster_ranges"]
+        ) + [(f["dir_entry"]["offset"], f["dir_entry"]["offset"] + 32)
+             for f in dc3["files"]]
+        allowed_union = _merge_ranges(allowed_union)
+        # pick a byte inside the map partition but outside allowed ranges
+        with bad_img.open("r+b") as handle:
+            _part, geo, _fat = mkcard.open_map_partition(handle)
+            probe = geo.part_offset + geo.bps * 2  # early in partition
+            for _ in range(10000):
+                if not any(a <= probe < b for a, b in allowed_union):
+                    handle.seek(probe)
+                    orig = handle.read(1)
+                    handle.seek(probe)
+                    handle.write(bytes([orig[0] ^ 0xFF]))
+                    break
+                probe += 257
+            else:
+                raise AssertionError("could not find a probe byte outside allowed ranges")
+        dc4 = check_diff_ranges(bad_img, fixture, ["NOTE.TXT", "SMALL.BIN"])
+        check("check-diff: outside diff reported", not dc4["ok"])
+        check("check-diff: outside range counted", dc4["outside_range_count"] >= 1)
+
+        # CLI (same-cluster-count case: NOTE.TXT only, no FAT/FSInfo diffs)
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            code = main(["--check-diff", "--image", str(same),
+                         "--reference", str(fixture),
+                         "--file", "NOTE.TXT", "--json"])
+        payload = json.loads(buffer.getvalue())
+        check("cli: --check-diff --json exits 0", code == 0 and payload["ok"])
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            code = main(["--check-diff", "--image", str(bad_img),
+                         "--reference", str(fixture),
+                         "--file", "NOTE.TXT", "--file", "SMALL.BIN", "--json"])
+        payload = json.loads(buffer.getvalue())
+        check("cli: --check-diff mismatch exits 1",
+              code == 1 and not payload["ok"])
+
         if errors == 0:
             buffer = io.StringIO()
             with contextlib.redirect_stdout(buffer):
@@ -912,7 +1144,9 @@ def build_parser() -> argparse.ArgumentParser:
                "3 refused by a guard.",
     )
     parser.add_argument("--image", help="SD card image to patch or verify")
-    parser.add_argument("--file", help="path inside the card, e.g. REFER001/X.DAT.cmp")
+    parser.add_argument("--file", action="append", dest="files",
+                        help="path inside the card, e.g. REFER001/X.DAT.cmp "
+                             "(repeatable with --check-diff)")
     parser.add_argument("--from", dest="source", metavar="NEWFILE",
                         help="host file with the new content")
     parser.add_argument("-o", "--out", help="write the patched copy here "
@@ -928,6 +1162,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help=f"also copy {VERSION_FILE} to 0x{HDD_COPY_OFFSET:08x}")
     parser.add_argument("--verify", action="store_true",
                         help="only read the file back and compare hashes")
+    parser.add_argument("--check-diff", action="store_true",
+                        help="check that every diff vs --reference lies in each "
+                             "--file's clusters/dir entry, resolved from an "
+                             "independent BPB+FAT read (M5.24)")
+    parser.add_argument("--reference", metavar="REFIMG",
+                        help="baseline image for --check-diff")
     parser.add_argument("--hash", action="store_true",
                         help="include the output image SHA-256 in the report")
     parser.add_argument("--selftest", action="store_true")
@@ -940,8 +1180,29 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.selftest:
         return selftest()
-    if not args.image or not args.file or not args.source:
+    files = args.files or []
+    file_arg = files[0] if files else None
+    if args.check_diff:
+        if not args.image or not args.reference or not files:
+            parser.error("--check-diff requires --image, --reference and --file")
+        if args.source or args.out or args.dry_run or args.verify:
+            parser.error("--check-diff does not accept --from/-o/--dry-run/--verify")
+        try:
+            result = check_diff_ranges(args.image, args.reference, files)
+        except PatchError as exc:
+            if args.json:
+                print(json.dumps({"ok": False, "mode": "check-diff",
+                                  "error": exc.reason, "message": exc.message},
+                                 indent=2))
+            else:
+                print(f"imgpatch: {exc.message}", file=sys.stderr)
+            return exc.exit_code
+        _emit(result, args.json, check_diff=True)
+        return 0 if result["ok"] else 1
+    if not args.image or not file_arg or not args.source:
         parser.error("--image, --file and --from are required (or use --selftest)")
+    if len(files) > 1 and not args.verify:
+        parser.error("patch/verify accept a single --file; use --check-diff for multiple")
     if args.same_length and args.allow_resize:
         parser.error("--same-length and --allow-resize are mutually exclusive")
     if args.verify and (args.out or args.dry_run):
@@ -949,7 +1210,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.verify:
         try:
-            result = verify_image(args.image, args.file, args.source,
+            result = verify_image(args.image, file_arg, args.source,
                                   update_version_copy=args.update_version_copy)
         except PatchError as exc:
             if args.json:
@@ -964,7 +1225,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         report = patch_image(
-            args.image, args.file, args.source, args.out,
+            args.image, file_arg, args.source, args.out,
             allow_resize=args.allow_resize, dry_run=args.dry_run,
             update_version_copy=args.update_version_copy,
             hash_output=args.hash,
