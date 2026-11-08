@@ -1743,7 +1743,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-900–C-909
 
 - [ ] **M4.3 — Turn restrictions and connectivity encoding**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m4.3-turn-restrictions · Critical: no
   - Depends: — (M4.1 helps)
   - Done when: one known restriction (OSM `restriction=*` at a named
     junction) is found and decoded.
