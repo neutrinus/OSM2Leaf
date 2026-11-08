@@ -1634,7 +1634,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
   - Status: blocked · Owner: claude/m3.11b-point-byteorder · Critical: yes
   - Blocker: the page is handed to the walker by an `OSM_TaskSend` reply from another task (OSMDLL import 12, `fn 0x3f40ec`); no 16-bit swap loop exists in Navi.exe sec0 or OSMDLL sec0 (C-2547, C-2548).
-  - Unblock: M9.11 (the dynamic run shows the buffer the walker is handed)
+  - Unblock: M9.11 (the dynamic run shows the buffer the walker is handed; M9.11 is itself blocked on M9.11b, and its decoder output is file order, so the swap is downstream of `0x41c7e8`)
   - Result: EXP-2026-11-08-M3.11b-point-byteorder (negative; done-when not met).
   - Depends: — (M9.11 helps: its run shows the bytes the chunk decoder hands back)
   - Goal: `0x3f5194` reads `mov.w @page` and only walks a 16-bit-swapped
