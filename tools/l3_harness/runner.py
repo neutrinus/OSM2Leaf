@@ -20,13 +20,19 @@ Commands:
     ``--engine pysh4|ghidra|qemu`` and print the verdict as JSON.  A synthetic
     target runs on the pure-Python reference engine; a reader that is not
     located reports ``BLOCKED``; a back end that is absent reports ``SKIP``
-    (exit ``3``) and never ``PASS``.
+    (exit ``3``) and never ``PASS``.  A ``module`` entry (M9.20) calls a
+    function at a VA of a memory map: ``run FUNC --rommap MAP.json --image FW``
+    maps the named module's blocks from the image bytes (no hand-written
+    ``-device loader`` list), passes ``entry.args`` in ``r4``-``r7``, reads the
+    verdict from ``r0`` through ``entry.verdict_map`` and reports ``BLOCKED``
+    for a VA outside an executable block or an unmapped ``r0``.
 ``run`` (legacy, no FUNC)
     Look for Ghidra's ``analyzeHeadless``.  Without it, print
     ``MISSING_GHIDRA`` plus exact install instructions and exit ``3``.  With
-    Ghidra but without the harness script, a located reader or the firmware
-    image, print ``BLOCKED`` and exit ``4``.  Only an actual Ghidra run whose
-    result matches every manifest verdict may exit ``0``.
+    Ghidra but without the entry script ``ghidra/l3_run.py``, a located reader
+    or the firmware image, print ``BLOCKED`` and exit ``4``.  The script's
+    result is read back: a ``BLOCKED`` result is exit ``4``; only a result
+    whose cases match every manifest verdict may exit ``0``.
 
 Exit codes: ``0`` pass, ``1`` invalid inputs, ``2`` usage error,
 ``3`` back end missing / skipped, ``4`` blocked, ``5`` result mismatch.
@@ -203,6 +209,18 @@ TARGET_KEYS = {
     "expect",
     "notes",
 }
+
+#: ``entry.kind`` values.  ``synthetic``: a program shipped in this file;
+#: ``module``: a function at a VA of a memory map (M9.5/M9.20); ``blocked``: a
+#: reader whose entry point is not located yet.
+ENTRY_KINDS = ("synthetic", "module", "blocked")
+MODULE_ENTRY_KEYS = {"kind", "module", "va", "endian", "args", "verdict_map", "note"}
+#: Byte order the engines can run.  PySh4 is big-endian; the firmware is
+#: little-endian, so ``"little"`` stays refused until M9.21 adds it.
+MODULE_ENDIANS = ("big",)
+#: The SH-4 register arguments a module call can pass (r4-r7); stack arguments
+#: are not modelled for module entries.
+MODULE_MAX_ARGS = 4
 
 # -- synthetic probe memory layout (the only program shipped so far) --------
 
@@ -554,6 +572,59 @@ def _validate_stub_spec(spec, where: str, problems: list[str]) -> None:
             )
 
 
+def _validate_module_entry(entry, where: str) -> list[str]:
+    """Problems in an ``entry.kind = "module"`` block; empty when valid."""
+
+    problems: list[str] = []
+    unknown = sorted(set(entry) - MODULE_ENTRY_KEYS)
+    if unknown:
+        problems.append(f"{where}: unknown entry key(s) {unknown}")
+    module = entry.get("module")
+    if not isinstance(module, str) or not module:
+        problems.append(f"{where}: module entry needs a module name, e.g. Navi.exe")
+    if entry.get("va") is None:
+        problems.append(f"{where}: module entry needs a va")
+    else:
+        _hex(entry["va"], f"{where}.entry.va", problems)
+    endian = entry.get("endian", "big")
+    if endian not in MODULE_ENDIANS:
+        problems.append(
+            f"{where}: entry.endian {endian!r} is not runnable yet; PySh4 is "
+            f"big-endian and little-endian needs M9.21"
+        )
+    args = entry.get("args", [])
+    if not isinstance(args, list) or len(args) > MODULE_MAX_ARGS:
+        problems.append(
+            f"{where}: entry.args must be a list of at most {MODULE_MAX_ARGS} "
+            "register values (r4-r7; stack arguments are not modelled)"
+        )
+    else:
+        for index, item in enumerate(args):
+            if item is None or isinstance(item, bool) or not isinstance(item, (int, str)):
+                problems.append(f"{where}: entry.args[{index}] must be an integer")
+            else:
+                _hex(item, f"{where}.entry.args[{index}]", problems)
+    verdict_map = entry.get("verdict_map")
+    if not isinstance(verdict_map, dict) or not verdict_map:
+        problems.append(
+            f"{where}: module entry needs verdict_map, e.g. {{\"0x0\": \"REJECT\"}}; "
+            "the r0-to-verdict rule is written down, never guessed"
+        )
+    else:
+        seen: set[int] = set()
+        for key, verdict in verdict_map.items():
+            number = _hex(key, f"{where}.entry.verdict_map key", problems)
+            if number is not None:
+                if number in seen:
+                    problems.append(f"{where}: verdict_map key {key!r} repeats a value")
+                seen.add(number)
+            if verdict not in ("ACCEPT", "REJECT"):
+                problems.append(
+                    f"{where}: verdict_map[{key!r}] must be ACCEPT or REJECT"
+                )
+    return problems
+
+
 def validate_targets(doc) -> list[str]:
     """Return every problem in a ``targets.json`` document."""
 
@@ -592,11 +663,15 @@ def validate_targets(doc) -> list[str]:
             problems.append(f"{where}: entry must be an object")
         else:
             kind = entry.get("kind")
-            if kind not in ("synthetic", "blocked"):
-                problems.append(f"{where}: entry.kind must be synthetic or blocked")
+            if kind not in ENTRY_KINDS:
+                problems.append(
+                    f"{where}: entry.kind must be one of {', '.join(ENTRY_KINDS)}"
+                )
             elif kind == "blocked":
                 if not isinstance(entry.get("reason"), str) or not entry["reason"]:
                     problems.append(f"{where}: blocked entry needs a reason")
+            elif kind == "module":
+                problems.extend(_validate_module_entry(entry, where))
             else:
                 program = entry.get("program")
                 if program not in SYNTHETIC_PROGRAMS:
@@ -613,13 +688,16 @@ def validate_targets(doc) -> list[str]:
                     )
 
         stubs = target.get("stubs")
-        if not isinstance(stubs, list) or not stubs:
+        kind_now = entry.get("kind") if isinstance(entry, dict) else None
+        # A module function may call no stub at all; the other kinds must
+        # declare at least one.
+        if not isinstance(stubs, list) or (not stubs and kind_now != "module"):
             problems.append(f"{where}: stubs must be a non-empty list")
         elif isinstance(entry, dict) and entry.get("kind") == "blocked":
             for item in stubs:
                 if not isinstance(item, str) or item not in stubs_mod.names():
                     problems.append(f"{where}: unknown stub name {item!r}")
-        elif isinstance(entry, dict) and entry.get("kind") == "synthetic":
+        elif isinstance(entry, dict) and entry.get("kind") in ("synthetic", "module"):
             ids = set()
             for stub_index, spec in enumerate(stubs):
                 _validate_stub_spec(spec, f"{where}.stubs[{stub_index}]", problems)
@@ -643,7 +721,9 @@ def validate_targets(doc) -> list[str]:
                     )
 
         corpus = target.get("corpus")
-        if not isinstance(corpus, dict):
+        if corpus is None and kind_now == "module":
+            pass  # a module call takes its inputs from the entry, not a corpus
+        elif not isinstance(corpus, dict):
             problems.append(f"{where}: corpus must be an object")
         else:
             for key in ("path", "guest_path", "reader"):
@@ -778,43 +858,14 @@ class StubBridge:
         for va in sorted(self.specs):
             backend.on_exec(va, self._handler(va))
 
-    def _args(self, backend, spec) -> list[int]:
-        regs = backend.get_regs()
-        arity = int(spec["arity"])
-        args = [regs["r4"], regs["r5"], regs["r6"], regs["r7"]][: min(4, arity)]
-        extra = arity - 4
-        if extra > 0:
-            raw = backend.read_mem(regs["r15"], extra * 4)
-            args.extend(struct.unpack(">%dI" % extra, raw))
-        return args
-
     def _handler(self, va: int):
         spec = self.specs[va]
-
-        def handler(backend, _va):
-            try:
-                args = self._args(backend, spec)
-                target = (spec["module"], spec["target"])
-                entry = self.dispatcher.resolve(target)
-                value = self.dispatcher.call(target, args)
-            except (dispatch_mod.StubError, engine_mod.EngineError) as exc:
-                detail = getattr(exc, "message", str(exc))
-                raise engine_mod.Blocked(
-                    f"stub {spec['module']}!{spec['target']} at "
-                    f"{engine_mod.px(va)}: {detail}"
-                ) from exc
-            self.calls.append(
-                {
-                    "va": engine_mod.px(va),
-                    "stub": f"{spec['module']}!{spec['target']}",
-                    "resolved": entry["name"],
-                    "args": [engine_mod.px(item) for item in args],
-                    "returned": engine_mod.px(value),
-                }
-            )
-            return engine_mod.StubReturn(value)
-
-        return handler
+        target = (spec["module"], spec["target"])
+        return self.dispatcher.engine_hook(
+            target,
+            arity=int(spec["arity"]),
+            on_call=self.calls.append,
+        )
 
 
 # --------------------------------------------------------------------------
@@ -963,6 +1014,21 @@ def _plan_target(target, args) -> dict:
             "dry run: this reader is not located, so any run reports BLOCKED"
         )
         return payload
+    if entry["kind"] == "module":
+        payload["module_entry"] = {
+            "module": entry["module"],
+            "va": entry["va"],
+            "endian": entry.get("endian", "big"),
+            "args": list(entry.get("args", [])),
+            "verdict_map": dict(entry["verdict_map"]),
+            "rommap": str(args.rommap) if getattr(args, "rommap", None) else None,
+            "image": str(args.image) if getattr(args, "image", None) else None,
+        }
+        payload["note"] = (
+            "dry run: module entry; the memory map, the image SHA-256 and the "
+            "stub bindings are checked by a real run, and no engine was started"
+        )
+        return payload
 
     if args.engine not in engine_mod.BACKENDS:
         payload["engine_status"] = engine_mod.Blocked(
@@ -1007,6 +1073,213 @@ def _plan_target(target, args) -> dict:
     return payload
 
 
+def _sha256_file(path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _run_module_target(target, args, base) -> dict:
+    """Call a function at a module VA, mapped from ``--rommap`` and ``--image``.
+
+    The memory map (``cerom.py memmap`` through ``rommap.py``) supplies every
+    block address, file offset and permission, and the image supplies the
+    bytes, so no ``-device loader`` list is written by hand.  Only the named
+    module is mapped; a call into another module stops as ``UnmappedAccess``
+    and is reported ``BLOCKED``.  The verdict is read from ``r0`` through the
+    target's ``verdict_map`` and nothing else.
+    """
+
+    entry = target["entry"]
+    module = entry["module"]
+    va = int(str(entry["va"]), 0)
+
+    def blocked(reason: str, **extra) -> dict:
+        return dict(
+            base, status="BLOCKED", exit=EXIT_BLOCKED, reason=reason,
+            accepted=None, l3_claim=False, **extra,
+        )
+
+    rommap_path = getattr(args, "rommap", None)
+    image_path = getattr(args, "image", None)
+    if not rommap_path or not image_path:
+        return blocked(
+            "a module target needs --rommap MAP.json and --image FW.img: the "
+            "memory map and the bytes it was made from"
+        )
+    try:
+        rommap_doc = rommap_mod.load(rommap_path)
+    except (OSError, json.JSONDecodeError) as exc:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"cannot read --rommap {rommap_path}: {exc}"])
+    problems = rommap_mod.validate(rommap_doc)
+    if problems:
+        return dict(base, status="INVALID", exit=EXIT_INVALID, problems=problems)
+
+    image = Path(image_path)
+    if not image.is_file():
+        return blocked(f"firmware image not readable: {image}")
+    try:
+        image_sha = _sha256_file(image)
+    except OSError as exc:
+        return blocked(f"cannot hash --image {image}: {exc}")
+    expected_sha = (rommap_doc.get("source") or {}).get("image_sha256")
+    if isinstance(expected_sha, str) and expected_sha and expected_sha != image_sha:
+        return dict(
+            base, status="INVALID", exit=EXIT_INVALID,
+            problems=[
+                f"image SHA-256 {image_sha} does not match the memory map "
+                f"({expected_sha}); the map was made from another image"
+            ],
+        )
+
+    blocks = [
+        block for block in rommap_doc.get("blocks", [])
+        if block.get("module") == module and block.get("loadable")
+    ]
+    if not blocks:
+        return blocked(f"module {module!r} is not in the memory map")
+    owner = next(
+        (
+            block for block in blocks
+            if int(block["address"], 0) <= va < int(block["address"], 0) + block["size"]
+        ),
+        None,
+    )
+    if owner is None:
+        return blocked(
+            f"entry VA {engine_mod.px(va)} is outside every loadable block of {module}"
+        )
+    if "x" not in owner["permissions"]:
+        return blocked(
+            f"entry VA {engine_mod.px(va)} is in {owner['name']} "
+            f"({owner['permissions']}), which is not executable"
+        )
+
+    call_args = [int(str(item), 0) & M32 for item in entry.get("args", [])]
+    backend = engine_mod.BACKENDS[args.engine]()
+    try:
+        availability = backend.probe()
+        if not availability.available:
+            return dict(
+                base,
+                status="SKIP",
+                exit=EXIT_SKIP,
+                reason=f"{availability.code}: {availability.detail}",
+                skipped=True,
+                l3_claim=False,
+            )
+        base["engine_kind"] = backend.kind
+        base["engine_verified"] = backend.verified
+
+        mapped: list[str] = []
+        with open(image, "rb") as handle:
+            for block in blocks:
+                address = int(block["address"], 0)
+                size = int(block["size"])
+                stored = int(block.get("stored_size") or 0)
+                data = b""
+                if block.get("file_offset") is not None and stored:
+                    handle.seek(int(block["file_offset"], 0))
+                    data = handle.read(stored)
+                    if len(data) != stored:
+                        return blocked(f"short read for {block['name']} from {image}")
+                perm = "".join(letter for letter in block["permissions"] if letter in "rwx")
+                backend.map(block["name"], address, data + bytes(size - len(data)), perm)
+                mapped.append(block["name"])
+        backend.map("stack", STACK_VA, STACK_SIZE, "rw")
+        backend.map("heap", HEAP_VA, HEAP_SIZE, "rw")
+
+        memory = _EngineMemory(backend, endian="big")
+        context = dispatch_mod.StubContext(
+            memory=memory,
+            fs=dispatch_mod.VirtualFS(),
+            heap=dispatch_mod.Heap(memory, HEAP_VA, HEAP_SIZE),
+            registry=dispatch_mod.Registry(),
+        )
+        bridge = StubBridge(dispatch_mod.StubDispatcher(context), target["stubs"])
+        bridge.install(backend)
+
+        backend.set_regs({name: 0 for name in engine_mod.REGISTERS})
+        backend.set_regs(r15=STACK_TOP)
+        value = backend.call(va, call_args) & M32
+        run = backend.last_run
+    except OSError as exc:
+        return blocked(f"cannot read {image}: {exc}")
+    except engine_mod.EngineError as exc:
+        if exc.code in ("MISSING_GHIDRA", "MISSING_QEMU"):
+            return dict(base, status="SKIP", exit=EXIT_SKIP,
+                        reason=f"{exc.code}: {exc.message}", skipped=True,
+                        l3_claim=False)
+        return blocked(f"{exc.code}: {exc.message}")
+    except dispatch_mod.StubError as exc:
+        return blocked(f"{exc.code}: {exc.message}")
+    finally:
+        backend.close()
+
+    called = [call["stub"] for call in bridge.calls]
+    expected_stubs = sorted({f"{spec['module']}!{spec['target']}" for spec in target["stubs"]})
+    verdict_map = {int(str(key), 0) & M32: item for key, item in entry["verdict_map"].items()}
+    observed = verdict_map.get(value)
+    common = dict(
+        base,
+        returned=engine_mod.px(value),
+        instructions=run.insns if run else -1,
+        cycles_unit="instruction/stub steps (PySh4 1 IPC; not SH-4 clock cycles)",
+        finished=run.reason if run else "none",
+        stub_calls=bridge.calls,
+        stubs_expected=expected_stubs,
+        stubs_called=sorted(set(called)),
+        rommap={
+            "path": str(rommap_path),
+            "module": module,
+            "block": owner["name"],
+            "entry_va": engine_mod.px(va),
+            "blocks_mapped": mapped,
+            "image_sha256": image_sha,
+            "image_sha256_checked": bool(expected_sha),
+        },
+        l3_claim=False,
+    )
+    if observed is None:
+        return dict(
+            common,
+            status="BLOCKED",
+            exit=EXIT_BLOCKED,
+            reason=(
+                f"r0 {engine_mod.px(value)} is not in the entry's verdict_map; "
+                "no verdict is guessed"
+            ),
+            accepted=None,
+        )
+
+    problems: list[str] = []
+    if run is None or run.reason != "return":
+        problems.append(f"run stopped with {run.reason if run else 'no result'}, not at the return sentinel")
+    missing_calls = sorted(set(expected_stubs) - set(called))
+    if missing_calls:
+        problems.append(f"declared stub(s) were never called: {', '.join(missing_calls)}")
+    if observed != target["expect"]["verdict"]:
+        problems.append(
+            f"engine verdict {observed}, target expects {target['expect']['verdict']}"
+        )
+    return dict(
+        common,
+        status="PASS" if not problems else "MISMATCH",
+        exit=EXIT_OK if not problems else EXIT_MISMATCH,
+        accepted=observed == "ACCEPT",
+        verdict=observed,
+        problems=problems,
+        note=(
+            "module entry: the function ran from the memory map, not from a "
+            "hand-written loader list; it is pipeline evidence, not a reader "
+            "verdict, until the reader's VA and byte order are verified (M9.6)"
+        ),
+    )
+
+
 def run_target(target, args) -> dict:
     """Execute one target and return its verdict payload.
 
@@ -1049,6 +1322,9 @@ def run_target(target, args) -> dict:
                 f"(known: {', '.join(sorted(engine_mod.BACKENDS))})"
             ],
         )
+
+    if entry["kind"] == "module":
+        return _run_module_target(target, args, base)
 
     problems: list[str] = []
     resolved = _read_input(target, args, problems)
@@ -1423,9 +1699,12 @@ def build_plan(manifest_doc, rommap_doc) -> dict:
         for reader in sorted(readers)
         if reader not in located
     ]
+    script_name = HARNESS_SCRIPT.relative_to(HERE.parent.parent)
     blockers.append(
-        f"Ghidra harness script {HARNESS_SCRIPT.relative_to(HERE.parent.parent)} "
-        "is not written"
+        f"Ghidra entry script {script_name} runs no reader yet (it reports "
+        "BLOCKED)"
+        if HARNESS_SCRIPT.is_file()
+        else f"Ghidra entry script {script_name} is missing"
     )
     blockers.append(
         "no Ghidra run has produced a result JSON yet; L3 is not claimed"
@@ -1461,7 +1740,8 @@ def build_plan(manifest_doc, rommap_doc) -> dict:
             "sections or an explicit --skip-compressed)",
             "one located reader entry point with a VA from the memory map",
             "Ghidra 12.2+ with analyzeHeadless and a JDK it supports",
-            "tools/l3_harness/ghidra/l3_run.py (P-code harness script)",
+            "tools/l3_harness/ghidra/l3_run.py wired to a located reader (it "
+            "is the entry script; it runs no reader yet)",
             "a corpus root matching the manifest, with hashes verified",
             "the firmware image for -import and the reader's expected VA",
         ],
@@ -1887,6 +2167,20 @@ def cmd_run_legacy(args, env=None) -> int:
             "reason": f"unreadable result JSON: {exc}",
         }
         _emit_run(payload, args.json, [f"BLOCKED: {exc}", "RESULT: BLOCKED (exit 4)"])
+        return EXIT_BLOCKED
+
+    if isinstance(result, dict) and result.get("status") == "BLOCKED":
+        # The script itself reports that no reader ran: that is BLOCKED (exit
+        # 4), not a per-case mismatch, and never a pass.
+        reason = str(result.get("reason") or "the harness script reported BLOCKED")
+        payload = {
+            "command": "run",
+            "status": "BLOCKED",
+            "exit": EXIT_BLOCKED,
+            "reason": reason,
+            "result": str(result_path),
+        }
+        _emit_run(payload, args.json, [f"BLOCKED: {reason}", "RESULT: BLOCKED (exit 4)"])
         return EXIT_BLOCKED
 
     mismatches = _compare_result(docs["manifest"], result)

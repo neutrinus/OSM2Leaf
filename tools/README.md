@@ -538,10 +538,21 @@ are labelled and based on documented budgets, not measurements.
 python3 tools/l3_harness/selftest.py
 python3 tools/l3_harness/rommap.py convert --report cerom.json --out ghidra-map.json
 python3 tools/l3_harness/runner.py check --manifest corpus.json
+python3 tools/l3_harness/runner.py targets
+python3 tools/l3_harness/runner.py run probe-zlib-cmf --input FILE --json
+python3 tools/l3_harness/runner.py run NAME --rommap map.json --image FW.img --json
 ```
 
-`runner.py run` exits `3` (`MISSING_GHIDRA`) until Ghidra is installed and a
-harness script exists; it never reports an unearned pass. See
+`runner.py run` has two modes. With a target name it runs on the pure-Python
+`PySh4` engine: a `synthetic` target (the shipped probe) or a `module` entry, a
+function at a VA of a memory map whose bytes come from `--image` (M9.20). A
+`blocked` reader stays `BLOCKED`. Without a name, the legacy path needs Ghidra:
+it exits `3` (`MISSING_GHIDRA`) when Ghidra is absent, and otherwise runs
+`ghidra/l3_run.py` as its one entry script. That script reports `BLOCKED` until
+a reader is wired in, and it has not been run under Ghidra. The runner never
+reports an unearned pass; exit codes are `0` pass, `1` invalid, `2` usage, `3`
+skipped (back end missing), `4` blocked, `5` mismatch. See
+[`l3_harness/README.md`](l3_harness/README.md) and
 [`../docs/research/l3-ghidra.md`](../docs/research/l3-ghidra.md).
 
 ## `l3check.py` — L3 rung of the verification ladder
