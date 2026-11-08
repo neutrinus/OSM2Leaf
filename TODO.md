@@ -1744,7 +1744,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2190–C-2199
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m3.15-lctbl-reader · Critical: yes
   - Depends: — (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`)
   - Precheck: `tools/reader_precheck.py --module OBJDLL.dll` (M1.12) — all
     executable sections are readable (C-2128); OBJDLL's compressed bytes are
