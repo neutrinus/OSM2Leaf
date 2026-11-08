@@ -878,6 +878,33 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: jeśli polityka bezpieczeństwa/udostępniania obrazów jest niejasna, workflow tylko generuje checklistę/manifestspec i zatrzymuje się przed pakowaniem binariów — `blocked` z pytaniem do właściciela danych.
   - Claims: C-2790–C-2799
 
+- [ ] **H30 — Fix M9 rule-14 metadata and tighten `todo_check` firmware-task classification**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H24
+  - Goal: make rule 14 enforceable on the board. `todo_check.py` currently warns
+    (not fails) on M9 firmware/search tasks missing `Precheck`/`Scope`/`Stop`
+    and on M9.14 missing `Goal`; open/blocked M9.10, M9.11b, M9.12–M9.18 and
+    M9.24 still violate the fields the rule requires, so the warnings are easy
+    to ignore.
+  - Precheck: `python3 tools/todo_check.py TODO.md` reproduces the M9 warnings;
+    `python3 tools/todo_check.py --selftest` passes.
+  - Scope: `TODO.md` metadata for the warned M9 tasks and `tools/todo_check.py`
+    classification/severity behavior. No task semantics, no format claims, no
+    status changes except where metadata is added to an existing state.
+  - Input: `tools/todo_check.py`, rule 14 in `TODO.md`, current M9 task blocks
+    (M9.10–M9.18, M9.20, M9.21, M9.24), H24 EXP.
+  - Done when: each open/blocked warned M9 task has truthful `Precheck`,
+    `Scope` and `Stop` fields (and M9.14 has `Goal`) consistent with its current
+    blocker/result; `todo_check.py` documents which task shapes count as
+    firmware/search and, for those shapes in open/blocked state, either fails
+    or has an explicit `--strict`/configurable mode covered by selftest; done
+    tasks are not made false-failing retroactively unless the change is trivial
+    and correct.
+  - Stop: if a task's real precheck/scope cannot be stated without re-doing the
+    research, record that as a narrow follow-up task instead of inventing
+    metadata.
+  - Claims: C-2980–C-2989
+
 ## M1 — Firmware tooling
 
 Done: M1.1 (synthetic self-test, EXP-47), M1.5 (`cerom.py memmap`/`ghidra`,
@@ -2677,6 +2704,36 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the result.
   - Claims: C-2890–C-2899 (was C-2770–C-2779, collision with H27 fixed by H23)
 
+- [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.17, M4.18
+  - Goal: deepen M4.17's negative result toward the project goal (routable OSM
+    roads). M4.17 found no general road-class field but observed
+    motorway-pure/near-pure `class_code` values on joined numbered rows; use
+    those as controlled hints and test whether they correlate with any
+    decodable RDSTM/LCTBL link attribute, so M4.2/M5.3 get a narrower
+    hypothesis than "class_code is the class".
+  - Precheck: `python3 tools/road_class_probe.py --selftest` and
+    `python3 tools/lctbl_records.py --selftest` (or their existing selftests)
+    pass; reproduce M4.17's Table B counts for the pinned EU 2011 LCTBL sample
+    from the M4.17 EXP commands on the same sample if available.
+  - Scope: EU 2011 (and EU 2014 only as replication) pinned samples named in
+    M4.17/M4.18; `LCTBL001` and the specific RDSTM/INTER fields already
+    decoded. Excludes inventing a road-class encoding for generator output.
+  - Input: `tools/road_class_probe.py`, `tools/lctbl_records.py`, M4.17 EXP
+    C-1820–C-1828, M4.18 layout, M4.23/M4.24-26 restriction/connectivity
+    findings where they touch link identity.
+  - Done when: the EXP reports, with positive and negative controls, whether
+    pure `class_code` groups co-vary with any tested RDSTM/LCTBL attribute at
+    better-than-null rates; every claimed correlation states the join key and
+    corpus size; and the result either yields a named, falsifiable generator
+    hint (hypothesis) or records the tested attributes as negative with their
+    controls.
+  - Stop: if no stable join key exists between the LCTBL records and RDSTM
+    links on the available samples, set `blocked` and name the missing join
+    (do not guess by row order alone).
+  - Claims: C-2970–C-2979
+
 ---
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
@@ -2995,8 +3052,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [ ] **M5.12c — Every copy of the renamed POI name on the US card**
   - Status: blocked · Owner: — · Critical: yes
-  - Blocker: the uncompressed-files exact scan never finished, so the EXP has no list of every hit outside the compressed pages; the Done when is not met.
-  - Unblock: — (re-run the scan in EXP-2026-11-08-M5.12c-poi-copies Method 3 and record the hits).
+  - Blocker: the uncompressed-files exact scan never finished, so the EXP has no list of every hit outside the compressed pages; the Done when is not met. `EXP-2026-11-08-M5.12c-poi-copies.md` still says `Status: done` in its header — reconcile it (M5.27).
+  - Unblock: M5.27 (re-run the scan in EXP-2026-11-08-M5.12c-poi-copies Method 3, record hits, and reconcile EXP/TODO status).
   - Depends: — (M5.12)
   - Goal: tell Marek which screens should show `OSM2LEAF TEST POI1` (map
     label, POI list, name search) and whether any other file still holds the
@@ -3280,6 +3337,63 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M5.12c (for the "every copy / uncompressed scan" part); the slot/refit
     API reconciliation can proceed once M1.16 defines the shared codec.
   - Claims: C-2870–C-2879 (was C-2750–C-2759, collision with H25 fixed by H23)
+
+- [ ] **M5.26 — Whole-POINT-pair regeneration for OSM name sets (beyond in-place slot budget)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M1.13, M1.16, M5.21
+  - Goal: make mass POI/name generation feasible for the OSM compiler. M5.21
+    showed 98.6 % of edited POINT pages abut their slot and in-place edits fit
+    only 13,749 / 5,891,589 names at 4 % headroom (152,085 at 0 %), which blocks
+    real Dolnośląskie/Poland name sets if the compiler only patches pages.
+  - Precheck: `python3 tools/slot_budget.py --selftest` and
+    `python3 tools/factory_zlib.py --selftest`; confirm M1.13's pinned encoder
+    (stock zlib level 6, memLevel 8, wbits 15, default strategy) is the
+    default path used for regenerated inner streams.
+  - Scope: `REFER001/POINT*.DAT.cmp/.ind` pair regeneration for a supplied name
+    set (synthetic fixture first, then a real sample). Out of scope: changing
+    the on-disk record grammar (M4.x), tile geometry, or forcing slot-fit on
+    abutting factory pages.
+  - Input: M1.13 encoder result, M1.16 shared codec (when landed; otherwise
+    current helpers), M5.21 refusal/budget report format, a synthetic POINT
+    fixture with known `NAME@` records and a factory-like pair layout.
+  - Done when: a tool/entrypoint (name stated in the PR) regenerates inner zlib
+    pages and rebuilds a `.cmp/.ind` pair so that `cmpind.py` decodes it,
+    every requested synthetic name is present with `@`, page/offset tables stay
+    consistent, the result is refused with a clear error when a record/table
+    constraint is violated, and a control proves an unchanged name set can be
+    regenerated without inventing record bytes. L2/round-trip checks that apply
+    to synthetic fixtures pass; a real-image run is reported in the EXP (rule 11).
+  - Stop: if regenerating pages requires unknown POINT page-table/record fields,
+    record the exact field and open/block on the specific M4/M3 task instead of
+    guessing offsets.
+  - Claims: C-2950–C-2959
+
+- [ ] **M5.27 — Finish M5.12c uncompressed-file scan and reconcile EXP/TODO status**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M5.12c (blocked)
+  - Goal: close the integrity gap left by M5.12c: commit `95a4b42` and TODO mark
+    M5.12c blocked because the uncompressed-files exact scan never finished and
+    the done-when is unmet, while `EXP-2026-11-08-M5.12c-poi-copies.md` still
+    carries `Status: done` in its header/body.
+  - Precheck: `python3 tools/fetch_image.py --image US --verify <path>` (or an
+    existing verified US image path); `python3 tools/poi_copies.py --selftest`.
+    If the US image is unavailable in the session, fetch/verify it (rule 11)
+    or record the exact unavailability and stop.
+  - Scope: the uncompressed files of the US tree named in M5.12c Method 3 and
+    the M5.12c EXP/TODO metadata. No new rename edits to the image.
+  - Input: US 2011 image/tree, `tools/poi_copies.py`, M5.12c target names and
+    the existing EXP record.
+  - Done when: the uncompressed-file exact scan completes and the EXP records a
+    table of hits (file, offset, encoding, name, `@` context) or an explicit
+    empty result; `EXP-2026-11-08-M5.12c-poi-copies.md` no longer claims
+    `Status: done` for an unfinished done-when (status/body reconciled, with the
+    reason stated); and TODO M5.12c is either moved to `done` with the completed
+    evidence or kept `blocked` with the narrowed remaining blocker.
+  - Stop: if the scan cannot run to completion in the available environment,
+    keep M5.12c `blocked`, record the partial scope counted, and do not mark the
+    EXP done.
+  - Unblock: M5.12c
+  - Claims: C-2960–C-2969
 
 ---
 
