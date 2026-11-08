@@ -180,6 +180,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M3.7](EXP-2026-11-06-M3.7-router-rdstm.md) | Road-record field set and the router split (M3.7) | done |
 | [EXP-2026-11-06-M3.9](EXP-2026-11-06-M3.9-name-collation.md) | Name compare function, sort order and buffer limits (M3.9) | done |
 | [EXP-2026-11-06-M4.4](EXP-2026-11-06-M4.4-section4-road-edit.md) | Section 4 verbatim under a road edit (M4.4) | done |
+| [EXP-2026-11-08-M4.21](EXP-2026-11-08-M4.21-section4-writer.md) | Section-4 build/generate for changed parcel sets (M4.21) | done (verify OK EU2011/2014/2016; EU2011 l2check baseline PASS) |
 | [EXP-2026-11-06-M4.7](EXP-2026-11-06-M4.7-poi-rename-resize.md) | POI rename with a different-length name (M4.7) | done (offline; no hardware) |
 | [EXP-2026-11-06-M4.8](EXP-2026-11-06-M4.8-coord.md) | Coordinate transform tool `tools/coord.py` (M4.8) | done (tool); real-POI check open |
 | [EXP-2026-11-06-M4.11](EXP-2026-11-06-M4.11-lev-coarse.md) | `LEV3456R.DAT` coarse levels 3–5 decoded; level 5 rebuilt byte-identically (M4.11) | done (levels 3/4 partly preserved) |

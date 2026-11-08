@@ -19,15 +19,23 @@ Only fields documented in ``docs/format/map-tiles.md`` are interpreted:
     0x10  u16  ISO 3166 numeric country
     0x12  ...  unexplained binary, then ``d=NAME`` strings
 
-Everything else is reported as raw hex.  ``encode build`` refuses (exit 3)
-rather than inventing bytes for the unknown parts.  ``encode preserve`` copies
-the original payload byte-for-byte and is the default for unchanged tiles.
+Everything else is reported as raw hex.  ``encode build`` rebuilds by
+*patching* the documented fields (parcel words, type 0x0009, country @0x10)
+into each record's existing decompressed bytes, so 0x06..0x0f, the name area
+and all opaque bytes are preserved verbatim (recompressed at level 6 when the
+record is zlib-framed).  A nameless record with no ``payload_hex`` base is
+built from the factory 56-byte template (``TEMPLATE56``); undocumented bytes in
+that template are OBSERVED, not proven universal.  ``encode build`` refuses
+(exit 3) only when a record has names but no ``payload_hex`` base, because the
+name-list placement grammar is unknown.  ``encode preserve`` copies the
+original payload byte-for-byte.
 
 Usage::
 
     python3 tools/section4.py parse PAYLOAD [--json|--json-out FILE]
     python3 tools/section4.py encode preserve MODEL OUT
     python3 tools/section4.py encode build MODEL OUT
+    python3 tools/section4.py generate --out OUT [--country C] PARCEL_SPEC...
     python3 tools/section4.py verify PAYLOAD
     python3 tools/section4.py --selftest
 """
@@ -70,6 +78,36 @@ REFERENCE_SECTION4 = {
 }
 REFERENCE_SOURCE = "C-126, EXP-2026-11-05-32"
 
+# Factory 56-byte nameless section-4 record template (sec4_write.py,
+# B68R058R/B50R060R layout, REPORT-section4-build.md section 1).  Documented:
+# w0/w1 parcel code (filled), w2=0x0009, w8=country@0x10 (filled).  The rest
+# (w3 0x0013, ffff0000 offset pairs, 0x0011/0x0900 tail) is OBSERVED constant
+# across countries in that sample; the last word varies per parcel in factory
+# named records and is written 0 here (sec4_write).  Used only for generating
+# nameless records for a changed parcel set; bytes 0x06..0x0f/0x12+ in real
+# named records differ and are preserved via patch mode, never invented.
+TEMPLATE56 = bytes.fromhex(
+    "00000000"          # w0,w1 parcel code
+    "0009"              # w2 kind
+    "0013"              # w3 (OBSERVED constant, nameless template)
+    "ffff0000ffff0000"  # w4..w7 offset pairs (OBSERVED)
+    "0000"              # w8 country
+    "00000000ffff0011"
+    "ffff0000ffff0000ffff0000ffff0000ffff0000"
+    "00000000000009000000")  # last word per-parcel/undecoded in factory; 0
+
+# Recompression for generated/patched records: stock zlib, level 6, wbits 15,
+# memLevel 8 (AGENTS.md / factory 78 9c style).  Decompression accepts any
+# valid zlib header (is_zlib, including sec4_write's 58 85 / wbits 13).
+ZLIB_LEVEL = 6
+ZLIB_WBITS = 15
+ZLIB_MEM = 8
+
+
+def zlib_compress(data: bytes) -> bytes:
+    obj = zlib.compressobj(ZLIB_LEVEL, zlib.DEFLATED, ZLIB_WBITS, ZLIB_MEM)
+    return obj.compress(data) + obj.flush()
+
 NAME_PREFIX = re.compile(rb"([0-9])=")
 
 
@@ -89,6 +127,18 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def is_zlib(data: bytes, off: int = 0) -> bool:
+    """Any zlib stream (CMF low nibble 8, 16-bit header checksum valid).
+
+    Matches clarion_tile.is_zlib: accepts 78 9c (wbits 15), 58 85 (wbits 13),
+    etc.
+    """
+    if off + 2 > len(data):
+        return False
+    cmf, flg = data[off], data[off + 1]
+    return (cmf & 0x0F) == 8 and ((cmf << 8) | flg) % 31 == 0
+
+
 def split_zlib_members(data: bytes):
     """Return ``[(payload, compressed, padding_after), ...]`` or None.
 
@@ -102,7 +152,7 @@ def split_zlib_members(data: bytes):
     size = len(data)
     while pos < size:
         if not members:
-            if data[pos] != 0x78:
+            if not is_zlib(data, pos):
                 return None
             padding = b""
         else:
@@ -113,7 +163,7 @@ def split_zlib_members(data: bytes):
             members[-1]["padding_after"] = padding
             if pos >= size:
                 break
-            if data[pos] != 0x78:
+            if not is_zlib(data, pos):
                 return None
         obj = zlib.decompressobj()
         try:
@@ -529,11 +579,154 @@ def _hole_ranges(covered):
     return ranges
 
 
-def encode_build(model):
-    """Rebuild only the documented fields plus caller-supplied opaque bytes.
+def _patch_documented(buffer, record, index):
+    for key in ("parcel_w0", "parcel_w1", "country_code"):
+        value = record.get(key)
+        if value is None:
+            raise BuildRefused([{
+                "field": "records[%s].%s" % (index, key),
+                "offset": None,
+                "detail": "documented field is missing from the model",
+            }])
+        if not isinstance(value, int) or not 0 <= value <= 0xFFFF:
+            raise BuildRefused([{
+                "field": "records[%s].%s" % (index, key),
+                "offset": None,
+                "detail": "value must fit in u16",
+            }])
+    ttag = record.get("type_tag", TYPE_TAG)
+    if ttag != TYPE_TAG:
+        raise ShapeError(
+            "build: records[%s].type_tag is 0x%04x, expected 0x%04x"
+            % (index, ttag, TYPE_TAG)
+        )
+    struct.pack_into(
+        ">HHH", buffer, 0, record["parcel_w0"], record["parcel_w1"], TYPE_TAG
+    )
+    struct.pack_into(">H", buffer, COUNTRY_OFFSET, record["country_code"])
 
-    Raises BuildRefused with a precise item list when any byte would have to be
-    invented.  zlib framing is recompressed at level 6 (not byte-identical).
+
+def _build_from_template(record, index):
+    """Nameless 56-byte record from TEMPLATE56 (undocumented bytes OBSERVED)."""
+    for key in ("parcel_w0", "parcel_w1", "country_code"):
+        if record.get(key) is None:
+            raise BuildRefused([{
+                "field": "records[%s].%s" % (index, key),
+                "offset": None,
+                "detail": "documented field is missing from the model",
+            }])
+    buffer = bytearray(TEMPLATE56)
+    _patch_documented(buffer, record, index)
+    return buffer
+
+
+def parcel_code_from_rowcol(row, col):
+    """Level-1 parcel words (w0,w1) for absolute (row,col).
+
+    Encoding matches sec4_write.py / clarion_bg.parcel_code (OBSERVED on
+    B68R058R/B50R060R/B30R048R).  row/col are the absolute level-1 parcel
+    coordinates (mesh_y*32+slot, mesh_x*32+column in the sec4_write sense).
+    """
+    w0 = 0x8000 | (row >> 6) << 8 | ((row & 63) >> 2) << 4 | 0xC | (row & 3)
+    w1 = ((col >> 6) & 0xFF) << 8 | ((col & 63) >> 2) << 4 | 0xC | (col & 3)
+    return w0, w1
+
+
+def rowcol_from_parcel_code(w0, w1):
+    """Inverse of parcel_code_from_rowcol (level-1 absolute row, col)."""
+    row = ((w0 >> 8) & 0xFF) * 64 + ((w0 >> 4) & 0xF) * 4 + (w0 & 3)
+    col = ((w1 >> 8) & 0xFF) * 64 + ((w1 >> 4) & 0xF) * 4 + (w1 & 3)
+    return row, col
+
+
+def generate_model(parcels, country=300, framing="zlib"):
+    """Build a model for a changed parcel set (nameless template records).
+
+    parcels: iterable of (row, col) absolute level-1 parcel coords, or dicts
+    with 'row'/'col' or 'parcel_w0'/'parcel_w1'.  Records are nameless 56-byte
+    template records; undocumented bytes are TEMPLATE56 OBSERVED constants.
+    """
+    records = []
+    for i, p in enumerate(parcels):
+        if isinstance(p, dict):
+            if "parcel_w0" in p and "parcel_w1" in p:
+                w0, w1 = int(p["parcel_w0"]), int(p["parcel_w1"])
+                row, col = rowcol_from_parcel_code(w0, w1)
+            else:
+                row, col = int(p["row"]), int(p["col"])
+                w0, w1 = parcel_code_from_rowcol(row, col)
+            ctry = int(p.get("country", country))
+        else:
+            row, col = int(p[0]), int(p[1])
+            w0, w1 = parcel_code_from_rowcol(row, col)
+            ctry = country
+        buf = bytearray(TEMPLATE56)
+        struct.pack_into(">HHH", buf, 0, w0, w1, TYPE_TAG)
+        struct.pack_into(">H", buf, COUNTRY_OFFSET, ctry)
+        payload = bytes(buf)
+        rec = {
+            "index": i,
+            "framing": framing,
+            "length": len(payload),
+            "sha256": sha256(payload),
+            "payload_hex": payload.hex(),
+            "status": "ok",
+            "parcel_w0": w0,
+            "parcel_w1": w1,
+            "parcel_u32": (w0 << 16) | w1,
+            "parcel_row": row,
+            "parcel_col": col,
+            "type_tag": TYPE_TAG,
+            "country_code": ctry,
+            "country_name": COUNTRY_NAMES.get(ctry),
+            "documented_fields": [
+                {"offset": 0x00, "size": 2, "name": "parcel_w0", "value": w0},
+                {"offset": 0x02, "size": 2, "name": "parcel_w1", "value": w1},
+                {"offset": 0x04, "size": 2, "name": "type_tag", "value": TYPE_TAG},
+                {"offset": COUNTRY_OFFSET, "size": 2, "name": "country_code", "value": ctry},
+            ],
+            "u32_fields": [],
+            "names": [],
+            "opaque_binary": [],
+            "padding_after_hex": "",
+        }
+        # parse it back to get correct opaque ranges for the template
+        parsed = parse_record(payload, i, framing, DEFAULT_MIN_NAME)
+        rec["opaque_binary"] = parsed["opaque_binary"]
+        rec["u32_fields"] = parsed["u32_fields"]
+        records.append(rec)
+    # compute raw_hex by building
+    model = {
+        "format": MODEL_FORMAT,
+        "source": {"path": "<generated>", "size": 0, "sha256": "", "framing": framing},
+        "raw_hex": "",
+        "record_count": len(records),
+        "name_count": 0,
+        "unique_name_count": 0,
+        "records": records,
+    }
+    data = encode_build(model)
+    model["raw_hex"] = data.hex()
+    model["source"]["size"] = len(data)
+    model["source"]["sha256"] = sha256(data)
+    return model
+
+
+def encode_build(model):
+    """Rebuild a section-4 payload for a (possibly changed) parcel set.
+
+    Patch mode (preferred, no invention): when a record carries ``payload_hex``,
+    the documented u16 fields are patched into those decompressed bytes and all
+    other bytes (0x06..0x0f, name area, opaque) are preserved verbatim.  This
+    works for records with names.  The patched record is recompressed at level 6
+    when ``framing`` is ``zlib`` (compressed bytes may differ from the original;
+    decompressed content preserves the unknown bytes).
+
+    Template mode: a nameless record with no ``payload_hex`` is built from the
+    factory 56-byte ``TEMPLATE56`` (undocumented bytes OBSERVED).
+
+    Refuses (exit 3) only when a record has names but no ``payload_hex`` base,
+    because the name-list placement grammar is unknown.
     """
     if model.get("format") != MODEL_FORMAT:
         raise ShapeError("build: expected model format %s" % MODEL_FORMAT)
@@ -545,142 +738,71 @@ def encode_build(model):
 
     for position, record in enumerate(records):
         index = record.get("index", position)
-        record_refusals = []
-
         names = record.get("names") or []
-        for name in names:
-            record_refusals.append(
-                {
-                    "field": "records[%s].names[%s]"
-                    % (index, name.get("index", "?")),
-                    "offset": name.get("offset"),
-                    "detail": (
-                        "name-list placement/terminator grammar is UNKNOWN; "
-                        "cannot rebuild %r without guessing"
-                        % name.get("text", "")
-                    ),
-                }
-            )
-        if names:
-            refusals.extend(record_refusals)
-            continue
+        payload_hex = record.get("payload_hex")
 
-        required = ("parcel_w0", "parcel_w1", "type_tag", "country_code", "length")
-        missing = [key for key in required if record.get(key) is None]
-        for key in missing:
-            record_refusals.append(
-                {
-                    "field": "records[%s].%s" % (index, key),
-                    "offset": None,
-                    "detail": "documented field is missing from the model",
-                }
-            )
-        if record_refusals:
-            refusals.extend(record_refusals)
-            continue
-
-        length = record["length"]
-        if not isinstance(length, int) or length < HEADER_BYTES:
-            record_refusals.append(
-                {
-                    "field": "records[%s].length" % index,
-                    "offset": None,
-                    "detail": "record must be at least 0x12 bytes",
-                }
-            )
-        if record["type_tag"] != TYPE_TAG:
-            raise ShapeError(
-                "build: records[%s].type_tag is 0x%04x, expected 0x%04x"
-                % (index, record["type_tag"], TYPE_TAG)
-            )
-        for key in ("parcel_w0", "parcel_w1", "country_code"):
-            value = record[key]
-            if not isinstance(value, int) or not 0 <= value <= 0xFFFF:
-                record_refusals.append(
-                    {
-                        "field": "records[%s].%s" % (index, key),
-                        "offset": None,
-                        "detail": "value must fit in u16",
-                    }
-                )
-        if record_refusals:
-            refusals.extend(record_refusals)
-            continue
-
-        opaque = record.get("opaque_binary") or []
-        spans = list(DOCUMENTED_SPANS)
-        for item in opaque:
-            offset = item.get("offset")
-            hex_text = item.get("hex")
-            if not isinstance(offset, int) or not isinstance(hex_text, str):
-                record_refusals.append(
-                    {
-                        "field": "records[%s].opaque_binary" % index,
-                        "offset": offset,
-                        "detail": "opaque entry needs integer offset and hex string",
-                    }
-                )
-                continue
+        if payload_hex:
+            # Patch mode: preserve all unknown bytes (including names).
             try:
-                chunk = bytes.fromhex(hex_text)
-            except ValueError:
-                record_refusals.append(
-                    {
-                        "field": "records[%s].opaque_binary" % index,
-                        "offset": offset,
-                        "detail": "opaque hex is not valid hex",
-                    }
+                buffer = bytearray(bytes.fromhex(payload_hex))
+            except ValueError as exc:
+                raise ShapeError(
+                    "build: records[%s].payload_hex is not valid hex: %s"
+                    % (index, exc)
+                ) from exc
+            if len(buffer) < HEADER_BYTES:
+                raise ShapeError(
+                    "build: records[%s].payload_hex shorter than 0x12 bytes"
+                    % index
                 )
+            try:
+                _patch_documented(buffer, record, index)
+            except BuildRefused as exc:
+                refusals.extend(exc.items)
                 continue
-            if offset < 0 or offset + len(chunk) > length:
-                record_refusals.append(
-                    {
-                        "field": "records[%s].opaque_binary" % index,
-                        "offset": offset,
-                        "detail": "opaque span lies outside the record",
-                    }
-                )
-                continue
-            for known_start, known_end in DOCUMENTED_SPANS:
-                if offset < known_end and offset + len(chunk) > known_start:
-                    record_refusals.append(
-                        {
-                            "field": "records[%s].opaque_binary" % index,
-                            "offset": offset,
-                            "detail": (
-                                "opaque span overlaps documented field "
-                                "0x%04x..0x%04x" % (known_start, known_end - 1)
-                            ),
-                        }
-                    )
-            spans.append((offset, offset + len(chunk)))
-
-        for start, end in _hole_ranges(_coverage(length, spans)):
-            record_refusals.append(
-                {
-                    "field": "records[%s].opaque_binary" % index,
-                    "offset": start,
-                    "length": end - start,
-                    "detail": (
-                        "undocumented bytes 0x%04x..0x%04x have no opaque hex"
-                        % (start, end - 1)
-                    ),
-                }
-            )
-        if record_refusals:
-            refusals.extend(record_refusals)
+            # Unchanged record: preserve original compressed stream when available
+            # (avoids zlib-ng byte differences; AGENTS.md "unchanged file" rule).
+            if (record.get("framing") == "zlib"
+                    and record.get("compressed_hex")
+                    and bytes(buffer) == bytes.fromhex(payload_hex)):
+                try:
+                    output.extend(bytes.fromhex(record["compressed_hex"]))
+                except ValueError:
+                    output.extend(zlib_compress(bytes(buffer)))
+            elif record.get("framing") == "zlib":
+                output.extend(zlib_compress(bytes(buffer)))
+            else:
+                output.extend(buffer)
+            padding = record.get("padding_after_hex") or ""
+            try:
+                output.extend(bytes.fromhex(padding))
+            except ValueError as exc:
+                raise ShapeError(
+                    "build: records[%s].padding_after_hex is invalid: %s"
+                    % (index, exc)
+                ) from exc
             continue
+        elif names:
+            refusals.append({
+                "field": "records[%s].names" % index,
+                "offset": None,
+                "detail": (
+                    "name-list placement/terminator grammar is UNKNOWN and no "
+                    "payload_hex base is present; cannot rebuild %d name(s) "
+                    "without guessing" % len(names)
+                ),
+            })
+            continue
+        else:
+            # Nameless template mode (factory 56-byte layout, OBSERVED constants).
+            try:
+                buffer = _build_from_template(record, index)
+            except BuildRefused as exc:
+                refusals.extend(exc.items)
+                continue
 
-        buffer = bytearray(length)
-        struct.pack_into(
-            ">HHH", buffer, 0, record["parcel_w0"], record["parcel_w1"], TYPE_TAG
-        )
-        struct.pack_into(">H", buffer, COUNTRY_OFFSET, record["country_code"])
-        for item in opaque:
-            chunk = bytes.fromhex(item["hex"])
-            buffer[item["offset"] : item["offset"] + len(chunk)] = chunk
         if record.get("framing") == "zlib":
-            output.extend(zlib.compress(bytes(buffer), 6))
+            output.extend(zlib_compress(bytes(buffer)))
         else:
             output.extend(buffer)
         padding = record.get("padding_after_hex") or ""
@@ -779,23 +901,81 @@ def command_verify(args):
     model = parse_payload(data, args.payload, args.min_name)
     rebuilt = encode_preserve(model)
     ok = rebuilt == data
+    # patch-build: works for any record with payload_hex (preserves unknowns).
+    build_ok = False
+    build_err = None
+    try:
+        bdata = encode_build(model)
+        bmodel = parse_payload(bdata, "<build>")
+        build_ok = (
+            bmodel["record_count"] == model["record_count"]
+            and bmodel["name_count"] == model["name_count"]
+            and all(
+                (a["parcel_w0"], a["parcel_w1"], a["country_code"])
+                == (b["parcel_w0"], b["parcel_w1"], b["country_code"])
+                for a, b in zip(model["records"], bmodel["records"])
+            )
+        )
+    except (BuildRefused, ShapeError) as exc:
+        build_err = str(exc)
     print("verify: %s" % args.payload)
     print("  bytes: %d" % len(data))
     print("  sha256: %s" % sha256(data))
     print(
         "  records: %d, names: %d (unique %d)"
-        % (
-            model["record_count"],
-            model["name_count"],
-            model["unique_name_count"],
-        )
+        % (model["record_count"], model["name_count"], model["unique_name_count"])
     )
     print(
         "  preserve round-trip: %s (%d bytes)"
         % ("OK byte-identical" if ok else "FAILED", len(rebuilt))
     )
+    if build_ok:
+        print("  build (patch) round-trip: OK (documented fields + names preserved)")
+    elif build_err:
+        print("  build (patch) round-trip: REFUSED (%s)" % build_err)
+    else:
+        print("  build (patch) round-trip: FAILED (content mismatch)")
     print_reference(sys.stdout, model, args.reference_year)
     return EXIT_OK if ok else EXIT_CHECK_FAILED
+
+
+def command_generate(args):
+    parcels = []
+    if args.spec:
+        spec = _read_json(args.spec)
+        if isinstance(spec, dict):
+            spec = spec.get("parcels") or spec.get("records") or []
+        parcels = spec
+    for item in (args.parcel or []):
+        parts = [p.strip() for p in item.split(",")]
+        if len(parts) < 2:
+            raise ShapeError("generate: --parcel needs row,col: %r" % item)
+        row, col = int(parts[0]), int(parts[1])
+        ctry = int(parts[2]) if len(parts) > 2 else args.country
+        parcels.append({"row": row, "col": col, "country": ctry})
+    if not parcels:
+        raise ShapeError("generate: no parcels (use --spec or --parcel row,col)")
+    model = generate_model(parcels, country=args.country, framing=args.framing)
+    data = bytes.fromhex(model["raw_hex"])
+    if args.model_out:
+        try:
+            with open(args.model_out, "w", encoding="utf-8") as handle:
+                json.dump(model, handle, indent=2)
+                handle.write("\n")
+        except OSError as exc:
+            raise ShapeError("cannot write %s: %s" % (args.model_out, exc)) from exc
+    if args.out:
+        _write_bytes(args.out, data)
+    # verify the generated payload
+    v = parse_payload(data, "<generated>")
+    vok = encode_preserve(v) == data
+    print(
+        "section4: generate %d records, country %d, framing %s -> %s (%d bytes, sha256 %s)"
+        % (len(parcels), args.country, args.framing,
+           args.out or "<model only>", len(data), sha256(data))
+    )
+    print("  verify: %s" % ("OK" if vok else "FAILED"))
+    return EXIT_OK if vok else EXIT_CHECK_FAILED
 
 
 def _synthetic_record(names, country=300):
@@ -825,41 +1005,64 @@ def selftest():
     model = parse_payload(data, "synthetic")
     assert model["record_count"] == 3, model["record_count"]
     assert model["name_count"] == 5, model["name_count"]
-    assert len(model["records"]) == 3
     assert all(record["country_code"] == 300 for record in model["records"])
     assert all(record["type_tag"] == TYPE_TAG for record in model["records"])
     assert model["records"][0]["parcel_w0"] == 0x1234
     assert model["records"][0]["u32_fields"][0]["value"] == 0x12345678
     texts = [name["text"] for record in model["records"] for name in record["names"]]
     assert texts == [
-        "RODOS",
-        "LINDOS",
-        "ZIGHIDÌ",
-        "PARALIA AFANTOU",
-        "ARCHIPOLI:ELEOUSA",
+        "RODOS", "LINDOS", "ZIGHIDÌ", "PARALIA AFANTOU", "ARCHIPOLI:ELEOUSA",
     ], texts
-    assert any(
-        name["encoding"] == "latin-1"
-        for record in model["records"]
-        for name in record["names"]
-    )
+    assert any(n["encoding"] == "latin-1" for r in model["records"] for n in r["names"])
     first_opaque = model["records"][0]["opaque_binary"]
     assert any(item["offset"] == 0x06 for item in first_opaque), first_opaque
 
     preserved = encode_preserve(model)
     assert preserved == data, "preserve is not byte-identical"
 
+    # Patch-mode build: records carry payload_hex, so documented fields are
+    # patched while names/opaque/0x06..0x0f are preserved (recompressed).
+    built = encode_build(model)
+    rebuilt_model = parse_payload(built, "synthetic-rebuilt")
+    assert rebuilt_model["record_count"] == 3
+    assert rebuilt_model["name_count"] == 5
+    rtexts = [n["text"] for r in rebuilt_model["records"] for n in r["names"]]
+    assert rtexts == texts, rtexts
+    assert all(r["country_code"] == 300 for r in rebuilt_model["records"])
+    assert all(r["parcel_w0"] == 0x1234 for r in rebuilt_model["records"])
+    # 0x06..0x0f preserved (patched only 0x00-05,0x10-11)
+    for orig, new in zip(model["records"], rebuilt_model["records"]):
+        ob = bytes.fromhex(orig["payload_hex"])
+        nb = bytes.fromhex(new["payload_hex"])
+        assert ob[6:0x10] == nb[6:0x10], (ob[6:0x10].hex(), nb[6:0x10].hex())
+        assert ob[0x12:] == nb[0x12:], "name/opaque area changed"
+
+    # Changed parcel set via patch: edit parcel/country, rebuild, verify content.
+    changed = json.loads(json.dumps(model))
+    changed["records"][0]["parcel_w0"] = 0x9999
+    changed["records"][0]["country_code"] = 616  # Poland
+    changed_data = encode_build(changed)
+    cm = parse_payload(changed_data, "changed")
+    assert cm["records"][0]["parcel_w0"] == 0x9999
+    assert cm["records"][0]["country_code"] == 616
+    assert cm["name_count"] == 5  # names preserved
+    assert [n["text"] for r in cm["records"] for n in r["names"]] == texts
+
+    # Names with no payload_hex base must still refuse (grammar unknown).
+    no_base = json.loads(json.dumps(model))
+    for r in no_base["records"]:
+        del r["payload_hex"]
     refused = 0
     try:
-        encode_build(model)
+        encode_build(no_base)
     except BuildRefused as exc:
-        assert EXIT_UNKNOWN_FIELDS == 3
-        assert len(exc.items) == 5, exc.items
-        assert all("names" in item["field"] for item in exc.items)
         refused = len(exc.items)
+        assert all("names" in item["field"] for item in exc.items), exc.items
     else:
-        raise AssertionError("build accepted a record with unmodelled names")
+        raise AssertionError("build accepted names with no payload_hex")
+    assert refused == 3, refused
 
+    # Nameless template record.
     clean = _synthetic_record([])
     clean_model = parse_payload(zlib.compress(clean, 6), "synthetic-clean")
     rebuilt = encode_build(clean_model)
@@ -867,24 +1070,53 @@ def selftest():
     assert reparsed["records"][0]["country_code"] == 300
     assert reparsed["record_count"] == 1
 
+    # Generate a section 4 for a changed parcel set (nameless template).
+    gen = generate_model([(1733, 14081), (1740, 14082), (1740, 14084)], country=616)
+    gen_data = bytes.fromhex(gen["raw_hex"])
+    gm = parse_payload(gen_data, "generated")
+    assert gm["record_count"] == 3
+    assert gm["name_count"] == 0
+    assert all(r["country_code"] == 616 for r in gm["records"])
+    assert all(r["type_tag"] == TYPE_TAG for r in gm["records"])
+    # verify accepts (preserve round-trip of the generated payload)
+    vmodel = parse_payload(gen_data, "genv")
+    assert encode_preserve(vmodel) == gen_data
+    # build round-trip of generated model preserves content
+    gen_built = encode_build(gen)
+    gbm = parse_payload(gen_built, "genb")
+    assert [(r["parcel_w0"], r["parcel_w1"], r["country_code"]) for r in gbm["records"]] == \
+           [(r["parcel_w0"], r["parcel_w1"], r["country_code"]) for r in gm["records"]]
+
+    # Parcel code round-trip (code identity; row decode is canonical/aliased).
+    for row, col in [(1733, 14081), (0, 0), (2000, 30000), (3340, 30170)]:
+        w0, w1 = parcel_code_from_rowcol(row, col)
+        r2, c2 = rowcol_from_parcel_code(w0, w1)
+        w0b, w1b = parcel_code_from_rowcol(r2, c2)
+        assert (w0b, w1b) == (w0, w1), (row, col, hex(w0), hex(w1))
+    # Matches sec4_write convention (mesh_y*32+slot, mesh_x*32+k) -> factory code.
+    assert parcel_code_from_rowcol(54 * 32 + 5, 65464 * 32 + 1) == (0x9B1D, 0xDC0D)
+
     print(
-        "section4 selftest: 3 records, 5 names, payload sha256 %s"
+        "section4 selftest: 3 named records, 5 names, payload sha256 %s"
         % sha256(data)
     )
-    print("  parse: OK (countries [300, 300, 300], type 0x0009)")
+    print("  parse: OK (countries [300,300,300], type 0x0009, names preserved)")
     print("  preserve: OK (byte-identical, %d bytes)" % len(preserved))
-    print(
-        "  build refusal: OK (%d unknown name fields, exit %d)"
-        % (refused, EXIT_UNKNOWN_FIELDS)
-    )
+    print("  build patch (named): OK (%d records, %d names, 0x06..0x12+ preserved)"
+          % (rebuilt_model["record_count"], rebuilt_model["name_count"]))
+    print("  build changed parcel/country: OK (parcel+country patched, 5 names kept)")
+    print("  build refusal (names, no payload_hex): OK (%d records, exit %d)"
+          % (refused, EXIT_UNKNOWN_FIELDS))
     print("  build nameless record: OK (country 300)")
+    print("  generate changed parcel set: OK (3 records, country 616, verify OK)")
+    print("  parcel_code round-trip: OK")
     print("selftest: OK")
     return EXIT_OK
 
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        description="Parse, preserve and verify ZE0 tile section 4.",
+        description="Parse, build, generate and verify ZE0 tile section 4.",
     )
     parser.add_argument(
         "--selftest",
@@ -934,6 +1166,27 @@ def build_parser():
         help="compare measured counts with a reference year",
     )
     verify_parser.set_defaults(func=command_verify)
+
+    gen_parser = subparsers.add_parser(
+        "generate", help="generate a nameless section 4 for a parcel set"
+    )
+    gen_parser.add_argument("--out", help="write payload to this path")
+    gen_parser.add_argument("--model-out", metavar="FILE", help="write JSON model")
+    gen_parser.add_argument(
+        "--country", type=int, default=300, help="ISO 3166 numeric (default 300)"
+    )
+    gen_parser.add_argument(
+        "--framing", choices=("zlib", "plain"), default="zlib",
+        help="record framing (default zlib)"
+    )
+    gen_parser.add_argument(
+        "--spec", help="JSON file: list of {row,col[,country]} or {parcel_w0,w1}"
+    )
+    gen_parser.add_argument(
+        "--parcel", action="append", metavar="ROW,COL[,COUNTRY]",
+        help="add one parcel (repeatable)"
+    )
+    gen_parser.set_defaults(func=command_generate)
     return parser
 
 
@@ -943,7 +1196,7 @@ def main(argv=None):
     if args.selftest:
         return selftest()
     if not getattr(args, "command", None):
-        parser.error("choose parse, encode or verify (or use --selftest)")
+        parser.error("choose parse, encode, verify or generate (or use --selftest)")
     try:
         return args.func(args)
     except BuildRefused as exc:

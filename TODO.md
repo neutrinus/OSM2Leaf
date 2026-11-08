@@ -2440,8 +2440,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M4.20-us-drstr-roundtrip; `drstr_ze0.build()` preserves DRSTR-stored entry name case (US `XMD/ltntbl.dat` @0x1ae0); US+EU byte-identical, `drstr_ze0 --selftest` OK.
   - Claims: C-2100–C-2109
 
-- [ ] **M4.21 — Tile section-4 writer (place-name index, H11 G3)**
-  - Status: in progress · Owner: task/m4.21-section4-writer · Critical: no
+- [x] **M4.21 — Tile section-4 writer (place-name index, H11 G3)**
+  - Status: done · Owner: task/m4.21-section4-writer · Critical: no
   - Depends: M3.6 (who consumes it), M4.4 (preserve path)
   - Goal: `section4.py build` refuses (exit 3) and every tile edit so far
     keeps section 4 verbatim, so a tile whose place names must change — any
@@ -2454,6 +2454,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     that `verify` accepts and `l2check` passes on all three years, or the EXP
     shows with a control that the section is never read and `--empty` is safe.
   - Claims: C-2390–C-2399
+  - Result: `section4.py build` now works (patch mode preserves 0x06..0x0f/names/opaque; unchanged records keep original compressed bytes; changed recompress L6/w15/m8) and refuses only on names with no `payload_hex`. `generate` produces verify-accepted nameless payloads for changed parcel sets. `verify` accepts on EU2011/2014/2016 B30R048R; EU2011 factory l2check baseline PASS; 2014/2016 harness round-trip OK (H14 pre-existing notes). M3.6 control: no read VA in traced MAP/RGD/loader; tiles without sec4 exist. Full 2014/2016 `l2check --root` on regenerated sec4 needs complete extracted roots (documented). EXP-2026-11-08-M4.21-section4-writer.md, C-2390–C-2395.
 
 - [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
   - Status: blocked · Owner: claude/m4.22-identity-codes · Critical: no
