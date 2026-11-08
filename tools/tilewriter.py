@@ -76,6 +76,7 @@ error).  ``.gz`` input is detected by suffix.
 from __future__ import annotations
 
 import argparse
+import collections
 import contextlib
 import gzip
 import hashlib
@@ -114,11 +115,23 @@ ZW_MEMLEVEL = 8
 #: Section-1 record tag of a road-shape record, and its pair parity (even).
 ROAD_TAG = 0x00FA
 PAIR_ROAD = 0
+#: Directory kinds whose slot tables the reader models exactly.  On the EU
+#: tile B48R058R every slot of a 0x2046 directory is a clean block of zlib
+#: records (960 of 960).  The other kinds (0x2146, 0x2246, ...) have 0..90 %
+#: slots whose tag or body table does not match that model, so a splice there
+#: could rewrite bytes that belong to other slots (EXP-2026-11-08-M5.4).
+MODELLED_DIR_KINDS = {0x2046}
 
 #: Parcel size per level in degrees (see ``clarion_bg.LEVELS``).
 PARCEL_DEG = {1: (1.0 / 32.0, 1.0 / 48.0), 2: (1.0 / 8.0, 1.0 / 12.0)}
 #: Directory span in mesh units (1 mesh = 1 deg lon x 2/3 deg lat).
 DIR_MESHES = {1: 1, 2: 4}
+#: A directory header stores ``x`` as ``x0 - 1024`` modulo 2**16, at both
+#: levels: the EU tile B48R058R has level-1 fields 65448..65455 for meshes
+#: 936..943 (``clarion_bg.tile_cell``).  ``y`` is stored as is.  The first
+#: version compared the raw field with ``x0`` and so found no directory in a
+#: real tile (EXP-2026-11-08-M5.4).
+X_FIELD_BIAS = 1024
 UNITS = 2048
 #: Points per link; longer runs are split into a chain of links.
 MAX_LINK_POINTS = 64
@@ -187,6 +200,16 @@ def cell_mesh(cell: str):
     b = int(cell[1:3], 16)
     r = int(cell[4:7], 16)
     return b, 1024 - r
+
+
+def x_field(x0: int) -> int:
+    """The directory-header ``x`` word for mesh column ``x0``."""
+    return (x0 - X_FIELD_BIAS) & 0xFFFF
+
+
+def dir_x0(directory) -> int:
+    """Absolute mesh column ``x0`` of a directory read from a tile."""
+    return (directory["x"] + X_FIELD_BIAS) & 0xFFFF
 
 
 def cell_db_bounds(cell: str):
@@ -611,21 +634,31 @@ def records_by_position(tile, section_id, level=None):
         for directory in entry["dirs"]:
             for index, slot in directory["slots"].items():
                 for rec in slot["recs"]:
-                    out[(directory["y"], directory["x"], index, rec["k"])] = bytes(
+                    out[(directory["y"], dir_x0(directory), index, rec["k"])] = bytes(
                         rec["raw"]
                     )
     return out
 
 
-def check_section4(tile):
-    """Parse and re-encode every section-4 record with ``section4 preserve``."""
+def check_section4(tile, strict=True):
+    """Parse and re-encode section-4 records with ``section4 preserve``.
+
+    ``strict=False`` (factory mode) counts records the parser rejects instead of
+    failing: the splice leaves section 4 byte-identical to the factory (checked by
+    the caller), and the real EU tile B48R058R has empty section-4 payloads that
+    ``tools/section4.py`` does not model (EXP-2026-11-08-M5.4).
+    """
     records = 0
     names = 0
+    unparsed = 0
     for record in records_by_position(tile, 4).values():
         try:
             model = section4.parse_payload(record, "section4-record")
             again = section4.encode_preserve(model)
         except section4.ShapeError as exc:
+            if not strict:
+                unparsed += 1
+                continue
             raise CheckFailed("section 4 record does not parse: %s" % exc) from exc
         if again != record:
             raise CheckFailed(
@@ -634,7 +667,31 @@ def check_section4(tile):
             )
         records += 1
         names += model["name_count"]
-    return dict(records=records, names=names, preserved=True)
+    return dict(records=records, names=names, unparsed=unparsed, preserved=True)
+
+
+def shared_slot_blocks(tile):
+    """Block offsets of slots whose byte range overlaps another slot's range.
+
+    Every slot of every section and level is considered.  A slot whose tag
+    points at bytes another slot also reads is not the sole owner of them.
+    """
+    spans = []
+    for sec in tile["sections"]:
+        for lv in sec["levels"]:
+            for directory in lv["dirs"]:
+                for slot in directory["slots"].values():
+                    if slot["block_end"] > slot["block_off"]:
+                        spans.append((slot["block_off"], slot["block_end"]))
+    spans.sort()
+    shared = set()
+    for i, (a0, a1) in enumerate(spans):
+        for b0, b1 in spans[i + 1:]:
+            if b0 >= a1:
+                break
+            shared.add(a0)
+            shared.add(b0)
+    return shared
 
 
 def splice_factory(factory: bytes, level: int, built):
@@ -646,7 +703,8 @@ def splice_factory(factory: bytes, level: int, built):
             "factory tile has no section-1 level %d; cannot add a level in place"
             % level
         )
-    dirs = {(directory["y"], directory["x"]): directory for directory in entry["dirs"]}
+    dirs = {(directory["y"], dir_x0(directory)): directory for directory in entry["dirs"]}
+    shared = shared_slot_blocks(tile)
 
     # Group the new records per directory row: one slot block holds every pair.
     groups: dict[tuple[int, int, int], dict[int, Any]] = {}
@@ -658,6 +716,13 @@ def splice_factory(factory: bytes, level: int, built):
                 "directories changes the header, so this is refused (use a "
                 "factory tile that covers the cell, or write without --factory)"
                 % (level, y0, x0)
+            )
+        kind = dirs[(y0, x0)]["kind"]
+        if kind not in MODELLED_DIR_KINDS:
+            raise WriterError(
+                "directory y=%d x=%d has kind 0x%04x, whose slot tables the "
+                "reader does not model; refused (see MODELLED_DIR_KINDS)"
+                % (y0, x0, kind)
             )
         groups.setdefault((y0, x0, row), {})[2 * col + PAIR_ROAD] = rec
 
@@ -687,7 +752,12 @@ def splice_factory(factory: bytes, level: int, built):
         # Overwrite only bytes the reader modelled and that are really there.
         # Anything the reader did not model (a raw slot tail) stays untouched;
         # a block that grew is appended and the slot tag repointed instead.
-        fits = (old_off is not None and 0 < len(block) <= len(old_block)
+        # A block that another slot's byte range also covers is not owned by
+        # this slot: rewriting it would change that other slot's records (EXP
+        # M5.4: tag 0x0bf4 of slot 23 in dir (76,941) reaches into another
+        # directory's data), so such a slot is appended like a grown block.
+        fits = (old_off is not None and old_off not in shared
+                and 0 < len(block) <= len(old_block)
                 and out[old_off:old_off + len(old_block)] == old_block)
         if fits:
             out[old_off:old_off + len(block)] = block
@@ -729,7 +799,7 @@ def verify_factory(factory: bytes, blob: bytes, level: int, built):
             raise CheckFailed(
                 "section-1 record at %r changed but was not regenerated" % (key,)
             )
-    return check_section4(after)
+    return check_section4(after, strict=False)
 
 
 # --------------------------------------------------------------------------
@@ -758,7 +828,7 @@ def make_dir(level, y0, x0, parcels):
         slots[row] = dict(body=b"".join(bytes(p) for p in pairs), recs=recs,
                           block_off=0, block_end=0)
     span = DIR_MESHES[level]
-    return dict(kind=spec["kind"], ab=spec["ab"], y=y0, x=x0, typ=spec["typ"],
+    return dict(kind=spec["kind"], ab=spec["ab"], y=y0, x=x_field(x0), typ=spec["typ"],
                 body=body, nslots=nslots, slots=slots,
                 empty_bodies={i: empty for i in range(nslots) if i not in slots},
                 box=(y0 + span, y0, x0, x0 + span))
@@ -813,7 +883,7 @@ def find_record(tile, level, y0, x0, row, pair):
     if entry is None:
         raise CheckFailed("no section-1 level %d in the written tile" % level)
     for directory in entry["dirs"]:
-        if (directory["y"], directory["x"]) != (y0, x0):
+        if (directory["y"], dir_x0(directory)) != (y0, x0):
             continue
         slot = directory["slots"].get(row)
         if slot is None:
@@ -828,6 +898,68 @@ def find_record(tile, level, y0, x0, row, pair):
 # --------------------------------------------------------------------------
 # The write
 # --------------------------------------------------------------------------
+
+
+def _decode_road(dirs, y0, x0, row, col, level):
+    """Lattice points of the road record at one parcel, or ``None`` if absent."""
+    directory = dirs.get((y0, x0))
+    slot = directory["slots"].get(row) if directory else None
+    if slot is None:
+        return None
+    for record in slot["recs"]:
+        if record["k"] == 2 * col + PAIR_ROAD:
+            plain = zlib.decompress(record["raw"])
+            words = struct.unpack(">%dH" % (len(plain) // 2), plain)
+            _code, _unit, shapes = fa_encode.parse_record(plain, level)
+            points = [(words[k] & 0x7FF, words[k + 1] & 0x7FF)
+                      for shape in shapes for k in sorted(shape["points"])]
+            return points or None
+    return None
+
+
+def readback(blob: bytes, imf_path: str, cell: str, table, level: int = 1):
+    """Decode every road record of ``blob`` and compare it with the IMF input.
+
+    Independent of the writer's own checks: the records are read back with
+    ``fa_encode.parse_record``, and the expected points are the clipped input
+    quantised with ``quantise``.  Returns ``(stats, worst_m)``, the worst
+    input-to-decoded distance in metres.  A run that collapses to one lattice
+    point is not written by design and is counted as ``collapsed_runs``.
+    """
+    entry = road_level(clarion_tile.read_tile(blob), level)
+    if entry is None:
+        raise WriterError("tile has no section-1 level %d" % level)
+    dirs = {(directory["y"], dir_x0(directory)): directory for directory in entry["dirs"]}
+    ways, _stats = load_imf(imf_path, cell)
+    runs = ways_to_runs(ways, level, table, cell)
+    stats: collections.Counter = collections.Counter()
+    worst = 0.0
+    for parcel, parcel_runs in runs.items():
+        y0, x0, row, col = parcel
+        lon0, lat0, width, height = clarion_bg.parcel_geo(level, y0, x0, row, col)
+        want = []
+        for points, _highway in parcel_runs:
+            quantised = [quantise(lon, lat, lon0, lat0, width, height) for lon, lat in points]
+            dedup = [quantised[0]] + [b for a, b in zip(quantised, quantised[1:]) if b != a]
+            if len(dedup) < 2:
+                stats["collapsed_runs"] += 1
+                continue
+            want.extend(dedup)
+        decoded = _decode_road(dirs, y0, x0, row, col, level)
+        if decoded is None:
+            stats["parcels_missing"] += 1
+            continue
+        stats["parcels"] += 1
+        stats["input_points"] += len(want)
+        stats["decoded_points"] += len(decoded)
+        metres_x = width * 111320.0 * math.cos(math.radians(lat0 + height / 2)) / UNITS
+        metres_y = height * 110574.0 / UNITS
+        for wx, wy in want:
+            best = min(math.hypot((wx - dx) * metres_x, (wy - dy) * metres_y)
+                       for dx, dy in decoded)
+            worst = max(worst, best)
+            stats["in_points_within_1m"] += best <= 1.0
+    return dict(stats), worst
 
 
 def build(imf_path: str, cell: str, *, factory_path: str | None = None,
@@ -1027,7 +1159,7 @@ def _slot(plain_comp, words, body_len, pair=0, level=1):
 def _directory(level, y0, x0, slots):
     spec = clarion_bg.LEVELS[level]
     span = DIR_MESHES[level]
-    return dict(off=0, kind=spec["kind"], ab=spec["ab"], y=y0, x=x0,
+    return dict(off=0, kind=spec["kind"], ab=spec["ab"], y=y0, x=x_field(x0),
                 typ=spec["typ"], box=(y0 + span, y0, x0, x0 + span),
                 body=spec["body"], nslots=spec["slots"], slots=slots,
                 empty_bodies={}, empty_tags={})
@@ -1035,7 +1167,7 @@ def _directory(level, y0, x0, slots):
 
 def _section4_directory(y0, x0, slots):
     """A section-4 level-1 directory: kind 0x1146's sibling 0x1046, 256-byte bodies."""
-    return dict(off=0, kind=0x1046, ab=(0x20, 0x20), y=y0, x=x0, typ=0x93,
+    return dict(off=0, kind=0x1046, ab=(0x20, 0x20), y=y0, x=x_field(x0), typ=0x93,
                 box=(y0 + 1, y0, x0, x0 + 1), body=256, nslots=32, slots=slots,
                 empty_bodies={}, empty_tags={})
 
@@ -1145,6 +1277,13 @@ def selftest():
                              level=1, country=616,
                              output=str(root / "out.DAT"))
         check("factory mode", report["mode"] == "factory")
+        # The writer's output reads back to its input, point for point (independent decoder).
+        rb_stats, rb_worst = readback(blob, str(imf_path), cell, default_class_table())
+        check("readback: every input point decodes exactly",
+              rb_stats.get("input_points", 0) > 0
+              and rb_stats.get("in_points_within_1m") == rb_stats["input_points"]
+              and rb_stats.get("parcels_missing", 0) == 0 and rb_worst < 1.0,
+              [rb_stats, rb_worst])
         check("two parcels written", len(report["parcels"]) == 2,
               [p["parcel"] for p in report["parcels"]])
         rows = [p["parcel"]["row"] for p in report["parcels"]]
@@ -1165,7 +1304,7 @@ def selftest():
         check("section 4 byte-identical",
               sector_fingerprint(before, 4) == sector_fingerprint(after, 4))
         check("section 4 preserve", report["section4"] == dict(records=1, names=2,
-                                                               preserved=True),
+                                                               unparsed=0, preserved=True),
               report["section4"])
         old = records_by_position(before, 1)
         new = records_by_position(after, 1)
@@ -1202,6 +1341,19 @@ def selftest():
         check("parcel code is parcel_code()", [code_a, code_b] ==
               list(clarion_bg.parcel_code(1, 72 * 32 + 4, 936 * 32 + 3)),
               [code_a, code_b])
+        # The real EU tile stores x0 = 936 as the header word 65448 (EXP M5.4).
+        check("directory x word is x0 - 1024", x_field(936) == 65448
+              and dir_x0({"x": 65448}) == 936,
+              [x_field(936), dir_x0({"x": 65448})])
+        # Two slots whose byte ranges overlap share their blocks; a third slot does not.
+        overlap = {"sections": [{"levels": [{"dirs": [{"slots": {
+            0: {"block_off": 100, "block_end": 200},
+            1: {"block_off": 150, "block_end": 250},
+            2: {"block_off": 300, "block_end": 400}}}]}]}]}
+        check("overlapping slot blocks are shared", shared_slot_blocks(overlap)
+              == {100, 150}, sorted(shared_slot_blocks(overlap)))
+        check("kind 0x2046 is the only modelled directory kind",
+              MODELLED_DIR_KINDS == {0x2046}, sorted(MODELLED_DIR_KINDS))
         check("stream is 78 9c", bytes(record["raw"][:2]) == b"\x78\x9c",
               bytes(record["raw"][:2]).hex())
         check("report key matches the record",
@@ -1340,6 +1492,9 @@ def build_parser():
                         help="header DATA VERSION (required without --factory)")
     parser.add_argument("--json", action="store_true", help="write the report as JSON")
     parser.add_argument("--dry-run", action="store_true", help="build and check, write nothing")
+    parser.add_argument("--readback", metavar="TILE.DAT",
+                        help="decode the road records of TILE.DAT and compare them with "
+                             "the IMF input (writes nothing); exit 1 on any mismatch")
     parser.add_argument("--selftest", action="store_true", help="run the synthetic test")
     return parser
 
@@ -1349,14 +1504,37 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.selftest:
         return selftest()
+
+    cell = args.cell
+    for source in (args.factory, args.readback):
+        if cell is None and source:
+            stem = Path(source).name.split(".")[0]
+            if CELL_RE.match(stem):
+                cell = stem
+    if args.readback:
+        if not args.imf:
+            parser.error("--readback needs the split IMF as the positional argument")
+        if cell is None:
+            parser.error("--cell is required for --readback unless the tile is named BxxRyyR.DAT")
+        try:
+            table, _source = load_class_table(args.class_table)
+            stats, worst = readback(_read_bytes(args.readback), args.imf, cell,
+                                    table, args.level)
+        except (WriterError, OSError) as exc:
+            print("tilewriter: %s" % exc, file=sys.stderr)
+            return EXIT_BAD_INPUT
+        except zlib.error as exc:
+            print("readback: a road record does not inflate: %s" % exc)
+            print("readback %s: FAIL" % args.readback)
+            return EXIT_CHECK_FAILED
+        print(json.dumps(dict(stats, worst_m=round(worst, 3)), sort_keys=True))
+        ok = (stats.get("parcels_missing", 0) == 0 and stats.get("input_points", 0) > 0
+              and stats.get("in_points_within_1m", 0) == stats["input_points"])
+        print("readback %s: %s" % (args.readback, "OK" if ok else "FAIL"))
+        return 0 if ok else EXIT_CHECK_FAILED
     if not args.imf or not args.out:
         parser.error("IMF and --out are required (or use --selftest)")
 
-    cell = args.cell
-    if cell is None and args.factory:
-        stem = Path(args.factory).name.split(".")[0]
-        if CELL_RE.match(stem):
-            cell = stem
     if cell is None:
         parser.error("--cell is required (or pass a factory tile named BxxRyyR.DAT)")
     if not CELL_RE.match(cell):
