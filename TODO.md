@@ -2997,7 +2997,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2040–C-2049
 
 - [ ] **M5.14 — US geometry edit: move one road vertex (S3)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m5.14-us-geometry-vertex-s3 · Critical: yes
   - Depends: M5.13, M4.8c
   - Goal: the first geometry change Marek's unit renders, on the proven
     one-vertex path (M4.4: section 4 preserved, L2 pass on EU).
