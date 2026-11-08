@@ -833,8 +833,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-2750–C-2759
   - Result: EXP-2026-11-08-H25-ci-github-actions.md; added `.github/workflows/ci.yml` (PR/push-to-main, Python 3.11+3.13 hard gate, 3.14 informational/H9, no vendor data/QEMU/L4/secrets) running `selftest --json` + summary, `claims_check.py`, `todo_check.py`; added `.github/workflows/README.md` (hard/informational policy, SKIP≠PASS, why no vendor data). YAML validated (`PyYAML`), local checks: `selftest` 63 PASS/0 FAIL/18 SKIP, `claims_check` OK, `todo_check` OK (0 errors). Draft PR #133 https://github.com/neutrinus/OSM2Leaf/pull/133; first CI run link pending GitHub Actions execution.
 
-- [ ] **H26 — Pipeline L1/L2 na fixture’ach syntetycznych i generowanych (CI)**
-  - Status: in progress · Owner: task/h26-ci-l1l2-fixtures · Critical: yes
+- [x] **H26 — Pipeline L1/L2 na fixture’ach syntetycznych i generowanych (CI)**
+  - Status: done · Owner: task/h26-ci-l1l2-fixtures · Critical: yes
   - Depends: H25
   - Goal: automatycznie mierzyć postęp warstwy „format/struktura akceptowalna offline”: potrafimy zbudować lub zmutować dane tak, że `cardcheck.py` (L1) i wybrane ścieżki `l2check.py`/round-trip przechodzą — bez twierdzenia, że firmware je zaakceptuje. To bezpośredni wskaźnik celu „generować obrazy kart SD”, ograniczony do tego, co da się udowodnić offline.
   - Precheck: `python3 tools/cardcheck.py --selftest`/help i `python3 tools/l2check.py --selftest`/help działają; istnieją narzędzia generujące fixture (`mkcard.py`, `imgpatch.py`, `cmpind_writer.py`, `drstr_ze0`/harness tam gdzie mają `--selftest`). Jeśli brak syntetycznego wejścia dla danej ścieżki L2, ścieżka jest raportowana jako `NOT COVERED`, nie jako PASS.
@@ -843,6 +843,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: CI produkuje artefakt JSON/Markdown z macierzą L1/L2 (per check) i exit code odzwierciedla tylko checks uznane za „runnable” w tej warstwie; dodanie nowego syntetycznego przypadku L1/L2 wymaga tylko dopisania do listy checks, nie zmiany logiki raportu. EXP opisuje pokrycie (co realnie mierzymy) i luki (co nadal wymaga vendor data / M5/M6).
   - Stop: nie symulować PASS przez pomijanie walidacji; jeśli L2 wymaga stock zlib 1.3.1 do byte-identical i runner ma zlib-ng, check jest `SKIP (zlib-ng, H9)` z linkiem do uzasadnienia. Po 2 nieudanych próbach ustabilizowania bez zmiany semantics — `blocked` + EXP.
   - Claims: C-2760–C-2769
+  - Result: EXP-2026-11-08-H26-l1l2-fixtures.md (C-2760); `tools/l1l2_fixtures.py` (data-driven registry, `--selftest`/`--json`/`--md`) + `.github/workflows/l1l2-fixtures.yml` produce JSON/MD L1/L2 matrix (L1 synthetic, L2 DRSTR, L2 cmp/ind, L2 tile, L2 POI mutation) with runnable-only exit; local run 6P/0F/1S/2 NOT COVERED, verdict OK. No vendor data, no firmware acceptance claim (rule 13).
 
 - [ ] **H27 — Raport postępu L1–L4 (dashboard): reader-coverage + wyniki CI jako artefakt**
   - Status: open · Owner: — · Critical: yes
