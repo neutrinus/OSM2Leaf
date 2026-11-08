@@ -834,7 +834,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-08-H25-ci-github-actions.md; added `.github/workflows/ci.yml` (PR/push-to-main, Python 3.11+3.13 hard gate, 3.14 informational/H9, no vendor data/QEMU/L4/secrets) running `selftest --json` + summary, `claims_check.py`, `todo_check.py`; added `.github/workflows/README.md` (hard/informational policy, SKIP≠PASS, why no vendor data). YAML validated (`PyYAML`), local checks: `selftest` 63 PASS/0 FAIL/18 SKIP, `claims_check` OK, `todo_check` OK (0 errors). Draft PR #133 https://github.com/neutrinus/OSM2Leaf/pull/133; first CI run link pending GitHub Actions execution.
 
 - [ ] **H26 — Pipeline L1/L2 na fixture’ach syntetycznych i generowanych (CI)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/h26-ci-l1l2-fixtures · Critical: yes
   - Depends: H25
   - Goal: automatycznie mierzyć postęp warstwy „format/struktura akceptowalna offline”: potrafimy zbudować lub zmutować dane tak, że `cardcheck.py` (L1) i wybrane ścieżki `l2check.py`/round-trip przechodzą — bez twierdzenia, że firmware je zaakceptuje. To bezpośredni wskaźnik celu „generować obrazy kart SD”, ograniczony do tego, co da się udowodnić offline.
   - Precheck: `python3 tools/cardcheck.py --selftest`/help i `python3 tools/l2check.py --selftest`/help działają; istnieją narzędzia generujące fixture (`mkcard.py`, `imgpatch.py`, `cmpind_writer.py`, `drstr_ze0`/harness tam gdzie mają `--selftest`). Jeśli brak syntetycznego wejścia dla danej ścieżki L2, ścieżka jest raportowana jako `NOT COVERED`, nie jako PASS.
