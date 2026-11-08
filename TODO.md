@@ -2771,7 +2771,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1070–C-1079
 
 - [ ] **M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m5.6-rebuild-drstr-mmain-ind-cmplst · Critical: yes
   - Depends: M5.4, M4.5 (M3.8: a verbatim `MMAIN001` copy is enough for the
     mount; the firmware checks only the 4096-byte length — EXP-2026-11-06-M3.8)
   - Input: copy `MMAIN001.DAT` verbatim when the tile set is unchanged; if
