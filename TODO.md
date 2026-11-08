@@ -3154,12 +3154,12 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2260–C-2269
 
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
-  - Status: in progress · Owner: claude/m9.17-reopen · Critical: no
+  - Status: blocked · Owner: claude/m9.17-reopen · Critical: no
   - Re-opened (ninth pass, rule 15): M9.20 merged (`562215a`); the module-VA
     entry it needs now exists.
-  - Blocker: `runner.py` accepts only `entry.kind` synthetic/blocked and has no `engine_hook`; the reader VA `0x0041a438` cannot be declared (M9.20, PR #89 open).
-  - Unblock: M9.20 (its PR sets this task back to open, rule 15).
-  - Result: EXP-2026-11-08-M9.17-m38-reader (negative: validator rejects module-kind row on a scratch copy; PySh4 control PASS; C-2370–C-2371).
+  - Blocker: the M3.8 reader runs as a module entry (M9.20) but its first data access is at `0x0055d040`, in `Navi.exe` section 1 (compressed, `rw-`), which the map skips: `BLOCKED` UNMAPPED.
+  - Unblock: M1.2f (port `DECOMP_BLK`, so section 1 can be mapped).
+  - Result: EXP-2026-11-08-M9.17-reopen (negative: module run BLOCKED at a compressed `.data` access, controls PASS; C-2372–C-2373). Earlier block: EXP-2026-11-08-M9.17-m38-reader (C-2370–C-2371).
   - Depends: M9.5 (M3.8 located the reader)
   - Goal: `MMAIN001.DAT` is the only generated file whose reader is located
     and whose L3 target does not exist.
