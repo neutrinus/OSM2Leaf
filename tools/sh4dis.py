@@ -53,6 +53,22 @@ def read_u32(buf, off=0):
     return struct.unpack_from(ENDIAN_STRUCT + "I", buf, off)[0]
 
 
+def halfwords_le(blob):
+    """Array of little-endian halfwords of ``blob`` (odd trailing byte dropped).
+
+    Shared by scanners that walk many halfwords; the LE convention comes from
+    this module's pinned ``ENDIAN_STRUCT``.
+    """
+    from array import array
+    arr = array("H")
+    arr.frombytes(blob[: len(blob) // 2 * 2])
+    if ENDIAN_STRUCT == "<" and sys.byteorder != "little":
+        arr.byteswap()
+    elif ENDIAN_STRUCT == ">" and sys.byteorder != "big":
+        arr.byteswap()
+    return arr
+
+
 class Mem:
     """Read-only view of VA ranges: list of (base_va, bytes)."""
 
@@ -411,6 +427,30 @@ POOLS = [
     (0x8803758C, 0x8803A384),   # DECOMP_BLK (pool in DECOMP_SECT)
 ]
 
+# M1.14: mov.w @(disp,PC),Rn (0x9nnn) pinned on Navi.exe build A. These are
+# the C-2129/C-2540 POINT walker (fn 0x003f5194) constant loads; confirming the
+# range uses mov.w @(disp,PC) answers C-2489 with a real-image positive control.
+NAVI_MODULE = "Navi.exe"
+NAVI_IMAGE_START = 0x200200
+MOVW_POINT_WALKER = [
+    # (va, hex16, mnemonic, lit_va, lit_u16)
+    (0x003F51A8, "1494", "mov.w @(0x003f51d4,pc),r4  ; [0x003f51d4]=0x04e8",
+     0x003F51D4, 0x04E8),
+    (0x003F51AE, "1291", "mov.w @(0x003f51d6,pc),r1  ; [0x003f51d6]=0x03ff",
+     0x003F51D6, 0x03FF),
+    (0x003F51C2, "0991", "mov.w @(0x003f51d8,pc),r1  ; [0x003f51d8]=0x4e20",
+     0x003F51D8, 0x4E20),
+]
+
+# M1.8 four call sites (C-710) - oracle agreement targets.
+M18_CALL_SITES = [
+    # (va, word, text)
+    (0x003778B2, 0x430B, "jsr @r3"),
+    (0x00377B46, 0x430B, "jsr @r3"),
+    (0x003778BC, 0x430B, "jsr @r3"),
+    (0x00377B52, 0x430B, "jsr @r3"),
+]
+
 
 def _listing_texts(mem, va, count):
     return [i.text for i in disasm(mem, va, count)]
@@ -421,10 +461,13 @@ def _hex_of(mem, va, n):
     return b.hex() if b is not None else None
 
 
-def check_real(mem, exec_segs):
-    """Pinned assertions on the real bytes. Returns list of failure strings.
+def check_real(mem, exec_segs, module=NK_MODULE):
+    """Pinned assertions on real bytes. Returns list of failure strings.
 
-    An unmapped address is a failure, never an exception.
+    Dispatches by module: nk.exe pins the M1.11 decompressor path (0x88038666
+    stays pinned); Navi.exe pins mov.w @(disp,PC) on the C-2129/C-2540 POINT
+    walker (M1.14, C-2489). An unmapped address is a failure, never an
+    exception.
     """
     fails = []
 
@@ -434,20 +477,180 @@ def check_real(mem, exec_segs):
         if not ok:
             fails.append(label)
 
-    expect("prologue 0x880385e4 bytes (LE)",
-           _hex_of(mem, PROLOGUE_VA, 16), PROLOGUE_HEX)
-    expect("prologue 0x880385e4 mnemonics (8 halfwords)",
-           _listing_texts(mem, PROLOGUE_VA, 8), PROLOGUE_TEXT)
-    expect("flag test 0x88038666 bytes (LE)",
-           _hex_of(mem, FLAG_TEST_VA, 12), FLAG_TEST_HEX)
-    expect("flag test 0x88038666 mnemonics (6 halfwords)",
-           _listing_texts(mem, FLAG_TEST_VA, 6), FLAG_TEST_TEXT)
-    w = mem.u16(0x88038670)
-    bf_target = decode(w, 0x88038670, mem).target if w is not None else None
-    expect("bf at 0x88038670 target", bf_target, 0x8803867A)
-    for pool, want in POOLS:
-        expect("pool 0x%08x holds" % pool, mem.u32(pool), want)
+    if module.lower() == NK_MODULE.lower():
+        expect("prologue 0x880385e4 bytes (LE)",
+               _hex_of(mem, PROLOGUE_VA, 16), PROLOGUE_HEX)
+        expect("prologue 0x880385e4 mnemonics (8 halfwords)",
+               _listing_texts(mem, PROLOGUE_VA, 8), PROLOGUE_TEXT)
+        expect("flag test 0x88038666 bytes (LE)",
+               _hex_of(mem, FLAG_TEST_VA, 12), FLAG_TEST_HEX)
+        expect("flag test 0x88038666 mnemonics (6 halfwords)",
+               _listing_texts(mem, FLAG_TEST_VA, 6), FLAG_TEST_TEXT)
+        w = mem.u16(0x88038670)
+        bf_target = decode(w, 0x88038670, mem).target if w is not None else None
+        expect("bf at 0x88038670 target", bf_target, 0x8803867A)
+        for pool, want in POOLS:
+            expect("pool 0x%08x holds" % pool, mem.u32(pool), want)
+    elif module.lower() == NAVI_MODULE.lower():
+        for va, hx, text, lit_va, lit_u16 in MOVW_POINT_WALKER:
+            expect("mov.w @(disp,PC) 0x%08x bytes" % va, _hex_of(mem, va, 2), hx)
+            w = mem.u16(va)
+            ins = decode(w, va, mem) if w is not None else None
+            expect("mov.w @(disp,PC) 0x%08x text" % va,
+                   ins.text if ins else None, text)
+            expect("mov.w @(disp,PC) 0x%08x lit va" % va,
+                   ins.lit if ins else None, lit_va)
+            v = mem.u16(lit_va)
+            expect("mov.w @(disp,PC) 0x%08x lit u16" % va, v, lit_u16)
+        # C-2129 range uses mov.w @(disp,PC): all three sites in fn 0x003f5194.
+        movw = [i for i in disasm(mem, 0x003F5194, 40)
+                if i.kind == "load" and i.text.startswith("mov.w")]
+        expect("C-2129 fn 0x003f5194 mov.w @(disp,PC) count", len(movw), 3)
+        for va, word, text in M18_CALL_SITES:
+            w = mem.u16(va)
+            ins = decode(w, va, mem) if w is not None else None
+            expect("M1.8 call site 0x%08x" % va,
+                   (ins.word, ins.text) if ins else None, (word, text))
+    else:
+        expect("check-real module has pins", module, "(nk.exe or Navi.exe)")
     return fails
+
+
+# --------------------------------------------------------------------------
+# Independent oracle (M1.14): Capstone or objdump when available, else a
+# pinned skip. Disagreement is recorded per instruction and the caller must stop.
+# --------------------------------------------------------------------------
+
+ORACLE_SKIP = "SKIP: no independent SH-4 oracle (no capstone, no sh*-objdump)"
+
+
+def _oracle_capstone():
+    try:
+        import capstone  # type: ignore
+    except Exception:
+        return None
+    try:
+        md = capstone.Cs(capstone.CS_ARCH_SH, capstone.CS_MODE_SH4 | capstone.CS_MODE_LITTLE_ENDIAN)
+        md.detail = False
+        return ("capstone", md)
+    except Exception:
+        return None
+
+
+def _oracle_objdump():
+    import shutil
+    for name in ("sh4-linux-gnu-objdump", "sh4le-linux-gnu-objdump",
+                 "sh4-elf-objdump", "sh-elf-objdump"):
+        if shutil.which(name):
+            return ("objdump", name)
+    return None
+
+
+def oracle_available():
+    return _oracle_capstone() or _oracle_objdump()
+
+
+def _norm(text):
+    """Normalize mnemonics for oracle comparison (spacing/case/hex forms)."""
+    t = " ".join(text.lower().replace("\t", " ").split())
+    t = t.replace("pc),", "pc), ")
+    t = t.replace(",r", ", r").replace("r0,", "r0,").replace("r1,", "r1,")
+    t = t.replace("r2,", "r2,").replace("r3,", "r3,").replace("r4,", "r4,")
+    t = t.replace("r5,", "r5,").replace("r6,", "r6,").replace("r7,", "r7,")
+    t = t.replace("r8,", "r8,").replace("r9,", "r9,")
+    return " ".join(t.split())
+
+
+def oracle_decode_one(oracle, code, va):
+    """(ok, text_or_reason) for one halfword using the independent oracle."""
+    kind, obj = oracle
+    if kind == "capstone":
+        try:
+            insns = list(obj.disasm(code[:2], va, count=1))
+        except Exception as exc:
+            return False, "capstone error: %s" % exc
+        if not insns:
+            return False, "capstone: no decode"
+        i = insns[0]
+        return True, ("%s %s" % (i.mnemonic, i.op_str)).strip()
+    if kind == "objdump":
+        import subprocess
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tf:
+            tf.write(code[:2] + b"\x00\x00")
+            name = tf.name
+        try:
+            p = subprocess.run(
+                [obj, "-D", "-b", "binary", "-m", "sh4", "--adjust-vma=%d" % va, name],
+                capture_output=True, text=True, timeout=10)
+            for line in p.stdout.splitlines():
+                if line.strip().startswith("%x:" % va):
+                    # "   3778b2:\t0b 43       \tjsr\t@r3"
+                    parts = line.split("\t")
+                    if len(parts) >= 3:
+                        return True, " ".join(parts[-1].split())
+            return False, "objdump: no line for 0x%x: %s" % (va, p.stdout.strip()[-120:])
+        except Exception as exc:
+            return False, "objdump error: %s" % exc
+        finally:
+            try:
+                os.unlink(name)
+            except OSError:
+                pass
+    return False, "unknown oracle"
+
+
+def oracle_agrees(oracle, va, word, our_text):
+    """Check one instruction. Returns (status, detail). status in ok/skip/fail."""
+    code = struct.pack(ENDIAN_STRUCT + "H", word)
+    ok, their = oracle_decode_one(oracle, code, va)
+    if not ok:
+        return "fail", "oracle could not decode 0x%08x %04x: %s" % (va, word, their)
+    ours = _norm(our_text.split(";")[0])
+    theirs = _norm(their)
+    # Accept jsr @rN / jsr @rn forms and minor formatting differences.
+    if ours == theirs:
+        return "ok", "0x%08x %04x  agree: %s" % (va, word, our_text.split(";")[0].strip())
+    # Looser match for register/call forms.
+    import re
+    o2 = re.sub(r"\s+", " ", ours)
+    t2 = re.sub(r"\s+", " ", theirs)
+    if o2 == t2:
+        return "ok", "0x%08x %04x  agree(normalized): %s | %s" % (va, word, ours, theirs)
+    return "fail", ("DISAGREE 0x%08x %04x\n  sh4dis : %s\n  oracle : %s (%s)"
+                    % (va, word, our_text, their, oracle[0]))
+
+
+def run_oracle(mem):
+    """Run oracle on the four M1.8 call sites. Returns (status, lines).
+
+    status: 'ok', 'skip', 'fail'. On 'fail' lines record every disagreement.
+    """
+    oracle = oracle_available()
+    lines = []
+    if oracle is None:
+        lines.append("oracle: %s" % ORACLE_SKIP)
+        return "skip", lines
+    lines.append("oracle: %s" % oracle[0])
+    status = "ok"
+    for va, word, text in M18_CALL_SITES:
+        w = mem.u16(va)
+        ins = decode(w, va, mem) if w is not None else None
+        our = ins.text if ins else None
+        if w is None or ins is None:
+            lines.append("FAIL 0x%08x unmapped in provided image" % va)
+            status = "fail"
+            continue
+        if w != word or our != text:
+            lines.append("FAIL 0x%08x sh4dis gave %04x %r, expected pin %04x %r"
+                         % (va, w, our, word, text))
+            status = "fail"
+            continue
+        st, detail = oracle_agrees(oracle, va, w, our)
+        lines.append(detail)
+        if st == "fail":
+            status = "fail"
+    return status, lines
 
 
 def sweep(mem, exec_segs, sections):
@@ -559,6 +762,18 @@ def selftest():
     check("literal load prints pool value",
           decode(0xD001, 0x1000, syn).text,
           "mov.l @(0x00001008,pc),r0  ; [0x00001008]=0x12345678")
+    # mov.w @(disp,PC),Rn (0x9nnn): M1.14 pin, real encoding 0x9414 at 0x003f51a8
+    # lit = (0x003f51ac & ~3) + 0x14*2 = 0x003f51d4, pool u16 LE e8 04 = 0x04e8
+    mw = Mem([(0x003F51A8, bytes.fromhex("1494")),
+              (0x003F51D4, bytes.fromhex("e804"))])
+    check("mov.w @(disp,PC) 0x9414 pinned mnemonic+lit",
+          decode(0x9414, 0x003F51A8, mw).text,
+          "mov.w @(0x003f51d4,pc),r4  ; [0x003f51d4]=0x04e8")
+    check("mov.w @(disp,PC) kind/lit",
+          (decode(0x9414, 0x003F51A8, mw).kind, decode(0x9414, 0x003F51A8, mw).lit),
+          ("load", 0x003F51D4))
+    check("halfwords_le shared (LE pinned)",
+          list(halfwords_le(bytes.fromhex("1494e804"))), [0x9414, 0x04E8])
 
     # 5. Mnemonic table spot checks, each from a published encoding
     check("mov.l r8,@-r15 (0x2F86)", decode(0x2F86).text, "mov.l r8,@-r15")
@@ -587,7 +802,29 @@ def selftest():
     check("shll r2 (0x4200)", decode(0x4200).text, "shll r2")
     check("unknown word is .word, no raise", decode(0xF000).text, ".word 0xf000")
 
-    # 6. Totality: every halfword decodes without an exception
+    # 6. Oracle (M1.14): pinned skip mode when absent; if present, must agree
+    # on the four M1.8 call sites. Disagreement records per instruction.
+    m18mem = Mem([])
+    # build a mem containing the four sites
+    segs = []
+    for va, word, _text in M18_CALL_SITES:
+        segs.append((va, struct.pack(ENDIAN_STRUCT + "H", word)))
+    m18mem = Mem(segs)
+    st, lines = run_oracle(m18mem)
+    avail = oracle_available()
+    if avail is None:
+        check("oracle absent -> pinned skip", st, "skip")
+        check("oracle skip message", any(ORACLE_SKIP in l for l in lines), True)
+    else:
+        check("oracle present (%s) agrees on M1.8 sites" % avail[0], st, "ok")
+        for l in lines:
+            if "DISAGREE" in l or l.startswith("FAIL"):
+                check("oracle disagreement detail", l, "(no disagreement)")
+    # M1.8 pin constants decode as expected by our own decoder (sanity)
+    for va, word, text in M18_CALL_SITES:
+        check("M1.8 pin decode 0x%08x" % va, decode(word, va).text, text)
+
+    # 7. Totality: every halfword decodes without an exception
     raised = 0
     for w in range(0x10000):
         try:
@@ -621,7 +858,10 @@ def main(argv=None):
     ap.add_argument("--va", type=lambda s: int(s, 0), default=None)
     ap.add_argument("--count", type=int, default=16)
     ap.add_argument("--sweep", action="store_true")
-    ap.add_argument("--check-real", action="store_true")
+    ap.add_argument("--check-real", action="store_true",
+                    help="pinned real-image checks (nk.exe@0x3e00200 or Navi.exe@0x200200)")
+    ap.add_argument("--oracle", action="store_true",
+                    help="independent decoder vs four M1.8 call sites; SKIP if absent")
     ap.add_argument("--hex", help="raw bytes as hex, decoded as LE halfwords")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
@@ -635,17 +875,31 @@ def main(argv=None):
             print(fmt(ins))
         return 0
     if not a.image or not a.module:
-        ap.error("IMG MODULE is required (or --hex / --selftest)")
+        ap.error("IMG MODULE is required (or --hex / --selftest / --oracle with IMG)")
     if not os.path.exists(a.image):
         print("no image at %s" % a.image)
         return 2
     start = a.image_start
     mem, exec_segs, sections = load_segments(a.image, start, a.module)
+    if a.oracle:
+        st, lines = run_oracle(mem)
+        for line in lines:
+            print(line)
+        if st == "fail":
+            print("oracle: FAIL (disagreement recorded; stopped)")
+            return 1
+        print("oracle: %s" % st.upper())
+        return 0
     if a.check_real:
-        if a.module.lower() != NK_MODULE:
-            ap.error("--check-real pins nk.exe bytes; use MODULE nk.exe with --image-start 0x3e00200")
-        fails = check_real(mem, exec_segs)
-        print("check-real: %s" % ("OK" if not fails else "FAILED %d" % len(fails)))
+        mod = a.module
+        if mod.lower() == NK_MODULE.lower():
+            pass
+        elif mod.lower() == NAVI_MODULE.lower():
+            pass
+        else:
+            ap.error("--check-real pins nk.exe (0x3e00200) or Navi.exe (0x200200)")
+        fails = check_real(mem, exec_segs, module=mod)
+        print("check-real(%s): %s" % (mod, "OK" if not fails else "FAILED %d" % len(fails)))
         return 0 if not fails else 1
     if a.sweep:
         bad = sweep(mem, exec_segs, sections)

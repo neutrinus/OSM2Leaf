@@ -45,6 +45,7 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cerom  # noqa: E402
+import sh4dis  # noqa: E402
 
 # SH-4 16-bit encodings (halfword values, read as little-endian from memory).
 CMP_EQ_IMM_R0 = 0x8800      # 0x88ii: cmp/eq #ii,R0
@@ -88,12 +89,12 @@ class Sec:
 
 
 def halfword_array(blob):
-    """Little-endian halfwords of ``blob`` (an odd trailing byte is dropped)."""
-    arr = array("H")
-    arr.frombytes(blob[: len(blob) // 2 * 2])
-    if sys.byteorder != "little":
-        arr.byteswap()
-    return arr
+    """Little-endian halfwords of ``blob`` (an odd trailing byte is dropped).
+
+    The LE convention is pinned in ``tools/sh4dis.py`` (M1.14: no duplicate
+    reader); this keeps the array representation for scan speed.
+    """
+    return sh4dis.halfwords_le(blob)
 
 
 def load_sections(r, data, module=None):
