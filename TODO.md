@@ -1700,8 +1700,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: after two rounds of fitting without a full match, record a negative EXP and stop.
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
 
-- [ ] **M4.25 — Regulation-word test: the no_* turns without a from-word, and the only_* encoding**
-  - Status: in progress · Owner: task/m4.25-regulation-word-test · Critical: no
+- [x] **M4.25 — Regulation-word test: the no_* turns without a from-word, and the only_* encoding**
+  - Status: done · Owner: task/m4.25-regulation-word-test · Critical: no
   - Depends: — (M4.23 tool)
   - Goal: explain why most `no_*` to-entries carry no from-word (`rd_restrictions.py match`: 152/411 and 128/235) and find the `only_*` encoding.
   - Precheck: `match --level 1` and `--level 2` on B48R058R reproduce 152/411 and 128/235.
@@ -1710,6 +1710,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: each miss class is explained by a named, counted mapping check, or the same test passes (pre-stated PASS) on a second tile, or a negative EXP records it.
   - Stop: after one mapping audit and one second tile; otherwise `blocked` with the EXP.
   - Claims: C-2910–C-2919 (was C-2640–C-2649, collision fixed by H23)
+  - Result: EXP-2026-11-08-M4.25-regulation-word-audit. Precheck reproduced 152/411 (L1) and 128/235 (L2) FAIL on B48R058R (`e9c9cb22…`). `rd_restrictions.py audit` (M4.25, B48R058R+dolnoslaskie IMF, L1/L2) partitions every `no_*` miss into named, counted classes (done-when satisfied): exclusive L1 208/259 `no_ff_word_naming_F_anywhere`, 21 ff-on-other-entry, 19 reverse-ff-on-F, 11 other-byte1-on-T (byte1 1/2/3); L2 90/107, 9, 7, 1. Dominant explanation = 0xff-naming-F word absent at the matched node (true encoding for that majority UNKNOWN), not nibble/position reversal. `only_*` encoding UNKNOWN with named negative candidates: "all other exits ff-naming-F" 148/240 L1, 138/193 L2 vs density 61.8%/74.5% and random-exit baseline 64.1%/74.7% (no separation); T/F/0xf markers and byte1 alternatives counted. Second-tile attempt (B48R050R/060R/068R/070R) found no n>=20 dolnoslaskie via coverage (0/3625). Pre-stated PASS still fails; claims C-2910–C-2917 (+2918–2919 reserved).
 
 - [x] **M4.26 — Firmware reader VAs for section-2 grid kinds; LEV3456R level-4/5 parcel addressing**
   - Status: done · Owner: task/m4.26-sec2-lev3456-reader-vas · Critical: no
