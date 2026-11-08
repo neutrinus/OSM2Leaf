@@ -2309,7 +2309,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-960–C-969
 
 - [ ] **M4.8b — Check `coord.py` on 10 real POIs**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.8b-coord-py-real-pois · Critical: yes
   - Note (was blocker, M4.8d ran): local-scale 1 vs 2 not answerable from packed
     POI ids and no 0..2047-class geographic sub-unit position field was found in
     zlib-framed POINT name records or ADDRE (EXP-2026-11-08-M4.8d-subunit-field,
