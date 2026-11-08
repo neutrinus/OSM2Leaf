@@ -260,13 +260,27 @@ base `0x00d5e4e4`, count `0x00d5e4d0`; getter `fn 0x003f3314`), escape test
 `fn 0x003f8a0c`, body `rec+4` `fn 0x003f5c40`, 8-byte trailer
 `fn 0x003f5c90`. Executed in PySh4 (LE) on the US `POINT010` page `0x840ba0`
 (swapped to native u16) it returns `parse_page`'s offsets; the unswapped page
-does not (`tools/point_walk_l3.py walk`). Name side (OBSERVED, not yet tied to
-POINT bytes): debug dump `fn 0x003a03b4` → `sdl_poi_get_data_recorde`
-`fn 0x003cd910(db, rec, out)` (`out+12` u16 length, `out+16` name pointer) →
-`fn 0x003d1150(ctx, rec, &ptr)` (`len = rec[14]`, `ptr = rec+21`; else
-`fn 0x003d09a0` splits on the byte at `*0x005628e8`), copy `fn 0x003d1188`.
-Open: M3.11b (where the page is swapped), M3.11c (name accessor for a POINT
-record).
+does not (`tools/point_walk_l3.py walk`).
+
+**M3.11c name accessor (EXP-2026-11-08, C-2920–C-2927):** the HDLMAP-level POI
+name accessors are **`fn 0x003f632c(r4=db,r5=rec)→r0=name ptr`** and
+**`fn 0x003f5e78(r4=db,r5=rec)→r0=name len`** (Navi.exe sec0). `0x003f8a0c(rec)`
+classifies escape (`&0xfc00==0xfc00` → 0 = escape; else -1 = normal; PySh4 on
+0x6040 rec0 returns -1). Normal 0x60xx records dispatch to **field index 5**
+(facility/name) via `fn 0x003f61bc(r4,rec,r6=5)` (ptr) /
+`fn 0x003f5d98(r4,rec,r6=5)` (len) → `0x003f51e0` (handle resolve vs
+`0x00d53500`; indirect `*0x0055d8f0` in `.data`) → `0x003f56bc` (locate field
+in page field-descriptor table) → `0x003f5e10` (extract). Escape records use
+`fn 0x003f8a80(rec)=rec+25` / `fn 0x003f8a90(rec)`. `sdl_poi_get_data_recorde`
+`fn 0x003cd910(db,ref,out)` uses them on the status-1 path (`0x3cdc30`/
+`0x3cdc1a`, `out+16` ptr / `out+12` `extu.w(len)*2`). SDL `fn 0x003d1150(ctx,
+rec,&ptr)` (`rec[14]`/`rec+21`, fallback `fn 0x003d09a0` splits on
+`*0x005628e8`) and `fn 0x003d1188` operate on **SDL-decoded** layout, **not**
+raw 0x60xx POINT bytes (refuted for raw display name, PySh4 rec0 length 0;
+C-2545). Raw display name is the `ff ff`-delimited suffix (penultimate→trailing
+marker; rec0 at `+0x5e`, 999/1000 on page `0x840ba0`).
+Open: M3.11b (byte order / page swap). Full end-to-end PySh4 of field 5 on
+rec0 requires HDLMAP page context in compressed `.data` (M1.2f/M8.E1) → M9.10.
 
 **M3.13 (EXP-2026-11-06, C-2180–C-2183, blocked):** `ADDRE`/`REFER001` access
 path confirmed as the same REFER001 family mechanism (Navi.exe sec0, A):

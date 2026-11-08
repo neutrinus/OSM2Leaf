@@ -1932,8 +1932,27 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2547–C-2549 (C-2540–C-2546 unchanged)
 
 - [ ] **M3.11c — The name accessor for a `POINT` record**
-  - Status: in progress · Owner: task/m3.11c-point-name-accessor · Critical: yes
+  - Status: blocked · Owner: task/m3.11c-point-name-accessor · Critical: yes
+  - Blocker: end-to-end PySh4 of the identified accessor
+    (`0x003f632c`/`0x003f5e78` → `0x003f61bc`/`0x003f5d98` field 5) on record 0
+    requires HDLMAP page context (`0x00d53500` handle table + indirect
+    `*0x0055d8f0`) in compressed `.data` (sec1, C-2128); without context it
+    faults (PySh4 `UnmappedAccess 0x0055d8f0`), so the Done-when name string
+    return (`HANA HEALTH CENTER` / M5.12 `OSM2LEAF TEST POI1`) cannot be
+    produced. VAs/args/chain identified and sub-accessors PySh4-verified.
+  - Unblock: M1.2f/M8.E1 (readable `.data`/globals) or a stubbed HDLMAP page
+    context for `0x003f51e0`/`0x003f56bc`; then run `0x003f632c`/`0x003f5e78`
+    (or `0x003f61bc` field 5) on rec0 and the M5.12 renamed page in PySh4 and
+    mark done if names match.
   - Depends: — (M3.11b only for the final L3 run)
+  - Result: EXP-2026-11-08-M3.11c-point-name-accessor.md (C-2920–C-2927).
+    Accessors `fn 0x003f632c(r4=db,r5=rec)→ptr` / `fn 0x003f5e78→len` dispatch
+    to field 5 via `0x003f61bc`/`0x003f5d98` for normal 0x60xx
+    (`0x003f8a0c`→-1); used by `sdl_poi_get_data_recorde` `0x003cd910` status-1
+    path (`0x3cdc30`/`0x3cdc1a`). SDL `fn 0x003d1150(rec[14]/rec+21, fallback
+    0x003d09a0/*0x5628e8)` refuted for raw display name (C-2545, PySh4 len 0).
+    Raw name is `ff ff`-delimited suffix (rec0 `+0x5e`, 999/1000 on page
+    `0x840ba0`). `docs/format/firmware.md` records VAs/args/chain.
   - Goal: the function that turns a `POINT` record (record 0 of US page
     `0x840ba0`: `60 40 8f 9c …`, name `HANA HEALTH CENTER4590@HANA HWY` at
     `+0x5e`) into the name string the UI shows — VA, args, output.
@@ -1941,18 +1960,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Scope: Navi.exe sec0, functions reachable from `0x003cd910`,
     `0x003d1150`, `0x003d1188`, `0x003cc93c`, `0x003f5c40`, `0x003f6220`, and
     the other `0x3ff` sites in `0x3f5900–0x3f9400`.
-  - Input: C-2544 (SDL chain), C-2545 (offset mismatch). Leads: (1) is
-    `rec+4+14` / `rec+4+21` in the **swapped** record the name length/text?
-    In native order record 0's bytes pair-swap; check `rec[18]`/`rec+25`
-    after `swap16`. (2) The body has sub-records (`02 40 03 02`, `09 54 …`,
-    `28 ff …`): maybe `0x3cc93c` walks them with the same u16 header — try
-    `0x3f5194` on `rec+4`. (3) `refer.md`'s per-file field dictionary
-    ("facility name 111" bits): look for a bit-field reader taking a bit
-    offset. (4) Run `0x003d1150` in PySh4 on record 0 (raw and swapped) and
-    print what `*ptr` points at.
-  - Done when: PySh4 run of the accessor on record 0 returns
-    `HANA HEALTH CENTER` (length + pointer or copied buffer), and on the
-    M5.12 renamed page `OSM2LEAF TEST POI1`; `firmware.md` records VA/args.
   - Stop: if the accessor needs `bt/s`/`bf/s`, do M9.21 first.
   - Claims: C-2920–C-2929 (was C-2548–C-2549, overlap with M3.11b fixed by H24)
 
