@@ -14,11 +14,12 @@ Checks reported as errors (exit 1):
 - done tasks missing a ``Result:`` line
 - checkbox/status contradictions (``[x]`` vs non-done, ``[ ]`` vs done)
 - invalid Status / Critical values
-- ``Depends`` references to unknown task IDs
+- cyclic ``Depends`` references
 - M1/M2/M3/M8/M9 (firmware/reader/search) tasks missing Precheck/Scope/Stop
 
-Warnings (printed, do not fail by default): none currently; ``--strict`` can be
-added later if needed.
+Warnings (printed, do not fail by default): ``Depends`` references to unknown
+task IDs, missing Precheck/Scope/Stop (legacy/reporting), actionable/done tasks
+missing standard fields.
 """
 from __future__ import annotations
 
@@ -128,9 +129,48 @@ def _parse_owner_critical(status_val: str):
 
 def _parse_depends(val: str):
     v = val.strip()
-    if v in ("—", "-", "–", "none", "None"):
+    # Parse declared deps; ignore parenthetical annotations (often contain
+    # explanatory task IDs like "(accept facts: M2.x done)" or notes).
+    head = v.split("(", 1)[0].strip()
+    if head in ("—", "-", "–", "none", "None", ""):
         return []
-    return DEP_ID_RE.findall(v)
+    return DEP_ID_RE.findall(head)
+
+
+def _find_dep_cycles(tasks, known_ids):
+    """Return a list of cycle descriptions (lists of task IDs)."""
+    graph = {}
+    for t in tasks:
+        deps = _parse_depends(t["fields"].get("Depends", "—")) if t["fields"] else []
+        graph[t["id"]] = [d for d in deps if d in known_ids]
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color = {tid: WHITE for tid in graph}
+    stack = []
+    cycles = []
+    seen_cycles = set()
+
+    def dfs(node):
+        color[node] = GRAY
+        stack.append(node)
+        for nxt in graph.get(node, []):
+            if nxt not in color:
+                continue
+            if color[nxt] == GRAY:
+                idx = stack.index(nxt)
+                cyc = stack[idx:] + [nxt]
+                key = tuple(sorted(cyc[:-1]))
+                if key not in seen_cycles:
+                    seen_cycles.add(key)
+                    cycles.append(cyc)
+            elif color[nxt] == WHITE:
+                dfs(nxt)
+        stack.pop()
+        color[node] = BLACK
+
+    for tid in sorted(graph):
+        if color[tid] == WHITE:
+            dfs(tid)
+    return cycles
 
 
 def check(text: str):
@@ -166,9 +206,6 @@ def check(text: str):
                 err("Claims is placeholder 'next free block at claim time'", t)
             else:
                 err(f"malformed Claims range: {cval!r}", t)
-            continue
-        if parsed is None:
-            err(f"malformed Claims range: {cval!r}", t)
             continue
         a, b = parsed
         if a > b:
@@ -239,6 +276,9 @@ def check(text: str):
                     # report as warning: many pre-rule-14 tasks lack these; the
                     # field is required before a search is started (rule 14).
                     warnings.append(f"TODO.md:{t['lineno']} {t['id']}: firmware/search task missing {k}")
+
+    for cyc in _find_dep_cycles(tasks, known_ids):
+        errors.append(f"TODO.md: cyclic Depends: {' -> '.join(cyc)}")
 
     return {
         "ok": not errors,
@@ -340,13 +380,32 @@ def run_selftest():
     r = check(unk)
     assert r["ok"] and any("unknown task ID 'H99'" in w for w in r["warnings"]), r
 
+    # cyclic depends
+    cycle = """# TODO
+- [ ] **H1 — one**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H2
+  - Goal: g
+  - Done when: d
+  - Claims: C-300–C-309
+
+- [ ] **H2 — two**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H1
+  - Goal: g
+  - Done when: d
+  - Claims: C-310–C-319
+"""
+    r = check(cycle)
+    assert not r["ok"] and any("cyclic Depends" in e for e in r["errors"]), r
+
     # real TODO.md parses cleanly
     real = TODO_PATH.read_text(encoding="utf-8")
     r = check(real)
     assert r["ok"], "real TODO.md:\n" + "\n".join(r["errors"])
     assert r["tasks"] > 100, r["tasks"]
 
-    print(f"todo_check selftest: OK ({9} checks, {r['tasks']} real tasks)")
+    print(f"todo_check selftest: OK (10 checks, {r['tasks']} real tasks)")
     return 0
 
 
