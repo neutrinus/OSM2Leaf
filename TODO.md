@@ -2127,7 +2127,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2320–C-2329 (was C-1960–C-1969, already used by M4.19)
 
 - [ ] **M4.17 — Link attributes without OSM: road numbers as ground truth**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m4.17-road-class · Critical: no
   - Depends: M4.15
   - Goal: find the road-class field from roads whose class is known by their
     number (`A4`, `A18`, `S8`, `E40`, `DK94`… are motorways/expressways/
