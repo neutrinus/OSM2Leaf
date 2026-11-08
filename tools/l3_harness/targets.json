@@ -212,7 +212,7 @@
         "kind": "blocked",
         "program": null,
         "va": null,
-        "reason": "no DRSTR001.DAT parser entry point has been recovered (M3)"
+        "reason": "entry VA sub_00419350 (Navi.exe 0x00419350, M3.10) lies in the executable, uncompressed sec0, but its coredll imports and buffer global sit in compressed sec1 (0x0055d000): the first read, 0x0055d8fc, is UNMAPPED (EXP-2026-11-08-M9.14-reopen); unblock: M1.2f, then M9.24"
       },
       "stubs": [
         "CreateFileW",
@@ -239,7 +239,10 @@
         "agrees_with_python": null,
         "rule": "the factory tree must parse; the size-mismatch tree in the manifest must be rejected"
       },
-      "notes": []
+      "notes": [
+        "The reader's CRT calls are coredll fopen/fread/fseek/ftell/ferror/clearerr/fclose (M3.10 decode, wrappers sub_0041b3bc/sub_0041b4f8/sub_0041b470), not CreateFileW/ReadFile; the stub list below is not the reader's call list and is kept only until M9.24 replaces it.",
+        "Verdict rule not established: sub_00419350 returns error codes 26/23/20/10 (M3.10), so no verdict_map is written; the 40 | size and size/40 >= 200 checks are unreconciled."
+      ]
     },
     {
       "name": "mapcode_comparator",
