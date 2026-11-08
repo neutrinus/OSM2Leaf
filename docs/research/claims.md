@@ -2280,6 +2280,22 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3008 | RESERVED (M4.34). | — | — | — |
 | C-3009 | RESERVED (M4.34). | — | — | — |
 
+## M4.32 — Direction-explicit restriction stratum (C-3010–C-3019)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3010 | M4.32 precheck reproduces M4.30 `deepen` direction-explicit numbers on B48R058R (`e9c9cb22…`) + dolnoslaskie IMF (`7442877c…`), seed 42: L1 `arr->lv` n=68 hit=44 (64.7%, shuf 2), `two->lv` n=31 hit=21 (67.7%, shuf 0), overall `no_*` 411/152 FAIL; L2 `arr->lv` n=75 hit=53 (70.7%), `two->lv` n=22 hit=18 (81.8% full PASS, test n<20), overall 235/128 FAIL. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.32-direction-explicit-stratum; `rd_restrictions.py deepen --level 1\|2` |
+| C-3011 | Pre-specified full union rule for direction-explicit stratum `arr->lv`+`two->lv` — `base` (0xff on T naming F) OR `v1` `reverse_ff_on_F_names_T` OR `v2` `other_byte1_on_T_names_F` OR `v3` `ff_naming_F_on_other_entries` (M4.25/M4.30 named variants) — does **not** reach pre-stated PASS on held-out test (sha256 id mod2 bucket1, n>=20) at L1/L2/pooled: L1 test 41/51 (80.4%) shuffle 37 (72.5%) FAIL; L2 42/51 (82.4%) shuffle 39 (76.5%) FAIL; pooled L1+L2 83/102 (81.4%) shuffle 76 (74.5%) FAIL. v3 shuffle analog is structurally non-discriminating (fires when F has 0xff words on entries other than U). | VERIFIED (tool, real data; full union fails shuffle) | H | EXP-2026-11-08-M4.32-direction-explicit-stratum; `rd_restrictions.py direction --level 1\|2\|pool` |
+| C-3012 | Discriminating decomposition `base+v1+v2` (destination-discriminating shuffle analogs) reaches pre-stated PASS on L2 held-out (n=51, 42/51=82.4%, shuffle 1, gap 0.804) and pooled L1+L2 held-out (n=102, 82/102=80.4%, shuffle 5, gap 0.755, **57 overlapping relation IDs across levels — not independent**); L1 held-out 40/51 (78.4%) FAIL hit<0.80. Reported as decomposition evidence, not as a replacement pre-specified rule (v3 remains a named M4.25 variant). | VERIFIED (tool, real data; decomposition, independence caveat) | M | EXP-2026-11-08-M4.32-direction-explicit-stratum |
+| C-3013 | Union-residual `no_ff_word_naming_F_anywhere` misses in `arr->lv`+`two->lv` (L1 20, test 10; L2 21, test 9) are dominated by T-empty (14) or T-has-0xff-word(s)-naming-other-entries (26) with no 0xff-naming-F anywhere, no reverse-ff, no other-b1-on-T-naming-F. One L2 train case (r15988164, non-test) has word naming F with byte1=0x01 on a non-T entry — a position/form outside named M4.25 variants. Residuals support alternate encoding/position or genuine absence over the named forms. | VERIFIED (tool, real data) | M | EXP-2026-11-08-M4.32-direction-explicit-stratum |
+| C-3014 | Junction-mapping signals in M4.32 residuals are weak: `osm_from_eq_to` 0, duplicate OSM way bearing 0, ambiguous bearing margin `<15°` 7/41 (17%, L1 5/20 L2 2/21). Tested mapping/junction signals do not explain the dominant residual class; bearing count-mismatch exclusions remain M4.34 scope. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.32-direction-explicit-stratum |
+| C-3015 | Direction-explicit `arr->lv`/`two->lv` prohibition encoding is plausibly `base+v1+v2`-class (0xff-on-T-naming-F, reverse ff-on-F-naming-T, or other byte1 on T naming F) with remaining residuals requiring wider position/form search or alternate storage. **Not firmware-confirmed** (rule 13); regulation-word consumer VA (M4.26, C-2805 context) required before promoting to confirmed encoding. | HYPOTHESIS | L | EXP-2026-11-08-M4.32-direction-explicit-stratum |
+| C-3016 | RESERVED (M4.32). | — | — | — |
+| C-3017 | RESERVED (M4.32). | — | — | — |
+| C-3018 | RESERVED (M4.32). | — | — | — |
+| C-3019 | RESERVED (M4.32). | — | — | — |
+
+
 ## M5.16 — LEV3456R.DAT generator, levels 3-6 from OSM (C-2400–C-2409)
 
 | ID | Claim | Status | Confidence | Evidence |

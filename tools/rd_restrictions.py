@@ -15,6 +15,12 @@
         (count/angle bearing mismatch, duplicate OSM way bearings, ambiguous margin,
         osm from==to), miss clustering by tag/one-way geometry/M4.25 class/word form,
         and held-out (deterministic by relation id) subset verdicts. Read-only.
+    python3 tools/rd_restrictions.py direction TILE IMF [--level 1|2|pool] [--seed N]
+        M4.32 direction-explicit combined stratum (arr->lv+two->lv): pre-specified
+        base 0xff-on-T-naming-F plus named M4.25 variants (v1 reverse, v2 other
+        byte1 on T naming F, v3 ff naming F on other entry), held-out verdicts,
+        and residual no_ff_word_naming_F_anywhere word-form/junction-mapping audit.
+        --level pool reports pooled L1+L2 with ID-overlap count. Read-only.
     python3 tools/rd_restrictions.py --selftest
 
 Reads only. The tile reader is ze0-viewer/tools_ze0 (TileScan, clarion_rd, rd_check.rowcol
@@ -815,6 +821,213 @@ def deepen(tile, imf, level=1, seed=42, out=print):
 
 # ---- selftest: no images, no network -------------------------------------------------
 
+# ---- M4.32 direction-explicit combined stratum ---------------------------------------
+# Pre-specified rule (M4.25/M4.30 named variants, not outcome-fitted here):
+#   base: 0xff word on T naming F  (_word_ff(F,T), C-2627/M4.23)
+#   v1 reverse_ff_on_F_names_T: 0xff word on F naming T (_word_ff(T,F), M4.25)
+#   v2 other_byte1_on_T_names_F: word on T naming F with byte1 != 0xff (M4.25)
+#   v3 ff_naming_F_on_other_entries: 0xff word naming F on a non-edge entry != T (M4.25)
+# Combined hit = base OR v1 OR v2 OR v3.  Shuffle analogs replace T by a
+# deterministic per-relation candidate U (seed, level, relation id); v3's analog
+# (ff naming F on entries other than U) is structurally non-discriminating when F
+# carries 0xff words on other entries independent of the prohibited destination,
+# so shuffle for the full union is reported alongside the v1+v2-discriminating
+# decomposition.  Stratum: arr->lv + two->lv (direction-explicit, M4.30).
+
+M432_VARIANTS = ('reverse_ff_on_F_names_T', 'other_byte1_on_T_names_F',
+                 'ff_naming_F_on_other_entries')
+
+
+def _m432_pick_u(rel_id, nonedge, F, T, seed, level):
+    cand = [k for k in nonedge if k not in (F, T)]
+    if not cand:
+        return None
+    h = int(hashlib.sha256(('%s:%d:%d' % (rel_id, seed, level)).encode()).hexdigest(), 16)
+    return cand[h % len(cand)]
+
+
+def _m432_eval(F, dest, ents, nonedge):
+    """(base,v1,v2,v3, residual_no_ff_naming_F_anywhere) for prohibition F->dest."""
+    base = _word_ff(F, ents[dest])
+    v1 = _word_ff(dest, ents[F])
+    v2 = any(w >> 12 == F and (w & 0xff) != 0xff for w in regs_of(ents[dest]))
+    v3 = bool(_word_ff_on(ents, F, [k for k in nonedge if k != dest]))
+    resid = not any((w >> 12) == F and (w & 0xff) == 0xff
+                    for k in nonedge for w in regs_of(ents[k]))
+    return base, v1, v2, v3, resid
+
+
+def _m432_word_audit(F, T, ents, nonedge):
+    tw = regs_of(ents[T])
+    tforms = [(wi, w, w >> 12, w & 0xff) for wi, w in enumerate(tw)]
+    naming_f = []
+    for ei in nonedge:
+        for wi, w in enumerate(regs_of(ents[ei])):
+            if (w >> 12) == F:
+                naming_f.append((ei, wi, w, w & 0xff))
+    return dict(t_nwords=len(tw), t_forms=tforms, naming_f_any_b1=naming_f,
+                t_has_ff=any((w & 0xff) == 0xff for w in tw),
+                t_empty=not tw)
+
+
+def direction_explicit(tile, imf, level=1, seed=42, out=print):
+    """M4.32: pre-specified combined direction-explicit stratum (arr->lv+two->lv),
+    base 0xff-on-T-naming-F plus named M4.25 variants, with held-out n>=20 test and
+    residual no_ff_word_naming_F_anywhere word-form / junction-mapping audit."""
+    rels, reasons, rows, rng, mapping = _deep_rows(tile, imf, level, seed, lambda *a, **k: None)
+    out('=== M4.32 direction-explicit: %s level %d (seed=%d) ===' % (
+        os.path.basename(tile), level, seed))
+    out('pre-specified rule: base(0xff on T naming F) OR v1(reverse_ff_on_F_names_T)'
+        ' OR v2(other_byte1_on_T_names_F) OR v3(ff_naming_F_on_other_entries) [M4.25/M4.30]')
+    out('stratum: arr->lv + two->lv (direction-explicit, pre-defined M4.30)')
+    out('restrictions read: %d  not matched: %s' % (len(rels), dict(reasons)))
+    pool = []
+    for row in rows:
+        r, F, T, ents, nonedge, tag, am, dup, feq = row
+        if not tag.startswith('no_'):
+            continue
+        key = kind_of(ents[F]) + '->' + kind_of(ents[T])
+        if key not in ('arr->lv', 'two->lv'):
+            continue
+        U = _m432_pick_u(r['id'], nonedge, F, T, seed, level)
+        b, v1, v2, v3, resid = _m432_eval(F, T, ents, nonedge)
+        sb, sv1, sv2, sv3, _ = _m432_eval(F, U, ents, nonedge) if U is not None else (False,)*5
+        pool.append(dict(row=row, key=key, U=U, am=am, dup=dup, feq=feq,
+                         base=b, v1=v1, v2=v2, v3=v3, resid=resid,
+                         sb=sb, sv1=sv1, sv2=sv2, sv3=sv3,
+                         test=_holdout(r['id'], 2, 1)))
+    defs = [
+        ('base', lambda x: x['base'], lambda x: x['sb']),
+        ('base+v1(reverse)', lambda x: x['base'] or x['v1'], lambda x: x['sb'] or x['sv1']),
+        ('base+v1+v2(discriminating)', lambda x: x['base'] or x['v1'] or x['v2'],
+         lambda x: x['sb'] or x['sv1'] or x['sv2']),
+        ('base+v1+v2+v3(full union)', lambda x: x['base'] or x['v1'] or x['v2'] or x['v3'],
+         lambda x: x['sb'] or x['sv1'] or x['sv2'] or x['sv3']),
+    ]
+    out('-- rule verdicts (PASS=%s); shuffle=deterministic per-relation U --' % PASS)
+    verdicts = {}
+    for name, hf, sf in defs:
+        for bucket in ('all', 'train', 'test'):
+            items = [x for x in pool if bucket == 'all' or
+                     (x['test'] if bucket == 'test' else not x['test'])]
+            n = len(items); h = sum(1 for x in items if hf(x)); s = sum(1 for x in items if sf(x))
+            ok, why = verdict(n, h, s)
+            verdicts[(name, bucket)] = dict(n=n, hit=h, shuf=s, ok=ok, why=why)
+            if bucket in ('all', 'test'):
+                out('  %-30s %-5s n=%3d hit=%3d (%5.1f%%) shuf=%3d (%5.1f%%) %s %s' % (
+                    name, bucket, n, h, 100*h/n if n else 0, s, 100*s/n if n else 0,
+                    'PASS' if ok else 'FAIL', why))
+    out('-- variant counts (hits, arr->lv+two->lv) --')
+    for label, pred in (('base', lambda x: x['base']), ('v1 reverse', lambda x: x['v1'] and not x['base']),
+                        ('v2 other_b1', lambda x: x['v2'] and not x['base'] and not x['v1']),
+                        ('v3 ff_other', lambda x: x['v3'] and not x['base'] and not x['v1'] and not x['v2']),
+                        ('residual no_ff_naming_F_anywhere', lambda x: x['resid'] and not (x['base'] or x['v1'] or x['v2'] or x['v3']))):
+        for bucket in ('all', 'test'):
+            items = [x for x in pool if bucket == 'all' or x['test']]
+            out('  %-36s %-5s %d/%d' % (label, bucket, sum(1 for x in items if pred(x)), len(items)))
+    residuals = [x for x in pool if not (x['base'] or x['v1'] or x['v2'] or x['v3'])]
+    out('-- residual no_ff_word_naming_F_anywhere audit (n=%d, test=%d) --' % (
+        len(residuals), sum(1 for x in residuals if x['test'])))
+    ra = collections.Counter()
+    for x in residuals:
+        r, F, T, ents, nonedge, tag = x['row'][:6]
+        wa = _m432_word_audit(F, T, ents, nonedge)
+        ra['tag:' + tag] += 1; ra['stratum:' + x['key']] += 1
+        ra['T_nwords:%d' % wa['t_nwords']] += 1
+        if wa['t_empty']:
+            ra['T_empty'] += 1
+        elif not wa['t_has_ff']:
+            ra['T_no_ff_any_byte1'] += 1
+        if wa['naming_f_any_b1']:
+            ra['word_naming_F_any_b1_elsewhere'] += 1
+            ra['word_naming_F_any_b1_on_T'] += sum(1 for ei, *_ in wa['naming_f_any_b1'] if ei == T)
+        if x['feq']:
+            ra['osm_from_eq_to'] += 1
+        if x['dup']:
+            ra['dup_osm_way'] += 1
+        if x['am'] < 15:
+            ra['amb_margin_lt15'] += 1
+    for k, v in sorted(ra.items(), key=lambda kv: (-kv[1], kv[0])):
+        out('  %-42s %d' % (k, v))
+    out('-- residual cases (word position/form, junction-mapping) --')
+    for x in residuals:
+        r, F, T, ents, nonedge, tag = x['row'][:6]
+        wa = _m432_word_audit(F, T, ents, nonedge)
+        out('  %s %s %s %s F=%d T=%d nent=%d test=%s am=%.1f feq=%s dup=%s' % (
+            r['id'], tag, x['key'], 'TEST' if x['test'] else 'train',
+            F, T, len(nonedge), x['test'], x['am'], x['feq'], x['dup']))
+        out('    T_words(n=%d): %s' % (wa['t_nwords'],
+            [( 'w%d'%i, hex(w), 'names%d'%nm, hex(b1)) for i, w, nm, b1 in wa['t_forms']]))
+        if wa['naming_f_any_b1']:
+            out('    naming_F_any_b1(node): %s' % [
+                (ei, 'w%d'%i, hex(w), hex(b1)) for ei, i, w, b1 in wa['naming_f_any_b1']])
+        fwords = [(hex(w), w >> 12, hex(w & 0xff)) for w in regs_of(ents[F])]
+        out('    F_words(n=%d): %s' % (len(fwords), fwords))
+    full = verdicts.get(('base+v1+v2+v3(full union)', 'test'), {})
+    disc = verdicts.get(('base+v1+v2(discriminating)', 'test'), {})
+    out('-- conclusion inputs (held-out test, n>=20 required by pre-stated PASS) --')
+    out('  full union test: n=%s hit=%s shuf=%s %s' % (
+        full.get('n'), full.get('hit'), full.get('shuf'), full.get('why')))
+    out('  v1+v2 discriminating test: n=%s hit=%s shuf=%s %s' % (
+        disc.get('n'), disc.get('hit'), disc.get('shuf'), disc.get('why')))
+    out('  note: v3 shuffle analog is structurally non-discriminating (fires when F has 0xff words on entries other than U); report full-union shuffle transparently.')
+    return dict(level=level, pool_n=len(pool), verdicts=verdicts, residual_n=len(residuals),
+                residual_test=sum(1 for x in residuals if x['test']))
+
+
+def direction_explicit_pooled(tile, imf, seed=42, out=print):
+    """M4.32 pooled L1+L2 (reports ID overlap; not independent when same relation matches both levels)."""
+    pools = {}; overlaps = {}
+    for level in (1, 2):
+        _, _, rows, _, _ = _deep_rows(tile, imf, level, seed, lambda *a, **k: None)
+        pool = []
+        for row in rows:
+            r, F, T, ents, nonedge, tag, am, dup, feq = row
+            if not tag.startswith('no_'):
+                continue
+            key = kind_of(ents[F]) + '->' + kind_of(ents[T])
+            if key not in ('arr->lv', 'two->lv'):
+                continue
+            U = _m432_pick_u(r['id'], nonedge, F, T, seed, level)
+            b, v1, v2, v3, resid = _m432_eval(F, T, ents, nonedge)
+            sb, sv1, sv2, sv3, _ = _m432_eval(F, U, ents, nonedge) if U is not None else (False,)*5
+            pool.append(dict(row=row, key=key, level=level, am=am, dup=dup, feq=feq,
+                             base=b, v1=v1, v2=v2, v3=v3, resid=resid,
+                             sb=sb, sv1=sv1, sv2=sv2, sv3=sv3, test=_holdout(r['id'], 2, 1)))
+        pools[level] = pool
+    ids1 = {x['row'][0]['id'] for x in pools[1]}
+    ids2 = {x['row'][0]['id'] for x in pools[2]}
+    overlap = ids1 & ids2
+    allpool = pools[1] + pools[2]
+    out('=== M4.32 pooled L1+L2: %s (seed=%d) ===' % (os.path.basename(tile), seed))
+    out('L1 n=%d L2 n=%d pooled=%d overlapping relation IDs=%d (not independent across levels)'
+        % (len(pools[1]), len(pools[2]), len(allpool), len(overlap)))
+    defs = [
+        ('base', lambda x: x['base'], lambda x: x['sb']),
+        ('base+v1(reverse)', lambda x: x['base'] or x['v1'], lambda x: x['sb'] or x['sv1']),
+        ('base+v1+v2(discriminating)', lambda x: x['base'] or x['v1'] or x['v2'],
+         lambda x: x['sb'] or x['sv1'] or x['sv2']),
+        ('base+v1+v2+v3(full union)', lambda x: x['base'] or x['v1'] or x['v2'] or x['v3'],
+         lambda x: x['sb'] or x['sv1'] or x['sv2'] or x['sv3']),
+    ]
+    verdicts = {}
+    for name, hf, sf in defs:
+        for bucket in ('all', 'test'):
+            items = [x for x in allpool if bucket == 'all' or x['test']]
+            n = len(items); h = sum(1 for x in items if hf(x)); s = sum(1 for x in items if sf(x))
+            ok, why = verdict(n, h, s)
+            verdicts[(name, bucket)] = dict(n=n, hit=h, shuf=s, ok=ok, why=why)
+            out('  %-30s %-5s n=%3d hit=%3d (%5.1f%%) shuf=%3d (%5.1f%%) %s %s' % (
+                name, bucket, n, h, 100*h/n if n else 0, s, 100*s/n if n else 0,
+                'PASS' if ok else 'FAIL', why))
+    disc = verdicts.get(('base+v1+v2(discriminating)', 'test'), {})
+    full = verdicts.get(('base+v1+v2+v3(full union)', 'test'), {})
+    out('-- conclusion inputs (pooled, ID overlap=%d) --' % len(overlap))
+    out('  full union test: n=%s hit=%s shuf=%s %s' % (full.get('n'), full.get('hit'), full.get('shuf'), full.get('why')))
+    out('  discriminating test: n=%s hit=%s shuf=%s %s' % (disc.get('n'), disc.get('hit'), disc.get('shuf'), disc.get('why')))
+    return dict(pool_n=len(allpool), overlap=len(overlap), verdicts=verdicts)
+
+
 def coarse(lev_tile, lon, lat, out=print):
     """Levels 4 and 5 of LEV3456R at (lon, lat): the parcel code the writer's clarion_bg.parcel_code
     gives for the point, the records carrying that code, and the nearest node in metres. The control
@@ -907,6 +1120,28 @@ def selftest():
     assert _amb_margin(osm2, tb2, 'a', 'b', m2) > 80; n += 1
     osm3 = [('a', 0.0), ('b', 90.0)]; tb3 = [(0, 1.0), (1, 8.0), (2, 89.0)]; m3 = {'a': 0, 'b': 2}
     assert _amb_margin(osm3, tb3, 'a', 'b', m3) < 10; n += 1
+    # M4.32: pre-specified combined direction-explicit rule helpers (pure, synthetic)
+    assert _m432_pick_u('r1', [0, 1, 2], 0, 1, 42, 1) == _m432_pick_u('r1', [0, 1, 2], 0, 1, 42, 1); n += 1
+    assert _m432_pick_u('r1', [0, 1, 2], 0, 1, 42, 1) in (2,); n += 1  # only candidate
+    # ents: 4 non-edge entries; w5 bits 6-11 = reg word count (kind_of uses 0xc000)
+    W = lambda cls, regs: {'cls': cls, 'w5': cls | (len(regs) << 6), 'extra': list(regs)}
+    ents = [W(0x4000, [0x10ff]),  # F=0 (lv): ff names 1 (v1 on reverse eval of F->1)
+            W(0x4000, [0x00ff]),  # T=1 (lv): ff names 0 (base hit)
+            W(0x4000, [0x00ff]),  # has ff naming 0 (v3 source)
+            W(0x4000, [])]
+    ne = [0, 1, 2, 3]
+    b, v1, v2, v3, resid = _m432_eval(0, 1, ents, ne)
+    assert (b, v1, v2, v3) == (True, True, False, True) and not resid; n += 1
+    # v2: word on T naming F with other byte1
+    ents2 = [W(0, []), W(0, [0x0001]), W(0, [])]   # T names F(0), byte1=1
+    b, v1, v2, v3, resid = _m432_eval(0, 1, ents2, [0, 1, 2])
+    assert (b, v1, v2, v3) == (False, False, True, False) and resid; n += 1
+    wa = _m432_word_audit(0, 1, ents2, [0, 1, 2])
+    assert wa['t_nwords'] == 1 and wa['naming_f_any_b1'] == [(1, 0, 0x0001, 1)]; n += 1
+    # residual of union: no ff naming F anywhere, no reverse, no other-b1-on-T-naming-F
+    ents3 = [W(0, []), W(0, [0x20ff]), W(0, [])]   # T has ff naming entry 2 (not F)
+    b, v1, v2, v3, resid = _m432_eval(0, 1, ents3, [0, 1, 2])
+    assert not b and not v1 and not v2 and not v3 and resid; n += 1
     return n
 
 
@@ -924,6 +1159,9 @@ def main(argv=None):
     dp = sub.add_parser('deepen'); dp.add_argument('tile'); dp.add_argument('imf')
     dp.add_argument('--level', type=int, choices=(1, 2), default=1)
     dp.add_argument('--seed', type=int, default=42)
+    de = sub.add_parser('direction'); de.add_argument('tile'); de.add_argument('imf')
+    de.add_argument('--level', default='1')  # 1, 2, or pool
+    de.add_argument('--seed', type=int, default=42)
     cc = sub.add_parser('coarse'); cc.add_argument('lev_tile'); cc.add_argument('lon', type=float)
     cc.add_argument('lat', type=float)
     a = ap.parse_args(argv)
@@ -939,6 +1177,10 @@ def main(argv=None):
         audit(a.tile, a.imf, a.level, a.seed); return 0
     if a.cmd == 'deepen':
         deepen(a.tile, a.imf, a.level, a.seed); return 0
+    if a.cmd == 'direction':
+        if str(a.level) == 'pool':
+            direction_explicit_pooled(a.tile, a.imf, a.seed); return 0
+        direction_explicit(a.tile, a.imf, int(a.level), a.seed); return 0
     if a.cmd == 'coarse':
         return coarse(a.lev_tile, a.lon, a.lat)
     ap.print_help(); return 2
