@@ -157,6 +157,17 @@ dictionary plus a zlib-compressed place/street name database.
 0x7217df  0x2e21 0xff padding to EOF
 ```
 
+### Code-side reader (M3.15, blocked)
+
+- Descriptor switch `fn 0x004125a8` (plain code): loads the name
+  `LCTBL001.DAT` at `0x0017a1f8` (8-bit ASCII, not UTF-16) and calls the
+  volume lookup `0x0040b358`; it also calls `0x0055d924` (sec1, compressed).
+- TMC record decoder `fn 0x003bc960` calls `0x0055d954` (sec1, compressed)
+  directly and via `fn 0x003a26b8`.
+- The record-walk VA and the string-decode VA are **not** in decodable bytes;
+  no zlib inflate length table is in any plain section (282 of 527). Blocked on
+  M1.2f. EXP-2026-11-08-M3.15-lctbl-reader; C-2200–C-2206.
+
 ### Catalog (verified)
 
 - 90 descriptors named `Location Data`, u16 LE name length at `+0x1e`.
