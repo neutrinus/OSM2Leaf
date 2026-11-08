@@ -3695,6 +3695,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.B4 — Boot arguments** at phys `0x08000020`–`0x0800002b`. Static
   read of nk is enough to start. Depends: — (M1.7 helps). Claims:
   C-1340–C-1349
+  - Status: in progress · Owner: task/m8.b4-boot-args-r2 · Critical: no
 - [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
   without a fault. Depends: M8.B1, M8.B2. Claims: C-1350–C-1359
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
