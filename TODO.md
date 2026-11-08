@@ -3082,8 +3082,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     EXP-2026-11-08-M5.22-tilewriter-non2046.
   - Claims: C-2810–C-2814 (was C-2650–C-2659, collision with M1.15/M4.26/M5.23 fixed by H23)
 
-- [ ] **M5.23 — Confirm road-record country word and provisional class mapping**
-  - Status: in progress · Owner: task/m5.23-roadrec-country-class · Critical: no
+- [x] **M5.23 — Confirm road-record country word and provisional class mapping**
+  - Status: done · Owner: task/m5.23-roadrec-country-class · Critical: no
   - Depends: M5.4 (done)
   - Goal: M5.4 used a provisional class table and a country word taken from the
     factory context; both are unconfirmed. A wrong country/class field can make
@@ -3099,6 +3099,14 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     gap stated).
   - Stop: if the fields vary by layer/kind in a way one table cannot capture,
     record the cases and scope the writer to the confirmed subset.
+  - Result: EXP-2026-11-08-M5.23-roadrec-country-class (C-2660–C-2666).
+    Level-1 `0x00fa` country confirmed as header `w[20]` = ISO 3166-1 numeric,
+    per record (`w[19]=0`, 45,887 EU records, cross-border variation). Class
+    mechanism `(layer, cls_hi=w[p+2]>>12)` confirmed for all 5 `fa_encode.CLASSES`
+    `(l1,c1)` buckets; OSM→value mapping kept as **named provisional** (factory
+    has unmapped `(layer,cls)` e.g. `(6,7),(6,6),(7,2),(0,10),(0,12)`, M5.3).
+    `tilewriter.py` documents confirmed/provisional semantics; `fa_encode`
+    level-1 `w[19]` aligned to factory `0`.
   - Claims: C-2660–C-2669
 
 - [x] **M5.24 — `imgpatch` diff check: derive cluster ranges from BPB, not the write offset**

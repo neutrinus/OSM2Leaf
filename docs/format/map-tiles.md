@@ -215,6 +215,19 @@ Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
 | `B30R060R` | 37 | 784 | 8,923 |
 | `B30R048R` | 188 | 6,270 | 84,470 |
 
+**Level-1 (grid tile) header fields, confirmed** (EXP-2026-11-08-M5.23,
+C-2660–C-2663): the 22-word header (big-endian `u16`, 0-based) carries
+`w[2]=0x00fa`, and **`w[20]` is the per-record ISO 3166-1 numeric country
+code** with **`w[19]=0`** in factory data (45,887 EU level-1 records across 3
+tiles; a cross-border tile varies country per record, e.g. 616 PL / 276 DE /
+203 CZ / 40 AT / 703 SK / 348 HU). Per-shape class is encoded as
+`(draw layer, cls_hi) = (layer table slot, w[p+2]>>12)`, matching
+`fa_encode.parse_record`/`shape_words` (C-2661); the OSM→`(layer,cls_hi)` value
+mapping is **provisional/incomplete** (factory contains unmapped values such as
+`(6,7),(6,6),(7,2),(0,10),(0,12)`; global semantics M5.3/M4.17, C-2662). The
+level-5 `LEV3456R` record layout (below) uses different header semantics for
+`w[19]/w[20]`.
+
 `LEV3456R` level 6 is decoded: no count word, table at word 11 with 26
 `(offset, point-count)` pairs (156 features). Coarse levels 3–5 rebuild with
 0 failures; 1,722 opaque records are preserved verbatim.

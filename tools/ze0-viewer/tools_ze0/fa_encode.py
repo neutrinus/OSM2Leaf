@@ -175,8 +175,10 @@ def build_record(level, y0, x0, row, col, nodes, chains, layer=None, name_off=0x
     tail = [0x0004, len(items), 0xffff, 0x0000, 0xffff, 0x0000, 0xffff, 0x0000] + items
     if len(tail) % 2: tail.append(0)
     if level == 1:
+        # w[19]=0, w[20]=ISO 3166-1 numeric country (per-record in factory;
+        # confirmed on 45,887 EU records, EXP-2026-11-08-M5.23 / C-2660,C-2663).
         w = [code[0], code[1], 0x00fa, 0x347a, 0x2aef, 0, 0, 11, len(unit) // 2, 0xffff, 0, 0xffff, 0, 0xffff, 0, 0xffff, 0,
-             11 + len(unit) // 2, len(tail) // 2, 0x8104, country, 0]
+             11 + len(unit) // 2, len(tail) // 2, 0, country, 0]
         plain = struct.pack('>22H', *w) + struct.pack('>%dH' % len(unit), *unit) + struct.pack('>%dH' % len(tail), *tail)
     else:
         w = [code[0], code[1], 0x00fa, 0xffff, 0xffff, 0, 0, 11, len(unit) // 2, 0xffff, 0, 0xffff, 0, 0xffff, 0, 0xffff, 0,

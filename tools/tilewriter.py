@@ -36,10 +36,27 @@ Road classes
 ------------
 
 ``--class-table FILE`` is a JSON table ``{"format": "ze0-road-class-table/1",
-"classes": {"highway_value": [layer, class], ...}}``; without it the writer
-uses the checked-in upstream mapping (``fa_encode.CLASSES``), which is a
-hypothesis for ZE0 until M5.3 lands.  A ``highway`` value that the table does
-not map is a hard error, never a silent default.
+"classes": {"highway_value": [layer, class], ...}}`` mapping OSM ``highway`` to
+the level-1 road-record ``(draw layer, shape class nibble cls_hi = w[p+2]>>12)``
+written by ``fa_encode``. The encoding **mechanism** is confirmed on 45,887 EU
+factory level-1 ``0x00fa`` records (EXP-2026-11-08-M5.23 / C-2661): all five
+``fa_encode.CLASSES`` ``(l1,c1)`` buckets appear in factory data. The
+OSM→value mapping is a **named provisional mapping** (incomplete): factory also
+contains unmapped ``(layer,cls)`` values (e.g. ``(6,7),(6,6),(7,2),(0,10),
+(0,12)``), so global road-class semantics remain M5.3/M4.17 (C-2662). Without
+``--class-table`` the writer uses ``fa_encode.CLASSES`` as that provisional
+mapping. A ``highway`` value not in the table is a hard error, never a silent
+default.
+
+Country code
+------------
+
+Confirmed (EXP-2026-11-08-M5.23 / C-2660): level-1 ``0x00fa`` header word 20
+is the per-record ISO 3166-1 numeric country code (``w[19]=0`` in factory,
+45,887 records, cross-border values observed). ``--country`` (default ``616``,
+Poland, a placeholder) is applied to every road and section-4 record the writer
+generates; factory tiles may vary country per record in a cross-border cell,
+which this single-value writer does not model.
 
 Stream keys
 -----------
@@ -322,7 +339,9 @@ def default_class_table():
 
 def load_class_table(path: str | None):
     if not path:
-        return default_class_table(), "default (fa_encode.CLASSES, hypothesis until M5.3)"
+        return default_class_table(), (
+            "default provisional (fa_encode.CLASSES; mechanism confirmed, "
+            "OSM->value incomplete, EXP-M5.23/C-2661,C-2662; global semantics M5.3)")
     try:
         with open(path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
@@ -1623,7 +1642,8 @@ def build_parser():
     parser.add_argument("--level", type=int, choices=(1, 2), default=1,
                         help="section-1 level to write (default 1)")
     parser.add_argument("--country", type=int, default=616,
-                        help="ISO 3166 numeric country for the records (default 616)")
+                        help="ISO 3166-1 numeric country for road/section-4 records "
+                             "(level-1 w[20], C-2660; default 616 placeholder, applied to all records)")
     parser.add_argument("--class-table", metavar="FILE",
                         help="JSON highway -> [layer, class] table")
     parser.add_argument("--data-version", metavar="yy/mm/dd/nn",
