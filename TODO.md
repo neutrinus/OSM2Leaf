@@ -1743,7 +1743,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-900–C-909
 
 - [ ] **M4.3 — Turn restrictions and connectivity encoding**
-  - Status: open · Owner: — · Critical: no
+  - Status: blocked · Owner: claude/m4.3-turn-restrictions · Critical: no
+  - Blocker: `docs/format/` has no connectivity/regulation record layout; the tools_ze0 writer's `0xff` regulation words are unverified, and `rd_check` reads only section-2 kind 0x1046 (3 of 5 local tiles stop).
+  - Unblock: a new task to file (section-2 kinds 0x2046/0x3e4 reader and one regulation word matched to a restriction); M4.2 is the nearest open task.
+  - Result: EXP-2026-11-08-M4.3-turn-restrictions; the OSM side decodes (`r120176` no_left_turn at a named four-way junction, `tools/imf_restrictions.py`), the tile side is not documented and not verified, so Done-when is not reached.
   - Depends: — (M4.1 helps)
   - Done when: one known restriction (OSM `restriction=*` at a named
     junction) is found and decoded.
