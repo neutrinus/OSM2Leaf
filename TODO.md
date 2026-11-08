@@ -3793,7 +3793,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2640–C-2649
 
 - [ ] **M9.25 — `harness.py info` / viewer crash on opaque records**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m9.25-harness-opaque-crash · Critical: no
   - Depends: M9.22 (done)
   - Goal: M5.4 noted `harness.py info` crashes on opaque records; M9.22 added
     `bg_refused.py` to *explain* the B30R048R refusals, but the viewer/harness
