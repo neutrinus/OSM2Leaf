@@ -40,7 +40,12 @@ TEXT_END = 0x180
 BLOCK_OFFSET = 0x180
 BLOCK_SIZE = 0x80
 BLOCK_END = BLOCK_OFFSET + BLOCK_SIZE
+# 0x180-0x185 on all eight real headers checked for M4.22 (EU 2011/2014/2016
+# and US 2011, MMAIN001 and BICON001): ff ff ?? ff 12 c0. Byte 0x182 is 24
+# on EU and 26 on US (UNKNOWN meaning), so only the fixed bytes are checked.
+# COMMON_PREFIX is the EU sample; it is used only to build synthetic headers.
 COMMON_PREFIX = bytes.fromhex("ff ff 24 ff 12 c0 05 00 fb 50 0f f0")
+FIXED_PREFIX_BYTES = {0: 0xFF, 1: 0xFF, 3: 0xFF, 4: 0x12, 5: 0xC0}
 CLASS_AREA_OFFSET = 0x18C
 CLASS_AREA_LENGTH = 20
 RESERVED_OFFSET = 0x1A0
@@ -57,13 +62,13 @@ TEXT_SLOTS = (
     ("model", 0x080, 0x0A0, "CLA-NAVI", "prefix"),
     ("format_version", 0x0A0, 0x0E0, "FORMAT VERSION ", "prefix"),
     ("data_version", 0x0E0, 0x160, "DATA VERSION ", "prefix"),
-    ("software_version", 0x160, 0x180, "V", "prefix"),
+    ("software_version", 0x162, 0x180, "V", "prefix"),
 )
 
-# A documented exception to the all-0xffff padding: the bytes immediately
-# before the 0x160 version slot are observed as 16 00 (file-header.md).
-VERSION_PREFIX_OFFSET = 0x15E
-VERSION_PREFIX = b"\x16\x00"
+# The u16 at 0x160 precedes the software-version text, which starts at 0x162.
+# Real MMAIN001 files carry 16 00 there and real BICON001 files carry 14 00
+# (file-header.md); it is not checked as text.
+SOFTWARE_PREFIX_OFFSET = 0x160
 
 # Class signatures documented in docs/format/file-header.md.  They identify
 # the *variant*; they do not identify REFER vs MMAIN, which are byte-identical
@@ -557,8 +562,6 @@ def _text_padding_warnings(blob: bytes, fields: list[TextField]) -> list[str]:
             start += 2
         for pos in range(start, min(end, len(blob)) - 1, 2):
             chunk = blob[pos : pos + 2]
-            if pos == VERSION_PREFIX_OFFSET and chunk == VERSION_PREFIX:
-                continue
             if chunk != FILLER_UNIT:
                 warnings.append(
                     f"{field.name}: padding at 0x{pos:03x} is {chunk.hex(' ')}, "
@@ -590,7 +593,7 @@ def check_header(blob: bytes) -> dict[str, Any]:
         ("magic-model", "model", "prefix at 0x080"),
         ("magic-format", "format_version", "prefix at 0x0a0"),
         ("magic-data", "data_version", "prefix at 0x0e0"),
-        ("magic-version", "software_version", "prefix at 0x160"),
+        ("magic-version", "software_version", "prefix at 0x162"),
     )
     for ident, field_name, expectation in magic_checks:
         field = by_name[field_name]
@@ -621,8 +624,9 @@ def check_header(blob: bytes) -> dict[str, Any]:
         )
     )
 
-    prefix_ok = len(blob) >= BLOCK_OFFSET + len(COMMON_PREFIX) and (
-        blob[BLOCK_OFFSET : BLOCK_OFFSET + len(COMMON_PREFIX)] == COMMON_PREFIX
+    prefix_ok = len(blob) >= BLOCK_OFFSET + 6 and all(
+        blob[BLOCK_OFFSET + index] == value
+        for index, value in FIXED_PREFIX_BYTES.items()
     )
     invariants.append(
         _invariant(
@@ -630,7 +634,7 @@ def check_header(blob: bytes) -> dict[str, Any]:
             "VERIFIED",
             prefix_ok,
             f"0x180 starts {blob[BLOCK_OFFSET:BLOCK_OFFSET + 12].hex(' ')}",
-            "C-011; four documented samples @ 0x180",
+            "C-011, M4.22; eight real headers @ 0x180 (EU and US)",
         )
     )
 
@@ -1071,8 +1075,8 @@ def synth_header(variant: str, model: str = "CLA-NAVI05-01") -> bytes:
     _write_text(header, 0x080, model, 0x0A0)
     _write_text(header, 0x0A0, "FORMAT VERSION X08-02-00", 0x0E0)
     _write_text(header, 0x0E0, "DATA VERSION 11/06/27/01", 0x160)
-    header[VERSION_PREFIX_OFFSET : VERSION_PREFIX_OFFSET + 2] = VERSION_PREFIX
-    _write_text(header, 0x160, "V05.00.00", 0x180)
+    header[SOFTWARE_PREFIX_OFFSET : SOFTWARE_PREFIX_OFFSET + 2] = b"\x16\x00"
+    _write_text(header, 0x162, "V05.00.00", 0x180)
     header[BLOCK_OFFSET:BLOCK_END] = _synthetic_block(variant)
     return bytes(header)
 

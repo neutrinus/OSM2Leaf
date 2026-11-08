@@ -192,6 +192,24 @@ maps.
 - `VER_INFO/HDD_INFO.TXT` is a six-line text record; a byte-identical copy is
   embedded in the firmware area at `0x06000000`.
 
+### `DRSTR001.DAT` offset `0x18c` (M4.22)
+
+`DRSTR001.DAT` has no common header, so its `0x18c` is not the header field
+of the same offset. The per-language code list is **not** in `DRSTR001.DAT`;
+it is in `MMAIN001.DAT` and `BICON001.DAT` (C-2494). The byte run at `0x18c`
+here is the `listing_offset` (u32 LE, `+0x24`) of the 40-byte node at `0x168`:
+
+| Image | Node at `0x168` | `0x18c` value | Listing offset |
+| --- | --- | --- | --- |
+| US 2011 | `SPEECH` | `20 1b 00 00` | `0x1b20` |
+| EU 2011 | `VER_INFO` | `20 29 00 00` | `0x2920` |
+| EU 2014 | `VER_INFO` | `38 2d 00 00` | `0x2d38` |
+| EU 2016 | `TMC` | `38 2f 00 00` | `0x2f38` |
+
+The `SPEECH` node's `entry_count` is 2, 7, 16 and 16 on US 2011, EU 2011,
+EU 2014 and EU 2016: the number of `SPEECH/<lang>` directories on each card
+(C-2493). Reproduce with the 40-byte node parse in the M4.22 EXP.
+
 ### `MMAIN001.DAT` — the 4 KiB database header
 
 `MMAIN001.DAT` is **not** a manifest and **not** a FAT directory log. It is a
@@ -202,7 +220,7 @@ maps.
 | `0x000`–`0x17f` | common 512-byte header text, UTF-16BE: `CLARION`, `HITACHI`, `CLA-NAVI05-01`, `FORMAT VERSION X08-02-00`, `DATA VERSION 11/06/27/01`, `V05.00.00` | VERIFIED (C-010) |
 | `0x180` | common prefix `ff ff 24 ff 12 c0 05 00 fb 50 0f f0` | VERIFIED (C-011) |
 | `0x184` | database bounds, big-endian `i16` arc-minutes: `0x12c0 0x0500 0xfb50 0x0ff0` = 4800, 1280, −1200, 4080 (80°N…68°E, the EU extent) | OBSERVED (C-1724) |
-| `0x18c` | `05 04 02 07 0a 06 08 14`, 8 bytes; language/volume code list | HYPOTHESIS (C-551) |
+| `0x18c` | variable code list (`05 04 02 07 0a 06 08 14` on EU 2011), then `3f` fill; codes not decoded | VERIFIED bytes, UNKNOWN identity (C-2494, C-2496) |
 | `0x194` | `3f` × 12 | OBSERVED (C-552) |
 | `0x1a0` | `ff` × 12 | OBSERVED (C-552) |
 | `0x1ac` | three-table descriptor: `00 03`, then table `01` (6 entries), table `02` (4), table `04` (1) = 11 `(level, kind, count)` tuples; `00` terminator at `0x1e0` | VERIFIED structure (C-550); counts (C-164) |
@@ -220,7 +238,8 @@ maps.
   `05 00 fb 50 0b 0b`) and is written big-endian by the same builder.
 - The `0x18c` codes are **not** mapped to languages in this repo. That the
   list is language/volume codes is a fitted reading (C-551), not a verified
-  code→language table.
+  code→language table; M4.22 found no anchor (C-2496, `file-header.md`
+  Identity fields).
 
 > **Retraction (2026-11-06).** EXP-2026-11-05-M4.5 described `MMAIN001.DAT` as
 > a FAT root-directory log and reported that `0x18c`/`0x1ac` fall inside FAT
