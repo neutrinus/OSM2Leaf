@@ -1885,7 +1885,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-890–C-899
 
 - [ ] **M4.2 — `RDSTM001`: link attributes (speed class, one-way, class)**
-  - Status: blocked · Owner: claude/m4.2-rdstm-link-attrs · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
+  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
   - Blocker: no `RDSTM001` row field resolves to a road identity (gate 0 of 9 fields on the US sample); OSM extract verified but not correlated.
   - Unblock: M4.17 (road-number ground truth without OSM; a road key must come first)
   - Result: EXP-2026-11-08-M4.2-rdstm-link-attrs (negative gate, with controls; supersedes the 2026-11-05 blocked EXP; claims C-901–C-903)
@@ -2126,8 +2126,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     location table chain rather than raw row bytes.
   - Claims: C-2320–C-2329 (was C-1960–C-1969, already used by M4.19)
 
-- [ ] **M4.17 — Link attributes without OSM: road numbers as ground truth**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.17 — Link attributes without OSM: road numbers as ground truth**
+  - Status: done · Owner: claude/m4.17-road-class · Critical: no
+  - Result: EXP-2026-11-08-M4.17-road-class — 96 numbered LCTBL roads of 7 OSM classes (420 rows, EU 2011 and 2014) with a street control; no record field beats its shuffled-road null under leave-one-road-out. Road-class field NOT established; `class_code` is a hypothesis (C-1825). The LCTBL road key does not reach RDSTM rows (C-1826).
   - Depends: M4.15
   - Goal: find the road-class field from roads whose class is known by their
     number (`A4`, `A18`, `S8`, `E40`, `DK94`… are motorways/expressways/
