@@ -3022,8 +3022,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2500–C-2509
 
 
-- [ ] **M9.21 — `PySh4`: little-endian mode and `bt/s`/`bf/s`**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.21 — `PySh4`: little-endian mode and `bt/s`/`bf/s`**
+  - Status: done · Owner: claude/m9.21-pysh4-le · Critical: yes
   - Depends: —
   - Goal: the L3 interpreter can run `Navi.exe` code as it is in the ROM.
     Today `PySh4` fetches, loads and stores big-endian and rejects
@@ -3039,6 +3039,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `point_walk_l3.py` uses it instead of its subclass, and `0x3f39c0` runs
     on the US page with the globals `0x00d5e4e4`/`0x00d5e4d0` set.
   - Claims: C-2550–C-2559
+  - Result: `PySh4(endian="little")` and `bt/s`/`bf/s` in tools/l3_harness/engine.py; `0x3f39c0` runs on the US page with the globals set and matches parse_page (9 records, guard control); EXP-2026-11-08-M9.21-pysh4-le (C-2550–C-2557).
 ---
 
 ## Retired leads
