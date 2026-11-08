@@ -3308,8 +3308,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     and ind 78258/dir `0xb3bb7ee0`. EXP-2026-11-08-M5.24-imgpatch-diff-bpb.md,
     C-2830/C-2831.
 
-- [ ] **M5.25 — Reconcile REFER POI page encoding (slot_budget vs mutate_refer_poi/M5.12c)**
-  - Status: in progress · Owner: task/m5.25-reconcile-poi-page-encoding · Critical: yes
+- [x] **M5.25 — Reconcile REFER POI page encoding (slot_budget vs mutate_refer_poi/M5.12c)**
+  - Status: done · Owner: task/m5.25-reconcile-poi-page-encoding · Critical: yes
   - Depends: M5.12c (blocked: uncompressed-files scan unfinished), M1.16, M5.21
   - Goal: one safe path for editing/writing POI name pages on a real card.
     M5.21 (`slot_budget.py`) implements its own slot rule and encoder search and
@@ -3336,7 +3336,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     its scan behavior.
   - Unblock: M5.12c (for the "every copy / uncompressed scan" part); the slot/refit
     API reconciliation can proceed once M1.16 defines the shared codec.
-  - Claims: C-2870–C-2879 (was C-2750–C-2759, collision with H25 fixed by H23)
+  - Claims: C-2870–C-2879 (was C-2750–C-2759, collision with H25 fixed by H23; none registered, integration/refactoring)
+  - Result: EXP-2026-11-08-M5.25-reconcile-poi-page-encoding. Reconciled `mutate_refer_poi.py`/`slot_budget.py`/`poi_copies.py` into one safe path: `mutate_refer_poi.py` is the documented entrypoint for same-length+refit edits using M5.21 slot budget (`--headroom`, batch default 0.04 / single default 0.0), factory params M1.13/M1.16 via `cmpind_codec`/`slot_budget`, refuses and reports every refused page with budget rows (`*.skipped.json`), never overflows (synthetic negative). `slot_budget.FitError`/wide reproduction search (M5.12c unchanged-bytes intent) aligned; M5.12c branch diff recorded, no merge/guessing, scan behavior not dropped (`poi_copies.py --inner`, `--copies-report`). "Every name copy" enumeration remains blocked on M5.27/M5.12c uncompressed scan (Done when conditional). `slot_budget 14/14`, `mutate_refer_poi 10/10` (+over-budget refusal/fitting refit), `poi_copies OK`, `cmpind_codec 21`, `claims_check OK`.
 
 - [ ] **M5.26 — Whole-POINT-pair regeneration for OSM name sets (beyond in-place slot budget)**
   - Status: open · Owner: — · Critical: yes

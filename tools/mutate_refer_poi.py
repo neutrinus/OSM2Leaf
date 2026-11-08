@@ -44,6 +44,14 @@ Usage:
 the bytes there and be followed by ``@`` (a POI name, not an address part).
 Each edited page must still parse as a record chain. The file is decoded once,
 all pages are rewritten, and the pair is encoded once.
+
+Reconciled entrypoint (M5.25): performs same-length and refit edits with the
+M5.21 slot budget (``--headroom``, default ``slot_budget.HEADROOM_RATIO`` for
+batch / ``0.0`` for single edits to preserve existing CLI behavior), uses
+factory zlib params from M1.13/M1.16, refuses pages that cannot fit and reports
+every refused page. "Find every copy" of a name (M5.12c goal, blocked on the
+uncompressed-files scan — M5.27) is served by ``tools/poi_copies.py``; once
+M5.12c unblocks, run it with ``--inner`` to report copies.
 """
 
 from __future__ import annotations
@@ -57,6 +65,7 @@ from pathlib import Path
 # Shared codec (M1.16): factory params, container, inner-page primitives.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cmpind_codec  # noqa: E402
+import slot_budget  # noqa: E402
 
 CHUNK = cmpind_codec.CHUNK
 PAGE_ALIGN = cmpind_codec.PAGE_ALIGN
@@ -73,7 +82,11 @@ class PageError(ValueError):
 
 
 class FitError(PageError):
-    """The edited page does not fit its original slot in any tried encoder."""
+    """The edited page does not fit its slot minus headroom."""
+
+    def __init__(self, message: str, row: dict | None = None):
+        super().__init__(message)
+        self.row = row if row is not None else {"decision": "refuse", "reason": message}
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +347,28 @@ def selftest() -> int:
             raise AssertionError(f"batch edit accepted: {bad!r}")
     checks += 1
 
+    # M5.25: synthetic fitting refit and over-budget refusal (M5.21 budget).
+    stream = cmpind_codec.factory_compress(page)
+    consumed = len(stream)
+    slot = (consumed + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
+    blob = bytearray(stream + b"\x00" * (slot - consumed) + b"\x99" * 0x80)
+    before = bytes(blob)
+    edited, _applied = edit_inner(page, [
+        {"at": beta_at, "old": "BETA MUSEUM", "new": "OSM2 TEST  "},
+    ])
+    new_blob, row = refit_page_budget(bytes(blob), 0, edited, headroom_ratio=0.0)
+    assert row["decision"] == "fit"
+    assert new_blob[slot:] == before[slot:], "fitting refit touched bytes outside slot"
+    assert b"OSM2 TEST  @VIA TWO" in zlib.decompress(new_blob[:row["new_stream"]])
+    checks += 1
+    try:
+        refit_page_budget(bytes(blob), 0, edited, headroom_ratio=10.0)
+        raise AssertionError("over-budget refusal was accepted")
+    except FitError as exc:
+        assert bytes(blob) == before, "refusal mutated the blob"
+        assert getattr(exc, "row", None) is not None or "limit" in str(exc).lower() or "slot" in str(exc).lower() or "stream" in str(exc).lower()
+    checks += 1
+
     print(f"mutate_refer_poi selftest: OK ({checks}/{checks} checks)")
     return 0
 
@@ -358,6 +393,13 @@ def build_parser() -> argparse.ArgumentParser:
                          "length byte (POINT name-page framing)")
     ap.add_argument("--batch", help="JSON list of same-length POI-name edits "
                                     "(one decode, one encode)")
+    ap.add_argument("--headroom", type=float, default=None,
+                    help="M5.21 slot headroom as fraction of the factory stream "
+                         f"(batch default {slot_budget.HEADROOM_RATIO}, single-edit default 0.0; "
+                         "refuses when stream > slot-headroom, never overflows)")
+    ap.add_argument("--copies-report", metavar="JSON",
+                    help="poi_copies.py JSON report to attach for 'every copy' "
+                         "reporting (M5.12c; M5.27 unblocks the scan)")
     ap.add_argument("--selftest", action="store_true",
                     help="run the synthetic page-framing checks and exit")
     return ap
@@ -413,45 +455,51 @@ def _deflate(data: bytes, level: int, mem_level: int) -> bytes:
 
 
 def page_encoder(stream: bytes, inner: bytes) -> tuple[int, int] | None:
-    """Return (level, memLevel) that reproduces the original stream exactly."""
-    for mem_level in (8, 9, 7, 6, 5, 4, 3, 2, 1):
-        for level in (9, 6, 8, 7, 5, 4, 3, 2, 1):
-            if _deflate(inner, level, mem_level) == stream:
-                return level, mem_level
-    return None
+    """Return (level, memLevel) that reproduces the original stream exactly.
+
+    Delegates to ``slot_budget.reproducing_encoder`` (wide search, M5.12c/M5.25)
+    so an unchanged page round-trips to the same bytes when reproducible.
+    """
+    return slot_budget.reproducing_encoder(stream, inner, wide=True)
 
 
-def refit_page(blob: bytes, page: int, new_inner: bytes) -> bytes:
-    """Recompress one inner stream into its original slot.
+def refit_page_budget(blob: bytes, page: int, new_inner: bytes,
+                       headroom_ratio: float = 0.0) -> tuple[bytes, dict]:
+    """Recompress one inner stream into its slot using the M5.21 budget.
 
-    The slot is the original stream plus any zero padding up to the next
-    0x100 boundary. POINT pages can abut the next page, so padding is used
-    only when the original bytes there are all zero. The encoder settings
-    that reproduce the original stream are used first, so an unchanged name
-    gives back the same bytes.
+    ``headroom_ratio`` (M5.21): fraction of the factory stream kept free; 0.0
+    preserves the legacy "fits in slot" behavior. With a non-zero ratio the
+    edit is refused when ``new_stream > slot - headroom`` (never overflow).
+    Returns ``(new_blob, budget_row)``. Raises :class:`FitError` on refusal and
+    :class:`PageError` when the page layout is not understood.
     """
     try:
-        inner, consumed, slot, original = cmpind_codec.inner_stream_slot(blob, page)
+        buf = bytearray(blob)
+        row = slot_budget.fit_page_inplace(buf, page, new_inner, headroom_ratio)
+        return bytes(buf), row
+    except slot_budget.FitError as exc:
+        raise FitError(str(exc), getattr(exc, "row", None)) from exc
+    except slot_budget.PageError as exc:
+        raise PageError(str(exc)) from exc
     except cmpind_codec.FormatError as exc:
         raise PageError(str(exc)) from exc
-    setting = page_encoder(original, inner)
-    candidates = [setting] if setting else []
-    candidates += [(level, mem) for level in range(9, 0, -1) for mem in (8, 9)]
-    for level, mem_level in candidates:
-        stream = _deflate(new_inner, level, mem_level)
-        if len(stream) <= slot:
-            new_blob = bytearray(blob)
-            new_blob[page: page + slot] = cmpind_codec.refit_stream_in_slot(stream, slot)
-            return bytes(new_blob)
-    raise FitError(f"page {page:#x}: no encoder fits {slot} bytes")
 
 
-def batch_edit(blob: bytes, plan: list[dict]) -> tuple[bytes, list[dict]]:
+def refit_page(blob: bytes, page: int, new_inner: bytes,
+               headroom_ratio: float = 0.0) -> bytes:
+    """Recompress one inner stream into its slot (M5.21 budget). Returns the
+    new blob. See ``refit_page_budget`` for the budget row."""
+    new_blob, _ = refit_page_budget(blob, page, new_inner, headroom_ratio=headroom_ratio)
+    return new_blob
+
+
+def batch_edit(blob: bytes, plan: list[dict],
+               headroom_ratio: float = slot_budget.HEADROOM_RATIO) -> tuple[bytes, list[dict]]:
     """Apply a batch plan to a decoded blob; pages are independent.
 
-    A page whose edited stream does not fit its slot is skipped and returned
-    in the skip list; its names stay as they were. Any other error stops the
-    batch.
+    Uses the M5.21 slot budget (M5.25): a page whose edited stream does not fit
+    ``slot - headroom`` is refused and returned in the skip list with its budget
+    row; its names stay as they were. Any other error stops the batch.
     """
     skipped = []
     for entry in plan:
@@ -462,30 +510,36 @@ def batch_edit(blob: bytes, plan: list[dict]) -> tuple[bytes, list[dict]]:
             raise PageError(str(exc)) from exc
         new_inner, applied = edit_inner(inner, entry["edits"])
         try:
-            blob = refit_page(blob, page, new_inner)
+            blob, row = refit_page_budget(blob, page, new_inner, headroom_ratio=headroom_ratio)
         except FitError as exc:
-            skipped.append({"page": page, "edits": len(entry["edits"]), "reason": str(exc)})
+            row = getattr(exc, "row", {}) or {}
+            skipped.append({
+                "page": page, "edits": len(entry["edits"]),
+                "reason": str(exc), "budget": row,
+            })
             print(f"SKIP page {page:#x}: {len(entry['edits'])} edit(s) left unchanged ({exc})")
             continue
-        print(f"page {page:#x}: {len(applied)} edit(s)")
+        print(f"page {page:#x}: {len(applied)} edit(s) [{row.get('decision')} new={row.get('new_stream')} limit={row.get('limit')}]")
     return blob, skipped
 
 
 def batch_main(args, cmp_path: Path, ind_path: Path, outdir: Path) -> int:
     plan = json.loads(Path(args.batch).read_text(encoding="utf-8"))
+    headroom = getattr(args, "headroom", slot_budget.HEADROOM_RATIO)
     usize, csize, count, chunk_size, offsets = read_ind(ind_path)
     packed = cmp_path.read_bytes()
     assert csize == len(packed)
     blob = decode(packed, offsets)
     assert len(blob) == usize
     try:
-        new_blob, skipped = batch_edit(blob, plan)
+        new_blob, skipped = batch_edit(blob, plan, headroom_ratio=headroom)
     except PageError as exc:
         raise SystemExit(f"refusing: {exc}") from exc
     assert len(new_blob) == usize
     if skipped:
         (outdir / (cmp_path.stem + ".skipped.json")).write_text(
             json.dumps(skipped, indent=2), encoding="utf-8")
+        print(f"refused: {len(skipped)} page(s) left unchanged (see {cmp_path.stem}.skipped.json)")
     new_packed, new_offsets = encode(new_blob, chunk_size)
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / cmp_path.name).write_bytes(new_packed)
@@ -503,6 +557,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.batch:
         if not (args.cmp and args.ind and args.outdir):
             ap.error("--batch needs CMP IND OUTDIR")
+        if args.headroom is None:
+            args.headroom = slot_budget.HEADROOM_RATIO
         return batch_main(args, Path(args.cmp), Path(args.ind), Path(args.outdir))
     missing = [
         name
@@ -570,29 +626,23 @@ def main(argv: list[str] | None = None) -> int:
         new_inner = inner[: hits[0]] + new_b + inner[hits[0] + len(old_b) :]
         assert len(new_inner) == len(inner)
 
-    # find the next page boundary after the original stream; must fit
-    limit = (page + consumed + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
-    new_stream = cmpind_codec.factory_compress(new_inner, level=6)
-    level_used = 6
-    if page + len(new_stream) > limit:
-        # zlib-ng or content changes can make level 6 grow; level 9 may fit.
-        new_stream9 = cmpind_codec.factory_compress(new_inner, level=9)
-        if page + len(new_stream9) <= limit:
-            new_stream = new_stream9
-            level_used = 9
-        else:
-            raise SystemExit(
-                f"refusing: recompressed page is {len(new_stream)} bytes (L6) / "
-                f"{len(new_stream9)} bytes (L9), only {limit - page} available "
-                f"before {limit:#x}"
-            )
-    print(f"inner page recompressed: {len(new_stream)} bytes "
-          f"(was {consumed}, L{level_used}), {limit - page - len(new_stream)} bytes spare")
-
-    new_blob = bytearray(blob)
-    new_blob[page:limit] = new_stream + bytes(limit - page - len(new_stream))
-    new_blob = bytes(new_blob)
+    # M5.25: unified M5.21 slot budget (factory params M1.13/M1.16, refuse+report).
+    headroom = 0.0 if args.headroom is None else args.headroom
+    try:
+        new_blob, row = refit_page_budget(blob, page, new_inner, headroom_ratio=headroom)
+    except FitError as exc:
+        raise SystemExit(f"refusing: {exc}") from exc
+    limit = page + row["slot"]
+    print(f"inner page recompressed: {row['new_stream']} bytes "
+          f"(was {row['stream']}, enc {row.get('encoder')}), "
+          f"slot {row['slot']} limit {row['limit']} headroom {row['headroom']}")
     assert len(new_blob) == usize
+    if args.copies_report:
+        try:
+            copies = json.loads(Path(args.copies_report).read_text(encoding="utf-8"))
+            print(f"copies report attached: {len(copies) if isinstance(copies, list) else 'ok'} entries")
+        except Exception as exc:
+            print(f"copies report unreadable ({exc}); run poi_copies.py --inner (M5.27 unblocks scan)")
 
     new_packed, new_offsets = encode(new_blob, chunk_size)
     out_cmp = outdir / cmp_path.name
