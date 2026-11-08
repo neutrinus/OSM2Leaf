@@ -418,8 +418,8 @@ from the record start, plus the parcel code and a token:
 
 | Words | Content |
 | --- | --- |
-| w0, w1 | parcel code, absolute on the 20′ × 30′ code grid |
-| w2 | record kind, `0x00fa` |
+| w0, w1 | parcel code (L4/L5, VERIFIED M4.26/C-2805–C-2806, all 1911 LEV3456R L4/L5 records sec1+sec2): `r20=ay*2, c30=ax*2, R=r20>>2, C=c30>>2, w0=(((C>>8)<<7|R)<<8)|(((r20&2)<<6)|((r20&1)<<4)|0xf), w1=((C&0xff)<<8)|(((c30&2)<<6)|((c30&1)<<4)|(0x5 if L5 else 0x4))`, with absolute coarse-grid `ay=head_y+ri*step`, `ax=x0+ci*step`, `x0=(head_x_signed+1024)`, `head_x_signed=head_x-65536 if head_x>32767 else head_x`, `step=8` (L5)/`2` (L4), `ci=k//per_col`, `per_col=pairs_per_row/cols`. `clarion_bg.parcel_code` with directory-relative indices reproduces 0 (negative control). |
+| w2 | record kind, `0x00fa` (this sec1 level-5 layout; sec2 routing records use the M4.23 unit-0/unit-1 grammar) |
 | w3–w6 | `ffff ffff 0000 0000` |
 | w7, w8 | **road block**: offset/length; `ffff/0000` when absent |
 | w9, w10 | **background block**: offset/length |
@@ -611,6 +611,7 @@ Per-section status (each tile section = "read by VA" or "not read by located pat
 | File / section | Content (format) | Read by | Evidence / note |
 | --- | --- | --- | --- |
 | Grid `BxxRyyR.DAT` **section 1** | road-shape (even pairs) + background (odd pairs), display geometry (`w2=0x00fa`; C-170/C-252) | **read by VA `0x00425f40`** (`MAP_DATA`, renderer/display path) | C-870/C-871/C-873 (OBSERVED from path role + section content) |
+| Grid `BxxRyyR.DAT` **section 2** | regulation/connectivity graph (routing), unit-0 grammar shared with LEV sec2; dir kinds include `0x1046` (L1) / `0x2046` (L2) (M4.23, C-2620–C-2621) | **read via RGD_DATA path `fn 0x004266ec`** (routing, OBSERVED by callers/role; C-2802/C-2803). `0x00426cfc` invokes MAP_DATA then RGD_DATA on the same load path; `0x00427870` (RGD slot manager, from `0x00427c90`) conditionally invokes RGD_DATA when `*0x009cfd80 != 1` (C-2800/C-2801). Per-kind dispatch inside `0x004266ec`/loader and the regulation-word consumer VA are **UNKNOWN** (C-2803/C-2804, scope: callers only). | EXP-2026-11-08-M4.26; C-870–C-872, C-2621, C-2629, C-2800–C-2804 |
 | Grid `BxxRyyR.DAT` **section 4** | admin/place-name index, `w2=0x0009`, dir kind `0x1146`, section type `0x93`, "not geometry" (C-280/C-133) | **not read by located tile-load paths** `0x00425f40` (MAP_DATA), `0x004266ec` (RGD_DATA), `0x0041ee14`/`0x0041ebc0`; **no section-4-specific read VA found** (UNKNOWN whether a separate label/place-name or search subsystem reads it) | C-875/C-876. Searched Navi.exe .text: 0 `cmp/eq #9,r0`; 0x1146 hits coincidental instruction bytes (no data-literal compare); 0x93 only in data/string areas; MAP/RGD call graph (107 fns, depth 4) has no `0x0009/0x1146/0x0093` compare; `0x0041ebc0` does not accept `0x0009` |
 | `LEV3456R.DAT` **section 1** | coarse geometry, levels 6,5,4,3 (display) | **read by VA `0x00425f40`** (`MAP_DATA`, renderer/display path) | C-870/C-872 (OBSERVED) |
 | `LEV3456R.DAT` **section 2** | router graph, levels 5,4 | **read by VA `0x004266ec`** (`RGD_DATA`, router path) — **not** read by renderer/MAP_DATA path | C-870–C-872; cross-ref RGD handlers C-887 (OBSERVED) |

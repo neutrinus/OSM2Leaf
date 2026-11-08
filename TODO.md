@@ -1695,8 +1695,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: after one mapping audit and one second tile; otherwise `blocked` with the EXP.
   - Claims: C-2910–C-2919 (was C-2640–C-2649, collision fixed by H23)
 
-- [ ] **M4.26 — Firmware reader VAs for section-2 grid kinds; LEV3456R level-4/5 parcel addressing**
-  - Status: in progress · Owner: task/m4.26-sec2-lev3456-reader-vas · Critical: no
+- [x] **M4.26 — Firmware reader VAs for section-2 grid kinds; LEV3456R level-4/5 parcel addressing**
+  - Status: done · Owner: task/m4.26-sec2-lev3456-reader-vas · Critical: no
   - Depends: —
   - Goal: locate the reader of grid-tile section 2 (kinds `0x1046`/`0x2046`) and the consumer of the regulation words; find the parcel addressing of LEV3456R levels 4 and 5 (the writer's `clarion_bg.parcel_code` reproduces none of the 414 codes).
   - Precheck: `python3 tools/sh4xref.py` on the first 256 MiB of `archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` (image start `0x200200`) reproduces the RGD_DATA callers `0x00426cfc`, `0x00427870` of `docs/format/map-tiles.md`.
@@ -1705,6 +1705,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: a VA per kind (or UNKNOWN with a negative EXP), and a parcel-code function that reproduces every LEV3456R level-4/5 code.
   - Stop: after the RGD_DATA callers are traced; otherwise `blocked`.
   - Claims: C-2800–C-2809 (was C-2650–C-2659, collision with M1.15/M5.22/M5.23 fixed by H23)
+  - Result: EXP-2026-11-08-M4.26-sec2-lev3456-reader-vas. Precheck reproduced RGD callers `0x00426cfc`/`0x00427870` and MAP callers `0x00426cfc`/`0x0042752c` (IMG256 `92aa525d…`). `0x426cfc` calls MAP_DATA `0x00425f40` then RGD_DATA `0x004266ec` (gated `*0x009e3e28`); `0x00427870` (RGD slot mgr, from `0x00427c90`) conditionally calls RGD_DATA. Section-2 routing (LEV sec2 kind `0x03e4`, grid kinds `0x1046`/`0x2046`) is read via RGD_DATA entry `0x004266ec` by role/callers (OBSERVED); per-kind internal dispatch and regulation-word consumer VA remain UNKNOWN (scoped). `lev3456_parcel_code(level,ay,ax)` (absolute coarse-grid, 20'/30' bit layout) reproduces **1911/1911** LEV3456R L4/L5 codes (sec1 62+1021, sec2 68+760 incl. 414 unique pair-codes); `clarion_bg.parcel_code` dir-relative = 0 (negative control). Claims C-2800–C-2807; `docs/format/map-tiles.md` updated.
 
 ---
 
