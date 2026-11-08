@@ -846,7 +846,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-08-H26-l1l2-fixtures.md (C-2760); `tools/l1l2_fixtures.py` (data-driven registry, `--selftest`/`--json`/`--md`) + `.github/workflows/l1l2-fixtures.yml` produce JSON/MD L1/L2 matrix (L1 synthetic, L2 DRSTR, L2 cmp/ind, L2 tile, L2 POI mutation) with runnable-only exit; local run 6P/0F/1S/2 NOT COVERED, verdict OK. No vendor data, no firmware acceptance claim (rule 13).
 
 - [ ] **H27 — Raport postępu L1–L4 (dashboard): reader-coverage + wyniki CI jako artefakt**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/h27-l1-l4-dashboard-r2 · Critical: yes
   - Depends: H25, H26
   - Goal: jeden widok pokazuje postęp celu „karta SD czytana przez auto”, nie jako procent coverage kodu, lecz jako stan warstw: L1/L2 (offline, runnable), L3 (ile targetów PASS/BLOCKED/SKIP, które readery mają VA), L4 (S0–S3: planowane/wynik z EXP/protokołu). Źródłem prawdy pozostają `docs/research/reader-coverage.md`, `claims.md`, `TODO.md` i wyniki narzędzi — dashboard je agreguje.
   - Precheck: istnieją `docs/research/reader-coverage.md`, `tools/l3check.py --help`, `tools/l3_harness/targets.json`; workflow H25/H26 produkuje lub może produkować JSON. Jeśli format któregoś wejścia jest niestabilny, najpierw zdefiniować minimalny kontrakt (osobna sekcja w EXP) zamiast parsować heurystycznie.
