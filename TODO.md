@@ -4017,7 +4017,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2940–C-2949 (was C-2157–C-2159, overlap with M9.11 fixed by H24)
 
 - [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m9.12-l3check-card-r2 · Critical: yes
   - Depends: M9.11 (runnable now), M9.10 (blocked — the first run reports the
     POI reader as "not yet available"), M9.6, M9.8 (tool skeleton)
   - Precheck: `python3 tools/l3check.py --help` and `--selftest` (if
