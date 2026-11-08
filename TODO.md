@@ -3792,7 +3792,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: EXP-2026-11-08-M9.22-b30r048r-rebuild (C-2630–C-2639). The three refused records are named (dir `0x2ad00`, slots 6/8/11, k 1); the L2 pin is re-set in the EXP (tile round-trip and semantic digest pass, golden unchanged); `tools/ze0-viewer/bg_refused.py --selftest` OK (7 checks). Follow-up: M9.23.
 
 - [ ] **M9.23 — Model the three refused records of `B30R048R` (layer table past `geo_len`)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m9.23-b30r048r-opaque · Critical: no
   - Depends: M9.22 (done)
   - Goal: M9.22 found three level-1 background records (dir `0x2ad00`, slots
     6/8/11) whose layer table has entries past the header's geometry region
