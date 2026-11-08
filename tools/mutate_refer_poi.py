@@ -455,7 +455,7 @@ def refit_page(blob: bytes, page: int, new_inner: bytes) -> bytes:
     slot = limit - page
     setting = page_encoder(original, zlib.decompress(original))
     candidates = [setting] if setting else []
-    candidates += [(9, 8), (6, 8), (9, 9)]
+    candidates += [(level, mem) for level in range(9, 0, -1) for mem in (8, 9)]
     for level, mem_level in candidates:
         stream = _deflate(new_inner, level, mem_level)
         if len(stream) <= slot:
