@@ -1351,6 +1351,21 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 | C-1065 | L2 (`tools/l2check.py --no-golden --tiles B48R058R.DAT`) passes on the EU card tree (480 files) with that tile replaced and `DRSTR001.DAT` rebuilt from the tree (`drstr_ze0.build`): `drstr_roundtrip`, `cmp_roundtrip` (20 pairs), `tile_roundtrip` and `tile_semantic` OK; `cardcheck.py` L1 PASS. With the EU 2011 golden profile the same tree fails by construction (census bytes, DRSTR sha); the profile has no entry for B48R058R. | VERIFIED (card-tree structural); not firmware acceptance (rule 13) | M | EXP-2026-11-08-M5.4-tile-splice (Obs. 7) |
 | C-1066 | L2 `tile_roundtrip` is structural only and does not establish content. It passes on a copy of the generated tile with 4,096 bytes cut from the end when DRSTR is rebuilt (N1), and on a copy with one byte flipped inside a generated zlib record (N3). The truncated copy with stale DRSTR fails `drstr_roundtrip` (N2); the flipped copy raises `harness.py verify` bad records 84 → 85 and makes `tilewriter.py --readback` exit 1. | VERIFIED (negative controls) | H | EXP-2026-11-08-M5.4-tile-splice (Obs. 8) |
 
+## M5.7 — Street names into the name sections (C-1090–C-1099)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1090 | `tools/tilewriter.py` (M5.7) can write OSM street names into ZE0 tile name sections: IMF `name` (tag/record) becomes a `1=NAME` label; generated level-1 road shapes receive `name_off` (word 4) pointing into the odd partner (background, pair `2*col+1`) record's `names` section (`clarion_bg` w11/w12); the names section is built with `fa_encode.names_section` and merged into the partner during a 0x2046 factory splice. Clipped fragments of a named way retain the label. Synthetic factory selftest: 68/68 checks, named `name_off` resolves via `ze0_decode.parse_names_section` to `ul. Testowa`; `--no-names` produces no `name_off`/no merge; unchanged section-2/4/header/tables and non-changed section-1 records preserved. Real-tile L2 with names and firmware acceptance not tested (rule 13). | VERIFIED (tool, synthetic) | M | EXP-2026-11-08-M5.7-street-names-sections; `python3 tools/tilewriter.py --selftest` (68/68); `python3 tools/selftest.py --only tilewriter` |
+| C-1091 | Merging names into a `clarion_bg`-parsed background record must force a strict rebuild (`r["strict"]=True`) or the non-strict `build_record` path returns the original `plain` bytes when the rebuilt record differs, silently discarding the new names section. `tilewriter.merge_names_section` sets `strict=True`. (Implementation pitfall; applies to the checked-in `clarion_bg` non-strict contract.) | OBSERVED (tool behavior) | H | EXP-2026-11-08-M5.7 (Obs./Interpretation negative control); `tools/tilewriter.py` `merge_names_section` |
+| C-1092 | Name behavior outside the M5.7 synthetic scope is UNKNOWN: real EU factory 0x2046 parcels with named roads (L2/DRSTR structural pass expected by analogy with C-1064/C-1065 but not run in this task), `ref`/`1=NAME;2=REF` emission, non-ASCII normalization beyond UTF-8 names-section storage, non-0x2046/preserve-only directories, section-4 place names, and firmware rendering/lookup of writer-produced name sections (rule 13). | UNKNOWN | — | EXP-2026-11-08-M5.7 (Follow-ups) |
+| C-1093 | RESERVED. | — | — | — |
+| C-1094 | RESERVED. | — | — | — |
+| C-1095 | RESERVED. | — | — | — |
+| C-1096 | RESERVED. | — | — | — |
+| C-1097 | RESERVED. | — | — | — |
+| C-1098 | RESERVED. | — | — | — |
+| C-1099 | RESERVED. | — | — | — |
+
 ## M5.23 — Road-record country word and provisional class mapping (C-2660–C-2669)
 
 | ID | Claim | Status | Confidence | Evidence |

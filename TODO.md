@@ -2787,9 +2787,25 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     (EXP-2026-11-08-M5.6-rebuild-manifests, C-1080–C-1084). Full extracted
     vendor-root L1 pass not re-run locally (no extracted root available).
 
-- [ ] **M5.7 — Street names into the name sections**
-  - Status: in progress · Owner: task/m5.7-street-names-sections · Critical: no
+- [x] **M5.7 — Street names into the name sections**
+  - Status: done · Owner: task/m5.7-street-names-sections · Critical: no
   - Depends: M4.7, M5.4
+  - Goal: write OSM street names into tile road-shape `name_off` values and the
+    odd partner (background) record's names section, extending the M5.4
+    factory-splice path.
+  - Done when: `tilewriter.py` writes resolvable `name_off` + partner names
+    section for named roads (synthetic factory selftest, positive/negative
+    controls); `selftest.py --only tilewriter` and `claims_check.py` pass.
+    Real-tile L2 with names not run in this worktree (no EU image present);
+    firmware acceptance remains open (rule 13).
+  - Result: `tools/tilewriter.py` takes IMF `name` (tag/record) as `1=NAME`
+    labels, sets per-shape `name_off` (word 4), builds `fa_encode.names_section`
+    and merges it into the odd partner background pair (`2*col+1`, `clarion_bg`
+    w11/w12, strict rebuild) during 0x2046 factory splices; clipped named
+    fragments keep the label; `--no-names` preserves old behavior; synthetic
+    selftest 68/68, `selftest.py --only tilewriter` PASS, `claims_check.py` OK.
+    (EXP-2026-11-08-M5.7-street-names-sections, C-1090–C-1092). Real-tile named
+    L2/follow-ups open (C-1092).
   - Claims: C-1090–C-1099
 
 - [x] **M5.8 — One-tile diff report**

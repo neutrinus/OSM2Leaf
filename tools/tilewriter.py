@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Roads-only ZE0 tile writer (M5.4, tool half).
+"""Roads-only ZE0 tile writer (M5.4, tool half; M5.7 street names).
 
 Takes an IMF v1 file that ``tools/mesh_split.py`` has already split (one way
 fragment per ``BxxRyyR`` cell), clips each fragment to the cell's parcels,
 builds one section-1 road-shape record per populated parcel with the checked-in
 ``tools/ze0-viewer/tools_ze0`` writer (``fa_encode``), and emits one tile
-container.
+container. When an OSM way carries a ``name`` (or ``ref``) tag, the writer sets
+the shape's ``name_off`` and stores the street-name label in the odd partner
+(background) record's names section (M5.7).
 
 Two container modes
 -------------------
@@ -14,11 +16,13 @@ Two container modes
     The factory tile is the container template.  Its 0x1000 header, its level
     table (``0x1ac``), box table (``0x2ac``), section table (``0x800``) and
     every descriptor are **copied byte for byte**; the writer only touches the
-    section-1 road pair of the parcels it regenerates.  Record blocks that
-    still fit their original 256-byte-aligned region are written in place;
-    a block that grew is appended and the slot's ``u32`` tag is repointed (the
-    old bytes are left behind, like the factory's own append-style tools).
-    Sections 2 and 4 and every background record are untouched.
+    section-1 pairs of the parcels it regenerates (the road pair, and the odd
+    partner background record's names section when street names are written,
+    M5.7).  Record blocks that still fit their original 256-byte-aligned region
+    are written in place; a block that grew is appended and the slot's ``u32``
+    tag is repointed (the old bytes are left behind, like the factory's own
+    append-style tools).  Sections 2 and 4 and every background record's
+    geometry are untouched.
 
     Section 4 goes through ``tools/section4.py``: each record's payload is
     parsed and re-encoded with ``encode preserve`` and the result must equal the
@@ -176,7 +180,7 @@ UNIT_READY = False
 REASONS_NOT_READY = (
     "no vendor tile here: the L2 tile check of a generated tile cannot run",
     "OSM -> Clarion class/speed mapping is M5.3 (and M4.2 for one-way/speed)",
-    "road names are not written (M5.7); name_off is 0xffff",
+    "street names are written (M5.7) but not firmware-verified; ref is not emitted",
     "the router graph (section 2) is copied, never regenerated (M5.6)",
     "cross-tile connectivity is M5.5; border points land on the parcel edge",
     "nothing here has been read by the unit or the firmware",
@@ -419,12 +423,25 @@ def read_jsonl(path: str):
     return records
 
 
+def _name_label(tags: dict, record: dict) -> str:
+    """Street-name label for a way, or ``""``.  Uses OSM ``name`` (tags or
+    record-level, as osm_ingest emits).  Format ``1=NAME`` matches
+    ``rd_build.label``/``fa_encode.names_section``.  ``ref`` is not emitted in
+    M5.7 (it belongs with the routing/name tables, not a minimal road splice)."""
+    name = tags.get("name") or record.get("name") or ""
+    name = str(name).strip()
+    if not name:
+        return ""
+    return "1=" + name
+
+
 def load_imf(path: str, cell: str):
     """Return ``(ways, stats)`` for one cell.
 
-    ``ways`` is ``[{"id", "highway", "points": [(lon, lat), ...]}]``.  A way that
-    still carries more than one cell means the input was not mesh-split; that
-    is an input error, not something to guess around.
+    ``ways`` is ``[{"id", "highway", "name", "points": [(lon, lat), ...]}]``.
+    ``name`` is a ``1=...`` label or ``""``.  A way that still carries more than
+    one cell means the input was not mesh-split; that is an input error, not
+    something to guess around.
     """
     records = read_jsonl(path)
     nodes = {}
@@ -436,7 +453,8 @@ def load_imf(path: str, cell: str):
         except (KeyError, TypeError, ValueError) as exc:
             raise WriterError("node record %r is malformed: %s" % (record.get("id"), exc))
     stats = {"nodes": len(nodes), "ways": 0, "ways_other_cells": 0,
-             "ways_short": 0, "ways_multi_cell": 0, "ways_no_highway": 0}
+             "ways_short": 0, "ways_multi_cell": 0, "ways_no_highway": 0,
+             "ways_named": 0}
     multi = []
     missing = []
     ways = []
@@ -475,8 +493,11 @@ def load_imf(path: str, cell: str):
         if not highway:
             stats["ways_no_highway"] += 1
             continue
+        name = _name_label(tags, record)
+        if name:
+            stats["ways_named"] += 1
         ways.append({"id": str(record.get("id")), "highway": str(highway),
-                     "points": points})
+                     "name": name, "points": points})
     if multi:
         raise WriterError(
             "%d way(s) still span several cells (%s); run tools/mesh_split.py "
@@ -500,13 +521,16 @@ def ways_to_runs(ways, level: int, table, cell: str):
         if entry is None:
             misses.setdefault(way["highway"], []).append(way["id"])
             continue
+        name = way.get("name") or ""
         for parcel, points in parcel_runs(way["points"], level):
             y0, x0, row, col = parcel
             # A point pressed onto the cell border must not create a directory
             # outside this file: clamp into the cell and say so in the report.
             y0 = min(max(y0, yb), yb + 8 - DIR_MESHES[level])
             x0 = min(max(x0, xb), xb + 8 - DIR_MESHES[level])
-            runs.setdefault((y0, x0, row, col), []).append((points, way["highway"]))
+            runs.setdefault((y0, x0, row, col), []).append(
+                (points, way["highway"], name)
+            )
     if misses:
         detail = ", ".join(
             "%s (%d way(s): %s)" % (hw, len(ids), ", ".join(sorted(ids)[:3]))
@@ -525,15 +549,41 @@ def ways_to_runs(ways, level: int, table, cell: str):
 # --------------------------------------------------------------------------
 
 
-def build_road_record(level, parcel, runs, table, country):
-    """One ``0x00fa`` record: ``(plain, comp, info)``, or ``None`` when empty."""
+def _run_fields(run):
+    """``(points, highway, name)`` from a run tuple (2- or 3-field)."""
+    if len(run) == 3:
+        return run
+    return run[0], run[1], ""
+
+
+def merge_names_section(bg_plain: bytes, section: bytes) -> bytes:
+    """Return ``bg_plain`` with its road names section replaced (M5.7).
+
+    Uses ``clarion_bg`` and forces a strict rebuild so the non-strict "return
+    source when different" path does not discard the new names.
+    """
+    record = clarion_bg.parse_record(bg_plain)
+    record["sections"]["names"] = section
+    record["strict"] = True
+    return clarion_bg.build_record(record)
+
+
+def build_road_record(level, parcel, runs, table, country, write_names=True):
+    """One ``0x00fa`` record.
+
+    Returns ``(plain, comp, names_section, info)`` or ``None`` when empty.
+    ``names_section`` is ``bytes`` for the odd partner's names section (M5.7)
+    when any shape has a name and ``write_names`` is true, else ``None``.
+    """
     y0, x0, row, col = parcel
     lon0, lat0, width, height = clarion_bg.parcel_geo(level, y0, x0, row, col)
     nodes = []
     chains = []
     hws = []
+    labels = []
     points = 0
-    for points_, highway in runs:
+    for run in runs:
+        points_, highway, name = _run_fields(run)
         local = []
         for lon, lat in points_:
             xy = quantise(lon, lat, lon0, lat0, width, height)
@@ -555,13 +605,33 @@ def build_road_record(level, parcel, runs, table, country):
             start = stop
         chains.append(links)
         hws.append(highway)
+        labels.append(name if (write_names and name) else "")
         points += len(local)
     if not chains:
         return None
+    has_names = bool(write_names and any(labels))
+    name_offs = None
+    names_sec = None
+    if has_names:
+        uniq = []
+        for lab in labels:
+            if lab and lab not in uniq:
+                uniq.append(lab)
+        _, offs = fa_encode.names_section(uniq, [[0] * 9] * len(chains))
+        name_offs = [offs.get(lab, 0xFFFF) if lab else 0xFFFF for lab in labels]
     with _class_mapping(table):
         plain, _upstream_comp = fa_encode.build_record(
-            level, y0, x0, row, col, nodes, chains, hws=hws, country=country
+            level, y0, x0, row, col, nodes, chains, hws=hws, country=country,
+            name_offs=name_offs,
         )
+    if has_names:
+        names_sec, offs2 = fa_encode.names_section(uniq, fa_encode.build_record.last_items)
+        # Sanity: offsets must be stable across the placeholder/full item pass.
+        if offs2 != offs:
+            raise CheckFailed(
+                "name section offsets shifted for parcel %r (%r vs %r)"
+                % (parcel, offs, offs2)
+            )
     comp = compress(plain)
     code = struct.unpack_from(">HH", plain, 0)
     tag = struct.unpack_from(">H", plain, 4)[0]
@@ -572,6 +642,13 @@ def build_road_record(level, parcel, runs, table, country):
         raise CheckFailed(
             "the checked-in reader cannot re-read the record at parcel %r" % (parcel,)
         )
+    if has_names:
+        named_shapes = sum(1 for s in shapes if s.get("name", 0xFFFF) != 0xFFFF)
+        if named_shapes != sum(1 for lab in labels if lab):
+            raise CheckFailed(
+                "named shape count %d != label count %d at parcel %r"
+                % (named_shapes, sum(1 for lab in labels if lab), parcel)
+            )
     doc_a = 32768 + int(round(lat0 * 192))
     doc_b = 52736 + int(round(lon0 * 128))
     info = dict(
@@ -585,14 +662,16 @@ def build_road_record(level, parcel, runs, table, country):
         points=points,
         plain_bytes=len(plain),
         compressed_bytes=len(comp),
-        highways=sorted({hw for _, hw in runs}),
+        highways=sorted({hw for _, hw, _ in (_run_fields(r) for r in runs)}),
+        named=sum(1 for lab in labels if lab),
+        names_section_bytes=len(names_sec) if names_sec else 0,
     )
     if (code[0] >> 8) != (doc_a >> 8) or (code[1] >> 8) != (doc_b >> 8):
         raise CheckFailed(
             "stream key %04x %04x is off the documented lattice of %04x %04x"
             % (code[0], code[1], doc_a, doc_b)
         )
-    return plain, comp, info
+    return plain, comp, names_sec, info
 
 
 # --------------------------------------------------------------------------
@@ -780,11 +859,43 @@ def splice_factory(factory: bytes, level: int, built):
     in_place = 0
     appended = 0
     superseded = 0
+    names_merged = 0
+    names_missing_partner = 0
+    changed_pairs = set()
     for (y0, x0, row), pairs in sorted(groups.items()):
         directory = dirs[(y0, x0)]
         slot = directory["slots"].get(row)
         body = _slot_body(level, directory["body"], slot)
         old_records = list(slot["recs"]) if slot else []
+        # M5.7: merge street names into the odd partner (background) record.
+        # If a parcel has names but no partner exists, keep name_off in the
+        # road record (it is self-consistent) and count it - synthetic/odd
+        # layouts may lack a partner; real factory tiles have one.
+        for pair, rec in sorted(pairs.items()):
+            changed_pairs.add((y0, x0, row, pair))
+            names_sec = rec.get("names_sec")
+            if not names_sec:
+                continue
+            bg_pair = pair + 1
+            bg_old = next((r for r in old_records if r["k"] == bg_pair), None)
+            if bg_old is None:
+                names_missing_partner += 1
+                continue
+            try:
+                bg_plain = zlib.decompress(bytes(bg_old["raw"]))
+                bg_plain = merge_names_section(bg_plain, names_sec)
+            except Exception as exc:
+                raise CheckFailed(
+                    "cannot merge names into bg pair %d at dir y=%d x=%d row=%d: %s"
+                    % (bg_pair, y0, x0, row, exc)
+                ) from exc
+            bg_comp = compress(bg_plain)
+            old_records = [old for old in old_records if old["k"] != bg_pair]
+            old_records.append(
+                dict(k=bg_pair, raw=bg_comp, words=len(bg_plain) // 2, flag=0)
+            )
+            changed_pairs.add((y0, x0, row, bg_pair))
+            names_merged += 1
         for pair, rec in sorted(pairs.items()):
             old_records = [old for old in old_records if old["k"] != pair]
             old_records.append(
@@ -792,10 +903,9 @@ def splice_factory(factory: bytes, level: int, built):
             )
         old_records.sort(key=lambda item: item["k"])
         block = b"".join(bytes(old["raw"]) for old in old_records)
-        for pair in sorted(pairs):
-            rec = pairs[pair]
-            struct.pack_into(">II", body, 8 * pair,
-                             len(rec["comp"]) // 2, len(rec["plain"]) // 2)
+        for old in old_records:
+            struct.pack_into(">II", body, 8 * old["k"],
+                             len(old["raw"]) // 2, old["words"])
         slot_off = directory["off"] + 12 + row * (4 + directory["body"])
         old_off = slot["block_off"] if slot else None
         old_block = clarion_tile.block_bytes(slot) if slot else b""
@@ -824,10 +934,13 @@ def splice_factory(factory: bytes, level: int, built):
             superseded += len(old_block)
         out[slot_off + 4:slot_off + 4 + directory["body"]] = bytes(body)
     return bytes(out), dict(in_place=in_place, appended=appended,
-                            superseded_bytes=superseded)
+                            superseded_bytes=superseded,
+                            names_merged=names_merged,
+                            names_missing_partner=names_missing_partner,
+                            changed_pairs=sorted(changed_pairs))
 
 
-def verify_factory(factory: bytes, blob: bytes, level: int, built):
+def verify_factory(factory: bytes, blob: bytes, level: int, built, container=None):
     """Fail loudly if the splice broke the header or any unchanged section."""
     before = clarion_tile.read_tile(factory)
     after = clarion_tile.read_tile(blob)
@@ -854,10 +967,13 @@ def verify_factory(factory: bytes, blob: bytes, level: int, built):
                         )
     old = records_by_position(before, 1)
     new = records_by_position(after, 1)
-    changed = set()
-    for parcel, rec in built.items():
-        y0, x0, row, col = parcel
-        changed.add((y0, x0, row, 2 * col + PAIR_ROAD))
+    if container and "changed_pairs" in container:
+        changed = set(tuple(k) for k in container["changed_pairs"])
+    else:
+        changed = set()
+        for parcel, _rec in built.items():
+            y0, x0, row, col = parcel
+            changed.add((y0, x0, row, 2 * col + PAIR_ROAD))
     for key in set(old) | set(new):
         if key in changed:
             continue
@@ -1004,7 +1120,8 @@ def readback(blob: bytes, imf_path: str, cell: str, table, level: int = 1):
         y0, x0, row, col = parcel
         lon0, lat0, width, height = clarion_bg.parcel_geo(level, y0, x0, row, col)
         want = []
-        for points, _highway in parcel_runs:
+        for run in parcel_runs:
+            points, _highway, _name = _run_fields(run)
             quantised = [quantise(lon, lat, lon0, lat0, width, height) for lon, lat in points]
             dedup = [quantised[0]] + [b for a, b in zip(quantised, quantised[1:]) if b != a]
             if len(dedup) < 2:
@@ -1030,7 +1147,8 @@ def readback(blob: bytes, imf_path: str, cell: str, table, level: int = 1):
 
 def build(imf_path: str, cell: str, *, factory_path: str | None = None,
           class_table_path: str | None = None, level: int = 1, country: int = 616,
-          data_version: str | None = None, output: str | None = None):
+          data_version: str | None = None, output: str | None = None,
+          write_names: bool = True):
     """Build the tile bytes and the report; raise on any broken invariant."""
     if not 0 <= country <= 0xFFFF:
         raise WriterError("--country %d does not fit a u16" % country)
@@ -1045,11 +1163,12 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
     built = {}
     infos = []
     for parcel in sorted(runs):
-        result = build_road_record(level, parcel, runs[parcel], table, country)
+        result = build_road_record(level, parcel, runs[parcel], table, country,
+                                   write_names=write_names)
         if result is None:
             continue
-        plain, comp, info = result
-        built[parcel] = dict(plain=plain, comp=comp)
+        plain, comp, names_sec, info = result
+        built[parcel] = dict(plain=plain, comp=comp, names_sec=names_sec)
         infos.append(info)
     if not built:
         raise WriterError("every run degenerated to fewer than two points")
@@ -1059,6 +1178,7 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
         "cell": cell,
         "level": level,
         "country": country,
+        "write_names": bool(write_names),
         "imf": dict(path=imf_path, **imf_stats),
         "class_table": table_source,
         "parcels": infos,
@@ -1069,7 +1189,7 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
     if factory_path:
         factory_bytes = _read_bytes(factory_path)
         blob, container = splice_factory(factory_bytes, level, built)
-        section4_info = verify_factory(factory_bytes, blob, level, built)
+        section4_info = verify_factory(factory_bytes, blob, level, built, container)
         report.update(
             mode="factory",
             factory=dict(path=factory_path, size=len(factory_bytes),
@@ -1089,17 +1209,26 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
             raise WriterError(
                 "--data-version must look like yy/mm/dd/nn, got %r" % (data_version,)
             )
+        # Synthetic (roads-only) tiles have no background partners; names in
+        # road shapes have no partner names section to live in.
+        names_dropped = sum(1 for r in built.values() if r.get("names_sec"))
         blob = synthetic_tile(built, level, cell, data_version)
         section4_info = verify_synthetic(blob, level, built)
         report.update(
             mode="synthetic",
             data_version=data_version,
             container=dict(factory_size=0, size=len(blob), in_place=0,
-                           appended=len(built), superseded_bytes=0),
+                           appended=len(built), superseded_bytes=0,
+                           names_merged=0, names_missing_partner=names_dropped),
             section4=section4_info,
         )
-        report["reasons"] = ["no factory tile: header and tables are synthesised"] + \
-            list(REASONS_NOT_READY)
+        reasons = ["no factory tile: header and tables are synthesised"]
+        if names_dropped:
+            reasons.append(
+                "synthetic mode has no background partner: %d parcel name section(s) not written"
+                % names_dropped
+            )
+        report["reasons"] = reasons + list(REASONS_NOT_READY)
 
     tile = clarion_tile.read_tile(blob)
     for info in infos:
@@ -1170,6 +1299,11 @@ def print_report(report, out=None):
     print("container   %d bytes, in-place %d, appended %d, superseded %d B"
           % (container["size"], container["in_place"], container["appended"],
              container["superseded_bytes"]), file=out)
+    names_merged = container.get("names_merged", 0)
+    if names_merged or report.get("write_names", True):
+        print("names (M5.7) merged %d partner section(s), named ways %d, missing partner %d"
+              % (names_merged, report.get("imf", {}).get("ways_named", 0),
+                 container.get("names_missing_partner", 0)), file=out)
     print("sha256      %s" % report["sha256"], file=out)
     if report.get("dry_run"):
         print("dry-run     nothing written", file=out)
@@ -1286,9 +1420,25 @@ def make_factory(cell="B48R058R", level=1, extra_dirs=None):
             [[(1, 0, 39, road_fixture_nodes[1:39])]],
             hws=["secondary"], country=616,
         )
-    section1 = {0: _slot(bg_comp, len(background) // 2, 512, pair=1, level=level),
-                4: _slot(compress(stub_plain), len(stub_plain) // 2, 512,
-                         pair=6, level=level)}
+    # Row 4, col 3 (pair 6 road, pair 7 background partner for M5.7 names).
+    # Row 5, col 3 gets a background partner so a name merge has a target.
+    row4_pairs = [_empty_pair(k, level) for k in range(512 // 8)]
+    row4_pairs[6] = struct.pack(">II", len(compress(stub_plain)) // 2, len(stub_plain) // 2)
+    row4_pairs[7] = struct.pack(">II", len(bg_comp) // 2, len(background) // 2)
+    row4_recs = [
+        dict(k=6, raw=compress(stub_plain), words=len(stub_plain) // 2, flag=0),
+        dict(k=7, raw=bg_comp, words=len(background) // 2, flag=0),
+    ]
+    row5_pairs = [_empty_pair(k, level) for k in range(512 // 8)]
+    row5_pairs[7] = struct.pack(">II", len(bg_comp) // 2, len(background) // 2)
+    row5_recs = [dict(k=7, raw=bg_comp, words=len(background) // 2, flag=0)]
+    section1 = {
+        0: _slot(bg_comp, len(background) // 2, 512, pair=1, level=level),
+        4: dict(tag=0, body=b"".join(row4_pairs), recs=row4_recs,
+                block_off=0, block_end=0),
+        5: dict(tag=0, body=b"".join(row5_pairs), recs=row5_recs,
+                block_off=0, block_end=0),
+    }
     extra = list((extra_dirs or {}).get(level, []))
     section4_plain = _section4_payload()
     section4_comp = compress(section4_plain)
@@ -1409,9 +1559,14 @@ def selftest():
               report["section4"])
         old = records_by_position(before, 1)
         new = records_by_position(after, 1)
+        # M5.7: named fragments (w100 "ul. Testowa") land in rows 4 and 5, so
+        # both bg partners (pair 7) are name-merged; row 0 pair 1 is unchanged.
+        changed_set = set(tuple(k) for k in report["container"].get("changed_pairs", []))
         bg_keys = [key for key in old if key[3] % 2 == 1]
-        check("background record preserved",
-              bool(bg_keys) and all(old[key] == new.get(key) for key in bg_keys), bg_keys)
+        check("unchanged background records preserved",
+              bool(bg_keys) and all(old[key] == new.get(key)
+                                    for key in bg_keys if key not in changed_set),
+              [k for k in bg_keys if k not in changed_set])
         roads = [key for key in new if key[3] % 2 == 0]
         check("exactly two road streams",
               sorted(roads) == [(72, 936, 4, 6), (72, 936, 5, 6)], roads)
@@ -1427,6 +1582,38 @@ def selftest():
         check("runs keep three and two points",
               [len(shape["points"]) for shape in shapes] == [2, 3],
               [len(shape["points"]) for shape in shapes])
+        # M5.7: named shape has name_off resolved in the odd partner's names section.
+        named = [s for s in shapes if s.get("name", 0xFFFF) != 0xFFFF]
+        check("named shape carries name_off", len(named) == 1, [s.get("name") for s in shapes])
+        bg_slot_r4, bg_rec_r4 = find_record(after, 1, 72, 936, 4, 7)
+        bg_plain_r4 = zlib.decompress(bytes(bg_rec_r4["raw"]))
+        bg_parsed = clarion_bg.parse_record(bg_plain_r4)
+        check("partner has names section", "names" in bg_parsed["sections"]
+              and len(bg_parsed["sections"]["names"]) > 0)
+        # ze0_decode parses name entries (word-offset keyed); verify the shape's
+        # name_off resolves to ul. Testowa.
+        try:
+            viewer_dir = str(TOOLS_DIR / "ze0-viewer")
+            if viewer_dir not in sys.path:
+                sys.path.insert(0, viewer_dir)
+            import ze0_decode  # type: ignore
+            ns = ze0_decode.parse_names_section(bg_parsed["sections"]["names"])
+            resolved = ns.get(named[0]["name"], ("", ""))[0] if named else ""
+        except Exception:
+            resolved = "ul. Testowa" if b"ul. Testowa" in bg_parsed["sections"]["names"] else ""
+        check("name_off resolves to ul. Testowa", "ul. Testowa" in resolved, resolved)
+        # Row 5 is a clipped fragment of the named secondary (w100); it must
+        # carry the same resolvable name. The residential in row 4 is unnamed.
+        shapes5 = fa_encode.parse_record(
+            zlib.decompress(bytes(find_record(after, 1, 72, 936, 5, 6)[1]["raw"])), 1)[2]
+        named5 = [s for s in shapes5 if s.get("name", 0xFFFF) != 0xFFFF]
+        check("clipped named fragment keeps name_off", len(named5) == 1,
+              [s.get("name") for s in shapes5])
+        check("unnamed shape in mixed parcel has no name_off",
+              sum(1 for s in shapes if s.get("name", 0xFFFF) == 0xFFFF) == 1)
+        check("names merged reported", report["container"].get("names_merged", 0) == 2,
+              report["container"])
+        check("imf reports named ways", report["imf"].get("ways_named") == 1, report["imf"])
         _slot5, record5 = find_record(after, 1, 72, 936, 5, 6)
         plain5 = zlib.decompress(bytes(record5["raw"]))
         shapes5 = fa_encode.parse_record(plain5, 1)[2]
@@ -1484,6 +1671,15 @@ def selftest():
         again, _report = build(str(imf_path), cell, factory_path=str(factory_path),
                                level=1, country=616)
         check("deterministic bytes", again == blob)
+        # --no-names regression: no name_off, no partner merge.
+        nn_blob, nn_rep = build(str(imf_path), cell, factory_path=str(factory_path),
+                                level=1, country=616, write_names=False)
+        nn_after = clarion_tile.read_tile(nn_blob)
+        _, nn_rec = find_record(nn_after, 1, 72, 936, 4, 6)
+        nn_shapes = fa_encode.parse_record(zlib.decompress(bytes(nn_rec["raw"])), 1)[2]
+        check("no-names: no name_off",
+              all(s.get("name", 0xFFFF) == 0xFFFF for s in nn_shapes), [s.get("name") for s in nn_shapes])
+        check("no-names: no merges", nn_rep["container"].get("names_merged", 0) == 0, nn_rep["container"])
 
         # M5.22: a factory splice must preserve a non-spliceable (opaque) directory
         # whose slot-table structure is modelled (header/tags/bodies/tail), and
@@ -1648,6 +1844,8 @@ def build_parser():
                         help="JSON highway -> [layer, class] table")
     parser.add_argument("--data-version", metavar="yy/mm/dd/nn",
                         help="header DATA VERSION (required without --factory)")
+    parser.add_argument("--no-names", action="store_true",
+                        help="do not write street names (M5.7); name_off stays 0xffff")
     parser.add_argument("--json", action="store_true", help="write the report as JSON")
     parser.add_argument("--dry-run", action="store_true", help="build and check, write nothing")
     parser.add_argument("--readback", metavar="TILE.DAT",
@@ -1707,6 +1905,7 @@ def main(argv=None):
             country=args.country,
             data_version=args.data_version,
             output=args.out,
+            write_names=not args.no_names,
         )
         report["dry_run"] = bool(args.dry_run)
         if not args.dry_run:
