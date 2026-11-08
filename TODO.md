@@ -2712,7 +2712,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2890–C-2899 (was C-2770–C-2779, collision with H27 fixed by H23)
 
 - [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.31-rdstm-link-class-hints · Critical: no
   - Depends: M4.17, M4.18
   - Goal: deepen M4.17's negative result toward the project goal (routable OSM
     roads). M4.17 found no general road-class field but observed
