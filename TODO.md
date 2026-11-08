@@ -2525,7 +2525,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2030–C-2039
 
 - [ ] **M5.12c — Every copy of the renamed POI name on the US card**
-  - Status: in progress · Owner: claude/m5.12c-poi-copies · Critical: yes
+  - Status: blocked · Owner: — · Critical: yes
+  - Blocker: the uncompressed-files exact scan never finished, so the EXP has no list of every hit outside the compressed pages; the Done when is not met.
+  - Unblock: — (re-run the scan in EXP-2026-11-08-M5.12c-poi-copies Method 3 and record the hits).
   - Depends: — (M5.12)
   - Goal: tell Marek which screens should show `OSM2LEAF TEST POI1` (map
     label, POI list, name search) and whether any other file still holds the
