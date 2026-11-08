@@ -88,6 +88,7 @@ CACHE_VA = 0x60000000
 HEAP_VA = 0x70000000
 HEAP_SIZE = 0x800000
 MAX_EXTENT = 0x10000
+INFLATE_MASK_VA = 0x00574DE0  # the table inflate indexes at 0x54369e (sec1)
 
 MUTATIONS = ("none", "swap-4-8", "corrupt-ind")
 
@@ -153,7 +154,7 @@ def section_of(sections, va: int) -> str:
 
 
 def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
-                 chunk_size: int):
+                 chunk_size: int, sec_mode: str = "block"):
     """Run fn 0x41c7e8 on the chunks covering [offset, offset+length).
 
     The loop starts at the table entry that ``*(ctx+28)`` points to and walks
@@ -173,6 +174,21 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     eng.map("cache", CACHE_VA, bytearray(MAX_EXTENT * 2), "rw")
     eng.map("heap", HEAP_VA, bytearray(HEAP_SIZE), "rw")
     eng.map("stack", STK_VA, bytearray(STK_SIZE), "rw")
+    comp_ranges = []
+    if sec_mode in ("zero", "zero-mask"):
+        # Diagnostic: the compressed sections are mapped as zero-filled RW so
+        # the run continues, and every read that lands in them is logged.
+        _, secs = pw.module_sections(image, IMAGE_START, MODULE)
+        for sec, comp, _ in secs:
+            if comp:
+                name = "sec@%08x" % sec["realaddr"]
+                eng.map(name, sec["realaddr"], bytearray(sec["vsize"]), "rw")
+                comp_ranges.append((sec["realaddr"], sec["realaddr"] + sec["vsize"]))
+        if sec_mode == "zero-mask":
+            # zlib 1.1.3 inflate_mask[17] (public source: 2^n - 1), written at
+            # the table inflate indexes at 0x54369e.  Not read from the image.
+            mask = b"".join(struct.pack("<I", (1 << n) - 1) for n in range(17))
+            eng.write_mem(INFLATE_MASK_VA, mask)
     stack_top = STK_VA + STK_SIZE // 2
     eng.write_mem(CTX_VA + ENTRY_TABLE_PTR, struct.pack("<I", TAB_VA + ENTRY * start))
     eng.write_mem(CTX_VA + CACHE_PTR, struct.pack("<I", CACHE_VA))
@@ -181,7 +197,18 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     eng.set_regs(r15=stack_top)
 
     stats = {"insns": 0, "memcpy": 0, "mod": [], "calloc": 0, "free": 0,
-             "last_pc": None}
+             "last_pc": None, "sec_reads": {}}
+    orig_load = eng._load
+
+    def logged_load(va, size):
+        for lo, hi in comp_ranges:
+            if lo <= va < hi:
+                key = (va, size)
+                stats["sec_reads"][key] = stats["sec_reads"].get(key, 0) + 1
+                break
+        return orig_load(va, size)
+
+    eng._load = logged_load
     orig_execute = eng._execute
 
     def counted(insn, pc):
@@ -236,6 +263,16 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
 # commands
 
 
+def print_reads(stats) -> None:
+    """Print the logged reads into the compressed sections (diagnostic mode)."""
+    if not stats.get("sec_reads"):
+        return
+    reads = sorted(stats["sec_reads"].items())
+    print(f"compressed-section reads: {len(reads)} distinct (va, size)")
+    for (va, size), hits in reads[:80]:
+        print(f"  {va:#010x} size {size} x{hits}")
+
+
 def cmd_run(args) -> int:
     image_path = Path(args.image)
     cmp_path, ind_path = Path(args.cmp), Path(args.ind)
@@ -255,7 +292,7 @@ def cmd_run(args) -> int:
     cmp_bytes = cmp_path.read_bytes()
     try:
         ret, out, stats = run_firmware(image, cmp_bytes, rows, args.offset,
-                                       args.length, chunk_size)
+                                       args.length, chunk_size, args.sec1)
     except Blocked as exc:
         args = exc.args
         va = args[1] if len(args) > 1 else None
@@ -268,12 +305,15 @@ def cmd_run(args) -> int:
                   f"mod-calls={len(stats['mod'])} memcpy={stats['memcpy']} "
                   f"calloc={stats['calloc']} free={stats['free']} "
                   f"last_pc={stats['last_pc']:#010x}")
+            print_reads(stats)
         return 4
 
+    print_reads(stats)
     print(f"firmware: r0={ret if ret != MINUS_ONE else -1} copied={args.length} "
           f"insns={stats['insns']} memcpy={stats['memcpy']} "
           f"calloc={stats['calloc']} free={stats['free']} "
-          f"mod-calls={len(stats['mod'])}")
+          f"mod-calls={len(stats['mod'])} divisors="
+          f"{sorted({hex(d) for _, d in stats['mod']})}")
     if args.mutate == "corrupt-ind":
         ok = ret == MINUS_ONE
         print("verdict:", "PASS (firmware rejects the corrupt .ind)" if ok else
@@ -285,6 +325,12 @@ def cmd_run(args) -> int:
         print("reference rejects the input:", exc)
         return 1
     ok = ret == args.length and out == expected
+    if args.mutate == "swap-4-8":
+        # Control: a wrong +4/+8 field must fail, cleanly (no engine exception).
+        clean_fail = not ok
+        print("verdict:", "PASS (control: swapped +4/+8 fails cleanly, no exception)"
+              if clean_fail else "FAIL (swapped +4/+8 still returns the page)")
+        return 0 if clean_fail else 1
     print("verdict:", "PASS (byte-identical to cmpind.decode)" if ok else
           f"FAIL (ret={ret}, first differing byte "
           f"{next((i for i, (a, b) in enumerate(zip(out, expected)) if a != b), -1)})")
@@ -384,6 +430,10 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--offset", type=lambda s: int(s, 0), default=0x840BA0)
     run.add_argument("--length", type=lambda s: int(s, 0), default=42848)
     run.add_argument("--mutate", choices=MUTATIONS, default="none")
+    run.add_argument("--sec1", choices=("block", "zero", "zero-mask"), default="block",
+                     help="block: a compressed-section access stops the run (default); "
+                          "zero: diagnostic, map compressed sections as zeros and log reads; "
+                          "zero-mask: as zero, plus zlib's public inflate_mask[17] at 0x574de0")
     return parser
 
 
