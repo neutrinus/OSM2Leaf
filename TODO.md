@@ -822,7 +822,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-08-H24-todo-check.md; `tools/todo_check.py` (stdlib, `--selftest`/`--json`) lints TODO task IDs/claim ranges/required fields/status/blocked+Unblock/done+Result/checkbox contradictions/unknown Depends; `tools/mkcard.py` R5 reconcile selftest made tmp-safe (no whole-image copy); `tools/README.md` + `selftest.py` discovery wired; fixed minimal factual board defects (5 done-missing-Result, 3 claim overlaps M3.11c/M4.8d/M9.11b, M4.16 checkbox). `todo_check --selftest` OK, `todo_check TODO.md` OK, `mkcard --selftest` OK, `claims_check` OK.
 
 - [ ] **H25 — Fundament CI (GitHub Actions): bramka PR bez danych vendorowych**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/h25-ci-github-actions · Critical: yes
   - Depends: H24 (żeby `selftest.py` nie dawał fałszywego FAIL przez `mkcard`/tmp; H23 zalecane dla higieny TODO)
   - Goal: każdy PR i push do `main` dostaje deterministyczną bramkę jakości sygnału testowego (nie coverage): repo się parsuje, narzędzia mają spójne selftesty, ledger/board są niesprzeczne. To mierzy „czy infrastruktura testów działa”, nie „czy auto czyta kartę”.
   - Precheck: `ls .github/workflows` zwraca brak workflowów (stan bieżący); `python3 tools/selftest.py --list` działa lokalnie. Jeśli istnieje już workflow o tej samej roli, zadanie redukuje się do uzgodnienia z nim (nie duplikować).
