@@ -878,8 +878,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: jeśli polityka bezpieczeństwa/udostępniania obrazów jest niejasna, workflow tylko generuje checklistę/manifestspec i zatrzymuje się przed pakowaniem binariów — `blocked` z pytaniem do właściciela danych.
   - Claims: C-2790–C-2799
 
-- [ ] **H30 — Fix M9 rule-14 metadata and tighten `todo_check` firmware-task classification**
-  - Status: in progress · Owner: task/h30-m9-rule14-metadata · Critical: no
+- [x] **H30 — Fix M9 rule-14 metadata and tighten `todo_check` firmware-task classification**
+  - Status: done · Owner: task/h30-m9-rule14-metadata · Critical: no
   - Depends: H24
   - Goal: make rule 14 enforceable on the board. `todo_check.py` currently warns
     (not fails) on M9 firmware/search tasks missing `Precheck`/`Scope`/`Stop`
@@ -904,6 +904,13 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     research, record that as a narrow follow-up task instead of inventing
     metadata.
   - Claims: C-2980–C-2989
+  - Result: EXP-2026-11-08-H30-rule14-metadata.md. Added truthful rule-14
+    `Precheck`/`Scope`/`Stop` to open/blocked M9.10, M9.11, M9.11b, M9.12–M9.18,
+    M9.24 and `Goal` to M9.14; trivial/correct metadata to done M9.20/M9.21.
+    `tools/todo_check.py` documents M1/M2/M3/M8/M9 as firmware/search and adds
+    `--strict` (open/blocked/in-progress missing P/S/S error; done warns only),
+    covered by selftest. Default `todo_check TODO.md` OK, `selftest --only
+    todo_check` PASS, `claims_check` OK. No vendor data, no format claim.
 
 ## M1 — Firmware tooling
 
@@ -3837,10 +3844,18 @@ parts are covered by `tools/l3_harness/selftest.py`.
     accessor. Feed the page in the byte order M3.11b finds (until then:
     `swap16`, stated as an assumption).
   - Depends: M3.11c (name), M3.11b (byte order), M9.5 (M9.21 is done)
+  - Precheck: `python3 tools/point_walk_l3.py walk` on the US factory
+    `POINT010.DAT` page `0x840ba0` still reproduces C-2541 (exit 0, expected
+    record count); `tools/l3_harness/runner.py selftest` and
+    `targets.json` parse. Name accessor VA available only after M3.11c.
   - Goal: before any card goes into the car, run `Navi.exe`'s own `POINT`
     reader on the decoded factory page and on the renamed page, and read
     the name it returns. Pages are fed already decompressed (the `.cmp`
     layer is M9.11).
+  - Scope: add/port `poi_record_decode` (or split walk/name) in
+    `targets.json`/`runner.py`/`stubs.py`; run on factory and M5.12-mutated
+    page `0x840ba0` with byte-order assumption stated; corpus outside repo
+    (hashes only). No `.cmp` parsing here (M9.11).
   - Input: `tools/l3_harness/runner.py` + `stubs.py`; a new target
     `poi_record_decode` in `targets.json`; US `POINT010.DAT` page `0x840ba0`
     factory and after `mutate_refer_poi.py` (EXP-2026-11-06-M5.12, -H10).
@@ -3850,6 +3865,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     the renamed page, record 0, with the stub log in the EXP; plus one
     negative control (a corrupted `len2`) that the reader handles
     differently from the Python parser or the same way, recorded.
+  - Stop: if M3.11c cannot name the accessor with a reproducible signature,
+    record the walk-only verdict as partial, keep name check blocked on
+    M3.11c, and do not invent an accessor VA.
   - Claims: C-2140–C-2149
 
 - [ ] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
@@ -3858,12 +3876,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Blocker: the firmware path passes on the factory, S1 and S2 pairs and on both controls (page `0x840ba0` byte-identical, corrupt `.ind` rejected, swapped `+4`/`+8` fails); `targets.json` `cmp_ind_reader` cannot be filled because `runner.py` has no firmware-call kind. The sec1 table that inflate reads (`0x574de0`, `inflate_mask[17]`) is supplied from public zlib source, see EXP.
   - Result: EXP-2026-11-08-M9.11-chunk-decoder (firmware path PASS; target registration open).
   - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
+  - Precheck: `python3 tools/chunk_decoder_l3.py` reproduces the firmware
+    path verdicts from EXP-2026-11-08-M9.11-chunk-decoder on the
+    factory/S1/S2 POINT010 pairs; `python3 tools/l3_harness/runner.py --help`
+    confirms no firmware-call/memory-setup entry kind for `cmp_ind_reader`.
   - Goal: prove in software what S1 would prove in the car: the firmware's own
     zlib + chunk loop accept our recompressed bytes and return the same
     logical page. Re-scoped in the sixth pass: `fn 0x41c7e8` (M3.2b, C-2063)
     takes its 20-byte-stride chunk table from the caller, so the harness can
     build that table from `.ind` and never needs the `.ind` parser that lives
     in `Navi.exe` compressed sec1.
+  - Scope: document the passing firmware path and controls; do not register
+    `cmp_ind_reader` in `targets.json` until M9.11b adds the runner kind and
+    a declared sec1-table input. No silent table default.
   - Input: `fn 0x41c7e8` (`@(28,ctx)` table; `+8` uncompressed offset, `+12`
     uncompressed length, `+16` compressed source, `+4` passed as r7), one-shot
     wrapper `0x542148`, `inflateInit2_ 0x542256`, `inflate 0x54233c`,
@@ -3874,32 +3899,56 @@ parts are covered by `tools/l3_harness/selftest.py`.
     and one deliberately wrong table field (e.g. swapped `+4`/`+8`) is shown to
     fail — so the table layout is proven, not assumed. Fills the
     `cmp_ind_reader` target in `targets.json`.
+  - Stop: if runner plumbing cannot expose the firmware-call kind without
+    inventing sec1-table provenance, keep `cmp_ind_reader` blocked on M9.11b
+    and record the gap (do not fake registration).
   - Claims: C-2150–C-2159
 
 - [ ] **M9.11b — L3 runner: a firmware-call target kind for the chunk reader (fills `cmp_ind_reader`)**
   - Status: open · Owner: — · Critical: yes
   - Depends: M9.11 (firmware path and sec1 table provenance, EXP-2026-11-08-M9.11-chunk-decoder), M9.5 (done).
+  - Precheck: `python3 tools/chunk_decoder_l3.py` and
+    `python3 tools/l3_harness/runner.py --selftest` pass; `targets.json`
+    still lists `cmp_ind_reader` unfilled/blocked. Confirm sec1
+    `inflate_mask[17]` provenance is recorded in M9.11 EXP before making it
+    a declared input.
   - Goal: let `runner.py` run a firmware function with memory setup (the 20-byte table,
     the stubs, the sec1 `inflate_mask` table as a named, sourced input), so that
     `targets.json` `cmp_ind_reader` runs the chunk reader on a corpus pair through the runner.
+  - Scope: extend `runner.py` entry kinds/memory setup for firmware-call
+    targets; declare the sec1 table as an explicit sourced input; wire
+    `cmp_ind_reader` controls from M9.11. No format claims beyond plumbing.
   - Input: `tools/chunk_decoder_l3.py` `run_firmware` and its stubs; `tools/l3_harness/runner.py`
     entry kinds (`module` passes register arguments only); `targets.json`.
   - Done when: `runner.py run cmp_ind_reader` on the factory pair reports PASS and exit 0; the
     corrupt-`.ind` and swapped-field cases report as the controls in EXP-2026-11-08-M9.11-chunk-decoder; the sec1 table
     is a declared input of the entry (not a silent default), and `runner.py selftest` passes.
+  - Stop: if memory-setup semantics cannot be expressed without a silent
+    default table or guessed VA, block with the missing provenance named;
+    do not register `cmp_ind_reader` as passing.
   - Claims: C-2940–C-2949 (was C-2157–C-2159, overlap with M9.11 fixed by H24)
 
 - [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
   - Status: open · Owner: — · Critical: yes
   - Depends: M9.11 (runnable now), M9.10 (blocked — the first run reports the
     POI reader as "not yet available"), M9.6, M9.8 (tool skeleton)
+  - Precheck: `python3 tools/l3check.py --help` and `--selftest` (if
+    present) pass; at least M9.6 and the M9.11 firmware path are runnable as
+    recorded in their EXPs. Factory/vendor image available per rule 11 for
+    real `--card`/`--factory` checks.
   - Goal: one command that a card image must pass before Marek puts it in
     the unit: run every available L3 target (map-code compare M9.6, `.cmp`
     reader M9.11, POI reader M9.10, later tile reader) on the files that
     differ from the factory image.
+  - Scope: extend `l3check.py` with `--card`/`--factory` diff selection and
+    per-target pass/fail/not-yet-available reporting; call existing L3
+    targets only. No car test, no format generation.
   - Done when: `l3check.py --card OUT.img --factory IMG` lists per target
     pass / fail / not-yet-available, exits non-zero on a fail, and the EXP
     shows it on S0 (all pass), S1 and S2.
+  - Stop: if required card-diff inputs (S0/S1/S2 images) are unavailable on
+    the runner and cannot be fetched/built by existing tools, report which
+    corpora are missing and block that part rather than synthesizing a pass.
   - Claims: C-2160–C-2169
 
 - [ ] **M9.13 — L3 target `tile_reader` on factory and generated tiles**
@@ -3907,11 +3956,21 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Unblock: M9.20 (module entry kind, `engine_hook`; PR #89).
   - Blocker: `runner.py` accepts only `synthetic`/`blocked` entry kinds, so the M3.5 reader VA cannot be run; `tile_reader` still reports BLOCKED. See EXP-2026-11-08-M9.13-reader-run.
   - Depends: M9.5 (M3.5 reader VAs `0x0041f26c`/`0x004259bc`/`0x0042757a`; M3.6 helps)
+  - Precheck: `python3 tools/l3_harness/runner.py --selftest` passes with
+    M9.20 module entry kind; M3.5 reader VAs resolvable via
+    `tools/cerom.py` on IMG256; factory tile and M4.4 one-vertex fixture
+    available (synthetic/vendor path per rule 11).
   - Goal: the tile is the core generated format; run the firmware's tile
     reader on it. Fills `tile_reader` (now `blocked`) in `targets.json`.
+  - Scope: run M3.5 tile reader VAs through the L3 module entry on one
+    factory tile and one M4.4/M5.4 generated tile; compare level
+    table/section offsets to `clarion_tile.read_tile`. No format edits.
   - Done when: the reader returns the same level table / section offsets as
     `clarion_tile.read_tile` for one factory tile and for the M4.4 one-vertex
     tile; later for an M5.4 generated tile.
+  - Stop: if the reader needs compressed sec1 data, unmapped globals, or file
+    I/O stubs that M9.24/M1.2f do not provide, record the first faulting PC
+    as a blocker and do not claim a tile-reader verdict.
   - Claims: C-2230–C-2239
 
 - [ ] **M9.14 — L3 target `drstr_parser`**
@@ -3921,8 +3980,21 @@ parts are covered by `tools/l3_harness/selftest.py`.
     The reopened run (EXP-2026-11-08-M9.14-reopen) ran the module entry on the real head image:
     the reader's data is in compressed `sec1`, so it stops at once.
   - Depends: M3.10, M9.5 (both done)
+  - Precheck: `python3 tools/l3_harness/runner.py --selftest` and M9.20
+    module-entry path pass; `python3 tools/cerom.py --image-start 0x200200
+    IMG256` confirms `sub_00419350`/`sec1` layout; EU/US factory
+    `DRSTR001.DAT` available per rule 11.
+  - Goal: run the firmware `DRSTR001.DAT` parser as an L3 target and record
+    whether it accepts factory/rebuilt card index files and rejects a
+    corrupted case.
+  - Scope: module entry for `sub_00419350` (and caller as needed) with
+    coredll import binding/file stubs once unblocked; verdict map from
+    observed return codes. No DRSTR format changes.
   - Done when: the firmware parser accepts the factory `DRSTR001.DAT` (EU and
     US) and one rebuilt by M5.6, and rejects one corrupted case, recorded.
+  - Stop: if execution faults in compressed/unmapped `sec1` or needs coredll
+    file/import behavior not yet stubbed, record the faulting PC and keep
+    blocked on M1.2f/M9.24/M5.6 as applicable (do not guess verdicts).
   - Claims: C-2240–C-2249
   - Blocker: `sub_00419350` reads its coredll imports and buffer global from
     compressed `Navi.exe` `sec1` (UNMAPPED at `0x0055d8fc`); the Done-when also
@@ -3935,22 +4007,42 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.15 — L3 targets for `ADDRE`, `ZCODE`/`ICODE`/`COORD`, `LCTBL`**
   - Status: open · Owner: — · Critical: yes
   - Depends: M9.10 (pattern), and per family M3.13 / M3.14 / M3.15
+  - Precheck: `python3 tools/l3_harness/runner.py --selftest` passes; for
+    the selected family, its M3 reader VA/signature is recorded with
+    evidence and factory/edited records are obtainable per rule 11.
   - Goal: the same check as M9.10 for every other `REFER001` family; one PR
     per family (title `[M9.15] ADDRE …`), each updating its matrix row.
+  - Scope: one REFER001 family per PR; add an L3 target/corpus row using the
+    M9.10 pattern, compare firmware reader output to expected factory/edited
+    values, update reader-coverage matrix row. No new family search in the
+    same PR.
   - Done when: for each family the firmware reader returns the expected
     value for one factory record and one edited record.
+  - Stop: if the family's reader VA or signature is not reproducibly located
+    (M3 dependency not actually satisfied), record a narrow follow-up/blocker
+    naming the missing evidence; do not guess the VA.
   - Claims: C-2250–C-2259
 
 - [ ] **M9.16 — L3 map-load chain: open a whole card the way `Navi.exe` does**
   - Status: open · Owner: — · Critical: yes
   - Depends: M9.11, M9.13, M9.14 (M9.2 Ghidra helps to find the call order)
+  - Precheck: component L3 targets for `.cmp`/DRSTR/tile/POINT path are
+    runnable or explicitly reported not-yet-available by M9.12; factory US
+    tree and S2 tree available per rule 11; COREDLL file I/O stubs exist
+    or missing APIs are listed.
   - Goal: between single-function L3 and full-system emulation: call the
     firmware's own sequence (`HDD_INFO` → `DRSTR001` → `.cmp`/`.ind` →
     tile / `POINT` readers) against a virtual card tree, with COREDLL file
     I/O stubbed. This is the "mock `Navi.exe`" check of a generated card.
+  - Scope: implement `runner.py chain --tree` over existing reader targets and
+    file stubs; report per-step verdict/stub misses; integrate with M9.12
+    when ready. No full-system emulation.
   - Done when: `runner.py chain --tree ROOT` runs the chain on the factory
     US tree without a stub miss, prints each step's verdict, and the EXP
     shows the same run on the S2 tree; `l3check.py --card` (M9.12) calls it.
+  - Stop: if a component reader is blocked or call order cannot be derived
+    without re-doing M9.2/Ghidra work, record the missing step and keep the
+    chain partial rather than faking a pass.
   - Claims: C-2260–C-2269
 
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
@@ -3961,8 +4053,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Unblock: M1.2f (port `DECOMP_BLK`, so section 1 can be mapped).
   - Result: EXP-2026-11-08-M9.17-reopen (negative: module run BLOCKED at a compressed `.data` access, controls PASS; C-2372–C-2373). Earlier block: EXP-2026-11-08-M9.17-m38-reader (C-2370–C-2371).
   - Depends: M9.5 (M3.8 located the reader)
+  - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256`
+    resolves reader `0x0041a438`/open/read VAs; `python3
+    tools/l3_harness/runner.py --selftest` passes; EU/US factory
+    `MMAIN001.DAT` (0x1000 bytes) available per rule 11.
   - Goal: `MMAIN001.DAT` is the only generated file whose reader is located
     and whose L3 target does not exist.
+  - Scope: add `mmain_reader` in `targets.json`/corpus and run the M3.8
+    module entry on factory and rebuilt 0x1000-byte files plus a 4095-byte
+    negative; update matrix row 3. No format changes.
   - Input: reader `0x0041a438` (open `0x0041b780`, read `0x0041b954`, exactly
     `0x1000` bytes, no label/count check — C-1780–C-1789); the factory
     `MMAIN001.DAT` (EU and US); a `mmain_reader` entry in `targets.json` and a
@@ -3970,25 +4069,45 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the target runs and returns the `0x1000`-byte read for the
     factory file and for a rebuilt one, rejects a 4095-byte file, and matrix
     row 3 carries the L3 result.
+  - Stop: if execution faults in compressed/unmapped `sec1` `.data` (current
+    blocker), record faulting PC and keep blocked on M1.2f; do not stub away
+    the missing mapping.
   - Claims: C-2370–C-2379
 
 - [ ] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
   - Status: open · Owner: — · Critical: no
   - Depends: M9.13 (matrix rows 18–20)
+  - Precheck: M9.13 `tile_reader` pattern/runner path is available; VAs for
+    `LEV3456R` load and section-4 consumer are evidenced; factory and
+    generated tile/LEV3456R fixtures available per rule 11.
   - Goal: `tile_reader` covers `B28R070R` only; the coarse database and the
     section-4 consumer have no L3 target at all.
+  - Scope: add L3 targets for coarse-level `LEV3456R` reader and section-4
+    consumer on one factory and one generated case; compare to `lev3456.py`
+    and `section4.py`; update rows 18–20. No format changes.
   - Input: the `LEV3456R` filename load `0x0040a014`, M3.6's section answers,
     `lev3456.py`, `section4.py`, `targets.json`, `corpus.py`.
   - Done when: the coarse-level reader and the section-4 consumer return the
     same records/name list as the Python tools for one factory tile and one
     generated tile, and rows 18–20 carry the verdicts.
+  - Stop: if M9.13 is still blocked or the section consumer VA/signature
+    cannot be stated reproducibly, record a narrow blocker/follow-up naming
+    the missing VA; do not infer from Python output alone.
   - Claims: C-2440–C-2449
 
 - [x] **M9.20 — L3 plumbing: firmware entry kind, `engine_hook`, `ghidra/l3_run.py`**
   - Status: done · Owner: claude/m9.20-l3-plumbing · Critical: no
   - Depends: —
+  - Precheck: `python3 tools/l3_harness/runner.py --selftest` (pre-change
+    baseline) and target M9.5/M9.3/M9.9 follow-up requirements reproducible
+    from their EXPs; EU2011 head available for the synthetic/module mapping
+    check per rule 11.
   - Goal: the M9.5/M9.9 follow-ups that stop a real reader from running even
     when M3 has found its VA.
+  - Scope: add `module` firmware entry plumbing in `runner.py`, expose
+    argument registers via `StubDispatcher.engine_hook`, add a documented
+    Ghidra L3 entry script and refresh L3/README docs; cover all three in
+    selftests. No Ghidra execution required.
   - Input: EXP-2026-11-06-M9.5 (`entry.kind = "module"`), EXP-2026-11-06-M9.3
     (`StubDispatcher.engine_hook(target)` reading r4–r7), EXP-2026-11-06-M9.9
     (`tools/l3_harness/ghidra/l3_run.py`, README refresh), `targets.json`,
@@ -3998,6 +4117,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     registers to a target handler, the Ghidra back end has one documented
     entry script, `tools/l3_harness/README.md` and `tools/README.md` match the
     code, and the L3 selftest covers all three.
+  - Stop: if module mapping or hook semantics could not be made deterministic
+    without Ghidra/runtime assumptions, record the gap as a blocker/follow-up
+    rather than claiming a runnable reader verdict.
   - Claims: C-2500–C-2509
   - Result: EXP-2026-11-08-M9.20-l3-plumbing (synthetic module and hook checks
     pass; EU 2011 head: Navi.exe sec0 mapped; the walker stops at ILLEGAL_INSN
@@ -4014,6 +4136,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
     the POINT path (`0x3f39c0`, `0x3cd910`).
   - Precheck: `python3 tools/point_walk_l3.py walk …` passes with its local
     LE subclass (EXP-2026-11-07-M3.11-point-reader-2).
+  - Scope: add little-endian fetch/load/store mode to `PySh4` with default
+    unchanged, model `bt/s`/`bf/s` delay-slot behavior with self-test
+    vectors, switch `point_walk_l3.py` to the shared engine, and verify the
+    POINT path on the US page.
   - Input: `tools/l3_harness/engine.py` (`_load`/`_store`/`_fetch`,
     `cmp/str`, the `bt/s`/`bf/s` refusal), SH-4 manual for the delay-slot
     rule; `point_walk_l3.le_engine()` as the reference.
@@ -4021,6 +4147,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     self-tests), `bt/s`/`bf/s` modelled with a self-test vector each,
     `point_walk_l3.py` uses it instead of its subclass, and `0x3f39c0` runs
     on the US page with the globals `0x00d5e4e4`/`0x00d5e4d0` set.
+  - Stop: if delay-slot semantics or endianness could not be validated by a
+    self-test vector against the SH-4 manual behavior, keep the change out
+    and record the failing case.
   - Claims: C-2550–C-2559
   - Result: EXP-2026-11-08-M9.21-pysh4-le; `PySh4(endian="little")` and
     `bt/s`/`bf/s` in `tools/l3_harness/engine.py`; `0x3f39c0` runs on the US
@@ -4075,6 +4204,11 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
   - Status: open · Owner: — · Critical: yes
   - Depends: M1.2f (`sec1` of `Navi.exe` must be decompressed first)
+  - Precheck: `python3 tools/cerom.py` can resolve Navi.exe/coredll import
+    context on IMG256 (recording the `exports coredll` KeyError if present);
+    `python3 tools/l3_harness/runner.py --selftest` passes; EU factory
+    `DRSTR001.DAT` available per rule 11. Re-derive coredll ordinals from
+    M3.10 evidence before binding.
   - Goal: `runner.py` writes stub VAs into the module's COREDLL import slots
     (`0x0055d000`+ in `sec1`), models coredll `fopen`/`fread`/`fseek`/`ftell`/
     `ferror`/`clearerr`/`fclose`/`_modlu`/`wcstombs`/`strncat`, and models
@@ -4082,9 +4216,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `0x00419684`, which reads above the stack top) runs on a file. Ordinals
     come from M3.10 and must be re-derived first (`cerom.py exports coredll`
     raises `KeyError` on this image). Input: EXP-2026-11-08-M9.14-reopen.
+  - Scope: import-slot binding, CRT/file stubs, and stack-arg model needed
+    for DRSTR/module-file callers in the L3 harness; verdict_map derived
+    from observed return codes. No format claims; no sec1 decompression.
   - Done when: `runner.py run drstr_parser` on the EU factory `DRSTR001.DAT`
     returns a verdict or a named blocker with the faulting PC, and a
     `verdict_map` is written from the decoded return codes (not guessed).
+  - Stop: if sec1 remains compressed/unmapped or coredll ordinals cannot be
+    re-derived reproducibly, record the faulting PC/missing ordinal evidence
+    and keep blocked on M1.2f/evidence; do not guess ordinals or verdicts.
   - Claims: C-2640–C-2649
 
 - [x] **M9.25 — `harness.py info` / viewer crash on opaque records**

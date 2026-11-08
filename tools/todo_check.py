@@ -4,6 +4,11 @@
 This checks board *structure* (rule 9/14/16 hygiene), not task semantics.
 It complements ``claims_check.py`` (which validates ``docs/research/claims.md``).
 
+Firmware/search task shape (rule 14, C-2128/C-2129): any task whose ID starts
+with one of M1, M2, M3, M8, M9 (``READER_STREAMS``). Rule 14 requires such tasks
+that touch a firmware address/reader/search to carry truthful ``Precheck``,
+``Scope`` and ``Stop`` fields before the search starts.
+
 Checks reported as errors (exit 1):
 - duplicate task IDs
 - duplicate claim ranges allocated in TODO
@@ -15,11 +20,13 @@ Checks reported as errors (exit 1):
 - checkbox/status contradictions (``[x]`` vs non-done, ``[ ]`` vs done)
 - invalid Status / Critical values
 - cyclic ``Depends`` references
-- M1/M2/M3/M8/M9 (firmware/reader/search) tasks missing Precheck/Scope/Stop
+- with ``--strict``: open/blocked firmware/search tasks missing
+  ``Precheck``/``Scope``/``Stop``
 
 Warnings (printed, do not fail by default): ``Depends`` references to unknown
-task IDs, missing Precheck/Scope/Stop (legacy/reporting), actionable/done tasks
-missing standard fields.
+task IDs, missing ``Precheck``/``Scope``/``Stop`` on firmware/search tasks
+(default mode; done tasks always warn, never error, to avoid retroactive
+false failures), actionable/done tasks missing standard fields.
 """
 from __future__ import annotations
 
@@ -173,7 +180,7 @@ def _find_dep_cycles(tasks, known_ids):
     return cycles
 
 
-def check(text: str):
+def check(text: str, *, strict_firmware: bool = False):
     tasks = parse_tasks(text)
     errors = []
     warnings = []
@@ -273,9 +280,14 @@ def check(text: str):
         if any(t["id"].startswith(s) for s in READER_STREAMS):
             for k in ("Precheck", "Scope", "Stop"):
                 if k not in f:
-                    # report as warning: many pre-rule-14 tasks lack these; the
-                    # field is required before a search is started (rule 14).
-                    warnings.append(f"TODO.md:{t['lineno']} {t['id']}: firmware/search task missing {k}")
+                    msg = f"TODO.md:{t['lineno']} {t['id']}: firmware/search task missing {k}"
+                    # rule 14: enforceable for open/blocked firmware/search tasks in
+                    # --strict mode. Done tasks are never made false-failing
+                    # retroactively; default mode reports warnings for legacy hygiene.
+                    if strict_firmware and status in ("open", "in progress", "blocked"):
+                        errors.append(msg)
+                    else:
+                        warnings.append(msg)
 
     for cyc in _find_dep_cycles(tasks, known_ids):
         errors.append(f"TODO.md: cyclic Depends: {' -> '.join(cyc)}")
@@ -285,6 +297,7 @@ def check(text: str):
         "errors": errors,
         "warnings": warnings,
         "tasks": len(tasks),
+        "strict_firmware": strict_firmware,
     }
 
 
@@ -292,6 +305,11 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("todo", nargs="?", default=str(TODO_PATH), help="TODO.md path")
     p.add_argument("--json", action="store_true")
+    p.add_argument(
+        "--strict",
+        action="store_true",
+        help="fail on rule-14 violations: open/blocked/in-progress firmware/search tasks (M1/M2/M3/M8/M9) missing Precheck/Scope/Stop; done tasks still warn only",
+    )
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
 
@@ -299,11 +317,15 @@ def main(argv=None):
         return run_selftest()
 
     text = Path(args.todo).read_text(encoding="utf-8")
-    result = check(text)
+    result = check(text, strict_firmware=args.strict)
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
-        print(f"todo_check: {result['tasks']} tasks, {len(result['errors'])} error(s), {len(result['warnings'])} warning(s)")
+        mode = " [strict]" if args.strict else ""
+        print(
+            f"todo_check{mode}: {result['tasks']} tasks, {len(result['errors'])} error(s), "
+            f"{len(result['warnings'])} warning(s)"
+        )
         for e in result["errors"]:
             print(f"  ERROR {e}")
         for w in result["warnings"]:
@@ -358,7 +380,8 @@ def run_selftest():
     r = check(blocked)
     assert not r["ok"] and any("missing Unblock" in e for e in r["errors"]), r
 
-    # M1 requires Precheck/Scope/Stop (reported as warnings)
+    # M1 requires Precheck/Scope/Stop (warnings by default; strict makes
+    # open/blocked/in-progress firmware/search violations errors).
     missing_pss = """# TODO
 - [ ] **M1.2 — b**
   - Status: open · Owner: — · Critical: yes
@@ -368,6 +391,21 @@ def run_selftest():
   - Claims: C-210–C-219
 """
     r = check(missing_pss)
+    assert r["ok"] and any("missing Precheck" in w for w in r["warnings"]), r
+    r = check(missing_pss, strict_firmware=True)
+    assert not r["ok"] and any("missing Precheck" in e for e in r["errors"]), r
+
+    # done firmware/search tasks warn but never fail retroactively, even strict
+    done_missing_pss = """# TODO
+- [x] **M9.99 — done legacy**
+  - Status: done · Owner: b · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-220–C-229
+  - Result: r
+"""
+    r = check(done_missing_pss, strict_firmware=True)
     assert r["ok"] and any("missing Precheck" in w for w in r["warnings"]), r
 
     # checkbox/status contradiction
@@ -405,7 +443,7 @@ def run_selftest():
     assert r["ok"], "real TODO.md:\n" + "\n".join(r["errors"])
     assert r["tasks"] > 100, r["tasks"]
 
-    print(f"todo_check selftest: OK (10 checks, {r['tasks']} real tasks)")
+    print(f"todo_check selftest: OK (12 checks, {r['tasks']} real tasks)")
     return 0
 
 
