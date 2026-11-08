@@ -863,9 +863,9 @@ and TODO M8.
 Lint `TODO.md` board structure: duplicate task IDs, duplicate/overlapping or
 malformed `Claims` ranges, missing required fields, invalid Status/Critical,
 checkbox/status contradictions, `blocked` without `Unblock`, `done` without
-`Result`, and (as warnings) unknown `Depends` refs and missing
-Precheck/Scope/Stop on firmware/search tasks. Complements `claims_check.py`,
-which validates `docs/research/claims.md`.
+`Result`, cyclic `Depends` refs, and (as warnings) unknown `Depends` refs and
+missing Precheck/Scope/Stop on firmware/search tasks. Complements
+`claims_check.py`, which validates `docs/research/claims.md`.
 
 ```bash
 python3 tools/todo_check.py TODO.md      # lint the board (exit 1 on errors)
