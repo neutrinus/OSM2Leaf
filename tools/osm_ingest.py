@@ -12,9 +12,11 @@ Kept from OSM, nothing else:
 * ``highway`` values a car can drive on (motorway … residential, ``service``,
   ``track``, ``road`` and the ``*_link`` variants) — footways, cycleways,
   paths, steps, pedestrian zones and ``construction`` are dropped;
-* the nodes those ways reference, plus the ``via`` nodes of the turn
-  restrictions that survive, and no other node (no node tags: address and POI
-  nodes are a later task);
+* the nodes those ways reference, the ``via`` nodes of the turn restrictions
+  that survive, and the feature nodes: a POI (``amenity``, ``shop``, ...), an
+  address (``addr:housenumber`` or ``addr:street``) or a ``place``.  Feature
+  nodes carry the whitelisted node tags, and the ``poi``/``addr``/``name``
+  objects IMF defines (``intermediate-format.md``, Node);
 * the whitelisted way tags of the IMF document plus the Polish class helpers
   (``highway:category:pl``, ``highway:class:pl``);
 * ``type=restriction`` relations whose ``from``/``to``/``via`` members are all
@@ -92,6 +94,29 @@ WAY_TAGS = frozenset({
 })
 
 ONEWAY_VALUES = ("yes", "no", "-1")
+
+#: Node tags copied verbatim (the POI, Address and Places rows of the "Tags
+#: carried" table).  Everything else on a node is dropped.
+NODE_TAGS = frozenset({
+    "name", "name:pl", "name:en", "brand", "operator",
+    "amenity", "shop", "tourism", "leisure", "office", "healthcare", "fuel",
+    "addr:housenumber", "addr:street", "addr:city", "addr:postcode",
+    "addr:country",
+    "place", "population",
+})
+
+#: The first of these keys present on a node gives ``poi.category``, written
+#: as ``key=value`` (``amenity=fuel``).  The writer maps it to ``POINT``.
+POI_CATEGORY_KEYS = ("amenity", "shop", "tourism", "leisure", "office", "healthcare")
+
+#: ``addr:*`` tag -> ``addr`` object field.
+ADDR_FIELDS = (
+    ("addr:street", "street"),
+    ("addr:housenumber", "housenumber"),
+    ("addr:postcode", "postcode"),
+    ("addr:city", "city"),
+    ("addr:country", "country"),
+)
 
 #: Tile strings repeat thousands of times; intern them so ``node_tile`` holds
 #: one object per cell instead of one per node.
@@ -424,7 +449,13 @@ def _node(
     osm_id: int | None = None
     lat_raw: int | None = None
     lon_raw: int | None = None
+    keys: list[int] = []
+    vals: list[int] = []
     for number, wire, value in _fields(buf):
+        if wire == 2 and number == 2:
+            keys = _packed(value)
+        elif wire == 2 and number == 3:
+            vals = _packed(value)
         if wire != 0:
             continue
         if number == 1:
@@ -440,7 +471,33 @@ def _node(
         osm_id,
         round((lat_offset + granularity * lat_raw) / 1e9, 7),
         round((lon_offset + granularity * lon_raw) / 1e9, 7),
+        _tags(keys, vals, strings),
     )
+
+
+def _dense_tags(values: list[int], count: int, strings: list[str]) -> list[dict[str, str]]:
+    """Split ``DenseNodes.keys_vals``: ``k v ... 0`` per node, ``count`` nodes."""
+    if not values:
+        return [{} for _ in range(count)]
+    out: list[dict[str, str]] = []
+    pos = 0
+    for _ in range(count):
+        tags: dict[str, str] = {}
+        while True:
+            if pos >= len(values):
+                raise IngestError("DenseNodes keys_vals ends before its last node")
+            key = values[pos]
+            pos += 1
+            if key == 0:
+                break
+            if pos >= len(values):
+                raise IngestError("DenseNodes keys_vals has a key without a value")
+            tags.update(_tags([key], [values[pos]], strings))
+            pos += 1
+        out.append(tags)
+    if pos != len(values):
+        raise IngestError("DenseNodes keys_vals has more entries than nodes")
+    return out
 
 
 def _dense_nodes(
@@ -449,6 +506,7 @@ def _dense_nodes(
     ids: list[int] = []
     lats: list[int] = []
     lons: list[int] = []
+    keys_vals: list[int] = []
     for number, wire, value in _fields(buf):
         if wire != 2:
             continue
@@ -458,17 +516,20 @@ def _dense_nodes(
             lats = _deltas(_packed_sints(value))
         elif number == 9:
             lons = _deltas(_packed_sints(value))
-        # field 10 (keys_vals) is node tags, which IMF does not carry here
+        elif number == 10:
+            keys_vals = _packed(value)
     if not (len(ids) == len(lats) == len(lons)):
         raise IngestError(
             f"DenseNodes id/lat/lon counts differ: {len(ids)}/{len(lats)}/{len(lons)}"
         )
-    for osm_id, lat_raw, lon_raw in zip(ids, lats, lons):
+    tag_sets = _dense_tags(keys_vals, len(ids), strings)
+    for osm_id, lat_raw, lon_raw, tags in zip(ids, lats, lons, tag_sets):
         yield (
             "node",
             osm_id,
             round((lat_offset + granularity * lat_raw) / 1e9, 7),
             round((lon_offset + granularity * lon_raw) / 1e9, 7),
+            tags,
         )
 
 
@@ -643,11 +704,17 @@ def iter_xml(path: str | Path) -> Iterator[tuple[Any, ...]]:
                 osm_id = elem.get("id")
                 if osm_id is None:
                     raise IngestError("<node> without an id")
+                tags = {
+                    item.get("k"): item.get("v")
+                    for item in _children(elem, "tag")
+                    if item.get("k") is not None and item.get("v") is not None
+                }
                 yield (
                     "node",
                     int(osm_id),
                     _finite(elem.get("lat"), f"node {osm_id} lat"),
                     _finite(elem.get("lon"), f"node {osm_id} lon"),
+                    tags,
                 )
             elif tag == "way":
                 osm_id = elem.get("id")
@@ -769,6 +836,69 @@ def _way_record(
     return record
 
 
+def _poi_category(tags: dict[str, str]) -> str | None:
+    for key in POI_CATEGORY_KEYS:
+        value = tags.get(key)
+        if value:
+            return f"{key}={value}"
+    return None
+
+
+def _has_address(tags: dict[str, str]) -> bool:
+    """An address needs a street or a house number (IMF ``addr``)."""
+    return bool(tags.get("addr:street") or tags.get("addr:housenumber"))
+
+
+def _kept_node_tags(tags: dict[str, str]) -> dict[str, str]:
+    """The whitelisted, non-empty node tags, in key order."""
+    return {key: tags[key] for key in sorted(tags) if key in NODE_TAGS and tags[key]}
+
+
+def _node_wanted(tags: dict[str, str]) -> bool:
+    """A node no way needs, kept because the card can store it."""
+    return bool(
+        _poi_category(tags) or _has_address(tags) or tags.get("place")
+    )
+
+
+def _node_record(
+    osm_id: int, lat: float, lon: float, tile: str,
+    tags: dict[str, str], stats: "Stats",
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "imf": IMF_VERSION,
+        "type": "node",
+        "id": f"n{osm_id}",
+        "lat": lat,
+        "lon": lon,
+        "tile": tile,
+    }
+    kept = _kept_node_tags(tags)
+    if kept:
+        record["tags"] = kept
+    if _has_address(kept):
+        addr = {
+            field_name: kept[key]
+            for key, field_name in ADDR_FIELDS
+            if kept.get(key)
+        }
+        record["addr"] = addr
+        stats.addresses += 1
+    category = _poi_category(kept)
+    if category is not None:
+        poi: dict[str, str] = {"category": category}
+        for key in ("name", "brand", "operator"):
+            if kept.get(key):
+                poi[key] = kept[key]
+        record["poi"] = poi
+        stats.pois += 1
+    if kept.get("place"):
+        stats.places += 1
+    if kept.get("name"):
+        record["name"] = kept["name"]
+    return record
+
+
 def _relation_record(
     rel: OsmRelation,
     way_ids: set[int],
@@ -868,6 +998,9 @@ class Stats:
     ignored_relations: int = 0
     dropped_access: int = 0
     dropped_speed: int = 0
+    pois: int = 0
+    addresses: int = 0
+    places: int = 0
     highway_counts: Counter[str] = field(default_factory=Counter)
     bytes_written: int = 0
     output: str = ""
@@ -881,6 +1014,9 @@ class Stats:
                 "nodes": self.nodes,
                 "ways": self.ways,
                 "relations": self.relations,
+                "pois": self.pois,
+                "addresses": self.addresses,
+                "places": self.places,
             },
             "highways": dict(sorted(self.highway_counts.items())),
             "dropped": {
@@ -980,6 +1116,9 @@ def ingest(
     node_tile: dict[int, str] = {}
     kept_ways: list[OsmWay] = []
     coords: dict[int, tuple[float, float]] = {}
+    # Bbox mode only: nodes with kept tags (features, and vertices that carry
+    # a whitelisted tag) are buffered until the box test can run.
+    tagged: dict[int, tuple[float, float, dict[str, str], bool]] = {}
 
     with _open_output(str(output_path)) as handle:
 
@@ -996,19 +1135,14 @@ def ingest(
             for event in iter_elements(input_path, fmt):
                 if event[0] != "node":
                     continue
-                _, osm_id, lat, lon = event
-                if osm_id not in needed or osm_id in node_tile:
+                _, osm_id, lat, lon, tags = event
+                if osm_id in node_tile:
+                    continue
+                if osm_id not in needed and not _node_wanted(tags):
                     continue
                 tile = _tile(lat, lon)
                 node_tile[osm_id] = tile
-                write({
-                    "imf": IMF_VERSION,
-                    "type": "node",
-                    "id": f"n{osm_id}",
-                    "lat": lat,
-                    "lon": lon,
-                    "tile": tile,
-                })
+                write(_node_record(osm_id, lat, lon, tile, tags, stats))
                 stats.nodes += 1
             for way_id in sorted(ways):
                 way = ways[way_id]
@@ -1023,9 +1157,13 @@ def ingest(
             for event in iter_elements(input_path, fmt):
                 if event[0] != "node":
                     continue
-                _, osm_id, lat, lon = event
+                _, osm_id, lat, lon, tags = event
                 if osm_id in needed:
                     coords[osm_id] = (lat, lon)
+                kept = _kept_node_tags(tags)
+                wanted = _node_wanted(kept)
+                if wanted or (osm_id in needed and kept):
+                    tagged[osm_id] = (lat, lon, kept, wanted)
             for way_id in sorted(ways):
                 way = ways[way_id]
                 if any(ref not in coords for ref in way.refs):
@@ -1035,18 +1173,22 @@ def ingest(
                     stats.dropped_outside_bbox += 1
                     continue
                 kept_ways.append(way)
-            for osm_id in sorted({ref for way in kept_ways for ref in way.refs}):
-                lat, lon = coords[osm_id]
+            # Way vertices, then the feature nodes inside the box.  A feature
+            # that is also a vertex is in both sets and written once.
+            wanted_ids = {ref for way in kept_ways for ref in way.refs}
+            wanted_ids.update(
+                osm_id for osm_id, (lat, lon, _, wanted) in tagged.items()
+                if wanted and _in_bbox(lat, lon, bbox)
+            )
+            for osm_id in sorted(wanted_ids):
+                if osm_id in tagged:
+                    lat, lon, tags, _ = tagged[osm_id]
+                else:
+                    lat, lon = coords[osm_id]
+                    tags = {}
                 tile = _tile(lat, lon)
                 node_tile[osm_id] = tile
-                write({
-                    "imf": IMF_VERSION,
-                    "type": "node",
-                    "id": f"n{osm_id}",
-                    "lat": lat,
-                    "lon": lon,
-                    "tile": tile,
-                })
+                write(_node_record(osm_id, lat, lon, tile, tags, stats))
                 stats.nodes += 1
 
         way_ids: set[int] = set()
@@ -1217,6 +1359,30 @@ VIA_RELATION = (
     {"type": "restriction", "restriction": "no_straight_on"},
 )
 
+#: Tagged nodes for the POI fixture.  701-705 are kept (a POI, a place, two
+#: address-only nodes and a pharmacy); 706-708 carry no POI, address or place
+#: tag and must be dropped.  The Polish names exercise the diacritic rule:
+#: IMF keeps the UTF-8 text, the writer folds it to CP1252.
+POI_FIXTURE_NODES: tuple[tuple[int, float, float, dict[str, str]], ...] = (
+    (701, 51.1120000, 16.9000000, {
+        "amenity": "fuel", "name": "Orlen", "brand": "Orlen",
+        "operator": "Orlen Sp. z o.o.", "addr:street": "ul. Legnicka",
+        "addr:housenumber": "9"}),
+    (702, 51.1000000, 16.9500000, {
+        "place": "city", "name": "Wrocław", "population": "640000"}),
+    (703, 51.1150000, 16.9100000, {
+        "shop": "bakery", "name": "Piekarnia Zażółć gęślą jaźń",
+        "addr:street": "ul. Świdnicka", "addr:housenumber": "3"}),
+    (704, 51.1130000, 16.8950000, {
+        "addr:street": "ul. Legnicka", "addr:housenumber": "11",
+        "addr:postcode": "54-001", "addr:city": "Wrocław",
+        "addr:country": "PL"}),
+    (705, 51.1142000, 16.9085000, {"amenity": "pharmacy", "name": "Apteka"}),
+    (706, 51.1050000, 16.9300000, {"name": "Łąka"}),
+    (707, 51.1060000, 16.9310000, {"addr:city": "Wrocław"}),
+    (708, 51.1070000, 16.9320000, {"highway": "crossing"}),
+)
+
 
 def write_osm_xml(path: str | Path, *, timestamp: str | None = FIXTURE_TIMESTAMP,
                   sequence: int | None = FIXTURE_SEQUENCE,
@@ -1224,7 +1390,9 @@ def write_osm_xml(path: str | Path, *, timestamp: str | None = FIXTURE_TIMESTAMP
                   relations: tuple[
                       tuple[int, tuple[tuple[str, int, str], ...], dict[str, str]],
                       ...,
-                  ] = FIXTURE_RELATIONS) -> Path:
+                  ] = FIXTURE_RELATIONS,
+                  tagged: tuple[tuple[int, float, float, dict[str, str]], ...] = (),
+                  ) -> Path:
     """Write the synthetic fixture as ``.osm`` XML (UTF-8)."""
     from xml.sax.saxutils import quoteattr
 
@@ -1238,6 +1406,13 @@ def write_osm_xml(path: str | Path, *, timestamp: str | None = FIXTURE_TIMESTAMP
     lines = ['<?xml version="1.0" encoding="UTF-8"?>', f"<osm{attributes}>"]
     for osm_id, lat, lon in nodes:
         lines.append(f'  <node id="{osm_id}" lat="{lat:.7f}" lon="{lon:.7f}"/>')
+    for osm_id, lat, lon, tags in tagged:
+        lines.append(f'  <node id="{osm_id}" lat="{lat:.7f}" lon="{lon:.7f}">')
+        lines.extend(
+            f"    <tag k={quoteattr(key)} v={quoteattr(value)}/>"
+            for key, value in tags.items()
+        )
+        lines.append("  </node>")
     for osm_id, refs, tags in FIXTURE_WAYS:
         lines.append(f'  <way id="{osm_id}">')
         lines.extend(f'    <nd ref="{ref}"/>' for ref in refs)
@@ -1359,15 +1534,41 @@ def _pb_header_block(timestamp: str | None, sequence: int | None) -> bytes:
 
 
 def _pb_dense_nodes(
-    nodes: tuple[tuple[int, float, float], ...]
+    nodes: tuple[tuple[int, float, float], ...],
+    keys_vals: list[int] | None = None,
 ) -> bytes:
     node_ids = [osm_id for osm_id, _, _ in nodes]
     lat_raw = [_pb_nanos(lat) // 100 for _, lat, _ in nodes]
     lon_raw = [_pb_nanos(lon) // 100 for _, _, lon in nodes]
-    return (
+    body = (
         _pb_packed(1, _pb_delta(node_ids), zigzag=True)
         + _pb_packed(8, _pb_delta(lat_raw), zigzag=True)
         + _pb_packed(9, _pb_delta(lon_raw), zigzag=True)
+    )
+    if keys_vals is not None:
+        body += _pb_packed(10, keys_vals)
+    return body
+
+
+def _pb_keys_vals(strings: _StringTable, tag_sets: list[dict[str, str]]) -> list[int]:
+    """``DenseNodes.keys_vals``: ``k v ... 0`` for each node, in order."""
+    values: list[int] = []
+    for tags in tag_sets:
+        for key, value in tags.items():
+            values.extend((strings.add(key), strings.add(value)))
+        values.append(0)
+    return values
+
+
+def _pb_node_message(strings: _StringTable, osm_id: int, lat: float, lon: float,
+                     tags: dict[str, str]) -> bytes:
+    """A plain ``Node`` (PrimitiveGroup field 1): sint64 id, lat, lon."""
+    return (
+        _pb_uint(1, _zigzag(osm_id))
+        + _pb_packed(2, [strings.add(key) for key in tags])
+        + _pb_packed(3, [strings.add(value) for value in tags.values()])
+        + _pb_uint(8, _zigzag(_pb_nanos(lat) // 100))
+        + _pb_uint(9, _zigzag(_pb_nanos(lon) // 100))
     )
 
 
@@ -1408,8 +1609,14 @@ def write_osm_pbf(path: str | Path, *, timestamp: str | None = FIXTURE_TIMESTAMP
                   relations: tuple[
                       tuple[int, tuple[tuple[str, int, str], ...], dict[str, str]],
                       ...,
-                  ] = FIXTURE_RELATIONS) -> Path:
-    """Write the same fixture as a minimal ``.osm.pbf`` (one block)."""
+                  ] = FIXTURE_RELATIONS,
+                  tagged: tuple[tuple[int, float, float, dict[str, str]], ...] = (),
+                  ) -> Path:
+    """Write the same fixture as a minimal ``.osm.pbf`` (one block).
+
+    Tagged nodes go out as plain ``Node`` messages, so the reader's
+    non-dense path is exercised; ``write_osm_pbf_spec`` uses ``DenseNodes``.
+    """
     strings = _StringTable()
     way_messages = [
         _pb_way_message(strings, osm_id, refs, tags)
@@ -1419,9 +1626,14 @@ def write_osm_pbf(path: str | Path, *, timestamp: str | None = FIXTURE_TIMESTAMP
         _pb_relation_message(strings, osm_id, members, tags)
         for osm_id, members, tags in relations
     ]
+    tagged_messages = [
+        _pb_node_message(strings, osm_id, lat, lon, tags)
+        for osm_id, lat, lon, tags in tagged
+    ]
 
     block = _pb_len(1, _pb_string_table(strings))
     block += _pb_len(2, _pb_len(2, _pb_dense_nodes(nodes)))
+    block += b"".join(_pb_len(2, _pb_len(1, msg)) for msg in tagged_messages)
     block += b"".join(_pb_len(2, _pb_len(3, msg)) for msg in way_messages)
     block += b"".join(_pb_len(2, _pb_len(4, msg)) for msg in relation_messages)
 
@@ -1441,6 +1653,7 @@ def write_osm_pbf_spec(
     relations: tuple[
         tuple[int, tuple[tuple[str, int, str], ...], dict[str, str]], ...
     ] = FIXTURE_RELATIONS,
+    tagged: tuple[tuple[int, float, float, dict[str, str]], ...] = (),
 ) -> Path:
     """Write the fixture the way a real extract is framed.
 
@@ -1451,8 +1664,16 @@ def write_osm_pbf_spec(
     and the header blob may be stored uncompressed.  This writer produces that
     shape so the reader path, not just the writer, is exercised.
     """
-    node_block = _pb_len(1, _pb_string_table(_StringTable()))
-    node_block += _pb_len(2, _pb_len(2, _pb_dense_nodes(nodes)))
+    # One DenseNodes group carries every node; untagged nodes get a 0 entry.
+    # The dense message is built before the string table is serialised, or
+    # the tags' strings would be missing from the table.
+    node_strings = _StringTable()
+    dense_nodes = list(nodes) + [(osm_id, lat, lon) for osm_id, lat, lon, _ in tagged]
+    tag_sets = [{} for _ in nodes] + [tags for _, _, _, tags in tagged]
+    dense = _pb_dense_nodes(tuple(dense_nodes),
+                            _pb_keys_vals(node_strings, tag_sets))
+    node_block = _pb_len(1, _pb_string_table(node_strings))
+    node_block += _pb_len(2, _pb_len(2, dense))
 
     way_strings = _StringTable()
     way_group = b"".join(
@@ -1677,6 +1898,118 @@ def selftest() -> int:
         broken.write_bytes(b"\x00\x00\x00\x0aOSMHeader")
         code_broken = main([str(broken), "-o", str(root / "broken.jsonl")])
         check("truncated pbf rejected", code_broken == 1, f"exit={code_broken}")
+
+        # -- POI, address and place nodes (M5.1c) -------------------------
+        poi_xml = write_osm_xml(root / "poi.osm", tagged=POI_FIXTURE_NODES)
+        poi_pbf = write_osm_pbf(root / "poi.osm.pbf", tagged=POI_FIXTURE_NODES)
+        poi_spec = write_osm_pbf_spec(root / "poi-spec.osm.pbf",
+                                      tagged=POI_FIXTURE_NODES)
+        poi_texts: list[str] = []
+        poi_stats: list[Stats] = []
+        for source in (poi_xml, poi_pbf, poi_spec):
+            out = root / f"{source.name}.imf.jsonl"
+            poi_stats.append(ingest(source, out, source_name="synthetic-poi.osm.pbf"))
+            poi_texts.append(out.read_text(encoding="utf-8"))
+        check("poi xml/pbf/spec identical",
+              poi_texts[0] == poi_texts[1] == poi_texts[2],
+              "3 encodings: plain Node tags and DenseNodes keys_vals")
+        stats = poi_stats[0]
+        counts = (stats.nodes, stats.ways, stats.relations,
+                  stats.pois, stats.addresses, stats.places)
+        # 12 way vertices + 5 kept feature nodes; 3 POIs, 3 addresses, 1 place.
+        check("poi counts", counts == (17, 5, 1, 3, 3, 1), str(counts))
+        poi_report = imf_check.validate_text(poi_texts[0], "poi.imf.jsonl")
+        check("poi validates", poi_report.ok,
+              "; ".join(e.code for e in poi_report.errors[:4]))
+        check("poi has no W007-W010",
+              not [w for w in poi_report.warnings
+                   if w.code in ("W007", "W008", "W009", "W010")],
+              str([w.code for w in poi_report.warnings]))
+        records = {r["id"]: r for r in split(poi_texts[0]) if r.get("type") == "node"}
+        check("dropped nodes absent",
+              not {"n706", "n707", "n708"} & set(records))
+        check("poi record fields",
+              records["n701"].get("poi") == {"category": "amenity=fuel", "name": "Orlen",
+                                             "brand": "Orlen",
+                                             "operator": "Orlen Sp. z o.o."}
+              and records["n701"]["addr"] == {"street": "ul. Legnicka", "housenumber": "9"}
+              and records["n702"].get("name") == "Wrocław"
+              and records["n702"]["tags"].get("place") == "city",
+              str(records["n701"].get("poi")))
+
+        # Diacritics: UTF-8 survives the IMF file unchanged; the writer's
+        # CP1252 fold keeps ó and drops ż, ź, ł, ę, ś, ą, ń, ć.
+        name = records["n703"]["name"]
+        check("diacritic utf-8 kept", name == "Piekarnia Zażółć gęślą jaźń", name)
+        folded, faithful = imf_check.fold_cp1252(name)
+        check("diacritic fold",
+              folded == "Piekarnia Zazólc gesla jazn" and faithful, folded)
+        check("diacritic cp1252 one byte per char",
+              folded.encode("cp1252").decode("cp1252") == folded
+              and len(folded.encode("cp1252")) == len(folded))
+        check("fold keeps cp1252 letters",
+              imf_check.fold_cp1252("Ó Ü é ß")[0] == "Ó Ü é ß")
+        check("fold L-stroke", imf_check.fold_cp1252("Łąka")[0] == "Laka")
+        check("fold unfaithful on CJK", imf_check.fold_cp1252("道")
+              == ("?", False))
+
+        # --bbox keeps the POIs inside the box and no POI outside it.
+        bbox_poi = root / "poi-bbox.imf.jsonl"
+        ingest(poi_pbf, bbox_poi, source_name="synthetic-poi.osm.pbf",
+               bbox=(16.9080, 51.1140, 16.9120, 51.1160))
+        bbox_nodes = {r["id"] for r in split(bbox_poi.read_text(encoding="utf-8"))
+                      if r.get("type") == "node"}
+        check("bbox keeps inside POIs", {"n703", "n705"} <= bbox_nodes,
+              str(sorted(bbox_nodes)))
+        check("bbox drops outside POIs", not {"n701", "n702", "n704"} & bbox_nodes,
+              str(sorted(bbox_nodes)))
+
+        # Strict gate: a POI-only file (header + feature nodes) passes; each
+        # defect below must make --strict fail while the plain run passes.
+        poi_lines = poi_texts[0].splitlines()
+        header_line = poi_lines[0]
+        # Feature nodes only: the way vertices have no way in this file, which
+        # would be W004 (not referenced) and is not what this gate tests.
+        def is_feature(record: dict[str, Any]) -> bool:
+            return record.get("type") == "node" and (
+                "poi" in record or "addr" in record
+                or "place" in record.get("tags", {})
+            )
+
+        feature_lines = [line for line in poi_lines[1:]
+                         if is_feature(json.loads(line))]
+
+        def strict_exit(path: Path) -> int:
+            with open(os.devnull, "w", encoding="utf-8") as sink, \
+                    contextlib.redirect_stdout(sink):
+                return imf_check.main([str(path), "--strict"])
+        clean = root / "clean.imf.jsonl"
+        clean.write_text("\n".join([header_line, *feature_lines]) + "\n",
+                         encoding="utf-8")
+        check("strict clean passes",
+              strict_exit(clean) == 0
+              and imf_check.validate_text(clean.read_text(encoding="utf-8")).ok)
+
+        def mutated(code: str, fn: Any) -> None:
+            records_ = [json.loads(line) for line in feature_lines]
+            fn(records_)
+            path = root / f"strict-{code}.imf.jsonl"
+            body = [header_line, *(json.dumps(r, ensure_ascii=False) for r in records_)]
+            path.write_text("\n".join(body) + "\n", encoding="utf-8")
+            report_ = imf_check.validate_text(path.read_text(encoding="utf-8"))
+            codes = {w.code for w in report_.warnings}
+            check(f"strict {code} flagged",
+                  code in codes and report_.ok
+                  and strict_exit(path) == 1,
+                  str(sorted(codes)))
+
+        def find(records_: list[dict[str, Any]], rid: str) -> dict[str, Any]:
+            return next(r for r in records_ if r["id"] == rid)
+
+        mutated("W007", lambda rs: find(rs, "n701")["poi"].pop("name"))
+        mutated("W008", lambda rs: find(rs, "n704")["addr"].pop("street"))
+        mutated("W009", lambda rs: find(rs, "n703").__setitem__("name", "道路"))
+        mutated("W010", lambda rs: find(rs, "n702").__setitem__("name", "Ż" * 129))
 
     print(f"selftest: {'OK' if not failures else 'FAILED'}")
     return 0 if not failures else 1
