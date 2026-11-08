@@ -3030,7 +3030,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2440–C-2449
 
 - [ ] **M9.20 — L3 plumbing: firmware entry kind, `engine_hook`, `ghidra/l3_run.py`**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m9.20-l3-plumbing · Critical: no
   - Depends: —
   - Goal: the M9.5/M9.9 follow-ups that stop a real reader from running even
     when M3 has found its VA.
