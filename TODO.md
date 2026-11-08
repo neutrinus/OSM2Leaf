@@ -566,8 +566,8 @@ M4.16b → M4.2/M5.3.
     (`selftest.py`: passed=29 failed=0 skipped=20; `claims_check.py`: OK).
   - Claims: none
 
-- [ ] **H14 — Verification debt: the checks the EXPs promised but never ran**
-  - Status: in progress · Owner: claude/h14-verification-debt · Critical: no
+- [x] **H14 — Verification debt: the checks the EXPs promised but never ran**
+  - Status: done · Owner: claude/h14-verification-debt · Critical: no
   - Depends: —
   - Goal: five follow-ups ask for the same thing — run the pinned checks on
     the real samples once, so the `realcheck`/`harness` pins mean something.
@@ -584,6 +584,7 @@ M4.16b → M4.2/M5.3.
     silent pass), and a new pin is added only where the measured value is
     stable.
   - Claims: none
+  - Result: EXP-2026-11-08-H14-verification-debt. selftest 47/0; realcheck 8 PASS; harness verify OK on B28R070R, B30R060R, B58R070R; **B30R048R fails** (`AssertionError((6, 29))`, negative, follow-up needed); lev3456 verify OK on stock zlib 1.3.2; build.sh selftest 42/0 with make, meson, ninja, gcc.
 
 - [x] **H15 — PM review, sixth pass (2026-11-06)**
   - Status: done · Owner: session-PM · Critical: no
