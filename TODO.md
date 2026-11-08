@@ -1203,7 +1203,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-08-M1.14-sh4dec-debt. `sh4scan.py` uses `sh4dis.halfwords_le` (shared LE reader, no duplicate). `mov.w @(disp,PC)` pinned synthetic + real (Navi.exe A `0x003f51a8/ae/c2`, pool `0x04e8/0x03ff/0x4e20`; C-2129 `fn 0x003f5194` uses it at 3 sites), resolving C-2489 for the mode; `0x88038666` still decodes the same. `--oracle` checks four M1.8 sites with Capstone/sh4*-objdump or pinned `SKIP` when absent (test host: SKIP). Selftests/claims_check green.
 
 - [ ] **M1.10b — Spot-check two resolved import names at their call sites**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.10b-import-spotcheck · Critical: no
   - Depends: — (M1.10 done)
   - Goal: M1.10 named 846/846 `Navi.exe` slots by export-table lookup. Two of
     the newly named exporters (`XGLDLL`, `OSMDLL`) should be confirmed where
