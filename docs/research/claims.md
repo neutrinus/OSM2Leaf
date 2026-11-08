@@ -1903,6 +1903,21 @@ EXP-2026-11-08-M4.23-restriction-encoding.
 | C-2228 | For an EU-base Poland card, `REFER001/COORD001`, `ZCODE0nn` and `ICODE001` are **copy-eligible** (G6/M5.18 scoping): they cover the EU region/country set and Poland is shard 021, so the region tables need not be regenerated for a Poland-focused EU card; POINT/ADDRE remain the generated layers (M5.18). | OBSERVED (scoping) | M | EXP-2026-11-08-M3.17-verbatim-copy; `docs/research/reader-coverage.md` rows 7–9, G6; M5.18 |
 | C-2229 | No new "generate" task is required by M3.17 beyond existing writers M5.17 (LCTBL001), M5.18 (POINT/ADDRE) and M5.19 (RDSTM001). `REFER002` generation/emptying is not tasked because the EV schema is undecoded and cross-market replacement uses a market-correct copy, not generation. | VERIFIED (process) | H | EXP-2026-11-08-M3.17-verbatim-copy; `TODO.md` M5.17/M5.18/M5.19 |
 
+## M1.10b — Spot-check resolved import call sites (C-2600–C-2609)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2600 | `Navi.exe` (build A, IMG256 `92aa525d…`) slot `0x0055d954`, resolved as `OSMDLL!OSM_Printf` by export-table lookup (M1.10, precheck with `--resolve-with 0x200200,0x3e00200,0x5200200`), is loaded from literal pools and called indirectly at real call sites: `sh4xref.py --to 0x0055d954` finds 88 load records across 24 pools, and `--calls 0x0039c978` shows `jsr @r3 -> 0x0055d954` at `0x0039c9ba`. | VERIFIED | H | EXP-2026-11-08-M1.10b-import-spotcheck; `tools/cerom.py imports`, `tools/sh4xref.py --to/--calls` |
+| C-2601 | At `fn 0x0039c978` call `0x0039c9ba` to slot `0x0055d954` (`OSMDLL!OSM_Printf`), the observed SH-4 argument setup is `r4` = PC-relative literal `0x0003a060`, `r5` = indirect data word (via slot `0x0055d8e4`), `r6` = constant `0x056a`, `r7` = computed value (4 args). This shape is consistent with a printf-style/logging role; the exact prototype and the meaning of `0x0003a060`/`0x056a` are not established. | OBSERVED | M | EXP-2026-11-08-M1.10b-import-spotcheck; `tools/sh4dis.py --va 0x0039c990 --count 30` |
+| C-2602 | `Navi.exe` (build A, IMG256) slot `0x0055db94`, resolved as `XGLDLL!xglDisable` (M1.10 precheck), is loaded and called indirectly at real call sites: `sh4xref.py --to 0x0055db94` finds 42 load records across 21 pools, and `--calls 0x003da074` shows `jsr @r3 -> 0x0055db94` at `0x003da0aa`. | VERIFIED | H | EXP-2026-11-08-M1.10b-import-spotcheck; `tools/cerom.py imports`, `tools/sh4xref.py --to/--calls` |
+| C-2603 | At `fn 0x003da074` call `0x003da0aa` to slot `0x0055db94` (`XGLDLL!xglDisable`), the observed argument setup is `r4` = `r8` (passed through from enclosing context) and `r5` = constant `0x00800000` (2 args), with return `r0` stored. This shape is consistent with a disable/capability role; the exact prototype and the meaning of `0x00800000` are not established. | OBSERVED | M | EXP-2026-11-08-M1.10b-import-spotcheck; `tools/sh4dis.py --va 0x003da098 --count 12` |
+| C-2604 | RESERVED. | — | — | — |
+| C-2605 | RESERVED. | — | — | — |
+| C-2606 | RESERVED. | — | — | — |
+| C-2607 | RESERVED. | — | — | — |
+| C-2608 | RESERVED. | — | — | — |
+| C-2609 | RESERVED. | — | — | — |
+
 ## M2.17 — `HDD_CHK.ATT` crypto context, `ctx+120`, `0x1e582–0x1e5e8` (C-2610–C-2619)
 
 | ID | Claim | Status | Confidence | Evidence |
