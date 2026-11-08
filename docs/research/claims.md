@@ -961,6 +961,21 @@ Built without vendor data; every row states what is synthetic-only.
 | C-1818 | reserved. | UNKNOWN | — | — |
 | C-1819 | reserved. | UNKNOWN | — | — |
 
+## M4.17 — Road-class field from numbered roads of known class (C-1820–C-1829)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1820 | `LCTBL001` name slot 1 (`names[0]`, "field 1") holds road numbers: 36,461 of 247,089 EU 2011 records (SHA-256 `8cab1775…`). Normalised numbers that equal an OSM `ref` of the Dolnośląskie extract with one `highway` class for ≥ 90 % of ways join 420 records on 96 roads of 7 classes (motorway 7, secondary 54, primary 16, track 9, tertiary 6, trunk 3, service 1). | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.17-road-class; `python3 tools/road_class_probe.py LCTBL001.DAT --imf dolnoslaskie.imf.jsonl` |
+| C-1821 | No candidate record field (class code `u16` at `+14`, record size, slot lengths, seven attribute bytes, footer length and leading bytes) predicts the OSM class of a road under leave-one-road-out better than its shuffled-label null, in EU 2011 (LORO 0.245–0.481 against nulls 0.46–0.56) or EU 2014 (LORO 0.165–0.554 against nulls 0.47–0.58). M4.17 finds no road-class field. | VERIFIED (negative) | M | EXP-2026-11-08-M4.17-road-class, Tables A and A2; `road_class_probe.py --perms 200` |
+| C-1822 | The in-sample agreement of `class_code` (0.500 vs null 0.316, EU 2011) and of `footer[:2]` (0.845 vs 0.580) is not a road-class signal: `footer[:2]` takes 161 values over 420 rows (it mostly names the road), and the common `class_code` 0x283c holds all seven classes. | OBSERVED | M | EXP-2026-11-08-M4.17-road-class, Table B |
+| C-1823 | `class_code` 0x283c is 53.6 % of joined numbered-road rows (EU 2011: 225 of 420) and 0.2 % of unnumbered-street rows (431 of 207,722), so the value marks numbered-road records, not a class. | OBSERVED | M | EXP-2026-11-08-M4.17-road-class, Table C |
+| C-1824 | Motorway-only `class_code` values recur across EU 2011 and EU 2014 in-sample: 0x2775 (2011: 23 of 23 rows motorway, roads A8, A4, A18, D11, S3; 2014: 30 of 31), 0x4e8e (2014: 10 of 10), 0x4e91 (2014: 11 of 11). They cover a small share of motorway rows (23 of 118 in 2011). | OBSERVED | L | EXP-2026-11-08-M4.17-road-class, Table B |
+| C-1825 | `class_code` may be a partial road-class key (class-pure codes above, a secondary-dominated code 0x2777, and a mixed default 0x283c), but it is not established: its LORO on EU 2014 is 0.554 against a null of 0.550 (sd 0.138), and the control is one Polish-numbering sample. | HYPOTHESIS | L | EXP-2026-11-08-M4.17-road-class, Table A2 |
+| C-1826 | The M4.2 RDSTM gate (C-901) is unchanged: the LCTBL road-number key is a record key, not an RDSTM row key, because no decoded RDSTM row carries a road number (C-884, the per-record directory is undecoded). | OBSERVED | M | EXP-2026-11-08-M4.17-road-class, Interpretation; C-884, C-901 |
+| C-1827 | `LCTBL001` records carry no country, so an EU-wide road number can join to a same-numbered Dolnośląskie OSM way outside Poland (e.g. `A4`, `A8`, `D11`, `B96`); the join is a numbering-level key, not a place key. | OBSERVED | H | EXP-2026-11-08-M4.17-road-class, Scope |
+| C-1828 | `tools/road_class_probe.py --selftest` passes on synthetic data: a field equal to the class gives LORO 1.000 and beats its shuffled null; a per-road footer has no LORO votes; a random attribute byte gives LORO < 0.6. | VERIFIED (tool, synthetic) | H | `python3 tools/road_class_probe.py --selftest` |
+| C-1829 | reserved. | UNKNOWN | — | — |
+
 ## M4.11 — `LEV3456R.DAT` coarse levels 3–5 (C-990–C-999)
 
 | ID | Claim | Status | Confidence | Evidence |
