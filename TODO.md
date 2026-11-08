@@ -2247,7 +2247,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2100–C-2109
 
 - [ ] **M4.21 — Tile section-4 writer (place-name index, H11 G3)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.21-section4-writer · Critical: no
   - Depends: M3.6 (who consumes it), M4.4 (preserve path)
   - Goal: `section4.py build` refuses (exit 3) and every tile edit so far
     keeps section 4 verbatim, so a tile whose place names must change — any
