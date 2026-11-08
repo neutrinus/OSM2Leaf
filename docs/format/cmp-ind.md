@@ -172,9 +172,14 @@ a round-trip writer.
 
 ## Firmware reader (build A, Navi.exe — partial, M3.2b)
 
-> Evidence: `EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate.md`, C-2060–C-2066.
+> Evidence: `EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate.md` (pass 1),
+> `EXP-2026-11-08-M3.2b-cmp-chunk-reader-inflate-2.md` (pass 2, blocked),
+> C-2060–C-2069.
 > Status: **inflate + chunk decompression engine VERIFIED; `.ind` chunk_offset[]
-> consumer / M3.2a,b NOT YET LOCATED** (likely in Navi.exe compressed sec1/sec2).
+> consumer / M3.2a,b NOT YET LOCATED.** Pass 2 found 0 refs to `fn 0x41c7e8` in
+> all uncompressed sections of builds A/B/C (282/527 build-A sections searched);
+> `Navi.exe` sec1 is compressed `.data` (`cerom decompress` UNSUPPORTED), so an
+> indirect-call pointer there is not statically readable. M3.2a/b open.
 
 `Navi.exe` (A, `--image-start 0x200200`, sec0 uncompressed) statically links
 zlib 1.1.3 and provides:

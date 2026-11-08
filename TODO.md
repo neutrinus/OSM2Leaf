@@ -1838,34 +1838,53 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M3.10-drstr-cmplst-fns (C-1860–C-1869). `0x0041ba90` (CMP.LST) does only `fopen`/`fclose` — no content read/compare (existence check). `0x00419684`→`sub_00419350` reads/parses DRSTR001 (heap `*0x009cfcdc` ≤`0x77220`, stack 40B) with size/read checks at `0x419388,0x4193da,0x4193e4,0x419462-0x419468,0x419496-0x4194a6` (`_modlu`/`>=200` caveat noted) but **no 0x2f root / 40-node / 324-entry compare found** (C-1864, strengthens C-859); `sub_004191d0` bounds `entry_count+1 < 15000` at `0x41920a`. All in `Navi.exe`, coredll ordinals named. `drstr.md` updated.
 
 - [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
-  - Status: in progress · Owner: task/m3.2b-cmp-chunk-reader-inflate · Critical: yes
-  - Depends: — (**not** M1.2f: no executable section of build A is compressed,
-    C-2128)
-  - Re-opened (ninth pass, 2026-11-08). The pass-1 blocker — "the caller lives
-    in `Navi.exe` sec1, uncompressed code we cannot read" — is **refuted**:
-    sec1 flags `0xc8002040` (`.data`) and every executable section is readable
-    (C-2128/C-2129). What remains true is "no *static* caller of
-    `fn 0x41c7e8`", which is the shape that hid the POINT walker: an
-    **indirect call through a pointer in `.data`**, or a caller in a module the
-    search never named. Re-run with `tools/sh4scan.py` (constant/mask
-    signatures, builds A **and** B/C) plus an L3 probe: hook `0x41c7e8` and
-    record the caller PC. The chunk engine is already usable for S1 (M9.11).
+  - Status: blocked · Owner: task/m3.2b-cmp-chunk-reader-inflate · Critical: yes
+  - Depends: — (**not** M1.2f for the code: no executable section of build A is
+    compressed, C-2128)
+  - Blocker: no literal-pool/direct/32-bit reference to `0x0041c7e8` in any
+    uncompressed section of build A (282 sections, 149 modules) or B/C; the
+    likely indirect-call pointer lives in `Navi.exe` sec1 (`.data`,
+    `0xc8002040`, compressed) which `cerom decompress` cannot decode
+    (`UNSUPPORTED`, LZX/LZSS). Zlib is in uncompressed sec0 (C-2060), so the
+    Done-when escape is false. A firmware `.cmp`-open L3 probe for the caller
+    PC needs file-stub/import binding (M9.24 context). M3.2a/b unanswered.
+  - Unblock: decode `Navi.exe` sec1 and resolve the indirect slot to a sec0
+    `jsr @Rn` caller (M1.2f/M8.E1/working CE codec), or capture the `0x41c7e8`
+    caller PC via an L3 firmware `.cmp`-open run with file stubs (M9.24).
+  - Re-opened (ninth pass, 2026-11-08): pass-1 "caller in compressed code"
+    refuted (sec1 is `.data`, C-2128/C-2129). Pass 2 (this PR): searched
+    `tools/sh4scan` anchors/signatures across builds A/B/C, exhaustive 32-bit
+    and pool xrefs across all uncompressed sections — 0 refs to `0x41c7e8`;
+    sec1 `UNSUPPORTED` by `cerom decompress`; direct-call chunk engine OK
+    (M9.11) but not a firmware caller-PC probe.
   - Goal: M3.1/M3.2 show the `MAL_DataVol_*` and `.IND` string leads miss the
     reader. Every `.cmp` chunk is zlib, so the reader must call `inflate`.
+  - Precheck: `python3 tools/cerom.py --image-start 0x200200 $IMG sections Navi.exe`
+    and `python3 tools/sh4scan.py $IMG --image-start 0x200200 anchors` — verify
+    sec0 uncompressed, sec1/2 compressed `.data`, anchors present (14 hits).
+  - Scope: build A 527 o32 sections (282 uncompressed, 23,559,542 B psize, all
+    149 modules) + builds B/C module census/targeted search; map-module
+    signature scans `{Navi.exe, OSMDLL.dll, NaviMapCC.dll, OBJDLL.dll,
+    MAL_DataVol.dll, STDDLL.dll}`; **excludes** undecoded compressed sec1/sec2
+    `.data` and a firmware open-path L3 run (needs file stubs).
   - Input: image A modules (`cerom.py sections`); zlib message strings
     (`incorrect header check`, `invalid distance too far back`,
     `invalid stored block lengths`), the zlib version string and the
     `inflate … Copyright` banner as anchors; `sh4xref.py --to`;
-    `docs/format/cmp-ind.md`.
+    `tools/sh4scan.py`; `docs/format/cmp-ind.md`.
   - Done when: the module and VAs of `inflateInit2_`/`inflate`/`inflateEnd`
     are recorded, their callers are listed, and the caller that loops over
     `chunk_offset[]` is named (then answer M3.2's two questions); or the EXP
     shows, with a positive control, that zlib sits in a compressed section.
-  - Result: EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate.md (partial). zlib
-    found in uncomp sec0 of 6 A modules (not compressed); Navi.exe inflate API +
-    wrapper `0x542148` + chunked decompressor `fn 0x41c7e8` recorded (no seek/no
-    `78 9c` scan/no `0x10000` compare in that layer). `chunk_offset[]` consumer
-    not in uncompressed code (positive controls); likely Navi.exe comp sec1/sec2.
+  - Stop: 0 readable refs to `0x41c7e8` across all uncompressed sections of
+    builds A/B/C and sec1 undecodable by available codec → set `blocked` with
+    the negative EXP (do not guess the caller or fabricate a codec result).
+  - Result: EXP-2026-11-08-M3.2b-cmp-chunk-reader-inflate-2.md (blocked, pass 2).
+    Inflate/engine VAs confirmed (C-2061–C-2063); 0 refs to `0x41c7e8` in all
+    uncompressed sections of A/B/C (C-2064 strengthened); sec1 `.data`
+    `UNSUPPORTED` by `cerom decompress` (C-2067); `.ind` consumer/indirect
+    caller unresolved, M3.2a/b open (C-2066 refined). Pass 1:
+    EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate.md.
   - Claims: C-2060–C-2069
 
 - [x] **M3.11 — The `POINT` record reader in `Navi.exe`**
