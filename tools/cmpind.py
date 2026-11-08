@@ -27,38 +27,24 @@ from __future__ import annotations
 
 import argparse
 import json
-import struct
 import sys
-import zlib
 from pathlib import Path
 
 import zlibinfo
 
-HEADER = 16
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cmpind_codec  # noqa: E402
 
-
-class FormatError(Exception):
-    pass
+HEADER = cmpind_codec.IND_HEADER
+FormatError = cmpind_codec.FormatError
 
 
 def read_index(ind_path: Path) -> tuple[int, int, int, int, tuple[int, ...]]:
-    data = ind_path.read_bytes()
-    if len(data) < HEADER:
-        raise FormatError(f"{ind_path}: too short for .ind header")
-    usize, csize, count, chunk_size = struct.unpack_from("<IIII", data, 0)
-    expected = HEADER + 4 * count
-    if len(data) != expected:
-        raise FormatError(
-            f"{ind_path}: size {len(data)} != 16 + 4*{count} = {expected}"
-        )
-    offsets = struct.unpack_from(f"<{count}I", data, HEADER)
-    return usize, csize, count, chunk_size, offsets
+    return cmpind_codec.read_ind(ind_path)
 
 
 def chunk_ranges(cmp_size: int, offsets: tuple[int, ...]):
-    for i, start in enumerate(offsets):
-        end = offsets[i + 1] if i + 1 < len(offsets) else cmp_size
-        yield i, start, end
+    yield from cmpind_codec.chunk_ranges(cmp_size, offsets)
 
 
 def decode(cmp_path: Path, ind_path: Path | None = None) -> tuple[bytes, dict]:
@@ -66,44 +52,9 @@ def decode(cmp_path: Path, ind_path: Path | None = None) -> tuple[bytes, dict]:
         if cmp_path.suffix != ".cmp":
             raise FormatError(f"{cmp_path}: expected a .cmp file")
         ind_path = cmp_path.with_suffix(".ind")
-
-    usize, csize, count, chunk_size, offsets = read_index(ind_path)
-    packed = cmp_path.read_bytes()
-
-    if csize != len(packed):
-        raise FormatError(
-            f"{cmp_path}: .ind says {csize} compressed bytes, file has {len(packed)}"
-        )
-
-    parts: list[bytes] = []
-    for i, start, end in chunk_ranges(len(packed), offsets):
-        if not (0 <= start < end <= len(packed)):
-            raise FormatError(f"{cmp_path}: chunk {i} range {start}:{end} out of bounds")
-        try:
-            part = zlib.decompress(packed[start:end])
-        except zlib.error as exc:
-            raise FormatError(f"{cmp_path}: chunk {i} ({start}:{end}): {exc}") from exc
-        if i != count - 1 and len(part) != chunk_size:
-            raise FormatError(
-                f"{cmp_path}: chunk {i} decoded to {len(part)}, expected {chunk_size}"
-            )
-        parts.append(part)
-
-    blob = b"".join(parts)
-    if len(blob) != usize:
-        raise FormatError(
-            f"{cmp_path}: decoded {len(blob)} bytes, .ind declares {usize}"
-        )
-
-    info = {
-        "uncompressed_size": usize,
-        "compressed_size": csize,
-        "chunk_count": count,
-        "chunk_size": chunk_size,
-        "offsets": offsets,
-        "ind_path": ind_path,
-    }
-    return blob, info
+    blob, info = cmpind_codec.decode(cmp_path, ind_path)
+    # preserve historical info shape (cmp_path not previously exposed)
+    return blob, {k: v for k, v in info.items() if k != "cmp_path"}
 
 
 def cmd_info(args: argparse.Namespace) -> int:
@@ -200,9 +151,40 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0 if not failures else 1
 
 
+def selftest() -> int:
+    import struct
+    import tempfile
+    import zlib
+
+    with tempfile.TemporaryDirectory(prefix="cmpind-") as td:
+        tmp = Path(td)
+        chunk0 = (b"HELLO ZE0 " * 6554)[:65536]
+        chunk1 = b"tail" * 100
+        blob = chunk0 + chunk1
+        streams = [zlib.compress(chunk0, 6), zlib.compress(chunk1, 6)]
+        cmp_bytes = b"".join(streams)
+        offsets = [0, len(streams[0])]
+        ind = struct.pack("<IIII", len(blob), len(cmp_bytes), 2, 65536)
+        ind += struct.pack("<2I", *offsets)
+        ind_path = tmp / "SAMPLE.DAT.ind"
+        cmp_path = tmp / "SAMPLE.DAT.cmp"
+        ind_path.write_bytes(ind)
+        cmp_path.write_bytes(cmp_bytes)
+        out_blob, info = decode(cmp_path, ind_path)
+        assert out_blob == blob and info["chunk_count"] == 2
+        assert read_index(ind_path)[4] == tuple(offsets)
+        out = tmp / "out.dat"
+        assert main(["extract", str(cmp_path), "-o", str(out)]) == 0
+        assert out.read_bytes() == blob
+        assert main(["verify", str(tmp)]) == 0
+    print("cmpind selftest: OK")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument("--selftest", action="store_true", help="run synthetic checks and exit")
+    sub = parser.add_subparsers(dest="command")
 
     p_info = sub.add_parser("info", help="print an .ind header")
     p_info.add_argument("ind")
@@ -223,7 +205,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if getattr(args, "selftest", False):
+        return selftest()
+    if not getattr(args, "command", None):
+        parser.print_help()
+        return 0
     try:
         return args.func(args)
     except (FormatError, OSError) as exc:

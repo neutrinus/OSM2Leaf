@@ -50,12 +50,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import struct
+import sys
 import zlib
 from pathlib import Path
 
-CHUNK = 0x10000
-PAGE_ALIGN = 0x100
+# Shared codec (M1.16): factory params, container, inner-page primitives.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cmpind_codec  # noqa: E402
+
+CHUNK = cmpind_codec.CHUNK
+PAGE_ALIGN = cmpind_codec.PAGE_ALIGN
 #: First byte of a POINT name record.  Other POINT pages are a different
 #: (bit-packed) page type and start ``00 xx 00 yy``.
 RECORD_TAGS = (0x60, 0x68)
@@ -207,42 +211,24 @@ def resize_name(inner: bytes, old: bytes, new: bytes) -> tuple[bytes, dict]:
 
 
 # ---------------------------------------------------------------------------
-# container helpers
+# container helpers (shared codec M1.16; signatures kept for factory_zlib/callers)
 
 
 def read_ind(path: Path):
-    data = path.read_bytes()
-    usize, csize, count, chunk_size = struct.unpack_from("<IIII", data, 0)
-    assert len(data) == 16 + 4 * count, "unexpected .ind size"
-    offsets = struct.unpack_from(f"<{count}I", data, 16)
+    usize, csize, count, chunk_size, offsets = cmpind_codec.read_ind(path)
     return usize, csize, count, chunk_size, list(offsets)
 
 
 def decode(cmp_bytes: bytes, offsets: list[int]) -> bytes:
-    parts = []
-    for i, start in enumerate(offsets):
-        end = offsets[i + 1] if i + 1 < len(offsets) else len(cmp_bytes)
-        parts.append(zlib.decompress(cmp_bytes[start:end]))
-    return b"".join(parts)
+    return cmpind_codec.decode_blob(cmp_bytes, offsets, strict_nonfinal=False)
 
 
 def encode(blob: bytes, chunk_size: int):
-    streams = []
-    for pos in range(0, len(blob), chunk_size):
-        streams.append(zlib.compress(blob[pos : pos + chunk_size], 6))
-    offsets = []
-    pos = 0
-    for s in streams:
-        offsets.append(pos)
-        pos += len(s)
-    return b"".join(streams), offsets
+    return cmpind_codec.encode_chunks(blob, chunk_size, compress=cmpind_codec.factory_compress)
 
 
 def build_ind(usize: int, csize: int, chunk_size: int, offsets: list[int]) -> bytes:
-    return (
-        struct.pack("<IIII", usize, csize, len(offsets), chunk_size)
-        + struct.pack(f"<{len(offsets)}I", *offsets)
-    )
+    return cmpind_codec.build_ind(usize, csize, chunk_size, offsets)
 
 
 # ---------------------------------------------------------------------------
@@ -420,8 +406,10 @@ def edit_inner(inner: bytes, edits: list[dict]) -> tuple[bytes, list[dict]]:
 
 
 def _deflate(data: bytes, level: int, mem_level: int) -> bytes:
-    comp = zlib.compressobj(level, zlib.DEFLATED, 15, mem_level)
-    return comp.compress(data) + comp.flush()
+    return cmpind_codec.factory_compress(
+        data, level=level, mem_level=mem_level,
+        wbits=cmpind_codec.FACTORY_WBITS, strategy=cmpind_codec.FACTORY_STRATEGY,
+    )
 
 
 def page_encoder(stream: bytes, inner: bytes) -> tuple[int, int] | None:
@@ -442,25 +430,18 @@ def refit_page(blob: bytes, page: int, new_inner: bytes) -> bytes:
     that reproduce the original stream are used first, so an unchanged name
     gives back the same bytes.
     """
-    window = blob[page: page + (8 << 20)]  # shorter than 8 MiB near the end
-    dec = zlib.decompressobj()
-    dec.decompress(window)
-    if not dec.eof:
-        raise PageError(f"page {page:#x} is not a complete zlib stream")
-    consumed = len(window) - len(dec.unused_data)
-    original = window[:consumed]
-    limit = (page + consumed + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
-    if any(blob[page + consumed: limit]):
-        limit = page + consumed  # bytes after the stream belong to something else
-    slot = limit - page
-    setting = page_encoder(original, zlib.decompress(original))
+    try:
+        inner, consumed, slot, original = cmpind_codec.inner_stream_slot(blob, page)
+    except cmpind_codec.FormatError as exc:
+        raise PageError(str(exc)) from exc
+    setting = page_encoder(original, inner)
     candidates = [setting] if setting else []
     candidates += [(level, mem) for level in range(9, 0, -1) for mem in (8, 9)]
     for level, mem_level in candidates:
         stream = _deflate(new_inner, level, mem_level)
         if len(stream) <= slot:
             new_blob = bytearray(blob)
-            new_blob[page: page + slot] = stream + bytes(slot - len(stream))
+            new_blob[page: page + slot] = cmpind_codec.refit_stream_in_slot(stream, slot)
             return bytes(new_blob)
     raise FitError(f"page {page:#x}: no encoder fits {slot} bytes")
 
@@ -475,11 +456,10 @@ def batch_edit(blob: bytes, plan: list[dict]) -> tuple[bytes, list[dict]]:
     skipped = []
     for entry in plan:
         page = entry["page"]
-        window = blob[page: page + (8 << 20)]
-        dec = zlib.decompressobj()
-        inner = dec.decompress(window)
-        if not dec.eof:
-            raise PageError(f"page {page:#x} is not a complete zlib stream")
+        try:
+            inner, _ = cmpind_codec.decompress_stream_at(blob, page)
+        except cmpind_codec.FormatError as exc:
+            raise PageError(str(exc)) from exc
         new_inner, applied = edit_inner(inner, entry["edits"])
         try:
             blob = refit_page(blob, page, new_inner)
@@ -553,9 +533,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # locate and decompress the inner page
     page = args.page
-    dec = zlib.decompressobj()
-    inner = dec.decompress(blob[page:])
-    consumed = len(blob[page:]) - len(dec.unused_data)
+    try:
+        inner, consumed = cmpind_codec.decompress_stream_at(blob, page, window=len(blob[page:]) or 1)
+    except cmpind_codec.FormatError as exc:
+        raise SystemExit(str(exc)) from exc
     print(f"inner page {page:#x}: {len(inner)} bytes -> {consumed} compressed")
 
     if args.resize:
@@ -591,11 +572,11 @@ def main(argv: list[str] | None = None) -> int:
 
     # find the next page boundary after the original stream; must fit
     limit = (page + consumed + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
-    new_stream = zlib.compress(new_inner, 6)
+    new_stream = cmpind_codec.factory_compress(new_inner, level=6)
     level_used = 6
     if page + len(new_stream) > limit:
         # zlib-ng or content changes can make level 6 grow; level 9 may fit.
-        new_stream9 = zlib.compress(new_inner, 9)
+        new_stream9 = cmpind_codec.factory_compress(new_inner, level=9)
         if page + len(new_stream9) <= limit:
             new_stream = new_stream9
             level_used = 9

@@ -20,15 +20,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import tempfile
 import zlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cmpind_codec  # noqa: E402
+
 ENCODINGS = ("latin-1", "utf-16-le", "utf-16-be")
 CONTEXT = 16
-ZLIB_HEADER = re.compile(rb"\x78[\x01\x5e\x9c\xda]")
+ZLIB_HEADER = cmpind_codec.ZLIB_HEAD
 INNER_LIMIT = 8 << 20
 
 
@@ -61,13 +63,11 @@ def search(data: bytes, needle_by_enc: dict, path: Path, inner: int | None) -> l
 
 def inflate_at(data: bytes, off: int) -> bytes | None:
     """Return the complete zlib stream starting at ``off``, or None."""
-    dec = zlib.decompressobj()
     try:
-        # memoryview: a bytes slice would copy up to INNER_LIMIT per candidate.
-        out = dec.decompress(memoryview(data)[off: off + INNER_LIMIT])
-    except zlib.error:
+        inner, _ = cmpind_codec.decompress_stream_at(data, off, window=INNER_LIMIT)
+        return inner
+    except cmpind_codec.FormatError:
         return None
-    return out if dec.eof else None
 
 
 def needles_for(texts: list[str]) -> dict:

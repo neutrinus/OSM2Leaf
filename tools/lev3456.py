@@ -754,8 +754,9 @@ def encode_record(rec, level):
 
 
 def compress_record(plain):
-    c = zlib.compressobj(6, zlib.DEFLATED, 15, 8)
-    z = c.compress(plain) + c.flush()
+    # Factory zlib params (M1.13/M1.16); tile-stream domain, same encoder params.
+    import cmpind_codec
+    z = cmpind_codec.factory_compress(plain)
     if len(z) % 4:
         z += b"\x00" * (4 - len(z) % 4)
     return z

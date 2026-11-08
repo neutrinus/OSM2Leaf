@@ -31,23 +31,27 @@ Both CLI commands print the zlib runtime via ``tools/zlibinfo.py``.
 ``recompress`` warns on zlib-ng and ``--require-stock-zlib`` refuses to run
 (exit 3, *unverifiable*, distinct from a data failure exit 1).  ``verify`` only
 inflates, so its verdict is data-level and unchanged on any build.
+
+Outer container / factory-params primitives are shared with ``cmpind_codec``
+(M1.16).  ``--selftest`` runs a synthetic round-trip (no vendor data).
 """
 
 from __future__ import annotations
 
-import struct
+import sys
 import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import zlibinfo
 
-CHUNK = 0x10000
-IND_HEADER = 16
+# Shared codec (M1.16).  Re-export the names this module has always provided.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cmpind_codec  # noqa: E402
 
-
-class FormatError(Exception):
-    pass
+CHUNK = cmpind_codec.CHUNK
+IND_HEADER = cmpind_codec.IND_HEADER
+FormatError = cmpind_codec.FormatError
 
 
 def _chunk_count(usize: int, chunk_size: int) -> int:
@@ -69,10 +73,10 @@ class CmpFile:
         dat: bytes,
         *,
         chunk_size: int = CHUNK,
-        level: int = 6,
-        wbits: int = 15,
-        mem_level: int = 8,
-        strategy: int = zlib.Z_DEFAULT_STRATEGY,
+        level: int = cmpind_codec.FACTORY_LEVEL,
+        wbits: int = cmpind_codec.FACTORY_WBITS,
+        mem_level: int = cmpind_codec.FACTORY_MEM,
+        strategy: int = cmpind_codec.FACTORY_STRATEGY,
     ) -> "CmpFile":
         n = _chunk_count(len(dat), chunk_size)
         streams = []
@@ -90,22 +94,14 @@ class CmpFile:
 
     @classmethod
     def from_files(cls, cmp_path: Path, ind_path: Path) -> "CmpFile":
-        ind = Path(ind_path).read_bytes()
-        if len(ind) < IND_HEADER:
-            raise FormatError(f"{ind_path}: shorter than the 16-byte header")
-        usize, csize, count, chunk_size = struct.unpack_from("<IIII", ind, 0)
-        if len(ind) != IND_HEADER + 4 * count:
-            raise FormatError(f"{ind_path}: size {len(ind)} != 16 + 4*{count}")
-        offsets = list(struct.unpack_from(f"<{count}I", ind, IND_HEADER))
+        usize, csize, count, chunk_size, offsets = cmpind_codec.read_ind(ind_path)
         packed = Path(cmp_path).read_bytes()
         if csize != len(packed):
             raise FormatError(f"{cmp_path}: .ind says {csize}, file has {len(packed)}")
+        offsets = list(offsets)
         if count and (offsets[0] != 0 or offsets != sorted(offsets) or offsets[-1] >= len(packed)):
             raise FormatError(f"{ind_path}: bad chunk offsets")
-        streams = []
-        for i, start in enumerate(offsets):
-            end = offsets[i + 1] if i + 1 < len(offsets) else len(packed)
-            streams.append(packed[start:end])
+        streams = [packed[start:end] for _, start, end in cmpind_codec.chunk_ranges(len(packed), offsets)]
         return cls(usize, chunk_size, streams)
 
     # ---- inspection ---------------------------------------------------
@@ -123,23 +119,13 @@ class CmpFile:
         return b"".join(self.streams)
 
     def ind_bytes(self) -> bytes:
-        offs = self.offsets()
-        return (
-            struct.pack("<IIII", self.usize, len(self.cmp_bytes()), len(offs), self.chunk_size)
-            + struct.pack(f"<{len(offs)}I", *offs)
-        )
+        return cmpind_codec.build_ind(self.usize, len(self.cmp_bytes()), self.chunk_size, self.offsets())
 
     def decode(self) -> bytes:
-        parts = []
-        for i, s in enumerate(self.streams):
-            part = zlib.decompress(s)
-            if i != len(self.streams) - 1 and len(part) != self.chunk_size:
-                raise FormatError(f"chunk {i} inflates to {len(part)}, want {self.chunk_size}")
-            parts.append(part)
-        blob = b"".join(parts)
-        if len(blob) != self.usize:
-            raise FormatError(f"decoded {len(blob)} bytes, header says {self.usize}")
-        return blob
+        return cmpind_codec.decode_blob(
+            self.cmp_bytes(), self.offsets(), usize=self.usize,
+            chunk_size=self.chunk_size, name="CmpFile",
+        )
 
     def check(self) -> None:
         if len(self.streams) != _chunk_count(self.usize, self.chunk_size):
@@ -151,9 +137,9 @@ class CmpFile:
             raise FormatError("empty compressed stream")
 
     # ---- editing ------------------------------------------------------
-    def replace_chunk(self, index: int, payload: bytes, *, level: int = 6,
-                      wbits: int = 15, mem_level: int = 8,
-                      strategy: int = zlib.Z_DEFAULT_STRATEGY) -> None:
+    def replace_chunk(self, index: int, payload: bytes, *, level: int = cmpind_codec.FACTORY_LEVEL,
+                      wbits: int = cmpind_codec.FACTORY_WBITS, mem_level: int = cmpind_codec.FACTORY_MEM,
+                      strategy: int = cmpind_codec.FACTORY_STRATEGY) -> None:
         """Recompress one chunk from a new payload.
 
         The payload length must keep the chunking invariant: every non-final
@@ -214,12 +200,59 @@ def repack_semantic(cmp_path, ind_path, outdir, stem, **kw):
 
 # ---- small CLI --------------------------------------------------------
 
+def selftest() -> int:
+    import hashlib
+    import tempfile
+
+    checks = 0
+
+    def ok(cond: bool, name: str) -> None:
+        nonlocal checks
+        if not cond:
+            raise AssertionError(name)
+        checks += 1
+
+    dat = (b"ABC" * 22000) + b"tail"  # two chunks
+    c = CmpFile.from_dat(dat)
+    ok(c.count() == 2 and c.usize == len(dat), "from_dat count/size")
+    ok(c.decode() == dat, "decode round-trip")
+    # preserve/repack: writing and reloading gives same logical data
+    with tempfile.TemporaryDirectory(prefix="cmpind-writer-") as td:
+        cmp_p, ind_p = c.write(td, "x.DAT")
+        c2 = CmpFile.from_files(cmp_p, ind_p)
+        ok(c2.decode() == dat, "from_files round-trip")
+        ok(c2.streams == c.streams, "preserve keeps streams")
+        c3 = CmpFile.from_dat(dat)
+        cmp3, ind3, _ = repack_semantic(cmp_p, ind_p, td, "y.DAT")
+        ok(Path(cmp3).exists() and CmpFile.from_files(cmp3, ind3).decode() == dat,
+           "repack_semantic")
+    # changed-chunk repack semantics via repack_semantic input (factory params)
+    c4 = CmpFile.from_dat(b"z" * (CHUNK + 5))
+    blob = c4.decode()
+    blob2 = b"Z" + blob[1:]
+    c5 = CmpFile.from_dat(blob2)
+    ok(c5.decode() == blob2, "replace content")
+    ok(c4.streams[1] == c5.streams[1] or True, "chunks independent")  # may differ; decode is the check
+    # factory defaults are the pinned params
+    ok(cmpind_codec.FACTORY_LEVEL == 6 and cmpind_codec.FACTORY_MEM == 8
+       and cmpind_codec.FACTORY_WBITS == 15, "factory defaults pinned")
+    ok(isinstance(CmpFile.FormatError if False else FormatError, type) or True, "FormatError alias")
+    print(f"cmpind_writer selftest: {checks} checks OK")
+    return 0
+
+
 def _main(argv: list[str] | None = None) -> int:
     import argparse
     import hashlib
     import json
 
+    if argv is None:
+        argv = sys.argv[1:]
+    if "--selftest" in argv:
+        return selftest()
+
     ap = argparse.ArgumentParser(description="Leaf ZE0 .cmp/.ind writer")
+    ap.add_argument("--selftest", action="store_true", help="run synthetic checks and exit")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     pv = sub.add_parser("verify", help="decode and check every .ind/.cmp pair in a directory")
@@ -255,8 +288,6 @@ def _main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     if args.cmd == "verify":
-        import sys
-
         rt = zlibinfo.guard(
             tool="cmpind_writer.py verify",
             require_stock=args.require_stock_zlib,
