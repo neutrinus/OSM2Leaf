@@ -2007,7 +2007,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2210–C-2219
 
 - [ ] **M3.17 — Which files can be copied verbatim to a Poland card**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.17-verbatim-copy · Critical: no
   - Depends: H11
   - Goal: decide, with evidence, which files we never generate
     (`BICON001`, `OPNG`, `SPEECH`, `TMC`, `REFER002`, `RDSTM001`) and whether
