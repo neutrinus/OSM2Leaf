@@ -2030,3 +2030,18 @@ EXP-2026-11-08-M4.23-restriction-encoding.
 | C-2691 | `harness.py cmd_info` now classifies decompression/classification failures as unreadable, appends `, unreadable N` to the level line when present, and exits 0. On factory `B48R058R` it reports `unreadable 80` (section 1 level 1); on `B30R048R` (0 unreadable) it exits 0 with no format change to the census lines. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash; `tools/ze0-viewer/harness.py` `cmd_info` |
 | C-2692 | Control tiles `B28R070R`, `B30R060R`, `B58R070R` still pass `harness.py verify` (byte-identical round-trip, same ok/opaque/refused counts as M9.22/H14) after the M9.25 change. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash (Observations) |
 | C-2693 | `bg_refused.py --selftest` (M9.22) still passes (7 checks, exit 0) after the M9.25 change. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash |
+
+## M1.2f — Port nk.exe block codec (DECOMP_BLK) to pure Python (C-2360–C-2369)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2360 | On `IMG256` (`92aa525d…007f9`) the EXP-49 form-1 vectors are verifiable from stored bytes: sec1 file `0x01580ce0` psize `0x2c6` header `(ulen=0x484,ctotal=0x2c6,flags=0x10,ulen,payload_len=0x2b0,ulen)` and sec2 file `0x015aca7c` psize `0x68c` header `(ulen=0xcc0,ctotal=0x68c,flags=0x10,ulen,payload_len=0x676,ulen)`; both payloads start with CE block marker `0x8d80805b`. Build A framing remains `245 HOLDS, 0 REFUTED, 0 UNPARSED` (187 form 1, 58 form 2) via `cerom.py comphdr --all`. | VERIFIED | H | EXP-2026-11-08-M1.2f-decomp-blk-python; `fetch_image.py --image IMG256`; `cerom.py --image-start 0x200200 IMG256 comphdr --all` |
+| C-2361 | `cerom.py --image-start 0x200200 IMG256 decompress --check` cannot decode the 245 `IMAGE_SCN_COMPRESSED` sections with the current decoders: 245 `UNSUPPORTED` (no CE-LZXD block decoder for `0x8d80805b`/form-1,2 payloads). | OBSERVED (negative) | H | EXP-2026-11-08-M1.2f-decomp-blk-python |
+| C-2362 | LE SH-4 disassembly on build B nk.exe sec0 confirms `DECOMP_BLK 0x8803a384` reads an 8-byte block header from `r4` and `DECOMP_SECT 0x88037464` loops blocks calling `DECOMP_BLK` (pool `0x8803758c=0x8803a384`); helper `0x8803a248` invokes `0x8803ac54`/`0x8803ada4` and `0x8803ada4` checks literal `0x4349444c` at `@r4`. A complete inner-codec port is blocked because `tools/sh4dis.py` leaves shift/bit encodings as `.word` in the inspected paths and no `qemu-system-sh4` runtime oracle is available in this session. | OBSERVED | M | EXP-2026-11-08-M1.2f-decomp-blk-python; `sh4dis.py ... --va 0x8803a384/0x88037464/0x8803a248/0x8803ada4`; `cedecomp_run.py probe` (MISSING_QEMU) |
+| C-2363 | M1.2f done-when is not met: no pure-Python `DECOMP_BLK`/CE-LZXD decode produces EXP-49 sec1=`0x484`, sec2=`0xcc0` or `cerom.py decompress --check` = `245 OK`. Unblock: (1) decode the missing SH-4 shift encodings in the codec paths and/or validate a CE XIP LZXD reference against EXP-49, (2) obtain a `qemu-system-sh4` (LE) runtime oracle for `DECOMP_SECT/BLK` (M8.E1 path) with required kernel-context handling. | BLOCKED | H | EXP-2026-11-08-M1.2f-decomp-blk-python |
+| C-2364 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
+| C-2365 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
+| C-2366 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
+| C-2367 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
+| C-2368 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
+| C-2369 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |

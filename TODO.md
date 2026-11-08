@@ -1140,13 +1140,15 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2070–C-2079
 
 - [ ] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
-  - Status: in progress · Owner: task/m1.2f-decomp-blk-python · Critical: yes
+  - Status: blocked · Owner: task/m1.2f-decomp-blk-python · Critical: yes
   - Depends: — (M8.E1b verified the VAs; M1.2a/M1.2d frame the payload)
   - Goal: decode every `IMAGE_SCN_COMPRESSED` section without QEMU. M8.E1b
     ended the address question; what is missing is the codec inside
     `0x8803a384`, not the entry point. **Sixth pass: this is the single gate
     for the software side** — M3.2b and M3.11 both ended at "the reader is in
     Navi.exe sec1", so M9.10 and M9.12 wait here too.
+  - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 comphdr --all | tail -1` (expect 245 HOLDS) and `python3 tools/sh4dis.py IMG256 nk.exe --image-start 0x3e00200 --va 0x8803a384 --count 5` (LE prologue decodes). Positive control passed on `IMG256 92aa525d…` (245 HOLDS, EXP-49 headers/markers verified).
+  - Scope: build A 245 `IMAGE_SCN_COMPRESSED` sections (187 form 1, 58 form 2) on `IMG256`; build B nk.exe decompressor chain `DECOMP_WRAP/SECT/BLK`/helpers inspected by LE SH-4 disassembly. Excludes a guessed codec, QEMU runtime decode (unavailable here), and 245/245 pure-Python decode (not achieved).
   - Input: `DECOMP_BLK 0x8803a384` (8-byte block header, block type 4/E8,
     LZXD-like — M1.2c, M8.E1b), `DECOMP_SECT 0x88037464` (3-byte frame sizes,
     form 1/2 block loop), `DECOMP_ALLOC 0x88034d94`; `tools/cecompress.py`
@@ -1157,10 +1159,13 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     to `0xcc0` with no QEMU, and `cerom.py decompress --check` reports
     `245 OK` (or lists the exceptions with their bytes); one self-test vector
     is taken from the disassembly.
+  - Stop: done-when not met — no pure-Python CE-LZXD block codec without guessing; `sh4dis.py` leaves shift encodings as `.word` in codec paths and `qemu-system-sh4` is unavailable for a runtime oracle (negative EXP recorded).
+  - Blocker: CE-LZXD/`0x8d80805b` block codec inside `DECOMP_BLK`/`DECOMP_SECT` not ported rigorously; `cerom.py decompress --check` = 245 `UNSUPPORTED`, `qemu-system-sh4` missing, `sh4dis.py` cannot decode key shift encodings in the inspected paths.
+  - Unblock: extend `sh4dis.py` to decode the missing SHAD/SHLD/shift encodings in `DECOMP_BLK/SECT/0x8803a248` (and/or validate a CE XIP LZXD reference against EXP-49), and/or obtain a `qemu-system-sh4` (LE) runtime oracle for `DECOMP_SECT/BLK` with kernel-context handling (M8.E1 path); then resume M1.2f with EXP-49 `--selftest` vectors and `245 OK`.
   - Re-opens on merge (rule 15): **M3.2b, M3.11, M3.13, M9.10** and the
-    precheck-gated **M3.14–M3.16, M3.18**; M1.3/M1.4 follow directly. Put the
-    re-open in the same commit as the `done`.
+    precheck-gated **M3.14–M3.16, M3.18**; M1.3/M1.4 follow directly. Re-open applies only when M1.2f merges as `done` (this commit is `blocked`).
   - Claims: C-2360–C-2369
+  - Result: EXP-2026-11-08-M1.2f-decomp-blk-python (blocked; framing/EXP-49 vectors verified on IMG256, 245 UNSUPPORTED, no QEMU/complete SH-4 decode for a rigorous pure-Python CE-LZXD port).
 
 - [x] **M1.13 — Find the encoder that reproduces the factory `.cmp` streams**
   - Status: done · Owner: claude/m1.13-factory-encoder · Critical: yes
