@@ -1259,8 +1259,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     EXP-2026-11-08-M1.15-sh4xref-slot-deref.md.
   - Claims: C-2850–C-2859 (was C-2650–C-2659, collision with M4.26/M5.22/M5.23 fixed by H23)
 
-- [ ] **M1.16 — Unify `.cmp`/`.ind` chunk codec and inner-page helpers across tools**
-  - Status: in progress · Owner: task/m1.16-cmpind-unify · Critical: no
+- [x] **M1.16 — Unify `.cmp`/`.ind` chunk codec and inner-page helpers across tools**
+  - Status: done · Owner: task/m1.16-cmpind-unify · Critical: no
   - Depends: — (M1.13 done: factory params pinned to stock zlib L6 / memLevel 8
     / wbits 15 / default strategy for POINT001–009)
   - Goal: reduce drift in the format we must generate correctly (rule 13).
@@ -1289,6 +1289,14 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     record the before/after SHA-256 and stop that tool's migration until the
     difference is explained (encoder version vs logic bug).
   - Claims: C-2730–C-2739
+  - Result: EXP-2026-11-08-M1.16-cmpind-unify. Added `tools/cmpind_codec.py`
+    (factory params L6/m8/w15/default, outer decode/encode/changed-chunk repack,
+    inner complete-zlib-page helpers; `--selftest` 21 checks). Migrated
+    `cmpind_writer`, `slot_budget`, `mutate_refer_poi`/`mutate_refer_page`,
+    `poi_copies`, `cmpind.py`, `lev3456.py`; all existing selftests green, no
+    conflicting factory-param defaults. `selftest.py`: passed=67 failed=0
+    skipped=15; `claims_check.py`: OK. `ind_mutate`/`l2check`/fit-fallback
+    duplications left documented (C-2736).
 
 - [x] **M1.17 — Verify factory zlib params across non-POINT generated file types**
   - Status: done · Owner: task/m1.17-zlib-params-nonpoint · Critical: no

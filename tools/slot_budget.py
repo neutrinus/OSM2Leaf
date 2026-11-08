@@ -43,12 +43,13 @@ import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cmpind_codec  # noqa: E402
 
-CHUNK = 0x10000
-PAGE_ALIGN = 0x100
+CHUNK = cmpind_codec.CHUNK
+PAGE_ALIGN = cmpind_codec.PAGE_ALIGN
 WINDOW = 1 << 20
-HEADER = 16
-ZLIB_HEAD = re.compile(rb"\x78[\x01\x5e\x9c\xda]")
+HEADER = cmpind_codec.IND_HEADER
+ZLIB_HEAD = cmpind_codec.ZLIB_HEAD
 #: A POI name is an upper-case run (4-40 bytes) directly followed by ``@``.
 NAME_RE = re.compile(rb"(?<![A-Z0-9' &.\-])[A-Z0-9][A-Z0-9' &.\-]{3,39}@")
 NAME_END = ord("@")
@@ -79,19 +80,19 @@ class FitError(PageError):
 
 def read_pair(cmp_path: Path, ind_path: Path):
     """Return (usize, chunk_size, offsets, cmp bytes, decoded blob)."""
-    data = ind_path.read_bytes()
-    usize, csize, count, chunk_size = struct.unpack_from("<IIII", data, 0)
-    offsets = struct.unpack_from(f"<{count}I", data, HEADER)
+    try:
+        usize, csize, count, chunk_size, offsets = cmpind_codec.read_ind(ind_path)
+    except cmpind_codec.FormatError as exc:
+        raise PageError(str(exc)) from exc
     packed = cmp_path.read_bytes()
     if csize != len(packed):
         raise PageError(f"{cmp_path.name}: .ind says {csize}, file has {len(packed)}")
-    parts = []
-    for i, start in enumerate(offsets):
-        end = offsets[i + 1] if i + 1 < count else len(packed)
-        parts.append(zlib.decompress(packed[start:end]))
-    blob = b"".join(parts)
-    if len(blob) != usize:
-        raise PageError(f"{cmp_path.name}: decoded {len(blob)}, expected {usize}")
+    try:
+        blob = cmpind_codec.decode_blob(
+            packed, offsets, usize=usize, chunk_size=chunk_size, name=cmp_path.name
+        )
+    except cmpind_codec.FormatError as exc:
+        raise PageError(str(exc)) from exc
     return usize, chunk_size, offsets, packed, blob
 
 
@@ -99,23 +100,13 @@ def write_pair(packed: bytes, offsets, usize, chunk_size, blob_old: bytes,
                blob_new: bytes) -> tuple[bytes, bytes]:
     """Rebuild a pair: chunks whose payload is unchanged are kept verbatim.
 
-    Changed chunks are recompressed with stock zlib (level 6, wbits 15,
-    memLevel 8). Returns (cmp bytes, ind bytes).
+    Changed chunks are recompressed with factory stock zlib params (M1.13/M1.16).
+    Returns (cmp bytes, ind bytes).
     """
-    count = len(offsets)
-    out = bytearray()
-    new_offsets = []
-    for i, start in enumerate(offsets):
-        end = offsets[i + 1] if i + 1 < count else len(packed)
-        lo, hi = i * chunk_size, min((i + 1) * chunk_size, usize)
-        new_offsets.append(len(out))
-        if blob_old[lo:hi] == blob_new[lo:hi]:
-            out += packed[start:end]
-        else:
-            out += zlib.compress(blob_new[lo:hi], 6)
-    ind = struct.pack("<IIII", usize, len(out), count, chunk_size)
-    ind += struct.pack(f"<{count}I", *new_offsets)
-    return bytes(out), ind
+    return cmpind_codec.rebuild_pair_bytes(
+        packed, offsets, usize, chunk_size, blob_old, blob_new,
+        compress=cmpind_codec.factory_compress,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -124,45 +115,24 @@ def write_pair(packed: bytes, offsets, usize, chunk_size, blob_old: bytes,
 
 def find_pages(blob: bytes) -> list[tuple[int, int, bytes]]:
     """Complete zlib streams in ``blob``: (offset, stream length, inflated)."""
-    pages = []
-    pos = 0
-    for m in ZLIB_HEAD.finditer(blob):
-        start = m.start()
-        if start < pos:
-            continue
-        window = blob[start:start + WINDOW]
-        dec = zlib.decompressobj()
-        try:
-            inner = dec.decompress(window)
-        except zlib.error:
-            continue
-        if not dec.eof:
-            continue
-        consumed = len(window) - len(dec.unused_data)
-        pages.append((start, consumed, inner))
-        pos = start + consumed
-    return pages
+    return list(cmpind_codec.find_zlib_streams(blob, window=WINDOW))
 
 
 def slot_at(blob: bytes, page: int) -> tuple[int, int, tuple[int, int] | None, bytes]:
     """Return (stream length, slot length, encoder that reproduces it, inner)."""
-    window = blob[page:page + WINDOW]
-    dec = zlib.decompressobj()
-    inner = dec.decompress(window)
-    if not dec.eof:
-        raise PageError(f"page {page:#x} is not a complete zlib stream")
-    consumed = len(window) - len(dec.unused_data)
-    original = window[:consumed]
-    limit = (page + consumed + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
-    if any(blob[page + consumed:limit]):
-        limit = page + consumed
+    try:
+        inner, consumed, slot, original = cmpind_codec.inner_stream_slot(blob, page, window=WINDOW)
+    except cmpind_codec.FormatError as exc:
+        raise PageError(str(exc)) from exc
     setting = reproducing_encoder(original, inner)
-    return consumed, limit - page, setting, inner
+    return consumed, slot, setting, inner
 
 
 def _deflate(data: bytes, level: int, mem_level: int) -> bytes:
-    comp = zlib.compressobj(level, zlib.DEFLATED, 15, mem_level)
-    return comp.compress(data) + comp.flush()
+    return cmpind_codec.factory_compress(
+        data, level=level, mem_level=mem_level,
+        wbits=cmpind_codec.FACTORY_WBITS, strategy=cmpind_codec.FACTORY_STRATEGY,
+    )
 
 
 ENCODERS = [(level, mem) for mem in (8, 9) for level in range(9, 0, -1)]
@@ -388,12 +358,11 @@ def cmd_build(args) -> int:
 
 
 def _inner_at(blob: bytes, page: int) -> bytes:
-    window = blob[page:page + WINDOW]
-    dec = zlib.decompressobj()
-    inner = dec.decompress(window)
-    if not dec.eof:
-        raise PageError(f"page {page:#x} is not a complete zlib stream")
-    return inner
+    try:
+        inner, _ = cmpind_codec.decompress_stream_at(blob, page, window=WINDOW)
+        return inner
+    except cmpind_codec.FormatError as exc:
+        raise PageError(str(exc)) from exc
 
 
 def _changed_offsets(a: bytes, b: bytes, block: int = 1 << 16) -> list[int]:
