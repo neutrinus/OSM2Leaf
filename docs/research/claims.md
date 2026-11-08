@@ -1553,6 +1553,21 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2538 | RESERVED (M3.13's `mov.b` plus `shll R0` count of 5 is not checked by this scan; its window was never stated). | — | — | EXP-2026-11-08-M3.19-sh4scan (Interpretation) |
 | C-2539 | RESERVED. | — | — | — |
 
+## M9.17 — L3 target mmain_reader (C-2370–C-2379)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2370 | On `origin/main`, `tools/l3_harness/runner.py` rejects a target whose `entry.kind` is `module` (validator: "entry.kind must be synthetic or blocked"), so the M3.8 reader VA `0x0041a438` cannot be declared as an L3 target; the M9.17 target is blocked on M9.20. | VERIFIED (tool) | H | EXP-2026-11-08-M9.17-m38-reader; `python3 tools/l3_harness/runner.py targets --targets <scratch>/targets_module.json` (expect FAIL, `entry.kind must be synthetic or blocked`) |
+| C-2371 | The PySh4 positive control `runner.py run probe-zlib-cmf --engine pysh4 --input <78 9c 00 00>` returns `status PASS`, `accepted true`, verdict ACCEPT; this checks the runner path only and is not a reader verdict. | VERIFIED (tool, synthetic) | H | EXP-2026-11-08-M9.17-m38-reader; `python3 tools/l3_harness/runner.py run probe-zlib-cmf --engine pysh4 --input <zlib_head.bin> --json` |
+| C-2372 | RESERVED. | — | — | — |
+| C-2373 | RESERVED. | — | — | — |
+| C-2374 | RESERVED. | — | — | — |
+| C-2375 | RESERVED. | — | — | — |
+| C-2376 | RESERVED. | — | — | — |
+| C-2377 | RESERVED. | — | — | — |
+| C-2378 | RESERVED. | — | — | — |
+| C-2379 | RESERVED. | — | — | — |
+
 ## M9.21 — PySh4 little-endian and bt/s, bf/s (C-2550–C-2559)
 
 | ID | Claim | Status | Confidence | Evidence |

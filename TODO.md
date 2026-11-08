@@ -2995,7 +2995,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2260–C-2269
 
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
-  - Status: in progress · Owner: claude/m9.17-l3-reader · Critical: no
+  - Status: blocked · Owner: claude/m9.17-l3-reader · Critical: no
+  - Blocker: `runner.py` accepts only `entry.kind` synthetic/blocked and has no `engine_hook`; the reader VA `0x0041a438` cannot be declared (M9.20, PR #89 open).
+  - Unblock: M9.20 (its PR sets this task back to open, rule 15).
+  - Result: EXP-2026-11-08-M9.17-m38-reader (negative: validator rejects module-kind row on a scratch copy; PySh4 control PASS; C-2370–C-2371).
   - Depends: M9.5 (M3.8 located the reader)
   - Goal: `MMAIN001.DAT` is the only generated file whose reader is located
     and whose L3 target does not exist.
