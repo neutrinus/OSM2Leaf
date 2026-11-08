@@ -713,6 +713,10 @@ class PySh4(Backend):
             f"({', '.join(r.name for r in self._regions) or 'nothing mapped'})"
         )
 
+    def _load_signed(self, va: int, size: int) -> int:
+        """Byte/word load into a register: SH-4 sign-extends mov.b and mov.w."""
+        return _sx(self._load(va, size), 8 * size) & M32
+
     def _load(self, va: int, size: int) -> int:
         if va % size:
             raise UnalignedAccess(f"{size}-byte load at unaligned {px(va)}")
@@ -772,7 +776,7 @@ class PySh4(Backend):
         elif top == 0xD:                                 # mov.l @(disp,PC),Rn
             regs["r%d" % n] = self._load(((pc + 4) & ~3) + d8 * 4, 4)
         elif top == 0x9:                                 # mov.w @(disp,PC),Rn
-            regs["r%d" % n] = self._load(pc + 4 + d8 * 2, 2)
+            regs["r%d" % n] = self._load_signed(pc + 4 + d8 * 2, 2)
         elif top == 0xA:                                 # bra
             self._delay = (pc + 4 + _sx(insn & 0xFFF, 12) * 2) & M32
         elif top == 0xB:                                 # bsr
@@ -908,18 +912,18 @@ class PySh4(Backend):
         sub = insn & 0xF
 
         if sub == 0x0:                                   # mov.b @Rm,Rn
-            regs["r%d" % n] = self._load(rm, 1)
+            regs["r%d" % n] = self._load_signed(rm, 1)
         elif sub == 0x1:                                 # mov.w @Rm,Rn
-            regs["r%d" % n] = self._load(rm, 2)
+            regs["r%d" % n] = self._load_signed(rm, 2)
         elif sub == 0x2:                                 # mov.l @Rm,Rn
             regs["r%d" % n] = self._load(rm, 4)
         elif sub == 0x3:                                 # mov Rm,Rn
             regs["r%d" % n] = rm
         elif sub == 0x4:                                 # mov.b @Rm+,Rn
-            regs["r%d" % n] = self._load(rm, 1)
+            regs["r%d" % n] = self._load_signed(rm, 1)
             regs["r%d" % m] = (rm + 1) & M32
         elif sub == 0x5:                                 # mov.w @Rm+,Rn
-            regs["r%d" % n] = self._load(rm, 2)
+            regs["r%d" % n] = self._load_signed(rm, 2)
             regs["r%d" % m] = (rm + 2) & M32
         elif sub == 0x6:                                 # mov.l @Rm+,Rn
             regs["r%d" % n] = self._load(rm, 4)
@@ -1047,6 +1051,23 @@ class PySh4(Backend):
             value = self._load(rn, 1)
             self._set_t(value == 0)
             self._store(rn, 1, value | 0x80)
+        elif insn & 0xF in (0x0C, 0x0D):                 # shad / shld Rm,Rn
+            # Dynamic shifts: the source register is in the m field, so the
+            # low byte carries it and the exact-match arms above cannot apply.
+            # Rm >= 0 shifts left by Rm & 31; Rm < 0 shifts right by
+            # (~Rm & 31) + 1, and Rm & 31 == 0 (Rm = -32) fills with the sign
+            # (shad) or with zero (shld).  zlib's inflate uses 0x469d (shld).
+            amount = regs["r%d" % m] & M32
+            arithmetic = (insn & 0xF) == 0x0C
+            if not amount & 0x80000000:
+                result = (rn << (amount & 0x1F)) & M32
+            elif amount & 0x1F == 0:
+                result = M32 if (arithmetic and rn & 0x80000000) else 0
+            elif arithmetic:
+                result = (_sx(rn, 32) >> (((~amount) & 0x1F) + 1)) & M32
+            else:
+                result = rn >> (((~amount) & 0x1F) + 1)
+            regs["r%d" % n] = result
         else:
             raise IllegalInstruction(
                 f"system opcode {px(insn)} at {px(pc)} is not modelled "
@@ -1064,9 +1085,9 @@ class PySh4(Backend):
         elif sub == 0x1:                                 # mov.w R0,@(disp,Rn)
             self._store((regs["r%d" % n] + (insn & 0xF) * 2) & M32, 2, regs["r0"])
         elif sub == 0x4:                                 # mov.b @(disp,Rm),R0
-            regs["r0"] = self._load((regs["r%d" % m] + (insn & 0xF)) & M32, 1)
+            regs["r0"] = self._load_signed((regs["r%d" % m] + (insn & 0xF)) & M32, 1)
         elif sub == 0x5:                                 # mov.w @(disp,Rm),R0
-            regs["r0"] = self._load((regs["r%d" % m] + (insn & 0xF) * 2) & M32, 2)
+            regs["r0"] = self._load_signed((regs["r%d" % m] + (insn & 0xF) * 2) & M32, 2)
         elif sub == 0x8:                                 # cmp/eq #imm,R0
             self._set_t((regs["r0"] & M32) == (_sx(insn & 0xFF, 8) & M32))
         elif sub == 0x9:                                 # bt
@@ -1101,9 +1122,9 @@ class PySh4(Backend):
                 "register a host stub with on_exec() instead of emulating it"
             )
         elif top == 0x4:                                 # mov.b @(disp,GBR),R0
-            regs["r0"] = self._load((gbr + d8) & M32, 1)
+            regs["r0"] = self._load_signed((gbr + d8) & M32, 1)
         elif top == 0x5:                                 # mov.w @(disp,GBR),R0
-            regs["r0"] = self._load((gbr + d8 * 2) & M32, 2)
+            regs["r0"] = self._load_signed((gbr + d8 * 2) & M32, 2)
         elif top == 0x6:                                 # mov.l @(disp,GBR),R0
             regs["r0"] = self._load((gbr + d8 * 4) & M32, 4)
         elif top == 0x7:                                 # mova @(disp,PC),R0
@@ -1166,11 +1187,13 @@ class PySh4(Backend):
             self._set_t(False)
         elif pattern == 0x0007:                          # mul.l Rm,Rn
             regs["macl"] = (rn * rm) & M32
-        elif pattern == 0x0003:                          # bsrf Rm
+        elif pattern == 0x0003:                          # bsrf Rn (0000 nnnn 0000 0011)
             regs["pr"] = (pc + 4) & M32
-            self._delay = (pc + 4 + rm) & M32
-        elif pattern == 0x0023:                          # braf Rm
-            self._delay = (pc + 4 + rm) & M32
+            self._delay = (pc + 4 + rn) & M32
+        elif pattern == 0x0023:                          # braf Rn (0000 nnnn 0010 0011)
+            # The register is the n field, not m: the m nibble is opcode space
+            # here.  Using m sent zlib's inflate jump table to pc+4+Rm (M9.11).
+            self._delay = (pc + 4 + rn) & M32
         elif pattern in (0x0083, 0x0093, 0x00A3, 0x00B3):
             # pref @Rn, ocbi/ocbp/ocbwb @Rn: cache hints with no architectural
             # effect, so a functional emulator ignores them on purpose.
@@ -1182,9 +1205,9 @@ class PySh4(Backend):
         elif (insn & 0xF) == 0x6:                        # mov.l Rm,@(R0,Rn)
             self._store((regs["r0"] + rn) & M32, 4, rm)
         elif (insn & 0xF) == 0xC:                        # mov.b @(R0,Rm),Rn
-            regs["r%d" % n] = self._load((regs["r0"] + rm) & M32, 1)
+            regs["r%d" % n] = self._load_signed((regs["r0"] + rm) & M32, 1)
         elif (insn & 0xF) == 0xD:                        # mov.w @(R0,Rm),Rn
-            regs["r%d" % n] = self._load((regs["r0"] + rm) & M32, 2)
+            regs["r%d" % n] = self._load_signed((regs["r0"] + rm) & M32, 2)
         elif (insn & 0xF) == 0xE:                        # mov.l @(R0,Rm),Rn
             regs["r%d" % n] = self._load((regs["r0"] + rm) & M32, 4)
         else:
@@ -2149,6 +2172,63 @@ def test_bt_s_rules():
         flip = _delay_slot_run(0x8D01, t_set=True, endian=endian, slot=0x0008)
         _expect_equal(flip["r3"], 0, f"bt/s, slot clears T: taken ({endian})")
         _expect_equal(flip["sr"] & 1, 0, f"bt/s, slot clears T: T after slot ({endian})")
+
+
+@check("pysh4: shad/shld shift by Rm, left for >= 0, right for < 0, -32 edge")
+def test_dynamic_shifts():
+    # (opcode, Rn in, Rm, expected Rn out); opcode = 0x4600 | Rm<<4 | 0xC|0xD
+    # with n=6, m=9: shad r9,r6 = 0x469c, shld r9,r6 = 0x469d (zlib, C-2063).
+    cases = [
+        (0x469D, 0x80000001, 1, 0x00000002, "shld left 1"),
+        (0x469D, 0x80000001, 0xFFFFFFFC, 0x08000000, "shld right 4 (logical)"),
+        (0x469C, 0x80000000, 0xFFFFFFFC, 0xF8000000, "shad right 4 (arithmetic)"),
+        (0x469C, 0x00000010, 0xFFFFFFFC, 0x00000001, "shad right 4, positive"),
+        (0x469D, 0x80000000, 0xFFFFFFE0, 0x00000000, "shld Rm=-32 is zero"),
+        (0x469C, 0x80000000, 0xFFFFFFE0, 0xFFFFFFFF, "shad Rm=-32 keeps sign"),
+        (0x469C, 0x7FFFFFFF, 0xFFFFFFE0, 0x00000000, "shad Rm=-32, positive"),
+        (0x469D, 0x00000003, 0xFFFFFFFF, 0x00000001, "shld right 1"),
+    ]
+    for insn, rn, rm, expected, label in cases:
+        engine = PySh4(endian="little")
+        engine.set_regs(r6=rn, r9=rm)
+        engine._execute(insn, 0x8C000000)
+        _expect_equal(engine._get_reg("r6"), expected, label)
+
+
+@check("pysh4: braf/bsrf take the target from the n field, not m")
+def test_braf_bsrf_use_rn():
+    # braf r5 = 0x0523, bsrf r5 = 0x0503; r2 carries a decoy in the m field.
+    for insn, label in ((0x0523, "braf r5"), (0x0503, "bsrf r5")):
+        engine = PySh4(endian="little")
+        engine.set_regs(r5=0x10, r2=0x70)
+        engine._execute(insn, 0x8C000000)
+        _expect_equal(engine._delay, 0x8C000014, f"{label}: target = pc+4+Rn")
+    engine = PySh4(endian="little")
+    engine.set_regs(r5=0x10, r2=0x70)
+    engine._execute(0x0503, 0x8C000000)
+    _expect_equal(engine._get_reg("pr"), 0x8C000004, "bsrf r5: pr = pc+4")
+
+
+@check("pysh4: mov.b/mov.w loads into a register sign-extend (C-2063 table walk)")
+def test_word_loads_sign_extend():
+    base = 0x8C000100
+    engine = PySh4(endian="little")
+    engine.map("data", base, bytearray(b"\x80\x00\x14\xF9\x7F\x00\x00\x00"), "rw")
+    # mov.b @r5,r1 = 0x6150; mov.w @r5,r1 = 0x6151
+    engine.set_regs(r5=base)
+    engine._execute(0x6150, 0x8C000000)
+    _expect_equal(engine._get_reg("r1"), 0xFFFFFF80, "mov.b @r5,r1 of 0x80")
+    engine.set_regs(r5=base + 2)
+    engine._execute(0x6151, 0x8C000000)
+    _expect_equal(engine._get_reg("r1"), 0xFFFFF914, "mov.w @r5,r1 of 0xF914")
+    engine.set_regs(r5=base + 4)
+    engine._execute(0x6151, 0x8C000000)
+    _expect_equal(engine._get_reg("r1"), 0x7F, "positive word stays positive")
+    # mov.w @(disp,PC),r1 = 0x9100 | disp; address = pc + 4 + 2*disp
+    engine._execute(0x9102, base - 4)  # disp 2 -> base + 4 holds 0x007F
+    _expect_equal(engine._get_reg("r1"), 0x7F, "mov.w @(disp,PC) of 0x007F")
+    engine._execute(0x9101, base - 4)  # disp 1 -> base + 2 holds 0xF914
+    _expect_equal(engine._get_reg("r1"), 0xFFFFF914, "mov.w @(disp,PC) sign-extends")
 
 
 @check("pysh4: endian defaults to big, selects little, rejects other values")

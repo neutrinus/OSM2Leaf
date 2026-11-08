@@ -3108,7 +3108,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2140–C-2149
 
 - [ ] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
-  - Status: in progress · Owner: claude/m9.11-chunk-decoder · Critical: yes
+  - Status: blocked · Owner: claude/m9.11-chunk-decoder · Critical: yes
+  - Unblock: M1.2f (decode Navi.exe sec1: inflate reads its tables from `0x574de0` in compressed sec1).
+  - Blocker: `fn 0x41c7e8` runs to the zlib header check on the factory, S1 and S2 POINT010 pairs, then stops at `mov.l @(r0,r3),r2` reading `0x574df8` in compressed Navi.exe sec1; the "runnable now" re-scope was wrong. See EXP-2026-11-08-M9.11-chunk-decoder.
+  - Result: EXP-2026-11-08-M9.11-chunk-decoder (blocked; the corrupt-`.ind` control passes, the swapped-field control is undecided).
   - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
   - Goal: prove in software what S1 would prove in the car: the firmware's own
     zlib + chunk loop accept our recompressed bytes and return the same
