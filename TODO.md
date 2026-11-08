@@ -2963,11 +2963,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2230–C-2239
 
 - [ ] **M9.14 — L3 target `drstr_parser`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: claude/m9.14-l3-reader · Critical: yes
   - Depends: M3.10, M9.5
   - Done when: the firmware parser accepts the factory `DRSTR001.DAT` (EU and
     US) and one rebuilt by M5.6, and rejects one corrupted case, recorded.
   - Claims: C-2240–C-2249
+  - Blocker: `runner.py` has no module-entry kind (`entry.kind = "module"`),
+    which is M9.20 (open on main); `drstr_parser` stays BLOCKED (exit 4).
+  - Unblock: M9.20
+  - Result: EXP-2026-11-08-M9.14-drstr-reader (negative, controls PASS/MISMATCH; no claim).
 
 - [ ] **M9.15 — L3 targets for `ADDRE`, `ZCODE`/`ICODE`/`COORD`, `LCTBL`**
   - Status: open · Owner: — · Critical: yes
