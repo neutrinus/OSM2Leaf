@@ -174,12 +174,40 @@ Still open:
   `4000 0000 XXXX` (node ref) or `0000 a b` (attribute).
 - `n` is not `length/6` (counter-example in FRWAY023); meaning unknown.
 
+### Firmware access path / reader search (M3.16, build A, IMG256 `92aa525d…`, negative for content reader)
+
+**Access path (FACT, shared REFER001 family):** `INTER0`/`FRWAY0` are members of
+the volume-id table at `0x00179338` (`INTER0` file `0xdf754c` / ~VA
+`0x0017934c`, `FRWAY0` `0xdf7554` / ~VA `0x00179354`, adjacent to
+`ADDRE0`/`POINT0`; C-881/C-2210). File-level resolution uses the same REFER001
+mechanism as POINT/ADDRE (C-880/C-2180): descriptor type `0x14e8` in
+`fn 0x004125a8` (Navi.exe sec0) maps to `REFER001` (`0x00178c68`) +
+`INDEX003.DAT` (`0x0017a118`) via `jsr 0x0040b358`; the volume-id table is
+selected through the `fn 0x003fbed8` name-builder / `fn 0x0040b358` volume-
+lookup path. Navi.exe has 0 compressed executable sections (C-2128).
+
+**Content reader / consumed fields (NOT FOUND, M3.16 stop):** No reader VA that
+consumes the 12-byte table fields, `0xffff` terminator, blob 0 6-byte elements,
+or (for FRWAY) blob 1 route refs / blob 2 mesh-id+serial+text records was
+identified. Two structural writer-inverse signature families — (1) 12-byte
+record scan with `u16 length` at +8 tested for `0xffff` and `add #12` stride,
+(2) `0x1108` table-offset construction `mov #0x11,Rn; shll8; add #8` — found
+**0 candidates** in Navi.exe sec0 (5,556,224 B decodable executable).
+Consumed-field mapping is therefore `UNKNOWN`. The `0x003f51e0` tagged
+field-dispatch resolver (POINT/ADDRE/RDSTM, C-884/C-2184) is not the same
+record form as INTER/FRWAY's 12-byte table+blobs. See
+`EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (C-2210–C-2214).
+
 ## `FRWAY0nn` — freeways/routes
 
 - Same 12-byte table, then blob 1 = route refs (`A1`, `E70`, `E773`…), and
   blob 2 = main table.
 - Records end with `u16, u16 0, u8 serial, text\0` and repeat a 4-byte **mesh
   id** (`9f be da 1e`, `a0 6f db cf`…). Encoding unresolved.
+
+Firmware access path / reader search: see `INTER0nn` above and
+`EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (M3.16, negative for content
+reader VAs/consumed fields; shared REFER001 access path confirmed, C-2210–C-2214).
 
 ## `ICADM0nn` — administrative country data
 

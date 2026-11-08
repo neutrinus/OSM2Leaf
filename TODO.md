@@ -2147,7 +2147,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2200–C-2209
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
-  - Status: in progress · Owner: task/m3.16-inter-frway-readers-r2 · Critical: no
+  - Status: blocked · Owner: task/m3.16-inter-frway-readers-r2 · Critical: no
+  - Blocker: no content reader VA consuming INTER/FRWAY 12-byte table / blob fields found in decodable build-A Navi.exe sec0 (5.56 MB, 0 compressed exec sections, C-2128) after two structural writer-inverse signature families (12-byte scan + 0xffff@+8 + add#12; 0x1108 construction) returned 0 hits; consumed-field mapping unknown (C-2211–C-2213). Shared REFER001 access path is confirmed (C-2210).
+  - Unblock: derive a field-level/inter-family consumption signature from a writer inverse or L3/`.data` dispatch trace (M4.16c ref lead, M1.2f/M8.E1 for compressed `.data` pointer tables if needed) with a positive control, or locate the generic container/indirect reader that consumes the 12-byte table+blobs.
   - Depends: — (M4.16c for the `ref` lead)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
     has **0 compressed executable sections** (C-2128), so "not found" means the
@@ -2160,6 +2162,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `blocked` + EXP listing the signatures tested.
   - Done when: the reader VAs and consumed fields are in `refer.md`.
   - Claims: C-2210–C-2219
+  - Result: `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (negative/blocked; done-when not met). Shared REFER001 access path confirmed: `INTER0`/`FRWAY0` in volume-id table `0x00179338` (~VA `0x0017934c`/`0x00179354`, C-881), descriptor `0x14e8` `fn 0x004125a8` → `REFER001`+`INDEX003.DAT` via `jsr 0x0040b358`, name-builder `fn 0x003fbed8` path (C-880/C-2180/C-2210). Two writer-inverse signature families over Navi.exe sec0 (5.56 MB, 0 compressed exec, C-2128) found 0 content-reader candidates (C-2211); consumed fields `UNKNOWN` (C-2213). `refer.md` INTER/FRWAY sections and `claims.md` C-2210–C-2214 updated.
 
 - [x] **M3.17 — Which files can be copied verbatim to a Poland card**
   - Status: done · Owner: task/m3.17-verbatim-copy · Critical: no
