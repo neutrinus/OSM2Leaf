@@ -2293,16 +2293,22 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-960–C-969
 
 - [ ] **M4.8b — Check `coord.py` on 10 real POIs**
-  - Status: in progress · Owner: task/m4.8b-coord-py-real-pois · Critical: yes
-  - Note (was blocker, M4.8d ran): local-scale 1 vs 2 not answerable from packed
-    POI ids and no 0..2047-class geographic sub-unit position field was found in
-    zlib-framed POINT name records or ADDRE (EXP-2026-11-08-M4.8d-subunit-field,
-    C-2934). Bit-packed (`00 xx 00 yy`) POINT pages and undecoded `v6/v8` meaning
-    remain untested; origin 52742 fits longitude but "within a few metres" is not
-    met (median 3.6 km, latitude bias +2.8 km unexplained).
-  - Result: EXP-2026-11-08-M4.8b-transform-proof.md (16 POIs, origin 52742
-    fits longitude, latitude bias +2.8 km unexplained). M4.8d searched sub-unit
-    fields (negative for tested scope).
+  - Status: blocked · Owner: task/m4.8b-coord-py-real-pois · Critical: yes
+  - Blocker: bit-packed POINT pages (`POINT002/008/029`, 5405 pages) remain
+    undecoded; no 0..2047-class geographic sub-unit position field linkable to
+    the 16 M4.8b reference POIs was found by structural probe
+    (`poi_bitpack_probe`, raw-A pair 0/1796 in P01 shard), so local scale 1 vs 2
+    is untestable and the "within a few metres"/local-scale done-when is unmet.
+    Latitude-offset "other method" is a non-pinnable fit to Wikipedia centroids.
+    Origin 52742 (longitude) remains supported (C-1902).
+  - Unblock: decode bit-packed POINT page grammar and re-test for 0..2047-class
+    geographic sub-unit coordinates on ≥ 10 refs, or obtain an independent
+    firmware/entrance-point method that pins local scale/origin.
+  - Result: EXP-2026-11-08-M4.8b-bitpack-avenues.md (C-2936–C-2939, negative for
+    tested scope). Prior: EXP-2026-11-08-M4.8b-transform-proof.md (16 POIs,
+    origin 52742 fits longitude, latitude bias +2.8 km unexplained);
+    EXP-2026-11-08-M4.8d-subunit-field.md (zlib-framed name records/ADDRE
+    negative, C-2930–C-2935).
   - Depends: M4.8
   - Goal: the original M4.8 done-when, unmet at merge: prove the transform
     on real data before M5.2 splits OSM ways with it.
@@ -2314,7 +2320,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the EXP lists ≥ 10 POIs with decoded vs reference lat/lon and
     the error in metres, states which origin and local scale fit, and
     `coord.py` self-test pins the chosen constants.
-  - Claims: C-1900–C-1909
+  - Claims: C-1900–C-1909, C-2936–C-2939
 
 - [x] **M4.8d — Sub-unit field for POI/ADDRE positions**
   - Status: done · Owner: task/m4.8d-subunit-field · Critical: no
@@ -2330,7 +2336,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `v16/v20` discrete; no 11-bit bitfield match above noise; ADDRE XX/YY are
     0..255 (M4.19). `tools/poi_subunit.py` added. M4.8b re-opened (local scale
     still unanswered; bit-packed POINT pages out of scope).
-  - Claims: C-2930–C-2939 (was C-1908–C-1909, overlap with M4.8b fixed by H24)
+  - Claims: C-2930–C-2935 (was C-1908–C-1909, overlap with M4.8b fixed by H24; C-2936–C-2939 used by M4.8b re-attempt)
 
 - [x] **M4.9 — `ADDRE` remaining grammar**
   - Status: done · Owner: task/m4.9-addre-grammar · Critical: no
