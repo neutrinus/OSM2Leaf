@@ -3108,7 +3108,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2140–C-2149
 
 - [ ] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: claude/m9.11-chunk-decoder · Critical: yes
+  - Unblock: M9.11b (runner entry kind that calls the firmware chunk reader; fills `cmp_ind_reader`).
+  - Blocker: the firmware path passes on the factory, S1 and S2 pairs and on both controls (page `0x840ba0` byte-identical, corrupt `.ind` rejected, swapped `+4`/`+8` fails); `targets.json` `cmp_ind_reader` cannot be filled because `runner.py` has no firmware-call kind. The sec1 table that inflate reads (`0x574de0`, `inflate_mask[17]`) is supplied from public zlib source, see EXP.
+  - Result: EXP-2026-11-08-M9.11-chunk-decoder (firmware path PASS; target registration open).
   - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
   - Goal: prove in software what S1 would prove in the car: the firmware's own
     zlib + chunk loop accept our recompressed bytes and return the same
@@ -3127,6 +3130,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
     fail — so the table layout is proven, not assumed. Fills the
     `cmp_ind_reader` target in `targets.json`.
   - Claims: C-2150–C-2159
+
+- [ ] **M9.11b — L3 runner: a firmware-call target kind for the chunk reader (fills `cmp_ind_reader`)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M9.11 (firmware path and sec1 table provenance, EXP-2026-11-08-M9.11-chunk-decoder), M9.5 (done).
+  - Goal: let `runner.py` run a firmware function with memory setup (the 20-byte table,
+    the stubs, the sec1 `inflate_mask` table as a named, sourced input), so that
+    `targets.json` `cmp_ind_reader` runs the chunk reader on a corpus pair through the runner.
+  - Input: `tools/chunk_decoder_l3.py` `run_firmware` and its stubs; `tools/l3_harness/runner.py`
+    entry kinds (`module` passes register arguments only); `targets.json`.
+  - Done when: `runner.py run cmp_ind_reader` on the factory pair reports PASS and exit 0; the
+    corrupt-`.ind` and swapped-field cases report as the controls in EXP-2026-11-08-M9.11-chunk-decoder; the sec1 table
+    is a declared input of the entry (not a silent default), and `runner.py selftest` passes.
+  - Claims: C-2157–C-2159
 
 - [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
   - Status: open · Owner: — · Critical: yes
