@@ -3154,7 +3154,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2260–C-2269
 
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m9.17-reopen · Critical: no
   - Re-opened (ninth pass, rule 15): M9.20 merged (`562215a`); the module-VA
     entry it needs now exists.
   - Blocker: `runner.py` accepts only `entry.kind` synthetic/blocked and has no `engine_hook`; the reader VA `0x0041a438` cannot be declared (M9.20, PR #89 open).
