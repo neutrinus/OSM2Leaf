@@ -2248,8 +2248,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     the repo; the EXP gives Marek the exact commands to rebuild them locally.
   - Claims: C-2020–C-2029
 
-- [ ] **M5.13b — Build the real S1 and S2 US images with `imgpatch.py`**
-  - Status: in progress · Owner: claude/m5.13b-us-images · Critical: yes
+- [x] **M5.13b — Build the real S1 and S2 US images with `imgpatch.py`**
+  - Status: done · Owner: claude/m5.13b-us-images · Critical: yes
   - Depends: — (M5.13 tool and M5.12 edit are done; needs the US image)
   - Goal: the two cards the nearest milestone needs do not exist. C-2027 is
     `UNKNOWN` because `imgpatch.py` was only ever run on a synthetic fixture.
@@ -2267,6 +2267,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     tree reports the label with no warning; the commands are in the EXP so
     Marek can rebuild both images locally. Images stay outside the repo.
   - Claims: C-2350–C-2359
+  - Result: EXP-2026-11-08-M5.13b-us-s1-s2. S1 is byte-identical to the factory US image; S2 passes cardcheck (label QSD-301-103); all 17,737 S2 diff ranges lie in POINT010 clusters or its directory entry; M5.12b fresh build PASS. Fixed an imgpatch EOC rewrite (C-2355). Recompression used zlib 1.3.2, not 1.3.1 (C-2354).
 
 - [x] **M5.12b — `mkcard.py`: keep the volume label and factory root order on a fresh build**
   - Status: done · Owner: session-ZMxuBT · Critical: no

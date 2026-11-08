@@ -232,7 +232,9 @@ def _build_plan(handle, geo: mkcard.FatGeo, fat: bytes, rel: str, data: bytes, *
 
     for i in range(len(chain_after) - 1):
         mkcard.fat_set(new_fat, chain_after[i], chain_after[i + 1])
-    if chain_after:
+    # Keep the factory end-of-chain marker when the chain already ends in one
+    # (0x0FFFFFF8..0x0FFFFFFF are all EOC); rewriting it is a needless FAT diff.
+    if chain_after and mkcard.fat_get(new_fat, chain_after[-1]) < EOC:
         mkcard.fat_set(new_fat, chain_after[-1], EOC)
     start_after = chain_after[0] if chain_after else 0
 
