@@ -2175,6 +2175,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2938 | The 16 M4.8b POIs show a latitude residual varying from −0.23 to −11.04 packed (1/192°) units (median −4.77) against Wikipedia-centroid references; a best-fit −3 unit offset gives median error ~2194 m but is a reference-dependent fit, not an independently pinned transform constant. `coord.py` origin/local-scale constants are unchanged. | OBSERVED | M | EXP-2026-11-08-M4.8b-bitpack-avenues; `poi_point_check`/`coord.py` baseline unchanged |
 | C-2939 | M4.8b remains **blocked** after attempting bit-packed POINT pages and other methods: no 0..2047-class geographic sub-unit position field linkable to real POIs was found (C-2936–C-2937), local scale 1 vs 2 remains untestable, the "within a few metres"/local-scale done-when is unmet, and origin 52742 (longitude) remains supported (C-1902). Unblock requires decoding bit-packed POINT page grammar or an independent (firmware/entrance-point) method. | OBSERVED | M | EXP-2026-11-08-M4.8b-bitpack-avenues; TODO.md M4.8b |
 
+## M4.28 — POI latitude residual: entrance vs centroid (r2, C-2680–C-2689)
+
+| ID | Claim | Status | Trust | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2680 | M4.28 (r2) ran without M4.27 results: M4.27 (bit-packed/non-zlib POINT pages, wider POI sample) was open/unavailable in this session; analysis used only M4.8b's 16 inflated-stream POIs. | OBSERVED | M | EXP-2026-11-08-M4.28-poi-lat-residual-r2; TODO.md M4.27/M4.28 |
+| C-2681 | M4.28 precheck not satisfied and Stop triggered: among the 16 M4.8b POIs, no POI with a reliably known, checkable entrance-vs-centroid/reference coordinate separation from allowed non-OSM sources was identified (airport ARP = M4.8b ref; no citable terminal/entrance coordinate obtained here; building/site landmarks have sub-packed-unit entrance-centroid separation, too small for the km-scale residual). H1/H2 (entrance/centroid tracking) untestable in this session. | OBSERVED | M | EXP-2026-11-08-M4.28-poi-lat-residual-r2 |
+| C-2682 | M4.8b latitude residuals (n=16, all positive) are not magnitude-consistent: `dlat` ranges 132–6401 m (median 2763 m, 48× spread) while `dlon` (52742) centres near zero. This is inconsistent with a single fixed latitude transform/storage offset as the sole cause, and compatible with (but does not prove) per-POI stored-point semantics and/or grid/feature-placement effects. Does not determine entrance vs centroid; refines, does not retract, C-1903/C-1904. | OBSERVED | M | EXP-2026-11-08-M4.28-poi-lat-residual-r2; EXP-2026-11-08-M4.8b-transform-proof |
+| C-2683 | RESERVED (M4.28). | — | — | — |
+| C-2684 | RESERVED (M4.28). | — | — | — |
+| C-2685 | RESERVED (M4.28). | — | — | — |
+| C-2686 | RESERVED (M4.28). | — | — | — |
+| C-2687 | RESERVED (M4.28). | — | — | — |
+| C-2688 | RESERVED (M4.28). | — | — | — |
+| C-2689 | RESERVED (M4.28). | — | — | — |
+
 ## H26 — L1/L2 synthetic fixture CI pipeline (C-2760–C-2769)
 
 | ID | Claim | Status | Trust | Evidence |

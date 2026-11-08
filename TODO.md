@@ -2650,7 +2650,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2670–C-2679
 
 - [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
-  - Status: in progress · Owner: task/m4.28-poi-lat-residual-r2 · Critical: no
+  - Status: blocked · Owner: task/m4.28-poi-lat-residual-r2 · Critical: no
+  - Blocker: M4.27 (bit-packed POINT wider sample) unavailable in this session; M4.28 precheck not satisfied on M4.8b's 16 inflated-stream POIs — no POI with a reliably known, checkable entrance-vs-centroid/reference coordinate separation from allowed non-OSM sources identified (airports share ARP ref; building landmarks have sub-packed-unit separation, too small for the km-scale residual). Stop triggered; H1/H2 untestable. Analysis narrows C-1903 (dlat 132–6401 m, 48×, not a uniform fixed offset) but C-1904 not confirmed/narrowed-to-verdict/retracted.
+  - Unblock: M4.27 (wider bit-packed POI sample) and/or identification of ≥ 3 POIs with citable entrance and centroid/reference coordinates from allowed non-OSM sources and a checkable separation; re-run precheck and complete the entrance/centroid/neither test, then update C-1904.
   - Depends: M4.27 (wider sample helps), M4.8d (sub-unit field)
   - Goal: M4.8b found a +2.8 km latitude bias (median 3.6 km total error, 16
     POIs) and could not separate transform error from "POI stored at a street/
@@ -2666,6 +2668,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if no POI with a reliably known entrance can be identified from
     allowed sources, record the gap and stop.
   - Claims: C-2680–C-2689
+  - Result: EXP-2026-11-08-M4.28-poi-lat-residual-r2.md (blocked). M4.27 unavailable; M4.8d done (C-2930–2935). Precheck/Stop on 16 M4.8b POIs (0/16 with citable entrance-vs-centroid coords from allowed non-OSM sources). dlat variance 132–6401 m (48×) argues against a single fixed-lat offset; C-1904 unresolved. C-2680–C-2682 added.
 
 - [ ] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
   - Status: blocked · Owner: task/m4.29-classcode-control-r2 · Critical: no
