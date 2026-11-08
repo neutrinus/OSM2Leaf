@@ -2668,7 +2668,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2680–C-2689
 
 - [ ] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
-  - Status: in progress · Owner: task/m4.29-classcode-control-r2 · Critical: no
+  - Status: blocked · Owner: task/m4.29-classcode-control-r2 · Critical: no
+  - Blocker: second-country (US) `LCTBL001` exists (157,218 numbered, Georgia-area I-/US- refs) but no US OSM IMF/PBF with `ref`+`highway` is present in accessible archive (`leafre-work/osm/` Dolnośląskie-only), so M4.17 road-number→OSM-ref join/LORO vs null for a true second country cannot be computed (Stop condition triggered for that part). Non-motorway control was computed.
+  - Unblock: produce/obtain a US (or other second-country) IMF/PBF matching the US card's coverage and run `road_class_probe.py` for true second-country LORO vs null; then re-open M4.29.
   - Depends: M4.17 (done)
   - Goal: M4.17 found class-pure `class_code` values (motorway codes recurring
     EU 2011/2014) but LORO failed over all joined rows, so `class_code` is a
@@ -2683,6 +2685,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if no second-country numbered-road sample can be joined, record why
     and stop.
   - Claims: C-2700–C-2709
+  - Result: EXP-2026-11-08-M4.29-classcode-control-r2 (blocked). Non-motorway control reported on EU 2011/2014/2016 Dolnośląskie joins (6 scopes): no scope reaches M4.17's 3 sd LORO-vs-null falsifier (EU 2011 below null; EU 2014/2016 < 1 sd above). EU 2016 replication also negative (+0.13 sd). US LCTBL sampled (157k numbered, 0x4e8f-dominant distribution) but second-country LORO not computable — no US IMF in archive. C-1825 narrowed (remains HYPOTHESIS), not promoted/retracted on a true second-country class-label join.
 
 - [x] **M4.30 — Restriction word-test deepening: class-dependent encoding and mapping errors (M4.23 follow-up)**
   - Status: done · Owner: task/m4.30-restriction-deepening · Critical: no
