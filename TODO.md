@@ -3083,7 +3083,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2810–C-2814 (was C-2650–C-2659, collision with M1.15/M4.26/M5.23 fixed by H23)
 
 - [ ] **M5.23 — Confirm road-record country word and provisional class mapping**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m5.23-roadrec-country-class · Critical: no
   - Depends: M5.4 (done)
   - Goal: M5.4 used a provisional class table and a country word taken from the
     factory context; both are unconfirmed. A wrong country/class field can make
