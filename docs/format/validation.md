@@ -312,20 +312,35 @@ reads `0x80` bytes, decodes 20 hex ASCII chars from an updater-context field
 reflected / KERMIT form, normal poly `0x1021`), no final XOR. On CRC==0 it calls
 `sub_0001e3f4(file_buf=ctx+0x11a, decoded=r14+8, bytesRead=0x80)`.
 
-**`sub_0001e3f4` (VA `0x0001e3f4`, M2.16, C-2092–C-2095, partially decoded):**
-not a plain memcmp. Returns **1** if `bytesRead > 0xC0`; derives device/transform
-material via `*0x21300` ids 5/6 (`sub_199b8`/`sub_19978`) and transforms template
-`"VerUp Secret KEY\0\0\0\0"` (`0x157ec`, 16B) / buffers via `sub_1e2d4` (type-2
-crypto-context path `0x1e6f8/0x1e834`; transform `!=16` => **return 2**). It
-copies `file_buf` (0x80) to `*0x212d8`, incorporates `decoded[0..7]`/`file_buf[0..7]`,
-and returns **`sub_1e330`'s result** (saved over `sub_1e270` cleanup).
-`sub_1e330` scans the file buffer for CRLF (`0x0d,0x0a`; not found => **3**),
-takes the 8 bytes after CRLF as `[p,~p]`, verifies via `sub_1e2d4` against
-`0x157ec`, and compares to the derived check value => **0 accept / 3 reject**.
-This constrains the 0x80 record to contain CRLF + ≥8B payload; the **exact
-on-disk layout, byte-range binding, and crypto primitives remain DEFERRED**
-(blocks: CE crypto/provider dispatch identity unresolved; no genuine
-`HDD_CHK.ATT` sample on factory cards, C-2096).
+**`sub_0001e3f4` (VA `0x0001e3f4`, M2.16/M2.17, C-2092–C-2095, C-2611–C-2614, partially decoded):**
+not a plain memcmp. Returns **1** if `bytesRead > 0xC0`; derives material via
+runtime dispatch `(* *0x21100)(id,...)` (compressed sec2 pointer, unreadable
+statically; `MapUpdate.exe` imports only `COREDLL`/`CEDDK`) — **id-5** (`sub_199b8`
+`0x199b8`, 8B → `* *0x212c8[0..7]`) and **id-6** (`sub_19978` `0x19978`, 4B → 8
+hex-ASCII nibbles at `* *0x212c8+8`) — and transforms template `"VerUp Secret KEY\0\0\0\0"`
+(`0x157ec`, 16B) / buffers via `sub_1e2d4` (type-2 crypto-context path
+`0x1e6f8/0x1e834`; transform `!=16` => **return 2**). Range **`0x1e582–0x1e5e8`**
+(M2.17): XORs `decoded[0..7]` (ctx+120-derived, copied to `*0x212cc`) with
+`*0x212c8[0..7]` (id-5) in place (`*0x212cc[i]^=*0x212c8[i]`, 8 iters), seeds
+`*0x212d0=[xored,~xored]`, copies `file_buf` (0x80B) to `*0x212d8`, builds a
+type-2/0x80 stack ctx, optionally runs `sub_1e760/1e7c8` (dispatch via compressed
+`*0x21300/*0x21760` → `0x1e9c0/0x1eaa0/0x1ed9c`), and calls
+`sub_1e330(file_copy, xored@*0x212cc, bytesRead, *0x212d0)`. Returns
+**`sub_1e330`'s result**. `sub_1e330` scans for CRLF (`0x0d,0x0a`; not found =>
+**3**), takes 8B after CRLF as `[p,~p]`, verifies via `sub_1e2d4` against
+`0x157ec`, compares to the derived value => **0 accept / 3 reject**. The 0x80
+record must contain CRLF + ≥8B payload; **exact on-disk layout, `ctx+120`
+20-hex value origin/generation, id-5/id-6 provider semantics, and crypto
+primitives remain DEFERRED/UNKNOWN** (blocks: compressed sec2 dispatch pointers
+`*0x21100/*0x21300/*0x21760` unreadable statically; `ctx+120` population not
+closed; no genuine `HDD_CHK.ATT` sample, C-2090/C-2091/C-2096/C-2610–C-2615).
+
+**Generator feasibility (M2.17, C-2615):** **blocked / not feasible** from static
+evidence — missing id-5/id-6 provider outputs (runtime, device-bound not
+ruled out), missing `ctx+120` generation rule, unresolved crypto binding, and no
+factory sample. **M5.11 impact:** `HDD_CHK.ATT` is `MapUpdate.exe`-only (not
+`Navi.exe` boot/map load, C-1870); it does **not** gate L1/L2/map-data
+acceptance, so M5.11 is unaffected unless an updater-path deliverable is in scope.
 
 **Which modules check it:** only `MapUpdate.exe` references `HDD_CHK.ATT` by
 string in IMG256 (B/B-copy). **`Navi.exe` (image A) has no `HDD_CHK.ATT`

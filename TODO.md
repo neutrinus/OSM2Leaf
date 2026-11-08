@@ -1562,8 +1562,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     with what blocks it.
   - Claims: C-2090–C-2099
 
-- [ ] **M2.17 — `HDD_CHK.ATT` crypto context and the 0x582–0x5e8 range**
-  - Status: in progress · Owner: task/m2.17-hddchk-crypto · Critical: no
+- [x] **M2.17 — `HDD_CHK.ATT` crypto context and the 0x582–0x5e8 range**
+  - Status: done · Owner: task/m2.17-hddchk-crypto · Critical: no
   - Depends: — (M2.16 done)
   - Goal: M2.16 showed the updater's `sub_0001e3f4` is a crypto-context check
     (CRLF + ≥8 bytes in the first `0x80`), not a `memcmp`, and that no factory
@@ -1581,6 +1581,18 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: after the two ids are traced; if both need device state, mark the
     generator `blocked` and stop.
   - Claims: C-2610–C-2619
+  - Result: EXP-2026-11-08-M2.17-hddchk-crypto-ctx — `sub_1e3f4` `0x1e582–0x1e5e8`
+    traced (decoded XOR id-5 @`0x1e582–590`, seed `[xored,~xored]` @`0x1e592–5aa`,
+    file copy/ctx/`sub_1e330` call); id-5 = 8B (`sub_199b8`/`*0x21100` id=5),
+    id-6 = 4B→8 hex (`sub_19978`/id=6); dispatch pointers `*0x21100/*0x21300/*0x21760`
+    in **compressed** sec2 (runtime provider, unreadable statically, COREDLL/CEDDK
+    only) — ids 5/6 unavailable without hardware/runtime. `SilentAuthenticate`
+    reads `ctx+120` (20-hex, CRC16==0) from `caller->+8` subobj (`fn 0x1ccfc/0x1cee8`);
+    `ctx+120` population/generation rule not statically closed. HDD_INFO path VA
+    corrected (`0x4345e80`→module `0x12c80`, C-2616). **Generator blocked/not
+    feasible** (missing id-5/id-6 outputs + ctx+120 rule + crypto binding + no
+    sample). `docs/format/validation.md` updated; **M5.11 unaffected** (updater-only
+    path, not Navi boot/map load).
 
 - [ ] **M4.23 — Tile section-2 regulation/connectivity reader (kinds `0x2046`/`0x3e4`)**
   - Status: blocked · Owner: claude/m4.23-restriction-encoding · Critical: no
