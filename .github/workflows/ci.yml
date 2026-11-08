@@ -1,0 +1,136 @@
+name: CI quality gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality (py${{ matrix.python-version }}${{ matrix.experimental && ', informational' || '' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.11"
+            experimental: false
+          - python-version: "3.13"
+            experimental: false
+          - python-version: "3.14"
+            experimental: true
+    continue-on-error: ${{ matrix.experimental }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Python/zlib environment
+        shell: bash
+        run: |
+          python -VV
+          python -c "import sys, zlib; print('zlib', zlib.ZLIB_VERSION, zlib.ZLIB_RUNTIME_VERSION); print('implementation', sys.implementation.name)"
+
+      - name: Selftests (JSON)
+        id: selftest
+        shell: bash
+        run: |
+          set +e
+          python tools/selftest.py --json > selftest.json
+          rc=$?
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          import json, os, sys
+          with open('selftest.json', encoding='utf-8') as f:
+              data = json.load(f)
+          suites = data.get('suites', [])
+          counts = {'PASS': 0, 'FAIL': 0, 'SKIP': 0}
+          failed = []
+          for s in suites:
+              st = s.get('status', 'UNKNOWN')
+              counts[st] = counts.get(st, 0) + 1
+              if st == 'FAIL':
+                  failed.append(f"{s.get('id','?')}: {s.get('detail','')}".strip())
+          summary = (
+              f"selftest: passed={counts.get('PASS',0)} failed={counts.get('FAIL',0)} "
+              f"skipped={counts.get('SKIP',0)} total={len(suites)} "
+              f"time={data.get('seconds',0):.2f}s"
+          )
+          print(summary)
+          if failed:
+              print('FAILED SUITES:')
+              for line in failed:
+                  print(' -', line)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## selftest.py\n\n')
+              out.write(f"- Result: **{summary}**\n")
+              out.write("- Policy: tools without `--selftest` or missing dependencies are reported as **SKIP** by `selftest.py`; SKIP is not PASS.\n")
+              if failed:
+                  out.write('\n### Failed suites\n')
+                  for line in failed:
+                      out.write(f"- `{line}`\n")
+              else:
+                  out.write('- No suite failures.\n')
+          PY
+          exit $rc
+
+      - name: Claims ledger check
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/claims_check.py | tee claims_check.txt
+          {
+            echo '## claims_check.py'
+            echo
+            echo '```text'
+            cat claims_check.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: TODO board lint
+        shell: bash
+        run: |
+          set +e
+          python tools/todo_check.py TODO.md > todo_check.txt 2>&1
+          rc=$?
+          cat todo_check.txt
+          {
+            echo '## todo_check.py'
+            echo
+            echo '```text'
+            cat todo_check.txt
+            echo '```'
+            if [ "$rc" -ne 0 ]; then
+              echo
+              echo '**FAIL**: TODO board lint reported errors (warnings alone do not fail).'
+            else
+              echo
+              echo 'OK: no TODO board lint errors (warnings may be present).'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+      - name: Gate summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Gate policy'
+            echo
+            echo '- Hard gate (blocking): `tools/selftest.py`, `tools/claims_check.py`, `tools/todo_check.py` on Python 3.11 and 3.13.'
+            echo '- Informational (non-blocking): Python 3.14 job, because `zlib-ng` builds may diverge from stock zlib 1.3.1 byte-identical behavior (H9). This gate does not claim byte-identical recompression.'
+            echo '- No vendor data, no IMG256/full card tree, no QEMU build, no L4 hardware tests.'
+          } >> "$GITHUB_STEP_SUMMARY"
