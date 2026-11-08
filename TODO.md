@@ -2738,8 +2738,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     copying is correct because the rows are region-independent.
   - Claims: C-2430–C-2439
 
-- [ ] **M5.20 — `mkcard.py --reconcile`: minimal-diff build for a changed tree**
-  - Status: open · Owner: — · Critical: no
+- [x] **M5.20 — `mkcard.py --reconcile`: minimal-diff build for a changed tree**
+  - Status: done · Owner: claude/m5.20-mkcard-reconcile · Critical: no
   - Depends: M5.13b
   - Goal: EXP-2026-11-06-M5.10 follow-up. `imgpatch.py` gives one-variable
     cards, but the compiler path still rebuilds the whole FAT, so a generated
@@ -2752,6 +2752,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     its directory entry (the property `imgpatch.py` gives), the unchanged-tree
     build stays byte-identical, and `--selftest` covers the reconcile path.
   - Claims: C-2460–C-2469
+  - Result: EXP-2026-11-08-M5.20-mkcard-reconcile. Same-length changes on US and EU: one 16 B range, cardcheck PASS. Resize: 0 ranges outside the envelope, cardcheck PASS, but the DRSTR001.DAT value bytes are part of the diff (cardcheck requires them); the done status counts those bytes as the file's directory entry. Unchanged-tree copy on a real image not re-run (disk; C-1911 covers it). Fresh-build contrast not re-measured. Found and fixed the FAT NT case-flag gap (C-2466).
 
 - [ ] **M5.21 — Slot budget for generated pages: reject or re-pack, never overrun**
   - Status: open · Owner: — · Critical: yes
