@@ -19,9 +19,13 @@ must sit in the compressed ``Navi.exe`` sec1.  Two facts change that:
 ``fn 0x003f5194(page, n)`` returns a pointer to record *n* (or 0): it loops at
 most 20000 records, stops on ``len == 0`` and advances by ``2*len``.  This tool
 executes that function, byte for byte from the ROM, in the repository's
-pure-Python SH-4 interpreter (``tools/l3_harness/engine.py``) with
-little-endian memory (the shipped ``PySh4`` is big-endian, see the EXP), and
-compares it with ``mutate_refer_poi.parse_page``.
+pure-Python SH-4 interpreter (``tools/l3_harness/engine.py``, run as
+``PySh4(endian="little")``: the default is big-endian), and compares it with
+``mutate_refer_poi.parse_page``.
+
+``skip`` runs ``fn 0x003f39c0(page, n)`` (M9.21), which first checks
+``page == *0x00d5e4e4`` and ``n < *0x00d5e4d0``; the tool sets those two
+globals itself (they live in data the image does not map in decoded form).
 
 Usage::
 
@@ -30,6 +34,7 @@ Usage::
   point_walk_l3.py consts IMG [--module Navi.exe]
   point_walk_l3.py walk IMG --cmp POINT010.DAT.cmp --ind POINT010.DAT.ind \
       --page 0x840ba0 [--page-len 42848] [--n 0,1,2,500,999,1000]
+  point_walk_l3.py skip IMG --cmp ... --ind ... --page 0x840ba0 [--page-len ...]
 
 Method and results: docs/experiments/EXP-2026-11-07-M3.11-point-reader-2.md
 """
@@ -48,10 +53,14 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
 import cerom  # noqa: E402
+from engine import PySh4  # noqa: E402
 
 WALK_NTH = 0x003F5194      # record_at(page, n)
 WALK_SKIP = 0x003F39C0     # skip n records from the loaded page (globals)
 WALK_DISPATCH = 0x003F5CDC  # chooses 0x3f5b88 / 0x3f5194 / 0x3f39c0 by buffer
+GLOBAL_COUNT = 0x00D5E4D0   # *GLOBAL_COUNT: record count of the current page
+GLOBAL_PAGE = 0x00D5E4E4    # *GLOBAL_PAGE: current page base (guard of 0x3f39c0)
+GLOBALS_BASE = 0x00D5E4C0   # scratch RW region that holds both cells
 ESCAPE_TYPE = 0x3F
 ESCAPE_LEN = 0x4E8
 MAX_RECORDS = 20000
@@ -102,31 +111,6 @@ def model_nth(raw: bytes, n: int) -> int | None:
 # firmware execution
 
 
-def le_engine():
-    """PySh4 with little-endian loads, stores and fetches (Navi.exe is LE)."""
-    from engine import PySh4  # noqa: E402
-
-    class PySh4LE(PySh4):
-        def _load(self, va, size):
-            block = self._block(va, size, "r")
-            off = va - block.region.va
-            return int.from_bytes(block.data[off:off + size], "little")
-
-        def _store(self, va, size, value):
-            block = self._block(va, size, "w")
-            off = va - block.region.va
-            block.data[off:off + size] = (
-                value & ((1 << (8 * size)) - 1)).to_bytes(size, "little")
-
-        def _fetch(self):
-            pc = self._regs["pc"]
-            block = self._block(pc, 2, "x")
-            off = pc - block.region.va
-            return int.from_bytes(block.data[off:off + 2], "little")
-
-    return PySh4LE
-
-
 def load_image(path: str) -> bytes:
     with open(path, "rb") as fh:
         return fh.read(128 << 20)
@@ -154,13 +138,28 @@ def navi_text(data: bytes, image_start: int) -> tuple[int, bytes]:
     raise SystemExit("Navi.exe has no uncompressed executable section")
 
 
-def run_nth(engine_cls, text_va: int, text: bytes, page_native: bytes, n: int):
-    eng = engine_cls()
+def run_nth(text_va: int, text: bytes, page_native: bytes, n: int):
+    eng = PySh4(endian="little")
     eng.map("text", text_va, text, "rx")
     eng.map("page", PAGE_VA, bytearray(page_native) + bytearray(0x40), "rw")
     eng.map("stack", STACK_VA, bytearray(0x1000), "rw")
     eng.set_regs(r15=STACK_VA + 0xF00)
     ret = eng.call(WALK_NTH, [PAGE_VA, n])
+    return None if ret == 0 else ret - PAGE_VA
+
+
+def run_skip(text_va: int, text: bytes, page_native: bytes, count: int,
+             page_arg: int, n: int):
+    """Run fn 0x3f39c0(page_arg, n) with the two globals set by the tool."""
+    eng = PySh4(endian="little")
+    eng.map("text", text_va, text, "rx")
+    eng.map("page", PAGE_VA, bytearray(page_native) + bytearray(0x40), "rw")
+    eng.map("globals", GLOBALS_BASE, bytearray(0x40), "rw")
+    eng.map("stack", STACK_VA, bytearray(0x1000), "rw")
+    eng.write_mem(GLOBAL_COUNT, struct.pack("<I", count))
+    eng.write_mem(GLOBAL_PAGE, struct.pack("<I", PAGE_VA))
+    eng.set_regs(r15=STACK_VA + 0xF00)
+    ret = eng.call(WALK_SKIP, [page_arg, n])
     return None if ret == 0 else ret - PAGE_VA
 
 
@@ -243,11 +242,10 @@ def cmd_walk(args) -> int:
     count = len(recs)
     ns = [int(x, 0) for x in args.n.split(",")] if args.n else sorted(
         {0, 1, 2, 3, 10, count // 2, count - 2, count - 1, count})
-    engine_cls = le_engine()
     native = swap16(raw)
     fails = 0
     for n in ns:
-        fw = run_nth(engine_cls, text_va, text, native, n)
+        fw = run_nth(text_va, text, native, n)
         py = recs[n]["offset"] if n < count else None
         md = model_nth(raw, n)
         ok = fw == py == md
@@ -255,12 +253,64 @@ def cmd_walk(args) -> int:
         print("n=%-5d firmware=%-8s parse_page=%-8s model=%-8s %s" % (
             n, fw if fw is None else hex(fw), py if py is None else hex(py),
             md if md is None else hex(md), "OK" if ok else "MISMATCH"))
-    neg = [run_nth(engine_cls, text_va, text, raw, n) for n in (1, 2)]
+    neg = [run_nth(text_va, text, raw, n) for n in (1, 2)]
     print("negative control (page not swapped): n=1,2 -> %s, expected %s" % (
         [hex(x) if x is not None else None for x in neg],
         [hex(recs[1]["offset"]), hex(recs[2]["offset"])]))
     if neg == [recs[1]["offset"], recs[2]["offset"]]:
         print("negative control FAILED: unswapped page walks the same")
+        fails += 1
+    print("result:", "PASS" if not fails else "FAIL (%d)" % fails)
+    return 0 if not fails else 1
+
+
+def cmd_skip(args) -> int:
+    import mutate_refer_poi as mrp
+
+    data = load_image(args.image)
+    text_va, text = navi_text(data, args.image_start)
+    cmp_bytes = Path(args.cmp).read_bytes()
+    _, _, _, _, offsets = mrp.read_ind(Path(args.ind))
+    dat = mrp.decode(cmp_bytes, offsets)
+    end = args.page + args.page_len if args.page_len else len(dat)
+    raw = zlib.decompressobj().decompress(dat[args.page:end])
+    recs = mrp.parse_page(raw)
+    count = len(recs)
+    print("page %#x: %d bytes, parse_page: %d records; globals count=%d "
+          "page=%#x" % (args.page, len(raw), count, count, PAGE_VA))
+    ns = [int(x, 0) for x in args.n.split(",")] if args.n else sorted(
+        {0, 1, 2, 3, 10, count // 2, count - 2, count - 1, count})
+    native = swap16(raw)
+    fails = 0
+    for n in ns:
+        fw = run_skip(text_va, text, native, count, PAGE_VA, n)
+        py = recs[n]["offset"] if n < count else None
+        md = model_nth(raw, n)
+        ok = fw == py == md
+        fails += not ok
+        print("n=%-5d firmware=%-8s parse_page=%-8s model=%-8s %s" % (
+            n, fw if fw is None else hex(fw), py if py is None else hex(py),
+            md if md is None else hex(md), "OK" if ok else "MISMATCH"))
+    # guard control: a page argument that is not the current page base must
+    # return 0 whatever n is (the 0x3f39c0 prologue compares p with the global)
+    guard = run_skip(text_va, text, native, count, PAGE_VA + 2, 1)
+    print("guard control (p != current page base): n=1 -> %s, expected None"
+          % (hex(guard) if guard is not None else None))
+    if guard is not None:
+        print("guard control FAILED")
+        fails += 1
+    # count control: the count cell is set to 500 while the page still holds
+    # 1000 records; n = 499 must give record 499, n = 500 (= count) must give 0
+    half = 500
+    last = run_skip(text_va, text, native, half, PAGE_VA, half - 1)
+    past = run_skip(text_va, text, native, half, PAGE_VA, half)
+    want = recs[half - 1]["offset"]
+    print("count control (count cell 500): n=499 -> %s, expected %s; "
+          "n=500 -> %s, expected None" % (
+              hex(last) if last is not None else None, hex(want),
+              hex(past) if past is not None else None))
+    if last != want or past is not None:
+        print("count control FAILED")
         fails += 1
     print("result:", "PASS" if not fails else "FAIL (%d)" % fails)
     return 0 if not fails else 1
@@ -313,11 +363,11 @@ def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--selftest", action="store_true")
     sub = ap.add_subparsers(dest="cmd")
-    for name in ("sections", "consts", "walk"):
+    for name in ("sections", "consts", "walk", "skip"):
         p = sub.add_parser(name)
         p.add_argument("image", help="IMG256 (first 256 MiB of the EU card)")
         p.add_argument("--image-start", type=lambda s: int(s, 0), default=0x200200)
-        if name == "walk":
+        if name in ("walk", "skip"):
             p.add_argument("--cmp", required=True)
             p.add_argument("--ind", required=True)
             p.add_argument("--page", type=lambda s: int(s, 0), required=True)
@@ -336,6 +386,8 @@ def main(argv=None) -> int:
         return cmd_consts(args)
     if args.cmd == "walk":
         return cmd_walk(args)
+    if args.cmd == "skip":
+        return cmd_skip(args)
     build_parser().print_help()
     return 2
 

@@ -633,23 +633,31 @@ class PySh4(Backend):
       ``xtrct``, ``mulu.w``/``muls.w``, ``dmul*``, ``mul.l``, ``cmp/*``,
       ``tas.b``;
     * control flow: ``bra``/``bsr``/``braf``/``bsrf``, ``bt``/``bf``,
-      ``jsr``/``jmp``/``rts`` with their delay slots, ``dt``, ``nop``;
+      ``bt/s``/``bf/s``, ``jsr``/``jmp``/``rts`` with their delay slots,
+      ``dt``, ``nop``;
     * system: ``stc``/``ldc``/``sts``/``lds`` and their ``.l @-``/``@+``
       stack forms, ``clrt``/``sett``/``clrmac``.
 
     Not modelled, and raised as :class:`IllegalInstruction` rather than
     guessed: FPU (``0xF``), ``div0s``/``div1``, ``trapa``
-    (:class:`Trap`), ``bt/s``/``bf/s`` (their delay-slot discard rule is
-    unverified -- a target that needs them must add a check first), and
-    anything unrecognised.
+    (:class:`Trap`), and anything unrecognised.
+
+    ``endian`` selects the byte order of loads, stores and instruction
+    fetches: ``"big"`` (the default, used by the older self-tests) or
+    ``"little"`` (``Navi.exe`` in the build-A image, M9.21).  The delay-slot
+    rule of ``bt/s``/``bf/s`` is the one of ``bra``/``bsr``: the instruction
+    after the branch always executes once, and a taken branch lands after it.
     """
 
     name = "pysh4"
     kind = "interpreter"
     verified = True
 
-    def __init__(self) -> None:
+    def __init__(self, endian: str = "big") -> None:
         super().__init__()
+        if endian not in ("big", "little"):
+            raise UsageError(f"endian must be 'big' or 'little', not {endian!r}")
+        self.endian = endian
         self._regs = {name: 0 for name in REGISTERS}
         self._blocks: list[_Block] = []
         self._delay: int | None = None
@@ -710,7 +718,7 @@ class PySh4(Backend):
             raise UnalignedAccess(f"{size}-byte load at unaligned {px(va)}")
         block = self._block(va, size, "r")
         offset = va - block.region.va
-        return int.from_bytes(block.data[offset:offset + size], "big")
+        return int.from_bytes(block.data[offset:offset + size], self.endian)
 
     def _store(self, va: int, size: int, value: int) -> None:
         if va % size:
@@ -718,14 +726,14 @@ class PySh4(Backend):
         block = self._block(va, size, "w")
         offset = va - block.region.va
         block.data[offset:offset + size] = (value & ((1 << (8 * size)) - 1)).to_bytes(
-            size, "big"
+            size, self.endian
         )
 
     def _fetch(self) -> int:
         pc = self._regs["pc"]
         block = self._block(pc, 2, "x")
         offset = pc - block.region.va
-        return int.from_bytes(block.data[offset:offset + 2], "big")
+        return int.from_bytes(block.data[offset:offset + 2], self.endian)
 
     # -- the interpreter ---------------------------------------------------
 
@@ -1067,11 +1075,12 @@ class PySh4(Backend):
         elif sub == 0xB:                                 # bf
             if not self._t():
                 regs["pc"] = target
-        elif sub in (0xD, 0xF):                          # bt/s, bf/s
-            raise IllegalInstruction(
-                f"{'bt' if sub == 0xD else 'bf'}/s at {px(pc)} is not modelled: "
-                "its delay-slot discard rule is unverified, so it fails loudly"
-            )
+        elif sub == 0xD:                                 # bt/s
+            if self._t():
+                self._delay = target
+        elif sub == 0xF:                                 # bf/s
+            if not self._t():
+                self._delay = target
         else:
             raise IllegalInstruction(f"opcode {px(insn)} at {px(pc)} is not modelled")
 
@@ -2088,6 +2097,76 @@ def test_illegal_instruction():
             _expect_equal(exc.code, code, f"opcode {px(word)}")
         else:
             raise AssertionError(f"opcode {px(word)} was silently executed")
+
+
+def _delay_slot_run(opcode: int, t_set: bool, endian: str, slot: int = 0x7101) -> dict:
+    """Run ``sett``/``clrt``; ``bt/s``/``bf/s`` +1; ``slot`` (default
+    ``add #1,r1``); ``mov #99,r3`` (fall-through); stop at the instruction
+    after that.
+
+    The branch target is ``B+8``, so a taken branch skips ``mov #99,r3`` and
+    an untaken one runs it.  The delay slot runs in both cases.  A ``slot``
+    that writes T shows whether the condition is read at the branch (taken)
+    or after the slot.
+    """
+    fmt = ">H" if endian == "big" else "<H"
+    words = (0x0018 if t_set else 0x0008, opcode | 0x01, slot, 0xE363)
+    code = b"".join(struct.pack(fmt, word) for word in words)
+    base = 0x8C000000
+    engine = PySh4(endian=endian)
+    engine.map("code", base, code, "rx")
+    engine.set_regs(pc=base)
+    result = engine.run_until(stop=base + 8)
+    _expect_equal(result.reason, "stop", f"stop reason ({endian})")
+    return engine.get_regs()
+
+
+@check("pysh4: bf/s runs its delay slot once; taken skips the fall-through")
+def test_bf_s_rules():
+    for endian in ("big", "little"):
+        taken = _delay_slot_run(0x8F01, t_set=False, endian=endian)
+        _expect_equal(taken["r1"], 1, f"bf/s taken: delay slot ({endian})")
+        _expect_equal(taken["r3"], 0, f"bf/s taken: fall-through skipped ({endian})")
+        untaken = _delay_slot_run(0x8F01, t_set=True, endian=endian)
+        _expect_equal(untaken["r1"], 1, f"bf/s untaken: delay slot ({endian})")
+        _expect_equal(untaken["r3"], 99, f"bf/s untaken: falls through ({endian})")
+        # the slot sets T: the condition is the one at the branch, so still taken
+        flip = _delay_slot_run(0x8F01, t_set=False, endian=endian, slot=0x0018)
+        _expect_equal(flip["r3"], 0, f"bf/s, slot sets T: taken ({endian})")
+        _expect_equal(flip["sr"] & 1, 1, f"bf/s, slot sets T: T after slot ({endian})")
+
+
+@check("pysh4: bt/s runs its delay slot once; taken skips the fall-through")
+def test_bt_s_rules():
+    for endian in ("big", "little"):
+        taken = _delay_slot_run(0x8D01, t_set=True, endian=endian)
+        _expect_equal(taken["r1"], 1, f"bt/s taken: delay slot ({endian})")
+        _expect_equal(taken["r3"], 0, f"bt/s taken: fall-through skipped ({endian})")
+        untaken = _delay_slot_run(0x8D01, t_set=False, endian=endian)
+        _expect_equal(untaken["r1"], 1, f"bt/s untaken: delay slot ({endian})")
+        _expect_equal(untaken["r3"], 99, f"bt/s untaken: falls through ({endian})")
+        # the slot clears T: the condition is the one at the branch, so still taken
+        flip = _delay_slot_run(0x8D01, t_set=True, endian=endian, slot=0x0008)
+        _expect_equal(flip["r3"], 0, f"bt/s, slot clears T: taken ({endian})")
+        _expect_equal(flip["sr"] & 1, 0, f"bt/s, slot clears T: T after slot ({endian})")
+
+
+@check("pysh4: endian defaults to big, selects little, rejects other values")
+def test_endian_argument():
+    _expect_equal(PySh4().endian, "big", "default endian")
+    little = PySh4(endian="little")
+    _expect_equal(little.endian, "little", "little endian")
+    big = PySh4()
+    for engine, expected in ((big, 0x1234), (little, 0x3412)):
+        engine.map("data", 0x8C000000, bytes([0x12, 0x34]), "rw")
+        _expect_equal(engine._load(0x8C000000, 2), expected,
+                      f"{engine.endian} load of 12 34")
+    try:
+        PySh4(endian="middle")
+    except UsageError:
+        pass
+    else:
+        raise AssertionError("endian='middle' was accepted")
 
 
 def _parity(name: str, factory: Callable[[], Backend], missing_code: str) -> None:
