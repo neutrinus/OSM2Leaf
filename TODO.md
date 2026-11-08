@@ -1176,8 +1176,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-08-M1.13-factory-encoder. 471/471 inner pages of POINT001–009 reproduced exactly by stock zlib L6/memLevel 8 (release-indistinguishable, 1.1.3 to 1.3.2); zlib-ng 0/471; `tools/factory_zlib.py` added. The "0.8 % larger" premise is not reproduced (C-2575).
   - Claims: C-2570–C-2579
 
-- [ ] **M1.14 — SH-4 decoder debt: one LE reader, a pinned `mov.w` and an oracle**
-  - Status: in progress · Owner: task/m1.14-sh4dec-debt · Critical: no
+- [x] **M1.14 — SH-4 decoder debt: one LE reader, a pinned `mov.w` and an oracle**
+  - Status: done · Owner: task/m1.14-sh4dec-debt · Critical: no
   - Depends: — (M1.11 done)
   - Goal: M1.11 landed `tools/sh4dis.py`, but its follow-ups leave three
     holes: the LE halfword reader is now duplicated in `sh4scan.py`, one
@@ -1198,6 +1198,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if the oracle disagrees, record the disagreement per instruction and
     stop — do not adjust the tool until the oracle is explained.
   - Claims: C-2590–C-2599
+  - Result: EXP-2026-11-08-M1.14-sh4dec-debt. `sh4scan.py` uses `sh4dis.halfwords_le` (shared LE reader, no duplicate). `mov.w @(disp,PC)` pinned synthetic + real (Navi.exe A `0x003f51a8/ae/c2`, pool `0x04e8/0x03ff/0x4e20`; C-2129 `fn 0x003f5194` uses it at 3 sites), resolving C-2489 for the mode; `0x88038666` still decodes the same. `--oracle` checks four M1.8 sites with Capstone/sh4*-objdump or pinned `SKIP` when absent (test host: SKIP). Selftests/claims_check green.
 
 - [ ] **M1.10b — Spot-check two resolved import names at their call sites**
   - Status: open · Owner: — · Critical: no
