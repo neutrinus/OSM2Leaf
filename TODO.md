@@ -879,7 +879,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-2790–C-2799
 
 - [ ] **H30 — Fix M9 rule-14 metadata and tighten `todo_check` firmware-task classification**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/h30-m9-rule14-metadata · Critical: no
   - Depends: H24
   - Goal: make rule 14 enforceable on the board. `todo_check.py` currently warns
     (not fails) on M9 firmware/search tasks missing `Precheck`/`Scope`/`Stop`
