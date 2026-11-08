@@ -2632,7 +2632,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Unblock: new task needed (none on the board yet): decode the `0x18c` code table from the ICODE001 per-language index (M4.12 left its root-pointer table unfound) or a firmware language table; OQ-44.
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
   - Depends: — (M3.11b, M4.8b)
   - Goal: M4.8b counted 16 POIs from inflated (`78 9c`) POINT streams; bit-packed
     (non-zlib) pages were not counted. Decode them so POI position checks and
