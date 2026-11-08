@@ -1385,7 +1385,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-740–C-749
 
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m2.4-predict-hdd-info-variants · Critical: yes
   - Depends: — (**M9.6 merged** `ff8720d`, M2.15 and M2.3 done); the corpus and
     the comparator are both on `main` now
   - Note (sixth pass): the old blocker ("firmware verdicts need the L3 target,
