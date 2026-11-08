@@ -2068,3 +2068,18 @@ EXP-2026-11-08-M4.23-restriction-encoding.
 | C-2367 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
 | C-2368 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
 | C-2369 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
+
+## M4.8d — Sub-unit position field in POINT/ADDRE records (C-2930–C-2939)
+
+| ID | Claim | Status | Trust | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2930 | In zlib-framed POINT name records (tag `0x60`/`0x68`, US+EU, n=50,000), `v6 = rec[6..7]` is always `0x0800 \| p6` with `p6 = v6 & 0x7ff` spanning 0..2046 (bit 11 set, 50,000/50,000), and `v8 = rec[8..9]` spans 0..2046 (100% ≤ 2047, 2047 distinct). These are two 11-bit (0..2047-class) body fields at fixed offsets between copy A (bytes 2–5) and copy B (bytes 12–15). | OBSERVED | M | EXP-2026-11-08-M4.8d-subunit-field; `tools/poi_subunit.py scan` |
+| C-2931 | The pair `(p6, v8)` does **not** encode the tile-local geographic position of copy A at `coord.py` scale 1 or 2 (0/30,000 US + 0/20,000 EU exact pair matches to `local(A)` in A's cell; no per-axis correlation above noise). Interpreted as tile-local scale-2 coordinates in A's cell it yields 41–680 km distance from A / 39–681 km from the M4.8b reference across 16 POIs (all far outside the cell). The sub-unit *position* meaning for `(p6, v8)` is negative; their actual meaning is `UNKNOWN`. | VERIFIED (negative) | M | EXP-2026-11-08-M4.8d-subunit-field; `tools/poi_subunit.py refs` + correlation; `coord.py` 19/19 |
+| C-2932 | `v16 = rec[16..17]` and `v20 = rec[20..21]` are 0..2047-class by range but take only discrete structural values (`v16` ∈ {576,1088}; `v20` ∈ {512,576,832,1024,1088,1344} over n=50,000). They do not match `local(A)` (0/50,000 per axis) and are not continuous positions. | OBSERVED | M | EXP-2026-11-08-M4.8d-subunit-field; `tools/poi_subunit.py scan` |
+| C-2933 | No 11-bit field at any bit offset in the first 48 bytes of zlib-framed POINT name records (BE and LE bit extraction, excluding copy A bits 16–47 and copy B bits 96–127) matches `local(A)` at scale 1 or 2 above noise (top hit 1.2%, 24/2000, LE bit 198 for `ly2`; n=2000 records × all windows). | OBSERVED | M | EXP-2026-11-08-M4.8d-subunit-field (inline bit-scan method, reproducible as described) |
+| C-2934 | A sub-unit *position* field (0..2047-class local value) for POI/ADDRE coordinates, as needed to test M4.8b local scale 1 vs 2, is **UNKNOWN / not found** in the tested scope: zlib-framed POINT name records (50,000, US+EU; C-2930–C-2933 negative) and ADDRE sub-cell tokens `TT 40 XX YY` (YY 0–255, XX shard-capped, 2D geographic not derivable, C-1960–C-1969). Bit-packed (non-zlib, `00 xx 00 yy`) POINT pages and undecoded body semantics of `v6/v8/v10/v16/v20` remain out of scope. | HYPOTHESIS (scoped negative) | M | EXP-2026-11-08-M4.8d-subunit-field; M4.19/C-1960–C-1969 |
+| C-2935 | M4.8b local-scale clause remains unanswerable from the POINT/ADDRE record fields examined; M4.8b is re-opened with its blocker refined (a 0..2047-class position field was not found in zlib-framed POINT name records or ADDRE; bit-packed POINT pages and firmware/other methods remain). | OBSERVED | L | EXP-2026-11-08-M4.8d-subunit-field; TODO.md M4.8b/M4.8d |
+| C-2936 | RESERVED (M4.8d). | — | — | — |
+| C-2937 | RESERVED (M4.8d). | — | — | — |
+| C-2938 | RESERVED (M4.8d). | — | — | — |
+| C-2939 | RESERVED (M4.8d). | — | — | — |

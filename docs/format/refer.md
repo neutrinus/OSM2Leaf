@@ -151,7 +151,15 @@ Still open:
   [assets.md](assets.md); two generic glyphs are still unmapped),
 - the bit-packed field block origin,
 - the `body` grammar of a name record (48/88-byte variants measured, not
-  decoded),
+  decoded). **OBSERVED (M4.8d, C-2930–C-2932):** in zlib-framed `0x60`/`0x68`
+  records, `v6 = rec[6..7]` is always `0x0800 | p6` with `p6 = v6 & 0x7ff`
+  spanning 0..2046 (11-bit, bit 11 set) and `v8 = rec[8..9]` spans 0..2046
+  (two 0..2047-class fields between copy A and copy B); `v16`/`v20` are
+  2047-class but discrete (`{576,1088}`, `{512,576,832,1024,1088,1344}`).
+  `(p6,v8)` does **not** encode a tile-local geographic position of copy A at
+  scale 1 or 2 (negative, C-2931) and their meaning is `UNKNOWN` (possibly
+  bit-packed attributes; the field dictionary gives bit offsets such as area
+  code 32/44, category 58).
 - `REFER002/POINT002.DAT` explicit `xy-coordinates` bits.
 
 `BICON001` is a PNG container with 103 icons; see

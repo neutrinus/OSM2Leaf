@@ -2254,13 +2254,16 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-960–C-969
 
 - [ ] **M4.8b — Check `coord.py` on 10 real POIs**
-  - Status: blocked · Owner: claude/m4.8b-transform-proof · Critical: yes
-  - Blocker: the local-scale clause cannot be answered from packed POI ids
-    (no sub-unit field decoded); origin 52742 and the 16-POI list are met,
-    but "within a few metres" is not (median 3.6 km).
-  - Unblock: M4.8d (sub-unit POI/ADDRE field).
+  - Status: open · Owner: — · Critical: yes
+  - Note (was blocker, M4.8d ran): local-scale 1 vs 2 not answerable from packed
+    POI ids and no 0..2047-class geographic sub-unit position field was found in
+    zlib-framed POINT name records or ADDRE (EXP-2026-11-08-M4.8d-subunit-field,
+    C-2934). Bit-packed (`00 xx 00 yy`) POINT pages and undecoded `v6/v8` meaning
+    remain untested; origin 52742 fits longitude but "within a few metres" is not
+    met (median 3.6 km, latitude bias +2.8 km unexplained).
   - Result: EXP-2026-11-08-M4.8b-transform-proof.md (16 POIs, origin 52742
-    fits longitude, latitude bias +2.8 km unexplained).
+    fits longitude, latitude bias +2.8 km unexplained). M4.8d searched sub-unit
+    fields (negative for tested scope).
   - Depends: M4.8
   - Goal: the original M4.8 done-when, unmet at merge: prove the transform
     on real data before M5.2 splits OSM ways with it.
@@ -2274,13 +2277,20 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `coord.py` self-test pins the chosen constants.
   - Claims: C-1900–C-1909
 
-- [ ] **M4.8d — Sub-unit field for POI/ADDRE positions**
-  - Status: in progress · Owner: task/m4.8d-subunit-field · Critical: no
+- [x] **M4.8d — Sub-unit field for POI/ADDRE positions**
+  - Status: done · Owner: task/m4.8d-subunit-field · Critical: no
   - Depends: —
   - Goal: find a sub-unit position field in `POINT`/`ADDRE` records (a
     `0..2047`-class local value) so M4.8b can test local scale 1 vs 2.
   - Done when: the field is decoded (or `UNKNOWN` with the method) and the
     local-scale test is in an EXP that re-opens M4.8b.
+  - Result: EXP-2026-11-08-M4.8d-subunit-field.md. No 0..2047-class geographic
+    sub-unit *position* field found in zlib-framed POINT name records (50k
+    US+EU) or ADDRE: `(v6&0x7ff,v8)` are 11-bit 2047-class but not local
+    positions (0/50k pair matches to `local(A)`, 41–681 km on 16 M4.8b refs);
+    `v16/v20` discrete; no 11-bit bitfield match above noise; ADDRE XX/YY are
+    0..255 (M4.19). `tools/poi_subunit.py` added. M4.8b re-opened (local scale
+    still unanswered; bit-packed POINT pages out of scope).
   - Claims: C-2930–C-2939 (was C-1908–C-1909, overlap with M4.8b fixed by H24)
 
 - [x] **M4.9 — `ADDRE` remaining grammar**

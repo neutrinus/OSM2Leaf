@@ -121,6 +121,33 @@ python3 tools/poi_icons.py verify /tmp/poi --bicon BICON001/BICON001.DAT
 `tools/cmpind.py extract`. `verify` checks all 34 rows of the mapping in
 `docs/format/assets.md` and prints `RESULT: PASS`.
 
+## `poi_point_check.py`
+
+Decode POI copy-A/B packed ids from POINT shards and compare with a reference
+table (M4.8b). Records are addressed by `(shard, stream_offset, record_index)`;
+`find` prints names to the terminal only.
+
+```bash
+python3 tools/poi_point_check.py --selftest
+python3 tools/poi_point_check.py find ROOT SHARD --a X Y
+python3 tools/poi_point_check.py check --us US_ROOT --eu EU_ROOT REFS.tsv
+```
+
+## `poi_subunit.py`
+
+Scan zlib-framed POINT name records for 0..2047-class sub-unit position fields
+and test correlation with `local(A)` at `coord.py` scales 1 and 2 (M4.8d).
+
+```bash
+python3 tools/poi_subunit.py --selftest
+python3 tools/poi_subunit.py scan ROOT SHARD [SHARD ...] [--limit N]
+python3 tools/poi_subunit.py refs --us US_ROOT --eu EU_ROOT REFS.tsv
+```
+
+Finds the 11-bit body fields `v6=0x0800|(v6&0x7ff)`, `v8`, and discrete
+`v16/v20` (OBSERVED); none encode a geographic local position of copy A
+(negative, C-2931). `refs` needs the M4.8b TSV (Wikipedia coords, not in repo).
+
 ## `rdstm_scan.py`
 
 Inspect `RDSTM001.DAT`: block layout, negative zlib result, and the 2-byte
