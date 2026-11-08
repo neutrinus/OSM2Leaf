@@ -1042,6 +1042,26 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     re-open in the same commit as the `done`.
   - Claims: C-2360–C-2369
 
+- [ ] **M1.13 — Find the encoder that reproduces the factory `.cmp` streams**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M3.2b names Navi.exe's static zlib 1.1.3, C-2061)
+  - Goal: M5.12c renamed 131 of 136 POI records. The five left sit on pages
+    whose edited stream is larger than the original slot: stock zlib 1.3.x at
+    levels 1–9 is 0.8 % larger than the factory encoder on the same bytes. No
+    slot-fit strategy works until an encoder reproduces the factory bytes.
+  - Input: `tools/mutate_refer_poi.py` (`page_encoder` tries zlib levels and
+    memLevels on the original stream; none matches), EXP-2026-11-08-M5.12c-
+    poi-copies (`POINT001–009` factory pages), the `REFER001/POINT0xx.DAT.cmp`
+    of the US card (`archive/sd-images/LEAF_2011-2012_US.img`), C-2061.
+    Candidates: zlib 1.1.3, zlib 1.2.x, zlib-ng, libdeflate, zopfli-style optimal
+    parsing.
+  - Done when: a tool reproduces the factory inner stream byte-for-byte for at
+    least 20 pages of `POINT001–009` (count and list in the EXP), with a
+    negative control (a changed byte gives a different stream), and the
+    candidate that matches is named with its version. If none matches, the EXP
+    lists every candidate's byte difference and the status is `blocked`.
+  - Claims: C-2570–C-2579
+
 ---
 
 ## M2 — Map code, activation, updater
@@ -2429,6 +2449,32 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     its directory entry (the property `imgpatch.py` gives), the unchanged-tree
     build stays byte-identical, and `--selftest` covers the reconcile path.
   - Claims: C-2460–C-2469
+
+- [ ] **M5.21 — Slot budget for generated pages: reject or re-pack, never overrun**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.13b (real-image batch path), M1.13 (only if the budget must be
+    met by stock zlib; without it, the budget is set by measured ratios)
+  - Goal: a generated page has a fixed slot (the factory stream, abutting the
+    next page, C-2355 / M5.12c EXP). OSM data changes the page length. The
+    compiler must know the slot before it writes, and either keep the page
+    inside it with a stated headroom or refuse the page, so a card never gets a
+    silent overrun or a broken neighbour.
+  - Input: `tools/mutate_refer_poi.py` (`refit_page`, `FitError`, the
+    skip list in `*.skipped.json`), `tools/imgpatch.py`, the M5.12c EXP
+    (slot rule: padding only over zero bytes; a stream may abut the next page),
+    the M5.12c `plans.json` pattern.
+  - Done when: (a) the compiler writes a per-page budget table (slot bytes,
+    stream bytes, encoder used) and refuses a page whose stream exceeds
+    its slot minus the headroom, with a `--selftest` on a synthetic abutting
+    page; (b) on the US card, a generated edit set of at least 1000 POI names
+    of mixed lengths either applies with every page inside its slot, or lists
+    each refused page; no page is written past its slot (checked by
+    `mkcard.diff_ranges` against the factory); (c) the EXP states the headroom
+    chosen and the measured ratio that justifies it.
+  - Stop: if no headroom keeps pages inside their slots on the real card, record
+    the page-count and byte overflow in the EXP and set `blocked`: the next step
+    is a page-relocation design (pointer tables), a separate task.
+  - Claims: C-2580–C-2589
 
 ---
 
