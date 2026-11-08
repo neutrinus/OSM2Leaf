@@ -567,7 +567,7 @@ M4.16b → M4.2/M5.3.
   - Claims: none
 
 - [ ] **H14 — Verification debt: the checks the EXPs promised but never ran**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/h14-verification-debt · Critical: no
   - Depends: —
   - Goal: five follow-ups ask for the same thing — run the pinned checks on
     the real samples once, so the `realcheck`/`harness` pins mean something.
