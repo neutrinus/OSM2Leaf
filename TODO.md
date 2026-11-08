@@ -60,8 +60,11 @@ front has fewer, add the next tasks (see rule 9).
 8. **Stale claims.** A claim with no push for 24 h may be released by the
    coordinator (`Status: open`, `Owner: —`). Push work in progress often.
 9. **New tasks.** Add them at the end of the right workstream with the next
-   free ID of that stream, the full field set, and `Owner: —`. Take the next
-   free claim block from [ID allocation](#id-allocation).
+   free ID of that stream, the full field set, and `Owner: —`. Before
+   assigning an ID, `grep` the file for it: parallel merges can add the same
+   ID on another branch, and a reused ID (even with different meaning) is a
+   board defect. Take the next free claim block from
+   [ID allocation](#id-allocation).
 10. **Methodology and data rules** in `AGENTS.md` apply to every task: start
     from `tools/cerom.py` for any firmware address (never fitted deltas),
     tools go in `tools/` with a synthetic self-test, observation and
@@ -289,7 +292,7 @@ firmware/L3 confirmation chain (rule 13).
 | M1 | Firmware tooling | **M1.11c, M1.12, M1.14**; M1.2f for `.data`/M1.3/M1.4; M1.2e non-Claude; M1.13 done |
 | M2 | Map code, activation, updater | **M2.4, M2.14, M2.17**; M2.15/M2.16 done |
 | M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.17, M3.18, M3.20**; blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.19 done |
-| M4 | Data formats | **M4.16c, M4.16d, M4.23**; blocked: M4.2 (no RDSTM row key), M4.3 (→M4.23), M4.8b (→M4.8d), M4.16b (→M1.11c), M4.22 (OQ-44); M4.21 after M3.6 |
+| M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.25, M4.26, M4.27, M4.29**; blocked: M4.2 (no RDSTM row key), M4.3/M4.23 (→M4.24–M4.26), M4.8b (→M4.8d), M4.16b (→M1.11c), M4.22 (OQ-44), M4.28 (→M4.27); M4.21 after M3.6 |
 | M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20, M5.21, M5.22, M5.23**; blocked: M5.12c (scan unfinished); M5.4/M5.13b done; M5.16–M5.19 after their M3 readers |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5/M6.6 after M5.13b (done); M6.7 after M5.14 |
 | M8 | Full-system emulation | **M8.A2, M8.E1**; M8.A3 after M8.A2 |
@@ -307,8 +310,8 @@ M6.6 S2 → (M5.14) M6.7 S3. **M5.21** bounds edited-page slot growth;
 M5.6 → **M5.11**, gated by M5.3 (road classes), M5.22 (non-`0x2046`
 directories), M5.23 (record fields), M5.21 (slot budget) and rule-13
 firmware/L3 confirmation.
-Supporting: M1.11c → M4.16b → (RDSTM row key) → M4.2/M5.3 · M4.23 → M4.3 ·
-M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
+Supporting: M1.11c → M4.16b → (RDSTM row key) → M4.2/M5.3 · M4.24–M4.26 →
+M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
 
 ---
 
@@ -1946,7 +1949,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M4.3 — Turn restrictions and connectivity encoding**
   - Status: blocked · Owner: claude/m4.3-turn-restrictions · Critical: no
   - Blocker: `docs/format/` has no connectivity/regulation record layout; the tools_ze0 writer's `0xff` regulation words are unverified, and `rd_check` reads only section-2 kind 0x1046 (3 of 5 local tiles stop).
-  - Unblock: a new task to file (section-2 kinds 0x2046/0x3e4 reader and one regulation word matched to a restriction); M4.2 is the nearest open task.
+  - Unblock: M4.23 (blocked on M4.24–M4.26: part-b grammar, regulation-word test, firmware reader VAs / LEV3456R addressing).
   - Result: EXP-2026-11-08-M4.3-turn-restrictions; the OSM side decodes (`r120176` no_left_turn at a named four-way junction, `tools/imf_restrictions.py`), the tile side is not documented and not verified, so Done-when is not reached.
   - Depends: — (M4.1 helps)
   - Done when: one known restriction (OSM `restriction=*` at a named
@@ -2277,7 +2280,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Blocker: the `0x18c` codes have no code→language anchor in the four images (only counts agree: US 2/2, EU 8 vs 7 and 17 vs 16); `DRSTR001` `0x18c` is a node listing offset, not a language list (C-2493). The header fixes and the BICON001 retraction are done. See EXP-2026-11-08-M4.22-identity-codes.
   - Unblock: new task needed (none on the board yet): decode the `0x18c` code table from the ICODE001 per-language index (M4.12 left its root-pointer table unfound) or a firmware language table; OQ-44.
 
-- [ ] **M4.24 — Decode bit-packed / non-zlib `POINT` pages**
+- [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
   - Status: open · Owner: — · Critical: no
   - Depends: — (M3.11b, M4.8b)
   - Goal: M4.8b counted 16 POIs from inflated (`78 9c`) POINT streams; bit-packed
@@ -2295,9 +2298,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the header bytes and stop — do not guess the layout.
   - Claims: C-2670–C-2679
 
-- [ ] **M4.25 — Explain the POI latitude residual (+2.8 km) on a known entrance**
+- [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
   - Status: open · Owner: — · Critical: no
-  - Depends: M4.24 (wider sample helps), M4.8d (sub-unit field)
+  - Depends: M4.27 (wider sample helps), M4.8d (sub-unit field)
   - Goal: M4.8b found a +2.8 km latitude bias (median 3.6 km total error, 16
     POIs) and could not separate transform error from "POI stored at a street/
     entrance point, not the building centre". Test on a POI whose true entrance
@@ -2313,7 +2316,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     allowed sources, record the gap and stop.
   - Claims: C-2680–C-2689
 
-- [ ] **M4.26 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
+- [ ] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
   - Status: open · Owner: — · Critical: no
   - Depends: M4.17 (done)
   - Goal: M4.17 found class-pure `class_code` values (motorway codes recurring
@@ -2328,7 +2331,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     new counts.
   - Stop: if no second-country numbered-road sample can be joined, record why
     and stop.
-  - Claims: next free block at claim time (C-1820–C-1829 taken by M4.17).
+  - Claims: C-2700–C-2709
 
 ---
 
