@@ -3416,7 +3416,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
   file). Owner: coordinator with Marek. Claims: C-1590–C-1599
 - [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: open (VA/prototype verified by M8.E1b; runtime decode pending) · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m8.e1-run-rom-decompressor · Critical: yes
   - Depends: M8.E1b (VAs verified, C-2290–C-2293). Does **not** need F1: call
     the function under `-M none` + gdbstub with RAM-only state (LE SH-4).
     M8.A1 now builds a LE `qemu-system-sh4` from the pinned 8.2.7 tarball, so
