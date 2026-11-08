@@ -2083,7 +2083,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1810–C-1819
 
 - [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: claude/m4.16b-record-framing · Critical: yes
+  - Blocker: the C-884 walk is not reproducible offline: `sh4dis.py` lacks MOVT/SHAR/SHLD/SHAD used in the walk and accumulator, and schema table `0x00d53500` is undecoded.
+  - Unblock: M1.11c (then a directory-walk task; the join itself stays with M4.16d).
+  - Result: EXP-2026-11-08-M4.16b-record-framing — gate passed (five functions plain in Navi.exe sec0; callees verified); walk not run; done-when not met (negative).
   - Depends: M4.15
   - Goal: reproduce the per-record length/offset directory walk from bytes to
     recover true TMC field boundaries, then re-run `tools/rdstm_place.py` on
@@ -2092,6 +2095,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     join key and ~0 random-key control, or the mapping is proven impossible
     with method recorded.
   - Claims: C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b)
+
+- [ ] **M1.11c — `sh4dis.py`: MOVT, SHAR, SHLD, SHAD opcodes**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.11 (done)
+  - Goal: decode the dynamic and single-bit shift opcodes and `movt` that the
+    RDSTM directory walk (`0x003f56bc`, `0x003f5e10`) uses, so an offline walk
+    can be run faithfully (M4.16b unblock).
+  - Done when: `sh4dis.py --selftest` pins the four encodings (`0x0n29`,
+    `0x4n21`, `0x4n0d`, `0x4n0c`) and a real-image window shows no undecoded
+    opcode at the five M4.16b addresses; EXP recorded.
+  - Claims: none reserved yet; take the next free range in `claims.md` when claimed.
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no

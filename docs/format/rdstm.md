@@ -124,6 +124,13 @@ descriptor), `0x003f56bc` and `0x003f5d98` (walk the per-record length table at
 offset). That is the mechanism behind the framing drift at `0x10a0` (C-106)
 and it replaces the fixed-16-byte hypothesis.
 
+M4.16b gate (EXP-2026-11-08-M4.16b-record-framing, C-2300–C-2307): the five
+functions are plain code in build-A `Navi.exe` `sec0` (`va2file` → file
+`0x010743bc`, `0x010733e0`, `0x010738bc`, `0x01073f98`, `0x01074010`); `0x003f61bc`
+calls `0x003f51e0`, `0x003f56bc`, `0x003f57a8`, `0x003f5e10`. The walk is not
+reproduced: `sh4dis.py` lacks MOVT, SHAR, SHLD and SHAD, which appear in the walk
+and accumulator code, and the schema table `0x00d53500` is not decoded.
+
 ### Table dump
 
 `0x003a0034` prints the twelve fields in order; its format strings are at
