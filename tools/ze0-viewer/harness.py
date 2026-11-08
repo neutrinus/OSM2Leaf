@@ -126,7 +126,7 @@ def cmd_roundtrip(path):
 def cmd_verify(path, quiet=False):
     data = open(path, 'rb').read()
     tile = clarion_tile.read_tile(data)
-    ok_rec = bad_rec = ok_bg = bad_bg = ok_graph = bad_graph = opaque = 0
+    ok_rec = bad_rec = ok_bg = bad_bg = ok_graph = bad_graph = opaque = raised = 0
     bg_by_level = {}
     errors = []
     for sec in tile['sections']:
@@ -167,8 +167,12 @@ def cmd_verify(path, quiet=False):
                                 # not a container failure; the writer keeps its
                                 # bytes verbatim in non-strict mode.
                                 opaque += 1
+                                raised += 1
                                 if len(errors) < 5:
-                                    errors.append('background record (opaque): %r' % e)
+                                    why = ('layer table: first offset %s != table length %s' % tuple(e.args)
+                                           if isinstance(e, AssertionError) and len(e.args) == 2 else repr(e))
+                                    errors.append('background record in dir 0x%x, k %d kept verbatim '
+                                                  '(parse_record refused it: %s)' % (d['off'], rec['k'], why))
                         elif sec['id'] == 2:
                             try:
                                 r = clarion_rd.parse_record(plain)
@@ -186,8 +190,8 @@ def cmd_verify(path, quiet=False):
     if quiet:
         out = ze0_tile_io.write_tile(tile)
         rt = out == data
-    print('%s: records ok %d bad %d | background rebuild ok %d bad %d (opaque %d) | graph parse ok %d bad %d | roundtrip %s'
-          % (path, ok_rec, bad_rec, ok_bg, bad_bg, opaque, ok_graph, bad_graph, 'OK' if rt else 'FAIL'))
+    print('%s: records ok %d bad %d | background rebuild ok %d bad %d (opaque %d, parse refused %d) | graph parse ok %d bad %d | roundtrip %s'
+          % (path, ok_rec, bad_rec, ok_bg, bad_bg, opaque, raised, ok_graph, bad_graph, 'OK' if rt else 'FAIL'))
     for lv in sorted(bg_by_level):
         print('  level %d background rebuild: ok %d bad %d' % (lv, *bg_by_level[lv]))
     for e in errors:

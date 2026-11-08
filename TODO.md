@@ -3243,8 +3243,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
     on the US page with the globals `0x00d5e4e4`/`0x00d5e4d0` set.
   - Claims: C-2550–C-2559
 
-- [ ] **M9.22 — Explain the `B30R048R` rebuild assertion (untrusted L2 pin)**
-  - Status: in progress · Owner: claude/m9.22-input-region · Critical: yes
+- [x] **M9.22 — Explain the `B30R048R` rebuild assertion (untrusted L2 pin)**
+  - Status: done · Owner: claude/m9.22-input-region · Critical: yes
   - Depends: —
   - Goal: H14 ran the five pinned tiles: four and `LEV3456R` reproduce,
     `B30R048R` raises on an opaque record in the harness's background rebuild.
@@ -3260,7 +3260,26 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the tile is genuinely non-canonical, document it and stop —
     do not weaken the check.
   - Claims: C-2630–C-2639
-  - Result: `PySh4(endian="little")` and `bt/s`/`bf/s` in tools/l3_harness/engine.py; `0x3f39c0` runs on the US page with the globals set and matches parse_page (9 records, guard control); EXP-2026-11-08-M9.21-pysh4-le (C-2550–C-2557).
+  - Result: EXP-2026-11-08-M9.22-b30r048r-rebuild (C-2630–C-2639). The three refused records are named (dir `0x2ad00`, slots 6/8/11, k 1); the L2 pin is re-set in the EXP (tile round-trip and semantic digest pass, golden unchanged); `tools/ze0-viewer/bg_refused.py --selftest` OK (7 checks). Follow-up: M9.23.
+  - Result (misplaced, from M9.21): `PySh4(endian="little")` and `bt/s`/`bf/s` in tools/l3_harness/engine.py; `0x3f39c0` runs on the US page with the globals set and matches parse_page (9 records, guard control); EXP-2026-11-08-M9.21-pysh4-le (C-2550–C-2557).
+- [ ] **M9.23 — Model the three refused records of `B30R048R` (layer table past `geo_len`)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M9.22 (done)
+  - Goal: M9.22 found three level-1 background records (dir `0x2ad00`, slots
+    6/8/11) whose layer table has entries past the header's geometry region
+    (`geo_len 26`), so `parse_record` refuses them and the writer keeps them
+    verbatim. Decide whether those entries are layers, shared data or padding.
+  - Precheck: `cd tools/ze0-viewer && python3 bg_refused.py --selftest` (exit 0).
+  - Scope: the bounded layer-table read in `tools_ze0/clarion_bg.py` (through
+    `ze0-tools.patch`, audited by `setup.sh`), that one tile.
+  - Done when: `parse_record` accepts the three records with the bounded region,
+    `build_record` rebuilds them with `strict=True`, `harness.py verify` reports
+    parse refused 0 on B30R048R with the control tiles unchanged, and the
+    B30R048R L2 golden is re-set or unchanged with a stated reason.
+  - Stop: if the entries past the region are not layers in any reader, document
+    them as opaque in the EXP and stop; do not weaken the check.
+  - Claims: next free block (C-2630–C-2639 are taken by M9.22).
+  - Unblock: none.
 ---
 
 ## Retired leads
