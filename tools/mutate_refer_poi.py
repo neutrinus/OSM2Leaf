@@ -32,12 +32,24 @@ Usage:
       --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE"
   python3 mutate_refer_poi.py CMP IND OUTDIR --page 0x4200 --resize \
       --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE POI"
+  python3 mutate_refer_poi.py CMP IND OUTDIR --batch EDITS.json
   python3 mutate_refer_poi.py --selftest
+
+``--batch`` takes a JSON list of pages, each with same-length edits::
+
+  [{"page": 8649488, "edits": [{"at": 94, "old": "HANA HEALTH CENTER",
+                                 "new": "OSM2LEAF TEST POI1"}]}]
+
+``at`` is the offset of ``old`` inside the inner page. Every edit must match
+the bytes there and be followed by ``@`` (a POI name, not an address part).
+Each edited page must still parse as a record chain. The file is decoded once,
+all pages are rewritten, and the pair is encoded once.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import struct
 import zlib
 from pathlib import Path
@@ -54,6 +66,10 @@ MAX_RECORD = 2 * 0xFF
 
 class PageError(ValueError):
     """The page is not the record chain this tool understands."""
+
+
+class FitError(PageError):
+    """The edited page does not fit its original slot in any tried encoder."""
 
 
 # ---------------------------------------------------------------------------
@@ -310,6 +326,28 @@ def selftest() -> int:
             raise AssertionError("malformed page was accepted")
     checks += 1
 
+    # batch edits: same-length, followed by '@', framing preserved
+    beta_at = page.find(b"BETA MUSEUM")
+    new_inner, applied = edit_inner(page, [
+        {"at": beta_at, "old": "BETA MUSEUM", "new": "OSM2 TEST  "},
+    ])
+    assert new_inner.find(b"OSM2 TEST  @VIA TWO") > 0 and len(new_inner) == len(page)
+    assert len(parse_page(new_inner)) == 3
+    checks += 1
+    alpha_at = page.find(b"ALPHA MUSEUM")  # followed by NUL, not '@': refused
+    for bad in (
+        {"at": beta_at, "old": "BETA MUSEUM", "new": "SHORT"},
+        {"at": beta_at + 1, "old": "BETA MUSEUM", "new": "OSM2 TEST  "},
+        {"at": alpha_at, "old": "ALPHA MUSEUM", "new": "OSM2 TEST   "},
+    ):
+        try:
+            edit_inner(page, [bad])
+        except PageError:
+            pass
+        else:
+            raise AssertionError(f"batch edit accepted: {bad!r}")
+    checks += 1
+
     print(f"mutate_refer_poi selftest: OK ({checks}/{checks} checks)")
     return 0
 
@@ -332,9 +370,149 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--resize", action="store_true",
                     help="allow a different-length name and patch the record "
                          "length byte (POINT name-page framing)")
+    ap.add_argument("--batch", help="JSON list of same-length POI-name edits "
+                                    "(one decode, one encode)")
     ap.add_argument("--selftest", action="store_true",
                     help="run the synthetic page-framing checks and exit")
     return ap
+
+
+# ---------------------------------------------------------------------------
+# batch edits
+
+
+POI_NAME_END = ord("@")
+
+
+def edit_inner(inner: bytes, edits: list[dict]) -> tuple[bytes, list[dict]]:
+    """Apply same-length name edits to one inner page.
+
+    Each edit is ``{"at", "old", "new"}``. Raises :class:`PageError` when the
+    bytes do not match, the name is not followed by ``@``, the replacement
+    length differs, or the page no longer parses as records.
+    """
+    out = bytearray(inner)
+    applied = []
+    for edit in edits:
+        at, old_b, new_b = edit["at"], edit["old"].encode("latin-1"), edit["new"].encode("latin-1")
+        if len(old_b) != len(new_b):
+            raise PageError(f"edit at {at:#x}: {len(new_b)} bytes for {len(old_b)}")
+        if inner[at: at + len(old_b)] != old_b:
+            raise PageError(f"edit at {at:#x}: {old_b!r} not found there")
+        if at + len(old_b) >= len(inner) or inner[at + len(old_b)] != POI_NAME_END:
+            raise PageError(f"edit at {at:#x}: {old_b!r} is not followed by '@'")
+        out[at: at + len(old_b)] = new_b
+        applied.append({"at": at, "old": edit["old"], "new": edit["new"]})
+    new_inner = bytes(out)
+    # Same length means no offset moves. When the page also parses as the
+    # ff ff record chain (POINT010 style), the chain must still parse.
+    try:
+        parse_page(inner)
+    except PageError:
+        pass  # other POINT page framing: the byte-level check below is the guard
+    else:
+        parse_page(new_inner)
+    changed = [i for i, (a, b) in enumerate(zip(inner, new_inner)) if a != b]
+    covered = {i for e in applied for i in range(e["at"], e["at"] + len(e["old"]))}
+    if not set(changed) <= covered or len(new_inner) != len(inner):
+        raise PageError("page changed outside the edited names")
+    return new_inner, applied
+
+
+def _deflate(data: bytes, level: int, mem_level: int) -> bytes:
+    comp = zlib.compressobj(level, zlib.DEFLATED, 15, mem_level)
+    return comp.compress(data) + comp.flush()
+
+
+def page_encoder(stream: bytes, inner: bytes) -> tuple[int, int] | None:
+    """Return (level, memLevel) that reproduces the original stream exactly."""
+    for mem_level in (8, 9, 7, 6, 5, 4, 3, 2, 1):
+        for level in (9, 6, 8, 7, 5, 4, 3, 2, 1):
+            if _deflate(inner, level, mem_level) == stream:
+                return level, mem_level
+    return None
+
+
+def refit_page(blob: bytes, page: int, new_inner: bytes) -> bytes:
+    """Recompress one inner stream into its original slot.
+
+    The slot is the original stream plus any zero padding up to the next
+    0x100 boundary. POINT pages can abut the next page, so padding is used
+    only when the original bytes there are all zero. The encoder settings
+    that reproduce the original stream are used first, so an unchanged name
+    gives back the same bytes.
+    """
+    window = blob[page: page + (8 << 20)]  # shorter than 8 MiB near the end
+    dec = zlib.decompressobj()
+    dec.decompress(window)
+    if not dec.eof:
+        raise PageError(f"page {page:#x} is not a complete zlib stream")
+    consumed = len(window) - len(dec.unused_data)
+    original = window[:consumed]
+    limit = (page + consumed + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
+    if any(blob[page + consumed: limit]):
+        limit = page + consumed  # bytes after the stream belong to something else
+    slot = limit - page
+    setting = page_encoder(original, zlib.decompress(original))
+    candidates = [setting] if setting else []
+    candidates += [(9, 8), (6, 8), (9, 9)]
+    for level, mem_level in candidates:
+        stream = _deflate(new_inner, level, mem_level)
+        if len(stream) <= slot:
+            new_blob = bytearray(blob)
+            new_blob[page: page + slot] = stream + bytes(slot - len(stream))
+            return bytes(new_blob)
+    raise FitError(f"page {page:#x}: no encoder fits {slot} bytes")
+
+
+def batch_edit(blob: bytes, plan: list[dict]) -> tuple[bytes, list[dict]]:
+    """Apply a batch plan to a decoded blob; pages are independent.
+
+    A page whose edited stream does not fit its slot is skipped and returned
+    in the skip list; its names stay as they were. Any other error stops the
+    batch.
+    """
+    skipped = []
+    for entry in plan:
+        page = entry["page"]
+        window = blob[page: page + (8 << 20)]
+        dec = zlib.decompressobj()
+        inner = dec.decompress(window)
+        if not dec.eof:
+            raise PageError(f"page {page:#x} is not a complete zlib stream")
+        new_inner, applied = edit_inner(inner, entry["edits"])
+        try:
+            blob = refit_page(blob, page, new_inner)
+        except FitError as exc:
+            skipped.append({"page": page, "edits": len(entry["edits"]), "reason": str(exc)})
+            print(f"SKIP page {page:#x}: {len(entry['edits'])} edit(s) left unchanged ({exc})")
+            continue
+        print(f"page {page:#x}: {len(applied)} edit(s)")
+    return blob, skipped
+
+
+def batch_main(args, cmp_path: Path, ind_path: Path, outdir: Path) -> int:
+    plan = json.loads(Path(args.batch).read_text(encoding="utf-8"))
+    usize, csize, count, chunk_size, offsets = read_ind(ind_path)
+    packed = cmp_path.read_bytes()
+    assert csize == len(packed)
+    blob = decode(packed, offsets)
+    assert len(blob) == usize
+    try:
+        new_blob, skipped = batch_edit(blob, plan)
+    except PageError as exc:
+        raise SystemExit(f"refusing: {exc}") from exc
+    assert len(new_blob) == usize
+    if skipped:
+        (outdir / (cmp_path.stem + ".skipped.json")).write_text(
+            json.dumps(skipped, indent=2), encoding="utf-8")
+    new_packed, new_offsets = encode(new_blob, chunk_size)
+    outdir.mkdir(parents=True, exist_ok=True)
+    (outdir / cmp_path.name).write_bytes(new_packed)
+    (outdir / ind_path.name).write_bytes(build_ind(usize, len(new_packed), chunk_size, new_offsets))
+    (outdir / cmp_path.stem).write_bytes(new_blob)
+    print(f"outer .cmp {len(packed)} -> {len(new_packed)} bytes; logical size unchanged: {usize}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -342,6 +520,10 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
+    if args.batch:
+        if not (args.cmp and args.ind and args.outdir):
+            ap.error("--batch needs CMP IND OUTDIR")
+        return batch_main(args, Path(args.cmp), Path(args.ind), Path(args.outdir))
     missing = [
         name
         for name in ("cmp", "ind", "outdir", "page", "old", "new")
