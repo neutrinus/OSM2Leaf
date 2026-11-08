@@ -1040,7 +1040,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2360–C-2369
 
 - [ ] **M1.13 — Find the encoder that reproduces the factory `.cmp` streams**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m1.13-factory-encoder · Critical: yes
   - Depends: — (M3.2b names Navi.exe's static zlib 1.1.3, C-2061)
   - Goal: M5.12c renamed 131 of 136 POI records. The five left sit on pages
     whose edited stream is larger than the original slot: stock zlib 1.3.x at
