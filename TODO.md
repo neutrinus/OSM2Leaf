@@ -750,33 +750,35 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     M5.22, M5.23, M5.24, M9.25.
   - Claims: none (a review creates no format claim)
 
-- [ ] **H23 — Board hygiene: claim-block collisions, duplicate M9.21, stale status lines**
-  - Status: open · Owner: — · Critical: yes
+- [x] **H23 — Board hygiene: claim-block collisions, duplicate M9.21, stale status lines**
+  - Status: done · Owner: PM/review (session) · Critical: yes
   - Depends: —
   - Goal: make TODO.md safe for ~15 parallel agents again. The 11th-pass audit
     found: duplicate M9.21 task blocks (both done); M4.24 claims `C-2630–C-2639`
     colliding with M9.22/M9.23, M4.25 `C-2640–C-2649` colliding with M9.24,
-    M4.26 `C-2650–C-2659` colliding with M5.22/M5.23; M3.20 and M5.23 have
-    incomplete claim fields; M9.23 says "next free block (C-2630–C-2639 taken by
-    M9.22)" but that block is also claimed by M4.24; workstreams table still
-    says "M3.19 done" while M3.19 is `blocked` (EXP-2026-11-08-M3.19-sh4scan,
-    unblock M3.20).
-  - Precheck: `grep -n 'Claims: C-2630\|Claims: C-2640\|Claims: C-2650' TODO.md`
-    and `grep -n '^\- \[.\] \*\*M9\.21' TODO.md` reproduce the collisions/dup.
-  - Scope: `TODO.md` only. Reassign colliding claim blocks to the next free
-    blocks (highest in file + 10; record the reassignment in each affected task
-    as `Claims: C-xxxx–C-yyyy (was C-zzzz–C-zzzz, collision fixed by H23)`),
-    merge duplicate M9.21 into one block, add missing `Claims` to M3.20/M5.23,
-    fix the M3 workstream status text, add `Claims` to M3.20/M5.23/M5.24 (and
-    any other task with "next free block at claim time"), and update M9.23's
-    "next free block" note. Do not change task meaning, owners, or results.
+    M4.26/M1.15/M5.22/M5.23 colliding on `C-2650–C-2659`; M5.25 colliding with
+    H25 on `C-2750–C-2759`; H26–H29 colliding with M9.26/M4.30/M4.24/M4.25 on
+    `C-2760–C-2799`; M3.20/M5.23/M5.24 had incomplete claim fields; M9.23 had a
+    stale "next free block" note; workstreams table said "M3.19 done" while
+    M3.19 is `blocked` (EXP-2026-11-08-M3.19-sh4scan, unblock M3.20).
+  - Precheck: `grep -n 'Claims: C-2630\|Claims: C-2640\|Claims: C-2650\|Claims: C-2750\|Claims: C-2760\|Claims: C-2770\|Claims: C-2780\|Claims: C-2790' TODO.md`
+    and `grep -n '^\- \[.\] \*\*M9\.21' TODO.md` reproduced the collisions/dup.
+  - Scope: `TODO.md` only. Reassigned colliding claim blocks to free blocks
+    (recorded as `Claims: C-xxxx–C-yyyy (was ..., collision fixed by H23)`),
+    kept M9.22 `C-2630–C-2639` (registered in `claims.md`) and M9.24
+    `C-2640–C-2649`; merged duplicate M9.21; added/fixed claims for M5.24/M9.23;
+    fixed M9.22 formatting and M3 workstream status. Did not change task
+    meaning, owners, or results.
   - Done when: no `Claims:` range appears in more than one task block (verified
-    by a grep/script recorded in the EXP/commit), only one M9.21 block remains,
-    M3.20/M5.23 have claim blocks, and the M3 workstream row matches actual
-    statuses.
+    by script, recorded in commits), only one M9.21 block remains, M3.20/M5.23/
+    M5.24 have claim blocks, and the M3 workstream row matches actual statuses.
   - Stop: if any reassigned block is already used in `docs/research/claims.md`,
     do not move it; record the conflict and take a different free block.
   - Claims: C-2710–C-2719
+  - Result: board-only (no EXP). Commits `17eceaf` (partial) + this commit.
+    Verification: duplicate claim ranges = 0; M9.21 blocks = 1; M3.20/M5.23/
+    M5.24 have Claims; M3 workstream shows M3.19 blocked (→M3.20).
+    `claims_check.py: OK`.
 
 - [ ] **H24 — `todo_check.py`: lint TODO syntax, claim allocations and task fields; make selftests tmp-safe**
   - Status: open · Owner: — · Critical: yes
@@ -1631,7 +1633,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: EXP-2026-11-08-M4.23-restriction-encoding (part-b table), `tools/rd_restrictions.py` (`part_b_check`).
   - Done when: a parser reproduces every odd record of those two tiles (76 + 34 pairs) word for word, with its own `--selftest`, and the mark and side words are explained by the parent record, not fitted.
   - Stop: after two rounds of fitting without a full match, record a negative EXP and stop.
-  - Claims: C-2780–C-2789 (was C-2630–C-2639, collision with M9.22/M9.23 fixed by H23)
+  - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
 
 - [ ] **M4.25 — Regulation-word test: the no_* turns without a from-word, and the only_* encoding**
   - Status: open · Owner: — · Critical: no
@@ -1642,7 +1644,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: EXP-2026-11-08-M4.23-restriction-encoding (observations 12–13), the entry-class table of `match`.
   - Done when: each miss class is explained by a named, counted mapping check, or the same test passes (pre-stated PASS) on a second tile, or a negative EXP records it.
   - Stop: after one mapping audit and one second tile; otherwise `blocked` with the EXP.
-  - Claims: C-2790–C-2799 (was C-2640–C-2649, collision with M9.24 fixed by H23)
+  - Claims: C-2910–C-2919 (was C-2640–C-2649, collision fixed by H23)
 
 - [ ] **M4.26 — Firmware reader VAs for section-2 grid kinds; LEV3456R level-4/5 parcel addressing**
   - Status: open · Owner: — · Critical: no
@@ -2549,7 +2551,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     hypotheses as follow-ups.
   - Stop: do not lower the pass threshold; a better model or an honest split is
     the result.
-  - Claims: C-2770–C-2779
+  - Claims: C-2890–C-2899 (was C-2770–C-2779, collision with H27 fixed by H23)
 
 ---
 
@@ -3797,7 +3799,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the registered target cannot expose the decoder's output buffer
     address, record that limit and stop; do not infer from disassembly alone
     when a runnable path exists.
-  - Claims: C-2760–C-2769
+  - Claims: C-2900–C-2909 (was C-2760–C-2769, collision with H26 fixed by H23)
 
 ---
 
