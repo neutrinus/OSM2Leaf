@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Section-2 entry and regulation-word census, junction lookup and restriction match (M4.23).
+"""Section-2 entry and regulation-word census, junction lookup and restriction match (M4.23/M4.25).
 
     python3 tools/rd_restrictions.py census TILE...
         kinds, entries by one-way class, regulation words, part-b pairing, per level
     python3 tools/rd_restrictions.py match TILE IMF [--level 1|2] [--seed N] [--show N]
         OSM restrictions whose via node lies in TILE: from/to entry by bearing, word test
         for no_* and only_* relations, shuffle control, verdict against PASS
+    python3 tools/rd_restrictions.py audit TILE IMF [--level 1|2] [--seed N]
+        M4.25 mapping audit: named, counted miss classes for no_* and encoding candidates
+        for only_*
     python3 tools/rd_restrictions.py --selftest
 
 Reads only. The tile reader is ze0-viewer/tools_ze0 (TileScan, clarion_rd, rd_check.rowcol
@@ -297,7 +300,9 @@ def tile_bearings(rec, i, level, lat):
     return out
 
 
-def match(tile, imf, level=1, seed=42, show=0, out=print):
+def _match_core(tile, imf, level=1, seed=42, out=print):
+    """Parse tile/IMF once and return (rels, reasons, rows, rng) for matched turn restrictions.
+    rows: [(r, F, T, ents, nonedge, tag)] where F/T are tile entry indices of from/to."""
     rels, incident, coords = load_imf(imf, out)
     with open(tile, 'rb') as f:
         data = f.read()
@@ -305,16 +310,14 @@ def match(tile, imf, level=1, seed=42, show=0, out=print):
     idx = index_parcels(data, level, wanted)
     del data
     rng = random.Random(seed)
-    per = collections.defaultdict(collections.Counter)
-    shown = 0
     reasons = collections.Counter()
-    pairs = collections.defaultdict(lambda: [0, 0])     # no_* by (from entry class -> to entry class): n, hit
+    rows = []
     for r in rels:
         via = r['via']
         if via not in coords: reasons['via coordinates missing'] += 1; continue
         j = junction(idx, level, coords[via][1], coords[via][0])
         if j is None: reasons['no graph node within %d units' % JUNCTION_TOL] += 1; continue
-        rec, i, = j
+        rec, i = j
         ways = incident.get(via, [])
         osm = osm_bearings(via, ways, coords)
         tb = tile_bearings(rec, i, level, coords[via][0])
@@ -325,25 +328,191 @@ def match(tile, imf, level=1, seed=42, show=0, out=print):
         if r['frm'] not in m or r['to'] not in m: reasons['from or to way not at the node'] += 1; continue
         F, T = m[r['frm']], m[r['to']]
         ents = rec['nodes'][i]['entries']
-        word = lambda f, e: any(w >> 12 == f and w & 0xff == 0xff for w in regs_of(e))
         tag = r['tag']
+        if not (tag.startswith('no_') or tag.startswith('only_')):
+            reasons['tag %s not a turn restriction' % tag] += 1; continue
+        rows.append((r, F, T, ents, nonedge, tag))
+    return rels, reasons, rows, rng
+
+
+def _word_ff(f, e):
+    """True if entry e has a 0xff prohibition word naming entry f."""
+    return any(w >> 12 == f and (w & 0xff) == 0xff for w in regs_of(e))
+
+
+def _word_any(f, e):
+    """True if entry e has any word naming entry f, regardless of byte1."""
+    return any(w >> 12 == f for w in regs_of(e))
+
+
+def _word_ff_on(entries, f, idxs):
+    """Indices in idxs whose entry carries a 0xff word naming f."""
+    return [k for k in idxs if _word_ff(f, entries[k])]
+
+
+def _byte1s_naming(f, e):
+    """Byte1 values of all words naming f on entry e."""
+    return [w & 0xff for w in regs_of(e) if w >> 12 == f]
+
+
+def audit(tile, imf, level=1, seed=42, out=print):
+    """M4.25 mapping audit: named, counted checks for no_* misses and only_* encoding candidates.
+    B48R058R/dolnoslaskie scope; read-only. Reports every miss class with a count."""
+    rels, reasons, rows, rng = _match_core(tile, imf, level, seed, out)
+    no = collections.Counter()          # all no_* matched
+    miss = collections.Counter()        # named miss buckets (a miss may increment several)
+    miss_excl = collections.Counter()   # first matching explanation, for a partition view
+    only_c = collections.Counter()      # only_* encoding candidates
+    only_detail = collections.defaultdict(collections.Counter)
+    no_uturn = collections.Counter()
+
+    def explain_no(r, F, T, ents, nonedge, tag):
+        hit = _word_ff(F, ents[T])
+        no['n'] += 1; no['hit'] += hit
+        no['tag:' + tag] += 1; no['tag-hit:' + tag] += hit
+        no['class:%s->%s' % (kind_of(ents[F]), kind_of(ents[T]))] += 1
+        if hit:
+            no['class-hit:%s->%s' % (kind_of(ents[F]), kind_of(ents[T]))] += 1
+            return
+        no['miss'] += 1
+        flags = []
+        if _word_ff(T, ents[F]): flags.append('reverse_ff_on_F_names_T')
+        if any(w >> 12 == F and (w & 0xff) != 0xff for w in regs_of(ents[T])):
+            flags.append('other_byte1_on_T_names_F'); miss['other_byte1_values_on_T:' + repr(_byte1s_naming(F, ents[T]))] += 1
+        if any(w >> 12 == T and (w & 0xff) != 0xff for w in regs_of(ents[F])):
+            flags.append('other_byte1_on_F_names_T')
+        locs = _word_ff_on(ents, F, [k for k in nonedge if k != T])
+        if locs: flags.append('ff_naming_F_on_other_entries:' + repr(locs))
+        any_f = _word_ff_on(ents, F, nonedge)
+        if not any_f: flags.append('no_ff_word_naming_F_anywhere')
+        any_tname = [k for k in nonedge if _word_ff(T, ents[k])]
+        if any_tname and 'reverse_ff_on_F_names_T' not in flags:
+            flags.append('ff_naming_T_exists_not_on_F:' + repr(any_tname))
+        # T carries ff words naming whom?
+        t_ff_names = [w >> 12 for w in regs_of(ents[T]) if (w & 0xff) == 0xff]
+        if t_ff_names: flags.append('T_has_ff_naming:' + repr(t_ff_names))
+        else: flags.append('T_has_no_ff_words')
+        # f nibble present with 0xff on T? (already checked) any nibble==F at all on T?
+        if _word_any(F, ents[T]): flags.append('T_names_F_nonff_only_or_mixed')
+        if r['frm'] == r['to']: flags.append('osm_from_eq_to')
+        if tag == 'no_u_turn':
+            no_uturn['n'] += 1
+            if kind_of(ents[F]) == kind_of(ents[T]) == 'two': no_uturn['F_two_T_two'] += 1
+            if not any_f: no_uturn['no_ff_naming_F'] += 1
+            if flags and flags[0].startswith('reverse'): no_uturn['reverse'] += 1
+        for fl in flags: miss[fl.split(':')[0] if ':' in fl and not fl.startswith('other_byte1_values') else fl] += 1
+        # partition: first/primary explanation
+        for cand in ('reverse_ff_on_F_names_T', 'other_byte1_on_T_names_F', 'ff_naming_F_on_other_entries',
+                     'no_ff_word_naming_F_anywhere', 'osm_from_eq_to'):
+            if any(f.startswith(cand) for f in flags):
+                miss_excl[cand] += 1; break
+        else:
+            miss_excl['unexplained_residual'] += 1
+        miss['tag-miss:' + tag] += 1
+
+    def explain_only(r, F, T, ents, nonedge, tag):
+        forb = [k for k in nonedge if k not in (F, T) and kind_of(ents[k]) != 'arr']
+        exits = [k for k in nonedge if k not in (F, T) and kind_of(ents[k]) != 'arr']
+        all_nonft = [k for k in nonedge if k not in (F, T)]
+        only_c['n'] += 1; only_c['tag:' + tag] += 1
+        # candidates (named)
+        c_all_ff = bool(forb) and all(_word_ff(F, ents[k]) for k in forb)
+        only_c['all_other_exits_ff_naming_F'] += c_all_ff
+        only_c['T_has_ff_naming_F'] += _word_ff(F, ents[T])
+        only_c['T_has_any_naming_F'] += _word_any(F, ents[T])
+        only_c['F_has_ff_naming_T'] += _word_ff(T, ents[F])
+        only_c['F_has_any_naming_T'] += _word_any(T, ents[F])
+        # any ff naming F on T with F-specific check: T is the allowed target; if it carried ff naming F
+        # that would mean "forbidden from F" contradicting only_*. count it.
+        t_b1 = _byte1s_naming(F, ents[T])
+        if t_b1: only_detail['T_byte1_naming_F'][repr(sorted(set(t_b1)))] += 1
+        # is "only" encoded as: no other exit is traversable-from-F except T? check words on others naming F
+        n_forb_ff = sum(1 for k in forb if _word_ff(F, ents[k]))
+        only_c['forb_with_ff_naming_F_total'] += n_forb_ff
+        only_c['forb_slots_total'] += len(forb)
+        only_detail['forb_ff_count'][str(n_forb_ff) + '/' + str(len(forb))] += 1
+        # all non-F,T including arrivals with ff naming F?
+        n_all_ff = sum(1 for k in all_nonft if _word_ff(F, ents[k]))
+        only_c['all_nonft_with_ff_naming_F_total'] += n_all_ff
+        only_c['all_nonft_slots_total'] += len(all_nonft)
+        # "only" = T carries a 0xff naming 0xf (all entries barred?) or specific marker?
+        only_c['T_has_ff_naming_0xf'] += any(w >> 12 == 0xf and (w & 0xff) == 0xff for w in regs_of(ents[T]))
+        only_c['F_has_ff_naming_0xf'] += any(w >> 12 == 0xf and (w & 0xff) == 0xff for w in regs_of(ents[F]))
+        # baseline: for a random (node, entry, named) how often ff naming appears? approximate by F->random exit
+        if exits:
+            U = rng.choice(exits)
+            only_c['baseline_ff_naming_F_on_random_exit'] += _word_ff(F, ents[U])
+            only_c['baseline_n'] += 1
+        only_c['F_arrival'] += (kind_of(ents[F]) == 'arr')
+        only_c['F_class:' + kind_of(ents[F])] += 1
+
+    for r, F, T, ents, nonedge, tag in rows:
+        if tag.startswith('no_'): explain_no(r, F, T, ents, nonedge, tag)
+        elif tag.startswith('only_'): explain_only(r, F, T, ents, nonedge, tag)
+
+    out('=== M4.25 audit: %s level %d ===' % (os.path.basename(tile), level))
+    out('restrictions read: %d; not matched: %s' % (len(rels), dict(reasons)))
+    out('no_* matched: n=%d hit=%d miss=%d (%.1f%% hit)' % (no['n'], no['hit'], no['miss'], 100*no['hit']/no['n'] if no['n'] else 0))
+    ok, why = verdict(no['n'], no['hit'], 0)  # shuffle not re-run; report primary only
+    out('primary verdict (no shuffle rerun): %s (%s)' % ('PASS' if ok else 'FAIL', why))
+    out('-- no_* hits/misses by tag --')
+    for k in sorted(k for k in no if k.startswith('tag:')):
+        tag = k[4:]; out('  %-18s n=%d hit=%d miss=%d' % (tag, no[k], no.get('tag-hit:'+tag,0), no[k]-no.get('tag-hit:'+tag,0)))
+    out('-- no_* hits/misses by entry class (from->to) --')
+    for k in sorted(k for k in no if k.startswith('class:')):
+        cls = k[6:]; n = no[k]; h = no.get('class-hit:'+cls,0); out('  %-12s n=%d hit=%d miss=%d (%.1f%%)' % (cls, n, h, n-h, 100*h/n if n else 0))
+    out('-- no_* miss: named checks (flags; a miss may count in several) --')
+    for k, v in miss.most_common():
+        if k.startswith('tag-') or k.startswith('other_byte1_values'): continue
+        out('  %-45s %d' % (k, v))
+    out('-- no_* miss: exclusive primary partition (first match) --')
+    for k, v in miss_excl.most_common():
+        out('  %-45s %d / %d' % (k, v, no['miss']))
+    out('-- no_* miss: other byte1 values on T naming F --')
+    for k, v in miss.most_common():
+        if k.startswith('other_byte1_values_on_T:'): out('  %s %d' % (k.split(':',1)[1], v))
+    out('-- no_u_turn detail --')
+    for k, v in sorted(no_uturn.items()): out('  %s %d' % (k, v))
+    out('-- only_* encoding candidates (named, counted) --')
+    for k, v in sorted(only_c.items()):
+        if not k.startswith('tag:'): out('  %-45s %s' % (k, v))
+    for k in sorted(k for k in only_c if k.startswith('tag:')):
+        out('  %s %d' % (k, only_c[k]))
+    for name, ctr in sorted(only_detail.items()):
+        out('  detail %s: %s' % (name, dict(ctr.most_common(12))))
+    if only_c['forb_slots_total']:
+        out('  density ff_naming_F on forb slots: %d/%d (%.1f%%)' % (
+            only_c['forb_with_ff_naming_F_total'], only_c['forb_slots_total'],
+            100*only_c['forb_with_ff_naming_F_total']/only_c['forb_slots_total']))
+    if only_c['baseline_n']:
+        out('  baseline ff_naming_F on random exit: %d/%d (%.1f%%)' % (
+            only_c['baseline_ff_naming_F_on_random_exit'], only_c['baseline_n'],
+            100*only_c['baseline_ff_naming_F_on_random_exit']/only_c['baseline_n']))
+    return {'no_n': no['n'], 'no_hit': no['hit'], 'no_miss': no['miss'],
+            'only_n': only_c['n'], 'miss_excl': dict(miss_excl), 'only': dict(only_c)}
+
+
+def match(tile, imf, level=1, seed=42, show=0, out=print):
+    rels, reasons, rows, rng = _match_core(tile, imf, level, seed, out)
+    per = collections.defaultdict(collections.Counter)
+    shown = 0
+    pairs = collections.defaultdict(lambda: [0, 0])     # no_* by (from entry class -> to entry class): n, hit
+    for r, F, T, ents, nonedge, tag in rows:
         cand = [k for k in nonedge if k not in (F, T)]
         if tag.startswith('no_'):
-            hit = word(F, ents[T])
+            hit = _word_ff(F, ents[T])
             U = rng.choice(cand) if cand else None
-            sh = word(F, ents[U]) if U is not None else False
+            sh = _word_ff(F, ents[U]) if U is not None else False
         elif tag.startswith('only_'):
             forb = [k for k in nonedge if k not in (F, T) and kind_of(ents[k]) != 'arr']
-            hit = bool(forb) and all(word(F, ents[k]) for k in forb)
+            hit = bool(forb) and all(_word_ff(F, ents[k]) for k in forb)
             exits = [k for k in cand if kind_of(ents[k]) != 'arr']
             U = rng.choice(exits) if exits else None
-            sh = word(F, ents[U]) if U is not None else False
+            sh = _word_ff(F, ents[U]) if U is not None else False
         else:
-            reasons['tag %s not a turn restriction' % tag] += 1; continue
-        # exploratory variants, reported beside the pre-stated test and not used for the verdict:
-        # the word naming the to-entry at the from-entry, and any word naming F at T that is not 0xff
-        rev = word(T, ents[F])
-        other = any(w >> 12 == F and w & 0xff != 0xff for w in regs_of(ents[T]))
+            continue
+        rev = _word_ff(T, ents[F])
+        other = any(w >> 12 == F and (w & 0xff) != 0xff for w in regs_of(ents[T]))
         per[tag]['n'] += 1; per[tag]['hit'] += hit; per[tag]['shuffle'] += sh
         per[tag]['reverse'] += rev; per[tag]['other low byte'] += other
         if tag.startswith('no_'):
@@ -464,6 +633,9 @@ def main(argv=None):
     m = sub.add_parser('match'); m.add_argument('tile'); m.add_argument('imf')
     m.add_argument('--level', type=int, choices=(1, 2), default=1)
     m.add_argument('--seed', type=int, default=42); m.add_argument('--show', type=int, default=0)
+    au = sub.add_parser('audit'); au.add_argument('tile'); au.add_argument('imf')
+    au.add_argument('--level', type=int, choices=(1, 2), default=1)
+    au.add_argument('--seed', type=int, default=42)
     cc = sub.add_parser('coarse'); cc.add_argument('lev_tile'); cc.add_argument('lon', type=float)
     cc.add_argument('lat', type=float)
     a = ap.parse_args(argv)
@@ -475,6 +647,8 @@ def main(argv=None):
         census(a.tiles); return 0
     if a.cmd == 'match':
         return 0 if match(a.tile, a.imf, a.level, a.seed, a.show) else 1
+    if a.cmd == 'audit':
+        audit(a.tile, a.imf, a.level, a.seed); return 0
     if a.cmd == 'coarse':
         return coarse(a.lev_tile, a.lon, a.lat)
     ap.print_help(); return 2
