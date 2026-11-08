@@ -1934,3 +1934,12 @@ EXP-2026-11-08-M4.23-restriction-encoding.
 | C-2398 | RESERVED. | — | — | — |
 | C-2399 | RESERVED. | — | — | — |
 
+
+## M9.25 — harness.py info / viewer crash on opaque records (C-2690–C-2699)
+
+| ID | Claim | Status | Trust | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2690 | `harness.py cmd_info` (before this fix) crashed on factory `B48R058R.DAT` (SHA-256 `e9c9cb22…`) with `zlib.error: Error -3 while decompressing data: invalid window size` at the record census (`zlib.decompress` on a record accepted by `is_zlib`). 80 such unreadable zlib records were counted in section 1 level 1 of that tile. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash (precheck); `harness.py info B48R058R.DAT` exit 1 before fix |
+| C-2691 | `harness.py cmd_info` now classifies decompression/classification failures as unreadable, appends `, unreadable N` to the level line when present, and exits 0. On factory `B48R058R` it reports `unreadable 80` (section 1 level 1); on `B30R048R` (0 unreadable) it exits 0 with no format change to the census lines. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash; `tools/ze0-viewer/harness.py` `cmd_info` |
+| C-2692 | Control tiles `B28R070R`, `B30R060R`, `B58R070R` still pass `harness.py verify` (byte-identical round-trip, same ok/opaque/refused counts as M9.22/H14) after the M9.25 change. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash (Observations) |
+| C-2693 | `bg_refused.py --selftest` (M9.22) still passes (7 checks, exit 0) after the M9.25 change. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash |
