@@ -40,6 +40,8 @@ NK_IMAGE_START = 0x3E00200
 NK_NAME = "nk.exe"
 M1_2C_WRAP = 0x88037590
 M1_2C_SECT = 0x88037464
+M1_2C_ALLOC = 0x88034D94  # C-2291/C-2292: DECOMP_ALLOC (kernel-context dependent)
+M1_2C_BLK = 0x8803A384   # C-2292: DECOMP_BLK (LZXD-like block codec)
 M1_2C_VERIFIED_LE = True  # M8.E1b: M1.2c VAs confirmed; M8.E1 BE refutation superseded (C-2290)
 EXP49 = [
     {"name": "NaviMapCC.dll/sec1", "file_off": 0x01580CE0, "psize": 0x2C6, "vsize": 0x5B8, "ulen": 0x484},
