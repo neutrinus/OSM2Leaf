@@ -2300,8 +2300,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     unmapped values listed.
   - Claims: C-1050–C-1059
 
-- [ ] **M5.4 — Tile writer: roads only**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.4 — Tile writer: roads only**
+  - Status: done · Owner: claude/m5.4-tile-splice · Critical: yes
   - Depends: M5.2 (M5.3 for final classes, not needed to start)
   - Input: `tools/tilewriter.py` (splices road records into a factory tile,
     keeps header/tables and section 4; 48/48 synthetic checks,
@@ -2314,6 +2314,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     (each generated road takes the class of the factory road it replaces, or
     the tile's most common local class) and say so in the EXP.
   - Done when: one generated tile from the real factory tile passes L2.
+  - Result: `tools/tilewriter.py` splices real OSM roads into the EU 2011 factory tile
+    `B48R058R` (one 0x2046 directory, 18 parcels, 50,470 points decoded exactly); L2
+    passes on the card tree with DRSTR rebuilt, and the L2 pass is structural only
+    (EXP-2026-11-08-M5.4-tile-splice). Provisional classes; not firmware-tested.
   - Claims: C-1060–C-1069
 
 - [ ] **M5.5 — Connectivity across tile borders**
