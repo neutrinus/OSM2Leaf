@@ -686,7 +686,10 @@ def module_fixture(tmp, target=None) -> dict:
     report = {
         "image": "/vendor/synthetic-module.img",
         "image_size": len(image),
-        "image_sha256": hashlib.sha256(bytes(image)).hexdigest(),
+        # like cerom.py: a window hash, with its scope text (real EU head:
+        # "first 134217728 of 268435456 bytes")
+        "image_sha256": hashlib.sha256(bytes(image[:0x1000])).hexdigest(),
+        "image_sha256_scope": "first 4096 of 8192 bytes",
         "segments": [
             {
                 "segment_base": "0x0",
@@ -709,13 +712,18 @@ def module_fixture(tmp, target=None) -> dict:
                              "size": 0x1000, "characteristics": "0x60000020", "compressed": False},
                             {"name": ".data", "va": hex(MODULE_VA + 0x1000), "file_offset": 0x0,
                              "size": 0x1000, "characteristics": "0xc0000040", "compressed": False},
+                            {"name": ".zdata", "va": hex(MODULE_VA + 0x2000), "file_offset": 0x0,
+                             "size": 0x1000, "characteristics": "0x60000020", "compressed": True},
                         ],
                     }
                 ],
             }
         ],
     }
-    rommap_path = write_json(root / "rommap.json", rommap.convert(report))
+    # skip_compressed keeps .zdata out of the map but records it in "skipped"
+    rommap_path = write_json(
+        root / "rommap.json", rommap.convert(report, skip_compressed=True)
+    )
     targets_path = write_json(
         root / "targets.json",
         {"schema": runner.TARGETS_SCHEMA, "targets": [target or module_target()]},
@@ -794,7 +802,8 @@ def test_module_run_unmapped_r0(tmp):
 @check("module entry: a VA outside the map or in a non-executable block is BLOCKED")
 def test_module_run_bad_va(tmp):
     for va, needle in [(0x8C400000, "outside every loadable block"),
-                       (MODULE_VA + 0x1000, "not executable")]:
+                       (MODULE_VA + 0x1000, "not executable"),
+                       (MODULE_VA + 0x2000, "compressed section Module.bin/.zdata")]:
         fx = module_fixture(tmp, module_target(entry={"va": hex(va)}))
         code, payload = run_json(module_argv(fx))
         assert code == runner.EXIT_BLOCKED, payload
@@ -806,11 +815,20 @@ def test_module_run_wrong_image(tmp):
     fx = module_fixture(tmp)
     doc = json.loads(fx["rommap"].read_text(encoding="utf-8"))
     assert doc["source"]["image_sha256"] == fx["sha256"], "map must carry the image hash"
-    doc["source"]["image_sha256"] = "b" * 64
-    write_json(fx["rommap"], doc)
-    code, payload = run_json(module_argv(fx))
-    assert code == runner.EXIT_INVALID and payload["status"] == "INVALID", payload
-    assert "does not match the memory map" in " ".join(payload["problems"]), payload
+    assert doc["source"]["image_sha256_scope"] == "first 4096 of 8192 bytes", doc["source"]
+    cases = [
+        ("image_sha256", "b" * 64, "the map was made from another image"),
+        ("image_sha256_scope", "about half the file", "no recognised"),
+        ("image_sha256_scope", "first 4096 of 999999 bytes", "covers a 999999-byte image"),
+    ]
+    for key, value, needle in cases:
+        doc = json.loads(fx["rommap"].read_text(encoding="utf-8"))
+        doc["source"][key] = value
+        write_json(fx["rommap"], doc)
+        code, payload = run_json(module_argv(fx))
+        assert code == runner.EXIT_INVALID and payload["status"] == "INVALID", payload
+        assert needle in " ".join(payload["problems"]), payload
+        assert payload.get("returned") is None, "a refused image must not run"
 
 
 @check("module entry: no --rommap/--image is BLOCKED; Ghidra absent is SKIP, not PASS")
@@ -841,6 +859,26 @@ def test_engine_hook_checks(tmp):
     assert len(hooks) == 3, [name for name, _ in hooks]
     for _name, func in hooks:
         func(tmp)  # each raises on failure
+
+
+@check("module entry: targets listing and dry run work without a corpus block")
+def test_module_listing_without_corpus(tmp):
+    fx = module_fixture(tmp)
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        code = runner.main(["targets", "--targets", str(fx["targets"])])
+    assert code == runner.EXIT_OK, buffer.getvalue()
+    assert "module-probe" in buffer.getvalue(), buffer.getvalue()
+
+
+@check("ghidra entry script: its own selftest (exit 1/2 controls, namespace probe)")
+def test_entry_script_selftest(tmp):
+    from l3_harness.ghidra import l3_run
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        code = l3_run.selftest()
+    assert code == 0, buffer.getvalue()
 
 
 @check("ghidra entry script: a BLOCKED result is read back as BLOCKED (exit 4)")

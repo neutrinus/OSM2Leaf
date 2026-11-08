@@ -62,6 +62,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -1073,11 +1074,20 @@ def _plan_target(target, args) -> dict:
     return payload
 
 
-def _sha256_file(path) -> str:
+def _sha256_file(path, limit=None) -> str:
+    """SHA-256 of the first *limit* bytes of *path* (the whole file if None)."""
+
     digest = hashlib.sha256()
+    remaining = limit
     with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
+        while remaining is None or remaining > 0:
+            want = (1 << 20) if remaining is None else min(1 << 20, remaining)
+            chunk = handle.read(want)
+            if not chunk:
+                break
             digest.update(chunk)
+            if remaining is not None:
+                remaining -= len(chunk)
     return digest.hexdigest()
 
 
@@ -1121,19 +1131,50 @@ def _run_module_target(target, args, base) -> dict:
     image = Path(image_path)
     if not image.is_file():
         return blocked(f"firmware image not readable: {image}")
-    try:
-        image_sha = _sha256_file(image)
-    except OSError as exc:
-        return blocked(f"cannot hash --image {image}: {exc}")
-    expected_sha = (rommap_doc.get("source") or {}).get("image_sha256")
-    if isinstance(expected_sha, str) and expected_sha and expected_sha != image_sha:
-        return dict(
-            base, status="INVALID", exit=EXIT_INVALID,
-            problems=[
-                f"image SHA-256 {image_sha} does not match the memory map "
-                f"({expected_sha}); the map was made from another image"
-            ],
-        )
+    # cerom.py hashes a window of the image (source.image_sha256_scope): hash
+    # the same bytes here, or refuse; never compare a prefix with a whole file.
+    source = rommap_doc.get("source") or {}
+    expected_sha = source.get("image_sha256")
+    scope_text = str(source.get("image_sha256_scope") or "")
+    covered = None
+    image_sha = None
+    if isinstance(expected_sha, str) and expected_sha:
+        whole = re.fullmatch(r"whole file \((\d+) bytes\)", scope_text)
+        window = re.fullmatch(r"first (\d+) of (\d+) bytes", scope_text)
+        if whole:
+            covered = total = int(whole.group(1))
+        elif window:
+            covered, total = int(window.group(1)), int(window.group(2))
+        else:
+            return dict(
+                base, status="INVALID", exit=EXIT_INVALID,
+                problems=[
+                    "the memory map has image_sha256 but no recognised "
+                    f"image_sha256_scope ({scope_text!r}); the hash cannot be "
+                    "checked, so the image is not accepted"
+                ],
+            )
+        if total != image.stat().st_size:
+            return dict(
+                base, status="INVALID", exit=EXIT_INVALID,
+                problems=[
+                    f"the memory map's hash covers a {total}-byte image; "
+                    f"{image} is {image.stat().st_size} bytes"
+                ],
+            )
+        try:
+            image_sha = _sha256_file(image, covered)
+        except OSError as exc:
+            return blocked(f"cannot hash --image {image}: {exc}")
+        if image_sha != expected_sha:
+            return dict(
+                base, status="INVALID", exit=EXIT_INVALID,
+                problems=[
+                    f"image SHA-256 of the first {covered} bytes is {image_sha}, "
+                    f"not the memory map's {expected_sha}; the map was made "
+                    "from another image"
+                ],
+            )
 
     blocks = [
         block for block in rommap_doc.get("blocks", [])
@@ -1149,6 +1190,22 @@ def _run_module_target(target, args, base) -> dict:
         None,
     )
     if owner is None:
+        # A compressed section is skipped by the map, not mapped: say so, so
+        # the reason is not confused with a wrong VA (decompressor: M1.2f).
+        hidden = next(
+            (
+                item for item in rommap_doc.get("skipped", [])
+                if item.get("module") == module
+                and int(item["va"], 0) <= va < int(item["va"], 0) + int(item["size"])
+            ),
+            None,
+        )
+        if hidden is not None:
+            return blocked(
+                f"entry VA {engine_mod.px(va)} is in compressed section "
+                f"{module}/{hidden['section']} ({hidden['reason']}); the memory "
+                "map skips it, so no code is mapped (M1.2f)"
+            )
         return blocked(
             f"entry VA {engine_mod.px(va)} is outside every loadable block of {module}"
         )
@@ -1239,7 +1296,8 @@ def _run_module_target(target, args, base) -> dict:
             "entry_va": engine_mod.px(va),
             "blocks_mapped": mapped,
             "image_sha256": image_sha,
-            "image_sha256_checked": bool(expected_sha),
+            "image_sha256_bytes": covered,
+            "image_sha256_checked": covered is not None,
         },
         l3_claim=False,
     )

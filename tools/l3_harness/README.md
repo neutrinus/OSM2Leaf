@@ -23,7 +23,7 @@ the unit accepts a card; that is L4.
 | `targets.json` | the named targets: `entry.kind` `synthetic`, `module` or `blocked`; shipped entries are unchanged (no reader is located as an L3 target yet) |
 | `engine.py` | one engine interface, three SH-4 back ends (`PySh4`, Ghidra, QEMU); `--selftest`, `--probe`, `--demo` — see [`EXP-2026-11-06-M9.4-engine.md`](../../docs/experiments/EXP-2026-11-06-M9.4-engine.md) |
 | `ghidra/l3_run.py` | the one documented Ghidra entry script (`-postScript`): validates the memory map and manifest, writes a result JSON; it runs no reader yet, so it writes `BLOCKED`; `--selftest` — see [`EXP-2026-11-08-M9.20-l3-plumbing.md`](../../docs/experiments/EXP-2026-11-08-M9.20-l3-plumbing.md) |
-| `selftest.py` | 29 synthetic checks (no network, no vendor data, no Ghidra); covers `runner`, manifest, rommap, stubs, `engine_hook`, the module-entry path and the entry script |
+| `selftest.py` | 31 synthetic checks (no network, no vendor data, no Ghidra); covers `runner`, manifest, rommap, stubs, `engine_hook`, the module-entry path and the entry script |
 | `__init__.py` | package marker |
 
 ## Quick start
@@ -217,9 +217,11 @@ memory map and the image, not from a hand-written `-device loader` list:
 - `stubs` are bound with `dispatch.StubDispatcher.engine_hook`; a call to an
   unmodelled export stops the run with `missing stub: NAME`.
 - The run needs `--rommap` (a `rommap.py` map) and `--image` (the image it was
-  made from; its SHA-256 must match the map's `source.image_sha256`). Only the
-  named module is mapped, so a call into another module is `BLOCKED`
-  (`UnmappedAccess`).
+  made from). `cerom.py` hashes a window of the image, so the runner hashes the
+  byte range that `source.image_sha256_scope` names (`first N of M bytes` or
+  `whole file (N bytes)`); a different hash, an unrecognised scope or a
+  different image size is `INVALID`. Only the named module is mapped, so a call
+  into another module is `BLOCKED` (`UnmappedAccess`).
 - A VA outside every loadable block of the module, or in a non-executable
   block, is `BLOCKED`. A `corpus` block is optional for module entries.
 

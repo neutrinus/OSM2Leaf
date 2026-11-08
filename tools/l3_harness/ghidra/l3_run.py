@@ -69,11 +69,19 @@ EXIT_USAGE = 2
 EXIT_SELFTEST = 3
 
 
+#: A real submodule of the Ghidra API.  The bare name ``ghidra`` is not a
+#: probe: with ``tools/l3_harness`` on ``sys.path``, the directory named
+#: ``ghidra/`` imports as an empty namespace package.
+GHIDRA_PROBE_MODULE = "ghidra.program.model.listing"
+
+
 def ghidra_api_available() -> bool:
     """True when the Ghidra Python API can be imported (PyGhidra or Ghidra)."""
 
+    import importlib
+
     try:
-        import ghidra  # noqa: F401  (only probed; never used here)
+        importlib.import_module(GHIDRA_PROBE_MODULE)
     except ImportError:
         return False
     return True
@@ -187,6 +195,20 @@ def selftest() -> int:
         check("result names its schema", doc["schema"] == RESULT_SCHEMA)
         check("missing Ghidra API is stated in the reason",
               "not importable" in doc["reason"])
+
+        # The hazard the probe avoids: an empty ``ghidra/`` directory on the
+        # path must not count as the Ghidra API.
+        fake_root = root / "path-with-ghidra-dir"
+        (fake_root / "ghidra").mkdir(parents=True)
+        sys.path.insert(0, str(fake_root))
+        try:
+            collided = ghidra_api_available()
+        finally:
+            sys.path.remove(str(fake_root))
+            for name in [n for n in sys.modules if n == "ghidra" or n.startswith("ghidra.")]:
+                del sys.modules[name]
+        check("an empty ghidra/ directory on sys.path is not the Ghidra API",
+              collided is False)
 
         with contextlib.redirect_stderr(io.StringIO()):
             usage = run([str(rommap_path)])
