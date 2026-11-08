@@ -974,7 +974,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Tool: `cerom.py files --extract --decompress` writes stored bytes,
     classifies OK/UNSUPPORTED/FAIL and never writes a wrong-length decode
     (EXP-55, C-573); EXP-51 says the real payload is not a stdlib format.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.4-extract-filesentry-payloads · Critical: no
   - Depends: M1.2b or M1.2c
   - Goal: read `boot.hv`, `default.hv`, `user.hv`, `ceconfig.h`,
     `initobj.dat`, `UpdateNK.skn`.
