@@ -788,6 +788,23 @@ python3 tools/ce_qemu_probe.py IMAGE --kernel 0x5200200                # image C
 Expected with the patch (EU 2011): 50 distinct register accesses, one
 `0x180 illegal_instruction` at `pc=0x00005b90`, final PC `0x8803d266`.
 
+## `fetch_image.py` — pinned, resumable vendor-image downloads
+
+The four vendor SD images (and the 256 MiB firmware head `IMG256`) with size
+and, where known, SHA-256. Writes to `PATH.part` and renames only after the
+size and hash match. A network error keeps the `.part` for the next run; a
+failed check deletes it.
+
+```bash
+python3 tools/fetch_image.py --list
+python3 tools/fetch_image.py --image IMG256 -o archive/head256.img   # ~1 min
+python3 tools/fetch_image.py --verify archive/head256.img            # matches EU2011 256M
+python3 tools/fetch_image.py --selftest                              # local HTTP fixture, no vendor data
+```
+
+EU2016 has no pinned SHA-256 yet: its download is checked by size only.
+The host answers 403 to Python's default User-Agent, so the tool sends its own.
+
 ## `imgpatch.py` — patch one file inside a card image in place
 
 Writes one file's new bytes into its **existing** clusters of a card image,

@@ -69,7 +69,8 @@ front has fewer, add the next tasks (see rule 9).
     (only offsets, counts, hashes, short header bytes).
 11. **Run on the real image before you close.** A firmware or format task is
     not `done` on synthetic data alone, and "no image in the checkout" is not
-    a blocker: `IMG256` downloads in about a minute (see Shared inputs).
+    a blocker: `python3 tools/fetch_image.py --image IMG256 -o PATH` downloads
+    and verifies it in about a minute (see Shared inputs).
     Run your tool on it and put the real counts in the EXP. EXP-2026-11-06-H5
     found two tools that pass their self-test but match nothing on real bytes,
     and one blocker that the image itself answers.
@@ -173,8 +174,8 @@ true statement about 44 % of build A and 25 % of `Navi.exe` (rule 14).
 
 | Name | How to get it | SHA-256 |
 | --- | --- | --- |
-| `IMG256` (firmware: A, B, C) | `curl -r 0-268435455 -o head256.img https://files.viaaq.eu/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` | `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9` |
-| `IMG` (full EU 2011 card, 7.5 GB) | same URL without `-r`; resume with `curl -C -` | `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` |
+| `IMG256` (firmware: A, B, C) | `python3 tools/fetch_image.py --image IMG256 -o PATH` (pinned, verified; `curl -r 0-268435455` also works) | `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9` |
+| `IMG` (full EU 2011 card, 7.5 GB) | `python3 tools/fetch_image.py --image EU2011 -o PATH` (resumable) | `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` |
 | `ROOT` (extracted map tree) | `python3 tools/verify.py --image IMG` (extracts to `archive/work/`) | — |
 | `US` (Marek's US 2011 card, 7.5 GB) | `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` | `53342430…c5383` |
 | `EU2014` (7.4 GB) | `https://files.viaaq.eu/sd-images/LEAF_2014_EU_QSD-357-101.img` | record per EXP |
@@ -182,7 +183,8 @@ true statement about 44 % of build A and 25 % of `Navi.exe` (rule 14).
 | Other years/markets | `https://files.viaaq.eu/maps/`, `docs/research/image-versions.md` | record per EXP |
 
 `https://files.viaaq.eu/sd-images/` is reachable from the sandbox; **H16** turns
-these rows into one command (`tools/fetch_image.py`). Listing is not a
+these rows into one command (`tools/fetch_image.py --list`, `--image KEY`,
+`--verify PATH`). Listing is not a
 blocker (rule 14 / rule 11).
 
 CE images inside the card image: **A** (apps, `Navi.exe`) `--image-start
@@ -598,8 +600,8 @@ M4.16b → M4.2/M5.3.
     M3.12; rule 14 added; H16 added.
   - Claims: none (a review creates no format claim)
 
-- [ ] **H16 — `tools/fetch_image.py`: pinned downloads so "no image" stops being a blocker**
-  - Status: in progress · Owner: claude/h16-fetch-image · Critical: yes
+- [x] **H16 — `tools/fetch_image.py`: pinned downloads so "no image" stops being a blocker**
+  - Status: done · Owner: claude/h16-fetch-image · Critical: yes
   - Depends: —
   - Goal: four records (M5.13, M5.12b, M8.A4, M8.A5) list "no vendor image on
     this machine" in their scope although the host is reachable and rule 11
@@ -618,6 +620,8 @@ M4.16b → M4.2/M5.3.
     covers the refusal paths against a local `file://` fixture (no network in
     tests); `tools/README.md`, rule 11 and the Shared-inputs table point to it
     and gain the two newer images.
+  - Result: EXP-2026-11-08-H16-fetch-image. `tools/fetch_image.py` (`--list`, `--image`,
+    `--verify`, `--selftest`); real IMG256 download verifies against `92aa525d…`.
   - Claims: none
 
 - [x] **H17 — PM review, seventh pass: the tickets were under-specified (2026-11-06)**
