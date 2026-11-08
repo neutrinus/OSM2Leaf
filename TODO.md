@@ -2301,7 +2301,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1050–C-1059
 
 - [ ] **M5.4 — Tile writer: roads only**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m5.4-tile-splice · Critical: yes
   - Depends: M5.2 (M5.3 for final classes, not needed to start)
   - Input: `tools/tilewriter.py` (splices road records into a factory tile,
     keeps header/tables and section 4; 48/48 synthetic checks,
