@@ -709,7 +709,7 @@ M4.16b → M4.2/M5.3.
   - Claims: C-2520–C-2529
 
 - [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m3.19-sh4scan · Critical: yes
   - Depends: —
   - Goal: M3.11, M3.13 and M3.2b are correct negatives that **cannot be
     re-run**: the tag/stride/mask searches are prose plus heredocs, and M3.2b
