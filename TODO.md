@@ -1632,7 +1632,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2120–C-2129, C-2540–C-2549
 
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
-  - Status: in progress · Owner: claude/m3.11b-point-byteorder · Critical: yes
+  - Status: blocked · Owner: claude/m3.11b-point-byteorder · Critical: yes
+  - Blocker: the page is handed to the walker by an `OSM_TaskSend` reply from another task (OSMDLL import 12, `fn 0x3f40ec`); no 16-bit swap loop exists in Navi.exe sec0 or OSMDLL sec0 (C-2547, C-2548).
+  - Unblock: M9.11 (the dynamic run shows the buffer the walker is handed)
+  - Result: EXP-2026-11-08-M3.11b-point-byteorder (negative; done-when not met).
   - Depends: — (M9.11 helps: its run shows the bytes the chunk decoder hands back)
   - Goal: `0x3f5194` reads `mov.w @page` and only walks a 16-bit-swapped
     page (C-2541). Find the code that swaps the inflated page (or copies the
@@ -1654,7 +1657,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     byte-equal to `point_walk_l3.swap16`.
   - Stop: after (1)–(3) without a hit, write the EXP and let M9.11's dynamic
     run answer it.
-  - Claims: C-2547 (and the rest of C-2540–C-2549 as needed)
+  - Claims: C-2547–C-2549 (C-2540–C-2546 unchanged)
 
 - [ ] **M3.11c — The name accessor for a `POINT` record**
   - Status: open · Owner: — · Critical: yes
