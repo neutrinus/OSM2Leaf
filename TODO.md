@@ -2739,7 +2739,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2430–C-2439
 
 - [ ] **M5.20 — `mkcard.py --reconcile`: minimal-diff build for a changed tree**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m5.20-mkcard-reconcile · Critical: no
   - Depends: M5.13b
   - Goal: EXP-2026-11-06-M5.10 follow-up. `imgpatch.py` gives one-variable
     cards, but the compiler path still rebuilds the whole FAT, so a generated
