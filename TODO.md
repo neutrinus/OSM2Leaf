@@ -2275,7 +2275,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1900–C-1909
 
 - [ ] **M4.8d — Sub-unit field for POI/ADDRE positions**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.8d-subunit-field · Critical: no
   - Depends: —
   - Goal: find a sub-unit position field in `POINT`/`ADDRE` records (a
     `0..2047`-class local value) so M4.8b can test local scale 1 vs 2.
