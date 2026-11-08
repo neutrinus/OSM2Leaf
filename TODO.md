@@ -1424,7 +1424,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2610–C-2619
 
 - [ ] **M4.23 — Tile section-2 regulation/connectivity reader (kinds `0x2046`/`0x3e4`)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m4.23-restriction-encoding · Critical: no
   - Depends: — (M4.3 is blocked on exactly this)
   - Goal: M4.3 decoded the OSM side of a turn restriction but found no
     documented tile-side layout: `rd_check` reads only kind `0x1046` (3 of 5
