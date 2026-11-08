@@ -1955,7 +1955,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-960–C-969
 
 - [ ] **M4.8b — Check `coord.py` on 10 real POIs**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m4.8b-transform-proof · Critical: yes
   - Depends: M4.8
   - Goal: the original M4.8 done-when, unmet at merge: prove the transform
     on real data before M5.2 splits OSM ways with it.
