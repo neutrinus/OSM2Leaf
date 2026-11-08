@@ -3721,7 +3721,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2150–C-2159
 
 - [ ] **M9.11b — L3 runner: a firmware-call target kind for the chunk reader (fills `cmp_ind_reader`)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m9.11b-firmware-call-target · Critical: yes
   - Depends: M9.11 (firmware path and sec1 table provenance, EXP-2026-11-08-M9.11-chunk-decoder), M9.5 (done).
   - Goal: let `runner.py` run a firmware function with memory setup (the 20-byte table,
     the stubs, the sec1 `inflate_mask` table as a named, sourced input), so that
