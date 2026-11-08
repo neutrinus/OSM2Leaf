@@ -3154,7 +3154,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2230–C-2239
 
 - [ ] **M9.14 — L3 target `drstr_parser`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m9.14-reopen · Critical: yes
   - Re-opened (ninth pass, rule 15): **M9.20 merged** (`562215a`) with the
     module entry kind and `engine_hook`, so the blocker below no longer holds;
     the EXP stays as the record of why the first run produced no verdict.
