@@ -930,6 +930,59 @@ def selftest() -> int:
         f"{len(us_pairs)} pairs x 2 origins",
     )
 
+    # 18. Real POI ids (EXP-2026-11-08-M4.8b, 16 POIs from the US and EU
+    #     POINT shards) against Wikipedia reference coords. Pins the origin:
+    #     52742 keeps the longitude residual near zero, 52736 shifts it by
+    #     about 4 km. The latitude bias (median about +2.8 km) is recorded,
+    #     not fitted; the packed grid alone does not reach "a few metres".
+    #     (name, A_x, A_y, ref_lat, ref_lon)
+    poi_fixtures = [
+        ("TOMBSTONE COURTHOUSE", 38862, 38653, 31.71222, -110.06889),
+        ("TUCSON INT'L AIRPORT", 38941, 38542, 32.11611, -110.94111),
+        ("LAS CRUCES INT'L AIRPORT", 38973, 39054, 32.28944, -106.92194),
+        ("BISBEE-DOUGLAS INT'L AIRPORT", 38813, 38716, 31.46889, -109.60361),
+        ("SIERRA VISTA MUNICIPAL AIRPORT", 38844, 38621, 31.58833, -110.34444),
+        ("VIZCAYA MUSEUM & GARDENS", 37711, 42477, 25.74361, -80.21028),
+        ("KEY WEST LIGHTHOUSE MUSEUM", 37486, 42270, 24.55064, -81.80088),
+        ("EAST MARTELLO MUSEUM", 37486, 42271, 24.55194, -81.75500),
+        ("USS BOWFIN", 36877, 32525, 21.3686917, -157.9394194),
+        ("GOLD COAST RAILROAD MUSEUM", 37694, 42447, 25.6172, -80.4007),
+        ("PACIFIC TSUNAMI MUSEUM", 36558, 32893, 19.72583, -155.08667),
+        ("LYMAN MUSEUM", 36558, 32893, 19.72167, -155.09111),
+        ("KAUAI MUSEUM", 36990, 32348, 21.97472, -159.36833),
+        ("MOORISH CASTLE", 39710, 52060, 36.143882, -5.349857),
+        ("CATEDRAL SANTA ANA", 38172, 50766, 28.10083, -15.41472),
+        ("MUSEO CANARIO", 38172, 50766, 28.0998323, -15.4158675),
+    ]
+
+    def _lon_resid_m(origin: int) -> list[float]:
+        out = []
+        for _, ax, ay, rlat, rlon in poi_fixtures:
+            _, lon = xy_to_latlon(ax, ay, origin)
+            out.append((lon - rlon) * 111320.0 * math.cos(math.radians(rlat)))
+        return sorted(out)
+
+    def _lat_resid_m() -> list[float]:
+        out = []
+        for _, ax, ay, rlat, _ in poi_fixtures:
+            lat, _ = xy_to_latlon(ax, ay, LON_ORIGIN_COORD)
+            out.append((lat - rlat) * 111320.0)
+        return sorted(out)
+
+    import statistics
+
+    med_coord = statistics.median(_lon_resid_m(LON_ORIGIN_COORD))
+    med_tile = statistics.median(_lon_resid_m(LON_ORIGIN_TILE))
+    lat_med = statistics.median(_lat_resid_m())
+    poi_ok = (abs(med_coord) < 500.0 and abs(med_tile) > 2000.0
+              and 2000.0 < lat_med < 4000.0)
+    check(
+        "real POI ids: origin 52742 (lon)",
+        poi_ok,
+        f"n={len(poi_fixtures)} median lon 52742={med_coord:.0f} m, "
+        f"52736={med_tile:.0f} m, lat={lat_med:.0f} m",
+    )
+
     print(
         f"coord selftest: {'OK' if not failures else 'FAILED'} "
         f"({count - len(failures)}/{count} checks)"

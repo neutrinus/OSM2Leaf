@@ -1451,6 +1451,21 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-1998 | reserved. | UNKNOWN | — | — |
 | C-1999 | reserved. | UNKNOWN | — | — |
 
+## M4.8b — `coord.py` checked on real POI ids (C-1900–C-1909)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1900 | A `POINT0nn` name record (tag `0x60`/`0x68`) carries its position twice as a packed u16 pair: copy A at bytes 2..5, copy B at bytes 12..15. A equals B in 7,039,482 of 7,769,349 US records (90.6 %, 11 shards) and in 2,100,863 of 2,657,487 EU records (79.0 %, 33 shards). | OBSERVED | M | EXP-2026-11-08-M4.8b-poi-refs; `tools/poi_point_check.py find` |
+| C-1901 | Decoding copy A of 16 POIs (13 US, 3 EU) with origin 52742 and comparing with Wikipedia reference coordinates gives a median error of 3,558 m (range 1,505–5,538 m). Origin 52736 gives a median of 5,911 m and is worse on all 16. | OBSERVED | M | EXP-2026-11-08-M4.8b-poi-refs; `tools/poi_point_check.py check` |
+| C-1902 | Longitude residuals under origin 52742 are centred on zero (median dlon 103 m); origin 52736 shifts longitude by about 4.5 km (median 4,532 m). POI ids use origin 52742, consistent with C-111 and C-1993. | OBSERVED | M | EXP-2026-11-08-M4.8b-poi-refs; `tools/coord.py --selftest` (check 18) |
+| C-1903 | Latitude residuals are positive for all 16 POIs (median +2,763 m, about 4.8 packed x-units). The cause is not known and the bias is not fitted or pinned. | OBSERVED | M | EXP-2026-11-08-M4.8b-poi-refs |
+| C-1904 | The M4.8 done-when "within a few metres" is not met. All 16 POIs are more than 1.5 km from their reference, far beyond the one-packed-unit tolerance (about 580 m lat, 730 m lon). The transform reproduces cells and the longitude origin, not metre-level positions. | OBSERVED | M | EXP-2026-11-08-M4.8b-poi-refs |
+| C-1905 | Negative control: each decoded point compared with the next POI's reference gives a median of 444.5 km (minimum 2.95 km, a near neighbour), so the reference matching is not trivially satisfied. | OBSERVED | M | EXP-2026-11-08-M4.8b-poi-refs; `tools/poi_point_check.py check` |
+| C-1906 | The local scale (`0..2047` vs `0..1023`, C-960) cannot be tested from packed POI ids: both scales decode identically from the packed pair. It stays a HYPOTHESIS; no sub-unit field has been decoded. | UNKNOWN | — | EXP-2026-11-08-M4.8b-poi-refs |
+| C-1907 | `cmpind.py verify` on the EU and US `REFER001` trees reports 0 failures, so the decompressed POINT shards used here match their `.ind` chunk tables. | VERIFIED | H | `tools/cmpind.py verify` on both trees |
+| C-1908 | reserved. | UNKNOWN | — | — |
+| C-1909 | reserved. | UNKNOWN | — | — |
+
 ## M8.E1b — nk.exe ROM decompressor re-derived (C-2290–C-2299)
 
 | ID | Claim | Status | Confidence | Evidence |

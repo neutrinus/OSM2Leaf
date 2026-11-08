@@ -1,0 +1,21 @@
+# EXP-2026-11-08-M4.8b reference table. Columns are tab-separated:
+# id	country	shard	stream_offset	record_index	ref_lat	ref_lon	reference
+# Records are addressed by position (shard, decompressed stream offset, record
+# index inside the stream); no vendor strings are stored here. Reference
+# coordinates are the decimal values printed on the cited Wikipedia pages.
+P01	US	POINT002	0xcd1abd8	370	31.71222	-110.06889	https://en.wikipedia.org/wiki/Tombstone_Courthouse_State_Historic_Park
+P02	US	POINT002	0xcee9194	929	32.11611	-110.94111	https://en.wikipedia.org/wiki/Tucson_International_Airport
+P03	US	POINT002	0xc8b9d9c	918	32.28944	-106.92194	https://en.wikipedia.org/wiki/Las_Cruces_International_Airport
+P04	US	POINT002	0xcee9194	160	31.46889	-109.60361	https://en.wikipedia.org/wiki/Bisbee-Douglas_International_Airport
+P05	US	POINT002	0xcee9194	398	31.58833	-110.34444	https://en.wikipedia.org/wiki/Sierra_Vista_Municipal_Airport
+P06	US	POINT008	0x15cff2e4	2	25.74361	-80.21028	https://en.wikipedia.org/wiki/Vizcaya_Museum_and_Gardens
+P07	US	POINT008	0x166f7618	607	24.55064	-81.80088	https://en.wikipedia.org/wiki/Key_West_Lighthouse
+P08	US	POINT008	0x166ea8c8	878	24.55194	-81.75500	https://en.wikipedia.org/wiki/East_Martello_Museum
+P09	US	POINT010	0x835444	812	21.3686917	-157.9394194	https://en.wikipedia.org/wiki/USS_Bowfin
+P10	US	POINT008	0x166f7618	210	25.6172	-80.4007	https://en.wikipedia.org/wiki/Gold_Coast_Railroad_Museum
+P11	US	POINT010	0x835444	782	19.72583	-155.08667	https://en.wikipedia.org/wiki/Pacific_Tsunami_Museum
+P12	US	POINT010	0x835444	760	19.72167	-155.09111	https://en.wikipedia.org/wiki/Lyman_Museum
+P13	US	POINT010	0x835444	746	21.97472	-159.36833	https://en.wikipedia.org/wiki/Kauai_Museum
+P14	EU	POINT033	0x5fecd10	27	36.143882	-5.349857	https://en.wikipedia.org/wiki/Moorish_Castle
+P15	EU	POINT029	0x3b801f0	915	28.10083	-15.41472	https://en.wikipedia.org/wiki/Las_Palmas_Cathedral
+P16	EU	POINT029	0x370ad74	356	28.0998323	-15.4158675	https://en.wikipedia.org/wiki/Museo_Canario
