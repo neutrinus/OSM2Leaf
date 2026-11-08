@@ -3108,7 +3108,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2140–C-2149
 
 - [ ] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m9.11-chunk-decoder · Critical: yes
   - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
   - Goal: prove in software what S1 would prove in the car: the firmware's own
     zlib + chunk loop accept our recompressed bytes and return the same
