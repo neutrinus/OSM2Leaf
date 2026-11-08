@@ -1121,8 +1121,8 @@ did not edit this ledger. Each row keeps the task's own reserved block.
 | --- | --- | --- | --- | --- |
 | C-750 | `hddinfo_variants.py` generates 89 length-preserving variants of the factory `HDD_INFO.TXT`. | VERIFIED (tool) | H | EXP-2026-11-06-M2.4-hddinfo-variants |
 | C-751 | model M0 (`hddinfo.py classify`) predicts 66 ACCEPT / 23 DIFFERENT MAP CODE across the 89 variants. | VERIFIED (offline) | M | EXP-2026-11-06-M2.4-hddinfo-variants |
-| C-752 | Firmware verdicts for the 89 variants are pending M9.6 (real L3 target); no firmware was run. | BLOCKED | — | EXP-2026-11-06-M2.4-hddinfo-variants |
-| C-753 | reserved. | UNKNOWN | — | — |
+| C-752 | Firmware verdicts for the 89 variants are pending a runnable `AppLaunch.dll` B `fn 0x03bd2ad8` L3 module target (M9.6 merged `ff8720d` but blocked/unwired; M9.20 module plumbing merged); `hddinfo_compare`/`mapcode_comparator` in `targets.json` remain blocked. No firmware was run. | BLOCKED | — | EXP-2026-11-06-M2.4-hddinfo-variants; EXP-2026-11-08-M2.4-hddinfo-variants-blocked |
+| C-753 | As of 2026-11-08, `l3_harness` supports `entry.kind="module"` but no AppLaunch `0x03bd2ad8` map-code comparator target is wired (`runner.py targets`/`l3check.py`: 1 runnable synthetic, 5 blocked); M9.6 TODO remains blocked pending completion of its done-when. | OBSERVED | M | EXP-2026-11-08-M2.4-hddinfo-variants-blocked |
 | C-754 | reserved. | UNKNOWN | — | — |
 | C-755 | reserved. | UNKNOWN | — | — |
 | C-756 | reserved. | UNKNOWN | — | — |

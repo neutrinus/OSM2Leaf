@@ -1385,7 +1385,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-740–C-749
 
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: in progress · Owner: task/m2.4-predict-hdd-info-variants · Critical: yes
+  - Status: blocked · Owner: task/m2.4-predict-hdd-info-variants · Critical: yes
   - Depends: — (**M9.6 merged** `ff8720d`, M2.15 and M2.3 done); the corpus and
     the comparator are both on `main` now
   - Note (sixth pass): the old blocker ("firmware verdicts need the L3 target,
@@ -1394,11 +1394,23 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     bytes plus the `+96`/`+112`/`+114` unit fields. Only M9.6 is missing.
     The offline model-M0 gives 66 ACCEPT / 23 DIFFERENT
     (EXP-2026-11-06-M2.4-hddinfo-variants).
+  - Blocker: M9.6 is merged (`ff8720d`) and M9.20 module-entry plumbing is on
+    `main`, but no runnable `AppLaunch.dll` B `fn 0x03bd2ad8` module target is
+    wired (`KernelIoControl(0x0101302C)`/HDD_INFO FS stubs + `0x01f74b30` parse
+    cache per M2.5/M2.15); M9.6 remains blocked and `hddinfo_compare`/
+    `mapcode_comparator` targets are blocked, so no firmware verdicts can be
+    produced.
+  - Unblock: M9.6 — reopen and complete its done-when by wiring/running the real
+    `fn 0x03bd2ad8` comparator; then reopen M2.4 and produce per-variant
+    firmware verdicts compared with `hddinfo.py classify`.
   - Goal: run the real parser + comparator on `tools/hddinfo_variants.py`.
   - Input: L3 runner (M9.5), corpus (M9.7). The map-code comparator is
     `AppLaunch.dll` `fn 0x03bd2ad8` (M2.5), not M2.2's user-data check.
   - Done when: each variant has a firmware verdict and it is compared with
     `hddinfo.py classify`.
+  - Result: blocked — EXP-2026-11-08-M2.4-hddinfo-variants-blocked (negative:
+    firmware verdicts unavailable; C-2086 retains M2.15-model offline
+    reclassification of all 89).
   - Claims: C-750–C-759
 
 - [x] **M2.5 — Source of `DIFFERENT MAP CODE`**
