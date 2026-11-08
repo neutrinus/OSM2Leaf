@@ -1039,8 +1039,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     re-open in the same commit as the `done`.
   - Claims: C-2360–C-2369
 
-- [ ] **M1.13 — Find the encoder that reproduces the factory `.cmp` streams**
-  - Status: in progress · Owner: claude/m1.13-factory-encoder · Critical: yes
+- [x] **M1.13 — Find the encoder that reproduces the factory `.cmp` streams**
+  - Status: done · Owner: claude/m1.13-factory-encoder · Critical: yes
   - Depends: — (M3.2b names Navi.exe's static zlib 1.1.3, C-2061)
   - Goal: M5.12c renamed 131 of 136 POI records. The five left sit on pages
     whose edited stream is larger than the original slot: stock zlib 1.3.x at
@@ -1058,6 +1058,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     negative control (a changed byte gives a different stream), and the
     candidate that matches is named with its version. If none matches, the EXP
     lists every candidate's byte difference and the status is `blocked`.
+  - Result: EXP-2026-11-08-M1.13-factory-encoder. 471/471 inner pages of POINT001–009 reproduced exactly by stock zlib L6/memLevel 8 (release-indistinguishable, 1.1.3 to 1.3.2); zlib-ng 0/471; `tools/factory_zlib.py` added. The "0.8 % larger" premise is not reproduced (C-2575).
   - Claims: C-2570–C-2579
 
 - [ ] **M1.14 — SH-4 decoder debt: one LE reader, a pinned `mov.w` and an oracle**
