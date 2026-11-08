@@ -2385,7 +2385,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b)
 
 - [ ] **M1.11c — `sh4dis.py`: MOVT, SHAR, SHLD, SHAD opcodes**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.11c-sh4dis-opcodes · Critical: no
   - Depends: M1.11 (done)
   - Goal: decode the dynamic and single-bit shift opcodes and `movt` that the
     RDSTM directory walk (`0x003f56bc`, `0x003f5e10`) uses, so an offline walk
