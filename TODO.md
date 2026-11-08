@@ -2176,7 +2176,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2390–C-2399
 
 - [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m4.22-identity-codes · Critical: no
   - Depends: —
   - Goal: three identity fields are still unexplained and a generated card
     copies them blind: the six words at common-header `0x180`, the
