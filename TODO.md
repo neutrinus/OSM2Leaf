@@ -2065,12 +2065,15 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     identical IMF that passes `imf_check` (EXP-2026-11-06-M5.1-osm-ingest).
   - Claims: C-1030–C-1039
 
-- [ ] **M5.1b — Ingest the real Dolnośląskie extract**
-  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
+- [x] **M5.1b — Ingest the real Dolnośląskie extract**
+  - Status: done · Owner: claude/m5.1b-osm-pbf · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
   - Input: `https://download.geofabrik.de/europe/poland/dolnoslaskie-latest.osm.pbf`.
   - Depends: M5.1
   - Done when: IMF for the region passes `imf_check.py`; extract date,
     URL and SHA-256 recorded; counts of ways/nodes per `highway=*` in the EXP.
+  - Result: region IMF (2,915,802 nodes, 362,811 ways) passes `imf_check.py`
+    with 0 errors; date, URL and SHA-256 and per-`highway` counts in
+    EXP-2026-11-08-M5.1b-osm-pbf.
   - Claims: C-2340–C-2349 (was C-1840–C-1849, a collision with M4.16b)
 
 - [ ] **M5.1c — OSM node tags: POIs, addresses and places into IMF**
