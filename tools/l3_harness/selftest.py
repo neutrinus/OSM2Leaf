@@ -674,13 +674,13 @@ def module_target(entry=None, **top) -> dict:
     return target
 
 
-def module_fixture(tmp, target=None) -> dict:
+def module_fixture(tmp, target=None, code_endian="big") -> dict:
     """A synthetic image, its memory map and a targets file that names it."""
 
     root = Path(tmp)
     image = bytearray(0x2000)
     for index, word in enumerate(MODULE_CODE):
-        image[0x1000 + 2 * index:0x1002 + 2 * index] = word.to_bytes(2, "big")
+        image[0x1000 + 2 * index:0x1002 + 2 * index] = word.to_bytes(2, code_endian)
     image_path = root / "synthetic-module.img"
     image_path.write_bytes(bytes(image))
     report = {
@@ -754,7 +754,7 @@ def test_module_validate(tmp):
     good = {"schema": runner.TARGETS_SCHEMA, "targets": [module_target()]}
     assert runner.validate_targets(good) == [], runner.validate_targets(good)
     cases = [
-        ({"endian": "little"}, "M9.21"),
+        ({"endian": "mixed"}, "must be one of"),
         ({"args": ["0x1"] * 5}, "at most 4"),
         ({"verdict_map": None}, "verdict_map"),
         ({"verdict_map": {"0x42": "MAYBE"}}, "ACCEPT or REJECT"),
@@ -781,6 +781,30 @@ def test_module_run_pass(tmp):
     assert payload["rommap"]["blocks_mapped"] == ["Module.bin/.text", "Module.bin/.data"]
     assert payload["rommap"]["image_sha256_checked"] is True
     assert payload["l3_claim"] is False
+
+
+@check("module entry: little-endian code runs on PySh4(endian=little); big-endian code does not")
+def test_module_run_endianness(tmp):
+    little_target = module_target(entry={"endian": "little"})
+    fx = module_fixture(tmp, little_target, code_endian="little")
+    code, payload = run_json(module_argv(fx))
+    assert code == runner.EXIT_OK and payload["status"] == "PASS", payload
+    assert int(payload["returned"], 0) == 0x42, payload
+    assert payload["engine_kind"] == "interpreter", payload
+
+    # The same entry over big-endian bytes: the words decode differently, so
+    # the function cannot return arg + 1 (control: the byte order matters).
+    be_dir = Path(tmp) / "be"
+    be_dir.mkdir()
+    fx = module_fixture(str(be_dir), little_target, code_endian="big")
+    code, payload = run_json(module_argv(fx))
+    assert payload["status"] != "PASS", payload
+    assert code != runner.EXIT_OK, payload
+
+    # A back end that is big-endian in this harness refuses little-endian code
+    # before it starts (Ghidra is absent here, so the refusal comes first).
+    code, payload = run_json(module_argv(fx, "module-probe", "--engine", "ghidra"))
+    assert code == runner.EXIT_BLOCKED and "needs the pysh4 engine" in payload["reason"], payload
 
 
 @check("module entry: a wrong expectation is MISMATCH (exit 5)")

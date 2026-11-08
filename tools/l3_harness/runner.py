@@ -216,9 +216,9 @@ TARGET_KEYS = {
 #: reader whose entry point is not located yet.
 ENTRY_KINDS = ("synthetic", "module", "blocked")
 MODULE_ENTRY_KEYS = {"kind", "module", "va", "endian", "args", "verdict_map", "note"}
-#: Byte order the engines can run.  PySh4 is big-endian; the firmware is
-#: little-endian, so ``"little"`` stays refused until M9.21 adds it.
-MODULE_ENDIANS = ("big",)
+#: Byte order of a module entry.  ``"little"`` needs ``PySh4(endian="little")``
+#: (M9.21); the other back ends are big-endian in this harness and refuse it.
+MODULE_ENDIANS = ("big", "little")
 #: The SH-4 register arguments a module call can pass (r4-r7); stack arguments
 #: are not modelled for module entries.
 MODULE_MAX_ARGS = 4
@@ -590,8 +590,8 @@ def _validate_module_entry(entry, where: str) -> list[str]:
     endian = entry.get("endian", "big")
     if endian not in MODULE_ENDIANS:
         problems.append(
-            f"{where}: entry.endian {endian!r} is not runnable yet; PySh4 is "
-            f"big-endian and little-endian needs M9.21"
+            f"{where}: entry.endian must be one of {', '.join(MODULE_ENDIANS)}, "
+            f"not {endian!r}"
         )
     args = entry.get("args", [])
     if not isinstance(args, list) or len(args) > MODULE_MAX_ARGS:
@@ -1216,7 +1216,16 @@ def _run_module_target(target, args, base) -> dict:
         )
 
     call_args = [int(str(item), 0) & M32 for item in entry.get("args", [])]
-    backend = engine_mod.BACKENDS[args.engine]()
+    endian = entry.get("endian", "big")
+    if args.engine == "pysh4":
+        backend = engine_mod.PySh4(endian=endian)
+    elif endian != "big":
+        return blocked(
+            f"entry.endian {endian!r} needs the pysh4 engine; "
+            f"{args.engine} runs big-endian in this harness"
+        )
+    else:
+        backend = engine_mod.BACKENDS[args.engine]()
     try:
         availability = backend.probe()
         if not availability.available:
@@ -1249,7 +1258,7 @@ def _run_module_target(target, args, base) -> dict:
         backend.map("stack", STACK_VA, STACK_SIZE, "rw")
         backend.map("heap", HEAP_VA, HEAP_SIZE, "rw")
 
-        memory = _EngineMemory(backend, endian="big")
+        memory = _EngineMemory(backend, endian=endian)
         context = dispatch_mod.StubContext(
             memory=memory,
             fs=dispatch_mod.VirtualFS(),
