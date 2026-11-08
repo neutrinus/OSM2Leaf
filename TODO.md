@@ -3309,7 +3309,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     C-2830/C-2831.
 
 - [ ] **M5.25 — Reconcile REFER POI page encoding (slot_budget vs mutate_refer_poi/M5.12c)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m5.25-reconcile-poi-page-encoding · Critical: yes
   - Depends: M5.12c (blocked: uncompressed-files scan unfinished), M1.16, M5.21
   - Goal: one safe path for editing/writing POI name pages on a real card.
     M5.21 (`slot_budget.py`) implements its own slot rule and encoder search and
