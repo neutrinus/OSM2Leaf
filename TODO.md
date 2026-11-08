@@ -2233,23 +2233,31 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the difference is the result.
   - Claims: C-2530–C-2539
 
-- [ ] **M3.20 — Name the register-AND mask variant; correct the M3.11 pattern text**
-  - Status: in progress · Owner: task/m3.20-mask-pair-via-reg-r2 · Critical: yes
-  - Depends: M3.19
+- [x] **M3.20 — Name the register-AND mask variant; correct the M3.11 pattern text**
+  - Status: done · Owner: task/m3.20-mask-pair-via-reg-r2 · Critical: yes
+  - Depends: M3.19 (blocked; M3.20 is M3.19's unblock task — dep verified
+    honestly: `tools/sh4scan.py` and M3.19's finding/site exist; via-reg
+    variant added here)
   - Goal: M3.11 §2 reports `and #0x70,r0` then `cmp/eq #0x60` as 1 hit in build
     A. The one site is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`
     (Navi.exe `0x3715c8–0x3715cc`), a register AND that the immediate pattern
     cannot match (EXP-2026-11-08-M3.19-sh4scan §5).
   - Precheck: `python3 tools/sh4scan.py IMG --image-start 0x200200 dump --module Navi.exe --va 0x3715c0 --count 8`
-    shows those three halfwords.
-  - Scope: `tools/sh4scan.py` only (a `mask-pair --via-reg` variant, stdlib,
-    with a synthetic self-test); build A uncompressed sections; no other task's
-    lines.
+    shows those three halfwords. (Verified on IMG256 `92aa525d…`.)
+  - Scope: `tools/sh4scan.py` (`mask-pair --via-reg`, stdlib + selftest);
+    build A uncompressed sections; M3.11 EXP §2 pattern-text correction and
+    C-2560–C-2569 claim rows (M3.20 done-when). No other task's lines.
   - Done when: `mask-pair --via-reg --cmp 60` runs on `IMAGE_START 0x200200`,
     its selftest pins the variant, and M3.11's pattern text is corrected by a
     new claim row (no deletion, per the ledger rules). The count is the result,
     not a precondition: report whatever it is.
   - Stop: if the variant count is not 1, record it in an EXP and stop.
+  - Result: EXP-2026-11-08-M3.20-mask-pair-via-reg (C-2560–C-2562). `sh4scan`
+    selftest OK (section 4b pins register-AND). `mask-pair --via-reg --cmp 60`
+    on build A (IMG256 `92aa525d…`, 282 uncompressed / 527 sections) found
+    **1** site: Navi.exe sec0 `mov @0x003715c8 and @0x003715ca cmp @0x003715cc
+    R3 (+4 B)`. M3.11 EXP §2 pattern text corrected (immediate → register-AND)
+    and C-2560 added (no deletion). No vendor bytes committed.
   - Claims: C-2560–C-2569
 
 ---

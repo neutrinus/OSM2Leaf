@@ -22,7 +22,7 @@ Subcommands (all print the corpus they covered):
   corpus                    list every o32 section of the selected modules
   tags    [--module M]      exact cmp/eq #tag hits and tag pairs within a window
   pattern HEX [--module M]  exact aligned halfword HEX (the TODO's ``--pattern``)
-  mask-pair [--module M]    and #imm,R0 followed by cmp/eq #tag,R0 within a window
+  mask-pair [--module M]    and #imm,R0 then cmp/eq #tag,R0; --via-reg: mov #imm,Rn; and Rn,R0; cmp/eq
   stride  [--module M]      mov.b @(1,Rm),R0 -> doubling -> add to Rm, funnel counts
   anchors [--module M]      zlib error/banner strings (M3.2b anchor list)
 
@@ -201,6 +201,37 @@ def mask_pairs(vals, and_imm, cmp_tag, window_bytes):
     return sites
 
 
+def mask_pairs_via_reg(vals, and_imm, cmp_tag, window_bytes):
+    """Register-AND variant: ``mov #and_imm,Rn``; ``and Rn,R0``; ``cmp/eq #cmp_tag,R0``.
+
+    The mask immediate is loaded into Rn and ANDed into R0 via a register
+    (M3.20 / EXP-2026-11-08-M3.19-sh4scan §5: the site M3.11 reported as
+    ``and #0x70,r0`` is ``mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0``).
+    Returns (i_mov, i_and, i_cmp, reg) tuples, matched within ``window_bytes``
+    from the ``mov`` to the ``cmp/eq``.
+    """
+    cmp_word = CMP_EQ_IMM_R0 | (cmp_tag & 0xFF)
+    max_hw = window_bytes // 2
+    sites = []
+    for i, v in enumerate(vals):
+        if (v & 0xF0FF) != (0xE000 | (and_imm & 0xFF)):
+            continue
+        reg = (v >> 8) & 0xF
+        and_reg_word = 0x2009 | (reg << 4)  # and Rn,R0
+        i_and = None
+        for j in range(i + 1, min(len(vals), i + 1 + max_hw)):
+            if vals[j] == and_reg_word:
+                i_and = j
+                break
+        if i_and is None:
+            continue
+        for k in range(i_and + 1, min(len(vals), i + 1 + max_hw)):
+            if vals[k] == cmp_word:
+                sites.append((i, i_and, k, reg))
+                break
+    return sites
+
+
 def stride_funnel(vals, window_hw):
     """Three nested stages of the M3.11 length-stride heuristic.
 
@@ -314,6 +345,16 @@ def cmd_mask_pair(args, r, secs):
     and_imm = int(args.and_imm, 16)
     cmp_tag = int(args.cmp, 16)
     total = 0
+    if getattr(args, "via_reg", False):
+        for sec in scanned(secs):
+            for i, j, k, reg in mask_pairs_via_reg(sec.vals, and_imm, cmp_tag, args.window_bytes):
+                total += 1
+                print("  %s %s mov @0x%08x and @0x%08x cmp @0x%08x R%d (+%d B)"
+                      % (sec.module, sec.name, va_of(sec, i), va_of(sec, j),
+                         va_of(sec, k), reg, 2 * (k - i)))
+        print("mov #0x%02x,Rn; and Rn,R0; cmp/eq #0x%02x,R0 within %d B: %d"
+              % (and_imm, cmp_tag, args.window_bytes, total))
+        return 0
     for sec in scanned(secs):
         for i, j in mask_pairs(sec.vals, and_imm, cmp_tag, args.window_bytes):
             total += 1
@@ -462,6 +503,25 @@ def selftest():
     check("and-f7-is-not-and-70",
           mask_pairs(halfword_array(hw(AND_IMM_R0 | 0xF7, NOP, CMP_EQ_IMM_R0 | 0x60)), 0x70, 0x60, 14), [])
 
+    # 4b. Register-AND variant (M3.20): mov #imm,Rn; and Rn,R0; cmp/eq #tag,R0.
+    # The M3.19/M3.11 site: mov #0x70,R3 (E370); and R3,R0 (2039); cmp/eq #0x60,R0 (8860).
+    via = halfword_array(hw(0xE370, 0x2039, 0x8860))
+    check("via-reg-site", mask_pairs_via_reg(via, 0x70, 0x60, 14), [(0, 1, 2, 3)])
+    check("via-reg-not-immediate", mask_pairs(via, 0x70, 0x60, 14), [])
+    check("via-reg-wrong-imm", mask_pairs_via_reg(via, 0x71, 0x60, 14), [])
+    check("via-reg-wrong-cmp", mask_pairs_via_reg(via, 0x70, 0x68, 14), [])
+    # Register pairing: mov loads R3 but and uses R4 — must not match.
+    mis = halfword_array(hw(0xE370, 0x2049, 0x8860))
+    check("via-reg-wrong-reg-pair", mask_pairs_via_reg(mis, 0x70, 0x60, 14), [])
+    # Window edge: mov@0, and@+6B, cmp@+14B from mov (7 halfwords gap total) fits in 14 B.
+    edge = halfword_array(hw(0xE370, NOP, NOP, 0x2039) + hw(NOP) * 3 + hw(0x8860))
+    check("via-reg-edge-14B", len(mask_pairs_via_reg(edge, 0x70, 0x60, 14)), 1)
+    farv = halfword_array(hw(0xE370, NOP, NOP, 0x2039) + hw(NOP) * 4 + hw(0x8860))
+    check("via-reg-miss-16B", mask_pairs_via_reg(farv, 0x70, 0x60, 14), [])
+    # Other register (R0 is unusual but encodable): mov #0x70,R0; and R0,R0; cmp/eq #0x60,R0.
+    r0 = halfword_array(hw(0xE070, 0x2009, 0x8860))
+    check("via-reg-r0", mask_pairs_via_reg(r0, 0x70, 0x60, 14), [(0, 1, 2, 0)])
+
     # 5. Stride funnel: mov.b @(1,R3),R0 = 0x8431; shll R0; add R0,R3 = 0x330C.
     full = halfword_array(hw(0x8431, SHLL_R0, 0x330C))
     s1, s2, s3 = stride_funnel(full, 8)
@@ -535,8 +595,10 @@ def build_parsers():
     sub.add_argument("--tags", default="60,68", help="tag command: comma-separated hex tags (default 60,68)")
     sub.add_argument("--pair-bytes", type=int, default=DEFAULT_PAIR_BYTES, help="tag pair window in bytes")
     sub.add_argument("--list", action="store_true", help="tags: print each hit")
-    sub.add_argument("--and", dest="and_imm", default="70", help="mask-pair: hex and immediate (default 70)")
+    sub.add_argument("--and", dest="and_imm", default="70", help="mask-pair: hex mask immediate (default 70)")
     sub.add_argument("--cmp", default="60", help="mask-pair: hex cmp/eq tag (default 60)")
+    sub.add_argument("--via-reg", action="store_true",
+                     help="mask-pair: register-AND variant mov #imm,Rn; and Rn,R0; cmp/eq")
     sub.add_argument("--window-bytes", type=int, default=DEFAULT_MASK_BYTES, help="mask-pair window in bytes")
     sub.add_argument("--window-hw", type=int, default=DEFAULT_STRIDE_HW,
                      help="stride: halfwords allowed between stages (default %(default)s)")
