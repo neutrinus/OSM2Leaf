@@ -2233,6 +2233,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2898 | RESERVED (M4.30). | — | — | — |
 | C-2899 | RESERVED (M4.30). | — | — | — |
 
+## M4.33 — `two->two`/`no_u_turn`/`osm_from_eq_to` restriction geometry/mapping class (C-2990–C-2999)
+
+| ID | Claim | Status | Trust | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2990 | M4.33 precheck reproduces M4.30 `two->two` `no_*` miss clustering on B48R058R (`e9c9cb22…`, dolnoslaskie IMF `7442877c…`, seed 42, `_deep_rows` pipeline): L1 `two->two` n=244 hit=56 miss=188 with `tag:no_u_turn` 103, `osm_from_eq_to` 101, `mclass:no_ff_word_naming_F_anywhere` 157; L2 n=100 hit=39 miss=61 with 38/37/54. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.33-twotwo-u-turn-mapping; `tools/m433_twotwo_audit.py ... --level 1\|2` |
+| C-2991 | In matched `two->two` `no_*` misses (L1 188, L2 61), OSM same-way identity `feq` (`relation from==to`) and tile-entry identity `F==T` are the same case set: L1 feq 101/188, F==T 101/188, `feq AND F==T` 101, `feq AND F!=T` 0, `!feq AND F==T` 0; L2 37/61, 37/61, 37, 0, 0. Hits show feq 0 and F==T 0 (L1 0/56, L2 0/39). All feq misses are `no_u_turn`. Bearing matching therefore maps same-way u-turn restrictions to a single tile entry (F==T). | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.33-twotwo-u-turn-mapping |
+| C-2992 | `no_u_turn` representation in `two->two` (matched corpus): L1 misses 103/hits 4, L2 38/5. feq/F==T subclass is 101/103 L1 and 37/38 L2; non-feq `no_u_turn` misses are rare (2/1). The tested self-prohibition form `F_names_F_ff` (0xff word naming F on entry F/T when F==T) is absent in feq `no_u_turn` misses (0/101 L1, 0/37 L2); `F_names_T_ff` 0, `T_names_F` present 0; `T_has_no_ff_words` 64/17. `no_u_turn` hits occur only when !feq and F!=T (4/4 L1, 5/5 L2), consistent with the 0xff-on-T-naming-F convention applying to distinct-entry cases. | VERIFIED (tool, real data) negative for tested self-form; alternate encoding UNKNOWN | H | EXP-2026-11-08-M4.33-twotwo-u-turn-mapping |
+| C-2993 | Counted alternate-location candidates for feq/F==T `no_u_turn` misses (not proven encoding): L1 feq misses 101 have `no_ff_word_naming_F_anywhere` 87 and `ff_naming_F_on_other_entries` 14; L2 37 have 31/6. `F_names_F_ff` is 0 in both. These counts do not establish a firmware-read encoding (rule 13); they narrow tested hypotheses. | OBSERVED (tool, real data) | M | EXP-2026-11-08-M4.33-twotwo-u-turn-mapping |
+| C-2994 | OSM-vs-tile way splitting at via (matched `two->two` population, L1/L2): `dup_osm_way_bearing` 0/188 misses and 0/56 hits (L1), 0/61 and 0/39 (L2); `ambiguous_margin<15` 0/188 L1, 3/61 L2. The dominant matched-class issue is representational identity (same OSM way `from==to` → same tile entry `F==T`, C-2991), not bearing duplication/ambiguity in the matched set. Count-mismatch exclusions (492/737, M4.30/C-2892) remain outside matched scope (M4.34). | VERIFIED (tool, real data) for matched population | H | EXP-2026-11-08-M4.33-twotwo-u-turn-mapping |
+| C-2995 | RESERVED (M4.33). | — | — | — |
+| C-2996 | RESERVED (M4.33). | — | — | — |
+| C-2997 | RESERVED (M4.33). | — | — | — |
+| C-2998 | RESERVED (M4.33). | — | — | — |
+| C-2999 | RESERVED (M4.33). | — | — | — |
+
 ## M4.34 — Bearing count-mismatch exclusion analysis (C-3000–C-3009)
 
 | ID | Claim | Status | Trust | Evidence |

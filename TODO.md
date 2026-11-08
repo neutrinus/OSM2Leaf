@@ -2719,12 +2719,16 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Precheck: reproduce M4.30 `deepen` `arr->lv`/`two->lv` numbers (L1 68/44, 31/21; L2 75/53, 22/18).
   - Claims: C-3010–C-3019
 
-- [ ] **M4.33 — `two->two`/`no_u_turn`/`osm_from_eq_to` restriction geometry/mapping class (M4.30 follow-up)**
-  - Status: in progress · Owner: task/m4.33-twotwo-u-turn-mapping · Critical: no
+- [x] **M4.33 — `two->two`/`no_u_turn`/`osm_from_eq_to` restriction geometry/mapping class (M4.30 follow-up)**
+  - Status: done · Owner: task/m4.33-twotwo-u-turn-mapping · Critical: no
   - Depends: M4.30 (findings), M4.25
   - Goal: per-case/counted audit of same-way identity, u-turn representation, and OSM-vs-tile way splitting at via for the `two->two` miss class (dominated by `no_u_turn`/`osm_from_eq_to` and absent 0xff-naming-F); determine if mapping normalization or an alternate encoding applies.
   - Precheck: reproduce M4.30 `two->two` miss clustering (L1 188 misses: `no_u_turn` 103, `osm_from_eq_to` 101, `no_ff_word_naming_F_anywhere` 157).
+  - Scope: matched `no_*` `two->two` stratum on B48R058R/dolnoslaskie IMF (same M4.30 corpus), levels 1 (precheck) and 2 (pattern control), via `_deep_rows` pipeline; read-only. Excludes bearing/count-mismatch exclusions (492/737, M4.34), other tiles/IMF, `only_*`, levels 4/5, firmware consumer VAs (rule 13), and per-relation manual OSM geometry beyond named tool fields.
+  - Done when: precheck reproduced and EXP reports counted feq/F==T identity, u-turn representation (including tested self-form `F_names_F_ff`), splitting/mapping-shape signals, and a determination on mapping normalization vs alternate encoding with named residuals/controls.
+  - Stop: if precheck cannot be reproduced on the pinned corpus, record the discrepancy and stop.
   - Claims: C-2990–C-2999
+  - Result: EXP-2026-11-08-M4.33-twotwo-u-turn-mapping. Precheck reproduced (L1 188: 103/101/157; L2 61: 38/37/54). `tools/m433_twotwo_audit.py` (no `rd_restrictions.py` changes) shows `osm_from_eq_to` == `F==T` are identical sets in `two->two` misses (L1 101/101, L2 37/37; 0 in hits), all feq are `no_u_turn`; tested self-prohibition `F_names_F_ff` is 0 for feq/F==T (L1 0/101, L2 0/37); `no_u_turn` hits only when !feq/F!=T (4/5). Matched `dup_way` 0, `amb_margin<15` 0/188 L1 (3/61 L2) — representational same-way→same-entry class, not bearing-split in matched set. Mapping normalization cannot separate F==T under same bearing; tested self-ff encoding negative; alternate encoding/location/absence remains UNKNOWN pending firmware consumer VA (rule 13, M4.26/C-2805/C-2629). Claims C-2990–C-2994.
 
 - [x] **M4.34 — Bearing count-mismatch exclusion analysis for restriction matching (M4.30 follow-up)**
   - Status: done · Owner: task/m4.34-bearing-count-mismatch · Critical: no
