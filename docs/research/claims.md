@@ -1710,6 +1710,14 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2488 | No independent SH-4 oracle is available on the reference machine (no SH target in `objdump -i`, no `capstone`), so the decoder's correctness beyond the pinned bytes and the self-test's per-mnemonic encodings is UNKNOWN. | UNKNOWN | — | `objdump -i \| grep -ci sh` → 0; `python3 -c "import capstone"` → ModuleNotFoundError; EXP-2026-11-08-M1.11-sh4dis |
 | C-2489 | The `mov.w @(disp,PC)` (`0x9nnn`) path decode/literal read is pinned on a real IMG256 sample (Navi.exe A `fn 0x003f5194`, three sites: `0x9414/0x9112/0x9109` with pool `u16` values `0x04e8/0x03ff/0x4e20`). Population-wide values remain counted, not individually verified. | VERIFIED (addressing mode pinned) | H | EXP-2026-11-08-M1.14-sh4dec-debt; `sh4dis.py IMG Navi.exe --image-start 0x200200 --check-real`; supersedes the M1.11 UNKNOWN control gap |
 
+## M1.11c — `sh4dis.py` MOVT/SHAR/SHLD/SHAD, M4.16b decoder unblock (C-2650–C-2652)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2650 | `tools/sh4dis.py` decodes little-endian SH-4 MOVT `Rn` (`0x0n29`, `0000nnnn00101001`), SHAR `Rn` (`0x4n21`), SHLD `Rm,Rn` (`0x4nmC`, `0100nnnnmmmm1100`) and SHAD `Rm,Rn` (`0x4nmD`, `0100nnnnmmmm1101`), with `n` in bits 8–11 and `m` in bits 4–7; the convention stays pinned through `read_u16`/`ENDIAN_STRUCT`. | VERIFIED (synthetic/encoding) | H | EXP-2026-11-08-M1.11c-sh4dis-opcodes; `python3 tools/sh4dis.py --selftest` (M1.11c encoding pins, 65,536-halfword totality, BE trap unchanged) |
+| C-2651 | On IMG256 EU 2011 `Navi.exe` build A (`--image-start 0x200200`, SHA-256 `92aa525d…a007f9`), the five M4.16b instruction addresses named by C-2302 decode and are not `.word`: `0x003f52dc` 0x0029 `movt r0` (fn `0x003f51e0`), `0x003f56fe` 0x431d `shad r1,r3`, `0x003f5746` 0x423d `shad r3,r2` (fn `0x003f56bc`), `0x003f5e1a` 0x0329 `movt r3`, `0x003f5e1e` 0x4221 `shar r2` (fn `0x003f5e10`). `0x014a` at `0x003f52e2` (same `0x003f51e0` window) remains `.word 0x014a`, outside the four-opcode scope. | VERIFIED (real image) | H | EXP-2026-11-08-M1.11c-sh4dis-opcodes; `python3 tools/sh4dis.py IMG Navi.exe --image-start 0x200200 --check-real` (M1.11c RDSTM pins); per-VA `--va … --count 1` listings |
+| C-2652 | M1.11c closes the C-2302 decoder-coverage gap for MOVT/SHAR/SHLD/SHAD at the named RDSTM directory-function sites, so a follow-on offline directory walk is not blocked by these opcodes. The walk itself, the `0x00d53500` schema table, record-boundary reproduction, and the record-to-coordinate/TMC join remain open (M4.16b done-when unmet; M4.16d). | VERIFIED (scope) | H | EXP-2026-11-08-M1.11c-sh4dis-opcodes (Scope/Interpretation); C-2302 |
+
 ## M5.1b — Dolnośląskie region run (C-2340–C-2349)
 
 | ID | Claim | Status | Confidence | Evidence |

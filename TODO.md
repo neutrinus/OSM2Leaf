@@ -2384,8 +2384,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     with method recorded.
   - Claims: C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b)
 
-- [ ] **M1.11c — `sh4dis.py`: MOVT, SHAR, SHLD, SHAD opcodes**
-  - Status: in progress · Owner: task/m1.11c-sh4dis-opcodes · Critical: no
+- [x] **M1.11c — `sh4dis.py`: MOVT, SHAR, SHLD, SHAD opcodes**
+  - Status: done · Owner: task/m1.11c-sh4dis-opcodes · Critical: no
   - Depends: M1.11 (done)
   - Goal: decode the dynamic and single-bit shift opcodes and `movt` that the
     RDSTM directory walk (`0x003f56bc`, `0x003f5e10`) uses, so an offline walk
@@ -2393,7 +2393,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `sh4dis.py --selftest` pins the four encodings (`0x0n29`,
     `0x4n21`, `0x4n0d`, `0x4n0c`) and a real-image window shows no undecoded
     opcode at the five M4.16b addresses; EXP recorded.
-  - Claims: none reserved yet; take the next free range in `claims.md` when claimed.
+  - Claims: C-2650–C-2652
+  - Result: EXP-2026-11-08-M1.11c-sh4dis-opcodes — `sh4dis.py` decodes MOVT/SHAR/SHLD/SHAD (LE pinned); selftest pins the four encoding forms and the five M4.16b instruction words; Navi.exe IMG256 `--check-real` shows no `.word` at `0x003f52dc,0x003f56fe,0x003f5746,0x003f5e1a,0x003f5e1e` (`movt r0, shad r1,r3, shad r3,r2, movt r3, shar r2`). `0x014a@0x003f52e2` stays `.word` (out of scope). C-2302 decoder gap closed for these forms; M4.16b walk/join remain open.
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no

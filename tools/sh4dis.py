@@ -207,6 +207,8 @@ def decode(w, va=0, mem=None):
             return ins("clrt")
         if w == 0x0018:
             return ins("sett")
+        if w & 0xF0FF == 0x0029:
+            return ins("movt %s" % R(n))
         if w & 0xF0FF == 0x002A:
             return ins("sts pr,%s" % R(n))
         if d == 0x4:
@@ -268,9 +270,13 @@ def decode(w, va=0, mem=None):
             return ins("lds.l @%s+,pr" % R(n))
         if i == 0x2A:
             return ins("lds %s,pr" % R(n))
+        if d == 0xC:
+            return ins("shld %s,%s" % (R(m), R(n)))
+        if d == 0xD:
+            return ins("shad %s,%s" % (R(m), R(n)))
         simple = {0x00: "shll", 0x01: "shlr", 0x08: "shll2", 0x09: "shlr2",
                   0x18: "shll8", 0x19: "shlr8", 0x28: "shll16", 0x29: "shlr16",
-                  0x10: "dt", 0x11: "cmp/pz", 0x15: "cmp/pl"}
+                  0x10: "dt", 0x11: "cmp/pz", 0x15: "cmp/pl", 0x21: "shar"}
         if i in simple:
             return ins("%s %s" % (simple[i], R(n)))
         return ins(".word 0x%04x" % w)
@@ -442,6 +448,18 @@ MOVW_POINT_WALKER = [
      0x003F51D8, 0x4E20),
 ]
 
+# M1.11c (C-2650–C-2652): the five M4.16b instruction addresses (EXP-2026-11-08-
+# M4.16b, C-2302) that were .word before MOVT/SHAR/SHLD/SHAD decode. 0x014a at
+# 0x003f52e2 in fn 0x003f51e0 is not one of these opcodes and stays .word.
+M411C_RDSTM_SITES = [
+    # (va, word, text)
+    (0x003F52DC, 0x0029, "movt r0"),
+    (0x003F56FE, 0x431D, "shad r1,r3"),
+    (0x003F5746, 0x423D, "shad r3,r2"),
+    (0x003F5E1A, 0x0329, "movt r3"),
+    (0x003F5E1E, 0x4221, "shar r2"),
+]
+
 # M1.8 four call sites (C-710) - oracle agreement targets.
 M18_CALL_SITES = [
     # (va, word, text)
@@ -511,6 +529,15 @@ def check_real(mem, exec_segs, module=NK_MODULE):
             ins = decode(w, va, mem) if w is not None else None
             expect("M1.8 call site 0x%08x" % va,
                    (ins.word, ins.text) if ins else None, (word, text))
+        # M1.11c: the five M4.16b addresses (C-2302) must decode, not be .word.
+        for va, word, text in M411C_RDSTM_SITES:
+            w = mem.u16(va)
+            ins = decode(w, va, mem) if w is not None else None
+            expect("M1.11c RDSTM 0x%08x" % va,
+                   (ins.word, ins.text) if ins else None, (word, text))
+            if ins is not None:
+                expect("M1.11c RDSTM 0x%08x not .word" % va,
+                       ins.text.startswith(".word"), False)
     else:
         expect("check-real module has pins", module, "(nk.exe or Navi.exe)")
     return fails
@@ -801,6 +828,20 @@ def selftest():
     check("bsr 0x10 disp 0 (0xB000) target", decode(0xB000, 0x10).target, 0x14)
     check("shll r2 (0x4200)", decode(0x4200).text, "shll r2")
     check("unknown word is .word, no raise", decode(0xF000).text, ".word 0xf000")
+
+    # M1.11c (C-2650–C-2652): MOVT 0x0n29, SHAR 0x4n21, SHLD 0x4nmC, SHAD 0x4nmD.
+    # Pins the four encoding forms named in the task plus the five M4.16b
+    # instruction sites (EXP-2026-11-08-M4.16b, C-2302).
+    check("movt r0 (0x0029, 0x0n29)", decode(0x0029).text, "movt r0")
+    check("movt r3 (0x0329, M4.16b 0x003f5e1a)", decode(0x0329).text, "movt r3")
+    check("shar r2 (0x4221, 0x4n21, M4.16b 0x003f5e1e)", decode(0x4221).text, "shar r2")
+    check("shld r0,r0 (0x400c, 0x4n0c form)", decode(0x400C).text, "shld r0,r0")
+    check("shld r0,r3 (0x430c)", decode(0x430C).text, "shld r0,r3")
+    check("shld r1,r3 (0x431c)", decode(0x431C).text, "shld r1,r3")
+    check("shad r0,r0 (0x400d, 0x4n0d form)", decode(0x400D).text, "shad r0,r0")
+    check("shad r1,r3 (0x431d, M4.16b 0x003f56fe)", decode(0x431D).text, "shad r1,r3")
+    check("shad r3,r2 (0x423d, M4.16b 0x003f5746)", decode(0x423D).text, "shad r3,r2")
+    # The 5th M4.16b address: 0x003f52dc holds 0x0029 (movt r0), pinned above.
 
     # 6. Oracle (M1.14): pinned skip mode when absent; if present, must agree
     # on the four M1.8 call sites. Disagreement records per instruction.
