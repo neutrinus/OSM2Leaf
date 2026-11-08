@@ -2677,8 +2677,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     and stop.
   - Claims: C-2700–C-2709
 
-- [ ] **M4.30 — Restriction word-test deepening: class-dependent encoding and mapping errors (M4.23 follow-up)**
-  - Status: in progress · Owner: task/m4.30-restriction-deepening · Critical: no
+- [x] **M4.30 — Restriction word-test deepening: class-dependent encoding and mapping errors (M4.23 follow-up)**
+  - Status: done · Owner: task/m4.30-restriction-deepening · Critical: no
   - Depends: M4.23 (findings), M4.25 (word-test audit task)
   - Goal: turn M4.23's real-but-below-threshold signal into an actionable
     encoding hypothesis for M4.3/routing. M4.23 found `no_*` to-entry carries
@@ -2703,6 +2703,28 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: do not lower the pass threshold; a better model or an honest split is
     the result.
   - Claims: C-2890–C-2899 (was C-2770–C-2779, collision with H27 fixed by H23)
+  - Result: EXP-2026-11-08-M4.30-restriction-deepening (result b). Precheck reproduced M4.23/M4.25 baselines (L1 152/411/18, L2 128/235/8, FAIL). `rd_restrictions.py deepen` (M4.30, `--selftest` 17 checks, `claims_check` clean) stratified by entry class with per-stratum shuffle/match-order RNG and held-out (sha256 relation id mod2, bucket1=test, no outcome fitting): no pre-defined stratum reaches PASS on held-out n>=20 (L1/L2). L2 `two->lv` 22/18 (81.8%) PASS full but test n=13/10 FAIL (n<20); `arr->lv` L1 68/44 (64.7%) test 32/20, L2 75/53 (70.7%) test 38/29 (76.3%). Mapping: 851/1317 bearing exclusions = 492/737 count mismatch + 359/580 angle; matched `no_*` dup-way 0, `osm_from_eq_to` 106/41, ambiguous `<15°` 32/51. Misses (259/107) dominated by `no_ff_word_naming_F_anywhere` 208/90 (M4.25); `two->two` concentrates `no_u_turn`+`osm_from_eq_to` (103/101 L1). No single rule fits pre-stated PASS on held-out (b); split hypotheses filed as M4.32–M4.34. Claims C-2890–C-2895.
+
+- [ ] **M4.32 — Direction-explicit restriction stratum: combined `arr->lv`/`two->lv` rule with held-out n>=20 (M4.30 follow-up)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.30 (findings)
+  - Goal: test whether a pre-defined combined direction-explicit stratum (`arr->lv`+`two->lv`, 0xff-on-T-naming-F plus named M4.25 variants as pre-specified) reaches pre-stated PASS on a held-out subset with n>=20 (pool L1+L2 or larger corpus) and explain residual `no_ff_word_naming_F_anywhere` misses via second word position/form or junction-mapping audit.
+  - Precheck: reproduce M4.30 `deepen` `arr->lv`/`two->lv` numbers (L1 68/44, 31/21; L2 75/53, 22/18).
+  - Claims: C-3010–C-3019
+
+- [ ] **M4.33 — `two->two`/`no_u_turn`/`osm_from_eq_to` restriction geometry/mapping class (M4.30 follow-up)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.30 (findings), M4.25
+  - Goal: per-case/counted audit of same-way identity, u-turn representation, and OSM-vs-tile way splitting at via for the `two->two` miss class (dominated by `no_u_turn`/`osm_from_eq_to` and absent 0xff-naming-F); determine if mapping normalization or an alternate encoding applies.
+  - Precheck: reproduce M4.30 `two->two` miss clustering (L1 188 misses: `no_u_turn` 103, `osm_from_eq_to` 101, `no_ff_word_naming_F_anywhere` 157).
+  - Claims: C-2990–C-2999
+
+- [ ] **M4.34 — Bearing count-mismatch exclusion analysis for restriction matching (M4.30 follow-up)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.30 (findings)
+  - Goal: classify 492/737 L1/L2 count mismatches (OSM bearings != tile non-edge entries) — OSM through-way extra bearings, tile far-node-in-other-record filtering, or genuine junction mismatch — and quantify recoverable matched population without outcome fitting.
+  - Precheck: reproduce M4.30 mapping diagnostics (L1 492 count + 359 angle of 851; L2 737+580 of 1317).
+  - Claims: C-3000–C-3009
 
 - [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
   - Status: open · Owner: — · Critical: no

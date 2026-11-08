@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Section-2 entry and regulation-word census, junction lookup and restriction match (M4.23/M4.25).
+"""Section-2 entry and regulation-word census, junction lookup and restriction match (M4.23/M4.25/M4.30).
 
     python3 tools/rd_restrictions.py census TILE...
         kinds, entries by one-way class, regulation words, part-b pairing, per level
@@ -10,6 +10,11 @@
     python3 tools/rd_restrictions.py audit TILE IMF [--level 1|2] [--seed N]
         M4.25 mapping audit: named, counted miss classes for no_* and encoding candidates
         for only_*
+    python3 tools/rd_restrictions.py deepen TILE IMF [--level 1|2] [--seed N]
+        M4.30 deepening: per-stratum (entry class) hit/shuffle/verdict, mapping anomalies
+        (count/angle bearing mismatch, duplicate OSM way bearings, ambiguous margin,
+        osm from==to), miss clustering by tag/one-way geometry/M4.25 class/word form,
+        and held-out (deterministic by relation id) subset verdicts. Read-only.
     python3 tools/rd_restrictions.py --selftest
 
 Reads only. The tile reader is ze0-viewer/tools_ze0 (TileScan, clarion_rd, rd_check.rowcol
@@ -26,7 +31,7 @@ not the carrying entry's index (EXP, nibble check). Levels 2, 4 and 5 come in pa
 index: even k is unit 0; odd k is part b, whose grammar is NOT established (the checker reports
 mismatches and counts the unexplained values; it is not a decoder).
 """
-import argparse, collections, json, math, os, random, struct, sys
+import argparse, collections, hashlib, json, math, os, random, struct, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, 'ze0-viewer', 'tools_ze0'))
@@ -536,6 +541,278 @@ def match(tile, imf, level=1, seed=42, show=0, out=print):
     return ok
 
 
+
+# ---- M4.30 deepening ------------------------------------------------------------
+
+def _holdout(rel_id, mod=2, bucket=0):
+    """Deterministic hold-out split by relation id (stable across runs/levels)."""
+    h = int(hashlib.sha256(str(rel_id).encode()).hexdigest(), 16)
+    return (h % mod) == bucket
+
+
+def _amb_margin(osm, tb, frm, to, m):
+    """Min margin (2nd-best minus best bearing diff) for the relation's from/to ways."""
+    tbe = dict(tb)
+    scores = []
+    for wid in (frm, to):
+        obs = [b for w, b in osm if w == wid]
+        if not obs or m.get(wid) not in tbe:
+            continue
+        ds = sorted(_diff(obs[0], b) for _, b in tb)
+        if len(ds) >= 2:
+            scores.append(ds[1] - ds[0])
+    return min(scores) if scores else 99.0
+
+
+def _deep_rows(tile, imf, level=1, seed=42, out=print):
+    """Like _match_core but also returns mapping diagnostics per matched row and mismatch reasons.
+    Returns (rels, reasons, rows, rng, mapping) where rows carry extra mapping fields:
+    (r, F, T, ents, nonedge, tag, amb_margin, dup_way, from_eq_to)."""
+    rels, incident, coords = load_imf(imf, out)
+    with open(tile, 'rb') as f:
+        data = f.read()
+    wanted = {parcel_of(level, coords[r['via']][1], coords[r['via']][0])[0]
+              for r in rels if r['via'] in coords}
+    idx = index_parcels(data, level, wanted)
+    del data
+    rng = random.Random(seed)
+    reasons = collections.Counter()
+    mapping = collections.Counter()
+    rows = []
+    for r in rels:
+        via = r['via']
+        if via not in coords:
+            reasons['via coordinates missing'] += 1; continue
+        j = junction(idx, level, coords[via][1], coords[via][0])
+        if j is None:
+            reasons['no graph node within %d units' % JUNCTION_TOL] += 1; continue
+        rec, i = j
+        ways = incident.get(via, [])
+        osm = osm_bearings(via, ways, coords)
+        tb = tile_bearings(rec, i, level, coords[via][0])
+        nonedge = [k for k, e in enumerate(rec['nodes'][i]['entries']) if kind_of(e) != 'edge']
+        osm_ids = [w for w, _ in osm]
+        dup_way = len(osm_ids) != len(set(osm_ids))
+        if dup_way:
+            mapping['vias_with_dup_osm_way_bearing'] += 1
+        if len(tb) != len(nonedge):
+            reasons['tile bearing missing (far node in another record)'] += 1
+            mapping['mismatch_count_osm!=tile'] += 1
+            if dup_way:
+                mapping['mismatch_count_with_dup_way'] += 1
+            continue
+        m = match_bearings(osm, tb)
+        if m is None:
+            reasons['bearings do not match the OSM ways'] += 1
+            if len(osm) != len(tb):
+                mapping['mismatch_count_osm!=tile2'] += 1
+            else:
+                mapping['mismatch_angle'] += 1
+                if dup_way:
+                    mapping['mismatch_angle_with_dup_way'] += 1
+            continue
+        if r['frm'] not in m or r['to'] not in m:
+            reasons['from or to way not at the node'] += 1; continue
+        F, T = m[r['frm']], m[r['to']]
+        ents = rec['nodes'][i]['entries']
+        tag = r['tag']
+        if not (tag.startswith('no_') or tag.startswith('only_')):
+            reasons['tag %s not a turn restriction' % tag] += 1; continue
+        am = _amb_margin(osm, tb, r['frm'], r['to'], m)
+        feq = r['frm'] == r['to']
+        rows.append((r, F, T, ents, nonedge, tag, am, dup_way, feq))
+    return rels, reasons, rows, rng, mapping
+
+
+def _no_row(r, F, T, ents, nonedge, tag, rng):
+    hit = _word_ff(F, ents[T])
+    cand = [k for k in nonedge if k not in (F, T)]
+    U = rng.choice(cand) if cand else None
+    sh = _word_ff(F, ents[U]) if U is not None else False
+    mclass = 'hit'
+    if not hit:
+        if _word_ff(T, ents[F]):
+            mclass = 'reverse_ff_on_F_names_T'
+        elif any(w >> 12 == F and (w & 0xff) != 0xff for w in regs_of(ents[T])):
+            mclass = 'other_byte1_on_T_names_F'
+        elif _word_ff_on(ents, F, [k for k in nonedge if k != T]):
+            mclass = 'ff_naming_F_on_other_entries'
+        elif not _word_ff_on(ents, F, nonedge):
+            mclass = 'no_ff_word_naming_F_anywhere'
+        else:
+            mclass = 'unexplained_residual'
+    t_ff_names = [w >> 12 for w in regs_of(ents[T]) if (w & 0xff) == 0xff]
+    t_names_f = [w for w in regs_of(ents[T]) if w >> 12 == F]
+    t_f_byte1s = tuple(sorted(set(w & 0xff for w in t_names_f))) if t_names_f else ()
+    return dict(hit=hit, sh=sh, mclass=mclass, t_ff_count=len(t_ff_names),
+                t_f_byte1s=t_f_byte1s, t_has_ff_naming_other=bool(t_ff_names),
+                fclass=kind_of(ents[F]), tclass=kind_of(ents[T]))
+
+
+def _all_row_shuffle(r, F, T, ents, nonedge, tag, rng):
+    """Consume RNG exactly as match() does for each matched turn restriction (M4.23 baseline)."""
+    cand = [k for k in nonedge if k not in (F, T)]
+    if tag.startswith('no_'):
+        U = rng.choice(cand) if cand else None
+        return _word_ff(F, ents[U]) if U is not None else False
+    if tag.startswith('only_'):
+        exits = [k for k in cand if kind_of(ents[k]) != 'arr']
+        U = rng.choice(exits) if exits else None
+        return _word_ff(F, ents[U]) if U is not None else False
+    return False
+
+
+def _strat_report(all_rows, rng, name, out, holdout_mod=2):
+    """Stratify no_* rows; RNG consumed in all_rows order (same as match()) for M4.23 shuffle parity."""
+    strata = collections.defaultdict(list)
+    for row in all_rows:
+        r, F, T, ents, nonedge, tag = row[:6]
+        sh = _all_row_shuffle(r, F, T, ents, nonedge, tag, rng)
+        if not tag.startswith('no_'):
+            continue
+        info = _no_row(r, F, T, ents, nonedge, tag, random.Random(0))  # hit/mclass only
+        info['sh'] = sh
+        key = info['fclass'] + '->' + info['tclass']
+        strata[key].append((row, info))
+        strata['ALL'].append((row, info))
+    out('-- %s: per-stratum n/hit/shuffle/verdict (PASS=%s) --' % (name, PASS))
+    results = {}
+    for key in sorted(strata, key=lambda k: (-len(strata[k]), k)):
+        items = strata[key]
+        n = len(items); hit = sum(1 for _, i in items if i['hit']); sh = sum(1 for _, i in items if i['sh'])
+        ok, why = verdict(n, hit, sh)
+        tr = [(rw, i) for rw, i in items if not _holdout(rw[0]['id'], holdout_mod, 1)]
+        te = [(rw, i) for rw, i in items if _holdout(rw[0]['id'], holdout_mod, 1)]
+
+        def _v(it):
+            if not it:
+                return (0, 0, 0, False, 'n=0')
+            nn = len(it); hh = sum(1 for _, i in it if i['hit']); ss = sum(1 for _, i in it if i['sh'])
+            o, w = verdict(nn, hh, ss); return (nn, hh, ss, o, w)
+        tn, th, ts, tok, twhy = _v(tr)
+        en, eh, es, eok, ewhy = _v(te)
+        out('  %-10s n=%4d hit=%4d (%.1f%%) shuf=%4d (%.1f%%) gap=%+.3f  %s (%s)' % (
+            key, n, hit, 100 * hit / n if n else 0, sh, 100 * sh / n if n else 0,
+            (hit - sh) / n if n else 0, 'PASS' if ok else 'FAIL', why))
+        if key != 'ALL' and n >= 10:
+            out('    holdout(train id%%2==0): n=%d hit=%d (%.1f%%) %s | test(id%%2==1): n=%d hit=%d (%.1f%%) %s' % (
+                tn, th, 100 * th / tn if tn else 0, 'PASS' if tok else 'FAIL',
+                en, eh, 100 * eh / en if en else 0, 'PASS' if eok else 'FAIL'))
+        results[key] = dict(n=n, hit=hit, shuf=sh, ok=ok,
+                            train=dict(n=tn, hit=th, shuf=ts, ok=tok),
+                            test=dict(n=en, hit=eh, shuf=es, ok=eok))
+    return strata, results
+
+
+def deepen(tile, imf, level=1, seed=42, out=print):
+    """M4.30: stratify by entry class, detect mapping anomalies, cluster remaining misses,
+    test held-out subset verdicts. Pre-stated PASS not lowered."""
+    rels, reasons, rows, rng, mapping = _deep_rows(tile, imf, level, seed, out)
+    out('=== M4.30 deepen: %s level %d (seed=%d) ===' % (os.path.basename(tile), level, seed))
+    out('restrictions read: %d' % len(rels))
+    out('not matched reasons: %s' % dict(reasons))
+    out('mapping diagnostics (named): %s' % dict(mapping))
+    out('note: "bearings do not match the OSM ways" conflates count mismatch (osm bearings != tile non-edge entries) and angle mismatch; mapping diagnostics disambiguate.')
+    no_rows = [rw for rw in rows if rw[5].startswith('no_')]
+    only_rows = [rw for rw in rows if rw[5].startswith('only_')]
+    out('matched turn restrictions: total=%d no_*=%d only_*=%d' % (len(rows), len(no_rows), len(only_rows)))
+    mq = collections.Counter()
+    for rw in no_rows:
+        am, dup, feq = rw[6], rw[7], rw[8]
+        if dup:
+            mq['dup_osm_way_bearing'] += 1
+        if feq:
+            mq['osm_from_eq_to'] += 1
+        if am < 10:
+            mq['ambiguous_margin_lt10deg'] += 1
+        elif am < 15:
+            mq['ambiguous_margin_10-15deg'] += 1
+        elif am < 25:
+            mq['ambiguous_margin_15-25deg'] += 1
+        else:
+            mq['ambiguous_margin_ge25deg_or_unique'] += 1
+    out('-- matched no_* mapping quality (named, counted) --')
+    for k in ('dup_osm_way_bearing', 'osm_from_eq_to', 'ambiguous_margin_lt10deg',
+              'ambiguous_margin_10-15deg', 'ambiguous_margin_15-25deg',
+              'ambiguous_margin_ge25deg_or_unique'):
+        out('  %-42s %d / %d' % (k, mq[k], len(no_rows)))
+    rng2 = random.Random(seed)
+    strata, results = _strat_report(rows, rng2, 'no_*', out)  # RNG consumed in match() order
+    rng3 = random.Random(seed)
+    miss = collections.Counter()
+    for rw in no_rows:
+        r, F, T, ents, nonedge, tag = rw[:6]
+        info = _no_row(r, F, T, ents, nonedge, tag, rng3)
+        if info['hit']:
+            continue
+        miss['total'] += 1
+        miss['mclass:' + info['mclass']] += 1
+        miss['tag:' + tag] += 1
+        miss['stratum:' + info['fclass'] + '->' + info['tclass']] += 1
+        if rw[8]:
+            miss['osm_from_eq_to'] += 1
+        if rw[7]:
+            miss['dup_osm_way_bearing'] += 1
+        if rw[6] < 15:
+            miss['ambiguous_margin_lt15'] += 1
+        if info['t_has_ff_naming_other']:
+            miss['T_has_ff_naming_other'] += 1
+        if info['t_ff_count'] == 0:
+            miss['T_has_no_ff_words'] += 1
+        if info['t_f_byte1s']:
+            miss['T_has_word_naming_F_byte1:' + str(info['t_f_byte1s'])] += 1
+    out('-- no_* miss clustering (named, counted; over %d misses) --' % miss['total'])
+    for k in ('osm_from_eq_to', 'dup_osm_way_bearing', 'ambiguous_margin_lt15',
+              'T_has_ff_naming_other', 'T_has_no_ff_words'):
+        if k in miss:
+            out('  %-42s %d' % (k, miss[k]))
+    for prefix in ('mclass:', 'tag:', 'stratum:'):
+        out('  [%s]' % prefix[:-1])
+        for k, v in sorted(((k, v) for k, v in miss.items() if k.startswith(prefix)), key=lambda x: -x[1]):
+            out('    %-40s %d' % (k[len(prefix):], v))
+    for sk in ('arr->lv', 'two->lv', 'arr->two', 'two->two'):
+        items = strata.get(sk, [])  # (row, info) pairs
+        rngs = random.Random(seed)
+        mitems = []
+        for row, _ in items:
+            r, F, T, ents, nonedge, tag = row[:6]
+            info = _no_row(r, F, T, ents, nonedge, tag, rngs)
+            if not info['hit']:
+                mitems.append((row, info))
+        if not mitems:
+            continue
+        sub = collections.Counter()
+        for row, info in mitems:
+            sub['mclass:' + info['mclass']] += 1
+            sub['tag:' + row[5]] += 1
+            if row[8]:
+                sub['osm_from_eq_to'] += 1
+            if row[6] < 15:
+                sub['ambiguous_margin_lt15'] += 1
+            if info['t_has_ff_naming_other']:
+                sub['T_has_ff_naming_other'] += 1
+        out('-- misses within stratum %s (n_miss=%d of %d) --' % (sk, len(mitems), len(items)))
+        for k, v in sub.most_common():
+            out('    %-40s %d' % (k, v))
+    passing = [(k, v) for k, v in results.items() if v['ok'] and k != 'ALL']
+    passing_test = [(k, v) for k, v in results.items()
+                    if v['test'].get('ok') and k != 'ALL' and v['test']['n'] >= 20]
+    out('-- held-out (deterministic by relation id sha256 mod2, bucket1=test) --')
+    out('  pre-defined strata (entry-class pairs, no outcome fitting); evaluated on held-out test bucket.')
+    if passing_test:
+        for k, v in passing_test:
+            out('  CANDIDATE reaching PASS on held-out test: %s test n=%d hit=%d' % (k, v['test']['n'], v['test']['hit']))
+    else:
+        out('  no pre-defined stratum reaches PASS on held-out test (n>=20).')
+    if passing and not passing_test:
+        out('  note: strata passing on full set but not on held-out test: %s' % [k for k, _ in passing])
+    out('-- conclusion inputs --')
+    allr = results.get('ALL', {})
+    out('  overall no_*: n=%s hit=%s shuf=%s %s' % (allr.get('n'), allr.get('hit'), allr.get('shuf'),
+                                                      'PASS' if allr.get('ok') else 'FAIL'))
+    return dict(level=level, no_n=len(no_rows), results=results, mapping=dict(mapping), reasons=dict(reasons))
+
+
 # ---- selftest: no images, no network -------------------------------------------------
 
 def coarse(lev_tile, lon, lat, out=print):
@@ -622,6 +899,14 @@ def selftest():
     assert part_b_check(part_a, bytes(flip))[0]; n += 1
     short = bytearray(plain); struct.pack_into('>II', short, 20, 27, len(unit) - 1)
     assert part_b_check(part_a, bytes(short))[0]; n += 1
+    # M4.30: holdout deterministic and roughly balanced
+    assert _holdout('r120176', 2, 1) == _holdout('r120176', 2, 1); n += 1
+    buckets = [_holdout('r%d' % i, 2, 1) for i in range(200)]
+    assert 60 < sum(buckets) < 140; n += 1
+    osm2 = [('a', 0.0), ('b', 90.0)]; tb2 = [(0, 1.0), (1, 89.0)]; m2 = {'a': 0, 'b': 1}
+    assert _amb_margin(osm2, tb2, 'a', 'b', m2) > 80; n += 1
+    osm3 = [('a', 0.0), ('b', 90.0)]; tb3 = [(0, 1.0), (1, 8.0), (2, 89.0)]; m3 = {'a': 0, 'b': 2}
+    assert _amb_margin(osm3, tb3, 'a', 'b', m3) < 10; n += 1
     return n
 
 
@@ -636,6 +921,9 @@ def main(argv=None):
     au = sub.add_parser('audit'); au.add_argument('tile'); au.add_argument('imf')
     au.add_argument('--level', type=int, choices=(1, 2), default=1)
     au.add_argument('--seed', type=int, default=42)
+    dp = sub.add_parser('deepen'); dp.add_argument('tile'); dp.add_argument('imf')
+    dp.add_argument('--level', type=int, choices=(1, 2), default=1)
+    dp.add_argument('--seed', type=int, default=42)
     cc = sub.add_parser('coarse'); cc.add_argument('lev_tile'); cc.add_argument('lon', type=float)
     cc.add_argument('lat', type=float)
     a = ap.parse_args(argv)
@@ -649,6 +937,8 @@ def main(argv=None):
         return 0 if match(a.tile, a.imf, a.level, a.seed, a.show) else 1
     if a.cmd == 'audit':
         audit(a.tile, a.imf, a.level, a.seed); return 0
+    if a.cmd == 'deepen':
+        deepen(a.tile, a.imf, a.level, a.seed); return 0
     if a.cmd == 'coarse':
         return coarse(a.lev_tile, a.lon, a.lat)
     ap.print_help(); return 2
