@@ -196,6 +196,15 @@ def _short_name(entry: bytes) -> str:
         base = b"\xe5" + base[1:]
     base_s = base.decode("ascii", "replace").rstrip(" \x00")
     ext_s = ext.decode("ascii", "replace").rstrip(" \x00")
+    # NT case flags (byte 12): 0x08 = base lower-case, 0x10 = extension
+    # lower-case. The factory US image stores XMD/ltntbl.dat this way (flags
+    # 0x18, short name LTNTBL.DAT); without the flags the name is upper-case
+    # and a tree compare reports a phantom add/remove pair.
+    flags = entry[12] if len(entry) > 12 else 0  # make_dir_slots passes 11 bytes
+    if flags & 0x08:
+        base_s = base_s.lower()
+    if flags & 0x10:
+        ext_s = ext_s.lower()
     return f"{base_s}.{ext_s}" if ext_s else base_s
 
 
@@ -800,6 +809,154 @@ def format_root_report(rep: dict | None) -> str:
                  f"{', '.join(rep['root_order'][:20])}")
     return line
 
+def outside_ranges(ranges, allowed) -> list[tuple[int, int]]:
+    """Parts of each (start, end) range that no allowed (start, end) covers."""
+    merged: list[list[int]] = []
+    for s, e in sorted(allowed):
+        if merged and s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    out = []
+    for s, e in ranges:
+        cur = s
+        for ms, me in merged:
+            if cur >= e:
+                break
+            if ms <= cur < me:
+                cur = min(me, e)
+        if cur < e:
+            out.append((cur, e))
+    return out
+
+
+def reconcile_partition(out: Path, tree: Path, changed: list[str]) -> dict:
+    """Write each changed file into the copy ``out`` through the imgpatch chain writer.
+
+    ``out`` must already be a byte copy of the factory image. Each file keeps
+    its factory cluster chain (grown or shrunk only as its size needs), and the
+    only bytes that may differ are the file's clusters, its 32-byte directory
+    entry, the FAT entries of clusters it gains or loses, and FSInfo on a
+    cluster-count change. The returned ``allowed`` list is built from the
+    chain report, not from the writes, so the caller can check the diff against
+    it independently.
+    """
+    import imgpatch  # local: imgpatch imports mkcard at module level
+
+    with out.open("rb") as h:
+        _, geo, _ = open_map_partition(h)
+    allowed: list[tuple[int, int]] = []
+    patches = []
+    for rel in changed:
+        rep = imgpatch.patch_image(out, rel, tree / rel, None, allow_resize=True)
+        patches.append({
+            "file": rel,
+            "ok": rep["ok"],
+            "old_size": rep["old_size"],
+            "new_size": rep["new_size"],
+            "clusters_before": rep["clusters_before"],
+            "clusters_after": rep["clusters_after"],
+            "verify": rep["verify"],
+        })
+        _add_envelope(allowed, geo, rep)
+    drstr = _reconcile_drstr(out, geo, allowed)
+    if drstr["patch"] is not None:
+        patches.append({
+            "file": "DRSTR001.DAT",
+            "ok": drstr["patch"]["ok"],
+            "old_size": drstr["patch"]["old_size"],
+            "new_size": drstr["patch"]["new_size"],
+            "clusters_before": drstr["patch"]["clusters_before"],
+            "clusters_after": drstr["patch"]["clusters_after"],
+            "verify": drstr["patch"]["verify"],
+            "reason": f"{drstr['updated']} directory-total value(s) changed",
+        })
+    return {"patches": patches, "allowed": allowed, "drstr": drstr,
+            "ok": all(p["ok"] for p in patches)}
+
+
+def _add_envelope(allowed: list, geo: FatGeo, rep: dict) -> None:
+    """Add the bytes an imgpatch report may touch, from its chain report only."""
+    for c in set(rep["chain_before"]) | set(rep["chain_after"]):
+        start = geo.cluster_offset(c)
+        allowed.append((start, start + geo.cluster_bytes))
+    dir_off = rep["dir_entry"]["offset"]
+    allowed.append((dir_off, dir_off + 32))
+    for fc in rep["fat_changes"]:
+        for copy in range(geo.fat_count):
+            off = geo.fat_offset + copy * geo.fat_bytes + fc["cluster"] * 4
+            allowed.append((off, off + 4))
+    for item in rep["fsinfo"]:
+        for w in item["writes"]:
+            allowed.append((w["offset"], w["offset"] + w["length"]))
+
+
+def _reconcile_drstr(out: Path, geo: FatGeo, allowed: list) -> dict:
+    """Bring DRSTR001.DAT's file and directory values in line with the card.
+
+    cardcheck requires each DRSTR entry value to equal the logical size (file)
+    or the recursive total (directory). A resize therefore changes the value of
+    the file's own entry and of every ancestor directory's entry. Only those
+    4-byte values change; the DRSTR file is rewritten through the chain writer
+    at its unchanged length, and its clusters join the allowed envelope.
+    """
+    import cardcheck  # local: cardcheck is a sibling tool, imported on demand
+    import drstr as drstr_mod
+    import imgpatch
+
+    img = cardcheck.Fat32Image(out)
+    try:
+        logical, _dirs = cardcheck.logical_tree(img)
+        try:
+            data = bytearray(img.read("DRSTR001.DAT"))
+        except FileNotFoundError:
+            return {"updated": 0, "entries": [], "patch": None, "absent": True}
+    finally:
+        img.close()
+    tree = drstr_mod.parse(bytes(data))
+    paths: dict[int, str] = {}
+    updates: list[dict] = []
+    for i, node in enumerate(tree["nodes"]):
+        if i == 0:
+            path = ""
+        else:
+            parent = node["parent"]
+            if parent is None or parent not in paths:
+                continue
+            path = f"{paths[parent]}/{node['name']}".strip("/")
+        paths[i] = path
+        listing = logical.get(path)
+        if listing is None:
+            continue
+        for j, entry in enumerate(node["entries"]):
+            actual = listing.get(entry["name"])
+            if actual is None:
+                # cardcheck matches DRSTR names case-insensitively (the factory
+                # keeps XMD/ltntbl.dat lower-case in DRSTR, see _short_name)
+                same = [v for k, v in listing.items()
+                        if k.lower() == entry["name"].lower()]
+                if not same and len(entry["name"]) == 13:
+                    # DRSTR names are 13-byte fields: a long FAT name is cut
+                    same = [v for k, v in listing.items()
+                            if k.lower().startswith(entry["name"].lower())]
+                actual = same[0] if len(same) == 1 else None
+            if actual is None or entry["value"] == actual.size:
+                continue
+            off = node["listing_offset"] + j * 32 + 0x1C
+            struct.pack_into("<I", data, off, actual.size)
+            updates.append({"path": path, "name": entry["name"],
+                            "before": entry["value"], "after": actual.size,
+                            "offset": off})
+    if not updates:
+        return {"updated": 0, "entries": [], "patch": None}
+    with tempfile.TemporaryDirectory() as td:
+        host = Path(td) / "DRSTR001.DAT"
+        host.write_bytes(bytes(data))
+        rep = imgpatch.patch_image(out, "DRSTR001.DAT", host, None, allow_resize=False)
+    _add_envelope(allowed, geo, rep)
+    return {"updated": len(updates), "entries": updates, "patch": rep}
+
+
 # --- high-level operations ---
 
 def copy_image(src: Path, dst: Path) -> None:
@@ -822,7 +979,19 @@ def copy_image(src: Path, dst: Path) -> None:
 def mkcard(from_image: Path, tree: Path, out: Path, compare_only: bool = False,
            explain: bool = True, verbose: bool = False,
            label: str | None = None,
-           preserve_root_order: bool = True) -> dict:
+           preserve_root_order: bool = True,
+           reconcile: bool = False) -> dict:
+    """Build a card from ``tree`` on top of the factory image ``from_image``.
+
+    Unchanged tree: byte copy. Changed tree: a fresh rebuild of the map
+    partition (default), or with ``reconcile`` the factory layout is kept and
+    only the changed files are rewritten (see ``reconcile_partition``). A tree
+    with added or removed files cannot be reconciled and falls back to the
+    fresh build, with the reason in ``result["reconcile"]``.
+    """
+    if reconcile and label is not None:
+        raise ValueError("--label is not supported with --reconcile "
+                         "(reconcile keeps the factory root entry)")
     result = {"ok": False, "identical": False, "diffs": [], "ranges": [],
               "cannot_reproduce": ["SD lock state", "SD card CID"]}
     tree_diffs = compare_tree_to_image(from_image, tree)
@@ -857,6 +1026,31 @@ def mkcard(from_image: Path, tree: Path, out: Path, compare_only: bool = False,
                     result["diffs"].append({"range": [s, e], "bytes": e - s,
                                             "explain": explain_range(from_image, s, e)})
         return result
+
+    if reconcile:
+        structural = [d for d in tree_diffs if d[0] in ("added", "removed")]
+        if not structural:
+            changed = [d[1] for d in tree_diffs if d[0] == "changed"]
+            rec = reconcile_partition(out, tree, changed)
+            ranges = diff_ranges(from_image, out, limit=1 << 30)
+            outside = outside_ranges(ranges, rec["allowed"])
+            rec["ranges"] = len(ranges)
+            rec["outside"] = [list(r) for r in outside[:50]]
+            rec["outside_count"] = len(outside)
+            rec["fallback"] = None
+            result["reconcile"] = rec
+            result["ranges_raw"] = ranges
+            result["ranges"] = [{"range": [s, e], "bytes": e - s,
+                                 "explain": "inside factory-chain envelope"}
+                                for s, e in ranges[:200]
+                                if not outside_ranges([(s, e)], rec["allowed"])]
+            result["ranges"] += [{"range": [s, e], "bytes": e - s,
+                                  "explain": "OUTSIDE envelope"}
+                                 for s, e in outside[:50]]
+            result["identical"] = False
+            result["ok"] = rec["ok"] and not outside
+            return result
+        result["reconcile"] = {"fallback": "structural", "structural": structural}
 
     # Changed tree: rebuild map partition
     with out.open("r+b") as h, from_image.open("rb") as sh:
@@ -988,6 +1182,147 @@ def make_synthetic_image(path: Path, files: dict[str, bytes], *,
         for c in range(fats):
             f.seek(fat_off + c*fat_sectors*bps); f.write(fat)
     return path
+
+
+def _synth_drstr(sizes: dict[str, int]) -> bytes:
+    """A one-node DRSTR001.DAT: root '/' listing the given root files (drstr.py layout)."""
+    names = sorted(sizes)
+    node = bytearray(40)
+    node[0:1] = b"/"
+    struct.pack_into("<H", node, 0x14, 1)                 # next_index
+    struct.pack_into("<H", node, 0x16, 1)                 # parent+1 (root -> itself)
+    struct.pack_into("<I", node, 0x18, len(names))        # entry_count
+    struct.pack_into("<I", node, 0x24, 40)                # listing_offset
+    listing = bytearray()
+    for n in names:
+        e = bytearray(32)
+        e[0:len(n)] = n.encode("ascii")
+        struct.pack_into("<I", e, 0x1C, sizes[n])
+        listing += e
+    return bytes(node + listing)
+
+
+def _selftest_reconcile() -> int:
+    """--reconcile on a synthetic factory image (positive and negative controls)."""
+    print("mkcard reconcile self-test")
+    errors = 0
+
+    def check(ok: bool, msg: str) -> int:
+        print(f"  {'ok' if ok else 'FAIL'}: {msg}")
+        return 0 if ok else 1
+
+    # NT case flags: the factory XMD/ltntbl.dat entry is LTNTBL  DAT with byte 12 = 0x18
+    nt = b"LTNTBL  DAT" + bytes([0x20, 0x18]) + bytes(20)
+    errors += check(_short_name(nt) == "ltntbl.dat" and _short_name(b"BSAIDX~1DAT" + bytes(21)) == "BSAIDX~1.DAT",
+                    "short name honours NT case flags (ltntbl.dat), upper-case without them")
+
+    base = {"A.TXT": bytes(range(256)) * 4,     # 1024 B = 2 clusters
+            "B.TXT": b"b" * 700,                # 2 clusters
+            "C.TXT": b"c" * 300}                # 1 cluster
+    # DRSTR spells B.TXT in lower case, as the factory does for ltntbl.dat
+    sizes = {("b.txt" if k == "B.TXT" else k): len(v) for k, v in base.items()}
+    sizes["DRSTR001.DAT"] = 40 + 4 * 32         # root node + 4 entries
+    base["DRSTR001.DAT"] = _synth_drstr(sizes)
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        img = make_synthetic_image(td / "src.img", base)
+        with img.open("rb") as h:
+            _, geo, fat = open_map_partition(h)
+            before_chain = {rel: chain(fat, e.cluster) for rel, e in img_walk_files(h, geo, fat)}
+
+        def tree_with(changes: dict, *, extra: dict | None = None) -> Path:
+            t = td / f"tree{len(list(td.iterdir()))}"
+            t.mkdir()
+            files = {**base, **changes}
+            for k, v in files.items():
+                if v is not None:
+                    (t / k).write_bytes(v)
+            for k, v in (extra or {}).items():
+                (t / k).write_bytes(v)
+            return t
+
+        # R1: unchanged tree stays byte-identical under --reconcile
+        t0 = tree_with({})
+        o0 = td / "r0.img"
+        r0 = mkcard(img, t0, o0, reconcile=True)
+        errors += check(r0["identical"] and sha256_file(o0) == sha256_file(img),
+                        "reconcile: unchanged tree is byte-identical")
+
+        # R2: same-length change in A.TXT -> only its clusters and dir entry differ
+        new_a = bytes(reversed(base["A.TXT"]))
+        t1 = tree_with({"A.TXT": new_a})
+        o1 = td / "r1.img"
+        r1 = mkcard(img, t1, o1, reconcile=True)
+        rec1 = r1.get("reconcile", {})
+        errors += check(r1["ok"] and not rec1.get("outside_count", 1)
+                        and rec1.get("ranges", 0) > 0 and not rec1.get("fallback"),
+                        f"reconcile: same-length change, diff inside envelope "
+                        f"({rec1.get('ranges')} range(s), outside {rec1.get('outside_count')})")
+        with o1.open("rb") as h:
+            _, g1, f1 = open_map_partition(h)
+            got_a = img_read(h, g1, f1, "A.TXT")
+            chains_now = {rel: chain(f1, e.cluster) for rel, e in img_walk_files(h, g1, f1)}
+        errors += check(got_a == new_a, "reconcile: A.TXT reads back the new bytes")
+        errors += check(chains_now == before_chain,
+                        "reconcile: every file keeps its factory cluster chain")
+
+        # R3: resize B.TXT up, C.TXT down -> FAT links and dir sizes change, still inside envelope
+        t2 = tree_with({"B.TXT": b"B" * 1300, "C.TXT": b"C" * 100})
+        o2 = td / "r2.img"
+        r2 = mkcard(img, t2, o2, reconcile=True)
+        rec2 = r2.get("reconcile", {})
+        errors += check(r2["ok"] and rec2.get("outside_count", 1) == 0,
+                        f"reconcile: grow and shrink stay inside envelope "
+                        f"(outside {rec2.get('outside_count')})")
+        d2 = rec2.get("drstr") or {}
+        errors += check(d2.get("updated") == 2,
+                        f"reconcile: DRSTR values follow the resize (updated {d2.get('updated')})")
+        errors += check(rec1.get("drstr", {}).get("updated") == 0,
+                        "reconcile: same-length change leaves DRSTR values alone")
+        with o2.open("rb") as h:
+            _, g2b, f2b = open_map_partition(h)
+            drstr_now = img_read(h, g2b, f2b, "DRSTR001.DAT")
+        errors += check(_synth_drstr({"A.TXT": 1024, "b.txt": 1300, "C.TXT": 100,
+                                      "DRSTR001.DAT": 40 + 4 * 32}) == drstr_now,
+                        "reconcile: DRSTR001.DAT holds the new file sizes")
+        with o2.open("rb") as h:
+            _, g2, f2 = open_map_partition(h)
+            ok_sizes = (img_read(h, g2, f2, "B.TXT") == b"B" * 1300
+                        and img_read(h, g2, f2, "C.TXT") == b"C" * 100
+                        and img_read(h, g2, f2, "A.TXT") == base["A.TXT"])
+        errors += check(ok_sizes, "reconcile: resized files read back exactly")
+
+        # R4: added file -> documented fallback to the fresh build
+        t3 = tree_with({}, extra={"NEW.TXT": b"new\n"})
+        o3 = td / "r3.img"
+        r3 = mkcard(img, t3, o3, reconcile=True)
+        errors += check((r3.get("reconcile") or {}).get("fallback") == "structural"
+                        and r3["ok"],
+                        "reconcile: added file falls back to the fresh build (reported)")
+
+        # R5 negative control: a stray byte outside the envelope is caught
+        bad = td / "bad.img"
+        shutil.copyfile(o1, bad)
+        with bad.open("r+b") as h:
+            _, g, f = open_map_partition(h)
+            free_cluster = max(c for c in range(2, len(f) // 4) if fat_get(f, c) == 0)
+            # an untouched free cluster, far from A.TXT / B.TXT / C.TXT
+            h.seek(g.cluster_offset(free_cluster))
+            h.write(b"\xa5")
+        ranges = diff_ranges(img, bad, limit=1 << 30)
+        allowed = []
+        with o1.open("rb") as h:
+            _, g1, f1 = open_map_partition(h)
+        for rel in ("A.TXT",):
+            for c in chains_now[rel]:
+                s = g1.cluster_offset(c)
+                allowed.append((s, s + g1.cluster_bytes))
+        errors += check(bool(outside_ranges(ranges, allowed)),
+                        "reconcile: a stray byte outside the envelope is reported")
+        # R6 positive control for the checker: nothing allowed -> everything outside
+        errors += check(outside_ranges(ranges, []) == ranges,
+                        "reconcile: empty envelope reports every range as outside")
+    return errors
 
 
 def selftest() -> int:
@@ -1194,6 +1529,8 @@ def selftest() -> int:
             print(f"  FAIL: --no-preserve-root-order verify: {e}")
             errors += 1
 
+    errors += _selftest_reconcile()
+
     if errors:
         print(f"mkcard self-test: {errors} FAILED")
         return 1
@@ -1214,6 +1551,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--preserve-root-order", action=argparse.BooleanOptionalAction,
                    default=True,
                    help="keep the source root directory order on a fresh build (default: on)")
+    p.add_argument("--reconcile", action="store_true",
+                   help="changed tree: keep the factory layout and rewrite only the "
+                        "changed files (imgpatch chain writer); added/removed files "
+                        "fall back to the fresh build")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
@@ -1224,12 +1565,15 @@ def main(argv: list[str] | None = None) -> int:
         p.error("--from-image and --tree are required (or use --selftest)")
     if not args.compare_only and not args.out:
         p.error("-o/--out is required unless --compare-only")
+    if args.reconcile and args.label is not None:
+        p.error("--label is not supported with --reconcile")
 
     res = mkcard(Path(args.from_image), Path(args.tree),
                  Path(args.out) if args.out else Path("/dev/null"),
                  compare_only=args.compare_only, explain=not args.no_explain,
                  verbose=args.verbose, label=args.label,
-                 preserve_root_order=args.preserve_root_order)
+                 preserve_root_order=args.preserve_root_order,
+                 reconcile=args.reconcile)
     if args.compare_only:
         print(f"tree_diffs={len(res['tree_diffs'])} identical={res['identical']}")
         for d in res["tree_diffs"]:
@@ -1239,6 +1583,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {args.out}")
     print(f"identical={res['identical']} tree_diffs={len(res['tree_diffs'])} diff_ranges={len(res['ranges'])}")
     print(format_root_report(res.get("root_report")))
+    rec = res.get("reconcile")
+    if rec and rec.get("fallback"):
+        print(f"reconcile: fell back to fresh build ({rec['fallback']}: {rec['structural']})")
+    elif rec:
+        print(f"reconcile: {len(rec['patches'])} file(s) patched in place; "
+              f"{rec['ranges']} diff range(s), {rec['outside_count']} outside envelope")
+        for pt in rec["patches"]:
+            print(f"  {pt['file']}: {pt['old_size']} -> {pt['new_size']} B, "
+                  f"{pt['clusters_before']} -> {pt['clusters_after']} clusters, "
+                  f"verify {'OK' if pt['verify']['ok'] else 'FAIL'}")
     print(f"cannot reproduce: {', '.join(res['cannot_reproduce'])}")
     if res["ranges"] and not res["identical"]:
         shown = 0
