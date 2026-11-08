@@ -1730,7 +1730,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-890–C-899
 
 - [ ] **M4.2 — `RDSTM001`: link attributes (speed class, one-way, class)**
-  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
+  - Status: blocked · Owner: claude/m4.2-rdstm-link-attrs · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
+  - Blocker: no `RDSTM001` row field resolves to a road identity (gate 0 of 9 fields on the US sample); OSM extract verified but not correlated.
+  - Unblock: M4.17 (road-number ground truth without OSM; a road key must come first)
+  - Result: EXP-2026-11-08-M4.2-rdstm-link-attrs (negative gate, with controls; supersedes the 2026-11-05 blocked EXP; claims C-901–C-903)
   - Note: EXP-2026-11-05-M4.2-rdstm-link-attrs failed for lack of OSM access
     and of a row → coordinate mapping. M4.17 tries the same question without
     OSM.
