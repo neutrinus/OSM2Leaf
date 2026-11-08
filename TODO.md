@@ -3050,7 +3050,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2580–C-2589
 
 - [ ] **M5.22 — Tile writer: model non-`0x2046` directory kinds**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m5.22-tilewriter-non2046 · Critical: yes
   - Depends: M5.4 (done)
   - Goal: M5.4 splices only `0x2046` directories (18 parcels in `B48R058R`)
     and refuses other kinds; 575 of 1,023 non-`0x2046` slots in that tile are
