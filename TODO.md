@@ -1501,7 +1501,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1950–C-1959 (moved: C-1940–C-1949 is M6.11, taken first)
 
 - [ ] **M2.14 — Unit NOR "EEPROM" area at `0x0000A000` (zelemar) vs our images**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.14-nor-eeprom · Critical: no
   - Depends: — (M1.4 helps if a hive/config payload is found)
   - Goal: test, on data we actually have, the zelemar claim that the Clarion
     main MCU NOR flash (SST 38VF6401, SH-4A) keeps an "EEPROM area" at
