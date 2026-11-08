@@ -1424,7 +1424,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2610–C-2619
 
 - [ ] **M4.23 — Tile section-2 regulation/connectivity reader (kinds `0x2046`/`0x3e4`)**
-  - Status: open · Owner: — · Critical: no
+  - Status: blocked · Owner: claude/m4.23-restriction-encoding · Critical: no
+  - Blocker: part b (odd-record) grammar is not decoded; the regulation-word test fails its pre-stated 0.80 threshold (37 % at level 1, 55 % at level 2, shuffle 4 %); no firmware reader VA for grid section 2 is located.
+  - Unblock: M4.24 (part b), M4.25 (word test) and M4.26 (VAs and coarse addressing); each re-opens this task when it merges.
   - Depends: — (M4.3 is blocked on exactly this)
   - Goal: M4.3 decoded the OSM side of a turn restriction but found no
     documented tile-side layout: `rd_check` reads only kind `0x1046` (3 of 5
@@ -1443,16 +1445,44 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     fine to cite).
   - Stop: if the kinds are not in these tiles, record the census and stop.
   - Claims: C-2620–C-2629
-  - Result: EXP-2026-11-06-M2.16-hddchk-att-realcards — EU/US factory cards
-    carry **no** `HDD_CHK.ATT` file (roots + full-image scan; only MapUpdate.exe
-    UTF-16LE path strings in CE B/copy at `0x4346eac/ed8,0x4d46eac/ed8`,
-    C-2090–2091). `sub_0001e3f4` (MapUpdate.exe B `0x1e3f4`) **partially
-    decoded**: not memcmp; `bytesRead>0xC0`→1; `*0x21300` id5/6 + `"VerUp
-    Secret KEY"`/`sub_1e2d4` crypto-context transforms; returns `sub_1e330`
-    which requires CRLF in 0x80 buf, verifies 8B-after via `sub_1e2d4` (0/3)
-    (C-2092–2095). **Deferred** (C-2096): CE crypto dispatch identity
-    (`0x1e6f8/834/9c0/aa0/ed9c`, `*0x21300/*0x21760`), exact decoded↔file_buf
-    binding/0x582 XOR operands, full on-disk layout — no factory sample.
+  - Result: EXP-2026-11-08-M4.23-restriction-encoding — unit-0 grammar of kinds
+    `0x2046`/`0x1046`/`0x3cde`/`0x03e4` established (C-2620–2621); pairing (C-2622);
+    part b not decoded (C-2623); arrivals carry no words, against the writer (C-2624);
+    `r120176` to-entry carries `0x23ff` (C-2626); `no_*` word test 37 %/55 % vs shuffle
+    4 %/3 %, FAIL (C-2627); firmware VAs not located (C-2629).
+
+- [ ] **M4.24 — Section-2 part-b (odd record) grammar, levels 2, 4 and 5**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (the census and checker are in `tools/rd_restrictions.py`, M4.23)
+  - Goal: decode the unit-1 layout of the odd records that `rd_restrictions.py census` reports as mismatched (mark word, node blocks, entry words, side words).
+  - Precheck: `python3 tools/rd_restrictions.py census` on `B28R070R.DAT` and `LEV3456R.DAT` reproduces the part-b notes in EXP-2026-11-08-M4.23.
+  - Scope: odd records of `0x2046` (B28R070R level 2) and `0x03e4` (LEV3456R level 5); no writer.
+  - Input: EXP-2026-11-08-M4.23-restriction-encoding (part-b table), `tools/rd_restrictions.py` (`part_b_check`).
+  - Done when: a parser reproduces every odd record of those two tiles (76 + 34 pairs) word for word, with its own `--selftest`, and the mark and side words are explained by the parent record, not fitted.
+  - Stop: after two rounds of fitting without a full match, record a negative EXP and stop.
+  - Claims: C-2630–C-2639
+
+- [ ] **M4.25 — Regulation-word test: the no_* turns without a from-word, and the only_* encoding**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M4.23 tool)
+  - Goal: explain why most `no_*` to-entries carry no from-word (`rd_restrictions.py match`: 152/411 and 128/235) and find the `only_*` encoding.
+  - Precheck: `match --level 1` and `--level 2` on B48R058R reproduce 152/411 and 128/235.
+  - Scope: B48R058R only; OSM side from the IMF; no writer.
+  - Input: EXP-2026-11-08-M4.23-restriction-encoding (observations 12–13), the entry-class table of `match`.
+  - Done when: each miss class is explained by a named, counted mapping check, or the same test passes (pre-stated PASS) on a second tile, or a negative EXP records it.
+  - Stop: after one mapping audit and one second tile; otherwise `blocked` with the EXP.
+  - Claims: C-2640–C-2649
+
+- [ ] **M4.26 — Firmware reader VAs for section-2 grid kinds; LEV3456R level-4/5 parcel addressing**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: locate the reader of grid-tile section 2 (kinds `0x1046`/`0x2046`) and the consumer of the regulation words; find the parcel addressing of LEV3456R levels 4 and 5 (the writer's `clarion_bg.parcel_code` reproduces none of the 414 codes).
+  - Precheck: `python3 tools/sh4xref.py` on the first 256 MiB of `archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` (image start `0x200200`) reproduces the RGD_DATA callers `0x00426cfc`, `0x00427870` of `docs/format/map-tiles.md`.
+  - Scope: Navi.exe build A via `tools/cerom.py`; callers of RGD_DATA and MAP_DATA only, no new disassembly campaign.
+  - Input: `docs/format/map-tiles.md` section table; C-870–C-872, C-887; EXP-2026-11-08-M4.23-restriction-encoding (observations 14–15).
+  - Done when: a VA per kind (or UNKNOWN with a negative EXP), and a parcel-code function that reproduces every LEV3456R level-4/5 code.
+  - Stop: after the RGD_DATA callers are traced; otherwise `blocked`.
+  - Claims: C-2650–C-2659
 
 ---
 
