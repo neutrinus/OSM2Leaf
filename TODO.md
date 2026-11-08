@@ -2962,7 +2962,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2230–C-2239
 
 - [ ] **M9.14 — L3 target `drstr_parser`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m9.14-l3-reader · Critical: yes
   - Depends: M3.10, M9.5
   - Done when: the firmware parser accepts the factory `DRSTR001.DAT` (EU and
     US) and one rebuilt by M5.6, and rejects one corrupted case, recorded.
