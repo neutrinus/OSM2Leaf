@@ -3450,7 +3450,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   `0xff800000`–`0xffffffff` and areas 4/6, `select SH4_CCN` with
   `sh4_ccn_iomem()` at `0xff000000` and `sh4_ccn_arrays()` at `0xf0000000`,
   and one `ze0-stubs` instance.
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m8.a2-machine-skeleton · Critical: yes
   - Depends: — (M8.A1, M8.A4 and M8.A5 are merged)
   - Note (PM 2026-11-06): the three series were never built together. M8.A1 saw
     `m8a4-0002/0003` rejected on 8.2.7; M8.A4/M8.A5 report them applying (the
