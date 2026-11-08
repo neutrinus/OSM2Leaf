@@ -16,12 +16,14 @@ the unit accepts a card; that is L4.
 | `manifest.py` | build/validate the corpus manifest (paths, SHA-256, size, reader, case, verdict) |
 | `corpus.py` | build/check a synthetic corpus (cmp, DRSTR, tile, hdd_info) and its manifest; `build DIR`, `check DIR`, `--selftest` |
 | `stubs.py` | declarative WinCE stub table with signatures, side effects and notes; emits JSON Schema |
-| `dispatch.py` | `module!export`/ordinal dispatcher and deterministic hosts: virtual FS, heap, critical sections, registry; see [`EXP-2026-11-06-M9.3-stub-bind.md`](../../docs/experiments/EXP-2026-11-06-M9.3-stub-bind.md) |
+| `dispatch.py` | `module!export`/ordinal dispatcher and deterministic hosts: virtual FS, heap, critical sections, registry; `engine_hook(target)` gives an `on_exec` handler that reads r4–r7 and the stack; see [`EXP-2026-11-06-M9.3-stub-bind.md`](../../docs/experiments/EXP-2026-11-06-M9.3-stub-bind.md) and [`EXP-2026-11-08-M9.20-l3-plumbing.md`](../../docs/experiments/EXP-2026-11-08-M9.20-l3-plumbing.md) |
 | `rommap.py` | `ce_rom_parse.py` JSON -> Ghidra loader memory-map JSON |
 | `ghidra_import.py` | headless Ghidra project from a `cerom.py memmap`: sections at their VAs, export/thunk labels, SH-4 calling convention; `--plan`, `--json`, `--selftest` — see [`EXP-2026-11-06-M9.2-ghidra-import.md`](../../docs/experiments/EXP-2026-11-06-M9.2-ghidra-import.md) |
-| `runner.py` | `check`, `plan`, `targets`, `run FUNC --input FILE [--engine pysh4|ghidra|qemu]`; stable exit codes, never fakes a pass — see [`EXP-2026-11-06-M9.5-runner.md`](../../docs/experiments/EXP-2026-11-06-M9.5-runner.md) |
+| `runner.py` | `check`, `plan`, `targets`, `run [FUNC] …` (legacy Ghidra run without FUNC; target mode with FUNC: `synthetic` and `module` entries); stable exit codes, never fakes a pass — see [`EXP-2026-11-06-M9.5-runner.md`](../../docs/experiments/EXP-2026-11-06-M9.5-runner.md) |
+| `targets.json` | the named targets: `entry.kind` `synthetic`, `module` or `blocked`; shipped entries are unchanged (no reader is located as an L3 target yet) |
 | `engine.py` | one engine interface, three SH-4 back ends (`PySh4`, Ghidra, QEMU); `--selftest`, `--probe`, `--demo` — see [`EXP-2026-11-06-M9.4-engine.md`](../../docs/experiments/EXP-2026-11-06-M9.4-engine.md) |
-| `selftest.py` | 19 synthetic checks (no network, no vendor data, no Ghidra) |
+| `ghidra/l3_run.py` | the one documented Ghidra entry script (`-postScript`): validates the memory map and manifest, writes a result JSON; it runs no reader yet, so it writes `BLOCKED`; `--selftest` — see [`EXP-2026-11-08-M9.20-l3-plumbing.md`](../../docs/experiments/EXP-2026-11-08-M9.20-l3-plumbing.md) |
+| `selftest.py` | 32 synthetic checks (no network, no vendor data, no Ghidra); covers `runner`, manifest, rommap, stubs, `engine_hook`, the module-entry path and the entry script |
 | `__init__.py` | package marker |
 
 ## Quick start
@@ -57,8 +59,23 @@ python3 tools/l3_harness/runner.py plan \
   --manifest /tmp/l3/manifest.json --rommap /tmp/l3/rommap.json
 ```
 
-`runner.py run` needs Ghidra; without it the command exits `3` and prints
-where it looked and how to install it.
+`runner.py run` with no target (legacy) needs Ghidra; without it the command
+exits `3` and prints where it looked and how to install it.
+
+Target mode (`run NAME`) needs no Ghidra. Two kinds of entry run on the
+pure-Python `PySh4` engine:
+
+```bash
+# list the named targets and their entry kinds
+python3 tools/l3_harness/runner.py targets
+
+# a synthetic target (shipped probe): PASS on its synthetic input
+python3 tools/l3_harness/runner.py run probe-zlib-cmf --input FILE --json
+
+# a module entry: call a function at a VA of a memory map, bytes from the image
+python3 tools/l3_harness/runner.py run NAME \
+  --targets my-targets.json --rommap rommap.json --image FW.img --json
+```
 
 The package lives one level below `tools/`, and `tools/selftest.py` only
 discovers `tools/*.py`, so this self-test is **not** picked up by the repo
@@ -178,16 +195,66 @@ and explicitly claims no verdict.
 `$GHIDRA_HOME`, `$PATH`, then `ghidra*` under `/opt`, `/usr/local`,
 `/usr/share` and `$HOME`. A failed lookup lists every candidate it tried.
 
+### Module entries (`entry.kind = "module"`, M9.20)
+
+A module entry names a function by module and VA. Its bytes come from the
+memory map and the image, not from a hand-written `-device loader` list:
+
+```json
+{"name": "reader-x", "reader": "example", "what": "...",
+ "entry": {"kind": "module", "module": "Navi.exe", "va": "0x003f5194",
+           "endian": "big", "args": ["0x41"],
+           "verdict_map": {"0x42": "ACCEPT"}},
+ "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "..."}}
+```
+
+- `endian` is `big` or `little`. `little` runs only on the `pysh4` engine
+  (`PySh4(endian="little")`, M9.21), which the firmware needs; any other back
+  end is refused for `little` before it starts.
+- `args` are at most four register values (`r4`–`r7`); stack arguments are not
+  modelled for module entries.
+- `verdict_map` is the only r0-to-verdict rule. An `r0` that is not in it is
+  `BLOCKED`, never a guessed verdict.
+- `stubs` are bound with `dispatch.StubDispatcher.engine_hook`; a call to an
+  unmodelled export stops the run with `missing stub: NAME`.
+- The run needs `--rommap` (a `rommap.py` map) and `--image` (the image it was
+  made from). `cerom.py` hashes a window of the image, so the runner hashes the
+  byte range that `source.image_sha256_scope` names (`first N of M bytes` or
+  `whole file (N bytes)`); a different hash, an unrecognised scope or a
+  different image size is `INVALID`. Only the named module is mapped, so a call
+  into another module is `BLOCKED` (`UnmappedAccess`).
+- A VA outside every loadable block of the module, or in a non-executable
+  block, is `BLOCKED`. A `corpus` block is optional for module entries.
+
+### The Ghidra entry script
+
+`ghidra/l3_run.py` is the only script the legacy `run` (no FUNC) hands to
+`analyzeHeadless`:
+
+```text
+analyzeHeadless <project> l3 -import <image> -processor SuperH:BE:32:SH-4 \
+    -scriptPath tools/l3_harness/ghidra -postScript l3_run.py \
+    <rommap.json> <manifest.json> <result.json>
+```
+
+It exits `1` and writes no result on invalid inputs (the runner then reports
+`BLOCKED`), and otherwise writes `osm2leaf.l3.ghidra_result/v1` with status
+`BLOCKED` and no cases. The runner reads a `BLOCKED` result as exit `4`. It
+targets CPython with PyGhidra (Ghidra 12.2+); Jython is not supported here.
+**It has not been run under Ghidra**: no Ghidra or Java is installed in this
+repository's environment, so the entry script's Ghidra path is unverified.
+
 ## Status
 
 | Component | Status |
 | --- | --- |
 | corpus manifest format + build/validate | **implemented**, synthetic test passes |
-| stub table + JSON Schemas | **implemented**, `modeled`/`planned` per call |
+| stub table + JSON Schemas | **implemented**: 24 stubs (22 modeled, 2 planned) |
 | `ce_rom_parse.py` JSON -> memory map | **implemented** for the documented schema; real section table still needs `tools/cerom.py` |
 | `runner check` / `plan` | **implemented** |
-| `runner run` | **blocked**: no Ghidra in this environment, no P-code harness script, no located reader |
-| Ghidra P-code harness (`ghidra/l3_run.py`) | **not started** |
+| `runner run` target mode (`synthetic`, `module`) | **implemented** on `PySh4`, synthetic inputs only; no reader is an L3 target yet |
+| `runner run` legacy (Ghidra) | **blocked**: no Ghidra in this environment and no located reader |
+| Ghidra entry script (`ghidra/l3_run.py`) | **implemented** as the one entry script; runs no reader, reports `BLOCKED`; **never run under Ghidra** |
 | Locatable reader entry points | **UNKNOWN**: `.cmp`/`.ind`, tile, DRSTR and the `HDD_INFO` parser are not located; only the map-code comparator chain has file offsets |
 | Real corpus (factory files) | **blocked**: vendor data is not available in this checkout; only synthetic corpus was exercised |
 

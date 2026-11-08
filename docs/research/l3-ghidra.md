@@ -6,8 +6,8 @@
 > pure-Python SH-4 reference engine; that proves the runner, dispatcher and
 > virtual-FS path, **not** a firmware reader. **No firmware reader has run
 > under L3 yet:** every reader target in `targets.json` is `blocked`, the
-> Ghidra P-code harness (`tools/l3_harness/ghidra/l3_run.py`) does not exist,
-> so **no L3 result is claimed**. `tools/l3check.py` (M9.8) now prints the
+> Ghidra entry script (`tools/l3_harness/ghidra/l3_run.py`, M9.20) exists but
+> runs no reader and has never run under Ghidra, so **no L3 result is claimed**. `tools/l3check.py` (M9.8) now prints the
 > per-target ladder, but every reader row in it is still `BLOCKED`; card mode
 > (`--card`) is M9.12.
 >
@@ -231,7 +231,7 @@ zero-fill/omit handling.
 | `targets.json` + `runner.py run` | implemented for `synthetic`/`blocked` | one synthetic target PASS; **no firmware entry kind yet** |
 | `corpus.py` + `manifest.py` | implemented | 108 entries, hashes verified |
 | `tools/l3check.py` | implemented | 12 self-test checks; one row per target; card mode (`--card`) is M9.12 |
-| Ghidra P-code script (`ghidra/l3_run.py`) | not written | next code step after a firmware target exists |
+| Ghidra entry script (`ghidra/l3_run.py`) | written (M9.20); runs no reader, reports `BLOCKED` | never run under Ghidra; no Ghidra or Java here |
 | Real vendor corpus | blocked | vendor data absent from this checkout; only synthetic files exercised |
 | L3 verdict | **not claimed** | no reader has run under L3 |
 
@@ -257,7 +257,7 @@ zero-fill/omit handling.
 | `tools/l3_harness/corpus.py` | build/check the 108-file synthetic corpus and manifest | implemented (M9.7) |
 | `tools/l3_harness/manifest.py` | manifest build/refresh/validate/schema | implemented (M9.7) |
 | `tools/l3check.py` | L3 rung of the verification ladder: one status per target; `--corpus`, `--build-corpus`, `--target`, `--engine`, `--json` | implemented (M9.8); `--root`/`--image` recorded only, card mode is M9.12 |
-| `tools/l3_harness/ghidra/l3_run.py` | Ghidra P-code harness script | **not written** |
+| `tools/l3_harness/ghidra/l3_run.py` | Ghidra entry script (`-postScript`, M9.20): validates inputs, writes a `BLOCKED` result | written; runs no reader; never run under Ghidra |
 
 There is **no `tools/l3/` directory**; the harness lives in
 `tools/l3_harness/`. The package README documents each module:
@@ -605,12 +605,14 @@ extension, step 5 needs the firmware image.
 - [x] Trace the readers from the CE ROM TOC: `CMP.LST` `0x0041ba90`, DRSTR
       `0x00419684`, tile `0x0041f26c`/`0x004259bc`/`0x0042757a`, `.ind`
       `0x00377870`/`0x00377ae0` (M3.1/M3.4/M3.5/M3.10).
-- [ ] Extend `runner.py`/`targets.json` with a firmware entry kind (the gap in
-      step 4 above).
+- [x] Extend `runner.py`/`targets.json` with a firmware entry kind: `entry.kind
+      = "module"` calls a function at a memory-map VA with no hand-written
+      loader list (M9.20; EXP-2026-11-08-M9.20-l3-plumbing).
 - [ ] First real target: the map-code compare, M9.6.
 - [ ] `.cmp` chunk reader (M3.2b) and the `cmp_ind_reader` target (M9.11).
-- [ ] Write `tools/l3_harness/ghidra/l3_run.py` and run one function under
-      Ghidra P-code.
+- [ ] Run one function under Ghidra P-code through `ghidra/l3_run.py`. The
+      script exists (M9.20) and runs no reader; the run needs Ghidra, which is
+      not installed here.
 - [x] `tools/l3check.py` (M9.8): one status per target on a corpus.
 - [ ] `--card` / `--factory` (M9.12) and the `tools/verify.py` L3 rung.
 - [ ] Record every run as an `EXP-...` with the exact memory map and stubs.

@@ -3029,8 +3029,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
     generated tile, and rows 18–20 carry the verdicts.
   - Claims: C-2440–C-2449
 
-- [ ] **M9.20 — L3 plumbing: firmware entry kind, `engine_hook`, `ghidra/l3_run.py`**
-  - Status: open · Owner: — · Critical: no
+- [x] **M9.20 — L3 plumbing: firmware entry kind, `engine_hook`, `ghidra/l3_run.py`**
+  - Status: done · Owner: claude/m9.20-l3-plumbing · Critical: no
   - Depends: —
   - Goal: the M9.5/M9.9 follow-ups that stop a real reader from running even
     when M3 has found its VA.
@@ -3044,6 +3044,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
     entry script, `tools/l3_harness/README.md` and `tools/README.md` match the
     code, and the L3 selftest covers all three.
   - Claims: C-2500–C-2509
+  - Result: EXP-2026-11-08-M9.20-l3-plumbing (synthetic module and hook checks
+    pass; EU 2011 head: Navi.exe sec0 mapped; the walker stops at ILLEGAL_INSN
+    0x4362 under big-endian decode and runs under little-endian until its
+    unmapped page argument; no Ghidra run, out of scope and not installed)
 
 
 - [x] **M9.21 — `PySh4`: little-endian mode and `bt/s`/`bf/s`**

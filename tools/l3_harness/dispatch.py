@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import struct
 import sys
 import tempfile
 from pathlib import Path
@@ -60,6 +61,7 @@ TOOLS_DIR = Path(__file__).resolve().parent.parent
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
+from l3_harness import engine as engine_mod  # noqa: E402
 from l3_harness import stubs  # noqa: E402
 
 M32 = 0xFFFFFFFF
@@ -1084,6 +1086,21 @@ def parse_target(target) -> tuple[str | None, str | None, int | None]:
     )
 
 
+def read_args(backend, count: int, endian: str = "big") -> list[int]:
+    """SH-4 cdecl arguments at a stub entry: ``r4``-``r7``, then the stack."""
+
+    if isinstance(count, bool) or not isinstance(count, int) or not 0 <= count <= 8:
+        raise StubFault(f"stub arity must be an integer 0..8, got {count!r}")
+    regs = backend.get_regs()
+    args = [regs["r4"], regs["r5"], regs["r6"], regs["r7"]][: min(4, count)]
+    extra = count - 4
+    if extra > 0:
+        raw = backend.read_mem(regs["r15"], extra * 4)
+        fmt = (">" if endian == "big" else "<") + "%dI" % extra
+        args.extend(struct.unpack(fmt, raw))
+    return args
+
+
 class StubDispatcher:
     """Resolve ``module!export``/ordinal call targets to modelled stubs."""
 
@@ -1147,6 +1164,47 @@ class StubDispatcher:
 
     def call_name(self, name: str, args=()) -> int:
         return self.call((None, name), args)
+
+    def engine_hook(self, target, arity: int | None = None, on_call=None):
+        """Return an ``engine.Backend.on_exec`` handler for one stub *target*.
+
+        The handler reads the SH-4 cdecl arguments the caller set up (``r4``-
+        ``r7``, then ``0(r15)``, ``4(r15)`` ... in the context's byte order),
+        calls the stub and returns ``engine.StubReturn``.  *arity* defaults to
+        the length of the stub's ``args`` list.  The stub is resolved at call
+        time, so an unknown name fails there with ``missing stub: NAME``.
+        *on_call*, when given, gets one dict per call (``va``, ``stub``,
+        ``resolved``, ``args``, ``returned``) before the value is returned.
+        Every failure is raised as ``engine.Blocked``; nothing is guessed.
+        """
+
+        module, name, ordinal = parse_target(target)
+        label = f"{module or '?'}!{name if name is not None else '#%s' % ordinal}"
+
+        def handler(backend, va):
+            try:
+                entry = self.resolve(target)
+                count = len(entry["args"]) if arity is None else arity
+                args = read_args(backend, count, self.context.endian)
+                value = self.call(target, args)
+            except (StubError, engine_mod.EngineError) as exc:
+                detail = getattr(exc, "message", str(exc))
+                raise engine_mod.Blocked(
+                    f"stub {label} at {engine_mod.px(va)}: {detail}"
+                ) from exc
+            if on_call is not None:
+                on_call(
+                    {
+                        "va": engine_mod.px(va),
+                        "stub": label,
+                        "resolved": entry["name"],
+                        "args": [engine_mod.px(item) for item in args],
+                        "returned": engine_mod.px(value),
+                    }
+                )
+            return engine_mod.StubReturn(value)
+
+        return handler
 
     def modeled(self) -> list[dict]:
         return [entry for entry in self.table if entry["status"] == "modeled"]
@@ -1725,6 +1783,68 @@ def test_endianness(_tmp):
     handle = _open(dispatcher, context)
     assert dispatcher.call(("coredll", "GetFileSize"), [handle, HIGH]) == 10
     assert context.mem.read(HIGH, 4) == b"\x00\x00\x00\x00"
+
+
+class _RegisterBackend:
+    """Only the two calls the argument reader makes: registers and memory."""
+
+    def __init__(self, regs: dict, stack: bytes, base: int = 0x1000):
+        self.regs = dict(regs)
+        self.regs.setdefault("r15", base)
+        self.stack = stack
+        self.base = base
+
+    def get_regs(self) -> dict:
+        return dict(self.regs)
+
+    def read_mem(self, va: int, size: int) -> bytes:
+        assert va == self.base, f"stack read at {va:#x}, expected {self.base:#x}"
+        return self.stack[:size]
+
+
+@check("engine_hook: r4-r7, then the stack, in the context's byte order")
+def test_engine_hook_arguments(_tmp):
+    regs = {"r4": 1, "r5": 2, "r6": 3, "r7": 4}
+    big = b"".join(value.to_bytes(4, "big") for value in (5, 6))
+    little = b"".join(value.to_bytes(4, "little") for value in (5, 6))
+    assert read_args(_RegisterBackend(regs, big), 6, "big") == [1, 2, 3, 4, 5, 6]
+    assert read_args(_RegisterBackend(regs, little), 6, "little") == [1, 2, 3, 4, 5, 6]
+    assert read_args(_RegisterBackend(regs, big), 2, "big") == [1, 2]
+    assert read_args(_RegisterBackend(regs, big), 0, "big") == []
+    try:
+        read_args(_RegisterBackend(regs, big), 9, "big")
+    except StubFault:
+        pass
+    else:
+        raise AssertionError("arity 9 must be refused")
+
+
+@check("engine_hook: resolves the stub, logs the call, returns its value")
+def test_engine_hook_call(_tmp):
+    dispatcher, _context = make_dispatcher()
+    seen: list[dict] = []
+    handler = dispatcher.engine_hook(("coredll.dll", "CloseHandle"), on_call=seen.append)
+    regs = {"r4": 0x999, "r5": 0, "r6": 0, "r7": 0}
+    result = handler(_RegisterBackend(regs, b""), 0x8C100000)
+    assert isinstance(result, engine_mod.StubReturn), result
+    assert len(seen) == 1, seen
+    assert seen[0]["stub"] == "coredll.dll!CloseHandle", seen[0]
+    assert seen[0]["resolved"] == "CloseHandle", seen[0]
+    assert seen[0]["args"][0] == engine_mod.px(0x999), seen[0]
+    assert seen[0]["returned"] == engine_mod.px(result.value), seen[0]
+
+
+@check("engine_hook: an unmodelled export is Blocked with 'missing stub: NAME'")
+def test_engine_hook_missing(_tmp):
+    dispatcher, _context = make_dispatcher()
+    handler = dispatcher.engine_hook(("coredll.dll", "NoSuchExport"))
+    try:
+        handler(_RegisterBackend({"r4": 1}, b""), 0x8C100000)
+    except engine_mod.Blocked as exc:
+        assert "missing stub: NoSuchExport" in exc.message, exc.message
+        assert "stub coredll.dll!NoSuchExport at 0x8c100000" in exc.message, exc.message
+    else:
+        raise AssertionError("an unmodelled export must not return a value")
 
 
 def selftest() -> int:

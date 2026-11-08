@@ -23,6 +23,7 @@ Exit codes: ``0`` all checks passed, ``1`` at least one failed.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -639,6 +640,298 @@ def test_runner_compare(tmp):
             ]
         },
     ) == []
+
+
+# --------------------------------------------------------------------------
+# module entries (M9.20): call a function at a memory-map VA, no loader list
+# --------------------------------------------------------------------------
+
+MODULE_VA = 0x8C300000
+#: SH-4 big-endian: add #1,r4 / mov r4,r0 / rts / nop  (r0 = arg + 1)
+MODULE_CODE = [0x7401, 0x6043, 0x000B, 0x0009]
+
+
+def module_target(entry=None, **top) -> dict:
+    block = {
+        "kind": "module",
+        "module": "Module.bin",
+        "va": hex(MODULE_VA),
+        "endian": "big",
+        "args": ["0x41"],
+        "verdict_map": {"0x42": "ACCEPT"},
+    }
+    if entry:
+        block.update(entry)
+    target = {
+        "name": "module-probe",
+        "reader": "synthetic",
+        "what": "synthetic module function: r0 = r4 + 1",
+        "entry": block,
+        "stubs": [],
+        "expect": {"verdict": "ACCEPT", "rule": "r0 = arg + 1 maps to ACCEPT"},
+    }
+    target.update(top)
+    return target
+
+
+def module_fixture(tmp, target=None, code_endian="big") -> dict:
+    """A synthetic image, its memory map and a targets file that names it."""
+
+    root = Path(tmp)
+    image = bytearray(0x2000)
+    for index, word in enumerate(MODULE_CODE):
+        image[0x1000 + 2 * index:0x1002 + 2 * index] = word.to_bytes(2, code_endian)
+    image_path = root / "synthetic-module.img"
+    image_path.write_bytes(bytes(image))
+    report = {
+        "image": "/vendor/synthetic-module.img",
+        "image_size": len(image),
+        # like cerom.py: a window hash, with its scope text (real EU head:
+        # "first 134217728 of 268435456 bytes")
+        "image_sha256": hashlib.sha256(bytes(image[:0x1000])).hexdigest(),
+        "image_sha256_scope": "first 4096 of 8192 bytes",
+        "segments": [
+            {
+                "segment_base": "0x0",
+                "phys_base": hex(MODULE_VA),
+                "romhdr": {
+                    "physfirst": hex(MODULE_VA),
+                    "physlast": hex(MODULE_VA + 0x2000),
+                    "ulRAMStart": "0x8c000000",
+                    "ulRAMEnd": "0x8c100000",
+                    "nummods": 1,
+                    "numfiles": 0,
+                    "usCPUType": 0x01A6,
+                },
+                "modules": [
+                    {
+                        "name": "Module.bin",
+                        "vbase": hex(MODULE_VA),
+                        "sections": [
+                            {"name": ".text", "va": hex(MODULE_VA), "file_offset": 0x1000,
+                             "size": 0x1000, "characteristics": "0x60000020", "compressed": False},
+                            {"name": ".data", "va": hex(MODULE_VA + 0x1000), "file_offset": 0x0,
+                             "size": 0x1000, "characteristics": "0xc0000040", "compressed": False},
+                            {"name": ".zdata", "va": hex(MODULE_VA + 0x2000), "file_offset": 0x0,
+                             "size": 0x1000, "characteristics": "0x60000020", "compressed": True},
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+    # skip_compressed keeps .zdata out of the map but records it in "skipped"
+    rommap_path = write_json(
+        root / "rommap.json", rommap.convert(report, skip_compressed=True)
+    )
+    targets_path = write_json(
+        root / "targets.json",
+        {"schema": runner.TARGETS_SCHEMA, "targets": [target or module_target()]},
+    )
+    return {
+        "image": image_path,
+        "rommap": rommap_path,
+        "targets": targets_path,
+        "sha256": report["image_sha256"],
+        "root": root,
+    }
+
+
+def run_json(argv) -> tuple[int, dict]:
+    code, output = run_cli(argv)
+    return code, json.loads(output)
+
+
+def module_argv(fx, name="module-probe", *extra) -> list[str]:
+    return [
+        "run", name, "--targets", str(fx["targets"]), "--rommap", str(fx["rommap"]),
+        "--image", str(fx["image"]), "--json", *extra,
+    ]
+
+
+@check("module entry: validation accepts a valid block and refuses bad ones")
+def test_module_validate(tmp):
+    good = {"schema": runner.TARGETS_SCHEMA, "targets": [module_target()]}
+    assert runner.validate_targets(good) == [], runner.validate_targets(good)
+    cases = [
+        ({"endian": "mixed"}, "must be one of"),
+        ({"args": ["0x1"] * 5}, "at most 4"),
+        ({"verdict_map": None}, "verdict_map"),
+        ({"verdict_map": {"0x42": "MAYBE"}}, "ACCEPT or REJECT"),
+        ({"verdict_map": {"0x42": "ACCEPT", "66": "REJECT"}}, "repeats"),
+        ({"tile": 1}, "unknown entry key"),
+        ({"va": None}, "needs a va"),
+        ({"module": ""}, "module name"),
+    ]
+    for overrides, needle in cases:
+        doc = {"schema": runner.TARGETS_SCHEMA,
+               "targets": [module_target(entry=overrides)]}
+        problems = " | ".join(runner.validate_targets(doc))
+        assert needle in problems, f"{overrides}: wanted {needle!r}, got {problems!r}"
+
+
+@check("module entry: a function from the memory map runs and passes (control)")
+def test_module_run_pass(tmp):
+    fx = module_fixture(tmp)
+    code, payload = run_json(module_argv(fx))
+    assert code == runner.EXIT_OK, payload
+    assert payload["status"] == "PASS", payload
+    assert int(payload["returned"], 0) == 0x42, payload
+    assert payload["verdict"] == "ACCEPT" and payload["accepted"] is True
+    assert payload["rommap"]["blocks_mapped"] == ["Module.bin/.text", "Module.bin/.data"]
+    assert payload["rommap"]["image_sha256_checked"] is True
+    assert payload["l3_claim"] is False
+
+
+@check("module entry: little-endian code runs on PySh4(endian=little); big-endian code does not")
+def test_module_run_endianness(tmp):
+    little_target = module_target(entry={"endian": "little"})
+    fx = module_fixture(tmp, little_target, code_endian="little")
+    code, payload = run_json(module_argv(fx))
+    assert code == runner.EXIT_OK and payload["status"] == "PASS", payload
+    assert int(payload["returned"], 0) == 0x42, payload
+    assert payload["engine_kind"] == "interpreter", payload
+
+    # The same entry over big-endian bytes: the words decode differently, so
+    # the function cannot return arg + 1 (control: the byte order matters).
+    be_dir = Path(tmp) / "be"
+    be_dir.mkdir()
+    fx = module_fixture(str(be_dir), little_target, code_endian="big")
+    code, payload = run_json(module_argv(fx))
+    assert payload["status"] != "PASS", payload
+    assert code != runner.EXIT_OK, payload
+
+    # A back end that is big-endian in this harness refuses little-endian code
+    # before it starts (Ghidra is absent here, so the refusal comes first).
+    code, payload = run_json(module_argv(fx, "module-probe", "--engine", "ghidra"))
+    assert code == runner.EXIT_BLOCKED and "needs the pysh4 engine" in payload["reason"], payload
+
+
+@check("module entry: a wrong expectation is MISMATCH (exit 5)")
+def test_module_run_mismatch(tmp):
+    fx = module_fixture(tmp, module_target(entry={"verdict_map": {"0x42": "REJECT"}}))
+    code, payload = run_json(module_argv(fx))
+    assert code == runner.EXIT_MISMATCH and payload["status"] == "MISMATCH", payload
+
+
+@check("module entry: an unmapped r0 is BLOCKED, never a guessed verdict")
+def test_module_run_unmapped_r0(tmp):
+    fx = module_fixture(tmp, module_target(entry={"verdict_map": {"0x43": "ACCEPT"}}))
+    code, payload = run_json(module_argv(fx))
+    assert code == runner.EXIT_BLOCKED and payload["status"] == "BLOCKED", payload
+    assert "no verdict is guessed" in payload["reason"], payload
+    assert payload["accepted"] is None
+
+
+@check("module entry: a VA outside the map or in a non-executable block is BLOCKED")
+def test_module_run_bad_va(tmp):
+    for va, needle in [(0x8C400000, "outside every loadable block"),
+                       (MODULE_VA + 0x1000, "not executable"),
+                       (MODULE_VA + 0x2000, "compressed section Module.bin/.zdata")]:
+        fx = module_fixture(tmp, module_target(entry={"va": hex(va)}))
+        code, payload = run_json(module_argv(fx))
+        assert code == runner.EXIT_BLOCKED, payload
+        assert needle in payload["reason"], payload
+
+
+@check("module entry: an image that is not the mapped image is INVALID (exit 1)")
+def test_module_run_wrong_image(tmp):
+    fx = module_fixture(tmp)
+    doc = json.loads(fx["rommap"].read_text(encoding="utf-8"))
+    assert doc["source"]["image_sha256"] == fx["sha256"], "map must carry the image hash"
+    assert doc["source"]["image_sha256_scope"] == "first 4096 of 8192 bytes", doc["source"]
+    cases = [
+        ("image_sha256", "b" * 64, "the map was made from another image"),
+        ("image_sha256_scope", "about half the file", "no recognised"),
+        ("image_sha256_scope", "first 4096 of 999999 bytes", "covers a 999999-byte image"),
+    ]
+    for key, value, needle in cases:
+        doc = json.loads(fx["rommap"].read_text(encoding="utf-8"))
+        doc["source"][key] = value
+        write_json(fx["rommap"], doc)
+        code, payload = run_json(module_argv(fx))
+        assert code == runner.EXIT_INVALID and payload["status"] == "INVALID", payload
+        assert needle in " ".join(payload["problems"]), payload
+        assert payload.get("returned") is None, "a refused image must not run"
+
+
+@check("module entry: no --rommap/--image is BLOCKED; Ghidra absent is SKIP, not PASS")
+def test_module_run_inputs_and_engine(tmp):
+    fx = module_fixture(tmp)
+    code, payload = run_json(["run", "module-probe", "--targets", str(fx["targets"]),
+                              "--json"])
+    assert code == runner.EXIT_BLOCKED and "needs --rommap" in payload["reason"], payload
+    code, payload = run_json(module_argv(fx, "module-probe", "--engine", "ghidra"))
+    assert code == runner.EXIT_SKIP and payload["status"] == "SKIP", payload
+    assert payload["l3_claim"] is False
+
+
+@check("module entry: --dry-run names the entry and starts no engine")
+def test_module_dry_run(tmp):
+    fx = module_fixture(tmp)
+    code, payload = run_json(module_argv(fx, "module-probe", "--dry-run"))
+    assert code == runner.EXIT_OK and payload["status"] == "DRY_RUN", payload
+    assert payload["module_entry"]["module"] == "Module.bin", payload
+    assert "engine_status" not in payload, payload
+
+
+@check("dispatch: engine_hook argument and call checks (dispatch.py CHECKS)")
+def test_engine_hook_checks(tmp):
+    from l3_harness import dispatch as dispatch_mod
+
+    hooks = [(name, func) for name, func in dispatch_mod.CHECKS if "engine_hook" in name]
+    assert len(hooks) == 3, [name for name, _ in hooks]
+    for _name, func in hooks:
+        func(tmp)  # each raises on failure
+
+
+@check("module entry: targets listing and dry run work without a corpus block")
+def test_module_listing_without_corpus(tmp):
+    fx = module_fixture(tmp)
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        code = runner.main(["targets", "--targets", str(fx["targets"])])
+    assert code == runner.EXIT_OK, buffer.getvalue()
+    assert "module-probe" in buffer.getvalue(), buffer.getvalue()
+
+
+@check("ghidra entry script: its own selftest (exit 1/2 controls, namespace probe)")
+def test_entry_script_selftest(tmp):
+    from l3_harness.ghidra import l3_run
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        code = l3_run.selftest()
+    assert code == 0, buffer.getvalue()
+
+
+@check("ghidra entry script: a BLOCKED result is read back as BLOCKED (exit 4)")
+def test_legacy_entry_script(tmp):
+    _, manifest_path, rommap_path = runner_fixtures(tmp)
+    image = Path(tmp) / "fw.img"
+    image.write_bytes(b"\x00" * 16)
+    # A stand-in for analyzeHeadless that runs the entry script's function on
+    # the last three arguments, exactly as ghidra/l3_run.py receives them.
+    fake = Path(tmp) / "analyzeHeadless"
+    fake.write_text(
+        f"#!{sys.executable}\n"
+        "import sys\n"
+        f"sys.path.insert(0, {str(TOOLS_DIR)!r})\n"
+        "from l3_harness.ghidra import l3_run\n"
+        "sys.exit(l3_run.run(sys.argv[-3:]))\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    result = Path(tmp) / "result.json"
+    code, payload = run_json([
+        "run", "--manifest", str(manifest_path), "--rommap", str(rommap_path),
+        "--image", str(image), "--headless", str(fake),
+        "--project-dir", str(Path(tmp) / "proj"), "--result", str(result), "--json",
+    ])
+    assert code == runner.EXIT_BLOCKED and payload["status"] == "BLOCKED", payload
+    written = json.loads(result.read_text(encoding="utf-8"))
+    assert written["status"] == "BLOCKED" and written["cases"] == [], written
+    assert "no located reader" in payload["reason"], payload
 
 
 def main(argv=None) -> int:

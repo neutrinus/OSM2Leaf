@@ -377,6 +377,9 @@ def _collect(report, selection, selected_modules, skip_compressed):
             "image": Path(str(image_name)).name if image_name else None,
             "image_size": image_size if _is_int(image_size) else None,
             "image_sha256": report.get("image_sha256"),
+            # cerom.py hashes a window, not always the whole file: the scope
+            # text says which bytes the hash covers ("first N of M bytes").
+            "image_sha256_scope": report.get("image_sha256_scope"),
             "report_schema": "cerom.py memmap JSON, sections normalised",
             "segment_index": index,
             "segment_base": _hex(segment_base) if segment_base is not None else None,
