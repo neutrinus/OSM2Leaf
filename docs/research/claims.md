@@ -2153,3 +2153,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-1087 | RESERVED (M5.6). | — | — | — |
 | C-1088 | RESERVED (M5.6). | — | — | — |
 | C-1089 | RESERVED (M5.6). | — | — | — |
+
+## M5.14 — US geometry edit: move one road/background vertex, S3 (C-2050–C-2059)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2050 | On US tile `MAPAL001/B18R100R.DAT` (1,994,496 B, 5730 streams), an in-place M4.4 edit of sec1 L1 dir (30,65280) row 8 rec k=17 layer 8 shape 1 vertex 2 (1851,52→1891,52, dx=+40,dy=0; zlib level 9, NUL-padded to original 288 B stream) changes 117 bytes in 1 range at `0x1150c0`, keeps file size and all 484 section-4 zlib payloads byte-identical. | VERIFIED (real image) | H | EXP-2026-11-08-M5.14-us-geometry-vertex-s3 |
+| C-2051 | `tile_diff.py` factory vs patched B18R100R: `same=5729 moved=0 changed=1 added=0 removed=0`; the one change is sec1 L1 dir=(30,65280) slot=8 rec=17, vertex layer=8 shape=1 vertex=2 (1851,52)→(1891,52) d=(+40,+0). | VERIFIED (real image) | H | EXP-2026-11-08-M5.14-us-geometry-vertex-s3 |
+| C-2052 | `harness.py verify` on patched B18R100R: byte-identical rebuild OK (1,994,496 B), records 5730 ok/0 bad, background rebuild 3757 ok/0 bad (111 opaque), graph 775 ok/0 bad, roundtrip OK. | VERIFIED (real image) | H | EXP-2026-11-08-M5.14-us-geometry-vertex-s3 |
+| C-2053 | S3 `us_S3.img` (SHA-256 `186f2ded…9775c1`) built by `imgpatch.py --file MAPAL001/B18R100R.DAT` on US factory `53342430…`: `cardcheck.py --image` PASS (248 files, label `QSD-301-103`); `imgpatch --check-diff` vs factory confines all diffs to B18R100R clusters and its 32-byte dir entry (0 outside). | VERIFIED (real image) | H | EXP-2026-11-08-M5.14-us-geometry-vertex-s3 |
+| C-2054 | Moved vertex location (coord.py `local_to_latlon` B18R100R, scale 2, hypothesis): (1851,52)=20.820312°N,155.796875°W → (1891,52)=20.924479°N,155.796875°W (east Maui, Hawaii; tile B18R100R 16.0–21.33°N 156.0–148.0°W). ~11.6 km north. Road-name partner not resolved. | OBSERVED (coord hypothesis) | M | EXP-2026-11-08-M5.14-us-geometry-vertex-s3; `tools/coord.py` |
+| C-2055 | RESERVED (M5.14). | — | — | — |
+| C-2056 | RESERVED (M5.14). | — | — | — |
+| C-2057 | RESERVED (M5.14). | — | — | — |
+| C-2058 | RESERVED (M5.14). | — | — | — |
+| C-2059 | RESERVED (M5.14). | — | — | — |

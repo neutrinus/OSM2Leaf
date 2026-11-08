@@ -2996,8 +2996,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     S2 via M5.13) or state what Marek should expect on screen.
   - Claims: C-2040–C-2049
 
-- [ ] **M5.14 — US geometry edit: move one road vertex (S3)**
-  - Status: in progress · Owner: task/m5.14-us-geometry-vertex-s3 · Critical: yes
+- [x] **M5.14 — US geometry edit: move one road vertex (S3)**
+  - Status: done · Owner: task/m5.14-us-geometry-vertex-s3 · Critical: yes
   - Depends: M5.13, M4.8c
   - Goal: the first geometry change Marek's unit renders, on the proven
     one-vertex path (M4.4: section 4 preserved, L2 pass on EU).
@@ -3006,6 +3006,14 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `tile_diff.py` shows only that vertex changed; the US tile
     checks pass (or the US-specific gap is named); M5.13 builds **S3**; the
     EXP names the road, tile and lat/lon before/after so Marek can find it.
+  - Result: EXP-2026-11-08-M5.14-us-geometry-vertex-s3 (C-2050–C-2054). US tile
+    `MAPAL001/B18R100R.DAT` (east Maui, B18R100R): sec1 L1 dir (30,65280) row 8
+    k=17 layer 8 shape 1 vertex 2 moved (1851,52) 20.820312°N,155.796875°W →
+    (1891,52) 20.924479°N,155.796875°W (+40, ~11.6 km N, coord.py scale 2
+    hypothesis). `tile_diff` 1 changed/5729 same/0 moved; 117 B in 1 range; sec4
+    byte-identical (484); `harness verify` 5730 ok, roundtrip OK; `imgpatch`
+    built S3 `us_S3.img` `186f2ded…` (cardcheck PASS, check-diff confined to tile
+    clusters+dir entry). Partner road name not resolved. Artifacts outside repo.
   - Claims: C-2050–C-2059
 
 - [ ] **M5.15 — `build.py` writes a card: factory image + OSM → card image → checks**
