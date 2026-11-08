@@ -868,6 +868,174 @@ map-DB bounds at `+112`/`+114`); no card value sets the area.
 
 Details and the negative controls: `EXP-2026-11-06-M2.7` and C-780–C-789.
 
+## Compression budget per module (M1.12)
+
+Measured with `python3 tools/reader_precheck.py IMG --table` on build A
+(`archive/head256.img`, SHA-256 `92aa525d…`; the first 256 MiB of the EU 2011
+image, which is byte-identical). Sizes are section vsize, the runtime extent.
+"Executable" means CODE or EXEC flagged. The edge columns count call-like
+edges from decodable code into a compressed section: `bsr` is a direct call;
+`literal direct` is a literal that is the jump target; `literal indirect` is a
+literal that is a slot, so the code calls the pointer stored in compressed
+bytes; the target is not readable from decodable bytes, and whether it is plain
+code is UNKNOWN. These are lower bounds (claims
+C-2510–C-2519; `Navi.exe` detail in C-2511 and C-2513).
+
+| module | sections | vsize (B) | compressed (B) | share | executable compressed (B) | bsr into compressed | literal direct | literal indirect |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `gwes.exe` | 4 | 613288 | 39044 | 6.4% | 0 | 0 | 0 | 259 |
+| `fatfsd.dll` | 3 | 69190 | 2492 | 3.6% | 0 | 0 | 0 | 90 |
+| `diskcache.dll` | 3 | 7239 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `fatutil.dll` | 4 | 31885 | 3952 | 12.4% | 0 | 0 | 0 | 55 |
+| `shell.exe` | 3 | 69874 | 9164 | 13.1% | 0 | 0 | 0 | 125 |
+| `toolhelp.dll` | 3 | 2819 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `commctrl.dll` | 4 | 322671 | 10212 | 3.2% | 0 | 0 | 0 | 303 |
+| `mspart.dll` | 3 | 13949 | 312 | 2.2% | 0 | 0 | 0 | 0 |
+| `waveapi.dll` | 4 | 89734 | 3760 | 4.2% | 0 | 0 | 0 | 146 |
+| `audevman.dll` | 3 | 21663 | 2388 | 11.0% | 0 | 0 | 0 | 48 |
+| `ppp.dll` | 4 | 96816 | 6024 | 6.2% | 0 | 0 | 0 | 127 |
+| `asyncmac.dll` | 3 | 11145 | 1128 | 10.1% | 0 | 0 | 0 | 61 |
+| `cxport.dll` | 3 | 22319 | 6208 | 27.8% | 0 | 0 | 0 | 56 |
+| `iphlpapi.dll` | 3 | 45848 | 3056 | 6.7% | 0 | 0 | 0 | 68 |
+| `winsock.dll` | 3 | 2765 | 264 | 9.5% | 0 | 0 | 0 | 0 |
+| `ws2.dll` | 3 | 28908 | 2208 | 7.6% | 0 | 0 | 0 | 51 |
+| `ws2instl.dll` | 3 | 4982 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `wspm.dll` | 3 | 5298 | 296 | 5.6% | 0 | 0 | 0 | 0 |
+| `nspm.dll` | 3 | 6514 | 340 | 5.2% | 0 | 0 | 0 | 28 |
+| `afd.dll` | 3 | 70309 | 3200 | 4.6% | 0 | 0 | 0 | 101 |
+| `ndis.dll` | 3 | 116877 | 7252 | 6.2% | 0 | 0 | 0 | 120 |
+| `dhcp.dll` | 3 | 21674 | 568 | 2.6% | 0 | 0 | 0 | 0 |
+| `tcpstk.dll` | 3 | 287778 | 35572 | 12.4% | 0 | 0 | 0 | 111 |
+| `tapi.dll` | 4 | 53273 | 2128 | 4.0% | 0 | 0 | 0 | 0 |
+| `unimodem.dll` | 3 | 34593 | 1744 | 5.0% | 0 | 0 | 0 | 70 |
+| `usbd.dll` | 3 | 15562 | 1048 | 6.7% | 0 | 0 | 0 | 39 |
+| `mmtimer.dll` | 3 | 4385 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `ole32.dll` | 3 | 140234 | 10756 | 7.7% | 0 | 0 | 0 | 75 |
+| `oleaut32.dll` | 4 | 147918 | 7648 | 5.2% | 0 | 0 | 0 | 79 |
+| `atlce400.dll` | 5 | 54658 | 4536 | 8.3% | 0 | 0 | 0 | 130 |
+| `SpeechCC.dll` | 4 | 165245 | 20792 | 12.6% | 0 | 0 | 0 | 151 |
+| `Speech.exe` | 3 | 1951433 | 422489 | 21.7% | 0 | 0 | 0 | 262 |
+| `auirtdll.dll` | 4 | 1077725 | 626352 | 58.1% | 0 | 0 | 0 | 155 |
+| `auiapp.exe` | 4 | 21579 | 1325 | 6.1% | 0 | 0 | 0 | 110 |
+| `ddddifull.dll` | 3 | 183948 | 72768 | 39.6% | 0 | 0 | 0 | 74 |
+| `Bolero.dll` | 3 | 18630 | 1796 | 9.6% | 0 | 0 | 0 | 87 |
+| `wavessi1.dll` | 3 | 38023 | 952 | 2.5% | 0 | 0 | 0 | 0 |
+| `wavessi2.dll` | 3 | 38023 | 952 | 2.5% | 0 | 0 | 0 | 0 |
+| `UsbOhci.dll` | 3 | 48436 | 2120 | 4.4% | 0 | 0 | 0 | 0 |
+| `FOMAB.dll` | 3 | 17370 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `COMD.dll` | 3 | 50539 | 704 | 1.4% | 0 | 0 | 0 | 0 |
+| `COMH.dll` | 3 | 41219 | 632 | 1.5% | 0 | 0 | 0 | 0 |
+| `IOLIB.dll` | 3 | 33523 | 1424 | 4.2% | 0 | 0 | 0 | 0 |
+| `ThreadStackMonitor.dll` | 3 | 2014 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `BT_MGR.dll` | 3 | 502510 | 119232 | 23.7% | 0 | 0 | 0 | 86 |
+| `BT_Modem.dll` | 3 | 22032 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `AntitheftCCWrapper.dll` | 3 | 4883 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `AntitheftCC.dll` | 4 | 89456 | 7032 | 7.9% | 0 | 0 | 0 | 106 |
+| `CddaCC.dll` | 4 | 46767 | 3036 | 6.5% | 0 | 0 | 0 | 97 |
+| `CdrCC.dll` | 4 | 69742 | 4556 | 6.5% | 0 | 0 | 0 | 164 |
+| `RDSCC.dll` | 4 | 70238 | 5344 | 7.6% | 0 | 0 | 0 | 163 |
+| `AuxCC.dll` | 4 | 40190 | 2484 | 6.2% | 0 | 0 | 0 | 86 |
+| `AVSettingCC.dll` | 4 | 71032 | 4600 | 6.5% | 0 | 0 | 0 | 112 |
+| `Audio.exe` | 3 | 233851 | 20525 | 8.8% | 0 | 0 | 0 | 244 |
+| `CameraCC.dll` | 4 | 91073 | 9292 | 10.2% | 0 | 0 | 0 | 278 |
+| `MultiLineTextCC.dll` | 4 | 40460 | 2380 | 5.9% | 0 | 0 | 0 | 66 |
+| `OSM_MSGDLL.dll` | 4 | 13277 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `OSMDLL.dll` | 4 | 29722 | 4652 | 15.7% | 0 | 0 | 0 | 84 |
+| `SYS.dll` | 3 | 4542 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `OBJDLL.dll` | 4 | 502323 | 151660 | 30.2% | 0 | 0 | 0 | 396 |
+| `STDDLL.dll` | 4 | 109440 | 2844 | 2.6% | 0 | 0 | 0 | 16 |
+| `RASTERIZER_DLL.dll` | 3 | 157553 | 848 | 0.5% | 0 | 0 | 0 | 0 |
+| `AvSipCC.dll` | 4 | 59012 | 3252 | 5.5% | 0 | 0 | 0 | 97 |
+| `Marquee.dll` | 4 | 37176 | 2392 | 6.4% | 0 | 0 | 0 | 90 |
+| `AvStringSipCCJP.dll` | 4 | 165984 | 25816 | 15.6% | 0 | 0 | 0 | 107 |
+| `IconDrawCC.dll` | 4 | 205883 | 85088 | 41.3% | 0 | 0 | 0 | 109 |
+| `ICLDLL.dll` | 3 | 11307 | 432 | 3.8% | 0 | 0 | 0 | 17 |
+| `ScreenState.dll` | 3 | 340285 | 17924 | 5.3% | 0 | 0 | 0 | 48 |
+| `AvCCWrapper.dll` | 3 | 18946 | 2768 | 14.6% | 0 | 0 | 0 | 191 |
+| `OSCL.dll` | 3 | 13378 | 656 | 4.9% | 0 | 0 | 0 | 0 |
+| `BT_DB.dll` | 3 | 12839 | 1036 | 8.1% | 0 | 0 | 0 | 24 |
+| `BT_WRPENG.dll` | 3 | 81067 | 3680 | 4.5% | 0 | 0 | 0 | 50 |
+| `DCM_API.dll` | 3 | 13086 | 1016 | 7.8% | 0 | 0 | 0 | 0 |
+| `BT_ENG.dll` | 3 | 425598 | 35656 | 8.4% | 0 | 0 | 0 | 607 |
+| `ComMid.exe` | 3 | 126704 | 11141 | 8.8% | 0 | 3 | 0 | 144 |
+| `CPF.exe` | 3 | 114411 | 16641 | 14.5% | 0 | 0 | 0 | 52 |
+| `DiagnosisCC.dll` | 4 | 222828 | 24956 | 11.2% | 0 | 0 | 0 | 201 |
+| `ScreenTouchCC.dll` | 4 | 37126 | 2356 | 6.3% | 0 | 0 | 0 | 82 |
+| `VerInfoCC.dll` | 4 | 37142 | 2332 | 6.3% | 0 | 0 | 0 | 86 |
+| `Consult.exe` | 3 | 58681 | 4053 | 6.9% | 0 | 1 | 0 | 85 |
+| `XGLDLL.dll` | 4 | 946350 | 737368 | 77.9% | 0 | 0 | 0 | 112 |
+| `NaviCCIpcMsg.dll` | 3 | 6004 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `NaviDestCC.dll` | 4 | 79243 | 12096 | 15.3% | 0 | 0 | 0 | 199 |
+| `NaviDestDLL.dll` | 3 | 8397 | 344 | 4.1% | 0 | 0 | 0 | 0 |
+| `NaviEvCC.dll` | 4 | 148073 | 16452 | 11.1% | 0 | 0 | 0 | 175 |
+| `NaviGbpDLL.dll` | 3 | 10096 | 648 | 6.4% | 0 | 0 | 0 | 0 |
+| `NaviGeneralCC.dll` | 4 | 57650 | 3920 | 6.8% | 0 | 0 | 0 | 149 |
+| `NaviGuideCC.dll` | 4 | 118304 | 6108 | 5.2% | 0 | 0 | 0 | 126 |
+| `NaviMapCC.dll` | 4 | 87094 | 4728 | 5.4% | 0 | 0 | 0 | 273 |
+| `NaviMapScrollCC.dll` | 4 | 67652 | 4472 | 6.6% | 0 | 0 | 0 | 196 |
+| `NaviMlaDLL.dll` | 3 | 16306 | 600 | 3.7% | 0 | 0 | 0 | 0 |
+| `NaviRegCC.dll` | 4 | 127890 | 6128 | 4.8% | 0 | 0 | 0 | 423 |
+| `NaviRegDLL.dll` | 3 | 3802 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `NaviRouteCC.dll` | 4 | 280572 | 8380 | 3.0% | 0 | 0 | 0 | 349 |
+| `NaviRouteDLL.dll` | 3 | 20635 | 756 | 3.7% | 0 | 0 | 0 | 92 |
+| `NaviSearchCC.dll` | 4 | 622137 | 17996 | 2.9% | 0 | 0 | 0 | 311 |
+| `NaviSetCC.dll` | 4 | 228578 | 22304 | 9.8% | 0 | 0 | 0 | 317 |
+| `NaviDrawCC.dll` | 4 | 73267 | 7944 | 10.8% | 0 | 0 | 0 | 156 |
+| `NaviStateCC.dll` | 4 | 110708 | 5488 | 5.0% | 0 | 0 | 0 | 103 |
+| `NaviTrfCC.dll` | 4 | 256502 | 48332 | 18.8% | 0 | 0 | 0 | 305 |
+| `NaviUserInfoCC.dll` | 4 | 59555 | 3864 | 6.5% | 0 | 0 | 0 | 121 |
+| `Navi.exe` | 3 | 22331684 | 16778254 | 75.1% | 0 | 0 | 0 | 3560 |
+| `PhoneCC.dll` | 4 | 204060 | 11700 | 5.7% | 0 | 0 | 0 | 265 |
+| `BtAudioCC.dll` | 4 | 46258 | 3204 | 6.9% | 0 | 0 | 0 | 97 |
+| `PhoneBTA.exe` | 3 | 707816 | 55060 | 7.8% | 0 | 0 | 0 | 312 |
+| `ScreenStateCC.dll` | 4 | 2320286 | 245228 | 10.6% | 0 | 0 | 0 | 222 |
+| `SystemEXE.exe` | 3 | 78271 | 6077 | 7.8% | 0 | 0 | 0 | 216 |
+| `SystemCC.dll` | 4 | 121809 | 7388 | 6.1% | 0 | 0 | 0 | 274 |
+| `MaintenanceCC.dll` | 4 | 74418 | 4012 | 5.4% | 0 | 0 | 0 | 120 |
+| `AuiMonitoringCC.dll` | 4 | 50932 | 4764 | 9.4% | 0 | 0 | 0 | 249 |
+| `TelemaCCWrapper.dll` | 3 | 4376 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `TelemaAutoplayCCLib.dll` | 3 | 1511 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `TelemaDLCCLib.dll` | 3 | 1723 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `TelemaAdjCC.dll` | 4 | 43440 | 2904 | 6.7% | 0 | 0 | 0 | 114 |
+| `TelemaAdjHisCC.dll` | 4 | 45683 | 2976 | 6.5% | 0 | 0 | 0 | 122 |
+| `TelemaAdjSetCC.dll` | 4 | 46883 | 3040 | 6.5% | 0 | 0 | 0 | 121 |
+| `TelemaAutoplayCC.dll` | 4 | 73629 | 4444 | 6.0% | 0 | 0 | 0 | 204 |
+| `TelemaCarwingsCC.dll` | 4 | 49561 | 3308 | 6.7% | 0 | 0 | 0 | 136 |
+| `TelemaCntsListCC.dll` | 4 | 41597 | 2864 | 6.9% | 0 | 0 | 0 | 111 |
+| `TelemaCPCC.dll` | 4 | 42163 | 2928 | 6.9% | 0 | 0 | 0 | 125 |
+| `TelemaDCMSetCC.dll` | 4 | 51531 | 3308 | 6.4% | 0 | 0 | 0 | 125 |
+| `TelemaDLCC.dll` | 4 | 57927 | 3524 | 6.1% | 0 | 0 | 0 | 158 |
+| `TelemaDLSetCC.dll` | 4 | 43622 | 2928 | 6.7% | 0 | 0 | 0 | 116 |
+| `TelemaFvtCC.dll` | 4 | 41968 | 2864 | 6.8% | 0 | 0 | 0 | 111 |
+| `TelemaFvtRegCC.dll` | 4 | 47663 | 3064 | 6.4% | 0 | 0 | 0 | 126 |
+| `TelemaRegPntCC.dll` | 4 | 41711 | 2880 | 6.9% | 0 | 0 | 0 | 119 |
+| `TelemaRouteCC.dll` | 4 | 46966 | 3528 | 7.5% | 0 | 0 | 0 | 149 |
+| `TelemaTelCallCC.dll` | 4 | 88640 | 5000 | 5.6% | 0 | 0 | 0 | 154 |
+| `TelemaImageDrawCC.dll` | 4 | 2192486 | 2019088 | 92.1% | 0 | 0 | 0 | 108 |
+| `Cws_Apl.dll` | 3 | 23488 | 2180 | 9.3% | 0 | 0 | 0 | 24 |
+| `Prb_Apl.dll` | 3 | 6553 | 0 | 0.0% | 0 | 0 | 0 | 0 |
+| `TelemaAppWrapper.dll` | 3 | 20222 | 2768 | 13.7% | 0 | 0 | 0 | 190 |
+| `Telema.exe` | 3 | 8086203 | 6994649 | 86.5% | 0 | 0 | 0 | 637 |
+| `iPodCC.dll` | 4 | 68011 | 4636 | 6.8% | 0 | 0 | 0 | 165 |
+| `UsbAudioCC.dll` | 4 | 76087 | 6012 | 7.9% | 0 | 0 | 0 | 265 |
+| `BOLERODLL.dll` | 3 | 128675 | 6056 | 4.7% | 0 | 0 | 0 | 192 |
+| `Usb.exe` | 3 | 159235 | 8069 | 5.1% | 0 | 0 | 0 | 280 |
+| `VehicleCCWrapper.dll` | 3 | 5913 | 308 | 5.2% | 0 | 0 | 0 | 23 |
+| `UnitMainteCC.dll` | 4 | 50401 | 3052 | 6.1% | 0 | 0 | 0 | 106 |
+| `VehicleMainCC.dll` | 4 | 35030 | 2284 | 6.5% | 0 | 0 | 0 | 83 |
+| `EtcsCC.dll` | 4 | 131435 | 15640 | 11.9% | 0 | 0 | 0 | 152 |
+| `ComfortCC.dll` | 4 | 47810 | 3208 | 6.7% | 0 | 0 | 0 | 102 |
+| `HvacCC.dll` | 4 | 43771 | 3024 | 6.9% | 0 | 0 | 0 | 103 |
+| `DriveComputerCC.dll` | 4 | 78704 | 6612 | 8.4% | 0 | 0 | 0 | 115 |
+| `EvTimerCC.dll` | 4 | 97730 | 3872 | 4.0% | 0 | 0 | 0 | 112 |
+| `EvNoticeCC.dll` | 4 | 359359 | 58320 | 16.2% | 0 | 0 | 0 | 120 |
+| `InfoBarCC.dll` | 4 | 428374 | 70284 | 16.4% | 0 | 0 | 0 | 147 |
+| `Vehicle.exe` | 3 | 1435509 | 1030123 | 71.8% | 0 | 0 | 1 | 293 |
+| `multiskin.dll` | 4 | 33622 | 2164 | 6.4% | 0 | 0 | 0 | 80 |
+
+    modules 149, with a compressed section 133; compressed sections 245
+    total vsize 53725980, compressed 30212810 (56.2 %), executable compressed 0, executable decodable 22767466
+
 ## Next steps
 
 Next is `TODO.md` Step 2: fix the file-TOC stride, add `e32`/`o32` and the copy

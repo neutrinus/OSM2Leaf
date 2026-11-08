@@ -652,8 +652,8 @@ M4.16b → M4.2/M5.3 · M4.23 → M4.3.
     precheck), reader-coverage gains the measured compression budget.
   - Claims: none (a review creates no format claim)
 
-- [ ] **M1.12 — `tools/reader_precheck.py`: can this reader be found statically?**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M1.12 — `tools/reader_precheck.py`: can this reader be found statically?**
+  - Status: done · Owner: claude/m1.12-reader-precheck · Critical: yes
   - Depends: —
   - Goal: make rule 14's `Precheck` one command instead of a session. The
     board now needs, per module: how much of it is compressed, which sections,
@@ -676,6 +676,16 @@ M4.16b → M4.2/M5.3 · M4.23 → M4.3.
     covers both verdicts.
   - Stop: if the counts cannot be reproduced on `IMG256`, record the
     discrepancy and stop — do not re-derive the map by hand.
+  - Result: EXP-2026-11-08-M1.12-reader-precheck. `tools/reader_precheck.py`
+    reproduces the build-A baseline on `head256.img` (real pins in
+    `--selftest`; `cerom.py memmap` agrees). It reports the census, the calls
+    into compressed sections (direct, or indirect through a slot) and anchor
+    verdicts. Its `Navi.exe` run shows the M3.15 call is an indirect call
+    through compressed slot `0x0055d924`: C-2200, C-2201 and
+    C-2202 are superseded in their call-target clauses (C-2513, C-2515; their
+    rows are marked RETRACTED under M1.15, not here). The
+    `sh4xref --calls` defect is M1.15. The done-when wording is operationalised
+    as the EXP's Interpretation states.
   - Claims: C-2510–C-2519
 
 - [x] **H18 — PM review, eighth pass: method audit of the last 24 h (2026-11-06)**
@@ -1099,6 +1109,29 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if a call site cannot be found, say so and stop — a name without a
     caller stays `OBSERVED`.
   - Claims: C-2600–C-2609
+
+- [ ] **M1.15 — `sh4xref.py --calls`: model the slot dereference**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.8 and M1.12 done; the defect was found in M1.12)
+  - Goal: `--calls` prints `jsr @r3 -> 0x0055d924` for `fn 0x004125a8`, but
+    `0x0055d924` is a slot: the code runs `mov.l @(pc),r3; mov.l @r3,r3;
+    jsr @r3` and calls the word stored there (C-2513, C-2514). Make the tool
+    name the slot as an indirect call and never print a target it has not read.
+  - Precheck: `python3 tools/reader_precheck.py --module Navi.exe --anchor
+    0x004125a8` (M1.12) — the call at `0x004125de` is class `indirect`; the
+    `sh4xref.py --calls 0x004125a8` output for `0x004125e2` must say the same.
+  - Scope: build A; `tools/sh4xref.py` only (its `--selftest` gains the
+    dereference form, and a direct `jsr` of the same shape stays direct).
+  - Done when: `sh4xref.py IMG Navi.exe --calls 0x004125a8` labels `0x004125e2`
+    as an indirect call through slot `0x0055d924` with no target, the
+    `0x00412614` call to `0x0040b358` stays direct, `--selftest` covers both,
+    and an EXP records the before/after output. Also: the rows C-2200, C-2201
+    and C-2202 (M3.15's block) get Status `RETRACTED` and `Superseded by
+    C-2513 / C-2515 / C-2514` in Evidence, as C-2513 to C-2515 record; this is
+    the only change to another block's rows.
+  - Stop: if the change alters another `--calls` line in build A beyond these
+    sites, record the diff in an EXP and stop.
+  - Claims: C-2650–C-2659
 
 ---
 
