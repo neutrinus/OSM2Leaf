@@ -1955,7 +1955,13 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-960–C-969
 
 - [ ] **M4.8b — Check `coord.py` on 10 real POIs**
-  - Status: in progress · Owner: claude/m4.8b-transform-proof · Critical: yes
+  - Status: blocked · Owner: claude/m4.8b-transform-proof · Critical: yes
+  - Blocker: the local-scale clause cannot be answered from packed POI ids
+    (no sub-unit field decoded); origin 52742 and the 16-POI list are met,
+    but "within a few metres" is not (median 3.6 km).
+  - Unblock: M4.8d (sub-unit POI/ADDRE field).
+  - Result: EXP-2026-11-08-M4.8b-transform-proof.md (16 POIs, origin 52742
+    fits longitude, latitude bias +2.8 km unexplained).
   - Depends: M4.8
   - Goal: the original M4.8 done-when, unmet at merge: prove the transform
     on real data before M5.2 splits OSM ways with it.
@@ -1968,6 +1974,15 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the error in metres, states which origin and local scale fit, and
     `coord.py` self-test pins the chosen constants.
   - Claims: C-1900–C-1909
+
+- [ ] **M4.8d — Sub-unit field for POI/ADDRE positions**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: find a sub-unit position field in `POINT`/`ADDRE` records (a
+    `0..2047`-class local value) so M4.8b can test local scale 1 vs 2.
+  - Done when: the field is decoded (or `UNKNOWN` with the method) and the
+    local-scale test is in an EXP that re-opens M4.8b.
+  - Claims: C-1908–C-1909
 
 - [x] **M4.9 — `ADDRE` remaining grammar**
   - Status: done · Owner: task/m4.9-addre-grammar · Critical: no
