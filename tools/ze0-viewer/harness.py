@@ -86,23 +86,33 @@ def cmd_info(path):
         print('section %d: table at 0x%x, %d levels'
               % (sec['id'], sec['taddr'], len(sec['levels'])))
         for lvl in sec['levels']:
-            bg = shape = graph = other = 0
+            bg = shape = graph = other = unreadable = 0
             for d in lvl['dirs']:
                 for slot in d['slots'].values():
                     for rec in slot['recs']:
                         if not clarion_tile.is_zlib(rec['raw']):
                             other += 1
                             continue
-                        plain = zlib.decompress(rec['raw'])
-                        kind = struct.unpack_from('>H', plain, 4)[0]
+                        try:
+                            plain = zlib.decompress(rec['raw'])
+                            kind = struct.unpack_from('>H', plain, 4)[0]
+                        except Exception:
+                            # Opaque/unreadable record (bad zlib stream, truncated,
+                            # or a container that cannot be classified). Keep the
+                            # census moving instead of crashing (M9.25).
+                            unreadable += 1
+                            continue
                         if sec['id'] == 1 and rec['k'] % 2 == 1:
                             bg += 1
                         elif sec['id'] == 1:
                             shape += 1
                         else:
                             graph += 1
-            print('  level %d type 0x%02x dirs %d: background %d, shape %d, graph %d, raw %d'
-                  % (lvl['level'], lvl['typ'], len(lvl['dirs']), bg, shape, graph, other))
+            line = ('  level %d type 0x%02x dirs %d: background %d, shape %d, graph %d, raw %d'
+                    % (lvl['level'], lvl['typ'], len(lvl['dirs']), bg, shape, graph, other))
+            if unreadable:
+                line += ', unreadable %d' % unreadable
+            print(line)
 
 
 def cmd_roundtrip(path):

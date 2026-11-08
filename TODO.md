@@ -3792,8 +3792,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `verdict_map` is written from the decoded return codes (not guessed).
   - Claims: C-2640–C-2649
 
-- [ ] **M9.25 — `harness.py info` / viewer crash on opaque records**
-  - Status: in progress · Owner: task/m9.25-harness-opaque-crash · Critical: no
+- [x] **M9.25 — `harness.py info` / viewer crash on opaque records**
+  - Status: done · Owner: task/m9.25-harness-opaque-crash · Critical: no
   - Depends: M9.22 (done)
   - Goal: M5.4 noted `harness.py info` crashes on opaque records; M9.22 added
     `bg_refused.py` to *explain* the B30R048R refusals, but the viewer/harness
@@ -3810,6 +3810,12 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if fixing it requires changing `tools_ze0` semantics, file that as a
     separate audited-patch task and stop.
   - Claims: C-2690–C-2699
+  - Result: EXP-2026-11-08-M9.25-harness-opaque-crash. `harness.py info`
+    classifies unreadable zlib/record failures and reports `, unreadable N`
+    (exits 0). Precheck reproduced on M5.4-named factory B48R058R
+    (`zlib.error` at `cmd_info:96`, 80 unreadable); B30R048R info exits 0 with
+    unchanged census; controls B28R070R/B30R060R/B58R070R and B30R048R still
+    pass `harness.py verify`; `bg_refused.py --selftest` OK.
 
 - [ ] **M9.26 — Revisit `POINT` byte-order / source after M9.11b registers `cmp_ind_reader`**
   - Status: open · Owner: — · Critical: no
