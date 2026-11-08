@@ -291,7 +291,7 @@ firmware/L3 confirmation chain (rule 13).
 | H | Housekeeping | **H19, H21**; H13–H18/H20 done |
 | M1 | Firmware tooling | **M1.11c, M1.12, M1.14**; M1.2f for `.data`/M1.3/M1.4; M1.2e non-Claude; M1.13 done |
 | M2 | Map code, activation, updater | **M2.4, M2.14, M2.17**; M2.15/M2.16 done |
-| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.17, M3.18, M3.20**; blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.19 done |
+| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.17, M3.18, M3.20**; blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.19 blocked (→M3.20) |
 | M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.25, M4.26, M4.27, M4.29**; blocked: M4.2 (no RDSTM row key), M4.3/M4.23 (→M4.24–M4.26), M4.8b (→M4.8d), M4.16b (→M1.11c), M4.22 (OQ-44), M4.28 (→M4.27); M4.21 after M3.6 |
 | M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20, M5.21, M5.22, M5.23**; blocked: M5.12c (scan unfinished); M5.4/M5.13b done; M5.16–M5.19 after their M3 readers |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5/M6.6 after M5.13b (done); M6.7 after M5.14 |
@@ -1234,7 +1234,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the only change to another block's rows.
   - Stop: if the change alters another `--calls` line in build A beyond these
     sites, record the diff in an EXP and stop.
-  - Claims: C-2650–C-2659
+  - Claims: C-2850–C-2859 (was C-2650–C-2659, collision with M4.26/M5.22/M5.23 fixed by H23)
 
 - [ ] **M1.16 — Unify `.cmp`/`.ind` chunk codec and inner-page helpers across tools**
   - Status: open · Owner: — · Critical: no
@@ -1619,7 +1619,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: EXP-2026-11-08-M4.23-restriction-encoding (part-b table), `tools/rd_restrictions.py` (`part_b_check`).
   - Done when: a parser reproduces every odd record of those two tiles (76 + 34 pairs) word for word, with its own `--selftest`, and the mark and side words are explained by the parent record, not fitted.
   - Stop: after two rounds of fitting without a full match, record a negative EXP and stop.
-  - Claims: C-2630–C-2639
+  - Claims: C-2780–C-2789 (was C-2630–C-2639, collision with M9.22/M9.23 fixed by H23)
 
 - [ ] **M4.25 — Regulation-word test: the no_* turns without a from-word, and the only_* encoding**
   - Status: open · Owner: — · Critical: no
@@ -1630,7 +1630,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: EXP-2026-11-08-M4.23-restriction-encoding (observations 12–13), the entry-class table of `match`.
   - Done when: each miss class is explained by a named, counted mapping check, or the same test passes (pre-stated PASS) on a second tile, or a negative EXP records it.
   - Stop: after one mapping audit and one second tile; otherwise `blocked` with the EXP.
-  - Claims: C-2640–C-2649
+  - Claims: C-2790–C-2799 (was C-2640–C-2649, collision with M9.24 fixed by H23)
 
 - [ ] **M4.26 — Firmware reader VAs for section-2 grid kinds; LEV3456R level-4/5 parcel addressing**
   - Status: open · Owner: — · Critical: no
@@ -1641,7 +1641,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: `docs/format/map-tiles.md` section table; C-870–C-872, C-887; EXP-2026-11-08-M4.23-restriction-encoding (observations 14–15).
   - Done when: a VA per kind (or UNKNOWN with a negative EXP), and a parcel-code function that reproduces every LEV3456R level-4/5 code.
   - Stop: after the RGD_DATA callers are traced; otherwise `blocked`.
-  - Claims: C-2650–C-2659
+  - Claims: C-2800–C-2809 (was C-2650–C-2659, collision with M1.15/M5.22/M5.23 fixed by H23)
 
 ---
 
@@ -3009,7 +3009,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     opaque-preserve-only with the invariant that justifies it.
   - Stop: if a kind needs reader semantics the parser does not have, record it
     and keep the writer in refuse/preserve mode for that kind.
-  - Claims: C-2650–C-2659
+  - Claims: C-2810–C-2819 (was C-2650–C-2659, collision with M1.15/M4.26/M5.23 fixed by H23)
 
 - [ ] **M5.23 — Confirm road-record country word and provisional class mapping**
   - Status: open · Owner: — · Critical: no
@@ -3045,7 +3045,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the BPB read disagrees with the recorded S1/S2 ranges in a way
     that implies the earlier check was wrong, treat that as the finding (do not
     "fix" the result).
-  - Claims: next free block at claim time.
+  - Claims: C-2830–C-2839 (was "next free block at claim time", fixed by H23)
 
 - [ ] **M5.25 — Reconcile REFER POI page encoding (slot_budget vs mutate_refer_poi/M5.12c)**
   - Status: open · Owner: — · Critical: yes
@@ -3075,7 +3075,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     its scan behavior.
   - Unblock: M5.12c (for the "every copy / uncompressed scan" part); the slot/refit
     API reconciliation can proceed once M1.16 defines the shared codec.
-  - Claims: C-2750–C-2759
+  - Claims: C-2870–C-2879 (was C-2750–C-2759, collision with H25 fixed by H23)
 
 ---
 
@@ -3682,6 +3682,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `point_walk_l3.py` uses it instead of its subclass, and `0x3f39c0` runs
     on the US page with the globals `0x00d5e4e4`/`0x00d5e4d0` set.
   - Claims: C-2550–C-2559
+  - Result: EXP-2026-11-08-M9.21-pysh4-le; `PySh4(endian="little")` and
+    `bt/s`/`bf/s` in `tools/l3_harness/engine.py`; `0x3f39c0` runs on the US
+    page with the globals set and matches `parse_page` (C-2550–C-2557).
 
 - [x] **M9.22 — Explain the `B30R048R` rebuild assertion (untrusted L2 pin)**
   - Status: done · Owner: claude/m9.22-input-region · Critical: yes
@@ -3702,10 +3705,6 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2630–C-2639
   - Result: EXP-2026-11-08-M9.22-b30r048r-rebuild (C-2630–C-2639). The three refused records are named (dir `0x2ad00`, slots 6/8/11, k 1); the L2 pin is re-set in the EXP (tile round-trip and semantic digest pass, golden unchanged); `tools/ze0-viewer/bg_refused.py --selftest` OK (7 checks). Follow-up: M9.23.
 
-- [x] **M9.21 — Teach `PySh4` little-endian and `bt/s`/`bf/s`**
-  - Status: done · Owner: claude/m9.21-pysh4-le · Critical: yes
-  - Result: `PySh4(endian="little")` and `bt/s`/`bf/s` in `tools/l3_harness/engine.py`; `0x3f39c0` runs on the US page with the globals set and matches `parse_page` (9 records, guard/count controls); EXP-2026-11-08-M9.21-pysh4-le (C-2550–C-2557).
-
 - [ ] **M9.23 — Model the three refused records of `B30R048R` (layer table past `geo_len`)**
   - Status: open · Owner: — · Critical: no
   - Depends: M9.22 (done)
@@ -3722,7 +3721,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     B30R048R L2 golden is re-set or unchanged with a stated reason.
   - Stop: if the entries past the region are not layers in any reader, document
     them as opaque in the EXP and stop; do not weaken the check.
-  - Claims: next free block (C-2630–C-2639 are taken by M9.22).
+  - Claims: C-2860–C-2869 (next free block; C-2630–C-2639 kept by M9.22, H23)
   - Unblock: none.
 
 - [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
