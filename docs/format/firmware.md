@@ -268,21 +268,24 @@ POINT bytes): debug dump `fn 0x003a03b4` → `sdl_poi_get_data_recorde`
 Open: M3.11b (where the page is swapped), M3.11c (name accessor for a POINT
 record).
 
-**M3.13 (EXP-2026-11-06, C-2180–C-2183, blocked):** `ADDRE`/`REFER001` access
-path confirmed as the same REFER001 family mechanism (Navi.exe sec0, A):
+**M3.13 (EXP-2026-11-06 pass 1, EXP-2026-11-08 pass 2, C-2180–C-2187, partial):**
+`ADDRE`/`REFER001` access path confirmed (C-2180, Navi.exe sec0, A):
 `fn 0x004125a8` maps type `0x14e8` → `REFER001`+`INDEX003.DAT` (C-880);
-`fn 0x003fbed8` selects from the volume-id table `0x00179338` including `ADDRE0`
-`0x0017935c` and calls `fn 0x0040b358` (`0x003fc084`); `fn 0x0040114e` resolves
-`ADDRE0` (`r5` at `0x00401216`) via `jsr 0x0040b358` at `0x0040123c`. The
-decoded-`ADDRE0xx` record parser consuming the M4.9 grammar (C-970–C-979:
-`c0/c8/c1` `2*L` framing, name `TT LL 00 ff`, point `TT 40 XX YY`, range tokens,
-trailer TOC) was **not located** in any uncompressed build-A o32 section
-(282 sections / 23.6 MB): 0 `c0/c8` tag pairs, 0 mask/`2*L`/point-marker
-walkers; non-Navi stride/marker hits (Speech*/IOLIB) rejected. No reader VA and
-no C-970–C-979 consuming-instruction mapping can be named; fields not ruled
-"never read". **Blocker:** Navi.exe sec1 `IMAGE_SCN_COMPRESSED` (vsize
-`0xff16ae`, M1.3 0/245, M1.2f/M8.E1 open) — decode sec1 or trace dynamically.
-See `docs/format/refer.md` "Firmware reader (M3.13)".
+`fn 0x003fbed8`/`fn 0x0040114e` resolve `ADDRE0` (`0x0017935c`) via
+`fn 0x0040b358`. Pass-1 byte-grammar search missed the reader (C-2129 class);
+pass-2 mask/stride re-run finds `fn 0x003f56bc` (sec0, uncompressed,
+`0x003f56ec`) — the sole `*r5 & 0xe000 >= 0xc000` (`cmp/hs` vs literal
+`0xc000`) header-class gate in sec0 (1/82 `0xc000` loads), accepting ADDRE
+`c0/c8/c1` native swapped-`u16` tags (C-973 tag-class mapped). It resolves via
+`fn 0x003f51e0` (`0x00d53500` REFER buffer table, POINT family), walks a
+sub-table (`+24/+26/+12`, 2-byte stride) and returns an entry pointer; called
+by `fn 0x003f5d98`/`fn 0x003f61bc`. C-970–C-972, C-974–C-977 and the
+sequential `2*L` record-stream cursor/token consumers remain **not mapped**
+(fields not ruled "never read"; second signature family / `0x00d53500`-bound
+L3 trace needed). Buffer-slot→ADDRE binding is `HYPOTHESIS`. L3 probe of
+`0x0040b358`→`-1`, `0x0040114e`→FPU-unmodelled at `0x00401150` (no
+COREDLL/state). Navi.exe sec1/sec2 are compressed *data* (C-2128), not a code
+blocker. See `docs/format/refer.md` "Firmware reader (M3.13)".
 
 **Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
 `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to

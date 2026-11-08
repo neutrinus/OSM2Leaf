@@ -351,12 +351,14 @@ each `COORD001` entry, and the 22-byte index record fields.
 Tool: `tools/addre.py` (`layout`, `table`, `cells`, `records`, `stats`,
 `trailer`, `verify`, `--selftest`).
 
-### Firmware reader (M3.13, build A, IMG256 `92aa525d…`, blocked)
+### Firmware reader (M3.13, build A, IMG256 `92aa525d…`, partial)
 
-> **Status:** access path `VERIFIED`; record parser / consuming-instruction VAs
-> **not found** in decodable (uncompressed) code; grammar-field mapping
-> **blocked** (Navi.exe compressed sec1/sec2). See
-> `EXP-2026-11-06-M3.13-addre-reader.md`, C-2180–C-2183.
+> **Status:** access path `VERIFIED` (C-2180). 0xc000-class header consumer
+> `VERIFIED` in Navi.exe sec0 (C-2184, mask/stride re-run C-2129 lesson).
+> Full C-970–C-979 token/grammar mapping **partial** (C-973 tag-class mapped;
+> other fields not mapped to consuming instructions). See
+> `EXP-2026-11-08-M3.13-addre-reader-2.md` (refines
+> `EXP-2026-11-06-M3.13-addre-reader.md`), C-2180–C-2187.
 
 ADDRE is resolved through the same `REFER001` family mechanism as POINT
 (M3.11, C-880/C-881/C-2122): descriptor type `0x14e8` in `fn 0x004125a8` (Navi.exe
@@ -370,31 +372,41 @@ additionally resolves `ADDRE0` (`r5` loaded at `0x00401216` from pool
 `0x0040123c`). `ADDRE001.DAT` (`0x00179f30`) has no executable-section literal
 ref.
 
-**Reader/parser VAs:** none named. No ADDRE record parser consuming the M4.9
-grammar was found in any uncompressed build-A o32 section (282 sections /
-23,559,542 B searched): 0 `c0`/`c8` tag pairs, 0 `and #0xf7`+`cmp/eq #0xc0`
-walkers, 0 `@(1)+cmp #0x40` point-marker walkers, 0 Navi.exe `@(1)+shll` `2*L`
-stride walkers (5 non-ADDRE hits in Speech*/IOLIB rejected). Navi.exe sec1
-(vsize `0xff16ae`, psize `0x457c`, `IMAGE_SCN_COMPRESSED`) and sec2 are
-undecodable (M1.3 245/245 UNSUPPORTED; M1.2f/M8.E1 open) — the likely parser
-location.
+**Reader VAs (Navi.exe sec0, uncompressed):** `fn 0x003f56bc` — 0xc000-class
+header consumer/entry locator: resolves buffer via `fn 0x003f51e0` (`0x003f56ca`,
+`0x00d53500` REFER table, same family as POINT walker `0x003f5194`); reads
+header `w=*r5` (`0x003f56e0`), masks `0xe000` (`0x003f56e4-0x003f56ea`), loads
+literal `0xc000` (`0x003f56ec`, pool `0x003f57a4`), accepts `(w & 0xe000) >=
+0xc000` (`0x003f56ee cmp/hs`, `0x003f56f0 bf reject`) — covering ADDRE
+`c0`/`c8`/`c1` in native swapped `u16` form; walks a sub-table (`u16@(r2+24/26)`,
+2-byte stride, entry compare `u16@(entry+12)`) and dispatches on header/type
+bits to return a pointer. Sole `0xe000`-mask+`cmp/hs>=0xc000` gate among 82
+`0xc000` literal loads in sec0. Called by `fn 0x003f5d98` (pool `0x003f5e08`,
+`jsr 0x003f5dbc`; extracts a byte by index via `0x003f57a8`) and
+`fn 0x003f61bc` (pool `0x003f6214`). `fn 0x003f5cdc` dispatcher routes POINT
+buffer slots to `0x003f5b88`/`0x003f5194`/`0x003f39c0`, not directly to
+`0x003f56bc`. Buffer-slot→ADDRE binding is `HYPOTHESIS` pending `0x00d53500`/L3
+trace.
 
-**Grammar field (C-970–C-979) → consuming instruction:** no consuming
-instruction VA in uncompressed build-A code can be named for any field. Fields
-are *not* ruled "never read" (parser may be in compressed sec1/sec2).
+Pass-1 byte-grammar signature (`cmp/eq #0xc0/#0xc8`, `mov.b @(1)+shll` 2*L)
+found no record-stream walker (282 sections / 23.6 MB) — that negative stands
+for those signatures. Navi.exe sec1/sec2 are compressed *data* (C-2128), so
+"not found in executable code" is not a compression blocker.
+
+**Grammar field (C-970–C-979) → consuming instruction:**
 
 | Field (claim) | Consuming instruction VA | Status |
 | --- | --- | --- |
-| Container/layout: dir `0x1108`, cells `0x2000`, index `4e 20 00 00`+`u32` offsets, schema `+0x100`, record chain, trailer (C-970) | — | not found in uncompressed A (possible compressed sec1/sec2) |
-| 12-byte directory `(initial,0,count,block,offset,length,tail)` (C-971) | — | not found in uncompressed A |
-| 6-byte cells `(0..3,value,count)` / `(pointer,0xff00,0)` (C-972) | — | not found in uncompressed A |
-| `c0`/`c8`/`c1` records, `2*L` framing (C-973) | — | not found in uncompressed A (0 tag pairs/mask/`2*L` stride in Navi.exe) |
-| name `TT LL 00 ff`, `LL=ceil(name_len/2)`, last `2*LL` bytes (C-974) | — | not found in uncompressed A |
-| range `prefix subtype 00 00 :N:;:M:` (low-nibble slot; prefix/slot meaning UNKNOWN) (C-975) | — | not found in uncompressed A |
-| point `TT 40 XX YY` (`0x40` constant, role `TT`; 2D arithmetic UNKNOWN) (C-976, C-1964) | — | not found in uncompressed A (0 in-module `@(1)+cmp #0x40` walkers) |
-| trailer TOC `(start,length,value)` per block (C-977) | — | not found in uncompressed A |
+| Container/layout: dir `0x1108`, cells `0x2000`, index `4e 20 00 00`+`u32` offsets, schema `+0x100`, record chain, trailer (C-970) | — | not mapped (IO/decompress layer; no consuming VA named) |
+| 12-byte directory `(initial,0,count,block,offset,length,tail)` (C-971) | — | not mapped |
+| 6-byte cells `(0..3,value,count)` / `(pointer,0xff00,0)` (C-972) | — | not mapped (0x3f56bc sub-table `+24/+26/+12` is candidate structure, binding unproven) |
+| `c0`/`c8`/`c1` records, `2*L` framing (C-973) | `0x003f56e0` `mov.w @r9,r3`; `0x003f56e4-0x003f56ea` `e1e0/4118/2319` mask `0xe000`; `0x003f56ec` `d12d` literal `0xc000`; `0x003f56ee` `cmp/hs r3,r1`; `0x003f56f0` `bf reject` (`fn 0x003f56bc`) | **tag-class consumed** (accepts `c0/c8/c1` native swapped `u16`); sequential `2*L` record-stream cursor walk **not mapped** |
+| name `TT LL 00 ff`, `LL=ceil(name_len/2)`, last `2*LL` bytes (C-974) | — | not mapped |
+| range `prefix subtype 00 00 :N:;:M:` (low-nibble slot; prefix/slot meaning UNKNOWN) (C-975) | — | not mapped |
+| point `TT 40 XX YY` (`0x40` constant, role `TT`; 2D arithmetic UNKNOWN) (C-976, C-1964) | — | not mapped (byte `@(1)+cmp #0x40` absent in Navi.exe; swapped/native token signature not yet searched) |
+| trailer TOC `(start,length,value)` per block (C-977) | — | not mapped |
 | `tools/addre.py` (offline, C-978) | n/a | repo tool, not firmware |
-| negative scope (cell payload / `XX,YY` arithmetic, C-979) | — | unchanged; no firmware reader found to confirm/deny |
+| negative scope (cell payload / `XX,YY` arithmetic, C-979) | — | unchanged |
 
 ## `INDEX001` / `INDEX003` — POI/name search index files
 

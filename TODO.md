@@ -2012,7 +2012,19 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2130–C-2139
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
-  - Status: in progress · Owner: task/m3.13-addre-reader · Critical: yes
+  - Status: blocked · Owner: task/m3.13-addre-reader · Critical: yes
+  - Blocker: `fn 0x003f56bc` (sec0) is confirmed as the sole 0xc000-class header
+    gate consuming ADDRE `c0/c8/c1` tag-class (C-973 partial, C-2184), but the
+    done-when is not met: no consuming instruction VA named for C-970–C-972,
+    C-974–C-977 or the sequential `2*L` record-stream cursor/token walk, and
+    unmapped fields are not proven "never read" (second signature family /
+    `0x00d53500`→ADDRE buffer-slot binding needed). Access-path L3 probe
+    blocked by COREDLL/state (`0x0040b358`→`-1`, `0x0040114e` FPU-unmodelled).
+  - Unblock: bind `0x00d53500` buffer slots to ADDRE and L3-trace
+    `0x003f56bc`/`0x003f5d98` with decoded ADDRE data to map sub-table
+    `+24/+26/+12` → C-971/C-972/C-977; run a second signature family for
+    C-974–C-976 token consumers (name `TT LL 00 ff`, range, point `TT 40`
+    in native/swapped form) scoped to REFER `0x003f51e0` callees.
   - Depends: — (**not** M1.2f: no executable section is compressed, C-2128)
   - Re-opened (ninth pass, 2026-11-08). The pass-1 blocker ("parser in sec1")
     is refuted the same way as M3.2b's. What the search proved is narrower: no
@@ -2030,7 +2042,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     (C-970–C-979) to the instruction that consumes it, or lists the fields
     the firmware never reads.
   - Claims: C-2180–C-2189
-  - Result: `EXP-2026-11-06-M3.13-addre-reader.md` (C-2180–C-2183). ADDRE confirmed on same REFER001 family mechanism (`0x14e8`→`REFER001`+`INDEX003.DAT`, `0x003fbed8`/`0x0040b358`/`0x004125a8`, `fn 0x0040114e` resolves `ADDRE0`); no parser VA in uncompressed code; `refer.md`/`firmware.md` updated with access path and blocked grammar-field→instruction table.
+  - Result: `EXP-2026-11-08-M3.13-addre-reader-2.md` (C-2180–C-2187, partial; refines `EXP-2026-11-06-M3.13-addre-reader.md`). Writer-implied native `u16` class-mask signature finds `fn 0x003f56bc` (Navi.exe sec0, `0x003f56ec`) — sole `*r5 & 0xe000 >= 0xc000` (`cmp/hs` literal `0xc000`, 1/82 loads) gate, accepts ADDRE `c0/c8/c1` (C-973 tag-class mapped). Resolves via `0x003f51e0` (`0x00d53500`, POINT family); callers `0x003f5d98`/`0x003f61bc`. C-970–C-972, C-974–C-977 + sequential `2*L`/token consumers not mapped (done-when not met). L3: `0x0040b358`→`-1`, `0x0040114e` FPU-unmodelled. `refer.md`/`firmware.md`/`reader-coverage.md`/`claims.md` updated.
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
   - Status: blocked · Owner: claude/m3.14-reader-layout · Critical: yes
