@@ -2720,7 +2720,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3010–C-3019
 
 - [ ] **M4.33 — `two->two`/`no_u_turn`/`osm_from_eq_to` restriction geometry/mapping class (M4.30 follow-up)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.33-twotwo-u-turn-mapping · Critical: no
   - Depends: M4.30 (findings), M4.25
   - Goal: per-case/counted audit of same-way identity, u-turn representation, and OSM-vs-tile way splitting at via for the `two->two` miss class (dominated by `no_u_turn`/`osm_from_eq_to` and absent 0xff-naming-F); determine if mapping normalization or an alternate encoding applies.
   - Precheck: reproduce M4.30 `two->two` miss clustering (L1 188 misses: `no_u_turn` 103, `osm_from_eq_to` 101, `no_ff_word_naming_F_anywhere` 157).
