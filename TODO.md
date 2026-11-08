@@ -1220,7 +1220,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-08-M1.10b-import-spotcheck. `OSMDLL!OSM_Printf` slot `0x0055d954` confirmed at `fn 0x0039c978`/`0x0039c9ba` (4 args, printf-style-consistent; 88 loads/24 pools); `XGLDLL!xglDisable` slot `0x0055db94` at `fn 0x003da074`/`0x003da0aa` (2 args, `r5=0x00800000`, capability-consistent; 42 loads/21 pools). Names via M1.10 export resolution; exact prototypes UNKNOWN. Selftest/claims_check green.
 
 - [ ] **M1.15 — `sh4xref.py --calls`: model the slot dereference**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.15-sh4xref-slot · Critical: no
   - Depends: — (M1.8 and M1.12 done; the defect was found in M1.12)
   - Goal: `--calls` prints `jsr @r3 -> 0x0055d924` for `fn 0x004125a8`, but
     `0x0055d924` is a slot: the code runs `mov.l @(pc),r3; mov.l @r3,r3;
