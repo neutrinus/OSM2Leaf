@@ -599,7 +599,7 @@ M4.16b → M4.2/M5.3.
   - Claims: none (a review creates no format claim)
 
 - [ ] **H16 — `tools/fetch_image.py`: pinned downloads so "no image" stops being a blocker**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/h16-fetch-image · Critical: yes
   - Depends: —
   - Goal: four records (M5.13, M5.12b, M8.A4, M8.A5) list "no vendor image on
     this machine" in their scope although the host is reachable and rule 11
