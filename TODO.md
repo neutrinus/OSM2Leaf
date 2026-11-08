@@ -1723,7 +1723,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: `EXP-2026-11-06-M3.13-addre-reader.md` (C-2180–C-2183). ADDRE confirmed on same REFER001 family mechanism (`0x14e8`→`REFER001`+`INDEX003.DAT`, `0x003fbed8`/`0x0040b358`/`0x004125a8`, `fn 0x0040114e` resolves `ADDRE0`); no parser VA in uncompressed code; `refer.md`/`firmware.md` updated with access path and blocked grammar-field→instruction table.
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: claude/m3.14-reader-layout · Critical: yes
+  - Blocker: no reader body for `ZCODE0nn` or `COORD001` is in decodable build-A code (their names have no plain literal load; `ICODE001` has only the opener `fn 0x003f2cc0`), so the done-when is not met (C-2190–C-2199).
+  - Unblock: M1.2f
+  - Result: EXP-2026-11-08-M3.14-reader-layout (negative for ZCODE0/COORD001, partial for ICODE001; done-when not met).
   - Depends: — (M4.12 already decoded the layout from bytes; this task only
     looks for the consuming code)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
