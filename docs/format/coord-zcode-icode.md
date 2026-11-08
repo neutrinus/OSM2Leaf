@@ -265,3 +265,13 @@ Supporting modules: `tools/cmpind.py`, `tools/coord.py`,
 `tools/ze0-viewer/tools_ze0/{addre_io,zcode_io,icode_io,refer_header,frames}.py`.
 Decompressed analysis samples (not committed) were used during investigation;
 the commands above reproduce the verified checks from the `.cmp/.ind` pairs.
+
+## Firmware reader status (M3.14, build A)
+
+Name VAs in `Navi.exe` plain sec0 (EU image, build A): `ZCODE0` `0x0017933c`,
+`ICODE001.DAT` `0x00178c88`, `COORD001.DAT` `0x00178e18`. `ICODE001` is loaded by
+`fn 0x003f2cc0` (`0x003f2d70`), the candidate opener. No reader body and no
+field-to-instruction map is located for any of the three files; `ZCODE0` and
+`COORD001` have no plain-code literal load. Negative with control:
+EXP-2026-11-08-M3.14-reader-layout (C-2190–C-2199). The layouts above stay as
+written; this section adds only the firmware-side status.
