@@ -2143,7 +2143,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `reader-coverage.md` rows 7–9,21–22,24–28 updated; no new task required.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.18-icadm-zipfr-readers · Critical: no
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
     families and the same compression wall)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
