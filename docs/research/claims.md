@@ -1595,3 +1595,18 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2347 | The region IMF has no POI or address records (`addresses 0`, `pois 0`): the ways-only ingest emits no node tags, which is the gap M5.1c closes. | VERIFIED (real extract) | H | EXP-2026-11-08-M5.1b-osm-pbf §Observations; `imf_check --json` attributes |
 | C-2348 | RESERVED. | — | — | — |
 | C-2349 | RESERVED. | — | — | — |
+
+## M4.3 — Turn restrictions and connectivity encoding (C-910–C-919)
+
+| ID | Claim | Status | Conf. | Evidence |
+| --- | --- | --- | --- | --- |
+| C-910 | `tools/osm_ingest.py` on `dolnoslaskie-latest.osm.pbf` (SHA-256 `1965fbb5…aaebb95c61`, OSM timestamp `2026-11-07T21:21:36Z`) writes an IMF of 3,282,451 lines (SHA-256 `7442877c…2af843`); `tools/imf_check.py` reports 0 errors, PASS. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.3-turn-restrictions |
+| C-911 | The IMF holds 3,837 `type=restriction` relations, 1,952 of which have a named from way and a named to way and a node as `via`. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.3-turn-restrictions; `tools/imf_restrictions.py --named` |
+| C-912 | Restriction `r120176` (`no_left_turn`, via node `n167074880`) joins `w16314723` "Świdnicka" (`oneway=yes`, ends at the via node) to `w33644762` "Marszałka Józefa Piłsudskiego" (starts at it); the via node is used by 4 ways. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.3-turn-restrictions; `tools/imf_restrictions.py --id r120176` |
+| C-913 | `RDSTM001` has no turn-restriction field (C-885, C-886), and no `docs/format/` page describes a connectivity, junction, entry or regulation record; the only description is `intermediate-format.md:443`, "unresolved". | VERIFIED (negative) | H | EXP-2026-11-08-M4.3-turn-restrictions; `grep -rn restriction docs/format/` |
+| C-914 | The repo's writer side encodes restrictions as regulation words in `tools_ze0/rd_encode.py` (`regulation_word(e) = e<<12 \| 0xff`, up to 14 words per link, `ALL_ENTRIES = 15`), reached through `rd_build.map_turns`. This code is undocumented and has not been compared with factory bytes. | OBSERVED | M | EXP-2026-11-08-M4.3-turn-restrictions (Writer side) |
+| C-915 | `tools_ze0/rd_check.py` walks only section-2 directory kind `0x1046` (assert at line 258). Of the five local `MAPAL001` tiles, `B28R070R` and `B30R048R` (kind `0x2046`) and `LEV3456R` (kind `0x3e4`) stop at the assertion, `B58R070R` has no records, and `B30R060R` runs and reports `header 1/37` and `barred 0/150`. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.3-turn-restrictions (Factory tiles) |
+| C-916 | The decode target "the connectivity encoding the docs describe" does not exist: no factory tile is shown to carry the regulation words of a known OSM restriction, so the M4.3 Done-when is not reached. | UNKNOWN | H | EXP-2026-11-08-M4.3-turn-restrictions (Interpretation) |
+| C-917 | RESERVED. | — | — | — |
+| C-918 | RESERVED. | — | — | — |
+| C-919 | RESERVED. | — | — | — |
