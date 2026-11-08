@@ -45,7 +45,7 @@ hosts, not a validation of the vendor data.
 | <https://www.drive2.com/l/676021531272284166/> | ZE0/QY7 teardown, full map tree, `VER_INFO`, "Different map code" | HYPOTHESIS | Secondary teardown; not reproduced by us. |
 | <https://4pda.to/forum/index.php?showtopic=808016&st=120> | `NAVI VERSION NG`, firmware offsets, `SUM4`, PROD block | HYPOTHESIS | Secondary forum evidence; not reproduced by us. |
 | <https://github.com/developerfromjokela/leafsdtools/issues/3> | Report of a US unit booting EU map files | HYPOTHESIS | Secondary report; C-080 says it was not reproduced. |
-| <https://zelemar.eu/nissan-leaf-sd-card-protection-how-to-obtain-sd-card-password/> | SD CMD42 password / protection | HYPOTHESIS | Secondary; the CMD42 password claim is not tested by us. |
+| <https://zelemar.eu/nissan-leaf-sd-card-protection-how-to-obtain-sd-card-password/> | SD CMD42 password / unit NOR "EEPROM" at `0x0000A000` (SST 38VF6401, SH-4A), 16 B password = 4 unit + `Clarion95321` | HYPOTHESIS (external lead) | Secondary/lead. Tail literal verified in firmware (EXP-M2.13, C-1880). NOR `0xA000` EEPROM area not present in available SD/CE images (negative, positive control; no unit NOR dump) — EXP-2026-11-08-M2.14, C-2000–C-2009. |
 | <https://www.gtr.co.uk/threads/hack-the-hdd-for-euro-maps-on-us-car.249354/> | Same map tree on GT-R HDD / Renault Carminat | HYPOTHESIS | Secondary forum evidence. |
 | <https://www.goingelectric.de/forum/viewtopic.php?t=71081> | Partitions, `dd` cloning | HYPOTHESIS | Secondary forum evidence; cloning is not reproduced by us. |
 | <https://www.kiwi-w.org/index_eng.html> | KIWI/JIS mesh-code background | reference | Background for mesh codes, not Leaf-specific. |
