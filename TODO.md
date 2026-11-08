@@ -3063,8 +3063,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     record the cases and scope the writer to the confirmed subset.
   - Claims: C-2660–C-2669
 
-- [ ] **M5.24 — `imgpatch` diff check: derive cluster ranges from BPB, not the write offset**
-  - Status: in progress · Owner: task/m5.24-imgpatch-diff-bpb · Critical: no
+- [x] **M5.24 — `imgpatch` diff check: derive cluster ranges from BPB, not the write offset**
+  - Status: done · Owner: task/m5.24-imgpatch-diff-bpb · Critical: no
   - Depends: M5.13b (done)
   - Goal: M5.13b's byte-diff check derived the cluster base from the `imgpatch`
     write offset, not from an independent BPB/FAT read. Harden the check so the
@@ -3079,6 +3079,12 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     that implies the earlier check was wrong, treat that as the finding (do not
     "fix" the result).
   - Claims: C-2830–C-2839 (was "next free block at claim time", fixed by H23)
+  - Result: `tools/imgpatch.py --check-diff` resolves cluster/dir-entry ranges
+    from an independent BPB+FAT read (not write offsets) and reports mismatches;
+    selftest 59/59 OK; S2 vs factory (M5.13b SHA-256s) gives 17,737 ranges, 0
+    outside, independently resolving cmp clusters 78193–78257/dir `0xb3bb7e80`
+    and ind 78258/dir `0xb3bb7ee0`. EXP-2026-11-08-M5.24-imgpatch-diff-bpb.md,
+    C-2830/C-2831.
 
 - [ ] **M5.25 — Reconcile REFER POI page encoding (slot_budget vs mutate_refer_poi/M5.12c)**
   - Status: open · Owner: — · Critical: yes

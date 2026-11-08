@@ -1934,3 +1934,13 @@ EXP-2026-11-08-M4.23-restriction-encoding.
 | C-2398 | RESERVED. | — | — | — |
 | C-2399 | RESERVED. | — | — | — |
 
+| C-2830 | `imgpatch.py --check-diff` resolves each replaced file's cluster data ranges and 32-byte directory-entry slot from an independent BPB+FAT read of the patched image (`mkcard.open_map_partition` + `_locate`/`mkcard.chain`/`geo.cluster_offset`), not from a patch plan or write offset; it classifies `mkcard.diff_ranges` against that union and reports/exits on outside ranges. | VERIFIED (tool+real) | M5.24 | EXP-2026-11-08-M5.24-imgpatch-diff-bpb; `tools/imgpatch.py --selftest` (59 checks); `--check-diff` on M5.13b US S2 vs factory (`53342430…`/`af4c9ff1…`) |
+| C-2831 | On the M5.13b US S2 vs factory image, the independent BPB+FAT diff check reports 17,737 diff ranges, 0 outside, resolving `REFER001/POINT010.DAT.cmp` to clusters 78193–78257 and dir entry `0xb3bb7e80`, and `REFER001/POINT010.DAT.ind` to cluster 78258 and dir entry `0xb3bb7ee0`, matching C-2351/C-2352's recorded ranges without using write offsets. | VERIFIED (real image) | M5.24 | EXP-2026-11-08-M5.24-imgpatch-diff-bpb; `tools/imgpatch.py --check-diff` |
+| C-2832 | RESERVED (M5.24). | — | — | — |
+| C-2833 | RESERVED (M5.24). | — | — | — |
+| C-2834 | RESERVED (M5.24). | — | — | — |
+| C-2835 | RESERVED (M5.24). | — | — | — |
+| C-2836 | RESERVED (M5.24). | — | — | — |
+| C-2837 | RESERVED (M5.24). | — | — | — |
+| C-2838 | RESERVED (M5.24). | — | — | — |
+| C-2839 | RESERVED (M5.24). | — | — | — |
