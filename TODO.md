@@ -2995,7 +2995,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2260–C-2269
 
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m9.17-l3-reader · Critical: no
   - Depends: M9.5 (M3.8 located the reader)
   - Goal: `MMAIN001.DAT` is the only generated file whose reader is located
     and whose L3 target does not exist.
