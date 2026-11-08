@@ -178,8 +178,8 @@ true statement about 44 % of build A and 25 % of `Navi.exe` (rule 14).
 | `IMG` (full EU 2011 card, 7.5 GB) | `python3 tools/fetch_image.py --image EU2011 -o PATH` (resumable) | `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` |
 | `ROOT` (extracted map tree) | `python3 tools/verify.py --image IMG` (extracts to `archive/work/`) | — |
 | `US` (Marek's US 2011 card, 7.5 GB) | `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` | `53342430…c5383` |
-| `EU2014` (7.4 GB) | `https://files.viaaq.eu/sd-images/LEAF_2014_EU_QSD-357-101.img` | record per EXP |
-| `EU2016` (7.4 GB) | `https://files.viaaq.eu/sd-images/ENV200_2016_EU_QSD-390-100.img` | record per EXP |
+| `EU2014` (7.4 GB) | `https://files.viaaq.eu/sd-images/LEAF_2014_EU_QSD-357-101.img` | `tools/fetch_image.py --image EU2014` (sha256 `4a8a21f477e9fc511f94406976b8d67037842f9c043f49ab24e1adc82d6da89b`, H21 verified) |
+| `EU2016` (7.4 GB) | `https://files.viaaq.eu/sd-images/ENV200_2016_EU_QSD-390-100.img` | `tools/fetch_image.py --image EU2016` (sha256 `f53d55f159fd4232caa0b100b9b12e3910c8fe3849201871a71ee38ac19007fb`, H21 verified) |
 | Other years/markets | `https://files.viaaq.eu/maps/`, `docs/research/image-versions.md` | record per EXP |
 
 `https://files.viaaq.eu/sd-images/` is reachable from the sandbox; **H16** turns
@@ -711,8 +711,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     M1.13/M5.21 dangling EXP/claim references fixed.
   - Claims: none (a review creates no format claim)
 
-- [ ] **H21 — Image pin audit: hash the archive images, pin 2016**
-  - Status: open · Owner: — · Critical: no
+- [x] **H21 — Image pin audit: hash the archive images, pin 2016**
+  - Status: done · Owner: task/h21-image-pin-audit · Critical: no
   - Depends: — (H16 done)
   - Goal: `tools/fetch_image.py` pins four images, but the two 2014/2016 rows
     have no verified SHA-256 (only the 2011 EU/US do), and the copies already
@@ -728,6 +728,11 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if an image is absent locally and the download is not allowed in the
     session, record the gap and stop.
   - Claims: none
+  - Result: EXP-2026-11-08-H21-image-pin-audit. All 4 local `archive/sd-images/`
+    images hashed and matched recorded pins (0 mismatches); EU2016 full-image
+    SHA-256 pinned in `fetch_image.py` (EU2014 was already pinned; both verified);
+    shared-input rows and `image-versions.md` updated. (Recovered/re-merged after
+    coordinator merge error.)
 
 - [x] **H22 — PM review, tenth pass (2026-11-08)**
   - Status: done · Owner: session-PM · Critical: no

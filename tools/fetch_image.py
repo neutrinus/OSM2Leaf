@@ -14,8 +14,8 @@ Images
     EU2016   ENV200_2016_EU_QSD-390-100.img               (7.4 GiB)
 
     ``--part 256M`` downloads the first 256 MiB of any listed image. The SHA-256
-    of that head is pinned only for EU2011 (it is IMG256). EU2016 has no pinned
-    SHA-256 yet: its download is checked by size only and the tool says so.
+    of that head is pinned only for EU2011 (it is IMG256); full-image SHA-256 is
+    pinned for EU2011, US, EU2014 and EU2016 (H21 audit).
 
 Modes
     --list                                 print the table
@@ -98,8 +98,8 @@ IMAGES: dict[str, Image] = {
         "EU2016",
         "ENV200_2016_EU_QSD-390-100.img",
         7_969_177_600,
-        None,
-        "EU 2016 card, label QSD-390-100 (SHA-256 not pinned yet)",
+        "f53d55f159fd4232caa0b100b9b12e3910c8fe3849201871a71ee38ac19007fb",
+        "EU 2016 card, label QSD-390-100",
     ),
 }
 
@@ -420,7 +420,9 @@ def selftest() -> int:
         image, size, sha = resolve("IMG256", None)
         expect("IMG256 resolves to EU2011 256M head",
                image.key == "EU2011" and size == 256 * MIB and sha == PART_PINS[("EU2011", "256M")][1])
-        expect("unpinned image resolves with sha None", resolve("EU2016", None)[2] is None)
+        expect("EU2016 full image is SHA-256 pinned",
+               resolve("EU2016", None)[2] == IMAGES["EU2016"].sha256 and IMAGES["EU2016"].sha256 is not None)
+        expect("un-pinned part resolves with sha None", resolve("EU2014", "256M")[2] is None)
         expect("listing names all five keys", all(k in listing() for k in ("IMG256", "EU2011", "US", "EU2014", "EU2016")))
 
     print("failures: %d" % len(failures))
