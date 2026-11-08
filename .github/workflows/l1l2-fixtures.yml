@@ -1,0 +1,95 @@
+name: L1/L2 synthetic fixtures
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l1l2-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  l1l2-fixtures:
+    name: l1l2 (py${{ matrix.python-version }}${{ matrix.experimental && ', informational' || '' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.11"
+            experimental: false
+          - python-version: "3.13"
+            experimental: false
+          - python-version: "3.14"
+            experimental: true
+    continue-on-error: ${{ matrix.experimental }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Python/zlib environment
+        shell: bash
+        run: |
+          python -VV
+          python -c "import sys, zlib; print('zlib', zlib.ZLIB_VERSION, getattr(zlib,'ZLIB_RUNTIME_VERSION','?')); print('implementation', sys.implementation.name)"
+
+      - name: L1/L2 fixture matrix
+        id: l1l2
+        shell: bash
+        run: |
+          set +e
+          python tools/l1l2_fixtures.py --json l1l2.json --md l1l2.md --no-stdout-md
+          rc=$?
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          import json, os
+          with open('l1l2.json', encoding='utf-8') as f:
+              r = json.load(f)
+          s = r['summary']
+          line = (f"runnable {s['runnable_pass']} PASS / {s['runnable_fail']} FAIL / "
+                  f"{s['runnable_skip']} SKIP, not_covered={s['counts'].get('NOT COVERED',0)}, "
+                  f"verdict={'OK' if s['ok'] else 'FAIL'}")
+          print('l1l2_fixtures:', line)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## L1/L2 synthetic fixtures (H26)\n\n')
+              out.write(f"**{line}**\n\n")
+              out.write('- Scope: offline format/structure on synthetic/generated fixtures only. **No firmware acceptance claim (rule 13).** No vendor data.\n')
+              out.write('- Exit code reflects only runnable checks; NOT COVERED is reported, never a PASS/failure.\n')
+              out.write('- zlib-ng/H9: semantic recompress measured; byte-identical recompress reported as SKIP where unverifiable.\n\n')
+              with open('l1l2.md', encoding='utf-8') as f:
+                  out.write(f.read())
+          PY
+          exit $rc
+
+      - name: Upload L1/L2 matrix artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1l2-fixtures-py${{ matrix.python-version }}
+          path: |
+            l1l2.json
+            l1l2.md
+          if-no-files-found: warn
+
+      - name: Gate policy
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## H26 gate policy'
+            echo
+            echo '- Hard gate (blocking): `tools/l1l2_fixtures.py` on Python 3.11 and 3.13 (runnable checks only).'
+            echo '- Informational (non-blocking): Python 3.14 job (zlib-ng/H9 context).'
+            echo '- No vendor data, no golden EU2011 on real ROOT, no full 194 REFER001 pairs on vendor data, no LEV3456R on real files.'
+          } >> "$GITHUB_STEP_SUMMARY"

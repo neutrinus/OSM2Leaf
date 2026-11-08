@@ -2119,3 +2119,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2937 | RESERVED (M4.8d). | — | — | — |
 | C-2938 | RESERVED (M4.8d). | — | — | — |
 | C-2939 | RESERVED (M4.8d). | — | — | — |
+
+## H26 — L1/L2 synthetic fixture CI pipeline (C-2760–C-2769)
+
+| ID | Claim | Status | Trust | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2760 | `tools/l1l2_fixtures.py` (data-driven registry, `--selftest`, `--json`, `--md`) and `.github/workflows/l1l2-fixtures.yml` run an offline L1/L2 matrix on synthetic/generated fixtures with no vendor data: categories `L1 synthetic`, `L2 DRSTR`, `L2 cmp/ind`, `L2 tile`, `L2 POI mutation`, statuses PASS/FAIL/SKIP/NOT COVERED with command per check; exit code reflects only runnable checks. Initial run (zlib-ng host): 6 runnable PASS, 0 FAIL, 1 SKIP (recompress byte-identical unverifiable, H9), 2 NOT COVERED (`L1 synthetic` lacks a vendor-free full ZE0 card builder; `L2 tile` harness selftest requires a tile fixture). This is an offline signal only — no firmware acceptance claim (rule 13). | VERIFIED (tooling) | H | EXP-2026-11-08-H26-l1l2-fixtures; `tools/l1l2_fixtures.py --selftest` OK; `tools/l1l2_fixtures.py` verdict OK; `.github/workflows/l1l2-fixtures.yml` |
+| C-2761 | RESERVED (H26). | — | — | — |
+| C-2762 | RESERVED (H26). | — | — | — |
+| C-2763 | RESERVED (H26). | — | — | — |
+| C-2764 | RESERVED (H26). | — | — | — |
+| C-2765 | RESERVED (H26). | — | — | — |
+| C-2766 | RESERVED (H26). | — | — | — |
+| C-2767 | RESERVED (H26). | — | — | — |
+| C-2768 | RESERVED (H26). | — | — | — |
+| C-2769 | RESERVED (H26). | — | — | — |
