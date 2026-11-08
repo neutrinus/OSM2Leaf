@@ -2234,7 +2234,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2530–C-2539
 
 - [ ] **M3.20 — Name the register-AND mask variant; correct the M3.11 pattern text**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.20-mask-pair-via-reg-r2 · Critical: yes
   - Depends: M3.19
   - Goal: M3.11 §2 reports `and #0x70,r0` then `cmp/eq #0x60` as 1 hit in build
     A. The one site is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`
