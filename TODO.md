@@ -3244,7 +3244,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2550–C-2559
 
 - [ ] **M9.22 — Explain the `B30R048R` rebuild assertion (untrusted L2 pin)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m9.22-input-region · Critical: yes
   - Depends: —
   - Goal: H14 ran the five pinned tiles: four and `LEV3456R` reproduce,
     `B30R048R` raises on an opaque record in the harness's background rebuild.
