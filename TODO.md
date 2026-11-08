@@ -987,7 +987,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2470–C-2479
 
 - [ ] **M1.11 — SH-4 decoder in `tools/`, with the LE convention pinned**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: claude/m1.11-sh4dis · Critical: no
   - Depends: —
   - Goal: four EXPs stopped at "needs SH-4 disassembly tooling"
     (M3.4, M3.9, M3.10, M8.E1b) and M8.E1 lost a whole round to a BE/LE
