@@ -2770,8 +2770,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Depends: M5.4, M4.3
   - Claims: C-1070–C-1079
 
-- [ ] **M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST`**
-  - Status: in progress · Owner: task/m5.6-rebuild-drstr-mmain-ind-cmplst · Critical: yes
+- [x] **M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST`**
+  - Status: done · Owner: task/m5.6-rebuild-drstr-mmain-ind-cmplst · Critical: yes
   - Depends: M5.4, M4.5 (M3.8: a verbatim `MMAIN001` copy is enough for the
     mount; the firmware checks only the 4096-byte length — EXP-2026-11-06-M3.8)
   - Input: copy `MMAIN001.DAT` verbatim when the tile set is unchanged; if
@@ -2780,6 +2780,11 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     though the firmware read path does not. Keep the file big-endian (C-1788).
   - Done when: L1 passes on the output card tree.
   - Claims: C-1080–C-1089
+  - Result: `tools/rebuild_manifests.py` rebuilds DRSTR (`drstr_ze0.build`),
+    MMAIN `0x1ac` tile-sum totals (big-endian), REFER001 `.ind` stream-preserving,
+    and `CMP.LST`; synthetic selftest shows broken→fixed→L1 pass→idempotent
+    (EXP-2026-11-08-M5.6-rebuild-manifests, C-1080–C-1084). Full extracted
+    vendor-root L1 pass not re-run locally (no extracted root available).
 
 - [ ] **M5.7 — Street names into the name sections**
   - Status: open · Owner: — · Critical: no

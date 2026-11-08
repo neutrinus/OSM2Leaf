@@ -87,8 +87,8 @@ M5_STAGES: tuple[dict[str, Any], ...] = (
     {
         "id": "manifests",
         "flow": "tiles -> DRSTR/MMAIN/.ind",
-        "tool": "none",
-        "status": "NOT IMPLEMENTED in build.py (TODO M5.6)",
+        "tool": "tools/rebuild_manifests.py (M5.6, not wired in)",
+        "status": "NOT WIRED in build.py (M5.6 done: rebuild_manifests.py)",
         "implemented": False,
     },
 )

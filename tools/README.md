@@ -75,6 +75,20 @@ python3 tools/drstr.py parse DRSTR001.DAT --json
 The parser stops at the first listing, because the node table ends where the
 first 32-byte entry begins.
 
+## `rebuild_manifests.py`
+
+Rebuild `DRSTR001.DAT`, `MMAIN001.DAT` `0x1ac` level-table totals,
+`REFER001/*.ind` (stream-preserving pair rewrite) and `CMP.LST` for a card
+tree so `cardcheck` L1 passes (M5.6). DRSTR uses `drstr_ze0.build` and keeps
+stored name/order; MMAIN counts are recomputed from `MAPAL001` tile headers
+(big-endian `u16`, C-164/C-1788); `CMP.LST` is the fixed `\SystemSD\REFER001\`.
+
+```bash
+python3 tools/rebuild_manifests.py --selftest
+python3 tools/rebuild_manifests.py --root /path/to/card-tree --check
+python3 tools/rebuild_manifests.py --root /path/to/card-tree --check --partial --fast --json
+```
+
 ## `lctbl_names.py`
 
 Decode the `LCTBL001.DAT` catalog and compressed name database.

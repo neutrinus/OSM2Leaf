@@ -2115,7 +2115,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2933 | No 11-bit field at any bit offset in the first 48 bytes of zlib-framed POINT name records (BE and LE bit extraction, excluding copy A bits 16–47 and copy B bits 96–127) matches `local(A)` at scale 1 or 2 above noise (top hit 1.2%, 24/2000, LE bit 198 for `ly2`; n=2000 records × all windows). | OBSERVED | M | EXP-2026-11-08-M4.8d-subunit-field (inline bit-scan method, reproducible as described) |
 | C-2934 | A sub-unit *position* field (0..2047-class local value) for POI/ADDRE coordinates, as needed to test M4.8b local scale 1 vs 2, is **UNKNOWN / not found** in the tested scope: zlib-framed POINT name records (50,000, US+EU; C-2930–C-2933 negative) and ADDRE sub-cell tokens `TT 40 XX YY` (YY 0–255, XX shard-capped, 2D geographic not derivable, C-1960–C-1969). Bit-packed (non-zlib, `00 xx 00 yy`) POINT pages and undecoded body semantics of `v6/v8/v10/v16/v20` remain out of scope. | HYPOTHESIS (scoped negative) | M | EXP-2026-11-08-M4.8d-subunit-field; M4.19/C-1960–C-1969 |
 | C-2935 | M4.8b local-scale clause remains unanswerable from the POINT/ADDRE record fields examined; M4.8b is re-opened with its blocker refined (a 0..2047-class position field was not found in zlib-framed POINT name records or ADDRE; bit-packed POINT pages and firmware/other methods remain). | OBSERVED | L | EXP-2026-11-08-M4.8d-subunit-field; TODO.md M4.8b/M4.8d |
-
 ## M4.8b re-attempt — Bit-packed POINT pages and other avenues (C-2936–C-2939)
 
 | ID | Claim | Status | Trust | Evidence |
@@ -2139,3 +2138,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2767 | RESERVED (H26). | — | — | — |
 | C-2768 | RESERVED (H26). | — | — | — |
 | C-2769 | RESERVED (H26). | — | — | — |
+
+## M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST` (C-1080–C-1089)
+
+| ID | Claim | Status | Trust | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1080 | `tools/rebuild_manifests.py` rebuilds a card tree's manifest/index files: `DRSTR001.DAT` via `drstr_ze0.build(root)` (preserving an existing DRSTR's entry order and stored name case, M4.20/C-2100–C-2101), `MMAIN001.DAT` `0x1ac` level-table counts recomputed as sums over every `MAPAL001/*.DAT` tile header (big-endian `u16` writes, C-164/C-1788), every `REFER001` `.cmp`/`.ind` pair rewritten stream-preserving (`cmpind_writer.CmpFile` load/write), and `CMP.LST` written as the fixed 19 bytes `\SystemSD\REFER001\`. | VERIFIED (tool, synthetic) | H | EXP-2026-11-08-M5.6-rebuild-manifests; `rebuild_manifests.py --selftest` |
+| C-1081 | A synthetic card tree with wrong `MMAIN001.DAT` `0x1ac` totals, a stale/garbage `DRSTR001.DAT`, a wrong `CMP.LST` and a valid `REFER001` pair passes `cardcheck` L1 (`partial=True`, full `.cmp` decode) after `rebuild_manifests.rebuild()`; the L1 checks `drstr`, `mmain`, `cmp`, `headers`, `tree` and `version`/`CMP.LST` report no errors. | VERIFIED (synthetic) | H | EXP-2026-11-08-M5.6-rebuild-manifests |
+| C-1082 | The rebuild is idempotent on MMAIN totals for an already-consistent tree: a second rebuild leaves L1 passing and reports `mmain.count_fields_changed == 0`. | VERIFIED (synthetic) | M | EXP-2026-11-08-M5.6-rebuild-manifests |
+| C-1083 | MMAIN rebuild preserves all bytes outside the `0x1ac` level-table `count` fields and only rewrites counts for `(section, level)` keys present in `MAPAL001` tile headers; the firmware checks only the 4096-byte MMAIN length (M3.8/C-1780–C-1789) while `cardcheck` enforces the tile-sum totals. | OBSERVED (by construction) | M | EXP-2026-11-08-M5.6-rebuild-manifests; `rebuild_mmain` implementation |
+| C-1084 | On an unchanged factory tree, `DRSTR`/`MMAIN`/`CMP.LST` byte-stability and a full extracted-root L1 pass were not re-measured in this session (no extracted EU/US root/image available locally at the AGENTS paths); EU `DRSTR` byte-identity on an unchanged tree is supported by M4.20/C-2101 and factory MMAIN totals match cardcheck by construction. | UNKNOWN (not re-measured here) | L | EXP-2026-11-08-M5.6-rebuild-manifests |
+| C-1085 | RESERVED (M5.6). | — | — | — |
+| C-1086 | RESERVED (M5.6). | — | — | — |
+| C-1087 | RESERVED (M5.6). | — | — | — |
+| C-1088 | RESERVED (M5.6). | — | — | — |
+| C-1089 | RESERVED (M5.6). | — | — | — |
