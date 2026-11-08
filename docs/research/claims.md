@@ -1678,6 +1678,21 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2538 | RESERVED (M3.13's `mov.b` plus `shll R0` count of 5 is not checked by this scan; its window was never stated). | — | — | EXP-2026-11-08-M3.19-sh4scan (Interpretation) |
 | C-2539 | RESERVED. | — | — | — |
 
+## M3.20 — Register-AND mask-pair variant, M3.11 pattern-text correction (C-2560–C-2569)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2560 | M3.11 EXP-2026-11-06 §2 reported "mask `and #0x70,r0` then `cmp/eq #0x60` (all A uncompressed) \| 1 — Navi.exe `fn 0x003715a0`" as an immediate AND. The actual site is register-AND `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0` at Navi.exe sec0 `0x003715c8–0x003715cc` (R3, +4 B). Corrects M3.11 pattern text (no claim deleted); M3.19 C-2532 identified the site. | VERIFIED (real image) | H | EXP-2026-11-08-M3.20-mask-pair-via-reg; EXP-2026-11-08-M3.19-sh4scan §5; `tools/sh4scan.py dump/mask-pair --via-reg` |
+| C-2561 | `tools/sh4scan.py mask-pair --via-reg --cmp 60 --image-start 0x200200` (build A, IMG256 `92aa525d…`) finds exactly 1 site over 282 uncompressed sections (527 sections, 23,559,542 B psize; 245 compressed not scanned): Navi.exe sec0 `mov @0x003715c8 and @0x003715ca cmp @0x003715cc R3 (+4 B)`. Count is the result (not a precondition). | VERIFIED (real image) | H | EXP-2026-11-08-M3.20-mask-pair-via-reg; `tools/sh4scan.py mask-pair --via-reg --cmp 60` |
+| C-2562 | `tools/sh4scan.py` adds `mask_pairs_via_reg(vals,and_imm,cmp_tag,window_bytes)` matching `mov #imm,Rn` (`0xEnii`), `and Rn,R0` (`0x2009|(n<<4)`), `cmp/eq #tag,R0` within window from mov to cmp, with the same register `Rn`. Synthetic selftest (section 4b) pins the M3.19 site halfwords, register pairing, wrong imm/cmp, window edge, R0 case, and non-match by immediate `mask_pairs`. | VERIFIED (synthetic + tool) | H | EXP-2026-11-08-M3.20-mask-pair-via-reg; `tools/sh4scan.py --selftest` |
+| C-2563 | RESERVED. | — | — | — |
+| C-2564 | RESERVED. | — | — | — |
+| C-2565 | RESERVED. | — | — | — |
+| C-2566 | RESERVED. | — | — | — |
+| C-2567 | RESERVED. | — | — | — |
+| C-2568 | RESERVED. | — | — | — |
+| C-2569 | RESERVED. | — | — | — |
+
 ## M3.11c — POINT record name accessor (C-2920–C-2929)
 
 | ID | Claim | Status | Confidence | Evidence |
