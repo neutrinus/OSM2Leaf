@@ -1,0 +1,26 @@
+First read prompt_common.txt.
+
+Take on the role of the developers' team lead.
+
+Run git fetch.
+
+Pick up to 10 tasks from TODO — as many as actually qualify, never filler:
+- `Status: open`, every `Depends` is done on origin/main, and the task ID appears in no open PR title (`gh pr list --state open`).
+- Prefer tasks on the critical path in the Priorities section.
+- The tasks must touch disjoint files (apart from their own TODO line and their own claim block); two tasks writing the same tool or format doc do not run in the same batch.
+- Skip tasks whose `Done when` needs hardware or a resource that is missing here; note them in your summary.
+
+Launch a subagent for each of them, each in its own git worktree / branch. Tell every subagent:
+- read AGENTS.md and prompt_common.txt and follow the TODO.md rules: the first commit is the claim (`Status: in progress · Owner: <branch>`), pushed, plus a draft PR `[ID] short title`, before any other work;
+- one task per PR; touch only its task's files, its EXP, its claim rows;
+- finish with `Status: done` only if its own `Done when` passes; otherwise `blocked` with a blocker, `Unblock:` and a negative EXP;
+- do not merge — you (the TL) merge.
+
+When a subagent finishes, check its work:
+- re-run the task's `Done when` command yourself, plus `python3 tools/selftest.py`, `tools/claims_check.py`, `tools/todo_check.py`;
+- read the EXP: controls present, observations separate from interpretation, no vendor data in the diff.
+If the check fails, send it back to the subagent or mark the task blocked — never merge a false `done`.
+
+Then commit and push; merge to main one PR at a time: rebase onto the fresh origin/main, re-run the checks, merge, delete the branch, close leftover drafts. Apply rule 15 (re-open tasks the merge unblocks).
+
+Finish with a table: task ID, outcome (done / blocked / returned), PR link, EXP.

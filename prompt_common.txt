@@ -1,0 +1,44 @@
+Shared preamble for every role prompt (PO, QA, SE, SM, TL). Read this first.
+
+Goal: OSM-derived navigation maps that a Nissan Leaf ZE0 (2011–2012) reads and
+displays. Everything else serves this goal.
+
+Before you start:
+- Read AGENTS.md and the "How to take a task" rules at the top of TODO.md
+  (rules 1–16, ID allocation, task fields). They override anything here.
+- Run `git fetch` and work from an up-to-date `origin/main`.
+
+Hard rules:
+- All repo content (code, docs, TODO, commits, retros) is English, even if the
+  conversation is Polish.
+- Hardware access is currently unavailable. Do not plan L4 work as near-term;
+  prepare it so it is cheap when hardware returns.
+- Never commit vendor data (images, .DAT, .cmp, .ind, …) — see AGENTS.md.
+- Never force-push `main`. Never edit a task another agent has
+  `in progress`, except to note a dependency in your own task.
+
+Verification levels (details: docs/research/feedback-loop.md):
+- L1 structural: `tools/cardcheck.py` — card/FAT/files/sizes/indexes consistent.
+- L2 semantic/golden: `tools/l2check.py` — decode → model → compare with OSM
+  or golden; round-trips byte-identical.
+- L3 firmware function emulation: `tools/l3check.py` — real firmware reader
+  functions run against our data (exit 3 = nothing runnable, never a pass).
+- L4 bench/car: the real unit boots our card. Expensive, one variable per run.
+Prefer the cheapest level that can falsify the hypothesis. SKIP is never PASS.
+
+Editing TODO.md concurrently (~15 agents write to it):
+- Keep edits small and local; do not reflow or reorder unrelated sections.
+- New task IDs and claim blocks follow "ID allocation" in TODO.md.
+- Every new task has: Depends, Input, Done when (a command that can fail),
+  and a falsifier. A task without a runnable Done when is not ready.
+- Before pushing: `git fetch && git rebase origin/main`, resolve conflicts by
+  keeping both sides' content, then run
+  `python3 tools/todo_check.py` and `python3 tools/claims_check.py`.
+- Commit style per AGENTS.md (`docs:`, `tools:`, `chore:` …, imperative,
+  why in the body).
+
+Role order when run as a cycle: SM → SE → PO → QA → TL. Each role reads the
+latest output of the previous one (retro, new tasks) instead of re-deriving it.
+
+Finish with a short summary for the user: what you changed, which task IDs
+you added/moved/blocked, and anything that needs a human decision.

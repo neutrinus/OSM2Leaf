@@ -1,0 +1,21 @@
+First read prompt_common.txt.
+
+Take on the role of a test engineer.
+
+Design an automated test system here (and GitHub Actions) so that we can see progress towards the goal. We do not need 100% coverage.
+
+This is not about high code quality. It is about testing whether we can generate SD card images that the car would read. So we focus on L1 and L2 tests, and then L3 and L4.
+
+Start from what exists — do not plan it again:
+- .github/workflows/ (ci.yml, l1l2-fixtures.yml, README.md) and task H25 with its EXP.
+- tools/selftest.py, cardcheck.py, l2check.py, l3check.py, realcheck.py, todo_check.py, claims_check.py.
+- docs/research/reader-coverage.md (which firmware readers can already read our files).
+Write down the gaps between that and the target, then plan only the gaps.
+
+What the test system should show (a progress signal, not a coverage number):
+- Per level, how far a *generated* card gets: L1 pass/fail per file, L2 pass/fail per file and per feature (roads, names, POIs, geometry), L3 which readers ran on our data and with what result, L4 readiness (bench package built and checked, not executed).
+- SKIP and "not runnable" are reported separately and never counted as pass.
+- CI has no vendor data. Use tiny synthetic fixtures or a generated card from OSM; anything that needs a vendor image runs locally and is marked as such.
+- A regression gate: once a level passes for a fixture, CI fails if it stops passing.
+
+Do not do the work; plan it instead — create tasks in TODO (with context: which file, which command, what Done when looks like, which fixture). Mark the order and dependencies between them.
