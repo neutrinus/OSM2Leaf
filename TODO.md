@@ -750,6 +750,123 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     M5.22, M5.23, M5.24, M9.25.
   - Claims: none (a review creates no format claim)
 
+- [ ] **H23 — Board hygiene: claim-block collisions, duplicate M9.21, stale status lines**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: make TODO.md safe for ~15 parallel agents again. The 11th-pass audit
+    found: duplicate M9.21 task blocks (both done); M4.24 claims `C-2630–C-2639`
+    colliding with M9.22/M9.23, M4.25 `C-2640–C-2649` colliding with M9.24,
+    M4.26 `C-2650–C-2659` colliding with M5.22/M5.23; M3.20 and M5.23 have
+    incomplete claim fields; M9.23 says "next free block (C-2630–C-2639 taken by
+    M9.22)" but that block is also claimed by M4.24; workstreams table still
+    says "M3.19 done" while M3.19 is `blocked` (EXP-2026-11-08-M3.19-sh4scan,
+    unblock M3.20).
+  - Precheck: `grep -n 'Claims: C-2630\|Claims: C-2640\|Claims: C-2650' TODO.md`
+    and `grep -n '^\- \[.\] \*\*M9\.21' TODO.md` reproduce the collisions/dup.
+  - Scope: `TODO.md` only. Reassign colliding claim blocks to the next free
+    blocks (highest in file + 10; record the reassignment in each affected task
+    as `Claims: C-xxxx–C-yyyy (was C-zzzz–C-zzzz, collision fixed by H23)`),
+    merge duplicate M9.21 into one block, add missing `Claims` to M3.20/M5.23,
+    fix the M3 workstream status text, add `Claims` to M3.20/M5.23/M5.24 (and
+    any other task with "next free block at claim time"), and update M9.23's
+    "next free block" note. Do not change task meaning, owners, or results.
+  - Done when: no `Claims:` range appears in more than one task block (verified
+    by a grep/script recorded in the EXP/commit), only one M9.21 block remains,
+    M3.20/M5.23 have claim blocks, and the M3 workstream row matches actual
+    statuses.
+  - Stop: if any reassigned block is already used in `docs/research/claims.md`,
+    do not move it; record the conflict and take a different free block.
+  - Claims: C-2710–C-2719
+
+- [ ] **H24 — `todo_check.py`: lint TODO syntax, claim allocations and task fields; make selftests tmp-safe**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: H23
+  - Goal: prevent rule 9 / claim-block collisions, malformed tasks and
+    incomplete metadata from recurring, and stop environment fragility from
+    masking real regressions. `claims_check.py` validates `claims.md` but not
+    TODO structure/allocations; current `mkcard --selftest` fails in
+    constrained `/tmp` (`Disk quota exceeded` during reconcile synthetic-image
+    copy on this machine, Python 3.14 `copy_file_range`), so `selftest.py`
+    reports 1 FAIL on an otherwise clean tree.
+  - Precheck: `python3 tools/claims_check.py` is OK while TODO has the H23
+    collisions; `python3 tools/mkcard.py --selftest` exits 1 with the quota
+    error under constrained `/tmp` (reproduced 2026-11-08).
+  - Scope: new `tools/todo_check.py` (stdlib, with `--selftest`; one tool,
+    name stated) + minimal fixes to selftests that create large temp images
+    (`mkcard` and any other offender found by the same pattern) to honor
+    `TMPDIR`/prefer `/tmp/opencode` and avoid unnecessary whole-image copies.
+    Lint scope is `TODO.md` syntax/structure, not task semantics.
+  - Done when: the lint parses every task block and reports: duplicate task IDs,
+    duplicate TODO claim ranges, malformed/overlapping `Claims: C-xxxx–C-yyyy`,
+    tasks missing required fields (`Status`/`Owner`/`Critical`/`Depends`/`Goal`/
+    `Done when`/`Claims`), search/firmware tasks missing `Precheck`/`Scope`/
+    `Stop`, `blocked` tasks missing `Unblock`, `done` tasks missing a `Result:`
+    line, checkbox/status contradictions, invalid status/critical values, and
+    `Depends` references to unknown IDs (warning or error, stated). `--selftest`
+    covers a synthetic collision/malformed case; `mkcard --selftest` passes
+    with `TMPDIR=/tmp/opencode` in a constrained environment (or skips the
+    large-copy subcase with a clear reason, never a false FAIL); the tool is
+    wired into `tools/selftest.py` discovery and documented in `tools/README.md`.
+  - Stop: do not weaken existing selftest assertions to make the quota case pass;
+    fix the temp/copy strategy instead. Do not turn semantic disagreements into
+    lint errors without an explicit allowlist.
+  - Claims: C-2720–C-2729
+
+- [ ] **H25 — Fundament CI (GitHub Actions): bramka PR bez danych vendorowych**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: H24 (żeby `selftest.py` nie dawał fałszywego FAIL przez `mkcard`/tmp; H23 zalecane dla higieny TODO)
+  - Goal: każdy PR i push do `main` dostaje deterministyczną bramkę jakości sygnału testowego (nie coverage): repo się parsuje, narzędzia mają spójne selftesty, ledger/board są niesprzeczne. To mierzy „czy infrastruktura testów działa”, nie „czy auto czyta kartę”.
+  - Precheck: `ls .github/workflows` zwraca brak workflowów (stan bieżący); `python3 tools/selftest.py --list` działa lokalnie. Jeśli istnieje już workflow o tej samej roli, zadanie redukuje się do uzgodnienia z nim (nie duplikować).
+  - Scope: nowe pliki `.github/workflows/*.yml` (nazwy ustalone w EXP/PR), uruchamiane na `pull_request` i `push` do `main`. Joba/joby: checkout, Python 3.11 + 3.13 (macierz minimalna; opcjonalnie 3.14 osobno jako informacyjna, bo zlib-ng — patrz H9), `python3 tools/selftest.py` (z jasną polityką SKIP: brak `--selftest`/brak zależności = SKIP, nie PASS), `python3 tools/claims_check.py`, oraz lint TODO gdy H24 dostarczy narzędzie. **Poza zakresem:** pobieranie obrazów vendorowych, testy wymagające `IMG256`/pełnego drzewa, budowa QEMU, L4. Workflow nie może zawierać sekretów ani danych vendorowych.
+  - Input: `tools/selftest.py`, `tools/claims_check.py`, `tools/README.md` (konwencje), reguły H9 (zlib-ng nie udaje byte-identical; job kompresji/rebuild oznaczyć lub uruchamiać pod stock zlib). Artefakty: logi, opcjonalnie `selftest --json`.
+  - Done when: workflow jest poprawny składniowo, uruchamia się w CI, publikuje czytelne podsumowanie (ile PASS/FAIL/SKIP i które narzędzia zawiodły), a FAIL blokuje merge check; dokumentacja w `tools/README.md` lub `.github/workflows/README.md` opisuje co jest bramką twardą, co informacyjną i dlaczego brak vendor data. EXP z linkiem do przebiegu CI i uzasadnieniem macierzy Pythona.
+  - Stop: jeśli `selftest.py` ma niestabilne SKIP/FAIL zależne od środowiska GHA (brak `qemu-system-sh4`, `binutils-sh4`, miejsca na dysku), sklasyfikować je jawnie (SKIP z powodem) zamiast maskować; problematyczne przypadki → osobne taski, status zadania `blocked` z `Unblock:` tylko gdy bramka nie może być zielona z uczciwą klasyfikacją.
+  - Claims: C-2750–C-2759
+
+- [ ] **H26 — Pipeline L1/L2 na fixture’ach syntetycznych i generowanych (CI)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: H25
+  - Goal: automatycznie mierzyć postęp warstwy „format/struktura akceptowalna offline”: potrafimy zbudować lub zmutować dane tak, że `cardcheck.py` (L1) i wybrane ścieżki `l2check.py`/round-trip przechodzą — bez twierdzenia, że firmware je zaakceptuje. To bezpośredni wskaźnik celu „generować obrazy kart SD”, ograniczony do tego, co da się udowodnić offline.
+  - Precheck: `python3 tools/cardcheck.py --selftest`/help i `python3 tools/l2check.py --selftest`/help działają; istnieją narzędzia generujące fixture (`mkcard.py`, `imgpatch.py`, `cmpind_writer.py`, `drstr_ze0`/harness tam gdzie mają `--selftest`). Jeśli brak syntetycznego wejścia dla danej ścieżki L2, ścieżka jest raportowana jako `NOT COVERED`, nie jako PASS.
+  - Scope: job/workflow (może rozszerzać H25, osobny plik lub wspólny) uruchamiający: (a) L1 na obrazie/drzewie wygenerowanym w teście z fixture syntetycznego (np. ścieżka `mkcard`/minimal tree — zgodnie z aktualnymi narzędziami; nie commitować vendor danych), (b) round-tripy L2 oparte o selftesty/narzędzia: `cmpind` preserved/recompress tam gdzie stock zlib dostępny, DRSTR rebuild, tile round-trip na syntetycznych/małych przypadkach obsługiwanych przez narzędzia, mutacja POI tam gdzie fixture jest syntetyczny. (c) Jawny raport: `L1 synthetic`, `L2 DRSTR`, `L2 cmp/ind`, `L2 tile`, `L2 POI mutation` — każdy PASS/FAIL/SKIP/NOT COVERED z komendą. **Poza zakresem:** golden EU2011 na prawdziwym `ROOT` (wymaga vendor tree), pełne 194 pary na prawdziwym REFER001, `--include-lev` na prawdziwym pliku.
+  - Input: `tools/cardcheck.py`, `tools/l2check.py`, `tools/cmpind.py`, `tools/mkcard.py`, `tools/imgpatch.py`, `tools/selftest.py`; golden/profile tylko jeśli są w repo i nie zawierają danych vendorowych (`tools/golden/eu2011.json` to hashe/liczniki — użyć ostrożnie, bez wymagania obrazu).
+  - Done when: CI produkuje artefakt JSON/Markdown z macierzą L1/L2 (per check) i exit code odzwierciedla tylko checks uznane za „runnable” w tej warstwie; dodanie nowego syntetycznego przypadku L1/L2 wymaga tylko dopisania do listy checks, nie zmiany logiki raportu. EXP opisuje pokrycie (co realnie mierzymy) i luki (co nadal wymaga vendor data / M5/M6).
+  - Stop: nie symulować PASS przez pomijanie walidacji; jeśli L2 wymaga stock zlib 1.3.1 do byte-identical i runner ma zlib-ng, check jest `SKIP (zlib-ng, H9)` z linkiem do uzasadnienia. Po 2 nieudanych próbach ustabilizowania bez zmiany semantics — `blocked` + EXP.
+  - Claims: C-2760–C-2769
+
+- [ ] **H27 — Raport postępu L1–L4 (dashboard): reader-coverage + wyniki CI jako artefakt**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: H25, H26
+  - Goal: jeden widok pokazuje postęp celu „karta SD czytana przez auto”, nie jako procent coverage kodu, lecz jako stan warstw: L1/L2 (offline, runnable), L3 (ile targetów PASS/BLOCKED/SKIP, które readery mają VA), L4 (S0–S3: planowane/wynik z EXP/protokołu). Źródłem prawdy pozostają `docs/research/reader-coverage.md`, `claims.md`, `TODO.md` i wyniki narzędzi — dashboard je agreguje.
+  - Precheck: istnieją `docs/research/reader-coverage.md`, `tools/l3check.py --help`, `tools/l3_harness/targets.json`; workflow H25/H26 produkuje lub może produkować JSON. Jeśli format któregoś wejścia jest niestabilny, najpierw zdefiniować minimalny kontrakt (osobna sekcja w EXP) zamiast parsować heurystycznie.
+  - Scope: narzędzie (nazwa ustalona, np. `tools/progress_report.py` z `--selftest` na syntetycznych danych) lub skrypt workflow generujący `progress.{json,md}`: tabela L1/L2 z ostatniego runu, tabela L3 z `l3check --json` (domyślnie `--build-corpus`; bez vendor firmware jeśli niedostępne), podsumowanie reader-coverage (ile wierszy: writer none/partial/exists, reader unlocated/partial/located, L3 —/blocked/pass), sekcja L4 jako jawny status ręczny (`NOT RUN`/wynik Sx) linkujący do M6/M5 tasków — bez automatycznego PASS. Wynik jako GitHub Actions job summary + artefakt; opcjonalnie commitowany snapshot tylko jeśli bezpieczny (brak vendor danych) i uzgodniony osobno. **Poza zakresem:** GitHub Pages, zewnętrzny serwis, modyfikacja `reader-coverage.md` bez dowodu.
+  - Input: `tools/l2check.py --json` (tam gdzie użyte), `tools/l3check.py --json`, `docs/research/reader-coverage.md`, `docs/research/card-test-plan.md` (L4 kontekst).
+  - Done when: artefakt z PR/main jasno rozdziela „udowodnione offline”, „udowodnione przez firmware/L3”, „wymaga auta” i nigdy nie podnosi L2 do L3/L4; `--selftest` narzędzia raportu działa bez vendor danych. EXP z przykładowym wydrukiem i mapowaniem pól na regułę 13.
+  - Stop: jeśli `reader-coverage.md` nie daje się wiarygodnie zparsować bez zmian semantycznych, raport opiera się na jawnej, małej tabeli pośredniej generowanej/utrzymywanej z kontraktem — decyzja w EXP; nie zgadywać statusów.
+  - Claims: C-2770–C-2779
+
+- [ ] **H28 — L3 w CI: corpus syntetyczny, targety runnable/blocked, opcjonalny tryb z IMG256**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H25, M9.12/M9.20 (stan bieżący harnessu; zadanie adaptuje się do aktualnych możliwości, nie wymusza PASS na blocked readerach)
+  - Goal: pokazywać postęp L3 jako „które czytniki firmware da się uruchomić na naszych danych i jaki jest werdykt”, z uczciwym `BLOCKED` dla niepodłączonych readerów. Nawet 1 runnable target (`probe-zlib-cmf`) to test ścieżki wykonawczej, nie akceptacja karty.
+  - Precheck: `python3 tools/l3check.py --build-corpus --selftest` przechodzi lokalnie; `targets.json` istnieje. Sprawdzić aktualne statusy (wiele `blocked` — to oczekiwane).
+  - Scope: (1) domyślny job CI: `l3check --build-corpus --json` na corpus syntetycznym; raportuje PASS/FAIL/SKIP/BLOCKED per target; `BLOCKED` nie jest FAIL, brak runnable targetów = exit zgodny z `l3check` (obecnie 3) i jawny status `NO RUNNABLE TARGETS`. (2) osobny workflow `workflow_dispatch`/scheduled (opcjonalny): jeśli polityka repo pozwala, pobiera `IMG256` przez `tools/fetch_image.py --image IMG256` do cache, uruchamia `python3 tools/realcheck.py IMG256` i ewentualne kroki L3 wymagające firmware head — tylko gdy narzędzia i czas GHA na to pozwalają; wynik oznaczony jako „firmware-head regression”, nie pełne L3 na karcie. **Poza zakresem:** pełne obrazy 7GB w standardowym PR job, Ghidra/QEMU jako wymóg PR, fałszowanie PASS.
+  - Input: `tools/l3check.py`, `tools/l3_harness/*`, `tools/fetch_image.py`, `tools/realcheck.py`, `IMG256` (tylko tryb opcjonalny, cache, weryfikacja SHA-256).
+  - Done when: PR job publikuje tabelę L3 z countami; tryb opcjonalny ma udokumentowane limity (czas, cache, brak pełnego ROOT) i nie uruchamia się automatycznie na każdym PR bez uzasadnienia kosztu. EXP zinterpretowany zgodnie z regułą 13.
+  - Stop: jeśli pobranie IMG256 jest niestabilne/niedozwolone w docelowym runnerze, tryb opcjonalny zostaje wyłącznie `workflow_dispatch` na self-hosted/approved runnerze z dokumentacją — nie blokuje PR joba.
+  - Claims: C-2780–C-2789
+
+- [ ] **H29 — L4 (hardware/Marek): automatyzacja przygotowania artefaktów i rejestracji wyników S0–S3**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H27, M5.13b (S1/S2 istnieją), M6.2/M6.5–M6.7 (protokół)
+  - Goal: L4 nie da się zautomatyzować w GHA (wymaga auta), ale da się zautomatyzować przygotowanie paczki testowej i powtarzalną rejestrację wyniku, żeby postęp L4 był widoczny w tym samym systemie co L1–L3.
+  - Precheck: `docs/research/card-test-plan.md` i taski M6.2/M6.5–M6.7 opisują S0–S3; `tools/imgpatch.py`/artefakty S1/S2 są dostępne tam, gdzie budowane (vendor data poza repo). Sprawdzić aktualny stan: M5.13b done, bench czeka na Marka.
+  - Scope: (1) `workflow_dispatch` „prepare-L4-bundle” (lub narzędzie) przyjmujący ścieżki/artefakty dostarczone poza repo lub budowane na self-hosted runnerze z dostępem do vendor data: generuje manifest (SHA-256 obrazów, diff zakresów jak w M5.13b, wersja narzędzi, profil/test id), checklistę S0–S3 i szablon wyniku (PASS/FAIL/objaw, zdjęcie/serial/log opcjonalnie) — bez commitowania obrazów. (2) Szablon EXP/issue lub `docs/experiments/` snippet do wklejenia wyniku Marka tak, by H27 mogło policzyć L4 jako `Sx PASS/FAIL/NOT RUN`. **Poza zakresem:** zdalne sterowanie autem, automatyczny werdykt L4, przechowywanie obrazów kart w repo/artefaktach publicznych.
+  - Input: `docs/research/card-test-plan.md`, M6.2/M6.5–M6.7, H27 format raportu, `tools/imgpatch.py` metadata.
+  - Done when: da się jednym poleceniem/workflow wygenerować kompletną paczkę „co nagrać na kartę + co sprawdzić + gdzie wpisać wynik”, a wynik L4 da się odczytać maszynowo przez H27 bez interpretacji prose. EXP z przykładowym bundle manifestem (syntetyczne ścieżki/hashe przykładowe, nie vendor).
+  - Stop: jeśli polityka bezpieczeństwa/udostępniania obrazów jest niejasna, workflow tylko generuje checklistę/manifestspec i zatrzymuje się przed pakowaniem binariów — `blocked` z pytaniem do właściciela danych.
+  - Claims: C-2790–C-2799
+
 ## M1 — Firmware tooling
 
 Done: M1.1 (synthetic self-test, EXP-47), M1.5 (`cerom.py memmap`/`ghidra`,
@@ -1118,6 +1235,62 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if the change alters another `--calls` line in build A beyond these
     sites, record the diff in an EXP and stop.
   - Claims: C-2650–C-2659
+
+- [ ] **M1.16 — Unify `.cmp`/`.ind` chunk codec and inner-page helpers across tools**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.13 done: factory params pinned to stock zlib L6 / memLevel 8
+    / wbits 15 / default strategy for POINT001–009)
+  - Goal: reduce drift in the format we must generate correctly (rule 13).
+    `cmpind.py`, `cmpind_writer.py`, `mutate_refer_poi.py`,
+    `mutate_refer_page.py`, `poi_copies.py`, `slot_budget.py`, `lev3456.py`,
+    `l2check.py` and others reimplement `CHUNK=0x10000`, `decompressobj` loops,
+    `compressobj` params, pair read/write and inner-zlib-page iteration with
+    slightly different defaults and error handling. M5.21 already noted slot/encode
+    logic duplicated with M5.12c.
+  - Precheck: `python3 tools/selftest.py` passes for the affected tools
+    (baseline; record any current failures separately) and
+    `grep -rn 'CHUNK = 0x10000\|decompressobj\|compressobj' tools/*.py | wc -l`
+    shows the duplication surface.
+  - Scope: add one shared module (extend `tools/cmpind.py` or add
+    `tools/cmpind_codec.py`, name chosen in the PR) exposing decode/encode,
+    changed-chunk repack, inner complete-zlib-page iteration, and a
+    `factory_compress`/`factory_params` helper aligned with M1.13/C-2570–C-2579.
+    Migrate the highest-risk writer tools first (`cmpind_writer`, `slot_budget`,
+    `mutate_refer_poi`/page, `poi_copies`); leave read-only tools if migration
+    risk is higher than benefit, but document the decision.
+  - Done when: the shared module has `--selftest` (round-trip, changed-chunk
+    repack preserves unchanged bytes, factory params reproduce a known vector),
+    migrated tools keep their existing selftests green, and no migrated tool
+    hardcodes conflicting default zlib params.
+  - Stop: if a migration changes bytes produced for a real factory sample,
+    record the before/after SHA-256 and stop that tool's migration until the
+    difference is explained (encoder version vs logic bug).
+  - Claims: C-2730–C-2739
+
+- [ ] **M1.17 — Verify factory zlib params across non-POINT generated file types**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.13
+  - Goal: M1.13 reproduced 471/471 factory inner pages of `REFER001/POINT001–009`
+    with stock zlib L6/memLevel 8. The compiler also writes/repacks `ADDRE*`,
+    `ZCODE*`, `ICODE001`, `COORD001`, `LCTBL001`, `INTER*`/`FRWAY*` (if
+    generated), `LEV3456R` and `MAPAL001` tile streams. A different producer
+    per family would invalidate byte-identical/slot-budget assumptions.
+  - Precheck: `python3 tools/factory_zlib.py --help` (or the M1.13 tool) works;
+    at least one factory pair from each covered family is available in the
+    extracted tree (`ROOT/REFER001`, `ROOT/MAPAL001`). If `ROOT` is absent,
+    use `IMG256`/extracted files per rule 11, not a blocker claim.
+  - Scope: sample real factory `.cmp/.ind` pairs for each family listed in
+    `reader-coverage.md` rows that are compressed containers; compare factory
+    inner streams to stock zlib candidates (reuse `factory_zlib.py`). Count
+    reproduced vs not; do not test on synthetic data.
+  - Done when: the EXP lists per family: sample SHA-256, page/stream count,
+    best-matching params, reproduced count, and whether L6/m8 is sufficient;
+    any family that does not reproduce is filed as a follow-up with the
+    observed byte differences characterized (header, dynamic block, strategy),
+    not guessed.
+  - Stop: after one representative pair per family (more only when the first
+    disagrees); do not brute-force every pair in the image.
+  - Claims: C-2740–C-2749
 
 ---
 
@@ -2333,6 +2506,33 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     and stop.
   - Claims: C-2700–C-2709
 
+- [ ] **M4.30 — Restriction word-test deepening: class-dependent encoding and mapping errors (M4.23 follow-up)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.23 (findings), M4.25 (word-test audit task)
+  - Goal: turn M4.23's real-but-below-threshold signal into an actionable
+    encoding hypothesis for M4.3/routing. M4.23 found `no_*` to-entry carries
+    the from-word on 37 % (L1) / 55 % (L2) overall vs 4 % / 3 % shuffled, but
+    arrival→exit reached 65 % / 71 %; 63 % missing cases were unexplained
+    (candidates: mapping errors from way splits at via/two-way entries, a
+    different encoding for part of the population, level-1 graph missing
+    junctions).
+  - Precheck: reproduce M4.23's `rd_restrictions.py match` summary numbers on
+    `B48R058R` + `dolnoslaskie.imf.jsonl` (or the recorded corpus) so the
+    baseline is pinned.
+  - Scope: analysis on the M4.23 corpus first; stratify by entry class
+    (arrival/exit/two-way), detect way-split-at-via and ambiguous bearing
+    matches, and test whether the remaining misses cluster by restriction type,
+    one-way geometry, or a second word position/form. Coordinate with M4.25 so
+    work is not duplicated.
+  - Done when: the EXP reports hit rates per stratum with controls, names the
+    dominant miss causes with counts, and either (a) proposes a specific
+    encoding rule that reaches the pre-stated threshold on a held-out subset or
+    (b) shows with controls that no single rule fits and files the split
+    hypotheses as follow-ups.
+  - Stop: do not lower the pass threshold; a better model or an honest split is
+    the result.
+  - Claims: C-2770–C-2779
+
 ---
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
@@ -2846,6 +3046,36 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     that implies the earlier check was wrong, treat that as the finding (do not
     "fix" the result).
   - Claims: next free block at claim time.
+
+- [ ] **M5.25 — Reconcile REFER POI page encoding (slot_budget vs mutate_refer_poi/M5.12c)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M5.12c (blocked: uncompressed-files scan unfinished), M1.16, M5.21
+  - Goal: one safe path for editing/writing POI name pages on a real card.
+    M5.21 (`slot_budget.py`) implements its own slot rule and encoder search and
+    notes "two slot rules... written twice; reconciling belongs to the M5.12c
+    owner"; `mutate_refer_poi.py` on `main` lacks the M5.12c refit/FitError path
+    while M5.12c is blocked. Divergence here can overflow a slot or miss copies
+    — both break the nearest milestone (Marek's S1/S2/S3 bench runs depend on
+    predictable, minimal diffs).
+  - Precheck: `git show --name-only claude/m5.12c-poi-copies` (or the M5.12c
+    branch state) and the M5.21 EXP scope limits identify the exact API/behavior
+    differences; `python3 tools/slot_budget.py --selftest` and
+    `python3 tools/mutate_refer_poi.py --help` on `main` establish baselines.
+  - Scope: `tools/mutate_refer_poi.py`, `tools/slot_budget.py`, `tools/poi_copies.py`
+    (and shared codec from M1.16 if landed). No new format claims; this is
+    integration/refactoring. Preserve M5.21's "refuse and list, never overflow"
+    contract and M5.12c's "find every copy" goal.
+  - Done when: one documented entrypoint (or a thin wrapper) performs same-length
+    and refit edits with the M5.21 slot budget, uses factory params from M1.13/
+    M1.16, refuses pages that cannot fit, reports every refused page and (once
+    M5.12c unblocks) every name copy; existing selftests still pass and a new
+    synthetic test covers an over-budget refusal and a fitting refit.
+  - Stop: if M5.12c's unmerged branch cannot be reconciled without guessing its
+    intent, record the diff and keep M5.12c as the unblock; do not silently drop
+    its scan behavior.
+  - Unblock: M5.12c (for the "every copy / uncompressed scan" part); the slot/refit
+    API reconciliation can proceed once M1.16 defines the shared codec.
+  - Claims: C-2750–C-2759
 
 ---
 
@@ -3528,6 +3758,29 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if fixing it requires changing `tools_ze0` semantics, file that as a
     separate audited-patch task and stop.
   - Claims: C-2690–C-2699
+
+- [ ] **M9.26 — Revisit `POINT` byte-order / source after M9.11b registers `cmp_ind_reader`**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M9.11b, M3.11b
+  - Goal: M3.11b found the POINT page already as native little-endian `u16` in
+    the decoded buffer but left the source unknown (HYPOTHESIS C-2239, blocked
+    on M9.11). M9.11's firmware path now passes byte-identically on
+    factory/S1/S2 POINT010 pairs, but `cmp_ind_reader` is not registered until
+    M9.11b provides a firmware-call target kind. Once registered, use the real
+    decoder + the M3.11 walker to answer where the page becomes native u16 and
+    whether any consumer sees file-order bytes.
+  - Precheck: `cmp_ind_reader` runs on the factory POINT010 pair via the L3
+    harness (M9.11b done when) and reproduces M9.11's byte-identical result.
+  - Scope: POINT001/010 (factory + S2 if available); compare decoder output
+    buffer layout, the walker's packed-u16 read, and the on-disk bytes. No new
+    format write.
+  - Done when: the EXP states, with a control, whether the decoder output is
+    file-order or native, where the M3.11 walker reads from, and updates
+    C-2234/C-2239 (confirm or retract) with the evidence.
+  - Stop: if the registered target cannot expose the decoder's output buffer
+    address, record that limit and stop; do not infer from disassembly alone
+    when a runnable path exists.
+  - Claims: C-2760–C-2769
 
 ---
 
