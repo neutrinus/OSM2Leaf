@@ -2727,10 +2727,13 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2990–C-2999
 
 - [ ] **M4.34 — Bearing count-mismatch exclusion analysis for restriction matching (M4.30 follow-up)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.34-bearing-count-mismatch · Critical: no
   - Depends: M4.30 (findings)
   - Goal: classify 492/737 L1/L2 count mismatches (OSM bearings != tile non-edge entries) — OSM through-way extra bearings, tile far-node-in-other-record filtering, or genuine junction mismatch — and quantify recoverable matched population without outcome fitting.
   - Precheck: reproduce M4.30 mapping diagnostics (L1 492 count + 359 angle of 851; L2 737+580 of 1317).
+  - Scope: analysis on the M4.30/M4.23 `B48R058R` + `dolnoslaskie.imf.jsonl` corpus, levels 1 and 2 only; count-mismatch exclusions only (492 L1, 737 L2). No changes to `tools/rd_restrictions.py`; if code is needed, add a uniquely named `tools/m434_bearing_mismatch.py`. No vendor bytes committed.
+  - Done when: the EXP reports, with controls and without outcome fitting, counted classes for the 492/737 count mismatches (OSM through-way extra bearings, tile far-node-in-other-record filtering / record-boundary differences, genuine junction mismatch, other/unclassified) and quantifies the recoverable matched population implied by each class; precheck diagnostics are reproduced; follow-ups named if recovery needs a rule change.
+  - Stop: do not fit outcomes to raise counts; if a class cannot be distinguished on available data, count it as unclassified with the reason and stop.
   - Claims: C-3000–C-3009
 
 - [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
