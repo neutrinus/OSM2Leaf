@@ -974,7 +974,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Tool: `cerom.py files --extract --decompress` writes stored bytes,
     classifies OK/UNSUPPORTED/FAIL and never writes a wrong-length decode
     (EXP-55, C-573); EXP-51 says the real payload is not a stdlib format.
-  - Status: in progress · Owner: task/m1.4-extract-filesentry-payloads · Critical: no
+  - Status: blocked · Owner: task/m1.4-extract-filesentry-payloads · Critical: no
+  - Blocker: all 8 compressed build-B FILESentry payloads carry CE-LZXD block marker `0x8d80805b` and no public/stdlib `cecompress` method decodes them (0 matches, 8 UNSUPPORTED); M1.2b/c path does not suffice, so `rsize`-length decode / readable `ceconfig.h` cannot be produced without the CE-LZXD codec (M1.2f blocked, M8.E1 runtime unavailable in session).
+  - Unblock: M1.2f (CE-LZXD block decode, pure-Python or verified reference) and/or M8.E1 runtime oracle producing verified decodes; then resume M1.4 (decode to `rsize`, add `extract-file NAME` if still desired, verify build C).
   - Depends: M1.2b or M1.2c
   - Goal: read `boot.hv`, `default.hv`, `user.hv`, `ceconfig.h`,
     `initobj.dat`, `UpdateNK.skn`.
@@ -984,7 +986,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `cerom.py extract-file NAME` writes payloads whose length is
     `real` and `ceconfig.h` is readable text (do not commit it; quote ≤ 3
     lines in the EXP).
-  - Claims: C-680–C-689
+  - Result: EXP-2026-11-08-M1.4-filesentry-payloads (extraction/characterization done; decode blocked, done-when not met; C-680–C-683).
+  - Claims: C-680–C-683
 
 - [x] **M1.6b — Resolve all import thunks of all modules**
   - Status: done · Owner: session-ZMxuBT · Critical: no

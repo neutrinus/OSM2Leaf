@@ -769,6 +769,10 @@ Built without vendor data; every row states what is synthetic-only.
 | C-677 | reserved. | UNKNOWN | — | — |
 | C-678 | reserved. | UNKNOWN | — | — |
 | C-679 | reserved. | UNKNOWN | — | — |
+| C-680 | Build B `FILESentry` (IMG256 `92aa525d…`, `--image-start 0x3e00200`): all 8 `csize != rsize` entries (`ceconfig.h`, `initobj.dat`, `boot.hv`, `default.hv`, `user.hv`, `initdb.ini`, `celog.dll`, `UpdateNK.skn`) have extractable stored bytes and each carries the CE block marker `0x8d80805b` (`5b 80 80 8d`) at a per-entry offset (25,31,43,112,40,25,25,1459). Small/medium entries' first LE `u16` equals `rsize` (7/8); `default.hv` and `UpdateNK.skn` do not fit that u16 form (consistent with EXP-51). | OBSERVED | M | EXP-2026-11-08-M1.4-filesentry-payloads; `cerom.py files --extract`, header scan |
+| C-681 | `cecompress.py probe` (lzss,lzx,lznt1,xpress-lz77,xpress-huffman) finds 0 matches on `ceconfig.h` stored bytes (1547 B) for expected `rsize` 6611 at offsets 0–32 (165 attempts) and 0–80 with 4 methods (324 attempts). `cerom.py files --extract --decompress --json` (build B, IMG256) reports 8 compressed entries all `UNSUPPORTED`, 0 `OK`, 0 `FAIL`. Negative with positive control: synthetic extract/classify and probe self-tests pass (EXP-55/C-573, EXP-M1.2b). | VERIFIED (negative, real image) | M | EXP-2026-11-08-M1.4-filesentry-payloads |
+| C-682 | **BLOCKED (M1.4):** decoding compressed `FILESentry` payloads to `rsize` / readable `ceconfig.h` is blocked on the CE-LZXD block codec (marker `0x8d80805b` present; nk.exe decompressor VAs known from M1.2c C-660–C-663/C-2292). M1.2b/c public/stdlib methods do not suffice. Unblock: M1.2f (pure-Python CE-LZXD port) and/or M8.E1 runtime oracle producing verified decodes, then resume M1.4. | BLOCKED | M | EXP-2026-11-08-M1.4-filesentry-payloads; M1.2c/M1.2f |
+| C-683 | FILESentry compressed payload header layout before the `0x8d80805b` marker (including the EXP-51 step-`0x4a` table in `boot.hv`/`user.hv`/`default.hv` and relation to DECOMP_SECT/BLK framing) remains unverified. | HYPOTHESIS | L | EXP-2026-11-08-M1.4-filesentry-payloads |
 
 ## Housekeeping / CE ROM tool consolidation (H3)
 
