@@ -42,7 +42,7 @@ the car is L4 and has not run (`docs/research/card-test-plan.md`).
 | 3 | `MMAIN001.DAT` | generate · exists — `tools/mmain.py` | [drstr §MMAIN](../format/drstr.md#mmain001dat--the-4-kib-database-header) | `L1` level totals; `mmain.py` round-trip `240e7c97…` | located `0x0041a438` (open `0x0041b780`, read `0x0041b954`); exactly `0x1000` bytes, no label/count check (M3.8) | no target — gap (see G1) | — | — | record counts change with the tile set; US 2011 same class | C-037, C-164, C-550, C-1720–C-1724, C-1780–C-1789, C-1890, C-1026; EXP-M3.8, EXP-H8 | M5.6 |
 | 4 | `DRSTR001.DAT` | generate · exists — `drstr_ze0.build` | [drstr](../format/drstr.md) | `L1` tree check; `L2` `drstr_rebuild`; byte-identical EU 11,968 B / US 7,456 B | located `0x00419684` → parser `sub_00419350`; size/read checks, no `0x2f`/40/324 compare (M3.4, M3.10) | `drstr_parser` — blocked | BLOCKED (4) | — | US stores lowercase `ltntbl.dat` while the file is `LTNTBL.DAT`; 2014/2016 L2 pass | C-030–C-039, C-194, C-850–C-859, C-1860–C-1869, C-1982, C-2100–C-2101; EXP-M3.4, EXP-M3.10, EXP-M4.20, EXP-H6 | M9.14 |
 | 5 | `CMP.LST` | copy — constant 19 bytes; no writer needed | [drstr §related](../format/drstr.md#related-files) | `L1` exact-content check | located `0x0041ba90`; `fopen`/`fclose` only, no read/compare (M3.10) | — (existence-only; L3 adds nothing) | — | — | content `\SystemSD\REFER001\`; US/EU unmeasured | C-035, C-1866, C-1869; EXP-M3.10 | M5.6 |
-| 6 | `REFER001` container `.cmp` + `.ind` | generate · exists — `tools/cmpind_writer.py` (preserve/recompress) | [cmp-ind](../format/cmp-ind.md) | `L1` 194/194; `L2` preserved 194/194; writer fixtures | partial — chunk engine `fn 0x41c7e8` + zlib `0x542256`/`0x54233c`/`0x54220c` (M3.2b); `.ind` parser and its caller are in `Navi.exe` compressed sec1 | `cmp_ind_reader` — blocked; **M9.11 re-scoped to `0x41c7e8`** (runnable) | BLOCKED (4) | — | EU 194 pairs, US 58; zlib-ng reproduces 0/194 | C-020–C-029, C-190–C-195, C-505–C-506, C-820–C-839, C-330, C-2060–C-2066; EXP-06, EXP-M3.1, EXP-M3.2, EXP-M3.2b | M9.11; M3.2b after M1.2f |
+| 6 | `REFER001` container `.cmp` + `.ind` | generate · exists — `tools/cmpind_writer.py` (preserve/recompress) | [cmp-ind](../format/cmp-ind.md) | `L1` 194/194; `L2` preserved 194/194; writer fixtures | partial — chunk engine `fn 0x41c7e8` + zlib `0x542256`/`0x54233c`/`0x54220c` (M3.2b); no *static* caller found — an indirect call through a `.data` pointer (C-2128 refutes the "sec1 code" reading) | `cmp_ind_reader` — blocked on M9.20; **M9.11 targets `0x41c7e8` directly** | BLOCKED (4) | — | EU 194 pairs, US 58; zlib-ng reproduces 0/194 | C-020–C-029, C-190–C-195, C-505–C-506, C-820–C-839, C-330, C-2060–C-2066; EXP-06, EXP-M3.1, EXP-M3.2, EXP-M3.2b | M9.11; M3.2b after M1.2f |
 | 7 | `REFER001/COORD001` | generate · none (layout known) | [coord-zcode-icode](../format/coord-zcode-icode.md) | `L1`/`L2` pair only; `coord.py` grid fit; no file writer | unlocated — M3.14 | M9.15 planned | — | — | 33 region boxes in `REFER001`; `REFER002/COORD001` has 15 | C-110, C-111, C-053, C-152, C-960; EXP-M4.8 | M3.14 |
 | 8 | `REFER001/ZCODE0nn` | generate · none | [coord-zcode-icode](../format/coord-zcode-icode.md) | `L1`/`L2` pair only; field decode is claim-only (no repo tool) | unlocated — M3.14 | M9.15 planned | — | — | 33 shards in the EU set; US shard set unmeasured | C-112, C-113, C-131; EXP (ZCODE walk, not committed) | M3.14 |
 | 9 | `REFER001/ICODE001` | generate · none | [coord-zcode-icode](../format/coord-zcode-icode.md) | `L1`/`L2` pair only; field decode is claim-only | unlocated — M3.14 | M9.15 planned | — | — | `REFER002/ICODE001` appears from 2013 | C-114, C-115, C-122, C-1025; EXP-M4.14 | M3.14 |
@@ -101,26 +101,24 @@ count as a reader):
 `HDD_INFO.TXT`, `DRSTR001.DAT` and `CMP.LST` have located readers; their L3
 targets are blocked on engine/corpus work, not on address discovery.
 
-**The installed base of this list is compression.** M3.11 (`POINT`), M3.2b
-(`.cmp`) and M3.13 (`ADDRE`) each searched every uncompressed build-A section,
-found the access path and not the record walker, and named the same escape.
-The budget, measured with `cerom.py memmap --json` on `IMG256` (build A,
-2026-11-06):
+**Why the reader list is long, and why it is not compression (corrected
+2026-11-08).** M3.11, M3.13 and M3.2b each searched "every uncompressed
+section", found the access path and not the record walker, and concluded that
+the walker hides in `Navi.exe` sec1. C-2128/C-2129 refute that: build A has
+**0 compressed executable sections** (22.8 MB of code, all readable); the 245
+compressed sections (30.2 MB) are `.data`. The walker is `fn 0x003f5194` in
+`sec0` and runs in L3 on the real US page.
 
-| Measure | Value |
+| Measure (measured 2026-11-08, `cerom.py memmap --json`) | Value |
 | --- | --- |
-| Section virtual size, build A | 53,725,980 B |
-| Of which `IMAGE_SCN_COMPRESSED` | 30,212,810 B (**56.2 %**) |
-| o32 sections, total / compressed | 527 / 245 |
-| Modules with at least one compressed section | 133 / 149 |
-| **`Navi.exe` (the module every reader task targets)** | 5.55 MB readable, **16.78 MB compressed (75.1 %)**, all in `sec1` (16.7 MB) + `sec2` |
-| `OBJDLL.dll` | 30.2 % compressed; `XGLDLL.dll` 77.9 % |
+| Executable section bytes, build A | 22,767,466 B, **0 compressed** |
+| All section bytes / compressed | 53,725,980 B / 30,212,810 B (`.data`) |
+| Modules with a compressed section | 133 / 149 (data only) |
 
-A "searched every uncompressed section" negative therefore describes at most
-44 % of the bytes and 25 % of `Navi.exe`. That is why rule 14 makes
-`Precheck`/`Scope`/`Stop` mandatory and why **M1.12**
-(`tools/reader_precheck.py`) exists: the share is printed before the first
-`grep`, not discovered in the EXP.
+So a "not found" verdict here means the **signature** was wrong — M3.11's did
+not test the packed `u16` the code actually uses. Rule 14 now asks for the
+signature and its source, and the reopened tasks (M3.2b, M3.13, M3.14–M3.16,
+M3.18) carry that requirement.
 
 ## L3 targets and what they actually prove
 

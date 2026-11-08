@@ -92,26 +92,23 @@ front has fewer, add the next tasks (see rule 9).
     (H11); update its row in the same PR as your task.
 
 14. **A search task must pass its precheck before anyone searches (PM,
-    2026-11-06, seventh pass).** M3.11, M3.2b and M3.13 each spent a session
-    proving the same thing: the record walker is not in the readable code and
-    probably sits in `Navi.exe` sec1. Build A is **56 % compressed by bytes**
-    (30.2 MB of 53.7 MB of section vsize) and `Navi.exe` is **75 % compressed**
-    (16.7 MB in sec1/sec2) — the module every reader task targets. A task that
-    says "find the reader in `Navi.exe`" without `Depends: M1.2f` asks for a
-    search of one quarter of the module. So:
+    2026-11-06; premise corrected 2026-11-08).** Three reader tasks (M3.11,
+    M3.2b, M3.13) spent a session each reporting "not found in the
+    uncompressed sections", and the board blamed compression. That was wrong:
+    build A has **0 compressed executable sections** (22.8 MB of code, all
+    readable; the 245 compressed sections are `.data` — C-2128). The misses
+    were **heuristic**: the pattern came from the format doc, but the code
+    used a different one (M3.11's walker reads a packed `u16` with
+    `0x3ff`/`0xfc00` masks, no byte tag). So:
     - every task whose subject is a firmware address or reader carries a
-      `Precheck:` line whose command can fail (module, compressed share, anchor
-      xref in decodable bytes — `tools/reader_precheck.py`, M1.12);
-    - if the precheck says the target lives in compressed bytes, the task is
-      `Depends: M1.2f` (or a dynamic break) from the start, not after an EXP;
-    - `Scope:` names the bytes the search will cover, `Stop:` says when to
-      report `blocked` instead of trying a fourth angle.
-    The negative is still a result and must say which range it covered — but
-    the board's job is to not ask for it twice.
-    **Correction (2026-11-07):** compressed sections in build A are all data
-    (C-2128); a reader search is never blocked by compression. The precheck
-    counts executable bytes (`point_walk_l3.py sections`); the real failure in
-    M3.11 pass 1 was the search pattern (byte immediates), not the scope.
+      `Precheck:` line whose command can fail, and it separates **executable**
+      from data bytes (`tools/reader_precheck.py`, M1.12);
+    - state the **signature** the search tests and where it came from: an L3
+      run, the writer's inverse, or the format doc (weakest — say so);
+    - `Scope:` counts the corpus, `Stop:` says when to report `blocked`
+      instead of trying a fourth pattern;
+    - a negative never implies "impossible": M3.11's first verdict was
+      reversed in one session once the signature changed (C-2129).
 
 15. **A merge re-opens what it unblocks (PM, 2026-11-06, seventh pass).** A
     `blocked` task is not a dead task: it is a ticket waiting for one thing.
@@ -193,154 +190,164 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (product review 2026-11-06, sixth pass)
+## Priorities (product review 2026-11-08, ninth pass)
 
-> **Correction (2026-11-07, M3.11 pass 2 — read this before the headline
-> below).** "Navi.exe is 75 % compressed" is true of its **bytes**, not of its
-> **code**: build A has **0 compressed executable sections** (149 code
-> sections, all readable; the 245 compressed ones are `.data`/resources —
-> C-2128, re-measure with `python3 tools/point_walk_l3.py sections IMG256`).
-> The `POINT` walker is `fn 0x003f5194` in sec0 and already runs on the real
-> US page (C-2540/C-2541). So **M1.2f is not a gate for reader searches**
-> (it still matters for M1.3/M1.4 and for reading `.data` tables), M9.10 is
-> open again, and M3.2b/M3.13 should be re-run with two changes: search for
-> mask constants instead of byte immediates (`0x3ff`/`0xfc00` found the
-> walker), and read "no static caller" as an indirect call through a pointer
-> in `.data`, not as hidden code. Rule 14's precheck must count **executable**
-> compressed bytes, not all compressed bytes.
-
-Earlier passes are frozen in
+Earlier passes (including the sixth pass and its 2026-11-07 correction) are
+frozen in
 [`docs/research/todo-history-2026-11-06.md`](docs/research/todo-history-2026-11-06.md).
 
-**The headline: the software gate moved behind compression.** Three tasks
-merged since the fifth pass; two of them are scoped negatives with the same
-cause.
+**Nearest milestone: the two test cards exist.** M5.13b built S1 and S2 on the
+real US image: S1 is a byte-level no-op (factory card, FAT and directory entry
+reproduced), S2 changes only `REFER001/POINT010.DAT.cmp`/`.ind` plus that
+entry's size, and `cardcheck.py --image` passes on both. The hardware
+precondition ("one variable, label present, diffs inside the replaced files")
+is met; what remains is Marek's unit (**M6.2 → M6.5 → M6.6**), not software.
+Two caveats from that run: the diff check derives the cluster base from the
+`imgpatch` write offset instead of an independent BPB read, and the rebuild
+used stock zlib 1.3.2 (the 1.3.1 byte-identity claim needs a repeat).
 
-- **M3.11** (`POINT` reader) searched all 527 uncompressed build-A o32
-  sections: 0 aligned `0x60|0x68` tag pairs, 0 mask walkers, 0 `2*len2` stride
-  sequences. The access path *is* there (`0x003fbed8` → `0x0040b358` →
-  `0x004125a8`, `0x14e8` → `REFER001`+`INDEX003.DAT`); the page walker is not.
-- **M3.2b** (`.cmp` reader) found Navi.exe's statically linked zlib 1.1.3
-  (`inflateInit2_ 0x542256`, `inflate 0x54233c`, `inflateEnd 0x54220c`), the
-  one-shot wrapper `0x542148` and the chunked decompressor `fn 0x41c7e8`
-  (20-byte-stride table, no seek, no `78 9c` scan) — and then found **no
-  caller of `0x41c7e8` in any uncompressed section**.
-- Both name the same escape: **Navi.exe sec1 is `IMAGE_SCN_COMPRESSED`**
-  (`psize 0x457c`, `vsize 0xff16ae` — 16 MB of code we cannot read), and sec2
-  likewise.
+**The compression story was wrong, and the board has to say so.** The sixth
+pass concluded that reader searches are gated by the CE codec because
+`Navi.exe` is 75 % compressed. C-2128/C-2129 (M3.11 pass 2) refute the
+*code* part: build A has **zero compressed executable sections** — 149 code
+sections, 22.8 MB, all readable; the 245 compressed sections are `.data` and
+resources. The `POINT` walker is `fn 0x003f5194` in **sec0**, and it already
+runs in L3 on the real US page (C-2540/C-2541, `tools/point_walk_l3.py`).
 
-So **M1.2f is the single critical path** for M3.2b, M3.11, M1.3, M1.4, M9.10,
-M9.11 and M9.12. Two sessions proved that a reader is not in the readable 47 %
-of the code — a correct result, but the board should have sequenced the decoder
-first. **Rule 14** makes that escape explicit from now on.
+So the first M3.11 negative was not a compression result — it was a
+**heuristic miss**: the walker has no `#0x60`/`#0x68` immediate and no
+`@(1,Rm)` length read, because the tag and length are one native `u16`
+(`0x3ff`/`0xfc00` masks, C-2542). The same flaw can be present in every other
+"M3 reader not found in uncompressed sections" verdict, so:
 
-**The sixth pass also found a cheaper path through M3.2b's negative.** The
-chunked decompressor `fn 0x41c7e8` takes its chunk table from the caller
-(`@(28,ctx)`, 20-byte entries). S1 only has to prove that the firmware's own
-zlib accept our recompressed bytes: the harness can build that table from
-`.ind` itself and call `0x41c7e8` directly, without ever locating the `.ind`
-parser that lives in sec1. **M9.11** is re-scoped that way and is runnable
-now; M3.2b keeps the file-layer question for later.
+- **M3.2b and M3.13 are re-opened** with a corrected method (mask constants,
+  indirect calls through `.data` pointers, and an L3 execution probe), not
+  with a decoder dependency;
+- **M3.14–M3.16 and M3.18 lose their compression precheck** for the same
+  reason (rule 14 is rewritten accordingly);
+- **M1.2f stays open for its real job**: `cerom.py decompress` (M1.3), the
+  `FILESentry` payloads (M1.4) and reading `.data` tables — not for readers.
 
-**What else the sixth pass verified:**
+**The blocker of this round was the harness — and it closed while the review
+ran.** M9.14 and M9.17 both merged `blocked` for one reason: `runner.py` knew
+only the `synthetic` and `blocked` entry kinds and had no `engine_hook`, so a
+real reader VA could not be declared (M9.20). M9.20 merged on 2026-11-08
+(`562215a`), and **M9.6** (the map-code compare) merged the same day
+(`ff8720d`). Both waiting tasks are re-opened here per rule 15, and M2.4 now
+has its comparator.
 
-- **M2.15** specified both launcher checks byte-for-byte (C-2080–C-2084): the
-  card side is `HDD_INFO.TXT` line 1 and `MapDBVer`; the unit side is kernel
-  target-info `KernelIoControl(0x0101302C)` `+96`/`+112`/`+114`, **not** the
-  `0x06000000` copy. The unit values are unknown statically (C-2087), so
-  check 2 stays bounds-gated. **M2.4's blocker ("unavailable offline") was
-  wrong**: M9.6 runs the comparator offline, is ready, and is unowned.
-- **M3.12 removed a risk we were planning around:** `REFER001/INDEX003.DAT`
-  does not exist on the EU 2011 or the US 2011 image (no FAT entry, no
-  `DRSTR` entry). The S2 rename cannot be shadowed by an on-disk search index
-  on those images, so **M5.12c** narrows to the name DB and the tile/label
-  copies.
-- `python3 tools/selftest.py` → 45 passed / 0 failed / 18 skipped (63 suites);
-  `tools/claims_check.py` clean.
+**The first real writing limit appeared.** M5.12c renamed 131 of 136 POI
+records on the US card; the five that failed sit on pages whose edited stream
+no longer fits its slot, and stock zlib 1.3.x is **0.8 % larger** than the
+factory encoder on the same bytes. Two tasks were filed from that:
+**M1.13** (find an encoder that reproduces the factory stream) and **M5.21**
+(slot budget: refuse or re-pack, never overrun). Until one of them lands, any
+edit that changes a page length is a gamble.
 
-**Images are not a blocker (Marek, 2026-11-06).**
-`https://files.viaaq.eu/sd-images/` lists `LEAF_2011-2012_US.img` (7.5 G), the
-EU 2011 image (7.5 G), the 2014 EU image (7.4 G) and
-`ENV200_2016_EU_QSD-390-100.img` (7.4 G). Four records still cite "no vendor
-image on this machine" in their scope (M5.13, M5.12b, M8.A4, M8.A5) although
-the host is reachable and rule 11 already forbids that blocker. **H16** adds
-one fetch helper with pinned URLs, sizes and SHA-256, and **M5.13b** now lists
-the download as an explicit input.
+**What else the ninth pass verified:**
+
+- **M3.19** (the committed scanner) exposed a real defect in the record it was
+  built to reproduce: M3.11's "mask walker, 1 hit" is a *register* AND
+  (`mov #0x70,R3; and R3,R0`), not `and #0x70,R0`; the scanner finds 0. M3.20
+  names the variant and corrects the text. Eight of nine published counts
+  reproduce.
+- **M1.11** replaced the `objdump` dependency: `tools/sh4dis.py` decodes LE
+  halfwords and reproduces the `nk.exe` prologue, the flag test and four pool
+  values, failing loudly on a BE reading; `sh4xref.py` gives identical output
+  with no `objdump` on `PATH`.
+- **M9.21** taught `PySh4` little-endian and `bt/s`/`bf/s`, which is what made
+  the M3.11 L3 run possible — the engine, not the firmware, was the obstacle.
+- **M5.1b/M5.1c** completed the front end on real data: the Dolnośląskie PBF
+  ingests with counts reproduced and a loud negative control, and the ingest
+  now emits POI/address/place records that `imf_check --strict` accepts.
+- **M1.10** named **846/846** `Navi.exe` import slots; the default B-only
+  resolver was under-reporting 149.
+- **M4.2 and M4.3 are blocked with controls, not guesses:** no `RDSTM001`
+  field resolves to a road identity (0 of 9 on the US sample, with a gate), and
+  the OSM side of a turn restriction decodes while the tile side has no
+  documented regulation layout.
+- **H14** found one bad pin: `B30R048R` does not round-trip in the harness
+  (an opaque record raises), so its byte-identical claim must not be trusted
+  until explained (**M9.22**). Four other tiles and `LEV3456R` reproduce.
+- **H16** gives pinned, resumable downloads (`tools/fetch_image.py`); the 2016
+  image still needs its SHA-256 pinned (**H21**).
+- **M2.16** closed `HDD_CHK.ATT` for the map path: no factory card carries the
+  file; the only hits are the UTF-16 path strings inside `MapUpdate.exe`, and
+  `sub_0001e3f4` is a crypto-context check (CRLF + ≥8 bytes in the first
+  `0x80`), not a `memcmp` (**M2.17** carries the rest).
 
 **Take these first (critical, ready, unowned), in this order:**
 
-1. **M1.2f** — port `DECOMP_BLK`. It unblocks M3.2b, M3.11, M9.10, M1.3, M1.4;
-   nothing else on the software side moves without it. **M8.E1** is the
-   parallel route through the real function and should take Navi.exe sec1 as
-   its third vector.
-2. **M5.13b** — the S1/S2 images (download the US image from the allowed host),
-   then **M6.2** (S0) and **M5.12c** (now narrow).
-3. **M9.11** in its new scope (call `0x41c7e8` on the three `POINT010` pairs),
-   then **M9.12**; **M9.6** with M2.15's exact bytes, then **M2.4**.
-4. **M1.12** (one-command precheck) with **H16** and **H14** — the
-   infrastructure debt that keeps costing rounds.
-5. **M8.A2 → M8.A3** (F0 on a real boot log).
-6. Compiler spine unchanged: **M5.4 → M5.6 → M5.11**, with the H11 writers
-   after their M3 readers.
+1. **M9.14 and M9.17** — the first two firmware readers to be run on our
+   files, now that M9.20 (`562215a`) closed; **M2.4** runs on M9.6's
+   comparator (`ff8720d`).
+2. **M9.11** — the firmware's chunk decoder on the three `POINT010` pairs
+   (S1/S2 already built), then **M9.12** (`l3check.py --card`).
+3. **M3.11c** (name accessor) → **M9.10** (walk is runnable now; the name check
+   follows), and **M3.2b/M3.13** re-runs with the corrected method.
+4. **M1.13** (factory encoder) and **M5.21** (slot budget) — the pair that
+   decides whether a renamed page is writable at all.
+5. **M4.23** (section-2 regulation reader) → M4.3; **M9.22** (the `B30R048R`
+   assertion) → trust in the L2 pins.
+6. Compiler spine unchanged: **M5.4 → M5.6 → M5.11**, with the H11 writers.
 
-**Methodology note (sixth pass, corrected the same day by Marek).** The
-searches were not the failure; **the tickets were**. M3.11, M3.2b and M3.13 all
-asked "find the reader in `Navi.exe`" while the board already knew that 56 % of
-build A's section bytes are compressed and that `Navi.exe` is 75 % compressed
-(16.7 MB in `sec1`). A correct search of the readable quarter can only produce
-"not found", so the third case (M3.13) was predictable before it started. The
-second failure mode — *citing an absent image* (M5.13, M5.12b, M8.A4, M8.A5) —
-has the same shape: the ticket never said where the image comes from, although
-rule 11 does. Rule 14 is therefore a definition-of-ready rule, and the task
-template now requires `Precheck`, `Scope` and `Stop`.
+**Methodology note (ninth pass).** Two lessons, both already paid for:
 
-**Needs Marek:** S0 on the unit (M6.2); the Pico `.uf2` built locally (M6.11);
-the non-Claude tasks (M1.2e, M4.2, M5.1b, M9.2) on a machine with normal
-internet.
+1. *"Not found by my pattern" is not "not present".* The first M3.11 pass
+   searched for the grammar in `refer.md` (byte tag, byte length); the code
+   uses a packed `u16`. Before a negative, derive the signature from something
+   that executes (L3) or from the writer's inverse, and say which signature
+   was tested.
+2. *A rule built on one measurement can be wrong in its premise.* The
+   compression budget counted all sections, not executable ones. Rule 14 now
+   requires the precheck to separate executable from data bytes, and
+   `tools/reader_precheck.py` (M1.12) must report the two counts.
 
-**Software before the car (Marek, 2026-11-06).** A car test is expensive, so
-every edited card first passes the firmware's own code in L3: **M9.11** (the
-firmware's chunk decoder reads our recompressed pair) and **M9.10** (its POI
-reader returns the new name, once M1.2f finds the walker) → **M9.12**
-(`l3check.py --card`, the gate). M6.5/M6.6 depend on these; only S0 may go into
-the car before them.
+**Needs Marek:** S1 and S2 on the unit (M6.2 S0 → M6.5 S1 → M6.6 S2), the Pico
+`.uf2` built locally (M6.11), and the non-Claude tasks (M9.2 Ghidra; M4.2 is
+blocked for a data reason, not a runner reason).
+
+**Software before the car (Marek, 2026-11-06).** Every edited card first passes
+the firmware's own code in L3: **M9.11** (chunk decoder), **M9.10** (POI
+reader) → **M9.12** (`l3check.py --card`, the gate). Only S0 was exempt; S1/S2
+now exist and wait for that gate or for the bench.
 
 **Every generated format is confirmed by the firmware (rule 13).** Three
-levels, cheapest first: (1) the reader is located and the format doc cites its
-VAs (M3.5, M3.10, M2.15, M3.11–M3.18); (2) an L3 target runs that reader on
-our file (M9.10, M9.11, M9.13–M9.18) and the map-load chain runs on a whole
-tree (M9.16); (3) full `Navi.exe` in the emulated unit (M8 → F4 → M8.E4).
-**H11** keeps the per-file matrix; nothing goes into the car before its rows
-reach level 2. **M5.15** wires it into one command.
+levels: the reader is located (M3.*), an L3 target runs it on our file
+(M9.10–M9.18), and full `Navi.exe` runs on the emulated unit (M8 F4 → M8.E4).
+**H11** keeps the per-file matrix; a row may say "read by firmware" only after
+level 2.
 
 **Phase-2 milestone (unchanged):** one OSM-generated Dolnośląskie tile on a
 card image that passes L1 + L2 + `realcheck.py` and every known gate (M5.11).
-The OSM inputs (M4.2, M5.1b) still need a non-Claude runner (rule 12).
+The OSM inputs are now real (M5.1b/M5.1c); M5.3 still needs the road-class
+table.
 
 ## Workstreams at a glance
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H13, H14, H16, H19**; H17/H18 done |
-| M1 | Firmware tooling (decompression) | **M1.2f, M1.10, M1.11, M1.12**; M1.4 after M1.2f; M1.2e non-Claude |
+| H | Housekeeping | **H19, H21**; H13/H14/H16/H17/H18 done |
+| M1 | Firmware tooling | **M1.12, M1.13, M1.14**; M1.2f for `.data`/M1.3; M1.2e non-Claude |
 | M2 | Map code, activation, updater | **M2.16, M2.14**; M2.4 after M9.6 |
-| M3 | Reader contract | **M3.14, M3.15, M3.16, M3.17, M3.18, M3.19**; M3.2b/M3.11/M3.13 blocked on M1.2f |
-| M4 | Data formats | **M4.16b, M4.22, M4.8b**, M4.16c, M4.16d, M4.3, M4.17; M4.21 after M3.6; M4.2 non-Claude |
-| M5 | Compiler + US edits | **M5.13b, M5.12c, M5.4, M5.1c**; M5.14/M5.20 after M5.13b; M5.1b non-Claude; M5.16–M5.19 after their M3 readers |
+| M3 | Reader contract | **M3.11b, M3.11c, M3.2b, M3.13, M3.14, M3.15, M3.16, M3.17, M3.18**; M3.19 blocked on M3.20 |
+| M4 | Data formats | **M4.16b, M4.22, M4.23, M4.8b**, M4.16c, M4.16d, M4.17; M4.3 after M4.23; M4.21 after M3.6 |
+| M5 | Compiler + US edits | **M5.4, M5.6, M5.11, M5.20, M5.21**; M5.12c in progress (branch); M5.14 after M5.13b (done); M5.16–M5.19 after their M3 readers |
 | M6 | Hardware (Marek) | **M6.2 (S0)**; M6.5/M6.6 after M5.13b; M6.7 after M5.14 |
 | M8 | Full-system emulation | **M8.A2, M8.E1**; M8.A3 after M8.A2 |
-| M9 | L3 toolkit | **M9.6, M9.11, M9.13, M9.17, M9.20**; M9.12 after M9.11; M9.10/M9.14–M9.16/M9.18 after their readers; M9.2 non-Claude |
+| M9 | L3 toolkit | **M9.11, M9.13, M9.14, M9.17, M9.22**; M9.10 after M3.11c; M9.12 after M9.11; M9.6/M9.20 done; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
-· **Compression first (sixth pass):** **M1.2f** (or **M8.E1**) gates M3.2b,
-M3.11, M1.3, M1.4 and therefore M9.10 and M9.12.
-· **US (nearest):** **M5.13b** (the two images) → car M6.2 S0 → M6.5 S1 →
-M6.6 S2 → (M5.14) M6.7 S3; gated by **M9.11** (chunk decoder, runnable now)
-and M9.10 (after M1.2f) → M9.12.
-· **Poland (goal):** M5.1 → M5.1c → M5.2 → M5.4 → M5.7/M5.18 → M5.6 → **M5.11**,
-gated by M9.6/M2.4 (map code) and M5.3 ← M4.2 (road classes).
+· **Software gate first:** **M9.20** (harness entry kind + `engine_hook`) →
+**M9.14**/**M9.17** (first real reader verdicts) and **M9.11** → **M9.12**
+(card gate). **M3.11c** → **M9.10** completes the POI half.
+· **US (nearest):** S1/S2 exist (M5.13b); Marek runs M6.2 S0 → M6.5 S1 →
+M6.6 S2 → (M5.14) M6.7 S3.
+· **Poland (goal):** M5.1b/M5.1c (done) → M5.2 → M5.4 → M5.7/M5.18 → M5.6 →
+**M5.11**, gated by M9.6/M2.4 (map code), M5.3 (road classes) and
+**M1.13/M5.21** (page length and slot budget).
 Supporting: M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0) ·
-M4.16b → M4.2/M5.3.
+M4.16b → M4.2/M5.3 · M4.23 → M4.3.
 
 ---
 
@@ -568,6 +575,9 @@ M4.16b → M4.2/M5.3.
 
 - [x] **H14 — Verification debt: the checks the EXPs promised but never ran**
   - Status: done · Owner: claude/h14-verification-debt · Critical: no
+  - Note: four of five tiles and `LEV3456R` reproduce; **`B30R048R` does not**
+    (the harness's background rebuild raises on an opaque record), so its
+    byte-identical pin is untrusted until M9.22 explains it.
   - Depends: —
   - Goal: five follow-ups ask for the same thing — run the pinned checks on
     the real samples once, so the `realcheck`/`harness` pins mean something.
@@ -708,56 +718,41 @@ M4.16b → M4.2/M5.3.
     a second round of analysis.
   - Claims: C-2520–C-2529
 
-- [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
-  - Status: blocked · Owner: claude/m3.19-sh4scan · Critical: yes
-  - Unblock: M3.20 (name the register-AND mask variant; correct M3.11's pattern text).
-  - Blocker: M3.11's mask count 1 is not reproduced: its one site (Navi.exe `0x3715c8–0x3715cc`) is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`, a register AND, and `and #0x70,R0` + `cmp/eq #0x60` finds 0. The other seven published counts reproduce. See EXP-2026-11-08-M3.19-sh4scan.
+- [x] **H20 — PM review, ninth pass (2026-11-08)**
+  - Status: done · Owner: session-PM · Critical: no
   - Depends: —
-  - Goal: M3.11, M3.13 and M3.2b are correct negatives that **cannot be
-    re-run**: the tag/stride/mask searches are prose plus heredocs, and M3.2b
-    contains `# ... anchor search over IMG256 ...`. Rule 16 makes that a
-    defect; this task fixes it and gives M1.12 its engine.
-  - Precheck: the counts to reproduce are published — 527 build-A o32 sections,
-    26 aligned `cmp/eq #0x60` and 23 `cmp/eq #0x68` hits in `Navi.exe` sec0,
-    0 tag pairs, 1 `and #0x70`+`#0x60` mask hit, 0 `@(1)+2*L` stride
-    candidates, 282 sections / 23.6 MB for the M3.13 corpus, 14 zlib markers.
-    If the tool cannot reproduce them, the published numbers are the problem —
-    report that, do not adjust the tool to fit.
-  - Scope: build A (and B/C on `--image-start`); LE halfwords; uncompressed and
-    compressed sections both listed, with the compressed share printed.
-  - Input: EXP-2026-11-06-M3.11, -M3.13, -M3.2b (counts and patterns),
-    `cerom.py memmap --json`, `sh4xref.py`; `capstone` must not be required
-    (a pattern scan is halfword arithmetic, not disassembly).
-  - Done when: `python3 tools/sh4scan.py IMG --image-start 0x200200 tags
-    --module Navi.exe`, `--pattern <hex>`, `stride`, `mask-pair` and `anchors`
-    run on `IMG256`, reproduce every count above, print the corpus in bytes and
-    sections, and `--selftest` pins the pattern semantics on synthetic
-    halfwords (including the misaligned false positives M3.11 rejected); M1.12
-    imports it rather than duplicating the scan.
-  - Stop: if the counts differ, record the discrepancy in an EXP and stop —
-    the difference is the result.
-  - Claims: C-2530–C-2539
+  - Goal: sixteen results landed in two days; audit them, correct the
+    compression premise, and re-sequence around what they proved.
+  - Precheck: `git log --oneline 476dfb0..origin/main` (23 commits) and the 15
+    new EXP records; `python3 tools/selftest.py`.
+  - Scope: the records merged after the eighth pass; no vendor data read.
+  - Done when: every result's `Done when` state is on the board, the wrong
+    premise is retracted in the rule and in `AGENTS.md`, and every uncovered
+    follow-up has a task.
+  - Result: EXP-2026-11-08-H20-pm-review. Compression premise retracted
+    (0 compressed executable sections); M3.2b/M3.13 re-opened, M3.14–M3.16/
+    M3.18 prechecks corrected; M9.20 promoted (blocks M9.14/M9.17); new
+    M1.14, M1.10b, M2.17, M4.23, M9.22, H21; M5.12c marked in progress;
+    M1.13/M5.21 dangling EXP/claim references fixed.
+  - Claims: none (a review creates no format claim)
 
-- [ ] **M3.20 — Name the register-AND mask variant; correct the M3.11 pattern text**
-  - Status: open · Owner: — · Critical: yes
-  - Depends: M3.19
-  - Goal: M3.11 §2 reports `and #0x70,r0` then `cmp/eq #0x60` as 1 hit in build
-    A. The one site is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`
-    (Navi.exe `0x3715c8–0x3715cc`), a register AND that the immediate pattern
-    cannot match (EXP-2026-11-08-M3.19-sh4scan §5).
-  - Precheck: `python3 tools/sh4scan.py IMG --image-start 0x200200 dump --module Navi.exe --va 0x3715c0 --count 8`
-    shows those three halfwords.
-  - Scope: `tools/sh4scan.py` only (a `mask-pair --via-reg` variant, stdlib,
-    with a synthetic self-test); build A uncompressed sections; no other task's
-    lines.
-  - Done when: `mask-pair --via-reg --cmp 60` runs on `IMAGE_START 0x200200`,
-    its selftest pins the variant, and M3.11's pattern text is corrected by a
-    new claim row (no deletion, per the ledger rules). The count is the result,
-    not a precondition: report whatever it is.
-  - Stop: if the variant count is not 1, record it in an EXP and stop.
-  - Claims: C-2560–C-2569
-
----
+- [ ] **H21 — Image pin audit: hash the archive images, pin 2016**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (H16 done)
+  - Goal: `tools/fetch_image.py` pins four images, but the two 2014/2016 rows
+    have no verified SHA-256 (only the 2011 EU/US do), and the copies already
+    in `archive/sd-images/` were never hashed against the pins.
+  - Precheck: `python3 tools/fetch_image.py --list` and `ls -l
+    archive/sd-images/`.
+  - Scope: hashing only; no image is downloaded by the test.
+  - Done when: each local image's SHA-256 is recorded in
+    `docs/research/image-versions.md`, the two missing pins are added to
+    `fetch_image.py` (from a real download, size + hash), and a mismatch
+    between a local copy and a pin is reported as a finding, not silently
+    accepted.
+  - Stop: if an image is absent locally and the download is not allowed in the
+    session, record the gap and stop.
+  - Claims: none
 
 ## M1 — Firmware tooling
 
@@ -993,7 +988,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     (M3.4, M3.9, M3.10, M8.E1b) and M8.E1 lost a whole round to a BE/LE
     confusion. One repo tool must decode the subset and state the endianness
     it assumes.
-  - Input: `tools/sh4xref.py` (shells out to `sh4-linux-gnu-objdump`),
+  - Input: `tools/sh4xref.py` (now decodes through `sh4dis.py`; before this
+    task it shelled out to `sh4-linux-gnu-objdump`),
     EXP-2026-11-06-M8.E1b (LE halfwords; pattern `20e28553184229233823038b`
     at `0x88038666`), the 4-instruction import stub (M1.6b), `cerom.py sections`.
   - Done when: `tools/sh4dis.py` decodes the subset the reader work uses
@@ -1051,8 +1047,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     levels 1–9 is 0.8 % larger than the factory encoder on the same bytes. No
     slot-fit strategy works until an encoder reproduces the factory bytes.
   - Input: `tools/mutate_refer_poi.py` (`page_encoder` tries zlib levels and
-    memLevels on the original stream; none matches), EXP-2026-11-08-M5.12c-
-    poi-copies (`POINT001–009` factory pages), the `REFER001/POINT0xx.DAT.cmp`
+    memLevels on the original stream; none matches), the M5.12c EXP on branch
+    `claude/m5.12c-poi-copies` (`POINT001–009` factory pages; not yet merged),
+    the `REFER001/POINT0xx.DAT.cmp`
     of the US card (`archive/sd-images/LEAF_2011-2012_US.img`), C-2061.
     Candidates: zlib 1.1.3, zlib 1.2.x, zlib-ng, libdeflate, zopfli-style optimal
     parsing.
@@ -1062,6 +1059,45 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     candidate that matches is named with its version. If none matches, the EXP
     lists every candidate's byte difference and the status is `blocked`.
   - Claims: C-2570–C-2579
+
+- [ ] **M1.14 — SH-4 decoder debt: one LE reader, a pinned `mov.w` and an oracle**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.11 done)
+  - Goal: M1.11 landed `tools/sh4dis.py`, but its follow-ups leave three
+    holes: the LE halfword reader is now duplicated in `sh4scan.py`, one
+    addressing mode is unverified, and nothing independent checks the decoder.
+  - Precheck: `python3 tools/sh4dis.py IMG nk.exe --image-start 0x3e00200
+    --check-real` and `tools/sh4scan.py --selftest` must both pass first.
+  - Scope: `tools/sh4dis.py`, `tools/sh4scan.py`, `tools/sh4xref.py`; no
+    firmware conclusions are re-derived.
+  - Input: EXP-2026-11-08-M1.11-sh4dis (7 follow-ups: the duplicated
+    `read_u16`, `mov.w @(disp,PC)` unpinned → C-2489 stays UNKNOWN, the
+    missing independent oracle, the `vsize`-past loads, the display
+    differences vs M1.8); `tools/point_walk_l3.py` (mask constants it uses).
+  - Done when: one shared `read_u16`/`Mem` implementation is imported by both
+    tools (no second copy), `mov.w @(disp,PC)` is pinned against one real
+    decoded value on `IMG256` (C-2489 then VERIFIED or the pin recorded as a
+    negative), and a second decoder (binutils `objdump` or a different
+    implementation) agrees on the four M1.8 call sites.
+  - Stop: if the oracle disagrees, record the disagreement per instruction and
+    stop — do not adjust the tool until the oracle is explained.
+  - Claims: C-2590–C-2599
+
+- [ ] **M1.10b — Spot-check two resolved import names at their call sites**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M1.10 done)
+  - Goal: M1.10 named 846/846 `Navi.exe` slots by export-table lookup. Two of
+    the newly named exporters (`XGLDLL`, `OSMDLL`) should be confirmed where
+    they are **called**, so the resolution is not just a plausible name.
+  - Precheck: `cerom.py imports Navi.exe --resolve-with 0x200200 --resolve-with
+    0x3e00200 --resolve-with 0x5200200` must list both names.
+  - Scope: two slots, one call site each; no new naming pass.
+  - Done when: for one `XGLDLL!` and one `OSMDLL!` name, `sh4xref.py --calls`
+    (or the thunk table) shows the call site and the argument shape matches the
+    export's role; recorded in an EXP with the slot VAs.
+  - Stop: if a call site cannot be found, say so and stop — a name without a
+    caller stays `OBSERVED`.
+  - Claims: C-2600–C-2609
 
 ---
 
@@ -1115,7 +1151,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M9.6 (ready, unowned), M2.15 (done), M2.3 (done)
+  - Depends: — (**M9.6 merged** `ff8720d`, M2.15 and M2.3 done); the corpus and
+    the comparator are both on `main` now
   - Note (sixth pass): the old blocker ("firmware verdicts need the L3 target,
     unavailable offline") was **wrong** — M9.6 runs the comparator offline with
     a stubbed `KernelIoControl(0x0101302C)`, and M2.15 supplied the exact card
@@ -1331,6 +1368,47 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     size, SHA-256 only) and `sub_0001e3f4` is decoded or explicitly deferred
     with what blocks it.
   - Claims: C-2090–C-2099
+
+- [ ] **M2.17 — `HDD_CHK.ATT` crypto context and the 0x582–0x5e8 range**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M2.16 done)
+  - Goal: M2.16 showed the updater's `sub_0001e3f4` is a crypto-context check
+    (CRLF + ≥8 bytes in the first `0x80`), not a `memcmp`, and that no factory
+    card ships the file. Without the generator, the updater path cannot be
+    reproduced — which matters only if we ever ship an update.
+  - Precheck: `grep -c HDD_CHK` in the extracted B modules, and `cerom.py
+    sections MapUpdate.exe` so the crypto routines are known to be readable
+    (they are: all executable sections are uncompressed, C-2128).
+  - Scope: `MapUpdate.exe` (build B) only; the map path is closed (M2.12).
+  - Input: EXP-2026-11-06-M2.16 (C-2090–C-2095; `*0x21300` ids 5/6,
+    `sub_1e2d4`/`sub_1e330`, `0x1e6f8/834/9c0/aa0/ed9c`).
+  - Done when: the 0x582–0x5e8 operand path is traced to its inputs, or the
+    EXP states which device-side value (id 5 or 6) cannot be obtained without
+    hardware and therefore blocks the generator.
+  - Stop: after the two ids are traced; if both need device state, mark the
+    generator `blocked` and stop.
+  - Claims: C-2610–C-2619
+
+- [ ] **M4.23 — Tile section-2 regulation/connectivity reader (kinds `0x2046`/`0x3e4`)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M4.3 is blocked on exactly this)
+  - Goal: M4.3 decoded the OSM side of a turn restriction but found no
+    documented tile-side layout: `rd_check` reads only kind `0x1046` (3 of 5
+    local tiles stop), and the `tools_ze0` writer's `0xff` regulation words are
+    unverified. Without this, restrictions cannot be written or even checked.
+  - Precheck: `tools/tile_diff.py`/`harness.py` list the section-2 kinds in the
+    five pinned tiles; at least one tile must expose `0x2046`/`0x3e4` (if none
+    does, the finding is "not present on these tiles").
+  - Scope: section 2 of the five pinned tiles; one junction with a known
+    restriction (M4.3's `r120176`); no writer.
+  - Input: EXP-2026-11-08-M4.3 (the OSM record and why the tile side stops),
+    `tools_ze0` section-2 reader, `map-tiles.md`, `rd_check` behaviour.
+  - Done when: the record layout for the two kinds is decoded and one
+    regulation word is matched to the known restriction (or shown absent with
+    a control), with VAs where the firmware reads it (M3.6/M3.16 overlap is
+    fine to cite).
+  - Stop: if the kinds are not in these tiles, record the census and stop.
+  - Claims: C-2620–C-2629
   - Result: EXP-2026-11-06-M2.16-hddchk-att-realcards — EU/US factory cards
     carry **no** `HDD_CHK.ATT` file (roots + full-image scan; only MapUpdate.exe
     UTF-16LE path strings in CE B/copy at `0x4346eac/ed8,0x4d46eac/ed8`,
@@ -1473,11 +1551,18 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M3.10-drstr-cmplst-fns (C-1860–C-1869). `0x0041ba90` (CMP.LST) does only `fopen`/`fclose` — no content read/compare (existence check). `0x00419684`→`sub_00419350` reads/parses DRSTR001 (heap `*0x009cfcdc` ≤`0x77220`, stack 40B) with size/read checks at `0x419388,0x4193da,0x4193e4,0x419462-0x419468,0x419496-0x4194a6` (`_modlu`/`>=200` caveat noted) but **no 0x2f root / 40-node / 324-entry compare found** (C-1864, strengthens C-859); `sub_004191d0` bounds `entry_count+1 < 15000` at `0x41920a`. All in `Navi.exe`, coredll ordinals named. `drstr.md` updated.
 
 - [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
-  - Status: blocked · Owner: task/m3.2b-cmp-chunk-reader-inflate · Critical: yes
-  - Unblock: M1.2f (port `DECOMP_BLK`) or M8.E1 (call `DECOMP_WRAP`); a
-    dynamic break on `0x542148`/`0x41c7e8` also re-opens it.
-  - Blocker: inflate + chunk decompression engine found (Navi.exe A: `inflateInit2_ 0x542256`, `inflate 0x54233c`, `inflateEnd 0x54220c`, wrapper `0x542148`, chunked decompressor `fn 0x41c7e8`, C-2060–C-2063/2065), but the `.ind` `chunk_offset[]` consumer / table builder has no callers in any uncompressed A o32 section (527 searched, positive controls) and Navi.exe sec1/sec2 are compressed (M1.3 0/245) — M3.2a,b unanswered. Needs M1.2f/M8.E1 decode of sec1/sec2 or dynamic break on `0x542148`/`0x41c7e8`. The chunk engine itself is already usable: see M9.11.
-  - Depends: M1.2f (blocked) or a dynamic break
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (**not** M1.2f: no executable section of build A is compressed,
+    C-2128)
+  - Re-opened (ninth pass, 2026-11-08). The pass-1 blocker — "the caller lives
+    in `Navi.exe` sec1, uncompressed code we cannot read" — is **refuted**:
+    sec1 flags `0xc8002040` (`.data`) and every executable section is readable
+    (C-2128/C-2129). What remains true is "no *static* caller of
+    `fn 0x41c7e8`", which is the shape that hid the POINT walker: an
+    **indirect call through a pointer in `.data`**, or a caller in a module the
+    search never named. Re-run with `tools/sh4scan.py` (constant/mask
+    signatures, builds A **and** B/C) plus an L3 probe: hook `0x41c7e8` and
+    record the caller PC. The chunk engine is already usable for S1 (M9.11).
   - Goal: M3.1/M3.2 show the `MAL_DataVol_*` and `.IND` string leads miss the
     reader. Every `.cmp` chunk is zlib, so the reader must call `inflate`.
   - Input: image A modules (`cerom.py sections`); zlib message strings
@@ -1496,8 +1581,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     not in uncompressed code (positive controls); likely Navi.exe comp sec1/sec2.
   - Claims: C-2060–C-2069
 
-- [ ] **M3.11 — The `POINT` record reader in `Navi.exe`**
-  - Status: open (walk done, name open → M3.11b/M3.11c) · Owner: — · Critical: yes
+- [x] **M3.11 — The `POINT` record reader in `Navi.exe`**
+  - Status: done (walk; name-copy split to M3.11c, byte order to M3.11b)
+    · Owner: — · Critical: yes
   - Depends: — (**not** M1.2f: no compressed section of build A is code, C-2128)
   - Goal: the function that walks a decoded `POINT0xx` page (`tag,len2`
     records, `0x60`/`0x68`, record size `2*len2`) and copies a POI name out.
@@ -1616,10 +1702,16 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2130–C-2139
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
-  - Status: blocked · Owner: task/m3.13-addre-reader · Critical: yes
-  - Unblock: M1.2f, then re-run the tag/stride/point-marker search in
-    `Navi.exe` sec1; or a dynamic break on the `0x14e8`/`ADDRE0` read path.
-  - Blocker: ADDRE record parser consuming M4.9 grammar (C-970–C-979) not found in any uncompressed build-A o32 section (282 sections / 23.6 MB searched, 0 `c0/c8` tag pairs/mask/`2*L`/point-marker walkers); Navi.exe sec1 `IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, psize `0x457c`, M1.3 245/245 UNSUPPORTED, M1.2f/M8.E1 open) is the likely location and undecodable. No reader VA or C-970–C-979 consuming-instruction mapping can be named (fields not ruled "never read").
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (**not** M1.2f: no executable section is compressed, C-2128)
+  - Re-opened (ninth pass, 2026-11-08). The pass-1 blocker ("parser in sec1")
+    is refuted the same way as M3.2b's. What the search proved is narrower: no
+    parser matching the **M4.9 byte grammar** exists in executable bytes. The
+    POINT lesson (C-2129) is that the firmware may pack differently — a native
+    `u16` with masks, not the byte tag/len the doc extrapolated. Re-run with
+    `tools/sh4scan.py` on the masks/strides the writer implies, plus an L3
+    probe on the mapped `0x14e8`/`ADDRE0` path (`0x003fbed8` →
+    `0x0040b358` → `0x004125a8`, `fn 0x0040114e`).
   - Depends: — (M3.11 shows the pattern for `REFER001` families)
   - Goal: confirm the `ADDRE` grammar (M4.9) against the code that reads it.
   - Input: id table `0x00179338` (`ADDRE0`), name builder `0x003fbed8`, lookup
@@ -1634,14 +1726,15 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Status: open · Owner: — · Critical: yes
   - Depends: — (M4.12 already decoded the layout from bytes; this task only
     looks for the consuming code)
-  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — `Navi.exe` is
-    75 % compressed (`sec1` 16.7 MB, `sec2`), so a walker in `sec1` is not
-    findable today; if the anchors have no xref in the decodable bytes, this
-    task is `Depends: M1.2f` and stops in the first hour.
-  - Scope: build-A uncompressed sections only; `Navi.exe` sec1/sec2 excluded
-    until M1.2f. `Stop:` after the listed anchors are exhausted, or when the
-    precheck shows the target is compressed — then `blocked` + EXP, no fourth
-    search angle.
+  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
+    has **0 compressed executable sections** (C-2128), so "not found" means the
+    *signature* was wrong, not that the bytes are hidden. Test a structural
+    signature derived from an L3 run or the writer's inverse, not the byte
+    grammar in `refer.md` (that assumption is how M3.11's walker was missed,
+    C-2129).
+  - Scope: build-A executable sections (all readable); `.data` tables only via
+    a pointer found in code. `Stop:` after two signature families fail — then
+    `blocked` + EXP listing the signatures tested.
   - Goal: the region/index/coordinate tables decide where a generated
     Poland map lives; confirm their layout (C-110, C-1992,
     `coord-zcode-icode.md`) from the code.
@@ -1653,14 +1746,13 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
   - Status: open · Owner: — · Critical: yes
   - Depends: — (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`)
-  - Precheck: `tools/reader_precheck.py --module OBJDLL.dll` (M1.12) — OBJDLL
-    is 30 % compressed and `Navi.exe` 75 %, so the walk can land in bytes we
-    cannot read; if the anchors have no xref in the decodable bytes, this task
-    is `Depends: M1.2f` and stops in the first hour.
-  - Scope: build-A uncompressed sections only; `Navi.exe` sec1/sec2 excluded
-    until M1.2f. `Stop:` after the listed anchors are exhausted, or when the
-    precheck shows the target is compressed — then `blocked` + EXP, no fourth
-    search angle.
+  - Precheck: `tools/reader_precheck.py --module OBJDLL.dll` (M1.12) — all
+    executable sections are readable (C-2128); OBJDLL's compressed bytes are
+    data. Derive the signature from an L3 run or the writer's inverse, not from
+    the doc grammar (M3.11's lesson, C-2129).
+  - Scope: build-A executable sections (all readable); `.data` tables only via
+    a pointer found in code. `Stop:` after two signature families fail — then
+    `blocked` + EXP listing the signatures tested.
   - Goal: Polish street/place names go through this table (M4.18 framing,
     M3.9 collation); confirm framing and encoding from the code.
   - Done when: `refer.md` (or `rdstm.md`) names the record-walk and
@@ -1670,14 +1762,15 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
   - Status: open · Owner: — · Critical: no
   - Depends: — (M4.16c for the `ref` lead)
-  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — `Navi.exe` is
-    75 % compressed (`sec1` 16.7 MB, `sec2`), so a walker in `sec1` is not
-    findable today; if the anchors have no xref in the decodable bytes, this
-    task is `Depends: M1.2f` and stops in the first hour.
-  - Scope: build-A uncompressed sections only; `Navi.exe` sec1/sec2 excluded
-    until M1.2f. `Stop:` after the listed anchors are exhausted, or when the
-    precheck shows the target is compressed — then `blocked` + EXP, no fourth
-    search angle.
+  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
+    has **0 compressed executable sections** (C-2128), so "not found" means the
+    *signature* was wrong, not that the bytes are hidden. Test a structural
+    signature derived from an L3 run or the writer's inverse, not the byte
+    grammar in `refer.md` (that assumption is how M3.11's walker was missed,
+    C-2129).
+  - Scope: build-A executable sections (all readable); `.data` tables only via
+    a pointer found in code. `Stop:` after two signature families fail — then
+    `blocked` + EXP listing the signatures tested.
   - Done when: the reader VAs and consumed fields are in `refer.md`.
   - Claims: C-2210–C-2219
 
@@ -1696,14 +1789,15 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Status: open · Owner: — · Critical: no
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
     families and the same compression wall)
-  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — `Navi.exe` is
-    75 % compressed (`sec1` 16.7 MB, `sec2`), so a walker in `sec1` is not
-    findable today; if the anchors have no xref in the decodable bytes, this
-    task is `Depends: M1.2f` and stops in the first hour.
-  - Scope: build-A uncompressed sections only; `Navi.exe` sec1/sec2 excluded
-    until M1.2f. `Stop:` after the listed anchors are exhausted, or when the
-    precheck shows the target is compressed — then `blocked` + EXP, no fourth
-    search angle.
+  - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
+    has **0 compressed executable sections** (C-2128), so "not found" means the
+    *signature* was wrong, not that the bytes are hidden. Test a structural
+    signature derived from an L3 run or the writer's inverse, not the byte
+    grammar in `refer.md` (that assumption is how M3.11's walker was missed,
+    C-2129).
+  - Scope: build-A executable sections (all readable); `.data` tables only via
+    a pointer found in code. `Stop:` after two signature families fail — then
+    `blocked` + EXP listing the signatures tested.
   - Goal: the two families with no reader task at all. Both carry content a
     Poland card must generate (`ICADM` country/admin terms, `ZIPFR`
     postal/freeway masks), so a wrong writer is undetectable today.
@@ -1714,6 +1808,57 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     (or shows the firmware copies the block and reads no field, with a
     positive control), and matrix rows 14–15 carry the result.
   - Claims: C-2380–C-2389
+
+---
+
+- [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
+  - Status: blocked · Owner: claude/m3.19-sh4scan · Critical: yes
+  - Unblock: M3.20 (name the register-AND mask variant; correct M3.11's pattern text).
+  - Blocker: M3.11's mask count 1 is not reproduced: its one site (Navi.exe `0x3715c8–0x3715cc`) is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`, a register AND, and `and #0x70,R0` + `cmp/eq #0x60` finds 0. The other seven published counts reproduce. See EXP-2026-11-08-M3.19-sh4scan.
+  - Depends: —
+  - Goal: M3.11, M3.13 and M3.2b are correct negatives that **cannot be
+    re-run**: the tag/stride/mask searches are prose plus heredocs, and M3.2b
+    contains `# ... anchor search over IMG256 ...`. Rule 16 makes that a
+    defect; this task fixes it and gives M1.12 its engine.
+  - Precheck: the counts to reproduce are published — 527 build-A o32 sections,
+    26 aligned `cmp/eq #0x60` and 23 `cmp/eq #0x68` hits in `Navi.exe` sec0,
+    0 tag pairs, 1 `and #0x70`+`#0x60` mask hit, 0 `@(1)+2*L` stride
+    candidates, 282 sections / 23.6 MB for the M3.13 corpus, 14 zlib markers.
+    If the tool cannot reproduce them, the published numbers are the problem —
+    report that, do not adjust the tool to fit.
+  - Scope: build A (and B/C on `--image-start`); LE halfwords; uncompressed and
+    compressed sections both listed, with the compressed share printed.
+  - Input: EXP-2026-11-06-M3.11, -M3.13, -M3.2b (counts and patterns),
+    `cerom.py memmap --json`, `sh4xref.py`; `capstone` must not be required
+    (a pattern scan is halfword arithmetic, not disassembly).
+  - Done when: `python3 tools/sh4scan.py IMG --image-start 0x200200 tags
+    --module Navi.exe`, `--pattern <hex>`, `stride`, `mask-pair` and `anchors`
+    run on `IMG256`, reproduce every count above, print the corpus in bytes and
+    sections, and `--selftest` pins the pattern semantics on synthetic
+    halfwords (including the misaligned false positives M3.11 rejected); M1.12
+    imports it rather than duplicating the scan.
+  - Stop: if the counts differ, record the discrepancy in an EXP and stop —
+    the difference is the result.
+  - Claims: C-2530–C-2539
+
+- [ ] **M3.20 — Name the register-AND mask variant; correct the M3.11 pattern text**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.19
+  - Goal: M3.11 §2 reports `and #0x70,r0` then `cmp/eq #0x60` as 1 hit in build
+    A. The one site is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`
+    (Navi.exe `0x3715c8–0x3715cc`), a register AND that the immediate pattern
+    cannot match (EXP-2026-11-08-M3.19-sh4scan §5).
+  - Precheck: `python3 tools/sh4scan.py IMG --image-start 0x200200 dump --module Navi.exe --va 0x3715c0 --count 8`
+    shows those three halfwords.
+  - Scope: `tools/sh4scan.py` only (a `mask-pair --via-reg` variant, stdlib,
+    with a synthetic self-test); build A uncompressed sections; no other task's
+    lines.
+  - Done when: `mask-pair --via-reg --cmp 60` runs on `IMAGE_START 0x200200`,
+    its selftest pins the variant, and M3.11's pattern text is corrected by a
+    new claim row (no deletion, per the ledger rules). The count is the result,
+    not a precondition: report whatever it is.
+  - Stop: if the variant count is not 1, record it in an EXP and stop.
+  - Claims: C-2560–C-2569
 
 ---
 
@@ -2334,7 +2479,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2030–C-2039
 
 - [ ] **M5.12c — Every copy of the renamed POI name on the US card**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m5.12c-poi-copies · Critical: yes
   - Depends: — (M5.12)
   - Goal: tell Marek which screens should show `OSM2LEAF TEST POI1` (map
     label, POI list, name search) and whether any other file still holds the
@@ -2472,8 +2617,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     silent overrun or a broken neighbour.
   - Input: `tools/mutate_refer_poi.py` (`refit_page`, `FitError`, the
     skip list in `*.skipped.json`), `tools/imgpatch.py`, the M5.12c EXP
-    (slot rule: padding only over zero bytes; a stream may abut the next page),
-    the M5.12c `plans.json` pattern.
+    (**on branch `claude/m5.12c-poi-copies`, not yet merged**; slot rule:
+    padding only over zero bytes; a stream may abut the next page), the M5.12c
+    `plans.json` pattern. The slot rule will live in M5.12c's block
+    C-2040–C-2049, **not** in C-2355 (that row is the imgpatch EOC fix).
   - Done when: (a) the compiler writes a per-page budget table (slot bytes,
     stream bytes, encoder used) and refuses a page whose stream exceeds
     its slot minus the headroom, with a `--selftest` on a synthetic abutting
@@ -2906,7 +3053,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `poi_record_walk` target now; add the name check when M3.11c names the
     accessor. Feed the page in the byte order M3.11b finds (until then:
     `swap16`, stated as an assumption).
-  - Depends: M3.11c (name), M3.11b (byte order), M9.5, M9.21 (LE engine)
+  - Depends: M3.11c (name), M3.11b (byte order), M9.5 (M9.21 is done)
   - Goal: before any card goes into the car, run `Navi.exe`'s own `POINT`
     reader on the decoded factory page and on the renamed page, and read
     the name it returns. Pages are fed already decompressed (the `.cmp`
@@ -2969,7 +3116,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2230–C-2239
 
 - [ ] **M9.14 — L3 target `drstr_parser`**
-  - Status: blocked · Owner: claude/m9.14-l3-reader · Critical: yes
+  - Status: open · Owner: — · Critical: yes
+  - Re-opened (ninth pass, rule 15): **M9.20 merged** (`562215a`) with the
+    module entry kind and `engine_hook`, so the blocker below no longer holds;
+    the EXP stays as the record of why the first run produced no verdict.
   - Depends: M3.10, M9.5
   - Done when: the firmware parser accepts the factory `DRSTR001.DAT` (EU and
     US) and one rebuilt by M5.6, and rejects one corrupted case, recorded.
@@ -3001,7 +3151,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2260–C-2269
 
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
-  - Status: blocked · Owner: claude/m9.17-l3-reader · Critical: no
+  - Status: open · Owner: — · Critical: no
+  - Re-opened (ninth pass, rule 15): M9.20 merged (`562215a`); the module-VA
+    entry it needs now exists.
   - Blocker: `runner.py` accepts only `entry.kind` synthetic/blocked and has no `engine_hook`; the reader VA `0x0041a438` cannot be declared (M9.20, PR #89 open).
   - Unblock: M9.20 (its PR sets this task back to open, rule 15).
   - Result: EXP-2026-11-08-M9.17-m38-reader (negative: validator rejects module-kind row on a scratch copy; PySh4 control PASS; C-2370–C-2371).
@@ -3067,6 +3219,24 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `point_walk_l3.py` uses it instead of its subclass, and `0x3f39c0` runs
     on the US page with the globals `0x00d5e4e4`/`0x00d5e4d0` set.
   - Claims: C-2550–C-2559
+
+- [ ] **M9.22 — Explain the `B30R048R` rebuild assertion (untrusted L2 pin)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: H14 ran the five pinned tiles: four and `LEV3456R` reproduce,
+    `B30R048R` raises on an opaque record in the harness's background rebuild.
+    Until that is explained, the tile's byte-identical claim and the L2 golden
+    for it must not be trusted.
+  - Precheck: `cd tools/ze0-viewer && python3 harness.py verify B30R048R`
+    reproduces the raise (H14's transcript).
+  - Scope: `tools/ze0-viewer/tools_ze0` (rebuild path) and that one tile; no
+    format change.
+  - Done when: the record and the failing invariant are named, the harness
+    either round-trips the tile or refuses it with a clear message, and the L2
+    pin is re-set or marked "known non-round-tripping" in the EXP.
+  - Stop: if the tile is genuinely non-canonical, document it and stop —
+    do not weaken the check.
+  - Claims: C-2630–C-2639
   - Result: `PySh4(endian="little")` and `bt/s`/`bf/s` in tools/l3_harness/engine.py; `0x3f39c0` runs on the US page with the globals set and matches parse_page (9 records, guard control); EXP-2026-11-08-M9.21-pysh4-le (C-2550–C-2557).
 ---
 

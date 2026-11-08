@@ -165,6 +165,7 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-H15](EXP-2026-11-06-H15-pm-review.md) | Sixth PM review: two M3 negatives move the critical path to compression (H15) | done |
 | [EXP-2026-11-06-H17](EXP-2026-11-06-H17-task-definition.md) | Seventh review: the three negative reader searches were under-specified tickets (H17) | done |
 | [EXP-2026-11-06-H18](EXP-2026-11-06-H18-method-audit.md) | Eighth review: method audit of the 89 records dated 2026-11-06 (H18) | done |
+| [EXP-2026-11-08-H20](EXP-2026-11-08-H20-pm-review.md) | Ninth review: compression premise retracted, M3.2b/M3.13 reopened (H20) | done |
 | [EXP-2026-11-06-H8](EXP-2026-11-06-H8-mmain-fix.md) | `mmain.py`, `setup.sh`, docs and realcheck pins (H8) | done |
 | [EXP-2026-11-06-H9](EXP-2026-11-06-H9-zlib-ng-guard.md) | zlib runtime guard (H9) | done (simulated zlib-ng) |
 | [EXP-2026-11-06-H6](EXP-2026-11-06-H6-drstr-docs.md) | `drstr.md` ↔ `MMAIN001.DAT` reconciliation and `tools_ze0` provenance (H6) | done |

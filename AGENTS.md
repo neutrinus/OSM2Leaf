@@ -42,21 +42,27 @@ without a reproducible command is a hypothesis; mark it so.
 
 ## Before you search firmware code
 
-Two facts cost this project whole sessions:
+Four facts cost this project whole sessions:
 
-- **SH-4 code in this image is little-endian.** A big-endian search finds
-  nothing *and looks like a refutation* (M8.E1 vs M8.E1b). Decode halfwords LE.
-- **56.2 % of build A's section bytes are compressed** (30.2 MB of 53.7 MB;
-  245 of 527 o32 sections). `Navi.exe` is **75.1 % compressed** (16.7 MB in
-  `sec1`, flagged `rw-`, not `r-x` — so "executable sections" excludes it).
-  A "searched every uncompressed section, not found" negative describes ~44 %
-  of the image and ~25 % of `Navi.exe`; it is expected, not informative.
+- **SH-4 code is little-endian.** A big-endian search finds nothing *and looks
+  like a refutation* (M8.E1 vs M8.E1b). `tools/sh4dis.py` pins the convention.
+- **All executable sections are readable.** Build A has **zero compressed
+  executable sections** (149 code sections, 22.8 MB); the 245 compressed
+  sections (30.2 MB) are `.data` and resources (C-2128). So "searched every
+  section and did not find it" is a *complete* search — the failure is the
+  **signature**, not hidden bytes. (The "56 % compressed" reading counts all
+  sections; do not use it to excuse a search.)
+- **Derive the signature; do not guess it from the doc.** The `POINT` walker
+  was missed twice by searching the byte grammar in `refer.md`; it reads a
+  packed `u16` (`0x3ff`/`0xfc00` masks) and was found by *executing* the code
+  (C-2129, `tools/point_walk_l3.py`). Prefer an L3 run or the writer's inverse.
+- **"No static caller" usually means an indirect call**: the pointer lives in
+  `.data` and the call is `jsr @Rn` with `Rn` loaded from a table.
 
-So: run `cerom.py memmap --json` first and put the covered corpus in the EXP.
-Compressed sections are undecodable until M1.2f (port `DECOMP_BLK`) or M8.E1;
-the decompressor entry points are verified: `DECOMP_WRAP 0x88037590`,
-`DECOMP_SECT 0x88037464`, `DECOMP_BLK 0x8803a384` (loader flag test
-`0x88038666` in `fn 0x880385e4`).
+Compressed `.data` stays unreadable until M1.2f/M8.E1 — that blocks M1.3/M1.4
+and reading data tables, **not** reader searches. Verified decompressor entries
+(LE): `DECOMP_WRAP 0x88037590`, `DECOMP_SECT 0x88037464`,
+`DECOMP_BLK 0x8803a384` (loader flag test `0x88038666` in `fn 0x880385e4`).
 
 ## Commands
 
