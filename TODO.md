@@ -1730,7 +1730,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-890–C-899
 
 - [ ] **M4.2 — `RDSTM001`: link attributes (speed class, one-way, class)**
-  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
+  - Status: in progress · Owner: claude/m4.2-rdstm-link-attrs · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
   - Note: EXP-2026-11-05-M4.2-rdstm-link-attrs failed for lack of OSM access
     and of a row → coordinate mapping. M4.17 tries the same question without
     OSM.
