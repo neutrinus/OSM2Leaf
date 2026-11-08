@@ -3663,29 +3663,38 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
   file). Owner: coordinator with Marek. Claims: C-1590–C-1599
 - [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: in progress · Owner: task/m8.e1-run-rom-decompressor-retry (retry: qemu-system-sh4 11.1.3 LE present) · Critical: yes
+  - Status: blocked · Owner: task/m8.e1-run-rom-decompressor-retry (retry 2026-11-08) · Critical: yes
   - Depends: M8.E1b (VAs verified, C-2290–C-2293). Does **not** need F1: call
     the function under `-M none` + gdbstub with RAM-only state (LE SH-4).
     M8.A1 now builds a LE `qemu-system-sh4` from the pinned 8.2.7 tarball, so
     the toolchain half is done. M1.2f is the parallel Python route to the same
     two vectors — whichever lands first unblocks M1.3/M1.4.
-  - Blocker: no `qemu-system-sh4` (LE) on 2026-11-08 host and pinned QEMU 8.2.7
-    `sh4-softmmu` build could not configure (missing `glib-2.0` dev/pkg-config;
-    user-local `distlib` installed under Python 3.15.0); no runtime decode ran.
-  - Unblock: provide a prebuilt `qemu-system-sh4` (LE, QEMU ≥8.2) or install
-    QEMU 8.2.7 build deps (glib-2.0 dev etc.) on the execution host, then rerun
-    M8.E1 (DECOMP_SECT/WRAP + kernel-context stubs/bypass).
+  - Blocker (updated 2026-11-08 retry): `/usr/bin/qemu-system-sh4` 11.1.3 (LE,
+    Fedora 45) is present and IMG256 `92aa525d…` obtained, but
+    `cedecomp_run.py probe` fails under QEMU 11.1.3 `-M none` (P1 VA
+    `0x8c/0x88xxxxx` access `E14` / steps to `0x8c010000`, `sh7785`/`sh7750r`;
+    nk.exe linked at fixed 0x88xxxxxx VAs). `exp49` for verified
+    `DECOMP_SECT 0x88037464` is still `NOT_IMPLEMENTED` (needs runtime call +
+    kernel-context handling for WRAP, C-2293). Building repo `-M ze0` QEMU
+    (phys `0x08000000` + P1/P2 aliases matching nk.exe) is blocked by missing
+    `glib2-devel` (no root). No runtime decode ran. (C-1604, C-1606, C-1607)
+  - Unblock: provide a `qemu-system-sh4` (LE) with `-M ze0` (or install
+    `glib2-devel`/deps and run `tools/qemu-ze0/build.sh`), make
+    `cedecomp_run.py` run the probe under a compatible SH4 memory map, then
+    implement `exp49` via `DECOMP_SECT 0x88037464` (constructed frame) or
+    stubbed `DECOMP_WRAP 0x88037590` kernel-context helpers (C-2293).
   - Note: M8.E1's initial "VA refuted" blocker was a BE endianness artifact,
     corrected by M8.E1b (C-1600/C-1603 superseded). Verified entries (LE):
     `DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464` (core framing) /
     `DECOMP_BLK 0x8803a384`, loader flag test `0x88038666` in `fn 0x880385e4`.
     Use `qemu-system-sh4` (LE). DECOMP_WRAP needs kernel lock/context stubs
     (C-2293); calling SECT with an initialised frame may bypass that.
-  - Result: EXP-2026-11-08-M8.E1-rom-decomp-runtime-blocked (negative: qemu
-    unavailable/unbuildable on host; C-1604, C-1606). Framework
-    `tools/cedecomp_run.py` usable (`--selftest`/`info` fixed for ALLOC/BLK).
+  - Result: EXP-2026-11-08-M8.E1-rom-decomp-retry-qemu11 (negative, blocked):
+    qemu 11.1.3 LE present (original binary blocker resolved) but probe fails on
+    QEMU 11.1.3 `-M none` P1 mapping/compat for nk.exe 0x88xxxxxx VAs; `exp49`
+    `NOT_IMPLEMENTED`; `-M ze0` build blocked by missing `glib2-devel`.
     EXP-49/Navi.exe sec1+sec2/245/FILESentry runtime decode **not achieved**.
-    Prior: EXP-2026-11-06-M8.E1-rom-decomp-tool (corrected by M8.E1b).
+    Prior: EXP-2026-11-08-M8.E1-rom-decomp-runtime-blocked; EXP-2026-11-06-M8.E1-rom-decomp-tool (corrected by M8.E1b).
   - Done when: the two EXP-49 sections decode to the M1.2a lengths, then
     `Navi.exe` sec1/sec2 (the sections M3.2b and M3.11 need: sec1
     `psize 0x457c` / `vsize 0xff16ae`, sec2 `psize 0x8884`), then all 245
