@@ -113,11 +113,33 @@ record rather than an anonymous dump; both are validated (`E020`, `E021`).
 | `tags` | object | no | whitelisted OSM tags, string → string |
 | `addr` | object | no | `street`, `housenumber`, `postcode`, `city`, `country` |
 | `poi` | object | no | `category`, optional `name`, `brand`, `operator` |
-| `name` | string | no | display name without the `tags` wrapper |
+| `name` | string | no | display name without the `tags` wrapper (the node's `name` tag) |
 
-A node is kept when it is a way vertex, an address, a POI or a `place` node.
-Every other OSM node is dropped by the extractor: only 2.9 M of Dolnośląskie's
-19.6 M nodes are way vertices, and the rest carry nothing the card can store.
+A node is kept when it is a way vertex, a `via` node, or a feature node: a POI
+(`amenity`, `shop`, `tourism`, `leisure`, `office` or `healthcare` set), an
+address (`addr:street` or `addr:housenumber` set) or a `place`. Every other OSM
+node is dropped by the extractor: only 2.9 M of Dolnośląskie's 19.6 M nodes
+are way vertices, and the rest carry nothing the card can store. A name alone,
+a city alone or `highway=crossing` alone does not make a feature node.
+
+Field rules (`tools/osm_ingest.py`, M5.1c):
+
+- `tags` holds the whitelisted node tags (the POI, Address and Places rows of
+  the table below), as a string map.
+- `poi.category` is the first present of the six POI keys, written as
+  `key=value` (`amenity=fuel`, `shop=bakery`). It is a free string in v1; the
+  writer maps it to `POINT` (open question 11).
+- `addr` keeps `street`, `housenumber`, `postcode`, `city` and `country` from
+  the `addr:*` tags, and is present only when a street or house number is.
+- `name` keeps the UTF-8 text. IMF never folds names; the writer does, once,
+  with `imf_check.fold_cp1252`: CP1252 letters stay (`ó`), other diacritics
+  are dropped (`Zażółć` becomes `Zazólc`), `ł`/`Ł` become `l`/`L`.
+  A character with no base letter becomes `?` (`W009`). The folded name must
+  fit 128 characters (`W010`), the county/city cap in
+  [rdstm.md](rdstm.md#writer-rules-for-names-m39).
+- Feature nodes get `W007` (POI without a name) and `W008` (address without a
+  street) as warnings; `imf_check.py --strict` turns every warning into a
+  failure, which is the gate the build should run.
 
 ### Way
 
@@ -309,6 +331,7 @@ Standard library only, no vendor data:
 ```bash
 python3 tools/imf_check.py map.imf.jsonl              # human report
 python3 tools/imf_check.py map.imf.jsonl --json       # machine report
+python3 tools/imf_check.py map.imf.jsonl --strict     # warnings fail too (build gate)
 python3 tools/imf_check.py map.imf.jsonl.gz           # gzip is detected
 python3 tools/imf_check.py in.imf.jsonl --assign-tiles -o out.imf.jsonl
 python3 tools/imf_check.py --sample -o map.imf.jsonl
@@ -350,10 +373,12 @@ only under its anchor.
 | `E021` | header lacks `source.name` |
 | `E022` | `access` value outside the supported set |
 
-Warnings (printed, never fatal): `W001` highway way without `name`, `W002`
+Warnings (printed, never fatal unless `--strict`): `W001` highway way without `name`, `W002`
 highway way without numeric `maxspeed`, `W003` unknown `highway` value,
 `W004` unused node, `W005` relation outside the subset, `W006` routing tag
-without `highway`.
+without `highway`, `W007` POI node without a name, `W008` address node without
+a street, `W009` node name with no CP1252 form, `W010` node name over 128
+characters after folding.
 
 `--selftest` builds one valid synthetic file, then one mutation per error
 code, and fails if a code in `RULES` has no case. It also cross-checks the

@@ -2079,8 +2079,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     EXP-2026-11-08-M5.1b-osm-pbf.
   - Claims: C-2340–C-2349 (was C-1840–C-1849, a collision with M4.16b)
 
-- [ ] **M5.1c — OSM node tags: POIs, addresses and places into IMF**
-  - Status: in progress · Owner: claude/m5.1c-osm-poi · Critical: yes
+- [x] **M5.1c — OSM node tags: POIs, addresses and places into IMF**
+  - Status: done · Owner: claude/m5.1c-osm-poi · Critical: yes
   - Depends: M5.1
   - Goal: the compiler can build roads only. A card also needs `POINT` POIs,
     `ADDRE` addresses and place names, and none of them has an IMF
@@ -2094,6 +2094,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     round-trip is tested, and the record counts for a synthetic extract are in
     the EXP. The region run stays M5.1b.
   - Claims: C-2450–C-2459
+  - Result: EXP-2026-11-08-M5.1c-osm-poi (C-2450–C-2458): `osm_ingest.py` reads node tags (XML, plain and dense PBF) and keeps POI, address and place nodes; the synthetic fixture gives 17 nodes, 3 POIs, 3 addresses, 1 place, identical bytes in 3 encodings; `imf_check --strict` (W007–W010); CP1252 fold in `imf_check.fold_cp1252`. Region counts stay open in M5.1b (C-2458).
 
 - [x] **M5.2 — Mesh splitter**
   - Status: done · Owner: session-ZMxuBT · Critical: yes

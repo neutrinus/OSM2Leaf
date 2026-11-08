@@ -1610,3 +1610,18 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-917 | RESERVED. | — | — | — |
 | C-918 | RESERVED. | — | — | — |
 | C-919 | RESERVED. | — | — | — |
+
+## M5.1c — OSM POI, address and place nodes into IMF (C-2450–C-2459)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2450 | `tools/osm_ingest.py` reads node tags from `.osm` XML, from plain PBF `Node` keys/vals and from `DenseNodes.keys_vals` (`k v … 0` per node). The same synthetic POI fixture (8 tagged nodes) gives byte-identical IMF from all three encodings. | VERIFIED (tool, synthetic) | H | EXP-2026-11-08-M5.1c-osm-poi §2; `python3 tools/osm_ingest.py --selftest` (`poi xml/pbf/spec identical`) |
+| C-2451 | A node is kept when it has a POI category (`amenity`, `shop`, `tourism`, `leisure`, `office`, `healthcare`), an address (`addr:street` or `addr:housenumber`) or a `place`. A name alone, a city alone or `highway=crossing` alone is dropped. Output: `poi.category` as `key=value`, `addr` with street/housenumber/postcode/city/country, `name` at top level. | VERIFIED (tool, synthetic) | H | EXP-2026-11-08-M5.1c-osm-poi §2; `python3 tools/osm_ingest.py --selftest` (`poi counts`, `dropped nodes absent`, `poi record fields`) |
+| C-2452 | Synthetic counts: 17 nodes (12 way vertices + 5 feature nodes), 5 ways, 1 restriction; 3 POIs, 3 addresses, 1 place. The file validates with `imf_check.py` (0 errors). | VERIFIED (tool, synthetic) | H | EXP-2026-11-08-M5.1c-osm-poi §3; `python3 tools/osm_ingest.py --selftest` (`poi counts`, `poi validates`) |
+| C-2453 | Diacritics: the IMF file keeps the UTF-8 name (`Piekarnia Zażółć gęślą jaźń`). `imf_check.fold_cp1252` keeps CP1252 letters (`ó`, `é`, `ß`), drops the diacritic of the rest (`Piekarnia Zazólc gesla jazn`), folds `Ł` to `L`, and yields one CP1252 byte per character. A character with no base letter becomes `?` and is reported as unfaithful. | VERIFIED (tool, synthetic) | H | EXP-2026-11-08-M5.1c-osm-poi §4; `python3 tools/osm_ingest.py --selftest` (`diacritic *`, `fold *`) |
+| C-2454 | `imf_check.py --strict` exits 1 on any warning. New warnings: W007 POI without name, W008 address without street, W009 name without a CP1252 form, W010 name over 128 characters after folding. A clean POI-only file passes `--strict`; each of the four defects is flagged and fails it. | VERIFIED (tool, synthetic) | H | EXP-2026-11-08-M5.1c-osm-poi §5; `python3 tools/osm_ingest.py --selftest` (`strict *`) |
+| C-2455 | `--bbox` keeps the feature nodes inside the box (`n703`, `n705` in the test box) and no feature outside it; way-vertex behaviour is unchanged (`bbox records` still 4/1/0). | VERIFIED (tool, synthetic) | H | EXP-2026-11-08-M5.1c-osm-poi §3; `python3 tools/osm_ingest.py --selftest` (`bbox keeps inside POIs`, `bbox drops outside POIs`) |
+| C-2456 | `tools/mesh_split.py` keeps POI, address and place nodes unchanged through a split (17 nodes, 5 ways, 3/3/1 before and after). | VERIFIED (tool, synthetic) | M | EXP-2026-11-08-M5.1c-osm-poi §6; the split command in §6 |
+| C-2457 | Real bytes, partial: the first 2,000,000 nodes of `dolnoslaskie-latest.osm.pbf` (header timestamp `2026-11-07T21:21:36Z`, sequence 4028) decode with the new path. 93,056 carry a tag, 54,628 are feature nodes, and names decode with Polish letters (`Unisławice`). This is not the region run. | OBSERVED (real extract, first 2 M nodes) | M | EXP-2026-11-08-M5.1c-osm-poi §7 |
+| C-2458 | OPEN: the full Dolnośląskie POI and address counts and the `imf_check --strict` run on that extract. This needs the complete region run, which is M5.1b. | OPEN | — | M5.1b; EXP-2026-11-08-M5.1c-osm-poi §8 |
+| C-2459 | RESERVED. | — | — | — |

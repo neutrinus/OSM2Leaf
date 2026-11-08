@@ -21,6 +21,7 @@ Usage::
 
     python3 tools/imf_check.py map.imf.jsonl
     python3 tools/imf_check.py map.imf.jsonl --json
+    python3 tools/imf_check.py map.imf.jsonl --strict    # warnings fail too
     python3 tools/imf_check.py map.imf.jsonl --assign-tiles -o map.imf.jsonl
     python3 tools/imf_check.py --sample -o map.imf.jsonl
     python3 tools/imf_check.py --selftest
@@ -28,7 +29,8 @@ Usage::
 ``.gz`` input/output is detected by suffix. Exit codes: ``0`` the file
 validates (warnings allowed), ``1`` validation errors, ``2`` usage or I/O
 error. ``--sample`` and ``--assign-tiles`` exit with the exit code of the
-validation they perform on their own output.
+validation they perform on their own output. ``--strict`` makes any warning
+exit ``1`` as well, which is how a build gate should run.
 """
 
 from __future__ import annotations
@@ -39,6 +41,7 @@ import json
 import math
 import re
 import sys
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
@@ -108,7 +111,55 @@ WARNINGS = {
     "W004": "node is not used by any way and is not an address or POI",
     "W005": "relation is outside the supported subset or lacks fields",
     "W006": "way has no highway tag but a routing attribute",
+    "W007": "POI node has no name",
+    "W008": "address node has no street",
+    "W009": "node name has no CP1252 or base-letter form (written as '?')",
+    "W010": "node name is longer than 128 characters after CP1252 folding",
 }
+
+#: Longest name a writer can store for a place: ``OBJ_PntName_initPrm``
+#: truncates county/city names at 128 characters (``docs/format/rdstm.md``,
+#: writer rules for names, M3.9).
+NAME_MAX_CP1252 = 128
+
+#: Letters with no decomposition that CP1252 lacks; the writer folds them.
+_STROKE_FOLD = {"\u0142": "l", "\u0141": "L"}  # l-stroke, L-stroke (Polish)
+
+
+def _cp1252_ok(char: str) -> bool:
+    try:
+        char.encode("cp1252")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def fold_cp1252(text: str) -> tuple[str, bool]:
+    """Writer rule for names: one CP1252 byte per character.
+
+    Characters CP1252 has are kept; anything else loses its diacritic (NFKD
+    and drop the combining marks, ``l`` with stroke by hand), as the vendor
+    data does (``Zizkov``, ``Plzen``). Returns ``(folded, faithful)``;
+    ``faithful`` is ``False`` when a character had no base letter and became
+    ``?``. The IMF record keeps the UTF-8 name; only the writer folds.
+    """
+    out: list[str] = []
+    faithful = True
+    for char in text:
+        if _cp1252_ok(char):
+            out.append(char)
+            continue
+        base = "".join(
+            part for part in unicodedata.normalize("NFKD", char)
+            if not unicodedata.combining(part)
+        )
+        base = _STROKE_FOLD.get(base, base)
+        if base and all(_cp1252_ok(part) for part in base):
+            out.append(base)
+        else:
+            out.append("?")
+            faithful = False
+    return "".join(out), faithful
 
 
 # --------------------------------------------------------------------------
@@ -320,6 +371,21 @@ class Validator:
             self._error("E020", line, "header.license.attribution is required")
 
     # -- node -----------------------------------------------------------
+    @staticmethod
+    def _node_names(obj: dict[str, Any]) -> Iterator[tuple[str, str]]:
+        """Every name a node stores: display name, POI name, street, city."""
+        candidates = [("name", obj.get("name"))]
+        poi = obj.get("poi")
+        if isinstance(poi, dict):
+            candidates.append(("poi name", poi.get("name")))
+        addr = obj.get("addr")
+        if isinstance(addr, dict):
+            candidates.append(("street", addr.get("street")))
+            candidates.append(("city", addr.get("city")))
+        for label, value in candidates:
+            if isinstance(value, str) and value:
+                yield label, value
+
     def _node(self, line: int, obj: dict[str, Any]) -> None:
         self.report.nodes += 1
         rid = self._check_id(line, obj, "node")
@@ -370,6 +436,16 @@ class Validator:
             self.report.addresses += 1
         if isinstance(poi, dict) and poi.get("category"):
             self.report.pois += 1
+            if not poi.get("name"):
+                self._warn("W007", line, "node: POI has no name")
+        if isinstance(addr, dict) and addr and not addr.get("street"):
+            self._warn("W008", line, "node: address has no street")
+        for label, name in self._node_names(obj):
+            folded, faithful = fold_cp1252(name)
+            if not faithful:
+                self._warn("W009", line, f"node: {label} {name!r} has no CP1252 form")
+            if len(folded) > NAME_MAX_CP1252:
+                self._warn("W010", line, f"node: {label} is {len(folded)} characters")
         if addr or poi or (isinstance(obj.get("tags"), dict) and obj["tags"].get("place")):
             if rid is not None and rid in self.node_tiles:
                 self.node_tiles[rid][1] = True
@@ -1096,8 +1172,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-warnings", action="store_true", help="do not compute or print warnings"
     )
+    parser.add_argument(
+        "--strict", action="store_true",
+        help="exit 1 on warnings as well as errors (build gate)",
+    )
     parser.add_argument("--selftest", action="store_true", help="run synthetic tests")
     return parser
+
+
+def _exit_code(report: Report, strict: bool) -> int:
+    if not report.ok:
+        return 1
+    return 1 if strict and report.warnings else 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1106,6 +1192,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.selftest:
         return selftest()
+    if args.strict and args.no_warnings:
+        parser.error("--strict needs the warnings; drop --no-warnings")
 
     if args.sample:
         if args.file:
@@ -1119,7 +1207,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report.to_dict(), indent=2), file=stream)
         else:
             print_report(report, warnings=not args.no_warnings, file=stream)
-        return 0 if report.ok else 1
+        return _exit_code(report, args.strict)
 
     if not args.file:
         parser.error("a file is required unless --sample or --selftest is used")
@@ -1156,14 +1244,14 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(report.to_dict(), indent=2), file=stream)
         else:
             print_report(report, warnings=not args.no_warnings, file=stream)
-        return 0 if report.ok else 1
+        return _exit_code(report, args.strict)
 
     report = validate_text(text, args.file, warnings=not args.no_warnings)
     if args.json:
         print(json.dumps(report.to_dict(), indent=2))
     else:
         print_report(report, warnings=not args.no_warnings)
-    return 0 if report.ok else 1
+    return _exit_code(report, args.strict)
 
 
 if __name__ == "__main__":
