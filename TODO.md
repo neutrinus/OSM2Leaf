@@ -1563,7 +1563,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2090–C-2099
 
 - [ ] **M2.17 — `HDD_CHK.ATT` crypto context and the 0x582–0x5e8 range**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m2.17-hddchk-crypto · Critical: no
   - Depends: — (M2.16 done)
   - Goal: M2.16 showed the updater's `sub_0001e3f4` is a crypto-context check
     (CRLF + ≥8 bytes in the first `0x80`), not a `memcmp`, and that no factory
