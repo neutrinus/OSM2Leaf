@@ -2249,7 +2249,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2020–C-2029
 
 - [ ] **M5.13b — Build the real S1 and S2 US images with `imgpatch.py`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m5.13b-us-images · Critical: yes
   - Depends: — (M5.13 tool and M5.12 edit are done; needs the US image)
   - Goal: the two cards the nearest milestone needs do not exist. C-2027 is
     `UNKNOWN` because `imgpatch.py` was only ever run on a synthetic fixture.
