@@ -1260,7 +1260,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2850–C-2859 (was C-2650–C-2659, collision with M4.26/M5.22/M5.23 fixed by H23)
 
 - [ ] **M1.16 — Unify `.cmp`/`.ind` chunk codec and inner-page helpers across tools**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.16-cmpind-unify · Critical: no
   - Depends: — (M1.13 done: factory params pinned to stock zlib L6 / memLevel 8
     / wbits 15 / default strategy for POINT001–009)
   - Goal: reduce drift in the format we must generate correctly (rule 13).
