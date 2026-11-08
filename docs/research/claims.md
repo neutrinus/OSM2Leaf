@@ -2105,7 +2105,7 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2368 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
 | C-2369 | Reserved for M1.2f follow-up. | UNKNOWN | — | — |
 
-## M4.8d — Sub-unit position field in POINT/ADDRE records (C-2930–C-2939)
+## M4.8d — Sub-unit position field in POINT/ADDRE records (C-2930–C-2935)
 
 | ID | Claim | Status | Trust | Evidence |
 | --- | --- | --- | --- | --- |
@@ -2115,10 +2115,15 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2933 | No 11-bit field at any bit offset in the first 48 bytes of zlib-framed POINT name records (BE and LE bit extraction, excluding copy A bits 16–47 and copy B bits 96–127) matches `local(A)` at scale 1 or 2 above noise (top hit 1.2%, 24/2000, LE bit 198 for `ly2`; n=2000 records × all windows). | OBSERVED | M | EXP-2026-11-08-M4.8d-subunit-field (inline bit-scan method, reproducible as described) |
 | C-2934 | A sub-unit *position* field (0..2047-class local value) for POI/ADDRE coordinates, as needed to test M4.8b local scale 1 vs 2, is **UNKNOWN / not found** in the tested scope: zlib-framed POINT name records (50,000, US+EU; C-2930–C-2933 negative) and ADDRE sub-cell tokens `TT 40 XX YY` (YY 0–255, XX shard-capped, 2D geographic not derivable, C-1960–C-1969). Bit-packed (non-zlib, `00 xx 00 yy`) POINT pages and undecoded body semantics of `v6/v8/v10/v16/v20` remain out of scope. | HYPOTHESIS (scoped negative) | M | EXP-2026-11-08-M4.8d-subunit-field; M4.19/C-1960–C-1969 |
 | C-2935 | M4.8b local-scale clause remains unanswerable from the POINT/ADDRE record fields examined; M4.8b is re-opened with its blocker refined (a 0..2047-class position field was not found in zlib-framed POINT name records or ADDRE; bit-packed POINT pages and firmware/other methods remain). | OBSERVED | L | EXP-2026-11-08-M4.8d-subunit-field; TODO.md M4.8b/M4.8d |
-| C-2936 | RESERVED (M4.8d). | — | — | — |
-| C-2937 | RESERVED (M4.8d). | — | — | — |
-| C-2938 | RESERVED (M4.8d). | — | — | — |
-| C-2939 | RESERVED (M4.8d). | — | — | — |
+
+## M4.8b re-attempt — Bit-packed POINT pages and other avenues (C-2936–C-2939)
+
+| ID | Claim | Status | Trust | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2936 | POINT bit-packed (non-name-record) zlib pages — the non-`0x60`/`0x68` pages yielded by `iter_streams` — are numerous and structured (headers with `0xffff` sentinels; shard/region-varying first word, e.g. US POINT002/008 w0 mostly 8, EU POINT029 w0 mostly 10/28) but their record grammar and field meanings remain undecoded. A raw packed copy-A `>HH` pair of a reference POI (P01 `(38862,38653)`) was found in 0 of 1796 bit-packed pages of its shard (POINT002). | OBSERVED | M | EXP-2026-11-08-M4.8b-bitpack-avenues; `tools/poi_bitpack_probe.py summary`/`find-a` |
+| C-2937 | ~49% of sampled `u16` values in bit-packed page prefixes (POINT002/008, first 4096 bytes/page, capped 500k values/shard) are ≤ 2047, but with undecoded field boundaries this is not evidence of identified 0..2047-class *geographic coordinate* fields; no such field was linked to any of the 16 M4.8b reference POIs by the structural probe performed. | OBSERVED | M | EXP-2026-11-08-M4.8b-bitpack-avenues; `tools/poi_bitpack_probe.py` |
+| C-2938 | The 16 M4.8b POIs show a latitude residual varying from −0.23 to −11.04 packed (1/192°) units (median −4.77) against Wikipedia-centroid references; a best-fit −3 unit offset gives median error ~2194 m but is a reference-dependent fit, not an independently pinned transform constant. `coord.py` origin/local-scale constants are unchanged. | OBSERVED | M | EXP-2026-11-08-M4.8b-bitpack-avenues; `poi_point_check`/`coord.py` baseline unchanged |
+| C-2939 | M4.8b remains **blocked** after attempting bit-packed POINT pages and other methods: no 0..2047-class geographic sub-unit position field linkable to real POIs was found (C-2936–C-2937), local scale 1 vs 2 remains untestable, the "within a few metres"/local-scale done-when is unmet, and origin 52742 (longitude) remains supported (C-1902). Unblock requires decoding bit-packed POINT page grammar or an independent (firmware/entrance-point) method. | OBSERVED | M | EXP-2026-11-08-M4.8b-bitpack-avenues; TODO.md M4.8b |
 
 ## H26 — L1/L2 synthetic fixture CI pipeline (C-2760–C-2769)
 
