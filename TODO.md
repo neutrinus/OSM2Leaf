@@ -986,8 +986,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     (EXP-2026-11-07-M1.10-import-names). Call-site check moved to M9 (C-2476).
   - Claims: C-2470–C-2479
 
-- [ ] **M1.11 — SH-4 decoder in `tools/`, with the LE convention pinned**
-  - Status: in progress · Owner: claude/m1.11-sh4dis · Critical: no
+- [x] **M1.11 — SH-4 decoder in `tools/`, with the LE convention pinned**
+  - Status: done · Owner: claude/m1.11-sh4dis · Critical: no
   - Depends: —
   - Goal: four EXPs stopped at "needs SH-4 disassembly tooling"
     (M3.4, M3.9, M3.10, M8.E1b) and M8.E1 lost a whole round to a BE/LE
@@ -1002,6 +1002,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     reproduces the `0x880385e4` prologue and the flag test at `0x88038666`,
     and `sh4xref.py` can use it when objdump is absent (same output on the
     pinned call sites); `--selftest` includes the BE trap case.
+  - Result: `tools/sh4dis.py` (LE pinned in `read_u16`); `--check-real` reproduces the `nk.exe` prologue, flag test and four pools on IMG256; `sh4xref.py` output on the four M1.8 pinned sites byte-identical with no `PATH` binaries; sweep invariant 0 violations (EXP-2026-11-08-M1.11-sh4dis). Discrepancy: `sh4xref.py` never shelled out to objdump (C-2487).
   - Claims: C-2480–C-2489
 
 - [ ] **M1.2e — Try public CE ROM decoders on the two EXP-49 sections**

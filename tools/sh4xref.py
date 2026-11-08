@@ -15,7 +15,8 @@ Answers two questions the M2/M3 tasks ask over and over:
                  module's import thunks (``IMPORT dll!name``), its exports
                  (``EXPORT name``) or ``sub_<va>``.
 
-Stdlib only. Uses ``tools/cerom.py`` for the section table, the OFT import
+Stdlib only. Decoding is ``tools/sh4dis.py`` (little-endian, pinned there).
+Uses ``tools/cerom.py`` for the section table, the OFT import
 names and the export names, so every address is derived from the image headers.
 Only uncompressed sections are read (code is never compressed, C-530).
 
@@ -33,6 +34,10 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cerom  # noqa: E402
+import sh4dis  # noqa: E402
+# Decoding (LE halfwords, pinned in sh4dis.read_u16) lives in tools/sh4dis.py;
+# nothing here shells out to an external disassembler.
+from sh4dis import Mem, bsr_target, is_rts, jsr_reg, movl_pc_target  # noqa: E402,F401
 
 MAX_BACK = 0x2000        # prologue search window
 CALL_WINDOW = 12         # instructions after a literal load searched for jsr/jmp
@@ -42,64 +47,6 @@ FUNC_LIMIT = 0x4000      # bytes scanned by --calls when no rts is seen
 # --------------------------------------------------------------------------
 # Memory and decoding helpers
 # --------------------------------------------------------------------------
-
-class Mem:
-    """Read-only view of VA ranges: list of (base_va, bytes)."""
-
-    def __init__(self, segments):
-        self.segs = sorted(segments, key=lambda s: s[0])
-
-    def read(self, va, n):
-        for base, b in self.segs:
-            if base <= va and va + n <= base + len(b):
-                return b[va - base:va - base + n]
-        return None
-
-    def u16(self, va):
-        b = self.read(va, 2)
-        return struct.unpack("<H", b)[0] if b is not None else None
-
-    def u32(self, va):
-        b = self.read(va, 4)
-        return struct.unpack("<I", b)[0] if b is not None else None
-
-    def contains(self, va):
-        return self.read(va, 1) is not None
-
-
-def movl_pc_target(addr, w):
-    """(reg, literal_va) for ``mov.l @(disp,PC),Rn`` (0xDnnn), else None."""
-    if w is None or w & 0xF000 != 0xD000:
-        return None
-    reg = (w >> 8) & 15
-    lit = ((addr + 4) & ~3) + (w & 0xFF) * 4
-    return reg, lit
-
-
-def jsr_reg(w):
-    """Register of ``jsr @Rn`` (0x400B) or ``jmp @Rn`` (0x402B), else None."""
-    if w is None:
-        return None
-    if w & 0xF0FF == 0x400B:
-        return ("jsr", (w >> 8) & 15)
-    if w & 0xF0FF == 0x402B:
-        return ("jmp", (w >> 8) & 15)
-    return None
-
-
-def bsr_target(addr, w):
-    """Target of ``bsr disp12`` (0xBnnn), else None."""
-    if w is None or w & 0xF000 != 0xB000:
-        return None
-    disp = w & 0xFFF
-    if disp & 0x800:
-        disp -= 0x1000
-    return addr + 4 + disp * 2
-
-
-def is_rts(w):
-    return w == 0x000B
-
 
 def is_prologue_word(w):
     """``sts.l PR,@-R15`` (0x4F22), ``mov.l Rm,@-R15`` (0x2F?6) or
