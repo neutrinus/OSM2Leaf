@@ -1690,7 +1690,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     4 %/3 %, FAIL (C-2627); firmware VAs not located (C-2629).
 
 - [ ] **M4.24 — Section-2 part-b (odd record) grammar, levels 2, 4 and 5**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.24-sec2-partb-grammar · Critical: no
   - Depends: — (the census and checker are in `tools/rd_restrictions.py`, M4.23)
   - Goal: decode the unit-1 layout of the odd records that `rd_restrictions.py census` reports as mismatched (mark word, node blocks, entry words, side words).
   - Precheck: `python3 tools/rd_restrictions.py census` on `B28R070R.DAT` and `LEV3456R.DAT` reproduces the part-b notes in EXP-2026-11-08-M4.23.
