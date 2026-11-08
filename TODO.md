@@ -2866,8 +2866,12 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-1670–C-1679
 
 - [ ] **M9.6 — First real target: the map-code compare**
-  - Status: open · Owner: — · Critical: yes
-  - Depends: — (M9.5, M2.5 done; M2.15 helps)
+  - Status: blocked · Owner: claude/m9.6-mapcode-compare · Critical: yes
+  - Blocker: `origin/main` runner has no `entry.kind = "module"` to call
+    `fn 0x03bd2ad8` at its VA; that plumbing is M9.20 (PR #89, draft).
+    Negative EXP: EXP-2026-11-08-M9.6-mapcode-compare.
+  - Unblock: M9.20 (re-open M9.6 when it merges; then run the done-when check).
+  - Depends: — (M9.5, M2.5 done; M2.15 helps; M9.20 for the module entry)
   - Goal: run the real `AppLaunch.dll` compare (B `fn 0x03bd2ad8`, M2.5) on
     our `HDD_INFO.TXT` inputs, which unblocks M2.4. (Re-scoped 2026-11-06:
     M2.2's `SD Import` comparator checks user data, not the map; the
