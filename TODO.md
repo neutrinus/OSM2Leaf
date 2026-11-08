@@ -680,9 +680,10 @@ M4.16b → M4.2/M5.3 · M4.23 → M4.3.
     reproduces the build-A baseline on `head256.img` (real pins in
     `--selftest`; `cerom.py memmap` agrees). It reports the census, the calls
     into compressed sections (direct, or indirect through a slot) and anchor
-    verdicts. Its `OBJDLL.dll` and `Navi.exe` runs show the M3.15 call is an
-    indirect call through compressed slot `0x0055d924`: C-2200, C-2201 and
-    C-2202 are retracted in their call-target clauses (C-2513, C-2515). The
+    verdicts. Its `Navi.exe` run shows the M3.15 call is an indirect call
+    through compressed slot `0x0055d924`: C-2200, C-2201 and
+    C-2202 are superseded in their call-target clauses (C-2513, C-2515; their
+    rows are marked RETRACTED under M1.15, not here). The
     `sh4xref --calls` defect is M1.15. The done-when wording is operationalised
     as the EXP's Interpretation states.
   - Claims: C-2510–C-2519
@@ -1124,10 +1125,13 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `sh4xref.py IMG Navi.exe --calls 0x004125a8` labels `0x004125e2`
     as an indirect call through slot `0x0055d924` with no target, the
     `0x00412614` call to `0x0040b358` stays direct, `--selftest` covers both,
-    and an EXP records the before/after output.
+    and an EXP records the before/after output. Also: the rows C-2200, C-2201
+    and C-2202 (M3.15's block) get Status `RETRACTED` and `Superseded by
+    C-2513 / C-2515 / C-2514` in Evidence, as C-2513 to C-2515 record; this is
+    the only change to another block's rows.
   - Stop: if the change alters another `--calls` line in build A beyond these
     sites, record the diff in an EXP and stop.
-  - Claims: C-2640–C-2649
+  - Claims: C-2650–C-2659
 
 ---
 

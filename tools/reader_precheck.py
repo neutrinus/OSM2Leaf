@@ -146,6 +146,7 @@ def sections_of(data, image_start, module):
         out.append({
             "realaddr": s["realaddr"],
             "vsize": s["vsize"],
+            "psize": s["psize"],
             "flags": s["flags"],
             "compressed": comp,
             "exec": bool(s["flags"] & EXEC_FLAGS),
@@ -370,7 +371,8 @@ def module_report(data, image_start, module, anchors=()):
         "module": module,
         "census": c,
         "compressed": [{"index": i, "realaddr": s["realaddr"], "vsize": s["vsize"],
-                        "flags": s["flags"]} for i, s in enumerate(secs) if s["compressed"]],
+                        "psize": s["psize"], "flags": s["flags"]}
+                       for i, s in enumerate(secs) if s["compressed"]],
         "edges": tally_edges(edges),
         "edge_sections": {idx: tally_edges(es) for idx, es in sorted(by_sec.items())},
         "edge_section_va": {idx: secs[idx]["realaddr"] for idx in by_sec},
@@ -382,15 +384,16 @@ def print_module(rep, img_name, img_sha, image_start):
     c = rep["census"]
     print("image     %s sha256=%s image_start=0x%08x" % (img_name, img_sha, image_start))
     print("module    %s sections=%d" % (rep["module"], c["sections"]))
-    print("bytes     executable decodable %12d B" % c["exec_plain"])
-    print("          executable compressed %10d B" % c["exec_compressed"])
-    print("          data decodable       %12d B" % c["data_plain"])
-    print("          data compressed      %12d B" % c["data_compressed"])
-    print("          total vsize          %12d B, compressed %d B (%.1f %%)" % (
+    print("bytes (by vsize, the runtime extent)")
+    print("  executable decodable %12d B" % c["exec_plain"])
+    print("  executable compressed %10d B" % c["exec_compressed"])
+    print("  data decodable       %12d B" % c["data_plain"])
+    print("  data compressed      %12d B" % c["data_compressed"])
+    print("  total vsize          %12d B, compressed %d B (%.1f %%)" % (
         c["total_vsize"], c["compressed_vsize"], 100 * c["compressed_share"]))
     for s in rep["compressed"]:
-        print("  compressed section %d realaddr=0x%08x vsize=0x%08x flags=0x%08x" % (
-            s["index"], s["realaddr"], s["vsize"], s["flags"]))
+        print("  compressed section %d realaddr=0x%08x vsize=0x%08x stored psize=0x%08x flags=0x%08x" % (
+            s["index"], s["realaddr"], s["vsize"], s["psize"], s["flags"]))
     e = rep["edges"]
     print("calls into compressed sections (decodable code, lower bounds):")
     print("  bsr %d | literal direct %d | literal indirect (through slot) %d | "
@@ -407,6 +410,16 @@ def print_module(rep, img_name, img_sha, image_start):
             a["va"], a["verdict"], a["exit"],
             "none" if a["section"] is None else str(a["section"]),
             len(a["xrefs"]), len(a["holders"])))
+        note = {
+            "COMPRESSED-ANCHOR": "the anchor's own bytes are in a compressed section",
+            "ENTERS-COMPRESSED": "a decodable call leaves into a compressed section; its "
+                                 "target is not readable from decodable bytes and may be "
+                                 "plain code (UNKNOWN until the stored stream is decoded)",
+            "INCONCLUSIVE": "no decodable xref; the module has compressed bytes",
+            "ABSENT": "no decodable xref; the module has no compressed bytes",
+        }.get(a["verdict"])
+        if note:
+            print("  note: " + note)
         for x in a["xrefs"][:LIST_LIMIT]:
             print("  %s load=0x%08x pool=0x%08x fn=%s" % (
                 x["kind"], x["load"], x["pool"],

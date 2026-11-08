@@ -877,7 +877,8 @@ image, which is byte-identical). Sizes are section vsize, the runtime extent.
 edges from decodable code into a compressed section: `bsr` is a direct call;
 `literal direct` is a literal that is the jump target; `literal indirect` is a
 literal that is a slot, so the code calls the pointer stored in compressed
-bytes and the target is unknown until M1.2f. These are lower bounds (claims
+bytes; the target is not readable from decodable bytes, and whether it is plain
+code is UNKNOWN. These are lower bounds (claims
 C-2510–C-2519; `Navi.exe` detail in C-2511 and C-2513).
 
 | module | sections | vsize (B) | compressed (B) | share | executable compressed (B) | bsr into compressed | literal direct | literal indirect |
