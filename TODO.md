@@ -2685,7 +2685,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2700–C-2709
 
 - [ ] **M4.30 — Restriction word-test deepening: class-dependent encoding and mapping errors (M4.23 follow-up)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.30-restriction-deepening · Critical: no
   - Depends: M4.23 (findings), M4.25 (word-test audit task)
   - Goal: turn M4.23's real-but-below-threshold signal into an actionable
     encoding hypothesis for M4.3/routing. M4.23 found `no_*` to-entry carries
