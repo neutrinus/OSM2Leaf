@@ -1500,8 +1500,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     independent locking feasible (EXP-2026-11-06-M2.13b-sdhc-cmd42).
   - Claims: C-1950–C-1959 (moved: C-1940–C-1949 is M6.11, taken first)
 
-- [ ] **M2.14 — Unit NOR "EEPROM" area at `0x0000A000` (zelemar) vs our images**
-  - Status: in progress · Owner: task/m2.14-nor-eeprom · Critical: no
+- [x] **M2.14 — Unit NOR "EEPROM" area at `0x0000A000` (zelemar) vs our images**
+  - Status: done · Owner: task/m2.14-nor-eeprom · Critical: no
   - Depends: — (M1.4 helps if a hive/config payload is found)
   - Goal: test, on data we actually have, the zelemar claim that the Clarion
     main MCU NOR flash (SST 38VF6401, SH-4A) keeps an "EEPROM area" at
@@ -1523,6 +1523,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     clearly labeled HYPOTHESIS or negative; `docs/research/sources.md` cites
     the article; no vendor bytes committed (offsets/counts/hashes/short header
     bytes only).
+  - Result: EXP-2026-11-08-M2.14-nor-eeprom. Exhaustive search over EU/US 2011,
+    EU 2014, EU 2016 SD images (positive control) finds 3 `Clarion95321` hits
+    per image, all in IMG256: EU/US 2011 SD `0x042e5698` = B `PRGUpdate.exe`
+    sec0 (VA `0x12498`, dataptr `0x884e4000`, uncompressed) via `cerom.py`;
+    `0x057729f8` = C `TestMode.exe` sec0 (VA `0x157f8`, dataptr `0x8856e000`);
+    `0x04ce5698` = byte-identical raw duplicate of PRGUpdate sec0, no o32 owner
+    (OBSERVED/UNKNOWN). Contexts are SecurityCheck/ProductTestData/template
+    literals, not 16-byte `[unit][Clarion95321]` NOR records. No NOR-style
+    `0xA000` anchor/password record in available SD/CE images (negative);
+    `0xA000` is unit NOR (SST 38VF6401) — card images contain no NOR dump, so
+    zelemar NOR claim is HYPOTHESIS, not refuted. `sources.md` updated.
   - Claims: C-2000–C-2009
 
 - [x] **M2.15 — The exact `HDD_INFO` bytes behind `DIFFERENT MAP CODE` and `MAP DATA BASE UNMATCH`**
