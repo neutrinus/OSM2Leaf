@@ -1,0 +1,180 @@
+ZE0 navigation unit machine skeleton (SH-4A, SH7785).
+
+Adds the `-M ze0` machine for the Nissan Leaf ZE0 / Clarion QY-7204N
+Windows CE 5.0 head unit.  Research skeleton only; not a hardware model.
+
+Base: QEMU 8.2.7 (tag v8.2.7), the pin in tools/qemu-ze0/README.md.
+Depends on (and is generated against the tree after): M8.A4 CCN patches
+(m8a4-0001..0003) and M8.A5 boot-stub patch (0002-sh4-ze0-boot-stubs).
+build.sh applies *.patch in LC_ALL=C sort order, so this file
+(ze0-0001-...) applies last; its meson/Kconfig hunks assume the CCN and
+ze0-stubs changes are already present.
+
+Provides: sh7785 CPU, 128 MiB RAM at phys 0x08000000 (plus P1/P2 aliases),
+SH4 CCN at 0xff000000 / arrays at 0xf0000000, one ze0-stubs instance, and
+unimplemented-device catch-alls over P4 0xff800000-0xffffffff and areas
+4/6.  No built-in loader (M8.A3); use -device loader as ce_qemu_probe.py
+does.
+
+TODO M8.A2.  Compilation/runtime against a built qemu-system-sh4 is
+UNVERIFIED in this environment (missing glib-2.0 dev / no prebuilt
+qemu-system-sh4); patch application is verified by git apply --check on
+pristine 8.2.7 after the M8.A4+M8.A5 patches.
+
+diff --git a/configs/devices/sh4-softmmu/default.mak b/configs/devices/sh4-softmmu/default.mak
+index 565e8b0..c88e69b 100644
+--- a/configs/devices/sh4-softmmu/default.mak
++++ b/configs/devices/sh4-softmmu/default.mak
+@@ -9,3 +9,4 @@
+ #
+ CONFIG_R2D=y
+ CONFIG_SHIX=y
++CONFIG_ZE0=y
+diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
+index f10a35c..17d9eb5 100644
+--- a/hw/sh4/Kconfig
++++ b/hw/sh4/Kconfig
+@@ -20,6 +20,10 @@ config SHIX
+     select SH7750
+     select TC58128
+ 
++config ZE0
++    bool
++    select SH4_CCN
++
+ config SH7750
+     bool
+     select SH4_CCN
+diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
+index c3bbeef..8c26fd3 100644
+--- a/hw/sh4/meson.build
++++ b/hw/sh4/meson.build
+@@ -6,6 +6,7 @@ sh4_ss.add(files(
+ sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
+ sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
+ sh4_ss.add(when: 'CONFIG_SHIX', if_true: files('shix.c'))
++sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c'))
+ 
+ hw_arch += {'sh4': sh4_ss}
+ sh4_ss.add(files('ze0_stubs.c'))
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+new file mode 100644
+index 0000000..99c0499
+--- /dev/null
++++ b/hw/sh4/ze0.c
+@@ -0,0 +1,115 @@
++/*
++ * Nissan Leaf ZE0 (2011-2012) navigation unit - QEMU machine skeleton
++ *
++ * SH-4A (SH7785-class) Windows CE 5.0 head unit.  This is a research
++ * skeleton for full-system emulation of the Clarion QY-7204N navigation
++ * firmware; it is not a hardware model.  See docs/research/full-system-
++ * emulation.md and TODO M8.
++ *
++ * Memory map (physical, observed):
++ *   0x08000000 + 128 MiB  DRAM (kernel image B loads at 0x08000000)
++ *   0x10000000            area 4 (graphics/DSP; catch-all until modelled)
++ *   0x18000000            area 6 external devices (catch-all; 0x19300000
++ *                         is stubbed by ze0-stubs)
++ *   0xf0000000            SH-4 cache/TLB arrays (CCN)
++ *   0xff000000            SH-4 CCN/MMU/exception registers
++ *   0xff800000-0xffffffff on-chip peripherals (catch-all; specific windows
++ *                         stubbed by ze0-stubs and future device models)
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++#include "qemu/osdep.h"
++#include "qemu/units.h"
++#include "qapi/error.h"
++#include "qemu/error-report.h"
++#include "cpu.h"
++#include "hw/boards.h"
++#include "hw/loader.h"
++#include "hw/misc/unimp.h"
++#include "hw/qdev-properties.h"
++#include "hw/sh4/sh.h"
++#include "hw/sh4/sh4_ccn.h"
++#include "sysemu/sysemu.h"
++
++#define ZE0_RAM_BASE   0x08000000u
++#define ZE0_RAM_SIZE   (128 * MiB)
++
++#define ZE0_CCN_IO_BASE    0xff000000u
++#define ZE0_CCN_ARRAY_BASE 0xf0000000u
++
++#define ZE0_P4_CATCH_BASE  0xff800000u
++#define ZE0_P4_CATCH_SIZE  0x00800000u  /* to 0xffffffff */
++
++#define ZE0_AREA4_BASE     0x10000000u
++#define ZE0_AREA4_SIZE     0x04000000u
++
++#define ZE0_AREA6_BASE     0x18000000u
++#define ZE0_AREA6_SIZE     0x04000000u
++
++static void ze0_init(MachineState *machine)
++{
++    SuperHCPU *cpu;
++    MemoryRegion *sysmem = get_system_memory();
++    MemoryRegion *ram = g_new(MemoryRegion, 1);
++    MemoryRegion *ram_p1 = g_new(MemoryRegion, 1);
++    MemoryRegion *ram_p2 = g_new(MemoryRegion, 1);
++    SH4CCNState *ccn;
++
++    if (machine->ram_size < ZE0_RAM_SIZE) {
++        error_report("ze0: at least %u MiB RAM required",
++                     (unsigned)(ZE0_RAM_SIZE / MiB));
++        exit(1);
++    }
++
++    cpu = SUPERH_CPU(cpu_create(machine->cpu_type));
++    if (!cpu) {
++        error_report("ze0: failed to create CPU '%s'", machine->cpu_type);
++        exit(1);
++    }
++
++    /* Physical DRAM at 0x08000000. */
++    memory_region_init_ram(ram, NULL, "ze0.ram", ZE0_RAM_SIZE, &error_fatal);
++    memory_region_add_subregion(sysmem, ZE0_RAM_BASE, ram);
++
++    /*
++     * P1 (cached, 0x8.......) and P2 (uncached, 0xa.......) aliases of the
++     * same physical DRAM.  The SH-4 CPU translates P1/P2 accesses directly,
++     * but explicit aliases make -device loader and monitor accesses that use
++     * these addresses work as expected.
++     */
++    memory_region_init_alias(ram_p1, NULL, "ze0.ram-p1", ram, 0, ZE0_RAM_SIZE);
++    memory_region_add_subregion(sysmem, ZE0_RAM_BASE | 0x80000000u, ram_p1);
++    memory_region_init_alias(ram_p2, NULL, "ze0.ram-p2", ram, 0, ZE0_RAM_SIZE);
++    memory_region_add_subregion(sysmem, ZE0_RAM_BASE | 0xa0000000u, ram_p2);
++
++    /*
++     * Unimplemented-device catch-all windows (priority 0).  ze0-stubs maps
++     * its modelled registers at priority 1 and the CCN is mapped explicitly,
++     * so neither is shadowed.
++     */
++    create_unimplemented_device("ze0-p4", ZE0_P4_CATCH_BASE, ZE0_P4_CATCH_SIZE);
++    create_unimplemented_device("ze0-area4", ZE0_AREA4_BASE, ZE0_AREA4_SIZE);
++    create_unimplemented_device("ze0-area6", ZE0_AREA6_BASE, ZE0_AREA6_SIZE);
++
++    /* SH-4 CCN/MMU/exception registers and cache/TLB arrays. */
++    ccn = SH4_CCN(qdev_new(TYPE_SH4_CCN));
++    qdev_realize_and_unref(DEVICE(ccn), NULL, &error_fatal);
++    sh4_ccn_set_cpu(ccn, cpu);
++    memory_region_add_subregion(sysmem, ZE0_CCN_IO_BASE, sh4_ccn_iomem(ccn));
++    memory_region_add_subregion(sysmem, ZE0_CCN_ARRAY_BASE, sh4_ccn_arrays(ccn));
++
++    /* Boot-blocker stubs (M8.A5): priority 1 over the P4/area-6 catch-all. */
++    qdev_realize_and_unref(qdev_new("ze0-stubs"), NULL, &error_fatal);
++}
++
++static void ze0_machine_init(MachineClass *mc)
++{
++    mc->desc = "Nissan Leaf ZE0 navigation unit (SH-4A, research skeleton)";
++    mc->init = ze0_init;
++    mc->default_cpu_type = TYPE_SH7785_CPU;
++    mc->default_ram_size = ZE0_RAM_SIZE;
++    mc->default_ram_id = "ze0.ram";
++}
++
++DEFINE_MACHINE("ze0", ze0_machine_init)

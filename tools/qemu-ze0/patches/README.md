@@ -481,3 +481,63 @@ by this file.
    `summarize_log`); the model already slices the constant for 1/2-byte
    accesses, so a failure points at a second poll address, not at width.
 4. Then continue with M8.A4 (MMU) and M8.B1/B2 (INTC, TMU).
+
+---
+
+# M8.A2 — machine skeleton
+
+**Patch:** `ze0-0001-hw-sh4-ze0-machine.patch` · **Task:** TODO **M8.A2** ·
+**Record:** [`EXP-2026-11-08-M8.A2-machine-skeleton`](../../../docs/experiments/EXP-2026-11-08-M8.A2-machine-skeleton.md).
+**Claim:** C-1240 (EXP-only pending ledger merge).
+
+## C.1 Goal
+
+Register the `ze0` machine (`qemu-system-sh4 -M ze0`) so the ZE0 kernel can
+be booted with `-device loader` as `tools/ce_qemu_probe.py` does, but on a
+machine that carries the CCN/MMU (M8.A4) and the boot-blocker stubs
+(M8.A5).  No built-in CE image loader (that is M8.A3).
+
+## C.2 Apply order
+
+`build.sh` applies every `patches/*.patch` in `LC_ALL=C sort` order:
+
+| # | File | Task |
+| --- | --- | --- |
+| 1 | `0002-sh4-ze0-boot-stubs.patch` | M8.A5 |
+| 2 | `m8a4-0001-hw-sh4-add-sh4-ccn-device.patch` | M8.A4 |
+| 3 | `m8a4-0002-hw-sh4-build-sh4-ccn.patch` | M8.A4 |
+| 4 | `m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch` | M8.A4 |
+| 5 | `ze0-0001-hw-sh4-ze0-machine.patch` | M8.A2 (this) |
+
+The ze0 patch is generated against the tree **after** patches 1–4; its
+`hw/sh4/meson.build` and `hw/sh4/Kconfig` hunks assume the CCN and
+ze0-stubs changes are present.  This order was verified with
+`git apply --check` on pristine QEMU 8.2.7 (see EXP).
+
+## C.3 What the machine provides
+
+`hw/sh4/ze0.c`, gated by `CONFIG_ZE0` (enabled in
+`configs/devices/sh4-softmmu/default.mak`; `hw/sh4/Kconfig` selects
+`SH4_CCN`, not `SH7750`):
+
+| Item | Model |
+| --- | --- |
+| CPU | `sh7785` (`TYPE_SH7785_CPU`, `machine->cpu_type`) |
+| RAM | 128 MiB at phys `0x08000000` (`ze0.ram`), plus P1 (`0x88000000`) and P2 (`0xa8000000`) aliases |
+| CCN/MMU | `sh4-ccn` (M8.A4): `iomem` at `0xff000000`, arrays at `0xf0000000`, bound to the CPU |
+| Boot stubs | one `ze0-stubs` instance (M8.A5), priority 1 |
+| Catch-alls | unimplemented-device windows `0xff800000`–`0xffffffff` (P4), `0x10000000`+64 MiB (area 4), `0x18000000`+64 MiB (area 6), priority 0 |
+
+## C.4 Verification
+
+Patch application (all 5, `LC_ALL=C sort`, pristine QEMU 8.2.7 tarball
+SHA-256 `1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55`):
+`git apply --check` and `git apply` rc=0 for each patch in order.
+
+**Not verified in this environment:** `build.sh --force` configure/build
+(blocked by missing `glib-2.0` dev / pkg-config; no prebuilt
+`qemu-system-sh4`), `-M ze0` listing, and reproduction of the
+`ce_qemu_probe.py` access list.  These remain the M8.A2 done-when and
+require a host with QEMU 8.2.7 `sh4-softmmu` build deps (glib-2.0 dev,
+pixman, etc.) or a prebuilt LE `qemu-system-sh4` carrying these patches.
+

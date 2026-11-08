@@ -3450,16 +3450,30 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   `0xff800000`–`0xffffffff` and areas 4/6, `select SH4_CCN` with
   `sh4_ccn_iomem()` at `0xff000000` and `sh4_ccn_arrays()` at `0xf0000000`,
   and one `ze0-stubs` instance.
-  - Status: in progress · Owner: task/m8.a2-machine-skeleton · Critical: yes
+  - Status: blocked · Owner: task/m8.a2-machine-skeleton · Critical: yes
   - Depends: — (M8.A1, M8.A4 and M8.A5 are merged)
   - Note (PM 2026-11-06): the three series were never built together. M8.A1 saw
     `m8a4-0002/0003` rejected on 8.2.7; M8.A4/M8.A5 report them applying (the
     0003 banner says "Base: QEMU 8.2.7"). One clean `build.sh --force` over
     `patches/*.patch` settles it — record the resulting patch order.
+  - Blocker (2026-11-08, this host): `glib2-devel`/glib-2.0 pkg-config missing
+    and no prebuilt `qemu-system-sh4`; `build.sh --force` cannot
+    configure/build, so `-M help`/`-M ze0` listing and `ce_qemu_probe.py`
+    access-list reproduction were not run. Patch integration is verified:
+    `LC_ALL=C sort` over all 5 `patches/*.patch` applies cleanly to pristine
+    QEMU 8.2.7 (SHA-256 `1f0604f2…65b55`).
+  - Unblock: run on a host with QEMU 8.2.7 `sh4-softmmu` build deps
+    (glib-2.0 dev/pixman etc.) or a prebuilt LE `qemu-system-sh4`; execute
+    `bash tools/qemu-ze0/build.sh --force`, record patch order + `-M help` and
+    the `ce_qemu_probe.py`/`-M ze0` access-list comparison, update C-1240, and
+    set this task `open`→`done` only if the done-when passes.
   - Done when: `bash tools/qemu-ze0/build.sh --force` applies every patch,
     builds, and `qemu-system-sh4 -M help` lists `ze0`; `-M ze0` reproduces the
     `ce_qemu_probe.py` access list; the run log and the final patch order are in
     the EXP.
+  - Result: EXP-2026-11-08-M8.A2-machine-skeleton (blocked on build/runtime
+    env; patch apply + 5-patch order verified, C-1240). Patch:
+    `tools/qemu-ze0/patches/ze0-0001-hw-sh4-ze0-machine.patch`.
   - Claims: C-1240–C-1249
 
 - [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
