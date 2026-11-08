@@ -495,6 +495,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     `INTER*`, `FRWAY*`, `INDEX003`, the `.cmp`/`.ind` container, `DRSTR001`,
     `CMP.LST`, `MMAIN001`, `VER_INFO/HDD_INFO.TXT`, `RDSTM001`, and the
     verbatim-copy set (`BICON001`, `OPNG`, `SPEECH`, `TMC`, `REFER002`).
+  - Result: `docs/research/reader-coverage.md` (H11 commit / session-ZMxuBT).
   - Done when: `docs/research/reader-coverage.md` has the matrix with
     columns *generate or copy* · format doc · writer tool · offline
     round-trip (L1/L2) · firmware reader VA (M3 task) · L3 target (M9 task) ·
@@ -780,8 +781,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     M5.24 have Claims; M3 workstream shows M3.19 blocked (→M3.20).
     `claims_check.py: OK`.
 
-- [ ] **H24 — `todo_check.py`: lint TODO syntax, claim allocations and task fields; make selftests tmp-safe**
-  - Status: open · Owner: — · Critical: yes
+- [x] **H24 — `todo_check.py`: lint TODO syntax, claim allocations and task fields; make selftests tmp-safe**
+  - Status: done · Owner: task/h24-todo-check · Critical: yes
   - Depends: H23
   - Goal: prevent rule 9 / claim-block collisions, malformed tasks and
     incomplete metadata from recurring, and stop environment fragility from
@@ -813,6 +814,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     fix the temp/copy strategy instead. Do not turn semantic disagreements into
     lint errors without an explicit allowlist.
   - Claims: C-2720–C-2729
+  - Result: EXP-2026-11-08-H24-todo-check.md; `tools/todo_check.py` (stdlib, `--selftest`/`--json`) lints TODO task IDs/claim ranges/required fields/status/blocked+Unblock/done+Result/checkbox contradictions/unknown Depends; `tools/mkcard.py` R5 reconcile selftest made tmp-safe (no whole-image copy); `tools/README.md` + `selftest.py` discovery wired; fixed minimal factual board defects (5 done-missing-Result, 3 claim overlaps M3.11c/M4.8d/M9.11b, M4.16 checkbox). `todo_check --selftest` OK, `todo_check TODO.md` OK, `mkcard --selftest` OK, `claims_check` OK.
 
 - [ ] **H25 — Fundament CI (GitHub Actions): bramka PR bez danych vendorowych**
   - Status: open · Owner: — · Critical: yes
@@ -1575,6 +1577,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     size, SHA-256 only) and `sub_0001e3f4` is decoded or explicitly deferred
     with what blocks it.
   - Claims: C-2090–C-2099
+  - Result: EXP-2026-11-06-M2.16-hddchk-att-realcards.md (`705cadb`, task/m2.16-hddchk-att-realcards); real EU/US cards checked for `HDD_CHK.ATT` and `sub_0001e3f4` decoded/deferred per EXP.
 
 - [x] **M2.17 — `HDD_CHK.ATT` crypto context and the 0x582–0x5e8 range**
   - Status: done · Owner: task/m2.17-hddchk-crypto · Critical: no
@@ -1838,6 +1841,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     records, `0x60`/`0x68`, record size `2*len2`) and copies a POI name out.
     It is the first target of the software check of the US rename (M9.10)
     and of every later POI edit.
+  - Result: EXP-2026-11-06-M3.11-point-reader.md (pass 1, C-2120–C-2127, `b6f491a`) + EXP-2026-11-07-M3.11-point-reader-2.md (pass 2, C-2128–2129,C-2540–2546, walker `fn 0x003f5194`, `tools/point_walk_l3.py`, `4843efa`).
   - Result, pass 1 (2026-11-06): `EXP-2026-11-06-M3.11-point-reader.md`,
     C-2120–C-2127 — access path `0x003fbed8` → `0x0040b358` → `0x004125a8`
     (`0x14e8` → `REFER001`+`INDEX003.DAT`); no `#0x60/#0x68` tag test and no
@@ -1930,7 +1934,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `HANA HEALTH CENTER` (length + pointer or copied buffer), and on the
     M5.12 renamed page `OSM2LEAF TEST POI1`; `firmware.md` records VA/args.
   - Stop: if the accessor needs `bt/s`/`bf/s`, do M9.21 first.
-  - Claims: C-2548–C-2549 (then take a new block)
+  - Claims: C-2920–C-2929 (was C-2548–C-2549, overlap with M3.11b fixed by H24)
 
 - [x] **M3.12 — `INDEX003.DAT`: is it the POI name search index?**
   - Status: done · Owner: task/m3.12-index003-poi-search · Critical: yes
@@ -2243,7 +2247,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `0..2047`-class local value) so M4.8b can test local scale 1 vs 2.
   - Done when: the field is decoded (or `UNKNOWN` with the method) and the
     local-scale test is in an EXP that re-opens M4.8b.
-  - Claims: C-1908–C-1909
+  - Claims: C-2930–C-2939 (was C-1908–C-1909, overlap with M4.8b fixed by H24)
 
 - [x] **M4.9 — `ADDRE` remaining grammar**
   - Status: done · Owner: task/m4.9-addre-grammar · Critical: no
@@ -2324,7 +2328,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     shuffled-field control; `rdstm.md` updated.
   - Claims: C-1800–C-1809
 
-- [x] **M4.16 — Place `RDSTM001` rows on the map** (blocked: no join key)
+- [ ] **M4.16 — Place `RDSTM001` rows on the map** (blocked: no join key)
   - Status: blocked · Owner: task/m4.16-rdstm-placement · Critical: yes
   - Depends: M4.15 (M4.8 helps)
   - Goal: a row → tile/mesh → coordinate link, which M4.2, M4.3 and M5.3 need.
@@ -2825,6 +2829,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     `cardcheck.py --image` passes with the label present. Images stay outside
     the repo; the EXP gives Marek the exact commands to rebuild them locally.
   - Claims: C-2020–C-2029
+  - Result: EXP-2026-11-06-M5.13-imgpatch.md (`e4aa139`); `tools/imgpatch.py` patches files in place in factory images (cluster-chain/FAT/dir-entry). Real US S1/S2 images are M5.13b (`88332de`, EXP-2026-11-08-M5.13b-us-s1-s2.md).
 
 - [x] **M5.13b — Build the real S1 and S2 US images with `imgpatch.py`**
   - Status: done · Owner: claude/m5.13b-us-images · Critical: yes
@@ -2858,6 +2863,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     slot 0 and keeps the source directory order where names match; the
     self-test covers it; the M5.12 rebuild reports the label with no warning.
   - Claims: C-2030–C-2039
+  - Result: EXP-2026-11-06-M5.12b-root-label.md (`9d37b5f`, `2fc7da7`); `mkcard.py` keeps root volume-label entry and source directory order on fresh builds; self-test/label warning covered per EXP.
 
 - [ ] **M5.12c — Every copy of the renamed POI name on the US card**
   - Status: blocked · Owner: — · Critical: yes
@@ -3255,6 +3261,7 @@ No hardware is available now. Planning tasks are open; tests wait.
     vector) — until then the task stays open with the procedure marked
     **UNVERIFIED**.
   - Claims: C-2010–C-2019
+  - Result: EXP-2026-11-06-M6.12-debug-console.md (`226bc4a`); `docs/research/clarion-debug-console.md` documents the Clarion MONI/FW> debug-console access procedure and safe memory-read workflow. Hardware verification (FW> prompt + verified memory read) remains **UNVERIFIED** per EXP/bench constraint.
 
 ---
 
@@ -3580,7 +3587,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `runner.py run cmp_ind_reader` on the factory pair reports PASS and exit 0; the
     corrupt-`.ind` and swapped-field cases report as the controls in EXP-2026-11-08-M9.11-chunk-decoder; the sec1 table
     is a declared input of the entry (not a silent default), and `runner.py selftest` passes.
-  - Claims: C-2157–C-2159
+  - Claims: C-2940–C-2949 (was C-2157–C-2159, overlap with M9.11 fixed by H24)
 
 - [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
   - Status: open · Owner: — · Critical: yes
