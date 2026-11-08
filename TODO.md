@@ -1966,7 +1966,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2547–C-2549 (C-2540–C-2546 unchanged)
 
 - [ ] **M3.11c — The name accessor for a `POINT` record**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.11c-point-name-accessor · Critical: yes
   - Depends: — (M3.11b only for the final L3 run)
   - Goal: the function that turns a `POINT` record (record 0 of US page
     `0x840ba0`: `60 40 8f 9c …`, name `HANA HEALTH CENTER4590@HANA HWY` at
