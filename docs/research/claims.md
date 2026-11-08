@@ -2233,6 +2233,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2898 | RESERVED (M4.30). | — | — | — |
 | C-2899 | RESERVED (M4.30). | — | — | — |
 
+## M4.34 — Bearing count-mismatch exclusion analysis (C-3000–C-3009)
+
+| ID | Claim | Status | Trust | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3000 | M4.34 reproduces M4.30 count-mismatch diagnostics on `B48R058R` (`e9c9cb22…`) + `dolnoslaskie.imf.jsonl` (`7442877c…`): "bearings do not match the OSM ways" decomposes to `osm!=tile2` count mismatch 492 (L1) / 737 (L2) and angle mismatch 359/580; `tools/m434_bearing_mismatch.py analyze` enumerates the same 492/737 cases (precheck parity). | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.34-bearing-count-mismatch; `rd_restrictions.py deepen`; `m434_bearing_mismatch.py analyze` |
+| C-3001 | Classified without outcome fitting (no restriction hit/miss used): count mismatches are mostly `osm_more` (OSM incident bearings > tile non-edge in-record entries) — 361/492 L1 (73.4%), 622/737 L2 (84.4%); `osm_fewer` 131/115. All `osm_more` cases have extra non-from/to bearings. Pass-through OSM way bearings are rare (7/492 L1, 3/737 L2), so "OSM through-way extra bearings" is not the dominant cause; dominant is additional incident OSM bearings/ways absent or differently represented in tile entries. | OBSERVED (tool, real data) | M | EXP-2026-11-08-M4.34-bearing-count-mismatch |
+| C-3002 | Tile far-node-in-other-record filtering does **not** explain the 492/737 `osm!=tile2` count-mismatch cases by construction: rd_restrictions classifies far-node-not-in-record entries as `tile bearing missing (far node in another record)` when `len(tile_bearings)!=len(nonedge)` before the `osm!=tile2` branch; the analyzed cases have in-record far nodes. Cross-record/far-node filtering may exist as a separate exclusion bucket (not quantified here), distinct from this class. | OBSERVED (code-path/logic, real data scope) | H | EXP-2026-11-08-M4.34-bearing-count-mismatch; `tools/rd_restrictions.py` `_deep_rows`/`tile_bearings` |
+| C-3003 | Junction-distance indicator (2048-units, `JUNCTION_TOL`=8): `junction_dist>4` in 174/492 L1 (35.4%) and 205/737 L2 (27.8%); `<=4` in 318/532. This is a weak possible alignment indicator, not sufficient evidence of "genuine junction mismatch" without per-case geometry audit. | OBSERVED (tool, real data) | M | EXP-2026-11-08-M4.34-bearing-count-mismatch |
+| C-3004 | Geometric recoverability (subset mapping, no outcome fitting, `MATCH_DEG` 25°): assigning only restriction `from`/`to` to distinct tile entries is feasible for 161/492 L1 (32.7%) and 173/737 L2 (23.5%) count-mismatch cases (`osm_more` 96/361, 143/622; `osm_fewer` 65/131, 30/115). These are potential additional from/to bearing mappings; adopting the rule changes semantics and requires outcome-independent validation (not done). Non-recoverable dominated by no feasible from+to assignment (329/563). | OBSERVED (tool, real data) | M | EXP-2026-11-08-M4.34-bearing-count-mismatch |
+| C-3005 | Follow-ups: (1) validate from/to subset-mapping on held-out cases without outcome fitting before pipeline use; (2) per-case `osm_more` audit vs OSM way tags/tile routing-level generalization; (3) quantify separate `tile bearing missing (far node in another record)` bucket and its recoverability; (4) firmware mapping semantics/acceptance remain required (rule 13). | UNKNOWN / follow-up | L | EXP-2026-11-08-M4.34-bearing-count-mismatch |
+| C-3006 | RESERVED (M4.34). | — | — | — |
+| C-3007 | RESERVED (M4.34). | — | — | — |
+| C-3008 | RESERVED (M4.34). | — | — | — |
+| C-3009 | RESERVED (M4.34). | — | — | — |
+
 ## M5.16 — LEV3456R.DAT generator, levels 3-6 from OSM (C-2400–C-2409)
 
 | ID | Claim | Status | Confidence | Evidence |

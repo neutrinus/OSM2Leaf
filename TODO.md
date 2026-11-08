@@ -2726,8 +2726,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Precheck: reproduce M4.30 `two->two` miss clustering (L1 188 misses: `no_u_turn` 103, `osm_from_eq_to` 101, `no_ff_word_naming_F_anywhere` 157).
   - Claims: C-2990–C-2999
 
-- [ ] **M4.34 — Bearing count-mismatch exclusion analysis for restriction matching (M4.30 follow-up)**
-  - Status: in progress · Owner: task/m4.34-bearing-count-mismatch · Critical: no
+- [x] **M4.34 — Bearing count-mismatch exclusion analysis for restriction matching (M4.30 follow-up)**
+  - Status: done · Owner: task/m4.34-bearing-count-mismatch · Critical: no
   - Depends: M4.30 (findings)
   - Goal: classify 492/737 L1/L2 count mismatches (OSM bearings != tile non-edge entries) — OSM through-way extra bearings, tile far-node-in-other-record filtering, or genuine junction mismatch — and quantify recoverable matched population without outcome fitting.
   - Precheck: reproduce M4.30 mapping diagnostics (L1 492 count + 359 angle of 851; L2 737+580 of 1317).
@@ -2735,6 +2735,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the EXP reports, with controls and without outcome fitting, counted classes for the 492/737 count mismatches (OSM through-way extra bearings, tile far-node-in-other-record filtering / record-boundary differences, genuine junction mismatch, other/unclassified) and quantifies the recoverable matched population implied by each class; precheck diagnostics are reproduced; follow-ups named if recovery needs a rule change.
   - Stop: do not fit outcomes to raise counts; if a class cannot be distinguished on available data, count it as unclassified with the reason and stop.
   - Claims: C-3000–C-3009
+  - Result: EXP-2026-11-08-M4.34-bearing-count-mismatch. Precheck reproduced (L1 492+359/851, L2 737+580/1317). `tools/m434_bearing_mismatch.py` (11 selftest checks, no outcome fitting) classifies `osm!=tile2`: mostly `osm_more` with extra non-from/to bearings (361/492 L1, 622/737 L2); pass-through rare (7/3). Tile far-node-in-other-record filtering ruled out for this class by construction (separate `tb!=nonedge` branch). `junction_dist>4` 174/205 (weak indicator). Geometric from/to subset recoverable 161/492 (32.7%) L1, 173/737 (23.5%) L2 (no rule adopted). Claims C-3000–C-3005.
 
 - [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
   - Status: blocked · Owner: task/m4.31-rdstm-link-class-hints · Critical: no
