@@ -2712,7 +2712,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2890–C-2899 (was C-2770–C-2779, collision with H27 fixed by H23)
 
 - [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
-  - Status: in progress · Owner: task/m4.31-rdstm-link-class-hints · Critical: no
+  - Status: blocked · Owner: task/m4.31-rdstm-link-class-hints · Critical: no
+  - Blocker: no stable join key between `LCTBL001` records and RDSTM/routing links on available samples (LCTBL has no coord/country/mesh/parcel/link id; tile sec2 entries have no LCTBL ref; RDSTM001 C-884 TMC framing not reproduced offline, C-2304, and RDSTM001 is TMC not routing links, C-887).
+  - Unblock: M4.16b/C-884 (offline RDSTM001 TMC extraction for a TMC-side record join) or a new scoped task establishing a decoded, stable LCTBL↔MAPAL tile sec2 routing-link identifier (footer/attrs/page join) with controls.
+  - Result: EXP-2026-11-08-M4.31-rdstm-link-class-hints (negative/Stop; M4.17 Table B precheck reproduced; join-key candidates tested with controls; bounded within-LCTBL record-identity test shows attr/footer co-variation but not a routing-link attribute or generator hint). Claims C-2970–C-2979.
   - Depends: M4.17, M4.18
   - Goal: deepen M4.17's negative result toward the project goal (routable OSM
     roads). M4.17 found no general road-class field but observed
