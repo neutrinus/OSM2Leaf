@@ -2650,7 +2650,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2670–C-2679
 
 - [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.28-poi-lat-residual-r2 · Critical: no
   - Depends: M4.27 (wider sample helps), M4.8d (sub-unit field)
   - Goal: M4.8b found a +2.8 km latitude bias (median 3.6 km total error, 16
     POIs) and could not separate transform error from "POI stored at a street/
