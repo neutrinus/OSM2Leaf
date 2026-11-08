@@ -23,8 +23,12 @@ These are not map data, but they matter for POI icons and voice prompts.
 - Four slots are byte-identical copies of the Holiday Inn logo (25/60/75/76)
   and two of Crowne Plaza (23/59); duplicate slots are not distinct brands.
 - `tools/poi_icons.py bicon <BICON001.DAT>` lists the table and PNG sizes.
-- `BICON001.DAT` is the only map file with a different data version
-  (`11/04/08/01` vs `11/06/27/01`).
+- `BICON001.DAT`'s `DATA VERSION` (`11/04/08/01`) differs from the other map
+  files only on EU 2011 (`11/06/27/01`) and US 2011 (`10/06/24/01` vs
+  `10/08/12/01`). On EU 2014 and EU 2016 it equals `MMAIN001.DAT`; the claim
+  "the only map file with a different version" is retracted (C-2497).
+- `BICON001.DAT` also carries the same `0x18c` code list as `MMAIN001.DAT`
+  on each image (C-2494); its `0x1a0` run is `00`, not `ff`.
 
 ### POI category/brand code → icon
 
@@ -118,6 +122,16 @@ archive shape is:
 0x1c  u32 entry count (9 in the sample)
 0x20  entries: name[12] + u32 offset + u32 size + u32 size2
 ```
+
+Language sets per image (M4.22, counted from the 7z FAT listings; codes not
+decoded, see `file-header.md`):
+
+| Image | `SPEECH/` language dirs | Dirs with `VR`+`TTS`+`GID` |
+| --- | --- | --- |
+| US 2011 | `CF`, `US` | both |
+| EU 2011 | `SP PT IT GE FR DU BE` (7) | all seven |
+| EU 2014 | `BE CS DA DU EL FI FR GE HU IT NO PL PT SK SP SV` (16) | `BE DU FR GE IT PT SP` only; the other nine have `GID` |
+| EU 2016 | as EU 2014 | as EU 2014 |
 
 `TTS` payloads contain RIFF/WAV and zlib streams. These are out of scope for
 the map compiler.

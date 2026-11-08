@@ -2176,7 +2176,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2390–C-2399
 
 - [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
-  - Status: in progress · Owner: claude/m4.22-identity-codes · Critical: no
+  - Status: blocked · Owner: claude/m4.22-identity-codes · Critical: no
   - Depends: —
   - Goal: three identity fields are still unexplained and a generated card
     copies them blind: the six words at common-header `0x180`, the
@@ -2191,6 +2191,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `SPEECH/` language sets, and `header_block.py check` runs on the four real
     samples; `drstr.md`/`assets.md` updated in the same commit.
   - Claims: C-2490–C-2499
+  - Blocker: the `0x18c` codes have no code→language anchor in the four images (only counts agree: US 2/2, EU 8 vs 7 and 17 vs 16); `DRSTR001` `0x18c` is a node listing offset, not a language list (C-2493). The header fixes and the BICON001 retraction are done. See EXP-2026-11-08-M4.22-identity-codes.
+  - Unblock: new task needed (none on the board yet): decode the `0x18c` code table from the ICODE001 per-language index (M4.12 left its root-pointer table unfound) or a firmware language table; OQ-44.
 
 ---
 

@@ -81,3 +81,4 @@ claim.
 | What are the repeated pre-partition firmware copies? | C-062, C-089, C-093 | Five segments, three builds (A/A, B/B, C); slot selection stays in OQ-08. |
 | What are the `RDSTM001`/`LCTBL001` file roles? | C-100–C-105, C-285 | LCTBL is the name database; RDSTM is binary and has no zlib. |
 | How are coordinates encoded across files? | C-111, C-150, C-155 | One formula covers `COORD001`, `ADDRE` and `POINT` ids. |
+| OQ-44 | What language does each `0x18c` code in `MMAIN001`/`BICON001` name, and which `SPEECH/` set does it select? | firmware | UNKNOWN | now | no code→name anchor in the four images (GID headers hold a date) | A decoded per-language table: ICODE001 per-language index (M4.12 did not find the root-pointer table) or a firmware language table; then the one-byte mutation in `file-header.md` Identity fields. | C-2494–C-2496; EXP-2026-11-08-M4.22-identity-codes |
