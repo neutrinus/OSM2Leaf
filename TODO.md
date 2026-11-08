@@ -1216,8 +1216,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     caller stays `OBSERVED`.
   - Claims: C-2600–C-2609
 
-- [ ] **M1.15 — `sh4xref.py --calls`: model the slot dereference**
-  - Status: in progress · Owner: task/m1.15-sh4xref-slot · Critical: no
+- [x] **M1.15 — `sh4xref.py --calls`: model the slot dereference**
+  - Status: done · Owner: task/m1.15-sh4xref-slot · Critical: no
   - Depends: — (M1.8 and M1.12 done; the defect was found in M1.12)
   - Goal: `--calls` prints `jsr @r3 -> 0x0055d924` for `fn 0x004125a8`, but
     `0x0055d924` is a slot: the code runs `mov.l @(pc),r3; mov.l @r3,r3;
@@ -1237,6 +1237,12 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     the only change to another block's rows.
   - Stop: if the change alters another `--calls` line in build A beyond these
     sites, record the diff in an EXP and stop.
+  - Result: `tools/sh4xref.py --calls` models `mov.l @Rm,Rn; jsr @Rn` as
+    `indirect slot <va>` (no target); `fn 0x004125a8` `0x004125e2` →
+    indirect slot `0x0055d924`, `0x00412614` stays direct `0x0040b358`;
+    `--selftest` covers both. C-2200–C-2202 retracted (Superseded by
+    C-2513/C-2515/C-2514). C-2850–C-2853.
+    EXP-2026-11-08-M1.15-sh4xref-slot-deref.md.
   - Claims: C-2850–C-2859 (was C-2650–C-2659, collision with M4.26/M5.22/M5.23 fixed by H23)
 
 - [ ] **M1.16 — Unify `.cmp`/`.ind` chunk codec and inner-page helpers across tools**

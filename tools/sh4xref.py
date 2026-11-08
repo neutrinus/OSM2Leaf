@@ -175,9 +175,27 @@ def query_to(mem, exec_segs, value, label):
     return lines
 
 
+def _movl_deref(w):
+    """``mov.l @Rm,Rn`` (0x6nm2): load word from address in Rm into Rn.
+    Returns (dest_n, src_m) or None."""
+    if w is None or w & 0xF00F != 0x6002:
+        return None
+    return (w >> 8) & 15, (w >> 4) & 15
+
+
 def query_calls(mem, func, label):
+    """Calls made by the function at ``func`` (up to its ``rts`` or FUNC_LIMIT).
+
+    ``mov.l @(disp,PC),Rn`` sets Rn to the literal value. A following
+    ``mov.l @Rn,Rm`` dereferences that literal (a slot read); ``jsr @Rm`` is
+    then an *indirect* call through the slot, and the actual target is the word
+    stored at the slot — which may be in compressed bytes and unreadable here
+    (C-2513, M1.15). Such calls report the slot and no target. A ``jsr @Rn``
+    with no intervening dereference is a direct call to the literal (labelled).
+    """
     lines = []
     reg_val = {}
+    slot_of = {}  # reg -> slot VA this reg holds the dereferenced contents of
     for k in range(0, FUNC_LIMIT, 2):
         a = func + k
         w = mem.u16(a)
@@ -194,11 +212,30 @@ def query_calls(mem, func, label):
         if ld:
             v = mem.u32(ld[1])
             reg_val[ld[0]] = v
+            slot_of.pop(ld[0], None)
+            continue
+        dr = _movl_deref(w)
+        if dr:
+            dst, src = dr
+            if src in reg_val and reg_val[src] is not None and src not in slot_of:
+                # Deref of a literal slot: dst holds *(slot); target unknown.
+                slot_of[dst] = reg_val[src]
+                reg_val[dst] = None
+            else:
+                # A plain load (or chained deref) clobbers direct-target knowledge.
+                slot_of.pop(dst, None)
+                reg_val.pop(dst, None)
             continue
         j = jsr_reg(w)
-        if j and j[0] == "jsr" and j[1] in reg_val and reg_val[j[1]] is not None:
-            tgt = reg_val[j[1]]
-            lines.append("  0x%08x jsr @r%d -> 0x%08x  %s" % (a, j[1], tgt, label(tgt)))
+        if j and j[0] == "jsr":
+            rn = j[1]
+            if rn in slot_of:
+                lines.append("  0x%08x jsr @r%d -> indirect slot 0x%08x"
+                             % (a, rn, slot_of[rn]))
+            elif rn in reg_val and reg_val[rn] is not None:
+                tgt = reg_val[rn]
+                lines.append("  0x%08x jsr @r%d -> 0x%08x  %s"
+                             % (a, rn, tgt, label(tgt)))
     return lines
 
 
@@ -255,15 +292,18 @@ def _synthetic():
     Layout (addresses):
       0x10000  rts ; nop                       end of the previous function
       0x10004  sts.l pr,@-r15                  function F starts here
-      0x10006  mov.l @(pc),r3  -> pool 0x1001c (holds 0x10040, the thunk VA)
-      0x10008  jsr @r3 ; nop                   call F -> thunk
-      0x1000c  bsr 0x10040 ; nop               direct call to the thunk
-      0x10010  rts ; nop
-      0x10014  (pad)
+      0x10006  mov.l @(pc),r3  -> pool 0x10020 (holds 0x10040, thunk VA)  [direct]
+      0x10008  jsr @r3 ; nop                   direct call F -> thunk
+      0x1000c  bsr 0x10040 ; nop               bsr call to the thunk
+      0x10010  mov.l @(pc),r5  -> pool 0x10024 (holds 0x30000, slot VA)  [indirect]
+      0x10012  mov.l @r5,r5                    deref the slot
+      0x10014  jsr @r5 ; nop                   indirect call through slot 0x30000
+      0x10018  rts ; nop
+      0x10020  pool: 0x10040 (thunk VA)
+      0x10024  pool: 0x30000 (slot VA)
       0x10040  thunk: mov.l @(pc),r0 -> pool 0x10048 (holds slot 0x20000)
                mov.l @r0,r0 ; jmp @r0 ; nop
       0x10048  slot literal 0x20000
-      0x1001c  pool: 0x10040 (thunk VA) at 0x1001c
     """
     base = 0x10000
     b = bytearray(0x80)
@@ -273,17 +313,21 @@ def _synthetic():
 
     put(0x10000, 0x000B); put(0x10002, 0x0009)
     put(0x10004, 0x4F22)
-    # mov.l @(pc),r3 at 0x10006: lit = ((0x10006+4)&~3) + disp*4 = 0x1000c? use 0x1001c
-    # (0x10008 & ~3)=0x10008 -> disp = (0x1001c-0x10008)/4 = 5
-    put(0x10006, 0xD300 | 5)
+    # mov.l @(pc),r3 at 0x10006: (0x10006+4)&~3 = 0x10008, (0x10020-0x10008)/4 = 6
+    put(0x10006, 0xD300 | 6)
     put(0x10008, 0x430B); put(0x1000A, 0x0009)
     put(0x1000C, 0xB000 | (((0x10040 - (0x1000C + 4)) // 2) & 0xFFF)); put(0x1000E, 0x0009)
-    put(0x10010, 0x000B); put(0x10012, 0x0009)
+    # mov.l @(pc),r5 at 0x10010: (0x10010+4)&~3 = 0x10014, (0x10024-0x10014)/4 = 4
+    put(0x10010, 0xD500 | 4)
+    put(0x10012, 0x6552)                     # mov.l @r5,r5 (slot deref)
+    put(0x10014, 0x450B); put(0x10016, 0x0009)
+    put(0x10018, 0x000B); put(0x1001A, 0x0009)
     # thunk at 0x10040: mov.l @(pc),r0 -> lit (0x10040+4)&~3 = 0x10044, + disp*4 = 0x10048 -> disp=1
     put(0x10040, 0xD001); put(0x10042, 0x6002); put(0x10044, 0x402B); put(0x10046, 0x0009)
     # pool bytes
+    struct.pack_into("<I", b, 0x10020 - base, 0x10040)
+    struct.pack_into("<I", b, 0x10024 - base, 0x30000)
     struct.pack_into("<I", b, 0x10048 - base, 0x20000)
-    struct.pack_into("<I", b, 0x1001C - base, 0x10040)
     return Mem([(base, bytes(b))]), [(base, bytes(b))]
 
 
@@ -308,15 +352,15 @@ def selftest():
             fails.append(label)
 
     mem, exec_segs = _synthetic()
-    check("movl_pc_target", movl_pc_target(0x10006, mem.u16(0x10006)), (3, 0x1001C))
+    check("movl_pc_target", movl_pc_target(0x10006, mem.u16(0x10006)), (3, 0x10020))
     check("bsr_target", bsr_target(0x1000C, mem.u16(0x1000C)), 0x10040)
     check("bsr negative disp (0xBFFE: PC+4-4)", bsr_target(0x10044, 0xBFFE), 0x10044)
     check("jsr_reg", jsr_reg(0x430B), ("jsr", 3))
     check("function_start from 0x10008", function_start(mem, 0x10008), 0x10004)
     check("function_start skips pool gap", function_start(_gap_mem(), 0x10016), 0x1000E)
     check("thunk_slot", thunk_slot(mem, 0x10040), 0x20000)
-    check("pool_entries(0x10040)", pool_entries(mem, exec_segs, 0x10040), [0x1001C])
-    check("loads_of(0x1001C)", loads_of(mem, 0x1001C), [(0x10006, 3)])
+    check("pool_entries(0x10040)", pool_entries(mem, exec_segs, 0x10040), [0x10020])
+    check("loads_of(0x10020)", loads_of(mem, 0x10020), [(0x10006, 3)])
     check("call_after load 0x10006", call_after(mem, 0x10006, 3), (0x10008, "jsr"))
 
     lab = Labeller(mem, {0x20000: "OBJDLL.dll!MAL_test"}, {0x10004: "F_export"})
@@ -331,8 +375,12 @@ def selftest():
     calls = query_calls(mem, 0x10004, lab)
     check("--calls finds bsr to thunk",
           any("bsr 0x00010040" in l and "IMPORT" in l for l in calls), True)
-    check("--calls finds jsr @r3 to thunk",
+    check("--calls finds direct jsr @r3 to thunk",
           any("jsr @r3 -> 0x00010040" in l for l in calls), True)
+    check("--calls labels indirect slot deref (no target)",
+          any("jsr @r5 -> indirect slot 0x00030000" in l for l in calls), True)
+    check("--calls does not print indirect slot as a target address",
+          not any("-> 0x00030000" in l for l in calls), True)
     check("--calls stops at rts", any("rts" in l for l in calls), True)
 
     # cross-image import resolution (M1.9): load_module resolves ordinal imports
