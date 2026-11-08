@@ -1667,6 +1667,22 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2638 | The B30R048R byte-identical pin is trusted at tile level (C-2630), with C-2636 as the caveat: the background model does not rebuild 65 of its 2,958 odd background records on its own. | VERIFIED (scope) | H | EXP-2026-11-08-M9.22-b30r048r-rebuild (Conclusion) |
 | C-2639 | Why the three records are unmodelled is a HYPOTHESIS: a layer table longer than the geometry region, with used entries after the region end; whether those entries are layers, shared data or padding is not established. | HYPOTHESIS | M | EXP-2026-11-08-M9.22-b30r048r-rebuild (Interpretation); follow-up M9.23 |
 
+## M9.23 — B30R048R refused records modelled (C-2860–C-2869)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2860 | In the three M9.22 records (`B30R048R` dir `0x2ad00`, slots 6/8/11, `k = 1`), the bytes past the header's geometry region (`geo_off 11`, `geo_len 26`, region ends at unit 37 = byte 148) are the start of the names section (`w11 = 37`, `w12 = 100`): the "entries past the region" `(0xffff,0),(0xffff,0),(6,20)…,(8,20)` are names-section bytes, not layer table entries and not layers. | VERIFIED | H | EXP-2026-11-08-M9.23-b30r048r-opaque; byte dump of the three records (names pointer = geo_off + geo_len; tail at geo_end matches section bytes) |
+| C-2861 | `clarion_bg.parse_record` bounds the layer-table scan to the declared `geo_len` units (`tcap = geo_len`); if no used entry is found within the region, `nlayers = tcap`. The bound never binds on the 2,955 B30R048R records that parsed before M9.23 and on no record of B28R070R, B30R060R or B58R070R (C-2634 control; control tiles unchanged). | VERIFIED | H | EXP-2026-11-08-M9.23-b30r048r-opaque; `harness.py verify` on B30R048R + 3 controls ("parse refused 0", counts unchanged except the 3 moved from refused/opaque to rebuilt) |
+| C-2862 | With the bounded read, `parse_record` accepts the three target records and `build_record` rebuilds each byte-identically with `strict=True` (non-opaque, `nlayers == geo_len == 26`, all-empty layer table, names section preserved via header pointers). | VERIFIED | H | EXP-2026-11-08-M9.23-b30r048r-opaque; `bg_refused.py --selftest` ("M9.23 targets parse and rebuild byte-identically (strict)", 8 checks OK) |
+| C-2863 | `harness.py verify B30R048R.DAT` reports `records ok 3396 bad 0 | background rebuild ok 2958 bad 0 (opaque 62, parse refused 0) | graph parse ok 228 bad 0 | roundtrip OK` (byte-identical, 1,358,592 B), exit 0. Control tiles B28R070R, B30R060R, B58R070R verify with unchanged counts and round-trip OK. | VERIFIED | H | EXP-2026-11-08-M9.23-b30r048r-opaque; `harness.py verify` on the four pinned tiles |
+| C-2864 | The B30R048R L2 golden is unchanged: `l2check.py` tile round-trip OK (5 tiles) and tile semantic digest OK (`B30R048R.DAT=16684`), same as M9.22; `tools/golden/eu2011.json` not regenerated because tile bytes and semantic features are unchanged (only the parser's read bound changed). | VERIFIED | H | EXP-2026-11-08-M9.23-b30r048r-opaque; `l2check.py --root leafre-work/root` (tile checks OK; overall FAIL is the partial root, as in M9.22/C-2637) |
+| C-2865 | The ZE0 delta for the bounded read lives in `tools/ze0-viewer/tools_ze0/clarion_bg.py` and is recorded in `tools/ze0-viewer/ze0-tools.patch` (audited delta; `bg_refused.py` updated to verify the M9.23 outcome). | VERIFIED | H | EXP-2026-11-08-M9.23-b30r048r-opaque; `ze0-tools.patch` clarion_bg hunk; `bg_refused.py --selftest` |
+| C-2866 | C-2639 (HYPOTHESIS: layer table longer than geometry region with used entries after the region end; layers/shared data/padding unknown) is resolved: the apparent "entries past the region" are names-section bytes overread by an unbounded scan, not layer-table entries. C-2639 remains the historical hypothesis record. | VERIFIED (resolution) | H | EXP-2026-11-08-M9.23-b30r048r-opaque; C-2860; supersedes the open question of C-2639 |
+| C-2867 | RESERVED. | — | — | — |
+| C-2868 | RESERVED. | — | — | — |
+| C-2869 | RESERVED. | — | — | — |
+
+
 ## M9.11 — chunk decoder under PySh4 on the POINT010 pairs (C-2150–C-2159)
 
 | ID | Claim | Status | Confidence | Evidence |

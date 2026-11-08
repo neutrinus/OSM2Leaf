@@ -188,9 +188,18 @@ def parse_record(d):
     geo_off, geo_len = w[gi], w[gi + 1]
     base = 4 * geo_off
     table = []; nlayers = 1 << 30 if geo_off != 0xffff else 0
-    while len(table) < nlayers:
+    # The header declares a geo_len-unit geometry region; the layer table never
+    # extends past it.  Bound the scan (B30R048R dir 0x2ad00 slots 6/8/11: the
+    # region holds 26 empty pairs and the bytes past it are the names section, so
+    # reading past geo_len misreads section data as table entries).  The bound
+    # never bites on a record that parses today (nlayers <= geo_len; reach ==
+    # geo_len is asserted below).
+    tcap = geo_len if geo_off != 0xffff else 0
+    while len(table) < nlayers and len(table) < tcap:
         off, ln = struct.unpack_from('>HH', d, base + 4*len(table)); table.append((off, ln))
         if off != 0xffff: nlayers = min(nlayers, off)
+    if nlayers > tcap:
+        nlayers = tcap
     assert nlayers == len(table), (nlayers, len(table))
     if geo_off == 0xffff: assert geo_len == 0
     # a road-shape record counts shapes, not units, so its layers stop short and would drop the tail unnoticed

@@ -357,7 +357,15 @@ record (not zlib) and is preserved verbatim.
   Odd slot = one **background record** (sea, coast, rivers, land/area polygons,
   point labels, and a name/point index). 1,677 of the 7,177 background records
   carry a point-index section at w15/w16 that is not decoded here and is
-  preserved verbatim; the shape counts above exclude them.
+  preserved verbatim; the shape counts above exclude them. The geometry
+  pointer pair (`w9/w10` normally, `w7/w8` for a road-only record; see
+  `bg_slot`) declares a `geo_len`-unit region; the layer table is bounded by
+  `geo_len`. In three `B30R048R` level-1 records (dir `0x2ad00`, slots
+  6/8/11) the bytes immediately past the 26-unit geometry region are the start
+  of the names section (`w11 = geo_off + geo_len`), so an unbounded table scan
+  misreads names bytes as table entries; the bounded read accepts and rebuilds
+  them (`harness.py` reports `parse refused 0` on `B30R048R`; C-2860–C-2863,
+  EXP-2026-11-08-M9.23-b30r048r-opaque).
 - **Level 4 (10 and 16 km).** Same split: 380 even-slot road records and 641
   odd-slot background records. Background shapes use the same group grammar as
   level 5; road records use the same shape grammar as level 5's road block.

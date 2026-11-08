@@ -3791,8 +3791,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2630–C-2639
   - Result: EXP-2026-11-08-M9.22-b30r048r-rebuild (C-2630–C-2639). The three refused records are named (dir `0x2ad00`, slots 6/8/11, k 1); the L2 pin is re-set in the EXP (tile round-trip and semantic digest pass, golden unchanged); `tools/ze0-viewer/bg_refused.py --selftest` OK (7 checks). Follow-up: M9.23.
 
-- [ ] **M9.23 — Model the three refused records of `B30R048R` (layer table past `geo_len`)**
-  - Status: in progress · Owner: task/m9.23-b30r048r-opaque · Critical: no
+- [x] **M9.23 — Model the three refused records of `B30R048R` (layer table past `geo_len`)**
+  - Status: done · Owner: task/m9.23-b30r048r-opaque · Critical: no
   - Depends: M9.22 (done)
   - Goal: M9.22 found three level-1 background records (dir `0x2ad00`, slots
     6/8/11) whose layer table has entries past the header's geometry region
@@ -3809,6 +3809,14 @@ parts are covered by `tools/l3_harness/selftest.py`.
     them as opaque in the EXP and stop; do not weaken the check.
   - Claims: C-2860–C-2869 (next free block; C-2630–C-2639 kept by M9.22, H23)
   - Unblock: none.
+  - Result: EXP-2026-11-08-M9.23-b30r048r-opaque (C-2860–C-2866). The "entries
+    past `geo_len`" are names-section bytes (`w11 = geo_off + geo_len`), not
+    layers; `clarion_bg.parse_record` now bounds the table scan to `geo_len`.
+    `parse_record` accepts and `build_record` rebuilds the 3 records
+    byte-identically with `strict=True` (`bg_refused.py --selftest` 8 checks OK).
+    `harness.py verify B30R048R` reports `parse refused 0`, `background rebuild
+    ok 2958 (opaque 62)`, round-trip OK; controls B28R070R/B30R060R/B58R070R
+    unchanged. L2 golden unchanged (tile bytes/semantic 16684 unchanged).
 
 - [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
   - Status: open · Owner: — · Critical: yes

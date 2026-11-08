@@ -30,8 +30,8 @@ diff -ruN osm2clarion/tools/bg_decode.py tools_ze0/bg_decode.py
                          if 'raw' in g: continue
                          for sh in g['shapes']:
 diff -ruN osm2clarion/tools/clarion_bg.py tools_ze0/clarion_bg.py
---- a/tools/clarion_bg.py	2026-11-05 12:33:59.882729214 +0100
-+++ b/tools/clarion_bg.py	2026-11-05 15:36:58.141702606 +0100
+--- a/tools/clarion_bg.py
++++ b/tools/clarion_bg.py
 @@ -67,6 +67,8 @@
  def parse_shapes(d, p, kind, n):
      shapes = []
@@ -80,7 +80,27 @@ diff -ruN osm2clarion/tools/clarion_bg.py tools_ze0/clarion_bg.py
                  assert -128 <= dx <= 127 and -128 <= dy <= 127, (dx, dy)
                  out += struct.pack('>bb', dx, dy)
      return bytes(out)
-@@ -195,9 +209,16 @@
+@@ -174,9 +188,18 @@
+     geo_off, geo_len = w[gi], w[gi + 1]
+     base = 4 * geo_off
+     table = []; nlayers = 1 << 30 if geo_off != 0xffff else 0
+-    while len(table) < nlayers:
++    # The header declares a geo_len-unit geometry region; the layer table never
++    # extends past it.  Bound the scan (B30R048R dir 0x2ad00 slots 6/8/11: the
++    # region holds 26 empty pairs and the bytes past it are the names section, so
++    # reading past geo_len misreads section data as table entries).  The bound
++    # never bites on a record that parses today (nlayers <= geo_len; reach ==
++    # geo_len is asserted below).
++    tcap = geo_len if geo_off != 0xffff else 0
++    while len(table) < nlayers and len(table) < tcap:
+         off, ln = struct.unpack_from('>HH', d, base + 4*len(table)); table.append((off, ln))
+         if off != 0xffff: nlayers = min(nlayers, off)
++    if nlayers > tcap:
++        nlayers = tcap
+     assert nlayers == len(table), (nlayers, len(table))
+     if geo_off == 0xffff: assert geo_len == 0
+     # a road-shape record counts shapes, not units, so its layers stop short and would drop the tail unnoticed
+@@ -195,9 +218,16 @@
              sections[name] = d[4*w[oi]:4*w[oi] + 4*w[li]]
          elif w[oi] != 0xffff and w[oi] != 0:
              sections[name] = b''
@@ -98,7 +118,7 @@ diff -ruN osm2clarion/tools/clarion_bg.py tools_ze0/clarion_bg.py
      w = list(r['hdr'])
      nlayers = r['nlayers']
      geo = bytearray(b'\xff\xff\x00\x00' * nlayers)
-@@ -224,14 +245,20 @@
+@@ -224,14 +254,20 @@
          else:
              w[oi], w[li] = 0xffff, 0
      struct.pack_into('>22H', out, 0, *w)

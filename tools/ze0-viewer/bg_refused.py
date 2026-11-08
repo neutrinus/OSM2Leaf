@@ -11,6 +11,10 @@ header names. A refused record that rebuilds byte-identically under the bound
 is evidence that the bound describes it; the cap must never bite on a record
 that parses today (the control).
 
+The bounded read is now implemented in clarion_bg.parse_record (M9.23), so the
+three B30R048R records that M9.22 found are no longer refused; --selftest
+verifies they parse and rebuild byte-identically with strict=True.
+
 Usage:
     python3 bg_refused.py TILE.DAT [TILE.DAT ...]
     python3 bg_refused.py --selftest [TILE.DAT ...]
@@ -115,16 +119,41 @@ def report(path):
     return refused, cap_bites
 
 
+# The three records M9.22 found and M9.23 modelled (dir, slot).
+M923_TARGETS = {(0x2ad00, 6), (0x2ad00, 8), (0x2ad00, 11)}
+
+
+def check_m923(path):
+    """Verify the M9.23 target records parse and rebuild byte-identically (strict)."""
+    found = []
+    for where, plain in odd_bg_records(path):
+        if (where['dir'], where['slot']) not in M923_TARGETS or where['k'] != 1:
+            continue
+        p = clarion_bg.parse_record(plain)
+        b = clarion_bg.build_record(dict(p, strict=True))
+        w = list(struct.unpack_from('>22H', plain, 0))
+        gi = clarion_bg.bg_slot(w)
+        geo_len = w[gi + 1]
+        found.append(dict(where, parsed_ok=True, rebuild_ok=b == plain,
+                          nlayers=p['nlayers'], geo_len=geo_len,
+                          bounded=p['nlayers'] == geo_len))
+    return found
+
+
 def selftest():
     refused_path = DEFAULT_ROOT / SELFTEST_REFUSED_TILE
     if not refused_path.exists():
         print('selftest: no tile at %s (exit 2, nothing checked)' % refused_path)
         return 2
     refused, cap_bites = report(refused_path)
+    m923 = check_m923(refused_path)
     checks = [
-        ('B30R048R refuses 3 records', len(refused) == 3),
-        ('all refused records have an empty region', all(r['region_empty'] for r in refused)),
-        ('bounded rebuild equals source for all refused', all(r['bounded_ok'] for r in refused)),
+        ('B30R048R has no refusals (M9.23 bounded read)', len(refused) == 0),
+        ('M9.23 targets found (3 records)', len(m923) == 3),
+        ('M9.23 targets parse and rebuild byte-identically (strict)',
+         all(r['parsed_ok'] and r['rebuild_ok'] for r in m923)),
+        ('M9.23 targets bounded to geo_len (nlayers == geo_len)',
+         all(r['bounded'] for r in m923)),
         ('cap does not bite on parsed records of B30R048R', cap_bites == 0),
     ]
     for name in SELFTEST_CLEAN_TILES:
