@@ -2080,7 +2080,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2340–C-2349 (was C-1840–C-1849, a collision with M4.16b)
 
 - [ ] **M5.1c — OSM node tags: POIs, addresses and places into IMF**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: claude/m5.1c-osm-poi · Critical: yes
   - Depends: M5.1
   - Goal: the compiler can build roads only. A card also needs `POINT` POIs,
     `ADDRE` addresses and place names, and none of them has an IMF
