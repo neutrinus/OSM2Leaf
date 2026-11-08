@@ -2953,7 +2953,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2160–C-2169
 
 - [ ] **M9.13 — L3 target `tile_reader` on factory and generated tiles**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: claude/m9.13-reader-run · Critical: yes
+  - Unblock: M9.20 (module entry kind, `engine_hook`; PR #89).
+  - Blocker: `runner.py` accepts only `synthetic`/`blocked` entry kinds, so the M3.5 reader VA cannot be run; `tile_reader` still reports BLOCKED. See EXP-2026-11-08-M9.13-reader-run.
   - Depends: M9.5 (M3.5 reader VAs `0x0041f26c`/`0x004259bc`/`0x0042757a`; M3.6 helps)
   - Goal: the tile is the core generated format; run the firmware's tile
     reader on it. Fills `tile_reader` (now `blocked`) in `targets.json`.

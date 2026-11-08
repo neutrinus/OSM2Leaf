@@ -1640,3 +1640,11 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2457 | Real bytes, partial: the first 2,000,000 nodes of `dolnoslaskie-latest.osm.pbf` (header timestamp `2026-11-07T21:21:36Z`, sequence 4028) decode with the new path. 93,056 carry a tag, 54,628 are feature nodes, and names decode with Polish letters (`Unisławice`). This is not the region run. | OBSERVED (real extract, first 2 M nodes) | M | EXP-2026-11-08-M5.1c-osm-poi §7 |
 | C-2458 | OPEN: the full Dolnośląskie POI and address counts and the `imf_check --strict` run on that extract. This needs the complete region run, which is M5.1b. | OPEN | — | M5.1b; EXP-2026-11-08-M5.1c-osm-poi §8 |
 | C-2459 | RESERVED. | — | — | — |
+
+## M9.13 — L3 run of the M3.5 tile reader (C-2230–C-2239)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2230 | The three M3.5 reader VAs in `Navi.exe` (`0x0041f26c`, `0x004259bc`, `0x0042757a`) lie in section 0 (`realaddr 0x00011000`, `flags 0x68000020`, not COMPRESSED) and map to file offsets `0x0109d46c`, `0x010a3bbc`, `0x010a577a` on `archive/head256.img`. | VERIFIED | H | EXP-2026-11-08-M9.13-reader-run; `tools/cerom.py --image-start 0x200200 IMG va2file VA`, `sections Navi.exe` |
+| C-2231 | `tools/l3_harness/runner.py` accepts only `entry.kind` `synthetic` or `blocked`; a `module` entry for `tile_reader` is rejected as INVALID (exit 1), so `tile_reader` still reports BLOCKED (exit 4) and the M3.5 reader VA cannot yet be run. Blocked on M9.20. | VERIFIED (negative) | H | EXP-2026-11-08-M9.13-reader-run; `runner.py run tile_reader --targets SCRATCH --input /dev/null --json` |
+| C-2232 | Positive control for the L3 runner: `runner.py run probe-zlib-cmf` gives ACCEPT/PASS (exit 0) on input `\x78\x9c` and MISMATCH (exit 5) on empty input. | VERIFIED (tool, synthetic corpus) | H | EXP-2026-11-08-M9.13-reader-run |
