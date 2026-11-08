@@ -1300,9 +1300,11 @@ def _selftest_reconcile() -> int:
                         and r3["ok"],
                         "reconcile: added file falls back to the fresh build (reported)")
 
-        # R5 negative control: a stray byte outside the envelope is caught
+        # R5 negative control: a stray byte outside the envelope is caught.
+        # Reuse o1 (no reads after R2) to avoid a whole-image copy on
+        # constrained tmpfs (H24: tmp-safe selftest).
         bad = td / "bad.img"
-        shutil.copyfile(o1, bad)
+        o1.replace(bad)
         with bad.open("r+b") as h:
             _, g, f = open_map_partition(h)
             free_cluster = max(c for c in range(2, len(f) // 4) if fat_get(f, c) == 0)
@@ -1311,7 +1313,7 @@ def _selftest_reconcile() -> int:
             h.write(b"\xa5")
         ranges = diff_ranges(img, bad, limit=1 << 30)
         allowed = []
-        with o1.open("rb") as h:
+        with bad.open("rb") as h:
             _, g1, f1 = open_map_partition(h)
         for rel in ("A.TXT",):
             for c in chains_now[rel]:

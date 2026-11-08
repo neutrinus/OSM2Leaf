@@ -858,6 +858,21 @@ back to stock `-M none -cpu sh7785`. Stages F0–F5 and their gates are in
 [`docs/research/full-system-emulation.md`](../docs/research/full-system-emulation.md)
 and TODO M8.
 
+## `todo_check.py`
+
+Lint `TODO.md` board structure: duplicate task IDs, duplicate/overlapping or
+malformed `Claims` ranges, missing required fields, invalid Status/Critical,
+checkbox/status contradictions, `blocked` without `Unblock`, `done` without
+`Result`, and (as warnings) unknown `Depends` refs and missing
+Precheck/Scope/Stop on firmware/search tasks. Complements `claims_check.py`,
+which validates `docs/research/claims.md`.
+
+```bash
+python3 tools/todo_check.py TODO.md      # lint the board (exit 1 on errors)
+python3 tools/todo_check.py --json TODO.md
+python3 tools/todo_check.py --selftest   # synthetic checks + real TODO parse
+```
+
 ## Conventions
 
 - Read-only. Scripts that write require an explicit output path.
