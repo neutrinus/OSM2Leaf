@@ -46,7 +46,31 @@ Editing TODO.md concurrently (~15 agents write to it):
   why in the body).
 
 Role order when run as a cycle: SM → SE → PO → QA → TL. Each role reads the
-latest output of the previous one (retro, new tasks) instead of re-deriving it.
+latest output of the previous one (retro, new tasks, its dev_process/ log)
+instead of re-deriving it.
+
+Work log (every run of every role prompt, no exceptions — also when the run
+finds nothing to do or fails):
+- File: `dev_process/YYYY-MM-DD-HHMM-N-<role>.log`, UTC start time, `N` =
+  1 + number of logs already in dev_process/ for that date (so names never
+  collide), `<role>` = po | qa | se | sm | tl. Example:
+  `dev_process/2026-11-09-1430-3-tl.log`.
+- Create it when you start (header lines), append as you go, finish it
+  before your last commit. Plain English text, aim for under ~80 lines:
+    role, model, start/end time (UTC), origin/main SHA at start
+    inputs read (retro, previous logs, PRs) — names only
+    actions taken, in order, each with its reason (one line each)
+    task IDs added / changed / moved / blocked / re-opened; PRs; commits
+    decisions made and alternatives rejected (one line each)
+    problems, dead ends, anything that cost time
+    handoff: what the next role should look at first
+  TL also lists each task's mode (pair/solo), subagents launched and their
+  outcome. Never paste command output, diffs or vendor bytes — reference
+  files, SHAs and task IDs instead.
+- Commit the log in your final commit (or a `chore: <role> work log` commit)
+  and push it; a run that changed nothing still commits its log.
+- Read only the logs since your own previous run, never the whole folder.
 
 Finish with a short summary for the user: what you changed, which task IDs
-you added/moved/blocked, and anything that needs a human decision.
+you added/moved/blocked, and anything that needs a human decision, plus the
+path of your work log.
