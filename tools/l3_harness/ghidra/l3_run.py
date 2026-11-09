@@ -238,8 +238,12 @@ def selftest() -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _script_args() if argv is None else list(argv)
-    if args == ["--selftest"]:
-        return selftest()
+    if args and args[0] == "--selftest":
+        full = "--full" in args[1:]
+        code = selftest()
+        if code == EXIT_OK:
+            print(f"l3_run selftest mode: {'full' if full else 'quick'}")
+        return code
     return run(args)
 
 

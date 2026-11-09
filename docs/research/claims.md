@@ -2506,3 +2506,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3337 | RESERVED (H45). | — | — | — |
 | C-3338 | RESERVED (H45). | — | — | — |
 | C-3339 | RESERVED (H45). | — | — | — |
+
+## M1.18 — Bound `l3_harness` selftest runtime (C-3390–C-3399)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3390 | `tools/l3_harness/engine.py --selftest` accepts `--quick` (default) / `--full`. Quick runs all PySh4/reference checks and skips external Ghidra/QEMU parity *execution* with an honest `SKIPPED_IN_QUICK` reason when a probe reports the back end available but unverified/slow; `MISSING_GHIDRA`/`MISSING_QEMU` remain honest when unavailable. Verdict semantics unchanged (SKIP never PASS). | VERIFIED (tool) | H | EXP-2026-11-09-M1.18-l3-harness-selftest-runtime; `engine.py --selftest`/`--full` controls |
+| C-3391 | Pre-M1.18 dominant runtime on this host was `engine.py` external QEMU parity execution (qemu-system-sh4 present, gdbstub adapter unverified) which hung/timed out the gate (>120s observed in-session); engine checks excluding ghidra/qemu parity completed in 0.002s. Quick `engine.py --selftest` is bounded (~0.06s, 2026-11-09, this host). | OBSERVED (timing) | H | EXP-2026-11-09-M1.18-l3-harness-selftest-runtime; `engine.py --probe`, profiling command, quick timing |
+| C-3392 | `tools/l3_harness/runner.py --selftest`/`selftest` and `tools/l3_harness/selftest.py` accept `--quick`/`--full` and report mode. Runner's external engine execution checks skip honestly in quick mode when a back end is available; quick runner target checks ~0.09s and package selftest ~0.18s on this host. | VERIFIED (tool) | H | EXP-2026-11-09-M1.18-l3-harness-selftest-runtime; runner/selftest commands |
+| C-3393 | `tools/l3_harness/dispatch.py --selftest` and `tools/l3_harness/ghidra/l3_run.py --selftest` accept `--quick`/`--full` for H38 selector consistency; their checks are already bounded/fast (~0.09s quick on this host). | VERIFIED (tool) | H | EXP-2026-11-09-M1.18-l3-harness-selftest-runtime |
+| C-3394 | `--full` runs the complete suite with wall-clock bounds on external parity/execution. On this host: `runner.py --selftest --full` completed in 45.10s with QEMU attempted and an honest non-pass contract outcome (never PASS); `engine.py --selftest --full` failed loudly on QEMU parity (`gdbstub single step failed: exceeded 60s wall-clock bound`, adapter unverified) — honest FAIL, not PASS/SKIP. | OBSERVED (bounded full run) | M | EXP-2026-11-09-M1.18-l3-harness-selftest-runtime; full-mode logs |
+| C-3395 | RESERVED (M1.18). | — | — | — |
+| C-3396 | RESERVED (M1.18). | — | — | — |
+| C-3397 | RESERVED (M1.18). | — | — | — |
+| C-3398 | RESERVED (M1.18). | — | — | — |
+| C-3399 | RESERVED (M1.18). | — | — | — |

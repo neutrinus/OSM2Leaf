@@ -1895,6 +1895,11 @@ def snapshot_core(snapshot: Mapping) -> dict:
 
 CHECKS: list[tuple[str, Callable]] = []
 SKIPS: list[str] = []
+#: ``--full`` runs every check, including external-backend parity that may be
+#: slow or need a working Ghidra/QEMU adapter.  The default (quick) keeps the
+#: PySh4/reference checks and SKIPs external execution with an honest reason so
+#: main loops stay bounded (M1.18).  A SKIP is never a PASS.
+FULL_SELFTEST = False
 
 
 def check(name: str):
@@ -2249,8 +2254,35 @@ def test_endian_argument():
         raise AssertionError("endian='middle' was accepted")
 
 
-def _parity(name: str, factory: Callable[[], Backend], missing_code: str) -> None:
-    """Run the snippet on *name*, or record an exact SKIP when it is absent."""
+def _run_with_alarm(seconds: int, func, *args, **kwargs):
+    """Run *func* with a SIGALRM wall-clock bound (Linux).  Raises on timeout."""
+    try:
+        import signal
+    except Exception:  # pragma: no cover
+        return func(*args, **kwargs)
+
+    def _handler(signum, frame):
+        raise TimeoutError(f"exceeded {seconds}s wall-clock bound")
+
+    old = signal.getsignal(signal.SIGALRM)
+    try:
+        signal.signal(signal.SIGALRM, _handler)
+        signal.alarm(seconds)
+        return func(*args, **kwargs)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+
+
+def _parity(name: str, factory: Callable[[], Backend], missing_code: str,
+            *, external: bool = False) -> None:
+    """Run the snippet on *name*, or record an exact SKIP when it is absent.
+
+    When *external* is true the check exercises a non-reference back end whose
+    adapter may be slow or unverified.  The default quick selftest skips that
+    execution (honest SKIP, never PASS); ``--full`` runs it with a wall-clock
+    bound so a broken adapter fails loudly instead of hanging a gate.
+    """
     backend = factory()
     try:
         availability = backend.probe()
@@ -2266,8 +2298,19 @@ def _parity(name: str, factory: Callable[[], Backend], missing_code: str) -> Non
                 )
             SKIPS.append(f"{name}: {availability.code} - {availability.detail}")
             return
+        if external and not FULL_SELFTEST:
+            SKIPS.append(
+                f"{name}: SKIPPED_IN_QUICK - external back end parity skipped in "
+                f"quick selftest (use --full); {availability.detail}"
+            )
+            return
         reference = run_snippet(PySh4())
-        snapshot = run_snippet(backend)
+        if external:
+            # External adapters are unverified here; bound --full so it cannot
+            # hang a gate.  A timeout is a loud failure (not a pass/skip).
+            snapshot = _run_with_alarm(60, run_snippet, backend)
+        else:
+            snapshot = run_snippet(backend)
     finally:
         backend.close()
 
@@ -2299,12 +2342,12 @@ def test_parity_available_path():
 
 @check("ghidra: runs the snippet identically, or SKIPs with MISSING_GHIDRA")
 def test_ghidra_parity():
-    _parity("ghidra", GhidraBackend, "MISSING_GHIDRA")
+    _parity("ghidra", GhidraBackend, "MISSING_GHIDRA", external=True)
 
 
 @check("qemu: runs the snippet identically, or SKIPs with MISSING_QEMU")
 def test_qemu_parity():
-    _parity("qemu", QemuBackend, "MISSING_QEMU")
+    _parity("qemu", QemuBackend, "MISSING_QEMU", external=True)
 
 
 @check("probe: pysh4 is always ready and a missing back end is never ready")
@@ -2329,7 +2372,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         epilog="Exit codes: 0 ok, 1 check failed, 2 usage, 3 back end missing, 4 blocked.",
     )
     parser.add_argument("--selftest", action="store_true",
-                        help="run the synthetic acceptance checks")
+                        help="run acceptance checks (default: quick/bounded; use --full for external parity)")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--quick", action="store_true",
+                      help="bounded selftest: skip external back-end execution (default with --selftest)")
+    mode.add_argument("--full", action="store_true",
+                      help="complete selftest: run external Ghidra/QEMU parity when their back ends are available")
     parser.add_argument("--probe", action="store_true",
                         help="report which back ends can run here")
     parser.add_argument("--demo", action="store_true",
@@ -2343,7 +2391,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     if args.selftest:
-        return _run_selftest()
+        return _run_selftest(full=bool(args.full))
     if args.probe:
         results = probe_all()
         if args.json:
@@ -2361,7 +2409,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     return EXIT_USAGE
 
 
-def _run_selftest() -> int:
+def _run_selftest(*, full: bool = False) -> int:
+    global FULL_SELFTEST
+    FULL_SELFTEST = full
+    SKIPS.clear()
     failures = 0
     for name, func in CHECKS:
         try:
@@ -2379,16 +2430,17 @@ def _run_selftest() -> int:
     print()
     total = len(CHECKS)
     skipped = len(SKIPS)
+    mode = "full" if full else "quick"
     if failures:
-        print(f"selftest: FAILED ({failures}/{total} checks, {skipped} skipped)")
+        print(f"selftest: FAILED ({failures}/{total} checks, {skipped} skipped, {mode})")
         return EXIT_FAIL
     if skipped:
         print(
-            f"selftest: OK ({total - skipped} checks, {skipped} skipped) - "
+            f"selftest: OK ({total - skipped} checks, {skipped} skipped, {mode}) - "
             "a skipped back end is not a pass"
         )
     else:
-        print(f"selftest: OK ({total} checks, every back end ran)")
+        print(f"selftest: OK ({total} checks, every back end ran, {mode})")
     return EXIT_OK
 
 

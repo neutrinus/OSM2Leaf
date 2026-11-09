@@ -938,6 +938,8 @@ def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "--selftest":
         argv = argv[1:]
+    full = "--full" in argv
+    argv = [a for a in argv if a not in ("--full", "--quick")]
 
     failures = 0
     for name, func in CHECKS:
@@ -953,10 +955,11 @@ def main(argv=None) -> int:
                 print(f"ok   {name}")
 
     print()
+    mode = "full" if full else "quick"
     if failures:
-        print(f"selftest: FAILED ({failures}/{len(CHECKS)} checks)")
+        print(f"selftest: FAILED ({failures}/{len(CHECKS)} checks, {mode})")
         return 1
-    print(f"selftest: OK ({len(CHECKS)} checks)")
+    print(f"selftest: OK ({len(CHECKS)} checks, {mode})")
     return 0
 
 
