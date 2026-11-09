@@ -2118,6 +2118,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3048 | reserved | — | — | — |
 | C-3049 | reserved | — | — | — |
 
+## M5.29 — Dolnośląskie one-tile OSM pipeline (C-3050–C-3059)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3050 | `tools/one_tile_pipeline.py` (M5.29, stdlib + existing tools, `--selftest` synthetic/no vendor data) produces an output card tree where exactly one tile `MAPAL001/B48R058R.DAT` is OSM-generated from IMF via `mesh_split` + `roadclass_v0` (`mapping=provisional-v0`, `ze0-road-class-table/1`, country 616) + `tilewriter`, with a synthetic baseline scaffold for the rest (factory-backed “rest factory/verbatim” path requires unavailable factory tree in this run) and a manifest rebuild attempt (`rebuild_manifests`). | VERIFIED (tool, synthetic) | M | EXP-2026-11-09-M5.29-one-tile-pipeline; `python3 tools/one_tile_pipeline.py --selftest`; `selftest.py --only one_tile_pipeline` |
+| C-3051 | The pipeline emits an honest per-gate report covering HDD_INFO/MAP CODE bytes, DRSTR/MMAIN/CMP.LST/.ind, tile round-trip/structure, section 4, and manifests with statuses `PASS`/`NOT-APPLICABLE`/`CANNOT-VERIFY-OFFLINE`/`NEEDS-L3` (SKIP never PASS). On the 2026-11-09 synthetic run: HDD_INFO=NOT-APPLICABLE, section 4=CANNOT-VERIFY-OFFLINE, tile generated (22272 B) but targeted `l2check`/full scaffold coherence not PASS → tile/manifest/drstr gates CANNOT-VERIFY-OFFLINE; real-image/factory run `blocked` with missing input named (rule 11). | VERIFIED (tool/report, synthetic) | M | EXP-2026-11-09-M5.29-one-tile-pipeline; `/tmp/opencode/osm2leaf-m5.29-report.json` (outside repo) |
+| C-3052 | Rule 13 / Stop honesty: `mapping=provisional-v0` and `roadclass_v0` output are **provisional and not firmware-confirmed**; L2 is necessary but not sufficient; L3/L4/L5 firmware acceptance is **unknown**. The EXP/report record fixture SHA-256, tile/corpus counts, provisional classes, and firmware acceptance unknown. No vendor bytes committed. | VERIFIED (process/evidence) | H | EXP-2026-11-09-M5.29-one-tile-pipeline |
+| C-3053 | M5.29 `Done when` not satisfied as of 2026-11-09: `cardcheck` and applicable `l2check` do not pass on the synthetic scaffold (MMAIN/section alignment; `ze0_mutate`/`clarion_tile` parse on synthetic tile) and factory EU2011 tile/tree context was unavailable (EU2011 absent; IMG256 lacks MAPAL001; `leafre-work/root` partial). Task status is `blocked` with blocker/unblock recorded; synthetic-only path delivered per Stop. | OBSERVED (partial/blocked) | M | EXP-2026-11-09-M5.29-one-tile-pipeline |
+| C-3054 | reserved | — | — | — |
+| C-3055 | reserved | — | — | — |
+| C-3056 | reserved | — | — | — |
+| C-3057 | reserved | — | — | — |
+| C-3058 | reserved | — | — | — |
+| C-3059 | reserved | — | — | — |
+
 ## M3.17 — Verbatim-copy set for a Poland card (C-2220–C-2229)
 
 | ID | Claim | Status | Confidence | Evidence |
