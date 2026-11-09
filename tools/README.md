@@ -668,7 +668,14 @@ RESULT: PASS (every runnable target passed; 5 blocked, 0 skipped)
 
 A synthetic `PASS` proves the runner/dispatcher path, not that the firmware
 accepts a card. `--root` and `--image` are accepted for the ladder interface but
-only recorded: card-level L3 (`l3check.py --card`) is M9.12. Claim C-1700; see
+only recorded. Card gate (M9.12, C-2160): `--card OUT.img --factory IMG` diffs
+card-relevant files (`VER_INFO/HDD_INFO.TXT`, `DRSTR001.DAT`, `REFER001/*`,
+`MAPAL001/*`) and reports per-target `pass`/`fail`/`not-yet-available` (exit 1
+on fail; no fake pass for unavailable readers — e.g. POI/M9.10 reported
+`not-yet-available`). Differing `.cmp/.ind` pairs use the M9.11 firmware
+chunk-decoder adapter when `IMG256`/Navi head is available. See
+[`../docs/experiments/EXP-2026-11-08-M9.12-l3check-card.md`](../docs/experiments/EXP-2026-11-08-M9.12-l3check-card.md)
+and
 [`../docs/experiments/EXP-2026-11-06-M9.8-l3check.md`](../docs/experiments/EXP-2026-11-06-M9.8-l3check.md).
 
 ## `sdlock-pico/` and `sdlock_pico_check.py` — SD CMD42 lock tool

@@ -2378,7 +2378,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2408 | RESERVED (M5.16). | — | — | — |
 | C-2409 | RESERVED (M5.16). | — | — | — |
 
-<<<<<<< HEAD
 ## H27 — L1–L4 progress dashboard (C-2770–C-2779)
 
 | ID | Claim | Status | Confidence | Evidence |
@@ -2408,3 +2407,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2677 | RESERVED (M4.27). | — | — | — |
 | C-2678 | RESERVED (M4.27). | — | — | — |
 | C-2679 | RESERVED (M4.27). | — | — | — |
+
+## M9.12 — `l3check.py --card` software gate (C-2160–C-2169)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2160 | `tools/l3check.py --card OUT.img --factory IMG` diffs card-relevant files (`VER_INFO/HDD_INFO.TXT`, `DRSTR001.DAT`, `REFER001/*`, `MAPAL001/*`) via 7z listing/targeted content compare and reports per-target `pass`/`fail`/`not-yet-available`, exiting non-zero on any fail and never synthesizing a pass for an unavailable reader. On M5.13b S2 (US, POINT010 edited; differing `REFER001/POINT010.DAT.cmp/.ind`) it reports `cmp_ind_reader` PASS via the M9.11 firmware chunk-decoder path (`chunk_decoder_l3.py`, byte-identical to `cmpind.decode`, `r0=42848 copied=42848`) and `poi_record_decode` `not-yet-available` (M9.10), exit 0. On S0/S1 (byte-identical to factory) it finds no differing files and reports `NO_DIFFS` (exit 3, no fail) with POI `not-yet-available`; runnable "all pass" verdicts on no-diff baselines require target wiring/baseline mode (follow-up). Not a firmware card-acceptance verdict (rule 13). | VERIFIED (tool, real S0/S1/S2 images + synthetic selftest) | M | EXP-2026-11-08-M9.12-l3check-card; `tools/l3check.py --selftest` |
+| C-2161 | RESERVED (M9.12). | — | — | — |
+| C-2162 | RESERVED (M9.12). | — | — | — |
+| C-2163 | RESERVED (M9.12). | — | — | — |
+| C-2164 | RESERVED (M9.12). | — | — | — |
+| C-2165 | RESERVED (M9.12). | — | — | — |
+| C-2166 | RESERVED (M9.12). | — | — | — |
+| C-2167 | RESERVED (M9.12). | — | — | — |
+| C-2168 | RESERVED (M9.12). | — | — | — |
+| C-2169 | RESERVED (M9.12). | — | — | — |
