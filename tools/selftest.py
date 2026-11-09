@@ -49,6 +49,7 @@ import ce_qemu_probe  # noqa: E402
 TOOLS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TOOLS_DIR.parent
 SELF_PATH = Path(__file__).resolve()
+L3_HARNESS_DIR = TOOLS_DIR / "l3_harness"
 
 SELFTEST_FLAG = "--selftest"
 TOOL_TIMEOUT = 60.0
@@ -410,6 +411,49 @@ def discover_tools(directories: list[Path]) -> list[Suite]:
     return suites
 
 
+def discover_l3_harness_tools() -> list[Suite]:
+    """Discover l3_harness tools as ``tool:l3_harness.*`` suites.
+
+    ``tools/l3_harness/selftest.py`` becomes the aggregate suite
+    ``tool:l3_harness`` so ``--only l3_harness`` selects it (H38). Other
+    l3_harness ``.py`` files that expose ``--selftest`` and fit the standard
+    tool contract are registered as ``tool:l3_harness.<stem>`` (and
+    ``tool:l3_harness.ghidra.<stem>`` for ``ghidra/*.py``). Tools without a
+    compatible ``--selftest`` flag are reported as SKIP, never as failures.
+    """
+    if not L3_HARNESS_DIR.is_dir():
+        return []
+
+    def _scan(directory: Path, namespace: str) -> list[Suite]:
+        suites: list[Suite] = []
+        for path in sorted(directory.glob("*.py")):
+            if not path.is_file() or path.name.startswith("_"):
+                continue
+            stem = path.stem
+            suite_id = f"tool:{namespace}" if stem == "selftest" and namespace == "l3_harness" else f"tool:{namespace}.{stem}"
+            has = exposes_selftest(path)
+            rel = _display_path(path)
+            if suite_id == "tool:l3_harness":
+                # The aggregate accepts --selftest/runs bounded checks but its
+                # --help does not declare the flag in argparse form, so
+                # exposes_selftest() cannot confirm it. H38 requires it in the
+                # main gate; invoke it as a tool suite.
+                has = True
+                description = f"{rel} {SELFTEST_FLAG} (aggregate, bounded/quick; Ghidra/QEMU absent = honest SKIP inside, never PASS)"
+            elif has:
+                description = f"{rel} {SELFTEST_FLAG}"
+            else:
+                description = f"{rel} (no compatible --selftest)"
+            suites.append(Suite(suite_id, "tool", description, path=path, has_selftest=has))
+        return suites
+
+    suites = _scan(L3_HARNESS_DIR, "l3_harness")
+    ghidra_dir = L3_HARNESS_DIR / "ghidra"
+    if ghidra_dir.is_dir():
+        suites.extend(_scan(ghidra_dir, "l3_harness.ghidra"))
+    return suites
+
+
 def build_registry(include_dirs: list[Path]) -> list[Suite]:
     """Builtin suites first (fixed order), then discovered tools by name."""
     directories = [TOOLS_DIR]
@@ -419,7 +463,7 @@ def build_registry(include_dirs: list[Path]) -> list[Suite]:
         if resolved not in seen:
             directories.append(resolved)
             seen.add(resolved)
-    return builtin_suites() + discover_tools(directories)
+    return builtin_suites() + discover_tools(directories) + discover_l3_harness_tools()
 
 
 # --------------------------------------------------------------------------

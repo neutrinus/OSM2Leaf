@@ -1184,8 +1184,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3130–C-3139
   - Result: EXP-2026-11-09-H37-24h-se-review.md (80 commits 88332de..65e6ae2 audited; 7 follow-up tasks added H38/H39/M4.35/M5.31/M5.32/M9.28; claims_check OK; sampled selftests OK; no done-task status reversals).
 
-- [ ] **H38 — `selftest.py`: discover and run `tools/l3_harness` selftests**
-  - Status: in progress · Owner: task/h38-selftest-l3-harness · Critical: yes · Pair: solo
+- [x] **H38 — `selftest.py`: discover and run `tools/l3_harness` selftests**
+  - Status: done · Owner: task/h38-selftest-l3-harness · Critical: yes · Pair: solo
   - Depends: —
   - Goal: prevent L3 harness regressions from bypassing the main selftest gate (M9.20 noted `tools/selftest.py` does not discover `l3_harness/`).
   - Scope: `tools/selftest.py` discovery/wiring and/or a thin wrapper; run `tools/l3_harness/selftest.py` (and any `l3_harness` tools with `--selftest` that fit the suite contract) as part of `python3 tools/selftest.py`. No behavior changes to harness logic.
@@ -1193,6 +1193,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `python3 tools/selftest.py` reports the l3_harness checks (or a named aggregate) and exits non-zero on harness selftest failure; `python3 tools/selftest.py --only l3_harness` (or documented selector) works if selectors are supported; SKIP/blocked cases remain honest (e.g. Ghidra/QEMU absent). `tools/README.md` updated if needed.
   - Stop: if `l3_harness` selftests require environment assumptions incompatible with the main suite, integrate them as an explicit sub-suite with clear SKIP reasons and keep the main gate green only when the sub-suite passes or is honestly skipped.
   - Claims: C-3160–C-3169
+  - Result: EXP-2026-11-09-H38-selftest-l3-harness.md (`selftest.py` discovers `tools/l3_harness/`+`ghidra/`, reports aggregate `tool:l3_harness` PASS and compatible `tool:l3_harness.*` suites; `--only l3_harness` works; full `selftest.py` 103 suites 81 PASS/0 FAIL/22 SKIP; FAIL propagation verified by control; Ghidra/QEMU absence honest SKIP/BLOCKED inside aggregate, never PASS; README updated; no harness logic changes; `todo_check`/`claims_check` OK with pre-existing warnings only).
 
 - [x] **H39 — `ze0-viewer/harness.py info`: tolerate opaque/unparseable records**
   - Status: done · Owner: task/h39-ze0-viewer-info · Critical: no · Pair: solo
