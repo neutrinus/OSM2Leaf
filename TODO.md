@@ -1191,7 +1191,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3160–C-3169
 
 - [ ] **H39 — `ze0-viewer/harness.py info`: tolerate opaque/unparseable records**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h39-ze0-viewer-info · Critical: no · Pair: solo
   - Depends: —
   - Goal: make tile inspection usable on factory tiles that contain opaque/bad records (M5.4 noted `harness.py info` crashes with `zlib.error` on `B48R058R`; `harness.py verify` still runs).
   - Scope: `tools/ze0-viewer/harness.py` `cmd_info`/info path only. No parser behavior changes in `tools_ze0` unless required and isolated; prefer catching/reporting bad records with counts and offsets.
