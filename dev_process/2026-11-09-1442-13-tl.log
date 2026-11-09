@@ -43,3 +43,5 @@ problems: M5.22 referenced but no task block found (PR171 blocker). M3.19 stale 
 
 end: 2026-11-09T14:55Z (approx)
 handoff: next TL/agent can take M3.21 (solo, now deps satisfied) to fully reproduce sh4scan counts and close per its done-when, or M9.32 (pair required) / M9.28 (pair required) sequentially; address PR #171 boundary decision; consider adding/finding M5.22 task block if missing.
+
+- M3.21 (task/m3.21-close-m3.19-sh4scan-counts, PR #173): solo (repro/verification; docs+EXP+claims+TODO only, no firmware search/writer/L3 execution). review rounds: 0 (TL direct). outcome: done. Reproduced all M3.19-scoped published counts on IMG256 92aa525d… (tags 26/23/0, pattern 8868 23 incl 0x37c268, mask-pair immediate 0, --via-reg 1 @ 0x003715c8/ca/cc R3+4B, stride 0 candidates, anchors 527/282/245/23559542 B). M3.19 already done. EXP: docs/experiments/EXP-2026-11-09-M3.21-sh4scan-counts-repro.md (C-3380). PR https://github.com/neutrinus/OSM2Leaf/pull/173 merged as 5cdd974. claims_check/todo_check OK.
