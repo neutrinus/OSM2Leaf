@@ -1107,7 +1107,12 @@ def main(argv=None):
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
-        return selftest()
+        try:
+            return selftest()
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            return 1
     report = build_report(args)
     md = render_markdown(report)
     if args.json:
