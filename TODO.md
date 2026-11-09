@@ -2158,18 +2158,15 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3040–C-3049
 
 - [ ] **M5.29 — Dolnośląskie one-tile pipeline: OSM→IMF→mesh→tile→L1+L2+gate report**
-  - Status: in progress · Owner: task/m5.29-factory-eu-rerun · Critical: yes
+  - Status: blocked · Owner: task/m5.29-factory-eu-rerun · Critical: yes
   - Depends: M5.1, M5.2, M5.4, M5.6, M5.10, M5.28
-  - Note (rerun, 2026-11-09): unblock satisfied on this machine — EU2011 factory image available at `archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` (SHA-256 `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`, outside repo). Previous blocker (PR #167, merged blocked) not valid here; rerunning factory-backed path.
+  - Note (rerun, 2026-11-09): unblock (EU2011 factory image available, `archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` `105e2032…`) satisfied; factory-backed rerun attempted.
   - Goal: produce the first repeatable Poland compiler milestone: one OSM-generated tile swapped into a factory EU card, validated offline at L1+L2 with an explicit acceptance-gate report (operationalizes M5.11).
-  - Precheck: `tilewriter.py --selftest` 68/68 OK; `rebuild_manifests.py --selftest` OK; `one_tile_pipeline.py --selftest` OK. EU2011 archive image present (see Note).
-  - Scope: `tools/one_tile_pipeline.py` (stdlib + existing tools, `--selftest` on synthetic data) produces `out` where exactly one tile is OSM-generated (`mapping=provisional-v0`, via `roadclass_v0`/`tilewriter`, factory-backed when `--factory-root` given) and rest is factory/verbatim (or synthetic baseline when forced); rebuilds manifests; runs `cardcheck`/applicable `l2check`; emits honest gate report. No vendor bytes committed.
-  - Input: compiler tools, `hddinfo.py`, M2.18 if landed, `profiles/dolnoslaskie-test.*`, reader-coverage matrix, EU2011 factory context (outside repo).
-  - Done when: `cardcheck` and applicable `l2check` pass; report lists per gate (HDD_INFO/MAP CODE bytes, DRSTR/MMAIN/CMP.LST/.ind, tile round-trip/structure, section 4, manifests): `PASS`/`NOT-APPLICABLE`/`CANNOT-VERIFY-OFFLINE`/`NEEDS-L3`; EXP names tile, fixture SHA-256 or extract metadata, states provisional classes and firmware acceptance unknown (rule 13).
-  - Stop: if required factory tile/tree cannot be obtained/fetched (rule 11), produce synthetic-only path and mark real-image run `blocked` with missing input named.
-  - Result (PR #167, blocked): EXP-2026-11-09-M5.29-one-tile-pipeline (partial/negative) — synthetic-only; unblock satisfied this rerun.
+  - Done when: `cardcheck` and applicable `l2check` pass; gate report `PASS`/`NOT-APPLICABLE`/`CANNOT-VERIFY-OFFLINE`/`NEEDS-L3`; EXP names tile/fixture SHA-256/extract metadata; provisional classes/rule 13 stated.
+  - Blocker: factory-backed rerun extracted EU2011 tree (480 files) but `tilewriter --factory` refused `MAPAL001/B48R058R.DAT` due to directory `y=76 x=941` kind `0x2146` (slot-table, record boundaries not safe to mutate; M5.22 `PRESERVE_ONLY_DIR_KINDS`). Tile not generated; Done when not met.
+  - Unblock: (a) extend tilewriter/M5.22 for safe `0x2146` mutation with verified round-trip evidence, or (b) choose a safe target tile / non-factory-template path that yields exactly one OSM-generated tile with rest factory/verbatim and passes cardcheck/applicable l2check, or (c) produce factory-coherent OSM tile without unsafe mutation and prove checks pass. Rerun M5.29 with gate report/EXP (rule 15).
+  - Result (PR #167): EXP-2026-11-09-M5.29-one-tile-pipeline (synthetic-only, blocked). Rerun: EXP-2026-11-09-M5.29-factory-rerun (factory-backed attempted, unblock satisfied, blocked on `0x2146` tilewriter safety). `mapping=provisional-v0`, rule 13 (L3/L4/L5 unknown).
   - Claims: C-3050–C-3059
-
 - [ ] **M5.30 — One-variable OSM tile card via `imgpatch`/reconcile (1:1 diff, L1+L2)**
   - Status: open · Owner: — · Critical: no
   - Depends: M5.29, M5.13 (imgpatch), M5.20 (reconcile)
