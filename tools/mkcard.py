@@ -809,6 +809,118 @@ def format_root_report(rep: dict | None) -> str:
                  f"{', '.join(rep['root_order'][:20])}")
     return line
 
+def _merge_intervals(items):
+    merged = []
+    for s, e in sorted(items):
+        if s >= e:
+            continue
+        if merged and s <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], e)
+        else:
+            merged.append([s, e])
+    return [(a, b) for a, b in merged]
+
+
+def _split_range_by_labels(start, end, labeled):
+    """Split [start,end) by labeled [(s,e,kind,label)] regions (merged per kind)."""
+    # collect boundary points within range
+    points = {start, end}
+    for s, e, _k, _l in labeled:
+        if e <= start or s >= end:
+            continue
+        points.add(max(s, start))
+        points.add(min(e, end))
+    out = []
+    for a, b in zip(sorted(points), sorted(points)[1:]):
+        if a >= b:
+            continue
+        hits = []
+        for s, e, k, l in labeled:
+            if s < b and e > a:
+                hits.append((k, l))
+        if not hits:
+            kind, label = "unclassified_in_envelope", "inside envelope (unclassified)"
+        else:
+            # dedupe preserving order
+            seen = set()
+            uniq = []
+            for k, l in hits:
+                key = (k, l)
+                if key not in seen:
+                    seen.add(key)
+                    uniq.append((k, l))
+            kind = "+".join(k for k, _ in uniq)
+            label = "; ".join(l for _, l in uniq)
+        out.append({"range": [a, b], "bytes": b - a, "kind": kind, "label": label})
+    return out
+
+
+def classify_reconcile_ranges(ranges, rec: dict, geo: "FatGeo") -> list[dict]:
+    """Label diff ranges for a reconcile result (M5.31, explanatory).
+
+    Classification never weakens the outside_ranges gate. DRSTR index/value
+    bytes (actual 4B updates) are named as drstr:index; any other diff bytes
+    intersecting DRSTR001.DAT clusters are reported as drstr_other.
+    """
+    labeled = []
+    drstr = rec.get("drstr") or {}
+    dpatch = drstr.get("patch") or {}
+    for c in (dpatch.get("chain_before") or []) + (dpatch.get("chain_after") or []):
+        s = geo.cluster_offset(c)
+        labeled.append((s, s + geo.cluster_bytes, "_drstr_region", "DRSTR001.DAT cluster"))
+    for ir in drstr.get("index_ranges") or []:
+        a, b = ir["image_range"]
+        labeled.append((a, b, "drstr:index", ir["label"]))
+    if dpatch:
+        doff = dpatch.get("dir_entry", {}).get("offset")
+        if doff is not None:
+            labeled.append((doff, doff + 32, "dir_entry", "DRSTR001.DAT dir entry"))
+        for fc in dpatch.get("fat_changes") or []:
+            for copy in range(geo.fat_count):
+                off = geo.fat_offset + copy * geo.fat_bytes + fc["cluster"] * 4
+                labeled.append((off, off + 4, "fat", f"FAT copy {copy} cluster {fc['cluster']} (DRSTR)"))
+        for item in dpatch.get("fsinfo") or []:
+            for w in item.get("writes") or []:
+                labeled.append((w["offset"], w["offset"] + w["length"], "fsinfo", "FSInfo"))
+    for p in rec.get("patches") or []:
+        if p.get("file") == "DRSTR001.DAT":
+            continue
+        fname = p.get("file", "?")
+        for c in (p.get("chain_before") or []) + (p.get("chain_after") or []):
+            s = geo.cluster_offset(c)
+            labeled.append((s, s + geo.cluster_bytes, "file_data", f"{fname} cluster {c}"))
+        doff = p.get("dir_entry_offset")
+        if doff is not None:
+            labeled.append((doff, doff + 32, "dir_entry", f"{fname} dir entry"))
+        for fc in p.get("fat_changes") or []:
+            for copy in range(geo.fat_count):
+                off = geo.fat_offset + copy * geo.fat_bytes + fc["cluster"] * 4
+                labeled.append((off, off + 4, "fat", f"FAT copy {copy} cluster {fc['cluster']} ({fname})"))
+        for item in p.get("fsinfo") or []:
+            for w in item.get("writes") or []:
+                labeled.append((w["offset"], w["offset"] + w["length"], "fsinfo", "FSInfo"))
+    out = []
+    for s, e in ranges:
+        for seg in _split_range_by_labels(s, e, labeled):
+            kinds = set(seg["kind"].split("+"))
+            labels = [x.strip() for x in seg["label"].split(";") if x.strip()]
+            # Any DRSTR-cluster byte not explained by a named drstr:index range
+            # is reported explicitly (M5.31: never hide/mislabel).
+            if "_drstr_region" in kinds and "drstr:index" not in kinds:
+                kinds.discard("_drstr_region")
+                kinds.add("drstr_other")
+                labels = [l for l in labels if l != "DRSTR001.DAT cluster"]
+                labels.append("drstr_other (DRSTR cluster diff outside named index bytes)")
+            elif "drstr:index" in kinds:
+                kinds.discard("_drstr_region")
+                labels = [l for l in labels if l != "DRSTR001.DAT cluster"]
+            kinds.discard("_drstr_region")
+            seg["kind"] = "+".join(sorted(kinds)) if kinds else "unclassified_in_envelope"
+            seg["label"] = "; ".join(labels) if labels else seg["label"]
+            out.append(seg)
+    return out
+
+
 def outside_ranges(ranges, allowed) -> list[tuple[int, int]]:
     """Parts of each (start, end) range that no allowed (start, end) covers."""
     merged: list[list[int]] = []
@@ -830,16 +942,19 @@ def outside_ranges(ranges, allowed) -> list[tuple[int, int]]:
     return out
 
 
-def reconcile_partition(out: Path, tree: Path, changed: list[str]) -> dict:
+def reconcile_partition(out: Path, tree: Path, changed: list[str],
+                        *, preserve_stale_tail: bool = False) -> dict:
     """Write each changed file into the copy ``out`` through the imgpatch chain writer.
 
     ``out`` must already be a byte copy of the factory image. Each file keeps
     its factory cluster chain (grown or shrunk only as its size needs), and the
     only bytes that may differ are the file's clusters, its 32-byte directory
-    entry, the FAT entries of clusters it gains or loses, and FSInfo on a
-    cluster-count change. The returned ``allowed`` list is built from the
-    chain report, not from the writes, so the caller can check the diff against
-    it independently.
+    entry, the FAT entries of clusters it gains or loses, FSInfo on a
+    cluster-count change, and (on resize) DRSTR index value bytes. The returned
+    ``allowed`` list is built from the chain report, not from the writes, so the
+    caller can check the diff against it independently. ``preserve_stale_tail``
+    (M5.31, opt-in) skips zero-fill of slack after EOF only for clusters already
+    in the factory chain; newly allocated clusters are still zero-filled.
     """
     import imgpatch  # local: imgpatch imports mkcard at module level
 
@@ -847,8 +962,11 @@ def reconcile_partition(out: Path, tree: Path, changed: list[str]) -> dict:
         _, geo, _ = open_map_partition(h)
     allowed: list[tuple[int, int]] = []
     patches = []
+    stale_tail_preserved = False
     for rel in changed:
-        rep = imgpatch.patch_image(out, rel, tree / rel, None, allow_resize=True)
+        rep = imgpatch.patch_image(out, rel, tree / rel, None, allow_resize=True,
+                                   preserve_stale_tail=preserve_stale_tail)
+        stale_tail_preserved = stale_tail_preserved or bool(rep.get("stale_tail_preserved"))
         patches.append({
             "file": rel,
             "ok": rep["ok"],
@@ -856,22 +974,36 @@ def reconcile_partition(out: Path, tree: Path, changed: list[str]) -> dict:
             "new_size": rep["new_size"],
             "clusters_before": rep["clusters_before"],
             "clusters_after": rep["clusters_after"],
+            "chain_before": rep.get("chain_before", []),
+            "chain_after": rep.get("chain_after", []),
+            "dir_entry_offset": rep.get("dir_entry", {}).get("offset"),
+            "fat_changes": rep.get("fat_changes", []),
+            "fsinfo": rep.get("fsinfo", []),
+            "stale_tail_preserved": rep.get("stale_tail_preserved", False),
             "verify": rep["verify"],
         })
         _add_envelope(allowed, geo, rep)
     drstr = _reconcile_drstr(out, geo, allowed)
     if drstr["patch"] is not None:
+        drep = drstr["patch"]
         patches.append({
             "file": "DRSTR001.DAT",
-            "ok": drstr["patch"]["ok"],
-            "old_size": drstr["patch"]["old_size"],
-            "new_size": drstr["patch"]["new_size"],
-            "clusters_before": drstr["patch"]["clusters_before"],
-            "clusters_after": drstr["patch"]["clusters_after"],
-            "verify": drstr["patch"]["verify"],
+            "ok": drep["ok"],
+            "old_size": drep["old_size"],
+            "new_size": drep["new_size"],
+            "clusters_before": drep["clusters_before"],
+            "clusters_after": drep["clusters_after"],
+            "chain_before": drep.get("chain_before", []),
+            "chain_after": drep.get("chain_after", []),
+            "dir_entry_offset": drep.get("dir_entry", {}).get("offset"),
+            "fat_changes": drep.get("fat_changes", []),
+            "fsinfo": drep.get("fsinfo", []),
+            "verify": drep["verify"],
             "reason": f"{drstr['updated']} directory-total value(s) changed",
         })
     return {"patches": patches, "allowed": allowed, "drstr": drstr,
+            "preserve_stale_tail": preserve_stale_tail,
+            "stale_tail_preserved": stale_tail_preserved,
             "ok": all(p["ok"] for p in patches)}
 
 
@@ -948,13 +1080,38 @@ def _reconcile_drstr(out: Path, geo: FatGeo, allowed: list) -> dict:
                             "before": entry["value"], "after": actual.size,
                             "offset": off})
     if not updates:
-        return {"updated": 0, "entries": [], "patch": None}
+        return {"updated": 0, "entries": [], "patch": None, "index_ranges": []}
     with tempfile.TemporaryDirectory() as td:
         host = Path(td) / "DRSTR001.DAT"
         host.write_bytes(bytes(data))
         rep = imgpatch.patch_image(out, "DRSTR001.DAT", host, None, allow_resize=False)
     _add_envelope(allowed, geo, rep)
-    return {"updated": len(updates), "entries": updates, "patch": rep}
+    # M5.31: name the actual DRSTR index/value bytes (4B LE size each) in the
+    # image, derived from DRSTR file-relative offsets + the rewritten chain.
+    chain = rep.get("chain_after") or []
+    cb = geo.cluster_bytes
+    index_ranges = []
+    for u in updates:
+        off = u["offset"]
+        cidx = off // cb
+        if cidx >= len(chain):
+            u["image_offset"] = None
+            u["image_range"] = None
+            continue
+        abs_off = geo.cluster_offset(chain[cidx]) + (off % cb)
+        u["image_offset"] = abs_off
+        u["image_range"] = [abs_off, abs_off + 4]
+        label = f"{u['path']}/{u['name']}".lstrip("/")
+        index_ranges.append({
+            "kind": "drstr:index",
+            "label": f"drstr:index {label} value {u['before']}->{u['after']}",
+            "path": u["path"], "name": u["name"],
+            "before": u["before"], "after": u["after"],
+            "drstr_file_offset": off,
+            "image_range": [abs_off, abs_off + 4],
+        })
+    return {"updated": len(updates), "entries": updates, "patch": rep,
+            "index_ranges": index_ranges}
 
 
 # --- high-level operations ---
@@ -980,7 +1137,8 @@ def mkcard(from_image: Path, tree: Path, out: Path, compare_only: bool = False,
            explain: bool = True, verbose: bool = False,
            label: str | None = None,
            preserve_root_order: bool = True,
-           reconcile: bool = False) -> dict:
+           reconcile: bool = False,
+           preserve_stale_tail: bool = False) -> dict:
     """Build a card from ``tree`` on top of the factory image ``from_image``.
 
     Unchanged tree: byte copy. Changed tree: a fresh rebuild of the map
@@ -1031,13 +1189,28 @@ def mkcard(from_image: Path, tree: Path, out: Path, compare_only: bool = False,
         structural = [d for d in tree_diffs if d[0] in ("added", "removed")]
         if not structural:
             changed = [d[1] for d in tree_diffs if d[0] == "changed"]
-            rec = reconcile_partition(out, tree, changed)
+            rec = reconcile_partition(out, tree, changed,
+                                      preserve_stale_tail=preserve_stale_tail)
             ranges = diff_ranges(from_image, out, limit=1 << 30)
             outside = outside_ranges(ranges, rec["allowed"])
+            with out.open("rb") as _h:
+                _, _geo, _ = open_map_partition(_h)
+            classified = classify_reconcile_ranges(ranges, rec, _geo)
             rec["ranges"] = len(ranges)
             rec["outside"] = [list(r) for r in outside[:50]]
             rec["outside_count"] = len(outside)
             rec["fallback"] = None
+            rec["range_classification"] = classified[:500]
+            rec["range_classification_total"] = len(classified)
+            by_kind: dict[str, dict[str, int]] = {}
+            for seg in classified:
+                k = seg["kind"]
+                by_kind.setdefault(k, {"ranges": 0, "bytes": 0})
+                by_kind[k]["ranges"] += 1
+                by_kind[k]["bytes"] += seg["bytes"]
+            rec["range_kinds"] = by_kind
+            drstr = rec.get("drstr") or {}
+            rec["drstr_index_ranges_named"] = drstr.get("index_ranges") or []
             result["reconcile"] = rec
             result["ranges_raw"] = ranges
             result["ranges"] = [{"range": [s, e], "bytes": e - s,
@@ -1291,6 +1464,15 @@ def _selftest_reconcile() -> int:
                         and img_read(h, g2, f2, "C.TXT") == b"C" * 100
                         and img_read(h, g2, f2, "A.TXT") == base["A.TXT"])
         errors += check(ok_sizes, "reconcile: resized files read back exactly")
+        # R7 (M5.31): DRSTR index bytes named; classification present; no drstr_other
+        named = rec2.get("drstr_index_ranges_named") or []
+        kinds2 = rec2.get("range_kinds") or {}
+        errors += check(len(named) == 2 and all("drstr:index" in n.get("label", "") for n in named),
+                        f"reconcile: DRSTR index ranges named ({len(named)})")
+        errors += check("drstr:index" in kinds2 and "drstr_other" not in kinds2,
+                        f"reconcile: classification has drstr:index, no drstr_other ({sorted(kinds2)})")
+        errors += check(rec2.get("outside_count", 1) == 0,
+                        "reconcile: resize envelope gate strict (outside_count==0)")
 
         # R4: added file -> documented fallback to the fresh build
         t3 = tree_with({}, extra={"NEW.TXT": b"new\n"})
@@ -1324,6 +1506,62 @@ def _selftest_reconcile() -> int:
         # R6 positive control for the checker: nothing allowed -> everything outside
         errors += check(outside_ranges(ranges, []) == ranges,
                         "reconcile: empty envelope reports every range as outside")
+
+        # R8 (M5.31): stale-tail policy. Default zero-fill is deterministic; opt-in
+        # preserve keeps slack bytes only in clusters already in the factory chain.
+        # One variable: only preserve_stale_tail differs on the same grow+tree.
+        # B.TXT is 700 B over 2 clusters (512 B each) in the synthetic image.
+        import shutil
+        img_sl = td / "src-slack.img"
+        shutil.copy2(img, img_sl)
+        with img_sl.open("rb") as h:
+            _, gsl, fsl = open_map_partition(h)
+            bchain = before_chain["B.TXT"]
+            bcl = bchain[-1]
+            cb = gsl.cluster_bytes
+            old_used = 700 - (len(bchain) - 1) * cb  # bytes in last cluster
+            slack_off = gsl.cluster_offset(bcl) + old_used
+            slack_len = cb - old_used
+        marker = bytes((i * 7 + 3) & 0xFF for i in range(slack_len))
+        with img_sl.open("r+b") as h:
+            h.seek(slack_off)
+            h.write(marker)
+        t8 = tree_with({"B.TXT": b"Q" * 900})  # same cluster count
+        o8z = td / "r8zero.img"
+        r8z = mkcard(img_sl, t8, o8z, reconcile=True, preserve_stale_tail=False)
+        rec8z = r8z.get("reconcile", {})
+        o8p = td / "r8pres.img"
+        r8p = mkcard(img_sl, t8, o8p, reconcile=True, preserve_stale_tail=True)
+        rec8p = r8p.get("reconcile", {})
+        with o8p.open("rb") as h:
+            _, g8, f8 = open_map_partition(h)
+        chain8 = (rec8p.get("patches") or [{}])[0].get("chain_after") or bchain
+        last8 = chain8[-1]
+        new_used = 900 - (len(chain8) - 1) * cb
+        new_slack_off = g8.cluster_offset(last8) + new_used
+        new_slack_len = cb - new_used
+        with o8z.open("rb") as h:
+            h.seek(new_slack_off); ztail = h.read(new_slack_len)
+            _, gz, fz = open_map_partition(h)
+            got_bz = img_read(h, gz, fz, "B.TXT")
+        with o8p.open("rb") as h:
+            h.seek(new_slack_off); ptail = h.read(new_slack_len)
+            _, gp, fp = open_map_partition(h)
+            got_bp = img_read(h, gp, fp, "B.TXT")
+        kept = marker[(new_used - old_used):]
+        errors += check(got_bz == b"Q" * 900 and got_bp == b"Q" * 900,
+                        "reconcile: stale-tail modes read back resized file")
+        errors += check(ztail == b"\x00" * new_slack_len,
+                        "reconcile: default zero-fill clears slack after new EOF")
+        errors += check(ptail == kept,
+                        "reconcile: preserve-stale-tail keeps factory slack in existing cluster")
+        errors += check(rec8z.get("outside_count", 1) == 0 and rec8p.get("outside_count", 1) == 0,
+                        "reconcile: stale-tail modes stay inside envelope")
+        errors += check(not rec8z.get("stale_tail_preserved") and rec8p.get("stale_tail_preserved"),
+                        "reconcile: stale_tail_preserved flag reflects chosen mode")
+        errors += check("drstr_other" not in (rec8z.get("range_kinds") or {})
+                        and "drstr_other" not in (rec8p.get("range_kinds") or {}),
+                        "reconcile: stale-tail modes produce no drstr_other")
     return errors
 
 
@@ -1557,6 +1795,11 @@ def main(argv: list[str] | None = None) -> int:
                    help="changed tree: keep the factory layout and rewrite only the "
                         "changed files (imgpatch chain writer); added/removed files "
                         "fall back to the fresh build")
+    p.add_argument("--preserve-stale-tail", action="store_true",
+                   help="reconcile resize: keep slack bytes after EOF in clusters "
+                        "already in the factory chain (opt-in); default zero-fills "
+                        "for determinism (M5.31). Newly allocated clusters are still "
+                        "zero-filled")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
@@ -1575,7 +1818,8 @@ def main(argv: list[str] | None = None) -> int:
                  compare_only=args.compare_only, explain=not args.no_explain,
                  verbose=args.verbose, label=args.label,
                  preserve_root_order=args.preserve_root_order,
-                 reconcile=args.reconcile)
+                 reconcile=args.reconcile,
+                 preserve_stale_tail=args.preserve_stale_tail)
     if args.compare_only:
         print(f"tree_diffs={len(res['tree_diffs'])} identical={res['identical']}")
         for d in res["tree_diffs"]:
@@ -1589,12 +1833,25 @@ def main(argv: list[str] | None = None) -> int:
     if rec and rec.get("fallback"):
         print(f"reconcile: fell back to fresh build ({rec['fallback']}: {rec['structural']})")
     elif rec:
+        tail = "preserve-stale-tail" if rec.get("preserve_stale_tail") else "zero-fill-slack"
+        if rec.get("stale_tail_preserved"):
+            tail += " (applied)"
         print(f"reconcile: {len(rec['patches'])} file(s) patched in place; "
-              f"{rec['ranges']} diff range(s), {rec['outside_count']} outside envelope")
+              f"{rec['ranges']} diff range(s), {rec['outside_count']} outside envelope; {tail}")
         for pt in rec["patches"]:
+            extra = f", {pt.get('reason')}" if pt.get('reason') else ""
             print(f"  {pt['file']}: {pt['old_size']} -> {pt['new_size']} B, "
                   f"{pt['clusters_before']} -> {pt['clusters_after']} clusters, "
-                  f"verify {'OK' if pt['verify']['ok'] else 'FAIL'}")
+                  f"verify {'OK' if pt['verify']['ok'] else 'FAIL'}{extra}")
+        for ir in rec.get("drstr_index_ranges_named") or []:
+            a, b = ir["image_range"]
+            print(f"  {ir['label']} @ 0x{a:08x}-0x{b:08x}")
+        kinds = rec.get("range_kinds") or {}
+        if kinds:
+            parts = [f"{k}={v['ranges']}r/{v['bytes']}B" for k, v in sorted(kinds.items())]
+            print(f"  range kinds: {', '.join(parts)}")
+        if kinds.get("drstr_other"):
+            print("  WARNING: drstr_other diffs present (DRSTR cluster bytes changed outside named index values)")
     print(f"cannot reproduce: {', '.join(res['cannot_reproduce'])}")
     if res["ranges"] and not res["identical"]:
         shown = 0

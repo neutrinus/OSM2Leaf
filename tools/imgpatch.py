@@ -167,7 +167,8 @@ def _locate(handle, geo: mkcard.FatGeo, fat: bytes, rel: str) -> dict:
 # --- plan ------------------------------------------------------------------
 
 def _build_plan(handle, geo: mkcard.FatGeo, fat: bytes, rel: str, data: bytes, *,
-                allow_resize: bool, update_version_copy: bool) -> dict:
+                allow_resize: bool, update_version_copy: bool,
+                preserve_stale_tail: bool = False) -> dict:
     info = _locate(handle, geo, fat, rel)
     old_size = info["size"]
     new_size = len(data)
@@ -247,11 +248,19 @@ def _build_plan(handle, geo: mkcard.FatGeo, fat: bytes, rel: str, data: bytes, *
         if chunk:
             ops.append((f"data cluster {cluster}", geo.cluster_offset(cluster), chunk))
 
-    # 2. zero fill after the new EOF (resize only, so the range is deterministic)
+    # 2. slack after the new EOF (resize only). Default: deterministic zero fill.
+    # preserve_stale_tail keeps existing bytes in a cluster that was already in the
+    # factory chain; a newly allocated last cluster is still zero-filled for
+    # determinism (M5.31). Slack bytes are after EOF and not read by size-bounded
+    # readers; cardcheck/FAT/dir/DRSTR invariants are unchanged.
+    stale_tail_preserved = False
     if chain_after and new_size != old_size and new_size % cluster_bytes:
         tail = cluster_bytes - (new_size % cluster_bytes)
         offset = geo.cluster_offset(chain_after[-1]) + (new_size % cluster_bytes)
-        ops.append((f"zero cluster {chain_after[-1]}", offset, b"\x00" * tail))
+        if preserve_stale_tail and chain_after[-1] in set(old_chain):
+            stale_tail_preserved = True
+        else:
+            ops.append((f"zero cluster {chain_after[-1]}", offset, b"\x00" * tail))
 
     # 3. FAT links in every copy, only entries whose value changes
     for cluster in sorted(set(old_chain) | set(chain_after)):
@@ -326,6 +335,8 @@ def _build_plan(handle, geo: mkcard.FatGeo, fat: bytes, rel: str, data: bytes, *
             "cluster_after": start_after,
         },
         "version_copy": version_copy,
+        "preserve_stale_tail": preserve_stale_tail,
+        "stale_tail_preserved": stale_tail_preserved,
         "ops": ops,
     }
 
@@ -447,7 +458,7 @@ def verify_image(image, file, source, *, update_version_copy: bool = False,
 
 def patch_image(image, file, source, output=None, *, allow_resize: bool = False,
                 dry_run: bool = False, update_version_copy: bool = False,
-                hash_output: bool = False) -> dict:
+                hash_output: bool = False, preserve_stale_tail: bool = False) -> dict:
     image_path = Path(image)
     source_path = Path(source)
     rel = _rel(file)
@@ -489,7 +500,8 @@ def patch_image(image, file, source, output=None, *, allow_resize: bool = False,
                 raise PatchError("not-fat32", f"{target}: {exc}") from exc
             plan = _build_plan(handle, geo, fat, rel, data,
                                allow_resize=allow_resize,
-                               update_version_copy=update_version_copy)
+                               update_version_copy=update_version_copy,
+                               preserve_stale_tail=preserve_stale_tail)
             if not dry_run:
                 _apply(handle, plan["ops"])
                 handle.flush()
