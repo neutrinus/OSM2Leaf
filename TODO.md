@@ -1269,8 +1269,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if H29 format undefined, deliver minimal schema proposal + synthetic fixture and block implementation details on H29 with `Unblock:`.
   - Claims: C-3310–C-3319
 
-- [ ] **M3.21 — Close M3.19: reproduce all `sh4scan` counts on IMG256 including `mask-pair --via-reg`**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M3.21 — Close M3.19: reproduce all `sh4scan` counts on IMG256 including `mask-pair --via-reg`**
+  - Status: done · Owner: task/m3.21-close-m3.19-sh4scan-counts · Critical: yes · Pair: solo
   - Depends: M3.19, M3.20
   - Goal: M3.19 is open after M3.20 added register-AND mask handling, but its done-when requires reproducing every published count on IMG256 (including the M3.11 mask hit) and recording the corpus. Verify and close M3.19 or record a precise discrepancy.
   - Precheck: `python3 tools/sh4scan.py --selftest` passes and `--help` shows `mask-pair --via-reg`; `python3 tools/fetch_image.py --image IMG256 -o IMG256.head` can obtain the pinned head (rule 11).
@@ -1278,6 +1278,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: `tools/sh4scan.py`, M3.19 EXP/count list, M3.20 `--via-reg`, IMG256 `92aa525d…`.
   - Done when: an EXP table shows each published count, the command, and reproduced? (yes/no) on IMG256; M3.19 is set `done` with `Result:` if all counts reproduce (with M3.20 variant where applicable), or `blocked` naming the exact differing count/site and `Unblock:`. Any non-reproduced published number is corrected in claims/EXP text, not hidden.
   - Stop: if IMG256 cannot be obtained in the environment, set `blocked` with fetch/provenance issue named (not "no image" as a blanket blocker — use fetch_image path per rule 11).
+  - Result: `docs/experiments/EXP-2026-11-09-M3.21-sh4scan-counts-repro.md` (C-3380). All M3.19-scoped published counts reproduced on IMG256 `92aa525d…` incl `mask-pair --via-reg`=1 @ Navi.exe `0x003715c8/ca/cc R3 (+4 B)`, pattern `8868` 23 incl `0x0037c268`, anchors 527/282/245/23559542 B; no published count corrected. M3.19 already `done` (PR #172/H48). `claims_check`/`todo_check`/`sh4scan --selftest` OK.
   - Claims: C-3380–C-3389
 
 ---
