@@ -63,7 +63,7 @@ jobs:
               st = s.get('status', 'UNKNOWN')
               counts[st] = counts.get(st, 0) + 1
               if st == 'FAIL':
-                  failed.append(f"{s.get('id','?')}: {s.get('detail','')}".strip())
+                  failed.append(s)
           summary = (
               f"selftest: passed={counts.get('PASS',0)} failed={counts.get('FAIL',0)} "
               f"skipped={counts.get('SKIP',0)} total={len(suites)} "
@@ -72,8 +72,15 @@ jobs:
           print(summary)
           if failed:
               print('FAILED SUITES:')
-              for line in failed:
+              for s in failed:
+                  line = f"{s.get('id','?')}: {s.get('detail','')}".strip()
                   print(' -', line)
+                  out_text = (s.get('output') or '').strip()
+                  if out_text:
+                      tail = out_text[-4000:]
+                      print('--- output (tail) ---')
+                      print(tail)
+                      print('--- end output ---')
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
               out.write('## selftest.py\n\n')
               out.write(f"- Result: **{summary}**\n")

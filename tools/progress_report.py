@@ -747,7 +747,8 @@ def render_markdown(report: dict) -> str:
         lines.append(f"- claims mentions (bounded): {cl.get('claim_id_mentions')} ids, {cl.get('unique_claim_ids')} unique, RETRACTED mentions {cl.get('retracted_mentions')} · `{cl.get('contract')}`")
     td = s.get("todo_l4_tasks") or s.get("todo_l5_tasks") or {}
     if td:
-        lines.append(f"- L5/M6 task lookup: {', '.join(f'{k}={v.get('checked')}' for k,v in td.items())}")
+        task_lookup = ", ".join(f"{k}={v.get('checked')}" for k, v in td.items())
+        lines.append(f"- L5/M6 task lookup: {task_lookup}")
     lines.append(f"- H27 claim block (reserved): {', '.join(s.get('claims') or [])}")
     if s.get("h47_claims"):
         lines.append(f"- H47 claim block (reserved): {', '.join(s.get('h47_claims') or [])}")
@@ -863,7 +864,16 @@ def build_report(args) -> dict:
     }
 
 
+def _utf8_stdout() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except Exception:
+            pass
+
+
 def selftest() -> int:
+    _utf8_stdout()
     errors = 0
     import tempfile
 
@@ -1041,7 +1051,7 @@ def selftest() -> int:
     ok(report["l4"] == report["l5_car"], "v1 compat alias l4->car")
     md = render_markdown(report)
     for must in ["Udowodnione offline", "Udowodnione przez firmware", "Emulator pełnosystemowy (L4, M8", "Wymaga auta/stanowiska (L5, M6", "nigdy nie podnosi L2 do L3/L4/L5", "regułę 13", "Level mapping"]:
-        ok(must in md, f"markdown contains {must!r}")
+        ok(must in md, f"markdown contains {ascii(must)}")
     ok("S0" in md and "S1" in md and "F0" in md, "markdown has L5 car stages and L4 emulator stages")
     ok(json.dumps(report), "report is JSON-serializable")
 
@@ -1079,6 +1089,7 @@ def selftest() -> int:
 
 
 def main(argv=None):
+    _utf8_stdout()
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", metavar="PATH", help="write JSON report (includes schema_contract with schema version/field names)")
     ap.add_argument("--md", metavar="PATH", help="write Markdown report")
@@ -1097,7 +1108,12 @@ def main(argv=None):
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
-        return selftest()
+        try:
+            return selftest()
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            return 1
     report = build_report(args)
     md = render_markdown(report)
     if args.json:
