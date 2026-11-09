@@ -427,6 +427,18 @@ f822044c0aab75327b9fb484e9a4c7c8dd5938b21efaacec0e5b2d8b23ab3e49  RDSTM001/RDSTM
 | C-708 | Image C is the test-mode build: `TestMode.exe` imports `CApi_GetBootMode`/`SetBootMode`/`GetBootModeEx` and is launched from image C's launch table (C-818); reaching it requires the IPL/boot-mode flag. | HYPOTHESIS | M | imports + launch table; EXP-2026-11-06-M1.7 |
 | C-709 | Verdict for M1.7: the kernel is **IPL-selected**; the 12-byte boot-argument block (`0x08000020`–`0x0800002b`) is a Navi version string, not a kernel selector, and should be seeded as the factory version bytes for M8.B4. | VERIFIED (conclusion) | H | C-704, C-705, C-706; EXP-2026-11-06-M1.7 |
 
+## Boot arguments (M8.B4)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1340 | Physical `0x08000020`–`0x0800002b` (12 bytes) is the boot-argument region consumed by `nk.exe` on SH-4 via the P2 uncached alias `0xa8000020`–`0xa800002b`. Build B reads it in the AERTRACE dump function at nk.exe VA `0x8804cc42` (`--image-start 0x3e00200`); build C reads the same region in the corresponding function (refs `0x8804c896`–`0x8804c8ee`, `--image-start 0x5200200`). | VERIFIED | H | `tools/cerom.py`, `tools/sh4dis.py`, literal-pool scan of nk.exe executable sections; EXP-2026-11-08-M8.B4-boot-args-r2 |
+| C-1341 | `nk.exe` formats the boot args using UTF-16LE format string `Navi Version : %c%c%c%c%c%c%c%c-%c%c%c\r\n` (nk.exe VA `0x8800e5a8`, build B) and prints via `jsr @r9` with `r9=0x8804c1a8`, passing 11 byte values as arguments. | VERIFIED | H | UTF-16LE decode + disassembly; EXP-2026-11-08-M8.B4-boot-args-r2 |
+| C-1342 | `nk.exe` makes 11 literal-pool byte-load references into `0xa8000020`–`0xa800002b` (offsets +0x00..+0x07 and +0x09..+0x0b). Byte at +0x08 (phys `0x08000028`, P2 `0xa8000028`) has no `mov.l` literal-pool reference in nk.exe build B or C executable sections. Refines C-704 count detail; C-704's nk.exe-only scope finding stands. | VERIFIED | H | full nk.exe executable-section literal scan, build B/C; EXP-2026-11-08-M8.B4-boot-args-r2 |
+| C-1343 | The AERTRACE consumer performs no compare/branch on the loaded boot-arg byte values; the region is used diagnostically, not as a kernel/boot selector. Consistent with C-705/C-709. | VERIFIED | H | disassembly of `0x8804cc42`; EXP-2026-11-08-M8.B4-boot-args-r2 |
+| C-1344 | The 11 displayed bytes map to format positions as: bytes @+0x00..+0x07 → the 8 `%c` before `-`, bytes @+0x09..+0x0b → the 3 `%c` after `-`. Byte @+0x08 aligns with the literal `-` in the format string but is not read by this function. | OBSERVED | H | disassembly arg-slot mapping; EXP-2026-11-08-M8.B4-boot-args-r2 |
+| C-1345 | Byte @+0x08 may hold `'-'` (0x2D) or padding in the factory/IPL-written version token; nk.exe does not require reading it for the AERTRACE display. An emulator seeding a plausible token should place `'-'` at +0x08 for fidelity, but behavior of the observed nk.exe dump path does not depend on it. | HYPOTHESIS | M | C-1342, C-1344; EXP-2026-11-08-M8.B4-boot-args-r2 |
+| C-1346 | The factory 12-byte values for EU 2011 (and the IPL writer/format) are not present in the SD image (C-535/C-706). Static read of nk.exe establishes consumption/format but not authoritative byte content. M8 emulation should seed deterministic placeholder bytes (e.g. a documented synthetic version token or zeros) and treat them as non-selecting diagnostic data until IPL/flash evidence provides factory values. | UNKNOWN | H | C-535, C-706, static nk.exe read; EXP-2026-11-08-M8.B4-boot-args-r2 |
+
 ## Test mode (image C, M2.10)
 
 | ID | Claim | Status | Confidence | Evidence |

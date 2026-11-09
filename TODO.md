@@ -3710,10 +3710,11 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   Done when `CurMSec` advances. Depends: M8.B1. Claims: C-1320–C-1329
 - [ ] **M8.B3 — RTC/time** (`OEMGetRealTime`). Depends: M8.A2. Claims:
   C-1330–C-1339
-- [ ] **M8.B4 — Boot arguments** at phys `0x08000020`–`0x0800002b`. Static
+- [x] **M8.B4 — Boot arguments** at phys `0x08000020`–`0x0800002b`. Static
   read of nk is enough to start. Depends: — (M1.7 helps). Claims:
   C-1340–C-1349
-  - Status: in progress · Owner: task/m8.b4-boot-args-r2 · Critical: no
+  - Status: done · Owner: task/m8.b4-boot-args-r2 · Critical: no
+  - Result: EXP-2026-11-08-M8.B4-boot-args-r2 (C-1340–C-1346). Static read of nk.exe B/C (IMG256 `92aa525d…`) shows P2 `0xa8000020`–`0xa800002b` consumed diagnostically by AERTRACE dump `0x8804cc42` (B) / `0x8804c896` (C) with UTF-16LE `Navi Version : %c%c%c%c%c%c%c%c-%c%c%c\r\n` (`0x8800e5a8`), 11 bytes displayed (+0x00..+0x07,+0x09..+0x0b; +0x08 unread), no selector branch. Factory values IPL-set/unknown (C-535/706); M8 should seed deterministic placeholder (recommend `'-'` at +0x08).
 - [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
   without a fault. Depends: M8.B1, M8.B2. Claims: C-1350–C-1359
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
