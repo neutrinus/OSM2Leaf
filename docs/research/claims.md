@@ -2103,6 +2103,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2588 | The encoder is not the limit: the budget tries the factory encoder (stock zlib L6/memLevel 8, M1.13) and the smallest of the 18 stock settings (levels 1–9 × memLevel 8/9); none of the 8,210 refused pages fits under any of them. Other zlib parameters (strategy, window bits) were not tried. | VERIFIED | M | EXP-2026-11-08-M5.21-slot-budget (Interpretation); `slot_budget.py build` (refused rows: `new_stream > limit` for the smallest stock stream); M1.13 |
 | C-2589 | The generator's hash-derived names are a worst case for compressibility; the refusal rate measured here is for that generator, not for real OSM names. Real-name refusal rates are UNKNOWN. | HYPOTHESIS | M | EXP-2026-11-08-M5.21-slot-budget (Interpretation) |
 
+## M5.28 — Provisional OSM→Clarion road class/speed table v0 (C-3040–C-3049)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3040 | `tools/roadclass_v0.py` emits a versioned `mapping=provisional-v0` table covering every in-scope `osm_ingest.DRIVABLE_HIGHWAYS` value (17) as mapped or explicit UNMAPPED/`refuse_generate` (never silent drop/default), and writes `ze0-road-class-table/1` consumable by `tilewriter.load_class_table` with all 17 mapped in-scope classes. 15 entries are `entry_kind=mechanism-confirmed-bucket` (authoritative `tools/ze0-viewer/tools_ze0/fa_encode.py` CLASSES; M5.23 mechanism confirmed, OSM→value provisional). `busway`/`road` are `entry_kind=provisional-placeholder`, `confidence=low-provisional` (navigator option a; Stop tension recorded), with rationale/alternatives incl. UNMAPPED/refusal — **not** firmware-confirmed, **not** equivalent-confidence (rule 13). | VERIFIED (tool, synthetic) | M | EXP-2026-11-09-M5.28-provisional-roadclass-v0; `python3 tools/roadclass_v0.py --selftest` |
+| C-3041 | A synthetic L2 tile build using the emitted provisional class table (`tilewriter.build` with `class_table_path` = emitted `ze0-road-class-table/1`, `make_factory` fixture, IMF covering `busway`/`road` + mechanism-confirmed highways) passes existing tile checks: build invariants/section4 preserved and `readback` `parcels_missing==0, input_points>0, in_points_within_1m==input_points`; build report references the emitted table. Provisional; **not** firmware acceptance (rule 13, L3–L5 unknown). | VERIFIED (synthetic L2) | M | EXP-2026-11-09-M5.28-provisional-roadclass-v0; `python3 tools/roadclass_v0.py --selftest` |
+| C-3042 | Unknown/OOS highways map to `UNMAPPED` with `refuse_generate=true` and are excluded from emitted `classes`; no silent drop/default. Speed/style metadata is mechanism-only/provisional (tilewriter neutral style/M4.2 gap; not firmware-confirmed). No M4.2 row key or RDSTM/LCTBL class semantic claimed (M4.17 negative). | VERIFIED (tool, synthetic) | M | EXP-2026-11-09-M5.28-provisional-roadclass-v0; `python3 tools/roadclass_v0.py --selftest`, `--check-highway` |
+| C-3043 | reserved | — | — | — |
+| C-3044 | reserved | — | — | — |
+| C-3045 | reserved | — | — | — |
+| C-3046 | reserved | — | — | — |
+| C-3047 | reserved | — | — | — |
+| C-3048 | reserved | — | — | — |
+| C-3049 | reserved | — | — | — |
+
 ## M3.17 — Verbatim-copy set for a Poland card (C-2220–C-2229)
 
 | ID | Claim | Status | Confidence | Evidence |

@@ -2144,8 +2144,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 ---
 
-- [ ] **M5.28 — Provisional OSM→Clarion road class/speed table v0 (compiler-unblocking, L2-testable)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.28 — Provisional OSM→Clarion road class/speed table v0 (compiler-unblocking, L2-testable)**
+  - Status: done · Owner: task/m5.28-provisional-roadclass-v0 · Critical: yes
   - Depends: — (M4.2 blocked; M4.17/M5.23 are inputs, not blockers)
   - Goal: unblock the OSM compiler spine with an explicit, versioned *provisional* mapping from OSM `highway=*` (+`maxspeed`/access where available) to Clarion tile class/style/speed values, so generated tiles can be built and validated at L1+L2 without claiming firmware acceptance (rule 13).
   - Precheck: `python3 tools/imf_check.py --selftest` passes; M5.4/M5.22/M5.23 writer/field behavior readable from `tools/tilewriter.py` and EXP-2026-11-08-M5.23; list in-scope `highway=*` values from Dolnośląskie IMF/profile if available.
@@ -2153,6 +2153,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Input: M5.4 provisional-class behavior, M5.23 `(layer, cls_hi)`, M4.17 negative (class_code hypothesis), IMF highway tags.
   - Done when: every in-scope `highway=*` mapped or explicitly `UNMAPPED` (never silent drop); `--selftest` has positive and unknown-value cases; compiler records `mapping=provisional-v0`; one synthetic L2 tile build using the table passes existing tile checks; EXP states provisional/not firmware-confirmed and the M4.2/M5.3 gap.
   - Stop: if no safe Clarion value can be chosen without inventing semantics, use explicit `UNMAPPED` and refuse to generate that class until resolved.
+  - Result: EXP-2026-11-09-M5.28-provisional-roadclass-v0. `tools/roadclass_v0.py` (stdlib, `--selftest`) covers all 17 in-scope `DRIVABLE_HIGHWAYS` with `mapping=provisional-v0` (15 mechanism-confirmed buckets + `busway`/`road` auditable low-provisional placeholders, option a; unknown/OOS `UNMAPPED`+`refuse_generate`, no silent drop) and emits `ze0-road-class-table/1` consumable by `tilewriter.py --class-table`. Synthetic L2 emitted-table build/readback: 12/12 points within 1m, 2 parcels. Provisional, not firmware-confirmed (rule 13); M4.2/M5.3 gaps. C-3040–C-3042.
   - Claims: C-3040–C-3049
 
 - [ ] **M5.29 — Dolnośląskie one-tile pipeline: OSM→IMF→mesh→tile→L1+L2+gate report**
