@@ -2158,14 +2158,17 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3040–C-3049
 
 - [ ] **M5.29 — Dolnośląskie one-tile pipeline: OSM→IMF→mesh→tile→L1+L2+gate report**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: task/m5.29-one-tile-pipeline · Critical: yes
   - Depends: M5.1, M5.2, M5.4, M5.6, M5.10, M5.28
   - Goal: produce the first repeatable Poland compiler milestone: one OSM-generated tile swapped into a factory EU card, validated offline at L1+L2 with an explicit acceptance-gate report (operationalizes M5.11).
-  - Precheck: `osm_ingest.py`, `mesh_split.py`, `tilewriter.py`, `rebuild_manifests.py`, `mkcard.py`/`imgpatch.py`, `cardcheck.py`, `l2check.py` selftests pass (record skips). Factory EU tile context obtainable (rule 11); use synthetic/small fixture if full extract unavailable.
-  - Scope: script/pipeline (name stated in PR, stdlib + existing tools, `--selftest` on synthetic data) producing `out` where exactly one tile is OSM-generated (`mapping=provisional-v0`) and rest is factory/verbatim; rebuild manifests; run checks. No vendor bytes committed.
+  - Precheck: `tilewriter.py --selftest` 68/68 OK; `rebuild_manifests.py --selftest` OK; `one_tile_pipeline.py --selftest` OK (`selftest.py --only one_tile_pipeline` PASS). `cardcheck`/`l2check` have no `--selftest` flag (recorded as skips). Factory EU tile/tree not obtainable in this environment (EU2011 absent; IMG256 lacks MAPAL001; `leafre-work/root` partial, no `B48R058R/DRSTR/REFER/VER_INFO/MMAIN`).
+  - Scope: `tools/one_tile_pipeline.py` (stdlib + existing tools, `--selftest` on synthetic data) produces `out` with exactly one OSM-generated tile `MAPAL001/B48R058R.DAT` (`mapping=provisional-v0`, via `roadclass_v0`/`tilewriter`); synthetic baseline scaffold for rest (factory/verbatim path unavailable); rebuilds manifests; runs `cardcheck`/applicable `l2check`; emits honest gate report. No vendor bytes committed.
   - Input: compiler tools, `hddinfo.py`, M2.18 if landed, `profiles/dolnoslaskie-test.*`, reader-coverage matrix.
   - Done when: `cardcheck` and applicable `l2check` pass; report lists per gate (HDD_INFO/MAP CODE bytes, DRSTR/MMAIN/CMP.LST/.ind, tile round-trip/structure, section 4, manifests): `PASS`/`NOT-APPLICABLE`/`CANNOT-VERIFY-OFFLINE`/`NEEDS-L3`; EXP names tile, fixture SHA-256 or extract metadata, states provisional classes and firmware acceptance unknown (rule 13).
-  - Stop: if required factory tile/tree cannot be obtained/fetched (rule 11), produce synthetic-only path and mark real-image run `blocked` with missing input named.
+  - Stop: factory tile/tree not obtained/fetched (rule 11) — synthetic-only path produced; real-image/factory run marked `blocked` with missing input named.
+  - Blocker: factory EU2011 card tree/image unavailable (EU2011 absent; IMG256 lacks MAPAL001; `leafre-work/root` partial, no `B48R058R/DRSTR/REFER/VER_INFO/MMAIN`). Synthetic scaffold + OSM-generated tile do not satisfy `cardcheck`/applicable `l2check` (MMAIN/section alignment; `ze0_mutate`/`clarion_tile` parse path on synthetic tile) — gates reported honestly (`CANNOT-VERIFY-OFFLINE`), not PASS.
+  - Unblock: provide EU2011 factory tree/image outside repo (rule 11; `MAPAL001`+`DRSTR001`+`REFER001`+`MMAIN001`+`VER_INFO/HDD_INFO.TXT`) and/or a follow-up that makes the synthetic scaffold + OSM tile coherent for `cardcheck`/applicable `l2check`, then rerun M5.29 and update gates/EXP (rule 15 re-open when unblocking task merges).
+  - Result: EXP-2026-11-09-M5.29-one-tile-pipeline (partial/negative). `tools/one_tile_pipeline.py` + `--selftest`/gate report delivered; one OSM-generated `B48R058R` (`mapping=provisional-v0`, rule 13: not firmware-confirmed, L3/L4/L5 unknown). Done when not met.
   - Claims: C-3050–C-3059
 
 - [ ] **M5.30 — One-variable OSM tile card via `imgpatch`/reconcile (1:1 diff, L1+L2)**
