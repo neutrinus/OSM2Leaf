@@ -2567,3 +2567,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3397 | RESERVED (M1.18). | — | — | — |
 | C-3398 | RESERVED (M1.18). | — | — | — |
 | C-3399 | RESERVED (M1.18). | — | — | — |
+
+## M5.31 — `mkcard --reconcile` resize envelope / stale-tail / contrast (C-3170–C-3179)
+
+| ID | Claim | Status | Evidence | Supersedes |
+| --- | --- | --- | --- | --- |
+| C-3170 | VERIFIED: on EU2011 M5.20-equivalent grow (TMC/reception.dat 208→272, `105e2032…`), `mkcard --reconcile` reports 246 uncapped ranges with `outside_count==0`, cardcheck PASS, and names 2 actual DRSTR index/value ranges as `drstr:index` (`TMC`, `TMC/reception.dat`, 208→272) with image offsets; `drstr_other` absent. | VERIFIED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md` | — |
+| C-3171 | VERIFIED: diff-range classification is explanatory and does not weaken the `outside_ranges`/`outside_count==0` envelope gate; any DRSTR-cluster diff outside named index bytes is reportable as `drstr_other` (synthetic R7, no `drstr_other`). | VERIFIED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md`, `tools/mkcard.py --selftest` R7 | — |
+| C-3172 | VERIFIED: stale-tail default is deterministic zero-fill on resize; opt-in `--preserve-stale-tail` preserves factory slack only in clusters already in the factory chain, and newly allocated last clusters remain zero-filled for determinism. | VERIFIED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md`, `tools/imgpatch.py`/`tools/mkcard.py --selftest` R8 | — |
+| C-3173 | VERIFIED (synthetic, one variable): R8 shows both stale-tail modes read back correct resized bytes, stay inside envelope, produce no `drstr_other`, and reflect the chosen flag; preserve keeps factory slack bytes in the existing chain cluster. | VERIFIED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md` | — |
+| C-3174 | VERIFIED: on EU2011 (`105e2032…`), one variable per case, uncapped `diff_ranges` show reconcile 1 vs fresh 24,173,274 ranges (eu-same, ~5.17 GB diff bytes) and reconcile 246 vs fresh 24,173,273 ranges (eu-grow), with reconcile `outside_count==0` and cardcheck PASS. | VERIFIED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md` | — |
+| C-3175 | OBSERVED: reconcile resize envelope is complete/understandable for the measured M5.20-equivalent cases (file/dir/DRSTR index ranges named or classified); classification is explanatory only. | OBSERVED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md` | — |
+| C-3176 | RESERVED (M5.31). | — | — | — |
+| C-3177 | RESERVED (M5.31). | — | — | — |
+| C-3178 | RESERVED (M5.31). | — | — | — |
+| C-3179 | RESERVED (M5.31). | — | — | — |

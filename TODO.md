@@ -2182,16 +2182,11 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if changed tile/manifests cannot fit existing chains and relocate/reconcile widens diff beyond changed files, record ranges and stop — do not claim one-variable.
   - Claims: C-3060–C-3069
 
-- [ ] **M5.31 — `mkcard --reconcile` resize: envelope contract, stale-tail policy, fresh-build contrast**
-  - Status: in progress · Owner: task/m5.31-mkcard-reconcile-resize · Critical: no · Pair: required
+- [x] **M5.31 — `mkcard --reconcile` resize: envelope contract, stale-tail policy, fresh-build contrast**
+  - Status: done · Owner: task/m5.31-mkcard-reconcile-resize · Critical: no · Pair: required
   - Depends: M5.20
-  - Goal: make resize reconciles match the "minimal diff / one bad byte visible" intent that M5.20 met exactly only for same-length changes.
-  - Scope: `tools/mkcard.py` reconcile path (`reconcile_partition`, `outside_ranges`, `_reconcile_drstr`) and its contract/reporting. Consider: (1) explicitly classify DRSTR index bytes in the reported envelope, (2) optional stale-tail preservation vs zero-fill with a documented tradeoff, (3) re-measure fresh-build contrast on the same changed trees (M5.20 did not). No format changes; no vendor data committed.
-  - Input: EXP-2026-11-08-M5.20-mkcard-reconcile (C-2460–C-2469), `tools/mkcard.py`, `tools/imgpatch.py`, `tools/cardcheck.py`; US/EU same+grow cases reproducible from `tools/fetch_image.py` images when available.
-  - Done when: on the M5.20 resize cases, the tool reports an envelope that is complete and understandable (DRSTR ranges named) and either preserves stale tail bytes with a tested option or documents why zero-fill is chosen; fresh-build contrast is measured (range count, not capped summary) for at least one same-length and one resize case on one image; `--selftest` covers the chosen behavior. EXP records real-image hashes/commands.
-  - Stop: if preserving stale tail breaks `cardcheck` or FAT invariants, keep zero-fill, document the invariant, and make the envelope report prove all non-envelope bytes are unchanged.
-  - Claims: C-3170–C-3179
-
+  - Result: EXP-2026-11-09-M5.31-mkcard-reconcile-resize. `mkcard --reconcile` names actual DRSTR index/value bytes as `drstr:index` with image offsets (eu-grow: 2 ranges, `drstr_other` absent) and classifies diff ranges without weakening `outside_count==0`. Stale-tail default zero-fill; opt-in `--preserve-stale-tail` preserves factory slack only in existing-chain clusters (newly allocated clusters zero-filled), tested one-variable in R8 with invariants preserved. EU2011 (`105e2032…`) uncapped contrast, one variable: eu-same reconcile 1 range / fresh 24,173,274 ranges (~5.17 GB); eu-grow reconcile 246 ranges (dir/file/drstr:index) outside 0 cardcheck PASS / fresh 24,173,273 ranges. `mkcard`/`imgpatch` selftests + claims/todo OK.
+  - Claims: C-3170–C-3175
 - [ ] **M5.32 — Resolve M5.12c's 5 unfit POI pages with the M5.21 slot-budget strategy**
   - Status: open · Owner: — · Critical: yes · Pair: required
   - Depends: M5.21, M5.27
