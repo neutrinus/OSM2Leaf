@@ -1145,7 +1145,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 ---
 
 - [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.19-sh4scan-close · Critical: yes
   - Pair: pair
   - Note (rule 15, 2026-11-09 PO): M3.20 done (register-AND mask variant / M3.11 pattern text); re-opened. Prior blocker kept: M3.11 mask count 1 not reproduced by the old pattern (register AND at Navi.exe `0x3715c8–0x3715cc`); other published counts reproduced (EXP-2026-11-08-M3.19-sh4scan). `sh4scan.py` exists — verify/complete done-when against M3.20's `--via-reg` and reproduce all published counts.
   - Depends: —
