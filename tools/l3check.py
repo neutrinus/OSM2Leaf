@@ -780,6 +780,20 @@ def _run_one(target: dict, corpus_root: Path, engine: str) -> dict:
     problems = list(payload.get("problems") or [])
     if payload.get("status") not in _RUNNER_STATUS:
         problems.append(f"runner returned unknown status {payload.get('status')!r}")
+    # A registered firmware_call target may need external inputs (--image/--cmp/
+    # --ind) that corpus-only `l3check run` does not supply; M9.12 --card feeds
+    # it via its own adapter. Report as BLOCKED in this mode (not a firmware
+    # rejection / FAIL). M9.11b registered cmp_ind_reader as firmware_call.
+    entry_kind = (target.get("entry") or {}).get("kind")
+    if entry_kind == "firmware_call" and status == "FAIL":
+        joined = " ".join(problems + ([payload.get("reason")] if payload.get("reason") else []))
+        if "firmware_call needs" in joined or "--image" in joined or "--cmp" in joined:
+            status = "BLOCKED"
+            problems = []
+            payload["reason"] = (
+                payload.get("reason")
+                or "firmware_call target needs --image/--cmp/--ind (not provided in corpus-only run); use --card or runner.py directly"
+            )
     expect = (target.get("expect") or {}).get("verdict")
     input_info = payload.get("input") or None
 
@@ -1156,7 +1170,7 @@ def test_evidence_table():
             assert _CLAIM_RE.match(claim), claim
 
 
-@check("run: the synthetic target PASSes and the five unlocated readers are BLOCKED")
+@check("run: the synthetic target PASSes and non-corpus-runnable readers are BLOCKED")
 def test_full_run():
     code, report = _json_cli(["--corpus", str(_corpus())])
     assert code == 0, report
@@ -1174,6 +1188,8 @@ def test_full_run():
     assert probe["input"]["manifest_sha256_match"] is True, probe["input"]
     assert probe["steps"] and probe["steps"] > 0, probe
     blocked = sorted(name for name, row in rows.items() if row["status"] == "BLOCKED")
+    # cmp_ind_reader is registered (M9.11b firmware_call) but needs external
+    # --image/--cmp/--ind; corpus-only run reports it BLOCKED in this mode.
     assert blocked == [
         "cmp_ind_reader",
         "drstr_parser",
@@ -1221,10 +1237,19 @@ def test_blocked_target():
 def test_blocked_needs_no_input():
     missing = Path(_SELFTEST_TMP) / "no-such-corpus"
     by_name, _doc = runner_mod.load_targets()
-    row = _run_one(by_name["cmp_ind_reader"], missing, "pysh4")
+    row = _run_one(by_name["hddinfo_compare"], missing, "pysh4")
     assert row["status"] == "BLOCKED", row
     assert row["verdict"] is None and row["input"] is None, row
     assert row["l3_claim"] is False, row
+
+@check("run: a firmware_call target is BLOCKED in corpus-only mode (needs --image/--cmp/--ind)")
+def test_firmware_call_blocked_without_inputs():
+    missing = Path(_SELFTEST_TMP) / "no-such-corpus"
+    by_name, _doc = runner_mod.load_targets()
+    row = _run_one(by_name["cmp_ind_reader"], missing, "pysh4")
+    assert row["status"] == "BLOCKED", row
+    assert row["verdict"] is None and row["l3_claim"] is False, row
+    assert row["reason"] and ("--image" in row["reason"] or "firmware_call" in row["reason"]), row
 
 
 @check("run: a tampered corpus makes the probe FAIL (never a pass)")
