@@ -336,7 +336,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-2790–C-2799
 
 - [ ] **H45 — `l3_precond`: reachability gate for reopened L3 reader reruns (retro action 4)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/h45-l3-precond · Critical: no
   - Pair: solo
   - Depends: M1.12 (reader precheck patterns), M9.20/M9.24 context (entry kinds/mapping)
   - Goal: before any reopened L3 reader run is claimed, make the M1.2f+import+input/binding preconditions explicit and machine-checkable so SE/TL can reject "fourth attempt, same blocker" reruns.
