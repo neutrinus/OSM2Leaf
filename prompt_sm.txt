@@ -12,6 +12,7 @@ Include a few numbers so retros can be compared over time:
 - tasks done / blocked / re-opened in the window; tasks claimed but with no commit for >24h;
 - tasks touched by more than one PR, and claims RETRACTED in the window;
 - TODO.md line count, and open draft PRs or stale branches left behind.
+- pair vs solo runs (from the TL summary): defects caught by navigators, review rounds, and defects that slipped through solo tasks — is pairing paying off, and should the pair/solo rules change?
 
 Think about the process — what is worth improving? How can we reduce unnecessary information for the developers? (They have a small context.) Does communication need improving somewhere? Is it worth improving the format of some file or template?
 

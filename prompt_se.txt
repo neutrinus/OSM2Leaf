@@ -16,6 +16,8 @@ Is refactoring needed? Does the architecture need improvement? Do we have the sa
 
 At every step, keep the project goal in view; steer so that we can reach it. Prefer tasks that unblock the critical path in the Priorities section over nice-to-have cleanups. Add at most ~8 new tasks per pass.
 
+Set `Pair:` on the tasks you add (see prompt_common.txt). If a task in the window was done solo and you found defects a reviewer would have caught, mark its follow-up `Pair: required`.
+
 If some task is blocked, check whether another task needs to be added to reduce the blockage, and set its `Unblock:` to point at it.
 
 Have you filled in TODO? Commit and push (rebase per prompt_common.txt).

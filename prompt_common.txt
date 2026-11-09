@@ -34,6 +34,11 @@ Editing TODO.md concurrently (~15 agents write to it):
 - New task IDs and claim blocks follow "ID allocation" in TODO.md.
 - Every new task has: Depends, Input, Done when (a command that can fail),
   and a falsifier. A task without a runnable Done when is not ready.
+- Optional `Pair:` field. Developer tasks run as a driver/navigator pair by
+  default (see prompt_tl.txt); write `Pair: solo` only for low-risk work
+  (docs, housekeeping, selftest-covered small tools) and `Pair: required`
+  for high-risk work (firmware searches, format writers, L3/L4 inputs).
+  Omitted = TL decides, default pair.
 - Before pushing: `git fetch && git rebase origin/main`, resolve conflicts by
   keeping both sides' content, then run
   `python3 tools/todo_check.py` and `python3 tools/claims_check.py`.

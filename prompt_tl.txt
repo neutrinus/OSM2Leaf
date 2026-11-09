@@ -10,7 +10,22 @@ Pick up to 10 tasks from TODO — as many as actually qualify, never filler:
 - The tasks must touch disjoint files (apart from their own TODO line and their own claim block); two tasks writing the same tool or format doc do not run in the same batch.
 - Skip tasks whose `Done when` needs hardware or a resource that is missing here; note them in your summary.
 
-Launch a subagent for each of them, each in its own git worktree / branch. Tell every subagent:
+Pair programming is the default. Developers run on cheap models; doubling the cost is acceptable, quality is not negotiable. For each task decide pair or solo and state the choice in your summary:
+- Pair (default): anything that searches firmware code, writes or changes a format writer/decoder, feeds L3/L4, touches claims.md, or was re-opened/retracted before.
+- Solo (exception, give the reason): the task says `Pair: solo`, or it is pure docs/TODO housekeeping, or a small tool change fully covered by its `--selftest`. A task marked `Pair: required` is never run solo.
+
+Pair mode — two subagents on the same worktree / branch, you relay between them with SendMessage so each keeps its context:
+- Driver: writes code, runs commands, writes the EXP, makes the commits (including the claim commit).
+- Navigator: writes no code. Reviews, asks questions, holds the evidence bar from AGENTS.md.
+Rounds:
+1. Plan — the driver sends a short plan (approach, signature/format source, files, intended `Done when`) before any code. The navigator checks it against AGENTS.md traps (endianness, derived vs guessed signature, indirect calls, retired leads) and approves or returns it.
+2. Test first — the navigator writes the EXP Method: positive and negative controls, falsifier, expected result. The driver does not grade its own work.
+3. Build — the driver implements in small commits and sends the navigator a one-line note per commit.
+4. Review — the navigator reads the diff, re-runs `Done when` and the controls, checks observations vs interpretation, and answers APPROVE or CHANGES with a list. Max 3 review rounds.
+5. If they still disagree, you decide; if nobody can resolve it, the task becomes `blocked` with the disagreement recorded in the EXP.
+The navigator's APPROVE is required before you start your own check below; it does not replace it.
+
+Launch the subagent(s) for each task, each task in its own git worktree / branch. Tell every subagent (in pair mode, both, plus its role):
 - read AGENTS.md and prompt_common.txt and follow the TODO.md rules: the first commit is the claim (`Status: in progress · Owner: <branch>`), pushed, plus a draft PR `[ID] short title`, before any other work;
 - one task per PR; touch only its task's files, its EXP, its claim rows;
 - finish with `Status: done` only if its own `Done when` passes; otherwise `blocked` with a blocker, `Unblock:` and a negative EXP;
@@ -23,4 +38,4 @@ If the check fails, send it back to the subagent or mark the task blocked — ne
 
 Then commit and push; merge to main one PR at a time: rebase onto the fresh origin/main, re-run the checks, merge, delete the branch, close the draft PR. If work lands on main by another path, still close the task's draft PR and delete its remote branch. Apply rule 15 (re-open tasks the merge unblocks).
 
-Finish with a table: task ID, outcome (done / blocked / returned), PR link, EXP.
+Finish with a table: task ID, mode (pair / solo + reason), review rounds, outcome (done / blocked / returned), PR link, EXP. Note defects the navigator caught — the SM uses them to judge whether pairing pays off.

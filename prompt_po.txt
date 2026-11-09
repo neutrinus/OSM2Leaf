@@ -14,6 +14,7 @@ Steps:
 1. Read the latest retro in docs/retro/ and the tasks the senior engineer added since your last pass; act on them instead of re-deriving.
 2. Update the "Priorities" section of TODO.md: the current critical path to "maps run in the car", per level (L1 → L2 → L3 → L4), naming the task IDs that block it. Keep it short — developers read it first.
 3. Fill in TODO by adding tasks that lead us towards the goal. Before adding, search TODO for duplicates and merge or extend instead. Add at most ~8 new tasks per pass; if more are needed, list the rest as one-line ideas under the relevant workstream.
+   Set `Pair:` on each new task (see prompt_common.txt); default is pair, mark `solo` only for low-risk work.
 4. Apply rule 15: re-open tasks whose blocker is now done.
 5. Archive (run every pass): tasks that are done, block no one, and were completed more than 24h ago (commit date on origin/main) move out of TODO.md into docs/research/todo-history-YYYY-MM-DD.md (today's date; existing convention — do not create TODO_archive.md). Leave a one-line pointer per moved workstream if a live task references it. If TODO.md exceeds 1500 lines, archive is the first action before adding tasks. Report line count before and after.
 
