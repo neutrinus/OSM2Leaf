@@ -2157,7 +2157,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3040–C-3049
 
 - [ ] **M5.29 — Dolnośląskie one-tile pipeline: OSM→IMF→mesh→tile→L1+L2+gate report**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m5.29-one-tile-pipeline · Critical: yes
   - Depends: M5.1, M5.2, M5.4, M5.6, M5.10, M5.28
   - Goal: produce the first repeatable Poland compiler milestone: one OSM-generated tile swapped into a factory EU card, validated offline at L1+L2 with an explicit acceptance-gate report (operationalizes M5.11).
   - Precheck: `osm_ingest.py`, `mesh_split.py`, `tilewriter.py`, `rebuild_manifests.py`, `mkcard.py`/`imgpatch.py`, `cardcheck.py`, `l2check.py` selftests pass (record skips). Factory EU tile context obtainable (rule 11); use synthetic/small fixture if full extract unavailable.
