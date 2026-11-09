@@ -1,0 +1,43 @@
+role: sm
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 08:23
+end_utc: 2026-11-09 08:26
+origin_main_start: 8140a5b3993483bc699147e7ce815ccabca55611
+
+inputs_read:
+- AGENTS.md, TODO.md (stats/grep), docs/retro/2026-11-09.md
+- prompt_common.txt, prompt_sm.txt, prompt_po.txt, prompt_qa.txt, prompt_se.txt, prompt_tl.txt
+- git log --since=24.hours origin/main (167 commits), git branch/remote refs
+- gh pr list --state all (60), gh pr view 140-146,154; remote branch merge status
+- dev_process/ (absent before this run; no prior role logs since previous retro)
+- claims.md 24h diff (RETRACTED additions), todo-history-2026-11-09.md spot checks
+
+actions_taken:
+- Created dev_process/ and this log (reason: work-log rule; directory missing before run).
+- Computed 24h/board metrics: 167 commits, TODO 3040 lines (53 open/60 done/33 blocked by grep), 0 real in-progress task blocks, 7 open claim-only draft PRs, 16 remote non-main branches, 7 task IDs touched by >1 PR, 4 claims retracted in 24h diff, no pair/solo TL data.
+- Verified stale claim-only PRs #140-146 (1 commit each, todo:start, ~18h old): M3.20 done in history; M4.24 blocked in TODO with EXP on main; M9.11b/M9.12 code landed on main while PRs open/closed-not-merged; M4.27/M3.16/M3.18 blocked/active in TODO but PR branches have no work.
+- Noted work-log compliance gap: no dev_process role logs in 24h window despite PM/SE/TL/PO/claude/session activity.
+- Wrote docs/retro/2026-11-09-2.md with numbers, stuck/circle analysis, process observations, 5 actions with owners.
+- Edited prompt_tl.txt to reconcile stale claim-only drafts (recorded before/after in retro).
+- Ran `python3 tools/todo_check.py TODO.md` (OK, warnings pre-existing) and `python3 tools/claims_check.py` (OK).
+
+task_ids_changed: none (SM retro/prompt/log only; no TODO task status edits).
+prs: none opened/closed by SM; flagged #140-146 for TL reconciliation.
+commits: (this run) docs retro+prompt fix; chore sm work log.
+
+decisions:
+- Wrote 2026-11-09-2.md (second retro same day) per prompt_sm. Alternative: overwrite 2026-11-09.md rejected (loses earlier same-day record).
+- Added one minimal prompt_tl edit for claim-only ghost PRs; rejected broader prompt churn because retro 2026-11-09 already added hygiene rules not yet effective — compliance/TL action needed first.
+- Treated M9.14/M9.17 multi-PR history as legitimate rule-15 reopens, not duplicates.
+- Did not edit TODO/claims (out of SM scope except noting); reported ambiguity where M9.11b/M9.12 tasks not found in current TODO/history but code landed.
+
+problems/dead_ends:
+- dev_process/ missing prevented role-log audit; pairing quality unmeasurable.
+- 24h TODO status-transition count noisy due to PO archive diff; used approximate counts and commit subjects.
+- Task-board/PR state inconsistent for #140-146/M9.11b/M9.12/M4.24 (landed/decided elsewhere, PRs stale) — needs TL reconciliation.
+
+handoff:
+- Next role (SE per cycle): read docs/retro/2026-11-09-2.md actions 3-4; check recent done/blocked EXPs for Done-when/controls; ensure new/reopened L3 reader tasks name M1.2f+import/input preconditions.
+- TL (action 1): reconcile #140-146 claim-only drafts vs TODO/history/origin/main; close/clean/reset ghosts.
+- PO (action 2): continue archive toward <=1500 TODO lines; preserve live pointers.
+- Human (action 5): decide bench/L5-prep package boundary (M6.2/M6.5/M6.6 cheap artifacts, sec1 known-risk note).
