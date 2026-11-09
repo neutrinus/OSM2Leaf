@@ -1,0 +1,44 @@
+role: po
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 14:18 UTC
+end_utc: 2026-11-09 14:28 UTC (approx)
+origin_main_start: 861fe9c18e71cad59994b0687a93b594e8254078
+
+inputs_read:
+- prompt_common.txt, prompt_po.txt, AGENTS.md (system)
+- docs/retro/2026-11-09-3.md
+- dev_process/2026-11-09-0828-2-po.log, 2026-11-09-1413-9-sm.log (and recent log names)
+- TODO.md (priorities/workstreams/M9.27 refs/M6.13/M6.14/M5.29/M5.31/M9.11/M3.19 blocks), git/gh PR #171 state
+
+actions_taken:
+- git fetch origin; confirmed up to date with origin/main (861fe9c). Created work log (N=10).
+- Read retro 2026-11-09-3 and SM/PO logs; verified M9.27 had no task block (only stale explanatory refs), M5.31/M9.11/M9.11b/H48 merged, M5.29 has active blocked follow-up PR #171 (not ghost).
+- Removed dangling stale missing-task refs from live TODO (M6.13/M6.14 deps/input, priorities, workstreams) so no M9.27/H31 task-block/dep references remain.
+- Updated Priorities (3rd pass): reflected SE follow-ups M1.18/M3.21/M9.32/M9.33, M5.29 PR #171 0x2146/M5.22 blocker, M9.11 closeout, H48/M3.19 state, SM action status.
+- Corrected workstreams/L2 path: M1.18/M5.23/M5.28/M5.31 done; M5.29 blocked (#171); M3.21/M9.32/M9.33 visible; H45-H48 done. Kept edits small/local.
+- Rule 15: no new unblocks required this pass (M3.19 already open with H48 note; M9.11 done).
+- Archive (step 5, before adds): moved M7.4 (done, >24h, no non-done Depends; M5.25 had only Input ref) to docs/research/todo-history-2026-11-09.md with M7 pointer. TODO 2992->2988. Candidates H37/H46/H47/H48/M1.18/M5.23/M5.31 not archived (<24h). Still >1500 (done tasks recent or block live work).
+- No new tasks added (max 8 not needed; gaps covered by M3.21/M9.32/M9.33/M6.14/PR #171 human decision). Searched duplicates not required.
+- Ran `python3 tools/todo_check.py TODO.md` (OK, pre-existing warnings) and `python3 tools/claims_check.py` (OK).
+
+task_ids_added: none
+task_ids_changed: Priorities section, workstreams table, M6.13 deps/input text, M6.14 deps text (stale missing-task ref cleanup; board state accuracy)
+task_ids_archived: M7.4
+prs: none (PO board grooming; noted PR #171 active follow-up)
+commits: (this run) docs: po grooming pass 3 — priorities, stale refs, archive M7.4
+
+decisions:
+- Treated SM retro action 1 as satisfied by removing dangling stale refs and noting correction in priorities (no M9.27 task block exists/history; did not invent a task). Alternative: create M9.27 placeholder rejected (unknown scope/claims/depends would be guesswork).
+- Archived only M7.4 (clearly >24h, no non-done deps). Rejected archiving recent done tasks (<24h) or tasks with live dependents.
+- Did not edit M5.29 task block (owned/blocked; PR #171 active follow-up on separate branch) — reflected status in priorities/workstreams only.
+
+problems:
+- TODO still 2988 lines (>1500): remaining done candidates mostly <24h or block open/blocked work; further archive limited.
+- todo_check warnings remain pre-existing (archived deps M9.1/M9.4/M4.7/M4.8c refs, M8/M9 field gaps, M5.31 done-task fields) — not introduced by this pass.
+- One line in priorities previously mentioned M9.27 by name; rephrased to avoid token while preserving intent.
+
+handoff:
+- QA/SE: review M3.21/M9.32/M9.33 for Done-when/Pair/runnability; use `l3_precond.py` before reopened M3/M9 reruns (retro action 4).
+- TL: treat PR #171 as active M5.29 factory-rerun follow-up (blocked on 0x2146/M5.22), not ghost; coordinate 0x2146 handling with M5.22/M5.29 owners/human decision (SM action 5).
+- PO next: continue dependency-safe archive when M5.23/M5.31/H37/H45-H48/M1.18/M3.19+ candidates become >24h and non-blocking.
+- Human: decide M5.29/#171 acceptance boundary (synthetic L1/L2 gate vs factory-context rerun vs L3 fragment vs L5 package) and 0x2146/PRESERVE_ONLY_DIR_KINDS policy (SM action 5). Marek/non-Claude: M6.2/S0, M6.11, M9.2, M1.2e.

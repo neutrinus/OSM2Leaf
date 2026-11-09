@@ -1686,3 +1686,11 @@ Done tasks moved from `TODO.md` on 2026-11-09: completed (`Status: done`), block
   - Claims: C-1630–C-1639
   - Result: EXP-2026-11-06-M9.1-module-map (IMG256 `92aa525d…`); A: 149 modules/527 sections (245 compressed), B: 91/307 (133 compressed). Per-module `rommap.py convert --skip-compressed`+`validate` PASS 239/240; B `nk.exe` sec1 zero-stored-size BSS (vsize 7168, CNT_UNINITIALIZED_DATA) → rommap `size must be positive` (limitation, C-1632). Combined all-module maps overlap at EXE VA 0x11000 (inherent). Counts per module in EXP.
 
+
+## M7 — Scale, delivery (archived 2026-11-09, 3rd pass)
+
+- [x] **M7.4** Profiles schema v2 migration and the writer behind
+  `tools/build.py` (validator and `--dry-run` exist, C-564–C-567). Status:
+  done · Owner: session-ZMxuBT. All four profiles are v2 and `--strict` clean;
+  `build.py --dry-run` prints the M5 stage chain. Result:
+  EXP-2026-11-06-M7.4-profiles-v2, C-1210. Claims: C-1210–C-1219

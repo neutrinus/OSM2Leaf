@@ -197,36 +197,36 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-09, 2nd pass; retro 2026-11-09-2 / SM `2026-11-09-0823-1-sm`)
+## Priorities (PO grooming 2026-11-09, 3rd pass; retro 2026-11-09-3 / SM `2026-11-09-1413-9-sm`)
 
-**Goal:** OSM-derived maps run in a Nissan Leaf ZE0. **SE updates since last pass** (retro/board): `M2.18` done (HDD_INFO predictor), `M4.16b` blocked→re-opened note (compressed sec1 schema), direction tasks `M5.28`–`M5.30` open; `M9.12`/`M3.16`/`M3.18`/`M4.27`/`M4.28` blocked with EXPs. **SM flags:** 7 stale claim-only draft PRs #140–146 (TL reconcile, retro action 1); work-log compliance gap (action 3); gate reopened L3 reader runs on M1.2f+import/input reachability (action 4). Nearest milestone: **bench/L5 prep** (S1/S2 `M5.13b` done, S3 `M5.14`; hardware waits on Marek). Archive (2nd pass): 10 done, >24h, non-blocking tasks moved to `docs/research/todo-history-2026-11-09.md`; TODO 3040→2876, still >1500 (remaining done tasks block open/blocked work or are <24h).
+**Goal:** OSM-derived maps run in a Nissan Leaf ZE0. **Since last pass:** `M9.11`/`M9.11b` closeout done; `H48` done and `M3.19` reopened for closure (rule 15, PR #170); `M5.31` done (mkcard reconcile/resize contrast); `M5.29` blocked (synthetic delivered) with active factory rerun **PR #171** blocked on `0x2146`/M5.22 (`PRESERVE_ONLY_DIR_KINDS`), not a ghost; SE follow-ups `M1.18` done, `M3.21`/`M9.32`/`M9.33` open. **SM actions:** stale #140–146 cleared; stale missing-task refs corrected (no dangling task block/deps in M6/priorities/workstreams); TODO still >1500. Nearest milestone: **bench/L5 prep** (S1/S2 `M5.13b`; S3 `M5.14`; hardware waits on Marek) while cheap L1/L2/L3 gates advance. Archive (3rd pass): `M7.4` moved (>24h, no non-done deps); TODO 2992→~2985, still >1500 (recent done tasks <24h or block live work).
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline before L2–L5. `M5.30`, `M6.13`.
-- **L2 (cheap, necessary not sufficient, rule 13):** Poland: **`M5.28`** (provisional `highway→Clarion`, L2-testable) → **`M5.29`** (one OSM tile swapped into factory EU, L1+L2+gate) → **`M5.30`** (1:1 diff) → **`M5.11`** (Phase-2). Support: `M5.3`, `M5.22`, `M5.23`, `M5.6`, `M5.21`, `M2.18`, manifest/ATTR/FROUTE follow-ups.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. **`M9.12`** `--card` gate blocked (S0/S1 no-diff; rule-13 evidence path via runnable targets/registry). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock data readers; **`M9.11`**/**`M3.11b`**/**`M3.19`** re-opened (M9.11b/M3.20 done, rule 15) — verify preconditions before reruns (`python3 tools/l3_precond.py --target <name>`, H45); **`M9.6`/`M9.13`** re-opened (may re-block). **`M3.11c` → `M9.10`**; **`M9.31`/`H45`** runnable L3 evidence/gating (stale `M9.27` ref removed 2026-11-09).
+- **L2 (cheap, necessary not sufficient, rule 13):** Poland: **`M5.28` done** (provisional `highway→Clarion`, L2-testable) → **`M5.29`** (synthetic delivered; **PR #171** factory rerun blocked on `0x2146`/M5.22) → **`M5.30`** (1:1 diff) → **`M5.11`** (Phase-2). Support: `M5.3`, `M5.22`, `M5.23` done, `M5.6`, `M5.21`, `M5.32`, `M2.18`, manifest/ATTR/FROUTE follow-ups.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. **`M9.12`** `--card` gate blocked (S0/S1 no-diff; rule-13 evidence path via runnable targets/registry). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock data readers; **`M9.11`/`M9.11b` done**; **`M3.11b`/`M3.19`** open (rule 15, H48 resolved M3.19 M1.12 clause) — verify preconditions before reruns (`python3 tools/l3_precond.py --target <name>`, H45); **`M9.6`/`M9.13`** may re-block. **`M3.11c` → `M9.10`**; **`M9.31`/`H45`/`M9.32`/`M9.33`** L3 evidence/gating/preconditions.
 - **L4 (QEMU/M8):** software integration before L5 where feasible; not final acceptance.
-- **L5 (bench/car, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep: **`M6.13`** S3 manifest, **`M9.31`/`H45`** runnable L3 evidence and **`H29`** prep. Run runnable L3/L4 prechecks before each bench card. (stale `H31`/`M9.27` refs removed 2026-11-09)
+- **L5 (bench/car, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep: **`M6.13`** S3 manifest, **`M9.31`/`H45`** runnable L3 evidence and **`H29`** prep. Run runnable L3/L4 prechecks before each bench card.
 
-**Take first (ready/critical, verify deps):** `M9.11` (register `cmp_ind_reader`/confirm M9.11b), `M5.21`, `M5.28`, `M1.2f`, `M3.11c`, `M3.19`, `M9.31`, `M6.13`, `M5.29` (after `M5.28`/inputs), `M9.24` (after `M1.2f`). **Rule 15 this pass:** `M9.11`, `M3.11b`, `M3.19` re-opened (M9.11b/M3.20 done). **Marek/non-Claude:** `M6.2`/bench, `M6.11` `.uf2`, `M9.2` Ghidra, `M1.2e`, `M6.9`, image/OSM-dependent runs. (stale `M9.27` ref removed 2026-11-09)
+**Take first (ready/critical, verify deps):** `M5.21`, `M5.28`, `M1.2f`, `M3.11c`, `M3.19` (closure/H48 context, verify preconds), `M9.31`/`M9.32`/`M9.33`, `M6.13`, `M5.29` follow-up **PR #171** blocked on `0x2146`/M5.22 (needs human/TL boundary decision), `M9.24` (after `M1.2f`), `M3.21`. **Rule 15:** `M3.11b`/`M3.19` remain open with precond checks; `M9.11`/`M9.11b` done. **Marek/non-Claude:** `M6.2`/bench, `M6.11` `.uf2`, `M9.2` Ghidra, `M1.2e`, `M6.9`, image/OSM-dependent runs.
 
 
 ## Workstreams at a glance
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H27, H28, H29, H30, H38–H47** (see deps/order in H46/H47); H21/H24/H25/H26 done (stale `H31` ref removed 2026-11-09) |
-| M1 | Firmware tooling | **M1.2e (non-Claude), M1.2f (critical), M1.2g, M1.12, M1.14**; M1.11c/M1.13/M1.15–M1.17 done |
+| H | Housekeeping | **H19, H27, H28, H29, H30, H38–H47** (see deps/order in H46/H47); H21/H24/H25/H26/H45–H48 done |
+| M1 | Firmware tooling | **M1.2e (non-Claude), M1.2f (critical), M1.2g, M1.12, M1.14**; M1.11c/M1.13/M1.15–M1.18 done |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.20 done), **M2.18 done** |
-| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.19, M3.20** (rule 15 re-opens; verify deps/precheck); blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.17 done |
+| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.19, M3.20, M3.21** (rule 15 re-opens; verify deps/precheck/H45); blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.17 done |
 | M4 | Data formats | **M4.16b** (re-open note), **M4.16c, M4.16d, M4.24, M4.27, M4.29**; blocked: M4.2, M4.3/M4.23 (→M4.24–M4.26), M4.8b (→M4.8d), M4.22 (OQ-44), M4.28 (→M4.27), M4.31 |
-| M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20–M5.23, M5.28–M5.30**; blocked: M5.12c (scan unfinished); M5.4/M5.13b done |
+| M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20–M5.22, M5.30, M5.32**; blocked: M5.12c (scan unfinished), M5.29 (#171 factory rerun `0x2146`/M5.22); M5.4/M5.13b/M5.23/M5.28/M5.31 done |
 | M6 | Hardware (Marek) | **M6.2 (S0, non-Claude), M6.13, M6.14**; M6.5/M6.6 after M5.13b+L3 precheck; M6.7 after M5.14 |
 | M8 | Full-system emulation | **M8.A2, M8.E1**; M8.A3 after M8.A2 |
-| M9 | L3 toolkit | **M9.6, M9.10, M9.11, M9.13, M9.15, M9.18, M9.24, M9.31** (may re-block); blocked on M1.2f: M9.14, M9.17; M9.12 blocked (→M9.31); M9.11b/M9.20–M9.23/M9.25 done; M9.2 non-Claude (stale `M9.27` ref removed 2026-11-09) |
+| M9 | L3 toolkit | **M9.6, M9.10, M9.13, M9.15, M9.18, M9.24, M9.31–M9.33** (may re-block); blocked on M1.2f: M9.14, M9.17; M9.12 blocked (→M9.31); M9.11/M9.11b/M9.20–M9.23/M9.25 done; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
 · **Software/L3 gate:** **M9.11b** registers `cmp_ind_reader`; **M1.2f** +
@@ -2204,12 +2204,12 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
 
 - [ ] **M6.13 — Prepare the S3 bench package manifest (no hardware, no vendor bytes in repo)**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M5.14 (S3 done), M5.24 (diff proof), M9.31 (runnable L3 evidence; replaces stale M9.27 ref removed 2026-11-09)
+  - Depends: M5.14 (S3 done), M5.24 (diff proof), M9.31 (runnable L3 evidence)
   - Pair: solo
   - Goal: make the S3 (LEV3456) bench run cheap when hardware returns: record artifact SHA-256/size/diff ranges, how it differs from S0/S1/S2 (one variable), which offline/L3 gates passed, and S3 pass/fail criteria. Image stays outside repo.
   - Precheck: `docs/research/card-test-plan.md` defines S3 criteria; M5.14/M5.24 EXPs name image/diff-ranges or package records `UNRECORDED`; `todo_check.py`/`claims_check.py` pass.
   - Scope: `docs/research/bench-packages/s3.md` (or a defined section in `bench-evidence-pack.md`) with manifest fields and reproducible hash/size verification commands outside repo. No flashing, no L5 claims.
-  - Input: M5.14 EXP, M5.24 diff proof, M6.3/M6.7 plan, M9.31 runnable L3 evidence (or `l3check`/`progress_report` output; stale M9.27 matrix ref removed 2026-11-09).
+  - Input: M5.14 EXP, M5.24 diff proof, M6.3/M6.7 plan, M9.31 runnable L3 evidence (or `l3check`/`progress_report` output).
   - Done when: manifest lists artifact path placeholder + SHA-256 + size + diff ranges + base image identity, states "L5 NOT RUN", links pass/fail criteria; negative control: S2 manifest/criteria kept distinct (one variable).
   - Stop: if hash/diff ranges are not recoverable from recorded EXPs, record `UNRECORDED` and file follow-up; do not guess.
   - Claims: C-3230–C-3239
@@ -2301,11 +2301,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
 - [ ] **M7.2** All-Poland road network. Depends M7.1. Claims: C-1190–C-1199
 - [ ] **M7.3** Europe motorway/trunk network. Depends M7.2. Claims:
   C-1200–C-1209
-- [x] **M7.4** Profiles schema v2 migration and the writer behind
-  `tools/build.py` (validator and `--dry-run` exist, C-564–C-567). Status:
-  done · Owner: session-ZMxuBT. All four profiles are v2 and `--strict` clean;
-  `build.py --dry-run` prints the M5 stage chain. Result:
-  EXP-2026-11-06-M7.4-profiles-v2, C-1210. Claims: C-1210–C-1219
+- [x] **M7.4** (archived 2026-11-09, 3rd pass) — profiles schema v2/writer. See `docs/research/todo-history-2026-11-09.md` (M7).
 - [ ] **M7.5** User guide and risk statement; "research only" until M6.7.
   Depends M6.7. Claims: C-1220–C-1229
 
@@ -2314,7 +2310,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
 - [ ] **M6.14 — S0/S1 bench package scope artifact (Marek decision prep, no hardware)**
   - Status: open · Owner: — · Critical: no
   - Pair: solo
-  - Depends: H29 (bundle/checklist concept), M5.13b (S1/S2 artifacts), M2.18 (predictor), M9.31/H45 (runnable L3 evidence/gating; stale M9.27 ref removed 2026-11-09)
+  - Depends: H29 (bundle/checklist concept), M5.13b (S1/S2 artifacts), M2.18 (predictor), M9.31/H45 (runnable L3 evidence/gating)
   - Goal: produce the cheap, non-hardware artifact SM retro action 5 asked for: what is in the next bench package (S0 baseline, S1), what L1/L2/L3 prechecks must be green, and what known risks (compressed sec1/data readers not runnable) are explicitly out of scope — so Marek can decide scope before hardware returns. Marek decision: S0 is 1:1 SD copy (this week); prioritize maximum L3, including loading/handling each file type, before raising S1 risk.
   - Precheck: `docs/research/card-test-plan.md` and M6.2/M6.5 describe S0/S1; M5.13b/M2.18 outputs or their EXPs are present in repo; if M9.31/H45 evidence is not yet ready, manifest records it as `BLOCKED`/`NOT_RUNNABLE` with reason (do not guess).
   - Scope: add a short doc `docs/research/bench-package-s0-s1.md` (or extend card-test-plan with a clearly marked section) plus a machine-readable manifest template (JSON/YAML, no vendor bytes) listing: card ids, required precheck commands, expected L1/L2 outputs, runnable L3 targets to run/skip with reasons, per-file-type coverage/load status, and a "known L3/L4 gaps" note (M1.2f/sec1). No image generation, no hardware steps.
