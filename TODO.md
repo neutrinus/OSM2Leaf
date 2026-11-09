@@ -2133,7 +2133,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 ---
 
 - [ ] **M5.28 — Provisional OSM→Clarion road class/speed table v0 (compiler-unblocking, L2-testable)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m5.28-provisional-roadclass-v0 · Critical: yes
   - Depends: — (M4.2 blocked; M4.17/M5.23 are inputs, not blockers)
   - Goal: unblock the OSM compiler spine with an explicit, versioned *provisional* mapping from OSM `highway=*` (+`maxspeed`/access where available) to Clarion tile class/style/speed values, so generated tiles can be built and validated at L1+L2 without claiming firmware acceptance (rule 13).
   - Precheck: `python3 tools/imf_check.py --selftest` passes; M5.4/M5.22/M5.23 writer/field behavior readable from `tools/tilewriter.py` and EXP-2026-11-08-M5.23; list in-scope `highway=*` values from Dolnośląskie IMF/profile if available.
