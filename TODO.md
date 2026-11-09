@@ -2570,8 +2570,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2140–C-2149
 
 - [ ] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
-  - Status: open · Owner: — · Critical: yes
-  - Pair: pair
+  - Status: in progress · Owner: task/m9.11-cmp-ind-reader-closeout · Critical: yes · Pair: pair
   - Note (rule 15, 2026-11-09 PO): M9.11b done (firmware-call entry kind); re-opened. Prior blocker/note kept: firmware path passed factory/S1/S2+controls (EXP-2026-11-08-M9.11-chunk-decoder) but `cmp_ind_reader` registration was blocked on runner kind — verify M9.11b fills it; sec1 inflate table (`0x574de0`, `inflate_mask[17]`) provenance must stay explicit, no silent default.
   - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
   - Precheck: `python3 tools/chunk_decoder_l3.py` reproduces the firmware
