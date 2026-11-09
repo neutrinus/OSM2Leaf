@@ -2182,7 +2182,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `reader-coverage.md` rows 7–9,21–22,24–28 updated; no new task required.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
-  - Status: in progress · Owner: task/m3.18-icadm-zipfr-readers-r2 · Critical: no
+  - Status: blocked · Owner: task/m3.18-icadm-zipfr-readers-r2 · Critical: no
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
     families and the same compression wall)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
@@ -2203,6 +2203,27 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `refer.md` names the reader VAs and the fields each consumes
     (or shows the firmware copies the block and reads no field, with a
     positive control), and matrix rows 14–15 carry the result.
+  - Blocker: Done when not met after two writer's-inverse signature families in
+    build-A uncompressed executable scope (22.8 MB): (1) ICADM stride/tag pool
+    constants `0x01CE`/`0x00E7` → 0 Navi.exe / 0 ICADM-attributable hits; (2)
+    ZIPFR 14-byte stride `add #14` in Navi.exe sec0 (79 sites) with no
+    confirmed 10-byte-key+`u32`-mask record consumer and no exec literal-pool
+    xref to `ZIPFR001.DAT` (`0x178e08`). Access-path/opener evidence named
+    (`ICADM0` `0x178c60`, `REFER001` `0x178c68`; `fn 0x003f1640` ICADM
+    name-builder+`0x0040b358` resolver, xref'd from `fn 0x003f2cc0` context),
+    but no field-consuming reader VA/field map and no copy-only positive
+    control. Navi.exe sec1 is 16.8 MB compressed `.data` (3560 indirect slot
+    calls; C-2128: exec readable, data compressed) — a reader reached only via
+    sec1 pointers is out of static decodable scope.
+  - Unblock: resolve Navi.exe sec1 indirect/pointer-table targets for REFER001
+    family openers (compressed-` .data` recovery context) and re-run
+    structural signatures over resolved targets; and/or obtain an L3/runtime
+    trace from `0x003f1640`/REFER001/ZIPFR open to first field access that
+    names reader VAs/consumed fields or demonstrates copy-only with a positive
+    control.
+  - Result: EXP-2026-11-08-M3.18-icadm-zipfr-readers (negative/partial,
+    C-2380–C-2385; `refer.md`/matrix rows 14–15 NOT updated — reader VAs/field
+    consumption not established).
   - Claims: C-2380–C-2389
 
 ---

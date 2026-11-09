@@ -2134,6 +2134,22 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2619 | reserved | — | — | — |
 
 
+## M3.18 — `ICADM0nn` / `ZIPFR001` readers (C-2380–C-2389, H11 G2)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2380 | Navi.exe sec0 (build A IMG256 SHA-256 `92aa525d…`, `--image-start 0x200200`, correct `va2file(dataptr)`/`va-realaddr` mapping) contains string anchors `ICADM0` at `0x00178c60`, `REFER001` at `0x00178c68`, and `ZIPFR001.DAT` at `0x00178e08`. | VERIFIED (static, real image) | H | EXP-2026-11-08-M3.18-icadm-zipfr-readers; `sh4xref --to 0x00178c60/0x00178c68/0x00178e08` |
+| C-2381 | `fn 0x003f1640` (Navi.exe, build A) loads `ICADM0` `0x00178c60` (pool `0x003f16f4`, `mov.l` at `0x003f16b6` → r5), builds an `ICADM0`+2-digit decimal name, and resolves it in `REFER001` (`0x00178c68`, pool `0x003f1704` → r4) via `jsr 0x0040b358` at `0x003f16dc`; referenced from `fn 0x003f2cc0` context (pool `0x003f2df0`, load `0x003f2d9e` r3). **Name-builder/opener-resolver path; not a demonstrated ICADM record-field reader.** | VERIFIED (disassembly, static) | H | EXP-2026-11-08-M3.18-icadm-zipfr-readers; `sh4dis --va 0x003f1640`; `sh4xref --to 0x003f1640` |
+| C-2382 | `ZIPFR001.DAT` string `0x00178e08` has no literal-pool xref in build-A Navi.exe executable sections (`sh4xref --to 0x00178e08` → none). A decodable static open anchor for ZIPFR001 was not established in tested executable scope. | OBSERVED (negative, scoped) | M | EXP-2026-11-08-M3.18-icadm-zipfr-readers |
+| C-2383 | Signature family 1 (ICADM writer's-inverse, correct mapping): `mov.w @(disp,pc)`/`mov.l` pool constants `0x01CE` (462-byte block stride, C-136) / `0x00E7` (slot tag) scanned over 22,806,528 B of build-A uncompressed executable o32 sections → 24 hits, **0 in Navi.exe, 0 ICADM-attributable**. Negative for tested signature in decodable exec; does not exclude readers reached via compressed Navi.exe sec1 `.data` pointers (3560 indirect slot calls, C-2128: exec readable, data compressed). | OBSERVED (negative, structural signature) | H | EXP-2026-11-08-M3.18-icadm-zipfr-readers |
+| C-2384 | Signature family 2 (ZIPFR 14-byte stride): 79 `add #14,rn` (`7n0E`) sites in Navi.exe sec0 (5,553,664 B, correct mapping) but no confirmed site pairing +14 cursor advance with a 10-byte key compare and `u32` mask read at +10 sourced from ZIPFR001/REFER001. With C-2382, no confirmed ZIPFR field-consuming reader in tested decodable scope (inconclusive for specificity). | OBSERVED (negative/inconclusive, scoped) | M | EXP-2026-11-08-M3.18-icadm-zipfr-readers |
+| C-2385 | M3.18 Done when not met after two signature families (rule 14/Stop): reader VAs and consumed ICADM/ZIPFR fields not named; no copy-only positive control demonstrated. `docs/format/refer.md` and `docs/research/reader-coverage.md` rows 14–15 **not** updated. Blocked pending Navi.exe sec1 indirect/pointer-table resolution (compressed `.data`) or L3/runtime trace from opener path. | OBSERVED (process/outcome) | H | EXP-2026-11-08-M3.18-icadm-zipfr-readers; TODO M3.18 |
+| C-2386 | RESERVED (M3.18). | — | — | — |
+| C-2387 | RESERVED (M3.18). | — | — | — |
+| C-2388 | RESERVED (M3.18). | — | — | — |
+| C-2389 | RESERVED (M3.18). | — | — | — |
+
+
 ## M4.21 — Tile section-4 writer (C-2390–C-2399)
 
 | ID | Claim | Status | Confidence | Evidence |
