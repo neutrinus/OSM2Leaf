@@ -721,8 +721,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
   - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
 
-- [ ] **M1.18 — Bound `l3_harness` selftest runtime and keep full coverage available**
-  - Status: in progress · Owner: task/m1.18-l3-harness-selftest-runtime · Critical: no · Pair: solo
+- [x] **M1.18 — Bound `l3_harness` selftest runtime and keep full coverage available**
+  - Status: done · Owner: task/m1.18-l3-harness-selftest-runtime · Critical: no · Pair: solo
   - Depends: — (coordinates with H38)
   - Goal: `tools/l3_harness/runner.py --selftest` / full L3 harness checks can dominate agent loops (observed timeout during SE review); make the fast path bounded while preserving a full, honest selftest.
   - Precheck: reproduce baseline runtime: `python3 tools/l3_harness/runner.py --selftest` or the harness aggregate used by H38/selftest.py; record wall time and which cases dominate.
@@ -731,6 +731,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the default/quick harness check used by main loops completes within a documented bound and `--full` (or equivalent) still runs the complete suite; `selftest.py` behavior remains correct; EXP records timings and controls (quick pass, full pass, or explicit SKIP reasons).
   - Stop: if PySh4/module-mapping cases cannot be made fast without reducing coverage, keep them in `--full` and document the split; do not remove slow-but-meaningful checks.
   - Claims: C-3390–C-3399
+  - Result: EXP-2026-11-09-M1.18-l3-harness-selftest-runtime.md — `--quick` (default) / `--full` on engine, runner, l3_harness/selftest, dispatch, ghidra/l3_run; quick bounded <0.2s each (engine ~0.06s) and skips external Ghidra/QEMU execution honestly (`SKIPPED_IN_QUICK`/`MISSING_*`, never PASS). Full runs complete suite with wall-clock bounds (runner full 45.10s OK; engine full attempts QEMU parity and fails loudly on this host's unverified gdbstub adapter, 60s bound). `tools/selftest.py`, `claims_check.py`, `todo_check.py` pass.
 
 ## M3 — Reader contract
 
