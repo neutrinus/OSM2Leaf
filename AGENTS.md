@@ -207,7 +207,11 @@ read only by `MapUpdate.exe`, not by `Navi.exe` at boot.
 - Negative results are first-class; a negative without a positive control is
   not a result.
 - Rule 13: a generated format is *confirmed* only when its firmware reader has
-  a VA in `docs/format/`, and *accepted* only when an L3/M8 run reads our file.
+  a VA in `docs/format/`, and *accepted* only when an L3 run (firmware fragment
+  harness) or L4 run (full-system emulator, M8) reads our file. L5 (car/bench)
+  remains the final acceptance oracle when hardware is available. Level mapping
+  (2026-11-09): before 2026-11-09 L4=car/bench, L5=full-system emulator; after
+  2026-11-09 L4=full-system emulator, L5=car/bench. See `feedback-loop.md`.
 
 ## Data, license, safety
 

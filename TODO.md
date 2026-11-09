@@ -88,10 +88,14 @@ front has fewer, add the next tasks (see rule 9).
 13. **Firmware confirms every format we write (Marek, 2026-11-06).** A file
     type we generate counts as *confirmed* only when its reader in the
     firmware is located (an M3 task, VAs in `docs/format/`) and as
-    *accepted* only when an L3 target runs that reader on our generated file
-    and gets the expected values (an M9 task). Round-trip tools and L2 are
-    necessary, not sufficient. The live status of each file type is the
-    matrix in [`docs/research/reader-coverage.md`](docs/research/reader-coverage.md)
+    *accepted* only when an L3 target (firmware fragment harness) or L4
+    full-system emulator run (M8/QEMU) executes that reader on our generated
+    file and gets the expected values. Round-trip tools and L2 are necessary,
+    not sufficient; L5 (car/bench) is the final oracle when hardware is
+    available. Level mapping (2026-11-09): before 2026-11-09 L4=car/bench,
+    L5=full-system emulator; after 2026-11-09 L4=full-system emulator,
+    L5=car/bench. The live status of each file type is the matrix in
+    [`docs/research/reader-coverage.md`](docs/research/reader-coverage.md)
     (H11); update its row in the same PR as your task.
 
 14. **A search task must pass its precheck before anyone searches (PM,
@@ -197,12 +201,15 @@ qemu-system-misc gdb-multiarch`.
 
 **Goal:** OSM-derived maps run in a Nissan Leaf ZE0. SE added/updated since last PO pass (retro 2026-11-09): `M9.12` blocked (S0/S1 no-diff), `M3.18` blocked, `M8.B4` done, `M4.27` blocked, `M3.16` blocked (r2), `M3.20` done, `M4.28` blocked (r2), `M4.32` done, `M4.29` done (r2), plus `M2.18`/`M5.28`–`M5.30` direction tasks. Nearest milestone: **bench/L4 prep** (S1/S2 `M5.13b`, S3 `M5.14`; hardware waits on Marek). Archive 2026-11-09: done, non-blocking, pre-2026-11-09 tasks moved to `docs/research/todo-history-2026-11-09.md`.
 
-### Critical path to "maps run in the car" (L1 → L2 → L3 → L4)
+### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
-- **L1 structural (cheap, every card):** `cardcheck.py --image` + `imgpatch`/`rebuild_manifests` diff discipline before L2/L3/L4. Tasks: `M5.13`/`M5.13b`/`M5.24`, `M5.30`, `M6.13`.
+> Level mapping (2026-11-09): **L3** = firmware fragments (decoder/decompressor/reader harness on our data), **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6). Before 2026-11-09, L4/L5 were swapped in some docs.
+
+- **L1 structural (cheap, every card):** `cardcheck.py --image` + `imgpatch`/`rebuild_manifests` diff discipline before L2–L5. Tasks: `M5.13`/`M5.13b`/`M5.24`, `M5.30`, `M6.13`.
 - **L2 semantic/offline (cheap):** `l2check`/round-trips/golden/manifest checks; necessary, not sufficient (rule 13). Poland milestones: **`M5.28`** (provisional `highway→Clarion`, L2-testable) → **`M5.29`** (one OSM tile swapped into factory EU card, L1+L2+gate report) → **`M5.30`** (1:1 diff) → **`M5.11`** (Phase-2 acceptance). Supporting: `M5.3`, `M5.22`, `M5.23`, `M5.6`, `M5.21`, `M2.18`, `M5.15`/`M5.26`/`M5.17`/`M5.18`.
-- **L3 firmware on our data (virtual, no hardware):** verdicts only when runnable; SKIP/BLOCKED never PASS. **`M9.11b`** registers `cmp_ind_reader` (M9.11 firmware path passes factory/S1/S2+controls, unregistered) → fixes **`M9.12`** `--card` gate (blocked). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock `M9.14`/`M9.17`/data readers; **`M3.11c` → `M9.10`**; **`M9.13`/`M9.6`** re-opened (M9.20 done, may re-block on sec1/globals/IO — record faulting PC). **`M9.27`** records runnable-now S1–S3 evidence; **`M2.4`** uses `M9.6`.
-- **L4 bench/car (expensive, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep now: **`M6.13`** S3 manifest, **`H31`/`M9.27`** evidence index/matrix. Run L3 prechecks where runnable before each bench card.
+- **L3 firmware fragments (virtual, no hardware):** verdicts only when runnable; SKIP/BLOCKED never PASS. **`M9.11b`** registers `cmp_ind_reader` (M9.11 firmware path passes factory/S1/S2+controls, unregistered) → fixes **`M9.12`** `--card` gate (blocked). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock `M9.14`/`M9.17`/data readers; **`M3.11c` → `M9.10`**; **`M9.13`/`M9.6`** re-opened (M9.20 done, may re-block on sec1/globals/IO — record faulting PC). **`M9.27`** records runnable-now S1–S3 evidence; **`M2.4`** uses `M9.6`.
+- **L4 full-system emulator (QEMU/M8, software integration):** run original software on the emulated board before L5 where feasible (M8 tasks). Not a substitute for final car acceptance.
+- **L5 bench/car (expensive, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep now: **`M6.13`** S3 manifest, **`H31`/`M9.27`** evidence index/matrix. Run L3/L4 prechecks where runnable before each bench card.
 
 **Take first (ready, critical, unowned):** `M9.11b`, `M5.21`, `M5.28`, `M1.2f`, `M9.24` (after `M1.2f`), `M3.11c`, `M9.27`, `M6.13`, `M5.29` (after `M5.28`/inputs). **Rule 15 applied:** `M4.16b`, `M9.6`, `M9.13` re-opened (M1.11c/M9.20 done) — may re-block with new EXP/faulting PC. **Needs Marek/non-Claude:** `M6.2`/bench, `M6.11` `.uf2`, `M9.2` Ghidra, `M1.2e`, `M6.9`, image/OSM-dependent runs.
 
@@ -519,11 +526,11 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Status: open · Owner: — · Critical: yes
   - Depends: M1.2f (framing/tree landed), M8.E1b (VAs)
   - Goal: give M1.2f a verifiable oracle/reference path without guessing 245/245: a harness feeds block/section fragments and compares decoded bytes/hash to a trusted reference (QEMU/runtime oracle when available, or a pinned CE XIP LZXD reference output with licence/URL/SHA-256), proving the bitstream/tree variant.
-  - Precheck: `python3 tools/cedecomp.py --selftest` passes; EXP-49 vectors and M8.E1b VAs recorded; `tools/decomp_oracle.py --help/--selftest` known (create/extend if missing, name in PR).
-  - Scope: `tools/decomp_oracle.py` (or named equivalent, stdlib, `--selftest`) with oracle result schema (status, decoded length/hash, source, entry VA, input hash) and EXP-49/fragment verify mode; optional wiring to M8.E1c runtime output. No 245/245 claim; no vendor bytes committed.
-  - Input: M1.2f `XipLzxd` framing, EXP-49, M8.E1b `DECOMP_SECT/BLK`, M8.E1c JSON when available; external reference requires recorded licence/URL/SHA-256 (non-Claude if download needed).
-  - Done when: schema documented and `--selftest` has synthetic controls; EXP-49 sec1/sec2 reports `PASS` only with a trusted decoded reference hash, else `FAIL`/`NO_ORACLE` (never silent pass). M1.2f/M9.29/M9.30 can consume the schema.
-  - Stop: if no trusted reference obtainable (no QEMU, no licensed reference output), deliver schema + synthetic selftest and keep EXP-49 `NO_ORACLE` with blocker named.
+  - Precheck: `python3 tools/cedecomp.py --selftest` passes; EXP-49 vectors and M8.E1b VAs recorded; `python3 tools/decomp_oracle.py --selftest` passes (contract implemented: `osm2leaf.decomp_oracle/v1`, pinned EXP-49 lengths/targets, `vectors --json`, `verify`; extend with `source`/`entry_va`/`input_hash` when wiring M8.E1c/M9.29 runtime output).
+  - Scope: `tools/decomp_oracle.py` (stdlib, `--selftest`) schema/result verification for EXP-49/fragment mode + optional wiring to M8.E1c/M9.29 runtime output. No 245/245 claim; no vendor bytes committed.
+  - Input: M1.2f `XipLzxd` framing, EXP-49, M8.E1b `DECOMP_SECT/BLK`, M8.E1c/M9.29 JSON when available; external reference requires recorded licence/URL/SHA-256 (non-Claude if download needed).
+  - Done when: schema documented and `--selftest` has synthetic controls; EXP-49 sec1/sec2 reports `PASS` only with a trusted decoded reference hash, else `FAIL`/`NO_ORACLE` (never silent pass). M1.2f/M9.29/M9.30 consume the schema; at least one runtime or pinned-reference result is recorded in an EXP.
+  - Stop: if no trusted reference obtainable (no QEMU, no licensed reference output), keep EXP-49 `NO_ORACLE` with blocker named and land/keep schema + synthetic selftest.
   - Claims: C-3240–C-3249
 - [x] **M1.13 — Find the encoder that reproduces the factory `.cmp` streams**
   - Status: done · Owner: claude/m1.13-factory-encoder · Critical: yes
@@ -1272,6 +1279,56 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `python3 tools/ze0-viewer/harness.py info <tile>` on a tile containing the known opaque/bad-record pattern reports the records as bad/opaque with counts (and does not crash), while `verify` behavior remains unchanged for the checked cases; a synthetic or minimal fixture covers the crash path if practical, otherwise the EXP records the real-tile command/result and SHA-256.
   - Stop: if the crash is inside vendored `tools_ze0` and cannot be fixed without changing pinned vendor behavior, document the limitation, add a targeted wrapper/fallback in `harness.py`, and file a follow-up naming the vendored function.
   - Claims: C-3180–C-3189
+
+- [ ] **H40 — L1/L2 generated-fixture contract: deterministic in-process fixture + coherent ZE0 card/tree builder (no vendor data)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: H26
+  - Goal: close H26 gaps (`L1 synthetic`/`L2 tile` NOT COVERED where feasible) with a tiny deterministic in-process fixture representing generated content (roads/names/POIs/geometry) and a coherent ZE0 card tree/image that `cardcheck.py --root/--image` and targeted L2 round-trips can run on in CI (no network, no OSM download, no vendor data).
+  - Scope: test infrastructure only. Procedural/committed fixture (no vendor dump, no downloaded OSM extract) and a minimal builder producing coherent DRSTR/MMAIN/tile level tables/headers/REFER001/top-level layout as current tools support. Do not claim firmware acceptance (rule 13); no full M5 compiler coverage.
+  - Input: `tools/l1l2_fixtures.py`, `tools/cardcheck.py`, `tools/mkcard.py`, `tools/drstr_ze0.py`, `tools/tilewriter.py`/harness, `tools/imgpatch.py`; AGENTS data rules.
+  - Done when: `python3 tools/<name> --selftest` builds the fixture in a temp dir, runs `cardcheck.py` and reports L1 PASS/FAIL per check (JSON), and runs >=1 coherent synthetic L2 round-trip (tile/DRSTR/POI) where supported; CI-safe/deterministic; H26 registry gains runnable entries only where truly covered, else honest NOT COVERED with updated reason.
+  - Stop: if coherent MMAIN/tile/DRSTR cannot be produced without vendor bytes, deliver the smallest coherent subset with explicit NOT COVERED per uncovered file/feature and follow-up tasks naming missing writer/structure; never fake PASS.
+  - Claims: C-3270–C-3279
+
+- [ ] **H41 — L1/L2 progress matrix for generated card: per file + per feature (roads,names,POIs,geometry) with regression baseline**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: H40, H26
+  - Goal: progress signal for a generated fixture: L1 pass/fail per file/check and L2 pass/fail per file and per feature (`roads,names,POIs,geometry`), with SKIP/NOT COVERED/NOT RUNNABLE separate and never counted as PASS; CI fails on fixture regression.
+  - Scope: extend `tools/l1l2_fixtures.py` or add a companion reporter (name in PR) consuming H40 fixture; emit JSON/Markdown with stable keys `level,file,feature,status(PASS|FAIL|SKIP|NOT_COVERED|NOT_RUNNABLE),command,reason`. Feature mapping explicit/evidence-based (tile road records/section-1 geometry -> roads/geometry, DRSTR/name entries -> names, POI mutation/records -> POIs; unmappable -> NOT COVERED). Committed no-vendor baseline for named fixture; baseline changes intentional with EXP/PR explanation.
+  - Input: `tools/cardcheck.py --json`, `tools/l2check.py --json` where usable on generated fixture, `tools/l1l2_fixtures.py`, H40; `.github/workflows/l1l2-fixtures.yml`.
+  - Done when: CI artifact includes per-file/per-feature matrix for generated fixture; `--selftest` covers status separation and baseline-regression detection (synthetic PASS->FAIL fails gate); adding a check is registry/data, not report-logic surgery; workflow README states regression policy.
+  - Stop: if feature attribution cannot be made without guessing format semantics, report NOT COVERED with missing claim/tool reference.
+  - Claims: C-3280–C-3289
+
+- [ ] **H42 — Wire progress dashboard and L1/L2/L3/L4-emu/L5-bench status into CI artifacts/job summaries (no vendor data)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: H27, H41, H28
+  - Goal: make the per-level progress signal visible on every PR/push: publish `progress.json/md` (H27 schema) plus H41 per-file/per-feature matrix as artifacts/job summaries.
+  - Scope: workflow changes only (extend existing workflows or add `progress.yml` as appropriate); no vendor data, no IMG256/ROOT, no QEMU/M8 run in PR gate, no L5 bench execution. Integrate H28 L3 synthetic summary when H28 lands. Local/vendor checks listed as LOCAL-ONLY/NOT RUNNABLE, never executed in PR gate.
+  - Input: `tools/progress_report.py`, H41/l1l2_fixtures JSON, `tools/l3check.py --build-corpus --json` (post-H28), `tools/realcheck.py` classification; `.github/workflows/*`.
+  - Done when: PR run uploads/prints progress including L1/L2 generated-fixture per-file/per-feature counts, L3 target counts with firmware-proof separated from synthetic/harness (rule 13, L3 fragment/L4-emu/M8/L5-bench mapping per AGENTS.md), and L4 (M8 full-system emulator) / L5 (car/bench) explicit manual status where recorded; local-only checks in a separate "not run in CI, vendor data required" section; EXP links one CI run and maps fields to H27 rule-13 table.
+  - Stop: if cross-job artifact passing is unreliable, generate progress in jobs that have inputs and mark aggregation as a follow-up, but still publish per-level summaries.
+  - Claims: C-3290–C-3299
+
+- [ ] **H43 — L3 generated-fixture corpus and per-reader progress for "our data" (extends H28)**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H28, H40, M9.12 and runnable M9 reader targets
+  - Goal: report "L3 which readers ran on our data and with what result" for generated (not only synthetic/vendor) data, without counting blocked/unrunnable as passes.
+  - Scope: small L3 corpus from H40 generated artifacts via l3_harness conventions where feasible; run only runnable/prechecked targets with honest corpus mapping. Report per target `ran_on_our_generated_data,status,synthetic,l3_claim,reason`; BLOCKED/NOT RUNNABLE explicit. No-vendor CI respects H28 policy.
+  - Input: `tools/l3check.py`, `tools/l3_harness/targets.json`/corpus, H40 artifacts, H28, reader-coverage L3 rows.
+  - Done when: `l3check`/documented mode reports classification for generated-fixture corpus entries (0 runnable firmware readers initially is honest); progress output distinguishes synthetic probe, vendor/factory, and generated-fixture corpora; EXP states which readers ran on our data with evidence.
+  - Stop: if no existing target can consume generated artifacts without new firmware-reader work, record target/corpus rows with NOT RUNNABLE reasons and stop; do not synthesize firmware verdicts.
+  - Claims: C-3300–C-3309
+
+- [ ] **H44 — L5 bench/car readiness package validation in CI and local-only/vendor-image test registry**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H29, H27, H25
+  - Goal: (a) validate L5 bench/car (S0–S3, AGENTS.md 2026-11-09 mapping) readiness manifests/checklists/result templates in CI without executing hardware or bundling vendor images; (b) classify vendor-image checks (realcheck IMG256, golden ROOT, full 194 REFER001, real LEV3456R) as LOCAL_ONLY_VENDOR with fetch commands/image keys, never run/downloaded in PR CI.
+  - Scope: validator/registry tools (`--selftest`, no vendor data) for H29 manifest schema and a committed no-vendor local-only registry; CI validates schemas/templates only and prints "local-only, not run" / "L5 bench readiness validated, bench not executed" (never car PASS).
+  - Input: H29 bundle format, `docs/research/card-test-plan.md` S0–S3, H27 L5/manual contract, `tools/realcheck.py`, H16 `fetch_image.py` keys, H28 optional mode.
+  - Done when: validators pass on synthetic positive/negative fixtures; CI output shows L5 readiness-checked and local-only sections; H27 can ingest manual-result template format; no default PR job downloads vendor images.
+  - Stop: if H29 format undefined, deliver minimal schema proposal + synthetic fixture and block implementation details on H29 with `Unblock:`.
+  - Claims: C-3310–C-3319
 
 ---
 
@@ -2220,9 +2277,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if no slot-safe same-page strategy fits after the M5.21/M1.13 encoder search, stop with `blocked` or `open` follow-up for page relocation; do not pad over non-zero bytes or overwrite the next page.
   - Claims: C-3190–C-3199
 
-## M6 — Hardware and safety
+## M6 — L5 bench/car: hardware and safety
 
-No hardware is available now. Planning tasks are open; tests wait.
+No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
 
 - [ ] **M6.13 — Prepare the S3 bench package manifest (no hardware, no vendor bytes in repo)**
   - Status: open · Owner: — · Critical: yes
@@ -2333,7 +2390,7 @@ No hardware is available now. Planning tasks are open; tests wait.
 
 ---
 
-## M8 — Full-system emulation (QEMU `ze0` machine)
+## M8 — L4 full-system emulation (QEMU `ze0` machine)
 
 Background: [`docs/research/full-system-emulation.md`](docs/research/full-system-emulation.md),
 EXP-37. Stages: **F0** boot log → **F1** stable kernel → **F2** drivers →
@@ -2463,6 +2520,18 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     retracted/corrected; M8.E1 unblocked.
   - Claims: C-2290–C-2299
   - Result: EXP-2026-11-06-M8.E1b-nk-decompressor-derive — M8.E1 refutation was a BE-vs-LE endianness artifact (C-1600/C-1603 superseded). **Verified (LE, IMG256 `92aa525d…`):** `fn 0x880385e4` o32 walk + `o32_flags & 0x2000` at `0x88038666`; compressed branch → `DECOMP_ALLOC 0x88034d94` then `DECOMP_WRAP 0x88037590(dataptr,psize,dest,vsize)`; chain `0x88037590`→`DECOMP_SECT 0x88037464`→`DECOMP_BLK 0x8803a384` (pool-confirmed). M1.2c C-660–C-663,C-665 restored (C-2290–C-2294). EXP-49 runtime decode not executed (needs `qemu-system-sh4` LE + DECOMP_WRAP kernel-context stubs, C-2294); M8.E1 unblocked (real VA/prototype known). Tools updated: `cedecomp.py`, `cedecomp_run.py`, README.
+
+- [ ] **M8.E1c — QEMU slice for nk.exe decompressor oracle (compatible SH-4 map, DECOMP_SECT, EXP-49)**
+  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs `qemu-system-sh4` LE with compatible memory map/`-M ze0` build deps or container; M8.A2 host deps may be missing)
+  - Depends: M8.E1b, M1.2g (M8.A2 unblocks `-M ze0`; a documented compatible-map fallback may proceed in parallel)
+  - Goal: execute a verified decompressor slice under QEMU and emit `decomp_oracle`-compatible results, so M1.2f gets runtime evidence (decoded length/hash for EXP-49, then Navi.exe sec1/sec2) without guessing the CE-LZXD block codec.
+  - Precheck: `python3 tools/cedecomp_run.py --selftest` and `python3 tools/decomp_oracle.py --selftest` pass; `qemu-system-sh4` (LE) available and version recorded; IMG256 present/verified (rule 11). Record whether `-M ze0` is available or a compatible map is used (stock QEMU 11.1.3 `-M none` fails P1 0x88/0x8c access for nk.exe VAs).
+  - Scope: `tools/cedecomp_run.py`/small helpers to run `probe` and `exp49` for `DECOMP_SECT 0x88037464` (preferred, C-2293) with a constructed input frame and minimal kernel-context/heap stubs sufficient for the section-decode path; output hashed decoded bytes as `decomp_oracle` JSON (no vendor bytes committed). Excludes full nk boot, F1, and 245/245 claims until produced.
+  - Input: M8.E1b VAs (`DECOMP_WRAP/SECT/BLK/ALLOC`), `cedecomp.py`, EXP-49 vectors (`decomp_oracle.py`), `tools/qemu-ze0/` (`-M ze0` when built), `tools/ce_qemu_probe.py` patterns.
+  - Done when: `cedecomp_run.py exp49 --image IMG256 --entry 0x88037464 --json <out>` (or documented equivalent) produces `decomp_oracle verify` PASS for EXP-49 sec1 (`0x484`) and sec2 (`0xcc0`) with recorded decoded SHA-256s in the EXP; `probe` still passes; negative control: wrong entry/garbled buffer does not verify.
+  - Stop: if DECOMP_SECT requires kernel/global state not stubbable without F1/registry context, record faulting PC/register state and reduce scope to DECOMP_BLK sub-fragment under M9.29 or a narrower hook, with a follow-up; do not guess decoded bytes.
+  - Claims: C-3260–C-3269
+
 - [ ] **M8.E2 — Registry as loaded** (`boot.hv`, `default.hv`, `user.hv`):
   driver list, `IoBase`, `Irq`, load order. Two routes: static hive parser
   after M1.4, or a RAM dump after M8.B5. Done when the driver table is in

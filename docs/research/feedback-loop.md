@@ -39,8 +39,14 @@ acceptance.
   applies the artifact/partial flags, and reports QY8x 2019 as unsupported.
 - Firmware RE — readers are not located yet; full-system QEMU was re-evaluated
   by EXP-2026-11-05-37 (stock QEMU's SH-4A CPU reaches the scheduler) and is
-  tracked as L5/M8, not as a rejected option.
-- `TODO.md` P4b already defines layers L0–L5 for the feedback loop.
+  tracked as L4/M8 (full-system emulator; pre-2026-11-09 this was called L5).
+- `TODO.md` defines the current verification levels and the M8/M6 workstreams.
+
+> **Level mapping (2026-11-09, Marek/PO decision):** before 2026-11-09 `L4` =
+> bench/car and `L5` = full-system emulation; **after 2026-11-09 `L4` =
+> full-system emulator (QEMU, M8) and `L5` = bench/car (M6)**. L0–L3 keep their
+> meaning (L3 = firmware fragment emulation/harness on our data). Historical
+> EXPs/claims keep their original wording; interpret them with this mapping.
 
 The missing piece is not another decoder. It is an **acceptance oracle** that
 does not require the car, plus a **runner** that makes the loop cheap enough to
@@ -48,17 +54,21 @@ use after every change.
 
 ## Test pyramid
 
+> Levels as of 2026-11-09 (see mapping note above).
+
 | Layer | What it checks | Speed | Fidelity | Cost | Catches | Does not catch |
 | --- | --- | --- | --- | --- | --- | --- |
 | L0 primitives | zlib, `.ind`, `DRSTR`, headers | ms | low | low | codec and parser bugs | anything about the unit |
 | L1 whole-card validator | MBR/FAT, files, sizes, indexes, cross-links | seconds | medium | low | broken or inconsistent card | wrong content |
 | L2 semantic/golden | decode → model → render → compare with OSM/golden | seconds–minutes | medium–high | low | wrong roads/names/POIs/geometry | unit acceptance |
-| L3 firmware function emulation | run located reader functions against generated data | minutes | high for the data contract | medium | misread format, wrong field semantics | untouched code paths |
-| L4 bench hardware-in-the-loop | real unit boots the real card | minutes | highest available | medium | SD lock, map code, rendering, routing | electrical/analog edge cases, long-term wear |
-| L5 full-system emulation | whole firmware on an emulated board | minutes | model-dependent | very high | execution paths, instrumentation | anything the model gets wrong |
+| L3 firmware fragments | run located original reader/decoder/decompressor fragments (Ghidra/harness) against generated data | minutes | high for the data contract | medium | misread format, wrong field semantics | untouched code paths |
+| L4 full-system emulator | original software on an emulated board (QEMU `ze0`, M8) | minutes | model-dependent | high | integration paths, file opens, error screens, instrumentation | anything the model gets wrong |
+| L5 bench/car | real unit boots the real card (M6) | minutes | highest available | medium hardware + scarce access | SD lock, map code, rendering, routing | electrical/analog edge cases, long-term wear |
 
-The rule should be: **L0–L2 after every change, L4 before calling a milestone
-done, L3 when the readers are available, L5 only as a timeboxed spike.**
+The rule should be: **L0–L2 after every change; L3 when readers/fragments are
+available; L4 (emulator) as the software integration gate before L5; L5
+(bench/car) before calling a hardware acceptance milestone done, one variable
+per run, never skipped from S0.**
 
 ## Option A — Wine
 

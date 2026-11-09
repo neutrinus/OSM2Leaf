@@ -11,8 +11,9 @@ Before you start:
 Hard rules:
 - All repo content (code, docs, TODO, commits, retros) is English, even if the
   conversation is Polish.
-- Hardware access is currently unavailable. Do not plan L4 work as near-term;
-  prepare it so it is cheap when hardware returns.
+- Hardware access is currently unavailable. Do not plan L5 (car/bench) work as
+  near-term; prepare it so it is cheap when hardware returns. L4 (QEMU
+  full-system emulator, M8) is the software substitute where feasible.
 - Never commit vendor data (images, .DAT, .cmp, .ind, …) — see AGENTS.md.
 - Never force-push `main`. Never edit a task another agent has
   `in progress`, except to note a dependency in your own task.
@@ -20,13 +21,17 @@ Hard rules:
   draft PR and delete the remote branch. Do not open a second PR for the same
   task ID; update the existing draft or coordinate through the TL.
 
-Verification levels (details: docs/research/feedback-loop.md):
+Verification levels (details: docs/research/feedback-loop.md; mapping note there — **before 2026-11-09 L4=car/bench, L5=full-system emulator; after 2026-11-09 L4=full-system emulator, L5=car/bench**):
 - L1 structural: `tools/cardcheck.py` — card/FAT/files/sizes/indexes consistent.
 - L2 semantic/golden: `tools/l2check.py` — decode → model → compare with OSM
   or golden; round-trips byte-identical.
-- L3 firmware function emulation: `tools/l3check.py` — real firmware reader
-  functions run against our data (exit 3 = nothing runnable, never a pass).
-- L4 bench/car: the real unit boots our card. Expensive, one variable per run.
+- L3 firmware fragments: `tools/l3check.py` — original firmware code fragments
+  (decoder/decompressor/reader), run via Ghidra/harness on our data (exit 3 =
+  nothing runnable, never a pass).
+- L4 full-system emulator: original software runs in an emulator (QEMU `ze0`,
+  M8). Catches integration/file-open/error-screen paths the model can see.
+- L5 bench/car: the real unit boots our card (M6). Expensive, one variable per
+  run. Hardware currently unavailable.
 Prefer the cheapest level that can falsify the hypothesis. SKIP is never PASS.
 
 Editing TODO.md concurrently (~15 agents write to it):
@@ -37,7 +42,7 @@ Editing TODO.md concurrently (~15 agents write to it):
 - Optional `Pair:` field. Developer tasks run as a driver/navigator pair by
   default (see prompt_tl.txt); write `Pair: solo` only for low-risk work
   (docs, housekeeping, selftest-covered small tools) and `Pair: required`
-  for high-risk work (firmware searches, format writers, L3/L4 inputs).
+  for high-risk work (firmware searches, format writers, L3/L4/L5 inputs).
   Omitted = TL decides, default pair.
 - Before pushing: `git fetch && git rebase origin/main`, resolve conflicts by
   keeping both sides' content, then run
