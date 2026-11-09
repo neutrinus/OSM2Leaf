@@ -348,7 +348,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3330–C-3339
 
 - [ ] **H46 — Test system map: L1-L5 progress signal, fixtures, CI/local/L5 execution policy**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h46-test-system-map · Critical: no · Pair: solo
   - Depends: H25, H26, H27 (existing artifacts to reference)
   - Goal: one living design doc that maps the QA target ("generated SD card images the car would read") to concrete tools/workflows/fixtures/tasks, so every agent can see what is proven offline, what is firmware/L3/L4-emulator proof, and what remains L5 bench/car/manual — without conflating levels.
   - Gap (QA 2026-11-09): workflows/tools exist (H25 `ci.yml`, H26 `l1l2_fixtures.py`/`l1l2-fixtures.yml`, H27 `progress_report.py`, M9.8 `l3check.py`) and planned tasks cover major holes (H28,H29,H38,H40-H45,M9.12/M9.31), but there is no single map of fixture strategy (synthetic vs generated no-vendor vs local-only vendor), regression policy, status classes, and execution split (PR CI / local vendor / M8 QEMU / L5 Marek). This causes ambiguous "progress" claims.
