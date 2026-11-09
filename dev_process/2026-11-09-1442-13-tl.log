@@ -1,0 +1,45 @@
+role: tl
+model: iceman-free (opencode/opencode)
+start: 2026-11-09T14:42Z (approx)
+end: in progress
+origin/main SHA at start: de4670c (HEAD=origin/main)
+
+inputs read (names): prompt_tl.txt, prompt_common.txt, AGENTS.md, TODO.md, dev_process/2026-11-09-1206-8-tl.log (latest tl), recent SM/PO/QA/SE logs by name, PR #171, tools/fetch_image.py --list, local leafre-work M5.13 POINT010 pairs.
+
+actions (in order):
+- git fetch --all --prune; gh pr list open (only #171 M5.29 factory rerun, draft, blocked on 0x2146/M5.22 boundary — human/TL decision, not auto-merged). git log confirms de4670c on main.
+- Assessed TODO for open tasks with all Depends done, no open PR, disjoint files. Checked statuses/M3.19/M3.21/M9.31-34/M9.32/M9.28/M3.11b/M5.27/M5.32/M6.13/M1.2g/M9.24 deps; verified IMG256 fetchable, M5.13 S1/S2/factory POINT010 pairs present under leafre-work, sh4scan/reader_precheck selftests PASS.
+- Qualifying ready set is small: M3.19 (closure; H48 satisfied M1.12 import, counts verified — Result text stale), M9.32 (depends M9.11/M9.11b done; pair required; data partially local but needs careful all-pairs+controls via registered cmp_ind_reader path), M9.28 (depends M9.20 done; pair required). M3.11b open/pair but precheck needs US POINT010 cmp/ind access pattern/range fetch beyond trivial local paths — high feasibility risk this session. M3.21 blocked by M3.19 dep as written; M9.31 deps M9.12 blocked; M9.33 deps M9.28; M9.34 deps M9.32; M6.13 deps M9.31; M5.32 deps M5.27/M5.12c blocked; M5.33 deps M5.29 blocked.
+- Decision: select disjoint tasks for this pass with honest scoping — M3.19 closure (solo, reason below) and M9.28? M9.28 touches l3_harness (pair required) — heavy. M9.32 touches l3_harness/runner/targets/EXP — pair required, overlaps l3_harness conceptually? files differ from M9.28 (M9.28 maps input buffers; M9.32 verifies cmp_ind_reader end-to-end) but both touch l3_harness area; safer not parallel same subsystem. Choosing sequential/limited batch: launch M3.19 closure (solo) and evaluate M9.32 feasibility; do not launch filler.
+
+pair/solo decisions:
+- M3.19: solo. Reason: closure/reconciliation of H48-verified work (M1.12 import done in H48, counts reproduced per Result/addendum); changes limited to TODO task status/result text, possibly EXP addendum note, claims.md status only if needed — no new firmware search, no format writer/decoder change, no L3 execution, no new claim IDs required by done-when. Prompt allows solo for docs/TODO housekeeping or small selftest-covered changes; M3.19's substantive evidence already exists.
+- M9.32: pair required (per task). Not launched in this pass until M3.19 closure path clear / to avoid parallel l3_harness edits; marked returned/deferred with reason.
+
+decisions/alternatives:
+- Did not merge PR #171: blocked on 0x2146/M5.22 boundary, requires human/TL boundary decision (explicit in priorities/body). Left open/draft.
+- Did not launch M3.21: Depends lists M3.19 (open) — deps not done per board rules despite semantic intent; needs board clarification or M3.19 done first.
+- Did not launch M9.31: depends M9.12 blocked.
+- Did not launch M3.11b: feasible data access uncertain (US pair/range fetch beyond local POINT010 files; precheck command as written needs specific cmp/ind/page inputs) — risk of ghost claim; defer.
+
+problems/costs:
+- TODO has contradictory/stale text in M3.19 (Status open but Result says "Blocked on unsatisfied M1.12 import clause" — H48 addressed it). M3.21/M3.19 dependency modeling conflicts with normal dep rule.
+- M5.22 referenced as blocker but no task block found; PR171 blocked on boundary.
+
+actions (continued):
+- Claimed M3.19 on task/m3.19-close-sh4scan (claim commit 293f9a1, pushed, PR #172). Verified done-when: sh4scan/reader_precheck selftests PASS; sh4scan on archive/head256.img (92aa525d…) reproduced tags 26/23/0, mask-pair --via-reg 1 @ 0x003715c8/ca/cc R3+4B, stride 586→0/0 candidates, build-wide anchors/corpus as in addendum; M1.12 import satisfied by H48. Updated TODO M3.19 to done with Result referencing EXP-2026-11-08-M3.19-sh4scan addendum and H48 EXP/C-3410–3411.
+- TL checks: claims_check OK, todo_check OK (pre-existing warnings), selftest 83 PASS/0 FAIL/22 SKIP. Rebased on origin/main (no move), gh pr ready/merge --merge --delete-branch; main now 84ebb5b.
+
+task outcomes:
+- M3.19: solo (closure/reconciliation; H48 satisfied M1.12 import, evidence already in EXP addendum; no new firmware search/writer/L3/claims registration). review rounds: 0 (TL direct closure). outcome: done. PR #172 merged https://github.com/neutrinus/OSM2Leaf/pull/172. EXP: docs/experiments/EXP-2026-11-08-M3.19-sh4scan.md (+H48 EXP). Navigator defects: n/a.
+
+PRs: #172 merged (M3.19). #171 left open/draft — blocked on 0x2146/M5.22 boundary, requires human/TL boundary decision.
+
+commits on main this run: 293f9a1 (claim, in PR), 83474ed (close M3.19) via merge 84ebb5b.
+
+decisions/alternatives (final): M9.32/M9.28 both qualify but are pair-required and touch overlapping l3_harness area with nontrivial data/corpus setup; did not launch in parallel to avoid file conflicts. M3.21 now eligible (M3.19 done, M3.20 done) — board should take it next if IMG256 reproducibility run desired. M9.31 still blocked by M9.12 dep as written.
+
+problems: M5.22 referenced but no task block found (PR171 blocker). M3.19 stale Result text corrected.
+
+end: 2026-11-09T14:55Z (approx)
+handoff: next TL/agent can take M3.21 (solo, now deps satisfied) to fully reproduce sh4scan counts and close per its done-when, or M9.32 (pair required) / M9.28 (pair required) sequentially; address PR #171 boundary decision; consider adding/finding M5.22 task block if missing.
