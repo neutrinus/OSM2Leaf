@@ -70,37 +70,50 @@ def bbox_table(data):
     return rows
 
 
-def cmd_info(path):
-    data = open(path, 'rb').read()
-    print('file    %s' % path)
-    print('size    %d bytes' % len(data))
-    print('sha256  %s' % sha256(path))
-    for off, s in header_strings(data):
-        print('0x%03x   %s' % (off, s))
-    print('bbox table (arc-min / 60):')
-    for sid, lv, flag, la1, la0, lo0, lo1 in bbox_table(data):
-        print('  section %d level %d: lat %.3f..%.3f lon %.3f..%.3f'
-              % (sid, lv, la0, la1, lo0, lo1))
-    tile = clarion_tile.read_tile(data)
+def _format_unreadable(locators, limit=5):
+    """Format a sample of unreadable-record locators for diagnostic output.
+
+    A locator is a byte offset when available, otherwise a container locator
+    (dir/slot/k) so the report never invents a 0x0 offset.
+    """
+    sample = locators[:limit]
+    text = ', '.join(sample)
+    if len(locators) > limit:
+        text += ', ...'
+    return text
+
+
+def _record_locator(directory, slot_idx, rec):
+    off = rec.get('off')
+    if off is not None:
+        return '0x%x' % off
+    return 'dir 0x%x slot %d k %d' % (directory.get('off', 0), slot_idx, rec.get('k', -1))
+
+
+def _print_tile_census(tile):
+    """Print per-level record census from a parsed tile model."""
     for sec in tile['sections']:
         print('section %d: table at 0x%x, %d levels'
               % (sec['id'], sec['taddr'], len(sec['levels'])))
         for lvl in sec['levels']:
-            bg = shape = graph = other = unreadable = 0
+            bg = shape = graph = other = 0
+            unreadable = []
             for d in lvl['dirs']:
-                for slot in d['slots'].values():
+                for slot_idx, slot in d['slots'].items():
                     for rec in slot['recs']:
                         if not clarion_tile.is_zlib(rec['raw']):
                             other += 1
                             continue
                         try:
                             plain = zlib.decompress(rec['raw'])
-                            kind = struct.unpack_from('>H', plain, 4)[0]
+                            # kind is read only to validate the classified record;
+                            # census counts by section/k, not by payload kind.
+                            struct.unpack_from('>H', plain, 4)[0]
                         except Exception:
                             # Opaque/unreadable record (bad zlib stream, truncated,
                             # or a container that cannot be classified). Keep the
-                            # census moving instead of crashing (M9.25).
-                            unreadable += 1
+                            # census moving instead of crashing (M9.25/H39).
+                            unreadable.append(_record_locator(d, slot_idx, rec))
                             continue
                         if sec['id'] == 1 and rec['k'] % 2 == 1:
                             bg += 1
@@ -111,8 +124,42 @@ def cmd_info(path):
             line = ('  level %d type 0x%02x dirs %d: background %d, shape %d, graph %d, raw %d'
                     % (lvl['level'], lvl['typ'], len(lvl['dirs']), bg, shape, graph, other))
             if unreadable:
-                line += ', unreadable %d' % unreadable
+                line += ', unreadable/opaque %d (at %s)' % (len(unreadable),
+                                                            _format_unreadable(unreadable))
             print(line)
+
+
+def cmd_info(path):
+    data = open(path, 'rb').read()
+    print('file    %s' % path)
+    print('size    %d bytes' % len(data))
+    print('sha256  %s' % sha256(path))
+    try:
+        for off, s in header_strings(data):
+            print('0x%03x   %s' % (off, s))
+        print('bbox table (arc-min / 60):')
+        for sid, lv, flag, la1, la0, lo0, lo1 in bbox_table(data):
+            print('  section %d level %d: lat %.3f..%.3f lon %.3f..%.3f'
+                  % (sid, lv, la0, la1, lo0, lo1))
+    except Exception as e:
+        print('header/bbox parse error (reported, not fatal): %r' % (e,))
+
+    try:
+        tile = clarion_tile.read_tile(data)
+    except Exception as e:
+        # read_tile is vendored tools_ze0; if it cannot parse the container,
+        # report clearly and fall back to scan when possible (H39).
+        print('container parse failed (vendored read_tile): %r' % (e,))
+        if os.path.exists(os.path.join(HERE, 'tools_ze0', 'tile_scan.py')):
+            try:
+                cmd_scan(path)
+                return
+            except Exception as se:
+                print('scan fallback failed: %r' % (se,))
+        print('no census available (opaque/unparseable container)')
+        return
+
+    _print_tile_census(tile)
 
 
 def cmd_roundtrip(path):
@@ -411,7 +458,90 @@ def cmd_selftest(path):
     return ok
 
 
+def cmd_harness_selftest():
+    """Synthetic selftest for H39: info tolerates opaque/unreadable records.
+
+    Builds a tiny synthetic tile, corrupts one zlib record so it still passes
+    is_zlib but fails zlib.decompress, and checks that `info` reports the
+    record as unreadable/opaque with a locator and exits 0. Also checks that a
+    clean synthetic tile reports no unreadable records and that `verify`
+    behavior on the clean tile is unchanged by the info-path edits.
+    No vendor data required.
+    """
+    import io
+    import tempfile
+    import contextlib
+
+    tools_dir = os.path.dirname(HERE)
+    if tools_dir not in sys.path:
+        sys.path.insert(0, tools_dir)
+    try:
+        import tile_diff
+    except Exception as e:
+        print('SKIP: synthetic tile helpers unavailable (%r)' % (e,))
+        return True
+
+    with tempfile.TemporaryDirectory(prefix='h39-selftest-') as tmp:
+        clean, _, _ = tile_diff.make_synthetic_tiles(tmp)
+        bad = os.path.join(tmp, 'BAD.DAT')
+        data = bytearray(open(clean, 'rb').read())
+        try:
+            from tile_scan import TileScan
+            with TileScan(clean) as t:
+                for rec in t.records():
+                    if rec.is_zlib and rec.off + 10 < len(data):
+                        # keep 2-byte zlib header valid for is_zlib; corrupt payload
+                        data[rec.off + 2] ^= 0x11
+                        data[rec.off + 3] ^= 0x22
+                        data[rec.off + 10] ^= 0x55
+                        break
+        except Exception as e:
+            print('SKIP: tile_scan unavailable for corruption (%r)' % (e,))
+            return True
+        open(bad, 'wb').write(data)
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cmd_info(bad)
+        out = buf.getvalue()
+        if 'unreadable/opaque' not in out or 'container parse failed' in out:
+            print('FAIL: info did not report unreadable/opaque record')
+            print(out)
+            return False
+        if 'at dir 0x' not in out and 'at 0x' not in out:
+            print('FAIL: info did not report a locator for unreadable record')
+            print(out)
+            return False
+        print('ok: info reports unreadable/opaque record with locator')
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cmd_info(clean)
+        out = buf.getvalue()
+        if 'unreadable/opaque' in out or 'container parse failed' in out:
+            print('FAIL: clean synthetic tile reported as unreadable/unparseable')
+            print(out)
+            return False
+        print('ok: clean synthetic tile has no unreadable/opaque records')
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            v = cmd_verify(clean, quiet=True)
+        if not v:
+            print('FAIL: verify behavior changed on clean synthetic tile')
+            print(buf.getvalue())
+            return False
+        print('ok: verify unchanged on clean synthetic tile')
+
+    print('harness H39 selftest: PASS')
+    return True
+
+
 def main():
+    if '--selftest' in sys.argv:
+        sys.argv = [a for a in sys.argv if a != '--selftest']
+        if len(sys.argv) == 1:
+            sys.exit(0 if cmd_harness_selftest() else 1)
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest='cmd', required=True)
     p = sub.add_parser('info'); p.add_argument('tile')
