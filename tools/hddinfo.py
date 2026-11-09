@@ -53,11 +53,14 @@ unknown unless ``--mapdbver-min``/``--mapdbver-max`` given).
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
+import io
 import json
 import re
 import subprocess
 import sys
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -134,6 +137,16 @@ MODEL_NOTE = (
 )
 
 EXIT_OK, EXIT_DIFFERENT, EXIT_ERROR = 0, 1, 2
+# M2.18 strict predictor: ACCEPT exit only when both checks pass against
+# explicitly stated unit inputs (+0x60 target line 1, +112/+114 bounds).
+# Any non-ACCEPT (including BOUNDS_UNKNOWN / failures) is non-zero so gates fail.
+PREDICT_ACCEPT, PREDICT_NOT_ACCEPTED, PREDICT_ERROR = 0, 1, 2
+PREDICT_VERDICTS = (
+    "ACCEPT",
+    CHECK1_CODE,
+    CHECK2_CODE,
+    "BOUNDS_UNKNOWN",
+)
 
 
 @dataclass
@@ -211,6 +224,170 @@ def line1_compare_bytes(record: HddInfo) -> bytes:
     """
     line = record.lines[CHECK1_LINE - 1]
     return (line[:CHECK1_LEN] + b"\x00" * CHECK1_LEN)[:CHECK1_LEN]
+
+
+def _normalize_target_line1(value: bytes | str) -> bytes:
+    if isinstance(value, str):
+        value = value.encode("latin-1")
+    return (value[:CHECK1_LEN] + b"\x00" * CHECK1_LEN)[:CHECK1_LEN]
+
+
+def predict(
+    sd_record: HddInfo,
+    *,
+    target_line1: bytes | str | None = None,
+    target_line1_provenance: str | None = None,
+    mapdbver_min: int | None = None,
+    mapdbver_max: int | None = None,
+) -> dict:
+    """M2.18 strict offline acceptance predictor (pre-L3 gate, rule 13).
+
+    Verdict is ``ACCEPT`` ONLY when check 1 is evaluated against an explicitly
+    stated ``target_line1`` (unit target-info +0x60, 11 bytes, C-2081) AND check
+    2 is evaluated against explicitly stated ``mapdbver_min``/``mapdbver_max``
+    (unit +112/+114 u16 BE bounds, C-2084) AND both checks pass.
+
+    If either unit input is not explicitly stated, the corresponding check is
+    indeterminate and the overall verdict is ``BOUNDS_UNKNOWN`` (never
+    ``ACCEPT``, never a pass verdict). A reference/sys line 1 is not sufficient
+    for ``ACCEPT`` unless the caller passes it explicitly as ``target_line1``
+    and provenance is recorded. Unit +0x60/+112/+114 values are unknown
+    statically (C-2087); this is an offline model, not a firmware verdict
+    (M9.6/M2.4 still required).
+    """
+    sd_l1 = line1_compare_bytes(sd_record)
+    mv = extract_mapdbver(sd_record)
+    bounds_both = mapdbver_min is not None and mapdbver_max is not None
+    bounds_either = mapdbver_min is not None or mapdbver_max is not None
+
+    check1: dict
+    check1_pass: bool | None
+    if target_line1 is None:
+        check1_pass = None
+        check1 = {
+            "name": CHECK1_CODE,
+            "error_code": "0x50",
+            "verdict": "BOUNDS_UNKNOWN",
+            "evaluated": False,
+            "line": CHECK1_LINE,
+            "file_offset": 0,
+            "length": CHECK1_LEN,
+            "sd_value": sd_record.text("base_code"),
+            "sd_bytes_hex": sd_l1.hex(),
+            "ref_bytes_hex": None,
+            "ref_source": "NOT STATED (explicit --target-line1 required for ACCEPT)",
+            "target_line1_provenance": target_line1_provenance or "not provided",
+            "unit_source": "KernelIoControl(0x0101302C) output +0x60, 11 bytes",
+            "va": "B fn 0x03bd2ad8 / C fn 0x03bb2858",
+            "note": "unit +0x60 unknown statically (C-2087); never pass without explicit input",
+        }
+    else:
+        ref_bytes = _normalize_target_line1(target_line1)
+        check1_pass = sd_l1 == ref_bytes
+        prov = target_line1_provenance or "explicit --target-line1 (caller-supplied proxy/input)"
+        check1 = {
+            "name": CHECK1_CODE,
+            "error_code": "0x50",
+            "verdict": "PASS" if check1_pass else CHECK1_CODE,
+            "evaluated": True,
+            "line": CHECK1_LINE,
+            "file_offset": 0,
+            "length": CHECK1_LEN,
+            "sd_value": sd_record.text("base_code"),
+            "sd_bytes_hex": sd_l1.hex(),
+            "ref_bytes_hex": ref_bytes.hex(),
+            "ref_source": "--target-line1 (explicit unit target-info +0x60 input/proxy)",
+            "target_line1_provenance": prov,
+            "unit_source": "KernelIoControl(0x0101302C) output +0x60, 11 bytes",
+            "va": "B fn 0x03bd2ad8 / C fn 0x03bb2858",
+        }
+
+    check2: dict
+    check2_pass: bool | None
+    if not bounds_both:
+        check2_pass = None
+        check2 = {
+            "name": CHECK2_CODE,
+            "error_code": "0x51",
+            "verdict": "BOUNDS_UNKNOWN",
+            "evaluated": False,
+            "mapdbver": mv,
+            "bounds": {
+                "min": mapdbver_min,
+                "max": mapdbver_max,
+                "known": False,
+                "partial": bounds_either,
+            },
+            "range_check": "bounds unknown (explicit --mapdbver-min/--mapdbver-max required)",
+            "unit_source": "KernelIoControl(0x0101302C) output +112(min)/+114(max), u16 BE",
+            "va": "B fn 0x03bd2ce4 / C fn 0x03bb2a64",
+            "note": "unit +112/+114 unknown statically (C-2087); never pass without explicit bounds",
+        }
+    else:
+        check2_pass = mapdbver_min <= mv["value"] <= mapdbver_max
+        check2 = {
+            "name": CHECK2_CODE,
+            "error_code": "0x51",
+            "verdict": "PASS" if check2_pass else CHECK2_CODE,
+            "evaluated": True,
+            "mapdbver": mv,
+            "bounds": {"min": mapdbver_min, "max": mapdbver_max, "known": True},
+            "range_check": "%d <= %d <= %d" % (mapdbver_min, mv["value"], mapdbver_max),
+            "unit_source": "KernelIoControl(0x0101302C) output +112(min)/+114(max), u16 BE",
+            "va": "B fn 0x03bd2ce4 / C fn 0x03bb2a64",
+        }
+
+    failures = []
+    unknowns = []
+    if check1_pass is False:
+        failures.append(CHECK1_CODE)
+    elif check1_pass is None:
+        unknowns.append(CHECK1_CODE)
+    if check2_pass is False:
+        failures.append(CHECK2_CODE)
+    elif check2_pass is None:
+        unknowns.append(CHECK2_CODE)
+
+    accepted = check1_pass is True and check2_pass is True
+    if failures:
+        verdict = failures[0]
+    elif unknowns:
+        verdict = "BOUNDS_UNKNOWN"
+    else:
+        verdict = "ACCEPT"
+
+    reasons = []
+    if check1_pass is False:
+        reasons.append("%s: SD line1 %r != explicit target %r" % (
+            CHECK1_CODE, check1["sd_value"],
+            _normalize_target_line1(target_line1).decode("latin-1", "replace").rstrip("\x00")))
+    if check1_pass is None:
+        reasons.append("%s: explicit --target-line1 not stated (C-2087)" % CHECK1_CODE)
+    if check2_pass is False:
+        reasons.append("%s: %s" % (CHECK2_CODE, check2["range_check"]))
+    if check2_pass is None:
+        reasons.append("%s: explicit --mapdbver-min/--mapdbver-max not stated (C-2087)" % CHECK2_CODE)
+
+    return {
+        "model": MODEL_ID,
+        "model_status": MODEL_STATUS,
+        "predictor": "M2.18-strict",
+        "predictor_note": (
+            "Offline pre-L3 gate (rule 13). ACCEPT only when both checks pass "
+            "against explicitly stated unit inputs (+0x60 target, +112/+114 bounds). "
+            "Unknown inputs => BOUNDS_UNKNOWN, never ACCEPT. Firmware verdicts "
+            "still require M9.6/M2.4."
+        ),
+        "verdict": verdict,
+        "accepted": accepted,
+        "no_proven_failure": False,
+        "exit_code": PREDICT_ACCEPT if accepted else PREDICT_NOT_ACCEPTED,
+        "check1_different_map_code": check1,
+        "check2_map_data_base_unmatch": check2,
+        "failures": failures,
+        "unknowns": unknowns,
+        "reasons": reasons,
+    }
 
 
 def extract_mapdbver(record: HddInfo) -> dict:
@@ -307,6 +484,10 @@ def classify(
     given, the ``sys_record`` line 1 (offline proxy for unit target-info +96).
     Check 2 range-checks SD MapDBVer (line 3 pos 5,6,7) against the unit
     bounds; without bounds the value is reported as ``BOUNDS_UNKNOWN``.
+
+    M2.18 note: this M2.15 model may report "no proven failure" when bounds are
+    unknown. For an L2 pre-gate that never emits a pass without explicit unit
+    inputs, use ``predict()`` / the ``predict`` subcommand.
     """
     ref = target_line1
     if ref is None:
@@ -716,6 +897,171 @@ def cmd_matrix(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def format_predict(result: dict, sd_name: str) -> str:
+    out = [
+        "predictor %s (%s): SD=%s" % (result["predictor"], MODEL_STATUS, sd_name),
+        "  verdict: %s  (exit %d, accepted=%s)" % (
+            result["verdict"], result["exit_code"], result["accepted"]),
+    ]
+    c1 = result["check1_different_map_code"]
+    out.append("  check1 %-22s %s  evaluated=%s  prov=%s" % (
+        CHECK1_CODE, c1["verdict"], c1["evaluated"], c1.get("target_line1_provenance", c1.get("ref_source", ""))))
+    c2 = result["check2_map_data_base_unmatch"]
+    mv = c2["mapdbver"]
+    out.append("  check2 %-22s %s  evaluated=%s  MapDBVer=%s %s" % (
+        CHECK2_CODE, c2["verdict"], c2["evaluated"], mv["hex"], c2["range_check"]))
+    for reason in result["reasons"]:
+        out.append("  ! %s" % reason)
+    out.append("  note: offline pre-L3 gate (rule 13); M9.6/M2.4 still required")
+    return "\n".join(out)
+
+
+def cmd_predict(args: argparse.Namespace) -> int:
+    sd_path = Path(args.sd_file)
+    sd_raw = read_file(sd_path)
+    sd_record = HddInfo.parse(sd_raw)
+    if (args.mapdbver_min is None) != (args.mapdbver_max is None):
+        raise ValueError("--mapdbver-min and --mapdbver-max must be provided together")
+    result = predict(
+        sd_record,
+        target_line1=args.target_line1,
+        target_line1_provenance=args.target_line1_provenance,
+        mapdbver_min=args.mapdbver_min,
+        mapdbver_max=args.mapdbver_max,
+    )
+    if args.json:
+        payload = dict(result)
+        payload["sd"] = {
+            "path": str(sd_path),
+            "size": len(sd_raw),
+            "sha256": sha256(sd_raw),
+        }
+        print(json.dumps(payload, indent=2))
+    else:
+        print(format_predict(result, sd_path.name))
+    # M2.18: only ACCEPT exits 0; any non-ACCEPT (incl. BOUNDS_UNKNOWN/fail) non-zero.
+    return result["exit_code"]
+
+
+def _variant_edit(base: HddInfo, variant: HddInfo) -> tuple[int, str]:
+    return describe_change(base, variant)
+
+
+def cmd_predict_table(args: argparse.Namespace) -> int:
+    base_path = Path(args.base)
+    base_raw = read_file(base_path)
+    base_record = HddInfo.parse(base_raw)
+    if (args.mapdbver_min is None) != (args.mapdbver_max is None):
+        raise ValueError("--mapdbver-min and --mapdbver-max must be provided together")
+
+    if args.variants_dir:
+        var_dir = Path(args.variants_dir)
+        temp = None
+    else:
+        temp = tempfile.TemporaryDirectory(prefix="hddinfo-predict-")
+        var_dir = Path(temp.name)
+        run_variant_tool(base_path, var_dir, args.sweep, not args.no_permute)
+
+    try:
+        variant_files = sorted(p for p in var_dir.glob("*.HDD_INFO.TXT"))
+        rows = []
+        for path in variant_files:
+            raw = read_file(path)
+            if len(raw) != len(base_raw):
+                raise RuntimeError("%s length %d != base %d" % (path.name, len(raw), len(base_raw)))
+            record = HddInfo.parse(raw)
+            result = predict(
+                record,
+                target_line1=args.target_line1,
+                target_line1_provenance=args.target_line1_provenance,
+                mapdbver_min=args.mapdbver_min,
+                mapdbver_max=args.mapdbver_max,
+            )
+            line, edit = _variant_edit(base_record, record)
+            c1 = result["check1_different_map_code"]
+            c2 = result["check2_map_data_base_unmatch"]
+            mv = c2["mapdbver"]
+            rows.append({
+                "variant": path.name,
+                "line": line,
+                "edit": edit,
+                "l1_base_code": record.text("base_code"),
+                "check1_verdict": c1["verdict"],
+                "check2_verdict": c2["verdict"],
+                "mapdbver": mv["value"],
+                "mapdbver_hex": mv["hex"],
+                "mapdbver_chars": "".join("?" if c is None else c for c in mv["chars"]),
+                "overall_verdict": result["verdict"],
+                "accepted": result["accepted"],
+                "firmware_still_required": "M9.6/M2.4 (rule 13)",
+            })
+
+        verdicts = Counter(r["overall_verdict"] for r in rows)
+        c1_counts = Counter(r["check1_verdict"] for r in rows)
+        c2_counts = Counter(r["check2_verdict"] for r in rows)
+        mapdbver_changes = [r for r in rows if r["mapdbver"] != extract_mapdbver(base_record)["value"]]
+        meta = {
+            "tool": "hddinfo.py predict-table (M2.18)",
+            "model": MODEL_ID,
+            "model_status": MODEL_STATUS,
+            "predictor": "M2.18-strict",
+            "base_sha256": sha256(base_raw),
+            "base_size": len(base_raw),
+            "base_provenance_note": args.base_provenance or "",
+            "target_line1_provided": args.target_line1 is not None,
+            "target_line1_provenance": args.target_line1_provenance or "",
+            "mapdbver_bounds_provided": args.mapdbver_min is not None and args.mapdbver_max is not None,
+            "mapdbver_min": args.mapdbver_min,
+            "mapdbver_max": args.mapdbver_max,
+            "sweep": args.sweep,
+            "permute": not args.no_permute,
+            "variant_count": len(rows),
+            "overall_counts": dict(verdicts),
+            "check1_counts": dict(c1_counts),
+            "check2_counts": dict(c2_counts),
+            "mapdbver_change_count": len(mapdbver_changes),
+            "ref_mapdbver": extract_mapdbver(base_record)["value"],
+            "ref_mapdbver_hex": extract_mapdbver(base_record)["hex"],
+            "firmware_still_required": "M9.6/M2.4 for all acceptance verdicts (rule 13)",
+            "no_vendor_bytes_committed": True,
+        }
+
+        if args.format == "json":
+            print(json.dumps({"meta": meta, "rows": rows}, indent=2))
+        elif args.format == "tsv":
+            buf = io.StringIO()
+            w = csv.DictWriter(buf, fieldnames=list(rows[0].keys()) if rows else [
+                "variant","line","edit","l1_base_code","check1_verdict","check2_verdict",
+                "mapdbver","mapdbver_hex","mapdbver_chars","overall_verdict","accepted","firmware_still_required"], delimiter="\t", lineterminator="\n")
+            w.writeheader()
+            w.writerows(rows)
+            text = "# " + json.dumps(meta, separators=(",", ":")) + "\n" + buf.getvalue()
+            if args.out:
+                Path(args.out).write_text(text, encoding="utf-8")
+                print("wrote %d rows to %s" % (len(rows), args.out), file=sys.stderr)
+            else:
+                sys.stdout.write(text)
+        else:
+            out = [
+                "M2.18 predict-table: %d variants, base sha256=%s (%dB)" % (len(rows), meta["base_sha256"], len(base_raw)),
+                "  overall: %s" % dict(verdicts),
+                "  check1:  %s" % dict(c1_counts),
+                "  check2:  %s" % dict(c2_counts),
+                "  MapDBVer changes: %d (ref %s)" % (len(mapdbver_changes), meta["ref_mapdbver_hex"]),
+            ]
+            if args.base_provenance:
+                out.append("  base provenance: %s" % args.base_provenance)
+            print("\n".join(out))
+            if args.out:
+                Path(args.out).write_text(json.dumps({"meta": meta, "rows": rows}, indent=2) + "\n", encoding="utf-8")
+
+        # sanity exit: non-zero only on tool error; table is evidence output.
+        return EXIT_OK
+    finally:
+        if temp is not None:
+            temp.cleanup()
+
+
 def cmd_selftest(json_out: bool = False) -> int:
     """Synthetic six-line blocks only; no vendor data is read."""
     checks: list[tuple[bool, str]] = []
@@ -807,6 +1153,42 @@ def cmd_selftest(json_out: bool = False) -> int:
     check(c2unk["check2_map_data_base_unmatch"]["verdict"] == "BOUNDS_UNKNOWN", "M2.15 check2 BOUNDS_UNKNOWN without bounds")
     check(c2unk["no_proven_failure"] is True, "M2.15 no bounds, check1 pass -> no proven failure")
 
+    # M2.18 strict predictor: ACCEPT only with explicit unit inputs (+0x60, +112/+114).
+    # Missing target_line1 and/or missing bounds => BOUNDS_UNKNOWN, never ACCEPT/pass.
+    tline1 = record.text("base_code")  # explicit caller-supplied proxy/provenance in real use
+    p_ok = predict(record, target_line1=tline1, target_line1_provenance="selftest explicit",
+                   mapdbver_min=0x010, mapdbver_max=0x010)
+    check(p_ok["verdict"] == "ACCEPT", "M2.18 predict ACCEPT with explicit target_line1+bounds")
+    check(p_ok["accepted"] is True and p_ok["exit_code"] == PREDICT_ACCEPT, "M2.18 ACCEPT exits 0")
+    check(p_ok["check1_different_map_code"]["evaluated"] is True, "M2.18 check1 evaluated with target")
+    check(p_ok["check2_map_data_base_unmatch"]["evaluated"] is True, "M2.18 check2 evaluated with bounds")
+    p_c1f = predict(sd1, target_line1=tline1, target_line1_provenance="selftest explicit",
+                    mapdbver_min=0x010, mapdbver_max=0x010)
+    check(p_c1f["verdict"] == CHECK1_CODE, "M2.18 predict check1 FAIL -> DIFFERENT MAP CODE")
+    check(p_c1f["accepted"] is False and p_c1f["exit_code"] == PREDICT_NOT_ACCEPTED, "M2.18 check1 fail non-zero")
+    p_c2f = predict(sd2, target_line1=tline1, target_line1_provenance="selftest explicit",
+                    mapdbver_min=0x010, mapdbver_max=0x010)
+    check(p_c2f["verdict"] == CHECK2_CODE, "M2.18 predict check2 FAIL -> MAP DATA BASE UNMATCH")
+    check(p_c2f["accepted"] is False and p_c2f["exit_code"] == PREDICT_NOT_ACCEPTED, "M2.18 check2 fail non-zero")
+    # unknown-never-pass: missing target_line1 and/or missing bounds
+    p_no_t = predict(record, mapdbver_min=0x010, mapdbver_max=0x010)
+    check(p_no_t["verdict"] == "BOUNDS_UNKNOWN", "M2.18 missing target_line1 => BOUNDS_UNKNOWN")
+    check(p_no_t["accepted"] is False and p_no_t["exit_code"] == PREDICT_NOT_ACCEPTED, "M2.18 missing target never ACCEPT/exit0")
+    p_no_b = predict(record, target_line1=tline1, target_line1_provenance="selftest explicit")
+    check(p_no_b["verdict"] == "BOUNDS_UNKNOWN", "M2.18 missing bounds => BOUNDS_UNKNOWN")
+    check(p_no_b["accepted"] is False and p_no_b["exit_code"] == PREDICT_NOT_ACCEPTED, "M2.18 missing bounds never ACCEPT/exit0")
+    p_none = predict(record)
+    check(p_none["verdict"] == "BOUNDS_UNKNOWN" and p_none["accepted"] is False, "M2.18 no inputs => BOUNDS_UNKNOWN")
+    check(p_none["exit_code"] == PREDICT_NOT_ACCEPTED, "M2.18 no inputs non-zero")
+    # case where check1 would pass but bounds unknown — overall must still be non-ACCEPT
+    p_c1ok_nob = predict(record, target_line1=tline1, target_line1_provenance="selftest explicit")
+    check(p_c1ok_nob["check1_different_map_code"]["verdict"] == "PASS", "M2.18 check1 pass but bounds unknown: check1 PASS")
+    check(p_c1ok_nob["verdict"] == "BOUNDS_UNKNOWN", "M2.18 check1 pass + bounds unknown => overall BOUNDS_UNKNOWN")
+    check(p_c1ok_nob["accepted"] is False and p_c1ok_nob["exit_code"] != PREDICT_ACCEPT, "M2.18 check1 pass+bounds unknown never ACCEPT")
+    # check1 fail takes precedence over unknown bounds? explicit input failed => report failure
+    p_c1f_nob = predict(sd1, target_line1=tline1, target_line1_provenance="selftest explicit")
+    check(p_c1f_nob["verdict"] == CHECK1_CODE, "M2.18 check1 fail reported even if bounds unknown")
+
     short_ok = False
     try:
         HddInfo.parse(b"A\r\nB\r\nC")
@@ -870,6 +1252,43 @@ def build_parser() -> argparse.ArgumentParser:
     p_class.add_argument("--mapdbver-max", type=int, help="unit target-info +114 (u16 BE) upper bound")
     p_class.add_argument("--json", action="store_true")
     p_class.set_defaults(func=cmd_classify)
+
+    p_pred = sub.add_parser(
+        "predict",
+        help="M2.18 strict offline predictor: ACCEPT only with explicit unit inputs (pre-L3 gate)",
+    )
+    p_pred.add_argument("sd_file", help="candidate HDD_INFO.TXT to classify")
+    p_pred.add_argument(
+        "--target-line1",
+        help=("explicit 11-byte unit target-info +0x60 value (C-2081). "
+              "Caller-supplied input/proxy; NOT a 'factory value' unless caller states provenance. "
+              "Required for ACCEPT; missing => BOUNDS_UNKNOWN (never pass)."),
+    )
+    p_pred.add_argument(
+        "--target-line1-provenance",
+        help="human-readable provenance for --target-line1 (recorded in output)",
+    )
+    p_pred.add_argument("--mapdbver-min", type=int, help="explicit unit target-info +112 u16 BE min (C-2084)")
+    p_pred.add_argument("--mapdbver-max", type=int, help="explicit unit target-info +114 u16 BE max (C-2084)")
+    p_pred.add_argument("--json", action="store_true", help="stable JSON verdict + per-check fields")
+    p_pred.set_defaults(func=cmd_predict)
+
+    p_ptab = sub.add_parser(
+        "predict-table",
+        help="M2.18: classify HDD_INFO variants and emit derived per-variant table (no vendor bytes)",
+    )
+    p_ptab.add_argument("base", help="base HDD_INFO.TXT (caller-supplied, outside repo; not committed)")
+    p_ptab.add_argument("--variants-dir", help="directory of *.HDD_INFO.TXT variants (else generated via hddinfo_variants.py)")
+    p_ptab.add_argument("--out", help="write derived table to this path (TSV/JSON by --format)")
+    p_ptab.add_argument("--format", choices=("tsv", "json", "summary"), default="tsv")
+    p_ptab.add_argument("--sweep", default="0-5", help="digit sweep range when generating (default 0-5)")
+    p_ptab.add_argument("--no-permute", action="store_true")
+    p_ptab.add_argument("--target-line1", help="explicit unit +0x60 input/proxy (see predict)")
+    p_ptab.add_argument("--target-line1-provenance", help="provenance for --target-line1")
+    p_ptab.add_argument("--mapdbver-min", type=int)
+    p_ptab.add_argument("--mapdbver-max", type=int)
+    p_ptab.add_argument("--base-provenance", help="derived-only provenance note (e.g. sha256, not in repo)")
+    p_ptab.set_defaults(func=cmd_predict_table)
 
     p_matrix = sub.add_parser("matrix", help="emit variants with M2.15 check results")
     p_matrix.add_argument("base", help="base HDD_INFO.TXT (72 bytes)")

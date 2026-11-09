@@ -2148,6 +2148,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2618 | reserved | — | — | — |
 | C-2619 | reserved | — | — | — |
 
+## M2.18 — Offline HDD_INFO acceptance predictor (C-3030–C-3039)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3030 | `tools/hddinfo.py predict` (M2.18, stdlib, `--selftest`) provides a strict L2-adjacent pre-L3 gate for the two AppLaunch HDD_INFO checks (M2.5 `DIFFERENT MAP CODE`, C-2081; M2.15 `MAP DATA BASE UNMATCH`, C-2083/C-2084/C-2080). Verdicts: `ACCEPT`/`DIFFERENT MAP CODE`/`MAP DATA BASE UNMATCH`/`BOUNDS_UNKNOWN`. | VERIFIED (tool) | H | EXP-2026-11-09-M2.18-hddinfo-predictor; `python3 tools/hddinfo.py --selftest` (62 checks) |
+| C-3031 | Strict gate contract: `ACCEPT` and exit `0` are emitted **only** when `--target-line1` (explicit unit target-info `+0x60` input/proxy, 11 bytes) **and** `--mapdbver-min`/`--mapdbver-max` (explicit unit `+112/+114` u16 BE bounds) are provided and both checks pass. Missing either input yields `BOUNDS_UNKNOWN`, `accepted=false`, exit `1` (never `ACCEPT`/pass), including the case where check 1 passes but bounds are unknown. A reference line 1 counts for `ACCEPT` only when passed explicitly as `--target-line1` with recorded provenance. | VERIFIED (tool) | H | EXP-2026-11-09-M2.18-hddinfo-predictor; `hddinfo.py --selftest` M2.18 controls |
+| C-3032 | M5.11-callable interface: `hddinfo.py predict CANDIDATE_HDD_INFO.TXT --target-line1 ... --target-line1-provenance ... --mapdbver-min N --mapdbver-max N [--json]` classifies a single candidate without vendor/base files in-repo; JSON reports stable verdict, per-check fields, provenance, `accepted`, and `exit_code`. Non-`ACCEPT` (incl. `BOUNDS_UNKNOWN`) is non-zero so gates do not pass. | VERIFIED (tool) | H | EXP-2026-11-09-M2.18-hddinfo-predictor; `hddinfo.py predict --help` |
+| C-3033 | Derived 89-variant reclassification (factory EU 2011 base SHA-256 `9f014643ed9f…c650a`, 72B, not in repo; `hddinfo_variants.py --sweep 0-5`, 89 rows, no vendor bytes committed): with explicit `--target-line1` proxy and **no** bounds, per-check counts match M2.15/C-2086 sanity — check 1 **69 PASS / 20 `DIFFERENT MAP CODE`**, check 2 **89 `BOUNDS_UNKNOWN`**; strict overall never `ACCEPT` without bounds (69 `BOUNDS_UNKNOWN`, 20 `DIFFERENT MAP CODE`). Ref MapDBVer `0x010`. | VERIFIED (offline model, derived) | H | EXP-2026-11-09-M2.18-hddinfo-predictor; `docs/experiments/EXP-2026-11-09-M2.18-hddinfo-predictor-variants.tsv`; C-2086 |
+| C-3034 | MapDBVer-changing variants in the 89-row corpus have the identities/hex outcomes recorded in C-2086 (`line3_digits_3_*`→`0x000`; `reverse`/`swap_3_4`→`0x0e0`; `swap_1_3`→`0x020`, check1 fail; `swap_2_3`→`0x090`; `swap_3_5`→`0x000`; `swap_3_6`→`0x350`). The `line3_digits_3_*` pattern expands to 6 variant files (`000000`–`000005`, sweep 0–5), so 12 variant files change MapDBVer total — a count clarification consistent with C-2086’s listed values. | VERIFIED (offline model, derived) | H | EXP-2026-11-09-M2.18-hddinfo-predictor; derived TSV; C-2086 |
+| C-3035 | Per-unit `KernelIoControl(0x0101302C)` target-info values `+0x60`/+112/+114 remain unknown statically (C-2087); the predictor therefore requires explicit caller-supplied inputs and must not guess/hardcode them. Unknown inputs never produce a pass verdict. | OBSERVED / constraint | H | C-2087; EXP-2026-11-09-M2.18-hddinfo-predictor |
+| C-3036 | M2.15 `hddinfo.py classify`/`matrix` semantics are preserved (M2.15 selftest controls retained; C-2085/C-2086 behavior not silently changed). M2.18 adds a stricter `predict`/`predict-table` surface. | VERIFIED (tool) | H | `hddinfo.py --selftest`; EXP-2026-11-09-M2.18-hddinfo-predictor |
+| C-3037 | Rule 13 / scope: M2.18 verdicts are an offline model (L2-adjacent pre-L3 gate), **not** firmware acceptance. Verdicts still requiring M9.6/M2.4 and hardware context include: firmware execution of AppLaunch compare/range, real per-unit `0x0101302C` `+0x60`/+112/+114 values, parse/cache/runtime behaviors beyond modeled checks, and end-to-end unit/hardware acceptance. | OBSERVED | H | EXP-2026-11-09-M2.18-hddinfo-predictor; rule 13 |
+| C-3038 | reserved | — | — | — |
+| C-3039 | reserved | — | — | — |
+
 
 ## M3.18 — `ICADM0nn` / `ZIPFR001` readers (C-2380–C-2389, H11 G2)
 
