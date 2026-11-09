@@ -700,19 +700,23 @@ python3 tools/sdlock_pico_check.py -v   # host test against a simulated card
 ## `selftest.py`
 
 Runs synthetic tests for the primitive parsers without any vendor data, and
-auto-discovers `--selftest` in every other `tools/*.py`.
+auto-discovers `--selftest` in `tools/*.py` and in `tools/l3_harness/` (H38).
 
 ```bash
 python3 tools/selftest.py
 python3 tools/selftest.py --list
 python3 tools/selftest.py --only cmpind,drstr
+python3 tools/selftest.py --only l3_harness        # L3 harness aggregate (bounded/quick)
 python3 tools/selftest.py --json
 ```
 
 Built-in suites cover `cmpind`, `drstr`, `mesh_grid` and the L1 helpers (level
-table, common header, LFN, `.cmp` decode, logical listing). Tools without a
-self-test show `SKIP`; a missing tool is never a failure. Expected:
-`selftest: OK`.
+table, common header, LFN, `.cmp` decode, logical listing). L3 harness suites
+are reported as `tool:l3_harness*`: the aggregate `tool:l3_harness` runs
+`tools/l3_harness/selftest.py` (32 synthetic checks, bounded/quick;
+Ghidra/QEMU absent is an honest SKIP inside, never a PASS) and exits non-zero
+on harness failure. Tools without a compatible self-test show `SKIP`; a missing
+tool is never a failure. Expected: `selftest: OK`.
 
 ## `cardcheck.py` — L1 whole-card validator
 
