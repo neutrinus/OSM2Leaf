@@ -2287,6 +2287,36 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     and C-2560 added (no deletion). No vendor bytes committed.
   - Claims: C-2560–C-2569
 
+- [x] **H37 — 24h senior-engineer review: completed tasks and experiments**
+  - Status: done · Owner: task/h37-24h-se-review · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: audit tasks completed in the 24h window for `Done when` compliance, EXP/TEMPLATE.md quality, claim reproducibility, and retired-lead traps; add follow-up tasks where defects or deepening opportunities exist.
+  - Scope: commits `88332de..65e6ae2` on `origin/main` (2026-11-08 24h window); sampled EXPs and TODO task blocks; cheap tool selftests and `claims_check.py`/`todo_check.py`. No vendor-image reruns beyond selftests, no QEMU/Ghidra.
+  - Input: `git log --since=24.hours origin/main`, `docs/experiments/EXP-2026-11-08-*` added in range, `docs/experiments/TEMPLATE.md`, `AGENTS.md`, `TODO.md`, `docs/research/claims.md`.
+  - Done when: EXP `docs/experiments/EXP-2026-11-09-H37-24h-se-review.md` records the audit (commands, controls, scope, falsifier, observations/interpretation) and TODO contains the follow-up tasks from this pass.
+  - Claims: C-3130–C-3139
+  - Result: EXP-2026-11-09-H37-24h-se-review.md (80 commits 88332de..65e6ae2 audited; 7 follow-up tasks added H38/H39/M4.35/M5.31/M5.32/M9.28; claims_check OK; sampled selftests OK; no done-task status reversals).
+
+- [ ] **H38 — `selftest.py`: discover and run `tools/l3_harness` selftests**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Depends: —
+  - Goal: prevent L3 harness regressions from bypassing the main selftest gate (M9.20 noted `tools/selftest.py` does not discover `l3_harness/`).
+  - Scope: `tools/selftest.py` discovery/wiring and/or a thin wrapper; run `tools/l3_harness/selftest.py` (and any `l3_harness` tools with `--selftest` that fit the suite contract) as part of `python3 tools/selftest.py`. No behavior changes to harness logic.
+  - Input: `tools/selftest.py`, `tools/l3_harness/selftest.py`, `tools/l3_harness/dispatch.py --selftest`, `tools/l3_harness/engine.py --selftest`, `tools/l3_harness/runner.py selftest`, `tools/l3_harness/ghidra/l3_run.py --selftest`; EXP-2026-11-08-M9.20.
+  - Done when: `python3 tools/selftest.py` reports the l3_harness checks (or a named aggregate) and exits non-zero on harness selftest failure; `python3 tools/selftest.py --only l3_harness` (or documented selector) works if selectors are supported; SKIP/blocked cases remain honest (e.g. Ghidra/QEMU absent). `tools/README.md` updated if needed.
+  - Stop: if `l3_harness` selftests require environment assumptions incompatible with the main suite, integrate them as an explicit sub-suite with clear SKIP reasons and keep the main gate green only when the sub-suite passes or is honestly skipped.
+  - Claims: C-3160–C-3169
+
+- [ ] **H39 — `ze0-viewer/harness.py info`: tolerate opaque/unparseable records**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: make tile inspection usable on factory tiles that contain opaque/bad records (M5.4 noted `harness.py info` crashes with `zlib.error` on `B48R058R`; `harness.py verify` still runs).
+  - Scope: `tools/ze0-viewer/harness.py` `cmd_info`/info path only. No parser behavior changes in `tools_ze0` unless required and isolated; prefer catching/reporting bad records with counts and offsets.
+  - Input: `tools/ze0-viewer/harness.py`, `tools/ze0-viewer/tools_ze0/` readers, EXP-2026-11-08-M5.4 (Observation 3/7 notes), EXP-2026-11-08-M9.22 (opaque B30R048R context).
+  - Done when: `python3 tools/ze0-viewer/harness.py info <tile>` on a tile containing the known opaque/bad-record pattern reports the records as bad/opaque with counts (and does not crash), while `verify` behavior remains unchanged for the checked cases; a synthetic or minimal fixture covers the crash path if practical, otherwise the EXP records the real-tile command/result and SHA-256.
+  - Stop: if the crash is inside vendored `tools_ze0` and cannot be fixed without changing pinned vendor behavior, document the limitation, add a targeted wrapper/fallback in `harness.py`, and file a follow-up naming the vendored function.
+  - Claims: C-3180–C-3189
+
 ---
 
 ## M4 — Data formats (no firmware or hardware needed)
@@ -2785,6 +2815,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: do not fit outcomes to raise counts; if a class cannot be distinguished on available data, count it as unclassified with the reason and stop.
   - Claims: C-3000–C-3009
   - Result: EXP-2026-11-08-M4.34-bearing-count-mismatch. Precheck reproduced (L1 492+359/851, L2 737+580/1317). `tools/m434_bearing_mismatch.py` (11 selftest checks, no outcome fitting) classifies `osm!=tile2`: mostly `osm_more` with extra non-from/to bearings (361/492 L1, 622/737 L2); pass-through rare (7/3). Tile far-node-in-other-record filtering ruled out for this class by construction (separate `tb!=nonedge` branch). `junction_dist>4` 174/205 (weak indicator). Geometric from/to subset recoverable 161/492 (32.7%) L1, 173/737 (23.5%) L2 (no rule adopted). Claims C-3000–C-3005.
+
+- [ ] **M4.35 — `class_code` hypothesis: second-country or firmware-reader deepening**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M4.29
+  - Goal: test M4.17's `class_code` hypothesis (class-pure codes in-sample, LORO fails globally) with evidence that can separate "road class code" from "numbering/page/region code".
+  - Precheck: reproduce M4.17 Table B / M4.29 control counts on the pinned EU sample with the committed tools (`python3 tools/road_class_probe.py --selftest` passes); identify one concrete second-country or non-motorway control sample available per rule 11/12.
+  - Scope: offline analysis only. Either (a) a second country/control set with OSM refs, or (b) firmware-side evidence for the `class_code` field reader if a VA is locatable without guessing. No RDSTM writer, no L4.
+  - Input: EXP-2026-11-08-M4.17, EXP-2026-11-08-M4.29-r2, `tools/road_class_probe.py`, `tools/lctbl_records.py`, `docs/format/rdstm.md`; M4.17/M4.29 follow-up notes.
+  - Done when: EXP reports whether the pure `class_code` values recur for the same semantic class in the control sample (with counts and a negative control), or locates/denies a firmware reader path with VAs/evidence; updates claims as `HYPOTHESIS`/`OBSERVED`/`RETRACTED` only with reproducible commands.
+  - Stop: after two control samples or two signature families fail to separate class from identity/region, record the negative and stop; do not promote `class_code` to a class mapping.
+  - Claims: C-3200–C-3209
 
 - [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
   - Status: blocked · Owner: task/m4.31-rdstm-link-class-hints · Critical: no
@@ -3483,6 +3524,27 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 ---
 
+- [ ] **M5.31 — `mkcard --reconcile` resize: envelope contract, stale-tail policy, fresh-build contrast**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M5.20
+  - Goal: make resize reconciles match the "minimal diff / one bad byte visible" intent that M5.20 met exactly only for same-length changes.
+  - Scope: `tools/mkcard.py` reconcile path (`reconcile_partition`, `outside_ranges`, `_reconcile_drstr`) and its contract/reporting. Consider: (1) explicitly classify DRSTR index bytes in the reported envelope, (2) optional stale-tail preservation vs zero-fill with a documented tradeoff, (3) re-measure fresh-build contrast on the same changed trees (M5.20 did not). No format changes; no vendor data committed.
+  - Input: EXP-2026-11-08-M5.20-mkcard-reconcile (C-2460–C-2469), `tools/mkcard.py`, `tools/imgpatch.py`, `tools/cardcheck.py`; US/EU same+grow cases reproducible from `tools/fetch_image.py` images when available.
+  - Done when: on the M5.20 resize cases, the tool reports an envelope that is complete and understandable (DRSTR ranges named) and either preserves stale tail bytes with a tested option or documents why zero-fill is chosen; fresh-build contrast is measured (range count, not capped summary) for at least one same-length and one resize case on one image; `--selftest` covers the chosen behavior. EXP records real-image hashes/commands.
+  - Stop: if preserving stale tail breaks `cardcheck` or FAT invariants, keep zero-fill, document the invariant, and make the envelope report prove all non-envelope bytes are unchanged.
+  - Claims: C-3170–C-3179
+
+- [ ] **M5.32 — Resolve M5.12c's 5 unfit POI pages with the M5.21 slot-budget strategy**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M5.21, M5.27
+  - Goal: close the remaining 5 unfit POI pages from M5.12c (131/136 edited; 5 left per M5.12c S4) using a slot-safe strategy, now that M1.13 establishes stock zlib L6/m8 as the factory-equivalent encoder.
+  - Precheck: reproduce the S4 unfit pages with `tools/mutate_refer_poi.py`/`tools/slot_budget.py` and stock zlib L6/m8; confirm M5.27 has reconciled M5.12c EXP/TODO status or record the dependency explicitly.
+  - Scope: the 5 named pages/records only. Allowed outcomes: fit with a slot-safe repack/refit strategy that never overruns a neighbour, or explicitly refuse with measured slot/candidate sizes and a documented follow-up (page relocation/split). No silent overrun; no whole-POI-file rewrite unless every changed range is proven and cardcheck passes.
+  - Input: EXP-2026-11-08-M5.12c-poi-copies, EXP-2026-11-08-M1.13-factory-encoder, EXP-2026-11-08-M5.21-slot-budget, `tools/slot_budget.py`, `tools/mutate_refer_poi.py`, `tools/factory_zlib.py`.
+  - Done when: each of the 5 records is either edited on a `cardcheck`-passing image with diff ranges confined to the affected page/slot envelope (reported) or listed as refused with slot/candidate sizes and a concrete follow-up; EXP gives per-page before/after sizes and hashes.
+  - Stop: if no slot-safe same-page strategy fits after the M5.21/M1.13 encoder search, stop with `blocked` or `open` follow-up for page relocation; do not pad over non-zero bytes or overwrite the next page.
+  - Claims: C-3190–C-3199
+
 ## M6 — Hardware and safety
 
 No hardware is available now. Planning tasks are open; tests wait.
@@ -3734,9 +3796,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.B3 — RTC/time** (`OEMGetRealTime`). Depends: M8.A2. Claims:
   C-1330–C-1339
 - [x] **M8.B4 — Boot arguments** at phys `0x08000020`–`0x0800002b`. Static
-  read of nk is enough to start. Depends: — (M1.7 helps). Claims:
-  C-1340–C-1349
+  read of nk is enough to start. Depends: — (M1.7 helps).
   - Status: done · Owner: task/m8.b4-boot-args-r2 · Critical: no
+  - Claims: C-1340–C-1349
   - Result: EXP-2026-11-08-M8.B4-boot-args-r2 (C-1340–C-1346). Static read of nk.exe B/C (IMG256 `92aa525d…`) shows P2 `0xa8000020`–`0xa800002b` consumed diagnostically by AERTRACE dump `0x8804cc42` (B) / `0x8804c896` (C) with UTF-16LE `Navi Version : %c%c%c%c%c%c%c%c-%c%c%c\r\n` (`0x8800e5a8`), 11 bytes displayed (+0x00..+0x07,+0x09..+0x0b; +0x08 unread), no selector branch. Factory values IPL-set/unknown (C-535/706); M8 should seed deterministic placeholder (recommend `'-'` at +0x08).
 - [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
   without a fault. Depends: M8.B1, M8.B2. Claims: C-1350–C-1359
@@ -4380,6 +4442,39 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2900–C-2909 (was C-2760–C-2769, collision with H26 fixed by H23)
 
 ---
+
+- [ ] **M9.28 — Module-entry input buffer/region mapping for real reader verdicts**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M9.20
+  - Precheck: `python3 tools/l3_harness/selftest.py` and `python3 tools/l3_harness/runner.py selftest` pass; reproduce M9.20's real run showing the POINT walker stops at `UNMAPPED` on its page argument (`0x0`) rather than at decode/endian. Confirm M9.24 does not already provide a generic input-buffer mapping (it focuses on coredll CRT/import binding and stack args).
+  - Scope: `tools/l3_harness/` module-entry path (`runner.py`/ROM map/corpus conventions). Add a way to map a caller-supplied input buffer or file-derived bytes at a chosen guest VA for module targets, with explicit bounds and provenance in results. No firmware format claims; no Ghidra/QEMU.
+  - Goal: let module-entry reader targets (M9.13/M9.14/M9.17 class, and the M9.20 walker follow-up) receive real input instead of failing at argument-pointer loads, so verdicts are limited by mapped data/stubs rather than missing input plumbing.
+  - Input: EXP-2026-11-08-M9.20-l3-plumbing (open question: input region), EXP-2026-11-08-M9.14-reopen, EXP-2026-11-08-M9.17-reopen, `tools/l3_harness/runner.py`, `tools/l3_harness/rommap.py`, `tools/l3_harness/corpus.py`, M9.24 task text.
+  - Done when: a synthetic module-entry target reads from a mapped input buffer and returns a verdict; at least one existing reopened/blocked reader target can be re-run past the argument-pointer `UNMAPPED` fault or reports a new, more specific blocker (faulting PC + missing data/stub named). `--selftest` covers bounds/provenance; `tools/README.md` updated.
+  - Stop: if the target's input source cannot be located or bounded from available evidence, add/require an input-source locating subtask and record the missing source; do not map guessed bytes and call them a reader verdict.
+  - Claims: C-3210–C-3219
+
+- [ ] **M9.29 — Ghidra headless micro-harness for decompressor sub-fragments (LE SH-4)**
+  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (Ghidra 12.2+/JDK required; in-repo script/selftest runnable without Ghidra)
+  - Depends: M1.2g, M8.E1b (M9.2 project import helps but is not required for a targeted function run)
+  - Goal: test `DECOMP_SECT`/`DECOMP_BLK` and helper sub-fragments on controlled buffers in Ghidra headless/pyghidra, emitting `decomp_oracle`-compatible results. Complements QEMU (M8.E1c) and isolates CE-LZXD block-codec behavior.
+  - Precheck: `python3 tools/decomp_oracle.py --selftest` passes; harness script has `--selftest`/`--plan` with no Ghidra/vendor data. With Ghidra: `analyzeHeadless` found and processor is **SH-4 little-endian** (not BE) per M1.11/M8.E1b/C-2290; `ghidra_import.py`/`l3_run.py` BE references are a hazard to fix/guard.
+  - Scope: script under `tools/l3_harness/ghidra/` (name in PR) to load nk.exe image B at base, map src/dest/stack, call chosen VA (DECOMP_SECT/BLK/helper) with r4-r7/stack per prototype, read dest/len/r0, write JSON for `decomp_oracle verify`. No full-reader wiring, no 245-section claim without evidence, no default PR CI.
+  - Input: M8.E1b VAs, IMG256 nk.exe mapping via `cerom.py`, `decomp_oracle.py`, `ghidra_import.py` patterns (LE-corrected).
+  - Done when: `--plan` prints headless command/processor/VA/memory/expected output; `--selftest` validates plan/result shape without Ghidra; with Ghidra (EXP, non-Claude) EXP-49 sec1 or a pinned DECOMP_BLK sub-fragment yields `decomp_oracle verify` PASS or a faulting-PC negative EXP localizing the codec gap.
+  - Stop: if controlled-memory execution is not feasible in the available Ghidra version, record limitation and use Ghidra decompilation/disassembly as evidence feeding M1.2f (not runtime proof) with a follow-up.
+  - Claims: C-3150–C-3159
+
+- [ ] **M9.30 — DECOMP_BLK sub-fragment map and test vectors (shift/LZXD-like, feeds M1.2f)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M8.E1b, M1.2g (M9.29 and M8.E1c provide runtime oracles when available)
+  - Goal: break `DECOMP_BLK 0x8803a384` / `DECOMP_SECT 0x88037464` into testable sub-fragments (bit reader, shifts/masks, E8/`0x8d80805b` block handling, length/distance decode) with pinned inputs/expected outputs, so `sh4dis.py` shift-encoding gaps and the CE-LZXD codec are resolved against evidence.
+  - Precheck: `python3 tools/sh4dis.py IMG256 nk.exe --image-start 0x3e00200 --va 0x8803a384 --count 20` (or helper VAs) decodes as far as supported; `python3 tools/decomp_oracle.py --selftest` passes. IMG256 per rule 11.
+  - Scope: analysis + small committed test-vector fixtures (hex/JSON, no vendor blobs beyond short bytes/hashes/offsets) and `sh4dis.py`/helper extensions for blocking shift encodings (SHAD/SHLD/rotcl etc.) with selftests; runtime sub-fragment results from M8.E1c/M9.29 when run. No guessed full codec.
+  - Input: M8.E1b chain, `tools/sh4dis.py`, `tools/cecompress.py`/LZXD refs (attribution/licence checked), `decomp_oracle.py`, EXP-49 block structure (M1.2a/M1.2d).
+  - Done when: `sh4dis.py` decodes the blocking shift/bit instructions in DECOMP_BLK/SECT (listed before/after in EXP) with selftests; vector file has >=3 sub-fragment cases each runtime-verified by M8.E1c/M9.29 or marked `HYPOTHESIS` with disassembly evidence and falsifier; M1.2f can cite vectors.
+  - Stop: if a CE-specific LZXD variant cannot be split without a running oracle, name the minimal reproducible fragment needing QEMU/Ghidra and keep pure-Python porting blocked on M8.E1c/M9.29.
+  - Claims: C-3220–C-3229
 
 ## Retired leads
 
