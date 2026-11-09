@@ -3976,7 +3976,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2940–C-2949 (was C-2157–C-2159, overlap with M9.11 fixed by H24)
 
 - [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
-  - Status: in progress · Owner: task/m9.12-l3check-card-r2 · Critical: yes
+  - Status: blocked · Owner: task/m9.12-l3check-card-r2 · Critical: yes
   - Depends: M9.11 (runnable now), M9.10 (blocked — the first run reports the
     POI reader as "not yet available"), M9.6, M9.8 (tool skeleton)
   - Precheck: `python3 tools/l3check.py --help` and `--selftest` (if
@@ -3996,6 +3996,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if required card-diff inputs (S0/S1/S2 images) are unavailable on
     the runner and cannot be fetched/built by existing tools, report which
     corpora are missing and block that part rather than synthesizing a pass.
+  - Blocker: `--card` is implemented and S2 (POINT010 diff vs US factory)
+    reports `cmp_ind_reader` PASS via M9.11 firmware path
+    (`chunk_decoder_l3.py`, byte-identical to `cmpind.decode`) with
+    `poi_record_decode` honestly `not-yet-available` (M9.10), exit 0. S0/S1
+    are byte-identical to factory so the diff-based gate finds no differing
+    files (`NO_DIFFS`, exit 3, no fail) and cannot show runnable "all pass"
+    verdicts until runnable targets can be evaluated on no-diff/baseline
+    corpora or card-mode per-file wiring exists for registered targets.
+    Done-when "S0/S1 all pass" not fully met.
+  - Unblock: define/baseline no-diff handling or card-wire runnable targets
+    (M9.11b `cmp_ind_reader` registration, M9.10 POI, M9.6 map-code) so S0/S1
+    can produce runnable pass verdicts; then re-run and mark done.
+  - Result: EXP-2026-11-08-M9.12-l3check-card.md (C-2160 tool/behavior).
   - Claims: C-2160–C-2169
 
 - [ ] **M9.13 — L3 target `tile_reader` on factory and generated tiles**
