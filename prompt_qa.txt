@@ -4,7 +4,7 @@ Take on the role of a test engineer.
 
 Design an automated test system here (and GitHub Actions) so that we can see progress towards the goal. We do not need 100% coverage.
 
-This is not about high code quality. It is about testing whether we can generate SD card images that the car would read. So we focus on L1 and L2 tests, and then L3 and L4.
+This is not about high code quality. It is about testing whether we can generate SD card images that the car would read. Use the 2026-11-09 verification mapping (L1 structural, L2 semantic/golden, L3 firmware fragments, L4 full-system emulator, L5 bench/car; see prompt_common.txt). Focus first on L1/L2, then L3, then L4/L5 readiness.
 
 Start from what exists — do not plan it again:
 - .github/workflows/ (ci.yml, l1l2-fixtures.yml, README.md) and task H25 with its EXP.
@@ -13,7 +13,7 @@ Start from what exists — do not plan it again:
 Write down the gaps between that and the target, then plan only the gaps.
 
 What the test system should show (a progress signal, not a coverage number):
-- Per level, how far a *generated* card gets: L1 pass/fail per file, L2 pass/fail per file and per feature (roads, names, POIs, geometry), L3 which readers ran on our data and with what result, L4 readiness (bench package built and checked, not executed).
+- Per level, how far a *generated* card gets: L1 pass/fail per file, L2 pass/fail per file and per feature (roads, names, POIs, geometry), L3 which firmware-fragment readers ran on our data and with what result, L4 full-system emulator readiness (what can run, what is blocked), L5 bench/car package readiness (built and checked, not executed; hardware unavailable).
 - SKIP and "not runnable" are reported separately and never counted as pass.
 - CI has no vendor data. Use tiny synthetic fixtures or a generated card from OSM; anything that needs a vendor image runs locally and is marked as such. PR jobs never download 7GB images.
 - IMG256 / vendor-firmware-head regressions (e.g. `realcheck.py IMG256`, optional L3 steps needing firmware head) run **manually or weekly by QA** (`workflow_dispatch`/scheduled, approved runner/cache, SHA-256 verified), not as default PR CI. Treat results as firmware-head/L3 regression where applicable, not full card/L4/L5 acceptance.

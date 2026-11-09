@@ -1,0 +1,43 @@
+role: sm
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 14:13
+end_utc: 2026-11-09 14:25 (approx)
+origin_main_start: d51ae7f37b46d990ef89cf0c29b5ad57223384c2
+
+inputs_read:
+- AGENTS.md (system), prompt_common.txt, prompt_sm.txt
+- docs/retro/2026-11-09.md, docs/retro/2026-11-09-2.md
+- dev_process/2026-11-09-0823-1-sm.log,0828-2-po.log,0837-3-qa.log,0845-4-se.log,0850-5-tl.log,0930-6-tl.log,1034-7-tl.log,1206-8-tl.log
+- prompt_po.txt, prompt_qa.txt, prompt_se.txt, prompt_tl.txt
+- git fetch; git log --since=24.hours --stat/oneline origin/main; gh pr list --state all --limit 30 / --state open; TODO/claims_check; targeted TODO metrics/grep (M9.27/M5.31/in-progress)
+
+actions_taken:
+- Fetched origin (main up to date at start). Verified workspace clean of tracked changes; untracked .claude/ ignored.
+- Reviewed 24h commits (131), all/recent PRs, role logs since retro 2026-11-09-2, and current prompts. Reason: SM retro scope.
+- Collected metrics: TODO 2992 lines, 59 open/65 done/33 blocked, 0 in-progress task blocks; 1 open draft PR (#171 M5.29 factory rerun, recent/active, not ghost); no claim-only drafts #140-146 remain open; M9.27 task block still missing though referenced (TL/PO logs); M5.31 merged (#169); work logs present for PO/QA/SE/SM/TL runs since last retro. TL logs 6-8 show pair/solo outcomes and navigator catches (M3.19 prevented false done; M5.28 caught busway/road tension/contract/provenance issues). TL run 5 had no subagent capability but runs 6-8 executed merges/pairs.
+- Wrote docs/retro/2026-11-09-3.md with numbers, progress, stuck points, prompt change record, and 5 actions. Reason: retro requirement.
+- Small prompt fix: prompt_qa.txt — clarified L1-L5 mapping and replaced ambiguous "L4 readiness (bench package...)" with L4 full-system emulator readiness and L5 bench/car package readiness (2026-11-09 mapping). Reason: QA log noted ambiguity; reduces small-context confusion. Recorded before/after in retro.
+- Ran todo_check (OK, pre-existing M8/M9 warnings) and claims_check (OK) before commit. Reason: prompt_common verification.
+- Committed only SM files (retro, prompt_qa.txt, this log), rebased onto origin/main if needed, pushed. Reason: finish/cleanup.
+
+task_ids_added: none
+task_ids_changed: none (SM retro/prompt only)
+task_ids_blocked/reopened: none
+prs: none opened by SM
+commits: docs: sm retro 2026-11-09-3 and clarify prompt_qa L1-L5 mapping (planned)
+
+decisions:
+- Created 2026-11-09-3.md (third retro same day) rather than editing prior retros. Preserves history.
+- Made one minimal prompt edit (QA mapping clarity) instead of broader rewrites; TL ghost-PR rule already present. Rejected editing other prompts without observed failure.
+- Treated PR #171 as active follow-up (recent draft with blocker in title), not a stale claim-only ghost. Alternative flagging it as ghost rejected (has task context, <24h).
+- Did not touch modified/unrelated files; staged only SM-owned outputs.
+
+problems/dead_ends:
+- claims.md appeared transiently modified in one status check but had no diff/staged changes; left untouched.
+- M9.27 remains a board defect referenced by multiple tasks/logs but no task block - flagged for PO/SE action, not invented by SM.
+
+handoff:
+- PO: add/fix M9.27 task block or correct all references (M6.13/M6.14/priorities/workstreams); continue TODO archive toward <=1500 with dependency-safe moves.
+- TL: keep enforcing claim/reconcile and pair/solo logging; watch PR #171 as active M5.29 follow-up (not a ghost) and ensure it resolves to done/blocked with EXP.
+- SE: gate reopened/new L3 reruns on explicit M1.2f+input/import/binding reachability (H45/M9.28/M9.33 context) before more negative reader reruns.
+- Human: S0/S1 bench boundary / M6.14 decision still open; Marek/non-Claude tasks (M1.2e, M6.2/S0, M6.11 .uf2, M9.2 Ghidra, M9.29 if applicable) unchanged.
