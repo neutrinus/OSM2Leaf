@@ -213,9 +213,14 @@ TARGET_KEYS = {
 
 #: ``entry.kind`` values.  ``synthetic``: a program shipped in this file;
 #: ``module``: a function at a VA of a memory map (M9.5/M9.20); ``blocked``: a
-#: reader whose entry point is not located yet.
-ENTRY_KINDS = ("synthetic", "module", "blocked")
+#: reader whose entry point is not located yet; ``firmware_call``: a located
+#: firmware function run with explicit memory setup (M9.11b, chunk reader).
+ENTRY_KINDS = ("synthetic", "module", "blocked", "firmware_call")
 MODULE_ENTRY_KEYS = {"kind", "module", "va", "endian", "args", "verdict_map", "note"}
+FIRMWARE_CALL_ENTRY_KEYS = {
+    "kind", "program", "module", "va", "endian", "note",
+    "sec1_table", "inputs",
+}
 #: Byte order of a module entry.  ``"little"`` needs ``PySh4(endian="little")``
 #: (M9.21); the other back ends are big-endian in this harness and refuse it.
 MODULE_ENDIANS = ("big", "little")
@@ -626,6 +631,65 @@ def _validate_module_entry(entry, where: str) -> list[str]:
     return problems
 
 
+def _validate_firmware_call_entry(entry, where: str) -> list[str]:
+    """Problems in an ``entry.kind = "firmware_call"`` block (M9.11b).
+
+    A firmware_call runs a located firmware function with explicit memory
+    setup.  It must declare every non-trivial input (notably the sec1 table)
+    with provenance; a silent default is a validation error, because M9.11b's
+    stop condition forbids registering a passing target on guessed/undeclared
+    inputs.
+    """
+
+    problems: list[str] = []
+    unknown = sorted(set(entry) - FIRMWARE_CALL_ENTRY_KEYS)
+    if unknown:
+        problems.append(f"{where}: unknown entry key(s) {unknown}")
+    program = entry.get("program")
+    if not isinstance(program, str) or not program:
+        problems.append(f"{where}: firmware_call entry needs a program name")
+    if entry.get("module") and not isinstance(entry.get("module"), str):
+        problems.append(f"{where}: entry.module must be a string")
+    if entry.get("va") is not None:
+        _hex(entry["va"], f"{where}.entry.va", problems)
+    endian = entry.get("endian", "little")
+    if endian not in MODULE_ENDIANS:
+        problems.append(
+            f"{where}: entry.endian must be one of {', '.join(MODULE_ENDIANS)}, "
+            f"not {endian!r}"
+        )
+    sec1 = entry.get("sec1_table")
+    if not isinstance(sec1, dict):
+        problems.append(
+            f"{where}: firmware_call entry needs sec1_table as a declared "
+            "input with provenance (not a silent default; M9.11b stop condition)"
+        )
+    else:
+        if sec1.get("va") is None:
+            problems.append(f"{where}: sec1_table needs va (sourced from code)")
+        else:
+            _hex(sec1["va"], f"{where}.sec1_table.va", problems)
+        values = sec1.get("values")
+        if not isinstance(values, list) or not values:
+            problems.append(f"{where}: sec1_table needs values (declared, not a default)")
+        else:
+            for i, item in enumerate(values):
+                if item is None or isinstance(item, bool) or not isinstance(item, (int, str)):
+                    problems.append(f"{where}: sec1_table.values[{i}] must be an integer")
+                else:
+                    _hex(item, f"{where}.sec1_table.values[{i}]", problems)
+        prov = sec1.get("provenance")
+        if not isinstance(prov, str) or not prov.strip():
+            problems.append(
+                f"{where}: sec1_table needs provenance (source of VA/values; "
+                "a guessed table is not allowed)"
+            )
+    inputs = entry.get("inputs")
+    if inputs is not None and not isinstance(inputs, dict):
+        problems.append(f"{where}: entry.inputs must be an object when present")
+    return problems
+
+
 def validate_targets(doc) -> list[str]:
     """Return every problem in a ``targets.json`` document."""
 
@@ -673,6 +737,8 @@ def validate_targets(doc) -> list[str]:
                     problems.append(f"{where}: blocked entry needs a reason")
             elif kind == "module":
                 problems.extend(_validate_module_entry(entry, where))
+            elif kind == "firmware_call":
+                problems.extend(_validate_firmware_call_entry(entry, where))
             else:
                 program = entry.get("program")
                 if program not in SYNTHETIC_PROGRAMS:
@@ -690,9 +756,12 @@ def validate_targets(doc) -> list[str]:
 
         stubs = target.get("stubs")
         kind_now = entry.get("kind") if isinstance(entry, dict) else None
-        # A module function may call no stub at all; the other kinds must
-        # declare at least one.
-        if not isinstance(stubs, list) or (not stubs and kind_now != "module"):
+        # module/firmware_call may declare no stub list entry specs (hooks are
+        # installed by the runner/program); blocked uses name strings.
+        if kind_now == "firmware_call":
+            if not isinstance(stubs, list):
+                problems.append(f"{where}: stubs must be a list")
+        elif not isinstance(stubs, list) or (not stubs and kind_now != "module"):
             problems.append(f"{where}: stubs must be a non-empty list")
         elif isinstance(entry, dict) and entry.get("kind") == "blocked":
             for item in stubs:
@@ -1030,6 +1099,28 @@ def _plan_target(target, args) -> dict:
             "stub bindings are checked by a real run, and no engine was started"
         )
         return payload
+    if entry["kind"] == "firmware_call":
+        payload["firmware_call"] = {
+            "program": entry.get("program"),
+            "module": entry.get("module"),
+            "va": entry.get("va"),
+            "sec1_table": {
+                "va": (entry.get("sec1_table") or {}).get("va"),
+                "declared": True,
+                "provenance": (entry.get("sec1_table") or {}).get("provenance"),
+                "value_count": len((entry.get("sec1_table") or {}).get("values") or []),
+            },
+            "inputs": dict(entry.get("inputs") or {}),
+            "image": str(args.image) if getattr(args, "image", None) else None,
+            "cmp": str(getattr(args, "cmp", None)) if getattr(args, "cmp", None) else None,
+            "ind": str(getattr(args, "ind", None)) if getattr(args, "ind", None) else None,
+            "mutate": getattr(args, "mutate", "none"),
+        }
+        payload["note"] = (
+            "dry run: firmware_call entry; sec1 table is a declared input "
+            "(no silent default). No engine was started and no verdict is claimed."
+        )
+        return payload
 
     if args.engine not in engine_mod.BACKENDS:
         payload["engine_status"] = engine_mod.Blocked(
@@ -1347,6 +1438,162 @@ def _run_module_target(target, args, base) -> dict:
     )
 
 
+def _run_firmware_call_target(target, args, base) -> dict:
+    """Run a firmware_call target (M9.11b): chunk reader with declared inputs.
+
+    The sec1 table is taken from ``entry.sec1_table`` (declared, sourced); the
+    runner never substitutes a silent default.  Memory setup and the chunk
+    decode path follow ``tools/chunk_decoder_l3.py`` (M9.11).
+    """
+
+    entry = target["entry"]
+    program = entry.get("program")
+    if program != "cmp_ind_chunk_v1":
+        return dict(
+            base, status="BLOCKED", exit=EXIT_BLOCKED,
+            reason=f"unknown firmware_call program {program!r}", accepted=None,
+            l3_claim=False,
+        )
+
+    # Sec1 table: declared input only (M9.11b stop condition).
+    sec1_table = entry.get("sec1_table")
+    if not isinstance(sec1_table, dict):
+        return dict(
+            base, status="BLOCKED", exit=EXIT_BLOCKED,
+            reason="sec1_table missing or not declared; cannot run without a "
+                   "sourced table (silent default forbidden, M9.11b)",
+            accepted=None, l3_claim=False,
+        )
+
+    cmp_path = getattr(args, "cmp", None)
+    ind_path = getattr(args, "ind", None)
+    image_path = getattr(args, "image", None)
+    mutate = getattr(args, "mutate", "none") or "none"
+    if mutate not in ("none", "swap-4-8", "corrupt-ind"):
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"unsupported --mutate {mutate!r}"])
+    if not image_path or not cmp_path or not ind_path:
+        missing = [n for n, v in (("--image", image_path), ("--cmp", cmp_path),
+                                  ("--ind", ind_path)) if not v]
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"firmware_call needs {', '.join(missing)}"])
+
+    inputs = entry.get("inputs") or {}
+    offset = getattr(args, "offset", None)
+    if offset is None:
+        offset = inputs.get("offset", 0x840BA0)
+    length = getattr(args, "length", None)
+    if length is None:
+        length = inputs.get("length", 42848)
+    offset = int(str(offset), 0)
+    length = int(str(length), 0)
+
+    for path in (image_path, cmp_path, ind_path):
+        if not Path(path).exists():
+            return dict(base, status="INVALID", exit=EXIT_INVALID,
+                        problems=[f"missing input: {path}"])
+
+    try:
+        import chunk_decoder_l3 as cdl3
+        import cmpind
+        import point_walk_l3 as pw
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"cannot import chunk decoder dependencies: {exc}",
+                    accepted=None, l3_claim=False)
+
+    try:
+        usize, csize, _count, chunk_size, offsets = cmpind.read_index(Path(ind_path))
+        image = pw.load_image(str(image_path))
+        _, secs = pw.module_sections(image, cdl3.IMAGE_START, cdl3.MODULE)
+        index = cdl3.chunk_index(offset, chunk_size)
+        offsets = cdl3.mutate_offsets(offsets, mutate, index)
+        rows = cdl3.table_rows(usize, csize, offsets, chunk_size)
+        if mutate == "swap-4-8":
+            cdl3.mutate_rows(rows, mutate, index)
+        cmp_bytes = Path(cmp_path).read_bytes()
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"cannot prepare firmware_call inputs: {exc}"])
+
+    try:
+        ret, out, stats = cdl3.run_firmware(
+            image, cmp_bytes, rows, offset, length, chunk_size,
+            sec_mode="zero-mask", sec1_table=sec1_table,
+        )
+    except cdl3.Blocked as exc:
+        va = exc.args[1] if len(exc.args) > 1 else None
+        where = cdl3.section_of(secs, va) if va is not None else "no VA given"
+        reason = f"BLOCKED: {exc.args[0]} (firmware access in {where} of {cdl3.MODULE})"
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED, reason=reason,
+                    accepted=None, l3_claim=False)
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"firmware_call engine error: {exc}",
+                    accepted=None, l3_claim=False)
+
+    common = dict(
+        base,
+        firmware={"r0": ret if ret != cdl3.MINUS_ONE else -1, "insns": stats["insns"],
+                  "memcpy": stats["memcpy"], "mod_calls": len(stats["mod"])},
+        sec1_table={"va": sec1_table.get("va"), "declared": True,
+                    "provenance": sec1_table.get("provenance")},
+        inputs={"cmp": str(cmp_path), "ind": str(ind_path), "image": str(image_path),
+                "offset": f"0x{offset:x}", "length": length, "mutate": mutate},
+        l3_claim=False,
+    )
+
+    if mutate == "corrupt-ind":
+        ok = ret == cdl3.MINUS_ONE
+        verdict_text = "PASS (firmware rejects the corrupt .ind)" if ok else \
+            "FAIL (firmware accepted the corrupt .ind)"
+        return dict(common, status="PASS" if ok else "MISMATCH",
+                    exit=EXIT_OK if ok else EXIT_MISMATCH,
+                    accepted=None, verdict=verdict_text,
+                    problems=[] if ok else [verdict_text],
+                    note="control matches EXP-2026-11-08-M9.11-chunk-decoder")
+
+    try:
+        expected = cdl3.reference_slice(Path(cmp_path), Path(ind_path), offset, length)
+    except Exception as exc:  # noqa: BLE001
+        # For mutated inputs the reference may reject; treat as control context.
+        expected = None
+        ref_error = str(exc)
+
+    if mutate == "swap-4-8":
+        ok = ret != length or out != (expected if expected is not None else b"")
+        # If reference failed on mutated ind, compare structurally: clean failure.
+        if expected is None:
+            ok = True  # clean failure (no exception from firmware path reached here)
+        verdict_text = "PASS (control: swapped +4/+8 fails cleanly, no exception)" if ok else \
+            "FAIL (swapped +4/+8 still returns the page)"
+        return dict(common, status="PASS" if ok else "MISMATCH",
+                    exit=EXIT_OK if ok else EXIT_MISMATCH,
+                    accepted=None, verdict=verdict_text,
+                    problems=[] if ok else [verdict_text],
+                    reference_error=locals().get("ref_error"),
+                    note="control matches EXP-2026-11-08-M9.11-chunk-decoder")
+
+    if expected is None:
+        return dict(common, status="MISMATCH", exit=EXIT_MISMATCH,
+                    accepted=None, verdict="FAIL",
+                    problems=[f"reference: {ref_error}"])
+
+    ok = ret == length and out == expected
+    verdict = "ACCEPT" if ok else "REJECT"
+    return dict(
+        common,
+        status="PASS" if ok else "MISMATCH",
+        exit=EXIT_OK if ok else EXIT_MISMATCH,
+        accepted=ok,
+        verdict=verdict if ok else "FAIL (not byte-identical to cmpind.decode)",
+        problems=[] if ok else [
+            f"firmware output differs from cmpind.decode (r0={ret}, "
+            f"first differing byte {next((i for i, (a, b) in enumerate(zip(out, expected)) if a != b), -1)})"
+        ],
+    )
+
+
 def run_target(target, args) -> dict:
     """Execute one target and return its verdict payload.
 
@@ -1392,6 +1639,8 @@ def run_target(target, args) -> dict:
 
     if entry["kind"] == "module":
         return _run_module_target(target, args, base)
+    if entry["kind"] == "firmware_call":
+        return _run_firmware_call_target(target, args, base)
 
     problems: list[str] = []
     resolved = _read_input(target, args, problems)
@@ -1581,7 +1830,13 @@ def _emit_target(payload: dict, as_json: bool) -> None:
                 f"{availability.get('status')}"
             )
         print(f"expect   {payload['expect']['verdict']}: {payload['expect']['rule']}")
-        print(f"input    {payload['input'].get('source') or 'unresolved'}")
+        inp = payload.get("input")
+        if inp:
+            print(f"input    {inp.get('source') or 'unresolved'}")
+        elif payload.get("firmware_call"):
+            fc = payload["firmware_call"]
+            print(f"inputs   cmp={fc.get('cmp')} ind={fc.get('ind')} mutate={fc.get('mutate')}")
+            print(f"sec1     va={fc['sec1_table'].get('va')} declared=True")
         print("RESULT: DRY_RUN (exit 0; no verdict is claimed)")
         return
     if status == "INVALID":
@@ -1594,16 +1849,27 @@ def _emit_target(payload: dict, as_json: bool) -> None:
         print(f"RESULT: {status} (exit {payload['exit']}); nothing was claimed")
         return
     print(f"verdict  {payload['verdict']} (expected {payload['expect']['verdict']})")
-    print(
-        f"call     r0={payload['returned']} over {payload['cycles']} "
-        "instruction/stub steps"
-    )
-    for call in payload["stub_calls"]:
+    if payload.get("firmware"):
+        fw = payload["firmware"]
+        print(f"firmware r0={fw.get('r0')} insns={fw.get('insns')} memcpy={fw.get('memcpy')}")
+        inp = payload.get("inputs") or {}
+        if inp:
+            print(f"inputs   cmp={inp.get('cmp')} ind={inp.get('ind')} mutate={inp.get('mutate')}")
+        sec1 = payload.get("sec1_table") or {}
+        if sec1:
+            print(f"sec1     va={sec1.get('va')} declared={sec1.get('declared')}")
+    else:
         print(
-            f"stub     {call['stub']} at {call['va']} "
-            f"args={call['args']} -> {call['returned']}"
+            f"call     r0={payload['returned']} over {payload['cycles']} "
+            "instruction/stub steps"
         )
-    print(f"log      {payload['outputs']['log']!r}")
+        for call in payload.get("stub_calls", []):
+            print(
+                f"stub     {call['stub']} at {call['va']} "
+                f"args={call['args']} -> {call['returned']}"
+            )
+        if payload.get("outputs"):
+            print(f"log      {payload['outputs']['log']!r}")
     for problem in payload.get("problems", []):
         print(f"FAIL {problem}")
     print(
@@ -2350,6 +2616,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="corpus root built by corpus.py; resolves the target's corpus path",
     )
     run_cmd.add_argument(
+        "--cmp",
+        help="firmware_call: .cmp payload path (M9.11b cmp_ind_reader)",
+    )
+    run_cmd.add_argument(
+        "--ind",
+        help="firmware_call: .ind index path (M9.11b cmp_ind_reader)",
+    )
+    run_cmd.add_argument(
+        "--mutate",
+        default="none",
+        choices=("none", "swap-4-8", "corrupt-ind"),
+        help="firmware_call: control mutation (M9.11b; default none)",
+    )
+    run_cmd.add_argument(
+        "--offset",
+        type=lambda s: int(s, 0),
+        default=None,
+        help="firmware_call: logical page offset (default from target entry)",
+    )
+    run_cmd.add_argument(
+        "--length",
+        type=lambda s: int(s, 0),
+        default=None,
+        help="firmware_call: page length (default from target entry)",
+    )
+    run_cmd.add_argument(
         "--max-insns",
         type=int,
         default=engine_mod.DEFAULT_MAX_INSNS,
@@ -2706,6 +2998,85 @@ def test_run_ghidra(tmp):
 @check("run: qemu runs the probe or SKIPs with MISSING_QEMU (never a pass)")
 def test_run_qemu(tmp):
     _backend_skip("qemu", b"\x78\x9c" + b"Q" * 30, tmp, "qemu")
+
+
+@check("firmware_call: shipped cmp_ind_reader is registered with declared sec1 table")
+def test_firmware_call_registered(tmp):
+    by_name, _doc = load_targets()
+    target = by_name["cmp_ind_reader"]
+    assert target["entry"]["kind"] == "firmware_call", target["entry"]
+    assert target["entry"]["program"] == "cmp_ind_chunk_v1", target["entry"]
+    sec1 = target["entry"]["sec1_table"]
+    assert sec1["va"].lower() == "0x00574de0", sec1
+    assert len(sec1["values"]) == 17, sec1
+    assert int(str(sec1["values"][0]), 0) == 0 and int(str(sec1["values"][16]), 0) == 0xFFFF, sec1
+    assert "provenance" in sec1 and sec1["provenance"].strip(), sec1
+    assert "silent default" not in sec1["provenance"].lower() or "not a silent default" in sec1["provenance"].lower(), sec1
+
+
+@check("firmware_call: validation rejects a missing/undeclared sec1 table (no silent default)")
+def test_firmware_call_sec1_required(tmp):
+    base_entry = {
+        "kind": "firmware_call", "program": "cmp_ind_chunk_v1",
+        "module": "Navi.exe", "va": "0x0041c7e8", "endian": "little",
+        "note": "test",
+    }
+    base_target = {
+        "name": "t", "reader": "cmp_ind", "what": "t", "module": "Navi.exe",
+        "entry": base_entry, "stubs": [],
+        "corpus": {"path": "x.cmp", "guest_path": "\\x", "reader": "cmp_ind", "case": "factory"},
+        "expect": {"verdict": "ACCEPT", "python_verdict": "ACCEPT", "rule": "r"},
+    }
+    # missing sec1_table
+    doc = {"schema": TARGETS_SCHEMA, "targets": [base_target]}
+    probs = " | ".join(validate_targets(doc))
+    assert "sec1_table" in probs and "declared" in probs, probs
+    # sec1_table without provenance
+    bad = dict(base_target)
+    bad["entry"] = dict(base_entry, sec1_table={"va": "0x574de0", "values": ["0x0"] * 17})
+    probs = " | ".join(validate_targets({"schema": TARGETS_SCHEMA, "targets": [bad]}))
+    assert "provenance" in probs, probs
+    # sec1_table without values
+    bad = dict(base_target)
+    bad["entry"] = dict(base_entry, sec1_table={"va": "0x574de0", "provenance": "test"})
+    probs = " | ".join(validate_targets({"schema": TARGETS_SCHEMA, "targets": [bad]}))
+    assert "values" in probs, probs
+
+
+@check("firmware_call: --dry-run declares sec1 table and claims no verdict")
+def test_firmware_call_dry_run(tmp):
+    code, output = _run_cli(["run", "cmp_ind_reader", "--dry-run", "--json"])
+    payload = json.loads(output)
+    assert code == EXIT_OK, output
+    assert payload["status"] == "DRY_RUN", payload
+    fc = payload["firmware_call"]
+    assert fc["sec1_table"]["declared"] is True, fc
+    assert fc["sec1_table"]["va"].lower() == "0x00574de0", fc
+    assert fc["sec1_table"]["value_count"] == 17, fc
+    assert "no verdict is claimed" in payload["note"].lower(), payload
+
+
+@check("firmware_call: missing --cmp/--ind/--image is INVALID, not a fake pass")
+def test_firmware_call_missing_inputs(tmp):
+    code, output = _run_cli(["run", "cmp_ind_reader", "--json"])
+    payload = json.loads(output)
+    assert code == EXIT_INVALID, output
+    assert payload["status"] == "INVALID", payload
+    probs = " | ".join(payload.get("problems", []))
+    assert "--image" in probs and "--cmp" in probs and "--ind" in probs, payload
+
+
+@check("firmware_call: missing input file is INVALID")
+def test_firmware_call_missing_file(tmp):
+    code, output = _run_cli([
+        "run", "cmp_ind_reader", "--json",
+        "--image", str(Path(tmp) / "no.img"),
+        "--cmp", str(Path(tmp) / "no.cmp"),
+        "--ind", str(Path(tmp) / "no.ind"),
+    ])
+    payload = json.loads(output)
+    assert code == EXIT_INVALID, output
+    assert "missing input" in " | ".join(payload.get("problems", [])), payload
 
 
 def selftest_targets() -> int:

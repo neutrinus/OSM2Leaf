@@ -154,12 +154,19 @@ def section_of(sections, va: int) -> str:
 
 
 def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
-                 chunk_size: int, sec_mode: str = "block"):
+                 chunk_size: int, sec_mode: str = "block", sec1_table=None):
     """Run fn 0x41c7e8 on the chunks covering [offset, offset+length).
 
     The loop starts at the table entry that ``*(ctx+28)`` points to and walks
     ``count`` entries, so the caller passes the first chunk of the range and
     the number of chunks it spans.  Returns (r0, output bytes, stats).
+
+    ``sec1_table`` (M9.11b) is an explicit declared input: ``{"va": int,
+    "values": [int, ...]}`` written into the mapped compressed sec1 when
+    ``sec_mode`` is ``"zero-mask"``.  If omitted, ``zero-mask`` writes the
+    zlib 1.1.3 ``inflate_mask[17]`` at ``INFLATE_MASK_VA`` (public source,
+    provenance recorded in EXP-2026-11-08-M9.11-chunk-decoder); callers that
+    register a passing target through ``runner.py`` must pass it explicitly.
     """
     start = chunk_index(offset, chunk_size)
     count = chunk_index(offset + length - 1, chunk_size) - start + 1
@@ -185,10 +192,16 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                 eng.map(name, sec["realaddr"], bytearray(sec["vsize"]), "rw")
                 comp_ranges.append((sec["realaddr"], sec["realaddr"] + sec["vsize"]))
         if sec_mode == "zero-mask":
-            # zlib 1.1.3 inflate_mask[17] (public source: 2^n - 1), written at
-            # the table inflate indexes at 0x54369e.  Not read from the image.
-            mask = b"".join(struct.pack("<I", (1 << n) - 1) for n in range(17))
-            eng.write_mem(INFLATE_MASK_VA, mask)
+            if sec1_table is not None:
+                tva = int(str(sec1_table["va"]), 0) & 0xFFFFFFFF
+                vals = sec1_table["values"]
+                mask = b"".join(struct.pack("<I", int(str(v), 0) & 0xFFFFFFFF) for v in vals)
+                eng.write_mem(tva, mask)
+            else:
+                # zlib 1.1.3 inflate_mask[17] (public source: 2^n - 1), written at
+                # the table inflate indexes at 0x54369e.  Not read from the image.
+                mask = b"".join(struct.pack("<I", (1 << n) - 1) for n in range(17))
+                eng.write_mem(INFLATE_MASK_VA, mask)
     stack_top = STK_VA + STK_SIZE // 2
     eng.write_mem(CTX_VA + ENTRY_TABLE_PTR, struct.pack("<I", TAB_VA + ENTRY * start))
     eng.write_mem(CTX_VA + CACHE_PTR, struct.pack("<I", CACHE_VA))

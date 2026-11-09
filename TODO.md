@@ -3992,8 +3992,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
     and record the gap (do not fake registration).
   - Claims: C-2150–C-2159
 
-- [ ] **M9.11b — L3 runner: a firmware-call target kind for the chunk reader (fills `cmp_ind_reader`)**
-  - Status: in progress · Owner: task/m9.11b-firmware-call-target-r2 · Critical: yes
+- [x] **M9.11b — L3 runner: a firmware-call target kind for the chunk reader (fills `cmp_ind_reader`)**
+  - Status: done · Owner: task/m9.11b-firmware-call-target-r2 · Critical: yes
   - Depends: M9.11 (firmware path and sec1 table provenance, EXP-2026-11-08-M9.11-chunk-decoder), M9.5 (done).
   - Precheck: `python3 tools/chunk_decoder_l3.py` and
     `python3 tools/l3_harness/runner.py --selftest` pass; `targets.json`
@@ -4015,6 +4015,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     default table or guessed VA, block with the missing provenance named;
     do not register `cmp_ind_reader` as passing.
   - Claims: C-2940–C-2949 (was C-2157–C-2159, overlap with M9.11 fixed by H24)
+  - Result: EXP-2026-11-08-M9.11b-firmware-call-target — `firmware_call` entry kind + declared sec1 `inflate_mask[17]` (VA `0x574de0` from code, values from public zlib 1.1.3, provenance disclosed, M1.2f HYPOTHESIS) fills `targets.json` `cmp_ind_reader`; `runner.py run cmp_ind_reader` on factory US POINT010 (`92aa525d…`/`48812f8c…`/`7ac54e3b…`, page `0x840ba0`) PASS exit 0 (`r0=42848`, insns 1057245); `--mutate corrupt-ind`/`swap-4-8` PASS as M9.11 controls (`r0=-1`/638, `r0=65536`/1057219). `chunk_decoder_l3 --selftest` OK, `runner selftest` OK (32), `claims_check` OK. Resolves M9.11 registration blocker; `l3check.py` untouched (M9.12).
 
 - [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
   - Status: blocked · Owner: task/m9.12-l3check-card-r2 · Critical: yes

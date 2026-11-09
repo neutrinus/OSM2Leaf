@@ -124,28 +124,32 @@
     {
       "name": "cmp_ind_reader",
       "reader": "cmp_ind",
-      "what": "REFER/ADDRE/POINT .cmp + .ind container reader",
-      "module": null,
+      "what": "REFER001 .cmp + .ind chunk reader (firmware fn 0x0041c7e8, M3.2b/M9.11)",
+      "module": "Navi.exe",
       "entry": {
-        "kind": "blocked",
-        "program": null,
-        "va": null,
-        "reason": "no .cmp/.ind reader entry point has been located; map filenames have zero literal references and the reader must be found from the CE ROM TOC (M3)"
+        "kind": "firmware_call",
+        "program": "cmp_ind_chunk_v1",
+        "module": "Navi.exe",
+        "va": "0x0041c7e8",
+        "endian": "little",
+        "sec1_table": {
+          "va": "0x00574de0",
+          "values": [
+            "0x00000000", "0x00000001", "0x00000003", "0x00000007",
+            "0x0000000f", "0x0000001f", "0x0000003f", "0x0000007f",
+            "0x000000ff", "0x000001ff", "0x000003ff", "0x000007ff",
+            "0x00000fff", "0x00001fff", "0x00003fff", "0x00007fff",
+            "0x0000ffff"
+          ],
+          "provenance": "zlib 1.1.3 inflate_mask[17] (2^n - 1, n=0..16), public source; written at VA 0x574de0 indexed by Navi.exe inflate at 0x54369e (shll2; mov.l @(r0,r3),r2; and r12,r2 = hold & inflate_mask[n]). VA sourced from code; values from public zlib source, not read from Navi.exe sec1 (M1.2f open) — HYPOTHESIS that sec1 bytes equal these values, consistent with byte-identical output (EXP-2026-11-08-M9.11-chunk-decoder). Declared input, not a silent default (M9.11b)."
+        },
+        "inputs": {
+          "offset": "0x840ba0",
+          "length": 42848
+        },
+        "note": "Runs fn 0x0041c7e8 with .ind-derived 20-byte chunk table (ctx+28), ctx/cache/dst setup per M9.11. Pass --image IMG256 --cmp PAIR.cmp --ind PAIR.ind [--mutate none|corrupt-ind|swap-4-8]."
       },
-      "stubs": [
-        "CreateFileW",
-        "CreateFileA",
-        "ReadFile",
-        "SetFilePointer",
-        "GetFileSize",
-        "CloseHandle",
-        "HeapAlloc",
-        "HeapFree",
-        "memset",
-        "memcpy",
-        "OSM_Printf",
-        "OSM_LogMsg"
-      ],
+      "stubs": [],
       "corpus": {
         "path": "cmp/factory/ADDRE001.DAT.cmp",
         "guest_path": "\\Storage Card\\REFER001\\ADDRE001.DAT.cmp",
@@ -156,11 +160,12 @@
         "verdict": "ACCEPT",
         "python_verdict": "ACCEPT",
         "agrees_with_python": null,
-        "rule": "the factory pair must be accepted; corrupt-ind and truncated cases in the manifest must be rejected"
+        "rule": "firmware fn 0x41c7e8 returns the requested page byte-identical to cmpind.decode on the factory/S1/S2 pairs; --mutate corrupt-ind is rejected (-1); --mutate swap-4-8 fails cleanly (EXP-2026-11-08-M9.11-chunk-decoder controls, M9.11b)."
       },
       "notes": [
-        "The probe-zlib-cmf target exercises the same input path through the stubs",
-        "but is not this reader."
+        "Registered by M9.11b. The sec1 inflate_mask table is an explicit declared input with provenance; runner never uses a silent default.",
+        "Controls: runner.py run cmp_ind_reader --image IMG256 --cmp ... --ind ... [--mutate corrupt-ind|swap-4-8].",
+        "This target covers the chunk decode path (fn 0x41c7e8), not the full .ind parser or the file opener."
       ]
     },
     {
