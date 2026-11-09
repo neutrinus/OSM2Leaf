@@ -2632,7 +2632,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Unblock: new task needed (none on the board yet): decode the `0x18c` code table from the ICODE001 per-language index (M4.12 left its root-pointer table unfound) or a firmware language table; OQ-44.
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
-  - Status: in progress · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
+  - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
   - Depends: — (M3.11b, M4.8b)
   - Goal: M4.8b counted 16 POIs from inflated (`78 9c`) POINT streams; bit-packed
     (non-zlib) pages were not counted. Decode them so POI position checks and
@@ -2648,6 +2648,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if the container is not zlib and not the known record grammar, record
     the header bytes and stop — do not guess the layout.
   - Claims: C-2670–C-2679
+  - Blocker: done-when partially met — dominant non-`0x60|0x68` zlib inner pages decoded as phone/contact records (US 16B `w0=8,w1=6`, EU 20B `w0=10,w1=8`) carrying no coordinate-bearing POI positions, with counts/tool/controls (C-2670–C-2671); but index (`w0=1`/`w0=28`), mixed (`w0=2`), rare unknown classes, and 72.2% non-zlib raw POINT `.DAT` payload regions remain undecoded for potential indirect coordinate content (header bytes recorded, stop condition). A wider POI *position* sample is not enabled. M3.11b/M4.8b deps remain blocked.
+  - Unblock: decode `w0=1`/`w0=28` index and `w0=2`/rare-unknown semantics (or prove non-coordinate with a stronger control) and/or characterize non-zlib raw payload POI-position storage; if a coordinate-bearing grammar is found, extend `poi_point_check` with counts to enable wider position sample (relevant to M4.8b/M4.28). Dep context: M3.11b, M4.8b.
+  - Result: EXP-2026-11-08-M4.27-bitpacked-point-pages-r2.md (partial/blocked). Precheck: `poi_point_check` counts only `0x60|0x68` records; POINT002 2k–400k zlib sub-streams all `789c` (2543); gap = non-name zlib inner pages + 72.2% non-zlib raw payload. `tools/point_bitpack_decode.py` (+`--selftest`) classifies/counts bit pages: POINT002 747 name/1796 bit (1598 phone-us-fixed16 coord=no), POINT008 1359/3163 (2956 phone-us-fixed16), POINT029 208/446 (249 phone-intl-fixed20). Phone pages decode to ASCII numbers; heuristic coord-like scan 0/50 sampled phone and 0/50 unknown. Index/mixed/rare/unknown + raw regions not fully decoded (headers/counts recorded). `python3 tools/claims_check.py` OK; `tools/selftest.py --only poi_point_check --only poi_bitpack_probe --only point_bitpack_decode` OK.
 
 - [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
   - Status: open · Owner: — · Critical: no
