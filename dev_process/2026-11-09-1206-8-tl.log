@@ -1,0 +1,28 @@
+role: tl
+model: iceman-free (opencode/iceman-free)
+start: 2026-11-09 12:06 UTC
+end: 2026-11-09 12:42 UTC (M5.31 measurement still running; TL handoff recorded)
+origin/main SHA at start: a0be588
+
+inputs read (names): prompt_tl.txt, prompt_common.txt, AGENTS.md, TODO.md (task blocks/priorities), gh pr list (open=none at start), dev_process recent TL/SE/QA/SM log names.
+
+actions (in order, with reason):
+- git fetch --all --prune; verified open PRs=0; scanned TODO for open+unowned tasks with deps done, disjoint files, not non-Claude/resource-missing.
+- Selected 4 disjoint tasks: H48, M5.31, M9.11, M5.29. Skipped non-Claude (M1.2e,M6.9,M8.E1c,M9.29), blocked/missing deps (M1.2f blocked; M9.31/M6.13/M5.30/M9.24 dep chains; M3.11c blocked), and L3/harness overlap (M9.6,M9.13,M9.28 deferred vs M9.11).
+- Created worktrees /tmp/opencode/osm2leaf-tl/{h48,m5.31,m9.11,m5.29} on task/* branches from origin/main.
+- H48 SOLO subagent completed: claim+PR #170, delegated reader_precheck LE halfword scan to sh4scan, EXP/claims, reopened M3.19 in-branch (rule 15). TL verified done-when + reader_precheck/sh4scan selftests + claims/todo checks; rebased, merged PR #170, branch deleted.
+- M9.11 PAIR (TL-relayed): Driver plan APPROVED (Navigator). TL issued EXP Method (factory/S1/S2+controls, sec1 provenance explicit/no silent default, rule 13 L3 fragment). Driver verified done-when met (M9.11b evidence + runner/chunk_decoder runs on local outside-repo pairs) and produced closeout EXP/claims/reader-coverage/TODO done. TL verified claims/todo + l3_harness/chunk_decoder selftests; rebased, merged PR #168.
+- M5.31 PAIR required (TL-relayed): Driver plan APPROVED with reminders (DRSTR naming not mislabeled, outside_ranges strict, uncapped diff counts, stale-tail invariants, claims C-3170-3179). TL issued EXP Method. Driver implemented mkcard/imgpatch envelope+DRSTR classification+opt-in preserve-stale-tail+selftests; TL verified mkcard/imgpatch/claims/todo checks. Real-image contrast (EU2011, uncapped reconcile vs fresh, same-length+resize, one variable) still running: /home/marek/projekty/leafre-work/m5.31/run_real_contrast.py (PID 176899); eu-same complete in log, eu-grow pending at TL end. PR #169 draft, not merged; task not marked done (Done when requires contrast/EXP/claims finalization).
+- M5.29 PAIR (TL-relayed): Driver plan APPROVED (honest synthetic/Stop path, provisional-v0, rule 13). TL issued EXP Method. Driver delivered tools/one_tile_pipeline.py + selftest + EXP/claims; factory EU context unavailable and synthetic scaffold+OSM tile did not satisfy cardcheck/applicable l2check, so honest Status: blocked with Blocker/Unblock/Result (never false done). TL verified one_tile_pipeline selftest + claims/todo; rebased, merged PR #167 (blocked result).
+
+task IDs added/changed/blocked/re-opened: H48 done (PR #170 merged); M3.19 reopened/open in-branch by H48 rule 15 (on main via merge); M9.11 done (PR #168 merged); M5.29 blocked (PR #167 merged, blocked result); M5.31 in progress on PR #169 (not merged).
+
+decisions / alternatives rejected:
+- Merged M5.29 as blocked (rules 6/7): Done when unmet honestly (factory context missing; synthetic scaffold not cardcheck/l2check-pass) — never false done.
+- Did not finalize M5.31 without resize contrast: Done when requires >=1 same-length and >=1 resize uncapped contrast on one image; script still running, eu-grow pending.
+- Kept M9.11/M5.29 disjoint from M3.11b/M9.6/M9.13/M9.28 to avoid l3_harness/reader-coverage/claims conflicts.
+
+problems / dead ends:
+- M5.31 EU2011 contrast is slow (7.5GB reconcile/fresh/cardcheck/range diff). Only eu-same appeared in final-style JSON at TL end; process still active — may be mid eu-grow/final print. TL did not guess results.
+
+handoff (next TL/role): 1) Check /home/marek/projekty/leafre-work/m5.31/run_real_contrast.log and PID 176899; when eu-grow+FINAL present, finalize M5.31 in /tmp/opencode/osm2leaf-tl/m5.31: update EXP observations (uncapped counts, one variable), add claims C-3170-C-3179 subset used, set TODO M5.31 done+Result only if Done when fully passes else blocked with evidence; run mkcard/imgpatch selftests + claims/todo checks; push, merge PR #169, delete branch. 2) SM/SE: reassess M9.31/M6.13 deps (M9.11 closed; M9.12 still blocked context), M5.30 after M5.29 unblock path, M3.19 now open via H48. 3) Close stale claim-only drafts #140-146 per retro action 1 if still open.
