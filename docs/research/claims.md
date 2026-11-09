@@ -2350,6 +2350,7 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2408 | RESERVED (M5.16). | — | — | — |
 | C-2409 | RESERVED (M5.16). | — | — | — |
 
+<<<<<<< HEAD
 ## H27 — L1–L4 progress dashboard (C-2770–C-2779)
 
 | ID | Claim | Status | Confidence | Evidence |
@@ -2364,3 +2365,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2777 | RESERVED (H27). | — | — | — |
 | C-2778 | RESERVED (H27). | — | — | — |
 | C-2779 | RESERVED (H27). | — | — | — |
+
+## M4.27 — Bit-packed / non-zlib POINT pages (C-2670–C-2679)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2670 | The dominant non-`0x60\|0x68` zlib inner POINT pages (bit-packed pages, found by `poi_icons.iter_streams` in the 2k–400k decompressed range) are fixed-record phone/contact pages, not coordinate-bearing POI position records: US POINT002/008 `w0=8,w1=6` = 16-byte records (prefix `(8,6)` per record) with ASCII phone payload (e.g. `503-3195112`, `954-4553072`; 1598/1796 bit pages in POINT002, 2956/3163 in POINT008). EU POINT029 `w0=10,w1=8` = 20-byte intl phone records (e.g. `+(34)-946826606`; 249/446 bit pages). | VERIFIED (tool, 3 shards US/EU 2011) | H | EXP-2026-11-08-M4.27-bitpacked-point-pages-r2; `tools/point_bitpack_decode.py summary`/`--selftest`; SHA-256 of analyzed POINT002/008/029 `.cmp/.ind` in EXP |
+| C-2671 | Decoded phone/contact bit-packed classes (`w0=8,w1=6`, `w0=10,w1=8`) carry no coordinate-bearing POI position records in the known packed copy-A/B form: content decodes as ASCII phone strings (high printable ratio) and a broad heuristic `>HH` coord-like-pair scan (32000–43000 range, heuristic only) found 0 pairs in 50 sampled phone pages (POINT002). `poi_point_check` still correctly counts only `0x60\|0x68` name records (precheck/selftest). Wider POI *position* sample is not enabled by these pages. | VERIFIED (scoped negative, tool) | M | EXP-2026-11-08-M4.27-bitpacked-point-pages-r2; `point_bitpack_decode.py check-coords`/`--selftest`; `poi_point_check.py --selftest` |
+| C-2672 | US `w0=1` and EU `w0=28` non-`0x60\|0x68` zlib inner page families are index/table-like (24B-structured instances observed, `0xffff` sentinels, low ASCII; header bytes recorded) but are **not fully decoded** (fixed-prefix periodicity varies across instances; field semantics unknown). No coordinate-bearing A/B-equivalent POI position records identified in sampled pages (heuristic 0 in 50 unknown-class pages, POINT002). | OBSERVED | M | EXP-2026-11-08-M4.27-bitpacked-point-pages-r2; `point_bitpack_decode.py summary`/`check-coords` |
+| C-2673 | `w0=2` mixed and rare unknown non-`0x60\|0x68` classes (`w0=11–21`, observed headers like `000b0401…ff…` / `000e0501…ff…`) are **not decoded** (container is zlib inner page but record grammar not the known `0x60\|0x68` form and not fully identified); header bytes and counts recorded, layout not guessed (stop condition). `w0=2` instances can contain embedded `08 06` phone sub-records. | OBSERVED | M | EXP-2026-11-08-M4.27-bitpacked-point-pages-r2 |
+| C-2674 | The decompressed POINT `.DAT` payload contains large non-zlib raw regions outside `78xx` zlib inner sub-streams (POINT002: 27.8% covered by >=2k zlib sub-streams over 2081 merged regions, 72.2% gaps; largest gaps zero-filled at `0x296508e` len 128,145,618 and `0x0` len 31,682,208; header bytes `00…`). Container not zlib and not the known `0x60\|0x68` grammar; coordinate-bearing content there is **unknown** and not decoded as POINT inner pages (stop condition). | OBSERVED | M | EXP-2026-11-08-M4.27-bitpacked-point-pages-r2 (inline coverage probe, reproducible from recorded shard hashes + commands) |
+| C-2675 | M4.27 done-when **partially met / blocked**: dominant bit-packed zlib inner page classes decoded and shown non-coordinate-bearing with counts and a covering tool; index/mixed/rare-unknown classes and non-zlib raw payload regions remain undecoded for potential indirect coordinate content, so a wider POI *position* sample from bit-packed/non-zlib pages is not yet enabled. M4.8b remains blocked (C-2939 context). | OBSERVED (blocker) | H | EXP-2026-11-08-M4.27-bitpacked-point-pages-r2; TODO M4.27/M4.8b |
+| C-2676 | RESERVED (M4.27). | — | — | — |
+| C-2677 | RESERVED (M4.27). | — | — | — |
+| C-2678 | RESERVED (M4.27). | — | — | — |
+| C-2679 | RESERVED (M4.27). | — | — | — |
