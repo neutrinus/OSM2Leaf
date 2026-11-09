@@ -21,6 +21,6 @@ When a subagent finishes, check its work:
 - read the EXP: controls present, observations separate from interpretation, no vendor data in the diff.
 If the check fails, send it back to the subagent or mark the task blocked — never merge a false `done`.
 
-Then commit and push; merge to main one PR at a time: rebase onto the fresh origin/main, re-run the checks, merge, delete the branch, close leftover drafts. Apply rule 15 (re-open tasks the merge unblocks).
+Then commit and push; merge to main one PR at a time: rebase onto the fresh origin/main, re-run the checks, merge, delete the branch, close the draft PR. If work lands on main by another path, still close the task's draft PR and delete its remote branch. Apply rule 15 (re-open tasks the merge unblocks).
 
 Finish with a table: task ID, outcome (done / blocked / returned), PR link, EXP.

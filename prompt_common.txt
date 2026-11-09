@@ -16,6 +16,9 @@ Hard rules:
 - Never commit vendor data (images, .DAT, .cmp, .ind, …) — see AGENTS.md.
 - Never force-push `main`. Never edit a task another agent has
   `in progress`, except to note a dependency in your own task.
+- When your task's commits are on `origin/main` (done or blocked), close its
+  draft PR and delete the remote branch. Do not open a second PR for the same
+  task ID; update the existing draft or coordinate through the TL.
 
 Verification levels (details: docs/research/feedback-loop.md):
 - L1 structural: `tools/cardcheck.py` — card/FAT/files/sizes/indexes consistent.
