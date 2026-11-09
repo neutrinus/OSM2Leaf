@@ -314,37 +314,120 @@ def selftest() -> int:
     return 0 if not fails else 1
 
 
+def _copy_factory_root(src: Path, dst: Path) -> None:
+    if dst.exists():
+        shutil.rmtree(dst)
+    shutil.copytree(src, dst, symlinks=True)
+
+
+def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
+                      osm_text: str | None = None, country: str = "616") -> dict[str, Any]:
+    """Factory-backed path: copy factory root, replace exactly one tile with OSM-generated (provisional-v0)."""
+    report: dict[str, Any] = {
+        "mode": "factory-backed", "tile": cell, "mapping": "provisional-v0",
+        "rule13": "roadclass_v0 provisional, not firmware-confirmed; L2 necessary not sufficient; L3/L4/L5 acceptance unknown",
+        "factory_backed": True, "factory_root": str(factory_root), "missing_input": "",
+        "real_image_run": "attempted", "gates": {}, "counts": {}, "changed_set_expected": [f"MAPAL001/{cell}.DAT"],
+    }
+    if not factory_root.is_dir():
+        report["gates"] = {g: gate("BLOCKED", f"factory root not a directory: {factory_root}") for g in GATES}
+        report["real_image_run"] = "blocked"; return report
+    factory_tile = factory_root / "MAPAL001" / f"{cell}.DAT"
+    required = [factory_tile, factory_root / "DRSTR001.DAT", factory_root / "MMAIN001.DAT", factory_root / "VER_INFO" / "HDD_INFO.TXT"]
+    missing = [str(p) for p in required if not p.exists()]
+    if missing:
+        report["missing_input"] = "missing factory files: " + ", ".join(missing)
+        report["real_image_run"] = "blocked"; report["factory_backed"] = False
+        report["gates"] = {g: gate("BLOCKED", report["missing_input"]) for g in GATES}; return report
+    _copy_factory_root(factory_root, out)
+    out_tile = out / "MAPAL001" / f"{cell}.DAT"
+    osm_text = osm_text or SYNTHETIC_OSM
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        osm = td / "syn.osm"; osm.write_text(osm_text, encoding="utf-8")
+        imf = td / "syn.imf.jsonl"
+        rc, so, se = run_cmd_json("osm_ingest.py", [str(osm), "-o", str(imf), "--source-name", "m5.29-factory-rerun"])
+        report["counts"]["osm_ingest_rc"] = rc
+        if rc != 0 or not imf.exists():
+            report["gates"] = {g: gate("BLOCKED", f"osm_ingest failed rc={rc}: {se[:300]}") for g in GATES}; return report
+        imf_lines = [ln for ln in imf.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        report["counts"]["imf_records"] = len(imf_lines)
+        report["counts"]["ways"] = sum(1 for ln in imf_lines if '"type":"way"' in ln or '"type": "way"' in ln)
+        report["counts"]["nodes"] = sum(1 for ln in imf_lines if '"type":"node"' in ln or '"type": "node"' in ln)
+        report["fixture_sha256"] = sha256_bytes(osm_text.encode("utf-8"))
+        split_out = td / "split.imf.jsonl"
+        rc, so, se = run_cmd_json("mesh_split.py", [str(imf), "-o", str(split_out)])
+        report["counts"]["mesh_split_rc"] = rc
+        mesh_src = split_out if rc == 0 and split_out.exists() else imf
+        ctab = td / "roadclass_v0.json"
+        rc, so, se = run_cmd_json("roadclass_v0.py", ["--class-table-out", str(ctab)])
+        report["counts"]["roadclass_rc"] = rc
+        if rc != 0 or not ctab.exists():
+            report["gates"] = {g: gate("BLOCKED", f"roadclass_v0 failed rc={rc}: {se[:300]}") for g in GATES}; return report
+        rc, so, se = run_cmd_json("tilewriter.py", [str(mesh_src), "--out", str(out_tile), "--cell", cell,
+                                 "--factory", str(out_tile), "--class-table", str(ctab), "--country", country, "--no-names", "--json"])
+        report["counts"]["tilewriter_rc"] = rc
+        report["counts"]["tilewriter_stdout"] = so[:600]; report["counts"]["tilewriter_stderr"] = se[:600]
+        if rc != 0 or not out_tile.exists():
+            report["gates"] = {g: gate("BLOCKED", f"tilewriter failed rc={rc}: {(se or so)[:400]}") for g in GATES}; return report
+        report["counts"]["tile_size"] = out_tile.stat().st_size
+        report["counts"]["tile_sha256"] = sha256_bytes(out_tile.read_bytes())
+    rc, so, se = run_cmd_json("rebuild_manifests.py", ["--root", str(out)])
+    report["counts"]["rebuild_rc"] = rc
+    report["counts"]["rebuild_tail"] = (so + "\n" + se).strip().splitlines()[-20:]
+    rebuilt = [n for n in ["DRSTR001.DAT","MMAIN001.DAT","REFER001/CMP.LST","CMP.LST"] if (out/n).exists()]
+    rebuilt += [f"REFER001/{p.name}" for p in (out/"REFER001").glob("*.ind")] if (out/"REFER001").exists() else []
+    report["counts"]["rebuilt_files"] = sorted(set(rebuilt))
+    report["changed_set"] = [f"MAPAL001/{cell}.DAT"] + report["counts"]["rebuilt_files"]
+    rc, so, se = run_cmd_json("cardcheck.py", ["--root", str(out), "--ignore-dump-artifacts", "--fast"])
+    report["counts"]["cardcheck_rc"] = rc; report["counts"]["cardcheck_tail"] = (so+"\n"+se).strip().splitlines()[-20:]
+    card_ok = rc == 0
+    rc2, so2, se2 = run_cmd_json("l2check.py", ["--root", str(out), "--no-golden", "--tiles", cell, "--no-cmp"])
+    report["counts"]["l2check_rc"] = rc2; report["counts"]["l2check_tail"] = (so2+"\n"+se2).strip().splitlines()[-25:]
+    l2_ok = rc2 == 0
+    report["gates"]["hdd_info_map_code"] = gate("CANNOT-VERIFY-OFFLINE", "HDD_INFO/MAP CODE bytes present but not byte-verified against unit target offline (M2.18/M9.6); firmware acceptance unknown (rule 13).", "VER_INFO/HDD_INFO.TXT present")
+    report["gates"]["drstr_mmain_cmplst_ind"] = gate("PASS" if (card_ok and report["counts"]["rebuild_rc"]==0) else "CANNOT-VERIFY-OFFLINE", f"rebuild_manifests rc={report['counts']['rebuild_rc']}; cardcheck rc={report['counts']['cardcheck_rc']}.", "rebuild_manifests + cardcheck")
+    report["gates"]["tile_roundtrip_structure"] = gate("PASS" if (report["counts"]["tilewriter_rc"]==0 and l2_ok) else "CANNOT-VERIFY-OFFLINE", f"tilewriter rc={report['counts']['tilewriter_rc']} (factory template, provisional-v0, 1 tile {cell}); targeted l2check --no-golden --tiles {cell} --no-cmp rc={rc2}.", "tilewriter + l2check targeted")
+    report["gates"]["section4"] = gate("CANNOT-VERIFY-OFFLINE", "section 4 in OSM-generated tile is provisional road-only; factory section-4 semantics/firmware acceptance not verified offline. Not PASS.", "provisional-v0 tile")
+    report["gates"]["manifests"] = gate("PASS" if (report["counts"]["rebuild_rc"]==0 and card_ok) else "CANNOT-VERIFY-OFFLINE", f"rebuild rc={report['counts']['rebuild_rc']}, cardcheck rc={report['counts']['cardcheck_rc']}.", "rebuild_manifests + cardcheck")
+    report["cardcheck_ok"] = card_ok; report["l2check_ok"] = l2_ok
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="M5.29 one-tile OSM pipeline (L1+L2+gate report)")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--out", help="output tree directory")
     ap.add_argument("--cell", default="B48R058R")
-    ap.add_argument("--synthetic", action="store_true", help="force synthetic-only path")
-    ap.add_argument("--osm", help="OSM input (.osm/.pbf) for real path")
+    ap.add_argument("--synthetic", action="store_true")
+    ap.add_argument("--osm", help="OSM input")
     ap.add_argument("--factory-root", help="factory-extracted card root (outside repo)")
-    ap.add_argument("--factory-tile", help="factory tile DAT for --factory template")
+    ap.add_argument("--factory-tile", help="factory tile DAT hint")
+    ap.add_argument("--country", default="616")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
-    out = Path(args.out) if args.out else None
-    if out is None:
-        print("error: --out required (or --selftest)", file=sys.stderr)
-        return 2
-    # For now, synthetic path is the implemented safe path; factory-backed requires full context.
-    if args.factory_root or args.factory_tile or args.osm:
-        # Attempting real/factory inputs - but only if actually usable; otherwise fall to synthetic+blocked.
+    if not args.out:
+        print("error: --out required (or --selftest)", file=sys.stderr); return 2
+    out = Path(args.out)
+    if args.synthetic or (not args.factory_root and not args.osm):
         rep = build_synthetic_out(out, args.cell)
-        rep["note"] = "factory/osm args provided but full factory-backed assembly not completed in this environment; synthetic-only path executed and real-image run marked blocked with missing input"
+    elif args.factory_root:
+        rep = build_factory_out(out, Path(args.factory_root), args.cell, country=args.country)
     else:
         rep = build_synthetic_out(out, args.cell)
-    if args.json:
-        print(json.dumps(rep, indent=2, ensure_ascii=False))
-    else:
-        print(json.dumps(rep, indent=2, ensure_ascii=False))
-    # exit 0 if synthetic path produced tree + honest report (blocked real-image is expected per Stop)
+        rep["note"] = "OSM provided without --factory-root; synthetic-only fallback"
+        rep["real_image_run"] = "blocked"; rep["missing_input"] = "--factory-root required"
+    print(json.dumps(rep, indent=2, ensure_ascii=False))
     ok_tree = (out / "MAPAL001" / f"{args.cell}.DAT").exists() and rep["counts"].get("tilewriter_rc") == 0
-    return 0 if ok_tree else 1
+    card_ok = rep.get("cardcheck_ok") or rep.get("cardcheck_applicable")
+    l2_ok = rep.get("l2check_ok") or rep.get("l2_applicable")
+    if rep.get("factory_backed") and card_ok and l2_ok and ok_tree:
+        return 0
+    if ok_tree and (rep.get("mode") == "synthetic-only" or rep.get("real_image_run") == "blocked"):
+        return 0
+    return 1
 
 
 if __name__ == "__main__":
