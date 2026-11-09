@@ -1185,7 +1185,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-09-H37-24h-se-review.md (80 commits 88332de..65e6ae2 audited; 7 follow-up tasks added H38/H39/M4.35/M5.31/M5.32/M9.28; claims_check OK; sampled selftests OK; no done-task status reversals).
 
 - [ ] **H38 — `selftest.py`: discover and run `tools/l3_harness` selftests**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Status: in progress · Owner: task/h38-selftest-l3-harness · Critical: yes · Pair: solo
   - Depends: —
   - Goal: prevent L3 harness regressions from bypassing the main selftest gate (M9.20 noted `tools/selftest.py` does not discover `l3_harness/`).
   - Scope: `tools/selftest.py` discovery/wiring and/or a thin wrapper; run `tools/l3_harness/selftest.py` (and any `l3_harness` tools with `--selftest` that fit the suite contract) as part of `python3 tools/selftest.py`. No behavior changes to harness logic.
