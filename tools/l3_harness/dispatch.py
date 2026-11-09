@@ -1881,20 +1881,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="L3 stub dispatcher")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list", help="show bindings and implementation coverage")
-    sub.add_parser("selftest", help="run the dispatcher self-test")
+    st = sub.add_parser("selftest", help="run the dispatcher self-test (bounded; accepts --full for interface consistency)")
+    mode = st.add_mutually_exclusive_group()
+    mode.add_argument("--quick", action="store_true")
+    mode.add_argument("--full", action="store_true")
     return parser
 
 
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv[:1] == ["--selftest"]:
-        argv = ["selftest"]
+    # Keep a simple --selftest alias while accepting --full/--quick.
+    if argv and argv[0] == "--selftest":
+        argv = ["selftest"] + argv[1:]
 
     parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.command == "selftest":
-        return selftest()
+        full = bool(getattr(args, "full", False))
+        code = selftest()
+        if code == 0:
+            # selftest() prints its own summary; append mode on a new line for
+            # callers that want to confirm the bounded/full contract (M1.18).
+            print(f"dispatch selftest mode: {'full' if full else 'quick'}")
+        return code
     if args.command == "list":
         _print_list()
         return 0

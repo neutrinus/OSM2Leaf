@@ -2664,14 +2664,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="print the plan/command without running anything",
     )
 
-    sub.add_parser("selftest", help="run the package self-test")
+    st = sub.add_parser("selftest", help="run the package self-test")
+    mode = st.add_mutually_exclusive_group()
+    mode.add_argument("--quick", action="store_true",
+                      help="bounded checks (default); fast path for main loops")
+    mode.add_argument("--full", action="store_true",
+                      help="complete checks, including external back-end parity when available")
     return parser
 
 
 def main(argv=None, env=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv[:1] == ["--selftest"]:
-        return selftest_targets()
+    if argv and argv[0] == "--selftest":
+        rest = list(argv[1:])
+        full = "--full" in rest
+        return selftest_targets(full=full)
 
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -2679,7 +2686,8 @@ def main(argv=None, env=None) -> int:
     if args.command == "selftest":
         from l3_harness import selftest
 
-        return selftest.main([])
+        child = ["--full"] if getattr(args, "full", False) else []
+        return selftest.main(child)
     if args.command == "check":
         return cmd_check(args)
     if args.command == "plan":
@@ -2699,6 +2707,7 @@ def main(argv=None, env=None) -> int:
 
 SELFTEST_CHECKS: list[tuple[str, callable]] = []
 SELFTEST_SKIPS: list[str] = []
+RUNNER_FULL_SELFTEST = False
 
 
 def check(name):
@@ -2968,9 +2977,44 @@ def _backend_skip(name: str, data: bytes, tmp, engine_name: str) -> None:
     availability = next(
         item for item in engine_mod.probe_all([engine_name])
     )
-    code, payload, output = _run_json(
-        tmp, data, extra=("--engine", engine_name)
-    )
+    if availability.available and not RUNNER_FULL_SELFTEST:
+        # External execution is bounded/slow and adapters may be unverified;
+        # quick mode records an honest SKIP (never PASS). --full attempts it.
+        SELFTEST_SKIPS.append(
+            f"{engine_name}: SKIPPED_IN_QUICK - external back-end execution skipped "
+            f"in quick selftest (use --full); {availability.detail}"
+        )
+        return
+    if availability.available and RUNNER_FULL_SELFTEST:
+        # Bound external execution so --full cannot hang a gate (M1.18). The
+        # adapter is unverified; a timeout is a loud failure, never a pass.
+        try:
+            import signal
+
+            def _alarm(signum, frame):
+                raise TimeoutError(
+                    f"{engine_name} external execution exceeded 45s bound"
+                )
+
+            old = signal.getsignal(signal.SIGALRM)
+            signal.signal(signal.SIGALRM, _alarm)
+            signal.alarm(45)
+            try:
+                code, payload, output = _run_json(
+                    tmp, data, extra=("--engine", engine_name)
+                )
+            finally:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, old)
+        except TimeoutError:
+            raise AssertionError(
+                f"{engine_name}: external execution exceeded 45s bound in --full; "
+                "adapter may be unverified/broken (record as limitation, not a pass)"
+            )
+    else:
+        code, payload, output = _run_json(
+            tmp, data, extra=("--engine", engine_name)
+        )
     if not availability.available:
         expected = f"MISSING_{engine_name.upper()}"
         assert availability.code == expected, availability.as_dict()
@@ -3079,9 +3123,17 @@ def test_firmware_call_missing_file(tmp):
     assert "missing input" in " | ".join(payload.get("problems", [])), payload
 
 
-def selftest_targets() -> int:
-    """Run the runner's own synthetic target checks; a SKIP is not a pass."""
+def selftest_targets(*, full: bool = False) -> int:
+    """Run the runner's own synthetic target checks; a SKIP is not a pass.
 
+    ``full`` runs external back-end execution checks that may be slow or need a
+    working Ghidra/QEMU adapter.  Default quick skips that execution honestly
+    (M1.18).
+    """
+
+    global RUNNER_FULL_SELFTEST
+    RUNNER_FULL_SELFTEST = full
+    SELFTEST_SKIPS.clear()
     failures = 0
     for name, func in SELFTEST_CHECKS:
         with tempfile.TemporaryDirectory() as tmp:
@@ -3102,16 +3154,17 @@ def selftest_targets() -> int:
     print()
     total = len(SELFTEST_CHECKS)
     skipped = len(SELFTEST_SKIPS)
+    mode = "full" if full else "quick"
     if failures:
-        print(f"selftest: FAILED ({failures}/{total} checks, {skipped} skipped)")
+        print(f"selftest: FAILED ({failures}/{total} checks, {skipped} skipped, {mode})")
         return EXIT_INVALID
     if skipped:
         print(
-            f"selftest: OK ({total - skipped} checks, {skipped} skipped) - "
+            f"selftest: OK ({total - skipped} checks, {skipped} skipped, {mode}) - "
             "a skipped back end is not a pass"
         )
     else:
-        print(f"selftest: OK ({total} checks, every back end ran)")
+        print(f"selftest: OK ({total} checks, every back end ran, {mode})")
     return EXIT_OK
 
 

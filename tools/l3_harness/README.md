@@ -29,7 +29,7 @@ the unit accepts a card; that is L4.
 ## Quick start
 
 ```bash
-# 1. self-test: no inputs required
+# 1. self-test: no inputs required (quick default; --full for complete suite)
 python3 tools/l3_harness/selftest.py
 
 # 2. schema and stub table
@@ -79,7 +79,28 @@ python3 tools/l3_harness/runner.py run NAME \
 
 The package lives one level below `tools/`, and `tools/selftest.py` only
 discovers `tools/*.py`, so this self-test is **not** picked up by the repo
-runner yet. Run it explicitly.
+runner yet (H38). Run it explicitly.
+
+## Self-tests: quick vs full (M1.18)
+
+Default selftests are **quick/bounded** for agent/main loops. Pass `--full` for
+the complete suite. Verdict semantics are unchanged: a SKIP is never a PASS.
+
+| Command | Quick (default) | `--full` |
+| --- | --- | --- |
+| `selftest.py` | all 32 synthetic checks | same (already bounded) |
+| `runner.py --selftest` / `selftest` | target checks; external back-end execution skipped honestly when a back end is available but unverified/slow | attempts external back-end execution with a wall-clock bound |
+| `engine.py --selftest` | PySh4/reference checks; Ghidra/QEMU parity execution skipped honestly as `SKIPPED_IN_QUICK` | runs external parity (bounded by wall clock; a timeout/adapter failure is a loud FAIL, not a PASS/SKIP) |
+| `dispatch.py --selftest`, `ghidra/l3_run.py --selftest` | full local checks (already fast) | same, accepts flag for H38 selector consistency |
+
+Bound (this host, 2026-11-09, main-branch baseline): `l3_harness/selftest.py`
+~0.19s, `runner.py selftest` ~0.18s, `runner.py --selftest` ~0.09s,
+`dispatch.py --selftest` ~0.09s, `ghidra/l3_run.py --selftest` ~0.09s,
+`engine.py --selftest` quick ~0.06s. The dominant pre-M1.18 cost was
+`engine.py` external QEMU parity (qemu-system-sh4 present; gdbstub adapter
+unverified) which hung/timed out the gate; quick mode skips that execution with
+an explicit SKIP reason. Full mode still exercises it with a wall-clock bound
+and reports the outcome honestly.
 
 ## Corpus manifest
 
