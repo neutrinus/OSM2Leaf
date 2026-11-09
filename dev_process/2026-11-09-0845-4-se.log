@@ -1,0 +1,41 @@
+role: se
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 08:45
+end_utc: 2026-11-09 (in progress)
+origin_main_start: e74fe1f
+
+inputs_read:
+- AGENTS.md, TODO.md (rules, priorities, workstreams, M3/M5/M9/H tasks), prompt_common.txt, prompt_se.txt
+- dev_process/2026-11-09-0828-2-po.log, 2026-11-09-0837-3-qa.log, 2026-11-09-0823-1-sm.log
+- git log --since=24.hours origin/main (167 commits), EXP files added 2026-11-08-M*.md
+- docs/experiments/TEMPLATE.md (spot), EXP-2026-11-08-M9.11-chunk-decoder, M9.11b-firmware-call-target, M3.19-sh4scan, M4.16b-rdstm-field-walk, M5.12c-poi-copies, M5.4-tile-splice (headers/methods/controls)
+- tools/l3_harness/targets.json (cmp_ind_reader firmware_call+sec1_table present), tools/sh4scan.py (--via-reg, selftest OK)
+
+actions_taken:
+- git fetch && git pull --ff-only (up to date e74fe1f). Created work log (N=4, 2026-11-09).
+- Verified board checks: claims_check OK (0 dup/unregistered/bad); todo_check OK (pre-existing M9.1/M9.3/M9.4/M8 warnings only). sh4scan --selftest OK. cmp_ind_reader registered in targets.json as firmware_call with sec1_table (M9.11b landed).
+- Reviewed 24h completed/blocked tasks: M1.13 done (471/471, controls, claims C-2570-2579) OK; M5.20 done/reconciled; M9.20/M9.21/M9.22/M5.4/M4.17/M5.1b/M5.1c/M1.11 done with EXPs/claims; M9.11b done and filled cmp_ind_reader; M4.23/M3.11b/M4.16b/M3.14/M4.22/M9.14/M9.17/M4.2/M4.3/M4.8b/M1.2f/M3.15 blocked with negative EXPs/controls; M3.19 reopened (M3.20 done) but done-when needs real-image count reproduction including mask-pair --via-reg; M5.12c blocked in TODO (M5.27 tracks) but EXP header still says done (defect tracked by M5.27); M9.11 open/reopened though M9.11b registered cmp_ind_reader and M9.11/M9.11b EXPs show firmware path+controls pass - stale precheck/scope text, needs explicit close verification.
+- Checked retired-lead traps: reviewed EXPs used LE/cerom where relevant; M3.19 did not adjust tool to fit mismatch (recorded discrepancy) - good; M9.11b declared sec1 table provenance (not silent default) - good.
+
+task_ids_added: M1.18 (C-3390-3399), M3.21 (C-3380-3389), M9.32 (C-3370-3379), M9.33 (C-3400-3409)
+task_ids_changed: none (review only; no status edits to in-progress tasks)
+task_ids_moved/blocked/reopened: none by SE (noted M3.19 reopened by PO/rule15 needs IMG256 verification; M9.11 open but likely done-when met via M9.11b -> M9.32; M5.12c blocked/EXP header mismatch tracked by M5.27)
+prs: none
+commits: this run (docs: se 24h review follow-ups and work log)
+
+decisions:
+- Added 4 targeted tasks (max ~8): M9.32 closes M9.11 reconciliation (critical L3 path, cmp_ind_reader already registered by M9.11b); M3.21 verifies M3.19 on IMG256 with M3.20 --via-reg; M1.18 bounds l3_harness selftest runtime (observed timeout); M9.33 maps reopened L3 rerun prerequisites via H45/M9.28. Rejected adding M5.12c EXP-header task (M5.27 already covers), rejected TODO reflow/cleanup edits (concurrent agents), rejected marking M9.11 done without full all-pairs-via-runner verification.
+- Did not re-run vendor-image Done-when commands (IMG256/ROOT unavailable in this pass except via fetch not executed); noted rule 11/fetch_image for M3.21.
+- Kept EXP defects as follow-ups (M5.12c header, M3.19 count discrepancy documented in EXP) rather than silent edits.
+
+problems/dead_ends:
+- `python3 tools/l3_harness/runner.py --selftest` exceeded 120s in review context (M1.18 filed).
+- TODO structure has interleaved/duplicated section markers in places (e.g. M4.24 text before M3 heading at 721, multiple M6 headings); SE avoided reordering per rule 4/prompt_common.
+- M9.11 done-when evidence split across chunk_decoder_l3/M9.11 EXP (all pairs) and M9.11b runner registration (factory+controls via runner); M9.32 requires explicit end-to-end reconciliation.
+
+handoff:
+- TL: schedule M9.32 (pair required, L3/firmware path) and M3.21 (solo, needs IMG256 fetch) as critical-path/cleanup; M1.18 coordinates with H38; M9.33 waits on H45/M9.28.
+- Next SE: verify M9.32/M3.21 results; check M5.27 reconciles M5.12c EXP header when it lands; watch M1.2f unblock cascade (M9.14/M9.17/M4.16b/M3.x readers) — require H45/M9.28 preconditions before reruns.
+- Human: none required by this SE pass.
+
+end_utc: 2026-11-09 08:49 UTC

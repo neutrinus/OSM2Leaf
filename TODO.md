@@ -718,6 +718,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
   - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
 
+- [ ] **M1.18 — Bound `l3_harness` selftest runtime and keep full coverage available**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (coordinates with H38)
+  - Goal: `tools/l3_harness/runner.py --selftest` / full L3 harness checks can dominate agent loops (observed timeout during SE review); make the fast path bounded while preserving a full, honest selftest.
+  - Precheck: reproduce baseline runtime: `python3 tools/l3_harness/runner.py --selftest` or the harness aggregate used by H38/selftest.py; record wall time and which cases dominate.
+  - Scope: `tools/l3_harness/selftest.py` and/or `runner.py selftest` interface (add `--quick`/`--full` or split slow cases, name chosen form in PR) plus documentation; integrate cleanly with H38/selftest.py selectors. No change to verdict semantics; SKIP/BLOCKED remain honest.
+  - Input: `tools/l3_harness/selftest.py`, `runner.py`, `dispatch.py`/`engine.py`/`ghidra/l3_run.py` selftests, H38, `tools/selftest.py`.
+  - Done when: the default/quick harness check used by main loops completes within a documented bound and `--full` (or equivalent) still runs the complete suite; `selftest.py` behavior remains correct; EXP records timings and controls (quick pass, full pass, or explicit SKIP reasons).
+  - Stop: if PySh4/module-mapping cases cannot be made fast without reducing coverage, keep them in `--full` and document the split; do not remove slow-but-meaningful checks.
+  - Claims: C-3390–C-3399
+
 ## M3 — Reader contract
 
 - [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
@@ -1238,6 +1249,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: validators pass on synthetic positive/negative fixtures; CI output shows L5 readiness-checked and local-only sections; H27 can ingest manual-result template format; no default PR job downloads vendor images.
   - Stop: if H29 format undefined, deliver minimal schema proposal + synthetic fixture and block implementation details on H29 with `Unblock:`.
   - Claims: C-3310–C-3319
+
+- [ ] **M3.21 — Close M3.19: reproduce all `sh4scan` counts on IMG256 including `mask-pair --via-reg`**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Depends: M3.19, M3.20
+  - Goal: M3.19 is open after M3.20 added register-AND mask handling, but its done-when requires reproducing every published count on IMG256 (including the M3.11 mask hit) and recording the corpus. Verify and close M3.19 or record a precise discrepancy.
+  - Precheck: `python3 tools/sh4scan.py --selftest` passes and `--help` shows `mask-pair --via-reg`; `python3 tools/fetch_image.py --image IMG256 -o IMG256.head` can obtain the pinned head (rule 11).
+  - Scope: run `sh4scan.py` subcommands on IMG256 build A (`--image-start 0x200200`) for the counts in M3.19 scope: corpus bytes/sections, tags/pattern `8868`, `mask-pair` and `mask-pair --via-reg` for the M3.11 case, stride, anchors. Compare to published counts; do not adjust tool to fit (AGENTS/EXP stop rule).
+  - Input: `tools/sh4scan.py`, M3.19 EXP/count list, M3.20 `--via-reg`, IMG256 `92aa525d…`.
+  - Done when: an EXP table shows each published count, the command, and reproduced? (yes/no) on IMG256; M3.19 is set `done` with `Result:` if all counts reproduce (with M3.20 variant where applicable), or `blocked` naming the exact differing count/site and `Unblock:`. Any non-reproduced published number is corrected in claims/EXP text, not hidden.
+  - Stop: if IMG256 cannot be obtained in the environment, set `blocked` with fetch/provenance issue named (not "no image" as a blanket blocker — use fetch_image path per rule 11).
+  - Claims: C-3380–C-3389
 
 ---
 
@@ -2912,6 +2934,28 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: on a synthetic or documented fixture where card and factory inputs are identical, `l3check.py --card ... --factory ...` (with the chosen no-diff mode) runs at least the runnable M9.11/M9.6-equivalent paths available in that fixture and reports explicit verdicts (not bare `NO_DIFFS`/exit 3 without verdicts), with selftest/EXP evidence; M9.12 can cite it as the S0/S1 unblock path.
   - Stop: if no registered runnable target can declare a safe baseline corpus, report `NO_RUNNABLE_BASELINE_TARGETS` with reasons and keep M9.12 blocked (do not fabricate verdicts).
   - Claims: C-3320–C-3329
+
+- [ ] **M9.32 — Reconcile M9.11: `cmp_ind_reader` meets done-when or block precisely**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M9.11, M9.11b
+  - Goal: close the M9.11 reopen cleanly: M9.11b registered `cmp_ind_reader` as `firmware_call` with declared sec1 `inflate_mask[17]` provenance, but M9.11 remains open with stale precheck/scope text and its done-when requires all three POINT010 pairs + controls through the firmware path/target.
+  - Precheck: `python3 tools/chunk_decoder_l3.py --selftest` and `python3 tools/l3_harness/runner.py --selftest` (or bounded equivalent) pass; `targets.json` contains `cmp_ind_reader` `firmware_call` with `sec1_table`; factory/S1/S2 POINT010 pairs available per rule 11 (M5.13b tree or fetchable inputs).
+  - Scope: verify M9.11 done-when end-to-end: for factory, S1, S2 pairs page `0x840ba0` byte-identical to `cmpind.py extract` via the registered runner target (or documented equivalent that exercises the same registered path for all pairs), plus corrupt-`.ind` and swapped `+4`/`8` controls as in EXP-2026-11-08-M9.11-chunk-decoder. Update M9.11 task text (precheck/scope/note) to reflect M9.11b. No new format claims.
+  - Input: `tools/l3_harness/runner.py`, `targets.json`, `tools/chunk_decoder_l3.py`, `tools/cmpind.py`, EXP-2026-11-08-M9.11-chunk-decoder, EXP-2026-11-08-M9.11b-firmware-call-target, M5.13b S1/S2/factory pairs.
+  - Done when: M9.11 is `done` with `Result:` naming an EXP that records all three pairs + controls passing through the registered target/path and cites sec1-table provenance, OR M9.11 is `blocked` with the exact missing pair/control/runner gap and `Unblock:` named. No stale "no firmware-call entry kind" text remains in M9.11.
+  - Stop: if S1/S2 corpora are unavailable and cannot be obtained by existing tools, block with missing corpus named (do not claim all-pairs pass on factory only).
+  - Claims: C-3370–C-3379
+
+- [ ] **M9.33 — Map reopened L3 target rerun prerequisites (M1.2f / M9.24 / M9.28 / H45)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H45, M9.28
+  - Goal: make "re-run reopened L3 reader targets" cheap to decide: for M9.6/M9.10/M9.13/M9.14/M9.17/M9.11 (open states), state which blockers are cleared (M9.20/M9.11b/M3.20) and which prerequisites remain (sec1 decompression M1.2f, import/CRT/file binding M9.24, input-buffer mapping M9.28, reader VA/signature evidence), using H45 verdicts where available.
+  - Precheck: `test -f tools/l3_precond.py` or the H45-delivered tool exists and `--selftest` passes (else task becomes `blocked` on H45 with that named).
+  - Scope: docs/planning output (EXP or a small table update in `docs/research/reader-coverage.md` notes / TODO task notes, named in PR) — no firmware execution, no silent PASS. Keep rule 13: verdict tables are planning aids, not L3 results.
+  - Input: H45, M9.28, targets.json, reader-coverage matrix, EXPs for M9.6/M9.11/M9.13/M9.14/M9.17, M1.2f/M9.24 task texts.
+  - Done when: each reopened/blocked L3 reader target above has an explicit `READY|BLOCKED|UNKNOWN` prerequisite verdict with missing dependency IDs (or "H45 unavailable") recorded in an EXP; TODO/coverage notes reference it. No target is marked runnable without evidence.
+  - Stop: if H45 is unavailable and target metadata is insufficient, record `UNKNOWN` with missing fields and stop (do not guess).
+  - Claims: C-3400–C-3409
 
 ## Retired leads
 
