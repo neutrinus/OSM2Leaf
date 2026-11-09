@@ -207,7 +207,7 @@ qemu-system-misc gdb-multiarch`.
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline before L2–L5. `M5.30`, `M6.13`.
 - **L2 (cheap, necessary not sufficient, rule 13):** Poland: **`M5.28`** (provisional `highway→Clarion`, L2-testable) → **`M5.29`** (one OSM tile swapped into factory EU, L1+L2+gate) → **`M5.30`** (1:1 diff) → **`M5.11`** (Phase-2). Support: `M5.3`, `M5.22`, `M5.23`, `M5.6`, `M5.21`, `M2.18`, manifest/ATTR/FROUTE follow-ups.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. **`M9.12`** `--card` gate blocked (S0/S1 no-diff; rule-13 evidence path via runnable targets/registry). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock data readers; **`M9.11`**/**`M3.11b`**/**`M3.19`** re-opened (M9.11b/M3.20 done, rule 15) — verify preconditions before reruns; **`M9.6`/`M9.13`** re-opened (may re-block). **`M3.11c` → `M9.10`**; **`M9.31`/`H45`** runnable L3 evidence/gating (stale `M9.27` ref removed 2026-11-09).
+- **L3 (virtual):** SKIP/BLOCKED never PASS. **`M9.12`** `--card` gate blocked (S0/S1 no-diff; rule-13 evidence path via runnable targets/registry). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock data readers; **`M9.11`**/**`M3.11b`**/**`M3.19`** re-opened (M9.11b/M3.20 done, rule 15) — verify preconditions before reruns (`python3 tools/l3_precond.py --target <name>`, H45); **`M9.6`/`M9.13`** re-opened (may re-block). **`M3.11c` → `M9.10`**; **`M9.31`/`H45`** runnable L3 evidence/gating (stale `M9.27` ref removed 2026-11-09).
 - **L4 (QEMU/M8):** software integration before L5 where feasible; not final acceptance.
 - **L5 (bench/car, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep: **`M6.13`** S3 manifest, **`M9.31`/`H45`** runnable L3 evidence and **`H29`** prep. Run runnable L3/L4 prechecks before each bench card. (stale `H31`/`M9.27` refs removed 2026-11-09)
 
@@ -335,9 +335,10 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: jeśli polityka bezpieczeństwa/udostępniania obrazów jest niejasna, workflow tylko generuje checklistę/manifestspec i zatrzymuje się przed pakowaniem binariów — `blocked` z pytaniem do właściciela danych.
   - Claims: C-2790–C-2799
 
-- [ ] **H45 — `l3_precond`: reachability gate for reopened L3 reader reruns (retro action 4)**
-  - Status: open · Owner: — · Critical: no
+- [x] **H45 — `l3_precond`: reachability gate for reopened L3 reader reruns (retro action 4)**
+  - Status: done · Owner: task/h45-l3-precond · Critical: no
   - Pair: solo
+  - Result: `tools/l3_precond.py` (`--selftest`, `--json`) gates reopened L3 reruns with `READY|BLOCKED|UNKNOWN` + M1.2f/import/input/binding reasons; `cmp_ind_reader` READY (declared inputs, M1.2f sec1 verification mitigated) and `drstr_parser` BLOCKED (M1.2f/compressed-sec1/import/mapping) on real `targets.json` metadata; TODO L3 rerun guidance references it. EXP: `docs/experiments/EXP-2026-11-09-H45-l3-precond.md`. Claims C-3330-C-3333.
   - Depends: M1.12 (reader precheck patterns), M9.20/M9.24 context (entry kinds/mapping)
   - Goal: before any reopened L3 reader run is claimed, make the M1.2f+import+input/binding preconditions explicit and machine-checkable so SE/TL can reject "fourth attempt, same blocker" reruns.
   - Precheck: `python3 tools/reader_precheck.py --selftest` (or existing precheck tooling) passes; reopened L3 reader tasks in TODO list a Precheck/Scope/Stop.

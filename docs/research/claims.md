@@ -2476,3 +2476,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2167 | RESERVED (M9.12). | — | — | — |
 | C-2168 | RESERVED (M9.12). | — | — | — |
 | C-2169 | RESERVED (M9.12). | — | — | — |
+
+## H45 — `l3_precond` reachability gate for reopened L3 reader reruns (C-3330–C-3339)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3330 | `tools/l3_precond.py` provides a machine-checkable precondition gate for reopened L3 reader reruns: for a named `targets.json` target (or ad-hoc VA/module) it reports executable/data byte context (image-enriched when an image is supplied; otherwise unknown/metadata-hinted), compressed-sec1/data dependency (M1.2f), import/input/binding reachability, and a `READY|BLOCKED|UNKNOWN` verdict with reasons. No firmware execution; no vendor bytes committed. | VERIFIED (tool, synthetic + real target metadata) | M | EXP-2026-11-09-H45-l3-precond; `python3 tools/l3_precond.py --selftest` |
+| C-3331 | `l3_precond` verdict semantics are conservative: `READY` means no known M1.2f/import/input/binding blocker in checked metadata (with declared-input mitigations reported explicitly); `BLOCKED` means a known blocker applies (e.g. M1.2f compressed-sec1 data/imports unreachable, missing entry/mapping); `UNKNOWN` means stable metadata/image facts are insufficient and the verdict is never guessed as `READY`, with missing fields listed. A `READY` verdict is not a firmware acceptance verdict (rule 13). | VERIFIED (tool contract/selftest) | M | EXP-2026-11-09-H45-l3-precond; `tools/l3_precond.py --selftest` (adhoc/metadata-insufficient cases return UNKNOWN) |
+| C-3332 | On real `tools/l3_harness/targets.json` definitions (metadata-only, no image), `l3_precond` reports `cmp_ind_reader` (runnable/baseline-known firmware_call with declared `sec1_table` input, M9.11 path) as `READY` with M1.2f sec1-byte-verification-open mitigated by declared input, and reports `drstr_parser` as `BLOCKED` with M1.2f/compressed-sec1 dependency and blocked import/entry-mapping reachability reasons. `tile_reader`/`hddinfo_compare` (missing entry/mapping/runtime binding) are `BLOCKED`. | VERIFIED (tool, real target metadata) | M | EXP-2026-11-09-H45-l3-precond; `python3 tools/l3_precond.py --target cmp_ind_reader --target drstr_parser --json` |
+| C-3333 | TODO L3 rerun guidance references `l3_precond.py` for precondition checks before reopened L3 reader reruns (H45), enabling TL/SE to reject "fourth attempt, same blocker" reruns when prerequisites remain `BLOCKED`/`UNKNOWN`. | VERIFIED (doc) | H | `TODO.md` L3 (virtual) guidance; EXP-2026-11-09-H45-l3-precond |
+| C-3334 | RESERVED (H45). | — | — | — |
+| C-3335 | RESERVED (H45). | — | — | — |
+| C-3336 | RESERVED (H45). | — | — | — |
+| C-3337 | RESERVED (H45). | — | — | — |
+| C-3338 | RESERVED (H45). | — | — | — |
+| C-3339 | RESERVED (H45). | — | — | — |
