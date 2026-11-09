@@ -30,8 +30,9 @@ produce a card. The two sides are tracked separately below.
 | **L3 result** | `BLOCKED (4)` = the runner exits 4 and claims nothing; `—` = never run |
 | **F4** | full `Navi.exe` on a generated card, `M8.E4`; every row is `—` until that EXP exists |
 
-No cell below is a hardware result. The verification ladder stops at L2/L3;
-the car is L4 and has not run (`docs/research/card-test-plan.md`).
+No cell below is a hardware result. The verification ladder stops at L2–L4
+(firmware fragments/emulator where available);
+the car is L5 (bench/car) and has not run (`docs/research/card-test-plan.md`).
 
 ## Matrix
 

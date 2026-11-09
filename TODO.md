@@ -199,7 +199,7 @@ qemu-system-misc gdb-multiarch`.
 
 ## Priorities (PO grooming 2026-11-09; 10th PM pass 2026-11-08 frozen in `docs/research/todo-history-2026-11-06.md`)
 
-**Goal:** OSM-derived maps run in a Nissan Leaf ZE0. SE added/updated since last PO pass (retro 2026-11-09): `M9.12` blocked (S0/S1 no-diff), `M3.18` blocked, `M8.B4` done, `M4.27` blocked, `M3.16` blocked (r2), `M3.20` done, `M4.28` blocked (r2), `M4.32` done, `M4.29` done (r2), plus `M2.18`/`M5.28`–`M5.30` direction tasks. Nearest milestone: **bench/L4 prep** (S1/S2 `M5.13b`, S3 `M5.14`; hardware waits on Marek). Archive 2026-11-09: done, non-blocking, pre-2026-11-09 tasks moved to `docs/research/todo-history-2026-11-09.md`.
+**Goal:** OSM-derived maps run in a Nissan Leaf ZE0. SE added/updated since last PO pass (retro 2026-11-09): `M9.12` blocked (S0/S1 no-diff), `M3.18` blocked, `M8.B4` done, `M4.27` blocked, `M3.16` blocked (r2), `M3.20` done, `M4.28` blocked (r2), `M4.32` done, `M4.29` done (r2), plus `M2.18`/`M5.28`–`M5.30` direction tasks. Nearest milestone: **bench/L5 prep** (S1/S2 `M5.13b`, S3 `M5.14`; hardware waits on Marek). Archive 2026-11-09: done, non-blocking, pre-2026-11-09 tasks moved to `docs/research/todo-history-2026-11-09.md`.
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
@@ -324,14 +324,14 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: jeśli pobranie IMG256 jest niestabilne/niedozwolone w docelowym runnerze, tryb opcjonalny zostaje wyłącznie `workflow_dispatch` na self-hosted/approved runnerze z dokumentacją — nie blokuje PR joba.
   - Claims: C-2780–C-2789
 
-- [ ] **H29 — L4 (hardware/Marek): automatyzacja przygotowania artefaktów i rejestracji wyników S0–S3**
+- [ ] **H29 — L5 (hardware/Marek, car): automatyzacja przygotowania artefaktów i rejestracji wyników S0–S3**
   - Status: open · Owner: — · Critical: no
   - Depends: H27, M5.13b (S1/S2 istnieją), M6.2/M6.5–M6.7 (protokół)
-  - Goal: L4 nie da się zautomatyzować w GHA (wymaga auta), ale da się zautomatyzować przygotowanie paczki testowej i powtarzalną rejestrację wyniku, żeby postęp L4 był widoczny w tym samym systemie co L1–L3.
+  - Goal: L5 (bench/car) nie da się zautomatyzować w GHA (wymaga auta), ale da się zautomatyzować przygotowanie paczki testowej i powtarzalną rejestrację wyniku, żeby postęp L5 był widoczny w tym samym systemie co L1–L4.
   - Precheck: `docs/research/card-test-plan.md` i taski M6.2/M6.5–M6.7 opisują S0–S3; `tools/imgpatch.py`/artefakty S1/S2 są dostępne tam, gdzie budowane (vendor data poza repo). Sprawdzić aktualny stan: M5.13b done, bench czeka na Marka.
-  - Scope: (1) `workflow_dispatch` „prepare-L4-bundle” (lub narzędzie) przyjmujący ścieżki/artefakty dostarczone poza repo lub budowane na self-hosted runnerze z dostępem do vendor data: generuje manifest (SHA-256 obrazów, diff zakresów jak w M5.13b, wersja narzędzi, profil/test id), checklistę S0–S3 i szablon wyniku (PASS/FAIL/objaw, zdjęcie/serial/log opcjonalnie) — bez commitowania obrazów. (2) Szablon EXP/issue lub `docs/experiments/` snippet do wklejenia wyniku Marka tak, by H27 mogło policzyć L4 jako `Sx PASS/FAIL/NOT RUN`. **Poza zakresem:** zdalne sterowanie autem, automatyczny werdykt L4, przechowywanie obrazów kart w repo/artefaktach publicznych.
+  - Scope: (1) `workflow_dispatch` „prepare-L5-bundle” (lub narzędzie; nazwa robocza v1 „prepare-L4-bundle” — traktować jako alias) przyjmujący ścieżki/artefakty dostarczone poza repo lub budowane na self-hosted runnerze z dostępem do vendor data: generuje manifest (SHA-256 obrazów, diff zakresów jak w M5.13b, wersja narzędzi, profil/test id), checklistę S0–S3 i szablon wyniku (PASS/FAIL/objaw, zdjęcie/serial/log opcjonalnie) — bez commitowania obrazów. (2) Szablon EXP/issue lub `docs/experiments/` snippet do wklejenia wyniku Marka tak, by H27 mogło policzyć L5 (car; v1 alias `l4`) jako `Sx PASS/FAIL/NOT RUN`. **Poza zakresem:** zdalne sterowanie autem, automatyczny werdykt L5, przechowywanie obrazów kart w repo/artefaktach publicznych.
   - Input: `docs/research/card-test-plan.md`, M6.2/M6.5–M6.7, H27 format raportu, `tools/imgpatch.py` metadata.
-  - Done when: da się jednym poleceniem/workflow wygenerować kompletną paczkę „co nagrać na kartę + co sprawdzić + gdzie wpisać wynik”, a wynik L4 da się odczytać maszynowo przez H27 bez interpretacji prose. EXP z przykładowym bundle manifestem (syntetyczne ścieżki/hashe przykładowe, nie vendor).
+  - Done when: da się jednym poleceniem/workflow wygenerować kompletną paczkę „co nagrać na kartę + co sprawdzić + gdzie wpisać wynik”, a wynik L5 (car) da się odczytać maszynowo przez H27 bez interpretacji prose. EXP z przykładowym bundle manifestem (syntetyczne ścieżki/hashe przykładowe, nie vendor).
   - Stop: jeśli polityka bezpieczeństwa/udostępniania obrazów jest niejasna, workflow tylko generuje checklistę/manifestspec i zatrzymuje się przed pakowaniem binariów — `blocked` z pytaniem do właściciela danych.
   - Claims: C-2790–C-2799
 
@@ -2287,9 +2287,9 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Pair: solo
   - Goal: make the S3 (LEV3456) bench run cheap when hardware returns: record artifact SHA-256/size/diff ranges, how it differs from S0/S1/S2 (one variable), which offline/L3 gates passed, and S3 pass/fail criteria. Image stays outside repo.
   - Precheck: `docs/research/card-test-plan.md` defines S3 criteria; M5.14/M5.24 EXPs name image/diff-ranges or package records `UNRECORDED`; `todo_check.py`/`claims_check.py` pass.
-  - Scope: `docs/research/bench-packages/s3.md` (or a defined section in `bench-evidence-pack.md`) with manifest fields and reproducible hash/size verification commands outside repo. No flashing, no L4 claims.
+  - Scope: `docs/research/bench-packages/s3.md` (or a defined section in `bench-evidence-pack.md`) with manifest fields and reproducible hash/size verification commands outside repo. No flashing, no L5 claims.
   - Input: M5.14 EXP, M5.24 diff proof, M6.3/M6.7 plan, M9.27 matrix.
-  - Done when: manifest lists artifact path placeholder + SHA-256 + size + diff ranges + base image identity, states "L4 NOT RUN", links pass/fail criteria; negative control: S2 manifest/criteria kept distinct (one variable).
+  - Done when: manifest lists artifact path placeholder + SHA-256 + size + diff ranges + base image identity, states "L5 NOT RUN", links pass/fail criteria; negative control: S2 manifest/criteria kept distinct (one variable).
   - Stop: if hash/diff ranges are not recoverable from recorded EXPs, record `UNRECORDED` and file follow-up; do not guess.
   - Claims: C-3230–C-3239
 
