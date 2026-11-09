@@ -197,36 +197,36 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-09; 10th PM pass 2026-11-08 frozen in `docs/research/todo-history-2026-11-06.md`)
+## Priorities (PO grooming 2026-11-09, 2nd pass; retro 2026-11-09-2 / SM `2026-11-09-0823-1-sm`)
 
-**Goal:** OSM-derived maps run in a Nissan Leaf ZE0. SE added/updated since last PO pass (retro 2026-11-09): `M9.12` blocked (S0/S1 no-diff), `M3.18` blocked, `M8.B4` done, `M4.27` blocked, `M3.16` blocked (r2), `M3.20` done, `M4.28` blocked (r2), `M4.32` done, `M4.29` done (r2), plus `M2.18`/`M5.28`–`M5.30` direction tasks. Nearest milestone: **bench/L5 prep** (S1/S2 `M5.13b`, S3 `M5.14`; hardware waits on Marek). Archive 2026-11-09: done, non-blocking, pre-2026-11-09 tasks moved to `docs/research/todo-history-2026-11-09.md`.
+**Goal:** OSM-derived maps run in a Nissan Leaf ZE0. **SE updates since last pass** (retro/board): `M2.18` done (HDD_INFO predictor), `M4.16b` blocked→re-opened note (compressed sec1 schema), direction tasks `M5.28`–`M5.30` open; `M9.12`/`M3.16`/`M3.18`/`M4.27`/`M4.28` blocked with EXPs. **SM flags:** 7 stale claim-only draft PRs #140–146 (TL reconcile, retro action 1); work-log compliance gap (action 3); gate reopened L3 reader runs on M1.2f+import/input reachability (action 4). Nearest milestone: **bench/L5 prep** (S1/S2 `M5.13b` done, S3 `M5.14`; hardware waits on Marek). Archive (2nd pass): 10 done, >24h, non-blocking tasks moved to `docs/research/todo-history-2026-11-09.md`; TODO 3040→2876, still >1500 (remaining done tasks block open/blocked work or are <24h).
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
-> Level mapping (2026-11-09): **L3** = firmware fragments (decoder/decompressor/reader harness on our data), **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6). Before 2026-11-09, L4/L5 were swapped in some docs.
+> Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
-- **L1 structural (cheap, every card):** `cardcheck.py --image` + `imgpatch`/`rebuild_manifests` diff discipline before L2–L5. Tasks: `M5.13`/`M5.13b`/`M5.24`, `M5.30`, `M6.13`.
-- **L2 semantic/offline (cheap):** `l2check`/round-trips/golden/manifest checks; necessary, not sufficient (rule 13). Poland milestones: **`M5.28`** (provisional `highway→Clarion`, L2-testable) → **`M5.29`** (one OSM tile swapped into factory EU card, L1+L2+gate report) → **`M5.30`** (1:1 diff) → **`M5.11`** (Phase-2 acceptance). Supporting: `M5.3`, `M5.22`, `M5.23`, `M5.6`, `M5.21`, `M2.18`, `M5.15`/`M5.26`/`M5.17`/`M5.18`.
-- **L3 firmware fragments (virtual, no hardware):** verdicts only when runnable; SKIP/BLOCKED never PASS. **`M9.11b`** registers `cmp_ind_reader` (M9.11 firmware path passes factory/S1/S2+controls, unregistered) → fixes **`M9.12`** `--card` gate (blocked). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock `M9.14`/`M9.17`/data readers; **`M3.11c` → `M9.10`**; **`M9.13`/`M9.6`** re-opened (M9.20 done, may re-block on sec1/globals/IO — record faulting PC). **`M9.27`** records runnable-now S1–S3 evidence; **`M2.4`** uses `M9.6`.
-- **L4 full-system emulator (QEMU/M8, software integration):** run original software on the emulated board before L5 where feasible (M8 tasks). Not a substitute for final car acceptance.
-- **L5 bench/car (expensive, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep now: **`M6.13`** S3 manifest, **`H31`/`M9.27`** evidence index/matrix. Run L3/L4 prechecks where runnable before each bench card.
+- **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline before L2–L5. `M5.30`, `M6.13`.
+- **L2 (cheap, necessary not sufficient, rule 13):** Poland: **`M5.28`** (provisional `highway→Clarion`, L2-testable) → **`M5.29`** (one OSM tile swapped into factory EU, L1+L2+gate) → **`M5.30`** (1:1 diff) → **`M5.11`** (Phase-2). Support: `M5.3`, `M5.22`, `M5.23`, `M5.6`, `M5.21`, `M2.18`, manifest/ATTR/FROUTE follow-ups.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. **`M9.12`** `--card` gate blocked (S0/S1 no-diff; rule-13 evidence path via runnable targets/registry). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock data readers; **`M9.11`**/**`M3.11b`**/**`M3.19`** re-opened (M9.11b/M3.20 done, rule 15) — verify preconditions before reruns; **`M9.6`/`M9.13`** re-opened (may re-block). **`M3.11c` → `M9.10`**; **`M9.27`** runnable-now evidence.
+- **L4 (QEMU/M8):** software integration before L5 where feasible; not final acceptance.
+- **L5 (bench/car, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep: **`M6.13`** S3 manifest, **`H31`/`M9.27`** evidence. Run runnable L3/L4 prechecks before each bench card.
 
-**Take first (ready, critical, unowned):** `M9.11b`, `M5.21`, `M5.28`, `M1.2f`, `M9.24` (after `M1.2f`), `M3.11c`, `M9.27`, `M6.13`, `M5.29` (after `M5.28`/inputs). **Rule 15 applied:** `M4.16b`, `M9.6`, `M9.13` re-opened (M1.11c/M9.20 done) — may re-block with new EXP/faulting PC. **Needs Marek/non-Claude:** `M6.2`/bench, `M6.11` `.uf2`, `M9.2` Ghidra, `M1.2e`, `M6.9`, image/OSM-dependent runs.
+**Take first (ready/critical, verify deps):** `M9.11` (register `cmp_ind_reader`/confirm M9.11b), `M5.21`, `M5.28`, `M1.2f`, `M3.11c`, `M3.19`, `M9.27`, `M6.13`, `M5.29` (after `M5.28`/inputs), `M9.24` (after `M1.2f`). **Rule 15 this pass:** `M9.11`, `M3.11b`, `M3.19` re-opened (M9.11b/M3.20 done). **Marek/non-Claude:** `M6.2`/bench, `M6.11` `.uf2`, `M9.2` Ghidra, `M1.2e`, `M6.9`, image/OSM-dependent runs.
 
 
 ## Workstreams at a glance
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H27, H28, H29, H30, H31** (see deps); H21/H24/H25/H26 done |
+| H | Housekeeping | **H19, H27, H28, H29, H30, H31, H45** (see deps); H21/H24/H25/H26 done |
 | M1 | Firmware tooling | **M1.2e (non-Claude), M1.2f (critical), M1.2g, M1.12, M1.14**; M1.11c/M1.13/M1.15–M1.17 done |
-| M2 | Map code, activation, updater | **M2.4** (re-open: M9.20 done), **M2.18**; M2.14–M2.17 done |
-| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.20**; blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.17 done; M3.19 blocked (→M3.20) |
-| M4 | Data formats | **M4.16b** (re-open, M1.11c done), **M4.16c, M4.16d, M4.24, M4.27, M4.29**; blocked: M4.2, M4.3/M4.23 (→M4.24–M4.26), M4.8b (→M4.8d), M4.22 (OQ-44), M4.28 (→M4.27), M4.31; M4.21/M4.25/M4.26/M4.30/M4.32/M4.34 done |
-| M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20, M5.21, M5.22, M5.23**; blocked: M5.12c (scan unfinished); M5.4/M5.13b done; M5.16–M5.19 after their M3 readers |
-| M6 | Hardware (Marek) | **M6.2 (S0, non-Claude), M6.13** (S3 prep); M6.5/M6.6 after M5.13b+L3 precheck; M6.7 after M5.14 |
+| M2 | Map code, activation, updater | **M2.4** (re-open: M9.20 done), **M2.18 done** |
+| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.19, M3.20** (rule 15 re-opens; verify deps/precheck); blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.17 done |
+| M4 | Data formats | **M4.16b** (re-open note), **M4.16c, M4.16d, M4.24, M4.27, M4.29**; blocked: M4.2, M4.3/M4.23 (→M4.24–M4.26), M4.8b (→M4.8d), M4.22 (OQ-44), M4.28 (→M4.27), M4.31 |
+| M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20–M5.23, M5.28–M5.30**; blocked: M5.12c (scan unfinished); M5.4/M5.13b done |
+| M6 | Hardware (Marek) | **M6.2 (S0, non-Claude), M6.13, M6.14**; M6.5/M6.6 after M5.13b+L3 precheck; M6.7 after M5.14 |
 | M8 | Full-system emulation | **M8.A2, M8.E1**; M8.A3 after M8.A2 |
-| M9 | L3 toolkit | **M9.6, M9.10, M9.11b, M9.12, M9.13, M9.15, M9.18, M9.24, M9.27** (may re-block); blocked on M1.2f: M9.14, M9.17; M9.11/M9.20–M9.23/M9.25 done; M9.2 non-Claude |
+| M9 | L3 toolkit | **M9.6, M9.10, M9.11, M9.13, M9.15, M9.18, M9.24, M9.27, M9.31** (may re-block); blocked on M1.2f: M9.14, M9.17; M9.12 blocked (→M9.31); M9.11b/M9.20–M9.23/M9.25 done; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
 · **Software/L3 gate:** **M9.11b** registers `cmp_ind_reader`; **M1.2f** +
@@ -335,6 +335,18 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: jeśli polityka bezpieczeństwa/udostępniania obrazów jest niejasna, workflow tylko generuje checklistę/manifestspec i zatrzymuje się przed pakowaniem binariów — `blocked` z pytaniem do właściciela danych.
   - Claims: C-2790–C-2799
 
+- [ ] **H45 — `l3_precond`: reachability gate for reopened L3 reader reruns (retro action 4)**
+  - Status: open · Owner: — · Critical: no
+  - Pair: solo
+  - Depends: M1.12 (reader precheck patterns), M9.20/M9.24 context (entry kinds/mapping)
+  - Goal: before any reopened L3 reader run is claimed, make the M1.2f+import+input/binding preconditions explicit and machine-checkable so SE/TL can reject "fourth attempt, same blocker" reruns.
+  - Precheck: `python3 tools/reader_precheck.py --selftest` (or existing precheck tooling) passes; reopened L3 reader tasks in TODO list a Precheck/Scope/Stop.
+  - Scope: add `tools/l3_precond.py` (or extend `reader_precheck.py`; name in PR) with `--selftest` and `--json` that, for a named L3 target or reader VA/module, reports: executable vs data bytes, compressed-sec1/data dependency (M1.2f), import/input/binding reachability known vs unknown, and a `READY|BLOCKED|UNKNOWN` verdict with reasons. No firmware execution; no vendor bytes committed.
+  - Input: `tools/reader_precheck.py`, `tools/cerom.py memmap/comphdr`, `docs/research/reader-coverage.md`, target metadata in `tools/l3_harness/targets.json`, EXPs for M9.6/M9.11/M9.13/M9.17 blockers.
+  - Done when: `python3 tools/l3_precond.py --selftest` passes; running it on at least two real target definitions (one runnable/baseline-known, one known-blocked on M1.2f or missing mapping) produces the expected verdicts with reasons in an EXP; TODO L3 rerun guidance references it.
+  - Stop: if target metadata lacks stable VA/section fields for a verdict, report `UNKNOWN` with the missing fields (do not guess READY).
+  - Claims: C-3330–C-3339
+
 ## M1 — Firmware tooling
 
 Done: M1.1 (synthetic self-test, EXP-47), M1.5 (`cerom.py memmap`/`ghidra`,
@@ -363,55 +375,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     243 sections unmeasured (EXP-2026-11-05-M1.2a-comphdr, C-640/C-641).
   - Claims: C-640–C-649
 
-- [x] **M1.2b — Try the public CE / Microsoft LZ formats after the header**
-  - Status: done · Owner: task/m1.2b-xpress-lz77 · Critical: yes
-  - Result: EXP-2026-11-06-M1.2b-xpress-lz77 — implemented XPRESS plain LZ77 in tools/cecompress.py + tools/xpress.py (selftest green); real sections 1/2 give 0 matches in 115 attempts each (xpress-lz77 raises corrupt offset); codec still unknown.
-  - Depends: — (M1.2a done: payload after the 22-byte header)
-  - Goal: find a public decoder whose output length matches.
-  - Input: the two EXP-49 sections; `tools/cecompress.py` (LZSS + LZX
-    stored blocks already implemented and self-tested, EXP-52: run it on the
-    real sections first, at the M1.2a payload offset); further candidates: Xpress "plain LZ77" and
-    "LZ77+Huffman" and LZNT1 ([MS-XCA], open spec), LZX, and the CE
-    romimage/`CECompress` formats as described by public ROM tools (cite the
-    source in `docs/research/sources.md`; link, do not copy incompatible
-    code).
-  - Done when: one decoder gives exactly the expected length (`0x484` or
-    `vsize`) and plausible content (pointers into `0x8c…`/module VAs,
-    strings), or an EXP lists every decoder × offset tried with a positive
-    control (each decoder round-trips its own test vector).
-  - Old blocker resolved: the full payloads are in `IMG256` (file
-    `0x01580ce0` len `0x2c6`, `0x015aca7c` len `0x68c`; extract with `dd`, see
-    EXP-2026-11-06-H5). Real run so far: lzss, lzx, lznt1, xpress-huffman give
-    0 matches at offsets 0…40 (C-1715). **Next step:** implement the XPRESS
-    plain-LZ77 match decode ([MS-XCA] 2.3/2.4) with the spec's vector as
-    control, rerun `probe`, then try per-block decoding using the M1.2a block
-    records (`84 04 00 00 | b0 02 00 00 | …`: the stream may be framed in
-    blocks rather than one run). Tool so far: EXP-2026-11-05-M1.2b, C-650.
-  - Claims: C-650–C-659
-
-- [x] **M1.2c — Find the ROM decompressor in `nk.exe` and port it**
-  - Status: done · Owner: task/m1.2c-rom-decompressor · Critical: yes
-  - Depends: — (M1.8 helps)
-  - Goal: read the kernel's own decompression routine instead of guessing.
-  - Input: image B `nk.exe` (`cerom.py --image-start 0x3e00200 IMG sections
-    nk.exe`), the loader path that tests `o32_flags & 0x2000`
-    (`IMAGE_SCN_COMPRESSED`) and copies `o32` data to RAM; the kernel's
-    `ulCopyEntries` handling; `sh4-linux-gnu-objdump -b binary -m sh4
-    --adjust-vma=VA`.
-  - Done when: the decompressor's VA and prototype are recorded, and either
-    a Python port (`tools/cedecomp.py`, synthetic self-test) decodes the two
-    EXP-49 sections to the M1.2a lengths, or its VA is handed to M8.E1 as a
-    call target.
-  - Claims: C-660–C-669
-  - Result: EXP-2026-11-06-M1.2c-rom-decompressor. nk.exe (B, `0x3e00200`)
-    loader `fn 0x880385e4` tests `o32_flags & 0x2000` at `0x88038666` and calls
-    `0x88037590(dataptr,psize,dest,vsize)`. Decompressor chain
-    `0x88037590`→`0x88037464` (section framing, form 1/2 block loop)→`0x8803a384`
-    (per-block CE LZXD-like, block type 4/E8). VAs+prototypes recorded;
-    `tools/cedecomp.py` self-test ok but pure-Python block decode **not** ported
-    (EXP-49 sections: 0 matches with cecompress) — **M8.E1 call target** handed
-    off (`DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464`).
-
 - [ ] **M1.4 — Extract compressed `FILESentry` payloads**
   - Tool: `cerom.py files --extract --decompress` writes stored bytes,
     classifies OK/UNSUPPORTED/FAIL and never writes a wrong-length decode
@@ -431,21 +394,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-08-M1.4-filesentry-payloads (extraction/characterization done; decode blocked, done-when not met; C-680–C-683).
   - Claims: C-680–C-683
 
-- [x] **M1.6b — Resolve all import thunks of all modules**
-  - Status: done · Owner: session-ZMxuBT · Critical: no
-  - Depends: M1.6 (PR #5)
-  - Goal: a VA → `module!export` label table for every thunk, for Ghidra and
-    for call-site search.
-  - Input: EXP-50 stub pattern (`mov.l @(disp,PC),R0; mov.l @R0,R0; jmp @R0;
-    nop`), `cerom.py imports` and `exports`.
-  - Done when: `cerom_thunks.py` (or `cerom.py thunks`) `[MODULE|--all] --json` lists stub VA, slot
-    VA and name for every A and B module; ≥ 95 % of `Navi.exe`'s 846 slots
-    have a stub (report the rest); self-test on a synthetic stub.
-  - Result: `cerom.py thunks` resolves 4/3/2-insn stubs through the OFT and
-    export tables with coverage and `--min-coverage`; synthetic only, the
-    real 846-slot run stays UNKNOWN (EXP-2026-11-05-M1.6b, C-690).
-  - Claims: C-690–C-699
-
 - [x] **M1.2d — The second compressed-section header form (58 sections)**
   - Status: done · Owner: task/m1.2d-comphdr-form2 · Critical: yes
   - Depends: —
@@ -462,21 +410,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     `[u24×n][0x10,0x1000,X,0x1000]+0x8d80805b`, `n-1` blocks, `u24[-1]==psize`;
     not stored), 0 exceptions; IMG256 245 HOLDS (EXP-2026-11-06-M1.2d-comphdr-form2,
     C-1740–C-1746). `realcheck` 8/8, `selftest` 34/0/19, `cerom --selftest` 411.
-
-- [x] **M1.6c — Make `cerom.py thunks` work on the real image**
-  - Status: done · Owner: task/m1.6c-thunks-real-image · Critical: yes
-  - Depends: —
-  - Goal: thunk labels for Ghidra (M9.2) and stubs (M9.3) from real bytes.
-  - Input: C-1714 (`thunks Navi.exe` and `--all`: "no import stub matched");
-    EXP-50 thunks `0x003d1bb0` (`getOffset`) and `0x003d1ba4` (`getSize`);
-    `sh4xref.py`, which resolves them; `imports Navi.exe` (846 slots from
-    `0x0055d000`); also `cerom.py va2file 0x003d1bb0` prints `0x-8c50f250`
-    (module-relative VAs are not mapped — fix or document).
-  - Done when: `thunks Navi.exe --min-coverage 95` exits 0 on `IMG256` and
-    labels both EXP-50 thunks correctly; the cause of the miss is in the EXP
-    and a self-test case reproduces it.
-  - Claims: C-1750–C-1759
-  - Result: EXP-2026-11-06-M1.6c-thunks-real-image.md; root cause fixed (module-local realaddr/slot VAs vs ROM `va2file`, R0-only 4-insn, inlined IAT call sites). IMG256 Navi.exe: 845/846 slots covered (99.9%), 3728 call-site records (100% resolved with `--resolve-with 0x3e00200`); EXP-50 `0x003d1bb0`→`OBJDLL!MAL_DataVol_getOffset#3`, `0x003d1ba4`→`OBJDLL!MAL_DataVol_getSize#4` (`--min-coverage 95` exits 0). `realcheck.py IMG256` 8/8 PASS (thunks pin updated), `selftest.py` 32/0/19.
 
 - [ ] **M1.2e — Try public CE ROM decoders on the two EXP-49 sections**
   - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs GitHub/source downloads, rule 12)
@@ -682,42 +615,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1870–C-1879
   - Result: docs/experiments/EXP-2026-11-06-M2.12-hdd-chk-att.md (HDD_CHK.ATT UTF-16LE only in MapUpdate.exe/B; Navi.exe has no ref, HDD_INFO.TXT control found in A; `SilentAuthenticate` 0x0001c210 reads 0x80 bytes, decodes 20 hex chars from ctx+120 → 10 bytes, `CApi_MakeCRC16`/commondll 0x03c04214 = CRC-16/CCITT reflected/KERMIT seed 0 poly 0x8408 must yield 0, then `sub_0001e3f4` verifies 128 bytes; C-1870–C-1879; validation.md updated)
 
-- [x] **M2.13 — The SD unlock PIN (firmware half found)**
-  - Status: done · Owner: claude/project-thread-euxe0q · Critical: yes
-  - Depends: — (M1.9 helps)
-  - Result: EXP-2026-11-06-M2.13-sd-password. The owner's `SD PIN` service
-    screen showed the full unlock PIN; its 12-char tail is a hardcoded
-    `ProductTestData`/`SecurityCheck` literal in `PRGUpdate.exe` (VA
-    `0x12498`) and `TestMode.exe` (VA `0x157f8`) — verified in `IMG256`
-    (sha256 `249e0da5…`, plaintext not committed). The 8-digit prefix is
-    runtime-generated (not a literal). The unit unlocked with it
-    (`Unlocking. OK`), so the value is behaviourally confirmed.
-  - Open (→ M2.13b): the ≤16-byte CMD42 form (the display is 20 chars > the
-    SD 16-byte limit), the prefix derivation, and the `SDHC_SecurityUnLock`
-    xref (its code is `COMPRESSED`, needs M1.2).
-  - Claims: C-1880–C-1889
-
-- [x] **M2.13b — The CMD42 byte form and the runtime prefix**
-  - Status: done · Owner: claude/project-thread-9ynrai · Critical: yes
-  - Depends: M2.13 (M1.2b/c for the `SDHC.dll` xref; M1.9 for names)
-  - Goal: turn the known PIN into the exact ≤16-byte password a cloned card
-    must carry, and name where the 8-digit prefix comes from.
-  - Input: EXP-2026-11-06-M2.13 (literal VAs, the 20-vs-16 problem);
-    `PRGUpdate.exe` around VA `0x12498` and its `CApi_GetModelCode` import
-    (C-526); `SDHC.dll` `SDHC_SecurityUnLock` `0x039b2498` once decompressed;
-    `byPasswordLen` logging (EXP-M2.8).
-  - Lead (EXP-M2.13): the PIN is almost certainly 16 bytes = 4 unit bytes
-    (the 8 hex digits of the displayed prefix) + the 12-byte ASCII literal,
-    matching C-075. Confirm the 4 bytes = hex of the prefix.
-  - Done when: the EXP confirms the 16-byte form, names the source of the 4
-    unit-specific bytes (serial/model, with a code path), and states whether
-    an independently locked card (not re-locked by the same unit) is feasible.
-  - Result: 16-byte form and IOCTL→CMD42 flag map verified in `SDHC.dll`
-    (`.text` is uncompressed); boot password from `nk.exe` HAL IOCTL
-    `0x01013008` (copy from `0x89e439b8+0x100`, PROD shadow hypothesis);
-    independent locking feasible (EXP-2026-11-06-M2.13b-sdhc-cmd42).
-  - Claims: C-1950–C-1959 (moved: C-1940–C-1949 is M6.11, taken first)
-
 - [x] **M2.15 — The exact `HDD_INFO` bytes behind `DIFFERENT MAP CODE` and `MAP DATA BASE UNMATCH`**
   - Status: done · Owner: task/m2.15-hddinfo-bytes-mapcode · Critical: yes
   - Depends: — (M2.5, M2.3 done)
@@ -800,17 +697,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
 
 ## M3 — Reader contract
-
-- [x] **M3.1 — The `.ind` wrapper above `MAL_DataVol_getOffset`**
-  - Status: done · Owner: task/m3.1-ind-wrapper · Critical: yes
-  - Depends: — (M1.6 done in PR #5)
-  - Goal: name the `Navi.exe` function(s) around the four known call sites.
-  - Input: call sites `0x003778b2`, `0x003778bc`, `0x00377b46`, `0x00377b52`
-    (EXP-50); `OBJDLL.dll` exports `MAL_*`/`OBJ_*`.
-  - Done when: the enclosing function VAs, their arguments and their callers
-    are recorded, with what is done with offset/size.
-  - Result: EXP-2026-11-06-M3.1-ind-wrapper; `fn 0x00377870` (vols {3,4,7,8} fingerprint, `memcmp` on `*2`-scaled off/size, status `0x03f1`/`0x03f7`, caller `fn 0x00377ae0@0x377ce4`) and `fn 0x00377ae0` (vol 7 `getOffset/getSize`→`memcpy` from `0x01205040+off*2`, disc/version checks; caller none in uncompressed `.text`); OBJDLL `MAL_*` #1-#6; C-820–C-829.
-  - Claims: C-820–C-829
 
 - [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
   - Status: blocked · Owner: task/m3.2-ind-handling · Critical: yes
@@ -1000,9 +886,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2120–C-2129, C-2540–C-2549
 
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
-  - Status: blocked · Owner: claude/m3.11b-point-byteorder · Critical: yes
-  - Blocker: the page is handed to the walker by an `OSM_TaskSend` reply from another task (OSMDLL import 12, `fn 0x3f40ec`); no 16-bit swap loop exists in Navi.exe sec0 or OSMDLL sec0 (C-2547, C-2548).
-  - Unblock: M9.11 (the dynamic run shows the buffer the walker is handed; M9.11 is itself blocked on M9.11b, and its decoder output is file order, so the swap is downstream of `0x41c7e8`)
+  - Status: open · Owner: — · Critical: yes
+  - Pair: pair
+  - Note (rule 15, 2026-11-09 PO): M9.11b done; re-opened. Prior blocker kept: page handed to walker by `OSM_TaskSend` reply (OSMDLL import 12, `fn 0x3f40ec`); no 16-bit swap loop in Navi.exe/OSMDLL sec0 (C-2547, C-2548). M9.11 is re-opened (was blocked on M9.11b); re-run precheck before dynamic work.
   - Result: EXP-2026-11-08-M3.11b-point-byteorder (negative; done-when not met).
   - Depends: — (M9.11 helps: its run shows the bytes the chunk decoder hands back)
   - Goal: `0x3f5194` reads `mov.w @page` and only walks a 16-bit-swapped
@@ -1222,9 +1108,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 ---
 
 - [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
-  - Status: blocked · Owner: claude/m3.19-sh4scan · Critical: yes
-  - Unblock: M3.20 (name the register-AND mask variant; correct M3.11's pattern text).
-  - Blocker: M3.11's mask count 1 is not reproduced: its one site (Navi.exe `0x3715c8–0x3715cc`) is `mov #0x70,R3; and R3,R0; cmp/eq #0x60,R0`, a register AND, and `and #0x70,R0` + `cmp/eq #0x60` finds 0. The other seven published counts reproduce. See EXP-2026-11-08-M3.19-sh4scan.
+  - Status: open · Owner: — · Critical: yes
+  - Pair: pair
+  - Note (rule 15, 2026-11-09 PO): M3.20 done (register-AND mask variant / M3.11 pattern text); re-opened. Prior blocker kept: M3.11 mask count 1 not reproduced by the old pattern (register AND at Navi.exe `0x3715c8–0x3715cc`); other published counts reproduced (EXP-2026-11-08-M3.19-sh4scan). `sh4scan.py` exists — verify/complete done-when against M3.20's `--via-reg` and reproduce all published counts.
   - Depends: —
   - Goal: M3.11, M3.13 and M3.2b are correct negatives that **cannot be
     re-run**: the tag/stride/mask searches are prose plus heredocs, and M3.2b
@@ -1712,17 +1598,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     identical IMF that passes `imf_check` (EXP-2026-11-06-M5.1-osm-ingest).
   - Claims: C-1030–C-1039
 
-- [x] **M5.1b — Ingest the real Dolnośląskie extract**
-  - Status: done · Owner: claude/m5.1b-osm-pbf · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
-  - Input: `https://download.geofabrik.de/europe/poland/dolnoslaskie-latest.osm.pbf`.
-  - Depends: M5.1
-  - Done when: IMF for the region passes `imf_check.py`; extract date,
-    URL and SHA-256 recorded; counts of ways/nodes per `highway=*` in the EXP.
-  - Result: region IMF (2,915,802 nodes, 362,811 ways) passes `imf_check.py`
-    with 0 errors; date, URL and SHA-256 and per-`highway` counts in
-    EXP-2026-11-08-M5.1b-osm-pbf.
-  - Claims: C-2340–C-2349 (was C-1840–C-1849, a collision with M4.16b)
-
 - [x] **M5.1c — OSM node tags: POIs, addresses and places into IMF**
   - Status: done · Owner: claude/m5.1c-osm-poi · Critical: yes
   - Depends: M5.1
@@ -1860,25 +1735,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     map-code comparator inputs, attestation, SD lock) and states, per gate,
     pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
   - Claims: C-2330–C-2339 (was C-1970–C-1979, already used by H9)
-
-- [x] **M4.8c — Confirm `coord.py` on the US grid**
-  - Status: done · Owner: task/m4.8c-coord-us-grid · Critical: yes
-  - Depends: M4.8
-  - Goal: target a specific US road by lat/lon, which M5.12 needs.
-  - Input: `tools/coord.py`; US tiles use `R ≥ 0xA0` (lon −172…−52, so
-    `lon_max = 108 − int(R,16)` goes negative); `LEAF_2011-2012_US.img`
-    `COORD001`/tile bboxes; the 52742-vs-52736 origin question (M4.8).
-  - Done when: `coord.py` maps ≥ 5 known US landmarks (coordinates from
-    Wikipedia/Wikidata, not OSM) into the right US tile and cell within a few
-    hundred metres, and the self-test pins a US fixture.
-  - Claims: C-1990–C-1999
-  - Result: EXP-2026-11-06-M4.8c-coord-us-grid.md. 5 Wikipedia landmarks
-    (Statue of Liberty, White House, Golden Gate Bridge, Space Needle, Willis
-    Tower) → correct US tiles (`B38R0B0R`,`B38R0B8R`,`B38R0E0R`,`B40R0E0R`,
-    `B38R0C0R`), in cell, 189–300 m round-trip. US `COORD001` (11 regions)
-    matches EU layout/origin 52742; `MAPAL001` stream key B confirmed origin
-    52736 on US (`B38R0B0R` keys inside box only @52736). `coord.py --selftest`
-    pins US fixtures (18 checks).
 
 - [x] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
   - Status: done (tool; the real S1/S2 images are **M5.13b**, C-2027
@@ -2391,6 +2247,20 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
 - [ ] **M7.5** User guide and risk statement; "research only" until M6.7.
   Depends M6.7. Claims: C-1220–C-1229
 
+## M6 — added (PO 2026-11-09 2nd pass)
+
+- [ ] **M6.14 — S0/S1 bench package scope artifact (Marek decision prep, no hardware)**
+  - Status: open · Owner: — · Critical: no
+  - Pair: solo
+  - Depends: H29 (bundle/checklist concept), M5.13b (S1/S2 artifacts), M2.18 (predictor), M9.27 (runnable-now L3 evidence)
+  - Goal: produce the cheap, non-hardware artifact SM retro action 5 asked for: what is in the next bench package (S0 baseline, S1), what L1/L2/L3 prechecks must be green, and what known risks (compressed sec1/data readers not runnable) are explicitly out of scope — so Marek can decide scope before hardware returns.
+  - Precheck: `docs/research/card-test-plan.md` and M6.2/M6.5 describe S0/S1; M5.13b/M2.18/M9.27 outputs or their EXPs are present in repo.
+  - Scope: add a short doc `docs/research/bench-package-s0-s1.md` (or extend card-test-plan with a clearly marked section) plus a machine-readable manifest template (JSON/YAML, no vendor bytes) listing: card ids, required precheck commands, expected L1/L2 outputs, runnable L3 targets to run/skip with reasons, and a "known L3/L4 gaps" note (M1.2f/sec1). No image generation, no hardware steps.
+  - Input: `docs/research/card-test-plan.md`, M5.13b EXP/result, M2.18 `hddinfo_predict`/acceptance, M9.27 evidence format, H29.
+  - Done when: the doc/template exists, references concrete task IDs and commands, and `python3 tools/claims_check.py` / `todo_check.py` still pass; a human can answer "what do we flash/check for S0 and S1?" from it without opening vendor data. Falsifier: if a required precheck command is not runnable from repo state, the manifest marks it `LOCAL_ONLY_VENDOR` or `BLOCKED` with the reason.
+  - Stop: if M6.2/M6.5 scope is genuinely undecided on a safety point, record the decision as `NEEDS HUMAN` in the doc and do not guess.
+  - Claims: C-3340–C-3349
+
 ---
 
 ## M8 — L4 full-system emulation (QEMU `ze0` machine)
@@ -2560,14 +2430,6 @@ lives in **`tools/l3_harness/`** (exists: `manifest.py`, `stubs.py`,
 `rommap.py`, `runner.py` with `check`/`plan`; `run` is blocked). Pure-Python
 parts are covered by `tools/l3_harness/selftest.py`.
 
-- [x] **M9.1 — Module map on the real image**
-  - Status: done · Owner: task/m9.1-module-map · Critical: no
-  - Depends: — (tool done: `cerom.py memmap`, EXP-48)
-  - Done when: `cerom.py memmap` on `IMG256` lists every A + B section,
-    `rommap.py convert --skip-compressed` + `validate` pass, and counts per
-    module are recorded in an EXP.
-  - Claims: C-1630–C-1639
-  - Result: EXP-2026-11-06-M9.1-module-map (IMG256 `92aa525d…`); A: 149 modules/527 sections (245 compressed), B: 91/307 (133 compressed). Per-module `rommap.py convert --skip-compressed`+`validate` PASS 239/240; B `nk.exe` sec1 zero-stored-size BSS (vsize 7168, CNT_UNINITIALIZED_DATA) → rommap `size must be positive` (limitation, C-1632). Combined all-module maps overlap at EXE VA 0x11000 (inherent). Counts per module in EXP.
 - [ ] **M9.2 — Ghidra project builder**
   - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (Ghidra
     cannot be installed in the Claude sandbox; the tool and `--plan` are done)
@@ -2645,10 +2507,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2140–C-2149
 
 - [ ] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
-  - Status: blocked · Owner: claude/m9.11-chunk-decoder · Critical: yes
-  - Unblock: M9.11b (runner entry kind that calls the firmware chunk reader; fills `cmp_ind_reader`).
-  - Blocker: the firmware path passes on the factory, S1 and S2 pairs and on both controls (page `0x840ba0` byte-identical, corrupt `.ind` rejected, swapped `+4`/`+8` fails); `targets.json` `cmp_ind_reader` cannot be filled because `runner.py` has no firmware-call kind. The sec1 table that inflate reads (`0x574de0`, `inflate_mask[17]`) is supplied from public zlib source, see EXP.
-  - Result: EXP-2026-11-08-M9.11-chunk-decoder (firmware path PASS; target registration open).
+  - Status: open · Owner: — · Critical: yes
+  - Pair: pair
+  - Note (rule 15, 2026-11-09 PO): M9.11b done (firmware-call entry kind); re-opened. Prior blocker/note kept: firmware path passed factory/S1/S2+controls (EXP-2026-11-08-M9.11-chunk-decoder) but `cmp_ind_reader` registration was blocked on runner kind — verify M9.11b fills it; sec1 inflate table (`0x574de0`, `inflate_mask[17]`) provenance must stay explicit, no silent default.
   - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
   - Precheck: `python3 tools/chunk_decoder_l3.py` reproduces the firmware
     path verdicts from EXP-2026-11-08-M9.11-chunk-decoder on the
@@ -3017,6 +2878,18 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `sh4dis.py` decodes the blocking shift/bit instructions in DECOMP_BLK/SECT (listed before/after in EXP) with selftests; vector file has >=3 sub-fragment cases each runtime-verified by M8.E1c/M9.29 or marked `HYPOTHESIS` with disassembly evidence and falsifier; M1.2f can cite vectors.
   - Stop: if a CE-specific LZXD variant cannot be split without a running oracle, name the minimal reproducible fragment needing QEMU/Ghidra and keep pure-Python porting blocked on M8.E1c/M9.29.
   - Claims: C-3220–C-3229
+
+- [ ] **M9.31 — `l3check --card` baseline/no-diff verdicts for S0/S1 (unblocks M9.12)**
+  - Status: open · Owner: — · Critical: no
+  - Pair: solo
+  - Depends: M9.12 (blocked), M9.11/M9.11b (cmp_ind_reader path), M9.6 context
+  - Goal: make the card gate produce runnable verdicts when S0/S1 are byte-identical to factory, instead of `NO_DIFFS`/exit 3 with no pass evidence. A no-diff card is a valid baseline and should still exercise registered runnable targets on factory/baseline files where safe.
+  - Precheck: `python3 tools/l3check.py --selftest` passes; M9.12 EXP states the S0/S1 no-diff blocker and S2 PASS path.
+  - Scope: add `--baseline` (or equivalent, name in PR) / no-diff handling to `tools/l3check.py`: when card==factory or selected diff set is empty, run registered runnable targets on the baseline/factory files they declare (or a documented minimal set) and report PASS/FAIL/SKIP/BLOCKED/not-yet-available; `NO_DIFFS` remains a distinct informational state only if no runnable target applies. Keep synthetic/vendor policy explicit. No silent PASS.
+  - Input: `tools/l3check.py`, M9.12 EXP (`EXP-2026-11-08-M9.12-l3check-card`), `targets.json` target applicability metadata, `chunk_decoder_l3.py`/M9.11 path.
+  - Done when: on a synthetic or documented fixture where card and factory inputs are identical, `l3check.py --card ... --factory ...` (with the chosen no-diff mode) runs at least the runnable M9.11/M9.6-equivalent paths available in that fixture and reports explicit verdicts (not bare `NO_DIFFS`/exit 3 without verdicts), with selftest/EXP evidence; M9.12 can cite it as the S0/S1 unblock path.
+  - Stop: if no registered runnable target can declare a safe baseline corpus, report `NO_RUNNABLE_BASELINE_TARGETS` with reasons and keep M9.12 blocked (do not fabricate verdicts).
+  - Claims: C-3320–C-3329
 
 ## Retired leads
 

@@ -1,0 +1,43 @@
+role: po
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 08:28
+end_utc: 2026-11-09 08:58 (approx)
+origin_main_start: f6fb66eb521732d521031e9ce3d4ee4c6cdfab4f
+
+inputs_read:
+- AGENTS.md, TODO.md (rules/priorities/workstreams, targeted task blocks)
+- prompt_common.txt, prompt_po.txt (user)
+- docs/retro/2026-11-09-2.md, dev_process/2026-11-09-0823-1-sm.log
+- gh pr list --state open; git remotes/log; todo_check/claims_check
+- task/claim state checks (M9.11/M3.11b/M3.19/M9.11b/M3.20/M9.12, deps/blockers)
+
+actions_taken:
+- git fetch && git pull --ff-only (up to date). Created this work log (N=2).
+- Assessed board/retro: 3040 lines, 57 open/65 done/35 blocked before; 0 in-progress task blocks; 7 stale claim-only draft PRs #140-146 (TL reconcile, SM action 1). SE updates reflected: M2.18 done, M4.16b/M9.12/M3.16/M3.18/M4.27/M4.28 blocked with EXPs, M5.28-30 open.
+- Archive (step 5, first before adds): moved 10 done, >24h, no non-done deps tasks to docs/research/todo-history-2026-11-09.md: M1.2b,M1.2c,M1.6b,M1.6c,M2.13,M2.13b,M3.1,M5.1b,M4.8c,M9.1. TODO 3040->2876. Exception: remaining done tasks block open/blocked work or <24h; TODO still >1500.
+- Rule 15 (step 4): re-opened M9.11, M3.11b, M3.19 (M9.11b/M3.20 done) as open/Owner — with Pair:pair and prior blocker notes kept.
+- Priorities (step 2): updated to 2nd 2026-11-09 pass; reflected SE/retro, L1-L5 mapping, M9.12 blocker/M9.31 path, SM actions, archive counts, rule 15 reopens, take-first list.
+- New tasks (step 3, 3 added, <=8): H45 (l3_precond reachability gate for reopened L3 reruns, retro action 4, solo, C-3330-3339); M6.14 (S0/S1 bench package scope artifact, Marek decision prep, solo, C-3340-3349); M9.31 (l3check --card baseline/no-diff verdicts for S0/S1, unblocks M9.12 path, solo, C-3320-3329). Searched for duplicates (H45/M6.14/M9.31/M9.12 ids/claims) — none.
+- Updated workstreams-at-a-glance table (H45/M6.14/M9.31, rule 15 reopens, M2.18/M9.12 state). Did not reflow unrelated sections.
+- Checks: `python3 tools/todo_check.py TODO.md` OK (pre-existing M9.5 warnings), `python3 tools/claims_check.py` OK.
+
+task_ids_added: H45, M6.14, M9.31
+task_ids_changed: M9.11 (blocked->open, rule 15), M3.11b (blocked->open, rule 15), M3.19 (blocked->open, rule 15), priorities section, workstreams table
+task_ids_archived: M1.2b, M1.2c, M1.6b, M1.6c, M2.13, M2.13b, M3.1, M5.1b, M4.8c, M9.1
+prs: none (PO board grooming)
+commits: (this run) docs: PO grooming pass 2 — priorities, rule 15 reopens, archive, 3 tasks
+
+decisions:
+- Archived only tasks meeting all criteria (done, >24h, no non-done deps) to avoid breaking live dependencies; reported >1500 exception. Alternative: aggressive archive of all old done tasks rejected (some block open/blocked work).
+- Re-opened M3.11b/M9.11/M3.19 mechanically per rule 15 (named unblocks done) and kept prior blockers as notes; M3.19 still needs full done-when verification despite M3.20/sh4scan.py presence.
+- Added 3 focused tasks (not 8) to fill specific retro/critical-path gaps (M9.12 no-diff gate, reopened-L3 precondition, S0/S1 bench scope). Rejected adding TL/PR-reconciliation task (TL owns SM action 1).
+
+problems:
+- TODO still 2913 lines (>1500): most done tasks block open/blocked work or are recent; further archive limited by dependency graph.
+- M3.19 was already in open/rule-15 state when rechecked (parallel edit confusion); left correct state.
+- M9.5 has pre-existing todo_check warnings (unknown M9.3/M9.4 deps, missing Precheck/Scope/Stop) — not introduced by this pass.
+
+handoff:
+- QA/SE next: review new tasks H45/M6.14/M9.31 for Done-when/Pair/runnability; SE check M9.11/M3.11b/M3.19 reopened preconditions (retro action 4) before implementation claims.
+- TL: reconcile stale claim-only draft PRs #140-146 (SM retro action 1); enforce work-log compliance.
+- Human: decide S0/S1 bench package boundary (SM action 5); M6.14 provides prep artifact template. Marek/non-Claude needed for M6.2/S0, M6.11 .uf2, M9.2 Ghidra, M1.2e.
