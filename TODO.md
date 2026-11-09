@@ -372,7 +372,17 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-09-H47-progress-report-schema (`tools/progress_report.py` v3 + `tools/progress_schema.py`; auto-detected H41 matrix/H43 corpus contract, backward-compatible legacy inputs, schema_contract in JSON; C-3360–C-3364).
   - Claims: C-3360–C-3369
 
-## M1 — Firmware tooling
+- [ ] **H48 — reader_precheck/M1.12: import or delegate to `sh4scan` (unblocks M3.19 done-when)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (M3.19 blocked on this)
+  - Goal: satisfy M3.19’s done-when clause “M1.12 imports it rather than duplicating the scan” without duplicating `sh4scan`’s scan engine, or record an explicit board/TL amendment of that clause with rationale.
+  - Precheck: `python3 tools/sh4scan.py --selftest` passes; confirm `tools/reader_precheck.py` is the M1.12 precheck tool referenced by TODO and that it does not import/delegate to `sh4scan` (baseline).
+  - Scope: `tools/reader_precheck.py` (and only files required for the integration) — import or delegate to `tools/sh4scan.py` for overlapping pattern/anchor scan functionality where appropriate; **or**, if integration is not the right design, add an explicit board/TL decision record amending M3.19’s M1.12-import done-when clause (citing rationale) and update M3.19 accordingly. One task per PR.
+  - Input: `tools/reader_precheck.py`, `tools/sh4scan.py`, TODO M3.19 done-when/Result/Blocker, EXP-2026-11-08-M3.19-sh4scan addendum 2026-11-09.
+  - Done when: either (a) `python3 -c "import ast, pathlib; s=pathlib.Path('tools/reader_precheck.py').read_text(); assert 'sh4scan' in s"` (or an equivalent documented delegation) and `python3 tools/reader_precheck.py --selftest` / `python3 tools/sh4scan.py --selftest` pass with an EXP noting what overlaps were delegated; **or** (b) a board/TL decision is recorded (TODO/EXP/claims as appropriate) explicitly amending M3.19’s M1.12-import clause with rationale. In either case, when this PR merges it sets M3.19 `Status` back to `open` (or `done` only if clause (b) makes M3.19’s remaining done-when satisfied and documented) per rule 15.
+  - Stop: if reader_precheck and sh4scan have no safe overlap to delegate, choose path (b) with a clear rationale rather than forcing a meaningless import.
+  - Claims: C-3410–C-3419
+
 
 Done: M1.1 (synthetic self-test, EXP-47), M1.5 (`cerom.py memmap`/`ghidra`,
 EXP-48; the real Ghidra open is M9.2), M1.6 (`cerom.py imports`, EXP-50,
@@ -1145,10 +1155,11 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 ---
 
 - [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
-  - Status: open · Owner: — · Critical: yes
-  - Pair: pair
-  - Note (rule 15, 2026-11-09 PO): M3.20 done (register-AND mask variant / M3.11 pattern text); re-opened. Prior blocker kept: M3.11 mask count 1 not reproduced by the old pattern (register AND at Navi.exe `0x3715c8–0x3715cc`); other published counts reproduced (EXP-2026-11-08-M3.19-sh4scan). `sh4scan.py` exists — verify/complete done-when against M3.20's `--via-reg` and reproduce all published counts.
+  - Status: blocked · Owner: task/m3.19-sh4scan-close · Critical: yes · Pair: pair
+  - Note (rule 15, 2026-11-09 PO): M3.20 done (register-AND mask variant / M3.11 pattern text); re-opened. Counts verified 2026-11-09 incl `mask-pair --via-reg`=1 (immediate 0 recorded); blocked on unsatisfied M1.12 import clause.
   - Depends: —
+  - Blocker: M3.19 done-when clause "M1.12 imports it rather than duplicating the scan" is not satisfied — no M1.12 task block in TODO; `tools/reader_precheck.py` (M1.12) does not import/delegate to `sh4scan` (checked 2026-11-09). Counts/selftest/EXP addendum verified (see Result).
+  - Unblock: H48 (reader_precheck/M1.12 imports or delegates to sh4scan where scans overlap, or explicit board/TL amendment of M3.19 done-when with rationale); H48 PR sets M3.19 back to `open` on merge (rule 15).
   - Goal: M3.11, M3.13 and M3.2b are correct negatives that **cannot be
     re-run**: the tag/stride/mask searches are prose plus heredocs, and M3.2b
     contains `# ... anchor search over IMG256 ...`. Rule 16 makes that a
@@ -1172,6 +1183,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     imports it rather than duplicating the scan.
   - Stop: if the counts differ, record the discrepancy in an EXP and stop —
     the difference is the result.
+  - Result: EXP-2026-11-08-M3.19-sh4scan.md (Verification addendum 2026-11-09). All published counts reproduced on IMG256.head 92aa525d…: 527 sections (282 uncompressed/245 compressed, 23559542 B psize/23513170 B vsize); Navi.exe tags 26/23/0; pattern 8868=23 incl 0x37c268; mask immediate 0, via-reg 1 @ Navi.exe 0x003715c8/ca/cc R3+4B; stride 3179→7→0; anchors table families 14 (+ invalid block type +3 noted). --selftest OK. Blocked on unsatisfied M1.12 import clause (not claimed done).
   - Claims: C-2530–C-2539
 
 - [x] **H37 — 24h senior-engineer review: completed tasks and experiments**

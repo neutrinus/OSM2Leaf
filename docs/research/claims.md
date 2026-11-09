@@ -2462,6 +2462,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3368 | RESERVED (H47). | — | — | — |
 | C-3369 | RESERVED (H47). | — | — | — |
 
+## H48 — reader_precheck/M1.12 import or delegate to `sh4scan` (C-3410–C-3419)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3410 | RESERVED (H48, open). Unblocks M3.19 done-when "M1.12 imports it rather than duplicating the scan": `tools/reader_precheck.py` (M1.12) to import/delegate to `tools/sh4scan.py` for overlapping scans, or explicit board/TL amendment of M3.19 clause with rationale. | — | — | TODO H48; M3.19 blocked 2026-11-09 |
+| C-3411 | RESERVED (H48). | — | — | — |
+| C-3412 | RESERVED (H48). | — | — | — |
+| C-3413 | RESERVED (H48). | — | — | — |
+| C-3414 | RESERVED (H48). | — | — | — |
+| C-3415 | RESERVED (H48). | — | — | — |
+| C-3416 | RESERVED (H48). | — | — | — |
+| C-3417 | RESERVED (H48). | — | — | — |
+| C-3418 | RESERVED (H48). | — | — | — |
+| C-3419 | RESERVED (H48). | — | — | — |
+
 ## M4.27 — Bit-packed / non-zlib POINT pages (C-2670–C-2679)
 
 | ID | Claim | Status | Confidence | Evidence |
