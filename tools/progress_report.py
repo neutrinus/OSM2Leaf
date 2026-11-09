@@ -747,7 +747,8 @@ def render_markdown(report: dict) -> str:
         lines.append(f"- claims mentions (bounded): {cl.get('claim_id_mentions')} ids, {cl.get('unique_claim_ids')} unique, RETRACTED mentions {cl.get('retracted_mentions')} · `{cl.get('contract')}`")
     td = s.get("todo_l4_tasks") or s.get("todo_l5_tasks") or {}
     if td:
-        lines.append(f"- L5/M6 task lookup: {', '.join(f'{k}={v.get('checked')}' for k,v in td.items())}")
+        task_lookup = ", ".join(f"{k}={v.get('checked')}" for k, v in td.items())
+        lines.append(f"- L5/M6 task lookup: {task_lookup}")
     lines.append(f"- H27 claim block (reserved): {', '.join(s.get('claims') or [])}")
     if s.get("h47_claims"):
         lines.append(f"- H47 claim block (reserved): {', '.join(s.get('h47_claims') or [])}")
