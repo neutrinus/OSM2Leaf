@@ -360,8 +360,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3350–C-3359
   - Result: EXP-2026-11-09-H46-test-system-map.md (C-3350–C-3354); added `docs/research/test-system.md` mapping L1-L5 (2026-11-09, L4 emulator/L5 bench), rule 13, tool/workflow interfaces and fixtures, H28/H29/H38/H40-H45/H47/M9.31 gap order, status classes with never-PASS rule, execution matrix (PR CI no vendor/local vendor/L4 emulator/L5 manual), and regression gate policy. Noted terminology migration in `progress_report` (`--l4-emulator-status`, `--l5-status`, `--l4-status` alias) and older "L4 readiness (bench package)" => L5 readiness. `test -f` OK, `todo_check` OK (warnings pre-existing), `claims_check` OK, `selftest` 76 PASS/0 FAIL/15 SKIP.
 
-- [ ] **H47 — `progress_report` schema contract for H41 per-file/per-feature and H43 generated-L3 corpora**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H47 — `progress_report` schema contract for H41 per-file/per-feature and H43 generated-L3 corpora**
+  - Status: done · Owner: task/h47-progress-report-schema · Critical: no · Pair: solo
   - Depends: H27 (done). Coordinates with H41, H43, H42 (integration/wiring) — land before or with H42's progress wiring.
   - Goal: prevent H42 from guessing how to aggregate generated-fixture L1/L2 and generated-L3 progress; make the H27 `progress_report.py` input/output contract explicit and testable for new matrix shapes while preserving rule-13 separation.
   - Gap (QA 2026-11-09): `progress_report.py` consumes H26 `l1l2_fixtures` JSON and `l3check` JSON (help verified). H41 adds per-file/per-feature matrix with stable keys and regression baseline for a generated no-vendor fixture; H43 adds generated-fixture L3 corpus classification (`ran_on_our_generated_data`, synthetic/vendor/generated separation). Without a contract, H42 may duplicate logic or silently misclassify synthetic/harness results as firmware proof.
@@ -369,6 +369,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Input: `tools/progress_report.py`, H27 schema/EXP, `tools/l1l2_fixtures.py` H26 JSON shape, `tools/l3check.py --json` shape, H41/H43 task specs (stable-key/field requirements), `.github/workflows` H42 needs.
   - Done when: `python3 tools/progress_report.py --selftest` covers (1) legacy H26/H27 inputs still parse, (2) a synthetic H41-style per-file/per-feature JSON fixture produces per-file/per-feature counts with `SKIP/NOT_COVERED/NOT_RUNNABLE` separated from PASS, (3) a synthetic H43-style generated-corpus L3 JSON is reported as generated-fixture evidence and not promoted to firmware proof unless explicitly marked, (4) L4 emulator and L5 bench manual states remain explicit/non-auto-pass. `--json` output documents schema version/field names. EXP maps fields to rule 13 and L1-L5 (2026-11-09).
   - Stop: if H41/H43 final key names are not yet fixed, land a minimal versioned contract (schema version + required keys + unknown-key tolerance) with synthetic fixtures and mark remaining keys `TBD` in EXP; do not block on implementation details of unfinished tasks.
+  - Result: EXP-2026-11-09-H47-progress-report-schema (`tools/progress_report.py` v3 + `tools/progress_schema.py`; auto-detected H41 matrix/H43 corpus contract, backward-compatible legacy inputs, schema_contract in JSON; C-3360–C-3364).
   - Claims: C-3360–C-3369
 
 ## M1 — Firmware tooling

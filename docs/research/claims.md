@@ -2447,6 +2447,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3358 | RESERVED (H46). | — | — | — |
 | C-3359 | RESERVED (H46). | — | — | — |
 
+## H47 — `progress_report` schema contract for H41/H43 (C-3360–C-3369)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3360 | `tools/progress_report.py` (schema `osm2leaf.progress_report/v3`, backward-compatible stable top-level fields vs v2/v1) and `tools/progress_schema.py` (stdlib, documented) define an auto-detected, unknown-key-tolerant input/output contract for H41 per-file/per-feature generated-fixture L1/L2 matrices and H43 generated-corpus L3 evidence. `--json` output includes `schema`/`schema_version`/`schema_contract` documenting schema versions and field names; CLI accepts `--l1l2-matrix-json`/`--l3-corpus-json` aliases. No vendor data. | VERIFIED (tool) | H | EXP-2026-11-09-H47-progress-report-schema; `python3 tools/progress_report.py --selftest` |
+| C-3361 | A synthetic H41-style per-file/per-feature JSON fixture (rows with `level,file,feature,status,command,reason`) is normalized into per-file/per-feature counts with `PASS|FAIL|SKIP|NOT_COVERED|NOT_RUNNABLE` separated (SKIP/NOT_COVERED/NOT_RUNNABLE never counted as PASS); unknown keys are preserved/tolerated; provisional schema accepted. | VERIFIED (tool, synthetic fixture) | H | EXP-2026-11-09-H47-progress-report-schema; progress_report selftest H47(2) |
+| C-3362 | A synthetic H43-style generated-corpus L3 JSON is normalized with corpus-kind separation (`synthetic|vendor|factory|generated_fixture|unknown`) and evidence-kind separation (`firmware_proof|harness_only|unknown`). Generated-fixture corpus runs are reported as generated-fixture evidence and are not promoted to firmware proof unless explicitly marked by a non-synthetic `l3_claim`/`firmware_proof` PASS; synthetic/harness results never become firmware proof. | VERIFIED (tool, synthetic fixture) | H | EXP-2026-11-09-H47-progress-report-schema; progress_report selftest H47(3) |
+| C-3363 | Legacy H26 `l1l2_fixtures` JSON and H27/legacy `l3check` JSON inputs still parse through `progress_report.py` with backward-compatible legacy fields preserved (auto-detected). | VERIFIED (tool) | H | EXP-2026-11-09-H47-progress-report-schema; progress_report selftest H47(1) and legacy checks |
+| C-3364 | L4 emulator (M8) and L5 bench/car (M6) manual states remain explicit/non-auto-pass in `progress_report.py` v3: no stage is auto-passed, and `PASS` requires recorded evidence (demoted to `NOT RUN` otherwise). | VERIFIED (tool) | H | EXP-2026-11-09-H47-progress-report-schema; progress_report selftest H47(4) |
+| C-3365 | RESERVED (H47). | — | — | — |
+| C-3366 | RESERVED (H47). | — | — | — |
+| C-3367 | RESERVED (H47). | — | — | — |
+| C-3368 | RESERVED (H47). | — | — | — |
+| C-3369 | RESERVED (H47). | — | — | — |
+
 ## M4.27 — Bit-packed / non-zlib POINT pages (C-2670–C-2679)
 
 | ID | Claim | Status | Confidence | Evidence |
