@@ -373,7 +373,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3360–C-3369
 
 - [ ] **H48 — reader_precheck/M1.12: import or delegate to `sh4scan` (unblocks M3.19 done-when)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h48-sh4scan-reader-precheck · Critical: no · Pair: solo
   - Depends: — (M3.19 blocked on this)
   - Goal: satisfy M3.19’s done-when clause “M1.12 imports it rather than duplicating the scan” without duplicating `sh4scan`’s scan engine, or record an explicit board/TL amendment of that clause with rationale.
   - Precheck: `python3 tools/sh4scan.py --selftest` passes; confirm `tools/reader_precheck.py` is the M1.12 precheck tool referenced by TODO and that it does not import/delegate to `sh4scan` (baseline).
