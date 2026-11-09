@@ -1,0 +1,40 @@
+role: se
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 14:27
+end_utc: 2026-11-09 14:34 (approx)
+origin_main_start: daead88f8f05d3c1ef6eab6ca4e2e796f3c8f0a1? (recorded from origin/main before work: daead88)
+
+inputs_read:
+- AGENTS.md (system), prompt_common.txt, prompt_se.txt
+- dev_process/2026-11-09-0845-4-se.log,1413-9-sm.log,1418-10-po.log,1423-11-qa.log; docs/retro/2026-11-09-3.md context via logs
+- git fetch/log --since=24.hours origin/main; recent EXPs: M5.31,M9.11-closeout,H48,M5.29,M5.28,M2.18
+- TODO.md blocks: M5.29,M5.31,M5.32,M9.11,M9.11b,M9.32,M9.33,M3.19,M3.21,M2.18,H48 refs; claims/todo checks
+
+actions_taken:
+- git fetch origin (up to date at daead88); confirmed local main==origin/main, only untracked .claude/. Created SE work log (N=12).
+- Ran cheap gates: claims_check OK; todo_check OK (pre-existing M8/M9 warnings only); sh4scan/reader_precheck/progress_report/mkcard/imgpatch/one_tile_pipeline/hddinfo/roadclass_v0/tilewriter selftests PASS (sampled).
+- Reviewed 24h completed/blocked tasks: M5.31 done (EXP has SHA-256/commands/controls/corpus/falsifier/obs vs interp, EU2011 uncapped contrast documented; IMG256 not locally available to re-run but evidence concrete; C-3170-3175 present); M9.11 done + closeout EXP verifies all pairs+controls through registered cmp_ind_reader with declared sec1 provenance (rule 13 noted); H48 done (import/delegation + selftests/build-A pins); M5.28/M2.18 done with selftests/EXPs; M5.29 correctly blocked (done-when unmet: cardcheck/l2check fail on synthetic scaffold, factory context missing; gates honest NOT-APPLICABLE/CANNOT-VERIFY-OFFLINE, no vendor bytes). No done task found failing its cheap done-when; IMG256-dependent reruns not executed (IMG256 absent, rule 11 noted).
+- Checked EXP/claim hygiene on sampled items: TEMPLATE elements present (hashes/commands/controls/corpus/falsifier/obs+interpretation or equivalent); claims_check clean; no retired-lead traps observed in sampled changes (LE/sh4scan/declared sec1 inputs explicit).
+- Reproduced M5.29 synthetic gates locally: cardcheck FAIL (MMAIN/tile section-level alignment, missing VER_INFO on partial) and l2check FAIL (B30R060R synthetic tile too short for clarion_tile/ze0_mutate read path; B48R058R not in tile list context). Root cause worth concrete follow-up on critical L2 path.
+- Found M9.32 still open though M9.11 closeout EXP satisfies its done-when (M9.11 done with Result naming EXP-2026-11-09-M9.11-closeout-cmp-ind-reader, all pairs+controls through registered path, sec1 provenance cited). Added task to close M9.32 cleanly without new format claims.
+- Added tasks M5.33 and M9.34 (2 tasks, <=8), set Pair fields, reserved claim blocks C-3420-3429/C-3430-3439. Ran todo_check/claims_check after edits.
+
+task_ids_added: M5.33 (C-3420-3429), M9.34 (C-3430-3439)
+task_ids_changed: none (added task blocks only; no status edits to in-progress tasks)
+task_ids_moved/blocked/reopened: none by SE
+prs: none
+commits: docs: se 24h review follow-ups M5.33 M9.34 (planned)
+
+decisions:
+- Added only 2 high-value tasks: M5.33 makes M5.29 synthetic scaffold/tile coherent for cardcheck/applicable l2check (critical L2 path, names concrete files/failure modes); M9.34 closes stale M9.32 satisfied by M9.11 closeout. Rejected adding duplicate M3.21/M9.32/M9.33 work, rejected editing M8/M9.2/M9.5 warning-only fields, rejected broad TODO cleanup/reflow.
+- Did not mark M5.31 done-when as re-run (IMG256 absent); accepted documented EXP evidence and hashes. Did not silently change M9.32 status; added M9.34 to resolve it properly.
+- Set Pair: required on M5.33 (validator/writer-scaffold behavior affecting acceptance gates) and Pair: solo on M9.34 (board/EXP linkage housekeeping).
+
+problems/dead_ends:
+- IMG256 unavailable locally, so M5.31/EU2011 contrast and M3.21-style reruns cannot be independently re-executed in this pass (rule 11 applies; not treated as blocker).
+- M5.29 synthetic failures mix scaffold coherence (B30R060R malformed for ze0_mutate/clarion_tile) and MMAIN/section alignment; M5.33 must keep factory-backed run separate and gates honest.
+
+handoff:
+- TL/PO: schedule M5.33 on L2 path (pair required) to make synthetic M5.29 gates actionable without faking factory context; close M9.34 quickly (solo) to remove stale M9.32.
+- Next SE: verify M5.33 fixes do not claim firmware acceptance (rule 13) and that M9.34 cites M9.11 closeout EXP without duplicate claims; recheck M3.21/M9.33 when run.
+- Human: M5.29 PR #171 / 0x2146 boundary and Marek-owned hardware/image tasks unchanged.

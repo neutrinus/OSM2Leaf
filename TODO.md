@@ -2171,6 +2171,17 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-09-M5.29-one-tile-pipeline (partial/negative). `tools/one_tile_pipeline.py` + `--selftest`/gate report delivered; one OSM-generated `B48R058R` (`mapping=provisional-v0`, rule 13: not firmware-confirmed, L3/L4/L5 unknown). Done when not met.
   - Claims: C-3050–C-3059
 
+- [ ] **M5.33 — Make M5.29 synthetic scaffold/tile coherent for `cardcheck`/applicable `l2check` (honest gates)**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M5.29
+  - Goal: close the synthetic-path validator failures reported by M5.29 so the no-vendor milestone can produce actionable L1/L2 gate evidence on a synthetic tree, while keeping factory-backed acceptance and firmware acceptance separate and honest (rule 13).
+  - Precheck: `python3 tools/one_tile_pipeline.py --selftest` passes; reproduce `one_tile_pipeline.py --out <tmp> --cell B48R058R` then `cardcheck.py --root <tmp> --partial --ignore-dump-artifacts --fast` and `l2check.py --root <tmp> --partial --no-golden --no-cmp --tiles B48R058R` failures as recorded in EXP-2026-11-09-M5.29 (MMAIN/section-level alignment; `ze0_mutate`/`clarion_tile.read_tile` `struct.error` on synthetic scaffold tile buffer, e.g. `B30R060R.DAT`).
+  - Scope: `tools/one_tile_pipeline.py` synthetic scaffold/helpers and, only if required by the root cause, minimal fixes in `tools/rebuild_manifests.py`, `tools/tilewriter.py`, or `tools/ze0-viewer` parse assumptions used by `l2check`/`ze0_mutate` — name exact changed functions/files in PR. Do not claim factory parity, do not fetch/commit vendor bytes, do not weaken gates to fake PASS.
+  - Input: EXP-2026-11-09-M5.29-one-tile-pipeline, `tools/one_tile_pipeline.py`, `tools/rebuild_manifests.py`, `tools/tilewriter.py`, `tools/l2check.py`, `tools/cardcheck.py`, `tools/ze0-viewer/ze0_mutate.py`, `tools/ze0-viewer/tools_ze0/clarion_tile.py`.
+  - Done when: on the synthetic M5.29 path, `cardcheck` and applicable `l2check` gates either `PASS` with a coherent synthetic scaffold/MMAIN/tile set or are reported as `NOT-APPLICABLE`/`CANNOT-VERIFY-OFFLINE` only for gates that genuinely cannot apply to synthetic/no-vendor trees — never because of a malformed scaffold. EXP records failing checks before/after, commands, hashes of generated synthetic artifacts, and states `mapping=provisional-v0`, rule 13, L3/L4/L5 unknown.
+  - Stop: if making the synthetic scaffold validator-coherent requires factory tile bytes or firmware-confirmed structure not available offline, record the exact dependency and block that specific gate as `CANNOT-VERIFY-OFFLINE` with evidence; do not invent bytes.
+  - Claims: C-3420–C-3429
+
 - [ ] **M5.30 — One-variable OSM tile card via `imgpatch`/reconcile (1:1 diff, L1+L2)**
   - Status: open · Owner: — · Critical: no
   - Depends: M5.29, M5.13 (imgpatch), M5.20 (reconcile)
@@ -2965,6 +2976,17 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: each reopened/blocked L3 reader target above has an explicit `READY|BLOCKED|UNKNOWN` prerequisite verdict with missing dependency IDs (or "H45 unavailable") recorded in an EXP; TODO/coverage notes reference it. No target is marked runnable without evidence.
   - Stop: if H45 is unavailable and target metadata is insufficient, record `UNKNOWN` with missing fields and stop (do not guess).
   - Claims: C-3400–C-3409
+
+- [ ] **M9.34 — Close M9.32 as satisfied by M9.11 closeout (board/EXP linkage)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M9.32, M9.11, M9.11b
+  - Goal: remove stale L3-board state now that M9.11 closeout has satisfied M9.32's done-when; keep evidence explicit without duplicating claims or re-running vendor-image checks unnecessarily.
+  - Precheck: `test -f docs/experiments/EXP-2026-11-09-M9.11-closeout-cmp-ind-reader.md`; confirm M9.11 is `done` with Result naming that EXP and M9.32 is still `open`; `python3 tools/claims_check.py` and `python3 tools/todo_check.py` pass.
+  - Scope: TODO status/text reconciliation for M9.32 (and only stale precheck/scope wording in M9.11 if still misleading, keep edits minimal/local). No new firmware execution, no format claims, no vendor bytes.
+  - Input: EXP-2026-11-09-M9.11-closeout-cmp-ind-reader.md, EXP-2026-11-08-M9.11-chunk-decoder.md, EXP-2026-11-08-M9.11b-firmware-call-target.md, TODO M9.11/M9.32 blocks.
+  - Done when: M9.32 is `done` or `blocked` with `Result:` that cites the M9.11 closeout EXP as satisfying all three pairs + controls through the registered `cmp_ind_reader` path with declared sec1 provenance; M9.11/M9.32 contain no stale "not registered"/"no firmware-call entry kind" blocker text except accurate history; `todo_check.py` and `claims_check.py` pass.
+  - Stop: if the closeout EXP does not actually cover a M9.32 done-when element (pair/control/runner path/corpus availability claim), record the exact gap and keep M9.32 `blocked` naming it — do not close on incomplete evidence.
+  - Claims: C-3430–C-3439
 
 ## Retired leads
 
