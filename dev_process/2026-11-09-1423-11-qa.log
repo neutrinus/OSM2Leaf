@@ -1,0 +1,46 @@
+role: qa
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 14:23
+end_utc: 2026-11-09 14:30 UTC
+origin_main_start: 4cf5cf4 (docs: po grooming pass 3 — priorities, stale refs, archive M7.4)
+
+inputs_read:
+- AGENTS.md (system), prompt_common.txt, prompt_qa.txt (user)
+- dev_process/2026-11-09-1413-9-sm.log, 2026-11-09-1418-10-po.log (latest role context); 2026-11-09-0837-3-qa.log (own previous QA run)
+- docs/research/test-system.md (H46, done), docs/research/feedback-loop.md (L1-L5 2026-11-09 mapping), docs/research/reader-coverage.md (30 rows)
+- docs/research/card-test-plan.md (referenced), .github/workflows/ci.yml, l1l2-fixtures.yml, README.md
+- TODO.md: priorities/workstreams, H25-H29,H38,H40-H48, M9.8/M9.12/M9.31 task specs and states; claims allocation (claims.md tails)
+- tools interfaces: progress_report.py --help, l1l2_fixtures.py --help, l3check.py/l3_harness/targets.json (6 targets: probe-zlib-cmf synthetic, cmp_ind_reader firmware_call declared, others blocked/retired)
+- git fetch/rebase status, recent commits (4cf5cf4 head)
+
+actions_taken:
+- git fetch origin && git rebase origin/main (already up to date, 4cf5cf4). Created work log (N=11, 10 existing 2026-11-09 logs).
+- Assessed QA target ("automated test system... generated SD card images the car would read", 2026-11-09 L1-L5 mapping) against existing state. Reason: QA prompt requires gaps then plan only gaps.
+  Existing: ci.yml hard gate (selftest/claims/todo, Py3.11/3.13; 3.14 informational, H9) no vendor; l1l2-fixtures.yml runs l1l2_fixtures.py synthetic L1/L2 matrix (runnable FAIL blocks, NOT COVERED never PASS, no vendor); H26/H27/H38/H45-H47 done; progress_report.py v3 aggregates H26/H41/H43-compatible JSON + l3check + reader-coverage with rule-13 separation and manual L4-emu/L5-bench status (never auto-pass); l3check supports --build-corpus/--json/--selftest and local --card/--factory; test-system.md (H46) maps L1-L5, fixtures, status classes, execution matrix, regression policy, and H28/H29/H38/H40-H45/H47/M9.31 order.
+  Planned/open covering QA target: H28 (L3 synthetic in CI + optional IMG256 workflow_dispatch/scheduled/manual-weekly QA, SHA-256 verified, not PR CI); H29 (L5 bundle prep/S0-S3 result registration, manual, no public vendor artifacts); H40 (deterministic no-vendor coherent ZE0 fixture/tree for cardcheck+L2); H41 (generated-card L1 per file + L2 per file/per feature roads,names,POIs,geometry with regression baseline, stable status keys, SKIP/NOT_COVERED/NOT_RUNNABLE separate); H42 (wire progress/H41/H28 summaries+artifacts in CI, no vendor/QEMU/L5 execution); H43 (L3 generated-fixture corpus, ran_on_our_generated_data, honest when no runnable firmware readers); H44 (L5 readiness manifest/template validation in CI + LOCAL_ONLY_VENDOR registry for realcheck IMG256/golden ROOT/full REFER001/real LEV3456R, never PR CI); M9.31 (l3check --card baseline/no-diff verdicts for S0/S1). M9.12 blocked on M9.31; S0/S1 bench evidence remains manual (M6).
+- Gap analysis (only gaps not already planned): no new TODO tasks created. H40-H44/H28/H29/M9.31/H42 already plan the prompt's requested signals: generated-card L1 per file and L2 per file/per feature, L3 readers on our data with result classification, L4 emulator readiness/L5 bench package readiness reporting/readiness validation (2026-11-09 mapping), SKIP/not-runnable/NOT_COVERED/BLOCKED/NOT_RUN never PASS, CI no-vendor with synthetic/generated fixtures, IMG256/vendor-firmware-head manual/weekly/local-only, and regression gates (runnable FAIL blocks now; H41 adds generated-fixture baseline). Duplicating these would violate "do not plan it again"/"plan only the gaps".
+- Noted residual observations (not new tasks): progress_report L4 emulator input is a coarse status JSON; "what can run/blocked" detail can be supplied when M8 matures via richer status artifact/manual input (H42/H27 contract allows explicit status; no blocking gap). M9.27 still referenced but missing task block (SM handoff) - board defect outside QA test-system gap planning; left for PO/SE. PR #171 (M5.29) is active follow-up, not ghost.
+- Ran `python3 tools/todo_check.py TODO.md` and `python3 tools/claims_check.py` before commit (no TODO/claims edits; expected pre-existing warnings only / OK).
+- Committed QA work log only; rebased if needed; pushed to origin/main.
+
+task_ids_added: none
+task_ids_changed: none
+task_ids_moved: none
+task_ids_blocked: none
+task_ids_reopened: none
+prs: none
+commits: chore: qa work log 2026-11-09-1423-11 (this run; pushed if successful)
+
+decisions:
+- Created no new tasks because H28/H29/H40-H44/M9.31/H42 (open) and H25-H27/H38/H45-H47 (done) already cover the QA prompt's gaps and H46 documents them with dependency order. Rejected duplicate planning. Alternative: add fine-grained sub-tasks for H28/H41 internals - rejected (would duplicate/fragment owned planning; TL/SE should refine during execution if needed).
+- Used 2026-11-09 L1-L5 mapping throughout (L3 fragments, L4 full-system emulator/M8, L5 bench/car/M6); treated any "L4 readiness (bench package)" wording as L5 readiness. No prompt file edits (SM already clarified prompt_qa.txt).
+- Did not edit TODO/claims/code/workflows; kept run small and local. Did not touch PR #171 or M9.27.
+
+problems/dead_ends:
+- H40-H44 task blocks were not found by the first narrow grep pattern but exist in TODO (lines ~1222+); required targeted read. No content issue.
+- Some QA-target signals (generated-card per-file/per-feature, L3 on generated data, L5 readiness manifests, progress wiring) remain unimplemented because H40-H44/H28/H29/H42/M9.31 are open - execution gap, not planning gap.
+
+handoff:
+- SE/TL: execute in dependency order from test-system.md/H46: H40 -> H41 (and H47 contract already done) -> H28/M9.31 -> H43 -> H42; H44/H29 for L5 readiness (manual/hardware unavailable). Ensure H41/H42/H43/H28 honor status separation (SKIP/NOT_COVERED/NOT_RUNNABLE/BLOCKED/NOT_RUN never PASS), rule 13, and 2026-11-09 L4=emulator/L5=bench mapping.
+- PO: fix M9.27 reference/block gap (SM handoff) if still present; avoid creating duplicate QA tasks.
+- Human/Marek: S0-S3/L5 execution, M6.14 boundary/policy decisions, optional IMG256 CI runner/cache/SHA-256 policy for H28 optional mode, and other Marek-owned blocked tasks remain outside automated PR CI.
