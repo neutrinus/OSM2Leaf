@@ -1476,7 +1476,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-1810–C-1819
 
 - [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.16b-rdstm-field-walk · Critical: yes
   - Blocker (resolved, kept as note): M1.11c is done (`MOVT/SHAR/SHLD/SHAD` pinned, EXP-2026-11-08-M1.11c-sh4dis-opcodes), so the decoder gap is closed. Schema table `0x00d53500` is still undecoded; the join itself stays with M4.16d.
   - Re-opened (PO grooming 2026-11-09, rule 15): M1.11c merged; the original "lacks MOVT/SHAR/SHLD/SHAD" blocker no longer holds.
   - Result (negative, prior): EXP-2026-11-08-M4.16b-record-framing — gate passed (five functions plain in Navi.exe sec0; callees verified); walk not run; done-when not met.
