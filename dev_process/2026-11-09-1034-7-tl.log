@@ -1,0 +1,52 @@
+role: tl
+model: opencode/iceman-free (session model; subagents as launched)
+start_utc: 2026-11-09T10:34:00Z
+origin_main_sha_start: 43282ee4c0055143851ac57253b8676d64c2a3e7
+
+inputs_read:
+  - prompt_common.txt
+  - prompt_tl.txt (attached)
+  - AGENTS.md (system context)
+  - TODO.md (open/blocked/deps scan, priorities)
+  - git fetch --all --prune; gh pr list --state open (none)
+  - tools/todo_check.py (OK, warnings only); tools/claims_check.py (OK)
+  - dev_process/2026-11-09-* logs present (SM/PO/QA/SE/TL prior runs)
+
+actions:
+  - Scanned qualifying tasks (open, deps done on origin/main, no open PR claim, disjoint files, no Runner non-Claude/hardware). Reason: TL batch selection.
+  - Selected batch (6): M3.19, M5.28, H38, M5.31, M9.11, M9.28. Reason: critical path/value, deps satisfied, mostly disjoint modifications (M9.11 EXP/claims/TODO text only; M9.28 l3_harness code - no runner.py overlap expected with M9.11). Skipped M1.2f/M9.24/M9.12-blocked deps, M1.2g (M1.2f blocked), M9.31 (M9.12 blocked), M5.29 (M5.28 open), M9.32 (M9.11 open), M5.32 (M5.27 open), M4.16c/d missing Done when, Runner non-Claude/hardware tasks, M9.29 non-Claude.
+  - Pair/solo decisions recorded below; launching subagents next.
+
+task_launches:
+  - H38 (C-3160-3169): mode=solo (selftest-covered tool wiring, --selftest/selector). subagent=general ses_e401d51fdffeVsWf44pRfQlCaP completed. claim d277c67-equivalent? 5f909ba pushed, PR #163. outcome=done (TL spot-check: --only l3_harness PASS, claims/todo OK; full selftest reported 81/0/22). navigator N/A.
+  - M3.19 (C-2530-2539): mode=pair (search/scan verification, claims/EXP, reopened before). driver=general ses_e40161b3bffe0shE0Nz6xRvi8K, navigator=explore ses_e40129908ffelFB753gf1W4M0W (plan) + ses_e400ee5b3ffeUVm1zWFFz3R4RE (revised). rounds=2 (plan CHANGES→revised APPROVE; build+report). claim d277c67, PR #164. outcome=blocked (honest): all published counts reproduced on IMG256 92aa525d incl mask-pair immediate 0 + --via-reg 1 (0x3715c8/ca/cc R3 +4B), corpus 527/282/245 with byte counts, anchors 14 table families + invalid block type +3 noted, --selftest OK, claims OK, todo OK (pre-existing M9.5 warnings). Done-when clause "M1.12 imports it" unmet (no M1.12 block; reader_precheck.py does not import/delegate sh4scan); follow-up H48 (C-3410-3419) added with rule 15 unblock. EXP addendum 2026-11-09. Not merged.
+  - M5.28 (C-3040-3049): mode=pair (format/writer-adjacent compiler mapping, feeds tiles/L2). driver=general ses_e40161b3bffdxhohffLfmVcjxJ, navigator=explore ses_e40129908ffd9fpHXV18G0JjcE (plan) + ses_e400ee5b3ffe? ses_e400ee5b1ffeiUcbvIyK8Qt0Co (revised). rounds=2 (plan CHANGES→revised APPROVE; implementation). claim ae7a4e0, PR #165. outcome=done (TL check: roadclass_v0 --selftest OK incl emitted-table load_class_table acceptance + synthetic L2 build/readback with busway/road placeholders, parcels_missing==0 12/12 within 1m; selftest --only roadclass_v0 PASS; claims/todo OK). Provisional-v0, rule 13 explicit, no firmware claim. Not merged.
+
+navigator_defects_caught:
+  - M3.19: M1.12 import clause unsatisfied → prevented false done (blocked + H48/rule15); required both mask forms/corpus precision/anchors definition; required full EXP Method with falsifier before interpretation.
+  - M5.28: busway/road vs Stop-condition semantic tension → auditable option (a) with provisional-placeholder/low-confidence/alternatives/refusal; class-table contract matched tilewriter.load_class_table; synthetic L2 made concrete using emitted table and proving no silent fallback; provenance/rule 13 consistency.
+
+github_ci_fix (user request): CI quality gate failing on main+PRs (#163-165) with tool:progress_report exit 1. Root cause: progress_report --selftest prints Polish markdown assertions; ASCII stdout encoding caused UnicodeEncodeError. Verified with PYTHONIOENCODING=ascii LANG=C. Fix committed on fix/ci-progress-report-utf8 (e5e08c9), PR #166 https://github.com/neutrinus/OSM2Leaf/pull/166 pending CI. Merging #166 first unblocks rebase/CI for task PRs.
+
+prs: #163 H38 (draft, done), #164 M3.19 (draft, blocked), #165 M5.28 (ready, done), #166 CI fix (open). No merges performed by TL in this run (CI pending / sequencing).
+
+decisions:
+  - Did not run M9.11/M9.28 in same batch to avoid l3_harness runner overlap; selected 6 qualifying tasks but executed 3 (H38,M3.19,M5.28) with full TL checks given pairing/relay cost and backgrounding.
+  - M3.19 kept blocked (not done) despite verified counts: AGENTS rule 4/16 requires all done-when clauses; M1.12 clause unmet → H48 follow-up.
+  - M5.28 option (a) for busway/road accepted: compiler-unblocking/L2, machine-auditable placeholders, explicit Stop tension + alternative refusal, no firmware claim.
+
+problems:
+  - CI broken on origin/main due to progress_report UTF-8/ASCII; masked by selftest JSON summary showing only exit 1. Fixed via PR #166.
+  - M3.19 background subagent finished after user backgrounded; TL still verified.
+  - M5.12c open blocks M5.32; M1.2f blocked blocks M9.24/M3.2b/M3.11 chain; M9.12 blocked blocks M9.31 - limited qualifying critical-path batch.
+
+end_utc: 2026-11-09T11:05:00Z
+handoff: TL/merger should (1) wait for PR #166 CI green, merge #166 to main, delete branch; (2) rebase #163/#164/#165 onto main, re-run checks/CI, merge in order (H38 done, M3.19 blocked+H48 rule15, M5.28 done) with rule 6 cleanup; (3) SM/TL note H48 re-opens M3.19 when landed (rule 15). Next qualifying tasks to consider: M5.31, M9.11 or M9.28 (disjoint), H40 (overlaps mkcard/tilewriter - batch carefully), M9.29/M1.2e Runner non-Claude.
+
+merge_complete (user approved "zmerguj komplet", decisions accepted):
+  - #166 fix:ci-progress-report-utf8 merged f0ea421 (fixed UTF-8/ASCII + py3.11 f-string; quality gate green)
+  - #163 H38 merged aad9923 (rebased on main+#166, CI green, worktree/branch cleaned)
+  - #164 M3.19 merged 3196d8b (blocked+H48, rebased, CI green, cleaned)
+  - #165 M5.28 merged (rebased on main+#164, CI green, cleaned)
+  - origin/main ff-only updated; no force-push main; open PRs none for these tasks.
+end_utc_final: 2026-11-09T11:33:00Z
