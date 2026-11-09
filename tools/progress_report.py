@@ -863,7 +863,16 @@ def build_report(args) -> dict:
     }
 
 
+def _utf8_stdout() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except Exception:
+            pass
+
+
 def selftest() -> int:
+    _utf8_stdout()
     errors = 0
     import tempfile
 
@@ -1041,7 +1050,7 @@ def selftest() -> int:
     ok(report["l4"] == report["l5_car"], "v1 compat alias l4->car")
     md = render_markdown(report)
     for must in ["Udowodnione offline", "Udowodnione przez firmware", "Emulator pełnosystemowy (L4, M8", "Wymaga auta/stanowiska (L5, M6", "nigdy nie podnosi L2 do L3/L4/L5", "regułę 13", "Level mapping"]:
-        ok(must in md, f"markdown contains {must!r}")
+        ok(must in md, f"markdown contains {ascii(must)}")
     ok("S0" in md and "S1" in md and "F0" in md, "markdown has L5 car stages and L4 emulator stages")
     ok(json.dumps(report), "report is JSON-serializable")
 
@@ -1079,6 +1088,7 @@ def selftest() -> int:
 
 
 def main(argv=None):
+    _utf8_stdout()
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", metavar="PATH", help="write JSON report (includes schema_contract with schema version/field names)")
     ap.add_argument("--md", metavar="PATH", help="write Markdown report")
