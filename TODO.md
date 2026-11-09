@@ -2183,7 +2183,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3060–C-3069
 
 - [ ] **M5.31 — `mkcard --reconcile` resize: envelope contract, stale-tail policy, fresh-build contrast**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.31-mkcard-reconcile-resize · Critical: no · Pair: required
   - Depends: M5.20
   - Goal: make resize reconciles match the "minimal diff / one bad byte visible" intent that M5.20 met exactly only for same-length changes.
   - Scope: `tools/mkcard.py` reconcile path (`reconcile_partition`, `outside_ranges`, `_reconcile_drstr`) and its contract/reporting. Consider: (1) explicitly classify DRSTR index bytes in the reported envelope, (2) optional stale-tail preservation vs zero-fill with a documented tradeoff, (3) re-measure fresh-build contrast on the same changed trees (M5.20 did not). No format changes; no vendor data committed.
