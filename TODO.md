@@ -347,8 +347,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if target metadata lacks stable VA/section fields for a verdict, report `UNKNOWN` with the missing fields (do not guess READY).
   - Claims: C-3330–C-3339
 
-- [ ] **H46 — Test system map: L1-L5 progress signal, fixtures, CI/local/L5 execution policy**
-  - Status: in progress · Owner: task/h46-test-system-map · Critical: no · Pair: solo
+- [x] **H46 — Test system map: L1-L5 progress signal, fixtures, CI/local/L5 execution policy**
+  - Status: done · Owner: task/h46-test-system-map · Critical: no · Pair: solo
   - Depends: H25, H26, H27 (existing artifacts to reference)
   - Goal: one living design doc that maps the QA target ("generated SD card images the car would read") to concrete tools/workflows/fixtures/tasks, so every agent can see what is proven offline, what is firmware/L3/L4-emulator proof, and what remains L5 bench/car/manual — without conflating levels.
   - Gap (QA 2026-11-09): workflows/tools exist (H25 `ci.yml`, H26 `l1l2_fixtures.py`/`l1l2-fixtures.yml`, H27 `progress_report.py`, M9.8 `l3check.py`) and planned tasks cover major holes (H28,H29,H38,H40-H45,M9.12/M9.31), but there is no single map of fixture strategy (synthetic vs generated no-vendor vs local-only vendor), regression policy, status classes, and execution split (PR CI / local vendor / M8 QEMU / L5 Marek). This causes ambiguous "progress" claims.
@@ -357,6 +357,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `test -f docs/research/test-system.md` and the doc contains sections/headings covering at least: (1) level mapping L1-L5 (2026-11-09) and rule 13, (2) existing tools/workflows with command/fixture, (3) gap-closure dependency/order for H28,H29,H38,H40-H45,H47/M9.31 as applicable, (4) status classes `PASS|FAIL|SKIP|NOT_COVERED|NOT_RUNNABLE|BLOCKED` and "SKIP/NOT RUNNABLE/BLOCKED never PASS", (5) execution matrix PR CI (no vendor) / local-only vendor / M8 L4 emulator / L5 bench-manual, (6) regression gate policy. `python3 tools/todo_check.py TODO.md && python3 tools/claims_check.py` still pass.
   - Stop: if task states or tool interfaces are contradictory, document the contradiction with file/task references and stop expanding claims; do not invent tool behavior.
   - Claims: C-3350–C-3359
+  - Result: EXP-2026-11-09-H46-test-system-map.md (C-3350–C-3354); added `docs/research/test-system.md` mapping L1-L5 (2026-11-09, L4 emulator/L5 bench), rule 13, tool/workflow interfaces and fixtures, H28/H29/H38/H40-H45/H47/M9.31 gap order, status classes with never-PASS rule, execution matrix (PR CI no vendor/local vendor/L4 emulator/L5 manual), and regression gate policy. Noted terminology migration in `progress_report` (`--l4-emulator-status`, `--l5-status`, `--l4-status` alias) and older "L4 readiness (bench package)" => L5 readiness. `test -f` OK, `todo_check` OK (warnings pre-existing), `claims_check` OK, `selftest` 76 PASS/0 FAIL/15 SKIP.
 
 - [ ] **H47 — `progress_report` schema contract for H41 per-file/per-feature and H43 generated-L3 corpora**
   - Status: open · Owner: — · Critical: no · Pair: solo
