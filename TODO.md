@@ -1725,7 +1725,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     4 %/3 %, FAIL (C-2627); firmware VAs not located (C-2629).
 
 - [ ] **M4.24 — Section-2 part-b (odd record) grammar, levels 2, 4 and 5**
-  - Status: in progress · Owner: task/m4.24-sec2-partb-grammar-r2 · Critical: no
+  - Status: blocked · Owner: task/m4.24-sec2-partb-grammar-r2 · Critical: no
   - Depends: — (the census and checker are in `tools/rd_restrictions.py`, M4.23)
   - Goal: decode the unit-1 layout of the odd records that `rd_restrictions.py census` reports as mismatched (mark word, node blocks, entry words, side words).
   - Precheck: `python3 tools/rd_restrictions.py census` on `B28R070R.DAT` and `LEV3456R.DAT` reproduces the part-b notes in EXP-2026-11-08-M4.23.
@@ -1733,7 +1733,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: EXP-2026-11-08-M4.23-restriction-encoding (part-b table), `tools/rd_restrictions.py` (`part_b_check`).
   - Done when: a parser reproduces every odd record of those two tiles (76 + 34 pairs) word for word, with its own `--selftest`, and the mark and side words are explained by the parent record, not fitted.
   - Stop: after two rounds of fitting without a full match, record a negative EXP and stop.
+  - Unblock: re-run M4.24 when mark (`w[1]`), `nb[2]` (side), `nb[3]`, `e[1]`, `e[2]` and the L5/L4 node ordering are derived as deterministic functions of the parent record (no fitting), then reproduce all 76+34 odd records word for word.
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
+  - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
 
 - [x] **M4.25 — Regulation-word test: the no_* turns without a from-word, and the only_* encoding**
   - Status: done · Owner: task/m4.25-regulation-word-test · Critical: no
