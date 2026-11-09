@@ -1,0 +1,41 @@
+role: tl
+model: opencode/iceman-free
+start_utc: 2026-11-09 09:30 UTC
+end_utc: 2026-11-09 10:26 UTC (approx)
+origin_main_start: 5dc0316
+origin_main_end: c482964
+
+inputs_read:
+- AGENTS.md, TODO.md, prompt_common.txt, prompt_tl.txt
+- dev_process/2026-11-09-0823-1-sm.log,0828-2-po.log,0837-3-qa.log,0845-4-se.log,0850-5-tl.log
+- git fetch/prune, gh pr list --state open (none at start), gh pr list/diff/view/merge
+- dep/state checks on origin/main: M9.20/M9.5/M5.13b/H27/M9.11b done; M1.12/M3.20/H26 archived-done
+- task blocks for H45,H39,H46,H47,M1.18,H38,M3.11b,M3.19,M5.28,M9.11,M9.28; file presence checks
+
+actions_taken:
+- Verified qualifying open non-Claude tasks (53 open grep); selected disjoint solo batch (H45,H39,H46,M1.18,H47). Reason: all Pair: solo in TODO, deps done, disjoint primary files, no open PRs; deferred pair/required tasks (M9.11,M3.11b,M3.19,M5.28 pair; M9.28 required) and H38/M1.18 overlap for next TL pass with careful pair orchestration.
+- Launched 5 general subagents (solo developers) in parallel, each in own worktree/branch, with claim-first/draft-PR/no-merge instructions. Monitored completions.
+- TL checks per PR: re-ran Done when commands in worktrees (H45 l3_precond --selftest + 2 targets READY/BLOCKED; H39 harness --selftest; H46 file/headings/content; M1.18 l3_harness quick+full; H47 progress_report --selftest), ran claims_check/todo_check, reviewed EXP structure (Method/Observations/Interpretation present), confirmed no vendor data in diffs. selftest baseline 76 pass on main at start.
+- Merged sequentially (rebase fresh origin/main, checks, force-push-with-lease, gh pr merge --merge --delete-branch, worktree cleanup): #160 H46, #161 H39, #158 H45, #159 H47 (resolved claims.md keep-both conflict twice after early worktree removal; recovered by recreating worktree from remote branch and rebasing), #162 M1.18 (resolved claims.md conflict). Resolved all TODO/claims conflicts by keeping both sides.
+- Final on origin/main (c482964): claims_check OK, todo_check OK, selftest 77 passed/0 failed/16 skipped.
+
+task_ids_done: H45, H39, H46, M1.18, H47
+task_ids_changed: H45,H39,H46,M1.18,H47 open->in progress(claim commits)->done (merged)
+task_ids_blocked/reopened: none
+prs: merged #158 https://github.com/neutrinus/OSM2Leaf/pull/158, #159 /159, #160 /160, #161 /161, #162 /162 (all closed/merged, remote branches deleted)
+commits (landed via merges): H45 ff9df23/d59e532, H39 59bb5c6/84f5bde, H46 291dd8b/592a73e, H47 f980d3f/05f0493 (+rebase), M1.18 c014a2a/508cdee/... (+rebase); this run adds TL log commit.
+
+decisions:
+- Ran solo batch only (all task-marked Pair: solo) despite pair defaults for some dev work; pair-required/firmware-search compiler-adjacent qualifying tasks (M9.11,M3.11b,M3.19,M5.28,M9.28) deferred. Alternative: attempt 1-2 pairs — rejected to avoid weak navigator relay and context overload; quality risk higher than deferral. Reason stated per TL handoff.
+- Merged PRs sequentially with rebase+merge commits (preserved claim+work history) rather than squash. Conflicts resolved keep-both-sides per TODO rules.
+- Recreated H47 worktree after premature removal when push failed; did not lose work (remote branch still had original commits).
+
+problems/dead_ends:
+- H47 force-push failed once (remote disconnect); premature worktree removal left PR conflicting — recovered by rebase from origin/task branch into new worktree, conflict resolve, force-push-with-lease to PR head.
+- gh pr merge --delete-branch warns/fails on local branch deletion when worktree exists; handled by worktree removal.
+- TODO/claims merge conflicts expected and resolved (H47,M1.18 claims blocks). todo_check shows pre-existing M9.5/M8.E* warnings only.
+
+handoff:
+- Next TL: dispatch pair-required/pair-default qualifying tasks with driver+navigator relay in separate worktrees: M9.11 (pair, l3_harness/cmp_ind_reader - verify M9.11b registration done; disjoint from M1.18 now landed), M3.11b/M3.19 (pair, firmware analysis/sh4scan; check sh4scan vs M3.20/EXP counts), M5.28 (pair, provisional highway mapping, disjoint compiler/docs), M9.28 (Pair: required, l3_harness input mapping - overlaps l3_harness area; do not batch with M9.11). Consider H38 vs M1.18 coordination (M1.18 landed with H38-aware quick/full; H38 still open).
+- PO/SE: M9.27 still referenced but no task block (prior TL log noted); M6.13/M6.14 dep chain affected.
+- Human: bench/Marek items unchanged (M6.2/M6.5/M6.6/M6.7 hardware).
