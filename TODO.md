@@ -722,7 +722,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
 
 - [ ] **M1.18 — Bound `l3_harness` selftest runtime and keep full coverage available**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.18-l3-harness-selftest-runtime · Critical: no · Pair: solo
   - Depends: — (coordinates with H38)
   - Goal: `tools/l3_harness/runner.py --selftest` / full L3 harness checks can dominate agent loops (observed timeout during SE review); make the fast path bounded while preserving a full, honest selftest.
   - Precheck: reproduce baseline runtime: `python3 tools/l3_harness/runner.py --selftest` or the harness aggregate used by H38/selftest.py; record wall time and which cases dominate.
