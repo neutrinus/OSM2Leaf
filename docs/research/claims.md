@@ -2582,3 +2582,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3177 | RESERVED (M5.31). | — | — | — |
 | C-3178 | RESERVED (M5.31). | — | — | — |
 | C-3179 | RESERVED (M5.31). | — | — | — |
+
+## M3.21 — `sh4scan` counts reproduced on IMG256 (C-3380–C-3389)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3380 | On IMG256 `92aa525d…` (build A, `--image-start 0x200200`), `tools/sh4scan.py` reproduces M3.19-published counts: 527 build-A sections (282 uncompressed/245 compressed, 23,559,542 B psize uncompressed); Navi.exe tags 26 `cmp/eq #0x60`, 23 `cmp/eq #0x68`, 0 pairs; pattern `8868` 23 incl `0x0037c268`; mask-pair immediate 0, `--via-reg` 1 @ `0x003715c8/ca/cc R3 (+4 B)`; stride final candidates 0. Anchors raw hits reproducible (family grouping as M3.19 addendum). No published count corrected. | VERIFIED (repro) | H | EXP-2026-11-09-M3.21-sh4scan-counts-repro; EXP-2026-11-08-M3.19-sh4scan addendum |
+| C-3381 | RESERVED (M3.21). | — | — | — |
+| C-3382 | RESERVED (M3.21). | — | — | — |
+| C-3383 | RESERVED (M3.21). | — | — | — |
+| C-3384 | RESERVED (M3.21). | — | — | — |
+| C-3385 | RESERVED (M3.21). | — | — | — |
+| C-3386 | RESERVED (M3.21). | — | — | — |
+| C-3387 | RESERVED (M3.21). | — | — | — |
+| C-3388 | RESERVED (M3.21). | — | — | — |
+| C-3389 | RESERVED (M3.21). | — | — | — |
