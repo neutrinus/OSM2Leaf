@@ -2481,8 +2481,8 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-3410 | RESERVED (H48, open). Unblocks M3.19 done-when "M1.12 imports it rather than duplicating the scan": `tools/reader_precheck.py` (M1.12) to import/delegate to `tools/sh4scan.py` for overlapping scans, or explicit board/TL amendment of M3.19 clause with rationale. | — | — | TODO H48; M3.19 blocked 2026-11-09 |
-| C-3411 | RESERVED (H48). | — | — | — |
+| C-3410 | `tools/reader_precheck.py` (M1.12 precheck) imports `tools/sh4scan.py` and delegates its LE halfword edge-scan primitive (`_words` → `sh4scan.halfword_array` / `sh4dis.halfwords_le`), satisfying M3.19’s done-when clause “M1.12 imports it rather than duplicating the scan” (path a) without changing reader_precheck verdict logic. | VERIFIED (tool, synthetic + real build-A pins when image found) | H | EXP-2026-11-09-H48-reader-precheck-sh4scan; `python3 tools/reader_precheck.py --selftest`; `python3 tools/sh4scan.py --selftest`; TODO H48 PR #170 |
+| C-3411 | Documented non-overlaps left in `reader_precheck.py` (not delegated to `sh4scan`): `point_walk_l3` section/census model, `sh4xref` xref/holder verdict logic, and `sh4scan` pattern/tags/mask-pair/stride/anchors command scans (no direct overlap in reader_precheck’s verdict paths). M3.19 reopened by rule 15 note on PR #170 merge path. | OBSERVED (doc/tool boundary) | H | EXP-2026-11-09-H48-reader-precheck-sh4scan; TODO M3.19 note (rule 15, H48 #170) |
 | C-3412 | RESERVED (H48). | — | — | — |
 | C-3413 | RESERVED (H48). | — | — | — |
 | C-3414 | RESERVED (H48). | — | — | — |
