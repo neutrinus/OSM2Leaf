@@ -2570,37 +2570,32 @@ parts are covered by `tools/l3_harness/selftest.py`.
     M3.11c, and do not invent an accessor VA.
   - Claims: C-2140–C-2149
 
-- [ ] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
-  - Status: open · Owner: — · Critical: yes
-  - Pair: pair
-  - Note (rule 15, 2026-11-09 PO): M9.11b done (firmware-call entry kind); re-opened. Prior blocker/note kept: firmware path passed factory/S1/S2+controls (EXP-2026-11-08-M9.11-chunk-decoder) but `cmp_ind_reader` registration was blocked on runner kind — verify M9.11b fills it; sec1 inflate table (`0x574de0`, `inflate_mask[17]`) provenance must stay explicit, no silent default.
+- [x] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
+  - Status: done · Owner: task/m9.11-cmp-ind-reader-closeout · Critical: yes · Pair: pair
+  - Result: EXP-2026-11-09-M9.11-closeout-cmp-ind-reader.md (reconciles EXP-2026-11-08-M9.11-chunk-decoder.md / M9.11b). `chunk_decoder_l3.py` and `runner.py cmp_ind_reader` (`firmware_call`, declared sec1 `inflate_mask[17]` at `0x574de0`, provenance explicit, no silent default) return page `0x840ba0` byte-identical to `cmpind.decode` for factory/S1/S2 POINT010 pairs; `--mutate corrupt-ind` rejected (`r0=-1`); `--mutate swap-4-8` fails cleanly (`r0=65536`). `cmp_ind_reader` registered in `targets.json` (M9.11b). Sec1-byte equality remains HYPOTHESIS (M1.2f). L3 fragment scope (chunk decode), not full `.ind` parser/opener or M9.12 `l3check --card` corpus acceptance.
+  - Note (rule 15, 2026-11-09 PO): M9.11b done (firmware-call entry kind); re-opened then closeout-verified 2026-11-09. Prior blocker resolved: registration filled by M9.11b; sec1 inflate table (`0x574de0`, `inflate_mask[17]`) provenance explicit/declared, no silent default; sec1 bytes not read from decompressed sec1 (M1.2f open).
   - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
-  - Precheck: `python3 tools/chunk_decoder_l3.py` reproduces the firmware
-    path verdicts from EXP-2026-11-08-M9.11-chunk-decoder on the
-    factory/S1/S2 POINT010 pairs; `python3 tools/l3_harness/runner.py --help`
-    confirms no firmware-call/memory-setup entry kind for `cmp_ind_reader`.
+  - Precheck: (reconciled 2026-11-09) `chunk_decoder_l3.py --selftest` and `runner.py selftest` pass; `runner.py run cmp_ind_reader --dry-run` shows declared sec1 table; `l3_precond.py --target cmp_ind_reader` reports READY (mitigated by declared sec1 input). M9.11/M9.11b/closeout EXPs reproduce factory/S1/S2 + controls on local M5.13b pairs/IMG256 (hashes recorded; vendor data outside repo).
   - Goal: prove in software what S1 would prove in the car: the firmware's own
     zlib + chunk loop accept our recompressed bytes and return the same
     logical page. Re-scoped in the sixth pass: `fn 0x41c7e8` (M3.2b, C-2063)
     takes its 20-byte-stride chunk table from the caller, so the harness can
     build that table from `.ind` and never needs the `.ind` parser that lives
     in `Navi.exe` compressed sec1.
-  - Scope: document the passing firmware path and controls; do not register
-    `cmp_ind_reader` in `targets.json` until M9.11b adds the runner kind and
-    a declared sec1-table input. No silent table default.
+  - Scope: chunk-decode firmware fragment with declared sec1 table input and
+    controls. Does not register full `.ind` parser/file-opener behavior and does
+    not claim M9.12 `l3check --card` corpus acceptance.
   - Input: `fn 0x41c7e8` (`@(28,ctx)` table; `+8` uncompressed offset, `+12`
     uncompressed length, `+16` compressed source, `+4` passed as r7), one-shot
     wrapper `0x542148`, `inflateInit2_ 0x542256`, `inflate 0x54233c`,
     `inflateEnd 0x54220c`; `runner.py` + `stubs.py`; the factory, S1 and S2
-    `POINT010` pairs; `cmpind.py extract` as the reference page.
+    `POINT010` pairs; `cmpind.py` decode as the reference page.
   - Done when: for all three pairs the firmware path returns page `0x840ba0`
-    byte-identical to `cmpind.py extract`, one corrupt-`.ind` case is rejected,
+    byte-identical to `cmpind.py` decode, one corrupt-`.ind` case is rejected,
     and one deliberately wrong table field (e.g. swapped `+4`/`+8`) is shown to
     fail — so the table layout is proven, not assumed. Fills the
-    `cmp_ind_reader` target in `targets.json`.
-  - Stop: if runner plumbing cannot expose the firmware-call kind without
-    inventing sec1-table provenance, keep `cmp_ind_reader` blocked on M9.11b
-    and record the gap (do not fake registration).
+    `cmp_ind_reader` target in `targets.json`. **(met 2026-11-09 closeout)**
+  - Stop: n/a (satisfied). Future sec1-byte proof tracks M1.2f; corpus/card gate tracks M9.12.
   - Claims: C-2150–C-2159
 
 - [x] **M9.11b — L3 runner: a firmware-call target kind for the chunk reader (fills `cmp_ind_reader`)**
