@@ -1190,8 +1190,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if `l3_harness` selftests require environment assumptions incompatible with the main suite, integrate them as an explicit sub-suite with clear SKIP reasons and keep the main gate green only when the sub-suite passes or is honestly skipped.
   - Claims: C-3160–C-3169
 
-- [ ] **H39 — `ze0-viewer/harness.py info`: tolerate opaque/unparseable records**
-  - Status: in progress · Owner: task/h39-ze0-viewer-info · Critical: no · Pair: solo
+- [x] **H39 — `ze0-viewer/harness.py info`: tolerate opaque/unparseable records**
+  - Status: done · Owner: task/h39-ze0-viewer-info · Critical: no · Pair: solo
   - Depends: —
   - Goal: make tile inspection usable on factory tiles that contain opaque/bad records (M5.4 noted `harness.py info` crashes with `zlib.error` on `B48R058R`; `harness.py verify` still runs).
   - Scope: `tools/ze0-viewer/harness.py` `cmd_info`/info path only. No parser behavior changes in `tools_ze0` unless required and isolated; prefer catching/reporting bad records with counts and offsets.
@@ -1199,6 +1199,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `python3 tools/ze0-viewer/harness.py info <tile>` on a tile containing the known opaque/bad-record pattern reports the records as bad/opaque with counts (and does not crash), while `verify` behavior remains unchanged for the checked cases; a synthetic or minimal fixture covers the crash path if practical, otherwise the EXP records the real-tile command/result and SHA-256.
   - Stop: if the crash is inside vendored `tools_ze0` and cannot be fixed without changing pinned vendor behavior, document the limitation, add a targeted wrapper/fallback in `harness.py`, and file a follow-up naming the vendored function.
   - Claims: C-3180–C-3189
+  - Result: EXP-2026-11-09-H39-ze0-viewer-info.md (harness.py `--selftest` PASS, synthetic no-vendor fixture: bad zlib record reported as `unreadable/opaque 1` with dir/slot/k locator, no crash; clean synthetic info/verify unchanged; `read_tile`/header/bbox parse failures caught with scan fallback; `cmd_verify`/`tools_ze0` unchanged; real `B48R058R` not rerun here — M9.25 EXP covers).
 
 - [ ] **H40 — L1/L2 generated-fixture contract: deterministic in-process fixture + coherent ZE0 card/tree builder (no vendor data)**
   - Status: open · Owner: — · Critical: yes

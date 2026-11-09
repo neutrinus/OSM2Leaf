@@ -2222,6 +2222,15 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2692 | Control tiles `B28R070R`, `B30R060R`, `B58R070R` still pass `harness.py verify` (byte-identical round-trip, same ok/opaque/refused counts as M9.22/H14) after the M9.25 change. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash (Observations) |
 | C-2693 | `bg_refused.py --selftest` (M9.22) still passes (7 checks, exit 0) after the M9.25 change. | VERIFIED | H | EXP-2026-11-08-M9.25-harness-opaque-crash |
 
+## H39 — `ze0-viewer/harness.py info`: tolerate opaque/unparseable records (C-3180–C-3189)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3180 | `harness.py cmd_info` reports unreadable/opaque census records (zlib/decompression/classification failures) with a count and a locator: byte offset when `rec['off']` is present, else `dir 0x<dir_off> slot <n> k <n>` (never a fabricated `0x0`). The census does not crash on this class (M9.25 path hardened). | VERIFIED | H | EXP-2026-11-09-H39-ze0-viewer-info; `python3 tools/ze0-viewer/harness.py --selftest` (synthetic, no vendor data) |
+| C-3181 | `harness.py cmd_info` catches header/bbox and vendored `clarion_tile.read_tile` parse failures, reports them without traceback, and attempts a `cmd_scan` fallback when available; if no census is possible it reports `no census available (opaque/unparseable container)`. `tools_ze0` parser semantics unchanged. | VERIFIED | H | EXP-2026-11-09-H39-ze0-viewer-info; `harness.py info /dev/null` reports errors, no traceback |
+| C-3182 | `harness.py cmd_verify` behavior is unchanged by H39 (diff limited to `cmd_info`/helpers/selftest; `--selftest` verifies clean synthetic tile still passes). M9.25 real-tile verify cases were not rerun in this environment (vendor tiles unavailable). | VERIFIED | M | EXP-2026-11-09-H39-ze0-viewer-info; `git diff -- tools/ze0-viewer/harness.py`; `harness.py --selftest` |
+| C-3183 | `harness.py --selftest` provides a synthetic, no-vendor-data fixture covering the `is_zlib`-true / `zlib.decompress`-fail census crash path and asserts info reports unreadable/opaque with a locator while clean-tile info/verify remain normal. | VERIFIED | H | EXP-2026-11-09-H39-ze0-viewer-info; `python3 tools/ze0-viewer/harness.py --selftest` PASS |
+
 ## M1.2f — Port nk.exe block codec (DECOMP_BLK) to pure Python (C-2360–C-2369)
 
 | ID | Claim | Status | Confidence | Evidence |
