@@ -2423,6 +2423,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2778 | RESERVED (H27). | — | — | — |
 | C-2779 | RESERVED (H27). | — | — | — |
 
+## H46 — Test system map L1–L5 (C-3350–C-3359)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3350 | `docs/research/test-system.md` (H46, 2026-11-09) maps the QA target "generated SD card images the car would read" to L1–L5 tools/workflows/fixtures/tasks without conflating offline, firmware/L3, L4 emulator, and L5 bench/car evidence. | OBSERVED (doc) | H | EXP-2026-11-09-H46-test-system-map; `test -f docs/research/test-system.md` |
+| C-3351 | The test-system map states the 2026-11-09 level mapping (`L4`=full-system emulator/M8, `L5`=bench/car/M6), rule 13, and explicitly maps older "L4 readiness (bench package)" wording to **L5 readiness**. | OBSERVED (doc) | H | EXP-2026-11-09-H46-test-system-map |
+| C-3352 | The test-system map defines status classes `PASS|FAIL|SKIP|NOT_COVERED|NOT_RUNNABLE|BLOCKED|NOT_RUN` and states that `SKIP/NOT_COVERED/NOT_RUNNABLE/BLOCKED/NOT_RUN` are never `PASS`. | OBSERVED (doc) | H | EXP-2026-11-09-H46-test-system-map |
+| C-3353 | The test-system map records an execution matrix separating PR CI (no vendor), local-only vendor, M8 L4 emulator, and L5 bench/manual work, and a regression gate policy consistent with current no-vendor CI workflows. | OBSERVED (doc) | M | EXP-2026-11-09-H46-test-system-map; `.github/workflows/ci.yml`, `l1l2-fixtures.yml` |
+| C-3354 | `progress_report.py` exposes `--l4-emulator-status` and `--l5-status` with backward-compatible `--l4-status` alias (v1 car naming), reflecting the 2026-11-09 mapping migration; this is a terminology migration note, not a blocking contradiction in H46 scope. | OBSERVED (tool interface) | M | EXP-2026-11-09-H46-test-system-map; `python3 tools/progress_report.py --help` |
+| C-3355 | RESERVED (H46). | — | — | — |
+| C-3356 | RESERVED (H46). | — | — | — |
+| C-3357 | RESERVED (H46). | — | — | — |
+| C-3358 | RESERVED (H46). | — | — | — |
+| C-3359 | RESERVED (H46). | — | — | — |
+
 ## M4.27 — Bit-packed / non-zlib POINT pages (C-2670–C-2679)
 
 | ID | Claim | Status | Confidence | Evidence |
