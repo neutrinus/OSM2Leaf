@@ -1155,8 +1155,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 ---
 
-- [ ] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
-  - Status: open · Owner: — · Critical: yes · Pair: pair
+- [x] **M3.19 — `tools/sh4scan.py`: commit the scan that produced the three negatives**
+  - Status: done · Owner: task/m3.19-close-sh4scan · Critical: yes · Pair: pair
   - Note (rule 15, 2026-11-09 PO): M3.20 done (register-AND mask variant / M3.11 pattern text); re-opened. Counts verified 2026-11-09 incl `mask-pair --via-reg`=1 (immediate 0 recorded).
   - Note (rule 15, 2026-11-09 H48 #170): M1.12 import clause addressed by `tools/reader_precheck.py` importing/delegating to `tools/sh4scan.py` (H48, EXP-2026-11-09-H48-reader-precheck-sh4scan, C-3410–C-3411); re-opened for closure once PR #170 merges.
   - Depends: —
@@ -1184,7 +1184,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     imports it rather than duplicating the scan.
   - Stop: if the counts differ, record the discrepancy in an EXP and stop —
     the difference is the result.
-  - Result: EXP-2026-11-08-M3.19-sh4scan.md (Verification addendum 2026-11-09). All published counts reproduced on IMG256.head 92aa525d…: 527 sections (282 uncompressed/245 compressed, 23559542 B psize/23513170 B vsize); Navi.exe tags 26/23/0; pattern 8868=23 incl 0x37c268; mask immediate 0, via-reg 1 @ Navi.exe 0x003715c8/ca/cc R3+4B; stride 3179→7→0; anchors table families 14 (+ invalid block type +3 noted). --selftest OK. Blocked on unsatisfied M1.12 import clause (not claimed done).
+  - Result: done (TL closure 2026-11-09). `docs/experiments/EXP-2026-11-08-M3.19-sh4scan.md` (verification addendum) reproduces all published counts on IMG256.head `92aa525d…` incl `mask-pair --via-reg`=1 @ Navi.exe `0x003715c8/ca/cc`; `sh4scan --selftest` OK; M1.12 import clause satisfied by H48 (`reader_precheck.py` imports/delegates to `tools/sh4scan.py`, EXP-2026-11-09-H48-reader-precheck-sh4scan, C-3410–C-3411). Claims C-2530–C-2539 remain as recorded.
   - Claims: C-2530–C-2539
 
 - [x] **H37 — 24h senior-engineer review: completed tasks and experiments**
