@@ -218,7 +218,7 @@ qemu-system-misc gdb-multiarch`.
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H27, H28, H29, H30, H31, H45** (see deps); H21/H24/H25/H26 done |
+| H | Housekeeping | **H19, H27, H28, H29, H30, H31, H38–H47** (see deps/order in H46/H47); H21/H24/H25/H26 done |
 | M1 | Firmware tooling | **M1.2e (non-Claude), M1.2f (critical), M1.2g, M1.12, M1.14**; M1.11c/M1.13/M1.15–M1.17 done |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.20 done), **M2.18 done** |
 | M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.19, M3.20** (rule 15 re-opens; verify deps/precheck); blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.17 done |
@@ -346,6 +346,28 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `python3 tools/l3_precond.py --selftest` passes; running it on at least two real target definitions (one runnable/baseline-known, one known-blocked on M1.2f or missing mapping) produces the expected verdicts with reasons in an EXP; TODO L3 rerun guidance references it.
   - Stop: if target metadata lacks stable VA/section fields for a verdict, report `UNKNOWN` with the missing fields (do not guess READY).
   - Claims: C-3330–C-3339
+
+- [ ] **H46 — Test system map: L1-L5 progress signal, fixtures, CI/local/L5 execution policy**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H25, H26, H27 (existing artifacts to reference)
+  - Goal: one living design doc that maps the QA target ("generated SD card images the car would read") to concrete tools/workflows/fixtures/tasks, so every agent can see what is proven offline, what is firmware/L3/L4-emulator proof, and what remains L5 bench/car/manual — without conflating levels.
+  - Gap (QA 2026-11-09): workflows/tools exist (H25 `ci.yml`, H26 `l1l2_fixtures.py`/`l1l2-fixtures.yml`, H27 `progress_report.py`, M9.8 `l3check.py`) and planned tasks cover major holes (H28,H29,H38,H40-H45,M9.12/M9.31), but there is no single map of fixture strategy (synthetic vs generated no-vendor vs local-only vendor), regression policy, status classes, and execution split (PR CI / local vendor / M8 QEMU / L5 Marek). This causes ambiguous "progress" claims.
+  - Scope: add `docs/research/test-system.md` (English). No code/workflow changes except optional cross-links. Level mapping must follow AGENTS/feedback-loop 2026-11-09: L1 structural, L2 semantic/golden, L3 firmware fragments, L4 full-system emulator (QEMU/M8), L5 bench/car (hardware unavailable). "L4 readiness (bench package)" wording from older prompts maps to **L5 readiness** under current mapping; state that explicitly.
+  - Input: `AGENTS.md`, `docs/research/feedback-loop.md`, `docs/research/reader-coverage.md`, `docs/research/card-test-plan.md`, `.github/workflows/{ci.yml,l1l2-fixtures.yml,README.md}`, `tools/{selftest,cardcheck,l2check,l3check,progress_report,l1l2_fixtures,realcheck,fetch_image}.py` (interfaces), TODO tasks H25-H29,H38,H40-H45,H27,M9.8/M9.12/M9.31.
+  - Done when: `test -f docs/research/test-system.md` and the doc contains sections/headings covering at least: (1) level mapping L1-L5 (2026-11-09) and rule 13, (2) existing tools/workflows with command/fixture, (3) gap-closure dependency/order for H28,H29,H38,H40-H45,H47/M9.31 as applicable, (4) status classes `PASS|FAIL|SKIP|NOT_COVERED|NOT_RUNNABLE|BLOCKED` and "SKIP/NOT RUNNABLE/BLOCKED never PASS", (5) execution matrix PR CI (no vendor) / local-only vendor / M8 L4 emulator / L5 bench-manual, (6) regression gate policy. `python3 tools/todo_check.py TODO.md && python3 tools/claims_check.py` still pass.
+  - Stop: if task states or tool interfaces are contradictory, document the contradiction with file/task references and stop expanding claims; do not invent tool behavior.
+  - Claims: C-3350–C-3359
+
+- [ ] **H47 — `progress_report` schema contract for H41 per-file/per-feature and H43 generated-L3 corpora**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H27 (done). Coordinates with H41, H43, H42 (integration/wiring) — land before or with H42's progress wiring.
+  - Goal: prevent H42 from guessing how to aggregate generated-fixture L1/L2 and generated-L3 progress; make the H27 `progress_report.py` input/output contract explicit and testable for new matrix shapes while preserving rule-13 separation.
+  - Gap (QA 2026-11-09): `progress_report.py` consumes H26 `l1l2_fixtures` JSON and `l3check` JSON (help verified). H41 adds per-file/per-feature matrix with stable keys and regression baseline for a generated no-vendor fixture; H43 adds generated-fixture L3 corpus classification (`ran_on_our_generated_data`, synthetic/vendor/generated separation). Without a contract, H42 may duplicate logic or silently misclassify synthetic/harness results as firmware proof.
+  - Scope: extend `tools/progress_report.py` (and/or add a tiny documented schema module, stdlib, named in PR) to accept H41/H43-compatible JSON via new/optional flags or auto-detected schema versions; emit `progress.json/md` fields that distinguish L1/L2 generated-fixture per-file/per-feature counts, L3 synthetic vs vendor/factory vs generated-fixture corpora, firmware-proof vs harness-only evidence, and L4 emulator (M8) / L5 bench (M6) manual states. No vendor data. No auto-PASS for L4/L5/manual.
+  - Input: `tools/progress_report.py`, H27 schema/EXP, `tools/l1l2_fixtures.py` H26 JSON shape, `tools/l3check.py --json` shape, H41/H43 task specs (stable-key/field requirements), `.github/workflows` H42 needs.
+  - Done when: `python3 tools/progress_report.py --selftest` covers (1) legacy H26/H27 inputs still parse, (2) a synthetic H41-style per-file/per-feature JSON fixture produces per-file/per-feature counts with `SKIP/NOT_COVERED/NOT_RUNNABLE` separated from PASS, (3) a synthetic H43-style generated-corpus L3 JSON is reported as generated-fixture evidence and not promoted to firmware proof unless explicitly marked, (4) L4 emulator and L5 bench manual states remain explicit/non-auto-pass. `--json` output documents schema version/field names. EXP maps fields to rule 13 and L1-L5 (2026-11-09).
+  - Stop: if H41/H43 final key names are not yet fixed, land a minimal versioned contract (schema version + required keys + unknown-key tolerance) with synthetic fixtures and mark remaining keys `TBD` in EXP; do not block on implementation details of unfinished tasks.
+  - Claims: C-3360–C-3369
 
 ## M1 — Firmware tooling
 

@@ -1,0 +1,40 @@
+role: qa
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 08:37
+end_utc: 2026-11-09 08:41 UTC
+origin_main_start: ab54096b (ab54096 docs: PO grooming pass 2 — priorities, rule 15 reopens, archive, 3 tasks)
+
+inputs_read:
+- AGENTS.md, TODO.md (rules/fields, priorities, H/M9/testing sections, claim allocation)
+- prompt_common.txt, prompt_qa.txt (user)
+- dev_process/2026-11-09-0828-2-po.log (previous role)
+- docs/research/reader-coverage.md, docs/research/feedback-loop.md (L1-L5 ladder, 2026-11-09 L4=emu/L5=bench mapping)
+- .github/workflows/{ci.yml,l1l2-fixtures.yml,README.md}
+- tools: l3check.py, progress_report.py, l1l2_fixtures.py, selftest/claims/todo checks (help/interfaces)
+- git log (recent), open task/claim state scan (H28/H29/H31/H38-H45,H27/M9.12/M9.31)
+
+actions_taken:
+- git fetch && git pull --ff-only (up to date at ab54096). Created this work log (N=3 for 2026-11-09).
+- Assessed QA target vs existing state: CI gates (H25 ci.yml, H26 l1l2-fixtures.yml) run selftest/claims/todo and synthetic L1/L2 matrix on PR/push; progress_report.py (H27, done) aggregates H26+l3check+reader-coverage with rule-13/L4-emu/L5-bench separation; l3check.py supports --build-corpus/--json/--selftest and --card/--factory (M9.12 blocked on S0/S1 no-diff verdicts; M9.31 open). Existing planned QA gaps: H28 (L3 synthetic in CI + optional IMG256), H29 (L5 bench bundle prep/registration, alias-named in v1 text), H38 (l3_harness in selftest gate), H40-H44 (generated-fixture L1/L2/L3/L4-emu/L5-bench progress chain), H45 (L3 precondition gate). Reader-coverage has 30 rows; firmware-proof cells remain limited by runnable readers/M1.2f.
+- Gap analysis (QA prompt: gaps between existing and "generated SD card images the car would read" progress signal): (1) no single living design/gap map tying L1-L5 mapping, CI/local-vendor/L5-manual split, fixtures, regression policy, and H26/H28/H29/H38/H40-H45 order -> add H46 doc task. (2) progress_report schema/contract may not ingest H41 per-file/per-feature matrix or H43 generated-corpus classification without guessing -> add H47 contract task (lands before/with H42 integration; preserves H27 rule-13 separation). (3) level-mapping clarity: prompt_qa text says "L4 readiness (bench package...)" but repo mapping is L4=full-system emulator (M8), L5=bench/car (M6) since 2026-11-09 - new tasks use correct mapping explicitly.
+- Added tasks H46,H47 at end of H workstream (after H45, before M1); updated H workstream table row minimally; allocated claims C-3350-C-3359, C-3360-C-3369 (next free after C-3340). No reflow of unrelated sections. Did not edit in-progress tasks or change deps of existing tasks.
+- Ran checks before commit: `python3 tools/todo_check.py TODO.md` (expect pre-existing M9.5 warnings only), `python3 tools/claims_check.py`.
+
+task_ids_added: H46, H47
+task_ids_changed: workstreams table (H row)
+prs: none (QA planning; no task claim PR)
+commits: docs: qa test-system gaps and tasks H46-H47 (TODO H46/H47, workstream table, QA log)
+
+decisions:
+- Planned only real gaps not covered by H28/H29/H38/H40-H45/H27/M9.12/M9.31; rejected adding duplicate L3-CI/fixture/bundle tasks. Rejected editing H42 deps (owned/open task) — added H47 as integration contract with explicit coordination note.
+- Used correct 2026-11-09 L1-L5 mapping in new tasks (L3=fragments, L4=full-system emulator/M8, L5=bench/car/M6); noted prompt wording ambiguity in log to avoid propagating old L4=bench meaning.
+- Kept task count small (2) with runnable Done when, fixtures/commands named, and dependency order marked.
+
+problems:
+- H31 appears in priorities/workstream text but no `**H31**` task block found by grep; left untouched (not a QA gap to invent).
+- TODO remains >1500 lines; QA added only two local task blocks.
+
+handoff:
+- SE: review H46/H47 Done-when/runnability; prioritize H40->H41->H28/H42 chain for generated-card progress signal, keep SKIP/BLOCKED/NOT COVERED/NOT RUNNABLE never counted as PASS.
+- TL: include H46/H47 in pairing/dependency planning; ensure H42 integration consumes H41/H43 via explicit schema (H47) and respects rule 13 / L4-emu vs L5-bench mapping.
+- Human: H44/H29 still need S0-S3 result-entry policy/hosting decision context (M6.14/SM action 5); optional IMG256 CI mode (H28) needs runner/policy approval.
