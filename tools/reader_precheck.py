@@ -36,6 +36,10 @@ reports, from the image headers alone:
 
 Stdlib only. Section table: ``tools/point_walk_l3.py`` (``module_sections``).
 Decoding: ``tools/sh4dis.py`` (little-endian). Xrefs: ``tools/sh4xref.py``.
+Scan engine/LE halfword primitive: ``tools/sh4scan.py`` (M3.19) is imported
+and its ``halfword_array`` (``sh4dis.halfwords_le``) is delegated for the
+edge scan; this satisfies M3.19's done-when clause "M1.12 imports it rather
+than duplicating the scan" (EXP-2026-11-09-H48-reader-precheck-sh4scan).
 Every address comes from ``tools/cerom.py``; nothing is a fitted delta.
 
 Usage::
@@ -63,6 +67,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import cerom  # noqa: E402
 import point_walk_l3 as pw  # noqa: E402  (module_sections, CODE, EXEC)
+import sh4scan  # noqa: E402  (M3.19 scan engine; H48: delegated scan primitive)
 import sh4xref  # noqa: E402
 from sh4dis import Mem, bsr_target, is_rts, jsr_reg, movl_pc_target  # noqa: E402
 
@@ -254,11 +259,8 @@ def edge_at(mem, a, w, ranges):
 
 
 def _words(blob):
-    arr = array.array("H")
-    arr.frombytes(blob[: len(blob) & ~1])
-    if sys.byteorder == "big":
-        arr.byteswap()
-    return arr
+    """LE halfwords of ``blob`` (edge-scan primitive), delegated to sh4scan (M3.19/H48)."""
+    return sh4scan.halfword_array(blob)
 
 
 def module_edges(mem, exec_plain, ranges):
