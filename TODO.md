@@ -747,7 +747,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2080–C-2089
 
 - [ ] **M2.18 — Offline HDD_INFO / MAP CODE acceptance predictor (pre-L3 gate)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m2.18-hddinfo-predictor · Critical: yes
   - Depends: M2.3, M2.5, M2.15 (done)
   - Goal: give M5.11/M5.15 and card builders an L2-adjacent, offline verdict for the two known acceptance checks (M2.5 `DIFFERENT MAP CODE`: 11 bytes `KernelIoControl(0x0101302C)+0x60` vs `HDD_INFO` line 1; M2.15 `MAP DATA BASE UNMATCH`: `MapDBVer` range) without waiting for a runnable M9.6 firmware target. This does **not** replace M9.6/M2.4 firmware verdicts (rule 13).
   - Precheck: `python3 tools/hddinfo.py --selftest` passes and pins the M2.15 model; `tools/hddinfo_variants.py` corpus is present. If factory `+0x60` or range bounds cannot be stated from recorded EXPs/claims, report `BOUNDS_UNKNOWN` (never pass).
