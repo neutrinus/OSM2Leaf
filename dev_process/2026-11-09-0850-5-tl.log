@@ -1,0 +1,41 @@
+role: tl
+model: opencode/iceman-free (session subagent)
+start_utc: 2026-11-09 08:50 UTC
+end_utc: 2026-11-09 09:05 UTC (approx)
+origin_main_start: b914e0e (pulled, up to date)
+
+inputs_read:
+- AGENTS.md, TODO.md (rules, priorities, workstreams, task blocks), prompt_common.txt, prompt_tl.txt (user)
+- dev_process/2026-11-09-0823-1-sm.log, 0828-2-po.log, 0837-3-qa.log, 0845-4-se.log
+- git fetch/pull (origin/main up to date), gh pr list --state open (#140-146), gh pr view details
+- task/dep/status checks (M9.11,M3.11b,M3.19,M5.28,M1.18,H45,M9.28,M9.32,M3.21,M9.33,M6.13,M5.29,M9.24,M1.2f,M3.20,M1.12,M9.27; deps M9.5,M5.13b,M9.20 done; M1.12/M3.20 archived done)
+- docs/research/todo-history-*.md grep for M3.20/M1.12/M9.27
+
+actions_taken:
+- Reconciled SM retro 2026-11-09-2 action 1: closed stale claim-only draft PRs #140-146 (each 1 commit todo:start; M3.20/M9.11b done/landed, M9.12/M3.18/M3.16/M4.24/M4.27 blocked/resolved differently, no task work on branches) with explanatory comments; deleted remote branches task/m3.20-mask-pair-via-reg, task/m9.11b-firmware-call-target, task/m9.12-l3check-card, task/m3.18-icadm-zipfr-readers, task/m3.16-inter-frway-readers, task/m4.24-sec2-partb-grammar, task/m4.27-bitpacked-point-pages. Reason: ghost claims blocked board clarity; TODO/main state authoritative.
+- Evaluated qualifying tasks (open, deps done on origin/main, no open PR title). Verified deps via TODO/history: M1.12/M3.20 done+archived; M9.27 referenced (priorities/workstreams/M6.13/M6.14) but NO task block in TODO/history — board defect, M6.13/M6.14 not qualifying.
+- Identified qualifying candidates: M9.11,M3.11b,M3.19,M5.28,M1.18,H45,M9.28 (7). Not qualifying now: M9.32 (dep M9.11 open), M3.21 (M3.19 open), M9.33 (H45/M9.28 open), M5.29 (M5.28 open), M9.24 (M1.2f blocked), M6.13/M6.14 (M9.27 missing).
+- Assessed disjointness: M9.11,M1.18,M9.28 likely overlap in tools/l3_harness/* (not batchable together); M3.11b/M3.19 firmware analysis/EXPs/docs/sh4scan-adjacent (review carefully); M5.28 compiler mapping; H45 reader_precheck/l3_precond. Disjoint solo batch possible: {M1.18, H45} (verify against M9.28/M9.11 file lists before launch).
+- Did not launch subagents: this TL subagent has no subagent-spawn tool in environment; pair-required/pair-default tasks (M9.11,M3.11b,M3.19,M5.28 pair; M9.28 Pair:required) must not be run solo. No task claimed/merged. Reason: avoid false claims and rule violations.
+- Ran board checks: `python3 tools/todo_check.py TODO.md` OK (pre-existing M8.E4/M9.2/M9.5 warnings only); `python3 tools/claims_check.py` OK.
+
+task_ids_added: none
+task_ids_changed: none (no TODO edits; PR/branch reconciliation only)
+task_ids_blocked/reopened: none by TL
+prs: closed #140,#141,#142,#143,#144,#145,#146 (stale claim-only drafts)
+commits: this run commits TL work log only
+
+decisions:
+- Closed all 7 claim-only drafts as stale after verifying single-commit/no-work state and current task disposition; alternative keeping them open rejected (SM action 1, board confusion).
+- Did not invent M9.27 task block; reported as board defect (PO/SE to add with proper deps/claims/fields). Alternative creating ad-hoc task rejected (ID/claim allocation and deps need PO/SE care).
+- Did not execute pair/required tasks solo and did not claim tasks I cannot complete per TODO rules in this environment. Alternative partial solo execution rejected where it would violate Pair:required or risk false done.
+
+problems/dead_ends:
+- No subagent spawn tool available to TL subagent here; prompt_tl requires launching driver/navigator pairs in worktrees. Pair-programming orchestration blocked by environment capability.
+- M9.27 missing task block but referenced widely (M6.13/M6.14/priorities/workstreams) — blocks bench-prep dependency chain analysis.
+- Some deps are archived-done (M1.12,M3.20) — qualifying checks required history search, not only TODO grep.
+
+handoff:
+- Next TL (with subagent capability): dispatch disjoint batches. Recommended first solo batch: M1.18 + H45 (separate worktrees/branches, confirm file disjointness vs l3_harness/reader_precheck). Then pair batches avoiding l3_harness overlap: e.g. M5.28 (pair) separately; M9.11 pair separately from M1.18/M9.28; M3.11b/M3.19 as separate firmware-analysis pairs (check EXP/doc overlap). M9.28 is Pair:required — never solo.
+- PO/SE: add/fix M9.27 task block or correct references; verify H45 dep wording (M9.24 context) for qualification.
+- Human: none required by this TL pass; bench/Marek items unchanged.
