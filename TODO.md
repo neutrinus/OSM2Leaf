@@ -1270,7 +1270,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3310–C-3319
 
 - [ ] **M3.21 — Close M3.19: reproduce all `sh4scan` counts on IMG256 including `mask-pair --via-reg`**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Status: in progress · Owner: task/m3.21-close-m3.19-sh4scan-counts · Critical: yes · Pair: solo
   - Depends: M3.19, M3.20
   - Goal: M3.19 is open after M3.20 added register-AND mask handling, but its done-when requires reproducing every published count on IMG256 (including the M3.11 mask hit) and recording the corpus. Verify and close M3.19 or record a precise discrepancy.
   - Precheck: `python3 tools/sh4scan.py --selftest` passes and `--help` shows `mask-pair --via-reg`; `python3 tools/fetch_image.py --image IMG256 -o IMG256.head` can obtain the pinned head (rule 11).
