@@ -1,0 +1,40 @@
+role: pm (twelfth product review, H49; requested by Marek in the project thread)
+model: Claude (Claude Code cloud session)
+start_utc: 2026-11-10 09:32 UTC
+end_utc: 2026-11-10 09:55 UTC (approx)
+origin_main_start: d2a8377
+
+inputs_read:
+- AGENTS.md, TODO.md (rules 14-16, Priorities, Workstreams, M1.2f, M3.11c, M3.15, M4.16b, M9.14, M9.17, M9.24)
+- EXP-2026-11-08: H20 (ninth pass), M3.15, M9.13, M9.17-reopen, M9.14-reopen, M3.11c, M4.16b-rdstm-field-walk, M3.2b-2, M4.26, M1.10b, M1.12
+- Follow-up sections of all 2026-11-08/09 EXPs (scan for items without a task ID)
+- dev_process/2026-11-09-1418-10-po.log
+
+actions_taken:
+- git pull --ff-only (main moved ~200 commits since 588b2e6).
+- Fetched IMG256 with tools/fetch_image.py (SHA-256 pin verified) to check blockers on real bytes, not from the text.
+- Noticed M3.15 calls 0x0055d924/0x0055d954 "compressed sec1 helpers" while M1.10b names 0x0055d954 = OSM_Printf: checked every 0x0055dxxx blocker address with cerom imports --resolve-with.
+- Wrote tools/va_class.py (+ --selftest) so the check is a command, not a heredoc (rule 16).
+- Measured with comphdr --all: 30.2 MB compressed, only 1.67 MB initialised; Navi.exe sec1 98,330 B of 16.7 MB.
+- EXP-2026-11-10-H49-pm-review; claims C-3440-C-3445; AGENTS.md fact; tools/README row.
+- Board (rule 15): M3.15 re-opened; M9.14/M9.17 Unblock -> M9.35; M9.24 Depends -> M9.35; M4.16b/M3.11c Unblock -> M3.22; M1.2f Critical -> no (INIT bytes only); rule 14 bullet; Priorities/workstreams updated.
+- Added tasks H49 (done), H50, M3.22, M9.35.
+- todo_check OK (0 errors), claims_check OK, selftest passed=83 failed=0 skipped=23.
+
+task_ids_added: H49 (done), H50, M3.22, M9.35
+task_ids_changed: M1.2f, M3.11c, M3.15 (re-opened), M4.16b, M9.14, M9.17, M9.24, rule 14, Priorities, Workstreams
+prs: none (direct push to main at Marek's request)
+commits: docs: twelfth PM pass — compressed sec1 is import slots and BSS
+
+decisions:
+- Did not run the M9.17 reader with a zero-filled sec1 myself: that is harness work (M9.35) with selftests; recorded as HYPOTHESIS C-3445.
+- Kept M1.2f open (real INIT bytes: sec2 constants, M1.3/M1.4) but not critical.
+- Did not edit M3.2b/M3.14/M3.16/M4.26 blockers directly: their cited VAs need a per-task audit -> H50.
+
+problems:
+- The previous session (2026-11-08) was interrupted before commit; none of its work was kept except what is redone here.
+- TODO.md still ~3100 lines; archiving left to PO grooming.
+
+handoff:
+- Take M9.35 and M3.22 first; they lift the largest group of L3 blockers.
+- Hardware path unchanged: M6.2 S0 -> M6.5 S1 -> M6.6 S2 waits on Marek.

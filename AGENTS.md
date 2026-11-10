@@ -59,8 +59,20 @@ Four facts cost this project whole sessions:
 - **"No static caller" usually means an indirect call**: the pointer lives in
   `.data` and the call is `jsr @Rn` with `Rn` loaded from a table.
 
-Compressed `.data` stays unreadable until M1.2f/M8.E1 — that blocks M1.3/M1.4
-and reading data tables, **not** reader searches. Verified decompressor entries
+- **"Compressed `.data`" is mostly zeros and import slots (H49, C-3440).**
+  Of the 30.2 MB in compressed sections of build A only **1.67 MB (5.5 %)**
+  are stored bytes (`cerom.py comphdr --all`, `uncompressed_len`); the rest is
+  BSS, zero at load and written by the program. `Navi.exe` sec1 is 16.7 MB
+  with **98,330 B** initialised, and its first 0xd38 B are the **import
+  address table** (846 slots), which the loader overwrites. Before you write
+  "blocked: in compressed sec1", run
+  `python3 tools/va_class.py IMG --module M --resolve-with 0x3e00200 VA`:
+  `IAT` → bind the import to a stub (M9.35); `BSS` → find the code that writes
+  it (decompressing yields zeros there); only `INIT` waits for M1.2f.
+
+Compressed `.data` that is really `INIT` stays unreadable until M1.2f/M8.E1 —
+that blocks M1.3/M1.4 and some constant tables, **not** reader searches and
+not runs that touch IAT/BSS addresses. Verified decompressor entries
 (LE): `DECOMP_WRAP 0x88037590`, `DECOMP_SECT 0x88037464`,
 `DECOMP_BLK 0x8803a384` (loader flag test `0x88038666` in `fn 0x880385e4`).
 

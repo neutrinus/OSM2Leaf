@@ -116,6 +116,12 @@ front has fewer, add the next tasks (see rule 9).
       instead of trying a fourth pattern;
     - a negative never implies "impossible": M3.11's first verdict was
       reversed in one session once the signature changed (C-2129).
+    - **"in compressed sec1" is not a blocker until `va_class.py` says
+      `INIT` (PM twelfth pass, 2026-11-10, H49).** 94.5 % of the compressed
+      bytes are BSS (zero at load) and `Navi.exe` sec1 starts with the 846-slot
+      import table (C-3440–C-3442). Run `python3 tools/va_class.py IMG
+      --module M --resolve-with 0x3e00200 VA`: `IAT` → bind a stub (M9.35),
+      `BSS` → find the writer (M3.22 pattern), only `INIT` → M1.2f.
 
 15. **A merge re-opens what it unblocks (PM, 2026-11-06, seventh pass).** A
     `blocked` task is not a dead task: it is a ticket waiting for one thing.
@@ -199,6 +205,18 @@ qemu-system-misc gdb-multiarch`.
 
 ## Priorities (PO grooming 2026-11-09, 3rd pass; retro 2026-11-09-3 / SM `2026-11-09-1413-9-sm`)
 
+**PM twelfth pass (2026-11-10, H49 — read first).** The L3 board waited on
+M1.2f (CE codec port, blocked) for nine tasks. On IMG256 every cited blocker
+address is an **import slot** (`0x0055d040` = memset, `0x0055d8fc` =
+OSM_Malloc, `0x0055d954` = OSM_Printf, …) or **BSS** (`0x00d53500`,
+`0x00e23cc0`, RGD tables — zero at load, so M1.2f would return zeros); none
+is in the 98 KB of real initialised sec1 bytes (`EXP-2026-11-10-H49-pm-review`,
+`tools/va_class.py`). New gate: **`M9.35`** (harness: zero BSS + IAT bound to
+stubs) → M9.17, M9.14 → M9.24; **`M3.22`** (who writes `0x00d53500`) →
+M4.16b, M3.11c → M9.10; **`M3.15` re-opened** (its "sec1 helpers" were
+`OSM_isSender`/`OSM_Printf`); **`H50`** audits the remaining "sec1" blockers.
+M1.2f stays open for real `INIT` reads only and is no longer critical.
+
 **Goal:** OSM-derived maps run in a Nissan Leaf ZE0. **Since last pass:** `M9.11`/`M9.11b` closeout done; `H48` done and `M3.19` reopened for closure (rule 15, PR #170); `M5.31` done (mkcard reconcile/resize contrast); `M5.29` blocked (synthetic delivered) with active factory rerun **PR #171** blocked on `0x2146`/M5.22 (`PRESERVE_ONLY_DIR_KINDS`), not a ghost; SE follow-ups `M1.18` done, `M3.21`/`M9.32`/`M9.33` open. **SM actions:** stale #140–146 cleared; stale missing-task refs corrected (no dangling task block/deps in M6/priorities/workstreams); TODO still >1500. Nearest milestone: **bench/L5 prep** (S1/S2 `M5.13b`; S3 `M5.14`; hardware waits on Marek) while cheap L1/L2/L3 gates advance. Archive (3rd pass): `M7.4` moved (>24h, no non-done deps); TODO 2992→~2985, still >1500 (recent done tasks <24h or block live work).
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
@@ -207,11 +225,11 @@ qemu-system-misc gdb-multiarch`.
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline before L2–L5. `M5.30`, `M6.13`.
 - **L2 (cheap, necessary not sufficient, rule 13):** Poland: **`M5.28` done** (provisional `highway→Clarion`, L2-testable) → **`M5.29`** (synthetic delivered; **PR #171** factory rerun blocked on `0x2146`/M5.22) → **`M5.30`** (1:1 diff) → **`M5.11`** (Phase-2). Support: `M5.3`, `M5.22`, `M5.23` done, `M5.6`, `M5.21`, `M5.32`, `M2.18`, manifest/ATTR/FROUTE follow-ups.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. **`M9.12`** `--card` gate blocked (S0/S1 no-diff; rule-13 evidence path via runnable targets/registry). **`M1.2f`** (DECOMP_BLK, `.data`/sec1) + **`M9.24`** unblock data readers; **`M9.11`/`M9.11b` done**; **`M3.11b`/`M3.19`** open (rule 15, H48 resolved M3.19 M1.12 clause) — verify preconditions before reruns (`python3 tools/l3_precond.py --target <name>`, H45); **`M9.6`/`M9.13`** may re-block. **`M3.11c` → `M9.10`**; **`M9.31`/`H45`/`M9.32`/`M9.33`** L3 evidence/gating/preconditions.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. **`M9.12`** `--card` gate blocked (S0/S1 no-diff; rule-13 evidence path via runnable targets/registry). **`M9.35`** (zero BSS + bound IAT, H49) + **`M9.24`** unblock data readers — not `M1.2f`; **`M9.11`/`M9.11b` done**; **`M3.11b`/`M3.19`** open (rule 15, H48 resolved M3.19 M1.12 clause) — verify preconditions before reruns (`python3 tools/l3_precond.py --target <name>`, H45); **`M9.6`/`M9.13`** may re-block. **`M3.11c` → `M9.10`**; **`M9.31`/`H45`/`M9.32`/`M9.33`** L3 evidence/gating/preconditions.
 - **L4 (QEMU/M8):** software integration before L5 where feasible; not final acceptance.
 - **L5 (bench/car, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep: **`M6.13`** S3 manifest, **`M9.31`/`H45`** runnable L3 evidence and **`H29`** prep. Run runnable L3/L4 prechecks before each bench card.
 
-**Take first (ready/critical, verify deps):** `M5.21`, `M5.28`, `M1.2f`, `M3.11c`, `M3.19` (closure/H48 context, verify preconds), `M9.31`/`M9.32`/`M9.33`, `M6.13`, `M5.29` follow-up **PR #171** blocked on `0x2146`/M5.22 (needs human/TL boundary decision), `M9.24` (after `M1.2f`), `M3.21`. **Rule 15:** `M3.11b`/`M3.19` remain open with precond checks; `M9.11`/`M9.11b` done. **Marek/non-Claude:** `M6.2`/bench, `M6.11` `.uf2`, `M9.2` Ghidra, `M1.2e`, `M6.9`, image/OSM-dependent runs.
+**Take first (ready/critical, verify deps):** **`M9.35`, `M3.22`, `M3.15`, `H50`** (H49), `M5.21`, `M5.28`, `M3.11c` (after M3.22/M9.35), `M3.19` (closure/H48 context, verify preconds), `M9.31`/`M9.32`/`M9.33`, `M6.13`, `M5.29` follow-up **PR #171** blocked on `0x2146`/M5.22 (needs human/TL boundary decision), `M9.24` (after `M9.35`), `M3.21`. **Rule 15:** `M3.11b`/`M3.19` remain open with precond checks; `M9.11`/`M9.11b` done. **Marek/non-Claude:** `M6.2`/bench, `M6.11` `.uf2`, `M9.2` Ghidra, `M1.2e`, `M6.9`, image/OSM-dependent runs.
 
 
 ## Workstreams at a glance
@@ -219,18 +237,18 @@ qemu-system-misc gdb-multiarch`.
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
 | H | Housekeeping | **H19, H27, H28, H29, H30, H38–H47** (see deps/order in H46/H47); H21/H24/H25/H26/H45–H48 done |
-| M1 | Firmware tooling | **M1.2e (non-Claude), M1.2f (critical), M1.2g, M1.12, M1.14**; M1.11c/M1.13/M1.15–M1.18 done |
+| M1 | Firmware tooling | **M1.2e (non-Claude), M1.2f (INIT bytes only, H49), M1.2g, M1.12, M1.14**; M1.11c/M1.13/M1.15–M1.18 done |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.20 done), **M2.18 done** |
-| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.19, M3.20, M3.21** (rule 15 re-opens; verify deps/precheck/H45); blocked on M1.2f: M3.2, M3.2b, M3.14, M3.15; M3.17 done |
+| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.19, M3.20, M3.21** (rule 15 re-opens; verify deps/precheck/H45); **M3.15** (re-opened H49), **M3.22** (new); M3.2, M3.2b, M3.14 blockers to re-check with `va_class` (H50); M3.17 done |
 | M4 | Data formats | **M4.16b** (re-open note), **M4.16c, M4.16d, M4.24, M4.27, M4.29**; blocked: M4.2, M4.3/M4.23 (→M4.24–M4.26), M4.8b (→M4.8d), M4.22 (OQ-44), M4.28 (→M4.27), M4.31 |
 | M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20–M5.22, M5.30, M5.32**; blocked: M5.12c (scan unfinished), M5.29 (#171 factory rerun `0x2146`/M5.22); M5.4/M5.13b/M5.23/M5.28/M5.31 done |
 | M6 | Hardware (Marek) | **M6.2 (S0, non-Claude), M6.13, M6.14**; M6.5/M6.6 after M5.13b+L3 precheck; M6.7 after M5.14 |
 | M8 | Full-system emulation | **M8.A2, M8.E1**; M8.A3 after M8.A2 |
-| M9 | L3 toolkit | **M9.6, M9.10, M9.13, M9.15, M9.18, M9.24, M9.31–M9.33** (may re-block); blocked on M1.2f: M9.14, M9.17; M9.12 blocked (→M9.31); M9.11/M9.11b/M9.20–M9.23/M9.25 done; M9.2 non-Claude |
+| M9 | L3 toolkit | **M9.6, M9.10, M9.13, M9.15, M9.18, M9.24, M9.31–M9.33** (may re-block); **M9.35** (new, H49); M9.14, M9.17 blocked on M9.35 (not M1.2f); M9.12 blocked (→M9.31); M9.11/M9.11b/M9.20–M9.23/M9.25 done; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
 · **Software/L3 gate:** **M9.11b** registers `cmp_ind_reader`; **M1.2f** +
-**M9.24** unblock M9.14/M9.17/M9.13 and the `.data` readers; **M3.11c** →
+**M9.24** unblock M9.14/M9.17/M9.13 and the `.data` readers (H49: the gate is **M9.35**, not M1.2f); **M3.11c** →
 **M9.10**; **M9.12** (`l3check.py --card`) is the pre-bench gate. **M2.4**
 runs on M9.6's comparator.
 · **US (nearest):** S1/S2 exist (M5.13b); Marek runs M6.2 S0 → M6.5 S1 →
@@ -384,6 +402,28 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3410–C-3411
   - Result: EXP-2026-11-09-H48-reader-precheck-sh4scan.md (path a). `reader_precheck.py` imports `sh4scan` and delegates LE halfword edge-scan primitive `_words` → `sh4scan.halfword_array`; `sh4scan`/`reader_precheck` selftests pass (synthetic + real build-A pins when image found). M3.19 reopened by rule 15 note (PR #170) for closure on merge.
 
+- [x] **H49 — PM twelfth pass: re-classify the "compressed sec1" blockers**
+  - Status: done · Owner: claude/project-thread-sjt02x · Critical: yes
+  - Depends: —
+  - Goal: check whether the nine tasks waiting on M1.2f really need the CE codec.
+  - Precheck: `python3 tools/fetch_image.py --verify archive/head256.img` (IMG256 pin).
+  - Scope: every `0x0055dxxx`/sec1 blocker address cited in `TODO.md` and the 2026-11-08/09 EXPs (13 distinct + 6 BSS); build A 245 compressed sections.
+  - Done when: each cited address has a loader class (CODE/IAT/INIT/BSS) from a committed tool, and the board follows it (rule 15).
+  - Stop: —
+  - Claims: C-3440–C-3449
+  - Result: EXP-2026-11-10-H49-pm-review. `tools/va_class.py` (selftest 8 cases). All seven `0x0055dxxx` blockers are import slots (memset, OSM_Malloc, taskIdSelf, OSM_isSender, OSM_Printf, OSM_SramSet, wcsstr); `0x00d53500`/`0x00e23cc0`/RGD tables are BSS; 0 cited addresses are `INIT`. Only 5.5 % of build A's compressed bytes are stored data. Board: M3.15 re-opened; M9.14/M9.17/M9.24 → M9.35; M4.16b/M3.11c → M3.22; M1.2f non-critical; H50 added; AGENTS.md rule.
+
+- [ ] **H50 — Put `va_class` into the prechecks and audit the remaining "sec1" blockers**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: H49
+  - Goal: no task may again say "blocked: compressed sec1/.data" for an import slot or a BSS address.
+  - Precheck: `python3 tools/va_class.py --selftest`; `python3 tools/l3_precond.py --selftest`; `python3 tools/reader_precheck.py --selftest`.
+  - Scope: (1) `tools/l3_precond.py` and `tools/reader_precheck.py` import `va_class.classify` and print the class of every VA they report as compressed/unmapped (`IAT DLL!name` / `BSS` / `INIT`); `l3_precond` returns `BLOCKED` on M1.2f only for `INIT`. (2) Audit the blockers of **M3.2b, M3.14, M3.16, M4.26, M2.17, M1.12 follow-up** and any other `blocked` task whose text says sec1/compressed `.data`/M1.2f: run `va_class` on each cited VA, and per rule 15 re-open (with a note) every task whose cited address is IAT or BSS.
+  - Input: EXP-2026-11-10-H49-pm-review; `tools/va_class.py`; the listed EXPs.
+  - Done when: both selftests cover an IAT, a BSS and an INIT case; an EXP lists each audited task, its cited VAs, their classes and the board action; `todo_check.py` and `claims_check.py` pass.
+  - Stop: if a cited "sec1" blocker has no VA at all, write that in the EXP and leave the task as is with a note asking its next owner for the VA; do not invent one.
+  - Claims: C-3470–C-3479
+
 
 Done: M1.1 (synthetic self-test, EXP-47), M1.5 (`cerom.py memmap`/`ghidra`,
 EXP-48; the real Ghidra open is M9.2), M1.6 (`cerom.py imports`, EXP-50,
@@ -463,7 +503,11 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2070–C-2079
 
 - [ ] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
-  - Status: blocked · Owner: task/m1.2f-decomp-blk-python · Critical: yes
+  - Status: blocked · Owner: task/m1.2f-decomp-blk-python · Critical: no
+  - Note (PM twelfth pass, H49): **not the L3 gate any more.** Only `INIT`
+    bytes need it — 1.67 MB of 30.2 MB compressed (C-3440): sec2 constants,
+    the first 98 KB of `Navi.exe` sec1 past the IAT, build-B FILESentry
+    payloads (M1.3/M1.4). Import slots and BSS do not (C-3441/C-3442).
   - Depends: — (M8.E1b verified the VAs; M1.2a/M1.2d frame the payload)
   - Goal: decode every `IMAGE_SCN_COMPRESSED` section without QEMU. M8.E1b
     ended the address question; what is missing is the codec inside
@@ -970,7 +1014,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     faults (PySh4 `UnmappedAccess 0x0055d8f0`), so the Done-when name string
     return (`HANA HEALTH CENTER` / M5.12 `OSM2LEAF TEST POI1`) cannot be
     produced. VAs/args/chain identified and sub-accessors PySh4-verified.
-  - Unblock: M1.2f/M8.E1 (readable `.data`/globals) or a stubbed HDLMAP page
+  - Note (H49): `0x0055d8f0` is the `OSMDLL!taskIdSelf` import slot and
+    `0x00d53500` is BSS (zero at load) — M1.2f cannot supply either.
+    Unblock is now **M3.22** (who fills `0x00d53500`) + **M9.35** (bound IAT).
+  - Unblock: **M3.22** + **M9.35** (H49, see note). Old wording: M1.2f/M8.E1 (readable `.data`/globals) or a stubbed HDLMAP page
     context for `0x003f51e0`/`0x003f56bc`; then run `0x003f632c`/`0x003f5e78`
     (or `0x003f61bc` field 5) on rec0 and the M5.12 renamed page in PySh4 and
     mark done if names match.
@@ -1072,11 +1119,18 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2190–C-2199
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
-  - Status: blocked · Owner: claude/m3.15-lctbl-reader · Critical: yes
-  - Blocker: the record walker and string decoder are reached only through compressed `Navi.exe` sec1 helpers (`0x0055d924`, `0x0055d954`), and no inflate table is in decodable bytes (C-2200–C-2206).
-  - Unblock: M1.2f
-  - Result: EXP-2026-11-08-M3.15-lctbl-reader (negative; done-when not met).
-  - Depends: M1.2f (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`; rule 14 precheck put the target in compressed bytes)
+  - Status: open · Owner: — · Critical: yes
+  - Re-opened (PM twelfth pass, rule 15, H49): the two "sec1 helpers" are
+    imports — `0x0055d924` = `OSMDLL!OSM_isSender`, `0x0055d954` =
+    `OSMDLL!OSM_Printf` (C-3443) — so nothing is hidden in compressed bytes.
+    Re-run from `fn 0x004125a8` with `sh4xref --calls … --resolve-with
+    0x3e00200` (import labels), follow the non-import callees
+    (`0x003f020c`, `0x0040dd40`, `0x0040de98`, `0x0040b358`), and do not use
+    a const-table scan as the negative (C-3444: tables sit in sec2). Also
+    check `OBJDLL.dll` (400 Navi.exe imports) as the reader's home.
+  - Former blocker (history): the record walker and string decoder are reached only through compressed `Navi.exe` sec1 helpers (`0x0055d924`, `0x0055d954`), and no inflate table is in decodable bytes (C-2200–C-2206).
+  - Result: EXP-2026-11-08-M3.15-lctbl-reader (negative; done-when not met; diagnosis superseded by EXP-2026-11-10-H49-pm-review).
+  - Depends: — (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`; H49: the "compressed" callees were imports)
   - Precheck: `tools/reader_precheck.py --module OBJDLL.dll` (M1.12) — all
     executable sections are readable (C-2128); OBJDLL's compressed bytes are
     data. Derive the signature from an L3 run or the writer's inverse, not from
@@ -1088,6 +1142,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     M3.9 collation); confirm framing and encoding from the code.
   - Done when: `refer.md` (or `rdstm.md`) names the record-walk and
     string-decode VAs and states the encoding the code assumes.
+  - Stop: after two signature families (named, with source) fail in sec0 and
+    `OBJDLL.dll` — `blocked` + EXP; a cited VA must carry its `va_class.py`
+    class, and only an `INIT` address may name M1.2f.
   - Claims: C-2200–C-2209
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
@@ -1281,6 +1338,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: `docs/experiments/EXP-2026-11-09-M3.21-sh4scan-counts-repro.md` (C-3380). All M3.19-scoped published counts reproduced on IMG256 `92aa525d…` incl `mask-pair --via-reg`=1 @ Navi.exe `0x003715c8/ca/cc R3 (+4 B)`, pattern `8868` 23 incl `0x0037c268`, anchors 527/282/245/23559542 B; no published count corrected. M3.19 already `done` (PR #172/H48). `claims_check`/`todo_check`/`sh4scan --selftest` OK.
   - Claims: C-3380–C-3389
 
+- [ ] **M3.22 — Who writes the `0x00d53500` table (HDLMAP / RDSTM schema)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (H49: the table is BSS, C-3442; its content is produced at run time, so M1.2f cannot give it)
+  - Goal: name the function(s) that fill `0x00d53500` and say what they copy there and from where (file header, `MMAIN001`, a loader of the `REFER`/`RDSTM` page handles), so M4.16b can read the schema and M3.11c can build the page context the name accessor needs.
+  - Precheck: `python3 tools/va_class.py IMG256 --module Navi.exe 0x00d53500` → `BSS`; `python3 tools/sh4xref.py IMG256 Navi.exe --image-start 0x200200 --to 0x00d53500` → 33 loads (H49), the most frequent in `fn 0x00415fe8` (6) and `fn 0x0040dfa8` (6).
+  - Scope: the ~20 functions that load `0x00d53500` in `Navi.exe` sec0; classify each load site as **store** (`mov.l Rm,@(disp,Rn)` / `mov.l Rm,@Rn` with `Rn` derived from the table) or read. Signature source: the store instructions themselves (not the format doc). Follow the stored values back to their source (a file read through `fread` import slot `0x0055d1a0`, or another BSS global).
+  - Input: EXP-2026-11-08-M4.16b-rdstm-field-walk, EXP-2026-11-08-M3.11c-point-name-accessor, EXP-2026-11-08-M3.13-addre-reader-2 (follow-up "bind `0x00d53500` table slots … by static init xref"), EXP-2026-11-08-M1.12-reader-precheck (follow-up "store search").
+  - Done when: an EXP names the writer VA(s), the table's entry size and count, and the source of each field, with one L3 run (PySh4, after M9.35, or a direct stub) or a writer-inverse check reproducing at least one entry from a factory file; `docs/format/firmware.md` gets the table layout.
+  - Stop: after the store classification of all load sites plus one back-trace family without a source — write the EXP `blocked` with the store list (it is the input for an L3 run of the writer in M9.35).
+  - Claims: C-3460–C-3469
+
 ---
 
 ## M4 — Data formats (no firmware or hardware needed)
@@ -1429,7 +1497,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
   - Status: blocked · Owner: task/m4.16b-rdstm-field-walk · Critical: yes
   - Blocker: **impossible with current inputs / blocked by compressed `.data` (Navi.exe sec1)**. Precheck: `sh4dis Navi.exe --image-start 0x200200 --check-real` OK on IMG256 `92aa525d…` (M1.11c RDSTM pins, no `.word` gap at named walk sites; MOVT/SHAR/SHLD/SHAD done). `cerom va2file 0x00d53500` → unmapped (`0x-8bb8d900`); `0x00d53500` (schema descriptor consulted by `0x003f51e0`, `[0x003f52b8]=0x00d53500`) lies in **Navi.exe sec1 `va 0x55d000 vsize 0xff16ae psize 0x457c flags 0xc8002040 COMPRESSED rw-`** (covers `0x55d000–0x154e6ae`), so schema bytes/field lengths are unreadable with current inputs. C-884 walk not reproduced to true per-record boundaries; `rdstm_place.py` not re-run on decoded fields; no ≥20 decoded-record mapping, no named join key, no ~0 random-key control. Done-when **not met**. Join/placement route remains **M4.16d** (once true decoded TMC fields exist).
-  - Unblock: `M1.2f` and/or `M8.E1/M1.2g/M9` verified path yielding **Navi.exe sec1 decompressed bytes** for build A (so `0x00d53500` schema contents are readable). M1.11c walk opcodes are done and **not** an unblocker.
+  - Unblock: (H49) **M3.22** — `0x00d53500` is BSS (C-3442), decompressed sec1 is zero there; the schema is written at run time. Old wording: `M1.2f` and/or `M8.E1/M1.2g/M9` verified path yielding **Navi.exe sec1 decompressed bytes** for build A (so `0x00d53500` schema contents are readable). M1.11c walk opcodes are done and **not** an unblocker.
   - Re-opened (PO grooming 2026-11-09, rule 15): M1.11c merged; decoder-gap blocker no longer holds. Re-blocked on schema bytes in compressed sec1 (this task).
   - Result (negative, prior): EXP-2026-11-08-M4.16b-record-framing — gate passed (five functions plain in Navi.exe sec0; callees verified); walk not run; done-when not met.
   - Result: EXP-2026-11-08-M4.16b-rdstm-field-walk (negative/blocked: schema `0x00d53500` in Navi.exe sec1 COMPRESSED `rw-`, unreadable; walk/boundaries/placement not reproduced with current inputs). C-2300–C-2309.
@@ -2704,7 +2772,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Blocker: `sub_00419350` reads its coredll imports and buffer global from
     compressed `Navi.exe` `sec1` (UNMAPPED at `0x0055d8fc`); the Done-when also
     needs a DRSTR rebuilt by M5.6, which is open.
-  - Unblock: M1.2f (decompress `sec1`), then M9.24 (import binding and coredll
+  - Unblock: (H49) **M9.35** (`0x0055d8fc` is the `OSMDLL!OSM_Malloc` import slot, C-3441), then M9.24 (import binding and coredll
     file stubs); the Done-when also waits on M5.6.
   - Result: EXP-2026-11-08-M9.14-reopen (negative, controls: M9.20 point-walker
     reproduced, compressed and outside-VA negatives; no DRSTR verdict; C-2240–C-2243).
@@ -2755,7 +2823,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Re-opened (ninth pass, rule 15): M9.20 merged (`562215a`); the module-VA
     entry it needs now exists.
   - Blocker: the M3.8 reader runs as a module entry (M9.20) but its first data access is at `0x0055d040`, in `Navi.exe` section 1 (compressed, `rw-`), which the map skips: `BLOCKED` UNMAPPED.
-  - Unblock: M1.2f (port `DECOMP_BLK`, so section 1 can be mapped).
+  - Unblock: (H49) **M9.35** — `0x0055d040` is the `COREDLL!memset` import slot and the `dest` fallback `0x00e23cc0` is BSS (C-3441/C-3442); M1.2f is not needed.
   - Result: EXP-2026-11-08-M9.17-reopen (negative: module run BLOCKED at a compressed `.data` access, controls PASS; C-2372–C-2373). Earlier block: EXP-2026-11-08-M9.17-m38-reader (C-2370–C-2371).
   - Depends: M9.5 (M3.8 located the reader)
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256`
@@ -2862,7 +2930,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M1.2f (`sec1` of `Navi.exe` must be decompressed first)
+  - Depends: M9.35 (H49: the import slots and BSS of sec1 need no decompression; M9.35 maps them)
   - Precheck: `python3 tools/cerom.py` can resolve Navi.exe/coredll import
     context on IMG256 (recording the `exports coredll` KeyError if present);
     `python3 tools/l3_harness/runner.py --selftest` passes; EU factory
@@ -2881,9 +2949,11 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `runner.py run drstr_parser` on the EU factory `DRSTR001.DAT`
     returns a verdict or a named blocker with the faulting PC, and a
     `verdict_map` is written from the decoded return codes (not guessed).
-  - Stop: if sec1 remains compressed/unmapped or coredll ordinals cannot be
-    re-derived reproducibly, record the faulting PC/missing ordinal evidence
-    and keep blocked on M1.2f/evidence; do not guess ordinals or verdicts.
+  - Stop: if a fault lands on an address `tools/va_class.py` classes `INIT`
+    (stored sec1/sec2 bytes), or coredll ordinals cannot be re-derived
+    reproducibly, record the faulting PC/VA class and keep blocked on M1.2f
+    for that address only; do not guess ordinals or verdicts. Ordinals:
+    `cerom.py imports Navi.exe --resolve-with 0x3e00200` names them (H49).
   - Claims: C-2640–C-2649
 
 - [ ] **M9.26 — Revisit `POINT` byte-order / source after M9.11b registers `cmp_ind_reader`**
@@ -2988,6 +3058,17 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: M9.32 is `done` or `blocked` with `Result:` that cites the M9.11 closeout EXP as satisfying all three pairs + controls through the registered `cmp_ind_reader` path with declared sec1 provenance; M9.11/M9.32 contain no stale "not registered"/"no firmware-call entry kind" blocker text except accurate history; `todo_check.py` and `claims_check.py` pass.
   - Stop: if the closeout EXP does not actually cover a M9.32 done-when element (pair/control/runner path/corpus availability claim), record the exact gap and keep M9.32 `blocked` naming it — do not close on incomplete evidence.
   - Claims: C-3430–C-3439
+
+- [ ] **M9.35 — sec1 load model: zero BSS, bind the IAT, fail loudly on `INIT`**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M9.20 done; H49 gives the classes and `tools/va_class.py`)
+  - Goal: a module run maps what the CE loader would: `Navi.exe` sec1 as a zero-filled `rw-` block (`0x0055d000`, vsize `0xff16ae`), the 846 import slots holding stub-trampoline VAs that report `DLL!name` when called, and any read of an `INIT` byte (sec1 `0x0055dd38…0x0057501a`, sec2) stopping as `BLOCKED INIT 0x… (M1.2f)`. This replaces "UNMAPPED in compressed sec1" for M9.17/M9.14 and is the base for M9.24's real CRT stubs.
+  - Precheck: `python3 tools/va_class.py IMG256 --module Navi.exe --resolve-with 0x3e00200 0x0055d040 0x0055d8fc` → `IAT memset`, `IAT OSM_Malloc`; `python3 tools/l3_harness/runner.py selftest` passes.
+  - Scope: `tools/l3_harness/rommap.py` (a `--bss-zero` / `--init-guard` mode using `comphdr` `uncompressed_len`), `runner.py`/`stubs.py` (IAT trampolines with names from `cerom.imports` + `--resolve-with 0x3e00200`; an unknown import stops as `BLOCKED STUB DLL!name`, never a silent return). No guessed `INIT` bytes; no verdict maps.
+  - Input: EXP-2026-11-10-H49-pm-review, EXP-2026-11-08-M9.17-reopen, EXP-2026-11-08-M9.14-reopen, EXP-2026-11-08-M9.20-l3-plumbing.
+  - Done when: selftest covers zero-BSS read, a bound-IAT call reaching a named stub, an unbound import → `BLOCKED STUB`, and an `INIT` read → `BLOCKED INIT`; the M9.17 `mmain_reader` scratch run and the M9.14 `drstr-sub_00419350` run on IMG256 get past `0x0055d040`/`0x0055d8fc` and report their **next** stop (stub name or faulting PC + class) in an EXP (tests C-3445). Rule 15: on merge, set M9.17/M9.14 back to `open` and M9.24's Depends to done.
+  - Stop: if the run stops on an `INIT` address, record it with its class and stop — that address, and only that one, goes to M1.2f.
+  - Claims: C-3450–C-3459
 
 ## Retired leads
 

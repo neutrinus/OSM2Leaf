@@ -2597,3 +2597,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3387 | RESERVED (M3.21). | — | — | — |
 | C-3388 | RESERVED (M3.21). | — | — | — |
 | C-3389 | RESERVED (M3.21). | — | — | — |
+
+## H49 — "compressed sec1" is import slots and BSS (C-3440–C-3449)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3440 | Build A's 245 compressed sections have vsize 30,212,810 B but only 1,674,478 B (5.54 %) of stored, initialised bytes (`comphdr` `uncompressed_len`, all `HOLDS`); the rest is BSS, zero at load. `Navi.exe` sec1: vsize `0xff16ae`, initialised `0x1801a` (98,330 B); sec2: fully initialised (`0xed60`). | VERIFIED (tool) | H | EXP-2026-11-10-H49-pm-review; `python3 tools/cerom.py --image-start 0x200200 IMG256 comphdr --all --json` |
+| C-3441 | The `0x0055dxxx` blocker addresses of M9.17, M9.14, M3.11c, M3.15, M4.26 are `Navi.exe` import slots: `0x0055d040` COREDLL!memset, `0x0055d8fc` OSMDLL!OSM_Malloc, `0x0055d8f0` OSMDLL!taskIdSelf, `0x0055d924` OSMDLL!OSM_isSender, `0x0055d954` OSMDLL!OSM_Printf, `0x0055d8b4` OSMDLL!OSM_SramSet, `0x0055d100` COREDLL!wcsstr. The loader writes these slots; their stored bytes do not matter. | VERIFIED (tool) | H | `python3 tools/va_class.py IMG256 --module Navi.exe --resolve-with 0x3e00200 <VA>` |
+| C-3442 | `0x00d53500`, `0x00e23cc0`, `0x00e99698`, `0x00ec3954`, `0x009cfd80`, `0x009e3e28` lie in `Navi.exe` sec1 above its initialised length (BSS): decompressing sec1 yields zeros there; the values are written at run time. | VERIFIED (tool) | H | as C-3441 |
+| C-3443 | M3.15's "sec1 helpers" `0x0055d924`/`0x0055d954` called from `fn 0x004125a8` and `fn 0x003bc960` are `OSM_isSender` and `OSM_Printf` imports, not the LCTBL record walker or string decoder (corrects C-2200–C-2206's interpretation, not their counts). | VERIFIED (tool) | H | C-3441; M1.10b (C-2600–C-2601 spot-check of `OSM_Printf`) |
+| C-3444 | The M3.15 inflate-table scan read only plain sections; `Navi.exe` constant data sits in sec2 (compressed, initialised), so its 0 hits do not exclude an inflate in plain code. | OBSERVED | M | C-3440; EXP-2026-11-08-M3.15-lctbl-reader scope |
+| C-3445 | With sec1 mapped zero-filled past `0x1801a` and the 846 IAT slots bound to named stubs, the M9.17/M9.14 module runs get past `0x0055d040`/`0x0055d8fc` to their first stub call. | HYPOTHESIS | M | to be tested by M9.35 |
+| C-3446 | RESERVED (H49). | — | — | — |
+| C-3447 | RESERVED (H49). | — | — | — |
+| C-3448 | RESERVED (H49). | — | — | — |
+| C-3449 | RESERVED (H49). | — | — | — |

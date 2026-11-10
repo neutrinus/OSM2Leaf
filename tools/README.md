@@ -311,6 +311,19 @@ python3 tools/sh4xref.py IMG Navi.exe --image-start 0x200200 --calls 0x004e7b8c 
 python3 tools/sh4xref.py --selftest
 ```
 
+## `va_class.py` — what the loader puts at a VA (H49)
+
+Classifies module VAs as `CODE`, `IAT` (import slot, with `DLL!name`),
+`INIT` (stored bytes of a compressed section — the only class that needs
+M1.2f), `BSS` (zero at load, written at run time — find the writer), `DATA`
+or `OUTSIDE`. Run it before writing "blocked: compressed sec1".
+
+```bash
+python3 tools/va_class.py IMG --module Navi.exe --resolve-with 0x3e00200 \
+    0x0055d040 0x00d53500 0x0055e000      # IAT memset, BSS, INIT
+python3 tools/va_class.py --selftest
+```
+
 ## `ce_strfind.py` — string search across every CE ROM module
 
 Walks the TOC and searches each module's sections for an ASCII, UTF-16LE or
