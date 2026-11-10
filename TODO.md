@@ -1339,7 +1339,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3380–C-3389
 
 - [ ] **M3.22 — Who writes the `0x00d53500` table (HDLMAP / RDSTM schema)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.22-bss-table-writer · Critical: yes
   - Depends: — (H49: the table is BSS, C-3442; its content is produced at run time, so M1.2f cannot give it)
   - Goal: name the function(s) that fill `0x00d53500` and say what they copy there and from where (file header, `MMAIN001`, a loader of the `REFER`/`RDSTM` page handles), so M4.16b can read the schema and M3.11c can build the page context the name accessor needs.
   - Precheck: `python3 tools/va_class.py IMG256 --module Navi.exe 0x00d53500` → `BSS`; `python3 tools/sh4xref.py IMG256 Navi.exe --image-start 0x200200 --to 0x00d53500` → 33 loads (H49), the most frequent in `fn 0x00415fe8` (6) and `fn 0x0040dfa8` (6).
