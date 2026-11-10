@@ -1119,32 +1119,17 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2190–C-2199
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
-  - Status: in progress · Owner: task/m3.15-lctbl-reader-reopen · Critical: yes
-  - Re-opened (PM twelfth pass, rule 15, H49): the two "sec1 helpers" are
-    imports — `0x0055d924` = `OSMDLL!OSM_isSender`, `0x0055d954` =
-    `OSMDLL!OSM_Printf` (C-3443) — so nothing is hidden in compressed bytes.
-    Re-run from `fn 0x004125a8` with `sh4xref --calls … --resolve-with
-    0x3e00200` (import labels), follow the non-import callees
-    (`0x003f020c`, `0x0040dd40`, `0x0040de98`, `0x0040b358`), and do not use
-    a const-table scan as the negative (C-3444: tables sit in sec2). Also
-    check `OBJDLL.dll` (400 Navi.exe imports) as the reader's home.
-  - Former blocker (history): the record walker and string decoder are reached only through compressed `Navi.exe` sec1 helpers (`0x0055d924`, `0x0055d954`), and no inflate table is in decodable bytes (C-2200–C-2206).
-  - Result: EXP-2026-11-08-M3.15-lctbl-reader (negative; done-when not met; diagnosis superseded by EXP-2026-11-10-H49-pm-review).
+  - Status: blocked · Owner: task/m3.15-lctbl-reader-reopen · Critical: yes
+  - Blocker: H49 reopen (sec1 "helpers" are IAT imports `OSMDLL!OSM_isSender`/`OSM_Printf`, C-3443, not compressed code): two writer-inverse signature families derived from `lctbl_records.py`/`lctbl_names.py` parse invariants of stock `LCTBL001.DAT` (SHA-256 `8cab1775…`) — S1 marker `mov.b @(2,Rm),R0` + `cmp/eq #1,R0` (40 B, from marker@+2==0x01) and S2 four slot-length reads `mov.b @(d,Rm),R0` d∈{3,4,5,6} same base (80 B, from +3..+6) — scanned Navi.exe sec0 exec plain (5,553,430 B, VA `0x00011000`) and OBJDLL.dll sec0 exec plain (349,755 B, VA `0x03481000`) with 0 hits each (C-2207). Reachability from `fn 0x004125a8` traced through resolved IAT/non-import CODE callees and `0x00413a6c`/`0x00412ac0`→`0x00404994` inflate path without locating record parsing/string decode; `0x003bc960` is TMC/RDSTM decoding (C-2208). No cited blocker VA is `INIT` (`va_class.py`), so M1.2f not justified. Done-when unmet (no reader VAs, encoding assumed by code UNKNOWN).
+  - Unblock: derive and test a further signature family or L3-driven observation on the `0x00413a6c`/`0x00412ac0`→`0x00404994` (`0x14e4`) load/inflate path (and harnessable fragments reached) with a positive control to locate record framing/string decode in readable exec or in `.data` dispatch found from code; only cite M1.2f if a decisive address is classified `INIT` by `va_class.py`.
+  - Former blocker (history): the record walker and string decoder were thought reached only through compressed `Navi.exe` sec1 helpers (`0x0055d924`, `0x0055d954`) (C-2200–C-2206); diagnosis superseded by H49/C-3443.
+  - Result: EXP-2026-11-10-M3.15-lctbl-reader-reopen (negative, H49 reopen; done-when not met). Prior: EXP-2026-11-08-M3.15-lctbl-reader.
   - Depends: — (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`; H49: the "compressed" callees were imports)
-  - Precheck: `tools/reader_precheck.py --module OBJDLL.dll` (M1.12) — all
-    executable sections are readable (C-2128); OBJDLL's compressed bytes are
-    data. Derive the signature from an L3 run or the writer's inverse, not from
-    the doc grammar (M3.11's lesson, C-2129).
-  - Scope: build-A executable sections (all readable); `.data` tables only via
-    a pointer found in code. `Stop:` after two signature families fail — then
-    `blocked` + EXP listing the signatures tested.
-  - Goal: Polish street/place names go through this table (M4.18 framing,
-    M3.9 collation); confirm framing and encoding from the code.
-  - Done when: `refer.md` (or `rdstm.md`) names the record-walk and
-    string-decode VAs and states the encoding the code assumes.
-  - Stop: after two signature families (named, with source) fail in sec0 and
-    `OBJDLL.dll` — `blocked` + EXP; a cited VA must carry its `va_class.py`
-    class, and only an `INIT` address may name M1.2f.
+  - Precheck: `tools/reader_precheck.py --module Navi.exe` / `--module OBJDLL.dll` (all executable sections readable, C-2128). Derive signatures from writer-inverse/L3 observation, not doc grammar.
+  - Scope: build-A executable sections (all readable); `.data` tables only via a pointer found in code. `Stop:` after two signature families fail — `blocked` + EXP listing signatures tested.
+  - Goal: Polish street/place names go through this table (M4.18 framing, M3.9 collation); confirm framing and encoding from the code.
+  - Done when: `refer.md` (or `rdstm.md`) names the record-walk and string-decode VAs and states the encoding the code assumes.
+  - Stop: after two signature families (named, with source) fail in sec0 and `OBJDLL.dll` — `blocked` + EXP; a cited VA must carry its `va_class.py` class, and only an `INIT` address may name M1.2f.
   - Claims: C-2200–C-2209
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**

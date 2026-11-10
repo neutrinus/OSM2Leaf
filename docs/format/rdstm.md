@@ -166,14 +166,25 @@ dictionary plus a zlib-compressed place/street name database.
 
 ### Code-side reader (M3.15, blocked)
 
-- Descriptor switch `fn 0x004125a8` (plain code): loads the name
+- Descriptor switch `fn 0x004125a8` (plain code, C-880/C-2122): loads the name
   `LCTBL001.DAT` at `0x0017a1f8` (8-bit ASCII, not UTF-16) and calls the
-  volume lookup `0x0040b358`; it also calls `0x0055d924` (sec1, compressed).
-- TMC record decoder `fn 0x003bc960` calls `0x0055d954` (sec1, compressed)
-  directly and via `fn 0x003a26b8`.
-- The record-walk VA and the string-decode VA are **not** in decodable bytes;
-  no zlib inflate length table is in any plain section (282 of 527). Blocked on
-  M1.2f. EXP-2026-11-08-M3.15-lctbl-reader; C-2200–C-2206.
+  volume lookup `0x0040b358`; it also reaches indirect slot `0x0055d924`, which
+  is the IAT import `OSMDLL!OSM_isSender` (C-3443/H49), not a compressed sec1
+  helper body.
+- TMC record decoder `fn 0x003bc960` reaches indirect slot `0x0055d954`
+  (`OSMDLL!OSM_Printf`, IAT, C-3443) directly and via `fn 0x003a26b8`.
+- The record-walk VA and the string-decode VA are **not** identified, and the
+  encoding the code assumes is **not** established with evidence (done-when not
+  met). H49 reopen: two writer-inverse signature families (record marker
+  `+2==0x01` / `cmp #1`; slot-length bytes `+3..+6` from common base, derived
+  from `lctbl_records.py`/`lctbl_names.py` parse invariants on stock
+  `LCTBL001.DAT` SHA-256 `8cab1775…`) scanned Navi.exe sec0 exec plain
+  (5,553,430 B) and OBJDLL.dll sec0 exec plain (349,755 B) with 0 hits each;
+  reachability traced through resolved non-import callees and the
+  `0x00413a6c`/`0x00412ac0`→inflate path without locating parsing/decoding. No
+  cited blocker VA is `INIT`, so M1.2f is not the unblocker.
+  EXP-2026-11-10-M3.15-lctbl-reader-reopen; C-2203, C-2204, C-2207–C-2209
+  (supersedes C-2200–C-2202, C-2205, C-2206).
 
 ### Catalog (verified)
 
