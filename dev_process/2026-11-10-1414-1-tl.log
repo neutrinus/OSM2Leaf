@@ -1,0 +1,20 @@
+role: tl
+model: iceman-free (opencode)
+start: 2026-11-10T14:14:36Z
+origin/main: 2d003392670e5d3b2b9496db8397c89790bc4b02
+
+inputs read (names): AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md, git state, gh open PRs
+
+actions:
+- git fetch --all --prune; identified 1 open PR (#171 M5.29 factory rerun, blocked on 0x2146/M5.22).
+- scanned TODO for open tasks and dependency status; selected qualifying batch for disjoint work and pairing decisions.
+
+end: 2026-11-10T15:45:00Z (approx)
+
+outcomes:
+- H50 (pair, critical, task/h50-va-class-prechecks, PR #174 closed): done. va_class integrated into l3_precond/reader_precheck (IAT/BSS/INIT selftests), sec1 blocker audit + rule 15 reopens/notes (M3.11c,M3.13,M4.16b,M9.14,M9.17 reopened; M3.2b no-VA note; M4.26/M2.17/M1.12-follow-up task blocks not found). Merged to origin/main as c1733b6, 8ba9f6d. EXP docs/experiments/EXP-2026-11-10-H50-va-class-prechecks.md, claims C-3470-C-3474. Checks: va_class/l3_precond/reader_precheck --selftest, selftest.py 83 pass/0 fail/23 skip, todo_check OK, claims_check OK.
+- M3.22 (pair, critical, task/m3.22-bss-table-writer, PR #175 merged+closed): blocked (Done when unmet, no L3/writer-inverse). Classified 33 0x00d53500 load sites (11 read / 22 store_write) + back-trace. Merged e1dac19. EXP docs/experiments/EXP-2026-11-10-M3.22-bss-table-writer.md, claims C-3460-C-3468. Unblock: M9.35.
+- M3.15 (pair, critical, task/m3.15-lctbl-reader-reopen, PR #177 merged+closed): blocked (Done when unmet). Writer-inverse S1/S2 signatures 0/0 on counted corpora. Merged f68f824 (rebased on e1dac19). EXP docs/experiments/EXP-2026-11-10-M3.15-lctbl-reader-reopen.md, claims C-2205-C-2209 updated/retracted as evidenced.
+- M9.35 (pair, critical, task/m9.35-sec1-load-model, PR #176 merged state): done. Guarded rommap --bss-zero/--init-guard + runner IAT trampolines/INIT guards; 4 synthetic cases pass; IMG256 probes past 0x0055d040/0x0055d8fc (mmain_reader -> BLOCKED STUB COREDLL.dll!wcstombs, drstr-sub_00419350 -> UNMAPPED 0xfffffec6..0xfffffec8, probe-only). Merged 31adc73 to origin/main, branch/worktree removed. EXP docs/experiments/EXP-2026-11-10-M9.35-sec1-load-model.md, claims C-3450-C-3458, C-3445 tested. Rule 15: M9.14/M9.17 reopened with M9.35 notes, M9.24 Depends M9.35 done. Checks: l3_harness/rommap/runner/va_class selftests, todo_check OK, claims_check OK, selftest.py 83 pass/0 fail/23 skip.
+
+navigator-caught defects (recorded): H50 CHANGES (M1.2f verdict semantics/independent blockers, exhaustive audit, strict rule 15, no-VA handling) implemented; M9.35 merge/reconcile fixed malformed TODO/claims conflicts (duplicate H50/conflict markers) and restored missing EXP before merge.
