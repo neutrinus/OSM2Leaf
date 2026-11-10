@@ -32,6 +32,7 @@ Exit codes: 0 ok, 1 selftest failure, 2 usage or image error.
 import argparse
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -80,6 +81,52 @@ def import_slots(rom, module, resolvers):
             name = exports.get((dll.lower(), ordinal), "#%d" % ordinal)
         slots[slot] = (dll, name)
     return slots
+
+
+def build_context(data, image_start, module, resolve_with=()):
+    """Return (sections, slots) for ``module`` using va_class classification."""
+    rom = cerom.CERom(data, image_start)
+    resolvers = [rom]
+    for start in resolve_with or ():
+        try:
+            resolvers.append(cerom.CERom(data, start))
+        except Exception:  # noqa: BLE001
+            continue
+    return section_layout(rom, data, module, image_start), import_slots(rom, module, resolvers)
+
+
+_HEX_VA_RE = re.compile(r"0x[0-9a-fA-F]{4,8}")
+
+
+def extract_hex_vas(text):
+    """Concrete hex VAs in order of appearance, de-duplicated."""
+    if not text:
+        return []
+    out = []
+    seen = set()
+    for m in _HEX_VA_RE.finditer(text):
+        try:
+            va = int(m.group(0), 0)
+        except ValueError:
+            continue
+        if va in seen:
+            continue
+        seen.add(va)
+        out.append(va)
+    return out
+
+
+def format_class(row):
+    """Human form for a va_class row, e.g. IAT COREDLL!memset / INIT <detail>."""
+    cls = row.get("cls", "UNKNOWN")
+    detail = row.get("detail") or ""
+    if cls == "IAT":
+        return "IAT %s" % detail
+    if cls in ("BSS", "INIT"):
+        return "%s %s" % (cls, detail)
+    if detail:
+        return "%s %s" % (cls, detail)
+    return cls
 
 
 def classify(va, sections, slots):

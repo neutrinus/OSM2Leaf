@@ -45,6 +45,8 @@ REPO = HERE.parent
 DEFAULT_TARGETS = HERE / "l3_harness" / "targets.json"
 
 sys.path.insert(0, str(HERE))
+import va_class  # noqa: E402
+import cerom  # noqa: E402
 
 # Verdicts.
 READY = "READY"
@@ -309,12 +311,81 @@ def _va_section_report(image: str, image_start: int, module: str, va: int) -> di
     return {"va": hex(va), "module": module, "section": None, "detail": "VA not found in module sections"}
 
 
+
+# ---------------------------------------------------------------------------
+# va_class enrichment (H50)
+# ---------------------------------------------------------------------------
+
+
+def _default_resolve_with(image_start: int, resolve_with: list[int] | None) -> list[int]:
+    if resolve_with:
+        return list(resolve_with)
+    # Build-A Navi.exe ordinals resolve through build B (COREDLL, etc.) on the card.
+    if image_start == 0x200200:
+        return [0x3e00200]
+    return []
+
+
+def _load_va_context(image: str, image_start: int, module: str, resolve_with: list[int],
+                     cache: dict) -> tuple[list, dict] | tuple[None, None]:
+    key = (os.path.realpath(image), image_start, module, tuple(resolve_with))
+    if key in cache:
+        return cache[key]
+    try:
+        with open(image, "rb") as fh:
+            data = fh.read()
+        sections, slots = va_class.build_context(data, image_start, module, resolve_with)
+        cache[key] = (sections, slots)
+    except Exception:  # noqa: BLE001
+        cache[key] = (None, None)
+    return cache[key]
+
+
+def _in_module_va(va: int, sections) -> bool:
+    for s in sections or []:
+        if s["start"] <= va < s["start"] + max(s["vsize"], s["psize"]):
+            return True
+    return False
+
+
+def _classify_vas_for_report(vas, sections, slots):
+    rows = []
+    seen = set()
+    for va in vas:
+        if va in seen:
+            continue
+        seen.add(va)
+        if not _in_module_va(va, sections):
+            continue
+        row = dict(va="0x%08x" % va, va_int=va, **va_class.classify(va, sections, slots))
+        row["class_text"] = va_class.format_class(row)
+        rows.append(row)
+    return rows
+
+
+def _va_class_dim(cls):
+    if cls == "INIT":
+        return {"status": "present", "blocker": True,
+                "detail": "INIT (initialised compressed .data bytes; needs M1.2f)",
+                "evidence": "va_class=INIT"}
+    if cls == "IAT":
+        return {"status": "iat", "blocker": False,
+                "detail": "IAT import slot (loader-bound; needs import/binding/stub, not M1.2f)",
+                "evidence": "va_class=IAT"}
+    if cls == "BSS":
+        return {"status": "bss", "blocker": False,
+                "detail": "BSS (zero at load; find writer/runtime init, not M1.2f)",
+                "evidence": "va_class=BSS"}
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Verdict computation
 # ---------------------------------------------------------------------------
 
 
-def assess_target(target: dict, *, image: str | None = None, image_start: int = 0x200200) -> dict:
+def assess_target(target: dict, *, image: str | None = None, image_start: int = 0x200200,
+                  resolve_with: list[int] | None = None, _va_cache: dict | None = None) -> dict:
     name = target.get("name", "?")
     entry = _entry(target)
     kind = entry.get("kind")
@@ -345,19 +416,100 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
     if image and module and va is not None:
         va_info = _va_section_report(image, image_start, module, va)
         if va_info and "error" not in va_info and va_info.get("section_realaddr") is not None:
-            if va_info.get("executable") and not va_info.get("compressed"):
-                bytes_info.setdefault("entry_location", va_info)
-            elif va_info.get("compressed"):
-                bytes_info.setdefault("entry_location", va_info)
-                reasons.append(f"entry VA {hex(va)} maps to a compressed section ({va_info.get('kind')})")
-            else:
-                bytes_info.setdefault("entry_location", va_info)
+            bytes_info.setdefault("entry_location", va_info)
+            # compressed-entry note handled below after va_class enrichment
     elif not image:
-        # Use metadata hints only as non-verdict facts.
         note_text = _join_text(entry.get("note"), entry.get("reason"), target.get("notes"))
         if re.search(r"executable,?\s+uncompressed\s+sec0|lies in the executable, uncompressed", note_text, re.I):
             bytes_info = {"status": "metadata", "detail": "target metadata states entry is in executable uncompressed sec0; not verified against image here",
                           "metadata_hint": _first_match(note_text, re.compile(r"executable,?\s+uncompressed\s+sec0|lies in the executable, uncompressed", re.I))}
+
+    # va_class enrichment (H50): classify entry VA and concrete in-module hex VAs
+    # surfaced as compressed/unmapped/M1.2f-related when image+module available.
+    va_classifications = []
+    va_class_status = "unavailable"
+    if image and module:
+        if _va_cache is None:
+            _va_cache = {}
+        rw = _default_resolve_with(image_start, resolve_with)
+        sections, slots = _load_va_context(image, image_start, module, rw, _va_cache)
+        if sections is None:
+            va_class_status = "error"
+            va_classifications = []
+        else:
+            va_class_status = "image"
+            cand_text = _join_text(entry.get("reason"), entry.get("note"), target.get("notes"),
+                                   target.get("what"), json.dumps(target.get("expect", {}), sort_keys=True))
+            cand_vas = []
+            if va is not None:
+                cand_vas.append(va)
+            # include entry VA reported as compressed/unmapped by va_section
+            if va_info and va_info.get("section_realaddr") and va_info.get("compressed"):
+                try:
+                    cand_vas.append(int(str(va_info.get("va", "0")), 0))
+                except Exception:
+                    pass
+            for v in va_class.extract_hex_vas(cand_text):
+                cand_vas.append(v)
+            va_classifications = _classify_vas_for_report(cand_vas, sections, slots)
+            # Apply M1.2f verdict semantics per VA class (H50).
+            init_rows = [r for r in va_classifications if r["cls"] == "INIT"]
+            override_rows = [r for r in va_classifications if r["cls"] in ("IAT", "BSS")]
+            if init_rows:
+                m1_2f = _va_class_dim("INIT").copy()
+                m1_2f["detail"] = "; ".join(f"{r['va']} {r['class_text']}" for r in init_rows)
+                m1_2f["evidence"] = "va_class"
+            elif override_rows:
+                # Remove M1.2f/compressed-sec1 blocker for IAT/BSS VAs; replace with correct concern.
+                if m1_2f.get("blocker") or m1_2f.get("status") == "present":
+                    m1_2f = {"status": "not_m1_2f", "blocker": False,
+                             "detail": "compressed/unmapped VAs are IAT/BSS, not INIT; M1.2f not required for them",
+                             "evidence": "va_class"}
+                else:
+                    # keep non-blocking status but expose class-derived note
+                    m1_2f = dict(m1_2f)
+                    if m1_2f.get("status") == "unknown":
+                        m1_2f["detail"] = "no INIT VA classified; compressed/unmapped concerns resolved to IAT/BSS where classified"
+                        m1_2f["evidence"] = "va_class"
+            # Compressed entry mapping: if image classifies as IAT/BSS, it is not an M1.2f byte blocker.
+            if va_info and va_info.get("compressed"):
+                entry_cls_row = next((r for r in va_classifications if r.get("va_int") == va), None)
+                if entry_cls_row and entry_cls_row["cls"] in ("IAT", "BSS"):
+                    # do not add "maps to a compressed section" as M1.2f blocker reason
+                    pass
+                elif entry_cls_row and entry_cls_row["cls"] == "INIT":
+                    reasons.append(f"entry VA {hex(va)} is INIT in compressed section ({va_info.get('kind')}): needs M1.2f")
+                elif not entry_cls_row or entry_cls_row.get("cls") == "UNKNOWN":
+                    reasons.append(f"entry VA {hex(va)} maps to a compressed section ({va_info.get('kind')})")
+            # Replace metadata "unmapped/compressed sec1" import-binding blocker with class concern when IAT/BSS known.
+            ib = reach.get("import_binding")
+            if ib and ib.get("status") == "blocked" and override_rows and not init_rows:
+                # If blocked reason was about unmapped/compressed sec1 data/imports and all classified are IAT/BSS
+                txt = (ib.get("detail") or "") + " " + _join_text(entry.get("reason"))
+                if re.search(r"unmapped|compressed\s+sec1|m1\.2f", txt, re.I):
+                    kinds = sorted({r["cls"] for r in override_rows})
+                    concerns = []
+                    if "IAT" in kinds:
+                        iats = [r for r in override_rows if r["cls"] == "IAT"]
+                        concerns.append("import/binding/stub needed: " + ", ".join(r["va"] + " " + r["class_text"] for r in iats))
+                    if "BSS" in kinds:
+                        bss = [r for r in override_rows if r["cls"] == "BSS"]
+                        concerns.append("find writer/runtime init (zero at load): " + ", ".join(r["va"] + " " + r["class_text"] for r in bss))
+                    reach = dict(reach)
+                    reach["import_binding"] = {"status": "blocked", "detail": "; ".join(concerns) or "IAT/BSS concern (not M1.2f)"}
+            elif ib and ib.get("status") == "blocked" and override_rows and init_rows:
+                # Mixed: keep/adjust to mention INIT still M1.2f plus other concerns
+                reach = dict(reach)
+                concerns = [f"INIT (M1.2f): " + ", ".join(r["va"] + " " + r["class_text"] for r in init_rows)]
+                if any(r["cls"] == "IAT" for r in override_rows):
+                    concerns.append("IAT needs import/binding/stub: " + ", ".join(r["va"] + " " + r["class_text"] for r in override_rows if r["cls"]=="IAT"))
+                if any(r["cls"] == "BSS" for r in override_rows):
+                    concerns.append("BSS needs writer/runtime init: " + ", ".join(r["va"] + " " + r["class_text"] for r in override_rows if r["cls"]=="BSS"))
+                reach["import_binding"] = {"status": "blocked", "detail": "; ".join(concerns)}
+    elif image and not module:
+        va_class_status = "no-module"
+    else:
+        va_class_status = "no-image"
 
     # Verdict.
     blockers = []
@@ -380,7 +532,6 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
         if unknowns:
             reasons.append("additional unknowns: " + "; ".join(unknowns))
     elif kind == "blocked":
-        # Blocked entry kind but no classified blocker dimension fired - be conservative.
         reason_text = entry.get("reason") or "entry.kind=blocked"
         verdict = BLOCKED
         reasons.append(f"target metadata marks entry blocked: {reason_text}")
@@ -393,15 +544,28 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
         reasons.append("no known M1.2f/import/input/binding blocker in checked metadata")
         if m1_2f.get("status") == "mitigated":
             reasons.append(m1_2f["detail"])
-        if m1_2f.get("status") == "unknown":
+        if m1_2f.get("status") == "unknown" and va_class_status == "image":
+            reasons.append(m1_2f.get("detail") or "M1.2f/sec1 dependency not stated in metadata (image-derived classes shown)")
+        elif m1_2f.get("status") == "unknown":
             reasons.append("M1.2f/sec1 dependency not stated in metadata (image/code analysis not performed)")
+        elif m1_2f.get("status") in ("iat", "bss", "not_m1_2f"):
+            reasons.append(m1_2f.get("detail", ""))
         for dim, info in reach.items():
             if info.get("status") == "unknown":
                 reasons.append(f"{dim}: {info['detail']}")
 
+    # Add va_class concerns as explicit reasons (correct concern, not M1.2f) when classified.
+    if va_classifications:
+        for r in va_classifications:
+            if r["cls"] == "IAT":
+                reasons.append(f"VA {r['va']} {r['class_text']}: import/binding/stub concern (not M1.2f)")
+            elif r["cls"] == "BSS":
+                reasons.append(f"VA {r['va']} {r['class_text']}: find writer/runtime init (zero at load), not M1.2f")
+            elif r["cls"] == "INIT":
+                reasons.append(f"VA {r['va']} {r['class_text']}: M1.2f blocker")
+
     # Stable fields check for UNKNOWN stop condition.
     if verdict == UNKNOWN and not missing_fields:
-        # Try to infer missing fields.
         if not va_raw and kind != "synthetic":
             missing_fields.append("entry.va")
         if not module and kind not in ("synthetic",):
@@ -420,6 +584,8 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
         "executable_vs_data_bytes": bytes_info,
         "compressed_sec1_data_dependency_m1_2f": m1_2f,
         "import_input_binding_reachability": reach,
+        "va_classifications": va_classifications,
+        "va_class_status": va_class_status,
         "verdict": verdict,
         "reasons": reasons,
         "missing_fields": missing_fields if verdict == UNKNOWN else [],
@@ -444,7 +610,8 @@ def _has_sufficient_ready_facts(target: dict, entry: dict, reach: dict, m1_2f: d
 
 
 def assess_adhoc(*, va: int | None, module: str | None, image: str | None = None,
-                 image_start: int = 0x200200) -> dict:
+                 image_start: int = 0x200200, resolve_with: list[int] | None = None,
+                 _va_cache: dict | None = None) -> dict:
     reasons = []
     missing_fields = []
     bytes_info: dict[str, Any] = {"status": "unknown", "detail": "no image provided"}
@@ -454,6 +621,8 @@ def assess_adhoc(*, va: int | None, module: str | None, image: str | None = None
         "input_binding": {"status": "unknown", "detail": "no input/binding metadata provided"},
     }
     m1_2f = {"status": "unknown", "blocker": False, "detail": "ad-hoc check: no target metadata; M1.2f dependency not assessed", "evidence": None}
+    va_classifications = []
+    va_class_status = "no-image" if not image else ("no-module" if not module else "unavailable")
     if va is None:
         missing_fields.append("va")
     if not module:
@@ -464,29 +633,77 @@ def assess_adhoc(*, va: int | None, module: str | None, image: str | None = None
         rep = _module_bytes_report(image, image_start, module)
         if rep and "error" not in rep:
             bytes_info = rep
-            if rep.get("exec_compressed_bytes", 0) > 0:
-                m1_2f = {"status": "unknown", "blocker": False,
-                         "detail": "module has compressed executable sections (unexpected per build-A fact) or data; module-level byte counts reported; entry-specific M1.2f dependency not proven",
-                         "evidence": "image module bytes"}
-            if rep.get("data_compressed_bytes", 0) > 0:
-                # data compressed bytes exist - M1.2f relevance depends on whether entry uses them.
-                pass
         elif rep:
             bytes_info = {"status": "unknown", "detail": rep["error"]}
     va_info = None
     if image and module and va is not None:
         va_info = _va_section_report(image, image_start, module, va)
-        if va_info and va_info.get("section_realaddr"):
-            if va_info.get("compressed"):
+        if _va_cache is None:
+            _va_cache = {}
+        rw = _default_resolve_with(image_start, resolve_with)
+        sections, slots = _load_va_context(image, image_start, module, rw, _va_cache)
+        if sections is not None:
+            va_class_status = "image"
+            va_classifications = _classify_vas_for_report([va], sections, slots)
+            row = va_classifications[0] if va_classifications else None
+            if row and row["cls"] == "INIT":
+                m1_2f = _va_class_dim("INIT").copy()
+                m1_2f["detail"] = f"{row['va']} {row['class_text']}"
                 verdict = BLOCKED
-                reasons.append(f"VA {hex(va)} is in compressed section {va_info.get('kind')}; bytes not directly readable/decodable here")
+                reasons.append(f"VA {hex(va)} is INIT in compressed section: M1.2f blocker")
+                reach = dict(reach)
+                reach["import_binding"] = {"status": "blocked", "detail": "INIT bytes need M1.2f (compressed .data)"}
                 return {
                     "name": None, "reader": None, "entry_kind": "adhoc", "module": module, "va": hex(va),
                     "executable_vs_data_bytes": bytes_info, "va_section": va_info,
-                    "compressed_sec1_data_dependency_m1_2f": {"status": "present", "blocker": True, "detail": reasons[0], "evidence": va_info},
-                    "import_input_binding_reachability": reach, "verdict": verdict, "reasons": reasons,
-                    "missing_fields": [], "image_used": os.path.basename(image),
+                    "compressed_sec1_data_dependency_m1_2f": m1_2f,
+                    "import_input_binding_reachability": reach,
+                    "va_classifications": va_classifications, "va_class_status": va_class_status,
+                    "verdict": verdict, "reasons": reasons, "missing_fields": [], "image_used": os.path.basename(image),
                 }
+            if row and row["cls"] == "IAT":
+                m1_2f = {"status": "iat", "blocker": False, "detail": f"{row['va']} {row['class_text']}: not M1.2f", "evidence": "va_class"}
+                reach = dict(reach)
+                reach["import_binding"] = {"status": "blocked", "detail": f"import/binding/stub needed: {row['va']} {row['class_text']} (not M1.2f)"}
+                reasons.append(f"VA {hex(va)} {row['class_text']}: import/binding/stub concern (not M1.2f)")
+                verdict = BLOCKED
+                return {
+                    "name": None, "reader": None, "entry_kind": "adhoc", "module": module, "va": hex(va),
+                    "executable_vs_data_bytes": bytes_info, "va_section": va_info,
+                    "compressed_sec1_data_dependency_m1_2f": m1_2f,
+                    "import_input_binding_reachability": reach,
+                    "va_classifications": va_classifications, "va_class_status": va_class_status,
+                    "verdict": verdict, "reasons": reasons, "missing_fields": [], "image_used": os.path.basename(image),
+                }
+            if row and row["cls"] == "BSS":
+                m1_2f = {"status": "bss", "blocker": False, "detail": f"{row['va']} {row['class_text']}: not M1.2f", "evidence": "va_class"}
+                reach = dict(reach)
+                reach["import_binding"] = {"status": "blocked", "detail": f"find writer/runtime init (zero at load): {row['va']} {row['class_text']} (not M1.2f)"}
+                reasons.append(f"VA {hex(va)} {row['class_text']}: find writer/runtime init (zero at load), not M1.2f")
+                verdict = BLOCKED
+                return {
+                    "name": None, "reader": None, "entry_kind": "adhoc", "module": module, "va": hex(va),
+                    "executable_vs_data_bytes": bytes_info, "va_section": va_info,
+                    "compressed_sec1_data_dependency_m1_2f": m1_2f,
+                    "import_input_binding_reachability": reach,
+                    "va_classifications": va_classifications, "va_class_status": va_class_status,
+                    "verdict": verdict, "reasons": reasons, "missing_fields": [], "image_used": os.path.basename(image),
+                }
+        else:
+            va_class_status = "error"
+        if va_info and va_info.get("section_realaddr") and va_info.get("compressed") and not va_classifications:
+            verdict = BLOCKED
+            reasons.append(f"VA {hex(va)} is in compressed section {va_info.get('kind')}; class unknown without va_class context")
+            m1_2f = {"status": "unknown", "blocker": True, "detail": reasons[0], "evidence": va_info}
+            return {
+                "name": None, "reader": None, "entry_kind": "adhoc", "module": module, "va": hex(va),
+                "executable_vs_data_bytes": bytes_info, "va_section": va_info,
+                "compressed_sec1_data_dependency_m1_2f": m1_2f,
+                "import_input_binding_reachability": reach,
+                "va_classifications": va_classifications, "va_class_status": va_class_status,
+                "verdict": verdict, "reasons": reasons, "missing_fields": [], "image_used": os.path.basename(image),
+            }
+        if va_info and va_info.get("section_realaddr") and not va_info.get("compressed"):
             reasons.append(f"VA {hex(va)} is in {va_info.get('kind')} section (image-verified)")
     if missing_fields:
         return {
@@ -495,6 +712,7 @@ def assess_adhoc(*, va: int | None, module: str | None, image: str | None = None
             "executable_vs_data_bytes": bytes_info,
             "compressed_sec1_data_dependency_m1_2f": m1_2f,
             "import_input_binding_reachability": reach,
+            "va_classifications": va_classifications, "va_class_status": va_class_status,
             "verdict": UNKNOWN,
             "reasons": ["ad-hoc assessment requires stable VA/module context; do not guess READY"],
             "missing_fields": missing_fields,
@@ -509,6 +727,7 @@ def assess_adhoc(*, va: int | None, module: str | None, image: str | None = None
         "executable_vs_data_bytes": bytes_info, "va_section": va_info,
         "compressed_sec1_data_dependency_m1_2f": m1_2f,
         "import_input_binding_reachability": reach,
+        "va_classifications": va_classifications, "va_class_status": va_class_status,
         "verdict": verdict, "reasons": reasons,
         "missing_fields": ["target metadata (entry kind, imports/bindings, declared inputs, known blockers)"],
         "image_used": os.path.basename(image) if image else None,
@@ -539,6 +758,11 @@ def _print_report(reports: list[dict], *, as_json: bool) -> None:
         print(f"M1.2f/sec1-data: {m.get('status')} blocker={m.get('blocker')} - {m.get('detail')}")
         for dim, info in (rep.get("import_input_binding_reachability") or {}).items():
             print(f"reachability.{dim}: {info.get('status')} - {info.get('detail')}")
+        vcs = rep.get("va_classifications") or []
+        if vcs or rep.get("va_class_status") in ("image", "error"):
+            print(f"va_class: status={rep.get('va_class_status','unknown')} ({len(vcs)} classified)")
+        for vc in vcs:
+            print(f"  va_class.{vc['va']}: {vc.get('class_text') or vc.get('cls')} - {vc.get('detail','')}")
         for r in rep.get("reasons") or []:
             print(f"  reason: {r}")
         if rep.get("missing_fields"):
@@ -648,6 +872,98 @@ def run_selftest() -> int:
     parsed = json.loads(blob)
     check("JSON round-trips", parsed["targets"][0]["verdict"] == BLOCKED)
 
+    # H50: IAT/BSS/INIT va_class cases (synthetic context, no vendor data).
+    sec_plain = dict(index=0, start=0x00011000, vsize=0x1000, psize=0x1000, flags=0x60000020,
+                     compressed=False, exec=True, init_len=0x1000)
+    sec_comp = dict(index=1, start=0x0055d000, vsize=0x10000, psize=0x200, flags=0xc8002040,
+                    compressed=True, exec=False, init_len=0x1000)
+    syn_sections = [sec_plain, sec_comp]
+    syn_slots = {0x0055d040: ("COREDLL", "memset")}
+    # (0x0055e000 -> BSS >= init 0x1000, 0x0055d100 -> INIT < init 0x1000, not slot)
+
+    orig_load = globals().get("_load_va_context")
+    orig_mod = globals().get("_module_bytes_report")
+    orig_va = globals().get("_va_section_report")
+    def _fake_load(image, image_start, module, resolve_with, cache):
+        return syn_sections, syn_slots
+    def _fake_mod(image, image_start, module):
+        return {"module": module, "exec_decodable_bytes": 0x1000, "exec_compressed_bytes": 0,
+                "data_decodable_bytes": 0, "data_compressed_bytes": 0x10000,
+                "exec_compressed_sections": [], "source": "synthetic"}
+    def _fake_va(image, image_start, module, va):
+        if 0x0055d000 <= va < 0x0056d000:
+            return {"va": hex(va), "module": module, "section_index": 1,
+                    "section_realaddr": "0x0055d000", "compressed": True,
+                    "executable": False, "kind": "data-compressed"}
+        if 0x00011000 <= va < 0x00012000:
+            return {"va": hex(va), "module": module, "section_index": 0,
+                    "section_realaddr": "0x00011000", "compressed": False,
+                    "executable": True, "kind": "exec-plain"}
+        return {"va": hex(va), "module": module, "section": None, "detail": "not found"}
+    globals()["_load_va_context"] = _fake_load
+    globals()["_module_bytes_report"] = _fake_mod
+    globals()["_va_section_report"] = _fake_va
+    try:
+        # IAT: blocked by metadata M1.2f in target text but va_class says IAT -> not M1.2f-blocked.
+        t_iat = {"name": "syn-iat", "reader": "iat", "module": "Navi.exe",
+                 "entry": {"kind": "firmware_call", "va": "0x00011010", "module": "Navi.exe",
+                           "reason": "accesses 0x0055d040 in compressed sec1 (M1.2f) UNMAPPED"}}
+        ri = assess_target(t_iat, image="synthetic.img", image_start=0x200200)
+        check("IAT va_class present", any(v.get("cls") == "IAT" for v in ri.get("va_classifications", [])),
+              json.dumps(ri.get("va_classifications")))
+        check("IAT not M1.2f-blocked", not ri["compressed_sec1_data_dependency_m1_2f"].get("blocker"),
+              json.dumps(ri["compressed_sec1_data_dependency_m1_2f"]))
+        check("IAT reason/concern shown", any("IAT" in x and ("import" in x.lower() or "stub" in x.lower() or "not M1.2f" in x)
+              for x in ri.get("reasons", [])) or any(v.get("cls")=="IAT" for v in ri.get("va_classifications", [])),
+              str(ri.get("reasons")))
+        # overall verdict may still be BLOCKED for independent reasons? this case had metadata blocked entry? no, firmware_call
+        # but import_binding may become blocked concern (not M1.2f) -> overall can be BLOCKED, which is correct (independent concern).
+
+        # BSS
+        t_bss = {"name": "syn-bss", "reader": "bss", "module": "Navi.exe",
+                 "entry": {"kind": "firmware_call", "va": "0x00011010", "module": "Navi.exe",
+                           "reason": "reads table at 0x0055e000 in compressed sec1 (M1.2f) UNMAPPED"}}
+        rb = assess_target(t_bss, image="synthetic.img", image_start=0x200200)
+        check("BSS va_class present", any(v.get("cls") == "BSS" for v in rb.get("va_classifications", [])),
+              json.dumps(rb.get("va_classifications")))
+        check("BSS not M1.2f-blocked", not rb["compressed_sec1_data_dependency_m1_2f"].get("blocker"),
+              json.dumps(rb["compressed_sec1_data_dependency_m1_2f"]))
+        check("BSS reason/concern shown", any("BSS" in x and ("writer" in x.lower() or "zero" in x.lower() or "not M1.2f" in x)
+              for x in rb.get("reasons", [])), str(rb.get("reasons")))
+
+        # INIT
+        t_init = {"name": "syn-init", "reader": "init", "module": "Navi.exe",
+                  "entry": {"kind": "firmware_call", "va": "0x00011010", "module": "Navi.exe",
+                            "reason": "reads 0x0055d100 in compressed sec1 (M1.2f)"}}
+        rn = assess_target(t_init, image="synthetic.img", image_start=0x200200)
+        check("INIT va_class present", any(v.get("cls") == "INIT" for v in rn.get("va_classifications", [])),
+              json.dumps(rn.get("va_classifications")))
+        check("INIT M1.2f-blocked", rn["compressed_sec1_data_dependency_m1_2f"].get("blocker") is True,
+              json.dumps(rn["compressed_sec1_data_dependency_m1_2f"]))
+        check("INIT verdict BLOCKED", rn["verdict"] == BLOCKED, rn["verdict"])
+
+        # adhoc IAT/BSS/INIT
+        ra_iat = assess_adhoc(va=0x0055d040, module="Navi.exe", image="synthetic.img")
+        check("adhoc IAT not M1.2f-blocked", not ra_iat["compressed_sec1_data_dependency_m1_2f"].get("blocker"),
+              json.dumps(ra_iat["compressed_sec1_data_dependency_m1_2f"]))
+        check("adhoc IAT classified", any(v.get("cls")=="IAT" for v in ra_iat.get("va_classifications", [])))
+        ra_bss = assess_adhoc(va=0x0055e000, module="Navi.exe", image="synthetic.img")
+        check("adhoc BSS not M1.2f-blocked", not ra_bss["compressed_sec1_data_dependency_m1_2f"].get("blocker"),
+              json.dumps(ra_bss["compressed_sec1_data_dependency_m1_2f"]))
+        check("adhoc BSS classified", any(v.get("cls")=="BSS" for v in ra_bss.get("va_classifications", [])))
+        ra_init = assess_adhoc(va=0x0055d100, module="Navi.exe", image="synthetic.img")
+        check("adhoc INIT M1.2f-blocked", ra_init["compressed_sec1_data_dependency_m1_2f"].get("blocker") is True,
+              json.dumps(ra_init["compressed_sec1_data_dependency_m1_2f"]))
+        check("adhoc classes in JSON", "va_classifications" in ra_iat and "class_text" in (ra_iat.get("va_classifications") or [{}])[0])
+
+        # no-image honesty
+        rn_no = assess_adhoc(va=0x0055d100, module="Navi.exe", image=None)
+        check("no-image not guessed non-M1.2f READY", rn_no["verdict"] != READY and rn_no["va_class_status"] == "no-image", str(rn_no))
+    finally:
+        globals()["_load_va_context"] = orig_load
+        globals()["_module_bytes_report"] = orig_mod
+        globals()["_va_section_report"] = orig_va
+
     if failures:
         print(f"\n{len(failures)} FAILED:")
         for name, detail in failures:
@@ -672,6 +988,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--module", default=None, help="module name (with --va or to scope enrichment)")
     p.add_argument("--image", default=None, help="optional firmware image for byte/section enrichment")
     p.add_argument("--image-start", type=lambda s: int(s, 0), default=0x200200)
+    p.add_argument("--resolve-with", action="append", type=lambda s: int(s, 0), default=None,
+                   help="CE image start(s) whose exports resolve ordinal imports for va_class (repeatable; default 0x3e00200 for build-A)")
     p.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
     args = p.parse_args(argv)
 
@@ -688,6 +1006,8 @@ def main(argv: list[str] | None = None) -> int:
             image = cand
 
     reports = []
+    va_cache: dict = {}
+    resolve_with = args.resolve_with
     if args.targets or args.all_targets:
         try:
             by_name, _doc = load_targets(args.targets_path)
@@ -699,9 +1019,11 @@ def main(argv: list[str] | None = None) -> int:
             if name not in by_name:
                 print(f"l3_precond: unknown target {name!r}", file=sys.stderr)
                 return 2
-            reports.append(assess_target(by_name[name], image=image, image_start=args.image_start))
+            reports.append(assess_target(by_name[name], image=image, image_start=args.image_start,
+                                         resolve_with=resolve_with, _va_cache=va_cache))
     elif args.va is not None or args.module is not None:
-        reports.append(assess_adhoc(va=args.va, module=args.module, image=image, image_start=args.image_start))
+        reports.append(assess_adhoc(va=args.va, module=args.module, image=image, image_start=args.image_start,
+                                    resolve_with=resolve_with, _va_cache=va_cache))
     else:
         p.error("give --selftest, --target/--all-targets, or --va/--module")
 
