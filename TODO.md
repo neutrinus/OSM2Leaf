@@ -414,7 +414,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-10-H49-pm-review. `tools/va_class.py` (selftest 8 cases). All seven `0x0055dxxx` blockers are import slots (memset, OSM_Malloc, taskIdSelf, OSM_isSender, OSM_Printf, OSM_SramSet, wcsstr); `0x00d53500`/`0x00e23cc0`/RGD tables are BSS; 0 cited addresses are `INIT`. Only 5.5 % of build A's compressed bytes are stored data. Board: M3.15 re-opened; M9.14/M9.17/M9.24 → M9.35; M4.16b/M3.11c → M3.22; M1.2f non-critical; H50 added; AGENTS.md rule.
 
 - [ ] **H50 — Put `va_class` into the prechecks and audit the remaining "sec1" blockers**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/h50-va-class-prechecks · Critical: yes
   - Depends: H49
   - Goal: no task may again say "blocked: compressed sec1/.data" for an import slot or a BSS address.
   - Precheck: `python3 tools/va_class.py --selftest`; `python3 tools/l3_precond.py --selftest`; `python3 tools/reader_precheck.py --selftest`.
