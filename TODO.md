@@ -1119,7 +1119,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2190–C-2199
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.15-lctbl-reader-reopen · Critical: yes
   - Re-opened (PM twelfth pass, rule 15, H49): the two "sec1 helpers" are
     imports — `0x0055d924` = `OSMDLL!OSM_isSender`, `0x0055d954` =
     `OSMDLL!OSM_Printf` (C-3443) — so nothing is hidden in compressed bytes.
