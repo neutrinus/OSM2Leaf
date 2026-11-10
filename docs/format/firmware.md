@@ -301,6 +301,29 @@ L3 trace needed). Buffer-slot→ADDRE binding is `HYPOTHESIS`. L3 probe of
 COREDLL/state). Navi.exe sec1/sec2 are compressed *data* (C-2128), not a code
 blocker. See `docs/format/refer.md` "Firmware reader (M3.13)".
 
+**M3.22 (EXP-2026-11-10, C-3460–C-3468, blocked — provisional):** `0x00d53500`
+is BSS in `Navi.exe` sec1 (C-3442/H49), so its contents are run-time written.
+`sh4xref --to 0x00d53500` (IMG256 `92aa525d…`, build A) gives **33 loads / 20
+functions**; all sites classified by store/read opcode evidence: **11 READ**
+(dispatch/lookup incl. `fn 0x003f51e0`, `fn 0x003f5cdc`) and **22 STORE_WRITE**.
+Writers (named VAs/functions): clear/init (zero constants over observed slots
+~0x00–0xAC) — `fn 0x0040dfa8` (loads `0x0040e096,0x0040e110,0x0040e138,0x0040e152,
+0x0040e16c,0x0040e1aa`), `fn 0x00415fe8` (`0x00416066,0x004161b2,0x004161fa,
+0x0041624e,0x0041627e,0x004162aa`), `fn 0x0040e4b2` (`0x0040e5c0`, slots
++136/+140). Populate/copy (context/call/handle values into specific slots,
+e.g. +4,+12,+16,+20,+24,+28,+44,+56,+60,+124,+128,+156) — `fn 0x00412bee`
+(`0x00412d12`, copies handle/page-pointer words from r8 context; strongest
+static populate evidence), `fn 0x003faf04` (`0x003fb018,0x003fb066`),
+`fn 0x003fc9c8` (`0x003fcb84`, call result `0x0040f168`), `fn 0x003fcbf0`
+(`0x003fd2ac,0x003fd2b8,0x003fd310`), `fn 0x003fd390` (`0x003fd448`), `fn
+0x003fe774` (`0x003febca`). Stored-value back-trace: zero constants; context
+struct fields `@(20/24,rX)` from `@r10/@r11/@r15`; computed word; global deref
+`@(*0x014a9928)->+20`; no direct `fread`-into-table observed in sec0 (IAT
+`0x0055d1a0` indirect). **Layout/entry size/count and per-field schema source
+remain UNKNOWN**; Done-when unmet (no L3 run/writer-inverse reproducing >=1
+entry, M9.35). Unblock: M9.35 IAT-bound L3 of populate writers to observe slot
+mutations and derive schema (see EXP-2026-11-10-M3.22-bss-table-writer).
+
 **Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
 `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to
 `0x1d0f888…894`. But:

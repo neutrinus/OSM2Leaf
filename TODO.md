@@ -1339,7 +1339,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3380–C-3389
 
 - [ ] **M3.22 — Who writes the `0x00d53500` table (HDLMAP / RDSTM schema)**
-  - Status: in progress · Owner: task/m3.22-bss-table-writer · Critical: yes
+  - Status: blocked · Owner: task/m3.22-bss-table-writer · Critical: yes
+  - Blocker: Done-when unmet (M9.35 not merged): all 33 load sites/20 functions classified (11 READ, 22 STORE_WRITE) with opcode evidence and back-trace of stored values (zero-clears in `fn 0x0040dfa8/0x00415fe8/0x0040e4b2`; populate/copy in `fn 0x00412bee`, `fn 0x003fcbf0`, `fn 0x003fd390`, `fn 0x003fe774`, `fn 0x003faf04`, `fn 0x003fc9c8`), but no L3 run or writer-inverse reproducing >=1 entry and no definitive entry size/count/per-field schema provenance without IAT-bound runtime context.
   - Depends: — (H49: the table is BSS, C-3442; its content is produced at run time, so M1.2f cannot give it)
   - Goal: name the function(s) that fill `0x00d53500` and say what they copy there and from where (file header, `MMAIN001`, a loader of the `REFER`/`RDSTM` page handles), so M4.16b can read the schema and M3.11c can build the page context the name accessor needs.
   - Precheck: `python3 tools/va_class.py IMG256 --module Navi.exe 0x00d53500` → `BSS`; `python3 tools/sh4xref.py IMG256 Navi.exe --image-start 0x200200 --to 0x00d53500` → 33 loads (H49), the most frequent in `fn 0x00415fe8` (6) and `fn 0x0040dfa8` (6).
@@ -1347,6 +1348,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: EXP-2026-11-08-M4.16b-rdstm-field-walk, EXP-2026-11-08-M3.11c-point-name-accessor, EXP-2026-11-08-M3.13-addre-reader-2 (follow-up "bind `0x00d53500` table slots … by static init xref"), EXP-2026-11-08-M1.12-reader-precheck (follow-up "store search").
   - Done when: an EXP names the writer VA(s), the table's entry size and count, and the source of each field, with one L3 run (PySh4, after M9.35, or a direct stub) or a writer-inverse check reproducing at least one entry from a factory file; `docs/format/firmware.md` gets the table layout.
   - Stop: after the store classification of all load sites plus one back-trace family without a source — write the EXP `blocked` with the store list (it is the input for an L3 run of the writer in M9.35).
+  - Unblock: M9.35 (harness: zero BSS + IAT bound to stubs/named logging stubs) — run populate writers `fn 0x00412bee` (ctx r8 handle words), `fn 0x003fd390/0x003fcbf0/0x003fe774/0x003faf04/0x003fc9c8` (ctx r10/r11/r15 structures) with sec0 mapped from IMG256 `92aa525d…` to observe slot mutations and reproduce >=1 entry; then derive entry size/count/per-field provenance.
+  - Result: EXP-2026-11-10-M3.22-bss-table-writer.md (blocked). 33/33 sites classified (11 READ, 22 STORE_WRITE) with VA/opcode evidence; writers named: clear/init `fn 0x0040dfa8`, `fn 0x00415fe8`, `fn 0x0040e4b2`; populate/copy `fn 0x00412bee`, `fn 0x003faf04`, `fn 0x003fc9c8`, `fn 0x003fcbf0`, `fn 0x003fd390`, `fn 0x003fe774`. Back-trace: zero constants, context struct fields `@(20/24,rX)` from `@r10/@r11/@r15`, call result `0x0040f168`, handle-word copies from r8 context, global `@(*0x014a9928)->+20`. Entry size/count and per-field schema source remain UNKNOWN (no L3/writer-inverse). Firmware note added (provisional/blocked). C-3460–C-3468.
   - Claims: C-3460–C-3469
 
 ---
