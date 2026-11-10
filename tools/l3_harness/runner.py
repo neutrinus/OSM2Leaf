@@ -938,6 +938,72 @@ class StubBridge:
         )
 
 
+
+class InitGuardError(engine_mod.EngineError):
+    code = "INIT_GUARD"
+
+    def __init__(self, va: int):
+        self.va = int(va) & 0xFFFFFFFF
+        super().__init__(f"INIT 0x{self.va:08x} (M1.2f)")
+
+
+class StubBlockError(engine_mod.Blocked):
+    """A bound IAT trampoline for an import that must stop as BLOCKED STUB."""
+
+    code = "BLOCKED_STUB"
+
+    def __init__(self, dll: str, name: str):
+        self.dll = dll
+        self.name = name
+        super().__init__(f"BLOCKED STUB {dll}!{name}")
+
+
+class GuardedPySh4(engine_mod.PySh4):
+    """PySh4 with INIT read guards (M9.35): IAT slot VAs are exceptions."""
+
+    def __init__(self, endian: str = "big"):
+        super().__init__(endian=endian)
+        self._init_guards = []  # (start, end, exceptions_set)
+
+    def add_init_guard(self, start: int, end: int, exceptions=None):
+        exc = {int(v) & 0xFFFFFFFF for v in (exceptions or [])}
+        self._init_guards.append((int(start) & 0xFFFFFFFF, int(end) & 0xFFFFFFFF, exc))
+
+    def _check_init_read(self, va: int, size: int):
+        if not self._init_guards or size <= 0:
+            return
+        va &= 0xFFFFFFFF
+        for start, end, exceptions in self._init_guards:
+            if va + size <= start or va >= end:
+                continue
+            # IAT binding must win for slot VAs: slot is 4 bytes.
+            if size == 4 and (va & 3) == 0 and va in exceptions and va + 4 <= end:
+                return
+            # find first offending byte in overlapping range
+            off = max(va, start)
+            limit = min(va + size, end)
+            while off < limit:
+                if off in exceptions and size == 4 and va == off:
+                    return
+                if off in exceptions:
+                    off += 4
+                    continue
+                raise InitGuardError(off)
+        return
+
+    def _read(self, va: int, size: int) -> bytes:
+        self._check_init_read(va, size)
+        return super()._read(va, size)
+
+    def _load(self, va: int, size: int) -> int:
+        self._check_init_read(va, size)
+        return super()._load(va, size)
+
+    def _load_signed(self, va: int, size: int) -> int:
+        self._check_init_read(va, size)
+        return super()._load_signed(va, size)
+
+
 # --------------------------------------------------------------------------
 # Input resolution
 # --------------------------------------------------------------------------
@@ -1308,14 +1374,21 @@ def _run_module_target(target, args, base) -> dict:
 
     call_args = [int(str(item), 0) & M32 for item in entry.get("args", [])]
     endian = entry.get("endian", "big")
+    iat_bindings = rommap_doc.get("iat_bindings") or []
+    init_guards = rommap_doc.get("init_guards") or []
+    guarded = bool(init_guards or (rommap_doc.get("load_model") or {}).get("mode"))
     if args.engine == "pysh4":
-        backend = engine_mod.PySh4(endian=endian)
+        backend = GuardedPySh4(endian=endian) if (init_guards or guarded) else engine_mod.PySh4(endian=endian)
     elif endian != "big":
         return blocked(
             f"entry.endian {endian!r} needs the pysh4 engine; "
             f"{args.engine} runs big-endian in this harness"
         )
     else:
+        if init_guards or iat_bindings:
+            return blocked(
+                "bss-zero/init-guard module runs require --engine pysh4 (guarded memory model)"
+            )
         backend = engine_mod.BACKENDS[args.engine]()
     try:
         availability = backend.probe()
@@ -1356,8 +1429,71 @@ def _run_module_target(target, args, base) -> dict:
             heap=dispatch_mod.Heap(memory, HEAP_VA, HEAP_SIZE),
             registry=dispatch_mod.Registry(),
         )
-        bridge = StubBridge(dispatch_mod.StubDispatcher(context), target["stubs"])
+        dispatcher = dispatch_mod.StubDispatcher(context)
+        bridge = StubBridge(dispatcher, target["stubs"])
         bridge.install(backend)
+
+        # Install IAT trampolines (M9.35): slot holds tramp VA; tramp dispatches to stub
+        # or stops as BLOCKED STUB DLL!name.
+        iat_calls: list[dict] = []
+        if iat_bindings:
+            tramp_base = 0x8C300000
+            tramp_size = max(0x1000, ((len(iat_bindings) + 0xFF) & ~0xFF) * 4)
+            # avoid overlap with heap (0x8C202000..+0x2000) and stack; 0x8C300000 is free
+            backend.map("iat_trampolines", tramp_base, tramp_size, "rx")
+            # build lookup of modeled implementations by export name/module hints
+            modeled_by_key = {}
+            modeled_by_name = {}
+            for stub in stubs_mod.STUBS:
+                if stub.get("status") != "modeled":
+                    continue
+                key = stubs_mod.stub_key(stub)
+                modeled_by_key[key] = stub
+                modeled_by_name.setdefault(stub["export"], []).append(stub)
+                modeled_by_name.setdefault(stub["name"], []).append(stub)
+
+            def _resolve_import_stub(dll, name):
+                mod = stubs_mod.normalize_module(dll)
+                # direct key
+                stub = modeled_by_key.get(f"{mod}!{name}")
+                if stub and stubs_mod.stub_key(stub) in dispatch_mod.IMPLEMENTATIONS:
+                    return stub
+                # try export/name match (coredll/internal aliases)
+                cands = modeled_by_name.get(name) or []
+                for cand in cands:
+                    if stubs_mod.stub_key(cand) in dispatch_mod.IMPLEMENTATIONS:
+                        return cand
+                return None
+
+            for i, b in enumerate(iat_bindings):
+                slot_va = int(str(b["va"]), 0)
+                tramp_va = tramp_base + i * 4
+                dll = b.get("dll") or "unknown"
+                name = b.get("name") or "unknown"
+                # IAT binding wins: write trampoline VA into slot
+                memory.write_u32(slot_va, tramp_va)
+                stub_entry = _resolve_import_stub(dll, name)
+                label = f"{dll}!{name}"
+
+                def make_handler(_label=label, _dll=dll, _name=name, _stub=stub_entry):
+                    def handler(bk, _va):
+                        if _stub is None or stubs_mod.stub_key(_stub) not in dispatch_mod.IMPLEMENTATIONS:
+                            raise StubBlockError(_dll, _name)
+                        arity = len(_stub.get("args") or [])
+                        target = (stubs_mod.normalize_module(_stub["module"]), _stub["export"])
+                        hook = dispatcher.engine_hook(target, arity=arity, on_call=iat_calls.append)
+                        return hook(bk, _va)
+                    return handler
+
+                backend.on_exec(tramp_va, make_handler())
+
+        # Install INIT guards (M9.35): IAT slot VAs are exceptions
+        if init_guards and isinstance(backend, GuardedPySh4):
+            for g in init_guards:
+                start = int(str(g["start"]), 0)
+                end = int(str(g["end"]), 0)
+                exc = [int(str(v), 0) for v in (g.get("iat_slots") or [])]
+                backend.add_init_guard(start, end, exc)
 
         backend.set_regs({name: 0 for name in engine_mod.REGISTERS})
         backend.set_regs(r15=STACK_TOP)
@@ -1365,18 +1501,33 @@ def _run_module_target(target, args, base) -> dict:
         run = backend.last_run
     except OSError as exc:
         return blocked(f"cannot read {image}: {exc}")
+    except InitGuardError as exc:
+        return blocked(exc.message)
+    except StubBlockError as exc:
+        return blocked(exc.message)
     except engine_mod.EngineError as exc:
         if exc.code in ("MISSING_GHIDRA", "MISSING_QEMU"):
             return dict(base, status="SKIP", exit=EXIT_SKIP,
                         reason=f"{exc.code}: {exc.message}", skipped=True,
                         l3_claim=False)
-        return blocked(f"{exc.code}: {exc.message}")
+        # preserve exact "missing stub: NAME" / BLOCKED STUB messages in reason
+        msg = exc.message
+        if getattr(exc, "code", "") == "BLOCKED" and msg.startswith("stub ") and "BLOCKED STUB " in msg:
+            # normalize to "BLOCKED STUB DLL!name"
+            idx = msg.find("BLOCKED STUB ")
+            msg = msg[idx:]
+        return blocked(f"{exc.code}: {msg}" if exc.code not in ("BLOCKED",) else msg)
     except dispatch_mod.StubError as exc:
-        return blocked(f"{exc.code}: {exc.message}")
+        msg = exc.message
+        if isinstance(exc, dispatch_mod.MissingStub):
+            # try to format as BLOCKED STUB <DLL!name> when possible
+            msg = f"BLOCKED STUB {msg.replace('missing stub: ', '')}"
+        return blocked(msg)
     finally:
         backend.close()
 
     called = [call["stub"] for call in bridge.calls]
+    iat_called = [call["stub"] for call in locals().get("iat_calls", [])]
     expected_stubs = sorted({f"{spec['module']}!{spec['target']}" for spec in target["stubs"]})
     verdict_map = {int(str(key), 0) & M32: item for key, item in entry["verdict_map"].items()}
     observed = verdict_map.get(value)
@@ -1387,8 +1538,10 @@ def _run_module_target(target, args, base) -> dict:
         cycles_unit="instruction/stub steps (PySh4 1 IPC; not SH-4 clock cycles)",
         finished=run.reason if run else "none",
         stub_calls=bridge.calls,
+        iat_stub_calls=locals().get("iat_calls", []),
         stubs_expected=expected_stubs,
         stubs_called=sorted(set(called)),
+        iat_stubs_called=sorted(set(iat_called)),
         rommap={
             "path": str(rommap_path),
             "module": module,
@@ -3122,6 +3275,211 @@ def test_firmware_call_missing_file(tmp):
     assert code == EXIT_INVALID, output
     assert "missing input" in " | ".join(payload.get("problems", [])), payload
 
+
+
+# --------------------------------------------------------------------------
+# M9.35: sec1 load model (zero BSS, bound IAT, INIT guard)
+# --------------------------------------------------------------------------
+
+
+def _m935_base(tmp_path, *, extra_blocks=None, iat_bindings=None, init_guards=None):
+    """Synthetic guarded rommap + image + module target for M9.35 selftests."""
+    root = Path(tmp_path)
+    module = "Navi.exe"
+    # .text at 0x00401000 (file offset 0x1000), guarded .data at 0x0055d000 (vsize 0x2000, init_len 0x100)
+    image = bytearray(0x4000)
+    report = {
+        "schema": "osm2leaf.cerom.memmap/v1",
+        "generator": "test",
+        "image": "synthetic-m935.img",
+        "image_size": len(image),
+        "image_sha256": hashlib.sha256(bytes(image)).hexdigest(),
+        "image_sha256_scope": f"whole file ({len(image)} bytes)",
+        "segments": [{
+            "segment_index": 0,
+            "segment_base": "0x200200",
+            "phys_base": "0x8cae1000",
+            "pTOC": "0x0",
+            "romhdr": {
+                "physfirst": "0x00400000",
+                "physlast": "0x00600000",
+                "ulRAMStart": "0x8c000000",
+                "ulRAMEnd": "0x8c100000",
+                "nummods": 1, "numfiles": 0,
+            },
+            "modules": [{
+                "name": module,
+                "vbase": "0x00400000",
+                "sections": [
+                    {"name": "sec0", "va": "0x00401000", "file_offset": 0x1000,
+                     "size": 0x1000, "vsize": 0x1000, "characteristics": "0x60000020",
+                     "compressed": False},
+                    {"name": "sec1", "va": "0x0055d000", "file_offset": 0x2000,
+                     "size": 0x100, "vsize": 0x2000, "characteristics": "0xc8002040",
+                     "compressed": True},
+                ],
+            }],
+        }],
+    }
+    doc = rommap_mod.convert(report, modules=[module], skip_compressed=True)
+    # turn sec1 into a guarded zero-filled block and attach M9.35 metadata
+    sec1 = None
+    for b in doc["blocks"]:
+        if b["section"] == "sec1":
+            sec1 = b
+            break
+    if sec1 is None:
+        sec1 = {
+            "name": f"{module}/sec1", "module": module, "section": "sec1",
+            "address": "0x55d000", "end": "0x55f000", "size": 0x2000,
+            "stored_size": 0, "file_offset": None, "file_backed": False,
+            "loadable": True, "permissions": "rw-", "characteristics": "0xc8002040",
+        }
+        doc["blocks"].append(sec1)
+        doc["blocks"].sort(key=lambda b: int(b["address"], 0))
+    sec1.update({
+        "address": "0x55d000", "end": "0x55f000", "size": 0x2000,
+        "stored_size": 0, "file_offset": None, "file_backed": False,
+        "loadable": True, "permissions": "rw-", "characteristics": "0xc8002040",
+        "init_len": 0x100, "guard_init": True, "init_source": "zero-bss-init-guard",
+    })
+    if extra_blocks:
+        doc["blocks"].extend(extra_blocks)
+        doc["blocks"].sort(key=lambda b: int(b["address"], 0))
+    doc["iat_bindings"] = list(iat_bindings or [])
+    doc["init_guards"] = list(init_guards or [])
+    doc["load_model"] = {"mode": "bss-zero-init-guard"}
+    # revalidate
+    problems = rommap_mod.validate(doc)
+    assert problems == [], problems
+
+    rommap_path = root / "rommap.json"
+    rommap_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    image_path = root / "synthetic-m935.img"
+    image_path.write_bytes(bytes(image))
+    return image, image_path, rommap_path, module
+
+
+def _m935_run(tmp_path, image_bytes, image_path, rommap_path, target):
+    Path(image_path).write_bytes(bytes(image_bytes))
+    # keep rommap's image hash in sync with the (now patched) image
+    doc = json.loads(Path(rommap_path).read_text(encoding="utf-8"))
+    doc.setdefault("source", {})
+    doc["source"]["image_sha256"] = hashlib.sha256(bytes(image_bytes)).hexdigest()
+    doc["source"]["image_size"] = len(image_bytes)
+    doc["source"]["image_sha256_scope"] = f"whole file ({len(image_bytes)} bytes)"
+    Path(rommap_path).write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    targets_path = Path(tmp_path) / "targets.json"
+    targets_path.write_text(
+        json.dumps({"schema": TARGETS_SCHEMA, "targets": [target]}),
+        encoding="utf-8",
+    )
+    code, out = _run_cli([
+        "run", target["name"],
+        "--targets", str(targets_path),
+        "--rommap", str(rommap_path),
+        "--image", str(image_path),
+        "--engine", "pysh4",
+        "--json",
+    ])
+    return code, json.loads(out)
+
+
+@check("M9.35: zero-BSS read returns zero (guarded compressed sec1)")
+def test_m935_zero_bss(tmp):
+    image, image_path, rommap_path, module = _m935_base(tmp,
+        init_guards=[{"module": "Navi.exe", "section": "sec1", "start": "0x55d000",
+                      "end": "0x55d100", "init_len": 0x100, "iat_slots": [],
+                      "reason": "test"}])
+    # code: mov.l @(1,PC),r1; mov.l @r1,r0; rts; nop; .long 0x0055d800 (BSS >= init_len)
+    code = bytes.fromhex("01d112600b00090000d85500")
+    image[0x1000:0x1000 + len(code)] = code
+    target = {
+        "name": "m935-bss", "reader": "synthetic", "what": "zero BSS read",
+        "module": module,
+        "entry": {"kind": "module", "module": module, "va": "0x00401000",
+                  "endian": "little", "args": [], "verdict_map": {"0x0": "ACCEPT"}},
+        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "BSS is zero"},
+    }
+    rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
+    assert rc == EXIT_OK, payload
+    assert payload["status"] == "PASS", payload
+    assert int(str(payload["returned"]), 0) == 0, payload
+
+
+@check("M9.35: bound-IAT call reaches named stub (memset)")
+def test_m935_bound_iat(tmp):
+    slot_va = 0x0055d040
+    image, image_path, rommap_path, module = _m935_base(tmp,
+        iat_bindings=[{"va": "0x0055d040", "dll": "COREDLL.dll", "name": "memset"}],
+        init_guards=[{"module": "Navi.exe", "section": "sec1", "start": "0x55d000",
+                      "end": "0x55d100", "init_len": 0x100, "iat_slots": ["0x0055d040"],
+                      "reason": "test"}])
+    # r4=0x8C202100 (heap), r5=0x41, r6=4; call memset via slot, return r0
+    # mov.l @(1,PC),r1; mov.l @r1,r1; jsr @r1; nop; rts; nop; .long SLOT_VA
+    code = bytes.fromhex("02d112612b4109000b00090040d05500")
+    image[0x1000:0x1000 + len(code)] = code
+    target = {
+        "name": "m935-iat", "reader": "synthetic", "what": "bound IAT call",
+        "module": module,
+        "entry": {"kind": "module", "module": module, "va": "0x00401000",
+                  "endian": "little", "args": ["0x8C202100", "0x41", "0x4"],
+                  "verdict_map": {"0x8c202100": "ACCEPT"}},
+        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "memset returns dst"},
+    }
+    rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
+    assert rc == EXIT_OK, payload
+    assert payload["status"] == "PASS", payload
+    assert int(str(payload["returned"]), 0) == 0x8C202100, payload
+
+
+@check("M9.35: unbound import -> BLOCKED STUB <DLL!name>")
+def test_m935_unbound_import(tmp):
+    image, image_path, rommap_path, module = _m935_base(tmp,
+        iat_bindings=[{"va": "0x0055d8fc", "dll": "OSMDLL.dll", "name": "OSM_Malloc"}],
+        init_guards=[{"module": "Navi.exe", "section": "sec1", "start": "0x55d000",
+                      "end": "0x55d100", "init_len": 0x100, "iat_slots": ["0x0055d8fc"],
+                      "reason": "test"}])
+    # call through unknown import slot
+    code = bytes.fromhex("02d112612b4109000b000900fcd85500")
+    image[0x1000:0x1000 + len(code)] = code
+    target = {
+        "name": "m935-stub", "reader": "synthetic", "what": "unbound import",
+        "module": module,
+        "entry": {"kind": "module", "module": module, "va": "0x00401000",
+                  "endian": "little", "args": [], "verdict_map": {"0x0": "ACCEPT"}},
+        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "n/a"},
+    }
+    rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
+    assert rc == EXIT_BLOCKED, payload
+    assert payload["status"] == "BLOCKED", payload
+    assert "BLOCKED STUB OSMDLL.dll!OSM_Malloc" in payload.get("reason", ""), payload
+
+
+@check("M9.35: INIT read -> BLOCKED INIT 0x... (M1.2f)")
+def test_m935_init_guard(tmp):
+    image, image_path, rommap_path, module = _m935_base(tmp,
+        iat_bindings=[{"va": "0x0055d040", "dll": "COREDLL.dll", "name": "memset"}],
+        init_guards=[{"module": "Navi.exe", "section": "sec1", "start": "0x55d000",
+                      "end": "0x55d100", "init_len": 0x100, "iat_slots": ["0x0055d040"],
+                      "reason": "test"}])
+    # read from INIT address 0x0055d080 (inside init, not IAT slot)
+    code = bytes.fromhex("01d112600b00090080d05500")
+    image[0x1000:0x1000 + len(code)] = code
+    target = {
+        "name": "m935-init", "reader": "synthetic", "what": "INIT guard",
+        "module": module,
+        "entry": {"kind": "module", "module": module, "va": "0x00401000",
+                  "endian": "little", "args": [], "verdict_map": {"0x0": "ACCEPT"}},
+        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "n/a"},
+    }
+    rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
+    assert rc == EXIT_BLOCKED, payload
+    assert payload["status"] == "BLOCKED", payload
+    assert "INIT 0x0055d080 (M1.2f)" in payload.get("reason", ""), payload
+
+
+# --------------------------------------------------------------------------
 
 def selftest_targets(*, full: bool = False) -> int:
     """Run the runner's own synthetic target checks; a SKIP is not a pass.

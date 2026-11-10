@@ -2610,13 +2610,27 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3442 | `0x00d53500`, `0x00e23cc0`, `0x00e99698`, `0x00ec3954`, `0x009cfd80`, `0x009e3e28` lie in `Navi.exe` sec1 above its initialised length (BSS): decompressing sec1 yields zeros there; the values are written at run time. | VERIFIED (tool) | H | as C-3441 |
 | C-3443 | M3.15's "sec1 helpers" `0x0055d924`/`0x0055d954` called from `fn 0x004125a8` and `fn 0x003bc960` are `OSM_isSender` and `OSM_Printf` imports, not the LCTBL record walker or string decoder (corrects C-2200–C-2206's interpretation, not their counts). | VERIFIED (tool) | H | C-3441; M1.10b (C-2600–C-2601 spot-check of `OSM_Printf`) |
 | C-3444 | The M3.15 inflate-table scan read only plain sections; `Navi.exe` constant data sits in sec2 (compressed, initialised), so its 0 hits do not exclude an inflate in plain code. | OBSERVED | M | C-3440; EXP-2026-11-08-M3.15-lctbl-reader scope |
-| C-3445 | With sec1 mapped zero-filled past `0x1801a` and the 846 IAT slots bound to named stubs, the M9.17/M9.14 module runs get past `0x0055d040`/`0x0055d8fc` to their first stub call. | HYPOTHESIS | M | to be tested by M9.35 |
+| C-3445 | With sec1 mapped zero-filled past `0x1801a` and the 846 IAT slots bound to named stubs, the M9.17/M9.14 module runs get past `0x0055d040`/`0x0055d8fc` to their first stub call. | VERIFIED (tool, real IMG256, probe-only) | M | EXP-2026-11-10-M9.35-sec1-load-model (C-3455); M9.35 |
 | C-3446 | RESERVED (H49). | — | — | — |
 | C-3447 | RESERVED (H49). | — | — | — |
 | C-3448 | RESERVED (H49). | — | — | — |
 | C-3449 | RESERVED (H49). | — | — | — |
 
-<<<<<<< HEAD
+## M9.35 — sec1 load model: zero BSS, bound IAT, fail loudly on `INIT` (C-3450–C-3459)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3450 | `tools/l3_harness/rommap.py` supports `--bss-zero --init-guard` (with `--image`, `--image-start`, `--resolve-with`) to emit guarded load models for compressed sections: full-vsize zero-filled loadable blocks with `init_len` from `cerom.py comphdr`, `iat_bindings` from `cerom.imports`/`va_class`, and `init_guards` excluding IAT slot VAs. | VERIFIED (tool, synthetic/real IMG256 Navi.exe) | H | EXP-2026-11-10-M9.35-sec1-load-model; `rommap.py convert --bss-zero --init-guard` on IMG256 Navi.exe |
+| C-3451 | On IMG256 `92aa525d…` (build A, `0x200200`, resolve-with `0x3e00200`), the guarded Navi.exe rommap contains 846 IAT bindings and 2 init guards; sec1 maps `0x55d000-0x154e6ae` vsize `0xff16ae` init_len `0x1801a` (rw-, zero-filled, guarded), sec2 maps `0x154f000-0x155dd60` init_len `0xed60` guarded. | VERIFIED (tool, real IMG256) | H | EXP-2026-11-10-M9.35-sec1-load-model |
+| C-3452 | `tools/l3_harness/runner.py` module runs install IAT trampolines for guarded rommaps: slot VAs are written with trampoline addresses (IAT binding wins in INIT range), modeled imports dispatch via dispatcher, and unbound/unmodeled imports stop as `BLOCKED STUB <DLL!name>` (never silent). | VERIFIED (tool, synthetic selftest) | H | EXP-2026-11-10-M9.35-sec1-load-model; runner M9.35 bound-IAT/unbound-import checks |
+| C-3453 | Guarded PySh4 module runs fail loudly on reads of non-IAT `INIT` bytes as `BLOCKED` with reason `INIT 0x… (M1.2f)`; reads of BSS (>=init_len) return zero. IAT slot reads/writes in INIT range remain allowed. | VERIFIED (tool, synthetic selftest) | H | EXP-2026-11-10-M9.35-sec1-load-model; runner M9.35 zero-BSS/INIT-guard checks |
+| C-3454 | Existing `--skip-compressed` behavior remains unchanged; guarded runs require `--engine pysh4` and do not fabricate/guess `INIT` bytes. | VERIFIED (tool) | H | EXP-2026-11-10-M9.35-sec1-load-model; l3_harness/rommap/runner selftests green |
+| C-3455 | On IMG256 with the guarded Navi.exe rommap (pysh4, scratch module probes, empty args/context), `mmain_reader` `0x0041a438` stops `BLOCKED` at `BLOCKED STUB COREDLL.dll!wcstombs` and `drstr-sub_00419350` `0x00419350` stops `BLOCKED` at `UNMAPPED: no mapped region covers 0xfffffec6..0xfffffec8 ...`; both get past prior `0x0055d040`/`0x0055d8fc` UNMAPPED faults (C-3445 tested). | VERIFIED (tool, real IMG256, probe-only, no verdict claimed) | M | EXP-2026-11-10-M9.35-sec1-load-model; scratch targets `mmain_reader`, `drstr-sub_00419350` |
+| C-3456 | The `mmain_reader` next stop `COREDLL.dll!wcstombs` is reached via a bound IAT trampoline path, indicating sec1 IAT/BSS accesses no longer fault at `0x0055d040` for that probe under M9.35. | OBSERVED | M | EXP-2026-11-10-M9.35-sec1-load-model |
+| C-3457 | The `drstr-sub_00419350` next stop is an unmapped low-stack-range access (`0xfffffec6..0xfffffec8`) under scratch empty-args/context; this is a probe-context/stack observation, not an `INIT`-byte requirement and not a reader verdict. | OBSERVED | M | EXP-2026-11-10-M9.35-sec1-load-model |
+| C-3458 | M9.35 satisfies its Done-when: 4 synthetic cases pass and both IMG256 scratch probes get past `0x0055d040`/`0x0055d8fc` with next stops recorded; Rule 15 reopens M9.17/M9.14 and marks M9.24 Depends satisfied by M9.35 in the done commit. | VERIFIED (board) | H | EXP-2026-11-10-M9.35-sec1-load-model; TODO.md M9.35/M9.17/M9.14/M9.24 |
+| C-3459 | RESERVED (M9.35). | — | — | — |
+
 ## M3.22 — `0x00d53500` BSS table writers (C-3460–C-3469)
 
 | ID | Claim | Status | Confidence | Evidence |
@@ -2631,7 +2645,7 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3467 | Table layout is partially observed (fixed/indexed 4-byte and one 2-byte slot accesses spanning at least offsets 0–176, dispatcher/slot comparisons over +12,+20,+28,+36,+44,+56,+60,+80,+96,+112,+128,+136,+156 etc.), but entry size, entry count, and per-field schema provenance (MMAIN001/REFER/RDSTM/file-header source per field) are not uniquely determined from static sec0 evidence alone. | UNKNOWN | — | EXP-2026-11-10-M3.22-bss-table-writer |
 | C-3468 | M3.22 Done-when not met: no L3 run (PySh4 after M9.35 or direct stub) and no writer-inverse check reproducing >=1 entry from a factory file was achieved in this session (M9.35 not merged). Status blocked with full site classification, back-trace, and minimal L3/stub recipe recorded. | OBSERVED (blocked) | H | EXP-2026-11-10-M3.22-bss-table-writer; task Stop |
 | C-3469 | RESERVED (M3.22). | — | — | — |
-=======
+
 ## H50 — va_class in prechecks and sec1 blocker audit (C-3470–C-3479)
 
 | ID | Claim | Status | Confidence | Evidence |
@@ -2646,4 +2660,3 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3477 | RESERVED (H50). | — | — | — |
 | C-3478 | RESERVED (H50). | — | — | — |
 | C-3479 | RESERVED (H50). | — | — | — |
->>>>>>> 1da4e34 (docs: H50 va_class prechecks and sec1 blocker audit)

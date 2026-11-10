@@ -96,6 +96,9 @@ BLOCK_KEYS = {
     "loadable",
     "permissions",
     "characteristics",
+    "init_len",
+    "guard_init",
+    "init_source",
 }
 
 _PERMISSIONS_RE = re.compile(r"^[r-][w-][x-]$")
@@ -177,8 +180,11 @@ def _select_segment(segments, selection):
     return index, segments[index]
 
 
-def _collect(report, selection, selected_modules, skip_compressed):
+def _collect(report, selection, selected_modules, skip_compressed,
+             bss_zero=False, init_guard=False, image_path=None,
+             image_start=0x200200, resolve_with=None):
     problems: list[str] = []
+    resolve_with = list(resolve_with or [])
     if not isinstance(report, dict):
         raise RommapError(["report must be a JSON object"])
     segments = report.get("segments")
@@ -219,6 +225,27 @@ def _collect(report, selection, selected_modules, skip_compressed):
     seen_modules: set[str] = set()
     blocks: list[dict] = []
     skipped: list[dict] = []
+    iat_bindings: list[dict] = []
+    init_guards: list[dict] = []
+    sec_models: dict[str, dict] = {}
+    sec_iats: dict[str, dict] = {}
+
+    if bss_zero or init_guard:
+        if not image_path:
+            raise RommapError([
+                "--bss-zero/--init-guard need --image (to read comphdr and imports)"
+            ])
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+            import cerom
+            import va_class
+            with open(image_path, "rb") as handle:
+                image_data = handle.read()
+            rom = cerom.CERom(image_data, image_start)
+            resolvers = [rom] + [cerom.CERom(image_data, s) for s in resolve_with]
+        except Exception as exc:  # noqa: BLE001
+            raise RommapError([f"cannot load sec1 model from {image_path}: {exc}"])
+
 
     for module_index, module in enumerate(modules):
         if not isinstance(module, dict):
@@ -238,6 +265,22 @@ def _collect(report, selection, selected_modules, skip_compressed):
         if not isinstance(sections, list) or not sections:
             problems.append(f"{module_name}: no sections")
             continue
+
+        if (bss_zero or init_guard) and module_name not in sec_models:
+            try:
+                sec_models[module_name] = {
+                    s["index"]: s
+                    for s in va_class.section_layout(
+                        rom, image_data, module_name, image_start
+                    )
+                }
+                sec_iats[module_name] = va_class.import_slots(
+                    rom, module_name, resolvers
+                )
+            except Exception as exc:  # noqa: BLE001
+                problems.append(f"{module_name}: cannot build load model: {exc}")
+                sec_models[module_name] = {}
+                sec_iats[module_name] = {}
 
         for section_index, section in enumerate(sections):
             if not isinstance(section, dict):
@@ -307,6 +350,71 @@ def _collect(report, selection, selected_modules, skip_compressed):
                     continue
 
             if compressed:
+                if bss_zero or init_guard:
+                    model = (sec_models.get(module_name) or {}).get(section_index)
+                    iat_map = sec_iats.get(module_name) or {}
+                    init_len = None if model is None else model.get("init_len")
+                    runtime_size = _int(
+                        _first(section, ("vsize", "o32_vsize", "size")),
+                        f"{where}.vsize",
+                        problems,
+                    )
+                    if runtime_size is None:
+                        continue
+                    if init_len is None:
+                        problems.append(
+                            f"{where} ({section_name}): compressed section has no "
+                            "parsed comphdr/uncompressed_len; cannot model BSS/INIT"
+                        )
+                        continue
+                    init_len = int(init_len)
+                    if init_len < 0 or init_len > runtime_size:
+                        problems.append(
+                            f"{where} ({section_name}): init_len {init_len} outside "
+                            f"section vsize {runtime_size}"
+                        )
+                        continue
+                    slots = []
+                    for slot_va, (dll, name) in sorted(iat_map.items()):
+                        if va <= slot_va < va + init_len:
+                            slots.append({
+                                "va": _hex(slot_va),
+                                "dll": dll,
+                                "name": name,
+                            })
+                    if init_guard and slots:
+                        for slot in slots:
+                            if slot not in iat_bindings:
+                                iat_bindings.append(slot)
+                    if init_guard and init_len > 0:
+                        init_guards.append({
+                            "module": module_name,
+                            "section": section_name,
+                            "start": _hex(va),
+                            "end": _hex(va + init_len),
+                            "init_len": init_len,
+                            "iat_slots": [slot["va"] for slot in slots],
+                            "reason": "INIT bytes need M1.2f; IAT slots are exceptions",
+                        })
+                    block = {
+                        "name": f"{module_name}/{section_name}",
+                        "module": module_name,
+                        "section": section_name,
+                        "address": _hex(va),
+                        "end": _hex(va + runtime_size),
+                        "size": runtime_size,
+                        "stored_size": 0,
+                        "file_offset": None,
+                        "file_backed": False,
+                        "loadable": True,
+                        "permissions": _permissions(characteristics),
+                        "characteristics": _hex(characteristics),
+                        "init_len": init_len,
+                        "guard_init": bool(init_guard),
+                        "init_source": "zero-bss-init-guard" if init_guard else "zero-bss",
+                    }
+                    blocks.append(block)
+                    continue
                 if skip_compressed:
                     skipped.append(
                         {
@@ -370,11 +478,14 @@ def _collect(report, selection, selected_modules, skip_compressed):
     _check_overlaps(blocks)
 
     image_name = report.get("image")
+    image_basename = Path(str(image_name)).name if image_name else None
+    if not image_basename and image_path:
+        image_basename = Path(str(image_path)).name
     doc = {
         "schema": SCHEMA,
         "generator": GENERATOR,
         "source": {
-            "image": Path(str(image_name)).name if image_name else None,
+            "image": image_basename,
             "image_size": image_size if _is_int(image_size) else None,
             "image_sha256": report.get("image_sha256"),
             # cerom.py hashes a window, not always the whole file: the scope
@@ -408,6 +519,15 @@ def _collect(report, selection, selected_modules, skip_compressed):
         "skipped": skipped,
         "blocks": blocks,
     }
+    if bss_zero or init_guard:
+        doc["load_model"] = {
+            "mode": "bss-zero-init-guard" if init_guard else "bss-zero",
+            "image": Path(str(image_path)).name if image_path else None,
+            "image_start": _hex(image_start),
+            "resolve_with": [_hex(v) for v in resolve_with],
+        }
+        doc["iat_bindings"] = iat_bindings
+        doc["init_guards"] = init_guards
     problems = validate(doc)
     if problems:
         raise RommapError(problems)
@@ -524,7 +644,7 @@ def validate(doc) -> list[str]:
                 f"{where}: stored_size {stored_size} exceeds size {size}"
             )
         if characteristics is not None and characteristics & SCN_COMPRESSED:
-            if block.get("loadable"):
+            if block.get("loadable") and not block.get("guard_init") and block.get("init_source") not in ("zero-bss", "zero-bss-init-guard"):
                 problems.append(
                     f"{where}: compressed section marked loadable"
                 )
@@ -536,6 +656,13 @@ def validate(doc) -> list[str]:
         permissions = block.get("permissions")
         if not isinstance(permissions, str) or not _PERMISSIONS_RE.match(permissions):
             problems.append(f"{where}: permissions must look like 'r-x'")
+
+        if "init_len" in block and block["init_len"] is not None:
+            ilen = _int(block.get("init_len"), f"{where}.init_len", problems)
+            if ilen is not None and (ilen < 0 or ilen > size):
+                problems.append(f"{where}: init_len outside block size")
+        if "guard_init" in block and not isinstance(block.get("guard_init"), bool):
+            problems.append(f"{where}: guard_init must be a boolean")
 
         file_offset = block.get("file_offset")
         if block.get("file_backed"):
@@ -568,10 +695,20 @@ def convert(
     segment=None,
     modules=None,
     skip_compressed: bool = False,
+    bss_zero: bool = False,
+    init_guard: bool = False,
+    image: str | None = None,
+    image_start: int = 0x200200,
+    resolve_with=None,
 ) -> dict:
     """Convert a cerom-style report into a memory map document."""
 
-    return _collect(report, segment, modules, skip_compressed)
+    return _collect(
+        report, segment, modules, skip_compressed,
+        bss_zero=bss_zero, init_guard=init_guard,
+        image_path=image, image_start=image_start,
+        resolve_with=resolve_with,
+    )
 
 
 def render_block_text(doc) -> str:
@@ -610,6 +747,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="omit compressed sections instead of failing",
     )
     convert_cmd.add_argument(
+        "--bss-zero",
+        action="store_true",
+        help="map compressed sections as zero-filled rw blocks using comphdr init_len (M9.35)",
+    )
+    convert_cmd.add_argument(
+        "--init-guard",
+        action="store_true",
+        help="with --bss-zero, guard INIT reads outside IAT as BLOCKED INIT (M9.35)",
+    )
+    convert_cmd.add_argument(
+        "--image",
+        help="firmware image for --bss-zero/--init-guard (comphdr/imports)",
+    )
+    convert_cmd.add_argument(
+        "--image-start",
+        default="0x200200",
+        help="CE image start for --image (default: 0x200200)",
+    )
+    convert_cmd.add_argument(
+        "--resolve-with",
+        action="append",
+        default=[],
+        help="extra CE image start(s) for ordinal import resolution (repeatable)",
+    )
+    convert_cmd.add_argument(
         "--text",
         action="store_true",
         help="print the block listing instead of JSON",
@@ -644,11 +806,18 @@ def main(argv=None) -> int:
             print(f"error: cannot read {args.report}: {exc}", file=sys.stderr)
             return 1
         try:
+            resolve_with = [int(v, 0) for v in (getattr(args, "resolve_with", []) or [])]
+            image_start = int(str(getattr(args, "image_start", "0x200200")), 0)
             doc = convert(
                 report,
                 segment=args.segment,
                 modules=args.module,
                 skip_compressed=args.skip_compressed,
+                bss_zero=getattr(args, "bss_zero", False),
+                init_guard=getattr(args, "init_guard", False),
+                image=getattr(args, "image", None),
+                image_start=image_start,
+                resolve_with=resolve_with,
             )
         except RommapError as exc:
             for problem in exc.problems:

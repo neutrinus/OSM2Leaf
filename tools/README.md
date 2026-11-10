@@ -591,6 +591,7 @@ are labelled and based on documented budgets, not measurements.
 ```bash
 python3 tools/l3_harness/selftest.py
 python3 tools/l3_harness/rommap.py convert --report cerom.json --out ghidra-map.json
+python3 tools/l3_harness/rommap.py convert --report cerom.json --module Navi.exe   --bss-zero --init-guard --image IMG256 --image-start 0x200200 --resolve-with 0x3e00200   --out ghidra-map-guarded.json   # M9.35: zero BSS + bound IAT + INIT guard
 python3 tools/l3_harness/runner.py check --manifest corpus.json
 python3 tools/l3_harness/runner.py targets
 python3 tools/l3_harness/runner.py run probe-zlib-cmf --input FILE --json

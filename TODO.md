@@ -413,13 +413,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3440–C-3449
   - Result: EXP-2026-11-10-H49-pm-review. `tools/va_class.py` (selftest 8 cases). All seven `0x0055dxxx` blockers are import slots (memset, OSM_Malloc, taskIdSelf, OSM_isSender, OSM_Printf, OSM_SramSet, wcsstr); `0x00d53500`/`0x00e23cc0`/RGD tables are BSS; 0 cited addresses are `INIT`. Only 5.5 % of build A's compressed bytes are stored data. Board: M3.15 re-opened; M9.14/M9.17/M9.24 → M9.35; M4.16b/M3.11c → M3.22; M1.2f non-critical; H50 added; AGENTS.md rule.
 
-<<<<<<< HEAD
-- [ ] **H50 — Put `va_class` into the prechecks and audit the remaining "sec1" blockers**
-  - Status: open · Owner: — · Critical: yes
-=======
 - [x] **H50 — Put `va_class` into the prechecks and audit the remaining "sec1" blockers**
   - Status: done · Owner: task/h50-va-class-prechecks · Critical: yes
->>>>>>> d08b10b (docs: H50 va_class prechecks and sec1 blocker audit)
   - Depends: H49
   - Goal: no task may again say "blocked: compressed sec1/.data" for an import slot or a BSS address.
   - Precheck: `python3 tools/va_class.py --selftest`; `python3 tools/l3_precond.py --selftest`; `python3 tools/reader_precheck.py --selftest`.
@@ -2746,6 +2741,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.14 — L3 target `drstr_parser`**
   - Status: open · Owner: — · Critical: yes
+  - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked/re-open notes kept below. M9.35 IMG256 scratch probe of `sub_00419350` (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d8fc` and stops at `UNMAPPED 0xfffffec6..0xfffffec8` (empty-args/context probe); rerun with proper context, M9.24 import/file stubs and M5.6 rebuilt DRSTR as needed for verdict.
   - Re-opened (ninth pass, rule 15): **M9.20 merged** (`562215a`) with the
     module entry kind and `engine_hook`, so the first blocker no longer holds.
     The reopened run (EXP-2026-11-08-M9.14-reopen) ran the module entry on the real head image:
@@ -2765,16 +2761,16 @@ parts are covered by `tools/l3_harness/selftest.py`.
     US) and one rebuilt by M5.6, and rejects one corrupted case, recorded.
   - Stop: if execution faults in compressed/unmapped `sec1` or needs coredll
     file/import behavior not yet stubbed, record the faulting PC and keep
-    blocked on M1.2f/M9.24/M5.6 as applicable (do not guess verdicts).
+    blocked on M1.2f/M9.24/M5.6 as applicable (do not guess verdicts). If a probe stops at `INIT 0x… (M1.2f)`, only that address needs M1.2f.
   - Claims: C-2240–C-2249
-  - Blocker (history, negative EXP kept): `sub_00419350` reads its coredll imports and buffer global from
+  - Prior blocker (kept): `sub_00419350` read its coredll imports and buffer global from
     compressed `Navi.exe` `sec1` (UNMAPPED at `0x0055d8fc`); the Done-when also
     needs a DRSTR rebuilt by M5.6, which is open.
   - Reopen note (H50, rule 15, EXP-2026-11-10-H50-va-class-prechecks): cited blocker VA `0x0055d8fc` = IAT `OSMDLL!OSM_Malloc` (import/binding/stub, not M1.2f). Rerun with M9.35 + M9.24 (and M5.6 as applicable); M1.2f not needed for this VA.
-  - Unblock: (H49) **M9.35** (`0x0055d8fc` is the `OSMDLL!OSM_Malloc` import slot, C-3441), then M9.24 (import binding and coredll
-    file stubs); the Done-when also waits on M5.6.
+  - Unblock: M9.35 done (H49). Next: M9.24 (import binding and coredll
+    file stubs) and M5.6 for rebuilt DRSTR verdict.
   - Result: EXP-2026-11-08-M9.14-reopen (negative, controls: M9.20 point-walker
-    reproduced, compressed and outside-VA negatives; no DRSTR verdict; C-2240–C-2243).
+    reproduced, compressed and outside-VA negatives; no DRSTR verdict; C-2240–C-2243). M9.35 scratch probe: EXP-2026-11-10-M9.35-sec1-load-model (next stop `UNMAPPED 0xfffffec6..0xfffffec8`, past 0x0055d8fc).
 
 - [ ] **M9.15 — L3 targets for `ADDRE`, `ZCODE`/`ICODE`/`COORD`, `LCTBL`**
   - Status: open · Owner: — · Critical: yes
@@ -2819,12 +2815,13 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
   - Status: open · Owner: — · Critical: no
+  - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked note kept: first data access was at `0x0055d040` (compressed sec1, UNMAPPED). M9.35 IMG256 scratch probe (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d040` and stops at `BLOCKED STUB COREDLL.dll!wcstombs`; rerun with proper context/stubs (M9.24) needed for verdict.
   - Re-opened (ninth pass, rule 15): M9.20 merged (`562215a`); the module-VA
     entry it needs now exists.
-  - Blocker (history, negative EXP kept): the M3.8 reader runs as a module entry (M9.20) but its first data access is at `0x0055d040`, in `Navi.exe` section 1 (compressed, `rw-`), which the map skips: `BLOCKED` UNMAPPED.
+  - Prior blocker (kept): the M3.8 reader ran as a module entry (M9.20) but its first data access was at `0x0055d040`, in `Navi.exe` section 1 (compressed, `rw-`), which the map skipped: `BLOCKED` UNMAPPED.
   - Reopen note (H50, rule 15, EXP-2026-11-10-H50-va-class-prechecks): cited blocker VAs `0x0055d040` = IAT `COREDLL!memset` and `0x00e23cc0` = BSS sec1 +0x8c6cc0 (zero at load; find writer/runtime init) — neither needs M1.2f. Rerun with M9.35 context.
-  - Unblock: (H49) **M9.35** — `0x0055d040` is the `COREDLL!memset` import slot and the `dest` fallback `0x00e23cc0` is BSS (C-3441/C-3442); M1.2f is not needed.
-  - Result: EXP-2026-11-08-M9.17-reopen (negative: module run BLOCKED at a compressed `.data` access, controls PASS; C-2372–C-2373). Earlier block: EXP-2026-11-08-M9.17-m38-reader (C-2370–C-2371).
+  - Unblock: M9.35 done (H49). Next: M9.24 CRT/import/file stubs and proper args/context as needed; if a probe stops at `INIT 0x… (M1.2f)`, only that address needs M1.2f.
+  - Result: EXP-2026-11-08-M9.17-reopen (negative: module run BLOCKED at a compressed `.data` access, controls PASS; C-2372–C-2373). Earlier block: EXP-2026-11-08-M9.17-m38-reader (C-2370–C-2371). M9.35 scratch probe: EXP-2026-11-10-M9.35-sec1-load-model (next stop `BLOCKED STUB COREDLL.dll!wcstombs`, past 0x0055d040).
   - Depends: M9.5 (M3.8 located the reader)
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256`
     resolves reader `0x0041a438`/open/read VAs; `python3
@@ -2930,7 +2927,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M9.35 (H49: the import slots and BSS of sec1 need no decompression; M9.35 maps them)
+  - Depends: M9.35 (done, H49: the import slots and BSS of sec1 need no decompression; M9.35 maps them)
   - Precheck: `python3 tools/cerom.py` can resolve Navi.exe/coredll import
     context on IMG256 (recording the `exports coredll` KeyError if present);
     `python3 tools/l3_harness/runner.py --selftest` passes; EU factory
@@ -3059,8 +3056,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the closeout EXP does not actually cover a M9.32 done-when element (pair/control/runner path/corpus availability claim), record the exact gap and keep M9.32 `blocked` naming it — do not close on incomplete evidence.
   - Claims: C-3430–C-3439
 
-- [ ] **M9.35 — sec1 load model: zero BSS, bind the IAT, fail loudly on `INIT`**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.35 — sec1 load model: zero BSS, bind the IAT, fail loudly on `INIT`**
+  - Status: done · Owner: task/m9.35-sec1-load-model · Critical: yes
   - Depends: — (M9.20 done; H49 gives the classes and `tools/va_class.py`)
   - Goal: a module run maps what the CE loader would: `Navi.exe` sec1 as a zero-filled `rw-` block (`0x0055d000`, vsize `0xff16ae`), the 846 import slots holding stub-trampoline VAs that report `DLL!name` when called, and any read of an `INIT` byte (sec1 `0x0055dd38…0x0057501a`, sec2) stopping as `BLOCKED INIT 0x… (M1.2f)`. This replaces "UNMAPPED in compressed sec1" for M9.17/M9.14 and is the base for M9.24's real CRT stubs.
   - Precheck: `python3 tools/va_class.py IMG256 --module Navi.exe --resolve-with 0x3e00200 0x0055d040 0x0055d8fc` → `IAT memset`, `IAT OSM_Malloc`; `python3 tools/l3_harness/runner.py selftest` passes.
@@ -3069,6 +3066,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: selftest covers zero-BSS read, a bound-IAT call reaching a named stub, an unbound import → `BLOCKED STUB`, and an `INIT` read → `BLOCKED INIT`; the M9.17 `mmain_reader` scratch run and the M9.14 `drstr-sub_00419350` run on IMG256 get past `0x0055d040`/`0x0055d8fc` and report their **next** stop (stub name or faulting PC + class) in an EXP (tests C-3445). Rule 15: on merge, set M9.17/M9.14 back to `open` and M9.24's Depends to done.
   - Stop: if the run stops on an `INIT` address, record it with its class and stop — that address, and only that one, goes to M1.2f.
   - Claims: C-3450–C-3459
+  - Result: `docs/experiments/EXP-2026-11-10-M9.35-sec1-load-model.md` (C-3450–C-3458). `rommap.py --bss-zero/--init-guard` + runner IAT trampolines/INIT guards implemented; 4 synthetic cases pass (`runner.py --selftest` 23/2 skipped quick, `l3_harness/selftest.py` 32/quick, `rommap.py --selftest` 32/quick, `va_class.py --selftest` 8). IMG256 guarded probes get past `0x0055d040`/`0x0055d8fc`: `mmain_reader` (0x0041a438) → `BLOCKED STUB COREDLL.dll!wcstombs`, `drstr-sub_00419350` (0x00419350) → `UNMAPPED 0xfffffec6..0xfffffec8` (scratch empty-args/context). Rule 15 applied: M9.17/M9.14 reopened, M9.24 Depends M9.35 done.
 
 ## Retired leads
 
