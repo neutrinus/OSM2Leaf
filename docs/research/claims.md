@@ -2616,6 +2616,7 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3448 | RESERVED (H49). | — | — | — |
 | C-3449 | RESERVED (H49). | — | — | — |
 
+<<<<<<< HEAD
 ## M3.22 — `0x00d53500` BSS table writers (C-3460–C-3469)
 
 | ID | Claim | Status | Confidence | Evidence |
@@ -2630,3 +2631,19 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3467 | Table layout is partially observed (fixed/indexed 4-byte and one 2-byte slot accesses spanning at least offsets 0–176, dispatcher/slot comparisons over +12,+20,+28,+36,+44,+56,+60,+80,+96,+112,+128,+136,+156 etc.), but entry size, entry count, and per-field schema provenance (MMAIN001/REFER/RDSTM/file-header source per field) are not uniquely determined from static sec0 evidence alone. | UNKNOWN | — | EXP-2026-11-10-M3.22-bss-table-writer |
 | C-3468 | M3.22 Done-when not met: no L3 run (PySh4 after M9.35 or direct stub) and no writer-inverse check reproducing >=1 entry from a factory file was achieved in this session (M9.35 not merged). Status blocked with full site classification, back-trace, and minimal L3/stub recipe recorded. | OBSERVED (blocked) | H | EXP-2026-11-10-M3.22-bss-table-writer; task Stop |
 | C-3469 | RESERVED (M3.22). | — | — | — |
+=======
+## H50 — va_class in prechecks and sec1 blocker audit (C-3470–C-3479)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3470 | `tools/l3_precond.py` integrates `va_class` (image+module context, `--resolve-with`, default `0x3e00200` for build-A): classifies entry and surfaced concrete in-module hex VAs, exposes `va_classifications`/class+detail in text/JSON, and gates M1.2f only on INIT; IAT/BSS are reported as import/binding/stub or writer/runtime-init concerns (not M1.2f) without flipping overall verdict to READY when independent blockers remain. No-image/metadata-only remains UNKNOWN/honest. | VERIFIED (tool) | H | EXP-2026-11-10-H50-va-class-prechecks; `tools/l3_precond.py --selftest` |
+| C-3471 | `tools/reader_precheck.py` integrates `va_class` (image+module context, `--resolve-with`, default `0x3e00200` for build-A) and prints class+detail for every VA reported as compressed/unmapped (COMPRESSED-ANCHOR anchors and edge/call targets/reported VAs in compressed/unmapped sections) as IAT/BSS/INIT etc.; core scan semantics and verdict/exit-code meaning unchanged. | VERIFIED (tool) | H | EXP-2026-11-10-H50-va-class-prechecks; `tools/reader_precheck.py --selftest` |
+| C-3472 | `l3_precond.py` and `reader_precheck.py` selftests each exercise IAT, BSS, and INIT cases (synthetic va_class-aligned fixtures, no vendor data): IAT/BSS not M1.2f-blocked with correct class/concern shown, INIT M1.2f-blocked; classes appear in text/JSON/report structures. | VERIFIED (tool) | H | `python3 tools/l3_precond.py --selftest`, `python3 tools/reader_precheck.py --selftest` |
+| C-3473 | Audit (IMG256 `92aa525d…`, Navi.exe, `--resolve-with 0x3e00200`): cited blocker VAs `0x0055d8f0` (M3.11c, IAT OSMDLL!taskIdSelf), `0x00d53500` (M3.11c/M3.13/M4.16b, BSS sec1), `0x0055d8fc` (M9.14, IAT OSMDLL!OSM_Malloc), `0x0055d040`/`0x00e23cc0` (M9.17, IAT COREDLL!memset/BSS) are IAT/BSS; M3.11c also cites `0x005628e8` INIT and `0x00840ba0` BSS in context (mixed, explicit per VA). No audited cited blocker VA classified INIT except mixed-context note. | VERIFIED (tool) | H | EXP-2026-11-10-H50-va-class-prechecks audit table |
+| C-3474 | Per rule 15, M3.11c, M3.13, M4.16b, M9.14, M9.17 reopened (Status open, Owner —) in the audit commit with original blockers/negative EXP references kept and H50 reopen notes citing IAT/BSS findings; M3.2b left blocked with no-concrete-VA note. M3.14/M3.16/M3.18/M3.2/M1.4/M1.2f/M8.E1 not reopened (no cited IAT/BSS blocker VA to unblock via va_class). Mandatory names M4.26, M2.17, "M1.12 follow-up" task blocks not found in TODO.md. | VERIFIED (board) | H | EXP-2026-11-10-H50-va-class-prechecks; TODO.md |
+| C-3475 | RESERVED (H50). | — | — | — |
+| C-3476 | RESERVED (H50). | — | — | — |
+| C-3477 | RESERVED (H50). | — | — | — |
+| C-3478 | RESERVED (H50). | — | — | — |
+| C-3479 | RESERVED (H50). | — | — | — |
+>>>>>>> 1da4e34 (docs: H50 va_class prechecks and sec1 blocker audit)
