@@ -311,6 +311,24 @@ python3 tools/sh4xref.py IMG Navi.exe --image-start 0x200200 --calls 0x004e7b8c 
 python3 tools/sh4xref.py --selftest
 ```
 
+## `nk_decomp.py` — decompress ROM sections with the kernel's own routine (H51)
+
+Runs `nk.exe` `DECOMP_SECT 0x88037464` (build B) in the PySh4 engine: no
+codec port, no QEMU. `section` decodes one compressed section (`-o` writes the
+full `vsize`: stored bytes, then zero BSS), `check` decodes every compressed
+section of build A and compares nothing but the return value (compare with
+`cerom.py comphdr`), `pdata` decodes a module's function table and says
+whether a VA is a function `START`, `INSIDE` one, or in a `GAP` (leaf/data).
+
+```bash
+python3 tools/nk_decomp.py --selftest
+python3 tools/nk_decomp.py section IMG256 --module Navi.exe --index 1 -o sec1.bin
+python3 tools/nk_decomp.py check IMG256                 # 245 OK, ~10 min
+python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x0041c7e8 0x0041c7dc
+```
+
+Decoded bytes are vendor data: keep them under `archive/`, never commit them.
+
 ## `va_class.py` — what the loader puts at a VA (H49)
 
 Classifies module VAs as `CODE`, `IAT` (import slot, with `DLL!name`),
