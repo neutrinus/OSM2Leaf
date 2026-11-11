@@ -1081,9 +1081,10 @@ class PySh4(Backend):
         target = (pc + 4 + disp * 2) & M32
 
         if sub == 0x0:                                   # mov.b R0,@(disp,Rn)
-            self._store((regs["r%d" % n] + (insn & 0xF)) & M32, 1, regs["r0"])
+            # Rn is bits 7-4 here (H51: the store used r0 as the base before)
+            self._store((regs["r%d" % m] + (insn & 0xF)) & M32, 1, regs["r0"])
         elif sub == 0x1:                                 # mov.w R0,@(disp,Rn)
-            self._store((regs["r%d" % n] + (insn & 0xF) * 2) & M32, 2, regs["r0"])
+            self._store((regs["r%d" % m] + (insn & 0xF) * 2) & M32, 2, regs["r0"])
         elif sub == 0x4:                                 # mov.b @(disp,Rm),R0
             regs["r0"] = self._load_signed((regs["r%d" % m] + (insn & 0xF)) & M32, 1)
         elif sub == 0x5:                                 # mov.w @(disp,Rm),R0
@@ -1185,7 +1186,7 @@ class PySh4(Backend):
             regs["macl"] = 0
         elif pattern == 0x0019:                          # div0u
             self._set_t(False)
-        elif pattern == 0x0007:                          # mul.l Rm,Rn
+        elif (insn & 0xF) == 0x7:                        # mul.l Rm,Rn (any Rm, H51)
             regs["macl"] = (rn * rm) & M32
         elif pattern == 0x0003:                          # bsrf Rn (0000 nnnn 0000 0011)
             regs["pr"] = (pc + 4) & M32
@@ -1198,6 +1199,8 @@ class PySh4(Backend):
             # pref @Rn, ocbi/ocbp/ocbwb @Rn: cache hints with no architectural
             # effect, so a functional emulator ignores them on purpose.
             return
+        elif pattern == 0x00C3:                          # movca.l R0,@Rn (plain store)
+            self._store(rn, 4, regs["r0"])
         elif (insn & 0xF) == 0x4:                        # mov.b Rm,@(R0,Rn)
             self._store((regs["r0"] + rn) & M32, 1, rm)
         elif (insn & 0xF) == 0x5:                        # mov.w Rm,@(R0,Rn)
@@ -2177,6 +2180,26 @@ def test_bt_s_rules():
         flip = _delay_slot_run(0x8D01, t_set=True, endian=endian, slot=0x0008)
         _expect_equal(flip["r3"], 0, f"bt/s, slot clears T: taken ({endian})")
         _expect_equal(flip["sr"] & 1, 0, f"bt/s, slot clears T: T after slot ({endian})")
+
+
+@check("pysh4: mov.b/mov.w R0,@(disp,Rn) base is Rn; mul.l any Rm; movca.l (H51)")
+def test_h51_store_r0_disp_and_mul():
+    base = 0x8C100000
+    engine = PySh4(endian="little")
+    engine.map("d", base, bytearray(0x40), "rw")
+    # r0 holds the value AND would be a wild pointer if used as the base.
+    engine.set_regs(r0=0xFFFFFF84, r14=base)
+    engine._execute(0x80E8, 0x8C000000)              # mov.b r0,@(8,r14)
+    _expect_equal(bytes(engine.read_mem(base + 8, 1)), b"\x84", "mov.b r0,@(8,r14)")
+    engine.set_regs(r0=0x1234ABCD)
+    engine._execute(0x81E3, 0x8C000000)              # mov.w r0,@(6,r14)
+    _expect_equal(bytes(engine.read_mem(base + 6, 2)), b"\xcd\xab", "mov.w r0,@(6,r14)")
+    engine.set_regs(r13=7, r6=3)
+    engine._execute(0x0D67, 0x8C000000)              # mul.l r6,r13 (Rm != r0)
+    _expect_equal(engine._get_reg("macl"), 21, "mul.l r6,r13")
+    engine.set_regs(r0=0xCAFEF00D, r4=base + 0x10)
+    engine._execute(0x04C3, 0x8C000000)              # movca.l r0,@r4
+    _expect_equal(bytes(engine.read_mem(base + 0x10, 4)), b"\x0d\xf0\xfe\xca", "movca.l r0,@r4")
 
 
 @check("pysh4: shad/shld shift by Rm, left for >= 0, right for < 0, -32 edge")
