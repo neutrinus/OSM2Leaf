@@ -704,7 +704,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3490–C-3499
 
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)
   - Goal: make the stored bytes of every compressed section an ordinary input. Today `cerom.py decompress` says `UNSUPPORTED` 245 times, the L3 harness maps `INIT` bytes as a guard that stops the run (M9.35), and `cmp_ind_reader` gets `inflate_mask[17]` as a declared table instead of from the image.
   - Precheck: `python3 tools/nk_decomp.py --selftest`; `python3 tools/nk_decomp.py section IMG256 --module NaviMapCC.dll --index 1` prints `r0=0x484 OK` (0.7 s); `python3 tools/nk_decomp.py check IMG256` (several minutes) prints the count recorded in EXP-2026-11-11-H51.
@@ -717,7 +717,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3500–C-3509
 
 - [ ] **M1.20 — `pdata.py`: the function table of every module, and `fn` labels that come from it**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: — (H51; faster after M1.19's cache)
   - Goal: every tool that prints `fn 0x…` takes the start from the module's `.pdata` instead of guessing it from a prologue pattern.
   - Precheck: `python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x004125a8` prints `START … length 0x12c`.
@@ -729,7 +729,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3510–C-3519
 
 - [ ] **M1.21 — Decode the compressed `FILESentry` payloads with the kernel routine (re-opens M1.3/M1.4)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: no
   - Depends: — (H51)
   - Goal: read the ROM *files* of builds A/B/C (registry hives, `.lnk`, `initflashfiles.dat`, bitmaps, text), which M1.4 could not extract. They tell which drivers and paths the unit uses for the SD card and the map (`\SystemSD\…`), and M8 needs the registry.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 files | head` lists `FILESentry` rows with `nRealFileSize` ≠ `nCompFileSize`.
@@ -741,7 +741,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3520–C-3529
 
 - [ ] **M1.22 — The US firmware build: module census and EU→US function map**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: — (M1.20 makes the matching exact; a first census needs only `cerom.py`)
   - Goal: Marek's unit is a US unit, and the US card carries a **different `Navi.exe`** (H51: vsize `0x013bb000`, entry `0x0035d894`, sec0 `0x56faa6` B, 7,520 function records, 151 modules; EU: `0x0154e000`, `0x0032edd0`, `0x54bd16`, 7,596, 149). Every reader VA on this board was found in the EU build, and the L3 gate for the US cards S1/S2 (M9.10, M9.11, M9.12) runs EU code on US data. Give each located EU function its US address so the gate can run the code the US unit runs.
   - Precheck: `curl -r 0-268435455 -o US256.img https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` (SHA-256 `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da`); `python3 tools/cerom.py --image-start 0x200200 US256.img sections Navi.exe` shows entry `0035d894`; bytes `0x3e00200…0x4800200` (build B) equal IMG256.
@@ -1007,7 +1007,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-06-M3.10-drstr-cmplst-fns (C-1860–C-1869). `0x0041ba90` (CMP.LST) does only `fopen`/`fclose` — no content read/compare (existence check). `0x00419684`→`sub_00419350` reads/parses DRSTR001 (heap `*0x009cfcdc` ≤`0x77220`, stack 40B) with size/read checks at `0x419388,0x4193da,0x4193e4,0x419462-0x419468,0x419496-0x4194a6` (`_modlu`/`>=200` caveat noted) but **no 0x2f root / 40-node / 324-entry compare found** (C-1864, strengthens C-859); `sub_004191d0` bounds `entry_count+1 < 15000` at `0x41920a`. All in `Navi.exe`, coredll ordinals named. `drstr.md` updated.
 
 - [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Note (H51, 2026-11-11): **re-opened: the search target was wrong, not the method.** `0x0041c7e8` is the seventh instruction of `fn 0x0041c7dc` (pdata: prologue 30 B, length `0xe8`); nothing references a mid-prologue address. `python3 tools/sh4xref.py IMG256 Navi.exe --image-start 0x200200 --to 0x0041c7dc` → pool `0x0041caac`, caller **`fn 0x0041c990`** (`jsr` at `0x0041ca5a`), whose caller is **`fn 0x0041c044`** (`jsr` at `0x0041c096`). Next: disassemble `0x0041c990` (length `0x120`) — it is the loop over the chunk table and should answer M3.2 (chunk size source, seek vs scan); walk up from `0x0041c044` to the function that opens the `.cmp`/`.ind` pair (M3.23 `callers`). Then fix `FN_CHUNK` in `tools/chunk_decoder_l3.py` to the true entry (H52) and re-run M9.11. No sec1 decode is needed for any of this.
   - Depends: — (**not** M1.2f for the code: no executable section of build A is
     compressed, C-2128)
@@ -1109,7 +1109,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2120–C-2129, C-2540–C-2549
 
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Note (H51, 2026-11-11): answer it dynamically with **M9.38** (write/read watch on the page buffer, started from `fn 0x0041c044`, the `.cmp` caller found by H51) instead of a fourth static pattern.
   - Pair: pair
   - Note (rule 15, 2026-11-09 PO): M9.11b done; re-opened. Prior blocker kept: page handed to walker by `OSM_TaskSend` reply (OSMDLL import 12, `fn 0x3f40ec`); no 16-bit swap loop in Navi.exe/OSMDLL sec0 (C-2547, C-2548). M9.11 is re-opened (was blocked on M9.11b); re-run precheck before dynamic work.
@@ -1195,7 +1195,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-2130–C-2139
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Blocker (history, negative EXP kept): `fn 0x003f56bc` (sec0) is confirmed as the sole 0xc000-class header
     gate consuming ADDRE `c0/c8/c1` tag-class (C-973 partial, C-2184), but the
     done-when is not met: no consuming instruction VA named for C-970–C-972,
@@ -1400,7 +1400,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: EXP-2026-11-09-H39-ze0-viewer-info.md (harness.py `--selftest` PASS, synthetic no-vendor fixture: bad zlib record reported as `unreadable/opaque 1` with dir/slot/k locator, no crash; clean synthetic info/verify unchanged; `read_tile`/header/bbox parse failures caught with scan fallback; `cmd_verify`/`tools_ze0` unchanged; real `B48R058R` not rerun here — M9.25 EXP covers).
 
 - [ ] **H40 — L1/L2 generated-fixture contract: deterministic in-process fixture + coherent ZE0 card/tree builder (no vendor data)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: H26
   - Goal: close H26 gaps (`L1 synthetic`/`L2 tile` NOT COVERED where feasible) with a tiny deterministic in-process fixture representing generated content (roads/names/POIs/geometry) and a coherent ZE0 card tree/image that `cardcheck.py --root/--image` and targeted L2 round-trips can run on in CI (no network, no OSM download, no vendor data).
   - Scope: test infrastructure only. Procedural/committed fixture (no vendor dump, no downloaded OSM extract) and a minimal builder producing coherent DRSTR/MMAIN/tile level tables/headers/REFER001/top-level layout as current tools support. Do not claim firmware acceptance (rule 13); no full M5 compiler coverage.
@@ -2308,7 +2308,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     C-2830/C-2831.
 
 - [ ] **M5.26 — Whole-POINT-pair regeneration for OSM name sets (beyond in-place slot budget)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: M1.13, M1.16, M5.21
   - Goal: make mass POI/name generation feasible for the OSM compiler. M5.21
     showed 98.6 % of edited POINT pages abut their slot and in-place edits fit
@@ -2773,7 +2773,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-1670–C-1679
 
 - [ ] **M9.6 — First real target: the map-code compare**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Blocker (resolved, kept as note): M9.20 (`562215a`) added module entry kind / `engine_hook`. The earlier "no `entry.kind = module`" plumbing blocker is gone.
   - Re-opened (PO grooming 2026-11-09, rule 15): M9.20 merged. A new blocker may appear when wiring `KernelIoControl(0x0101302C)` + HDD_INFO FS stubs and the `0x01f74b30` parse cache (M2.4/M9.6 notes); record it with a faulting PC/EXP if so.
   - Negative EXP (prior): EXP-2026-11-08-M9.6-mapcode-compare.
@@ -2913,7 +2913,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2160–C-2169
 
 - [ ] **M9.13 — L3 target `tile_reader` on factory and generated tiles**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Blocker (resolved, kept as note): M9.20 added module entry kind / `engine_hook`; the original "only synthetic/blocked entry kinds" blocker is gone.
   - Re-opened (PO grooming 2026-11-09, rule 15): M9.20 merged. Prior negative EXP: EXP-2026-11-08-M9.13-reader-run. Expect possible re-block on compressed sec1 `.data`, unmapped globals, or file I/O stubs (M1.2f/M9.24) — record faulting PC if so.
   - Depends: M9.5 (M3.5 reader VAs `0x0041f26c`/`0x004259bc`/`0x0042757a`; M3.6 helps)
@@ -2926,7 +2926,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3250–C-3259 (PO grooming 2026-11-09; moved from C-2180–C-2189 to resolve overlap with M3.13)
 
 - [ ] **M9.14 — L3 target `drstr_parser`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Note (H51, 2026-11-11): re-run after H51 before anything else (**M9.36**): the `UNMAPPED 0xfffffec6` stop of M9.35 has the shape of the engine defect fixed in H51 (`mov.w R0,@(disp,Rn)` stored through `r0`) — HYPOTHESIS until re-run. `0x00419350` is a pdata `START` (length `0x334`, ends exactly at `0x00419684`).
   - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked/re-open notes kept below. M9.35 IMG256 scratch probe of `sub_00419350` (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d8fc` and stops at `UNMAPPED 0xfffffec6..0xfffffec8` (empty-args/context probe); rerun with proper context, M9.24 import/file stubs and M5.6 rebuilt DRSTR as needed for verdict.
   - Re-opened (ninth pass, rule 15): **M9.20 merged** (`562215a`) with the
@@ -3001,7 +3001,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2260–C-2269
 
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: no
   - Note (H51, 2026-11-11): re-run on the corrected engine (**M9.36**) and with real `INIT` bytes (**M1.19**); `0x0041a438` is a pdata `START` (length `0xf4`).
   - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked note kept: first data access was at `0x0055d040` (compressed sec1, UNMAPPED). M9.35 IMG256 scratch probe (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d040` and stops at `BLOCKED STUB COREDLL.dll!wcstombs`; rerun with proper context/stubs (M9.24) needed for verdict.
   - Re-opened (ninth pass, rule 15): M9.20 merged (`562215a`); the module-VA
@@ -3114,7 +3114,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     page with the globals set and matches `parse_page` (C-2550–C-2557).
 
 - [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: M9.35 (done, H49: the import slots and BSS of sec1 need no decompression; M9.35 maps them)
   - Precheck: `python3 tools/cerom.py` can resolve Navi.exe/coredll import
     context on IMG256 (recording the `exports coredll` KeyError if present);
@@ -3167,7 +3167,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 ---
 
 - [ ] **M9.28 — Module-entry input buffer/region mapping for real reader verdicts**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes · Pair: required
   - Depends: M9.20
   - Precheck: `python3 tools/l3_harness/selftest.py` and `python3 tools/l3_harness/runner.py selftest` pass; reproduce M9.20's real run showing the POINT walker stops at `UNMAPPED` on its page argument (`0x0`) rather than at decode/endian. Confirm M9.24 does not already provide a generic input-buffer mapping (it focuses on coredll CRT/import binding and stack args).
   - Scope: `tools/l3_harness/` module-entry path (`runner.py`/ROM map/corpus conventions). Add a way to map a caller-supplied input buffer or file-derived bytes at a chosen guest VA for module targets, with explicit bounds and provenance in results. No firmware format claims; no Ghidra/QEMU.
@@ -3214,7 +3214,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3320–C-3329
 
 - [ ] **M9.32 — Reconcile M9.11: `cmp_ind_reader` meets done-when or block precisely**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes · Pair: required
   - Depends: M9.11, M9.11b
   - Goal: close the M9.11 reopen cleanly: M9.11b registered `cmp_ind_reader` as `firmware_call` with declared sec1 `inflate_mask[17]` provenance, but M9.11 remains open with stale precheck/scope text and its done-when requires all three POINT010 pairs + controls through the firmware path/target.
   - Precheck: `python3 tools/chunk_decoder_l3.py --selftest` and `python3 tools/l3_harness/runner.py --selftest` (or bounded equivalent) pass; `targets.json` contains `cmp_ind_reader` `firmware_call` with `sec1_table`; factory/S1/S2 POINT010 pairs available per rule 11 (M5.13b tree or fetchable inputs).
@@ -3259,7 +3259,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: `docs/experiments/EXP-2026-11-10-M9.35-sec1-load-model.md` (C-3450–C-3458). `rommap.py --bss-zero/--init-guard` + runner IAT trampolines/INIT guards implemented; 4 synthetic cases pass (`runner.py --selftest` 23/2 skipped quick, `l3_harness/selftest.py` 32/quick, `rommap.py --selftest` 32/quick, `va_class.py --selftest` 8). IMG256 guarded probes get past `0x0055d040`/`0x0055d8fc`: `mmain_reader` (0x0041a438) → `BLOCKED STUB COREDLL.dll!wcstombs`, `drstr-sub_00419350` (0x00419350) → `UNMAPPED 0xfffffec6..0xfffffec8` (scratch empty-args/context). Rule 15 applied: M9.17/M9.14 reopened, M9.24 Depends M9.35 done.
 
 - [ ] **M9.36 — Re-run every L3 probe and blocker on the corrected PySh4**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: — (H51 engine fix is on `main` with this task)
   - Goal: until H51, `mov.b R0,@(disp,Rn)` and `mov.w R0,@(disp,Rn)` stored through `r0` instead of `Rn` — silently. Any earlier run that executed one of them wrote to a wrong address: an `UNMAPPED 0xffffffxx` stop is the visible form, a store into a mapped region is the invisible one. Find out which recorded L3 results change.
   - Precheck: `python3 tools/l3_harness/engine.py --selftest` shows the check "mov.b/mov.w R0,@(disp,Rn) base is Rn; mul.l any Rm; movca.l (H51)".
@@ -3271,7 +3271,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3580–C-3589
 
 - [ ] **M9.37 — Decoder audit: every instruction form PySh4 models, tested with distinct registers and compared with `sh4dis.py`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: —
   - Goal: three decode defects survived five days of L3 work because the engine's own tests used operand values that hide a register mix-up (`n == 0`, `m == 0`). Make that class of defect impossible to miss, and know which opcodes of the firmware the engine cannot run at all.
   - Precheck: `python3 tools/l3_harness/engine.py --selftest`; `python3 tools/sh4dis.py --selftest`.
@@ -3283,7 +3283,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3590–C-3599
 
 - [ ] **M9.38 — Read-watch tracer: which functions read the page buffer**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: tasks/batch-2026-11-12 · Critical: yes
   - Depends: M1.20 (function names for PCs); M1.19 helps (real `INIT` bytes)
   - Goal: the dynamic counterpart of M3.23. Put a decoded factory page in a buffer, run a caller from the family's access path, and log every load from the buffer with its PC — attributed to a function. The functions that read the record bytes are the reader, whatever their code looks like.
   - Precheck: `python3 tools/point_walk_l3.py walk …` (C-2541) still passes — it is the positive control: the tracer must report `fn 0x003f5194` as the reader of the POINT page.
