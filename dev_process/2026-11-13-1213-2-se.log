@@ -1,0 +1,73 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (session subagent)
+start_utc: 2026-11-13 12:13
+end_utc: 2026-11-13 12:40 (approx)
+origin_main_start: fa0cae5 (SM retro 2026-11-13)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-13.md, dev_process/2026-11-13-1204-1-sm.log
+- git log/stat 116c826..777fb68, gh pr list --state all, remote branches
+- docs/experiments/EXP-2026-11-11-H51-pm-review.md,
+  EXP-2026-11-12-M1.20-pdata-function-table.md,
+  EXP-2026-11-12-M3.13-addre-reader-3.md, TEMPLATE.md
+- TODO.md (batch blocks), docs/research/claims.md, reader-coverage.md,
+  docs/format/refer.md, tools/{pdata,fn_match,cerom,sh4xref,sh4scan,
+  reader_precheck,todo_check,claims_check}.py
+
+actions_taken:
+- Worked from a clean origin/main fa0cae5 (only untracked .claude/); started this log (N=2; SM took 1).
+- Verified the three EXPs against their Done when with the real heads in archive/
+  (IMG256 = 92aa525d…, US256 = 70d945d8…) and re-ran the cheap checks.
+- M1.20: pdata.py tool verified (7,596 records; fn/gaps; selftests PASS; map
+  modules 174/408). BUT the EXP's "Wire-ups" and C-3510 are not in the tree:
+  cerom.e32 has no `exception` key, sh4xref/sh4scan/reader_precheck have 0
+  pdata refs, claims.md has no C-351x rows. `777fb68` shipped only pdata.py
+  and fn_match.py. Task was still `in progress` -> blocked on M1.23.
+- M1.22: fn_match.py selftest PASS, EU-vs-EU control 13/13 UNIQUE; but the
+  EU->US run maps only 5/13 cited readers UNIQUE (8 NOMATCH) -> <90 %, no
+  census EXP, no `build` field in targets.json. -> blocked on M1.22b.
+- M3.13: EXP status line was self-contradictory ("done (partial … not met)").
+  Corrected EXP to `blocked`; task -> blocked. Flagged that the "never read"
+  labels cover sec0 literal pools only (decoded sec1/sec2 not searched).
+- Reconciled the 19 tasks/batch-2026-11-12 ghost claims (0 PR, branch absent):
+  4 blocked/released with a fix task, 15 released to open/—.
+- Fixed a real defect in docs/format/refer.md: the C-970–C-979 table mixed
+  3- and 4-column rows after `777fb68`.
+- Ran todo_check (0 errors, 129 pre-existing warnings) and claims_check (OK).
+- Added 5 tasks: M1.23 (finish M1.20 wire-up + correct C-351x), M1.22b
+  (fn_match ≥90% + census EXP + targets `build`), M1.24 (`sh4literal`),
+  M1.25 (`fn_audit`), H53 (`todo_check --strict`).
+
+task_ids_added: M1.23, M1.22b, M1.24, M1.25, H53
+task_ids_changed: M1.20 blocked, M1.22 blocked, M3.13 blocked, M9.38 open+nnote
+task_ids_blocked/reopened: 15 released to open (M1.19, M1.21, M3.2b, M3.11b,
+  H40, M5.26, M9.6, M9.13, M9.14, M9.17, M9.24, M9.28, M9.32, M9.36, M9.37)
+prs: none
+commits: todo: reconcile the 2026-11-12 batch, block M1.20/M1.22/M3.13, add
+  evidence-repair and US-path tasks
+
+decisions:
+- Did not mark M1.20 done: done-when includes pdata-backed `fn` labels, which
+  are absent. Alternative (accept the EXP prose) rejected — it is the class of
+  defect this role exists to catch.
+- Did not register C-3510–C-3519 myself: C-3510 asserts a cerom.e32 key that
+  does not exist. M1.23 implements first, then registers corrected claims.
+- Did not add a new ADDRE reader task: M3.13's Unblock already names M3.22/
+  M9.38/M3.24; a duplicate would bloat the 3,316-line board.
+- Left M9.38 open rather than "blocked": the work it describes is still valid
+  and M1.20's pdata tool is ready; `777fb68` named it but shipped nothing.
+
+problems/dead_ends:
+- Local python is 3.15/zlib-ng while EXPs claim 3.14/stock 3.1. pdata/fn_match
+  do not depend on zlib, so the re-runs are valid; noted, not a blocker.
+- `archive/sd-images` holds the full 7.5 GB US image; used `head -c` to make a
+  US256 head for the fn_match run (not committed).
+- 129 todo_check warnings are pre-existing; H53 makes the actionable forms
+  fail so they do not hide the next drift.
+
+handoff:
+- PO/TL: the board has 0 in-progress ghost claims now; start M1.23 and M1.22b
+  first (they repair evidence on the US path), then M1.19/M9.36/M3.23/M3.24
+  one branch+PR each.
+- QA: re-run `fn_match` EU→US after M1.24; the 5/13 baseline is in M1.22b.

@@ -425,14 +425,14 @@ for those signatures. Navi.exe sec1/sec2 are compressed *data* (C-2128), so
 
 | Field (claim) | Consuming instruction VA | Status |
 | --- | --- | --- |
-| Container:layout: dir `0x1108`, cells `0x2000`, index `4e 20 00 00`+`u32` offsets, schema `+0x100`, record chain, trailer (C-970) | — | **never read** (no sec0 literal pool holds `0x0000204e`/`0x4e200000`/`0x0000f401`/`0x01f40000`; EXP-2026-11-12-M3.13-addre-reader-3) |
+| Container/layout: dir `0x1108`, cells `0x2000`, index `4e 20 00 00`+`u32` offsets, schema `+0x100`, record chain, trailer (C-970) | — | **never read in sec0 literal pools** (no sec0 pool holds `0x0000204e`/`0x4e200000`/`0x0000f401`/`0x01f40000`; EXP-2026-11-12-M3.13-addre-reader-3; decoded sec1/sec2 not searched — M1.24) |
 | 12-byte directory `(initial,0,count,block,offset,length,tail)` (C-971) | — | not mapped; not proven absent (family `@(12,entry)` is a 2-byte-stride field compare, not a 12-byte row) |
 | 6-byte cells `(0..3,value,count)` / `(pointer,0xff00,0)` (C-972) | — | not mapped (`fn 0x003f56bc` sub-table stride is 2 bytes, not 6) |
 | `c0`/`c8`/`c1` records, `2*L` framing (C-973) | `0x003f56e0` `mov.w @r9,r3`; `0x003f56e4-0x003f56ea` `e1e0/4118/2319` mask `0xe000`; `0x003f56ec` `d12d` literal `0xc000`; `0x003f56f0` `bf reject` (`fn 0x003f56bc`) | **tag-class consumed** (accepts `c0/c8/c1` native swapped `u16`); sequential `2*L` record-stream cursor walk **not mapped** |
-| | name `TT LL 00 ff`, `LL=ceil(name_len/2)`, last `2*LL` bytes (C-974) | — | not mapped (no `0x0000ff00` literal in `0x003f5000–0x003f7000`; `cmp/eq #0x40` ×88 global, 0 in family after a byte load; EXP-3) |
-| | range `prefix subtype 00 00 :N:;:M:` (low-nibble slot; prefix/slot meaning UNKNOWN) (C-975) | — | **never read** (`:;:` literals at `0x002674bb/fb`,`0x002684bb/fb` unreferenced by any sec0 pool; EXP-3) |
-| | point `TT 40 XX YY` (`0x40` constant, role `TT`; 2D arithmetic UNKNOWN) (C-976, C-1964) | — | not mapped (`cmp/eq #0x40` ×88 global, 0 in family window after a byte load; name-TT compares unsearchable by immediate; EXP-3) |
-| | trailer TOC `(start,length,value)` per block (C-977) | — | **never read** (no sec0 pool holds `0x0000f401`/`0x01f40000`; EXP-3) |
+| name `TT LL 00 ff`, `LL=ceil(name_len/2)`, last `2*LL` bytes (C-974) | — | not mapped (no `0x0000ff00` literal in `0x003f5000–0x003f7000`; `cmp/eq #0x40` ×88 global, 0 in family after a byte load; EXP-3) |
+| range `prefix subtype 00 00 :N:;:M:` (low-nibble slot; prefix/slot meaning UNKNOWN) (C-975) | — | **never read in sec0 literal pools** (`:;:` literals at `0x002674bb/fb`,`0x002684bb/fb` unreferenced by any sec0 pool; EXP-3; sec1/sec2 not searched — M1.24) |
+| point `TT 40 XX YY` (`0x40` constant, role `TT`; 2D arithmetic UNKNOWN) (C-976, C-1964) | — | not mapped (`cmp/eq #0x40` ×88 global, 0 in family window after a byte load; name-TT compares unsearchable by immediate; EXP-3) |
+| trailer TOC `(start,length,value)` per block (C-977) | — | **never read in sec0 literal pools** (no sec0 pool holds `0x0000f401`/`0x01f40000`; EXP-3; sec1/sec2 not searched — M1.24) |
 | `tools/addre.py` (offline, C-978) | n/a | repo tool, not firmware |
 | negative scope (cell payload / `XX,YY` arithmetic, C-979) | — | unchanged |
 
