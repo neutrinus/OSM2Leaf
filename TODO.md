@@ -1678,6 +1678,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
   - Status: blocked · Owner: claude/m4.22-identity-codes · Critical: no
   - Depends: —
+  - Note (PO 2026-11-13): its missing `0x18c` code-table task is now **M4.36**;
+    this task stays blocked on the six header words and the `BICON001` version
+    (M4.12 delivered the ICODE001 index it needs, not the codes).
   - Goal: three identity fields are still unexplained and a generated card
     copies them blind: the six words at common-header `0x180`, the
     per-language list at `DRSTR001` `0x18c`, and `BICON001`'s data version
