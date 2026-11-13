@@ -1,0 +1,64 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (session subagent)
+start_utc: 2026-11-13 12:25
+end_utc: 2026-11-13 12:45 (approx)
+origin_main_start: 028ea25 (SE reconcile; SM retro fa0cae5)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-13.md
+- dev_process/2026-11-13-1204-1-sm.log, 2026-11-13-1213-2-se.log
+- TODO.md (whole board, task blocks + Priorities + Workstreams), docs/research/todo-history-2026-11-09.md
+- tools/todo_check.py, tools/claims_check.py, tools/progress_report.py, tools/l3check.py headers
+
+actions_taken:
+- Started this log (N=3; SM=1, SE=2). Measured TODO.md at 3382 lines (not 3316 as the retro said).
+- Archive FIRST (rule: >1500 lines): moved 10 done tasks that block no live Depends and were done
+  before 2026-11-12 (H46 H47 H48 H37 H38 H39 M1.18 M3.21 M5.23 M5.31) into
+  docs/research/todo-history-2026-11-13.md. Reason: H-section/M-section bulk is done work.
+  TODO 3382 -> 3258 lines. Kept H45/H49/H50/H51 because live tasks list them in Depends.
+- Rewrote the Priorities section (4th PO pass) short and per level L1->L5, naming blockers and
+  the SE 2026-11-13 sequence (M1.23, M1.22b first). Old 73-line PM/H49 block -> 27 lines.
+- Refreshed the "Workstreams at a glance" table to match the reconciled board (it still named
+  archived/done tasks H38-H48, M3.19/M3.21, M5.23/M5.31, and M1.2f as the gate).
+- Added 3 tasks (searched duplicates first, none existed):
+  M1.26 fn_audit --scope l3 (generalise M1.25/H52 to L3 corpus; Pair: solo),
+  M4.36 ADDRE/POINT <-> tile section-4 name join (Pair: required),
+  M5.35 mkpoland one-command card + L1/L2/L3 evidence bundle (Pair: required).
+- Rule 15 audit: ZERO blocked tasks have a done task in Unblock (checked all 25). M4.22's "new
+  task needed" is now M4.36, recorded as a note; left blocked (its own work is unstarted).
+- Rejected adding: M9.39 L3 evidence ledger (no capability change), M9.40 L3 stage for
+  progress_report (dup of M9.32), extra US-bench tasks (M6.5/M6.15 already exist).
+- Ran todo_check (0 errors, 125 warnings, pre-existing) and claims_check (OK).
+- Commit + push this log with the board change.
+
+task_ids_added: M1.26, M4.36, M5.35
+task_ids_changed: Priorities + Workstreams table (no status changes)
+task_ids_blocked/reopened: none reopened (no done blocker); M4.22 note points at M4.36
+task_ids_archived: H46 H47 H48 H37 H38 H39 M1.18 M3.21 M5.23 M5.31 (-> todo-history-2026-11-13.md)
+prs: none opened
+commits: docs: PO grooming 2026-11-13 — archive, priorities, 3 tasks (this run)
+
+decisions:
+- Archived first because the board was 2.25x over the 1500-line trigger. Alternative (add tasks
+  first) rejected by the role prompt.
+- Kept done tasks that live task blocks name in Depends (H45 H49 H50 H51 M1.13 M1.16 etc.):
+  todo_check warns on unknown Depends IDs, so moving them would create 20+ false warnings.
+- Did not mark H52 done or merge it into M1.25: H52 is the human-facing table, M1.25 only the
+  mechanical half; M1.26 closes the loop (documented in the task).
+- Did not re-open M5.16/M4.16/M4.31/M4.29 on "done Depends": their Unblock names a concrete
+  missing artefact, not the done dependency. Re-opening would recreate ghost claims.
+
+problems/dead_ends:
+- 125 todo_check warnings are pre-existing (H53 will make the actionable forms fail); left alone.
+- The board still names M3.19/M3.21/M5.23/M5.31 in a few live task texts as historical context;
+  those references are prose, not Depends, so the archive left them. Fine to prune later.
+- TODO is still 3251 lines (2.2x the target); the remaining bulk is 69 open + 25 blocked + 46
+  done-that-block-live tasks. Only closing work shrinks it further.
+
+handoff:
+- TL: start M1.23 then M1.22b (separate branch+PR each), then M1.19/M9.36/M9.37/M3.23/M3.24/M9.38.
+  Hold M3.13/M9.12/M8 behind their named blockers. M5.34 unblocks the PR #171 corridor rerun.
+- QA: M1.26 is a selftest-able gate, good pairing target; M4.36 needs a factory tile control.
+- Human: decide draft PR #171 (M5.29/M5.34) and the stale .claude/worktrees cleanup (SM retro
+  actions 4/5); no new human blocker from this pass.

@@ -214,92 +214,49 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-09, 3rd pass; retro 2026-11-09-3 / SM `2026-11-09-1413-9-sm`)
+## Priorities (PO grooming 2026-11-13, 4th pass; retro 2026-11-13, SE `2026-11-13-1213-2-se`)
 
-**PM thirteenth pass (2026-11-11, H51 — read first; it overrides the "Take
-first" list below).** Four findings, all checked on the images
-(`EXP-2026-11-11-H51-pm-review`):
+Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`;
+done tasks moved off the board on 2026-11-13: `docs/research/todo-history-2026-11-13.md`.
 
-1. **The decompression gate is gone.** `nk.exe` `DECOMP_SECT 0x88037464` is a
-   seven-argument function (three on the stack: skip, step, block `0x1000`).
-   With them it runs in our own PySh4: `tools/nk_decomp.py check IMG256` →
-   `245 OK`, 1,674,478 bytes, every length equal to `comphdr`. M1.2e, M1.2f,
-   M1.2g, M8.E1, M8.E1c, M9.29, M9.30 are superseded (→ **M1.19** wires it in).
-2. **PySh4 had three decode defects** (fixed here): `mov.b/mov.w
-   R0,@(disp,Rn)` stored through `r0`, `mul.l` worked only for `Rm=r0`,
-   `movca.l` was missing. Earlier L3 stops of the form `UNMAPPED 0xffffffxx`
-   are suspect → **M9.36** (re-run), **M9.37** (decoder audit).
-3. **`Navi.exe` sec2 is `.pdata`: 7,596 exact function records.** Several
-   "functions" on this board are mid-function addresses. `0x0041c7e8` (M3.2b,
-   blocked twice for "no caller") is inside `fn 0x0041c7dc`, which has a plain
-   static caller chain `0x0041c044 → 0x0041c990 → 0x0041c7dc` → **M3.2b
-   re-opened**, **M1.20** (table for all modules), **H52** (audit),
-   **M3.23** (call graph: find readers by reachability, not by signature),
-   **M3.24** (6,052 code pointers in sec1 `INIT` = dispatch tables),
-   **M9.38** (read-watch tracer).
-4. **The US card has a different `Navi.exe`** (entry `0x0035d894`, 7,520
-   functions; build B identical). Marek's unit is US, and every reader VA and
-   L3 verdict so far is EU-build code → **M1.22** (EU→US function map),
-   **M6.15** (which build the unit runs). The S1/S2 software gate is not met
-   until it runs on the US build.
-
-Board corrections in the same commit: **M3.22 re-opened** (rule 15 was
-missed: its unblocker M9.35 merged on 2026-11-10); **M5.29** gets **M5.34**
-(the factory rerun failed on the choice of parcel, not on the pipeline;
-`0x2146` stays preserve-only); M3.14–M3.16/M3.18 wait for M3.23 + M9.38
-instead of a third signature.
-
-**Take first (2026-11-11), in this order within each line:**
-· firmware/L3: **M1.19**, **M9.36**, **M3.2b**, **M1.20** → **H52**, **M3.23**,
-  **M3.24**, **M9.38**, **M3.22**, **M9.37**
-· US path (Marek's unit): **M1.22**, **M5.27** (unowned 3 days, gates S2),
-  M5.32, M9.31; hardware (Marek): **M6.2** S0, **M6.15**
-· Poland path: **M5.34** → M5.29 → M5.30; M5.33; M4.2 (non-Claude, unowned
-  since 2026-11-06 — the only source of real road classes)
-· not now: H40–H44 (dashboards) and M9.32–M9.34 (bookkeeping) add no
-  evidence; take them only when the lines above have owners. M8 (QEMU) is no
-  longer on the path to readable sections; it keeps only the F1–F4 goal.
-
-**PM twelfth pass (2026-11-10, H49 — read first).** The L3 board waited on
-M1.2f (CE codec port, blocked) for nine tasks. On IMG256 every cited blocker
-address is an **import slot** (`0x0055d040` = memset, `0x0055d8fc` =
-OSM_Malloc, `0x0055d954` = OSM_Printf, …) or **BSS** (`0x00d53500`,
-`0x00e23cc0`, RGD tables — zero at load, so M1.2f would return zeros); none
-is in the 98 KB of real initialised sec1 bytes (`EXP-2026-11-10-H49-pm-review`,
-`tools/va_class.py`). New gate: **`M9.35`** (harness: zero BSS + IAT bound to
-stubs) → M9.17, M9.14 → M9.24; **`M3.22`** (who writes `0x00d53500`) →
-M4.16b, M3.11c → M9.10; **`M3.15` re-opened** (its "sec1 helpers" were
-`OSM_isSender`/`OSM_Printf`); **`H50`** audits the remaining "sec1" blockers.
-M1.2f stays open for real `INIT` reads only and is no longer critical.
-
-**Goal:** OSM-derived maps run in a Nissan Leaf ZE0. **Since last pass:** `M9.11`/`M9.11b` closeout done; `H48` done and `M3.19` reopened for closure (rule 15, PR #170); `M5.31` done (mkcard reconcile/resize contrast); `M5.29` blocked (synthetic delivered) with active factory rerun **PR #171** blocked on `0x2146`/M5.22 (`PRESERVE_ONLY_DIR_KINDS`), not a ghost; SE follow-ups `M1.18` done, `M3.21`/`M9.32`/`M9.33` open. **SM actions:** stale #140–146 cleared; stale missing-task refs corrected (no dangling task block/deps in M6/priorities/workstreams); TODO still >1500. Nearest milestone: **bench/L5 prep** (S1/S2 `M5.13b`; S3 `M5.14`; hardware waits on Marek) while cheap L1/L2/L3 gates advance. Archive (3rd pass): `M7.4` moved (>24h, no non-done deps); TODO 2992→~2985, still >1500 (recent done tasks <24h or block live work).
+**Read first.** The 2026-11-12 ghost batch is reconciled (`028ea25`): no task is
+`in progress` without a PR. Four new gates are open, and they block most L3 work:
+**M1.23** (pdata labels everywhere), **M1.22b** (US function map), **M1.24**
+(`sh4literal`) and **M1.25** (`fn_audit`). The US unit is Marek's; every reader VA
+below is EU-build until **M1.22b** lands. Marcin's 2026-11-12 half-done M1.20/M1.22
+may not be marked `done` until its own EXP exists (rule 16).
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
-- **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline before L2–L5. `M5.30`, `M6.13`.
-- **L2 (cheap, necessary not sufficient, rule 13):** Poland: **`M5.28` done** (provisional `highway→Clarion`, L2-testable) → **`M5.29`** (synthetic delivered; **PR #171** factory rerun blocked on `0x2146`/M5.22) → **`M5.30`** (1:1 diff) → **`M5.11`** (Phase-2). Support: `M5.3`, `M5.22`, `M5.23` done, `M5.6`, `M5.21`, `M5.32`, `M2.18`, manifest/ATTR/FROUTE follow-ups.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. **`M9.12`** `--card` gate blocked (S0/S1 no-diff; rule-13 evidence path via runnable targets/registry). **`M9.35`** (zero BSS + bound IAT, H49) + **`M9.24`** unblock data readers — not `M1.2f`; **`M9.11`/`M9.11b` done**; **`M3.11b`/`M3.19`** open (rule 15, H48 resolved M3.19 M1.12 clause) — verify preconditions before reruns (`python3 tools/l3_precond.py --target <name>`, H45); **`M9.6`/`M9.13`** may re-block. **`M3.11c` → `M9.10`**; **`M9.31`/`H45`/`M9.32`/`M9.33`** L3 evidence/gating/preconditions.
-- **L4 (QEMU/M8):** software integration before L5 where feasible; not final acceptance.
-- **L5 (bench/car, one variable):** never skip S0. **`M6.2`** S0 (Marek/non-Claude) → **`M6.5`** S1 → **`M6.6`** S2 → **`M6.7`** S3. Prep: **`M6.13`** S3 manifest, **`M9.31`/`H45`** runnable L3 evidence and **`H29`** prep. Run runnable L3/L4 prechecks before each bench card.
+- **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline on every candidate card. Blocking: **M5.30** (1:1 diff of the Poland card), **H40** (in-process fixture so CI can run L1 with no vendor data).
+- **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.29** (synthetic delivered; PR #171 blocked on `0x2146` → **M5.34** corridor rerun) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers; **M1.26** makes the `fn` audit a standing gate once **M1.25** lands. Hold **M9.12** behind a runnable target set, and **H53** (`todo_check --strict`) behind the board cleanup it would otherwise fail on.
+- **L4 (QEMU/M8):** software integration before L5; not final acceptance. **M8.A2** needs a QEMU 8.2.7 `sh4-softmmu` host; **M8.A3**/**M8.A6** follow it. **M1.19** (kernel decompressor wired into `cerom`/`rommap`) is the prerequisite for any full-system run that touches `INIT` bytes.
+- **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
-**Take first (ready/critical, verify deps):** **`M9.35`, `M3.22`, `M3.15`, `H50`** (H49), `M5.21`, `M5.28`, `M3.11c` (after M3.22/M9.35), `M3.19` (closure/H48 context, verify preconds), `M9.31`/`M9.32`/`M9.33`, `M6.13`, `M5.29` follow-up **PR #171** blocked on `0x2146`/M5.22 (needs human/TL boundary decision), `M9.24` (after `M9.35`), `M3.21`. **Rule 15:** `M3.11b`/`M3.19` remain open with precond checks; `M9.11`/`M9.11b` done. **Marek/non-Claude:** `M6.2`/bench, `M6.11` `.uf2`, `M9.2` Ghidra, `M1.2e`, `M6.9`, image/OSM-dependent runs.
+**Take first (ready, deps done, one branch+PR each):**
+1. **M1.23** then **M1.22b** — they repair the evidence the US path stands on (SE 2026-11-13).
+2. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
+3. **M5.34** → **M5.29** (PR #171), **M5.30**, **M5.33** — Poland card evidence.
+4. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**.
+Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**), **M9.12** or **M8** until the line above has owners.
 
 
 ## Workstreams at a glance
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H27, H28, H29, H30, H38–H47** (see deps/order in H46/H47); H21/H24/H25/H26/H45–H48 done |
-| M1 | Firmware tooling | **M1.2e (non-Claude), M1.2f (INIT bytes only, H49), M1.2g, M1.12, M1.14**; M1.11c/M1.13/M1.15–M1.18 done |
-| M2 | Map code, activation, updater | **M2.4** (re-open: M9.20 done), **M2.18 done** |
-| M3 | Reader contract | **M3.11b, M3.11c, M3.13, M3.16, M3.18, M3.19, M3.20, M3.21** (rule 15 re-opens; verify deps/precheck/H45); **M3.15** (re-opened H49), **M3.22** (new); M3.2, M3.2b, M3.14 blockers to re-check with `va_class` (H50); M3.17 done |
-| M4 | Data formats | **M4.16b** (re-open note), **M4.16c, M4.16d, M4.24, M4.27, M4.29**; blocked: M4.2, M4.3/M4.23 (→M4.24–M4.26), M4.8b (→M4.8d), M4.22 (OQ-44), M4.28 (→M4.27), M4.31 |
-| M5 | Compiler + US edits | **M5.3, M5.5, M5.6, M5.11, M5.14, M5.15, M5.20–M5.22, M5.30, M5.32**; blocked: M5.12c (scan unfinished), M5.29 (#171 factory rerun `0x2146`/M5.22); M5.4/M5.13b/M5.23/M5.28/M5.31 done |
-| M6 | Hardware (Marek) | **M6.2 (S0, non-Claude), M6.13, M6.14**; M6.5/M6.6 after M5.13b+L3 precheck; M6.7 after M5.14 |
-| M8 | Full-system emulation | **M8.A2, M8.E1**; M8.A3 after M8.A2 |
-| M9 | L3 toolkit | **M9.6, M9.10, M9.13, M9.15, M9.18, M9.24, M9.31–M9.33** (may re-block); **M9.35** (new, H49); M9.14, M9.17 blocked on M9.35 (not M1.2f); M9.12 blocked (→M9.31); M9.11/M9.11b/M9.20–M9.23/M9.25 done; M9.2 non-Claude |
+| H | Housekeeping | **H19, H28, H29, H40–H44, H52, H53**; H45–H48 archived 2026-11-13 |
+| M1 | Firmware tooling | **M1.19, M1.21, M1.23, M1.22b, M1.24, M1.25, M1.12, M1.14**; blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b); M1.2f/M1.2g superseded by M1.19 |
+| M2 | Map code, activation, updater | **M2.4** (re-open: M9.6), M2.3/M2.5/M2.12/M2.15/M2.18 done |
+| M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.17/M3.19/M3.21 done |
+| M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.29, M4.35, M4.22**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b, M4.28, M4.31, M4.16 (→M4.16b) |
+| M5 | Compiler + US edits | **M5.3, M5.5, M5.11, M5.15, M5.17–M5.19, M5.26, M5.30, M5.32, M5.33, M5.34**; blocked M5.16 (→M9.18), M5.27 (→M5.12c), M5.29 (→M5.34); M5.4/M5.6/M5.7/M5.10/M5.13/M5.14/M5.20–M5.24/M5.28/M5.31 done |
+| M6 | Hardware (Marek) | **M6.2 (S0), M6.5, M6.6, M6.7, M6.15, M6.13, M6.14** (non-Claude/hardware); M6.9 non-Claude; M6.11 blocked |
+| M8 | Full-system emulation | **M8.E1 blocked (host QEMU)**, M8.E2–E4 open; M8.A2 blocked (host build deps); M8.A3 after M8.A2 |
+| M9 | L3 toolkit | **M9.6, M9.10, M9.13, M9.15, M9.18, M9.24, M9.31–M9.34, M9.36, M9.37, M9.38**; blocked M9.12 (→no-diff baseline), M9.14/M9.17 (→M9.35 done + M1.19); M9.35 done; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
 · **Software/L3 gate:** **M9.11b** registers `cmp_ind_reader`; **M1.2f** +
@@ -420,42 +377,6 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `python3 tools/l3_precond.py --selftest` passes; running it on at least two real target definitions (one runnable/baseline-known, one known-blocked on M1.2f or missing mapping) produces the expected verdicts with reasons in an EXP; TODO L3 rerun guidance references it.
   - Stop: if target metadata lacks stable VA/section fields for a verdict, report `UNKNOWN` with the missing fields (do not guess READY).
   - Claims: C-3330–C-3339
-
-- [x] **H46 — Test system map: L1-L5 progress signal, fixtures, CI/local/L5 execution policy**
-  - Status: done · Owner: task/h46-test-system-map · Critical: no · Pair: solo
-  - Depends: H25, H26, H27 (existing artifacts to reference)
-  - Goal: one living design doc that maps the QA target ("generated SD card images the car would read") to concrete tools/workflows/fixtures/tasks, so every agent can see what is proven offline, what is firmware/L3/L4-emulator proof, and what remains L5 bench/car/manual — without conflating levels.
-  - Gap (QA 2026-11-09): workflows/tools exist (H25 `ci.yml`, H26 `l1l2_fixtures.py`/`l1l2-fixtures.yml`, H27 `progress_report.py`, M9.8 `l3check.py`) and planned tasks cover major holes (H28,H29,H38,H40-H45,M9.12/M9.31), but there is no single map of fixture strategy (synthetic vs generated no-vendor vs local-only vendor), regression policy, status classes, and execution split (PR CI / local vendor / M8 QEMU / L5 Marek). This causes ambiguous "progress" claims.
-  - Scope: add `docs/research/test-system.md` (English). No code/workflow changes except optional cross-links. Level mapping must follow AGENTS/feedback-loop 2026-11-09: L1 structural, L2 semantic/golden, L3 firmware fragments, L4 full-system emulator (QEMU/M8), L5 bench/car (hardware unavailable). "L4 readiness (bench package)" wording from older prompts maps to **L5 readiness** under current mapping; state that explicitly.
-  - Input: `AGENTS.md`, `docs/research/feedback-loop.md`, `docs/research/reader-coverage.md`, `docs/research/card-test-plan.md`, `.github/workflows/{ci.yml,l1l2-fixtures.yml,README.md}`, `tools/{selftest,cardcheck,l2check,l3check,progress_report,l1l2_fixtures,realcheck,fetch_image}.py` (interfaces), TODO tasks H25-H29,H38,H40-H45,H27,M9.8/M9.12/M9.31.
-  - Done when: `test -f docs/research/test-system.md` and the doc contains sections/headings covering at least: (1) level mapping L1-L5 (2026-11-09) and rule 13, (2) existing tools/workflows with command/fixture, (3) gap-closure dependency/order for H28,H29,H38,H40-H45,H47/M9.31 as applicable, (4) status classes `PASS|FAIL|SKIP|NOT_COVERED|NOT_RUNNABLE|BLOCKED` and "SKIP/NOT RUNNABLE/BLOCKED never PASS", (5) execution matrix PR CI (no vendor) / local-only vendor / M8 L4 emulator / L5 bench-manual, (6) regression gate policy. `python3 tools/todo_check.py TODO.md && python3 tools/claims_check.py` still pass.
-  - Stop: if task states or tool interfaces are contradictory, document the contradiction with file/task references and stop expanding claims; do not invent tool behavior.
-  - Claims: C-3350–C-3359
-  - Result: EXP-2026-11-09-H46-test-system-map.md (C-3350–C-3354); added `docs/research/test-system.md` mapping L1-L5 (2026-11-09, L4 emulator/L5 bench), rule 13, tool/workflow interfaces and fixtures, H28/H29/H38/H40-H45/H47/M9.31 gap order, status classes with never-PASS rule, execution matrix (PR CI no vendor/local vendor/L4 emulator/L5 manual), and regression gate policy. Noted terminology migration in `progress_report` (`--l4-emulator-status`, `--l5-status`, `--l4-status` alias) and older "L4 readiness (bench package)" => L5 readiness. `test -f` OK, `todo_check` OK (warnings pre-existing), `claims_check` OK, `selftest` 76 PASS/0 FAIL/15 SKIP.
-
-- [x] **H47 — `progress_report` schema contract for H41 per-file/per-feature and H43 generated-L3 corpora**
-  - Status: done · Owner: task/h47-progress-report-schema · Critical: no · Pair: solo
-  - Depends: H27 (done). Coordinates with H41, H43, H42 (integration/wiring) — land before or with H42's progress wiring.
-  - Goal: prevent H42 from guessing how to aggregate generated-fixture L1/L2 and generated-L3 progress; make the H27 `progress_report.py` input/output contract explicit and testable for new matrix shapes while preserving rule-13 separation.
-  - Gap (QA 2026-11-09): `progress_report.py` consumes H26 `l1l2_fixtures` JSON and `l3check` JSON (help verified). H41 adds per-file/per-feature matrix with stable keys and regression baseline for a generated no-vendor fixture; H43 adds generated-fixture L3 corpus classification (`ran_on_our_generated_data`, synthetic/vendor/generated separation). Without a contract, H42 may duplicate logic or silently misclassify synthetic/harness results as firmware proof.
-  - Scope: extend `tools/progress_report.py` (and/or add a tiny documented schema module, stdlib, named in PR) to accept H41/H43-compatible JSON via new/optional flags or auto-detected schema versions; emit `progress.json/md` fields that distinguish L1/L2 generated-fixture per-file/per-feature counts, L3 synthetic vs vendor/factory vs generated-fixture corpora, firmware-proof vs harness-only evidence, and L4 emulator (M8) / L5 bench (M6) manual states. No vendor data. No auto-PASS for L4/L5/manual.
-  - Input: `tools/progress_report.py`, H27 schema/EXP, `tools/l1l2_fixtures.py` H26 JSON shape, `tools/l3check.py --json` shape, H41/H43 task specs (stable-key/field requirements), `.github/workflows` H42 needs.
-  - Done when: `python3 tools/progress_report.py --selftest` covers (1) legacy H26/H27 inputs still parse, (2) a synthetic H41-style per-file/per-feature JSON fixture produces per-file/per-feature counts with `SKIP/NOT_COVERED/NOT_RUNNABLE` separated from PASS, (3) a synthetic H43-style generated-corpus L3 JSON is reported as generated-fixture evidence and not promoted to firmware proof unless explicitly marked, (4) L4 emulator and L5 bench manual states remain explicit/non-auto-pass. `--json` output documents schema version/field names. EXP maps fields to rule 13 and L1-L5 (2026-11-09).
-  - Stop: if H41/H43 final key names are not yet fixed, land a minimal versioned contract (schema version + required keys + unknown-key tolerance) with synthetic fixtures and mark remaining keys `TBD` in EXP; do not block on implementation details of unfinished tasks.
-  - Result: EXP-2026-11-09-H47-progress-report-schema (`tools/progress_report.py` v3 + `tools/progress_schema.py`; auto-detected H41 matrix/H43 corpus contract, backward-compatible legacy inputs, schema_contract in JSON; C-3360–C-3364).
-  - Claims: C-3360–C-3369
-
-- [x] **H48 — reader_precheck/M1.12: import or delegate to `sh4scan` (unblocks M3.19 done-when)**
-  - Status: done · Owner: task/h48-sh4scan-reader-precheck · Critical: no · Pair: solo
-  - Depends: — (M3.19 blocked on this)
-  - Goal: satisfy M3.19’s done-when clause “M1.12 imports it rather than duplicating the scan” without duplicating `sh4scan`’s scan engine, or record an explicit board/TL amendment of that clause with rationale.
-  - Precheck: `python3 tools/sh4scan.py --selftest` passes; confirm `tools/reader_precheck.py` is the M1.12 precheck tool referenced by TODO and that it does not import/delegate to `sh4scan` (baseline).
-  - Scope: `tools/reader_precheck.py` (and only files required for the integration) — import or delegate to `tools/sh4scan.py` for overlapping pattern/anchor scan functionality where appropriate; **or**, if integration is not the right design, add an explicit board/TL decision record amending M3.19’s M1.12-import done-when clause (citing rationale) and update M3.19 accordingly. One task per PR.
-  - Input: `tools/reader_precheck.py`, `tools/sh4scan.py`, TODO M3.19 done-when/Result/Blocker, EXP-2026-11-08-M3.19-sh4scan addendum 2026-11-09.
-  - Done when: either (a) `python3 -c "import ast, pathlib; s=pathlib.Path('tools/reader_precheck.py').read_text(); assert 'sh4scan' in s"` (or an equivalent documented delegation) and `python3 tools/reader_precheck.py --selftest` / `python3 tools/sh4scan.py --selftest` pass with an EXP noting what overlaps were delegated; **or** (b) a board/TL decision is recorded (TODO/EXP/claims as appropriate) explicitly amending M3.19’s M1.12-import clause with rationale. In either case, when this PR merges it sets M3.19 `Status` back to `open` (or `done` only if clause (b) makes M3.19’s remaining done-when satisfied and documented) per rule 15.
-  - Stop: if reader_precheck and sh4scan have no safe overlap to delegate, choose path (b) with a clear rationale rather than forcing a meaningless import.
-  - Claims: C-3410–C-3411
-  - Result: EXP-2026-11-09-H48-reader-precheck-sh4scan.md (path a). `reader_precheck.py` imports `sh4scan` and delegates LE halfword edge-scan primitive `_words` → `sh4scan.halfword_array`; `sh4scan`/`reader_precheck` selftests pass (synthetic + real build-A pins when image found). M3.19 reopened by rule 15 note (PR #170) for closure on merge.
 
 - [x] **H49 — PM twelfth pass: re-classify the "compressed sec1" blockers**
   - Status: done · Owner: claude/project-thread-sjt02x · Critical: yes
@@ -815,6 +736,18 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: after the report; editing each doc/tool citation is H52's job, not this task's.
   - Claims: C-3640–C-3649
 
+- [ ] **M1.26 — `fn_audit --scope l3`: turn H52's audit into the standing PR gate the M1.25 plan skipped**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Depends: M1.25 (`fn_audit.py`), M1.23 (pdata-backed labels)
+  - Goal: M1.25 ends with `fn_audit --scope docs` over `TODO.md`, `docs/format/*.md` and `targets.json`. The M9/M3 board cites dozens more VAs inside task blocks (`l3_harness` targets, EXPs, `_l3.py` constants); without this, the next mid-function entry (H51 found three) ships unnoticed. Close H52 with an automated check rather than a one-off table.
+  - Precheck: `python3 tools/fn_audit.py --selftest` passes; `python3 tools/fn_audit.py --scope l3 archive/head256.img` reports the H52 three (`0x0041c7e8`, `0x00412bee`, `0x00542256`) as `INSIDE` with their true starts.
+  - Scope: extend `tools/fn_audit.py` with `--scope l3` scanning `tools/l3_harness/targets.json`, `docs/format/firmware.md`, `docs/experiments/EXP-*.md` (parsed only, EXP files are read-only) and every `0x…` in open task blocks. Exit 1 on `INSIDE`. Not: editing the citations (H52) or re-deriving readers.
+  - Input: `tools/fn_audit.py` (M1.25 output), H52 table format, `pdata.py` (census), EUs/US builds.
+  - Hints: EXPs cannot be edited (append-only); report their stale VAs in a file `docs/research/fn-audit-2026-11-13.md` instead. `GAP` needs a direct `bsr`/`jsr`/pool caller to count as a leaf; H51's `sh4xref` `fn` heuristic is not evidence (M1.25 states the mismatch rate).
+  - Done when: `--scope l3` covers ≥ 3 corpora (targets, firmware.md, open task blocks), reproduces H52's three, is wired into `tools/selftest.py` as a skipped fixture plus a synthetic `INSIDE` that must fail, and the audit file lists every remaining `INSIDE`/`DATA/UNKNOWN` with a task ID that fixes it. H52 closes with the applied table (rule 15).
+  - Stop: if a corpus has no reproducible parser, list it as `NOT SCANNED` with the reason rather than guessing.
+  - Claims: C-3660–C-3669
+
 
 ## M2 — Map code, activation, updater
 
@@ -968,18 +901,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Unblock: re-run M4.24 when mark (`w[1]`), `nb[2]` (side), `nb[3]`, `e[1]`, `e[2]` and the L5/L4 node ordering are derived as deterministic functions of the parent record (no fitting), then reproduce all 76+34 odd records word for word.
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
   - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
-
-- [x] **M1.18 — Bound `l3_harness` selftest runtime and keep full coverage available**
-  - Status: done · Owner: task/m1.18-l3-harness-selftest-runtime · Critical: no · Pair: solo
-  - Depends: — (coordinates with H38)
-  - Goal: `tools/l3_harness/runner.py --selftest` / full L3 harness checks can dominate agent loops (observed timeout during SE review); make the fast path bounded while preserving a full, honest selftest.
-  - Precheck: reproduce baseline runtime: `python3 tools/l3_harness/runner.py --selftest` or the harness aggregate used by H38/selftest.py; record wall time and which cases dominate.
-  - Scope: `tools/l3_harness/selftest.py` and/or `runner.py selftest` interface (add `--quick`/`--full` or split slow cases, name chosen form in PR) plus documentation; integrate cleanly with H38/selftest.py selectors. No change to verdict semantics; SKIP/BLOCKED remain honest.
-  - Input: `tools/l3_harness/selftest.py`, `runner.py`, `dispatch.py`/`engine.py`/`ghidra/l3_run.py` selftests, H38, `tools/selftest.py`.
-  - Done when: the default/quick harness check used by main loops completes within a documented bound and `--full` (or equivalent) still runs the complete suite; `selftest.py` behavior remains correct; EXP records timings and controls (quick pass, full pass, or explicit SKIP reasons).
-  - Stop: if PySh4/module-mapping cases cannot be made fast without reducing coverage, keep them in `--full` and document the split; do not remove slow-but-meaningful checks.
-  - Claims: C-3390–C-3399
-  - Result: EXP-2026-11-09-M1.18-l3-harness-selftest-runtime.md — `--quick` (default) / `--full` on engine, runner, l3_harness/selftest, dispatch, ghidra/l3_run; quick bounded <0.2s each (engine ~0.06s) and skips external Ghidra/QEMU execution honestly (`SKIPPED_IN_QUICK`/`MISSING_*`, never PASS). Full runs complete suite with wall-clock bounds (runner full 45.10s OK; engine full attempts QEMU parity and fails loudly on this host's unverified gdbstub adapter, 60s bound). `tools/selftest.py`, `claims_check.py`, `todo_check.py` pass.
 
 ## M3 — Reader contract
 
@@ -1432,38 +1353,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Result: done (TL closure 2026-11-09). `docs/experiments/EXP-2026-11-08-M3.19-sh4scan.md` (verification addendum) reproduces all published counts on IMG256.head `92aa525d…` incl `mask-pair --via-reg`=1 @ Navi.exe `0x003715c8/ca/cc`; `sh4scan --selftest` OK; M1.12 import clause satisfied by H48 (`reader_precheck.py` imports/delegates to `tools/sh4scan.py`, EXP-2026-11-09-H48-reader-precheck-sh4scan, C-3410–C-3411). Claims C-2530–C-2539 remain as recorded.
   - Claims: C-2530–C-2539
 
-- [x] **H37 — 24h senior-engineer review: completed tasks and experiments**
-  - Status: done · Owner: task/h37-24h-se-review · Critical: no · Pair: solo
-  - Depends: —
-  - Goal: audit tasks completed in the 24h window for `Done when` compliance, EXP/TEMPLATE.md quality, claim reproducibility, and retired-lead traps; add follow-up tasks where defects or deepening opportunities exist.
-  - Scope: commits `88332de..65e6ae2` on `origin/main` (2026-11-08 24h window); sampled EXPs and TODO task blocks; cheap tool selftests and `claims_check.py`/`todo_check.py`. No vendor-image reruns beyond selftests, no QEMU/Ghidra.
-  - Input: `git log --since=24.hours origin/main`, `docs/experiments/EXP-2026-11-08-*` added in range, `docs/experiments/TEMPLATE.md`, `AGENTS.md`, `TODO.md`, `docs/research/claims.md`.
-  - Done when: EXP `docs/experiments/EXP-2026-11-09-H37-24h-se-review.md` records the audit (commands, controls, scope, falsifier, observations/interpretation) and TODO contains the follow-up tasks from this pass.
-  - Claims: C-3130–C-3139
-  - Result: EXP-2026-11-09-H37-24h-se-review.md (80 commits 88332de..65e6ae2 audited; 7 follow-up tasks added H38/H39/M4.35/M5.31/M5.32/M9.28; claims_check OK; sampled selftests OK; no done-task status reversals).
-
-- [x] **H38 — `selftest.py`: discover and run `tools/l3_harness` selftests**
-  - Status: done · Owner: task/h38-selftest-l3-harness · Critical: yes · Pair: solo
-  - Depends: —
-  - Goal: prevent L3 harness regressions from bypassing the main selftest gate (M9.20 noted `tools/selftest.py` does not discover `l3_harness/`).
-  - Scope: `tools/selftest.py` discovery/wiring and/or a thin wrapper; run `tools/l3_harness/selftest.py` (and any `l3_harness` tools with `--selftest` that fit the suite contract) as part of `python3 tools/selftest.py`. No behavior changes to harness logic.
-  - Input: `tools/selftest.py`, `tools/l3_harness/selftest.py`, `tools/l3_harness/dispatch.py --selftest`, `tools/l3_harness/engine.py --selftest`, `tools/l3_harness/runner.py selftest`, `tools/l3_harness/ghidra/l3_run.py --selftest`; EXP-2026-11-08-M9.20.
-  - Done when: `python3 tools/selftest.py` reports the l3_harness checks (or a named aggregate) and exits non-zero on harness selftest failure; `python3 tools/selftest.py --only l3_harness` (or documented selector) works if selectors are supported; SKIP/blocked cases remain honest (e.g. Ghidra/QEMU absent). `tools/README.md` updated if needed.
-  - Stop: if `l3_harness` selftests require environment assumptions incompatible with the main suite, integrate them as an explicit sub-suite with clear SKIP reasons and keep the main gate green only when the sub-suite passes or is honestly skipped.
-  - Claims: C-3160–C-3169
-  - Result: EXP-2026-11-09-H38-selftest-l3-harness.md (`selftest.py` discovers `tools/l3_harness/`+`ghidra/`, reports aggregate `tool:l3_harness` PASS and compatible `tool:l3_harness.*` suites; `--only l3_harness` works; full `selftest.py` 103 suites 81 PASS/0 FAIL/22 SKIP; FAIL propagation verified by control; Ghidra/QEMU absence honest SKIP/BLOCKED inside aggregate, never PASS; README updated; no harness logic changes; `todo_check`/`claims_check` OK with pre-existing warnings only).
-
-- [x] **H39 — `ze0-viewer/harness.py info`: tolerate opaque/unparseable records**
-  - Status: done · Owner: task/h39-ze0-viewer-info · Critical: no · Pair: solo
-  - Depends: —
-  - Goal: make tile inspection usable on factory tiles that contain opaque/bad records (M5.4 noted `harness.py info` crashes with `zlib.error` on `B48R058R`; `harness.py verify` still runs).
-  - Scope: `tools/ze0-viewer/harness.py` `cmd_info`/info path only. No parser behavior changes in `tools_ze0` unless required and isolated; prefer catching/reporting bad records with counts and offsets.
-  - Input: `tools/ze0-viewer/harness.py`, `tools/ze0-viewer/tools_ze0/` readers, EXP-2026-11-08-M5.4 (Observation 3/7 notes), EXP-2026-11-08-M9.22 (opaque B30R048R context).
-  - Done when: `python3 tools/ze0-viewer/harness.py info <tile>` on a tile containing the known opaque/bad-record pattern reports the records as bad/opaque with counts (and does not crash), while `verify` behavior remains unchanged for the checked cases; a synthetic or minimal fixture covers the crash path if practical, otherwise the EXP records the real-tile command/result and SHA-256.
-  - Stop: if the crash is inside vendored `tools_ze0` and cannot be fixed without changing pinned vendor behavior, document the limitation, add a targeted wrapper/fallback in `harness.py`, and file a follow-up naming the vendored function.
-  - Claims: C-3180–C-3189
-  - Result: EXP-2026-11-09-H39-ze0-viewer-info.md (harness.py `--selftest` PASS, synthetic no-vendor fixture: bad zlib record reported as `unreadable/opaque 1` with dir/slot/k locator, no crash; clean synthetic info/verify unchanged; `read_tile`/header/bbox parse failures caught with scan fallback; `cmd_verify`/`tools_ze0` unchanged; real `B48R058R` not rerun here — M9.25 EXP covers).
-
 - [ ] **H40 — L1/L2 generated-fixture contract: deterministic in-process fixture + coherent ZE0 card/tree builder (no vendor data)**
   - Status: open · Owner: — · Critical: yes
   - Depends: H26
@@ -1513,18 +1402,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: validators pass on synthetic positive/negative fixtures; CI output shows L5 readiness-checked and local-only sections; H27 can ingest manual-result template format; no default PR job downloads vendor images.
   - Stop: if H29 format undefined, deliver minimal schema proposal + synthetic fixture and block implementation details on H29 with `Unblock:`.
   - Claims: C-3310–C-3319
-
-- [x] **M3.21 — Close M3.19: reproduce all `sh4scan` counts on IMG256 including `mask-pair --via-reg`**
-  - Status: done · Owner: task/m3.21-close-m3.19-sh4scan-counts · Critical: yes · Pair: solo
-  - Depends: M3.19, M3.20
-  - Goal: M3.19 is open after M3.20 added register-AND mask handling, but its done-when requires reproducing every published count on IMG256 (including the M3.11 mask hit) and recording the corpus. Verify and close M3.19 or record a precise discrepancy.
-  - Precheck: `python3 tools/sh4scan.py --selftest` passes and `--help` shows `mask-pair --via-reg`; `python3 tools/fetch_image.py --image IMG256 -o IMG256.head` can obtain the pinned head (rule 11).
-  - Scope: run `sh4scan.py` subcommands on IMG256 build A (`--image-start 0x200200`) for the counts in M3.19 scope: corpus bytes/sections, tags/pattern `8868`, `mask-pair` and `mask-pair --via-reg` for the M3.11 case, stride, anchors. Compare to published counts; do not adjust tool to fit (AGENTS/EXP stop rule).
-  - Input: `tools/sh4scan.py`, M3.19 EXP/count list, M3.20 `--via-reg`, IMG256 `92aa525d…`.
-  - Done when: an EXP table shows each published count, the command, and reproduced? (yes/no) on IMG256; M3.19 is set `done` with `Result:` if all counts reproduce (with M3.20 variant where applicable), or `blocked` naming the exact differing count/site and `Unblock:`. Any non-reproduced published number is corrected in claims/EXP text, not hidden.
-  - Stop: if IMG256 cannot be obtained in the environment, set `blocked` with fetch/provenance issue named (not "no image" as a blanket blocker — use fetch_image path per rule 11).
-  - Result: `docs/experiments/EXP-2026-11-09-M3.21-sh4scan-counts-repro.md` (C-3380). All M3.19-scoped published counts reproduced on IMG256 `92aa525d…` incl `mask-pair --via-reg`=1 @ Navi.exe `0x003715c8/ca/cc R3 (+4 B)`, pattern `8868` 23 incl `0x0037c268`, anchors 527/282/245/23559542 B; no published count corrected. M3.19 already `done` (PR #172/H48). `claims_check`/`todo_check`/`sh4scan --selftest` OK.
-  - Claims: C-3380–C-3389
 
 - [ ] **M3.22 — Who writes the `0x00d53500` table (HDLMAP / RDSTM schema)**
   - Status: open · Owner: — · Critical: yes
@@ -1925,6 +1802,18 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 ---
 
+- [ ] **M4.36 — Link `ADDRE`/`POINT` records to the tile section-4 index (road-name and place lookup key)**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M3.13 (ADDRE reader), M3.9 (section-4 index, done), M4.16b
+  - Goal: the L2 reader model today decodes tile section 4 (admin/place-name index) and the odd name section separately, but no task proves how an `ADDRE` id resolves to a *named* street through the section-4 index. Routing and map display need that join; without it a generated Polish tile renders roads with no names even when every record is structurally valid.
+  - Precheck: `python3 tools/ze0-viewer/harness.py info B48R058R.DAT` shows non-zero section-4 entries; `python3 tools/addre_reader.py --selftest` (or M3.13's tool) passes; on a factory EU tile, one known street name from `B48R058R` decodes through section 4 to its `ADDRE` record.
+  - Scope: factory EU 2011 `B48R058R` and one US tile; `docs/format/refer.md` §section-4, `tile section 4` claim rows, `tools/ze0-viewer` readers. Not: the `REFER002` EV layer, not POI. No new vendor bytes committed — offsets/counts/hashes only.
+  - Input: `docs/format/tile.md`/`refer.md` section-4 pages, M3.9 EXP, M3.13 ADDRE reader, `tools/ze0-viewer/tools_ze0`, US `ADDRE`/`POINT` share ids (AGENTS "Format facts").
+  - Hints: AGENTS already states `ADDRE`/`POINT` share ids and the join is street + house number; the open question is which section-4 field indexes the name (offset vs ordinal) and whether US stores `ltntbl.dat` case-sensitively. Start with one street whose name is unique in the tile (positive control) and one absent street (negative).
+  - Done when: an EXP table `tile / section-4 entry / name / ADDRE id / how resolved` covers ≥ 10 names on EU and ≥ 3 on US with a negative control, `docs/format/refer.md` gains the join, and the viewer `info` prints the resolved name for at least one record. Reader-coverage row updated; L3 reader VA named if M3.13 has one.
+  - Stop: if the join is not one-to-one, record the ambiguity classes (same name on two streets, unnamed ways) and stop at the mapping table.
+  - Claims: C-3670–C-3679
+
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
 Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
@@ -2322,33 +2211,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     is a page-relocation design (pointer tables), a separate task.
   - Claims: C-2580–C-2589
 
-- [x] **M5.23 — Confirm road-record country word and provisional class mapping**
-  - Status: done · Owner: task/m5.23-roadrec-country-class · Critical: no
-  - Depends: M5.4 (done)
-  - Goal: M5.4 used a provisional class table and a country word taken from the
-    factory context; both are unconfirmed. A wrong country/class field can make
-    a structurally valid tile render or route incorrectly.
-  - Precheck: decode the country/class bytes of factory road records in
-    `B48R058R` (and one other tile) with a control (a record whose class is
-    visually obvious in the factory name/geometry).
-  - Scope: the road-record fields M5.4 writes from the provisional table; does
-    not solve road-class semantics globally (M4.17/M5.3).
-  - Done when: the country word and the class field mapping are confirmed on
-    factory records with a table in the EXP, and `tilewriter.py` uses the
-    confirmed mapping (or keeps a named provisional mapping with the evidence
-    gap stated).
-  - Stop: if the fields vary by layer/kind in a way one table cannot capture,
-    record the cases and scope the writer to the confirmed subset.
-  - Result: EXP-2026-11-08-M5.23-roadrec-country-class (C-2660–C-2666).
-    Level-1 `0x00fa` country confirmed as header `w[20]` = ISO 3166-1 numeric,
-    per record (`w[19]=0`, 45,887 EU records, cross-border variation). Class
-    mechanism `(layer, cls_hi=w[p+2]>>12)` confirmed for all 5 `fa_encode.CLASSES`
-    `(l1,c1)` buckets; OSM→value mapping kept as **named provisional** (factory
-    has unmapped `(layer,cls)` e.g. `(6,7),(6,6),(7,2),(0,10),(0,12)`, M5.3).
-    `tilewriter.py` documents confirmed/provisional semantics; `fa_encode`
-    level-1 `w[19]` aligned to factory `0`.
-  - Claims: C-2660–C-2669
-
 - [x] **M5.24 — `imgpatch` diff check: derive cluster ranges from BPB, not the write offset**
   - Status: done · Owner: task/m5.24-imgpatch-diff-bpb · Critical: no
   - Depends: M5.13b (done)
@@ -2481,11 +2343,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if changed tile/manifests cannot fit existing chains and relocate/reconcile widens diff beyond changed files, record ranges and stop — do not claim one-variable.
   - Claims: C-3060–C-3069
 
-- [x] **M5.31 — `mkcard --reconcile` resize: envelope contract, stale-tail policy, fresh-build contrast**
-  - Status: done · Owner: task/m5.31-mkcard-reconcile-resize · Critical: no · Pair: required
-  - Depends: M5.20
-  - Result: EXP-2026-11-09-M5.31-mkcard-reconcile-resize. `mkcard --reconcile` names actual DRSTR index/value bytes as `drstr:index` with image offsets (eu-grow: 2 ranges, `drstr_other` absent) and classifies diff ranges without weakening `outside_count==0`. Stale-tail default zero-fill; opt-in `--preserve-stale-tail` preserves factory slack only in existing-chain clusters (newly allocated clusters zero-filled), tested one-variable in R8 with invariants preserved. EU2011 (`105e2032…`) uncapped contrast, one variable: eu-same reconcile 1 range / fresh 24,173,274 ranges (~5.17 GB); eu-grow reconcile 246 ranges (dir/file/drstr:index) outside 0 cardcheck PASS / fresh 24,173,273 ranges. `mkcard`/`imgpatch` selftests + claims/todo OK.
-  - Claims: C-3170–C-3175
 - [ ] **M5.32 — Resolve M5.12c's 5 unfit POI pages with the M5.21 slot-budget strategy**
   - Status: open · Owner: — · Critical: yes · Pair: required
   - Depends: M5.21, M5.27
@@ -2508,6 +2365,18 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: M5.29's `Done when` is met on the factory root (`cardcheck` + applicable `l2check` pass, gate report per file), exactly one tile differs from factory and inside it only the chosen directory; PR #171 is merged or closed in favour of this PR; M5.29 → done, M5.30 open.
   - Stop: if every candidate parcel fails L2 for a reason other than the directory kind, record the first failing check and block on that.
   - Claims: C-3560–C-3569
+
+- [ ] **M5.35 — One-command Poland card proof: `mkpoland` runs compiler → L1 → L2 → L3 gate and writes the evidence bundle**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M5.11, M5.30, M5.29 (gate report format), M9.12 (card gate, once unblocked)
+  - Goal: every Poland milestone so far is a chain of manual commands in EXPs; a bench card needs one reproducible command that names the input OSM extract, writes the card, runs `cardcheck`/`l2check`/`l3check --card` and emits a machine-readable bundle. This is the L1→L2→L3 evidence path the PO prioritises, and it makes each L5 run one variable.
+  - Precheck: `python3 tools/l2check.py --help | grep -- --cmp-limit` and `python3 tools/mkcard.py --selftest` pass; M5.30 produces a card that differs from factory only in expected clusters. If M5.11's compiler entry point is not yet stable, name the current one in the EXP and gate the wrapper on it.
+  - Scope: new `tools/mkpoland.py` (`--selftest`, synthetic no-vendor fixture): `--osm EXTRACT --factory IMAGE -o OUT.img` calls the Poland compiler, `cardcheck --image`, `l2check --root` on the extracted tree, and `l3check --card` when a runnable target set exists; writes `bundle/manifest.json` (input/OSM SHA-256, tool versions, per-stage PASS/FAIL/SKIP/NOT_RUNNABLE, changed-cluster list) and `bundle/report.md`. Never promotes SKIP/BLOCKED to PASS (rule 13). Not: automatic car/bench execution.
+  - Input: `M5.11` compiler CLI, `tools/mkcard.py`, `tools/cardcheck.py`, `tools/l2check.py`, `tools/l3check.py`, M5.29 EPX gate-report format, `profiles/dolnoslaskie*`.
+  - Hints: reuse H27 `progress_schema` for status classes so the bundle feeds `progress_report.py`; the L3 stage must report `NOT_RUNNABLE` honestly on a host without the firmware image and never fabricate a verdict. The no-vendor CI path runs the synthetic fixture only.
+  - Done when: one command produces a bundle on the committed synthetic fixture; on the factory EU image it produces a bundle whose L1/L2 stages pass and whose L3 stage names runnable/blocked targets; a selftest proves a forced L2 failure makes the command exit non-zero and the manifest records `FAIL`.
+  - Stop: if M5.11's CLI is not yet callable as a library or command, deliver the stage runner + manifest with the compiler stage `NOT_IMPLEMENTED` and block on M5.11 naming its entry point.
+  - Claims: C-3680–C-3689
 
 ## M6 — L5 bench/car: hardware and safety
 
