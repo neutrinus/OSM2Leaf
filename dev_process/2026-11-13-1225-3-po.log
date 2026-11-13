@@ -26,15 +26,16 @@ actions_taken:
   M4.36 ADDRE/POINT <-> tile section-4 name join (Pair: required),
   M5.35 mkpoland one-command card + L1/L2/L3 evidence bundle (Pair: required).
 - Rule 15 audit: ZERO blocked tasks have a done task in Unblock (checked all 25). M4.22's "new
-  task needed" is now M4.36, recorded as a note; left blocked (its own work is unstarted).
+  task needed" is now M4.36, recorded as a Note; left blocked (its other half is unstarted).
 - Rejected adding: M9.39 L3 evidence ledger (no capability change), M9.40 L3 stage for
   progress_report (dup of M9.32), extra US-bench tasks (M6.5/M6.15 already exist).
 - Ran todo_check (0 errors, 125 warnings, pre-existing) and claims_check (OK).
-- Commit + push this log with the board change.
+- Commit + push this log with the board change (44b921c; follow-up 68c3b3e records M4.36 on M4.22).
 
 task_ids_added: M1.26, M4.36, M5.35
 task_ids_changed: Priorities + Workstreams table (no status changes)
 task_ids_blocked/reopened: none reopened (no done blocker); M4.22 note points at M4.36
+task_ids_annotated: M4.22 (Note -> M4.36)
 task_ids_archived: H46 H47 H48 H37 H38 H39 M1.18 M3.21 M5.23 M5.31 (-> todo-history-2026-11-13.md)
 prs: none opened
 commits: docs: PO grooming 2026-11-13 — archive, priorities, 3 tasks (this run)
