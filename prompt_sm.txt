@@ -6,7 +6,7 @@ Review the commits from the last 24h (`git log --since=24.hours --stat origin/ma
 
 Review the prompts of the other roles in this repo (prompt_*.txt, including prompt_common.txt).
 
-Write a retro to docs/retro/YYYY-MM-DD.md (today's date; add -2 for a second one on the same day). Look for places where we got stuck or where someone is going around in circles.
+Write a retro to docs/retro/YYYY-MM-DD.md (today's date; add -2 for a second one on the same day). Look for places where we got stuck or where someone is going around in circles. Also list ghost claims: tasks `in progress` with no owner branch, no PR and no work log for >24h — they block pickups just as much as open PRs.
 
 Include a few numbers so retros can be compared over time:
 - tasks done / blocked / re-opened in the window; tasks claimed but with no commit for >24h;

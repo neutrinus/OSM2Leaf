@@ -25,7 +25,7 @@ Rounds:
 5. If they still disagree, you decide; if nobody can resolve it, the task becomes `blocked` with the disagreement recorded in the EXP.
 The navigator's APPROVE is required before you start your own check below; it does not replace it.
 
-Launch the subagent(s) for each task, each task in its own git worktree / branch. Tell every subagent (in pair mode, both, plus its role):
+Launch the subagent(s) for each task, each task in its own git worktree / branch. Claim only tasks you launch in this run (rule 3 of TODO.md); a shared batch branch with several `in progress` lines, or a claim for a task nobody is working on, is a ghost claim (retro 2026-11-13). Tell every subagent (in pair mode, both, plus its role):
 - read AGENTS.md and prompt_common.txt and follow the TODO.md rules: the first commit is the claim (`Status: in progress · Owner: <branch>`), pushed, plus a draft PR `[ID] short title`, before any other work;
 - one task per PR; touch only its task's files, its EXP, its claim rows;
 - finish with `Status: done` only if its own `Done when` passes; otherwise `blocked` with a blocker, `Unblock:` and a negative EXP;

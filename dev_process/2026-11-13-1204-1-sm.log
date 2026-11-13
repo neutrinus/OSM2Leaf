@@ -1,0 +1,58 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (session subagent)
+start_utc: 2026-11-13 12:04
+end_utc: 2026-11-13 12:35 (approx)
+origin_main_start: 777fb681fda7b77861a260066793b3c61a087353
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt
+- docs/retro/2026-11-09-3.md, 2026-11-09-2.md (numbers sense)
+- dev_process/2026-11-09-1413-9-sm.log .. 2026-11-10-1414-1-tl.log (14 logs since previous retro)
+- prompt_po.txt, prompt_qa.txt, prompt_se.txt, prompt_tl.txt
+- git log --since=24.hours and since 2026-11-10 origin/main; gh pr list --state all; remote branches ahe
+ad of main
+- TODO.md status lines/blocks; tools/todo_check.py; tools/claims_check.py; pdata/fn_match selftests
+
+actions_taken:
+- git fetch; confirmed origin/main 777fb68, tree clean except untracked .claude/. Started this log (N=
+1, no 2026-11-13 logs).
+- Measured the window: 3 commits in 24h, 26 since previous retro commit 861fe9c. Reason: retro scope,
+  and the 24h window alone hides the 2026-11-11/12 work.
+- Audited the 2026-11-12 batch: 19 tasks set in progress under one owner `tasks/batch-2026-11-12`, no
+  PR, no log; integration commit names 6 tasks but carries files for only 3 (M1.20, M1.22 fn_match,
+  M3.13 docs). Reason: the biggest process risk in the window.
+- Checked PRs/branches/worktrees: 1 open draft PR (#171), 5 remote branches ahead of main, 30+ stale
+  .claude worktrees. Reason: board/PR reconciliation numbers.
+- Ran todo_check (OK, pre-existing warnings), claims_check (OK), pdata/fn_match selftests (OK).
+  Reason: cheap sanity of the landed tools.
+- Wrote docs/retro/2026-11-13.md with numbers, circles, prompt-change record, 5 actions. Reason: role
+  deliverable.
+- Prompt edits (recorded in retro, before/after): prompt_common.txt batch-claim rule; prompt_tl.txt
+  one-PR-per-task / no pre-claiming; prompt_sm.txt ghost-claim check. Reason: 19 invisible claims.
+
+task_ids_added: none
+task_ids_changed: none (SM does not edit task status)
+task_ids_blocked/reopened: none
+prs: none opened
+commits: docs: sm retro 2026-11-13 and batch-claim prompt rules (this run)
+end_utc: 2026-11-13 12:40 (approx)
+
+decisions:
+- Treated the batch as the retro's main finding rather than writing a generic retro. Alternative:
+  ignore it as "someone else's parallel work" - rejected because no PR/log means no audit trail.
+- Did not set M1.20/M1.22 to done myself (no EXP for M1.22, board/PR mismatch). Left to TL/SE, who own
+  task status; retro actions say exactly which task each owner reconciles.
+- Made 3 minimal prompt edits; rejected rewriting prompt_qa/tl flow (no observed failure there).
+
+problems/dead_ends:
+- .claude/worktrees has 30+ detached trees at 2026-11-08/09 commits; `git worktree list` output is
+  noisy and some are locked. Not removed (not mine to delete); flagged.
+- M3.13 EXP says "Status: done (partial ... done-when not met)" - self-contradictory; recorded.
+- fn_match.py landed with no EXP/census, though M1.22's done-when requires one; recorded.
+
+handoff:
+- SE next: reconcile M1.20 (EXP present), M1.22 (no EXP), M3.13 (EXP says not met -> blocked), M3.2b
+  (no new work), M9.38 (no engine diff) against main before anything else.
+- TL: do not start new tasks until the 19 batch claims are resolved; one PR per task when you do.
+- PO: release stale claims and continue archive; decide #171 with human.
+- Human: decide whether the 2026-11-12 batch is finished by its author or handed to TL.

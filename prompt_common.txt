@@ -20,6 +20,9 @@ Hard rules:
 - When your task's commits are on `origin/main` (done or blocked), close its
   draft PR and delete the remote branch. Do not open a second PR for the same
   task ID; update the existing draft or coordinate through the TL.
+- One task = one owner branch + one draft PR. Never set several tasks
+  `in progress` under one shared batch branch: a claim with no PR and no work
+  log is invisible and unreviewable (retro 2026-11-13).
 
 Verification levels (details: docs/research/feedback-loop.md; mapping note there — **before 2026-11-09 L4=car/bench, L5=full-system emulator; after 2026-11-09 L4=full-system emulator, L5=car/bench**):
 - L1 structural: `tools/cardcheck.py` — card/FAT/files/sizes/indexes consistent.
