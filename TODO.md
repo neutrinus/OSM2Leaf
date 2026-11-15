@@ -509,7 +509,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     duplications left documented (C-2736).
 
 - [ ] **H52 — Audit every cited `fn 0x…` against `.pdata`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/h52-fn-citation-audit · Critical: yes
   - Depends: M1.25 (done; `--fix-list` gives the 12-row table) — the all-modules table is M1.20, not needed for the cited VAs (SE 2026-11-15)
   - Goal: H51 found three "functions" that are not function starts (`0x0041c7e8` → `fn 0x0041c7dc`, `0x00412bee` → `fn 0x00412ac0`, `0x00542256` → `fn 0x00542250`). A cross-reference search for a mid-function address finds nothing, and an L3 call that enters after the prologue runs with a wrong stack frame. Find every other such VA before more tasks build on them.
   - Precheck: `python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x0041c7e8 0x0041c7dc` prints `INSIDE` then `START`.
