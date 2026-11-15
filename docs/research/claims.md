@@ -2691,6 +2691,21 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3718 | RESERVED (H55). | — | — | — |
 | C-3719 | RESERVED (H55). | — | — | — |
 
+## H54 — `worktree_audit.py`: stale worktrees and ahead-branches (C-3690–C-3699)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3690 | `tools/worktree_audit.py` is stdlib-only and exposes `--selftest`, `--json`, `--prune` (dry run) and `--prune --apply`. The selftest builds a throwaway `git init` repository plus detached/recent/locked/ahead-for-done/ahead-for-blocked/ahead-for-open/merged fixtures, needs no vendor data, and passes 14 checks; `selftest.py` discovers it as `tool:worktree_audit` (`PASS`). | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py --selftest`, `python3 tools/selftest.py --only worktree_audit` |
+| C-3691 | On this checkout (`origin/main eccace9`, 2026-11-15) the audit reports 35 non-main worktrees (2 locked), 7 remote branches ahead of `main`, 19 `STALE` rows and 18 prunable worktrees; the independent oracle agrees (`git worktree list \| wc -l` = 36 including `main`; a `git rev-list --count origin/main..BRANCH` loop lists the same 7 ahead branches). The 2026-11-15 retro's 34/5 predates two new ahead worktrees (`task/h54-…`, `task/m1.25-…`). | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py --json > /tmp/opencode/h54.json` |
+| C-3692 | `STALE` = (detached tree older than 7 days whose commit is an ancestor of `main`) OR (branch ahead of `main` for a task whose `TODO.md` status is `done`/`blocked`). On this checkout: 15 detached-ancestor trees (7.4–7.5 d) + 4 ahead rows (`M4.29` branch, `M5.29` ×2, `M9.11`), 19 total. The selftest proves a recent detached tree stays active and a merged branch is not listed. | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py` |
+| C-3693 | `--prune` is a dry run: it prints `git worktree remove -- PATH` for the 18 stale unlocked worktrees and deletes nothing (`git worktree list \| wc -l` = 36 before and after); the printed set equals the `STALE` worktree rows. The tool never deletes a branch, and `--apply` removes worktrees only. | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py --prune` |
+| C-3694 | The 2 `locked` worktrees (`claude agent … pid 16394`) are reported with their lock reason and the `LOCKED` flag, are classified neither stale nor pruneable, and survive `--prune --apply` (selftest keeps the locked fixture tree on disk). | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py --prune` |
+| C-3695 | Task IDs are taken only from the branch name (`task/h54-…` → `H54`); 27 of 39 rows are `UNKNOWN` on this checkout (25 detached trees with no branch name + 2 named branches without an ID, e.g. `chore/decomp-oracle-restore`). The tool does not guess from commit messages or dates. | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py --json > /tmp/opencode/h54.json` |
+| C-3696 | RESERVED (H54). | — | — | — |
+| C-3697 | RESERVED (H54). | — | — | — |
+| C-3698 | RESERVED (H54). | — | — | — |
+| C-3699 | RESERVED (H54). | — | — | — |
+
 ## M1.23 — `.pdata` wire-up in `cerom`/`sh4xref`/`sh4scan`/`reader_precheck` (C-3610–C-3619)
 
 Corrected restatement of the C-3510–C-3519 proposals of
