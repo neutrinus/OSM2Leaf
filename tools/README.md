@@ -342,14 +342,24 @@ python3 tools/va_class.py IMG --module Navi.exe --resolve-with 0x3e00200 \
 python3 tools/va_class.py --selftest
 ```
 
-## `fn_audit.py` — audit cited `fn`/`sub_` VAs against `.pdata` (M1.25)
+## `fn_audit.py` — audit cited `fn`/`sub_` VAs against `.pdata` (M1.25/M1.29)
 
 Every cited VA is classified by the module's `.pdata` (via `pdata.py`, never a
-byte grammar): `START`, `INSIDE <true start>`, `GAP(leaf)` (no record, but a
-direct caller), `GAP(DATA/UNKNOWN)`, `AMBIGUOUS` (two builds disagree) or
-`UNMAPPED` (a generic constant outside every table, not an error). Corpora:
-`docs/format/*.md`, `TODO.md`, `targets.json` firmware entries and `tools/*_l3.py`
-constants. Exit 1 on any `INSIDE`; `--fix-list` prints `0x<mid> -> 0x<start>`.
+byte grammar): `START`, `INSIDE <true start>`, `CORRECTED <true start>`,
+`GAP(leaf)` (no record, but a direct caller), `GAP(DATA/UNKNOWN)`, `AMBIGUOUS`
+(two builds disagree) or `UNMAPPED` (a generic constant outside every table,
+not an error). Corpora: `docs/format/*.md`, `TODO.md`, `targets.json` firmware
+entries and `tools/*_l3.py` constants. Exit 1 on any `INSIDE`; `--fix-list`
+prints `0x<mid> -> 0x<start>`.
+
+`CORRECTED` is a documented correction, not a failure: a bare VA on a
+correction line whose own `→` pair names the same start `.pdata` gives
+(`0x00542256 → fn 0x00542250`, `0x003f5fc2`→`0x003f5f48`), or a VA on the
+explicit `CORRECTION_ONLY` allowlist whose pinned start still matches the image
+(prose whose true start sits on another line). A live `fn 0x…`/`sub_…` label of
+the same VA, or a repeated bare VA without its own pair, stays `INSIDE`; the
+summary prints `CORRECTED n` and a `correction-only` line names allowlisted
+VAs that have no live label left.
 
 ```bash
 python3 tools/fn_audit.py archive/head256.img              # full report, exit 1 on INSIDE
