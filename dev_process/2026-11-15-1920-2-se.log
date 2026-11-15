@@ -1,0 +1,55 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 19:20
+origin_main_start: aba0df4 (sm retro 2026-11-15)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-15.md, dev_process/2026-11-15-1909-1-sm.log,
+  dev_process/2026-11-13-{2-se,3-po}.log
+- git log 549c794..origin/main; TODO.md blocks M1.20/M1.22/M1.23/M1.22b/
+  M1.24/M1.25/M1.26, M4.36, M5.35; claims.md head
+- tools/todo_check.py, tools/claims_check.py, tools/selftest.py --only pdata
+
+actions_taken:
+- Started this log (N=2 for 2026-11-15). No work in the 48h window to audit;
+  audited instead the 2026-11-13 follow-ups (SE reconcile + PO grooming) and
+  the 3 tasks PO added, since nothing has run since.
+- Checked the 3 new PO tasks for a runnable Done when and duplicates:
+  M1.26 (fn_audit --scope l3), M4.36 (ADDRE/POINT <-> section-4 join),
+  M5.35 (mkpoland evidence bundle). All three have Done when + falsifier;
+  none duplicates an open block (M1.26 distinct from M1.25; M4.36 new).
+- Rule 15 audit: 30 blocked tasks; none names a done task in Unblock (the 3
+  blocked in-window name M1.23, M1.22b, M3.22/M9.38/M3.24, all open/blocked).
+- Ran todo_check (0 errors), claims_check (OK), pdata --selftest (PASS).
+  Reason: cheap sanity of the tools the next batch depends on.
+- Found one real evidence gap (below) and added 2 tasks.
+
+task_ids_added: H54 (worktree/branch hygiene command), M1.27 (fn_match leaf
+  path + pdata GAP control, the concrete first half of M1.22b)
+task_ids_changed: none (no status change justified: nothing completed)
+task_ids_blocked/reopened: none
+prs: none
+commits: todo: add H54 worktree audit and M1.27 fn_match leaf control
+
+decisions:
+- Did not re-block or re-open anything: the 30 blocked tasks have valid
+  Unblock pointers, and no done-when was re-run because no new work landed.
+- Added H54 as a tool, not a chore: the 34 trees / 5 branches are unchanged
+  across two retros and need a repeatable `--prune`-style audit, not a one-off
+  human sweep (human still runs it; the tool makes the check a command).
+- Added M1.27 because M1.22b is large (hash hardening + census + build field);
+  the leaf path (POINT walker 0x003f5194 is a pdata GAP) is the single
+  reproducible control that separates "matcher weakness" from "real rewrite",
+  and M1.22b's own hint says to do it first.
+
+problems/dead_ends:
+- Multiple prior calls to the same model tool timed out; work continued in
+  smaller steps. No data lost.
+- pandata.py depends on nk_decomp but is not zlib-sensitive; selftest passes
+  on python 3.15.
+
+handoff:
+- QA: run one pass; confirm the test-system gaps are closed or list them.
+- TL: board clean; start M1.23, then M1.22b (M1.27 unblocks its leaf half).
+- PO: decide #171.

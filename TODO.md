@@ -248,8 +248,8 @@ Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**), **M9.12** or 
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H28, H29, H40–H44, H52, H53**; H45–H48 archived 2026-11-13 |
-| M1 | Firmware tooling | **M1.19, M1.21, M1.23, M1.22b, M1.24, M1.25, M1.12, M1.14**; blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b); M1.2f/M1.2g superseded by M1.19 |
+| H | Housekeeping | **H19, H28, H29, H40–H44, H52, H53, H54**; H45–H48 archived 2026-11-13 |
+| M1 | Firmware tooling | **M1.19, M1.21, M1.23, M1.22b, M1.24, M1.25, M1.27, M1.12, M1.14**; blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b); M1.2f/M1.2g superseded by M1.19 |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6), M2.3/M2.5/M2.12/M2.15/M2.18 done |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.17/M3.19/M3.21 done |
 | M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.29, M4.35, M4.22**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b, M4.28, M4.31, M4.16 (→M4.16b) |
@@ -635,6 +635,18 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if making `--strict` fail on the current board would block every PR, ship the fixture+flag and record the current warning count in the EXP instead of demanding a clean board.
   - Claims: C-3650–C-3659
 
+- [ ] **H54 — `worktree_audit.py`: a command that lists stale `.claude/worktrees` and ahead-branches before they rot**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: 34 detached `.claude/worktrees` (2 locked) and 5 branches ahead of `main` have been unchanged across two retros (2026-11-13, 2026-11-15); every agent that runs `git worktree list` pays for it and nobody can tell a live tree from a 2026-11-08 leftover. Make the audit a reproducible command so the human cleanup (retro action 4) is cheap and re-checkable.
+  - Precheck: `git worktree list | wc -l` and `git branch -r` show the counts in the 2026-11-15 retro; `python3 tools/worktree_audit.py --help` exits 2 (tool absent).
+  - Scope: new `tools/worktree_audit.py` (`--selftest`, stdlib only): parse `git worktree list --porcelain` and `git for-each-ref`; for each non-main worktree/branch report `path · branch|detached · commit · age · locked · task ID from the branch name · task status in TODO.md`; flag `STALE` when the tree is detached, older than 7 days and its commit is an ancestor of `main`, or when the branch is ahead of `main` for a task already `done`/`blocked`; `--prune` (optional, dry-run by default) removes only `STALE` unlocked trees and prints the commands it would run. It never deletes a branch or force-removes a locked tree.
+  - Input: `git worktree list --porcelain`, `git for-each-ref --format`, `TODO.md` status lines (reuse `todo_check.parse` if it exposes one, else a small regex), the 2026-11-15 retro numbers.
+  - Hints: two trees are `locked` — report them and skip; `.claude/` is outside the repo's history, so the tool is read-only except for its explicit `--prune`. Test with a temp repo (`selftest` builds one with `git init` plus a fake detached tree) so the check runs in CI with no vendor data.
+  - Done when: the tool reproduces the retro's counts (34 trees, 5 ahead) on this checkout; `--prune` dry-run names the same stale set and deletes nothing; selftest covers stale/active/locked/ahead-for-done; wired into `tools/selftest.py`.
+  - Stop: if a tree's task cannot be inferred from the branch name, list it as `UNKNOWN` rather than guessing.
+  - Claims: C-3690–C-3699
+
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
   - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)
@@ -702,7 +714,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M1.22b — Harden `fn_match` to ≥90 % on the cited EU readers: exact instruction-level diff and the EU→US census EXP**
   - Status: open · Owner: — · Critical: yes · Pair: required
-  - Depends: M1.22 (`fn_match.py`, selftest), M1.20 (`pdata.py`)
+  - Depends: M1.22 (`fn_match.py`, selftest), M1.20 (`pdata.py`), M1.27 (leaf path)
   - Goal: `fn_match match IMG256 US256 --module Navi.exe` maps **5/13** cited readers UNIQUE (SE 2026-11-13); the done-when needs ≥90 %. Find out whether the 8 NOMATCH are real code differences or a matcher weakness (e.g. a missing reloc class, a pool word that is an address in one build and a constant in the other, or a callee index that shifts).
   - Precheck: `python3 tools/fn_match.py match archive/head256.img /tmp/opencode/us256.img --module Navi.exe --va 0x003f5194 0x0041c7dc 0x0041c990 0x0041c044 0x0041a438 0x00419350 0x004125a8 0x003fbed8 0x0040b358 0x003bc960 0x003f632c 0x003f61bc 0x00542250` (make US256 with `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img`; SHA-256 must be `70d945d8…`) reports `unique: 5 … nomatch: 8`; the same command with US replaced by IMG256 reports `unique: 13, nomatch: 0` (positive control).
   - Scope: `tools/fn_match.py` hash/diff (`record_digest_map`, the one-hop call-order propagation) and its CLI; the EU→US table for the cited VAs; `tools/l3_harness/targets.json` gains `build` on every target (`"eu2011"` now; `"us2011"` when a US VA is used); `docs/format/firmware.md` EU→US rows. Not: matching every function (that is the census, below).
@@ -747,6 +759,18 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `--scope l3` covers ≥ 3 corpora (targets, firmware.md, open task blocks), reproduces H52's three, is wired into `tools/selftest.py` as a skipped fixture plus a synthetic `INSIDE` that must fail, and the audit file lists every remaining `INSIDE`/`DATA/UNKNOWN` with a task ID that fixes it. H52 closes with the applied table (rule 15).
   - Stop: if a corpus has no reproducible parser, list it as `NOT SCANNED` with the reason rather than guessing.
   - Claims: C-3660–C-3669
+
+- [ ] **M1.27 — `fn_match` leaf path: match pdata-`GAP` functions (the POINT walker) before the full census**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M1.22 (tool on `main`), M1.20 (`pdata.py`)
+  - Goal: M1.22b's done-when needs ≥90 % of the 13 cited EU readers matched EU→US; the current 8 NOMATCH include the POINT walker `0x003f5194`, which is a `.pdata` `GAP` (leaf), so the record-hash path can never match it. Separate "the matcher cannot see leaves" from "the code really changed" with one reproducible control before spending the census effort.
+  - Precheck: `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x003f5194` prints `GAP` (positive control for the leaf class); `python3 tools/fn_match.py match archive/head256.img archive/head256.img --module Navi.exe --va 0x003f5194` prints `UNIQUE` (EU-vs-EU control); the EU→US run on a real US256 reports it `NOMATCH` (the defect this task fixes).
+  - Scope: `tools/fn_match.py`: add a leaf path — when `pdata.locate` returns `GAP`, bound the function by the next `START` (or the next `GAP` with a direct `bsr`/`jsr` caller) and hash its instruction halfwords with the same reloc masking as `record_digest_map`; then match EU→US by the leaf hash plus the call-site context (the caller that `sh4xref --to` finds). Extend the CLI with `--leaf` to force this path and report `LEAF`/`DIFFERENT` for every GAP target. Not: the full module census or the `build` field (that stays M1.22b).
+  - Input: `tools/fn_match.py` (`record_digest_map`, one-hop propagation), `tools/pdata.py` (`locate`, `exec_sections`, `gaps`), `tools/sh4dis.py`, `tools/sh4xref.py`; the 13-VA list in M1.22b's Precheck.
+  - Hints: the three UNIQUE hits form the `.cmp` chain (`0x0041c044→0x0041c990→0x0041c7dc`), so contiguous code matches; the leaf path is what the POINT walker needs. A leaf's length is unknown from pdata — use the gap length but mask pool *addresses* inside it, and keep pool *values* that are not addresses (the M1.22 algorithm). A `DIFFERENT` leaf must show the first differing instruction pair, not just `NOMATCH`.
+  - Done when: `fn_match --leaf` maps `0x003f5194` EU→US `UNIQUE` (or `DIFFERENT` with the first differing instruction pair) on a real US256; the selftest covers a synthetic GAP leaf with a relocated pool word; the 13-VA table's leaf rows are updated in M1.22b's EXP scope; `selftest.py` passes.
+  - Stop: if the POINT walker is genuinely rewritten, record `DIFFERENT` + the instruction pairs and hand M1.22b the "US POINT reader must be re-located" branch; do not force a match.
+  - Claims: C-3700–C-3709
 
 
 ## M2 — Map code, activation, updater
