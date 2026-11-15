@@ -248,7 +248,7 @@ Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**), **M9.12** or 
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H28, H29, H40–H44, H52, H53, H54**; H45–H48 archived 2026-11-13 |
+| H | Housekeeping | **H19, H28, H29, H40–H44, H52–H57**; H45–H48 archived 2026-11-13 |
 | M1 | Firmware tooling | **M1.19, M1.21, M1.23, M1.22b, M1.24, M1.25, M1.27, M1.12, M1.14**; blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b); M1.2f/M1.2g superseded by M1.19 |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6), M2.3/M2.5/M2.12/M2.15/M2.18 done |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.17/M3.19/M3.21 done |
@@ -646,6 +646,42 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: the tool reproduces the retro's counts (34 trees, 5 ahead) on this checkout; `--prune` dry-run names the same stale set and deletes nothing; selftest covers stale/active/locked/ahead-for-done; wired into `tools/selftest.py`.
   - Stop: if a tree's task cannot be inferred from the branch name, list it as `UNKNOWN` rather than guessing.
   - Claims: C-3690–C-3699
+
+- [ ] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Depends: —
+  - Goal: H42/H43 cannot ingest the L3 result because `tools/l3check.py` defines `--json` as a boolean flag (`action="store_true"`, line ~1082) that merely switches stdout to JSON. `python3 tools/l3check.py --build-corpus --json out.json` exits **2** with `unrecognized arguments: out.json`, so the one command the QA plan (H28, H42, H43) tells CI to run does not exist.
+  - Precheck: `python3 tools/l3check.py --build-corpus > /tmp/l3.out 2>&1; echo $?` prints `0`; `python3 tools/l3check.py --build-corpus --json /tmp/l3.json; echo $?` prints `2` and the argparse error above (the defect).
+  - Scope: `tools/l3check.py` only: make `--json` take an optional path (`nargs='?'`, `const='-'`) so the flag keeps its current stdout meaning and `--json PATH` writes the same document to `PATH` (atomic write, UTF-8); accept `-` as stdout. Update the help/README example. Do not change the report schema or `--build-corpus` verdicts.
+  - Input: `tools/l3check.py` `--json` handling, the report builder around the `counts`/`targets` keys, `tools/progress_report.py --l3-json` (the consumer), H28/H42/H43.
+  - Hints: keep backward compatibility — a bare `--json` on stdout is used by scripts today; only the optional-argument form is new. Mirror how `l1l2_fixtures.py --json PATH` already behaves.
+  - Done when: `python3 tools/l3check.py --build-corpus --json /tmp/l3.json` exits `0` and the file parses as the same JSON that bare `--json` prints; the selftest covers both forms; `progress_report.py --l3-json /tmp/l3.json` reads it without a schema change; `selftest.py` passes.
+  - Stop: if changing the flag breaks a caller, add `--json-out PATH` instead and keep `--json` boolean; record the choice in the task's Result line.
+  - Claims: C-3710–C-3719
+
+- [ ] **H56 — Per-level generated-card progress snapshot (L1/L2/L3 PASS counts + L4/L5 readiness, SKIP never PASS)**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: H41 (L1/L2 matrix), H55 (L3 JSON file), H40 (generated fixture)
+  - Goal: the QA target asks for "how far a generated card gets, per level". Today `progress_report.py` aggregates inputs but needs each input handed to it, and no single command answers "where does our generated card stand at L1/L2/L3, and is L4/L5 ready?" without manual assembly.
+  - Precheck: `python3 tools/progress_report.py --selftest` passes; `python3 tools/progress_report.py --l1l2-matrix-json <H41 output>` and `--l3-json <H55 output>` accept the shapes (help/EXP-2026-11-09-H47).
+  - Scope: a thin driver (extend `progress_report.py --run-tools` or a `tools/progress_snapshot.py`, name in PR) that, from a generated no-vendor fixture: runs the L1/L2 matrix (H41), `l3check --build-corpus --json PATH` (H55), then calls `progress_report.py` with the outputs and prints one Markdown/JSON table `level / runnable PASS / FAIL / SKIP / NOT_COVERED / NOT_RUNNABLE / BLOCKED / verdict`, plus explicit L4-emulator and L5-bench rows that are `NOT RUN (hardware/QEMU unavailable)` unless a status JSON is supplied. SKIP/NOT RUNNABLE/BLOCKED never counted as PASS (rule 13). No vendor data, no QEMU, no network.
+  - Input: `tools/progress_report.py` (schema v3), H41 matrix JSON, H55 L3 JSON, `tools/cardcheck.py`/`l2check.py` on the H40 fixture, `docs/research/test-system.md` §status classes, `reader-coverage.md`.
+  - Hints: the tool must be able to fail loudly — a fixture that regresses from PASS to FAIL at any level makes the snapshot exit non-zero; a level with no runnable check reports `NOT COVERED`, never `PASS`. L4/L5 rows are readiness flags only (M8/H29), not acceptance.
+  - Done when: `python3 tools/<name> --selftest` passes on a synthetic fixture and separates PASS/FAIL/SKIP/NOT_COVERED/NOT_RUNNABLE/BLOCKED; the default PR job can run it with no vendor data; the EXP links one run and maps each column to a level per `test-system.md`; a PASS->FAIL regression in the fixture makes it fail.
+  - Stop: if H41 is not landed, build the L3 + readiness rows only and mark L1/L2 `NOT COVERED (H41)` rather than guessing the matrix.
+  - Claims: C-3720–C-3729
+
+- [ ] **H57 — Fixture regression baseline: a committed no-vendor baseline and a documented PASS->FAIL gate**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H41 (matrix), H56 (snapshot)
+  - Goal: H41 mentions a "committed no-vendor baseline" and H26's fixtures have PASS/FAIL counts, but no file holds the expected result and no doc states when a baseline may change. Without it "once a level passes, CI fails if it stops passing" (prompt_qa) is unenforceable.
+  - Precheck: `git ls-files | grep -i baseline` returns nothing today; `grep -n baseline .github/workflows/*.yml` returns nothing.
+  - Scope: a committed baseline file (JSON, no vendor bytes) keyed by `level,file,feature,status` produced by H41/H56 on the named fixture; a `--check-baseline FILE` mode in the reporter that exits non-zero when a baseline PASS becomes FAIL/SKIP/NOT_COVERED (SKIP→FAIL and PASS→anything-not-PASS both fail; FAIL→PASS is an improvement, printed, not an error); workflow README section "regression policy" and a one-paragraph `docs/research/test-system.md` update. Baseline refresh only with an EXP/PR rationale (like `l2check --update-golden`), never to make a failure pass.
+  - Input: H41 matrix JSON, H56 snapshot, `.github/workflows/l1l2-fixtures.yml`, `docs/research/test-system.md` §6 (regression gate policy), AGENTS "verification ladder".
+  - Hints: store the baseline as sorted keys so a diff is readable; a missing key on a new check is `NEW` (not a regression), a removed key is `DROPPED` (report, do not fail unless it was PASS). Keep the fixture deterministic so the baseline does not churn.
+  - Done when: the baseline file exists for the H41/H56 fixture; `--check-baseline` fails on a synthetic PASS->FAIL and passes on the current fixture; the workflow README and `test-system.md` state the policy; `selftest.py` passes.
+  - Stop: if H41/H56 choose a different output shape, commit the baseline in that shape and record the mapping in the EXP; do not fork a second schema.
+  - Claims: C-3730–C-3739
 
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
@@ -1399,7 +1435,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **H42 — Wire progress dashboard and L1/L2/L3/L4-emu/L5-bench status into CI artifacts/job summaries (no vendor data)**
   - Status: open · Owner: — · Critical: yes
-  - Depends: H27, H41, H28
+  - Depends: H27, H41, H28, H55
   - Goal: make the per-level progress signal visible on every PR/push: publish `progress.json/md` (H27 schema) plus H41 per-file/per-feature matrix as artifacts/job summaries.
   - Scope: workflow changes only (extend existing workflows or add `progress.yml` as appropriate); no vendor data, no IMG256/ROOT, no QEMU/M8 run in PR gate, no L5 bench execution. Integrate H28 L3 synthetic summary when H28 lands. Local/vendor checks listed as LOCAL-ONLY/NOT RUNNABLE, never executed in PR gate.
   - Input: `tools/progress_report.py`, H41/l1l2_fixtures JSON, `tools/l3check.py --build-corpus --json` (post-H28), `tools/realcheck.py` classification; `.github/workflows/*`.

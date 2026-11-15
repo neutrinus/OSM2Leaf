@@ -1,0 +1,56 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 19:48
+origin_main_start: 75f16f0 (po work log)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/retro/2026-11-15.md; dev_process/2026-11-15-{1-sm,2-se,3-po}.log
+- .github/workflows/{ci.yml,l1l2-fixtures.yml,README.md}
+- docs/research/test-system.md, EXP-2026-11-09-H46, EXP-2026-11-09-H47
+- TODO.md H28/H40-H44/H29/M9.31/M9.12; tools/{l1l2_fixtures,l3check,
+  progress_report,selftest,realcheck}.py (help + local runs)
+
+actions_taken:
+- Started this log (N=4). Ran the three existing gates locally: l1l2_fixtures
+  (6 PASS/0 FAIL/1 SKIP, 2 NOT COVERED), l3check --build-corpus (1 PASS/0 FAIL,
+  5 BLOCKED, exit 0), progress_report (exit 0). CI yml unchanged since H25/H26.
+- Mapped gaps vs the QA target (per-level progress, SKIP never PASS, regression
+  gate). Verdict: the plan and tools exist (H25/H26/H27/H40-H44/M9.31 all on
+  the board); what is missing is (a) the picture of how far a *generated* card
+  gets per level, and (b) a documented regression-baseline policy.
+- Added 3 tasks, no duplicates (searched H28/H40-H44/M9.31/M9.12/reader-
+  coverage first):
+  H55 l3check --json PATH (the tool only takes `--json` as a flag, so
+  `--build-corpus --json FILE` exits 2 — blocks H42/H43 wiring),
+  H56 per-level generated-card progress snapshot (L1/L2/L3 + L4/L5 readiness,
+  SKIP/NOT RUNNABLE separate),
+  H57 fixture regression baseline policy (no baseline file exists anywhere;
+  H41 mentions one, nothing owns the cross-level rule).
+- Did not re-plan L4/L5: M8 (QEMU) and H29/H44 (bench package) already cover
+  them; H56 only reports their readiness.
+
+task_ids_added: H55, H56, H57
+task_ids_changed: none
+task_ids_blocked/reopened: none
+prs: none
+commits: todo: QA gaps — l3check JSON file, per-level snapshot, baseline policy
+
+decisions:
+- Added tasks, did not implement: prompt_qa says plan the gaps, not do them.
+- H55 is a bug-class tool task, not CI: the flag mismatch is why H42 cannot
+  read l3check output, so it goes before H42 in the L3/CI order.
+- H57 is separate from H41 on purpose: H41 owns the L1/L2 matrix; H57 owns the
+  cross-level "once PASS, fail on regression" rule that no file states.
+- Rejected a vendor-image CI entry: prompt_qa and H28 already keep IMG256
+  manual/weekly; no new policy needed.
+
+problems/dead_ends:
+- A mis-invoked internal skill call wasted one step; no effect on the board.
+- test-system.md is accurate; its H42 row still says "when H28 lands", so H56
+  is the reporting half H42 defers.
+
+handoff:
+- TL: H55 (solo, small) can run parallel to M1.23; H56/H57 after H40.
+- SM: the QA gap list is now on the board; next QA pass should verify H55 landed.
+- Human: no new blocker.
