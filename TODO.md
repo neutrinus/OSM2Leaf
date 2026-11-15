@@ -770,7 +770,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3630–C-3639
 
 - [ ] **M1.25 — `fn_audit`: mechanically check every cited `fn`/`sub_` VA against `.pdata` (finish H52)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m1.25-fn-audit · Critical: yes · Pair: required
   - Depends: M1.23 (pdata-backed `fn` labels) — H52 is open and this is its mechanical half
   - Goal: H51/H52 found `0x0041c7e8`, `0x00412bee`, `0x00542256` are mid-function; the board and docs still cite many VAs as `fn`, and no check prevents the next one. Make it a failing command.
   - Precheck: `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x0041c7e8` prints `INSIDE fn 0x0041c7dc`; `grep -rhoE "(fn|sub_) ?0x00[0-9a-f]{6}" docs/format TODO.md tools/l3_harness/targets.json | sort -u | wc -l` is the corpus size.
