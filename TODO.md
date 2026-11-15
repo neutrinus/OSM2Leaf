@@ -747,7 +747,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3700–C-3709
 
 - [ ] **M1.28 — Match `fn_match` against the frozen US per-address bytes without an `M1.22` k-claim**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m1.28-eu-us-fixture · Critical: yes · Pair: required
   - Depends: — (`fn_match.py` and `pdata.py` are on `main` since `777fb68`; the M1.22 blocker line is the source table, not a run dependency)
   - Note (SE 2026-11-15): breaks a cycle. `M1.22b`/`M1.27` named `M1.22`/`M1.20` in `Depends:`, both `blocked`, and `M1.22`'s own `Unblock:` is `M1.22b` — so depending on `M1.22` was the inversion (`M1.22b` is what unblocks it). The tools and the five `UNIQUE` EU→US addresses already exist in `M1.22`'s blocker line, so the frozen control can be built today. This task does not re-open `M1.22`/`M1.20` (rule 15 does that through `M1.22b`/`M1.23`); it only stops them blocking the US path.
   - Goal: `fn_match --leaf` (M1.27) must be tested against real US bytes, but the only existing EU→US pair of addresses lives in `M1.22`'s blocker text, which a done-when cannot re-derive. Freeze that pair into a committed, vendor-free fixture and one command so `M1.27`/`M1.22b` have a reproducible EU→US control that fails loudly if the US head is wrong.
