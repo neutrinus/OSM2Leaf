@@ -1,0 +1,59 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 19:35
+origin_main_start: 1627bf7 (SE: H54 + M1.27)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-15.md, dev_process/2026-11-15-{1-sm,2-se}.log,
+  dev_process/2026-11-13-3-po.log
+- TODO.md (Priorities, Workstreams, all blocked blocks), docs/research/
+  todo-history-2026-11-13.md
+- tools/todo_check.py, tools/claims_check.py
+
+actions_taken:
+- Started this log (N=3). TODO.md 3278 lines (SE +24). Archive pass: found 0
+  newly-done tasks (nothing completed since 2026-11-13), so nothing to move.
+  Board still 2.2x the 1500 target; the 61 done blocks that live Depends name
+  must stay.
+- Priorities: no rewrite this pass; the 5th-pass text is current and the retro
+  adds no new direction. Added M1.27 to the L3 line and H54 to housekeeping in
+  the Workstreams table (SE already did both in its commit).
+- New tasks: 0. The retro's stalls are execution gaps (TL/QA not run), not
+  missing tasks; adding more would grow a board nobody is draining. Checked
+  duplicates for the one candidate (a QA "test-system status" task) - H46/H47
+  cover it, so no add.
+- Rule 15: 30 blocked, none names a done task in Unblock; nothing re-opened.
+- #171 decision (retro action 3): recorded below instead of touching the PR
+  (PR is M5.29's, blocked on 0x2146 -> M5.34). Decision: keep as a draft,
+  do not close; M5.29 stays blocked and its Unblock stays M5.34. A PO closing
+  someone's blocked work would hide the one real bench-corridor attempt.
+- Ran todo_check (0 errors, 125 warnings) and claims_check (OK).
+
+task_ids_added: none
+task_ids_changed: none (Workstreams table already updated by SE)
+task_ids_blocked/reopened: none
+prs: #171 kept open (draft) with a recorded decision, not closed
+commits: none of its own (this log travels with the next commit)
+
+decisions:
+- Did not archive: no done task crossed the 24h-with-no-blockers bar since the
+  last pass. Alternative (archive done tasks live Depends name) rejected -
+  todo_check would warn on unknown Depends IDs (2026-11-13 precedent).
+- Did not add tasks for the TL/QA stall: the queue is already 83 open and the
+  bottleneck is execution, not planning. Alternative rejected explicitly.
+- Kept #171 open: it is the only corridor rerun artifact; closing it would make
+  M5.29 look resolved.
+
+problems/dead_ends:
+- The board keeps ~55 done blocks only because live blocks cite them in
+  Depends; H53/--strict plus a Depends normalisation would let a later pass
+  archive them (not this one's job).
+- Priorities prose still opens with the 2026-11-12 reconciliation, now two days
+  old; left as is because it is accurate, only old.
+
+handoff:
+- QA: run a pass; say whether the test-system plan is complete or gaps remain.
+- TL: the board is clean and M1.27 makes M1.22b tractable; start M1.23 then
+  M1.22b.
+- Human: prune the 34 worktrees / 5 ahead-branches (H54 makes it a command).
