@@ -738,6 +738,27 @@ Built without vendor data; every row states what is synthetic-only.
 
 | C-650 | `tools/cecompress.py` adds an LZNT1 decoder ([MS-XCA] 2.5: 4 KiB chunks, 16-bit header with payload−1 in bits 11…0, signature 3 in bits 14…12, flag bit 15, literal/match tokens with displacement−1 high and length−3 low at a `max(4, bits(u−1))` split, zero header terminates) validated against the spec's 59-byte example (142-byte output), XPRESS LZ77/Huffman skeletons that parse their header then raise `UNSUPPORTED`, and `probe FILE --size N [--offsets 0-32] [--methods …]` which tries every method × offset, records one status per attempt and reports only exact-size matches with content evidence; 391 checks. No real payload exists in the checkout, so the image codec is UNKNOWN. | VERIFIED (tool, synthetic + spec vector) | H | EXP-2026-11-05-M1.2b; `python3 tools/cecompress.py --selftest` |
 
+## M1.25 — `fn_audit`: cited `fn`/`sub_` VAs vs `.pdata` (C-3640–C-3649)
+
+The mechanical half of H52. `tools/fn_audit.py` reads the corpora and
+classifies every citation through `tools/pdata.py` (`load_table`, `locate`,
+`gaps`); it never decodes pdata a second time. `--scope l3` (EXPs, every open
+task block, per-citation module disambiguation) is M1.26 and keeps
+C-3643–C-3649.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3640 | `tools/fn_audit.py` audits 17 files (`TODO.md`, 13 `docs/format/*.md`, `tools/l3_harness/targets.json`, `tools/chunk_decoder_l3.py`, `tools/point_walk_l3.py`): 293 citations, 112 unique VAs. On `archive/head256.img` (`92aa525d…`) the classes are `START 194, INSIDE 38, GAP 29 (leaf 29), AMBIGUOUS 0, UNMAPPED 32` (counts are citations; 38 `INSIDE` = 12 unique VAs). Exit 1 because at least one citation is `INSIDE`; `--fix-list` prints one sorted `0x<mid> -> 0x<start>` line per unique `INSIDE` VA (12 lines) and edits nothing. | VERIFIED (tool) | H | EXP-2026-11-15-M1.25-fn-audit; `python3 tools/fn_audit.py archive/head256.img`, `python3 tools/fn_audit.py archive/head256.img --fix-list` |
+| C-3641 | The scoped corpus cites 12 unique mid-function VAs, not H52's three: `0x003715a0`→`0x00371594`, `0x003f5fc2`→`0x003f5f48`, `0x0040e4b2`→`0x0040e28c`, `0x00412bee`→`0x00412ac0`, `0x00413af4`→`0x00413a6c`, `0x0041c7e8`→`0x0041c7dc`, `0x0041c802`→`0x0041c7dc`, `0x004e90c8`→`0x004e8f38`, `0x004ea402`→`0x004ea288`, `0x00542256`→`0x00542250`, `0x005423e8`→`0x0054233c`, `0x0054369e`→`0x0054331c`. H52's three (`0x0041c7e8`, `0x00412bee`, `0x00542256`) are among them and are cited in `TODO.md:585` (H52 goal) and `TODO.md:775` (M1.25 goal). | VERIFIED (tool) | H | EXP-2026-11-15-M1.25-fn-audit; `python3 tools/fn_audit.py archive/head256.img --fix-list`, `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x0041c7e8 0x00412bee 0x00542256` |
+| C-3642 | In this corpus every `GAP` citation (29 of 29) is a leaf: `pdata.gaps` finds a direct `bsr`/`jsr`/pool caller for each, e.g. the POINT walker `0x003f5194`. A VA may sit in different modules of different builds (`0x03bd2ad8` = `AppLaunch.dll` B code, `fatutil.dll` A data; `0x880385e4` = `nk.exe` B code, `INSIDE` in C); the tool keeps the strongest class and lists the second holder only with `--verbose` (27 citations). The `--selftest` needs no image and covers START/INSIDE/GAP-leaf/GAP-data/BEFORE/AMBIGUOUS plus the extractors and `--fix-list` format. | VERIFIED (tool) | H | EXP-2026-11-15-M1.25-fn-audit; `python3 tools/fn_audit.py --selftest`, `python3 tools/fn_audit.py archive/head256.img --verbose` |
+| C-3643 | RESERVED (M1.25). | — | — | — |
+| C-3644 | RESERVED (M1.25). | — | — | — |
+| C-3645 | RESERVED (M1.25). | — | — | — |
+| C-3646 | RESERVED (M1.25). | — | — | — |
+| C-3647 | RESERVED (M1.25). | — | — | — |
+| C-3648 | RESERVED (M1.25). | — | — | — |
+| C-3649 | RESERVED (M1.25). | — | — | — |
+
 ## M1.2b — XPRESS plain LZ77 implemented and probed (C-651–C-659)
 
 | ID | Claim | Status | Confidence | Evidence |

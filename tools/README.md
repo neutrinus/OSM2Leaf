@@ -342,6 +342,21 @@ python3 tools/va_class.py IMG --module Navi.exe --resolve-with 0x3e00200 \
 python3 tools/va_class.py --selftest
 ```
 
+## `fn_audit.py` — audit cited `fn`/`sub_` VAs against `.pdata` (M1.25)
+
+Every cited VA is classified by the module's `.pdata` (via `pdata.py`, never a
+byte grammar): `START`, `INSIDE <true start>`, `GAP(leaf)` (no record, but a
+direct caller), `GAP(DATA/UNKNOWN)`, `AMBIGUOUS` (two builds disagree) or
+`UNMAPPED` (a generic constant outside every table, not an error). Corpora:
+`docs/format/*.md`, `TODO.md`, `targets.json` firmware entries and `tools/*_l3.py`
+constants. Exit 1 on any `INSIDE`; `--fix-list` prints `0x<mid> -> 0x<start>`.
+
+```bash
+python3 tools/fn_audit.py archive/head256.img              # full report, exit 1 on INSIDE
+python3 tools/fn_audit.py archive/head256.img --fix-list   # machine-readable fixes
+python3 tools/fn_audit.py --selftest                       # no image needed
+```
+
 ## `ce_strfind.py` — string search across every CE ROM module
 
 Walks the TOC and searches each module's sections for an ASCII, UTF-16LE or
