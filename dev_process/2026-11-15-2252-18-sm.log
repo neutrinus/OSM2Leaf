@@ -1,0 +1,50 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 22:52
+end_utc: 2026-11-15 23:05
+origin_main_start: f792dea (chore: tl work log 2026-11-15 cycle 3)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, prompt_tl.txt
+- docs/retro/2026-11-15-3.md (cycle 2), 2026-11-13.md (2026-11-10 pair baseline)
+- dev_process/2026-11-15-{2200-17-tl,2143-16-qa,2132-15-po,2114-14-se,2107-13-sm}.log
+- git log 9d4d05b..origin/main; gh pr list --state all; git ls-remote --heads;
+  git worktree list; TODO.md; tools/{todo,claims}_check.py output
+
+actions_taken:
+- Started this log (N=18 for 2026-11-15; 17 logs already present at 22:52 UTC).
+- Counted the window 9d4d05b..f792dea = 13 commits, 2 merges (#183, #184).
+- Re-measured the board with the task-block parser (heading grep over-counts):
+  168 blocks, 151 with Status = 84 open / 40 done / 27 blocked / 0 in progress.
+- Read the cycle-3 TL log for pair evidence: 2 pair tasks, 6 navigator catches,
+  2 review rounds each, 0 slipped — the first two-subagent `Pair: required` run.
+- Compared with the 2026-11-10 baseline (4 pair / 2 solo, 2 catches).
+- Checked the critical path: M1.29 merged, so H52 is the next gate before M1.26;
+  M1.28 merged, so M1.27 now has the US fixture its done-when cites.
+- Stuck-circle audit: #171 still a draft (6 days, PO keep note); 16 remote heads,
+  5 ahead, all pre-cycle; 34 worktrees unchanged; worktree_audit --apply still
+  a human step.
+- Found a real prompt contradiction (B1 below) in prompt_tl.txt and fixed it;
+  no other prompt edit.
+
+task_ids_added/changed: none (SM does not touch the board)
+prs: none
+commits: docs: sm retro 2026-11-15-4 and work log
+
+decisions:
+- Pairing verdict recorded as "paying off, keep the rule": the 6 catches are
+  ~3x the older 2-catch rate and 2 of the 6 were evidence-integrity errors.
+- One prompt edit only: the M1.26 solo/pair contradiction. Everything else
+  (log relabelling, #171) stays an action, not an edit.
+
+problems/dead_ends:
+- The naive `grep -c 'Status: open'` over TODO.md mixes prose with block
+  fields (it also matched the rules text); switched to a `- [ ] **ID**` block
+  parser. Every retro before this quoted the mixed grep — none was wrong by
+  much, but the numbers were not reproducible by a script.
+- 17 blocks carry no Status field at all, so progress_report prints "no Status
+  line" for M8.B5 and calls M8.A1 missing. Still pre-existing, still NOT RUN.
+
+handoff:
+- TL: H52 then M1.26 (now Pair: required), then M1.27; the fixture guard is
+  live. PO: #171 6 days, dated keep note stands. Human: worktree/branch prune.
