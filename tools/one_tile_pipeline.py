@@ -20,6 +20,7 @@ Exit codes: 0 selftest/ok, 1 check/selftest/gate failure, 2 usage/input.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -391,6 +392,17 @@ def selftest() -> int:
         json.dumps(rep)
         chk(True, "gate report JSON-serializable")
 
+    # --json PATH writes the same document bare --json prints (H64).
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        jpath = td / "report.json"
+        rc = main(["--synthetic", "--out", str(td / "synthetic-out"), "--cell", "B48R058R", "--json", str(jpath)])
+        written = json.loads(jpath.read_text(encoding="utf-8")) if jpath.exists() else None
+        chk(rc in (0, 1) and isinstance(written, dict) and written.get("mode") == "synthetic-only",
+            "--json PATH writes a parseable report document")
+        chk(written is not None and written.get("tile") == "B48R058R",
+            "--json PATH report carries the target cell")
+
     # Factory-tree provenance + overlap guard negatives (H64).
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
@@ -441,11 +453,22 @@ def selftest() -> int:
         rc2 = main(["--factory-root", str(root), "--out", str(root / "nested"), "--cell", "B48R058R"])
         chk(rc2 == 2, "--out inside --factory-root exits 2")
         chk(not (root / "nested").exists(), "--out inside --factory-root creates nothing")
+        rc3 = main(["--factory-root", str(root), "--out", str(td), "--cell", "B48R058R"])
+        chk(rc3 == 2, "--out parent of --factory-root exits 2")
+        chk(root.exists() and tile_path.exists(),
+            "--out parent of --factory-root leaves the input tree intact")
+        chk(sha256_bytes(tile_path.read_bytes()) == before_sha,
+            "--out parent of --factory-root leaves the factory tile byte-identical")
         try:
             build_synthetic_out(root, "B48R058R", input_root=root)
             chk(False, "build_synthetic_out rejects out == input root")
         except UsageError:
             chk(True, "build_synthetic_out rejects out == input root")
+        try:
+            build_synthetic_out(td, "B48R058R", input_root=root)
+            chk(False, "build_synthetic_out rejects out parent of input root")
+        except UsageError:
+            chk(True, "build_synthetic_out rejects out parent of input root")
     print(f"selftest: {'OK' if not fails else 'FAIL'} ({fails} failure(s))")
     return 0 if not fails else 1
 
@@ -555,7 +578,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--factory-root", help="factory-extracted card root (outside repo)")
     ap.add_argument("--factory-tile", help="factory tile DAT hint")
     ap.add_argument("--country", default="616")
-    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--json", nargs="?", const="-", default=None, metavar="PATH",
+                    help="print the report JSON to stdout (bare) or write it to PATH ('-' = stdout)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
@@ -578,7 +602,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {e}", file=sys.stderr)
         print("usage: --out must not be, contain, or be contained by --factory-root/--osm", file=sys.stderr)
         return 2
-    print(json.dumps(rep, indent=2, ensure_ascii=False))
+    doc = json.dumps(rep, indent=2, ensure_ascii=False)
+    if args.json and args.json != "-":
+        dest = os.path.abspath(args.json)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(dest), prefix=".one_tile_pipeline.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(doc + "\n")
+            os.replace(tmp, dest)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+            raise
+        print(f"report: {dest}")
+    else:
+        print(doc)
     ok_tree = (out / "MAPAL001" / f"{args.cell}.DAT").exists() and rep["counts"].get("tilewriter_rc") == 0
     card_ok = rep.get("cardcheck_ok") or rep.get("cardcheck_applicable")
     l2_ok = rep.get("l2check_ok") or rep.get("l2_applicable")

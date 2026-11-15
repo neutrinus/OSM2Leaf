@@ -12,7 +12,7 @@
 - **Tools:** `python3 3.13`, `tools/one_tile_pipeline.py`,
   `tools/tilewriter.py` (`make_factory`), `tools/ze0-viewer/tools_ze0/clarion_tile.py`
   (`read_tile`)
-- **Claims:** C-3840, C-3841, C-3842, C-3843, C-3844
+- **Claims:** C-3840, C-3841, C-3842, C-3843
 - **Supersedes:** none
 - **Superseded by:** none
 
@@ -58,8 +58,8 @@ python3 tools/one_tile_pipeline.py --selftest
 sha256sum /home/marek/projekty/leafre-work/m5.29-factory-root/MAPAL001/B48R058R.DAT
 python3 tools/one_tile_pipeline.py \
   --factory-root /home/marek/projekty/leafre-work/m5.29-factory-root \
-  --cell B48R058R --out /home/marek/projekty/leafre-work/h64-real-out --json \
-  > /tmp/opencode/h64-real-run.json
+  --cell B48R058R --out /home/marek/projekty/leafre-work/h64-real-out \
+  --json /tmp/opencode/h64-real-run.json    # writes the report; prints "report: <path>"
 python3 tools/selftest.py --only one_tile_pipeline
 ```
 
@@ -70,7 +70,7 @@ T=$(mktemp -d)
 mkdir -p "$T/MAPAL001" "$T/VER_INFO"
 : > "$T/MAPAL001/B48R058R.DAT"
 : > "$T/DRSTR001.DAT"; : > "$T/MMAIN001.DAT"; : > "$T/VER_INFO/HDD_INFO.TXT"
-python3 tools/one_tile_pipeline.py --factory-root "$T" --out "$T.out" --cell B48R058R --json
+python3 tools/one_tile_pipeline.py --factory-root "$T" --out "$T.out" --cell B48R058R --json -
 # real_image_run = factory-tree-invalid, every gate BLOCKED, no "$T.out" created
 ```
 
@@ -123,7 +123,12 @@ python3 tools/one_tile_pipeline.py --factory-root "$T" --out "$T" --cell B48R058
   closes; the commands above are the post-fix controls.
 - Overlap negative after the change: `--out == root`, `--out` inside root,
   and `--out` a parent of root each exit 2 with a usage message; the root and
-  its files remain.
+  its files remain. All three branches — including parent-of-root, and the
+  `build_synthetic_out(..., input_root=parent)` form — are covered by
+  `--selftest`, not only by hand.
+- `--json` is `nargs="?"` (`const="-"`): bare `--json`/`--json -` print to
+  stdout, `--json PATH` writes the report atomically and prints
+  `report: <path>`. `--selftest` runs `--json PATH` and re-parses the file.
 
 ## Interpretation
 
@@ -160,3 +165,14 @@ python3 tools/selftest.py --only one_tile_pipeline  # expected: PASS
 sha256sum /home/marek/projekty/leafre-work/m5.29-factory-root/MAPAL001/B48R058R.DAT
 # expected: e9c9cb22...8af3ff52
 ```
+
+## Follow-ups
+
+- [ ] C-3844–C-3849 stay RESERVED; no claim was added for the `--json PATH`
+  writer beyond the selftest coverage.
+- [ ] A parseable-but-wrong tile (another cell's tile copied into
+  `MAPAL001/<cell>.DAT`) is not rejected: provenance is the tile's own parse
+  and sha, not a match to an expected card sha. If a factory-tree fingerprint
+  is wanted, it needs a task (the whole-image sha is explicitly not the test).
+- [ ] The genuine EU2011 corridor run is still blocked at `tilewriter` on the
+  `0x2146` directory (`y=76 x=941`); that is M5.22/M5.34 work, not this task.
