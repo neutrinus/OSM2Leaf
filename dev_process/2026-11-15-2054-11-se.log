@@ -1,0 +1,37 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (H54 subagent)
+start_utc: 2026-11-15 20:54
+end_utc: 2026-11-15 21:00
+origin_main_start: eccace9 (todo: QA pass 2 — H55 verified, add H59 plan traceability)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, TODO.md (H54 block, rules 1-16)
+- docs/experiments/TEMPLATE.md, EXP-2026-11-15-H55-l3check-json-path.md
+- docs/research/claims.md (H54 block placement after H55), tools/README.md
+- tools/todo_check.py (`parse_tasks`), tools/selftest.py (discovery)
+
+actions_taken:
+- Started this log (N=9 for the 2026-11-15 logs I saw: ...-10-qa existed).
+- Claimed H54 on task/h54-worktree-audit, pushed, opened draft PR #181.
+- Wrote tools/worktree_audit.py: worktree/ref parsing, TODO status join,
+  STALE rules, --prune dry run + --apply, 14-check selftest on a git init repo.
+- Ran it on this checkout; wrote EXP-2026-11-15-H54-worktree-audit.md with the
+  measured numbers, claims C-3690-C-3695, README row.
+- Checks: claims_check OK, todo_check OK (pre-existing warnings), full
+  selftest 87 passed / 0 failed / 23 skipped.
+
+decisions:
+- Task IDs from branch names only, no commit-message inference (UNKNOWN is the
+  honest answer for 25 detached trees; retro action stays with a human).
+- --apply is a separate opt-in flag so --prune stays a dry run by default.
+- Counts differ from the retro (35 vs 34 non-main trees, 7 vs 5 ahead):
+  measured drift (two new ahead worktrees today), reported as measured.
+
+problems:
+- Selftest fixture collided on branch names/remote refs on the first two passes
+  (worktree rows hide remote branch rows); fixed by unique branches + an
+  explicit "not double-listed" check.
+
+handoff:
+- TL: merge prunes only STALE set; consider creating worktrees under a
+  task-named path so the next audit is not 27/39 UNKNOWN.

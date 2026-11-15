@@ -994,6 +994,27 @@ python3 tools/todo_check.py --json TODO.md
 python3 tools/todo_check.py --selftest   # synthetic checks + real TODO parse
 ```
 
+## `worktree_audit.py` — stale worktrees and branches ahead of `main` (H54)
+
+Joins `git worktree list --porcelain`, `git for-each-ref` and the `TODO.md`
+`Status:` lines into one row per non-main worktree and per branch ahead of
+`main`: `path · kind · branch|detached · commit · age · locked · task ·
+todo status · flag`. A row is `STALE` when a detached tree older than seven
+days has a commit that is an ancestor of `main`, or when a branch ahead of
+`main` belongs to a task already `done`/`blocked`. Task IDs come from the
+branch name only; anything else is `UNKNOWN`.
+
+```
+python3 tools/worktree_audit.py            # text report + counts
+python3 tools/worktree_audit.py --json     # machine-readable document
+python3 tools/worktree_audit.py --prune    # dry run: prints the remove commands
+python3 tools/worktree_audit.py --selftest # throwaway git repo, no vendor data
+```
+
+`--prune` deletes nothing by itself; `--prune --apply` removes only the stale,
+unlocked worktrees. The tool never deletes a branch and never removes or
+force-removes a locked tree.
+
 ## Conventions
 
 - Read-only. Scripts that write require an explicit output path.

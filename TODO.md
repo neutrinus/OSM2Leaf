@@ -603,8 +603,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if making `--strict` fail on the current board would block every PR, ship the fixture+flag and record the current warning count in the EXP instead of demanding a clean board.
   - Claims: C-3650–C-3659
 
-- [ ] **H54 — `worktree_audit.py`: a command that lists stale `.claude/worktrees` and ahead-branches before they rot**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H54 — `worktree_audit.py`: a command that lists stale `.claude/worktrees` and ahead-branches before they rot**
+  - Status: done · Owner: task/h54-worktree-audit · Critical: no · Pair: solo
   - Depends: —
   - Goal: 34 detached `.claude/worktrees` (2 locked) and 5 branches ahead of `main` have been unchanged across two retros (2026-11-13, 2026-11-15); every agent that runs `git worktree list` pays for it and nobody can tell a live tree from a 2026-11-08 leftover. Make the audit a reproducible command so the human cleanup (retro action 4) is cheap and re-checkable.
   - Precheck: `git worktree list | wc -l` and `git branch -r` show the counts in the 2026-11-15 retro; `python3 tools/worktree_audit.py --help` exits 2 (tool absent).
@@ -614,6 +614,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: the tool reproduces the retro's counts (34 trees, 5 ahead) on this checkout; `--prune` dry-run names the same stale set and deletes nothing; selftest covers stale/active/locked/ahead-for-done; wired into `tools/selftest.py`.
   - Stop: if a tree's task cannot be inferred from the branch name, list it as `UNKNOWN` rather than guessing.
   - Claims: C-3690–C-3699
+  - Result: EXP-2026-11-15-H54-worktree-audit; `tools/worktree_audit.py` reports 35 non-main worktrees (2 locked), 7 ahead branches, 19 STALE / 18 prunable on `eccace9`; `--prune` is a 18-command dry run that deletes nothing; selftest 14 checks. Claims C-3690–C-3695.
 
 - [x] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
   - Status: done · Owner: task/h55-l3check-json-path · Critical: yes · Pair: solo
