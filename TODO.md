@@ -648,7 +648,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3690–C-3699
 
 - [ ] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Status: in progress · Owner: task/h55-l3check-json-path · Critical: yes · Pair: solo
   - Depends: —
   - Goal: H42/H43 cannot ingest the L3 result because `tools/l3check.py` defines `--json` as a boolean flag (`action="store_true"`, line ~1082) that merely switches stdout to JSON. `python3 tools/l3check.py --build-corpus --json out.json` exits **2** with `unrecognized arguments: out.json`, so the one command the QA plan (H28, H42, H43) tells CI to run does not exist.
   - Precheck: `python3 tools/l3check.py --build-corpus > /tmp/l3.out 2>&1; echo $?` prints `0`; `python3 tools/l3check.py --build-corpus --json /tmp/l3.json; echo $?` prints `2` and the argparse error above (the defect).
