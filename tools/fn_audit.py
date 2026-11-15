@@ -26,14 +26,29 @@ Two holders that agree on the rank but disagree on the true start are
 ``AMBIGUOUS``; a constant outside every span is ``UNMAPPED`` and is not an
 error (generic bit patterns such as ``0x40001000``).
 
+A *correction* is not a failure (M1.29).  Prose that records a fix pairs the
+wrong VA with its true start (``0x00542256 → fn 0x00542250``,
+``0x003f5fc2`→`0x003f5f48``).  When a correction line keeps a bare VA as a
+``ctx`` citation and that VA's own pair names a start equal to
+``pdata.locate``'s start, the citation is ``CORRECTED`` — an ``INSIDE`` the
+line itself resolves.  The pair attaches only to the VA it names, so a repeated
+bare ``0x…`` later on the same line does not inherit it (M1.25 feedback).  A VA
+whose every occurrence in the corpus is correction prose but which never spells
+the true start on its own line (a start on a neighbouring line, a ``jsr`` call
+site) is covered by the explicit, commented ``CORRECTION_ONLY`` allowlist, and
+only while the pin still matches the image.  A live label (``fn 0x…``,
+``sub_…``, ``target``, ``const``) is never corrected by either path — the same
+VA can be ``CORRECTED`` on one line and ``INSIDE`` on another, so the verdict
+is per citation.
+
 Usage:
   fn_audit.py IMG [--scope docs] [--fix-list] [--cache DIR] [--quiet]
   fn_audit.py --selftest
 
-Exit codes: 0 no mid-function citation, 1 any ``INSIDE`` (or an ``AMBIGUOUS``
-whose candidates include one), 2 usage/image error, 3 the image has no build
-A (nothing to audit).  ``--fix-list`` prints one sorted ``0x<mid> -> 0x<start>``
-line per ``INSIDE`` VA and changes no file.
+Exit codes: 0 no unresolved mid-function citation, 1 any ``INSIDE`` (or an
+``AMBIGUOUS`` whose candidates include one), 2 usage/image error, 3 the image
+has no build A (nothing to audit).  ``--fix-list`` prints one sorted
+``0x<mid> -> 0x<start>`` line per ``INSIDE`` VA and changes no file.
 """
 
 import argparse
@@ -61,19 +76,49 @@ SUB_RE = re.compile(r"\bsub_([0-9a-fA-F]{6,8})\b")
 CONST_RE = re.compile(r"0x[0-9a-fA-F]{6,8}\b")
 BARE_RE = re.compile(r"0x[0-9a-fA-F]{6,8}\b")
 CORRECTION_RE = re.compile(r"mid-function|not (?:a )?function|(?:->|→)\s*(?:fn|sub_)")
+# A correction pair names the true start next to the bare VA it corrects:
+# ``0x00542256 → fn 0x00542250`` or the Precheck style
+# ``0x003f5fc2`→`0x003f5f48`` (arrow, optional ``fn``/``sub_``, backticks/spaces
+# free).  A cross-build mapping (``0x0041c7dc→0x00444540``) is not a correction
+# because the named start is not ``pdata.locate``'s start for the left VA.
+CORRECTION_PAIR_RE = re.compile(
+    r"0x([0-9a-fA-F]{6,8})(`?)\s*`?\s*(?:->|→)\s*`?\s*(?:fn|sub_)?\s?"
+    r"0x([0-9a-fA-F]{6,8})\b")
+# Pairs whose left-hand VA was not a ``fn``/``sub_`` label but a call site or
+# an address range (``0x00419684`→`sub_00419350`` is a correction;
+# ``0x00419462-0x00419468`` is a range).  The tight form requires the arrow to
+# touch the left VA through backticks, which is how a corrected label is
+# written (``0x003f5fc2`→`0x003f5f48``).
+CORRECTION_PAIR_TIGHT_RE = re.compile(
+    r"0x([0-9a-fA-F]{6,8})`\s*`?(?:->|→)\s*`?\s*(?:fn|sub_)?\s?"
+    r"0x([0-9a-fA-F]{6,8})\b")
 
 DOC_FILES = ("TODO.md", "docs/format/*.md")
 TARGETS = "tools/l3_harness/targets.json"
 L3_GLOB = "tools/*_l3.py"
 
+# Bare VAs whose every remaining occurrence is correction prose that does not
+# spell the true start on that same line (the M1.29 Stop clause: an explicit,
+# commented allowlist beats a regex that can hide a real mislabel).  These are
+# never function labels: a live ``fn 0x…``/``sub_…``/target/const citation of
+# the same VA is still classified and still fails.  True starts are pinned by
+# the selftest fixture so a wrong entry is visible, and `--verbose` prints the
+# allowlist in use.
+CORRECTION_ONLY = {
+    0x003F5FC2: "H49 range end; its true start `0x003f5f48` is on a different line",
+    0x00413AF4: "`jsr` instruction at the call site inside `fn 0x00413a6c`",
+    0x00542256: "H51/H52 non-start; true start `0x00542250`",
+}
+
 
 class Citation:
-    __slots__ = ("va", "where", "kind")
+    __slots__ = ("va", "where", "kind", "correction")
 
-    def __init__(self, va, where, kind):
+    def __init__(self, va, where, kind, correction=None):
         self.va = va
         self.where = where
         self.kind = kind
+        self.correction = correction
 
     def __repr__(self):
         return "Citation(0x%08x, %s, %s)" % (self.va, self.where, self.kind)
@@ -88,23 +133,37 @@ def citations_markdown(paths):
     for path in paths:
         text = open(path, encoding="utf-8", errors="replace").read()
         rel = os.path.relpath(path, REPO)
-        hits = [(m.start(), int(m.group(2), 16), m.group(1))
+        hits = [(m.start(), int(m.group(2), 16), m.group(1), None)
                 for m in FN_RE.finditer(text)]
-        hits += [(m.start(), int(m.group(1), 16), "sub_")
+        hits += [(m.start(), int(m.group(1), 16), "sub_", None)
                  for m in SUB_RE.finditer(text)
                  if not FN_RE.match(text, m.start())]
-        prefixed = {pos for pos, _va, _kind in hits}
-        # A line that corrects a label often cites the correct and the wrong VA
-        # side by side (``0x00542256`` -> ``fn 0x00542250``); keep a bare VA
-        # only on a line that carries a correction marker, so ordinary code
-        # addresses in the same prose do not flood the audit.
-        marked_lines = {_line_of(text, m.start()) for m in CORRECTION_RE.finditer(text)}
-        for m in BARE_RE.finditer(text):
-            if m.start() in prefixed or _line_of(text, m.start()) not in marked_lines:
-                continue
-            hits.append((m.start(), int(m.group(0), 16), "ctx"))
-        for pos, va, kind in sorted(set(hits)):
-            yield Citation(va, "%s:%d" % (rel, _line_of(text, pos)), kind)
+        prefixed = {pos for pos, _va, _kind, _corr in hits}
+        # A line that corrects a label keeps every bare VA as a ``ctx`` citation
+        # (M1.25 rule), and each bare VA carries the true start its *own* pair
+        # names.  Both pair forms require an arrow, so a range
+        # (``0x00419462-0x00419468``) and a call chain
+        # (``0x0041c044 → 0x0041c990``) are not pairs; a cross-build map
+        # (``0x0041c7dc→0x00444540``) is a pair shape whose named start is not
+        # the left VA's ``pdata.locate`` start, so it resolves to nothing.
+        offset = 0
+        for line in text.split("\n"):
+            pairs = {}
+            for m in CORRECTION_PAIR_RE.finditer(line):
+                pairs.setdefault(m.start(), int(m.group(3), 16))
+            for m in CORRECTION_PAIR_TIGHT_RE.finditer(line):
+                pairs.setdefault(m.start(), int(m.group(2), 16))
+            if CORRECTION_RE.search(line):
+                for m in BARE_RE.finditer(line):
+                    pos = offset + m.start()
+                    if pos in prefixed:
+                        continue
+                    hits.append((pos, int(m.group(0), 16), "ctx",
+                                 pairs.get(m.start())))
+            offset += len(line) + 1
+        for pos, va, kind, correction in sorted(hits):
+            yield Citation(va, "%s:%d" % (rel, _line_of(text, pos)), kind,
+                           correction=correction)
 
 
 def citations_targets(path):
@@ -198,6 +257,8 @@ class Verdict:
     def label(self):
         if self.klass == "INSIDE":
             return "INSIDE 0x%08x" % self.start
+        if self.klass == "CORRECTED":
+            return "CORRECTED 0x%08x" % self.start
         if self.klass == "GAP":
             return "GAP(%s)" % ("leaf" if self.leaf else "DATA/UNKNOWN")
         return self.klass
@@ -273,13 +334,37 @@ def audit(cites, image):
     for cite in cites:
         if cite.va not in seen:
             seen[cite.va] = classify(image.tables, cite.va, image.leaf_of)
-        verdicts.append((cite, seen[cite.va]))
+        verdict = seen[cite.va]
+        if (verdict.klass == "INSIDE" and cite.kind == "ctx"
+                and _resolved(cite, verdict, image)):
+            verdict = Verdict(verdict.va, "CORRECTED", start=verdict.start,
+                              module=verdict.module, build=verdict.build,
+                              candidates=verdict.candidates)
+        verdicts.append((cite, verdict))
     keep = []
     for cite, verdict in verdicts:
         if verdict.klass == "UNMAPPED" and cite.kind in ("const", "ctx"):
             continue
         keep.append((cite, verdict))
     return keep
+
+
+def _resolved(cite, verdict, image):
+    """Is this bare citation a correction the line itself resolves?
+
+    Two ways, in order.  (1) The line pairs the VA with a start that equals
+    ``pdata.locate``'s (``0x00542256 → fn 0x00542250``).  (2) The VA is on the
+    explicit ``CORRECTION_ONLY`` allowlist and still resolves to the pinned
+    start — the allowlist is prose about a fix whose target sits on another
+    line.  A ``fn 0x…``/``sub_…``/target/const citation never takes either
+    path; that is what keeps a live mislabel failing.
+    """
+    if cite.correction is not None:
+        return cite.correction == verdict.start
+    pinned = CORRECTION_ONLY.get(cite.va)
+    if pinned is None:
+        return False
+    return "0x%08x" % verdict.start in pinned
 
 
 def stats(cites, kept):
@@ -316,9 +401,18 @@ def report(kept, files, cites, unique, counts, unmapped, quiet=False, verbose=Fa
     leaf = sum(1 for v in gaps if v.leaf)
     print("fn_audit: %d file(s) scanned, %d citation(s), %d unique VA(s)"
           % (len(files), len(cites), len(unique)))
-    print("fn_audit: START %d, INSIDE %d, GAP %d (leaf %d), AMBIGUOUS %d, UNMAPPED %d"
-          % (counts.get("START", 0), counts.get("INSIDE", 0), len(gaps), leaf,
+    print("fn_audit: START %d, INSIDE %d, CORRECTED %d, GAP %d (leaf %d), "
+          "AMBIGUOUS %d, UNMAPPED %d"
+          % (counts.get("START", 0), counts.get("INSIDE", 0),
+             counts.get("CORRECTED", 0), len(gaps), leaf,
              counts.get("AMBIGUOUS", 0), unmapped))
+    if verbose and CORRECTION_ONLY:
+        for va in sorted(CORRECTION_ONLY):
+            print("fn_audit: CORRECTION_ONLY 0x%08x  (%s)" % (va, CORRECTION_ONLY[va]))
+    only = corrected_only(kept)
+    if only:
+        print("fn_audit: correction-only (no live label): %s"
+              % ", ".join("0x%08x" % va for va in only))
 
 
 def fix_list(kept, unique):
@@ -328,6 +422,12 @@ def fix_list(kept, unique):
         if verdict.klass == "INSIDE":
             rows[verdict.va] = verdict.start
     return ["0x%08x -> 0x%08x" % (va, rows[va]) for va in sorted(rows)]
+
+
+def corrected_only(kept):
+    """Allowlisted VAs that appear only as resolved corrections in the corpus."""
+    inside = {v.va for _c, v in kept if v.klass == "INSIDE"}
+    return [va for va in sorted(CORRECTION_ONLY) if va not in inside]
 
 
 # --------------------------------------------------------------------------
@@ -407,6 +507,94 @@ def selftest():
     check("fix-list format", fix_list([(None, good), (None, bad)], {0x401048}) ==
           ["0x00401048 -> 0x00401040"])
     check("fix-list skips non-INSIDE", fix_list([(None, good)], {0x401040}) == [])
+
+    # M1.29: a documented correction is CORRECTED, a live label still fails.
+    class StubImage:
+        tables = [table]
+
+        @staticmethod
+        def leaf_of(module, build, va):
+            return leaf_lookup(module, build, va)
+
+    stub = StubImage()
+    paired = Citation(0x401048, "doc.md:1", "ctx", correction=0x401040)
+    wrong_start = Citation(0x401048, "doc.md:2", "ctx", correction=0x401100)
+    live = Citation(0x401048, "doc.md:3", "fn")
+    kept = audit([paired, wrong_start, live], stub)
+    check("correction pair is CORRECTED, not a failure",
+          kept[0][1].klass == "CORRECTED" and not kept[0][1].is_failure)
+    check("pair naming the wrong start stays INSIDE",
+          kept[1][1].klass == "INSIDE" and kept[1][1].is_failure)
+    check("a live fn label is INSIDE even beside a corrected bare VA",
+          kept[2][1].klass == "INSIDE" and kept[2][1].is_failure)
+    check("--fix-list ignores CORRECTED",
+          fix_list(kept, {0x401048}) == ["0x00401048 -> 0x00401040"])
+    check("live VA is not reported correction-only",
+          0x401048 not in corrected_only(kept))
+
+    old_allow = dict(CORRECTION_ONLY)
+    CORRECTION_ONLY[0x401048] = "true start 0x00401040 is on another line"
+    try:
+        only = audit([Citation(0x401048, "doc.md:4", "ctx")], stub)
+        check("allowlisted correction is CORRECTED",
+              only[0][1].klass == "CORRECTED" and not only[0][1].is_failure)
+        CORRECTION_ONLY[0x401048] = "pinned to 0x00401000 instead"
+        bad_allow = audit([Citation(0x401048, "doc.md:5", "ctx")], stub)
+        check("allowlist with a wrong pinned start stays INSIDE",
+              bad_allow[0][1].klass == "INSIDE")
+    finally:
+        CORRECTION_ONLY.clear()
+        CORRECTION_ONLY.update(old_allow)
+
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        md = os.path.join(tmp, "corr.md")
+        with open(md, "w", encoding="utf-8") as fh:
+            fh.write("mid-function `0x00542256` → `fn 0x00542250` names the start\n"
+                     "not a function `0x003f5fc2`→`0x003f5f48` backticked style\n"
+                     "the H49 list `0x003f5a1e…0x003f5fc2` is mid-function\n"
+                     "a live `fn 0x00512340` label on a mid-function line\n"
+                     "`0x003f5e78` → `0x003f61bc` a pair with no marker word\n"
+                     "mid-function `0x00542256` -> `fn 0x00542250` then bare "
+                     "`0x00542256` again\n"
+                     "mid-function: `0x0041c7dc→0x00444540` is not a pair\n")
+        got = list(citations_markdown([md]))
+        by_line = {}
+        for c in got:
+            lineno = c.where.rsplit(":", 1)[1]
+            if c.correction is not None:
+                by_line.setdefault(lineno, []).append((c.va, c.correction))
+        check("pair extractor keeps the named start",
+              by_line.get("1") == [(0x00542256, 0x00542250)])
+        check("pair extractor accepts the bare arrow form",
+              by_line.get("2") == [(0x003F5FC2, 0x003F5F48)])
+        check("a marked line with no pair gives no correction",
+              by_line.get("3") is None)
+        # The marker regex is deliberately narrow (``→ fn`` glued); a bare
+        # arrow pair without it is not scanned, as on the real corpus today.
+        check("a bare pair without the marker word is not scanned",
+              not [c for c in got if c.where.endswith(":5")])
+        # A cross-build map is a pair shape, but its "start" is the other
+        # build's function: the wrong-start test above proves this resolves to
+        # INSIDE, never CORRECTED.
+        check("a cross-build map parses as a pair shape, not as a start",
+              by_line.get("7") == [(0x0041C7DC, 0x00444540)])
+        # The pair's left VA is corrected; every later bare VA on the line,
+        # including the pair's right VA, matches no pair and stays unresolved.
+        left = [c for c in got if c.where.endswith(":6") and c.correction is not None]
+        check("a repeated bare VA after the pair takes no correction",
+              [(c.va, c.correction) for c in left] ==
+              [(0x00542256, 0x00542250)])
+        after = [(c.va, c.kind) for c in got
+                 if c.where.endswith(":6") and c.correction is None]
+        check("the pair's right VA and a repeated bare VA stay unresolved",
+              after == [(0x00542250, "fn"), (0x00542250, "ctx"),
+                        (0x00542256, "ctx")])
+        # A live label is never turned into a correction by its line.
+        live = [(c.va, c.correction) for c in got
+                if c.where.endswith(":4") and c.kind == "fn"]
+        check("a live fn label takes no correction",
+              live == [(0x00512340, None)])
 
     print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
