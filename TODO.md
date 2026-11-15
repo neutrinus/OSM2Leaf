@@ -604,7 +604,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3650–C-3659
 
 - [ ] **H54 — `worktree_audit.py`: a command that lists stale `.claude/worktrees` and ahead-branches before they rot**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h54-worktree-audit · Critical: no · Pair: solo
   - Depends: —
   - Goal: 34 detached `.claude/worktrees` (2 locked) and 5 branches ahead of `main` have been unchanged across two retros (2026-11-13, 2026-11-15); every agent that runs `git worktree list` pays for it and nobody can tell a live tree from a 2026-11-08 leftover. Make the audit a reproducible command so the human cleanup (retro action 4) is cheap and re-checkable.
   - Precheck: `git worktree list | wc -l` and `git branch -r` show the counts in the 2026-11-15 retro; `python3 tools/worktree_audit.py --help` exits 2 (tool absent).
