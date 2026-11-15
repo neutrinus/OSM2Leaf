@@ -70,7 +70,7 @@ def exception_entry(rom, mod):
     e = rom.e32(mod)
     exc = e.get("exception")
     if exc is None:
-        # cerom.e32 grew the exception key for this tool; tolerate older calls.
+        # Pre-M1.23 cerom.e32() lacks the key; keep the fallback for old callers.
         o = rom.va2file(mod["e32"])
         units = struct.unpack_from("<18I", rom.d, o + 36)
         exc = (units[6], units[7])
@@ -202,6 +202,40 @@ def load_table(data, image_start, module, cache_dir=None):
 
 def locate(records, va):
     return nk_decomp.locate(records, va)
+
+
+def fn_of_factory(records):
+    """``fn_of(va)`` = pdata start of the function containing ``va``, else None.
+
+    Starts are precomputed once so a caller scanning many loads pays one
+    bisect per call, not one list build.  A VA in a gap (leaf function) has no
+    record and yields None, which lets callers keep their heuristic fallback.
+    """
+    starts = [r[0] for r in records]
+
+    def fn_of(va):
+        i = bisect.bisect_right(starts, va) - 1
+        if i < 0:
+            return None
+        begin, _prolog, length = records[i]
+        return begin if begin <= va < begin + length else None
+
+    return fn_of
+
+
+def attach_fn_of(mem, records):
+    """Attach ``mem.fn_of`` (a pdata-based function-start resolver) to a Mem."""
+    mem.fn_of = fn_of_factory(records)
+    return mem
+
+
+def attach_fn_of_from_image(mem, data, image_start, module, cache_dir=None):
+    """Attach ``mem.fn_of`` from the module's pdata; None when unavailable."""
+    try:
+        records, _meta = load_table(data, image_start, module, cache_dir)
+    except Exception:  # noqa: BLE001 - no table never breaks the caller
+        return None
+    return attach_fn_of(mem, records)
 
 
 def table_or_none(data, image_start, module, cache_dir=None):
@@ -395,6 +429,15 @@ def selftest():
     check("GAP", locate(pd, 0x1060)[0] == "GAP")
     check("BEFORE", locate(pd, 0x800)[0] == "BEFORE")
     check("START at last record", locate(pd, 0x1100)[0] == "START")
+    fn_of = fn_of_factory(pd)
+    check("fn_of START", fn_of(0x1000) == 0x1000)
+    check("fn_of INSIDE", fn_of(0x1010) == 0x1000)
+    check("fn_of GAP is None", fn_of(0x1060) is None)
+    check("fn_of BEFORE is None", fn_of(0x800) is None)
+    check("fn_of last INSIDE", fn_of(0x1120) == 0x1100)
+    fm = Mem([(0x1000, b"\x00" * 0x200)])
+    check("attach_fn_of returns the Mem", attach_fn_of(fm, pd) is fm)
+    check("attached fn_of resolves", fm.fn_of(0x1044) == 0x1040)
     unsorted = [(0x1000, 6, 0x20), (0x0F00, 4, 0x10)]
     try:
         validate_sorted(unsorted, "selftest: ")

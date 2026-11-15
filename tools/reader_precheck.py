@@ -66,6 +66,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import cerom  # noqa: E402
+import pdata  # noqa: E402
 import point_walk_l3 as pw  # noqa: E402  (module_sections, CODE, EXEC)
 import sh4scan  # noqa: E402  (M3.19 scan engine; H48: delegated scan primitive)
 import sh4xref  # noqa: E402
@@ -328,7 +329,13 @@ def anchor_verdict(anchor_sec, secs, xrefs, callees, module_has_compressed):
     return "DECODABLE"
 
 
-def anchor_report(mem, exec_plain, secs, ranges, va, module_has_compressed):
+def anchor_report(mem, exec_plain, secs, ranges, va, module_has_compressed,
+                  data=None, image_start=None, module=None, cache_dir=None):
+    """Xref report for ``va``.  Holder ``fn`` labels come from pdata when
+    ``data``+``image_start``+``module`` are given and the table is readable;
+    otherwise the prologue heuristic (``sh4xref.fn_start``) is used."""
+    if data is not None and image_start is not None and module is not None:
+        pdata.attach_fn_of_from_image(mem, data, image_start, module, cache_dir)
     anchor_sec = section_at(secs, va)
     xrefs = []
     for pool in sh4xref.pool_entries(mem, exec_plain, va):
@@ -338,7 +345,7 @@ def anchor_report(mem, exec_plain, secs, ranges, va, module_has_compressed):
         xrefs.append({"kind": "slot", "pool": va, "load": load, "reg": reg})
     holders = {}
     for x in xrefs:
-        x["fn"] = sh4xref.function_start(mem, x["load"])
+        x["fn"] = sh4xref.fn_start(mem, x["load"])
         if x["fn"] is not None and x["fn"] not in holders:
             holders[x["fn"]] = function_edges(mem, x["fn"], ranges)
     callees = [e for fn in holders for e in calls_into_compressed(holders[fn])]
@@ -414,7 +421,8 @@ def module_report(data, image_start, module, anchors=(), resolve_with=None, va_c
     for e in edges:
         by_sec.setdefault(e["sec"], []).append(e)
     module_has_compressed = c["compressed_sections"] > 0
-    anchor_rows = [anchor_report(mem, exec_plain, secs, ranges, va, module_has_compressed)
+    anchor_rows = [anchor_report(mem, exec_plain, secs, ranges, va, module_has_compressed,
+                                 data=data, image_start=image_start, module=module)
                    for va in anchors]
     if va_ctx is None:
         va_ctx = _va_context(data, image_start, module, _default_resolve_with(image_start, resolve_with))

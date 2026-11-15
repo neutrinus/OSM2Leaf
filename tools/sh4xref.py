@@ -34,6 +34,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cerom  # noqa: E402
+import pdata  # noqa: E402
 import sh4dis  # noqa: E402
 # Decoding (LE halfwords, pinned in sh4dis.read_u16) lives in tools/sh4dis.py;
 # nothing here shells out to an external disassembler.
@@ -80,6 +81,18 @@ def function_start(mem, addr):
         if is_prologue_word(mem.u16(s + k)):
             return s + k
     return s if s <= a else None
+
+
+def fn_start(mem, addr):
+    """Function start for ``addr``: pdata (``mem.fn_of``) when attached, else
+    the prologue heuristic (``function_start``).  A pdata GAP (leaf) returns
+    the heuristic start, so a leaf function still gets a label."""
+    fn_of = getattr(mem, "fn_of", None)
+    if fn_of is not None:
+        start = fn_of(addr)
+        if start is not None:
+            return start
+    return function_start(mem, addr)
 
 
 def thunk_slot(mem, va):
@@ -147,10 +160,12 @@ def call_after(mem, load_va, reg):
 
 
 def _load_line(mem, load, reg):
-    fn = function_start(mem, load)
+    fn = fn_start(mem, load)
     call = call_after(mem, load, reg)
     s = "  load 0x%08x (r%d)" % (load, reg)
     s += "  fn 0x%08x" % fn if fn is not None else "  fn ?"
+    if getattr(mem, "fn_of", None) is not None:
+        s += "  [pdata]" if mem.fn_of(load) is not None else "  [pdata gap]"
     if call:
         s += "  %s 0x%08x" % (call[1], call[0])
     return s
@@ -258,6 +273,7 @@ def load_module(img_path, image_start, module, resolve_with=None, names_path=Non
         if s["flags"] & 0x20000000:  # MEM_EXECUTE
             exec_segs.append((s["realaddr"], blob))
     mem = Mem(segs)
+    pdata.attach_fn_of_from_image(mem, data, r.start, m["name"])
     ex_tables, mod_names = cerom.load_resolver_tables(data, resolve_with, names_path)
     imports = {}
     for dll, slot, nm, ordn in r.imports(m):

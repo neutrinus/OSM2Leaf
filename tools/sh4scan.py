@@ -45,6 +45,7 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import cerom  # noqa: E402
+import pdata  # noqa: E402
 import sh4dis  # noqa: E402
 
 # SH-4 16-bit encodings (halfword values, read as little-endian from memory).
@@ -425,13 +426,26 @@ def decode_halfword(w):
 
 def cmd_dump(args, r, secs):
     va = int(args.va, 0)
+    starts = None
+    data = getattr(args, "_data", None)
+    if data is not None and getattr(args, "module", None):
+        try:
+            records, _meta = pdata.load_table(data, args.image_start, args.module)
+            starts = {rec[0]: rec for rec in records}
+        except Exception:  # noqa: BLE001 - no table: dump without pdata tags
+            starts = None
     for sec in scanned(secs):
         if sec.va <= va < sec.va + sec.psize:
             start = (va - sec.va) // 2
             for i in range(start, min(len(sec.vals), start + args.count)):
                 w = sec.vals[i]
-                print("  %s %s va 0x%08x  %04x  %s" % (sec.module, sec.name, va_of(sec, i), w,
-                                                    decode_halfword(w)))
+                line = "  %s %s va 0x%08x  %04x  %s" % (sec.module, sec.name, va_of(sec, i), w,
+                                                        decode_halfword(w))
+                rec = starts.get(va_of(sec, i)) if starts is not None else None
+                if rec is not None:
+                    line += ("  ; pdata fn 0x%08x prologue %d B length 0x%x"
+                             % (rec[0], rec[1], rec[2]))
+                print(line)
             return 0
     print("error: va 0x%08x is not in an uncompressed section of the selected modules" % va,
           file=sys.stderr)
@@ -647,6 +661,7 @@ def main(argv=None):
         print("error: no sections for module %r at image start 0x%x"
               % (args.module, args.image_start), file=sys.stderr)
         return 1
+    args._data = data
     header(args, secs, digest, size)
     return COMMANDS[args.cmd](args, r, secs)
 

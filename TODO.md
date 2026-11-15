@@ -699,9 +699,10 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Claims: C-3500–C-3509
 
 - [ ] **M1.20 — `pdata.py`: the function table of every module, and `fn` labels that come from it**
-  - Status: blocked · Owner: — · Critical: yes
+  - Status: open · Owner: — · Critical: yes
+  - Note (M1.23 merge, 2026-11-15): the wire-up gap the blocker named is closed — `cerom.e32()` has `exception`, `sh4xref`/`sh4scan`/`reader_precheck` use pdata, and C-3610–C-3619 register the claims (EXP-2026-11-15-M1.23-pdata-wireup). This task re-opens for its own Done-when: `pdata.py table` count for every module, `gaps`, and the selftest coverage.
   - Blocker (SE 2026-11-13): the tool is real (`pdata.py` gives 7,596 `Navi.exe` records, selftest PASS) but the EXP's claimed wire-ups are absent from `777fb68`: `cerom.e32()` has no `exception` key, `sh4xref.py`/`sh4scan.py`/`reader_precheck.py` contain 0 `pdata` references, and C-3510–C-3519 were never added to `claims.md`. The done-when needs pdata-backed `fn` labels, which do not exist yet.
-  - Unblock: M1.23 (wire-up + register the corrected C-351x claims)
+  - Unblock: M1.23 (wire-up + register the corrected C-351x claims) — merged; re-opened per rule 15
   - Depends: — (H51; faster after M1.19's cache)
   - Goal: every tool that prints `fn 0x…` takes the start from the module's `.pdata` instead of guessing it from a prologue pattern.
   - Precheck: `python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x004125a8` prints `START … length 0x12c`.
@@ -738,8 +739,9 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if fewer than half of the functions match uniquely, publish the census and the anchors found, and block on M1.20/M3.23.
   - Claims: C-3530–C-3539
 
-- [ ] **M1.23 — Finish M1.20: wire pdata into `cerom`/`sh4xref`/`sh4scan`/`reader_precheck` and register C-351x**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M1.23 — Finish M1.20: wire pdata into `cerom`/`sh4xref`/`sh4scan`/`reader_precheck` and register C-351x**
+  - Status: done · Owner: task/m1.23-pdata-wireup · Critical: yes · Pair: required
+  - Result: EXP-2026-11-15-M1.23-pdata-wireup; C-3610–C-3619 registered (corrected C-351x restatement). `pdata` labels are live in `sh4xref`/`sh4scan`/`reader_precheck`, `cerom.e32()` has `exception`; `sh4xref --to 0x0041c7dc` prints the pdata holder `fn 0x0041c990`; `selftest.py` 86 passed / 0 failed.
   - Depends: M1.20 (tool on `main`); M1.19 not required (compressed pdata already decodes)
   - Goal: `EXP-2026-11-12-M1.20-pdata-function-table` and its proposed C-3510–C-3519 describe behaviour that `777fb68` did not ship. Finish it so `fn 0x…` labels come from `.pdata` everywhere the EXP says, and the ledger matches the code.
   - Precheck: `python3 -c "import sys;sys.path.insert(0,'tools');import cerom;d=open('archive/head256.img','rb').read(128<<20);print(sorted(cerom.CERom(d,0x200200).e32(cerom.CERom(d,0x200200).module('Navi.exe')).keys()))"` must contain `exception`; `grep -c pdata tools/sh4xref.py tools/sh4scan.py tools/reader_precheck.py` must be non-zero for each.
