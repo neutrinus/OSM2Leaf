@@ -1,0 +1,79 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (session agent, subagent)
+start_utc: 2026-11-15 21:43
+end_utc: 2026-11-15 21:55
+origin_main_start: c553f94 (docs: PO 2026-11-15 third pass — archive 21 done blocks)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/research/test-system.md
+- docs/retro/2026-11-15-3.md
+- dev_process/2026-11-15-{2100-12-tl,2114-14-se,2132-15-po}.log
+
+actions_taken:
+- Started this log (N=16 for 2026-11-15; 15 logs already present).
+- Cheap regression pass after the PO archive (all green, details below).
+- Checked the archive against the test-system tasks: none of H40-H44/H56-H59,
+  M9.31/M9.12 is archived; every one keeps its open/blocked status and its
+  Depends. The 21 archived blocks are all ticked `[x]` (verified by script
+  against the pre-archive TODO), so no live test task was moved.
+- Re-ran todo_check on the pre-archive TODO (156cdd3) for a baseline diff:
+  187 tasks/125 warnings before, 166/85 after, and zero *new* warning in the
+  after state. The PO removed 40 warnings, added none.
+- Traced all 21 archived IDs to live consumers: 39 Depends/Unblock references
+  to archived IDs remain, but every one already points at a done ID that its
+  task treats as input, and all 20 archived blocks are in the history file.
+  Not a defect; recorded as the reason H60 exists.
+- Checked the progress_report parse errors: `M8.B5 has no Status line` and
+  `M8.A1 not found` are pre-existing (identical on the pre-archive copy); both
+  stay NOT RUN, so no false green.
+- Added H60 (todo_check: archived vs ghost vs blocked Depends/Unblock IDs);
+  updated the Workstreams H row. No other new task: H53/H57/H58/H59 already
+  cover the remaining holes and are open.
+- Added H60 to the Workstreams H cell; re-ran todo_check (0 errors) and
+  claims_check (OK) after the edit.
+
+regression gates (run at c553f94 + this commit):
+- todo_check: PASS (167 tasks, 0 errors, 85 warnings; warnings pre-existing)
+- claims_check: PASS (0 dup / 0 unregistered / 0 bad annotation)
+- progress_report (default): PASS, exit 0, schema osm2leaf.progress_report/v3
+- l3check --build-corpus --json FILE: PASS, exit 0, schema
+  osm2leaf.l3check/v1, 6 targets: 1 PASS / 5 BLOCKED / 0 FAIL, result PASS
+- selftest: PASS, 88 passed / 0 failed / 23 skipped / 111 total (43 s)
+
+archive audit verdict: no test-system task archived; no Depends broken in the
+sense of a task whose required input left the board (all archived IDs are
+`[x]` and present in todo-history-2026-11-15.md).
+
+task_ids_added: H60 (Claims C-3800-C-3809, Pair: solo)
+task_ids_changed: Workstreams H row (adds H60)
+task_ids_blocked/reopened: none
+prs: none (QA commits to main per prompt)
+commits: todo: add H60 archived-vs-ghost Depends check (+ this log)
+
+decisions:
+- One new task, not three: the plan (H40-H44/H56-H59) is complete per SM
+  retro 3; the only uncovered gap this pass found is a *test-infrastructure*
+  one (the archive tooling the PO runs by hand has no gate). H57 (baseline)
+  and H58 (ledger) already own the other candidate gaps.
+- Did not touch M8.A1/M8.B5 headings to fix progress_report: both stages are
+  correctly NOT RUN, and rewriting another stream's blocks for a cosmetic parse
+  line is not QA's remit (a task would be duplication of M8 work).
+- Did not shrink the 85 warnings: H53 `--strict` owns that, per retro-3.
+- Rejected a second task for "archive tool"; H60's classification also gives
+  the PO footer rule a checkable form.
+
+problems/dead_ends:
+- First edit of H60 had a bad count (15 vs 16 warnings) — corrected before
+  commit; the task's Precheck must print exactly 16 or it cannot be taken.
+- `git status` shows untracked `.claude/` (outside repo history, pre-existing;
+  H54's auditor reports it). Left alone.
+
+handoff:
+- TL: H60 is a small solo task next to H53; land it before the next PO archive
+  so an accidental history drop fails a command, not a recount.
+- QA next: re-run this same pass after the next archive; the warning count is
+  the cheap signal, H60's split will be the precise one.
+- SM: meta-note — both issues this pass were in tools the PO runs by hand
+  (archive script, progress-report TODO parser); the plan's coverage is fine,
+  the *operational* gates around manual passes are what keep drifting.

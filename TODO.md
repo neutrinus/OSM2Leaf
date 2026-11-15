@@ -255,7 +255,7 @@ Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**), **M9.12** or 
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H28, H29, H40–H44, H52–H57**; H11/H49/H51 archived 2026-11-15; H45–H48 archived 2026-11-13 |
+| H | Housekeeping | **H19, H28, H29, H40–H44, H52–H57, H60**; H11/H49/H51 archived 2026-11-15; H45–H48 archived 2026-11-13 |
 | M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.27, M1.28, M1.29, M1.12, M1.14**; M1.22b waits on M1.27/M1.28 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25 done |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6); M2.3/M2.5/M2.12/M2.15/M2.18 archived 2026-11-15 |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.5–M3.8/M3.12/M3.17/M3.21 archived 2026-11-15 |
@@ -603,6 +603,18 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `python3 tools/test_plan_check.py --selftest` passes on synthetic positive/negative tables (missing task, orphan, unlanded evidence fail; a `decision:` row passes); `python3 tools/test_plan_check.py` exits `0` and prints `plan: complete` or names the gaps on the current §7; deleting one evidence task's `Result:` in a temp copy makes it exit `1`; `selftest.py` passes.
   - Stop: if the table needs >~20 rows to stay honest, keep the per-level rows and record the rest in §7 prose with `NOT TRACKED: <reason>`; do not build a second issue tracker.
   - Claims: C-3780–C-3789
+
+- [ ] **H60 — `todo_check`: a `Depends`/`Unblock` ID must resolve to a live block or an archived one in `todo-history-*.md`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (`tools/todo_check.py` is on `main`); coordinates H53 (owns `--strict`)
+  - Goal: the PO archive pass (2026-11-15, 21 blocks) is a manual fixpoint run by a script, and its only guard was "all 21 present exactly once" after it had already dropped the H blocks from the history file. Board hygiene still cannot tell a *ghost* ID from an *archived* one: `todo_check.py` reports both as `Depends references unknown task ID`. On the current board that is 16 warnings (H24, H26 ×3, M9, M1.12, M1.2b/c, M3.1, M4.5, M4.7 ×2, M4.8c, M9.1, M9.3/M9.4) and a fresh archive can add more without any gate noticing.
+  - Precheck: `python3 tools/todo_check.py | grep -c 'references unknown task ID'` prints `16`; `git ls-files docs/research/todo-history-*.md` is non-empty, so an archive exists to resolve against; `python3 tools/todo_check.py --strict` still exits `2` (H53 owns the flag — this task must not add a second one).
+  - Scope: `tools/todo_check.py` only: build a `history_ids` set from `[x]` block headers in `docs/research/todo-history-*.md` (reuse the existing block regex, do not write a second parser) and split the current single warning into (a) `Depends/Unblock references archived task ID 'X'` — informational, resolves to a done block, (b) `… references ghost task ID 'X'` — an error under H53's `--strict`, a warning by default, (c) `… references blocked task ID 'X'`. Add a `--selftest` with a temp board plus a temp history: an archived ref warns, a ghost ref fails under `--strict`, a live ref is silent, and a history file that repeats an ID exactly once stays clean. Do not change the default exit code (0 on the current board).
+  - Input: `tools/todo_check.py` (`check()`, `_parse_depends`, `known_ids`), `docs/research/todo-history-2026-11-15.md` (the archive format the PO wrote), TODO rules 9/15 and H53's `--strict` note.
+  - Hints: `H53` decides which warnings become errors; this task only makes the three cases distinguishable. Resolve `M8.C1…C22`-style range IDs to their base (`M8.C`) the way the block headers do, or they flood the report. If a history file is absent (fresh checkout), degrade to today's single warning, never to an error.
+  - Done when: `python3 tools/todo_check.py` still exits 0 and prints the archived/ghost/blocked split with counts; the selftest's ghost fixture exits 1 under whatever flag H53 lands (or under `--selftest` if H53 is not merged); a temp copy of `TODO.md` with one archived ID changed to `H99` is reported as ghost; `selftest.py --only todo_check` passes.
+  - Stop: if H53's `--strict` shape differs from the plan above, implement the classification as warnings only and record in the EXP which rule H53 must pick up; do not fork a second TODO checker.
+  - Claims: C-3800–C-3809
 
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
