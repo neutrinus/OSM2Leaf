@@ -1,0 +1,91 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (subagent, session agent)
+start_utc: 2026-11-15 23:31 UTC (local 2026-11-16 00:31 CET)
+origin_main_start: 6504090 (docs: PO 2026-11-16 7th pass — #171 merged+closed)
+
+note:
+- Session/local date is 2026-11-16 (CET); the UTC clock still reads
+  2026-11-15 23:31. Filename uses the session date as instructed, HHMM is the
+  UTC start time (as PO did for the N=1 log).
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/retro/2026-11-15-4.md (cycle 3, retro-4)
+- dev_process/2026-11-16-0025-1-po.log
+- git show --stat/show 6504090 (TODO, EXP, claims, tools/one_tile_pipeline.py)
+
+focus:
+- Post-merge regression on draft PR #171 (open 2026-11-09, merged+closed by PO
+  in 6504090): a 6-day-old branch whose --factory-root mode, factory EXP and
+  C-3054 landed on main. Main risk = stale-branch tooling breaking today's tree.
+
+actions_taken:
+- Started this log (N=2 for 2026-11-16; `ls dev_process/` had one 2026-11-16 entry).
+- Read the #171 diff: only tools/one_tile_pipeline.py (+100/-17), the factory
+  EXP, C-3054 and TODO moved in 6504090. No other tool touched.
+- Ran the gate set; all PASS (see below). Then ran the #171 tool on the real
+  EU2011 factory root to confirm the EXP reproduces: tilewriter rc=2 on
+  `0x2146` y=76 x=941, all gates BLOCKED, exit 1 — matches C-3054.
+- Re-derived the EXP fixture SHA-256 from SYNTHETIC_OSM: equals the recorded
+  `d66c090f…`. Checked the EXP against TEMPLATE.md: missing the Tools line,
+  the Sample row, and the `Blocked` status is not one of the template's
+  statuses — pre-existing from 2026-11-09, H58/H61-era requirements.
+- Probed the --factory-root acceptance itself: an empty, freshly-created
+  "factory" tree (four empty files) also runs to `tilewriter rc=1` and reports
+  `mode=factory-backed / real_image_run=attempted` exactly like the real run.
+- Probed `--out == --factory-root`: `_copy_factory_root` rmtree's the source.
+  Repro with a throwaway dir: exit 1, `FileNotFoundError`, source tree gone.
+  Same rmtree in `build_synthetic_out`, so a nested/identical `--out` deletes it.
+- Tried a minimal `--selftest` extension away from the tool (empty factory dir)
+  to keep the new case cheap; not landed, H64 owns the change.
+- Added H64 (factory-root input validation + `--out` overlap guard) and H65
+  (`progress_report` L4 prereq names a block that is gone → "not found" every
+  run). No third task: the EXP TEMPLATE gaps are covered by H58/H61 as a
+  finding, not new work.
+
+gates (exit codes):
+- selftest.py (full) 0 — 88 passed / 0 failed / 23 skipped, 43.4 s
+- todo_check.py 0 — 172 tasks, 0 errors, 147 warnings (same pre-existing set)
+- claims_check.py 0 — 0 duplicate / 0 unregistered / 0 bad annotations
+- l3check.py --build-corpus --json 0 — schema `osm2leaf.l3check/v1`,
+  PASS 1 / BLOCKED 5 / SKIP 0 / total 6, `problems: []`, corpus 108 entries
+  (`/tmp/opencode/qa-l3-4.json`)
+- progress_report.py 0 — parses, but prints one report problem:
+  "TODO.md: task M8.A1 not found" (→ H65)
+- #171's tool: one_tile_pipeline --selftest 0; documented factory command on
+  the real root exit 1 (honest BLOCKED, C-3054 reproduced)
+
+#171 verdict: did not break unrelated tooling (selftest, checks and L3 all
+clean, no other file touched). The merged tool itself has two untested input
+defects (H64); its factory EXP's evidence is a repo command (the tool), so
+C-3054 stands, but the EXP predates TEMPLATE's Tools/Sample requirements.
+
+decisions:
+- Did not "fix" the EXP (other role's file, predates today's template) — a
+  finding only, H61/H58 already gate evidence commands.
+- Did not patch one_tile_pipeline.py: the defects need a selftest with two
+  negative cases, which is a task with a Done-when (H64).
+- Checked the real factory root instead of the 8 GB image (rule 11 allows
+  it; root is present on this machine, no download attempted).
+
+problems:
+- `git rebase` first failed on the dirty tree; used `--autostash` (rebased,
+  then reapplied clean, 6504090 → 6504090, no upstream move).
+- `/tmp` is a 3.8 GB tmpfs: the fake-factory probe wrote to /tmp/opencode,
+  the real factory run went to `/home/marek/projekty/leafre-work/` (4.9 GB,
+  outside repo). Both copies should be removed by the next role.
+- The exported `.claude/` directory is untracked and unrelated to this run.
+
+commits:
+- one commit `chore: QA 2026-11-16 post-#171 regression + H64/H65`, TODO.md
+  and this log, pushed to `main` directly (no PR, no force).
+
+handoff:
+- TL: H64 pairs with the M5.34 corridor rerun — the first thing that trusts
+  a factory run's exit code; H65 is a one-file dashboard fix, solo.
+- M5.34 driver: before trusting a factory run, look at
+  `factory_tile_size`/`factory_tile_sha256` (H64) — today an empty tile and
+  the EU2011 tile produce the same `real_image_run=attempted`.
+- human: `worktree_audit --apply` (retro-4 action 4) is still the only item
+  no role can do.
+
