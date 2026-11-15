@@ -1,0 +1,105 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (subagent, session agent)
+start_utc: 2026-11-15 22:54
+end_utc: 2026-11-16 00:20 (crossed midnight; log name keeps the start date)
+origin_main_start: 3a5cc0f (docs: sm retro 2026-11-15-4, cycle 3)
+origin_main_end: (this commit; main did not move during the run)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-15-4.md
+- dev_process/2026-11-15-{2200-17-tl,2252-18-sm}.log, 2026-11-15-1959-8-se.log
+- docs/experiments/EXP-2026-11-15-{M1.28-eu-us-fixture,M1.29-fn-audit-corrections,M1.23-pdata-wireup}.md
+- docs/experiments/TEMPLATE.md
+- docs/research/claims.md C-3618, C-3740–C-3749, C-3790–C-3799
+- TODO.md H52, H58, M1.20, M1.24, M1.26–M1.29, M1.22/M1.22b
+
+actions_taken:
+- Started this log (N=19 for 2026-11-15; 18 logs present at 22:54 UTC).
+- Re-ran M1.28's done-when on main: `fn_match --fixture … --us /tmp/opencode/us256.img
+  --module Navi.exe` exit 0, 13 rows, 5 UNIQUE / 8 NOMATCH (29 s). US head is
+  byte-identical to `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img`
+  (`70d945d8…`). Negative controls re-ran: wrong module exit 2, 1,000-byte
+  truncation exit 2; the flipped head exists and hashes `83b54ba2…`.
+- Re-ran M1.29's done-when on main: `fn_audit --scope docs` exit 1, 17 files /
+  297 citations / 34 unique VAs…, `START 190, INSIDE 33, CORRECTED 13, GAP 29`,
+  `--fix-list` 9 lines dropping exactly the three ctx-only VAs. Matches EXP and
+  C-3790–C-3793. On the M1.29 merge corpus (`b56fed2` worktree) the same.
+- Verified the C-3793 arithmetic (6+3+2 for the three VAs, +1+1 for
+  `0x0041c7e8`/`0x00412bee` = 13) and that no single cited VA can lift a
+  different one when dropped (each of the 9 fix-list VAs passes alone).
+- Checked M1.29 selftest claims vs tool: the selftest DOES pin the repeated-bare-VA
+  behaviour (line 6 fixture, two checks); C-3791's "stays unresolved" is true in
+  the selftest but not on `TODO.md:729`, where the second `0x00542256` is
+  `CORRECTED` via the `CORRECTION_ONLY` pin, not via the pair. Not a false claim,
+  a conflation of the two paths — folded into H63.
+- H58 concern (C-3618 "before" column): it IS reproducible — `git cat-file -e
+  d4368b8:tools/sh4xref.py` succeeds and the file prints `fn 0x00542314` for
+  `0x00542250` and `fn ?` for `0x0032ef60`, exactly EXP-2026-11-15-M1.23's
+  "before" column. H58 does not need to cover it; recorded here.
+- Audited claims for evidence rows naming non-existent files: only 8 rows
+  (C-1900–C-1916 cite `EXP-…-M4.8b-poi-refs`, stored as `.tsv`; C-3033 cites a
+  `.tsv` with its suffix). Every C-374x/C-379x evidence row is a repo command.
+- Found an SE-retro accuracy defect: EXP/M1.29 record the corpus as "14 files,
+  297 citations, 34 unique VAs" in the claim row (C-3790 reads 17 files, 297,
+  112) — reconciled as 17/297/112; the extra 34 was a misread, not a change.
+- Re-ran the full ladder: selftest 88 passed / 0 failed / 23 skipped (111 total),
+  `--only fn_match` and `--only fn_audit` PASS, claims_check OK, todo_check 0
+  errors / 85 warnings, progress_report exit 0 with one parse note (M8.B5).
+- Re-measured the board with a block parser: 169 blocks, 152 with Status =
+  84 open / 40 done / 27 blocked / 0 in progress; 17 no-Status blocks are the
+  same M6.10/M7/M8 set retro-4 names (its 84/40/27 came from 168 blocks).
+- Checked M1.26 gating: Depends M1.25/M1.23/M1.29 all done, board says
+  `Pair: solo` although its scope rewrites a gate — the retro-4 prompt edit
+  already requires pair; fixed the field to `Pair: required` (TODO only).
+- Added 3 tasks (H61, H62, H63) + one `Done when` line in M1.24; see below.
+- Rebased on `origin/main` (no movement), ran todo_check + claims_check, pushed
+  to main directly (no PR).
+
+task_ids_added:
+- H61 (C-3810–C-3819, Pair: solo): `claims_check` must resolve every cited EXP
+  file on main; 8 rows today name a `.tsv`; precheck command verified to print
+  `8 ['C-1900','C-1901','C-1902','C-1903']`.
+- H62 (C-3820–C-3829, Pair: solo): `fetch_image.py` gets a `US256` alias pinned
+  to `70d945d8…`; today `--image US --part 256M` verifies size only and
+  `--image US256` exits 2.
+- H63 (C-3830–C-3839, Pair: required): `CORRECTED(line)` vs `CORRECTED(pin)`
+  in `fn_audit`, so the M1.29 success class names its evidence; measured on the
+  `b56fed2` corpus (13/33 baseline, pin-drop 36/10) because the live board's
+  number moves with every task that quotes a pinned VA.
+task_ids_changed:
+- M1.26 `Pair: solo` → `Pair: required` (retro-4 action 1/2, field only).
+- M1.24 `Done when` gained `--parent-of` (the re-check H63's `Pin:` line needs).
+- TODO "Shared inputs" gained a `US256` row with the verified hash.
+
+decisions:
+- Did not re-open M1.28/M1.29: every done-when command reproduced on main; the
+  only defect is a claim *conflation* (pair vs pin), which H63 fixes rather than
+  re-writing a merged EXP (append-only rule).
+- Did not add a task for C-3618: verified reproducible via `git cat-file`.
+- Did not add an H58 evidence-command task for C-374x/C-379x: all are repo
+  commands; H58 already owns the placeholders it found.
+- Did not add a board-cleanup task for the 17 no-Status blocks: retro-4 action 5
+  (PO) already owns it; a second task would duplicate.
+- Did not report the `CORRECTED` number drift as a M1.29 defect: the tool counts
+  the board by design; H63 records it and makes M1.26 use a frozen corpus.
+
+problems/dead_ends:
+- Counting `CORRECTED` while editing the very block that quotes the pins moved
+  the number between runs (13 → 16/18/21). Root cause: adding `0x00542256`,
+  `0x003f5fc2`, `0x00413af4` in H63 prose adds resolved rows. Fixed by measuring
+  on a `b56fed2` worktree (removed afterwards) and quoting that baseline.
+- `todo_check` reports 170 tasks after the add (169 headers + the field-template
+  block at line 176); pre-existing off-by-one in its counter, not a new defect.
+- progress_report still prints "M8.B5 has no Status line" — the 17-block wobble
+  is unchanged and is PO's action 5.
+
+handoff:
+- TL: next batch order M1.29 done → H52 (apply the 9-row table) → M1.26 (now
+  `Pair: required`), then M1.27 against the M1.28 fixture; H61/H62/H63 are
+  ready, all independent, H61 coordinates with H58's `--strict`.
+- PO: add Status lines to the 17 M6/M7/M8 blocks (retro-4 action 5); the
+  `US256` Shared-inputs row now exists so M1.22/M1.22b Prechecks can cite it.
+- QA: H61's precheck one-liner is the reproducible count the retro asked for
+  (8 rows); the board parse method (block parser, not heading grep) is in this
+  log.
