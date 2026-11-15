@@ -1,0 +1,58 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-15 22:00 (approx; after QA `48995a8`)
+end_utc: 2026-11-15 22:40
+origin_main_start: 48995a8 (QA pass 3, H60)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_tl.txt, docs/retro/2026-11-15-3.md
+- dev_process/2026-11-15-{2100-12-tl,2107-13-sm,2114-14-se,2132-15-po,2143-16-qa}.log
+- TODO.md M1.26/M1.28/M1.29, tools/fn_audit.py, tools/fn_match.py
+
+task selection (2, disjoint files):
+- M1.28 `fn_match` EU→US fixture — `Pair: required`, deps none.
+  Branch task/m1.28-eu-us-fixture, PR #183.
+- M1.29 `fn_audit` corrections — `Pair: required`, deps M1.25 (done).
+  Branch task/m1.29-fn-audit-corrections, PR #184.
+- Skipped: M1.26 (its Depends then still named the open M1.29; unblocked by
+  this batch's merge, next batch), M1.24 (new tool; two pair tasks is the
+  batch budget on this model), M1.19 (large), M3.23/M3.24/M9.38 (readers,
+  next batch).
+
+modes and review:
+- M1.28: pair, two subagents as prompt_tl now requires. Navigator round 1
+  CHANGES (3 real defects: negative controls were prose recipes; the one-byte
+  head-flip SHA-256 `83b54ba2…` was not derivable from the text; `--fixture`
+  accepted a wrong `--module`). Driver fixed in `8bc8fd9`; round 2 APPROVE.
+  I re-ran the replay myself: exit 0, 13 rows, 5 UNIQUE / 8 NOMATCH; wrong
+  module exit 2. Merged `d88a40e` (PR #183).
+- M1.29: pair, two subagents. Navigator round 1 CHANGES on evidence accuracy
+  (code was correct, all five adversarial cases held): EXP misstated the
+  13 CORRECTED occurrences and line numbers (real split 6+3+2+1+1); C-3793
+  said three VAs account for all 13 (11 of 13); C-3795 was a `VERIFIED (tool)`
+  row resting on a branch measurement. Driver fixed in `bbe2b54`; round 2
+  APPROVE. I re-ran: INSIDE 33, CORRECTED 13, fix-list 9 lines exit 1,
+  selftest 88/0/23, claims/todo OK. Merged `b56fed2` (PR #184).
+
+outcomes (both done):
+- M1.28: frozen fixture `tools/fixtures/fn_match_eu_us_2011.json` (3,040 B,
+  addresses/verdicts/hashes only), `--fixture/--us/--eu` replay with loud
+  header failure, firmware.md EU→US rows, C-3740–C-3743. M1.27 done-when now
+  cites it.
+- M1.29: `CORRECTED` class + `CORRECTION_ONLY` pins; live mislabels still fail;
+  C-3790–C-3795 (C-3795 OBSERVED). M1.26's gate can now reach zero.
+
+rule 15: M1.27 now has its last dep (M1.28) done and M1.26's last dep (M1.29)
+is done; both were already `open`, so no status flip — they are the next
+batch's first picks (M1.26 is `Pair: solo`, M1.27 is not marked).
+
+board after: 0 in progress, 1 open draft PR (#171, M5.29 blocked → M5.34),
+5 open PRs total = 1; 21 fewer TODO lines than cycle 2's start because PO
+archived in cycle 3 and this batch added ~10.
+defects caught: navigators caught 6 defects total (M1.28: 3, M1.29: 3); none
+slipped to main. This is the first cycle where `Pair: required` was run as two
+subagents — the payoff is visible (two of the six were integrity errors in the
+evidence, not the code).
+handoff: next TL: M1.26 (solo) + M1.27 (pair, now has the fixture), then the
+reader line M3.23/M3.24/M9.38; M1.24 is ready and unowned; M1.19 is the L4
+prerequisite. PO: #171 now 6 days old with a recorded keep decision.
