@@ -67,6 +67,84 @@ def sha256_bytes(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
+class UsageError(Exception):
+    """An input combination that would destroy data or cannot be honoured."""
+
+
+def _is_within(child: Path, parent: Path) -> bool:
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def _check_out_overlap(out: Path, input_root: Path | None) -> None:
+    """Reject an ``out`` that is the input root, or a parent/child of it.
+
+    Both ``build_*_out`` helpers delete ``out`` before writing; if it overlaps
+    the input, the deletion destroys the input (H64).
+    """
+    if input_root is None:
+        return
+    o = out.expanduser().resolve()
+    r = input_root.expanduser().resolve()
+    if o == r:
+        raise UsageError(f"--out {o} is the input root; refusing to delete the input tree")
+    if _is_within(r, o):
+        raise UsageError(f"--out {o} is a parent of input root {r}; a recursive delete would remove the input")
+    if _is_within(o, r):
+        raise UsageError(f"--out {o} is inside input root {r}; refusing to remove input data")
+
+
+def _clarion_tile():
+    ze0 = HERE / "ze0-viewer" / "tools_ze0"
+    if str(ze0) not in sys.path:
+        sys.path.insert(0, str(ze0))
+    import clarion_tile  # noqa: E402
+    return clarion_tile
+
+
+def _factory_tile_provenance(factory_root: Path, cell: str) -> dict[str, Any]:
+    """Prove the tile at ``MAPAL001/<cell>.DAT`` is a parseable factory tile.
+
+    Returns a provenance dict with ``factory_tree_provenance`` =
+    ``factory-tile-parsed`` on success, or ``factory-tree-invalid`` plus a
+    ``parse_error`` reason. Size alone is not a test; the tile is read and
+    parsed with the same ``clarion_tile`` reader the writer uses.
+    """
+    tile = factory_root / "MAPAL001" / f"{cell}.DAT"
+    prov: dict[str, Any] = {
+        "factory_tile": str(tile),
+        "factory_tile_size": 0,
+        "factory_tile_sha256": None,
+        "factory_tree_provenance": "factory-tree-invalid",
+        "parse_error": None,
+    }
+    try:
+        data = tile.read_bytes()
+    except OSError as e:
+        prov["parse_error"] = f"read failed: {e}"
+        return prov
+    prov["factory_tile_size"] = len(data)
+    if not data:
+        prov["parse_error"] = "empty file (0 bytes)"
+        return prov
+    prov["factory_tile_sha256"] = sha256_bytes(data)
+    try:
+        parsed = _clarion_tile().read_tile(data)
+    except Exception as e:  # a malformed tile is a result, not a crash
+        prov["parse_error"] = f"{type(e).__name__}: {e}"
+        return prov
+    sections = parsed.get("sections") or []
+    if not sections:
+        prov["parse_error"] = "tile parsed to no sections"
+        return prov
+    prov["factory_tile_sections"] = len(sections)
+    prov["factory_tree_provenance"] = "factory-tile-parsed"
+    return prov
+
+
 def gate(status: str, detail: str, evidence: str = "") -> dict[str, str]:
     if status not in STATUSES:
         status = "CANNOT-VERIFY-OFFLINE"
@@ -149,8 +227,10 @@ def _scaffold_tree(root: Path, osm_tile_cell: str) -> list[str]:
     (root / "DRSTR001.DAT").write_bytes(drstr_ze0.build(root))
     return ["MAPAL001/LEV3456R.DAT", "MAPAL001/B30R060R.DAT", "MMAIN001.DAT", "REFER001/POINT001.DAT.cmp", "REFER001/POINT001.DAT.ind", "CMP.LST", "DRSTR001.DAT"]
 
-def build_synthetic_out(out: Path, cell: str = "B48R058R") -> dict[str, Any]:
+def build_synthetic_out(out: Path, cell: str = "B48R058R",
+                        input_root: Path | None = None) -> dict[str, Any]:
     """Build a synthetic minimal tree with one OSM-generated tile. No vendor bytes."""
+    _check_out_overlap(out, input_root)
     report: dict[str, Any] = {
         "mode": "synthetic-only",
         "tile": cell,
@@ -310,6 +390,62 @@ def selftest() -> int:
         # gate report JSON-serializable
         json.dumps(rep)
         chk(True, "gate report JSON-serializable")
+
+    # Factory-tree provenance + overlap guard negatives (H64).
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        root = td / "factory-root"
+        (root / "MAPAL001").mkdir(parents=True)
+        (root / "VER_INFO").mkdir()
+        import tilewriter
+        tile_bytes = tilewriter.make_factory("B48R058R")
+        tile_path = root / "MAPAL001" / "B48R058R.DAT"
+        tile_path.write_bytes(tile_bytes)
+        (root / "DRSTR001.DAT").write_bytes(b"x")
+        (root / "MMAIN001.DAT").write_bytes(b"x")
+        (root / "VER_INFO" / "HDD_INFO.TXT").write_bytes(b"x")
+        tile_sha = sha256_bytes(tile_bytes)
+
+        # Positive control: an honest factory tile is parsed and its sha recorded.
+        honest_out = td / "honest-out"
+        rep = build_factory_out(honest_out, root, "B48R058R")
+        chk(rep.get("factory_tree_provenance") == "factory-tile-parsed",
+            "honest factory tile parsed (provenance=factory-tile-parsed)")
+        chk(rep.get("factory_tile_sha256") == tile_sha,
+            "factory_tile_sha256 equals sha256sum of MAPAL001/<cell>.DAT")
+        chk(rep.get("factory_tile_size") == len(tile_bytes),
+            "factory_tile_size equals tile size")
+
+        # Negative control (a): empty factory tile -> BLOCKED / factory-tree-invalid.
+        empty_root = td / "empty-root"
+        shutil.copytree(root, empty_root)
+        (empty_root / "MAPAL001" / "B48R058R.DAT").write_bytes(b"")
+        empty_out = td / "empty-out"
+        rep = build_factory_out(empty_out, empty_root, "B48R058R")
+        chk(rep.get("real_image_run") == "factory-tree-invalid",
+            "empty factory tile -> real_image_run=factory-tree-invalid")
+        chk(all(g.get("status") == "BLOCKED" for g in rep["gates"].values()) and rep["gates"],
+            "empty factory tile -> every gate BLOCKED")
+        chk(not empty_out.exists(), "empty factory tile -> no output tree mutated")
+
+        # Negative control (b): --out == --factory-root -> exit 2, input intact.
+        before = sorted(p.relative_to(root) for p in root.rglob("*"))
+        before_sha = sha256_bytes(tile_path.read_bytes())
+        rc = main(["--factory-root", str(root), "--out", str(root), "--cell", "B48R058R"])
+        after = sorted(p.relative_to(root) for p in root.rglob("*"))
+        chk(rc == 2, "--out == --factory-root exits 2")
+        chk(before == after and tile_path.exists(),
+            "--out == --factory-root leaves the input tree intact")
+        chk(sha256_bytes(tile_path.read_bytes()) == before_sha,
+            "--out == --factory-root leaves the factory tile byte-identical")
+        rc2 = main(["--factory-root", str(root), "--out", str(root / "nested"), "--cell", "B48R058R"])
+        chk(rc2 == 2, "--out inside --factory-root exits 2")
+        chk(not (root / "nested").exists(), "--out inside --factory-root creates nothing")
+        try:
+            build_synthetic_out(root, "B48R058R", input_root=root)
+            chk(False, "build_synthetic_out rejects out == input root")
+        except UsageError:
+            chk(True, "build_synthetic_out rejects out == input root")
     print(f"selftest: {'OK' if not fails else 'FAIL'} ({fails} failure(s))")
     return 0 if not fails else 1
 
@@ -323,11 +459,14 @@ def _copy_factory_root(src: Path, dst: Path) -> None:
 def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
                       osm_text: str | None = None, country: str = "616") -> dict[str, Any]:
     """Factory-backed path: copy factory root, replace exactly one tile with OSM-generated (provisional-v0)."""
+    _check_out_overlap(out, factory_root)
     report: dict[str, Any] = {
         "mode": "factory-backed", "tile": cell, "mapping": "provisional-v0",
         "rule13": "roadclass_v0 provisional, not firmware-confirmed; L2 necessary not sufficient; L3/L4/L5 acceptance unknown",
         "factory_backed": True, "factory_root": str(factory_root), "missing_input": "",
         "real_image_run": "attempted", "gates": {}, "counts": {}, "changed_set_expected": [f"MAPAL001/{cell}.DAT"],
+        "factory_tile_sha256": None, "factory_tile_size": 0,
+        "factory_tree_provenance": "not-checked",
     }
     if not factory_root.is_dir():
         report["gates"] = {g: gate("BLOCKED", f"factory root not a directory: {factory_root}") for g in GATES}
@@ -339,6 +478,18 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         report["missing_input"] = "missing factory files: " + ", ".join(missing)
         report["real_image_run"] = "blocked"; report["factory_backed"] = False
         report["gates"] = {g: gate("BLOCKED", report["missing_input"]) for g in GATES}; return report
+    prov = _factory_tile_provenance(factory_root, cell)
+    report["factory_tile"] = prov["factory_tile"]
+    report["factory_tile_size"] = prov["factory_tile_size"]
+    report["factory_tile_sha256"] = prov["factory_tile_sha256"]
+    report["factory_tree_provenance"] = prov["factory_tree_provenance"]
+    if prov["factory_tree_provenance"] != "factory-tile-parsed":
+        report["missing_input"] = f"factory tile {factory_tile} is not a parseable factory tile: {prov['parse_error']}"
+        report["real_image_run"] = "factory-tree-invalid"
+        report["factory_backed"] = False
+        report["gates"] = {g: gate("BLOCKED", report["missing_input"], "factory_tile_provenance") for g in GATES}
+        return report
+    report["factory_tile_sections"] = prov.get("factory_tile_sections")
     _copy_factory_root(factory_root, out)
     out_tile = out / "MAPAL001" / f"{cell}.DAT"
     osm_text = osm_text or SYNTHETIC_OSM
@@ -411,14 +562,22 @@ def main(argv: list[str] | None = None) -> int:
     if not args.out:
         print("error: --out required (or --selftest)", file=sys.stderr); return 2
     out = Path(args.out)
-    if args.synthetic or (not args.factory_root and not args.osm):
-        rep = build_synthetic_out(out, args.cell)
-    elif args.factory_root:
-        rep = build_factory_out(out, Path(args.factory_root), args.cell, country=args.country)
-    else:
-        rep = build_synthetic_out(out, args.cell)
-        rep["note"] = "OSM provided without --factory-root; synthetic-only fallback"
-        rep["real_image_run"] = "blocked"; rep["missing_input"] = "--factory-root required"
+    factory_root = Path(args.factory_root) if args.factory_root else None
+    try:
+        if factory_root is not None:
+            _check_out_overlap(out, factory_root)
+        if args.synthetic or (not args.factory_root and not args.osm):
+            rep = build_synthetic_out(out, args.cell, input_root=Path(args.osm) if args.osm else None)
+        elif args.factory_root:
+            rep = build_factory_out(out, factory_root, args.cell, country=args.country)
+        else:
+            rep = build_synthetic_out(out, args.cell)
+            rep["note"] = "OSM provided without --factory-root; synthetic-only fallback"
+            rep["real_image_run"] = "blocked"; rep["missing_input"] = "--factory-root required"
+    except UsageError as e:
+        print(f"error: {e}", file=sys.stderr)
+        print("usage: --out must not be, contain, or be contained by --factory-root/--osm", file=sys.stderr)
+        return 2
     print(json.dumps(rep, indent=2, ensure_ascii=False))
     ok_tree = (out / "MAPAL001" / f"{args.cell}.DAT").exists() and rep["counts"].get("tilewriter_rc") == 0
     card_ok = rep.get("cardcheck_ok") or rep.get("cardcheck_applicable")
