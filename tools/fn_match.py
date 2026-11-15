@@ -355,6 +355,15 @@ def selftest() -> int:
           bool(compare_rows(fixture,
                             [(0x1000, 0x3000, "UNIQUE", "START"),
                              (0x2000, 0x3000, "UNIQUE", "START")])[0]))
+    check("fixture: matching module/image_start has no header problem",
+          fixture_header_problem(fixture, "Navi.exe", 0x200200) is None)
+    check("fixture: a wrong module is a header problem",
+          "module" in (fixture_header_problem(fixture, "OSMNav.exe",
+                                              0x200200) or ""))
+    fx_start = dict(fixture, image_start="0x200200")
+    check("fixture: a wrong image_start is a header problem",
+          "image_start" in (fixture_header_problem(fx_start, "Navi.exe",
+                                                   0x300000) or ""))
 
     # a wrong head must fail loudly with its hash, not become a NOMATCH
     import tempfile
@@ -829,8 +838,26 @@ def compare_rows(fixture, results):
     return problems, want
 
 
+def fixture_header_problem(fixture, module, image_start):
+    """Message for a module/image-start disagreement, or None."""
+    want_module = fixture.get("module")
+    if want_module and want_module != module:
+        return ("fixture module %r, CLI --module %r; the table's VAs are for "
+                "%s only" % (want_module, module, want_module))
+    if fixture.get("image_start"):
+        want_start = int(str(fixture["image_start"]), 0)
+        if want_start != image_start:
+            return "fixture image_start %#x, CLI --image-start %#x" % (
+                want_start, image_start)
+    return None
+
+
 def cmd_fixture(args) -> int:
     fixture = load_fixture(args.fixture)
+    problem = fixture_header_problem(fixture, args.module, args.image_start)
+    if problem:
+        print("FAIL %s" % problem)
+        raise SystemExit(2)
     us = args.us or getattr(args, "image_b", None)
     eu = args.eu or getattr(args, "image_a", None)
     if not us:

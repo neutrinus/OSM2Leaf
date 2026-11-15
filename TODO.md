@@ -758,7 +758,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us <US256> --module Navi.exe` exits 0 on the real US256 and exits non-zero when one US VA in the fixture is changed by one; `selftest.py --only fn_match` covers a synthetic fixture mismatch; the fixture JSON is committed with no vendor bytes; `M1.27`'s done-when cites it.
   - Stop: if the US head is unavailable, commit the fixture + `--fixture` mode with a `SAMPLE SHA-256` and mark the task `blocked` naming the fetch command — never guess a US VA.
   - Claims: C-3740–C-3749
-  - Result: EXP-2026-11-15-M1.28-eu-us-fixture; C-3740–C-3743. `tools/fixtures/fn_match_eu_us_2011.json` (13 VAs: 5 UNIQUE + 8 NOMATCH, both head SHA-256s) replays via `fn_match.py --fixture` on `us256.img` (`70d945d8…`) as exit 0 / `13 rows, 0 mismatch`; a one-instruction `us_va` shift exits 1, a one-byte head flip and a truncated head exit 2 with the hash/size; `selftest.py` 88 passed / 0 failed.
+  - Result: EXP-2026-11-15-M1.28-eu-us-fixture; C-3740–C-3743. `tools/fixtures/fn_match_eu_us_2011.json` (13 VAs: 5 UNIQUE + 8 NOMATCH, both head SHA-256s) replays via `fn_match.py --fixture` on `us256.img` (`70d945d8…`) as exit 0 / `13 rows, 0 mismatch`; a one-instruction `us_va` shift exits 1, a one-byte head flip (SHA-256 `83b54ba2…4b101`) and a truncated head exit 2 with the hash/size, and a wrong `--module` exits 2 at the header check; `selftest.py` 88 passed / 0 failed.
 
 - [ ] **M1.29 — `fn_audit`: a documented correction (`0xMID → fn 0xSTART`) is resolved, not `INSIDE`**
   - Status: open · Owner: — · Critical: yes · Pair: required
