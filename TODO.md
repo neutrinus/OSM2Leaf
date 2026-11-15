@@ -215,22 +215,23 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-15, 6th pass; retro 2026-11-15-3, SE `2026-11-15-2114-14-se`)
+## Priorities (PO grooming 2026-11-16, 7th pass; retro 2026-11-15-4, SE `c6903ab`)
 
 Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
 `-13.md`; done tasks moved off the board on 2026-11-15:
 `docs/research/todo-history-2026-11-15.md` (H50, M1.10b, then 21 on the
 third pass: H11, H49, H51, M1.2a, M1.2d, M1.11c, M2.3, M2.5, M2.12, M2.15,
-M2.18, M3.5–M3.8, M3.12, M4.8d, M4.12, M5.20, M5.24, M9.21).
+M2.18, M3.5–M3.8, M3.12, M4.8d, M4.12, M5.20, M5.24, M9.21). Nothing was
+archived 2026-11-16: every done block is named by a live `Depends:`/`Unblock:`
+(fixpoint over the whole board), so all 41 stay for the referencing task.
 
-**Read first.** The board is clean: 0 `in progress`, 0 ghost claims. **M1.23
-landed 2026-11-15** (#180) and **M1.25** (`fn_audit`, #182) landed with it, so
-the label path now has a failing command. SE (2026-11-15) added **M1.29**: a
-documented correction (`0xMID → fn 0xSTART`) must count as `CORRECTED`, not
-`INSIDE`, or M1.26's "exit 1 on any `INSIDE`" gate can never reach zero — so
-**M1.29 → H52 → M1.26** is the order, not H52/M1.26 directly. Next L3 gates
-are that chain, **M1.24** (`sh4literal`) and **M1.28**/**M1.22b** (US match),
-plus **M1.19** (kernel decompressor into `cerom`/`rommap`). The US unit is
+**Read first.** The board is clean: 0 `in progress`, 0 ghost claims, and every
+one of the 170 blocks now carries a `Status:` line. Cycle 3 merged **M1.28**
+(EU→US fixture, #183) and **M1.29** (corrections count as `CORRECTED`, #184).
+The label path is therefore **M1.29 (done) → H52 (apply the 9-row table) →
+M1.26** (`--scope l3` standing gate, now `Pair: required`): H52 is the next
+task, and it can finally reach an empty fix-list. Then **M1.27** and
+**M1.22b** run the US match against the frozen M1.28 fixture. The US unit is
 Marek's; every reader VA below is EU-build until **M1.22b** lands. M1.20's
 wire-up half is done; it stays open only for its own all-module census done-when.
 
@@ -239,17 +240,17 @@ wire-up half is done; it stays open only for its own all-module census done-when
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline on every candidate card. Blocking: **M5.30** (1:1 diff of the Poland card), **H40** (in-process fixture so CI can run L1 with no vendor data).
-- **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.29** (synthetic delivered; PR #171 blocked on `0x2146` → **M5.34** corridor rerun) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (corrections are `CORRECTED`) → **H52** (apply the table) → **M1.26** (`--scope l3` standing gate). Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind a runnable target set, and **H53** (`todo_check --strict`) behind the board cleanup it would otherwise fail on.
+- **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.29** (blocked, not on the branch: PR #171's `--factory-root` mode and EXP are on `main`, but the test ways fall in a `0x2146` directory → **M5.34** corridor rerun) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (done: corrections are `CORRECTED`) → **H52** (apply the table) → **M1.26** (`--scope l3` standing gate). Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind **M9.31** (no-diff/baseline verdicts) and a runnable target set; **H53** (`todo_check --strict`) stays behind the board cleanup it would otherwise fail on.
 - **L4 (QEMU/M8):** software integration before L5; not final acceptance. **M8.A2** needs a QEMU 8.2.7 `sh4-softmmu` host; **M8.A3**/**M8.A6** follow it. **M1.19** (kernel decompressor wired into `cerom`/`rommap`) is the prerequisite for any full-system run that touches `INIT` bytes.
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
 **Take first (ready, deps done, one branch+PR each):**
-1. **M1.29** → **H52** → **M1.26** — finish the label path M1.25 started (corrections first, else the gate cannot reach zero). Then **M1.28** (freeze the EU→US match), **M1.27** and **M1.22b** — the runnable US control that does not wait on the blocked M1.22 claims.
+1. **H52** → **M1.26** — the label path's last two steps (M1.29 just landed; the 9-row fix-list can now be emptied). Then **M1.27** and **M1.22b** against the frozen M1.28 fixture — the runnable US control that does not wait on the blocked M1.22 claims.
 2. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
-3. **M5.34** → **M5.29** (PR #171), **M5.30**, **M5.33** — Poland card evidence.
-4. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**.
-Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**), **M9.12** or **M8** until the line above has owners.
+3. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence.
+4. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**, **M9.12** (only after M9.31).
+Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**) or **M8** until the line above has owners.
 
 
 ## Workstreams at a glance
@@ -257,14 +258,14 @@ Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**), **M9.12** or 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
 | H | Housekeeping | **H19, H28, H29, H40–H44, H52–H57, H60**; H11/H49/H51 archived 2026-11-15; H45–H48 archived 2026-11-13 |
-| M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.27, M1.28, M1.29, M1.12, M1.14**; M1.22b waits on M1.27/M1.28 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25 done |
+| M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.27, M1.12, M1.14**; M1.22b waits on M1.27 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25/M1.28/M1.29 done |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6); M2.3/M2.5/M2.12/M2.15/M2.18 archived 2026-11-15 |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.5–M3.8/M3.12/M3.17/M3.21 archived 2026-11-15 |
 | M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.37, M4.38, M4.29, M4.35**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b (→M4.37/M4.27), M4.28, M4.31, M4.16 (→M4.16b), M4.22 (→M4.38) |
-| M5 | Compiler + US edits | **M5.3, M5.5, M5.11, M5.15, M5.17–M5.19, M5.26, M5.30, M5.32, M5.33, M5.34**; blocked M5.16 (→M9.18), M5.27 (→M5.12c), M5.29 (→M5.34); M5.4/M5.6/M5.7/M5.10/M5.13/M5.14/M5.20–M5.24/M5.28/M5.31 done |
+| M5 | Compiler + US edits | **M5.3, M5.5, M5.11, M5.15, M5.17–M5.19, M5.26, M5.30, M5.32, M5.33, M5.34**; blocked M5.16 (→M9.18), M5.27 (→M5.12c), M5.29 (→M5.34, branch closed); M5.4/M5.6/M5.7/M5.10/M5.13/M5.14/M5.20–M5.24/M5.28/M5.31 done |
 | M6 | Hardware (Marek) | **M6.2 (S0), M6.5, M6.6, M6.7, M6.15, M6.13, M6.14** (non-Claude/hardware); M6.9 non-Claude; M6.11 blocked |
 | M8 | Full-system emulation | **M8.E1 blocked (host QEMU)**, M8.E2–E4 open; M8.A2 blocked (host build deps); M8.A3 after M8.A2 |
-| M9 | L3 toolkit | **M9.6, M9.10, M9.13, M9.15, M9.18, M9.24, M9.31–M9.34, M9.36, M9.37, M9.38**; blocked M9.12 (→no-diff baseline), M9.14/M9.17 (→M9.35 done + M1.19); M9.35 done; M9.2 non-Claude |
+| M9 | L3 toolkit | **M9.6, M9.10, M9.13, M9.15, M9.18, M9.24, M9.31–M9.34, M9.36, M9.37, M9.38**; blocked M9.12 (→M9.31), M9.14/M9.17 (→M9.35 done + M1.19); M9.35 done; M9.2 non-Claude |
 
 **Critical path to a first accepted card:**
 · **Software/L3 gate:** **M9.11b** registers `cmp_ind_reader`; **M1.2f** +
@@ -2167,18 +2168,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3040–C-3049
 
 - [ ] **M5.29 — Dolnośląskie one-tile pipeline: OSM→IMF→mesh→tile→L1+L2+gate report**
-  - Status: blocked · Owner: task/m5.29-one-tile-pipeline · Critical: yes
+  - Status: blocked · Owner: — · Critical: yes
   - Note (H51, 2026-11-11): **Unblock: M5.34** — the factory rerun (PR #171) failed because the test ways fell into a `0x2146` directory; route them into one of the `0x2046` directories instead. PM decision on the open boundary question: `0x2146` directories stay verbatim (preserve-only) for this milestone; that is not a reason to hold the run.
+  - Note (rerun, 2026-11-09): unblock (EU2011 factory image available, `archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` `105e2032…`) satisfied; factory-backed rerun attempted. PR #171's content (`--factory-root` mode + EXP) was merged to `main` by the PO on 2026-11-16 and its branch closed; the task stays `blocked` on M5.34, not on the branch.
   - Depends: M5.1, M5.2, M5.4, M5.6, M5.10, M5.28
   - Goal: produce the first repeatable Poland compiler milestone: one OSM-generated tile swapped into a factory EU card, validated offline at L1+L2 with an explicit acceptance-gate report (operationalizes M5.11).
-  - Precheck: `tilewriter.py --selftest` 68/68 OK; `rebuild_manifests.py --selftest` OK; `one_tile_pipeline.py --selftest` OK (`selftest.py --only one_tile_pipeline` PASS). `cardcheck`/`l2check` have no `--selftest` flag (recorded as skips). Factory EU tile/tree not obtainable in this environment (EU2011 absent; IMG256 lacks MAPAL001; `leafre-work/root` partial, no `B48R058R/DRSTR/REFER/VER_INFO/MMAIN`).
-  - Scope: `tools/one_tile_pipeline.py` (stdlib + existing tools, `--selftest` on synthetic data) produces `out` with exactly one OSM-generated tile `MAPAL001/B48R058R.DAT` (`mapping=provisional-v0`, via `roadclass_v0`/`tilewriter`); synthetic baseline scaffold for rest (factory/verbatim path unavailable); rebuilds manifests; runs `cardcheck`/applicable `l2check`; emits honest gate report. No vendor bytes committed.
-  - Input: compiler tools, `hddinfo.py`, M2.18 if landed, `profiles/dolnoslaskie-test.*`, reader-coverage matrix.
+  - Precheck: `tilewriter.py --selftest` 68/68 OK; `rebuild_manifests.py --selftest` OK; `one_tile_pipeline.py --selftest` OK (`selftest.py --only one_tile_pipeline` PASS). `cardcheck`/`l2check` have no `--selftest` flag (recorded as skips). Factory EU tree: EU2011 is available on this machine via `fetch_image.py` (rule 11); IMG256 lacks MAPAL001.
+  - Scope: `tools/one_tile_pipeline.py` (stdlib + existing tools, `--selftest` on synthetic data, `--factory-root` for the factory path) produces `out` with exactly one OSM-generated tile `MAPAL001/B48R058R.DAT` (`mapping=provisional-v0`, via `roadclass_v0`/`tilewriter`); rest of the tree factory/verbatim; rebuilds manifests; runs `cardcheck`/applicable `l2check`; emits honest gate report. No vendor bytes committed.
+  - Input: compiler tools, `hddinfo.py`, M2.18 if landed, `profiles/dolnoslaskie-test.*`, reader-coverage matrix, EU2011 factory root.
   - Done when: `cardcheck` and applicable `l2check` pass; report lists per gate (HDD_INFO/MAP CODE bytes, DRSTR/MMAIN/CMP.LST/.ind, tile round-trip/structure, section 4, manifests): `PASS`/`NOT-APPLICABLE`/`CANNOT-VERIFY-OFFLINE`/`NEEDS-L3`; EXP names tile, fixture SHA-256 or extract metadata, states provisional classes and firmware acceptance unknown (rule 13).
   - Stop: factory tile/tree not obtained/fetched (rule 11) — synthetic-only path produced; real-image/factory run marked `blocked` with missing input named.
-  - Blocker: factory EU2011 card tree/image unavailable (EU2011 absent; IMG256 lacks MAPAL001; `leafre-work/root` partial, no `B48R058R/DRSTR/REFER/VER_INFO/MMAIN`). Synthetic scaffold + OSM-generated tile do not satisfy `cardcheck`/applicable `l2check` (MMAIN/section alignment; `ze0_mutate`/`clarion_tile` parse path on synthetic tile) — gates reported honestly (`CANNOT-VERIFY-OFFLINE`), not PASS.
-  - Unblock: provide EU2011 factory tree/image outside repo (rule 11; `MAPAL001`+`DRSTR001`+`REFER001`+`MMAIN001`+`VER_INFO/HDD_INFO.TXT`) and/or a follow-up that makes the synthetic scaffold + OSM tile coherent for `cardcheck`/applicable `l2check`, then rerun M5.29 and update gates/EXP (rule 15 re-open when unblocking task merges).
-  - Result: EXP-2026-11-09-M5.29-one-tile-pipeline (partial/negative). `tools/one_tile_pipeline.py` + `--selftest`/gate report delivered; one OSM-generated `B48R058R` (`mapping=provisional-v0`, rule 13: not firmware-confirmed, L3/L4/L5 unknown). Done when not met.
+  - Blocker: factory-backed rerun extracted the EU2011 tree (480 files) but `tilewriter --factory` refused `MAPAL001/B48R058R.DAT` directory `y=76 x=941` kind `0x2146` (slot-table, record boundaries not safe to mutate; M5.22 `PRESERVE_ONLY_DIR_KINDS`). Tile not generated; Done when not met. Same input failure hit the synthetic scaffold (MMAIN/section alignment; `clarion_tile.read_tile` `struct.error`).
+  - Unblock: **M5.34** (route the test ways into a `0x2046` parcel so the factory-backed run completes). Re-open M5.29 when M5.34 merges (rule 15). Alternative unblocks: extend tilewriter/M5.22 for safe `0x2146` mutation with verified round-trip evidence, or produce a factory-coherent OSM tile without unsafe mutation and prove cardcheck/applicable l2check pass.
+  - Result: EXP-2026-11-09-M5.29-one-tile-pipeline (synthetic-only, blocked); rerun EXP-2026-11-09-M5.29-factory-rerun (factory-backed attempted, unblock satisfied, blocked on `0x2146` tilewriter safety, C-3054). `mapping=provisional-v0`, rule 13 (L3/L4/L5 unknown). PR #171 closed 2026-11-16 after this content was merged.
   - Claims: C-3050–C-3059
 
 - [ ] **M5.33 — Make M5.29 synthetic scaffold/tile coherent for `cardcheck`/applicable `l2check` (honest gates)**
@@ -2294,8 +2296,12 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-1940–C-1949
 
 - [ ] **M6.10** Unit NAND/PROD backup procedure before any bench test (from
-  EXP-2026-11-06-M6.4). Status: blocked (hardware). Unblock: bench access
-  (the first S0 run, M6.2). Claims: C-1930–C-1939
+  EXP-2026-11-06-M6.4).
+  - Status: blocked · Owner: — · Critical: no
+  - Depends: —
+  - Goal: record the unit NAND/PROD backup procedure before any bench test, so a botched S0/S1 run is recoverable.
+  - Unblock: bench access (the first S0 run, M6.2).
+  - Claims: C-1930–C-1939
 - [ ] **M6.2 — S0 on Marek's unit: factory clone of the US card**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
   - Depends: — (a spare 16 GB SDHC card; `card-test-plan.md` P1–P6)
@@ -2345,14 +2351,26 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
 
 ## M7 — Scale and release (later)
 
-- [ ] **M7.1** Full Dolnośląskie run, size budget. Depends M5.6. Claims:
-  C-1180–C-1189
-- [ ] **M7.2** All-Poland road network. Depends M7.1. Claims: C-1190–C-1199
-- [ ] **M7.3** Europe motorway/trunk network. Depends M7.2. Claims:
-  C-1200–C-1209
+- [ ] **M7.1** Full Dolnośląskie run, size budget.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M5.6
+  - Claims: C-1180–C-1189
+- [ ] **M7.2** All-Poland road network.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M7.1
+  - Claims: C-1190–C-1199
+- [ ] **M7.3** Europe motorway/trunk network.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M7.2
+  - Claims: C-1200–C-1209
 - [x] **M7.4** (archived 2026-11-09, 3rd pass) — profiles schema v2/writer. See `docs/research/todo-history-2026-11-09.md` (M7).
+  - Status: done · Owner: — · Critical: no
+  - Result: EXP-2026-11-06-M7.4-profiles-v2, C-1210 (archived 2026-11-09).
+  - Claims: C-1210–C-1219
 - [ ] **M7.5** User guide and risk statement; "research only" until M6.7.
-  Depends M6.7. Claims: C-1220–C-1229
+  - Status: open · Owner: — · Critical: no
+  - Depends: M6.7
+  - Claims: C-1220–C-1229
 
 ## M6 — added (PO 2026-11-09 2nd pass)
 
@@ -2417,23 +2435,40 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 
 - [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
   parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
-  `nk.exe` entry. Done when booting needs no `-device loader`. Status: open
-  · Depends: M8.A2. Claims: C-1250–C-1259
+  `nk.exe` entry. Done when booting needs no `-device loader`.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M8.A2
+  - Claims: C-1250–C-1259
 - [ ] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
-  appears or an EXP shows why not. Status: open · Depends: M8.A2. Claims:
-  C-1280–C-1289
+  appears or an EXP shows why not.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M8.A2
+  - Claims: C-1280–C-1289
 - [ ] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
-  Depends: M8.A3…A6. Claims: C-1300–C-1309
+  - Status: open · Owner: — · Critical: no
+  - Depends: M8.A3, M8.A6 (M8.A4/M8.A5 merged, archived 2026-11-06)
+  - Claims: C-1300–C-1309
 - [ ] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from
   `OEMInterrupt*` and the ISR at `VBR+0x600`). Done when a TMU0 interrupt is
-  delivered and acknowledged. Depends: M8.A2. Claims: C-1310–C-1319
+  delivered and acknowledged.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M8.A2
+  - Claims: C-1310–C-1319
 - [ ] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
-  Done when `CurMSec` advances. Depends: M8.B1. Claims: C-1320–C-1329
-- [ ] **M8.B3 — RTC/time** (`OEMGetRealTime`). Depends: M8.A2. Claims:
-  C-1330–C-1339
+  Done when `CurMSec` advances.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M8.B1
+  - Claims: C-1320–C-1329
+- [ ] **M8.B3 — RTC/time** (`OEMGetRealTime`).
+  - Status: open · Owner: — · Critical: no
+  - Depends: M8.A2
+  - Claims: C-1330–C-1339
 - [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
-  without a fault. Depends: M8.B1, M8.B2. Claims: C-1350–C-1359
+  without a fault.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M8.B1, M8.B2
+  - Claims: C-1350–C-1359
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
   [`todo-history-2026-11-05.md`](docs/research/todo-history-2026-11-05.md),
   section M8.C). Each: read the driver init, decide stub / model / HLE,
@@ -2442,6 +2477,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   Claim one row at a time as `[M8.C10]` etc.; claim block: C-1360 +
   10 × row number (C1 → C-1370–C-1379, …, C22 → C-1580–C-1589). Priority
   rows: **C10 SD host**, C4 micon/power, C8 NOR flash, C18 display.
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Claims: C-1360–C-1589 (per-row blocks, see above)
 - [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
   file). Owner: coordinator with Marek. Claims: C-1590–C-1599
 - [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
@@ -2517,9 +2555,15 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.E2 — Registry as loaded** (`boot.hv`, `default.hv`, `user.hv`):
   driver list, `IoBase`, `Irq`, load order. Two routes: static hive parser
   after M1.4, or a RAM dump after M8.B5. Done when the driver table is in
-  `firmware.md`. Depends: M1.4 or M8.B5. Claims: C-1610–C-1619
+  `firmware.md`.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.4, M8.B5 (either route: static hive parser or RAM dump)
+  - Claims: C-1610–C-1619
 - [ ] **M8.E3 — Dump loaded process images** (`Navi.exe` + DLLs after init)
-  for L3. Depends: F4. Claims: C-1620–C-1629
+  for L3.
+  - Status: open · Owner: — · Critical: no
+  - Depends: M8.E4
+  - Claims: C-1620–C-1629
 - [ ] **M8.E4 — Full `Navi.exe` on a generated card (F4 acceptance run)**
   - Status: open · Owner: — · Critical: no
   - Depends: F4 (`Navi.exe` headless, M8.D1/D2 gates), M9.16
@@ -2700,9 +2744,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
     verdicts until runnable targets can be evaluated on no-diff/baseline
     corpora or card-mode per-file wiring exists for registered targets.
     Done-when "S0/S1 all pass" not fully met.
-  - Unblock: define/baseline no-diff handling or card-wire runnable targets
-    (M9.11b `cmp_ind_reader` registration, M9.10 POI, M9.6 map-code) so S0/S1
-    can produce runnable pass verdicts; then re-run and mark done.
+  - Unblock: **M9.31** (no-diff/baseline verdicts for S0/S1) plus the
+    remaining runnable targets (M9.10 POI, M9.6 map-code) so S0/S1 can produce
+    runnable pass verdicts; then re-run and mark done. The `cmp_ind_reader`
+    registration is done and no longer an unblock.
   - Result: EXP-2026-11-08-M9.12-l3check-card.md (C-2160 tool/behavior).
   - Claims: C-2160–C-2169
 

@@ -1,0 +1,91 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (subagent, session agent)
+start_utc: 2026-11-15 23:25 (local 2026-11-16 00:25 CET)
+end_utc: 2026-11-16 00:40 CET (23:40 UTC)
+origin_main_start: c6903ab (todo: SE review 2026-11-15 cycle 3; H61/H62/H63, M1.26 Pair: required)
+origin_main_end: (this commit)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-15-4.md (cycle 3), docs/retro/2026-11-15-3.md
+- dev_process/2026-11-15-{2200-17-tl,2252-18-sm,2254-19-se}.log
+- TODO.md (3083 lines), tools/{todo,claims}_check.py, tools/progress_report.py
+
+note:
+- Session/local date is 2026-11-16 (CET); UTC clock still reads 2026-11-15 23:25.
+  Filename uses the session date as instructed; true UTC is stated above.
+
+actions_taken:
+- Started this log (N=1 for 2026-11-16; verified `ls dev_process/` has no 2026-11-16 entry).
+
+#171 decision (retro-4 action 3): MERGE-THEN-CLOSE, not keep-forever.
+- The branch carries real content (factory --factory-root mode in
+  tools/one_tile_pipeline.py, +100/-17; EXP-2026-11-09-M5.29-factory-rerun,
+  49 lines; C-3054). Keeping a >6-day draft as the only archive is the
+  anti-pattern retro-4 names.
+- Extracted that content to main (tool patch applied verbatim; EXP copied;
+  C-3054 registered; M5.29 block rewritten to carry the factory blocker and
+  Unblock: M5.34 while keeping the H51 PM note). The task stays `blocked` on
+  M5.34, which the merge does not resolve.
+- branch selftest of tools/one_tile_pipeline.py: OK (0 failures).
+- why not "keep": SM retro-4 action 3 asks PO to extract + close; merging also
+  removes the last ghost-looking ahead branch. why not discard: it is the only
+  factory-corridor EXP.
+
+Rule-15 audit (script over block parser, not grep):
+- 1 drift found and fixed: M9.12 `Unblock:` named M9.11b (done) as an unblock;
+  rewritten to name M9.31 + remaining targets, registration marked done.
+- M5.29 → M5.34 verified already open in Priorities; not re-opened (blocked).
+- unknown-ID Unblock refs (M4.23→M4.25/M4.26, M4.3→M4.26, M5.29→M5.22) are
+  archived IDs cited for history, not drift; left.
+
+Archive (dependency-safe fixpoint, done commit >24h on origin/main):
+- 34 done blocks are >24h old; 0 archivable. Every one is named in a live
+  `Depends:`/`Unblock:` (the M5/M9 chain references — M5.4, M5.13b, M9.11, M9.11b, M9.20, M9.35 — keep the rest live).
+  TODO before 3083 lines, after 3128 (no blocks moved; 7th-priorities rewrite,
+  the #171 notes and 16 status/field edits added the lines). No new history
+  file: nothing moved.
+- 40 done / 0 in progress / 27 blocked before; status-field completion moved
+  16 blocks (86→100 open, 27→28 blocked, 38→39 done).
+
+17 stateless blocks (retro-4 action 5): block parser showed 16, not 17.
+- Why 17 was reported: `todo_check` field regex only reads `  - Status:`; these
+  blocks carry no such field and M6.10's inline `Status: blocked (hardware)` in
+  prose was invisible to the same parser. 16 is the field-level truth.
+- Added a Status line to all 16: M6.10 blocked (text says so; also gained
+  Depends), M7.1/2/3/5 open (Depends as written), M7.4 done (archived line),
+  M8.A3/A6/B1/B2/B3/B5/E2/E3/A8 open (text says "open"/"static reading can
+  start now"; A8/A3/A6/B1/B2/B3/B5/E2/E3 were already open in prose),
+  M8.C open (prose: "static reading ... can start now").
+- M8.A8 `Depends: M8.A3…A6` named merged+archived M8.A4/A5; rewritten
+  `M8.A3, M8.A6 (M8.A4/M8.A5 merged, archived 2026-11-06)`.
+- M7.4 archived-line block gained Result + Claims (was a todo_check ERROR pair
+  once given a Status).
+- progress_report "no Status line" note now has no block to name.
+
+Priorities 7th pass: reflects M1.29 done → H52 first, then M1.26 (Pair:
+required), then M1.27/M1.22b on the M1.28 fixture; M9.12 held behind M9.31;
+Workstreams rows M1/M5/M9 updated (M1.28/M1.29 moved to done, M5.29 branch
+closed, M9.12→M9.31). No new tasks: no goal-critical gap that an existing
+block or H61–H63 does not already cover.
+
+checks:
+- todo_check: OK, 170 tasks / 0 errors / 147 warnings (was 85 warnings; the
+  +62 are the required-field warnings the 16 newly-statused M7/M8 blocks now
+  earn because they still lack Goal/Done when — honest, not regressions).
+- claims_check: OK.
+- selftest --only one_tile_pipeline: PASS; --only claims_check: PASS.
+- block parser after: 100 open / 39 done / 28 blocked / 0 in progress /
+  0 without Status; 172 prose-status lines excluded.
+
+commits: one commit "docs: PO 2026-11-16 7th pass — #171 merged+closed,
+16 Status lines, 7th Priorities" (TODO + claims + tool + EXP + log), pushed
+to main directly (no PR, no force).
+
+handoff:
+- TL: take H52 first (its 9-row table is now the only thing between M1.29 and
+  M1.26); M1.26 must run as a pair (field already `Pair: required`).
+- QA: the board is now fully statused; `progress_report` should stop printing
+  the M8.B5 "no Status line" note; re-count with the block parser in this log.
+- SE: M9.12's Unblock now names M9.31; M5.29 is blocked on M5.34, not on a
+  branch.
