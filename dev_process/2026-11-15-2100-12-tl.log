@@ -1,0 +1,57 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-15 21:00 (approx; after QA `eccace9`)
+end_utc: 2026-11-15 21:20
+origin_main_start: eccace9 (QA pass 2, H59)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_tl.txt (with SM retro-2 pair change)
+- docs/retro/2026-11-15-2.md, dev_process/2026-11-15-* (1-sm..11-se)
+- TODO.md Priorities, M1.25, H54; tools/pdata.py, tools/fn_audit.py (review)
+
+task selection (2 launched, disjoint files):
+- M1.25 `fn_audit` — Critical, pair required, deps M1.23 (done today).
+  Branch task/m1.25-fn-audit, worktree /tmp/opencode/wt-m1.25, PR #182.
+- H54 `worktree_audit.py` — `Pair: solo` in the task, no deps, touches only a
+  new tool + claims. Branch task/h54-worktree-audit, PR #181.
+- Skipped: M1.28/M1.27/M1.22b (US match; M1.28 needs head256 + US head, a
+  longer run), M1.19 (large, needs the kernel decoder cache), M1.24 (large
+  new tool; one new-tool task per batch already taken by M1.25),
+  M9.36/M9.37/M3.23/M3.24 (firmware readers, next batch).
+
+modes:
+- M1.25: pair. Driver subagent wrote code/EXP/claims; I acted as navigator for
+  the plan (round 1: APPROVED with 3 conditions — the driver had wrongly called
+  H52's `0x00542256` out of scope though TODO.md cites it in two blocks; the
+  fix-list format; a vendor-free selftest) and re-ran the done-when myself.
+  One review round, all three conditions met.
+- H54: solo per its own `Pair: solo`; the subagent merged it itself per rule 6.
+
+outcome M1.25 (done): PR #182, commits 3ae1739 (claim), 2c4f687 (tool+EXP+
+claims+done). Re-ran on the real head: selftest OK, audit exit 1 with
+38 INSIDE occurrences / 112 unique VAs (START 194, GAP 29 leaf, UNMAPPED 32,
+AMBIGUOUS 0), `--fix-list` 12 sorted lines, H52's three all reported
+(`0x00542256 INSIDE 0x00542250`), selftest.py 88/0/23, claims/todo OK, no
+vendor bytes, no binary diff. Merged 0879e02; branch+worktree deleted.
+- Falsifier fired, as the task anticipated: 12 unique mid-function VAs, not
+  H52's three. The EXP records it; H52 (apply the table) and the docs fixes
+  stay with H52/M1.26.
+
+outcome H54 (done): PR #181 merged 6a3d3e5 before M1.25; 35 non-main trees
+(2 locked), 7 ahead-branches, 19 STALE / 18 prunable; 14-check `git init`
+selftest; claims C-3690–C-3695; selftest 87/0/23 then 88/0/23 after M1.25.
+- Note: the solo subagent wrote its log as `-11-se.log` (role field `se`),
+  though it ran a TL-launched task. Harmless but it is why the SM will see an
+  extra SE run; do not "fix" it, the log is honest.
+
+rule 15 after the merges: M1.26's `Depends` names M1.25 (now done) but M1.26
+was already `open`; nothing was blocked on M1.25 alone, so no status flip.
+H52 is closed by applying M1.25's `--fix-list` — that is M1.26's scope.
+
+board after: 0 in progress, 1 open draft PR (#171, M5.29 blocked -> M5.34),
+90 open before this batch, 88 after (H54, M1.25 done).
+defects caught: navigator caught the `0x00542256` scope error in the plan
+before any code (would have hidden one of H52's three); TL re-run caught
+nothing further.
+handoff: next TL can take M1.26 (apply the audit) + M1.28, or the L3 reader
+line M3.23/M3.24/M9.38; M1.24 and M1.19 are ready and unowned.
