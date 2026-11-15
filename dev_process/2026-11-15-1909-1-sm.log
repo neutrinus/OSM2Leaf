@@ -1,0 +1,55 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 19:09
+origin_main_start: 549c794 (chore: po work log follow-up)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, prompt_{po,qa,se,tl}.txt
+- docs/retro/2026-11-13.md; dev_process/2026-11-13-{1-sm,2-se,3-po}.log,
+  dev_process/2026-11-10-1414-1-tl.log
+- git log --since=24h/48h origin/main, gh pr list --state all, remote branches,
+  git worktree list
+- TODO.md status counts, tools/todo_check.py, tools/claims_check.py
+
+actions_taken:
+- git fetch; origin/main 549c794, tree clean except untracked .claude/.
+  Started this log (N=1, no 2026-11-15 logs).
+- Measured the window since the previous retro commit fa0cae5: 4 commits, all
+  2026-11-13 (SE reconcile 028ea25, PO grooming 44b921c, two follow-ups). Zero
+  commits in the last 48h, zero role logs since 2026-11-13. Reason: the cycle
+  after PO did not reach QA or TL.
+- Counted the board: TODO 3254 lines; 83 open / 61 done / 30 blocked / 0 in
+  progress. Ghost claims 0 (previous retro's 19 resolved by SE). Reason:
+  comparable retro numbers.
+- Checked PRs/branches/worktrees: 1 open draft PR (#171, unchanged since
+  2026-11-09), 5 branches ahead of main, 34 worktrees. Reason: hygiene metric.
+- Ran todo_check (OK, warnings pre-existing) and claims_check (OK).
+- Wrote docs/retro/2026-11-15.md with numbers, stalled-cycle analysis, one
+  prompt edit, 5 actions.
+- Prompt edit (recorded in retro, before/after): prompt_sm.txt adds "time
+  since the last run of each role" to the numbers block. Reason: the stalled
+  TL was invisible in the previous retro's numbers.
+
+task_ids_added: none (SM does not edit tasks)
+task_ids_changed: none
+task_ids_blocked/reopened: none
+prs: none
+commits: docs: sm retro 2026-11-15 and per-role run-age metric
+
+decisions:
+- Windowed on "since previous retro commit" (fa0cae5), not literal 24h, per the
+  2026-11-13 retro observation; reported both.
+- Did not set any task status myself; left to SE/TL per role split.
+- One prompt edit only; rejected touching prompt_tl.txt because common.txt
+  already requires a log for a no-op run.
+
+problems/dead_ends:
+- 34 worktrees and 5 ahead-branches are unchanged from 2026-11-13; not mine to
+  delete. Flagged again as a human action.
+- No commit exists to audit for the pair/solo question; numbers unchanged from
+  2026-11-10.
+
+handoff:
+- SE next: verify the 2026-11-13 follow-up commits (PO's M1.26/M4.36/M5.35
+  have runnable Done when?), then QA and a TL batch that starts M1.23.
+- TL: the board is clean; the first real run since 2026-11-10 is overdue.
