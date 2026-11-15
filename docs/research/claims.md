@@ -2787,3 +2787,24 @@ verdict is per citation. `--fix-list` and the exit code follow `is_failure`.
 | C-3797 | RESERVED (M1.29). | — | — | — |
 | C-3798 | RESERVED (M1.29). | — | — | — |
 | C-3799 | RESERVED (M1.29). | — | — | — |
+
+## H64 — factory-tree provenance and `--out` overlap guard (C-3840–C-3849)
+
+`tools/one_tile_pipeline.py` proves its `--factory-root` is a real, parseable
+factory tree before it copies anything, records a tile-specific provenance, and
+refuses an `--out` that would delete its own input. `tilewriter`, the gate
+vocabulary and the `0x2146` corridor decision (M5.34) are unchanged; the
+genuine EU2011 run still reports `tilewriter rc=2`.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3840 | A factory-backed report carries `factory_tile_sha256`, `factory_tile_size` and `factory_tree_provenance` computed from `MAPAL001/<cell>.DAT` (via `clarion_tile.read_tile`, not a size test). On the EU2011 root the sha is `e9c9cb2236f6b53ad4fe9687a18a351afe80a46a63c0a1f18dc46d6c8af3ff52`, size 289,319,168 B, 3 sections, `factory_tree_provenance=factory-tile-parsed`; the whole-image SHA is not used. | VERIFIED (tool) | H | EXP-2026-11-16-H64-factory-root-guards; `python3 tools/one_tile_pipeline.py --factory-root /home/marek/projekty/leafre-work/m5.29-factory-root --cell B48R058R --out /tmp/opencode/h64-out --json`, `sha256sum …/MAPAL001/B48R058R.DAT` |
+| C-3841 | A zero-byte or unparseable `MAPAL001/<cell>.DAT` sets `real_image_run=factory-tree-invalid` and every gate `BLOCKED` before any copy or mutation, never `attempted`, and creates no output tree. | VERIFIED (tool) | H | EXP-2026-11-16-H64-factory-root-guards; `python3 tools/one_tile_pipeline.py --selftest` (empty-tile negative); temp-tree run in the EXP |
+| C-3842 | An `--out` equal to, a parent of, or a child of `--factory-root`/`--osm` exits 2 with a usage message and no filesystem change; the input tree is intact and the tile byte-identical afterwards. The guard runs in `main` before dispatch and again in `build_factory_out` before `_copy_factory_root` (and in `build_synthetic_out` via `input_root`). All three branches — equal, inside and parent-of-root, for both `main` and `build_synthetic_out` — are covered by `--selftest`. | VERIFIED (tool) | H | EXP-2026-11-16-H64-factory-root-guards; `python3 tools/one_tile_pipeline.py --selftest` (equal/inside/parent cases + `build_synthetic_out` equal/parent) |
+| C-3843 | The genuine EU2011 run is unchanged by the guards: `osm_ingest_rc=0`, `mesh_split_rc=0`, `roadclass_rc=0`, `tilewriter_rc=2` on the `0x2146` directory `y=76 x=941`, all gates `BLOCKED` (M5.22/M5.34 corridor decision not re-run). | OBSERVED | H | EXP-2026-11-16-H64-factory-root-guards; same command as C-3840 |
+| C-3844 | RESERVED (H64). | — | — | — |
+| C-3845 | RESERVED (H64). | — | — | — |
+| C-3846 | RESERVED (H64). | — | — | — |
+| C-3847 | RESERVED (H64). | — | — | — |
+| C-3848 | RESERVED (H64). | — | — | — |
+| C-3849 | RESERVED (H64). | — | — | — |
