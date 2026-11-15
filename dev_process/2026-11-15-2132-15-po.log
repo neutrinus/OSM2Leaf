@@ -1,0 +1,70 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (session agent, subagent)
+start_utc: 2026-11-15 21:32
+end_utc: 2026-11-15 21:50
+origin_main_start: 156cdd3 (todo: fix H52/M1.26 gating, add M1.29 — SE cycle 3)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-15-3.md
+- dev_process/2026-11-15-{2100-12-tl,2107-13-sm,2114-14-se}.log
+- TODO.md (Priorities, Workstreams, 181 blocks), docs/research/todo-history-2026-11-15.md
+- tools/todo_check.py, tools/claims_check.py, gh PR #171
+
+actions_taken:
+- Started this log (N=15 for 2026-11-15; 14 logs already present).
+- Rule 15 by script over all 181 blocks: 0 blocked tasks name a done task in
+  Unblock; 0 in progress. Nothing to re-open.
+- Archive candidates by fixpoint, not lookup: a done block may leave only if
+  NO block left on the board (any status) names it in Depends/Unblock; iterate.
+  First pass gave 22; iterating freed M3.5, M2.3, M2.5, M2.15 (they were Depends
+  of other done blocks M3.6/M2.18 that left first). 22 candidates, of which H54
+  is <24 h old -> 21 moved.
+- Age gate by `git blame` of each block's Status line (commit on origin/main,
+  UTC). All 21 were 110-241 h old; H54 0.7 h -> kept.
+- Moved 21 blocks to docs/research/todo-history-2026-11-15.md under a third-pass
+  header grouped H/M1..M9. Verified all 21 present exactly once.
+- Priorities 6th pass: M1.25 done, M1.29 -> H52 -> M1.26 is the new label gate
+  order (SE cycle 3's finding that corrections cannot be "fixed" otherwise);
+  "Take first" #1 now starts M1.29. L3 bullet + Workstreams rows H/M1/M2/M3
+  updated to reflect the archive and M1.25 done.
+- #171 decision (retro action 5): keep as draft, do not close. Comment posted
+  on the PR: its branch holds the only copy of the factory-corridor EXP and
+  the +100-line one_tile_pipeline change (not on main); M5.29 stays blocked,
+  Unblock M5.34; re-check next pass. Did not close another owner's blocked work.
+- No new tasks: the bottleneck is draining ~85 open blocks, and SE already
+  added M1.29 this cycle. Board is not short of plans.
+- Checks: todo_check OK (warnings pre-existing), claims_check OK.
+
+task_ids_added: none
+task_ids_changed: none (Priorities text only)
+task_ids_archived: H11, H49, H51, M1.2a, M1.2d, M1.11c, M2.3, M2.5, M2.12,
+  M2.15, M2.18, M3.5, M3.6, M3.7, M3.8, M3.12, M4.8d, M4.12, M5.20, M5.24, M9.21
+task_ids_blocked/reopened: none
+prs: #171 kept open (draft) with a dated PO comment
+commits: this log + archive + Priorities (one docs commit)
+
+decisions:
+- Fixpoint, not one-shot lookup: the earlier pass would have kept M3.5/M2.3/
+  M2.5/M2.15 because done blocks depended on them; that is the "TODO >1500
+  lines blocked by Depends on done IDs" deadlock H53 describes. A done block
+  whose consumers are gone is safe to move even if live prose names it.
+- No per-workstream pointers: every archived ID has a live prose citation
+  already (checked), so the history file is the lookup. avoids 7 stub lines.
+- Kept H54 though it unblocks nothing: <24 h. It is the only candidate left.
+
+problems/dead_ends:
+- Archive script's group regex `^([A-Z]+\d*)` returned "H" but the H blocks
+  were dropped from the history append on the first run and removed from TODO;
+  recovered from HEAD and re-inserted inside the pass section (not before it).
+  Caught by the "all 21 exactly once" count. No data lost.
+- TODO.md is 3032 lines, still >2x the 1500 target: the remaining done blocks
+  are named by live Depends (M1.23, M1.25, M3.17-3.19, M4.x, M5.x ...). That is
+  H53's `--strict` work, not a silent archive.
+
+handoff:
+- TL: board is clean and 328 lines shorter; start the label chain M1.29 ->
+  H52 -> M1.26 (pair-required with a real navigator), then M1.28/M1.27.
+- QA: H58 still to decide the `/tmp` artifact-vs-command rule (SE flagged
+  C-3691/C-3695).
+- Human: worktree/branch prune still open (H54 --apply, retro action 3).
