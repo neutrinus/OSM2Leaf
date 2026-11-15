@@ -647,8 +647,8 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if a tree's task cannot be inferred from the branch name, list it as `UNKNOWN` rather than guessing.
   - Claims: C-3690–C-3699
 
-- [ ] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
-  - Status: in progress · Owner: task/h55-l3check-json-path · Critical: yes · Pair: solo
+- [x] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
+  - Status: done · Owner: task/h55-l3check-json-path · Critical: yes · Pair: solo
   - Depends: —
   - Goal: H42/H43 cannot ingest the L3 result because `tools/l3check.py` defines `--json` as a boolean flag (`action="store_true"`, line ~1082) that merely switches stdout to JSON. `python3 tools/l3check.py --build-corpus --json out.json` exits **2** with `unrecognized arguments: out.json`, so the one command the QA plan (H28, H42, H43) tells CI to run does not exist.
   - Precheck: `python3 tools/l3check.py --build-corpus > /tmp/l3.out 2>&1; echo $?` prints `0`; `python3 tools/l3check.py --build-corpus --json /tmp/l3.json; echo $?` prints `2` and the argparse error above (the defect).
@@ -658,6 +658,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `python3 tools/l3check.py --build-corpus --json /tmp/l3.json` exits `0` and the file parses as the same JSON that bare `--json` prints; the selftest covers both forms; `progress_report.py --l3-json /tmp/l3.json` reads it without a schema change; `selftest.py` passes.
   - Stop: if changing the flag breaks a caller, add `--json-out PATH` instead and keep `--json` boolean; record the choice in the task's Result line.
   - Claims: C-3710–C-3719
+  - Result: EXP-2026-11-15-H55-l3check-json-path; `--json` is `nargs="?", const="-"`, `PATH` written atomically (UTF-8), `-`/bare = stdout; schema `osm2leaf.l3check/v1` and verdicts unchanged; fixed-corpus file is `cmp`-identical to bare `--json`; `progress_report.py --l3-json` reads it (exit 0). Claims C-3710–C-3713.
 
 - [ ] **H56 — Per-level generated-card progress snapshot (L1/L2/L3 PASS counts + L4/L5 readiness, SKIP never PASS)**
   - Status: open · Owner: — · Critical: yes · Pair: required

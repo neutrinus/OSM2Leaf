@@ -67,17 +67,70 @@ exit 2
 l3check.py: error: unrecognized arguments: /tmp/opencode/l3-pre.json
 ```
 
+After the change (flag `nargs="?", const="-"`, atomic writer):
+
+```
+$ python3 tools/l3check.py --build-corpus --json /tmp/opencode/l3-h55.json
+exit 0                        # file written, stdout empty
+$ python3 tools/l3check.py --build-corpus --json > /tmp/opencode/l3-h55-stdout.json
+exit 0
+$ cmp /tmp/opencode/l3-h55.json /tmp/opencode/l3-h55-stdout.json
+bajt 191, linia 8 differs     # corpus.root/manifest = random --build-corpus tempdir
+```
+
+With one fixed corpus so the document is stable:
+
+```
+$ python3 tools/l3_harness/corpus.py build /tmp/opencode/l3-corpus-h55
+$ python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus-h55 --json /tmp/opencode/l3-h55.json; echo $?
+0
+$ python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus-h55 --json > /tmp/opencode/l3-h55-stdout.json; echo $?
+0
+$ cmp /tmp/opencode/l3-h55.json /tmp/opencode/l3-h55-stdout.json; echo $?
+0
+$ wc -c /tmp/opencode/l3-h55.json
+5280 /tmp/opencode/l3-h55.json
+```
+
+Document: `schema=osm2leaf.l3check/v1`, `result=PASS`,
+`counts={"pass":1,"fail":0,"skip":0,"blocked":5,"runnable":1,"total":6}`.
+
+```
+$ python3 tools/l3check.py --selftest
+ok   cli: --json PATH writes the same document as bare --json
+ok   cli: --json PATH still writes the report when the run fails
+l3check selftest: OK (20 checks, 1 skipped)      # skip = Ghidra missing
+$ python3 tools/selftest.py --only l3check
+tool:l3check  PASS
+$ python3 tools/progress_report.py --l3-json /tmp/opencode/l3-h55.json --no-stdout; echo $?
+0                                                # no parse/input problem
+```
+
 ## Interpretation
 
-- **FACT:** bare `--json` already works (positive control).
-- **FACT:** `--json PATH` is a usage error before the change (negative control).
-- **OBSERVED:** (filled after the change)
-- **UNKNOWN:** none for the argument parsing; vendor/card behaviour is out of
+- **FACT:** bare `--json` already worked (positive control, exit 0).
+- **FACT:** `--json PATH` was a usage error before the change (negative
+  control, exit 2, `unrecognized arguments`).
+- **OBSERVED:** after the change both forms work; with a fixed `--corpus` the
+  file is byte-identical to bare-`--json` stdout (`cmp` exit 0).
+- **OBSERVED:** two independent `--build-corpus` runs differ only in
+  `corpus.root`/`corpus.manifest`, which name a random temporary directory;
+  this is pre-existing report content, not a `--json` change, and a byte
+  comparison must use one fixed corpus or normalise that path.
+- **OBSERVED:** `progress_report.py --l3-json` consumes the written file with
+  exit 0 and no input problems — the schema is unchanged.
+- **UNKNOWN:** none for argument parsing; card/firmware behaviour is out of
   scope.
 
 ## Conclusion
 
-(filled after the change)
+`tools/l3check.py --json` now takes an optional `PATH` (`nargs="?"`,
+`const="-"`): a bare flag and `-` keep the old stdout behaviour, `PATH`
+receives the same document written atomically in UTF-8. The report schema
+(`osm2leaf.l3check/v1`), target verdicts and `--build-corpus` output are
+unchanged, and `progress_report.py --l3-json` reads the file without changes.
+Claims added: C-3710–C-3713 (see `docs/research/claims.md`).
+
 
 ## Reproduction
 

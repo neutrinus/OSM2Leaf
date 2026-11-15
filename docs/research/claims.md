@@ -2675,3 +2675,18 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3487 | The US 2011 card's build A is a different `Navi.exe` build (vsize `0x013bb000`, entry `0x0035d894`, sec0 `0x56faa6` B, 7,520 pdata records, 151 modules) from the EU 2011 card's (`0x0154e000`, `0x0032edd0`, `0x54bd16`, 7,596, 149). Build B bytes `0x3e00200…0x4800200` are identical. EU reader VAs are not valid in the US build. | VERIFIED (tool) | H | EXP-2026-11-11-H51-pm-review; `python3 tools/cerom.py --image-start 0x200200 US256 sections Navi.exe` |
 | C-3488 | The stored `0x1801a` bytes of `Navi.exe` sec1 (EU2011) contain 6,052 aligned words that point into the function range, and the ASCII strings `Lv1_O`, `Lv2`, `Lv4`, `Lv1_D/TOP`, `Lv5`, `Dummy category`. | OBSERVED | M | EXP-2026-11-11-H51-pm-review |
 | C-3489 | The M9.35 probe stop `UNMAPPED 0xfffffec6..0xfffffec8` (`drstr-sub_00419350`) is caused by the engine defect of C-3482, not by a missing stack model. | HYPOTHESIS | L | EXP-2026-11-11-H51-pm-review; test: M9.36 |
+
+## H55 — `l3check --json PATH` writes the report file (C-3710–C-3719)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3710 | `tools/l3check.py --json` takes an optional `PATH` (`nargs="?"`, `const="-"`): a bare `--json` or `--json -` prints the report to stdout, `--json PATH` writes the same document to `PATH` atomically (temp file + `os.replace`, UTF-8, trailing newline); the report schema (`osm2leaf.l3check/v1`), target verdicts and `--build-corpus` output are unchanged. Before this change the bare flag was `action="store_true"` and `--json PATH` exited 2 with `unrecognized arguments`. | VERIFIED (tool) | H | EXP-2026-11-15-H55-l3check-json-path; `python3 tools/l3check.py --build-corpus --json /tmp/opencode/l3-h55.json` |
+| C-3711 | With one fixed corpus (`corpus.py build /tmp/opencode/l3-corpus-h55`), `--json PATH` and bare `--json` produce byte-identical documents (`cmp` exit 0, 5280 B, `schema=osm2leaf.l3check/v1`, `result=PASS`, `counts={"pass":1,"fail":0,"skip":0,"blocked":5,"runnable":1,"total":6}`). Two independent `--build-corpus` runs differ only in `corpus.root`/`corpus.manifest`, which name a random temp directory (pre-existing content, not the flag change). | VERIFIED (tool) | H | EXP-2026-11-15-H55-l3check-json-path; `python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus-h55 --json > /tmp/opencode/l3-h55-stdout.json && cmp ...` |
+| C-3712 | The written file is consumed unchanged by `tools/progress_report.py --l3-json PATH` (exit 0, no parse/input problems) — the consumer needs no schema change. | VERIFIED (tool) | H | EXP-2026-11-15-H55-l3check-json-path; `python3 tools/progress_report.py --l3-json /tmp/opencode/l3-h55.json --no-stdout` |
+| C-3713 | `tools/l3check.py --selftest` covers both forms: `cli: --json PATH writes the same document as bare --json` (file equals stdout document, `-` prints, nested directory created, file ends with newline) and `cli: --json PATH still writes the report when the run fails` (exit 1 still writes a `FAIL` document); selftest still OK with 20 checks (1 Ghidra skip). | VERIFIED (tool) | H | EXP-2026-11-15-H55-l3check-json-path; `python3 tools/l3check.py --selftest`, `python3 tools/selftest.py --only l3check` |
+| C-3714 | RESERVED (H55). | — | — | — |
+| C-3715 | RESERVED (H55). | — | — | — |
+| C-3716 | RESERVED (H55). | — | — | — |
+| C-3717 | RESERVED (H55). | — | — | — |
+| C-3718 | RESERVED (H55). | — | — | — |
+| C-3719 | RESERVED (H55). | — | — | — |
