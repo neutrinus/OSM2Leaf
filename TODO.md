@@ -685,6 +685,18 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Stop: if H41/H56 choose a different output shape, commit the baseline in that shape and record the mapping in the EXP; do not fork a second schema.
   - Claims: C-3730–C-3739
 
+- [ ] **H58 — Make the claims ledger reject non-runnable evidence (`...`/`START`/`MODULE` placeholders, prose loops)**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Depends: — (`tools/claims_check.py` is on `main`; no other task's block is needed)
+  - Goal: the evidence column is the ledger's whole value, but `claims_check.py` only checks IDs and annotations. `C-3612`, `C-3613`, `C-3614` (M1.23) cite a "loop over `cerom.py … modules`" and `--image-start START --module MODULE` that exist only in a `/tmp` heredoc, and `C-3711` (H55) cites `cmp ...`. SE 2026-11-15 reproduced the census (A 149/87,530/20 plain, B 91/21,930/19, C 88/25,243/23) only with a throwaway script — that is exactly rule 16's defect, and it reached `VERIFIED` because no check reads the command. (C-3712 is the subtler "producer command omitted" case; a check cannot see it, so reviewers still read.)
+  - Precheck: `python3 tools/claims_check.py` is OK today; `grep -n 'C-3612\|C-3613\|C-3614\|C-3711' docs/research/claims.md | grep -cE '…|\.\.\.|--image-start START|--module MODULE'` prints 3 (C-3612, C-3613, C-3711), and `C-3614`'s evidence is the bare prose "census loop over `pdata.load_table`" with no invocation at all — 4 rows fail a runnable-command rule, so the defect is present, not hypothetical.
+  - Scope: `tools/claims_check.py` only: a `bad_evidence()` pass over rows whose Status starts with `VERIFIED`; fail a row when, after the EXP name, its backticked command span (a) contains `...`, `…` or an unexpanded placeholder token (`START`, `MODULE`, `VA`, `<...>`), (b) has no span starting with a known invocation (`python3`, `tools/`, `git`, `curl`, `sha256sum`, `grep`, `cmp`, `stat`), or (c) is a heredoc/`python3 -c` with no `tools/` path. Allow short hash abbreviations matching `[0-9a-f]{4,}…[0-9a-f]*`. Print one line per row and a total; land it as a warning by default and an error under `--strict` so the legacy rows do not block CI.
+  - Input: `docs/research/claims.md` (all rows), `tools/claims_check.py` (`ROW_RE`, `parse_claim_rows`, `main`), `docs/experiments/TEMPLATE.md`, TODO rule 16, EXP-2026-11-15-M1.23-pdata-wireup, EXP-2026-11-15-H55-l3check-json-path.
+  - Hints: do not flag English prose `…` ("switch 7…15") — require the span to open with a known invocation, so `C-207` and the hash rows stay clean. Reuse H53's `--strict` (one flag, two rules) rather than a second parser; H53 owns the board checks, this owns the ledger. Keep the duplicate/unregistered/annotation checks untouched.
+  - Done when: `python3 tools/claims_check.py --selftest` passes (synthetic `cmp ...` row fails, a hash-abbreviation row passes, a prose row without a command fails, an EXP+real-command row passes); default `claims_check.py` still exits 0 on the current ledger and prints the non-runnable row count; `--strict` exits 1 and names at least `C-3612`, `C-3613`, `C-3614`, `C-3711`; `selftest.py` passes.
+  - Stop: if the allowlist grows past ~20 IDs, ship the report and the count with `--strict` opt-in (default still 0) and hand enforcement to H53, recording the row count in the EXP.
+  - Claims: C-3770–C-3779
+
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
   - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)

@@ -1,0 +1,93 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 19:59
+end_utc: 2026-11-15 20:31
+origin_main_start: 8681240 (docs: sm retro 2026-11-15-2 and TL pair rule)
+origin_main_end: (this commit; main did not move during the run)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-15-2.md
+- dev_process/2026-11-15-{1915-3-se,1920-2-se,1909-1-sm,1935-3-po,1948-4-qa,1955-5-tl}.log
+- docs/experiments/EXP-2026-11-15-{M1.23-pdata-wireup,H55-l3check-json-path}.md
+- docs/research/claims.md rows C-3610–C-3619, C-3710–C-3713; TODO.md H54,
+  H55, M1.20, M1.23, M1.27, M1.28, M4.37, M4.38 blocks
+- prompt_common.txt rule list, TODO.md rules 1–16 (window review)
+
+actions_taken:
+- Started this log (N=8 for 2026-11-15).
+- Re-ran M1.23's Done-when controls: `sh4xref --to 0x0041c7dc` prints
+  `fn 0x0041c990 [pdata]`; `grep -c pdata` = 5/4/3/0
+  (sh4xref/sh4scan/reader_precheck/cerom — cerom gets the key, not the
+  string, so 0 there is expected); `pdata.py table Navi.exe` = 7,596 records,
+  first 0x0032ed9c, last ends 0x00558300; `pdata.py fn` = START on all four
+  spots; `sh4scan dump --va 0x0032ef5c` tags the pdata start; `pdata.py
+  --selftest` OK; `sh4xref --to 0x0032ef60` = `fn 0x0032edd0 [pdata]`.
+  Verdict: M1.23's Done-when still passes on current main.
+- Re-ran H55's Done-when: `l3check --build-corpus --json PATH` exit 0, file
+  parses, `progress_report.py --l3-json` exit 0. EXP header is `done`.
+- Reproduced C-3612/C-3613/C-3614 (the ones the retro flagged as a heredoc):
+  A 149 modules / 87,530 records / 20 plain / sec{2:148,3:1}; B 91 /
+  21,930 / 19 / {2:81,3:10}; C 88 / 25,243 / 23 / {2:85,3:3}; 0 missing.
+  All three claim bodies hold; only the *command* was not runnable (see H58).
+- Verified C-3615 (aerhd.dll 7 records), C-3619 (OSMDLL 174 / NaviMapCC 408 /
+  NaviMapScrollCC 355 / MAL_DataVol absent in A), C-3611, C-3616 GAP.
+- Verified C-3618's "before" column cannot be re-run from the repo (it needs
+  the d4368b8 copy of sh4xref.py), but the "after" labels hold.
+- Ran `tools/selftest.py`: passed=86 failed=0 skipped=23 total=109.
+- Racing-SE audit (retro finding 5): H54 + M1.27 (run N=2) and M1.28 + M4.37
+  + M4.38 (run N=3) each appear exactly once; no duplicate task IDs anywhere
+  (`grep -E '^- \[[ x]\] \*\*'` uniq -d empty); no corrupted block (all five
+  have Status/Depends/Goal/Precheck/Done/Stop/Claims); claim blocks C-3690,
+  C-3700, C-3730, C-3740, C-3750, C-3760 all distinct. No data lost.
+- Checked M1.22's frozen US control still holds: `fn_match match` US256
+  reproduces `unique: 5 nomatch: 8 of 13`; POINT leaf control EU→EU UNIQUE,
+  EU→US NOMATCH (matches M1.27's precheck). US256 SHA-256 70d945d8… confirmed.
+- Retired traps: no big-endian search, no fitted deltas, no guessed signature
+  in either window EXP; M1.23's `GAP` fallback is the AGENTS-correct shape.
+- Findings: M1.23's claims 3612/3613/3614 cite commands that do not exist in
+  the repo (loop over "cerom.py … modules", `--image-start START --module
+  MODULE`); H55's C-3711 cites `cmp ...`. Opened H58 instead of editing
+  another agent's rows (rule 16, prompt_se rule 6).
+- Gates: `todo_check.py` 0 errors (125 pre-existing warnings unchanged);
+  `claims_check.py` 0 duplicates / 0 unregistered / 0 bad annotations.
+
+task_ids_added: H58 (claims_check must reject non-runnable evidence; Pair: solo;
+  Claims C-3770–C-3779; depends on nothing; the fix for the window's only
+  reproducible defect)
+task_ids_changed: none (no status flips; H55/M1.23 stay done, M1.20 stays open
+  per rule 15, M1.22 stays blocked)
+task_ids_blocked/reopened: none
+prs: none (SE is direct-to-main)
+commits: this commit (docs: se review of cycle 1 — M1.23/H55 claims + H58)
+
+decisions:
+- Did not re-open M1.23 or edit its claim rows: the claim bodies reproduce;
+  only the evidence *commands* are weak, which is a tooling gap (H58) not a
+  wrong result. Editing a done task's claims would hide the pattern.
+- Did not add M1.20/M4.22/M4.8b-blocker tasks: their Unblock pointers are
+  valid and open (M1.23 merged, M4.38/M4.37 open), so rule 15 already covers
+  them; a new task would duplicate.
+- Did not mark H55's `--build-corpus` non-determinism (corpus.root random
+  tempdir) as a defect: the EXP already documents it and C-3711 uses a fixed
+  corpus.
+- Skipped the H55 `--json PATH` argument order (`--build-corpus` before/after)
+  as a task: both forms work.
+
+problems/dead_ends:
+- C-3618's "before" column is not reproducible from the repo (needs a
+  d4368b8 worktree copy). Recorded in the log only; not worth a task since
+  the "after" labels are the ones the code now produces.
+- `pdata.py` census has no `census` subcommand (still open as the M1.23 note);
+  I ran the A/B/C loops from /tmp/opencode, which is exactly what H58 would
+  flag on the claims side.
+- The repo checkout has fewer blocks than one grep suggests (188 on disk vs
+  186 parsed by todo_check) — pre-existing, not from either racing SE run.
+
+handoff:
+- TL: H58 (Pair: solo) is ready; M1.28 → M1.27 → M1.22b still the US path.
+  M1.19 is the next L3 blocker and needs an owner.
+- PO: the H58 Claims block C-3770 is free but the block above it (C-3760) is
+  M4.38's; no collision.
+- QA: the census row counts (A/B/C above) can seed a fixture-based check once
+  `pdata.py census` exists (the M1.23 note).
