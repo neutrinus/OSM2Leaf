@@ -273,7 +273,8 @@ class CERom:
         units = struct.unpack_from("<18I", self.d, o + 36)
         return dict(objcnt=objcnt, imageflags=flags, entryrva=entry, vbase=vbase, stackmax=stack,
                     vsize=vsize, timestamp=ts,
-                    export=(units[0], units[1]), imp=(units[2], units[3]), res=(units[4], units[5]))
+                    export=(units[0], units[1]), imp=(units[2], units[3]), res=(units[4], units[5]),
+                    exception=(units[6], units[7]))
 
     def o32(self, mod):
         e = self.e32(mod)
