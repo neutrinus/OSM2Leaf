@@ -746,8 +746,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if the POINT walker is genuinely rewritten, record `DIFFERENT` + the instruction pairs and hand M1.22b the "US POINT reader must be re-located" branch; do not force a match.
   - Claims: C-3700–C-3709
 
-- [ ] **M1.28 — Match `fn_match` against the frozen US per-address bytes without an `M1.22` k-claim**
-  - Status: in progress · Owner: task/m1.28-eu-us-fixture · Critical: yes · Pair: required
+- [x] **M1.28 — Match `fn_match` against the frozen US per-address bytes without an `M1.22` k-claim**
+  - Status: done · Owner: task/m1.28-eu-us-fixture · Critical: yes · Pair: required
   - Depends: — (`fn_match.py` and `pdata.py` are on `main` since `777fb68`; the M1.22 blocker line is the source table, not a run dependency)
   - Note (SE 2026-11-15): breaks a cycle. `M1.22b`/`M1.27` named `M1.22`/`M1.20` in `Depends:`, both `blocked`, and `M1.22`'s own `Unblock:` is `M1.22b` — so depending on `M1.22` was the inversion (`M1.22b` is what unblocks it). The tools and the five `UNIQUE` EU→US addresses already exist in `M1.22`'s blocker line, so the frozen control can be built today. This task does not re-open `M1.22`/`M1.20` (rule 15 does that through `M1.22b`/`M1.23`); it only stops them blocking the US path.
   - Goal: `fn_match --leaf` (M1.27) must be tested against real US bytes, but the only existing EU→US pair of addresses lives in `M1.22`'s blocker text, which a done-when cannot re-derive. Freeze that pair into a committed, vendor-free fixture and one command so `M1.27`/`M1.22b` have a reproducible EU→US control that fails loudly if the US head is wrong.
@@ -758,6 +758,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us <US256> --module Navi.exe` exits 0 on the real US256 and exits non-zero when one US VA in the fixture is changed by one; `selftest.py --only fn_match` covers a synthetic fixture mismatch; the fixture JSON is committed with no vendor bytes; `M1.27`'s done-when cites it.
   - Stop: if the US head is unavailable, commit the fixture + `--fixture` mode with a `SAMPLE SHA-256` and mark the task `blocked` naming the fetch command — never guess a US VA.
   - Claims: C-3740–C-3749
+  - Result: EXP-2026-11-15-M1.28-eu-us-fixture; C-3740–C-3743. `tools/fixtures/fn_match_eu_us_2011.json` (13 VAs: 5 UNIQUE + 8 NOMATCH, both head SHA-256s) replays via `fn_match.py --fixture` on `us256.img` (`70d945d8…`) as exit 0 / `13 rows, 0 mismatch`; a one-instruction `us_va` shift exits 1, a one-byte head flip and a truncated head exit 2 with the hash/size; `selftest.py` 88 passed / 0 failed.
 
 - [ ] **M1.29 — `fn_audit`: a documented correction (`0xMID → fn 0xSTART`) is resolved, not `INSIDE`**
   - Status: open · Owner: — · Critical: yes · Pair: required
