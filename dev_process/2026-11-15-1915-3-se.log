@@ -1,0 +1,81 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 19:15
+end_utc: 2026-11-15 19:35
+origin_main_start: aba0df4 (sm retro 2026-11-15); origin/main moved
+  during the run (1627bf7, 75f16f0, d4368b8) from concurrent PO/QA runs
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-15.md, dev_process/2026-11-13-1213-2-se.log,
+  dev_process/2026-11-15-{1909-1-sm,1920-2-se}.log
+- git log/stat 2026-11-13-1213..HEAD; EXPs M1.20 + M3.13 (TEMPLATE vs)
+- TODO.md blocks M1.20/M1.22/M1.22b/M1.23/M1.27, M4.8b/M4.22/M4.27/M4.28,
+  H52/H53; claims.md head; tools/{pdata,fn_match,todo_check,claims_check}.py
+
+actions_taken:
+- Started this log (N=3 for 2026-11-15).
+- Window audit: no engineering task completed since 2026-11-13; the only new
+  commits are process (sm retro, po, qa). Re-ran cheap done-when controls.
+- pdata.py --selftest PASS, fn_match.py --selftest PASS, and the M1.20/M1.22
+  blocked states still hold (tools on main, wire-ups/census absent) — no
+  status change justified, so I did not touch blocked M1.20/M1.22.
+- EXP vs TEMPLATE: M1.20 has sample SHA-256, controls, scope, falsifier and
+  separates observations/interpretation — but its §2 all-module census is a
+  throwaway heredoc on /tmp/opencode/img/IMG256.img; C-3512's totals cannot be
+  re-run from the repo. Recorded as a Note on M1.23 (add `pdata.py census
+  --json` or a fixture) so the C-351x it registers cite a runnable command.
+- M3.13 EXP is correctly `blocked` (self-contradictory "done (partial)" fixed
+  2026-11-13); residual is honest, left as is.
+- Rule-15 audit: script-checked every blocked task's Unblock for a pointer to
+  a done task. Found one real mis-link from the window: `68c3b3e` pointed
+  M4.22's `0x18c` code table at M4.36, which is the ADDRE/tile-section-4 join
+  (unrelated). M4.22's real unblocker was never created.
+- Dependency audit: found a US-path deadlock. M1.22b Depends M1.22+M1.20
+  (both blocked) and M1.27 likewise; but M1.22's own Unblock is M1.22b, so
+  M1.22b depending on M1.22 is the inversion. M1.22's blocker line alone
+  holds the 13 VAs and 5 EU->US matches, i.e. the table is frozen and runnable.
+- Verified the concurrent 2-se run had already committed H54+M1.27 (1627bf7);
+  did not duplicate them. Avoided H55-H57 (QA) and the PO/TL logs.
+- Checked Git worktree/state thrice: the file changed under me (concurrent
+  role commits + a scan that raced my writes); resolved by re-reading serially.
+
+task_ids_added: M1.28 (freeze EU->US match fixture; breaks M1.22/M1.22b/M1.27
+  deadlock), M4.37 (bit-packed POINT coordinate yes/no control for M4.8b),
+  M4.38 (the `0x18c` language-code table; M4.22's real unblocker)
+task_ids_changed: M1.27 deps -> — (tools on main), M1.22b deps -> M1.27/M1.28,
+  M4.8b Unblock -> M4.37/M4.27, M4.22 Note+Unblock -> M4.38, H53 Note (strict
+  should also fail on Unblock->done and Depends->blocked drifts), M1.23 Note
+  (census command), index rows M1/M4, Take-first line
+task_ids_blocked/reopened: none (no status flip; M1.20/M1.22/M3.13 stay blocked)
+prs: none (SE is direct-to-main)
+commits: see `git log` — single SE commit "todo: fix US deadlock, add M1.28/M4.37/M4.38"
+
+decisions:
+- Kept blocked M1.20/M1.22 blocked: their done-whens are unmet and rule 15
+  re-opens them through M1.23/M1.22b. Re-opening them here would be a silent
+  overrule of the 2026-11-13 SE evidence.
+- Broke the deadlock with new tasks rather than editing blocked tasks' Depends
+  (rule 5/6): the new tasks carry Depends: — and cite the frozen blocker text.
+- Added M4.37 as `Critical: yes` (it gates the Critical M4.8b) even though the
+  bit-pack topic is `Critical: no` on M4.27 — the yes/no coordinate question,
+  not more decoding, is what unblocks the goal.
+- Did not register C-3510–C-3519: still M1.23's job, now with a runnable-command
+  requirement.
+- Claim blocks 3740/3750/3760 (contiguous "highest + 10"); grepped for ID and
+  range reuse first.
+
+problems/dead_ends:
+- A concurrent role deleted my first-pass edits mid-run once; also a
+  `/tmp`-race made an import scan read the old file. No data lost; final
+  gates run serially.
+- Local `python3` is 3.15/zlib-ng, not the EXPs' 3.14/stock-1.3.1; pdata/
+  fn_match are zlib-independent, so the re-runs are valid (as 2026-11-13).
+- `pdata.py` has no `census` subcommand; that is the M1.20 reproducibility gap.
+
+handoff:
+- TL: start M1.23, then M1.28 (freezes the US match), then M1.27 -> M1.22b.
+  M1.22b no longer needs the blocked M1.22/M1.20 to start.
+- PO: M4.22's mis-link is fixed; its real unblocker is M4.38. Decide whether
+  M4.37 (Critical: yes) should outrank M4.27 (Critical: no) in ordering.
+- QA: use M1.28's fixture as the regression guard for fn_match --leaf.

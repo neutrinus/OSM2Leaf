@@ -237,7 +237,7 @@ may not be marked `done` until its own EXP exists (rule 16).
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
 **Take first (ready, deps done, one branch+PR each):**
-1. **M1.23** then **M1.22b** — they repair the evidence the US path stands on (SE 2026-11-13).
+1. **M1.23** then **M1.28** (freeze the EU→US match) then **M1.27** and **M1.22b** — they repair the evidence the US path stands on (SE 2026-11-13/15); M1.28 is the runnable US control that does not wait on the blocked M1.22/M1.20 claims.
 2. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
 3. **M5.34** → **M5.29** (PR #171), **M5.30**, **M5.33** — Poland card evidence.
 4. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**.
@@ -249,10 +249,10 @@ Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**), **M9.12** or 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
 | H | Housekeeping | **H19, H28, H29, H40–H44, H52–H57**; H45–H48 archived 2026-11-13 |
-| M1 | Firmware tooling | **M1.19, M1.21, M1.23, M1.22b, M1.24, M1.25, M1.27, M1.12, M1.14**; blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b); M1.2f/M1.2g superseded by M1.19 |
+| M1 | Firmware tooling | **M1.19, M1.21, M1.23, M1.24, M1.25, M1.27, M1.28, M1.12, M1.14**; M1.22b waits on M1.27/M1.28 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19 |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6), M2.3/M2.5/M2.12/M2.15/M2.18 done |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.17/M3.19/M3.21 done |
-| M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.29, M4.35, M4.22**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b, M4.28, M4.31, M4.16 (→M4.16b) |
+| M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.37, M4.38, M4.29, M4.35**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b (→M4.37/M4.27), M4.28, M4.31, M4.16 (→M4.16b), M4.22 (→M4.38) |
 | M5 | Compiler + US edits | **M5.3, M5.5, M5.11, M5.15, M5.17–M5.19, M5.26, M5.30, M5.32, M5.33, M5.34**; blocked M5.16 (→M9.18), M5.27 (→M5.12c), M5.29 (→M5.34); M5.4/M5.6/M5.7/M5.10/M5.13/M5.14/M5.20–M5.24/M5.28/M5.31 done |
 | M6 | Hardware (Marek) | **M6.2 (S0), M6.5, M6.6, M6.7, M6.15, M6.13, M6.14** (non-Claude/hardware); M6.9 non-Claude; M6.11 blocked |
 | M8 | Full-system emulation | **M8.E1 blocked (host QEMU)**, M8.E2–E4 open; M8.A2 blocked (host build deps); M8.A3 after M8.A2 |
@@ -632,6 +632,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Scope: `tools/todo_check.py` only: add `--strict`, make the documented behaviour real, keep the default mode at 0 errors so existing callers do not break; add a selftest with a synthetic actionable firmware task missing `Scope` (must fail under `--strict`, warn without it). Name the command in the CI workflow only if one already runs todo_check.
   - Input: `tools/todo_check.py` docstring (warnings/errors contract), `python3 tools/todo_check.py` output (129 warnings), `prompt_common.txt` "Done when" rule.
   - Done when: `--strict` exists and returns 1 for a fixture with a missing `Scope`; `python3 tools/selftest.py --only todo_check` (or a `--selftest` added to the tool) passes; default `todo_check.py` still exits 0 on the current board.
+  - Note (SE 2026-11-15): also make `--strict` fail, not just warn, on the two rule-15 drifts that let the PO pointer and this pass's cycle hide: (a) a blocked task whose `Unblock:` names a `done` task (M4.22→M4.36 was one); (b) a task whose `Depends:` names a `blocked` task while its stated input is on `main` (the M1.22b→M1.22 case). Reuse `_parse_depends`/the `known_ids` map already in `check()`; a `Depends` that names a blocked task stays a warning by default and an error only under `--strict`.
   - Stop: if making `--strict` fail on the current board would block every PR, ship the fixture+flag and record the current warning count in the EXP instead of demanding a clean board.
   - Claims: C-3650–C-3659
 
@@ -746,12 +747,13 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Input: `tools/pdata.py` (`load_table`, `locate`, `exec_sections`), `tools/cerom.py` `e32()` (`units` is `<18I` at `o+36`), `tools/sh4xref.py` `load_module`/`_load_line`, `tools/sh4scan.py` `cmd_dump`, `tools/reader_precheck.py` `anchor_report`, EXP-2026-11-12-M1.20 §§"Wire-ups", C-3510–C-3519 text at the end of that EXP.
   - Hints: do not re-derive the census; re-run the EXP's §2 commands and paste counts. `nk_decomp.parse_pdata`/`locate` already exist; `pdata.py` is the one to reuse, not a second copy. The EXP's fallback in `pdata.py exception_entry()` (`units[6:8]` when the key is absent) shows the intended contract — pull it up into `cerom` and let `pdata` keep the fallback for older callers.
   - Done when: the precheck grep is non-zero for all three tools; `python3 tools/sh4xref.py archive/head256.img Navi.exe --image-start 0x200200 --to 0x0041c7dc` prints a holder that equals pdata (`fn 0x0041c990`); `python3 tools/selftest.py` passes; C-3510–C-3519 are rows in `claims.md` whose evidence column names a command that now exists; an EXP (`EXP-YYYY-MM-DD-M1.23-pdata-wireup`) records the before/after label for 3 VAs.
+  - Note (SE 2026-11-15, TEMPLATE method): the M1.20 EXP's §2 all-module census is a heredoc pinned to `/tmp/opencode/img/IMG256.img` — the only way to reproduce C-3512's totals (A 87,530 / B 21,930 / C 25,243). A claim whose command is a throwaway heredoc on an absolute path is not re-runnable from the repo. Before registering C-3512/C-3514, add a `pdata.py census IMG --json` subcommand (or a `tools/pdata_census.py` with `--selftest`) that prints `module / records / section / compressed` for A/B/C and paste *that* command into the claim evidence. If the census is too slow to run in CI, commit its JSON as a fixture (counts only, no vendor bytes) and make `census --check-fixture` fail on drift.
   - Stop: if a tool's selftest depends on the prologue heuristic in a way pdata cannot satisfy, leave that tool on the heuristic, list it in the EXP, and register only the claims the code backs.
   - Claims: C-3610–C-3619
 
 - [ ] **M1.22b — Harden `fn_match` to ≥90 % on the cited EU readers: exact instruction-level diff and the EU→US census EXP**
   - Status: open · Owner: — · Critical: yes · Pair: required
-  - Depends: M1.22 (`fn_match.py`, selftest), M1.20 (`pdata.py`), M1.27 (leaf path)
+  - Depends: M1.27 (leaf path), M1.28 (frozen EU→US fixture)
   - Goal: `fn_match match IMG256 US256 --module Navi.exe` maps **5/13** cited readers UNIQUE (SE 2026-11-13); the done-when needs ≥90 %. Find out whether the 8 NOMATCH are real code differences or a matcher weakness (e.g. a missing reloc class, a pool word that is an address in one build and a constant in the other, or a callee index that shifts).
   - Precheck: `python3 tools/fn_match.py match archive/head256.img /tmp/opencode/us256.img --module Navi.exe --va 0x003f5194 0x0041c7dc 0x0041c990 0x0041c044 0x0041a438 0x00419350 0x004125a8 0x003fbed8 0x0040b358 0x003bc960 0x003f632c 0x003f61bc 0x00542250` (make US256 with `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img`; SHA-256 must be `70d945d8…`) reports `unique: 5 … nomatch: 8`; the same command with US replaced by IMG256 reports `unique: 13, nomatch: 0` (positive control).
   - Scope: `tools/fn_match.py` hash/diff (`record_digest_map`, the one-hop call-order propagation) and its CLI; the EU→US table for the cited VAs; `tools/l3_harness/targets.json` gains `build` on every target (`"eu2011"` now; `"us2011"` when a US VA is used); `docs/format/firmware.md` EU→US rows. Not: matching every function (that is the census, below).
@@ -799,7 +801,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 
 - [ ] **M1.27 — `fn_match` leaf path: match pdata-`GAP` functions (the POINT walker) before the full census**
   - Status: open · Owner: — · Critical: yes · Pair: required
-  - Depends: M1.22 (tool on `main`), M1.20 (`pdata.py`)
+  - Depends: — (`fn_match.py`, `pdata.py`, `sh4dis.py`, `sh4xref.py` are on `main` since `777fb68`; the `M1.22`/`M1.20` claims are blocked but their tools merged)
   - Goal: M1.22b's done-when needs ≥90 % of the 13 cited EU readers matched EU→US; the current 8 NOMATCH include the POINT walker `0x003f5194`, which is a `.pdata` `GAP` (leaf), so the record-hash path can never match it. Separate "the matcher cannot see leaves" from "the code really changed" with one reproducible control before spending the census effort.
   - Precheck: `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x003f5194` prints `GAP` (positive control for the leaf class); `python3 tools/fn_match.py match archive/head256.img archive/head256.img --module Navi.exe --va 0x003f5194` prints `UNIQUE` (EU-vs-EU control); the EU→US run on a real US256 reports it `NOMATCH` (the defect this task fixes).
   - Scope: `tools/fn_match.py`: add a leaf path — when `pdata.locate` returns `GAP`, bound the function by the next `START` (or the next `GAP` with a direct `bsr`/`jsr` caller) and hash its instruction halfwords with the same reloc masking as `record_digest_map`; then match EU→US by the leaf hash plus the call-site context (the caller that `sh4xref --to` finds). Extend the CLI with `--leaf` to force this path and report `LEAF`/`DIFFERENT` for every GAP target. Not: the full module census or the `build` field (that stays M1.22b).
@@ -808,6 +810,19 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Done when: `fn_match --leaf` maps `0x003f5194` EU→US `UNIQUE` (or `DIFFERENT` with the first differing instruction pair) on a real US256; the selftest covers a synthetic GAP leaf with a relocated pool word; the 13-VA table's leaf rows are updated in M1.22b's EXP scope; `selftest.py` passes.
   - Stop: if the POINT walker is genuinely rewritten, record `DIFFERENT` + the instruction pairs and hand M1.22b the "US POINT reader must be re-located" branch; do not force a match.
   - Claims: C-3700–C-3709
+
+- [ ] **M1.28 — Match `fn_match` against the frozen US per-address bytes without an `M1.22` k-claim**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: — (`fn_match.py` and `pdata.py` are on `main` since `777fb68`; the M1.22 blocker line is the source table, not a run dependency)
+  - Note (SE 2026-11-15): breaks a cycle. `M1.22b`/`M1.27` named `M1.22`/`M1.20` in `Depends:`, both `blocked`, and `M1.22`'s own `Unblock:` is `M1.22b` — so depending on `M1.22` was the inversion (`M1.22b` is what unblocks it). The tools and the five `UNIQUE` EU→US addresses already exist in `M1.22`'s blocker line, so the frozen control can be built today. This task does not re-open `M1.22`/`M1.20` (rule 15 does that through `M1.22b`/`M1.23`); it only stops them blocking the US path.
+  - Goal: `fn_match --leaf` (M1.27) must be tested against real US bytes, but the only existing EU→US pair of addresses lives in `M1.22`'s blocker text, which a done-when cannot re-derive. Freeze that pair into a committed, vendor-free fixture and one command so `M1.27`/`M1.22b` have a reproducible EU→US control that fails loudly if the US head is wrong.
+  - Precheck: `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img | sha256sum` prints `70d945d8…` (US256 present, rule 11); `python3 tools/fn_match.py match archive/head256.img <US256> --module Navi.exe --va 0x0041c7dc 0x0041c990 0x0041c044 0x003f632c 0x00542250` prints `unique: 5 … nomatch: 8` (the M1.22 baseline, positive control that the pair still maps).
+  - Scope: commit only a **fixture JSON** (no vendor bytes): the 13 EU VAs, their US matches `0x0041c7dc→0x00444540`, `0x0041c990→0x004446f4`, `0x0041c044→0x00443da8`, `0x003f632c→0x0041ec8c`, `0x00542250→0x0056454c`, and the 8 `NOMATCH` VAs with the reason; extend `tools/fn_match.py` with `--fixture FILE` that replays the table and exits non-zero if any pinned `UNIQUE` becomes `NOMATCH` (or vice versa) against a supplied US256; `docs/format/firmware.md` EU→US rows for the 5 matched. Not: the full census (M1.22b).
+  - Input: `tools/fn_match.py` CLI, `docs/format/firmware.md`, M1.22 blocker line (the 13-VA list and 5 mappings), `archive/head256.img` + a US256 head.
+  - Hints: the fixture is the `M1.22b` Precheck table, so building it once removes the copy-paste of 13 VAs from every later task. A `--fixture` over `M1.22b`'s exact VA list is the regression guard `M1.27` needs before it reports `LEAF`/`DIFFERENT`. If the US head hash differs, fail with the hash, not a `NOMATCH` (that is the loud-failure rule).
+  - Done when: `tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us <US256> --module Navi.exe` exits 0 on the real US256 and exits non-zero when one US VA in the fixture is changed by one; `selftest.py --only fn_match` covers a synthetic fixture mismatch; the fixture JSON is committed with no vendor bytes; `M1.27`'s done-when cites it.
+  - Stop: if the US head is unavailable, commit the fixture + `--fixture` mode with a `SAMPLE SHA-256` and mark the task `blocked` naming the fetch command — never guess a US VA.
+  - Claims: C-3740–C-3749
 
 
 ## M2 — Map code, activation, updater
@@ -1559,9 +1574,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     is untestable and the "within a few metres"/local-scale done-when is unmet.
     Latitude-offset "other method" is a non-pinnable fit to Wikipedia centroids.
     Origin 52742 (longitude) remains supported (C-1902).
-  - Unblock: decode bit-packed POINT page grammar and re-test for 0..2047-class
-    geographic sub-unit coordinates on ≥ 10 refs, or obtain an independent
-    firmware/entrance-point method that pins local scale/origin.
+  - Unblock: M4.37 (bit-packed coordinate control; if it finds coordinates, re-test 0..2047 here) and M4.27 (remaining index/mixed classes), or an independent firmware/entrance-point method that pins local scale/origin.
   - Result: EXP-2026-11-08-M4.8b-bitpack-avenues.md (C-2936–C-2939, negative for
     tested scope). Prior: EXP-2026-11-08-M4.8b-transform-proof.md (16 POIs,
     origin 52742 fits longitude, latitude bias +2.8 km unexplained);
@@ -1739,9 +1752,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
 - [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
   - Status: blocked · Owner: claude/m4.22-identity-codes · Critical: no
   - Depends: —
-  - Note (PO 2026-11-13): its missing `0x18c` code-table task is now **M4.36**;
-    this task stays blocked on the six header words and the `BICON001` version
-    (M4.12 delivered the ICODE001 index it needs, not the codes).
+  - Note (SE 2026-11-15, supersedes the PO 2026-11-13 note): the PO note pointed the `0x18c` code table at **M4.36**, which is the unrelated `ADDRE`/tile-section-4 join. The correct unblocker is **M4.38** (SE 2026-11-15); this task stays blocked on the `0x18c` code→language anchor plus its own header-word work (M4.12 delivered the ICODE001 index it needs, not the codes).
   - Goal: three identity fields are still unexplained and a generated card
     copies them blind: the six words at common-header `0x180`, the
     per-language list at `DRSTR001` `0x18c`, and `BICON001`'s data version
@@ -1756,7 +1767,7 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     samples; `drstr.md`/`assets.md` updated in the same commit.
   - Claims: C-2490–C-2499
   - Blocker: the `0x18c` codes have no code→language anchor in the four images (only counts agree: US 2/2, EU 8 vs 7 and 17 vs 16); `DRSTR001` `0x18c` is a node listing offset, not a language list (C-2493). The header fixes and the BICON001 retraction are done. See EXP-2026-11-08-M4.22-identity-codes.
-  - Unblock: new task needed (none on the board yet): decode the `0x18c` code table from the ICODE001 per-language index (M4.12 left its root-pointer table unfound) or a firmware language table; OQ-44.
+  - Unblock: M4.38 (decode the `0x18c` code table from the ICODE001 per-language index or a firmware language table; OQ-44)
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
   - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
@@ -1778,6 +1789,32 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
   - Blocker: done-when partially met — dominant non-`0x60|0x68` zlib inner pages decoded as phone/contact records (US 16B `w0=8,w1=6`, EU 20B `w0=10,w1=8`) carrying no coordinate-bearing POI positions, with counts/tool/controls (C-2670–C-2671); but index (`w0=1`/`w0=28`), mixed (`w0=2`), rare unknown classes, and 72.2% non-zlib raw POINT `.DAT` payload regions remain undecoded for potential indirect coordinate content (header bytes recorded, stop condition). A wider POI *position* sample is not enabled. M3.11b/M4.8b deps remain blocked.
   - Unblock: decode `w0=1`/`w0=28` index and `w0=2`/rare-unknown semantics (or prove non-coordinate with a stronger control) and/or characterize non-zlib raw payload POI-position storage; if a coordinate-bearing grammar is found, extend `poi_point_check` with counts to enable wider position sample (relevant to M4.8b/M4.28). Dep context: M3.11b, M4.8b.
   - Result: EXP-2026-11-08-M4.27-bitpacked-point-pages-r2.md (partial/blocked). Precheck: `poi_point_check` counts only `0x60|0x68` records; POINT002 2k–400k zlib sub-streams all `789c` (2543); gap = non-name zlib inner pages + 72.2% non-zlib raw payload. `tools/point_bitpack_decode.py` (+`--selftest`) classifies/counts bit pages: POINT002 747 name/1796 bit (1598 phone-us-fixed16 coord=no), POINT008 1359/3163 (2956 phone-us-fixed16), POINT029 208/446 (249 phone-intl-fixed20). Phone pages decode to ASCII numbers; heuristic coord-like scan 0/50 sampled phone and 0/50 unknown. Index/mixed/rare/unknown + raw regions not fully decoded (headers/counts recorded). `python3 tools/claims_check.py` OK; `tools/selftest.py --only poi_point_check --only poi_bitpack_probe --only point_bitpack_decode` OK.
+
+- [ ] **M4.37 — Prove or refute that bit-packed `POINT` pages carry coordinates (one-command control)**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: — (`tools/point_bitpack_decode.py`, `tools/point_walk_l3.py` on `main`; M4.27's partial decoder is a prerequisite in code, not an unreachable claim)
+  - Note (SE 2026-11-15): `M4.8b` (Critical: yes) is blocked asking to "decode bit-packed POINT page grammar", but the bit-pack work is owned by `M4.27` (Critical: no) whose own Unblock only asks to decode *more classes*; neither asks the yes/no question "does any bit-packed page encode a 0..2047 coordinate at all?". Answering that first is cheap (the decoder and the 0..2047 test already exist) and decides whether `M4.8b` is impossible-by-format or just blocked on more decoding.
+  - Goal: for the bit-packed (non-`78 9c`) pages of `POINT002/008/029`, test mechanically whether any page encodes a `0..2047` (or `0x3ff`/`0xfc00`-masked) coordinate pair, with a positive and a negative control, so `M4.8b` either gets its grammar pointer or is re-blocked on "these pages are non-coordinate".
+  - Precheck: `python3 tools/point_bitpack_decode.py --selftest` passes; the tool already classifies POINT002 `747 name/1796 bit (1598 phone-us-fixed16 coord=no)`, POINT008 `1359/3163`, POINT029 `208/446` (M4.27 EXP); `python3 tools/point_walk_l3.py --selftest` passes (the `0x3ff`/`0xfc00` walker, C-2129).
+  - Scope: `REFER001/POINT002/008/029` bit pages, EU 2011 only; run every decoded bit page through the C-2129 packed-`u16` test (`0..2047` after masks) and record the false-positive rate on a known phone page (negative control) and a known coordinate page from the inflated `78 9c` stream (positive control). No writer, no new format claim unless a coordinate page is found. Extend `tools/point_bitpack_decode.py` with `--coord-test`, do not fork a second decoder.
+  - Input: `tools/point_bitpack_decode.py` (`--selftest`), `tools/point_walk_l3.py` (the C-2129 masks), M4.27 EXP (`docs/experiments/EXP-2026-11-08-M4.27-bitpacked-point-pages-r2.md`), M4.8b EXP, `docs/format/refer.md` §POINT.
+  - Hints: the M4.27 EXP already sampled "coord-like" scans (0/50 phone, 0/50 unknown) but by a heuristic, not the C-2129 mask test — that is the unclosed gap. A page that passes the mask test but fails the geographic-bounds check (`lat/lon` from the COORD001 formula) is not a coordinate page; report both counts. The 72.2% non-zlib raw payload is in scope only if the bit-page test is clean.
+  - Done when: `point_bitpack_decode --coord-test <IMG>` prints, per page class, `pages tested / mask-pass / bounds-pass`, the positive control passes on a known `78 9c` coordinate page, the negative control fails on a phone page, and the EXP states `COORDINATES FOUND` (with the grammar) or `NO COORDINATES` (with the test and counts); `M4.8b`'s Unblock is updated to cite this EXP or set to `blocked (format carries no coordinate)`.
+  - Stop: if no bit page passes bounds after the mask test on all three POINT files, record `NO COORDINATES`, point `M4.8b` at the inflated-stream path only, and do not decode more classes "just in case".
+  - Claims: C-3750–C-3759
+
+- [ ] **M4.38 — Identify the `0x18c` language-code table (unblocks M4.22)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: — (M4.12's `tools/coord_zcode_icode.py` is on `main`; M4.22's header-word work is independent of this code-table search)
+  - Note (SE 2026-11-15): `M4.22` sat blocked with "new task needed (none on the board yet)" since 2026-11-08; PO's 2026-11-13 note pointed it at `M4.36`, which is the unrelated `ADDRE`/section-4 join (mis-link, fixed in the same pass). This task is the actual missing unblocker, split out so `M4.22`'s header-word work does not wait on it.
+  - Goal: map each byte of the `0x18c` code list (`05 04 02 07 0a 06 08 14` on EU 2011, 17 codes on EU 2014) to a language and its `SPEECH/` set, or prove no on-card anchor exists and name the firmware table that would settle it — so `M4.22` can finish `file-header.md`.
+  - Precheck: `python3 tools/coord_zcode_icode.py --selftest` passes; the code list is `05 04 02 07 0a 06 08 14` in EU 2011 `MMAIN001`/`BICON001` and 17 codes in EU 2014 (EXP-2026-11-08-M4.22-identity-codes, counts agree US 2/2, EU 8 vs 7 and 17 vs 16); `DRSTR001` `0x18c` is a node `listing_offset`, not a language list (C-2493) — do not re-chase it.
+  - Scope: the ICODE001 per-language index (M4.12 located 7 EU + 2 US country-chain root byte offsets but not the root-pointer index table) and a firmware language-table search only if the on-card route fails. Tools: `tools/coord_zcode_icode.py` (extend, do not fork), `tools/diff_years.py --partial` for the EU 2011↔2014 code delta, `tools/sh4scan.py` for a `SPEECH`-selection table. No new writer; no vendor bytes committed.
+  - Input: `tools/coord_zcode_icode.py`, `docs/format/coord-zcode-icode.md`, `docs/format/file-header.md` Identity fields, `docs/format/assets.md` (`SPEECH/` sets), `docs/research/sources.md`, EXP-2026-11-08-M4.22-identity-codes, OQ-44.
+  - Hints: the EU 2014 list is the 8-code 2011 list plus 9 more in a fixed order — a code→language map that explains the appended codes is stronger than one fitted to EU 2011 alone. `SPEECH/` directory names are the only on-card language labels; if no code aligns with their order, say so and name the firmware table shape (a `u8`-keyed `language → directory` array) as the falsifiable next step rather than fitting a permutation.
+  - Done when: an EXP states each `0x18c` code's language and its `SPEECH/` set with an anchor (a directory name, a firmware table VA via `sh4scan`, or a mutation control), OR states "no on-card anchor" with the negative control and names the firmware table to search; `M4.22`'s Unblock/Blocker is updated to cite this EXP; `claims_check.py` OK.
+  - Stop: if neither an on-card nor a firmware anchor exists, record the negative (counts agree but no code→name link) and leave `M4.22` blocked on "firmware language table not found", not on "new task needed".
+  - Claims: C-3760–C-3769
 
 - [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
   - Status: blocked · Owner: task/m4.28-poi-lat-residual-r2 · Critical: no
