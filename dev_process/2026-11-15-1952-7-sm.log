@@ -1,0 +1,63 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (session agent, subagent of a session)
+start_utc: 2026-11-15 19:52
+end_utc: 2026-11-15 20:05
+origin_main_start: 961d5ab (chore: tl work log, M1.23 batch)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, prompt_{po,qa,se,tl}.txt
+- docs/retro/2026-11-15.md (cycle 1), docs/retro/2026-11-13.md (context)
+- dev_process/2026-11-15-{1909-1-sm,1920-2-se,1915-3-se,1935-3-po,1948-4-qa,
+  1955-5-tl}.log
+- git log aba0df4..origin/main (16 commits), gh pr list --state all/open,
+  git ls-remote --heads, git worktree list, TODO.md, todo_check, claims_check
+
+actions_taken:
+- git fetch; origin/main 961d5ab. Started this log (N=7 for 2026-11-15; six
+  logs existed, two SE runs had both taken N=3).
+- Windowed aba0df4..961d5ab (16 commits) to match retro 2026-11-15 (cycle 1),
+  so this retro covers the whole SM->SE->PO->QA->TL pass, not just the merges.
+- Board parsed per task block (not grep): 85 open / 59 done / 27 blocked / 0
+  in progress, vs 78/57/28 at aba0df4. Ghost claims 0. A raw grep -c also hits
+  two prose lines (TODO.md:61 and its instruction text); noted so the next
+  retro does not mistake them for a claim.
+- Checked PRs/branches: #179 (H55) and #180 (M1.23) merged; only #171 open
+  (draft, PO recorded "keep"). 5 branches ahead of main; 34 worktrees.
+  task/h55-l3check-json-path still exists at 0 ahead although the TL log says
+  it was deleted - logged as a finding.
+- Diffed claims.md: 20 new rows (C-3610-C-3619, C-3710-C-3719), 0 retracted,
+  claims_check OK; todo_check OK.
+- Read the TL log at both commits: e97e55f (72 lines, ends "M1.23 running") was
+  replaced by 961d5ab (55 lines, final table). The takeover rewrote instead of
+  appending - logged as a minor finding, no prompt change.
+- Wrote docs/retro/2026-11-15-2.md; made one prompt edit (prompt_tl.txt).
+
+task_ids_added: none (SM does not edit tasks)
+task_ids_changed: none
+task_ids_blocked/reopened: none
+prs: none
+commits: docs: sm retro 2026-11-15-2 and TL pair rule (with this log)
+
+decisions:
+- Windowed from aba0df4, not 24h: retro 2026-11-15 already covered the stall;
+  this pass must review the cycle itself.
+- One prompt change only: the `Pair: required` => two subagents gap (M1.23 ran
+  "one driver") changes behaviour; recorded before/after in the retro.
+- Did not rerun or fix M1.20's Done-when; flagged to PO (action 1). The board
+  is not the SM's to edit, and the rule-15 re-open itself was correct.
+- Did not touch the TL log rewrite beyond reporting it; it is history now.
+
+problems/dead_ends:
+- The previous retro commit fa0cae5 is dated 2026-11-13, so a literal 24h slice
+  holds only today's commits and hides the 13 Nov tail; windowed explicitly.
+- Two SE logs share N=3: N is per-date, not per-role, so concurrent runs of the
+  same role collide. Observation only; the race is inherent to the scheme.
+- git rev-list cannot count M1.23's deleted branch; used gh/pr data instead.
+
+handoff:
+- PO: action 1 is yours - narrow M1.20's re-opened Done-when (wire-up merged;
+  a 149-module census is not a one-batch check).
+- TL: next batch M1.28/M1.27 with a real navigator per Pair: required task;
+  delete each merged branch and verify with git ls-remote.
+- SE: re-verify C-3610-C-3619 and the M1.20 claim restatement (action 3).
+- Human: 34 worktrees / 5 ahead-branches still unchanged (action 4).
