@@ -47,6 +47,14 @@ Usage:
   fn_match.py match IMG_A IMG_B [--module Navi.exe] [--image-start 0x200200]
       [--va 0x003f5194 ...] [--index-a 2 --index-b 2]
       [--pdata-a FILE] [--pdata-b FILE] [--json OUT] [--all]
+  fn_match.py --fixture FILE --us IMG_B [--eu IMG_A] [--module Navi.exe]
+      [--json OUT]
+
+``--fixture`` replays a committed, vendor-free table of EU VAs and their
+expected EU→US verdicts (``tools/fixtures/fn_match_eu_us_2011.json``) against a
+supplied US head. It aborts with exit 2 and the actual hash when the US (or EU)
+head does not match the fixture's SHA-256, and exits 1 when a row's verdict or
+US address differs from the pinned expectation — never a silent ``NOMATCH``.
 
 ``--pdata-*`` takes a JSON list of ``[begin, prologue, length]`` triples as
 produced by ``nk_decomp.py pdata`` (the tool dumps it with ``--cache FILE``);
@@ -318,6 +326,70 @@ def selftest() -> int:
           locate(pd, 0x1002)[0] == "INSIDE" and
           locate(pd, 0x1030)[0] == "GAP")
 
+    # fixture replay: the table comparison is pure, so a synthetic fixture can
+    # prove that a pinned row mismatch fails and a clean replay passes.
+    fixture = {
+        "schema": FIXTURE_SCHEMA,
+        "module": "Navi.exe",
+        "rows": [
+            {"eu_va": "0x1000", "expect": "UNIQUE", "us_va": "0x3000"},
+            {"eu_va": "0x2000", "expect": "NOMATCH",
+             "reason": "synthetic difference"},
+        ],
+    }
+    good = [(0x1000, 0x3000, "UNIQUE", "START"),
+            (0x2000, None, "NOMATCH", "START")]
+    bad_kind = [(0x1000, None, "NOMATCH", "START"),
+                (0x2000, None, "NOMATCH", "START")]
+    bad_addr = [(0x1000, 0x4000, "UNIQUE", "START"),
+                (0x2000, None, "NOMATCH", "START")]
+    check("fixture: agreeing replay has no problems",
+          compare_rows(fixture, good)[0] == [])
+    p1, _ = compare_rows(fixture, bad_kind)
+    check("fixture: UNIQUE->NOMATCH is a mismatch",
+          bool(p1) and "verdict" in p1[0][1])
+    p2, _ = compare_rows(fixture, bad_addr)
+    check("fixture: a moved US VA is a mismatch",
+          bool(p2) and "US VA" in p2[0][1])
+    check("fixture: NOMATCH->UNIQUE is a mismatch",
+          bool(compare_rows(fixture,
+                            [(0x1000, 0x3000, "UNIQUE", "START"),
+                             (0x2000, 0x3000, "UNIQUE", "START")])[0]))
+    check("fixture: matching module/image_start has no header problem",
+          fixture_header_problem(fixture, "Navi.exe", 0x200200) is None)
+    check("fixture: a wrong module is a header problem",
+          "module" in (fixture_header_problem(fixture, "OSMNav.exe",
+                                              0x200200) or ""))
+    fx_start = dict(fixture, image_start="0x200200")
+    check("fixture: a wrong image_start is a header problem",
+          "image_start" in (fixture_header_problem(fx_start, "Navi.exe",
+                                                   0x300000) or ""))
+
+    # a wrong head must fail loudly with its hash, not become a NOMATCH
+    import tempfile
+    with tempfile.NamedTemporaryFile(delete=False) as fh:
+        fh.write(b"not an image")
+        tmp = fh.name
+    try:
+        digest = sha256_file(tmp)
+        try:
+            check_head(tmp, {"sha256": digest}, "US")
+            check("check_head: matching hash passes", True)
+        except SystemExit:
+            check("check_head: matching hash passes", False)
+        try:
+            check_head(tmp, {"sha256": "0" * 64}, "US")
+            check("check_head: wrong hash exits 2", False)
+        except SystemExit as exc:
+            check("check_head: wrong hash exits 2", exc.code == 2)
+        try:
+            check_head(tmp, None, "US")
+            check("check_head: no pinned hash is a no-op", True)
+        except SystemExit:
+            check("check_head: no pinned hash is a no-op", False)
+    finally:
+        Path(tmp).unlink()
+
     print("fn_match selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
 
@@ -525,91 +597,96 @@ def call_sequence(words, base_va, code_bytes, lr, pdata_a, digests_a,
     return tuple(seq)
 
 
-def cmd_match(args) -> int:
-    pdata_a = load_pdata(args.image_a, args.image_start, args.module,
-                         args.index_a, args.pdata_a)
-    pdata_b = load_pdata(args.image_b, args.image_start, args.module,
-                         args.index_b, args.pdata_b)
-    print("# pdata A: %d records  B: %d records" % (len(pdata_a), len(pdata_b)))
+class Matcher:
+    """EU build A → US build B function matcher (hash + call order)."""
 
-    data_a, code_a, off_a, lr_a, rom_a = code_section(args.image_a, args.image_start, args.module)
-    data_b, code_b, off_b, lr_b, rom_b = code_section(args.image_b, args.image_start, args.module)
-    imports_a = import_index(rom_a, args.module)
-    imports_b = import_index(rom_b, args.module)
-    print("# imports A: %d  B: %d" % (len(imports_a), len(imports_b)))
-    fa = collect_functions(data_a, code_a, off_a, pdata_a, lr_a)
-    fb = collect_functions(data_b, code_b, off_b, pdata_b, lr_b)
-    print("# A functions: %d  B functions: %d" % (len(fa), len(fb)))
+    def __init__(self, image_a, image_b, module, image_start, index_a, index_b,
+                 pdata_a, pdata_b):
+        self.pdata_a = load_pdata(image_a, image_start, module, index_a, pdata_a)
+        self.pdata_b = load_pdata(image_b, image_start, module, index_b, pdata_b)
+        print("# pdata A: %d records  B: %d records" % (
+            len(self.pdata_a), len(self.pdata_b)))
+        self.data_a, self.code_a, self.off_a, self.lr_a, self.rom_a = \
+            code_section(image_a, image_start, module)
+        self.data_b, self.code_b, self.off_b, self.lr_b, self.rom_b = \
+            code_section(image_b, image_start, module)
+        self.imports_a = import_index(self.rom_a, module)
+        self.imports_b = import_index(self.rom_b, module)
+        print("# imports A: %d  B: %d" % (len(self.imports_a), len(self.imports_b)))
+        self.fa = collect_functions(self.data_a, self.code_a, self.off_a,
+                                    self.pdata_a, self.lr_a)
+        self.fb = collect_functions(self.data_b, self.code_b, self.off_b,
+                                    self.pdata_b, self.lr_b)
+        print("# A functions: %d  B functions: %d" % (len(self.fa), len(self.fb)))
 
-    b_hash: dict[str, list[int]] = {}
-    b_words: dict[int, tuple] = {}
-    for va, words, lr, cb, cbase in fb:
-        d, _, _ = fingerprint(words, va, lr, cb, cbase)
-        b_hash.setdefault(d, []).append(va)
-        b_words[va] = (words, lr, cb, cbase)
-    a_hash: dict[str, list[int]] = {}
-    for va, words, lr, cb, cbase in fa:
-        d, _, _ = fingerprint(words, va, lr, cb, cbase)
-        a_hash.setdefault(d, []).append(va)
+        self.b_hash: dict[str, list[int]] = {}
+        for va, words, lr, cb, cbase in self.fb:
+            d, _, _ = fingerprint(words, va, lr, cb, cbase)
+            self.b_hash.setdefault(d, []).append(va)
+        self.a_hash: dict[str, list[int]] = {}
+        for va, words, lr, cb, cbase in self.fa:
+            d, _, _ = fingerprint(words, va, lr, cb, cbase)
+            self.a_hash.setdefault(d, []).append(va)
 
-    # call-sequence map for propagation: digest per pdata record in each build
-    dig_a = record_digest_map(fa)
-    dig_b = record_digest_map(fb)
-    code_bytes_a = data_a[off_a:off_a + code_a["vsize"]]
-    code_bytes_b = data_b[off_b:off_b + code_b["vsize"]]
-    word_cache: dict[int, list] = {va: w for va, w, _, _, _ in fa}
-    word_cache_b: dict[int, list] = {va: w for va, w, _, _, _ in fb}
-    seq_a = {va: call_sequence(w, va, code_bytes_a, lr_a, pdata_a, dig_a,
-                               imports_a, code_a["realaddr"])
-             for va, w in word_cache.items()}
-    seq_b = {va: call_sequence(w, va, code_bytes_b, lr_b, pdata_b, dig_b,
-                               imports_b, code_b["realaddr"])
-             for va, w in word_cache_b.items()}
-    # leaf candidates in B: scan the whole B code section for a window whose
-    # masked hash equals the A leaf's hash (leaves have no pdata record in B).
-    # Prefiltered by first halfword; identical bytes hash identically, so a
-    # match here is exact.
-    leaf_cache: dict[str, list] = {}
+        # call-sequence map for propagation: digest per pdata record in each build
+        dig_a = record_digest_map(self.fa)
+        dig_b = record_digest_map(self.fb)
+        self.code_bytes_a = self.data_a[self.off_a:self.off_a + self.code_a["vsize"]]
+        self.code_bytes_b = self.data_b[self.off_b:self.off_b + self.code_b["vsize"]]
+        word_cache = {va: w for va, w, _, _, _ in self.fa}
+        word_cache_b = {va: w for va, w, _, _, _ in self.fb}
+        self.seq_a = {va: call_sequence(w, va, self.code_bytes_a, self.lr_a,
+                                        self.pdata_a, dig_a, self.imports_a,
+                                        self.code_a["realaddr"])
+                      for va, w in word_cache.items()}
+        self.seq_b = {va: call_sequence(w, va, self.code_bytes_b, self.lr_b,
+                                        self.pdata_b, dig_b, self.imports_b,
+                                        self.code_b["realaddr"])
+                      for va, w in word_cache_b.items()}
+        # leaf candidates in B: scan the whole B code section for a window whose
+        # masked hash equals the A leaf's hash (leaves have no pdata record in
+        # B). Prefiltered by first halfword; identical bytes hash identically,
+        # so a match here is exact.
+        self._leaf_cache: dict[str, list] = {}
 
-    def find_leaf_in_b(a_digest, words):
-        if a_digest in leaf_cache:
-            return leaf_cache[a_digest]
+    def _find_leaf_in_b(self, a_digest, words):
+        if a_digest in self._leaf_cache:
+            return self._leaf_cache[a_digest]
         n = len(words)
         first = words[0]
-        base = code_b["realaddr"]
+        base = self.code_b["realaddr"]
+        cb = self.code_bytes_b
         hits = []
-        for off in range(0, code_b["vsize"] - 2 * n, 2):
-            if code_bytes_b[off] | (code_bytes_b[off + 1] << 8) != first:
+        for off in range(0, self.code_b["vsize"] - 2 * n, 2):
+            if cb[off] | (cb[off + 1] << 8) != first:
                 continue
-            w = [code_bytes_b[off + 2 * k] | (code_bytes_b[off + 2 * k + 1] << 8)
+            w = [cb[off + 2 * k] | (cb[off + 2 * k + 1] << 8)
                  for k in range(n)]
-            d, _, _ = fingerprint(w, base + off, lr_b, code_bytes_b, base)
+            d, _, _ = fingerprint(w, base + off, self.lr_b, cb, base)
             if d == a_digest:
                 hits.append(base + off)
                 if len(hits) > 1:
                     break
-        leaf_cache[a_digest] = hits
+        self._leaf_cache[a_digest] = hits
         return hits
 
-    want = [int(v, 0) for v in args.va]
-    results = []
-    for va in want:
-        kind, rec = locate(pdata_a, va)
+    def verdict(self, va):
+        """(EU va, US va|None, verdict, pdata class) for one EU address."""
+        kind, rec = locate(self.pdata_a, va)
         entry = rec[0] if rec else va
         if kind == "GAP":
-            words = leaf_words(data_a, code_a, off_a, va)
+            words = leaf_words(self.data_a, self.code_a, self.off_a, va)
             if not words:
                 print("%#010x  NOMATCH  leaf outside code section" % va)
-                results.append((va, None, "NOMATCH", kind))
-                continue
-            d, bsr, _ = fingerprint(words, va, lr_a, code_bytes_a,
-                                    code_a["realaddr"])
+                return (va, None, "NOMATCH", kind)
+            d, bsr, _ = fingerprint(words, va, self.lr_a, self.code_bytes_a,
+                                    self.code_a["realaddr"])
             # a leaf may coincide with a B pdata record; hash-match those first
-            cand = b_hash.get(d, [])
+            cand = self.b_hash.get(d, [])
             if len(cand) == 1:
                 verdict, bva = "UNIQUE", cand[0]
             else:
-                hits = find_leaf_in_b(d, words)
+                hits = self._find_leaf_in_b(d, words)
                 if len(hits) == 1:
                     verdict, bva = "UNIQUE", hits[0]
                 elif hits:
@@ -619,17 +696,15 @@ def cmd_match(args) -> int:
             print("%#010x  %-9s pdata=%-6s A-leaf %#010x (%d B, %d bsr) -> %s" % (
                 va, verdict, kind, va, len(words) * 2, len(bsr),
                 "%#010x" % bva if bva is not None else "-"))
-            results.append((va, bva, verdict, kind))
-            continue
-        match = next((f for f in fa if f[0] == entry), None)
+            return (va, bva, verdict, kind)
+        match = next((f for f in self.fa if f[0] == entry), None)
         if match is None:
             print("%#010x  NOMATCH  no A pdata record" % va)
-            results.append((va, None, "NOMATCH", kind))
-            continue
+            return (va, None, "NOMATCH", kind)
         _, words, lr, cb, cbase = match
         d, bsr, _ = fingerprint(words, entry, lr, cb, cbase)
-        cand = b_hash.get(d, [])
-        mine = a_hash.get(d, [])
+        cand = self.b_hash.get(d, [])
+        mine = self.a_hash.get(d, [])
         if len(cand) == 1 and len(mine) == 1:
             verdict, bva = "UNIQUE", cand[0]
         elif cand:
@@ -637,9 +712,9 @@ def cmd_match(args) -> int:
         else:
             # one-hop call-order propagation: find B functions whose callee
             # digest sequence equals the A function's, with every callee known
-            a_seq = seq_a.get(entry, ())
+            a_seq = self.seq_a.get(entry, ())
             if a_seq and "?" not in a_seq:
-                hits = [bv for bv, sb in seq_b.items() if sb == a_seq]
+                hits = [bv for bv, sb in self.seq_b.items() if sb == a_seq]
                 if len(hits) == 1:
                     verdict, bva = "CALLORDER", hits[0]
                 elif hits:
@@ -649,10 +724,16 @@ def cmd_match(args) -> int:
             else:
                 verdict, bva = "NOMATCH", None
         print("%#010x  %-9s pdata=%-6s A-fn %#010x (%d B, %d calls) -> %s" % (
-            va, verdict, kind, entry, len(words) * 2, len(seq_a.get(entry, ())),
+            va, verdict, kind, entry, len(words) * 2,
+            len(self.seq_a.get(entry, ())),
             "%#010x" % bva if bva is not None else "-"))
-        results.append((va, bva, verdict, kind))
+        return (va, bva, verdict, kind)
 
+
+def cmd_match(args) -> int:
+    m = Matcher(args.image_a, args.image_b, args.module, args.image_start,
+                args.index_a, args.index_b, args.pdata_a, args.pdata_b)
+    results = [m.verdict(int(v, 0)) for v in args.va]
     if args.json:
         Path(args.json).write_text(json.dumps(
             [{"a": v, "b": b, "verdict": s, "pdata": k} for v, b, s, k in results],
@@ -660,13 +741,170 @@ def cmd_match(args) -> int:
     uniq = sum(1 for r in results if r[2] == "UNIQUE")
     amb = sum(1 for r in results if r[2] == "AMBIGUOUS")
     nom = sum(1 for r in results if r[2] == "NOMATCH")
-    print("# unique: %d  ambiguous: %d  nomatch: %d  of %d" % (uniq, amb, nom, len(results)))
+    print("# unique: %d  ambiguous: %d  nomatch: %d  of %d" % (
+        uniq, amb, nom, len(results)))
     return 0
+
+
+# ---------------------------------------------------------------- fixture
+
+FIXTURE_SCHEMA = "osm2leaf.fn_match.fixture/v1"
+
+
+def sha256_file(path, limit=None):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        remaining = limit
+        while True:
+            n = 1 << 20 if remaining is None else min(1 << 20, remaining)
+            if n <= 0:
+                break
+            chunk = fh.read(n)
+            if not chunk:
+                break
+            h.update(chunk)
+            if remaining is not None:
+                remaining -= len(chunk)
+    return h.hexdigest()
+
+
+def load_fixture(path):
+    doc = json.loads(Path(path).read_text())
+    if doc.get("schema") != FIXTURE_SCHEMA:
+        raise SystemExit("%s: schema is %r, expected %r" % (
+            path, doc.get("schema"), FIXTURE_SCHEMA))
+    rows = doc.get("rows") or []
+    if not rows:
+        raise SystemExit("%s: fixture has no rows" % path)
+    seen = set()
+    for r in rows:
+        va = int(str(r["eu_va"]), 0)
+        if va in seen:
+            raise SystemExit("%s: duplicate EU VA %#010x" % (path, va))
+        seen.add(va)
+        if r["expect"] not in ("UNIQUE", "NOMATCH", "AMBIGUOUS", "CALLORDER"):
+            raise SystemExit("%s: bad expect %r at %#010x" % (
+                path, r["expect"], va))
+        if r["expect"] == "UNIQUE" and not r.get("us_va"):
+            raise SystemExit("%s: UNIQUE row %#010x has no us_va" % (path, va))
+    return doc
+
+
+def check_head(path, want, label):
+    """Fail loudly (exit 2) on a wrong head; never a NOMATCH.
+
+    When the fixture pins ``bytes``, only that prefix is hashed, so a full card
+    image works as well as a truncated head; a shorter file fails with its size.
+    """
+    if not want:
+        return
+    want_bytes = want.get("bytes")
+    size = Path(path).stat().st_size
+    if want_bytes is not None:
+        if size < want_bytes:
+            print("FAIL %s is %d bytes, fixture needs at least %d"
+                  % (label, size, want_bytes))
+            raise SystemExit(2)
+        got = sha256_file(path, want_bytes)
+    else:
+        got = sha256_file(path)
+    if got != want["sha256"]:
+        print("FAIL %s SHA-256 %s, fixture expects %s" % (
+            label, got, want["sha256"]))
+        raise SystemExit(2)
+
+
+def compare_rows(fixture, results):
+    """Return a list of (level, message); empty means the replay agrees."""
+    want = {int(str(r["eu_va"]), 0): r for r in fixture["rows"]}
+    got = {v: (b, s, k) for v, b, s, k in results}
+    problems = []
+    for va, row in want.items():
+        if va not in got:
+            problems.append((va, "missing from replay"))
+            continue
+        bva, verdict, _kind = got[va]
+        exp, exp_b = row["expect"], row.get("us_va")
+        if verdict != exp:
+            problems.append((va, "verdict %s, fixture expects %s%s" % (
+                verdict, exp,
+                " (%s)" % row["reason"] if row.get("reason") else "")))
+        elif exp == "UNIQUE" and bva != int(str(exp_b), 0):
+            problems.append((va, "US VA %s, fixture expects %s" % (
+                "%#010x" % bva if bva is not None else "-", exp_b)))
+    for va in got:
+        if va not in want:
+            problems.append((va, "replayed but not in fixture"))
+    return problems, want
+
+
+def fixture_header_problem(fixture, module, image_start):
+    """Message for a module/image-start disagreement, or None."""
+    want_module = fixture.get("module")
+    if want_module and want_module != module:
+        return ("fixture module %r, CLI --module %r; the table's VAs are for "
+                "%s only" % (want_module, module, want_module))
+    if fixture.get("image_start"):
+        want_start = int(str(fixture["image_start"]), 0)
+        if want_start != image_start:
+            return "fixture image_start %#x, CLI --image-start %#x" % (
+                want_start, image_start)
+    return None
+
+
+def cmd_fixture(args) -> int:
+    fixture = load_fixture(args.fixture)
+    problem = fixture_header_problem(fixture, args.module, args.image_start)
+    if problem:
+        print("FAIL %s" % problem)
+        raise SystemExit(2)
+    us = args.us or getattr(args, "image_b", None)
+    eu = args.eu or getattr(args, "image_a", None)
+    if not us:
+        raise SystemExit("--us IMG is required with --fixture")
+    if not eu:
+        eu = "archive/head256.img"
+        if not Path(eu).is_file():
+            raise SystemExit("--eu IMG is required: archive/head256.img absent")
+    check_head(us, fixture.get("us_head"), "US")
+    check_head(eu, fixture.get("eu_head"), "EU")
+    print("# fixture %s: %d rows (EU %s, US %s)" % (
+        args.fixture, len(fixture["rows"]), Path(eu).name, Path(us).name))
+    m = Matcher(eu, us, args.module, args.image_start, args.index_a,
+                args.index_b, args.pdata_a, args.pdata_b)
+    results = [m.verdict(int(str(r["eu_va"]), 0)) for r in fixture["rows"]]
+    problems, want = compare_rows(fixture, results)
+    if args.json:
+        Path(args.json).write_text(json.dumps({
+            "fixture": str(args.fixture),
+            "results": [{"a": v, "b": b, "verdict": s, "pdata": k,
+                         "expect": want[v]["expect"]}
+                        for v, b, s, k in results],
+            "ok": not problems,
+        }, indent=1))
+    for va, msg in sorted(problems):
+        print("%#010x  MISMATCH  %s" % (va, msg))
+    print("# fixture replay: %d rows, %d mismatch" % (len(results), len(problems)))
+    return 0 if not problems else 1
+
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--fixture", default=None,
+                    help="replay a committed EU->US fixture table (see below)")
+    ap.add_argument("--us", default=None, help="US head for --fixture")
+    ap.add_argument("--eu", default=None,
+                    help="EU head for --fixture (default archive/head256.img)")
+    ap.add_argument("--module", default="Navi.exe")
+    ap.add_argument("--image-start", type=lambda x: int(x, 0), default=0x200200)
+    ap.add_argument("--index-a", type=int, default=2,
+                    help="pdata section index of the A image (Navi.exe: 2)")
+    ap.add_argument("--index-b", type=int, default=2)
+    ap.add_argument("--pdata-a", default=None, help="JSON cache of A pdata")
+    ap.add_argument("--pdata-b", default=None, help="JSON cache of B pdata")
+    ap.add_argument("--json", default=None)
     sub = ap.add_subparsers(dest="cmd")
     m = sub.add_parser("match")
     m.add_argument("image_a")
@@ -683,9 +921,18 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
+    if args.fixture:
+        # fixture mode ignores the subcommand's positional images; --fixture
+        # is a top-level replay so the task's done-when command is short.
+        if args.cmd == "match" and getattr(args, "image_a", None):
+            if not args.us:
+                args.us = args.image_b
+            if not args.eu:
+                args.eu = args.image_a
+        return cmd_fixture(args)
     if args.cmd == "match":
         return cmd_match(args)
-    ap.error("--selftest or a subcommand is required")
+    ap.error("--selftest, --fixture or a subcommand is required")
     return 2
 
 

@@ -759,6 +759,27 @@ C-3643–C-3649.
 | C-3648 | RESERVED (M1.25). | — | — | — |
 | C-3649 | RESERVED (M1.25). | — | — | — |
 
+## M1.28 — frozen EU→US `fn_match` fixture (C-3740–C-3749)
+
+`tools/fixtures/fn_match_eu_us_2011.json` pins the 13 EU VAs from M1.22b's
+Precheck, their expected EU→US verdicts and US addresses, and both head
+SHA-256s. Replay is `tools/fn_match.py --fixture FILE --us IMG`; a wrong head
+fails with its hash (exit 2), a row transition fails with the row (exit 1).
+No image bytes are committed.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3740 | `tools/fixtures/fn_match_eu_us_2011.json` (`schema osm2leaf.fn_match.fixture/v1`) lists 13 rows — 5 `UNIQUE` with US VAs (`0x0041c7dc→0x00444540`, `0x0041c990→0x004446f4`, `0x0041c044→0x00443da8`, `0x003f632c→0x0041ec8c`, `0x00542250→0x0056454c`) and 8 `NOMATCH` with a reason — plus the EU and US head SHA-256s (`92aa525d…`/`70d945d8…`). It stores addresses, counts and hashes only; no image bytes. | VERIFIED | H | EXP-2026-11-15-M1.28-eu-us-fixture; `python3 -c "import json;d=json.load(open('tools/fixtures/fn_match_eu_us_2011.json'));print(len(d['rows']),sum(r['expect']=='UNIQUE' for r in d['rows']))"` prints `13 5` |
+| C-3741 | `fn_match.py --fixture FILE --us IMG --module Navi.exe` replays the table against the pinned US head and exits 0 with `13 rows, 0 mismatch`; the five `UNIQUE` rows resolve to the exact US VAs in C-3740. A second copy of the same US head (`se-us256.img`, same SHA-256) gives the same result. | VERIFIED (tool, real image) | H | EXP-2026-11-15-M1.28-eu-us-fixture; `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us /tmp/opencode/us256.img --module Navi.exe` |
+| C-3742 | The replay fails loudly, never as a silent `NOMATCH`: changing one `us_va` by 2 (`0x00444540→0x00444542`) exits 1 with `MISMATCH US VA 0x00444540, fixture expects 0x00444542`; a US head with byte 1000 flipped `0x00`→`0xff` (SHA-256 `83b54ba2d66102c676a1aca8cb18047f64b559e2e08b0bd523adb1a2f3a4b101`) exits 2 with `FAIL US SHA-256 …` before any row is evaluated; a 1,000-byte truncated head exits 2 with `FAIL US is 1000 bytes, fixture needs at least 268435456`; `--module` disagreeing with `fixture["module"]` (e.g. `OSMNav.exe`) exits 2 with `FAIL fixture module 'Navi.exe', CLI --module 'OSMNav.exe'` instead of 13 vacuous NOMATCHes, and `image_start` is checked the same way. `check_head` hashes the fixture's pinned 256 MiB prefix, so a full card image is accepted. | VERIFIED (tool, negative control) | H | EXP-2026-11-15-M1.28-eu-us-fixture; `python3 -c "import json;d=json.load(open('tools/fixtures/fn_match_eu_us_2011.json'));[r.update(us_va='0x00444542') for r in d['rows'] if r['eu_va']=='0x0041c7dc'];json.dump(d,open('/tmp/opencode/m1.28-perturbed.json','w'),indent=1)"` then `fn_match.py --fixture /tmp/opencode/m1.28-perturbed.json --us /tmp/opencode/us256.img`; `cp … us256-flip.img` + a seek(1000)-XOR-0xff `python3 -c` then `fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us /tmp/opencode/us256-flip.img`; `head -c 1000 /tmp/opencode/us256.img > /tmp/opencode/us-trunc.img` then the same replay; `fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us /tmp/opencode/us256.img --module OSMNav.exe` |
+| C-3743 | `fn_match.py --selftest` covers the fixture logic without vendor data: `compare_rows` on a synthetic 2-row table passes when it agrees and reports `UNIQUE→NOMATCH`, `NOMATCH→UNIQUE` and a moved US VA as mismatches; `fixture_header_problem` accepts the matching module/`image_start` and flags a wrong either; `check_head` accepts a matching hash, exits 2 on a wrong hash and is a no-op when no hash is pinned. `python3 tools/selftest.py --only fn_match` passes. | VERIFIED (tool, synthetic) | H | EXP-2026-11-15-M1.28-eu-us-fixture; `python3 tools/fn_match.py --selftest`, `python3 tools/selftest.py --only fn_match` |
+| C-3744 | RESERVED (M1.28). | — | — | — |
+| C-3745 | RESERVED (M1.28). | — | — | — |
+| C-3746 | RESERVED (M1.28). | — | — | — |
+| C-3747 | RESERVED (M1.28). | — | — | — |
+| C-3748 | RESERVED (M1.28). | — | — | — |
+| C-3749 | RESERVED (M1.28). | — | — | — |
+
 ## M1.2b — XPRESS plain LZ77 implemented and probed (C-651–C-659)
 
 | ID | Claim | Status | Confidence | Evidence |
