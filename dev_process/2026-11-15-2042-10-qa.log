@@ -1,0 +1,73 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 20:42
+end_utc: 2026-11-15 21:05 (approx)
+origin_main_start: e32d63e (docs: PO 2026-11-15 pass)
+origin_main_end: this commit (main did not move during the run)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/research/test-system.md
+- docs/retro/2026-11-15-2.md
+- dev_process/2026-11-15-{1948-4-qa,1955-5-tl,1959-8-se,2011-9-po}.log
+- .github/workflows/{ci.yml,l1l2-fixtures.yml,README.md}
+- TODO.md H55/H56/H57/H58 blocks; tools help for l1l2_fixtures/l3check/progress_report
+
+actions_taken:
+- Started this log (N=10).
+- Verified H55 on main (retro action): `l3check --build-corpus --json
+  /tmp/opencode/qa-l3.json` exit 0, 5444 B, schema osm2leaf.l3check/v1;
+  `progress_report.py --l3-json` exit 0; `selftest --only l3check` PASS.
+  H55's deliverable works; it is no longer a gap.
+- Ran the existing rungs: l1l2_fixtures exit 0 (6 PASS/0 FAIL/1 SKIP,
+  2 NOT COVERED); l3check --build-corpus exit 0 (pass=1 fail=0 blocked=5,
+  runnable 1/6); progress_report default exit 0 (L4/L5 all NOT RUN).
+- Mapped the plan to the board against prompt_qa's requirement list
+  (per-level progress, per-file/per-feature, L3 on our data, L4/L5
+  readiness, SKIP never PASS, no vendor in PR CI, IMG256 manual/weekly,
+  regression gate, fixtures). Every requirement has a task or a decision;
+  no untracked feature remains.
+- Found the one real uncovered gap: nothing traces requirement -> task ->
+  evidence, so "is the plan complete" is only answerable by re-walking prose
+  (this run). Added H59 (traceability table + `test_plan_check.py`) to make
+  the QA verdict checkable by a command.
+- H56 Option A/D one-liner already lands in the same artifact as H42;
+  corrected nothing there (not an edit to another owner's task).
+
+test-system verdict:
+- plan: COMPLETE as a set of tasks; gaps are execution, not planning.
+- Landed: H25/H26/H27/H55 (+ H45/H46/H47/H49); H55 verified working above.
+- Open, mapped: H40/H41 (L1/L2 generated fixture+matrix), H56 (snapshot),
+  H57 (baseline gate), H28 (L3 synthetic CI), H43 (L3 on our data), H42 (CI
+  wiring), H44/H29 (L5 readiness), M9.31/M9.12 (card gate), M8* (L4),
+  H58 (claims evidence hygiene), H59 (traceability, new).
+- Residual, not worth a task: `tools/progress_report.py` markdown headings
+  are Polish (lines 699-762). Tools are English-only per AGENTS, but it is
+  a display string with a selftest that pins it; folding a rename into H42
+  is cheaper than a task. Flagged for the TL.
+
+task_ids_added: H59 (Pair: solo, Claims C-3780–C-3789)
+task_ids_changed: none (H55/H56/H57/H58 untouched)
+task_ids_blocked/reopened: none
+prs: none (QA is direct-to-main)
+commits: todo: QA pass 2 — H59 plan traceability; H55 verified
+gates: todo_check OK, claims_check OK
+
+decisions:
+- Added one task, not four: only one requirement had no owner. Re-adding
+  per-level/per-feature/baseline/L3-corpus tasks would duplicate H56/H41/
+  H57/H43 and H28 already owns IMG256 manual/weekly.
+- Recorded the verdict in the log and in H59's Goal rather than a new doc;
+  test-system.md already owns the map, H59 gives it §7.
+- Did not touch H56's Done-when (H55 dependency now landed) — it is open and
+  its Stop already covers the H41-not-landed case.
+
+problems/dead_ends:
+- progress_report's Polish headings: caught, left for H42/TL as above.
+- Everything else was cheap: no vendor image, no network, no L3 rerun.
+
+handoff:
+- TL: next execution order unchanged (H56 needs H40/H41; H59 is solo and
+  cheap; H58 solo). H42 can absorb the progress_report heading rename.
+- SM: QA gap list + H59 make "plan complete" a command, not a judgement.
+- Human: no new blocker; worktree/branch cleanup (H54) still theirs.

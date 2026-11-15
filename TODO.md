@@ -664,6 +664,18 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if the allowlist grows past ~20 IDs, ship the report and the count with `--strict` opt-in (default still 0) and hand enforcement to H53, recording the row count in the EXP.
   - Claims: C-3770–C-3779
 
+- [ ] **H59 — Trace the test-system plan to the board so "plan complete?" is checkable**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H55 (done); coordinates H28/H40–H44/H56/H57/H58, M9.31/M9.12, M8*, H29
+  - Goal: one pass must answer "is the QA test-system plan complete, and which gaps remain" from data, not by re-walking prose. Every `prompt_qa.txt`/`test-system.md` requirement maps to a task, a landed artifact, or an explicit decision; orphans (a `done` task the plan still names as future work) and untracked requirements become visible each QA run.
+  - Precheck: `git ls-files | grep -i traceab` empty; `grep -c "## 7." docs/research/test-system.md` = 0; `grep -n "^### Requirement" TODO.md` empty.
+  - Scope: docs + one small tool, no vendor data. (1) Add §7 "Requirement traceability" to `docs/research/test-system.md`: rows `require, level, tasks, evidence, state`, one per requirement (per-level generated-card progress, per-file/per-feature L1/L2, L3 ran-on-our-data, L4 readiness, L5 readiness, SKIP/NOT_*/BLOCKED never PASS, no vendor in PR CI, IMG256 manual/weekly, regression gate, fixtures). (2) `tools/test_plan_check.py` (`--selftest`, `--json`, `--strict`) parses §7 + TODO status lines and fails on: a row whose tasks are all `done` but whose evidence file/tool is absent (orphan/`done` without artifact); a task ID not in TODO; a row with no task and no `decision:` reason; a `landed` row whose evidence command is not in the repo. Prints `plan: complete` only when every row is `landed` or `decision:`. (3) QA runs it before adding tasks; a new requirement without a row fails.
+  - Input: `prompt_qa.txt`, `docs/research/test-system.md` §2–§6, `.github/workflows/{ci,l1l2-fixtures}.yml` + README, TODO H28/H40–H44/H56/H57/H58/M9.31/M9.12/M8*/H29, `tools/todo_check.py` block/`Status:` regex.
+  - Hints: reuse `todo_check.py`'s block regex, do not write a second TODO parser. The oracle is a committed tool/workflow/EXP, not a `Result:` sentence. 100 % is not required: a requirement may be `decision: manual L5, not automated` and still be complete.
+  - Done when: `python3 tools/test_plan_check.py --selftest` passes on synthetic positive/negative tables (missing task, orphan, unlanded evidence fail; a `decision:` row passes); `python3 tools/test_plan_check.py` exits `0` and prints `plan: complete` or names the gaps on the current §7; deleting one evidence task's `Result:` in a temp copy makes it exit `1`; `selftest.py` passes.
+  - Stop: if the table needs >~20 rows to stay honest, keep the per-level rows and record the rest in §7 prose with `NOT TRACKED: <reason>`; do not build a second issue tracker.
+  - Claims: C-3780–C-3789
+
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
   - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)
