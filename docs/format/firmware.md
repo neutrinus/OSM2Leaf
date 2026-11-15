@@ -511,6 +511,39 @@ setters.
 map `.DAT` payloads themselves use plain zlib. Treat `HCXCmp` as a
 firmware-side library, not as the map compression.
 
+## EU→US function matches (2011 builds)
+
+The EU 2011 and US 2011 cards carry different `Navi.exe` builds (C-3487):
+EU2011 has 7,596 `.pdata` records, US2011 7,520, and **no function sits at the
+same address**. `tools/fn_match.py` matches them by position-independent
+content (C-3740). A frozen, vendor-free control table for the 13 cited readers
+lives in [`tools/fixtures/fn_match_eu_us_2011.json`](../../tools/fixtures/fn_match_eu_us_2011.json);
+it pins the head SHA-256s and every row's expected verdict, so a wrong image
+fails with its hash rather than a `NOMATCH` (C-3741).
+
+Replay (positive control, exit 0; 5 `UNIQUE` / 8 `NOMATCH`):
+
+```bash
+python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json \
+    --us /tmp/opencode/us256.img --module Navi.exe
+```
+
+| EU2011 VA | US2011 VA | Role | Status |
+| --- | --- | --- | --- |
+| `0x0041c7dc` | `0x00444540` | CMP chunk engine | VERIFIED (content match) |
+| `0x0041c990` | `0x004446f4` | CMP chunk-table loop | VERIFIED (content match) |
+| `0x0041c044` | `0x00443da8` | CMP/`.ind` opener | VERIFIED (content match) |
+| `0x003f632c` | `0x0041ec8c` | POI name accessor | VERIFIED (content match) |
+| `0x00542250` | `0x0056454c` | zlib `inflate` | VERIFIED (content match) |
+
+The remaining 8 cited readers are `NOMATCH` in the same run: `0x003f5194`
+(POINT page walker — a `.pdata` `GAP`, so the record-hash path cannot see it;
+M1.27), and `0x0041a438` (MMAIN), `0x00419350` (DRSTR), `0x004125a8`,
+`0x003fbed8`, `0x0040b358` (REFER/ADDRE path), `0x003bc960` (RDSTM),
+`0x003f61bc` (POI field accessor). Whether each is a genuine rewrite or a
+matcher gap is **not** decided here — that is M1.22b; the fixture only freezes
+today's verdicts so a change is visible.
+
 ## Map-code check
 
 The check is **textual/field-based, not cryptographic**. Strings at

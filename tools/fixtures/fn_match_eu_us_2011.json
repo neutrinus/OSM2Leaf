@@ -1,0 +1,96 @@
+{
+  "schema": "osm2leaf.fn_match.fixture/v1",
+  "task": "M1.28",
+  "module": "Navi.exe",
+  "image_start": "0x200200",
+  "note": "Vendor-free EU2011 -> US2011 fn_match control table. Addresses and counts only; no image bytes. Built from the M1.22 blocker line and replayed by `fn_match.py --fixture`.",
+  "eu_head": {
+    "sample": "EU2011 firmware head, 256 MiB (IMG256)",
+    "bytes": 268435456,
+    "sha256": "92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9"
+  },
+  "us_head": {
+    "sample": "US2011 firmware head, 256 MiB (Marek's US card)",
+    "bytes": 268435456,
+    "sha256": "70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da"
+  },
+  "rows": [
+    {
+      "eu_va": "0x003f5194",
+      "expect": "NOMATCH",
+      "role": "POINT page walker",
+      "reason": "pdata GAP (leaf); the record-hash path cannot see it, so this row is the M1.27 --leaf target, not evidence of changed code"
+    },    {
+      "eu_va": "0x0041c7dc",
+      "expect": "UNIQUE",
+      "us_va": "0x00444540",
+      "role": "CMP chunk engine"
+    },
+    {
+      "eu_va": "0x0041c990",
+      "expect": "UNIQUE",
+      "us_va": "0x004446f4",
+      "role": "CMP chunk-table loop (caller of the chunk engine)"
+    },
+    {
+      "eu_va": "0x0041c044",
+      "expect": "UNIQUE",
+      "us_va": "0x00443da8",
+      "role": "CMP/.ind opener (caller of the chunk-table loop)"
+    },
+    {
+      "eu_va": "0x0041a438",
+      "expect": "NOMATCH",
+      "role": "MMAIN",
+      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task (REFER-family difference is M1.22b's question)"
+    },
+    {
+      "eu_va": "0x00419350",
+      "expect": "NOMATCH",
+      "role": "DRSTR",
+      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+    },
+    {
+      "eu_va": "0x004125a8",
+      "expect": "NOMATCH",
+      "role": "REFER access path (maps type 0x14e8)",
+      "reason": "NOMATCH in the M1.22 baseline; REFER-family difference is M1.22b's question"
+    },
+    {
+      "eu_va": "0x003fbed8",
+      "expect": "NOMATCH",
+      "role": "ADDRE resolve",
+      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+    },
+    {
+      "eu_va": "0x0040b358",
+      "expect": "NOMATCH",
+      "role": "ADDRE0 resolve",
+      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+    },
+    {
+      "eu_va": "0x003bc960",
+      "expect": "NOMATCH",
+      "role": "RDSTM",
+      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+    },
+    {
+      "eu_va": "0x003f632c",
+      "expect": "UNIQUE",
+      "us_va": "0x0041ec8c",
+      "role": "POI name accessor (r4=db, r5=rec -> name ptr)"
+    },
+    {
+      "eu_va": "0x003f61bc",
+      "expect": "NOMATCH",
+      "role": "POI field-index accessor (field 5)",
+      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+    },
+    {
+      "eu_va": "0x00542250",
+      "expect": "UNIQUE",
+      "us_va": "0x0056454c",
+      "role": "zlib inflate"
+    }
+  ]
+}
