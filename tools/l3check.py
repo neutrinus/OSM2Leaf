@@ -38,6 +38,7 @@ Usage::
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --target probe-zlib-cmf
     python3 tools/l3check.py --card us_S2.img --factory LEAF_US.img
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --json
+    python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --json out.json
     python3 tools/l3check.py --selftest
 """
 
@@ -1036,6 +1037,20 @@ def _print_report(report: dict) -> None:
 # --------------------------------------------------------------------------
 
 
+def _write_atomic(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` atomically (UTF-8, temp file + rename)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="L3 rung of the verification ladder (M9.8) and card gate (M9.12)",
@@ -1079,7 +1094,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--targets",
         help="path to targets.json (default: tools/l3_harness/targets.json)",
     )
-    parser.add_argument("--json", action="store_true", help="machine-readable report")
+    parser.add_argument(
+        "--json",
+        nargs="?",
+        const="-",
+        metavar="PATH",
+        help="machine-readable report: bare flag or '-' prints to stdout, "
+        "PATH writes the same document to that file (atomic, UTF-8)",
+    )
     parser.add_argument(
         "--selftest",
         action="store_true",
@@ -1109,8 +1131,12 @@ def main(argv=None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    if args.json:
-        print(json.dumps(report, indent=2))
+    if args.json is not None:
+        document = json.dumps(report, indent=2)
+        if args.json in ("", "-"):
+            print(document)
+        else:
+            _write_atomic(Path(args.json), document + "\n")
     else:
         if report.get("command") == "l3check --card":
             _print_card_report(report)
@@ -1356,6 +1382,36 @@ def test_determinism():
     first = _json_cli(["--corpus", str(_corpus())])[1]
     second = _json_cli(["--corpus", str(_corpus())])[1]
     assert first == second, "two runs differ"
+
+
+@check("cli: --json PATH writes the same document as bare --json")
+def test_json_path():
+    out = Path(_SELFTEST_TMP) / "nested" / "report.json"
+    code, output = _cli(["--corpus", str(_corpus()), "--json", str(out)])
+    assert code == 0, output
+    assert output.strip() == "", f"--json PATH should not print: {output!r}"
+    text = out.read_text(encoding="utf-8")
+    assert text.endswith("\n"), "file should end with a newline"
+    written = json.loads(text)
+    bare_code, bare = _json_cli(["--corpus", str(_corpus())])
+    assert bare_code == 0, bare
+    assert written == bare, "file document differs from bare --json stdout"
+    assert written["schema"] == SCHEMA, written.get("schema")
+
+    dash_code, dash_out = _cli(["--corpus", str(_corpus()), "--json", "-"])
+    assert dash_code == 0, dash_out
+    assert json.loads(dash_out) == bare, "'-' must print the same document"
+
+
+@check("cli: --json PATH still writes the report when the run fails")
+def test_json_path_on_failure():
+    empty = Path(_SELFTEST_TMP) / "empty-corpus-json"
+    empty.mkdir(exist_ok=True)
+    out = Path(_SELFTEST_TMP) / "failed.json"
+    code, output = _cli(["--corpus", str(empty), "--json", str(out)])
+    assert code == 1, output
+    report = json.loads(out.read_text(encoding="utf-8"))
+    assert report["result"] == "FAIL", report
 
 
 @check("card: --card without --factory is a usage error")

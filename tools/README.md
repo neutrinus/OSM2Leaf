@@ -676,8 +676,13 @@ python3 tools/l3check.py --build-corpus
 python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus
 python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus \
     --target probe-zlib-cmf --json
+python3 tools/l3check.py --build-corpus --json /tmp/opencode/l3.json
 python3 tools/l3check.py --selftest
 ```
+
+`--json` takes an optional path: bare `--json` (or `--json -`) prints the
+document to stdout, `--json PATH` writes the same document to `PATH`
+(atomic, UTF-8).
 
 Statuses and exit codes:
 
