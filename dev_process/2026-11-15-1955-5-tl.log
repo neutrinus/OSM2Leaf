@@ -1,72 +1,55 @@
 role: tl
 model: opencode/deepseek-v4.1-flash-free (session agent)
 start_utc: 2026-11-15 19:55
+end_utc: 2026-11-15 20:55
 origin_main_start: d4368b8 (QA: H55/H56/H57)
 
 inputs_read:
 - AGENTS.md, prompt_common.txt, prompt_tl.txt
 - docs/retro/2026-11-15.md; dev_process/2026-11-15-{1-sm,2-se,3-po,4-qa}.log
-- TODO.md Priorities + Workstreams (M1.23, M1.22b, H55, H53, H54, M9.36,
-  M9.37, M3.23, M3.24)
-- git fetch; gh pr list --state open (only #171 draft, M5.29 blocked)
+- TODO.md Priorities + Workstreams; git fetch; gh pr list --state open
 
-task selection:
-- M1.23 (pair required, critical, deps M1.20 tool on main): first L3 gate,
-  repairs the US evidence chain. Worktree /tmp/opencode/wt-m1.23,
-  branch task/m1.23-pdata-wireup.
-- H55 (pair solo, critical, no deps, QA-added): l3check --json PATH is a
-  hard blocker for H42/H43 wiring; small, selftest-covered. Worktree
-  /tmp/opencode/wt-h55, branch task/h55-l3check-json-path.
-- Disjoint check: M1.23 touches cerom/sh4xref/sh4scan/reader_precheck/claims
-  + its EXP; H55 touches tools/l3check.py + its EXP. No shared file.
-- Skipped: M1.22b (depends on M1.27 which is new and unowned; do not start a
-  dependent before its dep), M3.23/M3.24/M9.36/M9.37 (large firmware tasks —
-  one batch at a time on cheap models), H53/H54 (housekeeping, next batch).
+task selection (one branch+PR each, disjoint files):
+- M1.23 (pair required, critical): wire pdata into cerom/sh4xref/sh4scan/
+  reader_precheck + register C-361x. Branch task/m1.23-pdata-wireup, PR #180.
+- H55 (solo, critical, QA-added): l3check --json PATH. Branch
+  task/h55-l3check-json-path, PR #179.
+- Skipped: M1.22b (deps M1.27/M1.28 still unowned), M3.23/M3.24/M9.36/M9.37
+  (large firmware, next batch), H53/H54.
 
 actions:
-- Created the two worktrees from origin/main d4368b8.
-- Launched two general subagents in background with the claim-first
-  instruction (push claim + draft PR before any work), the task's own
-  Precheck/Done when/Stop, and the no-merge rule.
+- Worktrees created from d4368b8 in /tmp/opencode/wt-{m1.23,h55}; two general
+  subagents launched in background with claim-first + no-merge instructions.
+- H55: reviewed diff (nargs="?" const="-", atomic write; schema/verdicts
+  unchanged; selftest both forms), re-ran selftest --only l3check, claims,
+  todo. Merged PR #179 (1cff8bb), remote branch deleted.
+- M1.23: reviewed diff (cerom exception key; pdata.fn_of_factory/attach;
+  sh4xref/sh4scan/reader_precheck use it, heuristic kept for GAP leaves;
+  C-3610-C-3619 corrected). A concurrent author pass (66bc1f1/b5899cc) had
+  landed M1.28/M4.37/M4.38 and the H55 EXP fix on main after my branch point;
+  rebased the branch and resolved the one real TODO/claims conflict by keeping
+  BOTH sides (M1.28/M4.37/M4.38 + H53 note + H55 done) rather than reverting
+  the author's work. Re-ran selftest.py 86/0/23, claims OK, todo OK, and the
+  Done-when (sh4xref --to 0x0041c7dc -> fn 0x0041c990 [pdata]). PR #180 merged
+  by the author (aae08c4) with the rebased, conflict-free tree.
+- Verified main after both merges: TODO 186 tasks 0 errors, claims OK,
+  pdata/l3check/sh4xref selftests PASS, M1.28/M4.37/M4.38 present, M1.20
+  re-opened by M1.23 per rule 15.
 
-status: H55 merged; M1.23 running
+outcome table:
+| task | mode | rounds | outcome | PR | EXP |
+| M1.23 | pair required (one driver) | 1 review + rebase | done | #180 | EXP-2026-11-15-M1.23-pdata-wireup |
+| H55 | solo (small tool, selftest) | 1 review | done | #179 | EXP-2026-11-15-H55-l3check-json-path |
 
-outcome H55 (pair: solo — small tool change, selftest-covered):
-- PR #179, commits 1201fbe (claim), bbcd9a4 (EXP), 322fd11 (work+done).
-- Reviewed: --json is nargs="?" const="-" with atomic write; bare flag keeps
-  stdout; selftest covers both forms; schema/verdicts unchanged; test-system.md
-  and tools/README.md updated; claims C-3710-C-3713 real, rest reserved.
-- Re-ran in its worktree: selftest --only l3check PASS, claims_check OK,
-  todo_check OK. Merged 1cff8bb (PR #179), remote branch deleted by gh.
-- Defect caught by me (not a navigator): the subagent's literal Done-when
-  `--build-corpus --json PATH` cannot be byte-identical across two runs
-  because the report embeds a random corpus tempdir; it demonstrated cmp on a
-  fixed --corpus instead and recorded the difference in the EXP. Accepted -
-  the flag works; the nondeterminism is pre-existing report content and is
-  noted in C-3711.
-- rule 15: H42 depends on H41/H28 too (still open), so nothing re-opens.
+defects caught in review:
+- H55: literal Done-when cannot be byte-identical across two --build-corpus
+  runs (random corpus tempdir embedded); accepted, documented in C-3711.
+- M1.23: un-rebased branch would have reverted M1.28/M4.37/M4.38 and H55 done;
+  caught by diffing branch vs main before merge, fixed by a both-sides rebase.
+- author-side (not mine): 66bc1f1 added M1.28 whose Depends said the M1.22
+  blocker was "the source table, not a run dependency" - plausible; kept.
 
-
-takeover (session `deepseek-v4.1-flash-free`, 2026-11-15 20:44–20:58 UTC):
-- The 2026-11-15-1955 TL session stopped after launching M1.23; its subagent
-  was later observed as an orphan (no log, uncommitted tree). I re-ran the
-  whole M1.23 done-when myself in its worktree (precheck greps 5/4/3, e32
-  `exception`, `sh4xref --to 0x0041c7dc` -> `fn 0x0041c990 [pdata]`, sh4scan
-  `; pdata fn` tag, reader_precheck anchor, GAP leaf fallback, selftest
-  86/0/23, claims/todo OK) and independently reproduced its EXP table
-  (`0x00542250` 0x00542314->0x0054232c, `0x0032ef60` None->0x0032edd0), so
-  the navigator check holds without trusting the missing log.
-- The subagent had in fact finished (2d17f0c + 3b3f983) and then rebased
-  onto b5899cc during the takeover; no evidence lost. My duplicate EXP edit
-  was reverted rather than layered on top.
-- Merged M1.23 as PR #180 (`aae08c4`), deleted the remote branch and both
-  /tmp/opencode worktrees (wt-m1.23, wt-h55).
-- rule 15: M1.23 merged -> M1.25 (Depends), M1.26 (Depends), M1.22b's leaf
-  half already satisfied by M1.27; nothing was blocked on M1.23 alone, so no
-  status flip. M1.20 stays `open` with its re-open note (its own done-when is
-  `pdata.py table --module <all>` + `gaps`, not the wire-up).
-- Board after: 90 open, 0 in progress, 1 draft PR (#171, M5.29, unchanged).
-- Defect caught in the takeover (not by a navigator): the TL session vanished
-  mid-task leaving an unlogged, unmerged branch; the work was good, the
-  handoff was not. Next TL should treat a missing `dev_process/` log as an
-  unverified merge, not a skip.
+handoff:
+- TL next batch: M1.27/M1.28 (US path), then M1.22b; H53/H54 solo; then the
+  L3 line M3.23/M3.24/M9.36/M9.37/M9.38.
+- SM: use these review notes for the pair/solo judgement.
