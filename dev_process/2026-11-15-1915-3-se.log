@@ -1,7 +1,7 @@
 role: se
 model: opencode/deepseek-v4.1-flash-free (session agent)
 start_utc: 2026-11-15 19:15
-end_utc: 2026-11-15 19:35
+end_utc: 2026-11-15 19:42
 origin_main_start: aba0df4 (sm retro 2026-11-15); origin/main moved
   during the run (1627bf7, 75f16f0, d4368b8) from concurrent PO/QA runs
 
@@ -15,7 +15,10 @@ inputs_read:
 
 actions_taken:
 - Started this log (N=3 for 2026-11-15).
-- Window audit: no engineering task completed since 2026-11-13; the only new
+- Window audit: no engineering task completed since 2026-11-13 at first;
+  mid-run, H55 (a real task) merged as #179, so I re-ran its done-when and
+  corrected its EXP header (still said `running` after the task was `done`).
+  The only other new
   commits are process (sm retro, po, qa). Re-ran cheap done-when controls.
 - pdata.py --selftest PASS, fn_match.py --selftest PASS, and the M1.20/M1.22
   blocked states still hold (tools on main, wire-ups/census absent) — no
@@ -43,13 +46,14 @@ actions_taken:
 task_ids_added: M1.28 (freeze EU->US match fixture; breaks M1.22/M1.22b/M1.27
   deadlock), M4.37 (bit-packed POINT coordinate yes/no control for M4.8b),
   M4.38 (the `0x18c` language-code table; M4.22's real unblocker)
-task_ids_changed: M1.27 deps -> — (tools on main), M1.22b deps -> M1.27/M1.28,
+task_ids_changed: H55 EXP header corrected (running->done); M1.27 deps -> — (tools on main), M1.22b deps -> M1.27/M1.28,
   M4.8b Unblock -> M4.37/M4.27, M4.22 Note+Unblock -> M4.38, H53 Note (strict
   should also fail on Unblock->done and Depends->blocked drifts), M1.23 Note
   (census command), index rows M1/M4, Take-first line
 task_ids_blocked/reopened: none (no status flip; M1.20/M1.22/M3.13 stay blocked)
 prs: none (SE is direct-to-main)
-commits: see `git log` — single SE commit "todo: fix US deadlock, add M1.28/M4.37/M4.38"
+commits: 7684a45 "todo: fix the US-path deadlock, add M1.28/M4.37/M4.38";
+  follow-up "docs: H55 EXP status running->done" (this commit)
 
 decisions:
 - Kept blocked M1.20/M1.22 blocked: their done-whens are unmet and rule 15

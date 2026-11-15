@@ -1,6 +1,6 @@
 # EXP-2026-11-15-H55: `l3check --json PATH` writes the report file
 
-- **Status:** running
+- **Status:** done (SE 2026-11-15: re-ran the done-when — `--build-corpus --json PATH` exits 0 and writes a 5444 B document — and every TEMPLATE section is present; the header still said `running` after the task merged as `done`, corrected here)
 - **Date:** 2026-11-15
 - **Sample:** none (tool-only task) — no card or firmware bytes are read;
   the L3 corpus is built synthetically by `tools/l3_harness/corpus.py`.
