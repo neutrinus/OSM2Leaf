@@ -251,7 +251,7 @@ Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**), **M9.12** or 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
 | H | Housekeeping | **H19, H28, H29, H40–H44, H52–H57**; H45–H48 archived 2026-11-13 |
-| M1 | Firmware tooling | **M1.19, M1.21, M1.23, M1.24, M1.25, M1.27, M1.28, M1.12, M1.14**; M1.22b waits on M1.27/M1.28 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19 |
+| M1 | Firmware tooling | **M1.19, M1.21, M1.23, M1.24, M1.25, M1.27, M1.28, M1.29, M1.12, M1.14**; M1.22b waits on M1.27/M1.28 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19 |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6), M2.3/M2.5/M2.12/M2.15/M2.18 done |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.17/M3.19/M3.21 done |
 | M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.37, M4.38, M4.29, M4.35**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b (→M4.37/M4.27), M4.28, M4.31, M4.16 (→M4.16b), M4.22 (→M4.38) |
@@ -581,10 +581,10 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
 
 - [ ] **H52 — Audit every cited `fn 0x…` against `.pdata`**
   - Status: open · Owner: — · Critical: yes
-  - Depends: M1.20 (the table for all modules; for `Navi.exe` alone `nk_decomp.py pdata` is enough to start)
+  - Depends: M1.25 (done; `--fix-list` gives the 12-row table) — the all-modules table is M1.20, not needed for the cited VAs (SE 2026-11-15)
   - Goal: H51 found three "functions" that are not function starts (`0x0041c7e8` → `fn 0x0041c7dc`, `0x00412bee` → `fn 0x00412ac0`, `0x00542256` → `fn 0x00542250`). A cross-reference search for a mid-function address finds nothing, and an L3 call that enters after the prologue runs with a wrong stack frame. Find every other such VA before more tasks build on them.
   - Precheck: `python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x0041c7e8 0x0041c7dc` prints `INSIDE` then `START`.
-  - Scope: every VA written as `fn 0x…`, `sub_…` or "entry" in `docs/format/firmware.md`, `tools/l3_harness/targets.json`, the constants of `tools/chunk_decoder_l3.py` / `tools/point_walk_l3.py`, open task blocks of `TODO.md`, and the 2026-11-08…11-10 EXPs. Not: re-deriving what the functions do.
+  - Scope: every VA written as `fn 0x…`, `sub_…` or "entry" in **every** `docs/format/*.md` the audit scans (not just `firmware.md`: M1.25 finds `INSIDE` in `cmp-ind.md` too), `tools/l3_harness/targets.json`, the constants of `tools/chunk_decoder_l3.py` / `tools/point_walk_l3.py`, open task blocks of `TODO.md`, and the 2026-11-08…11-10 EXPs. Not: re-deriving what the functions do.
   - Input: `grep -rhoE "(fn|sub_|entry) ?0x00[0-9a-f]{6}" docs/format/firmware.md TODO.md tools/l3_harness/targets.json | sort -u`; `nk_decomp.py pdata` accepts many VAs in one call. Classes: `START` (fine), `INSIDE` (wrong entry — give the true start), `GAP` (no record: a leaf function such as the POINT walker `0x003f5194`, or data; confirm a leaf by a direct `jsr`/`bsr` caller with `sh4xref --to`).
   - Hints: start with the L3 targets — `FN_CHUNK` in `chunk_decoder_l3.py` enters at `0x0041c7e8`, i.e. after six of the seven prologue pushes, so the epilogue pops registers that were never pushed; the byte-identical output (M9.11) shows the body is right, but the stack/`r8–r13` state after return is not. The H49 list `0x003f5a1e…0x003f5fc2` and M3.22's `fn 0x00412bee`, `0x0040e4b2` look like mid-function labels too. `sh4xref.py` prints `fn 0x…` from a heuristic; compare its labels with pdata on 200 random sites and report the mismatch rate.
   - Done when: an EXP table `VA / where cited / class / true start / fixed in file` covers every cited VA; each `INSIDE` is corrected in `firmware.md` and in the tool constants (re-run the tool's own check after the change), with a claim row per correction; the mismatch rate of `sh4xref`'s `fn` labels is stated.
@@ -784,13 +784,14 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
 
 - [ ] **M1.26 — `fn_audit --scope l3`: turn H52's audit into the standing PR gate the M1.25 plan skipped**
   - Status: open · Owner: — · Critical: yes · Pair: solo
-  - Depends: M1.25 (`fn_audit.py`), M1.23 (pdata-backed labels)
+  - Depends: M1.25 (`fn_audit.py`), M1.23 (pdata-backed labels), M1.29 (corrections must not count as `INSIDE`, else the gate can never reach zero)
   - Goal: M1.25 ends with `fn_audit --scope docs` over `TODO.md`, `docs/format/*.md` and `targets.json`. The M9/M3 board cites dozens more VAs inside task blocks (`l3_harness` targets, EXPs, `_l3.py` constants); without this, the next mid-function entry (H51 found three) ships unnoticed. Close H52 with an automated check rather than a one-off table.
-  - Precheck: `python3 tools/fn_audit.py --selftest` passes; `python3 tools/fn_audit.py --scope l3 archive/head256.img` reports the H52 three (`0x0041c7e8`, `0x00412bee`, `0x00542256`) as `INSIDE` with their true starts.
+  - Precheck: `python3 tools/fn_audit.py --selftest` passes; `python3 tools/fn_audit.py archive/head256.img --scope docs` reproduces the H52 three (`0x0041c7e8`, `0x00412bee`, `0x00542256`) as `INSIDE` with their true starts; `python3 tools/fn_audit.py --scope l3 archive/head256.img` exits `2` (flag absent, the gap this task fills).
+  - Note (SE 2026-11-15): after M1.29 a correction line (`0x00542256 → fn 0x00542250`) is `CORRECTED`, not `INSIDE`, so 0x00542256 (ctx-only today) leaves the failing set; keep the Precheck honest by naming the VAs that still appear as a live `fn`/`sub_`/target when this runs, not the literal three.
   - Scope: extend `tools/fn_audit.py` with `--scope l3` scanning `tools/l3_harness/targets.json`, `docs/format/firmware.md`, `docs/experiments/EXP-*.md` (parsed only, EXP files are read-only) and every `0x…` in open task blocks. Exit 1 on `INSIDE`. Not: editing the citations (H52) or re-deriving readers.
   - Input: `tools/fn_audit.py` (M1.25 output), H52 table format, `pdata.py` (census), EUs/US builds.
-  - Hints: EXPs cannot be edited (append-only); report their stale VAs in a file `docs/research/fn-audit-2026-11-13.md` instead. `GAP` needs a direct `bsr`/`jsr`/pool caller to count as a leaf; H51's `sh4xref` `fn` heuristic is not evidence (M1.25 states the mismatch rate).
-  - Done when: `--scope l3` covers ≥ 3 corpora (targets, firmware.md, open task blocks), reproduces H52's three, is wired into `tools/selftest.py` as a skipped fixture plus a synthetic `INSIDE` that must fail, and the audit file lists every remaining `INSIDE`/`DATA/UNKNOWN` with a task ID that fixes it. H52 closes with the applied table (rule 15).
+  - Hints: EXPs cannot be edited (append-only); report their stale VAs in a file `docs/research/fn-audit-2026-11-13.md` instead. `GAP` needs a direct `bsr`/`jsr`/pool caller to count as a leaf; H51's `sh4xref` `fn` heuristic is not evidence (the sh4xref↔pdata mismatch rate is H52's Done-when item — M1.25 did not measure it).
+  - Done when: `--scope l3` covers ≥ 3 corpora (targets, firmware.md, open task blocks), reproduces the H52 three where they remain live citations (after M1.29 a correction line is `CORRECTED`), is wired into `tools/selftest.py` as a skipped fixture plus a synthetic `INSIDE` that must fail, and the audit file lists every remaining `INSIDE`/`DATA/UNKNOWN` with a task ID that fixes it. H52 closes with the applied table (rule 15).
   - Stop: if a corpus has no reproducible parser, list it as `NOT SCANNED` with the reason rather than guessing.
   - Claims: C-3660–C-3669
 
@@ -818,6 +819,18 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us <US256> --module Navi.exe` exits 0 on the real US256 and exits non-zero when one US VA in the fixture is changed by one; `selftest.py --only fn_match` covers a synthetic fixture mismatch; the fixture JSON is committed with no vendor bytes; `M1.27`'s done-when cites it.
   - Stop: if the US head is unavailable, commit the fixture + `--fixture` mode with a `SAMPLE SHA-256` and mark the task `blocked` naming the fetch command — never guess a US VA.
   - Claims: C-3740–C-3749
+
+- [ ] **M1.29 — `fn_audit`: a documented correction (`0xMID → fn 0xSTART`) is resolved, not `INSIDE`**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M1.25 (`fn_audit.py`, done)
+  - Goal: M1.25's audit keeps bare VAs on a correction-marker line (`0x00542256 → fn 0x00542250`, `0x00413af4` on M3.22's H51 note) as `ctx` citations and classifies them `INSIDE`, so 3 of the 12 unique `INSIDE` VAs can never be "fixed" without deleting the corrective prose that is the record of the fix. H52's "re-run `fn_audit --fix-list` until empty" and M1.26's "exit 1 on any `INSIDE`" gate therefore cannot reach zero. Teach the audit to recognise a correction pair and stop counting it as an unresolved failure; keep a live mislabel (`fn 0xMID`) a failure.
+  - Precheck: `python3 tools/fn_audit.py archive/head256.img --fix-list | wc -l` prints `12` today; `python3 tools/fn_audit.py archive/head256.img | grep -E '0x003f5fc2|0x00413af4|0x00542256'` shows all three as `INSIDE`; each sits on a line that already names its true start (`0x003f5fc2`→`0x003f5f48` on TODO.md:589, `0x00542256`→`0x00542250` on TODO.md:585/775), so a correct line is currently indistinguishable from a wrong one.
+  - Scope: `tools/fn_audit.py` only, `--scope docs` corpus and its selftest. A `ctx` citation is `CORRECTED` (not a failure) when the same line also cites `fn 0x<same true start>`, or when the bare VA is immediately followed by `→ fn 0x<start>` where `<start>` equals `pdata.locate`'s start; a bare VA with no correct start on the line, or a `fn 0xVA` citation whose VA is mid-function, stays `INSIDE`. `--fix-list` and the exit code follow the same rule; add a `CORRECTED n` count to the summary. Do not touch the citations (H52) or widen the corpus (M1.26).
+  - Input: `tools/fn_audit.py` (`citations_markdown`, `CORRECTION_RE`, `classify`, `Verdict.is_failure`, `fix_list`), `tools/pdata.py` `locate`; EXP-2026-11-15-M1.25-fn-audit §Scope/Observations; the three ctx-only VAs above.
+  - Hints: the line already pairs the wrong and the right VA on purpose, so reuse that pairing rather than a new heuristic. Keep `0x0041c7e8`, `0x0040e4b2`, `0x00412bee` a failure while a `fn 0x0041c7e8` label remains — they also appear as live `fn`/`const`/`target` citations, so the same VA can be both `CORRECTED` on one line and `INSIDE` elsewhere; report per-citation, not per-VA.
+  - Done when: `python3 tools/fn_audit.py archive/head256.img --fix-list` drops the three ctx-only VAs (`0x003f5fc2`, `0x00413af4`, `0x00542256`) and keeps the nine live ones, exiting 1 while any live `INSIDE` remains; `--selftest` covers a correction line that passes and a bare mid-function label that still fails; the corrected count is printed; `selftest.py --only fn_audit` passes.
+  - Stop: if the pairing cannot be told from a genuine mislabel without reading intent, record the three as an explicit `accepted INSIDE` allowlist in the tool with a comment and a claim, rather than a regex that can hide a real one.
+  - Claims: C-3790–C-3799
 
 
 ## M2 — Map code, activation, updater

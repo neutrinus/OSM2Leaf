@@ -1,0 +1,75 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 21:11
+end_utc: 2026-11-15 21:40
+origin_main_start: 9d4d05b (docs: sm retro 2026-11-15-3 (cycle 2) and work log)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-15-3.md
+- dev_process/2026-11-15-{2054-11-se,2100-12-tl,2107-13-sm}.log
+- docs/experiments/EXP-2026-11-15-M1.25-fn-audit.md, EXP-2026-11-15-H54-worktree-audit.md,
+  docs/experiments/TEMPLATE.md
+- docs/research/claims.md (C-3640-C-3649, C-3690-C-3695), TODO.md (H52, H58, M1.20,
+  M1.25, M1.26, M1.27, M1.28, H59), tools/fn_audit.py, tools/sh4xref.py,
+  tools/worktree_audit.py, tools/claims_check.py, tools/todo_check.py
+
+verification (cycle 2, cheap re-runs):
+- fn_audit --selftest OK; worktree_audit --selftest OK (14 checks);
+  selftest.py --only fn_audit PASS, --only worktree_audit PASS.
+- claims_check OK (0 dup / 0 unregistered / 0 bad); todo_check OK.
+- fn_audit on archive/head256.img (sha256 92aa525d...): 12 unique INSIDE VAs,
+  matches C-3641 exactly; pdata.fn confirms the three H52 VAs INSIDE->true start.
+- worktree_audit: 33 non-main / 5 ahead / 19 stale / 18 prunable now (was 35/7 in
+  the EXP at eccace9; drift = two batch worktrees removed, reported as drift).
+- Claims C-3640-C-3642, C-3690-C-3695: evidence commands are runnable
+  (`fn_audit .../--fix-list`, `worktree_audit --selftest/--prune/--json`). No
+  /tmp heredoc in any of those rows (the H58 defect rows are C-3612/13/14, C-3711,
+  not cycle 2). EXPs follow TEMPLATE (sample+SHA, commands, +/-, corpus, falsifier,
+  observations vs interpretation separate). Both cycle-2 EXPs honest.
+- falsifier of M1.25 fired as designed (12 mid-function, not 3) — positive.
+
+actions_taken:
+- Started this log (N=14 for 2026-11-15; 13 logs already present).
+- Found a real chain defect the SM/TL missed: fn_audit keeps correction-context
+  (`ctx`) VAs as INSIDE by design, so 3 of 12 (0x003f5fc2, 0x00413af4,
+  0x00542256) can never be "fixed" without deleting the corrective prose. H52's
+  "re-run until empty" and M1.26's "exit 1 on any INSIDE" gate therefore can
+  never reach zero. Added M1.29 (Pair: required) to make a documented correction
+  CORRECTED, not INSIDE; made M1.26 depend on it.
+- Fixed H52 Depends: was gated on M1.20 (open) although M1.25 (done) supplies the
+  fix-list it needs. Reworded to M1.25; the all-modules table stays M1.20's.
+- Fixed H52 Scope: named only firmware.md; audit finds INSIDE in cmp-ind.md too.
+- Fixed M1.26 Precheck: `--scope l3` does not exist (exit 2), so it could not
+  pass before the work; now checks `--scope docs` reproduces the three plus the
+  missing-flag exit 2. Corrected the false hint "M1.25 states the mismatch rate"
+  (it does not; that is H52's Done-when item).
+- Updated the M1 "ready now" row to include M1.29.
+
+task_ids_added: M1.29 (Claims C-3790-C-3799, Pair: required)
+task_ids_changed: H52 (Depends, Scope), M1.26 (Depends, Precheck, Note, Done when, Hint)
+task_ids_blocked/reopened: none
+prs: none (SE commits to main per prompt)
+commits: todo: fix H52/M1.26 gating, add M1.29 correction-context audit (+ this log)
+
+decisions:
+- Only ONE new task: the other candidate gaps (H58 evidence checker, M1.19 reader
+  wiring, H57 baseline) already exist as open tasks; adding them would duplicate.
+- Kept M1.29 `Pair: required` (changes a gate's pass/fail semantics — a reviewer
+  must catch a regex that hides a real mislabel).
+- Did not touch the 12 rows' citations (that is H52's job).
+- Did not force worktree prune: it needs the main checkout, not this worktree
+  (retro action 3, human).
+
+problems/dead_ends:
+- fn_audit's `--scope l3` is advertised in M1.26 as a precheck but absent in the
+  CLI; a task whose Precheck cannot run is not ready (fixed in M1.26).
+- worktree counts drifted 35/7 -> 33/5 inside the day; the EXP pinned its own
+  numbers correctly, this is measured drift, not a defect.
+
+handoff:
+- TL: M1.29 is the true unblocker before M1.26/H52 can reach an empty fix-list;
+  run M1.29 first (pair), then H52 (apply 12->9), then M1.26 (--scope l3).
+- QA: H58 still needs to flag `/tmp` JSON evidence (C-3691/C-3695 cite
+  /tmp/opencode/h54.json) — the file is an artifact, the command is runnable, so
+  it is borderline; H58's rule should decide.
