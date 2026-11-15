@@ -1,0 +1,42 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (session agent)
+start_utc: 2026-11-15 20:11
+end_utc: (in progress)
+origin_main_start: 6041b1a (docs: se review of cycle 1 — M1.23/H55 claims, H58)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-15-2.md
+- dev_process/2026-11-15-1959-8-se.log (SE cycle 2)
+
+actions_taken:
+- Started this log (N=9 for 2026-11-15).
+
+takeover (session agent, 2026-11-15 20:18–20:26 UTC):
+- The PO subagent process died right after starting this log ("no route
+  available for tier strong"); no actions had been taken. I finished the pass
+  inline so the cycle is not left half-run.
+- Rule 15 check by script over every live block: 0 blocked tasks have a
+  `Unblock:` naming a done task; 0 tasks are `in progress`. Nothing to re-open.
+- Archive pass (dependency-safe, computed, not eyeballed): of 62 done blocks,
+  only 3 are named by no live `Depends:`/`Unblock:` — H50, M1.10b and the
+  already-archived M7.4 pointer. Moved H50 (done 2026-11-10) and M1.10b (done
+  2026-11-08) to docs/research/todo-history-2026-11-15.md. M1.23 (done today)
+  and H55 (<24 h) stay; M7.4 is a pointer, not a block. TODO 3366 -> 3333
+  lines; the 1500 target is blocked by live `Depends:` on done IDs (H11, H25,
+  H27, M1.2a, M3.5-3.12, M4.x, M5.x ...) — that is H53/--strict work, not a
+  silent archive.
+- Priorities: 5th-pass header, M1.23 marked landed, M1.20 narrowed to its own
+  census done-when, "Take first" now starts at M1.28 (M1.23 is done).
+- New tasks: 0. The bottleneck is execution of the ~90 open blocks, not a
+  shortage of plans; SE added H58 this cycle.
+- Checks: todo_check OK (warnings pre-existing), claims_check OK.
+
+task_ids_added: none
+task_ids_changed: M1.20 (priorities text only), Priorities section
+task_ids_archived: H50, M1.10b
+commits: docs: PO 2026-11-15 pass — archive H50/M1.10b, 5th Priorities
+handoff:
+- TL: board clean, start M1.28 then M1.27/M1.22b and M1.25/M1.26; pair
+  required means two subagents (SM retro 2 prompt change).
+- Human: 34 worktrees + 5 ahead-branches still need pruning (H54).

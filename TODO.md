@@ -214,17 +214,19 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-13, 4th pass; retro 2026-11-13, SE `2026-11-13-1213-2-se`)
+## Priorities (PO grooming 2026-11-15, 5th pass; retro 2026-11-15-2, TL `2026-11-15-1955-5-tl`)
 
-Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`;
-done tasks moved off the board on 2026-11-13: `docs/research/todo-history-2026-11-13.md`.
+Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
+`-13.md`; done tasks moved off the board on 2026-11-15:
+`docs/research/todo-history-2026-11-15.md` (H50, M1.10b).
 
-**Read first.** The 2026-11-12 ghost batch is reconciled (`028ea25`): no task is
-`in progress` without a PR. Four new gates are open, and they block most L3 work:
-**M1.23** (pdata labels everywhere), **M1.22b** (US function map), **M1.24**
-(`sh4literal`) and **M1.25** (`fn_audit`). The US unit is Marek's; every reader VA
-below is EU-build until **M1.22b** lands. Marcin's 2026-11-12 half-done M1.20/M1.22
-may not be marked `done` until its own EXP exists (rule 16).
+**Read first.** The board is clean: 0 `in progress`, 0 ghost claims, and **M1.23
+landed 2026-11-15** (#180) — `pdata` labels are live in `sh4xref`/`sh4scan`/
+`reader_precheck` and C-3610–C-3619 are registered. The next three gates on the L3
+line are **M1.25** (`fn_audit`), **M1.24** (`sh4literal`) and **M1.28**/**M1.22b**
+(US match), plus **M1.19** (kernel decompressor into `cerom`/`rommap`). The US unit
+is Marek's; every reader VA below is EU-build until **M1.22b** lands. M1.20's
+wire-up half is done; it stays open only for its own all-module census done-when.
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
@@ -237,7 +239,7 @@ may not be marked `done` until its own EXP exists (rule 16).
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
 **Take first (ready, deps done, one branch+PR each):**
-1. **M1.23** then **M1.28** (freeze the EU→US match) then **M1.27** and **M1.22b** — they repair the evidence the US path stands on (SE 2026-11-13/15); M1.28 is the runnable US control that does not wait on the blocked M1.22/M1.20 claims.
+1. **M1.28** (freeze the EU→US match) then **M1.27** and **M1.22b** — they repair the evidence the US path stands on (SE 2026-11-13/15); M1.28 is the runnable US control that does not wait on the blocked M1.22 claims. **M1.25**/**M1.26** follow M1.23 on the same label path.
 2. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
 3. **M5.34** → **M5.29** (PR #171), **M5.30**, **M5.33** — Poland card evidence.
 4. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**.
@@ -389,24 +391,6 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3440–C-3449
   - Result: EXP-2026-11-10-H49-pm-review. `tools/va_class.py` (selftest 8 cases). All seven `0x0055dxxx` blockers are import slots (memset, OSM_Malloc, taskIdSelf, OSM_isSender, OSM_Printf, OSM_SramSet, wcsstr); `0x00d53500`/`0x00e23cc0`/RGD tables are BSS; 0 cited addresses are `INIT`. Only 5.5 % of build A's compressed bytes are stored data. Board: M3.15 re-opened; M9.14/M9.17/M9.24 → M9.35; M4.16b/M3.11c → M3.22; M1.2f non-critical; H50 added; AGENTS.md rule.
 
-- [x] **H50 — Put `va_class` into the prechecks and audit the remaining "sec1" blockers**
-  - Status: done · Owner: task/h50-va-class-prechecks · Critical: yes
-  - Depends: H49
-  - Goal: no task may again say "blocked: compressed sec1/.data" for an import slot or a BSS address.
-  - Precheck: `python3 tools/va_class.py --selftest`; `python3 tools/l3_precond.py --selftest`; `python3 tools/reader_precheck.py --selftest`.
-  - Scope: (1) `tools/l3_precond.py` and `tools/reader_precheck.py` import `va_class.classify` and print the class of every VA they report as compressed/unmapped (`IAT DLL!name` / `BSS` / `INIT`); `l3_precond` returns `BLOCKED` on M1.2f only for `INIT`. (2) Audit the blockers of **M3.2b, M3.14, M3.16, M4.26, M2.17, M1.12 follow-up** and any other `blocked` task whose text says sec1/compressed `.data`/M1.2f: run `va_class` on each cited VA, and per rule 15 re-open (with a note) every task whose cited address is IAT or BSS.
-  - Input: EXP-2026-11-10-H49-pm-review; `tools/va_class.py`; the listed EXPs.
-  - Done when: both selftests cover an IAT, a BSS and an INIT case; an EXP lists each audited task, its cited VAs, their classes and the board action; `todo_check.py` and `claims_check.py` pass.
-  - Stop: if a cited "sec1" blocker has no VA at all, write that in the EXP and leave the task as is with a note asking its next owner for the VA; do not invent one.
-  - Result: docs/experiments/EXP-2026-11-10-H50-va-class-prechecks.md (C-3470–C-3479). va_class integrated into l3_precond/reader_precheck (IAT/BSS not M1.2f, INIT M1.2f); audit reopened M3.11c,M3.13,M4.16b,M9.14,M9.17 per rule 15 (IAT/BSS cited blockers), left no-VA/INIT/codec/runtime blockers closed with notes; M4.26/M2.17/M1.12-follow-up task blocks not found (stated in EXP).
-  - Claims: C-3470–C-3479
-
-
-Done: M1.1 (synthetic self-test, EXP-47), M1.5 (`cerom.py memmap`/`ghidra`,
-EXP-48; the real Ghidra open is M9.2), M1.6 (`cerom.py imports`, EXP-50,
-PR #5). Tool half of M1.2b: `tools/cecompress.py` (4 KiB LZSS and LZX
-stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
-
 - [x] **M1.2a — Parse the compressed-section header**
   - Status: done · Owner: session-ZMxuBT · Critical: yes
   - Depends: —
@@ -547,23 +531,6 @@ stored blocks, verbatim/aligned refused; synthetic only, EXP-52, C-570).
     lists every candidate's byte difference and the status is `blocked`.
   - Result: EXP-2026-11-08-M1.13-factory-encoder. 471/471 inner pages of POINT001–009 reproduced exactly by stock zlib L6/memLevel 8 (release-indistinguishable, 1.1.3 to 1.3.2); zlib-ng 0/471; `tools/factory_zlib.py` added. The "0.8 % larger" premise is not reproduced (C-2575).
   - Claims: C-2570–C-2579
-
-- [x] **M1.10b — Spot-check two resolved import names at their call sites**
-  - Status: done · Owner: task/m1.10b-import-spotcheck · Critical: no
-  - Depends: — (M1.10 done)
-  - Goal: M1.10 named 846/846 `Navi.exe` slots by export-table lookup. Two of
-    the newly named exporters (`XGLDLL`, `OSMDLL`) should be confirmed where
-    they are **called**, so the resolution is not just a plausible name.
-  - Precheck: `cerom.py imports Navi.exe --resolve-with 0x200200 --resolve-with
-    0x3e00200 --resolve-with 0x5200200` must list both names.
-  - Scope: two slots, one call site each; no new naming pass.
-  - Done when: for one `XGLDLL!` and one `OSMDLL!` name, `sh4xref.py --calls`
-    (or the thunk table) shows the call site and the argument shape matches the
-    export's role; recorded in an EXP with the slot VAs.
-  - Stop: if a call site cannot be found, say so and stop — a name without a
-    caller stays `OBSERVED`.
-  - Claims: C-2600–C-2609
-  - Result: EXP-2026-11-08-M1.10b-import-spotcheck. `OSMDLL!OSM_Printf` slot `0x0055d954` confirmed at `fn 0x0039c978`/`0x0039c9ba` (4 args, printf-style-consistent; 88 loads/24 pools); `XGLDLL!xglDisable` slot `0x0055db94` at `fn 0x003da074`/`0x003da0aa` (2 args, `r5=0x00800000`, capability-consistent; 42 loads/21 pools). Names via M1.10 export resolution; exact prototypes UNKNOWN. Selftest/claims_check green.
 
 - [x] **M1.16 — Unify `.cmp`/`.ind` chunk codec and inner-page helpers across tools**
   - Status: done · Owner: task/m1.16-cmpind-unify · Critical: no
