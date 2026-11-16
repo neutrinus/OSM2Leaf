@@ -1,0 +1,70 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (subagent, second QA run 2026-11-16)
+start_utc: 2026-11-16 00:30
+end_utc: 2026-11-16 00:35
+origin_main_start: 7a39432 (PO 8th pass — archive H54/M7.4, split M8.D1/D2)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/research/test-system.md, docs/retro/2026-11-16-1.md
+- dev_process/2026-11-16-{0013-3-tl,0018-5-se,0029-6-po}.log
+- TODO.md H53/H55/H60/H64/H66; tools/todo_check.py, progress_report.py, worktree_audit.py
+
+focus:
+- PO split `**M8.D1 / M8.D2 —**` because todo_check.TASK_RE never matched a
+  dual-ID header. Treat this as a tooling defect class: can any other
+  heading/ID form still hide a block from todo_check / progress_report /
+  worktree_audit / fn_audit?
+
+gates (all on 7a39432 before edits, exit codes):
+- todo_check.py -> 0 (175 tasks, 0 errors, 150 warnings)
+- claims_check.py -> 0 (0 dup, 0 unregistered, 0 bad)
+- l3check.py --build-corpus --json /tmp/opencode/qa-l3-5.json -> 0;
+  schema osm2leaf.l3check/v1; counts pass1/fail0/skip0/blocked5/runnable1/total6
+- progress_report.py default -> 0 (full dashboard incl. L1-L5 sections)
+- selftest.py -> 0 (88 passed / 0 failed / 23 skipped / 111)
+- H55 l3check bare --json - -> 0; H64 one_tile_pipeline --selftest -> 0
+
+parser blind spot (the real question):
+- TASK_RE still MISSES (probed directly, not guessed): `**A / B —**`,
+  `**A, B —**`, `**A and B —**`, `**H1**` (bold, no title dash), and
+  heading style `### **H1 — …**` / `### H1 — …`.
+- Worse than a miss: a dual-ID header is not dropped, it is ABSORBED. A doc of
+  `H1` + `**H2 / H3 —**` + `**H4, H5 —**` parses as ONE task (H1) and
+  check() returns ok=True, 0 errors, 0 warnings — the two blocks and their
+  fields silently fold into H1's body. So a whole task can hide behind a green
+  gate, which is exactly how M8.D1/D2 vanished.
+- worktree_audit.py propagates it (imports todo_check.parse_tasks).
+  progress_report.py has its own bounded `^- \[.] \*\*<id>` regex: it reports
+  `task not found` for a requested ID rather than absorbing — a visible bug,
+  not a silent one, but the same ID-shape hole.
+- Current board: 176 `- [ ] **`-shaped lines vs 175 parsed; the 176th is the
+  fenced field template at line 176 (correct). 175 is luck, not a guard.
+
+M8.D1/D2 integrity after PO split:
+- Each header appears exactly once (TODO.md:2529, 2535); each parses once,
+  Status open, claims split C-1590-1594 / C-1595-1599 (was combined
+  C-1590-C-1599); both Goald/Done-when preserved verbatim in the split diff.
+
+task added (1, the only genuine uncovered gap):
+- H68 (C-3890-C-3899, Pair: solo): an unparsed `- [ ] **` block header must be
+  an ERROR, not silent absorption. Done-when: selftest fails on the four
+  malformed forms above and passes a well-formed one; a temp TODO with one
+  dual-ID block exits 1 naming line+header; real board still exits 0.
+- Alternatives rejected: widening TASK_RE to auto-split `**A / B —**` (a real
+  dual block carries one Claims range, cannot be split without a human; PO's
+  manual split was right); a separate TODO parser (duplicates H59/H60's
+  reuse-the-regex rule).
+
+decisions:
+- One task, not three: the heading forms, dual-ID, and bold-only all collapse
+  into the same "unparsed header = error" fix; H53/H60 already own `--strict`
+  and archived/ghost IDs, so no overlap. Did not touch fn_audit (it scans
+  citations, not block IDs).
+
+handoff:
+- TL: H68 is a cheap solo (parser + selftest, no vendor). Reads first.
+  H59 must reuse the same block regex; H68 makes an unparsed header loud.
+- Next QA: after H68 lands, re-run the 176-vs-175 count expecting a hard error
+  on any future dual-ID header.
+
