@@ -901,7 +901,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3660–C-3669
 
 - [ ] **M1.27 — `fn_match` leaf path: match pdata-`GAP` functions (the POINT walker) before the full census**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m1.27-fn-match-leaf · Critical: yes · Pair: required
   - Depends: — (`fn_match.py`, `pdata.py`, `sh4dis.py`, `sh4xref.py` are on `main` since `777fb68`; the `M1.22`/`M1.20` claims are blocked but their tools merged)
   - Goal: M1.22b's done-when needs ≥90 % of the 13 cited EU readers matched EU→US; the current 8 NOMATCH include the POINT walker `0x003f5194`, which is a `.pdata` `GAP` (leaf), so the record-hash path can never match it. Separate "the matcher cannot see leaves" from "the code really changed" with one reproducible control before spending the census effort.
   - Precheck: `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x003f5194` prints `GAP` (positive control for the leaf class); `python3 tools/fn_match.py match archive/head256.img archive/head256.img --module Navi.exe --va 0x003f5194` prints `UNIQUE` (EU-vs-EU control); the EU→US run on a real US256 reports it `NOMATCH` (the defect this task fixes).
