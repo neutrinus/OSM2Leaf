@@ -215,25 +215,26 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-16, 7th pass; retro 2026-11-15-4, SE `c6903ab`)
+## Priorities (PO grooming 2026-11-16, 8th pass; retro 2026-11-16-1, SE `4d86204`)
 
 Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
-`-13.md`; done tasks moved off the board on 2026-11-15:
-`docs/research/todo-history-2026-11-15.md` (H50, M1.10b, then 21 on the
-third pass: H11, H49, H51, M1.2a, M1.2d, M1.11c, M2.3, M2.5, M2.12, M2.15,
-M2.18, M3.5–M3.8, M3.12, M4.8d, M4.12, M5.20, M5.24, M9.21). Nothing was
-archived 2026-11-16: every done block is named by a live `Depends:`/`Unblock:`
-(fixpoint over the whole board), so all 41 stay for the referencing task.
+`-13.md`, `-15.md`; done tasks moved off the board on 2026-11-16:
+`docs/research/todo-history-2026-11-16.md` (H54, M7.4 stub). The other 41 done
+blocks stay: a live `Depends:`/`Unblock:` names each (fixpoint over the board).
 
 **Read first.** The board is clean: 0 `in progress`, 0 ghost claims, and every
-one of the 170 blocks now carries a `Status:` line. Cycle 3 merged **M1.28**
-(EU→US fixture, #183) and **M1.29** (corrections count as `CORRECTED`, #184).
-The label path is therefore **M1.29 (done) → H52 (apply the 9-row table) →
-M1.26** (`--scope l3` standing gate, now `Pair: required`): H52 is the next
-task, and it can finally reach an empty fix-list. Then **M1.27** and
-**M1.22b** run the US match against the frozen M1.28 fixture. The US unit is
-Marek's; every reader VA below is EU-build until **M1.22b** lands. M1.20's
-wire-up half is done; it stays open only for its own all-module census done-when.
+block now carries a `Status:` line (M8.D1/D2 was the last stateless one; fixed
+2026-11-16). Cycle 4 merged **H52** (#185, `fn_audit` INSIDE 33 → 0) and **H64**
+(#186, factory-root guards). SE then added **M1.30** (freeze the `fn_audit`
+corpus), **H66** (evidence spans / parsed-unused flags) and **H67** (H64's
+tile↔cell binding) and corrected H63. The label path is now
+**M1.30 (freeze corpus) → M1.26 (`--scope l3` standing gate) → M1.27**, then
+**M1.22b** against the frozen M1.28 fixture. **The gate must run on M1.30's
+committed snapshot, not the live `TODO.md`** — otherwise `INSIDE` drifts with
+prose. The US unit is Marek's; every reader VA below is EU-build until
+**M1.22b** lands. M1.20's wire-up half is done; it stays open only for its own
+all-module census done-when. The factory line is **H64 (done) → H67**, with
+**H66** covering the same parsed-but-unused flag class.
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
@@ -241,15 +242,16 @@ wire-up half is done; it stays open only for its own all-module census done-when
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline on every candidate card. Blocking: **M5.30** (1:1 diff of the Poland card), **H40** (in-process fixture so CI can run L1 with no vendor data).
 - **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.29** (blocked, not on the branch: PR #171's `--factory-root` mode and EXP are on `main`, but the test ways fall in a `0x2146` directory → **M5.34** corridor rerun) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (done: corrections are `CORRECTED`) → **H52** (apply the table) → **M1.26** (`--scope l3` standing gate). Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind **M9.31** (no-diff/baseline verdicts) and a runnable target set; **H53** (`todo_check --strict`) stays behind the board cleanup it would otherwise fail on.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (done: corrections are `CORRECTED`) → **H52** (done: INSIDE 0) → **M1.30** (freeze the corpus) → **M1.26** (`--scope l3` standing gate). Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind **M9.31** (no-diff/baseline verdicts) and a runnable target set; **H53** (`todo_check --strict`) stays behind the board cleanup it would otherwise fail on.
 - **L4 (QEMU/M8):** software integration before L5; not final acceptance. **M8.A2** needs a QEMU 8.2.7 `sh4-softmmu` host; **M8.A3**/**M8.A6** follow it. **M1.19** (kernel decompressor wired into `cerom`/`rommap`) is the prerequisite for any full-system run that touches `INIT` bytes.
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
 **Take first (ready, deps done, one branch+PR each):**
-1. **H52** → **M1.26** — the label path's last two steps (M1.29 just landed; the 9-row fix-list can now be emptied). Then **M1.27** and **M1.22b** against the frozen M1.28 fixture — the runnable US control that does not wait on the blocked M1.22 claims.
+1. **M1.30** → **M1.26** → **M1.27** — the label path now that H52 emptied the fix-list: freeze the corpus, then make the gate stand on it, then the leaf census. **M1.22b** follows against the frozen M1.28 fixture.
 2. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
-3. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence.
-4. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**, **M9.12** (only after M9.31).
+3. **H67** → **H66** — the factory line's two evidence/tool gaps left by H64.
+4. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence.
+5. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**, **M9.12** (only after M9.31).
 Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**) or **M8** until the line above has owners.
 
 
@@ -257,8 +259,8 @@ Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**) or **M8** unti
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H28, H29, H40–H44, H52–H57, H60**; H11/H49/H51 archived 2026-11-15; H45–H48 archived 2026-11-13 |
-| M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.27, M1.12, M1.14**; M1.22b waits on M1.27 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25/M1.28/M1.29 done |
+| H | Housekeeping | **H19, H28, H29, H40–H44, H53, H56–H60, H61–H67**; H11/H49/H51 archived 2026-11-15, H54 archived 2026-11-16; H45–H48 archived 2026-11-13; H52/H64/H55 done 2026-11-16 |
+| M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.26, M1.27, M1.30**; M1.22b waits on M1.27 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25/M1.28/M1.29 done |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6); M2.3/M2.5/M2.12/M2.15/M2.18 archived 2026-11-15 |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.5–M3.8/M3.12/M3.17/M3.21 archived 2026-11-15 |
 | M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.37, M4.38, M4.29, M4.35**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b (→M4.37/M4.27), M4.28, M4.31, M4.16 (→M4.16b), M4.22 (→M4.38) |
@@ -532,19 +534,6 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Note (SE 2026-11-15): also make `--strict` fail, not just warn, on the two rule-15 drifts that let the PO pointer and this pass's cycle hide: (a) a blocked task whose `Unblock:` names a `done` task (M4.22→M4.36 was one); (b) a task whose `Depends:` names a `blocked` task while its stated input is on `main` (the M1.22b→M1.22 case). Reuse `_parse_depends`/the `known_ids` map already in `check()`; a `Depends` that names a blocked task stays a warning by default and an error only under `--strict`.
   - Stop: if making `--strict` fail on the current board would block every PR, ship the fixture+flag and record the current warning count in the EXP instead of demanding a clean board.
   - Claims: C-3650–C-3659
-
-- [x] **H54 — `worktree_audit.py`: a command that lists stale `.claude/worktrees` and ahead-branches before they rot**
-  - Status: done · Owner: task/h54-worktree-audit · Critical: no · Pair: solo
-  - Depends: —
-  - Goal: 34 detached `.claude/worktrees` (2 locked) and 5 branches ahead of `main` have been unchanged across two retros (2026-11-13, 2026-11-15); every agent that runs `git worktree list` pays for it and nobody can tell a live tree from a 2026-11-08 leftover. Make the audit a reproducible command so the human cleanup (retro action 4) is cheap and re-checkable.
-  - Precheck: `git worktree list | wc -l` and `git branch -r` show the counts in the 2026-11-15 retro; `python3 tools/worktree_audit.py --help` exits 2 (tool absent).
-  - Scope: new `tools/worktree_audit.py` (`--selftest`, stdlib only): parse `git worktree list --porcelain` and `git for-each-ref`; for each non-main worktree/branch report `path · branch|detached · commit · age · locked · task ID from the branch name · task status in TODO.md`; flag `STALE` when the tree is detached, older than 7 days and its commit is an ancestor of `main`, or when the branch is ahead of `main` for a task already `done`/`blocked`; `--prune` (optional, dry-run by default) removes only `STALE` unlocked trees and prints the commands it would run. It never deletes a branch or force-removes a locked tree.
-  - Input: `git worktree list --porcelain`, `git for-each-ref --format`, `TODO.md` status lines (reuse `todo_check.parse` if it exposes one, else a small regex), the 2026-11-15 retro numbers.
-  - Hints: two trees are `locked` — report them and skip; `.claude/` is outside the repo's history, so the tool is read-only except for its explicit `--prune`. Test with a temp repo (`selftest` builds one with `git init` plus a fake detached tree) so the check runs in CI with no vendor data.
-  - Done when: the tool reproduces the retro's counts (34 trees, 5 ahead) on this checkout; `--prune` dry-run names the same stale set and deletes nothing; selftest covers stale/active/locked/ahead-for-done; wired into `tools/selftest.py`.
-  - Stop: if a tree's task cannot be inferred from the branch name, list it as `UNKNOWN` rather than guessing.
-  - Claims: C-3690–C-3699
-  - Result: EXP-2026-11-15-H54-worktree-audit; `tools/worktree_audit.py` reports 35 non-main worktrees (2 locked), 7 ahead branches, 19 STALE / 18 prunable on `eccace9`; `--prune` is a 18-command dry run that deletes nothing; selftest 14 checks. Claims C-3690–C-3695.
 
 - [x] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
   - Status: done · Owner: task/h55-l3check-json-path · Critical: yes · Pair: solo
@@ -2424,10 +2413,6 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Status: open · Owner: — · Critical: no
   - Depends: M7.2
   - Claims: C-1200–C-1209
-- [x] **M7.4** (archived 2026-11-09, 3rd pass) — profiles schema v2/writer. See `docs/research/todo-history-2026-11-09.md` (M7).
-  - Status: done · Owner: — · Critical: no
-  - Result: EXP-2026-11-06-M7.4-profiles-v2, C-1210 (archived 2026-11-09).
-  - Claims: C-1210–C-1219
 - [ ] **M7.5** User guide and risk statement; "research only" until M6.7.
   - Status: open · Owner: — · Critical: no
   - Depends: M6.7
@@ -2541,8 +2526,18 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no
   - Depends: —
   - Claims: C-1360–C-1589 (per-row blocks, see above)
-- [ ] **M8.D1 / M8.D2 — Decision gates** after F1 and F3 (see history
-  file). Owner: coordinator with Marek. Claims: C-1590–C-1599
+- [ ] **M8.D1 — Decision gate after F1: continue to F2/F3?**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (trigger: M8 F1 stable kernel; see `todo-history-2026-11-05.md` §M8.D)
+  - Goal: after F1, continue to F2/F3 only if L3 (M9) is blocked by runtime state, or an automatic regression loop without hardware is wanted; re-estimate F2–F4 and record the decision.
+  - Done when: the decision and its re-estimate are written down; no code change implied.
+  - Claims: C-1590–C-1594
+- [ ] **M8.D2 — Decision gate after F3: go to F4?**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (trigger: M8 F3 SD mounted; see `todo-history-2026-11-05.md` §M8.D)
+  - Goal: after F3, go to F4 only if the micon/CAN handshake (M8.C4/C5) looks scriptable; F5 stays out of scope unless M8.C19 shows a simple frame-buffer path.
+  - Done when: the decision is written down; no code change implied.
+  - Claims: C-1595–C-1599
 - [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
   - Status: blocked · Owner: task/m8.e1-run-rom-decompressor-retry (retry 2026-11-08) · Critical: no
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.

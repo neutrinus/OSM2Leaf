@@ -1,0 +1,43 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (subagent, session agent)
+start_utc: 2026-11-16 00:29
+end_utc: 2026-11-16 00:40
+origin_main_start: 4d86204 (chore: se work log 2026-11-16 cycle 4 review)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-16-1.md
+- dev_process/2026-11-16-{0013-3-tl,0015-4-sm,0018-5-se}.log
+- TODO.md Priorities, M8.D1/D2, M4.8b/M4.16/M4.29/M4.31/M5.16/M5.29/M8.E1/M9.12, H54/M7.4
+
+actions_taken:
+- Rule 15 by script over the block parser: 0 blocked tasks whose named Unblock targets are all done.
+- Archived H54 + M7.4 (fixpoint over live Depends/Unblock; >24 h: H54 done 2026-11-15 21:55) into docs/research/todo-history-2026-11-16.md.
+- Priorities 8th pass: label line M1.30->M1.26->M1.27; factory line H64 done->H67, H66; M1.19/M1.24 ready; workstream rows H/M1 updated.
+- Split the dual-ID M8.D1/D2 header (invisible to TASK_RE) into two parseable blocks with Status; retro action 3 done (0 unstatused blocks).
+- Ran todo_check + claims_check: OK, 0 errors.
+
+rule_15_decisions (TL-flagged cluster; Depends done but Unblock names open):
+- M4.8b stays blocked: Unblock M4.37 (open) + M4.27 (blocked) — genuine.
+- M4.16 stays blocked: Unblock M4.16b/M4.16c (both open) — genuine.
+- M4.29 stays blocked: Unblock needs a second-country OSM IMF/PBF not in archive — genuine input gap, not a task.
+- M4.31 stays blocked: Unblock M4.16b (open) — genuine.
+- M5.16 stays blocked: Unblock M9.18 (open) — genuine.
+- M5.29 stays blocked: Unblock M5.34 (open) — genuine; PR #171 was merged, not a branch.
+- M8.E1 stays blocked: Unblock = a `-M ze0` QEMU / host deps — infrastructure, no task; note says superseded after M1.19.
+- M9.12 stays blocked: Unblock M9.31/M9.10/M9.6 all open — genuine.
+- No mass flip: each named Unblock is still open or is an input/environment, so the literal-Depends-done set is correct.
+- in_progress without PR: 0 (no in-progress blocks).
+
+archive:
+- Moved: H54, M7.4 -> docs/research/todo-history-2026-11-16.md. All other 41 done blocks stay (named by a live Depends/Unblock).
+- TODO.md before/after: 3189 -> 3184 lines (H52 counted after SE's edits; net -5 from archive, +block split).
+
+tasks_added: none (the four gaps already have owners: M1.30, H66, H67; no goal-critical gap left).
+
+problems:
+- M8.D1/D2 was not only stateless but unparsed: its `**ID / ID —**` header never matched todo_check.TASK_RE, so the retro's "1 unstatused block" was a parser blind spot, not one block. Fixed by splitting.
+
+handoff:
+- TL: M1.30 (freeze corpus) before M1.26, so the gate stands on a snapshot not live prose; then M1.27/M1.22b.
+- human: worktree_audit --apply still open (6th retro).
