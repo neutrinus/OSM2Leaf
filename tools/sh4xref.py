@@ -25,6 +25,7 @@ Method and the EXP-50 reproduction: docs/experiments/EXP-2026-11-05-M1.8-sh4xref
 Usage:
   sh4xref.py IMG MODULE [--image-start X] --to VA
   sh4xref.py IMG MODULE [--image-start X] --calls FUNC_VA
+  sh4xref.py IMG MODULE [--image-start X] --label-audit [--sample N] [--seed S]
   sh4xref.py --selftest
 """
 import argparse
@@ -299,6 +300,45 @@ def e32_vbase(r, m):
 
 
 # --------------------------------------------------------------------------
+# Label audit: prologue heuristic vs .pdata (H52, C-3495)
+# --------------------------------------------------------------------------
+
+def label_audit(img_path, image_start, module, sample=200, seed=52):
+    """Compare ``function_start`` with ``pdata.locate`` on random code sites.
+
+    Returns ``(sites, agree, mid_sites, mid_agree)``; a site is only counted
+    where pdata has a record (a GAP has no start to compare).  ``mid_sites``
+    keeps only addresses strictly inside a function, i.e. the sites where a
+    heuristic label is actually needed.
+    """
+    import random
+    mem, exec_segs, _imports, _exports = load_module(img_path, image_start, module)
+    with open(img_path, "rb") as fh:
+        data = fh.read(128 << 20)
+    records = pdata.table_or_none(data, image_start, module)
+    if not records:
+        raise SystemExit("sh4xref: %s has no pdata table in %s"
+                         % (module, img_path))
+    lo = exec_segs[0][0]
+    hi = lo + len(exec_segs[0][1]) - 8
+    rng = random.Random(seed)
+    sites, mid = [], []
+    while len(sites) < sample:
+        va = rng.randrange(lo, hi, 2)
+        _kind, rec = pdata.locate(records, va)
+        if rec is None:
+            continue
+        sites.append((va, rec[0]))
+        if va != rec[0]:
+            mid.append((va, rec[0]))
+    agree = sum(1 for va, start in sites
+                if function_start(mem, va) == start)
+    mid_agree = sum(1 for va, start in mid
+                    if function_start(mem, va) == start)
+    return sites, agree, mid, mid_agree
+
+
+# --------------------------------------------------------------------------
 # Self-test on synthetic SH-4 bytes (no vendor data)
 # --------------------------------------------------------------------------
 
@@ -443,10 +483,29 @@ def main(argv=None):
                          "imports (repeatable, e.g. 0x3e00200)")
     ap.add_argument("--names", metavar="FILE",
                     help="JSON export-names DB used to resolve ordinal imports")
+    ap.add_argument("--label-audit", action="store_true",
+                    help="compare the prologue heuristic with .pdata on "
+                         "random code sites (H52, no vendor bytes printed)")
+    ap.add_argument("--sample", type=int, default=200,
+                    help="--label-audit site count (default 200)")
+    ap.add_argument("--seed", type=int, default=52,
+                    help="--label-audit RNG seed (default 52)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
+    if a.label_audit:
+        if not a.image or not a.module:
+            ap.error("--label-audit needs IMG and MODULE")
+        sites, agree, mid, mid_agree = label_audit(
+            a.image, a.image_start, a.module, a.sample, a.seed)
+        for label, group, good in (("sites", sites, agree),
+                                   ("mid-function", mid, mid_agree)):
+            total = len(group)
+            bad = total - good
+            print("%-13s %d  agree %d  mismatch %d  rate %.1f%%"
+                  % (label, total, good, bad, 100.0 * bad / total))
+        return 0
     if not a.image or not a.module or (a.to is None and a.calls is None):
         ap.error("IMG MODULE and one of --to / --calls are required (or --selftest)")
     mem, exec_segs, imports, exports = load_module(

@@ -124,13 +124,13 @@
     {
       "name": "cmp_ind_reader",
       "reader": "cmp_ind",
-      "what": "REFER001 .cmp + .ind chunk reader (firmware fn 0x0041c7e8, M3.2b/M9.11)",
+      "what": "REFER001 .cmp + .ind chunk reader (firmware fn 0x0041c7dc, M3.2b/M9.11)",
       "module": "Navi.exe",
       "entry": {
         "kind": "firmware_call",
         "program": "cmp_ind_chunk_v1",
         "module": "Navi.exe",
-        "va": "0x0041c7e8",
+        "va": "0x0041c7dc",
         "endian": "little",
         "sec1_table": {
           "va": "0x00574de0",
@@ -147,7 +147,7 @@
           "offset": "0x840ba0",
           "length": 42848
         },
-        "note": "Runs fn 0x0041c7e8 with .ind-derived 20-byte chunk table (ctx+28), ctx/cache/dst setup per M9.11. Pass --image IMG256 --cmp PAIR.cmp --ind PAIR.ind [--mutate none|corrupt-ind|swap-4-8]."
+        "note": "Runs fn 0x0041c7dc with .ind-derived 20-byte chunk table (ctx+28), ctx/cache/dst setup per M9.11. Pass --image IMG256 --cmp PAIR.cmp --ind PAIR.ind [--mutate none|corrupt-ind|swap-4-8]."
       },
       "stubs": [],
       "corpus": {
@@ -160,12 +160,12 @@
         "verdict": "ACCEPT",
         "python_verdict": "ACCEPT",
         "agrees_with_python": null,
-        "rule": "firmware fn 0x41c7e8 returns the requested page byte-identical to cmpind.decode on the factory/S1/S2 pairs; --mutate corrupt-ind is rejected (-1); --mutate swap-4-8 fails cleanly (EXP-2026-11-08-M9.11-chunk-decoder controls, M9.11b)."
+        "rule": "firmware fn 0x41c7dc returns the requested page byte-identical to cmpind.decode on the factory/S1/S2 pairs; --mutate corrupt-ind is rejected (-1); --mutate swap-4-8 fails cleanly (EXP-2026-11-08-M9.11-chunk-decoder controls, M9.11b)."
       },
       "notes": [
         "Registered by M9.11b. The sec1 inflate_mask table is an explicit declared input with provenance; runner never uses a silent default.",
         "Controls: runner.py run cmp_ind_reader --image IMG256 --cmp ... --ind ... [--mutate corrupt-ind|swap-4-8].",
-        "This target covers the chunk decode path (fn 0x41c7e8), not the full .ind parser or the file opener."
+        "This target covers the chunk decode path (fn 0x41c7dc), not the full .ind parser or the file opener."
       ]
     },
     {

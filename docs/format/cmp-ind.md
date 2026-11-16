@@ -176,7 +176,7 @@ a round-trip writer.
 > `EXP-2026-11-08-M3.2b-cmp-chunk-reader-inflate-2.md` (pass 2, blocked),
 > C-2060–C-2069.
 > Status: **inflate + chunk decompression engine VERIFIED; `.ind` chunk_offset[]
-> consumer / M3.2a,b NOT YET LOCATED.** Pass 2 found 0 refs to `fn 0x41c7e8` in
+> consumer / M3.2a,b NOT YET LOCATED.** Pass 2 found 0 refs to `fn 0x0041c7dc` in
 > all uncompressed sections of builds A/B/C (282/527 build-A sections searched);
 > `Navi.exe` sec1 is compressed `.data` (`cerom decompress` UNSUPPORTED), so an
 > indirect-call pointer there is not statically readable. M3.2a/b open.
@@ -190,16 +190,16 @@ zlib 1.1.3 and provides:
 | `inflate` | `0x54233c` (tramp `0x54232c`) | outer z_stream state machine |
 | `inflateEnd` | `0x54220c` | free blocks/state |
 | one-shot wrapper | `0x542148` | `inflateInit2_` + `inflate`(Z_FINISH=4) + `inflateEnd` |
-| chunked decompressor | `fn 0x41c7e8` | random-access: 20-byte-stride chunk table at `@(28,ctx)`, reads `+8` uncomp offset / `+12` uncomp extent, passes `+16`/`+4` to wrapper (`0x542148`), `memcpy`s slice via `0x003d146c` |
+| chunked decompressor | `fn 0x0041c7dc` | random-access: 20-byte-stride chunk table at `@(28,ctx)`, reads `+8` uncomp offset / `+12` uncomp extent, passes `+16`/`+4` to wrapper (`0x542148`), `memcpy`s slice via `0x003d146c` |
 
-**M3.2 (partial, `fn 0x41c7e8` layer only):** (a) `+12` is used as an
+**M3.2 (partial, `fn 0x0041c7dc` layer only):** (a) `+12` is used as an
 uncompressed extent for range math — **no compare against `0x10000` observed** in
 this function. (b) compressed data is consumed by direct pointer — **no seek,
 no `78 9c` scan** in this function. This does *not* answer whether the `.ind`
 *parser* validates `chunk_size==0x10000` or seeks by `chunk_offset[]` vs scans:
-`0x41c7e8` has no callers in uncompressed A o32 sections (527 searched) and
+`0x0041c7dc` has no callers in uncompressed A o32 sections (527 searched) and
 Navi.exe sec1/sec2 are compressed/undecoded (M1.3 0/245; M1.2f/M8.E1). The
 `.ind` `chunk_offset[]` consumer remains open.
 
-Dynamic fallback (when available): break on `0x542148` / `0x41c7e8` / `0x542256`
+Dynamic fallback (when available): break on `0x542148` / `0x0041c7dc` / `0x542256`
 while opening `REFER001/*.cmp`.

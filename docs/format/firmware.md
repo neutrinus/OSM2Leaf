@@ -225,12 +225,12 @@ comparison.
 linked in `Navi.exe` uncompressed sec0 (A). Inflate API:
 `inflateInit2_ 0x542256`, `inflate 0x54233c` (tramp `0x54232c`),
 `inflateEnd 0x54220c`, `inflateReset 0x5421c4`, `inflate_blocks 0x54332a`.
-Call chain: chunked decompressor `fn 0x41c7e8` (20-byte chunk table at
+Call chain: chunked decompressor `fn 0x0041c7dc` (20-byte chunk table at
 `@(28,ctx)`, direct compressed pointer, no seek/no `78 9c` scan, no `0x10000`
-compare in this layer) → one-shot wrapper `0x542148` → inflate. `0x41c7e8` has
+compare in this layer) → one-shot wrapper `0x542148` → inflate. `0x0041c7dc` has
 no callers in any uncompressed A section (527 searched); Navi.exe sec1/sec2 are
 compressed (M1.3 0/245, M1.2f open), so the `.ind` `chunk_offset[]` consumer /
-M3.2a,b remain open. Dynamic breakpoints: `0x542148`, `0x41c7e8`, `0x542256`.
+M3.2a,b remain open. Dynamic breakpoints: `0x542148`, `0x0041c7dc`, `0x542256`.
 
 **M3.11 (EXP-2026-11-06, C-2120–C-2127, blocked):** `POINT`/`REFER001` access
 path anchors in uncompressed Navi.exe sec0 (A): file-name builder
@@ -242,7 +242,7 @@ maps type `0x14e8` → `REFER001` `0x00178c68` + `INDEX003.DAT` `0x0017a118`
 name-page record walker (`tag 0x60|0x68`, `len2` at `+1`, stride `2*len2`,
 refer.md C-952/C-953) and the POI name-copy function were **not located** in
 any uncompressed build-A o32 section (527 searched): 0 aligned tag pairs, 0
-mask walkers, 0 `@(1,ptr)→2*len2` stride sequences; `fn 0x003715a0` (`&0x70==0x60`)
+mask walkers, 0 `@(1,ptr)→2*len2` stride sequences; `fn 0x00371594` (`&0x70==0x60`)
 is a single-record consumer, not the walker. **Blocker:** Navi.exe sec1 is
 `IMAGE_SCN_COMPRESSED` (vsize `0xff16ae`, M1.3 0/245, M1.2f/M8.E1 open), so the
 walker/name-copy (VAs/args/output) remain **UNKNOWN** — likely in sec1; decode
@@ -309,9 +309,9 @@ functions**; all sites classified by store/read opcode evidence: **11 READ**
 Writers (named VAs/functions): clear/init (zero constants over observed slots
 ~0x00–0xAC) — `fn 0x0040dfa8` (loads `0x0040e096,0x0040e110,0x0040e138,0x0040e152,
 0x0040e16c,0x0040e1aa`), `fn 0x00415fe8` (`0x00416066,0x004161b2,0x004161fa,
-0x0041624e,0x0041627e,0x004162aa`), `fn 0x0040e4b2` (`0x0040e5c0`, slots
+0x0041624e,0x0041627e,0x004162aa`), `fn 0x0040e28c` (`0x0040e5c0`, slots
 +136/+140). Populate/copy (context/call/handle values into specific slots,
-e.g. +4,+12,+16,+20,+24,+28,+44,+56,+60,+124,+128,+156) — `fn 0x00412bee`
+e.g. +4,+12,+16,+20,+24,+28,+44,+56,+60,+124,+128,+156) — `fn 0x00412ac0`
 (`0x00412d12`, copies handle/page-pointer words from r8 context; strongest
 static populate evidence), `fn 0x003faf04` (`0x003fb018,0x003fb066`),
 `fn 0x003fc9c8` (`0x003fcb84`, call result `0x0040f168`), `fn 0x003fcbf0`
@@ -564,8 +564,8 @@ SD Import : finished not found.
 The `Sys[0x%x] SD[0x%x]` message emitters (task literals `0x004e8584` /
 `0x004e995c`, both → `0x001d5438` "destination_id is different") are in
 `Navi.exe` build A (IMG256 `92aa525d…`, `--image-start 0x200200`): `sub_004e84c4`
-(`0x004e84c4`, stored location, caller `fn 0x004e90c8` `jsr 0x004e91e6`) and
-`sub_004e989c` (`0x004e989c`, home location, caller `fn 0x004ea402` `jsr 0x004ea502`).
+(`0x004e84c4`, stored location, caller `fn 0x004e8f38` `jsr 0x004e91e6`) and
+`sub_004e989c` (`0x004e989c`, home location, caller `fn 0x004ea288` `jsr 0x004ea502`).
 Both validate a 256-byte record read by `sub_004df31c` (`0x004df31c`,
 CreateFileW + ReadFile 0x100 bytes) from a `\UserSD\userdata\*` file:
 `\UserSD\userdata\storedlocation.slc` (`"userdata"` `0x19a2bc` + `"storedlocation.slc"`
