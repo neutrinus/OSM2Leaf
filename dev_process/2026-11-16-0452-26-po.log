@@ -1,0 +1,54 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (subagent, fifth PO run of 2026-11-16)
+start_utc: 2026-11-16 04:52
+origin_main_start: b882852 (docs: SE 2026-11-16 cycle-7 review — H74 evidence count gate, M1.31 leaf census)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-16-4.md
+- dev_process/2026-11-16-{0423-23-tl,0425-24-sm,0427-25-se}.log
+- TODO.md H74/M1.31/M1.22b/M1.26/M1.27/M1.30/H67/H68/H69/H70/H72/H73; Priorities
+
+actions_taken (in order):
+- git fetch; main b882852, only untracked .claude/, no open PRs inferred.
+- Rule-15 script: 0 blocked->done Unblock violations; 31 open-depends-blocked
+  warnings are all the existing cross-workstream cycle pattern, not this pass's.
+- Archive fixpoint script: 44 of 49 done are named by a live Depends/Unblock;
+  5 unreferenced done (H64/H67/H68/H70/H73) all merged 00:53-05:21 CET, i.e.
+  <24h against 04:53 UTC -> nothing archivable this pass (reported, not forced).
+- Board count: 0 in progress (the one grep hit was the rule template prose).
+- Stateless blocks: none.
+- Rewrote Priorities header/batch + L3 bullet: next batch M1.31 -> M1.26
+  (concurrent pairs) -> M1.22b; H74 -> H75 -> H71 solo. Updated Take-first,
+  Workstreams H/M1 rows, snapshot-refresh decision line.
+- Added H75 (repair C-3703 path/histogram + M1.27 EXP 22->26) because H74's
+  Stop pushed the repair onto "claim owners" but M1.27 is done and unowned.
+  No other gaps met the goal-critical bar.
+- todo_check OK, claims_check OK (after edits).
+
+tasks_added: H75 (open, solo, C-3970-3979).
+tasks_changed: H74 coordinates note += H75; Priorities carve-up; workstream table.
+tasks_archived: none.
+tasks_reopened: none (rule 15 clean).
+
+decisions:
+- M1.31 before M1.26: M1.31 (fn_match/pdata) gates M1.22b's denominator and is
+  the smaller task that must land before a percentage is quoted; M1.26 (fn_audit)
+  is file-disjoint so it runs as the second concurrent pair, not after M1.31.
+  Rejected: serialise them (no shared file; would idle the second pair).
+- H74 before H71: H74 (claims_check) *detects* and H71 fixes a different row-set
+  (C-3860/61/64 vs C-3703); H74 only reads the ledger, so it goes first and its
+  --count-check is H71's oracle. They share the claims.md file but not rows, so
+  they are not hard-serialised; still run one solo batch H74->H75->H71. Rejected:
+  run in parallel (H75 needs H74's detector; same-file region).
+- Snapshot-refresh line confirmed still valid: M1.26 overlay refresh is its own
+  scope (one AMBIGUOUS row), H74/H75/H71 add no snapshot rows.
+
+problems:
+- TODO.md is ~3330 lines, far over the 1500-line "archive first" trigger, but the
+  only unreferenced done tasks (H64/H67/H68/H70/H73) are all <24h old, so the
+  fixpoint leaves nothing eligible — size alone cannot archive them this pass.
+
+handoff: next TL -> M1.31 + M1.26 as the two concurrent pairs, then M1.22b;
+H74 -> H75 -> H71 solo. Human: worktree_audit --prune --apply + /tmp heads owed.
+end_utc: 2026-11-16 05:04

@@ -215,23 +215,26 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-16, 10th pass; retro 2026-11-16-3, SE `018f6c2`)
+## Priorities (PO grooming 2026-11-16, 11th pass; retro 2026-11-16-4, SE `b882852`)
 
 Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
 `-13.md`, `-15.md`; done tasks moved off the board on 2026-11-16:
-`docs/research/todo-history-2026-11-16.md` (H54, M7.4 stub). The other 41 done
-blocks stay: a live `Depends:`/`Unblock:` names each (fixpoint over the board).
+`docs/research/todo-history-2026-11-16.md` (H54, M7.4 stub). All 49 done
+blocks stay: 44 are named by a live `Depends:`/`Unblock:`, and 5
+(**H64, H67, H68, H70, H73**) are unreferenced but merged <24 h ago, so not
+archivable this pass (fixpoint over the board).
 
 **Read first.** The board is clean: 0 `in progress`, 0 ghost claims, and every
-block carries a `Status:`. Cycle 6 merged **H69** (#191, moved-only policy +
-refreshed snapshot `ddd113f8…`) and **H70** (#190, `--factory-tile` wired). SE
-then added **H72** (the `candidates`/`leaf` gate hole) and **H73** (the `/tmp`
-evidence spans). Because SE's TODO edit moved 125 citations, `--corpus` on
-`main` now warns `CORPUS DRIFT: 125 moved`, exit 0 — H69's policy working, not
-a failure. The next batch, in this order:
-**H72 → M1.26 → M1.27**; **H71 and H73 are one solo batch**; **H73 before H71**
-(they touch the same `claims.md` region, so they must not run in parallel).
-Order reasons are in the L3 bullet and "Take first" below.
+block carries a `Status:`. Cycle 7 merged **H72** (#192, the
+`candidates`/`leaf` corpus gate), **M1.27** (#193, `fn_match --leaf`) and
+**H73** (#194, reproducible evidence spans). SE then added **H74**
+(`claims_check` must reject a number its own command never prints, plus missing
+`archive/` paths) and **M1.31** (the leaf census: `rts` presence + the `0x400`
+cap), and made **M1.31** block **M1.22b**. `--corpus` on `main` still warns
+`CORPUS DRIFT: 125 moved`, exit 0 — H69's policy working, not a failure.
+The next batch, in this order: **M1.31 → M1.26 → M1.22b** (M1.31 and M1.26 are
+file-disjoint, so TL may run them as the two concurrent pairs) and **H74 → H75 →
+H71** solo, H74 first. Order reasons are in the L3 bullet and "Take first" below.
 The US unit is Marek's; every reader VA below is EU-build until **M1.22b**
 lands. The factory line is **H64 (done) → H67 (done)**, with **H66** covering
 the same parsed-but-unused flag class.
@@ -242,36 +245,46 @@ the same parsed-but-unused flag class.
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline on every candidate card. Blocking: **M5.30** (1:1 diff of the Poland card), **H40** (in-process fixture so CI can run L1 with no vendor data).
 - **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.29** (blocked, not on the branch: PR #171's `--factory-root` mode and EXP are on `main`, but the test ways fall in a `0x2146` directory → **M5.34** corridor rerun) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (done: corrections are `CORRECTED`) → **H52** (done: INSIDE 0) → **M1.30** (done: freeze the corpus) → **H69** (done: refresh owner; `moved` warns, `new`/`gone`/verdict fail) → **H72** (close the `candidates`/`leaf` residual) → **M1.26** (`--scope l3` standing gate). **H72 comes before M1.26** (PO, 2026-11-16 10th pass) because M1.26's own `--scope l3` rows classify `AMBIGUOUS` and are exactly the rows H72 makes visible; if M1.26 ships first, its new gate is green over a class of verdict change it cannot see (H69's promise "a verdict change exits 1" would be false for the new rows). H72 is a small `fn_audit.py`-only gate fix with self-contained fixtures, so it does not delay M1.26 by a cycle. **H73 before H71** (both `Pair: solo`, both edit the same `docs/research/claims.md` evidence region): H73 covers the two claims on the frozen `fn_audit` snapshot that H71 also names, and its `git show` recovery displaces a `/tmp` path H71 assumes; run them **one batch, H73 first**, never in parallel. Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind **M9.31** (no-diff/baseline verdicts) and a runnable target set; **H53** (`todo_check --strict`) stays behind the board cleanup it would otherwise fail on.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (done: corrections are `CORRECTED`) → **H52** (done: INSIDE 0) → **M1.30** (done: freeze the corpus) → **H69** (done: refresh owner; `moved` warns, `new`/`gone`/verdict fail) → **H72** (done: the `candidates`/`leaf` gate) → **M1.26** (`--scope l3` standing gate). **M1.31 comes before M1.26** (PO, 2026-11-16 11th pass): M1.31 is `fn_match.py`+`pdata.py` and gates M1.22b's percentage denominator, while M1.26 is `fn_audit.py`; the files are disjoint, so run them as the **two concurrent pairs** (retro-8 ceiling) and neither waits for the other. M1.31 is a small census-and-a-`TRUNCATED`-label task that must land *before* M1.22b quotes "≥90 % of 635 leaves", so it is the first pick; M1.26 is the standing gate that can start the same cycle. **H74 before H71** (both edit `docs/research/claims.md` evidence, but **disjoint rows**: H74 flips C-3703 (and any other number/path defect) and touches `tools/claims_check.py`; H71 rewrites C-3860/61/64): H74 is the *detector*, H71 the *fix* of a different row-set, so H74 goes first and its green `--count-check` is the oracle H71's rows must pass — but they are **not serialised on rows**, only on the shared file region, so run them as one solo batch (H74 → **H75** → H71) or H74 pair + H71 solo **after** any pair sharing `claims.md`. **H75** is the small repair of the very C-3703/M1.27-EXP rows H74 flags (unowned after M1.27 went `done`); it must land between H74 and H71 so H74 does not ship a red `--strict`. Never in parallel with an M1.26 claim edit that moves C-366x. Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind **M9.31** (no-diff/baseline verdicts) and a runnable target set; **H53** (`todo_check --strict`) stays behind the board cleanup it would otherwise fail on.
 - **L4 (QEMU/M8):** software integration before L5; not final acceptance. **M8.A2** needs a QEMU 8.2.7 `sh4-softmmu` host; **M8.A3**/**M8.A6** follow it. **M1.19** (kernel decompressor wired into `cerom`/`rommap`) is the prerequisite for any full-system run that touches `INIT` bytes.
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
 **Take first (ready, deps done, one branch+PR each):**
-1. **H72** → **M1.26** → **M1.27** — the label path: close the
-   `candidates`/`leaf` gate residual (H72), then make the `--scope l3` gate
-   stand on the snapshot (M1.26), then the leaf census (M1.27). **M1.22b**
-   follows against the frozen M1.28 fixture.
-2. **H73** then **H71** — one solo batch on the `claims.md` evidence spans
-   (H73 first: same `claims.md` region, and its snapshot-recovery fixes the row
-   H71 would otherwise edit blind). Never in parallel.
+1. **M1.31** then **M1.26** (two concurrent pairs, file-disjoint: `fn_match`/`pdata`
+   vs `fn_audit`) — M1.31 completes the leaf census (complete vs `0x400`-capped
+   vs no-`rts` stub) that **M1.22b**'s denominator needs, and M1.26 makes the
+   `--scope l3` gate stand on the snapshot. M1.31 first because it feeds
+   M1.22b directly; M1.26 can start in the same cycle. Then **M1.22b** against
+   the frozen M1.28 fixture.
+2. **H74** → **H75** → **H71** — the `claims_check` count/path detector (H74),
+   the C-3703/M1.27-EXP repair it flags (H75), and the C-3860/61/64 evidence-span
+   rewrite (H71). Disjoint rows (`claims.md`), same file: H74 first (its green
+   `--count-check` is the oracle), then H75 (turns H74's `--strict` green on
+   C-3703), then H71. Never in parallel with an M1.26 claim edit that moves C-366x.
 3. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
-4. **H66** — the evidence-rule sweep the H71/H73 rows must satisfy.
+4. **H66** — the evidence-rule sweep the H71/H74 rows must satisfy.
 5. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence.
 6. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**, **M9.12** (only after M9.31).
 Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**) or **M8** until the line above has owners.
 **Snapshot refresh:** leave the committed snapshot drifting until an intentional
 refresh (H69's rule: only `--write-snapshot` writes it, never CI, never a prose
 task); the task that next edits citations **re-points it only if an intentional
-refresh is its scope**, otherwise it keeps `CORPUS DRIFT` as a warning. The
-TL must not refresh it opportunistically inside H71/H73/M1.26.
+refresh is its scope**, otherwise it keeps `CORPUS DRIFT` as a warning. This
+still holds now that M1.26/H74 may touch citations: M1.26's `--scope l3` overlay
+must add its own `AMBIGUOUS` row and prove the candidate gate fires (a scoped
+`--write-snapshot` of the l3 overlay, not a whole-ledger re-pin), H74 only *reads*
+the ledger and adds no citation, H75 edits C-3703's evidence cell and the M1.27
+EXP (not snapshot rows), and H71 edits C-3860/61/64 (not snapshot rows), so none
+of the four re-pins `ddd113f8…` outside its own scope. The TL must not refresh it
+opportunistically inside H71/H74/H75/M1.26.
 
 
 ## Workstreams at a glance
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H28, H29, H40–H44, H53, H56–H60, H61–H63, H66, H71–H73**; H11/H49/H51 archived 2026-11-15, H54 archived 2026-11-16; H45–H48 archived 2026-11-13; H52/H55/H64/H67/H68/H69/H70 done 2026-11-16 |
-| M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.26, M1.27**; M1.30 done (freeze corpus), M1.22b waits on M1.27 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25/M1.28/M1.29 done |
+| H | Housekeeping | **H19, H28, H29, H40–H44, H53, H56–H60, H61–H63, H66, H71, H74, H75**; H11/H49/H51 archived 2026-11-15, H54 archived 2026-11-16; H45–H48 archived 2026-11-13; H52/H55/H64/H67/H68/H69/H70/H72/H73 done 2026-11-16 |
+| M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.26, M1.31**; M1.27/M1.30 done (leaf path, freeze corpus), M1.22b waits on M1.31 (leaf census denominator, then M1.27/M1.28); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25/M1.28/M1.29 done |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6); M2.3/M2.5/M2.12/M2.15/M2.18 archived 2026-11-15 |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.5–M3.8/M3.12/M3.17/M3.21 archived 2026-11-15 |
 | M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.37, M4.38, M4.29, M4.35**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b (→M4.37/M4.27), M4.28, M4.31, M4.16 (→M4.16b), M4.22 (→M4.38) |
@@ -783,7 +796,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
 
 - [ ] **H74 — `claims_check`: a claim must not cite a number its own evidence command never prints**
   - Status: open · Owner: — · Critical: no · Pair: required
-  - Depends: — (`tools/claims_check.py` is on `main`); coordinates H58 (command form), H61 (EXP name), H66 (flag/dest parity), H71 (evidence spans)
+  - Depends: — (`tools/claims_check.py` is on `main`); coordinates H58 (command form), H61 (EXP name), H66 (flag/dest parity), H71 (evidence spans), H75 (repairs the C-3703/EXP rows this flags, so this may land red under `--strict` and H75 turns it green)
   - Goal: retro-8 made "every cited number is quoted from a command's output" a review gate, but review missed it twice this cycle. The M1.27 EXP says `--selftest` is **22** checks; at its own final merge commit `334f092` the tool prints **26** (`fn_match.py` at `92550d6` prints 22, the clamp commit adds 4) — the number was typed from an intermediate commit, not the one the EXP describes (C-3704's `26 checks` is the accurate one). C-3703 says `--fixture …` prints `unique: 5  different: 1  nomatch: 7`, but that command prints only `13 rows, 0 mismatch`; the histogram comes from a *different* command (`match` over the 13 VAs), and C-3703's evidence path `archive/us256.img` does not exist. None of this is prose-only: `claims_check` sees a command and passes. Turn the rule into a check where it is mechanical — a `selftest`/`N checks` count in a claim must equal a number the cited `--selftest` command prints — and extend the H61 existence rule to every `archive/…`/repo path named after a `;` in an evidence span.
   - Precheck: `python3 tools/fn_match.py --selftest | tail -1` and `python3 tools/fn_audit.py --selftest | tail -1` print `OK (0 failed)` with **no count**; `grep -n 'checks' docs/research/claims.md | grep -E 'C-3704|C-3934'` shows C-3704 pins `26 checks` and C-3934 pins `58 checks`, both true on `main` (`python3 tools/fn_match.py --selftest | grep -c '^ok'` = 26, `python3 tools/fn_audit.py --selftest | grep -c '^ok'` = 58); `git show 92550d6:tools/fn_match.py` prints 22 while `git show 334f092:tools/fn_match.py` prints 26, and the M1.27 EXP line still says 22; `grep -c 'check(' tools/fn_match.py` = 30 (26 static + 4 inside `if`), so the count is derivable from source but not printed; `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us archive/us256.img --module Navi.exe` raises `FileNotFoundError` (C-3703's named path absent), while the same command on `/tmp/opencode/us256.img` prints only `13 rows, 0 mismatch` — the `unique: 5  different: 1  nomatch: 7` C-3703 quotes comes from `match … --va <13 VAs>`, a different command.
   - Scope: `tools/claims_check.py` only, plus the two selftest footers it keys on (`tools/fn_match.py:664`, `tools/fn_audit.py:1449`) printing the check count (`"fn_match selftest: OK (%d checks, 0 failed)"`); no EXP edit, no claim-text edit. (1) `--count-check`: for a claim whose evidence names `tools/X.py --selftest` and whose text has an `N checks`/`N/N` token, run the command once (cached per tool), parse the footer count, fail under `--strict` when they differ. (2) extend the H61 EXP-existence rule to every backticked `archive/…` and `docs/…` path after a `;` in an evidence cell (a missing file fails, a `…`/`<…>` placeholder is skipped). Not: executing firmware/reader commands (needs images), editing any claim (the owner of the EXP rewrites it).
@@ -792,6 +805,18 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `python3 tools/claims_check.py --selftest` covers a synthetic claim whose `N checks` disagrees with a stub tool's printed count (fails under `--strict`) and one that agrees (passes); `--count-check` on the current ledger leaves C-3704 (`26`) and C-3934 (`58`) green against `main`, and a fixture text pinning the M1.27 EXP's `22` against the same tool names the mismatch; `--strict` exits 1 naming C-3703 (missing `archive/us256.img`), default stays exit 0; `fn_match`/`fn_audit` selftests still pass with the new footer; `selftest.py --only fn_match` and `--only fn_audit` pass.
   - Stop: if pinning a moving count at a past merge cannot be checked against `main` (the tool changed after the claim), ship only the path-existence half and record the count rule as `NOT SHIPPED: history-dependent` for the claim owners to fix in their EXPs, never quiet-guess the historical count.
   - Claims: C-3950–C-3959
+
+- [ ] **H75 — Repair the M1.27 evidence rows H74 will flag (C-3703 path/histogram, M1.27 EXP `22` count), so H74 can land green**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H74 (the detector whose `--count-check`/path rule is the oracle this task must satisfy); coordinates H61 (path existence), H66 (evidence spans)
+  - Goal: H74's Stop hands the C-3703 defect and the M1.27 EXP's stale `22` to "the claim owners", but **M1.27 is `done`** and no task owns the repair, so the detector H74 adds would ship against a ledger it cannot make green (or H74 stops at the path half). Two concrete, already-measured defects: (a) C-3703's evidence names `archive/us256.img`, which does not exist on this machine (the only US head is `/tmp/opencode/us256.img`; H62 will make `US256` a pinned fetchable key), and its `unique: 5 different: 1 nomatch: 7` is the `match --va <13 VAs>` histogram, not what the cited `--fixture` command prints (`13 rows, 0 mismatch`); (b) `EXP-2026-11-16-M1.27-fn-match-leaf.md` says `fn_match.py --selftest: 22 checks` at its own merge, but `main`'s `fn_match --selftest` prints 26 (measured `grep -c '^ok'`). This is a text/evidence repair of an existing result, not new research.
+  - Precheck: `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us archive/us256.img --module Navi.exe` raises `FileNotFoundError` (C-3703's path absent); `python3 tools/fn_match.py --selftest | grep -c '^ok'` = 26 while the M1.27 EXP states 22; `python3 tools/fn_match.py match archive/head256.img /tmp/opencode/us256.img --module Navi.exe --va <the 13 VAs>` prints `unique: 5  different: 1  nomatch: 7` (the histogram C-3703 actually quotes).
+  - Scope: `docs/research/claims.md` C-3703 evidence cell and `docs/experiments/EXP-2026-11-16-M1.27-fn-match-leaf.md` Observation line only (an EXP correction is an appended `Correction (H75):` note, not a rewrite of the dated body). C-3703: replace `archive/us256.img` with the reproducible head command (`head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > /tmp/opencode/us256.img`, hash `70d945d8…`) or H62's `fetch_image.py --image US256` once it merges, and cite the histogram command separately from the `--fixture` exit-0 line. EXP: correct `22` to the command's printed `26` with the command quoted. Not: editing C-3704's correct `26`, the fixture JSON, `fn_match.py`, or any other claim row.
+  - Input: `docs/research/claims.md` C-3703/C-3704; `docs/experiments/EXP-2026-11-16-M1.27-fn-match-leaf.md` (`--selftest` line 109); `tools/fixtures/fn_match_eu_us_2011.json`; H62 (the `US256` pin, if it lands first).
+  - Hints: H74's path rule fails on `archive/…` after a `;`, so the fixed C-3703 must name a path the repo can create or H62's alias, not a `/tmp` scratch file. The `--fixture` run and the `match --va` histogram are two different commands; keep both, each printing what it states. If H62 has not merged when this runs, use the `head -c` line (it is re-runnable from a clean checkout per rule 11) and note the H62 follow-up.
+  - Done when: `python3 tools/claims_check.py --strict` (H74's flag) exits 0 on the ledger, or names only rows outside C-3703/the M1.27 EXP; C-3703's cited `--fixture` command on a real US head prints `13 rows, 0 mismatch` and the separate histogram command prints `unique: 5 different: 1 nomatch: 7`; the M1.27 EXP's count equals `python3 tools/fn_match.py --selftest | grep -c '^ok'` at the commit it names; `python3 tools/claims_check.py` default still exits 0; `python3 tools/selftest.py --only fn_match` passes.
+  - Stop: if H62 is the only clean way to name the US head, mark this blocked on H62 (rule 15) rather than citing a `/tmp` path; never re-type a histogram the fixture command does not print.
+  - Claims: C-3970–C-3979
 
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
