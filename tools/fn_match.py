@@ -243,13 +243,32 @@ def fingerprint(words, base_va: int, load_range, image_bytes: bytes,
     return fp.hexdigest(), bsr_targets, pool_sites
 
 
+def leaf_window_limit(va, starts, called, code_end, limit=0x400):
+    """Byte bound for a leaf window starting at ``va``.
+
+    A pdata ``GAP`` has no length, so the window must stop at the first of:
+    the next pdata ``START`` (``starts`` sorted), the next called leaf entry
+    (``called`` sorted; a GAP that is itself a ``bsr``/``jsr`` target), the end
+    of the code section (``code_end``), or the hard cap ``limit``.  Without this
+    the window of a gap that has no ``rts`` (a thunk stub) runs across the next
+    function and pairs unrelated code.
+    """
+    i = bisect.bisect_right(starts, va)
+    nxt = starts[i] if i < len(starts) else code_end
+    j = bisect.bisect_right(called, va)
+    if j < len(called):
+        nxt = min(nxt, called[j])
+    nxt = min(nxt, code_end)
+    return max(0, min(limit, nxt - va))
+
+
 def trim_words(words):
     """Cut a leaf window at its ``rts`` (keeping the delay slot).
 
-    A pdata ``GAP`` has no length; the gap can run into the following literal
-    pool or the next function, so the instruction stream has to end on its own
-    ``rts``.  Returns ``words`` unchanged when no ``rts`` is present (the
-    caller then relies on the next ``START`` bound).
+    A pdata ``GAP`` has no length, so the window is first bounded by
+    ``leaf_window_limit`` (next START / next called GAP / code end / cap) and
+    then cut at its own ``rts``.  A gap with no ``rts`` (a thunk stub) stays at
+    the bound instead of running into the next function.
     """
     for i, w in enumerate(words):
         if w == 0x000B:
@@ -317,6 +336,17 @@ def _pool_value(words, i, base_va, image_bytes, code_base):
             return struct.unpack_from("<I", image_bytes, off)[0]
         return struct.unpack_from("<H", image_bytes, off)[0]
     return None
+
+
+def leaf_complete(words):
+    """True when the window ends in its own ``rts`` (a whole leaf).
+
+    A gap with no ``rts`` is bounded by ``leaf_window_limit``; the truncated
+    window is not a function, so it may only match by exact masked hash and is
+    never paired through the caller context (that would pair a thunk stub with
+    an unrelated stub-table entry).
+    """
+    return bool(words) and 0x000B in words
 
 
 def leaf_call_sites(words, base_va, image_bytes, code_base):
@@ -482,6 +512,29 @@ def selftest() -> int:
     check("leaf: a moved non-address pool constant is DIFFERENT at its mov",
           pair is not None and pair[0] == 0 and pair[2] == 0x04E8
           and pair[4] == 0x04D8)
+
+    # a no-rts gap must not cross the next pdata START: the clamp bounds the
+    # window at min(next START, next called GAP, code end, cap) before trim.
+    starts = [0x1000, 0x2000]
+    check("leaf_window_limit: next START bounds a no-rts gap",
+          leaf_window_limit(0x1400, starts, [], 0x4000, limit=0x4000)
+          == 0x2000 - 0x1400)
+    check("leaf_window_limit: a called gap entry bounds it first",
+          leaf_window_limit(0x1400, starts, [0x1800], 0x4000, limit=0x4000)
+          == 0x1800 - 0x1400)
+    check("leaf_window_limit: the hard cap wins over a far START",
+          leaf_window_limit(0x1000, [0x4000], [], 0x8000) == 0x400)
+
+    no_rts = [0x0009, 0x0009, 0x0009]   # a thunk stub, no rts
+    buf = bytearray(0x800)
+    for k, w in enumerate(no_rts):
+        struct.pack_into("<H", buf, 2 * k, w)
+    struct.pack_into("<H", buf, 0x400, 0x000B)   # next START's body
+    code = {"realaddr": 0, "vsize": len(buf)}
+    bound = leaf_window_limit(0x0000, [0x400], [], len(buf))
+    window = trim_words(leaf_words(buf, code, 0, 0x0000, limit=bound))
+    check("no-rts gap: window ends at the next START, not the 0x400 cap",
+          bound == 0x400 and len(window) * 2 == 0x400)
 
     # relocated pointer leaf: same code, pool value points into each build's
     # own range; it must compare equal (masked), which the record hash cannot.
@@ -873,7 +926,11 @@ class Matcher:
         self._sites_a: dict[int, list[tuple[int, int]]] | None = None
         self._sites_b: dict[int, list[tuple[int, int]]] | None = None
         self._cdig_b: dict[str, list[int]] | None = None
+        self._called_a: list[int] | None = None
+        self._called_b: list[int] | None = None
         self.force_leaf = False
+        self._starts_a = pdata_starts(self.pdata_a)
+        self._starts_b = pdata_starts(self.pdata_b)
 
     def _find_leaf_in_b(self, a_digest, words):
         if a_digest in self._leaf_cache:
@@ -937,9 +994,34 @@ class Matcher:
                         cands.add(callee)
         return sorted(cands)
 
+    def _called_starts(self, build):
+        """Sorted VAs that are direct ``bsr`` targets: leaf entries in a gap."""
+        self._caller_sites()
+        seen = set()
+        sites = self._sites_a if build == "a" else self._sites_b
+        for _caller, lst in sites.items():
+            for _idx, callee in lst:
+                seen.add(callee)
+        return sorted(seen)
+
+    def _leaf_bound(self, va, build):
+        if build == "a":
+            if self._called_a is None:
+                self._called_a = self._called_starts("a")
+            return leaf_window_limit(
+                va, self._starts_a, self._called_a,
+                self.code_a["realaddr"] + self.code_a["vsize"])
+        if self._called_b is None:
+            self._called_b = self._called_starts("b")
+        return leaf_window_limit(
+            va, self._starts_b, self._called_b,
+            self.code_b["realaddr"] + self.code_b["vsize"])
+
     def _leaf_verdict(self, va):
         kind, rec = locate(self.pdata_a, va)
-        words = trim_words(leaf_words(self.data_a, self.code_a, self.off_a, va))
+        words = trim_words(leaf_words(
+            self.data_a, self.code_a, self.off_a, va,
+            limit=self._leaf_bound(va, "a")))
         if not words:
             print("%#010x  LEAF      pdata=GAP    outside the code section" % va)
             return (va, None, "LEAF", "GAP", None)
@@ -956,12 +1038,17 @@ class Matcher:
             bva, verdict = hits[0], "UNIQUE"
         elif hits:
             verdict = "AMBIGUOUS"
+        if verdict is None and not leaf_complete(words):
+            # a gap with no rts is bounded, not a whole function: exact hash
+            # only, never paired through the caller (no thunk-table pairing).
+            verdict = "NOMATCH"
         if verdict is None:
             context = self._context_candidates(va)
             if len(context) == 1:
                 bva = context[0]
-                b_words = trim_words(
-                    leaf_words(self.data_b, self.code_b, self.off_b, bva))
+                b_words = trim_words(leaf_words(
+                    self.data_b, self.code_b, self.off_b, bva,
+                    limit=self._leaf_bound(bva, "b")))
                 pair = leaf_compare(
                     words, va, self.code_bytes_a, self.code_a["realaddr"],
                     self.lr_a, b_words, bva, self.code_bytes_b,
@@ -975,7 +1062,7 @@ class Matcher:
             elif context:
                 verdict, bva = "AMBIGUOUS", None
             else:
-                verdict = "LEAF"
+                verdict = "NOMATCH"
         if diff is not None:
             i, aw, ap, bw, bp = diff
             print("%#010x  %-9s pdata=GAP    leaf %d B -> %#010x  first diff "

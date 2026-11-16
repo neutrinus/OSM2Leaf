@@ -54,3 +54,20 @@ handoff:
 - M1.22b: take the DIFFERENT pair for 0x003f5194 and update the firmware.md
   table; run --leaf (or the default path) on the 7 remaining NOMATCH readers
 - M9.10: confirm which 0x04e8/0x04d8 value the walker consumes per card
+
+--- round 2 (navigator CHANGES) ---
+- read /tmp/opencode/m1.27-feedback.md; primary risk resolved in M1.27's favour
+  (DIFFERENT is honest), one defect: the GAP window had no next-START clamp
+- reproduced the bleed: EU 0x0032ef6c (12 B thunk stub, no rts, next START
+  0x0032efa8) read 1024 B and paired 0x0035da30 (an import-thunk table)
+- added leaf_window_limit(va, starts, called, code_end, limit): window =
+  min(gap_end, next START, next called GAP, code end, 0x400 cap); wired into
+  both _leaf_verdict windows via Matcher._leaf_bound
+- added leaf_complete(): a no-rts gap is hash-only, never paired through the
+  caller; 0x0032ef6c is now NOMATCH EU->US (AMBIGUOUS EU-vs-EU)
+- selftest grew to 26 checks: 3 leaf_window_limit cases + "no-rts gap: window
+  ends at the next START, not the 0x400 cap"
+- EXP gets a "Bounding rule (and its residual limit)" section + a no-rts
+  Follow-up for M1.22b; C-3704/C-3705 state the clamp
+- re-ran: fn_match --selftest 26/26 exit 0; guard exit 0 (13 rows, 0 mismatch,
+  5 unique unmoved); selftest.py, claims_check, todo_check
