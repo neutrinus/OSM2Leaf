@@ -1,0 +1,74 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (subagent, third PO run 2026-11-16)
+start_utc: 2026-11-16 01:41
+end_utc: 2026-11-16 02:05
+origin_main_start: 67207dd (se adds H69-H71 and M1.26 staleness note)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-16-2.md
+- dev_process/2026-11-16-{0108-8-tl,0109-9-sm,0114-11-se}.log
+- TODO.md H69/H70/H71, M1.26/M1.27, Priorities, workstream table
+- tools/fn_audit.py (audit_corpus/compare_live), .github/workflows/ci.yml
+
+actions_taken:
+- Rule 15 by script (todo_check.parse_tasks + _parse_status): 0 blocked tasks
+  whose named Unblock IDs are all done. 6 blocked tasks have done Depends but an
+  open/infra Unblock (M1.2f, M3.13, M4.3, M4.8b, M4.16, M4.29, M4.31, M5.16,
+  M5.29) — all genuine, no mass flip.
+- Archive fixpoint: 0 done tasks are both >24 h old and unreferenced. H64/H67/H68
+  are unreferenced but <24 h; every other done block is named by a live
+  Depends/Unblock. Nothing archived.
+- Priorities 9th pass: moved the label line to H69 -> M1.26 -> M1.27 and added
+  the order decision to the L3 bullet, "Take first", and the header.
+- Recorded the moved-only policy decision in the H69 block (DECISION line) so the
+  SE implements a named rule instead of re-deriving; M1.26 already points at H69.
+- No new tasks: the three SE gaps (H69/H70/H71) already have owners and the goal
+  path (M1.19/M1.22b/M1.26/M1.27 + M5.34/M5.30/M5.11) is covered.
+- Ran todo_check + claims_check; commit + push to main.
+
+rule_15_decisions:
+- No re-open. Each blocked task's Unblock names an open task or an
+  environment/input gap (QEMU host, second-country OSM), which rule 15 does not
+  flip.
+
+archive:
+- Nothing moved; TODO.md 3236 -> 3247 lines (+11: the header/order/decision text
+  and M1.26's Depends). Archive fixpoint found 0 eligible: the only unreferenced
+  done blocks (H64, H67, H68) are <24 h old; every other done block is named by a
+  live `Depends:`/`Unblock:`.
+
+order_decision (the one the TL must not re-guess):
+- H69 BEFORE M1.26. Reason: M1.26's Done-when is a standing PR gate on the
+  frozen snapshot; if the snapshot already fails `--corpus` on main for line
+  moves, the gate is red before it is written and the next agent either
+  re-refreshes it per commit (merge conflicts on a 313-row JSON) or reaches for
+  `--no-live-check` (the silent-staleness failure M1.30's navigator forbade).
+  H69 also refreshes the snapshot and decides the moved/new/gone policy that
+  M1.26 must name, so it is a real input, not a courtesy ordering.
+- Rejected: M1.26 first with `--no-live-check` and H69 after — it ships the gate
+  with its live check off, exactly the divergence M1.30 closed.
+
+moved_only_decision:
+- Acceptable as a warning, not a failure. A moved-only diff is the same
+  (file,va,kind,class) identity at a new line; failing on it is failing for prose
+  and is a gate nobody keeps green. `new`/`gone`/verdict change must still exit 1.
+  Written into H69 as DECISION.
+
+stateless_blocks: 0 (todo_check: every block has Status; 107 open/44 done/28
+blocked/0 in progress).
+
+tasks_added: none
+tasks_changed: H69 (DECISION line), M1.26 (unchanged text, already points at
+H69), Priorities (order), header Read-first.
+
+problems:
+- TODO.md is 3236 lines, well over the 1500 archive trigger, but every done
+  block is still named by a live task, so the fixpoint has nothing to move; the
+  board stays large by design. Flagged for a future pass when H64/H67/H68 age
+  past 24 h.
+
+handoff:
+- TL: H69 first (pair, required) — its Done-when is the snapshot refresh plus
+  moved-warn/gone-fail fixtures; then M1.26 (pair) on the refreshed snapshot;
+  then M1.27. H70/H71 are cheap solo fillers.
