@@ -780,6 +780,28 @@ No image bytes are committed.
 | C-3748 | RESERVED (M1.28). | — | — | — |
 | C-3749 | RESERVED (M1.28). | — | — | — |
 
+## M1.27 — `fn_match` leaf path for the POINT walker (C-3700–C-3709)
+
+`tools/fn_match.py` gains a leaf path for `.pdata` `GAP` functions: the window
+is cut at its `rts`, hashed with the same reloc masking as `record_digest_map`,
+and — when the hash differs — the US candidate comes from the EU caller's
+`jsr` site (matched by instruction stream alone) reading the callee literal at
+the same instruction index. `--leaf` forces the path; a `DIFFERENT` leaf names
+the first differing instruction and pool value.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3700 | The POINT walker `0x003f5194` is a `.pdata` `GAP` (leaf): EU `pdata.py fn` prints `GAP` with the preceding record `0x003f5018` ending at `0x003f5098`; EU-vs-EU `fn_match match … --va 0x003f5194` prints `UNIQUE` (the leaf is hashed at its own address). | VERIFIED (tool, real image) | H | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x003f5194`, `python3 tools/fn_match.py match archive/head256.img archive/head256.img --module Navi.exe --va 0x003f5194` |
+| C-3701 | The US POINT walker is `0x0041db44`: its 32 halfwords are byte-identical to EU `0x003f5194`; the first differing unit is the `mov.w @(disp,PC),r4` at leaf `+0x14` whose non-address pool constant is `0x04e8` (EU) vs `0x04d8` (US). `fn_match … --leaf --va 0x003f5194` prints `DIFFERENT … -> 0x0041db44  first diff @+0x14`. The walker is **not** rewritten; only that constant moved. | VERIFIED (tool, real image) | H | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --leaf --va 0x003f5194` |
+| C-3702 | EU `fn 0x003f5cdc` is the caller: it loads `0x003f5194` from pool `0x003f5d84` (loads `0x003f5d48`/`0x003f5d54`) and `jsr 0x003f5d5c`. Its US counterpart `fn 0x0041e63c` loads `0x0041db44` from pool `0x0041e6e4` and `jsr 0x0041e6bc`; the two callers' 79 halfwords are equal after reloc masking, and the call is at the same instruction index, so `code_digest` + call site picks the candidate without the leaf hash. | VERIFIED (tool, real image) | H | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/sh4xref.py archive/head256.img Navi.exe --to 0x003f5194`, `python3 tools/sh4xref.py archive/us256.img Navi.exe --to 0x0041db44` |
+| C-3703 | With the leaf path, the M1.28 guard `fn_match --fixture tools/fixtures/fn_match_eu_us_2011.json --us us256.img --module Navi.exe` exits 0 with `13 rows, 0 mismatch` and `unique: 5  different: 1  nomatch: 7`; the five `UNIQUE` US VAs are unmoved (`0x00444540`, `0x004446f4`, `0x00443da8`, `0x0041ec8c`, `0x0056454c`). The `0x003f5194` fixture row moves `NOMATCH`→`DIFFERENT` with `us_candidate 0x0041db44` and `diff_offset 0x14`. | VERIFIED (tool, real image) | H | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us archive/us256.img --module Navi.exe` |
+| C-3704 | The leaf path is regression-guarded: shifting the leaf's `us_candidate` by 2, its `diff_offset` by 2, or a pinned `us_va` by 2 each makes `--fixture` exit 1 with a `MISMATCH` line naming the row; `fn_match --selftest` (26 checks) covers a synthetic GAP leaf with a relocated pool pointer (equal), a moved non-address pool constant (`DIFFERENT` at its `mov`), the `leaf_window_limit` clamp (next START / called GAP / cap) and a no-`rts` gap that ends at the next START instead of the `0x400` cap, plus `trim_words`, `code_digest` and `leaf_call_sites`. | VERIFIED (tool, synthetic + real) | H | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/fn_match.py --selftest`, `python3 tools/selftest.py --only fn_match` |
+| C-3705 | `pdata.py gaps` on EU2011 `Navi.exe` reports 677 gaps over 8 B and 635 flagged `leaf`. The leaf window is clamped at `min(gap_end, next pdata START, next called GAP entry, code-section end)` and capped at `0x400` B (`leaf_window_limit`), then cut at its own `rts`; a gap with no `rts` inside the bound (e.g. the 12 B thunk stub `0x0032ef6c`) is not paired through the caller context, so it is `NOMATCH` (`0x0032ef6c` EU→US) rather than a thunk-table `DIFFERENT`. Only `0x003f5194` is exercised here; the other 634 are uncensused and must report `rts` presence per leaf (M1.22b). | VERIFIED (tool, real image) | M | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/pdata.py gaps archive/head256.img --module Navi.exe`, `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x0032ef6c 0x003f5194` |
+| C-3706 | RESERVED (M1.27). | — | — | — |
+| C-3707 | RESERVED (M1.27). | — | — | — |
+| C-3708 | RESERVED (M1.27). | — | — | — |
+| C-3709 | RESERVED (M1.27). | — | — | — |
+
 ## M1.2b — XPRESS plain LZ77 implemented and probed (C-651–C-659)
 
 | ID | Claim | Status | Confidence | Evidence |
