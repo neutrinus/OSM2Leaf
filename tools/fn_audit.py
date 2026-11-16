@@ -57,10 +57,13 @@ A frozen corpus (M1.30) is a committed JSON snapshot written once by
 citation plus the exact summary the writer printed and the image's SHA-256).
 ``--corpus`` takes the same image and re-derives every row's class from
 ``.pdata`` — the frozen part is only ``file/line/va/kind`` — and by default
-also compares the snapshot against a live ``--scope docs`` scan, exiting 1
-with ``CORPUS STALE`` if a source line moved, was added or removed.  The
-standing gate (M1.26) runs on the snapshot so board prose cannot move the
-counts; a diff to the snapshot is the review artefact.
+also compares the snapshot against a live ``--scope docs`` scan.  A source
+line that moved without changing its ``(file,va,kind,class)`` identity is
+``CORPUS DRIFT``: it warns and exits 0 (H69, line moves are prose).  A line
+that was added or removed, or a verdict change at an unchanged key, is
+``CORPUS STALE`` and exits 1.  The standing gate (M1.26) runs on the
+snapshot so board prose cannot move the counts; a diff to the snapshot is the
+review artefact.
 """
 
 import argparse
@@ -688,8 +691,10 @@ def compare_live(doc, image):
     """(new, gone, moved, changed) between the frozen rows and a live scan.
 
     ``new``/``gone`` are ``(file,line,va,kind)`` keys; ``moved`` pairs the
-    frozen and live key of the same ``(file,va,kind)`` whose line changed;
-    ``changed`` is a row whose verdict changed at an unchanged key.
+    frozen and live key of the same ``(file,va,kind)`` whose line changed and
+    whose ``class``/``true_start`` did not; ``changed`` is a row whose verdict
+    changed, at an unchanged key or together with a line move (H69: a move
+    never masks a verdict change).
     """
     cites, _files = collect(doc.get("scope", "docs"))
     live_rows = snapshot_rows(audit(cites, image))
@@ -698,26 +703,34 @@ def compare_live(doc, image):
     new = sorted(k for k in live_by_key if k not in frozen_by_key)
     gone_keys = {k for k in frozen_by_key if k not in live_by_key}
     moved = []
+    changed = []
+
+    def verdict_differs(a, b):
+        return (a["class"] != b["class"]
+                or (a.get("true_start") or None) != (b.get("true_start") or None))
+
     live_base = {}
     for k in live_by_key:
         live_base.setdefault((k[0], k[2], k[3]), []).append(k)
-    moved_live = set()
     for k in sorted(gone_keys):
         candidates = [o for o in live_base.get((k[0], k[2], k[3]), []) if o in new]
-        if candidates:
-            target = candidates[0]
+        if not candidates:
+            continue
+        target = candidates[0]
+        a, b = frozen_by_key[k], live_by_key[target]
+        if verdict_differs(a, b):
+            changed.append((target, a, b))
+        else:
             moved.append((k, target))
-            moved_live.add(target)
-            gone_keys.discard(k)
-            new.remove(target)
+        gone_keys.discard(k)
+        new.remove(target)
     gone = sorted(gone_keys)
-    changed = []
     for k in sorted(live_by_key):
         if k in frozen_by_key:
             a, b = frozen_by_key[k], live_by_key[k]
-            if (a["class"] != b["class"]
-                    or (a.get("true_start") or None) != (b.get("true_start") or None)):
+            if verdict_differs(a, b):
                 changed.append((k, a, b))
+    changed.sort(key=lambda item: item[0])
     return new, gone, moved, changed
 
 
@@ -736,8 +749,11 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
     The image is required (the frozen part is ``file/line/va/kind``); every
     stored ``class``/``true_start`` is re-derived from the image and a
     disagreement fails.  With ``live_check`` the live ``--scope docs`` scan is
-    compared row-for-row and a moved/added/removed line reports
-    ``CORPUS STALE`` and exits non-zero rather than passing on an old file.
+    compared row-for-row.  A ``moved`` row set (same ``(file,va,kind,class)``
+    identity, only ``line`` changed) is prose drift: it prints ``CORPUS
+    DRIFT`` and does **not** fail, because the row identities are unchanged.
+    ``new``/``gone`` rows or a verdict change at an unchanged key report
+    ``CORPUS STALE`` and exit 1 — those are what the frozen corpus protects.
 
     ``--fix-list`` is not an escape hatch: the summary, integrity,
     re-classification and staleness checks run first, so a snapshot tampered
@@ -759,14 +775,19 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
                                    row["class"], row.get("true_start")),
                          (want, start)))
 
-    stale = None
+    drift = None
     if live_check:
         new, gone, moved, changed = compare_live(doc, image)
         if new or gone or moved or changed:
-            stale = (new, gone, moved, changed)
+            drift = (new, gone, moved, changed)
+    # A moved-only drift is prose: the protected identity set
+    # ``(file,va,kind,class)`` is unchanged, only ``line`` moved.  It warns and
+    # exits 0 (H69); ``new``/``gone``/a verdict change still fails.
+    stale = drift is not None and bool(drift[0] or drift[1] or drift[3])
+    moved_only = drift is not None and not stale
 
     failing = rows_have_failures(rows)
-    if not fix_list_mode and (not quiet or problems or stale):
+    if not fix_list_mode and (not quiet or problems or drift):
         for line in summary_lines(got):
             print(line)
     for kind, a, b in problems:
@@ -783,16 +804,20 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
             print("fn_audit: row class disagrees with the image: "
                   "%s:%s %s frozen=%s/%s image=%s/%s" % (a[0], a[1], a[2],
                                                          a[3], a[4], b[0], b[1]))
-    if stale:
-        new, gone, moved, changed = stale
+    if drift:
+        new, gone, moved, changed = drift
+        tag = "CORPUS STALE" if stale else "CORPUS DRIFT"
         if new or gone or moved:
-            print("CORPUS STALE: %d new / %d gone / %d moved"
-                  % (len(new), len(gone), len(moved)))
+            print("%s: %d new / %d gone / %d moved"
+                  % (tag, len(new), len(gone), len(moved)))
         if changed:
-            print("CORPUS STALE: %d verdict change(s) at an unchanged row"
-                  % len(changed))
+            print("%s: %d verdict change(s) (at an unchanged key or with a "
+                  "line move)" % (tag, len(changed)))
         if not new and not gone and not moved and not changed:
-            print("CORPUS STALE: 0 new / 0 gone / 0 moved")
+            print("%s: 0 new / 0 gone / 0 moved" % tag)
+        if moved_only:
+            print("fn_audit: warning: line-only drift; identity set unchanged, "
+                  "refresh the snapshot when convenient (H69)")
         for label, keys in (("new", new), ("gone", gone)):
             for key in sorted(keys)[:10]:
                 print("fn_audit:   %s %s:%s %s" % (label, key[0], key[1], key[2]))
@@ -801,7 +826,7 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
                   % (old[0], old[1], new_key[1], old[2]))
         for key, _a, _b in changed[:10]:
             print("fn_audit:   changed %s:%s %s" % (key[0], key[1], key[2]))
-    if not quiet and not problems and not stale and not live_check and not fix_list_mode:
+    if not quiet and not problems and not drift and not live_check and not fix_list_mode:
         print("fn_audit: live check skipped (--no-live-check)")
     if fix_list_mode:
         lines = corpus_fix_list(doc)
@@ -1115,9 +1140,18 @@ def selftest():
         ])
         saved_collect, saved_audit = collect, audit
         glb = globals()
+
+        def run_live(cites, kept):
+            glb["collect"] = lambda scope="docs": (cites, snap_files)
+            glb["audit"] = lambda c, img: list(kept)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = audit_corpus(doc, stub, live_check=True)
+            return rc, buf.getvalue()
+
         try:
             glb["collect"] = lambda scope="docs": (live_cites, snap_files)
-            glb["audit"] = lambda cites, img: [
+            glb["audit"] = lambda c, img: [
                 (live_cites[0], good), (live_cites[1], gap_leaf),
                 (live_cites[2], Verdict(0x900000, "UNMAPPED")),
                 (live_cites[3], Verdict(0x401100, "START", start=0x401100))]
@@ -1130,6 +1164,57 @@ def selftest():
             out = buf.getvalue()
             check("a stale live corpus exits 1 and says CORPUS STALE",
                   sr == 1 and "CORPUS STALE: 1 new / 1 gone / 1 moved" in out)
+
+            # H69: moved-only is prose drift -> warn + exit 0.  The frozen doc
+            # rows are doc.md:1 (0x401040 fn), doc.md:1 (0x401048 ctx corr),
+            # doc.md:2 (0x401080 const), doc.md:3 (0x900000 const).  Move three
+            # of them to new lines, keeping (file,va,kind) and the verdict.
+            moved_cites = [
+                Citation(0x401040, "doc.md:4", "fn"),
+                Citation(0x401048, "doc.md:4", "ctx", correction=0x401040),
+                Citation(0x401080, "doc.md:7", "const"),
+                Citation(0x900000, "doc.md:9", "const"),
+            ]
+            moved_kept = [
+                (moved_cites[0], good),
+                (moved_cites[1], Verdict(0x401048, "CORRECTED", start=0x401040)),
+                (moved_cites[2], gap_leaf),
+                (moved_cites[3], Verdict(0x900000, "UNMAPPED")),
+            ]
+            mr, mout = run_live(moved_cites, moved_kept)
+            check("moved-only drift exits 0 with a warning",
+                  mr == 0 and "CORPUS DRIFT: 0 new / 0 gone / 4 moved" in mout
+                  and "line-only drift" in mout)
+            # new only -> exit 1
+            nr, nout = run_live(moved_cites + [
+                Citation(0x401100, "doc.md:12", "fn")],
+                moved_kept + [(Citation(0x401100, "doc.md:12", "fn"),
+                               Verdict(0x401100, "START", start=0x401100))])
+            check("a new row exits 1", nr == 1 and "CORPUS STALE: 1 new" in nout)
+            # gone only -> exit 1
+            gr, gout = run_live(moved_cites[:3], moved_kept[:3])
+            check("a gone row exits 1",
+                  gr == 1 and "CORPUS STALE: 0 new / 1 gone" in gout)
+            # verdict change at an unchanged key -> exit 1
+            same_cites = [Citation(0x401040, "doc.md:1", "fn"),
+                          Citation(0x401048, "doc.md:1", "ctx",
+                                   correction=0x401040),
+                          Citation(0x401080, "doc.md:2", "const"),
+                          Citation(0x900000, "doc.md:3", "const")]
+            same_kept = list(moved_kept)
+            same_kept[2] = (same_cites[2], Verdict(0x401080, "UNMAPPED"))
+            cr, cout = run_live(same_cites, same_kept)
+            check("a verdict change at an unchanged key exits 1",
+                  cr == 1 and "verdict change" in cout)
+            # a moved row whose verdict also changed is still a change, not a
+            # benign move -> exit 1
+            mc2 = list(moved_cites)
+            mk2 = list(moved_kept)
+            mk2[2] = (mc2[2], Verdict(0x401080, "UNMAPPED"))
+            mcr, mcout = run_live(mc2, mk2)
+            check("a verdict change on a moved row exits 1",
+                  mcr == 1 and "verdict change" in mcout
+                  and "3 moved" in mcout)
         finally:
             glb["collect"], glb["audit"] = saved_collect, saved_audit
 
