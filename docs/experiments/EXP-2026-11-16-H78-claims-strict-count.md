@@ -132,10 +132,12 @@ exit 1
 - **FACT:** the measured revision moved to `ec58d12` because H75's
   `Correction (H75)` section is a docs-only commit; the M1.27 EXP's measurement
   revision was `334f092`, where the tool printed 26 — the number C-3704 states.
-- **OBSERVED:** using the newest commit that changed *both* the EXP and a
-  `tools/*.py` file keeps every other measurable claim at its old revision
-  (the 16-row table is unchanged except C-3704 and C-3713, both to the correct
-  measurement commit) and turns C-3704 green without touching its text.
+- **OBSERVED:** of the 19 rows that pin a count and cite a resolvable selftest
+  (printed by the probe in Reproduction), the new rule changes three
+  revisions: C-3704 `ec58d12 -> 334f092` (29 -> 26), C-3713
+  `b5899ccb -> 322fd119` (count preserved) and C-3934 `7af443f0 -> 96ba9c02`
+  (count preserved: `git archive … fn_audit.py --selftest | grep -c '^ok'`
+  prints 58 at both). The other 16 keep their revision; 0 rows are skipped.
 - **FACT (navigator round 1):** a record whose history never changed a tool had
   `_pinned_revision == None` and the old `count_problems` then measured the
   tool at the **working tree** (`rev=None`), contradicting the intended skip.
@@ -145,7 +147,10 @@ exit 1
   measurement revision (no run, no verdict); a row naming a **nonexistent**
   record keeps the legacy working-tree measurement so H61's EXP-existence
   follow-up does not lose its signal. `--selftest` case (i) covers it.
-- **UNKNOWN:** none material. No current row hits the skip.
+- **UNKNOWN:** none material, and the skip path is **constructed only**: a
+  probe over the real ledger prints `pinned rows 19 skipped(no rev) 0`, so the
+  `None` branch has no live row today. The selftest case (i) and the probe in
+  Reproduction are the whole evidence for it.
 
 ## Conclusion
 
@@ -162,6 +167,36 @@ history (25 checks).
 python3 tools/claims_check.py --strict; echo $?        # 0
 python3 tools/claims_check.py --count-check            # count mismatches: 0
 python3 tools/claims_check.py --selftest               # OK (25 checks)
+
+# the ledger's pinned rows, and how many have no measurement revision
+python3 - <<'EOF'
+import sys; sys.path.insert(0, 'tools')
+import claims_check as cc
+rows = cc.parse_claim_rows(open('docs/research/claims.md').read())
+n = skipped = 0
+for cid, line in rows:
+    t, ev = cc.claim_text(line), cc.evidence_cell(line)
+    if cc.check_count_token(t) is None: continue
+    if '--selftest' not in t and '--selftest' not in ev: continue
+    if not cc.selftest_tools(ev): continue
+    n += 1
+    exps = cc.EXP_TOKEN_RE.findall(ev) or cc.EXP_TOKEN_RE.findall(t)
+    skipped += cc._pinned_revision(ev, exps[0] if exps else '') is None
+print('pinned rows', n, 'skipped(no rev)', skipped)   # 19 0
+EOF
+
+# the skip path, constructed on a real record whose history never moved a tool
+python3 - <<'EOF'
+import sys; sys.path.insert(0, 'tools')
+import claims_check as cc
+print(cc._exp_revision('EXP-2026-11-05-01-drstr-node-table'))   # None
+row = ("| C-9999 | 26 checks. | VERIFIED (tool) | H | "
+       "EXP-2026-11-05-01-drstr-node-table; `python3 tools/fn_match.py --selftest` |\n")
+calls = []
+print(cc.count_problems(cc.parse_claim_rows(row),
+                        runner=lambda t, r=None: (calls.append((t, r)), (29, 0))[1]),
+      calls)                                                  # [] []
+EOF
 ```
 
 ## Follow-ups
