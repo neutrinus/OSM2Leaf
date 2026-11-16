@@ -1,0 +1,49 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (subagent, fourth PO run 2026-11-16)
+start_utc: 2026-11-16 02:54
+origin_main_start: 69b54d4 (se work log; H72/H73 added in 018f6c2)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-16-3.md
+- dev_process/2026-11-16-{0226-14-tl,0227-16-sm,0230-17-se}.log
+- TODO.md H71/H72/H73, M1.26/M1.27, Priorities, workstream table
+- docs/research/claims.md C-3860/61/64, C-3900/03, C-3912
+- tools/{todo_check,claims_check}.py
+
+actions_taken:
+- git fetch; read retro-3, the cycle-6 TL/SM/SE logs, H71/H72/H73, M1.26/M1.27.
+- Rule 15 by script (todo_check.parse_tasks + Unblock IDs): 0 blocked tasks have
+  every named Unblock done. Checked the ones that look close (M1.4/M1.2f -> M8.E1
+  blocked, M3.2 -> M3.2b open + M1.2f blocked, M4.8b -> M4.37 open + M4.27 blocked,
+  M9.12 -> M9.31 open). No mass flip.
+- Archive fixpoint: done blocks >24 h old AND named by no live Depends/Unblock/
+  Goal/Scope/Done-when. Unreferenced done = H64, H67, H68, H70; all landed
+  2026-11-16 01:39-03:07 CEST (<24 h), so **nothing eligible**; 0 archived.
+  (H69/H70/M1.30 remain referenced by H71/H72/H73/M1.26.)
+- Stateless check: every parsed block has Status (181 tasks, 0 in progress).
+- Priorities 10th pass: header + Read-first rewritten to the new order; L3 bullet
+  and "Take first" now H72 -> M1.26 -> M1.27 and H73-then-H71; workstream H row
+  refreshed (H69/H70 done). Ran the gate live: --corpus exits 0 with CORPUS DRIFT
+  125 moved (H69 policy), snapshot ddd113f8 unchanged.
+- No new tasks: H72/H73 already cover the SE gaps; the goal path is owned.
+
+order_decisions (the TL must not re-guess):
+- **H72 BEFORE M1.26.** M1.26's `--scope l3` rows classify AMBIGUOUS, which are
+  exactly the rows H72 makes visible; shipping the gate first makes it green over
+  a verdict change it cannot see (H69's "a verdict change exits 1" false on the
+  new rows). H72 is a small fn_audit.py-only fix with self-contained fixtures, so
+  it costs M1.26 no extra cycle.
+- **H73 BEFORE H71**, one solo batch, not parallel: same claims.md evidence
+  region; H73's `git show 3fdbab2^:...` recovery covers C-3900/3903 (and touches
+  the same snapshot SHA text H71's C-3861 names), so H71 edited first would be
+  re-edited. Rejected parallel: two solo PRs on one table conflict.
+- **Snapshot refresh:** leave it drifting (125 moved) until an intentional
+  refresh; H69's rule is only `--write-snapshot`, never CI, never prose. The next
+  citation-editing task does NOT refresh it unless refresh is its scope; M1.26
+  and H71/H73 consume moved-only as exit 0. Recorded in TODO so the TL cannot
+  refresh opportunistically.
+
+checks: todo_check OK (2 pre-existing M9.5 warnings), claims_check OK
+(0 dup / 0 unregistered / 0 bad), wc -l 3275 -> 3274 (-1 net, same board
+counts: 107 open / 46 done / 28 blocked / 0 in progress after parse).

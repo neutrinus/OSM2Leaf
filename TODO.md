@@ -215,7 +215,7 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-16, 8th pass; retro 2026-11-16-1, SE `4d86204`)
+## Priorities (PO grooming 2026-11-16, 10th pass; retro 2026-11-16-3, SE `018f6c2`)
 
 Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
 `-13.md`, `-15.md`; done tasks moved off the board on 2026-11-16:
@@ -223,25 +223,18 @@ Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
 blocks stay: a live `Depends:`/`Unblock:` names each (fixpoint over the board).
 
 **Read first.** The board is clean: 0 `in progress`, 0 ghost claims, and every
-block now carries a `Status:` line (M8.D1/D2 was the last stateless one; fixed
-2026-11-16). Cycle 4 merged **H52** (#185, `fn_audit` INSIDE 33 → 0) and **H64**
-(#186, factory-root guards). SE then added **M1.30** (freeze the `fn_audit`
-corpus), **H66** (evidence spans / parsed-unused flags) and **H67** (H64's
-tile↔cell binding) and corrected H63. **Cycle 5 merged.** SE found the committed
-snapshot already `moved`-stale on `main` and added **H69** (refresh owner +
-`moved`-only policy). The label path is now
-**H69 (refresh + moved-warn policy) → M1.26 (`--scope l3` standing gate) →
-M1.27**, then **M1.22b** against the frozen M1.28 fixture. **H69 comes before
-M1.26** (PO, 2026-11-16 9th pass): M1.26's Done-when is a standing gate on the
-snapshot, so the snapshot must first be refreshed and its `moved`/`new`/`gone`
-policy named; otherwise the gate is red on `main` before it is written and the
-next agent reaches for `--no-live-check` — the silent staleness M1.30's
-navigator forbade. **The gate must run on M1.30's committed snapshot, not the
-live `TODO.md`** — otherwise `INSIDE` drifts with prose. The US unit is Marek's;
-every reader VA below is EU-build until
-**M1.22b** lands. M1.20's wire-up half is done; it stays open only for its own
-all-module census done-when. The factory line is **H64 (done) → H67**, with
-**H66** covering the same parsed-but-unused flag class.
+block carries a `Status:`. Cycle 6 merged **H69** (#191, moved-only policy +
+refreshed snapshot `ddd113f8…`) and **H70** (#190, `--factory-tile` wired). SE
+then added **H72** (the `candidates`/`leaf` gate hole) and **H73** (the `/tmp`
+evidence spans). Because SE's TODO edit moved 125 citations, `--corpus` on
+`main` now warns `CORPUS DRIFT: 125 moved`, exit 0 — H69's policy working, not
+a failure. The next batch, in this order:
+**H72 → M1.26 → M1.27**; **H71 and H73 are one solo batch**; **H73 before H71**
+(they touch the same `claims.md` region, so they must not run in parallel).
+Order reasons are in the L3 bullet and "Take first" below.
+The US unit is Marek's; every reader VA below is EU-build until **M1.22b**
+lands. The factory line is **H64 (done) → H67 (done)**, with **H66** covering
+the same parsed-but-unused flag class.
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
@@ -249,29 +242,35 @@ all-module census done-when. The factory line is **H64 (done) → H67**, with
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline on every candidate card. Blocking: **M5.30** (1:1 diff of the Poland card), **H40** (in-process fixture so CI can run L1 with no vendor data).
 - **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.29** (blocked, not on the branch: PR #171's `--factory-root` mode and EXP are on `main`, but the test ways fall in a `0x2146` directory → **M5.34** corridor rerun) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (done: corrections are `CORRECTED`) → **H52** (done: INSIDE 0) → **M1.30** (done: freeze the corpus) → **H69** (refresh owner; `moved` warns, `new`/`gone`/verdict fail) → **M1.26** (`--scope l3` standing gate). Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind **M9.31** (no-diff/baseline verdicts) and a runnable target set; **H53** (`todo_check --strict`) stays behind the board cleanup it would otherwise fail on.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (done: corrections are `CORRECTED`) → **H52** (done: INSIDE 0) → **M1.30** (done: freeze the corpus) → **H69** (done: refresh owner; `moved` warns, `new`/`gone`/verdict fail) → **H72** (close the `candidates`/`leaf` residual) → **M1.26** (`--scope l3` standing gate). **H72 comes before M1.26** (PO, 2026-11-16 10th pass) because M1.26's own `--scope l3` rows classify `AMBIGUOUS` and are exactly the rows H72 makes visible; if M1.26 ships first, its new gate is green over a class of verdict change it cannot see (H69's promise "a verdict change exits 1" would be false for the new rows). H72 is a small `fn_audit.py`-only gate fix with self-contained fixtures, so it does not delay M1.26 by a cycle. **H73 before H71** (both `Pair: solo`, both edit the same `docs/research/claims.md` evidence region): H73 covers the two claims on the frozen `fn_audit` snapshot that H71 also names, and its `git show` recovery displaces a `/tmp` path H71 assumes; run them **one batch, H73 first**, never in parallel. Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind **M9.31** (no-diff/baseline verdicts) and a runnable target set; **H53** (`todo_check --strict`) stays behind the board cleanup it would otherwise fail on.
 - **L4 (QEMU/M8):** software integration before L5; not final acceptance. **M8.A2** needs a QEMU 8.2.7 `sh4-softmmu` host; **M8.A3**/**M8.A6** follow it. **M1.19** (kernel decompressor wired into `cerom`/`rommap`) is the prerequisite for any full-system run that touches `INIT` bytes.
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
 **Take first (ready, deps done, one branch+PR each):**
-1. **H69** → **M1.26** → **M1.27** — the label path: refresh the snapshot and
-   name the `moved`-only policy (H69), then make the gate stand on it, then the
-   leaf census. **M1.22b** follows against the frozen M1.28 fixture. **H72** sits
-   beside M1.26: it closes the `candidates`/`leaf` hole the `--scope l3` rows
-   will exercise.
-2. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
-3. **H66**, **H70**, **H71**, **H72**, **H73** — the evidence/flag/integrity gaps
-   left by H64/H67/M1.30/H69 (cheap; `solo` where the Done-when is a grep/exit check).
-4. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence.
-5. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**, **M9.12** (only after M9.31).
+1. **H72** → **M1.26** → **M1.27** — the label path: close the
+   `candidates`/`leaf` gate residual (H72), then make the `--scope l3` gate
+   stand on the snapshot (M1.26), then the leaf census (M1.27). **M1.22b**
+   follows against the frozen M1.28 fixture.
+2. **H73** then **H71** — one solo batch on the `claims.md` evidence spans
+   (H73 first: same `claims.md` region, and its snapshot-recovery fixes the row
+   H71 would otherwise edit blind). Never in parallel.
+3. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
+4. **H66** — the evidence-rule sweep the H71/H73 rows must satisfy.
+5. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence.
+6. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**, **M9.12** (only after M9.31).
 Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**) or **M8** until the line above has owners.
+**Snapshot refresh:** leave the committed snapshot drifting until an intentional
+refresh (H69's rule: only `--write-snapshot` writes it, never CI, never a prose
+task); the task that next edits citations **re-points it only if an intentional
+refresh is its scope**, otherwise it keeps `CORPUS DRIFT` as a warning. The
+TL must not refresh it opportunistically inside H71/H73/M1.26.
 
 
 ## Workstreams at a glance
 
 | Stream | Front | Ready now (no open deps) |
 | --- | --- | --- |
-| H | Housekeeping | **H19, H28, H29, H40–H44, H53, H56–H60, H61–H63, H66, H69–H73**; H11/H49/H51 archived 2026-11-15, H54 archived 2026-11-16; H45–H48 archived 2026-11-13; H52/H55/H64/H67/H68 done 2026-11-16 |
+| H | Housekeeping | **H19, H28, H29, H40–H44, H53, H56–H60, H61–H63, H66, H71–H73**; H11/H49/H51 archived 2026-11-15, H54 archived 2026-11-16; H45–H48 archived 2026-11-13; H52/H55/H64/H67/H68/H69/H70 done 2026-11-16 |
 | M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.26, M1.27**; M1.30 done (freeze corpus), M1.22b waits on M1.27 (not on the blocked M1.22/M1.20 claims); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25/M1.28/M1.29 done |
 | M2 | Map code, activation, updater | **M2.4** (re-open: M9.6); M2.3/M2.5/M2.12/M2.15/M2.18 archived 2026-11-15 |
 | M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.5–M3.8/M3.12/M3.17/M3.21 archived 2026-11-15 |
