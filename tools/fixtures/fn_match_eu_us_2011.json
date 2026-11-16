@@ -42,21 +42,27 @@
     },
     {
       "eu_va": "0x0041a438",
-      "expect": "NOMATCH",
+      "expect": "DIFFERENT",
+      "us_candidate": "0x0044219c",
+      "diff_offset": "0xcc",
       "role": "MMAIN",
-      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task (REFER-family difference is M1.22b's question)"
+      "reason": "M1.22b: identical masked instruction form stream (pool values excluded); the build moved literal-pool values and the displacement immediate at 0xcc. DIFFERENT, not UNIQUE (the pool differs) and not NOMATCH."
     },
     {
       "eu_va": "0x00419350",
-      "expect": "NOMATCH",
+      "expect": "DIFFERENT",
+      "us_candidate": "0x004410b4",
+      "diff_offset": "0x2d0",
       "role": "DRSTR",
-      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+      "reason": "M1.22b: identical masked instruction form stream (pool values excluded); the build moved literal-pool values and the displacement immediate at 0x2d0. DIFFERENT, not UNIQUE (the pool differs) and not NOMATCH."
     },
     {
       "eu_va": "0x004125a8",
-      "expect": "NOMATCH",
+      "expect": "DIFFERENT",
+      "us_candidate": "0x0043a378",
+      "diff_offset": "0xf8",
       "role": "REFER access path (maps type 0x14e8)",
-      "reason": "NOMATCH in the M1.22 baseline; REFER-family difference is M1.22b's question"
+      "reason": "M1.22b: identical masked instruction form stream (pool values excluded); the build moved literal-pool values and the displacement immediate at 0xf8. DIFFERENT, not UNIQUE (the pool differs) and not NOMATCH."
     },
     {
       "eu_va": "0x003fbed8",
@@ -66,15 +72,19 @@
     },
     {
       "eu_va": "0x0040b358",
-      "expect": "NOMATCH",
+      "expect": "DIFFERENT",
+      "us_candidate": "0x00433458",
+      "diff_offset": "0x7c",
       "role": "ADDRE0 resolve",
-      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+      "reason": "M1.22b: identical masked instruction form stream (pool values excluded); the build moved literal-pool values and the displacement immediate at 0x7c. DIFFERENT, not UNIQUE (the pool differs) and not NOMATCH."
     },
     {
       "eu_va": "0x003bc960",
-      "expect": "NOMATCH",
+      "expect": "DIFFERENT",
+      "us_candidate": "0x003ec274",
+      "diff_offset": "0x110",
       "role": "RDSTM",
-      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+      "reason": "M1.22b: identical masked instruction form stream (pool values excluded); the build moved literal-pool values and the displacement immediate at 0x110. DIFFERENT, not UNIQUE (the pool differs) and not NOMATCH."
     },
     {
       "eu_va": "0x003f632c",
@@ -84,9 +94,11 @@
     },
     {
       "eu_va": "0x003f61bc",
-      "expect": "NOMATCH",
+      "expect": "DIFFERENT",
+      "us_candidate": "0x0041eb1c",
+      "diff_offset": "0x54",
       "role": "POI field-index accessor (field 5)",
-      "reason": "NOMATCH in the M1.22 baseline; cause not established by this task"
+      "reason": "M1.22b: identical masked instruction form stream (pool values excluded); the build moved literal-pool values and the displacement immediate at 0x54. DIFFERENT, not UNIQUE (the pool differs) and not NOMATCH."
     },
     {
       "eu_va": "0x00542250",

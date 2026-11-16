@@ -535,14 +535,21 @@ python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json \
 | `0x0041c044` | `0x00443da8` | CMP/`.ind` opener | VERIFIED (content match) |
 | `0x003f632c` | `0x0041ec8c` | POI name accessor | VERIFIED (content match) |
 | `0x00542250` | `0x0056454c` | zlib `inflate` | VERIFIED (content match) |
+| `0x0041a438` | `0x0044219c` | MMAIN | DIFFERENT (identical masked forms; literal pool moved) |
+| `0x00419350` | `0x004410b4` | DRSTR | DIFFERENT (identical masked forms; literal pool moved) |
+| `0x004125a8` | `0x0043a378` | REFER access path (`0x14e8`) | DIFFERENT (identical masked forms; literal pool moved) |
+| `0x0040b358` | `0x00433458` | ADDRE0 resolve | DIFFERENT (identical masked forms; literal pool moved) |
+| `0x003bc960` | `0x003ec274` | RDSTM | DIFFERENT (identical masked forms; literal pool moved) |
+| `0x003f61bc` | `0x0041eb1c` | POI field accessor | DIFFERENT (identical masked forms; literal pool moved) |
+| `0x003f5194` | `0x0041db44` | POINT page walker (`.pdata` GAP, leaf path) | DIFFERENT (one pool word `0x4e8`→`0x4d8`) |
 
-The remaining 8 cited readers are `NOMATCH` in the same run: `0x003f5194`
-(POINT page walker — a `.pdata` `GAP`, so the record-hash path cannot see it;
-M1.27), and `0x0041a438` (MMAIN), `0x00419350` (DRSTR), `0x004125a8`,
-`0x003fbed8`, `0x0040b358` (REFER/ADDRE path), `0x003bc960` (RDSTM),
-`0x003f61bc` (POI field accessor). Whether each is a genuine rewrite or a
-matcher gap is **not** decided here — that is M1.22b; the fixture only freezes
-today's verdicts so a change is visible.
+The remaining cited reader is a genuine rewrite: the ADDRE resolve at
+`0x003fbed8` has a different branch block at `+0x16c` (`bf` vs
+`mov.l @(pc),r3`), 8 resolved calls in EU vs 7 in US, and no masked-form twin;
+its US counterpart is reached only by call context (`0x00424850`, HYPOTHESIS).
+M1.22b decided each of these (EXP-2026-11-16-M1.22b-eu-us-census, C-3622/C-3624):
+7 of the 8 former `NOMATCH` were a matcher gap (relocated literal data), and
+one is a rewrite.
 
 ## Map-code check
 

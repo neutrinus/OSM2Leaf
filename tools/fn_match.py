@@ -695,6 +695,74 @@ def selftest() -> int:
     finally:
         Path(tmp).unlink()
 
+    # ---- M1.22b: a NOMATCH whose masked form stream is unique in B is a
+    # literal-pool difference, not a rewrite. Build the same function twice
+    # with different *non-address* pool constants and prove the verdict.
+    # mov.l @(0x14,pc),r7 ; mov.l @(0x10,pc),r8 ; rts ; pad -> pool at +0x14
+    # mov.l @(0x14,pc),r7 ; mov.l @(0x10,pc),r8 ; rts ; nop ; then the pool
+    body2 = [0xD704, 0xD806, 0x000B, 0x0009, 0x0009, 0x0000,
+             0x0000, 0x0000, 0x0000, 0x0000]
+    def make_two(pool_a, pool_b):
+        buf = bytearray(0x800)
+        for i, w in enumerate(body2):
+            struct.pack_into("<H", buf, 2 * i, w)
+        struct.pack_into("<I", buf, 0x14, pool_a)
+        struct.pack_into("<I", buf, 0x18, pool_b)
+        return buf
+    ca = make_two(0x1111, 0x2222)
+    cb = make_two(0x3333, 0x4444)
+    words2 = body2 + [0x0000, 0x0000, 0x0000, 0x0000]
+    fa = [(0x1000, words2, (0x1000, 0x1800), bytes(ca), 0x1000)]
+    fb = [(0x5000, words2, (0x5000, 0x5800), bytes(cb), 0x5000)]
+    mM = Matcher.__new__(Matcher)
+    mM.fa, mM.fb = fa, fb
+    mM.code_bytes_a, mM.code_bytes_b = bytes(ca), bytes(cb)
+    mM.code_a = {"realaddr": 0x1000}
+    mM.code_b = {"realaddr": 0x5000}
+    mM.lr_a, mM.lr_b = (0x1000, 0x1800), (0x5000, 0x5800)
+    mM.imports_a, mM.imports_b = {}, {}
+    mM.seq_a, mM.seq_b = {}, {}
+    mM._fb_by_va = {0x5000: (words2, mM.lr_b, mM.code_b, 0x5000)}
+    mM._a_forms = mM._b_forms = None
+    got = mM._pool_only_twin(0x1000, words2, bytes(ca), 0x1000)
+    check("pool-only twin: equal masked forms + different constants -> explained",
+          got is not None and got[0] == 0x5000 and got[1] is not None)
+    # a real instruction change must NOT be explained away
+    body3 = list(body2)
+    body3[0] = 0x0008            # mov #0,r0 instead of nop
+    fb_changed = [(0x5000, body3 + words2[len(body2):], mM.lr_b, bytes(cb), 0x5000)]
+    mM.fb = fb_changed
+    mM._fb_by_va = {0x5000: (fb_changed[0][1], mM.lr_b, mM.code_b, 0x5000)}
+    mM._a_forms = mM._b_forms = None
+    check("pool-only twin: a changed opcode stays unexplained (NOMATCH)",
+          mM._pool_only_twin(0x1000, words2, bytes(ca), 0x1000) is None)
+
+    # (b) two B functions with the same masked form stream are ambiguous: the
+    # A function must stay NOMATCH, never be paired with a coin flip.
+    mM.fb = [(0x5000, words2, mM.lr_b, bytes(cb), 0x5000),
+             (0x6000, words2, (0x6000, 0x6800), bytes(cb), 0x6000)]
+    mM._fb_by_va = {va: (w, lr, mM.code_b, cc)
+                    for va, w, lr, cc in [(0x5000, words2, mM.lr_b, 0x5000),
+                                          (0x6000, words2, (0x6000, 0x6800), 0x6000)]}
+    mM._a_forms = mM._b_forms = None
+    check("pool-only twin: two identical twins stay NOMATCH (ambiguous)",
+          mM._pool_only_twin(0x1000, words2, bytes(ca), 0x1000) is None)
+
+    # (c) a pool-masking cascade: B's first halfword is a load whose slot lands
+    # on a different file offset, so the *masked* streams differ. That is not a
+    # pool-value difference and must not be explained away.
+    body4 = [0x0009] + body2[1:]     # A loads a literal where B has a nop
+    cb4 = bytearray(0x800)
+    for i, w in enumerate(body4):
+        struct.pack_into("<H", cb4, 2 * i, w)
+    struct.pack_into("<I", cb4, 0x14, 0x3333)
+    struct.pack_into("<I", cb4, 0x18, 0x4444)
+    mM.fb = [(0x5000, body4 + words2[len(body4):], mM.lr_b, bytes(cb4), 0x5000)]
+    mM._fb_by_va = {0x5000: (mM.fb[0][1], mM.lr_b, mM.code_b, 0x5000)}
+    mM._a_forms = mM._b_forms = None
+    check("pool-only twin: a shifted masked stream stays unexplained (NOMATCH)",
+          mM._pool_only_twin(0x1000, words2, bytes(ca), 0x1000) is None)
+
     print("fn_match selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))
     return 1 if fails else 0
@@ -934,6 +1002,14 @@ class Matcher:
             d, _, _ = fingerprint(words, va, lr, cb, cbase)
             self.a_hash.setdefault(d, []).append(va)
 
+        # instruction-stream index (pool values excluded): a NOMATCH whose
+        # opcode/register stream equals exactly one B function is a pool-data
+        # difference, not a rewrite (M1.22b).
+        self.b_cdig: dict[str, list[int]] = {}
+        for va, words, lr, cb, cbase in self.fb:
+            d = code_digest(words, va, cb, cbase)
+            self.b_cdig.setdefault(d, []).append(va)
+
         # call-sequence map for propagation: digest per pdata record in each build
         dig_a = record_digest_map(self.fa)
         dig_b = record_digest_map(self.fb)
@@ -964,6 +1040,8 @@ class Matcher:
         self._called_a: list[int] | None = None
         self._called_b: list[int] | None = None
         self.force_leaf = False
+        self._a_forms: set[str] | None = None
+        self._b_forms: dict[str, list[int]] | None = None
         self._starts_a = pdata_starts(self.pdata_a)
         self._starts_b = pdata_starts(self.pdata_b)
 
@@ -1135,6 +1213,63 @@ class Matcher:
                 "%#010x" % bva if bva is not None else "-"))
         return (va, bva, verdict, kind, diff)
 
+    def _propagate(self, entry, words, cb, cbase):
+        """One-hop call-order propagation, then the pool-only explanation.
+
+        The call-order step finds a B function whose callee digest sequence
+        equals the A function's, with every callee known. It returns
+        ``(verdict, bva)``.
+        """
+        a_seq = self.seq_a.get(entry, ())
+        if a_seq and "?" not in a_seq:
+            hits = [bv for bv, sb in self.seq_b.items() if sb == a_seq]
+            if len(hits) == 1:
+                return "CALLORDER", hits[0]
+            if hits:
+                return "AMBIGUOUS", None
+        return "NOMATCH", None
+
+    def _pool_only_twin(self, entry, words, cb, cbase):
+        """Explain a NOMATCH as a literal-pool/literal-immediate change.
+
+        The test is on the **masked form stream**: per instruction, the form
+        (branch class and in-span bit, load form and destination, otherwise
+        the halfword itself) with this build's own literal-pool slots
+        blanked. Two functions with equal masked form streams have the same
+        opcodes, the same register allocation and the same branch structure;
+        only literal-pool values (and the immediate fields of the load forms)
+        differ -- a data pointer into a section whose base shifted, a table
+        entry, a small constant -- and the build-relative jump targets differ
+        in their displacement words, which the form blanking already covers.
+
+        Returns ``(b_va, first_diff, note)`` when exactly one B function has
+        that stream; ``None`` for zero or several (the caller keeps NOMATCH).
+        ``first_diff`` is the ``leaf_compare`` tuple or None when every pool
+        value is equal too.
+        """
+        if self._a_forms is None:
+            self._a_forms = {code_digest(w, va, cb, cc)
+                             for va, w, _lr, cb, cc in self.fa}
+            self._b_forms = {}
+            for va, w, _lr, cb, cc in self.fb:
+                self._b_forms.setdefault(code_digest(w, va, cb, cc), []).append(va)
+        cdig = code_digest(words, entry, cb, cbase)
+        twins = self._b_forms.get(cdig, [])
+        if len(twins) != 1:
+            return None
+        bva = twins[0]
+        b_words, _b_lr, _b_cb, _b_cbase = self._fb_by_va[bva]
+        diff = leaf_compare(
+            words, entry, self.code_bytes_a, self.code_a["realaddr"],
+            self.lr_a, b_words, bva, self.code_bytes_b,
+            self.code_b["realaddr"], self.lr_b,
+            frozenset(self.imports_a), frozenset(self.imports_b))
+        if diff is None:
+            note = "identical masked form stream and pool values"
+        else:
+            note = "identical masked form stream; literal/pool values differ"
+        return bva, diff, note
+
     def verdict(self, va):
         """(EU va, US va|None, verdict, pdata class[, diff]) for one EU address."""
         kind, rec = locate(self.pdata_a, va)
@@ -1154,19 +1289,22 @@ class Matcher:
         elif cand:
             verdict, bva = "AMBIGUOUS", None
         else:
-            # one-hop call-order propagation: find B functions whose callee
-            # digest sequence equals the A function's, with every callee known
-            a_seq = self.seq_a.get(entry, ())
-            if a_seq and "?" not in a_seq:
-                hits = [bv for bv, sb in self.seq_b.items() if sb == a_seq]
-                if len(hits) == 1:
-                    verdict, bva = "CALLORDER", hits[0]
-                elif hits:
-                    verdict, bva = "AMBIGUOUS", None
-                else:
-                    verdict, bva = "NOMATCH", None
-            else:
-                verdict, bva = "NOMATCH", None
+            verdict, bva = self._propagate(entry, words, cb, cbase)
+        diff = None
+        if verdict == "NOMATCH":
+            explained = self._pool_only_twin(entry, words, cb, cbase)
+            if explained is not None:
+                bva, diff, kind_txt = explained
+                verdict = "DIFFERENT"
+                if diff is not None:
+                    i, aw2, ap, bw2, bp = diff
+                    print("%#010x  %-9s pdata=%-6s A-fn %#010x (%d B, %d calls)"
+                          " -> %#010x  %s; first diff @+%#x: EU %s / US %s"
+                          % (va, verdict, kind, entry, len(words) * 2,
+                             len(self.seq_a.get(entry, ())), bva, kind_txt,
+                             2 * i, _pair_text(aw2, ap),
+                             _pair_text(bw2, bp)))
+                    return (va, bva, verdict, kind, diff)
         print("%#010x  %-9s pdata=%-6s A-fn %#010x (%d B, %d calls) -> %s" % (
             va, verdict, kind, entry, len(words) * 2,
             len(self.seq_a.get(entry, ())),

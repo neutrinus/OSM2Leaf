@@ -162,6 +162,14 @@ US_BUILD_STARTS = frozenset({
     0x00443DA8,  # CMP/.ind opener           (EU 0x0041c044)
     0x0041EC8C,  # POI name accessor         (EU 0x003f632c)
     0x0056454C,  # zlib purge                (EU 0x00542250)
+    # M1.22b: the six readers whose masked instruction-form stream is unique
+    # in the US build (C-3622). Same form stream, moved literal pool.
+    0x0044219C,  # MMAIN                  (EU 0x0041a438)
+    0x004410B4,  # DRSTR                  (EU 0x00419350)
+    0x0043A378,  # REFER access path      (EU 0x004125a8)
+    0x00433458,  # ADDRE0 resolve         (EU 0x0040b358)
+    0x003EC274,  # RDSTM                  (EU 0x003bc960)
+    0x0041EB1C,  # POI field accessor     (EU 0x003f61bc)
 })
 
 

@@ -17,6 +17,7 @@
       "reader": "synthetic",
       "what": "synthetic SH-4 probe: 2x sprintf, CreateFileW, ReadFile, CloseHandle",
       "module": null,
+      "build": "eu2011",
       "entry": {
         "kind": "synthetic",
         "program": "probe_zlib_cmf_v1",
@@ -89,6 +90,7 @@
       "reader": "hdd_info",
       "what": "VER_INFO/HDD_INFO.TXT map-code parser and comparator",
       "module": null,
+      "build": "eu2011",
       "entry": {
         "kind": "blocked",
         "program": null,
@@ -126,6 +128,7 @@
       "reader": "cmp_ind",
       "what": "REFER001 .cmp + .ind chunk reader (firmware fn 0x0041c7dc, M3.2b/M9.11)",
       "module": "Navi.exe",
+      "build": "eu2011",
       "entry": {
         "kind": "firmware_call",
         "program": "cmp_ind_chunk_v1",
@@ -173,6 +176,7 @@
       "reader": "tile",
       "what": "MAPAL001 BxxRyyR.DAT tile reader (MESH_ID/DIVID, 0x1ac level table)",
       "module": null,
+      "build": "eu2011",
       "entry": {
         "kind": "blocked",
         "program": null,
@@ -213,6 +217,7 @@
       "reader": "drstr",
       "what": "DRSTR001.DAT tree parser (40-byte nodes, 32-byte entries)",
       "module": null,
+      "build": "eu2011",
       "entry": {
         "kind": "blocked",
         "program": null,
@@ -254,6 +259,7 @@
       "reader": "hdd_info",
       "what": "retired map-code comparator chain (Sys[...] vs SD[...])",
       "module": null,
+      "build": "eu2011",
       "entry": {
         "kind": "blocked",
         "program": null,
