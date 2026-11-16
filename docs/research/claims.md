@@ -3124,14 +3124,14 @@ to `ec58d12`.
 ## H79 — The US-head evidence is re-creatable (C-4020–C-4029)
 
 `EXP-2026-11-16-M1.31-leaf-census` (6 mentions) and C-3741/C-3742/C-3962/C-3965
-(4 mentions) named the US head as `/tmp/opencode/us256.img`, a scratch path a
+(4 mentions) named the US head as a scratch `/tmp/opencode/` file, which a
 fresh checkout cannot reproduce. The head is now `archive/us256.img`, re-created
 by one `head -c` line from the git-ignored vendor image; every number is
 unchanged.
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-4020 | On `main` before H79 the M1.31 EXP names `/tmp/opencode/us256.img` 6 times and the ledger 4 times (C-3741, C-3742, C-3962, C-3965); after H79 both counts are 0. | VERIFIED (tool) | H | EXP-2026-11-16-M1.31-leaf-census; `git show origin/main:docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md \| grep -c '/tmp/opencode/us256.img'`, same for `docs/research/claims.md` |
+| C-4020 | On `main` before H79 the M1.31 EXP named the US head as a scratch `/tmp/opencode/` file 6 times and the ledger 4 times (C-3741, C-3742, C-3962, C-3965); after H79 neither names it. | VERIFIED (tool) | H | EXP-2026-11-16-M1.31-leaf-census; `git show origin/main:docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md \| grep -c '/tmp/opencode/us256[.]img'`, same for `docs/research/claims.md` |
 | C-4021 | The US head is re-creatable and pinned: `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` prints `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da` under `sha256sum`, the same hash the EXP and the fixture pin. Both paths are git-ignored. | VERIFIED (tool) | H | EXP-2026-11-16-M1.31-leaf-census; `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img; sha256sum archive/us256.img` |
 | C-4022 | Re-run on the re-created head, the M1.31 numbers are unchanged: `python3 tools/pdata.py leaves archive/head256.img --module Navi.exe --called records` still prints `complete 598 (leaf 579), no-rts stub 77 (leaf 54)` and `rts beyond cap … 2`; `fn_match … --va 0x00558300` still prints `TRUNCATED … cap 0x400, natural bound 0x4a16` with `truncated: 1`; the fixture still replays `13 rows, 0 mismatch`. | VERIFIED (tool, real image) | H | EXP-2026-11-16-M1.31-leaf-census; the three commands in its `Correction (H79)` section |
 | C-4023 | The same scratch path was used by the M1.28 rows: C-3741 and C-3742 now name `archive/us256.img`, and C-3742's flip step is runnable as written (`cp archive/us256.img /tmp/opencode/us256-flip.img` + a seek(1000) XOR) and still prints `FAIL US SHA-256 83b54ba2…, fixture expects 70d945d8…`; the perturbed-fixture row still prints `MISMATCH US VA 0x00444540, fixture expects 0x00444542`. | VERIFIED (tool, negative control) | H | EXP-2026-11-16-M1.31-leaf-census; C-3742's evidence command as rewritten |
