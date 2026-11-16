@@ -1,0 +1,39 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (subagent, session agent)
+start_utc: 2026-11-16 00:18
+end_utc: TBD
+origin_main_start: 26f33cd (docs: sm retro 2026-11-16 cycle 4; solo-oracle prompt split)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-16-1.md, docs/retro/2026-11-15-4.md
+- dev_process/2026-11-16-{0013-3-tl,0015-4-sm}.log
+- docs/experiments/EXP-2026-11-16-{H52-fn-citations,H64-factory-root-guards}.md
+- docs/research/claims.md C-3490–C-3499, C-3840–C-3849
+- TODO.md H52/H63/M1.26/H58/H61/H60 blocks
+
+verification (cheap, on main 26f33cd; archive/head256.img present):
+- selftest --only fn_audit PASS; --only one_tile_pipeline PASS.
+- fn_audit archive/head256.img: exit 0, INSIDE 0, 315 citations, START 229/CORRECTED 25/GAP 29/UNMAPPED 32; --fix-list empty (exit 0). Matches C-3491 + EXP.
+- claims_check OK; todo_check OK (172 tasks, 0 errors, 147 warnings before edits).
+- EXP review: both H52 and H64 follow TEMPLATE (sample SHA, runnable commands, pos+neg controls, counted corpus, falsifier, Observations vs Interpretation). Follow-ups present.
+- Evidence rows C-349x/C-384x: C-3493/C-3494 have `…` in the command span, C-3840 has `sha256sum …/`, C-3843 says "same command as C-3840" (no invocation) — the H58 non-runnable-evidence class; not fatal (H58 not landed) but a real gap → H66.
+- Prompt edit verified: prompt_tl.txt line 15 has the split "byte/exit check" solo bullet and "scope or evidence edits a gate's pass/fail semantics or a standing-gate constant" pair clause.
+
+H63 coherence post-H52 (checked):
+- H63's purpose is intact: CORRECTED still merges line-resolved and pin-resolved rows. Its frozen b56fed2 arithmetic reproduces exactly (START 190, INSIDE 33, CORRECTED 13; pop 0x00542256 -> INSIDE 36, CORRECTED 10).
+- But its live example cited TODO.md:751 and "three more CORRECTED rows", which moved after H52. Corrected to the b56fed2 line 714 example + measured live main (26f33cd): INSIDE 0/CORRECTED 25; pin-pop -> INSIDE 5/CORRECTED 20.
+- Tested my own edit's self-reference: adding the pinned VAs to H63's goal raised pin-pop INSIDE 5->10, proving the corpus drift M1.30 must fix. Reworded to avoid naming a line that moved.
+
+tasks added:
+- M1.30 (C-3860–C-3869, Pair: required): freeze fn_audit corpus to committed snapshot (--write-snapshot/--corpus), input to M1.26 gate + H63 Pin re-check. Retro action 5 had no owning task.
+- H66 (C-3870–C-3879, Pair: required): claims evidence span rule (…, "same command as") + --flag-audit for parsed-unused flags; the H64/H58/H61 class.
+- H67 (C-3880–C-3889, Pair: required): H64's parseable-but-wrong-tile Follow-up had no owning task; bind tile to cell or record a negative.
+- Changed H63 (Goal/Precheck wording + M1.30 reference), M1.26 (Note: gate runs on M1.30 snapshot; Depends line).
+
+decisions:
+- Did not close H63 as redundant: its split is orthogonal to H52's INSIDE-0 (a CORRECTED row still hides why it resolved).
+- Kept M1.30 separate from M1.26 (the freezer is used by both H63 and the gate; one owner).
+- Did not edit claims or EXPs (append-only); H66 is the task to standardize evidence spans.
+
+handoff: TL — M1.26 now depends on M1.30 for its frozen base; H63 should land before/with M1.30 so the split exists when the snapshot is frozen. Human: worktrees/ahead-branches unchanged.
