@@ -819,8 +819,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if H62 is the only clean way to name the US head, mark this blocked on H62 (rule 15) rather than citing a `/tmp` path; never re-type a histogram the fixture command does not print.
   - Claims: C-3970–C-3979
 
-- [ ] **H76 — `selftest.py` pins `L3 OVERLAY: 0 moved`, so any TODO edit reddens the full suite (H69's exact-string residual)**
-  - Status: in progress · Owner: task/h76-l3-image-assert · Critical: no · Pair: solo
+- [x] **H76 — `selftest.py` pins `L3 OVERLAY: 0 moved`, so any TODO edit reddens the full suite (H69's exact-string residual)**
+  - Status: done · Owner: task/h76-l3-image-assert · Critical: no · Pair: solo
   - Depends: H69 (done: moved-only is a warning, exit 0), M1.26 (done: the `fn_audit_l3_image` suite this fixes)
   - Goal: `test_fn_audit_scope_l3_image` asserts the literal string `CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved`, but H69's policy says a moved-only identity set is a `CORPUS DRIFT` warning with **exit 0**; H74's TODO edit moved 51 l3 lines, so `main` prints `CORPUS DRIFT: … 0 new / 0 gone / 51 moved` and the full `selftest.py` is RED (`passed=89 failed=1`). This is the same brittle exact-string class H69 removed for the gate's pass/fail; fix the test, not the corpus.
   - Precheck: `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --overlay docs/research/fn-audit-l3-corpus-2026-11-16.json --quiet` prints `CORPUS DRIFT: L3 OVERLAY: 0 new / 0 gone / 51 moved` and exits 0; `python3 tools/selftest.py` is RED on `fn_audit_l3_image` (AssertionError on the literal).

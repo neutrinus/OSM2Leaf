@@ -3040,3 +3040,24 @@ ledger. `tools/fn_match.py`/`tools/fn_audit.py` footers now print the count.
 | C-3957 | `tools/fn_match.py --selftest` now prints `fn_match selftest: OK (29 checks, 0 failed)` and `tools/fn_audit.py --selftest` prints `selftest: OK (70 checks, 0 failed)`, counting the `check()` calls they run rather than inferring it from source (`grep -c 'check('` counts unreachable branches). Both selftests still pass and `selftest.py --only fn_match`/`--only fn_audit` pass. | VERIFIED (tool) | H | EXP-2026-11-16-H74-claims-count-check; `python3 tools/fn_match.py --selftest`, `python3 tools/fn_audit.py --selftest`, `python3 tools/selftest.py --only fn_match --only fn_audit` |
 | C-3958 | H58's command-form `bad_evidence` and H61's EXP-name rule are still `open` on `main` at `0650616`, so `claims_check.py` had no `--strict` flag before H74 and H74 adds it; the path rule here is a fresh implementation of H61's intent (existence after a `;`), not a call into an unmerged parser. | VERIFIED (tool + board) | H | EXP-2026-11-16-H74-claims-count-check; `grep -n 'def bad_evidence\|--strict' tools/claims_check.py` |
 | C-3959 | RESERVED (H74). | — | — | — |
+
+## H76 — l3 image suite accepts the H69 moved-only outcome (C-3990–C-3999)
+
+`tools/selftest.py`'s `test_fn_audit_scope_l3_image` pinned the exact string
+`CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved`; H69 made a moved-only
+identity set a `CORPUS DRIFT` warning with exit 0, so any `TODO.md` edit that
+shifts l3 citation lines reddened the full suite. The assertion is relaxed to
+the identity set, not the byte position.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3990 | `test_fn_audit_scope_l3_image` pins the exact `CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved`; after H74's `TODO.md` edit (51 l3 lines moved) the gate correctly prints `CORPUS DRIFT: L3 OVERLAY: 0 new / 0 gone / 51 moved` with exit 0, the literal is absent (`grep -c` prints `0`), and `python3 tools/selftest.py` fails at `fn_audit_l3_image` (`passed=89 failed=1 skipped=23 total=113`). | VERIFIED (tool) | H | EXP-2026-11-16-H76-l3-image-assert; `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --overlay docs/research/fn-audit-l3-corpus-2026-11-16.json --quiet`, `python3 tools/selftest.py` |
+| C-3991 | The suite now requires `CORPUS (OK\|DRIFT): L3 OVERLAY: 0 new / 0 gone / N moved` and no `CORPUS STALE`, so a moved-only run is a pass and a real `new`/`gone` still fails (exit 1 is already asserted separately). `python3 tools/selftest.py --only fn_audit_l3_image` prints `passed=1 failed=0 skipped=0 total=1` and the full suite `passed=90 failed=0 skipped=23 total=113`. | VERIFIED (tool) | H | EXP-2026-11-16-H76-l3-image-assert; `python3 tools/selftest.py --only fn_audit_l3_image`, `python3 tools/selftest.py` |
+| C-3992 | The relaxed assertion is not vacuous: an overlay with one row deleted makes the gate print `CORPUS STALE: L3 OVERLAY: 1 new / 0 gone / N moved` and exit 1; the same regex no longer matches (`regex matched= False`) and the assertion fails, so the test still catches a genuine corpus change. | VERIFIED (tool) | H | EXP-2026-11-16-H76-l3-image-assert; a `rows[0]`-deleted copy of `docs/research/fn-audit-l3-corpus-2026-11-16.json` fed to `--overlay` |
+| C-3993 | RESERVED (H76). | — | — | — |
+| C-3994 | RESERVED (H76). | — | — | — |
+| C-3995 | RESERVED (H76). | — | — | — |
+| C-3996 | RESERVED (H76). | — | — | — |
+| C-3997 | RESERVED (H76). | — | — | — |
+| C-3998 | RESERVED (H76). | — | — | — |
+| C-3999 | RESERVED (H76). | — | — | — |
