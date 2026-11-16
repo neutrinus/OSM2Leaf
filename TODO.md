@@ -900,8 +900,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if a corpus has no reproducible parser, list it as `NOT SCANNED` with the reason rather than guessing.
   - Claims: C-3660–C-3669
 
-- [ ] **M1.27 — `fn_match` leaf path: match pdata-`GAP` functions (the POINT walker) before the full census**
-  - Status: in progress · Owner: task/m1.27-fn-match-leaf · Critical: yes · Pair: required
+- [x] **M1.27 — `fn_match` leaf path: match pdata-`GAP` functions (the POINT walker) before the full census**
+  - Status: done · Owner: task/m1.27-fn-match-leaf · Critical: yes · Pair: required
   - Depends: — (`fn_match.py`, `pdata.py`, `sh4dis.py`, `sh4xref.py` are on `main` since `777fb68`; the `M1.22`/`M1.20` claims are blocked but their tools merged)
   - Goal: M1.22b's done-when needs ≥90 % of the 13 cited EU readers matched EU→US; the current 8 NOMATCH include the POINT walker `0x003f5194`, which is a `.pdata` `GAP` (leaf), so the record-hash path can never match it. Separate "the matcher cannot see leaves" from "the code really changed" with one reproducible control before spending the census effort.
   - Precheck: `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x003f5194` prints `GAP` (positive control for the leaf class); `python3 tools/fn_match.py match archive/head256.img archive/head256.img --module Navi.exe --va 0x003f5194` prints `UNIQUE` (EU-vs-EU control); the EU→US run on a real US256 reports it `NOMATCH` (the defect this task fixes).
@@ -911,6 +911,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `fn_match --leaf` maps `0x003f5194` EU→US `UNIQUE` (or `DIFFERENT` with the first differing instruction pair) on a real US256; the selftest covers a synthetic GAP leaf with a relocated pool word; the regression guard is `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us <US256> --module Navi.exe` (M1.28) exiting 0 on all 13 rows, with the five `UNIQUE` US VAs unmoved; the 13-VA table's leaf rows are updated in M1.22b's EXP scope; `selftest.py` passes.
   - Stop: if the POINT walker is genuinely rewritten, record `DIFFERENT` + the instruction pairs and hand M1.22b the "US POINT reader must be re-located" branch; do not force a match.
   - Claims: C-3700–C-3709
+  - Result: EXP-2026-11-16-M1.27-fn-match-leaf; C-3700–C-3705 (C-3706–C-3709 reserved). `tools/fn_match.py` adds a leaf path for `.pdata` `GAP` targets: cut at `rts`, hash with the `record_digest_map` reloc masking, and when the hash differs pick the US candidate through the EU caller's `jsr` site (caller matched by `code_digest`, callee literal read at the same instruction index); `--leaf` forces it and a `DIFFERENT` leaf prints the first differing instruction + pool value. On EU `92aa525d…` / US `70d945d8…`, `--leaf --va 0x003f5194` is `DIFFERENT -> 0x0041db44`, first diff `@+0x14` (`0x04e8` EU vs `0x04d8` US); the walker is not rewritten. The M1.28 guard replays `13 rows, 0 mismatch`, exit 0 (`unique: 5  different: 1  nomatch: 7`) with the five `UNIQUE` US VAs unmoved; the fixture's `0x003f5194` row is now `DIFFERENT` with `us_candidate 0x0041db44`. Shifted candidate/offset/pinned US VA each exit 1; `--selftest` 22/22, `selftest.py` 88 passed / 0 failed.
 
 - [x] **M1.28 — Match `fn_match` against the frozen US per-address bytes without an `M1.22` k-claim**
   - Status: done · Owner: task/m1.28-eu-us-fixture · Critical: yes · Pair: required

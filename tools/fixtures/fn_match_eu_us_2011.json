@@ -17,9 +17,11 @@
   "rows": [
     {
       "eu_va": "0x003f5194",
-      "expect": "NOMATCH",
+      "expect": "DIFFERENT",
+      "us_candidate": "0x0041db44",
+      "diff_offset": "0x14",
       "role": "POINT page walker",
-      "reason": "pdata GAP (leaf); the record-hash path cannot see it, so this row is the M1.27 --leaf target, not evidence of changed code"
+      "reason": "pdata GAP (leaf). M1.27 leaf path: identical instruction stream found through the caller context; first differing pair at +0x14 is the non-address pool constant 0x04e8 (EU) vs 0x04d8 (US). DIFFERENT, not a forced UNIQUE."
     },    {
       "eu_va": "0x0041c7dc",
       "expect": "UNIQUE",

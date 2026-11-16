@@ -1,0 +1,56 @@
+role: se (M1.27 driver)
+model: opencode/deepseek-v4.1-flash-free (subagent, session agent)
+start_utc: 2026-11-16 03:05 UTC
+end_utc: 2026-11-16 03:40 UTC
+origin_main_start: 8098ee2 (chore: qa work log 2026-11-16)
+worktree: /tmp/opencode/wt-m1.27 (branch task/m1.27-fn-match-leaf)
+PR: #193 (draft)
+
+inputs read:
+- AGENTS.md, prompt_common.txt, TODO.md M1.27 block and rule 1-16
+- docs/experiments/TEMPLATE.md, docs/research/claims.md (M1.28 rows)
+- tools/fn_match.py, tools/pdata.py, tools/sh4xref.py
+
+actions:
+- claimed M1.27 with a TODO-only commit, pushed, draft PR #193
+- ran the precheck: EU 0x003f5194 = GAP; EU-vs-EU UNIQUE; EU->US NOMATCH
+  (the defect) — reproduced the M1.22b/M1.28 baseline (5 unique / 8 nomatch)
+- found the US leaf at 0x0041db44 via first-halfword window and
+  `sh4xref --to 0x0041db44`; caller EU fn 0x003f5cdc -> US fn 0x0041e63c
+- implemented the leaf path in tools/fn_match.py: trim_words, code_digest,
+  leaf_call_sites, leaf_tokens/leaf_compare/_pair_text, Matcher._context_candidates,
+  Matcher._leaf_verdict, verdict() routing + force_leaf, --leaf CLI, JSON diff,
+  DIFFERENT support in load_fixture/compare_rows
+- rewrote the fixture 0x003f5194 row NOMATCH -> DIFFERENT (us_candidate
+  0x0041db44, diff_offset 0x14); five UNIQUE rows untouched
+- EXP docs/experiments/EXP-2026-11-16-M1.27-fn-match-leaf.md; claims
+  C-3700-C-3705 (C-3706-C-3709 reserved)
+
+decisions:
+- kept the leaf path ON by default for GAP targets (not only under --leaf), so
+  the M1.28 guard and M1.22b precheck report DIFFERENT instead of the misleading
+  NOMATCH; --leaf stays as the forced debugging switch
+- did NOT force UNIQUE: the pool constant 0x04e8 -> 0x04d8 is a real EU/US
+  difference; the honest verdict is DIFFERENT + the pair (task Stop: do not
+  force a match)
+- did NOT edit docs/format/firmware.md's EU->US table: the TODO Done-when hands
+  "the 13-VA table's leaf rows" to M1.22b's EXP scope
+
+results:
+- fn_match match EU US --leaf --va 0x003f5194 -> DIFFERENT @+0x14
+  EU 0x9414 (pool 0x4e8) / US 0x9414 (pool 0x4d8)
+- fn_match --fixture ... --us us256.img -> 13 rows, 0 mismatch, exit 0
+  (5 unique / 1 different / 7 nomatch); five UNIQUE US VAs unmoved
+- fn_match --selftest 22/22 OK; selftest.py 88 passed / 0 failed / 23 skipped
+
+problems:
+- initial _instruction_tokens tokens were 2 bytes while the pool pass gave 4,
+  so `off in pool_bytes` missed the 2nd half of every mov.l literal; fixed by
+  iterating pool bytes per halfword slot
+- the caller's `jsr` was not reached because the scan stopped at the `bra`
+  that skips a load; decoupled the scan from branch boundaries
+
+handoff:
+- M1.22b: take the DIFFERENT pair for 0x003f5194 and update the firmware.md
+  table; run --leaf (or the default path) on the 7 remaining NOMATCH readers
+- M9.10: confirm which 0x04e8/0x04d8 value the walker consumes per card

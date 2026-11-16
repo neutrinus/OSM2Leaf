@@ -243,6 +243,171 @@ def fingerprint(words, base_va: int, load_range, image_bytes: bytes,
     return fp.hexdigest(), bsr_targets, pool_sites
 
 
+def trim_words(words):
+    """Cut a leaf window at its ``rts`` (keeping the delay slot).
+
+    A pdata ``GAP`` has no length; the gap can run into the following literal
+    pool or the next function, so the instruction stream has to end on its own
+    ``rts``.  Returns ``words`` unchanged when no ``rts`` is present (the
+    caller then relies on the next ``START`` bound).
+    """
+    for i, w in enumerate(words):
+        if w == 0x000B:
+            return words[:i + 2] if i + 1 < len(words) else words[:i + 1]
+    return words
+
+
+def _instruction_tokens(words, base_va, image_bytes, code_base):
+    """One normalised token per halfword, pool *locations* zeroed.
+
+    This is the instruction half of ``fingerprint`` without pass 3 (pool
+    contents).  Two functions with equal tokens have the same code and differ
+    at most in the values their literal pools hold; it lets a caller match a
+    callee even when a relocated constant inside the callee moved.
+    """
+    pool_bytes: set[int] = set()
+    for i, w in enumerate(words):
+        if not is_mov_pc(w):
+            continue
+        va = base_va + 2 * i
+        lit = pool_addr(va, w)
+        off2 = lit - code_base
+        size = 4 if (w >> 12) == 0xD else 2
+        for k in range(size):
+            pool_bytes.add(off2 + k)
+
+    tokens: list[bytes] = []
+    n = len(words)
+    span = 2 * n
+    for i, w in enumerate(words):
+        va = base_va + 2 * i
+        off = va - code_base
+        if off in pool_bytes:
+            tokens.append(b"\x00\x00")
+            continue
+        if is_branch(w):
+            tgt = branch_target(va, w)
+            same = base_va <= tgt < base_va + span
+            cls = (w >> 12) if (w >> 12) in (0xA, 0xB) else 0x80 | ((w >> 8) & 0xF)
+            tokens.append(struct.pack("<BB", cls, 1 if same else 0))
+            continue
+        if is_mov_pc(w):
+            tokens.append(struct.pack("<BH", (w >> 12), (w >> 8) & 0xF))
+            continue
+        tokens.append(struct.pack("<H", w))
+    return tokens
+
+
+def code_digest(words, base_va, image_bytes, code_base):
+    """Digest of the instruction stream only (pool values excluded)."""
+    fp = hashlib.sha256()
+    for t in _instruction_tokens(words, base_va, image_bytes, code_base):
+        fp.update(t)
+    return fp.hexdigest()
+
+
+def _pool_value(words, i, base_va, image_bytes, code_base):
+    """Value of the pool word loaded by ``words[i]`` (4 or 2 bytes), or None."""
+    w = words[i]
+    lit = pool_addr(base_va + 2 * i, w)
+    off = lit - code_base
+    size = 4 if (w >> 12) == 0xD else 2
+    if 0 <= off and off + size <= len(image_bytes):
+        if size == 4:
+            return struct.unpack_from("<I", image_bytes, off)[0]
+        return struct.unpack_from("<H", image_bytes, off)[0]
+    return None
+
+
+def leaf_call_sites(words, base_va, image_bytes, code_base):
+    """[(call_insn_index, callee_va)] for direct and pool-loaded calls.
+
+    A direct ``bsr`` names its callee in the displacement.  A far call loads the
+    callee address from the literal pool and executes ``jsr @Rn`` (the SH-4
+    idiom); the callee is the pool *value*, which relocates with the build, so
+    it is deliberately not masked by the load range.  Sites are deduplicated by
+    (index, callee) because one ``jsr`` may be fed by more than one pool load.
+    """
+    sites = set()
+    n = len(words)
+    for i, w in enumerate(words):
+        if is_bsr(w):
+            sites.add((i, branch_target(base_va + 2 * i, w)))
+            continue
+        if (w >> 12) != 0xD:
+            continue
+        reg = (w >> 8) & 0xF
+        val = _pool_value(words, i, base_va, image_bytes, code_base)
+        if val is None:
+            continue
+        for k in range(1, 13):
+            j = i + k
+            if j >= n:
+                break
+            u = words[j]
+            if (u & 0xF0FF) == 0x400B and ((u >> 8) & 0xF) == reg:
+                sites.add((j, val))
+                break
+    return sorted(sites)
+
+
+def leaf_tokens(words, base_va, image_bytes, code_base, load_range,
+                iat_slots=frozenset()):
+    """Per-instruction tokens with referenced pool *values* merged in.
+
+    Extends ``_instruction_tokens`` so a changed non-address pool constant
+    surfaces on the instruction that loads it (the first differing pair).
+    A relocated pointer or IAT slot is masked, as in ``fingerprint``.
+    """
+    lo, hi = load_range
+    toks = _instruction_tokens(words, base_va, image_bytes, code_base)
+    out = list(toks)
+    for i, w in enumerate(words):
+        if not is_mov_pc(w):
+            continue
+        val = _pool_value(words, i, base_va, image_bytes, code_base)
+        if val is None or lo <= val < hi or val in iat_slots:
+            continue
+        if w >> 12 == 0xD:
+            out[i] = out[i] + struct.pack("<I", val)
+        else:
+            out[i] = out[i] + struct.pack("<H", val)
+    return out
+
+
+def leaf_compare(a, va_a, cb_a, base_a, lr_a, b, va_b, cb_b, base_b, lr_b,
+                 iat_a=frozenset(), iat_b=frozenset()):
+    """First differing ``(index, a_word, a_pool, b_word, b_pool)`` or None.
+
+    ``a``/``b`` are the trimmed instruction words; pool values are reported
+    separately so a DIFFERENT verdict names the instruction and the literal.
+    """
+    def pv(words, i, va, cb, base):
+        w = words[i]
+        return _pool_value(words, i, va, cb, base) if is_mov_pc(w) else None
+
+    ta = leaf_tokens(a, va_a, cb_a, base_a, lr_a, iat_a)
+    tb = leaf_tokens(b, va_b, cb_b, base_b, lr_b, iat_b)
+    n = min(len(ta), len(tb))
+    for i in range(n):
+        if ta[i] != tb[i]:
+            return (i, a[i], pv(a, i, va_a, cb_a, base_a),
+                    b[i], pv(b, i, va_b, cb_b, base_b))
+    if len(ta) != len(tb):
+        i = n
+        wa = a[i] if i < len(a) else None
+        wb = b[i] if i < len(b) else None
+        return (i, wa, pv(a, i, va_a, cb_a, base_a) if wa is not None else None,
+                wb, pv(b, i, va_b, cb_b, base_b) if wb is not None else None)
+    return None
+
+
+def _pair_text(word, pool):
+    if word is None:
+        return "-"
+    return "%#06x%s" % (word, "" if pool is None else " (pool %#x)" % pool)
+
+
 def shape(words):
     """Coarse structural digest: opcode nibble per instruction + branch/call
     structure only. Ignores register fields and immediates entirely. Used as a
@@ -292,6 +457,59 @@ def selftest() -> int:
     code_c = make_code(0x0000BEEF)   # constant, not an address
     f_c, _, _ = fingerprint(body, 0x1000, (0x1000, 0x1400), code_c, 0x1000)
     check("pool constant that is not an address changes the hash", f_c != f_a)
+
+    # ---- leaf path: a synthetic pdata GAP (no record) with its own pool.
+    # leaf = mov.w @(pool,pc),r4 ; rts ; mov r6,r0  (pool word at +0x24)
+    leaf = [0x9410, 0x000B, 0x6063]
+    check("trim_words cuts a leaf at rts and keeps its delay slot",
+          trim_words(leaf + [0x1234, 0x5678]) == leaf)
+
+    def make_leaf(pool16):
+        buf = bytearray(0x400)
+        for k, w in enumerate(leaf):
+            struct.pack_into("<H", buf, 2 * k, w)
+        struct.pack_into("<H", buf, 0x24, pool16)
+        return bytes(buf)
+
+    la = make_leaf(0x04E8)                       # non-address constant
+    lb = make_leaf(0x04E8)
+    check("leaf: identical bytes compare equal",
+          leaf_compare(leaf, 0x1000, la, 0x1000, (0x1000, 0x1400),
+                       leaf, 0x3000, lb, 0x3000, (0x3000, 0x3400)) is None)
+    lb2 = make_leaf(0x04D8)                      # one constant moved
+    pair = leaf_compare(leaf, 0x1000, la, 0x1000, (0x1000, 0x1400),
+                        leaf, 0x3000, lb2, 0x3000, (0x3000, 0x3400))
+    check("leaf: a moved non-address pool constant is DIFFERENT at its mov",
+          pair is not None and pair[0] == 0 and pair[2] == 0x04E8
+          and pair[4] == 0x04D8)
+
+    # relocated pointer leaf: same code, pool value points into each build's
+    # own range; it must compare equal (masked), which the record hash cannot.
+    lp_a = make_leaf(0x1200)
+    lp_b = make_leaf(0x3200)
+    dpa, _, _ = fingerprint(leaf, 0x1000, (0x1000, 0x1400), lp_a, 0x1000)
+    dpb, _, _ = fingerprint(leaf, 0x3000, (0x3000, 0x3400), lp_b, 0x3000)
+    check("leaf: relocated pool pointer hash-matches (record path would not)",
+          dpa == dpb and
+          leaf_compare(leaf, 0x1000, lp_a, 0x1000, (0x1000, 0x1400),
+                       leaf, 0x3000, lp_b, 0x3000, (0x3000, 0x3400)) is None)
+
+    # call-site context: a caller that differs only in the callee's relocated
+    # pool literal still has the same instruction digest and the same site.
+    caller = [0xD300, 0x430B, 0x0009]            # mov.l @(0,pc),r3 ; jsr @r3
+    def make_caller(lit):
+        buf = bytearray(0x400)
+        for k, w in enumerate(caller):
+            struct.pack_into("<H", buf, 2 * k, w)
+        struct.pack_into("<I", buf, 0x04, lit)
+        return bytes(buf)
+    ca = make_caller(0x2000)
+    cb = make_caller(0x3000)
+    check("caller: code_digest ignores the relocated callee literal",
+          code_digest(caller, 0x1000, ca, 0x1000) ==
+          code_digest(caller, 0x3000, cb, 0x3000))
+    check("caller: pool literal + jsr yields the call site (index, callee)",
+          leaf_call_sites(caller, 0x1000, ca, 0x1000) == [(1, 0x2000)])
 
     # duplicated body -> ambiguity, never a guess
     def make_dup_code(pool_value, second_off):
@@ -648,6 +866,14 @@ class Matcher:
         # B). Prefiltered by first halfword; identical bytes hash identically,
         # so a match here is exact.
         self._leaf_cache: dict[str, list] = {}
+        self._fa_by_va = {va: (words, lr, cb, cbase)
+                          for va, words, lr, cb, cbase in self.fa}
+        self._fb_by_va = {va: (words, lr, cb, cbase)
+                          for va, words, lr, cb, cbase in self.fb}
+        self._sites_a: dict[int, list[tuple[int, int]]] | None = None
+        self._sites_b: dict[int, list[tuple[int, int]]] | None = None
+        self._cdig_b: dict[str, list[int]] | None = None
+        self.force_leaf = False
 
     def _find_leaf_in_b(self, a_digest, words):
         if a_digest in self._leaf_cache:
@@ -670,33 +896,104 @@ class Matcher:
         self._leaf_cache[a_digest] = hits
         return hits
 
+    def _caller_sites(self):
+        """caller function start -> [(call-insn index, callee VA)], both builds."""
+        if self._sites_a is not None and self._sites_b is not None:
+            return
+        self._sites_a = {}
+        for va, words, lr, cb, cbase in self.fa:
+            self._sites_a[va] = leaf_call_sites(words, va, cb, cbase)
+        self._sites_b = {}
+        self._cdig_b = {}
+        for va, words, lr, cb, cbase in self.fb:
+            self._sites_b[va] = leaf_call_sites(words, va, cb, cbase)
+            d = code_digest(words, va, cb, cbase)
+            self._cdig_b.setdefault(d, []).append(va)
+
+    def _context_candidates(self, va):
+        """US leaf addresses reached at the same call site as EU ``va``.
+
+        Locate every EU caller that calls ``va`` (``bsr`` or pool + ``jsr``),
+        match that caller by its instruction stream alone (so the callee's
+        relocated pool constant does not block the match), then read the callee
+        literal at the same instruction index in the US caller.  Returns a
+        sorted list of candidate US leaf VAs.
+        """
+        self._caller_sites()
+        base_b = self.code_b["realaddr"]
+        b_lo, b_hi = base_b, base_b + self.code_b["vsize"]
+        cands = set()
+        for caller_va, sites in self._sites_a.items():
+            idxs = {idx for idx, callee in sites if callee == va}
+            if not idxs:
+                continue
+            words, lr, cb, cbase = self._fa_by_va[caller_va]
+            d = code_digest(words, caller_va, cb, cbase)
+            for b_caller in self._cdig_b.get(d, []):
+                b_sites = dict(self._sites_b.get(b_caller, []))
+                for idx in idxs:
+                    callee = b_sites.get(idx)
+                    if callee is not None and b_lo <= callee < b_hi:
+                        cands.add(callee)
+        return sorted(cands)
+
+    def _leaf_verdict(self, va):
+        kind, rec = locate(self.pdata_a, va)
+        words = trim_words(leaf_words(self.data_a, self.code_a, self.off_a, va))
+        if not words:
+            print("%#010x  LEAF      pdata=GAP    outside the code section" % va)
+            return (va, None, "LEAF", "GAP", None)
+        d, bsr, _ = fingerprint(words, va, self.lr_a, self.code_bytes_a,
+                                self.code_a["realaddr"])
+        cand = self.b_hash.get(d, [])
+        hits = []
+        if len(cand) == 1:
+            hits = [cand[0]]
+        else:
+            hits = self._find_leaf_in_b(d, words)
+        verdict = bva = diff = None
+        if len(hits) == 1:
+            bva, verdict = hits[0], "UNIQUE"
+        elif hits:
+            verdict = "AMBIGUOUS"
+        if verdict is None:
+            context = self._context_candidates(va)
+            if len(context) == 1:
+                bva = context[0]
+                b_words = trim_words(
+                    leaf_words(self.data_b, self.code_b, self.off_b, bva))
+                pair = leaf_compare(
+                    words, va, self.code_bytes_a, self.code_a["realaddr"],
+                    self.lr_a, b_words, bva, self.code_bytes_b,
+                    self.code_b["realaddr"], self.lr_b,
+                    frozenset(self.imports_a), frozenset(self.imports_b))
+                if pair is None:
+                    verdict = "UNIQUE"
+                else:
+                    verdict = "DIFFERENT"
+                    diff = pair
+            elif context:
+                verdict, bva = "AMBIGUOUS", None
+            else:
+                verdict = "LEAF"
+        if diff is not None:
+            i, aw, ap, bw, bp = diff
+            print("%#010x  %-9s pdata=GAP    leaf %d B -> %#010x  first diff "
+                  "@+%#x: EU %s / US %s" % (
+                      va, verdict, len(words) * 2, bva, 2 * i,
+                      _pair_text(aw, ap), _pair_text(bw, bp)))
+        else:
+            print("%#010x  %-9s pdata=GAP    leaf %d B -> %s" % (
+                va, verdict, len(words) * 2,
+                "%#010x" % bva if bva is not None else "-"))
+        return (va, bva, verdict, kind, diff)
+
     def verdict(self, va):
-        """(EU va, US va|None, verdict, pdata class) for one EU address."""
+        """(EU va, US va|None, verdict, pdata class[, diff]) for one EU address."""
         kind, rec = locate(self.pdata_a, va)
         entry = rec[0] if rec else va
-        if kind == "GAP":
-            words = leaf_words(self.data_a, self.code_a, self.off_a, va)
-            if not words:
-                print("%#010x  NOMATCH  leaf outside code section" % va)
-                return (va, None, "NOMATCH", kind)
-            d, bsr, _ = fingerprint(words, va, self.lr_a, self.code_bytes_a,
-                                    self.code_a["realaddr"])
-            # a leaf may coincide with a B pdata record; hash-match those first
-            cand = self.b_hash.get(d, [])
-            if len(cand) == 1:
-                verdict, bva = "UNIQUE", cand[0]
-            else:
-                hits = self._find_leaf_in_b(d, words)
-                if len(hits) == 1:
-                    verdict, bva = "UNIQUE", hits[0]
-                elif hits:
-                    verdict, bva = "AMBIGUOUS", None
-                else:
-                    verdict, bva = "NOMATCH", None
-            print("%#010x  %-9s pdata=%-6s A-leaf %#010x (%d B, %d bsr) -> %s" % (
-                va, verdict, kind, va, len(words) * 2, len(bsr),
-                "%#010x" % bva if bva is not None else "-"))
-            return (va, bva, verdict, kind)
+        if kind == "GAP" or self.force_leaf:
+            return self._leaf_verdict(va)
         match = next((f for f in self.fa if f[0] == entry), None)
         if match is None:
             print("%#010x  NOMATCH  no A pdata record" % va)
@@ -733,16 +1030,25 @@ class Matcher:
 def cmd_match(args) -> int:
     m = Matcher(args.image_a, args.image_b, args.module, args.image_start,
                 args.index_a, args.index_b, args.pdata_a, args.pdata_b)
+    if getattr(args, "leaf", False):
+        m.force_leaf = True
     results = [m.verdict(int(v, 0)) for v in args.va]
     if args.json:
         Path(args.json).write_text(json.dumps(
-            [{"a": v, "b": b, "verdict": s, "pdata": k} for v, b, s, k in results],
+            [{"a": v, "b": b, "verdict": s, "pdata": k,
+              "diff": None if len(r) < 5 or r[4] is None else {
+                  "offset": 2 * r[4][0],
+                  "a_word": r[4][1], "a_pool": r[4][2],
+                  "b_word": r[4][3], "b_pool": r[4][4]}}
+             for r in results for v, b, s, k in [r[:4]]],
             indent=1))
     uniq = sum(1 for r in results if r[2] == "UNIQUE")
     amb = sum(1 for r in results if r[2] == "AMBIGUOUS")
+    dif = sum(1 for r in results if r[2] == "DIFFERENT")
+    leaf = sum(1 for r in results if r[2] == "LEAF")
     nom = sum(1 for r in results if r[2] == "NOMATCH")
-    print("# unique: %d  ambiguous: %d  nomatch: %d  of %d" % (
-        uniq, amb, nom, len(results)))
+    print("# unique: %d  ambiguous: %d  different: %d  leaf: %d  nomatch: %d  "
+          "of %d" % (uniq, amb, dif, leaf, nom, len(results)))
     return 0
 
 
@@ -782,11 +1088,15 @@ def load_fixture(path):
         if va in seen:
             raise SystemExit("%s: duplicate EU VA %#010x" % (path, va))
         seen.add(va)
-        if r["expect"] not in ("UNIQUE", "NOMATCH", "AMBIGUOUS", "CALLORDER"):
+        if r["expect"] not in ("UNIQUE", "NOMATCH", "AMBIGUOUS", "CALLORDER",
+                               "DIFFERENT", "LEAF"):
             raise SystemExit("%s: bad expect %r at %#010x" % (
                 path, r["expect"], va))
         if r["expect"] == "UNIQUE" and not r.get("us_va"):
             raise SystemExit("%s: UNIQUE row %#010x has no us_va" % (path, va))
+        if r["expect"] == "DIFFERENT" and not r.get("us_candidate"):
+            raise SystemExit("%s: DIFFERENT row %#010x has no us_candidate"
+                             % (path, va))
     return doc
 
 
@@ -817,13 +1127,14 @@ def check_head(path, want, label):
 def compare_rows(fixture, results):
     """Return a list of (level, message); empty means the replay agrees."""
     want = {int(str(r["eu_va"]), 0): r for r in fixture["rows"]}
-    got = {v: (b, s, k) for v, b, s, k in results}
+    got = {r[0]: r[:4] for r in results}
+    diffs = {r[0]: (r[4] if len(r) > 4 else None) for r in results}
     problems = []
     for va, row in want.items():
         if va not in got:
             problems.append((va, "missing from replay"))
             continue
-        bva, verdict, _kind = got[va]
+        bva, verdict, _kind = got[va][1:]
         exp, exp_b = row["expect"], row.get("us_va")
         if verdict != exp:
             problems.append((va, "verdict %s, fixture expects %s%s" % (
@@ -832,6 +1143,18 @@ def compare_rows(fixture, results):
         elif exp == "UNIQUE" and bva != int(str(exp_b), 0):
             problems.append((va, "US VA %s, fixture expects %s" % (
                 "%#010x" % bva if bva is not None else "-", exp_b)))
+        elif exp == "DIFFERENT" and row.get("us_candidate"):
+            want_b = int(str(row["us_candidate"]), 0)
+            if bva != want_b:
+                problems.append((va, "US candidate %s, fixture expects %s" % (
+                    "%#010x" % bva if bva is not None else "-",
+                    row["us_candidate"])))
+            elif row.get("diff_offset") is not None:
+                pair = diffs.get(va)
+                if pair is None or 2 * pair[0] != int(str(row["diff_offset"]), 0):
+                    problems.append((va, "first diff offset %s, fixture expects %s"
+                                     % ("-" if pair is None else "%#x" % (2 * pair[0]),
+                                        row["diff_offset"])))
     for va in got:
         if va not in want:
             problems.append((va, "replayed but not in fixture"))
@@ -872,14 +1195,16 @@ def cmd_fixture(args) -> int:
         args.fixture, len(fixture["rows"]), Path(eu).name, Path(us).name))
     m = Matcher(eu, us, args.module, args.image_start, args.index_a,
                 args.index_b, args.pdata_a, args.pdata_b)
+    if getattr(args, "leaf", False):
+        m.force_leaf = True
     results = [m.verdict(int(str(r["eu_va"]), 0)) for r in fixture["rows"]]
     problems, want = compare_rows(fixture, results)
     if args.json:
         Path(args.json).write_text(json.dumps({
             "fixture": str(args.fixture),
-            "results": [{"a": v, "b": b, "verdict": s, "pdata": k,
-                         "expect": want[v]["expect"]}
-                        for v, b, s, k in results],
+            "results": [{"a": r[0], "b": r[1], "verdict": r[2], "pdata": r[3],
+                         "expect": want[r[0]]["expect"]}
+                        for r in results],
             "ok": not problems,
         }, indent=1))
     for va, msg in sorted(problems):
@@ -905,6 +1230,8 @@ def main(argv=None) -> int:
     ap.add_argument("--pdata-a", default=None, help="JSON cache of A pdata")
     ap.add_argument("--pdata-b", default=None, help="JSON cache of B pdata")
     ap.add_argument("--json", default=None)
+    ap.add_argument("--leaf", action="store_true",
+                    help="force the leaf path (every VA is hashed as a leaf)")
     sub = ap.add_subparsers(dest="cmd")
     m = sub.add_parser("match")
     m.add_argument("image_a")
@@ -918,6 +1245,9 @@ def main(argv=None) -> int:
     m.add_argument("--pdata-a", default=None, help="JSON cache of A pdata")
     m.add_argument("--pdata-b", default=None, help="JSON cache of B pdata")
     m.add_argument("--json", default=None)
+    m.add_argument("--leaf", action="store_true",
+                   help="force the leaf path for every --va (GAP targets use "
+                        "it by default)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
