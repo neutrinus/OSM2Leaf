@@ -809,7 +809,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-4000–C-4009
 
 - [ ] **H78 — `claims_check --strict` must run the count rule, and a docs-only EXP edit must not re-pin a claim's measured revision**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h78-count-gate · Critical: no · Pair: required
   - Depends: H74 (the count rule and `--strict`), H75 (the row that reproduced it), H76 (the l3 suite this must not disturb)
   - Goal: on `main` at `95abb5d` `python3 tools/claims_check.py --strict` exits 0 while `--strict --count-check` exits 1 with `COUNT C-3704 claims 26, tools/fn_match.py prints 29 (ec58d12…)`. Two defects: (a) `--strict` never runs `count_problems`, so the only red part of the ledger is invisible to the standing gate; (b) `_pinned_revision` falls back to `_exp_revision` — the EXP file's **last** commit — so H75's required `Correction (H75)` section moved the measurement from `334f092` (26 checks, the number the claim states) to `ec58d12` (29, main's later tool). Bisected: `--count-check` is 0 mismatches at `4dce4dd`/`e0a8bf5` (EXP head `334f092`) and 1 from `95f7964` (#199) on (EXP head `ec58d12`). Appending a correction to an EXP must not change what its claims are measured against.
   - Precheck: `python3 tools/claims_check.py --strict >/dev/null 2>&1; echo $?` prints `0`; `python3 tools/claims_check.py --strict --count-check 2>&1 | grep -c '^  COUNT'` prints `1` (C-3704); `git log -1 --format=%h -- docs/experiments/EXP-2026-11-16-M1.27-fn-match-leaf.md` prints `ec58d12`.
