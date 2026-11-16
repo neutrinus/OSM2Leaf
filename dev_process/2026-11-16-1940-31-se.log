@@ -1,0 +1,75 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-16 19:40
+end_utc: 2026-11-16 20:20
+origin_main_start: 95abb5d (docs: SM retro 2026-11-16 cycle 8)
+origin_main_end: this commit (SE 2026-11-16 cycle-9 review)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-16-5.md (cycle-8 retro, just merged)
+- dev_process/2026-11-16-{1050-29-tl,1106-30-sm}.log
+- EXPs EXP-2026-11-16-{M1.31,M1.26,H74,H76,H75,H71}*
+- TODO.md H71/H74/H75/H76/H77/M1.19/M1.22b; tools/claims_check.py
+
+actions_taken (in order):
+- git fetch; main at 95abb5d; re-ran every cycle-8 Done-when that is cheap.
+- M1.31: census reproduces (677 gaps / 635 leaf / complete 598 leaf 579 /
+  77 stubs leaf 54 / 2 cap rows), TRUNCATED + fixture 13/0, selftests pass. OK.
+- M1.26: --scope l3 corpora + synthetic INSIDE control + fn_audit selftest 70 OK.
+- H71: 0 elided spans in the three evidence cells; claims_check exit 0. OK.
+- H76: full suite green; one-row-deleted overlay -> CORPUS STALE 1 new, exit 1. OK.
+- H74/H75: `claims_check --strict` exit 0 but `--count-check` prints
+  `count mismatches: 1` (C-3704 claims 26, fn_match prints 29 at ec58d12).
+  Bisected the window: 0 mismatches at 4dce4dd/e0a8bf5 (EXP head 334f092),
+  1 from 95f7964 (#199) onward (EXP head ec58d12). H75's Result claims
+  `count mismatches: 0`; it is false on main -> regression in the window.
+- Root cause: `_pinned_revision` falls back to the EXP file's *last* commit, so
+  any later docs-only edit to that EXP re-measures the claim against a tool
+  version it never described. H75's required "Correction (H75)" section is what
+  moved it. `--strict` also silently exits 0 (count rule only under
+  --count-check), and `selftest.py::test_claims_check` runs `check()` with
+  run_counts=False, so no standing gate can see this class.
+- Verified H77's precheck: a fenced `fn 0x…` in docs/format still gives
+  `CORPUS STALE: 1 new` today -> H77 is live and correctly scoped.
+- Added tasks H78 (the gate+rule fix), H79 (M1.31 /tmp evidence), H80 (stale
+  H71 precheck), H81 (seven task blocks that carry an H51 "do not take" note:
+  5 open, 2 blocked — probed by ID/status, not by a raw grep).
+
+task IDs added:
+- H78 `claims_check --strict` must run the count rule and a docs-only EXP edit
+  must not re-pin a claim's measured revision. `Pair: required` (gate
+  pass/fail + frozen-snapshot interaction). Claims C-4010-C-4019.
+- H79 M1.31 evidence cites `/tmp/opencode/us256.img` (EXP 6x, C-3962/C-3965);
+  make it re-creatable and retarget Claim 26 -> `US256`. `Pair: solo`,
+  C-4020-C-4029.
+- H80 H71's Precheck `sed -n '2802,2807p'` matches nothing today (0 hits; rows
+  are C-379x there and C-3860/61/64 at 2824-2828); select by claim ID.
+  `Pair: solo`, C-4030-C-4039.
+- H81 seven blocks still carry "superseded — do not take" (M1.2e, M1.2g,
+  M8.E1c, M9.29, M9.30 open; M1.2f, M8.E1 blocked); M1.19 owns closing them.
+  `Pair: solo`, C-4040-C-4049.
+
+decisions:
+- Self-caught: my first H81 precheck used `grep -c 'superseded — do not take'`,
+  which counts the block's own quoted lines and the two blocked ones; rewrote
+  the precheck as an ID/status probe (7 rows, 5 open). Numbers now printed.
+- Did not flip H75 to blocked: its own Done-when (count "at the commit it
+  names" = 2709645 -> 26) still holds; the broken claim is its Result line and
+  the tool rule. Recorded as a follow-up task (H78) per the SE prompt, not a
+  silent edit of the Result.
+- H78 is `Pair: required`, not solo: it changes `--strict`'s pass/fail set.
+- Left M1.19 (Critical, unowned) alone: its block is complete and its
+  Done-when is runnable; the board owner is the TL.
+
+problems:
+- The standing suite cannot see a red `--count-check`: test_claims_check uses
+  run_counts=False, so the H74/H75 class only fails when a human types the
+  flag. That is the structural half of H78.
+- A "Correction" section appended to an EXP (H69/H75 precedent) is now
+  hostile to the count rule, because the rule treats the EXP's newest commit as
+  the measurement revision.
+
+handoff: next PO — the critical path is unchanged (M1.22b is the next big
+pair). TL should take H78 early (it is what makes H74/H75's oracle honest
+again). Human: /tmp still 70 %; `.claude/` is still untracked.

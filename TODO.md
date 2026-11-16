@@ -843,6 +843,72 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if a fence-aware scanner would change any committed snapshot row, say so in the EXP and ship the scanner with a *new* overlay rather than silently rewriting the frozen one (H69's rule).
   - Claims: C-4000–C-4009
 
+- [ ] **H78 — `claims_check --strict` must run the count rule, and a docs-only EXP edit must not re-pin a claim's measured revision**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H74 (the count rule and `--strict`), H75 (the row that reproduced it), H76 (the l3 suite this must not disturb)
+  - Goal: on `main` at `95abb5d` `python3 tools/claims_check.py --strict` exits 0 while `--strict --count-check` exits 1 with `COUNT C-3704 claims 26, tools/fn_match.py prints 29 (ec58d12…)`. Two defects: (a) `--strict` never runs `count_problems`, so the only red part of the ledger is invisible to the standing gate; (b) `_pinned_revision` falls back to `_exp_revision` — the EXP file's **last** commit — so H75's required `Correction (H75)` section moved the measurement from `334f092` (26 checks, the number the claim states) to `ec58d12` (29, main's later tool). Bisected: `--count-check` is 0 mismatches at `4dce4dd`/`e0a8bf5` (EXP head `334f092`) and 1 from `95f7964` (#199) on (EXP head `ec58d12`). Appending a correction to an EXP must not change what its claims are measured against.
+  - Precheck: `python3 tools/claims_check.py --strict >/dev/null 2>&1; echo $?` prints `0`; `python3 tools/claims_check.py --strict --count-check 2>&1 | grep -c '^  COUNT'` prints `1` (C-3704); `git log -1 --format=%h -- docs/experiments/EXP-2026-11-16-M1.27-fn-match-leaf.md` prints `ec58d12`.
+  - Scope: `tools/claims_check.py` only, plus the claim/EXP text the new rule needs. (1) Make `--strict` run the count rule (or record, in the docstring and the `--help` text, that `--strict` deliberately does not and name the gate that does) — if the former, `--strict` must exit 0 on a ledger whose claims are all honest. (2) Replace the "EXP last commit" fallback with a **date-measured** revision: an EXP's `**Date:**` line is the record's own time, so resolve the tool revision at that date (`git rev-list -1 --before=<date>T23:59 <path>`) or require the claim/EXP to name a commit; a later docs-only edit must not move it. Keep the explicit-commit path (C-3704 names `2709645`) working. (3) Add `--selftest` cases: a claim measured at an EXP whose file is edited *after* its date still reports the date's tool count (not the later one), and a genuinely wrong count still fails. Not: editing C-3704's number (26 is the merge-time count), nor a `Pair:` or numbering change.
+  - Input: `tools/claims_check.py` (`count_problems`, `_run_selftest`, `_exp_revision`, `_pinned_revision`, `check()`, `main()`), `tools/selftest.py::test_claims_check` (runs `check()` with `run_counts=False` — the reason no standing gate sees this), EXP-2026-11-16-H74-claims-count-check, EXP-2026-11-16-H75-m1.27-evidence, `docs/research/claims.md` C-3704/C-3951–C-3957.
+  - Hints: do not mask the defect by making `--count-check` warn-only; the point is that H74/H75's oracle must be red when it is wrong. If the date rule is too coarse (two tools changed the same day), prefer the explicit-commit form and mark a row that names neither `HYPOTHESIS (no measurement revision)` rather than silently using the file's head. `git log --since` on the EXP is what H75's correction defeated.
+  - Done when: `python3 tools/claims_check.py --count-check` exits 0 on `main` with C-3704 at its named `2709645` count; `--strict --count-check` exits 0 on the clean ledger and exits 1 on a fixture whose pinned count differs (exercised by `--selftest`); editing an EXP file (a `Correction` section) after its date does not change the reported measurement revision (a selftest case); `python3 tools/selftest.py` stays green.
+  - Stop: if no date/commit rule can distinguish H75's append from a real tool change without hand-maintaining a table, ship the `--strict` half and record the revision rule as `NOT SHIPPED: <reason>` with the bisect count, and hand the per-row revision to H75's owner.
+  - Claims: C-4010–C-4019
+
+- [ ] **H79 — M1.31 evidence cites `/tmp/opencode/us256.img`; make the US head re-creatable and retarget Claim 26 at `US256`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H62 (the `US256` fetch key; H62 is open, so the `head -c` line is the interim fix), H75 (the same defect already fixed for C-3703)
+  - Goal: `EXP-2026-11-16-M1.31-leaf-census.md` names `/tmp/opencode/us256.img` in its sample and commands (6 times) and C-3962/C-3965 carry `--us /tmp/opencode/us256.img`; a reader on a fresh checkout cannot re-run them, which is the exact class H75 repaired for C-3703. The head is the same `70d945d8…`.
+  - Precheck: `grep -c "/tmp/opencode/us256.img" docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md docs/research/claims.md` prints `6` and `4`.
+  - Scope: the M1.31 EXP (commands and the sample table) and the C-3962/C-3965 evidence cells only: replace `/tmp/opencode/us256.img` with `archive/us256.img`, and add the re-creatable line `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` (hash `70d945d8…`) next to the first use, or cite H62's `fetch_image.py --image US256` once H62 lands. No new mechanism, no fixture edit.
+  - Input: `docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md`, `docs/research/claims.md` C-3962/C-3965, `docs/experiments/EXP-2026-11-16-H75-m1.27-evidence.md` (the pattern), `archive/sd-images/LEAF_2011-2012_US.img`.
+  - Hints: `head -c 268435456 … | sha256sum` must print `70d945d8…04da`; if H62 has merged by the time this is taken, prefer `fetch_image.py --image US256` and delete the `head -c` line. Run the M1.31 census once on `archive/us256.img` after the edit so the numbers are re-quoted, not retyped.
+  - Done when: `grep -c "/tmp/opencode/us256.img" docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md docs/research/claims.md` prints `0` and `0`; the cited US HEAD command with `archive/us256.img` prints `70d945d8…` (or `fetch_image.py --image US256` verifies it); `python3 tools/claims_check.py` and `--strict` exit 0.
+  - Stop: if `archive/sd-images/LEAF_2011-2012_US.img` is absent and H62 has not merged, cite only the pinned SHA-256 and the existing `/tmp` path as `HYPOTHESIS (not re-creatable here)` rather than inventing a path.
+  - Claims: C-4020–C-4029
+
+- [ ] **H80 — H71's Precheck selects claim rows by a line range that no longer exists**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H71 (the task whose Precheck this repairs)
+  - Goal: H71's Precheck is `sed -n '2802,2807p' docs/research/claims.md | grep -nE '…|\.\.\.'`; today those lines are C-3790–C-3792 (the C-3860/61/64 rows moved to 2824–2828 when M1.26/H74 added rows above them), so the precheck matches nothing and a reader concludes the task is moot. H71's own Done-when was already repaired to select by claim ID; its Precheck was not.
+  - Precheck: `sed -n '2802,2807p' docs/research/claims.md | grep -cE 'C-386[014]'` prints `0`; `grep -nE '^\| C-386[014] \|' docs/research/claims.md | cut -d: -f1` names `2824`, `2825`, `2828`.
+  - Scope: the H71 block's `Precheck:` line only: replace the line-range `sed` with an ID selector, e.g. `grep -nE '^\| C-386[014] \|' docs/research/claims.md | grep -cE '…'` on those rows (0 after H71), and a one-line note that IDs (not line numbers) are the anchor. No claim, no tool, no other H71 field.
+  - Input: TODO.md H71 block, `docs/research/claims.md` C-3860/C-3861/C-3864.
+  - Hints: this is the same rot retro-9 records for H71's Done-when (`sed -n '2802,2807p'`); a Precheck is a command a later agent runs, so it has to survive row insertions. Select by ID, never by line.
+  - Done when: H71's Precheck command, run as written, selects the C-3860/61/64 rows (prints their count) and matches 0 elided spans after H71; `python3 tools/todo_check.py` passes.
+  - Stop: none — if `claims.md` changes again before this lands, update the selector, not the line numbers.
+  - Claims: C-4030–C-4039
+
+- [ ] **H81 — Close the seven task blocks that carry an H51 "superseded" note**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.19 (its `Re-opens on merge` line already promises to close them, but it is open and unowned); H51 (`nk_decomp.py` decodes 245/245 build-A sections, which made them moot)
+  - Goal: seven task blocks still carry `Note (H51, 2026-11-11): **superseded — do not take.**` — M1.2e, M1.2g, M8.E1c, M9.29, M9.30 are **open** and M1.2f, M8.E1 are **blocked** (printed by the ID/status probe in the Precheck). Every PO/SM pass re-reads and re-skips them, and the board's open count counts five of them as takeable work. M1.19 is meant to close them on merge, but it is open and unowned, so nothing will.
+  - Precheck: `python3 - <<'EOF'` probe below prints the seven IDs with their status; `grep -c 'superseded — do not take' TODO.md` prints `11` (7 task notes + this block's 4 quoted lines — exclude this block when counting): run the probe instead of the raw grep.
+    ```bash
+    python3 - <<'EOF'
+    import re
+    L=open('TODO.md').read().split('\n'); i=0
+    while i<len(L):
+        m=re.match(r'^- \[[ x]\] \*\*([A-Za-z0-9.]+)',L[i])
+        if m:
+            j=i+1; body=[]; st='?'
+            while j<len(L) and not re.match(r'^- \[',L[j]):
+                body.append(L[j])
+                s=re.search(r'Status: (open|in progress|blocked|done)',L[j])
+                if s and st=='?': st=s.group(1)
+                j+=1
+            if any('superseded — do not take' in b for b in body) and m.group(1)!='H81':
+                print(m.group(1), st)
+            i=j
+        else: i+=1
+    EOF
+    ```
+  - Scope: TODO.md only — set the seven blocks to `Status: done` with `Result: superseded by H51/M1.19 (nk_decomp.py decodes 245/245 build-A sections; see M1.19)`, **or** `Status: blocked · Unblock: M1.19` if the PO prefers them visible until M1.19's wiring lands. Keep the history note; do not delete blocks; do not touch M1.19's own block (its "re-opens" sentence already covers the closure).
+  - Input: TODO.md blocks M1.2e/M1.2f/M1.2g/M8.E1/M8.E1c/M9.29/M9.30, M1.19's `Re-opens on merge` line, `tools/nk_decomp.py`, EXP-2026-11-10-M9.35-sec1-load-model.
+  - Hints: M1.19 bundles the real closure (it re-opens M1.4); this task only makes the board honest before M1.19 starts. Prefer `done · superseded` for the five open ones — they are not takeable work and must stop inflating the open count — and leave the two blocked ones as `blocked · Unblock: M1.19` if their own unblock chains still point elsewhere.
+  - Done when: the probe prints no `open` row among the seven; the board totals change by exactly the number moved (open −5, done +5, or blocked +5 and open −5); `python3 tools/todo_check.py` and `--strict` show no new errors.
+  - Stop: if M1.19 merges first and closes them, mark this done as superseded with a one-line Result; do not fight the merge.
+  - Claims: C-4040–C-4049
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
   - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)
