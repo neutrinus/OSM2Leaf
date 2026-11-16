@@ -3179,3 +3179,21 @@ claim ID.
 | C-4037 | RESERVED (H80). | — | — | — |
 | C-4038 | RESERVED (H80). | — | — | — |
 | C-4039 | RESERVED (H80). | — | — | — |
+
+## H81 — The H51 "superseded" blocks stop inflating the board (C-4040–C-4049)
+
+Seven blocks carried `Note (H51, 2026-11-11): superseded — do not take.`; five
+were still `open`. H81 closes them on the board without deleting history.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4040 | On `main` before H81 the block probe prints seven H51-superseded blocks with statuses `M1.2e open`, `M1.2f blocked`, `M1.2g open`, `M8.E1 blocked`, `M8.E1c open`, `M9.29 open`, `M9.30 open`; the board totals are `open=108 done=59 blocked=28`. | VERIFIED (tool) | H | EXP-2026-11-16-H81-close-superseded; the probe in its Reproduction |
+| C-4041 | After H81 the probe prints no `open` row among the seven (`M1.2e/M1.2g/M8.E1c/M9.29/M9.30 → done`, `M1.2f/M8.E1 → blocked`) and the totals move by exactly `open 108→103`, `done 59→64`, `blocked 28→28` (closing H81's own block then gives the final branch-head `done=65`). | VERIFIED (tool) | H | EXP-2026-11-16-H81-close-superseded; the probe plus the `grep -c` totals |
+| C-4042 | Every closed block keeps its H51 history note and gains `Result: superseded by H51/M1.19 — tools/nk_decomp.py decodes 245/245 build-A sections …`; no block is deleted and M1.19's own block is untouched. | VERIFIED (tool) | H | EXP-2026-11-16-H81-close-superseded; `git diff TODO.md` shows only the five checkbox/Status lines and five Result lines |
+| C-4043 | `tools/todo_check.py --strict` normalised by task ID goes `69 → 66`: the three `M1.2e: firmware/search task missing Precheck/Scope/Stop` lines disappear and nothing new appears, so H81 adds no exemption. | VERIFIED (tool) | H | EXP-2026-11-16-H81-close-superseded; `python3 tools/todo_check.py --strict` before/after |
+| C-4044 | H81's own Precheck claim that `grep -c 'superseded — do not take' TODO.md` prints `11` was wrong: it prints `10`, and the raw grep counts this block's own prose as well as task notes, so the block probe (not the grep) is the selector; the text is corrected. | VERIFIED (tool) | H | EXP-2026-11-16-H81-close-superseded; `grep -c 'superseded — do not take' TODO.md` |
+| C-4045 | RESERVED (H81). | — | — | — |
+| C-4046 | RESERVED (H81). | — | — | — |
+| C-4047 | RESERVED (H81). | — | — | — |
+| C-4048 | RESERVED (H81). | — | — | — |
+| C-4049 | RESERVED (H81). | — | — | — |

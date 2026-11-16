@@ -377,8 +377,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-08-M1.4-filesentry-payloads (extraction/characterization done; decode blocked, done-when not met; C-680–C-683).
   - Claims: C-680–C-683
 
-- [ ] **M1.2e — Try public CE ROM decoders on the two EXP-49 sections**
-  - Status: open · Owner: — · Critical: no · **Runner: non-Claude** (needs GitHub/source downloads, rule 12)
+- [x] **M1.2e — Try public CE ROM decoders on the two EXP-49 sections**
+  - Status: done · Owner: — · Critical: no · **Runner: non-Claude** (needs GitHub/source downloads, rule 12)
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Depends: —
   - Goal: M1.2b/M1.3 rule out lzss, lzx, lznt1, xpress-huffman and plain XPRESS
@@ -391,6 +391,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
     (then port it into `tools/cecompress.py` with licence and attribution checked
     and rerun M1.3), or the EXP lists each tool, version, URL, SHA-256 and the
     output it gave.
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` decodes 245/245 build-A sections with lengths equal `comphdr` (C-3440, EXP-2026-11-10-M9.35-sec1-load-model), so the codec port/QEMU oracle this task asked for is moot; H81 closes it on the board (M1.19 re-opens nothing here).
   - Claims: C-2070–C-2079
 
 - [ ] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
@@ -427,8 +428,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-08-M1.2f-decomp-blk-python (blocked; framing/EXP-49 vectors verified on IMG256, 245 UNSUPPORTED, no QEMU/complete SH-4 decode for a rigorous pure-Python CE-LZXD port).
 
 
-- [ ] **M1.2g — `decomp_oracle.py` fragment API + CE XIP LZXD reference vector harness (unblocks M1.2f verification)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M1.2g — `decomp_oracle.py` fragment API + CE XIP LZXD reference vector harness (unblocks M1.2f verification)**
+  - Status: done · Owner: — · Critical: no
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Depends: M1.2f (framing/tree landed), M8.E1b (VAs)
   - Goal: give M1.2f a verifiable oracle/reference path without guessing 245/245: a harness feeds block/section fragments and compares decoded bytes/hash to a trusted reference (QEMU/runtime oracle when available, or a pinned CE XIP LZXD reference output with licence/URL/SHA-256), proving the bitstream/tree variant.
@@ -437,6 +438,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Input: M1.2f `XipLzxd` framing, EXP-49, M8.E1b `DECOMP_SECT/BLK`, M8.E1c/M9.29 JSON when available; external reference requires recorded licence/URL/SHA-256 (non-Claude if download needed).
   - Done when: schema documented and `--selftest` has synthetic controls; EXP-49 sec1/sec2 reports `PASS` only with a trusted decoded reference hash, else `FAIL`/`NO_ORACLE` (never silent pass). M1.2f/M9.29/M9.30 consume the schema; at least one runtime or pinned-reference result is recorded in an EXP.
   - Stop: if no trusted reference obtainable (no QEMU, no licensed reference output), keep EXP-49 `NO_ORACLE` with blocker named and land/keep schema + synthetic selftest.
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` decodes 245/245 build-A sections with lengths equal `comphdr` (C-3440, EXP-2026-11-10-M9.35-sec1-load-model), so the codec port/QEMU oracle this task asked for is moot; H81 closes it on the board (M1.19 re-opens nothing here).
   - Claims: C-3240–C-3249
 - [x] **M1.13 — Find the encoder that reproduces the factory `.cmp` streams**
   - Status: done · Owner: claude/m1.13-factory-encoder · Critical: yes
@@ -847,8 +849,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-16-H80-precheck-id; C-4030–C-4032. H71's Precheck now selects C-3860/61/64 by claim ID (`grep -nE '^\| C-386[014] \|'` → `3` rows, `2824/2825/2828`) instead of the stale `sed -n '2802,2807p'` (now C-3790–C-3795, `0` matches). The elided-span condition prints `0` at H71's merge `caff825` and today, so no measurement changed; `todo_check` OK, `--strict` 69.
   - Claims: C-4030–C-4039
 
-- [ ] **H81 — Close the seven task blocks that carry an H51 "superseded" note**
-  - Status: in progress · Owner: task/h81-close-superseded · Critical: no · Pair: solo
+- [x] **H81 — Close the seven task blocks that carry an H51 "superseded" note**
+  - Status: done · Owner: task/h81-close-superseded · Critical: no · Pair: solo
   - Depends: M1.19 (its `Re-opens on merge` line already promises to close them, but it is open and unowned); H51 (`nk_decomp.py` decodes 245/245 build-A sections, which made them moot)
   - Goal: seven task blocks still carry `Note (H51, 2026-11-11): **superseded — do not take.**` — M1.2e, M1.2g, M8.E1c, M9.29, M9.30 are **open** and M1.2f, M8.E1 are **blocked** (printed by the ID/status probe in the Precheck). Every PO/SM pass re-reads and re-skips them, and the board's open count counts five of them as takeable work. M1.19 is meant to close them on merge, but it is open and unowned, so nothing will.
   - Precheck: `python3 - <<'EOF'` probe below prints the seven IDs with their status; `grep -c 'superseded — do not take' TODO.md` counts every occurrence including this block's own two Quote/Goal lines, so it is not a selector; the probe below is (7 task notes at the time of writing): run the probe instead of the raw grep.
@@ -876,6 +878,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Hints: M1.19 bundles the real closure (it re-opens M1.4); this task only makes the board honest before M1.19 starts. Prefer `done · superseded` for the five open ones — they are not takeable work and must stop inflating the open count — and leave the two blocked ones as `blocked · Unblock: M1.19` if their own unblock chains still point elsewhere.
   - Done when: the probe prints no `open` row among the seven; the board totals change by exactly the number moved (open −5, done +5, or blocked +5 and open −5); `python3 tools/todo_check.py` and `--strict` show no new errors.
   - Stop: if M1.19 merges first and closes them, mark this done as superseded with a one-line Result; do not fight the merge.
+  - Result: EXP-2026-11-16-H81-close-superseded; C-4040–C-4044. Five of the seven H51-superseded blocks were `open`; they are now `done` with `Result: superseded by H51/M1.19` (history note kept, no block deleted), so the probe prints no `open` row among the seven and the board moves `open 108→103`, `done 59→64` (`blocked` unchanged at `28`). The two `blocked` ones (M1.2f, M8.E1) keep their own `Unblock:` chain, not M1.19, which would be a false unblock. `todo_check` OK; `--strict` 69→66 (M1.2e's three firmware fields drop out, nothing new). H81's own stale `grep -c` count is corrected: `10`, not `11`.
   - Claims: C-4040–C-4049
 - [ ] **H82 — Stamp the zlib interpreter into recompression evidence (this host's default `python3` is zlib-ng)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -2861,8 +2864,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-2290–C-2299
   - Result: EXP-2026-11-06-M8.E1b-nk-decompressor-derive — M8.E1 refutation was a BE-vs-LE endianness artifact (C-1600/C-1603 superseded). **Verified (LE, IMG256 `92aa525d…`):** `fn 0x880385e4` o32 walk + `o32_flags & 0x2000` at `0x88038666`; compressed branch → `DECOMP_ALLOC 0x88034d94` then `DECOMP_WRAP 0x88037590(dataptr,psize,dest,vsize)`; chain `0x88037590`→`DECOMP_SECT 0x88037464`→`DECOMP_BLK 0x8803a384` (pool-confirmed). M1.2c C-660–C-663,C-665 restored (C-2290–C-2294). EXP-49 runtime decode not executed (needs `qemu-system-sh4` LE + DECOMP_WRAP kernel-context stubs, C-2294); M8.E1 unblocked (real VA/prototype known). Tools updated: `cedecomp.py`, `cedecomp_run.py`, README.
 
-- [ ] **M8.E1c — QEMU slice for nk.exe decompressor oracle (compatible SH-4 map, DECOMP_SECT, EXP-49)**
-  - Status: open · Owner: — · Critical: no · **Runner: non-Claude** (needs `qemu-system-sh4` LE with compatible memory map/`-M ze0` build deps or container; M8.A2 host deps may be missing)
+- [x] **M8.E1c — QEMU slice for nk.exe decompressor oracle (compatible SH-4 map, DECOMP_SECT, EXP-49)**
+  - Status: done · Owner: — · Critical: no · **Runner: non-Claude** (needs `qemu-system-sh4` LE with compatible memory map/`-M ze0` build deps or container; M8.A2 host deps may be missing)
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Depends: M8.E1b, M1.2g (M8.A2 unblocks `-M ze0`; a documented compatible-map fallback may proceed in parallel)
   - Goal: execute a verified decompressor slice under QEMU and emit `decomp_oracle`-compatible results, so M1.2f gets runtime evidence (decoded length/hash for EXP-49, then Navi.exe sec1/sec2) without guessing the CE-LZXD block codec.
@@ -2871,6 +2874,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Input: M8.E1b VAs (`DECOMP_WRAP/SECT/BLK/ALLOC`), `cedecomp.py`, EXP-49 vectors (`decomp_oracle.py`), `tools/qemu-ze0/` (`-M ze0` when built), `tools/ce_qemu_probe.py` patterns.
   - Done when: `cedecomp_run.py exp49 --image IMG256 --entry 0x88037464 --json <out>` (or documented equivalent) produces `decomp_oracle verify` PASS for EXP-49 sec1 (`0x484`) and sec2 (`0xcc0`) with recorded decoded SHA-256s in the EXP; `probe` still passes; negative control: wrong entry/garbled buffer does not verify.
   - Stop: if DECOMP_SECT requires kernel/global state not stubbable without F1/registry context, record faulting PC/register state and reduce scope to DECOMP_BLK sub-fragment under M9.29 or a narrower hook, with a follow-up; do not guess decoded bytes.
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` decodes 245/245 build-A sections with lengths equal `comphdr` (C-3440, EXP-2026-11-10-M9.35-sec1-load-model), so the codec port/QEMU oracle this task asked for is moot; H81 closes it on the board (M1.19 re-opens nothing here).
   - Claims: C-3260–C-3269
 
 - [ ] **M8.E2 — Registry as loaded** (`boot.hv`, `default.hv`, `user.hv`):
@@ -3310,8 +3314,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the target's input source cannot be located or bounded from available evidence, add/require an input-source locating subtask and record the missing source; do not map guessed bytes and call them a reader verdict.
   - Claims: C-3210–C-3219
 
-- [ ] **M9.29 — Ghidra headless micro-harness for decompressor sub-fragments (LE SH-4)**
-  - Status: open · Owner: — · Critical: no · **Runner: non-Claude** (Ghidra 12.2+/JDK required; in-repo script/selftest runnable without Ghidra)
+- [x] **M9.29 — Ghidra headless micro-harness for decompressor sub-fragments (LE SH-4)**
+  - Status: done · Owner: — · Critical: no · **Runner: non-Claude** (Ghidra 12.2+/JDK required; in-repo script/selftest runnable without Ghidra)
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Depends: M1.2g, M8.E1b (M9.2 project import helps but is not required for a targeted function run)
   - Goal: test `DECOMP_SECT`/`DECOMP_BLK` and helper sub-fragments on controlled buffers in Ghidra headless/pyghidra, emitting `decomp_oracle`-compatible results. Complements QEMU (M8.E1c) and isolates CE-LZXD block-codec behavior.
@@ -3320,10 +3324,11 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: M8.E1b VAs, IMG256 nk.exe mapping via `cerom.py`, `decomp_oracle.py`, `ghidra_import.py` patterns (LE-corrected).
   - Done when: `--plan` prints headless command/processor/VA/memory/expected output; `--selftest` validates plan/result shape without Ghidra; with Ghidra (EXP, non-Claude) EXP-49 sec1 or a pinned DECOMP_BLK sub-fragment yields `decomp_oracle verify` PASS or a faulting-PC negative EXP localizing the codec gap.
   - Stop: if controlled-memory execution is not feasible in the available Ghidra version, record limitation and use Ghidra decompilation/disassembly as evidence feeding M1.2f (not runtime proof) with a follow-up.
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` decodes 245/245 build-A sections with lengths equal `comphdr` (C-3440, EXP-2026-11-10-M9.35-sec1-load-model), so the codec port/QEMU oracle this task asked for is moot; H81 closes it on the board (M1.19 re-opens nothing here).
   - Claims: C-3150–C-3159
 
-- [ ] **M9.30 — DECOMP_BLK sub-fragment map and test vectors (shift/LZXD-like, feeds M1.2f)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M9.30 — DECOMP_BLK sub-fragment map and test vectors (shift/LZXD-like, feeds M1.2f)**
+  - Status: done · Owner: — · Critical: no
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Depends: M8.E1b, M1.2g (M9.29 and M8.E1c provide runtime oracles when available)
   - Goal: break `DECOMP_BLK 0x8803a384` / `DECOMP_SECT 0x88037464` into testable sub-fragments (bit reader, shifts/masks, E8/`0x8d80805b` block handling, length/distance decode) with pinned inputs/expected outputs, so `sh4dis.py` shift-encoding gaps and the CE-LZXD codec are resolved against evidence.
@@ -3332,6 +3337,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: M8.E1b chain, `tools/sh4dis.py`, `tools/cecompress.py`/LZXD refs (attribution/licence checked), `decomp_oracle.py`, EXP-49 block structure (M1.2a/M1.2d).
   - Done when: `sh4dis.py` decodes the blocking shift/bit instructions in DECOMP_BLK/SECT (listed before/after in EXP) with selftests; vector file has >=3 sub-fragment cases each runtime-verified by M8.E1c/M9.29 or marked `HYPOTHESIS` with disassembly evidence and falsifier; M1.2f can cite vectors.
   - Stop: if a CE-specific LZXD variant cannot be split without a running oracle, name the minimal reproducible fragment needing QEMU/Ghidra and keep pure-Python porting blocked on M8.E1c/M9.29.
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` decodes 245/245 build-A sections with lengths equal `comphdr` (C-3440, EXP-2026-11-10-M9.35-sec1-load-model), so the codec port/QEMU oracle this task asked for is moot; H81 closes it on the board (M1.19 re-opens nothing here).
   - Claims: C-3220–C-3229
 
 - [ ] **M9.31 — `l3check --card` baseline/no-diff verdicts for S0/S1 (unblocks M9.12)**
