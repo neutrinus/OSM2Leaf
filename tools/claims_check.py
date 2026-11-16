@@ -32,6 +32,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CLAIMS_PATH = REPO_ROOT / "docs" / "research" / "claims.md"
 EXP_DIR = REPO_ROOT / "docs" / "experiments"
+GITIGNORE_PATH = REPO_ROOT / ".gitignore"
 
 ROW_RE = re.compile(r"^\|\s*(C-\d+)\s*\|")
 PROPOSED_RE = re.compile(r"\bpropos", re.IGNORECASE)
@@ -198,11 +199,64 @@ def _skip_placeholder(path):
     return any(ch in path for ch in "…<>*")
 
 
+def exp_record(exp_name):
+    """The EXP record file whose stem is *exp_name* (a ``-slug`` suffix allowed)."""
+    if not exp_name or not EXP_DIR.exists():
+        return None
+    for p in sorted(EXP_DIR.iterdir()):
+        if p.suffix == ".md" and (p.stem == exp_name or p.stem.startswith(exp_name + "-")):
+            return p
+    return None
+
+
+def evidence_path_class(path):
+    """Classify an evidence path (H74 navigator round 1).
+
+    * ``tracked`` — a ``docs/…`` file: must exist.
+    * ``vendor-dir`` — under ``archive/images/`` or ``archive/sd-images/``:
+      vendor data rule 11 makes fetchable, never committed; exempt.
+    * ``vendor-pin`` — a pinned head the repo knows how to fetch (``IMG256`` ->
+      ``archive/head256.img``); exempt as a re-creatable reference.
+    * ``gd`` — another git-ignored ``archive/…`` file: genuine unless its row
+      also names a ``vendor-pin`` sibling (that row's inputs are the same
+      fetch story; only a row whose *entire* input set is unpinned is a defect).
+    """
+    if path.startswith("docs/"):
+        return "tracked"
+    if path.startswith(("archive/images/", "archive/sd-images/")):
+        return "vendor-dir"
+    if path in PINNED_HEAD_PATHS:
+        return "vendor-pin"
+    return "gd"
+
+
+def _is_git_ignored(path):
+    proc = subprocess.run(["git", "check-ignore", "-q", "--", path],
+                          cwd=str(REPO_ROOT))
+    return proc.returncode == 0
+
+
+# A pinned head the repository can fetch by key (`fetch_image.py --image IMG256`
+# writes the IMG256 head; `archive/head256.img` is its documented local name,
+# TODO "Shared inputs"). Add the US head here only when H62 pins a `US256` key.
+PINNED_HEAD_PATHS = {"archive/head256.img"}
+
+# A path is additionally ``vendor-pin`` when its evidence cell carries a way to
+# re-create it (a fetch command or a pinned SHA-256).
+FETCH_RE = re.compile(r"fetch_image|curl\b|head\s+-c|US256|IMG256")
+SHA_RE = re.compile(r"\b[0-9a-f]{16,64}\b")
+
+
 def path_problems(rows):
     """Backticked archive/docs paths after a ';' in the evidence cell.
 
-    A missing file is a defect; an ellipsis or angle-bracket placeholder is a
-    promise to fix later, not a path. A repeated ``(id, path)`` is reported once.
+    * a ``docs/…`` path (or a checked-in file) must exist;
+    * ``archive/images/**`` / ``archive/sd-images/**`` and the pinned
+      ``archive/head256.img`` are exempt (vendor data / a re-creatable head);
+    * a git-ignored ``archive/…`` file is exempt when its cell names a fetch
+      command or a pinned SHA, or when the same row names a pinned head;
+    * otherwise a missing git-ignored path is a genuine defect.
+    A ``…``/``<…>`` placeholder is skipped; a repeated ``(id, path)`` once.
     """
     problems = []
     for cid, line in rows:
@@ -210,18 +264,45 @@ def path_problems(rows):
         if ";" not in ev:
             continue
         tail = ev.split(";", 1)[1]
+        has_pin = bool(FETCH_RE.search(tail) or SHA_RE.search(tail))
+        spans = []
         seen = set()
         for span in BACKTICK_RE.findall(tail):
             for raw in EVIDENCE_PATH_RE.findall(span):
                 path = re.sub(r":\d+$", "", raw.rstrip(".,;:'\""))
-                if _skip_placeholder(path):
-                    continue
-                if (cid, path) in seen:
+                if _skip_placeholder(path) or (cid, path) in seen:
                     continue
                 seen.add((cid, path))
-                if not (REPO_ROOT / path).exists():
-                    problems.append({"id": cid, "path": path})
+                spans.append(path)
+        classes = {p: evidence_path_class(p) for p in spans}
+        row_has_pinned = any(c == "vendor-pin" for c in classes.values())
+        for path in spans:
+            cls = classes[path]
+            if (REPO_ROOT / path).exists():
+                continue
+            if cls == "vendor-dir":
+                problems.append({"id": cid, "path": path, "kind": "vendor-dir",
+                                 "genuine": False})
+                continue
+            if cls == "vendor-pin":
+                problems.append({"id": cid, "path": path, "kind": "vendor-pin",
+                                 "genuine": False})
+                continue
+            if _is_git_ignored(path) and has_pin:
+                problems.append({"id": cid, "path": path, "kind": "vendor-pin",
+                                 "genuine": False})
+                continue
+            if _is_git_ignored(path) and row_has_pinned:
+                problems.append({"id": cid, "path": path, "kind": "vendor-sibling",
+                                 "genuine": False})
+                continue
+            problems.append({"id": cid, "path": path, "kind": "gd",
+                             "genuine": True})
     return problems
+
+
+def genuine_path_problems(problems):
+    return [p for p in problems if p.get("genuine")]
 
 
 def _git_bytes(args):
@@ -231,16 +312,6 @@ def _git_bytes(args):
 def _git(args):
     return subprocess.run(["git", *args], cwd=str(REPO_ROOT),
                           capture_output=True, text=True)
-
-
-def exp_record(exp_name):
-    """The EXP record file whose stem is *exp_name* (a ``-slug`` suffix allowed)."""
-    if not exp_name or not EXP_DIR.exists():
-        return None
-    for p in sorted(EXP_DIR.iterdir()):
-        if p.suffix == ".md" and (p.stem == exp_name or p.stem.startswith(exp_name + "-")):
-            return p
-    return None
 
 
 def _explicit_revision(evidence):
@@ -365,6 +436,50 @@ def count_problems(rows, runner=_run_selftest):
     return problems
 
 
+def exp_count_problems(rows, exp_files):
+    """A claim and the EXP it cites must pin the same selftest count.
+
+    An EXP record reproduces a `--selftest` number in its own text; a claim that
+    re-quotes a different number for the same tool/record is a transcription
+    defect (H74 negative control: C-3704 `26` vs the M1.27 EXP's `22`). The
+    check is on text, so it sees the same corpus from any checkout.
+    """
+    problems = []
+    for cid, line in rows:
+        text = claim_text(line)
+        claimed = check_count_token(text)
+        if claimed is None:
+            continue
+        ev = evidence_cell(line)
+        tools = selftest_tools(ev)
+        if not tools:
+            continue
+        exps = EXP_TOKEN_RE.findall(ev) or EXP_TOKEN_RE.findall(text)
+        if not exps:
+            continue
+        exp_name = exps[0]
+        et = ""
+        for name, body in exp_files.items():
+            stem = name[:-3] if name.endswith(".md") else name
+            if stem == exp_name or stem.startswith(exp_name + "-"):
+                et = body
+                break
+        if not et:
+            continue
+        exp_count = check_count_token(et)
+        if exp_count is None:
+            continue
+        exp_tools = set()
+        for span in BACKTICK_RE.findall(et):
+            exp_tools.update(SELFTEST_RE.findall(span))
+        if exp_tools and tools[0] not in exp_tools:
+            continue
+        if exp_count != claimed:
+            problems.append({"id": cid, "tool": tools[0], "claim": claimed,
+                             "exp": exp_name, "exp_count": exp_count})
+    return problems
+
+
 def check(claims_text, exp_files, run_counts=False, runner=_run_selftest):
     rows = parse_claim_rows(claims_text)
     dups = duplicate_ids(rows)
@@ -387,6 +502,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest):
 
     paths = path_problems(rows)
     counts = count_problems(rows, runner=runner) if run_counts else []
+    exp_counts = exp_count_problems(rows, exp_files)
 
     return {
         "duplicate_ids": dups,
@@ -394,6 +510,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest):
         "bad_annotations": bad_annotations,
         "bad_paths": paths,
         "bad_counts": counts,
+        "exp_count_conflicts": exp_counts,
         "ok": not dups and not unregistered and not bad_annotations,
     }
 
@@ -420,10 +537,13 @@ def main(argv=None):
             exp_files[p.name] = p.read_text(encoding="utf-8")
 
     result = check(claims_text, exp_files, run_counts=args.count_check)
-    path_fail = args.strict and bool(result["bad_paths"])
+    genuine = genuine_path_problems(result["bad_paths"])
+    path_fail = args.strict and bool(genuine)
     count_fail = args.strict and bool(result["bad_counts"])
-    failed = not result["ok"] or path_fail or count_fail
+    conflict_fail = args.strict and bool(result["exp_count_conflicts"])
+    failed = (not result["ok"] or path_fail or count_fail or conflict_fail)
     if args.json:
+        result["genuine_paths"] = genuine
         result["strict_failed"] = failed
         print(json.dumps(result, indent=2))
     else:
@@ -437,9 +557,13 @@ def main(argv=None):
         print("bad annotations: %d" % len(result["bad_annotations"]))
         for b in result["bad_annotations"]:
             print("  BAD %s -> %s" % (b["proposed"], b["exp"]))
-        print("missing evidence paths: %d" % len(result["bad_paths"]))
-        for p in result["bad_paths"]:
+        print("genuine missing evidence paths: %d" % len(genuine))
+        for p in genuine:
             print("  MISSING %s %s" % (p["id"], p["path"]))
+        exempt = [p for p in result["bad_paths"] if not p.get("genuine")]
+        print("exempt vendor references: %d" % len(exempt))
+        for p in exempt:
+            print("  EXEMPT %s %s (%s)" % (p["id"], p["path"], p["kind"]))
         if args.count_check:
             print("count mismatches: %d" % len(result["bad_counts"]))
             for c in result["bad_counts"]:
@@ -447,6 +571,10 @@ def main(argv=None):
                       % (c["id"], c["claimed"], c["tool"], c["got"], c["rev"]))
         else:
             print("count check: off (--count-check)")
+        print("claim/EXP count conflicts: %d" % len(result["exp_count_conflicts"]))
+        for c in result["exp_count_conflicts"]:
+            print("  CONFLICT %s claims %d, %s quotes %d (%s)"
+                  % (c["id"], c["claim"], c["tool"], c["exp_count"], c["exp"]))
         print("claims_check: OK" if not failed else "claims_check: FAILED")
     return 0 if not failed else 1
 
@@ -548,9 +676,9 @@ def run_selftest():
               "tools/fixtures/fn_match_eu_us_2011.json --us archive/<image>.img` |\n")
     r8 = check(okpath, exps_fixture, run_counts=False)
     assert r8["bad_paths"] == [], r8["bad_paths"]
-    real = ("| C-9005 | The ledger is checked. | VERIFIED (tool) | H | "
+    real = ("| C-9005 | The run names a tool. | VERIFIED (tool) | H | "
             "EXP-2026-11-16-H74-fixture; `python3 tools/claims_check.py "
-            "docs/research/claims.md` |\n")
+            "--only tools/fn_match.py` |\n")
     r9 = check(real, exps_fixture, run_counts=False)
     assert r9["bad_paths"] == [], r9["bad_paths"]
     # a path with no ';' is not in scope (H61 keeps naming-only rows).
@@ -559,7 +687,70 @@ def run_selftest():
     r10 = check(nosemi, {}, run_counts=False)
     assert r10["bad_paths"] == [], r10["bad_paths"]
 
-    print("claims_check selftest: OK (14 checks)")
+    # --- H74 round 2: path classes ----------------------------------------
+    # (d) archive/images/** and archive/sd-images/** are vendor data rule 11
+    # fetches; missing there is exempt, not a defect.
+    vdir = ("| C-9008 | The run reads a card image. | VERIFIED (tool) | H | "
+            "EXP-2026-11-16-H74-fixture; `python3 tools/cerom.py --image-start "
+            "0x200200 archive/images/h74-eu.img romhdr` |\n")
+    r11 = check(vdir, exps_fixture, run_counts=False)
+    assert [p["kind"] for p in r11["bad_paths"]] == ["vendor-dir"], r11["bad_paths"]
+    assert genuine_path_problems(r11["bad_paths"]) == []
+
+    vd = ("| C-9009 | The run reconciles a card. | VERIFIED (tool) | H | "
+          "EXP-2026-11-16-H74-fixture; `python3 tools/mkcard.py --from-image "
+          "archive/sd-images/h74-us.img --reconcile` |\n")
+    r12 = check(vd, exps_fixture, run_counts=False)
+    assert [p["kind"] for p in r12["bad_paths"]] == ["vendor-dir"], r12["bad_paths"]
+
+    # (e) the pinned head (fetch_image IMG256) is a re-creatable reference.
+    PINNED_HEAD_PATHS.add("archive/h74-pinned-head.img")
+    try:
+        vpin = ("| C-9010 | The run reads the pinned head. | VERIFIED (tool) | H | "
+                "EXP-2026-11-16-H74-fixture; `python3 tools/head_block.py "
+                "archive/h74-pinned-head.img` |\n")
+        r13 = check(vpin, exps_fixture, run_counts=False)
+        assert [p["kind"] for p in r13["bad_paths"]] == ["vendor-pin"], r13["bad_paths"]
+        assert genuine_path_problems(r13["bad_paths"]) == []
+
+        # (e2) an unpinned sibling of a pinned head is exempt on the same row.
+        vsib = ("| C-9011 | The run diffs two heads. | VERIFIED (tool) | H | "
+                "EXP-2026-11-16-H74-fixture; `python3 tools/fn_match.py match "
+                "archive/h74-pinned-head.img archive/h74-sibling.img` |\n")
+        r14 = check(vsib, exps_fixture, run_counts=False)
+        kinds = sorted(p["kind"] for p in r14["bad_paths"])
+        assert kinds == ["vendor-pin", "vendor-sibling"], r14["bad_paths"]
+        assert genuine_path_problems(r14["bad_paths"]) == []
+    finally:
+        PINNED_HEAD_PATHS.discard("archive/h74-pinned-head.img")
+
+    # (e3) an unpinned archive/ file with no pinned row is the genuine defect
+    # (C-3703 shape: `archive/us256.img`, no H62 fetch yet).
+    solo = ("| C-9012 | The run reads an unfetched head. | VERIFIED (tool) | H | "
+            "EXP-2026-11-16-H74-fixture; `python3 tools/fn_match.py match "
+            "archive/h74-solo.img archive/head256.img` |\n")
+    solo = solo.replace(" archive/head256.img`", "`")
+    r15 = check(solo, exps_fixture, run_counts=False)
+    assert [p["kind"] for p in r15["bad_paths"]] == ["gd"], r15["bad_paths"]
+    assert [p["id"] for p in genuine_path_problems(r15["bad_paths"])] == ["C-9012"]
+
+    # --- H74 round 2: claim vs cited EXP count ----------------------------
+    # (f) a claim's `26 checks` against an EXP that quotes `22` is a conflict;
+    # the same number in both is not.
+    conflict = ("| C-9013 | The leaf guard is 26 checks. | VERIFIED (tool) | H | "
+                "EXP-2026-11-16-H74-fixture; `python3 tools/stub.py --selftest` |\n")
+    exp_conflict = {"EXP-2026-11-16-H74-fixture.md":
+                    "`stub.py --selftest`: 22 checks\n"}
+    r16 = check(conflict, exp_conflict, run_counts=False)
+    assert [c["id"] for c in r16["exp_count_conflicts"]] == ["C-9013"], \
+        r16["exp_count_conflicts"]
+    assert r16["exp_count_conflicts"][0]["claim"] == 26
+    assert r16["exp_count_conflicts"][0]["exp_count"] == 22
+    same = conflict.replace("26 checks", "22 checks")
+    r17 = check(same, exp_conflict, run_counts=False)
+    assert r17["exp_count_conflicts"] == [], r17["exp_count_conflicts"]
+
+    print("claims_check selftest: OK (20 checks)")
     return 0
 
 
