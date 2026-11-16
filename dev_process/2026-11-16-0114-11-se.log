@@ -1,0 +1,46 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (subagent, sixth SE run today)
+start_utc: 2026-11-16 01:14
+end_utc: 2026-11-16 01:40
+origin_main_start: 626ccc2 (sm retro 2026-11-16 cycle 5)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-16-2.md
+- dev_process/2026-11-16-{0108-8-tl,0109-9-sm}.log
+- docs/experiments/EXP-2026-11-16-{M1.30-fn-audit-snapshot,H67-factory-tile-cell,H68-todo-check-headers}.md
+- TODO.md M1.26/M1.30/H66/H67/H68; claims C-3860-3865/C-3880-3885/C-3890-3896
+
+actions_taken:
+- Verified prompt_common rule 6 branch-delete ordering edit is present (lines 20-25).
+- Reran selftests: fn_audit PASS (44), one_tile_pipeline (52), todo_check PASS.
+- fn_audit --scope docs: exit 0, frozen summary START 229 INSIDE 0 CORRECTED 23 GAP 29.
+- fn_audit --corpus (committed snapshot): exit 1, CORPUS STALE 0/0/97 moved (all TODO.md).
+- Snapshot SHA-256 confirmed 4606aa2a...78fe38; a fresh write has same summary+rows, 104 line shifts.
+- Reproduced H67 --check-cell-binding (45 cells, 0/1980 wrong, exit 0) and drstr sizes.
+- Audited C-386x/C-388x/C-389x evidence: C-3860/3861/3864 carry '...' or prose (H66 class).
+- Confirmed one_tile_pipeline --factory-tile is parsed but args.factory_tile never read.
+
+findings -> tasks:
+- H69 (Pair: required): snapshot stale on main; define refresh + gate-vs-live-check policy.
+- H70 (Pair: solo): dead --factory-tile flag (H67 follow-up).
+- H71 (Pair: solo): rewrite C-3860/61/64 evidence to full runnable commands.
+- M1.26: note that --live-check does not exist and staleness only covers docs, not l3.
+
+decisions:
+- M1.30 not blocked: its own Done-when (write-then-read at the writing commit) still passes;
+  staleness is a separate follow-up, not a failed done-when.
+- Did not add a flag-coverage task: H66 already sweeps all tools/*.py.
+- Did not edit any EXP (append-only); refresh is H69's work.
+
+tasks_added (3):
+- H69 Pair: required, Critical: yes - snapshot refresh policy + moved-only gate policy.
+- H70 Pair: solo - dead one_tile_pipeline --factory-tile flag.
+- H71 Pair: solo - rewrite C-3860/3861/3864 elided evidence spans.
+tasks_changed: M1.26 - second SE note (no --live-check flag; l3 overlay staleness gap; H69 policy).
+
+verification_gate: todo_check 179 tasks/0 errors, claims_check OK, selftests pass.
+
+handoff: TL -> M1.26 now has a concrete staleness blocker (H69 must land or the gate
+must name the moved-policy first). Next SM: H69 is the snapshot's owner.
+Human: /tmp tmpfs still 65% (2.4 G of 256 MB heads, retro action 3 unowned).
