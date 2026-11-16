@@ -729,7 +729,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3900–C-3909
 
 - [ ] **H70 — `one_tile_pipeline --factory-tile` is parsed but never read (H67 follow-up, the H66 flag class)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h70-factory-tile-flag · Critical: no · Pair: solo
   - Depends: — (`tools/one_tile_pipeline.py` on `main`); coordinates H66 (the sweep that must list it)
   - Goal: `--factory-tile` is declared (line 751) but `args.factory_tile` is read nowhere, so a caller who points it at a tile still gets the directory-derived `MAPAL001/<cell>.DAT` (line 665) — the exact parsed-then-unused class H66 exists to catch. H67 added `--check-cell-binding` and the box-row fields and none is dead, but this one predates it and reads as if it selects the tile.
   - Precheck: `grep -n 'args.factory_tile' tools/one_tile_pipeline.py` prints nothing; `grep -n 'add_argument("--factory-tile"' tools/one_tile_pipeline.py` prints line 751; the tile is chosen at line 665 from `factory_root/"MAPAL001"/f"{cell}.DAT"`.
