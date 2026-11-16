@@ -1,0 +1,45 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (driver subagent for H72)
+start_utc: 2026-11-16 03:06
+origin_main_start: 8098ee2 (qa work log, H72 audit: (a)+padding real, GAP-leaf over-claimed)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt
+- TODO.md H72 block (lines 758-775), H73 for non-overlap
+- dev_process/2026-11-16-0259-19-qa.log (cycle-7 QA H72 audit)
+- tools/fn_audit.py compare_live/verdict_differs/_row_key/load_corpus/
+  snapshot_summary/corpus_fix_list, selftest
+- docs/experiments/TEMPLATE.md, claims.md H69/H52/H70 sections
+
+actions:
+- Claimed H72 (status in progress, owner branch), pushed, draft PR #192.
+- Added _canon_va + _candidate_set helpers; _row_key, snapshot_summary
+  unique_va, corpus_fix_list now key canonically (padding cannot split keys).
+- verdict_differs now compares the AMBIGUOUS candidate set (frozenset of
+  tuples) and bool(leaf) for GAP rows; kept corpus_class_drift leaf check.
+- load_corpus rejects an AMBIGUOUS row with no candidates list (H72 Stop).
+- Added four selftest fixtures: candidate-gain exit 1, GAP leaf flip exit 1,
+  unchanged-candidates moved-only exit 0, unpadded-va no new/gone.
+- Sensitivity check: reverting the two comparisons + key makes exactly the
+  three negative fixtures fail, benign stays green (falsifiable).
+- Real image: --corpus on ddd113f8 stays exit 0; snapshot untouched.
+- Wrote EXP-2026-11-16-H72-fn-audit-candidates; claims C-3930..C-3934, rest
+  RESERVED.
+
+decisions:
+- (b) GAP leaf shipped as a latent/future-proof guard, documented as such in
+  the EXP and C-3931 (QA cycle 7: live-only flip unreachable in one process).
+  Not described as a fixed live bug.
+- Did not bump SNAPSHOT_VERSION, refresh the snapshot, add candidates to
+  report/--verbose, or touch H73 rows.
+
+problems:
+- A pure-padding repro (canonical class+true_start, only va padded) needed to
+  isolate the new/gone defect from the unrelated true_start/class-drift noise;
+  confirmed old prints 1 new/1 gone, new prints none.
+
+files_changed: tools/fn_audit.py, docs/experiments/EXP-2026-11-16-H72-...,
+docs/research/claims.md, TODO.md (H72 line + this log)
+end_utc: 2026-11-16 03:16
+handoff: TL — verify done-when exit codes, then merge; M1.26 next (its l3
+AMBIGUOUS rows will exercise the candidate guard on real rows).
