@@ -65,13 +65,14 @@ pass in the summary, the single-policy claim is false.
 
 ## Observations
 
-Selftest, on 3.11, 3.13 and 3.15 (`gate selftest: OK (10 checks, 0 failed)`):
+Selftest, on 3.11, 3.13 and 3.15 (`gate selftest: OK (11 checks, 0 failed)`):
 
 ```
 ok   exit 0 -> PASS
 ok   exit 1 -> FAIL
 ok   exit 2 + missing-input message -> SKIP (not PASS)
 ok   exit 2 + no missing-input marker -> FAIL
+ok   exit 2 + 'cannot verify' (not a missing-input marker) -> FAIL
 ok   declared-missing vendor input -> SKIP before running
 ok   PASS + SKIP counts as a pass (exit 0 policy)
 ok   any FAIL makes the run fail
@@ -101,6 +102,15 @@ the runner exits 1, which is honest until the board is clean.
 `selftest.py` discovers `tools/gate.py` (`tool:gate PASS`) and stays green:
 `passed=90 failed=0 skipped=24 total=114`.
 
+The SKIP markers are deliberately narrow (`no such file or directory:
+'archive/`, `no image at `, `missing archive/`); a broad phrase like `cannot
+verify` is a **FAIL**, so a real "cannot verify the snapshot" error cannot
+masquerade as a SKIP. The selftest pins that case.
+
+The CI step captures `gate.py`'s own exit code, not `tee`'s:
+`rc=${PIPESTATUS[0]}` after the `… | tee gate.txt` pipe (reviewer round 1
+caught `rc=$?` reading `tee`'s 0 and letting a FAILing gate pass CI).
+
 ## Interpretation
 
 - **FACT:** the runner derives SKIP from a gate's own message, not from a
@@ -129,7 +139,7 @@ runs it; `--selftest` proves the policy with stubs, not with a live suite.
 
 ```bash
 python3 tools/gate.py --selftest
-# gate selftest: OK (10 checks, 0 failed)
+# gate selftest: OK (11 checks, 0 failed)
 python3 tools/gate.py            # no image -> fn_audit SKIP, exit 0
 python3 tools/gate.py --json -   # the same as valid JSON on stdout
 python3 tools/selftest.py        # tool:gate PASS; passed=90 failed=0 skipped=24

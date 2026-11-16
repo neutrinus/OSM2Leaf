@@ -54,12 +54,13 @@ PY = sys.executable
 #: of failing. A gate's own exit code is not enough: ``fn_audit`` exits 2 for
 #: a missing image but also 2 for a malformed snapshot, so the runner checks
 #: the *message* and classifies exit 2 + one of these as SKIP, everything else
-#: as FAIL.
+#: as FAIL. Keep this list narrow: a broad marker (e.g. "cannot verify") would
+#: let a real "cannot verify the snapshot" error masquerade as a SKIP.
 SKIP_MARKERS = (
     "no such file or directory: 'archive/",
     'no such file or directory: "archive/',
-    "no image",
-    "cannot verify",
+    "no image at ",
+    "missing archive/",
 )
 
 
@@ -246,6 +247,11 @@ _STUB_SKIP = ("import sys\n"
               "'archive/head256.img'\", file=sys.stderr)\n"
               "sys.exit(2)\n")
 _STUB_BAD2 = "import sys\nprint('error: snapshot image_sha256 does not match')\nsys.exit(2)\n"
+#: A broad phrase the runner must NOT forgive: "cannot verify" is a real
+#: failure message, not a missing-input SKIP (reviewer round 1).
+_STUB_BROAD = ("import sys\n"
+               "print('error: cannot verify the snapshot image')\n"
+               "sys.exit(2)\n")
 
 
 def selftest() -> int:
@@ -262,7 +268,8 @@ def selftest() -> int:
         d = Path(tmp)
         stubs = {}
         for name, body in (("ok", _STUB_PASS), ("bad", _STUB_FAIL),
-                           ("skip", _STUB_SKIP), ("bad2", _STUB_BAD2)):
+                           ("skip", _STUB_SKIP), ("bad2", _STUB_BAD2),
+                           ("broad", _STUB_BROAD)):
             p = d / ("%s.py" % name)
             p.write_text(body)
             stubs[name] = [PY, str(p)]
@@ -284,6 +291,12 @@ def selftest() -> int:
         # is not a SKIP), so fn_audit's own exit 2 is not blanket-forgiven.
         r = _run(Gate("g", stubs["bad2"]), d, 30)
         check("exit 2 + no missing-input marker -> FAIL", r["status"] == "FAIL")
+
+        # A broad phrase like "cannot verify" must not be forgiven either: a
+        # real verification error is not a missing vendor input.
+        r = _run(Gate("g", stubs["broad"]), d, 30)
+        check("exit 2 + 'cannot verify' (not a missing-input marker) -> FAIL",
+              r["status"] == "FAIL")
 
         # A declared optional input that is absent skips *before* running.
         r = _run(Gate("g", stubs["ok"], optional_input=d / "absent.img"), d, 30)

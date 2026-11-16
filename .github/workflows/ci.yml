@@ -50,7 +50,7 @@ jobs:
         run: |
           set +e
           python tools/gate.py --json gate.json 2>&1 | tee gate.txt
-          rc=$?
+          rc=${PIPESTATUS[0]}     # gate.py's exit, not tee's
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           python - <<'PY'
           import json, os
