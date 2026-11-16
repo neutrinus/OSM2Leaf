@@ -104,7 +104,7 @@ claim/EXP count conflicts: 0
 $ python3 tools/claims_check.py --strict --count-check; echo $?
 0
 $ python3 tools/claims_check.py --selftest
-claims_check selftest: OK (24 checks)
+claims_check selftest: OK (25 checks)
 $ git config --get-regexp . >/dev/null; # healthy tree
 $ python3 tools/todo_check.py        # OK
 $ python3 tools/selftest.py          # passed=90 failed=0 skipped=23 (with the head)
@@ -136,9 +136,16 @@ exit 1
   `tools/*.py` file keeps every other measurable claim at its old revision
   (the 16-row table is unchanged except C-3704 and C-3713, both to the correct
   measurement commit) and turns C-3704 green without touching its text.
-- **UNKNOWN:** none material. A record whose history never changed a tool has no
-  measurement revision and is now skipped (`None`), never measured at the working
-  tree; no current row hits that case.
+- **FACT (navigator round 1):** a record whose history never changed a tool had
+  `_pinned_revision == None` and the old `count_problems` then measured the
+  tool at the **working tree** (`rev=None`), contradicting the intended skip.
+  Constructed with `EXP-2026-11-05-01-drstr-node-table` (a real record whose
+  history never moved a tool): the synthetic row reported `rev: working tree`.
+  `count_problems` now skips a row whose EXP record exists and has no
+  measurement revision (no run, no verdict); a row naming a **nonexistent**
+  record keeps the legacy working-tree measurement so H61's EXP-existence
+  follow-up does not lose its signal. `--selftest` case (i) covers it.
+- **UNKNOWN:** none material. No current row hits the skip.
 
 ## Conclusion
 
@@ -147,14 +154,14 @@ commit that changed the EXP *and* a tool, so appending a `Correction` section no
 longer re-pins a claim against a tool version it never measured. `--strict` and
 `--count-check` are both green on the real ledger, a one-digit change to C-3704
 still fails, and the `--selftest` covers the append case with an injected git
-history (24 checks).
+history (25 checks).
 
 ## Reproduction
 
 ```bash
 python3 tools/claims_check.py --strict; echo $?        # 0
 python3 tools/claims_check.py --count-check            # count mismatches: 0
-python3 tools/claims_check.py --selftest               # OK (24 checks)
+python3 tools/claims_check.py --selftest               # OK (25 checks)
 ```
 
 ## Follow-ups

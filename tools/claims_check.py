@@ -436,6 +436,11 @@ def count_problems(rows, runner=_run_selftest):
         exps = EXP_TOKEN_RE.findall(ev) or EXP_TOKEN_RE.findall(text)
         exp_name = exps[0] if exps else ""
         rev = _pinned_revision(ev, exp_name)
+        if rev is None and exp_name and exp_record(exp_name) is not None:
+            # A real record whose history never moved a tool has no measurement
+            # revision. Measuring it at the working tree would pin today's tool
+            # to a record that never described it (H78); skip, do not guess.
+            continue
         key = (tools[0], rev)
         if key not in cache:
             cache[key] = runner(tools[0], rev)
@@ -808,6 +813,25 @@ def run_selftest():
     finally:
         app.exp_record = real_exp_record
 
+    # (i) a record that never moved a tool is skipped, not measured at the
+    # working tree (H78 navigator): _pinned_revision is None, so no run happens.
+    calls = []
+    def _counting_runner(tool, rev=None):
+        calls.append((tool, rev))
+        return (29, 0)
+    no_rev = ("| C-9014 | The record never moved the tool. | VERIFIED (tool) | H | "
+              "EXP-2026-11-16-H74-fixture; `python3 tools/stub.py --selftest` |\n")
+    saved_pin = count_problems.__globals__["_pinned_revision"]
+    count_problems.__globals__["_pinned_revision"] = lambda ev, name: None
+    try:
+        r18 = count_problems(parse_claim_rows(no_rev), runner=_counting_runner)
+    finally:
+        count_problems.__globals__["_pinned_revision"] = saved_pin
+    assert r18 == [], r18
+    # the record exists but has no measurement revision, so no run happens and
+    # nothing is reported as `rev: working tree`.
+    assert calls == [], calls
+
     # (h) --strict selects the count rule (H78: it used to select nothing).
     class _Args:
         def __init__(self, strict, count):
@@ -816,7 +840,7 @@ def run_selftest():
     assert _run_counts(_Args(strict=False, count=True)) is True
     assert _run_counts(_Args(strict=False, count=False)) is False
 
-    print("claims_check selftest: OK (24 checks)")
+    print("claims_check selftest: OK (25 checks)")
     return 0
 
 
