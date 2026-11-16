@@ -21,6 +21,7 @@ Usage:
   pdata.py table IMG --module M [--image-start 0x200200] [--json] [--cache DIR]
   pdata.py fn    IMG --module M [--image-start 0x200200] [--cache DIR] VA...
   pdata.py gaps  IMG --module M [--image-start 0x200200] [--cache DIR]
+  pdata.py leaves IMG --module M [--cap 0x400] [--verbose] [--cache DIR]
   pdata.py --selftest
 
 ``table`` prints one line per record and a trailing summary; ``--json``
@@ -30,6 +31,14 @@ longer than 8 bytes with no record; a gap that is the target of a ``bsr`` or
 of a directly-called ``mov.l`` literal is marked ``leaf`` (leaf functions
 have no record).  A module with no exception directory is listed as such,
 never guessed (exit 3).  An unsorted table fails loudly (exit 2).
+``leaves`` is the census: over every gap it reports the total, the ``leaf``
+count, how many end in their own ``rts`` inside the uncapped natural bound
+(next pdata START / called entry / code end), how many have a natural bound
+past the ``0x400`` cap with their ``rts`` at or beyond it (the cap class, one
+VA per line), and how many have no ``rts`` at all (stubs), plus a histogram.  ``--called`` picks the call set
+that bounds a gap: ``gaps`` (default) = every call target that is itself a gap
+start (the docstring's "called GAP"), ``records`` = calls made from pdata-
+recorded functions only (``fn_match``'s clamp), ``all`` = every halfword.
 
 ``--image-start`` selects the CE segment: 0x200200 = build A, 0x3e00200 =
 build B, 0x5200200 = build C (same image file).  Default 0x200200.
@@ -56,6 +65,7 @@ DEFAULT_CACHE = os.environ.get("OSM2LEAF_PDATA_CACHE",
                                "/tmp/opencode/work/m1.20/decomp")
 EXEC_FLAGS = cerom.CNT_CODE | cerom.MEM_EXECUTE
 GAP_MIN = 8
+DEFAULT_LEAF_CAP = 0x400
 LEAF_WINDOW = 12
 
 EXIT_NO_DIR = 3
@@ -260,6 +270,140 @@ def data_slice(d, off, size):
     return d[off:off + size]
 
 
+def called_entries(exec_secs, records=None):
+    """Sorted VAs that are a direct ``bsr`` target or a directly-called
+    ``mov.l`` literal (the leaf-entry set ``gaps`` flags ``leaf`` rows with).
+
+    ``records`` (pdata triples) restricts the scan to instructions inside
+    pdata-recorded functions, which is the narrower set ``fn_match`` derives
+    from ``leaf_call_sites``; a call made from inside a GAP is then invisible.
+    ``records=None`` scans every executable halfword (the full set).
+    """
+    mem = Mem([(base, blob) for _i, base, blob in exec_secs])
+    spans = []
+    if records is None:
+        spans = [(base, 0, len(blob)) for _i, base, blob in exec_secs]
+    else:
+        for i, base, blob in exec_secs:
+            lo, hi = base, base + len(blob)
+            for begin, _p, length in records:
+                if begin >= hi:
+                    break
+                if length > 0 and begin + length > lo and begin < hi:
+                    spans.append((base, max(begin, lo) - base,
+                                  min(begin + length, hi) - base))
+    called = set()
+    blob_of = {base: blob for _i, base, blob in exec_secs}
+    for base, start, end in spans:
+        blob = blob_of[base]
+        for off in range(start, end - 1, 2):
+            w = struct.unpack_from("<H", blob, off)[0]
+            t = bsr_target(base + off, w)
+            if t is not None:
+                called.add(t)
+            ld = movl_pc_target(base + off, w)
+            if ld is not None:
+                value = mem.u32(ld[1])
+                if value is None:
+                    continue
+                reg = ld[0]
+                for k in range(1, LEAF_WINDOW + 1):
+                    nw = mem.u16(base + off + 2 * k)
+                    if nw is None:
+                        break
+                    j = jsr_reg(nw)
+                    if j and j[1] == reg and j[0] in ("jsr", "jmp"):
+                        called.add(value)
+                        break
+                    if (nw >> 8) & 0xF == reg or (nw >> 4) & 0xF == reg:
+                        break
+    return sorted(called)
+
+
+def natural_bound(va, starts, called, code_end):
+    """Uncapped byte bound of a GAP leaf: next pdata START, next called entry,
+    or the end of the code section -- whichever comes first.  This is the same
+    clamp ``fn_match.leaf_window_limit`` applies before its ``0x400`` cap."""
+    i = bisect.bisect_right(starts, va)
+    nxt = starts[i] if i < len(starts) else code_end
+    j = bisect.bisect_right(called, va)
+    if j < len(called):
+        nxt = min(nxt, called[j])
+    return max(0, min(nxt, code_end) - va)
+
+
+def first_rts(blob, va, base, bound):
+    """Byte offset of the first ``rts`` (0x000b) in ``[va, va+bound)``, or None."""
+    for k in range(0, bound, 2):
+        o = va - base + k
+        if o + 2 > len(blob):
+            break
+        if blob[o] == 0x0B and blob[o + 1] == 0x00:
+            return k
+    return None
+
+
+def gap_containing(va, rows):
+    """The gap row strictly containing ``va`` (a call made from inside a GAP),
+    or None when ``va`` is a function entry or outside every gap."""
+    for r in rows:
+        if r["start"] < va < r["end"]:
+            return r
+    return None
+
+
+def leaf_census(data, image_start, module, cache_dir=None, cap=DEFAULT_LEAF_CAP,
+                called_scope="records"):
+    """Census of a module's pdata GAPs: can the ``cap``-limited leaf window see
+    each whole function, and does it end in its own ``rts``?
+
+    Rows are classified with the *uncapped* natural bound (next START / called
+    entry / code end), so the count of gaps the ``cap`` hides is visible even
+    though ``fn_match`` still caps its windows.  Returns a dict; see ``cmd_leaves``.
+    """
+    rows, meta = gaps(data, image_start, module, cache_dir)
+    if meta is None:
+        return None
+    rom = cerom.CERom(data, image_start)
+    exec_secs = list(exec_sections(rom, rom.module(module)))
+    blob_of = {i: blob for i, _base, blob in exec_secs}
+    sec_of = {i: (base, base + len(blob)) for i, base, blob in exec_secs}
+    records = load_table(data, image_start, module, cache_dir)[0]
+    starts = sorted(r[0] for r in records)
+    if called_scope == "records":
+        called = called_entries(exec_secs, records)
+    else:
+        called = called_entries(exec_secs)
+        if called_scope == "gaps":
+            gap_starts = {r["start"] for r in rows}
+            called = [t for t in called if t in gap_starts]
+    detail = []
+    for r in rows:
+        base, code_end = sec_of[r["section"]]
+        blob = blob_of[r["section"]]
+        va = r["start"]
+        bound = natural_bound(va, starts, called, code_end)
+        rts = first_rts(blob, va, base, bound)
+        if rts is None:
+            cls = "stub"
+        elif bound > cap and rts >= cap:
+            cls = "truncated"
+        else:
+            cls = "complete"
+        detail.append(dict(va=va, length=r["length"], leaf=r["leaf"],
+                           bound=bound, rts=rts, cls=cls,
+                           pre_table=va < starts[0]))
+    return dict(meta=meta, cap=cap, detail=detail,
+                gaps=len(detail),
+                leaf=sum(1 for d in detail if d["leaf"]),
+                complete=sum(1 for d in detail if d["cls"] == "complete"),
+                truncated=[d for d in detail if d["cls"] == "truncated"],
+                stub=[d for d in detail if d["cls"] == "stub"],
+                complete_leaf=sum(1 for d in detail if d["leaf"] and d["cls"] == "complete"),
+                truncated_leaf=[d for d in detail if d["leaf"] and d["cls"] == "truncated"],
+                stub_leaf=sum(1 for d in detail if d["leaf"] and d["cls"] == "stub"))
+
+
 def gaps(data, image_start, module, cache_dir=None):
     """Executable ranges with no pdata record.
 
@@ -277,7 +421,6 @@ def gaps(data, image_start, module, cache_dir=None):
     except PdataError:
         return [], None
     exec_secs = list(exec_sections(rom, mod))
-    mem = Mem([(base, blob) for _i, base, blob in exec_secs])
     exec_ranges = [(base, base + len(blob), _i) for _i, base, blob in exec_secs]
     begins = [r[0] for r in records]
     covered = []  # merged exec-covered pdata intervals per section
@@ -299,29 +442,7 @@ def gaps(data, image_start, module, cache_dir=None):
         if end - pos > GAP_MIN:
             rows.append(dict(start=pos, end=end, length=end - pos, section=idx, leaf=False))
     # Leaf detection: bsr targets and directly-called mov.l literals.
-    called = set()
-    for _, base, blob in exec_secs:
-        for off in range(0, len(blob) - 1, 2):
-            w = struct.unpack_from("<H", blob, off)[0]
-            t = bsr_target(base + off, w)
-            if t is not None:
-                called.add(t)
-            ld = movl_pc_target(base + off, w)
-            if ld is not None:
-                value = mem.u32(ld[1])
-                if value is None:
-                    continue
-                reg = ld[0]
-                for k in range(1, LEAF_WINDOW + 1):
-                    nw = mem.u16(base + off + 2 * k)
-                    if nw is None:
-                        break
-                    j = jsr_reg(nw)
-                    if j and j[1] == reg and j[0] in ("jsr", "jmp"):
-                        called.add(value)
-                        break
-                    if (nw >> 8) & 0xF == reg or (nw >> 4) & 0xF == reg:
-                        break
+    called = called_entries(exec_secs)
     for row in rows:
         for t in called:
             if row["start"] <= t < row["end"]:
@@ -339,6 +460,49 @@ def _fmt_rec(kind, rec, va):
     begin, prolog, length = rec
     return ("%#010x %-6s fn 0x%08x prologue %d B, length %#x, end 0x%08x"
             % (va, kind, begin, prolog, length, begin + length))
+
+
+def _octave(n):
+    return 0 if n <= 0 else n.bit_length() - 1
+
+
+def cmd_leaves(args):
+    with open(args.image, "rb") as fh:
+        data = fh.read(128 << 20)
+    try:
+        rep = leaf_census(data, args.image_start, args.module, args.cache,
+                           args.cap, args.called)
+    except PdataError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+    if rep is None:
+        print("error: %s: no function table available" % args.module, file=sys.stderr)
+        return EXIT_NO_DIR
+    leaf = rep["leaf"]
+    print("%s: %d gaps > %d B, %d leaf"
+          % (args.module, rep["gaps"], GAP_MIN, leaf))
+    print("complete %d (leaf %d), no-rts stub %d (leaf %d), cap 0x%x"
+          % (rep["complete"], rep["complete_leaf"], len(rep["stub"]),
+             rep["stub_leaf"], rep["cap"]))
+    print("rts beyond cap (%s call set): %d%s"
+          % (args.called, len(rep["truncated"]),
+             (" " + " ".join("0x%08x(rts+%d,bound %#x%s)"
+                             % (d["va"], d["rts"], d["bound"],
+                                ",pre-table" if d["pre_table"] else "")
+                             for d in rep["truncated"])) if rep["truncated"] else ""))
+    hist = {}
+    for d in rep["detail"]:
+        if d["leaf"]:
+            hist[_octave(d["bound"])] = hist.get(_octave(d["bound"]), 0) + 1
+    print("leaf natural-bound histogram (octave): "
+          + " ".join("%d:%d" % (lo, hist[lo]) for lo in sorted(hist)))
+    if args.verbose:
+        for d in rep["detail"]:
+            print("gap 0x%08x len 0x%x%s bound 0x%x rts %s %s"
+                  % (d["va"], d["length"], " leaf" if d["leaf"] else "",
+                     d["bound"], "+%d" % d["rts"] if d["rts"] is not None else "-",
+                     d["cls"]))
+    return 0
 
 
 def cmd_table(args):
@@ -453,6 +617,39 @@ def selftest():
     raw = b"\x00" * 36 + struct.pack("<18I", *([0] * 6 + [0x153f000, 0xed60] + [0] * 10))
     check("exception dir units[6:8] parse",
           struct.unpack_from("<18I", raw, 36)[6:8] == (0x153f000, 0xed60))
+    # M1.31 census helpers: natural bound, rts offset, gap lookup, call scope.
+    blob = bytearray(0x800)
+    struct.pack_into("<H", blob, 0x10, 0x0009)
+    struct.pack_into("<H", blob, 0x12, 0x000B)      # rts at +0x12
+    blob = bytes(blob)
+    check("natural_bound: next START bounds it",
+          natural_bound(0x1000, [0x2000], [], 0x8000) == 0x1000)
+    check("natural_bound: next called entry bounds it",
+          natural_bound(0x1000, [0x3000], [0x1800], 0x8000) == 0x800)
+    check("natural_bound: code end is the last bound",
+          natural_bound(0x1000, [0x3000], [], 0x2000) == 0x1000)
+    check("natural_bound is not capped at 0x400",
+          natural_bound(0x1000, [0x3000], [], 0x3000) == 0x2000)
+    check("first_rts finds the offset before the bound",
+          first_rts(blob, 0x1000, 0x1000, 0x40) == 0x12)
+    check("first_rts misses a no-rts stub",
+          first_rts(blob, 0x1000, 0x1000, 0x12) is None)
+    gaps_rows = [dict(start=0x1000, end=0x1100), dict(start=0x2000, end=0x2100)]
+    check("gap_containing finds a call inside a gap",
+          gap_containing(0x1040, gaps_rows)["start"] == 0x1000)
+    check("gap_containing: a gap start is an entry, not inside",
+          gap_containing(0x1000, gaps_rows) is None)
+    blob_a = struct.pack("<HHHH", 0x0009, 0xB002, 0x0009, 0x000B)  # bsr +0x?
+    secs = [(0, 0x1000, blob_a)]
+    full = called_entries(secs)
+    check("called_entries: a bsr target is in the full set",
+          bsr_target(0x1002, 0xB002) == 0x100A and 0x100A in full)
+    narrow = called_entries(secs, [(0x1000, 0, len(blob_a))])
+    check("called_entries: a pdata-recorded caller keeps the target",
+          0x100A in narrow)
+    outside = called_entries(secs, [(0x2000, 0, 4)])
+    check("called_entries: a caller outside every record adds nothing",
+          outside == [])
     print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
 
@@ -463,7 +660,7 @@ def main(argv=None):
     ap.add_argument("--cache", default=DEFAULT_CACHE,
                     help="decoded-pdata cache directory (default %(default)s)")
     sub = ap.add_subparsers(dest="cmd")
-    for name in ("table", "fn", "gaps"):
+    for name in ("table", "fn", "gaps", "leaves"):
         p = sub.add_parser(name)
         p.add_argument("image")
         p.add_argument("--image-start", type=lambda x: int(x, 0), default=DEFAULT_IMAGE_START)
@@ -474,13 +671,25 @@ def main(argv=None):
             p.add_argument("--json", action="store_true")
         elif name == "fn":
             p.add_argument("va", nargs="+")
+        elif name == "leaves":
+            p.add_argument("--cap", type=lambda x: int(x, 0), default=DEFAULT_LEAF_CAP,
+                           help="leaf window cap in bytes (default %(default)#x)")
+            p.add_argument("--called", choices=("records", "gaps", "all"),
+                           default="records",
+                           help="call set bounding a leaf: calls from pdata-"
+                                "recorded functions only (fn_match's clamp), "
+                                "call targets that are gap starts (the "
+                                "docstring's \"called GAP\"), or every halfword")
+            p.add_argument("--verbose", action="store_true",
+                           help="print one line per gap")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
     if not args.cmd:
         ap.print_help()
         return 2
-    return {"table": cmd_table, "fn": cmd_fn, "gaps": cmd_gaps}[args.cmd](args)
+    return {"table": cmd_table, "fn": cmd_fn, "gaps": cmd_gaps,
+            "leaves": cmd_leaves}[args.cmd](args)
 
 
 if __name__ == "__main__":
