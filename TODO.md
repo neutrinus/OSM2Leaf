@@ -667,8 +667,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if the flag sweep has too many false positives (forwarded args), ship only the `bad_evidence()` prose/`…` rule (the H58 extension) and record the flag sweep as `NOT SHIPPED: <reason>` for a later task; do not suppress a real claim-evidence flag.
   - Claims: C-3870–C-3879
 
-- [ ] **H67 — Nowhere owns H64's "parseable-but-wrong tile" provenance gap**
-  - Status: in progress · Owner: task/h67-factory-tile-cell · Critical: no · Pair: required
+- [x] **H67 — Nowhere owns H64's "parseable-but-wrong tile" provenance gap**
+  - Status: done · Owner: task/h67-factory-tile-cell · Critical: no · Pair: required
   - Depends: H64 (done); coordinates M5.34 (the corridor rerun that first trusts a factory exit code)
   - Goal: H64's Follow-ups name a real hole with no task: a *different cell's* tile copied into `MAPAL001/<cell>.DAT` parses and hashes fine, so `factory_tree_provenance=factory-tile-parsed` proves "some tile parsed", not "this is the cell's factory tile". H64 deliberately did not use the whole-image SHA (the root is an extraction); it left the question to "a task if a factory-tree fingerprint is wanted". Without one, a studio can hand a run a parseable wrong tile and still read `mode=factory-backed`. Decide the fingerprint (or decide explicitly not to), so M5.34 does not inherit an open question.
   - Precheck: `grep -rniE 'fingerprint|parseable-but-wrong|different cell' TODO.md docs/experiments/EXP-2026-11-16-H64*` finds only H64's Follow-up text (no owning task ID); `python3 tools/one_tile_pipeline.py --selftest` passes today with the wrong-cell case absent.
@@ -678,6 +678,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `one_tile_pipeline.py --selftest` gains a wrong-cell negative (a valid tile for another cell → `factory-tree-invalid`/`factory-tile-mismatch`, no output tree) and still passes; the honest `B48R058R` run keeps `mode=factory-backed` and its `factory_tile_sha256` unchanged; the new check is a `VERIFIED (tool)` claim with its command; `selftest.py --only one_tile_pipeline` passes.
   - Stop: if no cheap cell-binding field exists without parsing `DRSTR001`/`HDD_INFO` (M5 work), record a negative EXP with the honest control and hand the binding to M5.34's corridor run rather than inventing a new manifest field.
   - Claims: C-3880–C-3889
+  - Result: EXP-2026-11-16-H67-factory-tile-cell; tile bound to cell via the `0x2ac` box table (`tilewriter.cell_db_bounds`), wrong-cell -> `factory-tile-mismatch`/`factory-tree-invalid` (no output tree), honest `B48R058R` unchanged (`factory_tile_sha256=e9c9cb22…8af3ff52`, `tilewriter_rc=2`); `one_tile_pipeline --selftest` 52 ok, `selftest.py --only one_tile_pipeline` PASS
 
 - [ ] **H60 — `todo_check`: a `Depends`/`Unblock` ID must resolve to a live block or an archived one in `todo-history-*.md`**
   - Status: open · Owner: — · Critical: no · Pair: solo
