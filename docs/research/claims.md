@@ -3099,3 +3099,24 @@ C-3864 the current staleness counts.
 | C-3927 | RESERVED (H71). | — | — | — |
 | C-3928 | RESERVED (H71). | — | — | — |
 | C-3929 | RESERVED (H71). | — | — | — |
+
+## H78 — `--strict` runs the count rule; a docs-only EXP edit does not re-pin (C-4010–C-4019)
+
+On `main` at `8a2a48a`, `claims_check --strict` exited 0 while the same ledger
+failed its own count rule (`--strict --count-check` exit 1). Two defects: the
+flag did not select the rule, and the measured revision was the EXP file's
+newest commit, so H75's required `Correction` append moved C-3704 from `334f092`
+to `ec58d12`.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4010 | Before H78, `python3 tools/claims_check.py --strict` exited 0 on `main` while `python3 tools/claims_check.py --strict --count-check` exited 1 with `count mismatches: 1` and `COUNT C-3704 claims 26, tools/fn_match.py prints 29 (ec58d12…)`. The count rule was reachable only from the explicit `--count-check`, never from the standing `--strict` gate. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `python3 tools/claims_check.py --strict`, `python3 tools/claims_check.py --strict --count-check` |
+| C-4011 | The mismatch entered in the cycle-8 window, not with the claim: `--count-check` prints `count mismatches: 0` at `4dce4dd` and `e0a8bf5` (EXP head `334f092`) and `1` at `95f7964`/`caff825` (EXP head `ec58d12`), so H75's `Correction (H75)` section (a docs-only commit) is what moved the measured revision. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `git archive <rev> tools` replay of `fn_match --selftest` at each merge, `--count-check` at each merge |
+| C-4012 | `git archive <rev> tools \| tar -x -C "$d"; PYTHONPATH="$d/tools" python3 "$d/tools/fn_match.py" --selftest \| grep -c '^ok'` prints `22` at `92550d6`, `26` at `334f092`, `26` at `2709645` and `29` at `ec58d12`, so the M1.27 EXP's measurement revision is `334f092` and C-3704's `26` is the number printed there. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; the four-revision replay |
+| C-4013 | `_exp_revision` now returns the newest commit that changed the EXP record *and* a `tools/*.py` file (`334f092…` for the M1.27 EXP, `c3dcebb…` for the H74 EXP), and returns `None` when no such commit exists; `count_problems` then skips a row whose EXP record exists and has no measurement revision (no run, no verdict; constructed only — the real ledger has `pinned rows 19 skipped(no rev) 0`), while a row naming a nonexistent record keeps the legacy working-tree measurement so the H61 existence rule keeps its signal. A docs-only append therefore cannot re-pin a claim. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `python3 -c "import sys;sys.path.insert(0,'tools');import claims_check as cc;print(cc._exp_revision('EXP-2026-11-16-M1.27-fn-match-leaf'))"` |
+| C-4014 | `--strict` now runs the count rule: `_run_counts(args)` is true for `--strict`, for `--count-check`, and for both, and false only when neither is set; on the real ledger `--strict` and `--count-check` both exit 0 with `count mismatches: 0`. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `python3 tools/claims_check.py --strict`, `python3 tools/claims_check.py --count-check` |
+| C-4015 | The rule is not disabled, only made visible: changing C-3704's `26` to `25` makes `--strict` exit 1 with `COUNT C-3704 claims 25, tools/fn_match.py prints 26 (334f092…)`; an unchanged ledger exits 0. `tools/claims_check.py --selftest` covers the docs-only-append case with an injected git history and the `_run_counts` truth table, and prints `claims_check selftest: OK (25 checks)`. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `python3 tools/claims_check.py --selftest`, the C-3704 one-digit mutation |
+| C-4016 | The H78 change leaves the rest of the ledger at its measured revision: of the 19 rows that pin a count and cite a resolvable selftest, three revisions move (C-3704 `ec58d12` -> `334f092`, 29 -> 26; C-3713 `b5899ccb` -> `322fd119`, count preserved; C-3934 `7af443f0` -> `96ba9c02`, count preserved at 58), and the other 16 keep theirs; `python3 tools/selftest.py` is `passed=90 failed=0 skipped=23` with the head present and `passed=89 failed=0 skipped=24` without it. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `python3 tools/selftest.py` with and without `archive/head256.img` |
+| C-4017 | RESERVED (H78). | — | — | — |
+| C-4018 | RESERVED (H78). | — | — | — |
+| C-4019 | RESERVED (H78). | — | — | — |
