@@ -728,8 +728,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if splitting `moved` from `new`/`gone` breaks M1.26's "any drift fails" assumption, ship only the refresh + a README "the gate re-points the snapshot at the PR's commit" rule and record the decision in the EXP; never weaken the `new`/`gone`/verdict-change failure.
   - Claims: C-3900–C-3909
 
-- [ ] **H70 — `one_tile_pipeline --factory-tile` is parsed but never read (H67 follow-up, the H66 flag class)**
-  - Status: in progress · Owner: task/h70-factory-tile-flag · Critical: no · Pair: solo
+- [x] **H70 — `one_tile_pipeline --factory-tile` is parsed but never read (H67 follow-up, the H66 flag class)**
+  - Status: done · Owner: task/h70-factory-tile-flag · Critical: no · Pair: solo
   - Depends: — (`tools/one_tile_pipeline.py` on `main`); coordinates H66 (the sweep that must list it)
   - Goal: `--factory-tile` is declared (line 751) but `args.factory_tile` is read nowhere, so a caller who points it at a tile still gets the directory-derived `MAPAL001/<cell>.DAT` (line 665) — the exact parsed-then-unused class H66 exists to catch. H67 added `--check-cell-binding` and the box-row fields and none is dead, but this one predates it and reads as if it selects the tile.
   - Precheck: `grep -n 'args.factory_tile' tools/one_tile_pipeline.py` prints nothing; `grep -n 'add_argument("--factory-tile"' tools/one_tile_pipeline.py` prints line 751; the tile is chosen at line 665 from `factory_root/"MAPAL001"/f"{cell}.DAT"`.
@@ -739,6 +739,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `grep -c 'args.factory_tile' tools/one_tile_pipeline.py` is non-zero (wired) or `grep -c 'add_argument.*factory-tile' tools/one_tile_pipeline.py` is 0 (deleted); `python3 tools/one_tile_pipeline.py --selftest` passes with a case for the chosen outcome; `selftest.py --only one_tile_pipeline` passes.
   - Stop: if wiring the override needs a root listing the task does not have, delete the flag and note in the EXP that H66's sweep is the guard.
   - Claims: C-3910–C-3919
+  - Result: EXP-2026-11-16-H70-factory-tile-flag; `--factory-tile` wired (option A) as the template instead of `MAPAL001/<cell>.DAT`, still cell-bound via `_factory_tile_cell_binding` (wrong-cell -> `factory-tile-mismatch`, no output tree), `--factory-tile` without `--factory-root` exits 2; honest EU2011 override reproduces `factory_tile_sha256=e9c9cb22…8af3ff52`, `tilewriter_rc=2` unchanged; `one_tile_pipeline --selftest` 60 ok/0 fail (9 new `--factory-tile` checks), `selftest.py --only one_tile_pipeline` PASS
 
 - [ ] **H71 — `claims_check`: rewrite the C-3860/C-3861/C-3864 evidence spans so each is a runnable command**
   - Status: open · Owner: — · Critical: no · Pair: solo

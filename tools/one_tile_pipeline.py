@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
+import io
 import json
 import os
 import re
@@ -165,9 +166,13 @@ def _factory_tile_cell_binding(data: bytes, cell: str) -> tuple[bool, str]:
     return True, f"{len(rows)} box rows within cell {cell} bounds"
 
 
-def _factory_tile_provenance(factory_root: Path, cell: str) -> dict[str, Any]:
+def _factory_tile_provenance(factory_root: Path, cell: str,
+                             tile: Path | None = None) -> dict[str, Any]:
     """Prove the tile at ``MAPAL001/<cell>.DAT`` is a parseable factory tile.
 
+    ``tile`` overrides the derived ``MAPAL001/<cell>.DAT`` path (H70); the
+    override is held to the same parse and cell-binding checks, so pointing it
+    at another cell's tile still yields ``factory-tile-mismatch``.
     Returns a provenance dict with ``factory_tree_provenance`` =
     ``factory-tile-parsed`` on success, or ``factory-tree-invalid`` plus a
     ``parse_error`` reason. Size alone is not a test; the tile is read and
@@ -175,9 +180,10 @@ def _factory_tile_provenance(factory_root: Path, cell: str) -> dict[str, Any]:
     table is bound to ``cell`` (``factory-tile-mismatch`` when a different
     cell's tile is copied in, H67).
     """
-    tile = factory_root / "MAPAL001" / f"{cell}.DAT"
+    tile = tile or (factory_root / "MAPAL001" / f"{cell}.DAT")
     prov: dict[str, Any] = {
         "factory_tile": str(tile),
+        "factory_tile_override": tile != factory_root / "MAPAL001" / f"{cell}.DAT",
         "factory_tile_size": 0,
         "factory_tile_sha256": None,
         "factory_tree_provenance": "factory-tree-invalid",
@@ -596,6 +602,38 @@ def selftest() -> int:
             + str(_prov_b30.get("factory_tree_provenance")) + " / "
             + str(_prov_b30.get("factory_tile_cell_binding")))
 
+        # --factory-tile override (H70): a supplied tile is the template, still cell-bound.
+        override_root = td / "override-root"
+        shutil.copytree(root, override_root)
+        (override_root / "MAPAL001" / "B48R058R.DAT").unlink()
+        override_tile = td / "supplied-B48R058R.DAT"
+        override_tile.write_bytes(tile_bytes)
+        override_out = td / "override-out"
+        rep = build_factory_out(override_out, override_root, "B48R058R",
+                                factory_tile_path=override_tile)
+        chk(rep.get("factory_tree_provenance") == "factory-tile-parsed",
+            "--factory-tile: supplied tile parsed as B48R058R")
+        chk(rep.get("factory_tile_override") is True and rep.get("factory_tile") == str(override_tile),
+            "--factory-tile: report names the supplied tile, not the root's derived path")
+        chk(rep.get("factory_tile_sha256") == tile_sha,
+            "--factory-tile: report hashes the supplied tile")
+        chk((override_out / "MAPAL001" / "B48R058R.DAT").exists(),
+            "--factory-tile: output tile exists")
+        chk(rep.get("counts", {}).get("tilewriter_rc") is not None,
+            "--factory-tile: run reached tilewriter (supplied tile used as template)")
+        wrong_override = td / "supplied-B30R060R.DAT"
+        wrong_override.write_bytes(sibling)
+        wrong_override_out = td / "override-wrong-out"
+        rep = build_factory_out(wrong_override_out, override_root, "B48R058R",
+                                factory_tile_path=wrong_override)
+        chk(rep.get("factory_tree_provenance") == "factory-tile-mismatch",
+            "--factory-tile: another cell's supplied tile -> factory-tile-mismatch")
+        chk(rep.get("real_image_run") == "factory-tree-invalid" and not wrong_override_out.exists(),
+            "--factory-tile: another cell's supplied tile -> no output tree")
+        with contextlib.redirect_stderr(io.StringIO()):
+            rc = main(["--factory-tile", str(override_tile), "--out", str(td / "no-root-out")])
+        chk(rc == 2, "--factory-tile without --factory-root exits 2")
+
         # Negative control (a): empty factory tile -> BLOCKED / factory-tree-invalid.
         empty_root = td / "empty-root"
         shutil.copytree(root, empty_root)
@@ -648,7 +686,8 @@ def _copy_factory_root(src: Path, dst: Path) -> None:
 
 
 def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
-                      osm_text: str | None = None, country: str = "616") -> dict[str, Any]:
+                      osm_text: str | None = None, country: str = "616",
+                      factory_tile_path: Path | None = None) -> dict[str, Any]:
     """Factory-backed path: copy factory root, replace exactly one tile with OSM-generated (provisional-v0)."""
     _check_out_overlap(out, factory_root)
     report: dict[str, Any] = {
@@ -662,15 +701,16 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     if not factory_root.is_dir():
         report["gates"] = {g: gate("BLOCKED", f"factory root not a directory: {factory_root}") for g in GATES}
         report["real_image_run"] = "blocked"; return report
-    factory_tile = factory_root / "MAPAL001" / f"{cell}.DAT"
+    factory_tile = factory_tile_path or (factory_root / "MAPAL001" / f"{cell}.DAT")
     required = [factory_tile, factory_root / "DRSTR001.DAT", factory_root / "MMAIN001.DAT", factory_root / "VER_INFO" / "HDD_INFO.TXT"]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         report["missing_input"] = "missing factory files: " + ", ".join(missing)
         report["real_image_run"] = "blocked"; report["factory_backed"] = False
         report["gates"] = {g: gate("BLOCKED", report["missing_input"]) for g in GATES}; return report
-    prov = _factory_tile_provenance(factory_root, cell)
+    prov = _factory_tile_provenance(factory_root, cell, factory_tile)
     report["factory_tile"] = prov["factory_tile"]
+    report["factory_tile_override"] = prov.get("factory_tile_override")
     report["factory_tile_size"] = prov["factory_tile_size"]
     report["factory_tile_sha256"] = prov["factory_tile_sha256"]
     report["factory_tree_provenance"] = prov["factory_tree_provenance"]
@@ -685,8 +725,14 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         report["gates"] = {g: gate("BLOCKED", report["missing_input"], "factory_tile_provenance") for g in GATES}
         return report
     report["factory_tile_sections"] = prov.get("factory_tile_sections")
-    _copy_factory_root(factory_root, out)
     out_tile = out / "MAPAL001" / f"{cell}.DAT"
+    if _is_within(factory_tile.resolve(), out.resolve()):
+        raise UsageError(f"--factory-tile {factory_tile} is inside --out {out}; copying the root would delete it")
+    _copy_factory_root(factory_root, out)
+    if factory_tile.resolve() != out_tile.resolve():
+        # H70: a supplied tile is the template; the root's own <cell>.DAT is not used.
+        out_tile.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(factory_tile, out_tile)
     osm_text = osm_text or SYNTHETIC_OSM
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
@@ -748,7 +794,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--synthetic", action="store_true")
     ap.add_argument("--osm", help="OSM input")
     ap.add_argument("--factory-root", help="factory-extracted card root (outside repo)")
-    ap.add_argument("--factory-tile", help="factory tile DAT hint")
+    ap.add_argument("--factory-tile", help="factory tile DAT to use as the template instead of FACTORY_ROOT/MAPAL001/<cell>.DAT (must bind to --cell)")
     ap.add_argument("--country", default="616")
     ap.add_argument("--json", nargs="?", const="-", default=None, metavar="PATH",
                     help="print the report JSON to stdout (bare) or write it to PATH ('-' = stdout)")
@@ -765,13 +811,17 @@ def main(argv: list[str] | None = None) -> int:
         print("error: --out required (or --selftest)", file=sys.stderr); return 2
     out = Path(args.out)
     factory_root = Path(args.factory_root) if args.factory_root else None
+    factory_tile = Path(args.factory_tile) if args.factory_tile else None
+    if factory_tile is not None and factory_root is None:
+        print("error: --factory-tile requires --factory-root", file=sys.stderr); return 2
     try:
         if factory_root is not None:
             _check_out_overlap(out, factory_root)
         if args.synthetic or (not args.factory_root and not args.osm):
             rep = build_synthetic_out(out, args.cell, input_root=Path(args.osm) if args.osm else None)
         elif args.factory_root:
-            rep = build_factory_out(out, factory_root, args.cell, country=args.country)
+            rep = build_factory_out(out, factory_root, args.cell, country=args.country,
+                                    factory_tile_path=factory_tile)
         else:
             rep = build_synthetic_out(out, args.cell)
             rep["note"] = "OSM provided without --factory-root; synthetic-only fallback"

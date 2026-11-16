@@ -1,0 +1,47 @@
+role: SE (H70 solo)
+model: deepseek-v4.1-flash-free (opencode)
+start: 2026-11-16T02:00Z  end: 2026-11-16T02:06Z
+origin/main at start: 9a21406
+
+inputs read
+- AGENTS.md, prompt_common.txt, TODO.md H70 block
+- tools/one_tile_pipeline.py, EXP-2026-11-16-H67-factory-tile-cell, docs/experiments/TEMPLATE.md
+- H66/H67/H68 TODO blocks (flag-audit class, cell binding)
+
+actions, in order
+- claimed H70 (in-progress commit + push + draft PR #190) before any work
+- chose option A (wire) over B (delete): the flag is the only way to name a
+  tile without a root's own <cell>.DAT; wiring reuses the existing H67 binding
+- _factory_tile_provenance takes an optional tile path and records
+  factory_tile_override; build_factory_out takes factory_tile_path and copies
+  the supplied tile over MAPAL001/<cell>.DAT as the template
+- main(): --factory-tile without --factory-root exits 2; a supplied tile inside
+  --out raises UsageError before the root copy
+- selftest: 9 new --factory-tile checks (honest override, report path/hash,
+  output tile, tilewriter reached, wrong-cell mismatch + no tree, exit 2)
+- real check: stub root (no MAPAL001/) + supplied EU2011 B48R058R tile ->
+  parsed, 5 box rows in bounds, sha e9c9cb22…8af3ff52, tilewriter_rc=2
+- EXP-2026-11-16-H70-factory-tile-flag + claims C-3910–C-3914; H70 done
+
+decisions / alternatives rejected
+- wire instead of delete (task allowed either); delete would drop the only
+  no-root tile path for no gain
+- did not add DRSTR001 listing consistency for a supplied tile: H67 kept it out
+  of scope; recorded as the EXP follow-up
+- did not change tilewriter, the 0x2146 corridor, H64/H67 behaviour or H66 sweep
+
+problems / dead ends
+- /tmp is a 3.8G tmpfs and the honest run writes a 289MB tile; used a stub root
+  with no MAPAL001/ (about 300MB out) instead of copying the 4.9G factory root
+- dev_process/ name collision with the PO/QA cycle numbering: used the
+  -solo suffix already used by h68
+
+checks
+- one_tile_pipeline --selftest: 60 ok, 0 fail
+- selftest.py --only one_tile_pipeline: PASS
+- claims_check.py: OK ; todo_check.py: OK (2 pre-existing M9.5 warnings)
+
+handoff
+- H66's sweep should now see args.factory_tile (non-zero)
+- the DRSTR001-listing provenance question for a supplied tile is a follow-up,
+  not part of H70

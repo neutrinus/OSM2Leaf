@@ -2888,3 +2888,18 @@ Applies M1.25's `--fix-list` table to the live corpus. The audit is
 | C-3887 | RESERVED (H67). | — | — | — |
 | C-3888 | RESERVED (H67). | — | — | — |
 | C-3889 | RESERVED (H67). | — | — | — |
+
+## H70 — `one_tile_pipeline --factory-tile` is wired to the supplied tile (C-3910–C-3919)
+
+| ID | Claim | Status | Front | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3910 | `one_tile_pipeline.py --factory-tile PATH` is read: `args.factory_tile` selects the tile used as the template instead of `FACTORY_ROOT/MAPAL001/<cell>.DAT`, and the report carries `factory_tile=<PATH>`, `factory_tile_override=true`, its size and SHA-256. A supplied tile outside the root is used even when the root has no `<cell>.DAT`. | VERIFIED (tool) | H | EXP-2026-11-16-H70-factory-tile-flag; `python3 tools/one_tile_pipeline.py --selftest`; `python3 tools/one_tile_pipeline.py --factory-root /tmp/opencode/h70-stub-root --factory-tile /home/marek/projekty/leafre-work/m5.29-factory-root/MAPAL001/B48R058R.DAT --cell B48R058R --out /tmp/opencode/h70-real-out --json` |
+| C-3911 | A supplied `--factory-tile` is held to the same cell binding as the derived path: another cell's tile (`B30R060R`) yields `factory_tree_provenance=factory-tile-mismatch`, `real_image_run=factory-tree-invalid` and no output tree, so the override cannot bypass H67. | VERIFIED (tool) | H | EXP-2026-11-16-H70-factory-tile-flag; `python3 tools/one_tile_pipeline.py --selftest` (override wrong-cell case) |
+| C-3912 | On the honest EU2011 tile the override path reproduces the derived-path result: `factory_tile_sha256=e9c9cb2236f6b53ad4fe9687a18a351afe80a46a63c0a1f18dc46d6c8af3ff52`, `factory_tile_size=289,319,168`, `factory_tree_provenance=factory-tile-parsed`, `factory_tile_cell_binding="5 box rows within cell B48R058R bounds"`, `mode=factory-backed`, `tilewriter_rc=2` (the `0x2146` directory, M5.34) — the override does not change the corridor. | VERIFIED (tool) | H | EXP-2026-11-16-H70-factory-tile-flag; override command in the EXP |
+| C-3913 | `--factory-tile` without `--factory-root` exits 2 with `error: --factory-tile requires --factory-root`; a supplied tile inside `--out` is rejected with `UsageError` before the root is copied (a recursive delete would destroy it). | VERIFIED (tool) | H | EXP-2026-11-16-H70-factory-tile-flag; `python3 tools/one_tile_pipeline.py --selftest` |
+| C-3914 | `one_tile_pipeline.py --selftest` gains nine `--factory-tile` checks (honest override, report naming/hash, output tile, tilewriter reached, wrong-cell mismatch + no tree, missing-root exit 2) and still passes with 0 failures; `selftest.py --only one_tile_pipeline` passes. | VERIFIED (tool) | H | EXP-2026-11-16-H70-factory-tile-flag; `python3 tools/one_tile_pipeline.py --selftest`, `python3 tools/selftest.py --only one_tile_pipeline` |
+| C-3915 | RESERVED (H70). | — | — | — |
+| C-3916 | RESERVED (H70). | — | — | — |
+| C-3917 | RESERVED (H70). | — | — | — |
+| C-3918 | RESERVED (H70). | — | — | — |
+| C-3919 | RESERVED (H70). | — | — | — |
