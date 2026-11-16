@@ -374,7 +374,7 @@ gone / n moved` when a source line moved/added/removed after the snapshot
 the snapshot's `INSIDE` rows. The committed corpus is
 `docs/research/fn-audit-corpus-2026-11-16.json` (17 files, 313 citations, 112
 unique VAs, `START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29), AMBIGUOUS 0,
-UNMAPPED 32`, SHA-256 `eb4876f8…4fe9af`); a diff to it is the review artifact
+UNMAPPED 32`, SHA-256 `4606aa2a…78fe38`); a diff to it is the review artifact
 for the M1.26 gate.
 
 ```bash
