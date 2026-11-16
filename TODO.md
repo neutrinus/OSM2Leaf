@@ -716,7 +716,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-16-H68-todo-check-headers; `todo_check --selftest` OK (18 checks), live board 176 tasks/0 errors exit 0, dual-ID temp copy exits 1; `selftest.py --only todo_check`/`--only worktree_audit` pass
 
 - [ ] **H69 — The frozen `fn_audit` snapshot must have an owner for refresh, and `moved`-only staleness must not fail a gate for prose**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/h69-snapshot-refresh-policy · Critical: yes · Pair: required
   - Depends: M1.30 (done); coordinates M1.26 (runs the gate on it), H52/H63 (the edits that move lines)
   - Decision (PO, 2026-11-16 9th pass): **`moved`-only = warn + exit 0; `new`/`gone`/verdict change = fail.** The identity `(file,va,kind,class)` is what the gate protects; a line move is prose, and a gate that fails for line numbers is a gate nobody keeps green. Do not auto-refresh in CI and do not delete rows — H69 owns the refresh, M1.26 consumes the policy, and this task must land **before** M1.26.
   - Goal: the committed snapshot is **already stale on current `main`**: H67's `Result:` and the TL work-log commits moved 97 `TODO.md` citation lines, so `--corpus` exits 1 with `CORPUS STALE: 0 new / 0 gone / 97 moved` while the summary and row identities are unchanged. M1.26's gate will inherit a snapshot that fails its own live check, and no task owns regeneration or decides whether a line move blocks the gate — a frozen corpus that fails on every H52-class prose edit is a gate that fails for line numbers, not citations.
