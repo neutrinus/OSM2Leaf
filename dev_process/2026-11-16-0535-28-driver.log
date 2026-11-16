@@ -47,3 +47,8 @@ round 1 review (navigator CHANGES, docs only):
 - TODO Result line carries the same unit and dependence
 - claims_check OK, todo_check OK, fixture 13 rows 0 mismatch (exit 0),
   0x00558300 TRUNCATED, 0x003f5194 DIFFERENT to 0x0041db44; fn_audit untouched
+
+round 3 review (docs only):
+- --called all prints 81 stubs (58 leaf); 79 is the clamp's non-complete
+  count (77 stubs + 2 cap rows); fixed C-3963, EXP and Result wording
+- claims_check OK, todo_check OK
