@@ -383,7 +383,7 @@ splits drift into:
 snapshot's `INSIDE` rows. The committed corpus is
 `docs/research/fn-audit-corpus-2026-11-16.json` (17 files, 313 citations, 112
 unique VAs, `START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29), AMBIGUOUS 0,
-UNMAPPED 32`, SHA-256 `2db48be11b5088571e2dea345caef535265716fcb1333fd017ac62ecce8eb17d`); a
+UNMAPPED 32`, SHA-256 `ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`); a
 diff to it is the review artifact for the M1.26 gate.
 
 ### Refreshing the snapshot (H69)

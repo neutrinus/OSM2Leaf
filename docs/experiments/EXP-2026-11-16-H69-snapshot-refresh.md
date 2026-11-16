@@ -37,7 +37,7 @@ reproduce the committed file byte-for-byte refutes the refresh.
 | Image / file | `archive/head256.img` (build A `Navi.exe` head) |
 | SHA-256 | `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9` |
 | Old snapshot | `docs/research/fn-audit-corpus-2026-11-16.json`, SHA-256 `4606aa2aff292d72ec9651cfff0660c246bf1d23255fc59cab3348ea0878fe38`, 313 rows |
-| Refreshed snapshot | same path, SHA-256 `2db48be11b5088571e2dea345caef535265716fcb1333fd017ac62ecce8eb17d`, 313 rows |
+| Refreshed snapshot | same path, SHA-256 `ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`, 313 rows |
 | Tool / version | python3 3.13.1, standard library only |
 | Repo tool | `tools/fn_audit.py` (the only tool that produced the numbers) |
 
@@ -134,7 +134,7 @@ summary: 17 files, 313 citations, 112 unique VAs,
          START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29),
          AMBIGUOUS 0, UNMAPPED 32   (unchanged)
 sha256 old 4606aa2aff292d72ec9651cfff0660c246bf1d23255fc59cab3348ea0878fe38
-sha256 new 2db48be11b5088571e2dea345caef535265716fcb1333fd017ac62ecce8eb17d
+sha256 new ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a
 ```
 
 Commands and exit codes:
@@ -158,7 +158,7 @@ files did not move. No identity was added, removed or reclassified.
 - **FACT:** on current `main` the old snapshot is moved-only stale (44
   identities / 122 citation rows / 188 row instances, all `TODO.md`) and a
   fresh write reproduces the refreshed file byte-for-byte
-  (`2db48be1…`), 313 rows / 112 VAs, summary unchanged.
+  (`ddd113f8…`), 313 rows / 112 VAs, summary unchanged.
 - **FACT:** with the policy, a moved-only live diff prints `CORPUS DRIFT` and
   exits 0; `new`, `gone`, a verdict change at an unchanged key, and a verdict
   change on a moved row each exit 1 (five selftest fixtures plus the retained
@@ -180,7 +180,7 @@ files did not move. No identity was added, removed or reclassified.
 warn, exit 0) and `CORPUS STALE` (new/gone/verdict change, including a change
 that travels with a move: exit 1); `compare_live` reports a moved+unclassified
 row as a verdict change rather than a benign move. The committed snapshot was
-refreshed deliberately to `2db48be11b5088571e2dea345caef535265716fcb1333fd017ac62ecce8eb17d`
+refreshed deliberately to `ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`
 (313 rows / 112 VAs, summary unchanged, old hash
 `4606aa2aff292d72ec9651cfff0660c246bf1d23255fc59cab3348ea0878fe38`) and a
 fresh `--write-snapshot` reproduces it byte-for-byte. `tools/README.md`
@@ -194,7 +194,7 @@ C-3900–C-3909 register these commands.
 - M1.26 consumes this policy for `--scope l3`; it must name `CORPUS DRIFT`
   (moved-only, exit 0) and `CORPUS STALE` (exit 1) rather than inventing a
   second staleness rule.
-- H71 updates C-3861's snapshot SHA-256 to `2db48be1…` from this EXP instead
+- H71 updates C-3861's snapshot SHA-256 to `ddd113f8…` from this EXP instead
   of re-running the write.
 - A future refresh task should re-check that the 44 identity moves stay
   `TODO.md`-only; a move in `docs/format/*.md` alongside a citation edit is
@@ -208,5 +208,5 @@ python3 tools/fn_audit.py --selftest                      # expected: OK, 49 che
 python3 tools/fn_audit.py archive/head256.img \
     --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet   # expected: exit 0
 sha256sum docs/research/fn-audit-corpus-2026-11-16.json
-# expected: 2db48be11b5088571e2dea345caef535265716fcb1333fd017ac62ecce8eb17d
+# expected: ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a
 ```
