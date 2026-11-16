@@ -1,0 +1,48 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (subagent, tenth SM run)
+start_utc: 2026-11-16 01:09
+end_utc: 2026-11-16 01:30
+origin_main_start: 51a6593 (tl work log cycle 5)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, prompt_tl.txt
+- docs/retro/2026-11-16-1.md
+- dev_process/2026-11-16-{0013-3-tl,0015-4-sm,0018-5-se,0029-6-po,0030-7-qa,
+  0035-1-h68-solo,0108-8-tl}.log
+- docs/experiments/EXP-2026-11-16-{H67,H68,M1.30}-*.md
+- TODO.md M1.30/H67/H68/M1.26/M1.27; tool:git, gh pr list
+
+actions_taken:
+- git fetch; counted window 83e8e0b..51a6593 = 12 commits (3 tasks, 3 PRs).
+- Block/status scan: 44 done / 105 open / 28 blocked / 0 in progress.
+- Parsed the TL process incident: H67 remote branch deleted before `gh pr ready`
+  -> PR #189 auto-closed as draft; recovered from refs/pull/189/head.
+- Checked rule 6 (`prompt_common.txt`) + `prompt_tl.txt` merge procedure: both say
+  "delete the branch" but neither keys it to a *merged/ready* state.
+- Judged solo-oracle rule (retro-5) against H68: qualified and held.
+- Checked tmpfs: /tmp 65%, 2.4 G is /tmp/opencode with 9 x 256M image copies.
+- One prompt edit: prompt_common.txt rule 6 branch-delete ordering (before/after
+  in the retro).
+
+numbers (window 83e8e0b..51a6593):
+- 12 commits; done 3 (H68 #187, M1.30 #188, H67 #189); blocked 0; re-opened 0.
+- TODO.md 3199 lines; 176 tasks parsed / 44 done / 105 open / 28 blocked.
+- ghost claims 0; open draft PRs 0 (all 3 merged/closed).
+- ahead-remote-branches 4 (chore/..., claude/..., task/m4.29); worktrees 35.
+- role age (UTC 01:09): SM ~10 min (this run), TL 1 min, QA 39 min, PO 40 min,
+  SE 26 min. No role silent >1 day.
+- claims: H67 C-3880–3885, H68 C-3890–3896, M1.30 C-3860–3865; RETRACTED 0.
+
+pair-vs-solo:
+- H68 solo (Pair: solo): Done-when is exit-code (board 0, dual-ID temp 1). TL
+  independently re-ran it. 0 catches. Rule worked.
+- M1.30 pair (required): 8 catches / 3 rounds, incl. a real integrity bypass.
+- H67 pair (required): 2 catches / 2 rounds. Mean 3.3/pair over cycle 5.
+- verdict: pairing pays; solo-oracle rule correct.
+
+decisions:
+- One prompt edit only (rule 6 ordering). Did not add a second TODO rule.
+- Batch of 3 (1 solo + 2 pair) is at ceiling, not overload: each task had its own
+  navigator and the solo had no navigator.
+
+handoff: TL -> M1.26 on the frozen snapshot; human -> prune /tmp/opencode.

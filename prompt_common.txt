@@ -18,8 +18,11 @@ Hard rules:
 - Never force-push `main`. Never edit a task another agent has
   `in progress`, except to note a dependency in your own task.
 - When your task's commits are on `origin/main` (done or blocked), close its
-  draft PR and delete the remote branch. Do not open a second PR for the same
-  task ID; update the existing draft or coordinate through the TL.
+  draft PR and delete the remote branch. Delete the remote branch only after
+  the PR is merged (or already `ready`); deleting a branch under an open draft
+  auto-closes the PR as a draft — recover it from `refs/pull/<n>/head`, never
+  re-push. Do not open a second PR for the same task ID; update the existing
+  draft or coordinate through the TL.
 - One task = one owner branch + one draft PR. Never set several tasks
   `in progress` under one shared batch branch: a claim with no PR and no work
   log is invisible and unreviewable (retro 2026-11-13).
