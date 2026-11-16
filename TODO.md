@@ -924,7 +924,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3640–C-3649
 
 - [ ] **M1.26 — `fn_audit --scope l3`: turn H52's audit into the standing PR gate the M1.25 plan skipped**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m1.26-fn-audit-scope-l3 · Critical: yes · Pair: required
   - Depends: M1.25 (`fn_audit.py`), M1.23 (pdata-backed labels), M1.30 (frozen snapshot, the gate base), M1.29 (corrections must not count as `INSIDE`, else the gate can never reach zero), H69 (refreshed snapshot + the `moved`-only policy this gate must name, PO 2026-11-16), H72 (the `AMBIGUOUS` candidate-set gate, done)
   - Goal: M1.25 ends with `fn_audit --scope docs` over `TODO.md`, `docs/format/*.md` and `targets.json`. The M9/M3 board cites dozens more VAs inside task blocks (`l3_harness` targets, EXPs, `_l3.py` constants); without this, the next mid-function entry (H51 found three) ships unnoticed. Close H52 with an automated check rather than a one-off table.
   - Precheck: `python3 tools/fn_audit.py --selftest` passes; `python3 tools/fn_audit.py archive/head256.img --scope docs` reproduces the H52 three (`0x0041c7e8`, `0x00412bee`, `0x00542256`) as `INSIDE` with their true starts; `python3 tools/fn_audit.py --scope l3 archive/head256.img` exits `2` (flag absent, the gap this task fills).
