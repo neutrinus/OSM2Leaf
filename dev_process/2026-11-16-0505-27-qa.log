@@ -1,0 +1,51 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (subagent, sixth QA run of 2026-11-16)
+start_utc: 2026-11-16 05:05
+origin_main_start: 85992cf (docs: po 11th pass — M1.31 before M1.26, add H75 evidence repair)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/research/test-system.md
+- docs/retro/2026-11-16-4.md
+- dev_process/2026-11-16-{0423-23-tl,0425-24-sm,0427-25-se,0452-26-po}.log
+
+actions_taken (in order):
+- Gates with true exit codes (redirected to files, no pipes): todo_check 0,
+  claims_check 0, l3check --build-corpus --json /tmp/opencode/qa-l3-8.json 0,
+  progress_report 0, selftest 0 (88/0/23), fn_audit --corpus 0 (moved-only),
+  fn-match --us /tmp/opencode/us256.img 0 (13 rows, 0 mismatch).
+- archive/us256.img absent; fixture on the absent path exits 1 FileNotFoundError
+  (the C-3703 defect reproduced), not a silent pass.
+- H75 precheck verified REAL, defect by defect:
+  (a) C-3703 path: `archive/us256.img` missing (only /tmp/opencode/us256.img).
+  (b) C-3703 histogram: `--fixture` prints only `13 rows, 0 mismatch`; the
+      `unique: 5 different: 1 nomatch: 7` is `match --va <13 fixture VAs>`
+      (measured exactly that line, exit 0).
+  (c) selftest count: 92550d6 = 22 ok lines, 334f092 = 26 ok lines (ran both
+      from /tmp with PYTHONPATH=tools); EXP states 22 at its 334f092 body, so
+      the 22->26 defect is real. TODO M1.27 Result also says `--selftest 22/22`
+      (H75 scope excludes TODO; flag for H75).
+- Would H74 have caught it? YES. H74's rule (a `selftest`/`N checks` must match
+  the cited command's printed count) flags the EXP's 22 vs 334f092's 26; its
+  H61 path-existence extension flags `archive/us256.img`. So H74 = structural
+  fix, H75 = data repair; H75 is not duplicate busywork.
+- Adjacent same-class defects found, left to H74/H75 (no new task):
+  C-568 pins `cerom --selftest (46 checks)` but the tool now prints 411 (its
+  own commit dated it 46); C-553 `37/37` and C-555 `34 checks` are still true.
+  H74's count rule will flag C-568 the moment it lands.
+- H74 internal-coherence note for TL: H74/H75 Done-when use `--strict`, which
+  H58 (open, not in batch) owns per H58/H61 "reuse H58's --strict". If H58 has
+  not merged, H74 must add the flag (or land under --count-check alone) or H75
+  cannot satisfy its `--strict` clause. Recorded, not a task (H74/H75 own it).
+- gap check: no uncovered *testing* gap met the goal-critical bar; H74/H75/H71
+  + M1.31/M1.26 cover the current evidence/tool gaps. Added no task.
+
+tasks_added: none
+tasks_changed: none
+
+stats: board 112 open / 29 blocked / 53 done / 0 in progress; TODO 3327 lines.
+
+handoff: TL -> M1.31 + M1.26 pairs, then H74->H75->H71 solo; tell H75 to also
+fix the M1.27 TODO Result `22/22`; expect H74 to flag C-568 (`46` vs 411).
+Human: /tmp heads + worktree_audit --prune --apply still owed.
+end_utc: 2026-11-16 05:17
