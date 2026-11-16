@@ -738,14 +738,13 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
     disagreement fails.  With ``live_check`` the live ``--scope docs`` scan is
     compared row-for-row and a moved/added/removed line reports
     ``CORPUS STALE`` and exits non-zero rather than passing on an old file.
+
+    ``--fix-list`` is not an escape hatch: the summary, integrity,
+    re-classification and staleness checks run first, so a snapshot tampered
+    ``INSIDE -> CORRECTED`` exits non-zero even here; only then is the frozen
+    ``INSIDE`` list printed.
     """
     rows = doc["rows"]
-    if fix_list_mode:
-        lines = corpus_fix_list(doc)
-        for line in lines:
-            print(line)
-        return 1 if lines else 0
-
     problems = []
     frozen = doc.get("summary") or {}
     got = snapshot_summary(doc)
@@ -767,7 +766,7 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
             stale = (new, gone, moved, changed)
 
     failing = rows_have_failures(rows)
-    if not quiet or problems or stale:
+    if not fix_list_mode and (not quiet or problems or stale):
         for line in summary_lines(got):
             print(line)
     for kind, a, b in problems:
@@ -802,8 +801,13 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
                   % (old[0], old[1], new_key[1], old[2]))
         for key, _a, _b in changed[:10]:
             print("fn_audit:   changed %s:%s %s" % (key[0], key[1], key[2]))
-    if not quiet and not problems and not stale and not live_check:
+    if not quiet and not problems and not stale and not live_check and not fix_list_mode:
         print("fn_audit: live check skipped (--no-live-check)")
+    if fix_list_mode:
+        lines = corpus_fix_list(doc)
+        for line in lines:
+            print(line)
+        return 1 if (lines or problems or stale) else 0
     return 1 if (failing or problems or stale) else 0
 
 
@@ -1040,6 +1044,49 @@ def selftest():
             mr = audit_corpus(load_corpus(mpath), stub, quiet=True,
                               live_check=False)
         check("mutated CORRECTED->INSIDE exits 1", mr == 1)
+
+        # C-3865: a consistent snapshot with one INSIDE row -> one fix line,
+        # exit 1, and corpus_fix_list is what printed it.
+        fix_cites = [Citation(0x401040, "doc.md:1", "fn"),
+                     Citation(0x401048, "doc.md:2", "fn")]
+        fix_kept = [(fix_cites[0], good), (fix_cites[1], ins)]
+        fix_counts = {"START": 1, "INSIDE": 1}
+        fix_summary = summary_counts(["doc.md"], fix_cites,
+                                     {c.va for c in fix_cites}, fix_counts,
+                                     0, fix_kept)
+        fpath = os.path.join(tmp, "fa-fix.json")
+        write_snapshot(fpath, ["doc.md"], snapshot_rows(fix_kept),
+                       fix_summary, img)
+        fdoc = load_corpus(fpath)
+        check("corpus_fix_list has one line for one INSIDE row",
+              corpus_fix_list(fdoc) == ["0x00401048 -> 0x00401040"])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            fr = audit_corpus(fdoc, stub, quiet=True, live_check=False,
+                              fix_list_mode=True)
+        check("--fix-list on a consistent INSIDE snapshot prints the line, exit 1",
+              fr == 1 and buf.getvalue().strip() == "0x00401048 -> 0x00401040")
+
+        # C-3865/C-3864: --fix-list must not bypass the integrity checks; a
+        # snapshot tampered INSIDE -> CORRECTED (fingerprint + summary
+        # re-signed) prints no fix line and exits 1 via class drift.
+        tam = json.load(open(fpath, encoding="utf-8"))
+        for row in tam["rows"]:
+            if row["class"] == "INSIDE":
+                row["class"] = "CORRECTED"
+                row["class_sha256"] = row_fingerprint("CORRECTED",
+                                                      row["true_start"])
+                break
+        tam["summary"]["inside"] = 0
+        tam["summary"]["corrected"] = 1
+        tpath2 = os.path.join(tmp, "fa-tamper-fix.json")
+        json.dump(tam, open(tpath2, "w", encoding="utf-8"))
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            tf = audit_corpus(load_corpus(tpath2), stub, quiet=True,
+                              live_check=False, fix_list_mode=True)
+        check("--fix-list on a tampered INSIDE->CORRECTED snapshot exits 1",
+              tf == 1 and "->" not in buf.getvalue())
 
         # Negative control: a fingerprint that no longer matches its class.
         tampered = json.loads(first.decode("utf-8"))

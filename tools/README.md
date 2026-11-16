@@ -370,8 +370,9 @@ audits that file **with the image**: the frozen part is `file/line/va/kind`
 from `.pdata`, so a hand-edited class fails. `--corpus` also re-scans the live
 `--scope docs` corpus by default and exits 1 with `CORPUS STALE: n new / n
 gone / n moved` when a source line moved/added/removed after the snapshot
-(`--no-live-check` skips that offline); `--fix-list` in corpus mode prints only
-the snapshot's `INSIDE` rows. The committed corpus is
+(`--no-live-check` skips that offline); `--fix-list` in corpus mode runs those
+checks first and then prints only the snapshot's `INSIDE` rows. The committed
+corpus is
 `docs/research/fn-audit-corpus-2026-11-16.json` (17 files, 313 citations, 112
 unique VAs, `START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29), AMBIGUOUS 0,
 UNMAPPED 32`, SHA-256 `4606aa2a…78fe38`); a diff to it is the review artifact
