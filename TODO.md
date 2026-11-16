@@ -835,7 +835,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-4020–C-4029
 
 - [ ] **H80 — H71's Precheck selects claim rows by a line range that no longer exists**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h80-precheck-id · Critical: no · Pair: solo
   - Depends: H71 (the task whose Precheck this repairs)
   - Goal: H71's Precheck is `sed -n '2802,2807p' docs/research/claims.md | grep -nE '…|\.\.\.'`; today those lines are C-3790–C-3792 (the C-3860/61/64 rows moved to 2824–2828 when M1.26/H74 added rows above them), so the precheck matches nothing and a reader concludes the task is moot. H71's own Done-when was already repaired to select by claim ID; its Precheck was not.
   - Precheck: `sed -n '2802,2807p' docs/research/claims.md | grep -cE 'C-386[014]'` prints `0`; `grep -nE '^\| C-386[014] \|' docs/research/claims.md | cut -d: -f1` names `2824`, `2825`, `2828`.
