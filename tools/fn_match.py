@@ -468,8 +468,10 @@ def shape(words):
 
 def selftest() -> int:
     fails: list[str] = []
+    ran: list[str] = []
 
     def check(name, cond):
+        ran.append(name)
         print("%s %s" % ("ok  " if cond else "FAIL", name))
         if not cond:
             fails.append(name)
@@ -693,7 +695,8 @@ def selftest() -> int:
     finally:
         Path(tmp).unlink()
 
-    print("fn_match selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
+    print("fn_match selftest: %s (%d checks, %d failed)"
+          % ("OK" if not fails else "FAIL", len(ran), len(fails)))
     return 1 if fails else 0
 
 
