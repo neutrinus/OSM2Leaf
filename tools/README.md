@@ -361,9 +361,30 @@ the same VA, or a repeated bare VA without its own pair, stays `INSIDE`; the
 summary prints `CORRECTED n` and a `correction-only` line names allowlisted
 VAs that have no live label left.
 
+A frozen corpus (M1.30) turns the live count into a reviewable artifact:
+`--write-snapshot PATH` writes one row per citation
+(`file, line, va, kind, class, true_start, class_sha256`, sorted by
+`file:line:va`) plus the exact summary and the image SHA-256; `--corpus PATH`
+audits that file **with the image**: the frozen part is `file/line/va/kind`
+(and a `ctx` row's paired `correction`), and every stored `class` is re-derived
+from `.pdata`, so a hand-edited class fails. `--corpus` also re-scans the live
+`--scope docs` corpus by default and exits 1 with `CORPUS STALE: n new / n
+gone / n moved` when a source line moved/added/removed after the snapshot
+(`--no-live-check` skips that offline); `--fix-list` in corpus mode runs those
+checks first and then prints only the snapshot's `INSIDE` rows. The committed
+corpus is
+`docs/research/fn-audit-corpus-2026-11-16.json` (17 files, 313 citations, 112
+unique VAs, `START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29), AMBIGUOUS 0,
+UNMAPPED 32`, SHA-256 `4606aa2a…78fe38`); a diff to it is the review artifact
+for the M1.26 gate.
+
 ```bash
 python3 tools/fn_audit.py archive/head256.img              # full report, exit 1 on INSIDE
 python3 tools/fn_audit.py archive/head256.img --fix-list   # machine-readable fixes
+python3 tools/fn_audit.py archive/head256.img --scope docs \
+    --write-snapshot docs/research/fn-audit-corpus-2026-11-16.json
+python3 tools/fn_audit.py archive/head256.img \
+    --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet
 python3 tools/fn_audit.py --selftest                       # no image needed
 ```
 

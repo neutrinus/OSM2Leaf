@@ -2788,6 +2788,28 @@ verdict is per citation. `--fix-list` and the exit code follow `is_failure`.
 | C-3798 | RESERVED (M1.29). | — | — | — |
 | C-3799 | RESERVED (M1.29). | — | — | — |
 
+## M1.30 — `fn_audit` frozen corpus snapshot (C-3860–C-3869)
+
+`tools/fn_audit.py` can freeze its `--scope docs` corpus to one committed,
+vendor-free JSON snapshot (`--write-snapshot`) and audit it against the image
+plus a live scan (`--corpus`). The frozen part is the row identity
+(`file/line/va/kind`, and a `ctx` row's paired `correction`); the stored
+`class` is re-derived from `.pdata` every run, so a hand-edited class fails and
+a months-old snapshot cannot pass.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3860 | On `archive/head256.img` (`92aa525d…`) the live `--scope docs` corpus is 17 files, 313 citations, 112 unique VAs, `START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29), AMBIGUOUS 0, UNMAPPED 32`, exit 0, empty `--fix-list`; `TODO.md` + 13 `docs/format/*.md` + `targets.json` + `chunk_decoder_l3.py` + `point_walk_l3.py`. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; `python3 tools/fn_audit.py archive/head256.img --scope docs --quiet`, `… --fix-list` |
+| C-3861 | `--write-snapshot PATH` writes one row per citation (`file,line,va,kind,class,true_start,class_sha256`, sorted by `file:line:va`; `GAP` rows add `leaf`, `AMBIGUOUS` rows add candidates, `ctx` rows keep their paired `correction`) plus the exact summary and the image SHA-256, no image bytes. The committed `docs/research/fn-audit-corpus-2026-11-16.json` has 313 rows and SHA-256 `4606aa2aff292d72ec9651cfff0660c246bf1d23255fc59cab3348ea0878fe38`; two consecutive writes are byte-identical. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; `python3 tools/fn_audit.py archive/head256.img --scope docs --write-snapshot …`, `sha256sum …`, `cmp` of two writes |
+| C-3862 | `--corpus PATH` re-classifies every row's `va` against the image from `.pdata` using only the frozen `file/line/va/kind` (a `ctx` row replays its paired `correction` start); the stored `class` is never the verdict source, and an `image_sha256` mismatch exits 2. On the committed snapshot with `archive/head256.img` it prints the same summary as the live run and exits 0. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` |
+| C-3863 | Relabelling one `CORRECTED` row to `INSIDE` (with its `class_sha256` re-signed and the frozen summary adjusted so only the image can tell) makes `--corpus` exit 1 and print `row class disagrees with the image: TODO.md:516 0x00412bee frozen=INSIDE/0x00412ac0 image=CORRECTED/0x00412ac0`. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; mutated `/tmp/fa-mut3.json` via `--corpus` |
+| C-3864 | `--corpus` re-scans the live `--scope docs` corpus by default and exits 1 with `CORPUS STALE: n new / n gone / n moved` when a source line was added, removed or moved after the snapshot; a structural row move is `moved`, a verdict change at an unchanged key is a `verdict change`. `--no-live-check` skips that comparison offline. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; one probe line appended to `TODO.md` then `--corpus … --quiet` (`CORPUS STALE: 1 new / 0 gone / 0 moved`, exit 1) |
+| C-3865 | `--corpus … --fix-list` runs the summary/integrity/re-classification/staleness checks first, then prints one `0x<mid> -> 0x<start>` line per snapshot-`INSIDE` row (sorted) and exits 1 when any exist, 0 otherwise; it never falls back to a live scan, so its output is reproducible from the committed artifact, and a tampered snapshot cannot use it to hide a row. A consistent snapshot with one `INSIDE` row prints exactly one line and exits 1 (`corpus_fix_list` + `--fix-list` selftest cases); on the real head a probe `INSIDE` row flipped to `CORRECTED` with a re-signed `class_sha256` prints the class-drift error and exits 1. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; `python3 tools/fn_audit.py --selftest` (fix-list cases), `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --fix-list` (0 lines, exit 0), tampered probe snapshot (`TODO.md:3201 0x0041c7e8`, exit 1) |
+| C-3866 | RESERVED (M1.30). | — | — | — |
+| C-3867 | RESERVED (M1.30). | — | — | — |
+| C-3868 | RESERVED (M1.30). | — | — | — |
+| C-3869 | RESERVED (M1.30). | — | — | — |
+
 ## H64 — factory-tree provenance and `--out` overlap guard (C-3840–C-3849)
 
 `tools/one_tile_pipeline.py` proves its `--factory-root` is a real, parseable

@@ -43,16 +43,29 @@ is per citation.
 
 Usage:
   fn_audit.py IMG [--scope docs] [--fix-list] [--cache DIR] [--quiet]
+  fn_audit.py IMG --scope docs --write-snapshot PATH
+  fn_audit.py IMG --corpus PATH [--no-live-check] [--fix-list]
   fn_audit.py --selftest
 
 Exit codes: 0 no unresolved mid-function citation, 1 any ``INSIDE`` (or an
 ``AMBIGUOUS`` whose candidates include one), 2 usage/image error, 3 the image
 has no build A (nothing to audit).  ``--fix-list`` prints one sorted
 ``0x<mid> -> 0x<start>`` line per ``INSIDE`` VA and changes no file.
+
+A frozen corpus (M1.30) is a committed JSON snapshot written once by
+``--write-snapshot`` (one ``{file,line,va,kind,class,true_start}`` row per
+citation plus the exact summary the writer printed and the image's SHA-256).
+``--corpus`` takes the same image and re-derives every row's class from
+``.pdata`` — the frozen part is only ``file/line/va/kind`` — and by default
+also compares the snapshot against a live ``--scope docs`` scan, exiting 1
+with ``CORPUS STALE`` if a source line moved, was added or removed.  The
+standing gate (M1.26) runs on the snapshot so board prose cannot move the
+counts; a diff to the snapshot is the review artefact.
 """
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -328,7 +341,13 @@ class Image:
 
 
 def audit(cites, image):
-    """Classify every citation; drop UNMAPPED constants (generic bit patterns)."""
+    """Classify every citation, including ``UNMAPPED`` const/ctx rows.
+
+    ``UNMAPPED`` is not an error (a generic constant outside every span), but
+    M1.30's snapshot must carry every citation so ``--corpus`` can re-render the
+    exact ``UNMAPPED n`` summary the writer printed; dropping them here made the
+    two summaries disagree.
+    """
     verdicts = []
     seen = {}
     for cite in cites:
@@ -341,12 +360,7 @@ def audit(cites, image):
                               module=verdict.module, build=verdict.build,
                               candidates=verdict.candidates)
         verdicts.append((cite, verdict))
-    keep = []
-    for cite, verdict in verdicts:
-        if verdict.klass == "UNMAPPED" and cite.kind in ("const", "ctx"):
-            continue
-        keep.append((cite, verdict))
-    return keep
+    return verdicts
 
 
 def _resolved(cite, verdict, image):
@@ -372,15 +386,49 @@ def stats(cites, kept):
     counts = {}
     for _cite, verdict in kept:
         counts[verdict.klass] = counts.get(verdict.klass, 0) + 1
-    unmapped = sum(1 for c in cites if c.kind in ("const", "ctx")) - sum(
-        1 for cite, _v in kept if cite.kind in ("const", "ctx"))
+    # Every ``UNMAPPED`` const/ctx citation counts as unmapped; ``kept`` now
+    # carries them too (M1.30), so read the verdict class directly.
+    unmapped = sum(1 for _cite, verdict in kept
+                   if verdict.klass == "UNMAPPED" and _cite.kind in ("const", "ctx"))
     return unique, counts, unmapped
+
+
+def summary_counts(files, cites, unique, counts, unmapped, kept):
+    """The exact numbers ``report`` prints, as a dict (M1.30 freezes these)."""
+    gaps = [v for _c, v in kept if v.klass == "GAP"]
+    return {
+        "files": len(files),
+        "citations": len(cites),
+        "unique_va": len(unique),
+        "start": counts.get("START", 0),
+        "inside": counts.get("INSIDE", 0),
+        "corrected": counts.get("CORRECTED", 0),
+        "gap": len(gaps),
+        "leaf": sum(1 for v in gaps if v.leaf),
+        "ambiguous": counts.get("AMBIGUOUS", 0),
+        "unmapped": unmapped,
+    }
+
+
+def summary_lines(summary):
+    """The two-line summary, identical for a live run and ``--corpus``."""
+    return [
+        "fn_audit: %d file(s) scanned, %d citation(s), %d unique VA(s)"
+        % (summary["files"], summary["citations"], summary["unique_va"]),
+        "fn_audit: START %d, INSIDE %d, CORRECTED %d, GAP %d (leaf %d), "
+        "AMBIGUOUS %d, UNMAPPED %d"
+        % (summary["start"], summary["inside"], summary["corrected"],
+           summary["gap"], summary["leaf"], summary["ambiguous"],
+           summary["unmapped"]),
+    ]
 
 
 def report(kept, files, cites, unique, counts, unmapped, quiet=False, verbose=False):
     advisory = 0
     if not quiet:
         for cite, verdict in kept:
+            if verdict.klass == "UNMAPPED" and cite.kind in ("const", "ctx"):
+                continue  # generic bit patterns: counted, not listed (as before)
             print("0x%08x  %-32s  %-18s  %-12s  %s"
                   % (verdict.va, cite.where, verdict.label(),
                      verdict.module or "-", BUILD_NAME.get(verdict.build, "-")))
@@ -397,15 +445,9 @@ def report(kept, files, cites, unique, counts, unmapped, quiet=False, verbose=Fa
     if advisory and not verbose:
         print("fn_audit: %d citation(s) whose VA is also INSIDE another build/module "
               "(shown with --verbose)" % advisory)
-    gaps = [v for _c, v in kept if v.klass == "GAP"]
-    leaf = sum(1 for v in gaps if v.leaf)
-    print("fn_audit: %d file(s) scanned, %d citation(s), %d unique VA(s)"
-          % (len(files), len(cites), len(unique)))
-    print("fn_audit: START %d, INSIDE %d, CORRECTED %d, GAP %d (leaf %d), "
-          "AMBIGUOUS %d, UNMAPPED %d"
-          % (counts.get("START", 0), counts.get("INSIDE", 0),
-             counts.get("CORRECTED", 0), len(gaps), leaf,
-             counts.get("AMBIGUOUS", 0), unmapped))
+    for line in summary_lines(summary_counts(files, cites, unique, counts,
+                                            unmapped, kept)):
+        print(line)
     if verbose and CORRECTION_ONLY:
         for va in sorted(CORRECTION_ONLY):
             print("fn_audit: CORRECTION_ONLY 0x%08x  (%s)" % (va, CORRECTION_ONLY[va]))
@@ -428,6 +470,345 @@ def corrected_only(kept):
     """Allowlisted VAs that appear only as resolved corrections in the corpus."""
     inside = {v.va for _c, v in kept if v.klass == "INSIDE"}
     return [va for va in sorted(CORRECTION_ONLY) if va not in inside]
+
+
+# --------------------------------------------------------------------------
+# Frozen corpus snapshot (M1.30): write once, audit the file, never re-scan
+# --------------------------------------------------------------------------
+
+SNAPSHOT_VERSION = 1
+# A snapshot row keeps only what the gate needs to re-render the verdict; the
+# citation *kind* is stored so a hand-added ``const``/``ctx`` row is treated
+# like a live one when the tool recomputes ``unmapped``.
+SNAPSHOT_CLASSES = ("START", "INSIDE", "CORRECTED", "GAP", "AMBIGUOUS", "UNMAPPED")
+
+
+def _split_where(where):
+    """``TODO.md:42`` -> ``("TODO.md", 42)``; a target row keeps ``file:name``."""
+    file, _, rest = where.rpartition(":")
+    if rest.isdigit():
+        return file, int(rest)
+    return where, 0
+
+
+def _row_class(verdict):
+    """The class token a snapshot stores (leaf is a separate counter)."""
+    return verdict.klass
+
+
+def _row_start(verdict):
+    if verdict.klass in ("INSIDE", "CORRECTED") and verdict.start is not None:
+        return "0x%08x" % verdict.start
+    return None
+
+
+def snapshot_rows(kept):
+    """One ``{file,line,va,kind,class,true_start}`` row per kept citation.
+
+    ``GAP`` rows add ``leaf``, ``AMBIGUOUS`` rows add ``candidates``, and a
+    ``ctx`` row keeps the ``correction`` start its own line pairs it with, so
+    ``--corpus`` can re-derive the verdict from the image instead of trusting
+    the stored ``class``.
+    """
+    rows = []
+    for cite, verdict in kept:
+        file, line = _split_where(cite.where)
+        row = {
+            "file": file,
+            "line": line,
+            "va": "0x%08x" % verdict.va,
+            "kind": cite.kind,
+            "class": _row_class(verdict),
+            "true_start": _row_start(verdict),
+            "class_sha256": row_fingerprint(_row_class(verdict),
+                                            _row_start(verdict)),
+        }
+        if cite.correction is not None:
+            row["correction"] = "0x%08x" % cite.correction
+        if verdict.klass == "GAP":
+            row["leaf"] = bool(verdict.leaf)
+        if verdict.klass == "AMBIGUOUS":
+            row["candidates"] = [list(c) for c in verdict.candidates]
+        rows.append(row)
+    rows.sort(key=lambda r: (r["file"], r["line"], r["va"], r["kind"]))
+    return rows
+
+
+def write_snapshot(path, files, rows, summary, image_path):
+    doc = {
+        "tool": "fn_audit",
+        "snapshot_version": SNAPSHOT_VERSION,
+        "scope": "docs",
+        "image": os.path.basename(image_path) if image_path else None,
+        "image_sha256": image_sha256(image_path),
+        "files": sorted(files),
+        "summary": summary,
+        "rows": rows,
+    }
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(doc, fh, indent=1, sort_keys=False)
+        fh.write("\n")
+    os.replace(tmp, path)
+    return doc
+
+
+def image_sha256(path):
+    if not path:
+        return None
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def load_corpus(path):
+    """The snapshot document, validated to the row schema ``--corpus`` needs."""
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    if doc.get("tool") != "fn_audit":
+        raise ValueError("not an fn_audit snapshot: tool=%r" % doc.get("tool"))
+    if doc.get("snapshot_version") != SNAPSHOT_VERSION:
+        raise ValueError("unsupported snapshot_version %r (want %d)"
+                         % (doc.get("snapshot_version"), SNAPSHOT_VERSION))
+    rows = doc.get("rows")
+    if not isinstance(rows, list):
+        raise ValueError("snapshot has no rows list")
+    for i, row in enumerate(rows, 1):
+        missing = [k for k in ("file", "line", "va", "kind", "class", "class_sha256")
+                   if k not in row]
+        if missing:
+            raise ValueError("row %d missing %s" % (i, ", ".join(missing)))
+        if row["class"] not in SNAPSHOT_CLASSES:
+            raise ValueError("row %d has unknown class %r" % (i, row["class"]))
+        try:
+            int(row["va"], 16)
+        except (TypeError, ValueError):
+            raise ValueError("row %d has a non-hex va %r" % (i, row["va"]))
+    if not doc.get("image_sha256"):
+        raise ValueError("snapshot has no image_sha256; --corpus re-classifies "
+                         "each row against the image, so the image is required")
+    return doc
+
+
+def snapshot_summary(doc):
+    """Re-render the summary purely from the frozen rows (no image, no docs)."""
+    rows = doc["rows"]
+    counts = singleton_class_counts(rows)
+    leaf = sum(1 for r in rows if r["class"] == "GAP" and r.get("leaf"))
+    return {
+        "files": len(doc.get("files") or []),
+        "citations": len(rows),
+        "unique_va": len({r["va"].lower() for r in rows}),
+        "start": counts.get("START", 0),
+        "inside": counts.get("INSIDE", 0),
+        "corrected": counts.get("CORRECTED", 0),
+        "gap": counts.get("GAP", 0),
+        "leaf": leaf,
+        "ambiguous": counts.get("AMBIGUOUS", 0),
+        "unmapped": counts.get("UNMAPPED", 0),
+    }
+
+
+def rows_have_failures(rows):
+    """``INSIDE`` always; ``AMBIGUOUS`` only when a candidate is ``INSIDE``."""
+    for row in rows:
+        if row["class"] == "INSIDE":
+            return True
+        if row["class"] == "AMBIGUOUS":
+            for cand in row.get("candidates") or []:
+                if len(cand) > 2 and cand[2] == "INSIDE":
+                    return True
+    return False
+
+
+def row_fingerprint(klass, true_start):
+    return hashlib.sha256(("%s|%s" % (klass, true_start or "")).encode()).hexdigest()
+
+
+def singleton_class_counts(rows):
+    names = ("START", "INSIDE", "CORRECTED", "GAP", "AMBIGUOUS", "UNMAPPED")
+    counts = {name: 0 for name in names}
+    for row in rows:
+        if row["class"] in counts:
+            counts[row["class"]] += 1
+    return counts
+
+
+def _row_key(row):
+    return (row["file"], int(row["line"]), row["va"].lower(), row["kind"])
+
+
+
+
+def _cite_from_row(row):
+    corr = int(row["correction"], 16) if row.get("correction") else None
+    return Citation(int(row["va"], 16), "%s:%s" % (row["file"], row["line"]),
+                    row["kind"], correction=corr)
+
+
+def reclassify_rows(doc, image):
+    """Re-derive every row's class from the image, using only the frozen
+    ``file/line/va/kind`` (and a ``ctx`` row's paired ``correction`` start).
+
+    The stored ``class`` is never consulted here, so a hand-edited class is
+    caught.  Returns ``[(row, verdict)]`` in row order.
+    """
+    out = []
+    seen = {}
+    for row in doc["rows"]:
+        va = int(row["va"], 16)
+        if va not in seen:
+            seen[va] = classify(image.tables, va, image.leaf_of)
+        verdict = seen[va]
+        cite = _cite_from_row(row)
+        if (verdict.klass == "INSIDE" and cite.kind == "ctx"
+                and _resolved(cite, verdict, image)):
+            verdict = Verdict(verdict.va, "CORRECTED", start=verdict.start,
+                              module=verdict.module, build=verdict.build,
+                              candidates=verdict.candidates)
+        out.append((row, verdict))
+    return out
+
+
+def corpus_class_drift(doc, image):
+    """Rows whose stored class/true_start disagree with the image."""
+    drift = []
+    for row, verdict in reclassify_rows(doc, image):
+        want = _row_class(verdict)
+        start = _row_start(verdict)
+        if (row["class"] != want or (row.get("true_start") or None) != start
+                or (want == "GAP" and bool(row.get("leaf")) != bool(verdict.leaf))):
+            drift.append((row, want, start))
+    return drift
+
+
+def compare_live(doc, image):
+    """(new, gone, moved, changed) between the frozen rows and a live scan.
+
+    ``new``/``gone`` are ``(file,line,va,kind)`` keys; ``moved`` pairs the
+    frozen and live key of the same ``(file,va,kind)`` whose line changed;
+    ``changed`` is a row whose verdict changed at an unchanged key.
+    """
+    cites, _files = collect(doc.get("scope", "docs"))
+    live_rows = snapshot_rows(audit(cites, image))
+    frozen_by_key = {_row_key(r): r for r in doc["rows"]}
+    live_by_key = {_row_key(r): r for r in live_rows}
+    new = sorted(k for k in live_by_key if k not in frozen_by_key)
+    gone_keys = {k for k in frozen_by_key if k not in live_by_key}
+    moved = []
+    live_base = {}
+    for k in live_by_key:
+        live_base.setdefault((k[0], k[2], k[3]), []).append(k)
+    moved_live = set()
+    for k in sorted(gone_keys):
+        candidates = [o for o in live_base.get((k[0], k[2], k[3]), []) if o in new]
+        if candidates:
+            target = candidates[0]
+            moved.append((k, target))
+            moved_live.add(target)
+            gone_keys.discard(k)
+            new.remove(target)
+    gone = sorted(gone_keys)
+    changed = []
+    for k in sorted(live_by_key):
+        if k in frozen_by_key:
+            a, b = frozen_by_key[k], live_by_key[k]
+            if (a["class"] != b["class"]
+                    or (a.get("true_start") or None) != (b.get("true_start") or None)):
+                changed.append((k, a, b))
+    return new, gone, moved, changed
+
+
+def corpus_fix_list(doc):
+    """One ``0x<mid> -> 0x<start>`` per snapshot-INSIDE row (frozen, sorted)."""
+    rows = {}
+    for row in doc["rows"]:
+        if row["class"] == "INSIDE":
+            rows[row["va"].lower()] = row.get("true_start") or "0x????????"
+    return ["%s -> %s" % (va, rows[va]) for va in sorted(rows)]
+
+
+def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
+    """Audit a frozen snapshot: summary, integrity, re-classification, live.
+
+    The image is required (the frozen part is ``file/line/va/kind``); every
+    stored ``class``/``true_start`` is re-derived from the image and a
+    disagreement fails.  With ``live_check`` the live ``--scope docs`` scan is
+    compared row-for-row and a moved/added/removed line reports
+    ``CORPUS STALE`` and exits non-zero rather than passing on an old file.
+
+    ``--fix-list`` is not an escape hatch: the summary, integrity,
+    re-classification and staleness checks run first, so a snapshot tampered
+    ``INSIDE -> CORRECTED`` exits non-zero even here; only then is the frozen
+    ``INSIDE`` list printed.
+    """
+    rows = doc["rows"]
+    problems = []
+    frozen = doc.get("summary") or {}
+    got = snapshot_summary(doc)
+    if got != frozen:
+        problems.append(("summary", frozen, got))
+    for row in rows:
+        if row.get("class_sha256") and row["class_sha256"] != row_fingerprint(
+                row["class"], row.get("true_start")):
+            problems.append(("integrity", row, None))
+    for row, want, start in corpus_class_drift(doc, image):
+        problems.append(("class", (row["file"], row["line"], row["va"],
+                                   row["class"], row.get("true_start")),
+                         (want, start)))
+
+    stale = None
+    if live_check:
+        new, gone, moved, changed = compare_live(doc, image)
+        if new or gone or moved or changed:
+            stale = (new, gone, moved, changed)
+
+    failing = rows_have_failures(rows)
+    if not fix_list_mode and (not quiet or problems or stale):
+        for line in summary_lines(got):
+            print(line)
+    for kind, a, b in problems:
+        if kind == "summary":
+            print("fn_audit: snapshot summary mismatch")
+            for key in a:
+                if a.get(key) != b.get(key):
+                    print("fn_audit:   %s frozen=%s rows=%s"
+                          % (key, a.get(key), b.get(key)))
+        elif kind == "integrity":
+            print("fn_audit: snapshot row failed its class_sha256: %s:%s %s"
+                  % (a["file"], a["line"], a["va"]))
+        else:
+            print("fn_audit: row class disagrees with the image: "
+                  "%s:%s %s frozen=%s/%s image=%s/%s" % (a[0], a[1], a[2],
+                                                         a[3], a[4], b[0], b[1]))
+    if stale:
+        new, gone, moved, changed = stale
+        if new or gone or moved:
+            print("CORPUS STALE: %d new / %d gone / %d moved"
+                  % (len(new), len(gone), len(moved)))
+        if changed:
+            print("CORPUS STALE: %d verdict change(s) at an unchanged row"
+                  % len(changed))
+        if not new and not gone and not moved and not changed:
+            print("CORPUS STALE: 0 new / 0 gone / 0 moved")
+        for label, keys in (("new", new), ("gone", gone)):
+            for key in sorted(keys)[:10]:
+                print("fn_audit:   %s %s:%s %s" % (label, key[0], key[1], key[2]))
+        for old, new_key in moved[:10]:
+            print("fn_audit:   moved %s:%s->%s %s"
+                  % (old[0], old[1], new_key[1], old[2]))
+        for key, _a, _b in changed[:10]:
+            print("fn_audit:   changed %s:%s %s" % (key[0], key[1], key[2]))
+    if not quiet and not problems and not stale and not live_check and not fix_list_mode:
+        print("fn_audit: live check skipped (--no-live-check)")
+    if fix_list_mode:
+        lines = corpus_fix_list(doc)
+        for line in lines:
+            print(line)
+        return 1 if (lines or problems or stale) else 0
+    return 1 if (failing or problems or stale) else 0
 
 
 # --------------------------------------------------------------------------
@@ -596,6 +977,174 @@ def selftest():
         check("a live fn label takes no correction",
               live == [(0x00512340, None)])
 
+    # M1.30: snapshot write/read, image re-classification, and staleness.
+    import contextlib
+    import io
+    import tempfile
+    snap_cites = [
+        Citation(0x401040, "doc.md:1", "fn"),
+        Citation(0x401048, "doc.md:1", "ctx", correction=0x401040),
+        Citation(0x401080, "doc.md:2", "const"),
+        Citation(0x900000, "doc.md:3", "const"),
+    ]
+    snap_kept = [
+        (snap_cites[0], good),
+        (snap_cites[1], Verdict(0x401048, "CORRECTED", start=0x401040)),
+        (snap_cites[2], gap_leaf),
+        (snap_cites[3], Verdict(0x900000, "UNMAPPED")),
+    ]
+    snap_files = ["doc.md"]
+    snap_unique = {c.va for c in snap_cites}
+    snap_counts = {"START": 1, "CORRECTED": 1, "GAP": 1, "UNMAPPED": 1}
+    snap_summary = summary_counts(snap_files, snap_cites, snap_unique,
+                                  snap_counts, 1, snap_kept)
+    with tempfile.TemporaryDirectory() as tmp:
+        img = os.path.join(tmp, "synth.img")
+        with open(img, "wb") as fh:
+            fh.write(b"synthetic-not-vendor")
+        path = os.path.join(tmp, "fa.json")
+        rows = snapshot_rows(snap_kept)
+        write_snapshot(path, snap_files, rows, snap_summary, img)
+        first = open(path, "rb").read()
+        doc = load_corpus(path)
+        check("snapshot summary round-trips",
+              snapshot_summary(doc) == snap_summary)
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = audit_corpus(doc, stub, quiet=True, live_check=False)
+        check("write-then-read snapshot exits 0", rc == 0)
+        check("snapshot rows are sorted by file:line:va",
+              rows == sorted(rows, key=lambda r: (r["file"], r["line"],
+                                                  r["va"], r["kind"])))
+        check("snapshot keeps a GAP leaf flag",
+              [r.get("leaf") for r in rows if r["class"] == "GAP"] == [True])
+        check("snapshot stores the image SHA-256, not image bytes",
+              doc["image_sha256"] == image_sha256(img)
+              and len(first) < 4096)
+
+        # Rewriting the same kept list is byte-identical (stable sort, no time).
+        write_snapshot(path + "2", snap_files, snapshot_rows(snap_kept),
+                       snap_summary, img)
+        check("snapshot write is deterministic",
+              open(path + "2", "rb").read() == first)
+
+        # Negative control: relabel one CORRECTED row as INSIDE and re-sign
+        # its fingerprint + summary; the image re-classification still fails.
+        mutated = json.loads(first.decode("utf-8"))
+        for row in mutated["rows"]:
+            if row["class"] == "CORRECTED":
+                row["class"] = "INSIDE"
+                row["true_start"] = "0x00401040"
+                row["class_sha256"] = row_fingerprint("INSIDE", "0x00401040")
+                break
+        mutated["summary"]["inside"] = 1
+        mutated["summary"]["corrected"] = 0
+        mpath = os.path.join(tmp, "fa-mut.json")
+        json.dump(mutated, open(mpath, "w", encoding="utf-8"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            mr = audit_corpus(load_corpus(mpath), stub, quiet=True,
+                              live_check=False)
+        check("mutated CORRECTED->INSIDE exits 1", mr == 1)
+
+        # C-3865: a consistent snapshot with one INSIDE row -> one fix line,
+        # exit 1, and corpus_fix_list is what printed it.
+        fix_cites = [Citation(0x401040, "doc.md:1", "fn"),
+                     Citation(0x401048, "doc.md:2", "fn")]
+        fix_kept = [(fix_cites[0], good), (fix_cites[1], ins)]
+        fix_counts = {"START": 1, "INSIDE": 1}
+        fix_summary = summary_counts(["doc.md"], fix_cites,
+                                     {c.va for c in fix_cites}, fix_counts,
+                                     0, fix_kept)
+        fpath = os.path.join(tmp, "fa-fix.json")
+        write_snapshot(fpath, ["doc.md"], snapshot_rows(fix_kept),
+                       fix_summary, img)
+        fdoc = load_corpus(fpath)
+        check("corpus_fix_list has one line for one INSIDE row",
+              corpus_fix_list(fdoc) == ["0x00401048 -> 0x00401040"])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            fr = audit_corpus(fdoc, stub, quiet=True, live_check=False,
+                              fix_list_mode=True)
+        check("--fix-list on a consistent INSIDE snapshot prints the line, exit 1",
+              fr == 1 and buf.getvalue().strip() == "0x00401048 -> 0x00401040")
+
+        # C-3865/C-3864: --fix-list must not bypass the integrity checks; a
+        # snapshot tampered INSIDE -> CORRECTED (fingerprint + summary
+        # re-signed) prints no fix line and exits 1 via class drift.
+        tam = json.load(open(fpath, encoding="utf-8"))
+        for row in tam["rows"]:
+            if row["class"] == "INSIDE":
+                row["class"] = "CORRECTED"
+                row["class_sha256"] = row_fingerprint("CORRECTED",
+                                                      row["true_start"])
+                break
+        tam["summary"]["inside"] = 0
+        tam["summary"]["corrected"] = 1
+        tpath2 = os.path.join(tmp, "fa-tamper-fix.json")
+        json.dump(tam, open(tpath2, "w", encoding="utf-8"))
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            tf = audit_corpus(load_corpus(tpath2), stub, quiet=True,
+                              live_check=False, fix_list_mode=True)
+        check("--fix-list on a tampered INSIDE->CORRECTED snapshot exits 1",
+              tf == 1 and "->" not in buf.getvalue())
+
+        # Negative control: a fingerprint that no longer matches its class.
+        tampered = json.loads(first.decode("utf-8"))
+        for row in tampered["rows"]:
+            if row["class"] == "CORRECTED":
+                row["class_sha256"] = "0" * 64
+                break
+        tpath = os.path.join(tmp, "fa-tamper.json")
+        json.dump(tampered, open(tpath, "w", encoding="utf-8"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            tr = audit_corpus(load_corpus(tpath), stub, quiet=True,
+                              live_check=False)
+        check("a class_sha256 that no longer matches exits 1", tr == 1)
+
+        # Negative control: a moved/added/removed source line is CORPUS STALE.
+        live_cites = [
+            Citation(0x401040, "doc.md:5", "fn"),
+            Citation(0x401080, "doc.md:2", "const"),
+            Citation(0x900000, "doc.md:3", "const"),
+            Citation(0x401100, "doc.md:9", "fn"),
+        ]
+        live_rows = snapshot_rows([
+            (live_cites[0], good), (live_cites[1], gap_leaf),
+            (live_cites[2], Verdict(0x900000, "UNMAPPED")),
+            (live_cites[3], Verdict(0x401100, "START", start=0x401100)),
+        ])
+        saved_collect, saved_audit = collect, audit
+        glb = globals()
+        try:
+            glb["collect"] = lambda scope="docs": (live_cites, snap_files)
+            glb["audit"] = lambda cites, img: [
+                (live_cites[0], good), (live_cites[1], gap_leaf),
+                (live_cites[2], Verdict(0x900000, "UNMAPPED")),
+                (live_cites[3], Verdict(0x401100, "START", start=0x401100))]
+            new, gone, moved, changed = compare_live(doc, stub)
+            check("compare_live reports moved/new/gone",
+                  len(new) == 1 and len(gone) == 1 and len(moved) == 1)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                sr = audit_corpus(doc, stub, live_check=True)
+            out = buf.getvalue()
+            check("a stale live corpus exits 1 and says CORPUS STALE",
+                  sr == 1 and "CORPUS STALE: 1 new / 1 gone / 1 moved" in out)
+        finally:
+            glb["collect"], glb["audit"] = saved_collect, saved_audit
+
+        # A snapshot from another tool is rejected by load_corpus.
+        wrong = json.loads(first.decode("utf-8"))
+        wrong["tool"] = "not_fn_audit"
+        wpath = os.path.join(tmp, "fa-wrong.json")
+        json.dump(wrong, open(wpath, "w", encoding="utf-8"))
+        try:
+            load_corpus(wpath)
+            rejected = False
+        except ValueError:
+            rejected = True
+        check("load_corpus rejects a foreign snapshot", rejected)
+
     print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
 
@@ -607,6 +1156,14 @@ def main(argv=None):
     ap.add_argument("--scope", default="docs", choices=("docs",))
     ap.add_argument("--fix-list", action="store_true",
                     help="print one '0x<mid> -> 0x<start>' line per INSIDE VA")
+    ap.add_argument("--write-snapshot", metavar="PATH",
+                    help="freeze every citation + verdict to a JSON snapshot")
+    ap.add_argument("--corpus", metavar="PATH",
+                    help="audit a frozen snapshot instead of re-scanning docs "
+                         "(the image re-classifies every row)")
+    ap.add_argument("--no-live-check", action="store_true",
+                    help="with --corpus, skip the live row-set comparison "
+                         "(offline; the snapshot may then be stale)")
     ap.add_argument("--cache", default=pdata.DEFAULT_CACHE,
                     help="decoded-pdata cache directory (default %(default)s)")
     ap.add_argument("--quiet", action="store_true", help="summary and --fix-list only")
@@ -615,6 +1172,36 @@ def main(argv=None):
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
+    if args.corpus and args.write_snapshot:
+        print("error: --corpus and --write-snapshot are exclusive",
+              file=sys.stderr)
+        return 2
+    if args.corpus:
+        if not args.image:
+            print("error: --corpus re-classifies every row against the image; "
+                  "pass the image the snapshot names", file=sys.stderr)
+            return 2
+        try:
+            doc = load_corpus(args.corpus)
+        except (OSError, ValueError) as exc:
+            print("error: %s" % exc, file=sys.stderr)
+            return 2
+        if doc.get("image_sha256") != image_sha256(args.image):
+            print("error: snapshot image_sha256 %r does not match %s"
+                  % (doc.get("image_sha256"), args.image), file=sys.stderr)
+            return 2
+        try:
+            image = Image(args.image, args.cache)
+        except OSError as exc:
+            print("error: %s" % exc, file=sys.stderr)
+            return 2
+        if not image.tables or not image.tables[0].modules:
+            print("error: no build A function tables in %s" % args.image,
+                  file=sys.stderr)
+            return 3
+        return audit_corpus(doc, image, quiet=args.quiet,
+                            live_check=not args.no_live_check,
+                            fix_list_mode=args.fix_list)
     if not args.image:
         ap.print_help()
         return 2
@@ -637,7 +1224,10 @@ def main(argv=None):
         return 1 if failing else 0
     report(kept, files, cites, unique, counts, unmapped, quiet=args.quiet,
            verbose=args.verbose)
-    lines = []
+    if args.write_snapshot:
+        summary = summary_counts(files, cites, unique, counts, unmapped, kept)
+        write_snapshot(args.write_snapshot, files, snapshot_rows(kept), summary,
+                       args.image)
     if failing:
         return 1
     return 0
