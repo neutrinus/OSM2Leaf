@@ -1,0 +1,72 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-16 02:55 (approx; after QA `8098ee2`)
+end_utc: 2026-11-16 04:25
+origin_main_start: 8098ee2 (QA run 19 — H72 audit)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_tl.txt (+ the retro-6 negative-mutation step)
+- docs/retro/2026-11-16-3.md
+- dev_process/2026-11-16-{0226-14-tl,0227-16-sm,0230-17-se,0254-18-po,0259-19-qa}.log
+- TODO.md H72, H73, M1.26, M1.27; tools/fn_audit.py, tools/fn_match.py
+
+task selection (3, disjoint files):
+- H72 fn_audit gate on candidates/leaf + va normalisation — Critical,
+  `Pair: required`, depends H69 (done). PR #192, driver + separate navigator.
+- M1.27 fn_match leaf path for the POINT walker — Critical, `Pair: required`,
+  no deps. PR #193, driver + separate navigator. Files are disjoint from H72
+  (`fn_match.py`/fixture vs `fn_audit.py`), so they ran concurrently.
+- H73 fn_audit evidence spans — `Pair: solo`, Done-when is a reproducible
+  grep/exit-code check (the SM solo oracle). Ran after H72 because both edit
+  `claims.md`; PR #194, self-merged with `gh pr ready`-before-delete.
+
+review rounds and catches:
+- H72: 2 navigator rounds, 1 defect. Core fix verified by construction: an
+  AMBIGUOUS row whose frozen benign candidates gain a live INSIDE candidate
+  exits 1 (was 0), and an unpadded `va` no longer manufactures new/gone. The
+  catch: C-3934/EXP hard-coded a `moved` count (124) that the branch itself
+  changes to 125 — the "command in form, not in fact" class; fixed by citing
+  only `0 new / 0 gone`. The navigator also carried the QA finding forward
+  honestly: the `leaf` half is a latent future-proof guard, not a live fix,
+  because `corpus_class_drift` already catches stored-vs-image leaf.
+  I independently deleted/re-padded a row and confirmed the va normalisation
+  (`0x41c7dc` -> 0 new/0 gone, exit 0) before merging `40f93b9`.
+- M1.27: 2 navigator rounds, 1 real defect. The navigator resolved the primary
+  risk in the driver's favour by reading the bytes: EU `0x003f5194` and US
+  `0x0041db44` disassemble identically (64 B); the `0x04e8`/`0x04d8` pool word
+  is a masked data constant (loop index), not an address, so DIFFERENT is
+  honest and forcing UNIQUE would be wrong. The catch: the GAP window was cut
+  only at `rts`, so a no-`rts` thunk (`0x0032ef6c`) read 1024 B across the next
+  START and paired with an import-thunk table — a false pairing that would have
+  contaminated the 634-leaf M1.22b census. Fixed by clamping the window at
+  min(next START, next called GAP, code end, 0x400); `0x0032ef6c` is now
+  NOMATCH. I re-ran `0x003f5194` (DIFFERENT -> 0x0041db44 @+0x14) and the
+  no-`rts` gap myself before merging `2709645`.
+- H73: solo, merged itself. I re-ran the one claim that mattered: `git show
+  3fdbab2^:…` reproduces `4606aa2a…78fe38` and the old snapshot gives
+  `CORPUS DRIFT: 0 new / 0 gone / 125 moved`, exit 0; grep finds 0 scratch
+  paths in the three rows (one `OBSERVED` marker on C-3912, as specified).
+
+outcomes (all three done):
+- H72: `verdict_differs` now compares the AMBIGUOUS candidate set and `bool(leaf)`
+  for GAP rows; `_row_key`/`snapshot_summary`/`corpus_fix_list` normalise `va`;
+  `--selftest` 58 checks. C-3930–C-3934.
+- M1.27: `fn_match --leaf` maps the POINT walker EU->US `DIFFERENT` with the
+  first differing pair; `leaf_window_limit` clamp; `--selftest` 22 checks; the
+  M1.28 guard replays 13 rows / 0 mismatch. C-3700–C-3705.
+- H73: C-3900/C-3903/C-3912 evidence columns are repo commands that print
+  their value; no new C row, no EXP edited. C-3940–C-3949 unused.
+
+rule 15: M1.22b names M1.27 in `Depends` (now done) but M1.22b was already
+`open`, so no flip; it is the next US-path pick after M1.26. No otherwise-open
+task is blocked on H72/H73.
+
+board after: 0 in progress, 0 open PRs, all gates green (selftest 88/0/23,
+claims_check OK, todo_check 0 errors, `--corpus` exit 0 with a 125-moved
+CORPUS DRIFT warning = H69's intended prose-drift policy).
+
+handoff: next TL: M1.26 (pair, `--scope l3` gate on the frozen snapshot, must
+name H69's moved-only policy and handle the l3 overlay's own staleness) +
+M1.22b (pair, the US census on M1.27's leaf path) + one solo (H71, the
+C-3860/61/64 evidence spans — H73's sibling). Human: `worktree_audit --prune
+--apply` still owed; /tmp tmpfs ~2.5 G/3.8 G used, probe copies must stay small.
