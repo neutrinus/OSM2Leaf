@@ -1,0 +1,67 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-16 00:00 (approx; after QA `0d53dea`)
+end_utc: 2026-11-16 00:15
+origin_main_start: 0d53dea (QA 2026-11-16 post-#171 regression + H64/H65)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_tl.txt, docs/retro/2026-11-15-4.md
+- dev_process/2026-11-16-{0025-1-po,2331-2-qa}.log, 2026-11-15-{2200-17-tl,2252-18-sm,2254-19-se}.log
+- TODO.md H52, H64, M1.26, M5.29; tools/fn_audit.py, tools/one_tile_pipeline.py
+
+task selection (2, disjoint files):
+- H52 `fn citation audit` — Critical, no deps, `Pair: solo` (mechanical
+  application of the M1.25/M1.29 audit). Branch task/h52-fn-citation-audit,
+  PR #185; the subagent merged itself per rule 6.
+- H64 `factory-root guards` — `Pair: solo` in the block, but it changes a
+  gate's pass/fail semantics (SM retro-4 prompt change), so driver + separate
+  navigator. Branch task/h64-factory-root-guards, PR #186; TL merged.
+- Skipped: M1.26 (gated on H52 at batch start), M1.27 (large census), M1.24,
+  M1.19, M3.23/M3.24/M9.38 (readers, next batch).
+
+modes and review:
+- H52: solo per its block. The subagent applied 9 unique corrections, merged
+  as `763f33c`. I re-verified the key claim myself because it changes the L3
+  path: checked out `0d53dea` (FN_CHUNK 0x0041c7e8 / DST_SLOT 40) next to
+  main (0x0041c7dc / 16) and ran `chunk_decoder_l3.py run` on a factory
+  POINT010 pair (/home/marek/projekty/leafre-work/m5.13/factory/REFER001,
+  `.cmp` 48812f8c…, `.ind` 7ac54e3b…). Both decode the same page: r0=42848,
+  copied=42848, memcpy=11, `verdict: PASS (byte-identical to cmpind.decode)`.
+  Only `insns` differs (1057245 -> 1057251), exactly as C-3492 states (entering
+  at the pdata start executes a few more instructions; the decoded bytes do not
+  change). Accepted as an ABI fix, not an output change.
+- H64: pair (driver + separate navigator). Navigator round 1 CHANGES (4 items:
+  missing Follow-ups, EXP over-claimed reserved C-3844, parent-of-root branch
+  only hand-tested, `--json` parsed but unused). Driver fixed all four in
+  `9f72a50`; round 2 APPROVE. I independently reproduced the data-loss guard
+  on an empty four-file tree: `--out == --factory-root` -> exit 2, inputs
+  intact. Merged `ad2099d` (PR #186).
+
+outcomes (both done):
+- H52: `fn_audit` INSIDE 33 -> 0, `--fix-list` empty; 9 unique VAs corrected
+  in TODO/docs/format/reader-coverage/targets.json/chunk_decoder_l3; FN_CHUNK
+  0x0041c7e8 -> 0x0041c7dc, DST_SLOT 40 -> 16 (output byte-identical);
+  sh4xref label mismatch 127/200 (36.5 %); C-3490–C-3499; remaining GAP/UNMAPPED
+  assigned in docs/research/fn-audit-2026-11-16.md.
+- H64: `_factory_tile_provenance` (parses the tile, records sha/size), empty
+  or garbage tile -> `real_image_run=factory-tree-invalid` + BLOCKED + no
+  mutation; `_check_out_overlap` (equal/parent/child) -> exit 2 with input
+  intact; honest root tile e9c9cb22…8af3ff52 (289,319,168 B), tilewriter rc=2
+  for 0x2146 unchanged; C-3840–C-3843.
+
+rule 15 after the merges: no blocked task named H52 or H64; M1.26 was `open`
+(gated on H52, now satisfied) and stays `open` — it is the next label-line
+pick. M5.29/M9.12 stay `blocked` on their own open Unblock tasks (M5.34,
+M9.31), not on this batch. The rule-15 scan reports a handful of blocked
+tasks whose literal `Depends:` are done but whose `Unblock:` names an open
+task (M4.8b/M4.16/M4.29/M4.31/M5.16/M5.29/M8.E1/M9.12) — not this batch's
+scope; PO owns re-opening.
+
+board after: 0 in progress, 0 open PRs (PO's #171 merge-then-close removed the
+last draft), 169 blocks; H52/H64 done.
+defects caught: H64 navigator 4 (all evidence/coverage, one real gap: the
+parent-of-root branch was untested); H52 solo merged itself, TL re-verified
+the byte-identical claim. No defect slipped to main.
+handoff: next TL: M1.26 (pair, now ungated) + M1.27 (pair) then the reader
+line M3.23/M3.24/M9.38; M1.24 and M1.19 ready and unowned. Human: worktrees
+and ahead-branches still need `worktree_audit.py --prune --apply`.
