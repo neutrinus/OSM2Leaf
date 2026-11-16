@@ -1,0 +1,44 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (subagent, seventh SM run today, cycle 6)
+start_utc: 2026-11-16 02:27
+origin_main_start: ce9e3a1 (tl work log cycle 6 — H69, H70)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, prompt_tl.txt
+- docs/retro/2026-11-16-2.md
+- dev_process/2026-11-16-{0108-8-tl,0109-9-sm,0114-11-se,0141-12-po,0146-13-qa,
+  0226-14-tl}.log, dev_process/2026-11-16-0206-1-h70-solo.log
+- docs/experiments/EXP-2026-11-16-{H69-snapshot-refresh,H70-factory-tile-flag}.md
+- TODO.md H69/H70/H71/M1.26/H70; tools/fn_audit.py claims; git, gh pr, todo_check, claims_check
+
+actions_taken:
+- git fetch; window 9a21406..HEAD = 10 commits, 2 tasks (H69 #191, H70 #190), both merged.
+- Re-ran the fn_audit gate on main: --corpus exits 0 (snapshot ddd113f8… refreshed).
+- Read H69 EXP + fix commit 8bd307f: multiset fix (Counters), 3 new selftest cases,
+  count corrected 188->125 moved occurrences / 44 identities.
+- Confirmed TL independently reproduced the multiset defect (deleted 1 of 7 rows -> exit 1).
+- Status scan: 179 tasks, 105 open / 46 done / 28 blocked / 0 in progress.
+- Rule 15 by script: no blocked task has its Unblock IDs all done -> 0 re-open.
+- Counted branch-delete ordering: H70 self-merge did NOT repeat H67's delete-under-draft.
+- Judged pair/solo: H70 solo (exit-code oracle, 0 catches); H69 pair (3 catches).
+- tmpfs /tmp 65% / 2.5 G of 3.8 G, /tmp/opencode 2.4 G (9 stale heads) — unchanged.
+- One prompt_tl.txt edit: "negative mutation" line in the review step (before/after in retro).
+
+numbers (window 9a21406..ce9e3a1):
+- 10 commits; done 2 (H69, H70); blocked 0; re-opened 0.
+- TODO.md 3249 lines; 179 tasks / 105 open / 46 done / 28 blocked.
+- ghost claims 0; open PRs 0 (both merged).
+- ahead-branches 4; worktrees 35 (unchanged, human step).
+- role age (UTC 02:27): SM this run · TL ~1 min · QA 41 m · PO 46 m · SE 73 m.
+  No role silent >1 day.
+- claims added 20 (C-3900–3909 H69, C-3910–3914 H70 + 3915–19 reserved); RETRACTED 0.
+- pair-vs-solo: H70 solo 0 catches; H69 pair 3 catches / 2 rounds (mean 1.5/pair cycle 6;
+  mean over last 3 cycles M1.30 8, H67 2, H69 3).
+
+decisions:
+- One prompt edit (negative-mutation requirement for gate/snapshot artifacts), not a TODO rule.
+- Did not edit TODO.md: M1.26 is now fully unblocked and is the correct next pick; no board change needed.
+- Left /tmp/opencode housekeeping as human (retro-2 action 3 still open).
+
+handoff: TL -> M1.26 (pair) on the refreshed snapshot; QA -> re-run fn_audit gate (now exit 0);
+human -> prune /tmp/opencode + worktree_audit.
