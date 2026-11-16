@@ -35,3 +35,15 @@ problems:
 
 handoff: M1.22b's denominator is `complete 598`, not `635 leaf`; the only
 function cap case is 0x00558300.
+
+round 1 review (navigator CHANGES, docs only):
+- re-ran leaves --verbose on all three call sets: 0x0053a21c bound 0xc
+  (records), 0x1010 rts+4102 (gaps), 0xc (all); 0x00558300 and 0x00011000
+  become stubs under --called all (bound 0x18 / 0x71e, rts -)
+- C-3964 rewritten to clamp-specific with the measured bounds; C-3969 rewritten
+  to name the unit (598 complete GAPs = 579 leaf + 19 non-leaf, leaf rate 579)
+- EXP: corrected 0x0053a21c wording (12-B window, 8-byte mov.l/mov.l/jmp),
+  added the clamp-specific paragraph, added ## Follow-ups
+- TODO Result line carries the same unit and dependence
+- claims_check OK, todo_check OK, fixture 13 rows 0 mismatch (exit 0),
+  0x00558300 TRUNCATED, 0x003f5194 DIFFERENT to 0x0041db44; fn_audit untouched
