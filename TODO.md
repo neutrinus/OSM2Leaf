@@ -668,7 +668,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3870–C-3879
 
 - [ ] **H67 — Nowhere owns H64's "parseable-but-wrong tile" provenance gap**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h67-factory-tile-cell · Critical: no · Pair: required
   - Depends: H64 (done); coordinates M5.34 (the corridor rerun that first trusts a factory exit code)
   - Goal: H64's Follow-ups name a real hole with no task: a *different cell's* tile copied into `MAPAL001/<cell>.DAT` parses and hashes fine, so `factory_tree_provenance=factory-tile-parsed` proves "some tile parsed", not "this is the cell's factory tile". H64 deliberately did not use the whole-image SHA (the root is an extraction); it left the question to "a task if a factory-tree fingerprint is wanted". Without one, a studio can hand a run a parseable wrong tile and still read `mode=factory-backed`. Decide the fingerprint (or decide explicitly not to), so M5.34 does not inherit an open question.
   - Precheck: `grep -rniE 'fingerprint|parseable-but-wrong|different cell' TODO.md docs/experiments/EXP-2026-11-16-H64*` finds only H64's Follow-up text (no owning task ID); `python3 tools/one_tile_pipeline.py --selftest` passes today with the wrong-cell case absent.
