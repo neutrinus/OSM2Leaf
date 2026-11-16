@@ -769,7 +769,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3930–C-3939
 
 - [ ] **H73 — `fn_audit` evidence in C-3900/C-3903/C-3912 must be repo commands that print their value**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h73-evidence-spans · Critical: no · Pair: solo
   - Depends: — (`docs/research/claims.md`, `tools/fn_audit.py`); coordinates H71 (same evidence class for C-3860/61/64)
   - Goal: H69/H70 registered 20 claims, but three evidence spans cannot be re-run from a checkout: C-3900 and C-3903 cite `/tmp/opencode/h69-old-snapshot.json` and `/tmp/opencode/h69-classflip.json`, which are uncommitted scratch files (gone after a reboot, never reproducible on another machine), and C-3912's run names `/home/marek/projekty/leafre-work/...` with no repo command producing the reported fields. `claims_check` accepts them because a path-shaped string is present. That is the same "command in form, not in fact" defect H71 fixes for C-3860/61/64, on the claims this cycle added.
   - Precheck: `grep -nE '/tmp/opencode|leafre-work' docs/research/claims.md | grep -E 'C-3900|C-3903|C-3912'` prints those rows; `/tmp/opencode/h69-old-snapshot.json` is not in `git ls-files`, and `git show 3fdbab2^:docs/research/fn-audit-corpus-2026-11-16.json | sha256sum` prints `4606aa2a…78fe38` — the old snapshot *is* recoverable from git history, so the fix needs no new artifact.
