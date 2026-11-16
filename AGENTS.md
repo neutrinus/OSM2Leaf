@@ -84,12 +84,22 @@ serves the EU 2011, US 2011 and 2014/2016 images (7.4–7.5 GB each; `curl -r
 0-268435455` gets the 256 MiB firmware head in about a minute).
 
 ```bash
+python3 tools/gate.py                     # the standing gate: one PASS/FAIL/SKIP policy
 python3 tools/selftest.py                 # all tools that have --selftest
 python3 tools/selftest.py --only imgpatch # one tool
 python3 tools/claims_check.py             # ledger: duplicates, unregistered claims
 python3 tools/realcheck.py IMG256         # pinned checks on real bytes (exit 2 = no image)
 python3 tools/l3check.py --build-corpus   # L3 rung; exit 3 = nothing runnable, never a pass
 ```
+
+`tools/gate.py` is the standing gate the TL/QA roles run: it runs
+`selftest.py`, `claims_check.py --strict --count-check`, `todo_check.py` and
+`fn_audit.py --corpus … --overlay …` in one fixed order and prints one
+`PASS/FAIL/SKIP (reason)` table (plus `--json`). **A SKIP is never a pass**: it
+exits 0 only when every *runnable* gate passed, and a missing
+`archive/head256.img` makes `fn_audit` a named `SKIP`, not a silent
+`passed=` line. Use `--board-clean` to add `todo_check --strict` (red until
+H53), and `--json -` for a stdout document. CI runs it on every PR.
 
 Verification ladder for a data/code change, in order:
 
