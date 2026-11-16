@@ -254,6 +254,16 @@ def survey_cell_binding(factory_root: Path) -> dict[str, Any]:
                 continue
             if _factory_tile_cell_binding(h, dst_cell)[0]:
                 wrong_pass += 1
+    # Header database boxes 0x184 (>4h) and 0x5d0 (>2h): constant across a
+    # card's tiles, so they cannot bind a tile to a cell (C-3881).
+    def _distinct(off: int, fmt: str) -> dict[str, int]:
+        seen: dict[str, int] = {}
+        for h in tiles.values():
+            key = ",".join(str(v) for v in struct.unpack_from(fmt, h, off))
+            seen[key] = seen.get(key, 0) + 1
+        return seen
+    bounds_184 = _distinct(0x184, ">4h")
+    bounds_5d0 = _distinct(0x5d0, ">2h")
     return {
         "factory_root": str(factory_root),
         "cells": len(tiles),
@@ -261,6 +271,9 @@ def survey_cell_binding(factory_root: Path) -> dict[str, Any]:
         "honest_tiles_pass": honest_ok,
         "wrong_pairs": len(tiles) * (len(tiles) - 1),
         "wrong_pairs_pass": wrong_pass,
+        "header_bounds_0x184": bounds_184,
+        "header_bounds_0x5d0": bounds_5d0,
+        "header_bounds_uniform": len(bounds_184) <= 1 and len(bounds_5d0) <= 1,
         "skipped": skipped,
         "ok": honest_ok == len(tiles) and wrong_pass == 0,
     }
