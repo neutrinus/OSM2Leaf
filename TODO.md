@@ -821,8 +821,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-16-H78-claims-strict-count; C-4010–C-4016. `--strict` now runs the count rule (`_run_counts`), so the real-ledger `--strict` and `--count-check` both exit 0 with `count mismatches: 0`; the measurement revision is the newest commit that changed the EXP *and* a `tools/*.py` file, so H75's docs-only `Correction` append no longer re-pins C-3704 (measured `334f092` -> 26, not `ec58d12` -> 29). A one-digit change still fails (C-3704 26->25 exit 1); a claim whose EXP record exists but has no measurement revision is skipped, not measured on the working tree; `--selftest` 25 checks (all four numbers from the commands above); `selftest.py` 90/0/23 with the head.
   - Claims: C-4010–C-4019
 
-- [ ] **H79 — M1.31 evidence cites `/tmp/opencode/us256.img`; make the US head re-creatable and retarget Claim 26 at `US256`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H79 — M1.31 evidence cites `/tmp/opencode/us256.img`; make the US head re-creatable and retarget Claim 26 at `US256`**
+  - Status: done · Owner: task/h79-m131-us-head · Critical: no · Pair: solo
   - Depends: H62 (the `US256` fetch key; H62 is open, so the `head -c` line is the interim fix), H75 (the same defect already fixed for C-3703)
   - Goal: `EXP-2026-11-16-M1.31-leaf-census.md` names `/tmp/opencode/us256.img` in its sample and commands (6 times) and C-3962/C-3965 carry `--us /tmp/opencode/us256.img`; a reader on a fresh checkout cannot re-run them, which is the exact class H75 repaired for C-3703. The head is the same `70d945d8…`.
   - Precheck: `grep -c "/tmp/opencode/us256.img" docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md docs/research/claims.md` prints `6` and `4`.
@@ -831,6 +831,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Hints: `head -c 268435456 … | sha256sum` must print `70d945d8…04da`; if H62 has merged by the time this is taken, prefer `fetch_image.py --image US256` and delete the `head -c` line. Run the M1.31 census once on `archive/us256.img` after the edit so the numbers are re-quoted, not retyped.
   - Done when: `grep -c "/tmp/opencode/us256.img" docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md docs/research/claims.md` prints `0` and `0`; the cited US HEAD command with `archive/us256.img` prints `70d945d8…` (or `fetch_image.py --image US256` verifies it); `python3 tools/claims_check.py` and `--strict` exit 0.
   - Stop: if `archive/sd-images/LEAF_2011-2012_US.img` is absent and H62 has not merged, cite only the pinned SHA-256 and the existing `/tmp` path as `HYPOTHESIS (not re-creatable here)` rather than inventing a path.
+  - Result: EXP-2026-11-16-M1.31-leaf-census `Correction (H79)`; C-4020–C-4023. The US head is `archive/us256.img`, re-created by `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` (`70d945d8…04da`, git-ignored). The M1.31 EXP's 6 and the ledger's 4 `/tmp/opencode/us256.img` mentions are 0; the same edit repairs C-3741/C-3742 (M1.28) and makes C-3742's flip step runnable. Every measured number is unchanged (census 598/77/2, `TRUNCATED … 0x4a16`, `13 rows, 0 mismatch`); `claims_check --strict` exit 0.
   - Claims: C-4020–C-4029
 
 - [ ] **H80 — H71's Precheck selects claim rows by a line range that no longer exists**
