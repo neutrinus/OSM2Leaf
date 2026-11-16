@@ -1,0 +1,68 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (session agent, main session, continuation
+  of the SM pass that wrote retro-9; ninth run today, sixth of 2026-11-16)
+start_utc: 2026-11-16 10:00 (SM work began at the cycle-8 TL handoff)
+end_utc: 2026-11-16 11:10
+origin_main_start: d5e1f7a (chore: TL cycle-8 log)
+origin_main_end: this commit (SM retro 2026-11-16 cycle 8)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, prompt_tl.txt, prompt_qa.txt
+- docs/retro/2026-11-16-4.md (cycle 7) and all earlier passes
+- dev_process/2026-11-16-{0425-24-sm,0427-25-se,0452-26-po,0505-27-qa,1050-29-tl}.log
+- git log 179a36a..d5e1f7a; gh pr list --state all; worktree_audit.py; df /tmp
+- TODO.md H53/H58/H61/H62/H66/H71/H74/H75/H76; tools/{fn_audit,claims_check,todo_check,selftest}.py
+
+actions_taken (in order):
+- git fetch; confirmed main at d5e1f7a, 0 open PRs, board 103/55/28/0 (186 blocks).
+- Recomputed the cycle-8 window: 33 commits, 6 merges (#195-#200), 6 tasks done.
+- Ran the gates: selftest 90/0/23, claims_check OK, todo_check default OK,
+  todo_check --strict exit 1 with 69 ERROR lines over 25 firmware/search tasks.
+- Verified the H53 premise is stale: --strict exists since 9733980 (exit 1, not
+  the argparse error the block describes); re-scoped the block (Goal/Precheck/
+  Scope/Done when/Result: pending) and left it open for the next role.
+- Wrote docs/retro/2026-11-16-5.md (numbers + two judges + stuck circles +
+  5 prompt edits + 5 actions).
+- Added H77 (fence-aware scanners, Pair: required, C-4000-C-4009 reserved):
+  the H71 fence/citation class needs a real policy fix, not just a placeholder.
+- Edited prompt_common.txt (Pair: class, log N = max+1, numbers rule),
+  prompt_tl.txt (solo classes, self-log numbers), prompt_qa.txt (strict note).
+- Re-ran the l3 gate after adding H77 and caught the new block's own literal
+  `fn 0x...` becoming 2 live l3 citations (CORPUS STALE 2 new, exit 1); fixed
+  with <VA>/<start> placeholders; gate back to 0 new / 0 gone / 58 moved, exit 0.
+- Final gates on the branch: todo_check OK, claims_check OK, selftest 90/0/23.
+
+numbers:
+- 33 commits 179a36a..d5e1f7a, 6 merges, 6 done (M1.31, M1.26, H74, H76, H75, H71),
+  0 blocked, 0 re-opened, 0 ghost claims, 0 open draft PRs, 4 unmerged stale branches.
+- TODO 3354 lines after this pass; board 104 open / 55 done / 28 blocked / 0 in progress;
+  187 blocks. Claims 2022 rows, 32 RETRACTED (unchanged).
+- Worktrees 36 (18 prunable, 19 stale); .claude/worktrees 490 MB, not git-ignored.
+- /tmp 2.7 G / 3.8 G (70 %).
+- Pair vs solo: 4 pair + 2 solo, 9 review rounds, 1 task-level regression on main (H76).
+
+decisions:
+- H76 was created rather than folded into H75 (rule 9) and run as a pair despite
+  `Pair: solo`, because it edits a standing gate's pass/fail assertion. The
+  prompt edits make that call explicit instead of a TL override.
+- H77 gets `Pair: required`: it changes what the scanner treats as a citation,
+  i.e. a gate's semantics, and it may move a frozen snapshot.
+- H53 stays `Pair: solo` (TODO.md text once the rule is settled), but is now a
+  board-cleanup task with a real Done-when (strict exit 0), not a flag-add.
+- Numbers rule moved to prompt_common.txt: it bound only the TL reviewer and the
+  same defect appeared three cycles running.
+
+problems:
+- The one escape to main this cycle (H76 regression) came through a pair whose
+  gates skipped: both worktrees lacked archive/head256.img, so
+  fn_audit_l3_image was skip_unless-skipped and both saw green. Reviewers must
+  symlink the image or say "SKIPPED - cannot verify".
+- H53 sat on a stale premise for 11 cycles while the default gate stayed green
+  and --strict was red; the cheap-task listing hid it.
+- Writing the H77 block reproduced the H71 trap inside TODO.md itself.
+
+handoff: next SE → PO → QA → TL (cycle 9). Likely TL picks: M1.22b (pair, US
+census on M1.27/M1.31), H77 (pair, fence-aware scanners), then H62 (US256 fetch
+key) / H58 (non-runnable evidence) / H53 (strict board cleanup). Human: delete
+stale /tmp/opencode heads, `tools/worktree_audit.py --prune --apply` from the
+main checkout, add `.claude/` to `.gitignore`.

@@ -48,8 +48,15 @@ Editing TODO.md concurrently (~15 agents write to it):
 - Optional `Pair:` field. Developer tasks run as a driver/navigator pair by
   default (see prompt_tl.txt); write `Pair: solo` only for low-risk work
   (docs, housekeeping, selftest-covered small tools) and `Pair: required`
-  for high-risk work (firmware searches, format writers, L3/L4/L5 inputs).
-  Omitted = TL decides, default pair.
+  for high-risk work (firmware searches, format writers, L3/L4/L5 inputs,
+  and **any task that adds or edits a standing gate, a user-visible assertion,
+  a snapshot, or the evidence/claim of a blocked claim** — a `Pair: solo` in
+  that class is run as a pair). Omitted = TL decides, default pair.
+- Every number in a task, an EXP record or a claim row must be **quoted from a
+  command whose output prints it** — never typed by hand, and never copied from
+  an earlier record. If the branch itself moves the number (a `moved` count, a
+  line offset, a selftest size), cite the command and the stable part
+  (`0 new / 0 gone`), or say at which revision the number was measured.
 - Before pushing: `git fetch && git rebase origin/main`, resolve conflicts by
   keeping both sides' content, then run
   `python3 tools/todo_check.py` and `python3 tools/claims_check.py`.
@@ -65,7 +72,10 @@ finds nothing to do or fails):
 - File: `dev_process/YYYY-MM-DD-HHMM-N-<role>.log`, UTC start time, `N` =
   1 + number of logs already in dev_process/ for that date (so names never
   collide), `<role>` = po | qa | se | sm | tl. Example:
-  `dev_process/2026-11-09-1430-3-tl.log`.
+  `dev_process/2026-11-09-1430-3-tl.log`. Check with
+  `ls dev_process/YYYY-MM-DD-* | sed 's/.*-\([0-9]*\)-[a-z]*\.log/\1/' | sort -n`
+  — the free `N` is `max+1`, not a count (subagent logs such as `-driver`
+  already reuse small numbers; do not add to that collision).
 - Create it when you start (header lines), append as you go, finish it
   before your last commit. Plain English text, aim for under ~80 lines:
     role, model, start/end time (UTC), origin/main SHA at start

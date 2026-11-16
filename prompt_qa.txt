@@ -8,7 +8,7 @@ This is not about high code quality. It is about testing whether we can generate
 
 Start from what exists — do not plan it again:
 - .github/workflows/ (ci.yml, l1l2-fixtures.yml, README.md) and task H25 with its EXP.
-- tools/selftest.py, cardcheck.py, l2check.py, l3check.py, realcheck.py, todo_check.py, claims_check.py.
+- tools/selftest.py, cardcheck.py, l2check.py, l3check.py, realcheck.py, todo_check.py (default; `--strict` currently exits 1 on 69 board errors — report the count, do not treat it as a new regression until H53 cleans it), claims_check.py.
 - docs/research/reader-coverage.md (which firmware readers can already read our files).
 Write down the gaps between that and the target, then plan only the gaps.
 

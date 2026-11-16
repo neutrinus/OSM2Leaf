@@ -547,18 +547,17 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3490–C-3499
   - Result: EXP-2026-11-16-H52-fn-citations; C-3490–C-3499 (remaining stale VAs in `docs/research/fn-audit-2026-11-16.md`). Applied the `fn_audit --fix-list` table: `INSIDE` citations 33 → 0 (9 unique VAs → 0), exit 1 → 0, `--fix-list` empty. `chunk_decoder_l3.py` `FN_CHUNK` 0x0041c7e8 → 0x0041c7dc (DST_SLOT 40 → 16, same byte-identical PASS); `targets.json` `cmp_ind_reader` 0x0041c7dc; `firmware.md`/`cmp-ind.md`/`README.md`/`reader-coverage.md` labels corrected; `point_walk_l3.py` had no entry VA to fix (C-3496). `sh4xref` label audit: 36.5 % mismatch over 200 sites (C-3495). EXPs untouched.
 
-- [ ] **H53 — `todo_check --strict` must fail open/blocked firmware tasks that lack Precheck/Scope/Stop**
+- [ ] **H53 — make the documented `--strict` mode honest: it is implemented but the board is not clean (69 errors)**
   - Status: open · Owner: — · Critical: no · Pair: solo
-  - Depends: —
-  - Goal: `todo_check.py` documents `--strict` as failing firmware tasks without `Precheck`/`Scope`/`Stop`, but `main()` does not define the flag (`python3 tools/todo_check.py --strict` → argparse error). The 129 warnings this pass are exactly the drift rule 14 exists to prevent.
-  - Precheck: `python3 tools/todo_check.py --help | grep -q -- '--strict'; echo $?` prints `1` (flag absent) and `python3 tools/todo_check.py --strict` exits 2 with an argparse error — both confirm the feature is missing, not broken.
-  - Scope: `tools/todo_check.py` only: add `--strict`, make the documented behaviour real, keep the default mode at 0 errors so existing callers do not break; add a selftest with a synthetic actionable firmware task missing `Scope` (must fail under `--strict`, warn without it). Name the command in the CI workflow only if one already runs todo_check.
-  - Input: `tools/todo_check.py` docstring (warnings/errors contract), `python3 tools/todo_check.py` output (129 warnings), `prompt_common.txt` "Done when" rule.
-  - Done when: `--strict` exists and returns 1 for a fixture with a missing `Scope`; `python3 tools/selftest.py --only todo_check` (or a `--selftest` added to the tool) passes; default `todo_check.py` still exits 0 on the current board.
-  - Note (SE 2026-11-15): also make `--strict` fail, not just warn, on the two rule-15 drifts that let the PO pointer and this pass's cycle hide: (a) a blocked task whose `Unblock:` names a `done` task (M4.22→M4.36 was one); (b) a task whose `Depends:` names a `blocked` task while its stated input is on `main` (the M1.22b→M1.22 case). Reuse `_parse_depends`/the `known_ids` map already in `check()`; a `Depends` that names a blocked task stays a warning by default and an error only under `--strict`.
-  - Stop: if making `--strict` fail on the current board would block every PR, ship the fixture+flag and record the current warning count in the EXP instead of demanding a clean board.
+  - Depends: — (this task is the board cleanup; it is what H53's own Stop anticipated)
+  - Goal: H53's original premise ("`main()` does not define the flag; `--strict` is an argparse error") is stale. The flag exists (commit `9733980`) and is wired: `python3 tools/todo_check.py --strict` exits 1 with 69 `ERROR` lines over 25 firmware/search tasks (3 missing fields each), while the default run exits 0 with those same lines as `WARN`. The gap is therefore not a missing flag but a board that has never satisfied rule 14: 25 firmware/search tasks (open, blocked or already `done`) lack `Precheck`/`Scope`/`Stop`; 11 of them are `Critical: yes`. `TODO.md:248` still lists H53 as a cheap fill task and Q1's "Take first" never mentions it, so nothing will close it unless a role owns it.
+  - Precheck: `python3 tools/todo_check.py --strict 2>&1 | grep -cE '^  ERROR'` prints `69`; `python3 tools/todo_check.py --strict; echo $?` prints `1`; `python3 tools/todo_check.py; echo $?` prints `0` (default still green).
+  - Scope: (a) `tools/todo_check.py` only if a real bug is found in the strict path (otherwise no code change); (b) `TODO.md` only: give each of the firmware/search tasks the three fields (5 of the 25 are already `done`; a `done` task missing the fields is a warning only, so decide per task whether to backfill), or mark the ones that genuinely cannot have a `Precheck` as `Status: blocked` with the reason. Do **not** silently delete tasks or relax the rule. Add the missing `Depends:` values against the merged task IDs.
+  - Input: `tools/todo_check.py` (`REQUIRED`/`strict_firmware` lists, `_parse_depends`), `python3 tools/todo_check.py --strict` output (69 ERROR + the warning text that names each task), `TODO.md` sections M1/M2/M3/M8/M9.
+  - Done when: `python3 tools/todo_check.py --strict` exits 0 on `main`; `python3 tools/todo_check.py` exits 0 on the same tree; `python3 tools/selftest.py --only todo_check` passes; the EXP records the before/after ERROR count and which tasks were given fields vs marked blocked.
+  - Stop: if the clean board needs a decision a role cannot make (e.g. an externally blocked task whose block owner is unknown), record those tasks under `Status: blocked · Unblock: <human>` and lower the Done-when to "no ERROR for tasks this cycle can own" — never lower the rule itself.
   - Claims: C-3650–C-3659
-
+  - Result: pending (this task is re-scoped, not done).
 - [x] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
   - Status: done · Owner: task/h55-l3check-json-path · Critical: yes · Pair: solo
   - Depends: —
@@ -832,6 +831,17 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `python3 tools/selftest.py` is green (`failed=0`); a synthetic overlay with one row deleted (`1 new / 0 gone`) makes the same gate print `CORPUS STALE` and exit 1 (the negative control the relaxed assertion must still let through); `python3 tools/selftest.py --only fn_audit` still passes.
   - Result: EXP-2026-11-16-H76-l3-image-assert; C-3990–C-3999. `test_fn_audit_scope_l3_image` accepts `CORPUS (OK|DRIFT): L3 OVERLAY: 0 new / 0 gone / N moved` and asserts no `CORPUS STALE`; full `selftest.py` 90/0/23, and a one-row-deleted overlay still yields `CORPUS STALE: … 1 new / 0 gone` exit 1.
   - Claims: C-3990–C-3999
+
+- [ ] **H77 — `fn_audit`/`claims_check` do not skip fenced code blocks, so an EXP that quotes a citation becomes a live citation**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M1.26 (done: the l3 scope and its overlay), H76 (done: the l3 image assertion)
+  - Goal: in H71 the driver's first EXP draft put the probe text `Goal: fn 0x<VA> probe` inside a fenced block; `fn_audit.citations_markdown` has no fence state, so the EXP became a live l3 citation and the gate went `CORPUS STALE: 1 new` (full `selftest.py` RED). It was worked around with a `$VA` placeholder — a workaround that every future EXP writer must know. Fenced blocks are the documented way to quote a command; a scanner that treats their contents as prose will keep producing this class (the same failure in the docs scope is silent, because `docs/format/*.md` has few fences). This is a *policy* decision, so it is a pair, not a solo edit.
+  - Precheck: `python3 -c "import re;t=open('docs/experiments/EXP-2026-11-16-H71-evidence-spans.md').read();print(bool(re.search(r'(?s)\`\`\`.*?fn 0x[0-9a-f]{6,8}.*?\`\`\`?',t)))"`; append a fenced `fn 0x<start>` to a copy of a `docs/format/*.md` and run `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` — today it prints `CORPUS STALE: 1 new` for a fenced line.
+  - Scope: `tools/fn_audit.py` (`citations_markdown` and the `TODO.md` open-block scanner) gain a fence state: a `\`\`\`` (or `~~~`) block in an EXP/`docs/format` file is skipped, while a `TODO.md` task block keeps its current rule (TODO.md has no fences). Refresh the docs base and the l3 overlay only for the citations the change *removes* (if any), with an EXP that states the before/after counts. Not: changing the `strict` kind rules, the US-build skip, or the pin path.
+  - Input: `tools/fn_audit.py` `citations_markdown`/`citations_open_tasks`; H71's `Correction` (the workaround); M1.26's `--scope l3` overlay; `docs/experiments/TEMPLATE.md` (the fenced commands).
+  - Done when: a fenced `fn 0x…` appended to a copy of `docs/format/firmware.md` (and to an EXP) does **not** change either `--corpus` verdict (exit 0, unchanged counts); an unfenced one does (`CORPUS STALE: 1 new`, exit 1); `python3 tools/fn_audit.py --selftest` covers both, and `python3 tools/selftest.py` stays green; a before/after count of fenced citations (if any) is in the EXP.
+  - Stop: if a fence-aware scanner would change any committed snapshot row, say so in the EXP and ship the scanner with a *new* overlay rather than silently rewriting the frozen one (H69's rule).
+  - Claims: C-4000–C-4009
 
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
