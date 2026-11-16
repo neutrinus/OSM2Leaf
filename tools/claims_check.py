@@ -10,12 +10,14 @@ defects are caught here (H74):
   placeholders are skipped);
 * a claim that pins an ``N checks`` or ``N/N`` count and cites a
   ``tools/X.py --selftest`` command must pin the number that command prints at
-  the revision the text names (an explicit commit in the evidence, else the EXP
-  record's last commit), not an intermediate one.
+  the revision the text names (an explicit commit in the evidence, else the
+  newest commit that changed the EXP record *and* a tool), not an intermediate
+  one and not the record's latest docs-only edit (H78).
 
 The default run stays a fast warning pass over the real ledger (exit 0). The
-path rule fails under ``--strict``; the count rule runs only under
-``--count-check`` and fails under ``--strict`` too.
+path rule and the count rule both fail under ``--strict``; ``--count-check`` is
+the explicit way to run only the count rule (H78: ``--strict`` used to leave it
+off, hiding C-3704 from the standing gate).
 """
 
 from __future__ import annotations
@@ -320,20 +322,31 @@ def _explicit_revision(evidence):
     return revs[0] if len(revs) == 1 else None
 
 
-def _exp_revision(exp_name):
-    """The last commit that touched the EXP record, or None.
+def _exp_revision(exp_name, git=None):
+    """The newest commit that changed the EXP record *and* a tool, or None.
 
-    That is the revision whose numbers the record describes: an EXP is written
-    with (or corrected by) the tool it measures, so its own log head is the
-    right tool revision, while a later tool change is a different claim.
+    The measurement revision is the one where the record and the tool moved
+    together: that is what a selftest-size claim describes. A later *docs-only*
+    edit to the record (H75's required `Correction` section, an H69 refresh)
+    must not re-pin a claim against a tool version the record never measured —
+    that was the H78 defect: C-3704 says 26, the M1.27 EXP's record described 26
+    at `334f092`, and H75's append moved the file head to `ec58d12`, where the
+    tool prints 29. `git log` is newest-first, so the first commit whose diff
+    touches both the record and a ``tools/*.py`` file is the measured one; a
+    record with no such commit (an EXP that only quoted earlier runs) has no
+    measurement revision and is skipped, never measured at the working tree.
     """
     path = exp_record(exp_name)
     if path is None:
         return None
+    git = git or _git
     rel = path.relative_to(REPO_ROOT)
-    proc = _git(["log", "-1", "--format=%H", "--", str(rel)])
-    out = proc.stdout.strip()
-    return out or None
+    for commit in git(["log", "--format=%H", "--", str(rel)]).stdout.split():
+        changed = git(["diff-tree", "--no-commit-id", "--name-only", "-r",
+                       "--root", commit]).stdout.split("\n")
+        if any(f.startswith("tools/") and f.endswith(".py") for f in changed):
+            return commit
+    return None
 
 
 def _pinned_revision(evidence, exp_name):
@@ -480,6 +493,17 @@ def exp_count_problems(rows, exp_files):
     return problems
 
 
+def _run_counts(args):
+    """The count rule runs under ``--count-check`` and under ``--strict``.
+
+    H78: ``--strict`` used to leave the count rule off, so the only red part of
+    the ledger (C-3704) was invisible to the standing gate and H75's Result
+    could claim ``count mismatches: 0``. ``--count-check`` stays the explicit,
+    fast way to ask for just that rule.
+    """
+    return bool(args.count_check or args.strict)
+
+
 def check(claims_text, exp_files, run_counts=False, runner=_run_selftest):
     rows = parse_claim_rows(claims_text)
     dups = duplicate_ids(rows)
@@ -536,7 +560,8 @@ def main(argv=None):
         for p in sorted(EXP_DIR.glob("*.md")):
             exp_files[p.name] = p.read_text(encoding="utf-8")
 
-    result = check(claims_text, exp_files, run_counts=args.count_check)
+    run_counts = _run_counts(args)
+    result = check(claims_text, exp_files, run_counts=run_counts)
     genuine = genuine_path_problems(result["bad_paths"])
     path_fail = args.strict and bool(genuine)
     count_fail = args.strict and bool(result["bad_counts"])
@@ -564,7 +589,7 @@ def main(argv=None):
         print("exempt vendor references: %d" % len(exempt))
         for p in exempt:
             print("  EXEMPT %s %s (%s)" % (p["id"], p["path"], p["kind"]))
-        if args.count_check:
+        if run_counts:
             print("count mismatches: %d" % len(result["bad_counts"]))
             for c in result["bad_counts"]:
                 print("  COUNT %s claims %d, %s prints %d (%s)"
@@ -750,7 +775,48 @@ def run_selftest():
     r17 = check(same, exp_conflict, run_counts=False)
     assert r17["exp_count_conflicts"] == [], r17["exp_count_conflicts"]
 
-    print("claims_check selftest: OK (20 checks)")
+    # --- H78: the docs-only-append rule, and --strict runs the counts ------
+    # (g) the measurement revision is the newest commit that moved the EXP and
+    # a tool together. A later docs-only edit to the same EXP (H75's required
+    # `Correction` section) must NOT re-pin the claim: the M1.27 EXP at
+    # `334f092` printed 26 and its H75 append at `ec58d12` printed 29, and 26
+    # is what C-3704 states. The fake git mirrors that history: EXP+tool at
+    # `aaa`, a docs-only append at `bbb`.
+    class _Out:
+        def __init__(self, text):
+            self.stdout = text
+
+    def _fake_git(args):
+        if args[0] == "log":
+            return _Out("bbb\naaa\n")
+        if args[0] == "diff-tree":
+            return _Out("docs/experiments/x.md\ntools/stub.py\n" if args[-1] == "aaa"
+                        else "docs/experiments/x.md\n")
+        return _Out("")
+
+    import builtins
+    fake_path = REPO_ROOT / "docs" / "experiments" / "x.md"
+    real_exp_record = builtins.__dict__.get("exp_record")
+    try:
+        app = sys.modules[__name__]
+        app.exp_record = lambda name: fake_path
+        assert _exp_revision("x", git=_fake_git) == "aaa"
+        # a record whose history never moved a tool has no measurement revision
+        def _docs_only(args):
+            return _Out("bbb\n") if args[0] == "log" else _Out("docs/experiments/x.md\n")
+        assert _exp_revision("x", git=_docs_only) is None
+    finally:
+        app.exp_record = real_exp_record
+
+    # (h) --strict selects the count rule (H78: it used to select nothing).
+    class _Args:
+        def __init__(self, strict, count):
+            self.strict, self.count_check = strict, count
+    assert _run_counts(_Args(strict=True, count=False)) is True
+    assert _run_counts(_Args(strict=False, count=True)) is True
+    assert _run_counts(_Args(strict=False, count=False)) is False
+
+    print("claims_check selftest: OK (24 checks)")
     return 0
 
 

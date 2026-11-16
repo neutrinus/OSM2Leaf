@@ -1,0 +1,163 @@
+# EXP-20261116-H78: `--strict` must run the count rule, and a docs-only EXP edit must not re-pin a claim
+
+- **Status:** done
+- **Date:** 2026-11-16
+- **Sample:** `none (tool-only task)` — the subject is `tools/claims_check.py`'s
+  revision rule; the run replays committed tools with `git archive`. No vendor
+  bytes are read.
+- **Tools:** python3 3.15.0; repo tools `tools/claims_check.py`,
+  `tools/fn_match.py`; `git archive`/`tar` for the historical replay.
+- **Claims:** C-4010–C-4019
+- **Supersedes:** none (corrects H74's `--strict` contract and H75's Result)
+- **Superseded by:** none
+
+## Question
+
+Why does `python3 tools/claims_check.py --strict` exit 0 on `main` while the same
+ledger fails its own count rule, and should a later docs-only edit to an EXP
+change which tool revision its claims are measured against?
+
+## Hypothesis
+
+Two independent defects, both visible in the cycle-8 window: `--strict` never
+runs `count_problems`, and `_exp_revision` returns the EXP file's **newest**
+commit, so H75's required `Correction (H75)` section (a docs-only append) moved
+C-3704's measurement from `334f092` (26 checks, the number the claim states) to
+`ec58d12` (29). Falsifier: if `--strict` already ran the count rule, the
+`--strict` exit would have been 1 on `main`; if the append did not matter, the
+measured revision would still be `334f092` and `--count-check` would be 0.
+
+## Inputs
+
+| Item | Value |
+| --- | --- |
+| Image / file | none (the ledger and the tool history) |
+| SHA-256 | n/a |
+| Offset(s) / VA(s) | none |
+| Tool / version | python3 3.15.0 |
+| Repo tool | `tools/claims_check.py` (`count_problems`, `_exp_revision`, `main`) |
+
+## Method
+
+1. **Sample and hash.** The ledger at the branch base `8a2a48a` and the two EXPs
+   named below; tool revisions replayed with `git archive <rev> tools`.
+2. **Commands.** Runnable as written:
+
+   ```bash
+   python3 tools/claims_check.py --strict; echo $?                 # pre-fix: 0
+   python3 tools/claims_check.py --strict --count-check; echo $?   # pre-fix: 1
+   python3 tools/claims_check.py --count-check                     # pre-fix: 1 mismatch
+   python3 tools/claims_check.py --selftest
+   ```
+
+   Historical counts (each printed by the tool at that revision):
+
+   ```bash
+   for rev in 92550d6 334f092 2709645 ec58d12; do
+     d=$(mktemp -d); git archive "$rev" tools | tar -x -C "$d"
+     PYTHONPATH="$d/tools" python3 "$d/tools/fn_match.py" --selftest | grep -c '^ok'
+     rm -rf "$d"
+   done
+   # 22 (92550d6)  26 (334f092)  26 (2709645)  29 (ec58d12)
+   ```
+
+3. **Controls.** *Positive*: after the fix `--strict` exits 0 and
+   `--count-check` prints `count mismatches: 0`. *Negative*: changing C-3704's
+   `26` to `25` (or `27`) makes `--strict` exit 1 with a `COUNT` line, so the
+   count rule is not disabled, only made visible to `--strict`.
+4. **Scope.** `tools/claims_check.py` only: `_exp_revision`, `_run_counts`,
+   `main`, the module docstring and the `--selftest` cases. No claim text, no
+   EXP record, no other rule.
+5. **Falsifier.** Stated in the Hypothesis.
+
+## Observations
+
+Pre-fix, on the branch base `8a2a48a` (cycle-8 `main`):
+
+```
+$ python3 tools/claims_check.py --strict; echo $?
+0
+$ python3 tools/claims_check.py --strict --count-check 2>&1 | grep -E 'COUNT|mismatches'
+count mismatches: 1
+  COUNT C-3704 claims 26, tools/fn_match.py prints 29 (ec58d12075bac822dbc0513dac98188d08b391d0)
+$ python3 tools/claims_check.py --strict --count-check; echo $?
+1
+```
+
+Bisect of the window (the same `--count-check` at each merge):
+
+```
+4dce4dd  (M1.27 merged, EXP head 334f092)  count mismatches: 0
+e0a8bf5  (#198,          EXP head 334f092)  count mismatches: 0
+95f7964  (#199, H75,     EXP head ec58d12)  count mismatches: 1
+caff825  (#200,          EXP head ec58d12)  count mismatches: 1
+```
+
+Post-fix, same tree:
+
+```
+$ python3 tools/claims_check.py --strict; echo $?
+0
+$ python3 tools/claims_check.py --count-check
+count mismatches: 0
+claim/EXP count conflicts: 0
+$ python3 tools/claims_check.py --strict --count-check; echo $?
+0
+$ python3 tools/claims_check.py --selftest
+claims_check selftest: OK (24 checks)
+$ git config --get-regexp . >/dev/null; # healthy tree
+$ python3 tools/todo_check.py        # OK
+$ python3 tools/selftest.py          # passed=90 failed=0 skipped=23 (with the head)
+```
+
+`_exp_revision("EXP-2026-11-16-M1.27-fn-match-leaf")` now returns
+`334f0922653565e8ec15901a0ed6e64735d5346e` (the EXP+tool commit), not
+`ec58d12…` (the docs-only append).
+
+Negative control: C-3704 `26` -> `25`:
+
+```
+count mismatches: 1
+  COUNT C-3704 claims 25, tools/fn_match.py prints 26 (334f092…)
+exit 1
+```
+
+## Interpretation
+
+- **FACT:** `--strict` did not run the count rule; on `main` it exited 0 while
+  `--strict --count-check` exited 1. H74's Result ("`--strict` (and
+  `--strict --count-check`) exits 1 naming exactly the two genuine defects")
+  still held at H74's merge, but the ledger's only red part was then unreachable
+  from the standing gate.
+- **FACT:** the measured revision moved to `ec58d12` because H75's
+  `Correction (H75)` section is a docs-only commit; the M1.27 EXP's measurement
+  revision was `334f092`, where the tool printed 26 — the number C-3704 states.
+- **OBSERVED:** using the newest commit that changed *both* the EXP and a
+  `tools/*.py` file keeps every other measurable claim at its old revision
+  (the 16-row table is unchanged except C-3704 and C-3713, both to the correct
+  measurement commit) and turns C-3704 green without touching its text.
+- **UNKNOWN:** none material. A record whose history never changed a tool has no
+  measurement revision and is now skipped (`None`), never measured at the working
+  tree; no current row hits that case.
+
+## Conclusion
+
+`--strict` now runs the count rule, and the measurement revision is the newest
+commit that changed the EXP *and* a tool, so appending a `Correction` section no
+longer re-pins a claim against a tool version it never measured. `--strict` and
+`--count-check` are both green on the real ledger, a one-digit change to C-3704
+still fails, and the `--selftest` covers the append case with an injected git
+history (24 checks).
+
+## Reproduction
+
+```bash
+python3 tools/claims_check.py --strict; echo $?        # 0
+python3 tools/claims_check.py --count-check            # count mismatches: 0
+python3 tools/claims_check.py --selftest               # OK (24 checks)
+```
+
+## Follow-ups
+
+- [ ] E3: H86 flips `--strict` into `ci.yml` as a blocking step (H78 is the rule
+      half; H86 is the workflow half).
