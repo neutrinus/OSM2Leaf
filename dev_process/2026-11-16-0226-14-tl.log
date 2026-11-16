@@ -1,0 +1,53 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-16 01:45 (approx; after QA `9a21406`)
+end_utc: 2026-11-16 02:30
+origin_main_start: 9a21406 (QA run 3 — stale-snapshot check)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_tl.txt, docs/retro/2026-11-16-2.md
+- dev_process/2026-11-16-{0108-8-tl,0109-9-sm,0114-11-se,0141-12-po,0146-13-qa}.log
+- TODO.md H69, H70; tools/fn_audit.py, tools/one_tile_pipeline.py
+
+task selection (2, disjoint files):
+- H69 snapshot refresh owner + moved-only policy — Critical, `Pair: required`,
+  deps M1.30 (done); PO ruled it must land before M1.26. PR #191.
+- H70 `one_tile_pipeline --factory-tile` parsed-not-read — `Pair: solo`, and
+  its Done-when is a reproducible selftest/exit code (SM retro split), so solo.
+  PR #190, self-merged with the `gh pr ready`-before-delete ordering.
+- Skipped: M1.26 (gated on H69 this cycle, now ungated -> next batch), M1.27
+  (large census), H71 (solo claims rewrite, next solo slot).
+
+review rounds and catches:
+- H70: solo, merged itself. I re-ran: 60 selftest checks, `--factory-tile`
+  without `--factory-root` -> exit 2, flag wired and cell-bound.
+- H69: 2 navigator rounds, 3 defects. The big one: `compare_live` compared
+  citation *sets*, not *multisets*, so deleting one of two identical rows (or
+  duplicating a unique row) exited 0 — the exact silent-loss failure the frozen
+  snapshot exists to prevent. The navigator constructed it on the committed
+  snapshot (TODO.md:867 `0x00542256 ctx`) before any code review. Round 2 fixed
+  it with per-key `Counter`s; I independently deleted one of seven
+  `TODO.md 0x0041c7dc fn` rows from the snapshot and got `CORPUS STALE: 1 new`,
+  exit 1. Also fixed: the "44 identities / 188 rows" count was unreproducible
+  (real 125 moved occurrences / 44 identities), and three new selftest cases.
+  Merged `b6e371a` (PR #191); refreshed snapshot `ddd113f8…102a1a`, 313 rows /
+  112 VAs, `--corpus` exit 0 on main.
+
+outcomes (both done):
+- H69: moved-only staleness -> CORPUS DRIFT warning + exit 0; new/gone/any
+  count delta/verdict change -> exit 1; refresh procedure in tools/README.md;
+  C-3900–C-3904. The gate can now stay green on prose edits without going
+  silently stale.
+- H70: `--factory-tile` wired as the tile template (still cell-bound via
+  `_factory_tile_cell_binding`), 9 new selftest checks (60 total); C-3910–C-3914.
+
+rule 15: M1.26 names H69 and M1.30 in `Depends`; both are now done and M1.26 was
+already `open`, so no flip — it is the first pick of the next batch, on the
+frozen/`moved`-policy snapshot. No task is blocked on H70.
+
+board after: 0 in progress, 0 open PRs, gates green (selftest 88/0/23,
+claims_check OK, todo_check 0 errors, `--corpus` exit 0 on main).
+handoff: next TL: M1.26 (pair, `--scope l3` gate on the snapshot, must name
+H69's moved-only policy) + M1.27 (pair, leaf matcher) + H71 (solo, claims
+evidence spans). Human: `worktree_audit --prune --apply`; /tmp tmpfs ~2.5 G/3.8 G
+used — probe copies must stay small.
