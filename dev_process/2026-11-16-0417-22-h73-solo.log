@@ -1,0 +1,42 @@
+role: SE (H73 solo)
+model: deepseek-v4.1-flash-free (opencode)
+start: 2026-11-16T04:10Z  end: 2026-11-16T04:35Z
+origin/main at start: 2709645
+
+inputs read
+- AGENTS.md, prompt_common.txt, TODO.md H73 block + sequencing note (line 254)
+- docs/research/claims.md C-3900/3903/3912, docs/experiments/TEMPLATE.md
+- tools/fn_audit.py (row_fingerprint, selftest), tools/one_tile_pipeline.py (selftest)
+- EXP-2026-11-16-H70-factory-tile-flag, EXP-2026-11-16-H72 headers
+
+actions, in order
+- claimed H73 (in-progress commit + push + draft PR #194) before any work
+- reproduced the precheck: old snapshot hash 4606aa2a matches 3fdbab2^
+- C-3900: replaced the /tmp scratch path with `git show 3fdbab2^:… > /tmp/se-old.json`
+  + a --corpus run that prints "CORPUS DRIFT: 0 new / 0 gone / 125 moved", exit 0
+- C-3903: two parts. (a) byte-identity: a fresh write at commit 9b4e6d7's tree
+  is cmp-identical; noted that 3fdbab2 wrote 2db48be1, superseded by the rebase
+  commit 9b4e6d7 (recorded in that commit's own message). (b) class flip: a
+  one-liner over the committed JSON using fn_audit.row_fingerprint, then
+  --no-live-check exit 1 with "frozen=INSIDE/… image=START/None"
+- C-3912: evidence now cites `one_tile_pipeline.py --selftest` (asserts the sha,
+  size, provenance and binding classes); concrete B48R058R values marked
+  OBSERVED (sample on this machine) with tile SHA-256 e9c9cb22…8af3ff52
+- no new C row registered (evidence rewrite only); claim text untouched
+- EXP-2026-11-16-H73-evidence-spans.md written (sample "none (docs-only task)")
+
+decisions made and alternatives rejected
+- rejected adding a --selftest hook for the flip: a row-descriptor option would
+  duplicate an existing check (the CORRECTED->INSIDE case already covers the
+  fingerprint path); a two-line python -c in the evidence cell is runnable
+- rejected citing 3fdbab2 for C-3903(a): it does not reproduce today's file;
+  9b4e6d7 does and is an ancestor of main (verified)
+
+problems
+- the worktree has no archive/head256.img; symlinked the working copy (git-ignored)
+- claims.md still has 25 /tmp or leafre-work strings elsewhere (other rows, H71's
+  territory); the three H73 rows are clean, which is the done-when
+
+handoff: H71 follows in the same batch on the same evidence region; reuse the
+git-show recovery and the OBSERVED marking. Verify with the three commands in
+the EXP's Reproduction block.
