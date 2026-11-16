@@ -724,7 +724,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Status: done · Owner: task/h71-evidence-spans · Critical: no · Pair: solo
   - Depends: — (`docs/research/claims.md`); coordinates H66 (the `bad_evidence` rule these should satisfy now, not after the sweep)
   - Goal: the H67 navigator fixed C-3881 and C-3865 to name commands that print their values (cycle-5 retro), but C-3860/3861/3864 still carry elided spans (`… --fix-list`, `--write-snapshot …`, `--corpus … --quiet`), so a reader cannot re-run them and H66's `bad_evidence` will flag them. Three rows fixed by hand now is cheaper than shipping H66 early for them.
-  - Precheck: `sed -n '2802,2807p' docs/research/claims.md | grep -nE '…|\.\.\.'` matches C-3860 (`… --fix-list`), C-3861 (`--write-snapshot …`, `sha256sum …`), C-3864 (`--corpus … --quiet`).
+  - Precheck: select by claim ID, never by line (H80): `grep -nE '^\| C-386[014] \|' docs/research/claims.md` names the three rows and `grep -cE '^\| C-386[014] \|' docs/research/claims.md` prints `3`; after H71 their evidence column has no elided span, `awk -F'|' '/^\| C-386[014] \|/{print $NF}' docs/research/claims.md | grep -c '…'` prints `0`. The old `sed -n '2802,2807p'` range holds C-3790–C-3795 today, so it showed nothing.
   - Scope: `docs/research/claims.md` rows C-3860, C-3861, C-3864 only. Replace each `…` with the actual path/flag so the evidence column is a command that prints the claimed value: C-3860 `python3 tools/fn_audit.py archive/head256.img --fix-list` (empty, exit 0); C-3861 the exact `--write-snapshot docs/research/fn-audit-corpus-2026-11-16.json` + `sha256sum docs/research/fn-audit-corpus-2026-11-16.json`; C-3864 the probe's `--corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet`. Do not touch the claim text or other rows.
   - Input: `docs/research/claims.md` C-3860/3861/3864, EXP-2026-11-16-M1.30-fn-audit-snapshot (exact commands), `tools/claims_check.py`.
   - Hints: H69 may re-write the snapshot SHA-256 when it refreshes; if so, update C-3861's hash from H69's EXP rather than re-running the write, and note the ordering in the PR. Keep the `--fix-list` row on the *live* image (C-3860's scope), not corpus mode.
@@ -834,16 +834,17 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-16-M1.31-leaf-census `Correction (H79)`; C-4020–C-4023. The US head is `archive/us256.img`, re-created by `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` (`70d945d8…04da`, git-ignored). The M1.31 EXP's 6 and the ledger's 4 `/tmp/opencode/us256.img` mentions are 0; the same edit repairs C-3741/C-3742 (M1.28) and makes C-3742's flip step runnable. Every measured number is unchanged (census 598/77/2, `TRUNCATED … 0x4a16`, `13 rows, 0 mismatch`); `claims_check --strict` exit 0.
   - Claims: C-4020–C-4029
 
-- [ ] **H80 — H71's Precheck selects claim rows by a line range that no longer exists**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H80 — H71's Precheck selects claim rows by a line range that no longer exists**
+  - Status: done · Owner: task/h80-precheck-id · Critical: no · Pair: solo
   - Depends: H71 (the task whose Precheck this repairs)
   - Goal: H71's Precheck is `sed -n '2802,2807p' docs/research/claims.md | grep -nE '…|\.\.\.'`; today those lines are C-3790–C-3792 (the C-3860/61/64 rows moved to 2824–2828 when M1.26/H74 added rows above them), so the precheck matches nothing and a reader concludes the task is moot. H71's own Done-when was already repaired to select by claim ID; its Precheck was not.
-  - Precheck: `sed -n '2802,2807p' docs/research/claims.md | grep -cE 'C-386[014]'` prints `0`; `grep -nE '^\| C-386[014] \|' docs/research/claims.md | cut -d: -f1` names `2824`, `2825`, `2828`.
+  - Precheck (H80, before the fix): the old selector `sed -n '2802,2807p' docs/research/claims.md` held only C-3790–C-3795, so `… | grep -cE 'C-386[014]'` printed `0`; the three rows are now found by ID: `grep -nE '^\| C-386[014] \|' docs/research/claims.md | cut -d: -f1` prints `2824`, `2825`, `2828`.
   - Scope: the H71 block's `Precheck:` line only: replace the line-range `sed` with an ID selector, e.g. `grep -nE '^\| C-386[014] \|' docs/research/claims.md | grep -cE '…'` on those rows (0 after H71), and a one-line note that IDs (not line numbers) are the anchor. No claim, no tool, no other H71 field.
   - Input: TODO.md H71 block, `docs/research/claims.md` C-3860/C-3861/C-3864.
   - Hints: this is the same rot retro-9 records for H71's Done-when (`sed -n '2802,2807p'`); a Precheck is a command a later agent runs, so it has to survive row insertions. Select by ID, never by line.
   - Done when: H71's Precheck command, run as written, selects the C-3860/61/64 rows (prints their count) and matches 0 elided spans after H71; `python3 tools/todo_check.py` passes.
   - Stop: none — if `claims.md` changes again before this lands, update the selector, not the line numbers.
+  - Result: EXP-2026-11-16-H80-precheck-id; C-4030–C-4032. H71's Precheck now selects C-3860/61/64 by claim ID (`grep -nE '^\| C-386[014] \|'` → `3` rows, `2824/2825/2828`) instead of the stale `sed -n '2802,2807p'` (now C-3790–C-3795, `0` matches). The elided-span condition prints `0` at H71's merge `caff825` and today, so no measurement changed; `todo_check` OK, `--strict` 69.
   - Claims: C-4030–C-4039
 
 - [ ] **H81 — Close the seven task blocks that carry an H51 "superseded" note**
