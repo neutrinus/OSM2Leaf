@@ -104,6 +104,8 @@ test ! -e "$W.out"; echo "no output tree: $?" ; rm -rf "$W"
 
 - `--check-cell-binding` on the honest root: `cells=45`, `box_rows=213`,
   `honest_tiles_pass=45`, `wrong_pairs=1980`, `wrong_pairs_pass=0`,
+  `header_bounds_0x184={"4800,1280,-1200,4080": 45}`,
+  `header_bounds_0x5d0={"1280,-1200": 45}`, `header_bounds_uniform=true`,
   `skipped=["LEV3456R.DAT"]`, `ok=true` (exit 0).
 - **Binding field survey** (honest root, 45 cells / 213 box rows):
 
@@ -111,7 +113,7 @@ test ! -e "$W.out"; echo "no output tree: $?" ; rm -rf "$W"
   | --- | --- | --- | --- |
   | Box table `0x2ac` (per level) | 213/213 rows in bounds | 0/1,980 ordered pairs pass | chosen |
   | `DRSTR001.DAT` size for the cell | matches (both tiles) | sibling size matches its own entry | cross-check only |
-  | Header `0x184`/`0x5d0` | same in every tile | same | database-wide, not cell-specific |
+  | Header `0x184`/`0x5d0` | 45/45 tiles `4800,1280,-1200,4080` / `1280,-1200` | same | database-wide, not cell-specific |
 
 - Honest run: `mode=factory-backed`, `real_image_run=attempted`,
   `factory_tile_sha256=e9c9cb22…8af3ff52` (unchanged), `factory_tile_size=
@@ -124,7 +126,7 @@ test ! -e "$W.out"; echo "no output tree: $?" ; rm -rf "$W"
   `factory_tile_cell_binding="box row section 1 level 2 (2240,1990,240,720) is
   outside cell B48R058R bounds (3200,2880,720,1200)"`, `factory_tile_sha256=
   8ca92bd5…2b8b62d`, every gate `BLOCKED`, no `$W.out`.
-- Selftest: `OK (0 failure(s))`, 51 checks including the wrong-cell negative;
+- Selftest: `OK (0 failure(s))`, 52 checks including the wrong-cell negative;
   `selftest.py --only one_tile_pipeline` -> `PASS`.
 - `DRSTR001.DAT` cross-check: `MAPAL001/B48R058R.DAT` is listed at 289,319,168
   B and `B30R060R.DAT` at 1,294,336 B, both equal to the on-disk sizes.
@@ -161,7 +163,7 @@ Nothing in `docs/format/` changed; the claims record the tool behaviour only.
 ```bash
 python3 tools/one_tile_pipeline.py --selftest          # expected: OK (0 failure(s))
 python3 tools/one_tile_pipeline.py --check-cell-binding \
-  /home/marek/projekty/leafre-work/m5.29-factory-root  # expected: 45 cells, 0/1980 wrong passes, exit 0
+  /home/marek/projekty/leafre-work/m5.29-factory-root  # expected: 45 cells, 0/1980 wrong passes, header boxes uniform, exit 0
 python3 tools/selftest.py --only one_tile_pipeline     # expected: PASS
 sha256sum /home/marek/projekty/leafre-work/m5.29-factory-root/MAPAL001/B48R058R.DAT
 # expected: e9c9cb22...8af3ff52
