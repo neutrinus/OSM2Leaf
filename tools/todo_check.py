@@ -13,6 +13,9 @@ Checks reported as errors (exit 1):
 - duplicate task IDs
 - duplicate claim ranges allocated in TODO
 - malformed ``Claims: C-xxxx–C-yyyy`` values
+- a block header (``- [ ] **…`` or ``### **ID…`` heading) that ``TASK_RE``
+  cannot parse — it would otherwise be absorbed into the previous block, so a
+  dual-ID/comma/bold-only header silently vanishes from every count (H68)
 - missing required fields: Status, Owner, Critical, Depends, Goal, Done when,
   Claims
 - blocked tasks missing ``Unblock``
@@ -45,6 +48,12 @@ TASK_RE = re.compile(
     r"^- \[(?P<chk>[ xX])\] \*\*(?P<id>[A-Z][A-Za-z0-9./]*)(?:\s+[—–-]\s+|\*\*\s+)(?P<title>.+?)\*\*(?:\s.*)?$"
     r"|^- \[(?P<chk2>[ xX])\] \*\*(?P<id2>[A-Z][A-Za-z0-9./]*)(?:\s+[—–-]\s+|\*\*\s+)(?P<title2>.+?)$"
 )
+# A line that looks like a board block header but that TASK_RE rejects is an
+# error (H68): otherwise it is folded into the previous block's body and
+# silently disappears from every count. Both the normal ``- [ ] **…`` shape and
+# a bold markdown heading (``### **ID — …**``) are headers.
+HEADER_PREFIX_RE = re.compile(r"^- \[[ xX]\] \*\*")
+HEADING_BOLD_RE = re.compile(r"^#{1,6}\s+\*\*")
 FIELD_RE = re.compile(r"^  - (?P<key>[A-Za-z][A-Za-z ]*?):\s*(?P<val>.*)$")
 CLAIMS_RANGE_RE = re.compile(r"^C-(?P<a>\d+)[–-]C-(?P<b>\d+)\b")
 # Task IDs in this repo: H1, M1.2a, M9.11b, M8.E1b (segments: digits or
@@ -57,6 +66,28 @@ VALID_CRITICAL = {"yes", "no"}
 REQUIRED_ALWAYS = ["Status", "Claims"]
 REQUIRED_ACTIONABLE = ["Depends", "Goal", "Done when"]  # open/blocked
 READER_STREAMS = ("M1", "M2", "M3", "M8", "M9")
+
+
+def _unparsed_headers(text: str):
+    """Return [(lineno, line)] for header-shaped lines TASK_RE cannot parse.
+
+    Checkbox form (``- [ ] **…``) and bold heading form (``### **…**``) are
+    both block headers. A heading without a bold ID is a sectional heading and
+    is left alone. Fenced blocks are skipped, same as ``parse_tasks``.
+    """
+    out = []
+    in_fence = False
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if line.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if TASK_RE.match(line):
+            continue
+        if HEADER_PREFIX_RE.match(line) or HEADING_BOLD_RE.match(line):
+            out.append((lineno, line))
+    return out
 
 
 def parse_tasks(text: str):
@@ -188,6 +219,17 @@ def check(text: str, *, strict_firmware: bool = False):
     def err(msg, task=None):
         where = f"TODO.md:{task['lineno']} {task['id']}" if task else "TODO.md"
         errors.append(f"{where}: {msg}")
+
+    # Unparsed block headers are errors (H68). A header-shaped line that
+    # TASK_RE rejects is not counted as a task, so without this guard it is
+    # absorbed into the previous block and vanishes silently. Dual-ID forms
+    # (``**A / B —`` or ``**A, B —``) stay illegal on purpose: such a block has
+    # one Claims range and cannot be split without the author (PO did so by
+    # hand), so the fix is to flag and let the author split, not to guess.
+    for lineno, line in _unparsed_headers(text):
+        errors.append(
+            f"TODO.md:{lineno}: block header not parsed by TASK_RE: {line.strip()}"
+        )
 
     # duplicate IDs
     seen = {}
@@ -437,13 +479,77 @@ def run_selftest():
     r = check(cycle)
     assert not r["ok"] and any("cyclic Depends" in e for e in r["errors"]), r
 
+    # H68: a header TASK_RE cannot parse must be an error, never absorbed.
+    # Each malformed form is a negative; the well-formed single header is the
+    # positive control (it must still parse as one task).
+    dual_slash = """# TODO
+- [ ] **H1 — base**
+  - Status: done · Owner: b · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-400–C-409
+  - Result: r
+- [ ] **H2 / H3 — dual**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-410–C-419
+"""
+    r = check(dual_slash)
+    assert not r["ok"] and any(
+        "block header not parsed by TASK_RE" in e and "H2 / H3" in e
+        for e in r["errors"]
+    ), r
+    assert r["tasks"] == 1, r  # the malformed header is not counted, it errors
+
+    dual_comma = dual_slash.replace("**H2 / H3 — dual**", "**H2, H3 — dual**")
+    r = check(dual_comma)
+    assert not r["ok"] and any(
+        "block header not parsed by TASK_RE" in e and "H2, H3" in e
+        for e in r["errors"]
+    ), r
+
+    no_dash = dual_slash.replace("**H2 / H3 — dual**", "**H2**")
+    r = check(no_dash)
+    assert not r["ok"] and any(
+        "block header not parsed by TASK_RE" in e and "**H2**" in e
+        for e in r["errors"]
+    ), r
+
+    heading = dual_slash.replace(
+        "- [ ] **H2 / H3 — dual**", "### **H2 — heading style**"
+    )
+    r = check(heading)
+    assert not r["ok"] and any(
+        "block header not parsed by TASK_RE" in e and "### **H2" in e
+        for e in r["errors"]
+    ), r
+
+    # positive control: a well-formed single header still parses as one task
+    positive = """- [ ] **H1 — t**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-420–C-429
+"""
+    r = check(positive)
+    assert r["ok"] and r["tasks"] == 1, r
+
+    # non-bold section headings are not block headers and must not error
+    sections = "# TODO\n## H — Housekeeping\n### ID allocation\n" + positive
+    r = check(sections)
+    assert r["ok"] and r["tasks"] == 1, r
+
     # real TODO.md parses cleanly
     real = TODO_PATH.read_text(encoding="utf-8")
     r = check(real)
     assert r["ok"], "real TODO.md:\n" + "\n".join(r["errors"])
     assert r["tasks"] > 100, r["tasks"]
 
-    print(f"todo_check selftest: OK (12 checks, {r['tasks']} real tasks)")
+    print(f"todo_check selftest: OK (18 checks, {r['tasks']} real tasks)")
     return 0
 
 
