@@ -715,8 +715,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3890–C-3899
   - Result: EXP-2026-11-16-H68-todo-check-headers; `todo_check --selftest` OK (18 checks), live board 176 tasks/0 errors exit 0, dual-ID temp copy exits 1; `selftest.py --only todo_check`/`--only worktree_audit` pass
 
-- [ ] **H69 — The frozen `fn_audit` snapshot must have an owner for refresh, and `moved`-only staleness must not fail a gate for prose**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **H69 — The frozen `fn_audit` snapshot must have an owner for refresh, and `moved`-only staleness must not fail a gate for prose**
+  - Status: done · Owner: task/h69-snapshot-refresh-policy · Critical: yes · Pair: required
   - Depends: M1.30 (done); coordinates M1.26 (runs the gate on it), H52/H63 (the edits that move lines)
   - Decision (PO, 2026-11-16 9th pass): **`moved`-only = warn + exit 0; `new`/`gone`/verdict change = fail.** The identity `(file,va,kind,class)` is what the gate protects; a line move is prose, and a gate that fails for line numbers is a gate nobody keeps green. Do not auto-refresh in CI and do not delete rows — H69 owns the refresh, M1.26 consumes the policy, and this task must land **before** M1.26.
   - Goal: the committed snapshot is **already stale on current `main`**: H67's `Result:` and the TL work-log commits moved 97 `TODO.md` citation lines, so `--corpus` exits 1 with `CORPUS STALE: 0 new / 0 gone / 97 moved` while the summary and row identities are unchanged. M1.26's gate will inherit a snapshot that fails its own live check, and no task owns regeneration or decides whether a line move blocks the gate — a frozen corpus that fails on every H52-class prose edit is a gate that fails for line numbers, not citations.
@@ -727,6 +727,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: after refresh a fresh `--write-snapshot` reproduces the committed file byte-for-byte (`sha256sum` equal, `--corpus` exit 0 on current `main`); a `moved`-only fixture exits 0 with the `moved` warning while a `new`/`gone`/verdict-change fixture still exits 1 (new `--selftest` cases); `tools/README.md` documents the refresh rule; `selftest.py --only fn_audit` passes; the refreshed snapshot SHA-256 is in the EXP.
   - Stop: if splitting `moved` from `new`/`gone` breaks M1.26's "any drift fails" assumption, ship only the refresh + a README "the gate re-points the snapshot at the PR's commit" rule and record the decision in the EXP; never weaken the `new`/`gone`/verdict-change failure.
   - Claims: C-3900–C-3909
+  - Result: EXP-2026-11-16-H69-snapshot-refresh; ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a; moved-only `--corpus` exits 0 with `CORPUS DRIFT` warning, new/gone/verdict-change and moved+verdict fixtures exit 1; refreshed snapshot 313 rows/112 VAs reproducible byte-for-byte; README refresh procedure; `selftest.py --only fn_audit` passes
 
 - [x] **H70 — `one_tile_pipeline --factory-tile` is parsed but never read (H67 follow-up, the H66 flag class)**
   - Status: done · Owner: task/h70-factory-tile-flag · Critical: no · Pair: solo

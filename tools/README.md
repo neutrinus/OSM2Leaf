@@ -368,15 +368,56 @@ A frozen corpus (M1.30) turns the live count into a reviewable artifact:
 audits that file **with the image**: the frozen part is `file/line/va/kind`
 (and a `ctx` row's paired `correction`), and every stored `class` is re-derived
 from `.pdata`, so a hand-edited class fails. `--corpus` also re-scans the live
-`--scope docs` corpus by default and exits 1 with `CORPUS STALE: n new / n
-gone / n moved` when a source line moved/added/removed after the snapshot
-(`--no-live-check` skips that offline); `--fix-list` in corpus mode runs those
-checks first and then prints only the snapshot's `INSIDE` rows. The committed
-corpus is
+`--scope docs` corpus by default (`--no-live-check` skips that offline) and
+splits drift into:
+
+* `CORPUS DRIFT: n new / n gone / n moved` with only `moved` rows — the same
+  `(file, va, kind, class)` identity set, only `line` changed — prints a
+  warning and **exits 0**: a line move is prose, and the identity is what the
+  gate protects (H69);
+* `CORPUS STALE` — a `new` or `gone` row, or a verdict change (even one that
+  travels with a line move) — **exits 1**. This is the failure the corpus
+  exists for and it is never weakened.
+
+The comparison is over **occurrences**, not distinct keys: the same
+`(file,line,va,kind)` cited twice is a count of two, so deleting one of the
+two is `gone` and adding a duplicate is `new` (both exit 1) even when the
+identity also moved. `--fix-list` prints only its `0x… -> 0x…` lines, so a
+moved-only snapshot there warns and exits 0 without any `->` line.
+
+`--fix-list` in corpus mode runs those checks first and then prints only the
+snapshot's `INSIDE` rows. The committed corpus is
 `docs/research/fn-audit-corpus-2026-11-16.json` (17 files, 313 citations, 112
 unique VAs, `START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29), AMBIGUOUS 0,
-UNMAPPED 32`, SHA-256 `4606aa2a…78fe38`); a diff to it is the review artifact
-for the M1.26 gate.
+UNMAPPED 32`, SHA-256 `ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`); a
+diff to it is the review artifact for the M1.26 gate.
+
+### Refreshing the snapshot (H69)
+
+The snapshot has one owner: a task that changes the citation set, or a
+refresh task like H69, writes it deliberately. The rules:
+
+1. **Only an intentional `--write-snapshot` writes the file.** Never a CI job,
+   never a hook, never `--corpus` (it is read-only). A stale snapshot is a
+   finding, not an autofix.
+2. **Refresh after the citation edits are final** (e.g. after the task's own
+   `TODO.md` citations and `Result:` line are in the tree). A snapshot taken
+   before the last prose edit just records the move.
+3. **The review artifact is the diff.** Run `--corpus` against the committed
+   file first: a `moved`-only `CORPUS DRIFT` is benign; a `new`/`gone` row or
+   a verdict change means the citation set or the image changed and must be
+   explained in the PR. Then write the new snapshot and diff it
+   (`git diff -- ...json`): only `line` fields and the summary should move
+   unless the PR says why.
+4. **Rows are never deleted to make a gate pass**, and the sort stays
+   `file:line:va` so a refresh diff shows line numbers, not reordering.
+5. **Record the old and new SHA-256** (`sha256sum`) and the row/VA counts in
+   the refresh EXP; a fresh `--write-snapshot` must reproduce the committed
+   file byte-for-byte.
+
+A gate that runs on the snapshot (M1.26) consumes this policy; when a PR
+re-points the snapshot at its own commit, the gate re-runs `--corpus` on that
+commit, so the moved-only rule above is the whole contract.
 
 ```bash
 python3 tools/fn_audit.py archive/head256.img              # full report, exit 1 on INSIDE

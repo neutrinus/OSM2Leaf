@@ -2852,6 +2852,31 @@ parser was added; `worktree_audit` reuses `todo_check.parse_tasks`.
 | C-3898 | RESERVED (H68). | — | — | — |
 | C-3899 | RESERVED (H68). | — | — | — |
 
+## H69 — snapshot refresh owner and moved-only warn policy (C-3900–C-3909)
+
+`tools/fn_audit.py` splits live drift against the frozen corpus into
+`CORPUS DRIFT` (same `(file,va,kind,class)` identity set, only `line` moved:
+warn, exit 0) and `CORPUS STALE` (`new`/`gone`/verdict change: exit 1). The
+comparison is over occurrences (a multiset), so a deleted or added duplicate
+of an existing `(file,line,va,kind)` is `gone`/`new`, not invisible. The
+committed snapshot is refreshed deliberately to
+`ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a` and a fresh
+`--write-snapshot` reproduces it byte-for-byte. `tools/README.md` owns the
+refresh procedure; M1.26 consumes this policy and must not invent a second one.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3900 | With H69's policy a moved-only live diff (same `(file,va,kind,class)` identity set, only `line` changed) prints `CORPUS DRIFT: n new / n gone / n moved` plus a `line-only drift` warning and exits 0; the old committed snapshot (`4606aa2a…`) on current `main` gives `CORPUS DRIFT: 0 new / 0 gone / 125 moved`, exit 0. A moved-only `--selftest` fixture exits 0 with the same warning. | VERIFIED (tool) | H | EXP-2026-11-16-H69-snapshot-refresh; `python3 tools/fn_audit.py archive/head256.img --corpus /tmp/opencode/h69-old-snapshot.json --quiet`, `python3 tools/fn_audit.py --selftest` |
+| C-3901 | `new`, `gone`, a verdict change at an unchanged key, and a verdict change that travels with a line move each still exit 1 with `CORPUS STALE`; the mixed 1 new/1 gone/1 moved case is unchanged. `compare_live` reports a moved row whose `class`/`true_start` changed as a verdict change, never as a benign move. A count delta on one `(file,va,kind)` is `new`/`gone` even when the identity also moved, so duplicate citations cannot be lost silently; `--fix-list` on a moved-only snapshot prints no `->` line and exits 0. Eight `--selftest` fixtures cover the cases. | VERIFIED (tool) | H | EXP-2026-11-16-H69-snapshot-refresh; `python3 tools/fn_audit.py --selftest` (moved-only/new/gone/verdict-at-key/verdict-on-move checks) |
+| C-3902 | A refreshed `docs/research/fn-audit-corpus-2026-11-16.json` (`ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`, was `4606aa2aff292d72ec9651cfff0660c246bf1d23255fc59cab3348ea0878fe38`) keeps 313 rows / 112 unique VAs and the unchanged summary (17 files, `START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29), AMBIGUOUS 0, UNMAPPED 32`); the old→new diff is 125 moved occurrences over 44 identities, all line moves in `TODO.md` (those 44 identities hold 126 rows; one, `TODO.md:132 0x0041c7dc fn`, did not move), with 0 new / 0 gone / 0 class or `true_start` changes. | VERIFIED (tool) | H | EXP-2026-11-16-H69-snapshot-refresh; `python3 tools/fn_audit.py archive/head256.img --scope docs --write-snapshot /tmp/opencode/h69-fresh.json --quiet`, `sha256sum docs/research/fn-audit-corpus-2026-11-16.json` |
+| C-3903 | A fresh `--write-snapshot` on the current tree reproduces the committed refreshed file byte-for-byte (`cmp` silent) and `--corpus` on it exits 0 with the unchanged summary; re-classification is independent of the live check (a relabelled `START`→`INSIDE` row with a re-signed `class_sha256` and adjusted summary exits 1 under `--no-live-check`). | VERIFIED (tool) | H | EXP-2026-11-16-H69-snapshot-refresh; two writes + `cmp`, `--corpus … --quiet`, `--corpus /tmp/opencode/h69-classflip.json --quiet --no-live-check` |
+| C-3904 | `tools/README.md` documents the refresh procedure: only an intentional `--write-snapshot` writes the file (never CI, never `--corpus`), refresh after the task's prose is final, the diff is the review artifact, rows are never deleted and the `file:line:va` sort is kept, and the old/new SHA-256 and counts go in the refresh EXP. No CI workflow calls `fn_audit` or `--write-snapshot`. | VERIFIED (tool; docs) | H | EXP-2026-11-16-H69-snapshot-refresh; `grep -n "Refreshing the snapshot" tools/README.md`, `grep -rn "fn_audit" .github/workflows` (no match) |
+| C-3905 | RESERVED (H69). | — | — | — |
+| C-3906 | RESERVED (H69). | — | — | — |
+| C-3907 | RESERVED (H69). | — | — | — |
+| C-3908 | RESERVED (H69). | — | — | — |
+| C-3909 | RESERVED (H69). | — | — | — |
+
 ## H52 — audit every cited `fn 0x…` against `.pdata` (C-3490–C-3499)
 
 Applies M1.25's `--fix-list` table to the live corpus. The audit is
