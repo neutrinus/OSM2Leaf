@@ -1,0 +1,82 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (subagent, third QA run 2026-11-16)
+start_utc: 2026-11-16 01:46
+end_utc: 2026-11-16 02:05
+origin_main_start: d86a194 (PO 9th pass — H69 before M1.26, moved-only warns)
+origin_main_end: d86a194 (no upstream move during run)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/research/test-system.md, docs/retro/2026-11-16-2.md
+- dev_process/2026-11-16-{0108-8-tl,0114-11-se,0141-12-po}.log
+
+focus:
+- Is test-system traceability (H59/H60) honest when a committed data artifact
+  (the M1.30 fn_audit snapshot) is itself a gate input that can be stale?
+- Does any gate silently pass on stale input? Is that already H69's scope?
+
+gates (TRUE exit codes; no pipe / captured via redirection):
+- todo_check.py                  exit 0 — 179 tasks, 0 errors, warnings only
+- claims_check.py                exit 0 — 0 dup / 0 unregistered / 0 bad
+- l3check.py --build-corpus --json /tmp/opencode/qa-l3-6.json  exit 0 —
+  schema osm2leaf.l3check/v1, pass 1 / fail 0 / skip 0 / blocked 5 / total 6,
+  problems [] (PASS is synthetic runner-path only, not firmware proof)
+- progress_report.py             exit 0 — but prints one report problem:
+  "TODO.md: task M8.A1 not found" (pre-existing, H65)
+- selftest.py (full)             exit 0 — 88 passed / 0 failed / 23 skipped
+- fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet
+  exit 1 — "CORPUS STALE: 0 new / 0 gone / 122 moved" (should stay 1 until H69;
+  grew 97 -> 122 as board prose moved this cycle)
+
+stale-input analysis (the real question):
+- The shipped gate is LOUD: stale snapshot -> summary + CORPUS STALE + exit 1.
+  Image mismatch is also loud (stderr + exit 2). Nothing silently green here.
+- Only silent path is `--quiet --no-live-check` -> 0 bytes on stdout/stderr,
+  exit 0 (verified on the current stale snapshot). But that requires explicitly
+  disabling the live check; `--help` says "the snapshot may then be stale", and
+  it is a deliberate offline opt-out, not a gate. Tests intentionally cover
+  live_check=False as a by-design path.
+- `--quiet` alone does NOT suppress staleness: stale sets `stale`, so the
+  warning prints and exit is 1. So no default/likely gate invocation is silent.
+- progress_report does not read the fn-audit snapshot at all (grep = 0); l3check
+  does not either; test_plan_check.py does not exist yet (H59). They neither
+  notice staleness nor pass on it — they are simply not gates over it.
+- Only committed data artifacts that feed gates: fn-audit snapshot (H69 owner),
+  tools/golden/eu2011.json (l2check fails LOUDLY on decoder drift; --update-golden
+  is the only refresh, AGENTS forbids using it to make a failure pass),
+  tools/fixtures/fn_match_eu_us_2011.json (M1.28 fails loudly on US mismatch).
+- README's cited snapshot SHA (4606aa2a…78fe38) matches the file on disk
+  (sha256sum 4606aa2a…78fe38): the committed artifact is internally consistent.
+
+verdict:
+- No gate silently passes on stale input. Freshness is H69's scope (refresh +
+  moved-warn/new-gone-fail policy + a fresh-snapshot byte-identical check in its
+  Done-when). H59/H60 trace plan->board and ID resolution, not artifact
+  freshness, so they do not need to know about it. Per step 4, this is covered
+  by H69 -> add nothing. Did not manufacture a task.
+
+decisions:
+- Rejected adding "progress_report must show snapshot freshness": the dashboard
+  is a level signal (L1-L5); fn_audit is a board/code-integrity PR gate, not a
+  level, and H69 owns freshness. Not a testing gap.
+- Rejected a task for the `--quiet --no-live-check` vector: it is a documented
+  opt-out a gate must not use, and the shipped gate (README) does not use it.
+- Did not touch TODO.md, EXPs, or another role's files.
+
+tasks_added: none
+tasks_changed: none
+
+problems:
+- `.claude/` is untracked (exported dir, unrelated); left alone.
+- `git rebase origin/main` was a no-op (HEAD already d86a194); nothing to resolve.
+
+handoff:
+- TL: H69 is the freshness owner and must land before M1.26 (PO order holds).
+  When H69 refreshes, its fresh-snapshot byte-identical check closes the loop;
+  M1.26 must cite the `--corpus … --quiet` form, never `--quiet --no-live-check`.
+- Next QA: rerun the fn_audit gate after H69 — the stale count should be 0 and
+  moved-only should warn+exit 0; if it is still 1, H69's refresh did not land.
+
+commits:
+- one commit `chore: QA 2026-11-16 stale-snapshot QA (no tasks; covered by H69)`
+  adding only this log, pushed to `main` directly (no PR, no force).
