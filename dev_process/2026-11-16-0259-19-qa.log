@@ -1,0 +1,58 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (subagent, fourth QA run 2026-11-16)
+start_utc: 2026-11-16 02:59
+origin_main_start: fd6408e (po work log end time, cycle 6/7 boundary)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/research/test-system.md, docs/retro/2026-11-16-3.md
+- dev_process/2026-11-16-{0226-14-tl,0230-17-se,0254-18-po}.log
+- TODO.md H72/H73 (SE cycle 7), tools/fn_audit.py compare_live/verdict_differs/_row_key
+
+gates (TRUE exit codes; stdout redirected to files, never piped to tail):
+- todo_check.py rc 0 (2 pre-existing M9.5 warnings, M8.E* missing-Scope warnings)
+- claims_check.py rc 0 (0 dup / 0 unregistered / 0 bad)
+- l3check.py --build-corpus --json /tmp/opencode/qa-l3-7.json rc 0
+- progress_report.py rc 0
+- selftest.py rc 0 (passed=88 failed=0 skipped=23 total=111)
+- fn_audit ... --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet rc 0,
+  CORPUS DRIFT: 0 new / 0 gone / 124 moved, line-only warning (H69 policy).
+  Snapshot SHA-256 ddd113f8...102a1a unchanged. fn_audit --selftest rc 0 (53).
+  --scope l3 rc 2 (argparse rejects it; M1.26 owns the new scope).
+
+H72 claim audit (independent repro /tmp/opencode/qa7/h72_repro.py; no tool fix):
+- (a) AMBIGUOUS candidates ignored: REAL. A two-holder image classifies
+  0x401048 AMBIGUOUS with INSIDE candidates; a frozen row carrying the same
+  class+true_start but benign START candidates is reclassified to INSIDE
+  (live.is_failure True) yet audit_corpus returns 0 with no output. Class and
+  true_start are equal, so verdict_differs never fires; rows_have_failures
+  reads the frozen (benign) rows, not the live verdict. Confirms H72 (a).
+- padding _row_key: REAL. A hand-written row va "0x900000" against a live
+  "0x00900000" (same VA, true_start equal) prints
+  "CORPUS STALE: 1 new / 1 gone". Same for any unpadded form incl 0x41c7dc
+  vs 0x0041c7dc. Confirms H72's padding finding.
+- (b) GAP leaf flip: OVER-CLAIMED as stated. A stored leaf=True vs image
+  leaf=False is caught today by corpus_class_drift (rc 1, "row class
+  disagrees"). A live leaf change is silent (rc 0) ONLY when the live verdict
+  is decoupled from the image; in one --corpus process live rows and stored
+  rows use the same Image+leaf_lookup, so that divergence cannot occur via the
+  CLI. The hole is latent (future different leaf source), not reachable now;
+  H72 should mark (b) future-proofing, not a present defect. (a) + padding
+  stand as real.
+
+other observations:
+- snapshot_summary() and corpus_fix_list() still key on raw r["va"].lower(),
+  not _row_key; same non-canonical padding can also split unique_va/fix-lines.
+  Covered by H72's file scope; noted, not a new task.
+- No new task added: H72 owns (a)+padding; (b) is a re-scope note for H72's
+  owner. Nothing uncovered beyond H72/H73/H71/H69/H59/H60/H66.
+
+decisions:
+- Did not edit H72 (open, owned by TL/PO order); documented the re-scope here.
+- Did not refresh the snapshot (moved-only is exit 0 per H69; PO froze it).
+- Did not download vendor data; used archive/head256.img only.
+
+files_changed: dev_process/2026-11-16-0259-19-qa.log (this log only)
+end_utc: 2026-11-16 03:06
+handoff: TL — H72 (a)+padding real, (b) re-scope; give M1.26 a fixture built
+from a real classify() (not a decoupled live Verdict) so (a) cannot regress.
