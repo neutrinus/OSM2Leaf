@@ -31,6 +31,7 @@ import argparse
 import contextlib
 import io
 import json
+import re
 import struct
 import subprocess
 import sys
@@ -391,7 +392,14 @@ def test_fn_audit_scope_l3_image() -> None:
     )
     out = (proc.stdout or "") + (proc.stderr or "")
     assert proc.returncode == 0, out
-    assert "CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved" in out, out
+    # H69: an unchanged identity set is either ``CORPUS OK`` or a moved-only
+    # ``CORPUS DRIFT`` warning (a line move is prose, not a corpus change);
+    # never pin the exact "0 moved" suffix, or any TODO edit reddens this.
+    match = re.search(
+        r"CORPUS (?:OK|DRIFT): L3 OVERLAY: 0 new / 0 gone / \d+ moved", out
+    )
+    assert match, out
+    assert "CORPUS STALE" not in out, out
 
     # Blockers 1-2 on the committed corpus: the sec1 data address and every
     # US-build start are absent from the overlay, so neither is counted as an
