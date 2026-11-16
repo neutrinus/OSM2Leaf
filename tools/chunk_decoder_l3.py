@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Run Navi.exe's chunked ``.cmp`` reader ``fn 0x0041c7e8`` on a real pair (M9.11).
+"""Run Navi.exe's chunked ``.cmp`` reader ``fn 0x0041c7dc`` on a real pair (M9.11).
 
-``fn 0x41c7e8(ctx, &offset, length, count)`` walks ``count`` 20-byte
+``fn 0x41c7dc(ctx, &offset, length, count)`` walks ``count`` 20-byte
 entries, starting at the one ``*(ctx + 28)`` points to: the caller passes the
 first chunk of the requested range.  Each entry is ``+4`` compressed length,
 ``+8`` uncompressed offset of the chunk, ``+12`` uncompressed extent,
@@ -9,8 +9,9 @@ first chunk of the requested range.  Each entry is ``+4`` compressed length,
 requested logical range it calls the one-shot inflate wrapper ``0x542148``
 (zlib 1.1.3 ``inflateInit2_``/``inflate``/``inflateEnd`` in Navi.exe sec0) and
 copies the slice with ``memcpy``.  Its destination is the caller-frame slot
-``sp + 72`` after the function's own 32-byte frame (``S + 40`` at entry, read
-at ``0x41c802``), which this tool writes.  It returns the number of bytes
+``sp + 72`` after the function's own 32-byte frame (``S + 16`` at the ``.pdata``
+start ``0x0041c7dc``; the caller slot is loaded inside that same function),
+which this tool writes.  It returns the number of bytes
 copied, or ``-1`` when the inflate wrapper fails.
 
 Only the code is taken from the image (``cerom.py`` module/section lookup, no
@@ -20,8 +21,9 @@ with its evidence:
 * ``0x003d146c`` = ``COREDLL #1044``, ``memcpy(dst, src, n)`` (M2.16 inference;
   the output compare checks it).
 * ``0x003d1484`` = ``COREDLL #2006``, taken as ``r4 % r5``.  The first call is
-  zlib's header check ``((CMF<<8)+FLG) % 31`` (``mov #31,r5`` before the call at
-  ``0x5423e8``, dividend ``0x789c`` on the real stream).  Later calls in the
+  zlib's header check ``((CMF<<8)+FLG) % 31`` (``mov #31,r5`` before the call in
+  ``fn 0x0054233c`` (the call site is inside it), dividend ``0x789c`` on the real
+  stream).  Later calls in the
   same run use other divisors; their results are not verified (see EXP).
 * ``0x00543a98`` = zlib ``zcalloc`` trampoline, ``calloc(items=r5, size=r6)``.
 * ``0x00543aa8`` = zlib ``zcfree`` trampoline, ``free(ptr=r5)``.
@@ -66,7 +68,7 @@ from engine import EngineError, PySh4, StubReturn  # noqa: E402
 
 IMAGE_START = 0x200200
 MODULE = "Navi.exe"
-FN_CHUNK = 0x0041C7E8
+FN_CHUNK = 0x0041C7DC
 STUB_MEMCPY = 0x003D146C      # COREDLL #1044
 STUB_MOD31 = 0x003D1484       # COREDLL #2006 (r4 % r5)
 ZCALLOC = 0x00543A98          # zlib zcalloc trampoline
@@ -74,7 +76,7 @@ ZCFREE = 0x00543AA8           # zlib zcfree trampoline
 ENTRY = 20
 ENTRY_TABLE_PTR = 28          # *(ctx + 28) = table base
 CACHE_PTR = 308               # *(ctx + 308) = scratch buffer for partial chunks
-DST_SLOT = 40                 # caller-frame slot read as the destination (S + 40)
+DST_SLOT = 16                 # caller-frame slot read as the destination (S + 16 at the pdata start)
 MINUS_ONE = 0xFFFFFFFF
 
 CMP_VA = 0x20000000
@@ -88,7 +90,7 @@ CACHE_VA = 0x60000000
 HEAP_VA = 0x70000000
 HEAP_SIZE = 0x800000
 MAX_EXTENT = 0x10000
-INFLATE_MASK_VA = 0x00574DE0  # the table inflate indexes at 0x54369e (sec1)
+INFLATE_MASK_VA = 0x00574DE0  # indexed by inflate ``fn 0x0054331c`` (its `shll2` load)
 
 MUTATIONS = ("none", "swap-4-8", "corrupt-ind")
 
@@ -155,7 +157,7 @@ def section_of(sections, va: int) -> str:
 
 def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                  chunk_size: int, sec_mode: str = "block", sec1_table=None):
-    """Run fn 0x41c7e8 on the chunks covering [offset, offset+length).
+    """Run fn 0x41c7dc on the chunks covering [offset, offset+length).
 
     The loop starts at the table entry that ``*(ctx+28)`` points to and walks
     ``count`` entries, so the caller passes the first chunk of the range and
@@ -199,7 +201,8 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                 eng.write_mem(tva, mask)
             else:
                 # zlib 1.1.3 inflate_mask[17] (public source: 2^n - 1), written at
-                # the table inflate indexes at 0x54369e.  Not read from the image.
+                # indexed by inflate ``fn 0x0054331c`` (its `shll2` load).  Not
+                # read from the image.
                 mask = b"".join(struct.pack("<I", (1 << n) - 1) for n in range(17))
                 eng.write_mem(INFLATE_MASK_VA, mask)
     stack_top = STK_VA + STK_SIZE // 2
@@ -436,7 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--selftest", action="store_true")
     sub = parser.add_subparsers(dest="cmd")
-    run = sub.add_parser("run", help="run fn 0x41c7e8 on one .cmp/.ind pair")
+    run = sub.add_parser("run", help="run fn 0x41c7dc on one .cmp/.ind pair")
     run.add_argument("image")
     run.add_argument("--cmp", required=True)
     run.add_argument("--ind", required=True)

@@ -324,7 +324,7 @@ whether a VA is a function `START`, `INSIDE` one, or in a `GAP` (leaf/data).
 python3 tools/nk_decomp.py --selftest
 python3 tools/nk_decomp.py section IMG256 --module Navi.exe --index 1 -o sec1.bin
 python3 tools/nk_decomp.py check IMG256                 # 245 OK, ~10 min
-python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x0041c7e8 0x0041c7dc
+python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x0041c7e8 0x0041c7dc  # INSIDE then START
 ```
 
 Decoded bytes are vendor data: keep them under `archive/`, never commit them.
