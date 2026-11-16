@@ -118,7 +118,7 @@ Post-fix (this branch):
 - Case C: rc **0**, no `new`/`gone`; `_row_key` frozen == live ==
   `("doc.md", 3, "0x00900000", "const")`.
 - `python3 tools/fn_audit.py --selftest`: 58 checks, 0 failed (was 53).
-- Real corpus: `CORPUS DRIFT: 0 new / 0 gone / 124 moved`, exit **0**; snapshot
+- Real corpus: `CORPUS DRIFT: 0 new / 0 gone / … moved`, exit **0**; snapshot
   SHA-256 still `ddd113f8…102a1a`.
 
 ## Interpretation
