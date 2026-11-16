@@ -49,7 +49,8 @@ match the committed file).
    sha256sum /tmp/opencode/snap.json
    python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet
    cp TODO.md /tmp/opencode/TODO.bak
-   printf '\n- [ ] **H99 — synthetic staleness probe**\n  - Status: open · Owner: — · Critical: no · Goal: fn 0x0041c7e8 probe\n' >> TODO.md
+   VA=0x0041c7e8
+   printf '\n- [ ] **H99 — synthetic staleness probe**\n  - Status: open · Owner: — · Critical: no · Goal: fn %s probe\n' "$VA" >> TODO.md
    python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet
    cp /tmp/opencode/TODO.bak TODO.md
    awk -F'|' '/^\| C-386[014] \|/{print $NF}' docs/research/claims.md | grep -c '…'
@@ -57,8 +58,12 @@ match the committed file).
 
 3. **Controls.** *Positive*: the `--corpus` run on the unmodified tree reports
    `CORPUS DRIFT: 0 new / 0 gone` and exits 0, matching the claim summary.
-   *Negative*: one probe line appended to `TODO.md` makes the same command
-   print `CORPUS STALE: 1 new / …` and exit 1.
+   *Negative*: one probe line appended to `TODO.md` (an open block, so the l3
+   open-block scanner reads it too) makes the same command print
+   `CORPUS STALE: 1 new / 0 gone / 125 moved` and exit 1.  The fenced probe
+   line uses `$VA`, not a literal `fn 0x…`: `fn_audit` does not skip fenced
+   blocks in an EXP, so a literal label in this record would itself become a
+   live l3 citation (`1 new` in the overlay).
 4. **Scope.** The three claim rows only. The l3 overlay and the other claim
    rows are out of scope.
 5. **Falsifier.** Stated in the Hypothesis.
@@ -84,6 +89,21 @@ $ awk -F'|' '/^\| C-386[014] \|/{print $NF}' docs/research/claims.md | grep -c '
 $ sha256sum /tmp/opencode/snap.json
 9afe3f7dff438dcd0f999cf5bd95817c1e85d36f6d9c9473665dae4fc167398e
 ```
+
+- The documented probe, appended and restored:
+
+  ```
+  $ … --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet
+  CORPUS STALE: 1 new / 0 gone / 125 moved       # exit 1
+  $ … --corpus … --overlay docs/research/fn-audit-l3-corpus-2026-11-16.json --quiet
+  CORPUS STALE: DOCS BASE: 1 new / 0 gone / 125 moved
+  CORPUS STALE: L3 OVERLAY: 1 new / 0 gone / 55 moved
+  ```
+
+  On the clean branch tree the same two commands print
+  `CORPUS DRIFT: DOCS BASE: 0 new / 0 gone / 125 moved` and
+  `CORPUS DRIFT: L3 OVERLAY: 0 new / 0 gone / 55 moved`, exit 0; the full
+  `selftest.py` is `90/0/23`.
 
 ## Interpretation
 
