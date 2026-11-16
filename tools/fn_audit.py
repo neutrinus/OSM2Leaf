@@ -236,6 +236,50 @@ def citations_markdown(paths, strict=False):
                            correction=correction)
 
 
+def _open_blocks(lines):
+    """(start, end) line spans of the open ``TODO.md`` task blocks.
+
+    Shared by ``citations_open_tasks`` and ``open_block_counts`` so the
+    reported block count and the scanned span cannot drift apart.
+    """
+    starts = [i for i, line in enumerate(lines) if OPEN_TASK_RE.match(line)]
+    blocks = []
+    for start in starts:
+        end = start + 1
+        while (end < len(lines)
+               and not OPEN_TASK_RE.match(lines[end])
+               and not lines[end].startswith("- [")
+               and not lines[end].startswith("## ")):
+            end += 1
+        blocks.append((start, end))
+    return blocks
+
+
+def open_block_counts(text, cites=None):
+    """(open blocks, contributing blocks, citation lines) for the open TODOs.
+
+    A block is the span ``citations_open_tasks`` scans, counted **before** any
+    kind filter; a contributing block yields at least one citation.  The 61
+    open-block citations of M1.26 come from 18 contributing blocks but sit on
+    35 citation lines, so "blocks" and "lines" are not interchangeable.
+    """
+    lines = text.split("\n")
+    blocks = _open_blocks(lines)
+    if cites is None:
+        cites = list(citations_open_tasks(text))
+    contributing = set()
+    for cite in cites:
+        _file, _, line = cite.where.rpartition(":")
+        if not line.isdigit():
+            continue
+        lineno = int(line) - 1
+        for index, (start, end) in enumerate(blocks):
+            if start <= lineno < end:
+                contributing.add(index)
+                break
+    return len(blocks), len(contributing), len({c.where for c in cites})
+
+
 def citations_targets(path):
     """Firmware-call entry VAs from the L3 target list (synthetic ones skipped)."""
     doc = json.load(open(path, encoding="utf-8"))
@@ -283,17 +327,7 @@ def citations_open_tasks(text):
     (it is not a start in the EU head this gate classifies against).
     """
     lines = text.split("\n")
-    starts = [i for i, line in enumerate(lines) if OPEN_TASK_RE.match(line)]
-    blocks = []
-    for start in starts:
-        end = start + 1
-        while (end < len(lines)
-               and not OPEN_TASK_RE.match(lines[end])
-               and not lines[end].startswith("- [")
-               and not lines[end].startswith("## ")):
-            end += 1
-        blocks.append((start, end))
-    for start, end in blocks:
+    for start, end in _open_blocks(lines):
         for lineno in range(start, end):
             line = lines[lineno]
             pairs = {}
@@ -1929,6 +1963,13 @@ def main(argv=None):
         return 1 if failing else 0
     report(kept, files, cites, unique, counts, unmapped, quiet=args.quiet,
            verbose=args.verbose)
+    if args.scope == "l3":
+        todo = os.path.join(REPO, "TODO.md")
+        if os.path.exists(todo):
+            blocks, contributing, lines = open_block_counts(
+                open(todo, encoding="utf-8").read())
+            print("fn_audit: open blocks %d, contributing %d, "
+                  "citation lines %d" % (blocks, contributing, lines))
     for item in not_scanned:
         print("fn_audit: NOT SCANNED %s" % item)
     if args.write_snapshot:
