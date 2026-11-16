@@ -268,6 +268,7 @@ class Suite:
     func: Callable[[], None] | None = None
     path: Path | None = None
     has_selftest: bool = False
+    skip_unless: Path | None = None
 
 
 
@@ -294,6 +295,69 @@ def test_ce_qemu_probe_log() -> None:
         pass
     else:
         raise AssertionError("patch outside the image must fail")
+
+def test_fn_audit_scope_l3() -> None:
+    """M1.26: the l3 overlay is a gate; a synthetic INSIDE must exit 1.
+
+    No image: the fixture builds a synthetic ``.pdata`` table (the same shape
+    ``fn_audit`` uses in its own selftest) and calls ``collect``/``audit``
+    through a stub, so the assertion is about the *gate*, not the corpus.
+    """
+    import fn_audit
+
+    table = fn_audit.Table(fn_audit.BUILD_A, {
+        "synth.dll": fn_audit._synth_records((0x401000, 0x40), (0x401040, 0x20),
+                                             (0x401100, 0x30)),
+    })
+
+    class Stub:
+        tables = [table]
+
+        @staticmethod
+        def leaf_of(module, build, va):
+            return False
+
+    stub = Stub()
+
+    cites = [fn_audit.Citation(0x401048, "l3doc.md:1", "l3")]
+
+    # The INSIDE citation is a failure and would fail the gate.
+    kept = fn_audit.audit(cites, stub)
+    assert kept[0][1].klass == "INSIDE" and kept[0][1].is_failure, kept
+    rc = 1 if any(v.is_failure for _c, v in kept) else 0
+    assert rc == 1, "a synthetic l3 INSIDE must exit the gate 1"
+
+    # The same overlay with the true START is green: the gate discriminates.
+    good = fn_audit.audit([fn_audit.Citation(0x401040, "l3doc.md:1", "l3")], stub)
+    assert not any(v.is_failure for _c, v in good), good
+    assert (1 if any(v.is_failure for _c, v in good) else 0) == 0
+
+    # Every l3 corpus has a parser; a missing path is NOT SCANNED, never empty.
+    _cites, _files, not_scanned = fn_audit.collect_l3()
+    assert isinstance(not_scanned, list), not_scanned
+
+
+def test_fn_audit_scope_l3_image() -> None:
+    """M1.26: the real l3 gate runs when the image is present.
+
+    The docs base is a positive control (INSIDE 0, exit 0); the committed l3
+    overlay matches its live scan (0 new / 0 gone); a *new* l3 INSIDE is the
+    negative control and is exercised without the image in ``fn_audit_l3``.
+    """
+    import subprocess
+
+    image = REPO_ROOT / "archive" / "head256.img"
+    overlay = REPO_ROOT / "docs" / "research" / "fn-audit-l3-corpus-2026-11-16.json"
+    base = REPO_ROOT / "docs" / "research" / "fn-audit-corpus-2026-11-16.json"
+    proc = subprocess.run(
+        [sys.executable, str(TOOLS_DIR / "fn_audit.py"), str(image),
+         "--corpus", str(base), "--overlay", str(overlay), "--quiet"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=120,
+    )
+    out = (proc.stdout or "") + (proc.stderr or "")
+    assert proc.returncode == 0, out
+    assert "CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved" in out, out
+
 
 def builtin_suites() -> list[Suite]:
     """The synthetic suites, in their historical execution order."""
@@ -333,6 +397,19 @@ def builtin_suites() -> list[Suite]:
             "builtin",
             "ce_qemu_probe QEMU log summary and patch guard",
             func=test_ce_qemu_probe_log,
+        ),
+        Suite(
+            "fn_audit_l3",
+            "builtin",
+            "M1.26 fn_audit --scope l3: synthetic INSIDE fails, START passes",
+            func=test_fn_audit_scope_l3,
+        ),
+        Suite(
+            "fn_audit_l3_image",
+            "builtin",
+            "M1.26 fn_audit --scope l3 on the real image (skipped without it)",
+            func=test_fn_audit_scope_l3_image,
+            skip_unless=REPO_ROOT / "archive" / "head256.img",
         ),
     ]
 
@@ -570,6 +647,9 @@ def _decode_timeout(value: bytes | str | None) -> str:
 
 
 def run_suite(suite: Suite, timeout: float = TOOL_TIMEOUT) -> Result:
+    if suite.skip_unless is not None and not suite.skip_unless.exists():
+        return Result(suite.id, suite.kind, suite.description, "SKIP",
+                      detail=f"missing {_display_path(suite.skip_unless)}")
     if suite.kind == "builtin":
         return run_builtin(suite)
     return run_tool(suite, timeout=timeout)

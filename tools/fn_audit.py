@@ -16,6 +16,18 @@ Corpora (``--scope docs``, the M1.25 scope):
   * ``tools/l3_harness/targets.json`` — firmware ``entry.va`` values;
   * ``tools/*_l3.py`` — every ``0x…`` constant that lands in a pdata span.
 
+The M1.26 l3 overlay (``--scope l3``) is the wider gate corpus, frozen into
+its own snapshot so the docs base stays readable:
+  * ``tools/l3_harness/targets.json`` — firmware ``entry.va`` values;
+  * ``docs/format/firmware.md`` — every ``fn 0x…`` / ``sub_…``;
+  * ``docs/experiments/EXP-*.md`` — parsed only (append-only, never written);
+  * every ``0x…`` in an **open** ``TODO.md`` task block (``- [ ] **ID`` to the
+    end of that block), as a bare ``l3`` citation.
+A corpus without a parser is reported ``NOT SCANNED`` with the reason, never
+guessed.  The overlay snapshot is
+``docs/research/fn-audit-l3-corpus-2026-11-16.json``; ``--corpus`` takes an
+optional ``overlay`` object and runs the H69 policy **per source**.
+
 A VA is resolved to a build (A ``0x200200`` / B ``0x3e00200`` / C ``0x5200200``
 of the same image) and a module when the module's pdata span
 ``[first, last_end]`` contains it.  The strongest class across those holders
@@ -42,9 +54,9 @@ VA can be ``CORRECTED`` on one line and ``INSIDE`` on another, so the verdict
 is per citation.
 
 Usage:
-  fn_audit.py IMG [--scope docs] [--fix-list] [--cache DIR] [--quiet]
-  fn_audit.py IMG --scope docs --write-snapshot PATH
-  fn_audit.py IMG --corpus PATH [--no-live-check] [--fix-list]
+  fn_audit.py IMG [--scope docs|l3] [--fix-list] [--cache DIR] [--quiet]
+  fn_audit.py IMG --scope docs|l3 --write-snapshot PATH
+  fn_audit.py IMG --corpus PATH [--overlay PATH] [--no-live-check] [--fix-list]
   fn_audit.py --selftest
 
 Exit codes: 0 no unresolved mid-function citation, 1 any ``INSIDE`` (or an
@@ -64,6 +76,14 @@ that was added or removed, or a verdict change at an unchanged key, is
 ``CORPUS STALE`` and exits 1.  The standing gate (M1.26) runs on the
 snapshot so board prose cannot move the counts; a diff to the snapshot is the
 review artefact.
+
+With ``--overlay PATH`` the l3 snapshot is read beside the docs base and each
+source gets its own live comparison and its own H69 verdict: a moved-only
+change in either layer warns and exits 0; ``new``/``gone``/a count delta/a
+verdict change in either layer is ``CORPUS STALE`` and exits 1.  The summary
+names both totals so an l3 line move can never fold into the docs ``moved``
+count, and an ``AMBIGUOUS`` row in the overlay exercises H72's candidate-set
+comparison.
 """
 
 import argparse
@@ -112,6 +132,9 @@ CORRECTION_PAIR_TIGHT_RE = re.compile(
 DOC_FILES = ("TODO.md", "docs/format/*.md")
 TARGETS = "tools/l3_harness/targets.json"
 L3_GLOB = "tools/*_l3.py"
+FIRMWARE_DOC = "docs/format/firmware.md"
+EXP_GLOB = "docs/experiments/EXP-*.md"
+OPEN_TASK_RE = re.compile(r"^- \[ \] \*\*[A-Za-z0-9]")
 
 # Bare VAs whose every remaining occurrence is correction prose that does not
 # spell the true start on that same line (the M1.29 Stop clause: an explicit,
@@ -205,10 +228,99 @@ def citations_l3_constants(paths):
                 yield Citation(int(m.group(0), 16), "%s:%d" % (rel, lineno), "const")
 
 
+def citations_open_tasks(text):
+    """Every ``0x…`` in an open ``TODO.md`` task block, as a bare ``l3`` cite.
+
+    A block runs from ``- [ ] **<ID>`` to the next block header or section
+    boundary.  Closed blocks, prose above the first block, and headings are
+    out of scope: this is the "open task blocks" corpus of M1.26.  Every hex
+    token is cited (not just ``fn`` labels) because the l3 targets, call sites
+    and constants in a block are all addresses a reader may enter.
+    """
+    lines = text.split("\n")
+    starts = [i for i, line in enumerate(lines) if OPEN_TASK_RE.match(line)]
+    blocks = []
+    for start in starts:
+        end = start + 1
+        while (end < len(lines)
+               and not OPEN_TASK_RE.match(lines[end])
+               and not lines[end].startswith("- [")
+               and not lines[end].startswith("## ")):
+            end += 1
+        blocks.append((start, end))
+    for start, end in blocks:
+        for lineno in range(start, end):
+            line = lines[lineno]
+            pairs = {}
+            for m in CORRECTION_PAIR_RE.finditer(line):
+                pairs.setdefault(m.start(), int(m.group(3), 16))
+            for m in CORRECTION_PAIR_TIGHT_RE.finditer(line):
+                pairs.setdefault(m.start(), int(m.group(2), 16))
+            marked = bool(CORRECTION_RE.search(line))
+            for m in BARE_RE.finditer(line):
+                va = int(m.group(0), 16)
+                # A live ``fn``/``sub_`` label keeps its failure class, exactly
+                # as in ``citations_markdown``.  On a correction-marker line
+                # every bare VA is a ``ctx`` with its own pair (M1.29), so a
+                # block that records ``0xMID → fn 0xSTART`` is ``CORRECTED``
+                # and the same VA used as an unpaired target still fails.
+                prefix = line[:m.start()]
+                if re.search(r"(?:fn|sub_)\s?$", prefix):
+                    kind = "sub_" if prefix.rstrip().endswith("sub_") else "fn"
+                    corr = None
+                elif marked:
+                    kind, corr = "ctx", pairs.get(m.start())
+                else:
+                    kind, corr = "l3", None
+                yield Citation(va, "TODO.md:%d" % (lineno + 1), kind,
+                               correction=corr)
+
+
+def collect_l3():
+    """(citations, files_scanned, not_scanned) for the M1.26 l3 overlay.
+
+    Four corpora, each with a reproducible parser.  A path that does not exist
+    is reported in ``not_scanned`` rather than silently yielding nothing.
+    """
+    files, not_scanned, cites = [], [], []
+
+    targets = os.path.join(REPO, TARGETS)
+    if os.path.exists(targets):
+        files.append(targets)
+        cites.extend(citations_targets(targets))
+    else:
+        not_scanned.append("%s: file missing" % TARGETS)
+
+    firmware = os.path.join(REPO, FIRMWARE_DOC)
+    if os.path.exists(firmware):
+        files.append(firmware)
+        cites.extend(citations_markdown([firmware]))
+    else:
+        not_scanned.append("%s: file missing" % FIRMWARE_DOC)
+
+    exps = sorted(glob.glob(os.path.join(REPO, EXP_GLOB)))
+    if exps:
+        files.extend(exps)
+        cites.extend(citations_markdown(exps))
+    else:
+        not_scanned.append("%s: no EXP records" % EXP_GLOB)
+
+    todo = os.path.join(REPO, "TODO.md")
+    if os.path.exists(todo):
+        files.append(todo)
+        cites.extend(citations_open_tasks(open(todo, encoding="utf-8").read()))
+    else:
+        not_scanned.append("TODO.md: file missing")
+
+    return cites, [os.path.relpath(p, REPO) for p in files], not_scanned
+
+
 def collect(scope="docs"):
-    """(citations, files_scanned) for the requested scope."""
+    """(citations, files_scanned[, not_scanned]) for the requested scope."""
+    if scope == "l3":
+        return collect_l3()
     if scope != "docs":
-        raise SystemExit("fn_audit: scope %r is not implemented here; --scope l3 is M1.26" % scope)
+        raise SystemExit("fn_audit: scope %r is not supported" % scope)
     files = []
     md = [os.path.join(REPO, p) for p in DOC_FILES]
     md = [p for pattern in md for p in sorted(glob.glob(pattern))]
@@ -389,10 +501,13 @@ def stats(cites, kept):
     counts = {}
     for _cite, verdict in kept:
         counts[verdict.klass] = counts.get(verdict.klass, 0) + 1
-    # Every ``UNMAPPED`` const/ctx citation counts as unmapped; ``kept`` now
-    # carries them too (M1.30), so read the verdict class directly.
+    # Every ``UNMAPPED`` citation counts as unmapped regardless of kind:
+    # ``snapshot_summary`` counts rows, so the live writer must use the same
+    # rule or an l3 overlay row (kind ``l3``/``fn``) would make the frozen and
+    # live summaries disagree (M1.26).  The docs corpus is unchanged because
+    # all 32 of its unmapped citations are ``const``.
     unmapped = sum(1 for _cite, verdict in kept
-                   if verdict.klass == "UNMAPPED" and _cite.kind in ("const", "ctx"))
+                   if verdict.klass == "UNMAPPED")
     return unique, counts, unmapped
 
 
@@ -537,17 +652,20 @@ def snapshot_rows(kept):
     return rows
 
 
-def write_snapshot(path, files, rows, summary, image_path):
+def write_snapshot(path, files, rows, summary, image_path, scope="docs",
+                   not_scanned=None):
     doc = {
         "tool": "fn_audit",
         "snapshot_version": SNAPSHOT_VERSION,
-        "scope": "docs",
+        "scope": scope,
         "image": os.path.basename(image_path) if image_path else None,
         "image_sha256": image_sha256(image_path),
         "files": sorted(files),
         "summary": summary,
         "rows": rows,
     }
+    if not_scanned:
+        doc["not_scanned"] = list(not_scanned)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, indent=1, sort_keys=False)
@@ -731,10 +849,14 @@ def compare_live(doc, image):
     ``class`` alone hides the failure, the stored detail: the whole candidate
     set of an ``AMBIGUOUS`` row and the ``leaf`` flag of a ``GAP`` row (H72).
     ``va`` is compared canonically, so hex padding is not a change.
+
+    The scope comes from the document, so an l3 overlay snapshot compares
+    against a fresh l3 scan and the docs base against a fresh docs scan; the
+    two layers never mix (M1.26 per-source policy).
     """
     from collections import Counter, defaultdict
 
-    cites, _files = collect(doc.get("scope", "docs"))
+    cites = collect(doc.get("scope", "docs"))[0]
     live_rows = snapshot_rows(audit(cites, image))
     frozen_by_key = {_row_key(r): r for r in doc["rows"]}
     live_by_key = {_row_key(r): r for r in live_rows}
@@ -808,30 +930,19 @@ def corpus_fix_list(doc):
     return ["%s -> %s" % (va, rows[va]) for va in sorted(rows)]
 
 
-def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
-    """Audit a frozen snapshot: summary, integrity, re-classification, live.
+def _source_label(doc):
+    """The histogram label for one snapshot layer (docs base vs l3 overlay)."""
+    return "L3 OVERLAY" if doc.get("scope") == "l3" else "DOCS BASE"
 
-    The image is required (the frozen part is ``file/line/va/kind``); every
-    stored ``class``/``true_start`` is re-derived from the image and a
-    disagreement fails.  With ``live_check`` the live ``--scope docs`` scan is
-    compared row-for-row.  A ``moved`` row set (same ``(file,va,kind,class)``
-    identity, only ``line`` changed) is prose drift: it prints ``CORPUS
-    DRIFT`` and does **not** fail, because the row identities are unchanged.
-    ``new``/``gone`` rows or a verdict change at an unchanged key report
-    ``CORPUS STALE`` and exit 1 — those are what the frozen corpus protects.
 
-    ``--fix-list`` is not an escape hatch: the summary, integrity,
-    re-classification and staleness checks run first, so a snapshot tampered
-    ``INSIDE -> CORRECTED`` exits non-zero even here; only then is the frozen
-    ``INSIDE`` list printed.
-    """
-    rows = doc["rows"]
+def _source_problems(doc, image):
+    """Integrity + re-classification problems for one snapshot layer."""
     problems = []
     frozen = doc.get("summary") or {}
     got = snapshot_summary(doc)
     if got != frozen:
         problems.append(("summary", frozen, got))
-    for row in rows:
+    for row in doc["rows"]:
         if row.get("class_sha256") and row["class_sha256"] != row_fingerprint(
                 row["class"], row.get("true_start")):
             problems.append(("integrity", row, None))
@@ -839,22 +950,10 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
         problems.append(("class", (row["file"], row["line"], row["va"],
                                    row["class"], row.get("true_start")),
                          (want, start)))
+    return got, problems
 
-    drift = None
-    if live_check:
-        new, gone, moved, changed = compare_live(doc, image)
-        if new or gone or moved or changed:
-            drift = (new, gone, moved, changed)
-    # A moved-only drift is prose: the protected identity set
-    # ``(file,va,kind,class)`` is unchanged, only ``line`` moved.  It warns and
-    # exits 0 (H69); ``new``/``gone``/a verdict change still fails.
-    stale = drift is not None and bool(drift[0] or drift[1] or drift[3])
-    moved_only = drift is not None and not stale
 
-    failing = rows_have_failures(rows)
-    if not fix_list_mode and (not quiet or problems or drift):
-        for line in summary_lines(got):
-            print(line)
+def _report_problems(problems):
     for kind, a, b in problems:
         if kind == "summary":
             print("fn_audit: snapshot summary mismatch")
@@ -869,36 +968,130 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
             print("fn_audit: row class disagrees with the image: "
                   "%s:%s %s frozen=%s/%s image=%s/%s" % (a[0], a[1], a[2],
                                                          a[3], a[4], b[0], b[1]))
+
+
+def _report_drift(drift, stale, label=None, fix_list_mode=False):
+    """Print one layer's drift.  ``label`` is set only when a second source
+    (the l3 overlay) is present, so the histogram names both totals."""
+    new, gone, moved, changed = drift
+    tag = "CORPUS STALE" if stale else "CORPUS DRIFT"
+    mid = "%s: " % label if label else ""
+    if new or gone or moved:
+        print("%s: %s%d new / %d gone / %d moved"
+              % (tag, mid, len(new), len(gone), len(moved)))
+    if changed:
+        print("%s: %s%d verdict change(s) (at an unchanged key or with a "
+              "line move)" % (tag, mid, len(changed)))
+    if not new and not gone and not moved and not changed:
+        print("%s: %s0 new / 0 gone / 0 moved" % (tag, mid))
+    if not stale:
+        print("fn_audit: warning: %sline-only drift; identity set unchanged, "
+              "refresh the snapshot when convenient (H69)" % mid.lower())
+    if fix_list_mode:
+        return
+    # ``--fix-list`` is machine-readable: only its ``0x… -> 0x…`` lines may
+    # carry ``->``, so the drift detail stays out of that mode.
+    prefix = "%s " % label if label else ""
+    for kind, keys in (("new", new), ("gone", gone)):
+        for key in sorted(keys)[:10]:
+            print("fn_audit:   %s%s %s:%s %s"
+                  % (prefix, kind, key[0], key[1], key[2]))
+    for old, new_key in moved[:10]:
+        print("fn_audit:   %smoved %s:%s->%s %s"
+              % (prefix, old[0], old[1], new_key[1], old[2]))
+    for key, _a, _b in changed[:10]:
+        print("fn_audit:   %schanged %s:%s %s" % (prefix, key[0], key[1], key[2]))
+
+
+def _audit_layer(doc, image, live_check, quiet, show_summary=True, label=None,
+                 fix_list_mode=False):
+    """Summary, integrity and live drift for one layer; returns
+    (problems, drift, stale, moved_only, got)."""
+    got, problems = _source_problems(doc, image)
+    drift = None
+    if live_check:
+        new, gone, moved, changed = compare_live(doc, image)
+        if new or gone or moved or changed:
+            drift = (new, gone, moved, changed)
+    # A moved-only drift is prose: the protected identity set
+    # ``(file,va,kind,class)`` is unchanged, only ``line`` moved.  It warns and
+    # exits 0 (H69); ``new``/``gone``/a verdict change still fails.
+    stale = drift is not None and bool(drift[0] or drift[1] or drift[3])
+    moved_only = drift is not None and not stale
+    # When a second source is present its ``label`` is set, and both totals
+    # must be printed, so the histogram names them (M1.26).
+    if show_summary and (not quiet or problems or drift or label):
+        if label:
+            print("fn_audit: %s:" % label)
+        for line in summary_lines(got):
+            print(line)
+    _report_problems(problems)
     if drift:
-        new, gone, moved, changed = drift
-        tag = "CORPUS STALE" if stale else "CORPUS DRIFT"
-        if new or gone or moved:
-            print("%s: %d new / %d gone / %d moved"
-                  % (tag, len(new), len(gone), len(moved)))
-        if changed:
-            print("%s: %d verdict change(s) (at an unchanged key or with a "
-                  "line move)" % (tag, len(changed)))
-        if not new and not gone and not moved and not changed:
-            print("%s: 0 new / 0 gone / 0 moved" % tag)
-        if moved_only:
-            print("fn_audit: warning: line-only drift; identity set unchanged, "
-                  "refresh the snapshot when convenient (H69)")
-        if not fix_list_mode:
-            # ``--fix-list`` is machine-readable: only its ``0x… -> 0x…`` lines
-            # may carry ``->``, so the drift detail stays out of that mode.
-            for label, keys in (("new", new), ("gone", gone)):
-                for key in sorted(keys)[:10]:
-                    print("fn_audit:   %s %s:%s %s"
-                          % (label, key[0], key[1], key[2]))
-            for old, new_key in moved[:10]:
-                print("fn_audit:   moved %s:%s->%s %s"
-                      % (old[0], old[1], new_key[1], old[2]))
-            for key, _a, _b in changed[:10]:
-                print("fn_audit:   changed %s:%s %s" % (key[0], key[1], key[2]))
-    if not quiet and not problems and not drift and not live_check and not fix_list_mode:
+        _report_drift(drift, stale, label=label,
+                      fix_list_mode=fix_list_mode)
+    elif live_check and label:
+        print("CORPUS OK: %s: 0 new / 0 gone / 0 moved" % label)
+    return problems, drift, stale, moved_only, got
+
+
+def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False,
+                 overlay=None):
+    """Audit a frozen snapshot: summary, integrity, re-classification, live.
+
+    The image is required (the frozen part is ``file/line/va/kind``); every
+    stored ``class``/``true_start`` is re-derived from the image and a
+    disagreement fails.  With ``live_check`` the live scan of the document's
+    own scope is compared row-for-row.  A ``moved`` row set (same
+    ``(file,va,kind,class)`` identity, only ``line`` changed) is prose drift:
+    it prints ``CORPUS DRIFT`` and does **not** fail, because the row
+    identities are unchanged.  ``new``/``gone`` rows or a verdict change at an
+    unchanged key report ``CORPUS STALE`` and exit 1 — those are what the
+    frozen corpus protects.
+
+    ``overlay`` is the M1.26 l3 snapshot.  It is audited with the same rules
+    as the docs base but with its own live comparison (``--scope l3``), and
+    the H69 policy is applied **per source**: a moved-only drift in either
+    layer warns and exits 0, while ``new``/``gone``/a count delta/a verdict
+    change in either layer is ``CORPUS STALE`` and exits 1.  The histogram
+    names each layer, so l3 line churn cannot fold into the docs ``moved``
+    count.  An ``AMBIGUOUS`` overlay row exercises H72's candidate-set
+    comparison.
+
+    ``--fix-list`` is not an escape hatch: the summary, integrity,
+    re-classification and staleness checks run first, so a snapshot tampered
+    ``INSIDE -> CORRECTED`` exits non-zero even here; only then is the frozen
+    ``INSIDE`` list printed.
+    """
+    base_label = "DOCS BASE" if overlay else None
+    base_problems, base_drift, base_stale, _moved, _got = _audit_layer(
+        doc, image, live_check, quiet, show_summary=not fix_list_mode,
+        label=base_label, fix_list_mode=fix_list_mode)
+    overlay_problems, overlay_drift, overlay_stale, _omoved, _ogot = (
+        _audit_layer(overlay, image, live_check, quiet,
+                     show_summary=not fix_list_mode, label="L3 OVERLAY",
+                     fix_list_mode=fix_list_mode)
+        if overlay else ([], None, False, False, None))
+
+    problems = base_problems + overlay_problems
+    stale = base_stale or overlay_stale
+    drift = base_drift or overlay_drift
+
+    # The docs base has no frozen ``INSIDE``; a snapshot written with one is a
+    # defect and must fail.  The l3 overlay is different by design: it freezes
+    # the *whole* l3 corpus, including append-only EXP history that cannot be
+    # edited (M1.26), so its frozen ``INSIDE`` rows are the register, not a
+    # regression.  Drift still protects the overlay: a new citation or a class
+    # change to ``INSIDE`` is ``new``/``changed`` and exits 1, and a snapshot
+    # edited by hand is caught by ``corpus_class_drift``.  This is the same
+    # baseline semantics as H69/H72: the frozen state is the review artefact.
+    failing = rows_have_failures(doc["rows"])
+    if (not quiet and not problems and not drift and not live_check
+            and not fix_list_mode):
         print("fn_audit: live check skipped (--no-live-check)")
     if fix_list_mode:
         lines = corpus_fix_list(doc)
+        if overlay:
+            lines = lines + corpus_fix_list(overlay)
         for line in lines:
             print(line)
         return 1 if (lines or problems or stale) else 0
@@ -1431,6 +1624,119 @@ def selftest():
                 [(amb_cite, Verdict(0x401048, "AMBIGUOUS", candidates=benign))])
             check("H72 unpadded va prints no spurious new/gone",
                   r_pad == 0 and "new" not in o_pad and "gone" not in o_pad)
+
+            # M1.26: the l3 overlay is a second source with its own live pass
+            # and its own H69 verdict.  ``collect`` is routed by scope so the
+            # docs base and the overlay never share a scan.
+            def write_layer(path, scope, cite, verdict, files,
+                            snapshot=True):
+                kept = [(cite, verdict)]
+                summary = summary_counts(files, [cite], {cite.va},
+                                         {verdict.klass: 1}, 0, kept)
+                if snapshot:
+                    write_snapshot(path, files, snapshot_rows(kept), summary,
+                                   img, scope=scope)
+                return load_corpus(path)
+
+            l3_inside = Citation(0x401048, "l3doc.md:1", "l3")
+            l3_start = Citation(0x401040, "l3doc.md:1", "l3")
+            l3_amb_frozen = Verdict(0x401048, "AMBIGUOUS", candidates=benign)
+            ov_path = os.path.join(tmp, "fa-ov.json")
+            ov_doc = write_layer(ov_path, "l3", l3_inside,
+                                 Verdict(0x401048, "INSIDE", start=0x401040),
+                                 ["l3doc.md"])
+            base_path = os.path.join(tmp, "fa-base.json")
+            base_doc = write_layer(base_path, "docs", snap_cites[0], good,
+                                   ["doc.md"])
+
+            state = {}
+
+            def run_overlay(overlay_cites, overlay_kept, base_cites=None,
+                            base_kept=None):
+                base_cites = base_cites if base_cites is not None else [snap_cites[0]]
+                base_kept = base_kept if base_kept is not None else [(snap_cites[0], good)]
+
+                def fake_collect(scope="docs"):
+                    state["scope"] = scope
+                    if scope == "l3":
+                        return overlay_cites, ["l3doc.md"], []
+                    return base_cites, ["doc.md"]
+                glb["collect"] = fake_collect
+                glb["audit"] = lambda c, i: list(
+                    overlay_kept if state.get("scope") == "l3" else base_kept)
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = audit_corpus(load_corpus(base_path), stub,
+                                      live_check=True, overlay=ov_doc)
+                return rc, buf.getvalue()
+
+            move_cite = Citation(0x401048, "l3doc.md:9", "l3")
+            r_ov, o_ov = run_overlay(
+                [move_cite], [(move_cite, Verdict(0x401048, "INSIDE", start=0x401040))])
+            check("M1.26 moved-only l3 drift warns and exits 0",
+                  r_ov == 0 and "L3 OVERLAY" in o_ov
+                  and "CORPUS DRIFT: L3 OVERLAY: 0 new / 0 gone / 1 moved" in o_ov)
+            check("M1.26 both source totals are named",
+                  "DOCS BASE" in o_ov and "CORPUS OK: DOCS BASE" in o_ov)
+
+            # An l3 INSIDE that is new relative to the overlay -> stale, exit 1.
+            r_new, o_new = run_overlay(
+                [move_cite, Citation(0x401080, "l3doc.md:3", "l3")],
+                [(move_cite, Verdict(0x401048, "INSIDE", start=0x401040)),
+                 (Citation(0x401080, "l3doc.md:3", "l3"), gap_leaf)])
+            check("M1.26 new l3 row exits 1",
+                  r_new == 1 and "CORPUS STALE: L3 OVERLAY: 1 new" in o_new)
+            # Removed l3 row -> gone, exit 1.
+            r_gone, o_gone = run_overlay([], [])
+            check("M1.26 gone l3 row exits 1",
+                  r_gone == 1 and "CORPUS STALE: L3 OVERLAY: 0 new / 1 gone" in o_gone)
+
+            # A benign AMBIGUOUS frozen overlay row moved -> exit 0.
+            amb_l3 = Citation(0x401048, "l3doc.md:1", "l3")
+            ov_amb_path = os.path.join(tmp, "fa-ov-amb.json")
+            ov_amb_doc = write_layer(ov_amb_path, "l3", amb_l3, l3_amb_frozen,
+                                     ["l3doc.md"])
+            saved_drift = glb["corpus_class_drift"]
+
+            def run_amb(overlay_kept):
+                def fake_collect(scope="docs"):
+                    state["scope"] = scope
+                    if scope == "l3":
+                        return [amb_l3], ["l3doc.md"], []
+                    return [snap_cites[0]], ["doc.md"]
+                glb["collect"] = fake_collect
+                glb["audit"] = lambda c, i: list(
+                    overlay_kept if state.get("scope") == "l3"
+                    else [(snap_cites[0], good)])
+                # The frozen overlay is exercised through its live pass only;
+                # the class-vs-image drift is H72's own fixture above.
+                glb["corpus_class_drift"] = lambda doc, image: []
+                buf = io.StringIO()
+                try:
+                    with contextlib.redirect_stdout(buf):
+                        rc = audit_corpus(load_corpus(base_path), stub,
+                                          live_check=True, overlay=ov_amb_doc)
+                finally:
+                    glb["corpus_class_drift"] = saved_drift
+                return rc, buf.getvalue()
+
+            r_ambok, o_ambok = run_amb([(amb_l3, l3_amb_frozen)])
+            check("M1.26 overlay AMBIGUOUS unchanged exits 0", r_ambok == 0)
+            # The same AMBIGUOUS row gains an INSIDE candidate -> H72 catches
+            # it through the overlay's own live pass: exit 1, verdict change.
+            r_ambgain, o_ambgain = run_amb(
+                [(amb_l3, Verdict(0x401048, "AMBIGUOUS", candidates=gain))])
+            check("M1.26 overlay AMBIGUOUS gains INSIDE -> exit 1",
+                  r_ambgain == 1 and "verdict change" in o_ambgain)
+            # A docs-base failure is still a failure even when the overlay is
+            # clean (per-source verdicts are ANDed, not ORed).
+            r_docsbad, o_docsbad = run_overlay(
+                [move_cite], [(move_cite, Verdict(0x401048, "INSIDE", start=0x401040))],
+                base_cites=[Citation(0x401040, "doc.md:1", "fn")],
+                base_kept=[(Citation(0x401040, "doc.md:1", "fn"),
+                            Verdict(0x401040, "UNMAPPED"))])
+            check("M1.26 docs-base verdict change still exits 1",
+                  r_docsbad == 1 and "CORPUS STALE: DOCS BASE" in o_docsbad)
         finally:
             glb["collect"], glb["audit"] = saved_collect, saved_audit
 
@@ -1454,7 +1760,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("image", nargs="?", help="256 MiB firmware head (e.g. archive/head256.img)")
-    ap.add_argument("--scope", default="docs", choices=("docs",))
+    ap.add_argument("--scope", default="docs", choices=("docs", "l3"))
     ap.add_argument("--fix-list", action="store_true",
                     help="print one '0x<mid> -> 0x<start>' line per INSIDE VA")
     ap.add_argument("--write-snapshot", metavar="PATH",
@@ -1462,6 +1768,9 @@ def main(argv=None):
     ap.add_argument("--corpus", metavar="PATH",
                     help="audit a frozen snapshot instead of re-scanning docs "
                          "(the image re-classifies every row)")
+    ap.add_argument("--overlay", metavar="PATH",
+                    help="with --corpus, also audit the l3 overlay snapshot "
+                         "(each source gets its own live comparison)")
     ap.add_argument("--no-live-check", action="store_true",
                     help="with --corpus, skip the live row-set comparison "
                          "(offline; the snapshot may then be stale)")
@@ -1477,6 +1786,9 @@ def main(argv=None):
         print("error: --corpus and --write-snapshot are exclusive",
               file=sys.stderr)
         return 2
+    if args.overlay and not args.corpus:
+        print("error: --overlay requires --corpus", file=sys.stderr)
+        return 2
     if args.corpus:
         if not args.image:
             print("error: --corpus re-classifies every row against the image; "
@@ -1491,6 +1803,21 @@ def main(argv=None):
             print("error: snapshot image_sha256 %r does not match %s"
                   % (doc.get("image_sha256"), args.image), file=sys.stderr)
             return 2
+        overlay = None
+        if args.overlay:
+            try:
+                overlay = load_corpus(args.overlay)
+            except (OSError, ValueError) as exc:
+                print("error: %s" % exc, file=sys.stderr)
+                return 2
+            if overlay.get("scope") != "l3":
+                print("error: --overlay snapshot scope is %r, want 'l3'"
+                      % overlay.get("scope"), file=sys.stderr)
+                return 2
+            if overlay.get("image_sha256") != doc.get("image_sha256"):
+                print("error: overlay image_sha256 differs from the base",
+                      file=sys.stderr)
+                return 2
         try:
             image = Image(args.image, args.cache)
         except OSError as exc:
@@ -1502,7 +1829,7 @@ def main(argv=None):
             return 3
         return audit_corpus(doc, image, quiet=args.quiet,
                             live_check=not args.no_live_check,
-                            fix_list_mode=args.fix_list)
+                            fix_list_mode=args.fix_list, overlay=overlay)
     if not args.image:
         ap.print_help()
         return 2
@@ -1514,7 +1841,9 @@ def main(argv=None):
     if not image.tables or not image.tables[0].modules:
         print("error: no build A function tables in %s" % args.image, file=sys.stderr)
         return 3
-    cites, files = collect(args.scope)
+    collected = collect(args.scope)
+    cites, files = collected[0], collected[1]
+    not_scanned = collected[2] if len(collected) > 2 else []
     kept = audit(cites, image)
     unique, counts, unmapped = stats(cites, kept)
     failing = [v for _c, v in kept if v.is_failure]
@@ -1525,10 +1854,12 @@ def main(argv=None):
         return 1 if failing else 0
     report(kept, files, cites, unique, counts, unmapped, quiet=args.quiet,
            verbose=args.verbose)
+    for item in not_scanned:
+        print("fn_audit: NOT SCANNED %s" % item)
     if args.write_snapshot:
         summary = summary_counts(files, cites, unique, counts, unmapped, kept)
         write_snapshot(args.write_snapshot, files, snapshot_rows(kept), summary,
-                       args.image)
+                       args.image, scope=args.scope, not_scanned=not_scanned)
     if failing:
         return 1
     return 0

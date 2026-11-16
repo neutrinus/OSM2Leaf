@@ -419,13 +419,39 @@ A gate that runs on the snapshot (M1.26) consumes this policy; when a PR
 re-points the snapshot at its own commit, the gate re-runs `--corpus` on that
 commit, so the moved-only rule above is the whole contract.
 
+### `--scope l3`: the standing gate (M1.26)
+
+`--scope l3` widens the audit to the corpora the M9/M3 board cites: the l3
+harness `targets.json`, `docs/format/firmware.md`, every
+`docs/experiments/EXP-*.md` (parsed only — EXPs are append-only) and every
+`0x…` in an **open** `TODO.md` task block. It reports `NOT SCANNED <reason>`
+for a corpus whose parser or file is missing, and exits 1 on any `INSIDE` (or
+an `AMBIGUOUS` whose candidates include one). The whole l3 citation set is
+frozen to `docs/research/fn-audit-l3-corpus-2026-11-16.json` by the same
+`--write-snapshot` (scope `l3`), because EXPs cannot be edited: their stale
+VAs are a register, not a diff to fix.
+
+`--corpus BASE --overlay L3` audits both layers and applies the H69 policy
+**per source**: each layer gets its own live comparison (`docs` for the base,
+`l3` for the overlay) and its own histogram line (`DOCS BASE:` / `L3
+OVERLAY:`), so l3 line churn can never fold into the docs `moved` count. A
+moved-only change in either layer warns and exits 0; `new`/`gone`/a count
+delta/a verdict change in either layer is `CORPUS STALE` and exits 1. A frozen
+`INSIDE` in the **overlay** is the register and does not fail the gate (EXPs
+cannot be corrected); in the **docs base** a frozen `INSIDE` still fails. An
+`AMBIGUOUS` overlay row exercises H72's candidate-set comparison: a live
+candidate set that gains an `INSIDE` is a verdict change and exits 1.
+
 ```bash
 python3 tools/fn_audit.py archive/head256.img              # full report, exit 1 on INSIDE
 python3 tools/fn_audit.py archive/head256.img --fix-list   # machine-readable fixes
 python3 tools/fn_audit.py archive/head256.img --scope docs \
     --write-snapshot docs/research/fn-audit-corpus-2026-11-16.json
+python3 tools/fn_audit.py archive/head256.img --scope l3 \
+    --write-snapshot docs/research/fn-audit-l3-corpus-2026-11-16.json
 python3 tools/fn_audit.py archive/head256.img \
-    --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet
+    --corpus docs/research/fn-audit-corpus-2026-11-16.json \
+    --overlay docs/research/fn-audit-l3-corpus-2026-11-16.json --quiet
 python3 tools/fn_audit.py --selftest                       # no image needed
 ```
 
