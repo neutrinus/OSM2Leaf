@@ -1,7 +1,7 @@
 role: se
 model: opencode/deepseek-v4.1-flash-free (subagent, seventh SE run today, fourth of 2026-11-16)
 start_utc: 2026-11-16 02:30
-end_utc: 2026-11-16 03:40
+end_utc: 2026-11-16 03:55
 origin_main_start: 23373f5 (SM retro 2026-11-16 cycle 6)
 
 inputs_read:
@@ -12,29 +12,32 @@ inputs_read:
 
 verification_on_main (all re-run, not trusted from the logs):
 - selftest.py --only fn_audit PASS; --only one_tile_pipeline PASS; --only todo_check PASS.
-- fn_audit --corpus (committed snapshot) exit 0; --scope docs --quiet exit 0, INSIDE 0.
+- fn_audit --corpus (committed snapshot) exit 0 before the TODO edit; --scope docs --quiet exit 0, INSIDE 0.
 - fn_audit --selftest OK 53 checks; one_tile_pipeline --selftest OK 60 checks.
 - sha256 of docs/research/fn-audit-corpus-2026-11-16.json = ddd113f8...102a1a (matches).
 - fresh --write-snapshot is byte-identical to the committed file (cmp silent).
+- Pre-edit corpus row audit: sorted, summary==rows, 0 bad fingerprints, 313 rows/308 keys (5 dups, the H69 navigator case).
 - claims_check OK, todo_check OK (2 pre-existing M9.5 warnings).
 - H70 real sample present (289,319,168 B) but its /tmp stub root is gone; selftest is the reproducible oracle and passes.
-- Negative mutation (prompt_tl round-4 edit): old snapshot (git 3fdbab2^) -> CORPUS DRIFT 125 moved, exit 0 (policy); re-signed class flip -> row class disagrees, exit 1.
+- Negative mutation (prompt_tl round-4 edit): old snapshot (git 3fdbab2^) -> CORPUS DRIFT 125 moved, exit 0 (policy); re-signed class flip on TODO.md:132 -> row class disagrees, exit 1.
 
 gaps found (added as tasks, not fixed by SE):
-- H72: compare_live/verdict_differs compares only class+true_start, so (1) an AMBIGUOUS row whose frozen candidates are all non-INSIDE gains a live INSIDE candidate and --corpus still exits 0 (proved via audit_corpus: exit 0 but empty output, live is_failure True), and (2) a GAP leaf<->data flip on the same key is invisible. A third finding folded in: _row_key compares raw hex strings, so an unpadded va in a hand-made snapshot prints spurious new+gone. H69's "a verdict change exits 1" therefore has a residual. Pair: required.
-- H73: C-3900/C-3903 evidence rows name /tmp/opencode/h69-*.json, and C-3912 cites a vendor-path run; none is a repo command that prints the value. Same recurring evidence class H71 is fixing for C-3860/61/64. Pair: solo.
+- H72: compare_live/verdict_differs compares only class+true_start, so (1) an AMBIGUOUS row whose frozen candidates are all non-INSIDE gains a live INSIDE candidate and --corpus still exits 0 (proved via audit_corpus: rc 0, live.is_failure True), and (2) a GAP leaf<->data flip on the same key is invisible. A third finding folded in: _row_key compares raw hex strings, so an unpadded va in a hand-made snapshot prints spurious new+gone. H69's "a verdict change exits 1" therefore has a residual. Pair: required.
+- H73: C-3900/C-3903 evidence rows name /tmp/opencode/h69-*.json, and C-3912 cites a vendor-path run; none is a repo command that prints the value. Same recurring evidence class H71 fixes for C-3860/61/64. Pair: solo.
 
 deliberately NOT added:
-- l3 snapshot: M1.26 already owns `--scope l3` (collect() rejects it today) and M1.30's row schema covers l3 rows; a second dated file is M1.26's output, not a separate task.
+- l3 snapshot: M1.26 already owns `--scope l3` (collect() rejects it today, rc 1/2) and M1.30's row schema covers l3 rows; a second dated file is M1.26's output, not a separate task.
 - CI freshness: C-3904 deliberately says no CI auto-refresh; M1.26 adds the standing gate. No task.
 - H66/H71 cover the other flag/evidence gaps; not duplicated.
 
 decisions:
 - Kept H72's scope to fields the committed snapshot already stores (candidates on AMBIGUOUS rows, leaf on GAP rows), so no snapshot_version bump or ddd113f8 rewrite ripples into C-3861/C-3902/H71.
 - Rejected a "store candidates on every row" scope: advisory-only, larger refresh cost, no failure class.
+- Added H72/H73 to "Take first" and the H workstream row; M1.26 stays first.
 
 problems:
-- My first AMBIGUOUS repro used rows whose va was all zeros and got a formatting-driven gone/new pair; corrected to a non-zero va with identical key so the hole shows as exit 0.
+- My first AMBIGUOUS repro used va "0x1" and got a formatting-driven new/gone pair; corrected to a tool-shaped va, then folded the padding bug into H72 instead of discarding it.
+- The TODO insertion (26 lines at ~756) moved later TODO.md citations: the gate now warns CORPUS DRIFT 125 moved at exit 0. That is H69's intended policy, not a failure, so the snapshot was NOT refreshed (a refresh would change ddd113f8 and ripples into C-3861/C-3902/H71; M1.26 consumes moved-only fine).
 - /tmp/opencode holds 9 stale heads (SM retro action 3, human); kept probes small.
 
 handoff: TL -> M1.26 (pair) then H72, then M1.27; H71/H73 are cheap solo evidence fixes. Human: /tmp and worktree cleanup still unowned.
