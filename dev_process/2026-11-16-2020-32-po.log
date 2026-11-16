@@ -1,0 +1,69 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-16 20:20
+end_utc: 2026-11-16 20:55
+origin_main_start: 000d219 (docs: SE cycle-9 review)
+origin_main_end: this commit (PO 2026-11-16 12th pass)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-16-5.md (cycle 8)
+- dev_process/2026-11-16-{1050-29-tl,1106-30-sm,1940-31-se}.log
+- TODO.md Priorities + H53/H58/H61/H62/H66/H71/H74-H81/M1.19/M1.20/M1.22/M1.22b/
+  M1.4/M3.14/M3.15/M3.16/M5.29/M5.34/M9.6/M9.12/M9.31
+- tools/{todo_check,claims_check,zlibinfo,fn_audit,selftest}.py
+- EXPs in the 24h window (M1.31, M1.26, H74, H76, H75, H71)
+
+actions_taken (in order):
+- Read retro-9 + the SE log first (prompt step 1); did not re-derive.
+- Archive check (prompt step 5): TODO 3420 -> 3409 lines. Per-block scan:
+  55 done blocks, ALL live-gated by another block's Depends/Unblock or merged
+  <24h (cutoff 2026-11-15T20:11Z). Nothing archivable -> fixpoint, rule does
+  not fire (>1500 lines is normally first action, but the two conditions are
+  both false, so shipping a no-op archive would only churn lines).
+- Rewrote Priorities header (11th -> 12th pass) with cycle-8 reality and the
+  red --count-check (H78); the old header still said "next batch: M1.31 ->
+  M1.26 -> M1.22b" for three merged tasks.
+- Rewrote the L3 bullet and "Take first": M1.22b now leads (deps done), then
+  M1.19, M9.36/M9.37, M3.23/M3.24/M9.38, M5.34 chain, cheap set. Fixed the
+  "Critical path to a first accepted card" tail (still said M1.2f gates the
+  .data readers; H51/M9.35 replaced that).
+- Rule 15: M1.4's Unblock still named superseded M1.2f/M8.E1 -> M1.21;
+  M3.14/M3.15/M3.16 Unblock named M1.2f/"another signature family" ->
+  M3.23/M9.38 (their own H51 notes already said so; the field had not been
+  updated).
+- Added H82 (zlib interpreter stamp: host python3 is zlib-ng) and H83
+  (board-ref lint: priority prose is hand-maintained and rots). Both solo/
+  required as noted.
+
+task IDs added:
+- H82 zlib interpreter stamp in every recompression evidence row. Pair: solo.
+  Claims C-4050-C-4059.
+- H83 board-ref lint (refs resolve; a "next/Take first" line naming a non-open
+  task fails under --strict). Pair: required. Claims C-4060-C-4069.
+
+task IDs changed:
+- M1.4 Unblock -> M1.21 (drops superseded M1.2f/M8.E1).
+- M3.14/M3.15/M3.16 Unblock -> M3.23 + M9.38 (drop M1.2f; retire the second
+  signature family per AGENTS.md).
+
+decisions:
+- No task re-opened by rule 15: every blocked task's Unblock now names an
+  open/blocked task (verified by scan: 0 blocked->done).
+- H81 (close the five open superseded blocks) left for the TL rather than
+  done here: it is board mechanics with a strict-count effect, and the SE
+  already scoped it; doing it in PO would double-claim the task.
+- Did not renumber or reflow any task; all edits are local to Priorities and
+  three Unblock lines.
+
+problems:
+- The board is 3409 lines and the archive rule is a fixpoint: 55 live-gated
+  or <24h done blocks. The line-count target cannot be met without moving
+  live dependency targets, which the rule forbids. Recorded, not forced.
+- Priority prose has now been stale in three separate ways (merged "next"
+  tasks, a done task listed as ready, a blocker pointing at a superseded
+  task). That is what H83 exists to stop.
+
+handoff: next QA -> TL. TL should take M1.22b (pair) with H78 (pair) early;
+both touch claims.md, so sequence H78 before M1.22b's claim edits, not in
+parallel with them. Human: /tmp 70 %, `.claude/` untracked.

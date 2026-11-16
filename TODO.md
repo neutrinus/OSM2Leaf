@@ -215,88 +215,53 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-16, 11th pass; retro 2026-11-16-4, SE `b882852`)
+## Priorities (PO grooming 2026-11-16, 12th pass; retro 2026-11-16-5, SE `000d219`)
 
 Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
 `-13.md`, `-15.md`; done tasks moved off the board on 2026-11-16:
-`docs/research/todo-history-2026-11-16.md` (H54, M7.4 stub). All 49 done
-blocks stay: 44 are named by a live `Depends:`/`Unblock:`, and 5
-(**H64, H67, H68, H70, H73**) are unreferenced but merged <24 h ago, so not
-archivable this pass (fixpoint over the board).
+`docs/research/todo-history-2026-11-16.md` (H54, M7.4 stub). Archiving is at a
+**fixpoint** this pass: 3420 lines is over the 1500-line rule, but all 55 done
+blocks are either named by a live `Depends:`/`Unblock:` or merged <24 h ago
+(H64, H67, H68, H69, H70, H72, H73, M1.25, M1.30 — verified by a per-block scan,
+cutoff 2026-11-15T20:11Z). Nothing is archivable, so the rule does not fire.
 
 **Read first.** The board is clean: 0 `in progress`, 0 ghost claims, and every
-block carries a `Status:`. Cycle 7 merged **H72** (#192, the
-`candidates`/`leaf` corpus gate), **M1.27** (#193, `fn_match --leaf`) and
-**H73** (#194, reproducible evidence spans). SE then added **H74**
-(`claims_check` must reject a number its own command never prints, plus missing
-`archive/` paths) and **M1.31** (the leaf census: `rts` presence + the `0x400`
-cap), and made **M1.31** block **M1.22b**. `--corpus` on `main` still warns
-`CORPUS DRIFT: 125 moved`, exit 0 — H69's policy working, not a failure.
-The next batch, in this order: **M1.31 → M1.26 → M1.22b** (M1.31 and M1.26 are
-file-disjoint, so TL may run them as the two concurrent pairs) and **H74 → H75 →
-H71** solo, H74 first. Order reasons are in the L3 bullet and "Take first" below.
-The US unit is Marek's; every reader VA below is EU-build until **M1.22b**
-lands. The factory line is **H64 (done) → H67 (done)**, with **H66** covering
-the same parsed-but-unused flag class.
+block carries a `Status:`. Cycle 8 merged **M1.31** (#195, leaf census),
+**M1.26** (#196, the `--scope l3` standing gate), **H74** (#197, the
+count/path detector), **H76** (#198, the l3 image assertion), **H75** (#199,
+the C-3703/EXP repair) and **H71** (#200, runnable evidence spans). SE's cycle-9
+review (`000d219`) found **`claims_check --count-check` is red on `main`**
+(`C-3704 claims 26, fn_match prints 29`): H75's required `Correction` section
+moved the EXP's last commit, and `_pinned_revision` measures at that commit;
+`--strict` never runs the count rule at all. **H78** fixes both halves and must
+land before M1.22b quotes a matcher percentage (the census number comes from the
+same ledger). The `--corpus` gate is green (`CORPUS DRIFT: … 0 new / 0 gone`,
+exit 0 — H69's policy, not a failure).
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline on every candidate card. Blocking: **M5.30** (1:1 diff of the Poland card), **H40** (in-process fixture so CI can run L1 with no vendor data).
-- **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.29** (blocked, not on the branch: PR #171's `--factory-root` mode and EXP are on `main`, but the test ways fall in a `0x2146` directory → **M5.34** corridor rerun) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. The US gate must run US code: **M1.22b** → **M1.22** (M9.10/M9.12 name the US build), which in turn needs **M1.23** (pdata-backed `fn` labels), **M1.25** (done: no mid-function entries) and **M1.24** (`sh4literal` so a negative is a command). The `fn` gate is **M1.29** (done: corrections are `CORRECTED`) → **H52** (done: INSIDE 0) → **M1.30** (done: freeze the corpus) → **H69** (done: refresh owner; `moved` warns, `new`/`gone`/verdict fail) → **H72** (done: the `candidates`/`leaf` gate) → **M1.26** (`--scope l3` standing gate). **M1.31 comes before M1.26** (PO, 2026-11-16 11th pass): M1.31 is `fn_match.py`+`pdata.py` and gates M1.22b's percentage denominator, while M1.26 is `fn_audit.py`; the files are disjoint, so run them as the **two concurrent pairs** (retro-8 ceiling) and neither waits for the other. M1.31 is a small census-and-a-`TRUNCATED`-label task that must land *before* M1.22b quotes "≥90 % of 635 leaves", so it is the first pick; M1.26 is the standing gate that can start the same cycle. **H74 before H71** (both edit `docs/research/claims.md` evidence, but **disjoint rows**: H74 flips C-3703 (and any other number/path defect) and touches `tools/claims_check.py`; H71 rewrites C-3860/61/64): H74 is the *detector*, H71 the *fix* of a different row-set, so H74 goes first and its green `--count-check` is the oracle H71's rows must pass — but they are **not serialised on rows**, only on the shared file region, so run them as one solo batch (H74 → **H75** → H71) or H74 pair + H71 solo **after** any pair sharing `claims.md`. **H75** is the small repair of the very C-3703/M1.27-EXP rows H74 flags (unowned after M1.27 went `done`); it must land between H74 and H71 so H74 does not ship a red `--strict`. Never in parallel with an M1.26 claim edit that moves C-366x. Readers: **M3.23** (reachability) and **M9.38** (read-watch tracer) replace the failed signature searches; **M3.24** (sec1 dispatch tables) feeds both; **M3.22** then **M3.13** (ADDRE), **M4.16b**/**M3.11c** → **M9.10**. Harness: **M9.36**/**M9.37** re-run and audit after the H51 engine fix; **M9.24** binds imports for data readers. Hold **M9.12** behind **M9.31** (no-diff/baseline verdicts) and a runnable target set; **H53** (`todo_check --strict`) stays behind the board cleanup it would otherwise fail on.
-- **L4 (QEMU/M8):** software integration before L5; not final acceptance. **M8.A2** needs a QEMU 8.2.7 `sh4-softmmu` host; **M8.A3**/**M8.A6** follow it. **M1.19** (kernel decompressor wired into `cerom`/`rommap`) is the prerequisite for any full-system run that touches `INIT` bytes.
+- **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.34** (blocked-on-M5.29 corridor rerun; PR #171's `--factory-root` mode is on `main`, the test ways fall in a `0x2146` directory) → **M5.29** (blocked) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
+- **L3 (virtual):** SKIP/BLOCKED never PASS. The **US gate** is the next big move: **M1.22b** (pair) — its deps M1.27/M1.28/M1.31 are all **done** — maps the 8 `NOMATCH` readers at ≥90 % or finds a matcher weakness. It is gated on honest numbers: **H78** (the `--count-check` gate, red on `main` today) and **H79** (M1.31's `/tmp` US-head evidence) must land so its percentage is re-quotable. **M1.22** (blocked) then follows. The `fn`/corpus gate is complete for the docs scope (H52 → M1.30 → H69 → H72 → M1.26, all done); the l3 overlay is clean (`0 new / 0 gone`). The **US-build reader VAs** M9.10/M9.12 need **M1.23** (pdata-backed labels, done) and **M1.22** (the US build); **M9.12** stays blocked behind **M9.31** (no-diff/baseline verdicts). Reader discovery is now call-graph work, not signature search: **M1.20** (pdata-backed labels for every tool) → **M3.23** (static call graph) → **M3.24** (sec1 dispatch tables) → **M9.38** (read-watch tracer, names the reader) → **M3.22**/**M3.13** (ADDRE), **M3.11c** → **M9.10**. Harness: **M9.36** (re-run every probe on the corrected PySh4) and **M9.37** (decoder audit) come before trusting any old L3 verdict; **M9.24** binds imports for the data readers. **M1.19** (the kernel decompressor wired into `cerom`/`rommap`) makes `INIT` bytes an ordinary input and is what makes `cerom.py decompress` stop saying `UNSUPPORTED`; it is the L4 prerequisite too. Cheap glue: **H81** (close the seven "do not take" blocks), **H80** (H71's stale Precheck).
+- **L4 (QEMU/M8):** software integration before L5; not final acceptance. **M8.A2** needs a QEMU 8.2.7 `sh4-softmmu` host; **M8.A3**/**M8.A6** follow it. **M1.19** is the prerequisite for any full-system run that touches `INIT` bytes.
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
 **Take first (ready, deps done, one branch+PR each):**
-1. **M1.31** then **M1.26** (two concurrent pairs, file-disjoint: `fn_match`/`pdata`
-   vs `fn_audit`) — M1.31 completes the leaf census (complete vs `0x400`-capped
-   vs no-`rts` stub) that **M1.22b**'s denominator needs, and M1.26 makes the
-   `--scope l3` gate stand on the snapshot. M1.31 first because it feeds
-   M1.22b directly; M1.26 can start in the same cycle. Then **M1.22b** against
-   the frozen M1.28 fixture.
-2. **H74** → **H75** → **H71** — the `claims_check` count/path detector (H74),
-   the C-3703/M1.27-EXP repair it flags (H75), and the C-3860/61/64 evidence-span
-   rewrite (H71). Disjoint rows (`claims.md`), same file: H74 first (its green
-   `--count-check` is the oracle), then H75 (turns H74's `--strict` green on
-   C-3703), then H71. Never in parallel with an M1.26 claim edit that moves C-366x.
-3. **M1.19**, **M9.36**, **M9.37**, **M3.23**, **M3.24**, **M9.38** — the L3 critical path.
-4. **H66** — the evidence-rule sweep the H71/H74 rows must satisfy.
-5. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence.
-6. Cheap: **H53**, **M4.29** (needs a second-country OSM extract, non-Claude), **M9.31**, **M9.12** (only after M9.31).
-Do not start **M3.13** (blocked on **M3.22**/**M9.38**/**M3.24**) or **M8** until the line above has owners.
-**Snapshot refresh:** leave the committed snapshot drifting until an intentional
-refresh (H69's rule: only `--write-snapshot` writes it, never CI, never a prose
-task); the task that next edits citations **re-points it only if an intentional
-refresh is its scope**, otherwise it keeps `CORPUS DRIFT` as a warning. This
-still holds now that M1.26/H74 may touch citations: M1.26's `--scope l3` overlay
-must add its own `AMBIGUOUS` row and prove the candidate gate fires (a scoped
-`--write-snapshot` of the l3 overlay, not a whole-ledger re-pin), H74 only *reads*
-the ledger and adds no citation, H75 edits C-3703's evidence cell and the M1.27
-EXP (not snapshot rows), and H71 edits C-3860/61/64 (not snapshot rows), so none
-of the four re-pins `ddd113f8…` outside its own scope. The TL must not refresh it
-opportunistically inside H71/H74/H75/M1.26.
-
-
-## Workstreams at a glance
-
-| Stream | Front | Ready now (no open deps) |
-| --- | --- | --- |
-| H | Housekeeping | **H19, H28, H29, H40–H44, H53, H56–H60, H61–H63, H66, H71, H74, H75**; H11/H49/H51 archived 2026-11-15, H54 archived 2026-11-16; H45–H48 archived 2026-11-13; H52/H55/H64/H67/H68/H69/H70/H72/H73 done 2026-11-16 |
-| M1 | Firmware tooling | **M1.19, M1.21, M1.24, M1.31**; M1.26/M1.27/M1.30 done (l3 gate, leaf path, freeze corpus), M1.22b waits on M1.31 (leaf census denominator, then M1.27/M1.28); blocked M1.4/M1.20/M1.22 (→M1.23/M1.22b/M1.28); M1.2f/M1.2g superseded by M1.19; M1.23/M1.25/M1.28/M1.29 done |
-| M2 | Map code, activation, updater | **M2.4** (re-open: M9.6); M2.3/M2.5/M2.12/M2.15/M2.18 archived 2026-11-15 |
-| M3 | Reader contract | **M3.3 (waits M3.2), M3.22, M3.23, M3.24, M3.11b, M3.11c, M3.16, M3.18, M3.20**; blocked M3.13 (→M3.22/M9.38/M3.24), M3.14/M3.15/M3.2 (signature/INIT); M3.5–M3.8/M3.12/M3.17/M3.21 archived 2026-11-15 |
-| M4 | Data formats | **M4.16c, M4.16d, M4.24, M4.27, M4.37, M4.38, M4.29, M4.35**; blocked M4.2 (non-Claude), M4.3/M4.23, M4.8b (→M4.37/M4.27), M4.28, M4.31, M4.16 (→M4.16b), M4.22 (→M4.38) |
-| M5 | Compiler + US edits | **M5.3, M5.5, M5.11, M5.15, M5.17–M5.19, M5.26, M5.30, M5.32, M5.33, M5.34**; blocked M5.16 (→M9.18), M5.27 (→M5.12c), M5.29 (→M5.34, branch closed); M5.4/M5.6/M5.7/M5.10/M5.13/M5.14/M5.20–M5.24/M5.28/M5.31 done |
-| M6 | Hardware (Marek) | **M6.2 (S0), M6.5, M6.6, M6.7, M6.15, M6.13, M6.14** (non-Claude/hardware); M6.9 non-Claude; M6.11 blocked |
-| M8 | Full-system emulation | **M8.E1 blocked (host QEMU)**, M8.E2–E4 open; M8.A2 blocked (host build deps); M8.A3 after M8.A2 |
-| M9 | L3 toolkit | **M9.6, M9.10, M9.13, M9.15, M9.18, M9.24, M9.31–M9.34, M9.36, M9.37, M9.38**; blocked M9.12 (→M9.31), M9.14/M9.17 (→M9.35 done + M1.19); M9.35 done; M9.2 non-Claude |
+1. **M1.22b** (pair, `Pair: required`) — the US census on M1.27's leaf path + M1.31's denominator; the only thing between L3 and the US build. Land **H78** (pair, the red `--count-check`) and **H79** (solo, US-head evidence) first if the TL wants a green oracle; they are file-disjoint from M1.22b except `claims.md`, so M1.22b can start once H78's edit to `claims.md` is pushed.
+2. **M1.19** (Critical, unowned) — wire `nk_decomp` into `cerom`/`rommap`/`va_class`; closes the seven superseded probes (H81) and unblocks M1.21/M1.4 and every L4 run that touches `INIT`.
+3. **M9.36** → **M9.37** — re-run and audit the L3 probes after H51; no L3 evidence predating H51 is trustworthy until M9.36 lands.
+4. **M3.23** → **M3.24** → **M9.38** — the reader-discovery chain that replaces the failed signature searches.
+5. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence (second, independent track).
+6. Cheap: **H53** (board cleanup for `todo_check --strict`), **M9.31** (unblocks M9.12), **H66**/**H58**/**H61** (the remaining `claims_check` rules), **H77** (fence-aware scanners), **H82** (zlib interpreter stamp), **H83** (board-ref lint).
 
 **Critical path to a first accepted card:**
-· **Software/L3 gate:** **M9.11b** registers `cmp_ind_reader`; **M1.2f** +
-**M9.24** unblock M9.14/M9.17/M9.13 and the `.data` readers (H49: the gate is **M9.35**, not M1.2f); **M3.11c** →
-**M9.10**; **M9.12** (`l3check.py --card`) is the pre-bench gate. **M2.4**
+· **Software/L3 gate:** **M9.11b** registers `cmp_ind_reader` (done); **M9.35**
+cleared the sec1 load model, so the `.data` readers wait on **M9.24** (imports)
+and **M9.36** (re-run on the corrected engine), not on M1.2f (superseded by
+H51/M1.19 — see **H81**). **M3.11c** → **M9.10**; **M9.12**
+(`l3check.py --card`) is the pre-bench gate and waits on **M9.31**. **M2.4**
 runs on M9.6's comparator.
 · **US (nearest):** S1/S2 exist (M5.13b); Marek runs M6.2 S0 → M6.5 S1 →
 M6.6 S2 → (M5.14) M6.7 S3. **M5.21** bounds edited-page slot growth;
@@ -399,7 +364,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Status: blocked · Owner: task/m1.4-extract-filesentry-payloads · Critical: no
   - Note (H51, 2026-11-11): re-opened as **M1.21**: try the kernel routine (`nk_decomp.decompress`) on the `FILESentry` payloads.
   - Blocker: all 8 compressed build-B FILESentry payloads carry CE-LZXD block marker `0x8d80805b` and no public/stdlib `cecompress` method decodes them (0 matches, 8 UNSUPPORTED); M1.2b/c path does not suffice, so `rsize`-length decode / readable `ceconfig.h` cannot be produced without the CE-LZXD codec (M1.2f blocked, M8.E1 runtime unavailable in session).
-  - Unblock: M1.2f (CE-LZXD block decode, pure-Python or verified reference) and/or M8.E1 runtime oracle producing verified decodes; then resume M1.4 (decode to `rsize`, add `extract-file NAME` if still desired, verify build C).
+  - Unblock: **M1.21** (the H51 re-scope: decode the `FILESentry` payloads with the kernel routine `tools/nk_decomp.py`, which already decodes 245/245 build-A sections). `M1.2f`/`M8.E1` are superseded (H51) and must not gate this task (H81 closes them). Then decode to `rsize`, add `extract-file NAME` if still desired, verify build C.
   - Depends: M1.2b or M1.2c
   - Goal: read `boot.hv`, `default.hv`, `user.hv`, `ceconfig.h`,
     `initobj.dat`, `UpdateNK.skn`.
@@ -909,6 +874,30 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: the probe prints no `open` row among the seven; the board totals change by exactly the number moved (open −5, done +5, or blocked +5 and open −5); `python3 tools/todo_check.py` and `--strict` show no new errors.
   - Stop: if M1.19 merges first and closes them, mark this done as superseded with a one-line Result; do not fight the merge.
   - Claims: C-4040–C-4049
+- [ ] **H82 — Stamp the zlib interpreter into recompression evidence (this host's default `python3` is zlib-ng)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (`tools/zlibinfo.py` exists); coordinates H58/H66 (evidence form) and every `*.cmp`/`LEV3456R` writer claim
+  - Goal: on this host `python3 --version` prints `Python 3.15.0` and `python3 tools/zlibinfo.py` prints `zlib: zlib 1.3.1.zlib-ng, runtime 1.3.1.zlib-ng (zlib-ng: not the reference compressor)`, yet several EXPs in the window write `python3 3.13.1` (H76/H75/H71) or `python3 3.15.0` (M1.31/M1.26/H74) without saying which interpreter has stock zlib 1.3.1. AGENTS.md makes a byte-identical recompression claim unverifiable on zlib-ng, so the field must name the interpreter that produced the bytes, not the one that printed a log line: `python3.13` here is 1.3.2 and `python3` is zlib-ng, so neither default is the 1.3.1 the writer claims assume.
+  - Precheck: `python3 tools/zlibinfo.py` exits 0 and names `zlib-ng`; `python3 tools/zlibinfo.py --require-stock-zlib` exits 3 with `needs stock zlib` (so the tool already knows, the EXPs do not use it).
+  - Scope: `docs/experiments/TEMPLATE.md` (one line in the Tools row), `prompt_common.txt` (one bullet), and `tools/zlibinfo.py` (a `--stamp` mode that prints nothing on a standard stock runtime and a `WARNING` line otherwise, so a log is self-describing). No tool's compression behaviour changes; no claim is rewritten.
+  - Input: `tools/zlibinfo.py` (`classify`, `Runtime.reference`, `--require-stock-zlib`), `docs/experiments/TEMPLATE.md` Tools row, `prompt_common.txt`, EXP-2026-11-05-06-cmp-writer (the `python3.13` precedent), AGENTS.md "Writing data back".
+  - Hints: the pin is stock zlib **1.3.1**, and the two interpreters on this host are 1.3.2 and zlib-ng — so the correct field is the `zlibinfo.py` line or `zlib 1.3.1` only when the run really used it. Do not change `--require-stock-zlib`'s exit codes; EXPs that legitimately record `UNVERIFIABLE` keep their exit 3.
+  - Done when: `python3 tools/zlibinfo.py --stamp` prints nothing on a stock 1.3.1 runtime and one `WARNING` line on any other (a `--selftest` case, both injected); TEMPLATE's Tools row and `prompt_common.txt` require the `zlibinfo.py` line for any recompression claim; `python3 tools/selftest.py` stays green.
+  - Stop: if a per-EXP edit of the window's six files would touch claims, ship the template/prompt/stamp half and record the EXP backfill as a one-line follow-up (never retype a tool version).
+  - Claims: C-4050–C-4059
+
+- [ ] **H83 — A board-ref lint: every `TASK#ref` resolves, and a task's normative text never re-states its priority**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H77 (fence-aware scanners, same tool family); coordinates H53 (`todo_check --strict`)
+  - Goal: the board's priority prose has rotted repeatedly in ways no gate sees: the header said "next batch: M1.31 → M1.26 → M1.22b" after all three merged, "Take first" listed H74/H75/H71 as ready after they merged, Q1 listed M9.12 "only after M9.31" while M9.12 is blocked *on* M9.31, and H53's block described a `--strict` that had existed for 11 cycles. Each of those cost a cycle of re-derivation, and the mechanics exist already (`todo_check` parses every block). Make the two mechanical classes fail loudly, so a stale sentence is a red gate, not prose archaeology.
+  - Precheck: `grep -c 'next batch' TODO.md` and `grep -c 'Take first' TODO.md` show the prose is hand-maintained; `python3 tools/todo_check.py` exits 0 today, so no gate sees it. Print the current count of task-ID mentions in the Priorities section (`python3 - <<'EOF'` probe in the Scope) as the baseline.
+  - Scope: `tools/todo_check.py` only (a `--board-refs` mode, on by default as warnings, errors under `--strict`): (1) every `**ID**`/`**ID` mention in the Priorities section resolves to a block that still exists; (2) a `Take first`/`next batch` line that names a task is flagged when that task's `Status` is not `open`/`blocked`; (3) a *done* task named as the current blocker of an open one (`Depends:`/`Unblock:`) is a drift report, not an error (the PO may deliberately keep the history). No prose rewrite; the PO edits on the report.
+  - Input: `tools/todo_check.py` (`check()`, block parser, `--strict`), TODO.md Priorities/take-first sections, the retired H53/H74/H75/M9.12/M9.31 sentences as the negative fixtures.
+  - Hints: rule 15 drifts are already a `todo_check --strict` error class in H53; reuse its parser, do not add a second markdown reader. Treat `H81`-style blocks ("close the seven…") as naming a set, not a blocker, or the lint will cry wolf on the cleanup task itself. A `done` task inside a historical sentence ("Cycle 8 merged **M1.31**") is legitimate — only a *ready*/blocker claim is wrong.
+  - Done when: a fixture Priorities line naming a done task as "next" fails under `--strict` and warns without it; a sentence naming a done task as history passes; `python3 tools/todo_check.py` exits 0 on today's board and prints the board-ref warning count; `python3 tools/selftest.py` stays green; the EXP records the before/after stale-ref count on the real board.
+  - Stop: if distinguishing "history" from "next/before" needs natural-language judgement beyond a fixed verb list (`next`, `then`, `Take first`, `ready`, `blocked on`, `only after`), ship the `#ref`-resolves half (pure mechanics) and record the prose half as `NOT SHIPPED: <reason>`.
+  - Claims: C-4060–C-4069
+
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes
   - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)
@@ -1415,7 +1404,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Status: blocked · Owner: claude/m3.14-reader-layout · Critical: yes
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Blocker: no reader body for `ZCODE0nn` or `COORD001` is in decodable build-A code (their names have no plain literal load; `ICODE001` has only the opener `fn 0x003f2cc0`), so the done-when is not met (C-2190–C-2199).
-  - Unblock: M1.2f
+  - Unblock: **M3.23** (candidate readers by call-graph reachability from the access path; its own deps are M1.20 + M3.24, both open) confirmed by **M9.38** (which function reads the page buffer). `M1.2f`/`M8.E1` are superseded (H51: `nk_decomp.py` decodes 245/245 build-A sections) and must not be named as a blocker (H81 closes them; verified by `va_class.py` that no `INIT` byte is needed). The earlier "derive another signature" family is retired per AGENTS.md.
   - Result: EXP-2026-11-08-M3.14-reader-layout (negative for ZCODE0/COORD001, partial for ICODE001; done-when not met).
   - Depends: — (M4.12 already decoded the layout from bytes; this task only
     looks for the consuming code)
@@ -1440,7 +1429,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Status: blocked · Owner: task/m3.15-lctbl-reader-reopen · Critical: yes
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52). The two character-set strings found in sec1 `INIT` (M3.24) are a lead for the name encoding.
   - Blocker: H49 reopen (sec1 "helpers" are IAT imports `OSMDLL!OSM_isSender`/`OSM_Printf`, C-3443, not compressed code): two writer-inverse signature families derived from `lctbl_records.py`/`lctbl_names.py` parse invariants of stock `LCTBL001.DAT` (SHA-256 `8cab1775…`) — S1 marker `mov.b @(2,Rm),R0` + `cmp/eq #1,R0` (40 B, from marker@+2==0x01) and S2 four slot-length reads `mov.b @(d,Rm),R0` d∈{3,4,5,6} same base (80 B, from +3..+6) — scanned Navi.exe sec0 exec plain (5,553,430 B, VA `0x00011000`) and OBJDLL.dll sec0 exec plain (349,755 B, VA `0x03481000`) with 0 hits each (C-2207). Reachability from `fn 0x004125a8` traced through resolved IAT/non-import CODE callees and `0x00413a6c`/`0x00412ac0`→`0x00404994` inflate path without locating record parsing/string decode; `0x003bc960` is TMC/RDSTM decoding (C-2208). No cited blocker VA is `INIT` (`va_class.py`), so M1.2f not justified. Done-when unmet (no reader VAs, encoding assumed by code UNKNOWN).
-  - Unblock: derive and test a further signature family or L3-driven observation on the `0x00413a6c`/`0x00412ac0`→`0x00404994` (`0x14e4`) load/inflate path (and harnessable fragments reached) with a positive control to locate record framing/string decode in readable exec or in `.data` dispatch found from code; only cite M1.2f if a decisive address is classified `INIT` by `va_class.py`.
+  - Unblock: **M3.23** (candidate readers by call-graph reachability from the access path; its own deps are M1.20 + M3.24, both open) confirmed by **M9.38** (which function reads the page buffer). `M1.2f`/`M8.E1` are superseded (H51: `nk_decomp.py` decodes 245/245 build-A sections) and must not be named as a blocker (H81 closes them; verified by `va_class.py` that no `INIT` byte is needed). The earlier "derive another signature" family is retired per AGENTS.md.
   - Former blocker (history): the record walker and string decoder were thought reached only through compressed `Navi.exe` sec1 helpers (`0x0055d924`, `0x0055d954`) (C-2200–C-2206); diagnosis superseded by H49/C-3443.
   - Result: EXP-2026-11-10-M3.15-lctbl-reader-reopen (negative, H49 reopen; done-when not met). Prior: EXP-2026-11-08-M3.15-lctbl-reader.
   - Depends: — (M3.7 located the `LCTBL001.DAT` load at `0x004125a8`; H49: the "compressed" callees were imports)
@@ -1455,7 +1444,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Status: blocked · Owner: task/m3.16-inter-frway-readers-r2 · Critical: no
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Blocker: no content reader VA consuming INTER/FRWAY 12-byte table / blob fields found in decodable build-A Navi.exe sec0 (5.56 MB, 0 compressed exec sections, C-2128) after two structural writer-inverse signature families (12-byte scan + 0xffff@+8 + add#12; 0x1108 construction) returned 0 hits; consumed-field mapping unknown (C-2211–C-2213). Shared REFER001 access path is confirmed (C-2210).
-  - Unblock: derive a field-level/inter-family consumption signature from a writer inverse or L3/`.data` dispatch trace (M4.16c ref lead, M1.2f/M8.E1 for compressed `.data` pointer tables if needed) with a positive control, or locate the generic container/indirect reader that consumes the 12-byte table+blobs.
+  - Unblock: **M3.23** (candidate readers by call-graph reachability from the access path; its own deps are M1.20 + M3.24, both open) confirmed by **M9.38** (which function reads the page buffer). `M1.2f`/`M8.E1` are superseded (H51: `nk_decomp.py` decodes 245/245 build-A sections) and must not be named as a blocker (H81 closes them; verified by `va_class.py` that no `INIT` byte is needed). The earlier "derive another signature" family is retired per AGENTS.md.
   - Depends: — (M4.16c for the `ref` lead)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
     has **0 compressed executable sections** (C-2128), so "not found" means the
