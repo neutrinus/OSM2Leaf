@@ -1,0 +1,65 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-16 20:55
+end_utc: 2026-11-16 21:25
+origin_main_start: 7cbf3f5 (docs: PO 12th pass)
+origin_main_end: this commit (QA 2026-11-16 12th pass)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/retro/2026-11-16-5.md; dev_process/2026-11-16-{1940-31-se,2020-32-po}.log
+- .github/workflows/{ci.yml,l1l2-fixtures.yml,README.md}
+- TODO.md H19/H25-H29/H40-H44/H56-H59/M9.12/M9.31
+- tools/{selftest,claims_check,todo_check,realcheck,l3check,l1l2_fixtures,progress_report}.py
+
+actions_taken (in order):
+- Read what exists first (prompt): ci.yml runs selftest + claims_check(default)
+  + todo_check(default) on 3.11/3.13; l1l2-fixtures.yml runs
+  l1l2_fixtures.py; H25/H27 done; H40-H44/H56/H57/H59 plan the rest.
+- Ran the current signals: selftest 90/0/23; l1l2_fixtures 6P/0F/1S
+  not_covered=2 verdict OK; l3check --build-corpus 1 PASS (probe-zlib-cmf)
+  + 5 BLOCKED, exit 0, 0.15 s; progress_report --selftest OK.
+- Gap 1 (new, not in any task): no workflow has workflow_dispatch/schedule
+  (`grep -lE ... | wc -l` -> 0), so the QA-prompt "manual or weekly IMG256"
+  regression never runs. realcheck IMG256 -> 0/0/8 SKIP exit 2 (image absent),
+  --require-image -> 8 FAIL exit 1. Added H84.
+- Gap 2 (new): the gate is 4 commands with 3 exit conventions and the
+  skip_unless trap that produced the cycle-8 escape (pairs saw 89/90, the main
+  checkout saw red). Added H85 (one gate runner, explicit SKIP).
+- Gap 3 (new): CI runs claims_check and todo_check *default*, so the
+  --strict/--count-check rules are never blocking: `grep -cE '--strict|
+  --count-check' ci.yml` -> 0. That is how H75 shipped a false
+  `count mismatches: 0`. Added H86 (flip the flags after H78/H53).
+- Did not duplicate H28/H42/H43/H56/H57/H59 (L3-in-CI, dashboard wiring,
+  baseline, traceability) — they already cover those; the new tasks name them
+  as dependencies.
+
+task IDs added:
+- H84 manual/weekly IMG256 firmware-regression workflow (workflow_dispatch +
+  schedule only, SHA-256 verified, SKIP-never-PASS). Pair: required.
+  C-4070-C-4079.
+- H85 one standing gate runner (`tools/gate.py`), SKIP(why) vs FAIL, wired to
+  CI + H84's manual job. Pair: required. C-4080-C-4089.
+- H86 make claims_check --strict/--count-check and todo_check --strict
+  blocking in CI, in the H78 -> claims-half, H53 -> todo-half order.
+  Pair: required. C-4090-C-4099.
+
+decisions:
+- Kept H84/H85/H86 out of H28/H42: H28 is L3-in-CI specifically, H42 is the
+  dashboard wiring; neither owns the manual-trigger workflow nor the
+  heterogeneous-exit aggregator. New IDs avoid a hidden scope merge.
+- Did not add an L1/L2 coverage task: H40/H41/H56/H57 already own it and H40
+  is Critical.
+- No task re-opened by rule 15 (PO already did the field repairs).
+
+problems:
+- The IMG256 head is absent on this host (`realcheck` exit 2), so the
+  firmware-head regression is *unmeasured* right now; H84 makes that a named
+  SKIP instead of an invisible gap.
+- The cycle-8 escape is best explained as a taxonomy error: skip_unless=true
+  means "not applicable", but the pair read a skip as a pass. That is why H85's
+  contract is FAIL/SKIP(why)/PASS, not pass/skip.
+
+handoff: TL — cycle-9 picks: M1.22b (pair) with H78 (pair) sequenced before its
+claims.md edits; H85 (pair) is the cheapest structural win for the next cycle's
+gate honesty. Human: /tmp 70 %, `.claude/` untracked.
