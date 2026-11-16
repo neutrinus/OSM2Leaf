@@ -79,6 +79,7 @@ if str(HERE) not in sys.path:
 import cerom  # noqa: E402
 
 MEM_EXECUTE = 0x20000000
+LEAF_CAP = 0x400       # byte cap on a pdata GAP leaf window (M1.27)
 
 # ---------------------------------------------------------------- pdata
 
@@ -349,6 +350,14 @@ def leaf_complete(words):
     return bool(words) and 0x000B in words
 
 
+def leaf_truncated(words, natural_bound, cap=LEAF_CAP):
+    """True when a cap-limited GAP window is shorter than the gap's natural
+    bound and holds no ``rts``.  The window is then a slice of a function (or
+    of a data run), so a hash miss is "the cap cannot see it", not "the code
+    differs" -- the caller must report ``TRUNCATED``, not ``NOMATCH``."""
+    return natural_bound > cap and not leaf_complete(words)
+
+
 def leaf_call_sites(words, base_va, image_bytes, code_base):
     """[(call_insn_index, callee_va)] for direct and pool-loaded calls.
 
@@ -535,6 +544,29 @@ def selftest() -> int:
     window = trim_words(leaf_words(buf, code, 0, 0x0000, limit=bound))
     check("no-rts gap: window ends at the next START, not the 0x400 cap",
           bound == 0x400 and len(window) * 2 == 0x400)
+
+    # M1.31 cap-truncated leaf: a 0x420-B complete function (rts at +0x41e) is
+    # longer than the 0x400 cap, so the capped window cannot reach its rts.  It
+    # must be TRUNCATED, never a silent NOMATCH.
+    big = bytearray(0x440)
+    for k in range(0, 0x41E, 2):
+        struct.pack_into("<H", big, k, 0x0009)     # nop body
+    struct.pack_into("<H", big, 0x41E, 0x000B)      # rts at +0x41e
+    struct.pack_into("<H", big, 0x420, 0x0009)      # its delay slot
+    big = bytes(big)
+    code_big = {"realaddr": 0, "vsize": len(big)}
+    nat = 0x420
+    cap_bound = leaf_window_limit(0x0000, [0x2000], [], len(big))
+    cap_window = leaf_words(big, code_big, 0, 0x0000, limit=cap_bound)
+    check("cap-truncated leaf: the 0x400 cap cannot see the rts at +0x41e",
+          cap_bound == 0x400 and not leaf_complete(cap_window)
+          and leaf_truncated(cap_window, nat))
+    full = leaf_words(big, code_big, 0, 0x0000, limit=nat)
+    check("cap-truncated leaf: scanning the natural bound reaches its rts",
+          leaf_complete(full) and len(full) * 2 == 0x422)
+    check("cap-truncated leaf: a no-rts stub inside the bound is not truncated",
+          leaf_truncated([0x0009, 0x0009, 0x0009], 0x400) is False
+          and leaf_truncated([0x0009, 0x0009], 0x40) is False)
 
     # relocated pointer leaf: same code, pool value points into each build's
     # own range; it must compare equal (masked), which the record hash cannot.
@@ -1004,18 +1036,34 @@ class Matcher:
                 seen.add(callee)
         return sorted(seen)
 
+    def _leaf_natural(self, va, build):
+        """Byte bound of the GAP without the ``0x400`` cap (next pdata START /
+        called entry / code end).  Used only to tell a cap-truncated leaf from
+        a real no-``rts`` stub; the matching window still uses the cap."""
+        if build == "a":
+            if self._called_a is None:
+                self._called_a = self._called_starts("a")
+            return leaf_window_limit(
+                va, self._starts_a, self._called_a,
+                self.code_a["realaddr"] + self.code_a["vsize"], limit=1 << 24)
+        if self._called_b is None:
+            self._called_b = self._called_starts("b")
+        return leaf_window_limit(
+            va, self._starts_b, self._called_b,
+            self.code_b["realaddr"] + self.code_b["vsize"], limit=1 << 24)
+
     def _leaf_bound(self, va, build):
         if build == "a":
             if self._called_a is None:
                 self._called_a = self._called_starts("a")
             return leaf_window_limit(
                 va, self._starts_a, self._called_a,
-                self.code_a["realaddr"] + self.code_a["vsize"])
+                self.code_a["realaddr"] + self.code_a["vsize"], limit=LEAF_CAP)
         if self._called_b is None:
             self._called_b = self._called_starts("b")
         return leaf_window_limit(
             va, self._starts_b, self._called_b,
-            self.code_b["realaddr"] + self.code_b["vsize"])
+            self.code_b["realaddr"] + self.code_b["vsize"], limit=LEAF_CAP)
 
     def _leaf_verdict(self, va):
         kind, rec = locate(self.pdata_a, va)
@@ -1025,6 +1073,15 @@ class Matcher:
         if not words:
             print("%#010x  LEAF      pdata=GAP    outside the code section" % va)
             return (va, None, "LEAF", "GAP", None)
+        natural = self._leaf_natural(va, "a")
+        if leaf_truncated(words, natural):
+            # no rts inside the cap but the gap runs further: the window is a
+            # slice, so a hash miss says nothing about the code.  Never report
+            # a false NOMATCH for it (M1.31).
+            print("%#010x  TRUNCATED pdata=GAP    leaf %d B (cap %#x, natural "
+                  "bound %#x, no rts in cap)" % (va, len(words) * 2, LEAF_CAP,
+                                                 natural))
+            return (va, None, "TRUNCATED", kind, None)
         d, bsr, _ = fingerprint(words, va, self.lr_a, self.code_bytes_a,
                                 self.code_a["realaddr"])
         cand = self.b_hash.get(d, [])
@@ -1134,8 +1191,9 @@ def cmd_match(args) -> int:
     dif = sum(1 for r in results if r[2] == "DIFFERENT")
     leaf = sum(1 for r in results if r[2] == "LEAF")
     nom = sum(1 for r in results if r[2] == "NOMATCH")
+    trunc = sum(1 for r in results if r[2] == "TRUNCATED")
     print("# unique: %d  ambiguous: %d  different: %d  leaf: %d  nomatch: %d  "
-          "of %d" % (uniq, amb, dif, leaf, nom, len(results)))
+          "truncated: %d  of %d" % (uniq, amb, dif, leaf, nom, trunc, len(results)))
     return 0
 
 

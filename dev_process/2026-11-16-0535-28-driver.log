@@ -1,0 +1,54 @@
+role: driver (M1.31)
+model: deepseek-v4.1-flash-free
+start: 2026-11-16 04:55 UTC
+end: 2026-11-16 05:40 UTC
+origin/main at start: f2885ed
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md M1.31/M1.22b/M1.28,
+  docs/experiments/TEMPLATE.md, tools/fn_match.py, tools/pdata.py
+
+actions:
+- claim commit (only M1.31 status line), pushed branch, draft PR #195
+- reproduced pdata gaps 677/635; measured the census under three call sets
+- refactored pdata: called_entries(records|full), natural_bound, first_rts,
+  gap_containing, leaf_census + `leaves` CLI (--called records|gaps|all)
+- fn_match: LEAF_CAP, leaf_truncated predicate, _leaf_natural, TRUNCATED
+  verdict and summary count; cap and no-rts clamp unchanged
+- selftests: fn_match 0x420-B complete leaf + 12-B stub; pdata bound/rts/
+  gap/called helpers
+- EXP-2026-11-16-M1.31, claims C-3960-C-3969, M1.22b Depends already named
+  M1.31 on main (verified), M1.31 Result line
+- verification: fixture 13 rows 0 mismatch; selftest.py 88/0; claims_check and
+  todo_check OK; fn_match --selftest 29 ok, pdata --selftest 27 ok
+
+decisions:
+- did NOT raise the cap (Stop rule: changes every pairing; M1.28 guard)
+- report TRUNCATED, not a match, and name the call set on every count
+- 0x00558300 rts at +2572 B left OBSERVED: body starts as data words
+- per-leaf rts_offset/natural_bound fields not added (whole-module census is
+  the one consumer; the EXP owns the per-VA lines)
+
+problems:
+- the 0x400 cap was already in leaf_window_limit on main (not only in docs)
+- three call-set definitions exist (docs "called GAP", fn_match clamp, all
+  calls); disclosed all three instead of picking one silently
+
+handoff: M1.22b's denominator is `complete 598`, not `635 leaf`; the only
+function cap case is 0x00558300.
+
+round 1 review (navigator CHANGES, docs only):
+- re-ran leaves --verbose on all three call sets: 0x0053a21c bound 0xc
+  (records), 0x1010 rts+4102 (gaps), 0xc (all); 0x00558300 and 0x00011000
+  become stubs under --called all (bound 0x18 / 0x71e, rts -)
+- C-3964 rewritten to clamp-specific with the measured bounds; C-3969 rewritten
+  to name the unit (598 complete GAPs = 579 leaf + 19 non-leaf, leaf rate 579)
+- EXP: corrected 0x0053a21c wording (12-B window, 8-byte mov.l/mov.l/jmp),
+  added the clamp-specific paragraph, added ## Follow-ups
+- TODO Result line carries the same unit and dependence
+- claims_check OK, todo_check OK, fixture 13 rows 0 mismatch (exit 0),
+  0x00558300 TRUNCATED, 0x003f5194 DIFFERENT to 0x0041db44; fn_audit untouched
+
+round 3 review (docs only):
+- --called all prints 81 stubs (58 leaf); 79 is the clamp's non-complete
+  count (77 stubs + 2 cap rows); fixed C-3963, EXP and Result wording
+- claims_check OK, todo_check OK
