@@ -690,48 +690,70 @@ def corpus_class_drift(doc, image):
 def compare_live(doc, image):
     """(new, gone, moved, changed) between the frozen rows and a live scan.
 
-    ``new``/``gone`` are ``(file,line,va,kind)`` keys; ``moved`` pairs the
-    frozen and live key of the same ``(file,va,kind)`` whose line changed and
-    whose ``class``/``true_start`` did not; ``changed`` is a row whose verdict
-    changed, at an unchanged key or together with a line move (H69: a move
-    never masks a verdict change).
+    ``new``/``gone`` are ``(file,line,va,kind)`` keys and are computed over
+    occurrences, not over distinct keys: repeating the same key is a
+    multiset count, so a deleted duplicate is ``gone`` and an added duplicate
+    is ``new``.  ``moved`` pairs the frozen and live occurrence of the same
+    ``(file,va,kind)`` whose line changed and whose ``class``/``true_start``
+    did not; ``changed`` is a row whose verdict changed, at an unchanged key
+    or together with a line move (H69: a move never masks a verdict change).
     """
+    from collections import Counter, defaultdict
+
     cites, _files = collect(doc.get("scope", "docs"))
     live_rows = snapshot_rows(audit(cites, image))
     frozen_by_key = {_row_key(r): r for r in doc["rows"]}
     live_by_key = {_row_key(r): r for r in live_rows}
-    new = sorted(k for k in live_by_key if k not in frozen_by_key)
-    gone_keys = {k for k in frozen_by_key if k not in live_by_key}
-    moved = []
-    changed = []
+    frozen_count = Counter(_row_key(r) for r in doc["rows"])
+    live_count = Counter(_row_key(r) for r in live_rows)
 
     def verdict_differs(a, b):
         return (a["class"] != b["class"]
                 or (a.get("true_start") or None) != (b.get("true_start") or None))
 
-    live_base = {}
-    for k in live_by_key:
-        live_base.setdefault((k[0], k[2], k[3]), []).append(k)
-    for k in sorted(gone_keys):
-        candidates = [o for o in live_base.get((k[0], k[2], k[3]), []) if o in new]
-        if not candidates:
-            continue
-        target = candidates[0]
-        a, b = frozen_by_key[k], live_by_key[target]
-        if verdict_differs(a, b):
-            changed.append((target, a, b))
-        else:
-            moved.append((k, target))
-        gone_keys.discard(k)
-        new.remove(target)
-    gone = sorted(gone_keys)
-    for k in sorted(live_by_key):
-        if k in frozen_by_key:
-            a, b = frozen_by_key[k], live_by_key[k]
-            if verdict_differs(a, b):
-                changed.append((k, a, b))
+    # Occurrences are a multiset, not a set: a deleted duplicate and an added
+    # duplicate of an existing (file,line,va,kind) both have to count (H69
+    # navigator).  Leftovers per exact key are what moved/new/gone explain.
+    left_frozen, left_live = [], []
+    for k in sorted(set(frozen_count) | set(live_count)):
+        fc, lc = frozen_count.get(k, 0), live_count.get(k, 0)
+        if fc > lc:
+            left_frozen.extend([k] * (fc - lc))
+        elif lc > fc:
+            left_live.extend([k] * (lc - fc))
+
+    def short(k):
+        return (k[0], k[2], k[3])
+
+    frozen_base, live_base = defaultdict(list), defaultdict(list)
+    for k in left_frozen:
+        frozen_base[short(k)].append(k)
+    for k in left_live:
+        live_base[short(k)].append(k)
+
+    moved, changed, new, gone = [], [], [], []
+    for b in sorted(set(frozen_base) | set(live_base)):
+        fl, ll = sorted(frozen_base.get(b, [])), sorted(live_base.get(b, []))
+        paired = min(len(fl), len(ll))
+        for i in range(paired):
+            a = frozen_by_key[fl[i]]
+            z = live_by_key[ll[i]]
+            if verdict_differs(a, z):
+                changed.append((ll[i], a, z))
+            else:
+                moved.append((fl[i], ll[i]))
+        # A count delta is new/gone even when the identity also moved: the
+        # surviving occurrences may be moves, the extras are a lost or an
+        # invented citation.
+        gone.extend(fl[paired:])
+        new.extend(ll[paired:])
+    # A verdict change at an unchanged exact key never reaches the leftovers.
+    for k in sorted(set(frozen_count) & set(live_count)):
+        a, z = frozen_by_key[k], live_by_key[k]
+        if verdict_differs(a, z):
+            changed.append((k, a, z))
     changed.sort(key=lambda item: item[0])
-    return new, gone, moved, changed
+    return sorted(new), sorted(gone), moved, changed
 
 
 def corpus_fix_list(doc):
@@ -818,14 +840,18 @@ def audit_corpus(doc, image, quiet=False, live_check=True, fix_list_mode=False):
         if moved_only:
             print("fn_audit: warning: line-only drift; identity set unchanged, "
                   "refresh the snapshot when convenient (H69)")
-        for label, keys in (("new", new), ("gone", gone)):
-            for key in sorted(keys)[:10]:
-                print("fn_audit:   %s %s:%s %s" % (label, key[0], key[1], key[2]))
-        for old, new_key in moved[:10]:
-            print("fn_audit:   moved %s:%s->%s %s"
-                  % (old[0], old[1], new_key[1], old[2]))
-        for key, _a, _b in changed[:10]:
-            print("fn_audit:   changed %s:%s %s" % (key[0], key[1], key[2]))
+        if not fix_list_mode:
+            # ``--fix-list`` is machine-readable: only its ``0x… -> 0x…`` lines
+            # may carry ``->``, so the drift detail stays out of that mode.
+            for label, keys in (("new", new), ("gone", gone)):
+                for key in sorted(keys)[:10]:
+                    print("fn_audit:   %s %s:%s %s"
+                          % (label, key[0], key[1], key[2]))
+            for old, new_key in moved[:10]:
+                print("fn_audit:   moved %s:%s->%s %s"
+                      % (old[0], old[1], new_key[1], old[2]))
+            for key, _a, _b in changed[:10]:
+                print("fn_audit:   changed %s:%s %s" % (key[0], key[1], key[2]))
     if not quiet and not problems and not drift and not live_check and not fix_list_mode:
         print("fn_audit: live check skipped (--no-live-check)")
     if fix_list_mode:
@@ -1185,6 +1211,16 @@ def selftest():
             check("moved-only drift exits 0 with a warning",
                   mr == 0 and "CORPUS DRIFT: 0 new / 0 gone / 4 moved" in mout
                   and "line-only drift" in mout)
+            # --fix-list on a moved-only snapshot: no '->' line (that mode is
+            # machine-readable; the moved detail is suppressed), exit 0.
+            glb["collect"] = lambda scope="docs": (moved_cites, snap_files)
+            glb["audit"] = lambda c, i: list(moved_kept)
+            fbuf = io.StringIO()
+            with contextlib.redirect_stdout(fbuf):
+                fmoved = audit_corpus(doc, stub, live_check=True,
+                                      fix_list_mode=True)
+            check("--fix-list on moved-only prints no '->' line and exits 0",
+                  fmoved == 0 and "->" not in fbuf.getvalue())
             # new only -> exit 1
             nr, nout = run_live(moved_cites + [
                 Citation(0x401100, "doc.md:12", "fn")],
@@ -1215,6 +1251,62 @@ def selftest():
             check("a verdict change on a moved row exits 1",
                   mcr == 1 and "verdict change" in mcout
                   and "3 moved" in mcout)
+
+            # H69 navigator: occurrences are a multiset.  A snapshot with the
+            # same (file,line,va,kind) twice must not collapse to one row.
+            dup_frozen = [
+                Citation(0x401040, "doc.md:1", "fn"),
+                Citation(0x401040, "doc.md:1", "fn"),
+                Citation(0x401048, "doc.md:1", "ctx", correction=0x401040),
+                Citation(0x401080, "doc.md:2", "const"),
+                Citation(0x900000, "doc.md:3", "const"),
+            ]
+            dup_kept = [
+                (dup_frozen[0], good), (dup_frozen[1], good),
+                (dup_frozen[2], Verdict(0x401048, "CORRECTED", start=0x401040)),
+                (dup_frozen[3], gap_leaf),
+                (dup_frozen[4], Verdict(0x900000, "UNMAPPED")),
+            ]
+            dup_summary = summary_counts(
+                ["doc.md"], dup_frozen, {c.va for c in dup_frozen},
+                {"START": 2, "CORRECTED": 1, "GAP": 1, "UNMAPPED": 1}, 1,
+                dup_kept)
+            dpath = os.path.join(tmp, "fa-dup.json")
+            write_snapshot(dpath, ["doc.md"], snapshot_rows(dup_kept),
+                           dup_summary, img)
+
+            def run_dup(cites, kept):
+                glb["collect"] = lambda scope="docs": (cites, snap_files)
+                glb["audit"] = lambda c, i: list(kept)
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = audit_corpus(load_corpus(dpath), stub, live_check=True)
+                return rc, buf.getvalue()
+
+            # One of the two identical rows deleted -> gone, exit 1.
+            del_cites = [dup_frozen[0], dup_frozen[2], dup_frozen[3],
+                         dup_frozen[4]]
+            del_kept = [dup_kept[0], dup_kept[2], dup_kept[3], dup_kept[4]]
+            dr, dout = run_dup(del_cites, del_kept)
+            check("a deleted duplicate row is gone and exits 1",
+                  dr == 1 and "CORPUS STALE: 0 new / 1 gone" in dout)
+            # A duplicate added for an existing key -> new, exit 1.
+            add_cites = dup_frozen + [Citation(0x401040, "doc.md:1", "fn")]
+            add_kept = dup_kept + [(add_cites[-1], good)]
+            ar, aout = run_dup(add_cites, add_kept)
+            check("a duplicated row is new and exits 1",
+                  ar == 1 and "CORPUS STALE: 1 new" in aout)
+            # Both duplicate rows moved to a new line, count unchanged ->
+            # moved only, warn, exit 0.
+            mv_cites = [Citation(0x401040, "doc.md:5", "fn"),
+                        Citation(0x401040, "doc.md:5", "fn"),
+                        dup_frozen[2], dup_frozen[3], dup_frozen[4]]
+            mv_kept = [(mv_cites[0], good), (mv_cites[1], good),
+                       dup_kept[2], dup_kept[3], dup_kept[4]]
+            mr2, mout2 = run_dup(mv_cites, mv_kept)
+            check("a moved duplicate pair is moved-only and exits 0",
+                  mr2 == 0 and "CORPUS DRIFT: 0 new / 0 gone / 2 moved" in mout2
+                  and "line-only drift" in mout2)
         finally:
             glb["collect"], glb["audit"] = saved_collect, saved_audit
 

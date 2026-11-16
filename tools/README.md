@@ -379,6 +379,12 @@ splits drift into:
   travels with a line move) — **exits 1**. This is the failure the corpus
   exists for and it is never weakened.
 
+The comparison is over **occurrences**, not distinct keys: the same
+`(file,line,va,kind)` cited twice is a count of two, so deleting one of the
+two is `gone` and adding a duplicate is `new` (both exit 1) even when the
+identity also moved. `--fix-list` prints only its `0x… -> 0x…` lines, so a
+moved-only snapshot there warns and exits 0 without any `->` line.
+
 `--fix-list` in corpus mode runs those checks first and then prints only the
 snapshot's `INSIDE` rows. The committed corpus is
 `docs/research/fn-audit-corpus-2026-11-16.json` (17 files, 313 citations, 112

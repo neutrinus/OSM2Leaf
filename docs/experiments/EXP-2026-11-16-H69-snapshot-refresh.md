@@ -91,19 +91,31 @@ the summary adjusted so only the image can tell.
   produces a file byte-identical to the committed one (`cmp` silent) and
   `--corpus` on it exits 0 with the unchanged summary.
 - **Positive control (policy):** the old snapshot run live is a pure
-  `moved` diff (`0 new / 0 gone / 122 moved`) and exits 0 with the warning.
+  `moved` diff (`0 new / 0 gone / 125 moved`) and exits 0 with the warning.
 - **Negative controls (new `--selftest` fixtures, injected rows):**
   - `moved`-only → exit 0 + `CORPUS DRIFT` + `line-only drift` warning;
   - one `new` row → exit 1 (`CORPUS STALE: 1 new`);
   - one `gone` row → exit 1 (`CORPUS STALE: 0 new / 1 gone`);
   - verdict change at an unchanged key → exit 1 (`verdict change`);
-  - verdict change that travels with a line move → exit 1 (`0 moved`,
+  - verdict change that travels with a line move → exit 1 (`3 moved`,
     `verdict change`) — a move never masks a change;
-  - the retained mixed case (1 new/1 gone/1 moved) → exit 1.
+  - the retained mixed case (1 new/1 gone/1 moved) → exit 1;
+  - **multiset controls (H69 navigator):** the snapshot holds the same
+    `(file,line,va,kind)` twice; deleting one occurrence → `gone`, exit 1;
+    adding a duplicate of a unique key → `new`, exit 1; moving both
+    duplicates to one new line (count unchanged) → `2 moved`, exit 0;
+  - `--fix-list` on a moved-only snapshot prints no `->` line and exits 0
+    (the drift detail is suppressed in that machine-readable mode).
 - **Negative control (real file):** `/tmp/opencode/h69-classflip.json`
   (relabelled class, re-signed fingerprint, adjusted summary) exits 1 on
   re-classification with `--no-live-check`, so the refresh did not turn the
   corpus into a file that trusts its stored class.
+- **Constructed cases on the committed snapshot** (live rows from the real
+  audit, `compare_live` over the patched `collect`/`audit`): deleting one
+  occurrence of a twice-cited key (`TODO.md:867 0x00542256 ctx`) gives
+  `0 new / 1 gone / 0 moved`, exit 1; adding a duplicate of a unique live row
+  gives `1 new / 0 gone / 0 moved`, exit 1. Both were exit 0 before the
+  multiset fix.
 
 ### 4. Scope
 
@@ -127,8 +139,11 @@ Refreshed snapshot diff vs the old committed file (`4606aa2a…`):
 
 ```
 identity keys (file,va,kind):            168 old / 168 new, set equal
-identity keys whose line changed:        44 (all TODO.md)
-snapshot rows whose line changed:        188
+moved occurrences (compare_live):        125
+moved identities:                        44 (all TODO.md)
+rows held by those 44 identities:        126 (one of them did not move:
+                                         TODO.md:132 0x0041c7dc fn)
+distinct old->new line transitions:      122
 class / true_start changes:              0
 summary: 17 files, 313 citations, 112 unique VAs,
          START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29),
@@ -140,8 +155,8 @@ sha256 new ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a
 Commands and exit codes:
 
 ```
-fn_audit.py --selftest                          -> OK (49 checks, 0 failed)
-old snapshot --corpus --quiet                   -> CORPUS DRIFT: 0 new / 0 gone / 122 moved, exit 0
+fn_audit.py --selftest                          -> OK (53 checks, 0 failed)
+old snapshot --corpus --quiet                   -> CORPUS DRIFT: 0 new / 0 gone / 125 moved, exit 0
 --write-snapshot (fresh)                        -> exit 0, 313 citations / 112 unique VAs
 cmp committed vs second write                   -> byte-identical
 --corpus refreshed snapshot --quiet             -> exit 0
@@ -149,15 +164,19 @@ cmp committed vs second write                   -> byte-identical
 selftest.py --only fn_audit                     -> PASS (0.06 s)
 ```
 
-The 122 moved citation rows reduce to 44 distinct `(file,va,kind)` identities,
-all in `TODO.md`; `docs/format/*.md`, `targets.json` and the two `*_l3.py`
-files did not move. No identity was added, removed or reclassified.
+`compare_live` re-pairs occurrences, not distinct keys, so the old→new diff is
+**125 moved occurrences** (not 188): 44 distinct `(file,va,kind)` identities
+hold 126 rows, and one row of that set (`TODO.md:132 0x0041c7dc fn`) did not
+move, leaving 125 moves over 122 distinct line transitions (a few identities
+occupy the same line twice). All moves are in `TODO.md`;
+`docs/format/*.md`, `targets.json` and the two `*_l3.py` files did not move.
+No identity or occurrence was added, removed or reclassified.
 
 ## Interpretation
 
-- **FACT:** on current `main` the old snapshot is moved-only stale (44
-  identities / 122 citation rows / 188 row instances, all `TODO.md`) and a
-  fresh write reproduces the refreshed file byte-for-byte
+- **FACT:** on current `main` the old snapshot is moved-only stale — 125
+  moved occurrences over 44 identities, all `TODO.md`, with 0 new / 0 gone /
+  0 changed — and a fresh write reproduces the refreshed file byte-for-byte
   (`ddd113f8…`), 313 rows / 112 VAs, summary unchanged.
 - **FACT:** with the policy, a moved-only live diff prints `CORPUS DRIFT` and
   exits 0; `new`, `gone`, a verdict change at an unchanged key, and a verdict
@@ -166,9 +185,9 @@ files did not move. No identity was added, removed or reclassified.
 - **FACT:** re-classification is independent of the live check — a relabelled
   row with a re-signed fingerprint still exits 1 under `--no-live-check`.
 - **OBSERVED:** the earlier board note counted 97 moved rows on `626ccc2`; on
-  this tree the same measurement is 122 moved citations (188 row instances,
-  44 identities), i.e. more prose moved after that note — all line-only, none
-  of it a citation-set change.
+  this tree the same measurement is 125 moved occurrences (44 identities, 126
+  rows held), i.e. more prose moved after that note — all line-only, none of
+  it a citation-set change.
 - **HYPOTHESIS:** none needed; this is a policy + refresh result, not a
   firmware or format claim.
 - **UNKNOWN:** how often M1.26's standing gate will see moved-only drift in
@@ -179,7 +198,9 @@ files did not move. No identity was added, removed or reclassified.
 `tools/fn_audit.py` now splits live drift into `CORPUS DRIFT` (moved-only:
 warn, exit 0) and `CORPUS STALE` (new/gone/verdict change, including a change
 that travels with a move: exit 1); `compare_live` reports a moved+unclassified
-row as a verdict change rather than a benign move. The committed snapshot was
+row as a verdict change rather than a benign move, and compares occurrences
+(a multiset) so a deleted or added duplicate of an existing key is `gone` /
+`new`, never invisible. The committed snapshot was
 refreshed deliberately to `ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`
 (313 rows / 112 VAs, summary unchanged, old hash
 `4606aa2aff292d72ec9651cfff0660c246bf1d23255fc59cab3348ea0878fe38`) and a
@@ -204,7 +225,7 @@ C-3900–C-3909 register these commands.
 
 ```bash
 grep -n "moved-only drift exits 0" tools/fn_audit.py >/dev/null
-python3 tools/fn_audit.py --selftest                      # expected: OK, 49 checks
+python3 tools/fn_audit.py --selftest                      # expected: OK, 53 checks
 python3 tools/fn_audit.py archive/head256.img \
     --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet   # expected: exit 0
 sha256sum docs/research/fn-audit-corpus-2026-11-16.json
