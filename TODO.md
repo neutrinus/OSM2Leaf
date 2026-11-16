@@ -691,8 +691,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if H53's `--strict` shape differs from the plan above, implement the classification as warnings only and record in the EXP which rule H53 must pick up; do not fork a second TODO checker.
   - Claims: C-3800–C-3809
 
-- [ ] **H68 — `todo_check`: a block header it cannot parse must be an error, not silently absorbed**
-  - Status: in progress · Owner: task/h68-todo-check-headers · Critical: no · Pair: solo
+- [x] **H68 — `todo_check`: a block header it cannot parse must be an error, not silently absorbed**
+  - Status: done · Owner: task/h68-todo-check-headers · Critical: no · Pair: solo
   - Depends: — (`tools/todo_check.py` is on `main`); coordinates H53/H60 (same parser, different failure class), H59 (`test_plan_check.py` reuses the block regex)
   - Goal: PO's 2026-11-16 split found `**M8.D1 / M8.D2 — Decision gates**` was invisible to `TASK_RE`, so the pair had no `Status:`/claims and no count. Splitting fixed **this instance**, not the class. Measured on `7a39432`+the split: `parse_tasks` returns **1** task for 3 blocks when the second and third headers are `**H2 / H3 — …**` and `**H4, H5 — …**`, and `check()` returns `ok: True` with **zero** warnings — the two headers are folded into the previous block's body, so they silently vanish from `todo_check`, `progress_report` (bounded ID lookup), `worktree_audit` (imports `parse_tasks`) and every count. Also missed: `**H1**` (no title dash) and `### **H1 — …**` heading style. The real board has **176** `- [x] **`-shaped lines, **175** parsed (the 176th is the fenced template at line 176 — correct). That the *right* answer today is 175 is luck, not a guard: one dual-ID or bold-only header re-opens the blind spot with a green gate.
   - Precheck: `python3 -c "import sys;sys.path.insert(0,'tools');import todo_check as t;print(len(t.parse_tasks('- [ ] **H2 / H3 — x**\\n  - Status: open\\n')))"` prints `0`; a two-block `H1` + `**H2 / H3 —**` doc makes `t.check(...)["tasks"] == 1` and `["ok"] is True`. `python3 tools/todo_check.py` on the current board: 175 tasks, 0 errors.
@@ -702,6 +702,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Done when: `python3 tools/todo_check.py --selftest` fails on each of the four malformed headers above and passes a well-formed one; `python3 tools/todo_check.py` still exits 0 on the real board with 0 errors and prints no unparsed-header error; a temp copy of `TODO.md` with one block rewritten as `**H999 / H998 — x**` exits 1 naming line and header; `python3 tools/selftest.py --only todo_check` passes.
   - Stop: if making malformed headers an error would fail the current board (it should not — 175/175 `- [ ] **` blocks parse), report the count in the EXP and ship the selftest with a `--strict`-gated error instead of default-on.
   - Claims: C-3890–C-3899
+  - Result: EXP-2026-11-16-H68-todo-check-headers; `todo_check --selftest` OK (18 checks), live board 176 tasks/0 errors exit 0, dual-ID temp copy exits 1; `selftest.py --only todo_check`/`--only worktree_audit` pass
 
 - [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: open · Owner: — · Critical: yes

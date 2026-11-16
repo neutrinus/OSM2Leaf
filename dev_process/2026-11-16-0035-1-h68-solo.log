@@ -7,3 +7,11 @@ actions:
 - claimed H68, branch task/h68-todo-check-headers
 - confirmed precheck: dual-ID header parses 0 tasks; real board 176 tasks/0 errors
 - plan: default-on unparsed-header error; keep dual-ID illegal; selftest negatives
+work:
+- added HEADER_PREFIX_RE/HEADING_BOLD_RE + _unparsed_headers; check() errors each unparsed header
+- kept dual-ID illegal (decision C-3893); did not touch progress_report (noted C-3895)
+- selftest: 4 negatives (/ , no-dash, ### heading), positive single header, section-heading control
+- EXP EXP-2026-11-16-H68-todo-check-headers; claims C-3890-C-3896 (C-3897-3899 reserved)
+- verified: board 176 tasks/0 errors exit 0; temp dual-ID copy exit 1 line 694; selftest.py all green 88/0/23
+end: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+handoff: H60 can reuse _unparsed_headers; progress_report bounded lookup noted not changed

@@ -2809,6 +2809,27 @@ genuine EU2011 run still reports `tilewriter rc=2`.
 | C-3848 | RESERVED (H64). | — | — | — |
 | C-3849 | RESERVED (H64). | — | — | — |
 
+## H68 — unparsed `todo_check` block headers are errors (C-3890–C-3899)
+
+`tools/todo_check.py` rejects any line shaped like a block header that
+`TASK_RE` cannot parse, in both the `- [ ] **…` checkbox form and the
+`### **…` bold-heading form, default-on. Dual-ID headers stay illegal on
+purpose (flag, let the author split; never guess-split). No second TODO
+parser was added; `worktree_audit` reuses `todo_check.parse_tasks`.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3890 | A `^- \[[ xX]\] \*\*` line or a `### **…` bold heading that `TASK_RE` rejects is a default-on error `TODO.md:<line>: block header not parsed by TASK_RE`, so a dual-ID/comma/bold-only/heading header fails the gate instead of being absorbed into the previous block. The four forms (`**A / B —**`, `**A, B —**`, `**H1**`, `### **H1 — …**`) each error; the well-formed `**H1 — t**` and non-bold section headings still parse. | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; `python3 tools/todo_check.py --selftest` |
+| C-3891 | On the H68 board the corpus is 177 `^- \[[ xX]\] \*\*`-shaped lines and 176 parsed blocks (`TODO.md` fenced template example at line 176 is excluded); `python3 tools/todo_check.py` exits 0 with 0 errors and prints no unparsed-header error. | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; `grep -cE '^- \[[ xX]\] \*\*' TODO.md`, `python3 tools/todo_check.py` |
+| C-3892 | A temp copy of `TODO.md` with the H68 block rewritten as `- [ ] **H999 / H998 — x**` exits 1 with `TODO.md:694: block header not parsed by TASK_RE: - [ ] **H999 / H998 — x**`. | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; temp-copy command in the EXP |
+| C-3893 | Dual-ID headers are kept illegal rather than split at parse time (decision, H68). A real dual block carries one `Claims` range that cannot be split without the author (PO split `M8.D1 / M8.D2` by hand), so the guard flags and lets the author split. | VERIFIED (tool; design decision) | H | EXP-2026-11-16-H68-todo-check-headers; `python3 tools/todo_check.py --selftest` (dual `,`/`/` negatives) |
+| C-3894 | `tools/worktree_audit.py` reuses `todo_check.parse_tasks` and still sees the whole board: `parse_tasks` returns 176 tasks and `worktree_audit --selftest` passes (14 checks). No second TODO parser was added. | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; `python3 tools/selftest.py --only worktree_audit` |
+| C-3895 | `tools/progress_report.py:265 parse_todo_tasks` has the same family of hole but a different shape: a bounded per-ID lookup that reports `task <ID> not found` rather than absorbing an unparsed dual header. Left unchanged (out of H68 scope; its failure is loud). | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; `parse_todo_tasks` on an `H1` + `**H2 / H3 —**` doc returns `['H1','H2']` and `task H3 not found` |
+| C-3896 | Non-bold section headings (`## H — Housekeeping`, `### ID allocation`) are not block headers and do not error; only a bold heading (`### **…`) is treated as a header. | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; `python3 tools/todo_check.py --selftest` (sections fixture) |
+| C-3897 | RESERVED (H68). | — | — | — |
+| C-3898 | RESERVED (H68). | — | — | — |
+| C-3899 | RESERVED (H68). | — | — | — |
+
 ## H52 — audit every cited `fn 0x…` against `.pdata` (C-3490–C-3499)
 
 Applies M1.25's `--fix-list` table to the live corpus. The audit is
