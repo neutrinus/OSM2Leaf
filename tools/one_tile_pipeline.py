@@ -24,6 +24,7 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import struct
@@ -106,13 +107,73 @@ def _clarion_tile():
     return clarion_tile
 
 
+def _tile_box_rows(data: bytes) -> list[tuple[int, int, int, tuple[int, int, int, int]]]:
+    """Parse the header box table at ``0x2ac`` into ``(sid, level, flag, box)``.
+
+    Rows are big-endian ``>BB4h``: ``(level, flag, y1, y0, x0, x1)`` in
+    arc-minutes. ``box`` is the ``(y1, y0, x0, x1)`` tuple. Raises ValueError
+    on a table that runs past the header.
+    """
+    h = data[:0x1000]
+    if len(h) < 0x2ac + 2:
+        raise ValueError("tile shorter than the box table")
+    count, = struct.unpack_from(">H", h, 0x2ac)
+    p = 0x2ae
+    rows = []
+    for _ in range(count):
+        if p + 2 > len(h):
+            raise ValueError("box table truncated")
+        sid, cnt = h[p], h[p + 1]
+        p += 2
+        if p + 10 * cnt > len(h):
+            raise ValueError("box rows truncated")
+        for _ in range(cnt):
+            level, flag, y1, y0, x0, x1 = struct.unpack_from(">BB4h", h, p)
+            rows.append((sid, level, flag, (y1, y0, x0, x1)))
+            p += 10
+    return rows
+
+
+def _factory_tile_cell_binding(data: bytes, cell: str) -> tuple[bool, str]:
+    """Bind a tile to ``cell`` through its box table (H67).
+
+    Entry ``0x184``/``0x5d0`` are database-wide (identical in every tile of a
+    card), so they cannot tell two cells apart. The box table at ``0x2ac``
+    carries per-section, per-level ``(y1, y0, x0, x1)`` bounds; every honest
+    row lies inside the cell's arc-minute bounds and a sibling cell's row does
+    not. A table with no rows fails closed. Returns ``(ok, detail)``.
+    """
+    try:
+        import tilewriter
+        y1_max, y0_min, x0_min, x1_max = tilewriter.cell_db_bounds(cell)
+    except Exception as e:  # not a cell name / writer unavailable
+        return False, f"cannot compute cell bounds for {cell!r}: {type(e).__name__}: {e}"
+    try:
+        rows = _tile_box_rows(data)
+    except ValueError as e:
+        return False, f"box table unreadable: {e}"
+    if not rows:
+        return False, "box table has no rows"
+    for sid, level, _flag, (y1, y0, x0, x1) in rows:
+        if not (y0 >= y0_min and y1 <= y1_max and x0 >= x0_min and x1 <= x1_max):
+            return False, (
+                f"box row section {sid} level {level} ({y1},{y0},{x0},{x1}) "
+                f"is outside cell {cell} bounds ({y1_max},{y0_min},{x0_min},{x1_max})"
+            )
+        if y0 > y1 or x0 > x1:
+            return False, f"box row section {sid} level {level} has an inverted span"
+    return True, f"{len(rows)} box rows within cell {cell} bounds"
+
+
 def _factory_tile_provenance(factory_root: Path, cell: str) -> dict[str, Any]:
     """Prove the tile at ``MAPAL001/<cell>.DAT`` is a parseable factory tile.
 
     Returns a provenance dict with ``factory_tree_provenance`` =
     ``factory-tile-parsed`` on success, or ``factory-tree-invalid`` plus a
     ``parse_error`` reason. Size alone is not a test; the tile is read and
-    parsed with the same ``clarion_tile`` reader the writer uses.
+    parsed with the same ``clarion_tile`` reader the writer uses, then its box
+    table is bound to ``cell`` (``factory-tile-mismatch`` when a different
+    cell's tile is copied in, H67).
     """
     tile = factory_root / "MAPAL001" / f"{cell}.DAT"
     prov: dict[str, Any] = {
@@ -120,6 +181,8 @@ def _factory_tile_provenance(factory_root: Path, cell: str) -> dict[str, Any]:
         "factory_tile_size": 0,
         "factory_tile_sha256": None,
         "factory_tree_provenance": "factory-tree-invalid",
+        "factory_tile_cell_binding": None,
+        "factory_tile_box_rows": None,
         "parse_error": None,
     }
     try:
@@ -142,8 +205,65 @@ def _factory_tile_provenance(factory_root: Path, cell: str) -> dict[str, Any]:
         prov["parse_error"] = "tile parsed to no sections"
         return prov
     prov["factory_tile_sections"] = len(sections)
+    try:
+        prov["factory_tile_box_rows"] = len(_tile_box_rows(data))
+    except ValueError:
+        prov["factory_tile_box_rows"] = 0
+    ok, detail = _factory_tile_cell_binding(data, cell)
+    prov["factory_tile_cell_binding"] = detail
+    if not ok:
+        prov["factory_tree_provenance"] = "factory-tile-mismatch"
+        prov["parse_error"] = detail
+        return prov
     prov["factory_tree_provenance"] = "factory-tile-parsed"
     return prov
+
+
+def survey_cell_binding(factory_root: Path) -> dict[str, Any]:
+    """Count honest and wrong-cell placements of a root's ``MAPAL001`` tiles.
+
+    Reads only the 0x1000-byte header of each ``BxxRyyR.DAT`` (the box table
+    lives there), so it is cheap on a full factory root. ``wrong_pairs_pass``
+    must be 0: no sibling tile's box rows may fall inside another cell's box.
+    """
+    cell_re = re.compile(r"^B[0-9A-F]{2}R[0-9A-F]{3}R$")
+    mapal = factory_root / "MAPAL001"
+    tiles = {}
+    skipped = []
+    for p in sorted(mapal.glob("*.DAT")):
+        cell = p.stem
+        if not cell_re.match(cell):
+            skipped.append(p.name)
+            continue
+        with p.open("rb") as f:
+            tiles[cell] = f.read(0x1000)
+    honest_ok = 0
+    rows_total = 0
+    for cell, h in tiles.items():
+        try:
+            rows = _tile_box_rows(h)
+        except ValueError:
+            rows = []
+        rows_total += len(rows)
+        if rows and _factory_tile_cell_binding(h, cell)[0]:
+            honest_ok += 1
+    wrong_pass = 0
+    for src_cell, h in tiles.items():
+        for dst_cell in tiles:
+            if dst_cell == src_cell:
+                continue
+            if _factory_tile_cell_binding(h, dst_cell)[0]:
+                wrong_pass += 1
+    return {
+        "factory_root": str(factory_root),
+        "cells": len(tiles),
+        "box_rows": rows_total,
+        "honest_tiles_pass": honest_ok,
+        "wrong_pairs": len(tiles) * (len(tiles) - 1),
+        "wrong_pairs_pass": wrong_pass,
+        "skipped": skipped,
+        "ok": honest_ok == len(tiles) and wrong_pass == 0,
+    }
 
 
 def gate(status: str, detail: str, evidence: str = "") -> dict[str, str]:
@@ -427,6 +547,41 @@ def selftest() -> int:
             "factory_tile_sha256 equals sha256sum of MAPAL001/<cell>.DAT")
         chk(rep.get("factory_tile_size") == len(tile_bytes),
             "factory_tile_size equals tile size")
+        chk(rep.get("factory_tree_provenance") == "factory-tile-parsed"
+            and rep.get("factory_tile_cell_binding"),
+            "honest tile is bound to its cell (box table within bounds)")
+
+        # Survey mode on the one-cell synthetic root: one honest tile, no pairs.
+        survey = survey_cell_binding(root)
+        chk(survey["ok"] and survey["cells"] == 1 and survey["wrong_pairs"] == 0,
+            "--check-cell-binding surveys a one-cell root (1 cell, 0 wrong pairs)")
+
+        # Negative control (c): a different cell's (valid) tile copied over
+        # B48R058R.DAT -> factory-tile-mismatch, factory-tree-invalid, no output.
+        wrong_root = td / "wrong-root"
+        shutil.copytree(root, wrong_root)
+        sibling = tilewriter.make_factory("B30R060R")
+        (wrong_root / "MAPAL001" / "B48R058R.DAT").write_bytes(sibling)
+        wrong_out = td / "wrong-out"
+        rep = build_factory_out(wrong_out, wrong_root, "B48R058R")
+        chk(rep.get("factory_tree_provenance") == "factory-tile-mismatch",
+            "different cell's tile -> provenance=factory-tile-mismatch")
+        chk(rep.get("real_image_run") == "factory-tree-invalid",
+            "different cell's tile -> real_image_run=factory-tree-invalid (not attempted)")
+        chk(rep.get("factory_backed") is False,
+            "different cell's tile -> not factory-backed")
+        chk(all(g.get("status") == "BLOCKED" for g in rep["gates"].values()) and rep["gates"],
+            "different cell's tile -> every gate BLOCKED")
+        chk(not wrong_out.exists(), "different cell's tile -> no output tree mutated")
+        # The same sibling tile under its own cell name is accepted (positive control).
+        b30_root = td / "b30-root"
+        shutil.copytree(root, b30_root)
+        (b30_root / "MAPAL001" / "B30R060R.DAT").write_bytes(sibling)
+        _prov_b30 = _factory_tile_provenance(b30_root, "B30R060R")
+        chk(_prov_b30.get("factory_tree_provenance") == "factory-tile-parsed",
+            "same sibling tile parses as its own cell B30R060R (control): "
+            + str(_prov_b30.get("factory_tree_provenance")) + " / "
+            + str(_prov_b30.get("factory_tile_cell_binding")))
 
         # Negative control (a): empty factory tile -> BLOCKED / factory-tree-invalid.
         empty_root = td / "empty-root"
@@ -506,8 +661,12 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     report["factory_tile_size"] = prov["factory_tile_size"]
     report["factory_tile_sha256"] = prov["factory_tile_sha256"]
     report["factory_tree_provenance"] = prov["factory_tree_provenance"]
+    report["factory_tile_cell_binding"] = prov.get("factory_tile_cell_binding")
+    report["factory_tile_box_rows"] = prov.get("factory_tile_box_rows")
     if prov["factory_tree_provenance"] != "factory-tile-parsed":
-        report["missing_input"] = f"factory tile {factory_tile} is not a parseable factory tile: {prov['parse_error']}"
+        kind = ("different cell's tile" if prov["factory_tree_provenance"] == "factory-tile-mismatch"
+                else "not a parseable factory tile")
+        report["missing_input"] = f"factory tile {factory_tile} is {kind}: {prov['parse_error']}"
         report["real_image_run"] = "factory-tree-invalid"
         report["factory_backed"] = False
         report["gates"] = {g: gate("BLOCKED", report["missing_input"], "factory_tile_provenance") for g in GATES}
@@ -580,9 +739,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--country", default="616")
     ap.add_argument("--json", nargs="?", const="-", default=None, metavar="PATH",
                     help="print the report JSON to stdout (bare) or write it to PATH ('-' = stdout)")
+    ap.add_argument("--check-cell-binding", metavar="ROOT",
+                    help="survey MAPAL001 tile-to-cell binding on ROOT and print counts (no writes)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
+    if args.check_cell_binding:
+        survey = survey_cell_binding(Path(args.check_cell_binding))
+        print(json.dumps(survey, indent=2, ensure_ascii=False))
+        return 0 if survey["ok"] else 1
     if not args.out:
         print("error: --out required (or --selftest)", file=sys.stderr); return 2
     out = Path(args.out)
