@@ -1,0 +1,36 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (subagent, eighth SE run today, fifth of 2026-11-16)
+start_utc: 2026-11-16 04:27
+origin_main_start: 179a36a7 (docs: SM retro 2026-11-16 cycle 7)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt
+- docs/retro/2026-11-16-4.md
+- dev_process/2026-11-16-{0423-23-tl,0425-24-sm,2331-2-qa}.log
+- EXP-2026-11-16-{H72-fn-audit-candidates,M1.27-fn-match-leaf,H73-evidence-spans}.md
+- claims C-3930-C-3939, C-3700-C-3705; TODO H72/H73/M1.26/M1.27/M1.22b
+
+actions_taken (in order):
+- Read context, confirmed main 179a36a7, all three cycle-7 EXPs + claim blocks, M1.22b/M1.26/M1.31 scope.
+- Ran the cheap gates on main: selftest --only fn_audit 58/26/60/todo_check all OK; fn_audit --corpus exit 0 (125-moved CORPUS DRIFT = H69 policy); fn_match --fixture exit 0 (13 rows, 0 mismatch); claims_check + todo_check OK.
+- Audit of C-393x evidence (retro-8 rule): C-3930/32/33/34 cite commands that really print their values (58 ok lines verified; snapshot ddd113f8 matches). C-3931 is honestly marked latent. No defect there.
+- Audit of C-370x evidence: found the real defect. C-3703 says `--fixture` prints `unique:5 different:1 nomatch:7` but that command prints only `13 rows, 0 mismatch` (histogram is from `match --va`), and names `archive/us256.img`, which does not exist. M1.27 EXP/Result say `--selftest` = 22 checks; at the merge commit it prints 26 (92550d6 prints 22, 334f092 adds 4). C-3704's 26 is correct.
+- Measured H72 candidates question directly: snapshot has AMBIGUOUS 0, so 0 rows store `candidates`; the guard is only fixture-proven (H72 already says this). Not a new task — M1.26's note (3) pins it.
+- Measured the M1.27 cap question with a Matcher script: 677 gaps>8B, exactly 1 natural bound > 0x400 (`0x00558300`, bound 18966 B, first rts 2572 B -> `NOMATCH leaf 1024 B`), 79 no-rts stubs. Real false-NOMATCH class.
+- Added H74 (claims_check: count-printed-from-command + archive path existence) and M1.31 (leaf census: rts presence + cap class, before M1.22b).
+- Added M1.31 to M1.22b Depends; added H72 to M1.26 Depends and a third M1.26 note (candidates gate unexercised on real rows; per-source moved policy).
+- Re-ran todo_check (OK, 150 pre-existing warnings, none from H74/M1.31) and claims_check (OK). Corrected H74's direction after a self-check (22 was the EXP number, 26 the merge).
+
+tasks_added: H74 (open, pair required, C-3950-3959), M1.31 (open, critical, pair required, C-3960-3969).
+tasks_changed: M1.22b Depends += M1.31; M1.26 Depends += H72 and one coherence note.
+
+decisions:
+- Did NOT add a task for the snapshot's zero stored candidates: H72 already documents it as latent and M1.26 is where real AMBIGUOUS rows appear; its note now requires proving the gate fires. Alternative rejected: a standalone "store one AMBIGUOUS row" task (the committed corpus is the exact live citation set, so it cannot be hand-injected without faking a citation).
+- Did NOT raise the 0x400 cap: one address does not justify a global pairing change; M1.31 measures first and its Stop forbids "fix one address".
+- H74 pairs required: it fails CI on claim text, exactly the class a reviewer must catch.
+
+problems:
+- The 0x00558300 disassembly looks like 0x04-schema data words, so its "leaf" status is uncertain; M1.31 names that as the Stop branch rather than asserting it here.
+- `/tmp/opencode/us256.img` is the only US head; `archive/us256.img` (C-3703's path) is absent, which is itself the H74 finding.
+
+handoff: next TL -> M1.26 (pair, cite H72's now-tested candidates gate and per-source moved policy) then M1.22b (needs M1.31's complete-leaf denominator) + H74 (pair, claims_check count/path). M1.31 can run in parallel with M1.26 (different files).
