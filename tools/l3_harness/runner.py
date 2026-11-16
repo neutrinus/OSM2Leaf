@@ -209,7 +209,13 @@ TARGET_KEYS = {
     "corpus",
     "expect",
     "notes",
+    "build",
 }
+
+#: Firmware builds a target can be registered against (M1.22b).  A target run
+#: must say which build its reader VA belongs to; ``eu2011`` is the default the
+#: whole matrix was built on, ``us2011`` marks a US VA (M1.22/M9.10/M9.12).
+BUILDS = ("eu2011", "us2011")
 
 #: ``entry.kind`` values.  ``synthetic``: a program shipped in this file;
 #: ``module``: a function at a VA of a memory map (M9.5/M9.20); ``blocked``: a
@@ -722,6 +728,11 @@ def validate_targets(doc) -> list[str]:
         for key in ("reader", "what"):
             if not isinstance(target.get(key), str) or not target.get(key):
                 problems.append(f"{where}: {key} must be a non-empty string")
+        build = target.get("build")
+        if build is not None and build not in BUILDS:
+            problems.append(
+                f"{where}: build must be one of {', '.join(BUILDS)} (got {build!r})"
+            )
 
         entry = target.get("entry")
         if not isinstance(entry, dict):
@@ -2919,6 +2930,9 @@ def test_targets_file(tmp):
     assert doc["schema"] == TARGETS_SCHEMA, doc.get("schema")
     probe = by_name["probe-zlib-cmf"]
     assert probe["entry"]["kind"] == "synthetic", probe["entry"]
+    assert probe.get("build") == "eu2011", probe.get("build")
+    assert all(t.get("build") in BUILDS for t in by_name.values()), [
+        (n, t.get("build")) for n, t in by_name.items()]
     targets = {spec["target"] for spec in probe["stubs"]}
     assert {"sprintf", "CreateFileW", "ReadFile", "CloseHandle"} <= targets, targets
     assert any(spec["target"].startswith("#") for spec in probe["stubs"]), (

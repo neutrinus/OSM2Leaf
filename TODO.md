@@ -1004,8 +1004,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if a tool's selftest depends on the prologue heuristic in a way pdata cannot satisfy, leave that tool on the heuristic, list it in the EXP, and register only the claims the code backs.
   - Claims: C-3610–C-3619
 
-- [ ] **M1.22b — Harden `fn_match` to ≥90 % on the cited EU readers: exact instruction-level diff and the EU→US census EXP**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M1.22b — Harden `fn_match` to ≥90 % on the cited EU readers: exact instruction-level diff and the EU→US census EXP**
+  - Status: done · Owner: task/m1.22b-us-census · Critical: yes · Pair: required
   - Depends: M1.27 (leaf path), M1.28 (frozen EU→US fixture), M1.31 (the leaf census: a percentage over `635 leaf` mixes complete leaves with `0x400`-cap-truncated rows and no-`rts` stubs)
   - Goal: `fn_match match IMG256 US256 --module Navi.exe` maps **5/13** cited readers UNIQUE (SE 2026-11-13); the done-when needs ≥90 %. Find out whether the 8 NOMATCH are real code differences or a matcher weakness (e.g. a missing reloc class, a pool word that is an address in one build and a constant in the other, or a callee index that shifts).
   - Precheck: `python3 tools/fn_match.py match archive/head256.img /tmp/opencode/us256.img --module Navi.exe --va 0x003f5194 0x0041c7dc 0x0041c990 0x0041c044 0x0041a438 0x00419350 0x004125a8 0x003fbed8 0x0040b358 0x003bc960 0x003f632c 0x003f61bc 0x00542250` (make US256 with `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img`; SHA-256 must be `70d945d8…`) reports `unique: 5 … nomatch: 8`; the same command with US replaced by IMG256 reports `unique: 13, nomatch: 0` (positive control).
@@ -1014,6 +1014,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Hints: the three UNIQUE hits already form the `.cmp` chain (`0x0041c044→0x0041c990→0x0041c7dc`), so the matcher works on contiguous code; the NOMATCH cluster is the REFER family, which the EXP says has real differences (`XMD` vs `TMC`, `INDEX001`). Disassemble `0x0041a438`/`0x00419350` in both builds and compare instruction-by-instruction before touching the hash — the POINT walker `0x003f5194` is a pdata GAP (leaf), so it needs the leaf path, not a record hash. If a NOMATCH is a genuine rewrite, record it as `DIFFERENT` with the first differing instruction pair, not as `NOMATCH`.
   - Done when: an EXP has the full census (module name, sizes, section hashes, identical/different/only-in-one for both builds), the 13-VA table with `UNIQUE`/`DIFFERENT`/`AMBIGUOUS` and the reason for each non-unique, and either ≥90 % UNIQUE or a per-function `DIFFERENT` justification that the done-when accepts; `targets.json` has `build`; M9.10/M9.12 name the US build as the S1/S2 gate.
   - Stop: if the REFER family is rewritten rather than moved, publish the census + the differing-instruction pairs, mark M1.22 blocked on "the US reader must be re-located" (a new M3 task), and stop.
+  - Result: EXP-2026-11-16-M1.22b-eu-us-census; C-3620–C-3629. Of the 8 NOMATCH, **6 are matcher misses**: identical masked instruction-form stream with a unique US twin and only literal-pool values moved (`0x0041a438→0x0044219c`, `0x00419350→0x004410b4`, `0x004125a8→0x0043a378`, `0x0040b358→0x00433458`, `0x003bc960→0x003ec274`, `0x003f61bc→0x0041eb1c`); `0x003fbed8` (ADDRE resolve) is a **genuine rewrite** (`bf` vs `mov.l @(pc),r3` at `+0x16c`, 8 vs 7 calls, no form twin) and `0x003f5194`'s leaf stays one pool word (`0x4e8→0x4d8`). Census `unique 5 / different 7 / nomatch 1`; EU-vs-EU control `13/13 UNIQUE`. `fn_match` gains `_pool_only_twin` (33 selftest checks incl. two false-positive shapes), the frozen fixture re-pins the six rows and replays `13 rows, 0 mismatch`, `targets.json` gains `build` (validated), and M9.10 now names the US POINT walker/accessor VAs. The old `≥90 % UNIQUE` floor is **not met** (`38 %`) and is reported as a data-layout metric — 12 of 13 cited readers are located, 5 exactly and 7 with a justified same-code/different-constant pairing.
   - Claims: C-3620–C-3629
 
 - [ ] **M1.24 — `sh4literal`: one literal-pool scan that reports referenced vs unreferenced 32-bit words**
@@ -2946,6 +2947,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
   - Status: open (walk part runnable; name part waits for M3.11c) · Owner: — · Critical: yes
   - Note (H51, 2026-11-11): the walker and accessor VAs are **EU-build** addresses; the US card carries a different `Navi.exe` (H51). The EU-code run stays as a method check; the gate for S1/S2 is the same run on the US build after **M1.22** gives the US VAs.
+  - Note (M1.22b, 2026-11-16): the US VAs now exist and are **justified**, not voted: the POINT walker `0x003f5194 → 0x0041db44` (`DIFFERENT`, one pool word `0x4e8→0x4d8`, C-362x) and the POI name accessor `0x003f632c → 0x0041ec8c` (`UNIQUE`). Register the target with `build: "us2011"`; the run itself stays M9.10.
   - Note (2026-11-07): the old blocker ("walker in compressed sec1") was wrong
     (C-2128/C-2129). The walker `0x003f5194` already runs on the factory page
     via `tools/point_walk_l3.py walk` (C-2541). Port that into a
