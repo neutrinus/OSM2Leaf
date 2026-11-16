@@ -1,0 +1,41 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (subagent, eighth SM run today, fifth of 2026-11-16)
+start_utc: 2026-11-16 04:22
+end_utc: 2026-11-16 04:40
+origin_main_start: 2667b7a (chore: tl work log 2026-11-16 cycle 7)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, prompt_tl.txt
+- docs/retro/2026-11-16-{1,2,3}.md
+- dev_process/2026-11-16-{0226-14-tl,0230-17-se,0254-18-po,0259-19-qa,0423-23-tl}.log
+- TODO.md H72/H73/M1.26/M1.27/M1.22b; tools/todo_check.py, tools/selftest.py
+
+actions_taken (in order):
+- git fetch; confirmed main at 2667b7a, no open PRs, board 104/49/28/0 (181 tasks).
+- Recomputed window numbers: 12 commits 8098ee2..HEAD, 3 tasks done, 0 blocked/re-opened.
+- Ran selftest.py (88/0/23, OK) and todo_check.py (OK, 2 pre-existing M9.5 warnings).
+- Counted /tmp/opencode worktrees (6) and git worktrees total (36); df /tmp 2.5G/3.8G.
+- Read cycle-7 outcomes to classify catches (H72 1 evidence, M1.27 1 design, H73 0).
+- Wrote docs/retro/2026-11-16-4.md; one prompt_tl.txt edit (count-from-command), recorded.
+- Committed log + retro + prompt edit together; pushed to main (no PR).
+
+numbers:
+- 12 commits, 3 done (H72, M1.27, H73), 0 blocked, 0 re-opened, 0 ghost claims.
+- TODO 3277 lines; 0 open draft PRs; 6 /tmp/opencode worktrees; /tmp 66% full.
+- Role age at 04:22 UTC: TL 0m, SE 27m, PO 60m, QA 76m, SM this run.
+- Cumulative cycle-5..7 navigator catches: 15 (10 design/integrity, 5 evidence).
+
+decisions:
+- Ceiling stays 3, but codified: at most two concurrent pairs; a third task is solo
+  and sequenced after any pair sharing its file (H72/M1.27/H73 all touch claims.md).
+- Classified H72's "moved 124->125" as evidence-by-construction, not design: the
+  branch changes the count it cites. Fix belongs in the prompt, made once.
+
+problems:
+- The evidence-error class recurs every cycle (H66/H67/H69/H72). It is now caught
+  upstream (QA flags the over-claim, driver corrects) but still originates in prose.
+
+handoff: next TL -> M1.26 (pair, --scope l3 on the frozen snapshot, names H69's
+moved-only policy) + M1.22b (pair, US census on M1.27's leaf path) + one solo
+(H71, the C-3860/61/64 evidence spans). Human: worktree_audit --prune --apply;
+/tmp at 2.5G/3.8G, 7 stale 256 MB heads still owed.
