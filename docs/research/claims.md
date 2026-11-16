@@ -2877,6 +2877,29 @@ refresh procedure; M1.26 consumes this policy and must not invent a second one.
 | C-3908 | RESERVED (H69). | — | — | — |
 | C-3909 | RESERVED (H69). | — | — | — |
 
+## H72 — `fn_audit` gate on `candidates`/`leaf` and `va` normalisation (C-3930–C-3939)
+
+H69's `verdict_differs` compared only `class` and `true_start`, so two frozen
+fields were invisible to `--corpus`: an `AMBIGUOUS` row's `candidates` and a
+`GAP` row's `leaf`. `_row_key` also compared the raw `va` string, so hex
+padding split a key into `new`/`gone`. This closes both, keeps the H69
+moved-only rule and does not refresh the committed snapshot. The `leaf` half is
+a latent/future-proof guard, not a live-bug fix (see C-3931); the candidate and
+`va` halves are real defects reproduced by cycle-7 QA.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3930 | `compare_live`'s `verdict_differs` now also compares the whole `AMBIGUOUS` candidate set (normalised to a frozenset of `(build, module, kind, start)` tuples), so an `AMBIGUOUS` row whose live candidate set gains an `INSIDE` candidate is a verdict change: `--corpus` exits 1 with `CORPUS STALE: 1 verdict change(s)` where `origin/main` exited 0 with empty output. The `--selftest` fixture `H72 AMBIGUOUS candidate gains INSIDE -> CORPUS STALE exit 1` covers it. | VERIFIED (tool) | H | EXP-2026-11-16-H72-fn-audit-candidates; `python3 tools/fn_audit.py --selftest` |
+| C-3931 | `verdict_differs` also compares `bool(row["leaf"])` for `GAP` rows. A stored-vs-image `leaf` mismatch was **already** caught by `corpus_class_drift` (that check is kept); a live-only leaf flip now also fails (fixture `H72 GAP leaf True->False -> CORPUS STALE exit 1`). The live-only flip is **latent/unreachable through one `--corpus` process today** (live and stored rows share the same `Image` + `leaf_lookup`), so this clause is a future-proof guard, not a fix for a reachable defect. | VERIFIED (tool; guard is latent) | H | EXP-2026-11-16-H72-fn-audit-candidates; `python3 tools/fn_audit.py --selftest`, `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` |
+| C-3932 | `_row_key` normalises `va` through `_canon_va` (`"0x%08x" % int(va, 16)`), so a same-VA row written unpadded (`0x900000`) against the canonical live `0x00900000` no longer prints `CORPUS STALE: 1 new / 1 gone`; the pure-padding case is exit 0 with no `new`/`gone`. Fixture `H72 unpadded va prints no spurious new/gone` covers it. | VERIFIED (tool) | H | EXP-2026-11-16-H72-fn-audit-candidates; `python3 tools/fn_audit.py --selftest` |
+| C-3933 | The same non-canonical `va` class is fixed in `snapshot_summary` (`unique_va` uses `_canon_va`) and `corpus_fix_list` (keyed by `_canon_va`) within `tools/fn_audit.py`; `load_corpus` additionally rejects an `AMBIGUOUS` row that has no `candidates` list (so a missing key is never read as an empty set) and a non-hex `va`. | VERIFIED (tool) | H | EXP-2026-11-16-H72-fn-audit-candidates; `python3 tools/fn_audit.py --selftest` |
+| C-3934 | The benign counter-case is preserved: an `AMBIGUOUS` row with unchanged candidates but a moved line still exits 0 as moved-only (`CORPUS DRIFT: 0 new / 0 gone / 1 moved`, no `verdict change`). On the unchanged real tree `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` stays exit 0 with `CORPUS DRIFT: 0 new / 0 gone` (the `moved` count is prose-dependent by design, so it is not pinned here) and the snapshot SHA-256 stays `ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`. `--selftest` is 58 checks / 0 failed (was 53). | VERIFIED (tool) | H | EXP-2026-11-16-H72-fn-audit-candidates; `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet`, `sha256sum docs/research/fn-audit-corpus-2026-11-16.json` |
+| C-3935 | RESERVED (H72). | — | — | — |
+| C-3936 | RESERVED (H72). | — | — | — |
+| C-3937 | RESERVED (H72). | — | — | — |
+| C-3938 | RESERVED (H72). | — | — | — |
+| C-3939 | RESERVED (H72). | — | — | — |
+
 ## H52 — audit every cited `fn 0x…` against `.pdata` (C-3490–C-3499)
 
 Applies M1.25's `--fix-list` table to the live corpus. The audit is

@@ -589,6 +589,13 @@ def load_corpus(path):
             int(row["va"], 16)
         except (TypeError, ValueError):
             raise ValueError("row %d has a non-hex va %r" % (i, row["va"]))
+        # An AMBIGUOUS row's verdict is its whole candidate set, so the gate
+        # cannot tell "unchanged" from "absent": require the key rather than
+        # silently comparing an empty set (H72 Stop condition).
+        if row["class"] == "AMBIGUOUS" and not isinstance(
+                row.get("candidates"), list):
+            raise ValueError("row %d is AMBIGUOUS without a candidates list"
+                             % i)
     if not doc.get("image_sha256"):
         raise ValueError("snapshot has no image_sha256; --corpus re-classifies "
                          "each row against the image, so the image is required")
@@ -603,7 +610,7 @@ def snapshot_summary(doc):
     return {
         "files": len(doc.get("files") or []),
         "citations": len(rows),
-        "unique_va": len({r["va"].lower() for r in rows}),
+        "unique_va": len({_canon_va(r["va"]) for r in rows}),
         "start": counts.get("START", 0),
         "inside": counts.get("INSIDE", 0),
         "corrected": counts.get("CORRECTED", 0),
@@ -639,8 +646,30 @@ def singleton_class_counts(rows):
     return counts
 
 
+def _canon_va(va):
+    """``va`` as the one canonical ``0x%08x`` form the tool writes.
+
+    A snapshot is JSON a human can edit, so ``0x900000`` and ``0x00900000``
+    are the same VA but different strings.  Every keying site goes through
+    here so padding cannot manufacture ``new``/``gone`` (H72).
+    """
+    return "0x%08x" % int(va, 16)
+
+
+def _candidate_set(row):
+    """The stored ``candidates`` as a set of ``(build, module, kind, start)``.
+
+    ``snapshot_rows`` writes each candidate tuple as a JSON list, so a
+    round-tripped row holds lists; normalise back to tuples.  Only
+    ``AMBIGUOUS`` rows carry ``candidates`` (their verdict depends on the whole
+    holder set), and ``load_corpus`` rejects an ``AMBIGUOUS`` row that lacks
+    the key, so a missing key is never silently read as an empty set here.
+    """
+    return frozenset(tuple(c) for c in (row.get("candidates") or []))
+
+
 def _row_key(row):
-    return (row["file"], int(row["line"]), row["va"].lower(), row["kind"])
+    return (row["file"], int(row["line"]), _canon_va(row["va"]), row["kind"])
 
 
 
@@ -694,9 +723,14 @@ def compare_live(doc, image):
     occurrences, not over distinct keys: repeating the same key is a
     multiset count, so a deleted duplicate is ``gone`` and an added duplicate
     is ``new``.  ``moved`` pairs the frozen and live occurrence of the same
-    ``(file,va,kind)`` whose line changed and whose ``class``/``true_start``
-    did not; ``changed`` is a row whose verdict changed, at an unchanged key
-    or together with a line move (H69: a move never masks a verdict change).
+    ``(file,va,kind)`` whose line changed and whose verdict did not;
+    ``changed`` is a row whose verdict changed, at an unchanged key or
+    together with a line move (H69: a move never masks a verdict change).
+
+    A verdict is ``(class, true_start)`` plus, for the two classes whose
+    ``class`` alone hides the failure, the stored detail: the whole candidate
+    set of an ``AMBIGUOUS`` row and the ``leaf`` flag of a ``GAP`` row (H72).
+    ``va`` is compared canonically, so hex padding is not a change.
     """
     from collections import Counter, defaultdict
 
@@ -708,8 +742,17 @@ def compare_live(doc, image):
     live_count = Counter(_row_key(r) for r in live_rows)
 
     def verdict_differs(a, b):
-        return (a["class"] != b["class"]
-                or (a.get("true_start") or None) != (b.get("true_start") or None))
+        if (a["class"] != b["class"]
+                or (a.get("true_start") or None) != (b.get("true_start") or None)):
+            return True
+        # AMBIGUOUS: an INSIDE candidate appearing (or a kind change) flips
+        # is_failure without changing class; compare the whole holder set.
+        if a["class"] == "AMBIGUOUS" and _candidate_set(a) != _candidate_set(b):
+            return True
+        # GAP: a leaf<->data flip is a different verdict at the same key.
+        if a["class"] == "GAP" and bool(a.get("leaf")) != bool(b.get("leaf")):
+            return True
+        return False
 
     # Occurrences are a multiset, not a set: a deleted duplicate and an added
     # duplicate of an existing (file,line,va,kind) both have to count (H69
@@ -761,7 +804,7 @@ def corpus_fix_list(doc):
     rows = {}
     for row in doc["rows"]:
         if row["class"] == "INSIDE":
-            rows[row["va"].lower()] = row.get("true_start") or "0x????????"
+            rows[_canon_va(row["va"])] = row.get("true_start") or "0x????????"
     return ["%s -> %s" % (va, rows[va]) for va in sorted(rows)]
 
 
@@ -1307,6 +1350,87 @@ def selftest():
             check("a moved duplicate pair is moved-only and exits 0",
                   mr2 == 0 and "CORPUS DRIFT: 0 new / 0 gone / 2 moved" in mout2
                   and "line-only drift" in mout2)
+
+            # H72: verdict_differs must also compare the AMBIGUOUS candidate
+            # set and the GAP leaf flag, not just class/true_start.  A second
+            # build table makes 0x401048 an AMBIGUOUS row (two INSIDE starts),
+            # so the frozen class matches the image and only the live verdict
+            # drives the outcome -- the pre-H72 hole.
+            class AmbImage:
+                tables = [table, Table(0x3e00200, {
+                    "synth.dll": _synth_records((0x401030, 0x80))})]
+
+                @staticmethod
+                def leaf_of(module, build, va):
+                    return leaf_lookup(module, build, va)
+
+            amb_img = AmbImage()
+            benign = [("A", "synth.dll", "START", 0x401048),
+                      ("B", "synth.dll", "START", 0x401030)]
+            gain = benign + [("A", "synth.dll", "INSIDE", 0x401040)]
+            amb_cite = Citation(0x401048, "doc.md:1", "fn")
+            amb_frozen = (amb_cite, Verdict(0x401048, "AMBIGUOUS",
+                                            candidates=benign))
+            amb_summary = summary_counts(["doc.md"], [amb_cite], {0x401048},
+                                         {"AMBIGUOUS": 1}, 0, [amb_frozen])
+            apath = os.path.join(tmp, "fa-amb.json")
+            write_snapshot(apath, ["doc.md"], snapshot_rows([amb_frozen]),
+                           amb_summary, img)
+            check("H72 fixture: an AMBIGUOUS snapshot row stores candidates",
+                  [r.get("candidates") for r in snapshot_rows([amb_frozen])]
+                  == [[list(c) for c in benign]])
+
+            def run_h72(docp, image, cites, kept):
+                glb["collect"] = lambda scope="docs": (cites, ["doc.md"])
+                glb["audit"] = lambda c, i: list(kept)
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = audit_corpus(load_corpus(docp), image, live_check=True)
+                return rc, buf.getvalue()
+
+            # (3) unchanged candidates, line moved only -> moved-only, exit 0.
+            mc = Citation(0x401048, "doc.md:4", "fn")
+            r_ok, o_ok = run_h72(
+                apath, amb_img, [mc],
+                [(mc, Verdict(0x401048, "AMBIGUOUS", candidates=benign))])
+            check("H72 unchanged AMBIGUOUS candidates stay moved-only (exit 0)",
+                  r_ok == 0 and "CORPUS DRIFT: 0 new / 0 gone / 1 moved" in o_ok
+                  and "verdict change" not in o_ok)
+            # (1) a live candidate set that gains INSIDE -> verdict change.
+            r_gain, o_gain = run_h72(
+                apath, amb_img, [amb_cite],
+                [(amb_cite, Verdict(0x401048, "AMBIGUOUS", candidates=gain))])
+            check("H72 AMBIGUOUS candidate gains INSIDE -> CORPUS STALE exit 1",
+                  r_gain == 1 and "CORPUS STALE" in o_gain
+                  and "verdict change" in o_gain)
+
+            # (2) GAP leaf True -> False at an unchanged key -> exit 1.  The
+            # frozen class still matches the image (stub leaf True), so only
+            # the live comparison can catch the flip.
+            gap2 = Citation(0x401080, "doc.md:2", "const")
+            gap2_frozen = (gap2, gap_leaf)
+            gap2_summary = summary_counts(["doc.md"], [gap2], {0x401080},
+                                          {"GAP": 1}, 0, [gap2_frozen])
+            gpath2 = os.path.join(tmp, "fa-gapflip.json")
+            write_snapshot(gpath2, ["doc.md"], snapshot_rows([gap2_frozen]),
+                           gap2_summary, img)
+            r_leaf, o_leaf = run_h72(
+                gpath2, stub, [gap2], [(gap2, Verdict(0x401080, "GAP",
+                                                     leaf=False))])
+            check("H72 GAP leaf True->False -> CORPUS STALE exit 1",
+                  r_leaf == 1 and "verdict change" in o_leaf)
+
+            # unpadded `va` is the same VA: reject the spurious new/gone that
+            # a raw-string _row_key printed (H72 padding).
+            updoc = json.load(open(apath, encoding="utf-8"))
+            updoc["rows"][0]["va"] = "0x401048"
+            uppath = os.path.join(tmp, "fa-unpadded.json")
+            json.dump(updoc, open(uppath, "w", encoding="utf-8"))
+            r_pad, o_pad = run_h72(
+                uppath, amb_img, [amb_cite],
+                [(amb_cite, Verdict(0x401048, "AMBIGUOUS", candidates=benign))])
+            check("H72 unpadded va prints no spurious new/gone",
+                  r_pad == 0 and "new" not in o_pad and "gone" not in o_pad)
         finally:
             glb["collect"], glb["audit"] = saved_collect, saved_audit
 
