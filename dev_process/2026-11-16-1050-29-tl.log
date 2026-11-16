@@ -1,0 +1,119 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-16 06:00 (approx; after QA `f2885ed`, cycle-8)
+end_utc: 2026-11-16 10:50
+origin_main_start: f2885ed (QA run 27 — H75 precheck)
+origin_main_end: caff825 (H71 merged, PR #200)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_tl.txt (+ the mandatory negative-mutation
+  and "number must be printed" checks)
+- docs/retro/2026-11-16-4.md (cycle-7 retro: cited numbers must be quoted from
+  a command's output; ≤2 concurrent pairs; third task solo and sequenced)
+- dev_process/2026-11-16-{0425-24-sm,0427-25-se,0452-26-po,0505-27-qa}.log
+- TODO.md M1.31, M1.26, H74, H75, H71, H76; tools/fn_audit.py,
+  tools/claims_check.py, tools/fn_match.py, tools/selftest.py
+- docs/experiments/EXP-2026-11-16-M1.27-fn-match-leaf.md
+
+disclosure (carried forward): at the start of this cycle H74 was first launched
+as a *solo* driver, although its block says `Pair: required`. It was aborted
+unused (`dev_process/2026-11-16-0535-28-driver.log`), no commits were made, and
+H74 was relaunched as driver + a separate navigator. The mistake is mine; the
+pair rule was applied on the second launch and on every task after.
+
+task selection (cycle-8, two pairs + a sequenced solo batch):
+- M1.31 (US leaf census) — Critical, `Pair: required`, depends M1.27/M1.28.
+  PR #195, driver + navigator.
+- M1.26 (`--scope l3` gate) — Critical, `Pair: required`, depends H69/H72.
+  PR #196, driver + navigator. Files disjoint from M1.31 (pdata/fn_match vs
+  fn_audit), so the two pairs ran concurrently (radius rule: ≤2 pairs).
+- Then the solo batch in **sequence**, never parallel: H74 (pair, done
+  earlier), H75, H71. A regression (H76) was found mid-batch and fixed before
+  the batch resumed, because it broke the full `selftest.py`.
+
+regression caught and fixed (H76, PR #198, solo + navigator):
+- After H74 merged, `main`'s full `selftest.py` went RED
+  (`passed=89 failed=1`): `fn_audit_l3_image` asserted the exact string
+  `CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved`. H74's TODO edit moved 51
+  l3 lines, so the gate correctly printed `CORPUS DRIFT: … 0 new / 0 gone /
+  51 moved` (exit 0, H69 policy). This is exactly the brittle exact-string
+  class H69 removed, re-introduced in a test. The task was created rather than
+  silently folded into H75 (rule 9), and — because it edits a standing gate's
+  pass/fail assertion — run as a pair even though the block is `Pair: solo`.
+  The shipped test accepts `CORPUS (OK|DRIFT): L3 OVERLAY: 0 new / 0 gone /
+  N moved` and rejects `CORPUS STALE`; a one-row-deleted overlay still yields
+  `CORPUS STALE: 1 new / 0 gone` exit 1, so the assertion is not vacuous.
+
+review rounds and catches (defects the navigator/independent check found):
+- M1.31: the denominator question (598 complete GAPs vs 579 leaf) settled by a
+  counted command, not prose; `TRUNCATED` at the `0x400` cap is honest.
+- M1.26: 1 defect in round 1 (137 "INSIDE" was a classifier false-positive
+  storm from bare-hex over-trigger, US-build VAs, and an unreachable pin path);
+  re-fixed to 21 unique genuine INSIDE, all append-only EXP labels, 0 in open
+  blocks. Round 2 caught a typed number: "61 citations over 35 blocks" where 35
+  is the citation-line count and the cites come from 18 contributing blocks —
+  the retro-7 rule violated in the record; fixed with a printed
+  `open blocks 134, contributing 18, citation lines 35` line.
+- H74: 5 defects in round 1 (path rule flagged 59 legit vendor-image rows;
+  evidence didn't print its numbers; 16 vs 17 measurable rows). Fixed to path
+  classes where only `gd` fails, and `--strict` names exactly C-3703 +
+  the C-3704 count conflict.
+- H75: 1 real defect (my own): the first `sed` on the status line matched all
+  14 identical "Status: open · Owner: — · Critical: no · Pair: solo" lines and
+  wiped 13 other tasks' Owners in the claim commit. Amended before push; the
+  amended claim commit touches one line.
+- H71: 2 self-caught defects. (a) The task's precheck `sed -n '2802,2807p'`
+  had drifted — the rows are now at 2824–2828 — so the Done-when was rewritten
+  to select by claim ID (`awk -F'|' '/^\| C-386[014] \|/{print $NF}'`). (b) My
+  first EXP draft put a literal `fn 0x0041c7e8` in the fenced probe line;
+  `fn_audit` does not skip fenced blocks, so the record itself became a new l3
+  citation (`CORPUS STALE: 1 new`) and `selftest.py` went RED. Fixed by using a
+  `$VA` placeholder and quoting the real open-block probe counts.
+- H75 data repair: C-3861/C-3703's stored snapshot hash `4606aa2a…` is the
+  pre-H69 snapshot; the committed file is `ddd113f8…`. A fresh write today
+  differs from the committed file only in moved line numbers (`9afe3f7d…`),
+  which is H69's intended drift, not a defect.
+
+outcomes (5 done):
+| task | mode | review rounds | outcome | PR | EXP |
+| --- | --- | --- | --- | --- | --- |
+| M1.31 | pair (driver + navigator) | 2 | done | #195 | EXP-2026-11-16-M1.31-leaf-census |
+| M1.26 | pair (driver + navigator) | 3 | done | #196 | EXP-2026-11-16-M1.26-fn-audit-scope-l3 |
+| H74 | pair (driver + navigator) | 2 | done | #197 | EXP-2026-11-16-H74-claims-count-check |
+| H76 | pair (solo-scoped, gate assertion) | 1 | done | #198 | EXP-2026-11-16-H76-l3-image-assert |
+| H75 | solo (docs/evidence repair) | none | done | #199 | EXP-2026-11-16-H75-m1.27-evidence |
+| H71 | solo (docs/evidence spans) | none | done | #200 | EXP-2026-11-16-H71-evidence-spans |
+
+- M1.31: 598 complete GAPs (579 leaf / 19 non-leaf), 77 no-`rts` stubs (54
+  leaf), 2 cap rows; `0x00558300` is `TRUNCATED` (cap `0x400`, natural bound
+  `0x4a16`). Leaf rate uses 579.
+- M1.26: `--scope l3` = 891 citations / 179 unique VAs / 295 files; on the real
+  image `START 712, INSIDE 81, CORRECTED 11, GAP 75 (leaf 75), AMBIGUOUS 5,
+  UNMAPPED 7`, exit 1 (the register); the standing gate is `--corpus BASE
+  --overlay L3` exit 0. Overlay re-frozen `6adb8d5b…`.
+- H74: `claims_check --count-check` compares a claim's pinned count with the
+  cited tool's footer at the EXP's revision (replayed via `git archive`);
+  `--strict` add path classes; `fn_match`/`fn_audit` footers print 29/70.
+- H76: restored `selftest.py` 90/0/23; the l3 test no longer pins "0 moved".
+- H75: C-3703 names the re-creatable `head -c` US head (`70d945d8…`) and splits
+  fixture replay from the histogram; M1.27 EXP keeps 22 + `Correction (H75)`
+  (merge-time 26 = `2709645`). `claims_check --strict` 0.
+- H71: C-3860/C-3861/C-3864 evidence runnable; C-3861 hash `ddd113f8…`,
+  C-3864 `CORPUS STALE: 1 new / 0 gone / 125 moved`.
+
+rule 15: H75 was blocked on H74 and was re-opened by H74's merge (rule 15),
+then taken. H71 was already open with no deps. No task is left blocked on
+M1.31/M1.26/H74/H75/H71/H76.
+
+board after: 103 open / 55 done / 28 blocked; 0 open PRs; all gates green on
+`origin/main` `caff825` — `selftest.py` 90 passed / 0 failed / 23 skipped,
+`claims_check` OK (`--strict` exit 0), `todo_check` 0 errors, `--corpus` exit 0
+with `CORPUS DRIFT: DOCS BASE: 0 new / 0 gone / 125 moved` and
+`CORPUS DRIFT: L3 OVERLAY: 0 new / 0 gone / 55 moved` (H69 prose drift, by
+design).
+
+handoff: next TL — M1.22b (pair, the US census on M1.27/M1.31, `Pair:
+required`), then the next front. H62 (a `US256` fetch key) would replace H75's
+`head -c` line. Human-only: `tools/worktree_audit.py --prune --apply` from the
+main checkout (rule-4 stale worktrees/branches); /tmp tmpfs usage should be
+checked before any large probe copy.
