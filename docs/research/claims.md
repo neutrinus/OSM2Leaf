@@ -3160,3 +3160,22 @@ unique in the US build as `DIFFERENT` (literal-pool change), which reclassifies
 | C-3627 | The frozen fixture `tools/fixtures/fn_match_eu_us_2011.json` re-pins the six rows to `expect: DIFFERENT` with `us_candidate` and `diff_offset` (a DIFFERENT row is stricter: `compare_rows` also checks both), so the replay is `13 rows, 0 mismatch` after the change; before the change it was `13 rows, 6 mismatch`. `sha256sum` of the fixture is `a61b6037…0a63`. | VERIFIED (tool) | H | EXP-2026-11-16-M1.22b-eu-us-census; `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --eu archive/head256.img --us archive/us256.img --module Navi.exe` |
 | C-3628 | `tools/l3_harness/targets.json` carries `build` on every target (`eu2011`, `us2011`) and `runner.validate_targets` rejects any other value (`build must be one of eu2011, us2011`); the runner selftest asserts every shipped target's build is in the set. | VERIFIED (tool) | H | EXP-2026-11-16-M1.22b-eu-us-census; `python3 tools/l3_harness/runner.py --selftest`, `python3 tools/selftest.py` |
 | C-3629 | `fn_match`'s selftest covers the new rule in both directions and its two false-positive shapes: equal forms + different constants → explained; a changed opcode → NOMATCH; two identical twins → NOMATCH (ambiguous); a shifted masked stream → NOMATCH; `OK (33 checks, 0 failed)`. | VERIFIED (tool) | H | EXP-2026-11-16-M1.22b-eu-us-census; `python3 tools/fn_match.py --selftest` |
+
+## H80 — A Precheck selects claim rows by ID, not by line (C-4030–C-4039)
+
+H71's `Precheck:` used the line range `sed -n '2802,2807p'`, which later row
+insertions moved off the C-3860/61/64 rows; the repaired selector uses the
+claim ID.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4030 | On `main` before H80 the H71 Precheck's `sed -n '2802,2807p' docs/research/claims.md \| grep -cE 'C-386[014]'` prints `0`, and those six lines are C-3790–C-3795; an ID selector `grep -nE '^\| C-386[014] \|' docs/research/claims.md` prints `2824`, `2825`, `2828`. | VERIFIED (tool) | H | EXP-2026-11-16-H80-precheck-id; `sed -n '2802,2807p' docs/research/claims.md \| grep -cE 'C-386[014]'` and the ID grep |
+| C-4031 | H71's Done-when condition holds independently of the line range: on the evidence column of C-3860/61/64 the elided-span count is `0` both at H71's merge `caff825` and at `5d2dd23`, so the Precheck's staleness was not a hidden failure. | VERIFIED (tool) | H | EXP-2026-11-16-H80-precheck-id; the `for ref in caff825 HEAD` loop over `git show` |
+| C-4032 | The repaired Precheck, run as written, selects `3` rows by ID and prints `0` elided spans; `python3 tools/todo_check.py` prints `todo_check: OK` and `--strict` is unchanged at `69` ERRORs. | VERIFIED (tool) | H | EXP-2026-11-16-H80-precheck-id; the Reproduction block |
+| C-4033 | RESERVED (H80). | — | — | — |
+| C-4034 | RESERVED (H80). | — | — | — |
+| C-4035 | RESERVED (H80). | — | — | — |
+| C-4036 | RESERVED (H80). | — | — | — |
+| C-4037 | RESERVED (H80). | — | — | — |
+| C-4038 | RESERVED (H80). | — | — | — |
+| C-4039 | RESERVED (H80). | — | — | — |
