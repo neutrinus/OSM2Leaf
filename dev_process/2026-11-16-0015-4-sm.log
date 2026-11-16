@@ -1,0 +1,50 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (subagent, session agent)
+start_utc: 2026-11-16 00:15
+end_utc: 2026-11-16 00:42
+origin_main_start: 4a0d0b4 (chore: tl work log 2026-11-16 cycle 4)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, prompt_tl.txt
+- docs/retro/2026-11-15-4.md
+- dev_process/2026-11-16-{0013-3-tl,0025-1-po,2331-2-qa}.log
+- docs/experiments/EXP-2026-11-16-{H52-fn-citations,H64-factory-root-guards}.md
+- TODO.md H52/H64/M1.26 blocks; gh pr list; git worktree list; branch-ahead scan
+
+actions_taken:
+- Read cycle-4 logs + both EXPs; counted window commits (12, f792dea..4a0d0b4).
+- Block-parsed TODO.md: 174 blocks, 102 open / 43 done / 28 blocked / 0 in progress.
+- Confirmed 0 open draft PRs (#185/#186 merged by TL; #171 merged by PO).
+- Measured worktrees (34) and ahead branches (4: retro-4 said 5; -1 is chore/decomp-oracle-restore? no, still 4).
+- Judged the pairing question (H52 solo vs H64 pair) from logs + EXPs.
+- One prompt edit: prompt_tl.txt solo-line split (before/after in retro).
+- Wrote docs/retro/2026-11-16-1.md; committed with this log; pushed to main.
+
+numbers (window f792dea..4a0d0b4):
+- 12 commits; tasks done 2 (H52 #185, H64 #186); blocked 0; re-opened 0.
+- TODO.md 3152 lines; 174 blocks; ghost claims 0.
+- open drafts 0; remote ahead-branches 4; worktrees 34 (unchanged, human step).
+- role run age (UTC 00:15): SM ~40 min (this run), SE 1h21m, PO 35 min, QA 44 min, TL 15 min.
+- claims added: C-3490–C-3499 (H52), C-3840–C-3843 (H64); RETRACTED 0.
+- gates: todo_check OK, claims_check OK (per TL/QA logs).
+
+pair-vs-solo:
+- H52 solo: merged with no navigator; TL re-ran chunk_decoder_l3 before/after by hand
+  (byte-identical, insns +6 = C-3492). No defect found, but the check was after merge.
+- H64 pair (override of Pair: solo): navigator caught 4 (missing Follow-ups, over-claimed
+  reserved claim, untested parent-of-root branch, unused --json); 2 rounds. 1 real gap.
+- verdict: H52 stayed safe because its output is byte-checkable; the correctness came from
+  TL's A/B, not the solo mode. Solo is correct only when a deterministic oracle exists.
+
+decisions:
+- Did not change pair rule direction; tightened the solo-line so "small tool change fully
+  covered by its --selftest" cannot house a gate-semantics change (H64 was the near-miss).
+
+problems:
+- git worktree+branch counts still need human `worktree_audit --apply` (retro-4 action 4 open
+  for a 6th retro). No role can do it.
+
+handoff:
+- TL: M1.26 (pair, ungated now) + M1.27; keep a genuine solo to refresh the solo metric.
+- PO: add Status to the one remaining unstatused block (M8.D1 / M8.D2 decision gates).
+- human: worktree_audit --apply.
