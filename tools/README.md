@@ -423,13 +423,19 @@ commit, so the moved-only rule above is the whole contract.
 
 `--scope l3` widens the audit to the corpora the M9/M3 board cites: the l3
 harness `targets.json`, `docs/format/firmware.md`, every
-`docs/experiments/EXP-*.md` (parsed only — EXPs are append-only) and every
-`0x…` in an **open** `TODO.md` task block. It reports `NOT SCANNED <reason>`
-for a corpus whose parser or file is missing, and exits 1 on any `INSIDE` (or
-an `AMBIGUOUS` whose candidates include one). The whole l3 citation set is
-frozen to `docs/research/fn-audit-l3-corpus-2026-11-16.json` by the same
-`--write-snapshot` (scope `l3`), because EXPs cannot be edited: their stale
-VAs are a register, not a diff to fix.
+`docs/experiments/EXP-*.md` (parsed only — EXPs are append-only) and the
+**code citations** in an **open** `TODO.md` task block. The block uses the
+docs discipline, not "every hex token": a live `fn`/`sub_` label, a correction
+`ctx` with its own arrow pair, or a documented `CORRECTION_ONLY` pin is cited;
+a bare data address, path offset, range, string pointer or US-build start is
+skipped (it is not a citation a task can "fix"). `US_BUILD_STARTS` (the six
+US-2011 Navi VAs, M1.28/C-3487) are skipped for every kind in both scopes so
+the EU head never reports a valid US address as `INSIDE`. It reports
+`NOT SCANNED <reason>` for a corpus whose parser or file is missing, and exits
+1 on any `INSIDE` (or an `AMBIGUOUS` whose candidates include one). The whole
+l3 citation set is frozen to `docs/research/fn-audit-l3-corpus-2026-11-16.json`
+by the same `--write-snapshot` (scope `l3`), because EXPs cannot be edited:
+their stale VAs are a register, not a diff to fix.
 
 `--corpus BASE --overlay L3` audits both layers and applies the H69 policy
 **per source**: each layer gets its own live comparison (`docs` for the base,

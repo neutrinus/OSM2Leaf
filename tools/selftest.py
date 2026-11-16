@@ -336,6 +336,40 @@ def test_fn_audit_scope_l3() -> None:
     _cites, _files, not_scanned = fn_audit.collect_l3()
     assert isinstance(not_scanned, list), not_scanned
 
+    # Discipline (M1.26 blockers 1-3): an open block cites labels, documented
+    # corrections and pins — not every bare hex token.
+    block = (
+        "- [ ] **H999 — probe**\n"
+        "  - bare `0x00d53500` sec1 data address\n"
+        "  - live fn 0x0041c7e8 label\n"
+        "  - mid-function `0x00542256` → fn 0x00542250\n"
+        "  - pin 0x003f5fc2 on this line\n"
+        "  - US start `0x00444540` and its fn 0x004446f4 label\n"
+    )
+    got = {c.va: (c.kind, c.correction)
+           for c in fn_audit.citations_open_tasks(block)}
+    assert 0x00D53500 not in got, "a bare data address is not a citation"
+    assert got.get(0x0041C7E8) == ("fn", None), got
+    assert got.get(0x00542256) == ("ctx", 0x00542250), got
+    assert got.get(0x003F5FC2) == ("ctx", None), got
+    assert 0x00444540 not in got and 0x004446F4 not in got, \
+        "a US-build start is not an EU citation"
+
+    # Strict EXP scanning drops a bare call-site that shares an arrow with its
+    # callee, while a real documented correction is kept (blocker 1 at root).
+    import os
+    with tempfile.TemporaryDirectory() as tmp:
+        md = os.path.join(tmp, "callee.md")
+        with open(md, "w", encoding="utf-8") as fh:
+            fh.write("0x003f2d34 jsr @r3 -> sub_003f06a8\n"
+                     "mid-function `0x00542256` → fn 0x00542250\n")
+        strict = {(c.va, c.kind) for c in
+                  fn_audit.citations_markdown([md], strict=True)}
+        assert (0x003F2D34, "ctx") not in strict, \
+            "a call site sharing an arrow with its callee is not a correction"
+        assert (0x00542256, "ctx") in strict
+        assert (0x003F06A8, "sub_") in strict
+
 
 def test_fn_audit_scope_l3_image() -> None:
     """M1.26: the real l3 gate runs when the image is present.
@@ -344,6 +378,7 @@ def test_fn_audit_scope_l3_image() -> None:
     overlay matches its live scan (0 new / 0 gone); a *new* l3 INSIDE is the
     negative control and is exercised without the image in ``fn_audit_l3``.
     """
+    import fn_audit
     import subprocess
 
     image = REPO_ROOT / "archive" / "head256.img"
@@ -357,6 +392,15 @@ def test_fn_audit_scope_l3_image() -> None:
     out = (proc.stdout or "") + (proc.stderr or "")
     assert proc.returncode == 0, out
     assert "CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved" in out, out
+
+    # Blockers 1-2 on the committed corpus: the sec1 data address and every
+    # US-build start are absent from the overlay, so neither is counted as an
+    # EU INSIDE.
+    doc = fn_audit.load_corpus(str(overlay))
+    vas = {fn_audit._canon_va(r["va"]) for r in doc["rows"]}
+    assert "0x00d53500" not in vas, "a bare data address leaked into l3"
+    us = {"0x%08x" % va for va in fn_audit.US_BUILD_STARTS}
+    assert not (vas & us), "a US-build start leaked into the EU l3 overlay"
 
 
 def builtin_suites() -> list[Suite]:

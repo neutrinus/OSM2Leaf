@@ -149,6 +149,21 @@ CORRECTION_ONLY = {
     0x00542256: "H51/H52 non-start; true start `0x00542250`",
 }
 
+# Starts in the US 2011 `Navi.exe`, not the EU head this audit classifies
+# against.  The US build is a different binary (C-3487): `0x0035d894` is its
+# entry and the CMP chain sits at `0x00444540…`, so classifying these against
+# the EU `.pdata` reports a valid US address as an EU ``INSIDE`` (M1.26
+# blocker 2).  The list is the M1.28 fixture's US side (C-3740/C-3703), not a
+# range guess; a per-build map (M1.22b) will replace it.
+US_BUILD_STARTS = frozenset({
+    0x0035D894,  # US Navi.exe entry (C-3487)
+    0x00444540,  # CMP chunk engine          (EU 0x0041c7dc)
+    0x004446F4,  # CMP chunk-table loop      (EU 0x0041c990)
+    0x00443DA8,  # CMP/.ind opener           (EU 0x0041c044)
+    0x0041EC8C,  # POI name accessor         (EU 0x003f632c)
+    0x0056454C,  # zlib purge                (EU 0x00542250)
+})
+
 
 class Citation:
     __slots__ = ("va", "where", "kind", "correction")
@@ -167,16 +182,27 @@ def _line_of(text, pos):
     return text.count("\n", 0, pos) + 1
 
 
-def citations_markdown(paths):
-    """``fn``/``sub_`` VAs from prose files, one Citation per occurrence."""
+def citations_markdown(paths, strict=False):
+    """``fn``/``sub_`` VAs from prose files, one Citation per occurrence.
+
+    ``strict`` is the l3 discipline (M1.26 navigator): on a correction-marker
+    line a bare VA is a ``ctx`` only when its own arrow pair names a start or
+    it is a documented ``CORRECTION_ONLY`` pin.  A bare VA that merely shares a
+    line with an arrow (a call site such as ``0x003f2d34 jsr @r3 ->
+    sub_003f06a8``, where the arrow is the callee) is not a correction and is
+    skipped, and a US-build start is skipped for every kind.  The docs base
+    keeps the old rule (``strict=False``) so its frozen snapshot is unchanged.
+    """
     for path in paths:
         text = open(path, encoding="utf-8", errors="replace").read()
         rel = os.path.relpath(path, REPO)
         hits = [(m.start(), int(m.group(2), 16), m.group(1), None)
-                for m in FN_RE.finditer(text)]
+                for m in FN_RE.finditer(text)
+                if int(m.group(2), 16) not in US_BUILD_STARTS]
         hits += [(m.start(), int(m.group(1), 16), "sub_", None)
                  for m in SUB_RE.finditer(text)
-                 if not FN_RE.match(text, m.start())]
+                 if not FN_RE.match(text, m.start())
+                 and int(m.group(1), 16) not in US_BUILD_STARTS]
         prefixed = {pos for pos, _va, _kind, _corr in hits}
         # A line that corrects a label keeps every bare VA as a ``ctx`` citation
         # (M1.25 rule), and each bare VA carries the true start its *own* pair
@@ -197,8 +223,13 @@ def citations_markdown(paths):
                     pos = offset + m.start()
                     if pos in prefixed:
                         continue
-                    hits.append((pos, int(m.group(0), 16), "ctx",
-                                 pairs.get(m.start())))
+                    va = int(m.group(0), 16)
+                    corr = pairs.get(m.start())
+                    if va in US_BUILD_STARTS:
+                        continue
+                    if strict and corr is None and va not in CORRECTION_ONLY:
+                        continue
+                    hits.append((pos, va, "ctx", corr))
             offset += len(line) + 1
         for pos, va, kind, correction in sorted(hits):
             yield Citation(va, "%s:%d" % (rel, _line_of(text, pos)), kind,
@@ -229,13 +260,27 @@ def citations_l3_constants(paths):
 
 
 def citations_open_tasks(text):
-    """Every ``0x…`` in an open ``TODO.md`` task block, as a bare ``l3`` cite.
+    """``fn``/``sub_`` labels, correction ``ctx`` and pins in an open block.
 
     A block runs from ``- [ ] **<ID>`` to the next block header or section
     boundary.  Closed blocks, prose above the first block, and headings are
-    out of scope: this is the "open task blocks" corpus of M1.26.  Every hex
-    token is cited (not just ``fn`` labels) because the l3 targets, call sites
-    and constants in a block are all addresses a reader may enter.
+    out of scope: this is the "open task blocks" corpus of M1.26.
+
+    The block is scanned with the **docs discipline**, not "every hex token":
+    a bare ``0x…`` is cited only when it is a correction the block itself
+    documents, and a bare data address, path offset, range or US-build VA is
+    not a function citation (M1.26 navigator: the bare-hex rule turned a data
+    reference nobody can "fix" into a gate failure).  Concretely a VA is cited
+    when it is
+
+    * prefixed ``fn``/``sub_`` — a live label, so it still fails if mid-function;
+    * on a correction-marker line — a ``ctx`` with its own arrow pair, exactly
+      as ``citations_markdown`` does (so ``0xMID → fn 0xSTART`` is ``CORRECTED``);
+    * a documented ``CORRECTION_ONLY`` pin — a ``ctx`` that ``_resolved`` can
+      resolve against the pinned start even when the line names no start.
+
+    Everything else is skipped, and a US-build VA is skipped for every kind
+    (it is not a start in the EU head this gate classifies against).
     """
     lines = text.split("\n")
     starts = [i for i, line in enumerate(lines) if OPEN_TASK_RE.match(line)]
@@ -259,6 +304,11 @@ def citations_open_tasks(text):
             marked = bool(CORRECTION_RE.search(line))
             for m in BARE_RE.finditer(line):
                 va = int(m.group(0), 16)
+                if va in US_BUILD_STARTS:
+                    # A US-build start is not a start in the EU head this
+                    # image classifies against; citing it here would label a
+                    # valid US address as an EU ``INSIDE`` (M1.26 blocker 2).
+                    continue
                 # A live ``fn``/``sub_`` label keeps its failure class, exactly
                 # as in ``citations_markdown``.  On a correction-marker line
                 # every bare VA is a ``ctx`` with its own pair (M1.29), so a
@@ -268,10 +318,14 @@ def citations_open_tasks(text):
                 if re.search(r"(?:fn|sub_)\s?$", prefix):
                     kind = "sub_" if prefix.rstrip().endswith("sub_") else "fn"
                     corr = None
-                elif marked:
+                elif marked or va in CORRECTION_ONLY:
+                    # A pin is a documented correction even when its line
+                    # names no start (H63); ``_resolved`` still requires the
+                    # pinned start to match the image, so a live label beside
+                    # it and a stale pin both stay failures.
                     kind, corr = "ctx", pairs.get(m.start())
                 else:
-                    kind, corr = "l3", None
+                    continue
                 yield Citation(va, "TODO.md:%d" % (lineno + 1), kind,
                                correction=corr)
 
@@ -294,14 +348,14 @@ def collect_l3():
     firmware = os.path.join(REPO, FIRMWARE_DOC)
     if os.path.exists(firmware):
         files.append(firmware)
-        cites.extend(citations_markdown([firmware]))
+        cites.extend(citations_markdown([firmware], strict=True))
     else:
         not_scanned.append("%s: file missing" % FIRMWARE_DOC)
 
     exps = sorted(glob.glob(os.path.join(REPO, EXP_GLOB)))
     if exps:
         files.extend(exps)
-        cites.extend(citations_markdown(exps))
+        cites.extend(citations_markdown(exps, strict=True))
     else:
         not_scanned.append("%s: no EXP records" % EXP_GLOB)
 
@@ -1157,6 +1211,27 @@ def selftest():
         check("markdown extractor", got == [
             (0x0041c7e8, "fn"), (0x004e989c, "sub_"), (0x00542256, "sub_"),
             (0x004125a8, "fn"), (0x004125a8, "fn")])
+        # M1.26: an open block uses the docs discipline — a live label, a
+        # correction pair and a documented pin are cited; a bare data address
+        # and a US-build start are not.
+        block = (
+            "- [ ] **H999 — probe**\n"
+            "  - bare `0x00d53500` sec1 data\n"
+            "  - live fn 0x0041c7e8 label\n"
+            "  - mid-function `0x00542256` → fn 0x00542250\n"
+            "  - pin 0x003f5fc2 names no start here\n"
+            "  - US `0x00444540` and fn 0x004446f4\n"
+        )
+        opened = {c.va: (c.kind, c.correction)
+                  for c in citations_open_tasks(block)}
+        check("open-block skips a bare data address", 0x00D53500 not in opened)
+        check("open-block keeps a live label", opened.get(0x0041C7E8) == ("fn", None))
+        check("open-block keeps a correction pair",
+              opened.get(0x00542256) == ("ctx", 0x00542250))
+        check("open-block keeps a documented pin as ctx",
+              opened.get(0x003F5FC2) == ("ctx", None))
+        check("open-block skips US-build starts",
+              0x00444540 not in opened and 0x004446F4 not in opened)
         tj = os.path.join(tmp, "t.json")
         json.dump({"targets": [
             {"name": "fw", "entry": {"kind": "firmware_call", "va": "0x0041c7e8"}},
