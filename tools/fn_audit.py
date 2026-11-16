@@ -1197,8 +1197,10 @@ def _synth_records(*spans):
 
 def selftest():
     fails = []
+    ran = []
 
     def check(name, cond):
+        ran.append(name)
         print("%s %s" % ("ok  " if cond else "FAIL", name))
         if not cond:
             fails.append(name)
@@ -1861,7 +1863,8 @@ def selftest():
             rejected = True
         check("load_corpus rejects a foreign snapshot", rejected)
 
-    print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
+    print("selftest: %s (%d checks, %d failed)"
+          % ("OK" if not fails else "FAIL", len(ran), len(fails)))
     return 1 if fails else 0
 
 
