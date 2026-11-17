@@ -215,3 +215,4 @@ renamed, so each duplicated pair carries the file's slug in the link text.
 | [EXP-2026-11-06-M8.A7](EXP-2026-11-06-M8.A7-trace-tooling.md) | QEMU run wrapper and PC→module gdb script (M8.A7) | done (synthetic) |
 | [EXP-2026-11-06-M8.A4](EXP-2026-11-06-M8.A4-cpu-control.md) | SH-4 CCN/MMU factored into `sh4-ccn` (M8.A4) | builds; runtime unverified |
 | [EXP-2026-11-06-M8.A5](EXP-2026-11-06-M8.A5-boot-stubs.md) | QEMU `ze0-stubs` boot-blocker device (M8.A5) | patch compiles; boot unverified |
+| [EXP-2026-11-17-M8.A2](EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md) | `-M ze0` builds and boots; two patch bugs fixed (M8.A2 re-probe) | build/boot pass; access-list clause fails, task blocked |

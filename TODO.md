@@ -2922,31 +2922,24 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   `0xff800000`–`0xffffffff` and areas 4/6, `select SH4_CCN` with
   `sh4_ccn_iomem()` at `0xff000000` and `sh4_ccn_arrays()` at `0xf0000000`,
   and one `ze0-stubs` instance.
-  - Status: in progress · Owner: task/m8.a2-reprobe · Critical: yes
-  - Re-probe (2026-11-17): the "no prebuilt `qemu-system-sh4`" half is **stale** — `/usr/bin/qemu-system-sh4` is 11.1.3 (LE) and starts; `-M help` lists `none`, `r2d`, **no `ze0`**. The remaining half is the `-M ze0` build: `pkg-config` finds neither `glib-2.0` nor `pixman-1`. On Fedora 45 the missing packages are `glib2-devel`, `pixman-devel` and `zlib-ng-compat-devel` (there is no `zlib-devel`), then `bash tools/qemu-ze0/build.sh`. Root/dnf is needed; `dnf` also needs `TMPDIR=/var/tmp` while `/tmp` is full. `-M ze0` would also fix the `cedecomp_run.py probe` failure, which is a `-M none` memory-map problem, not a binary problem.
+  - Status: blocked · Owner: task/m8.a2-reprobe · Critical: yes
+  - Re-probe (2026-11-17): the build/runtime half is **no longer blocked** — with the QEMU deps installed, `build.sh --force` applies all five patches, builds QEMU 8.2.7 and `-M help` lists `ze0`; `-M ze0` boots `archive/head256.img` for the full 10 s with 0 CPU exceptions (C-4310, C-4311). The patch shipped with two bugs, both fixed here: a second `ze0.ram` block beside `default_ram_id` (`RAMBlock "ze0.ram" already registered, abort!`) and `config ZE0` without `UNIMP` (`unknown type 'unimplemented-device'`). The done-when's access-list clause **fails**: `-M ze0` yields 1 access (`write 0x38`) where `ce_qemu_probe.py` yields 15, because the machine models the CCN page the probe lists. The old text below is kept as history; the numbers are superseded by EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.
   - Depends: — (M8.A1, M8.A4 and M8.A5 are merged)
   - Note (PM 2026-11-06): the three series were never built together. M8.A1 saw
     `m8a4-0002/0003` rejected on 8.2.7; M8.A4/M8.A5 report them applying (the
     0003 banner says "Base: QEMU 8.2.7"). One clean `build.sh --force` over
     `patches/*.patch` settles it — record the resulting patch order.
-  - Blocker (2026-11-08, this host): `glib2-devel`/glib-2.0 pkg-config missing
-    and no prebuilt `qemu-system-sh4`; `build.sh --force` cannot
-    configure/build, so `-M help`/`-M ze0` listing and `ce_qemu_probe.py`
-    access-list reproduction were not run. Patch integration is verified:
-    `LC_ALL=C sort` over all 5 `patches/*.patch` applies cleanly to pristine
-    QEMU 8.2.7 (SHA-256 `1f0604f2…65b55`).
-  - Unblock: run on a host with QEMU 8.2.7 `sh4-softmmu` build deps
-    (glib-2.0 dev/pixman etc.) or a prebuilt LE `qemu-system-sh4`; execute
-    `bash tools/qemu-ze0/build.sh --force`, record patch order + `-M help` and
-    the `ce_qemu_probe.py`/`-M ze0` access-list comparison, update C-1240, and
-    set this task `open`→`done` only if the done-when passes.
+  - Blocker (2026-11-17, literal done-when): the machine builds, lists and boots, but `-M ze0` does not reproduce the `-M none` access list and cannot while it models those registers; the next observable stops are the `write 0x38` null store on the declared-length load (`nk.exe 0x8802ec46`, `r2 = 0`) and the `0x040 [tlb_miss] pc=0x00005bd0` chain when the probe's full extents are loaded. The comparison also depends on `run.sh` slicing each CE image by its declared length instead of the CE `romhdr` extent.
+  - Unblock: **M8.A3** (built-in loader: parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC = `nk.exe` entry) so the load no longer depends on `-device loader` extents; then re-probe and either reword this done-when to a `-M ze0`-specific expectation or show the list converging.
   - Done when: `bash tools/qemu-ze0/build.sh --force` applies every patch,
     builds, and `qemu-system-sh4 -M help` lists `ze0`; `-M ze0` reproduces the
     `ce_qemu_probe.py` access list; the run log and the final patch order are in
     the EXP.
-  - Result: EXP-2026-11-08-M8.A2-machine-skeleton (blocked on build/runtime
-    env; patch apply + 5-patch order verified, C-1240). Patch:
-    `tools/qemu-ze0/patches/ze0-0001-hw-sh4-ze0-machine.patch`.
+  - Result: EXP-2026-11-17-M8.A2-machine-skeleton-reprobe (build/listing/boot
+    pass; access-list clause fails, C-4312). Patch order and run logs in the
+    EXP; C-1240 corrected, C-4310–C-4312 added to `claims.md`. Patch:
+    `tools/qemu-ze0/patches/ze0-0001-hw-sh4-ze0-machine.patch`
+    (SHA-256 `59a47b7f…a9792`).
   - Claims: C-1240–C-1249
 
 - [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):

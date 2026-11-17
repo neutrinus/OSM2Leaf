@@ -96,6 +96,11 @@ kept), so the next run extracts cleanly.
   produces `qemu-system-sh4` but **no `ze0` machine**, so `--verify-only`
   fails by design until M8.A2 adds the patch. See
   [`EXP-2026-11-06-M8.A1-build-env.md`](../../docs/experiments/EXP-2026-11-06-M8.A1-build-env.md).
+- **M8.A2 (2026-11-17):** `build.sh --force --jobs 8` on a host with the
+  QEMU deps applies all five patches, builds QEMU 8.2.7 and prints
+  `OK: ze0  Nissan Leaf ZE0 navigation unit (SH-4A, research skeleton)`;
+  `-M ze0` boots `archive/head256.img` for 10 s with 0 CPU exceptions. See
+  [`EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md`](../../docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
