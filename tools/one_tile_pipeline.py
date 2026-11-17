@@ -44,7 +44,7 @@ GATES = [
     "section4",
     "manifests",
 ]
-STATUSES = {"PASS", "NOT-APPLICABLE", "CANNOT-VERIFY-OFFLINE", "NEEDS-L3", "BLOCKED"}
+STATUSES = {"PASS", "NOT-APPLICABLE", "CANNOT-VERIFY-OFFLINE", "NEEDS-L3", "BLOCKED", "FAIL"}
 
 SYNTHETIC_OSM = """\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -465,6 +465,40 @@ def survey_cell_binding(factory_root: Path) -> dict[str, Any]:
         "skipped": skipped,
         "ok": honest_ok == len(tiles) and wrong_pass == 0,
     }
+
+
+def _zlib_runtime() -> dict[str, Any]:
+    """The running interpreter's zlib, and whether recompression is reproducible.
+
+    ``run_cmd_json`` uses ``sys.executable``, so the interpreter that starts
+    the pipeline picks the encoder for every child tool.  A recorded tile SHA
+    that came from zlib-ng cannot be reproduced on a stock-zlib host (B1), so
+    the report and a loud banner must say which build ran.
+    """
+    import zlib
+    build = zlib.ZLIB_VERSION
+    runtime = getattr(zlib, "ZLIB_RUNTIME_VERSION", build)
+    ng = "zlib-ng" in build.lower() or "zlib-ng" in runtime.lower()
+    return {
+        "interpreter": sys.executable,
+        "python": sys.version.split()[0],
+        "zlib_build": build,
+        "zlib_runtime": runtime,
+        "stock": not ng,
+        "reproducible": not ng,
+        "message": ("stock zlib: the recorded tile SHA is reproducible"
+                    if not ng else
+                    "zlib-ng: NOT the reference compressor; the recorded tile SHA "
+                    "is not reproducible on a stock-zlib host"),
+    }
+
+
+def _zlib_banner(rt: dict[str, Any]) -> None:
+    print(f"zlib: {rt['zlib_build']} / {rt['zlib_runtime']} via {rt['interpreter']} "
+          f"(python {rt['python']})", file=sys.stderr)
+    if not rt["stock"]:
+        print("one_tile_pipeline: ZLIB-NG, NOT REPRODUCIBLE — re-run with python3.13 "
+              "(stock zlib); see EXP-2026-11-17-M5.34-parcel B1", file=sys.stderr)
 
 
 def gate(status: str, detail: str, evidence: str = "") -> dict[str, str]:
@@ -959,6 +993,58 @@ def selftest() -> int:
             "prove_tile_change reports no change for identical tiles")
         chk(proof["only_parcel_directory_changed"] is False,
             "identical tiles are not reported as a parcel change")
+
+        # B2: the slice proof must see a changed slot TAG in a *different*
+        # directory (sector_fingerprint only keeps kind,y,x,typ,box).
+        sibling = tilewriter._opaque_directory(0x2146, 1, yb, xb + 1)
+        two_dir_tile = tilewriter.make_factory(
+            "B48R058R", extra_dirs={1: [sibling]})
+        parsed = _clarion_tile().read_tile(two_dir_tile)
+        lv1 = [e for e in parsed["sections"] if e["id"] == 1][0]
+        lv1 = [e for e in lv1["levels"] if e["level"] == 1][0]
+        target = [d for d in lv1["dirs"]
+                  if (d["y"], tilewriter.dir_x0(d)) == (yb, xb + 1)][0]
+        target.setdefault("empty_tags", {})[3] = 0x00001234
+        mutated = _clarion_tile().write_tile(parsed)
+        proof = prove_tile_change(two_dir_tile, mutated, "B48R058R", (yb, xb))
+        chk([(d["y"], d["x"]) for d in proof["changed_directories"]] == [(yb, xb + 1)],
+            "slice proof sees a changed slot tag in a non-target directory")
+        chk(proof["only_parcel_directory_changed"] is False,
+            "slice proof does not call a sibling tag change the parcel change")
+
+        # B2: a file that exists only in `out` must make the tree gate FAIL.
+        tmpl = {"A": b"1", "B": b"2"}
+        got = {"A": b"1", "B": b"2", "C": b"3"}
+        chk(_tree_differences(tmpl, got) == [{"path": "C", "state": "extra-in-out"}],
+            "tree diff lists an out-only file as extra-in-out")
+        chk(_tree_differences(got, tmpl) == [{"path": "C", "state": "missing-from-out"}],
+            "tree diff lists a root-only file as missing-from-out")
+        chk(_tree_differences(tmpl, tmpl) == [], "tree diff of equal trees is empty")
+        chk(_tree_differences({"A": "h1"}, {"A": "h2"})
+            == [{"path": "A", "state": "differs"}],
+            "tree diff reports changed content as differs")
+        g_bad, unexpected_bad = one_tile_gate(
+            [{"path": "MAPAL001/X.DAT", "state": "differs"},
+             {"path": "EXTRA/only-in-out.DAT", "state": "extra-in-out"}],
+            "MAPAL001/X.DAT", {"DRSTR001.DAT"}, True,
+            {"changed_sections": [1], "changed_directories": []})
+        chk(g_bad["status"] == "FAIL" and unexpected_bad,
+            "one-tile gate FAILs on an out-only extra file (B2)")
+        g_ok, _ = one_tile_gate(
+            [{"path": "MAPAL001/X.DAT", "state": "differs"},
+             {"path": "DRSTR001.DAT", "state": "differs"}],
+            "MAPAL001/X.DAT", {"DRSTR001.DAT"}, True,
+            {"changed_sections": [1], "changed_directories": []})
+        chk(g_ok["status"] == "PASS", "one-tile gate passes tile + named manifest only")
+
+        # B1: the report states which zlib the running interpreter links.
+        rt = _zlib_runtime()
+        import zlib as _zlib
+        chk(rt["zlib_build"] == _zlib.ZLIB_VERSION
+            and rt["interpreter"] == sys.executable,
+            "_zlib_runtime records the running interpreter and zlib build")
+        chk(("stock" in rt["message"]) or ("zlib-ng" in rt["message"]),
+            "_zlib_runtime message names the zlib flavour")
     print(f"selftest: {'OK' if not fails else 'FAIL'} ({fails} failure(s))")
     return 0 if not fails else 1
 
@@ -969,15 +1055,67 @@ def _copy_factory_root(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst, symlinks=True)
 
 
+def _tree_differences(root_files: dict[Path, bytes] | set[Path],
+                      out_files: dict[Path, bytes] | set[Path]) -> list[dict[str, str]]:
+    """Per-file difference over the union of both trees (B2).
+
+    A one-sided walk misses a file that exists only in ``out``; comparing the
+    union makes an extra file a difference the gate can fail on.  ``differs``
+    is only decided when both sides are ``{relpath: sha256}`` maps; for plain
+    path sets the caller has already established equality.
+    """
+    root_hashes = root_files if isinstance(root_files, dict) else {}
+    out_hashes = out_files if isinstance(out_files, dict) else {}
+    root_set = set(root_files)
+    out_set = set(out_files)
+    differing = []
+    for rel in sorted(root_set | out_set, key=str):
+        if rel not in root_set:
+            differing.append({"path": str(rel), "state": "extra-in-out"})
+        elif rel not in out_set:
+            differing.append({"path": str(rel), "state": "missing-from-out"})
+        elif (rel in root_hashes) != (rel in out_hashes):
+            differing.append({"path": str(rel), "state": "hash-not-compared"})
+        elif root_hashes.get(rel) != out_hashes.get(rel):
+            differing.append({"path": str(rel), "state": "differs"})
+    return differing
+
+
+def one_tile_gate(differing: list[dict[str, str]], tile_path: str,
+                  manifests: set[str], only_dir: bool,
+                  tile_change: dict[str, Any]) -> tuple[dict[str, str], list[dict[str, str]]]:
+    """The B2 gate: PASS only when the tile is the one change and no other file.
+
+    An extra file in ``out`` is ``unexpected`` and makes the gate ``FAIL`` —
+    the defect the one-sided walk could not see.
+    """
+    unexpected = [d for d in differing
+                  if d["path"] != tile_path and d["path"] not in manifests]
+    status = "PASS" if (only_dir and not unexpected) else "FAIL"
+    g = gate(status,
+             f"changed sections={tile_change.get('changed_sections')}, "
+             f"changed directories={tile_change.get('changed_directories')}, "
+             f"differing files={[(d['path'], d['state']) for d in differing]}.",
+             "prove_tile_change (byte slice per directory) + union tree diff")
+    return g, unexpected
+
+
 def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
                       parcel: tuple[int, int]) -> dict[str, Any]:
     """Prove exactly one directory of one tile changed, and nothing else.
 
-    Compares section fingerprints (``tilewriter.sector_fingerprint``) of the
-    factory and generated tiles: every section except 1 must be identical, and
-    inside section 1 every level-1 directory except ``parcel`` must be
-    identical at the slot/record level.  Returns the parsed counts and the
-    positions that differ, for the EXP and the gate report.
+    Two independent checks:
+
+    * ``tilewriter.sector_fingerprint`` per section: sections 2 and 4 must be
+      identical and section 1 must differ.
+    * a **byte slice** per directory: every section-1 level-1 directory is
+      compared as ``tile[off:next_off]`` (header, slot tags, bodies and the
+      declared-size tail), so a changed slot tag is visible even though
+      ``sector_fingerprint`` only keeps ``(kind, y, x, typ, box)`` for a
+      directory header (B2 review).
+
+    Returns the changed sections/directories and whether the only changed
+    directory is ``parcel``.
     """
     import tilewriter
     ct = _clarion_tile()
@@ -987,32 +1125,49 @@ def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
         sid for sid in (1, 2, 4)
         if tilewriter.sector_fingerprint(before, sid) != tilewriter.sector_fingerprint(after, sid)
     ]
+
+    def slices(tile: dict, data_len: int) -> dict[tuple[int, int, tuple[int, int]], tuple[int, int]]:
+        """``{(section, level, (y, x)): (off, end)}`` from ``clarion_tile.read_dir``.
+
+        ``end`` is what ``read_dir`` consumed (12-byte header, slot tags and
+        bodies, declared-size tail), so the slice covers the whole directory
+        container, not just the header words.
+        """
+        out = {}
+        for sec in tile.get("sections") or []:
+            for entry in sec["levels"]:
+                for directory in entry["dirs"]:
+                    off = directory["off"]
+                    end = directory.get("end")
+                    if not end or end <= off:
+                        end = data_len if not out else min(
+                            (d["off"] for d in entry["dirs"] if d["off"] > off), default=data_len)
+                    out[(sec["id"], entry["level"],
+                         (directory["y"], tilewriter.dir_x0(directory)))] = (off, end)
+        return out
+
+    before_slices = slices(before, len(factory_tile))
+    after_slices = slices(after, len(out_tile))
     changed_dirs = []
-    if 1 in changed_sections:
-        b = tilewriter._section(before, 1)
-        a = tilewriter._section(after, 1)
-        for eb, ea in zip(b["levels"], a["levels"]):
-            if eb["level"] != ea["level"]:
-                continue
-            bb = {(d["y"], tilewriter.dir_x0(d)): d for d in eb["dirs"]}
-            aa = {(d["y"], tilewriter.dir_x0(d)): d for d in ea["dirs"]}
-            for pos in sorted(set(bb) | set(aa)):
-                db, da = bb.get(pos), aa.get(pos)
-                if db is None or da is None:
-                    changed_dirs.append({"level": eb["level"], "y": pos[0], "x": pos[1],
-                                         "reason": "directory added/removed"})
-                elif (db["kind"], db["nslots"]) != (da["kind"], da["nslots"]):
-                    changed_dirs.append({"level": eb["level"], "y": pos[0], "x": pos[1],
-                                         "reason": "directory header"})
-                elif tilewriter.sector_fingerprint(
-                        {"sections": [dict(id=1, levels=[dict(level=eb["level"],
-                         typ=eb["typ"], dirs=[db])])]}, 1) != tilewriter.sector_fingerprint(
-                        {"sections": [dict(id=1, levels=[dict(level=ea["level"],
-                         typ=ea["typ"], dirs=[da])])]}, 1):
-                    changed_dirs.append({"level": eb["level"], "y": pos[0], "x": pos[1],
-                                         "reason": "slot/record bytes"})
-    only_parcel = ([d for d in changed_dirs] == [{"level": 1, "y": parcel[0], "x": parcel[1],
-                                                   "reason": "slot/record bytes"}])
+    for key in sorted(before_slices, key=lambda k: (k[0], k[1], k[2])):
+        if key[0] != 1 or key[1] != 1:
+            continue
+        if key not in after_slices:
+            changed_dirs.append({"level": 1, "y": key[2][0], "x": key[2][1],
+                                 "reason": "directory missing in out"})
+            continue
+        a0, a1 = before_slices[key]
+        b0, b1 = after_slices[key]
+        if factory_tile[a0:a1] != out_tile[b0:b1]:
+            changed_dirs.append({"level": 1, "y": key[2][0], "x": key[2][1],
+                                 "reason": "byte slice differs",
+                                 "factory_range": [a0, a1], "out_range": [b0, b1]})
+    for key in sorted(after_slices, key=lambda k: (k[0], k[1], k[2])):
+        if key[0] == 1 and key[1] == 1 and key not in before_slices:
+            changed_dirs.append({"level": 1, "y": key[2][0], "x": key[2][1],
+                                 "reason": "directory added in out"})
+    only_parcel = ([{k: v for k, v in d.items() if k in ("level", "y", "x")} for d in changed_dirs]
+                   == [{"level": 1, "y": parcel[0], "x": parcel[1]}])
     size_delta = len(out_tile) - len(factory_tile)
     return {
         "factory_tile_sha256": sha256_bytes(factory_tile),
@@ -1023,6 +1178,7 @@ def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
         "changed_sections": changed_sections,
         "changed_directories": changed_dirs,
         "only_parcel_directory_changed": only_parcel,
+        "method": "sector_fingerprint for sections; byte slice per section-1 level-1 directory",
     }
 
 
@@ -1043,6 +1199,8 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     directory's kind) unless ``clip`` is set, which drops such ways instead.
     """
     _check_out_overlap(out, factory_root)
+    rt = _zlib_runtime()
+    _zlib_banner(rt)
     report: dict[str, Any] = {
         "mode": "factory-backed", "tile": cell, "mapping": "provisional-v0",
         "rule13": "roadclass_v0 provisional, not firmware-confirmed; L2 necessary not sufficient; L3/L4/L5 acceptance unknown",
@@ -1050,6 +1208,7 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         "real_image_run": "attempted", "gates": {}, "counts": {}, "changed_set_expected": [f"MAPAL001/{cell}.DAT"],
         "factory_tile_sha256": None, "factory_tile_size": 0,
         "factory_tree_provenance": "not-checked",
+        "zlib": rt,
     }
     if not factory_root.is_dir():
         report["gates"] = {g: gate("BLOCKED", f"factory root not a directory: {factory_root}") for g in GATES}
@@ -1187,33 +1346,25 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
             tile_change = prove_tile_change(
                 factory_tile_bytes, out_tile.read_bytes(), cell, parcel)
             report["tile_change"] = tile_change
-            if out.exists():
-                differing = []
-                for src in sorted(factory_root.rglob("*")):
-                    if not src.is_file():
-                        continue
-                    rel = src.relative_to(factory_root)
-                    dst = out / rel
-                    if not dst.exists():
-                        differing.append({"path": str(rel), "state": "missing"})
-                    elif sha256_bytes(src.read_bytes()) != sha256_bytes(dst.read_bytes()):
-                        differing.append({"path": str(rel), "state": "differs"})
-                tile_path = f"MAPAL001/{cell}.DAT"
-                manifests = {"DRSTR001.DAT", "MMAIN001.DAT", "CMP.LST"}
-                unexpected = [d for d in differing
-                              if d["path"] != tile_path and d["path"] not in manifests]
-                report["tree_diff"] = {
-                    "differing_files": differing,
-                    "unexpected_differences": unexpected,
-                    "tile_plus_manifests_only": not unexpected,
-                }
-                report["changed_set_actual"] = [d["path"] for d in differing]
-                only_dir = bool(tile_change.get("only_parcel_directory_changed"))
-                report["gates"]["one_tile_one_directory"] = gate(
-                    "PASS" if (only_dir and not unexpected) else "CANNOT-VERIFY-OFFLINE",
-                    f"changed sections={tile_change.get('changed_sections')}, "
-                    f"changed directories={tile_change.get('changed_directories')}, "
-                    f"differing files={[d['path'] for d in differing]}.")
+            # Compare the union of both trees, so an out-only or root-only file
+            # is a difference too (B2: a one-sided walk cannot see it).
+            root_hashes = {p.relative_to(factory_root): sha256_bytes(p.read_bytes())
+                           for p in factory_root.rglob("*") if p.is_file()}
+            out_hashes = {p.relative_to(out): sha256_bytes(p.read_bytes())
+                          for p in out.rglob("*") if p.is_file()}
+            differing = _tree_differences(root_hashes, out_hashes)
+            tile_path = f"MAPAL001/{cell}.DAT"
+            manifests = {"DRSTR001.DAT", "MMAIN001.DAT", "CMP.LST"}
+            only_dir = bool(tile_change.get("only_parcel_directory_changed"))
+            report["gates"]["one_tile_one_directory"], unexpected = one_tile_gate(
+                differing, tile_path, manifests, only_dir, tile_change)
+            report["tree_diff"] = {
+                "files_compared": len(set(root_hashes) | set(out_hashes)),
+                "differing_files": differing,
+                "unexpected_differences": unexpected,
+                "tile_plus_manifests_only": not unexpected,
+            }
+            report["changed_set_actual"] = [d["path"] for d in differing]
         except Exception as e:  # a proof failure is a result
             report["tile_change"] = {"error": f"{type(e).__name__}: {e}"}
     return report
