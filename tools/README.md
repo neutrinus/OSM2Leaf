@@ -311,6 +311,23 @@ python3 tools/sh4xref.py IMG Navi.exe --image-start 0x200200 --calls 0x004e7b8c 
 python3 tools/sh4xref.py --selftest
 ```
 
+## `callgraph.py` — static call graph of a module (H101, M3.23 core)
+
+Nodes are the `.pdata` functions plus called leaves; edges are `bsr`, calls
+through a pool literal and import calls (thunks folded into their callers).
+A `jsr @Rn` with no literal is counted as unresolved, never guessed.
+
+```bash
+python3 tools/callgraph.py --selftest
+python3 tools/callgraph.py build IMG256 -o archive/work/navi_eu.json   # ~20 s
+python3 tools/callgraph.py callers archive/work/navi_eu.json 0x0041b4f8 --depth 2
+python3 tools/callgraph.py reach   archive/work/navi_eu.json 0x004266ec
+python3 tools/callgraph.py users   archive/work/navi_eu.json fread,fseek,fopen
+python3 tools/callgraph.py path    archive/work/navi_eu.json 0x0041c044 0x00542250
+```
+
+The graph file is derived from vendor code: keep it under `archive/`.
+
 ## `nk_decomp.py` — decompress ROM sections with the kernel's own routine (H51)
 
 Runs `nk.exe` `DECOMP_SECT 0x88037464` (build B) in the PySh4 engine: no
