@@ -1,0 +1,74 @@
+role: SE (senior engineer), cycle 13
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong aggregate)
+start 2026-11-17 13:15 UTC, end 2026-11-17 13:55 UTC
+origin/main at start: bd0f3bc (SM cycle-12 retro, SOURCE-task claim-range rule)
+
+Inputs read: prompt_common.txt, prompt_se.txt, AGENTS.md, TODO rules 1-16;
+  docs/retro/2026-11-17-3.md; dev_process/2026-11-17-1125-44-se.log (SE cycle 12);
+  EXP-2026-11-17-M9.39-point010-mutant; EXP-2026-11-17-H95-log-rotation;
+  docs/experiments/TEMPLATE.md; claims C-4170-C-4179; TODO H91-H99/M1.32-33/M9.39-41.
+
+M9.39 Done-when re-runs (8 code-build x page runs from /tmp/opencode/m939, still present):
+- mutant .cmp/.ind SHA-256 match C-4174 exactly (both pairs); same-length pair too.
+- all 8 factory/mutant runs: result: PASS; US n=501 0xfe4e->0xfe52, n=998
+  0x1fb82->0x1fb86, n=999 0x1fc0a->0x1fc0e; EU 0xbe82->0xbe86, 0x17af6->0x17afa,
+  0x17b40->0x17b44; n=500 unchanged; count 1000; n=1000 None.
+- same-length control: all offsets == factory on both builds, 130,178 B, PASS.
+- rebuilt both mutant pairs from the EXP Method heredoc on py3.13: SHA-256 identical
+  (so the Method reproduces the corpus).
+Verdict: M9.39 Done-when holds; no status change.
+
+H95 negative EXP: positive control real (README found 1/12 heads, `max+1` line 82;
+  negative NO_SUCH_FILE 0). SM accepted; no action.
+
+EXP template: M9.39 and H95 both carry sample+SHA-256, runnable commands, positive and
+  negative controls, counted corpus, falsifier before result, observations separate.
+  Defect: M9.39's corpus is rebuildable only from two `python3.13 - <<'PY'` heredocs;
+  the committed CLI writes a different (all-149-stream) pair -> M9.43.
+
+Retired leads / traps: none repeated. M9.39 correctly avoids big-endian (LE engine),
+  derives the walker from M1.22's tree, no fitted delta; the zlib-ng caveat is stated
+  (C-4175). H95 is a controlled absence proof, not a guessed signature.
+
+Claims: claims_check --strict --count-check OK (0 mismatches, 0 conflicts).
+  C-4170..C-4178 each name the EXP block that prints the number; C-4179 is a RESERVED
+  row on a done task -> H100.
+
+Defects found (engineering, not PO):
+1. Board deadlock M9.31 <-> M9.12: M9.31 `Depends: M9.12 (blocked)`, M9.12
+   `Unblock: M9.31` -> neither can start. Fixed M9.31 Depends -> M9.41 + M9.11.
+2. Board deadlock M5.34 <-> M5.29: M5.34 `Depends: M5.29 (blocked)`, M5.29
+   `Unblock: M5.34` (the only L2 blocker). Fixed M5.34 Depends -> M5.22 only.
+3. M9.41's Falsifier is unsatisfiable: the M9.39 mutant is a POSITIVE witness, and a
+   wrong build exits 1 with a traceback and ZERO `result:` lines (measured) -> M9.42.
+4. M9.39 corpus not reproducible from a committed command -> M9.43.
+5. `claims.md` has 285 RESERVED placeholder rows (97 on done tasks, 151 on absent
+   tasks); no gate sees them -> H100.
+
+Tasks added (4; IDs grepped free; no numeric claim range per the new prompt_se rule):
+- M9.42 L3 · Pair required - make wrong-build a clean `result: FAIL`; fix M9.41's
+  Falsifier. Claims: none until rows are committed.
+- M9.43 tools · Pair required - `mutate_refer_poi.py` chunk-preserving mode so the
+  committed CLI reproduces M9.39's pinned SHAs (C-4173/C-4174). Claims: none yet.
+- H100 docs/tools · Pair required - `claims_check --reserved` + delete done/absent
+  RESERVED rows. Claims: none yet.
+- (No 4th: the coordinate-reader deeper dig is real but M9.39 already lists it as an
+  M3.11c/M9.10 limitation; adding it now would be a record duplicate.)
+
+Changed: M9.31 Depends (deadlock), M5.34 Depends (deadlock).
+
+Not added (owned/duplicate): H91-H99, M1.32/M1.33, M9.40/M9.41, M9.31/M9.12, M5.34/M5.29,
+  M3.11c/M3.13/M4.36 (coordinate/name readers).
+
+Decisions rejected: adding a `point_walk_l3`/`chunk_decoder_l3` engine-setup refactor
+  task - the duplication (PySh4 setup, text mapping) is ~6 lines per tool and both
+  already import `point_walk_l3 as pw`; not worth a task over the L3 map work.
+
+Checks before push: todo_check OK (66 pre-existing --strict errors unchanged); new
+  blocks warning-clean; claims_check --strict --count-check OK; gate.py 4 pass (run
+  before edits; re-run in commit step).
+
+Handoff: TL - M9.42 and M9.43 repair the L3 corpus M9.41/M9.31/M9.12 depend on; run
+  them with/just before M9.41. H100 is a gate addition (Pair required). PO - the two
+  deadlock fixes change no priority order; M5.34 is now genuinely takeable (parcel
+  census part needs no OSM extract).
