@@ -3445,9 +3445,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: an opcode family that needs FPU or MMU state is listed as out of scope.
   - Claims: C-3590–C-3599
 
-- [ ] **M9.39 — A POINT010 page whose *records* differ: the L3 corpus M1.22 left to M9.10**
-  - Status: in progress · Owner: task/m9.39-point010-mutant · Critical: no · Pair: required
-  - Result: EXP-2026-11-17-M9.39-point010-mutant (awaiting navigator approval; not yet done)
+- [x] **M9.39 — A POINT010 page whose *records* differ: the L3 corpus M1.22 left to M9.10**
+  - Status: done · Owner: task/m9.39-point010-mutant · Critical: no · Pair: required
+  - Result: EXP-2026-11-17-M9.39-point010-mutant; C-4170–C-4178 — a +4 B rewrite of record 500 moves `n=501`/998/999 by +4 on both builds and both pages (US `0xfe4e→0xfe52`, `0x1fb82→0x1fb86`, `0x1fc0a→0x1fc0e`; EU `0xbe82→0xbe86`, `0x17af6→0x17afa`, `0x17b40→0x17b44`), count stays 1,000, `n=1000` is `None`, one outer stream of 149/151 differs; a same-length control leaves every offset at the factory value.
   - Depends: M1.22 (both walkers run on US + EU pages; done), `tools/mutate_refer_poi.py` (for the record edit)
   - Goal: M1.22's cross-build run uses two *different factory cards*, which proves the reader is not tuned to one card but not that it reads *our* bytes. The L3 corpus still has no POINT page whose record contents (name offset, coordinates, icon) were changed on purpose, so a reader that ignored the record bytes would still pass. Produce one mutated page and run all four combinations (EU/US code × factory/mutated page) so the mutation is visible in the output, not just "PASS".
   - Precheck: `python3 tools/mutate_refer_poi.py --selftest` passes; `python3 tools/point_walk_l3.py walk archive/us256.img --cmp <US>/POINT010.DAT.cmp --ind <US>/POINT010.DAT.ind --page 0x840ba0 --page-len 42848 --build us2011 | tail -1` prints `result: PASS` (the M1.22 baseline this task must not regress).
