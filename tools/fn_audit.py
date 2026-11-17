@@ -784,6 +784,24 @@ def image_sha256(path):
     return digest.hexdigest()
 
 
+def _image_sha_or_error(path):
+    """``(sha, None)`` for a readable image, ``(None, 2)`` with the live
+    path's own wording for a missing one (H88).
+
+    ``image_sha256`` opens the file, so on a checkout without the image the
+    ``--corpus`` path used to die with a ``FileNotFoundError`` traceback while
+    the live path printed ``error: [Errno 2] No such file or directory: …`` and
+    returned 2.  Routing both through the same wording keeps
+    ``tools/gate.py``'s ``no such file or directory: 'archive/`` SKIP marker
+    meaningful for a direct caller, not just through the gate.
+    """
+    try:
+        return image_sha256(path), None
+    except OSError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return None, 2
+
+
 def load_corpus(path):
     """The snapshot document, validated to the row schema ``--corpus`` needs."""
     with open(path, encoding="utf-8") as fh:
@@ -1875,6 +1893,23 @@ def selftest():
             rejected = True
         check("load_corpus rejects a foreign snapshot", rejected)
 
+        # H88: --corpus with a missing image must print the live path's error
+        # and return 2, not a FileNotFoundError traceback.  The snapshot has to
+        # load first (load_corpus runs before the image is hashed), so write a
+        # real one against the synthetic image.
+        missing = os.path.join(tmp, "no-such.img")
+        path_h88 = os.path.join(tmp, "fa-h88.json")
+        write_snapshot(path_h88, snap_files, rows, snap_summary, img)
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            rc_missing = main([missing, "--corpus", path_h88])
+        msg = err.getvalue()
+        check("H88 --corpus + missing image exits 2 without a traceback",
+              rc_missing == 2 and "Traceback" not in msg
+              and "No such file or directory" in msg)
+        check("H88 --corpus + missing image names the path in the error",
+              missing in msg)
+
     print("selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))
     return 1 if fails else 0
@@ -1923,7 +1958,10 @@ def main(argv=None):
         except (OSError, ValueError) as exc:
             print("error: %s" % exc, file=sys.stderr)
             return 2
-        if doc.get("image_sha256") != image_sha256(args.image):
+        expected, err = _image_sha_or_error(args.image)
+        if err is not None:
+            return err
+        if doc.get("image_sha256") != expected:
             print("error: snapshot image_sha256 %r does not match %s"
                   % (doc.get("image_sha256"), args.image), file=sys.stderr)
             return 2
