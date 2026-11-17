@@ -1,0 +1,62 @@
+role: PO (product owner), cycle 12, 14th pass
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong aggregate)
+start 2026-11-17 11:28 UTC, end 2026-11-17 11:56 UTC
+origin/main at start: fdba381 (SE cycle-12 review: H94/H95/M9.41/M1.33)
+
+Inputs read: prompt_common.txt, prompt_po.txt, AGENTS.md, TODO rules 1-16 and
+  Priorities; docs/retro/2026-11-17-2.md; dev_process/2026-11-17-1045-43-sm.log
+  and -1125-44-se.log. Earlier logs by name only.
+
+Archive decision:
+- Re-ran the fixpoint honestly instead of trusting the prior "0 moved". The
+  old scan matched IDs anywhere in a block, so references from *done* blocks
+  (provenance) looked like live deps. A status-aware scan found 14 truly free
+  done blocks: H64, H67-H75, M1.25, M1.27, M1.28, M1.30 — all merged
+  2026-11-16, i.e. >24 h.
+- Moved them to docs/research/todo-history-2026-11-17.md (H and M1 sections).
+- TODO.md 3644 -> 3448 lines (44 removed, +4 in the history header).
+- The other 7 free done blocks (M1.2e, H79, H80, H88, M8.E1c, M9.29, M9.30)
+  merged 2026-11-17 and stay under the 24 h rule; 49 of 56 are live-referenced.
+- Consequence caught: the archive removed 7 `fn_audit` rows (citations inside
+  moved blocks) and moved 129 base / 72 l3 rows, so gate.py went 2 pass/2 fail.
+  Regenerated both snapshots with `--write-snapshot` (H69's owner action), then
+  gate is `fn_audit PASS`. This is the archive's mechanical consequence, not a
+  new finding; recorded in the Priorities header.
+
+Priorities (rewritten, 59 -> ~66 lines):
+- L1: M5.30, H40. L2: M5.34 -> M5.29 -> M5.30 -> M5.33 -> M5.11; M5.35, M4.36.
+- L3: M9.39 -> M9.41 -> M9.31 -> M9.12; M3.11c/M3.11b for the name half;
+  discovery M1.20 -> M3.23 -> M3.24 -> M9.38 -> M3.22/M3.13; M9.36/M9.37,
+  M9.24, M1.19; H89.
+- L4: M8.A2 (blocked on the QEMU host) -> M8.A3/M8.A6 -> M8.E4; M1.19 prereq.
+- L5: M6.2 -> M6.5 -> M6.6 -> M6.7; M6.13, H29, M6.15.
+- "Take first" names M5.34, then M9.39 -> M9.41 (corrected from the first
+  draft, which put M9.41 before the M9.39 its Depends names), M1.20 chain,
+  M1.19, M9.36/M9.37, the H93/H94/M1.33/H91/H92 batch, then cheap/solo items.
+
+New tasks: none added. Cycle 12 already queued H93, H94, H95, M9.41, M1.33;
+M9.39/M9.40/H91/H92/M1.32 are open and owned by no one else, and the only
+new idea I had (H60 follow-up for the archived-ref warnings, 16 -> 24 after
+this archive) is H60's own Scope; adding it would duplicate. Rule 9 forbids
+duplicate IDs, and a route through the goal shows no missing Critical task
+except the blocked-by-environment M8.A2, which no ticket can unblock here.
+
+Rule 15: no `Unblock:` target became done since fdba381 (M9.31 still open,
+M5.34 still open, M1.20/M1.21 still open), so nothing re-opened. Verified by
+scanning every `Status: blocked` block's `Unblock:` against the live statuses.
+
+Problems:
+- /tmp is 95 % full (3.6 G/3.8 G). `mkcard --selftest` fails with
+  `OSError: [Errno 28] No space left on device`, so `selftest` is the one red
+  gate; `claims_check`, `todo_check`, `fn_audit` pass. This is the carried
+  human debt (retro-5/6/7 action 5), not a code defect.
+- `todo_check` unknown-ID warnings rose 16 -> 24: the moved blocks are still
+  named by other done blocks (e.g. H76 -> H69). H60 will classify them
+  `archived`; recorded in the history header.
+
+Checks: claims_check --strict --count-check OK (0 mismatches); todo_check OK;
+gate: claims/todo/fn_audit PASS, selftest FAIL only on /tmp disk full.
+
+Handoff: QA should start from the 3-pass/1-fail gate and the 95 % /tmp; the
+  next TL pass should take M5.34 (L2) and M9.39 -> M9.41 (L3) — the two
+  Critical paths that are actually runnable. Human: free /tmp or set TMPDIR.
