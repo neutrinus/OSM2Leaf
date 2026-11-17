@@ -1,7 +1,7 @@
 role: driver (M8.A2 re-probe)
 model: airouter/strong (aggregate)
 start: 2026-11-17 19:44 UTC
-end: (see last line)
+end: 2026-11-17 21:10 UTC
 origin/main at start: 491f683 (docs: QA cycle-13 delta pass)
 inputs read: prompt_common.txt, AGENTS.md, TODO rules 1-17, M8.A2 block,
   EXP-2026-11-08-M8.A2, EXP-2026-11-06-M8.A1/A4/A5, tools/qemu-ze0/{build.sh,
