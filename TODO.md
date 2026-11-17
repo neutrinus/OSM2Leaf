@@ -1019,7 +1019,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3520–C-3529
 
 - [ ] **M1.22 — The US firmware build: module census and EU→US function map**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.22-us-census · Critical: yes · Pair: required
   - Note (PO re-open): the `Blocker (SE 2026-11-13)` below is historical — M1.22b cleared it; the residual scope is in the Re-opened line.
   - Blocker (SE 2026-11-13): `fn_match.py --selftest` passes and the EU-vs-EU control maps 13/13 UNIQUE, but the EU→US run maps only 5/13 cited readers UNIQUE (`0x0041c7dc→0x00444540`, `0x0041c990→0x004446f4`, `0x0041c044→0x00443da8`, `0x003f632c→0x0041ec8c`, `0x00542250→0x0056454c`); 8 NOMATCH, including the POINT walker leaf `0x003f5194`. That is <90 %, there is no census EXP, and `targets.json` has no `build` field.
   - Re-opened (PO, rule 15): M1.22b merged (PR #203) and supplied the matcher, the census and `build`; the `M1.22b` Unblock condition is met. What M1.22b left undone here: the two US-only modules are **not named** (its census is module-internal), the 13-reader table is `5 UNIQUE / 7 DIFFERENT / 1 NOMATCH` (the ≥90 % UNIQUE floor is not met — M1.22b argued it is a data-layout metric), and the `point_walk_l3.py`/`chunk_decoder_l3.py` reruns with the US VAs (M9.10/M9.12) have not run. Precheck: `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x003f5194 …` still prints `unique: 5`; `grep -c "US-only\|only on the US" docs/experiments/EXP-2026-11-16-M1.22b-eu-us-census.md` prints `0`.
