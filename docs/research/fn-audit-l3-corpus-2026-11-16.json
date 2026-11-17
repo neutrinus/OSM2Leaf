@@ -322,10 +322,10 @@
  ],
  "summary": {
   "files": 314,
-  "citations": 908,
+  "citations": 906,
   "unique_va": 182,
   "start": 728,
-  "inside": 82,
+  "inside": 80,
   "corrected": 11,
   "gap": 75,
   "leaf": 75,
@@ -850,7 +850,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3029,
+   "line": 3102,
    "va": "0x880385e4",
    "kind": "fn",
    "class": "START",
@@ -859,7 +859,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3141,
+   "line": 3214,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -868,7 +868,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3142,
+   "line": 3215,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -877,7 +877,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3708,
+   "line": 3781,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -887,7 +887,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3711,
+   "line": 3784,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -8397,25 +8397,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md",
-   "line": 213,
-   "va": "0x880440f4",
-   "kind": "fn",
-   "class": "INSIDE",
-   "true_start": "0x880440e8",
-   "class_sha256": "7956a53a5a198cd2bd91c1a3f790518ad4dad6e63a74c19ddc876d67cb71d37e"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md",
-   "line": 293,
-   "va": "0x880440f4",
-   "kind": "fn",
-   "class": "INSIDE",
-   "true_start": "0x880440e8",
-   "class_sha256": "7956a53a5a198cd2bd91c1a3f790518ad4dad6e63a74c19ddc876d67cb71d37e"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md",
-   "line": 304,
+   "line": 323,
    "va": "0x8804b6ac",
    "kind": "fn",
    "class": "START",
@@ -8424,7 +8406,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md",
-   "line": 386,
+   "line": 521,
    "va": "0x880440f4",
    "kind": "fn",
    "class": "INSIDE",

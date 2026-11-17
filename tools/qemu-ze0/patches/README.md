@@ -4,6 +4,8 @@ Out-of-tree QEMU patch series that factors the SH-4 **CCN/MMU control
 block** out of `hw/sh4/sh7750.c` into the standalone `sh4-ccn` device, so a
 `ze0` machine can map it without instantiating any SH7750 peripheral model.
 Basis: **QEMU 8.2.7**, the 8.2 LTS pin of [`../README.md`](../README.md).
+The port to current QEMU (11.1.3) is TODO **M8.A9**; the measured per-hunk
+delta is [`docs/research/qemu-ze0-port-delta.md`](../../../docs/research/qemu-ze0-port-delta.md).
 
 Companion record: [`EXP-2026-11-06-M8.A4-cpu-control`](../../../docs/experiments/EXP-2026-11-06-M8.A4-cpu-control.md).
 Context and the register work-list: [`docs/research/full-system-emulation.md`](../../../docs/research/full-system-emulation.md)

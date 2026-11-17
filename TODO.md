@@ -2917,27 +2917,49 @@ first M8.A claim; F2+ only after M8.D1.
 patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 `-M none` (as `ce_qemu_probe.py` does) and rebase onto M8.A1 when it lands.
 
-- [ ] **M8.A2 — Machine skeleton** `hw/sh4/ze0.c`: `sh7785`, RAM at phys
+- [x] **M8.A2 — Machine skeleton** `hw/sh4/ze0.c`: `sh7785`, RAM at phys
   `0x08000000` (128 MiB), P1/P2 aliases, unimplemented-device catch-all over
   `0xff800000`–`0xffffffff` and areas 4/6, `select SH4_CCN` with
   `sh4_ccn_iomem()` at `0xff000000` and `sh4_ccn_arrays()` at `0xf0000000`,
   and one `ze0-stubs` instance.
-  - Status: blocked · Owner: task/m8.a2-reprobe · Critical: yes
-  - Re-probe (2026-11-17): the build/runtime half is **no longer blocked** — with the QEMU deps installed, `build.sh --force` applies all five patches, builds QEMU 8.2.7 and `-M help` lists `ze0`; `-M ze0` boots `archive/head256.img` for the full 10 s with 0 CPU exceptions (C-4310, C-4311). The patch shipped with two bugs, both fixed here: a second `ze0.ram` block beside `default_ram_id` (`RAMBlock "ze0.ram" already registered, abort!`) and `config ZE0` without `UNIMP` (`unknown type 'unimplemented-device'`). The done-when's access-list clause **fails**: `-M ze0` yields 1 access (`write 0x38`) where `ce_qemu_probe.py` yields 15, because the machine models the CCN page the probe lists. The old text below is kept as history; the numbers are superseded by EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.
+  - Status: done · Owner: task/m8.a2-reprobe · Critical: yes
+  - Re-probe (2026-11-17): `build.sh --force --jobs 8` applies all five
+    sorted patches on pristine 8.2.7, builds `qemu-system-sh4` and `-M help`
+    lists `ze0` (C-4310). `-M ze0` boots `archive/head256.img` the full 10 s
+    wall clock with `exceptions: 0` and one unmodelled access, `write 0x38`
+    (C-4311). The patch shipped with two bugs, each fixed and each reproduced
+    by its own negative control: a second `ze0.ram` block beside
+    `default_ram_id` (`RAMBlock "ze0.ram" already registered, abort!`) and
+    `config ZE0` without `UNIMP` (`unknown type 'unimplemented-device'`).
+    The old access-list clause is **withdrawn as a board defect**, not failed:
+    a machine that maps `sh4-ccn` at `0xff000000` cannot emit the `-M none`
+    invalid list, and it already differs with the same `run.sh` extents
+    (1 vs 8, C-4312), so the clause contradicted the task's own purpose.
+    The exempted `final pc`/"2 854 passes" numbers were **samples**, not
+    results (`run.sh:542-548` polls HMP on a wall clock; 6 ze0 runs gave 6
+    PCs); the record now carries only the stable observables plus a
+    repeat-run table.
   - Depends: — (M8.A1, M8.A4 and M8.A5 are merged)
   - Note (PM 2026-11-06): the three series were never built together. M8.A1 saw
     `m8a4-0002/0003` rejected on 8.2.7; M8.A4/M8.A5 report them applying (the
-    0003 banner says "Base: QEMU 8.2.7"). One clean `build.sh --force` over
-    `patches/*.patch` settles it — record the resulting patch order.
-  - Blocker (2026-11-17, literal done-when): the machine builds, lists and boots, but `-M ze0` does not reproduce the `-M none` access list and cannot while it models those registers; the next observable stops are the `write 0x38` null store on the declared-length load (`nk.exe 0x8802ec46`, `r2 = 0`) and the `0x040 [tlb_miss] pc=0x00005bd0` chain when the probe's full extents are loaded. The comparison also depends on `run.sh` slicing each CE image by its declared length instead of the CE `romhdr` extent.
-  - Unblock: **M8.A3** (built-in loader: parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC = `nk.exe` entry) so the load no longer depends on `-device loader` extents; then re-probe and either reword this done-when to a `-M ze0`-specific expectation or show the list converging.
+    0003 banner says "Base: QEMU 8.2.7"). Settled: one clean
+    `build.sh --force` over `patches/*.patch` applies all five in `LC_ALL=C`
+    order (C-4310).
+  - Note (2026-11-17, former blocker): the `write 0x38` null store on the
+    declared-length load (`nk.exe 0x8802ec46`, `r2 = 0`) and the
+    `0x040 [tlb_miss] pc=0x00005bd0` chain on the probe's full extents are
+    follow-ups for **M8.A3** (loader/root cause), not gates of this task.
+    The oracle is version-sensitive: `ce_qemu_probe.py` must be given
+    `--qemu <8.2.7 build>` (PATH is 11.1.3, which yields 0 accesses).
   - Done when: `bash tools/qemu-ze0/build.sh --force` applies every patch,
-    builds, and `qemu-system-sh4 -M help` lists `ze0`; `-M ze0` reproduces the
-    `ce_qemu_probe.py` access list; the run log and the final patch order are in
-    the EXP.
-  - Result: EXP-2026-11-17-M8.A2-machine-skeleton-reprobe (build/listing/boot
-    pass; access-list clause fails, C-4312). Patch order and run logs in the
-    EXP; C-1240 corrected, C-4310–C-4312 added to `claims.md`. Patch:
+    builds, and `qemu-system-sh4 -M help` lists `ze0`; `-M ze0` boots
+    `archive/head256.img` for ≥10 s wall clock with 0 CPU exceptions and a
+    stable access list (1 unmodelled access, `write 0x38`); that residual
+    store is attributed to a named instruction; the run log and the final
+    patch order are in the EXP. (The earlier clause "`-M ze0` reproduces the
+    `ce_qemu_probe.py` access list" is withdrawn: see C-4312.)
+  - Result: EXP-2026-11-17-M8.A2-machine-skeleton-reprobe (C-4310 build,
+    C-4311 boot, C-4312 machine-vs-extent; C-1240 corrected). Patch:
     `tools/qemu-ze0/patches/ze0-0001-hw-sh4-ze0-machine.patch`
     (SHA-256 `59a47b7f…a9792`).
   - Claims: C-1240–C-1249
@@ -2948,6 +2970,57 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no
   - Depends: M8.A2
   - Claims: C-1250–C-1259
+- [ ] **M8.A9 — Port the `ze0` patch series to current QEMU (11.1.3)**
+  The five patches in `tools/qemu-ze0/patches/` are pinned to 8.2.7. Port the
+  **intent** of each patch, not its diff: the per-hunk intent tables are in
+  `tools/qemu-ze0/patches/README.md` §§1–6 and the measured delta is
+  [`docs/research/qemu-ze0-port-delta.md`](docs/research/qemu-ze0-port-delta.md).
+  - Status: open · Owner: — · Critical: no
+  - Depends: — (M8.A2 is merged; this is a port, not a re-run)
+  - Goal: `-M ze0` works on current QEMU, not only on the frozen 8.2.7 pin.
+  - Precheck: reproduce the two application columns in the delta doc for
+    yourself; they disagree on purpose. With `build.sh`'s own invocation
+    (`patch -p1 --forward --batch`) on pristine 11.1.3, `0002`, `m8a4-0001`
+    and `m8a4-0002` apply `rc=0` but `m8a4-0003` fails 4 of 7 hunks and
+    `ze0-0001` fails 4 hunks; with strict `git apply --check`, 4 of 5 reject.
+    The gap is fuzz, which is why this task is judged by a **build**, not by
+    apply success. Then, for each failing hunk, name the 11.1.3 symbol that
+    replaced what it used. Do not edit until every hunk has a named
+    replacement or `NEEDS HUMAN`.
+  - Scope: (1) **Trap first:** the UTLB/ITLB helpers are *not* removed;
+    they are spelled `mmaped` (one `p`), all eight at
+    `target/sh4/helper.c:514-711`, declared `target/sh4/cpu.h:259-273`, so
+    the CCN body is a mechanical copy, not a rewrite. (2) `sh4-ccn`:
+    includes `exec/memory.h`→`system/memory.h`, `hw/qdev-core.h`→
+    `hw/core/qdev.h`, `exec/exec-all.h`→`exec/cputlb.h` (`tlb_flush`);
+    `DeviceClass.reset` → `device_class_set_legacy_reset()` (field is
+    `legacy_reset`); keep MMUCR/PTEH side effects and the array window.
+    (3) `ze0_stubs`: same include renames, same reset setter.
+    (4) `sh7750.c` de-duplication: hand-apply hunks 1, 3, 6 — the `devices[]`
+    context line is gone, and 11.1.3 deliberately dropped the `abort()` on
+    an ITLB-data write that the copied block keeps; decide which semantics
+    to port and say so. (5) Machine: `config ZE0` with `default y` +
+    `depends on SH4` in Kconfig (11.1.3 no longer lists boards as
+    `CONFIG_*=y` in `default.mak`), `"cpu.h"`→`"target/sh4/cpu.h"`,
+    `hw/{boards,loader,qdev-properties}.h`→`hw/core/…`,
+    `sysemu/sysemu.h`→`system/system.h`; `SHIX` is gone from 11.1.3, so both
+    meson hunks must be inserted by hand. (6) Pin policy: a **tested range**
+    (8.2.7 ✔ measured, 8.2.10 ✔ measured, 11.1.3 target) instead of one
+    frozen version, plus `build.sh --check-version X` that applies the series
+    and prints a verdict without building.
+  - Done when: on pristine 11.1.3 the ported series builds `qemu-system-sh4`,
+    `-M help` lists `ze0`, and `-M ze0` boots `archive/head256.img` ≥10 s
+    with 0 CPU exceptions and the same stable access list as the 8.2.7 pin
+    (one `write 0x38`, C-4311); `ce_qemu_probe.py --qemu <11.1.3 build>` is
+    recorded as the oracle comparison **with its version stated**, since the
+    15-entry list reproduces only against 8.2.7; `build.sh --check-version`
+    exists and its selftest covers both tuples.
+  - Stop: if a ported hunk has no equivalent in 11.1.3 (the ITLB-data
+    `abort()` is the known one), stop at that hunk, record the decision as
+    `NEEDS HUMAN`, and do not invent a new MMU path.
+  - Claims: C-4320–C-4329
+
+
 - [ ] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not.
