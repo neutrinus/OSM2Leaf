@@ -2922,7 +2922,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   `0xff800000`–`0xffffffff` and areas 4/6, `select SH4_CCN` with
   `sh4_ccn_iomem()` at `0xff000000` and `sh4_ccn_arrays()` at `0xf0000000`,
   and one `ze0-stubs` instance.
-  - Status: blocked · Owner: task/m8.a2-machine-skeleton · Critical: yes
+  - Status: in progress · Owner: task/m8.a2-reprobe · Critical: yes
   - Re-probe (2026-11-17): the "no prebuilt `qemu-system-sh4`" half is **stale** — `/usr/bin/qemu-system-sh4` is 11.1.3 (LE) and starts; `-M help` lists `none`, `r2d`, **no `ze0`**. The remaining half is the `-M ze0` build: `pkg-config` finds neither `glib-2.0` nor `pixman-1`. On Fedora 45 the missing packages are `glib2-devel`, `pixman-devel` and `zlib-ng-compat-devel` (there is no `zlib-devel`), then `bash tools/qemu-ze0/build.sh`. Root/dnf is needed; `dnf` also needs `TMPDIR=/var/tmp` while `/tmp` is full. `-M ze0` would also fix the `cedecomp_run.py probe` failure, which is a `-M none` memory-map problem, not a binary problem.
   - Depends: — (M8.A1, M8.A4 and M8.A5 are merged)
   - Note (PM 2026-11-06): the three series were never built together. M8.A1 saw
