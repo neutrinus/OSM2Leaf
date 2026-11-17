@@ -1,0 +1,53 @@
+role: driver (M1.20, navigator round 1 applied)
+model: Airouter Strong (aggregate)
+start: 2026-11-17 15:50 UTC
+end: 2026-11-17 17:10 UTC
+origin/main at start: 7ec815c (worktree base; primary main ff'd to fa27c11 mid-session,
+  not used by this branch)
+
+inputs read: prompt_common.txt, AGENTS.md (incl. the worktrunk section added mid-run),
+  TODO.md rules 1-16 + M1.20/M1.21/M1.22/M1.23 blocks, docs/experiments/TEMPLATE.md,
+  EXP-2026-11-12-M1.20, EXP-2026-11-15-M1.23, claims C-3610-C-3619, tools/pdata.py,
+  tools/cerom.py, tools/claims_check.py, tools/fn_audit.py, tools/reader_precheck.py
+
+actions (in order):
+- claim commit only M1.20's Status line, pushed task/m1.20-pdata-all, draft PR #214
+- navigator round 1 (7 items) applied after the plan was relayed; no wire-up rewrite
+- pdata.py: `census` (OK/NO-PDATA/ERROR, totals line, --json, --check-fixture) and
+  `where` (--try-index) subcommands; new `NoPdata(PdataError)` so only e32 (0,0) is
+  "no pdata"; gaps() stops swallowing decode/sort errors (cmd_gaps exits 2)
+- selftest: +18 checks (census split/exit codes, TOC absence, section_verdict,
+  file_sha256, fixture drift/missing/SHA mismatch) -> 45 ok, 0 failed
+- fixture tools/fixtures/pdata_census_2011.json: A/B/C counts only (no vendor bytes)
+- measured runtimes cold/warm before keeping the fixture: A 138.47/0.35 s,
+  B 41.50/0.31 s, C 44.33/0.31 s; fixture check 0.38 s (CI speed-up only)
+- controls: corrupt-head.img (multiskin.dll pdata -> 0xff) => 1 ERROR, exit 2,
+  0 without; drift fixture (+1 gwes.exe) => DRIFT line, exit 1
+- index independence: where atlce400.dll --try-index 2 => sec2 UNSORTED,
+  sec3 chosen sorted (270); aerhd.dll B --try-index 1 => sec1 UNSORTED, sec2 sorted
+- verified M1.23 wire-up unchanged: 4 sh4xref --to holders [pdata], sh4scan tag,
+  reader_precheck anchor 0x0055d924 (xrefs=29 holders=25)
+- EXP-2026-11-17-M1.20-pdata-all with the 5-part Method, 4 negative controls,
+  Corrections after navigator review; C-3510-C-3519 registered (census/fixture/
+  selftest only, C-361x not restated, M9.38/M3.23 untouched)
+- checks: gate.py 4 pass/0 fail/0 skip; todo_check OK; claims_check --strict
+  --count-check OK (0 duplicates, 0 unregistered, 0 count mismatches)
+
+task state: M1.20 stays `in progress`; driver stops after push (no merge, no done)
+
+decisions / alternatives rejected:
+- kept `census` in pdata.py rather than pdata_census.py (M1.23 note allowed either)
+- fixture kept but never cited as Done-when evidence (live census is the record)
+- did not add `--check-fixture` to the Done-when or any claim's evidence column
+- did not "fix" reader_precheck holder labels: they already come from pdata
+  (fn_start -> mem.fn_of); same VAs as pdata.py fn
+
+problems:
+- first edits landed in the primary checkout by mistake (heredoc python did not
+  cd) and were reverted there; all files were then patched inside this worktree and
+  every quoted run was repeated here
+- /tmp is a 3.8G tmpfs at 76 %; cold caches live under /tmp/opencode/work/m1.20
+- selftest monkeypatching needed globals() (module-level name shadowing)
+
+handoff: navigator -> check `census`/`where` semantics and the C-351x scoping; the
+  next driver can set `done` + Result only after the navigator accepts the EXP.

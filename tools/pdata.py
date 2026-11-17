@@ -22,6 +22,8 @@ Usage:
   pdata.py fn    IMG --module M [--image-start 0x200200] [--cache DIR] VA...
   pdata.py gaps  IMG --module M [--image-start 0x200200] [--cache DIR]
   pdata.py leaves IMG --module M [--cap 0x400] [--verbose] [--cache DIR]
+  pdata.py census IMG [--image-start S] [--json] [--check-fixture FILE]
+  pdata.py where IMG --module M [--image-start S] [--try-index N] [--cache DIR]
   pdata.py --selftest
 
 ``table`` prints one line per record and a trailing summary; ``--json``
@@ -39,6 +41,29 @@ VA per line), and how many have no ``rts`` at all (stubs), plus a histogram.  ``
 that bounds a gap: ``gaps`` (default) = every call target that is itself a gap
 start (the docstring's "called GAP"), ``records`` = calls made from pdata-
 recorded functions only (``fn_match``'s clamp), ``all`` = every halfword.
+
+``census`` walks every module of one CE segment and prints
+``module records section compressed`` per module (or ``NO-PDATA`` when the
+e32 exception directory is ``(0, 0)``), then the loaded/without split and
+the record total.  Only ``(0, 0)`` counts as no pdata: a decode or sort
+failure is printed as ``ERROR``, is counted in no other bucket, and makes
+the command exit 2 -- it is never hidden behind ``NO-PDATA``.  A module that
+is not in the TOC is ``ERROR`` too (exit 2).  ``--check-fixture FILE``
+compares the live census with a committed counts-only JSON (no vendor
+bytes), printing one ``DRIFT`` line per module whose record count or
+``NO-PDATA`` state differs and exiting 1 on any drift; the fixture's
+``image_sha256`` must equal the image's SHA-256 or the run fails (exit 2).
+
+``where`` answers "is the table in the section H51 assumed?" -- it prints the
+e32 exception directory and, for every o32 section of the module, whether
+that section holds the directory RVA and what its bytes decode to as a pdata
+table (``sorted N records`` or the loud ``UNSORTED``/``NOT PDATA`` verdict).
+A module whose table is not in sec2 (``atlce400.dll`` in build A, the
+updaters and ``nk.exe`` in B/C) therefore shows the wrong index failing
+instead of silently yielding a table from another section.  ``--try-index
+N`` additionally decodes section ``N`` as if H51's "the last read-only
+compressed section" rule had picked it, and prints the verdict -- that is how
+the index-independence check is shown, not asserted.
 
 ``--image-start`` selects the CE segment: 0x200200 = build A, 0x3e00200 =
 build B, 0x5200200 = build C (same image file).  Default 0x200200.
@@ -75,6 +100,14 @@ class PdataError(Exception):
     pass
 
 
+class NoPdata(PdataError):
+    """The module's e32 exception directory is ``(0, 0)``: listed, not guessed.
+
+    Distinct from a decode/sort failure so no caller can report a broken table
+    as "no pdata".
+    """
+
+
 def exception_entry(rom, mod):
     """(rva, size) of the module's exception directory; (0, 0) when absent."""
     e = rom.e32(mod)
@@ -91,9 +124,10 @@ def find_pdata_section(rom, mod):
     """(index, section, offset_in_section) of the pdata bytes."""
     rva, size = exception_entry(rom, mod)
     if rva == 0 and size == 0:
-        raise PdataError("module %s: no exception directory (no function table)" % mod["name"])
+        raise NoPdata("module %s: no exception directory (no function table)" % mod["name"])
     if size == 0:
-        raise PdataError("module %s: exception directory at RVA 0x%x has size 0" % (mod["name"], rva))
+        raise PdataError("module %s: exception directory at RVA 0x%x has size 0"
+                         % (mod["name"], rva))
     if size % 8:
         raise PdataError("module %s: exception directory size 0x%x is not a multiple of 8"
                          % (mod["name"], size))
@@ -253,6 +287,136 @@ def table_or_none(data, image_start, module, cache_dir=None):
         return load_table(data, image_start, module, cache_dir)[0]
     except Exception:  # noqa: BLE001 - a broken or absent table never breaks callers
         return None
+
+
+CENSUS_SCHEMA = "osm2leaf.pdata-census/v1"
+CENSUS_BUILDS = (("A", 0x200200), ("B", 0x3e00200), ("C", 0x5200200))
+
+
+def file_sha256(path, chunk=1 << 20):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        while True:
+            block = fh.read(chunk)
+            if not block:
+                break
+            h.update(block)
+    return h.hexdigest()
+
+
+def census_row(name, rva, size, loader):
+    """One census row.  ``NO-PDATA`` only when the e32 directory is (0, 0).
+
+    ``loader(name)`` returns ``(records, meta)`` or raises ``PdataError``; a
+    raised error is an ``ERROR`` row (the caller exits non-zero and never
+    reports it as "no pdata"), while the absent directory is a legitimate
+    listed result.
+    """
+    if rva == 0 and size == 0:
+        return dict(module=name, status="NO-PDATA", records=0)
+    try:
+        _records, meta = loader(name)
+    except PdataError as exc:
+        return dict(module=name, status="ERROR", records=0, error=str(exc))
+    except Exception as exc:  # noqa: BLE001 - a fault is an ERROR, not NO-PDATA
+        return dict(module=name, status="ERROR", records=0,
+                    error="%s: %s" % (type(exc).__name__, exc))
+    return dict(module=name, status="OK", records=meta["record_count"],
+                section=meta["section"], compressed=bool(meta["compressed"]),
+                exception_rva=meta["exception_rva"],
+                exception_size=meta["exception_size"],
+                first=meta["first"], last_end=meta["last_end"])
+
+
+def census(data, image_start, cache_dir=None, modules=None):
+    """Rows (dicts) for every module of one CE segment, in TOC order."""
+    rom = cerom.CERom(data, image_start)
+    wanted = set(modules) if modules else None
+    rows, seen = [], set()
+    for mod in rom.modules():
+        if wanted is not None and mod["name"] not in wanted:
+            continue
+        seen.add(mod["name"])
+        rva, size = exception_entry(rom, mod)
+        rows.append(census_row(mod["name"], rva, size,
+                               lambda n: load_table(data, image_start, n, cache_dir)))
+    for name in sorted(wanted or ()):  # a requested module absent from the TOC
+        if name not in seen:
+            rows.append(dict(module=name, status="ERROR", records=0,
+                             error="module not in TOC"))
+    return rows
+
+
+def census_totals(rows):
+    return dict(modules=len(rows),
+                with_pdata=sum(1 for r in rows if r["status"] == "OK"),
+                without=sum(1 for r in rows if r["status"] == "NO-PDATA"),
+                errors=sum(1 for r in rows if r["status"] == "ERROR"),
+                records=sum(r["records"] for r in rows))
+
+
+def census_line(row):
+    """One printed census row: ``module records secN plain|compressed``.
+
+    ``NO-PDATA`` is only the e32 ``(0, 0)`` case; an ``ERROR`` row prints its
+    reason and is what makes the command exit non-zero -- it is never rendered
+    as "no pdata".
+    """
+    if row["status"] == "OK":
+        return ("%-32s %8d  sec%d  %s"
+                % (row["module"], row["records"], row["section"],
+                   "compressed" if row["compressed"] else "plain"))
+    if row["status"] == "NO-PDATA":
+        return ("%-32s %8s  no exception directory (e32 rva=0 size=0)"
+                % (row["module"], "NO-PDATA"))
+    return "%-32s %8s  %s" % (row["module"], "ERROR", row.get("error", ""))
+
+
+def census_exit(rows):
+    """0 unless a row is an ERROR (a fault is never a "listed as such" exit)."""
+    return 2 if any(r["status"] == "ERROR" for r in rows) else 0
+
+
+def census_doc(rows, image_start, label, image_sha256, image_bytes):
+    return dict(schema=CENSUS_SCHEMA, label=label,
+                image_start="0x%x" % image_start,
+                image_sha256=image_sha256, image_bytes=image_bytes,
+                totals=census_totals(rows), modules=rows)
+
+
+def fixture_drift(rows, fixture, image_sha256=None, label=None):
+    """Differences between a live census and a counts-only fixture.
+
+    Returns ``(problems, drifts)``: ``problems`` are fatal fixture/identity
+    mismatches (wrong image, wrong build), ``drifts`` per-module record-count
+    or status changes.  A missing fixture row is a drift, and a fixture row
+    with no live module is a drift.
+    """
+    problems, drifts = [], []
+    if fixture.get("schema") != CENSUS_SCHEMA:
+        problems.append("fixture schema %r != %r"
+                        % (fixture.get("schema"), CENSUS_SCHEMA))
+    if image_sha256 and fixture.get("image_sha256") != image_sha256:
+        problems.append("fixture image_sha256 %s != image %s"
+                        % (fixture.get("image_sha256"), image_sha256))
+    if label is not None and fixture.get("label") not in (None, label):
+        problems.append("fixture label %r != build %r"
+                        % (fixture.get("label"), label))
+    live = {r["module"]: r for r in rows}
+    pinned = {r["module"]: r for r in fixture.get("modules", [])}
+    for name in sorted(set(live) | set(pinned)):
+        a, b = pinned.get(name), live.get(name)
+        if a is None:
+            drifts.append("%s: not in fixture (live %s %d)"
+                          % (name, b["status"], b["records"]))
+        elif b is None:
+            drifts.append("%s: in fixture (%s %d), not live"
+                          % (name, a.get("status"), a.get("records", 0)))
+        elif (a.get("status"), a.get("records", 0)) != (b["status"], b["records"]):
+            drifts.append("%s: fixture %s %d != live %s %d"
+                          % (name, a.get("status"), a.get("records", 0),
+                             b["status"], b["records"]))
+    return problems, drifts
 
 
 def exec_sections(rom, mod):
@@ -418,7 +582,7 @@ def gaps(data, image_start, module, cache_dir=None):
         raise PdataError("module %r not found at image start 0x%x" % (module, image_start))
     try:
         records, meta = load_table(data, image_start, module, cache_dir)
-    except PdataError:
+    except NoPdata:
         return [], None
     exec_secs = list(exec_sections(rom, mod))
     exec_ranges = [(base, base + len(blob), _i) for _i, base, blob in exec_secs]
@@ -510,10 +674,10 @@ def cmd_table(args):
         data = fh.read(128 << 20)
     try:
         records, meta = load_table(data, args.image_start, args.module, args.cache)
+    except NoPdata as exc:
+        print(str(exc))
+        return EXIT_NO_DIR
     except PdataError as exc:
-        if "no exception directory" in str(exc):
-            print(str(exc))
-            return EXIT_NO_DIR
         print("error: %s" % exc, file=sys.stderr)
         return 2
     if args.json:
@@ -540,10 +704,10 @@ def cmd_fn(args):
         data = fh.read(128 << 20)
     try:
         records, _meta = load_table(data, args.image_start, args.module, args.cache)
+    except NoPdata as exc:
+        print(str(exc))
+        return EXIT_NO_DIR
     except PdataError as exc:
-        if "no exception directory" in str(exc):
-            print(str(exc))
-            return EXIT_NO_DIR
         print("error: %s" % exc, file=sys.stderr)
         return 2
     for text in args.va:
@@ -558,12 +722,14 @@ def cmd_gaps(args):
         data = fh.read(128 << 20)
     try:
         rows, meta = gaps(data, args.image_start, args.module, args.cache)
+    except NoPdata as exc:
+        print(str(exc))
+        return EXIT_NO_DIR
     except PdataError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 2
-    if meta is None:
-        print("error: %s: no function table available (no exception directory, "
-              "or module not found, or unreadable pdata)" % args.module, file=sys.stderr)
+    if meta is None:  # unreachable: gaps() raises NoPdata instead of returning None
+        print("error: %s: gaps() returned no table" % args.module, file=sys.stderr)
         return 2
     for row in rows:
         print("gap 0x%08x..0x%08x len 0x%x sec%d%s"
@@ -572,6 +738,134 @@ def cmd_gaps(args):
     print("%s: %d gaps > %d B, %d leaf (module %s)"
           % (args.module, len(rows), GAP_MIN, sum(1 for r in rows if r["leaf"]), args.module))
     return 0
+
+
+def section_verdict(blob, where=""):
+    """How ``blob`` parses as a pdata table: ("sorted", n), ("UNSORTED", msg).
+
+    Used by ``where`` to show that a section picked by index alone is not a
+    table; the message is the same one ``validate_sorted`` raises.
+    """
+    records = nk_decomp.parse_pdata(blob)
+    if not records:
+        return "EMPTY", "0 records"
+    try:
+        validate_sorted(records, where)
+    except PdataError as exc:
+        return "UNSORTED", str(exc)
+    return "sorted", "%d records" % len(records)
+
+
+def cmd_where(args):
+    with open(args.image, "rb") as fh:
+        data = fh.read(128 << 20)
+    rom = cerom.CERom(data, args.image_start)
+    try:
+        mod = rom.module(args.module)
+    except KeyError:
+        print("error: module %r not found at image start 0x%x"
+              % (args.module, args.image_start), file=sys.stderr)
+        return 2
+    rva, size = exception_entry(rom, mod)
+    print("%s: exception directory rva 0x%x size 0x%x (%s)"
+          % (mod["name"], rva, size,
+             "no pdata" if (rva == 0 and size == 0) else "%d records" % (size // 8)))
+    if rva == 0 and size == 0:
+        return EXIT_NO_DIR
+    chosen = None
+    try:
+        chosen = find_pdata_section(rom, mod)
+    except PdataError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+    for i, sec in enumerate(rom.o32(mod)):
+        holds = sec["rva"] <= rva and rva + size <= sec["rva"] + max(sec["vsize"], sec["psize"])
+        tag = "chosen" if chosen and chosen[0] == i else "      "
+        comp = "compressed" if sec["flags"] & cerom.IMAGE_SCN_COMPRESSED else "plain"
+        note = ""
+        if holds and sec["rva"] == rva and sec["vsize"] == size:
+            note = "exact RVA+vsize match"
+        elif holds:
+            note = "contains the directory (0x%x+0x%x)" % (rva, size)
+        print("sec%d %s rva=0x%08x vsize=0x%08x psize=0x%08x %-10s %s"
+              % (i, tag, sec["rva"], sec["vsize"], sec["psize"], comp, note))
+        if not holds and (args.try_index is None or i != args.try_index):
+            continue
+        file_off = rom.va2file(sec["dataptr"])
+        if sec["flags"] & cerom.IMAGE_SCN_COMPRESSED:
+            try:
+                r0, out = nk_decomp.decompress(data, file_off, sec["psize"],
+                                               sec["vsize"], regions=_nk_regions(data))
+            except Exception as exc:  # noqa: BLE001 - a verdict, not a crash
+                print("       as pdata: DECODE ERROR %s" % exc)
+                continue
+            blob = out[:r0]
+        else:
+            blob = data[file_off:file_off + sec["vsize"]]
+        verdict, detail = section_verdict(blob, "sec%d: " % i)
+        print("       as pdata: %s (%s)" % (verdict, detail))
+    if chosen:
+        print("chosen: sec%d at 0x%08x for exception rva 0x%x"
+              % (chosen[0], chosen[1]["rva"], rva))
+    return 0
+
+
+def cmd_census(args):
+    """One CE segment's function-table census; NO-PDATA is not an error."""
+    with open(args.image, "rb") as fh:
+        data = fh.read(128 << 20)
+    label = args.label or {0x200200: "A", 0x3e00200: "B",
+                           0x5200200: "C"}.get(args.image_start, "0x%x" % args.image_start)
+    image_sha = file_sha256(args.image)
+    try:
+        rows = census(data, args.image_start, args.cache)
+    except (OSError, ValueError) as exc:
+        print("error: cannot census image start 0x%x: %s"
+              % (args.image_start, exc), file=sys.stderr)
+        return 2
+    totals = census_totals(rows)
+    doc = census_doc(rows, args.image_start, label, image_sha,
+                     os.path.getsize(args.image))
+    if args.check_fixture:
+        try:
+            with open(args.check_fixture) as fh:
+                fixture = json.load(fh)
+        except (OSError, ValueError) as exc:
+            print("error: cannot read fixture %s: %s"
+                  % (args.check_fixture, exc), file=sys.stderr)
+            return 2
+        if isinstance(fixture, dict) and "schema" not in fixture:
+            # A multi-build fixture ({"A": doc, "B": doc, ...}) -- pick this one.
+            if label not in fixture:
+                print("error: fixture %s has no %r build (has %s)"
+                      % (args.check_fixture, label, ", ".join(sorted(fixture))),
+                      file=sys.stderr)
+                return 2
+            fixture = fixture[label]
+        problems, drifts = fixture_drift(rows, fixture, image_sha, label)
+        for text in problems:
+            print("FIXTURE PROBLEM: %s" % text)
+        for text in drifts:
+            print("DRIFT: %s" % text)
+        if problems:
+            print("census --check-fixture: %d fixture problem(s)" % len(problems))
+            return 2
+        if drifts:
+            print("census --check-fixture: %d drift(s) against %s"
+                  % (len(drifts), args.check_fixture))
+            return 1
+        print("census --check-fixture: 0 drift (%d modules, %d records)"
+              % (totals["modules"], totals["records"]))
+        return 0
+    if args.json:
+        print(json.dumps(doc))
+        return census_exit(rows)
+    for row in rows:
+        print(census_line(row))
+    print("%s: %d modules, %d with pdata, %d without (NO-PDATA), %d errors, %d records"
+          % (label, totals["modules"], totals["with_pdata"], totals["without"],
+             totals["errors"], totals["records"]))
+    return census_exit(rows)
 
 
 def selftest():
@@ -650,6 +944,127 @@ def selftest():
     outside = called_entries(secs, [(0x2000, 0, 4)])
     check("called_entries: a caller outside every record adds nothing",
           outside == [])
+    # M1.20 census: NO-PDATA vs ERROR, index independence, fixture drift.
+    import tempfile
+    real_sorted = blob
+    with tempfile.TemporaryDirectory(prefix="pdata-selftest-") as td:
+        good_p = os.path.join(td, "good.img")
+        zero_p = os.path.join(td, "zero.img")
+        with open(good_p, "wb") as fh:
+            fh.write(real_sorted)
+        with open(zero_p, "wb") as fh:
+            fh.write(b"\0" * 16)
+        with open(os.path.join(td, "broken.dll"), "wb") as fh:
+            fh.write(b"x")
+
+        def fake_rom(_data, _start):
+            mods = [dict(name="good.dll", e32=0, o32=0),
+                    dict(name="zero.dll", e32=1, o32=1),
+                    dict(name="broken.dll", e32=2, o32=2)]
+
+            class R:
+                def modules(self):
+                    return iter(mods)
+            return R()
+
+        def fake_exc(_rom, mod):
+            return {"good.dll": (0x1000, 0x18), "zero.dll": (0, 0),
+                    "broken.dll": (0x2000, 0x18)}[mod["name"]]
+
+        def fake_load(_data, _start, name, _cache=None):
+            if name == "broken.dll":
+                raise PdataError("module broken.dll sec2: decompress failed: r0=-1")
+            return [], dict(record_count=3, section=2, compressed=True,
+                            exception_rva=0x1000, exception_size=0x18,
+                            first=0x2000, last_end=0x2040)
+
+        g = globals()
+        old_rom = cerom.CERom
+        old_exc, old_load = g["exception_entry"], g["load_table"]
+        cerom.CERom = fake_rom
+        g["exception_entry"], g["load_table"] = fake_exc, fake_load
+        try:
+            rows = census(b"", 0x200200)
+            check("census: a real directory+table is OK, (0,0) is NO-PDATA, "
+                  "a fault is ERROR",
+                  [r["status"] for r in rows] == ["OK", "NO-PDATA", "ERROR"])
+            check("census: exit 0 with only NO-PDATA rows",
+                  census_exit([r for r in rows if r["status"] == "NO-PDATA"]) == 0)
+            check("census: exit non-zero on a decode ERROR",
+                  census_exit(rows) == 2)
+            check("census: the ERROR row is not printed as NO-PDATA",
+                  "NO-PDATA" not in census_line(rows[2])
+                  and "decompress failed" in census_line(rows[2]))
+            only = census(b"", 0x200200, modules=["good.dll", "absent.dll"])
+            check("census: a requested module outside the TOC is ERROR",
+                  [r["status"] for r in only] == ["OK", "ERROR"]
+                  and "TOC" in only[1]["error"])
+        finally:
+            cerom.CERom = old_rom
+            g["exception_entry"], g["load_table"] = old_exc, old_load
+
+        def ok_loader(_name):
+            return [], dict(record_count=3, section=2, compressed=True,
+                            exception_rva=0x1000, exception_size=0x18,
+                            first=0x2000, last_end=0x2040)
+
+        check("census temp image round-trips file_sha256",
+              file_sha256(good_p) == hashlib.sha256(real_sorted).hexdigest())
+
+    def burst_loader(_name):
+        raise PdataError("module X sec2: decompress failed: r0=-1")
+
+    def type_loader(_name):
+        raise struct.error("unpack_from requires a buffer of at least 8 bytes")
+
+    check("census (0,0) is NO-PDATA, not an error",
+          census_row("nostub.dll", 0, 0, ok_loader)["status"] == "NO-PDATA")
+    check("census NO-PDATA row carries 0 records",
+          census_row("nostub.dll", 0, 0, ok_loader)["records"] == 0)
+    good = census_row("good.dll", 0x1000, 0x18, ok_loader)
+    check("census with a directory and a table is OK with its count",
+          good["status"] == "OK" and good["records"] == 3
+          and good["section"] == 2 and good["compressed"] is True)
+    bad = census_row("broken.dll", 0x1000, 0x18, burst_loader)
+    check("census decode failure is ERROR, never NO-PDATA",
+          bad["status"] == "ERROR" and "decompress failed" in bad["error"])
+    bad2 = census_row("broken2.dll", 0x1000, 0x18, type_loader)
+    check("census non-PdataError fault is ERROR, never NO-PDATA",
+          bad2["status"] == "ERROR" and bad2["error"].startswith("error:"))
+    check("census totals split with/without and count ERROR separately",
+          census_totals([census_row("nostub.dll", 0, 0, ok_loader), good, bad])
+          == dict(modules=3, with_pdata=1, without=1, errors=1, records=3))
+    # Index independence: a later section whose first word looks like a begin
+    # parses as an unsorted "table"; the verdict makes the wrong index loud.
+    fake = struct.pack("<IIII", 0x1000, (0x4 << 8) | 2, 0x0F00, (0x2 << 8) | 1)
+    verdict, detail = section_verdict(fake, "sec2: ")
+    check("section_verdict: a later section is UNSORTED, not a table",
+          verdict == "UNSORTED" and "not sorted" in detail)
+    check("section_verdict: the real table is sorted",
+          section_verdict(blob)[0] == "sorted")
+    # Fixture drift: a counts-only fixture that disagrees fails, one that
+    # matches passes, and an image-identity mismatch is a fatal problem.
+    live = [census_row("a.dll", 0x1000, 0x18, ok_loader),
+            census_row("b.dll", 0, 0, ok_loader)]
+    fx = dict(schema=CENSUS_SCHEMA, image_sha256="00" * 32,
+              modules=[dict(module="a.dll", status="OK", records=3),
+                       dict(module="b.dll", status="NO-PDATA", records=0)])
+    problems, drifts = fixture_drift(live, fx, image_sha256="00" * 32)
+    check("fixture: a matching counts-only fixture has no drift",
+          problems == [] and drifts == [])
+    fx_bad = dict(fx, modules=[dict(module="a.dll", status="OK", records=4),
+                               dict(module="b.dll", status="NO-PDATA", records=0)])
+    problems, drifts = fixture_drift(live, fx_bad, image_sha256="00" * 32)
+    check("fixture: a planted wrong record count drifts and names the module",
+          problems == [] and len(drifts) == 1 and "a.dll" in drifts[0]
+          and "4" in drifts[0] and "3" in drifts[0])
+    problems, drifts = fixture_drift(live, fx, image_sha256="11" * 32)
+    check("fixture: an image-SHA mismatch is a fatal problem",
+          len(problems) == 1 and "image_sha256" in problems[0])
+    fx_missing = dict(fx, modules=[dict(module="a.dll", status="OK", records=3)])
+    problems, drifts = fixture_drift(live, fx_missing, image_sha256="00" * 32)
+    check("fixture: a module missing from the fixture is a drift",
+          problems == [] and any("b.dll" in d for d in drifts))
     print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
 
@@ -660,15 +1075,27 @@ def main(argv=None):
     ap.add_argument("--cache", default=DEFAULT_CACHE,
                     help="decoded-pdata cache directory (default %(default)s)")
     sub = ap.add_subparsers(dest="cmd")
-    for name in ("table", "fn", "gaps", "leaves"):
+    for name in ("table", "fn", "gaps", "leaves", "census", "where"):
         p = sub.add_parser(name)
         p.add_argument("image")
         p.add_argument("--image-start", type=lambda x: int(x, 0), default=DEFAULT_IMAGE_START)
-        p.add_argument("--module", required=True)
+        if name != "census":
+            p.add_argument("--module", required=True)
         p.add_argument("--cache", default=DEFAULT_CACHE,
                        help="decoded-pdata cache directory (default %(default)s)")
         if name == "table":
             p.add_argument("--json", action="store_true")
+        elif name == "where":
+            p.add_argument("--try-index", type=int, default=None, metavar="N",
+                           help="also decode section N as a pdata candidate "
+                                "(e.g. 2, H51's assumption)")
+        elif name == "census":
+            p.add_argument("--json", action="store_true")
+            p.add_argument("--label", default=None,
+                           help="build label for the totals line (default from --image-start)")
+            p.add_argument("--check-fixture", default=None, metavar="FILE",
+                           help="compare with a counts-only census fixture; "
+                                "exit 1 on drift, 2 on a fixture/identity problem")
         elif name == "fn":
             p.add_argument("va", nargs="+")
         elif name == "leaves":
@@ -689,7 +1116,8 @@ def main(argv=None):
         ap.print_help()
         return 2
     return {"table": cmd_table, "fn": cmd_fn, "gaps": cmd_gaps,
-            "leaves": cmd_leaves}[args.cmd](args)
+            "leaves": cmd_leaves, "census": cmd_census,
+            "where": cmd_where}[args.cmd](args)
 
 
 if __name__ == "__main__":
