@@ -1,0 +1,116 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-16 21:00 (approx; after QA `6803705`, cycle-9)
+end_utc: 2026-11-17 00:15
+origin_main_start: 6803705 (QA 12th pass)
+origin_main_end: 1889340 (H85 merged, PR #206)
+
+inputs_read:
+- AGENTS.md (incl. the new "Verification ladder"), prompt_common.txt, prompt_tl.txt
+  (pair classes, navigator must negatively mutate the gate/snapshot/artifact,
+  every cited number quoted from a command)
+- dev_process/2026-11-16-{1106-30-sm,1940-31-se,2020-32-po,2055-33-qa}.log
+- docs/retro/2026-11-16-5.md (cycle-8 retro: navigator must symlink the image
+  its suite needs or report SKIPPED; log N = max+1)
+- TODO.md H53, H77–H86, M1.22b, M1.4; tools/{fn_match,fn_audit,claims_check,
+  todo_check,selftest,l3_harness/runner}.py, tools/l3_harness/targets.json,
+  tools/fixtures/fn_match_eu_us_2011.json, .github/workflows/ci.yml
+- docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md, EXP-2026-11-15-M1.28-eu-us-fixture.md
+
+task selection (cycle-9 continuation; one pair at a time, solos sequenced):
+- H78 (pair, but the claim was already in flight from the previous TL cycle;
+  this session ran navigator round 4 on `410cd9a` and merged #201).
+- H79 (solo) — M1.31's US-head evidence named a scratch `/tmp` path; #202.
+- M1.22b (pair, Critical) — the EU→US reader census; #203.
+- H80 (solo) — H71's Precheck line range; #204.
+- H81 (solo) — five open "superseded" blocks; #205.
+- H85 (pair, Critical) — one standing gate runner; #206.
+The two pairs (M1.22b, H85) never overlapped with each other or with a solo on
+the same files: M1.22b touches fn_match/fixture/l3_harness, H85 adds tools/gate.py
+and ci.yml, the solos touch TODO/claims only. Radius rule (≤2 concurrent pairs)
+held; in practice this session ran one pair at a time because the solos were
+docs-only and quick.
+
+what the pair protocol caught (why it is not ceremony):
+- H78 navigator round 3: the TODO `Result:` said "`--selftest` 24 checks" while
+  the tool printed 25 (fixed in `410cd9a`; round 4 APPROVE).
+- M1.22b navigator round 1: refused to approve an uncommitted change (no SHA),
+  independently re-disassembled all 7 readers, and confirmed 6 are pool-only
+  while `0x003fbed8` is a rewrite; asked for the EXP and the frozen-fixture
+  re-pin. Rounds 2–4 caught three classes of typed number: an ad-hoc census
+  script that did not mirror `Matcher.verdict` (3369/1319/303 vs the real
+  3214/1259/518, and 38 % vs 31.5 %), a stale fixture hash, and "resolved-call
+  count 8 vs 7" that was really the call-**sequence** length (both sides have
+  11 leaf call sites, 9 distinct callees). Round 5 APPROVE with two negative
+  fixture mutations (§ below).
+- H85 navigator round 1 found a genuine CI-breaking defect that would have
+  shipped: the new CI step captured `tee`'s exit code (`rc=$?` after
+  `… | tee gate.txt`), so a FAILing gate exited 0 and the job passed. Fixed
+  with `rc=${PIPESTATUS[0]}` (`7b638cf`). It also flagged the SKIP marker set
+  being too broad (`cannot verify` would forgive a real verification error);
+  the markers were narrowed and a stub pins that exit 2 + `cannot verify` is
+  FAIL (selftest 10 → 11 checks). Round 2 APPROVE.
+
+negative mutations (each shows the check can fail):
+- H79: re-adding one `/tmp/opencode/us256.img` citation to C-3965 makes the
+  task's own grep print 1 (restored → 0).
+- H80: the old `sed -n '2802,2807p'` prints 0 rows and C-3790–C-3795; injecting
+  a `…` into C-3860's evidence makes the elided-span check print 1 (restored → 0).
+- H81: un-closing M9.29 in a copy makes the probe print `M9.29 open` again.
+- M1.22b (navigator): changing a re-pinned `diff_offset` 0xcc→0xcd gives
+  `MISMATCH first diff offset 0xcc, fixture expects 0xcd`; flipping
+  `expect DIFFERENT→NOMATCH` gives `MISMATCH verdict DIFFERENT …`; both exit 1.
+- H85 (navigator): a gate that exits 1 → `FAIL` + exit 1; exit 2 + `cannot
+  verify` → `FAIL`; exit 2 + `no image at …` → `SKIP`.
+
+numbers, each quoted from the run that printed it:
+- 13 cited EU readers on US 2011: `unique: 5 ambiguous: 0 different: 7 leaf: 0
+  nomatch: 1 … of 13`; EU-vs-EU `unique: 13`.
+- full module through `Matcher.verdict()`: `DIFFERENT 3214, UNIQUE 2392,
+  CALLORDER 213, NOMATCH 1259, AMBIGUOUS 518`, total 7596, UNIQUE 31.5 %.
+- frozen fixture replay `13 rows, 0 mismatch` (was `6 mismatch` before the
+  re-pin); fixture sha256 `a61b6037…0a63`.
+- M1.31 clamp census `complete 598 (leaf 579)`, `no-rts stub 77 (leaf 54)`,
+  `2` beyond cap.
+- board before/after H81: `open 108→103`, `done 59→64` (then 65 with H81's own
+  block), `blocked 28` unchanged; `--strict` errors `69→66` (M1.2e's three
+  firmware-field errors drop out; nothing new).
+- `gate.py` on main: `selftest PASS, claims_check PASS, todo_check PASS,
+  fn_audit PASS`, `gate: 4 pass, 0 fail, 0 skip`, exit 0.
+- `selftest.py`: `passed=91 failed=0 skipped=23 total=114` with the image,
+  `90/0/24` without; `tool:gate PASS` both.
+
+housekeeping:
+- deleted six stale `task/*` remote branches with no open PR: five were fully
+  merged (ancestor of `origin/main`), one (`task/m4.29-classcode-control`) was a
+  pre-restructure snapshot whose merge would have deleted ~60k lines; the live
+  M4.29 owner is `task/m4.29-classcode-control-r2` and the block is `blocked`.
+- no remote `task/*` branches and no open PRs remain.
+- `AGENTS.md` now documents `tools/gate.py` (added by H85 itself).
+
+standing gates at origin_main_end:
+- `python3 tools/gate.py` → `gate: 4 pass, 0 fail, 0 skip`, exit 0.
+- `claims_check --strict` 0, `--count-check` `count mismatches: 0`;
+  `todo_check` OK (`--strict` 66 ERRORs, unchanged set);
+  `fn_audit … --quiet` `0 new / 0 gone` (137 docs / 73 l3 moved).
+
+blocked / not done in this cycle:
+- Human-only: prune the stale `.claude/worktrees` (~30 detached/locked entries)
+  and ahead local branches (`tools/worktree_audit.py --prune --apply` from the
+  main checkout); add `.claude/` (untracked, ~490 MB) to `.gitignore`; delete
+  stale `/tmp/opencode` worktree heads.
+- Environment: `/tmp` tmpfs was ~70 % full; large probe copies were avoided.
+- Not attempted (next cycle): H82 (zlib interpreter stamp), H83 (board-ref
+  lint), H84 (manual/weekly IMG256 workflow), H86 (make `--strict`/`--count-check`
+  blocking in CI), H77 (fence-aware scanners), H53 (board cleanup, `--strict`
+  exit 0). M3.23 and M9.38 are the critical non-H tasks still open.
+
+handoff:
+- H86 is now cheap and high value: `tools/gate.py` already runs
+  `claims_check --strict --count-check`; H86 can make it blocking in CI by
+  removing the `--no-limit`-style escape and gating `--board-clean` on H53.
+- H84's manual job should call `tools/gate.py` with the image present so the
+  `fn_audit` row is PASS, not SKIP (H85's CI summary already says this).
+- M1.22b leaves 1259 unexplained `NOMATCH`; that is a follow-up task, not a
+  reopen: a per-function sample to separate rewrites from a second matcher
+  class (e.g. reordered basic blocks).
