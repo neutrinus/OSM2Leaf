@@ -1,0 +1,74 @@
+role: tl (cycle 13, resumed after the PO "stuck" verdict)
+model: opencode/deepseek-v4.1-flash-free (main session, orchestrator)
+start_utc: 2026-11-17 16:29
+end_utc: 2026-11-17 18:52
+origin_main_start: db04b69 (PO cycle-13)
+origin_main_end: 112e5cd ([M5.34] #215), #214 M1.20 at 111653a, #216 H101 interim
+
+inputs_read:
+- AGENTS.md (incl. the new "Worktrees (worktrunk)" section from #213),
+  prompt_common.txt, prompt_tl.txt (worktree workflow), TODO.md rule 17
+- docs/retro/2026-11-17-2.md, -3.md; dev_process cycle-12/13 role logs
+- EXP-2026-11-17-H101-pm-review, EXP-2026-11-17-M1.20-pdata-all,
+  EXP-2026-11-17-M5.34-parcel
+- gh pr list/checks, gh run list "CI quality gate"
+
+why the loop resumed: the PO stop rested on three premises, all checked false
+on this host — M1.20 was never blocked (Status: open, Depends: —); H95's input
+MAINTENANCE.md never existed (git log --all empty); Runner: non-Claude was a
+Claude-sandbox property, while api.openstreetmap.org 200 / Geofabrik 307 and
+the full EU card are available. Board repair committed as 7ec815c.
+
+environment work (not a task):
+- installed worktrunk v0.82.0 to ~/.local/bin (release SHA-256 verified), proved
+  the .config/wt.toml pre-start hook links archive/ in a new worktree, removed
+  the smoke tree.
+- symlinked archive/ into the two in-flight worktrees created before the hook.
+- `wt step prune`: 27 worktrees + 39 branches removed; 37 -> 4 worktrees;
+  /tmp 89 % -> 75 % (this also unblocked `mkcard --selftest` ENOSPC).
+
+task selection (rule 17 "map first"): M1.20 and M5.34 are both map-path and
+both pair (firmware search / format writer). Ran in parallel, disjoint files.
+
+outcomes:
+| Task  | Mode | Navigator | Rounds | Outcome | PR | EXP |
+| M1.20 | pair | separate subagent | 4 (plan, CHANGES, CHANGES, APPROVE) | done | #214 | EXP-2026-11-17-M1.20-pdata-all |
+| M5.34 | pair | separate subagent | 4 (plan, CHANGES, CHANGES, CHANGES) | done | #215 | EXP-2026-11-17-M5.34-parcel |
+
+what the navigators caught (pairing earned its cost again):
+- M1.20: NO-PDATA must not be conflated with a decode error (exit 2, own
+  bucket); index-independence must be proved on a non-sec2 module; the
+  re-pinned fn_audit snapshot passed the mandatory H69 mutation (1 new/0 gone,
+  exit 1); four record defects (mkdir in the Method, two evidence cells, the
+  done line, README).
+- M5.34 r1: the recorded tile was compressed by zlib-ng, so the EXP SHA did
+  not reproduce — proven by re-running the EXP under stock python3.13
+  (293,990,518 B / b746427c…34c2ef vs the recorded 294,040,956 / e33c4240…).
+- M5.34 r2: the one-tile gate walked only the factory tree, so an out-only
+  file could not fail it; and later (r3) the gate ignored changed_sections,
+  so a section-2 byte flip still PASSed. Both fixed + selftests.
+- M5.34: C-3564 overclaimed slot-level equality; the "2,078 ranges" are the
+  common prefix, not the 4,671,350 B appended tail.
+
+numbers, each quoted from the command that printed it:
+- M1.20 census: A 149/149 with pdata, 87,530 records; B 91/91, 21,930;
+  C 88/88, 25,243; 0 without, 0 errors. Selftest 45 ok.
+- M5.34: census 64 dirs (30 spliceable / 34 preserve-only); tile
+  289,319,168 -> 293,990,518 B (+4,671,350), sha b746427c…34c2ef; 480 files
+  compared, 2 differ (the tile + DRSTR001.DAT size field); selftest 87 ok.
+- gate 4/0/0 in both worktrees; CI 6/6 green on #214 and #215; claims 0
+  mismatches; todo_check OK.
+- board: open 126 / done 61 / blocked 26, 0 in progress; TODO.md 3,6xx lines.
+
+housekeeping: both worktrees removed after merge (wt remove), branches deleted,
+no remote task/* and no open PRs left.
+
+handoff:
+- #216 (H101) arrived mid-run: rule 17 "map first" budgets H at 1 per 3 map
+  tasks, fixes record defects where found, and adds the call-graph tool plus
+  M3.26/M4.40/M4.41/M5.38/M9.44/M9.45. The next TL batch must be a map batch;
+  M5.34 closes P0, so M5.38/M5.30 are the card ladder's next rungs.
+- rule 15 checked: M5.29 already `done` in the branch (honest — its Done-when
+  was met on the factory root); nothing else names M5.34 except as history.
+- human: `qemu-ze0` still needs glib2-devel/pixman-devel/zlib-ng-compat-devel
+  to build `-M ze0` (M8.A2); `.claude/` still untracked.
