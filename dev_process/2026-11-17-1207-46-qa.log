@@ -1,0 +1,66 @@
+role: qa (test engineer), cycle 12, 14th QA pass
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong aggregate)
+start_utc: 2026-11-17 12:07, end_utc: 2026-11-17 12:40
+origin_main_start: d44cd9e (PO cycle-12 pass)
+
+inputs read:
+- prompt_common.txt, prompt_qa.txt, AGENTS.md, TODO rules 1-16 + Priorities/H25/H53/H84/H86/H90/H93/H94/H95
+- dev_process/2026-11-17-{1045-43-sm,1125-44-se,1156-45-po}.log; docs/retro/2026-11-17-2.md (by name)
+- .github/workflows/{ci.yml,README.md,l1l2-fixtures.yml}; tools/{gate,claims_check,todo_check,l1l2_fixtures,l3check}.py
+- docs/research/reader-coverage.md matrix
+
+CI runs (checked, not assumed) — `gh run list` both workflows:
+- "CI quality gate" red runs on main since the 2345-38-qa pass (all 7): c7a5529 (#207),
+  3375e5a (#208), 4e0040e (#209), 2410d74 (TL log), 3d79bcc (SM retro), 2b3d1b4 (SE review),
+  857c9a7 (QA 13th). Every one fails the SAME step: `Standing gate (tools/gate.py)` on all
+  three matrix legs (3.11/3.13/3.14). Cause is the H90 shallow-checkout defect: `claims_check`
+  prints `count mismatches: 9` and exit 1 (9 COUNT rows, e.g. C-568 46 vs cerom 411).
+- Fix confirmed: 47ebf18 (#210) ... fdba381, d44cd9e are all success (both workflows; the
+  "L1/L2 synthetic fixtures" workflow is green on every one of the 12 recent pushes).
+- Caveat on 857c9a7: that QA 13th-pass commit was pushed at 00:30, before #210 merged, so it
+  inherited H90 and is correctly red; it is not a second defect.
+- Negative test of "green locally": a depth-1 clone of today's main runs
+  `gate: 3 pass, 0 fail, 1 skip` (claims_check: "count check: skipped (shallow clone)") and
+  exits 0. Before H90 that same clone exited 1, but from H90 it exits 0 through the *skip*,
+  which is exactly why main needed the CI red to be seen. H90's comparator (the 9 mismatches)
+  is not reproducible from main today; source-pinned only.
+
+Progress signal, per level (design vs what exists):
+- L1: `l1l2_fixtures.py` row "L1 synthetic" is NOT COVERED (no vendor-free coherent card
+  builder) -> H40 owns it. `cardcheck --root/--image` runs only on vendor trees in CI. Weakest.
+- L2: per-file is partial (DRSTR, cmp/ind, POI mutation 6 PASS), but per-feature (roads,
+  names, POIs, geometry) is absent and "L2 tile" is NOT COVERED -> H41 owns it.
+- L3: CI runs gate.py only (fn_audit, SKIP without the head). `l3check --build-corpus` is NOT
+  in any workflow -> H28. It exits 0 here with `pass=1 blocked=6 runnable=1/7`, so "nothing new
+  ran" on a later push is green (H96).
+- L4/L5: run-readiness exists (realcheck, l3_precond, H29 draft) but no gate -> H84 (manual job)
+  and H27 rows are the signal; unchanged this pass.
+- Regression gate: holds for L1/L2 (any runnable FAIL flips l1l2_fixtures exit 1) and for the
+  standing gate; does NOT hold for L3 (blocked/absent readers stay exit 0) nor for main merges
+  (branch protection 404 "Branch not protected" on `neutrinus/OSM2Leaf`). H86's local proxy is
+  a not-really test: step rc = gate rc, not l1l2 rc.
+- SKIP never PASS: true in gate.py (exit 2 + no skip-marker = FAIL; selftest proves it), in
+  l1l2_fixtures (NOT COVERED/SKIP never counted) and in CI summary wording. `--board-clean`
+  is still correctly opt-in and gated on H53 (`todo_check --strict` = 66 ERRORs, unchanged).
+
+Tasks added (grep-checked free; Pair on each; claims blocks reserved):
+- H96 tools · pair required · Critical — l3check exit 0 with `runnable=1/7` makes "no verdict"
+  look green on a push; CI has no `--build-corpus` step at all. C-4240-C-4249.
+- H97 tools · pair required — l1l2_fixtures "ok" ignores required-category NOT COVERED; a
+  category that never runs should not compute to OK. C-4250-C-4259.
+- H98 chore · pair required · Critical — stop merging on unverified CI: H70 branch protection
+  (admin exists to enable it) or, if refused, a committed pre-merge check with a red run. C-4260-C-4269.
+- H99 docs · pair solo — `.github/workflows/README.md` "Hard gate" still lists selftest/claims/
+  todo and omits `tools/gate.py` + PASS/FAIL/SKIP; genuinely blocking gap, not H86's duplicate.
+  C-4270-C-4279.
+- Kept out (already owned): H40/H41 (L1/L2 fixtures), H28/H43 (L3 corpus), H84 (manual IMG256),
+  H86 (claims half), H53 (strict board), H90 (shallow clone), H93/H94/H95 (records).
+
+checks quoted from the runs: `gate.py` `4 pass, 0 fail, 0 skip`; `todo_check --strict` 66;
+depth-1 clone gate `3 pass, 0 fail, 1 skip` rc 0; `l1l2_fixtures` rc 0, runnable 6/0/1,
+NOT COVERED 2; `l3check --build-corpus` rc 0, runnable 1/7.
+
+handoff:
+- TL: H98 first (it is the reason H90 cost 12 pushes); then H96 (L3 signal) and H99 (README);
+  H97 is a small correctness follow-up. Do not re-open H25/H86.
+- PO: new blocks C-4240..C-4279; Priorities "Take first" 7 should name H98 alone.

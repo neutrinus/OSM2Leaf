@@ -254,6 +254,7 @@ ERRORs (**H53**, human-debt), `/tmp` 89 %, `.claude/` 490 MB untracked.
 5. **M9.36** → **M9.37** — no L3 verdict predating H51 is trustworthy until these land.
 6. **H93**/**H94** in one pass (same H90 EXP), **M1.33** (commit the census script), **H91**/**H92** (the count-rule pair), **H95**, **M9.39**/**M9.40** (POINT010 corpus + decoder provenance).
 7. Cheap/solo: **H53** (board `--strict` cleanup), **H86** (README + negative CI test), **H60**/**H83** (reference lints), **H82** (zlib stamp), **H84** (manual IMG256 workflow), **M9.32**/**M9.34** (M9.11 closeout linkage), **H89** (pair).
+8. **H98** (Critical, test-system) — `main` has no branch protection (`gh api …/protection` → 404), so the 12 red H90 pushes merged over a failing gate; make a green `CI quality gate` a condition of merge (bare `H98`, then **H96** the L3 baseline verdict, then **H99** the README; **H97** is the small L1/L2 verdict fix). Pair: required.
 
 **Critical path to a first accepted card:**
 · **Software/L3 gate:** `cmp_ind_reader` is done (M9.11); the card gate is **M9.31** → **M9.12**, fed by **M9.41** (US S1 row) and, for the name verdict, **M3.11c**. No card goes to the car on a SKIP.
@@ -513,6 +514,59 @@ ERRORs (**H53**, human-debt), `/tmp` 89 %, `.claude/` 490 MB untracked.
   - Stop: if the clean board needs a decision a role cannot make (e.g. an externally blocked task whose block owner is unknown), record those tasks under `Status: blocked · Unblock: <human>` and lower the Done-when to "no ERROR for tasks this cycle can own" — never lower the rule itself.
   - Claims: C-3650–C-3659
   - Result: pending (this task is re-scoped, not done).
+
+- [ ] **H96 — L3 says "PASS" when nothing new ran (`runnable=1/7`), and no CI job runs `l3check --build-corpus` at all**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: H55 (`--json PATH`, done); H28 owns the *job* and H43 the *generated corpus* — this task is the verdict contract only
+  - Goal: the L3 progress signal cannot regress visibly. `python3 tools/l3check.py --build-corpus` on today's corpus prints `counts pass=1 fail=0 skip=0 blocked=6 runnable=1/7` and `RESULT: PASS` with exit **0**, so a later push that adds a blocked reader, or loses the one runnable target, still exits 0; and `grep -n l3check .github/workflows/*.yml` matches only comments, so no PR run of L3 exists (the gate's `fn_audit` SKIPs without the head). QA 14th pass found this while checking the runs, not the files.
+  - Precheck: `python3 tools/l3check.py --build-corpus > /tmp/opencode/l3.out 2>&1; echo $?` prints `0` and the output prints `runnable=1/7`; `grep -c 'l3check.py --build-corpus' .github/workflows/ci.yml .github/workflows/l1l2-fixtures.yml` prints `0` for both (H55's `Done when` names the command, not a workflow step).
+  - Scope: `tools/l3check.py` only: add a committed baseline (`--baseline PATH`, new file `docs/research/l3-corpus-baseline.json`, no vendor bytes — it lists target names and statuses) so a run whose `runnable` count *drops* or whose a-PASS target becomes FAIL/BLOCKED exits 1; keep exit 3 for "nothing runnable" and keep `RESULT: PASS` honest by printing `runnable 1/7 (baseline 1)` in the summary. `--write-baseline` refreshes it with an EXP naming the change. Do **not** add the workflow step (H28) or a generated-fixture corpus (H43).
+  - Input: `tools/l3check.py` (`counts`, `main`, the `RESULT:` block around line 1024), `tools/l3_harness/targets.json` (7 targets, one runnable `cmp_ind_reader` synthetic), H28/H43/H55 blocks.
+  - Hints: the baseline is keyed by target **name**, never by line or index (rule: stable key). The synthetic `probe` target and the six `BLOCKED` rows are the negative fixture: drop `cmp_ind_reader` from a temp `targets.json` and the run must exit 1, not 0. Do not pin `blocked` counts as a failure — a reader being unblocked is progress; a runnable target disappearing is the regression.
+  - Done when: `python3 tools/l3check.py --build-corpus` prints `runnable 1/7 (baseline 1)` and exits 0; with `cmp_ind_reader` removed from a temp targets file it exits 1 with a `BASELINE LOST` line; `--selftest` covers both; `python3 tools/l3check.py --build-corpus --json /tmp/opencode/l3.json` still parses; `selftest.py --only l3check` passes.
+  - Stop: if the corpus is not deterministic enough to baseline by name, baseline only the `runnable` count and record the reason in the EXP; never make a new BLOCKED row fail the gate.
+  - Falsifier: today's `main` exits 0 while printing `runnable=1/7` and a second run with one runnable target removed also exits 0.
+  - Claims: C-4240–C-4249
+
+- [ ] **H97 — `l1l2_fixtures` computes `ok` without the required categories, so two NOT COVERED levels still read "OK"**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H26 (the registry, done); H40/H41 own *filling* the two rows — this task is only the verdict
+  - Goal: `summarize()` sets `"ok": runnable_fail == 0` and publishes `required_categories`/`missing_categories` but never consults them, so `python3 tools/l1l2_fixtures.py` prints `verdict=OK` and exits 0 while **L1 synthetic** and **L2 tile** are `NOT COVERED` (today: `runnable 6/0/1`, NC 2, rc 0). A level that never ran is silently a pass in the one L1/L2 signal CI runs on every PR (`.github/workflows/l1l2-fixtures.yml`).
+  - Precheck: `python3 tools/l1l2_fixtures.py --json /tmp/opencode/l1l2.json` exits 0 with `summary.ok=true`, `missing_categories=[]` and a `NOT COVERED` in categories `L1 synthetic` and `L2 tile`; `grep -n '"ok": runnable_fail' tools/l1l2_fixtures.py` shows the line that ignores `required_categories`.
+  - Scope: `tools/l1l2_fixtures.py` only: make `--json`/`--md` name the fully-NOT-COVERED required categories explicitly (`coverage_gaps: [...]`) and print a `verdict=OK (2 required categories NOT COVERED)` line, without turning NOT COVERED into a CI failure (H40/H41 make them runnable; failing CI on them now would block every PR). Exit stays 0. Add a `--require-covered` opt-in that exits 1 when a required category has zero runnable checks, for H42 to call once H40/H41 land.
+  - Input: `tools/l1l2_fixtures.py` (`summarize`, `render_markdown`, `NOT_COVERED`, `REQUIRED_CATEGORIES`), H40/H41 blocks, the `l1l2-fixtures.yml` summary writer (it prints `NOT COVERED` already; keep the JSON contract additive).
+  - Hints: the two honest gaps are exactly the rows H40/H41 own (`L1 synthetic` has no vendor-free builder, `L2 tile` no synthetic tile fixture) — do not invent a fixture here. Selftest's existing assertions already cover status separation (line ~468); extend it with `coverage_gaps` and `--require-covered`.
+  - Done when: `python3 tools/l1l2_fixtures.py` prints the gap list and still exits 0; `python3 tools/l1l2_fixtures.py --require-covered` exits 1 on today's registry (two gaps) and exits 0 once a fixture makes both runnable; `--selftest` covers both; `python3 tools/selftest.py --only l1l2_fixtures` passes; `l1l2-fixtures.yml` keeps uploading the artifact.
+  - Stop: if H40 lands first and both categories become runnable, keep the `coverage_gaps` key (now empty) and mark this task done with the measured list; do not delete the contract.
+  - Falsifier: the JSON still prints `"ok": true` with a required category at zero runnable and no gap named.
+  - Claims: C-4250–C-4259
+
+- [ ] **H98 — `main` merges on unverified CI: the repo has no branch protection, so a red run blocks nothing**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: — (admin exists on `neutrinus/OSM2Leaf`); H90 is the cost of not having it
+  - Goal: a task is "done" when it is on `origin/main` (rule 6), but nothing makes a *green* run a condition of merging. `gh api repos/neutrinus/OSM2Leaf/branches/main/protection` returns **404 "Branch not protected"**, so the 12 red H90 pushes, and the 7 red runs QA found since the last pass, were merged on top of a failing gate; the only defence is a role reading `gh pr checks` (TL prompt), which H90 proved is skipped. The same gap makes "a regression gate" aspirational: H86's local proxy (step rc = gate rc) never fails on an `l1l2_fixtures` regression because that workflow is not the gated step.
+  - Precheck: `gh api repos/neutrinus/OSM2Leaf/branches/main/protection 2>&1 | grep -o 'Branch not protected'` prints it; `gh api repos/neutrinus/OSM2Leaf -q .permissions` prints `"admin":true`, so the fix is available to this account.
+  - Scope: repo settings only (no workflow file): require the `quality (py3.11)` and `quality (py3.13)` checks on `main` (and `l1l2 (py3.11)`/`(py3.13)` from `l1l2-fixtures.yml`), `enforce_admins: false` so a documented emergency bypass still exists, no required reviews (single-role cycles would deadlock), no dismissal. Record the exact `gh api -X PUT .../protection` command in the EXP so another agent can re-apply it. If the owner refuses (rule: this is the one human decision here), fall back to a committed `.github/workflows/`-independent pre-merge check: a `tools/premerge_check.py` (or extend `gate.py --premerge`) that refuses a non-green `gh run list` for the tip, with the same Done-when measured on a deliberately-red local commit.
+  - Input: `gh api .../protection`, `.github/workflows/ci.yml` (job/step names), `l1l2-fixtures.yml`, H90 EXP (the 12 red pushes), H70/H85 history.
+  - Hints: the required-context names must be the *job* names CI actually reports (`quality (py3.11)`), not the step name — check with `gh pr checks <a merged PR>` before writing them, or the rule silently never satisfies. Do not require the informational py3.14 leg. Branch protection is reversible and does not touch the repo bytes, so it needs no vendor-data review.
+  - Done when: `gh api repos/neutrinus/OSM2Leaf/branches/main/protection` lists the four required contexts (or the fallback tool exists and exits 1 on a red tip, 0 on green); a throwaway red commit on a test branch cannot be merged via the protected path (or the fallback refuses it); the EXP names the applied payload and the date; no workflow logic changed except the fallback tool's selftest.
+  - Stop: if the owner declines branch protection, ship only the `--premerge` check, record the refusal in the EXP, and keep this task `done` with `Result:` naming the fallback — do not re-open it each cycle.
+  - Falsifier: `main` can still take a commit whose `CI quality gate` run is red and no local check refuses it.
+  - Claims: C-4260–C-4269
+
+- [ ] **H99 — `.github/workflows/README.md` still documents the pre-H85 hard gate (selftest + claims + todo), not `tools/gate.py`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H85 (the gate runner, done); H53 for the todo half of the policy text only
+  - Goal: the workflow README is the contract a new agent reads, and it names three commands `ci.yml` no longer runs as three steps: `python tools/selftest.py --json`, `python tools/claims_check.py`, `python tools/todo_check.py TODO.md`. The actual gate is one step, `tools/gate.py`, with `claims_check --strict --count-check` and the PASS/FAIL/SKIP policy, and a SKIP that is never PASS. The README also does not say `fn_audit` is the step that SKIPs for the missing head, so a reader cannot tell what CI actually covers.
+  - Precheck: `grep -n 'tools/gate.py' .github/workflows/README.md` prints nothing; `sed -n '7,14p' .github/workflows/README.md` lists the three old commands.
+  - Scope: `.github/workflows/README.md` only (H86 owns the `l1l2-fixtures.yml` policy text and the negative-CI proof — do not duplicate it). Rewrite the "Hard gate" list to the one `tools/gate.py` step, name the four gates and the SKIP rule, and add one line that `fn_audit` is SKIP in PR CI (no head) and PASS in H84's manual job. Keep the Python 3.14 informational paragraph.
+  - Input: `.github/workflows/{README.md,ci.yml}`, `tools/gate.py` docstring, H85/H86 blocks.
+  - Hints: keep it short — one gate row per command, matching `gate.py`'s table (`selftest`, `claims_check`, `todo_check`, `fn_audit`). H86 is still open and edits the same file's policy wording; if H86 lands first, this task is the narrower "name gate.py" fix and must not revert H86's text.
+  - Done when: `grep -n 'tools/gate.py' .github/workflows/README.md` prints the gate step; the old three-command list is gone; a reader can tell SKIP≠PASS and which gate SKIPs in CI; `python3 tools/todo_check.py` OK.
+  - Stop: if H86's rewrite already names `tools/gate.py`, close this as superseded by H86 with a one-line `Result:` and keep the H86 task.
+  - Falsifier: `README.md` still tells an agent that `ci.yml` runs `selftest.py --json` and `claims_check.py` as separate hard-gate steps.
+  - Claims: C-4270–C-4279
+
 - [x] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
   - Status: done · Owner: task/h55-l3check-json-path · Critical: yes · Pair: solo
   - Depends: —
