@@ -12,8 +12,10 @@
 
 ## Question
 
-`CI quality gate` has been red on `main` since H85 merged (PR #206), on every
-push, in all three matrix jobs — while the same command is green locally.
+`CI quality gate` has been red on `main` since H85 merged (PR #206) — 12
+consecutive pushes, from `1889340` to `2b3d1b4`, the last success being
+`3f9c0b2` (#205), in all three matrix jobs — while the same command is green
+locally.
 Is the ledger wrong (nine stale selftest counts to re-pin), or is CI running
 the rule on a tree it cannot apply to?
 
@@ -33,7 +35,7 @@ revisions other than the tip, the history is not the cause.
 | --- | --- |
 | Image / file | `none (CI/tool task)` |
 | SHA-256 | `none` |
-| Repo state | `origin/main` = `3d79bcc` (also `c7a5529`, `3375e5a`, `4e0040e`, `2410d74` — all red) |
+| Repo state | `origin/main` = `2b3d1b4`, the 12th consecutive red push (`1889340`…`2b3d1b4`); the last green is `3f9c0b2` |
 | Tool / version | python3 3.15, git 2.5x |
 | Repo tools | `tools/claims_check.py`, `tools/gate.py`, `.github/workflows/ci.yml` |
 
@@ -64,7 +66,8 @@ revisions other than the tip, the history is not the cause.
 
 ## Observations
 
-CI, run `44045407959` on `3d79bcc` (py3.14 job; 3.11/3.13 identical):
+CI, run `44045407959` on `3d79bcc` (py3.14 job; 3.11/3.13 identical; the
+same nine lines appear at every red push, each with its own tip SHA):
 
 ```
 claims_check  FAIL      3.46  exit 1
@@ -133,9 +136,10 @@ claims_check selftest: OK (28 checks)
 
 ## Interpretation
 
-- **FACT:** CI has been red since H85 merged, at `c7a5529`, `3375e5a`,
-  `4e0040e`, `2410d74` and `3d79bcc`, and the nine `COUNT` lines all name the
-  same tip revision.
+- **FACT:** CI was red for 12 consecutive `main` pushes, `1889340` (H85's
+  merge) through `2b3d1b4`, and the nine `COUNT` lines all name that run's own
+  tip revision. The cause was present at every one of them, not only at the
+  first.
 - **FACT:** a depth-1 clone of `3d79bcc` prints `count mismatches: 9`; the same
   commit with full history prints `0`. The ledger is correct; the checkout was
   not.
