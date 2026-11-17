@@ -8,7 +8,7 @@ Find them with: `git log --since=24.hours --stat origin/main` and the docs/exper
 - Is every new claim in docs/research/claims.md backed by a reproducible command? `python3 tools/claims_check.py` passes?
 - Does it repeat a retired lead or a known trap from AGENTS.md (big-endian search, guessed signatures, fitted deltas)?
 
-Was something done incorrectly? Add a task to TODO and describe how to do it better.
+Was something done incorrectly? Add a task to TODO and describe how to do it better — but a SOURCE task is done when the cycle's output exists: an error in an earlier merged EXP becomes one repair task, not a second task that re-describes the same EXP defect, and do not reserve a claim range on a SOURCE task (nothing is registered until the work commits rows).
 Was something in a task done, but there are signs that the topic is worth digging deeper into? Add a task to TODO.
 
 Then check the technical debt — do we need some tools to make the work more efficient? Add a TODO task.

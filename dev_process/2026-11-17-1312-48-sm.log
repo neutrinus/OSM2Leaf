@@ -1,0 +1,82 @@
+role: sm (Scrum Master, 9th pass)
+model: opencode/deepseek-v4.1-flash-free (main session)
+start_utc: 2026-11-17 13:02
+end_utc: 2026-11-17 13:35
+origin_main_start: 0e170ad (TL cycle-12 log)
+
+inputs_read:
+- prompt_common.txt, prompt_sm.txt, AGENTS.md
+- docs/retro/2026-11-17-2.md (eighth pass) and the action lists of
+  2026-11-17.md (seventh pass)
+- dev_process/2026-11-17-{1045-43-sm,1125-44-se,1156-45-po,1207-46-qa,1305-47-tl}.log
+- prompt_{se,po,qa,tl}.txt
+- EXP-2026-11-17-{H90-ci-shallow-count,H95-log-rotation,M9.39-point010-mutant}
+- TODO.md H93..H99/M9.40/M9.41/M1.32/M1.33 statuses, Priorities
+- git log/diff 9bfae3d..0e170ad; gh pr list/checks; gh run list; wc -l TODO.md;
+  df -h /tmp; du -sh .claude; git worktree list; python3 tools/gate.py,
+  claims_check --strict --count-check, todo_check
+
+window: cycle 12, origin/main 9bfae3d -> 0e170ad, 6 commits (5 non-merge +
+1 no-ff merge #211), 2 PRs merged (#211 M9.39, #212 H95), 3 h 49 min.
+Board 199 blocks at both ends: 107/68/27 -> 113/55/28 (open/done/blocked).
+TODO.md 3588 -> 3507; the PO pass alone 3644 -> 3449 (net -195).
+Claims rows 2137 -> 2149 (+12); 0 RETRACTED / 0 new Supersedes.
+
+numbers verified this run (each quoted from a command that prints it):
+- tasks done 1 (M9.39) / blocked 1 (H95) / re-opened 0; 0 ghost claims
+  (0 `Status: in progress`); 0 open draft PRs; 0 remote task/*; 55 local
+  branches, 37 worktrees, 0 prunable; /tmp 3.3 G/3.8 G (86 %); .claude/ 490 MB
+  untracked (retro-5/6/7 debt, unchanged).
+- gate `4 pass, 0 fail, 0 skip` (human freed /tmp before the PO pass; the PO
+  log's selftest ENOSPC is stale); claims `count mismatches: 0`, `claim/EXP
+  count conflicts: 0`; todo_check OK; --strict still 66 (H53).
+- CI on main: all 6 pushes green (quality + l1l2, py3.11/3.13/3.14); #211 and
+  #212 6/6 checks green before merge.
+- role silence at this run: SM 2.0 h · SE 1.7 h · PO 1.3 h · QA 0.5 h · TL
+  0.1 h. Cycle 12 ran the full SM->SE->PO->QA->TL order, 3 h 49 min.
+- tasks claimed with no commit >24 h: 0. Tasks touched by >1 PR this window:
+  0. New tasks all still open: H91-H94, H96-H99, M1.32, M1.33, M9.40, M9.41;
+  H95 blocked. Open Critical = 51-52 blocks; 0 done this cycle.
+
+actions taken, in order:
+- verified every number above against the command that prints it.
+- read all five cycle-12 logs; cycles are one BLOCK each, so TODO.md cannot
+  fall even with a correct -195 PO pass (observed 3588 -> 3507).
+- checked the prompt_tl navigator sentence from SM cycle-12: it did not need to
+  fire (H93 open; H90 EXP still ends "(empty until ...)"); M9.39 pairs DID
+  write theirs. Rule is correct and inert until H93 runs.
+- found the multiplicity defect: SOURCE task blocks (7 in window, ~30 in the
+  H93-H99 band) cite a 10-ID claim range (`Claims: C-4240-C-4249`) but commit
+  zero rows; claims_check never sees them (only 4 of 16 cited range-ends exist).
+- found the H95 unblock gap: `Unblock: <human>`, but the task's own follow-up
+  assigns the decision to the SM. 1 task blocked by process, fixable now.
+- wrote docs/retro/2026-11-17-3.md with numbers, judge, 1 prompt fix, 5 actions.
+- edited prompt_se.txt: SOURCE task = done when the cycle's output exists; do
+  not invent a second task/EXP (before/after in the retro action 1).
+
+decisions:
+- No prompt_tl edit: the cycle is one BLOCK per role by design; loosening it to
+  one block per TASK is a PO/SE structural change, owned by action 1, not a
+  silent SM edit. Flagged, not applied.
+- Kept prompt edits to one (prompt_se); the other role prompts are correct but
+  silent on multiplicity (PO prompt has no per-pass output cap; QA has no dedupe
+  of the H-band gap list it re-derives each pass).
+- Pair/solo: M9.39's navigator caught 5 defects (whole-blob re-encode,
+  unsatisfiable Done-when, `0xfe4e` mislabel, artifact count, zlib-ng). Pairing
+  pays off; solo H95 shipped clean (a negative with a positive control).
+- Did not touch the H95 / MAINTENANCE.md decision (human/SM), but made it
+  action 3 with a concrete "if the answer is yes, the SM writes the page" path.
+
+problems / dead ends:
+- TODO.md line count is not a backlog signal any more: 199 blocks are fixed and
+  each cycle adds ~1 block/role while touching only the last week's tasks.
+- H95: fdba381 named a file (MAINTENANCE.md) that never existed. The negative
+  EXP is honest, but its Unblock names `<human>` while the decision is SM's.
+
+handoff:
+- PO: action 1 (collapse SOURCE claim ranges; retire the finished band to
+  todo-history; a line budget, not a one-off archive).
+- TL: action 2 (a 5-task H-record band: H91-H94 + H95 close-out), action 4
+  (one architecture-ish task after two record cycles).
+- QA: action 5 (report the *delta* in the L1-L4 matrix, not the full table).
+- human: action 3 (H95: yes/no on MAINTENANCE.md); the worktree/.claude debt.
