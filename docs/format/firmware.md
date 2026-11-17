@@ -572,11 +572,13 @@ Both runs `PASS`; the chunk engine's output is byte-identical to
 sampled records. The controls are the interesting part: the US walker with the
 **EU** global cells (or the EU walker VA on the US text) stops on an unmapped
 access, and the US chunk engine with the EU helper stubs likewise blocks — so
-the pass is not the old translation offset. One honest limitation: the US and
-EU `REFER001/POINT010.DAT.{cmp,ind}` pairs on hand are **byte-identical**
-(`48812f8c…`, `7ac54e3b…`), so the EU engine also decodes this page; the
-EU→US difference this task proves is in the *code* paths and their addresses,
-not in a different page's bytes. A second, differing page is follow-up work.
+the pass is not the old translation offset. The US pair is **not** the EU
+pair: the US `POINT010` is `48812f8c…`/`7ac54e3b…` and the EU factory pair is
+`d02a8d87…`/`3eaa47bb…`. Both builds read the **EU** page `0x6e06d0` (9/9
+each) and both chunk engines decode the EU pair byte-identically, so the US
+reader reproduces a card it did not come from (C-3537). An earlier draft of
+this page said the pairs were identical; that was wrong — it had looked at a
+partial EU extract with no `POINT010`.
 
 ## Map-code check
 
