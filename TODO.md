@@ -966,6 +966,32 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if the sample is all one class with no cheap fix, record it and do not change `fn_match.py`.
   - Claims: C-4120–C-4129
 
+- [ ] **H91 — M1.22's shipped `US_BUILD_STARTS` is 15 entries, but H87's Result and C-4101 say it "stays 12"**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: — (M1.22 `e199373` and H87 `381879b` are both on `main`)
+  - Goal: H87's `Result` and C-4101 assert `US_BUILD_STARTS` "stays `12`"; the list `main` ships has **15** entries because M1.22 added the three POINT-walker VAs (`0x0041DB44`, `0x0041C370`, `0x0041E63C`) two commits later. The number was true on H87's branch and false at its merge — the exact "number quoted from a command, then moved by another merge" class prompt_common's quote rule exists for. H87's other count, `OK (70 checks, 0 failed)` in C-4101, is stale the same way (`72` now, because M1.22 added the two H88 cases).
+  - Precheck: `git show 381879b:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x[0-9A-Fa-f]\{8\}'` prints `15`; the same at `2e0bed9` prints `12`; `python3 tools/fn_audit.py --selftest | tail -1` prints `OK (72 checks, 0 failed)`.
+  - Scope: docs only — TODO.md H87 `Result`, `docs/experiments/EXP-2026-11-17-H87-us-build-comment.md` (Inputs, Observations, Reproduction), and the C-4101/C-4112 wording. No tool or test change.
+  - Input: `git log --oneline -- tools/fn_audit.py` (`2e0bed9`, `381879b`, `e199373`), the H87 EXP, `docs/research/claims.md` C-4101/C-4112.
+  - Hints: do not replace `12` with a new bare `15` either — say "12 at `381879b`, 15 at merge because `e199373` added three POINT-walker starts" and pin every count to a revision the same way. C-4101's "70 checks" and H88's "72" are the same defect one task over; fix both in this pass.
+  - Done when: no line in H87's block, its EXP or C-4101 says the merged list is `12`, and every quoted count names a revision and a command; `python3 tools/claims_check.py --strict --count-check` OK; `python3 tools/todo_check.py` OK.
+  - Stop: if the reviewer prefers a tool-side guard instead, stop and hand that half to H92 rather than inventing a second check here.
+  - Falsifier: `grep -c 'stays `12`' TODO.md docs/research/claims.md` is non-zero after the edit, or a count line has no revision.
+  - Claims: C-4140–C-4149
+
+- [ ] **H92 — No gate covers the other direction of the count rule: a claim quoting a count the tree no longer prints**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H78 (`--count-check` is on `main`), H91 (the defect it should have caught)
+  - Goal: `claims_check --count-check` fails when a claim's *selftest-count* pin no longer matches the tool. It stays green when a count quoted in a claim, an EXP `Observations` block or a task `Result` is stale without being a selftest count — which is how H87's `12` (shipped as 15) and H90's shallow-clone `count mismatches: 9` both survived. The safe shapes are few and mechanical: `grep -c` counts, a named list length (`US_BUILD_STARTS`), and `OK (N checks, 0 failed)`.
+  - Precheck: `python3 tools/claims_check.py --strict --count-check` is OK on `3d79bcc` while `grep -n 'stays `12`' TODO.md docs/research/claims.md` finds H87's stale line; `grep -cE 'OK \([0-9]+ checks' docs/experiments/EXP-2026-11-1*.md` shows the shape is common, not a one-off.
+  - Scope: `tools/claims_check.py` only: a `--prose-counts` mode (off by default; on under `--strict` once the board is clean) that reads `⟨command⟩ prints N`, `stays N` and `OK (N checks` out of a claim's Evidence cell, re-runs only an allowlisted command shape (`grep -c`, `python3 -c … len(…)`, `--selftest | tail -1`), and reports `STALE COUNT C-xxxx: claims N, command prints M`. No new tool; no claim-text edits.
+  - Input: `tools/claims_check.py` (`_run_counts`, `_exp_revision`, `main`), H78's count rule and selftest cases, H87's Result as the negative fixture, H90's shallow-clone skip as the shape to reuse.
+  - Hints: reuse H78's revision rule — a prose count with no measurement revision is skipped, never failed; do not parse arbitrary prose for numbers (that is how a gate cries wolf). A bare `stays 12` is the case to catch; `12 at <sha>` must stay clean.
+  - Done when: a synthetic row `… stays 12` whose `grep -c` prints 15 is `STALE COUNT` with exit 1; `<N> at <sha>` and a revision-less row are clean; `--selftest` covers all three; `python3 tools/gate.py` green on `main`.
+  - Stop: if fewer than three real prose-count shapes are safe to re-run, ship the allowlist plus one mutation case, list the rejected shapes in the EXP, and leave enforcement off by default.
+  - Falsifier: H87's `stays 12` line is still clean after the change, or a legitimate `12 at <sha>` row goes red.
+  - Claims: C-4150–C-4159
+
 - [ ] **H86 — Make the claims half of the standing gate blocking in CI (todo half after H53)**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: H78 (the count rule inside `--strict`, done), H85 (the runner, done); H53 only for the second half
@@ -1047,6 +1073,20 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Note (SE 2026-11-15, TEMPLATE method): the M1.20 EXP's §2 all-module census is a heredoc pinned to `/tmp/opencode/img/IMG256.img` — the only way to reproduce C-3512's totals (A 87,530 / B 21,930 / C 25,243). A claim whose command is a throwaway heredoc on an absolute path is not re-runnable from the repo. Before registering C-3512/C-3514, add a `pdata.py census IMG --json` subcommand (or a `tools/pdata_census.py` with `--selftest`) that prints `module / records / section / compressed` for A/B/C and paste *that* command into the claim evidence. If the census is too slow to run in CI, commit its JSON as a fixture (counts only, no vendor bytes) and make `census --check-fixture` fail on drift.
   - Stop: if a tool's selftest depends on the prologue heuristic in a way pdata cannot satisfy, leave that tool on the heuristic, list it in the EXP, and register only the claims the code backs.
   - Claims: C-3610–C-3619
+
+- [ ] **M1.32 — Give the M1.22 US reuse points one owner: `targets.json` starts, `point_walk_l3`/`chunk_decoder_l3` tables, the fn_audit skip set, the EXP, the format doc**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M1.22 (done) whose US VAs these are; H91 (fixes the one stale count the copy left behind)
+  - Goal: M1.22's three US walker starts and the chunk engine now live in five places that must agree: `tools/l3_harness/targets.json` (`build: us2011`), `tools/point_walk_l3.py` `BUILD_TARGETS["us2011"]`, `tools/chunk_decoder_l3.py` `BUILD_TARGETS["us2011"]`, `tools/fn_audit.py` `US_BUILD_STARTS`, and the prose in `docs/format/firmware.md` + the EXP. That is the M1.28/M1.22b lesson repeated one layer up: a VA set copied by hand into five files is one merge away from disagreeing (H91 already found one symptom), and a new reader adds a sixth copy.
+  - Precheck: emit the five sets and diff them:
+    `python3 - <<'EOF'` reading `targets.json` (`entry.va` where `build == "us2011"`), both `BUILD_TARGETS["us2011"]` maps and `fn_audit.US_BUILD_STARTS`, printing `only in X: …` per pair. Expected today: the walker/chunk VAs agree, `0x0035D894` (Navi.exe entry) and `0x0041E63C` (dispatcher) appear in some sets only, and the doc table lists a subset — print the counts, do not assert zero before the task decides ownership.
+  - Scope: the US-VA declaration only. Decide **one** home (Hints) and make the other files derive or *check* it; `targets.json` stays the machine list the runner reads. No new firmware search, no VA change, no verdict change.
+  - Input: `tools/l3_harness/targets.json`, `tools/point_walk_l3.py` `BUILD_TARGETS`, `tools/chunk_decoder_l3.py` `BUILD_TARGETS`, `tools/fn_audit.py` `US_BUILD_STARTS`, `docs/format/firmware.md` §"The US build at L3", EXP-2026-11-17-M1.22-us-build-census.
+  - Hints: the natural owner is a small `tools/build_targets.py` (or a `--build us2011` lookup on `targets.json`) that returns `{role: va}` and a `check` mode asserting every hand-written copy equals it; `fn_audit` needs the set at import time, so a generated `dict` in one module is fine. `chunk_decoder_l3`'s helper VAs (memcpy, mod, zcalloc/zcfree, inflate_mask) are not reader starts — keep them out of `US_BUILD_STARTS` (that was the over-broad-skip bug), so the shared set is starts-only and the helpers stay per-tool with a pointer to the pool-slot evidence.
+  - Done when: one command prints `0 only-in-*` across the files it owns (or a named, justified exception list with the reason each VA is file-local); `python3 tools/selftest.py --only fn_audit --only point_walk_l3 --only chunk_decoder_l3` passes; `python3 tools/l3check.py --build-corpus` unchanged (`pass=1 blocked=6`); `python3 tools/gate.py` green; the EXP names the owner file.
+  - Stop: if a single home needs the runner's JSON schema to grow a second shape the harness cannot read, keep `targets.json` as the home and ship a `check` mode plus one mutation case instead of moving the data.
+  - Falsifier: a planted one-halfword drift in one copy is still green after the change.
+  - Claims: C-4160–C-4169
 
 - [x] **M1.22b — Harden `fn_match` to ≥90 % on the cited EU readers: exact instruction-level diff and the EU→US census EXP**
   - Status: done · Owner: task/m1.22b-us-census · Critical: yes · Pair: required
@@ -3461,6 +3501,32 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the selftest has one distinct-register case per modelled form; the differential check reports 0 disagreements or each one is fixed/explained; the census is in the EXP; the M9.36 targets still pass.
   - Stop: an opcode family that needs FPU or MMU state is listed as out of scope.
   - Claims: C-3590–C-3599
+
+- [ ] **M9.39 — A POINT010 page whose *records* differ: the L3 corpus M1.22 left to M9.10**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M1.22 (both walkers run on US + EU pages; done), `tools/mutate_refer_poi.py` (for the record edit)
+  - Goal: M1.22's cross-build run uses two *different factory cards*, which proves the reader is not tuned to one card but not that it reads *our* bytes. The L3 corpus still has no POINT page whose record contents (name offset, coordinates, icon) were changed on purpose, so a reader that ignored the record bytes would still pass. Produce one mutated page and run all four combinations (EU/US code × factory/mutated page) so the mutation is visible in the output, not just "PASS".
+  - Precheck: `python3 tools/mutate_refer_poi.py --selftest` passes; `python3 tools/point_walk_l3.py walk archive/us256.img --cmp <US>/POINT010.DAT.cmp --ind <US>/POINT010.DAT.ind --page 0x840ba0 --page-len 42848 --build us2011 | tail -1` prints `result: PASS` (the M1.22 baseline this task must not regress).
+  - Scope: one mutated `POINT010` pair written outside the repo (`archive/` only; commit hashes, offsets and the record diff, never bytes), the four L3 runs, and the OP-level observation that a moved name/coordinate changes the firmware's returned offset but not the record count. No map-format claim and no writer change.
+  - Input: `tools/mutate_refer_poi.py` (record name/offset edit), `tools/point_walk_l3.py` (`walk`, `skip`, `--build`), `tools/cmpind.py`/`cmpind_writer.py` to rebuild the pair, `archive/us256.img` + `archive/head256.img`, a `POINT010` pair from either factory tree.
+  - Hints: mutate a record the walker already samples (`n=500` or `n=998`) so the change lands in the printed table; run the unmutated page first as the positive control and the mutated page second; a reader that returns the factory offset for the mutated record is the failure this task exists to expose. Rebuild only the 64 KiB chunk that holds the record (AGENTS "Writing data back"), keep the other streams verbatim, and record the `.ind` offset change.
+  - Done when: an EXP table `code build / page / sampled records / result` shows the mutated record's firmware offset differs from the factory one in all four runs (or a named, justified case where it does not), the record count is unchanged, and the mutated pair's `.cmp`/`.ind` SHA-256 and the record's byte offset are in the record; `python3 tools/gate.py` green.
+  - Stop: if the mutation changes the record count or the walker stops before the sampled record, treat it as a corrupt page, record the stop, and pick a record whose length does not change rather than resizing the page.
+  - Falsifier: every run prints the same offsets for the mutant and the factory page (the reader ignored the record bytes).
+  - Claims: C-4170–C-4179
+
+- [ ] **M9.40 — `chunk_decoder_l3 --build` names the US `inflate_mask` in C-3535, but the run maps a constant**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: — (M1.22's `--build` selector and US table are on `main`)
+  - Goal: M9.11b found the EU `inflate_mask[17]` by deriving it from `inflate`'s own `shll2` load, and M1.22 added a US `BUILD_TARGETS["us2011"]["inflate_mask"] = 0x005987B0`; C-3535 then says the US run uses "the US `inflate_mask` from the unique `shll2; …` site". That US value is used, but the [17] table is **written**, not read: `chunk_decoder_l3.run()` puts the public zlib `2^n - 1` series at the build's VA, so no firmware byte and no harness assertion proves the US and EU VAs actually hold that table. The verdict (byte-identical decode) is sound; the provenance sentence in C-3535 overstates what was verified.
+  - Precheck: `sed -n 242,252p tools/chunk_decoder_l3.py` shows `inflate_mask` written from `(1 << n) - 1`, not read from the image; `python3 tools/chunk_decoder_l3.py --selftest` passes; `python3 tools/chunk_decoder_l3.py run archive/us256.img … --build us2011` prints `verdict: PASS` (the run this provenance must not change).
+  - Scope: `tools/chunk_decoder_l3.py` (a `--read-mask` path that loads the table from the image at the build's VA and fails if it differs from `2^n - 1`, or an explicit `OBSERVED not read` in the log), the C-3535 wording, and the M1.22 EXP's mask sentence. No verdict change, no new firmware search, no EU target change.
+  - Input: `tools/chunk_decoder_l3.py` (`BUILD_TARGETS`, the `zero-mask` branch at ~line 242), `tools/cerom.py` (`va2file`) or `tools/va_class.py` to map the VA, C-3535, EXP-2026-11-17-M1.22-us-build-census.
+  - Hints: the two VAs may both be `INIT`/BSS (H49: 94 % of compressed sec1 is zero) — if so, the honest result is "the value cannot be read; the mask is the public zlib constant written at the build's own slot", and C-3535 loses the "from the US site" clause. Do not turn a write into a read to make the claim true.
+  - Done when: the log line says whether the mask was **read** from the image or **written** from public zlib, per build; a negative control (a deliberately wrong series at the US VA) either fails the read or is reported as `OBSERVED (not read)`; C-3535 and the EXP say only what the run did; `--selftest` and `python3 tools/gate.py` green; the EU/US decode verdicts are unchanged.
+  - Stop: if `va_class.py` says both mask VAs are `INIT`, record `OBSERVED: mask is written (public zlib), VA is INIT` and stop — M1.19 is the task that makes them readable, not this one. If C-3535's edit would re-open an M1.22 claim, keep M1.22's wording as printed at `3d79bcc` and mark the correction `Superseded by` this task's EXP instead of editing a done row.
+  - Falsifier: C-3535 still claims the US mask was taken from the image after the change, or the change alters either build's decode verdict.
+  - Claims: C-4180–C-4189
 
 - [ ] **M9.38 — Read-watch tracer: which functions read the page buffer**
   - Status: open · Owner: — · Critical: yes

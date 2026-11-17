@@ -1,0 +1,93 @@
+role: SE (senior engineer), cycle 11
+model: opencode/deepseek-v4.1-flash-free
+start 2026-11-17 08:19 UTC, end 2026-11-17 08:45 UTC
+origin/main at start: 3d79bcc (SM retro cycle 10)
+
+Inputs read: prompt_common.txt, prompt_se.txt, AGENTS.md, TODO rules 1-16,
+  docs/retro/2026-11-17.md, dev_process/2026-11-17-0807-39-tl.log (names only),
+  the three cycle-10 EXPs, claims.md sections H87/H88/M1.22, TEMPLATE.md.
+
+Done-when re-runs (all numeric output from the run, not typed):
+- H87: grep -c "will replace it" = 0; US_BUILD_STARTS = 15 on main. PASS on
+  the Done-when as written; the shipped list is 15, not 12 (M1.22 added three
+  POINT-walker VAs at e199373, after H87's branch point). H87 Result and
+  C-4101 say "stays 12" and "70 checks" -> stale. Defect, fix task H91.
+- H88: --corpus on archive/absent.img -> error line + exit 2; --selftest
+  OK (72 checks, 0 failed). PASS. Corrupt-present control reproduced:
+  exit 2 + gate "3 pass, 1 fail, 0 skip". gate.py with image: 4 pass.
+- M1.22 census: my own script over cerom.o32 -> EU 149 / US 151 / common 148,
+  only-EU RDSCC.dll, only-US RBDS_CC.dll+XMCC.dll+XMStatusCC.dll, one
+  code-identical (atlce400.dll), 147 different, 0 compressed execute sections
+  either build. Reproduction block usable but needs this 12-line script; it is
+  not committed (M1.32 gives the US VAs a home, not the census).
+- M1.22 L3: point_walk_l3 walk 9/9 PASS, skip 9/9 PASS with guard+count
+  controls; chunk_decoder_l3 run r0=42848 verdict PASS byte-identical
+  (insns=1057251); fn_match 13 VAs -> unique 5 different 7 nomatch 1;
+  l3check --build-corpus pass=1 blocked=6 runnable=1/7; EU factory pair
+  0x6e06d0 9/9 on both builds as claimed. All PASS.
+- Full-module census re-ran: DIFFERENT 3214 / UNIQUE 2392 / CALLORDER 213 /
+  NOMATCH 1259 / AMBIGUOUS 518 of 7596. H89's premise holds.
+
+EXP template check:
+- H87: sample says "none (docs-only)" with reason, commands, controls,
+  falsifier, observations split, reproduction. OK.
+- H88: same; real corrupt-file negative control present. OK.
+- M1.22: sample hashes, commands, three constructed wrong-build controls,
+  counted corpus, falsifier, Observation/Interpretation split, a retraction
+  section. Gaps: the Method SQL/commands use ellipses (`--va … 0x00542250`,
+  `--cmp …/POINT010…`, a `…` disassembly row, abbreviated SHA-256 in the
+  sample) — TEMPLATE's "no ellipsis" rule. Some numbers (census module count
+  table, relocated-body table) come from an uncommitted script. Flagged; M1.32
+  covers the address set, not the census script.
+
+Claims: claims_check OK and --strict OK (count 0, conflicts 0). C-4100/C-4101,
+C-4110-C-4114, C-3530-C-3539, C-3630 each name a command; runnable except
+C-3531/C-3530's census (script) and C-3532's masked-table (script). Claim
+defects: C-4101 stale "12"/"70 checks"; C-3535 overstates provenance ("uses
+the US inflate_mask") while chunk_decoder_l3 writes the public zlib table at
+the build's VA — M9.40 (corrects by Superseded-by if it re-opens a claim).
+
+Retired leads / traps: none repeated. No big-endian search, no guessed
+signature, no fitted delta, no "no static caller" claim; M1.22 derives US VAs
+from each engine's own pool/dispatcher and says so. The one over-broad skip
+(0x004444d0/0x0041e5e4) was caught and removed in the same PR; I re-ran the
+planted case (fn 0x004444d0 -> START, fn 0x00444540 skipped).
+
+Docs drift found: docs/format/firmware.md §"The US build at L3" still says the
+two POINT010 pairs are byte-identical and "a second, differing page is follow-up
+work" — retracted by 398db35/C-3537 and fixed in the EXP only. Not a claim
+table edit, so I left it; noted here for the next docs pass.
+
+Tasks added (all TODO, no edits to done tasks' Results):
+- H91 docs · Pair required — H87 Result/C-4101 say US_BUILD_STARTS stays 12;
+  it ships 15 at 381879b. Claims C-4140-C-4149.
+- H92 tools · Pair required — no gate catches a stale prose count (the H78
+  count rule only covers selftest pins). Claims C-4150-C-4159.
+- M1.32 tools/KB · Pair required — one owner for the M1.22 US starts
+  (targets.json, two BUILD_TARGETS, fn_audit skip set, doc/EXP). C-4160-C-4169.
+- M9.39 L3 corpus · Pair required — a POINT010 page with mutated records, four
+  code×page combinations. C-4170-C-4179.
+- M9.40 tools/claims · Pair required — chunk_decoder --build provenance of
+  inflate_mask (written, not read). C-4180-C-4189.
+Not added (already owned): H90 (TL, shallow clone), H89 (NOMATCH census),
+M3.23/M9.38 (Critical, need M1.20), M1.19, M9.36/M9.37, H53/H84/H86/H77/H82/H83.
+
+ID note: the coordination note said "start at H91, leave H90 to TL". H90 was
+on the *working tree* only (not on origin/main; e199373 is the last TODO.md
+commit), so this pass added H91/H92 after it, then dropped the untouched H90
+block from this commit and left the working copy as it was, so TL's H90 commit
+is the only writer of that block. M-namespace is not fixed, so M1.32/M9.39/
+M9.40 were checked free (grep, 0 hits) before use.
+
+Problems / cost: (1) `archive/head256.img` and `us256.img` are real files here,
+not symlinks, so the instructed ln -sf was a no-op — nothing to remove.
+(2) A naive `grep -c '0x…'` over US_BUILD_STARTS counts the EU VAs in the
+inline comments (23), not entries (12/15); used a sed-range count instead.
+(3) The M1.22 census and masked-body table need a script the repo does not
+have; wrote a throwaway under /tmp/opencode to reproduce, did not commit it.
+
+Handoff: PO should reorder so M3.23 runs before M1.32 (the call graph touches
+the same files), keep H90 ahead of H92 (H92 hardens the rule H90 repairs), and
+put H91 in the same TL pass as H90 — both are one-line quote fixes in the H
+band. TL should run H89 as the pair it already planned and hand M9.39 the
+mutate_refer_poi.py path (it is the only tool that edits a POINT page today).
