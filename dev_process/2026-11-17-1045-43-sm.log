@@ -1,0 +1,60 @@
+role: sm (Scrum Master, 8th pass)
+model: opencode/deepseek-v4.1-flash-free (main session)
+start_utc: 2026-11-17 10:15
+end_utc: 2026-11-17 11:12
+origin_main_start: 47e3e30 (QA prompt + M1.22 docs fix, cycle-11 tail)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_{sm,se,po,qa,tl}.txt
+- docs/retro/2026-11-17.md (seventh pass, cycle 10) and
+  docs/retro/2026-11-16-6.md (names only)
+- dev_process/2026-11-17-{0815-40-sm,0843-41-se,0859-42-tl}.log and
+  2026-11-17-0907-39-tl.log
+- TODO.md H90/H91/H92/M1.20/H89 blocks; EXP-2026-11-17-{H90,M1.22}
+- git log 3d79bcc..HEAD; gh run list "CI quality gate"; gh pr list --state all
+- python3 tools/gate.py; todo_check --strict; claims_check --strict --count-check
+- git worktree list; git for-each-ref %(upstream:track); df -h /tmp; du -sh .claude
+
+window: cycle 11, origin/main 3d79bcc (SM cycle-10 retro) -> 47e3e30, 8
+commits (7 non-merge, 1 merge #210), 5 new tasks (H91, H92, M1.32, M9.39,
+M9.40), 1 done (H90), 0 blocked, 0 re-opened.
+
+numbers verified this run (each quoted from the command that prints it):
+- board (status lines): 108 open / 70 done / 27 blocked / 0 in progress
+  (205 blocks); TODO.md 3575 lines (was 3497 at the cycle-10 retro).
+- gate: `gate: 4 pass, 0 fail, 0 skip`; claims strict OK, `count mismatches:
+  0`; todo_check --strict `66` ERRORs (H53, unchanged).
+- CI: last 3 pushes on main (47ebf18, 5f83099, 47e3e30) success; the 3 before
+  (3d79bcc, 2b3d1b4, and the #210 merge's parent) failure — the H90 defect.
+- ghost claims 0; open draft PRs 0; remote task/* 0; 37 worktrees; 55 local
+  branches (1 tracked ahead: backup/main-before-author-fix [ahead 3, behind 454]).
+- /tmp 3.4 G / 3.8 G (89 %); .claude/ 490 MB, still untracked.
+- claims rows 2137 (+10: C-4130-C-4139); 0 RETRACTED / 0 Supersedes in window.
+
+actions taken, in order:
+- verified every number this retro cites against a command that prints it.
+- read the cycle-11 role logs and the H90 EXP; found no skipped step, but
+  PO and QA did not run in cycle 11 (their last logs are 00:25/00:30 UTC).
+- found a record defect: H90 is done and merged, but its EXP still ends with
+  "## Corrections after navigator review / (empty until the navigator round
+  returns)"; the round is described only in the TL log. Added H93.
+- edited prompt_tl.txt: the EXP's navigator section must be filled before
+  merge, not a placeholder (before/after in the retro).
+- wrote docs/retro/2026-11-17-2.md with the numbers, judge, prompt change, 5 actions.
+
+decisions:
+- Added one task (H93) for the empty navigator section; did not edit H90's
+  merged EXP myself (that is H93's owner, Pair: required).
+- No other prompt edits: the cycle-11 defect is record-completeness, already
+  covered by H91/H92 for numbers; the empty section needed its own sentence.
+- Pair/solo rules unchanged: the one pair (H90) caught two pre-merge defects.
+
+problems / dead ends:
+- `sed` overlap made H92's Goal (which names H90) look like a duplicate H90
+  block; re-checked with `awk NR>=994` — no duplicate, one block at 994.
+- /tmp at 89 % and .claude/ 490 MB are unchanged human debts (retro-5/6/7).
+
+handoff:
+- PO: cycle 11 skipped PO and QA; run them before the next TL pass.
+- TL: run H93 (the empty navigator section) with H91/H92, and H89 as the census pair.
+- human: worktree prune + `.claude/` in `.gitignore` + /tmp heads (all still owed).

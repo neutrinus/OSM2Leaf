@@ -991,6 +991,19 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if fewer than three real prose-count shapes are safe to re-run, ship the allowlist plus one mutation case, list the rejected shapes in the EXP, and leave enforcement off by default.
   - Falsifier: H87's `stays 12` line is still clean after the change, or a legitimate `12 at <sha>` row goes red.
   - Claims: C-4150–C-4159
+
+- [ ] **H93 — H90's EXP still has an empty "Corrections after navigator review" section**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H90 (the EXP it repairs is on `main`)
+  - Goal: H90 was `Pair: required` and the navigator round happened (TL log `2026-11-17-0859-42-tl.log`, commit `4e7ea5d`), but `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` still ends with `## Corrections after navigator review` and `(empty until the navigator round returns)`. A reader cannot tell the record was paired, and an empty placeholder looks filled — the defect class `prompt_tl.txt` now names.
+  - Precheck: `grep -A1 'Corrections after navigator review' docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` prints the `(empty until …)` line.
+  - Scope: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` only: write the two navigator corrections the TL log records — "12 consecutive pushes" pinned to `1889340`…`2b3d1b4` (last green `3f9c0b2`), and the depth-1 recipe pinned to the pre-fix tool revision — or, if the round cannot be shown, delete the heading. No claim rows; no other EXP.
+  - Input: the H90 EXP, TL log `2026-11-17-0859-42-tl.log` ("navigator round 1: APPROVE, with two non-blocking number flags"), `4e7ea5d`.
+  - Hints: the two flags are already in the TL log; quote them, do not invent a third. If a quote would duplicate the Result line, point at it instead — the section is about the round, not the fix.
+  - Done when: no `(empty until the navigator round returns)` remains in the H90 EXP; the section names two corrections or the heading is gone; `python3 tools/claims_check.py --strict --count-check` OK; `python3 tools/todo_check.py` OK.
+  - Stop: if the TL log's two flags cannot be quoted without a vendor byte or a typed number, delete the heading and record why in the EXP, then stop.
+  - Falsifier: the empty-placeholder grep still prints after the edit.
+  - Claims: C-4190–C-4199
 - [x] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
   - Status: done · Owner: task/h90-ci-shallow-count · Critical: yes · Pair: required
   - Depends: — (H85's CI gate step and H78's `_exp_revision` are on main)

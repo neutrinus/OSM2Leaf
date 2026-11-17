@@ -35,7 +35,7 @@ Launch the subagent(s) for each task, each task in its own git worktree / branch
 
 When a subagent finishes, check its work:
 - re-run the task's `Done when` command yourself, plus `python3 tools/selftest.py`, `tools/claims_check.py`, `tools/todo_check.py`;
-- read the EXP: controls present, observations separate from interpretation, no vendor data in the diff.
+- read the EXP: controls present, observations separate from interpretation, no vendor data in the diff. For a pair, the EXP's "Corrections after navigator review" section is written (or the heading removed) — an empty placeholder is not a record: H90 shipped one, H93 fixes it.
 If the check fails, send it back to the subagent or mark the task blocked — never merge a false `done`.
 
 Then commit and push; merge to main one PR at a time: rebase onto the fresh origin/main, re-run the checks, and read CI on the PR (`gh pr checks <n>`) before merging — a green local gate is not a green PR (H90: `main` was red for 12 pushes on a defect only the CI run showed). Merge, delete the branch, close the draft PR. If work lands on main by another path, still close the task's draft PR and delete its remote branch. If a draft PR has only the claim commit and no task work after a reasonable attempt, close it, delete the remote branch, and set the task back to `open` (or keep it `blocked` with an EXP if that is the honest result) so the claim is not left as a ghost. Apply rule 15 (re-open tasks the merge unblocks).
