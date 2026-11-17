@@ -991,6 +991,18 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if fewer than three real prose-count shapes are safe to re-run, ship the allowlist plus one mutation case, list the rejected shapes in the EXP, and leave enforcement off by default.
   - Falsifier: H87's `stays 12` line is still clean after the change, or a legitimate `12 at <sha>` row goes red.
   - Claims: C-4150–C-4159
+- [ ] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
+  - Status: in progress · Owner: task/h90-ci-shallow-count · Critical: yes · Pair: required
+  - Depends: — (H85's CI gate step and H78's `_exp_revision` are on main)
+  - Goal: `main` has been red on `CI quality gate` since H85 merged (`gh run list --workflow "CI quality gate" --branch main` shows `failure` on `c7a5529`, `3375e5a`, `4e0040e`, `2410d74`, `3d79bcc`), while the same command is green locally. Cause: `actions/checkout@v4` defaults to `fetch-depth: 1`, so `_exp_revision` (`git log --format=%H -- <EXP>`) returns only the tip, every claim is "pinned" to the tip, and 9 old selftest counts (C-568 46/411, C-570 186/390, C-650 391/390, C-3704 26/33, C-2085 44/62, C-960 15/19, C-1060 48/68, C-1994 18/19, C-3934 58/72) are measured against today's tools. In a depth-1 clone of `3d79bcc` the tool prints `count mismatches: 9`; after `git fetch --unshallow` it prints `0`.
+  - Precheck: `git clone --depth 1 file://$PWD /tmp/x && (cd /tmp/x && python3 tools/claims_check.py --strict --count-check | tail -3)` → `count mismatches: 9` / `claims_check: FAILED`; add `git fetch --unshallow` → `count mismatches: 0` / `claims_check: OK`.
+  - Scope: `.github/workflows/ci.yml` (checkout `fetch-depth: 0`, with a comment saying why) and `tools/claims_check.py` only: a shallow history cannot identify an EXP's measurement revision, so `_exp_revision` returns `None` there (the H78 rule already skips a record with no measurement revision — this is the same skip, not a new leniency) and the tool prints `count check: skipped (shallow clone …)`. No claim/EXP text changes, no gate semantics change on a full checkout.
+  - Input: `.github/workflows/ci.yml`, `tools/claims_check.py` (`_exp_revision`, `_run_counts`, `main`), the H78 selftest cases.
+  - Hints: the repository pack is 3.2 MiB / 809 commits, so a full fetch is cheap and restores the *real* rule in CI; do not instead add the count mismatches to an allow-list.
+  - Done when: (a) `python3 tools/claims_check.py --selftest` passes and includes a shallow-history case; (b) a depth-1 clone prints `count check: skipped (shallow clone` and `claims_check: OK` with exit 0; (c) the same clone after `--unshallow` prints `count mismatches: 0`; (d) a full checkout with C-3704's `26` changed to `25` still prints `COUNT C-3704 claims 25, tools/fn_match.py prints 26` and exits 1 (the rule still bites); (e) `python3 tools/gate.py` is `4 pass, 0 fail, 0 skip`; (f) after merge the `CI quality gate` run on `main` is `success` for py3.11 and py3.13.
+  - Falsifier: if a depth-1 clone with the fix still exits 1, or if the full-checkout C-3704 mutation no longer fails, the change is wrong.
+  - Result: —
+  - Claims: C-4130–C-4139
 
 - [ ] **H86 — Make the claims half of the standing gate blocking in CI (todo half after H53)**
   - Status: open · Owner: — · Critical: no · Pair: required
