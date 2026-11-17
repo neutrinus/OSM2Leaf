@@ -1,0 +1,70 @@
+role: po
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-17 01:40
+end_utc: 2026-11-17 02:15
+origin_main_start: fc034fb (SE cycle-10 review)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt
+- docs/retro/2026-11-16-6.md (cycle-9 retro: 5 actions)
+- dev_process/2026-11-16-{2345-34-tl,2345-35-sm,2345-36-se}.log
+- TODO.md Priorities + the 28 blocked blocks; docs/experiments/EXP-2026-11-16-M1.22b
+- docs/format/firmware.md EU→US table; tools/fetch_image.py (US256 present)
+
+rule 15 (re-open): **M1.22 re-opened** (blocked -> open). Its `Unblock: M1.22b`
+is met (#203 merged). `Status` changed; the stale SE blocker line marked
+historical; the `Unblock` line replaced by a `Re-opened` line naming what
+M1.22b actually left: (a) the two US-only modules are still unnamed (M1.22b's
+census is module-internal — it did not do the all-module census M1.22 asks
+for), (b) the 13-reader table is `5 UNIQUE / 7 DIFFERENT / 1 NOMATCH` and the
+`>= 90 % UNIQUE` floor was argued down to a data-layout metric — the task must
+either accept that explicitly or add the pool-aware rule to the metric, and
+(c) the `point_walk_l3`/`chunk_decoder_l3` reruns on US256 with the US VAs
+(M9.10/M9.12) have not run. Precheck in the block: `fn_match` still prints
+`unique: 5`, and the M1.22b EXP names no US-only module.
+No other blocked block's `Unblock` names a task H81 just closed (checked all
+28 by their Unblock/Re-opened lines; the two H81 leftovers, M1.2f and M8.E1,
+were left `blocked` on purpose because their real unblock is a sh4dis/QEMU
+change, not M1.19).
+
+priorities (Priorities section rewritten for the 13th pass):
+- "Read first": cycle 9 merged H78/H79/M1.22b/H80/H81/H85; `main` is green
+  under `tools/gate.py` (`4 pass, 0 fail, 0 skip`); M1.22b is done; M1.22
+  re-opened for its residual scope.
+- L3 bullet: M1.22b's result in one sentence; M1.22 re-opened; H89 as the
+  third level (sample the 1,259 unexplained NOMATCH).
+- Take first, re-ordered: (1) M3.23 -> M3.24 -> M9.38 (the only Critical
+  non-H tasks open; both need M1.20, open); (2) M1.22 (re-opened);
+  (3) H89; (4) M1.19 (now only M1.21/M1.4 + L4 INIT, since H81 closed its
+  seven probes); (5) M9.36 -> M9.37; (6) cheap: H87/H88 (solo), H53, H86,
+  M9.31, H77, H82, H83, H84.
+- No new tasks added: SE's pass added H87/H88/H89 and QA's H84/H86 are still
+  open; the board has 105 open, and H81's point was that open blocks must be
+  takeable. Adding more without taking any would repeat that.
+
+archive (mandatory pass): **fixpoint**, 0 moved. A done block is archivable if
+no live block names it in `Depends/Unblock/Re-opens` and its task landed >24 h
+ago. 66 done blocks, 49 named by a live Depends/Unblock/Re-opens; of the 17
+unnamed, only M1.30 is older than a day (21.4 h) — under 24 h. So nothing is
+archivable this pass. TODO.md **3457 -> 3493 lines** (+36: H87/H88/H89 from
+SE). Over the 1500-line rule, as every pass since retro-5; the archive is
+blocked by live references, not by policy.
+
+decisions:
+- Did **not** fold H89 into M1.22: M1.22 is the US build's map, H89 is the
+  matcher's residual class — different files (M1.22 may not touch
+  `fn_match.py`), different question.
+- Did **not** archive M1.28 despite age_h=0.0 from `-S` (it is named by the
+  M1.22b Depends/Result; the scan's "unnamed" list is the 17 above, not what
+  `-S` returns).
+- Kept `Pair:` as written on the re-opened M1.22 (it was Critical, no Pair
+  field: TL decides, default pair — it touches firmware maps).
+
+checks: `python3 tools/todo_check.py` OK; `python3 tools/gate.py` `4 pass`.
+
+handoff:
+- TL: take M3.23 first (Critical, deps M1.20 open — check that M1.20's
+  remaining wire-up is small enough to finish or fold into M3.23); then
+  M1.22; H89 as the census pair; H87/H88 as quick solos.
+- QA: H86 is cheap now — `tools/gate.py` already runs the strict rules and
+  they are green, so making them blocking in CI is a small change.

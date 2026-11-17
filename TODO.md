@@ -215,7 +215,7 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-16, 12th pass; retro 2026-11-16-5, SE `000d219`)
+## Priorities (PO grooming 2026-11-17, 13th pass; retro 2026-11-16-6, SE `fc034fb`)
 
 Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
 `-13.md`, `-15.md`; done tasks moved off the board on 2026-11-16:
@@ -226,17 +226,16 @@ blocks are either named by a live `Depends:`/`Unblock:` or merged <24 h ago
 cutoff 2026-11-15T20:11Z). Nothing is archivable, so the rule does not fire.
 
 **Read first.** The board is clean: 0 `in progress`, 0 ghost claims, and every
-block carries a `Status:`. Cycle 8 merged **M1.31** (#195, leaf census),
-**M1.26** (#196, the `--scope l3` standing gate), **H74** (#197, the
-count/path detector), **H76** (#198, the l3 image assertion), **H75** (#199,
-the C-3703/EXP repair) and **H71** (#200, runnable evidence spans). SE's cycle-9
-review (`000d219`) found **`claims_check --count-check` is red on `main`**
-(`C-3704 claims 26, fn_match prints 29`): H75's required `Correction` section
-moved the EXP's last commit, and `_pinned_revision` measures at that commit;
-`--strict` never runs the count rule at all. **H78** fixes both halves and must
-land before M1.22b quotes a matcher percentage (the census number comes from the
-same ledger). The `--corpus` gate is green (`CORPUS DRIFT: … 0 new / 0 gone`,
-exit 0 — H69's policy, not a failure).
+block carries a `Status:`. Cycle 9 merged **H78** (#201, `--strict` runs the
+count rule), **H79** (#202, the M1.31 US-head evidence is re-creatable),
+**M1.22b** (#203, the EU→US reader census), **H80** (#204, H71's Precheck by
+ID), **H81** (#205, five "superseded" blocks closed) and **H85** (#206, the
+one standing gate `tools/gate.py`, wired into CI). `main` is green under the
+new gate: `gate: 4 pass, 0 fail, 0 skip`. The L3 US gate is now a **next
+step**, not a blocker: M1.22b showed 6 of the 7 `NOMATCH` were a matcher
+weakness and 1 is a rewrite, and re-opened **M1.22** (rule 15) for the two
+US-only modules and the US-VA reruns. The `--corpus` gate is green
+(`0 new / 0 gone`, exit 0 — H69's policy).
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
@@ -244,23 +243,23 @@ exit 0 — H69's policy, not a failure).
 
 - **L1 (cheap):** `cardcheck --image` + `imgpatch`/manifest diff discipline on every candidate card. Blocking: **M5.30** (1:1 diff of the Poland card), **H40** (in-process fixture so CI can run L1 with no vendor data).
 - **L2 (cheap, necessary not sufficient — rule 13):** Poland compiler output must round-trip and diff 1:1 before a bench card: **M5.34** (blocked-on-M5.29 corridor rerun; PR #171's `--factory-root` mode is on `main`, the test ways fall in a `0x2146` directory) → **M5.29** (blocked) → **M5.30** → **M5.33** (synthetic-path validators) → **M5.11** (Phase-2 end to end), then **M5.35** (one command → card + L1/L2/L3 evidence bundle) and **M4.36** (street name ↔ `ADDRE`/section-4 join, without which rendered roads are nameless). Road classes only from **M4.2** (non-Claude). Support: `M5.3`, `M5.21`, `M5.32`, `M5.26`.
-- **L3 (virtual):** SKIP/BLOCKED never PASS. The **US gate** is the next big move: **M1.22b** (pair) — its deps M1.27/M1.28/M1.31 are all **done** — maps the 8 `NOMATCH` readers at ≥90 % or finds a matcher weakness. It is gated on honest numbers: **H78** (the `--count-check` gate, red on `main` today) and **H79** (M1.31's `/tmp` US-head evidence) must land so its percentage is re-quotable. **M1.22** (blocked) then follows. The `fn`/corpus gate is complete for the docs scope (H52 → M1.30 → H69 → H72 → M1.26, all done); the l3 overlay is clean (`0 new / 0 gone`). The **US-build reader VAs** M9.10/M9.12 need **M1.23** (pdata-backed labels, done) and **M1.22** (the US build); **M9.12** stays blocked behind **M9.31** (no-diff/baseline verdicts). Reader discovery is now call-graph work, not signature search: **M1.20** (pdata-backed labels for every tool) → **M3.23** (static call graph) → **M3.24** (sec1 dispatch tables) → **M9.38** (read-watch tracer, names the reader) → **M3.22**/**M3.13** (ADDRE), **M3.11c** → **M9.10**. Harness: **M9.36** (re-run every probe on the corrected PySh4) and **M9.37** (decoder audit) come before trusting any old L3 verdict; **M9.24** binds imports for the data readers. **M1.19** (the kernel decompressor wired into `cerom`/`rommap`) makes `INIT` bytes an ordinary input and is what makes `cerom.py decompress` stop saying `UNSUPPORTED`; it is the L4 prerequisite too. Cheap glue: **H81** (close the seven "do not take" blocks), **H80** (H71's stale Precheck).
+- **L3 (virtual):** SKIP/BLOCKED never PASS. **M1.22b** is **done** (#203): the EU→US census is `5 UNIQUE / 7 DIFFERENT / 1 NOMATCH` on the 13 cited readers — 6 of the 7 `NOMATCH` were a matcher weakness (identical masked form stream, moved literal pool) and 1 (`0x003fbed8`) is a rewrite. **M1.22** is **re-opened** (rule 15) for what M1.22b left: the two US-only modules are unnamed, the ≥90 % UNIQUE floor was argued down to a data-layout metric (state it in the task), and the `point_walk_l3`/`chunk_decoder_l3` reruns on US256 with the US VAs (M9.10/M9.12). A third level is **H89** (sample the 1,259 unexplained `NOMATCH`: rewrites vs a second matcher class). The `fn`/corpus gate is complete for the docs scope (H52 → M1.30 → H69 → H72 → M1.26, all done); the l3 overlay is clean (`0 new / 0 gone`). The **US-build reader VAs** M9.10/M9.12 need **M1.23** (pdata-backed labels, done) and **M1.22** (the US build); **M9.12** stays blocked behind **M9.31** (no-diff/baseline verdicts). Reader discovery is now call-graph work, not signature search: **M1.20** (pdata-backed labels for every tool) → **M3.23** (static call graph) → **M3.24** (sec1 dispatch tables) → **M9.38** (read-watch tracer, names the reader) → **M3.22**/**M3.13** (ADDRE), **M3.11c** → **M9.10**. Harness: **M9.36** (re-run every probe on the corrected PySh4) and **M9.37** (decoder audit) come before trusting any old L3 verdict; **M9.24** binds imports for the data readers. **M1.19** (the kernel decompressor wired into `cerom`/`rommap`) makes `INIT` bytes an ordinary input and is what makes `cerom.py decompress` stop saying `UNSUPPORTED`; it is the L4 prerequisite too. Cheap glue: **H81** (close the seven "do not take" blocks), **H80** (H71's stale Precheck).
 - **L4 (QEMU/M8):** software integration before L5; not final acceptance. **M8.A2** needs a QEMU 8.2.7 `sh4-softmmu` host; **M8.A3**/**M8.A6** follow it. **M1.19** is the prerequisite for any full-system run that touches `INIT` bytes.
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. Prep: **M6.13** S3 manifest, **H29** bundle/registration, **M6.15** (which build the unit runs). Run `l3_precond.py` before every bench card; hardware is unavailable now.
 
 **Take first (ready, deps done, one branch+PR each):**
-1. **M1.22b** (pair, `Pair: required`) — the US census on M1.27's leaf path + M1.31's denominator; the only thing between L3 and the US build. Land **H78** (pair, the red `--count-check`) and **H79** (solo, US-head evidence) first if the TL wants a green oracle; they are file-disjoint from M1.22b except `claims.md`, so M1.22b can start once H78's edit to `claims.md` is pushed.
-2. **M1.19** (Critical, unowned) — wire `nk_decomp` into `cerom`/`rommap`/`va_class`; closes the seven superseded probes (H81) and unblocks M1.21/M1.4 and every L4 run that touches `INIT`.
-3. **M9.36** → **M9.37** — re-run and audit the L3 probes after H51; no L3 evidence predating H51 is trustworthy until M9.36 lands.
-4. **M3.23** → **M3.24** → **M9.38** — the reader-discovery chain that replaces the failed signature searches.
-5. **M5.34** → **M5.29**, **M5.30**, **M5.33** — Poland card evidence (second, independent track).
-6. Cheap: **H53** (board cleanup for `todo_check --strict`), **M9.31** (unblocks M9.12), **H66**/**H58**/**H61** (the remaining `claims_check` rules), **H77** (fence-aware scanners), **H82** (zlib interpreter stamp), **H83** (board-ref lint).
+1. **M3.23** → **M3.24** → **M9.38** — the reader-discovery chain; M3.23 and M9.38 are the only Critical non-H tasks open (both depend on **M1.20**, which is open). Start with M3.23's static call graph: it is what unblocks M3.14–M3.16 and every "reader not found" task.
+2. **M1.22** (re-opened, Critical) — finish the US build: name the two US-only modules, record that ≥90 % UNIQUE is a data-layout metric (or add the pool-aware rule to the metric), and rerun the US-VA probes (M9.10/M9.12, the latter still behind **M9.31**).
+3. **H89** (pair) — sample the 1,259 unexplained `NOMATCH`; it tells the next reader task whether the US code is missing or the matcher is.
+4. **M1.19** (Critical, unowned) — wire `nk_decomp` into `cerom`/`rommap`/`va_class`; H81 closed its seven superseded probes, so it now unblocks only M1.21/M1.4 and the L4 `INIT` runs.
+5. **M9.36** → **M9.37** — re-run and audit the L3 probes after H51; no L3 evidence predating H51 is trustworthy until M9.36 lands.
+6. Cheap: **H87** / **H88** (solo, comment rot and the `fn_audit --corpus` traceback), **H53** (board cleanup for `todo_check --strict`), **H86** (make the strict rules blocking in CI — `tools/gate.py` already runs them and they are green), **M9.31** (unblocks M9.12), **H77** (fence-aware scanners), **H82** (zlib interpreter stamp), **H83** (board-ref lint), **H84** (manual IMG256 job).
 
 **Critical path to a first accepted card:**
 · **Software/L3 gate:** **M9.11b** registers `cmp_ind_reader` (done); **M9.35**
 cleared the sec1 load model, so the `.data` readers wait on **M9.24** (imports)
 and **M9.36** (re-run on the corrected engine), not on M1.2f (superseded by
-H51/M1.19 — see **H81**). **M3.11c** → **M9.10**; **M9.12**
+H51/M1.19 — H81 closed it). **M3.11c** → **M9.10**; **M9.12**
 (`l3check.py --card`) is the pre-bench gate and waits on **M9.31**. **M2.4**
 runs on M9.6's comparator.
 · **US (nearest):** S1/S2 exist (M5.13b); Marek runs M6.2 S0 → M6.5 S1 →
@@ -1018,9 +1017,10 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Claims: C-3520–C-3529
 
 - [ ] **M1.22 — The US firmware build: module census and EU→US function map**
-  - Status: blocked · Owner: — · Critical: yes
+  - Status: open · Owner: — · Critical: yes
+  - Note (PO re-open): the `Blocker (SE 2026-11-13)` below is historical — M1.22b cleared it; the residual scope is in the Re-opened line.
   - Blocker (SE 2026-11-13): `fn_match.py --selftest` passes and the EU-vs-EU control maps 13/13 UNIQUE, but the EU→US run maps only 5/13 cited readers UNIQUE (`0x0041c7dc→0x00444540`, `0x0041c990→0x004446f4`, `0x0041c044→0x00443da8`, `0x003f632c→0x0041ec8c`, `0x00542250→0x0056454c`); 8 NOMATCH, including the POINT walker leaf `0x003f5194`. That is <90 %, there is no census EXP, and `targets.json` has no `build` field.
-  - Unblock: M1.22b (harden the matcher, publish the census, add `build`)
+  - Re-opened (PO, rule 15): M1.22b merged (PR #203) and supplied the matcher, the census and `build`; the `M1.22b` Unblock condition is met. What M1.22b left undone here: the two US-only modules are **not named** (its census is module-internal), the 13-reader table is `5 UNIQUE / 7 DIFFERENT / 1 NOMATCH` (the ≥90 % UNIQUE floor is not met — M1.22b argued it is a data-layout metric), and the `point_walk_l3.py`/`chunk_decoder_l3.py` reruns with the US VAs (M9.10/M9.12) have not run. Precheck: `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x003f5194 …` still prints `unique: 5`; `grep -c "US-only\|only on the US" docs/experiments/EXP-2026-11-16-M1.22b-eu-us-census.md` prints `0`.
   - Depends: — (M1.20 makes the matching exact; a first census needs only `cerom.py`)
   - Goal: Marek's unit is a US unit, and the US card carries a **different `Navi.exe`** (H51: vsize `0x013bb000`, entry `0x0035d894`, sec0 `0x56faa6` B, 7,520 function records, 151 modules; EU: `0x0154e000`, `0x0032edd0`, `0x54bd16`, 7,596, 149). Every reader VA on this board was found in the EU build, and the L3 gate for the US cards S1/S2 (M9.10, M9.11, M9.12) runs EU code on US data. Give each located EU function its US address so the gate can run the code the US unit runs.
   - Precheck: `curl -r 0-268435455 -o US256.img https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` (SHA-256 `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da`); `python3 tools/cerom.py --image-start 0x200200 US256.img sections Navi.exe` shows entry `0035d894`; bytes `0x3e00200…0x4800200` (build B) equal IMG256.
