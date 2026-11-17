@@ -97,6 +97,11 @@ TARGET_EVIDENCE = {
         "claims": (),
         "note": "no .cmp/.ind reader entry point yet",
     },
+    "cmp_ind_reader_us2011": {
+        "reader": "cmp_ind",
+        "claims": ("C-3630",),
+        "note": "US build of the same engine (fn 0x00444540); M1.22",
+    },
     "tile_reader": {
         "reader": "tile",
         "claims": (),
@@ -1214,10 +1219,12 @@ def test_full_run():
     assert probe["input"]["manifest_sha256_match"] is True, probe["input"]
     assert probe["steps"] and probe["steps"] > 0, probe
     blocked = sorted(name for name, row in rows.items() if row["status"] == "BLOCKED")
-    # cmp_ind_reader is registered (M9.11b firmware_call) but needs external
-    # --image/--cmp/--ind; corpus-only run reports it BLOCKED in this mode.
+    # The firmware_call readers (EU cmp_ind_reader, US cmp_ind_reader_us2011)
+    # need external --image/--cmp/--ind, so a corpus-only run reports them
+    # BLOCKED in this mode (M9.11b, M1.22).
     assert blocked == [
         "cmp_ind_reader",
+        "cmp_ind_reader_us2011",
         "drstr_parser",
         "hddinfo_compare",
         "mapcode_comparator",
@@ -1229,8 +1236,8 @@ def test_full_run():
         assert row["l3_claim"] is False and row["reason"], row
         assert row["claims"] == list(TARGET_EVIDENCE[name]["claims"]), row
     assert report["counts"] == {
-        "pass": 1, "fail": 0, "skip": 0, "blocked": 5,
-        "runnable": 1, "total": 6,
+        "pass": 1, "fail": 0, "skip": 0, "blocked": 6,
+        "runnable": 1, "total": 7,
     }, report["counts"]
 
 

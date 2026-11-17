@@ -73,6 +73,43 @@ STUB_MEMCPY = 0x003D146C      # COREDLL #1044
 STUB_MOD31 = 0x003D1484       # COREDLL #2006 (r4 % r5)
 ZCALLOC = 0x00543A98          # zlib zcalloc trampoline
 ZCFREE = 0x00543AA8           # zlib zcfree trampoline
+
+# US 2011 builds (M1.22).  Found the same way as the walkers: the chunk
+# engine is a masked-form twin (111/111 halfwords identical) and its own
+# literal pool names the moved helper addresses, so these are not guesses.
+# The EU pool slot <eu_memcpy_slot> holds <eu_memcpy>; the US engine's own
+# pool slot holds the US memcpy, and likewise for the two mod helpers and the
+# zlib wrapper (which moved with the whole zlib blob).  Every value below is
+# a whole image VA, not a fitted delta; see the EXP for the pool-slot
+# transcript.
+BUILD_TARGETS = {
+    "eu2011": {
+        "fn_chunk": 0x0041C7DC,
+        "memcpy": 0x003D146C,
+        "mod_helper": 0x003D140C,
+        "mod31": 0x003D1484,
+        "zcalloc": 0x00543A98,
+        "zcfree": 0x00543AA8,
+        "inflate_mask": 0x00574DE0,
+        "inflate_wrapper": 0x00542148,
+    },
+    "us2011": {
+        "fn_chunk": 0x00444540,
+        "memcpy": 0x00400944,        # COREDLL #1044 (its own pool slot)
+        "mod_helper": 0x004008E4,
+        "mod31": 0x0040098C,
+        # the two zlib trampolines, found by their unique 6-halfword shape
+        # (`mov r5,r4; mov.l @(pc),r3; mov.l @r3,r3; jmp @r3; ...`): exactly
+        # one calloc-shape and one free-shape hit in each build's text.
+        "zcalloc": 0x00565D94,
+        "zcfree": 0x00565DA4,
+        # Derived from the same site as the EU value: the `shll2 r2; mov.l
+        # @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` sequence is unique in each
+        # build's text, and the US one loads this address (`<mask>` below).
+        "inflate_mask": 0x005987B0,
+        "inflate_wrapper": 0x00564444,
+    },
+}
 ENTRY = 20
 ENTRY_TABLE_PTR = 28          # *(ctx + 28) = table base
 CACHE_PTR = 308               # *(ctx + 308) = scratch buffer for partial chunks
@@ -156,7 +193,8 @@ def section_of(sections, va: int) -> str:
 
 
 def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
-                 chunk_size: int, sec_mode: str = "block", sec1_table=None):
+                 chunk_size: int, sec_mode: str = "block", sec1_table=None,
+                 tgt: dict | None = None):
     """Run fn 0x41c7dc on the chunks covering [offset, offset+length).
 
     The loop starts at the table entry that ``*(ctx+28)`` points to and walks
@@ -170,6 +208,7 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     provenance recorded in EXP-2026-11-08-M9.11-chunk-decoder); callers that
     register a passing target through ``runner.py`` must pass it explicitly.
     """
+    tgt = tgt or BUILD_TARGETS["eu2011"]
     start = chunk_index(offset, chunk_size)
     count = chunk_index(offset + length - 1, chunk_size) - start + 1
     text_va, text = pw.navi_text(image, IMAGE_START)
@@ -200,11 +239,16 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                 mask = b"".join(struct.pack("<I", int(str(v), 0) & 0xFFFFFFFF) for v in vals)
                 eng.write_mem(tva, mask)
             else:
+                inflate_mask_va = tgt["inflate_mask"]
+                if inflate_mask_va is None:
+                    raise Blocked("this build's inflate_mask VA is not resolved; "
+                                  "pass a declared sec1 table")
                 # zlib 1.1.3 inflate_mask[17] (public source: 2^n - 1), written at
-                # indexed by inflate ``fn 0x0054331c`` (its `shll2` load).  Not
-                # read from the image.
+                # the address the build's inflate indexes (see BUILD_TARGETS;
+                # the EU slot comes from the inflate's own `shll2` load).
+                # Not read from the image.
                 mask = b"".join(struct.pack("<I", (1 << n) - 1) for n in range(17))
-                eng.write_mem(INFLATE_MASK_VA, mask)
+                eng.write_mem(inflate_mask_va, mask)
     stack_top = STK_VA + STK_SIZE // 2
     eng.write_mem(CTX_VA + ENTRY_TABLE_PTR, struct.pack("<I", TAB_VA + ENTRY * start))
     eng.write_mem(CTX_VA + CACHE_PTR, struct.pack("<I", CACHE_VA))
@@ -261,12 +305,12 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
         stats["free"] += 1
         return StubReturn(0)
 
-    eng.on_exec(STUB_MEMCPY, memcpy_stub)
-    eng.on_exec(STUB_MOD31, mod31_stub)
-    eng.on_exec(ZCALLOC, calloc_stub)
-    eng.on_exec(ZCFREE, free_stub)
+    eng.on_exec(tgt["memcpy"], memcpy_stub)
+    eng.on_exec(tgt["mod31"], mod31_stub)
+    eng.on_exec(tgt["zcalloc"], calloc_stub)
+    eng.on_exec(tgt["zcfree"], free_stub)
     try:
-        ret = eng.call(FN_CHUNK, [CTX_VA, ARG_VA, length, count])
+        ret = eng.call(tgt["fn_chunk"], [CTX_VA, ARG_VA, length, count])
     except EngineError as exc:
         match = re.search(r"covers (0x[0-9a-f]+)", str(exc))
         va = int(match.group(1), 16) if match else None
@@ -308,7 +352,8 @@ def cmd_run(args) -> int:
     cmp_bytes = cmp_path.read_bytes()
     try:
         ret, out, stats = run_firmware(image, cmp_bytes, rows, args.offset,
-                                       args.length, chunk_size, args.sec1)
+                                       args.length, chunk_size, args.sec1,
+                                       tgt=BUILD_TARGETS[args.build])
     except Blocked as exc:
         args = exc.args
         va = args[1] if len(args) > 1 else None
@@ -446,6 +491,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--offset", type=lambda s: int(s, 0), default=0x840BA0)
     run.add_argument("--length", type=lambda s: int(s, 0), default=42848)
     run.add_argument("--mutate", choices=MUTATIONS, default="none")
+    run.add_argument("--build", choices=tuple(BUILD_TARGETS), default="eu2011",
+                     help="firmware build whose chunk-engine VAs to run")
     run.add_argument("--sec1", choices=("block", "zero", "zero-mask"), default="block",
                      help="block: a compressed-section access stops the run (default); "
                           "zero: diagnostic, map compressed sections as zeros and log reads; "

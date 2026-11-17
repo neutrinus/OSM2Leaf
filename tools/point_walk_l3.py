@@ -55,14 +55,41 @@ sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 import cerom  # noqa: E402
 from engine import PySh4  # noqa: E402
 
-WALK_NTH = 0x003F5194      # record_at(page, n)
-WALK_SKIP = 0x003F39C0     # skip n records from the loaded page (globals)
-WALK_DISPATCH = 0x003F5CDC  # chooses 0x3f5b88 / 0x3f5194 / 0x3f39c0 by buffer
-GLOBAL_COUNT = 0x00D5E4D0   # *GLOBAL_COUNT: record count of the current page
-GLOBAL_PAGE = 0x00D5E4E4    # *GLOBAL_PAGE: current page base (guard of 0x3f39c0)
-GLOBALS_BASE = 0x00D5E4C0   # scratch RW region that holds both cells
+WALK_NTH = 0x003F5194      # EU 2011: record_at(page, n)
+WALK_SKIP = 0x003F39C0     # EU 2011: skip n records from the loaded page (globals)
+WALK_DISPATCH = 0x003F5CDC  # EU 2011: chooses 0x3f5b88 / 0x3f5194 / 0x3f39c0
+GLOBAL_COUNT = 0x00D5E4D0   # EU 2011: *GLOBAL_COUNT: record count of the page
+GLOBAL_PAGE = 0x00D5E4E4    # EU 2011: *GLOBAL_PAGE: current page base
+GLOBALS_BASE = 0x00D5E4C0   # EU 2011: scratch RW region that holds both cells
 ESCAPE_TYPE = 0x3F
-ESCAPE_LEN = 0x4E8
+ESCAPE_LEN = 0x4E8         # EU 2011 escape record length (US: 0x4D8)
+
+# US 2011 `Navi.exe` (M1.22): the same three walkers, located by the masked
+# instruction-form stream and cross-checked through the dispatcher's own
+# literal pool (its three function slots name the walker, the nth reader and
+# the skip walker, in the same order as the EU dispatcher).  The record
+# length is one pool word shorter (0x4e8 -> 0x4d8), which is the only
+# code-visible difference; the walk/index arithmetic is shared.
+BUILD_TARGETS = {
+    "eu2011": {
+        "nth": 0x003F5194,
+        "skip": 0x003F39C0,
+        "dispatch": 0x003F5CDC,
+        "global_count": 0x00D5E4D0,
+        "global_page": 0x00D5E4E4,
+        "globals_base": 0x00D5E4C0,
+        "escape_len": 0x4E8,
+    },
+    "us2011": {
+        "nth": 0x0041DB44,
+        "skip": 0x0041C370,
+        "dispatch": 0x0041E63C,
+        "global_count": 0x00C8C0D0,
+        "global_page": 0x00C8C0E4,
+        "globals_base": 0x00C8C0C0,
+        "escape_len": 0x4D8,
+    },
+}
 MAX_RECORDS = 20000
 PAGE_VA = 0x20000000
 STACK_VA = 0x30000000
@@ -92,7 +119,7 @@ def header(raw: bytes, pos: int) -> tuple[int, int]:
     return rtype, 2 * words
 
 
-def model_nth(raw: bytes, n: int) -> int | None:
+def model_nth(raw: bytes, n: int, escape_len: int = ESCAPE_LEN) -> int | None:
     """What ``fn 0x003f5194`` returns for record *n*, as an offset."""
     pos = 0
     for i in range(MAX_RECORDS):
@@ -138,28 +165,40 @@ def navi_text(data: bytes, image_start: int) -> tuple[int, bytes]:
     raise SystemExit("Navi.exe has no uncompressed executable section")
 
 
-def run_nth(text_va: int, text: bytes, page_native: bytes, n: int):
+def target(name: str) -> dict:
+    """The walker addresses and globals for a firmware build (M1.22)."""
+    try:
+        return BUILD_TARGETS[name]
+    except KeyError:
+        raise SystemExit("unknown build %r (want one of %s)"
+                         % (name, ", ".join(sorted(BUILD_TARGETS))))
+
+
+def run_nth(text_va: int, text: bytes, page_native: bytes, n: int,
+            tgt: dict | None = None):
+    tgt = tgt or BUILD_TARGETS["eu2011"]
     eng = PySh4(endian="little")
     eng.map("text", text_va, text, "rx")
     eng.map("page", PAGE_VA, bytearray(page_native) + bytearray(0x40), "rw")
     eng.map("stack", STACK_VA, bytearray(0x1000), "rw")
     eng.set_regs(r15=STACK_VA + 0xF00)
-    ret = eng.call(WALK_NTH, [PAGE_VA, n])
+    ret = eng.call(tgt["nth"], [PAGE_VA, n])
     return None if ret == 0 else ret - PAGE_VA
 
 
 def run_skip(text_va: int, text: bytes, page_native: bytes, count: int,
-             page_arg: int, n: int):
-    """Run fn 0x3f39c0(page_arg, n) with the two globals set by the tool."""
+             page_arg: int, n: int, tgt: dict | None = None):
+    """Run the build's skip walker(page_arg, n) with the two globals set here."""
+    tgt = tgt or BUILD_TARGETS["eu2011"]
     eng = PySh4(endian="little")
     eng.map("text", text_va, text, "rx")
     eng.map("page", PAGE_VA, bytearray(page_native) + bytearray(0x40), "rw")
-    eng.map("globals", GLOBALS_BASE, bytearray(0x40), "rw")
+    eng.map("globals", tgt["globals_base"], bytearray(0x40), "rw")
     eng.map("stack", STACK_VA, bytearray(0x1000), "rw")
-    eng.write_mem(GLOBAL_COUNT, struct.pack("<I", count))
-    eng.write_mem(GLOBAL_PAGE, struct.pack("<I", PAGE_VA))
+    eng.write_mem(tgt["global_count"], struct.pack("<I", count))
+    eng.write_mem(tgt["global_page"], struct.pack("<I", PAGE_VA))
     eng.set_regs(r15=STACK_VA + 0xF00)
-    ret = eng.call(WALK_SKIP, [page_arg, n])
+    ret = eng.call(tgt["skip"], [page_arg, n])
     return None if ret == 0 else ret - PAGE_VA
 
 
@@ -229,6 +268,7 @@ def cmd_consts(args) -> int:
 def cmd_walk(args) -> int:
     import mutate_refer_poi as mrp
 
+    tgt = target(getattr(args, "build", "eu2011"))
     data = load_image(args.image)
     text_va, text = navi_text(data, args.image_start)
     cmp_bytes = Path(args.cmp).read_bytes()
@@ -237,6 +277,9 @@ def cmd_walk(args) -> int:
     end = args.page + args.page_len if args.page_len else len(dat)
     raw = zlib.decompressobj().decompress(dat[args.page:end])
     recs = mrp.parse_page(raw)
+    print("build %s: nth=%#010x skip=%#010x escape_len=%#x" % (
+        getattr(args, "build", "eu2011"), tgt["nth"], tgt["skip"],
+        tgt["escape_len"]))
     print("page %#x: %d bytes, parse_page: %d records" % (
         args.page, len(raw), len(recs)))
     count = len(recs)
@@ -245,15 +288,15 @@ def cmd_walk(args) -> int:
     native = swap16(raw)
     fails = 0
     for n in ns:
-        fw = run_nth(text_va, text, native, n)
+        fw = run_nth(text_va, text, native, n, tgt)
         py = recs[n]["offset"] if n < count else None
-        md = model_nth(raw, n)
+        md = model_nth(raw, n, escape_len=tgt["escape_len"])
         ok = fw == py == md
         fails += not ok
         print("n=%-5d firmware=%-8s parse_page=%-8s model=%-8s %s" % (
             n, fw if fw is None else hex(fw), py if py is None else hex(py),
             md if md is None else hex(md), "OK" if ok else "MISMATCH"))
-    neg = [run_nth(text_va, text, raw, n) for n in (1, 2)]
+    neg = [run_nth(text_va, text, raw, n, tgt) for n in (1, 2)]
     print("negative control (page not swapped): n=1,2 -> %s, expected %s" % (
         [hex(x) if x is not None else None for x in neg],
         [hex(recs[1]["offset"]), hex(recs[2]["offset"])]))
@@ -267,6 +310,7 @@ def cmd_walk(args) -> int:
 def cmd_skip(args) -> int:
     import mutate_refer_poi as mrp
 
+    tgt = target(getattr(args, "build", "eu2011"))
     data = load_image(args.image)
     text_va, text = navi_text(data, args.image_start)
     cmp_bytes = Path(args.cmp).read_bytes()
@@ -283,9 +327,9 @@ def cmd_skip(args) -> int:
     native = swap16(raw)
     fails = 0
     for n in ns:
-        fw = run_skip(text_va, text, native, count, PAGE_VA, n)
+        fw = run_skip(text_va, text, native, count, PAGE_VA, n, tgt)
         py = recs[n]["offset"] if n < count else None
-        md = model_nth(raw, n)
+        md = model_nth(raw, n, escape_len=tgt["escape_len"])
         ok = fw == py == md
         fails += not ok
         print("n=%-5d firmware=%-8s parse_page=%-8s model=%-8s %s" % (
@@ -293,7 +337,7 @@ def cmd_skip(args) -> int:
             md if md is None else hex(md), "OK" if ok else "MISMATCH"))
     # guard control: a page argument that is not the current page base must
     # return 0 whatever n is (the 0x3f39c0 prologue compares p with the global)
-    guard = run_skip(text_va, text, native, count, PAGE_VA + 2, 1)
+    guard = run_skip(text_va, text, native, count, PAGE_VA + 2, 1, tgt)
     print("guard control (p != current page base): n=1 -> %s, expected None"
           % (hex(guard) if guard is not None else None))
     if guard is not None:
@@ -302,8 +346,8 @@ def cmd_skip(args) -> int:
     # count control: the count cell is set to 500 while the page still holds
     # 1000 records; n = 499 must give record 499, n = 500 (= count) must give 0
     half = 500
-    last = run_skip(text_va, text, native, half, PAGE_VA, half - 1)
-    past = run_skip(text_va, text, native, half, PAGE_VA, half)
+    last = run_skip(text_va, text, native, half, PAGE_VA, half - 1, tgt)
+    past = run_skip(text_va, text, native, half, PAGE_VA, half, tgt)
     want = recs[half - 1]["offset"]
     print("count control (count cell 500): n=499 -> %s, expected %s; "
           "n=500 -> %s, expected None" % (
@@ -373,6 +417,9 @@ def build_parser():
             p.add_argument("--page", type=lambda s: int(s, 0), required=True)
             p.add_argument("--page-len", type=lambda s: int(s, 0), default=0)
             p.add_argument("--n", help="comma-separated record numbers")
+            p.add_argument("--build", choices=tuple(BUILD_TARGETS),
+                           default="eu2011",
+                           help="firmware build whose walker VAs to run")
     return ap
 
 

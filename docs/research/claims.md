@@ -3251,3 +3251,32 @@ was built and died with a `FileNotFoundError`.
 | C-4117 | RESERVED (H88). | — | — | — |
 | C-4118 | RESERVED (H88). | — | — | — |
 | C-4119 | RESERVED (H88). | — | — | — |
+
+## M1.22 — The US 2011 build: module census and US L3 readers (C-3530–C-3539, C-3630–C-3639)
+
+The US `Navi.exe` is a different binary; this task names the module delta,
+states what the `UNIQUE` floor measures, and runs the POINT walkers and the
+chunk engine on US code from each engine's own literal pool.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3530 | `cerom.py modules` prints 149 modules for `archive/head256.img` and 151 for `archive/us256.img`; the US-only modules are `RBDS_CC.dll`, `XMCC.dll`, `XMStatusCC.dll` and the EU-only one is `RDSCC.dll`, so the "two US-only modules" in the task text is three. | VERIFIED (tool) | H | EXP-2026-11-17-M1.22-us-build-census; the two `modules \| wc -l` runs and the census script |
+| C-3531 | Of the 148 common modules exactly one has byte-identical code (`atlce400.dll`) and 147 differ, measured as a SHA-256 over every `IMAGE_SCN_MEM_EXECUTE` section's stored bytes; all code sections are uncompressed (0 of 149 and 0 of 151 modules have a compressed sec0), so the comparison needs no decompressor. | VERIFIED (tool) | H | EXP-2026-11-17-M1.22-us-build-census; the census script |
+| C-3532 | The `≥90 % UNIQUE` floor is not met and measures data layout, not reader coverage: `fn_match` on the 13 cited readers prints `unique: 5 … different: 7 … nomatch: 1 of 13`, and an independent pool-masked comparison finds all 12 relocated bodies identical in form and length (e.g. DRSTR 382/382 halfwords, chunk engine 111/111) while the one genuine rewrite (`0x003fbed8` vs `0x00424850`) diverges at halfword 11. | VERIFIED (tool, negative control) | H | EXP-2026-11-17-M1.22-us-build-census; the 12-pair table and the rewrite control |
+| C-3533 | `fn_match` maps both the POINT skip walker (`0x003f39c0`) and the nth reader (`0x003f5194`) to `0x0041db44` because their leaf bodies are identical; the dispatchers' own literal pools disambiguate them — EU `[0x003f5d48]=0x003f5194`, `[0x003f5d88]=0x003f39c0`; US `[0x0041e6a8]=0x0041db44`, `[0x0041e6e8]=0x0041c370` — so the US skip walker is `0x0041c370`. | VERIFIED (tool) | H | EXP-2026-11-17-M1.22-us-build-census; the two dispatcher disassemblies and pool reads |
+| C-3534 | `point_walk_l3.py walk --build us2011` on `archive/us256.img` reproduces the page model on the US `POINT010` page `0x840ba0` for all nine sampled records (`0,1,2,3,10,500,998,999,1000`) with the unswapped-page negative control still failing, and `point_walk_l3.py skip --build us2011` passes 9/9 with its guard and count controls. | VERIFIED (tool, real image) | H | EXP-2026-11-17-M1.22-us-build-census; both runs |
+| C-3535 | `chunk_decoder_l3.py run --build us2011` on `archive/us256.img` returns `r0=42848` and a page byte-identical to `cmpind.decode` (`insns=1057251 memcpy=11 calloc=8`, `verdict: PASS`), using the US helper VAs taken from the engine's own pool (`memcpy` at the slot EU `0x003d146c` occupies, mod helpers likewise, zlib wrapper `0x00564444`) and the US `inflate_mask` from the unique `shll2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site. | VERIFIED (tool, real image) | H | EXP-2026-11-17-M1.22-us-build-census; the US run and the mask-site derivation |
+| C-3536 | Every wrong-build pairing fails loudly rather than passing by offset: the US skip walker with the EU global cells and the EU nth VA on the US text both stop on `UnmappedAccess`, and the US chunk engine with the EU helper stubs is `BLOCKED` on an unmapped low address. | VERIFIED (tool, three negative controls) | H | EXP-2026-11-17-M1.22-us-build-census; the three control runs |
+| C-3537 | The US and EU factory `REFER001/POINT010.DAT.{cmp,ind}` pairs are byte-identical (`48812f8c…d4657`, `7ac54e3b…c326e`) and the EU card tree on this machine has no `REFER001/POINT010` at all, so the EU chunk engine also decodes "the US page"; the US-vs-EU difference this task proves is in the code paths and addresses, not in differing page bytes. | VERIFIED (tool, honest limitation) | H | EXP-2026-11-17-M1.22-us-build-census; `sha256sum` of both pairs and the EU `REFER001` listing |
+| C-3538 | `tools/l3_harness/targets.json` gains `cmp_ind_reader_us2011` (`build: us2011`, entry `0x00444540`, declared `sec1_table` at `0x005987b0`) and `tools/l3check.py` gains its `TARGET_EVIDENCE` row; `runner.py` and `l3check.py --selftest` pass with 7 targets (`pass=1 blocked=6 runnable=1/7`). | VERIFIED (tool) | H | EXP-2026-11-17-M1.22-us-build-census; the target diff and `l3check.py --build-corpus` |
+| C-3539 | `tools/fn_audit.py` now skips a US-build VA in the `targets.json` and `l3_constants` collectors as well as in the markdown scanner, so a US target or `.py` constant no longer reddens the EU docs base: with the new work the docs base is `INSIDE 0` and both layers are `0 new / 0 gone`. | VERIFIED (tool) | H | EXP-2026-11-17-M1.22-us-build-census; `fn_audit.py … --corpus … --overlay … --quiet` |
+| C-3630 | The US chunk engine is `0x00444540` (EU `0x0041c7dc`): 111/111 masked halfwords identical, body length 111 halfwords both sides, and its own pool names the relocated `memcpy` and mod helpers, so the US L3 chunk target runs the code the US unit runs. | VERIFIED (tool) | H | EXP-2026-11-17-M1.22-us-build-census; the 12-pair table and the US target's run |
+| C-3631 | RESERVED (M1.22). | — | — | — |
+| C-3632 | RESERVED (M1.22). | — | — | — |
+| C-3633 | RESERVED (M1.22). | — | — | — |
+| C-3634 | RESERVED (M1.22). | — | — | — |
+| C-3635 | RESERVED (M1.22). | — | — | — |
+| C-3636 | RESERVED (M1.22). | — | — | — |
+| C-3637 | RESERVED (M1.22). | — | — | — |
+| C-3638 | RESERVED (M1.22). | — | — | — |
+| C-3639 | RESERVED (M1.22). | — | — | — |

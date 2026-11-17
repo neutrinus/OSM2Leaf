@@ -521,11 +521,12 @@ lives in [`tools/fixtures/fn_match_eu_us_2011.json`](../../tools/fixtures/fn_mat
 it pins the head SHA-256s and every row's expected verdict, so a wrong image
 fails with its hash rather than a `NOMATCH` (C-3741).
 
-Replay (positive control, exit 0; 5 `UNIQUE` / 8 `NOMATCH`):
+Replay (positive control, exit 0; `13 rows, 0 mismatch`, whose census is
+5 `UNIQUE` / 7 `DIFFERENT` / 1 `NOMATCH`):
 
 ```bash
 python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json \
-    --us /tmp/opencode/us256.img --module Navi.exe
+    --us archive/us256.img --module Navi.exe
 ```
 
 | EU2011 VA | US2011 VA | Role | Status |
@@ -550,6 +551,32 @@ its US counterpart is reached only by call context (`0x00424850`, HYPOTHESIS).
 M1.22b decided each of these (EXP-2026-11-16-M1.22b-eu-us-census, C-3622/C-3624):
 7 of the 8 former `NOMATCH` were a matcher gap (relocated literal data), and
 one is a rewrite.
+
+## The US build at L3: the walkers and the chunk engine run on US code
+
+M1.22 extended the runner past the 13 readers above: the `POINT` walker set
+and the chunk engine now have `us2011` targets, located the same way, and both
+were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
+
+| Role | EU2011 VA | US2011 VA | How it was located |
+| --- | --- | --- | --- |
+| POINT nth reader | `0x003f5194` | `0x0041db44` | masked-form twin; one pool word `0x4e8`→`0x4d8` |
+| POINT skip walker (globals) | `0x003f39c0` | `0x0041c370` | masked-form twin; same global offsets, moved page-base cell |
+| POINT dispatcher | `0x003f5cdc` | `0x0041e63c` | identical body; its own pool names the two walkers in the same order, which is how the skip walker above was disambiguated from the nth reader |
+| CMP chunk engine | `0x0041c7dc` | `0x00444540` | masked-form twin (111/111 halfwords); its own pool names the relocated helpers |
+| zlib `inflate_mask[17]` | `0x00574de0` | `0x005987b0` | the `shll2 r2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site, unique per build |
+| zlib `zcalloc`/`zcfree` | `0x00543a98`/`0x00543aa8` | `0x00565d94`/`0x00565da4` | the 6-halfword trampoline shape, one calloc and one free hit per build |
+
+Both runs `PASS`; the chunk engine's output is byte-identical to
+`cmpind.decode`, and the walker reproduces `parse_page` offsets for all nine
+sampled records. The controls are the interesting part: the US walker with the
+**EU** global cells (or the EU walker VA on the US text) stops on an unmapped
+access, and the US chunk engine with the EU helper stubs likewise blocks — so
+the pass is not the old translation offset. One honest limitation: the US and
+EU `REFER001/POINT010.DAT.{cmp,ind}` pairs on hand are **byte-identical**
+(`48812f8c…`, `7ac54e3b…`), so the EU engine also decodes this page; the
+EU→US difference this task proves is in the *code* paths and their addresses,
+not in a different page's bytes. A second, differing page is follow-up work.
 
 ## Map-code check
 
