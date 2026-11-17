@@ -2737,7 +2737,7 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3485 | `0x00412bee` lies inside `fn 0x00412ac0` (caller `fn 0x00413a6c`), `0x00542256` inside `fn 0x00542250`; the POINT walker `0x003f5194` has no pdata record (leaf) and is called directly from `fn 0x003f5cdc`. | VERIFIED (tool) | H | EXP-2026-11-11-H51-pm-review |
 | C-3486 | `inflate_mask[17]` at `0x00574de0` in the decoded `Navi.exe` sec1 equals `2^n-1`, n = 0…16: the table M9.11b declared by hand matches the image bytes. | VERIFIED (tool) | H | EXP-2026-11-11-H51-pm-review |
 | C-3487 | The US 2011 card's build A is a different `Navi.exe` build (vsize `0x013bb000`, entry `0x0035d894`, sec0 `0x56faa6` B, 7,520 pdata records, 151 modules) from the EU 2011 card's (`0x0154e000`, `0x0032edd0`, `0x54bd16`, 7,596, 149). Build B bytes `0x3e00200…0x4800200` are identical. EU reader VAs are not valid in the US build. | VERIFIED (tool) | H | EXP-2026-11-11-H51-pm-review; `python3 tools/cerom.py --image-start 0x200200 US256 sections Navi.exe` |
-| C-3488 | The stored `0x1801a` bytes of `Navi.exe` sec1 (EU2011) contain 6,052 aligned words that point into the function range, and the ASCII strings `Lv1_O`, `Lv2`, `Lv4`, `Lv1_D/TOP`, `Lv5`, `Dummy category`. | OBSERVED | M | EXP-2026-11-11-H51-pm-review |
+| C-3488 | The stored `0x1801a` bytes of `Navi.exe` sec1 (EU2011) contain 6,052 aligned words that point into the function range, and the ASCII strings `Lv1_O`, `Lv2`, `Lv4`, `Lv1_D/TOP`, `Lv5`, `Dummy category`. | RETRACTED (count wrong; see C-4283) | — | EXP-2026-11-11-H51-pm-review |
 | C-3489 | The M9.35 probe stop `UNMAPPED 0xfffffec6..0xfffffec8` (`drstr-sub_00419350`) is caused by the engine defect of C-3482, not by a missing stack model. | HYPOTHESIS | L | EXP-2026-11-11-H51-pm-review; test: M9.36 |
 
 ## H55 — `l3check --json PATH` writes the report file (C-3710–C-3719)
@@ -3330,3 +3330,18 @@ re-files it), and the block is recorded in
 | C-4177 | The falsifier did not fire: mutant and factory offsets differ by exactly +4 at `n=501`/998/999 on both builds and both pages, and the record count is 1,000 on every mutant page with `n=1000 → None`; a reader that ignored the record bytes would have returned the factory offsets. | VERIFIED (tool, negative control) | H | EXP-2026-11-17-M9.39-point010-mutant; the mutant-vs-factory delta column |
 | C-4178 | The record walker only proves the *framing* is read: the edit changes record length and a later record's start, not the decoded name/coordinate fields; reading the name text needs the accessor path (M3.11c), so M9.41's target row must cite this page as a framing control, not as a contents reader. | OBSERVED | M | EXP-2026-11-17-M9.39-point010-mutant; Scope and Interpretation |
 | C-4179 | RESERVED (M9.39). | — | — | — |
+
+## H101 — PM fourteenth pass: board review, call graph, directions without hardware (C-4280–C-4289)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4280 | Between 2026-11-11 and 2026-11-17 `main` merged 33 tasks: 22 H, 10 M1, 1 M9, none in M2–M8. | VERIFIED (tool) | H | EXP-2026-11-17-H101-pm-review; the `git log` line in its Method |
+| C-4281 | `tools/callgraph.py build` on `Navi.exe`: EU2011 9,000 nodes (1,404 leaves), 22,867 direct edges, 7,721 import edges, 589 unresolved `jsr @Rn`, 956 functions with no static caller; US2011 8,890 / 22,119 / 6,858 / 525 / 970. | VERIFIED (tool) | H | EXP-2026-11-17-H101-pm-review; `python3 tools/callgraph.py build IMG256 -o g.json` |
+| C-4282 | EU2011 `Navi.exe` reads map files through three stdio wrappers: `fopen` `0x0041b3bc`, `fseek`/`ftell` `0x0041b470`, `fread` `0x0041b4f8` (callers `0x00418a10`, `0x00418b00`, `0x00419350`, `0x0041b2a4`, `0x0041b954`); the range `0x00417d00…0x0041cab0` holds 117 graph nodes, 13 called from outside it. | VERIFIED (tool) | H | EXP-2026-11-17-H101-pm-review; `python3 tools/callgraph.py users g.json fread,fseek,fopen` |
+| C-4283 | Corrects C-3488: of the 6,052 aligned words in the stored `0x1801a` bytes of `Navi.exe` sec1 that point into sec0, 281 point into the function range `0x0032ed9c…0x00558300` (163 distinct targets) and 5,771 below it (strings, constants). | VERIFIED (tool) | H | EXP-2026-11-17-H101-pm-review |
+| C-4284 | The router reader `0x004266ec` and the renderer reader `0x00425f40` (EU2011) each reach 48 functions with one unresolved indirect call; the subtree imports `CreateFileMappingW` and `MapViewOfFile`. | VERIFIED (tool) | H | EXP-2026-11-17-H101-pm-review; `python3 tools/callgraph.py reach g.json 0x4266ec` |
+| C-4285 | Of the 956 EU2011 functions with no static caller, 914 occur as a 32-bit word in sec0, 42 in sec1 `INIT`, 1 in neither. | OBSERVED | M | EXP-2026-11-17-H101-pm-review |
+| C-4286 | `0x0032efa8` is the task table and `0x00417924` the dispatcher of the map-file task. | HYPOTHESIS | L | EXP-2026-11-17-H101-pm-review; test: M3.26 |
+| C-4287 | Host stubs at the three stdio wrappers are sufficient to run the `DRSTR` and `MMAIN` readers on a card tree. | HYPOTHESIS | L | EXP-2026-11-17-H101-pm-review; test: M9.44 |
+| C-4288 | RESERVED (H101). | — | — | — |
+| C-4289 | RESERVED (H101). | — | — | — |
