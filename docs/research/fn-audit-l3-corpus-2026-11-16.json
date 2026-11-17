@@ -315,13 +315,14 @@
   "docs/experiments/EXP-2026-11-17-M1.20-pdata-all.md",
   "docs/experiments/EXP-2026-11-17-M1.22-us-build-census.md",
   "docs/experiments/EXP-2026-11-17-M5.34-parcel.md",
+  "docs/experiments/EXP-2026-11-17-M8.A10-bump-8210.md",
   "docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md",
   "docs/experiments/EXP-2026-11-17-M9.39-point010-mutant.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 314,
+  "files": 315,
   "citations": 906,
   "unique_va": 182,
   "start": 728,
@@ -850,7 +851,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3102,
+   "line": 3128,
    "va": "0x880385e4",
    "kind": "fn",
    "class": "START",
@@ -859,7 +860,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3214,
+   "line": 3240,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -868,7 +869,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3215,
+   "line": 3241,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -877,7 +878,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3781,
+   "line": 3807,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -887,7 +888,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3784,
+   "line": 3810,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",

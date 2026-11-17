@@ -2970,12 +2970,12 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no
   - Depends: M8.A2
   - Claims: C-1250–C-1259
-- [ ] **M8.A10 — Bump the QEMU pin 8.2.7 → 8.2.10**
+- [x] **M8.A10 — Bump the QEMU pin 8.2.7 → 8.2.10**
   The pin is 8.2.7 (2024-09-18) while 8.2.10 (2025-03-26) is the last release
   of the same branch and the whole series applies to it unchanged. Move the
   pin, make the hash table per-version, and add `--check-version` so the next
   bump is a probe rather than a heroic edit.
-  - Status: in progress · Owner: task/m8.a10-bump-qemu-8210 · Critical: no
+  - Status: done · Owner: task/m8.a10-bump-qemu-8210 · Critical: no
   - Depends: — (M8.A2 merged)
   - Goal: the default build is 8.2.10 and an unpinned version can be probed
     without being built.
