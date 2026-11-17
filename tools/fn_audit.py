@@ -179,14 +179,6 @@ US_BUILD_STARTS = frozenset({
     0x0041DB44,  # POINT nth reader       (EU 0x003f5194)
     0x0041C370,  # POINT skip walker      (EU 0x003f39c0)
     0x0041E63C,  # POINT dispatcher       (EU 0x003f5cdc)
-    # M1.22: not function starts, but US pool slots the M1.22 census cites
-    # when it records which literal named which address.  They are skipped for
-    # the same reason as the starts (the EU head has no such start at these
-    # VAs), and recording them keeps the docs base at INSIDE 0.
-    0x004444D0,  # EU-looking start the raw US engine VA falls inside
-    0x0041DA5C,  # ditto, for the US nth reader
-    0x0041C2E0,  # ditto, for the US skip walker
-    0x0041E5E4,  # ditto, for the US dispatcher
 })
 
 

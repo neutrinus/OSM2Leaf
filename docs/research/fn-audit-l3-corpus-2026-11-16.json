@@ -315,9 +315,9 @@
  ],
  "summary": {
   "files": 307,
-  "citations": 889,
-  "unique_va": 178,
-  "start": 712,
+  "citations": 890,
+  "unique_va": 179,
+  "start": 713,
   "inside": 79,
   "corrected": 11,
   "gap": 75,
@@ -8252,6 +8252,15 @@
    "class": "INSIDE",
    "true_start": "0x0041c7dc",
    "class_sha256": "aad3102244c82d53f10b8af16ea659a90ce6d488a5637ef02fcb25811c230d99"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-17-M1.22-us-build-census.md",
+   "line": 267,
+   "va": "0x004444d0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "docs/format/firmware.md",
