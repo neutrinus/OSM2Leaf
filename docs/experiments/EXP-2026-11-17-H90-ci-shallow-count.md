@@ -115,8 +115,10 @@ COUNT C-3704 claims 25, tools/fn_match.py prints 26 (334f0922653565e8ec15901a0ed
 claims_check: FAILED
 ```
 
-Gate on a full checkout after the fix: `selftest PASS`, `claims_check PASS`,
-`todo_check PASS`, `fn_audit PASS`, `gate: 4 pass, 0 fail, 0 skip`;
+Gate on a full checkout with the image after the fix: `selftest PASS`,
+`claims_check PASS`, `todo_check PASS`, `fn_audit PASS`, `gate: 4 pass, 0
+fail, 0 skip` (without the image the last row is a named SKIP, `3 pass, 1
+skip`, never a pass);
 `tools/selftest.py` `passed=91 failed=0 skipped=23 total=114`.
 
 The tool's own selftest grows from 25 to 28 checks (three shallow-history
