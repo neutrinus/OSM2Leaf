@@ -10,15 +10,43 @@ QEMU source.
 
 | Item | Value |
 | --- | --- |
-| Version | **QEMU 8.2.7** (8.2 LTS line, ≥ 8.2 as required by M8) |
-| Tarball | <https://download.qemu.org/qemu-8.2.7.tar.xz> |
-| SHA-256 | `1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55` |
-| Size | `132676368` bytes (~127 MiB) |
-| Git mirror | <https://gitlab.com/qemu-project/qemu.git>, tag `v8.2.7` |
+| Version | **QEMU 8.2.10** (last 8.2 release, 2025-03-26; the 8.2 line is EOL) |
+| Tarball | <https://download.qemu.org/qemu-8.2.10.tar.xz> |
+| SHA-256 | `37b4a643da8ed6015eef35f5d7f06e7259d9c95359965a0a98e9667c621ab2bb` |
+| Size | `132685948` bytes (~127 MiB) |
+| Git mirror | <https://gitlab.com/qemu-project/qemu.git>, tag `v8.2.10` |
 | Target | `sh4-softmmu` only |
 
+The previous pin, **8.2.7**, stays in the `QEMU_PINS` table and still builds;
+see the EXP for the measured equivalence.
+
 `build.sh` refuses to continue if the downloaded file has another size or
-SHA-256. Change the pin only together with this table and an EXP entry.
+SHA-256, and refuses a full build of a version that is not in `QEMU_PINS`
+(an unverified tarball is never compiled). Change the pin only together with
+this table and an EXP entry.
+
+### Why a pin, and where it stops
+
+The machine is five out-of-tree patches on `hw/sh4`, an API QEMU moves.
+Measured on 11.1.3 (2026-11-17): four of five patches reject, and not from
+line drift — `exec/address-spaces.h` is gone, `DeviceClass.reset` became
+`legacy_reset`, `SHIX` was deleted. `hw/sh4/{Kconfig,meson.build}` are
+byte-identical 8.2.7→8.2.10, so the whole series applies unchanged there.
+
+`--check-version V` answers "would this release accept our patches?" in
+minutes without building anything:
+
+```bash
+tools/qemu-ze0/build.sh --check-version 11.1.3
+# check: 0002-sh4-ze0-boot-stubs.patch                  APPLIES
+# check: m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch      FAILED
+# check: QEMU 11.1.3: 3 applied, 2 failed, 0 unpinned-tarball
+```
+
+A pinned version is hash-verified; an unpinned one is downloaded and its
+SHA-256/size printed so it can be added to `QEMU_PINS`. The port itself is
+TODO **M8.A9**, with the per-hunk recipe in
+[`docs/research/qemu-ze0-port-delta.md`](../../docs/research/qemu-ze0-port-delta.md).
 
 ## Usage
 
@@ -41,6 +69,9 @@ tools/qemu-ze0/build.sh --force
 # only check that an existing binary lists the machine
 tools/qemu-ze0/build.sh --verify-only --qemu /scratch/qemu-ze0/build/qemu-system-sh4
 
+# probe another QEMU release: apply the patches, build nothing
+tools/qemu-ze0/build.sh --check-version 11.1.3
+
 # offline test of this script (no network, no QEMU source needed)
 tools/qemu-ze0/build.sh --selftest
 ```
@@ -48,9 +79,10 @@ tools/qemu-ze0/build.sh --selftest
 What a run does, in order:
 
 1. refuses to run as root and refuses an `--srcdir` inside the repository;
-2. reuses `SRCDIR/qemu-8.2.7.tar.xz` or downloads it, then checks size and
-   SHA-256;
-3. extracts to `SRCDIR/qemu-8.2.7` (or clones tag `v8.2.7` with `--from-git`);
+2. reuses `SRCDIR/qemu-<version>.tar.xz` or downloads it, then checks size and
+   SHA-256 against `QEMU_PINS`;
+3. extracts to `SRCDIR/qemu-<version>` (or clones tag `v<version>` with
+   `--from-git`);
 4. applies every `patches/*.patch` in sorted order with `patch -p1`
    (`--no-patch` or a missing `patches/` skips this);
 5. configures an out-of-tree `SRCDIR/build` with
@@ -68,7 +100,7 @@ QEMU is not vendored, so the first build needs network. `--dry-run` and
 `--selftest` never fetch anything. When the download fails the script prints a
 `NETWORK NEEDED` block with the tarball and git URLs and exits `3`; nothing is
 built or written outside the cache. To build offline, copy
-`qemu-8.2.7.tar.xz` into the cache (or pass `--srcdir` pointing at an already
+`qemu-8.2.10.tar.xz` into the cache (or pass `--srcdir` pointing at an already
 prepared tree) and re-run.
 
 Disk and time: the extracted tree is ~0.8 GiB, the build tree ~0.9 GiB and
@@ -91,7 +123,8 @@ kept), so the next run extracts cleanly.
 ## Current state (M8.A1, 2026-11-06)
 
 - The script, its plan, the refusals and the `-M ze0` check are verified
-  offline by `--selftest` (42 checks).
+  offline by `--selftest` (56 checks, including the pin table and
+  `--check-version`).
 - A stock 8.2.7 build with this configure line was run once during M8.A1; it
   produces `qemu-system-sh4` but **no `ze0` machine**, so `--verify-only`
   fails by design until M8.A2 adds the patch. See
@@ -101,6 +134,12 @@ kept), so the next run extracts cleanly.
   `OK: ze0  Nissan Leaf ZE0 navigation unit (SH-4A, research skeleton)`;
   `-M ze0` boots `archive/head256.img` for 10 s with 0 CPU exceptions. See
   [`EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md`](../../docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md).
+- **M8.A10 (2026-11-17):** pin bumped 8.2.7 → 8.2.10. `hw/sh4`,
+  `configs/devices/sh4-softmmu` and `include/hw/sh4` are byte-identical
+  between the two releases (`diff -r` empty), all five patches apply
+  unchanged, and the built binary boots `archive/head256.img` with the same
+  stable result as 8.2.7 (0 exceptions, one `write 0x38`). See
+  [`EXP-2026-11-17-M8.A10-bump-8210.md`](../../docs/experiments/EXP-2026-11-17-M8.A10-bump-8210.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

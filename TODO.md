@@ -2970,6 +2970,32 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no
   - Depends: M8.A2
   - Claims: C-1250–C-1259
+- [ ] **M8.A10 — Bump the QEMU pin 8.2.7 → 8.2.10**
+  The pin is 8.2.7 (2024-09-18) while 8.2.10 (2025-03-26) is the last release
+  of the same branch and the whole series applies to it unchanged. Move the
+  pin, make the hash table per-version, and add `--check-version` so the next
+  bump is a probe rather than a heroic edit.
+  - Status: in progress · Owner: task/m8.a10-bump-qemu-8210 · Critical: no
+  - Depends: — (M8.A2 merged)
+  - Goal: the default build is 8.2.10 and an unpinned version can be probed
+    without being built.
+  - Precheck: `diff -r` of `hw/sh4`, `configs/devices/sh4-softmmu` and
+    `include/hw/sh4` between 8.2.7 and 8.2.10 must be empty, and all five
+    patches must apply to pristine 8.2.10 without an edit. Both measured:
+    trees byte-identical, 5/5 apply (C-4330).
+  - Scope: `QEMU_PINS` table (8.2.7 kept, 8.2.10 default), a full build that
+    refuses an unpinned version, `--check-version V` that verifies/extracts/
+    applies/reports and builds nothing, README pin table and the "8.2 LTS"
+    wording (8.2 is EOL), `--selftest` coverage for the table and the probe.
+  - Done when: `build.sh --force` builds 8.2.10, `-M help` lists `ze0`, and
+    `-M ze0` boots `archive/head256.img` with the same stable observables as
+    the 8.2.7 build (0 exceptions, one `write 0x38`); `--selftest` passes;
+    `--check-version 11.1.3` prints a per-patch verdict without building.
+  - Stop: if any patch needs an edit for 8.2.10, that is a porting delta, not
+    a bump — stop, keep the 8.2.7 pin, and record it as input for M8.A9.
+  - Result: EXP-2026-11-17-M8.A10-bump-8210 (C-4330).
+  - Claims: C-4330–C-4339
+
 - [ ] **M8.A9 — Port the `ze0` patch series to current QEMU (11.1.3)**
   The five patches in `tools/qemu-ze0/patches/` are pinned to 8.2.7. Port the
   **intent** of each patch, not its diff: the per-hunk intent tables are in

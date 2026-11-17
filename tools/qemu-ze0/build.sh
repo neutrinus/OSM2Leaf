@@ -13,6 +13,8 @@
 #   ./build.sh --jobs 8           parallel make (default: nproc)
 #   ./build.sh --force            discard src+build tree and start over
 #   ./build.sh --verify-only      only run the `-M ze0` check on --qemu
+#   ./build.sh --check-version V  probe QEMU V: verify, extract to a scratch
+#                                 tree, apply every patch, report, build nothing
 #   ./build.sh --selftest         offline test of this script (no network)
 #   ./build.sh --help             this text
 #
@@ -25,13 +27,23 @@ REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 
 # --------------------------------------------------------------------------
 # Pin: change only together with README.md and an EXP entry.
+#
+# 8.2.7 and 8.2.10 carry a verified tarball hash.  An unlisted version is only
+# accepted by --check-version (a probe that builds nothing); a full build
+# refuses it, because an unverified tarball must never be compiled.
 # --------------------------------------------------------------------------
-QEMU_VERSION="8.2.7"
+QEMU_VERSION="8.2.10"
 QEMU_MIN_VERSION="8.2"
 QEMU_URL_BASE="https://download.qemu.org"
 QEMU_GIT_URL="https://gitlab.com/qemu-project/qemu.git"
-QEMU_SHA256="1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55"
-QEMU_TARBALL_BYTES="132676368"
+QEMU_TARBALL_BYTES="132685948"
+QEMU_SHA256="37b4a643da8ed6015eef35f5d7f06e7259d9c95359965a0a98e9667c621ab2bb"
+# version -> "sha256 bytes", verified against download.qemu.org.
+declare -A QEMU_PINS=(
+  ["8.2.7"]="1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55 132676368"
+  ["8.2.10"]="$QEMU_SHA256 $QEMU_TARBALL_BYTES"
+)
+PIN_KNOWN=1
 
 SRCDIR=""
 QEMU_BIN=""
@@ -46,6 +58,7 @@ FORCE=0
 DRY_RUN=0
 VERIFY_ONLY=0
 SELFTEST=0
+CHECK_VERSION=0
 
 usage() {
   cat <<'EOF'
@@ -62,7 +75,11 @@ Options:
   --jobs N           parallel make jobs (default: nproc)
   --patch-dir DIR    where the local patches live (default tools/qemu-ze0/patches)
   --no-patch         do not apply patches/*.patch
-  --version V        QEMU release to build (default 8.2.7, must be >= 8.2)
+  --version V        QEMU release to build (default 8.2.10, must be >= 8.2)
+  --check-version V  probe V without building: verify the tarball when it is
+                     in the pin table, extract to a scratch tree, apply every
+                     patch and report per patch (0 all OK, 1 a patch failed,
+                     3 network).  Accepts an unpinned version and says so.
   --from-git         clone the pinned tag instead of using the release tarball
   --url-base URL     download base (default https://download.qemu.org)
   --force            remove the source and build trees, re-extract, rebuild
@@ -148,6 +165,7 @@ while [ $# -gt 0 ]; do
     --patch-dir)  [ $# -ge 2 ] || usage_error "--patch-dir needs a value"; PATCH_DIR="$2"; shift 2 ;;
     --no-patch)   USE_PATCHES=0; shift ;;
     --version)    [ $# -ge 2 ] || usage_error "--version needs a value"; VERSION="$2"; shift 2 ;;
+    --check-version) [ $# -ge 2 ] || usage_error "--check-version needs a value"; VERSION="$2"; CHECK_VERSION=1; shift 2 ;;
     --from-git)   FROM_GIT=1; shift ;;
     --url-base)   [ $# -ge 2 ] || usage_error "--url-base needs a value"; URL_BASE="${2%/}"; shift 2 ;;
     --force)      FORCE=1; shift ;;
@@ -164,6 +182,17 @@ case "$VERSION" in
 esac
 version_ge "$VERSION" "$QEMU_MIN_VERSION" \
   || usage_error "QEMU $VERSION is too old; this tree needs >= $QEMU_MIN_VERSION"
+
+# Resolve the pins for the requested release (the table is the only source).
+if [ -n "${QEMU_PINS[$VERSION]:-}" ]; then
+  read -r QEMU_SHA256 QEMU_TARBALL_BYTES <<<"${QEMU_PINS[$VERSION]}"
+  PIN_KNOWN=1
+else
+  PIN_KNOWN=0
+  if [ "$CHECK_VERSION" -eq 0 ]; then
+    usage_error "no verified tarball pin for QEMU $VERSION (known:${QEMU_PINS[*]/#/ }); use --check-version $VERSION to probe it without building, or add its sha256/size to QEMU_PINS together with README.md and an EXP"
+  fi
+fi
 
 if [ -z "$JOBS" ]; then
   JOBS="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
@@ -401,6 +430,64 @@ configure_and_build() {
 }
 
 # --------------------------------------------------------------------------
+# --check-version: apply the series, build nothing
+# --------------------------------------------------------------------------
+# Answers the only cheap question a version bump has: does this QEMU release
+# accept our patches, and which of them are real API changes?  A pinned
+# version is hash-verified; an unpinned one is downloaded and its hash is
+# printed so the caller can add it to QEMU_PINS.
+check_version() {
+  local dir="$SRCDIR/check-$VERSION" tarball="$SRCDIR/qemu-$VERSION.tar.xz"
+  local src="$dir/qemu-$VERSION" p list=() ok=0 bad=0 unpinned=0
+
+  if [ ! -s "$tarball" ]; then
+    run mkdir -p "$SRCDIR"
+    note "check: fetching $(basename "$tarball")"
+    if ! { command -v curl >/dev/null 2>&1 \
+           && curl -fL --retry 3 --connect-timeout 20 -o "$tarball.part" "$URL_BASE/qemu-$VERSION.tar.xz"; } \
+         && ! { command -v wget >/dev/null 2>&1 \
+                && wget --tries=3 -O "$tarball.part" "$URL_BASE/qemu-$VERSION.tar.xz"; }; then
+      rm -f "$tarball.part"
+      network_needed "$URL_BASE/qemu-$VERSION.tar.xz"
+    fi
+    mv "$tarball.part" "$tarball"
+  fi
+
+  if [ "$PIN_KNOWN" -eq 1 ]; then
+    verify_tarball "$tarball"
+  else
+    unpinned=1
+    note "check: QEMU $VERSION is NOT in the pin table; measured tarball:"
+    note "check:   sha256 $(sha256sum "$tarball" | awk '{print $1}')"
+    note "check:   bytes  $(wc -c < "$tarball" | tr -d ' ')"
+  fi
+
+  run rm -rf "$dir"
+  run mkdir -p "$dir"
+  note "check: extracting to $src"
+  run tar -C "$dir" -xf "$tarball"
+  [ -x "$src/configure" ] || die "$src/configure missing after extraction"
+
+  while IFS= read -r p; do list+=("$p"); done \
+    < <(find "$PATCH_DIR" -maxdepth 1 -type f -name '*.patch' | LC_ALL=C sort)
+  for p in "${list[@]}"; do
+    if patch -d "$src" -p1 --forward --batch --dry-run -i "$p" >/dev/null 2>&1; then
+      printf 'check: %-46s APPLIES\n' "$(basename "$p")"
+      ok=$((ok + 1))
+    else
+      printf 'check: %-46s FAILED\n' "$(basename "$p")"
+      bad=$((bad + 1))
+    fi
+  done
+  note "check: QEMU $VERSION: $ok applied, $bad failed, $unpinned unpinned-tarball"
+  if [ "$bad" -gt 0 ]; then
+    note "check: a failure here is a porting delta, not a build failure; see docs/research/qemu-ze0-port-delta.md"
+    exit 1
+  fi
+  exit 0
+}
+
+# --------------------------------------------------------------------------
 # Selftest: offline, no network, no writes outside its own sandbox
 # --------------------------------------------------------------------------
 SELFTEST_PASS=0
@@ -502,6 +589,10 @@ selftest() {
   st_run "--version 8.1" 2 -- "$SELF" --version 8.1
   st_contains "--version 8.1" "too old"
 
+  st_run "--version 9.0 (unpinned)" 2 -- "$SELF" --version 9.0 --dry-run --srcdir "$tmp/cache"
+  st_contains "--version 9.0 (unpinned)" "no verified tarball pin for QEMU 9.0"
+  st_contains "--version 9.0 (unpinned)" "--check-version 9.0"
+
   st_run "--version banana" 2 -- "$SELF" --version banana
   st_contains "--version banana" "bad --version"
 
@@ -552,6 +643,17 @@ selftest() {
   st_contains "dry-run git plan" "$QEMU_GIT_URL"
   st_contains "dry-run git plan" "qemu-git"
 
+  # --- 6a. --check-version is a probe: plans, writes nothing ---------------
+  st_run "check-version plan" 0 -- env HOME="$tmp/home" "$SELF" --dry-run \
+    --check-version 11.1.3 --srcdir "$tmp/cache"
+  st_contains "check-version plan" "check-version 11.1.3"
+  st_contains "check-version plan" "would verify/build nothing"
+  if printf '%s\n' "$ST_OUT" | grep -Fq "configure"; then
+    st_fail "check-version plan must not configure or build"
+  else
+    st_ok "check-version plan configures/builds nothing"
+  fi
+
   # --- 7. the -M ze0 check really passes and really fails ------------------
   st_run "verify fake ze0" 0 -- "$SELF" --verify-only --srcdir "$tmp/cache" \
     --qemu "$tmp/bin/qemu-system-sh4"
@@ -581,6 +683,21 @@ selftest() {
     printf 'skip network-needed check (no curl/wget)\n'
   fi
 
+  # --- 8a. the pin table is the only source of hashes ----------------------
+  if [ "$QEMU_VERSION" = "8.2.10" ]; then
+    st_ok "default version is the bumped 8.2.10"
+  else
+    st_fail "default version is '$QEMU_VERSION', expected 8.2.10"
+  fi
+  st_run "dry-run plan uses the 8.2.10 pin" 0 -- env HOME="$tmp/home" "$SELF" \
+    --dry-run --srcdir "$tmp/cache" --qemu "$tmp/bin/qemu-system-sh4"
+  st_contains "dry-run plan uses the 8.2.10 pin" "qemu-8.2.10.tar.xz"
+  st_contains "dry-run plan uses the 8.2.10 pin" "37b4a643da8ed6015eef35f5d7f06e7259d9c95359965a0a98e9667c621ab2bb"
+  st_run "8.2.7 is still in the table" 0 -- env HOME="$tmp/home" "$SELF" \
+    --dry-run --version 8.2.7 --srcdir "$tmp/cache" --qemu "$tmp/bin/qemu-system-sh4"
+  st_contains "8.2.7 is still in the table" "qemu-8.2.7.tar.xz"
+  st_contains "8.2.7 is still in the table" "1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55"
+
   # --- 9. pin sanity --------------------------------------------------------
   if printf '%s' "$QEMU_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
     st_ok "pin sha256 is 64 lowercase hex characters"
@@ -609,6 +726,21 @@ fi
 if [ "$VERIFY_ONLY" -eq 1 ]; then
   verify_machine
   exit 0
+fi
+
+if [ "$CHECK_VERSION" -eq 1 ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'dry-run: --check-version %s\n' "$VERSION"
+    printf 'dry-run: would verify/build nothing, extract to %s/check-%s, run patch -p1 --dry-run over %s/*.patch and report per patch\n' \
+      "$SRCDIR" "$VERSION" "$PATCH_DIR"
+    exit 0
+  fi
+  for need in tar patch sha256sum; do
+    command -v "$need" >/dev/null 2>&1 || die "missing tool for --check-version: $need"
+  done
+  command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 \
+    || die "missing tool for --check-version: curl or wget"
+  check_version
 fi
 
 need_tool() {
