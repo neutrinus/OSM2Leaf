@@ -346,6 +346,33 @@ python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x0041c7e8 0x0041c7dc 
 
 Decoded bytes are vendor data: keep them under `archive/`, never commit them.
 
+## `pdata.py` — the function table of every module, and the census (M1.20/H51)
+
+Reads a module's `.pdata` from the e32 exception directory (never a section
+index), decoding compressed tables with `nk_decomp`. `table` prints every
+record, `fn` classifies a VA `START`/`INSIDE`/`GAP`/`BEFORE`, `gaps` lists
+executable ranges with no record and marks the call-target `leaf`s, and
+`leaves` is the leaf census. `census IMG [--image-start S]` walks a whole CE
+segment in TOC order and prints `module records section compressed` plus a
+totals line with the with/without split: `NO-PDATA` means the e32 exception
+directory is `(0, 0)` only, while a decode/sort/TOC fault is an `ERROR` row
+and exits 2 (a broken table is never reported as "no pdata").
+`--check-fixture FILE` compares that live census with the counts-only
+`tools/fixtures/pdata_census_2011.json` (exit 1 on drift, 2 on an image-SHA
+mismatch) as a fast CI check — the live census, not the fixture, is the
+evidence. `where IMG --module M [--try-index N]` prints whether each section
+holds the exception RVA and what its bytes parse to (`sorted N` / `UNSORTED`),
+so a table outside sec2 (`atlce400.dll`, the B/C `nk.exe`, the updaters) is
+shown, not assumed.
+
+```bash
+python3 tools/pdata.py --selftest
+python3 tools/pdata.py census IMG256 --label A           # 149 modules, 87,530 records
+python3 tools/pdata.py census IMG256 --image-start 0x3e00200 --label B
+python3 tools/pdata.py where IMG256 --module atlce400.dll --try-index 2
+python3 tools/pdata.py fn IMG256 --module Navi.exe 0x004125a8
+```
+
 ## `va_class.py` — what the loader puts at a VA (H49)
 
 Classifies module VAs as `CODE`, `IAT` (import slot, with `DLL!name`),
