@@ -1,291 +1,364 @@
 {
-  "schema": "osm2leaf.l3.targets/v1",
-  "notes": [
-    "Named L3 targets (TODO M9.5). One entry = one function to run on one corpus family.",
-    "entry.kind=synthetic: a program shipped with tools/l3_harness/runner.py, run on the",
-    "reference engine PySh4 (Ghidra/QEMU lazily); it proves the runner/dispatcher path,",
-    "NOT a firmware reader verdict. entry.kind=blocked: the reader entry point is not",
-    "located, so every run reports BLOCKED (exit 4) and no verdict is claimed.",
-    "VAs are guest addresses of the synthetic program, never a fitted image delta.",
-    "corpus.path is relative to a corpus root built by tools/l3_harness/corpus.py;",
-    "corpus.case/reader must match that manifest entry so the Python verdict can be",
-    "checked when the manifest is present."
-  ],
-  "targets": [
+ "schema": "osm2leaf.l3.targets/v1",
+ "notes": [
+  "Named L3 targets (TODO M9.5). One entry = one function to run on one corpus family.",
+  "entry.kind=synthetic: a program shipped with tools/l3_harness/runner.py, run on the",
+  "reference engine PySh4 (Ghidra/QEMU lazily); it proves the runner/dispatcher path,",
+  "NOT a firmware reader verdict. entry.kind=blocked: the reader entry point is not",
+  "located, so every run reports BLOCKED (exit 4) and no verdict is claimed.",
+  "VAs are guest addresses of the synthetic program, never a fitted image delta.",
+  "corpus.path is relative to a corpus root built by tools/l3_harness/corpus.py;",
+  "corpus.case/reader must match that manifest entry so the Python verdict can be",
+  "checked when the manifest is present."
+ ],
+ "targets": [
+  {
+   "name": "probe-zlib-cmf",
+   "reader": "synthetic",
+   "what": "synthetic SH-4 probe: 2x sprintf, CreateFileW, ReadFile, CloseHandle",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "synthetic",
+    "program": "probe_zlib_cmf_v1",
+    "va": "0x8c100000",
+    "note": "code 0x8c100000, stack 0x8c1ff000..0x8c200000, data 0x8c200000, heap 0x8c202000"
+   },
+   "stubs": [
     {
-      "name": "probe-zlib-cmf",
-      "reader": "synthetic",
-      "what": "synthetic SH-4 probe: 2x sprintf, CreateFileW, ReadFile, CloseHandle",
-      "module": null,
-      "build": "eu2011",
-      "entry": {
-        "kind": "synthetic",
-        "program": "probe_zlib_cmf_v1",
-        "va": "0x8c100000",
-        "note": "code 0x8c100000, stack 0x8c1ff000..0x8c200000, data 0x8c200000, heap 0x8c202000"
-      },
-      "stubs": [
-        {
-          "id": "sprintf_path",
-          "va": "0x8c100200",
-          "module": "coredll",
-          "target": "sprintf",
-          "arity": 3,
-          "note": "builds the ANSI path used in the log line (%s)"
-        },
-        {
-          "id": "createfile",
-          "va": "0x8c100210",
-          "module": "coredll",
-          "target": "CreateFileW",
-          "arity": 7,
-          "note": "args 5-7 OPEN_EXISTING/0/0 are at 0(r15), 4(r15), 8(r15)"
-        },
-        {
-          "id": "readfile",
-          "va": "0x8c100220",
-          "module": "coredll",
-          "target": "ReadFile",
-          "arity": 5,
-          "note": "one byte into the read buffer, count at frame+12; arg 5 at 0(r15)"
-        },
-        {
-          "id": "closehandle",
-          "va": "0x8c100230",
-          "module": "coredll",
-          "target": "CloseHandle",
-          "arity": 1,
-          "note": "the handle is closed before the log line is formatted"
-        },
-        {
-          "id": "sprintf_log",
-          "va": "0x8c100240",
-          "module": "coredll",
-          "target": "#719",
-          "arity": 4,
-          "note": "ordinal 719 = sprintf (C-527); formats '%s|%d|%x'"
-        }
-      ],
-      "corpus": {
-        "path": "cmp/factory/ADDRE001.DAT.cmp",
-        "guest_path": "\\Storage Card\\REFER001\\ADDRE001.DAT.cmp",
-        "reader": "cmp_ind",
-        "case": "factory"
-      },
-      "expect": {
-        "verdict": "ACCEPT",
-        "python_verdict": "ACCEPT",
-        "agrees_with_python": true,
-        "rule": "first served byte is 0x78, the zlib CMF every .cmp stream starts with; the probe is a pipeline fixture, not the firmware container reader"
-      },
-      "notes": [
-        "Positive control: the same input the Python cmp_ind reader accepts, served",
-        "through the virtual FS and the stub dispatcher.",
-        "The probe does not implement the full SH-4 ABI (r8-r13 are not saved); it is",
-        "registers-and-memory deterministic, not a compiler output."
-      ]
+     "id": "sprintf_path",
+     "va": "0x8c100200",
+     "module": "coredll",
+     "target": "sprintf",
+     "arity": 3,
+     "note": "builds the ANSI path used in the log line (%s)"
     },
     {
-      "name": "hddinfo_compare",
-      "reader": "hdd_info",
-      "what": "VER_INFO/HDD_INFO.TXT map-code parser and comparator",
-      "module": null,
-      "build": "eu2011",
-      "entry": {
-        "kind": "blocked",
-        "program": null,
-        "va": null,
-        "reason": "the HDD_INFO parser is reached through a runtime COM object; only the SD Import/HDD_INFO literals are located in Navi.exe (C-521) and no entry VA exists (M2.1-M2.3)"
-      },
-      "stubs": [
-        "CreateFileW",
-        "ReadFile",
-        "CloseHandle",
-        "memcpy",
-        "sprintf",
-        "OSM_Printf",
-        "OSM_LogMsg"
-      ],
-      "corpus": {
-        "path": "hdd_info/factory/HDD_INFO.TXT",
-        "guest_path": "\\Storage Card\\VER_INFO\\HDD_INFO.TXT",
-        "reader": "hdd_info",
-        "case": "hdd_info_factory"
-      },
-      "expect": {
-        "verdict": "ACCEPT",
-        "python_verdict": "ACCEPT",
-        "agrees_with_python": null,
-        "rule": "an unmodified HDD_INFO.TXT must keep the map code accepted; the firmware side is BLOCKED until the parser is located"
-      },
-      "notes": [
-        "The retired map-code comparator chain is BT_MGR.dll code (C-520, C-528) and",
-        "must not be used as this target."
-      ]
+     "id": "createfile",
+     "va": "0x8c100210",
+     "module": "coredll",
+     "target": "CreateFileW",
+     "arity": 7,
+     "note": "args 5-7 OPEN_EXISTING/0/0 are at 0(r15), 4(r15), 8(r15)"
     },
     {
-      "name": "cmp_ind_reader",
-      "reader": "cmp_ind",
-      "what": "REFER001 .cmp + .ind chunk reader (firmware fn 0x0041c7dc, M3.2b/M9.11)",
-      "module": "Navi.exe",
-      "build": "eu2011",
-      "entry": {
-        "kind": "firmware_call",
-        "program": "cmp_ind_chunk_v1",
-        "module": "Navi.exe",
-        "va": "0x0041c7dc",
-        "endian": "little",
-        "sec1_table": {
-          "va": "0x00574de0",
-          "values": [
-            "0x00000000", "0x00000001", "0x00000003", "0x00000007",
-            "0x0000000f", "0x0000001f", "0x0000003f", "0x0000007f",
-            "0x000000ff", "0x000001ff", "0x000003ff", "0x000007ff",
-            "0x00000fff", "0x00001fff", "0x00003fff", "0x00007fff",
-            "0x0000ffff"
-          ],
-          "provenance": "zlib 1.1.3 inflate_mask[17] (2^n - 1, n=0..16), public source; written at VA 0x574de0 indexed by Navi.exe inflate at 0x54369e (shll2; mov.l @(r0,r3),r2; and r12,r2 = hold & inflate_mask[n]). VA sourced from code; values from public zlib source, not read from Navi.exe sec1 (M1.2f open) — HYPOTHESIS that sec1 bytes equal these values, consistent with byte-identical output (EXP-2026-11-08-M9.11-chunk-decoder). Declared input, not a silent default (M9.11b)."
-        },
-        "inputs": {
-          "offset": "0x840ba0",
-          "length": 42848
-        },
-        "note": "Runs fn 0x0041c7dc with .ind-derived 20-byte chunk table (ctx+28), ctx/cache/dst setup per M9.11. Pass --image IMG256 --cmp PAIR.cmp --ind PAIR.ind [--mutate none|corrupt-ind|swap-4-8]."
-      },
-      "stubs": [],
-      "corpus": {
-        "path": "cmp/factory/ADDRE001.DAT.cmp",
-        "guest_path": "\\Storage Card\\REFER001\\ADDRE001.DAT.cmp",
-        "reader": "cmp_ind",
-        "case": "factory"
-      },
-      "expect": {
-        "verdict": "ACCEPT",
-        "python_verdict": "ACCEPT",
-        "agrees_with_python": null,
-        "rule": "firmware fn 0x41c7dc returns the requested page byte-identical to cmpind.decode on the factory/S1/S2 pairs; --mutate corrupt-ind is rejected (-1); --mutate swap-4-8 fails cleanly (EXP-2026-11-08-M9.11-chunk-decoder controls, M9.11b)."
-      },
-      "notes": [
-        "Registered by M9.11b. The sec1 inflate_mask table is an explicit declared input with provenance; runner never uses a silent default.",
-        "Controls: runner.py run cmp_ind_reader --image IMG256 --cmp ... --ind ... [--mutate corrupt-ind|swap-4-8].",
-        "This target covers the chunk decode path (fn 0x41c7dc), not the full .ind parser or the file opener."
-      ]
+     "id": "readfile",
+     "va": "0x8c100220",
+     "module": "coredll",
+     "target": "ReadFile",
+     "arity": 5,
+     "note": "one byte into the read buffer, count at frame+12; arg 5 at 0(r15)"
     },
     {
-      "name": "tile_reader",
-      "reader": "tile",
-      "what": "MAPAL001 BxxRyyR.DAT tile reader (MESH_ID/DIVID, 0x1ac level table)",
-      "module": null,
-      "build": "eu2011",
-      "entry": {
-        "kind": "blocked",
-        "program": null,
-        "va": null,
-        "reason": "no tile reader entry point has been recovered (M3)"
-      },
-      "stubs": [
-        "CreateFileW",
-        "ReadFile",
-        "SetFilePointer",
-        "GetFileSize",
-        "CloseHandle",
-        "HeapAlloc",
-        "HeapFree",
-        "memset",
-        "memcpy",
-        "OSM_Printf",
-        "OSM_LogMsg"
-      ],
-      "corpus": {
-        "path": "tile/B28R070R.DAT",
-        "guest_path": "\\Storage Card\\MAPAL001\\B28R070R.DAT",
-        "reader": "tile",
-        "case": "tile_factory"
-      },
-      "expect": {
-        "verdict": "ACCEPT",
-        "python_verdict": "ACCEPT",
-        "agrees_with_python": null,
-        "rule": "the factory tile must decode; a first byte other than 0x78 is not evidence either way, the tile is not a zlib stream at offset 0"
-      },
-      "notes": [
-        "Do not point probe-zlib-cmf at this file and call the REJECT a reader verdict."
-      ]
+     "id": "closehandle",
+     "va": "0x8c100230",
+     "module": "coredll",
+     "target": "CloseHandle",
+     "arity": 1,
+     "note": "the handle is closed before the log line is formatted"
     },
     {
-      "name": "drstr_parser",
-      "reader": "drstr",
-      "what": "DRSTR001.DAT tree parser (40-byte nodes, 32-byte entries)",
-      "module": null,
-      "build": "eu2011",
-      "entry": {
-        "kind": "blocked",
-        "program": null,
-        "va": null,
-        "reason": "entry VA sub_00419350 (Navi.exe 0x00419350, M3.10) lies in the executable, uncompressed sec0, but its coredll imports and buffer global sit in compressed sec1 (0x0055d000): the first read, 0x0055d8fc, is UNMAPPED (EXP-2026-11-08-M9.14-reopen); unblock: M1.2f, then M9.24"
-      },
-      "stubs": [
-        "CreateFileW",
-        "ReadFile",
-        "SetFilePointer",
-        "CloseHandle",
-        "LocalAlloc",
-        "LocalFree",
-        "HeapAlloc",
-        "memset",
-        "memcpy",
-        "OSM_Printf",
-        "OSM_LogMsg"
-      ],
-      "corpus": {
-        "path": "drstr/DRSTR001.DAT",
-        "guest_path": "\\Storage Card\\DRSTR001.DAT",
-        "reader": "drstr",
-        "case": "drstr_factory"
-      },
-      "expect": {
-        "verdict": "ACCEPT",
-        "python_verdict": "ACCEPT",
-        "agrees_with_python": null,
-        "rule": "the factory tree must parse; the size-mismatch tree in the manifest must be rejected"
-      },
-      "notes": [
-        "The reader's CRT calls are coredll fopen/fread/fseek/ftell/ferror/clearerr/fclose (M3.10 decode, wrappers sub_0041b3bc/sub_0041b4f8/sub_0041b470), not CreateFileW/ReadFile; the stub list below is not the reader's call list and is kept only until M9.24 replaces it.",
-        "Verdict rule not established: sub_00419350 returns error codes 26/23/20/10 (M3.10), so no verdict_map is written; the 40 | size and size/40 >= 200 checks are unreconciled."
-      ]
-    },
-    {
-      "name": "mapcode_comparator",
-      "reader": "hdd_info",
-      "what": "retired map-code comparator chain (Sys[...] vs SD[...])",
-      "module": null,
-      "build": "eu2011",
-      "entry": {
-        "kind": "blocked",
-        "program": null,
-        "va": null,
-        "reason": "the chain 0x6fab2c -> 0x6faeb0 -> 0x6fb05c is BT_MGR.dll code, not the map-code check (C-520, C-528); no runnable target exists, do not revive it"
-      },
-      "stubs": [
-        "sprintf",
-        "OSM_Printf"
-      ],
-      "corpus": {
-        "path": "hdd_info/variants/line1_digits_4_002.HDD_INFO.TXT",
-        "guest_path": "\\Storage Card\\VER_INFO\\HDD_INFO.TXT",
-        "reader": "hdd_info",
-        "case": "hdd_info_mismatch"
-      },
-      "expect": {
-        "verdict": "REJECT",
-        "python_verdict": "REJECT",
-        "agrees_with_python": null,
-        "rule": "recorded only to keep the retired lead blocked; it must never be presented as a reader"
-      },
-      "notes": [
-        "Kept as a BLOCKED entry so a future run cannot silently resurrect the",
-        "retired BT_MGR chain as if it were the map-code check."
-      ]
+     "id": "sprintf_log",
+     "va": "0x8c100240",
+     "module": "coredll",
+     "target": "#719",
+     "arity": 4,
+     "note": "ordinal 719 = sprintf (C-527); formats '%s|%d|%x'"
     }
-  ]
+   ],
+   "corpus": {
+    "path": "cmp/factory/ADDRE001.DAT.cmp",
+    "guest_path": "\\Storage Card\\REFER001\\ADDRE001.DAT.cmp",
+    "reader": "cmp_ind",
+    "case": "factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": true,
+    "rule": "first served byte is 0x78, the zlib CMF every .cmp stream starts with; the probe is a pipeline fixture, not the firmware container reader"
+   },
+   "notes": [
+    "Positive control: the same input the Python cmp_ind reader accepts, served",
+    "through the virtual FS and the stub dispatcher.",
+    "The probe does not implement the full SH-4 ABI (r8-r13 are not saved); it is",
+    "registers-and-memory deterministic, not a compiler output."
+   ]
+  },
+  {
+   "name": "hddinfo_compare",
+   "reader": "hdd_info",
+   "what": "VER_INFO/HDD_INFO.TXT map-code parser and comparator",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "blocked",
+    "program": null,
+    "va": null,
+    "reason": "the HDD_INFO parser is reached through a runtime COM object; only the SD Import/HDD_INFO literals are located in Navi.exe (C-521) and no entry VA exists (M2.1-M2.3)"
+   },
+   "stubs": [
+    "CreateFileW",
+    "ReadFile",
+    "CloseHandle",
+    "memcpy",
+    "sprintf",
+    "OSM_Printf",
+    "OSM_LogMsg"
+   ],
+   "corpus": {
+    "path": "hdd_info/factory/HDD_INFO.TXT",
+    "guest_path": "\\Storage Card\\VER_INFO\\HDD_INFO.TXT",
+    "reader": "hdd_info",
+    "case": "hdd_info_factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "an unmodified HDD_INFO.TXT must keep the map code accepted; the firmware side is BLOCKED until the parser is located"
+   },
+   "notes": [
+    "The retired map-code comparator chain is BT_MGR.dll code (C-520, C-528) and",
+    "must not be used as this target."
+   ]
+  },
+  {
+   "name": "cmp_ind_reader",
+   "reader": "cmp_ind",
+   "what": "REFER001 .cmp + .ind chunk reader (firmware fn 0x0041c7dc, M3.2b/M9.11)",
+   "module": "Navi.exe",
+   "build": "eu2011",
+   "entry": {
+    "kind": "firmware_call",
+    "program": "cmp_ind_chunk_v1",
+    "module": "Navi.exe",
+    "va": "0x0041c7dc",
+    "endian": "little",
+    "sec1_table": {
+     "va": "0x00574de0",
+     "values": [
+      "0x00000000",
+      "0x00000001",
+      "0x00000003",
+      "0x00000007",
+      "0x0000000f",
+      "0x0000001f",
+      "0x0000003f",
+      "0x0000007f",
+      "0x000000ff",
+      "0x000001ff",
+      "0x000003ff",
+      "0x000007ff",
+      "0x00000fff",
+      "0x00001fff",
+      "0x00003fff",
+      "0x00007fff",
+      "0x0000ffff"
+     ],
+     "provenance": "zlib 1.1.3 inflate_mask[17] (2^n - 1, n=0..16), public source; written at VA 0x574de0 indexed by Navi.exe inflate at 0x54369e (shll2; mov.l @(r0,r3),r2; and r12,r2 = hold & inflate_mask[n]). VA sourced from code; values from public zlib source, not read from Navi.exe sec1 (M1.2f open) \u2014 HYPOTHESIS that sec1 bytes equal these values, consistent with byte-identical output (EXP-2026-11-08-M9.11-chunk-decoder). Declared input, not a silent default (M9.11b)."
+    },
+    "inputs": {
+     "offset": "0x840ba0",
+     "length": 42848
+    },
+    "note": "Runs fn 0x0041c7dc with .ind-derived 20-byte chunk table (ctx+28), ctx/cache/dst setup per M9.11. Pass --image IMG256 --cmp PAIR.cmp --ind PAIR.ind [--mutate none|corrupt-ind|swap-4-8]."
+   },
+   "stubs": [],
+   "corpus": {
+    "path": "cmp/factory/ADDRE001.DAT.cmp",
+    "guest_path": "\\Storage Card\\REFER001\\ADDRE001.DAT.cmp",
+    "reader": "cmp_ind",
+    "case": "factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "firmware fn 0x41c7dc returns the requested page byte-identical to cmpind.decode on the factory/S1/S2 pairs; --mutate corrupt-ind is rejected (-1); --mutate swap-4-8 fails cleanly (EXP-2026-11-08-M9.11-chunk-decoder controls, M9.11b)."
+   },
+   "notes": [
+    "Registered by M9.11b. The sec1 inflate_mask table is an explicit declared input with provenance; runner never uses a silent default.",
+    "Controls: runner.py run cmp_ind_reader --image IMG256 --cmp ... --ind ... [--mutate corrupt-ind|swap-4-8].",
+    "This target covers the chunk decode path (fn 0x41c7dc), not the full .ind parser or the file opener."
+   ]
+  },
+  {
+   "name": "tile_reader",
+   "reader": "tile",
+   "what": "MAPAL001 BxxRyyR.DAT tile reader (MESH_ID/DIVID, 0x1ac level table)",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "blocked",
+    "program": null,
+    "va": null,
+    "reason": "no tile reader entry point has been recovered (M3)"
+   },
+   "stubs": [
+    "CreateFileW",
+    "ReadFile",
+    "SetFilePointer",
+    "GetFileSize",
+    "CloseHandle",
+    "HeapAlloc",
+    "HeapFree",
+    "memset",
+    "memcpy",
+    "OSM_Printf",
+    "OSM_LogMsg"
+   ],
+   "corpus": {
+    "path": "tile/B28R070R.DAT",
+    "guest_path": "\\Storage Card\\MAPAL001\\B28R070R.DAT",
+    "reader": "tile",
+    "case": "tile_factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "the factory tile must decode; a first byte other than 0x78 is not evidence either way, the tile is not a zlib stream at offset 0"
+   },
+   "notes": [
+    "Do not point probe-zlib-cmf at this file and call the REJECT a reader verdict."
+   ]
+  },
+  {
+   "name": "drstr_parser",
+   "reader": "drstr",
+   "what": "DRSTR001.DAT tree parser (40-byte nodes, 32-byte entries)",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "blocked",
+    "program": null,
+    "va": null,
+    "reason": "entry VA sub_00419350 (Navi.exe 0x00419350, M3.10) lies in the executable, uncompressed sec0, but its coredll imports and buffer global sit in compressed sec1 (0x0055d000): the first read, 0x0055d8fc, is UNMAPPED (EXP-2026-11-08-M9.14-reopen); unblock: M1.2f, then M9.24"
+   },
+   "stubs": [
+    "CreateFileW",
+    "ReadFile",
+    "SetFilePointer",
+    "CloseHandle",
+    "LocalAlloc",
+    "LocalFree",
+    "HeapAlloc",
+    "memset",
+    "memcpy",
+    "OSM_Printf",
+    "OSM_LogMsg"
+   ],
+   "corpus": {
+    "path": "drstr/DRSTR001.DAT",
+    "guest_path": "\\Storage Card\\DRSTR001.DAT",
+    "reader": "drstr",
+    "case": "drstr_factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "the factory tree must parse; the size-mismatch tree in the manifest must be rejected"
+   },
+   "notes": [
+    "The reader's CRT calls are coredll fopen/fread/fseek/ftell/ferror/clearerr/fclose (M3.10 decode, wrappers sub_0041b3bc/sub_0041b4f8/sub_0041b470), not CreateFileW/ReadFile; the stub list below is not the reader's call list and is kept only until M9.24 replaces it.",
+    "Verdict rule not established: sub_00419350 returns error codes 26/23/20/10 (M3.10), so no verdict_map is written; the 40 | size and size/40 >= 200 checks are unreconciled."
+   ]
+  },
+  {
+   "name": "mapcode_comparator",
+   "reader": "hdd_info",
+   "what": "retired map-code comparator chain (Sys[...] vs SD[...])",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "blocked",
+    "program": null,
+    "va": null,
+    "reason": "the chain 0x6fab2c -> 0x6faeb0 -> 0x6fb05c is BT_MGR.dll code, not the map-code check (C-520, C-528); no runnable target exists, do not revive it"
+   },
+   "stubs": [
+    "sprintf",
+    "OSM_Printf"
+   ],
+   "corpus": {
+    "path": "hdd_info/variants/line1_digits_4_002.HDD_INFO.TXT",
+    "guest_path": "\\Storage Card\\VER_INFO\\HDD_INFO.TXT",
+    "reader": "hdd_info",
+    "case": "hdd_info_mismatch"
+   },
+   "expect": {
+    "verdict": "REJECT",
+    "python_verdict": "REJECT",
+    "agrees_with_python": null,
+    "rule": "recorded only to keep the retired lead blocked; it must never be presented as a reader"
+   },
+   "notes": [
+    "Kept as a BLOCKED entry so a future run cannot silently resurrect the",
+    "retired BT_MGR chain as if it were the map-code check."
+   ]
+  },
+  {
+   "name": "cmp_ind_reader_us2011",
+   "reader": "cmp_ind",
+   "what": "REFER001 .cmp + .ind chunk reader (US 2011 Navi.exe fn 0x00444540, EU->US twin of 0x0041c7dc; M1.22)",
+   "module": "Navi.exe",
+   "build": "us2011",
+   "entry": {
+    "kind": "firmware_call",
+    "program": "cmp_ind_chunk_v1",
+    "module": "Navi.exe",
+    "va": "0x00444540",
+    "endian": "little",
+    "sec1_table": {
+     "va": "0x005987b0",
+     "values": [
+      "0x00000000",
+      "0x00000001",
+      "0x00000003",
+      "0x00000007",
+      "0x0000000f",
+      "0x0000001f",
+      "0x0000003f",
+      "0x0000007f",
+      "0x000000ff",
+      "0x000001ff",
+      "0x000003ff",
+      "0x000007ff",
+      "0x00000fff",
+      "0x00001fff",
+      "0x00003fff",
+      "0x00007fff",
+      "0x0000ffff"
+     ],
+     "provenance": "zlib 1.1.3 inflate_mask[17] (2^n - 1, n=0..16), public source; written at VA 0x005987b0, the pool slot the US Navi.exe inflate loads at 0x00565996 (shll2 r2; mov.l @(pc),r3 -> 0x005987b0; mov.l @(r0,r3),r2; and r12,r2). Structural derivation: the instruction sequence is unique in each build's text (EU 0x0054369a -> 0x00574de0). Values from public zlib source, not read from the image (M1.2f open), as for the EU target (M9.11b)."
+    },
+    "inputs": {
+     "offset": "0x840ba0",
+     "length": 42848
+    },
+    "note": "Runs fn 0x0041c7dc with .ind-derived 20-byte chunk table (ctx+28), ctx/cache/dst setup per M9.11. Pass --image IMG256 --cmp PAIR.cmp --ind PAIR.ind [--mutate none|corrupt-ind|swap-4-8]."
+   },
+   "stubs": [],
+   "corpus": {
+    "path": "cmp/factory/ADDRE001.DAT.cmp",
+    "guest_path": "\\Storage Card\\REFER001\\ADDRE001.DAT.cmp",
+    "reader": "cmp_ind",
+    "case": "factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "US fn 0x00444540 returns the requested page byte-identical to cmpind.decode on the factory/S1/S2 pairs, with the US helper stubs; --mutate corrupt-ind is rejected (-1)."
+   },
+   "notes": [
+    "Registered by M1.22 with the US VAs located by the masked instruction-form stream (111/111 halfwords identical to the EU engine) and the engine's own pool (C-363x).",
+    "Build field from M1.22b; the runner refuses an unknown build.",
+    "Controls: the wrong build's walker/helper addresses do not reproduce (M1.22 EXP).",
+    "Runs the US build's chunk engine with the same .ind-derived 20-byte table and helper stubs relocated from its own literal pool (memcpy 0x00400944, mod 0x0040098c, zcalloc 0x00565d94, zcfree 0x00565da4). Pass --image US256 --cmp PAIR.cmp --ind PAIR.ind."
+   ]
+  }
+ ]
 }

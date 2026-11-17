@@ -174,6 +174,11 @@ US_BUILD_STARTS = frozenset({
     0x00433458,  # ADDRE0 resolve         (EU 0x0040b358)
     0x003EC274,  # RDSTM                  (EU 0x003bc960)
     0x0041EB1C,  # POI field accessor     (EU 0x003f61bc)
+    # M1.22: the US POINT walker set, located through the US dispatcher's own
+    # pool (same three slots in the same order as the EU dispatcher).
+    0x0041DB44,  # POINT nth reader       (EU 0x003f5194)
+    0x0041C370,  # POINT skip walker      (EU 0x003f39c0)
+    0x0041E63C,  # POINT dispatcher       (EU 0x003f5cdc)
 })
 
 
@@ -303,6 +308,11 @@ def citations_targets(path):
         va = entry.get("va")
         if not va:
             continue
+        # A US-build start/portal is never a start in the EU head this gate
+        # classifies against (M1.22 extends the set); skip it here too, or a
+        # targets.json entry for the US build reddens the EU docs base.
+        if int(va, 16) in US_BUILD_STARTS:
+            continue
         yield Citation(int(va, 16), "%s:%s" % (rel, target.get("name", "?")), "target")
 
 
@@ -312,6 +322,8 @@ def citations_l3_constants(paths):
         rel = os.path.relpath(path, REPO)
         for lineno, line in enumerate(open(path, encoding="utf-8", errors="replace"), 1):
             for m in CONST_RE.finditer(line):
+                if int(m.group(0), 16) in US_BUILD_STARTS:
+                    continue
                 yield Citation(int(m.group(0), 16), "%s:%d" % (rel, lineno), "const")
 
 
