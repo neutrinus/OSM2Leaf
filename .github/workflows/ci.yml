@@ -44,90 +44,39 @@ jobs:
           python -VV
           python -c "import sys, zlib; print('zlib', zlib.ZLIB_VERSION, zlib.ZLIB_RUNTIME_VERSION); print('implementation', sys.implementation.name)"
 
-      - name: Selftests (JSON)
-        id: selftest
+      - name: Standing gate (tools/gate.py)
+        id: gate
         shell: bash
         run: |
           set +e
-          python tools/selftest.py --json > selftest.json
-          rc=$?
+          python tools/gate.py --json gate.json 2>&1 | tee gate.txt
+          rc=${PIPESTATUS[0]}     # gate.py's exit, not tee's
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           python - <<'PY'
-          import json, os, sys
-          with open('selftest.json', encoding='utf-8') as f:
+          import json, os
+          with open('gate.json', encoding='utf-8') as f:
               data = json.load(f)
-          suites = data.get('suites', [])
-          counts = {'PASS': 0, 'FAIL': 0, 'SKIP': 0}
-          failed = []
-          for s in suites:
-              st = s.get('status', 'UNKNOWN')
-              counts[st] = counts.get(st, 0) + 1
-              if st == 'FAIL':
-                  failed.append(s)
-          summary = (
-              f"selftest: passed={counts.get('PASS',0)} failed={counts.get('FAIL',0)} "
-              f"skipped={counts.get('SKIP',0)} total={len(suites)} "
-              f"time={data.get('seconds',0):.2f}s"
-          )
-          print(summary)
-          if failed:
-              print('FAILED SUITES:')
-              for s in failed:
-                  line = f"{s.get('id','?')}: {s.get('detail','')}".strip()
-                  print(' -', line)
-                  out_text = (s.get('output') or '').strip()
-                  if out_text:
-                      tail = out_text[-4000:]
-                      print('--- output (tail) ---')
-                      print(tail)
-                      print('--- end output ---')
+          counts = data.get('counts', {})
+          rows = data.get('gates', [])
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
-              out.write('## selftest.py\n\n')
-              out.write(f"- Result: **{summary}**\n")
-              out.write("- Policy: tools without `--selftest` or missing dependencies are reported as **SKIP** by `selftest.py`; SKIP is not PASS.\n")
-              if failed:
-                  out.write('\n### Failed suites\n')
-                  for line in failed:
-                      out.write(f"- `{line}`\n")
-              else:
-                  out.write('- No suite failures.\n')
+              out.write('## tools/gate.py (standing gate)\n\n')
+              out.write('| gate | result | note |\n| --- | --- | --- |\n')
+              for r in rows:
+                  note = (r.get('reason') or r.get('note') or '').replace('|', '\\|')
+                  out.write('| `%s` | **%s** | %s |\n' % (r['gate'], r['status'], note))
+              out.write('\n- Summary: **%s**\n' % data.get('summary', ''))
+              out.write('- Policy: a **SKIP** is a gate that could not run for a missing vendor input; it is never counted as PASS. The step fails (exit 1) iff a runnable gate FAILed.\n')
+              skip = [r for r in rows if r['status'] == 'SKIP']
+              if skip:
+                  out.write('- Not covered in CI: ' + ', '.join(
+                      '`%s` (%s)' % (r['gate'], r.get('reason', 'skipped'))
+                      for r in skip) + ' (the manual H84 job has the image; H86 makes the strict gates blocking).\n')
+          if counts.get('FAIL', 0):
+              print('FAILED GATES:')
+              for r in rows:
+                  if r['status'] == 'FAIL':
+                      print(' -', r['gate'], 'exit', r.get('exit'))
           PY
-          exit $rc
-
-      - name: Claims ledger check
-        shell: bash
-        run: |
-          set -euo pipefail
-          python tools/claims_check.py | tee claims_check.txt
-          {
-            echo '## claims_check.py'
-            echo
-            echo '```text'
-            cat claims_check.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: TODO board lint
-        shell: bash
-        run: |
-          set +e
-          python tools/todo_check.py TODO.md > todo_check.txt 2>&1
-          rc=$?
-          cat todo_check.txt
-          {
-            echo '## todo_check.py'
-            echo
-            echo '```text'
-            cat todo_check.txt
-            echo '```'
-            if [ "$rc" -ne 0 ]; then
-              echo
-              echo '**FAIL**: TODO board lint reported errors (warnings alone do not fail).'
-            else
-              echo
-              echo 'OK: no TODO board lint errors (warnings may be present).'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
           exit $rc
 
       - name: Gate summary
@@ -137,7 +86,8 @@ jobs:
           {
             echo '## Gate policy'
             echo
-            echo '- Hard gate (blocking): `tools/selftest.py`, `tools/claims_check.py`, `tools/todo_check.py` on Python 3.11 and 3.13.'
+            echo '- Hard gate (blocking): `tools/gate.py` (`selftest.py` + `claims_check.py --strict --count-check` + `todo_check.py` + `fn_audit.py --corpus/--overlay`, one PASS/FAIL/SKIP policy) on Python 3.11 and 3.13.'
+            echo '- A SKIP (missing `archive/head256.img` here) is listed in the job summary and is never counted as PASS; the manual H84 job has the image and requires the l3 gate to PASS.'
             echo '- Informational (non-blocking): Python 3.14 job, because `zlib-ng` builds may diverge from stock zlib 1.3.1 byte-identical behavior (H9). This gate does not claim byte-identical recompression.'
             echo '- No vendor data, no IMG256/full card tree, no QEMU build, no L4 hardware tests.'
           } >> "$GITHUB_STEP_SUMMARY"

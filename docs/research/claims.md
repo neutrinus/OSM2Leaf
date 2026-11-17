@@ -3197,3 +3197,22 @@ were still `open`. H81 closes them on the board without deleting history.
 | C-4047 | RESERVED (H81). | — | — | — |
 | C-4048 | RESERVED (H81). | — | — | — |
 | C-4049 | RESERVED (H81). | — | — | — |
+
+## H85 — One standing gate with one PASS/FAIL/SKIP policy (C-4080–C-4089)
+
+`tools/gate.py` runs `selftest.py`, `claims_check.py --strict --count-check`,
+`todo_check.py` and `fn_audit.py --corpus … --overlay …` in one fixed order and
+applies one policy: PASS, FAIL, or SKIP for a missing vendor input.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4080 | `tools/gate.py` classifies a gate by exit code **and** message: exit 0 is `PASS`, a nonzero other than 2 is `FAIL`, and exit 2 is `SKIP` only when the output carries one of a deliberately narrow missing-input marker set (`no such file or directory: 'archive/…`, `no image at `, `missing archive/`); exit 2 without a marker — including a broad `cannot verify` phrase — is `FAIL`. | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; `python3 tools/gate.py --selftest` |
+| C-4081 | On this host without the image the runner prints `selftest PASS`, `claims_check PASS`, `todo_check PASS`, `fn_audit SKIP` (`missing archive/head256.img`) and the summary `gate: 3 pass, 0 fail, 1 skip -- not covered: fn_audit (…)`, exiting 0. | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; `python3 tools/gate.py` |
+| C-4082 | With `archive/head256.img` present all four gates `PASS` (`gate: 4 pass, 0 fail, 0 skip`) and the runner exits 0, because H78 made `claims_check --strict --count-check` green. | VERIFIED (tool, real image) | H | EXP-2026-11-16-H85-standing-gate; `python3 tools/gate.py` with the image symlinked |
+| C-4083 | A genuine gate failure is not softened: removing a block's `Status:` line makes `todo_check` exit 1, the row reads `FAIL`, and the runner exits 1 (`gate: 1 pass, 2 fail, 1 skip`). | VERIFIED (tool, negative control) | H | EXP-2026-11-16-H85-standing-gate; the mutation run |
+| C-4084 | `--json` is the same data as one document: `--json -` writes one valid JSON object to stdout (human table to stderr) with `ok`, `counts.{PASS,FAIL,SKIP}` and per-gate `status`; `--json PATH` writes the file and preserves the exit code. | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; `python3 tools/gate.py --json - \| python3 -c 'import json,sys; …'` |
+| C-4085 | `--selftest` proves the policy with stub programs (not a live suite) in 11 checks: exit 0→PASS, exit 1→FAIL, exit 2+missing-input→SKIP, exit 2 without a marker→FAIL, exit 2 + `cannot verify`→FAIL, a declared-missing input skips before running, PASS+SKIP passes, any FAIL fails, the summary names each SKIP, and JSON is valid and never records a SKIP as PASS. | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; `python3 tools/gate.py --selftest` on python 3.11/3.13/3.15 |
+| C-4086 | `tools/selftest.py` auto-discovers the new tool (`tool:gate PASS`) and stays green: without `archive/head256.img` `passed=90 failed=0 skipped=24 total=114`, with it `passed=91 failed=0 skipped=23 total=114` (the gate suite passes either way). | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; `python3 tools/selftest.py` (both image states) |
+| C-4087 | `.github/workflows/ci.yml` replaces the three gate steps with one `tools/gate.py` step that writes a `gate`/`result`/`note` table and the SKIP list ("not covered in CI") to the job summary and exits with the runner's code — `rc=${PIPESTATUS[0]}` after the `\| tee` pipe, so a FAILing gate fails the job (a plain `rc=$?` would read `tee`'s 0); the workflow YAML still parses. | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; the step body, `bash -c '… \| tee …; PIPESTATUS[0]'`, and a local run of the same command shape |
+| C-4088 | `--board-clean` runs `todo_check --strict`, which is `FAIL exit 1` (66 strict errors) until H53 closes the board, so the option reports the truth instead of hiding it; `--no-count` runs `claims_check --strict` without `--count-check`. | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; `python3 tools/gate.py --board-clean --no-count` |
+| C-4089 | The runner is a *standing* gate, not a per-task oracle: it does not run any task's `Done when`, and its docstring says so; the TL keeps the per-task check. | VERIFIED (doc) | H | `tools/gate.py` docstring; EXP-2026-11-16-H85-standing-gate |
