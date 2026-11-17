@@ -3366,6 +3366,7 @@ re-files it), and the block is recorded in
 | C-4287 | Host stubs at the three stdio wrappers are sufficient to run the `DRSTR` and `MMAIN` readers on a card tree. | HYPOTHESIS | L | EXP-2026-11-17-H101-pm-review; test: M9.44 |
 | C-4288 | RESERVED (H101). | — | — | — |
 | C-4289 | RESERVED (H101). | — | — | — |
+
 ## M5.34 — OSM test road into a `0x2046` parcel (C-3560–C-3569)
 
 | ID | Claim | Status | Confidence | Evidence |
