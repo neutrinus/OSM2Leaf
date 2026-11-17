@@ -1054,8 +1054,9 @@ ordered by "what puts a file on a card the firmware reads", not by band.
   - Re-opens on merge (rule 15): closes **M1.2f, M1.2g, M8.E1, M8.E1c, M9.29, M9.30, M1.2e** as superseded (set them `done` with `Result: superseded by H51/M1.19`), and re-opens **M1.4** (see M1.21).
   - Claims: C-3500–C-3509
 
-- [ ] **M1.20 — `pdata.py`: the function table of every module, and `fn` labels that come from it**
-  - Status: in progress · Owner: task/m1.20-pdata-all · Critical: yes
+- [x] **M1.20 — `pdata.py`: the function table of every module, and `fn` labels that come from it**
+  - Status: done · Owner: task/m1.20-pdata-all · Critical: yes
+  - Result: EXP-2026-11-17-M1.20-pdata-all; C-3510–C-3519 registered. `pdata.py census` gives every module a record count and an ASCII totals line with the with/without split — A `149 modules, 149 with pdata, 0 without (NO-PDATA), 0 errors, 87530 records`; B `91 … 91 … 0 … 0 … 21930`; C `88 … 88 … 0 … 0 … 25243` — while `NO-PDATA` stays reserved for e32 `(0, 0)` and a decode/sort fault is `ERROR` + exit 2; `pdata.py where --try-index` shows the index is not the locator (sec2 pick `UNSORTED`, exact-RVA sec3 `sorted`) for the 1 (A) / 10 (B) / 3 (C) modules whose table is outside sec2; the four `sh4xref --to` spot checks print the pdata holders (`0x0041c7dc`→`0x0041c990`, `0x004125a8`→`0x00413a6c`, `0x00542250`→`0x0054232c`, `0x0032ef60`→`0x0032edd0`) with no wire-up change needed; selftest 45 checks, `OK (0 failed)`.
   - Note (M1.23 merge, 2026-11-15): the wire-up gap the blocker named is closed — `cerom.e32()` has `exception`, `sh4xref`/`sh4scan`/`reader_precheck` use pdata, and C-3610–C-3619 register the claims (EXP-2026-11-15-M1.23-pdata-wireup). This task re-opens for its own Done-when: `pdata.py table` count for every module, `gaps`, and the selftest coverage.
   - Blocker (SE 2026-11-13): the tool is real (`pdata.py` gives 7,596 `Navi.exe` records, selftest PASS) but the EXP's claimed wire-ups are absent from `777fb68`: `cerom.e32()` has no `exception` key, `sh4xref.py`/`sh4scan.py`/`reader_precheck.py` contain 0 `pdata` references, and C-3510–C-3519 were never added to `claims.md`. The done-when needs pdata-backed `fn` labels, which do not exist yet.
   - Unblock: M1.23 (wire-up + register the corrected C-351x claims) — merged; re-opened per rule 15

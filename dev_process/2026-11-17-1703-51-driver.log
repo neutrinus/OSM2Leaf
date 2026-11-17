@@ -51,3 +51,13 @@ problems:
 
 handoff: navigator -> check `census`/`where` semantics and the C-351x scoping; the
   next driver can set `done` + Result only after the navigator accepts the EXP.
+
+round 2 (navigator, same session):
+- EXP Method block now starts `mkdir -p /tmp/opencode/m1.20` (the controls wrote
+  into a directory no command created); C-3512 cites that block, C-3515 adds the
+  B/C fixture runs; tools/README.md gets the `pdata.py census`/`where` paragraph
+- M1.20 set [x] / Status: done / Result (EXP + C-3510-C-3519 + A/B/C headline)
+- ran the whole Method block verbatim from `rm -rf /tmp/opencode` (all 31 lines,
+  exit 0, cold caches), gate 4 pass / 0 fail / 0 skip, todo_check and
+  claims_check --strict --count-check OK, rebased onto origin/main fa27c11
+- pushed with --force-with-lease (the rebase replaced the three pre-rebase commits)
