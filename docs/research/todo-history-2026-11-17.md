@@ -15,6 +15,16 @@ A moved block may still be named by *another done block's* `Depends:`
 a live dependency: `todo_check` counts 16 → 24 `references unknown task ID`
 warnings, all from done blocks, and H60 will classify them as `archived`.
 
+## Removed tasks (not done — false premise)
+
+- **H95 — "The MAINTENANCE.md rotation counts hand-typed logs"** — removed
+  2026-11-17. `MAINTENANCE.md` never existed (`git log --all -- MAINTENANCE.md`
+  is empty; C-4210), and the `N = max+1` rule it proposed to add is already in
+  `prompt_common.txt` §Work log. The task was added by the SE pass `fdba381`
+  against a document that was imagined, not read. C-4210 is kept in
+  `claims.md` as the fact; EXP-2026-11-17-H95-log-rotation keeps the probes.
+  Do not re-file it unless a `MAINTENANCE.md` is authored first.
+
 ## H
 
 - [x] **H64 — `one_tile_pipeline`: a factory-backed run must prove it read a factory tree, and survive `--out == --factory-root`**

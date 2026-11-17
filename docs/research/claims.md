@@ -3299,12 +3299,18 @@ resolve to the tip for every claim and report nine old counts as mismatches.
 | C-4138 | H90 raises `claims_check --selftest` from 25 to 28 checks, so the one claim that quoted the old number (C-4015) is updated to `28 checks` in the same commit; its mutation control and `_run_counts` truth table are unchanged and still pass. | VERIFIED (tool) | H | EXP-2026-11-17-H90-ci-shallow-count; `python3 tools/claims_check.py --selftest` |
 | C-4139 | RESERVED (H90). | — | — | — |
 
-## H95 — the target `MAINTENANCE.md` does not exist (C-4210–C-4219)
+## H95 — the target `MAINTENANCE.md` does not exist (C-4210–C-4219) — task **removed** 2026-11-17
 
 H95's Goal assumes `MAINTENANCE.md` holds a log-rotation rule that counts
 `dev_process/` files. The file is absent from `origin/main` (`e84340f`), every
 origin head, every PR and the whole reachable history; no prompt has a rotation
 rule either. The task is blocked on a false premise, not on wording.
+
+**Removal (2026-11-17):** the task was a phantom — its input never existed, and
+the `N = max+1` rule it wanted to add is already in `prompt_common.txt` §Work
+log. Deleted from `TODO.md`; C-4210 stays as the reproducible fact (so nobody
+re-files it), and the block is recorded in
+[`todo-history-2026-11-17.md`](../todo-history-2026-11-17.md).
 
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |

@@ -84,6 +84,11 @@ front has fewer, add the next tasks (see rule 9).
     internet access). Claude sandbox agents skip them. Such a task records
     the download URL, date and SHA-256 of what it fetched, and never commits
     OSM extracts.
+    **The flag is a property of the runner, not of the task:** on a host with
+    normal internet (verified 2026-11-17: `api.openstreetmap.org` 200,
+    `download.geofabrik.de` 307, full EU card in `archive/sd-images/`), a
+    `Runner: non-Claude` task runs normally — do not treat the flag as a
+    blocker there, and do not re-add it to a task whose only need is network.
 
 13. **Firmware confirms every format we write (Marek, 2026-11-06).** A file
     type we generate counts as *confirmed* only when its reader in the
@@ -245,7 +250,7 @@ ordered by "what puts a file on a card the firmware reads", not by band.
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; prep **M6.13**, **H29**. Hardware unavailable; `l3_precond.py` before every bench card.
 
 **Next 5 for the TL (one per cycle is enough; all deps done):**
-1. **M5.34** (Critical, L2) — the only thing between the factory tile and the OSM pipeline; re-opens **M5.29** on merge. Parcel census runs anywhere; a new OSM extract is `Runner: non-Claude`.
+1. **M5.34** (Critical, L2) — the only thing between the factory tile and the OSM pipeline; re-opens **M5.29** on merge. **Runnable on this host** (OSM reachable, full EU card on disk); the census needs no download.
 2. **M1.20** (Critical) — pdata function table for every module; the head of the chain that gives the tile reader a name (**M3.23**/**M3.24**/**M9.38** follow).
 3. **M9.41** (Critical) — register the running US POI walk as an S1 evidence row; the cheapest way to turn L3 from prose into a gate (**M9.31**→**M9.12** next).
 4. **M3.25** (Critical, new) — the tile/route reader VAs, so **M9.13** can run the reader on the tiles L2 writes. Without it L3 never sees a `MAPAL001` file.
@@ -943,22 +948,6 @@ ordered by "what puts a file on a card the firmware reads", not by band.
   - Stop: if the count really cannot be shown from a command at `3d79bcc`, delete the number and point at C-4135 instead of retyping it.
   - Falsifier: the typed `809 commits`/`3.15` strings remain, or the Reproduction block still prints `count mismatch` on today's `main`.
   - Claims: C-4200–C-4209
-
-- [ ] **H95 — The MAINTENANCE.md rotation counts hand-typed logs, not the N = max+1 the prompts define**
-  - Status: blocked · Owner: task/h95-rotation · Critical: no · Pair: solo
-  - Depends: — (docs only)
-  - Blocker: `MAINTENANCE.md` does not exist — `grep -n 'dev_process' MAINTENANCE.md` exits 2, and it is in no commit's tree, no origin head (`0` of `12`), no PR (`0` of `212`), and not on disk (`0` from `git ls-files`/`find`/`git rev-list --all --objects`), against positive controls that find `README.md`. No prompt has a log-rotation rule either, so H95's Stop clause does not fire and there is nothing to correct (C-4210).
-  - Unblock: `<human>` — decide whether the repo should have a `MAINTENANCE.md` lifecycle page (stating `N = max+1` and that a day's log-number gap is normal). If yes, the SM authors it as a new doc and re-opens H95 only if that page then needs this correction; the prompt half stays with the SM either way. Not a task-level dependency: no such task exists yet.
-  - Goal: make `MAINTENANCE.md`'s log-rotation rule match the `N = max+1` naming in `prompt_common.txt`, so an archiver selects whole days and treats a gap in the sequence as normal instead of a missing log.
-  - Note (SE 2026-11-17): the lifecycle prompt (`prompt_common.txt`) defines a log's `N` as `max+1` of the date's existing logs and warns subagent logs reuse small numbers. `MAINTENANCE.md` tells the SM to "count dev_process/ logs older than N days and archive", which is a *count*, and the two disagree whenever a log name is skipped or a `-driver` reuses a number — the SM cannot tell from the roster alone whether a day is fully logged.
-  - Precheck: `grep -n 'dev_process' MAINTENANCE.md` prints the rotation instruction; `ls dev_process/2026-11-17-* | sed 's/.*-\\([0-9]*\\)-[a-z]*\\.log/\\1/' | sort -n | uniq` shows the numbers (today: 39-43, no log 1-38 for 2026-11-17).
-  - Scope: `MAINTENANCE.md` only: rotation selects by date and archives whole days, not by counting log files; add one sentence that `N` is `max+1` and a gap in the sequence is normal, not a missing log. No prompt edits (SM owns those).
-  - Input: `MAINTENANCE.md`, `prompt_common.txt` §Work log, `ls dev_process/`.
-  - Done when: `grep -n 'count' MAINTENANCE.md` no longer describes log rotation by a file count; the `max+1` rule and the gap-is-normal sentence are present; `python3 tools/todo_check.py` OK.
-  - Stop: if the rotation rule is also encoded in a prompt, stop and hand the prompt half to the SM retro instead of editing a prompt.
-  - Falsifier: `MAINTENANCE.md` still tells a reader to count logs.
-  - Result: EXP-2026-11-17-H95-log-rotation (negative, premise false); C-4210. The target file was never committed — no rotation rule exists in any file or prompt — so the Done-when cannot be met without fabricating the document H95 says to correct. Follow-up: clarify with the SM whether such a lifecycle page should exist.
-  - Claims: C-4210–C-4219
 
 - [x] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
   - Status: done · Owner: task/h90-ci-shallow-count · Critical: yes · Pair: required
@@ -2568,7 +2557,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3190–C-3199
 
 - [ ] **M5.34 — Put the OSM test road into a `0x2046` parcel so the factory-backed one-tile run completes (unblocks M5.29, PR #171)**
-  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** if a new OSM extract is needed (rule 12); the parcel census part runs anywhere
+  - Status: open · Owner: — · Critical: yes · **Runnable here** (2026-11-17: OSM API 200, Geofabrik 307, full EU card in `archive/sd-images/`; the `Runner: non-Claude` flag was a Claude-sandbox property, rule 12); the parcel census part needs no download
   - Depends: M5.22 (done: `PRESERVE_ONLY_DIR_KINDS`). **Was `M5.29 (blocked)`** — that made a deadlock: M5.34 is M5.29's `Unblock:`, so as written M5.34 waited on the very task it unblocks (SE 2026-11-17). The parcel census (Scope 1) needs no OSM extract and can run now.
   - Goal: PR #171 stopped because the test ways fell into directory `y=76 x=941` of `B48R058R`, kind `0x2146`, which `tilewriter` rightly refuses to mutate. That is a property of the chosen test geometry, not of the pipeline: the same tile has 18 `0x2046` directories that M5.4 already splices with L2 PASS. Choose the corridor so that it lies inside one of them, and treat every non-`0x2046` directory as verbatim.
   - Precheck: `python3 tools/fetch_image.py --image EU2011 -o PATH` + `python3 tools/verify.py --image PATH` give the factory root (rule 11 — "EU2011 not available" was wrong, see EXP-2026-11-09-M5.29-factory-rerun); `python3 tools/tilewriter.py --selftest` 68/68.
@@ -2781,6 +2770,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   `sh4_ccn_iomem()` at `0xff000000` and `sh4_ccn_arrays()` at `0xf0000000`,
   and one `ze0-stubs` instance.
   - Status: blocked · Owner: task/m8.a2-machine-skeleton · Critical: yes
+  - Re-probe (2026-11-17): the "no prebuilt `qemu-system-sh4`" half is **stale** — `/usr/bin/qemu-system-sh4` is 11.1.3 (LE) and starts; `-M help` lists `none`, `r2d`, **no `ze0`**. The remaining half is the `-M ze0` build: `pkg-config` finds neither `glib-2.0` nor `pixman-1`. On Fedora 45 the missing packages are `glib2-devel`, `pixman-devel` and `zlib-ng-compat-devel` (there is no `zlib-devel`), then `bash tools/qemu-ze0/build.sh`. Root/dnf is needed; `dnf` also needs `TMPDIR=/var/tmp` while `/tmp` is full. `-M ze0` would also fix the `cedecomp_run.py probe` failure, which is a `-M none` memory-map problem, not a binary problem.
   - Depends: — (M8.A1, M8.A4 and M8.A5 are merged)
   - Note (PM 2026-11-06): the three series were never built together. M8.A1 saw
     `m8a4-0002/0003` rejected on 8.2.7; M8.A4/M8.A5 report them applying (the
