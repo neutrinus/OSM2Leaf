@@ -933,7 +933,7 @@ ERRORs (**H53**, human-debt), `/tmp` 89 %, `.claude/` 490 MB untracked.
   - Claims: C-4200–C-4209
 
 - [ ] **H95 — The MAINTENANCE.md rotation counts hand-typed logs, not the N = max+1 the prompts define**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h95-rotation · Critical: no · Pair: solo
   - Depends: — (docs only)
   - Goal: make `MAINTENANCE.md`'s log-rotation rule match the `N = max+1` naming in `prompt_common.txt`, so an archiver selects whole days and treats a gap in the sequence as normal instead of a missing log.
   - Note (SE 2026-11-17): the lifecycle prompt (`prompt_common.txt`) defines a log's `N` as `max+1` of the date's existing logs and warns subagent logs reuse small numbers. `MAINTENANCE.md` tells the SM to "count dev_process/ logs older than N days and archive", which is a *count*, and the two disagree whenever a log name is skipped or a `-driver` reuses a number — the SM cannot tell from the roster alone whether a day is fully logged.
