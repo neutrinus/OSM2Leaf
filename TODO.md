@@ -2624,8 +2624,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-09-M5.28-provisional-roadclass-v0. `tools/roadclass_v0.py` (stdlib, `--selftest`) covers all 17 in-scope `DRIVABLE_HIGHWAYS` with `mapping=provisional-v0` (15 mechanism-confirmed buckets + `busway`/`road` auditable low-provisional placeholders, option a; unknown/OOS `UNMAPPED`+`refuse_generate`, no silent drop) and emits `ze0-road-class-table/1` consumable by `tilewriter.py --class-table`. Synthetic L2 emitted-table build/readback: 12/12 points within 1m, 2 parcels. Provisional, not firmware-confirmed (rule 13); M4.2/M5.3 gaps. C-3040–C-3042.
   - Claims: C-3040–C-3049
 
-- [ ] **M5.29 — Dolnośląskie one-tile pipeline: OSM→IMF→mesh→tile→L1+L2+gate report**
-  - Status: blocked · Owner: — · Critical: yes
+- [x] **M5.29 — Dolnośląskie one-tile pipeline: OSM→IMF→mesh→tile→L1+L2+gate report**
+  - Status: done · Owner: — · Critical: yes
+  - Note (M5.34, 2026-11-17): Done when met on the factory root via M5.34 (EXP-2026-11-17-M5.34-parcel): routing the test geometry into `0x2046` directory `(76,940)` instead of `0x2146` `(76,941)` lets the pipeline complete; `cardcheck` + targeted `l2check` PASS, one tile + `DRSTR001.DAT` differ. The H51 blocker note below is kept as history.
   - Note (H51, 2026-11-11): **Unblock: M5.34** — the factory rerun (PR #171) failed because the test ways fell into a `0x2146` directory; route them into one of the `0x2046` directories instead. PM decision on the open boundary question: `0x2146` directories stay verbatim (preserve-only) for this milestone; that is not a reason to hold the run.
   - Note (rerun, 2026-11-09): unblock (EU2011 factory image available, `archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` `105e2032…`) satisfied; factory-backed rerun attempted. PR #171's content (`--factory-root` mode + EXP) was merged to `main` by the PO on 2026-11-16 and its branch closed; the task stays `blocked` on M5.34, not on the branch.
   - Depends: M5.1, M5.2, M5.4, M5.6, M5.10, M5.28
@@ -2637,7 +2638,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: factory tile/tree not obtained/fetched (rule 11) — synthetic-only path produced; real-image/factory run marked `blocked` with missing input named.
   - Blocker: factory-backed rerun extracted the EU2011 tree (480 files) but `tilewriter --factory` refused `MAPAL001/B48R058R.DAT` directory `y=76 x=941` kind `0x2146` (slot-table, record boundaries not safe to mutate; M5.22 `PRESERVE_ONLY_DIR_KINDS`). Tile not generated; Done when not met. Same input failure hit the synthetic scaffold (MMAIN/section alignment; `clarion_tile.read_tile` `struct.error`).
   - Unblock: **M5.34** (route the test ways into a `0x2046` parcel so the factory-backed run completes). Re-open M5.29 when M5.34 merges (rule 15). Alternative unblocks: extend tilewriter/M5.22 for safe `0x2146` mutation with verified round-trip evidence, or produce a factory-coherent OSM tile without unsafe mutation and prove cardcheck/applicable l2check pass.
-  - Result: EXP-2026-11-09-M5.29-one-tile-pipeline (synthetic-only, blocked); rerun EXP-2026-11-09-M5.29-factory-rerun (factory-backed attempted, unblock satisfied, blocked on `0x2146` tilewriter safety, C-3054). `mapping=provisional-v0`, rule 13 (L3/L4/L5 unknown). PR #171 closed 2026-11-16 after this content was merged.
+  - Result: EXP-2026-11-09-M5.29-one-tile-pipeline (synthetic-only, blocked); rerun EXP-2026-11-09-M5.29-factory-rerun (factory-backed attempted, unblock satisfied, blocked on `0x2146` tilewriter safety, C-3054). `mapping=provisional-v0`, rule 13 (L3/L4/L5 unknown). PR #171 closed 2026-11-16 after this content was merged. Done when met by M5.34 (EXP-2026-11-17-M5.34-parcel).
   - Claims: C-3050–C-3059
 
 - [ ] **M5.33 — Make M5.29 synthetic scaffold/tile coherent for `cardcheck`/applicable `l2check` (honest gates)**
@@ -2673,8 +2674,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if no slot-safe same-page strategy fits after the M5.21/M1.13 encoder search, stop with `blocked` or `open` follow-up for page relocation; do not pad over non-zero bytes or overwrite the next page.
   - Claims: C-3190–C-3199
 
-- [ ] **M5.34 — Put the OSM test road into a `0x2046` parcel so the factory-backed one-tile run completes (unblocks M5.29, PR #171)**
-  - Status: in progress · Owner: task/m5.34-parcel · Critical: yes · **Runnable here** (2026-11-17: OSM API 200, Geofabrik 307, full EU card in `archive/sd-images/`; the `Runner: non-Claude` flag was a Claude-sandbox property, rule 12); the parcel census part needs no download
+- [x] **M5.34 — Put the OSM test road into a `0x2046` parcel so the factory-backed one-tile run completes (unblocks M5.29, PR #171)**
+  - Status: done · Owner: task/m5.34-parcel · Critical: yes · **Runnable here** (2026-11-17: OSM API 200, Geofabrik 307, full EU card in `archive/sd-images/`; the `Runner: non-Claude` flag was a Claude-sandbox property, rule 12); the parcel census part needs no download
   - Depends: M5.22 (done: `PRESERVE_ONLY_DIR_KINDS`). **Was `M5.29 (blocked)`** — that made a deadlock: M5.34 is M5.29's `Unblock:`, so as written M5.34 waited on the very task it unblocks (SE 2026-11-17). The parcel census (Scope 1) needs no OSM extract and can run now.
   - Goal: PR #171 stopped because the test ways fell into directory `y=76 x=941` of `B48R058R`, kind `0x2146`, which `tilewriter` rightly refuses to mutate. That is a property of the chosen test geometry, not of the pipeline: the same tile has 18 `0x2046` directories that M5.4 already splices with L2 PASS. Choose the corridor so that it lies inside one of them, and treat every non-`0x2046` directory as verbatim.
   - Precheck: `python3 tools/fetch_image.py --image EU2011 -o PATH` + `python3 tools/verify.py --image PATH` give the factory root (rule 11 — "EU2011 not available" was wrong, see EXP-2026-11-09-M5.29-factory-rerun); `python3 tools/tilewriter.py --selftest` 68/68.
@@ -2683,6 +2684,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Hints: take the parcel M5.4 used first — it is known to pass. If the committed OSM fixture has no way inside it, a two-node synthetic way with coordinates inside the bbox is a valid first run (state it as synthetic geometry on factory data); the real Dolnośląskie ways come second. If no `0x2046` parcel of `B48R058R` contains a drivable way, list the tiles of the profile by `0x2046` share and move the test cell.
   - Done when: M5.29's `Done when` is met on the factory root (`cardcheck` + applicable `l2check` pass, gate report per file), exactly one tile differs from factory and inside it only the chosen directory; PR #171 is merged or closed in favour of this PR; M5.29 → done, M5.30 open.
   - Stop: if every candidate parcel fails L2 for a reason other than the directory kind, record the first failing check and block on that.
+  - Result: EXP-2026-11-17-M5.34-parcel. `tools/parcel_census.py` (new, `--selftest` 16/16) lists all 64 section-1 level-1 directories: 30 `0x2046` + 13 `0x2146` + 6 `0x2246` + 6 `0x2346` + 3 `0x2446` + 2 `0x2546` + 1 `0x2646` + 2 `0x2746` + 1 `0x2946`. `one_tile_pipeline.py` gained `--parcel` (directory bbox via `clarion_bg.parcel_geo`), real `--osm` in factory mode, a pre-write preserve-only refusal naming the kind, `--clip`, and tile/tree diff proofs (selftest 75/75). Factory run into `(76,940)` `0x2046`: `cardcheck` PASS, targeted `l2check` PASS (`tiles=1`), exactly `MAPAL001/B48R058R.DAT` + `DRSTR001.DAT` differ (478/480 identical), only section 1 / directory `(76,940)` changed. Negative control `(76,941)` `0x2146` refused before any write. C-3560–C-3568. PR #215.
   - Claims: C-3560–C-3569
 
 - [ ] **M5.35 — One-command Poland card proof: `mkpoland` runs compiler → L1 → L2 → L3 gate and writes the evidence bundle**
