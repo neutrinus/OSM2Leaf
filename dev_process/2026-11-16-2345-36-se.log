@@ -1,0 +1,59 @@
+role: se
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-17 01:05
+end_utc: 2026-11-17 01:40
+origin_main_start: 90d2677 (SM retro cycle 9)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt (incl. the new "select by a stable key" rule),
+  prompt_se.txt
+- docs/retro/2026-11-16-6.md (cycle-9 retro)
+- dev_process/2026-11-16-{2345-34-tl,2345-35-sm}.log
+- EXP-2026-11-16-{M1.22b,H78,H79,H80,H81,H85}; docs/format/firmware.md EU→US table
+- tools/{fn_match,fn_audit,gate}.py, tools/l3_harness/targets.json
+
+re-ran each cycle-9 Done-when (all pass):
+- H78: claims_check --strict exit 0; --count-check `count mismatches: 0`;
+  --selftest `OK (25 checks)`.
+- H79: `/tmp/opencode/us256.img` count 0 in the M1.31 EXP and in claims.md.
+- H80: ID selector prints 2824/2825/2828; elided-span count 0.
+- H81: the probe prints no `open` among the seven (all `done` except the two
+  `blocked`).
+- M1.22b: 13 cited readers `unique 5 / different 7 / nomatch 1`; EU-vs-EU 13.
+- H85: gate selftest 11 checks; `--image archive/absent.img` -> fn_audit SKIP
+  exit 0; a corrupt snapshot `image_sha256` -> fn_audit FAIL exit 2 (the gate
+  distinguishes them).
+
+technical findings -> new tasks (3, all with a runnable Precheck):
+- H87 (solo): `tools/fn_audit.py`'s comment above `US_BUILD_STARTS` still says
+  "a per-build map (M1.22b) will replace it", but M1.22b merged and its six VAs
+  are in the list. Comment-only; precheck `grep -n "will replace it"` prints one
+  line and the six-VA count is 6.
+- H88 (solo): the `fn_audit --corpus` path with a missing image raises
+  `FileNotFoundError` (traceback), while the live path already prints
+  `error: [Errno 2] No such file or directory` and exits 2. `tools/gate.py`
+  hides it via `optional_input`. Fix is the same existence guard in the
+  `--corpus` branch. (First draft of the task over-claimed that the live path
+  also tracebacked; corrected from the measured output before commit.)
+- H89 (pair): the 1,259 unexplained `NOMATCH` from M1.22b's census are the next
+  level down — a sampled per-function study (rewrites vs a second matcher
+  class), not a matcher change. Precheck: the M1.22b census line and one
+  unexplained VA (`0x0032efa8`) showing `NOMATCH` with no `diff`.
+
+not added, considered:
+- "merge the EU→US map in firmware.md into a data file": only 12 rows, no
+  second consumer yet; folding it now would add a format without a reader.
+- "make `US_BUILD_STARTS` derive from firmware.md": the two agree (12/12), but
+  a prose table is a poor source of truth; H87 only fixes the comment.
+- H53 (board `--strict` 66 -> 0) and H86 (strict CI) stay with the next PO/SE
+  pass (retro-6 actions), not duplicated here.
+
+checks:
+- `python3 tools/todo_check.py` OK; `--strict` 66 (unchanged, so the three new
+  blocks add no errors); `claims_check --strict` 0.
+
+handoff:
+- TL: H87/H88 are quick solos; H89 is the next real census pair. M3.23/M9.38
+  remain the critical non-H tasks (retro-6 action 1).
+- QA: H85's gate distinction is real (SKIP vs FAIL on exit 2) — verified here
+  with a corrupt snapshot.

@@ -929,6 +929,42 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-16-H85-standing-gate; C-4080–C-4089. New `tools/gate.py` runs `selftest.py`, `claims_check.py --strict --count-check`, `todo_check.py` and `fn_audit.py --corpus … --overlay …` in one fixed order with one policy: **PASS**, **FAIL**, or **SKIP (reason)** for a missing vendor input — exit 2 with a missing-input marker is SKIP, exit 2 without one is FAIL, so `fn_audit`'s exit 2 is not blanket-forgiven. No image: `3 pass, 1 skip` (`fn_audit SKIP …`), exit 0; with the image: `4 pass, 0 fail, 0 skip`, exit 0 (H78 made the strict count gate green). A genuine failure (a block's `Status:` removed) is `FAIL` + exit 1. `--json` (file or `-`), `--board-clean` (todo_check --strict, red until H53) and `--no-count` are supported; `--selftest` proves all three outcomes with stubs (11 checks, python 3.11/3.13/3.15), including that a `cannot verify` exit-2 is FAIL. `ci.yml` collapses three gate steps into one and writes the SKIP list to the job summary; `selftest.py` stays `passed=90 skipped=24` with `tool:gate PASS`.
   - Claims: C-4080–C-4089
 
+- [ ] **H87 — `fn_audit.US_BUILD_STARTS` still calls itself the M1.22b placeholder, but M1.22b merged**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.22b (merged: it added the six pool-only US VAs and the per-build map)
+  - Goal: the comment above `US_BUILD_STARTS` (`tools/fn_audit.py`, the block starting "The list is the M1.28 fixture's US side … a per-build map (M1.22b) will replace it") is now false: M1.22b **merged** (PR #203), added its six VAs, and the map it promised is the `build` field in `tools/l3_harness/targets.json` plus the EU→US table in `docs/format/firmware.md`. A reader who greps for "M1.22b" sees a task they think is open.
+  - Precheck: `grep -n "will replace it" tools/fn_audit.py` prints one line; `grep -c "0x0044219C\|0x004410B4\|0x0043A378\|0x00433458\|0x003EC274\|0x0041EB1C" tools/fn_audit.py` prints `6` (the M1.22b additions are present); `git log -1 --format=%s --grep="M1.22b" origin/main` names the merge.
+  - Scope: the comment above `US_BUILD_STARTS` only, plus the six inline comments if they name a still-open task. No values, no code, no other file.
+  - Input: `tools/fn_audit.py` lines 152–166; `docs/format/firmware.md` "EU→US function matches"; EXP-2026-11-16-M1.22b-eu-us-census.
+  - Hints: say what the list is now (`the EU→US map's US side, which M1.22b extended; a per-module build map is still a follow-up`) and point at the two files that carry the map. Do not delete the list — `fn_audit` uses it to skip US VAs.
+  - Done when: the comment names no task as open-to-replace and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `python3 tools/fn_audit.py --selftest` passes; `python3 tools/todo_check.py` passes.
+  - Stop: none.
+  - Claims: C-4100–C-4109
+
+- [ ] **H88 — `fn_audit --corpus` with a missing image prints a traceback instead of the "no image" exit**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H85 (the gate's SKIP contract assumes `fn_audit` reports a missing image cleanly)
+  - Goal: the live path is clean — `python3 tools/fn_audit.py archive/absent.img; echo $?` prints `error: [Errno 2] No such file or directory: 'archive/absent.img'` and exits `2`. The **`--corpus` path is not**: `python3 tools/fn_audit.py archive/absent.img --corpus docs/research/fn-audit-corpus-2026-11-16.json` raises `FileNotFoundError` (`tools/fn_audit.py`, the `Image(...)` call after `load_corpus`), so a snapshot audit on a checkout without the image shows a traceback. `tools/gate.py` hides it by short-circuiting on the declared `optional_input`; a direct caller sees the crash.
+  - Precheck: the live command above prints `error: …` + exit `2`; the `--corpus` command prints `Traceback` / `FileNotFoundError` and does not exit `2`.
+  - Scope: `tools/fn_audit.py` only: guard the `Image(...)` in the `--corpus` branch with the same existence check the live path effectively gets, so a missing image prints the same `error: [Errno 2] No such file or directory: '<path>'` line and returns `2`; one `--selftest` case for the `--corpus` + missing-image path. No change to `gate.py`.
+  - Input: `tools/fn_audit.py` `main()` (`except OSError` around `Image(...)`, the `args.corpus` branch), `tools/gate.py` `SKIP_MARKERS`.
+  - Hints: keep the wording byte-compatible with the live path (`error: [Errno 2] No such file or directory: '<path>'`) so `tools/gate.py`'s `no such file or directory: 'archive/` marker still matches; do not swallow a genuine OSError on a *present* file into a missing-image SKIP.
+  - Done when: `python3 tools/fn_audit.py archive/absent.img --corpus docs/research/fn-audit-corpus-2026-11-16.json; echo $?` prints the `error: … No such file or directory` line (no traceback) and `2`; `python3 tools/fn_audit.py --selftest` passes with the new case; `python3 tools/gate.py` (image present, and `--image archive/absent.img`) unchanged; `python3 tools/todo_check.py` and `python3 tools/gate.py` green.
+  - Stop: none.
+  - Claims: C-4110–C-4119
+
+- [ ] **H89 — The 1,259 unexplained `fn_match` NOMATCH are the next census: rewrites or a second matcher class**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M1.22b (which classified the 13 cited readers and left 1,259 unexplained)
+  - Goal: after M1.22b the module census is `UNIQUE 2392 / DIFFERENT 3214 / CALLORDER 213 / AMBIGUOUS 518 / NOMATCH 1259` (total 7596). The 1,259 are unexplained: each has no hash hit, no unique masked-form twin and no call-order match. Decide per sample whether they are real rewrites (a differing instruction) or a second matcher class (e.g. reordered basic blocks, a different register allocation with the same semantics, a function split/merge), so a future leaf/reader task knows whether the US code is missing or the matcher is.
+  - Precheck: `python3 - <<'EOF'` (the M1.22b census script) prints `NOMATCH 1259`; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va <one unexplained VA> --json /tmp/x.json` carries `diff: null` and `verdict: NOMATCH`.
+  - Scope: a sampling study, not a matcher change: pick a counted random sample of the 1,259 (state the seed and size), classify each by disassembly (same opcode stream with a reordered block / different register allocation / genuinely different), and publish the distribution with the first differing instruction per sampled function. `tools/fn_match.py` changes only if the study finds one class that is cheap and safe to add (and then it is a separate task).
+  - Input: `tools/fn_match.py` (`_pool_only_twin`, `code_digest`, `leaf_compare`), `tools/sh4dis.py`, the M1.22b EXP and C-3626.
+  - Hints: this is the same shape as M1.22b, one level down — do not start from a matcher idea, start from disassembly of a handful and let the classes fall out. A sample of 30–50 is enough to size the classes; a full 1,259 classification is not the goal.
+  - Done when: an EXP reports the sampled distribution with counts and the first differing instruction per class, and says whether the 1,259 are mostly rewrites or a matcher class; a claim names the dominant class and its evidence; `python3 tools/gate.py` green.
+  - Stop: if the sample is all one class with no cheap fix, record it and do not change `fn_match.py`.
+  - Claims: C-4120–C-4129
+
 - [ ] **H86 — Make the red parts of the standing gate blocking in CI, and the board-clean step explicit**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: H78 (the count rule inside `--strict`), H53 (the strict board cleanup), H85 (the runner)
