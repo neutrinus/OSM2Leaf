@@ -2674,8 +2674,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3190–C-3199
 
 - [ ] **M5.34 — Put the OSM test road into a `0x2046` parcel so the factory-backed one-tile run completes (unblocks M5.29, PR #171)**
-  - Status: open · Owner: — · Critical: yes · **Runnable here** (2026-11-17: OSM API 200, Geofabrik 307, full EU card in `archive/sd-images/`; the `Runner: non-Claude` flag was a Claude-sandbox property, rule 12); the parcel census part needs no download
-  - Note (H101, 2026-11-17): still unowned after six days while it is first on every priority list since H51. It needs no research: a census of directory kinds and a clip of the test geometry.
+  - Status: in progress · Owner: task/m5.34-parcel · Critical: yes · **Runnable here** (2026-11-17: OSM API 200, Geofabrik 307, full EU card in `archive/sd-images/`; the `Runner: non-Claude` flag was a Claude-sandbox property, rule 12); the parcel census part needs no download
   - Depends: M5.22 (done: `PRESERVE_ONLY_DIR_KINDS`). **Was `M5.29 (blocked)`** — that made a deadlock: M5.34 is M5.29's `Unblock:`, so as written M5.34 waited on the very task it unblocks (SE 2026-11-17). The parcel census (Scope 1) needs no OSM extract and can run now.
   - Goal: PR #171 stopped because the test ways fell into directory `y=76 x=941` of `B48R058R`, kind `0x2146`, which `tilewriter` rightly refuses to mutate. That is a property of the chosen test geometry, not of the pipeline: the same tile has 18 `0x2046` directories that M5.4 already splices with L2 PASS. Choose the corridor so that it lies inside one of them, and treat every non-`0x2046` directory as verbatim.
   - Precheck: `python3 tools/fetch_image.py --image EU2011 -o PATH` + `python3 tools/verify.py --image PATH` give the factory root (rule 11 — "EU2011 not available" was wrong, see EXP-2026-11-09-M5.29-factory-rerun); `python3 tools/tilewriter.py --selftest` 68/68.
