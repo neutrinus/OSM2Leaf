@@ -1004,6 +1004,34 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Stop: if the TL log's two flags cannot be quoted without a vendor byte or a typed number, delete the heading and record why in the EXP, then stop.
   - Falsifier: the empty-placeholder grep still prints after the edit.
   - Claims: C-4190–C-4199
+
+- [ ] **H94 — H90's EXP sat "done" with hand-typed counts and a broken commands section**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H90 (the EXP it repairs is on `main`; H93 owns the navigator section only)
+  - Goal: make H90's EXP re-runnable as written — every count quoted from a command that prints it, the clone recipe one copy-pasteable block that still demonstrates the defect, and the failed-run count consistent with C-4130.
+  - Note (SE 2026-11-17): the SE re-ran H90's Done-when (b)-(e) and all pass, but three EXP defects survived the pair: the Record `809 commits, pack 3.2 MiB` and `Tools: git 2.5x, python3 3.15` are typed, not from a command (AGENTS "every number is quoted"); the Method command block lists `git clone … /tmp/x && cd /tmp/x` then a second `git fetch --unshallow` line that would run in the wrong cwd; and "the five `main` pushes whose run failed" contradicts the nine `COUNT` lines and the twelve red pushes the same EXP states. The recipe also now fails as written: on today's `main` a depth-1 clone prints `count check: skipped`, not `9` (C-4131 covers this, the Reproduction block does not).
+  - Precheck: `grep -nE '809 commits|git 2\\.5x|python3 3\\.15|five .main. pushes' docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` prints the typed lines; `rm -rf /tmp/x && git clone --depth 1 file://$PWD /tmp/x && (cd /tmp/x && python3 tools/claims_check.py --strict --count-check | tail -1)` prints `claims_check: OK`, not the `9` the Reproduction says.
+  - Scope: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` only: quote `git rev-list --count 3d79bcc` and `git count-objects -vH | grep size-pack`; state the interpreter `python3 -V` prints and `git --version`; collapse the two-line clone recipe into one `( cd /tmp/opencode/x && … )` subshell; change "five" to the actual failed-run count the `gh run list` prints; replace the Reproduction block with the pinned-tool rev from C-4131 (`git show 3d79bcc:tools/claims_check.py` into the depth-1 clone) or mark it "does not reproduce on today's main, see C-4131". No claim rows; H93 owns the navigator section.
+  - Input: the H90 EXP, `docs/experiments/TEMPLATE.md`, C-4131/C-4135, `git rev-list --count`, `git count-objects -vH`.
+  - Hints: the `12` in C-4130/C-4131 and the H90 Goal is correct (`gh run list` shows twelve `failure` rows before the first post-fix `success`); the "five" is the only run-count defect. Do not re-pin C-4135's `809`/`3.2 MiB` to `main`'s today value — the claim names `3d79bcc`, so quote the number at that commit and say so.
+  - Done when: `grep -cE '809 commits|5x|3\\.15|five .main. pushes'` on the EXP is 0 or each hit cites the command that printed it; the clone recipe is one copy-pasteable block and H90's Done-when (b)-(d) still pass as run in H94's EXP. `python3 tools/claims_check.py --strict --count-check` and `todo_check.py` OK.
+  - Stop: if the count really cannot be shown from a command at `3d79bcc`, delete the number and point at C-4135 instead of retyping it.
+  - Falsifier: the typed `809 commits`/`3.15` strings remain, or the Reproduction block still prints `count mismatch` on today's `main`.
+  - Claims: C-4200–C-4209
+
+- [ ] **H95 — The MAINTENANCE.md rotation counts hand-typed logs, not the N = max+1 the prompts define**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (docs only)
+  - Goal: make `MAINTENANCE.md`'s log-rotation rule match the `N = max+1` naming in `prompt_common.txt`, so an archiver selects whole days and treats a gap in the sequence as normal instead of a missing log.
+  - Note (SE 2026-11-17): the lifecycle prompt (`prompt_common.txt`) defines a log's `N` as `max+1` of the date's existing logs and warns subagent logs reuse small numbers. `MAINTENANCE.md` tells the SM to "count dev_process/ logs older than N days and archive", which is a *count*, and the two disagree whenever a log name is skipped or a `-driver` reuses a number — the SM cannot tell from the roster alone whether a day is fully logged.
+  - Precheck: `grep -n 'dev_process' MAINTENANCE.md` prints the rotation instruction; `ls dev_process/2026-11-17-* | sed 's/.*-\\([0-9]*\\)-[a-z]*\\.log/\\1/' | sort -n | uniq` shows the numbers (today: 39-43, no log 1-38 for 2026-11-17).
+  - Scope: `MAINTENANCE.md` only: rotation selects by date and archives whole days, not by counting log files; add one sentence that `N` is `max+1` and a gap in the sequence is normal, not a missing log. No prompt edits (SM owns those).
+  - Input: `MAINTENANCE.md`, `prompt_common.txt` §Work log, `ls dev_process/`.
+  - Done when: `grep -n 'count' MAINTENANCE.md` no longer describes log rotation by a file count; the `max+1` rule and the gap-is-normal sentence are present; `python3 tools/todo_check.py` OK.
+  - Stop: if the rotation rule is also encoded in a prompt, stop and hand the prompt half to the SM retro instead of editing a prompt.
+  - Falsifier: `MAINTENANCE.md` still tells a reader to count logs.
+  - Claims: C-4210–C-4219
+
 - [x] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
   - Status: done · Owner: task/h90-ci-shallow-count · Critical: yes · Pair: required
   - Depends: — (H85's CI gate step and H78's `_exp_revision` are on main)
@@ -3457,6 +3485,34 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: on a synthetic or documented fixture where card and factory inputs are identical, `l3check.py --card ... --factory ...` (with the chosen no-diff mode) runs at least the runnable M9.11/M9.6-equivalent paths available in that fixture and reports explicit verdicts (not bare `NO_DIFFS`/exit 3 without verdicts), with selftest/EXP evidence; M9.12 can cite it as the S0/S1 unblock path.
   - Stop: if no registered runnable target can declare a safe baseline corpus, report `NO_RUNNABLE_BASELINE_TARGETS` with reasons and keep M9.12 blocked (do not fabricate verdicts).
   - Claims: C-3320–C-3329
+
+- [ ] **M9.41 — M9.10's last US-build gap: `point_walk_l3` runs the US reader but the target is not registered as an S1/S2 evidence row**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M9.10 (the US `point_walk_l3` run exists), M1.22 (done — US VAs), M9.39 (a record-mutated page is the control), M1.22b (done — the US VAs are justified)
+  - Goal: give the US POI walk that M1.22 already runs a registered L3 target and `l3check` evidence row, so rule-13 S1/S2 acceptance for the US POI path is a gate row instead of prose in an EXP.
+  - Note (SE 2026-11-17): M1.22's Result and its note on M9.10 say the US walker now runs 9/9 plus guard/count controls on `archive/us256.img`, but M9.10 still reads "name part waits for M3.11c" and nothing in `targets.json`/`l3check.TARGET_EVIDENCE` names the US `point_walk_l3` run. This task is **not** M9.10's `poi_record_decode` runner target (M9.10 ports the walk into `runner.py` and adds the name check); it is the cheaper C-3538-shaped move: register the *existing* `point_walk_l3 --build us2011` run as a `targets.json` evidence row so `l3check` reports it and M9.10 can cite it. Its Scope and files do not overlap M9.10's runner work.
+  - Precheck: `python3 tools/point_walk_l3.py walk --build us2011 --cmp <US POINT010.DAT.cmp> --ind <…ind> --page 0x840ba0 --page-len 42848 archive/us256.img` prints `result: PASS` (I ran it on the S1 tree's `POINT010` and got `n=999 … OK`, `result: PASS`); `grep -n 'point_walk_us2011' tools/l3_harness/targets.json tools/l3check.py` prints nothing today.
+  - Scope: `tools/l3_harness/targets.json` + `tools/l3check.py` `TARGET_EVIDENCE` + `docs/research/reader-coverage.md` POINT row only: add the US walker target with its declared US VAs (from M1.22's tree, not retyped — C-3635-adjacent), point the evidence at M9.39's mutated page as the negative control, and tick the M9.10 name half only if the accessor (`0x003f632c → 0x0041ec8c`, C-3701-adjacent) also runs; otherwise state the name half still needs M3.11c. No new VAs; if one is missing, set `blocked` and name the M-task that derives it.
+  - Input: `tools/point_walk_l3.py` (`BUILD_TARGETS`, `walk`, `skip`), `tools/l3_harness/targets.json`, `tools/l3check.py`, M1.22 EXP (`EXP-2026-11-17-M1.22-us-build-census`), M9.10/M9.39 blocks.
+  - Hints: `targets.json` already has a `build: us2011` shape (`cmp_ind_reader_us2011`, C-3538); copy that shape, do not invent a second build field. `l3check --build-corpus` must stay `runnable=1/7` or grow by exactly one, and a `BLOCKED` row is not a pass.
+  - Done when: `python3 tools/l3check.py --build-corpus` lists the new US target as runnable with its verdict, the `point_walk_l3 walk --build us2011 …` command in the precheck prints `result: PASS` with the M9.39 mutated page failing a control, `python3 tools/l3check.py --selftest` passes, and M9.10's Status/Result either cites the new row as its S1 evidence or states exactly which half is still open.
+  - Stop: if the name accessor cannot run on the US build without M3.11c, register the walker row only, mark M9.10's name half open, and do not mark M9.10 `done`.
+  - Falsifier: the target appears in `--build-corpus` but a wrong-build page (M9.39 negative control) also passes.
+  - Claims: C-4220–C-4229
+
+- [ ] **M1.33 — M1.22's census and relocated-body tables come from an uncommitted script, and its Method has ellipses**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M1.22 (done), M1.22b (done), M1.31 (done — the leaf census is the shape to copy)
+  - Goal: put M1.22's module census and relocated-body table behind committed commands (`cerom.py modules --census`, a `--selftest`-covered table printer) and drop the EXP's ellipses, so C-3530–C-3532 are reproducible by anyone.
+  - Note (SE 2026-11-17): the M1.22 EXP publishes `EU modules 149, US modules 151, common 148`, `code-identical: 1`, `code-different: 147`, and a 12-row `body EU=n US=n first masked diff: NONE` table. I reproduced the census by hand (my own throwaway script; the module deltas match C-3530 exactly: only-EU `RDSCC.dll`, only-US `RBDS_CC.dll`/`XMCC.dll`/`XMStatusCC.dll`, 148 common), so the numbers are right — but no committed tool prints them, so a later reader cannot re-run them, and the EXP's Method uses `--cmp …/POINT010.DAT.cmp` / `archive/us256.img …` ellipses, which TEMPLATE.md's "no ellipsis" rule forbids. C-3530/C-3531/C-3532 cite a command that lives only in the session.
+  - Precheck: `grep -nE '^ *python3 tools/.*\\.py .*…' docs/experiments/EXP-2026-11-17-M1.22-us-build-census.md` prints at least four elided commands; `python3 tools/cerom.py --image-start 0x200200 archive/head256.img modules | wc -l` is `149` and the US head `151`, but no `tools/*.py` subcommand prints `common 148` or the relocated-body table.
+  - Scope: one tool only — extend `tools/cerom.py` with `modules --census <EU> <US>` (names the only-EU/only-US/common sets and the per-module EXECUTE-section SHA-256 `identical/different` counts) and `tools/fn_match.py` (or a `tools/build_census.py` with `--selftest`) for the pool-masked relocated-body table; then replace the EXP's four ellipsis command blocks with the committed commands. Not: a new US VA (M1.32), not the 13-VA fixture (M1.28), not the EXP's prose beyond the commands.
+  - Input: `tools/cerom.py` (`modules`, `sections`), `tools/fn_match.py` (`code_digest`, `leaf_words`, the pool masking), `docs/experiments/EXP-2026-11-17-M1.22-us-build-census.md`, `archive/head256.img` / `archive/us256.img`.
+  - Hints: the census is a *set* operation on `modules` plus a per-module section hash loop — reuse `cerom.sections`, do not re-parse `ROMHDR`. The relocated-body table is already the `fn_match` masked-form comparison with pool slots zeroed; expose it rather than copy the loop. A `--selftest` must build two synthetic module lists and prove `common/only-EU/only-US` plus the identical/different split without an image.
+  - Done when: `python3 tools/cerom.py modules --census archive/head256.img archive/us256.img` prints `EU 149 / US 151 / common 148 / only-EU 1 / only-US 3` and the `code-identical 1 / code-different 147` split (or the EXP is corrected with the command that contradicts it); the relocated-body table is printed by a committed command; `grep -c '…' EXP-…-M1.22` over the Method block is 0; `selftest.py --only cerom` and `--only fn_match` pass; C-3530/C-3531/C-3532's evidence cells name the new commands.
+  - Stop: if the per-module section hash needs a decompressor for one build, restrict the census to uncompressed EXECUTE sections, say so in the claim, and do not claim 0 compressed sections beyond what `va_class.py` prints.
+  - Falsifier: the committed census prints a different module delta than C-3530, or a committed command cannot reproduce one row of the relocated-body table.
+  - Claims: C-4230–C-4239
 
 - [ ] **M9.32 — Reconcile M9.11: `cmp_ind_reader` meets done-when or block precisely**
   - Status: open · Owner: — · Critical: yes · Pair: required

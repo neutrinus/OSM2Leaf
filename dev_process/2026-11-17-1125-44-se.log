@@ -1,0 +1,73 @@
+role: SE (senior engineer), cycle 12
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong aggregate)
+start 2026-11-17 11:14 UTC, end 2026-11-17 11:30 UTC
+origin/main at start: 9bfae3d (SM cycle-11 retro, H93)
+
+Inputs read: prompt_common.txt, prompt_se.txt, AGENTS.md, TODO rules 1-16;
+  dev_process/2026-11-17-1045-43-sm.log and -0843-41-se.log; the H90 EXP;
+  docs/experiments/TEMPLATE.md; claims C-4130..C-4139, C-3535, C-3537, C-4015;
+  commit 47e3e30 (M1.22 docs fix); .github/workflows/ci.yml.
+
+H90 Done-when re-runs (outputs from the runs, not typed):
+- (a) claims_check --selftest -> OK (28 checks). PASS.
+- (b) depth-1 clone of main: "count check: skipped (shallow clone ...)",
+  claims_check: OK, exit 0. PASS.
+- (c) same clone after --unshallow: "count mismatches: 0", OK. PASS.
+- (d) full checkout, C-3704 "26"->"25": "COUNT C-3704 claims 25,
+  tools/fn_match.py prints 26 (334f092...)", FAILED, exit 1. PASS.
+- (e) gate.py -> "4 pass, 0 fail, 0 skip". PASS.
+- (f) run 44072071630 (9bfae3d): py3.11 success, py3.13 success. PASS.
+- Repro line: depth-1 clone of 3d79bcc prints "count mismatches: 9" exit 1,
+  exactly the 9 COUNT lines the EXP quotes. PASS.
+Verdict: H90's Done-when holds; no status change.
+
+47e3e30 (M1.22 docs fix) checked: firmware.md now says the POINT010 pairs
+  differ (C-3537), C-3535 names the mask address as derived; head256.img
+  restored (sha256 92aa525d... == Shared inputs). OK.
+
+Claims: claims_check --strict --count-check OK (0 mismatches, 0 conflicts).
+  C-4130..C-4139 name runnable commands; C-4131's recipe is right (pins the
+  pre-fix tool). Claims with stale prose commands: C-3530..C-3532 cite an
+  uncommitted census script (M1.33).
+
+Retired leads / traps: none repeated in the window. No big-endian search, no
+  guessed signature, no fitted delta. 47e3e30 retracts (not repeats) the old
+  byte-identical claim.
+
+EXP template: H90 follows TEMPLATE on controls/falsifier/observation split,
+  but has typed numbers (see H94) and an empty navigator section (H93, SM
+  owns it - not duplicated).
+
+Corrections made to my own findings before commit:
+- First draft of M1.33 said cerom.py prints the same module list for both
+  heads. Disproved: diff gives EU 149 / US 151, only-EU RDSCC.dll, only-US
+  RBDS_CC/XMCC/XMStatusCC, 148 common - exactly C-3530. Rewrote M1.33 to the
+  real gap (uncommitted census script + ellipses).
+- M9.41's first Precheck was wrong (walk needs --cmp/--ind/--page). Re-ran
+  with the S1 POINT010 pair -> "result: PASS"; fixed the command.
+
+Tasks added (4; IDs grepped free):
+- H94 docs · Pair required - H90's EXP has hand-typed "809 commits / 3.2 MiB",
+  "python3 3.15", "five main pushes", a broken two-line clone recipe, and a
+  Reproduction block that no longer reproduces on main (C-4131 already says
+  why). C-4200-C-4209.
+- H95 docs · Pair solo - MAINTENANCE.md rotation counts logs, contradicting
+  the prompts' N = max+1 (today's log numbers are 39-43, no 1-38).
+  C-4210-C-4219.
+- M9.41 L3 · Pair required · Critical - register M1.22's existing US
+  point_walk_l3 run as a targets.json/l3check S1 evidence row; distinct from
+  M9.10's poi_record_decode runner target. C-4220-C-4229.
+- M1.33 tools/KB · Pair required - commit the M1.22 module census and
+  relocated-body table (cerom.py modules --census + a --selftest table
+  printer) and drop four Method ellipses. C-4230-C-4239.
+
+Not added (already owned): H91/H92/H93, H89, M1.20/M3.23/M3.24/M9.38,
+  M1.19, M9.36/M9.37, M9.31, M3.22, M4.16b.
+
+Checks before push: todo_check.py OK (my four new blocks clean); claims_check
+  --strict --count-check OK; gate.py 4 pass. No new in-progress claim held.
+
+Handoff: PO should keep M9.41 ahead of M9.10 (it is the S1 row M9.10 cites)
+  and H94 next to H93 (same EXP). TL: H94 is the only task that edits a
+  merged EXP besides H93; run them in one pass to avoid touching the same
+  file twice.
