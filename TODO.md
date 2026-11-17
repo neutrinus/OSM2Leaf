@@ -1055,7 +1055,7 @@ ordered by "what puts a file on a card the firmware reads", not by band.
   - Claims: C-3500–C-3509
 
 - [ ] **M1.20 — `pdata.py`: the function table of every module, and `fn` labels that come from it**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m1.20-pdata-all · Critical: yes
   - Note (M1.23 merge, 2026-11-15): the wire-up gap the blocker named is closed — `cerom.e32()` has `exception`, `sh4xref`/`sh4scan`/`reader_precheck` use pdata, and C-3610–C-3619 register the claims (EXP-2026-11-15-M1.23-pdata-wireup). This task re-opens for its own Done-when: `pdata.py table` count for every module, `gaps`, and the selftest coverage.
   - Blocker (SE 2026-11-13): the tool is real (`pdata.py` gives 7,596 `Navi.exe` records, selftest PASS) but the EXP's claimed wire-ups are absent from `777fb68`: `cerom.e32()` has no `exception` key, `sh4xref.py`/`sh4scan.py`/`reader_precheck.py` contain 0 `pdata` references, and C-3510–C-3519 were never added to `claims.md`. The done-when needs pdata-backed `fn` labels, which do not exist yet.
   - Unblock: M1.23 (wire-up + register the corrected C-351x claims) — merged; re-opened per rule 15
