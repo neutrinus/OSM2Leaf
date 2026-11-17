@@ -1,0 +1,81 @@
+role: tl (cycle 12)
+model: opencode/deepseek-v4.1-flash-free (main session, orchestrator)
+start_utc: 2026-11-17 10:15 (after SM cycle-11 retro 9bfae3d)
+end_utc: 2026-11-17 13:05
+origin_main_start: 47e3e30
+origin_main_end: 9fe8bbf (M9.39 merged, PR #211)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_tl.txt, prompt_{sm,se,po,qa}.txt
+- dev_process/2026-11-17-{1045-43-sm,1125-44-se,1156-45-po,1207-46-qa}.log,
+  docs/retro/2026-11-17-2.md
+- TODO M9.39/M9.40/H95 blocks, docs/retro/2026-11-17.md actions
+- gh pr list / gh pr checks / gh run list "CI quality gate"
+
+selection (cycle 12; critical path first):
+- H95 (solo, `Pair: solo` docs) — MAINTENANCE.md log rotation; PR #212.
+- M9.39 (pair, `Pair: required`, L3 critical-path) — POINT010 record-mutation
+  L3 corpus; PR #211. Pair forced by the task's own field.
+- Skipped: M5.34/M5.29 (blocked chain, M5.29 needed), M1.24/M9.14/M9.28/
+  M9.32/M9.37 (no Done-when runnable here without the vendor head on every
+  run — not attempted this pass), H89 (queued for the next pair), H91/H92/
+  H93/M1.32/M1.33/M9.40 (H-band/docs, next pass), M3.23/M9.38 (need M1.20).
+
+modes and outcomes:
+| Task  | Mode | Navigator | Rounds | Outcome | PR | EXP |
+| H95   | solo | — (Pair: solo) | 0 | blocked (negative) | #212 | EXP-2026-11-17-H95-log-rotation |
+| M9.39 | pair | separate navigator subagent | 3 (plan, CHANGES, APPROVE-after-fixes) | done | #211 | EXP-2026-11-17-M9.39-point010-mutant |
+
+defects the navigator caught (why pairing paid off):
+- M9.39 round 0: `mutate_refer_poi.py` re-encodes the whole blob (149/149
+  chunks differ), not the one 64 KiB chunk AGENTS allows → forced the
+  chunk-preserving `repack_changed_chunks` path.
+- round 0: the Done-when "the mutated record's own offset differs" is
+  unsatisfiable for an in-place resize; the witness is the NEXT sampled record
+  (n=501). Without this the driver would have shipped a same-length edit and
+  called it a pass (it had tried exactly that).
+- round 1: three typed/mislabelled numbers (`0xfe4e` is n=501, not n=500),
+  artifact count (4 pairs, not 8), and zlib-ng "newly compressed, never
+  byte-identical".
+- round 2: C-4170's same-length clause was marked VERIFIED with no command
+  behind it, and the EXP never recorded its own `gate.py` clause. Both fixed
+  (`6bf9e0e`).
+
+TL verification (my own, not the navigator's): 8-row table spot-checked —
+US mutant `n=999 0x1fc0e`, EU mutant PASS, 1000 records, `n=1000 None`, the
+unswapped-page negative control fires; `todo_check: OK`, `claims_check: OK`;
+diff is docs-only (356 EXP + 14 claims + 3 TODO, 0 vendor bytes); PR #211
+6/6 checks green before merge.
+
+H95 result: `MAINTENANCE.md` was never committed (absent from every tree,
+head, PR; 0/12 origin heads, 0/212 PRs, positive control finds `README.md`).
+Honest outcome is `blocked` with a negative EXP (C-4210), Unblock: `<human>`
+decide whether such a page should exist. The SE task that named the file
+(fdba381) is where the phantom reference entered.
+
+numbers, each quoted from the run that printed it:
+- board after merge: open 117 / done 56 / blocked 27 / in progress 0;
+  TODO.md 3503 lines (was 3449 after PO's archive, +QA H96-H99 and these two).
+- gate `4 pass, 0 fail, 0 skip`; claims `count mismatches: 0`;
+  todo_check OK (--strict 66, H53 unchanged).
+- M9.39: streams `149 differing=1 [132]`, `151 differing=1 [110]`;
+  .ind chunk 133 `0x31a633→0x31a585` (−174), chunk 111 `0x17c9b2→0x17c864`
+  (−334); record DAT `0x850956`/`0x6ec4f8`; page 130182/97162 bytes.
+
+housekeeping:
+- removed both worktrees, deleted `task/m9.39-point010-mutant` (remote+local)
+  and `task/h95-rotation`; 0 remote task/* branches, 0 open PRs.
+- freed ~768 MB of stale /tmp probe heads (se-us256.img, IMG256.head,
+  osm2leaf-data/) that made `mkcard --selftest` die with ENOSPC; /tmp 95%→75%.
+  The 2.2 GB `/tmp/opencode/dump/opencode-go.pcap` is a live tcpdump held by
+  the user's own process — NOT touched.
+
+handoff:
+- PO: M9.39 is done; rule 15 needed no action because M9.41 was already `open`
+  and its Depends (M9.10, M1.22, M9.39, M1.22b) are now all satisfied — it is
+  ready to take. Next TL pass: H89 (census pair)
+  and H91/H92/H93 (record band), then M1.20 → M3.23 → M9.38.
+- QA: H96 (L3 baseline verdict) and H98 (branch protection) are the two new
+  test-system gaps; H97/H99 are cheap.
+- human: worktree prune, `.claude/` in `.gitignore`, and a decision on H95's
+  `MAINTENANCE.md` (create the page or drop the task).
