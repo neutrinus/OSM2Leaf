@@ -3298,3 +3298,15 @@ resolve to the tip for every claim and report nine old counts as mismatches.
 | C-4137 | On a full checkout with `archive/head256.img` present, `tools/gate.py` is `4 pass, 0 fail, 0 skip` (selftest, claims_check, todo_check, fn_audit); without the image it is `3 pass, 0 fail, 1 skip — not covered: fn_audit`, because a SKIP is never a pass. The count rule passes in both states. | VERIFIED (tool) | H | EXP-2026-11-17-H90-ci-shallow-count; the two `python3 tools/gate.py` runs |
 | C-4138 | H90 raises `claims_check --selftest` from 25 to 28 checks, so the one claim that quoted the old number (C-4015) is updated to `28 checks` in the same commit; its mutation control and `_run_counts` truth table are unchanged and still pass. | VERIFIED (tool) | H | EXP-2026-11-17-H90-ci-shallow-count; `python3 tools/claims_check.py --selftest` |
 | C-4139 | RESERVED (H90). | — | — | — |
+
+## H95 — the target `MAINTENANCE.md` does not exist (C-4210–C-4219)
+
+H95's Goal assumes `MAINTENANCE.md` holds a log-rotation rule that counts
+`dev_process/` files. The file is absent from `origin/main` (`e84340f`), every
+origin head, every PR and the whole reachable history; no prompt has a rotation
+rule either. The task is blocked on a false premise, not on wording.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4210 | `MAINTENANCE.md` does not exist: `git ls-files \| grep -ci maintenance` is `0`, `find . -iname 'MAINTENANCE*'` is `0`, `git rev-list --all --objects \| grep -ci maint` is `0` across `874` commits, `0` of `12` origin heads contain it, and `0` of `212` PRs touch it; positive controls find `README.md` (`1` tracked, `12` of `12` heads). No prompt encodes a log-rotation/archive rule (`grep -niE 'rotat\|archive.*log\|log.*archive\|logs older\|N days' prompt_sm.txt prompt_common.txt` exits 1), so H95's Stop clause does not fire and the "count vs `N = max+1`" disagreement is about a document that was never committed. The reference entered `TODO.md` in `fdba381`, whose diff adds only `TODO.md` and the SE log. | VERIFIED (negative, controlled) | H | EXP-2026-11-17-H95-log-rotation; `git ls-files`, `find`, `git rev-list --all --objects`, the per-head loop, `git log -S 'MAINTENANCE.md' -- TODO.md` |
+| C-4211 | RESERVED (H95). | — | — | — |

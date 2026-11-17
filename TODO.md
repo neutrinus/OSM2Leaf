@@ -933,8 +933,10 @@ ERRORs (**H53**, human-debt), `/tmp` 89 %, `.claude/` 490 MB untracked.
   - Claims: C-4200–C-4209
 
 - [ ] **H95 — The MAINTENANCE.md rotation counts hand-typed logs, not the N = max+1 the prompts define**
-  - Status: in progress · Owner: task/h95-rotation · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/h95-rotation · Critical: no · Pair: solo
   - Depends: — (docs only)
+  - Blocker: `MAINTENANCE.md` does not exist — `grep -n 'dev_process' MAINTENANCE.md` exits 2, and it is in no commit's tree, no origin head (`0` of `12`), no PR (`0` of `212`), and not on disk (`0` from `git ls-files`/`find`/`git rev-list --all --objects`), against positive controls that find `README.md`. No prompt has a log-rotation rule either, so H95's Stop clause does not fire and there is nothing to correct (C-4210).
+  - Unblock: `<human>` — decide whether the repo should have a `MAINTENANCE.md` lifecycle page (stating `N = max+1` and that a day's log-number gap is normal). If yes, the SM authors it as a new doc and re-opens H95 only if that page then needs this correction; the prompt half stays with the SM either way. Not a task-level dependency: no such task exists yet.
   - Goal: make `MAINTENANCE.md`'s log-rotation rule match the `N = max+1` naming in `prompt_common.txt`, so an archiver selects whole days and treats a gap in the sequence as normal instead of a missing log.
   - Note (SE 2026-11-17): the lifecycle prompt (`prompt_common.txt`) defines a log's `N` as `max+1` of the date's existing logs and warns subagent logs reuse small numbers. `MAINTENANCE.md` tells the SM to "count dev_process/ logs older than N days and archive", which is a *count*, and the two disagree whenever a log name is skipped or a `-driver` reuses a number — the SM cannot tell from the roster alone whether a day is fully logged.
   - Precheck: `grep -n 'dev_process' MAINTENANCE.md` prints the rotation instruction; `ls dev_process/2026-11-17-* | sed 's/.*-\\([0-9]*\\)-[a-z]*\\.log/\\1/' | sort -n | uniq` shows the numbers (today: 39-43, no log 1-38 for 2026-11-17).
@@ -943,6 +945,7 @@ ERRORs (**H53**, human-debt), `/tmp` 89 %, `.claude/` 490 MB untracked.
   - Done when: `grep -n 'count' MAINTENANCE.md` no longer describes log rotation by a file count; the `max+1` rule and the gap-is-normal sentence are present; `python3 tools/todo_check.py` OK.
   - Stop: if the rotation rule is also encoded in a prompt, stop and hand the prompt half to the SM retro instead of editing a prompt.
   - Falsifier: `MAINTENANCE.md` still tells a reader to count logs.
+  - Result: EXP-2026-11-17-H95-log-rotation (negative, premise false); C-4210. The target file was never committed — no rotation rule exists in any file or prompt — so the Done-when cannot be met without fabricating the document H95 says to correct. Follow-up: clarify with the SM whether such a lifecycle page should exist.
   - Claims: C-4210–C-4219
 
 - [x] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
