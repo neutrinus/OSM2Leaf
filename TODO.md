@@ -941,8 +941,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-17-H87-us-build-comment; C-4100–C-4101. The comment above `US_BUILD_STARTS` now names the list as it is (the M1.28 fixture's US side + M1.22b's six pool-only twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count `0`, `US_BUILD_STARTS` `12` entries unchanged, `fn_audit --selftest` `OK (70 checks, 0 failed)`.
   - Claims: C-4100–C-4109
 
-- [ ] **H88 — `fn_audit --corpus` with a missing image prints a traceback instead of the "no image" exit**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H88 — `fn_audit --corpus` with a missing image prints a traceback instead of the "no image" exit**
+  - Status: done · Owner: task/h88-corpus-no-image · Critical: no · Pair: solo
   - Depends: H85 (the gate's SKIP contract assumes `fn_audit` reports a missing image cleanly)
   - Goal: the live path is clean — `python3 tools/fn_audit.py archive/absent.img; echo $?` prints `error: [Errno 2] No such file or directory: 'archive/absent.img'` and exits `2`. The **`--corpus` path is not**: `python3 tools/fn_audit.py archive/absent.img --corpus docs/research/fn-audit-corpus-2026-11-16.json` raises `FileNotFoundError` (`tools/fn_audit.py`, the `Image(...)` call after `load_corpus`), so a snapshot audit on a checkout without the image shows a traceback. `tools/gate.py` hides it by short-circuiting on the declared `optional_input`; a direct caller sees the crash.
   - Precheck: the live command above prints `error: …` + exit `2`; the `--corpus` command prints `Traceback` / `FileNotFoundError` and does not exit `2`.
@@ -951,6 +951,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Hints: keep the wording byte-compatible with the live path (`error: [Errno 2] No such file or directory: '<path>'`) so `tools/gate.py`'s `no such file or directory: 'archive/` marker still matches; do not swallow a genuine OSError on a *present* file into a missing-image SKIP.
   - Done when: `python3 tools/fn_audit.py archive/absent.img --corpus docs/research/fn-audit-corpus-2026-11-16.json; echo $?` prints the `error: … No such file or directory` line (no traceback) and `2`; `python3 tools/fn_audit.py --selftest` passes with the new case; `python3 tools/gate.py` (image present, and `--image archive/absent.img`) unchanged; `python3 tools/todo_check.py` and `python3 tools/gate.py` green.
   - Stop: none.
+  - Result: EXP-2026-11-17-H88-corpus-no-image; C-4110–C-4114. Both `main()` image paths now share `_image_sha_or_error`: a missing image under `--corpus` prints the live path's `error: [Errno 2] No such file or directory: '<path>'` and returns `2` (it used to raise inside `image_sha256` at line 781 and exit `1`). `--selftest` `OK (72 checks, 0 failed)` with two new cases; a present-but-corrupt image is still a SHA-256 mismatch (`FAIL`, exit `2`), so "missing" did not widen; `tools/gate.py` unchanged (image present `4 pass`; declared-absent `SKIP`).
   - Claims: C-4110–C-4119
 
 - [ ] **H89 — The 1,259 unexplained `fn_match` NOMATCH are the next census: rewrites or a second matcher class**

@@ -3233,3 +3233,21 @@ applies one policy: PASS, FAIL, or SKIP for a missing vendor input.
 | C-4107 | RESERVED (H87). | — | — | — |
 | C-4108 | RESERVED (H87). | — | — | — |
 | C-4109 | RESERVED (H87). | — | — | — |
+
+## H88 — `fn_audit --corpus` on a missing image returns 2, not a traceback (C-4110–C-4119)
+
+The live path was clean; the `--corpus` path hashed the image before `Image()`
+was built and died with a `FileNotFoundError`.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4110 | Before H88, `python3 tools/fn_audit.py archive/absent.img` prints `error: [Errno 2] No such file or directory: 'archive/absent.img'` and exits `2`, while the same command with `--corpus docs/research/fn-audit-corpus-2026-11-16.json` raises `FileNotFoundError` inside `image_sha256` (line 781) and exits `1`. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; the two pre-fix runs |
+| C-4111 | After H88 both paths print the same `error: [Errno 2] No such file or directory: '<path>'` line and return `2`, via one helper (`_image_sha_or_error`) used by the `--corpus` branch before the snapshot comparison. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; the post-fix run |
+| C-4112 | `python3 tools/fn_audit.py --selftest` is `OK (72 checks, 0 failed)` and includes two cases: a missing image under `--corpus` exits `2` with no `Traceback`, and the error names the requested path. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; `--selftest` output |
+| C-4113 | The repair does not widen "missing": a present but corrupt image (4 KiB of random bytes) is a SHA-256 mismatch with exit `2`, and `tools/gate.py --image <corrupt>` reports `fn_audit FAIL` (`gate: 3 pass, 1 fail, 0 skip`), never a SKIP. | VERIFIED (tool, negative control) | H | EXP-2026-11-17-H88-corpus-no-image; the corrupt-image run |
+| C-4114 | `tools/gate.py` is unchanged: with `archive/head256.img` present it is `gate: 4 pass, 0 fail, 0 skip`, and with `--image archive/absent.img` it is `fn_audit SKIP … missing archive/absent.img`, `gate: 3 pass, 0 fail, 1 skip`. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; both gate runs |
+| C-4115 | RESERVED (H88). | — | — | — |
+| C-4116 | RESERVED (H88). | — | — | — |
+| C-4117 | RESERVED (H88). | — | — | — |
+| C-4118 | RESERVED (H88). | — | — | — |
+| C-4119 | RESERVED (H88). | — | — | — |
