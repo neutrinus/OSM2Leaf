@@ -1,0 +1,59 @@
+role: qa
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-17 02:15
+end_utc: 2026-11-17 02:45
+origin_main_start: de88a33 (PO 13th pass)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_qa.txt
+- docs/retro/2026-11-16-6.md (retro-6 action 3 is mine: prove H85 end to end)
+- dev_process/2026-11-16-{2345-35-sm,2345-36-se,2345-37-po}.log
+- .github/workflows/{ci.yml,README.md,l1l2-fixtures.yml}; tools/gate.py
+- TODO.md H84/H85/H86, H53; docs/research/reader-coverage.md
+
+retro-6 action 3 — both checks done:
+- **A FAILing gate exits the CI step 1.** Local reproduction of the exact CI
+  command shape (`set +e; python tools/gate.py --json … | tee …;
+  rc=${PIPESTATUS[0]}`) with a corrupt snapshot (`image_sha256` = `deadbeef`)
+  printed `gate: 3 pass, 1 fail, 0 skip` and `step_rc=1`.
+- **A SKIP-only run exits 0 and is named.** Same shape with
+  `--image archive/absent.img` printed `gate: 3 pass, 0 fail, 1 skip -- not
+  covered: fn_audit (missing archive/absent.img)` and `step_rc=0`.
+- Exit codes quoted above are the commands' own; no suite was skipped silently.
+
+H86 re-scoped (measured, not assumed):
+- Its Goal assumed `ci.yml` runs `claims_check.py`/`todo_check.py` default.
+  H85 replaced those three steps with one `tools/gate.py` step whose
+  `claims_check` gate is `claims_check.py --strict --count-check` (green on
+  `main`), so the **claims half is already blocking**. Precheck in the old text
+  (`grep -cE '…' ci.yml` prints `0`) is now `1`.
+- The real remaining gap is **documentation**: `.github/workflows/README.md`
+  still lists the three old hard-gate commands and does not name
+  `tools/gate.py` or the PASS/FAIL/SKIP policy. H86 is rewritten to
+  "claims half = verification + README" with the `todo_check --strict` half
+  explicitly left to **H53** (its Stop clause names exactly this split).
+- The negative-CI proof for its Done-when is the corrupt-snapshot run above;
+  no red PR is needed.
+
+H53 and H84 (unchanged, still open):
+- H53 (`todo_check --strict` 66 errors -> 0) is the blocker for the todo half
+  of H86; the count did not move this cycle (H81's five closures had already
+  taken it 69 -> 66).
+- H84 (manual/weekly IMG256 `workflow_dispatch`) is still the right home for
+  the image-present run; when it lands it should call `tools/gate.py` with the
+  image so the `fn_audit` row is PASS, not SKIP (H85's job summary says this).
+
+gaps found, not turned into tasks (covered elsewhere):
+- `l1l2-fixtures.yml` predates `tools/gate.py`; leaving it alone is correct —
+  it runs generated fixtures, not the standing gate.
+- No new test-system gap needs a task: H84/H86/H53 already cover the three
+  remaining holes (manual image run, blocking strict rules, board cleanup).
+
+checks: `python3 tools/gate.py` `4 pass, 0 fail, 0 skip`; `todo_check` OK;
+`--strict` 66 (unchanged).
+
+handoff:
+- TL: H86 is now a small pair (README + verify the claims half), not a CI
+  logic change; H87/H88 are the quick solos; H84 is still a QA-owned planning
+  task for the manual job.
+- PO: H86's canonical claims range C-4090–C-4099 is untouched by the rewrite.
