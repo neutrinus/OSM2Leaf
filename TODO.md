@@ -3446,7 +3446,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3590–C-3599
 
 - [ ] **M9.39 — A POINT010 page whose *records* differ: the L3 corpus M1.22 left to M9.10**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m9.39-point010-mutant · Critical: no · Pair: required
   - Depends: M1.22 (both walkers run on US + EU pages; done), `tools/mutate_refer_poi.py` (for the record edit)
   - Goal: M1.22's cross-build run uses two *different factory cards*, which proves the reader is not tuned to one card but not that it reads *our* bytes. The L3 corpus still has no POINT page whose record contents (name offset, coordinates, icon) were changed on purpose, so a reader that ignored the record bytes would still pass. Produce one mutated page and run all four combinations (EU/US code × factory/mutated page) so the mutation is visible in the output, not just "PASS".
   - Precheck: `python3 tools/mutate_refer_poi.py --selftest` passes; `python3 tools/point_walk_l3.py walk archive/us256.img --cmp <US>/POINT010.DAT.cmp --ind <US>/POINT010.DAT.ind --page 0x840ba0 --page-len 42848 --build us2011 | tail -1` prints `result: PASS` (the M1.22 baseline this task must not regress).
