@@ -1,0 +1,73 @@
+role: qa (test engineer), cycle 13 delta pass (15th QA pass)
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong aggregate)
+start_utc: 2026-11-17 18:51, end_utc: 2026-11-17 19:00
+origin_main_start: f2a3a7a (TL cycle-13 log; M1.20 #214 + M5.34 #215 + H101 #216)
+
+inputs read:
+- prompt_common.txt, prompt_qa.txt, AGENTS.md (incl. worktrunk section), TODO rules 1-17
+- dev_process/2026-11-17-{1852-52-tl,1305-47-tl,1207-46-qa}.log; docs/retro/2026-11-17-{2,3}.md
+- EXP-2026-11-17-{M1.20-pdata-all,M5.34-parcel}; tools/{pdata,parcel_census,one_tile_pipeline,selftest,l1l2_fixtures,l3check}
+- DELTA scope per retro-3 action 5: only new/changed rows, no re-plan of H25/H84/H86/H96-H100
+
+1. CI runs (checked, not assumed) -- `gh run list` both workflows, 12 main runs each:
+- RED since the 1207-46-qa pass: none.
+- CANCELLED: 7ec815c (`docs: drop H95 phantom, scope Runner: non-Claude, re-probe M8.A2`,
+  run 44126900831 + l1l2 44126900918), step killed after 40 s. Not a failure: `concurrency:
+  cancel-in-progress` on the shared `ci-<workflow>-<ref>` group, superseded 22 s later by the
+  #213 merge (fa27c11, success). No task filed (nothing to fix: cancellation is the intended
+  de-dup; a replacement run is green 6/6).
+- main IS green at f2a3a7a: quality gate 44152238778 success, l1l2 44152238644 success.
+- #214 and #215: 6/6 checks pass each (44142030*, 44151528*), merged after green.
+
+2. New test surface from the two map tasks -- covered, so no CI gap:
+- `tools/pdata.py census` (M1.20): `--selftest` exists, discovered by `selftest.py`
+  (`tool:pdata PASS`); CI runs it through gate.py -> selftest.py. Negative controls are
+  selftested (NO-PDATA vs ERROR bucket, exit 2 on schema/image-SHA, drift copy exits 1).
+  `census --check-fixture tools/fixtures/pdata_census_2011.json` needs head256.img and
+  stays local (correct: vendor head is not PR CI).
+- `tools/parcel_census.py` + one-tile gate (M5.34): `tool:parcel_census` and
+  `tool:one_tile_pipeline` PASS in selftest, CI runs both via gate.py. The two reviewer-found
+  gaps ARE in `--selftest`: B2 out-only extra file (line ~1054/1067) and N1 section-2 flip
+  (`changed_sections == [1, 2]`, ~1041/1048). Synthetic tree needs no vendor bytes.
+
+3. L1-L4 delta (only changed rows):
+- L1: still NOT COVERED as a *CI* row (l1l2_fixtures "L1 synthetic", vendor-free builder
+  missing -> H40). But M5.34 produced a factory-backed tree where cardcheck rc=0 on this host;
+  the live number is LOCAL, not a CI row. `one_tile_pipeline --synthetic` still builds a
+  tree that `cardcheck` FAILs (rc=1: section 2 levels 2/4/5 and section 4 level 1 not in
+  MMAIN) -> that is M5.33, already open; recorded as H40 input, not a new task.
+- L2: unchanged per-feature coverage (H41 still open). New: C-3566 footgun -- `l2check
+  --tiles B48R058R` (cell name) matches 0 tiles and prints `RESULT: PASS`, reproduced on the
+  factory root (`tiles=0` vs `tiles=1` with `.DAT`). M5.33's Precheck carried that exact
+  wrong command: fixed in place (rule 17).
+- L3: unchanged; `l3check --build-corpus` = `runnable 1/7`, blocked 6, rc 0; still not in any
+  workflow (H96/H28 own it). M5.34/M1.20 add no L3 target.
+- L4: unchanged (no QEMU gate; M8 blocks on glib/pixman).
+- Regression gate: unchanged -- holds for gate.py + l1l2 runnable FAIL; does NOT hold for L3
+  (H96) nor for merge policy (H98, branch protection still 404); L1/L2 baseline file is H57.
+- New risk this pass: M5.34's P0 gate ran once by hand; nothing on main fails if the
+  factory-backed run stops completing (CI must not download the tree) -> M5.40.
+
+4. Record fixes in place (rule 17, same pass, no task):
+- M5.33 Precheck: `--tiles B48R058R` -> `--tiles B48R058R.DAT` + the C-3566 warning.
+- H40 Input: names `one_tile_pipeline.py --synthetic` and the measured `cardcheck rc=1`
+  (section 2 levels 2/4/5, section 4 level 1 not in MMAIN) so the builder task starts from
+  what exists instead of inventing a second fixture.
+
+5. Tasks added (grep-checked free, Pair on each, map-relevant; rule 17 budget: 0 H):
+- M5.39 tools · pair solo -- `l2check --tiles` rejects a bare cell name / `--require-tiles`;
+  C-4290-C-4299. Parent of nothing; unblocks honest use of M5.33/M5.30 gates.
+- M5.40 chore · pair required -- scheduled/workflow_dispatch P0 regression on the M5.34
+  factory-backed run (skip on missing tree, never red); C-4300-C-4309. Depends M5.34, H84, M5.38.
+- No new map-relevant gap beyond these two; H96-H100/H84/H86 not re-planned.
+
+checks: `gate.py` 4 pass/0 fail/0 skip; `claims_check --strict --count-check` count
+mismatches 0; `todo_check` OK (`--strict` still 66, H53 unchanged, as the QA prompt says).
+
+- uncertainty: no vendor head here, so the L1/L2 plane is measured from tool output, not re-run
+  (head256.img absent; M5.29 factory root is present and was used for the M5.39 Precheck).
+
+handoff:
+- TL (map batch): M5.39 is small and unblocks M5.30/M5.33 callers; M5.40 needs H84 first.
+- PO (rule 17): M5.40 belongs to the card ladder (P0); tag it `Step: P0` when M5.38 lands.
+- human: unchanged -- branch protection (H98), qemu-ze0 deps, `.claude/` untracked.
