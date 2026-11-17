@@ -212,6 +212,23 @@ for the HLE harness.
    access exists. Re-estimate after F2.
 5. **Do not plan for F5.** Visual acceptance stays on the bench (L4).
 
+## 6a. QEMU pin and the port to current QEMU
+
+M8 runs on an out-of-tree patch series that must be pinned: the patches touch
+`hw/sh4`, an API QEMU moves. Measured limits (2026-11-17):
+
+| Version | 5-patch series | Note |
+| --- | --- | --- |
+| 8.2.7 | applies, builds, `-M ze0` boots | the current pin; 8.2 is EOL |
+| 8.2.10 | applies **unchanged**, boots identically | `hw/sh4` byte-identical to 8.2.7 |
+| 11.1.3 | 4 of 5 reject under `git apply` | include moves, `dc->reset` removed, `SHIX` gone |
+
+The per-hunk port recipe is
+[`qemu-ze0-port-delta.md`](qemu-ze0-port-delta.md); the task is TODO
+**M8.A9**. The one trap worth repeating: the UTLB/ITLB helpers are spelled
+`mmaped` (one `p`) and all eight still exist, so the CCN device is a copy,
+not a rewrite.
+
 ## 7. Open questions
 
 - Exact SoC part (SH77721/SH77722 or a custom derivative) and whether a

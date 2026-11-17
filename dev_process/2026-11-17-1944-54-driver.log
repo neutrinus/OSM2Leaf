@@ -1,0 +1,55 @@
+role: driver (M8.A2 re-probe)
+model: airouter/strong (aggregate)
+start: 2026-11-17 19:44 UTC
+end: 2026-11-17 21:10 UTC
+origin/main at start: 491f683 (docs: QA cycle-13 delta pass)
+inputs read: prompt_common.txt, AGENTS.md, TODO rules 1-17, M8.A2 block,
+  EXP-2026-11-08-M8.A2, EXP-2026-11-06-M8.A1/A4/A5, tools/qemu-ze0/{build.sh,
+  run.sh,README.md,patches/README.md}, tools/ce_qemu_probe.py, claims C-1230/40/60/70/90
+
+actions (in order):
+- claimed M8.A2: TODO Status -> in progress / Owner task/m8.a2-reprobe, pushed,
+  draft PR #217  (rule 3; PR was created only after the claim commit was pushed)
+- replaced ze0-0001 patch with the corrected content from /var/tmp/ze0.patch
+  (header kept in file style, two bugs described in it)
+- verified the sorted five-patch series on pristine 8.2.7 with git apply and
+  with patch -p1 (build.sh's tool); first attempt reused a dirty tree -> redone
+- TMPDIR=/var/tmp bash tools/qemu-ze0/build.sh --force --jobs 8 -> QEMU 8.2.7,
+  -M help lists ze0
+- negative controls: pre-fix patch build aborts (RAMBlock already registered);
+  fixed patch minus "select UNIMP" aborts (unknown type unimplemented-device)
+- run.sh --machine ze0 and --machine none on archive/head256.img (10 s)
+- traced write 0x38 to nk.exe 0x8802ec46 (delay slot, r2 = *(0x89e41800+0x94) = 0)
+  via ordered -d cpu,guest_errors; disassembled with sh4dis.py; xref with sh4xref.py
+- found and ran a 2x2 (machine x loader extent): the access list depends on the
+  loader byte extent, and -M ze0 cannot reproduce the -M none list by design
+- wrote EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md
+- corrected C-1240, added C-4310-C-4312 (all VERIFIED rows only)
+- TODO: M8.A2 -> blocked (literal Done when fails), Blocker/Unblock -> M8.A3,
+  Result -> new EXP; kept the old blocker as history
+- updated patches/README.md C.4, tools/qemu-ze0/README.md current state,
+  docs/experiments/README.md row
+
+decisions:
+- status blocked, not done: "-M ze0 reproduces the ce_qemu_probe.py access list"
+  fails (1 access vs 15) and cannot pass for a machine that models the CCN page.
+  A false done was rejected; a precise blocked + M8.A3 unblock is recorded.
+- write 0x38 is NOT the -M none fault (different PC, different kind of access)
+- CAR 0b00xx mode rejected as the explanation (it is set by the instruction at
+  phys 0x38, not by a store to it)
+
+problems / dead ends:
+- /tmp filled twice earlier; all scratch moved to ~/projekty/leafre-work/scratch
+- gdb on this host is x86-only (no gdb-multiarch): no SH-4 breakpoints; used
+  -d cpu,guest_errors ordering instead
+- -d exec (1.1M lines) and -d in_asm,unimp (7.1M lines) exceed the klog limit
+- substring pc= counts were wrong (spc/ssr/gbr fields); switched to ^pc=
+- first patch-check run reused an already-patched tree (stale-tree artifact),
+  redone after git reset --hard && git clean -fdq
+
+handoff:
+- M8.A3 (built-in loader) is the next step; it removes the -device loader
+  extent variable that this record had to control for by hand.
+- M8.A2 Done when should be reworded (an -M none list cannot be its oracle).
+- 0x89e41894 (nk BSS slot) writer is still unknown; 0x00005bd0 TLB miss is the
+  next fault on the full extents.

@@ -4,6 +4,8 @@ Out-of-tree QEMU patch series that factors the SH-4 **CCN/MMU control
 block** out of `hw/sh4/sh7750.c` into the standalone `sh4-ccn` device, so a
 `ze0` machine can map it without instantiating any SH7750 peripheral model.
 Basis: **QEMU 8.2.7**, the 8.2 LTS pin of [`../README.md`](../README.md).
+The port to current QEMU (11.1.3) is TODO **M8.A9**; the measured per-hunk
+delta is [`docs/research/qemu-ze0-port-delta.md`](../../../docs/research/qemu-ze0-port-delta.md).
 
 Companion record: [`EXP-2026-11-06-M8.A4-cpu-control`](../../../docs/experiments/EXP-2026-11-06-M8.A4-cpu-control.md).
 Context and the register work-list: [`docs/research/full-system-emulation.md`](../../../docs/research/full-system-emulation.md)
@@ -534,10 +536,18 @@ Patch application (all 5, `LC_ALL=C sort`, pristine QEMU 8.2.7 tarball
 SHA-256 `1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55`):
 `git apply --check` and `git apply` rc=0 for each patch in order.
 
-**Not verified in this environment:** `build.sh --force` configure/build
-(blocked by missing `glib-2.0` dev / pkg-config; no prebuilt
-`qemu-system-sh4`), `-M ze0` listing, and reproduction of the
-`ce_qemu_probe.py` access list.  These remain the M8.A2 done-when and
-require a host with QEMU 8.2.7 `sh4-softmmu` build deps (glib-2.0 dev,
-pixman, etc.) or a prebuilt LE `qemu-system-sh4` carrying these patches.
+**Verified 2026-11-17 (EXP-2026-11-17-M8.A2-machine-skeleton-reprobe):**
+`build.sh --force` builds `qemu-system-sh4` 8.2.7, `-M help` lists `ze0`,
+and `-M ze0` boots the EU 2011 kernel image for 10 s with 0 CPU exceptions.
+The first revision of this patch aborted twice and both bugs are fixed here:
+`memory_region_init_ram(..., "ze0.ram", ...)` beside `default_ram_id`
+(`RAMBlock "ze0.ram" already registered, abort!`; the machine now maps
+`machine->ram`) and `config ZE0` without `UNIMP` (`unknown type
+'unimplemented-device'`; the stanza now selects it).
+
+**Still open:** the M8.A2 done-when clause "`-M ze0` reproduces the
+`ce_qemu_probe.py` access list" fails, and cannot pass while the machine
+models the CCN page that list reports; see the EXP's Verdict. The next
+observable stops are `write 0x38` and `0x040 [tlb_miss] pc=0x00005bd0`.
+The likely unblock is M8.A3 (built-in loader).
 

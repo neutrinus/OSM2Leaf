@@ -16,13 +16,20 @@ unimplemented-device catch-alls over P4 0xff800000-0xffffffff and areas
 4/6.  No built-in loader (M8.A3); use -device loader as ce_qemu_probe.py
 does.
 
-TODO M8.A2.  Compilation/runtime against a built qemu-system-sh4 is
-UNVERIFIED in this environment (missing glib-2.0 dev / no prebuilt
-qemu-system-sh4); patch application is verified by git apply --check on
-pristine 8.2.7 after the M8.A4+M8.A5 patches.
+TODO M8.A2.  Built and booted 2026-11-17 (QEMU 8.2.7, EXP-2026-11-17-
+M8.A2-machine-skeleton-reprobe).  Two bugs in the first revision are fixed
+here:
 
-diff --git a/configs/devices/sh4-softmmu/default.mak b/configs/devices/sh4-softmmu/default.mak
-index 565e8b0..c88e69b 100644
+  1. ze0_init() called memory_region_init_ram(..., "ze0.ram", ...) while
+     mc->default_ram_id was already "ze0.ram"; QEMU 8.2 pre-registers that
+     block, so -M ze0 aborted with
+     "RAMBlock \"ze0.ram\" already registered".  The machine now maps
+     machine->ram instead of creating a second block.
+  2. config ZE0 selected SH4_CCN but not UNIMP, so
+     create_unimplemented_device() had no registered type and -M ze0
+     aborted with "unknown type 'unimplemented-device'".  config ZE0 now
+     also selects UNIMP.
+
 --- a/configs/devices/sh4-softmmu/default.mak
 +++ b/configs/devices/sh4-softmmu/default.mak
 @@ -9,3 +9,4 @@
@@ -30,26 +37,23 @@ index 565e8b0..c88e69b 100644
  CONFIG_R2D=y
  CONFIG_SHIX=y
 +CONFIG_ZE0=y
-diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
-index f10a35c..17d9eb5 100644
 --- a/hw/sh4/Kconfig
 +++ b/hw/sh4/Kconfig
-@@ -20,6 +20,10 @@ config SHIX
+@@ -20,6 +20,11 @@
      select SH7750
      select TC58128
  
 +config ZE0
 +    bool
 +    select SH4_CCN
++    select UNIMP
 +
  config SH7750
      bool
      select SH4_CCN
-diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
-index c3bbeef..8c26fd3 100644
 --- a/hw/sh4/meson.build
 +++ b/hw/sh4/meson.build
-@@ -6,6 +6,7 @@ sh4_ss.add(files(
+@@ -6,6 +6,7 @@
  sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
  sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
  sh4_ss.add(when: 'CONFIG_SHIX', if_true: files('shix.c'))
@@ -57,12 +61,9 @@ index c3bbeef..8c26fd3 100644
  
  hw_arch += {'sh4': sh4_ss}
  sh4_ss.add(files('ze0_stubs.c'))
-diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
-new file mode 100644
-index 0000000..99c0499
 --- /dev/null
 +++ b/hw/sh4/ze0.c
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,119 @@
 +/*
 + * Nissan Leaf ZE0 (2011-2012) navigation unit - QEMU machine skeleton
 + *
@@ -116,7 +117,7 @@ index 0000000..99c0499
 +{
 +    SuperHCPU *cpu;
 +    MemoryRegion *sysmem = get_system_memory();
-+    MemoryRegion *ram = g_new(MemoryRegion, 1);
++    MemoryRegion *ram;
 +    MemoryRegion *ram_p1 = g_new(MemoryRegion, 1);
 +    MemoryRegion *ram_p2 = g_new(MemoryRegion, 1);
 +    SH4CCNState *ccn;
@@ -133,8 +134,12 @@ index 0000000..99c0499
 +        exit(1);
 +    }
 +
-+    /* Physical DRAM at 0x08000000. */
-+    memory_region_init_ram(ram, NULL, "ze0.ram", ZE0_RAM_SIZE, &error_fatal);
++    /*
++     * Physical DRAM at 0x08000000.  machine->ram is the block QEMU already
++     * sized from -m and registered under default_ram_id; re-initialising a
++     * second block with the same name aborts ("RAMBlock already registered").
++     */
++    ram = machine->ram;
 +    memory_region_add_subregion(sysmem, ZE0_RAM_BASE, ram);
 +
 +    /*
