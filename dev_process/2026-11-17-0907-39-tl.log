@@ -1,0 +1,114 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-17 07:36 (approx; after QA `857c9a7`, cycle-10)
+end_utc: 2026-11-17 09:15
+origin_main_start: 857c9a7 (QA 13th pass)
+origin_main_end: 4e0040e (M1.22 merged, PR #209)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_tl.txt (pair classes, navigator must
+  negatively mutate the gate/snapshot/artifact, every cited number quoted)
+- dev_process/2026-11-16-2345-{35-sm,36-se,37-po,38-qa}.log (cycle-10 roles)
+- TODO.md H87, H88, H89, M1.22 (re-opened), M9.10, M9.12, Priorities 13th pass
+- tools/{fn_audit,gate,selftest,l3check,chunk_decoder_l3,point_walk_l3}.py,
+  tools/l3_harness/{targets.json,runner.py}, docs/format/firmware.md,
+  docs/research/claims.md, docs/research/fn-audit-*corpus-2026-11-16.json
+- docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md (H88's Precheck read)
+
+task selection (cycle-10; user's order: H87 + H88 solos, then the M1.22 pair):
+- H87 (solo) — stale `US_BUILD_STARTS` comment naming a done task as open;
+  PR #207, commit `381879b` + merge `c7a5529`.
+- H88 (solo) — `fn_audit --corpus` traceback on a missing image; PR #208,
+  `f1c8dbb` + merge `3375e5a`.
+- M1.22 (pair, Critical, re-opened by PO under rule 15) — US build census, the
+  US-only modules, and the US-VA L3 reruns; PR #209, `e199373` + navigator
+  fixes `398db35`/`c591298` + merge `4e0040e`.
+Radius rule (≤2 concurrent pairs) held trivially: one solo at a time, one pair.
+H87 and H88 both touch tools/fn_audit.py but were sequenced, not concurrent;
+M1.22 touches fn_audit.py again and started only after H88 was on main.
+
+what each role/round caught (why the protocol is not ceremony):
+- H87: my first gate run failed `tool:mkcard` with `OSError: [Errno 28] No space
+  left on device` — not a code defect, `/tmp` was 95 % full. Cleaned four stale
+  probe heads (not held open by any process) and re-ran `91/0/23`.
+- H88: the first selftest cases failed because `load_corpus` runs before the
+  image is hashed; the case needed a real snapshot, not a corrupted one. Fixed
+  the test, not the code.
+- M1.22 navigator round 1 (three real CHANGES):
+  1. the rewrite's "first masked diff = halfword 11" was a typed/mislabelled
+     number (that is the RAW diff; with disp fields cleared it is halfword 65);
+  2. "the EU card has no POINT010" was false (it came from `leafre-work/root/`,
+     a partial extract) — the EU factory pair exists and differs, so the "no
+     differing page" limitation was retracted, not reworded;
+  3. `US_BUILD_STARTS` had been widened with `0x004444d0` and `0x0041e5e4`
+     labelled "US pool slots", but both are REAL EU starts — the skip set would
+     have silently hidden a valid EU citation. Removed.
+  Round 2 APPROVE at `398db35`; the accuracy nit ("first chunk" → the recorded
+  page `0x840ba0`) was fixed in `c591298` before merge.
+
+negative mutations (each shows the check can fail, restored after):
+- H87: re-inserting "a per-build map (M1.22b) will replace it" makes the grep
+  print 1 (restored → 0); the two named files exist (63 table rows in
+  firmware.md, 6 targets with `build`).
+- H88: re-introducing the old order (`image_sha256` before the snapshot
+  comparison) restores the exact pre-fix failure (`FileNotFoundError`, exit 1);
+  a present-but-corrupt 4 KiB image stays `fn_audit FAIL` (`gate: 3 pass, 1
+  fail`), never a SKIP.
+- M1.22: three wrong-build controls all stop on an unmapped access (US walker
+  with EU globals, EU walker VA on US text, US chunk engine with EU stubs), and
+  the TL verification re-ran the EU-VA control (`UnmappedAccess`) next to the
+  reference (`[0, 128, 248]`). A planted `fn 0x004444d0` is reported `START`
+  while a planted `fn 0x00444540` is skipped.
+
+numbers, each quoted from the run that printed it:
+- modules: `149` EU / `151` US; US-only `RBDS_CC.dll, XMCC.dll,
+  XMStatusCC.dll`; EU-only `RDSCC.dll`; common `148`; code-identical `1`
+  (`atlce400.dll`).
+- 13 cited readers: `unique: 5 ambiguous: 0 different: 7 leaf: 0 nomatch: 1
+  truncated: 0 of 13`.
+- transform bodies: chunk engine `111/111`, DRSTR `382/382`, POINT leaf
+  `32/32`; first masked diff past the body (`878`, `482`, `94`); rewrite raw
+  `hw 11 0xdc6f/0xdc69` (disp-cleared `hw 65 0xa09c/0xa08f`).
+- US runs: walk `result: PASS`; skip `result: PASS`; chunk `verdict: PASS
+  (byte-identical to cmpind.decode)`; differing EU page `0x6e06d0` read by both
+  builds (`PASS`), chunk EU-pair `insns=1957314`.
+- corpora: docs base `INSIDE 0`; both layers `0 new / 0 gone / 0 moved`;
+  `count mismatches: 0`; l3check `pass=1 blocked=6 runnable=1/7`.
+- board: `open 104→103`, `done 68→69`, `blocked 27`, `in progress 0`.
+- `selftest.py`: `passed=91 failed=0 skipped=23 total=114`;
+  `gate.py`: `4 pass, 0 fail, 0 skip`.
+
+housekeeping:
+- deleted `task/h87-us-build-comment`, `task/h88-corpus-no-image`,
+  `task/m1.22-us-census` after merge; removed all three worktrees and pruned.
+- cleared four stale `/tmp/opencode` probe heads (`head256.img`, `img256.img`,
+  `IMG256_M8B4.img`, `x.img`) that pushed tmpfs to 95 %; back to 68 %.
+- no remote `task/*` branches and no open PRs remain.
+
+standing gates at origin_main_end:
+- `python3 tools/gate.py` → `gate: 4 pass, 0 fail, 0 skip`, exit 0.
+- `claims_check --strict` 0, `--count-check` `count mismatches: 0`;
+  `todo_check` OK (`--strict` 66 ERRORs, unchanged — that is H53);
+  `fn_audit … --quiet` `0 new / 0 gone` in both layers.
+
+blocked / not done in this cycle:
+- Human-only: prune stale `.claude/worktrees` / ahead branches
+  (`tools/worktree_audit.py --prune --apply`), add `.claude/` to `.gitignore`,
+  delete stale `/tmp/opencode` heads.
+- Environment: `/tmp` tmpfs still at 68 % (2.6 G / 3.8 G); keep probes minimal.
+- H86's `todo_check --strict` half stays blocked on H53 (66 strict errors).
+- Not attempted: H89 (sample the 1259 `NOMATCH`, pair), M3.23/M9.38 (Critical,
+  need M1.20), M1.19, H84, H53, M9.31, H77, H82, H83.
+
+handoff:
+- M1.22 is done; M9.10/M9.12 can now name `build: us2011` for a US card (the
+  mechanism is `--build` on both L3 tools plus `cmp_ind_reader_us2011`), and
+  M9.10/C-3537 records that the US reader reproduces a *differing* EU page —
+  so its remaining blocker is only "the name part", not the byte-order or the
+  US-VA question.
+- H89 is the natural next pair: it must sample the 1259 unexplained
+  module-wide `NOMATCH` and separate rewrites from a second matcher class.
+- The `fn_audit` lesson from M1.22 round 1 is worth a rule: a US-build skip set
+  must contain only VAs that are US starts; adding an "EU-looking start" to
+  silence a report hides a real citation. The planted-citation mutation is the
+  cheap test.
