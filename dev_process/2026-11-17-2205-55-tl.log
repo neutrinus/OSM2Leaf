@@ -1,0 +1,76 @@
+role: tl (cycle 13b, M8 follow-up after the pin question)
+model: opencode/deepseek-v4.1-flash-free (main session, orchestrator)
+start_utc: 2026-11-17 19:00
+end_utc: 2026-11-17 22:05
+origin_main_start: 24497ce (scratch-dir rule #218)
+origin_main_end: f5df583 ([M8.A10] #219); #217 M8.A2 at 280cd74
+
+inputs_read:
+- AGENTS.md "Worktrees (worktrunk)" + scratch-dir rule; TODO rules 1-17
+- the user's question "why an archival QEMU?" and the follow-up
+  "merge everything, add a task to port the patches to current QEMU"
+- EXP-2026-11-17-M8.A2-machine-skeleton-reprobe (driver), patches/README
+- gh pr list/checks for #217 and #219; qtrees in the home scratch root
+
+what the pin question actually found (measured, not assumed):
+- 8.2.7 -> 11.1.3: `git apply --check` rejects 4 of 5; with `patch -p1` (the
+  tool build.sh uses) `0002`, `m8a4-0001`/`0002` apply but `m8a4-0003` fails
+  4/7 hunks and `ze0-0001` fails 4. Cause is API drift, not line numbers.
+- 8.2.10 is a byte-identical drop-in for 8.2.7 under hw/sh4,
+  configs/devices/sh4-softmmu and include/hw/sh4 (`diff -r` empty); 5/5
+  patches apply unchanged and the build boots the same.
+- shelved a wrong early claim of mine ("Kconfig moved", "helpers removed"):
+  hw/sh4/Kconfig still exists; the UTLB helpers are spelled `mmaped` (one p)
+  and all eight survive at target/sh4/helper.c:514-711.
+
+tasks:
+| Task  | Mode | Outcome | PR | EXP |
+| M8.A2 | pair (driver+navigator, resumed) | done, 7 CHANGES resolved in one pass | #217 | EXP-2026-11-17-M8.A2-...-reprobe |
+| M8.A10 | solo (tool task) | done | #219 | EXP-2026-11-17-M8.A10-bump-8210 |
+| M8.A9 | board only (new task, open) | not started | - | - |
+
+what changed and why:
+- M8.A2 closed `done` on a *reworded* done-when. The old clause 3
+  ("`-M ze0` reproduces the ce_qemu_probe access list") was a board defect:
+  a machine that maps sh4-ccn at 0xff000000 cannot emit the `-M none` list,
+  and already differs with the same run.sh extents (1 vs 8, C-4312). The new
+  clause is ze0-specific and falsifiable. The 0x38 store and the 0x5bd0
+  tlb_miss moved to M8.A3 as loader follow-ups, not gates.
+- the record defect I caught independently while the navigator reviewed: the
+  EXP presented `final pc 0x00000000`, `pr`, `delayed_pc`, "2 854 passes" and
+  `0xa801045e` as results. run.sh samples HMP on a wall-clock loop
+  (run.sh:542-548). My 3x2 runs and the navigator's 6+10 runs gave different
+  PCs every time and never produced 0xa801045e. Replaced with the stable
+  observables + a repeat-run table; C-4311 rewritten to pin `--qemu` (PATH is
+  11.1.3, where the probe returns 0 accesses).
+- M8.A10 bumps the pin to 8.2.10, makes QEMU_PINS per-version (a full build
+  refuses an unpinned tarball) and adds `--check-version V`, which probes a
+  release in minutes without building. That is the precondition for M8.A9.
+- M8.A9 (new) ports the *intent* of the five patches to 11.1.3, with the
+  per-hunk recipe in docs/research/qemu-ze0-port-delta.md. Its Precheck
+  carries both application columns because they disagree, and its Scope
+  opens with the `mmaped` trap.
+
+numbers, each quoted from the command that printed it:
+- M8.A2: build.sh --force OK; 3x ze0 10 s -> 1 access (write 0x38),
+  0 exceptions; 3x none -> 8 accesses (0xff000000..0xff00001c), 0
+  exceptions; final pc 0x8800ebd0 / 0x00000000 / 0x8802ec44 (ze0).
+- M8.A10: diff -r empty; 5/5 APPLIED; `QEMU emulator version 8.2.10`;
+  ze0 1 access / 0 exceptions (3/3), none 8 / 0 (3/3); --selftest 56/56;
+  --check-version 11.1.3 -> 3 applied, 2 failed, exit 1.
+- gate 4/0/0 on both branches and on main after merge; CI 6/6 on #217,#219;
+  todo_check strict 63 errors (64 before this batch: M8.A9's Precheck added,
+  M8.A10 fully formed; remainder is the H53 baseline).
+
+housekeeping: both worktrees removed after merge (wt remove), local and
+remote task branches deleted (gh's --delete-branch failed only because
+`main` is checked out in the primary worktree), no open PRs left.
+
+handoff:
+- next TL batch must be map-only (rule 17). M8.A9 is a deliberate H-shaped
+  exception but is *not* urgent: the 8.2.10 pin boots.
+- H69 still applies to every TODO edit: refresh the fn_audit snapshots with
+  `--scope docs|--scope l3 --write-snapshot` or selftest's fn_audit_l3_image
+  reddens on line drift even when the identity set is unchanged.
+- `.claude/` is still untracked; the M8.A2 worktree is gone, so nothing in
+  it is lost.
