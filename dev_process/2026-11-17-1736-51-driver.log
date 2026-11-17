@@ -52,3 +52,31 @@ problems / time lost:
 handoff: M5.30 (one-variable card via imgpatch) is the next consumer; the
 changed set it must apply is MAPAL001/B48R058R.DAT + DRSTR001.DAT (4,721,788 B
 growth). M5.33's synthetic-scaffold task is untouched by this run.
+
+--- navigator round 2 (2026-11-17, after d3ff990) ---
+
+fixed:
+- B1: the artifact was a zlib-ng tile. Regenerated under python3.13 (stock
+  1.3.2): 293,990,518 B b746427c…34c2ef, +4,671,350 B. report.json now carries
+  zlib {interpreter, python, build, stock, reproducible}; the pipeline prints
+  "ZLIB-NG, NOT REPRODUCIBLE — re-run with python3.13". C-3562 rewritten,
+  C-3569 added.
+- B2: the tree gate walked factory_root only. _tree_differences now diffs the
+  union of both trees; an out-only file is extra-in-out and the gate is FAIL
+  (was CANNOT-VERIFY-OFFLINE). Selftests plant both directions.
+- C-3564: prove_tile_change now compares each section-1 level-1 directory's
+  byte slice tile[off:end] (header, slot tags, bodies, declared-size tail), so
+  the "every other directory byte-identical" wording is what the tool shows.
+  A selftest changes a sibling slot tag and the proof names it.
+- EXP: OSM row carries size/sha/URL/date; interpreter stated in Tools;
+  Follow-ups section added; M5.34 Goal says 30 0x2046 directories.
+- rebased onto origin/main (111653a, #214 + #216). Rule 17/M5.38 place M5.34
+  as P0; no M5.34 wording changed. Claims.md conflict kept both the H101 and
+  M5.34 tables, separated by a blank line.
+
+checks: one_tile_pipeline selftest 89/89, parcel_census 16/16, selftest.py
+93 passed / 0 failed / 23 skipped, claims_check OK, todo_check OK, gate.py
+4 pass / 0 fail / 0 skip.
+
+handoff corrected: the changed set M5.30 must apply is
+MAPAL001/B48R058R.DAT + DRSTR001.DAT, +4,671,350 B (not 4,721,788).
