@@ -1,0 +1,63 @@
+role: tl
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-17 09:15
+end_utc: 2026-11-17 10:05
+origin_main_start: 3d79bcc (SM retro cycle 10)
+origin_main_end: 47ebf18 (H90 merged, PR #210)
+
+inputs read:
+- AGENTS.md, prompt_common.txt, prompts (TL/QA edited)
+- user report: "naprawisz testy na github?" + "dopisz do prompta qa by
+  sprawdzał czy na githubie testy przechodzą"
+- gh run list / gh run view --log-failed for CI quality gate
+- dev_process/2026-11-17-0815-40-sm.log (SM cycle-11 retro, from the subagent)
+
+actions:
+- took H90 (user-reported red CI) ahead of the cycle-11 SE review; told the
+  in-flight SE subagent to allocate from H91 so the IDs do not collide.
+- reproduced the failure: CI `claims_check --count-check` prints
+  `count mismatches: 9`; local is 0. A depth-1 clone prints 9, the same SHA
+  with full history prints 0 -> the checkout, not the ledger.
+- root cause: actions/checkout@v4 defaults to fetch-depth 1; `_exp_revision`
+  then sees only the tip, so every claim is pinned to the tip and old selftest
+  counts are compared with today's tools.
+- fix: fetch-depth 0 in ci.yml (pack 3.2 MiB, 809 commits) + history_is_shallow
+  in claims_check (skip the rule in a shallow tree, print why; H78's own
+  "no measurement revision" rule). C-4015's quoted count 25->28.
+- first PR run still red: my own C-4136 shared a cell with tools/gate.py, so
+  the rule attributed 28 to gate.py (11). Split into one tool per claim
+  (C-4137 gate.py, C-4138 the re-pin), pushed, CI green.
+- navigator round 1: APPROVE, with two non-blocking number flags (the red run
+  is 12 consecutive pushes 1889340..2b3d1b4, last green 3f9c0b2; the depth-1
+  recipe must pin the pre-fix tool revision). Both fixed before merge.
+- wrote prompt_qa.txt (Check the runs: report red/cancelled main runs since
+  the last pass, each with SHA + failing step, give each a task; "green
+  locally" is not green in CI) and prompt_tl.txt (`gh pr checks <n>` before
+  merging a PR).
+- merged #210 (47ebf18); CI on main success at 47ebf18.
+
+decisions:
+- fetch-depth 0 rather than an allow-list: the rule is only meaningful with
+  history, and 3 MiB is cheap. Allowing the 9 mismatches would have hidden the
+  next real one.
+- skip-with-a-message rather than "0 mismatches" in a shallow tree: a SKIP is
+  never a pass, and the number must never look checked when it was not.
+- H90 ahead of the SE review: user-visible red CI on the default branch beats
+  process order; the SE subagent ran in parallel and left H90 untouched.
+
+problems:
+- the SE subagent's commit dropped the H90 block that only existed in the TL
+  worktree (SE diffed against its own working copy); rebase conflict in TODO.md
+  resolved by keeping SE's H91/H92/M1.32/M9.39/M9.40 and H90 (done).
+- the first merge attempt aborted because the main checkout still held the SE
+  restore of H90 as an uncommitted change; `git checkout -- TODO.md` and the
+  merge had in fact already completed remotely (47ebf18).
+- a navigator/sandbox clone of `origin/main` at 2b3d1b4 exists; it is read-only
+  and was removed.
+
+handoff for QA (cycle 11):
+- CI on main is green at 47ebf18; the QA pass must now check `gh run list`
+  (new prompt bullet) and H86's README half is cheap because the gate step is
+  proven by a real green run.
+- H91 (H87's "12"/"70 checks" pins) and H92 (prose-count gate) are the SE
+  follow-ups from the same defect class this cycle exposed.

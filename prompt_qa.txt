@@ -18,5 +18,13 @@ What the test system should show (a progress signal, not a coverage number):
 - CI has no vendor data. Use tiny synthetic fixtures or a generated card from OSM; anything that needs a vendor image runs locally and is marked as such. PR jobs never download 7GB images.
 - IMG256 / vendor-firmware-head regressions (e.g. `realcheck.py IMG256`, optional L3 steps needing firmware head) run **manually or weekly by QA** (`workflow_dispatch`/scheduled, approved runner/cache, SHA-256 verified), not as default PR CI. Treat results as firmware-head/L3 regression where applicable, not full card/L4/L5 acceptance.
 - A regression gate: once a level passes for a fixture, CI fails if it stops passing.
+- **Check the runs, not just the files.** `gh run list --workflow "CI quality gate"
+  --branch main --limit 12` and `gh pr checks <n>`: a workflow file that looks
+  right but is red is not a test system. Report every red or cancelled run on
+  `main` since your previous pass with its SHA and the failing step, and give
+  each one a task; do not assume "green locally" means green in CI (H90: `main`
+  was red for 12 pushes because `actions/checkout` fetched only the tip and
+  `claims_check --count-check` then measured old pins against today's tools —
+  a defect no local gate could see).
 
 Do not do the work; plan it instead — create tasks in TODO (with context: which file, which command, what Done when looks like, which fixture). Mark the order and dependencies between them.
