@@ -316,6 +316,29 @@ def _git(args):
                           capture_output=True, text=True)
 
 
+def history_is_shallow(git=None):
+    """True when the checkout carries no history to measure a revision against.
+
+    ``actions/checkout`` defaults to ``fetch-depth: 1``; in such a tree
+    ``git log -- <EXP>`` lists only the tip, so ``_exp_revision`` would "pin"
+    every claim to the tip and report today's tool counts as mismatches
+    (H90: 9 false ``COUNT`` lines, all at the tip SHA, and the CI job red on a
+    tree whose own tools are green).  A shallow history cannot answer "which
+    commit measured this record", so the count rule must skip it, never guess.
+    ``git rev-parse --is-shallow-repository`` prints ``true``/``false``
+    (git >= 2.15); an unreadable answer is treated as shallow, because guessing
+    is what H78 forbids.
+    """
+    git = git or _git
+    out = git(["rev-parse", "--is-shallow-repository"]).stdout.strip().lower()
+    if out in ("true", "false"):
+        return out == "true"
+    gd = git(["rev-parse", "--git-dir"]).stdout.strip()
+    if not gd:
+        return True
+    return os.path.exists(os.path.join(str(REPO_ROOT), gd, "shallow"))
+
+
 def _explicit_revision(evidence):
     """A commit the evidence text itself names, or None."""
     revs = REV_RE.findall(evidence)
@@ -566,6 +589,12 @@ def main(argv=None):
             exp_files[p.name] = p.read_text(encoding="utf-8")
 
     run_counts = _run_counts(args)
+    shallow = run_counts and history_is_shallow()
+    if shallow:
+        # H90: do not measure a history that is not there. The rule still runs
+        # on any full checkout; here it says so instead of printing 9 false
+        # COUNT lines. This is a printed skip, never a quiet "0 mismatches".
+        run_counts = False
     result = check(claims_text, exp_files, run_counts=run_counts)
     genuine = genuine_path_problems(result["bad_paths"])
     path_fail = args.strict and bool(genuine)
@@ -594,7 +623,10 @@ def main(argv=None):
         print("exempt vendor references: %d" % len(exempt))
         for p in exempt:
             print("  EXEMPT %s %s (%s)" % (p["id"], p["path"], p["kind"]))
-        if run_counts:
+        if shallow:
+            print("count check: skipped (shallow clone; fetch the full history "
+                  "to run it)")
+        elif run_counts:
             print("count mismatches: %d" % len(result["bad_counts"]))
             for c in result["bad_counts"]:
                 print("  COUNT %s claims %d, %s prints %d (%s)"
@@ -832,6 +864,19 @@ def run_selftest():
     # nothing is reported as `rev: working tree`.
     assert calls == [], calls
 
+    # --- H90: a shallow checkout is skipped, not mis-measured ---------------
+    def _shallow_git(answer):
+        def _g(args):
+            if args[:2] == ["rev-parse", "--is-shallow-repository"]:
+                return _Out(answer)
+            return _Out("")
+        return _g
+    assert history_is_shallow(_shallow_git("true")) is True
+    assert history_is_shallow(_shallow_git("false")) is False
+    # git < 2.15 prints nothing for --is-shallow-repository: with no git-dir
+    # either, the history is unreadable and is treated as shallow.
+    assert history_is_shallow(_shallow_git("")) is True
+
     # (h) --strict selects the count rule (H78: it used to select nothing).
     class _Args:
         def __init__(self, strict, count):
@@ -840,7 +885,7 @@ def run_selftest():
     assert _run_counts(_Args(strict=False, count=True)) is True
     assert _run_counts(_Args(strict=False, count=False)) is False
 
-    print("claims_check selftest: OK (25 checks)")
+    print("claims_check selftest: OK (28 checks)")
     return 0
 
 

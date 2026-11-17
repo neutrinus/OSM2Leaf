@@ -32,6 +32,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # H90: the count rule pins each claim's selftest number to the commit
+          # that measured it, found with `git log -- <EXP>`. The default
+          # fetch-depth: 1 exposes only the tip, so every claim looked pinned
+          # to the tip and nine old counts were reported as mismatches. The
+          # pack is ~3 MiB (809 commits), so the full history is cheap; the
+          # tools also skip the rule, and say so, in a shallow clone.
+          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
