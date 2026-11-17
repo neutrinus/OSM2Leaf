@@ -27,7 +27,8 @@ actions, in order:
 7. Wrote EXP-2026-11-17-M5.34-parcel and claims C-3560-C-3568.
 
 results:
-- cardcheck PASS, l2check PASS (tiles=1, B48R058R.DAT), 478/480 factory files
+- cardcheck PASS, l2check PASS (tiles=1, B48R058R.DAT), 478 of 480 compared files
+  identical (2 differ: the tile + DRSTR001.DAT)
   byte-identical; differing: MAPAL001/B48R058R.DAT + DRSTR001.DAT;
   changed_sections=[1], only directory (76,940) changed.
 - selftest 92 passed / 0 failed / 23 skipped; gate.py 4 pass 0 fail 0 skip;
@@ -46,7 +47,8 @@ problems / time lost:
 - /tmp is a shared 3.8 GB tmpfs; the 4.9 GB factory copy failed twice with
   ENOSPC before I set TMPDIR to /home/marek/projekty/leafre-work/m5.34/tmp.
   Those two runs are not evidence and are recorded as such in the EXP.
-- one_tile_pipeline selftest grew to 75 checks (was 40); selftest.py runs it in
+- one_tile_pipeline selftest grew from 40 to ~85 ok lines (75 at first write,
+  85 after the B1/B2 additions, 87 after N1); selftest.py runs it in
   ~1.6 s.
 
 handoff: M5.30 (one-variable card via imgpatch) is the next consumer; the
@@ -74,9 +76,29 @@ fixed:
   as P0; no M5.34 wording changed. Claims.md conflict kept both the H101 and
   M5.34 tables, separated by a blank line.
 
-checks: one_tile_pipeline selftest 89/89, parcel_census 16/16, selftest.py
+checks: one_tile_pipeline selftest 0 failures (85 ok lines at this point),
+parcel_census 16/16, selftest.py
 93 passed / 0 failed / 23 skipped, claims_check OK, todo_check OK, gate.py
 4 pass / 0 fail / 0 skip.
 
 handoff corrected: the changed set M5.30 must apply is
 MAPAL001/B48R058R.DAT + DRSTR001.DAT, +4,671,350 B (not 4,721,788).
+
+--- navigator round 3 (2026-11-17) ---
+
+fixed:
+- N1: one_tile_gate passed on only_dir alone, so a tile with the parcel change
+  plus a section-2 mutation was PASS. It now requires
+  changed_sections == [1]. Selftest builds that tile ([1, 2], only_parcel
+  True) and asserts FAIL; reproduced independently on the real 293,990,518 B
+  tile (one byte at 0xAECA428 inside the section-2 directory 0xAEC6300 ->
+  changed_sections [2] -> gate FAIL).
+- N2: the 2,078 ranges are the common prefix [0x9A1DC0C, 0x9A21C84); the
+  +4,671,350 B appended tail is stated separately.
+- N3: counts are quoted from the tool. one_tile_pipeline prints
+  "selftest: OK (0 failure(s))" and 87 ok lines; "478 of 480 compared files
+  identical" replaces "478/480 identical"; C-3569 replaces C-3568 in the
+  TODO Result line.
+
+checks: one_tile_pipeline selftest 0 failures (87 ok lines), claims_check OK,
+todo_check OK, gate.py 4 pass / 0 fail / 0 skip.

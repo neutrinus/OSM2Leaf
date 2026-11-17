@@ -1012,6 +1012,41 @@ def selftest() -> int:
         chk(proof["only_parcel_directory_changed"] is False,
             "slice proof does not call a sibling tag change the parcel change")
 
+        # N1: a tile with the parcel change *and* a section-2 mutation reports
+        # only_parcel_directory_changed True, so the old gate (only_dir) passed
+        # it.  Prove both halves: the proof reports changed_sections [1, 2],
+        # and the gate now FAILs on that.
+        sec2_tile = _clarion_tile().read_tile(tile_bytes)
+        sec2_tile.pop("_src", None)
+        sec2_tile.pop("order", None)
+        sec1_section = [s for s in sec2_tile["sections"] if s["id"] == 1][0]
+        sec2_section = [s for s in sec2_tile["sections"] if s["id"] == 2][0]
+        for entry in sec2_section["levels"]:
+            if entry["level"] == 1:
+                entry["dirs"] = [tilewriter._opaque_directory(0x2146, 1, yb, xb)]
+        parcel_dir = [d for e in sec1_section["levels"] if e["level"] == 1
+                      for d in e["dirs"]
+                      if (d["y"], tilewriter.dir_x0(d)) == (yb, xb)][0]
+        parcel_dir.setdefault("empty_tags", {})[3] = 0x00001234
+        for section in sec2_tile["sections"]:
+            words, _o, _g = _clarion_tile().table_words(section)
+            section["count"] = -(-2 * words // 256)
+        tile_header = tilewriter.tile_header
+        bounds = tilewriter.cell_db_bounds("B48R058R")
+        sec2_tile["header"] = tile_header.author(
+            tile_header.level_groups(sec2_tile),
+            [(1, [(1, 0, bounds)])], bounds, "11/01/01/01")
+        sec2_mutated = _clarion_tile().write_tile(sec2_tile)
+        proof = prove_tile_change(tile_bytes, sec2_mutated, "B48R058R", (yb, xb))
+        chk(proof["changed_sections"] == [1, 2]
+            and proof["only_parcel_directory_changed"] is True,
+            "parcel + section-2 mutation leaves only_parcel True (the N1 blind spot)")
+        g_sec2, _ = one_tile_gate(
+            [{"path": "MAPAL001/B48R058R.DAT", "state": "differs"}],
+            "MAPAL001/B48R058R.DAT", {"DRSTR001.DAT"}, True, proof)
+        chk(g_sec2["status"] == "FAIL",
+            "one-tile gate FAILs when changed_sections is [1, 2] (N1)")
+
         # B2: a file that exists only in `out` must make the tree gate FAIL.
         tmpl = {"A": b"1", "B": b"2"}
         got = {"A": b"1", "B": b"2", "C": b"3"}
@@ -1084,19 +1119,26 @@ def _tree_differences(root_files: dict[Path, bytes] | set[Path],
 def one_tile_gate(differing: list[dict[str, str]], tile_path: str,
                   manifests: set[str], only_dir: bool,
                   tile_change: dict[str, Any]) -> tuple[dict[str, str], list[dict[str, str]]]:
-    """The B2 gate: PASS only when the tile is the one change and no other file.
+    """The B2/N1 gate: PASS only when section 1 is the one change.
 
-    An extra file in ``out`` is ``unexpected`` and makes the gate ``FAIL`` —
-    the defect the one-sided walk could not see.
+    Three independent conditions, each able to fail on its own:
+
+    * ``changed_sections == [1]`` — a section-2 or section-4 mutation is a
+      ``FAIL`` even when the section-1 directory is untouched (N1: the gate
+      used to look only at ``only_dir``, so a flipped section-2 byte passed).
+    * ``only_parcel_directory_changed`` — no other section-1 directory moved.
+    * no unexpected path — an extra file in ``out`` is ``unexpected`` (B2).
     """
     unexpected = [d for d in differing
                   if d["path"] != tile_path and d["path"] not in manifests]
-    status = "PASS" if (only_dir and not unexpected) else "FAIL"
+    sections = tile_change.get("changed_sections")
+    sections_ok = sections == [1]
+    status = "PASS" if (sections_ok and only_dir and not unexpected) else "FAIL"
     g = gate(status,
-             f"changed sections={tile_change.get('changed_sections')}, "
+             f"changed sections={sections} (require [1]), "
              f"changed directories={tile_change.get('changed_directories')}, "
              f"differing files={[(d['path'], d['state']) for d in differing]}.",
-             "prove_tile_change (byte slice per directory) + union tree diff")
+             "prove_tile_change (sections + byte slice per directory) + union tree diff")
     return g, unexpected
 
 
