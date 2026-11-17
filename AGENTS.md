@@ -193,6 +193,16 @@ cd tools/ze0-viewer && python3 harness.py verify <tile>   # byte-identical tiles
   on this machine the full EU 2011 image is
   `/home/marek/projekty/leafre-work/leaf2011.img` (SHA-256 `105e2032…76307`),
   extracted tree `leafre-work/root/`.
+- **Scratch goes in the home tree, not `/tmp`.** `/tmp` here is a 3.8 GiB
+  tmpfs (RAM) and has filled twice in one day: `mkcard --selftest` died with
+  `ENOSPC` and a 7.5 GB extraction could not be written. Use
+  `~/projekty/leafre-work/scratch/<task>/` for intermediates, generated
+  trees and probe work dirs (`run.sh --workdir`, `ce_qemu_probe.py
+  --workdir`, `build.sh --srcdir`), and delete the directory when the task's
+  EXP is written. `/tmp` is fine only for a few-MB file that the same
+  command removes. Anything big enough to make you think twice about the
+  disk belongs in the home tree; a scratch directory left behind is a task
+  that is not finished.
 
 ## Format facts agents get wrong
 
