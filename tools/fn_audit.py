@@ -153,8 +153,12 @@ CORRECTION_ONLY = {
 # against.  The US build is a different binary (C-3487): `0x0035d894` is its
 # entry and the CMP chain sits at `0x00444540…`, so classifying these against
 # the EU `.pdata` reports a valid US address as an EU ``INSIDE`` (M1.26
-# blocker 2).  The list is the M1.28 fixture's US side (C-3740/C-3703), not a
-# range guess; a per-build map (M1.22b) will replace it.
+# blocker 2).  Every entry is a verified US start, not a range guess: the
+# M1.28 fixture's US side (C-3740/C-3703) plus M1.22b's six pool-only twins
+# (C-3622).  The EU→US table lives in `docs/format/firmware.md` ("EU→US
+# function matches"); a per-module build map is `build` in
+# `tools/l3_harness/targets.json`, and a per-module census over every US
+# module is still the follow-up M1.22 asks for.
 US_BUILD_STARTS = frozenset({
     0x0035D894,  # US Navi.exe entry (C-3487)
     0x00444540,  # CMP chunk engine          (EU 0x0041c7dc)

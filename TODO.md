@@ -928,8 +928,8 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Result: EXP-2026-11-16-H85-standing-gate; C-4080–C-4089. New `tools/gate.py` runs `selftest.py`, `claims_check.py --strict --count-check`, `todo_check.py` and `fn_audit.py --corpus … --overlay …` in one fixed order with one policy: **PASS**, **FAIL**, or **SKIP (reason)** for a missing vendor input — exit 2 with a missing-input marker is SKIP, exit 2 without one is FAIL, so `fn_audit`'s exit 2 is not blanket-forgiven. No image: `3 pass, 1 skip` (`fn_audit SKIP …`), exit 0; with the image: `4 pass, 0 fail, 0 skip`, exit 0 (H78 made the strict count gate green). A genuine failure (a block's `Status:` removed) is `FAIL` + exit 1. `--json` (file or `-`), `--board-clean` (todo_check --strict, red until H53) and `--no-count` are supported; `--selftest` proves all three outcomes with stubs (11 checks, python 3.11/3.13/3.15), including that a `cannot verify` exit-2 is FAIL. `ci.yml` collapses three gate steps into one and writes the SKIP list to the job summary; `selftest.py` stays `passed=90 skipped=24` with `tool:gate PASS`.
   - Claims: C-4080–C-4089
 
-- [ ] **H87 — `fn_audit.US_BUILD_STARTS` still calls itself the M1.22b placeholder, but M1.22b merged**
-  - Status: in progress · Owner: task/h87-us-build-comment · Critical: no · Pair: solo
+- [x] **H87 — `fn_audit.US_BUILD_STARTS` still calls itself the M1.22b placeholder, but M1.22b merged**
+  - Status: done · Owner: task/h87-us-build-comment · Critical: no · Pair: solo
   - Depends: M1.22b (merged: it added the six pool-only US VAs and the per-build map)
   - Goal: the comment above `US_BUILD_STARTS` (`tools/fn_audit.py`, the block starting "The list is the M1.28 fixture's US side … a per-build map (M1.22b) will replace it") is now false: M1.22b **merged** (PR #203), added its six VAs, and the map it promised is the `build` field in `tools/l3_harness/targets.json` plus the EU→US table in `docs/format/firmware.md`. A reader who greps for "M1.22b" sees a task they think is open.
   - Precheck: `grep -n "will replace it" tools/fn_audit.py` prints one line; `grep -c "0x0044219C\|0x004410B4\|0x0043A378\|0x00433458\|0x003EC274\|0x0041EB1C" tools/fn_audit.py` prints `6` (the M1.22b additions are present); `git log -1 --format=%s --grep="M1.22b" origin/main` names the merge.
@@ -938,6 +938,7 @@ M4.23 → M4.3 · M3.2b → M3.2 → M3.3 · M8.A2 → M8.A3 → M8.A6 (F0).
   - Hints: say what the list is now (`the EU→US map's US side, which M1.22b extended; a per-module build map is still a follow-up`) and point at the two files that carry the map. Do not delete the list — `fn_audit` uses it to skip US VAs.
   - Done when: the comment names no task as open-to-replace and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `python3 tools/fn_audit.py --selftest` passes; `python3 tools/todo_check.py` passes.
   - Stop: none.
+  - Result: EXP-2026-11-17-H87-us-build-comment; C-4100–C-4101. The comment above `US_BUILD_STARTS` now names the list as it is (the M1.28 fixture's US side + M1.22b's six pool-only twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count `0`, `US_BUILD_STARTS` `12` entries unchanged, `fn_audit --selftest` `OK (70 checks, 0 failed)`.
   - Claims: C-4100–C-4109
 
 - [ ] **H88 — `fn_audit --corpus` with a missing image prints a traceback instead of the "no image" exit**
