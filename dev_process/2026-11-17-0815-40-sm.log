@@ -1,0 +1,69 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-17 08:15
+end_utc: 2026-11-17 08:25
+origin_main_start: 2410d74 (TL cycle-10 log)
+origin_main_end: (this commit)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_{sm,se,po,qa,tl}.txt
+- dev_process/2026-11-16-2345-{35-sm,36-se,37-po,38-qa}.log and
+  dev_process/2026-11-17-0907-39-tl.log (cycle-10 roles)
+- docs/retro/2026-11-16-6.md (cycle-9 retro: 5 actions, 2 prompt edits)
+- EXP-2026-11-17-{H87,H88,M1.22}* names only; docs/research/claims.md row count
+- `git log --since=24.hours --stat origin/main` and `90d2677..2410d74`;
+  `gh pr list --state all --limit 20`; `git ls-remote --heads origin 'task/*'`;
+  `git worktree list`; `git for-each-ref %(upstream:track)`; `df -h /tmp`;
+  `du -sh .claude`; `python3 tools/gate.py`;
+  `claims_check --strict --count-check`; `todo_check --strict`
+
+window: cycle 10, `origin/main` `90d2677` -> `2410d74`, 15 commits (12
+non-merge, 3 merges #207–#209), 3 tasks done (H87, H88, M1.22), 0 blocked,
+1 re-opened (M1.22 by PO under rule 15, then done).
+
+numbers verified this run (not copied):
+- board: `103 open / 69 done / 27 blocked / 0 in progress`; TODO.md 3497 lines.
+- gate: `4 pass, 0 fail, 0 skip`; claims strict OK, `count mismatches: 0`;
+  `todo_check --strict` 66 ERRORs (H53).
+- ghost claims 0; open draft PRs 0; remote `task/*` 0; 37 worktrees
+  (28 under `.claude/worktrees`); 1 tracked ahead branch (`task/h54`).
+- `/tmp` 3.1 G / 3.8 G (80 %); `.claude/` 490 MB, untracked (`?? .claude/`).
+- claims rows 2127; +40 in window; 0 RETRACTED / 0 Supersedes.
+- pair vs solo: 1 pair (M1.22) + 2 solo (H87, H88); pair caught 3 defects,
+  both solos clean.
+
+actions taken, in order:
+- verified every number this retro cites against a command that prints it.
+- checked ghost claims, open PRs, remote task branches, worktree/branch debt.
+- read the cycle-10 TL log and the four role logs; found no skipped step and
+  no contradiction, but QA's prompt still said "69 board errors" (now 66).
+- edited `prompt_qa.txt`: drop the literal 69, report the run's count.
+- edited `prompt_tl.txt`: add the planted-citation test for a widened
+  skip/ignore set (M1.22's shipped-class defect).
+- edited `prompt_po.txt`: make the archive rule explicit about the fixpoint
+  exception PO keeps hitting.
+- wrote docs/retro/2026-11-17.md with numbers, judge, prompt changes, 5 actions.
+
+decisions:
+- No new TODO tasks: the board has 103 open and the cycle's natural next work
+  (M3.23, M9.38, H89) is already queued by PO/SE/TL.
+- Pair/solo rules unchanged: the one defect class that mattered was already
+  `Pair: required`, and it was caught — the rule worked.
+- Did not add the M1.22 lesson to prompt_common.txt: the "widens a standing
+  gate is Pair: required" rule already covers it; the TL checklist is the
+  narrower, correct home for the test.
+
+problems / dead ends:
+- `git log --since=24.hours` overlaps cycle 9 and cycle 10; used the explicit
+  `90d2677..2410d74` window for cycle counts and the 24h log only to confirm
+  the merge set. Stated the window in the retro.
+- Carried debt unchanged: H53 (66 strict errors) and the human worktree /
+  `.claude` / `/tmp` cleanup (retro-5 action 4, retro-6 action 5).
+
+handoff:
+- TL: M3.23 then M9.38; H89 as the next census pair; apply the new
+  skip-set planted-citation test.
+- QA: H86 is now small (claims half already blocking); report the live strict
+  count, do not hard-code it.
+- human: worktree prune + `.gitignore` `.claude/` + `/tmp` heads — the one
+  item no agent can do.
