@@ -40,6 +40,67 @@ without a reproducible command is a hypothesis; mark it so.
    naming the task that re-opens it + a negative EXP. When the unblocking task
    merges, its PR sets you back to `open` (rule 15).
 
+## Worktrees (worktrunk)
+
+Parallel agents never share a checkout. Every task runs in its own git
+worktree on its own branch, managed with [worktrunk](https://worktrunk.dev)
+(`wt`, install: `cargo install worktrunk` or `brew install worktrunk`).
+Commands below are from the worktrunk docs (v0.82); `wt <cmd> --help` is
+authoritative if they drift.
+
+- **One task = one worktree = one branch = one draft PR.** The primary
+  checkout stays on `main`: nobody commits there, and it is the source the
+  `pre-start` hook links `archive/` from. Never `git checkout` another branch
+  inside someone else's worktree.
+- **Pair mode:** the driver creates the worktree; the navigator works in the
+  *same* worktree read-only (git refuses one branch in two worktrees). The
+  navigator may run checks there but never commits, edits or writes golden
+  files.
+- **Create** (after `git fetch`; base on `origin/main`, because a bare
+  `--create` branches from the local `main`, which may be stale):
+
+  ```bash
+  git fetch origin
+  B=task/m9.35-sec1-load-model            # task/<id-lowercase>-<slug>
+  wt switch --create "$B" --base origin/main --no-cd --yes
+  cd "$(git worktree list --porcelain | awk -v b="refs/heads/$B" \
+        '/^worktree /{p=substr($0,10)} $0=="branch "b{print p}')"
+  ```
+
+  `--no-cd`: an agent's shell has no `wt` shell integration, so `cd` to the
+  path yourself (above) and use absolute paths. `--yes` approves the
+  project hook in `.config/wt.toml` without a prompt. The branch has no
+  upstream yet; the claim push (`git push -u origin "$B"`, rule 2 above)
+  sets it. The default path is `../OSM2Leaf.<branch-sanitized>`, outside the
+  repo.
+- **`archive/` in the worktree:** the `pre-start` hook symlinks every file
+  of the primary checkout's `archive/` into the new worktree, so `gate.py`
+  and `selftest.py` see `head256.img` and do not SKIP. Check with
+  `ls -l archive/` before you quote a gate result. Without `wt`, use
+  `git worktree add -b "$B" ../OSM2Leaf."${B//\//-}" origin/main` and
+  create the same links by hand.
+- **Find work in progress:** `wt list` (branches, worktrees, ahead/behind,
+  dirty state). It does not replace the claim: the draft PR `[ID]` and the
+  `Owner:` line are still the only claim other agents see.
+- **Remove only after merge.** When the task's commits are on `origin/main`
+  and the PR is merged: `wt remove "$B"` from the primary checkout (deletes
+  the worktree and the local branch once it is integrated). Removing a
+  worktree before the push and merge has cost work (TL log 2026-11-09).
+  An abandoned claim (ghost claim, see prompt_tl.txt): close the PR,
+  then `wt remove -D "$B"`. `wt step prune --dry-run` lists merged
+  worktrees older than a day; `wt step prune` removes them (it skips dirty
+  ones).
+- **Do not use `wt merge`, `wt step push` or `wt step commit`.** Merges go
+  through the PR after `gh pr checks` (TL prompt); commits follow
+  "Commit style" below.
+- **Claude Code subagents** with `isolation: "worktree"` create detached
+  trees under `.claude/worktrees/` (30+ stale ones were found, SM log
+  2026-11-13). Prefer an explicit `wt switch --create` per task. If you use
+  `isolation`, install the worktrunk plugin first (`wt config plugins claude
+  install`), which routes it through `wt switch --create` / `wt remove`;
+  it branches from the local default branch, so fast-forward the primary
+  `main` (`git pull --ff-only`) before spawning.
+
 ## Before you search firmware code
 
 Four facts cost this project whole sessions:

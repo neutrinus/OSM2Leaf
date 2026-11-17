@@ -2,7 +2,7 @@ First read prompt_common.txt.
 
 Take on the role of the developers' team lead.
 
-Run git fetch.
+Run git fetch, then fast-forward the primary checkout (`git pull --ff-only` on `main`); it stays on `main` for the whole run and nobody commits in it. Worktrees are managed with worktrunk (`wt`) — read "Worktrees (worktrunk)" in AGENTS.md.
 
 Pick up to 10 tasks from TODO — as many as actually qualify, never filler:
 - `Status: open`, every `Depends` is done on origin/main, and the task ID appears in no open PR title (`gh pr list --state open`).
@@ -14,7 +14,7 @@ Pair programming is the default. Developers run on cheap models; doubling the co
 - Pair (default): anything that searches firmware code, writes or changes a format writer/decoder, feeds L3/L4, touches claims.md, or was re-opened/retracted before.
 - Solo (exception, give the reason): the task says `Pair: solo`, or it is pure docs/TODO housekeeping, or a small tool change whose Done-when is a reproducible byte/exit check fully covered by its `--selftest`. A `Pair: solo` whose scope or evidence edits a gate's pass/fail semantics, a user-visible assertion, a snapshot, a standing-gate constant, or the evidence/claim of a blocked claim is run as a pair — fix the field, not the rule. A task marked `Pair: required` is never run solo: `Pair: required` means two subagents (driver + a separate navigator); if you cannot launch both, leave the task `open` and say so in the log. The outcome table's mode column names the navigator — `one driver` is not a pair.
 
-Pair mode — two subagents on the same worktree / branch, you relay between them with SendMessage so each keeps its context:
+Pair mode — two subagents on the same worktree / branch (the driver's; the navigator only reads and runs checks there, git allows one worktree per branch), you relay between them with SendMessage so each keeps its context:
 - Driver: writes code, runs commands, writes the EXP, makes the commits (including the claim commit).
 - Navigator: writes no code. Reviews, asks questions, holds the evidence bar from AGENTS.md.
 Rounds:
@@ -27,7 +27,7 @@ every token) — a navigator reviews defects, the TL reviews arithmetic.
 5. If they still disagree, you decide; if nobody can resolve it, the task becomes `blocked` with the disagreement recorded in the EXP.
 The navigator's APPROVE is required before you start your own check below; it does not replace it.
 
-Launch the subagent(s) for each task, each task in its own git worktree / branch. Claim only tasks you launch in this run (rule 3 of TODO.md); a shared batch branch with several `in progress` lines, or a claim for a task nobody is working on, is a ghost claim (retro 2026-11-13). Tell every subagent (in pair mode, both, plus its role):
+Launch the subagent(s) for each task, each task in its own git worktree / branch: create it yourself before launching (`wt switch --create task/<id-lowercase>-<slug> --base origin/main --no-cd --yes`, AGENTS.md "Worktrees"), check that `archive/` in it shows the image symlinks, and give the subagent the absolute worktree path and branch name. Never launch two tasks on one worktree, and never let a subagent work in the primary checkout. Prefer this over Claude Code's `isolation: "worktree"`, which leaves detached trees under `.claude/worktrees/` unless the worktrunk plugin is installed. Claim only tasks you launch in this run (rule 3 of TODO.md); a shared batch branch with several `in progress` lines, or a claim for a task nobody is working on, is a ghost claim (retro 2026-11-13). Tell every subagent (in pair mode, both, plus its role):
 - read AGENTS.md and prompt_common.txt and follow the TODO.md rules: the first commit is the claim (`Status: in progress · Owner: <branch>`), pushed, plus a draft PR `[ID] short title`, before any other work;
 - one task per PR; touch only its task's files, its EXP, its claim rows;
 - finish with `Status: done` only if its own `Done when` passes; otherwise `blocked` with a blocker, `Unblock:` and a negative EXP;
@@ -38,6 +38,6 @@ When a subagent finishes, check its work:
 - read the EXP: controls present, observations separate from interpretation, no vendor data in the diff. For a pair, the EXP's "Corrections after navigator review" section is written (or the heading removed) — an empty placeholder is not a record: H90 shipped one, H93 fixes it.
 If the check fails, send it back to the subagent or mark the task blocked — never merge a false `done`.
 
-Then commit and push; merge to main one PR at a time: rebase onto the fresh origin/main, re-run the checks, and read CI on the PR (`gh pr checks <n>`) before merging — a green local gate is not a green PR (H90: `main` was red for 12 pushes on a defect only the CI run showed). Merge, delete the branch, close the draft PR. If work lands on main by another path, still close the task's draft PR and delete its remote branch. If a draft PR has only the claim commit and no task work after a reasonable attempt, close it, delete the remote branch, and set the task back to `open` (or keep it `blocked` with an EXP if that is the honest result) so the claim is not left as a ghost. Apply rule 15 (re-open tasks the merge unblocks).
+Then commit and push; merge to main one PR at a time: rebase onto the fresh origin/main, re-run the checks, and read CI on the PR (`gh pr checks <n>`) before merging — a green local gate is not a green PR (H90: `main` was red for 12 pushes on a defect only the CI run showed). Merge, delete the branch, close the draft PR, then `wt remove <branch>` from the primary checkout — only after the merge is on origin/main, never before (TL log 2026-11-09: a premature removal left a PR conflicting). If work lands on main by another path, still close the task's draft PR and delete its remote branch. If a draft PR has only the claim commit and no task work after a reasonable attempt, close it, delete the remote branch, and set the task back to `open` (or keep it `blocked` with an EXP if that is the honest result) so the claim is not left as a ghost; remove its worktree with `wt remove -D <branch>`. Before the final table run `wt list`: every worktree left must belong to an open PR or an `in progress` task you name in the summary; `wt step prune --dry-run` shows merged leftovers to remove. Apply rule 15 (re-open tasks the merge unblocks).
 
 Finish with a table: task ID, mode (pair / solo + reason), review rounds, outcome (done / blocked / returned), PR link, EXP. Note defects the navigator caught — the SM uses them to judge whether pairing pays off.

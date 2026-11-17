@@ -1,0 +1,17 @@
+# worktrunk project config (https://worktrunk.dev) — see AGENTS.md "Worktrees".
+#
+# Why this hook exists: `archive/` is git-ignored, so a fresh worktree has no
+# `archive/head256.img` / `archive/us256.img`, and `fn_audit` / the l3 suites
+# turn into a SKIP there (the cycle-8 escape in TODO.md: a pair ran
+# selftest.py in a worktree without the image and saw a green 89/90).
+# `pre-start` blocks until done, so the first gate run in the new worktree
+# already sees the images. Symlinks, not copies: the files are 256 MiB to
+# 7.5 GB and are only read. Existing entries are never overwritten.
+[pre-start]
+archive = """
+for f in "{{ primary_worktree_path }}"/archive/*; do
+  [ -e "$f" ] || continue
+  n=$(basename "$f")
+  [ -e "archive/$n" ] || [ -L "archive/$n" ] || ln -s "$f" "archive/$n"
+done
+"""
