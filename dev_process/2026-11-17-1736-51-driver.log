@@ -1,0 +1,104 @@
+role: driver (task M5.34), model deepseek-v4.1-flash-free
+start 2026-11-17T17:36Z, end 2026-11-17T~18:55Z
+origin/main at start: fa27c11 (worktree branched from 7ec815c, rebased view = fa27c11)
+
+inputs read: prompt_common.txt, AGENTS.md (incl. the new Worktrees section),
+TODO.md rules 1-16 and the M5.34/M5.29/M5.30 blocks, EXP-2026-11-08-M5.4-tile-splice,
+EXP-2026-11-08-M5.22, EXP-2026-11-09-M5.29-factory-rerun, TEMPLATE.md.
+
+actions, in order:
+1. Re-verified the factory root (480 files, B48R058R 289,319,168 B,
+   e9c9cb22…3ff52) and the selftests (tilewriter 68/68, one_tile_pipeline OK).
+2. Probed the directory table: 64 section-1 level-1 dirs, 30× 0x2046,
+   13× 0x2146 (the M5.34 task text's "18 0x2046 directories" is really
+   18 parcels in one directory; corrected in the EXP).
+3. Added tools/parcel_census.py (stdlib, --selftest 16/16): sections/levels,
+   directory and per-parcel WGS84 boxes from clarion_bg.parcel_geo.
+4. Extended tools/one_tile_pipeline.py: --parcel, real --osm in factory mode
+   (it used to default to the inline SYNTHETIC_OSM whose node at lon 17.00
+   lands in (76,941) 0x2146 — the #171 cause), a pre-write preserve-only
+   refusal that names the kind, --clip, and tile/tree diff proofs.
+5. Fixed two things the first factory runs exposed: l2check --tiles needs
+   "<cell>.DAT" (cell-only silently checked 0 tiles and still PASSed), and
+   "one file differs" is wrong (DRSTR001.DAT carries the tile size).
+6. Ran the negative control (way 16.95 -> 17.03): exit 2, kind 0x2146 named,
+   no --out. Ran the positive factory run into (76,940) with the real
+   dolnoslaskie PBF and --clip.
+7. Wrote EXP-2026-11-17-M5.34-parcel and claims C-3560-C-3568.
+
+results:
+- cardcheck PASS, l2check PASS (tiles=1, B48R058R.DAT), 478 of 480 compared files
+  identical (2 differ: the tile + DRSTR001.DAT)
+  byte-identical; differing: MAPAL001/B48R058R.DAT + DRSTR001.DAT;
+  changed_sections=[1], only directory (76,940) changed.
+- selftest 92 passed / 0 failed / 23 skipped; gate.py 4 pass 0 fail 0 skip;
+  todo_check OK; claims_check --strict --count-check OK (0 mismatches).
+
+decisions and alternatives rejected:
+- parcel (76,940) over the other 29 0x2046 dirs: it is the M5.4-proven one and
+  holds real Dolnośląskie roads; a synthetic two-node way was not needed.
+- crossing ways: refuse by default (navigator's negative control), --clip
+  drops them for the real extract; rejecting the alternative "shrink the bbox
+  by one parcel" because it loses real road at the directory edge.
+- M5.29 -> done (its Done when is met by M5.34) and added a Note; kept the
+  historical blocker line. M5.30 stays open (done-when asks that).
+
+problems / time lost:
+- /tmp is a shared 3.8 GB tmpfs; the 4.9 GB factory copy failed twice with
+  ENOSPC before I set TMPDIR to /home/marek/projekty/leafre-work/m5.34/tmp.
+  Those two runs are not evidence and are recorded as such in the EXP.
+- one_tile_pipeline selftest grew from 40 to ~85 ok lines (75 at first write,
+  85 after the B1/B2 additions, 87 after N1); selftest.py runs it in
+  ~1.6 s.
+
+handoff: M5.30 (one-variable card via imgpatch) is the next consumer; the
+changed set it must apply is MAPAL001/B48R058R.DAT + DRSTR001.DAT (4,721,788 B
+growth). M5.33's synthetic-scaffold task is untouched by this run.
+
+--- navigator round 2 (2026-11-17, after d3ff990) ---
+
+fixed:
+- B1: the artifact was a zlib-ng tile. Regenerated under python3.13 (stock
+  1.3.2): 293,990,518 B b746427c…34c2ef, +4,671,350 B. report.json now carries
+  zlib {interpreter, python, build, stock, reproducible}; the pipeline prints
+  "ZLIB-NG, NOT REPRODUCIBLE — re-run with python3.13". C-3562 rewritten,
+  C-3569 added.
+- B2: the tree gate walked factory_root only. _tree_differences now diffs the
+  union of both trees; an out-only file is extra-in-out and the gate is FAIL
+  (was CANNOT-VERIFY-OFFLINE). Selftests plant both directions.
+- C-3564: prove_tile_change now compares each section-1 level-1 directory's
+  byte slice tile[off:end] (header, slot tags, bodies, declared-size tail), so
+  the "every other directory byte-identical" wording is what the tool shows.
+  A selftest changes a sibling slot tag and the proof names it.
+- EXP: OSM row carries size/sha/URL/date; interpreter stated in Tools;
+  Follow-ups section added; M5.34 Goal says 30 0x2046 directories.
+- rebased onto origin/main (111653a, #214 + #216). Rule 17/M5.38 place M5.34
+  as P0; no M5.34 wording changed. Claims.md conflict kept both the H101 and
+  M5.34 tables, separated by a blank line.
+
+checks: one_tile_pipeline selftest 0 failures (85 ok lines at this point),
+parcel_census 16/16, selftest.py
+93 passed / 0 failed / 23 skipped, claims_check OK, todo_check OK, gate.py
+4 pass / 0 fail / 0 skip.
+
+handoff corrected: the changed set M5.30 must apply is
+MAPAL001/B48R058R.DAT + DRSTR001.DAT, +4,671,350 B (not 4,721,788).
+
+--- navigator round 3 (2026-11-17) ---
+
+fixed:
+- N1: one_tile_gate passed on only_dir alone, so a tile with the parcel change
+  plus a section-2 mutation was PASS. It now requires
+  changed_sections == [1]. Selftest builds that tile ([1, 2], only_parcel
+  True) and asserts FAIL; reproduced independently on the real 293,990,518 B
+  tile (one byte at 0xAECA428 inside the section-2 directory 0xAEC6300 ->
+  changed_sections [2] -> gate FAIL).
+- N2: the 2,078 ranges are the common prefix [0x9A1DC0C, 0x9A21C84); the
+  +4,671,350 B appended tail is stated separately.
+- N3: counts are quoted from the tool. one_tile_pipeline prints
+  "selftest: OK (0 failure(s))" and 87 ok lines; "478 of 480 compared files
+  identical" replaces "478/480 identical"; C-3569 replaces C-3568 in the
+  TODO Result line.
+
+checks: one_tile_pipeline selftest 0 failures (87 ok lines), claims_check OK,
+todo_check OK, gate.py 4 pass / 0 fail / 0 skip.
