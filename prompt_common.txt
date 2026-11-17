@@ -45,6 +45,11 @@ Editing TODO.md concurrently (~15 agents write to it):
 - New task IDs and claim blocks follow "ID allocation" in TODO.md.
 - Every new task has: Depends, Input, Done when (a command that can fail),
   and a falsifier. A task without a runnable Done when is not ready.
+- Any command in a `Done when`, `Precheck` or evidence cell selects its rows by
+  a stable key — a claim ID, a task ID, or a property that survives row
+  insertion — never by a line number or offset (H71's `sed -n '2802,2807p'`,
+  H80's Precheck). If a later edit moves what the command selects, the record
+  says at which revision it was measured.
 - Optional `Pair:` field. Developer tasks run as a driver/navigator pair by
   default (see prompt_tl.txt); write `Pair: solo` only for low-risk work
   (docs, housekeeping, selftest-covered small tools) and `Pair: required`

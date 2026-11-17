@@ -1,0 +1,57 @@
+role: sm
+model: opencode/deepseek-v4.1-flash-free (session agent, main session)
+start_utc: 2026-11-17 00:45 (approx; after the cycle-9 TL log `e6e556f`)
+end_utc: 2026-11-17 01:05
+origin_main_start: e6e556f (TL cycle-9 log)
+origin_main_end: (this commit)
+
+inputs_read:
+- AGENTS.md (incl. the new `tools/gate.py` block), prompt_common.txt, and
+  prompt_{sm,se,po,qa,tl}.txt
+- dev_process/2026-11-16-{1106-30-sm,1940-31-se,2020-32-po,2055-33-qa,2345-34-tl}.log
+- docs/retro/2026-11-16-5.md (cycle-8 retro: 5 actions, 5 prompt edits)
+- docs/experiments/EXP-2026-11-16-{M1.22b,H78,H79,H80,H81,H85}, and EXP-2026-11-16-M1.31
+- TODO.md board and H53/H77–H86 blocks; docs/research/claims.md row count
+- `git log d5e1f7a..e6e556f`, `gh pr list --state all`, `git worktree list`,
+  `df -h /tmp`, `du -sh .claude`, `tools/gate.py`, `todo_check --strict`
+
+window: cycle 9, `origin/main` `d5e1f7a` -> `e6e556f`, 35 commits (29
+non-merge, 6 merges #201–#206), 6 tasks done (H78, H79, M1.22b, H80, H81,
+H85), 0 blocked, 0 re-opened.
+
+what I checked:
+- Ghost claims: 0 (no `in progress` block; the only probe hit is the field
+  legend). No ahead branch with no PR for a claimed task.
+- Open draft PRs: 0. Remote `task/*`: 0. Stale non-task remotes: 8.
+- Role ages: all five ran inside cycle 9 (SM, SE, PO, QA, TL); none silent >1 day.
+- Pair vs solo: 3 pairs (H78 round 4, M1.22b, H85) + 3 solos (H79, H80, H81).
+  Pairing caught 6 real defects; 2 would have shipped (H85's `tee` exit-code
+  and the over-broad SKIP marker; M1.22b's typed census numbers).
+- Solos were clean on push, though H79 and H81 each hit the H71 self-citation
+  trap (caught by their own Done-when before push).
+
+problems found:
+- `dev_process/2026-11-16-2331-2-qa.log` reuses N=2; the free N was 35 at
+  this run. Same class as `0013-3-tl` vs `0334-3-se`. The rule is correct;
+  the QA subagent did not check the folder. Fixed by launch-prompt wording,
+  not a rule change.
+- Retro-5 action 4 (human worktree prune / `.gitignore`) is still owed and
+  `/tmp` went 70 % -> 89 %. It is the cycle's lead human blocker.
+- H53 and H58 were named in retro-5 action 3 and are still open.
+
+decisions:
+- No new TODO tasks: the board already has H77, H82–H86, H53, M3.23, M9.38
+  open from SE/PO/QA; adding more would inflate the open count (H81's point).
+- Two prompt edits, one sentence each, recorded in the retro: (1)
+  prompt_common.txt "select by a stable key, never a line number"; (2)
+  prompt_tl.txt "a number-only round is an audit, not a fourth round".
+- Pair/solo rules unchanged: the evidence says pairing pays off and the
+  solos were clean.
+
+handoff:
+- TL: M3.23 and M9.38 are the only critical non-H tasks left; `tools/gate.py`
+  is the standing gate now.
+- QA: prove H85 end to end (exit-1 gate -> CI exit 1 via PIPESTATUS; a SKIP
+  suite reported as SKIP, never pass).
+- SE: re-scope H53 (strict 66 -> 0) and let H86 land (strict count is green).
+- human: worktree prune + `.gitignore` `.claude/`, the one item no agent can do.
