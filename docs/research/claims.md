@@ -3216,3 +3216,20 @@ applies one policy: PASS, FAIL, or SKIP for a missing vendor input.
 | C-4087 | `.github/workflows/ci.yml` replaces the three gate steps with one `tools/gate.py` step that writes a `gate`/`result`/`note` table and the SKIP list ("not covered in CI") to the job summary and exits with the runner's code — `rc=${PIPESTATUS[0]}` after the `\| tee` pipe, so a FAILing gate fails the job (a plain `rc=$?` would read `tee`'s 0); the workflow YAML still parses. | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; the step body, `bash -c '… \| tee …; PIPESTATUS[0]'`, and a local run of the same command shape |
 | C-4088 | `--board-clean` runs `todo_check --strict`, which is `FAIL exit 1` (66 strict errors) until H53 closes the board, so the option reports the truth instead of hiding it; `--no-count` runs `claims_check --strict` without `--count-check`. | VERIFIED (tool) | H | EXP-2026-11-16-H85-standing-gate; `python3 tools/gate.py --board-clean --no-count` |
 | C-4089 | The runner is a *standing* gate, not a per-task oracle: it does not run any task's `Done when`, and its docstring says so; the TL keeps the per-task check. | VERIFIED (doc) | H | `tools/gate.py` docstring; EXP-2026-11-16-H85-standing-gate |
+
+## H87 — The `US_BUILD_STARTS` comment is not a placeholder (C-4100–C-4109)
+
+`tools/fn_audit.py`'s comment said M1.22b would replace the list; M1.22b merged.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4100 | Before H87 `grep -c "will replace it" tools/fn_audit.py` prints `1` while the list already contains M1.22b's six US VAs (`grep -c` of the six explicit VAs prints `6` of `12` total entries). | VERIFIED (tool) | H | EXP-2026-11-17-H87-us-build-comment; the two greps and the `US_BUILD_STARTS` length |
+| C-4101 | After H87 the comment names the list's actual contents (M1.28's US side plus M1.22b's six twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count is `0`, `US_BUILD_STARTS` stays `12`, `fn_audit --selftest` is `OK (70 checks, 0 failed)`. | VERIFIED (tool) | H | EXP-2026-11-17-H87-us-build-comment; the Reproduction block |
+| C-4102 | RESERVED (H87). | — | — | — |
+| C-4103 | RESERVED (H87). | — | — | — |
+| C-4104 | RESERVED (H87). | — | — | — |
+| C-4105 | RESERVED (H87). | — | — | — |
+| C-4106 | RESERVED (H87). | — | — | — |
+| C-4107 | RESERVED (H87). | — | — | — |
+| C-4108 | RESERVED (H87). | — | — | — |
+| C-4109 | RESERVED (H87). | — | — | — |
