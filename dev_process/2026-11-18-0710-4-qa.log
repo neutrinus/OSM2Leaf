@@ -1,0 +1,107 @@
+role: qa (test engineer), cycle 14 delta pass (16th QA pass)
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong aggregate)
+start_utc: 2026-11-18 07:10, end_utc: 2026-11-18 07:55
+origin_main_start: 9458743 (PO cycle-14 log; SE 7b14f71, PO a0c3a72/d4cd144)
+
+inputs read:
+- prompt_common.txt, prompt_qa.txt, AGENTS.md, TODO rules 1-17 + Priorities/ID allocation
+- docs/retro/2026-11-18.md (action 3 = H40 is mine; action 5 of 2026-11-17-3 = delta only)
+- dev_process/2026-11-17-1851-53-qa.log (previous QA pass) and 2026-11-17-1207-46-qa.log
+  (the HQ97 loop-cause comparison); SM/SE/PO logs of 2026-11-18 by name
+- .github/workflows/{ci.yml,l1l2-fixtures.yml,README.md}; tools/{l1l2_fixtures,gate,l3check,
+  todo_check,realcheck,one_tile_pipeline}.py; docs/research/reader-coverage.md
+
+1. CI runs (checked with `gh run list --json`, not assumed) -- both workflows, 20 main runs:
+- RED since the 1851-53-qa pass: NONE. Every non-success row is `cancelled`, and every one
+  has a green replacement 20-30 s later: f1c6081 (both workflows, runs 44249894636/786),
+  b933dd1 (44249922742), 5390cd0 (44249959665), a0c3a72 (44255868610), d4cd144 (44255958845).
+  The last two are a pathologically fast push train (three QA-adjacent pushes in 60 s);
+  `concurrency: cancel-in-progress` with per-workflow groups did exactly what it is for.
+- GREEN at the tip: 9458743 quality gate 44255997829 (3 legs success) + L1/L2 44255997927.
+- I inspected the three jobs of 44255997829: 0 non-success steps. So there is no
+  hidden red step inside a green job -- if that ever happens `gh run view --json jobs`
+  is the command that shows it (H108, below).
+
+2. L1-L4 delta since the 1851-53-qa pass (new/changed rows only):
+- L1: unchanged. "L1 synthetic" still NOT COVERED (H40); synthetic `one_tile_pipeline`
+  tree still fails cardcheck (M5.33). No CI row changed.
+- L2: unchanged per-file; per-feature still absent (H41). New evidence that H97's
+  verdict ("OK" with two NOT COVERED levels) is what CI prints: l1l2 run 44255997927
+  summary carries `not_covered=2, verdict=OK`.
+- L3: unchanged: `--build-corpus` still `runnable 1/7`, exit 0, RESULT PASS with six
+  blocked targets; no workflow step (H28/H96). B48R058R is not in the corpus.
+- L4: M8 moved but not into a measurable gate: M8.A2 done and the pin is 8.2.10
+  (M8.A10), yet M8.A3 (loader) is open, `grep -lE 'workflow_dispatch|schedule'`
+  on .github/workflows is still 0 (H84), and no run artifact shows the M8.A2 boot
+  numbers. M8.E4 still waits on M8.A3/A6. Delta = "can boot one image by hand",
+  not "an L4 gate".
+- Regression gate: unchanged. gate.py + l1l2 FAIL exit; L3 does not regress visibly
+  (H96), merge policy still unprotected (H98), no L1/L2 baseline (H57).
+
+3. Record repair in place (rule 17, no task):
+- reader-coverage.md "L3 targets and what they actually prove" said targets.json has
+  "six entries"; the file has seven (`probe-zlib-cmf`, `hddinfo_compare`,
+  `cmp_ind_reader`, `tile_reader`, `drstr_parser`, `mapcode_comparator`,
+  `cmp_ind_reader_us2011`) and its own table lists seven. Fixed the sentence.
+
+4. H40 (retro action 3) -- why it is still open and what I added to it:
+- The retro's Done-when ("l1l2-fixtures.yml runs cardcheck on a generated tree and
+  fails on a broken one") is closeable in two ways: make the M5.29/M5.33 synthetic
+  tree cardcheck-coherent, or add a tiny in-process tree that cardcheck accepts.
+  The first is pinned to M5.33 and risks being "fix our writer" in QA clothes, so I
+  split a cardcheck-only primitive (H103) that unblocks H40 regardless, put H103 in
+  H40's Depends and wrote the one shared broken-tree fixture both tasks need.
+- Also wrote H40's missing negative Done-when (a corrupted tree must exit 1) -- today
+  a fixture that passes but cannot fail would close the task.
+
+5. Tasks added (8; grep-checked free, Pair on each; claims from the next free block
+   C-4340, none used elsewhere; rule-17 budget: 0 H -- H103/H108 are the retro's own
+   action 3 and the prompt's own CI check, not new record blocks):
+- H103 tools · pair required · Critical -- cardcheck `--generate-fixture` primitive
+  (C-4340-C-4349). Parent of H40's CI row.
+- H104 docs · pair required -- cardcheck `--baseline/--update-baseline`
+  (C-4350-C-4359); finally makes H57's "committed no-vendor baseline" real for L1.
+- H105 tools · pair required -- the shared deliberately-broken synthetic card tree
+  + a `--generate-fixture --break` negative control (C-4360-C-4369).
+- H106 tools · pair required -- the L3 rung on the B48R058R tile L2 actually writes
+  (C-4370-C-4379); M5.34's tile is not any L3 corpus entry.
+- H107 tools · pair required -- `l3check --build-corpus` prints what --image would
+  add (H96/QA-14 trap: 2 of 7 targets are only BLOCKED for a missing argument)
+  (C-4380-C-4389).
+- H108 chore · pair solo -- the tip-run audit the QA prompt asks for, as a command:
+  every push must match the tip and no non-success step may hide in a green job
+  (C-4390-C-4399).
+- H109 tools · pair solo -- `portable_map_signals.py`: the four rule-17 numbers as
+  one tool that degrades per number (`LOCAL`/`NOT RUN`) instead of three Python
+  one-liners, one of which is a 10-line shell loop in prose (C-4400-C-4409).
+- H110 docs · pair required · Critical -- L4 readiness panel: the M8.A2 boot numbers
+  and the M8.E4 blocker are only in the TODO prose (C-4410-C-4419).
+- Not added (owned already): H40/H41/H42 (L1/L2 fixtures + dashboard), H28/H43/H96
+  (L3 corpus/verdict), H84/H86/H98 (manual job / claims half / branch protection),
+  H57 (baseline -- H104 is its L1 half, not a duplicate), H53, H97, H99.
+
+6. Checks quoted from the runs (this pass, `origin/main` 9458743):
+- `python3 tools/gate.py` -> `4 pass, 0 fail, 0 skip` (selftest 93/0/23, 49 s)
+- `python3 tools/l1l2_fixtures.py` -> `runnable 6P/0F/1S, not_covered=2, verdict=OK`
+- `python3 tools/l3check.py --build-corpus` -> `pass=1 fail=0 skip=0 blocked=6
+  runnable=1/7`, `RESULT: PASS`, rc 0
+- `python3 tools/todo_check.py --strict` -> 63 ERROR / 97 WARN, rc 1 (H53's scope; the
+  block text still says 69 -- stale count, H53 is a HM task and owns neither tools)
+- four rule-17 numbers on this host: readers `located 6 partial 5 unlocated 7`,
+  `l3-running 1`, `P0` (M5.34 report `cardcheck_ok`+`l2check_ok`); the factory-byte
+  one needs 3 tiles (only B48R058R is on this host) so it is not reproducible here.
+
+7. Problems / cost:
+- The m5.34 report keys are `cardcheck_ok`/`l2check_ok`, while the same report nests
+  `counts.cardcheck_rc`, so the P0 one-liner can say P0 while `cardcheck_rc` is 1.
+  Not a defect today (both are true together) but it is exactly H106/H109's surface.
+- "No red on main" was true this window only because every red-looking row was a
+  cancellation; the distinction cost a `gh run list --json` pass per workflow.
+
+handoff:
+- TL: H103 first (it is H40's and the retro's action 3) then H105+H40; H104 is the
+  L1 half of H57; H106/H107 are the two L3 signals the prompt asks for; H110 is the
+  cheapest L4 row. Do not re-open H25/H86.
+- PO: two Critical map rows (H103, H110); H109 belongs in the Priorities command block
+  once it exists (it replaces three one-liners).
+- human: unchanged -- branch protection (H98), qemu-ze0 deps, `.claude/` untracked.

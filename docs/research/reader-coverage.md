@@ -123,7 +123,7 @@ M3.18) carry that requirement.
 
 ## L3 targets and what they actually prove
 
-`tools/l3_harness/targets.json` has six entries. `probe-zlib-cmf` is a runnable
+`tools/l3_harness/targets.json` has seven entries. `probe-zlib-cmf` is a runnable
 pipeline fixture (not a firmware reader verdict); `cmp_ind_reader` is a
 registered `firmware_call` firmware-fragment target with declared sec1
 provenance (M9.11b) and fragment PASS evidence on named POINT010 page/controls
