@@ -378,7 +378,8 @@ the four section-1 level-2 directories each carry a box in the level table
 keeps as `directory["box"]`; `x0`/`x1` are stored with the same `−1024` bias
 as the header `x`). Each box is exactly 4 meshes — e.g. `(76,940)` is
 `y 76..80`, `x 940..944`, i.e. `lon 16.0..20.0`, `lat 50.6667..53.3333` — and
-every one of the 2,048 pair slots in a directory holds a record whose `w0/w1`
+every **filled** pair slot in a directory (2,046 of 2,048 in `(76,940)`;
+2,030–2,047 across the four) holds a record whose `w0/w1`
 is `clarion_bg.parcel_code(2, y0·8 + row, x0·8 + col)`: `(76,940)` slot 0
 pair 0 is `0xa60f/0xd602` and pair 2 (col 1) is `0xa60f/0xd612`, slot 31 pair
 0 is `0xa7ff/0xd602`, so the row/col indices run `0..31`, not `0..7`
