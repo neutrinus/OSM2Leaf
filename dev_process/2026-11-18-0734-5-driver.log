@@ -32,3 +32,19 @@ not exist (rc 2), recorded in the EXP rather than changed.
 handoff: navigator should re-run the four Done-when commands and check the EXP's
 "traceback" correction against the task Goal wording (the task text is the part
 that is wrong, not the script's error path).
+
+round 2 (navigator returned CHANGES, 6 edits):
+1. exit 3 was documented, not implemented: added fault() (check path only),
+   verify_tarball takes a fault code (default 1 so the full build keeps 1,
+   check_version passes 3), missing-tool and missing-configure use fault();
+   two selftest cases (truncated tarball, PATH without patch) -> 69 checks.
+2. TODO Goal/Precheck: "uncaught error / traceback" -> second note + rc 1
+   (the script never raised; the task text was the wrong part).
+3. Done-when: unsatisfiable `--only qemu` -> build.sh --selftest + selftest.py
+   green, with the exit 2 fact recorded (C-4424).
+4. EXP: added "Corrections after navigator review" (this list).
+5. EXP Reproduction: every rc now printed by its own command; re-ran all of
+   1-7 after the exit-3 change (1/4/0/3/1/69/68/2).
+6. EXP header Claims C-4420..C-4429 -> C-4420..C-4424.
+extra: README current-state heading retitled (M8.A1 -> M5.43), 69 checks,
+exit-3 causes; C-4421/C-4422/C-4423 Evidence and numbers updated.
