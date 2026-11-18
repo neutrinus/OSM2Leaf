@@ -1050,6 +1050,53 @@ def selftest() -> int:
         chk(g_sec2["status"] == "FAIL",
             "one-tile gate FAILs when changed_sections is [1, 2] (N1)")
 
+        # M5.44 round 2: the falsifier "a second directory changes" must fire
+        # even when the second directory is at a *different* level.  Build a
+        # tile with a level-1 and a level-2 directory, then change *both* the
+        # level-2 target and the level-1 directory and prove the level-2 splice.
+        # The old proof filtered the slice set to level 2, so it saw only the
+        # target and reported only_parcel True (a false PASS); the fix
+        # attributes both levels and reports only_parcel False.
+        bounds = tilewriter.cell_db_bounds("B48R058R")
+
+        def _two_level_tile(level1_tag=None, level2_tag=None) -> bytes:
+            t = _clarion_tile().read_tile(tilewriter.make_factory("B48R058R"))
+            t.pop("_src", None)
+            t.pop("order", None)
+            sec1 = [s for s in t["sections"] if s["id"] == 1][0]
+            for e in sec1["levels"]:
+                if e["level"] == 2:
+                    e["dirs"] = [tilewriter._opaque_directory(0x2046, 2, yb, xb)]
+            for e, tag in ((1, level1_tag), (2, level2_tag)):
+                if tag is None:
+                    continue
+                d = [dd for ee in sec1["levels"] if ee["level"] == e
+                     for dd in ee["dirs"]][0]
+                d.setdefault("empty_tags", {})[3] = tag
+            for section in t["sections"]:
+                words, _o, _g = _clarion_tile().table_words(section)
+                section["count"] = -(-2 * words // 256)
+            t["header"] = tilewriter.tile_header.author(
+                tilewriter.tile_header.level_groups(t),
+                [(1, [(level, 0, bounds) for level in (6, 5, 4, 3, 2, 1)])],
+                bounds, "11/01/01/01")
+            return _clarion_tile().write_tile(t)
+
+        clean_bytes = _two_level_tile()
+        both_changed = _two_level_tile(level1_tag=0x00001234, level2_tag=0x00005678)
+        proof = prove_tile_change(clean_bytes, both_changed, "B48R058R",
+                                  (yb, xb), level=2)
+        chk(sorted((d["level"], d["y"], d["x"]) for d in proof["changed_directories"])
+            == [(1, yb, xb), (2, yb, xb)],
+            "level-2 target + level-1 change are both attributed across levels")
+        chk(proof["only_parcel_directory_changed"] is False,
+            "level-1 change during a level-2 splice makes only_parcel False (falsifier fires)")
+        g_lv1, _ = one_tile_gate(
+            [{"path": "MAPAL001/B48R058R.DAT", "state": "differs"}],
+            "MAPAL001/B48R058R.DAT", {"DRSTR001.DAT"}, False, proof)
+        chk(g_lv1["status"] == "FAIL",
+            "one-tile gate FAILs on a level-1 change during a level-2 splice")
+
         # B2: a file that exists only in `out` must make the tree gate FAIL.
         tmpl = {"A": b"1", "B": b"2"}
         got = {"A": b"1", "B": b"2", "C": b"3"}
@@ -1153,14 +1200,21 @@ def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
 
     * ``tilewriter.sector_fingerprint`` per section: sections 2 and 4 must be
       identical and section 1 must differ.
-    * a **byte slice** per directory: every section-1 directory at ``level`` is
-      compared as ``tile[off:next_off]`` (header, slot tags, bodies and the
-      declared-size tail), so a changed slot tag is visible even though
+    * a **byte slice** per directory: **every** section-1 directory, at every
+      level, is compared as ``tile[off:next_off]`` (header, slot tags, bodies
+      and the declared-size tail), so a changed slot tag is visible even though
       ``sector_fingerprint`` only keeps ``(kind, y, x, typ, box)`` for a
       directory header (B2 review).
 
+    The slice set spans all section-1 levels on purpose: filtering it to
+    ``level`` let a level-1 directory change coexist with a level-2 splice while
+    ``only_parcel_directory_changed`` stayed true, so the falsifier "a second
+    directory changes" could not fire (M5.44 round 2). ``changed_sections`` also
+    cannot separate the levels (the section-1 fingerprint covers all of them),
+    so the cross-level slice is the only place the level is attributable.
+
     Returns the changed sections/directories and whether the only changed
-    directory is ``parcel``.
+    directory is ``parcel`` at ``level``.
     """
     import tilewriter
     ct = _clarion_tile()
@@ -1195,22 +1249,24 @@ def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
     after_slices = slices(after, len(out_tile))
     changed_dirs = []
     for key in sorted(before_slices, key=lambda k: (k[0], k[1], k[2])):
-        if key[0] != 1 or key[1] != level:
+        if key[0] != 1:
             continue
         if key not in after_slices:
-            changed_dirs.append({"level": level, "y": key[2][0], "x": key[2][1],
+            changed_dirs.append({"level": key[1], "y": key[2][0], "x": key[2][1],
                                  "reason": "directory missing in out"})
             continue
         a0, a1 = before_slices[key]
         b0, b1 = after_slices[key]
         if factory_tile[a0:a1] != out_tile[b0:b1]:
-            changed_dirs.append({"level": level, "y": key[2][0], "x": key[2][1],
+            changed_dirs.append({"level": key[1], "y": key[2][0], "x": key[2][1],
                                  "reason": "byte slice differs",
                                  "factory_range": [a0, a1], "out_range": [b0, b1]})
     for key in sorted(after_slices, key=lambda k: (k[0], k[1], k[2])):
-        if key[0] == 1 and key[1] == level and key not in before_slices:
-            changed_dirs.append({"level": level, "y": key[2][0], "x": key[2][1],
+        if key[0] == 1 and key not in before_slices:
+            changed_dirs.append({"level": key[1], "y": key[2][0], "x": key[2][1],
                                  "reason": "directory added in out"})
+    # Exactly one changed directory, and it is the target -- at **any** level,
+    # so a level-1 change cannot hide behind a level-2 splice (or vice versa).
     only_parcel = ([{k: v for k, v in d.items() if k in ("level", "y", "x")} for d in changed_dirs]
                    == [{"level": level, "y": parcel[0], "x": parcel[1]}])
     size_delta = len(out_tile) - len(factory_tile)
@@ -1225,7 +1281,7 @@ def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
         "changed_directories": changed_dirs,
         "only_parcel_directory_changed": only_parcel,
         "method": "sector_fingerprint for sections; byte slice per section-1 "
-                  "level-%d directory" % level,
+                  "directory (all levels), target level %d" % level,
     }
 
 
