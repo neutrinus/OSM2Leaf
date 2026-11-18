@@ -2906,7 +2906,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the level-2 geometry disagreement is resolved in the tools and `parcel_census --selftest` asserts the level-2 span (red on the old 4× value); a factory-backed level-2 run completes with `cardcheck` PASS, targeted `l2check` `tiles=1` PASS, `changed_sections=[1]`, exactly one level-2 directory changed, and the tile SHA/size in the EXP; a negative control (a node outside the chosen level-2 directory) refuses before any write; `python3 tools/selftest.py --only parcel_census --only tilewriter --only one_tile_pipeline` green.
   - Stop: if the level-2 slot tags do not yield a consistent 8×8-or-32×32 grid, record the tag table and block on the grid question as a format task (M4-level), not on a gate relaxation.
   - Falsifier: a section other than 1 changes, a second directory changes, or the gate PASSes a tile whose level-2 record does not decode back at the grid the census prints.
-  - Claims: none yet
+  - Claims: C-4430–C-4439
+  - Progress (driver, not `done`): grid resolved — a level-2 directory is a 4 × 4-mesh `4° × 8/3°` box filled by a **32 × 32** parcel grid; `parcel_census.directory_bbox` and `tilewriter.parcel_of` fixed, both selftests assert the level-2 span red on the old value; factory-backed `--level 2` run on `(76,940)` PASSes (`changed_sections=[1]`, one level-2 directory, 289,458,162 B / `b4724f37…34fdb0`); negative control refuses a `lon 15.5` node before any write; found that a *dense* level-2 parcel overflows the record word limit (needs the M5.3 class filter). See `EXP-2026-11-18-M5.44-level2`. Navigator review pending.
 
 - [ ] **M5.45 — Tile-writer idempotence and size budget: the same input twice must give the same bytes**
   - Status: open · Owner: — · Critical: no · Pair: required
