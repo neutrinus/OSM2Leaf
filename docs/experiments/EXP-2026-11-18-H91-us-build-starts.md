@@ -1,6 +1,6 @@
 # EXP-2026-11-18-H91: H87's counts were true at `381879b` and moved at merge
 
-- **Status:** running (task still `in progress`; navigator corrections pending)
+- **Status:** done
 - **Date:** 2026-11-18
 - **Sample:** `none (docs-only task)` — the numbers in H87's `Result`, its EXP and
   C-4101/C-4112 against `tools/fn_audit.py` at five revisions.
@@ -116,7 +116,10 @@ H87 EXP's own sample revision `857c9a7` prints the same `12`/`70` as `381879b`.
   plus four pool slots) and settled at `15` when `398db35` removed the four
   pool slots; `15` is what `origin/main` `9beb6a4` ships.
 - **FACT:** the check count moved at `f1c8dbb` (70 → 72, H88's two
-  `--corpus`-missing-image cases), one commit after `381879b` — not at
+  `--corpus`-missing-image cases), the next `tools/fn_audit.py` touch after
+  `381879b` (`git log --oneline --reverse 381879b..f1c8dbb -- tools/fn_audit.py`
+  lists only `f1c8dbb`, which is `git rev-list --count 381879b..f1c8dbb` = `3`
+  commits and `2` non-merge commits later) — not at
   `e199373` (H91's original Goal/Precheck attributed it to M1.22 and read `15`
   at `381879b`; this pass corrected both — see Corrections). Same for H88's
   C-4112: `72` holds from `f1c8dbb` on.
@@ -194,6 +197,12 @@ ones; all are applied here.
 - **Measured, not assumed.** `git merge-base --is-ancestor f1c8dbb e199373`
   exits `0`; `git show 381879b:… | sed -n '/^US_BUILD_STARTS/,/^})/p' |
   grep -c '0x[0-9A-Fa-f]\{8\}'` prints `12`; the same at `398db35` prints `15`.
+
+**Round 2: APPROVED, no blocking items.** The two non-blocking wording fixes
+are applied: the Goal's "two commits later" is now the measured
+`git rev-list --count 381879b..e199373` = `6` (`4` non-merge), and this
+record's "one commit after" is now "the next `tools/fn_audit.py` touch" with
+`git rev-list --count 381879b..f1c8dbb` = `3` (`2` non-merge).
 
 **For H92's owner:** H92's `Precheck` (TODO.md line 977) quotes this task's old
 `stays `12`` line and a measured revision `3d79bcc`; both are stale once H91
