@@ -38,7 +38,7 @@ H87's defect red without a false positive on a legitimate `N at <sha>`.
 | Tool / version | python3 3.15.0 |
 | Repo tool | `tools/claims_check.py` (`--prose-counts`, `--selftest`) |
 | Revision: branch base | `origin/main` `a48bbf9`: ledger `2211` rows, `297` `RESERVED (` lines |
-| Revision: this branch | `HEAD` of `task/h92-count-guard` `eb0e75d`: ledger `2231` rows, `299` `RESERVED (` lines |
+| Revision: this branch | `HEAD` of `task/h92-count-guard` `9af44c6`: ledger `2231` rows, `299` `RESERVED (` lines |
 
 Every ledger number below names which of the two revisions it was measured at;
 the fixture is the same `13 5` at both, and the tip row count is `2231` both
