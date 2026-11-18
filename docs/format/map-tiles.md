@@ -357,19 +357,22 @@ record (not zlib) and is preserved verbatim.
 
 `tools/tilewriter.py:splice_factory` patches a factory tile in place where it
 can and appends where it cannot. For each written directory row it rebuilds the
-slot body and block from the parsed records:
+slot body and block from the parsed records and applies the first matching
+rule, in this order:
 
-- the block is written **in place** at its slot tag when the slot owns the
-  block, the new block fits the old one, and the bytes at that offset are still
-  the old block; the rest of the old span is zeroed;
-- otherwise (block grew, slot unowned, or a shared/aliased block) it is
-  **appended** at the next 256-byte boundary and the slot tag is repointed —
-  the old block is left behind (`container.superseded_bytes` counts it);
-- when the rebuilt block is byte-identical to the block already at the tag the
-  block is left untouched (`container.unchanged`); the slot body is still
-  rewritten because its pair lengths belong to the new records. This is what
-  reports a repeated splice as "no write" instead of rewriting the same blocks
-  in place.
+1. **unchanged** — the rebuilt block is byte-identical to the block already at
+   the slot's tag: the block gets no write, only the slot body is rewritten
+   (`container.unchanged`). This reports a repeated splice as "no write" and is
+   the only branch that leaves a shared block untouched. Before M5.45 a repeat
+   fell through to rule 2 and rewrote the same blocks in place (the size did
+   not grow then either).
+2. **in place** — the slot owns the block, the new block fits the old one, and
+   the bytes at that offset are still the old block: it overwrites the block
+   and zeroes the rest of the old span.
+3. **append** — otherwise (block grew, slot unowned, or a shared/aliased
+   block): the block is written at the next 256-byte boundary, the slot tag is
+   repointed, and the old block is left behind
+   (`container.superseded_bytes` counts it).
 
 The consequence is that tile size is not a function of content alone: a tile
 whose directory has no room left cannot be updated in place, so every splice

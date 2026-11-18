@@ -1,0 +1,63 @@
+role: driver (M5.45 round 2, pair with a navigator)
+model: deepseek-v4.1-flash-free via opencode
+start: 2026-11-18T13:50Z, end: 2026-11-18T14:30Z (approximately)
+origin/main at start: a48bbf9 (unchanged; PR #225 still draft)
+worktree: /home/marek/projekty/OSM2Leaf.task-m5.45-tilewriter-idempotence
+
+Inputs read: navigator round-1 review (8 blocking + N3), the EXP, claims.md
+C-4460-C-4464, docs/format/map-tiles.md splice paragraph.
+
+Actions (each verified against a fresh measurement before editing):
+- Rebuilt the corpus and re-ran the level-1 1/2/3 splice over the *whole*
+  clipped split.jsonl (907,969 nodes / 112,965 ways): sizes 293,990,518 each,
+  sha256 b746427c..., appended 32 -> 0 -> 0, unchanged 0 -> 32 -> 32. This is
+  the input that produced the headline, so the even-id subset block was
+  dropped from Method/Inputs/Reproduction.
+- Measured the level-2 matrix: (76,940), (72,940), (76,936) rc=0; (72,936)
+  rc=1. Span census: exactly one level-2 directory ((72,936), off 5120) has
+  slot tags inside level-1 parsed spans. Rewrote C-4463 and EXP section 5 to
+  that scope.
+- Re-measured the block region: factory appended start 289,319,168, dir end
+  161,619,084, min block_off 161,619,200 (factory) / 289,319,168 (A1).
+  Replaced the unsupported "len-130,430,582" sentence (C-4462, EXP section 3).
+- Re-measured the duplicate keys: section 1 7,763 keys at both levels, 0 equal
+  (4,089 in section 2); zero keys shared by two distinct directories. Kept the
+  number, added the exact query to Method, corrected the explanation.
+- Reverted the M5.44 claims header to C-4450-C-4459.
+- Built the append-always mutant in scratch/toolsmut (unchanged + in-place
+  disabled): M1 293,990,518 -> M2 298,662,006 (+4,671,488 B),
+  superseded_bytes 4,667,408; both selftests RED (tilewriter 69/73, pipeline
+  3 failures). Replaced the old KeyError control with this, in EXP section 6
+  and C-4464.
+- Added ## Follow-ups, filled ## Corrections after navigator review (1-7),
+  reordered map-tiles.md rules to the code precedence unchanged -> in place ->
+  append, kept the honest note that the old repeat path was already in_place.
+- Rewrote the Method block to run from the repo root with $W absolute, added
+  the missing fixture files (l2-*.osm, v1/v2.osm via heredoc) and the two
+  census queries, then smoke-ran the whole block end to end in
+  scratch/m5.45check: every quoted number reproduced (A1..A3 b746427c...,
+  M2-M1 4671488, matrix 76,940/72,940/76,936 rc=0, 72,936 rc=1).
+
+Decisions:
+- Kept the refusal reason (parsed spans, not the physical tag) since the
+  measured tag write is 4 bytes; the claim says "parsed spans are what cover
+  it" and scopes it to (72,936).
+- Kept M5.45 claims in C-4460-C-4469 and did not touch M5.44's rows, only
+  restored its header reservation text.
+- The "Level-aware records_by_position" task is written as a Follow-up note
+  only; taking a new ID is the TL's call, so no new TODO block was added.
+
+Checks: tilewriter --selftest 73/73, one_tile_pipeline --selftest OK,
+claims_check --strict --count-check OK (0 mismatches), todo_check OK,
+gate.py 4 pass 0 fail 0 skip.
+
+Problems: my first round-2 mutation of the Method block rewrote bare tokens
+into $W/... and broke one embedded python loop; caught and fixed by
+smoke-running the block, which is now the rule for any EXP edit that claims
+runnability. The (72,936) refusal key varies with which parcel the test way
+falls in (76,939,31,0 vs 72,942,31,2) — recorded as input-dependent, not
+run-dependent.
+
+Handoff: navigator should confirm the 8 items against the new EXP sections and
+C-4462/C-4463, and decide whether the Follow-up gets its own task ID. PR #225
+stays draft; task stays in progress.
