@@ -353,6 +353,49 @@ where `x` is stored as `x0 − 1024`. Rows are at `y = 1.5 × lat` and columns a
 `(compressed words, plain words)` pair per record slot. Level 6 is one raw
 record (not zlib) and is preserved verbatim.
 
+### Level-2 directory grid (M5.44)
+
+Level 1 and level 2 share one directory *identity*: a level-2 directory's
+header `(y, x)` is exactly a level-1 directory's, and `--parcel Y,X` names the
+same mesh pair at both levels. What differs is the **directory span** and the
+**parcel grid inside it**:
+
+| Level | Directory span | Parcel grid | Parcel size | Pairs per row | Slot body | Header `x` field |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1 × 1 mesh (1° × 2/3°) | 32 × 32 | 1/32° × (2/3)/32° | 32 (64 pair slots) | 512 B | `x0 − 1024` |
+| 2 | 4 × 4 meshes (4° × 8/3°) | **32 × 32** | 1/8° × (2/3)/8° | 32 (64 pair slots) | 512 B | `x0 − 1024` |
+
+At level 2 the directory's 4 × 4-mesh box is filled by the **same 32 × 32**
+parcel grid, so a level-2 parcel is four times wider and four times taller than
+a level-1 parcel (1/8° × 1/12° ≈ 8.4 km × 7.4 km at 51 °N). This is *not* a
+4-mesh × 4-mesh parcel grid: `clarion_bg.LEVELS[2]` has `rows = cols = 32`, and
+the 32 row blocks × 32 columns are 1,024 parcels, each written as a road
+record in even pair `2·col` and a background partner in odd pair `2·col + 1`.
+
+The factory tile confirms both halves directly. In `MAPAL001/B48R058R.DAT`
+the four section-1 level-2 directories each carry a box in the level table
+(the `y1, y0, x0, x1` six-word directory group that `clarion_tile.read_tile`
+keeps as `directory["box"]`; `x0`/`x1` are stored with the same `−1024` bias
+as the header `x`). Each box is exactly 4 meshes — e.g. `(76,940)` is
+`y 76..80`, `x 940..944`, i.e. `lon 16.0..20.0`, `lat 50.6667..53.3333` — and
+every one of the 2,048 pair slots in a directory holds a record whose `w0/w1`
+is `clarion_bg.parcel_code(2, y0·8 + row, x0·8 + col)`: `(76,940)` slot 0
+pair 0 is `0xa60f/0xd602` and pair 2 (col 1) is `0xa60f/0xd612`, slot 31 pair
+0 is `0xa7ff/0xd602`, so the row/col indices run `0..31`, not `0..7`
+(`EXP-2026-11-18-M5.44-level2`). The box the level table declares is therefore
+the union of a 32 × 32 parcel grid of 1/8° × (2/3)/8° parcels, which is the
+same grid `clarion_bg.parcel_geo` `(level 2, row, col)` walks:
+`parcel_geo(2, 76, 940, 0, 0)` is `16.0, 50.66667` and parcel `(31,31)` ends at
+`20.0, 53.3333`.
+
+Consequently `tilewriter.parcel_of` must use `LEVELS[level]["cols"/"rows"]`
+(32 at both levels) to clamp `col`/`row`, not `cols // DIR_MESHES[level]` (which
+gives 8 at level 2 and would press every point east of `17°` into column 7). The
+directory *placement* still uses `DIR_MESHES[level]` (1 at level 1, 4 at level
+2) to snap `(y0, x0)` to the directory origin. `parcel_census.directory_bbox`
+likewise takes the union of the full `LEVELS[level]` grid; its old
+`rows // DIR_MESHES[level]` gave an 8 × 8 grid and a 1/4-size box (M5.44).
+
 ### What the three levels contain
 
 | Level | Records | Road-shape records | Background records | Road shapes | Background shapes | Points (road / background) |
