@@ -61,3 +61,25 @@ non-blocking: PROSE_SHELL_CHARS removed (logic in _shell_operators, docstring
 True); stays-via-selftest documented; first-token-only noted in the EXP.
 also fixed: an old H78 selftest bug (builtins.get("exp_record") -> None)
 surfaced by the new cases; exp_record is saved from the module now.
+
+round 3 (navigator: all 9 code items verified fixed; 6 record defects + verdict):
+1. C-4155: parse_tasks prints 229 at HEAD (228 at 102fb69; H111 is the 229th) —
+   C-4155, the EXP Precheck block and the TODO H92 Precheck fixed.
+2. C-4155/EXP/TODO: the "stays `12`" count is 1 (C-4150's own quotation), not
+   0; all three now say 1 and name C-4150.
+3. H111 Precheck census updated to the command's output; wording "two
+   measurable `prints` shapes (C-3740 measured, C-4156 unmeasured)". H92's
+   Result line was removed by item 7 instead of fixed.
+4. The 2231/2233 row-count claim is re-measured after the renumber and reads
+   the tip value (C-4157; 2233 only while one round of edits was live).
+5. EXP positive controls no longer pair `$ echo $?` with a pipe; they write the
+   tool output to /tmp/opencode/h92*.txt and read `$?` directly (prints 1).
+6. H92 Claims is back to its own block C-4150-C-4159 (C-4160-4169 is M1.32 on
+   main; C-4460-4469 is M5.45; C-4500-4579 is the TL's tl-15 branch). The two
+   new rows are C-4156/C-4157, previously RESERVED and unused everywhere.
+7. VERDICT: H92 Status: blocked, [ ] unticked, Blocker + Unblock: H111, no
+   Result line; EXP Status: blocked. The controls stay recorded.
+8. H111 Claims: C-4460-C-4469 -> C-4580-C-4589 (next free; 4480-4579 is the TL
+   branch's allocation, 4460/4470 are M5.45 and that branch).
+Also: an H92 id-range past its block tripped todo_check (overlapping
+C-4150-4161 vs M1.32 C-4160-4169); renumbering cleared it, 229 tasks 0 errors.
