@@ -1310,7 +1310,7 @@ of the four numbers above says so in its first line.
   - Hints: gate `--prose-counts` must run on the full history (H90's shallow skip is already in `main()`), and a C-927-style unmeasurable row must not fail the gate — the mode skips it by design; say so in the docstring. If the rows stay unmeasured, the honest gate is `--prose-counts` plus a printed census, not a silent pass.
   - Done when: `tools/gate.py` runs `claims_check --prose-counts`; `gate.py --selftest` proves a seeded stale `prints N` row gives `FAIL exit 1` and a clean ledger `PASS`; the real `python3 tools/gate.py` prints `gate: 4 pass, 0 fail, 0 skip`; the C-927/C-1023 rows are either measured or listed in the gate output as skipped.
   - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
-  - Claims: C-4580–C-4589
+  - Claims: C-4490–C-4499
 
 ## M2 — Map code, activation, updater
 
