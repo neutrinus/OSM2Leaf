@@ -2880,7 +2880,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: none yet
 
 - [ ] **M5.43 — `build.sh --check-version` reports a verdict, not a traceback**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.43-check-version-verdict · Critical: no · Pair: required
   - Depends: M8.A10 (done — the probe and its `QEMU_PINS` table)
   - Goal: the probe's purpose is a per-patch verdict for a release that may not have a pin; a FAILED patch is its normal answer. Today the 11.1.3 probe prints the correct table and then exits through an uncaught error (rc 1 with a traceback), so a caller (M8.A9, a future bump) cannot tell "probe says 3/2" from "the probe broke", and any wrapper that treats rc 1 as a crash will read the answer as a tool failure.
   - Precheck: `bash tools/qemu-ze0/build.sh --check-version 11.1.3` prints `3 applied, 2 failed, 1 unpinned-tarball` and then ends with an exception; `bash tools/qemu-ze0/build.sh --selftest` is 56/56.
