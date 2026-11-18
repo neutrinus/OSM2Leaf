@@ -83,7 +83,9 @@ FOOTER_RE = re.compile(r"(\d+)\s+checks?\b", re.IGNORECASE)
 # the quoted command is the text before ``prints`` and must be allowlisted.
 PROSE_PRINT_RE = re.compile(r"`([^`]+)`\s*(?:,\s*)?prints?\s+`?(\d[\d,]*)", re.I)
 # ``stays N`` — a claim asserting a count that another merge can move (H87).
-PROSE_STAYS_RE = re.compile(r"\bstays\s+`?(\d[\d,]*)`?", re.I)
+# The lookahead rejects a hex literal: C-4171's ``stays `0xfdb6` `` is an
+# offset, not a count, and must not be read as `0`.
+PROSE_STAYS_RE = re.compile(r"\bstays\s+`?(\d[\d,]*)`?(?![\dx])", re.I)
 # The exact selftest footer a reader re-runs: ``OK (N checks``.
 PROSE_OK_RE = re.compile(r"OK\s*\((\d+)\s*checks?", re.I)
 # A command shape that is safe to re-run: a file count or a python one-liner.
@@ -91,11 +93,6 @@ PROSE_ALLOW = (
     ("grep -c", re.compile(r"\bgrep\s+-c")),
     ("python3 -c", re.compile(r"\bpython3?\s+-c\b")),
 )
-# A shell pipeline, redirection or substitution is not re-run: the text is
-# ledger prose, and a gate that executes it through a shell would run whatever
-# a row contains. A `;` inside quoted Python (C-3740's one-liner) is not a
-# shell operator. Rejected, never guessed (listed in the H92 EXP).
-PROSE_SHELL_CHARS = ("|", "&", ";", "<", ">", "`", "\n")
 # ``archive/…`` inputs in such a command are a vendor-pin (rule 11): a two-way
 # probe of some other task's image is not this rule's price.
 PROSE_VENDOR_RE = re.compile(r"\barchive/")
@@ -514,12 +511,13 @@ def count_problems(rows, runner=_run_selftest):
 
 
 def _shell_operators(cmd):
-    """Shell metacharacters that appear outside a quoted span, or None.
+    """True when an unquoted shell metacharacter appears in *cmd*.
 
     ``shlex`` with ``punctuation_chars`` marks an unquoted ``|``/``;``/``>``
     as a one-character token; anything inside quotes stays part of a word, so
     C-3740's ``python3 -c "…;…"`` is not a pipeline and a ledger row cannot
-    smuggle a second command through the gate.
+    smuggle a second command through the gate. A pipeline, redirection or
+    substitution is never re-run: the text is ledger prose.
     """
     lex = shlex.shlex(cmd, posix=True, punctuation_chars="|&;<>()`")
     lex.whitespace_split = True
@@ -563,10 +561,14 @@ def prose_count_problems(rows, runner=None, cmd_runner=None):
     Three shapes, each re-run only when the shape owns a command:
 
     * ``<backticked command> prints N`` — re-runs an allowlisted ``grep -c`` or
-      ``python3 -c`` and compares N with what it prints now;
-    * ``stays N`` in the claim text — fails only when the cell also names a
-      ``tools/X.py --selftest`` and its footer prints a different N (H87's
-      ``US_BUILD_STARTS`` was a Python list, so the footer is its measurement);
+      ``python3 -c`` at the row's measurement revision (``git archive``) and
+      compares N with what it prints there;
+    * ``stays N`` in the claim text — fails only when the cell quotes such a
+      command, or names a ``tools/X.py --selftest`` whose footer prints a
+      different N. A footer may stand in for a list a tool builds (H87's
+      ``US_BUILD_STARTS`` was a Python list whose length the tool's own
+      selftest pinned), which is why the branch is documented rather than
+      restricted to ``grep -c``;
     * ``OK (N checks`` in the cell — re-runs that cell's sole
       ``tools/X.py --selftest``.
 
@@ -593,7 +595,12 @@ def prose_count_problems(rows, runner=None, cmd_runner=None):
                 cache[key] = runner(tool, rev)
             return cache[key]
 
-        # (1) a quoted command that prints N.
+        def run_cmd(cmd):
+            if cmd_runner is _run_prose_command:
+                return cmd_runner(cmd, rev)
+            return cmd_runner(cmd)
+
+        # (1) a quoted command that prints N, measured at the row's revision.
         for m in PROSE_PRINT_RE.finditer(ev):
             cmd, quoted = m.group(1), _prose_value(m.group(2))
             shape = _prose_allowed(cmd)
@@ -601,16 +608,18 @@ def prose_count_problems(rows, runner=None, cmd_runner=None):
                 continue
             if rev is None:
                 continue
-            got = cmd_runner(cmd)
+            got = run_cmd(cmd)
             if got is None or got == quoted:
                 continue
             problems.append({"id": cid, "shape": "prints", "claimed": quoted,
                              "got": got, "rev": rev, "cmd": cmd})
 
         # (2) `stays N`, the H87 defect. Two mechanical measurements: an
-        # allowlisted `grep -c` the cell already quotes (the list that grew),
+        # allowlisted command the cell already quotes (the list that grew),
         # or the cell's own selftest footer when the list lives in a tool.
         # A bare `stays N` with neither is not measurable and stays untouched.
+        # The command runs at `rev`, so a historical `stays` row is not
+        # measured against HEAD.
         for m in PROSE_STAYS_RE.finditer(text):
             quoted = _prose_value(m.group(1))
             if rev is None:
@@ -619,7 +628,7 @@ def prose_count_problems(rows, runner=None, cmd_runner=None):
             how = None
             for span in spans:
                 if _prose_allowed(span) is not None:
-                    got = cmd_runner(span)
+                    got = run_cmd(span)
                     if got is not None:
                         how = ("command", span)
                         break
@@ -648,40 +657,86 @@ def prose_count_problems(rows, runner=None, cmd_runner=None):
     return problems
 
 
-def _run_prose_command(cmd):
+def _run_prose_command(cmd, rev=None):
     """Run one allowlisted command shape; return its first integer or None.
 
     Only a shell-free ``grep -c`` and ``python3 -c`` are re-run
     (``_prose_allowed`` has already filtered pipelines, redirections, vendor
     inputs and everything else). ``grep -c`` is parsed with ``shlex`` and run
     as an argv list, never through a shell: the command text is ledger prose.
+
+    ``rev`` measures a row pinned to a commit, the way ``_run_selftest`` does:
+    the ``tools/`` and ``docs/`` trees at that commit are extracted with ``git
+    archive`` (a git-ignored fixture or image is not in the archive, so the
+    command is skipped rather than measured against the working tree). Without
+    ``rev`` the working tree is measured. A failed command (a missing path,
+    ``grep``'s exit 2) returns ``None`` — the number it would have printed is
+    not known, so ``0`` is never invented.
     """
     if PROSE_VENDOR_RE.search(cmd) or _shell_operators(cmd):
         return None
-    try:
-        if re.search(r"\bgrep\s+-c", cmd):
-            argv = shlex.split(cmd)
-            proc = subprocess.run(argv, cwd=str(REPO_ROOT),
-                                  capture_output=True, text=True, timeout=60)
-            first = (proc.stdout or "").split()
-            if not first:
-                return 0
-            return int(first[0].replace(",", ""))
-        if re.search(r"\bpython3?\s+-c\b", cmd):
-            argv = shlex.split(cmd)
-            if "-c" not in argv or argv.index("-c") + 1 >= len(argv):
+    with tempfile.TemporaryDirectory(prefix="claims-prose-") as td:
+        root = REPO_ROOT
+        if rev:
+            arc = _git_bytes(["archive", rev, "tools", "docs", "TODO.md",
+                              ".gitignore"])
+            if arc.returncode != 0:
                 return None
-            code = argv[argv.index("-c") + 1]
-            proc = subprocess.run([sys.executable, "-c", code],
-                                  cwd=str(REPO_ROOT), capture_output=True,
-                                  text=True, timeout=60)
-            first = (proc.stdout or "").split()
-            if not first:
+            tar = subprocess.run(["tar", "-x", "-C", td], input=arc.stdout,
+                                 capture_output=True)
+            if tar.returncode != 0:
                 return None
-            return int(first[0].replace(",", ""))
-    except (subprocess.TimeoutExpired, OSError, ValueError):
-        return None
+            root = Path(td)
+        try:
+            if re.search(r"\bgrep\s+-c", cmd):
+                argv = shlex.split(cmd)
+                proc = subprocess.run(argv, cwd=str(root),
+                                      capture_output=True, text=True,
+                                      timeout=60)
+                if proc.returncode not in (0, 1):
+                    return None
+                first = (proc.stdout or "").split()
+                return int(first[0].replace(",", "")) if first else 0
+            if re.search(r"\bpython3?\s+-c\b", cmd):
+                argv = shlex.split(cmd)
+                if "-c" not in argv or argv.index("-c") + 1 >= len(argv):
+                    return None
+                code = argv[argv.index("-c") + 1]
+                proc = subprocess.run([sys.executable, "-c", code],
+                                      cwd=str(root), capture_output=True,
+                                      text=True, timeout=60)
+                if proc.returncode != 0:
+                    return None
+                first = (proc.stdout or "").split()
+                if not first:
+                    return None
+                return int(first[0].replace(",", ""))
+        except (subprocess.TimeoutExpired, OSError, ValueError):
+            return None
     return None
+
+
+def census(rows):
+    """The shape counts behind ``--prose-counts``, for quoting in an EXP.
+
+    A shipped command, so a record never has to paste a one-off script: counts
+    the row set and lists the IDs of each of the three shapes.
+    """
+    return {
+        "rows": len(rows),
+        "prints": [cid for cid, line in rows
+                   if PROSE_PRINT_RE.search(evidence_cell(line))],
+        "stays": [cid for cid, line in rows
+                  if PROSE_STAYS_RE.search(claim_text(line))],
+        "footer": [cid for cid, line in rows
+                   if PROSE_OK_RE.search(evidence_cell(line))],
+    }
+
+
+def _print_census(rows):
+    c = census(rows)
+    print("census: rows %d prints %s stays %s footer %s"
+          % (c["rows"], c["prints"], c["stays"], c["footer"]))
 
 
 def exp_count_problems(rows, exp_files):
@@ -881,6 +936,7 @@ def main(argv=None):
                     print("  STALE COUNT %s: claims %d, %s footer prints %d (%s)"
                           % (c["id"], c["claimed"], c["tool"], c["got"],
                              c["rev"]))
+            _print_census(parse_claim_rows(claims_text))
         else:
             print("prose count check: off (--prose-counts)")
         print("claims_check: OK" if not failed else "claims_check: FAILED")
@@ -1077,11 +1133,10 @@ def run_selftest():
                         else "docs/experiments/x.md\n")
         return _Out("")
 
-    import builtins
+    app = sys.modules[__name__]
     fake_path = REPO_ROOT / "docs" / "experiments" / "x.md"
-    real_exp_record = builtins.__dict__.get("exp_record")
+    real_exp_record = app.exp_record
     try:
-        app = sys.modules[__name__]
         app.exp_record = lambda name: fake_path
         assert _exp_revision("x", git=_fake_git) == "aaa"
         # a record whose history never moved a tool has no measurement revision
@@ -1259,15 +1314,41 @@ def run_selftest():
     prose_count_problems.__globals__["_pinned_revision"] = lambda ev, name: "334f092"
     try:
         r30 = check(stays_row, {"EXP-2026-11-16-H74-fixture.md": "x"},
-                    run_prose=True,
-                    prose_runner=_stub_runner({("tools/stub.py", "334f092"): (15, 0)}))
+                    run_prose=True, prose_cmd_runner=lambda cmd: 15)
         assert [p["shape"] for p in r30["bad_prose_counts"]] == ["stays"]
     finally:
         prose_count_problems.__globals__["_pinned_revision"] = saved_pin
 
-    print("claims_check selftest: OK (39 checks)")
-    return 0
+    # (p) a failed command is not a zero: `grep -c` over a missing path exits
+    # 2 with empty stdout and must be skipped, not reported as "prints 0".
+    assert _run_prose_command("grep -c x tools/h92-no-such-file.txt") is None
+    assert _run_prose_command("python3 -c 'raise SystemExit(2)'") is None
 
+    # (q) a hex literal is not a count: C-4171's `stays `0xfdb6`` is an
+    # offset, so it produces no `stays` shape (it would otherwise read as 0).
+    assert PROSE_STAYS_RE.findall("`n=500` stays `0xfdb6` in all four pairs") == []
+    assert PROSE_STAYS_RE.findall("the list stays `12`") == ["12"]
+
+    # (r) a `prints N` row pinned to a commit is measured at that commit, not
+    # at the working tree: on `a48bbf9` the ledger had 297 `RESERVED (` rows,
+    # so a row claiming 297 there is clean and one claiming 301 (the tip) is
+    # STALE with `got: 297` — the "working tree differs from rev" control.
+    if _run_prose_command("grep -c 'RESERVED (' docs/research/claims.md",
+                          "a48bbf9") is not None:
+        rev_row = ("| C-9107 | The ledger has N reserved rows. | VERIFIED (tool) | H | "
+                   "EXP-2026-11-16-H74-fixture; at `a48bbf9`; "
+                   "`grep -c 'RESERVED (' docs/research/claims.md` prints `N`"
+                   " |\n")
+        good = rev_row.replace("prints `N`", "prints `297`")
+        r33 = prose_count_problems(parse_claim_rows(good))
+        assert r33 == [], r33
+        moved = rev_row.replace("prints `N`", "prints `301`")
+        r34 = prose_count_problems(parse_claim_rows(moved))
+        assert [p["claimed"] for p in r34] == [301], r34
+        assert r34[0]["got"] == 297 and r34[0]["rev"] == "a48bbf9"
+
+    print("claims_check selftest: OK (43 checks)")
+    return 0
 
 if __name__ == "__main__":
     raise SystemExit(main())
