@@ -1,0 +1,42 @@
+role: driver (H92), model deepseek-v4.1-flash-free
+start: 2026-11-18 12:40 UTC, end: 2026-11-18 13:40 UTC
+origin/main at start: a48bbf9 (rebased onto 8178993 mid-task)
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17, the H92 and
+H91 blocks, EXP-2026-11-18-H91-us-build-starts, EXP-2026-11-17-H90, the H78
+and H87 blocks, tools/claims_check.py, tools/gate.py, docs/experiments/TEMPLATE.md,
+docs/research/claims.md H91 section, dev_process/2026-11-18-0734-5-driver.log.
+
+actions, in order:
+1. claim commit c827a76 (todo: start H92), pushed, draft PR #228.
+2. re-pointed Precheck (H91 merged, its "stays 12" line is 0): C-3894's
+   "176" vs the tree's 228, plus C-3740's measurable "13 5" and the pre-H91
+   c6e5df3^ witness. EXP-2026-11-18-H92-precheck-repoint (C-4155).
+3. implemented `--prose-counts` in tools/claims_check.py: three shapes
+   (prints N, stays N, OK (N checks), one allowlist (grep -c, python3 -c),
+   H78's measurement revision, shallow skip; off by default, not in gate.py.
+4. selftest 28 -> 37 checks: seeded stale prints (red), stays over grep -c
+   (red), footer (red), correct N at <sha> (green), revision-less (skipped),
+   default-off.
+5. real-ledger control: C-3740 seeded 13->12 gives STALE COUNT exit 1; the
+   real ledger is stale prose counts: 0.
+6. C-4150..C-4155 + EXP-2026-11-18-H92-count-guard; TODO Result line.
+
+decisions:
+- stopped at Stop: 1 measurable real shape + 3 unmeasurable stays rows, so
+  the mode stays off by default and gate.py is untouched (minimal diff).
+- did not parse Result/Observations prose (rejected shapes listed in the EXP).
+- did not fix C-3894 (a record defect; Scope is the tool) — follow-up named.
+- used a second EXP for the re-point (the instructions name the guard EXP),
+  rather than a third file.
+
+problems: a `cp` restore reverted claims.md to the file rather than HEAD in
+one control run; re-ran with `git checkout --`. Real-ledger `--prose-counts`
+is 22 s (it re-runs every allowlisted cell), acceptable for an opt-in flag.
+
+checks: `--selftest` 37/37, `--strict --count-check` OK, `--prose-counts`
+0 stale, `selftest.py` 93/0/23, `gate` 4 pass, `todo_check` OK.
+
+handoff: navigator should run the Done-when (stays 12 -> STALE, 15 clean,
+N at <sha> clean, gate green), check C-4150's revision pin wording and whether
+two EXPs are acceptable; TODO stays in progress, PR draft, no merge.
