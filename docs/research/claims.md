@@ -3245,7 +3245,7 @@ applies one policy: PASS, FAIL, or SKIP for a missing vendor input.
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
 | C-4100 | Before H87 `grep -c "will replace it" tools/fn_audit.py` prints `1` while the list already contains M1.22b's six US VAs (`grep -c` of the six explicit VAs prints `6` of `12` total entries). | VERIFIED (tool) | H | EXP-2026-11-17-H87-us-build-comment; the two greps and the `US_BUILD_STARTS` length |
-| C-4101 | After H87 the comment names the list's actual contents (M1.28's US side plus M1.22b's six twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count is `0`, `US_BUILD_STARTS` stays `12`, `fn_audit --selftest` is `OK (70 checks, 0 failed)`. | VERIFIED (tool) | H | EXP-2026-11-17-H87-us-build-comment; the Reproduction block |
+| C-4101 | After H87 the comment names the list's actual contents (M1.28's US side plus M1.22b's six twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count is `0` and `US_BUILD_STARTS` is `12` **at `381879b`** (`git show 381879b:tools/fn_audit.py \| sed -n '/^US_BUILD_STARTS/,/^})/p' \| grep -c '0x[0-9A-Fa-f]\{8\}'`), the revision H87 measured — `main` ships `15` (`398db35`), see C-4140; `fn_audit --selftest` there is `OK (70 checks, 0 failed)` (`381879b`), see C-4141. | VERIFIED (tool) | H | EXP-2026-11-17-H87-us-build-comment; the Reproduction block at `381879b`; EXP-2026-11-18-H91 |
 | C-4102 | RESERVED (H87). | — | — | — |
 | C-4103 | RESERVED (H87). | — | — | — |
 | C-4104 | RESERVED (H87). | — | — | — |
@@ -3264,7 +3264,7 @@ was built and died with a `FileNotFoundError`.
 | --- | --- | --- | --- | --- |
 | C-4110 | Before H88, `python3 tools/fn_audit.py archive/absent.img` prints `error: [Errno 2] No such file or directory: 'archive/absent.img'` and exits `2`, while the same command with `--corpus docs/research/fn-audit-corpus-2026-11-16.json` raises `FileNotFoundError` inside `image_sha256` (line 781) and exits `1`. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; the two pre-fix runs |
 | C-4111 | After H88 both paths print the same `error: [Errno 2] No such file or directory: '<path>'` line and return `2`, via one helper (`_image_sha_or_error`) used by the `--corpus` branch before the snapshot comparison. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; the post-fix run |
-| C-4112 | `python3 tools/fn_audit.py --selftest` is `OK (72 checks, 0 failed)` and includes two cases: a missing image under `--corpus` exits `2` with no `Traceback`, and the error names the requested path. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; `--selftest` output |
+| C-4112 | `python3 tools/fn_audit.py --selftest` is `OK (72 checks, 0 failed)` from `f1c8dbb` on (H88's commit added the two cases) and includes them: a missing image under `--corpus` exits `2` with no `Traceback`, and the error names the requested path. It was `OK (70 checks, 0 failed)` at H88's branch base `381879b`; that move is H91's C-4141. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; `--selftest` output; EXP-2026-11-18-H91 |
 | C-4113 | The repair does not widen "missing": a present but corrupt image (4 KiB of random bytes) is a SHA-256 mismatch with exit `2`, and `tools/gate.py --image <corrupt>` reports `fn_audit FAIL` (`gate: 3 pass, 1 fail, 0 skip`), never a SKIP. | VERIFIED (tool, negative control) | H | EXP-2026-11-17-H88-corpus-no-image; the corrupt-image run |
 | C-4114 | `tools/gate.py` is unchanged: with `archive/head256.img` present it is `gate: 4 pass, 0 fail, 0 skip`, and with `--image archive/absent.img` it is `fn_audit SKIP … missing archive/absent.img`, `gate: 3 pass, 0 fail, 1 skip`. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; both gate runs |
 | C-4115 | RESERVED (H88). | — | — | — |
@@ -3319,6 +3319,25 @@ resolve to the tip for every claim and report nine old counts as mismatches.
 | C-4137 | On a full checkout with `archive/head256.img` present, `tools/gate.py` is `4 pass, 0 fail, 0 skip` (selftest, claims_check, todo_check, fn_audit); without the image it is `3 pass, 0 fail, 1 skip — not covered: fn_audit`, because a SKIP is never a pass. The count rule passes in both states. | VERIFIED (tool) | H | EXP-2026-11-17-H90-ci-shallow-count; the two `python3 tools/gate.py` runs |
 | C-4138 | H90 raises `claims_check --selftest` from 25 to 28 checks, so the one claim that quoted the old number (C-4015) is updated to `28 checks` in the same commit; its mutation control and `_run_counts` truth table are unchanged and still pass. | VERIFIED (tool) | H | EXP-2026-11-17-H90-ci-shallow-count; `python3 tools/claims_check.py --selftest` |
 | C-4139 | RESERVED (H90). | — | — | — |
+
+## H91 — H87's counts were true at `381879b` and moved at merge (C-4140–C-4149)
+
+H87's `Result` and C-4101 quoted two counts that later merges changed. The
+repair pins every count to a revision and the command that prints it; the
+tool-side guard is H92.
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4140 | `US_BUILD_STARTS` has `12` entries at `2e0bed9`, `381879b` and `f1c8dbb`, `19` at `e199373`, and `15` at `398db35` and at `main` `9beb6a4`; `git show <rev>:tools/fn_audit.py \| sed -n '/^US_BUILD_STARTS/,/^})/p' \| grep -c '0x[0-9A-Fa-f]\{8\}'` prints those numbers, and `python3 -c "import sys; sys.path.insert(0,'tools'); import fn_audit as fa; print(len(fa.US_BUILD_STARTS))"` prints `15` on `main`. The move is `e199373` (three POINT-walker starts plus four pool slots) and the four slots' removal at `398db35`. | VERIFIED (tool) | H | EXP-2026-11-18-H91-us-build-starts; the five-revision table |
+| C-4141 | `python3 tools/fn_audit.py --selftest` prints `OK (70 checks, 0 failed)` at `2e0bed9`, `381879b` and `857c9a7`, and `OK (72 checks, 0 failed)` at `f1c8dbb`, `e199373`, `398db35` and `main` `9beb6a4`; the 70→72 move is H88 `f1c8dbb` adding the two `--corpus`-missing-image cases, not M1.22 `e199373` (whole `tools/` tree extracted with `git archive <rev> tools`, then `python3 <dir>/tools/fn_audit.py --selftest`). | VERIFIED (tool) | H | EXP-2026-11-18-H91-us-build-starts; the five-revision table |
+| C-4142 | RESERVED (H91). | — | — | — |
+| C-4143 | RESERVED (H91). | — | — | — |
+| C-4144 | RESERVED (H91). | — | — | — |
+| C-4145 | RESERVED (H91). | — | — | — |
+| C-4146 | RESERVED (H91). | — | — | — |
+| C-4147 | RESERVED (H91). | — | — | — |
+| C-4148 | RESERVED (H91). | — | — | — |
+| C-4149 | RESERVED (H91). | — | — | — |
 
 ## H95 — the target `MAINTENANCE.md` does not exist (C-4210–C-4219) — task **removed** 2026-11-17
 

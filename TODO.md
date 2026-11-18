@@ -929,7 +929,7 @@ of the four numbers above says so in its first line.
   - Hints: say what the list is now (`the EU→US map's US side, which M1.22b extended; a per-module build map is still a follow-up`) and point at the two files that carry the map. Do not delete the list — `fn_audit` uses it to skip US VAs.
   - Done when: the comment names no task as open-to-replace and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `python3 tools/fn_audit.py --selftest` passes; `python3 tools/todo_check.py` passes.
   - Stop: none.
-  - Result: EXP-2026-11-17-H87-us-build-comment; C-4100–C-4101. The comment above `US_BUILD_STARTS` now names the list as it is (the M1.28 fixture's US side + M1.22b's six pool-only twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count `0`, `US_BUILD_STARTS` `12` entries unchanged, `fn_audit --selftest` `OK (70 checks, 0 failed)`.
+  - Result: EXP-2026-11-17-H87-us-build-comment; C-4100–C-4101. The comment above `US_BUILD_STARTS` now names the list as it is (the M1.28 fixture's US side + M1.22b's six pool-only twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count `0`. Both counts are pinned to H87's own revision `381879b`: `US_BUILD_STARTS` `12` entries (`git show 381879b:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x[0-9A-Fa-f]\{8\}'`) and `fn_audit --selftest` `OK (70 checks, 0 failed)` there. `main` `9beb6a4` ships `15` entries and `OK (72 checks, 0 failed)` (`398db35`): `e199373` added the three POINT-walker starts and `f1c8dbb` the two H88 selftest cases — EXP-2026-11-18-H91.
   - Claims: C-4100–C-4109
 
 - [x] **H88 — `fn_audit --corpus` with a missing image prints a traceback instead of the "no image" exit**
@@ -957,17 +957,19 @@ of the four numbers above says so in its first line.
   - Stop: if the sample is all one class with no cheap fix, record it and do not change `fn_match.py`.
   - Claims: C-4120–C-4129
 
-- [ ] **H91 — M1.22's shipped `US_BUILD_STARTS` is 15 entries, but H87's Result and C-4101 say it "stays 12"**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H91 — M1.22's shipped `US_BUILD_STARTS` is 15 entries, but H87's Result and C-4101 say it "stays 12"**
+  - Status: done · Owner: task/h91-us-build-starts-count · Critical: no · Pair: required
   - Depends: — (M1.22 `e199373` and H87 `381879b` are both on `main`)
-  - Goal: H87's `Result` and C-4101 assert `US_BUILD_STARTS` "stays `12`"; the list `main` ships has **15** entries because M1.22 added the three POINT-walker VAs (`0x0041DB44`, `0x0041C370`, `0x0041E63C`) two commits later. The number was true on H87's branch and false at its merge — the exact "number quoted from a command, then moved by another merge" class prompt_common's quote rule exists for. H87's other count, `OK (70 checks, 0 failed)` in C-4101, is stale the same way (`72` now, because M1.22 added the two H88 cases).
-  - Precheck: `git show 381879b:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x[0-9A-Fa-f]\{8\}'` prints `15`; the same at `2e0bed9` prints `12`; `python3 tools/fn_audit.py --selftest | tail -1` prints `OK (72 checks, 0 failed)`.
-  - Scope: docs only — TODO.md H87 `Result`, `docs/experiments/EXP-2026-11-17-H87-us-build-comment.md` (Inputs, Observations, Reproduction), and the C-4101/C-4112 wording. No tool or test change.
+  - Goal: H87's `Result` and C-4101 assert `US_BUILD_STARTS` "stays `12`"; the list `main` ships has **15** entries because M1.22 added the three POINT-walker VAs (`0x0041DB44`, `0x0041C370`, `0x0041E63C`) `git rev-list --count 381879b..e199373` commits later (`6`,
+  `4` non-merge). The number was true on H87's branch and false at its merge — the exact "number quoted from a command, then moved by another merge" class prompt_common's quote rule exists for. H87's other count, `OK (70 checks, 0 failed)` in C-4101, is stale the same way (`72` from `f1c8dbb`, H88's two `--corpus` cases — not M1.22; EXP-2026-11-18-H91).
+  - Precheck: at `398db35` `git show 398db35:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x[0-9A-Fa-f]\{8\}'` prints `15` and at `381879b` the same command prints `12`; `python3 tools/fn_audit.py --selftest | tail -1` prints `OK (72 checks, 0 failed)` (from `f1c8dbb`; `70` at `381879b`).
+  - Scope: docs only — TODO.md H87 `Result`, the whole H87 EXP (`docs/experiments/EXP-2026-11-17-H87-us-build-comment.md`: Inputs, Observations, Reproduction, Method, Interpretation, Conclusion), and the C-4101/C-4112 wording. The task explicitly authorises this edit to an append-only record (the counts it quotes are the defect being fixed); the record keeps its own revision pins. No tool or test change.
   - Input: `git log --oneline -- tools/fn_audit.py` (`2e0bed9`, `381879b`, `e199373`), the H87 EXP, `docs/research/claims.md` C-4101/C-4112.
   - Hints: do not replace `12` with a new bare `15` either — say "12 at `381879b`, 15 at merge because `e199373` added three POINT-walker starts" and pin every count to a revision the same way. C-4101's "70 checks" and H88's "72" are the same defect one task over; fix both in this pass.
   - Done when: no line in H87's block, its EXP or C-4101 says the merged list is `12`, and every quoted count names a revision and a command; `python3 tools/claims_check.py --strict --count-check` OK; `python3 tools/todo_check.py` OK.
   - Stop: if the reviewer prefers a tool-side guard instead, stop and hand that half to H92 rather than inventing a second check here.
-  - Falsifier: `grep -c 'stays `12`' TODO.md docs/research/claims.md` is non-zero after the edit, or a count line has no revision.
+  - Falsifier: after the edit, `{ sed -n '/\*\*H87 —/,/Claims: C-4100/p' TODO.md; cat docs/experiments/EXP-2026-11-17-H87-us-build-comment.md; grep '^| C-4101' docs/research/claims.md; } | grep -c 'stays \`12\`'` prints non-zero, or a quoted count in those surfaces has no revision. (A literal whole-file count stays >=2 by design — H91's Goal and H92's Precheck quote the defect — so it is not the check.)
+  - Result: docs/experiments/EXP-2026-11-18-H91-us-build-starts.md; C-4140–C-4141. H87's `Result`, its EXP and C-4101/C-4112 now pin every count to a revision and a command: `US_BUILD_STARTS` `12` at `381879b` and `15` at `398db35`/`main` `9beb6a4`, `fn_audit --selftest` `OK (70 checks, 0 failed)` at `381879b` and `OK (72 checks, 0 failed)` from `f1c8dbb` (H88's two cases, `git rev-list --count 381879b..f1c8dbb` = `3`, `2` non-merge). Scoped Falsifier grep `0`, `claims_check --strict --count-check` OK, `todo_check` OK. The prose-count guard stays H92.
   - Claims: C-4140–C-4149
 
 - [ ] **H92 — No gate covers the other direction of the count rule: a claim quoting a count the tree no longer prints**
