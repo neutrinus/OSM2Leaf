@@ -40,3 +40,17 @@ handoff: navigator — check the `--batch` default change against M5.12c's
 recipe, `--whole-blob` naming, the EXP's runtime paragraph, and the
 "Corrections after navigator review" heading; then decide on merge + rule 15
 re-open of any task that cites M9.39's heredoc.
+
+round 2 (navigator CHANGES, record-only):
+- renumbered claims C-4460-C-4469 -> C-4480-C-4489 (M5.46 takes C-4470-C-4479)
+  in claims.md header + rows, EXP header, TODO Claims/Result.
+- re-measured the same-length pin with python3.13: d81a912b/914418c5 (was the
+  zlib-ng 7249d8f4/1e711d17). Re-ran the four reproduction SHAs unchanged.
+- corrected the whole-blob message: single file prints `whole-blob (1/149
+  stream(s) differ)` (the --batch form is `(149 stream(s))`); stock 1.3.2
+  re-encodes untouched chunks identically, zlib-ng whole-blob is 5950a042.
+- named the runtime on the a48bbf9 defect readout (zlib-ng) and measured the
+  old code under stock 1.3.2 (lands on ea2d0e0f; defect = all-streams rebuild).
+- rewrote the Corrections section with 5 measured bullets; rewrote the false
+  follow-up bullet (heredoc half closed, grep 0); added the build_ind selftest
+  gap (mutant passes 13/13, real .ind becomes 7ac54e3b).
