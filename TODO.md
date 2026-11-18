@@ -3869,7 +3869,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-4430–C-4439
 
 - [ ] **M9.43 — M9.39's mutant pair is only reproducible from a pasted heredoc; the committed `mutate_refer_poi.py` CLI writes a different, all-149-stream corpus**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m9.43-mutate-cli-chunk-preserving · Critical: no · Pair: required
   - Depends: M9.39 (done — the EXP whose corpus this must reproduce)
   - Goal: SE 2026-11-17 ran the committed CLI as the EXP's `Reproduction` implies (`mutate_refer_poi.py … --page 0x840ba0 --old … --new … --resize`) and it printed `outer .cmp 4240574 -> 4233456 bytes, 149 chunk(s)`, sha `5565c9ba…` — **not** the EXP's pinned `ea2d0e0f…` (4,240,400 B, one differing stream). The chunk-preserving path the EXP's `Method` uses (`cmpind_codec.repack_changed_chunks`) exists only inside a `python3.13 - <<'PY'` heredoc, so rule 16's "commands run as written" fails: a reader cannot regenerate the L3 corpus M9.41 cites as its control.
   - Precheck: `python3 tools/mutate_refer_poi.py /home/marek/projekty/leafre-work/m5.12-us/root-factory/REFER001/POINT010.DAT.cmp …/POINT010.DAT.ind /tmp/cli --page 0x840ba0 --old 'HAWAII ST GOVT FREQNTLY CLLD NMBRS' --new 'HAWAII ST GOVT FREQNTLY CLLD NMBRSXXXX' --resize` prints `149 chunk(s)` and its `.cmp` sha is not `ea2d0e0f…` (the defect); `grep -c "python3.13 - <<'PY'" docs/experiments/EXP-2026-11-17-M9.39-point010-mutant.md` is `2` (two heredoc-only builders).
