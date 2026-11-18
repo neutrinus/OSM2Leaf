@@ -2936,7 +2936,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: none yet
 
 - [ ] **M5.46 — P1 first slice: the profile-to-tile containment census (how many tiles a Dolnośląskie card needs, and which are whole)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m5.46-p1-containment-census · Critical: yes · Pair: required
   - Depends: — (the factory tile list and `mesh_grid.py` are on `main`; no write, no OSM extract)
   - Goal: **M5.38** (open) defines P1 as "all tiles of Dolnośląskie display-only", but `profiles/dolnoslaskie-test.json` pins exactly one tile (`include: ["B48R058R"]`, `max_tiles: 1`) and no block answers how many `MAPAL001` tiles the region's 14.0–17.9 E × 49.9–51.9 N box intersects or contains. Without that census the P0 card cannot be extended to P1 and the scale of the rest of the ladder is a guess. This is the rule-17 first slice: enumerate, no splice.
   - Precheck: `python3 tools/mesh_grid.py list <factory MAPAL001>` prints 45 tiles and `cell B48R058R` prints `48.00.. 53.33 N 12.00.. 20.00 E`; a bbox-intersection over those 45 rows is the census (no vendor bytes are read beyond tile names; `profiles/dolnoslaskie-test.json` is the box).
