@@ -1,0 +1,48 @@
+role: driver (dev), task M9.42
+model: airouter/strong (deepseek-v4.1-flash-free per harness)
+start: 2026-11-18 07:19 UTC, end: 2026-11-18 07:55 UTC
+origin/main at start: 9beb6a4
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17 + M9.42/M9.41
+blocks, EXP-2026-11-17-M9.39-point010-mutant, tools/point_walk_l3.py,
+tools/l3_harness/engine.py, tools/chunk_decoder_l3.py (Blocked shape),
+docs/experiments/TEMPLATE.md.
+
+actions, in order:
+1. Claimed M9.42: TODO line only -> in progress, pushed, draft PR #223.
+2. Reproduced the defect on archive/head256.img with --build us2011 and the
+   factory US POINT010 pair: exit 1, full traceback, grep -c 'result:' = 0.
+3. Verified archive/us256.img + --build us2011 is result: PASS (control the
+   task says must not change).
+4. Regenerated the M9.39 mutant pairs into
+   ~/projekty/leafre-work/scratch/m9.42/ (old /tmp/opencode/m939 gone); the
+   regenerated US/EU .cmp/.ind SHA-256 match the M9.39 EXP line, so the
+   recipe reproduces.
+5. tools/point_walk_l3.py: engine_call() wraps eng.call, UnmappedAccess and
+   IllegalInstruction become BuildMismatch; _verdict() prints exactly one
+   result: line; cmd_walk/cmd_skip catch it and reach _verdict; run_nth /
+   run_skip gain a build arg; selftest gains unmapped-build + _verdict cases.
+6. Ran the 4 build x image pairings for walk and skip: wrong pairings FAIL
+   with one line, matching pairings PASS. Mutant page on its own build PASS
+   (positive witness), on the wrong build FAIL (task Precheck).
+7. One-line M9.41 Falsifier edit: names a wrong-*build* check and labels the
+   M9.39 mutant a positive witness.
+8. Wrote EXP-2026-11-18-M9.42-wrong-build.md (TEMPLATE shape) with the
+   defect baseline, both controls, the pairing tables and the limitations.
+9. Added C-4420-C-4429 (M9.42 block; next free after C-4410-C-4419) and the
+   TODO Claims line; claims_check --strict --count-check OK; selftest green.
+
+decisions:
+- Left `ake in progress`/draft PR as instructed; did not merge, did not mark
+  done, did not delete the branch.
+- Guard covers only UnmappedAccess/IllegalInstruction, not Trap/BLOCKED: the
+  task's Stop hands a post-stub failure to M9.24.
+- Treated the M9.39 mutant as a positive witness (its own build PASSes); the
+  negative control is the build/image mismatch, never a page mismatch.
+
+problems: none blocking. /tmp scratch was gone; regenerated from the recipe
+as the task instructions allow.
+
+handoff: navigator should check the selftest's synthetic unmapped case (text
+at 0x10000, target 0x900000), the pairing tables' PC values, and whether the
+`result:` regex shape is what M9.41 will grep for.

@@ -42,7 +42,9 @@ Method and results: docs/experiments/EXP-2026-11-07-M3.11-point-reader-2.md
 from __future__ import annotations
 
 import argparse
+import io
 import os
+import re
 import struct
 import sys
 import zlib
@@ -53,7 +55,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
 import cerom  # noqa: E402
-from engine import PySh4  # noqa: E402
+from engine import (IllegalInstruction, PySh4, UnmappedAccess)  # noqa: E402
 
 WALK_NTH = 0x003F5194      # EU 2011: record_at(page, n)
 WALK_SKIP = 0x003F39C0     # EU 2011: skip n records from the loaded page (globals)
@@ -175,19 +177,20 @@ def target(name: str) -> dict:
 
 
 def run_nth(text_va: int, text: bytes, page_native: bytes, n: int,
-            tgt: dict | None = None):
+            tgt: dict | None = None, build: str = "eu2011"):
     tgt = tgt or BUILD_TARGETS["eu2011"]
     eng = PySh4(endian="little")
     eng.map("text", text_va, text, "rx")
     eng.map("page", PAGE_VA, bytearray(page_native) + bytearray(0x40), "rw")
     eng.map("stack", STACK_VA, bytearray(0x1000), "rw")
     eng.set_regs(r15=STACK_VA + 0xF00)
-    ret = eng.call(tgt["nth"], [PAGE_VA, n])
+    ret = engine_call(eng, tgt["nth"], [PAGE_VA, n], build)
     return None if ret == 0 else ret - PAGE_VA
 
 
 def run_skip(text_va: int, text: bytes, page_native: bytes, count: int,
-             page_arg: int, n: int, tgt: dict | None = None):
+             page_arg: int, n: int, tgt: dict | None = None,
+             build: str = "eu2011"):
     """Run the build's skip walker(page_arg, n) with the two globals set here."""
     tgt = tgt or BUILD_TARGETS["eu2011"]
     eng = PySh4(endian="little")
@@ -198,8 +201,66 @@ def run_skip(text_va: int, text: bytes, page_native: bytes, count: int,
     eng.write_mem(tgt["global_count"], struct.pack("<I", count))
     eng.write_mem(tgt["global_page"], struct.pack("<I", PAGE_VA))
     eng.set_regs(r15=STACK_VA + 0xF00)
-    ret = eng.call(tgt["skip"], [page_arg, n])
+    ret = engine_call(eng, tgt["skip"], [page_arg, n], build)
     return None if ret == 0 else ret - PAGE_VA
+
+
+class BuildMismatch(Exception):
+    """The engine faulted because the build's text does not fit this image.
+
+    Raised for the *address-space* faults that a wrong build/image pairing
+    produces in ``engine.py``; a verdict, not a crash.  ``fault_va`` is the
+    access address when the engine's message names one, the faulting PC when
+    it does not; ``pc`` is the SH-4 program counter at the fault.
+    """
+
+    def __init__(self, code: str, fault_va: int | None, pc: int | None,
+                 detail: str):
+        super().__init__(detail)
+        self.code = code
+        self.fault_va = fault_va
+        self.pc = pc
+        self.detail = detail
+
+
+_FAULT_VA = re.compile(r"covers (0x[0-9a-f]+)")
+_FAULT_AT = re.compile(r"\bat (0x[0-9a-f]+)")
+
+
+def _fault_va(message: str) -> int | None:
+    match = _FAULT_VA.search(message) or _FAULT_AT.search(message)
+    return int(match.group(1), 16) if match else None
+
+
+def engine_call(eng, va: int, args, build: str):
+    """``eng.call`` with an engine fault turned into :class:`BuildMismatch`.
+
+    A matching build keeps its exact behaviour (the return value passes
+    through).  Only :class:`UnmappedAccess` and :class:`IllegalInstruction`
+    from the engine become a verdict, because those are what a build whose VAs
+    do not belong to this image's text produces; every other engine error
+    still raises.
+    """
+    try:
+        return eng.call(va, args)
+    except (UnmappedAccess, IllegalInstruction) as exc:
+        pc = eng.get_regs()["pc"] if hasattr(eng, "get_regs") else None
+        raise BuildMismatch(exc.code, _fault_va(str(exc)), pc, str(exc)) from exc
+
+
+def _verdict(fails: int, mismatch: BuildMismatch | None, build: str,
+             out=None) -> int:
+    """Print the one machine-readable ``result:`` line and return the exit code."""
+    out = out or sys.stdout
+    if mismatch is not None:
+        where = ("" if mismatch.fault_va is None
+                 else " 0x%08x" % mismatch.fault_va)
+        pc = "" if mismatch.pc is None else " pc=0x%08x" % (mismatch.pc + 0)
+        print("result: FAIL (unmapped%s @ build %s, %s%s)"
+              % (where, build, mismatch.code, pc), file=out)
+        return 1
+    print("result:", "PASS" if not fails else "FAIL (%d)" % fails, file=out)
+    return 0 if not fails else 1
 
 
 # ---------------------------------------------------------------------------
@@ -287,8 +348,14 @@ def cmd_walk(args) -> int:
         {0, 1, 2, 3, 10, count // 2, count - 2, count - 1, count})
     native = swap16(raw)
     fails = 0
+    mismatch = None
     for n in ns:
-        fw = run_nth(text_va, text, native, n, tgt)
+        try:
+            fw = run_nth(text_va, text, native, n, tgt,
+                         getattr(args, "build", "eu2011"))
+        except BuildMismatch as exc:
+            mismatch = exc
+            break
         py = recs[n]["offset"] if n < count else None
         md = model_nth(raw, n, escape_len=tgt["escape_len"])
         ok = fw == py == md
@@ -296,15 +363,21 @@ def cmd_walk(args) -> int:
         print("n=%-5d firmware=%-8s parse_page=%-8s model=%-8s %s" % (
             n, fw if fw is None else hex(fw), py if py is None else hex(py),
             md if md is None else hex(md), "OK" if ok else "MISMATCH"))
-    neg = [run_nth(text_va, text, raw, n, tgt) for n in (1, 2)]
-    print("negative control (page not swapped): n=1,2 -> %s, expected %s" % (
-        [hex(x) if x is not None else None for x in neg],
-        [hex(recs[1]["offset"]), hex(recs[2]["offset"])]))
-    if neg == [recs[1]["offset"], recs[2]["offset"]]:
-        print("negative control FAILED: unswapped page walks the same")
-        fails += 1
-    print("result:", "PASS" if not fails else "FAIL (%d)" % fails)
-    return 0 if not fails else 1
+    if mismatch is None:
+        try:
+            neg = [run_nth(text_va, text, raw, n, tgt,
+                           getattr(args, "build", "eu2011")) for n in (1, 2)]
+        except BuildMismatch as exc:
+            mismatch = exc
+            neg = None
+    if mismatch is None:
+        print("negative control (page not swapped): n=1,2 -> %s, expected %s" % (
+            [hex(x) if x is not None else None for x in neg],
+            [hex(recs[1]["offset"]), hex(recs[2]["offset"])]))
+        if neg == [recs[1]["offset"], recs[2]["offset"]]:
+            print("negative control FAILED: unswapped page walks the same")
+            fails += 1
+    return _verdict(fails, mismatch, getattr(args, "build", "eu2011"))
 
 
 def cmd_skip(args) -> int:
@@ -326,38 +399,44 @@ def cmd_skip(args) -> int:
         {0, 1, 2, 3, 10, count // 2, count - 2, count - 1, count})
     native = swap16(raw)
     fails = 0
-    for n in ns:
-        fw = run_skip(text_va, text, native, count, PAGE_VA, n, tgt)
-        py = recs[n]["offset"] if n < count else None
-        md = model_nth(raw, n, escape_len=tgt["escape_len"])
-        ok = fw == py == md
-        fails += not ok
-        print("n=%-5d firmware=%-8s parse_page=%-8s model=%-8s %s" % (
-            n, fw if fw is None else hex(fw), py if py is None else hex(py),
-            md if md is None else hex(md), "OK" if ok else "MISMATCH"))
-    # guard control: a page argument that is not the current page base must
-    # return 0 whatever n is (the 0x3f39c0 prologue compares p with the global)
-    guard = run_skip(text_va, text, native, count, PAGE_VA + 2, 1, tgt)
-    print("guard control (p != current page base): n=1 -> %s, expected None"
-          % (hex(guard) if guard is not None else None))
-    if guard is not None:
-        print("guard control FAILED")
-        fails += 1
-    # count control: the count cell is set to 500 while the page still holds
-    # 1000 records; n = 499 must give record 499, n = 500 (= count) must give 0
-    half = 500
-    last = run_skip(text_va, text, native, half, PAGE_VA, half - 1, tgt)
-    past = run_skip(text_va, text, native, half, PAGE_VA, half, tgt)
-    want = recs[half - 1]["offset"]
-    print("count control (count cell 500): n=499 -> %s, expected %s; "
-          "n=500 -> %s, expected None" % (
-              hex(last) if last is not None else None, hex(want),
-              hex(past) if past is not None else None))
-    if last != want or past is not None:
-        print("count control FAILED")
-        fails += 1
-    print("result:", "PASS" if not fails else "FAIL (%d)" % fails)
-    return 0 if not fails else 1
+    mismatch = None
+    build = getattr(args, "build", "eu2011")
+    try:
+        for n in ns:
+            fw = run_skip(text_va, text, native, count, PAGE_VA, n, tgt, build)
+            py = recs[n]["offset"] if n < count else None
+            md = model_nth(raw, n, escape_len=tgt["escape_len"])
+            ok = fw == py == md
+            fails += not ok
+            print("n=%-5d firmware=%-8s parse_page=%-8s model=%-8s %s" % (
+                n, fw if fw is None else hex(fw), py if py is None else hex(py),
+                md if md is None else hex(md), "OK" if ok else "MISMATCH"))
+        # guard control: a page argument that is not the current page base must
+        # return 0 whatever n is (the 0x3f39c0 prologue compares p with the global)
+        guard = run_skip(text_va, text, native, count, PAGE_VA + 2, 1, tgt,
+                         build)
+        print("guard control (p != current page base): n=1 -> %s, expected None"
+              % (hex(guard) if guard is not None else None))
+        if guard is not None:
+            print("guard control FAILED")
+            fails += 1
+        # count control: the count cell is set to 500 while the page still holds
+        # 1000 records; n = 499 must give record 499, n = 500 (= count) must give 0
+        half = 500
+        last = run_skip(text_va, text, native, half, PAGE_VA, half - 1, tgt,
+                        build)
+        past = run_skip(text_va, text, native, half, PAGE_VA, half, tgt, build)
+        want = recs[half - 1]["offset"]
+        print("count control (count cell 500): n=499 -> %s, expected %s; "
+              "n=500 -> %s, expected None" % (
+                  hex(last) if last is not None else None, hex(want),
+                  hex(past) if past is not None else None))
+        if last != want or past is not None:
+            print("count control FAILED")
+            fails += 1
+    except BuildMismatch as exc:
+        mismatch = exc
+    return _verdict(fails, mismatch, build)
 
 
 # ---------------------------------------------------------------------------
@@ -399,6 +478,33 @@ def selftest() -> int:
     check("swap16 round trip", swap16(swap16(raw)) == raw)
     check("swap16 puts tag in the high byte",
           struct.unpack_from("<H", swap16(raw), 0)[0] == (0x60 << 8) | raw[1])
+
+    # Wrong build against an image whose text does not contain its VAs: the
+    # engine must turn the fault into BuildMismatch, not a traceback.  The
+    # "text" here is one trivial function (`rts; nop`) at 0x10000 and the
+    # build's walker VA points outside it, so the very first fetch is unmapped.
+    text_va = 0x10000
+    tiny = b"\x0b\x00\x09\x00"          # rts; nop (little-endian)
+    tgt = {"nth": 0x900000, "skip": 0x900010, "globals_base": 0x300000,
+           "global_count": 0x300000, "global_page": 0x300004,
+           "escape_len": ESCAPE_LEN}
+    try:
+        run_nth(text_va, tiny, raw, 0, tgt, "us2011")
+        check("unmapped build raises BuildMismatch", False)
+    except BuildMismatch as exc:
+        check("unmapped build raises BuildMismatch", exc.code == "UNMAPPED")
+        check("unmapped build names the fault VA",
+              exc.fault_va == tgt["nth"])
+    sink = io.StringIO()
+    check("_verdict prints FAIL for a mismatch",
+          _verdict(0, BuildMismatch("UNMAPPED", 0x900000, 0x900000, "x"),
+                   "us2011", out=sink) == 1
+          and sink.getvalue().startswith("result: FAIL (unmapped"))
+    sink = io.StringIO()
+    check("_verdict still prints PASS with no mismatch",
+          _verdict(0, None, "eu2011", out=sink) == 0
+          and sink.getvalue().strip() == "result: PASS")
+
     print("selftest:", "PASS" if not fails else "FAIL (%d)" % fails)
     return 0 if not fails else 1
 

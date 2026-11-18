@@ -3833,7 +3833,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Hints: `targets.json` already has a `build: us2011` shape (`cmp_ind_reader_us2011`, C-3538); copy that shape, do not invent a second build field. `l3check --build-corpus` must stay `runnable=1/7` or grow by exactly one, and a `BLOCKED` row is not a pass.
   - Done when: `python3 tools/l3check.py --build-corpus` lists the new US target as runnable with its verdict, the `point_walk_l3 walk --build us2011 …` command in the precheck prints `result: PASS` with the M9.39 mutated page failing a control, `python3 tools/l3check.py --selftest` passes, and M9.10's Status/Result either cites the new row as its S1 evidence or states exactly which half is still open.
   - Stop: if the name accessor cannot run on the US build without M3.11c, register the walker row only, mark M9.10's name half open, and do not mark M9.10 `done`.
-  - Falsifier: the target appears in `--build-corpus` but a wrong-build page (M9.39 negative control) also passes.
+  - Falsifier: the target appears in `--build-corpus` but a wrong-*build* run (`walk archive/head256.img … --build us2011`) prints `result: PASS` instead of `result: FAIL (unmapped …)`; the M9.39 mutant page is a *positive* witness (it must still pass on its own build), never a negative control.
   - Claims: C-4220–C-4229
 
 - [ ] **M9.42 — `point_walk_l3 walk` dies with a traceback and no `result:` line on a wrong build, so M9.41's wrong-build falsifier cannot be evaluated**
@@ -3847,7 +3847,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the Precheck's wrong-build command exits 1 and prints exactly one `result: FAIL (unmapped …)` line (no traceback); a matching build still prints `result: PASS`; `--selftest` covers the unmapped build; M9.41's `Falsifier:` no longer treats the M9.39 mutant as a negative control; `python3 tools/selftest.py --only point_walk_l3` passes.
   - Stop: if the failure can only be detected after a stub boundary (an import), record the stub VA and hand the guard to M9.24 rather than faking a verdict.
   - Falsifier: the wrong-build run still exits on a bare traceback with zero `result:` lines, or a matching build loses its `result: PASS`.
-  - Claims: none until rows are committed
+  - Claims: C-4420–C-4429
 
 - [ ] **M9.43 — M9.39's mutant pair is only reproducible from a pasted heredoc; the committed `mutate_refer_poi.py` CLI writes a different, all-149-stream corpus**
   - Status: open · Owner: — · Critical: no · Pair: required
