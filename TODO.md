@@ -335,17 +335,18 @@ display-only) had no block; **M5.46** is its first slice (the profile→tile
 containment census, no write). Take it with or just after **M5.30**.
 
 **Archive: 2 moved** (`H79`, `H80` → `docs/research/todo-history-2026-11-18.md`).
-TODO.md **3923 → 3929** lines (before/after this pass: −24 for the two
-archived blocks, +30 for this section and **M5.46**; the 1500 line rule stays
+TODO.md **3923 → 3930** lines (before/after this pass: −24 for the two
+archived blocks, +31 for this section and **M5.46**; the 1500 line rule stays
 unmet by design — 61 done blocks are cited by live tasks). Earlier passes:
 `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`, `-13.md`,
 `-15.md`, `-16.md`, `-17.md`, `-18.md`.
 
 ### Map signal (read first)
 
-Board: **129 open / 61 done / 24 blocked**, 0 `in progress`, 0 ghost claims,
-`gate: 4 pass`. **34 of 47 H blocks are open**; 13 blocks exist only to repair a
-record or the gate that missed it. The map moved one step in two cycles
+Board: **130 open / 61 done / 24 blocked** (215 blocks; parsed 2026-11-18 after
+this pass), 0 `in progress`, 0 ghost claims, `gate: 4 pass`. **34 of 47 H blocks
+are open**; 13 blocks exist only to repair a record or the gate that missed it.
+The map moved one step in two cycles
 (P0 via M5.34); readers 6/30 and L3 1/30 did not move. A cycle that moves none
 of the four numbers above says so in its first line.
 
