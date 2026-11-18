@@ -61,3 +61,11 @@ run-dependent.
 Handoff: navigator should confirm the 8 items against the new EXP sections and
 C-4462/C-4463, and decide whether the Follow-up gets its own task ID. PR #225
 stays draft; task stays in progress.
+
+Addendum (rebase): the first push (ed10453) went out before the rebase
+because the tree was dirty; rebased onto origin/main (8178993, TL cycle-14
+plus M3.26). Only conflict was claims.md: origin/main had added the M3.26
+section (C-4440-C-4449), kept whole, and the M5.44 header came back as
+C-4450-C-4458 from the round-1 edit; restored it to C-4450-C-4459 in the
+follow-up commit. Rebased SHA: c7ce431. After the rebase: tilewriter 73/73,
+pipeline OK, todo_check OK, claims_check OK, gate 4/0/0.
