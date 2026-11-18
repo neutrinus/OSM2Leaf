@@ -46,3 +46,17 @@ as the task instructions allow.
 handoff: navigator should check the selftest's synthetic unmapped case (text
 at 0x10000, target 0x900000), the pairing tables' PC values, and whether the
 `result:` regex shape is what M9.41 will grep for.
+
+--- round 2 (navigator CHANGES) ---
+- Renumbered the claim block C-4430-C-4439 (M5.43/PR #222 owns
+  C-4420-C-4424): claims.md header + 8 rows, TODO Claims line, EXP, this log.
+- EXP: mutant pairs attributed to python3.13 (zlib 1.3.2) for the hashes,
+  verdicts run with python3 3.15.0; hash command + both interpreters' output.
+- EXP: "first instruction" -> "pc = entry + 4" with the sh4dis lines; the
+  selftest block is now verbatim; zlib-ng reproduction noted.
+- tools: added check_entry (deterministic mismatch) and one guarded() catch
+  used by both cmd_walk and cmd_skip; selftest now covers run_nth, run_skip,
+  guarded and _verdict (18 checks). Mutation: deleting guarded's except makes
+  the selftest exit 1; real tool exits 0.
+- C-4437 marked VERIFIED (code read + guarded selftest), C-4433/4436/4438
+  reworded for check_entry and the pc = entry + 4 fact.
