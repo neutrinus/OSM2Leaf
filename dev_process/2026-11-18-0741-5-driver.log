@@ -29,7 +29,7 @@ actions, in order:
    M9.39 mutant a positive witness.
 8. Wrote EXP-2026-11-18-M9.42-wrong-build.md (TEMPLATE shape) with the
    defect baseline, both controls, the pairing tables and the limitations.
-9. Added C-4420-C-4429 (M9.42 block; next free after C-4410-C-4419) and the
+9. Added C-4430-C-4439 (M9.42 block; next free after C-4410-C-4419) and the
    TODO Claims line; claims_check --strict --count-check OK; selftest green.
 
 decisions:

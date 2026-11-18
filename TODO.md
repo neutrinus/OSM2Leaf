@@ -3847,7 +3847,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the Precheck's wrong-build command exits 1 and prints exactly one `result: FAIL (unmapped …)` line (no traceback); a matching build still prints `result: PASS`; `--selftest` covers the unmapped build; M9.41's `Falsifier:` no longer treats the M9.39 mutant as a negative control; `python3 tools/selftest.py --only point_walk_l3` passes.
   - Stop: if the failure can only be detected after a stub boundary (an import), record the stub VA and hand the guard to M9.24 rather than faking a verdict.
   - Falsifier: the wrong-build run still exits on a bare traceback with zero `result:` lines, or a matching build loses its `result: PASS`.
-  - Claims: C-4420–C-4429
+  - Claims: C-4430–C-4439
 
 - [ ] **M9.43 — M9.39's mutant pair is only reproducible from a pasted heredoc; the committed `mutate_refer_poi.py` CLI writes a different, all-149-stream corpus**
   - Status: open · Owner: — · Critical: no · Pair: required
