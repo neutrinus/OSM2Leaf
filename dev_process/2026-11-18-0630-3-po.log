@@ -57,7 +57,7 @@ actions taken, in order:
   PO recommends the TL raise it (the PO does not edit another task's status).
 - line count: 3923 before, 3930 after (-24 archived, +31 this section + M5.46).
 - board after the pass: 130 open / 61 done / 24 blocked, 215 blocks (parsed).
-- commit a0c3a72 pushed to origin/main (rebase: already up to date).
+- commits a0c3a72 + d4cd144 pushed to origin/main (rebase: already up to date).
 - committed, rebased on origin/main, pushed (see commit below).
 
 decisions:
