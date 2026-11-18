@@ -1145,6 +1145,315 @@ C-2510–C-2519; `Navi.exe` detail in C-2511 and C-2513).
     modules 149, with a compressed section 133; compressed sections 245
     total vsize 53725980, compressed 30212810 (56.2 %), executable compressed 0, executable decodable 22767466
 
+## The map-file layer of `Navi.exe` (M3.26, EU2011 build A — names, not format)
+
+Every map file the unit reads passes through one contiguous block of `Navi.exe`,
+`0x00417d00…0x0041cab0` (EU2011 build A). This section names its functions so a
+reader task can start from an entry instead of a search. It carries **no format
+claim**: a role is what the code does, not what a byte means.
+
+Evidence: `docs/experiments/EXP-2026-11-18-M3.26-file-layer.md`, claims
+C-4440–C-4449. Every address below is an EU2011 build-A VA and was checked with
+`python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe --index 2 VA`
+(START = a `.pdata` function entry; `leaf` = a `GAP` record start, i.e. a
+no-prologue body `.pdata` attaches to the previous function).
+
+### The 117 functions, in address order
+
+A `leaf` row is **not** a function start: the address is a `GAP` start, i.e.
+the start of a no-prologue body that `.pdata` attaches to the previous `fn`
+(prologue 0 B at that boundary), ending exactly where the next `fn` begins.
+All eight are called (`bsr`/`jsr`) and are either 12-`0x58`-byte accessors
+(`0x419a9c`, `0x41a3b8`, `0x41a42c`, `0x41a600`, `0x41ac1c`, `0x41c0cc`) or
+initialisers (`0x41a5cc`, `0x41abdc`); each holds its own `rts`. `Len` is the
+pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
+
+| VA | pdata | Len | Role (what the code does) |
+| --- | --- | --- | --- |
+| `0x00417d48` | fn | `0xdc` | map-file task dispatcher, 12 messages (`0x0017a888`) |
+| `0x00417e24` | fn | `0x28` | memset 48 B `0x00e8d8e0`, clear `0x009cfbcc` |
+| `0x00417e4c` | fn | `0x54` | volume teardown: release+close each mount, reset io table |
+| `0x00417ea0` | fn | `0xc` | thunk: `0x41a600` volume-present test -> return |
+| `0x00417eac` | fn | `0xdc` | volume record set: swap `u8` pairs in `r8+0x20`, warn |
+| `0x00417f88` | fn | `0x58` | volume record get: `r4+42` kind -> 0/1/3 status |
+| `0x00417fe0` | fn | `0x110` | `*.cmp` open by name; `".cmp"` @`0x0017a8a8`, write mode |
+| `0x004180f0` | fn | `0x60` | lookup volume record `(hi:lo)` in `0x18d50`, state test |
+| `0x00418150` | fn | `0x88` | lookup volume record variant, returns `u16` field |
+| `0x004181d8` | fn | `0x244` | big open/dispatch: state `0x41a3b8`, `0x41aaf4`, `0x41a600` |
+| `0x0041841c` | fn | `0xc` | external entry stub -> `0x4181d8` |
+| `0x00418428` | fn | `0x6c` | external entry: OSMDLL #19/#20, `0x41a7e4` |
+| `0x00418494` | fn | `0xc8` | debug dump via `0x417a5c` (stdio through it) |
+| `0x0041855c` | fn | `0xd8` | open/read by name: `0x41b954`, `0x41b8a4`, `0x417d48` |
+| `0x00418634` | fn | `0xc8` | open+seek+read/write trio wrapper, memset |
+| `0x004186fc` | fn | `0x4c` | clear volume index: memset `0x1c20` + `0x668a0` B, `0x009cfcd4` |
+| `0x00418748` | fn | `0x2c8` | `.ind`/`.IND` `FindFirstFileW` scan, volume lookup |
+| `0x00418a10` | fn | `0x7c` | read 40-byte record: seek `idx*40+40`, fread 40 |
+| `0x00418a8c` | fn | `0x74` | memmove 40-byte record into volume table slot |
+| `0x00418b00` | fn | `0x60` | read 32-byte record: seek `(idx<<5)+off`, fread 32 |
+| `0x00418b60` | fn | `0x5c` | memmove 32-byte record into volume table slot |
+| `0x00418bbc` | fn | `0x12c` | volume record fill from dir entry, alloc index slot |
+| `0x00418ce8` | fn | `0x68` | volume record lookup -> slot pointer out-param |
+| `0x00418d50` | fn | `0xac` | read by cluster: volume record -> `0x41855c` fill |
+| `0x00418dfc` | fn | `0x290` | name -> volume record: 36-B table, path build, `0x18748` |
+| `0x0041908c` | fn | `0x144` | volume table dump (`Dir list`, `dir cnt` strings) |
+| `0x004191d0` | fn | `0xf0` | entry-table reader, `<15000` bound, per-entry loop |
+| `0x004192c0` | fn | `0x90` | external REFER/LEV entry (5 callers), state `==2` test |
+| `0x00419350` | fn | `0x334` | big file open/table loader: alloc 0x77220, read |
+| `0x00419684` | fn | `0x210` | `DRSTR001.DAT` opener/parser (`0x419350`) + volume walk |
+| `0x00419894` | fn | `0xa0` | mount-state dump: state `==3` gate then reset chain |
+| `0x00419934` | fn | `0x30` | init slot table `0x00e24ce8`, clear `0x009cfce0` |
+| `0x00419964` | fn | `0x64` | `STATUS INFOMATION` banner + version line |
+| `0x004199c8` | fn | `0xd4` | handle-slot search over `0x00e24d00` (28-B stride) |
+| `0x00419a9c` | leaf | `0x30` | LEAF: append `r4` to a slot list: index 28 B, count u16 at `+6` |
+| `0x00419acc` | fn | `0xb4` | handle-table dump (`0x17ac2c` format rows) |
+| `0x00419b80` | fn | `0x40` | reset handle table: zero 0x708 B, count `-1` |
+| `0x00419bc0` | fn | `0x78` | close handle by slot, timer 0x7530 on overflow |
+| `0x00419c38` | fn | `0x68` | 4 x 5 handler dispatch `0x17ab38`, `"UNKNOWN"` fallback |
+| `0x00419ca0` | fn | `0x84` | mount-state dump: `DIR` table, state, `r4` arg (`0x41a3c4`) |
+| `0x00419d24` | fn | `0xd4` | mount: `DRSTR`, MGR status, `writeDataVol`, timer |
+| `0x00419df8` | fn | `0x58` | init: state probe, `0x418634`, state 2 or 1000 ms timer |
+| `0x00419e50` | fn | `0x84` | media/event switch `0x81140051..0x81140060` |
+| `0x00419ed4` | fn | `0x38` | reset 5 timer slots `0x00e24cc0` to -1 |
+| `0x00419f0c` | fn | `0x78` | timer-id lookup in 5-slot table |
+| `0x00419f84` | fn | `0xe8` | timer register: `SYS_Timer_setMsg`, slot fill |
+| `0x0041a06c` | fn | `0xa4` | timer clear by id (`SYS_Timer_clear`) |
+| `0x0041a110` | fn | `0x64` | timer clear-all over 5 slots |
+| `0x0041a174` | fn | `0x7c` | event/timer dump (`EVENT`, `TIMERID` strings) |
+| `0x0041a1f0` | fn | `0x54` | event dispatch: timer-id then clear then `0x419c38` |
+| `0x0041a244` | fn | `0x48` | init `OBJ_DriveInfo_getObjID` into `0x009cfcec` |
+| `0x0041a28c` | fn | `0x78` | `OBJ_DriveInfo_writeRecogSts`, kind -> `0x009cfce8` |
+| `0x0041a304` | fn | `0x84` | `OBJ_DriveInfo_writeDataVol`, byte-swap 256 `u16` |
+| `0x0041a388` | fn | `0x30` | set mount state `0x009cfce4` (0..2 only) |
+| `0x0041a3b8` | leaf | `0xc` | LEAF: return mount state `*0x009cfce4` |
+| `0x0041a3c4` | fn | `0x54` | volume-info dump (4 fields, `Info Show`) |
+| `0x0041a418` | fn | `0x14` | memset 0x1000 B at `0x00e23cc0` (`MMAIN` buffer) |
+| `0x0041a42c` | leaf | `0xc` | LEAF: return the `MMAIN` buffer `0x00e23cc0` |
+| `0x0041a438` | fn | `0xf4` | `MMAIN001.DAT` opener + `0x419350` parse, slot ref |
+| `0x0041a52c` | fn | `0xa0` | disc-volume/address dump (`%08x(+%04x)`, 4 x 8 B) |
+| `0x0041a5cc` | leaf | `0x34` | LEAF: zero `0x009cfcf4..0x009cfd08` (handle list) |
+| `0x0041a600` | leaf | `0x20` | LEAF: handle-list-present test (`*0x009cfcf4`, `…f8`) |
+| `0x0041a620` | fn | `0xf0` | handle acquire: 48-B `0x003d13e8`, list insert |
+| `0x0041a710` | fn | `0xd4` | handle release: unlink, `0x41b180` recycle |
+| `0x0041a7e4` | fn | `0xa0` | handle release by id: scan list, unlink |
+| `0x0041a884` | fn | `0x58` | calendar-end teardown: `0x41b240`, zero 5 cells |
+| `0x0041a8dc` | fn | `0xec` | fd-table dump/list walk (`0x41a174`) |
+| `0x0041a9c8` | fn | `0x12c` | iob/fd table dump (`0x17aeac` columns) |
+| `0x0041aaf4` | fn | `0xe8` | alloc handle `0x009cfd04 < 199`, `0x41b0c4` |
+| `0x0041abdc` | leaf | `0x1c` | LEAF: zero `0x009cfd0c/10/14` (io table) |
+| `0x0041abf8` | fn | `0x24` | reset io chains `0x009cfd0c..14`, `0x41b240(0)` |
+| `0x0041ac1c` | leaf | `0xc` | LEAF: return `*0x009cfd14` (io list head/count) |
+| `0x0041ac28` | fn | `0x100` | io descriptor acquire, `0x009cfd14 < 50` |
+| `0x0041ad28` | fn | `0xc4` | io descriptor release, unlink `0x009cfd0c` |
+| `0x0041adec` | fn | `0xc4` | io descriptor release variant (write side) |
+| `0x0041aeb0` | fn | `0xe8` | io descriptor release by id, scan `0x009cfd0c` |
+| `0x0041af98` | fn | `0xc0` | io descriptor dump (`headp` string) |
+| `0x0041b058` | fn | `0x6c` | class table `0x00e23c80` init (4 classes, `0x17b0c4`) |
+| `0x0041b0c4` | fn | `0xbc` | class alloc check, `0x41b2a4` dump on failure |
+| `0x0041b180` | fn | `0xc0` | free: return 48-B block to its class pool |
+| `0x0041b240` | fn | `0x64` | class table reset by index, `0x41b3bc` probe |
+| `0x0041b2a4` | fn | `0xf0` | class table debug dump (`%08x->` chain) |
+| `0x0041b394` | fn | `0x28` | destroy: dump then `DeleteCriticalSection` |
+| `0x0041b3bc` | fn | `0xb4` | `fopen`+`strcmp` wrapper (`"rb"` @`0x0017ab20`) |
+| `0x0041b470` | fn | `0x88` | `fseek`/`ftell` wrapper (short seek -> error) |
+| `0x0041b4f8` | fn | `0xac` | `fread` wrapper, `clearerr`/`ferror` |
+| `0x0041b5a4` | fn | `0xac` | `fwrite` wrapper, `clearerr`/`ferror` |
+| `0x0041b650` | fn | `0x4c` | `fclose` wrapper, release io descriptor |
+| `0x0041b69c` | fn | `0x4c` | `ftell` wrapper, release io descriptor |
+| `0x0041b6e8` | fn | `0x98` | block-size init (40<<8 / 50), `memSize` dump |
+| `0x0041b780` | fn | `0x9c` | write-open by name (`"wb"` default), CS-wrapped |
+| `0x0041b81c` | fn | `0x88` | close/release, `.CMP` close path |
+| `0x0041b8a4` | fn | `0xb0` | read/write by cluster bytes, recursive |
+| `0x0041b954` | fn | `0xd4` | read buffer via chunk engine (`0x41c044`) or fread |
+| `0x0041ba28` | fn | `0x68` | file-size probe: ftell, seek 2, restore |
+| `0x0041ba90` | fn | `0x15c` | `CMP.LST` existence check + volume-chain init |
+| `0x0041bbec` | fn | `0x74` | debug logger (`NKDbgPrintfW`, `ErrorLogMsg`) |
+| `0x0041bc60` | fn | `0x38` | size round-up wrapper -> `0x41c0cc` |
+| `0x0041bc98` | fn | `0xf0` | node fill: align args, `0x41c190` walk |
+| `0x0041bd88` | fn | `0x98` | critical-section-wrapped node insert |
+| `0x0041be20` | fn | `0x10` | `DeleteCriticalSection` only |
+| `0x0041be30` | fn | `0xa4` | lookup+insert node (strlen, `0x41c524`) |
+| `0x0041bed4` | fn | `0x60` | CS-wrapped read: `0x41ba90` then `0x41be30` |
+| `0x0041bf34` | fn | `0x80` | CS-wrapped write: `0x41cae8` leaf |
+| `0x0041bfb4` | fn | `0x90` | CS-wrapped op: `0x41cab0` leaf |
+| `0x0041c044` | fn | `0x88` | CS-wrapped chunk read: `0x41c990` |
+| `0x0041c0cc` | leaf | `0x58` | LEAF: slot-size walk, `(count+16)*20` + 4-aligned fields |
+| `0x0041c124` | fn | `0x6c` | indirect ops-vtable call through struct in `r7` |
+| `0x0041c190` | fn | `0x150` | index-block walk over `r4`, `0x41cb1c` leaf |
+| `0x0041c2e0` | fn | `0x124` | path compare: `strlen`, case fold, 73/74-word ctx |
+| `0x0041c404` | fn | `0x70` | `.IND` path build + entry lookup (`0x41d114`) |
+| `0x0041c474` | fn | `0xb0` | `.IND` read 16-byte header via ops vtable |
+| `0x0041c524` | fn | `0xcc` | `.CMP` open via `0x41c474`, `0x41cb1c` leaf |
+| `0x0041c5f0` | fn | `0x1ec` | chunk-table build: 20-B stride, tag check, fill |
+| `0x0041c7dc` | fn | `0xe8` | per-chunk one-shot zlib `0x00542148` + `memcpy` |
+| `0x0041c8c4` | fn | `0xcc` | `.ind` header decode (`_divlu`/`_modlu`), tag, count |
+| `0x0041c990` | fn | `0x120` | chunk-load driver: decode, build, seek, inflate loop |
+
+### Block boundaries and the controls that bound it
+
+- 117 nodes, 109 `START` + 8 `GAP`, 0 `INSIDE` (`pdata --index 2` on
+  `Navi.exe` sec2: 7,596 `pdata` records, `0x32ed9c…0x558300`). The 117 VAs
+  are the graph nodes in `[0x417d00, 0x41cab0)`, not a hand list; the sweep
+  command is in the EXP. `Len` matches `pdata` for all 109 `fn` rows and
+  `next fn - GAP` for all 8 `leaf` rows (checked, 0 mismatches).
+- Thirteen functions are called from outside the block; the caller list below
+  is the graph's `callers` for each, and `sh4xref.py --to` resolves every one of
+  them to a pool load in that caller (`0x417e24` <- `0x417924`, `0x4186fc` <-
+  `0x417924`/`0x419894`/`0x419d24`, `0x419b80` <- `0x417924`/`0x41a388`,
+  `0x419ed4` <- `0x417924`/`0x419350`/`0x41a620`, `0x41a244`, `0x41a418`,
+  `0x41a5cc`, `0x41abdc`, `0x41b058` <- `0x417924` plus `0x41abf8`/`0x41af98`/
+  `0x41b81c` for `0x41b058` and `0x419894` for `0x41a418`, the other eight
+  from `0x417924`; `0x418428` <-
+  `0x3f6f00`, itself called by `0x3f06a8`, `0x3f3dfc`, `0x3f3f90`, `0x3f7134`,
+  `0x3f720c`, `0x3f81b0`, `0x40126c`, `0x40364c`, `0x4039c0`, `0x4055ac`,
+  `0x40dfa8`, `0x40e510`; `0x41841c` <- `0x3f6c88`, itself called by
+  `0x3f6bb0`/`0x3f7384`/`0x3f73dc`/`0x3f7438`/`0x3f7480`; `0x4192c0` <-
+  `0x409ba0`, `0x409c28`, `0x409cc8`, `0x40a108`, `0x40b358`; `0x41a1f0` <-
+  `0x41785c`, the `.cmp` open). `0x417924` itself is called from `0x32efa8`
+  (the task table) and from `0x4180f0` (re-init), and has no imports.
+- Two of the thirteen are the layer's **outside face**: `0x418428` is the
+  `OSMDLL` #19/#20 request path (it calls `0x41a7e4`, a handle release by id,
+  and `0x4179c8`), reached through `0x3f6f00`; `0x41841c` is a one-instruction
+  jump to `0x4181d8`, the big open/dispatch, reached through the OBJDLL
+  `DiscInfo` function `0x3f6c88`. Everything else external enters at
+  `0x4192c0` (the `REFER`/`LEV` readers) or at the debug dispatcher.
+- Inside the block the only access to the filesystem is through the stdio
+  wrappers `0x41b3bc` (`fopen`), `0x41b470` (`fseek`/`ftell`), `0x41b4f8`
+  (`fread`), `0x41b5a4` (`fwrite`), `0x41b650` (`fclose`), `0x41b69c`
+  (`ftell`) and `0x418748` (`FindFirstFileW`/`FindNextFileW`). Non-file
+  `COREDLL` helpers (`memset`, `memcpy`, `memmove`, `strcat`, `strcpy`,
+  `_divlu`, `_modlu`, `_modls`) are called directly; only the stdio `f*` are
+  wrapped.
+- **Falsifier that did not fire (control):** of the 13 functions that import
+  `ReadFile`/`MapViewOfFile`/`CreateFileMapping*`, none is reachable from
+  `0x0040b358` (the `ADDRE` resolve, a map path) — `callgraph.py path` prints
+  `no static path` for all 13. So no map file bypasses the block through the
+  Win32 file API; a map path that did would refute "the block is the layer".
+
+### The dispatcher: message number -> handler (`0x00417d48`)
+
+`0x00417d48` takes the message in `r4`, prints `"IOM_CD DEBUG!!!"`
+(`0x0017a894`) first, then `r8 = r4 - 1`; `cmp/hi #11` rejects `> 12`. The byte
+table at `0x0017a888` holds 12 offsets `00 06 0c 12 18 1e 24 30 36 3c 46 4c`
+(verified by direct read; the next bytes are the `IOM_CD DEBUG!!!` string) and
+the branch is `target = 0x417d72 + offset*2`. The ten handlers inside the
+block and the default are `jsr`-called at the end of the chain, so they return
+here; the two outside ones are only named, not described.
+
+| Msg | Handler | What the handler is |
+| --- | --- | --- |
+| 1 | `0x0041908c` | volume table dump |
+| 2 | `0x0041af98` | io-descriptor dump |
+| 3 | `0x0041b2a4` | class-table debug dump |
+| 4 | `0x0041a3c4` | mount-state dump |
+| 5 | `0x0041a9c8` | iob/fd table dump |
+| 6 | `0x00418494` | generic debug dump |
+| 7 | `0x00419964` then `0x00419acc` | version banner, then handle-table dump |
+| 8 | `0x004178e4` | (outside the block; `#### Task Info ####`) |
+| 9 | `0x0041a174` | timer-id table dump |
+| 10 | `0x0041a52c` with `r4 = 0` | disc-volume / volume-address dump |
+| 11 | `0x00417ab4` | (outside the block; CD-ROM Manager dump) |
+| 12 | `0x0041b6e8` with `r4`, `r5` | block-size init + `memSize` dump |
+| other | `0x00417ca0` | banner/dump lines incl. `10/05/07` (outside the block) |
+
+Two handlers are outside the 117-node block (`0x4178e4`, `0x417ab4`) and the
+default is a third; they are named here because the map is not a map without
+them.
+
+The second-level dispatch `0x00419c38` is a **4 x 5** function table at
+`0x0017ab38`, one row per state, five columns per kind (`kind = r4`,
+`cmp/hs #5` at `0x00419c42` rejects `kind >= 5`; `state = *0x009cfce0` is read at
+`0x00419c54`, multiplied by 5 at `0x00419c60`, and `(state*5 + kind)*4` indexes
+the table). The `UNKNOWN` fallback (`0x00419c74`, string `0x0017ad2c`) is taken
+only for `kind >= 5`. The table is exactly 20 *used* words: the string
+`MEDIA MOUNT` starts at `0x17ab88`, right after `0x17ab38 + 20*4`. Read out of
+the image it is
+
+| state | kind 0 | kind 1 | kind 2 | kind 3 | kind 4 |
+| --- | --- | --- | --- | --- | --- |
+| 0 | `0x419ca0` | `0x419ca0` | no-op | `0x419894` | `0x419934` |
+| 1 | `0x419d24` | `0x419d24` | no-op | `0x419894` | no-op |
+| 2 | `0x419df8` | `0x419df8` | `0x419df8` | `0x419894` | no-op |
+| 3 | `0x419894` | `0x419894` | `0x419894` | `0x419894` | `0x419934` |
+
+where `no-op` is `0x42af34`, a `GAP` start (`rts` + `nop`, prologue 4 B of the
+previous `fn`), i.e. an empty handler and not a function of this block.
+`0x41a388` never stores a state above 2 (`cmp/hs` with 3 at `0x0041a38e`), so
+states 0..2 are the ones the table is written for; the state-3 row is read from
+the image too. The row names (a kind 0..4 format/slot change against a mount
+state) are the role, not a byte meaning.
+
+### M3.2 answers, read off `0x0041c990`
+
+M3.2 asked two questions: (a) does `chunk_size` size a buffer or is it compared
+against `0x10000`; (b) does the reader seek by `chunk_offset[]` or scan for
+`78 9c`.
+
+- **Chain.** `0x0041c044` (CS-wrapped chunk read) -> `0x0041c990` (driver) ->
+  `0x0041c8c4` (index-header decode), `0x0041c5f0` (chunk-table walk),
+  `0x0041c7dc` (per-chunk inflate). `0x41c404` builds the `*.IND` path and
+  opens it through `0x41d114` (read) or `0x41d084` (write); the file slot it
+  uses in the `0x41c404` context is at `+0x13c` (context word 79).
+  `0x41c8c4` divides the context word at `+4` by the word at `+8`
+  (`_divlu`/`_modlu` at `0x003d140c`/`0x003d1484`) and compares the word at
+  `+0xc`, read as four bytes big-endian, against `r9` — the twelve bytes the
+  caller read before the call (the `ctx+0x4e*4` slot). It returns
+  `rem ? count-1 : count-2` in `r0`. `0x41c5f0` builds the 20-byte-stride
+  chunk table: the word at `+4` (the `.ind` logical size) gives the chunk
+  count `(count+8)>>2`, `count+1` entries are filled, and each entry gets
+  `+4` (a number above 8, taken from the `.ind` offset array), `+8` (source
+  tag) and `+12` (end tag; chunk 0's `+12` is the 4-byte tag read from the
+  caller). `0x41c990` then fills each entry's `+0x10` with a running sum of
+  the `+4` differences and loops `0x41c5f0`/`0x41c7dc`. `0x41c7dc` adds
+  `+0x10` to a base pointer and hands `+4`/`+8`/`+12` to the one-shot zlib
+  wrapper `0x00542148`, whose output `r12` is the uncompressed slice
+  destination.
+- **(a) `chunk_size`.** `0x0041c8c4` takes `_divlu(*(u32*)(ctx+4),
+  *(u32*)(ctx+8))` and `_modlu` of the same pair; neither operand is compared
+  with `0x10000`. That is literal for this block: none of the **392 distinct
+  literal-pool values** loaded in `0x417d00…0x41cab0` is `0x10000`, and
+  `shll16` occurs only as twelve `1<<16` scale factors (`0x418272`,
+  `0x4188b4`, `0x4188f8`, `0x418d8a`, `0x418db0`, `0x4190f4`, `0x41953c`,
+  `0x4197a8` in the volume code; `0x41b712`, `0x41b716`, `0x41bafa`,
+  `0x41bb00` for size fields; none is in the chunk code `0x41c000…0x41cab0`).
+  The byte range `0x417d00…0x41cab0` (19,888 B at file `0x1095f00`) holds
+  **0** occurrences of `78 9c` and **0** of the little-endian `u32 0x00010000`,
+  so there is neither a zlib-header constant nor a `0x10000` compare anywhere
+  in it, executed or not. The word at `+8` is an **arithmetic divisor for the
+  chunk count**, not a buffer size and not a validated constant.
+- **(b) seek vs scan.** The reader walks the table `0x41c5f0` built;
+  `0x41c7dc` gets the chunk's compressed pointer, two length words and the
+  running offset and inflates without searching. No zlib-header scan exists in
+  the block: `mov #78` occurs exactly twice (`0x41c690`, `0x41c924`) and both
+  are `shll2` index steps to context word 78 (312). `0x41b470` (the
+  `fseek`/`ftell` wrapper) is called by
+  `0x418a10`/`0x418b00`/`0x419350`/`0x41ba28` for fixed-record reads and the
+  size probe, not from the chunk engine. So the engine **does not scan for the
+  zlib header**, and the offsets come from the `.ind`, through the descriptor
+  callbacks at `0x41ca28`/`0x41ca38`. Whether the context word 78 compared at
+  `0x41c690`/`0x41c924` is the tag byte at `+0xc` or the decompressed size is
+  UNKNOWN; the entry layout of the earlier M3.2b HYPOTHESIS (`+4` offset /
+  `+8` uncompressed / `+12` compressed) is **refuted** — `0x41c7dc` adds
+  `+0x10` to a base and never reads `+4` as an absolute offset.
+- Where the divisor operands come from: both are read out of the `.ind` read
+  context that `0x41c474` fills (16 bytes through the descriptor ops at
+  `+0x4`/`+0x8`/`+0xc` of the `r8` struct), not from a `0x10000`-sized
+  buffer. `0x41ba28` is the **size-probe** path (`ftell`, `fseek(0,2)`,
+  restore) that fills the `uncompressed`/`compressed` pair the same header
+  carries, but `0x41c8c4` reads both words itself.
+
+### What this table does not say
+
+The block names *where* a read happens, not *what a byte means*. The `.cmp`
+chunk layout, the `DRSTR` 40/32-byte node encoding and the tile grammar stay in
+their own format pages; a role here that is unread was left as read, not
+guessed. `0x41c124` (the wrapper that calls the four ops in the `r7` struct)
+keeps its `UNKNOWN` table; the eight `GAP` rows are marked `leaf`, not promoted
+to `fn`. Two numeric facts are the block's own, not a format claim: no literal
+`0x10000` is loaded and no zlib-header scan exists (the M3.2 answers above, and
+the EXP's scan). The `+4`/`+8`/`+12`/`+0x10` chunk-entry fields are named by
+what the stores and the inflate call do with them; *why* the `.ind` carries
+those numbers is M3.2's format question and stays open.
+
 ## Next steps
 
 Next is `TODO.md` Step 2: fix the file-TOC stride, add `e32`/`o32` and the copy
