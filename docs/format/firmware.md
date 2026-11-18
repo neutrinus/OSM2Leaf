@@ -1295,9 +1295,9 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
   are the graph nodes in `[0x417d00, 0x41cab0)`, not a hand list; the sweep
   command is in the EXP. `Len` matches `pdata` for all 109 `fn` rows and
   `next fn - GAP` for all 8 `leaf` rows (checked, 0 mismatches).
-- Thirteen functions are called from outside the block; the caller list below
-  is the graph's `callers` for each, and `sh4xref.py --to` resolves every one of
-  them to a pool load in that caller (`0x417e24` <- `0x417924`, `0x4186fc` <-
+- 13 block functions have a static outside caller (graph); the list below is
+  the graph's `callers` for each, and `sh4xref.py --to` reproduces a pool load
+  in the caller for all 13 (`0x417e24` <- `0x417924`, `0x4186fc` <-
   `0x417924`/`0x419894`/`0x419d24`, `0x419b80` <- `0x417924`/`0x41a388`,
   `0x419ed4` <- `0x417924`/`0x419350`/`0x41a620`, `0x41a244`, `0x41a418`,
   `0x41a5cc`, `0x41abdc`, `0x41b058` <- `0x417924` plus `0x41abf8`/`0x41af98`/
@@ -1308,8 +1308,12 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
   `0x40dfa8`, `0x40e510`; `0x41841c` <- `0x3f6c88`, itself called by
   `0x3f6bb0`/`0x3f7384`/`0x3f73dc`/`0x3f7438`/`0x3f7480`; `0x4192c0` <-
   `0x409ba0`, `0x409c28`, `0x409cc8`, `0x40a108`, `0x40b358`; `0x41a1f0` <-
-  `0x41785c`, the `.cmp` open). `0x417924` itself is called from `0x32efa8`
-  (the task table) and from `0x4180f0` (re-init), and has no imports.
+  `0x41785c`, the `.cmp` open). `0x417924` itself has one static caller,
+  `0x32efa8` (the task table), and has no imports. The graph also lists
+  `0x4180f0`, but `sh4xref --to 0x00417924` does not resolve it, the full
+  disassembly of `0x4180f0` loads only `0x418d50`/`0x41bbec`, and the literal
+  `0x00417924` sits at one pool in the image (`0x32f45c`): graph false edge,
+  not established.
 - Two of the thirteen are the layer's **outside face**: `0x418428` is the
   `OSMDLL` #19/#20 request path (it calls `0x41a7e4`, a handle release by id,
   and `0x4179c8`), reached through `0x3f6f00`; `0x41841c` is a one-instruction
@@ -1334,10 +1338,16 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
 `0x00417d48` takes the message in `r4`, prints `"IOM_CD DEBUG!!!"`
 (`0x0017a894`) first, then `r8 = r4 - 1`; `cmp/hi #11` rejects `> 12`. The byte
 table at `0x0017a888` holds 12 offsets `00 06 0c 12 18 1e 24 30 36 3c 46 4c`
-(verified by direct read; the next bytes are the `IOM_CD DEBUG!!!` string) and
-the branch is `target = 0x417d72 + offset*2`. The ten handlers inside the
-block and the default are `jsr`-called at the end of the chain, so they return
-here; the two outside ones are only named, not described.
+(verified by direct read; the next bytes are the `IOM_CD DEBUG!!!` string).
+`0x417d70` is `braf r0` (`0023`) and its delay slot is `0x417d72`, so the
+branch lands on `target = 0x417d74 + offset` (byte offsets), giving
+`0x417d74`, `7a`, `80`, `86`, `8c`, `92`, `98`, `a4`, `aa`, `b0`, `ba`, `c0`.
+The `braf` delay slot at `0x417d72` is `nop`; a reader body is `mov.l` +
+`bra 0x417dce` (message 7 runs two: `jsr` then `mov.l`+`bra`), and
+`0x417dce` is `jsr @r3` + `nop` followed by the dispatcher epilogue (`rts`
+at `0x417dda`). The ten handlers inside the block plus the default are
+`jsr`-called, so they return here; the two outside ones are only named, not
+described.
 
 | Msg | Handler | What the handler is |
 | --- | --- | --- |
@@ -1393,23 +1403,36 @@ against `0x10000`; (b) does the reader seek by `chunk_offset[]` or scan for
   `0x0041c7dc` (per-chunk inflate). `0x41c404` builds the `*.IND` path and
   opens it through `0x41d114` (read) or `0x41d084` (write); the file slot it
   uses in the `0x41c404` context is at `+0x13c` (context word 79).
-  `0x41c8c4` divides the context word at `+4` by the word at `+8`
-  (`_divlu`/`_modlu` at `0x003d140c`/`0x003d1484`) and compares the word at
-  `+0xc`, read as four bytes big-endian, against `r9` — the twelve bytes the
-  caller read before the call (the `ctx+0x4e*4` slot). It returns
+  `0x41c8c4` calls `0x41c404` (`0x41c8da`'s pool) and calls its return `head`
+  (the 16-byte `.ind` header buffer `0x41c404` fills). From `head` it
+  assembles two little-endian `u32`: A from `head+0x8..+0xb` (`0x41c8e6
+  add #8`; `b[+0xb]<<24 | b[+0xa]<<16 | b[+0x9]<<8 | b[+0x8]`) and B from
+  `head+0xc..+0xf` (`0x41c8fe add #4`, same order).
+  It compares the context word `+0x138` with B (`cmp/eq r3,r8`, `r8` = B), not
+  with A (A is compared only with the quotient at `0x41c962 cmp/gt r2,r9`),
+  and divides a caller-supplied word by B — `_divlu(*r5, B)`, `_divlu(*r5 +
+  r12, B)`, `_modlu(*r5 + r12, B)` (`0x003d140c`/`0x003d1484`, `r5` = the
+  caller's second argument, `r12` its third). It returns
   `rem ? count-1 : count-2` in `r0`. `0x41c5f0` builds the 20-byte-stride
-  chunk table: the word at `+4` (the `.ind` logical size) gives the chunk
-  count `(count+8)>>2`, `count+1` entries are filled, and each entry gets
-  `+4` (a number above 8, taken from the `.ind` offset array), `+8` (source
-  tag) and `+12` (end tag; chunk 0's `+12` is the 4-byte tag read from the
-  caller). `0x41c990` then fills each entry's `+0x10` with a running sum of
+  chunk table: it opens the `.ind` through its own `0x41c404` call and reads
+  the header itself (`r9` = LE u32 at `head+0`, `r10` = LE u32 at `head+4`,
+  `0x41c616`/`0x41c62c`), then fills 20-byte entries over the caller's table;
+  each entry gets `+4` (an offset difference), `+8` (source tag) and `+12`
+  (end tag). `0x41c990` then fills each entry's `+0x10` with a running sum of
   the `+4` differences and loops `0x41c5f0`/`0x41c7dc`. `0x41c7dc` adds
   `+0x10` to a base pointer and hands `+4`/`+8`/`+12` to the one-shot zlib
   wrapper `0x00542148`, whose output `r12` is the uncompressed slice
   destination.
-- **(a) `chunk_size`.** `0x0041c8c4` takes `_divlu(*(u32*)(ctx+4),
-  *(u32*)(ctx+8))` and `_modlu` of the same pair; neither operand is compared
-  with `0x10000`. That is literal for this block: none of the **392 distinct
+- **(a) `chunk_size`.** `0x0041c8c4` divides a caller word by B (`head+12`)
+  and never compares either operand with a `0x10000` literal. The `.ind`
+  itself does carry a `0x10000` **value**: in **2,875 of 2,875** factory
+  `.ind` pairs the four little-endian u32 are `(logical, compressed,
+  ceil(logical/chunk), chunk)` with `chunk == 0x10000` and `count ==
+  ceil(logical/chunk)` in every one, and the measured POINT010 pair reads
+  A = `149` (u32 #2, the count) and B = `65536` (u32 #3, the chunk). So the
+  layer meets the `0x10000` as a loaded **value** (B), never as an immediate
+  `0x10000` **compare**. That is literal for this block:
+  none of the **392 distinct
   literal-pool values** loaded in `0x417d00…0x41cab0` is `0x10000`, and
   `shll16` occurs only as twelve `1<<16` scale factors (`0x418272`,
   `0x4188b4`, `0x4188f8`, `0x418d8a`, `0x418db0`, `0x4190f4`, `0x41953c`,
@@ -1418,8 +1441,8 @@ against `0x10000`; (b) does the reader seek by `chunk_offset[]` or scan for
   The byte range `0x417d00…0x41cab0` (19,888 B at file `0x1095f00`) holds
   **0** occurrences of `78 9c` and **0** of the little-endian `u32 0x00010000`,
   so there is neither a zlib-header constant nor a `0x10000` compare anywhere
-  in it, executed or not. The word at `+8` is an **arithmetic divisor for the
-  chunk count**, not a buffer size and not a validated constant.
+  in it, executed or not. B (`head+12`) is an **arithmetic divisor**, not a
+  buffer size and not a validated constant.
 - **(b) seek vs scan.** The reader walks the table `0x41c5f0` built;
   `0x41c7dc` gets the chunk's compressed pointer, two length words and the
   running offset and inflates without searching. No zlib-header scan exists in
@@ -1429,15 +1452,16 @@ against `0x10000`; (b) does the reader seek by `chunk_offset[]` or scan for
   `0x418a10`/`0x418b00`/`0x419350`/`0x41ba28` for fixed-record reads and the
   size probe, not from the chunk engine. So the engine **does not scan for the
   zlib header**, and the offsets come from the `.ind`, through the descriptor
-  callbacks at `0x41ca28`/`0x41ca38`. Whether the context word 78 compared at
-  `0x41c690`/`0x41c924` is the tag byte at `+0xc` or the decompressed size is
-  UNKNOWN; the entry layout of the earlier M3.2b HYPOTHESIS (`+4` offset /
-  `+8` uncompressed / `+12` compressed) is **refuted** — `0x41c7dc` adds
-  `+0x10` to a base and never reads `+4` as an absolute offset.
-- Where the divisor operands come from: both are read out of the `.ind` read
-  context that `0x41c474` fills (16 bytes through the descriptor ops at
-  `+0x4`/`+0x8`/`+0xc` of the `r8` struct), not from a `0x10000`-sized
-  buffer. `0x41ba28` is the **size-probe** path (`ftell`, `fseek(0,2)`,
+  callbacks at `0x41ca28`/`0x41ca38`. Both `0x41c690` and `0x41c924` compare a
+  loaded word with `ctx+0x138` (context word 78); what `ctx+0x138` holds (a
+  tag, or the chunk size itself) is UNKNOWN. The entry layout of the earlier
+  M3.2b HYPOTHESIS (`+4` offset / `+8` uncompressed / `+12` compressed) is
+  **refuted** — `0x41c7dc` adds `+0x10` to a base and never reads `+4` as an
+  absolute offset.
+- Where the divisor operands come from: both are read out of the 16-byte
+  `head` that `0x41c404` returns (`0x41c8da` calls it), i.e. the `.ind` head
+  that `0x41c404` reads through `0x41d114` into the caller's buffer, not from a
+  `0x10000`-sized buffer. `0x41ba28` is the **size-probe** path (`ftell`, `fseek(0,2)`,
   restore) that fills the `uncompressed`/`compressed` pair the same header
   carries, but `0x41c8c4` reads both words itself.
 

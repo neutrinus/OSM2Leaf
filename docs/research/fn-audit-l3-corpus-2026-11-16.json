@@ -324,9 +324,9 @@
  ],
  "summary": {
   "files": 316,
-  "citations": 909,
-  "unique_va": 185,
-  "start": 731,
+  "citations": 910,
+  "unique_va": 186,
+  "start": 732,
   "inside": 80,
   "corrected": 11,
   "gap": 75,
@@ -8417,7 +8417,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-18-M3.26-file-layer.md",
-   "line": 147,
+   "line": 149,
    "va": "0x0042aedc",
    "kind": "fn",
    "class": "START",
@@ -8426,7 +8426,16 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-18-M3.26-file-layer.md",
-   "line": 271,
+   "line": 285,
+   "va": "0x0032efa8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-18-M3.26-file-layer.md",
+   "line": 328,
    "va": "0x00417d48",
    "kind": "fn",
    "class": "START",
@@ -8435,7 +8444,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-18-M3.26-file-layer.md",
-   "line": 273,
+   "line": 330,
    "va": "0x0041a52c",
    "kind": "fn",
    "class": "START",
