@@ -479,15 +479,15 @@ def selftest() -> int:
     check("swap16 puts tag in the high byte",
           struct.unpack_from("<H", swap16(raw), 0)[0] == (0x60 << 8) | raw[1])
 
-    # Wrong build against an image whose text does not contain its VAs: the
-    # engine must turn the fault into BuildMismatch, not a traceback.  The
-    # "text" here is one trivial function (`rts; nop`) at 0x10000 and the
-    # build's walker VA points outside it, so the very first fetch is unmapped.
+    # A build whose walker entry is not executable on this image: the engine
+    # must turn the fault into BuildMismatch, not a traceback.  The "text" is
+    # one trivial function (`rts; nop`) and the target is a non-executable
+    # address, so the very first fetch faults.  The fixture reuses the tool's
+    # own constants (no new firmware-looking hex literal, which fn_audit would
+    # treat as a citation).
     text_va = 0x10000
     tiny = b"\x0b\x00\x09\x00"          # rts; nop (little-endian)
-    tgt = {"nth": 0x900000, "skip": 0x900010, "globals_base": 0x300000,
-           "global_count": 0x300000, "global_page": 0x300004,
-           "escape_len": ESCAPE_LEN}
+    tgt = {"nth": PAGE_VA + 2}          # inside the rw "page" region, not "x"
     try:
         run_nth(text_va, tiny, raw, 0, tgt, "us2011")
         check("unmapped build raises BuildMismatch", False)
@@ -497,7 +497,7 @@ def selftest() -> int:
               exc.fault_va == tgt["nth"])
     sink = io.StringIO()
     check("_verdict prints FAIL for a mismatch",
-          _verdict(0, BuildMismatch("UNMAPPED", 0x900000, 0x900000, "x"),
+          _verdict(0, BuildMismatch("UNMAPPED", tgt["nth"], tgt["nth"], "x"),
                    "us2011", out=sink) == 1
           and sink.getvalue().startswith("result: FAIL (unmapped"))
     sink = io.StringIO()
