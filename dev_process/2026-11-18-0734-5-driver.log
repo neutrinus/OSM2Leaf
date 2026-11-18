@@ -1,0 +1,61 @@
+role: driver (M5.43), model deepseek-v4.1-flash-free
+start: 2026-11-18 07:18 UTC, end: 2026-11-18 07:40 UTC
+origin/main at start: 9beb6a4
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17, the M5.43
+block, EXP-2026-11-17-M8.A10-bump-8210, docs/research/qemu-ze0-port-delta.md,
+tools/qemu-ze0/build.sh, tools/qemu-ze0/README.md, dev_process/2026-11-18-0628-2-se.log (D5).
+
+actions, in order:
+1. claim commit ec4f5b0 (todo: start M5.43), pushed, draft PR #222 opened.
+2. reproduced the pre-fix red case; `bash -x` shows the script's own `exit 1`
+   after a second `note`, not an exception (C-4420) — the SE log's "traceback"
+   wording is not what the script does.
+3. build.sh: exit 4 for a failing patch, verdict last (port-delta note moved
+   before it), usage/exit text updated, `local failed` removed mid-edit.
+4. selftest: make_fake_tarball + a green (exit 0) and red (exit 4) case over a
+   real .tar.xz cache and one always-apply plus one stale patch; 56 -> 64.
+5. mutant control (`exit 4` -> `1`) goes red — the suite can fail on the defect.
+6. README: exit-code table, corrected 11.1.3 example (`0 unpinned-tarball` was
+   impossible for an unpinned release), 64 checks.
+7. EXP-2026-11-18-M5.43-check-version + C-4420..C-4424.
+
+decisions:
+- kept 1 for the full build's real failure (M8.A9 gets a distinct 4), per Scope.
+- did NOT invent a `qemu` suite for tools/selftest.py (out of Scope; follow-up).
+- left TODO at in progress, PR draft, no merge — navigator reviews first.
+
+problems: first pre-fix control run used a relative --patch-dir against a script
+in scratch, so 5/5 "failed"; re-ran with an absolute path. `--only qemu` does
+not exist (rc 2), recorded in the EXP rather than changed.
+
+handoff: navigator should re-run the four Done-when commands and check the EXP's
+"traceback" correction against the task Goal wording (the task text is the part
+that is wrong, not the script's error path).
+
+round 2 (navigator returned CHANGES, 6 edits):
+1. exit 3 was documented, not implemented: added fault() (check path only),
+   verify_tarball takes a fault code (default 1 so the full build keeps 1,
+   check_version passes 3), missing-tool and missing-configure use fault();
+   two selftest cases (truncated tarball, PATH without patch) -> 69 checks.
+2. TODO Goal/Precheck: "uncaught error / traceback" -> second note + rc 1
+   (the script never raised; the task text was the wrong part).
+3. Done-when: unsatisfiable `--only qemu` -> build.sh --selftest + selftest.py
+   green, with the exit 2 fact recorded (C-4424).
+4. EXP: added "Corrections after navigator review" (this list).
+5. EXP Reproduction: every rc now printed by its own command; re-ran all of
+   1-7 after the exit-3 change (1/4/0/3/1/69/68/2).
+6. EXP header Claims C-4420..C-4429 -> C-4420..C-4424.
+extra: README current-state heading retitled (M8.A1 -> M5.43), 69 checks,
+exit-3 causes; C-4421/C-4422/C-4423 Evidence and numbers updated.
+
+round 3 (navigator APPROVED; closing commit):
+- TODO M5.43: done, [x], Result: line with 11.1.3 rc 4 / 8.2.10 rc 0 /
+  truncated rc 3, Claims C-4420-C-4424 (was "none yet").
+- EXP Status already done (written that way); claims.md section header
+  C-4420-4429 -> C-4420-4424; Reproduction gained the --version <trunc> rc=1
+  control line; one sentence narrows "full build exits 1" to size/SHA faults
+  (network_needed is 3 on both paths).
+- checks re-run: 11.1.3 rc 4, 8.2.10 rc 0, trunc check 3, trunc full 1,
+  --selftest 69/0, selftest.py 93/0/23, todo_check OK, claims_check OK.
+- PR ready; merge left to the TL (M5.44 order unknown to this agent).

@@ -2879,18 +2879,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a record still says `blocked`/`stays blocked` for M8.A2, or C-3563 still attributes both changed words to the size alone.
   - Claims: none yet
 
-- [ ] **M5.43 — `build.sh --check-version` reports a verdict, not a traceback**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.43 — `build.sh --check-version` reports a verdict, not a traceback**
+  - Status: done · Owner: task/m5.43-check-version-verdict · Critical: no · Pair: required
   - Depends: M8.A10 (done — the probe and its `QEMU_PINS` table)
-  - Goal: the probe's purpose is a per-patch verdict for a release that may not have a pin; a FAILED patch is its normal answer. Today the 11.1.3 probe prints the correct table and then exits through an uncaught error (rc 1 with a traceback), so a caller (M8.A9, a future bump) cannot tell "probe says 3/2" from "the probe broke", and any wrapper that treats rc 1 as a crash will read the answer as a tool failure.
-  - Precheck: `bash tools/qemu-ze0/build.sh --check-version 11.1.3` prints `3 applied, 2 failed, 1 unpinned-tarball` and then ends with an exception; `bash tools/qemu-ze0/build.sh --selftest` is 56/56.
+  - Goal: the probe's purpose is a per-patch verdict for a release that may not have a pin; a FAILED patch is its normal answer. Today the 11.1.3 probe prints the correct table, then a second note, and exits `1` (the full build's generic failure code; no traceback), so a caller (M8.A9, a future bump) cannot tell "probe says 3/2" from "the probe broke", and any wrapper that treats rc 1 as a crash will read the answer as a tool failure.
+  - Precheck: `bash tools/qemu-ze0/build.sh --check-version 11.1.3` prints `3 applied, 2 failed, 1 unpinned-tarball`, then the port-delta note, and ends with rc `1`; `bash tools/qemu-ze0/build.sh --selftest` is 56/56.
   - Scope: `tools/qemu-ze0/build.sh` only: `--check-version` keeps the extraction, the `patch --dry-run` table and the one-line verdict, and exits with a defined code — `0` all patches apply, `4` at least one patch fails to apply (a porting delta), `2` usage, `3` missing input/download fault — printing the verdict line last and nothing after it; `--selftest` gains a red case (an injected patch that must fail) and a green one, both without a network build. `README.md` gets the exit-code table.
   - Input: `tools/qemu-ze0/build.sh` (`--check-version`, `QEMU_PINS`, the `st_ok`/`st_fail` helpers), EXP-2026-11-17-M8.A10-bump-8210 (the 3/2 table), `docs/research/qemu-ze0-port-delta.md` (M8.A9 consumes the verdict), `tools/qemu-ze0/README.md`.
   - Hints: the failure is in the check path's cleanup or hash step, not in `patch`; reproduce with `bash -x` once and record the line in the EXP. Do not make a FAILED patch an exit 0 — M8.A9 needs the signal.
-  - Done when: `bash tools/qemu-ze0/build.sh --check-version 11.1.3` prints the 3/2 table and exits `4` with no traceback; `--check-version 8.2.10` exits `0` (5/5); `--selftest` passes with both outcomes covered; `python3 tools/selftest.py --only qemu` (or the tool's discovery name) stays green.
+  - Done when: `bash tools/qemu-ze0/build.sh --check-version 11.1.3` prints the 3/2 table and exits `4` with no traceback; `--check-version 8.2.10` exits `0` (5/5); `bash tools/qemu-ze0/build.sh --selftest` passes with both outcomes and `python3 tools/selftest.py` stays green (`--only qemu` exits 2 — not a discovered suite, see C-4424).
   - Stop: if the failure is inside the pinned tarball's own patch tool rather than the script, record the line and the tool version and exit 4 with the reason — the code path is still the script's.
   - Falsifier: a probe where some patches fail exits 0, or one where all apply exits non-zero.
-  - Claims: none yet
+  - Result: `--check-version 11.1.3` → `3 applied, 2 failed` + rc `4`; `--check-version 8.2.10` → `5 applied, 0 failed` + rc `0`; truncated pinned tarball via `--srcdir` → `has 13 bytes, expected 132685948` + rc `3` — `docs/experiments/EXP-2026-11-18-M5.43-check-version.md`
+  - Claims: C-4420–C-4424
 
 - [ ] **M5.44 — Splice level-2 directories: a second detail level, on a tile that owns them**
   - Status: open · Owner: — · Critical: yes · Pair: required

@@ -18,7 +18,8 @@
 #   ./build.sh --selftest         offline test of this script (no network)
 #   ./build.sh --help             this text
 #
-# Exit codes: 0 ok · 1 failure · 2 usage · 3 network needed.
+# Exit codes: 0 ok · 1 failure · 2 usage · 3 network/missing input ·
+#             4 --check-version found patches that do not apply (a porting delta).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,8 +79,10 @@ Options:
   --version V        QEMU release to build (default 8.2.10, must be >= 8.2)
   --check-version V  probe V without building: verify the tarball when it is
                      in the pin table, extract to a scratch tree, apply every
-                     patch and report per patch (0 all OK, 1 a patch failed,
-                     3 network).  Accepts an unpinned version and says so.
+                     patch and report per patch.  Exit: 0 every patch applies,
+                     4 at least one patch does not apply (a porting delta),
+                     2 usage, 3 network/missing input.  Accepts an unpinned
+                     version and says so; the verdict line is printed last.
   --from-git         clone the pinned tag instead of using the release tarball
   --url-base URL     download base (default https://download.qemu.org)
   --force            remove the source and build trees, re-extract, rebuild
@@ -90,12 +93,16 @@ Options:
 
 The first run needs network: the pinned tarball is ~127 MiB and the extracted
 tree plus build tree need ~2 GiB.  Nothing is downloaded or built by
---dry-run or --selftest.  Exit codes: 0 ok, 1 failure, 2 usage, 3 network.
+--dry-run or --selftest.  Exit codes: 0 ok, 1 failure, 2 usage, 3 network or
+missing input, 4 --check-version found a patch that does not apply.
 EOF
 }
 
 note() { printf 'build.sh: %s\n' "$*"; }
 die() { printf 'build.sh: %s\n' "$*" >&2; exit 1; }
+# fault — a missing input or download fault: 3, never 1 (build.sh:102 is the
+# full build's generic failure).  Used only on the --check-version path.
+fault() { printf 'build.sh: %s\n' "$*" >&2; exit 3; }
 usage_error() { printf 'build.sh: %s\n' "$*" >&2; printf 'Try %s --help\n' "$SELF" >&2; exit 2; }
 
 # run CMD...  — the single place that executes or prints a command.
@@ -345,20 +352,29 @@ fetch_tarball() {
   mv "$part" "$TARBALL"
 }
 
-# verify_tarball FILE — size and SHA-256 must match the pin.
+# verify_tarball FILE [FAULT_RC] — size and SHA-256 must match the pin.
+# FAULT_RC is the exit code of a mismatch (default 1, the full build's generic
+# failure); the --check-version path passes 3, because a bad or truncated
+# tarball is a missing-input fault, not a porting delta and not a build failure.
 verify_tarball() {
-  local file="$1" size got
+  local file="$1" rc="${2:-1}" size got
   if [ "$DRY_RUN" -eq 1 ]; then
     printf 'dry-run: sha256sum %q  # must be %s\n' "$file" "$QEMU_SHA256"
     printf 'dry-run: check %s bytes\n' "$QEMU_TARBALL_BYTES"
     return 0
   fi
+  if [ ! -s "$file" ]; then
+    printf 'build.sh: %s is missing or empty — delete it and re-run\n' "$file" >&2
+    exit "$rc"
+  fi
   size="$(wc -c < "$file" | tr -d ' ')"
   [ "$size" -eq "$QEMU_TARBALL_BYTES" ] \
-    || die "$(basename "$file") has $size bytes, expected $QEMU_TARBALL_BYTES (truncated download?) — delete it and re-run"
+    || { printf 'build.sh: %s has %s bytes, expected %s (truncated download?) — delete it and re-run\n' \
+           "$(basename "$file")" "$size" "$QEMU_TARBALL_BYTES" >&2; exit "$rc"; }
   got="$(sha256sum "$file" | awk '{print $1}')"
   [ "$got" = "$QEMU_SHA256" ] \
-    || die "sha256 mismatch for $(basename "$file"): got $got, expected $QEMU_SHA256 — delete it and re-run"
+    || { printf 'build.sh: sha256 mismatch for %s: got %s, expected %s — delete it and re-run\n' \
+           "$(basename "$file")" "$got" "$QEMU_SHA256" >&2; exit "$rc"; }
   note "sha256: ok $QEMU_SHA256"
 }
 
@@ -436,6 +452,11 @@ configure_and_build() {
 # accept our patches, and which of them are real API changes?  A pinned
 # version is hash-verified; an unpinned one is downloaded and its hash is
 # printed so the caller can add it to QEMU_PINS.
+#
+# Exit codes are the verdict: 0 every patch applies, 4 at least one does not
+# (a porting delta, the probe's normal answer for a new release).  The
+# one-line verdict is printed last and nothing follows it, so a caller can
+# read "3 applied, 2 failed" from the same line it takes the exit code from.
 check_version() {
   local dir="$SRCDIR/check-$VERSION" tarball="$SRCDIR/qemu-$VERSION.tar.xz"
   local src="$dir/qemu-$VERSION" p list=() ok=0 bad=0 unpinned=0
@@ -454,7 +475,7 @@ check_version() {
   fi
 
   if [ "$PIN_KNOWN" -eq 1 ]; then
-    verify_tarball "$tarball"
+    verify_tarball "$tarball" 3
   else
     unpinned=1
     note "check: QEMU $VERSION is NOT in the pin table; measured tarball:"
@@ -466,10 +487,13 @@ check_version() {
   run mkdir -p "$dir"
   note "check: extracting to $src"
   run tar -C "$dir" -xf "$tarball"
-  [ -x "$src/configure" ] || die "$src/configure missing after extraction"
+  [ -x "$src/configure" ] || fault "$src/configure missing after extraction (unexpected tarball layout)"
 
   while IFS= read -r p; do list+=("$p"); done \
     < <(find "$PATCH_DIR" -maxdepth 1 -type f -name '*.patch' | LC_ALL=C sort)
+  if [ "${#list[@]}" -eq 0 ]; then
+    note "check: no patches to test in $PATCH_DIR"
+  fi
   for p in "${list[@]}"; do
     if patch -d "$src" -p1 --forward --batch --dry-run -i "$p" >/dev/null 2>&1; then
       printf 'check: %-46s APPLIES\n' "$(basename "$p")"
@@ -479,11 +503,14 @@ check_version() {
       bad=$((bad + 1))
     fi
   done
-  note "check: QEMU $VERSION: $ok applied, $bad failed, $unpinned unpinned-tarball"
+
+  # Everything after this point is the answer: no note may follow the verdict.
   if [ "$bad" -gt 0 ]; then
     note "check: a failure here is a porting delta, not a build failure; see docs/research/qemu-ze0-port-delta.md"
-    exit 1
+    note "check: QEMU $VERSION: $ok applied, $bad failed, $unpinned unpinned-tarball"
+    exit 4
   fi
+  note "check: QEMU $VERSION: $ok applied, $bad failed, $unpinned unpinned-tarball"
   exit 0
 }
 
@@ -559,6 +586,19 @@ make_fake_qemu() {
     printf '%s\n' 'exit 1'
   } > "$path"
   chmod +x "$path"
+}
+
+# make_fake_tarball DEST VERSION — a real .tar.xz with one file, the
+# `configure` that check_version requires after extraction (so the probe's
+# tarball/extract/verdict plumbing runs offline against a known tree).
+make_fake_tarball() {
+  local dest="$1" version="$2" work
+  work="$(mktemp -d "${TMPDIR:-/tmp}/qemu-ze0-fake-src.XXXXXX")"
+  mkdir -p "$work/qemu-$version"
+  printf '#!/bin/sh\nexit 0\n' > "$work/qemu-$version/configure"
+  chmod +x "$work/qemu-$version/configure"
+  tar -C "$work" -cJf "$dest" "qemu-$version"
+  rm -rf "$work"
 }
 
 selftest() {
@@ -683,6 +723,79 @@ selftest() {
     printf 'skip network-needed check (no curl/wget)\n'
   fi
 
+  # --- 8b. --check-version exit codes: green 0, red 4, verdict last --------
+  # A real .tar.xz cache (fake `configure`) and a patch dir of two synthetic
+  # patches: P1 appends a new file (always applies), P2 edits `configure` with
+  # the correct context (applies).  The red case rewrites P2 against a stale
+  # context, so `patch --dry-run` must reject it; the probe must say 4.
+  if command -v tar >/dev/null 2>&1 && tar --help 2>/dev/null | grep -q -- '-J'; then
+    local cv="9.9.9" cache_g="$tmp/cache-green" cache_r="$tmp/cache-red"
+    local patches="$tmp/patches" p1="$tmp/patches/p1-append.patch" p2="$tmp/patches/p2-edit.patch"
+    mkdir -p "$patches"
+    make_fake_tarball "$tmp/fake-$cv.tar.xz" "$cv"
+    mkdir -p "$cache_g" "$cache_r"
+    cp "$tmp/fake-$cv.tar.xz" "$cache_g/qemu-$cv.tar.xz"
+    cp "$tmp/fake-$cv.tar.xz" "$cache_r/qemu-$cv.tar.xz"
+
+    printf '%s\n' '--- /dev/null' '+++ b/newfile.txt' '@@ -0,0 +1 @@' '+hello' > "$p1"
+    printf '%s\n' '--- a/configure' '+++ b/configure' '@@ -1,2 +1,2 @@' ' #!/bin/sh' '-exit 0' '+exit 0  # patched' > "$p2"
+
+    st_run "check-version all-apply" 0 -- env HOME="$tmp/home" "$SELF" \
+      --check-version "$cv" --patch-dir "$patches" --srcdir "$cache_g"
+    st_contains "check-version all-apply" "2 applied, 0 failed, 1 unpinned-tarball"
+    if printf '%s\n' "$ST_OUT" | tail -n 1 | grep -Fq "2 applied, 0 failed"; then
+      st_ok "check-version all-apply verdict is the last line"
+    else
+      st_fail "check-version all-apply verdict is not the last line"
+    fi
+
+    mkdir -p "$tmp/patches-red"
+    cp "$p1" "$tmp/patches-red/p1-append.patch"
+    printf '%s\n' '--- a/configure' '+++ b/configure' '@@ -1,2 +1,2 @@' ' #!/bin/bash' '-exit 1' '+exit 1  # patched' \
+      > "$tmp/patches-red/p2-edit.patch"
+    st_run "check-version one-fails" 4 -- env HOME="$tmp/home" "$SELF" \
+      --check-version "$cv" --patch-dir "$tmp/patches-red" --srcdir "$cache_r"
+    st_contains "check-version one-fails" "1 applied, 1 failed, 1 unpinned-tarball"
+    st_contains "check-version one-fails" "porting delta"
+    if printf '%s\n' "$ST_OUT" | tail -n 1 | grep -Fq "1 applied, 1 failed"; then
+      st_ok "check-version one-fails verdict is the last line"
+    else
+      st_fail "check-version one-fails verdict is not the last line"
+    fi
+    if printf '%s\n' "$ST_OUT" | grep -Fq "Traceback"; then
+      st_fail "check-version one-fails printed a traceback"
+    else
+      st_ok "check-version one-fails prints no traceback"
+    fi
+
+    # exit 3 — a missing input on the --check-version path.  A pinned version
+    # whose cached tarball is truncated must be a missing-input fault (3), not
+    # the full build's generic 1 and not a porting delta (4).
+    mkdir -p "$tmp/cache-trunc"
+    head -c 13 "$tmp/fake-$cv.tar.xz" > "$tmp/cache-trunc/qemu-$QEMU_VERSION.tar.xz"
+    st_run "check-version truncated pinned tarball" 3 -- env HOME="$tmp/home" "$SELF" \
+      --check-version "$QEMU_VERSION" --patch-dir "$patches" --srcdir "$tmp/cache-trunc"
+    st_contains "check-version truncated pinned tarball" "expected $QEMU_TARBALL_BYTES"
+    st_lacks "check-version truncated pinned tarball" "applied,"
+
+    # exit 3 — a missing tool on the --check-version path.  `command -v`
+    # searches PATH, so a PATH that mirrors the system bin dirs but lacks
+    # `patch` is what a host without patch sees (the root refusal needs `id`
+    # from the same PATH, so an empty dir would fail earlier for another reason).
+    mkdir -p "$tmp/bin-nopatch"
+    for d in /usr/bin /bin; do
+      for f in "$d"/*; do
+        [ -e "$tmp/bin-nopatch/$(basename "$f")" ] || ln -s "$f" "$tmp/bin-nopatch/" 2>/dev/null || true
+      done
+    done
+    rm -f "$tmp/bin-nopatch/patch"
+    st_run "check-version missing patch tool" 3 -- env HOME="$tmp/home" PATH="$tmp/bin-nopatch" "$SELF" \
+      --check-version "$cv" --patch-dir "$patches" --srcdir "$cache_g"
+    st_contains "check-version missing patch tool" "missing tool for --check-version: patch"
+  else
+    printf 'skip check-version exit-code cases (no tar with -J support)\n'
+  fi
+
   # --- 8a. the pin table is the only source of hashes ----------------------
   if [ "$QEMU_VERSION" = "8.2.10" ]; then
     st_ok "default version is the bumped 8.2.10"
@@ -736,10 +849,10 @@ if [ "$CHECK_VERSION" -eq 1 ]; then
     exit 0
   fi
   for need in tar patch sha256sum; do
-    command -v "$need" >/dev/null 2>&1 || die "missing tool for --check-version: $need"
+    command -v "$need" >/dev/null 2>&1 || fault "missing tool for --check-version: $need"
   done
   command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 \
-    || die "missing tool for --check-version: curl or wget"
+    || fault "missing tool for --check-version: curl or wget"
   check_version
 fi
 
