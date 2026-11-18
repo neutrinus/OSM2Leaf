@@ -8426,7 +8426,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-18-M3.26-file-layer.md",
-   "line": 285,
+   "line": 288,
    "va": "0x0032efa8",
    "kind": "fn",
    "class": "START",
@@ -8435,7 +8435,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-18-M3.26-file-layer.md",
-   "line": 328,
+   "line": 342,
    "va": "0x00417d48",
    "kind": "fn",
    "class": "START",
@@ -8444,7 +8444,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-18-M3.26-file-layer.md",
-   "line": 330,
+   "line": 344,
    "va": "0x0041a52c",
    "kind": "fn",
    "class": "START",

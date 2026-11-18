@@ -1425,9 +1425,9 @@ against `0x10000`; (b) does the reader seek by `chunk_offset[]` or scan for
   destination.
 - **(a) `chunk_size`.** `0x0041c8c4` divides a caller word by B (`head+12`)
   and never compares either operand with a `0x10000` literal. The `.ind`
-  itself does carry a `0x10000` **value**: in **2,875 of 2,875** factory
-  `.ind` pairs the four little-endian u32 are `(logical, compressed,
-  ceil(logical/chunk), chunk)` with `chunk == 0x10000` and `count ==
+  itself does carry a `0x10000` **value**: in all **2,875** `.ind` files
+  under `~/projekty/leafre-work` the four little-endian u32 are `(logical,
+  compressed, ceil(logical/chunk), chunk)` with `chunk == 0x10000` and `count ==
   ceil(logical/chunk)` in every one, and the measured POINT010 pair reads
   A = `149` (u32 #2, the count) and B = `65536` (u32 #3, the chunk). So the
   layer meets the `0x10000` as a loaded **value** (B), never as an immediate
