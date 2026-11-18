@@ -18,6 +18,19 @@ The default run stays a fast warning pass over the real ledger (exit 0). The
 path rule and the count rule both fail under ``--strict``; ``--count-check`` is
 the explicit way to run only the count rule (H78: ``--strict`` used to leave it
 off, hiding C-3704 from the standing gate).
+
+``--prose-counts`` is the other direction of the count rule (H92): a claim's
+*evidence cell* may quote a count a command prints, and that number goes stale
+when a later merge changes the tree. Only three mechanical shapes are re-run,
+and only when the quoted command is one of an allowlist:
+
+* a backticked command ending in ``prints N`` (``grep -c`` or ``python3 -c``);
+* a claim that says ``stays N`` (the H87 defect: a list that later grew);
+* the exact selftest footer ``OK (N checks`` for a tool the cell names.
+
+A prose count with no measurement revision (an explicit commit, or an EXP whose
+own history moved a tool — H78's rule) is skipped, never failed. The mode is
+off by default; it does not run in the standing gate yet.
 """
 
 from __future__ import annotations
@@ -63,6 +76,25 @@ EVIDENCE_PATH_RE = re.compile(r"(?:archive|docs)/[^\s`'\"()\[\],;]+")
 # A selftest footer's check count, e.g. ``OK (26 checks, 0 failed)`` or
 # ``46 checks OK`` — the honest count the tool prints about itself.
 FOOTER_RE = re.compile(r"(\d+)\s+checks?\b", re.IGNORECASE)
+
+# --- H92: prose counts ------------------------------------------------------
+# ``<backticked command> prints N`` — the evidence cell is the only surface;
+# the quoted command is the text before ``prints`` and must be allowlisted.
+PROSE_PRINT_RE = re.compile(r"`([^`]+)`\s*(?:,\s*)?prints?\s+`?(\d[\d,]*)", re.I)
+# ``stays N`` — a claim asserting a count that another merge can move (H87).
+PROSE_STAYS_RE = re.compile(r"\bstays\s+`?(\d[\d,]*)`?", re.I)
+# The exact selftest footer a reader re-runs: ``OK (N checks``.
+PROSE_OK_RE = re.compile(r"OK\s*\((\d+)\s*checks?", re.I)
+# A command shape that is safe to re-run: a file count or a python one-liner.
+# A ``git show <rev>:<file> | … | grep -c`` pipeline is a count of a historical
+# tree (H91's pinned-C-4101 form) and is safe for the same reason.
+PROSE_ALLOW = (
+    ("grep -c", re.compile(r"\bgrep\s+-c")),
+    ("python3 -c", re.compile(r"\bpython3?\s+-c\b")),
+)
+# ``archive/…`` inputs in such a command are a vendor-pin (rule 11): a two-way
+# probe of some other task's image is not this rule's price.
+PROSE_VENDOR_RE = re.compile(r"\barchive/")
 
 TARGET_EXPS = {
     "EXP-2026-11-05-38",
@@ -477,6 +509,159 @@ def count_problems(rows, runner=_run_selftest):
     return problems
 
 
+def _prose_allowed(cmd):
+    """The allowlist name for a command shape, or None.
+
+    ``grep -c`` and ``python3 -c`` are the two shapes whose whole job is to
+    print one count. Anything else (a tool with a fixture, a shell pipeline, a
+    vendor image) is not re-run here: the rejected shapes are listed in the
+    H92 EXP rather than guessed at.
+    """
+    if PROSE_VENDOR_RE.search(cmd):
+        return None
+    for name, rx in PROSE_ALLOW:
+        if rx.search(cmd):
+            return name
+    return None
+
+
+def _prose_value(text):
+    return int(text.replace(",", "").replace(" ", ""))
+
+
+def _cell_spans(evidence):
+    return BACKTICK_RE.findall(evidence)
+
+
+def prose_count_problems(rows, runner=None, cmd_runner=None):
+    """Claims whose evidence quotes a count the tree no longer prints (H92).
+
+    Three shapes, each re-run only when the shape owns a command:
+
+    * ``<backticked command> prints N`` — re-runs an allowlisted ``grep -c`` or
+      ``python3 -c`` and compares N with what it prints now;
+    * ``stays N`` in the claim text — fails only when the cell also names a
+      ``tools/X.py --selftest`` and its footer prints a different N (H87's
+      ``US_BUILD_STARTS`` was a Python list, so the footer is its measurement);
+    * ``OK (N checks`` in the cell — re-runs that cell's sole
+      ``tools/X.py --selftest``.
+
+    A shape with no measurement revision (``_pinned_revision``: an explicit
+    commit, else the EXP commit that moved a tool — H78) is skipped, never
+    failed. The revision is what makes a quote checkable: without it the
+    number could be right for the commit the author had.
+    """
+    runner = runner or _run_selftest
+    cmd_runner = cmd_runner or _run_prose_command
+    problems = []
+    cache = {}
+    for cid, line in rows:
+        text = claim_text(line)
+        ev = evidence_cell(line)
+        spans = _cell_spans(ev)
+        selftests = [s for s in spans if SELFTEST_RE.search(s)]
+        exp_name = (EXP_TOKEN_RE.findall(ev) or EXP_TOKEN_RE.findall(text) or [""])[0]
+        rev = _pinned_revision(ev, exp_name)
+
+        def measure(tool):
+            key = (tool, rev)
+            if key not in cache:
+                cache[key] = runner(tool, rev)
+            return cache[key]
+
+        # (1) a quoted command that prints N.
+        for m in PROSE_PRINT_RE.finditer(ev):
+            cmd, quoted = m.group(1), _prose_value(m.group(2))
+            shape = _prose_allowed(cmd)
+            if shape is None:
+                continue
+            if rev is None:
+                continue
+            got = cmd_runner(cmd)
+            if got is None or got == quoted:
+                continue
+            problems.append({"id": cid, "shape": "prints", "claimed": quoted,
+                             "got": got, "rev": rev, "cmd": cmd})
+
+        # (2) `stays N`, the H87 defect. Two mechanical measurements: an
+        # allowlisted `grep -c` the cell already quotes (the list that grew),
+        # or the cell's own selftest footer when the list lives in a tool.
+        # A bare `stays N` with neither is not measurable and stays untouched.
+        for m in PROSE_STAYS_RE.finditer(text):
+            quoted = _prose_value(m.group(1))
+            if rev is None:
+                continue
+            got = None
+            how = None
+            for span in spans:
+                if _prose_allowed(span) is not None:
+                    got = cmd_runner(span)
+                    if got is not None:
+                        how = ("command", span)
+                        break
+            if got is None and selftests:
+                tool = SELFTEST_RE.search(selftests[0]).group(1)
+                measured = measure(tool)
+                if measured is not None:
+                    got, how = measured[0], ("tool", tool)
+            if got is None or got == quoted:
+                continue
+            problems.append({"id": cid, "shape": "stays", "claimed": quoted,
+                             "got": got, "rev": rev, "how": how[0],
+                             "detail": how[1]})
+
+        # (3) a selftest footer quoted in the cell.
+        ok_here = PROSE_OK_RE.findall(ev)
+        if len(set(ok_here)) == 1 and len(selftests) == 1:
+            quoted = int(ok_here[0])
+            if rev is not None:
+                tool = SELFTEST_RE.search(selftests[0]).group(1)
+                got = measure(tool)
+                if got is not None and got[0] != quoted:
+                    problems.append({"id": cid, "shape": "footer",
+                                     "claimed": quoted, "got": got[0],
+                                     "rev": rev, "tool": tool})
+    return problems
+
+
+def _run_prose_command(cmd):
+    """Run one allowlisted command shape; return its first integer or None.
+
+    Only ``grep -c`` and ``python3 -c`` are allowed (``_prose_allowed`` has
+    already filtered). ``grep -c`` runs with ``shell=True`` because the quote
+    style varies; the text comes from the ledger, so a command substitution is
+    a ledger defect, not an input. ``python3 -c`` uses the same interpreter.
+    """
+    if PROSE_VENDOR_RE.search(cmd):
+        return None
+    try:
+        if re.search(r"\bgrep\s+-c", cmd):
+            proc = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True,
+                                  text=True, timeout=60, shell=True)
+            first = (proc.stdout or "").split()
+            if not first:
+                return 0
+            return int(first[0].replace(",", ""))
+        if re.search(r"\bpython3?\s+-c\b", cmd):
+            code = re.sub(r"^.*?python3?\s+-c\s+", "", cmd, count=1)
+            if code[:1] in ("'", '"'):
+                quote = code[0]
+                end = code.find(quote, 1)
+                if end < 0:
+                    return None
+                code = code[1:end]
+            proc = subprocess.run([sys.executable, "-c", code],
+                                  cwd=str(REPO_ROOT), capture_output=True,
+                                  text=True, timeout=60)
+            first = (proc.stdout or "").split()
+            if not first:
+                return None
+            return int(first[0].replace(",", ""))
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return None
+    return None
+
+
 def exp_count_problems(rows, exp_files):
     """A claim and the EXP it cites must pin the same selftest count.
 
@@ -532,7 +717,8 @@ def _run_counts(args):
     return bool(args.count_check or args.strict)
 
 
-def check(claims_text, exp_files, run_counts=False, runner=_run_selftest):
+def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
+          run_prose=False, prose_runner=None, prose_cmd_runner=None):
     rows = parse_claim_rows(claims_text)
     dups = duplicate_ids(rows)
     reg = registration_index(claims_text)
@@ -555,6 +741,9 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest):
     paths = path_problems(rows)
     counts = count_problems(rows, runner=runner) if run_counts else []
     exp_counts = exp_count_problems(rows, exp_files)
+    prose = (prose_count_problems(rows, runner=prose_runner,
+                                  cmd_runner=prose_cmd_runner)
+             if run_prose else [])
 
     return {
         "duplicate_ids": dups,
@@ -563,6 +752,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest):
         "bad_paths": paths,
         "bad_counts": counts,
         "exp_count_conflicts": exp_counts,
+        "bad_prose_counts": prose,
         "ok": not dups and not unregistered and not bad_annotations,
     }
 
@@ -577,6 +767,10 @@ def main(argv=None):
     parser.add_argument("--count-check", action="store_true",
                         help="run each cited tools/X.py --selftest and compare "
                              "the printed check count with the claim")
+    parser.add_argument("--prose-counts", action="store_true",
+                        help="re-run the allowlisted command a claim's evidence "
+                             "quotes and report a count the tree no longer "
+                             "prints (H92; off by default, not in the gate yet)")
     args = parser.parse_args(argv)
 
     if args.selftest:
@@ -595,12 +789,21 @@ def main(argv=None):
         # on any full checkout; here it says so instead of printing 9 false
         # COUNT lines. This is a printed skip, never a quiet "0 mismatches".
         run_counts = False
-    result = check(claims_text, exp_files, run_counts=run_counts)
+    # H92: a shallow history has no measurement revision either, so the prose
+    # rule would skip every row; say so instead of printing a false "0".
+    run_prose = bool(args.prose_counts)
+    prose_skip = run_prose and history_is_shallow()
+    if prose_skip:
+        run_prose = False
+    result = check(claims_text, exp_files, run_counts=run_counts,
+                   run_prose=run_prose)
     genuine = genuine_path_problems(result["bad_paths"])
     path_fail = args.strict and bool(genuine)
     count_fail = args.strict and bool(result["bad_counts"])
     conflict_fail = args.strict and bool(result["exp_count_conflicts"])
-    failed = (not result["ok"] or path_fail or count_fail or conflict_fail)
+    prose_fail = bool(args.prose_counts and result["bad_prose_counts"])
+    failed = (not result["ok"] or path_fail or count_fail or conflict_fail
+              or prose_fail)
     if args.json:
         result["genuine_paths"] = genuine
         result["strict_failed"] = failed
@@ -637,6 +840,27 @@ def main(argv=None):
         for c in result["exp_count_conflicts"]:
             print("  CONFLICT %s claims %d, %s quotes %d (%s)"
                   % (c["id"], c["claim"], c["tool"], c["exp_count"], c["exp"]))
+        if prose_skip:
+            print("prose count check: skipped (shallow clone; fetch the full "
+                  "history to run it)")
+        elif run_prose:
+            print("stale prose counts: %d" % len(result["bad_prose_counts"]))
+            for c in result["bad_prose_counts"]:
+                if c["shape"] == "prints":
+                    print("  STALE COUNT %s: claims %d, command prints %d (%s)"
+                          % (c["id"], c["claimed"], c["got"], c["rev"]))
+                elif c["shape"] == "stays":
+                    where = ("the quoted command" if c["how"] == "command"
+                             else c["detail"])
+                    print("  STALE COUNT %s: claims %d, %s prints %d (%s)"
+                          % (c["id"], c["claimed"], where, c["got"],
+                             c["rev"]))
+                else:
+                    print("  STALE COUNT %s: claims %d, %s footer prints %d (%s)"
+                          % (c["id"], c["claimed"], c["tool"], c["got"],
+                             c["rev"]))
+        else:
+            print("prose count check: off (--prose-counts)")
         print("claims_check: OK" if not failed else "claims_check: FAILED")
     return 0 if not failed else 1
 
@@ -885,7 +1109,132 @@ def run_selftest():
     assert _run_counts(_Args(strict=False, count=True)) is True
     assert _run_counts(_Args(strict=False, count=False)) is False
 
-    print("claims_check selftest: OK (28 checks)")
+    # --- H92: a prose count the tree no longer prints ----------------------
+    # (j) `stays N` with the cell's `grep -c`: the command prints 15 against a
+    # claim that says 12 (the exact H87 defect); the same 15 is green, and a
+    # row with no measurement revision is skipped, not failed.
+    stays_row = ("| C-9101 | `US_BUILD_STARTS` stays `12`. | VERIFIED (tool) | H | "
+                 "EXP-2026-11-16-H74-fixture; at `334f092`; "
+                 "`grep -c '0x` tools/stub.py` |\n")
+    saved_pin = prose_count_problems.__globals__["_pinned_revision"]
+    prose_count_problems.__globals__["_pinned_revision"] = lambda ev, name: "334f092"
+    try:
+        r19 = prose_count_problems(
+            parse_claim_rows(stays_row), cmd_runner=lambda cmd: 15)
+        assert [p["shape"] for p in r19] == ["stays"], r19
+        assert r19[0]["claimed"] == 12 and r19[0]["got"] == 15
+        # negative control: the correct count is clean.
+        fresh = stays_row.replace("stays `12`", "stays `15`")
+        r20 = prose_count_problems(
+            parse_claim_rows(fresh), cmd_runner=lambda cmd: 15)
+        assert r20 == [], r20
+        # a `stays N` measured by a selftest footer instead of a command.
+        tool_row = ("| C-9105 | The list stays `12`. | VERIFIED (tool) | H | "
+                    "EXP-2026-11-16-H74-fixture; `python3 tools/stub.py --selftest`; "
+                    "at `334f092` |\n")
+        r20b = prose_count_problems(
+            parse_claim_rows(tool_row),
+            runner=_stub_runner({("tools/stub.py", "334f092"): (15, 0)}))
+        assert [p["shape"] for p in r20b] == ["stays"], r20b
+        assert r20b[0]["how"] == "tool" and r20b[0]["got"] == 15
+        # a revision-less row is skipped, never failed (H78's rule).
+        prose_count_problems.__globals__["_pinned_revision"] = lambda ev, name: None
+        r21 = prose_count_problems(
+            parse_claim_rows(stays_row), cmd_runner=lambda cmd: 15)
+        assert r21 == [], r21
+    finally:
+        prose_count_problems.__globals__["_pinned_revision"] = saved_pin
+
+    # (k) `<command> prints N`: the command is re-run, so 13 against a fixture
+    # that now prints 14 is STALE; the allowlist rejects a non-count command;
+    # and a command with an `archive/` input is not re-run (rule 11).
+    prints_row = ("| C-9102 | The fixture prints 13 rows. | VERIFIED (tool) | H | "
+                  "EXP-2026-11-16-H74-fixture; `python3 -c \"print(len('x'))\"` "
+                  "prints `13`; at `334f092` |\n")
+    prose_count_problems.__globals__["_pinned_revision"] = lambda ev, name: "334f092"
+    try:
+        r22 = prose_count_problems(
+            parse_claim_rows(prints_row),
+            cmd_runner=lambda cmd: 14)
+        assert [p["shape"] for p in r22] == ["prints"], r22
+        assert r22[0]["claimed"] == 13 and r22[0]["got"] == 14
+        r23 = prose_count_problems(
+            parse_claim_rows(prints_row),
+            cmd_runner=lambda cmd: 13)
+        assert r23 == [], r23
+        # the allowlist is the shape, not the number: a tool invocation with
+        # no `grep -c`/`python3 -c` is not re-run, even if it would disagree.
+        other = ("| C-9103 | `python3 tools/fn_match.py --fixture x` prints `13`. "
+                 "| VERIFIED (tool) | H | EXP-2026-11-16-H74-fixture; "
+                 "`python3 tools/fn_match.py --fixture x` prints `13`; at `334f092` |\n")
+        r24 = prose_count_problems(
+            parse_claim_rows(other), cmd_runner=lambda cmd: 14)
+        assert r24 == [], r24
+        vendor = prints_row.replace('python3 -c "print(len(\'x\'))"',
+                                    'grep -c x archive/head256.img')
+        r25 = prose_count_problems(
+            parse_claim_rows(vendor), cmd_runner=lambda cmd: 14)
+        assert r25 == [], r25
+    finally:
+        prose_count_problems.__globals__["_pinned_revision"] = saved_pin
+
+    # (l) the exact footer `OK (N checks` in the cell is checked against the
+    # cell's sole selftest tool: 29 quoted against a 33-check tool is STALE.
+    footer_row = ("| C-9104 | `tools/stub.py --selftest` is quoted below. "
+                  "| VERIFIED (tool) | H | EXP-2026-11-16-H74-fixture; "
+                  "`python3 tools/stub.py --selftest` prints `OK (29 checks, 0 failed)`; "
+                  "at `334f092` |\n")
+    prose_count_problems.__globals__["_pinned_revision"] = lambda ev, name: "334f092"
+    try:
+        r26 = prose_count_problems(
+            parse_claim_rows(footer_row),
+            runner=_stub_runner({("tools/stub.py", "334f092"): (33, 0)}))
+        assert [p["shape"] for p in r26] == ["footer"], r26
+        assert r26[0]["claimed"] == 29 and r26[0]["got"] == 33
+        r27 = prose_count_problems(
+            parse_claim_rows(footer_row.replace("29 checks", "33 checks")),
+            runner=_stub_runner({("tools/stub.py", "334f092"): (33, 0)}))
+        assert r27 == [], r27
+        # no revision -> skipped (`_pinned_revision` is restored above).
+        r28 = prose_count_problems(
+            parse_claim_rows(footer_row),
+            runner=_stub_runner({("tools/stub.py", None): (33, 0)}))
+        assert r28 == [], r28
+    finally:
+        prose_count_problems.__globals__["_pinned_revision"] = saved_pin
+
+    # (n) `<N> at <sha>`: a correct count at the named revision is clean, and a
+    # wrong one is measured at that revision, not at HEAD.
+    at_row = ("| C-9106 | `grep -c 'x' tools/stub.py` prints `15` at `398db35`. "
+              "| VERIFIED (tool) | H | EXP-2026-11-16-H74-fixture; at `398db35`; "
+              "`grep -c 'x' tools/stub.py` prints `15` |\n")
+    saved_pin = prose_count_problems.__globals__["_pinned_revision"]
+    try:
+        r31 = prose_count_problems(parse_claim_rows(at_row),
+                                   cmd_runner=lambda cmd: 15)
+        assert r31 == [], r31
+        bad_at = at_row.replace("prints `15`", "prints `12`")
+        r32 = prose_count_problems(parse_claim_rows(bad_at),
+                                   cmd_runner=lambda cmd: 15)
+        assert [p["rev"] for p in r32] == ["398db35"], r32
+    finally:
+        prose_count_problems.__globals__["_pinned_revision"] = saved_pin
+
+    # (m) the default run does not run the prose rule (`run_prose=False`), and
+    # `check()` carries it through with the injected runners.
+    r29 = check(stays_row, {"EXP-2026-11-16-H74-fixture.md": "x"},
+                run_counts=False, run_prose=False)
+    assert r29["bad_prose_counts"] == []
+    prose_count_problems.__globals__["_pinned_revision"] = lambda ev, name: "334f092"
+    try:
+        r30 = check(stays_row, {"EXP-2026-11-16-H74-fixture.md": "x"},
+                    run_prose=True,
+                    prose_runner=_stub_runner({("tools/stub.py", "334f092"): (15, 0)}))
+        assert [p["shape"] for p in r30["bad_prose_counts"]] == ["stays"]
+    finally:
+        prose_count_problems.__globals__["_pinned_revision"] = saved_pin
+
+    print("claims_check selftest: OK (37 checks)")
     return 0
 
 
