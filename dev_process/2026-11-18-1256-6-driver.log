@@ -1,0 +1,67 @@
+role: driver (M9.43) · model: deepseek-v4.1-flash-free (Airouter Strong)
+start: 2026-11-18 12:56 UTC · end: 2026-11-18 ~13:40 UTC
+origin/main at start: a48bbf9f5aca25612bff4d22ed73fa7cc854e984
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17,
+EXP-2026-11-17-M9.39-point010-mutant, EXP-2026-11-18-M9.42-wrong-build,
+tools/mutate_refer_poi.py, tools/cmpind_codec.py, tools/slot_budget.py.
+
+actions:
+- claim commit 7e19d23 (only the M9.43 line -> in progress), pushed, draft PR #227.
+- reproduced the defect at a48bbf9: CLI printed 4,233,456 B / 149 streams, .cmp 5565c9ba.
+- added encode_preserving() + _changed_chunks/_outer_stream; made the
+  chunk-preserving rebuild the default for both the single-edit and --batch
+  paths; kept the old path behind --whole-blob; --chunk-preserving explicit.
+- new selftest cases: synthetic 64-byte chunk one-change (streams 1..3 verbatim),
+  zero-change exact copy, whole-blob contrast, mixed-encoder contrast; 10 -> 13.
+- ran the M9.39 edit through the CLI on stock zlib 1.3.2 (python3.13 3.13.17):
+  US ea2d0e0f / 5d576d62 (4,240,400 B, chunk [132]), EU e75c298f / 077937ea
+  (3,271,483 B, chunk [110]) — the M9.39 pins byte for byte.
+- four point_walk_l3 runs reproduce n=501/998/999 +4, 1000 records, PASS.
+- negative controls: absent name refused (exit 1); same-length NMBRZ gives the
+  M9.39 d81a912b/914418c5 and factory offsets; --whole-blob still runs.
+- replaced the two heredocs in EXP-M9.39's Method + same-length control with the
+  committed CLI, added a Follow-up M9.43 section (no Observations changed);
+  grep for the heredoc marker over that EXP is 0.
+- wrote EXP-2026-11-18-M9.43-mutant-cli.md; claims C-4460-C-4469.
+
+decisions:
+- default chunk-preserving for --batch too, --whole-blob is the explicit old
+  path (Scope named --resize only; the falsifier greps for 149 streams).
+- did NOT mark done/merge: the driver prompt says keep the PR draft for the
+  navigator, although TODO.md now reads `done` per the task's Done when.
+
+problems:
+- zlib-ng runtime (python3 3.15.0) moves the SHAs of the re-deflated chunk only;
+  recorded, pins are on stock 1.3.2 (the runtime M9.39 named).
+- `todo_check.py --strict` already fails on M9.5 at a48bbf9 (pre-existing).
+
+handoff: navigator — check the `--batch` default change against M5.12c's
+recipe, `--whole-blob` naming, the EXP's runtime paragraph, and the
+"Corrections after navigator review" heading; then decide on merge + rule 15
+re-open of any task that cites M9.39's heredoc.
+
+round 2 (navigator CHANGES, record-only):
+- renumbered claims C-4460-C-4469 -> C-4480-C-4489 (M5.46 takes C-4470-C-4479)
+  in claims.md header + rows, EXP header, TODO Claims/Result.
+- re-measured the same-length pin with python3.13: d81a912b/914418c5 (was the
+  zlib-ng 7249d8f4/1e711d17). Re-ran the four reproduction SHAs unchanged.
+- corrected the whole-blob message: single file prints `whole-blob (1/149
+  stream(s) differ)` (the --batch form is `(149 stream(s))`); stock 1.3.2
+  re-encodes untouched chunks identically, zlib-ng whole-blob is 5950a042.
+- named the runtime on the a48bbf9 defect readout (zlib-ng) and measured the
+  old code under stock 1.3.2 (lands on ea2d0e0f; defect = all-streams rebuild).
+- rewrote the Corrections section with 5 measured bullets; rewrote the false
+  follow-up bullet (heredoc half closed, grep 0); added the build_ind selftest
+  gap (mutant passes 13/13, real .ind becomes 7ac54e3b).
+
+round 3 (rebase onto origin/main 14c7498):
+- rebased 3 commits; one claims.md conflict (tail append) resolved by keeping
+  M3.26 (C-4440-4449), M5.45 (C-4460-4469), M5.46 (C-4470-4479) and M9.43
+  (C-4480-4489) verbatim, in that order; no other file conflicted.
+- rewrote EXP Correction 1: the collision is the old C-4460-C-4469 against
+  M5.45 (merged e590187); M5.46/C-4470-C-4479 marked as a probe, now merged
+  as 14c7498.
+- re-ran: four SHAs unchanged (ea2d0e0f/5d576d62/e75c298f/077937ea), four
+  walks PASS, --selftest 13/13, claims_check --strict --count-check OK,
+  todo_check OK (M9.5 WARN only), gate 4 pass.

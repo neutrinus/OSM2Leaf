@@ -25,14 +25,20 @@ grow, and the tool refuses if it would cross the next page boundary.
 
 Only these bytes change: the name text, the record length byte (``--resize``),
 the inner zlib stream (recompressed, zero-padded back to the page boundary),
-the outer ``.cmp`` (one zlib stream) and the ``.ind`` compressed-size field.
+and the outer chunk that holds that page.  By default (M9.43) the outer
+container is rebuilt chunk-preservingly: ``cmpind_codec.repack_changed_chunks``
+keeps every unchanged 64 KiB stream byte-verbatim and recompresses only the
+chunk the inner page lives in, so one outer stream differs instead of all of
+them.  ``--whole-blob`` keeps the old behaviour (every outer stream recompressed
+at factory parameters), which the M5.12c copy/round-trip scans rely on.
 
 Usage:
   python3 mutate_refer_poi.py CMP IND OUTDIR --page 0x4200 \
       --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE"
   python3 mutate_refer_poi.py CMP IND OUTDIR --page 0x4200 --resize \
       --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE POI"
-  python3 mutate_refer_poi.py CMP IND OUTDIR --batch EDITS.json
+  python3 mutate_refer_poi.py CMP IND OUTDIR --page 0x4200 --batch EDITS.json
+  python3 mutate_refer_poi.py CMP IND OUTDIR --page 0x4200 --old A --new B --whole-blob
   python3 mutate_refer_poi.py --selftest
 
 ``--batch`` takes a JSON list of pages, each with same-length edits::
@@ -240,8 +246,41 @@ def encode(blob: bytes, chunk_size: int):
     return cmpind_codec.encode_chunks(blob, chunk_size, compress=cmpind_codec.factory_compress)
 
 
+def encode_preserving(packed: bytes, offsets: list[int], blob_old: bytes,
+                      blob_new: bytes, usize: int, chunk_size: int):
+    """Rebuild the outer container keeping unchanged outer streams verbatim.
+
+    M9.43: this is the chunk-preserving path (``cmpind_codec.
+    repack_changed_chunks``) so an edit that touches one inner page changes one
+    outer 64 KiB stream, not all of them.  Returns ``(cmp_bytes, offsets)``.
+
+    The chunk that holds the edited page is freshly deflated, so unless the
+    host's zlib reproduces the factory stream it will differ byte-wise from the
+    factory chunk; the other streams are byte-verbatim copies.
+    """
+    return cmpind_codec.repack_changed_chunks(
+        packed, offsets, usize, chunk_size, blob_old, blob_new,
+        compress=cmpind_codec.factory_compress,
+    )
+
+
 def build_ind(usize: int, csize: int, chunk_size: int, offsets: list[int]) -> bytes:
     return cmpind_codec.build_ind(usize, csize, chunk_size, offsets)
+
+
+def _outer_stream(packed: bytes, offsets: list[int], i: int) -> bytes:
+    end = offsets[i + 1] if i + 1 < len(offsets) else len(packed)
+    return packed[offsets[i]:end]
+
+
+def _changed_chunks(blob_old: bytes, blob_new: bytes, chunk_size: int) -> list[int]:
+    """Outer-chunk indexes whose logical 64 KiB payload differs."""
+    return [
+        i
+        for i in range((len(blob_old) + chunk_size - 1) // chunk_size)
+        if blob_old[i * chunk_size:(i + 1) * chunk_size]
+        != blob_new[i * chunk_size:(i + 1) * chunk_size]
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +408,61 @@ def selftest() -> int:
         assert getattr(exc, "row", None) is not None or "limit" in str(exc).lower() or "slot" in str(exc).lower() or "stream" in str(exc).lower()
     checks += 1
 
+    # M9.43: the chunk-preserving rebuild changes only the outer stream(s)
+    # that hold a changed logical chunk, and keeps every other stream verbatim.
+    chunk = 0x40
+    logical = (
+        b"A" * 20 + b"old-name" + b"@road\0" + b"." * (chunk - 34)
+        + b"B" * chunk
+        + b"C" * chunk
+        + b"\x00" * chunk
+    )
+    assert len(logical) == 4 * chunk
+    usize = len(logical)
+    packed, offs = encode(logical, chunk)
+    assert len(offs) == 4
+
+    at = logical.find(b"old-name")
+    blob2 = logical[:at] + b"new-name" + logical[at + 8:]
+    changed = _changed_chunks(logical, blob2, chunk)
+    assert changed == [0], changed
+
+    cmp2, offs2 = encode_preserving(packed, offs, logical, blob2, usize, chunk)
+    assert len(offs2) == len(offs)
+    assert _outer_stream(packed, offs, 0) != _outer_stream(cmp2, offs2, 0)
+    for i in (1, 2, 3):
+        assert _outer_stream(packed, offs, i) == _outer_stream(cmp2, offs2, i), i
+    assert decode(cmp2, offs2) == blob2
+    checks += 1
+
+    # The old whole-blob path recompresses every stream at factory params: a
+    # stream that was not factory-encoded is rewritten even when its payload
+    # is unchanged, which is exactly what the chunk-preserving mode avoids.
+    mixed_streams = [
+        cmpind_codec.factory_compress(logical[0:chunk]),
+        cmpind_codec.factory_compress(logical[chunk:2 * chunk]),
+        cmpind_codec.factory_compress(logical[2 * chunk:3 * chunk], level=9, mem_level=9),
+        cmpind_codec.factory_compress(logical[3 * chunk:4 * chunk]),
+    ]
+    mixed_offs, pos = [], 0
+    for s in mixed_streams:
+        mixed_offs.append(pos)
+        pos += len(s)
+    mixed = b"".join(mixed_streams)
+    whole, whole_offs = encode(logical, chunk)
+    assert _outer_stream(mixed, mixed_offs, 2) != _outer_stream(whole, whole_offs, 2)
+    kept, kept_offs = encode_preserving(mixed, mixed_offs, logical, logical, usize, chunk)
+    assert kept == mixed and kept_offs == mixed_offs
+    assert decode(whole, whole_offs) == logical
+    checks += 1
+
+    # The single-differing-stream property for an unchanged blob: no chunk
+    # differs, so every stream is a byte-verbatim copy.
+    same_packed, same_offs = encode_preserving(packed, offs, logical, logical, usize, chunk)
+    assert bytes(same_packed) == bytes(packed)
+    assert same_offs == list(offs)
+    checks += 1
+
     print(f"mutate_refer_poi selftest: OK ({checks}/{checks} checks)")
     return 0
 
@@ -400,6 +494,13 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--copies-report", metavar="JSON",
                     help="poi_copies.py JSON report to attach for 'every copy' "
                          "reporting (M5.12c; M5.27 unblocks the scan)")
+    ap.add_argument("--whole-blob", action="store_true",
+                    help="recompress every outer 64 KiB stream at factory params; "
+                         "the pre-M9.43 path, kept for the M5.12c copy/round-trip "
+                         "scan that expects every stream to be rewritten")
+    ap.add_argument("--chunk-preserving", action="store_false", dest="whole_blob",
+                    help="keep unchanged outer 64 KiB streams byte-verbatim "
+                         "(the default; the opposite of --whole-blob)")
     ap.add_argument("--selftest", action="store_true",
                     help="run the synthetic page-framing checks and exit")
     return ap
@@ -540,7 +641,15 @@ def batch_main(args, cmp_path: Path, ind_path: Path, outdir: Path) -> int:
         (outdir / (cmp_path.stem + ".skipped.json")).write_text(
             json.dumps(skipped, indent=2), encoding="utf-8")
         print(f"refused: {len(skipped)} page(s) left unchanged (see {cmp_path.stem}.skipped.json)")
-    new_packed, new_offsets = encode(new_blob, chunk_size)
+    if getattr(args, "whole_blob", False):
+        new_packed, new_offsets = encode(new_blob, chunk_size)
+        print(f"outer rebuild: whole-blob ({len(new_offsets)} stream(s))")
+    else:
+        changed = _changed_chunks(blob, new_blob, chunk_size)
+        new_packed, new_offsets = encode_preserving(
+            packed, offsets, blob, new_blob, usize, chunk_size)
+        print(f"outer rebuild: chunk-preserving, changed chunk(s) "
+              f"{changed} ({len(changed)}/{len(new_offsets)} stream(s) differ)")
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / cmp_path.name).write_bytes(new_packed)
     (outdir / ind_path.name).write_bytes(build_ind(usize, len(new_packed), chunk_size, new_offsets))
@@ -644,7 +753,20 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             print(f"copies report unreadable ({exc}); run poi_copies.py --inner (M5.27 unblocks scan)")
 
-    new_packed, new_offsets = encode(new_blob, chunk_size)
+    if args.whole_blob:
+        new_packed, new_offsets = encode(new_blob, chunk_size)
+        differing = [
+            i for i in range(len(offsets))
+            if _outer_stream(packed, offsets, i) != _outer_stream(new_packed, new_offsets, i)
+        ]
+        print(f"outer rebuild: whole-blob ({len(differing)}/{len(new_offsets)} "
+              f"stream(s) differ)")
+    else:
+        changed = _changed_chunks(blob, new_blob, chunk_size)
+        new_packed, new_offsets = encode_preserving(
+            packed, offsets, blob, new_blob, usize, chunk_size)
+        print(f"outer rebuild: chunk-preserving, changed chunk(s) "
+              f"{changed} ({len(changed)}/{len(new_offsets)} stream(s) differ)")
     out_cmp = outdir / cmp_path.name
     out_ind = outdir / ind_path.name
     out_cmp.write_bytes(new_packed)
@@ -656,7 +778,5 @@ def main(argv: list[str] | None = None) -> int:
           f"{len(new_offsets)} chunk(s)")
     print(f"logical size unchanged: {usize} bytes")
     return 0
-
-
 if __name__ == "__main__":
     raise SystemExit(main())
