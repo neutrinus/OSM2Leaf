@@ -100,3 +100,14 @@ Round-3 addendum (navigator: only C-4463's mechanism was wrong; text-only):
 Checks after the edits: tilewriter --selftest 73/73, one_tile_pipeline
 --selftest OK, claims_check --strict --count-check OK, todo_check OK, gate.py
 4 pass / 0 fail / 0 skip. PR #225 stays draft; task stays in progress.
+
+Round-4 (closing) addendum: TODO.md M5.45 ticked [x] with Status: done (Owner
+kept) and a Result: line naming the EXP and the approved facts (b746427c...
+1/2/3-splice sizes, the +4,671,488 B append-always mutant with 69/73 and 3
+FAIL, the (72,936) physical-aliasing cause, the level-1-owned-slots bound).
+Claims: C-4460-C-4469. EXP Status already 'done'. Rebased on fresh
+origin/main (8178993) - no conflicts; M5.44 header still C-4450-C-4459.
+Checks: tilewriter --selftest 73/73, one_tile_pipeline --selftest OK,
+claims_check --strict --count-check OK, todo_check OK, gate.py 4 pass /
+0 fail / 0 skip. Closing commit pending; PR #225 goes 'ready' but is NOT
+merged - merging and branch cleanup are the TL's call per the rules.
