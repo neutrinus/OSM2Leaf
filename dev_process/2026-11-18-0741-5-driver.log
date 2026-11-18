@@ -60,3 +60,9 @@ at 0x10000, target 0x900000), the pairing tables' PC values, and whether the
   the selftest exit 1; real tool exits 0.
 - C-4437 marked VERIFIED (code read + guarded selftest), C-4433/4436/4438
   reworded for check_entry and the pc = entry + 4 fact.
+
+--- closing ---
+- Re-ran the Done-when commands (wrong build FAIL/exit 1, matching PASS,
+  selftest green, gate 4/0/0, todo_check and claims_check OK), then set
+  M9.42 done with a Result line and made the EXP Corrections list a real
+  bullet list. PR #223 stays unmerged.

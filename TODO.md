@@ -3836,8 +3836,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the target appears in `--build-corpus` but a wrong-*build* run (`walk archive/head256.img … --build us2011`) prints `result: PASS` instead of `result: FAIL (unmapped …)`; the M9.39 mutant page is a *positive* witness (it must still pass on its own build), never a negative control.
   - Claims: C-4220–C-4229
 
-- [ ] **M9.42 — `point_walk_l3 walk` dies with a traceback and no `result:` line on a wrong build, so M9.41's wrong-build falsifier cannot be evaluated**
-  - Status: in progress · Owner: task/m9.42-wrong-build-verdict · Critical: no · Pair: required
+- [x] **M9.42 — `point_walk_l3 walk` dies with a traceback and no `result:` line on a wrong build, so M9.41's wrong-build falsifier cannot be evaluated**
+  - Status: done · Owner: task/m9.42-wrong-build-verdict · Critical: no · Pair: required
   - Depends: M9.39 (done — the mutant page this falsifier names)
   - Goal: SE 2026-11-17 reproduced the gap M9.41's Falsifier depends on and found it **unsatisfiable as written**: (a) the M9.39 mutant page is a *positive* witness (it must print `result: PASS` and move `n=501` +4), not a negative control, so "the M9.39 mutant also passes" is not a failure; (b) a genuinely wrong *build* (US target on `head256.img`, or EU target on `us256.img`) raises `engine.UnmappedAccess` and exits 1 **with no `result:` line at all** (`grep -c 'result:' ` prints 0), so a script cannot distinguish "wrong build rejected" from "the tool crashed". Make the wrong-build path a clean, machine-readable verdict and fix the falsifier.
   - Precheck: `python3 tools/point_walk_l3.py walk archive/head256.img --cmp /tmp/opencode/m939/mutant-us.POINT010.DAT.cmp --ind /tmp/opencode/m939/mutant-us.POINT010.DAT.ind --page 0x840ba0 --page-len 42848 --build us2011 > /tmp/wb.out 2>&1; echo $?` prints `1` and `grep -c 'result:' /tmp/wb.out` prints `0` (the defect: crash, not verdict); the same tool on `archive/us256.img` prints `result: PASS` (the run must not change).
@@ -3847,6 +3847,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the Precheck's wrong-build command exits 1 and prints exactly one `result: FAIL (unmapped …)` line (no traceback); a matching build still prints `result: PASS`; `--selftest` covers the unmapped build; M9.41's `Falsifier:` no longer treats the M9.39 mutant as a negative control; `python3 tools/selftest.py --only point_walk_l3` passes.
   - Stop: if the failure can only be detected after a stub boundary (an import), record the stub VA and hand the guard to M9.24 rather than faking a verdict.
   - Falsifier: the wrong-build run still exits on a bare traceback with zero `result:` lines, or a matching build loses its `result: PASS`.
+  - Result: done in `docs/experiments/EXP-2026-11-18-M9.42-wrong-build.md` — the wrong-build `walk archive/head256.img … --build us2011` prints one `result: FAIL (unmapped 0x00000000 @ build us2011, UNMAPPED pc=0x0041db48)` and exits 1 (0 tracebacks), while `walk archive/us256.img … --build us2011` prints `result: PASS` and exits 0; the selftest covers `run_skip`, `guarded` and the verdict.
   - Claims: C-4430–C-4439
 
 - [ ] **M9.43 — M9.39's mutant pair is only reproducible from a pasted heredoc; the committed `mutate_refer_poi.py` CLI writes a different, all-149-stream corpus**
