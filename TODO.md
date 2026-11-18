@@ -973,7 +973,7 @@ of the four numbers above says so in its first line.
   - Claims: C-4140–C-4149
 
 - [ ] **H92 — No gate covers the other direction of the count rule: a claim quoting a count the tree no longer prints**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h92-count-guard · Critical: no · Pair: required
   - Depends: H78 (`--count-check` is on `main`), H91 (the defect it should have caught)
   - Goal: `claims_check --count-check` fails when a claim's *selftest-count* pin no longer matches the tool. It stays green when a count quoted in a claim, an EXP `Observations` block or a task `Result` is stale without being a selftest count — which is how H87's `12` (shipped as 15) and H90's shallow-clone `count mismatches: 9` both survived. The safe shapes are few and mechanical: `grep -c` counts, a named list length (`US_BUILD_STARTS`), and `OK (N checks, 0 failed)`.
   - Precheck: `python3 tools/claims_check.py --strict --count-check` is OK on `3d79bcc` while `grep -n 'stays `12`' TODO.md docs/research/claims.md` finds H87's stale line; `grep -cE 'OK \([0-9]+ checks' docs/experiments/EXP-2026-11-1*.md` shows the shape is common, not a one-off.
