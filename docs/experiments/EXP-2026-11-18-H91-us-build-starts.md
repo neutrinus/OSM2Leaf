@@ -1,6 +1,6 @@
 # EXP-2026-11-18-H91: H87's counts were true at `381879b` and moved at merge
 
-- **Status:** done
+- **Status:** running (task still `in progress`; navigator corrections pending)
 - **Date:** 2026-11-18
 - **Sample:** `none (docs-only task)` — the numbers in H87's `Result`, its EXP and
   C-4101/C-4112 against `tools/fn_audit.py` at five revisions.
@@ -93,7 +93,15 @@ e199373 feat: run the POINT walkers and the chunk engine on US 2011 code
 398db35 fix: M1.22 record after navigator review (typed number, false limit, over-broad skip)
 $ git diff e199373 398db35 -- tools/fn_audit.py
 -    # M1.22: not function starts, but US pool slots the M1.22 census cites
-…    (removes 0x004444D0, 0x0041DA5C, 0x0041C2E0, 0x0041E5E4)
+-    # when it records which literal named which address.  They are skipped for
+-    # the same reason as the starts (the EU head has no such start at these
+-    # VAs), and recording them keeps the docs base at INSIDE 0.
+-    0x004444D0,  # EU-looking start the raw US engine VA falls inside
+-    0x0041DA5C,  # ditto, for the US nth reader
+-    0x0041C2E0,  # ditto, for the US skip walker
+-    0x0041E5E4,  # ditto, for the US dispatcher
+$ git show 398db35:tools/fn_audit.py | grep -c '0x004444D0\|0x0041DA5C\|0x0041C2E0\|0x0041E5E4'
+0
 ```
 
 `git merge-base --is-ancestor` confirms all five revisions are on `main`; the
@@ -109,9 +117,9 @@ H87 EXP's own sample revision `857c9a7` prints the same `12`/`70` as `381879b`.
   pool slots; `15` is what `origin/main` `9beb6a4` ships.
 - **FACT:** the check count moved at `f1c8dbb` (70 → 72, H88's two
   `--corpus`-missing-image cases), one commit after `381879b` — not at
-  `e199373`, and not "because M1.22 added the two H88 cases" (H91's Goal says
-  so; the diff says otherwise). Same for H88's C-4112: `72` holds from
-  `f1c8dbb` on.
+  `e199373` (H91's original Goal/Precheck attributed it to M1.22 and read `15`
+  at `381879b`; this pass corrected both — see Corrections). Same for H88's
+  C-4112: `72` holds from `f1c8dbb` on.
 - **IMPLICATION:** no behaviour change. `fn_audit` skips the same 15 US VAs
   before and after the doc edit; the repair is quote discipline, which is what
   H92 turns into a check.
@@ -151,15 +159,47 @@ done
   `{ sed -n '/\*\*H87 —/,/Claims: C-4100/p' TODO.md; cat
   docs/experiments/EXP-2026-11-17-H87-us-build-comment.md; grep '^| C-4101'
   docs/research/claims.md; } | grep -c 'stays `12`'` prints `0`.
-- **Literal whole-file.** `grep -c 'stays `12`' TODO.md docs/research/claims.md`
-  prints `TODO.md:3` / `claims.md:0`. All three are quotations of the defect,
-  not assertions about the merged list: H91's `Goal` (line 963) and `Falsifier`
-  (line 970, which must contain the pattern to define the check) and H92's
-  `Precheck` (line 977, another owner's block — out of H91's Scope). A literal
-  whole-file `0` is unreachable for a check whose own definition names the
-  pattern; the navigator should read the scoped count.
+- **Literal whole-file.** After round 2 `grep -c 'stays `12`' TODO.md
+  docs/research/claims.md` prints `TODO.md:2` / `claims.md:0`: H91's `Goal`
+  (line 963) and H92's `Precheck` (line 977, another owner's block). Both are
+  quotations of the defect, not assertions about the merged list, so the
+  literal count can never reach `0` on this board — which is why round 2
+  replaced H91's `Falsifier` with the scoped check above.
 
 ## Corrections after navigator review
 
-Pending — this record ships in a draft PR whose status stays `in progress`;
-the navigator's corrections land in this section before the merge.
+The navigator returned CHANGES on four required items plus four non-blocking
+ones; all are applied here.
+
+- **Goal attribution.** H91's Goal said the 70→72 selftest move came from
+  "M1.22 added the two H88 cases". Verified false: `f1c8dbb` (H88) is the 70→72
+  commit and is an *ancestor* of `e199373` (M1.22), and `e199373` leaves the
+  footer at `72`. Attribution changed M1.22 → `f1c8dbb` in the Goal.
+- **Precheck revision.** The old Precheck claimed `381879b` prints `15`; it
+  prints `12` (`15` first appears at `398db35`). The Precheck now reads
+  `398db35` → `15` and `381879b` → `12`, with the command for each. Both fixes
+  are outside the original literal Scope ("Inputs, Observations, Reproduction");
+  this pass widened the Scope to the whole H87 EXP and records them here.
+- **Falsifier.** Replaced the unsatisfiable literal whole-file grep (it counts
+  its own definition lines: H91 Goal/Falsifier and H92's Precheck) with the
+  scoped three-surface check this record's "Falsifier result" section already
+  runs and reports `0`.
+- **H87 EXP Conclusion command.** The `grep -c` I added had no pattern (exit
+  `2`); replaced with the six-VA pattern, which prints `6` at `381879b`.
+- **H87 EXP `git diff` snippet.** The elided `…` line is replaced by the eight
+  removed lines verbatim plus `git show 398db35:… | grep -c` → `0`.
+- **Scope wording.** TODO.md H91 Scope widened from "(Inputs, Observations,
+  Reproduction)" to the whole H87 EXP, with a note that the task authorises the
+  edit to an append-only record.
+- **Measured, not assumed.** `git merge-base --is-ancestor f1c8dbb e199373`
+  exits `0`; `git show 381879b:… | sed -n '/^US_BUILD_STARTS/,/^})/p' |
+  grep -c '0x[0-9A-Fa-f]\{8\}'` prints `12`; the same at `398db35` prints `15`.
+
+**For H92's owner:** H92's `Precheck` (TODO.md line 977) quotes this task's old
+`stays `12`` line and a measured revision `3d79bcc`; both are stale once H91
+merges, so H92 must re-point them at the post-H91 tree. Recorded here, not in
+H92's block (one task per PR).
+
+## Open follow-ups
+
+- [ ] H92 re-points its Precheck after H91 merges (above).

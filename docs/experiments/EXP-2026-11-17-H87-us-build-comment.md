@@ -89,9 +89,9 @@ At `398db35` (the merged M1.22 record, what `main` `9beb6a4` ships, H91):
 
 At `381879b` the comment describes the list as it is (12 verified US starts,
 the M1.28 fixture's US side plus M1.22b's six twins — `git show
-381879b:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c`) and
-points at the two files that carry the map. No value changed. At `main` the
-list is 15 entries; EXP-2026-11-18-H91 records that move.
+381879b:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x0044219C\|0x004410B4\|0x0043A378\|0x00433458\|0x003EC274\|0x0041EB1C'`
+prints `6`) and points at the two files that carry the map. No value changed.
+At `main` the list is 15 entries; EXP-2026-11-18-H91 records that move.
 
 ## Reproduction
 
