@@ -1868,7 +1868,13 @@ of the four numbers above says so in its first line.
   - Done when: `docs/format/firmware.md` has the table (117 rows, build named), the dispatcher's message numbers → handler map, and the answer to M3.2's two questions (where `chunk_size` comes from, seek or scan) read off `0x0041c990`; `tools/l3_harness/targets.json` gets no new target (that is M9.44).
   - Stop: after the table; a function whose role stays `unknown` is listed, not investigated.
   - Falsifier: a map file read that does not pass through this block (found by `callgraph.py users` on `ReadFile`/`MapViewOfFile` with a caller on a map path) — then the block is not the whole layer and the table says so.
-  - Claims: none yet
+  - Claims: C-4440–C-4449
+  - Result: EXP-2026-11-18-M3.26-file-layer (handed to the navigator in PR
+    #220; task not closed here): `docs/format/firmware.md` carries the 117-row
+    table (109 `START` + 8 `GAP`, `pdata --index 2`), the 12-message → handler
+    map (`0x0017a888`), the `(state*5+kind)` 4x5 table (`0x0017ab38`), and both
+    M3.2 answers. Falsifier did not fire (13 Win32-file-API users, `no static
+    path` from `0x40b358`); `targets.json` untouched (M9.44).
 
 ## M4 — Data formats (no firmware or hardware needed)
 
