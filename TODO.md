@@ -3837,7 +3837,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-4220–C-4229
 
 - [ ] **M9.42 — `point_walk_l3 walk` dies with a traceback and no `result:` line on a wrong build, so M9.41's wrong-build falsifier cannot be evaluated**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m9.42-wrong-build-verdict · Critical: no · Pair: required
   - Depends: M9.39 (done — the mutant page this falsifier names)
   - Goal: SE 2026-11-17 reproduced the gap M9.41's Falsifier depends on and found it **unsatisfiable as written**: (a) the M9.39 mutant page is a *positive* witness (it must print `result: PASS` and move `n=501` +4), not a negative control, so "the M9.39 mutant also passes" is not a failure; (b) a genuinely wrong *build* (US target on `head256.img`, or EU target on `us256.img`) raises `engine.UnmappedAccess` and exits 1 **with no `result:` line at all** (`grep -c 'result:' ` prints 0), so a script cannot distinguish "wrong build rejected" from "the tool crashed". Make the wrong-build path a clean, machine-readable verdict and fix the falsifier.
   - Precheck: `python3 tools/point_walk_l3.py walk archive/head256.img --cmp /tmp/opencode/m939/mutant-us.POINT010.DAT.cmp --ind /tmp/opencode/m939/mutant-us.POINT010.DAT.ind --page 0x840ba0 --page-len 42848 --build us2011 > /tmp/wb.out 2>&1; echo $?` prints `1` and `grep -c 'result:' /tmp/wb.out` prints `0` (the defect: crash, not verdict); the same tool on `archive/us256.img` prints `result: PASS` (the run must not change).
