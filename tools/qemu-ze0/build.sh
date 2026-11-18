@@ -100,6 +100,9 @@ EOF
 
 note() { printf 'build.sh: %s\n' "$*"; }
 die() { printf 'build.sh: %s\n' "$*" >&2; exit 1; }
+# fault — a missing input or download fault: 3, never 1 (build.sh:102 is the
+# full build's generic failure).  Used only on the --check-version path.
+fault() { printf 'build.sh: %s\n' "$*" >&2; exit 3; }
 usage_error() { printf 'build.sh: %s\n' "$*" >&2; printf 'Try %s --help\n' "$SELF" >&2; exit 2; }
 
 # run CMD...  — the single place that executes or prints a command.
@@ -349,20 +352,29 @@ fetch_tarball() {
   mv "$part" "$TARBALL"
 }
 
-# verify_tarball FILE — size and SHA-256 must match the pin.
+# verify_tarball FILE [FAULT_RC] — size and SHA-256 must match the pin.
+# FAULT_RC is the exit code of a mismatch (default 1, the full build's generic
+# failure); the --check-version path passes 3, because a bad or truncated
+# tarball is a missing-input fault, not a porting delta and not a build failure.
 verify_tarball() {
-  local file="$1" size got
+  local file="$1" rc="${2:-1}" size got
   if [ "$DRY_RUN" -eq 1 ]; then
     printf 'dry-run: sha256sum %q  # must be %s\n' "$file" "$QEMU_SHA256"
     printf 'dry-run: check %s bytes\n' "$QEMU_TARBALL_BYTES"
     return 0
   fi
+  if [ ! -s "$file" ]; then
+    printf 'build.sh: %s is missing or empty — delete it and re-run\n' "$file" >&2
+    exit "$rc"
+  fi
   size="$(wc -c < "$file" | tr -d ' ')"
   [ "$size" -eq "$QEMU_TARBALL_BYTES" ] \
-    || die "$(basename "$file") has $size bytes, expected $QEMU_TARBALL_BYTES (truncated download?) — delete it and re-run"
+    || { printf 'build.sh: %s has %s bytes, expected %s (truncated download?) — delete it and re-run\n' \
+           "$(basename "$file")" "$size" "$QEMU_TARBALL_BYTES" >&2; exit "$rc"; }
   got="$(sha256sum "$file" | awk '{print $1}')"
   [ "$got" = "$QEMU_SHA256" ] \
-    || die "sha256 mismatch for $(basename "$file"): got $got, expected $QEMU_SHA256 — delete it and re-run"
+    || { printf 'build.sh: sha256 mismatch for %s: got %s, expected %s — delete it and re-run\n' \
+           "$(basename "$file")" "$got" "$QEMU_SHA256" >&2; exit "$rc"; }
   note "sha256: ok $QEMU_SHA256"
 }
 
@@ -463,7 +475,7 @@ check_version() {
   fi
 
   if [ "$PIN_KNOWN" -eq 1 ]; then
-    verify_tarball "$tarball"
+    verify_tarball "$tarball" 3
   else
     unpinned=1
     note "check: QEMU $VERSION is NOT in the pin table; measured tarball:"
@@ -475,7 +487,7 @@ check_version() {
   run mkdir -p "$dir"
   note "check: extracting to $src"
   run tar -C "$dir" -xf "$tarball"
-  [ -x "$src/configure" ] || die "$src/configure missing after extraction"
+  [ -x "$src/configure" ] || fault "$src/configure missing after extraction (unexpected tarball layout)"
 
   while IFS= read -r p; do list+=("$p"); done \
     < <(find "$PATCH_DIR" -maxdepth 1 -type f -name '*.patch' | LC_ALL=C sort)
@@ -755,6 +767,31 @@ selftest() {
     else
       st_ok "check-version one-fails prints no traceback"
     fi
+
+    # exit 3 — a missing input on the --check-version path.  A pinned version
+    # whose cached tarball is truncated must be a missing-input fault (3), not
+    # the full build's generic 1 and not a porting delta (4).
+    mkdir -p "$tmp/cache-trunc"
+    head -c 13 "$tmp/fake-$cv.tar.xz" > "$tmp/cache-trunc/qemu-$QEMU_VERSION.tar.xz"
+    st_run "check-version truncated pinned tarball" 3 -- env HOME="$tmp/home" "$SELF" \
+      --check-version "$QEMU_VERSION" --patch-dir "$patches" --srcdir "$tmp/cache-trunc"
+    st_contains "check-version truncated pinned tarball" "expected $QEMU_TARBALL_BYTES"
+    st_lacks "check-version truncated pinned tarball" "applied,"
+
+    # exit 3 — a missing tool on the --check-version path.  `command -v`
+    # searches PATH, so a PATH that mirrors the system bin dirs but lacks
+    # `patch` is what a host without patch sees (the root refusal needs `id`
+    # from the same PATH, so an empty dir would fail earlier for another reason).
+    mkdir -p "$tmp/bin-nopatch"
+    for d in /usr/bin /bin; do
+      for f in "$d"/*; do
+        [ -e "$tmp/bin-nopatch/$(basename "$f")" ] || ln -s "$f" "$tmp/bin-nopatch/" 2>/dev/null || true
+      done
+    done
+    rm -f "$tmp/bin-nopatch/patch"
+    st_run "check-version missing patch tool" 3 -- env HOME="$tmp/home" PATH="$tmp/bin-nopatch" "$SELF" \
+      --check-version "$cv" --patch-dir "$patches" --srcdir "$cache_g"
+    st_contains "check-version missing patch tool" "missing tool for --check-version: patch"
   else
     printf 'skip check-version exit-code cases (no tar with -J support)\n'
   fi
@@ -812,10 +849,10 @@ if [ "$CHECK_VERSION" -eq 1 ]; then
     exit 0
   fi
   for need in tar patch sha256sum; do
-    command -v "$need" >/dev/null 2>&1 || die "missing tool for --check-version: $need"
+    command -v "$need" >/dev/null 2>&1 || fault "missing tool for --check-version: $need"
   done
   command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 \
-    || die "missing tool for --check-version: curl or wget"
+    || fault "missing tool for --check-version: curl or wget"
   check_version
 fi
 

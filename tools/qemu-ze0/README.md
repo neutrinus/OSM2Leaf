@@ -59,7 +59,7 @@ nothing follows it.
 | `0` | every patch applies (`all applied, 0 failed`) |
 | `4` | at least one patch does not apply — a porting delta, the probe's normal answer for a release that moved (M8.A9) |
 | `2` | usage error (bad argument, bad `--version`, unpinned version outside `--check-version`) |
-| `3` | missing input or download fault (no tarball and no network, `tar`/`patch`/`sha256sum` absent) |
+| `3` | missing input or download fault: no cached tarball and no network, a truncated or SHA-256-mismatched cached tarball, or `tar`/`patch`/`sha256sum`/`curl`/`wget` absent |
 | `1` | the full build failed, or `-M help` did not list `ze0` |
 
 ## Usage
@@ -135,12 +135,13 @@ edit never leaves a half-patched tree behind; a failed hunk stops the run with
 exit 1 and deletes the half-patched cache tree (the verified tarball is
 kept), so the next run extracts cleanly.
 
-## Current state (M8.A1, 2026-11-06)
+## Current state (M8.A1 → M5.43, 2026-11-06 → 2026-11-18)
 
 - The script, its plan, the refusals and the `-M ze0` check are verified
-  offline by `--selftest` (64 checks, including the pin table, the
-  `--check-version` plan and its two exit-code cases — a green all-apply run
-  exiting `0` and an injected stale patch exiting `4`, both offline).
+  offline by `--selftest` (69 checks, including the pin table, the
+  `--check-version` plan and its four exit-code cases: a green all-apply run
+  exiting `0`, an injected stale patch exiting `4`, and a truncated tarball
+  and a PATH without `patch` each exiting `3` — all offline).
 - A stock 8.2.7 build with this configure line was run once during M8.A1; it
   produces `qemu-system-sh4` but **no `ze0` machine**, so `--verify-only`
   fails by design until M8.A2 adds the patch. See
