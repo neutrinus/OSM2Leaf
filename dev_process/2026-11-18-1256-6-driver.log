@@ -1,0 +1,42 @@
+role: driver (M9.43) · model: deepseek-v4.1-flash-free (Airouter Strong)
+start: 2026-11-18 12:56 UTC · end: 2026-11-18 ~13:40 UTC
+origin/main at start: a48bbf9f5aca25612bff4d22ed73fa7cc854e984
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17,
+EXP-2026-11-17-M9.39-point010-mutant, EXP-2026-11-18-M9.42-wrong-build,
+tools/mutate_refer_poi.py, tools/cmpind_codec.py, tools/slot_budget.py.
+
+actions:
+- claim commit 7e19d23 (only the M9.43 line -> in progress), pushed, draft PR #227.
+- reproduced the defect at a48bbf9: CLI printed 4,233,456 B / 149 streams, .cmp 5565c9ba.
+- added encode_preserving() + _changed_chunks/_outer_stream; made the
+  chunk-preserving rebuild the default for both the single-edit and --batch
+  paths; kept the old path behind --whole-blob; --chunk-preserving explicit.
+- new selftest cases: synthetic 64-byte chunk one-change (streams 1..3 verbatim),
+  zero-change exact copy, whole-blob contrast, mixed-encoder contrast; 10 -> 13.
+- ran the M9.39 edit through the CLI on stock zlib 1.3.2 (python3.13 3.13.17):
+  US ea2d0e0f / 5d576d62 (4,240,400 B, chunk [132]), EU e75c298f / 077937ea
+  (3,271,483 B, chunk [110]) — the M9.39 pins byte for byte.
+- four point_walk_l3 runs reproduce n=501/998/999 +4, 1000 records, PASS.
+- negative controls: absent name refused (exit 1); same-length NMBRZ gives the
+  M9.39 d81a912b/914418c5 and factory offsets; --whole-blob still runs.
+- replaced the two heredocs in EXP-M9.39's Method + same-length control with the
+  committed CLI, added a Follow-up M9.43 section (no Observations changed);
+  grep for the heredoc marker over that EXP is 0.
+- wrote EXP-2026-11-18-M9.43-mutant-cli.md; claims C-4460-C-4469.
+
+decisions:
+- default chunk-preserving for --batch too, --whole-blob is the explicit old
+  path (Scope named --resize only; the falsifier greps for 149 streams).
+- did NOT mark done/merge: the driver prompt says keep the PR draft for the
+  navigator, although TODO.md now reads `done` per the task's Done when.
+
+problems:
+- zlib-ng runtime (python3 3.15.0) moves the SHAs of the re-deflated chunk only;
+  recorded, pins are on stock 1.3.2 (the runtime M9.39 named).
+- `todo_check.py --strict` already fails on M9.5 at a48bbf9 (pre-existing).
+
+handoff: navigator — check the `--batch` default change against M5.12c's
+recipe, `--whole-blob` naming, the EXP's runtime paragraph, and the
+"Corrections after navigator review" heading; then decide on merge + rule 15
+re-open of any task that cites M9.39's heredoc.

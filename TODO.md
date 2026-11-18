@@ -3879,7 +3879,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the committed chunk-preserving command reproduces the EXP's `.cmp`/`.ind` SHAs on the runtime the EXP names (or the EXP is corrected to the SHAs the command prints, with the runtime recorded); `grep -c "python3.13 - <<'PY'"` over the EXP's Method is `0`; `python3 tools/selftest.py --only mutate_refer_poi` passes; the M5.12c whole-blob copy-scan path still runs.
   - Stop: if the level-9 fallback cannot be made deterministic across the supported zlibs, keep the heredoc, but commit it as `tools/build_point010_mutant.py` with `--selftest` and re-point the EXP — do not leave a corpus that only a session can rebuild.
   - Falsifier: the committed CLI (with the new mode) still changes all 149 streams, or the EXP still has no committed command that prints its pinned mutant SHAs.
-  - Claims: none until rows are committed
+  - Claims: C-4460–C-4469
+  - Result (driver, awaiting navigator; not merged): `docs/experiments/EXP-2026-11-18-M9.43-mutant-cli` (C-4460–C-4469). `mutate_refer_poi.py` now defaults to the chunk-preserving outer rebuild (`cmpind_codec.repack_changed_chunks`, `--whole-blob` for the old path). On stock zlib 1.3.2 the committed command prints the M9.39 pins: US `.cmp` `ea2d0e0f…` (4,240,400 B) / `.ind` `5d576d62…`, EU `.cmp` `e75c298f…` (3,271,483 B) / `.ind` `077937ea…`, `changed chunk(s) [132]`/`[110]` (1 of 149/151 stream(s) differ); the four walks reproduce `n=501` +4; `grep -c "python3.13 - <<'PY'"` over EXP-M9.39 is `0` (Method + control replaced); `--selftest` 13/13; `l2check` on the EU factory tree PASS; `gate.py` 4 pass.
 
 - [ ] **M1.33 — M1.22's census and relocated-body tables come from an uncommitted script, and its Method has ellipses**
   - Status: open · Owner: — · Critical: no · Pair: required
