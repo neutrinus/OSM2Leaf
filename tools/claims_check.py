@@ -1331,8 +1331,10 @@ def run_selftest():
 
     # (r) a `prints N` row pinned to a commit is measured at that commit, not
     # at the working tree: on `a48bbf9` the ledger had 297 `RESERVED (` rows,
-    # so a row claiming 297 there is clean and one claiming 301 (the tip) is
-    # STALE with `got: 297` — the "working tree differs from rev" control.
+    # so a row claiming 297 there is clean and one claiming more (the tip has
+    # 299) is STALE with `got: 297` — the "working tree differs from rev"
+    # control. The tip number is deliberately not written down: this file's
+    # own ledger moves it.
     if _run_prose_command("grep -c 'RESERVED (' docs/research/claims.md",
                           "a48bbf9") is not None:
         rev_row = ("| C-9107 | The ledger has N reserved rows. | VERIFIED (tool) | H | "
@@ -1342,9 +1344,9 @@ def run_selftest():
         good = rev_row.replace("prints `N`", "prints `297`")
         r33 = prose_count_problems(parse_claim_rows(good))
         assert r33 == [], r33
-        moved = rev_row.replace("prints `N`", "prints `301`")
+        moved = rev_row.replace("prints `N`", "prints `298`")
         r34 = prose_count_problems(parse_claim_rows(moved))
-        assert [p["claimed"] for p in r34] == [301], r34
+        assert [p["claimed"] for p in r34] == [298], r34
         assert r34[0]["got"] == 297 and r34[0]["rev"] == "a48bbf9"
 
     print("claims_check selftest: OK (43 checks)")
