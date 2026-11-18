@@ -2896,7 +2896,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-4420–C-4424
 
 - [ ] **M5.44 — Splice level-2 directories: a second detail level, on a tile that owns them**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m5.44-level2-splice · Critical: yes · Pair: required
   - Depends: M5.4 (level-1 splice, done), M5.34 (factory-backed run, done), `tilewriter` accepts `--level 2`
   - Goal: only level-1 directories have ever been spliced, so the highest card rung that exists carries major roads at 1°×2/3° directory resolution and no detail below it. `B48R058R` does own level-2 directories (4 of them, all `0x2046` — see Precheck), so the finer level is reachable with the same container mechanics on a tile L2 already writes; this is the next map-content step before the card rung (M5.30). It also exposes the level-2 geometry model, which no test covers today.
   - Precheck: two commands, and the second is the finding. (a) `python3 tools/parcel_census.py ~/projekty/leafre-work/m5.29-factory-root/MAPAL001/B48R058R.DAT --sections 1 --levels 2` prints 4 directories, all kind `0x2046` / class `spliceable`, at `(72,936)`, `(72,940)`, `(76,936)`, `(76,940)`, each with a 1.0°×0.667° bbox. (b) `python3 -c "import sys;sys.path[:0]=['tools/ze0-viewer/tools_ze0','tools'];import clarion_bg;print(clarion_bg.parcel_geo(2,76,940,0,0), clarion_bg.parcel_geo(2,76,940,31,31))"` returns lower-left `16.0,50.66667` with a `0.125×0.0833` parcel, so the 32×32 grid spans **4.0°×2.667°** — four times the `directory_bbox(2,76,940)` extent. The two checked-in functions disagree on what a level-2 directory is; `parcel_census --selftest` only asserts the level-1 span.
