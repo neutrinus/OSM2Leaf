@@ -863,6 +863,7 @@ def splice_factory(factory: bytes, level: int, built):
     out = bytearray(factory)
     in_place = 0
     appended = 0
+    unchanged = 0
     superseded = 0
     names_merged = 0
     names_missing_partner = 0
@@ -914,6 +915,16 @@ def splice_factory(factory: bytes, level: int, built):
         slot_off = directory["off"] + 12 + row * (4 + directory["body"])
         old_off = slot["block_off"] if slot else None
         old_block = clarion_tile.block_bytes(slot) if slot else b""
+        # M5.45 idempotence: a slot whose rebuilt block is byte-identical to the
+        # block already at its tag needs no block write.  This is the only branch
+        # that keeps a *shared* block untouched (its owner does not change either)
+        # and the one that reports a repeated splice as "no write" instead of
+        # rewriting the same blocks in place.  The slot body is still written
+        # because its pair lengths belong to the new records.
+        if slot is not None and old_off is not None and old_block == block:
+            out[slot_off + 4:slot_off + 4 + directory["body"]] = bytes(body)
+            unchanged += 1
+            continue
         # Overwrite only bytes the reader modelled and that are really there.
         # Anything the reader did not model (a raw slot tail) stays untouched;
         # a block that grew is appended and the slot tag repointed instead.
@@ -939,6 +950,7 @@ def splice_factory(factory: bytes, level: int, built):
             superseded += len(old_block)
         out[slot_off + 4:slot_off + 4 + directory["body"]] = bytes(body)
     return bytes(out), dict(in_place=in_place, appended=appended,
+                            unchanged=unchanged,
                             superseded_bytes=superseded,
                             names_merged=names_merged,
                             names_missing_partner=names_missing_partner,
@@ -1223,7 +1235,7 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
             mode="synthetic",
             data_version=data_version,
             container=dict(factory_size=0, size=len(blob), in_place=0,
-                           appended=len(built), superseded_bytes=0,
+                           appended=len(built), unchanged=0, superseded_bytes=0,
                            names_merged=0, names_missing_partner=names_dropped),
             section4=section4_info,
         )
@@ -1301,9 +1313,9 @@ def print_report(report, out=None):
     print("section4    %d record(s), %d name(s), preserve byte-identical"
           % (section["records"], section["names"]), file=out)
     container = report["container"]
-    print("container   %d bytes, in-place %d, appended %d, superseded %d B"
+    print("container   %d bytes, in-place %d, appended %d, unchanged %d, superseded %d B"
           % (container["size"], container["in_place"], container["appended"],
-             container["superseded_bytes"]), file=out)
+             container.get("unchanged", 0), container["superseded_bytes"]), file=out)
     names_merged = container.get("names_merged", 0)
     if names_merged or report.get("write_names", True):
         print("names (M5.7) merged %d partner section(s), named ways %d, missing partner %d"
@@ -1676,6 +1688,23 @@ def selftest():
         again, _report = build(str(imf_path), cell, factory_path=str(factory_path),
                                level=1, country=616)
         check("deterministic bytes", again == blob)
+        # M5.45: a second splice over the *already spliced* tile is a no-op.
+        # The same input built again from the first output must keep the size
+        # and the bytes; every written block is already there, so nothing is
+        # appended (the failure mode was appending the grown block again).
+        same_path = root / "spliced-once.DAT"
+        same_path.write_bytes(blob)
+        same, same_report = build(str(imf_path), cell,
+                                  factory_path=str(same_path), level=1,
+                                  country=616)
+        check("second splice is byte-identical", same == blob)
+        check("second splice appends nothing",
+              same_report["container"]["appended"] == 0
+              and same_report["container"]["superseded_bytes"] == 0,
+              same_report["container"])
+        check("second splice reports unchanged blocks",
+              same_report["container"]["unchanged"] == len(report["parcels"]),
+              same_report["container"])
         # --no-names regression: no name_off, no partner merge.
         nn_blob, nn_rep = build(str(imf_path), cell, factory_path=str(factory_path),
                                 level=1, country=616, write_names=False)
