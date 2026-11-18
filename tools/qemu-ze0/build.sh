@@ -18,7 +18,8 @@
 #   ./build.sh --selftest         offline test of this script (no network)
 #   ./build.sh --help             this text
 #
-# Exit codes: 0 ok · 1 failure · 2 usage · 3 network needed.
+# Exit codes: 0 ok · 1 failure · 2 usage · 3 network/missing input ·
+#             4 --check-version found patches that do not apply (a porting delta).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,8 +79,10 @@ Options:
   --version V        QEMU release to build (default 8.2.10, must be >= 8.2)
   --check-version V  probe V without building: verify the tarball when it is
                      in the pin table, extract to a scratch tree, apply every
-                     patch and report per patch (0 all OK, 1 a patch failed,
-                     3 network).  Accepts an unpinned version and says so.
+                     patch and report per patch.  Exit: 0 every patch applies,
+                     4 at least one patch does not apply (a porting delta),
+                     2 usage, 3 network/missing input.  Accepts an unpinned
+                     version and says so; the verdict line is printed last.
   --from-git         clone the pinned tag instead of using the release tarball
   --url-base URL     download base (default https://download.qemu.org)
   --force            remove the source and build trees, re-extract, rebuild
@@ -90,7 +93,8 @@ Options:
 
 The first run needs network: the pinned tarball is ~127 MiB and the extracted
 tree plus build tree need ~2 GiB.  Nothing is downloaded or built by
---dry-run or --selftest.  Exit codes: 0 ok, 1 failure, 2 usage, 3 network.
+--dry-run or --selftest.  Exit codes: 0 ok, 1 failure, 2 usage, 3 network or
+missing input, 4 --check-version found a patch that does not apply.
 EOF
 }
 
@@ -436,6 +440,11 @@ configure_and_build() {
 # accept our patches, and which of them are real API changes?  A pinned
 # version is hash-verified; an unpinned one is downloaded and its hash is
 # printed so the caller can add it to QEMU_PINS.
+#
+# Exit codes are the verdict: 0 every patch applies, 4 at least one does not
+# (a porting delta, the probe's normal answer for a new release).  The
+# one-line verdict is printed last and nothing follows it, so a caller can
+# read "3 applied, 2 failed" from the same line it takes the exit code from.
 check_version() {
   local dir="$SRCDIR/check-$VERSION" tarball="$SRCDIR/qemu-$VERSION.tar.xz"
   local src="$dir/qemu-$VERSION" p list=() ok=0 bad=0 unpinned=0
@@ -470,6 +479,9 @@ check_version() {
 
   while IFS= read -r p; do list+=("$p"); done \
     < <(find "$PATCH_DIR" -maxdepth 1 -type f -name '*.patch' | LC_ALL=C sort)
+  if [ "${#list[@]}" -eq 0 ]; then
+    note "check: no patches to test in $PATCH_DIR"
+  fi
   for p in "${list[@]}"; do
     if patch -d "$src" -p1 --forward --batch --dry-run -i "$p" >/dev/null 2>&1; then
       printf 'check: %-46s APPLIES\n' "$(basename "$p")"
@@ -479,11 +491,14 @@ check_version() {
       bad=$((bad + 1))
     fi
   done
-  note "check: QEMU $VERSION: $ok applied, $bad failed, $unpinned unpinned-tarball"
+
+  # Everything after this point is the answer: no note may follow the verdict.
   if [ "$bad" -gt 0 ]; then
     note "check: a failure here is a porting delta, not a build failure; see docs/research/qemu-ze0-port-delta.md"
-    exit 1
+    note "check: QEMU $VERSION: $ok applied, $bad failed, $unpinned unpinned-tarball"
+    exit 4
   fi
+  note "check: QEMU $VERSION: $ok applied, $bad failed, $unpinned unpinned-tarball"
   exit 0
 }
 
@@ -559,6 +574,19 @@ make_fake_qemu() {
     printf '%s\n' 'exit 1'
   } > "$path"
   chmod +x "$path"
+}
+
+# make_fake_tarball DEST VERSION — a real .tar.xz with one file, the
+# `configure` that check_version requires after extraction (so the probe's
+# tarball/extract/verdict plumbing runs offline against a known tree).
+make_fake_tarball() {
+  local dest="$1" version="$2" work
+  work="$(mktemp -d "${TMPDIR:-/tmp}/qemu-ze0-fake-src.XXXXXX")"
+  mkdir -p "$work/qemu-$version"
+  printf '#!/bin/sh\nexit 0\n' > "$work/qemu-$version/configure"
+  chmod +x "$work/qemu-$version/configure"
+  tar -C "$work" -cJf "$dest" "qemu-$version"
+  rm -rf "$work"
 }
 
 selftest() {
@@ -681,6 +709,54 @@ selftest() {
     fi
   else
     printf 'skip network-needed check (no curl/wget)\n'
+  fi
+
+  # --- 8b. --check-version exit codes: green 0, red 4, verdict last --------
+  # A real .tar.xz cache (fake `configure`) and a patch dir of two synthetic
+  # patches: P1 appends a new file (always applies), P2 edits `configure` with
+  # the correct context (applies).  The red case rewrites P2 against a stale
+  # context, so `patch --dry-run` must reject it; the probe must say 4.
+  if command -v tar >/dev/null 2>&1 && tar --help 2>/dev/null | grep -q -- '-J'; then
+    local cv="9.9.9" cache_g="$tmp/cache-green" cache_r="$tmp/cache-red"
+    local patches="$tmp/patches" p1="$tmp/patches/p1-append.patch" p2="$tmp/patches/p2-edit.patch"
+    mkdir -p "$patches"
+    make_fake_tarball "$tmp/fake-$cv.tar.xz" "$cv"
+    mkdir -p "$cache_g" "$cache_r"
+    cp "$tmp/fake-$cv.tar.xz" "$cache_g/qemu-$cv.tar.xz"
+    cp "$tmp/fake-$cv.tar.xz" "$cache_r/qemu-$cv.tar.xz"
+
+    printf '%s\n' '--- /dev/null' '+++ b/newfile.txt' '@@ -0,0 +1 @@' '+hello' > "$p1"
+    printf '%s\n' '--- a/configure' '+++ b/configure' '@@ -1,2 +1,2 @@' ' #!/bin/sh' '-exit 0' '+exit 0  # patched' > "$p2"
+
+    st_run "check-version all-apply" 0 -- env HOME="$tmp/home" "$SELF" \
+      --check-version "$cv" --patch-dir "$patches" --srcdir "$cache_g"
+    st_contains "check-version all-apply" "2 applied, 0 failed, 1 unpinned-tarball"
+    if printf '%s\n' "$ST_OUT" | tail -n 1 | grep -Fq "2 applied, 0 failed"; then
+      st_ok "check-version all-apply verdict is the last line"
+    else
+      st_fail "check-version all-apply verdict is not the last line"
+    fi
+
+    mkdir -p "$tmp/patches-red"
+    cp "$p1" "$tmp/patches-red/p1-append.patch"
+    printf '%s\n' '--- a/configure' '+++ b/configure' '@@ -1,2 +1,2 @@' ' #!/bin/bash' '-exit 1' '+exit 1  # patched' \
+      > "$tmp/patches-red/p2-edit.patch"
+    st_run "check-version one-fails" 4 -- env HOME="$tmp/home" "$SELF" \
+      --check-version "$cv" --patch-dir "$tmp/patches-red" --srcdir "$cache_r"
+    st_contains "check-version one-fails" "1 applied, 1 failed, 1 unpinned-tarball"
+    st_contains "check-version one-fails" "porting delta"
+    if printf '%s\n' "$ST_OUT" | tail -n 1 | grep -Fq "1 applied, 1 failed"; then
+      st_ok "check-version one-fails verdict is the last line"
+    else
+      st_fail "check-version one-fails verdict is not the last line"
+    fi
+    if printf '%s\n' "$ST_OUT" | grep -Fq "Traceback"; then
+      st_fail "check-version one-fails printed a traceback"
+    else
+      st_ok "check-version one-fails prints no traceback"
+    fi
+  else
+    printf 'skip check-version exit-code cases (no tar with -J support)\n'
   fi
 
   # --- 8a. the pin table is the only source of hashes ----------------------

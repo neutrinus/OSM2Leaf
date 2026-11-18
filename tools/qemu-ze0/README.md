@@ -40,13 +40,27 @@ minutes without building anything:
 tools/qemu-ze0/build.sh --check-version 11.1.3
 # check: 0002-sh4-ze0-boot-stubs.patch                  APPLIES
 # check: m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch      FAILED
-# check: QEMU 11.1.3: 3 applied, 2 failed, 0 unpinned-tarball
+# build.sh: check: QEMU 11.1.3: 3 applied, 2 failed, 1 unpinned-tarball
 ```
 
 A pinned version is hash-verified; an unpinned one is downloaded and its
 SHA-256/size printed so it can be added to `QEMU_PINS`. The port itself is
 TODO **M8.A9**, with the per-hunk recipe in
 [`docs/research/qemu-ze0-port-delta.md`](../../docs/research/qemu-ze0-port-delta.md).
+
+### Exit codes
+
+`--check-version` exits with the verdict, so a caller reads the answer from
+the exit code instead of parsing the log. The verdict line is printed last;
+nothing follows it.
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | every patch applies (`all applied, 0 failed`) |
+| `4` | at least one patch does not apply — a porting delta, the probe's normal answer for a release that moved (M8.A9) |
+| `2` | usage error (bad argument, bad `--version`, unpinned version outside `--check-version`) |
+| `3` | missing input or download fault (no tarball and no network, `tar`/`patch`/`sha256sum` absent) |
+| `1` | the full build failed, or `-M help` did not list `ze0` |
 
 ## Usage
 
@@ -92,7 +106,8 @@ What a run does, in order:
    the machine list otherwise.
 
 Exit codes: `0` ok, `1` failure (including "no `ze0` machine in this build"),
-`2` usage error, `3` network needed.
+`2` usage error, `3` network needed or a missing tool/input, `4`
+`--check-version` found a patch that does not apply.
 
 ## Offline / no-network
 
@@ -123,8 +138,9 @@ kept), so the next run extracts cleanly.
 ## Current state (M8.A1, 2026-11-06)
 
 - The script, its plan, the refusals and the `-M ze0` check are verified
-  offline by `--selftest` (56 checks, including the pin table and
-  `--check-version`).
+  offline by `--selftest` (64 checks, including the pin table, the
+  `--check-version` plan and its two exit-code cases — a green all-apply run
+  exiting `0` and an injected stale patch exiting `4`, both offline).
 - A stock 8.2.7 build with this configure line was run once during M8.A1; it
   produces `qemu-system-sh4` but **no `ze0` machine**, so `--verify-only`
   fails by design until M8.A2 adds the patch. See
