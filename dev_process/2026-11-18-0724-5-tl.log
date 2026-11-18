@@ -81,3 +81,53 @@ handoff:
     same "next free block" needs a reservation mechanism in the TODO rules, not a
     rebase-time renumber. Flagged for the SM/PO.
   - `.claude/` is still untracked (8 KB now), unchanged debt.
+
+batch 2 outcome (all merged to main; review rounds in brackets):
+  M5.45 done [3] #225 c2bdade/e590187 — navigator 1 found the EXP Method used an
+    even-id subset that did not produce the headline numbers, a false "level-2
+    splice over the factory tile is refused" claim, and an unsupported block-census
+    figure; navigator 2 found the C-4463 mechanism itself wrong (it is physical
+    aliasing of the level-2 container at [5120,21644) by 9 level-1 parsed spans,
+    not a shared record key) and that the proposed level-aware key would MASK a
+    real level-1 write. Bounded claim: level-1 owned slots only.
+  M5.46 done [2] #226 8147b5e/14c7498 — navigator found the task's own Hints
+    inverted the containment test (region-inside-tile is the P1 reading the
+    Done-when requires), the Done-when row count unmet (1 row printed for 63
+    tiles), and the buffer half of the rule untested (mutation survived).
+  M9.43 done [2] #227 e04f84b/6375ca — navigator found the same-length hash was
+    measured under zlib-ng but pinned under a python3.13 header, an empty
+    Corrections section, and a stale follow-up; round 2 only a rebase conflict.
+  H92 blocked (by design) [2] 44ed114 — the mode works and is tested, but it is
+    opt-in and tools/gate.py does not run it, so no standing gate fails on the
+    H87 class. H111 (wires it, Pair required) re-opens H92 per rule 15.
+
+TL arithmetic pass on H92 (navigator round 2 could not launch: upstream protocol
+error): re-pinned the census row count to the measured 2252 at the branch head
+(the three ID lists are the stable part), named the 229th block in C-4155, moved
+H111 off M5.45's C-4460-C-4469 to C-4490-C-4499.
+
+claim blocks this cycle (all disjoint after the fixes): M3.26 C-4440-4449,
+M5.43 C-4420-4424, M9.42 C-4430-4439, M5.44 C-4450-4459, M5.45 C-4460-4469,
+M5.46 C-4470-4479, M9.43 C-4480-4489, H92 C-4150-4159, H111 C-4490-4499.
+
+batch 2 numbers (each quoted from the command that printed it):
+  M5.45: 289,319,168 -> 293,990,518 -> 293,990,518 -> 293,990,518 B; A0..A3
+  SHA-256 b746427c...34c2ef; append-always mutant +4,671,488, 69/73 and 3 FAIL.
+  M5.46: contained=1 intersects=0 outside=62 lattice=63 factory_tiles=45; PL
+  0/4/59; --all 63 rows.
+  M9.43: four pins ea2d0e0f/5d576d62/e75c298f/077937ea, 1/149 and 1/151 streams.
+  H92: seeded stale -> exit 1; mode off -> exit 0 (the gap H111 owns).
+  gate 4/0/0 after every merge; todo_check OK; claims_check OK.
+
+concurrency: an outside agent opened PR #229 (chore/tl-15-parallel-sessions,
+splits the critical path into 12 slices and moves the TL to 15 sessions) while
+this batch ran. Not mine to merge and it claims no task; left untouched and
+named here so the next TL does not re-derive it.
+
+handoff:
+  - next TL: PR #229 (process) is open and unclaimed by this session; the next
+    map batch is M5.41 + M5.30 + M9.36 (M5.44/M5.45 released their files).
+  - H111 is the only H that unblocks a blocked task (H92); it is the record-band
+    exception rule 17 allows, because a blocked task's evidence is at stake.
+  - the claim-block collision cost two renumber rounds per batch; the reservation
+    mechanism is now flagged to SM/PO two cycles running.
