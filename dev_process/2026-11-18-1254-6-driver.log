@@ -1,0 +1,57 @@
+role: driver (dev), task M5.46
+model: airouter/strong (deepseek-v4.1-flash-free per harness)
+start: 2026-11-18 12:40 UTC, end: 2026-11-18 13:10 UTC
+origin/main at start: a48bbf9
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17 + M5.46/M5.38
+blocks, tools/mesh_grid.py, tools/parcel_census.py, profiles/
+dolnoslaskie-test.json, profiles/poland-full.json, profiles/README.md,
+docs/format/map-tiles.md, docs/experiments/TEMPLATE.md, tools/profile_validate.py
+(resolve_tiles, buffered_bbox), tools/claims_check.py.
+
+actions, in order:
+1. Claimed M5.46: TODO line only -> in progress, pushed, draft PR #226.
+2. Read resolve_tiles/buffered_bbox so the census reuses the model's rule
+   instead of re-deriving it (lon_pad = buffer / cos(mid-lat)).
+3. Added `cover PROFILE [MAPAL001_DIR] [--json]` to tools/mesh_grid.py
+   (chose mesh_grid over parcel_census: no tile parse needed) plus
+   classify_tile/census/lattice_names/buffered_bbox and a --selftest
+   (contained, edge, Atlantic-empty, missing-bbox, 63-cell lattice).
+4. Ran the census on dolnoslaskie-test (contained=1 B48R058R, intersects=0)
+   and poland-full (contained=0, intersects=4), with and without the factory
+   directory.
+5. Rewrote the map-tiles.md P1 paragraph (it existed from grooming with
+   hand-typed numbers) to cite `mesh_grid.py cover`; added the P1 paragraph
+   to profiles/README.md (task names profiles/README.md when M5.38 has no
+   card-ladder.md; also left in map-tiles.md as cross-link).
+6. Wrote EXP-2026-11-18-M5.46-containment.md (TEMPLATE shape).
+7. Registered C-4470–C-4475 in docs/research/claims.md (renumbered after navigator review: M9.43 took C-4480–C-4489, so M5.46 moved up to C-4470–C-4479).
+
+decisions made / rejected:
+- `contained` = whole region box inside the tile (see EXP "DECISION" note);
+  the Hints "tile box lies inside bbox ± buffer" reading would flip the DS
+  answer to contained=0 and contradict the Done when. Left for navigator.
+- Kept Status in progress and the PR draft (driver does not mark done).
+
+problems / dead ends: none; no vendor bytes read, scratch dir
+~/projekty/leafre-work/scratch/m5.46/ holds only a no-bbox probe JSON.
+
+handoff: navigator should confirm the `contained` direction against the
+Done when, then run gate.py; then driver/TL sets done + Result + merge.
+
+round 2 (navigator returned CHANGES, 4 blocking):
+8. Renumbered M5.46 claims to C-4470..C-4475 (M9.43 took C-4480..C-4489);
+   header/EXP/log updated, no old-prefix token remains on the branch.
+9. Fixed the TODO Hints direction to "region box inside the tile box =
+   contained; overlap with the buffered box = intersects".
+10. Added `cover --all` (63 rows; default text table still filtered to
+    contained/intersects + include), plus a selftest --all-row case.
+11. Added the buffer selftest case: [12.5,49,19.5,53] -> B48R050R outside at
+    buffer 0.0, intersects at 0.45; a scratch mutant without /cos(mid) fails
+    exactly that assertion (1 failure, rc 1).
+12. EXP: Atlantic-control caveat (N1), lattice provenance C-566 + LATTICE_B/R
+    (N2), Corrections-after-navigator-review filled; map-tiles.md paragraph
+    tidied (N4). Claims C-4470/C-4473 updated for --all.
+checks: mesh_grid --selftest OK (16 ok), selftest --only mesh_grid PASS,
+census DS 1/0/62, PL 0/4/59, todo_check OK, claims_check --strict
+--count-check OK, gate 4 pass 0 fail 0 skip.
