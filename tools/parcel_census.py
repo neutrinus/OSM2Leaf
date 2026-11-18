@@ -42,10 +42,13 @@ def directory_bbox(level: int, y0: int, x0: int) -> dict[str, float]:
 
     Derived from ``clarion_bg.parcel_geo`` at the first and last parcel of the
     directory, so the box is the union of the parcel grid, not a hand formula.
+    Every directory always has ``clarion_bg.LEVELS[level]["rows"]`` x
+    ``["cols"]`` parcels, independent of the level's directory span (M5.44: the
+    level-2 directory holds 4 x 4 meshes, so the parcel count, not
+    ``lines // DIR_MESHES``, gives the box).
     """
-    span = tilewriter.DIR_MESHES[level]
-    rows = clarion_bg.LEVELS[level]["rows"] // span
-    cols = clarion_bg.LEVELS[level]["cols"] // span
+    rows = clarion_bg.LEVELS[level]["rows"]
+    cols = clarion_bg.LEVELS[level]["cols"]
     lon0, lat0, width, height = clarion_bg.parcel_geo(level, y0, x0, 0, 0)
     lon_end, lat_end, _, _ = clarion_bg.parcel_geo(
         level, y0, x0, rows - 1, cols - 1)
@@ -188,6 +191,23 @@ def selftest() -> int:
     chk(abs((box["lon_max"] - box["lon_min"]) - 1.0) < 1e-9
         and abs((box["lat_max"] - box["lat_min"]) - 2.0 / 3.0) < 1e-9,
         "level-1 directory spans 1 deg lon x 2/3 deg lat")
+
+    # Level 2: the same 32 x 32 parcel grid covers a 4-mesh directory
+    # (clarion_bg.LEVELS[2]["dir_meshes"] = 4), so the box is 4 x 8/3 deg.
+    # The old "rows // DIR_MESHES[level]" gave 8 x 8 (a 1/4-size box); these
+    # assertions are red on that value (M5.44).
+    box2 = directory_bbox(2, yb, xb)
+    p2 = parcel_bbox(2, yb, xb, 0, 0)
+    chk(abs((p2["lon_max"] - p2["lon_min"]) - 1.0 / 8) < 1e-12
+        and abs((p2["lat_max"] - p2["lat_min"]) - (2.0 / 3.0) / 8) < 1e-12,
+        "level-2 parcel spans 1/8 deg lon x (2/3)/8 deg lat")
+    chk(abs((box2["lon_max"] - box2["lon_min"]) - 4.0) < 1e-9
+        and abs((box2["lat_max"] - box2["lat_min"]) - 8.0 / 3.0) < 1e-9,
+        "level-2 directory spans 4 deg lon x 8/3 deg lat")
+    chk(abs((box2["lon_max"] - box2["lon_min"]) - 32 * (1.0 / 8)) < 1e-9
+        and abs((box2["lat_max"] - box2["lat_min"])
+                - 32 * ((2.0 / 3.0) / 8)) < 1e-9,
+        "level-2 32x32 parcel grid fills the directory box")
 
     # A parcel bbox sits inside its directory and is 1/32 of it.
     pb = parcel_bbox(1, yb, xb, 0, 0)
