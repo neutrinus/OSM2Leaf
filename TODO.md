@@ -1857,8 +1857,8 @@ of the four numbers above says so in its first line.
   - Falsifier: the named entry does not read the passed factory tile buffer, or `pdata` shows the chosen VA is `INSIDE` another function.
   - Claims: none yet
 
-- [ ] **M3.26 — Name the map-file layer of `Navi.exe`: 117 functions, three stdio wrappers, one dispatcher**
-  - Status: in progress · Owner: task/m3.26-nav-file-layer · Critical: yes · Pair: required
+- [x] **M3.26 — Name the map-file layer of `Navi.exe`: 117 functions, three stdio wrappers, one dispatcher**
+  - Status: done · Owner: task/m3.26-nav-file-layer · Critical: yes · Pair: required
   - Depends: — (H101: `tools/callgraph.py` and the graph are reproducible from IMG256)
   - Goal: every map file the unit reads goes through one block of code, `0x00417d00…0x0041cab0` (EU2011). It contains the `fopen`/`fseek`/`fread` wrappers, the `.cmp` chunk engine, the `DRSTR` and `MMAIN` readers and the media-mount state machine. Nobody has a list of its functions with roles. With that list each reader task starts from a named entry instead of a search.
   - Precheck: `python3 tools/callgraph.py build IMG256 -o g.json` prints `functions 9000 … unresolved indirect calls 589`; `python3 tools/callgraph.py users g.json fread,fseek,fopen` lists `0x0041b4f8` (fread), `0x0041b470` (fseek, ftell), `0x0041b3bc` (fopen) among the hits.
@@ -1869,12 +1869,19 @@ of the four numbers above says so in its first line.
   - Stop: after the table; a function whose role stays `unknown` is listed, not investigated.
   - Falsifier: a map file read that does not pass through this block (found by `callgraph.py users` on `ReadFile`/`MapViewOfFile` with a caller on a map path) — then the block is not the whole layer and the table says so.
   - Claims: C-4440–C-4449
-  - Result: EXP-2026-11-18-M3.26-file-layer (handed to the navigator in PR
-    #220; task not closed here): `docs/format/firmware.md` carries the 117-row
-    table (109 `START` + 8 `GAP`, `pdata --index 2`), the 12-message → handler
-    map (`0x0017a888`), the `(state*5+kind)` 4x5 table (`0x0017ab38`), and both
-    M3.2 answers. Falsifier did not fire (13 Win32-file-API users, `no static
-    path` from `0x40b358`); `targets.json` untouched (M9.44).
+  - Result: EXP-2026-11-18-M3.26-file-layer. `docs/format/firmware.md` has the
+    117-row table (117 map-file-layer nodes, 109 `START` / 8 `GAP` / 0
+    `INSIDE`, EU2011 build A, `pdata --index 2`), the 12-message → handler map
+    (`0x0017a888`) and the `(state*5+kind)` 4x5 table (`0x0017ab38`). `.ind`
+    header order is measured on all 2,875 `.ind` files under
+    `~/projekty/leafre-work` — `(logical, compressed, count, chunk)`, with
+    `chunk == 0x10000` and `count == ceil(logical/chunk)` in every one (command
+    prints `2875 2875`); the `_divlu` divisor is B at `head+12` (the chunk
+    size, the word compared with `ctx+0x138`). The dispatcher branches with
+    `braf r0`, `target = 0x417d74 + offset`, and `0x417924` has one static
+    caller, `0x32efa8` (`0x4180f0` is a graph false edge). Falsifier did not
+    fire (13 Win32-file-API users, `no static path` from `0x40b358`);
+    `targets.json` untouched (M9.44).
 
 ## M4 — Data formats (no firmware or hardware needed)
 
