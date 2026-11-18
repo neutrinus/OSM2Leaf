@@ -40,8 +40,8 @@ handoff: navigator should confirm the `contained` direction against the
 Done when, then run gate.py; then driver/TL sets done + Result + merge.
 
 round 2 (navigator returned CHANGES, 4 blocking):
-8. Renumbered M5.46 claims C-4460..C-4465 -> C-4470..C-4475 (M9.43 took
-   C-4480..C-4489); header/EXP/log updated, grep for the old prefixes is clean.
+8. Renumbered M5.46 claims to C-4470..C-4475 (M9.43 took C-4480..C-4489);
+   header/EXP/log updated, no old-prefix token remains on the branch.
 9. Fixed the TODO Hints direction to "region box inside the tile box =
    contained; overlap with the buffered box = intersects".
 10. Added `cover --all` (63 rows; default text table still filtered to
