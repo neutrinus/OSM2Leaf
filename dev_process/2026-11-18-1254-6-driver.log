@@ -25,7 +25,7 @@ actions, in order:
    to profiles/README.md (task names profiles/README.md when M5.38 has no
    card-ladder.md; also left in map-tiles.md as cross-link).
 6. Wrote EXP-2026-11-18-M5.46-containment.md (TEMPLATE shape).
-7. Registered C-4460–C-4465 in docs/research/claims.md.
+7. Registered C-4470–C-4475 in docs/research/claims.md (renumbered after navigator review: M9.43 took C-4480–C-4489, so M5.46 moved up to C-4470–C-4479).
 
 decisions made / rejected:
 - `contained` = whole region box inside the tile (see EXP "DECISION" note);
@@ -38,3 +38,20 @@ problems / dead ends: none; no vendor bytes read, scratch dir
 
 handoff: navigator should confirm the `contained` direction against the
 Done when, then run gate.py; then driver/TL sets done + Result + merge.
+
+round 2 (navigator returned CHANGES, 4 blocking):
+8. Renumbered M5.46 claims C-4460..C-4465 -> C-4470..C-4475 (M9.43 took
+   C-4480..C-4489); header/EXP/log updated, grep C-446 stale = none.
+9. Fixed the TODO Hints direction to "region box inside the tile box =
+   contained; overlap with the buffered box = intersects".
+10. Added `cover --all` (63 rows; default text table still filtered to
+    contained/intersects + include), plus a selftest --all-row case.
+11. Added the buffer selftest case: [12.5,49,19.5,53] -> B48R050R outside at
+    buffer 0.0, intersects at 0.45; a scratch mutant without /cos(mid) fails
+    exactly that assertion (1 failure, rc 1).
+12. EXP: Atlantic-control caveat (N1), lattice provenance C-566 + LATTICE_B/R
+    (N2), Corrections-after-navigator-review filled; map-tiles.md paragraph
+    tidied (N4). Claims C-4470/C-4473 updated for --all.
+checks: mesh_grid --selftest OK (16 ok), selftest --only mesh_grid PASS,
+census DS 1/0/62, PL 0/4/59, todo_check OK, claims_check --strict
+--count-check OK, gate 4 pass 0 fail 0 skip.

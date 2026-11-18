@@ -15,15 +15,17 @@ longitude and 2/3 degree of latitude; a tile is 8 x 8 units::
 The ``cover`` subcommand (M5.46) is a read-only census: it reads a build
 profile's ``region.bbox`` and classifies every ``BxxRyyR`` tile as
 
-* ``contained`` — the **whole** tile lies around the region: the region box
-  fits inside the tile box (a tile the P1 card can copy whole);
+* ``contained`` — the profile's whole region box lies inside this one tile
+  box (the tile covers the region, a P1 copy-whole candidate);
 * ``intersects`` — the tile only overlaps the region box widened by the
   profile's ``border_buffer_deg`` (an edge tile the buffer decides);
 * ``outside`` — the tile touches neither (not needed by this profile).
 
-Only tile **names** are read; no tile bytes and no OSM data.  The buffer
-padding is the same rule ``profile_validate.buffered_bbox`` uses (1 deg of
-latitude, longitude padded by ``buffer / cos(mid-latitude)``).
+The default text table prints the non-``outside`` rows (plus any ``include``
+tile); ``--all`` prints all 63 lattice rows and ``--json`` always carries
+them.  Only tile **names** are read; no tile bytes and no OSM data.  The
+buffer padding is the same rule ``profile_validate.buffered_bbox`` uses (1 deg
+of latitude, longitude padded by ``buffer / cos(mid-latitude)``).
 """
 
 from __future__ import annotations
@@ -167,7 +169,7 @@ def census(
     }
 
 
-def fmt_cover(doc: dict) -> str:
+def fmt_cover(doc: dict, show_all: bool = False) -> str:
     west, south, east, north = doc["bbox"]
     bw, bs, be, bn = doc["buffered_bbox"]
     buffer_deg = doc["border_buffer_deg"]
@@ -180,7 +182,7 @@ def fmt_cover(doc: dict) -> str:
         f"{'tile':<10s} {'latitude':>16s}  {'longitude':>18s}  class       factory include",
     ]
     for row in doc["rows"]:
-        if row["class"] == "outside" and not row["include"]:
+        if row["class"] == "outside" and not row["include"] and not show_all:
             continue
         out.append(
             f"{row['tile']:<10s} {fmt_box(row['box'])}  "
@@ -219,7 +221,7 @@ def cmd_cover(args: argparse.Namespace) -> int:
             Path(args.json).write_text(text + "\n", encoding="utf-8")
             print(f"report: {args.json}")
     else:
-        print(fmt_cover(doc))
+        print(fmt_cover(doc, show_all=args.all))
     return 0
 
 
@@ -270,6 +272,32 @@ def selftest() -> int:
         "Atlantic box selects nothing (negative control)")
     chk(adoc["counts"]["outside"] == adoc["lattice"],
         "every lattice tile is outside the Atlantic box")
+
+    # Buffer test: region [12.5,49.0,19.5,53.0] sits inside B48R058R and stops
+    # 0.5 deg short of B48R050R (lon 20..28). With no buffer B48R050R is
+    # outside; a 0.45 deg buffer pads longitude by 0.45/cos(51 deg) ~ 0.715 deg
+    # and reaches into it. Dropping the buffer/cos(mid) padding leaves this
+    # green->red: the padded box would only reach 19.95 E, still short of 20.
+    base = {"name": "buffer", "region": {"bbox": [12.5, 49.0, 19.5, 53.0]},
+            "tiles": {"include": []}}
+    n0 = {r["tile"]: r for r in census({**base, "border_buffer_deg": 0.0}, {})["rows"]}
+    b45 = {r["tile"]: r for r in census({**base, "border_buffer_deg": 0.45}, {})["rows"]}
+    chk(n0["B48R050R"]["class"] == "outside",
+        "no buffer: B48R050R (lon 20..28) is outside a box ending at 19.5 E")
+    chk(b45["B48R050R"]["class"] == "intersects",
+        "0.45 deg buffer pads to ~20.22 E and makes B48R050R intersect")
+    chk(b45["B48R058R"]["class"] == "contained",
+        "the buffered box is still contained in B48R058R")
+
+    # --all prints every lattice row; the default text table is filtered.
+    chk(len(fmt_cover(doc).splitlines()) < len(fmt_cover(doc, show_all=True).splitlines()),
+        "default table is filtered, --all is not")
+    tile_rows = 0
+    for line in fmt_cover(adoc, show_all=True).splitlines():
+        fields = line.split()
+        if fields and TILE_RE.match(fields[0] + ".DAT"):
+            tile_rows += 1
+    chk(tile_rows == 63, "--all prints all 63 lattice rows for a fully-outside profile")
 
     # A profile without region.bbox is refused loudly, never guessed.
     try:
@@ -352,6 +380,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_cover.add_argument("profile", help="a build profile JSON (region.bbox)")
     p_cover.add_argument("directory", nargs="?",
                          help="MAPAL001 directory for the factory-present flag (optional)")
+    p_cover.add_argument("--all", action="store_true",
+                         help="print all 63 lattice rows (default: non-outside + included)")
     p_cover.add_argument("--json", nargs="?", const="-", default=None, metavar="PATH")
     p_cover.set_defaults(func=cmd_cover)
 
