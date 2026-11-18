@@ -1,0 +1,40 @@
+role: driver (dev), task M5.46
+model: airouter/strong (deepseek-v4.1-flash-free per harness)
+start: 2026-11-18 12:40 UTC, end: 2026-11-18 13:10 UTC
+origin/main at start: a48bbf9
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17 + M5.46/M5.38
+blocks, tools/mesh_grid.py, tools/parcel_census.py, profiles/
+dolnoslaskie-test.json, profiles/poland-full.json, profiles/README.md,
+docs/format/map-tiles.md, docs/experiments/TEMPLATE.md, tools/profile_validate.py
+(resolve_tiles, buffered_bbox), tools/claims_check.py.
+
+actions, in order:
+1. Claimed M5.46: TODO line only -> in progress, pushed, draft PR #226.
+2. Read resolve_tiles/buffered_bbox so the census reuses the model's rule
+   instead of re-deriving it (lon_pad = buffer / cos(mid-lat)).
+3. Added `cover PROFILE [MAPAL001_DIR] [--json]` to tools/mesh_grid.py
+   (chose mesh_grid over parcel_census: no tile parse needed) plus
+   classify_tile/census/lattice_names/buffered_bbox and a --selftest
+   (contained, edge, Atlantic-empty, missing-bbox, 63-cell lattice).
+4. Ran the census on dolnoslaskie-test (contained=1 B48R058R, intersects=0)
+   and poland-full (contained=0, intersects=4), with and without the factory
+   directory.
+5. Rewrote the map-tiles.md P1 paragraph (it existed from grooming with
+   hand-typed numbers) to cite `mesh_grid.py cover`; added the P1 paragraph
+   to profiles/README.md (task names profiles/README.md when M5.38 has no
+   card-ladder.md; also left in map-tiles.md as cross-link).
+6. Wrote EXP-2026-11-18-M5.46-containment.md (TEMPLATE shape).
+7. Registered C-4460–C-4465 in docs/research/claims.md.
+
+decisions made / rejected:
+- `contained` = whole region box inside the tile (see EXP "DECISION" note);
+  the Hints "tile box lies inside bbox ± buffer" reading would flip the DS
+  answer to contained=0 and contradict the Done when. Left for navigator.
+- Kept Status in progress and the PR draft (driver does not mark done).
+
+problems / dead ends: none; no vendor bytes read, scratch dir
+~/projekty/leafre-work/scratch/m5.46/ holds only a no-bbox probe JSON.
+
+handoff: navigator should confirm the `contained` direction against the
+Done when, then run gate.py; then driver/TL sets done + Result + merge.

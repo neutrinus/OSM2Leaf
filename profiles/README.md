@@ -178,6 +178,24 @@ resolved count of cells is an **upper bound** (`N001`).
 | `poland-full` | PL extent 14.12–24.15 E, 49.0–54.84 N | 0.45° (50 km) | 4 | `detail` 4 (`B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`) |
 | `europe-motorways` | PL extent + corridor `[-12, 34, 40, 72]` | 0.90° (100 km) | 56 | `detail` 4, `corridor` 52 |
 
+### P1 containment census (M5.46)
+
+A read-only census answers *how many* whole tiles a region card needs before
+any tile is written; `docs/research/card-ladder.md` (M5.38) is not landed yet,
+so the paragraph lives here and `docs/format/map-tiles.md` cross-links it. A
+tile is **`contained`** when the whole `region.bbox` lies inside the tile box
+(the tile alone covers the region, a P1 copy-whole candidate), **`intersects`**
+when it overlaps the bbox widened by `border_buffer_deg` (an edge tile), and
+**`outside`** otherwise. `python3 tools/mesh_grid.py cover
+profiles/dolnoslaskie-test.json` prints `contained=1` (`B48R058R`),
+`intersects=0`, `outside=62`: P1's Dolnośląskie card is that one factory tile
+**copied verbatim**, not spliced — P0's tile already covers the whole region at
+0.09° buffer. `cover profiles/poland-full.json` prints `contained=0`,
+`intersects=4` (`B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`), `outside=59`:
+four tiles, all edge tiles, which is why `poland-full` cannot be a whole-region
+copy. The counts match `resolve_tiles` (1 / 4) and are from
+Exp-2026-11-18-M5.46-containment, not from a card.
+
 Notes:
 
 - Dolnośląskie fits **one** tile (`B48R058R` = 48.00–53.33 N, 12–20 E), not the
