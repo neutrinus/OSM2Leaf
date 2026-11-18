@@ -1145,9 +1145,9 @@ def run_selftest():
     finally:
         prose_count_problems.__globals__["_pinned_revision"] = saved_pin
 
-    # (k) `<command> prints N`: the command is re-run, so 13 against a fixture
-    # that now prints 14 is STALE; the allowlist rejects a non-count command;
-    # and a command with an `archive/` input is not re-run (rule 11).
+    # (k) `<command> prints N`: the command is re-run, so a quoted 13 against a
+    # command that now prints 14 is STALE; the allowlist rejects a non-count
+    # command; and a command with an `archive/` input is not re-run (rule 11).
     prints_row = ("| C-9102 | The fixture prints 13 rows. | VERIFIED (tool) | H | "
                   "EXP-2026-11-16-H74-fixture; `python3 -c \"print(len('x'))\"` "
                   "prints `13`; at `334f092` |\n")
