@@ -1130,6 +1130,54 @@ def selftest() -> int:
             "_zlib_runtime records the running interpreter and zlib build")
         chk(("stock" in rt["message"]) or ("zlib-ng" in rt["message"]),
             "_zlib_runtime message names the zlib flavour")
+
+    # M5.45: the same input built twice is byte-identical, and a second splice
+    # over the already-spliced tile appends nothing.  The fixture is the
+    # synthetic factory plus a two-node way inside its directory, so this runs
+    # without vendor data; the real-tile 1/2/3-splice numbers are in
+    # EXP-2026-11-18-M5.45-idempotence.
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        import tilewriter
+        factory_path = td / "factory.DAT"
+        factory_path.write_bytes(tilewriter.make_factory("B48R058R"))
+        osm = td / "idem.osm"
+        osm.write_text(
+            '<?xml version="1.0"?><osm version="0.6">'
+            '<node id="1" lat="48.2000" lon="12.2000"/>'
+            '<node id="2" lat="48.2100" lon="12.2100"/>'
+            '<way id="10"><nd ref="1"/><nd ref="2"/>'
+            '<tag k="highway" v="residential"/></way></osm>', encoding="utf-8")
+        imf = td / "idem.imf.jsonl"
+        rc, _so, se = run_cmd_json("osm_ingest.py", [str(osm), "-o", str(imf)])
+        chk(rc == 0, "M5.45 fixture ingests")
+
+        # Determinism: two independent builds from the *factory* tile.
+        first, rep_first = tilewriter.build(str(imf), "B48R058R",
+                                            factory_path=str(factory_path),
+                                            level=1, country=616)
+        twice, rep_twice = tilewriter.build(str(imf), "B48R058R",
+                                            factory_path=str(factory_path),
+                                            level=1, country=616)
+        chk(first == twice and rep_first["sha256"] == rep_twice["sha256"],
+            "M5.45 determinism: the same input built twice is byte-identical")
+        chk(rep_first["container"]["appended"] >= 1,
+            "M5.45 determinism: the fixture exercises the append branch")
+
+        # Bounded update: splice the same input over the *generated* tile.  No
+        # block differs from the one already there, so nothing is appended.
+        spliced_path = td / "spliced.DAT"
+        spliced_path.write_bytes(first)
+        update, rep_update = tilewriter.build(str(imf), "B48R058R",
+                                              factory_path=str(spliced_path),
+                                              level=1, country=616)
+        chk(update == first,
+            "M5.45 bounded: a second splice over the generated tile is byte-identical")
+        chk(rep_update["container"]["appended"] == 0
+            and rep_update["container"]["superseded_bytes"] == 0,
+            "M5.45 bounded: the second splice appends nothing")
+        chk(rep_update["container"].get("unchanged", 0) >= 1,
+            "M5.45 bounded: the second splice reports the blocks unchanged")
     print(f"selftest: {'OK' if not fails else 'FAIL'} ({fails} failure(s))")
     return 0 if not fails else 1
 

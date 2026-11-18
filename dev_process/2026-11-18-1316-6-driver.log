@@ -1,0 +1,58 @@
+role: driver (M5.45, pair with a navigator)
+model: deepseek-v4.1-flash-free via opencode
+start: 2026-11-18T13:31Z, end: 2026-11-18T13:50Z (approximately)
+origin/main at start: a48bbf9 (merge PR #221, M5.44)
+worktree: /home/marek/projekty/OSM2Leaf.task-m5.45-tilewriter-idempotence
+
+Inputs read: AGENTS.md, prompt_common.txt, TODO "How to take a task" 1-17,
+the M5.45 block, EXP-2026-11-17-M5.34-parcel, EXP-2026-11-18-M5.44-level2,
+tools/tilewriter.py (splice_factory, pad256, shared_slot_blocks),
+tools/ze0-viewer/tools_ze0/clarion_tile.py, tools/one_tile_pipeline.py,
+docs/format/map-tiles.md, docs/experiments/TEMPLATE.md.
+
+Actions:
+- Claimed the task (commit 6df5ae5, TODO line only), pushed the branch, opened
+  draft PR #225.
+- Measured the real behaviour before editing: level-1 full-directory splice of
+  B48R058R from the factory (32 appends, 1,789,864 B superseded, +4,671,350 B),
+  then the same input over the output twice in a row (both byte-identical,
+  size unchanged).
+- Found that the old writer is already idempotent in *size* for owned blocks
+  (the repeat rewrites the same blocks in place); the real gap is that nothing
+  reports the repeat as "no write", and the code cannot express it.
+- Added the `unchanged` branch to splice_factory (keep the block and slot body
+  when the rebuilt block already equals the one at the tag), the `unchanged`
+  counter, the report line, and three tilewriter selftest checks.
+- Added the M5.45 block to one_tile_pipeline --selftest (determinism from the
+  factory, append branch exercised, repeat bounded with appended=0 and
+  unchanged>=1).
+- Wrote the map-tiles.md paragraph on splice semantics and the size
+  consequence; wrote EXP-2026-11-18-M5.45-idempotence.md with the 1/2/3-splice
+  sizes, the update case, and the negative control.
+- Found and recorded a real negative: a level-2 splice over the factory tile is
+  refused by verify_factory at (76,939,31,0). Diagnosed it to 8 changed bytes
+  (the level-2 slot tag plus its block header) and to records_by_position being
+  level-blind; nine level-1 preserve-only row-31 records have parsed spans that
+  reach the tag. Recorded as C-4463, not worked around.
+
+Decisions:
+- Kept the shared-block rule untouched; the bounded claim covers owned slots
+  only (all 32 rows of level-1 (76,940) are unowned/shared-free).
+- Did not widen verify_factory to be level-aware: that belongs to a separate
+  task (level 2 is M5.44's scope, its files are not edited here).
+- Renumbered M5.44's reserved claims to C-4450-C-4458 (it used 8 of 10) so
+  M5.45 could take C-4460-C-4469; noted in the PR.
+
+Checks run: tilewriter --selftest 73/73, one_tile_pipeline --selftest OK,
+tools/selftest.py 93 passed / 23 skipped / 116, gate.py 4 pass 0 fail 0 skip,
+claims_check --strict --count-check OK, todo_check OK.
+
+Problems: the negative control I first wrote (synthetic fixture) is green on
+the pre-fix writer too, because the old writer's repeat takes the in-place
+branch and does not grow. The M5.45 selftest asserts the `unchanged` outcome,
+which is what makes it red on the stashed writer (KeyError).
+
+Handoff: the navigator should check (1) that the bounded claim is honest about
+the shared keys (7,763 level-1/level-2 duplicate record keys), (2) whether
+C-4463 should become its own follow-up task, (3) the claim renumbering of
+M5.44. PR #225 stays draft, not merged.
