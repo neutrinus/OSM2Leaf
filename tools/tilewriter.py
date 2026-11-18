@@ -266,8 +266,13 @@ def parcel_of(lon: float, lat: float, level: int):
     y0 -= (y0 - 32) % m
     lon0 = clarion_bg.mesh_to_lon(x0)
     lat0 = clarion_bg.mesh_to_lat(y0)
-    per_row = clarion_bg.LEVELS[level]["rows"] // m
-    per_col = clarion_bg.LEVELS[level]["cols"] // m
+    # A directory always splits into LEVELS rows x cols parcels, independent of
+    # DIR_MESHES: the level-2 directory is 4 x 4 meshes but holds 32 x 32 parcels
+    # of 1/8 x 1/12 deg (factory B48R058R: 2,048 pair slots over the 4-mesh box,
+    # M5.44).  Dividing by ``m`` here capped level 2 at 8 x 8 and clamped every
+    # point east/north of the 8th parcel into col/row 7.
+    per_row = clarion_bg.LEVELS[level]["rows"]
+    per_col = clarion_bg.LEVELS[level]["cols"]
     col = min(per_col - 1, max(0, int((lon - lon0) / step_x)))
     row = min(per_row - 1, max(0, int((lat - lat0) / step_y)))
     return y0, x0, row, col
@@ -1783,6 +1788,17 @@ def selftest():
                                     2 * parcel2["col"] + PAIR_ROAD)
         check("level 2 road stream present",
               struct.unpack_from(">H", zlib.decompress(bytes(road2["raw"])), 4)[0] == 0x00FA)
+        # M5.44: a level-2 directory is 4 x 4 meshes but holds 32 x 32 parcels.
+        # A point near the directory's north-east corner must land in parcel
+        # (31, 31); the old per_col = cols // DIR_MESHES capped it at (7, 7),
+        # so these are red on the old value.
+        lor, lac, lrow, lcol = parcel_of(19.9, 53.3, 2)
+        check("level 2 parcel_of covers the full 32x32 grid",
+              (lor, lac, lrow, lcol) == (76, 940, 31, 31),
+              (lor, lac, lrow, lcol))
+        check("level 2 parcel row/col are not capped at 8",
+              parcel_of(19.9, 51.0, 2)[3] == 31 and parcel_of(16.0, 53.3, 2)[2] == 31,
+              (parcel_of(19.9, 51.0, 2), parcel_of(16.0, 53.3, 2)))
         level2_missing = ""
         try:
             build(str(imf_path), cell, factory_path=str(factory_path), level=2,

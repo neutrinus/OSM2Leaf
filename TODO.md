@@ -2895,8 +2895,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: `--check-version 11.1.3` → `3 applied, 2 failed` + rc `4`; `--check-version 8.2.10` → `5 applied, 0 failed` + rc `0`; truncated pinned tarball via `--srcdir` → `has 13 bytes, expected 132685948` + rc `3` — `docs/experiments/EXP-2026-11-18-M5.43-check-version.md`
   - Claims: C-4420–C-4424
 
-- [ ] **M5.44 — Splice level-2 directories: a second detail level, on a tile that owns them**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M5.44 — Splice level-2 directories: a second detail level, on a tile that owns them**
+  - Status: done · Owner: task/m5.44-level2-splice · Critical: yes · Pair: required
   - Depends: M5.4 (level-1 splice, done), M5.34 (factory-backed run, done), `tilewriter` accepts `--level 2`
   - Goal: only level-1 directories have ever been spliced, so the highest card rung that exists carries major roads at 1°×2/3° directory resolution and no detail below it. `B48R058R` does own level-2 directories (4 of them, all `0x2046` — see Precheck), so the finer level is reachable with the same container mechanics on a tile L2 already writes; this is the next map-content step before the card rung (M5.30). It also exposes the level-2 geometry model, which no test covers today.
   - Precheck: two commands, and the second is the finding. (a) `python3 tools/parcel_census.py ~/projekty/leafre-work/m5.29-factory-root/MAPAL001/B48R058R.DAT --sections 1 --levels 2` prints 4 directories, all kind `0x2046` / class `spliceable`, at `(72,936)`, `(72,940)`, `(76,936)`, `(76,940)`, each with a 1.0°×0.667° bbox. (b) `python3 -c "import sys;sys.path[:0]=['tools/ze0-viewer/tools_ze0','tools'];import clarion_bg;print(clarion_bg.parcel_geo(2,76,940,0,0), clarion_bg.parcel_geo(2,76,940,31,31))"` returns lower-left `16.0,50.66667` with a `0.125×0.0833` parcel, so the 32×32 grid spans **4.0°×2.667°** — four times the `directory_bbox(2,76,940)` extent. The two checked-in functions disagree on what a level-2 directory is; `parcel_census --selftest` only asserts the level-1 span.
@@ -2906,7 +2906,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the level-2 geometry disagreement is resolved in the tools and `parcel_census --selftest` asserts the level-2 span (red on the old 4× value); a factory-backed level-2 run completes with `cardcheck` PASS, targeted `l2check` `tiles=1` PASS, `changed_sections=[1]`, exactly one level-2 directory changed, and the tile SHA/size in the EXP; a negative control (a node outside the chosen level-2 directory) refuses before any write; `python3 tools/selftest.py --only parcel_census --only tilewriter --only one_tile_pipeline` green.
   - Stop: if the level-2 slot tags do not yield a consistent 8×8-or-32×32 grid, record the tag table and block on the grid question as a format task (M4-level), not on a gate relaxation.
   - Falsifier: a section other than 1 changes, a second directory changes, or the gate PASSes a tile whose level-2 record does not decode back at the grid the census prints.
-  - Claims: none yet
+  - Claims: C-4450–C-4459
+  - Result: EXP `docs/experiments/EXP-2026-11-18-M5.44-level2.md`. `parcel_census.directory_bbox(2,76,940)` / `--selftest` (`level-2 directory spans 4 deg lon x 8/3 deg lat`) fix the level-2 directory at 4°×8/3° over a 32×32 parcel grid (old value was 1/4 size); `python3.13 tools/one_tile_pipeline.py … --parcel 76,940 --level 2 … --osm-bbox 16.40,51.10,16.45,51.13 --clip` exits 0 with `cardcheck RESULT: PASS`, targeted `l2check` `tiles=1` PASS, `changed_sections=[1]`, `changed_directories=[(2,76,940)]` (`only_parcel_directory_changed=true`), tile 289,458,162 B SHA-256 `b4724f3723b21fa0c531094b6f1dd1941eff464e4674de8930617ac0aa34fdb0` (+138,994 B over the 289,319,168 B factory tile); the negative control leaves the parcel and exits 2 with no `--out`.
 
 - [ ] **M5.45 — Tile-writer idempotence and size budget: the same input twice must give the same bytes**
   - Status: open · Owner: — · Critical: no · Pair: required

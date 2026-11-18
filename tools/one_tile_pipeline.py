@@ -139,10 +139,11 @@ def parse_osm_bbox(text: str) -> tuple[float, float, float, float]:
     return minlon, minlat, maxlon, maxlat
 
 
-def directory_box(cell: str, parcel: tuple[int, int]) -> dict[str, float]:
-    """The WGS84 box of one section-1 level-1 directory (via parcel_census)."""
+def directory_box(cell: str, parcel: tuple[int, int],
+                  level: int = 1) -> dict[str, float]:
+    """The WGS84 box of one section-1 directory at ``level`` (via parcel_census)."""
     y0, x0 = parcel
-    return _parcel_census().directory_bbox(1, y0, x0)
+    return _parcel_census().directory_bbox(level, y0, x0)
 
 
 def default_osm_bbox(box: dict[str, float]) -> tuple[float, float, float, float]:
@@ -210,15 +211,16 @@ def clip_imf_to_directory(imf_in: Path, imf_out: Path,
     }
 
 
-def directory_of(lon: float, lat: float) -> tuple[int, int]:
-    """Section-1 level-1 directory ``(y, x)`` holding a WGS84 point."""
+def directory_of(lon: float, lat: float, level: int = 1) -> tuple[int, int]:
+    """Section-1 directory ``(y, x)`` at ``level`` holding a WGS84 point."""
     import tilewriter
-    y0, x0, _row, _col = tilewriter.parcel_of(lon, lat, 1)
+    y0, x0, _row, _col = tilewriter.parcel_of(lon, lat, level)
     return y0, x0
 
 
-def _factory_dir_kinds(tile_bytes: bytes) -> dict[tuple[int, int], int]:
-    """``{(y, x): kind}`` for the section-1 level-1 directories of a tile."""
+def _factory_dir_kinds(tile_bytes: bytes,
+                       level: int = 1) -> dict[tuple[int, int], int]:
+    """``{(y, x): kind}`` for the section-1 directories at ``level`` of a tile."""
     import tilewriter
     tile = _clarion_tile().read_tile(tile_bytes)
     kinds: dict[tuple[int, int], int] = {}
@@ -226,7 +228,7 @@ def _factory_dir_kinds(tile_bytes: bytes) -> dict[tuple[int, int], int]:
         if sec["id"] != 1:
             continue
         for entry in sec["levels"]:
-            if entry["level"] != 1:
+            if entry["level"] != level:
                 continue
             for directory in entry["dirs"]:
                 kinds[(directory["y"], tilewriter.dir_x0(directory))] = directory["kind"]
@@ -246,8 +248,8 @@ def _imf_node_points(path: Path):
 
 
 def guard_parcel(imf_path: Path, parcel: tuple[int, int],
-                 factory_tile_bytes: bytes) -> dict[str, Any]:
-    """Refuse input whose nodes leave ``parcel``; name the kind it touched.
+                 factory_tile_bytes: bytes, level: int = 1) -> dict[str, Any]:
+    """Refuse input whose nodes leave ``parcel`` at ``level``; name the kind.
 
     Runs after ingest and **before** any tree copy or tile write.  A node in a
     preserve-only directory (``tilewriter.PRESERVE_ONLY_DIR_KINDS``) is the
@@ -255,21 +257,21 @@ def guard_parcel(imf_path: Path, parcel: tuple[int, int],
     the "only the chosen directory changed" property.  Both are usage errors.
     """
     import tilewriter
-    kinds = _factory_dir_kinds(factory_tile_bytes)
+    kinds = _factory_dir_kinds(factory_tile_bytes, level)
     chosen_kind = kinds.get(parcel)
     if chosen_kind not in tilewriter.SPLICEABLE_DIR_KINDS:
         raise UsageError(
-            "parcel y=%d x=%d is not a spliceable section-1 directory in the "
-            "factory tile (kind %s); this pipeline only writes "
+            "parcel y=%d x=%d is not a spliceable section-1 level-%d directory "
+            "in the factory tile (kind %s); this pipeline only writes "
             "SPLICEABLE_DIR_KINDS %s"
-            % (parcel[0], parcel[1],
+            % (parcel[0], parcel[1], level,
                "0x%04x" % chosen_kind if chosen_kind is not None else "absent",
                sorted("0x%04x" % k for k in tilewriter.SPLICEABLE_DIR_KINDS)))
     outside: dict[tuple[int, int], int] = {}
     nodes = 0
     for _osm_id, lon, lat in _imf_node_points(imf_path):
         nodes += 1
-        here = directory_of(lon, lat)
+        here = directory_of(lon, lat, level)
         if here != parcel:
             outside[here] = outside.get(here, 0) + 1
     if outside:
@@ -286,7 +288,8 @@ def guard_parcel(imf_path: Path, parcel: tuple[int, int],
             "OSM input leaves parcel y=%d x=%d: %s. Refused before any tile "
             "write; clip --osm/--osm-bbox to the chosen directory."
             % (parcel[0], parcel[1], detail))
-    return {"nodes": nodes, "parcel": "%d,%d" % parcel, "kind": chosen_kind}
+    return {"nodes": nodes, "parcel": "%d,%d" % parcel, "kind": chosen_kind,
+            "level": level}
 
 
 
@@ -1047,6 +1050,53 @@ def selftest() -> int:
         chk(g_sec2["status"] == "FAIL",
             "one-tile gate FAILs when changed_sections is [1, 2] (N1)")
 
+        # M5.44 round 2: the falsifier "a second directory changes" must fire
+        # even when the second directory is at a *different* level.  Build a
+        # tile with a level-1 and a level-2 directory, then change *both* the
+        # level-2 target and the level-1 directory and prove the level-2 splice.
+        # The old proof filtered the slice set to level 2, so it saw only the
+        # target and reported only_parcel True (a false PASS); the fix
+        # attributes both levels and reports only_parcel False.
+        bounds = tilewriter.cell_db_bounds("B48R058R")
+
+        def _two_level_tile(level1_tag=None, level2_tag=None) -> bytes:
+            t = _clarion_tile().read_tile(tilewriter.make_factory("B48R058R"))
+            t.pop("_src", None)
+            t.pop("order", None)
+            sec1 = [s for s in t["sections"] if s["id"] == 1][0]
+            for e in sec1["levels"]:
+                if e["level"] == 2:
+                    e["dirs"] = [tilewriter._opaque_directory(0x2046, 2, yb, xb)]
+            for e, tag in ((1, level1_tag), (2, level2_tag)):
+                if tag is None:
+                    continue
+                d = [dd for ee in sec1["levels"] if ee["level"] == e
+                     for dd in ee["dirs"]][0]
+                d.setdefault("empty_tags", {})[3] = tag
+            for section in t["sections"]:
+                words, _o, _g = _clarion_tile().table_words(section)
+                section["count"] = -(-2 * words // 256)
+            t["header"] = tilewriter.tile_header.author(
+                tilewriter.tile_header.level_groups(t),
+                [(1, [(level, 0, bounds) for level in (6, 5, 4, 3, 2, 1)])],
+                bounds, "11/01/01/01")
+            return _clarion_tile().write_tile(t)
+
+        clean_bytes = _two_level_tile()
+        both_changed = _two_level_tile(level1_tag=0x00001234, level2_tag=0x00005678)
+        proof = prove_tile_change(clean_bytes, both_changed, "B48R058R",
+                                  (yb, xb), level=2)
+        chk(sorted((d["level"], d["y"], d["x"]) for d in proof["changed_directories"])
+            == [(1, yb, xb), (2, yb, xb)],
+            "level-2 target + level-1 change are both attributed across levels")
+        chk(proof["only_parcel_directory_changed"] is False,
+            "level-1 change during a level-2 splice makes only_parcel False (falsifier fires)")
+        g_lv1, _ = one_tile_gate(
+            [{"path": "MAPAL001/B48R058R.DAT", "state": "differs"}],
+            "MAPAL001/B48R058R.DAT", {"DRSTR001.DAT"}, False, proof)
+        chk(g_lv1["status"] == "FAIL",
+            "one-tile gate FAILs on a level-1 change during a level-2 splice")
+
         # B2: a file that exists only in `out` must make the tree gate FAIL.
         tmpl = {"A": b"1", "B": b"2"}
         got = {"A": b"1", "B": b"2", "C": b"3"}
@@ -1143,21 +1193,28 @@ def one_tile_gate(differing: list[dict[str, str]], tile_path: str,
 
 
 def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
-                      parcel: tuple[int, int]) -> dict[str, Any]:
+                      parcel: tuple[int, int], level: int = 1) -> dict[str, Any]:
     """Prove exactly one directory of one tile changed, and nothing else.
 
     Two independent checks:
 
     * ``tilewriter.sector_fingerprint`` per section: sections 2 and 4 must be
       identical and section 1 must differ.
-    * a **byte slice** per directory: every section-1 level-1 directory is
-      compared as ``tile[off:next_off]`` (header, slot tags, bodies and the
-      declared-size tail), so a changed slot tag is visible even though
+    * a **byte slice** per directory: **every** section-1 directory, at every
+      level, is compared as ``tile[off:next_off]`` (header, slot tags, bodies
+      and the declared-size tail), so a changed slot tag is visible even though
       ``sector_fingerprint`` only keeps ``(kind, y, x, typ, box)`` for a
       directory header (B2 review).
 
+    The slice set spans all section-1 levels on purpose: filtering it to
+    ``level`` let a level-1 directory change coexist with a level-2 splice while
+    ``only_parcel_directory_changed`` stayed true, so the falsifier "a second
+    directory changes" could not fire (M5.44 round 2). ``changed_sections`` also
+    cannot separate the levels (the section-1 fingerprint covers all of them),
+    so the cross-level slice is the only place the level is attributable.
+
     Returns the changed sections/directories and whether the only changed
-    directory is ``parcel``.
+    directory is ``parcel`` at ``level``.
     """
     import tilewriter
     ct = _clarion_tile()
@@ -1192,24 +1249,26 @@ def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
     after_slices = slices(after, len(out_tile))
     changed_dirs = []
     for key in sorted(before_slices, key=lambda k: (k[0], k[1], k[2])):
-        if key[0] != 1 or key[1] != 1:
+        if key[0] != 1:
             continue
         if key not in after_slices:
-            changed_dirs.append({"level": 1, "y": key[2][0], "x": key[2][1],
+            changed_dirs.append({"level": key[1], "y": key[2][0], "x": key[2][1],
                                  "reason": "directory missing in out"})
             continue
         a0, a1 = before_slices[key]
         b0, b1 = after_slices[key]
         if factory_tile[a0:a1] != out_tile[b0:b1]:
-            changed_dirs.append({"level": 1, "y": key[2][0], "x": key[2][1],
+            changed_dirs.append({"level": key[1], "y": key[2][0], "x": key[2][1],
                                  "reason": "byte slice differs",
                                  "factory_range": [a0, a1], "out_range": [b0, b1]})
     for key in sorted(after_slices, key=lambda k: (k[0], k[1], k[2])):
-        if key[0] == 1 and key[1] == 1 and key not in before_slices:
-            changed_dirs.append({"level": 1, "y": key[2][0], "x": key[2][1],
+        if key[0] == 1 and key not in before_slices:
+            changed_dirs.append({"level": key[1], "y": key[2][0], "x": key[2][1],
                                  "reason": "directory added in out"})
+    # Exactly one changed directory, and it is the target -- at **any** level,
+    # so a level-1 change cannot hide behind a level-2 splice (or vice versa).
     only_parcel = ([{k: v for k, v in d.items() if k in ("level", "y", "x")} for d in changed_dirs]
-                   == [{"level": 1, "y": parcel[0], "x": parcel[1]}])
+                   == [{"level": level, "y": parcel[0], "x": parcel[1]}])
     size_delta = len(out_tile) - len(factory_tile)
     return {
         "factory_tile_sha256": sha256_bytes(factory_tile),
@@ -1217,10 +1276,12 @@ def prove_tile_change(factory_tile: bytes, out_tile: bytes, cell: str,
         "factory_size": len(factory_tile),
         "out_size": len(out_tile),
         "size_delta": size_delta,
+        "level": level,
         "changed_sections": changed_sections,
         "changed_directories": changed_dirs,
         "only_parcel_directory_changed": only_parcel,
-        "method": "sector_fingerprint for sections; byte slice per section-1 level-1 directory",
+        "method": "sector_fingerprint for sections; byte slice per section-1 "
+                  "directory (all levels), target level %d" % level,
     }
 
 
@@ -1231,7 +1292,7 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
                       osm_path: Path | None = None,
                       osm_bbox: tuple[float, float, float, float] | None = None,
                       parcel: tuple[int, int] | None = None,
-                      clip: bool = False) -> dict[str, Any]:
+                      clip: bool = False, level: int = 1) -> dict[str, Any]:
     """Factory-backed path: copy factory root, replace exactly one tile with OSM-generated (provisional-v0).
 
     ``osm_path`` is an OSM XML/PBF read by ``osm_ingest.py``; ``osm_text`` is
@@ -1239,12 +1300,15 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     ``fixture=synthetic``).  With ``parcel`` the input is clipped to that
     directory's box; a node outside it is refused (naming the touched
     directory's kind) unless ``clip`` is set, which drops such ways instead.
+    ``level`` selects the section-1 road level the writer targets (1 or 2);
+    the directory box, the guard and the change proof all use that level.
     """
     _check_out_overlap(out, factory_root)
     rt = _zlib_runtime()
     _zlib_banner(rt)
     report: dict[str, Any] = {
         "mode": "factory-backed", "tile": cell, "mapping": "provisional-v0",
+        "level": level,
         "rule13": "roadclass_v0 provisional, not firmware-confirmed; L2 necessary not sufficient; L3/L4/L5 acceptance unknown",
         "factory_backed": True, "factory_root": str(factory_root), "missing_input": "",
         "real_image_run": "attempted", "gates": {}, "counts": {}, "changed_set_expected": [f"MAPAL001/{cell}.DAT"],
@@ -1285,10 +1349,10 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     factory_tile_bytes = factory_tile.read_bytes()
     report["fixture"] = "synthetic" if osm_path is None else "real-osm"
     if parcel is not None:
-        box = directory_box(cell, parcel)
+        box = directory_box(cell, parcel, level)
         report["parcel"] = "%d,%d" % parcel
         report["parcel_box"] = box
-        report["parcel_kind"] = _factory_dir_kinds(factory_tile_bytes).get(parcel)
+        report["parcel_kind"] = _factory_dir_kinds(factory_tile_bytes, level).get(parcel)
         if osm_path is not None and osm_bbox is None:
             osm_bbox = default_osm_bbox(box)
         if osm_bbox is not None:
@@ -1323,12 +1387,12 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         if rc != 0 or not imf.exists():
             report["gates"] = {g: gate("BLOCKED", f"osm_ingest failed rc={rc}: {se[:300]}") for g in GATES}; return report
         if parcel is not None:
-            box = directory_box(cell, parcel)
+            box = directory_box(cell, parcel, level)
             if clip:
                 clipped = td / "clipped.imf.jsonl"
                 report["clip"] = clip_imf_to_directory(imf, clipped, box)
                 imf = clipped
-            guard = guard_parcel(imf, parcel, factory_tile_bytes)
+            guard = guard_parcel(imf, parcel, factory_tile_bytes, level)
             report["parcel_guard"] = guard
             report["counts"]["guard_nodes"] = guard["nodes"]
         imf_lines = [ln for ln in imf.read_text(encoding="utf-8").splitlines() if ln.strip()]
@@ -1351,7 +1415,8 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
             out_tile.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(factory_tile, out_tile)
         rc, so, se = run_cmd_json("tilewriter.py", [str(mesh_src), "--out", str(out_tile), "--cell", cell,
-                                 "--factory", str(out_tile), "--class-table", str(ctab), "--country", country, "--no-names", "--json"])
+                                 "--factory", str(out_tile), "--class-table", str(ctab), "--country", country,
+                                 "--level", str(level), "--no-names", "--json"])
         report["counts"]["tilewriter_rc"] = rc
         report["counts"]["tilewriter_stdout"] = so[:600]; report["counts"]["tilewriter_stderr"] = se[:600]
         if rc != 0 or not out_tile.exists():
@@ -1386,7 +1451,7 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     if parcel is not None:
         try:
             tile_change = prove_tile_change(
-                factory_tile_bytes, out_tile.read_bytes(), cell, parcel)
+                factory_tile_bytes, out_tile.read_bytes(), cell, parcel, level)
             report["tile_change"] = tile_change
             # Compare the union of both trees, so an out-only or root-only file
             # is a difference too (B2: a one-sided walk cannot see it).
@@ -1429,6 +1494,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--parcel", metavar="Y,X",
                     help="directory (y,x) to write into: clip the OSM input to its box and "
                          "refuse any node that lands in a preserve-only directory")
+    ap.add_argument("--level", type=int, choices=(1, 2), default=1,
+                    help="section-1 road level to write (default 1; level 2 needs a "
+                         "factory tile that owns the directory)")
     ap.add_argument("--osm-bbox", metavar="MINLON,MINLAT,MAXLON,MAXLAT",
                     help="OSM clip box; defaults to the chosen parcel's directory box. "
                          "Requires --parcel")
@@ -1470,7 +1538,8 @@ def main(argv: list[str] | None = None) -> int:
             rep = build_factory_out(out, factory_root, args.cell, country=args.country,
                                     factory_tile_path=factory_tile,
                                     osm_path=Path(args.osm) if args.osm else None,
-                                    osm_bbox=osm_bbox, parcel=parcel, clip=args.clip)
+                                    osm_bbox=osm_bbox, parcel=parcel, clip=args.clip,
+                                    level=args.level)
         else:
             rep = build_synthetic_out(out, args.cell)
             rep["note"] = "OSM provided without --factory-root; synthetic-only fallback"
