@@ -246,92 +246,108 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-17, 15th pass; retro 2026-11-17-3, SE `6c9c343`)
+## Priorities (PO grooming 2026-11-18, 16th pass; retro 2026-11-18, SE `7b14f71`)
 
-**PM fourteenth pass (2026-11-17, H101 — read first).** Hardware is not
-available; the plan below needs none. Record:
-`EXP-2026-11-17-H101-pm-review`.
+**This cycle moved P0 (M5.34, last cycle) and none of the other three
+numbers** — readers 6/30 and L3 1/30 are unchanged; said first, per rule 17.
 
-*How it went since 2026-11-11.* 33 tasks closed: 22 H, 10 M1, 1 M9, **none
-in M3/M4/M5**. Real gains: the US build is mapped (M1.22: POINT walker and
-chunk engine run on US code), function starts are audited (H52, M1.2x), CI
-and one gate runner exist. Not gained: no new reader located, no new format
-field decoded, the Poland one-tile run still has not completed (M5.34
-unowned for six days), and ten of H51's twelve tasks are still open. The
-cause is the loop, not the people: see **rule 17**.
+**The four rule-17 map numbers — run each, do not retype** (snapshot
+2026-11-18T06:45Z; `origin/main` at write time `7b14f71`):
 
-*What this pass adds.* `tools/callgraph.py` — the static call graph of
-`Navi.exe` (9,000 functions, 22,867 direct edges, only 589 indirect calls).
-It shows that all map-file reading sits in one block of 117 functions with
-three stdio wrappers (**M3.26**), that those wrappers are a single place to
-attach a whole card tree to the firmware code (**M9.44**, "software S0"),
-and that the route-graph reader is a 48-function island working on a
-memory-mapped tile (**M4.40**).
+```bash
+# M1 reader rows with a located reader (6) — partial/access-path rows counted apart (5)
+python3 -c "import sys,pathlib;sys.path[:0]=['tools'];from progress_report import parse_reader_coverage as p;d,_=p(pathlib.Path('docs/research/reader-coverage.md'));s=d['summary']['firmware_reader'];print('located',s['located'],'partial',s['partial'],'unlocated',s['unlocated'])"
+# M2 reader rows with a running (non-BLOCKED) L3 target result (1 — row 6, cmp_ind_reader)
+grep -E '^\| [0-9]+ \|' docs/research/reader-coverage.md | awk -F'|' '{gsub(/ /,"",$9); if ($9 ~ /PASS|REJECT/) c++} END{print "l3-running", c+0}'
+# M3 factory-tile nonzero bytes inside container structures (directory+slot spans), per tile
+python3 -c "import sys;sys.path[:0]=['tools/ze0-viewer/tools_ze0'];import clarion_tile as c
+for n in ['B28R070R','B30R048R','B48R058R']:
+ d=open('/home/marek/projekty/leafre-work/m5.4/card-factory/MAPAL001/%s.DAT'%n,'rb').read();t=c.read_tile(d);iv=[]
+ for s in t['sections']:
+  for L in s['levels']:
+   for D in L['dirs']: iv.append((D['off'],D['end']));iv+=[(x['block_off'],x['block_end']) for x in D['slots'].values()]
+ iv.sort();m=[]
+ for a,b in iv:
+  if m and a<=m[-1][1]:m[-1]=(m[-1][0],max(m[-1][1],b))
+  else:m.append((a,b))
+ nza=sum(1 for x in d[0x1000:] if x);nzc=sum(sum(1 for x in d[a:b] if x) for a,b in m)
+ print(n,'%.2f%%'%(100*nzc/nza))"
+# M4 highest card-ladder step whose own gate passes (P0 — M5.34 factory-backed run)
+python3 -c "import json;r=json.load(open('/home/marek/projekty/leafre-work/m5.34/report.json'));print('P0' if r['cardcheck_ok'] and r['l2check_ok'] else 'none')"
+```
+
+Numbers now (quoted from those commands, this host): **readers 6/30 located**
+(+5 partial), **L3 running 1/30 rows** (only `cmp_ind_reader`), **factory tile
+nonzero bytes inside structure: B28R070R 99.98 %, B30R048R 95.86 %, B48R058R
+76.28 %** (`clarion_tile` directory+slot spans over the three shape classes),
+**highest step P0** (M5.34 factory run: `cardcheck`+`l2check` PASS, 2 files
+differ). Last SM pass reported none of the four — cycle 13 moved **M5.34**
+(P0 exists now) and nothing else; cycle 14 added five map tasks (M5.41–M5.45).
+
+*How it went since 2026-11-17.* Cycle 13 closed M5.34 (test road in a `0x2046`
+parcel; P0 now real) and cycle 13b closed M8.A2/M8.A10 (QEMU 8.2.10 runs).
+Cycle 14 (SE) merged no task and added five map-facing blocks (M5.41–M5.45),
+all still `open`. **Record loop:** 34 of 47 H blocks are open; the retro asks
+for one record-repair batch (action 1), not one block per cycle.
 
 **Directions without hardware, in order:**
-1. **Firmware as the format specification.** Read the grammar off the reader
-   code instead of guessing it from bytes: **M3.26** (file layer) →
-   **M4.40** (section 2 / routing) → **M3.25**/**M9.13** (tile entry) →
-   the `REFER` families via **M3.23** + **M9.38**. **M9.2** (Ghidra, on
-   Marek's host) multiplies the speed of all of them.
-2. **Emulation as the unit.** **M9.36**/**M9.37** (trust the engine) →
-   **M1.19** (`INIT` bytes) → **M9.44** (firmware file layer reads a card
-   tree; negative controls for free) → **M9.45** (speed) → the mount state
-   machine and, later, a headless map task. M8 (QEMU) stays second.
-3. **Data against data.** **M4.41** (2011/2014/2016 differential) and
-   **M4.2**/**M5.36** (OSM ground truth, reachable on the host now) decode
-   fields with no firmware at all.
-4. **A card in small steps.** **M5.34** → M5.29 → M5.30 is step P0;
-   **M5.38** fixes the ladder P0–P4 so that display-only cards come before
-   names, routing and search.
+1. **A card in small steps (P0 → P1).** **M5.30** (1:1 diff card, the last
+   P0 step) → **M5.44** level-2 detail → **M5.45** the size budget a second
+   update inherits; **M5.41**/**M5.43** fix the run's own gate. Then **P1**:
+   all Dolnośląskie tiles display-only — first slice **M5.46** (below).
+2. **Firmware as the format specification.** **M3.26** (file layer) →
+   **M4.40** (section 2/router) → **M3.25**→**M9.13** (tile reader entry) →
+   **M3.23**+**M9.38** (REFER families). **M3.2b** is one disassembly of
+   `0x0041c990`.
+3. **Emulation as the unit.** **M9.36**/**M9.37** → **M9.44** (firmware file
+   layer reads a card tree) → **M9.45**; M8.E4 (full `Navi.exe`) after that.
+4. **Data against data.** **M4.41** (2011/2014/2016 differential) and
+   **M4.2**/**M5.36** (OSM ground truth) decode fields with no firmware.
 
-**Next for the TL (map tasks only; rule 17):** **M5.34**, **M9.36**,
-**M3.26**, **M1.19**, **M9.44**, **M4.40**, **M4.41**, **M5.38**, **M9.37**,
-**M3.2b** (its answer is now one disassembly of `0x0041c990`).
-
-Earlier passes: `docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`,
-`-13.md`, `-15.md`, `-16.md`, `-17.md`. **Archive: `archive fixpoint, 0
-moved`** — all 57 `done` blocks are named by a live task (whole-segment
-probe), so line 19's fixpoint carve-out applies. This pass **added** 4 blocks
-and rewrote this section; the 1500-line rule stays unmet by design (the board
-retains every done block its live tasks cite).
-
-**Read first — the map signal is thin, and that is the finding.** Board: 114
-open / 57 done / 27 blocked, 0 `in progress`, 0 ghost claims, `gate: 4 pass`.
-Cycle 12 shipped **zero** map-facing task (1 record pair, 1 negative); cycle
-13 added **8 blocks, 0 map steps**. **34 of the 49 H blocks are open**, and
-**14 blocks** exist only to repair an earlier record or the gate that missed
-it (**H91–H100**, **M1.32**/**M1.33**, **M9.42**/**M9.43**); 13 of those are
-open. Record repair is real but it is **not on the critical path**: batch it,
-do not spend one cycle per block on it (see "Next 5"). Everything below is
-ordered by "what puts a file on a card the firmware reads", not by band.
+**Next for the TL (map tasks only; rule 17):** **M5.30**, **M5.44**,
+**M5.45**, **M5.41**, **M9.36**, **M3.26**, **M4.40**, **M5.42**, **M9.41**,
+**M3.25**.
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
-- **L1 (cheap, ready):** `cardcheck --image` + `imgpatch`/manifest diff. Blocking: **H40** (vendor-free in-process fixture) → **H41**/**H42** (per-feature matrix); the card path itself waits on L2's **M5.30**. Nothing here stops a card.
-- **L2 (necessary — rule 13): — THIS IS THE CRITICAL PATH.** **M5.34** (parcel census: put the test road in a `0x2046` parcel) → **M5.29** (factory-backed one tile, re-opens on merge, rule 15) → **M5.30** (1:1 diff card) → **M5.11** (OSM→card end to end) → **M5.35** (one command + evidence bundle). **Feature gaps the pipeline must close to be a *map*, not a tile: M5.16** (routing: tile sec2 graph unlocated), **M5.36** (road-class golden), **M5.37** (route-graph golden), **M4.36** (names: last mile blocked on **M3.13**); supporting **M5.44** (level-2 detail, after the level-2 grid question it must settle) and **M5.45** (the tile size budget a card inherits); support **M5.3** (class table), **M5.23** (record fields), **M5.33** (synthetic validators), **M5.32** (5 unfit POI pages).
-- **L3 (virtual; SKIP/BLOCKED never PASS):** only the US POI walker runs (`point_walk_l3 --build us2011`). Make it a gate: **M9.41** (register the S1 row) → **M9.31** (no-diff verdicts) → **M9.12** (`l3check --card`). The **tile** reader — the file L2 actually writes — has no runnable target: **M3.25** (find the section-2/route VAs) and **M9.13** (tile reader entry) are the gap; the name check needs **M3.11c**. Discovery: **M1.20** → **M3.23**/**M3.24** → **M9.38**; trust the engine after **M9.36**/**M9.37**; **M1.19** for `INIT` bytes.
-- **L4 (QEMU/M8):** before L5. **M8.A2** is `blocked` since 2026-11-08 on "no prebuilt `qemu-system-sh4`" — but M8.E1 records a working LE QEMU 11.1.3 on this host. **Re-probe before trusting the blocker** (TL: one `bash tools/qemu-ze0/build.sh` + `qemu-system-sh4 -M none` run). If it still fails: **M8.A3**/**M8.A6** → **M8.E4** (full `Navi.exe` on a generated card). **M1.19** is the prerequisite for any `INIT`-byte run.
+- **L1 (cheap, ready):** `cardcheck --image` + `imgpatch`/manifest diff. Blocking: **H40** (vendor-free in-process fixture) → **H41**/**H42** (per-feature matrix). The card path itself waits on L2's **M5.30**.
+- **L2 (necessary — rule 13): — THIS IS THE CRITICAL PATH.** **M5.34** done → **M5.30** (1:1 diff card, P0 complete) → **M5.44** (level-2 detail; settle the 4× grid first) → **M5.45** (size budget: same input twice) → **M5.11** (OSM→card end to end) → **M5.35** (one command + evidence bundle) → **M7.1** (all Dolnośląskie). **P1 = M5.46** (containment census) then the all-tile run (no block yet). Feature gaps: **M5.16** (routing graph), **M5.36** (road-class golden), **M5.37** (route-graph golden), **M4.36** (names, blocked on **M3.13**); support **M5.3**, **M5.23**, **M5.33**, **M5.32**, **M5.41**, **M5.43**, **M5.38** (ladder page).
+- **L3 (virtual; SKIP/BLOCKED never PASS):** **M9.41** (register the US POI walk row) → **M9.31** (no-diff verdicts) → **M9.12** (`l3check --card`). The **tile** reader — the file L2 writes — has no runnable target: **M3.25** → **M9.13**; names need **M3.11c**; discovery **M3.23**/**M3.24** → **M9.38**; **M1.19** for `INIT` bytes.
+- **L4 (QEMU/M8):** **M8.A2** is `done` (QEMU 8.2.10 `-M ze0`, one run, exceptions 0). Next: **M8.A3**/**M8.A6** → **M8.E4** (full `Navi.exe` on a generated card); **M5.43** repairs the `--check-version` exit code the next bump needs. **M1.19** gates any `INIT`-byte run.
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; prep **M6.13**, **H29**. Hardware unavailable; `l3_precond.py` before every bench card.
 
 **Next 5 for the TL (one per cycle is enough; all deps done):**
-1. **M5.34** (Critical, L2) — the only thing between the factory tile and the OSM pipeline; re-opens **M5.29** on merge. **Runnable on this host** (OSM reachable, full EU card on disk); the census needs no download.
-2. **M1.20** (Critical) — pdata function table for every module; the head of the chain that gives the tile reader a name (**M3.23**/**M3.24**/**M9.38** follow).
-3. **M9.41** (Critical) — register the running US POI walk as an S1 evidence row; the cheapest way to turn L3 from prose into a gate (**M9.31**→**M9.12** next).
-4. **M3.25** (Critical, new) — the tile/route reader VAs, so **M9.13** can run the reader on the tiles L2 writes. Without it L3 never sees a `MAPAL001` file.
-5. **H98** (Critical, test-system) — branch protection: `main` merged 12 red pushes; the one process fix that protects every later map step.
+1. **M5.30** (L2) — the 1:1 diff card; the last P0 step and the first card that differs from factory in known clusters. It is marked `Critical: no`; the PO recommends the TL raise it, because every later rung rests on it.
+2. **M5.44** (Critical, L2) — level-2 detail; settles the `parcel_geo` vs `directory_bbox` 4× grid before a wrong-geometry splice passes every L2 check.
+3. **M9.41** (Critical, L3) — register the running US POI walk as an S1 evidence row (`M9.31`→`M9.12` next); cheapest turn of L3 prose into a gate.
+4. **M3.25** (Critical, L3) — the tile/route reader VAs; without it L3 never sees a `MAPAL001` file.
+5. **M5.41** (L2) — one expected-change-set; a correct run that `expected` calls wrong is a card-gate defect waiting for M5.30.
 
 **Batch, not per-cycle (record repair — real, off the critical path):**
-**H91**+**H92** (one count-rule pass), **H93**+**H94** (one H90 EXP), **M1.33**, **H95** (needs the human/SM MAINTENANCE.md call), **H99**, **H100** (`claims_check --reserved`), **M9.42**/**M9.43** (with **M9.41**). One TL pass can close **H91–H95**; the board should then show record work as a *line*, not 11 blocks.
-**Known claim-range defect (for H100):** 7 of this cycle's open tasks (H96–H99, M9.41, M1.32, M1.33) still carry a 10-ID `Claims:` range with **zero rows** in `claims.md`; `claims_check` cannot see a range, so "reserved" never becomes "registered" (101 open/blocked ranges are empty board-wide). New tasks therefore carry `Claims: none yet`.
+**H91**+**H92**, **H93**+**H94**, **M1.32**, **M1.33**, **H99**, **H100**,
+**M9.42**/**M9.43** (with **M9.41**), **M5.42** (cheap solo). One TL pass
+closes them; the retro (action 1) sets the bar at ≥ 7 IDs.
 
-**Critical path to a first accepted card:**
-· **Software/L3 gate:** **M9.41** → **M9.31** → **M9.12** for the POI walk; **M3.25** → **M9.13** for the tile. No card goes to the car on a SKIP.
-· **US (nearest):** S1/S2 exist (M5.13b); Marek runs **M6.2** S0 → **M6.5** S1 → **M6.6** S2 → **M6.7** S3. **M5.12c** still needs its uncompressed-file scan (**M5.27**).
-· **Poland (goal):** M5.1–M5.10 done → **M5.34** → **M5.29** → **M5.30** → **M5.11**, gated by **M5.3**, **M5.16**, **M5.22**, **M5.23**, **M5.21** and rule-13 firmware/L3 confirmation.
-· Supporting: **M1.11c** → **M4.16b** → **M4.2**/**M5.3** · **M4.24–M4.26** → **M4.23** → **M4.3** · **M3.2b** → **M3.2** → **M3.3**.
+**First slice (rule 17 "big tasks are split"):** P1 (all Dolnośląskie tiles,
+display-only) had no block; **M5.46** is its first slice (the profile→tile
+containment census, no write). Take it with or just after **M5.30**.
+
+**Archive: 2 moved** (`H79`, `H80` → `docs/research/todo-history-2026-11-18.md`).
+TODO.md **3923 → 3929** lines (before/after this pass: −24 for the two
+archived blocks, +30 for this section and **M5.46**; the 1500 line rule stays
+unmet by design — 61 done blocks are cited by live tasks). Earlier passes:
+`docs/research/todo-history-2026-11-05.md`, `-06.md`, `-09.md`, `-13.md`,
+`-15.md`, `-16.md`, `-17.md`, `-18.md`.
+
+### Map signal (read first)
+
+Board: **129 open / 61 done / 24 blocked**, 0 `in progress`, 0 ghost claims,
+`gate: 4 pass`. **34 of 47 H blocks are open**; 13 blocks exist only to repair a
+record or the gate that missed it. The map moved one step in two cycles
+(P0 via M5.34); readers 6/30 and L3 1/30 did not move. A cycle that moves none
+of the four numbers above says so in its first line.
 
 ---
 
@@ -819,31 +835,7 @@ ordered by "what puts a file on a card the firmware reads", not by band.
   - Result: EXP-2026-11-16-H78-claims-strict-count; C-4010–C-4016. `--strict` now runs the count rule (`_run_counts`), so the real-ledger `--strict` and `--count-check` both exit 0 with `count mismatches: 0`; the measurement revision is the newest commit that changed the EXP *and* a `tools/*.py` file, so H75's docs-only `Correction` append no longer re-pins C-3704 (measured `334f092` -> 26, not `ec58d12` -> 29). A one-digit change still fails (C-3704 26->25 exit 1); a claim whose EXP record exists but has no measurement revision is skipped, not measured on the working tree; `--selftest` 25 checks (all four numbers from the commands above); `selftest.py` 90/0/23 with the head.
   - Claims: C-4010–C-4019
 
-- [x] **H79 — M1.31 evidence cites `/tmp/opencode/us256.img`; make the US head re-creatable and retarget Claim 26 at `US256`**
-  - Status: done · Owner: task/h79-m131-us-head · Critical: no · Pair: solo
-  - Depends: H62 (the `US256` fetch key; H62 is open, so the `head -c` line is the interim fix), H75 (the same defect already fixed for C-3703)
-  - Goal: `EXP-2026-11-16-M1.31-leaf-census.md` names `/tmp/opencode/us256.img` in its sample and commands (6 times) and C-3962/C-3965 carry `--us /tmp/opencode/us256.img`; a reader on a fresh checkout cannot re-run them, which is the exact class H75 repaired for C-3703. The head is the same `70d945d8…`.
-  - Precheck: `grep -c "/tmp/opencode/us256.img" docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md docs/research/claims.md` prints `6` and `4`.
-  - Scope: the M1.31 EXP (commands and the sample table) and the C-3962/C-3965 evidence cells only: replace `/tmp/opencode/us256.img` with `archive/us256.img`, and add the re-creatable line `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` (hash `70d945d8…`) next to the first use, or cite H62's `fetch_image.py --image US256` once H62 lands. No new mechanism, no fixture edit.
-  - Input: `docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md`, `docs/research/claims.md` C-3962/C-3965, `docs/experiments/EXP-2026-11-16-H75-m1.27-evidence.md` (the pattern), `archive/sd-images/LEAF_2011-2012_US.img`.
-  - Hints: `head -c 268435456 … | sha256sum` must print `70d945d8…04da`; if H62 has merged by the time this is taken, prefer `fetch_image.py --image US256` and delete the `head -c` line. Run the M1.31 census once on `archive/us256.img` after the edit so the numbers are re-quoted, not retyped.
-  - Done when: `grep -c "/tmp/opencode/us256.img" docs/experiments/EXP-2026-11-16-M1.31-leaf-census.md docs/research/claims.md` prints `0` and `0`; the cited US HEAD command with `archive/us256.img` prints `70d945d8…` (or `fetch_image.py --image US256` verifies it); `python3 tools/claims_check.py` and `--strict` exit 0.
-  - Stop: if `archive/sd-images/LEAF_2011-2012_US.img` is absent and H62 has not merged, cite only the pinned SHA-256 and the existing `/tmp` path as `HYPOTHESIS (not re-creatable here)` rather than inventing a path.
-  - Result: EXP-2026-11-16-M1.31-leaf-census `Correction (H79)`; C-4020–C-4023. The US head is `archive/us256.img`, re-created by `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` (`70d945d8…04da`, git-ignored). The M1.31 EXP's 6 and the ledger's 4 `/tmp/opencode/us256.img` mentions are 0; the same edit repairs C-3741/C-3742 (M1.28) and makes C-3742's flip step runnable. Every measured number is unchanged (census 598/77/2, `TRUNCATED … 0x4a16`, `13 rows, 0 mismatch`); `claims_check --strict` exit 0.
-  - Claims: C-4020–C-4029
 
-- [x] **H80 — H71's Precheck selects claim rows by a line range that no longer exists**
-  - Status: done · Owner: task/h80-precheck-id · Critical: no · Pair: solo
-  - Depends: H71 (the task whose Precheck this repairs)
-  - Goal: H71's Precheck is `sed -n '2802,2807p' docs/research/claims.md | grep -nE '…|\.\.\.'`; today those lines are C-3790–C-3792 (the C-3860/61/64 rows moved to 2824–2828 when M1.26/H74 added rows above them), so the precheck matches nothing and a reader concludes the task is moot. H71's own Done-when was already repaired to select by claim ID; its Precheck was not.
-  - Precheck (H80, before the fix): the old selector `sed -n '2802,2807p' docs/research/claims.md` held only C-3790–C-3795, so `… | grep -cE 'C-386[014]'` printed `0`; the three rows are now found by ID: `grep -nE '^\| C-386[014] \|' docs/research/claims.md | cut -d: -f1` prints `2824`, `2825`, `2828`.
-  - Scope: the H71 block's `Precheck:` line only: replace the line-range `sed` with an ID selector, e.g. `grep -nE '^\| C-386[014] \|' docs/research/claims.md | grep -cE '…'` on those rows (0 after H71), and a one-line note that IDs (not line numbers) are the anchor. No claim, no tool, no other H71 field.
-  - Input: TODO.md H71 block, `docs/research/claims.md` C-3860/C-3861/C-3864.
-  - Hints: this is the same rot retro-9 records for H71's Done-when (`sed -n '2802,2807p'`); a Precheck is a command a later agent runs, so it has to survive row insertions. Select by ID, never by line.
-  - Done when: H71's Precheck command, run as written, selects the C-3860/61/64 rows (prints their count) and matches 0 elided spans after H71; `python3 tools/todo_check.py` passes.
-  - Stop: none — if `claims.md` changes again before this lands, update the selector, not the line numbers.
-  - Result: EXP-2026-11-16-H80-precheck-id; C-4030–C-4032. H71's Precheck now selects C-3860/61/64 by claim ID (`grep -nE '^\| C-386[014] \|'` → `3` rows, `2824/2825/2828`) instead of the stale `sed -n '2802,2807p'` (now C-3790–C-3795, `0` matches). The elided-span condition prints `0` at H71's merge `caff825` and today, so no measurement changed; `todo_check` OK, `--strict` 69.
-  - Claims: C-4030–C-4039
 
 - [x] **H81 — Close the seven task blocks that carry an H51 "superseded" note**
   - Status: done · Owner: task/h81-close-superseded · Critical: no · Pair: solo
@@ -2167,7 +2159,7 @@ ordered by "what puts a file on a card the firmware reads", not by band.
   - Scope: all `MAPAL001/B*R.DAT` of the three editions: per tile, per section, size and SHA-256; then the 20 tiles with the smallest non-zero section-1 change. For each: which section-1 records were added/removed, and the byte ranges that changed in sections 2 and 4. No interpretation beyond "changes together with".
   - Input: `tools/diff_years.py`, `tools/tile_diff.py`, `tools/ze0-viewer` (section split), `docs/research/image-versions.md`.
   - Hints: sort by edit distance, not by size change — a renamed street changes section 4 only, a new roundabout changes all three. A tile whose section 1 is identical and section 2 differs is a routing-only edit (turn restriction, one-way): those are the pure samples M4.23/M4.3 never had. Record how many bytes of section 2 change per added section-1 road: a constant is the record size.
-  - Done when: an EXP with the per-section change census for all tiles (counts) and the 20-tile table; at least three "one variable" pairs (one added road; one renamed road; one routing-only change) named by tile and offset for M4.40, M4.36 and M4.21 to use.
+  - Done when: an EXP with the per-section change census for all tiles (counts) and the 20-tile table; at least three "one variable" pairs (one added road; one renamed road; one routing-only change) named by tile and offset for M4.40, M4.36 and the section-4 reader (M3.6; **M4.21**, the section-4 writer, is done and archived in `todo-history-2026-11-09.md`) to use.
   - Stop: if fewer than three clean pairs exist, publish the census and say so.
   - Claims: none yet
 
@@ -2822,6 +2814,20 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `one_tile_pipeline --selftest` contains a case where the same input built twice yields byte-identical tiles (determinism), and a case where a second splice over an already-spliced directory is bounded (the delta is recorded, not unbounded); `docs/format/map-tiles.md` states the append rule and the measured 1/2/3-splice sizes are in the EXP; `python3 tools/tilewriter.py --selftest` green.
   - Stop: if the container cannot rewrite a slot in place without moving the block (the shared-block case M5.4 found), record that case and make the *bounded* claim only for owned slots; do not claim in-place for blocks the reader shares.
   - Falsifier: two runs of the same input produce different tile bytes, or the second splice grows the tile by the first splice's superseded bytes again.
+  - Claims: none yet
+
+- [ ] **M5.46 — P1 first slice: the profile-to-tile containment census (how many tiles a Dolnośląskie card needs, and which are whole)**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: — (the factory tile list and `mesh_grid.py` are on `main`; no write, no OSM extract)
+  - Goal: **M5.38** (open) defines P1 as "all tiles of Dolnośląskie display-only", but `profiles/dolnoslaskie-test.json` pins exactly one tile (`include: ["B48R058R"]`, `max_tiles: 1`) and no block answers how many `MAPAL001` tiles the region's 14.0–17.9 E × 49.9–51.9 N box intersects or contains. Without that census the P0 card cannot be extended to P1 and the scale of the rest of the ladder is a guess. This is the rule-17 first slice: enumerate, no splice.
+  - Precheck: `python3 tools/mesh_grid.py list <factory MAPAL001>` prints 45 tiles and `cell B48R058R` prints `48.00.. 53.33 N 12.00.. 20.00 E`; a bbox-intersection over those 45 rows is the census (no vendor bytes are read beyond tile names; `profiles/dolnoslaskie-test.json` is the box).
+  - Scope: `tools/parcel_census.py` or `mesh_grid.py` gains one subcommand (name in the PR, e.g. `mesh_grid.py cover PROFILE_DIR`) that reads a profile's `region.bbox` and prints, per tile: lat/lon box, `intersects`/`contained`/`outside`, and the profile's `include` list; plus one paragraph in `docs/research/card-ladder.md` (or M5.38's page once it exists) stating P1's tile count and how many are whole (the rest are edge tiles the profile's `border_buffer_deg` decides). No tile is written; no OSM data is read. If M5.38 has not landed the page, put the paragraph in `profiles/README.md` and cross-link.
+  - Input: `profiles/dolnoslaskie-test.json` (`region.bbox`, `tiles`, `limits`), `profiles/poland-full.json`, `tools/mesh_grid.py` (`list`, `tile_box`), the factory `MAPAL001` directory, M5.38's block.
+  - Hints: the 45 `.DAT` names are the tile universe; a tile is `contained` when its box lies inside bbox ± `border_buffer_deg`. At P1 every non-factory tile is a fresh splice and every factory one is either copied verbatim or spliced — say which in the census, because the P1 card's file count is what M7.1's size budget multiplies. Positive control: the bbox must select `B48R058R` (the P0 tile) and no other tile as contained; negative: a box moved into the Atlantic selects nothing.
+  - Done when: the new subcommand prints one row per tile with its class and the profile's include list, `--selftest` covers a contained tile, an edge tile and an empty box; the repeated census on `profiles/dolnoslaskie-test.json` prints `contained=1` (`B48R058R`) and the page states P1's tile count; `python3 tools/selftest.py --only mesh_grid` (or the chosen tool) green.
+  - Stop: if a profile has no `region.bbox`, report the missing field and the profile's `tiles.include` only — do not invent a box (that would be the P1 guess this task removes).
+  - Falsifier: the census selects a tile whose `mesh_grid.py cell` box does not touch the profile bbox, or reports P0's tile as anything but `contained`.
+  - Pair: required
   - Claims: none yet
 
 ## M6 — L5 bench/car: hardware and safety

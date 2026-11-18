@@ -43,6 +43,15 @@ The same grid is used by `COORD001` (see
 [coord-zcode-icode.md](coord-zcode-icode.md)), which is independent
 confirmation of the rule.
 
+**Which tiles a region needs (P1 census, 2026-11-18).** A profile's
+`region.bbox` selects tiles by this grid, not by the 45-file inventory:
+`tools/mesh_grid.py list MAPAL001` prints one lat/lon box per tile (45 rows on
+the EU 2011 card) and `cell BxxRyyR` prints one. Counting those boxes against
+`profiles/dolnoslaskie-test.json` (`14.0–17.9 E, 49.9–51.9 N`) gives
+`contained = 1` (`B48R058R`) and no edge tile; the task that pins this as a
+command and extends it to `poland-full` is **M5.46**. Counts here are from
+`mesh_grid.py list` + a bbox test, not from a card.
+
 ## Coordinate encoding (from `COORD001`)
 
 `COORD001` stores per-region bounding boxes in grid units at 1/128 resolution:

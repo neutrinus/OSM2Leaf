@@ -1,0 +1,95 @@
+role: po (Product Owner, 16th pass)
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong aggregate)
+start_utc: 2026-11-18 06:30, end_utc: 2026-11-18 07:35
+origin_main_start: 7b14f71 (SE cycle-14 review); main clean, 0 ahead/0 behind
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_po.txt, TODO rules 1-17 + ID allocation
+- docs/retro/2026-11-18.md (tenth pass) Numbers + Actions (esp. action 2)
+- dev_process since my last log 2026-11-17-1359-50-po.log:
+  2026-11-17-{1851-53-qa,1852-52-tl,2205-55-tl}, 2026-11-18-{0611-1-sm,0628-2-se}
+- TODO.md board (parser), Priorities, docs/research/reader-coverage.md (30 rows),
+  tools/l3_harness/targets.json, tools/progress_report.py, tools/mesh_grid.py,
+  profiles/dolnoslaskie-test.json, docs/format/map-tiles.md
+
+board_read at start: 216 blocks, 129 open / 63 done / 24 blocked, 0 in progress;
+  no duplicate IDs; TODO.md 3923 lines (retro/SE said 3858; SE cycle-14 added 65).
+
+actions taken, in order:
+- archive probe (rule 5, every pass): done blocks named by no live block's text
+  = H79, H80. Both ticked on origin/main 2026-11-17 00:16-01:13 (cutoff
+  2026-11-17T06:45Z), both block nothing, neither appears in an open PR. Moved
+  to docs/research/todo-history-2026-11-18.md (new file, 41 lines). Report:
+  3923 -> 3899 after the move (0.6 % of the board). Not a fixpoint this pass.
+- rule-15 scan (all 24 blocked blocks): no blocked task's *primary* Unblock is
+  now done. M3.14/M3.15/M3.16 still name open M3.23/M3.24 as the Unblock (the
+  done M1.20/H81 are already recorded as done inside the sentence). M1.4 names
+  open M1.21. M4.23's "Unblock: M4.24 ..." does NOT point at done M4.24 —
+  M4.24 is itself blocked (it names itself: "re-run M4.24 when ..."), a
+  self-cycle that needs the TL, not a rule-15 re-open. Decided NOT to
+  re-open M4.23: the new Unblock wording is "M4.25/M4.26" which are absent
+  from the board (archived), so a naive done-hit is a false positive.
+  -> 0 re-opens.
+- rule-17 numbers (SM retro action 2): built four one-liners that print from
+  the repo (progress_report parser for readers, awk over reader-coverage for
+  running L3 rows, a clarion_tile span script for factory-tile bytes, the M5.34
+  report.json for the ladder step). Ran them: readers 6/30 located (+5
+  partial), L3 running 1/30 rows, nonzero bytes inside structure B28R070R
+  99.98 % / B30R048R 95.86 % / B48R058R 76.28 %, highest step P0. Put the
+  exact commands in one code block at the top of Priorities and stated first
+  that this cycle moved P0 (last cycle) and none of the other three.
+- rewrote Priorities for the 16th pass: map-path-first L1->L2->L3->L4->L5 with
+  the blocking task IDs, the four numbers + their commands, the directions in
+  priority order, Next-for-TL, the record-repair batch (retro action 1's
+  >= 7 IDs), and the first-slice note.
+- added ONE task (grep showed no duplicate; Pair set; M5.46 is the next free
+  M5 ID, M5.45 is the last):
+  M5.46 P1 first slice - profile-to-tile containment census (Pair: required).
+  Reason: M5.38 defines P1 as "all Dolnośląskie tiles" but
+  profiles/dolnoslaskie-test.json pins max_tiles=1 and no block answers the
+  tile count; rule 17 says a big task is split before it is skipped.
+- extended/merged rather than duplicated: M4.41's Done-when named M4.21 (the
+  section-4 writer, done and archived 2026-11-09) as a live consumer -> pointed
+  it at M3.6 and said M4.21 is archived; added one paragraph to
+  docs/format/map-tiles.md recording the census result (B48R058R contained,
+  no edge tile) so M5.46 has a baseline.
+- note on M5.30: it is `Critical: no` and heads the L2 path; Priorities says the
+  PO recommends the TL raise it (the PO does not edit another task's status).
+- line count: 3923 before, 3926 after (-24 archived, +27 this section + M5.46).
+- committed, rebased on origin/main, pushed (see commit below).
+
+decisions:
+- Archive: moved only the two provably free blocks, not "everything old";
+  the other 61 done blocks are still named by a live task (fixpoint over the
+  whole live text, not just Depends/Unblock).
+- Did NOT re-open M4.23/M4.24 (self-cycle) or M3.14/15/16 (primary blocker
+  still open) - a rule-15 re-open needs the *named* blocker to be done.
+- Did NOT add a task for the 4x level-2 grid: M5.44 already owns it.
+- Did NOT add a P1 all-tile task: it would be a duplicate of M7.1's scale step;
+  the census (M5.46) is the slice.
+- Did NOT collapse claim ranges or touch H100's scope (H100 owns it).
+- numbers measured on this host where vendor data is needed (factory tree under
+  ~/projekty/leafre-work/m5.4/card-factory, M5.34 report.json); the block says
+  so ("this host") so a reader knows the caveat.
+
+problems / dead ends:
+- First rule-17 "bytes explained" draft counted a 3.4x overlap (slot ranges
+  extended past directory ends in B48R058R) and printed 107 %; fixed by
+  counting nonzero bytes inside the union of directory+slot spans (report
+  keeps the 76.28 % figure and the command prints it).
+- tools/progress_report.py ignores `--reader-coverage` in its stdout report
+  (path is set after the report is built) but its parser is importable and is
+  what the Priorities one-liner uses.
+- `todo_check --strict` is red for 63 pre-existing errors (old blocks without
+  Precheck/Scope/Stop); none on M5.46, and `WARN` is 160 (boards at start 161;
+  the retro's 161 was measured before H79/H80 moved). `todo_check.py` plain:
+  OK. `claims_check.py`: OK.
+- M4.24's Unblock names itself - left for the TL/SE; recorded here so it is not
+  silently forgotten.
+
+handoff:
+- TL: retro action 1 first (one record-repair batch, >= 7 IDs), then the map
+  batch in Priorities "Next for the TL": M5.30, M5.44, M5.41, M9.41, M3.25.
+- QA: no new QA surface this pass (M5.46 will add a selftest row).
+- next PO: the four rule-17 commands are now on the board; quote them, do not
+  retype. Watch M5.44's grid (it can invalidate the 76.28 % byte share).
