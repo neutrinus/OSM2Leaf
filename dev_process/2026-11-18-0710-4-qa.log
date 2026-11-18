@@ -18,6 +18,7 @@ inputs read:
   The last two are a pathologically fast push train (three QA-adjacent pushes in 60 s);
   `concurrency: cancel-in-progress` with per-workflow groups did exactly what it is for.
 - GREEN at the tip: 9458743 quality gate 44255997829 (3 legs success) + L1/L2 44255997927.
+- This pass's own push 9006948: quality gate 44257887300 success + L1/L2 44257887600 success.
 - I inspected the three jobs of 44255997829: 0 non-success steps. So there is no
   hidden red step inside a green job -- if that ever happens `gh run view --json jobs`
   is the command that shows it (H108, below).
