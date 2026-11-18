@@ -15,6 +15,7 @@ Include a few numbers so retros can be compared over time:
 - time since the last `dev_process/` log of each role (SM, SE, PO, QA, TL); a
   role silent for more than a day stalls the cycle and is the retro's lead.
 - pair vs solo runs (from the TL summary): defects caught by navigators, review rounds, and defects that slipped through solo tasks — is pairing paying off, and should the pair/solo rules change?
+- the four rule-17 map numbers (reader rows with a located reader, rows with a running L3 target, factory-tile bytes explained, highest card step that passes), each quoted from a command that prints it, plus local branches, worktrees and stale `task/*` left behind. A cycle that moves no map number is the retro's lead.
 
 Think about the process — what is worth improving? How can we reduce unnecessary information for the developers? (They have a small context.) Does communication need improving somewhere? Is it worth improving the format of some file or template?
 
