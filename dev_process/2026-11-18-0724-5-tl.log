@@ -1,0 +1,83 @@
+role: TL (team lead)
+model: opencode deepseek-v4.1-flash-free (aggregate "strong")
+start: 2026-11-18T07:24Z
+origin/main at start: 9beb6a4
+
+inputs read:
+  docs/retro/2026-11-18.md (SM cycle 14; action 1 = one record batch, action 5 = no >3-block batch),
+  dev_process logs 2026-11-18-{0611-1-sm,0628-2-se,0630-3-po,0710-4-qa}.log,
+  TODO Priorities (PO 16th pass), task blocks M5.44/M5.43/M9.42/M3.26/H91,
+  AGENTS.md "Worktrees (worktrunk)", prompt_common.txt, prompt_tl.txt.
+
+batch 1 (rule 17: at most one H per three M tasks):
+  map: M5.44 (level-2 splice, L2), M5.43 (build.sh --check-version verdict),
+       M9.42 (point_walk_l3 wrong-build verdict, L3), M3.26 (map-file layer, firmware)
+  H:   H91 (US_BUILD_STARTS count; two text files + one claim wording)
+  excluded: M5.45/M5.41/M5.30 (same files as M5.44), M9.43 (same corpus as M9.42),
+  M4.40 (Depends M3.25 open), M5.46 (deferred to batch 2).
+  all five Pair; no solo. Each own worktree, archive/ symlinks verified.
+
+batch 1 outcome (all merged to main, all pair, review rounds in brackets):
+  M5.43 done [2] #222 e261db5/acdc402 — navigator found exit 3 unimplemented (rc 1
+    instead) and the task's "traceback" premise wrong (it was a clean exit 1).
+  H91   done [2] #224 c6e5df3/e3f05fc — navigator found the Falsifier unsatisfiable
+    (literal grep >=2 by design) and a H87 command with no grep pattern; also caught
+    that H91's own Goal mis-attributed 70->72 to M1.22 (it is f1c8dbb/H88).
+  M9.42 done [2] #223 (squashed; PR closed, branch deleted) c374488 — navigator
+    renumbered the claim block (C-4420 collision with M5.43) and found the pc fact
+    off by one (engine advances pc before execute), and a mutant corpus built by
+    python3.13 not the declared 3.15.
+  M5.44 done [2] #221 168501e/a48bbf9 — navigator found prove_tile_change only
+    inspected the target level, so a level-1 change could pass the falsifier; also
+    the slot "every one of 2,048" claim false (2,046/2,048 filled).
+  M3.26 done [3] #220 81fdf6a/175e11b — navigator found a graph false edge
+    (0x4180f0 does not call 0x417924), wrong braf arithmetic (0x417d72+offset*2
+    vs 0x417d74+offset), and the .ind header operand paragraph contradicted
+    C-4445; round-2 arbitration on the bytes confirmed the driver's +8/+12 reading.
+
+claim-block collisions were the batch's structural cost (five agents took the same
+free block): M5.43 C-4420-4424, M9.42 C-4430-4439, M5.44 C-4450-4459, M3.26
+C-4440-4449. The renumber commits are in the merge records; claims_check green
+after every merge.
+
+decisions:
+  - squash-merged every PR (main is trunk-only) instead of the gh merge button
+    per-PR; still rebased onto the then-current main and re-ran gate.py before each
+    push: the local gate and the later gh pr checks agree (220 green 6/6).
+  - merged M5.44 only after reproducing its factory run myself (rc 0, tile
+    289,458,162 B, sha b4724f37..., changed_sections=[1], only (2,76,940)).
+  - no rule-15 re-open this cycle: the merges unblock nothing whose Unblock names
+    them (M9.41's Falsifier was edited in place by M9.42, not re-opened).
+  - H91/M3.26 were record tasks; per rule 17 the next batch is map-only.
+
+batch 2 (launched in parallel at the end of this pass; same tree, 4 disjoint files):
+  M5.45 pair (tilewriter idempotence; the +4.67 MB growth), M5.46 pair (P1
+  containment census, rule-17 first slice), M9.43 pair (mutant CLI chunk-preserving),
+  H92 pair (count guard; its Precheck re-pointed to current main because H91's
+  merge made the old one stale). Rule 17: 3 map + 1 H, at the cap.
+  H92 is the only H, and it is a standing-gate check (prompt_common: pair required).
+
+numbers, each quoted from the command that printed it:
+  batch 1 gate: `gate: 4 pass, 0 fail, 0 skip` on main after every merge; CI
+  #220 6/6 (l1l2 + quality, py3.11/3.13/3.14). todo_check OK, claims_check OK.
+  M5.43: 11.1.3 rc 4, 8.2.10 rc 0, truncated rc 3 / full rc 1, --selftest 69/0.
+  M9.42: wrong build rc 1, 1 result line, 0 tracebacks; matching build rc 0 PASS.
+  M5.44: tile 289,458,162 B (+138,994), sha b4724f37...34fdb0; factory run rc 0.
+  M3.26: 117 nodes 109 START / 8 GAP / 0 INSIDE; 2875/2875 .ind invariant.
+
+problems / dead ends:
+  - two drivers died with "the model uses an upstream protocol that opencode2api
+    does not expose" (M9.42, H91) and left no claim; relaunched immediately, no
+    work lost, no ghost claims.
+  - `/tmp/opencode/m939/...` corpora from M9.39 were gone; M9.42 regenerated them
+    into ~/projekty/leafre-work/scratch/m9.42/ and M9.43 reuses them.
+  - M5.44 rebased twice (main moved under it twice: M9.42 and M5.43); the second
+    rebase needed --force-with-lease pinned to its own tip, main untouched.
+
+handoff:
+  - next TL: check batch 2 (M5.45/M5.46/M9.43/H92), then one more map batch
+    (M5.41 + M5.30 are now free of M5.44's files; M9.36 next in the L3 line).
+  - the claim-block collision is recurring; five agents per batch each taking the
+    same "next free block" needs a reservation mechanism in the TODO rules, not a
+    rebase-time renumber. Flagged for the SM/PO.
+  - `.claude/` is still untracked (8 KB now), unchanged debt.
