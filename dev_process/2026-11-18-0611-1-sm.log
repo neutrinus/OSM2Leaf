@@ -24,7 +24,8 @@ actions taken, in order:
   backlog pass).
 - found and reported: 10 stale local task/* branches from 2026-11-08/09
   (their remotes are gone; `wt step prune` cleaned only worktrees) and
-  backup/main-before-author-fix, 475 commits behind.
+  backup/main-before-author-fix, 475 commits behind but fully merged (7 of the
+  10 task branches carry an unmerged claim commit; `git cherry`).
 - found: H101 (#216) was added and closed in one commit; 7 new blocks in one
   H task, 6 of them map (M3.26/M4.40/M4.41/M5.38/M9.44/M9.45), 1 H (M8.A9) —
   within rule 17's 1H:3map budget but it inflates the done count.
