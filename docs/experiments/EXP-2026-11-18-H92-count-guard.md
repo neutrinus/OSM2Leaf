@@ -102,7 +102,7 @@ claims_check selftest: OK (43 checks)          # was 28 before H92
 $ python3 tools/claims_check.py --prose-counts
 ...
 stale prose counts: 0
-census: rows 2231 prints ['C-3740', 'C-4156'] stays ['C-927', 'C-1023'] footer []
+census: rows 2252 prints ['C-3740', 'C-4156'] stays ['C-927', 'C-1023'] footer []   # at 4878438; the row count moves with every merge, the three lists are the stable part
 claims_check: OK
 $ echo $?
 0
