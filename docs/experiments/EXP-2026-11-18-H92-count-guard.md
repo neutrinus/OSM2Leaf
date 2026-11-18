@@ -3,8 +3,8 @@
 - **Status:** done
 - **Date:** 2026-11-18
 - **Sample:** `none (tool-only task)` — the claim ledger `docs/research/claims.md`
-  (`2221` rows) and `tools/fixtures/fn_match_eu_us_2011.json` at `origin/main`
-  `a48bbf9` (branch base; the work tree is `97c4945`). No vendor bytes.
+  (`2231` rows) and `tools/fixtures/fn_match_eu_us_2011.json` at `origin/main`
+  `a48bbf9` (branch base; the work tree is `bf7cae4` before the rebase onto `8178993`). No vendor bytes.
 - **Tools:** python3 3.15.0; `tools/claims_check.py` (`--selftest`,
   `--prose-counts`), `tools/gate.py`, `tools/selftest.py`, `tools/todo_check.py`
 - **Claims:** C-4150–C-4155
@@ -39,7 +39,7 @@ a false positive on a legitimate `N at <sha>`.
 
 ## Method
 
-1. **Sample and hash.** The 2221-row ledger and
+1. **Sample and hash.** The 2231-row ledger and
    `tools/fixtures/fn_match_eu_us_2011.json`; every shape is counted and every
    allowlisted command is run. No image, no vendor bytes.
 2. **Commands.**
@@ -67,7 +67,7 @@ a false positive on a legitimate `N at <sha>`.
    prints `13` must be `STALE COUNT` (exit 1 path). *Negative*: the real ledger,
    whose only allowlisted `prints` count is correct (`C-3740` `13 5`), must
    print `stale prose counts: 0`; a `stays 15` row and a revision-less row must
-   be clean (the selftest's `r20`/`r21`/`r27`/`r28`).
+   be clean (the selftest's `r20`/`r21`/`r27`/`r28` and the shell-free `(o)` cases).
 4. **Scope.** `tools/claims_check.py` only: the `--prose-counts` flag, three
    regex shapes, one allowlist (`grep -c`, `python3 -c`) and one re-runner.
    Excluded: every other claim row (read, never edited), every EXP
@@ -79,7 +79,7 @@ a false positive on a legitimate `N at <sha>`.
 
 ```
 $ python3 tools/claims_check.py --selftest
-claims_check selftest: OK (37 checks)          # was 28
+claims_check selftest: OK (39 checks)          # was 28
 
 $ python3 tools/claims_check.py --prose-counts
 ...
@@ -89,7 +89,7 @@ $ echo $?
 0
 
 $ python3 tools/claims_check.py --prose-counts                 # shape census
-rows 2221
+rows 2231
 prints ['C-3740']
 stays ['C-927', 'C-1023', 'C-4171']
 footer []
@@ -141,7 +141,7 @@ selftest: OK
   `C-1023` `45`, `C-4171` `0`; no cell command, no cell selftest), so 3 of 4
   real prose shapes are not re-runnable — H92's `Stop:` applies: ship the
   allowlist, list the rejects, stay off by default.
-- **FACT:** `--selftest` grows 28 → 37 checks, all in the H92 block, and the
+- **FACT:** `--selftest` grows 28 → 39 checks, all in the H92 block, and the
   gate stays `4 pass, 0 fail, 0 skip`; a depth-1 clone prints the skip, never a
   false zero.
 - **OBSERVED (defect left in place):** C-3894's evidence row says
@@ -153,10 +153,12 @@ selftest: OK
   EXP-2026-11-18-H92-precheck-repoint).
 - **REJECTED shapes** (not re-run, by design): a `Result:` line or an EXP
   `Observations` block (append-only records, not the ledger); a `prints N`
-  whose command is not `grep -c`/`python3 -c` (C-4100's `US_BUILD_STARTS`
-  length is `python3 -c`, but many are prose-only); any command with an
-  `archive/…` input (a vendor fetch is not a gate's price); a bare `stays N`
-  with no command or selftest (C-927/C-1023/C-4171 — unmeasurable, skipped).
+  whose command is not `grep -c`/`python3 -c` (many are prose-only); any
+  command with an `archive/…` input (a vendor fetch is not a gate's price);
+  any command with an unquoted shell operator (`|`, `>`, `;`, `$(…)`) — the
+  text is ledger prose, so it runs as a `shlex` argv, never through a shell;
+  a bare `stays N` with no command or selftest (C-927/C-1023/C-4171 —
+  unmeasurable, skipped).
 - **LIMITATION:** the mode is not in `tools/gate.py`; enforcement is a
   follow-up once the unmeasurable `stays` rows are resolved or allowlisted.
 
@@ -175,7 +177,7 @@ follow-ups.
 ## Reproduction
 
 ```bash
-python3 tools/claims_check.py --selftest                    # claims_check selftest: OK (37 checks)
+python3 tools/claims_check.py --selftest                    # claims_check selftest: OK (39 checks)
 python3 tools/claims_check.py --prose-counts                # stale prose counts: 0, exit 0
 sed -i 's/prints `13 5`/prints `12 5`/' docs/research/claims.md
 python3 tools/claims_check.py --prose-counts                # STALE COUNT C-3740 ... exit 1

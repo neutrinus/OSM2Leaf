@@ -39,6 +39,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -86,12 +87,15 @@ PROSE_STAYS_RE = re.compile(r"\bstays\s+`?(\d[\d,]*)`?", re.I)
 # The exact selftest footer a reader re-runs: ``OK (N checks``.
 PROSE_OK_RE = re.compile(r"OK\s*\((\d+)\s*checks?", re.I)
 # A command shape that is safe to re-run: a file count or a python one-liner.
-# A ``git show <rev>:<file> | … | grep -c`` pipeline is a count of a historical
-# tree (H91's pinned-C-4101 form) and is safe for the same reason.
 PROSE_ALLOW = (
     ("grep -c", re.compile(r"\bgrep\s+-c")),
     ("python3 -c", re.compile(r"\bpython3?\s+-c\b")),
 )
+# A shell pipeline, redirection or substitution is not re-run: the text is
+# ledger prose, and a gate that executes it through a shell would run whatever
+# a row contains. A `;` inside quoted Python (C-3740's one-liner) is not a
+# shell operator. Rejected, never guessed (listed in the H92 EXP).
+PROSE_SHELL_CHARS = ("|", "&", ";", "<", ">", "`", "\n")
 # ``archive/…`` inputs in such a command are a vendor-pin (rule 11): a two-way
 # probe of some other task's image is not this rule's price.
 PROSE_VENDOR_RE = re.compile(r"\barchive/")
@@ -509,6 +513,26 @@ def count_problems(rows, runner=_run_selftest):
     return problems
 
 
+def _shell_operators(cmd):
+    """Shell metacharacters that appear outside a quoted span, or None.
+
+    ``shlex`` with ``punctuation_chars`` marks an unquoted ``|``/``;``/``>``
+    as a one-character token; anything inside quotes stays part of a word, so
+    C-3740's ``python3 -c "…;…"`` is not a pipeline and a ledger row cannot
+    smuggle a second command through the gate.
+    """
+    lex = shlex.shlex(cmd, posix=True, punctuation_chars="|&;<>()`")
+    lex.whitespace_split = True
+    try:
+        tokens = list(lex)
+    except ValueError:
+        return True
+    for tok in tokens:
+        if tok and all(ch in "|&;<>()`" for ch in tok):
+            return True
+    return False
+
+
 def _prose_allowed(cmd):
     """The allowlist name for a command shape, or None.
 
@@ -517,7 +541,7 @@ def _prose_allowed(cmd):
     vendor image) is not re-run here: the rejected shapes are listed in the
     H92 EXP rather than guessed at.
     """
-    if PROSE_VENDOR_RE.search(cmd):
+    if PROSE_VENDOR_RE.search(cmd) or _shell_operators(cmd):
         return None
     for name, rx in PROSE_ALLOW:
         if rx.search(cmd):
@@ -627,29 +651,27 @@ def prose_count_problems(rows, runner=None, cmd_runner=None):
 def _run_prose_command(cmd):
     """Run one allowlisted command shape; return its first integer or None.
 
-    Only ``grep -c`` and ``python3 -c`` are allowed (``_prose_allowed`` has
-    already filtered). ``grep -c`` runs with ``shell=True`` because the quote
-    style varies; the text comes from the ledger, so a command substitution is
-    a ledger defect, not an input. ``python3 -c`` uses the same interpreter.
+    Only a shell-free ``grep -c`` and ``python3 -c`` are re-run
+    (``_prose_allowed`` has already filtered pipelines, redirections, vendor
+    inputs and everything else). ``grep -c`` is parsed with ``shlex`` and run
+    as an argv list, never through a shell: the command text is ledger prose.
     """
-    if PROSE_VENDOR_RE.search(cmd):
+    if PROSE_VENDOR_RE.search(cmd) or _shell_operators(cmd):
         return None
     try:
         if re.search(r"\bgrep\s+-c", cmd):
-            proc = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True,
-                                  text=True, timeout=60, shell=True)
+            argv = shlex.split(cmd)
+            proc = subprocess.run(argv, cwd=str(REPO_ROOT),
+                                  capture_output=True, text=True, timeout=60)
             first = (proc.stdout or "").split()
             if not first:
                 return 0
             return int(first[0].replace(",", ""))
         if re.search(r"\bpython3?\s+-c\b", cmd):
-            code = re.sub(r"^.*?python3?\s+-c\s+", "", cmd, count=1)
-            if code[:1] in ("'", '"'):
-                quote = code[0]
-                end = code.find(quote, 1)
-                if end < 0:
-                    return None
-                code = code[1:end]
+            argv = shlex.split(cmd)
+            if "-c" not in argv or argv.index("-c") + 1 >= len(argv):
+                return None
+            code = argv[argv.index("-c") + 1]
             proc = subprocess.run([sys.executable, "-c", code],
                                   cwd=str(REPO_ROOT), capture_output=True,
                                   text=True, timeout=60)
@@ -1115,7 +1137,7 @@ def run_selftest():
     # row with no measurement revision is skipped, not failed.
     stays_row = ("| C-9101 | `US_BUILD_STARTS` stays `12`. | VERIFIED (tool) | H | "
                  "EXP-2026-11-16-H74-fixture; at `334f092`; "
-                 "`grep -c '0x` tools/stub.py` |\n")
+                 "`grep -c 0x tools/stub.py` |\n")
     saved_pin = prose_count_problems.__globals__["_pinned_revision"]
     prose_count_problems.__globals__["_pinned_revision"] = lambda ev, name: "334f092"
     try:
@@ -1203,6 +1225,15 @@ def run_selftest():
     finally:
         prose_count_problems.__globals__["_pinned_revision"] = saved_pin
 
+    # (o) a pipeline, redirection or substitution is never executed: the
+    # ledger is prose, so the gate re-runs only a shell-free argv.
+    assert _prose_allowed("grep -ci sh") is not None
+    assert _prose_allowed("grep -c x TODO.md | wc -l") is None
+    assert _prose_allowed("grep -c x TODO.md > out") is None
+    assert _prose_allowed("grep -c $(evil) x") is None
+    assert _run_prose_command("grep -c x TODO.md | wc -l") is None
+    assert _run_prose_command("python3 -c \"print(1);print(3)\"") == 1
+
     # (n) `<N> at <sha>`: a correct count at the named revision is clean, and a
     # wrong one is measured at that revision, not at HEAD.
     at_row = ("| C-9106 | `grep -c 'x' tools/stub.py` prints `15` at `398db35`. "
@@ -1234,7 +1265,7 @@ def run_selftest():
     finally:
         prose_count_problems.__globals__["_pinned_revision"] = saved_pin
 
-    print("claims_check selftest: OK (37 checks)")
+    print("claims_check selftest: OK (39 checks)")
     return 0
 
 

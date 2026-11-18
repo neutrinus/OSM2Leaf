@@ -15,7 +15,7 @@ actions, in order:
 3. implemented `--prose-counts` in tools/claims_check.py: three shapes
    (prints N, stays N, OK (N checks), one allowlist (grep -c, python3 -c),
    H78's measurement revision, shallow skip; off by default, not in gate.py.
-4. selftest 28 -> 37 checks: seeded stale prints (red), stays over grep -c
+4. selftest 28 -> 39 checks (37 then 2 shell-safety cases): seeded stale prints (red), stays over grep -c
    (red), footer (red), correct N at <sha> (green), revision-less (skipped),
    default-off.
 5. real-ledger control: C-3740 seeded 13->12 gives STALE COUNT exit 1; the
@@ -31,10 +31,12 @@ decisions:
   rather than a third file.
 
 problems: a `cp` restore reverted claims.md to the file rather than HEAD in
-one control run; re-ran with `git checkout --`. Real-ledger `--prose-counts`
+one control run; re-ran with `git checkout --`. Hardened the re-runner to
+shlex argv (no shell=True) after finding C-3740's Python `;` was being read
+as a shell operator; pipelines/redirections are now rejected. Real-ledger `--prose-counts`
 is 22 s (it re-runs every allowlisted cell), acceptable for an opt-in flag.
 
-checks: `--selftest` 37/37, `--strict --count-check` OK, `--prose-counts`
+checks: `--selftest` 39/39, `--strict --count-check` OK, `--prose-counts`
 0 stale, `selftest.py` 93/0/23, `gate` 4 pass, `todo_check` OK.
 
 handoff: navigator should run the Done-when (stays 12 -> STALE, 15 clean,
