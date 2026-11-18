@@ -353,6 +353,35 @@ where `x` is stored as `x0 − 1024`. Rows are at `y = 1.5 × lat` and columns a
 `(compressed words, plain words)` pair per record slot. Level 6 is one raw
 record (not zlib) and is preserved verbatim.
 
+### Splice semantics and the size consequence (M5.45)
+
+`tools/tilewriter.py:splice_factory` patches a factory tile in place where it
+can and appends where it cannot. For each written directory row it rebuilds the
+slot body and block from the parsed records:
+
+- the block is written **in place** at its slot tag when the slot owns the
+  block, the new block fits the old one, and the bytes at that offset are still
+  the old block; the rest of the old span is zeroed;
+- otherwise (block grew, slot unowned, or a shared/aliased block) it is
+  **appended** at the next 256-byte boundary and the slot tag is repointed —
+  the old block is left behind (`container.superseded_bytes` counts it);
+- when the rebuilt block is byte-identical to the block already at the tag the
+  block is left untouched (`container.unchanged`); the slot body is still
+  rewritten because its pair lengths belong to the new records. This is what
+  reports a repeated splice as "no write" instead of rewriting the same blocks
+  in place.
+
+The consequence is that tile size is not a function of content alone: a tile
+whose directory has no room left cannot be updated in place, so every splice
+that changes a block there appends the new block and orphans the old one. A
+directory's slot blocks are disjoint from the directory container (the slot
+tags point past it), so the "free room" a row needs is in the appended region,
+not next to the slot table. Measured on `B48R058R` (EXP-2026-11-18-M5.45): the
+M5.34 full-directory splice appends 32 blocks and keeps 1,789,864 B of
+superseded factory blocks, +4,671,350 B over factory; the *same input* over the
+already-spliced tile keeps all 32 blocks (`unchanged=32`) and adds 0 B, at any
+repeat — the append is once per changed block, not once per run.
+
 ### Level-2 directory grid (M5.44)
 
 Level 1 and level 2 share one directory *identity*: a level-2 directory's
