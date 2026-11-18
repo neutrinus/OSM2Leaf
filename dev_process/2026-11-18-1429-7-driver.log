@@ -69,3 +69,34 @@ section (C-4440-C-4449), kept whole, and the M5.44 header came back as
 C-4450-C-4458 from the round-1 edit; restored it to C-4450-C-4459 in the
 follow-up commit. Rebased SHA: c7ce431. After the rebase: tilewriter 73/73,
 pipeline OK, todo_check OK, claims_check OK, gate 4/0/0.
+
+Round-3 addendum (navigator: only C-4463's mechanism was wrong; text-only):
+- Re-measured before editing, two probes on the real factory tile:
+  (a) way in (72,936,0,0) -> tag write at 5132 -> 9 changed level-1 keys, exactly
+      the 9 preserve-only slots whose parsed spans cover 5132 (starts 4096 x2,
+      4608 x1, 5120 x6). (b) way in (72,936,7,1) -> in-place pair lengths at
+      8766..8771 -> 26 changed keys; written key (72,936,7,2) not among them.
+  So "records_by_position is level-blind" is true but NOT the cause: no changed
+  key shares a 4-tuple with the written key. The cause is physical aliasing:
+  data[5120:5132] = 2046 0020 0020 0048 ffa8 0091 (a level-2 dir header), so the
+  level-1 block parse at 5120 reads garbage lengths (ln=541458464, X=2097224)
+  and emits phantom records to block_end. Whether they are real level-1 data is
+  left open in the record.
+- Rewrote C-4463 and EXP section 5 with both probes + full changed-key lists and
+  the phantom-header evidence; added the changed-key query to the Method block
+  (verified: 26 keys, target_in_diff False). Replaced "(75,942) row 23" with the
+  measured covering slots ((75,942) slot 26, (72,940) slot 25). Dropped the
+  unmeasured (75,942,23,0) alternate key.
+- Reframed the Follow-up: "add the level to the key" is rejected (it passes by
+  not comparing level 1, i.e. masks a real change); the task is now "stop
+  preserve-only phantom blocks from spanning the level-2 container / resolve the
+  5120 aliasing" and must first prove whether the covering records are parser
+  phantoms.
+- Softened the Interpretation and Conclusion: "unresolved - either a parser
+  phantom block or a real level-1 write; the follow-up decides, bounded claim
+  covers level-1 owned slots only".
+- Added the round-2 correction entry (items 1-5 of this round; the existing
+  round-1 entry stays).
+Checks after the edits: tilewriter --selftest 73/73, one_tile_pipeline
+--selftest OK, claims_check --strict --count-check OK, todo_check OK, gate.py
+4 pass / 0 fail / 0 skip. PR #225 stays draft; task stays in progress.
