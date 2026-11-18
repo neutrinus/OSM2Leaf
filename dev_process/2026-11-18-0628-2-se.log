@@ -1,0 +1,135 @@
+role: se (senior engineer, cycle 14)
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong aggregate)
+start_utc: 2026-11-18 06:16, end_utc: 2026-11-18 07:05
+origin_main_start: 1276b75 (SM cycle-14 retro + three cosmetic corrections)
+
+inputs_read:
+- AGENTS.md, prompt_common.txt, prompt_se.txt, TODO rules 1-17, ID allocation
+- docs/retro/2026-11-18.md (tenth pass) Numbers + Actions
+- dev_process since my previous log 2026-11-17-1315-49-se:
+  1359-50-po, 1851-53-qa, 1852-52-tl, 2205-55-tl, 2026-11-18-0611-1-sm
+- EXP-2026-11-17-{M1.20-pdata-all,M5.34-parcel,M8.A2-machine-skeleton-reprobe,
+  M8.A10-bump-8210}; docs/experiments/TEMPLATE.md; claims C-1240/C-3510-3519/
+  C-3560-3569/C-4310-4312/C-4330; TODO M1.20/M5.29/M5.34/M8.A2/M8.A3/M8.A10
+- retro numbers re-measured with a board parser (212 blocks, 129 open / 63 done
+  / 25 blocked, 0 in progress, 0 duplicate IDs; TODO.md 3858 lines)
+
+tasks checked (24h window), Done-when re-runs (every cheap one re-run):
+- M1.20 done-when HOLDS: pdata --selftest 45 ok; census A 149/149 87530,
+  B 91/91 21930, C 88/88 25243 (all three re-run on archive/head256.img);
+  `pdata.py table --module Navi.exe` 7596 records, first 0x0032ed9c.
+- M5.34 done-when HOLDS on the factory root: cardcheck PASS (rc 0, files=66
+  ok=66, cmp 194 pairs, tiles=46 rows=11 ok=11); nav-report.json tile
+  293,990,518 B sha b746427c...34c2ef; independent walk of the 480 files ->
+  2 differ (B48R058R.DAT, DRSTR001.DAT 7 bytes, size-neutral); M5.29 note
+  accurate. But the "only other file is the tile's on-disk size" reading is
+  incomplete: DRSTR stores the tile's offset AND size (see D2); the tile is
+  +4,671,350 B of appended slot blocks - one splice, no size budget.
+- M8.A2 done-when HOLDS as reworded: `-M help` lists ze0 (8.2.10 build
+  present); my 1 run on archive/head256.img -> exceptions 0, one `write 0x38`,
+  pc sample 0x8802ad3a (again not the EXP's 0x8802ec44 - the sampling point);
+  C-4311 stands, only a file:line cite is missing (D2/M5.42).
+- M8.A10 done-when HOLDS: default pin 8.2.10 in build.sh, --selftest 56/56,
+  `--check-version 11.1.3` -> 3 applied / 2 failed + exit 1 traceback (D5);
+  QEMU 8.2.10 on disk. `--check-version 8.2.10` all-apply path not re-run.
+- No retired lead or AGENTS trap repeated in any of the four EXPs (LE code,
+  pdata-derived signatures, no fitted deltas; M8.A2 explicitly withdraws the
+  access-list clause rather than fitting it).
+
+EXP template audit (all four): sample+SHA-256, runnable commands, positive and
+negative controls, counted corpus, falsifier-before-result, Observations vs
+Interpretation separate. Only M8.A2's header/notes still contradict its
+merged status (D3/D4).
+
+claims_check --strict --count-check / todo_check: OK (0 mismatches, 0 dups;
+todo_check OK, WARN count 161 on both my tree and origin/main's TODO.md).
+
+defects found (6; each fixed in place where the rule allows, else one task):
+- D1 M5.34 `changed_set_expected` omits DRSTR001.DAT while the gate's literal
+  manifest allowlist (:1399) accepts it and the non-parcel path fills the
+  same field from rebuilt_files; no shared definition (one_tile_pipeline.py
+  :1250 vs :663/:1367) -> M5.41.
+- D2 M5.34 EXP/C-3563/C-3564 wording: DRSTR differs in 7 size-neutral bytes -
+  the MAPAL001 directory entry's word 4 (0xd1e00400 -> 0xd2274b76, +0x474776
+  = the +4,671,350 B appended tail = an offset) and the B48R058R.DAT entry's
+  word 4 (0x113ea900 -> 0x1185f076 = the size). C-3563 says only "on-disk
+  size" -> M5.42.
+- D3 C-1240 still says "M8.A2 stays blocked" (line 1503) although #217 closed
+  it; the row's own status column already says BLOCKED (access-list clause).
+- D4 M8.A2 EXP lines 3-5 say "Task status is blocked, not done", the Verdict
+  says the same, and the navigator note (line 602) repeats it - all overtaken
+  by 280cd74.
+- D5 `build.sh --check-version` exits with a Python traceback (rc 1) after
+  printing the correct 3/2 table; a FAILED patch is the probe's normal
+  outcome -> M5.43.
+- D6 (no task) M1.20's EXP says "7,596 ... in words" where the table prints
+  the numeral - cosmetic, not a defect.
+- M1.20 / M8.A10 body numbers: correct.
+
+deepening leads found by re-running (signs the topic deserves more):
+- M5.34 writes the whole directory (M5.4 wrote 18 parcels, a share of 30
+  `0x2046` dirs); the tile grew 4.67 MB once and `tilewriter` appends a grown
+  slot with 256-byte padding (tilewriter.py:927-935), so a second map update of
+  the same directory grows the tile again over a superseded copy. No size
+  budget, no "same input twice -> same bytes" test -> M5.45 (idempotence),
+  M7.1 link.
+- the highest card rung that exists still splices level-1 only (M5.4/M5.34);
+  tilewriter has --level 1|2 and B48R058R does own 4 level-2 dirs (all
+  `0x2046`) -> M5.44. While writing it I found the real blocker:
+  `clarion_bg.parcel_geo(2,76,940,31,31)` walks to 19.875,53.25 (0.125 deg
+  per parcel, 32x32 = 4x2.667 deg) while `parcel_census.directory_bbox` prints
+  16..17,50.667..51.333 for the same directory, and the selftest only asserts
+  the level-1 span. The two checked-in functions disagree on what a level-2
+  directory is by 4x; a wrong grid writes geometry into the wrong place and
+  every L2 check still passes (it compares the writer to itself). That is
+  M5.44's first half.
+
+tasks added (5; IDs grepped, none on the board, in a PR or in a log; Pair set):
+- M5.41 L2 fix, Pair: required - one expected-change-set definition shared by
+  changed_set_expected and the gate's allowlist.
+- M5.42 docs records, Pair: solo - TEMPLATE section "Overtaken by a later
+  commit" + the four concrete corrections D2/D3/D4 (file:line cited).
+- M5.43 tools, Pair: required - `--check-version` returns a verdict exit code,
+  keeps the probe report, no traceback; selftest red/green.
+- M5.44 L2, Pair: required - settle the level-2 grid (census vs parcel_geo)
+  then splice a level-2 directory; feeds M5.30 (map detail).
+- M5.45 L2, Pair: required - tile-writer idempotence + size budget (same
+  input twice byte-identical; 1/2/3-splice growth counted, feeds M7.1).
+No new H task (rule 17: record repair is batched, not one block per cycle).
+
+changed: none (no status change needed in the window; no deadlock found on the
+25 blocked tasks - every Unblock names an open or done task).
+re-opened: none.
+
+decisions rejected:
+- Editing C-1240 / the M5.34 EXP numbers directly: the EXP is append-only
+  evidence, and the claim correction would change a VERIFIED row; the rule-17
+  exception is a *tool* a map task depends on, not a merged EXP's sentence ->
+  one task (M5.42) instead of four silent edits (D6 left alone as cosmetic).
+- Filing the changing C-4311 pc sample as a defect: run.sh samples HMP on a
+  wall clock (run.sh:538-548) and the EXP says so; the record is honest.
+- A single "refactor one_tile_pipeline into a package" task: the 1,650-line
+  module is cohesive; the real coupling defect is D1 (one changed-set), which
+  M5.41 names with file:line.
+- Splitting M5.44 into "grid question" + "level-2 run" as two tasks: the grid
+  is a one-command precheck of the run and a second block would be a duplicate
+  of the same evidence.
+
+checks before push: todo_check OK (strict errors 0; WARN 161 unchanged vs
+origin/main), claims_check --strict --count-check OK; gate.py 4 pass / 0 fail /
+0 skip (selftest 54.4 s).
+
+handoff:
+- TL (map batch, rule 17): M5.44 first (settle the 4x grid, then the level-2
+  splice) and then M5.30 (the card rung); M5.41/M5.45 with the next L2 pair;
+  M5.43 with any qemu-ze0 work; M5.42 is a cheap solo.
+- QA: three new pair tasks add selftest surface (M5.43 build.sh, M5.41/M5.44/
+  M5.45 pipeline); M5.45's twice-run test is the regression the card ladder
+  lacks.
+- SM: the 24h window's four `done` tasks all hold their Done-when; two of them
+  (M5.34, M8.A2) were `done` with a record sentence a reader could disprove -
+  the pattern to watch is "record finished in the same commit that corrected
+  the code".
+
+scratch: ~/projekty/leafre-work/scratch/se/m8a2 (the M8.A2 re-run) and
+scratch/se/todo/TODO.md (the baseline board); deleted with this log's commit.
