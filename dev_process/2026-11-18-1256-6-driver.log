@@ -54,3 +54,14 @@ round 2 (navigator CHANGES, record-only):
 - rewrote the Corrections section with 5 measured bullets; rewrote the false
   follow-up bullet (heredoc half closed, grep 0); added the build_ind selftest
   gap (mutant passes 13/13, real .ind becomes 7ac54e3b).
+
+round 3 (rebase onto origin/main 14c7498):
+- rebased 3 commits; one claims.md conflict (tail append) resolved by keeping
+  M3.26 (C-4440-4449), M5.45 (C-4460-4469), M5.46 (C-4470-4479) and M9.43
+  (C-4480-4489) verbatim, in that order; no other file conflicted.
+- rewrote EXP Correction 1: the collision is the old C-4460-C-4469 against
+  M5.45 (merged e590187); M5.46/C-4470-C-4479 marked as a probe, now merged
+  as 14c7498.
+- re-ran: four SHAs unchanged (ea2d0e0f/5d576d62/e75c298f/077937ea), four
+  walks PASS, --selftest 13/13, claims_check --strict --count-check OK,
+  todo_check OK (M9.5 WARN only), gate 4 pass.
