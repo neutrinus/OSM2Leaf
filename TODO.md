@@ -973,16 +973,18 @@ of the four numbers above says so in its first line.
   - Claims: C-4140–C-4149
 
 - [ ] **H92 — No gate covers the other direction of the count rule: a claim quoting a count the tree no longer prints**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: blocked · Owner: task/h92-count-guard · Critical: no · Pair: required
+  - Blocker: `--prose-counts` is off by default (`grep -c 'prose-counts' tools/gate.py` prints `0`), so no standing gate fails on the H87 `stays` class and H92's `Done when` ("`python3 tools/gate.py` green on `main`" with the rule standing) and its Falsifier are only testable once the rule is wired; the code, selftest and EXP are complete.
+  - Unblock: H111 (wires `--prose-counts` into `tools/gate.py`)
   - Depends: H78 (`--count-check` is on `main`), H91 (the defect it should have caught)
   - Goal: `claims_check --count-check` fails when a claim's *selftest-count* pin no longer matches the tool. It stays green when a count quoted in a claim, an EXP `Observations` block or a task `Result` is stale without being a selftest count — which is how H87's `12` (shipped as 15) and H90's shallow-clone `count mismatches: 9` both survived. The safe shapes are few and mechanical: `grep -c` counts, a named list length (`US_BUILD_STARTS`), and `OK (N checks, 0 failed)`.
-  - Precheck: `python3 tools/claims_check.py --strict --count-check` is OK on `3d79bcc` while `grep -n 'stays `12`' TODO.md docs/research/claims.md` finds H87's stale line; `grep -cE 'OK \([0-9]+ checks' docs/experiments/EXP-2026-11-1*.md` shows the shape is common, not a one-off.
-  - Scope: `tools/claims_check.py` only: a `--prose-counts` mode (off by default; on under `--strict` once the board is clean) that reads `⟨command⟩ prints N`, `stays N` and `OK (N checks` out of a claim's Evidence cell, re-runs only an allowlisted command shape (`grep -c`, `python3 -c … len(…)`, `--selftest | tail -1`), and reports `STALE COUNT C-xxxx: claims N, command prints M`. No new tool; no claim-text edits.
-  - Input: `tools/claims_check.py` (`_run_counts`, `_exp_revision`, `main`), H78's count rule and selftest cases, H87's Result as the negative fixture, H90's shallow-clone skip as the shape to reuse.
-  - Hints: reuse H78's revision rule — a prose count with no measurement revision is skipped, never failed; do not parse arbitrary prose for numbers (that is how a gate cries wolf). A bare `stays 12` is the case to catch; `12 at <sha>` must stay clean.
+  - Precheck (re-pointed 2026-11-18 after H91 merged; the old form quoted H87's `stays `12`` line, which H91 fixed): `python3 tools/claims_check.py --strict --count-check` prints `count mismatches: 0` and `claims_check: OK` while `grep '^| C-3894 ' docs/research/claims.md | grep -c 'returns 176 tasks'` prints `1` and the tree prints `229` at `HEAD` `5630048` (`228` at `102fb69`, the 229th block being H111's own) via `python3 -c "import sys; sys.path.insert(0,'tools'); import todo_check; print(len(todo_check.parse_tasks(open('TODO.md').read())))"` — a stale prose pin the gate cannot see. The shape is not a one-off: `grep '^| C-3740 ' docs/research/claims.md | grep -c 'prints `13 5`'` prints `1` and `python3 -c "import json;d=json.load(open('tools/fixtures/fn_match_eu_us_2011.json'));print(len(d['rows']),sum(r['expect']=='UNIQUE' for r in d['rows']))"` prints `13 5`, i.e. a correct `prints N` pin a re-run can confirm; and at the merge before H91, `git show c6e5df3^:docs/research/claims.md | grep '^| C-4101' | grep -c 'stays `12`'` prints `1` while `git show c6e5df3^:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x[0-9A-Fa-f]\{8\}'` prints `15` — the historical witness that the old Precheck used.
+  - Scope: `tools/claims_check.py` only: a `--prose-counts` mode (off by default) that reads `<command> prints N`, `stays N` and `OK (N checks` out of a claim's Evidence cell, re-runs only an allowlisted command shape (`grep -c` or `python3 -c`, never an `archive/…` input), and reports `STALE COUNT C-xxxx: claims N, command prints M`. No new tool; no claim-text edits; not enabled in `tools/gate.py` in this pass.
+  - Input: `tools/claims_check.py` (`_run_counts`, `_exp_revision`, `_run_selftest`, `main`), H78's count rule and selftest cases, H87's Result as the negative fixture, H90's shallow-clone skip as the shape to reuse.
+  - Hints: reuse H78's revision rule — a prose count with no measurement revision is skipped, never failed; do not parse arbitrary prose for numbers (that is how a gate cries wolf). A bare `stays 12` next to a `grep -c` is the case to catch; `12 at <sha>` must stay clean. A `stays 12` with no command and no `--selftest` in the cell is not measurable: list it, do not guess.
   - Done when: a synthetic row `… stays 12` whose `grep -c` prints 15 is `STALE COUNT` with exit 1; `<N> at <sha>` and a revision-less row are clean; `--selftest` covers all three; `python3 tools/gate.py` green on `main`.
   - Stop: if fewer than three real prose-count shapes are safe to re-run, ship the allowlist plus one mutation case, list the rejected shapes in the EXP, and leave enforcement off by default.
-  - Falsifier: H87's `stays 12` line is still clean after the change, or a legitimate `12 at <sha>` row goes red.
+  - Falsifier: a `grep -c`-backed `stays 12` whose command prints 15 is not `STALE COUNT` with exit 1, or a correct `15 at <sha>` row goes red.
   - Claims: C-4150–C-4159
 
 - [ ] **H93 — H90's EXP still has an empty "Corrections after navigator review" section**
@@ -1297,6 +1299,18 @@ of the four numbers above says so in its first line.
   - Done when: the §L4 table exists with six rows and no bare numbers (each names its claim); `python3 tools/l4_status.py` prints the table and exits 0 with `F4 BLOCKED (M8.A3, M8.A6, M9.16)`; without a run log every F-row is `NOT RUN`; `--selftest` proves the five statuses and that a missing key is NOT RUN; `selftest.py --only l4_status` PASS.
   - Stop: if `run.sh`'s summary format is unstable, print the statuses from the committed table only and mark `--run-log` as best-effort in the docstring.
   - Claims: C-4410–C-4419
+
+- [ ] **H111 — `claims_check --prose-counts` is an opt-in flag: the standing gate does not run it**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H92 (the mode, `--selftest` cases and the off-by-default decision), H78 (`--count-check` is in `gate.py`), H90 (the shallow-history skip)
+  - Goal: H92 ships `--prose-counts` but leaves it off: `grep -c 'prose-counts' tools/gate.py` prints `0`, so `tools/gate.py` cannot fail on a stale quoted count (H87's `stays 12` class). Turning the rule into a standing gate needs the unmeasurable rows resolved first: C-927 and C-1023 say `stays N` with no allowlisted command and no cell selftest, so the mode skips them and the gate would be green while they stay unmeasured (C-4171's `stays `0xfdb6`` is a hex offset and no shape at all).
+  - Precheck: `grep -c 'prose-counts' tools/gate.py` prints `0`; `python3 tools/claims_check.py --prose-counts` prints `census: rows 2252 prints ['C-3740', 'C-4156'] stays ['C-927', 'C-1023'] footer []` and `stale prose counts: 0` — two measurable `prints` shapes (C-3740 measured, C-4156 unmeasured: it has no revision), two unmeasured.
+  - Scope: `tools/gate.py` only (one `Gate` or one flag on the `claims_check` argv) plus the `gate.py --selftest` cases; the C-927/C-1023 rows are pinned to a revision and a command by whoever owns their claims (a separate record pass), not by this task. No new tool; no `claims_check.py` change unless the allowlist must grow.
+  - Input: `tools/gate.py` (`standing_gate`, `--selftest`), `tools/claims_check.py` (`--prose-counts`, `prose_count_problems`, `census`), H92's EXP, C-927/C-1023/C-4171 rows.
+  - Hints: gate `--prose-counts` must run on the full history (H90's shallow skip is already in `main()`), and a C-927-style unmeasurable row must not fail the gate — the mode skips it by design; say so in the docstring. If the rows stay unmeasured, the honest gate is `--prose-counts` plus a printed census, not a silent pass.
+  - Done when: `tools/gate.py` runs `claims_check --prose-counts`; `gate.py --selftest` proves a seeded stale `prints N` row gives `FAIL exit 1` and a clean ledger `PASS`; the real `python3 tools/gate.py` prints `gate: 4 pass, 0 fail, 0 skip`; the C-927/C-1023 rows are either measured or listed in the gate output as skipped.
+  - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
+  - Claims: C-4490–C-4499
 
 ## M2 — Map code, activation, updater
 

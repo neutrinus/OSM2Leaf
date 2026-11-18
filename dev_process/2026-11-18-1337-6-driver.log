@@ -1,0 +1,85 @@
+role: driver (H92), model deepseek-v4.1-flash-free
+start: 2026-11-18 12:40 UTC, end: 2026-11-18 13:40 UTC
+origin/main at start: a48bbf9 (rebased onto 8178993 mid-task)
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17, the H92 and
+H91 blocks, EXP-2026-11-18-H91-us-build-starts, EXP-2026-11-17-H90, the H78
+and H87 blocks, tools/claims_check.py, tools/gate.py, docs/experiments/TEMPLATE.md,
+docs/research/claims.md H91 section, dev_process/2026-11-18-0734-5-driver.log.
+
+actions, in order:
+1. claim commit c827a76 (todo: start H92), pushed, draft PR #228.
+2. re-pointed Precheck (H91 merged, its "stays 12" line is 0): C-3894's
+   "176" vs the tree's 228, plus C-3740's measurable "13 5" and the pre-H91
+   c6e5df3^ witness. EXP-2026-11-18-H92-precheck-repoint (C-4155).
+3. implemented `--prose-counts` in tools/claims_check.py: three shapes
+   (prints N, stays N, OK (N checks), one allowlist (grep -c, python3 -c),
+   H78's measurement revision, shallow skip; off by default, not in gate.py.
+4. selftest 28 -> 39 checks (37 then 2 shell-safety cases): seeded stale prints (red), stays over grep -c
+   (red), footer (red), correct N at <sha> (green), revision-less (skipped),
+   default-off.
+5. real-ledger control: C-3740 seeded 13->12 gives STALE COUNT exit 1; the
+   real ledger is stale prose counts: 0.
+6. C-4150..C-4155 + EXP-2026-11-18-H92-count-guard; TODO Result line.
+
+decisions:
+- stopped at Stop: 1 measurable real shape + 3 unmeasurable stays rows, so
+  the mode stays off by default and gate.py is untouched (minimal diff).
+- did not parse Result/Observations prose (rejected shapes listed in the EXP).
+- did not fix C-3894 (a record defect; Scope is the tool) — follow-up named.
+- used a second EXP for the re-point (the instructions name the guard EXP),
+  rather than a third file.
+
+problems: a `cp` restore reverted claims.md to the file rather than HEAD in
+one control run; re-ran with `git checkout --`. Hardened the re-runner to
+shlex argv (no shell=True) after finding C-3740's Python `;` was being read
+as a shell operator; pipelines/redirections are now rejected. Real-ledger `--prose-counts`
+is 22 s (it re-runs every allowlisted cell), acceptable for an opt-in flag.
+
+checks: `--selftest` 39/39, `--strict --count-check` OK, `--prose-counts`
+0 stale, `selftest.py` 93/0/23, `gate` 4 pass, `todo_check` OK.
+
+handoff: navigator should run the Done-when (stays 12 -> STALE, 15 clean,
+N at <sha> clean, gate green), check C-4150's revision pin wording and whether
+two EXPs are acceptable; TODO stays in progress, PR draft, no merge.
+
+round 2 (navigator: 9 blocking + 3 non-blocking, all applied):
+1. C-4150: f5a989 -> c6e5df3^ (H91's real parent; git log on claims.md).
+2. _run_prose_command: non-zero exit is None, not 0 (grep exit 1 tolerated);
+   selftest (p) asserts a missing path is skipped.
+3. prints/stays commands run at the row's revision via git archive (selftest
+   (r): 297 RESERVED at a48bbf9 clean, 301 at the tip STALE with got 297).
+4. PROSE_STAYS_RE lookahead rejects `0x…` (selftest (q)); census loses C-4171.
+5. EXP: the `$ echo $?` under a pipe is gone (exit=1 printed directly).
+6. census() shipped; --prose-counts prints `census: rows … prints … stays …`.
+7. Sample is a revision table (a48bbf9 = 2211/297, tip = 2233/301).
+8. two EXPs merged; precheck-repoint deleted; C-4150 block reads one record;
+   C-4161 added; claims header C-4150–C-4161.
+9. TODO H111 (open, Pair required, Depends H92/H78/H90, Done when, Falsifier,
+   C-4460–C-4469); C-4160 records it; H92 stays in progress (not blocked).
+non-blocking: PROSE_SHELL_CHARS removed (logic in _shell_operators, docstring
+True); stays-via-selftest documented; first-token-only noted in the EXP.
+also fixed: an old H78 selftest bug (builtins.get("exp_record") -> None)
+surfaced by the new cases; exp_record is saved from the module now.
+
+round 3 (navigator: all 9 code items verified fixed; 6 record defects + verdict):
+1. C-4155: parse_tasks prints 229 at HEAD (228 at 102fb69; H111 is the 229th) —
+   C-4155, the EXP Precheck block and the TODO H92 Precheck fixed.
+2. C-4155/EXP/TODO: the "stays `12`" count is 1 (C-4150's own quotation), not
+   0; all three now say 1 and name C-4150.
+3. H111 Precheck census updated to the command's output; wording "two
+   measurable `prints` shapes (C-3740 measured, C-4156 unmeasured)". H92's
+   Result line was removed by item 7 instead of fixed.
+4. The 2231/2233 row-count claim is re-measured after the renumber and reads
+   the tip value (C-4157; 2233 only while one round of edits was live).
+5. EXP positive controls no longer pair `$ echo $?` with a pipe; they write the
+   tool output to /tmp/opencode/h92*.txt and read `$?` directly (prints 1).
+6. H92 Claims is back to its own block C-4150-C-4159 (C-4160-4169 is M1.32 on
+   main; C-4460-4469 is M5.45; C-4500-4579 is the TL's tl-15 branch). The two
+   new rows are C-4156/C-4157, previously RESERVED and unused everywhere.
+7. VERDICT: H92 Status: blocked, [ ] unticked, Blocker + Unblock: H111, no
+   Result line; EXP Status: blocked. The controls stay recorded.
+8. H111 Claims: C-4460-C-4469 -> C-4580-C-4589 (next free; 4480-4579 is the TL
+   branch's allocation, 4460/4470 are M5.45 and that branch).
+Also: an H92 id-range past its block tripped todo_check (overlapping
+C-4150-4161 vs M1.32 C-4160-4169); renumbering cleared it, 229 tasks 0 errors.

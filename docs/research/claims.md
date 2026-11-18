@@ -3339,6 +3339,29 @@ tool-side guard is H92.
 | C-4148 | RESERVED (H91). | — | — | — |
 | C-4149 | RESERVED (H91). | — | — | — |
 
+## H92 — `--prose-counts`: a claim quoting a count the tree no longer prints (C-4150–C-4159)
+
+H78's `--count-check` compares a claim's pinned *selftest* count with the tool
+at the claim's measurement revision. The other direction — any other count a
+claim quotes that a later merge moved — had no check: H87's `US_BUILD_STARTS`
+`stays 12` shipped as `15` and stayed green until H91 fixed it by hand. The
+new `--prose-counts` mode re-runs three mechanical shapes from a claim's
+evidence cell and prints `STALE COUNT` with exit 1. It is off by default; the
+wiring is tracked as H111 (this task does not enable it).
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4150 | The merge before H91, `c6e5df3^` (H91 is `c6e5df3`), carried a prose count the tree no longer printed: `git show c6e5df3^:docs/research/claims.md \| grep '^| C-4101' \| grep -c 'stays `12`'` prints `1` while `git show c6e5df3^:tools/fn_audit.py \| sed -n '/^US_BUILD_STARTS/,/^})/p' \| grep -c '0x[0-9A-Fa-f]\{8\}'` prints `15`, and `python3 tools/claims_check.py --strict --count-check` on that tree prints `count mismatches: 0` / `claims_check: OK` — the gap H92 closes. | VERIFIED (tool) | H | EXP-2026-11-18-H92-count-guard; the pre-H91 revision |
+| C-4151 | `tools/claims_check.py --prose-counts` re-runs three shapes from an evidence cell: a backticked command followed by `prints N` (only when the text is a `grep -c` or `python3 -c`, carries no `archive/…` input, and has no unquoted shell operator — it runs as a `shlex` argv, never `shell=True`), `stays N` next to such a command or a cell's `tools/X.py --selftest`, and the exact footer `OK (N checks`. Each command runs at the row's measurement revision via `git archive` (`_run_prose_command`, like `_run_selftest`); a command that exits non-zero (a missing path) is skipped, never read as `0`, and only its first stdout token is used. It reports `STALE COUNT <id>: claims N, … prints M (<rev>)` and exits 1; the default run and `--strict` do not run it. | VERIFIED (tool) | H | EXP-2026-11-18-H92-count-guard; `python3 tools/claims_check.py --help`, the H92 selftest block |
+| C-4152 | Every prose shape obeys H78's revision rule: an explicit commit in the cell wins, else the EXP commit that moved a tool; a shape with no measurement revision is skipped, never failed, and a shallow clone prints `prose count check: skipped (shallow clone …)`. A `prints N` row pinned to an old commit is measured at that commit, so the tip moving does not make it red. | VERIFIED (tool) | H | EXP-2026-11-18-H92-count-guard; the H92 selftest cases `r21`/`r28`/`r34` and the shallow path |
+| C-4153 | The guard fails loudly on the H87 shape: the selftest's row asserting the list is twelve over a `grep -c` that prints 15 is reported `STALE COUNT` with exit 1, and the same row asserting fifteen is clean; `<N> at <sha>` is measured at that revision and a correct one stays green. `python3 tools/claims_check.py --selftest` prints `claims_check selftest: OK (43 checks)` (was 28). | VERIFIED (tool) | H | EXP-2026-11-18-H92-count-guard; `python3 tools/claims_check.py --selftest`, the seeded mutation |
+| C-4154 | On the real ledger at `HEAD` `--prose-counts` reports `stale prose counts: 0` and exit 0, and its census line reads `census: rows 2231 prints ['C-3740', 'C-4156'] stays ['C-927', 'C-1023'] footer []`; only C-3740's `prints` shape is measured (its EXP gives a revision), C-4156 has no revision and is skipped, C-4171's `stays `0xfdb6`` is a hex offset and not counted. The gate stays green: `python3 tools/gate.py` prints `gate: 4 pass, 0 fail, 0 skip`. | VERIFIED (tool) | H | EXP-2026-11-18-H92-count-guard; `python3 tools/claims_check.py --prose-counts`, `python3 tools/gate.py` |
+| C-4155 | H92's `Precheck` now checks a defect that exists on the post-H91 tree: `grep '^| C-3894 ' docs/research/claims.md \| grep -c 'returns 176 tasks'` prints `1` while the tree prints `229` at `4878438` (`len(todo_check.parse_tasks(...))`; `228` at `102fb69`, the 229th block being H111's own), and the gate is `count mismatches: 0`; `grep -c 'stays 12' docs/research/claims.md` prints `1`, and that one row is C-4150's own quotation of `c6e5df3^` (not a live assertion), so the re-point is measured, not copied. | VERIFIED (tool) | H | EXP-2026-11-18-H92-count-guard; the re-point section |
+| C-4156 | H111 (open) tracks the wiring: `tools/gate.py` runs `claims_check --strict --count-check` without the prose flag, so H92's mode is an opt-in flag until H111 enables it after the unmeasurable `stays` rows are pinned or allowlisted (H111's claim block is C-4580–C-4589). | VERIFIED (docs) | H | TODO.md H111; `grep -c 'prose-counts' tools/gate.py` prints `0` |
+| C-4157 | H92 delivers one record, `docs/experiments/EXP-2026-11-18-H92-count-guard.md`, which carries the re-point section (C-4155) and every count measured at the revision it names: `a48bbf9` prints `2211` ledger rows, `HEAD` prints `2233`; `grep -cE '^\| C-[0-9]+ ' <file>` is the command for both (`git show a48bbf9:docs/research/claims.md \| grep -cE '^\| C-[0-9]+ '` prints `2211`). | VERIFIED (tool) | H | EXP-2026-11-18-H92-count-guard; the Sample/Revision table |
+| C-4158 | RESERVED (H92). | — | — | — |
+| C-4159 | RESERVED (H92). | — | — | — |
+
 ## H95 — the target `MAINTENANCE.md` does not exist (C-4210–C-4219) — task **removed** 2026-11-17
 
 H95's Goal assumes `MAINTENANCE.md` holds a log-rotation rule that counts
