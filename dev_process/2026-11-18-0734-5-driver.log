@@ -48,3 +48,14 @@ round 2 (navigator returned CHANGES, 6 edits):
 6. EXP header Claims C-4420..C-4429 -> C-4420..C-4424.
 extra: README current-state heading retitled (M8.A1 -> M5.43), 69 checks,
 exit-3 causes; C-4421/C-4422/C-4423 Evidence and numbers updated.
+
+round 3 (navigator APPROVED; closing commit):
+- TODO M5.43: done, [x], Result: line with 11.1.3 rc 4 / 8.2.10 rc 0 /
+  truncated rc 3, Claims C-4420-C-4424 (was "none yet").
+- EXP Status already done (written that way); claims.md section header
+  C-4420-4429 -> C-4420-4424; Reproduction gained the --version <trunc> rc=1
+  control line; one sentence narrows "full build exits 1" to size/SHA faults
+  (network_needed is 3 on both paths).
+- checks re-run: 11.1.3 rc 4, 8.2.10 rc 0, trunc check 3, trunc full 1,
+  --selftest 69/0, selftest.py 93/0/23, todo_check OK, claims_check OK.
+- PR ready; merge left to the TL (M5.44 order unknown to this agent).
