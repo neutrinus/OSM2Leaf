@@ -1187,15 +1187,15 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
 | `0x00417ea0` | fn | `0xc` | thunk: `0x41a600` volume-present test -> return |
 | `0x00417eac` | fn | `0xdc` | volume record set: swap `u8` pairs in `r8+0x20`, warn |
 | `0x00417f88` | fn | `0x58` | volume record get: `r4+42` kind -> 0/1/3 status |
-| `0x00417fe0` | fn | `0x110` | `*.cmp` open by name; `".cmp"` @`0x0017a8a8`, write mode |
+| `0x00417fe0` | fn | `0x110` | open by name for a read: path `0x418dfc`; flag 0 -> `+".cmp"` plain, flag 1 -> `0x41b780(path,1)`; `"rb"` (C-5101) |
 | `0x004180f0` | fn | `0x60` | lookup volume record `(hi:lo)` in `0x18d50`, state test |
 | `0x00418150` | fn | `0x88` | lookup volume record variant, returns `u16` field |
 | `0x004181d8` | fn | `0x244` | big open/dispatch: state `0x41a3b8`, `0x41aaf4`, `0x41a600` |
 | `0x0041841c` | fn | `0xc` | external entry stub -> `0x4181d8` |
 | `0x00418428` | fn | `0x6c` | external entry: OSMDLL #19/#20, `0x41a7e4` |
 | `0x00418494` | fn | `0xc8` | debug dump via `0x417a5c` (stdio through it) |
-| `0x0041855c` | fn | `0xd8` | open/read by name: `0x41b954`, `0x41b8a4`, `0x417d48` |
-| `0x00418634` | fn | `0xc8` | open+seek+read/write trio wrapper, memset |
+| `0x0041855c` | fn | `0xd8` | read request: open `0x417fe0`, seek `(sector<<11)+off` `0x41b8a4`, loop `0x41b954` (C-5106) |
+| `0x00418634` | fn | `0xc8` | serve one queued 48-B request (`0x00e8d8e0`): `0x41855c(+20..+36, flag u16 +46)`, reply `0x4179c8` |
 | `0x004186fc` | fn | `0x4c` | clear volume index: memset `0x1c20` + `0x668a0` B, `0x009cfcd4` |
 | `0x00418748` | fn | `0x2c8` | `.ind`/`.IND` `FindFirstFileW` scan, volume lookup |
 | `0x00418a10` | fn | `0x7c` | read 40-byte record: seek `idx*40+40`, fread 40 |
@@ -1271,33 +1271,33 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
 | `0x0041b650` | fn | `0x4c` | `fclose` wrapper, release io descriptor |
 | `0x0041b69c` | fn | `0x4c` | `ftell` wrapper, release io descriptor |
 | `0x0041b6e8` | fn | `0x98` | block-size init (40<<8 / 50), `memSize` dump |
-| `0x0041b780` | fn | `0x9c` | write-open by name (`"wb"` default), CS-wrapped |
+| `0x0041b780` | fn | `0x9c` | open wrapper `(path, flag)`: flag 0 -> `fopen` `"rb"`; else `.cmp` manager `0x41bed4` (C-5101) |
 | `0x0041b81c` | fn | `0x88` | close/release, `.CMP` close path |
-| `0x0041b8a4` | fn | `0xb0` | read/write by cluster bytes, recursive |
+| `0x0041b8a4` | fn | `0xb0` | seek wrapper `(h, off, whence, flag)`: `fseek` or `.cmp` seek `0x41bfb4` |
 | `0x0041b954` | fn | `0xd4` | read buffer via chunk engine (`0x41c044`) or fread |
 | `0x0041ba28` | fn | `0x68` | file-size probe: ftell, seek 2, restore |
-| `0x0041ba90` | fn | `0x15c` | `CMP.LST` existence check + volume-chain init |
+| `0x0041ba90` | fn | `0x15c` | mount: `CMP.LST` probe, `.cmp` manager config (50/20/`0x20000`/`0x10000`/`0x14000`, ops table) (C-5104) |
 | `0x0041bbec` | fn | `0x74` | debug logger (`NKDbgPrintfW`, `ErrorLogMsg`) |
 | `0x0041bc60` | fn | `0x38` | size round-up wrapper -> `0x41c0cc` |
-| `0x0041bc98` | fn | `0xf0` | node fill: align args, `0x41c190` walk |
-| `0x0041bd88` | fn | `0x98` | critical-section-wrapped node insert |
+| `0x0041bc98` | fn | `0xf0` | `.cmp` manager init: 50 handle slots of `0x118` B, ops copy, ctx `0x41c190` |
+| `0x0041bd88` | fn | `0x98` | critical-section-wrapped `.cmp` manager create (`0x41bc98`) |
 | `0x0041be20` | fn | `0x10` | `DeleteCriticalSection` only |
-| `0x0041be30` | fn | `0xa4` | lookup+insert node (strlen, `0x41c524`) |
-| `0x0041bed4` | fn | `0x60` | CS-wrapped read: `0x41ba90` then `0x41be30` |
-| `0x0041bf34` | fn | `0x80` | CS-wrapped write: `0x41cae8` leaf |
-| `0x0041bfb4` | fn | `0x90` | CS-wrapped op: `0x41cab0` leaf |
-| `0x0041c044` | fn | `0x88` | CS-wrapped chunk read: `0x41c990` |
+| `0x0041be30` | fn | `0xa4` | `.cmp` open: free slot, `CMP.LST` match `0x41c2e0` -> `0x41c524` or plain open; `u16 +0x116` = compressed (C-5101) |
+| `0x0041bed4` | fn | `0x60` | CS-wrapped `.cmp` open -> `0x41be30` |
+| `0x0041bf34` | fn | `0x80` | CS-wrapped `.cmp` close -> `0x41cae8` |
+| `0x0041bfb4` | fn | `0x90` | CS-wrapped `.cmp` seek -> `0x41cab0` (logical position) |
+| `0x0041c044` | fn | `0x88` | CS-wrapped `.cmp` read: `u16 +0x116` 0 -> plain read, 1 -> `0x41c990` |
 | `0x0041c0cc` | leaf | `0x58` | LEAF: slot-size walk, `(count+16)*20` + 4-aligned fields |
-| `0x0041c124` | fn | `0x6c` | indirect ops-vtable call through struct in `r7` |
-| `0x0041c190` | fn | `0x150` | index-block walk over `r4`, `0x41cb1c` leaf |
-| `0x0041c2e0` | fn | `0x124` | path compare: `strlen`, case fold, 73/74-word ctx |
-| `0x0041c404` | fn | `0x70` | `.IND` path build + entry lookup (`0x41d114`) |
-| `0x0041c474` | fn | `0xb0` | `.IND` read 16-byte header via ops vtable |
-| `0x0041c524` | fn | `0xcc` | `.CMP` open via `0x41c474`, `0x41cb1c` leaf |
-| `0x0041c5f0` | fn | `0x1ec` | chunk-table build: 20-B stride, tag check, fill |
+| `0x0041c124` | fn | `0x6c` | read a whole file via ops (open/size/read/close): loads `CMP.LST` at mount (C-5103) |
+| `0x0041c190` | fn | `0x150` | `.cmp` reader ctx init: entries, buffers `0x14000`/`0x10000`, `.IND` cache `0x41cb1c` (C-5104) |
+| `0x0041c2e0` | fn | `0x124` | `CMP.LST` match: NUL-separated, `\`-terminated entry = directory, A-Z fold (C-5103) |
+| `0x0041c404` | fn | `0x70` | whole `.IND` (`path+".IND"`) through the name-keyed cache `0x41d114`/`0x41d084` |
+| `0x0041c474` | fn | `0xb0` | 16-byte `.IND` header: cache or ops open/read 16/close |
+| `0x0041c524` | fn | `0xcc` | `.cmp` handle open: `.IND` header, `.ind` size `(count+4)*4`, `fopen(path+".CMP","rb")` (C-5101) |
+| `0x0041c5f0` | fn | `0x1ec` | loop over `chunk_offset[]`: 20-B entries `+0` off, `+4` clen, `+8` `i*chunk`, `+12` extent; `chunk==0x10000` (C-5102) |
 | `0x0041c7dc` | fn | `0xe8` | per-chunk one-shot zlib `0x00542148` + `memcpy` |
-| `0x0041c8c4` | fn | `0xcc` | `.ind` header decode (`_divlu`/`_modlu`), tag, count |
-| `0x0041c990` | fn | `0x120` | chunk-load driver: decode, build, seek, inflate loop |
+| `0x0041c8c4` | fn | `0xcc` | `.ind` header: `chunk==0x10000` check, first/last chunk index (`_divlu`/`_modlu`) |
+| `0x0041c990` | fn | `0x120` | chunk read driver: index, entries `0x41c5f0`, seek+one read of the batch, inflate `0x41c7dc` (C-5102) |
 
 ### Block boundaries and the controls that bound it
 
