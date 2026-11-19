@@ -1,0 +1,398 @@
+#!/usr/bin/env python3
+"""Kernel debug-serial evidence for the QEMU ``ze0`` machine (TODO M8.A6).
+
+Three questions, one sub-command each:
+
+  refs IMG     Which nk.exe code touches the debug SCIF window, and who calls
+               the polling writer?  Lists every literal-pool word whose value
+               lies in ``--window`` (default the SCIF channel at
+               ``0xffe46000``, 0x1000 bytes), each ``mov.l @(disp,PC)`` that
+               loads it, and the callers of ``--writer`` (default
+               ``0x8804cfa4``, EU2011) through literal pools *and* ``bsr``,
+               then walks the caller chain up ``--depth`` levels.  This is
+               the static half: if the writer has one caller and that caller
+               is the exception reporter, the boot banner cannot reach the
+               SCIF through it.
+
+  shim -o OUT  Write a 20-byte SH-4 stub (our bytes, no vendor data) that
+               loads ``--string`` into r4, calls ``--writer`` and then spins
+               on ``bra .``.  Loaded with ``-device loader`` at a free RAM
+               address and used as the entry point, it is the *positive
+               control*: the firmware's own writer must put the string on the
+               serial model, so an empty serial log on a real boot is not a
+               wiring fault.
+
+  banner LOG   Which known kernel lines appear in a captured serial log
+               (``-serial file:LOG``)?  Exit 0 when a boot-banner line is
+               present, 1 when none is.
+
+Addresses are EU2011 (``archive/head256.img``, image B at ``0x3e00200``) and
+come from ``tools/cerom.py``/``tools/sh4xref.py``; the SH-4 decoding is
+``tools/sh4dis.py`` (little-endian, pinned there).  Stdlib only.
+
+Usage:
+  ze0_serial.py refs IMG [--image-start 0x3e00200] [--module nk.exe]
+                [--window 0xffe46000:0x1000] [--writer 0x8804cfa4] [--depth 3]
+  ze0_serial.py shim -o FILE [--base 0x8f000000] [--string 0x88001060]
+                [--writer 0x8804cfa4]
+  ze0_serial.py banner LOG
+  ze0_serial.py --selftest
+
+Method and results: docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md
+"""
+
+import argparse
+import os
+import struct
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from sh4dis import Mem, bsr_target, decode, fmt, jsr_reg, movl_pc_target  # noqa: E402
+
+NK_IMAGE_START = 0x3E00200          # EU2011 image B (cerom.py romhdr)
+DEBUG_SCIF = 0xFFE46000             # C-534
+WRITER_EU2011 = 0x8804CFA4          # C-534, EXP-2026-11-05-37
+BANNER_EU2011 = 0x88001060          # L"\r\nWindows CE Kernel for Hitachi SH ..."
+
+BANNER_LINES = (
+    b"Windows CE Kernel for Hitachi SH",
+    b"Booting Windows CE version",
+)
+OTHER_LINES = (
+    b"SH-4 Kernel",
+    b"Exception occurred!!",
+    b"AER Exception Report Start",
+)
+
+
+# --------------------------------------------------------------------------
+# refs
+# --------------------------------------------------------------------------
+
+def pool_words_in(exec_segs, lo, hi):
+    """(pool_va, value) for every 4-aligned word with lo <= value < hi."""
+    out = []
+    for base, blob in exec_segs:
+        start = (-base) % 4
+        for off in range(start, len(blob) - 3, 4):
+            v = struct.unpack_from("<I", blob, off)[0]
+            if lo <= v < hi:
+                out.append((base + off, v))
+    return out
+
+
+def pool_loads(mem, pool_va):
+    """``mov.l @(disp,PC),Rn`` instructions that read ``pool_va``."""
+    out = []
+    for a in range(max(0, pool_va - 1024 - 4), pool_va, 2):
+        t = movl_pc_target(a, mem.u16(a))
+        if t and t[1] == pool_va:
+            out.append((a, t[0]))
+    return out
+
+
+def bsr_callers(exec_segs, target):
+    out = []
+    for base, blob in exec_segs:
+        for off in range(0, len(blob) - 1, 2):
+            a = base + off
+            w = struct.unpack_from("<H", blob, off)[0]
+            if (w & 0xF000) == 0xB000 and bsr_target(a, w) == target:
+                out.append(a)
+    return out
+
+
+def callers(mem, exec_segs, target):
+    """[(site_va, kind)] that transfer control to ``target``: a literal load
+    of it followed by ``jsr/jmp`` (kind 'pool'), or a ``bsr`` (kind 'bsr')."""
+    out = []
+    for pool_va, _v in pool_words_in(exec_segs, target, target + 1):
+        for load, reg in pool_loads(mem, pool_va):
+            for k in range(1, 13):
+                j = jsr_reg(mem.u16(load + 2 * k))
+                if j and j[1] == reg:
+                    out.append((load + 2 * k, "pool"))
+                    break
+            else:
+                out.append((load, "load-only"))
+    out += [(a, "bsr") for a in bsr_callers(exec_segs, target)]
+    return sorted(out)
+
+
+def caller_chain(mem, exec_segs, fn_of, target, depth):
+    """Breadth-first: level 0 = callers of target, level k = callers of the
+    functions that hold the level k-1 sites.  Returns a list of lines."""
+    lines, seen, frontier = [], set(), [target]
+    for level in range(depth):
+        nxt = []
+        for t in frontier:
+            if t in seen:
+                continue
+            seen.add(t)
+            sites = callers(mem, exec_segs, t)
+            if not sites:
+                lines.append("  L%d 0x%08x  no static caller" % (level, t))
+            for site, kind in sites:
+                fn = fn_of(site)
+                lines.append("  L%d 0x%08x  <- %s at 0x%08x in fn %s"
+                             % (level, t, kind, site,
+                                "0x%08x" % fn if fn is not None else "?"))
+                if fn is not None:
+                    nxt.append(fn)
+        frontier = nxt
+        if not frontier:
+            break
+    return lines
+
+
+def cmd_refs(args):
+    import sh4xref
+    mem, exec_segs, _imp, _exp = sh4xref.load_module(
+        args.image, args.image_start, args.module)
+
+    pdata_of = getattr(mem, "fn_of", None)
+
+    def fn_of(va):
+        # pdata only: a heuristic start inside a pdata gap can land in the
+        # middle of the previous function's literal pool (fn_audit INSIDE).
+        return pdata_of(va) if pdata_of is not None else sh4xref.fn_start(mem, va)
+
+    lo, size = args.window
+    words = pool_words_in(exec_segs, lo, lo + size)
+    nbytes = sum(len(b) for _, b in exec_segs)
+    print("module %s  exec sections %d (%d bytes)" % (args.module, len(exec_segs), nbytes))
+    print("window 0x%08x+0x%x: %d pool word(s)" % (lo, size, len(words)))
+    nloads = 0
+    regs = set()
+    for pool_va, v in words:
+        loads = pool_loads(mem, pool_va)
+        nloads += len(loads)
+        regs.add(v)
+        for load, reg in loads:
+            fn = fn_of(load)
+            print("  pool 0x%08x = 0x%08x  load 0x%08x (r%d) fn %s"
+                  % (pool_va, v, load, reg, "0x%08x" % fn if fn is not None else "? (pdata gap: leaf)"))
+    print("window registers referenced: %s" % (" ".join("+0x%02x" % (r - lo) for r in sorted(regs)) or "none"))
+    print("window loads: %d" % nloads)
+    sites = callers(mem, exec_segs, args.writer)
+    print("writer 0x%08x: %d call site(s) (pool %d, bsr %d)"
+          % (args.writer, len(sites), sum(k == "pool" for _, k in sites),
+             sum(k == "bsr" for _, k in sites)))
+    print("caller chain (depth %d):" % args.depth)
+    for line in caller_chain(mem, exec_segs, fn_of, args.writer, args.depth):
+        print(line)
+    return 0
+
+
+# --------------------------------------------------------------------------
+# shim
+# --------------------------------------------------------------------------
+
+def build_shim(base, string_va, writer_va):
+    """mov.l @(lit0),r4; mov.l @(lit1),r1; jsr @r1; nop; bra .; nop; lit0; lit1.
+
+    ``base`` must be 4-aligned so the PC-relative literals land on 0x0c/0x10.
+    """
+    if base % 4:
+        raise ValueError("shim base must be 4-aligned")
+    w = [
+        0xD402,   # 0x00 mov.l @(0x0c,pc),r4   (0+4)&~3 + 2*4 = 0x0c
+        0xD103,   # 0x02 mov.l @(0x10,pc),r1   (2+4)&~3 + 3*4 = 0x10
+        0x410B,   # 0x04 jsr @r1
+        0x0009,   # 0x06 nop (delay slot)
+        0xAFFE,   # 0x08 bra 0x08 (spin; PC+4-4)
+        0x0009,   # 0x0a nop (delay slot)
+    ]
+    return struct.pack("<6H", *w) + struct.pack("<II", string_va, writer_va)
+
+
+def disasm_shim(blob, base):
+    mem = Mem([(base, blob)])
+    return [fmt(decode(mem.u16(base + i), base + i, mem)) for i in range(0, 12, 2)]
+
+
+def cmd_shim(args):
+    blob = build_shim(args.base, args.string, args.writer)
+    with open(args.out, "wb") as fh:
+        fh.write(blob)
+    print("shim %s: %d bytes at VA 0x%08x (phys 0x%08x), r4=0x%08x, call 0x%08x"
+          % (args.out, len(blob), args.base, args.base & 0x1FFFFFFF, args.string, args.writer))
+    for line in disasm_shim(blob, args.base):
+        print("  " + line)
+    return 0
+
+
+# --------------------------------------------------------------------------
+# banner
+# --------------------------------------------------------------------------
+
+def scan_log(data):
+    """{line: count} for the banner and the other known kernel lines."""
+    return {s: data.count(s) for s in BANNER_LINES + OTHER_LINES}
+
+
+def cmd_banner(args):
+    try:
+        with open(args.log, "rb") as fh:
+            data = fh.read()
+    except OSError as e:
+        print("banner: cannot read %s: %s" % (args.log, e), file=sys.stderr)
+        return 2
+    hits = scan_log(data)
+    print("serial log %s: %d bytes" % (args.log, len(data)))
+    for s, n in hits.items():
+        print("  %-36s %d" % (s.decode(), n))
+    found = any(hits[s] for s in BANNER_LINES)
+    print("banner: %s" % ("PRESENT" if found else "ABSENT"))
+    return 0 if found else 1
+
+
+# --------------------------------------------------------------------------
+# selftest
+# --------------------------------------------------------------------------
+
+def _synthetic():
+    """A tiny code block at 0x10000 with a writer, one pool caller, one bsr
+    caller, a window load and a decoy pool word just outside the window.
+
+      0x10000 rts; nop                      previous function end
+      0x10004 sts.l pr,@-r15                fn A
+      0x10006 mov.l @(0x10020),r3           -> writer 0x10040
+      0x10008 jsr @r3; nop
+      0x1000c rts; nop
+      0x10010 sts.l pr,@-r15                fn B
+      0x10012 bsr 0x10040; nop
+      0x10016 rts; nop
+      0x10020 pool 0x10040
+      0x1003c rts; nop
+      0x10040 writer: mov.l @(0x10048),r3 ; rts ; nop
+      0x10048 pool 0xffe46010 (window)
+      0x1004c pool 0xffe47000 (decoy, outside a 0x1000 window)
+    """
+    base = 0x10000
+    b = bytearray(0x50)
+
+    def put(va, w):
+        struct.pack_into("<H", b, va - base, w)
+
+    put(0x10000, 0x000B); put(0x10002, 0x0009)
+    put(0x10004, 0x4F22)
+    put(0x10006, 0xD300 | ((0x10020 - ((0x10006 + 4) & ~3)) // 4))
+    put(0x10008, 0x430B); put(0x1000A, 0x0009)
+    put(0x1000C, 0x000B); put(0x1000E, 0x0009)
+    put(0x10010, 0x4F22)
+    put(0x10012, 0xB000 | (((0x10040 - (0x10012 + 4)) // 2) & 0xFFF)); put(0x10014, 0x0009)
+    put(0x10016, 0x000B); put(0x10018, 0x0009)
+    struct.pack_into("<I", b, 0x20, 0x10040)
+    struct.pack_into("<I", b, 0x48, 0xFFE46010)
+    struct.pack_into("<I", b, 0x4C, 0xFFE47000)
+    put(0x1003C, 0x000B); put(0x1003E, 0x0009)
+    put(0x10040, 0xD300 | ((0x10048 - ((0x10040 + 4) & ~3)) // 4))
+    put(0x10042, 0x000B); put(0x10044, 0x0009)
+    blob = bytes(b)
+    return Mem([(base, blob)]), [(base, blob)]
+
+
+def selftest():
+    import sh4xref
+    fails = 0
+
+    def check(label, got, want):
+        nonlocal fails
+        ok = got == want
+        fails += not ok
+        print("%s %s: got %r want %r" % ("ok  " if ok else "FAIL", label, got, want))
+
+    mem, segs = _synthetic()
+    words = pool_words_in(segs, DEBUG_SCIF, DEBUG_SCIF + 0x1000)
+    check("window pool words", words, [(0x10048, 0xFFE46010)])
+    check("decoy outside window", pool_words_in(segs, 0xFFE47000, 0xFFE47004), [(0x1004C, 0xFFE47000)])
+    check("window load", pool_loads(mem, 0x10048), [(0x10040, 3)])
+    sites = callers(mem, segs, 0x10040)
+    check("writer callers", sites, [(0x10008, "pool"), (0x10012, "bsr")])
+    check("no caller", callers(mem, segs, 0x10010), [])
+
+    def fn_of(va):
+        return sh4xref.function_start(mem, va)
+
+    chain = caller_chain(mem, segs, fn_of, 0x10040, 2)
+    check("chain level 0 has two sites", sum(" L0 " in l for l in chain), 2)
+    check("chain finds fn A and fn B",
+          sorted(l.split("fn ")[1] for l in chain if " L0 " in l), ["0x00010004", "0x00010010"])
+    check("chain level 1 ends", all("no static caller" in l for l in chain if " L1 " in l), True)
+
+    blob = build_shim(0x8F000000, BANNER_EU2011, WRITER_EU2011)
+    check("shim length", len(blob), 20)
+    shm = Mem([(0x8F000000, blob)])
+    check("shim lit0 via decoder", movl_pc_target(0x8F000000, shm.u16(0x8F000000)), (4, 0x8F00000C))
+    check("shim lit1 via decoder", movl_pc_target(0x8F000002, shm.u16(0x8F000002)), (1, 0x8F000010))
+    check("shim r4 value", shm.u32(0x8F00000C), BANNER_EU2011)
+    check("shim writer value", shm.u32(0x8F000010), WRITER_EU2011)
+    check("shim jsr @r1", jsr_reg(shm.u16(0x8F000004)), ("jsr", 1))
+    check("shim spins", bsr_target(0x8F000008, 0xBFFE), 0x8F000008)
+    text = disasm_shim(blob, 0x8F000000)
+    check("shim disasm bra self", "bra 0x8f000008" in text[4], True)
+    try:
+        build_shim(0x8F000002, 0, 0)
+        check("misaligned base refused", False, True)
+    except ValueError:
+        check("misaligned base refused", True, True)
+
+    log = b"junk\r\nWindows CE Kernel for Hitachi SH Built on X\r\nSH-4 Kernel\r\n"
+    hits = scan_log(log)
+    check("banner present", hits[BANNER_LINES[0]], 1)
+    check("other line", hits[b"SH-4 Kernel"], 1)
+    check("empty log has no banner", any(scan_log(b"")[s] for s in BANNER_LINES), False)
+    # UTF-16 text is not what the writer emits (mov.b of the low byte), so a
+    # wide-char log must not count as a banner.
+    wide = "Windows CE Kernel for Hitachi SH".encode("utf-16le")
+    check("utf-16 log is not a banner", scan_log(wide)[BANNER_LINES[0]], 0)
+
+    print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
+    return 1 if fails else 0
+
+
+def _int(s):
+    return int(s, 0)
+
+
+def _window(s):
+    a, _, b = s.partition(":")
+    return int(a, 0), int(b or "0x1000", 0)
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--selftest", action="store_true")
+    sub = ap.add_subparsers(dest="cmd")
+    r = sub.add_parser("refs")
+    r.add_argument("image")
+    r.add_argument("--image-start", type=_int, default=NK_IMAGE_START)
+    r.add_argument("--module", default="nk.exe")
+    r.add_argument("--window", type=_window, default=(DEBUG_SCIF, 0x1000))
+    r.add_argument("--writer", type=_int, default=WRITER_EU2011)
+    r.add_argument("--depth", type=int, default=3)
+    s = sub.add_parser("shim")
+    s.add_argument("-o", "--out", required=True)
+    s.add_argument("--base", type=_int, default=0x8F000000)
+    s.add_argument("--string", type=_int, default=BANNER_EU2011)
+    s.add_argument("--writer", type=_int, default=WRITER_EU2011)
+    b = sub.add_parser("banner")
+    b.add_argument("log")
+    args = ap.parse_args(argv)
+    if args.selftest:
+        return selftest()
+    if args.cmd == "refs":
+        return cmd_refs(args)
+    if args.cmd == "shim":
+        return cmd_shim(args)
+    if args.cmd == "banner":
+        return cmd_banner(args)
+    ap.print_help()
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

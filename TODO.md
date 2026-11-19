@@ -508,7 +508,8 @@ of the four numbers above says so in its first line.
   - Tool: `cerom.py files --extract --decompress` writes stored bytes,
     classifies OK/UNSUPPORTED/FAIL and never writes a wrong-length decode
     (EXP-55, C-573); EXP-51 says the real payload is not a stdlib format.
-  - Status: blocked · Owner: task/m1.4-extract-filesentry-payloads · Critical: no
+  - Status: open · Owner: — · Critical: no
+  - Note (M1.21, 2026-11-19, rule 15): M1.21 decodes every compressed `FILESentry` payload with the kernel routine (`nk_decomp.py files`, B 8/8, C 7/7, `r0 == rsize`); what is left here is `cerom.py files --decompress` wiring / `extract-file NAME`. The `Blocker:` line below is historical.
   - Note (H51, 2026-11-11): re-opened as **M1.21**: try the kernel routine (`nk_decomp.decompress`) on the `FILESentry` payloads.
   - Blocker: all 8 compressed build-B FILESentry payloads carry CE-LZXD block marker `0x8d80805b` and no public/stdlib `cecompress` method decodes them (0 matches, 8 UNSUPPORTED); M1.2b/c path does not suffice, so `rsize`-length decode / readable `ceconfig.h` cannot be produced without the CE-LZXD codec (M1.2f blocked, M8.E1 runtime unavailable in session).
   - Unblock: **M1.21** (the H51 re-scope: decode the `FILESentry` payloads with the kernel routine `tools/nk_decomp.py`, which already decodes 245/245 build-A sections). `M1.2f`/`M8.E1` are superseded (H51) and must not gate this task (H81 closes them). Then decode to `rsize`, add `extract-file NAME` if still desired, verify build C.
@@ -1129,8 +1130,9 @@ of the four numbers above says so in its first line.
   - Stop: a module with no exception directory is listed as such, not guessed.
   - Claims: C-3510–C-3519
 
-- [ ] **M1.21 — Decode the compressed `FILESentry` payloads with the kernel routine (re-opens M1.3/M1.4)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M1.21 — Decode the compressed `FILESentry` payloads with the kernel routine (re-opens M1.3/M1.4)**
+  - Status: done · Owner: task/m1.21-filesentry-decode · Critical: no
+  - Result: `nk_decomp.py files` (kernel `DECOMP_SECT`, section frame, no file-specific header) decodes every compressed `FILESentry`: build B 8/8 and build C 7/7 on EU2011 and US2011 (`r0 == rsize`; `ceconfig.h` text, `celog.dll` MZ, three `EKIM` hives); build A has one stored file and none compressed; a 1- or 3-byte shifted payload fails. `tools/cehive.py` parses the hives (0 dangling links). `docs/research/rom-registry.md`: main SD slot = `SDHC.dll` port 0 → `SDProfile` → `\SystemSD`; `Navi.exe` is not in the registry — `init` starts `device.exe`/`gwes.exe`, which loads `AppLaunch.dll` (`Drivers\BuiltIn\AppLch`) whose compiled-in table names `\windows\Navi.exe`. M1.4 re-opened (rule 15); follow-up **M1.34**. EXP: `docs/experiments/EXP-2026-11-19-M1.21-filesentry-decode.md`. Claims C-3520–C-3527.
   - Depends: — (H51)
   - Goal: read the ROM *files* of builds A/B/C (registry hives, `.lnk`, `initflashfiles.dat`, bitmaps, text), which M1.4 could not extract. They tell which drivers and paths the unit uses for the SD card and the map (`\SystemSD\…`), and M8 needs the registry.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 files | head` lists `FILESentry` rows with `nRealFileSize` ≠ `nCompFileSize`.
@@ -1139,7 +1141,7 @@ of the four numbers above says so in its first line.
   - Hints: try first exactly as for a section (`skip=0, step=1, block=0x1000`). If `r0 = -1`, read the caller of the file path: `sh4xref.py IMG256 nk.exe --image-start 0x3e00200 --to 0x88037590` (`DECOMP_WRAP`) lists every caller; the one that is not the section loader `0x880385e4` is the file reader and shows the arguments it passes (a per-page call with `skip = page*0x1000` is the usual shape). Positive control: a file whose type has a magic (`BM`, `regf`, UTF-16 text, `MZ`).
   - Done when: the EXP lists every `FILESentry` with `real size / decoded length / sha256 / magic`, at least one file per build decodes to a recognisable type, and a short `docs/research/` note names the registry keys that mention `SystemSD`, the SD driver and the Navi launch.
   - Stop: if no argument set decodes a file with a known magic, write the caller's argument trace and stop.
-  - Claims: C-3520–C-3529
+  - Claims: C-3520–C-3527 (C-3528–C-3529 handed to M1.34)
 
 - [x] **M1.22 — The US firmware build: module census and EU→US function map**
   - Status: done · Owner: task/m1.22-us-census · Critical: yes · Pair: required
@@ -1383,6 +1385,17 @@ of the four numbers above says so in its first line.
   - Done when: `tools/gate.py` runs `claims_check --prose-counts`; `gate.py --selftest` proves a seeded stale `prints N` row gives `FAIL exit 1` and a clean ledger `PASS`; the real `python3 tools/gate.py` prints `gate: 4 pass, 0 fail, 0 skip`; the C-927/C-1023 rows are either measured or listed in the gate output as skipped.
   - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
   - Claims: C-4490–C-4499
+
+- [ ] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.21 (done)
+  - Goal: M1.21 found that `Navi.exe` is started by `AppLaunch.dll` (build B, loaded as `Drivers\BuiltIn\AppLch`) from a compiled-in table, not from the registry, and that the same module opens `\SystemSD\VER_INFO\HDD_INFO.TXT` and prints `MapDBVer : %d <= [%d] <= %d`. Name the table's record layout, the function that walks it, and the order of the SD/map-version checks before `Navi.exe` starts, so a generated card's `VER_INFO` can be checked against the gate.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections AppLaunch.dll` shows an uncompressed code section at `realaddr 0x03bb1000` (EU2011); `python3 tools/sh4xref.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --to 0x03bc92f0` (`HDD_INFO.TXT`, EU2011) lists two loading functions (EU2011, see EXP-2026-11-19-M1.21), while `--to 0x03bc0f54` (`\windows\Navi.exe`) prints `No literal pool holds` — the Navi entry is reached through a data table, not a code literal (M1.21 session, 2026-11-19).
+  - Scope: build B `AppLaunch.dll` (EU2011; US2011 build B is byte-identical); the launch table and the `HDD_INFO.TXT`/`MapDBVer` path. Not: the error screens already in `docs/format/validation.md`, not Navi.exe itself.
+  - Input: EXP-2026-11-19-M1.21-filesentry-decode (string VAs `0x03bc0f54`, `0x03bc92f0`, `0x03bc9360`, EU2011), `docs/research/rom-registry.md`, `docs/format/validation.md` (the AppLaunch router), `tools/sh4xref.py`, `tools/sh4dis.py`, `tools/nk_decomp.py pdata --module AppLaunch.dll`.
+  - Done when: an EXP names the table base, record size and the fields for the `Navi.exe` record (EU2011 VAs, function starts checked with `nk_decomp.py pdata`), and the function that opens `HDD_INFO.TXT` with the comparison it makes; `docs/research/rom-registry.md` gains the result.
+  - Stop: if no static reference to the table is found after the string-pool and `.data` search, record the negative with the positive control (a `\Drivers\Launch\SD` reference) and block on an L3 run of the router.
+  - Claims: C-3528–C-3529
 
 ## M2 — Map code, activation, updater
 
@@ -2156,11 +2169,14 @@ of the four numbers above says so in its first line.
   - Claims: C-1810–C-1819
 
 - [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: open · Owner: — · Critical: yes
+  - Status: blocked · Owner: task/m4.16b-rdstm-field-dir · Critical: yes
+  - Blocker (2026-11-19): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
+  - Unblock: M4.16e (decode the RDSTM001 link groups after `0xccce00`). The `0x00d53500` table is a handle cache, not a schema (C-5130): M3.22 is no longer this task's unblocker.
+  - Result: EXP-2026-11-19-M4.16b-tmc-field-directory (directory rule from `0x003f56bc/0x003f5d98/0x003f5e10`; `tools/tmc_fielddir.py`; `rdstm_place.py probe-decoded` negative). C-5130–C-5136.
   - Blocker (history, negative EXP kept): **impossible with current inputs / blocked by compressed `.data` (Navi.exe sec1)**. Precheck: `sh4dis Navi.exe --image-start 0x200200 --check-real` OK on IMG256 `92aa525d…` (M1.11c RDSTM pins, no `.word` gap at named walk sites; MOVT/SHAR/SHLD/SHAD done). `cerom va2file 0x00d53500` → unmapped (`0x-8bb8d900`); `0x00d53500` (schema descriptor consulted by `0x003f51e0`, `[0x003f52b8]=0x00d53500`) lies in **Navi.exe sec1 `va 0x55d000 vsize 0xff16ae psize 0x457c flags 0xc8002040 COMPRESSED rw-`** (covers `0x55d000–0x154e6ae`), so schema bytes/field lengths are unreadable with current inputs. C-884 walk not reproduced to true per-record boundaries; `rdstm_place.py` not re-run on decoded fields; no ≥20 decoded-record mapping, no named join key, no ~0 random-key control. Done-when **not met**. Join/placement route remains **M4.16d** (once true decoded TMC fields exist).
   - Note (M3.22 done, 2026-11-19, rule 15): `0x00d53500` holds 4-byte page **pointers** written by the task-message writers, not an on-disk field directory (EXP-2026-11-19-M3.22-d53500-writer-l3, C-5127); the RDSTM schema must come from the page bytes the pointers name.
   - Reopen note (H50, rule 15, EXP-2026-11-10-H50-va-class-prechecks): cited blocker VA `0x00d53500` = BSS sec1 +0x7f6500 (zero at load; find writer/runtime init, not M1.2f). Boundary VAs explicit: `0x0055d000` = IAT `COREDLL!Sleep` (sec1 start mention), `0x00ff16ae` = BSS (range end mention). Rerun via M3.22 (writer) + M9.35 context; do not claim M1.2f unless an INIT VA is identified.
-  - Unblock: (H49) **M3.22** — `0x00d53500` is BSS (C-3442), decompressed sec1 is zero there; the schema is written at run time. Old wording: `M1.2f` and/or `M8.E1/M1.2g/M9` verified path yielding **Navi.exe sec1 decompressed bytes** for build A (so `0x00d53500` schema contents are readable). M1.11c walk opcodes are done and **not** an unblocker.
+  - Unblock (superseded 2026-11-19 by C-5130, kept as history): (H49) **M3.22** — `0x00d53500` is BSS (C-3442), decompressed sec1 is zero there; the schema is written at run time. Old wording: `M1.2f` and/or `M8.E1/M1.2g/M9` verified path yielding **Navi.exe sec1 decompressed bytes** for build A (so `0x00d53500` schema contents are readable). M1.11c walk opcodes are done and **not** an unblocker.
   - Re-opened (PO grooming 2026-11-09, rule 15): M1.11c merged; decoder-gap blocker no longer holds. Re-blocked on schema bytes in compressed sec1 (this task).
   - Result (negative, prior): EXP-2026-11-08-M4.16b-record-framing — gate passed (five functions plain in Navi.exe sec0; callees verified); walk not run; done-when not met.
   - Result: EXP-2026-11-08-M4.16b-rdstm-field-walk (negative/blocked: schema `0x00d53500` in Navi.exe sec1 COMPRESSED `rw-`, unreadable; walk/boundaries/placement not reproduced with current inputs). C-2300–C-2309.
@@ -2170,7 +2186,18 @@ of the four numbers above says so in its first line.
   - Scope: the C-884 directory walk (`0x003f56bc`, `0x003f5e10`, schema `0x00d53500`) on Navi.exe build A; ≥20 decoded records tested for placement. No RDSTM writer.
   - Done when: ≥20 decoded records map to tile/mesh/coordinates with a named join key and ~0 random-key control, or the mapping is proven impossible with method recorded.
   - Stop: if schema table `0x00d53500` is unreadable (compressed `.data`) or the walk cannot be reproduced with current inputs, set `blocked` naming that dependency and keep the negative result.
-  - Claims: C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b)
+  - Claims: C-5130–C-5136 (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
+
+- [ ] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.16b (record directory + location-code join, done as far as the link refs)
+  - Goal: turn an `RDSTM001` link reference (`u32`: `>>16` = group 0..3131, `&0xffff` = entry) into a MAPAL mesh/parcel/link, so ≥20 TMC records map to coordinates (the M4.16b done-when).
+  - Input: EXP-2026-11-19-M4.16b-tmc-field-directory (C-5134–C-5136); `tools/tmc_fielddir.py join` (codes → refs); EU `RDSTM001.DAT` `f822044c…` region `0xccce00..EOF` (≈2,790 0x100-aligned blocks of 4-byte entries with `0x40/0x60/0x80/0xa0/0xc0/0xe0` tags; 2,294,877 indexed entries in 3,132 groups); the `0x1000` header (`0x180` words) of `RDSTM001.DAT`; `clarion_rd.py` (sec2 parcel code, 13-bit link ids).
+  - Precheck: `python3 tools/tmc_fielddir.py join LCTBL001.DAT RDSTM001.DAT --min-records 100` → `total neg/pos agree 167204/172752`, controls 0 (the refs exist and are keyed).
+  - Scope: EU 2011 card only; groups → blocks, entry format, group → mesh; no writer.
+  - Done when: ≥20 TMC records (code, name) map through their refs to MAPAL tile/parcel/link coordinates, with a random-key control near 0 and a named mapping rule; or the mapping is shown not to exist with method recorded.
+  - Stop: if the group directory cannot be found from the file header or block order, look for the firmware reader of these blocks (search the readers of `RDSTM001` by reachability, M3.23) and report `blocked` with the block census.
+  - Claims: C-5137–C-5139 (block from M4.16b's reserve; take the next free block if more are needed)
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no
@@ -3492,11 +3519,27 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-4320–C-4329
 
 
-- [ ] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
+- [x] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.a6-debug-serial · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-19, the original line is kept above):
+    `-M ze0` maps `sh_serial` (SCIF) at `0xffe46000` on serial port 0; a
+    positive-control shim that calls the firmware writer `0x8804cfa4` makes
+    `python3 tools/ze0_serial.py banner LOG` exit 0, and the same shim on
+    the machine without the model exits 1; then either a real boot's
+    `serial.log` passes `banner`, or the EXP names the code path the banner
+    takes instead (static callers + a translated-block trace).
+  - Result: EXP-2026-11-19-M8.A6-debug-serial (C-1280–C-1283). Model wired
+    and proven (69-byte banner via the firmware writer; 0 bytes without the
+    model). The banner never reaches the SCIF: the writer's only caller is
+    the AER exception reporter, and `KernelStart` sends the banner to
+    `fn 0x880404f4` → AstLog (`0x88044478`), gated `DebugLog` path off
+    (`0x89e613b0`/`b4`); 60 s boots on both load extents give 0 serial
+    bytes. `run.sh --serial` added (default `WORK/serial.log`). Found:
+    `run.sh` sizes images from the wrong `u32` (C-1283, input for M8.A3).
+    Patch: `tools/qemu-ze0/patches/ze0-0002-hw-sh4-ze0-debug-serial.patch`.
   - Claims: C-1280–C-1289
 - [ ] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
   - Status: open · Owner: — · Critical: no
@@ -4291,14 +4334,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the semantics cannot be pinned from the manual in one pass, keep it bucketed and record the negative rather than guessing.
   - Claims: C-5180–C-5185 (C-5186–C-5189 handed to M9.49/M9.50)
 
-- [ ] **M9.49 — `mac.w @Rm+,@Rn+` crashes the engine with a host `NameError`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.49 — `mac.w @Rm+,@Rn+` crashes the engine with a host `NameError`**
+  - Status: done · Owner: task/m9.49-pysh4-macw · Critical: no · Pair: solo
+  - Result: EXP-2026-11-19-M9.49-pysh4-macw; C-5300–C-5304. `mac.w` defines `rm` and follows the manual's MACW (also fixed: words were multiplied as 32-bit register images, n == m read one address twice, S = 1 saturation ignored). `isolate --before 9a9c3cf --expect mac.w` → only `mac.w` (224 halfwords); `compare` 0/0 on EU Navi (28,373), EU nk (11,360), US Navi (28,323). `decode_audit.classify()` maps a probe data page and buckets host exceptions as unmodelled: on the pre-fix engine it now reports 17/1/14 drift. New task M9.51 (`mac.l` is modelled as a register form).
   - Depends: M9.48 (its `div1_l3.py isolate` found it)
   - Goal: `_exec_system`'s `mac.w` arm reads `rm`, which `_exec_system` never defines, so every `mac.w` whose `@Rn` load succeeds raises `NameError` instead of running (224/256 halfwords in M9.48's first `isolate` state). `decode_audit.classify()` hides it because its probe faults on the unmapped `@Rn` first, so C-3593 counts `mac.w` (54 EU Navi insns) as modelled.
   - Precheck: map memory at `r1`/`r2`, `_execute(0x412F)` on `PySh4` raises `NameError: name 'rm' is not defined`.
   - Scope: define `rm` in the `mac.w` arm of `tools/l3_harness/engine.py` (Rm is bits 7-4), a distinct-register `mac.w` row with mapped memory in `engine.py --selftest`, and `decode_audit.classify()` mapping a probe page so a host exception is not mistaken for MODELLED. No other instruction.
   - Done when: the selftest row passes and fails on the unfixed engine; `div1_l3.py isolate --before <pre-fix engine>` lists only `mac.w`; `decode_audit.py compare` stays 0/0 on EU Navi, EU nk, US Navi.
-  - Claims: C-5186–C-5187
+  - Claims: C-5300–C-5309 (was C-5186–C-5187; fresh block for this run)
 
 - [ ] **M9.50 — Model `rotcl`/`rotcr` so the `nk.exe` divide routines run in the bare engine**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -4307,6 +4351,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Scope: `rotcl`/`rotcr` in `_exec_system` plus `DECODE_TABLE` rows, a distinct-register selftest row each, and `div1_l3.py run` without the shim (keep the shim count at 0 as the check). No FPU.
   - Done when: `div1_l3.py run archive/head256.img nk.exe` prints `4/4 runnable functions match` with `rotcl(shim)=0 rotcr(shim)=0`; `isolate --before <pre-change engine>` lists only `rotcl`/`rotcr`; `compare` 0/0 on the three corpora.
   - Claims: C-5188–C-5189
+
+- [ ] **M9.51 — `mac.l` is modelled as `mac.l Rm,Rn`; the SH-4 form is `mac.l @Rm+,@Rn+`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M9.49
+  - Goal: `engine.py`'s `0x0nmF` arm multiplies the two *register values*; the manual's `0000nnnnmmmm1111` is `MAC.L @Rm+,@Rn+` (two memory longs, both pointers +4, S = 1 saturates at 48 bits). The census counts 4,164 EU2011 Navi / 189 EU2011 nk / 4,839 US2011 Navi `mac.l` as modelled with wrong semantics (C-5304); the M9.37 selftest row checks the register form.
+  - Scope: the `mac.l` arm and its selftest row in `tools/l3_harness/engine.py` (manual MACL code: distinct registers, n == m, S = 0/1, fault before register writes); first `grep` the L3 targets for a run that executed `mac.l` and say whether any result changes. No other instruction.
+  - Done when: the new row fails on the current engine and passes after; `div1_l3.py isolate --before <pre-change engine> --expect mac.l` lists only `mac.l`; `decode_audit.py compare` 0/0 on EU Navi, EU nk, US Navi.
+  - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
+  - Claims: none yet (take the next free block when claimed)
 
 ## Retired leads
 
