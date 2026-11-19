@@ -3269,7 +3269,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Input: EXP-2026-11-08-M5.14 (Method, the patch description), EXP-2026-11-19-M6.13-s3-bench-manifest, `tools/ze0-viewer/tools_ze0/clarion_bg.py` (`parcel_geo`, `mesh_to_lon`), `tools/coord.py`, the US image (`fetch_image.py --image US`).
   - Done when: the tool reproduces `fc4d4bfc8365647c…` byte for byte from the factory tile and the image SHA-256 `186f2ded…` (or names the byte that differs); the vertex lat/lon is computed by the M5.44 grid with a positive control (a factory feature at a known place on the US card) and recorded in s3.md; `selftest.py --only <tool>` green.
   - Stop: if the tile does not reproduce after the described edit, record the differing bytes and set the S3 package's artifact to "regenerate before bench" instead of trying a fourth reconstruction.
-  - Claims: C-5180–C-5189
+  - Claims: C-5250–C-5259
 
 ---
 
