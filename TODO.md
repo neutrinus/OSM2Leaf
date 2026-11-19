@@ -760,8 +760,8 @@ of the four numbers above says so in its first line.
   - Stop: if H41/H56 choose a different output shape, commit the baseline in that shape and record the mapping in the EXP; do not fork a second schema.
   - Claims: C-3730–C-3739
 
-- [ ] **H58 — Make the claims ledger reject non-runnable evidence (`...`/`START`/`MODULE` placeholders, prose loops)**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **H58 — Make the claims ledger reject non-runnable evidence (`...`/`START`/`MODULE` placeholders, prose loops)**
+  - Status: done · Owner: task/h58-claims-runnable-evidence · Critical: yes · Pair: solo
   - Depends: — (`tools/claims_check.py` is on `main`; no other task's block is needed)
   - Goal: the evidence column is the ledger's whole value, but `claims_check.py` only checks IDs and annotations. `C-3612`, `C-3613`, `C-3614` (M1.23) cite a "loop over `cerom.py … modules`" and `--image-start START --module MODULE` that exist only in a `/tmp` heredoc, and `C-3711` (H55) cites `cmp ...`. SE 2026-11-15 reproduced the census (A 149/87,530/20 plain, B 91/21,930/19, C 88/25,243/23) only with a throwaway script — that is exactly rule 16's defect, and it reached `VERIFIED` because no check reads the command. (C-3712 is the subtler "producer command omitted" case; a check cannot see it, so reviewers still read.)
   - Precheck: `python3 tools/claims_check.py` is OK today; `grep -n 'C-3612\|C-3613\|C-3614\|C-3711' docs/research/claims.md | grep -cE '…|\.\.\.|--image-start START|--module MODULE'` prints 3 (C-3612, C-3613, C-3711), and `C-3614`'s evidence is the bare prose "census loop over `pdata.load_table`" with no invocation at all — 4 rows fail a runnable-command rule, so the defect is present, not hypothetical.
@@ -771,6 +771,7 @@ of the four numbers above says so in its first line.
   - Done when: `python3 tools/claims_check.py --selftest` passes (synthetic `cmp ...` row fails, a hash-abbreviation row passes, a prose row without a command fails, an EXP+real-command row passes); default `claims_check.py` still exits 0 on the current ledger and prints the non-runnable row count; `--strict` exits 1 and names at least `C-3612`, `C-3613`, `C-3614`, `C-3711`; `selftest.py` passes.
   - Stop: if the allowlist grows past ~20 IDs, ship the report and the count with `--strict` opt-in (default still 0) and hand enforcement to H53, recording the row count in the EXP.
   - Claims: C-3770–C-3779
+  - Result: EXP-2026-11-19-H58-claims-runnable-evidence — `bad_evidence()` names 347 of 1,376 VERIFIED rows at `934d76e` (ellipsis 31, placeholder 19, inline 3, no-invocation 294), including C-3612/C-3613/C-3614/C-3711, not C-207/C-3510; Stop applied (347 ≫ 20): default and `--strict` (the gate) stay exit 0 and print the count, `--strict-evidence` exits 1; `--selftest` 47 checks. Enforcement in `--strict` handed to H53/H66 (C-3770–C-3775).
 
 - [ ] **H61 — `claims_check`: every cited EXP record must exist on `main`**
   - Status: open · Owner: — · Critical: no · Pair: solo

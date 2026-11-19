@@ -783,6 +783,84 @@ def exp_count_problems(rows, exp_files):
     return problems
 
 
+# --- H58: runnable evidence ------------------------------------------------
+# A VERIFIED row's evidence is only worth the command a reader can re-run.
+INVOCATION_RE = re.compile(
+    r"^(?:python3\b|tools/|git\b|curl\b|sha256sum\b|grep\b|cmp\b|stat\b)")
+# A short hash abbreviation (`92aa525d…`) is not an elided argument.
+HASH_ABBREV_RE = re.compile(r"[0-9a-f]{4,}…[0-9a-f]*")
+PLACEHOLDER_RE = re.compile(
+    r"\b(?:START|MODULE|VA)\b|<[A-Za-z_][\w.-]*>|<\.\.\.>|<…>")
+INLINE_SCRIPT_RE = re.compile(r"<<|\bpython3\s+-c\b")
+
+
+def _evidence_spans(evidence):
+    """Backticked spans after the first EXP name (the whole cell if none)."""
+    m = EXP_TOKEN_RE.search(evidence)
+    tail = evidence[m.end():] if m else evidence
+    return [s.strip() for s in BACKTICK_RE.findall(tail)]
+
+
+def evidence_reasons(evidence):
+    """Why an evidence cell is not runnable as written (empty list: fine).
+
+    * ``ellipsis`` -- an invocation span elides an argument (``...``/``…``);
+      a hash abbreviation ``92aa525d…`` is allowed;
+    * ``placeholder`` -- an invocation span keeps ``START``/``MODULE``/``VA``
+      or a ``<name>`` token;
+    * ``inline`` -- a heredoc or ``python3 -c`` with no ``tools/`` path (a
+      scan that belongs in ``tools/``, rule 16);
+    * ``no-invocation`` -- backticked spans, but none opens with a known
+      invocation (``python3``, ``tools/``, ``git``, ``curl``, ``sha256sum``,
+      ``grep``, ``cmp``, ``stat``).
+    A cell with no backticked span at all (``decompilation``, C-207) is prose
+    and not judged here: English ``…`` (``switch 7…15``) never opens a span
+    with an invocation.
+    """
+    spans = _evidence_spans(evidence)
+    if not spans:
+        return []
+    reasons = []
+    invocations = [s for s in spans if INVOCATION_RE.match(s)]
+    for span in invocations:
+        bare = HASH_ABBREV_RE.sub("", span)
+        if ("..." in bare or "…" in bare) and "ellipsis" not in reasons:
+            reasons.append("ellipsis")
+        if PLACEHOLDER_RE.search(span) and "placeholder" not in reasons:
+            reasons.append("placeholder")
+    for span in spans:
+        if (INLINE_SCRIPT_RE.search(span) and "tools/" not in span
+                and "inline" not in reasons):
+            reasons.append("inline")
+    if not invocations and "inline" not in reasons:
+        reasons.append("no-invocation")
+    return reasons
+
+
+def bad_evidence(rows):
+    """VERIFIED rows whose evidence names no command a reader can re-run (H58)."""
+    problems = []
+    for cid, line in rows:
+        cells = row_cells(line)
+        if len(cells) < 2 or not cells[1].startswith("VERIFIED"):
+            continue
+        reasons = evidence_reasons(cells[-1])
+        if reasons:
+            problems.append({"id": cid, "reasons": reasons})
+    return problems
+
+
+def _evidence_strict(args):
+    """The evidence rules fail only under ``--strict-evidence`` (H58 Stop).
+
+    The current ledger has hundreds of legacy rows (the EXP counts them), far
+    past H58's ~20-ID allowlist bound, and ``tools/gate.py`` runs
+    ``--strict``; so the rule is a printed warning by default and under
+    ``--strict``, and an error only when asked for.
+    """
+    return bool(getattr(args, "strict_evidence", False))
+
+
 def _run_counts(args):
     """The count rule runs under ``--count-check`` and under ``--strict``.
 
@@ -821,6 +899,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
     prose = (prose_count_problems(rows, runner=prose_runner,
                                   cmd_runner=prose_cmd_runner)
              if run_prose else [])
+    nonrunnable = bad_evidence(rows)
 
     return {
         "duplicate_ids": dups,
@@ -830,6 +909,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
         "bad_counts": counts,
         "exp_count_conflicts": exp_counts,
         "bad_prose_counts": prose,
+        "nonrunnable_evidence": nonrunnable,
         "ok": not dups and not unregistered and not bad_annotations,
     }
 
@@ -848,6 +928,10 @@ def main(argv=None):
                         help="re-run the allowlisted command a claim's evidence "
                              "quotes and report a count the tree no longer "
                              "prints (H92; off by default, not in the gate yet)")
+    parser.add_argument("--strict-evidence", action="store_true",
+                        help="a VERIFIED row whose evidence has no runnable "
+                             "command exits 1 (H58; off by default and not "
+                             "implied by --strict: the legacy rows are many)")
     args = parser.parse_args(argv)
 
     if args.selftest:
@@ -879,8 +963,10 @@ def main(argv=None):
     count_fail = args.strict and bool(result["bad_counts"])
     conflict_fail = args.strict and bool(result["exp_count_conflicts"])
     prose_fail = bool(args.prose_counts and result["bad_prose_counts"])
+    evidence_fail = (_evidence_strict(args)
+                     and bool(result["nonrunnable_evidence"]))
     failed = (not result["ok"] or path_fail or count_fail or conflict_fail
-              or prose_fail)
+              or prose_fail or evidence_fail)
     if args.json:
         result["genuine_paths"] = genuine
         result["strict_failed"] = failed
@@ -939,6 +1025,12 @@ def main(argv=None):
             _print_census(parse_claim_rows(claims_text))
         else:
             print("prose count check: off (--prose-counts)")
+        nonrun = result["nonrunnable_evidence"]
+        print("non-runnable evidence rows: %d (%s)"
+              % (len(nonrun), "error" if _evidence_strict(args)
+                 else "warning; --strict-evidence fails"))
+        for b in nonrun:
+            print("  NONRUN %s %s" % (b["id"], ",".join(b["reasons"])))
         print("claims_check: OK" if not failed else "claims_check: FAILED")
     return 0 if not failed else 1
 
@@ -1349,7 +1441,47 @@ def run_selftest():
         assert [p["claimed"] for p in r34] == [298], r34
         assert r34[0]["got"] == 297 and r34[0]["rev"] == "a48bbf9"
 
-    print("claims_check selftest: OK (43 checks)")
+    # --- H58: runnable evidence --------------------------------------------
+    def _ev_row(cid, ev, status="VERIFIED (tool)"):
+        return "| %s | x | %s | H | %s |\n" % (cid, status, ev)
+    ev_rows = "".join([
+        # (s) an elided argument after a real invocation fails (C-3711 shape).
+        _ev_row("C-9201", "EXP-2026-11-15-H55-x; `python3 tools/l3check.py "
+                "--json > /tmp/a.json && cmp ...`"),
+        # (t) a hash abbreviation is not an elision: passes.
+        _ev_row("C-9202", "EXP-2026-11-19-H58-x; `sha256sum archive/head256.img`"
+                " prints `92aa525d…`, `git show 334f092:tools/x.py`"),
+        # (u) prose with no invocation fails (C-3614 shape).
+        _ev_row("C-9203", "EXP-2026-11-15-M1.23-x; census loop over "
+                "`pdata.load_table`, `meta[\"compressed\"]`"),
+        # (v) an EXP plus a real command passes.
+        _ev_row("C-9204", "EXP-2026-11-17-M1.20-x; `python3 tools/pdata.py "
+                "census archive/head256.img --label A`"),
+        # (w) an unexpanded placeholder fails (C-3612/C-3613 shape).
+        _ev_row("C-9205", "EXP-2026-11-15-M1.23-x; `python3 tools/pdata.py "
+                "table archive/head256.img --image-start START --module MODULE`"),
+        # (x) an inline python3 -c scan with no tools/ path fails.
+        _ev_row("C-9206", "EXP-2026-11-19-H58-x; `python3 -c \"import re;"
+                "print(1)\"`"),
+        # (y) prose `…` with no span (C-207) and a non-VERIFIED row: clean.
+        _ev_row("C-9207", "decompilation of switch 7…15"),
+        _ev_row("C-9208", "`cmp ...`", status="HYPOTHESIS"),
+    ])
+    r_ev = check(ev_rows, {})
+    got = {b["id"]: b["reasons"] for b in r_ev["nonrunnable_evidence"]}
+    assert got == {"C-9201": ["ellipsis"], "C-9203": ["no-invocation"],
+                   "C-9205": ["placeholder"], "C-9206": ["inline"]}, got
+    assert r_ev["ok"], "the evidence rule never changes the default verdict"
+
+    # (z) --strict alone keeps it a warning (gate.py runs --strict); only
+    # --strict-evidence makes it an error.
+    class _EvArgs:
+        def __init__(self, strict, ev):
+            self.strict, self.strict_evidence = strict, ev
+    assert _evidence_strict(_EvArgs(True, False)) is False
+    assert _evidence_strict(_EvArgs(False, True)) is True
+
+    print("claims_check selftest: OK (47 checks)")
     return 0
 
 if __name__ == "__main__":
