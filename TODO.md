@@ -2155,11 +2155,14 @@ of the four numbers above says so in its first line.
   - Claims: C-1810–C-1819
 
 - [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: in progress · Owner: task/m4.16b-rdstm-field-dir · Critical: yes
+  - Status: blocked · Owner: task/m4.16b-rdstm-field-dir · Critical: yes
+  - Blocker (2026-11-19): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
+  - Unblock: M4.16e (decode the RDSTM001 link groups after `0xccce00`). The `0x00d53500` table is a handle cache, not a schema (C-5130): M3.22 is no longer this task's unblocker.
+  - Result: EXP-2026-11-19-M4.16b-tmc-field-directory (directory rule from `0x003f56bc/0x003f5d98/0x003f5e10`; `tools/tmc_fielddir.py`; `rdstm_place.py probe-decoded` negative). C-5130–C-5136.
   - Blocker (history, negative EXP kept): **impossible with current inputs / blocked by compressed `.data` (Navi.exe sec1)**. Precheck: `sh4dis Navi.exe --image-start 0x200200 --check-real` OK on IMG256 `92aa525d…` (M1.11c RDSTM pins, no `.word` gap at named walk sites; MOVT/SHAR/SHLD/SHAD done). `cerom va2file 0x00d53500` → unmapped (`0x-8bb8d900`); `0x00d53500` (schema descriptor consulted by `0x003f51e0`, `[0x003f52b8]=0x00d53500`) lies in **Navi.exe sec1 `va 0x55d000 vsize 0xff16ae psize 0x457c flags 0xc8002040 COMPRESSED rw-`** (covers `0x55d000–0x154e6ae`), so schema bytes/field lengths are unreadable with current inputs. C-884 walk not reproduced to true per-record boundaries; `rdstm_place.py` not re-run on decoded fields; no ≥20 decoded-record mapping, no named join key, no ~0 random-key control. Done-when **not met**. Join/placement route remains **M4.16d** (once true decoded TMC fields exist).
   - Note (M3.22 done, 2026-11-19, rule 15): `0x00d53500` holds 4-byte page **pointers** written by the task-message writers, not an on-disk field directory (EXP-2026-11-19-M3.22-d53500-writer-l3, C-5127); the RDSTM schema must come from the page bytes the pointers name.
   - Reopen note (H50, rule 15, EXP-2026-11-10-H50-va-class-prechecks): cited blocker VA `0x00d53500` = BSS sec1 +0x7f6500 (zero at load; find writer/runtime init, not M1.2f). Boundary VAs explicit: `0x0055d000` = IAT `COREDLL!Sleep` (sec1 start mention), `0x00ff16ae` = BSS (range end mention). Rerun via M3.22 (writer) + M9.35 context; do not claim M1.2f unless an INIT VA is identified.
-  - Unblock: (H49) **M3.22** — `0x00d53500` is BSS (C-3442), decompressed sec1 is zero there; the schema is written at run time. Old wording: `M1.2f` and/or `M8.E1/M1.2g/M9` verified path yielding **Navi.exe sec1 decompressed bytes** for build A (so `0x00d53500` schema contents are readable). M1.11c walk opcodes are done and **not** an unblocker.
+  - Unblock (superseded 2026-11-19 by C-5130, kept as history): (H49) **M3.22** — `0x00d53500` is BSS (C-3442), decompressed sec1 is zero there; the schema is written at run time. Old wording: `M1.2f` and/or `M8.E1/M1.2g/M9` verified path yielding **Navi.exe sec1 decompressed bytes** for build A (so `0x00d53500` schema contents are readable). M1.11c walk opcodes are done and **not** an unblocker.
   - Re-opened (PO grooming 2026-11-09, rule 15): M1.11c merged; decoder-gap blocker no longer holds. Re-blocked on schema bytes in compressed sec1 (this task).
   - Result (negative, prior): EXP-2026-11-08-M4.16b-record-framing — gate passed (five functions plain in Navi.exe sec0; callees verified); walk not run; done-when not met.
   - Result: EXP-2026-11-08-M4.16b-rdstm-field-walk (negative/blocked: schema `0x00d53500` in Navi.exe sec1 COMPRESSED `rw-`, unreadable; walk/boundaries/placement not reproduced with current inputs). C-2300–C-2309.
@@ -2169,7 +2172,18 @@ of the four numbers above says so in its first line.
   - Scope: the C-884 directory walk (`0x003f56bc`, `0x003f5e10`, schema `0x00d53500`) on Navi.exe build A; ≥20 decoded records tested for placement. No RDSTM writer.
   - Done when: ≥20 decoded records map to tile/mesh/coordinates with a named join key and ~0 random-key control, or the mapping is proven impossible with method recorded.
   - Stop: if schema table `0x00d53500` is unreadable (compressed `.data`) or the walk cannot be reproduced with current inputs, set `blocked` naming that dependency and keep the negative result.
-  - Claims: C-5130–C-5139 (was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b); fresh block for this run)
+  - Claims: C-5130–C-5136 (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
+
+- [ ] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.16b (record directory + location-code join, done as far as the link refs)
+  - Goal: turn an `RDSTM001` link reference (`u32`: `>>16` = group 0..3131, `&0xffff` = entry) into a MAPAL mesh/parcel/link, so ≥20 TMC records map to coordinates (the M4.16b done-when).
+  - Input: EXP-2026-11-19-M4.16b-tmc-field-directory (C-5134–C-5136); `tools/tmc_fielddir.py join` (codes → refs); EU `RDSTM001.DAT` `f822044c…` region `0xccce00..EOF` (≈2,790 0x100-aligned blocks of 4-byte entries with `0x40/0x60/0x80/0xa0/0xc0/0xe0` tags; 2,294,877 indexed entries in 3,132 groups); the `0x1000` header (`0x180` words) of `RDSTM001.DAT`; `clarion_rd.py` (sec2 parcel code, 13-bit link ids).
+  - Precheck: `python3 tools/tmc_fielddir.py join LCTBL001.DAT RDSTM001.DAT --min-records 100` → `total neg/pos agree 167204/172752`, controls 0 (the refs exist and are keyed).
+  - Scope: EU 2011 card only; groups → blocks, entry format, group → mesh; no writer.
+  - Done when: ≥20 TMC records (code, name) map through their refs to MAPAL tile/parcel/link coordinates, with a random-key control near 0 and a named mapping rule; or the mapping is shown not to exist with method recorded.
+  - Stop: if the group directory cannot be found from the file header or block order, look for the firmware reader of these blocks (search the readers of `RDSTM001` by reachability, M3.23) and report `blocked` with the block census.
+  - Claims: C-5137–C-5139 (block from M4.16b's reserve; take the next free block if more are needed)
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no
