@@ -2959,8 +2959,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: do not invent format facts to fill a cell — `unknown` with the task that answers it.
   - Claims: none yet
 
-- [ ] **M5.39 — `l2check --tiles` accepts a bare cell name, matches 0 tiles and prints `RESULT: PASS`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.39 — `l2check --tiles` accepts a bare cell name, matches 0 tiles and prints `RESULT: PASS`**
+  - Status: done · Owner: task/m5.39-l2check-bare-cell · Critical: no · Pair: solo
   - Depends: — (`tools/l2check.py` is on `main`; no other task's block is needed)
   - Goal: C-3566 records the footgun without a task: every caller that writes `--tiles B48R058R` (M5.33's Precheck did, until QA 2026-11-17 fixed that line) gets `tiles=0` and `RESULT: PASS`, so a broken tile reads as a passing gate. This is the L2 signal M5.34/M5.30/M5.11 depend on, not a record repair.
   - Precheck: on the factory root `python3 tools/l2check.py --root /home/marek/projekty/leafre-work/m5.29-factory-root --partial --no-golden --no-cmp --tiles B48R058R` prints `[tile_roundtrip] OK (tiles=0; preserved=0)` and `RESULT: PASS`; the same command with `--tiles B48R058R.DAT` prints `tiles=1`.
@@ -2969,6 +2969,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `python3 tools/l2check.py --root <factory-root> --partial --no-golden --no-cmp --tiles B48R058R` exits non-zero and names `B48R058R.DAT`; with `--tiles B48R058R.DAT` it still prints `tiles=1` and `RESULT: PASS`; `--selftest` covers both; `python3 tools/selftest.py --only l2check` and the L1/L2 CI job stay green with a fixture that needs no vendor data.
   - Stop: if the tile check cannot run without a vendor root, land only the name-vs-file rejection (exit 2) and record the vendor-root limitation; do not invent a fixture.
   - Claims: C-4290–C-4299
+  - Result: EXP-2026-11-19-M5.39-l2check-bare-cell — on the EU 2011 factory root (480 files) `--tiles B48R058R` went from `tiles=0` + `RESULT: PASS` (exit 0) to exit 2 naming `B48R058R.DAT`; `--tiles B48R058R.DAT` unchanged (`tiles=1`, PASS); new vendor-free `--selftest`. C-4290–C-4295.
 
 - [ ] **M5.40 — Card ladder P0 is only checked on this host: pin the M5.34 factory-backed run as a QA manual regression**
   - Status: open · Owner: — · Critical: no · Pair: required
