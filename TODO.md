@@ -1902,7 +1902,7 @@ of the four numbers above says so in its first line.
   - Claims: C-3540–C-3549
 
 - [ ] **M3.24 — Dispatch tables in `Navi.exe` sec1 `INIT`: who is called indirectly**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.24-sec1-dispatch-tables · Critical: yes
   - Note (H112, 2026-11-19): corrected census (C-4623): 1,167 EU2011 functions have no static caller; 1,110 of them occur as an aligned word in sec0 and 57 in sec1. Unresolved `jsr @Rn` are 395 in 258 functions (not 589). The work is now small and mechanical: find runs of ≥ 3 consecutive code pointers in sec0 rodata (`0x00011000…0x0032ed9c`), find the function that loads each run's base (`sh4xref --to`), add `table` edges to `callgraph.py`. M3.26 already did this by hand for the two tables of the map-file task (`0x0017a888`, `0x0017ab38`) — use them as the positive control.
   - Note (H101, 2026-11-17): **H51 gave a wrong count — corrected (C-4283).** Of the 6,052 pointers in sec1 `INIT` only 281 point at code (163 distinct targets); 5,771 point at strings and constants in sec0 below `0x0032ed9c`. The function-pointer tables are mostly in **sec0**, which was always readable: of the 956 functions with no static caller, 914 appear as a 32-bit word in sec0 (a pool literal passed as a callback, or a table), 42 only in sec1 `INIT`, 1 nowhere. So: scan sec0 for runs of ≥ 3 consecutive words that are pdata `START`s — those are the tables — and tie each to one of the 589 unresolved `jsr @Rn` sites. The functions with the most unresolved calls are `0x003a2b94` (49), `0x004d78b4` (41), `0x0032efa8` (25, calls the file-layer dispatcher `0x00417924`), `0x004c09dc` (19).
   - Depends: — (H51: sec1 decodes; M1.19 gives the cached bytes)
