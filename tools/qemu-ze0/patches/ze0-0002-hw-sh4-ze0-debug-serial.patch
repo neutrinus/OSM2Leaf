@@ -1,0 +1,77 @@
+ze0: kernel debug SCIF at 0xffe46000 on serial port 0 (TODO M8.A6).
+
+Maps QEMU's sh_serial in SCIF mode at 0xffe46000 and connects it to
+serial_hd(0), so `-nographic` (or `-serial file:LOG`) carries whatever the
+firmware writes there.  The other SCIF channels stay in the P4 catch-all.
+
+Firmware evidence (EU2011, nk.exe, image B at 0x3e00200): the only nk code
+that touches 0xffe46000 is the leaf writer at 0x8804cfa4 (polls SCFSR +0x10
+for TDFE 0x20, stores SCFTDR +0x0c, clears TDFE/TEND); claim C-534.  Its
+one caller is the exception reporter fn 0x8804cdf8 (load at 0x8804ce78).
+The boot banner is routed elsewhere; see
+docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md (C-1280..C-1283).
+
+Base: QEMU 8.2.10 with the five earlier patches applied (sorts after
+ze0-0001-hw-sh4-ze0-machine.patch).
+
+diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
+index 1037a02..ae14a4d 100644
+--- a/hw/sh4/Kconfig
++++ b/hw/sh4/Kconfig
+@@ -23,6 +23,7 @@ config SHIX
+ config ZE0
+     bool
+     select SH4_CCN
++    select SH_SCI
+     select UNIMP
+ 
+ config SH7750
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 3f60e59..f3abeb2 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -30,6 +30,8 @@
+ #include "hw/qdev-properties.h"
+ #include "hw/sh4/sh.h"
+ #include "hw/sh4/sh4_ccn.h"
++#include "hw/sysbus.h"
++#include "hw/qdev-properties-system.h"
+ #include "sysemu/sysemu.h"
+ 
+ #define ZE0_RAM_BASE   0x08000000u
+@@ -47,6 +49,16 @@
+ #define ZE0_AREA6_BASE     0x18000000u
+ #define ZE0_AREA6_SIZE     0x04000000u
+ 
++/*
++ * Kernel debug SCIF (TODO M8.A6, claim C-534).  nk.exe EU2011 polls SCFSR
++ * (+0x10) for TDFE (0x20), stores the byte to SCFTDR (+0x0c) and clears
++ * TDFE/TEND in its only SCIF routine, fn 0x8804cfa4; QEMU's sh_serial in
++ * SCIF mode has the same layout.  It is wired to serial port 0 (-serial),
++ * so -nographic puts it on stdio.  The other SCIF channels stay in the P4
++ * catch-all, where their accesses are logged.
++ */
++#define ZE0_DEBUG_SCIF_BASE 0xffe46000u
++
+ static void ze0_init(MachineState *machine)
+ {
+     SuperHCPU *cpu;
+@@ -103,6 +115,18 @@ static void ze0_init(MachineState *machine)
+     memory_region_add_subregion(sysmem, ZE0_CCN_IO_BASE, sh4_ccn_iomem(ccn));
+     memory_region_add_subregion(sysmem, ZE0_CCN_ARRAY_BASE, sh4_ccn_arrays(ccn));
+ 
++    /* Kernel debug SCIF (M8.A6) on serial port 0, over the P4 catch-all. */
++    {
++        DeviceState *scif = qdev_new(TYPE_SH_SERIAL);
++
++        scif->id = g_strdup("ze0-debug-scif");
++        qdev_prop_set_uint8(scif, "features", SH_SERIAL_FEAT_SCIF);
++        qdev_prop_set_chr(scif, "chardev", serial_hd(0));
++        sysbus_realize_and_unref(SYS_BUS_DEVICE(scif), &error_fatal);
++        memory_region_add_subregion(sysmem, ZE0_DEBUG_SCIF_BASE,
++                                    sysbus_mmio_get_region(SYS_BUS_DEVICE(scif), 0));
++    }
++
+     /* Boot-blocker stubs (M8.A5): priority 1 over the P4/area-6 catch-all. */
+     qdev_realize_and_unref(qdev_new("ze0-stubs"), NULL, &error_fatal);
+ }

@@ -57,6 +57,9 @@ Options:
   --timeout SECONDS   wall clock, 0 = run until killed (default 10)
   --workdir DIR       output directory (default: a new mktemp -d)
   --log FILE          QEMU -D log (default WORK/qemu.log)
+  --serial SPEC       first serial port (-M ze0: the debug SCIF at 0xffe46000,
+                      M8.A6): log = file:WORK/serial.log (default), none,
+                      stdio, or any QEMU -serial chardev spec
   --qemu PATH         qemu-system-sh4 binary (default: from PATH)
   --no-summary        do not filter the log afterwards
   --memmap FILE       use this memmap JSON instead of writing one from the image
@@ -64,7 +67,8 @@ Options:
   --dry-run           print the commands, write and start nothing
   -h, --help          this text
 
-Outputs in the work dir: qemu.log (everything -d logged), registers.txt (HMP
+Outputs in the work dir: qemu.log (everything -d logged), serial.log (the
+debug SCIF output with --serial log), registers.txt (HMP
 `info registers` before the kill, when reachable), memmap.json (VA -> module
 and section, from cerom.py), plus kernel.bin/app.bin when --image is given.
 EOF
@@ -274,6 +278,7 @@ STOP=0
 TIMEOUT=10
 WORK=
 LOG=
+SERIAL=log
 QEMU=qemu-system-sh4
 SUMMARY=1
 MEMMAP=1
@@ -296,7 +301,8 @@ while [ "$#" -gt 0 ]; do
 
   case $_opt in
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
-    --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap)
+    --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
+    --serial)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
         _val=$2
@@ -323,6 +329,7 @@ while [ "$#" -gt 0 ]; do
         --log) LOG=$_val ;;
         --qemu) QEMU=$_val ;;
         --memmap) MEMMAP_SRC=$_val ;;
+        --serial) SERIAL=$_val ;;
       esac
       ;;
     --gdb)
@@ -435,7 +442,13 @@ else
   set -- "$@" -M none -cpu sh7785 -m "${MEM}M"
 fi
 
-set -- "$@" -nographic -serial none
+# Serial port 0 is the kernel debug SCIF on -M ze0 (M8.A6); -M none has no
+# serial device, so the spec is harmless there.
+case $SERIAL in
+  log) SERIAL_SPEC="file:$WORK/serial.log" ;;
+  *) SERIAL_SPEC=$SERIAL ;;
+esac
+set -- "$@" -nographic -serial "$SERIAL_SPEC"
 set -- "$@" -monitor "unix:$WORK/hmp.sock,server,nowait"
 
 if [ "$GDB" -eq 1 ]; then
@@ -568,6 +581,9 @@ fi
 
 printf 'workdir: %s\n' "$WORK"
 printf 'log:     %s\n' "$LOG"
+if [ "$SERIAL" = log ] && [ -f "$WORK/serial.log" ]; then
+  printf 'serial:  %s (%s bytes)\n' "$WORK/serial.log" "$(wc -c < "$WORK/serial.log" | tr -d ' \t\n')"
+fi
 if [ -f "$WORK/registers.txt" ]; then
   printf 'regs:    %s\n' "$WORK/registers.txt"
 fi

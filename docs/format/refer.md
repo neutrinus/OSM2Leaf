@@ -182,6 +182,27 @@ Still open:
   code 32/44, category 58).
 - `REFER002/POINT002.DAT` explicit `xy-coordinates` bits.
 
+### Where POINT coordinates are, and are not (M4.37)
+
+**OBSERVED (EU 2011, POINT002/008/029; C-3750–C-3754):**
+
+- The non-name zlib inner pages ("bit pages": phone, `w0=2` mixed,
+  24-byte index, keyword) carry **no coordinate pair** in the COORD001 form
+  at any of 32 alignments (BE/LE words, bit phase 0..15): 0 of 1,212 pages
+  pass the region-bounds test, while the `78 9c` name page control passes.
+  The 24-byte index records start with `w0 = shard - 1` and end with the
+  POI id `f11`; the keyword pages are variable records
+  `len_words, 0x0401|0x0501, xx ff, w0, …, ASCII`.
+- The non-stream ("raw") part of the decoded `.DAT` holds a **spatial
+  index**: 16-byte records `00 08 | u32 | u16 | x | y | 00 00 00 00` (the
+  first word reads as a C-2129 header: type 0, 8 words). Their finer
+  `(x, y)` equal name-record **copy A** (every distinct copy-A id of each
+  shard occurs; 92.6–100 % of the finer pairs are copy-A ids, a +37-unit
+  shift gives 0 %), and a coarser level sits on a 16-unit lattice from the
+  tile origin 52736 (1/12° × 1/8°). No field finer than one packed unit
+  and no 0..2047 tile-local field was found: POINT positions are copy A
+  (and B) only. `tools/point_bitpack_decode.py --coord-test`, `raw-index`.
+
 `BICON001` is a PNG container with 103 icons; see
 [assets.md](assets.md).
 
