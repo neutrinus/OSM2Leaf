@@ -3023,7 +3023,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-4590–C-4599
 
 - [ ] **M5.50 — the card ladder page P1 needs: one row per rung, each a command with an expected string**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.50-card-ladder-page · Critical: no · Pair: required
   - Depends: M5.46 (done), M5.30 (done), M5.44/M5.45 (done)
   - Goal: no page says what "P1" *is as a check* — the ladder lives in TODO prose and the Priorities commands, so every pass re-derives it and the rule-17 card row is a hand command. M5.38 (open) defines P1 as "all Dolnośląskie display-only", but no page says which gates that means or what P2 (routing) adds. One page, one row per rung, each row a runnable command with its expected output, stops the "P1 = one tile or many?" drift.
   - Precheck: `grep -rn 'P0\|P1\|P2' docs/format/*.md profiles/*.json | head` shows no single page owns the ladder; `python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json <ROOT>/MAPAL001 | tail -1` prints the census the page must cite.
