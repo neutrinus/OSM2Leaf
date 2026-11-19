@@ -258,6 +258,12 @@ fails them), `7z t` and `fsck.fat -n` accept it. The two reader numbers did
 **The four rule-17 map numbers — run each, do not retype** (snapshot
 2026-11-19T19:55Z, `origin/main` `b428c47`):
 
+The same four, as one portable command (H109): `python3 tools/map_signals.py`
+(`--json -` for the logs; a missing factory tree or report prints `NOT RUN`,
+exit 0). Keys: `readers.located/partial/unlocated`, `l3_rows["l3-running"]`,
+`tile_bytes.tiles[name]`, `card_step.step` with `counts.cardcheck_rc` printed
+beside the report booleans.
+
 ```bash
 # M1 reader rows with a located reader (6) — partial/access-path rows counted apart (5)
 python3 -c "import sys,pathlib;sys.path[:0]=['tools'];from progress_report import parse_reader_coverage as p;d,_=p(pathlib.Path('docs/research/reader-coverage.md'));s=d['summary']['firmware_reader'];print('located',s['located'],'partial',s['partial'],'unlocated',s['unlocated'])"
@@ -1272,8 +1278,8 @@ of the four numbers above says so in its first line.
   - Stop: if `gh` is unavailable on CI, keep it local/QA-only (it is a role tool) and say so in the docstring; do not add it to `gate.py`.
   - Claims: C-4390–C-4399
 
-- [ ] **H109 — the four rule-17 map numbers are three Python one-liners, one 10-line shell loop and a host path**
-  - Status: in progress · Owner: task/h109-map-signals · Critical: no · Pair: solo
+- [x] **H109 — the four rule-17 map numbers are three Python one-liners, one 10-line shell loop and a host path**
+  - Status: done · Owner: task/h109-map-signals · Critical: no · Pair: solo
   - Depends: — (the PO wrote the commands; this makes them portable and honest when an input is absent)
   - Goal: retro 2026-11-18 beat 4: "no log quotes the four rule-17 counters from a command". The PO's Priorities block now has them, but one is a 10-line `python3 -c` with a shell loop over `/home/marek/.../m5.4/card-factory`, so on a host without the factory tree it crashes instead of saying "NOT RUN" — and QA cannot quote it. One `tools/map_signals.py` prints all four with a stable key each, `LOCAL`/`NOT RUN` where an input is missing, `--json` for the logs.
   - Precheck: `python3 -c "import sys,pathlib;sys.path[:0]=['tools'];from progress_report import parse_reader_coverage as p;…"` (Priorities block) needs `tools/` on the path; the tile one-liner needs `tools/ze0-viewer/tools_ze0` and three `.DAT` files; the P0 one needs `/home/marek/projekty/leafre-work/m5.34/report.json` hard-coded.
@@ -1282,6 +1288,7 @@ of the four numbers above says so in its first line.
   - Hints: `card_step` should read the report's booleans *and* print `counts.cardcheck_rc`, because the two can disagree (QA 16th pass: keys `cardcheck_ok`/`l2check_ok` exist beside nested `counts.cardcheck_rc`) — print both, never resolve silently.
   - Done when: `python3 tools/map_signals.py` prints the four numbers on this host; with `--factory-root` absent it prints `tile_bytes: NOT RUN (no factory tiles)` and still exits 0; `--json` carries the same keys the Priorities block uses; `--selftest` uses a tiny synthetic tile + a stub report; `selftest.py --only map_signals` PASS; the Priorities block can cite it as the one command.
   - Stop: if the reader-coverage parser is too coupled to the Markdown table to reuse, wrap it (`progress_report` stays the owner of the row semantics) and record that in the EXP; do not fork the parser.
+  - Result: `EXP-2026-11-19-H109-map-signals` (C-4400–C-4406). `tools/map_signals.py` prints `readers: located 6 partial 5 unlocated 7`, `l3_rows: l3-running 1`, `tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.28%`, `card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)`; absent `--factory-root` prints `tile_bytes: NOT RUN (no factory tiles)`, exit 0; `--json` carries the Priorities keys; `--selftest` (synthetic tile + stub report) `OK`; `selftest.py --only map_signals` `PASS`; the Priorities block cites it as the one command.
   - Claims: C-4400–C-4409
 
 - [ ] **H110 — the L4 row of the matrix is prose: M8.A2's boot numbers live only in the TODO block**
