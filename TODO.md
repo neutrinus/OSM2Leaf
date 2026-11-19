@@ -1572,7 +1572,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2120–C-2129, C-2540–C-2549
 
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.11b-point-byteorder · Critical: yes
   - Note (M9.38, 2026-11-19): the reader list is in. The walker reads the page with one 2-byte native load (`mov.w`, EU `0x003f519c` / US `0x0041db4c`) via the real dispatcher (`0x003f5cdc` / `0x0041e63c`), entry `0x003f5194` / `0x0041db44`. **The chunk-engine caller `fn 0x0041c044` is decode-only**: watching its destination `0x50000000` on EU `POINT010` shows writes only from the stubbed `memcpy` and **no guest read**; so the swap is not on the `.cmp` path. Watched VA per run: EU `0x50000000` (chain), page `0x20000000` (walk); C-3602–C-3605, EXP-2026-11-19-M9.38-read-watch.
   - Note (H51, 2026-11-11): answer it dynamically with **M9.38** (write/read watch on the page buffer, started from `fn 0x0041c044`, the `.cmp` caller found by H51) instead of a fourth static pattern.
   - Pair: pair
