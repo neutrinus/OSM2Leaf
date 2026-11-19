@@ -773,8 +773,8 @@ of the four numbers above says so in its first line.
   - Claims: C-3770–C-3779
   - Result: EXP-2026-11-19-H58-claims-runnable-evidence — `bad_evidence()` names 347 of 1,376 VERIFIED rows at `934d76e` (ellipsis 31, placeholder 19, inline 3, no-invocation 294), including C-3612/C-3613/C-3614/C-3711, not C-207/C-3510; Stop applied (347 ≫ 20): default and `--strict` (the gate) stay exit 0 and print the count, `--strict-evidence` exits 1; `--selftest` 47 checks. Enforcement in `--strict` handed to H53/H66 (C-3770–C-3775).
 
-- [ ] **H61 — `claims_check`: every cited EXP record must exist on `main`**
-  - Status: in progress · Owner: task/h61-claims-exp-exists · Critical: no · Pair: solo
+- [x] **H61 — `claims_check`: every cited EXP record must exist on `main`**
+  - Status: done · Owner: task/h61-claims-exp-exists · Critical: no · Pair: solo
   - Depends: — (`tools/claims_check.py` is on `main`); coordinates H58 (same tool, evidence *command*; this one checks the evidence *name*)
   - Goal: `claims_check.py` verifies IDs and annotations but never resolves the EXP record a row names, so a typo'd or absent record looks registered. Today `C-1900–C-1916` cite `EXP-2026-11-08-M4.8b-poi-refs` while the repo stores `EXP-2026-11-08-M4.8b-poi-refs.tsv` (7 rows), and `C-3033` cites `EXP-…-variants.tsv` (a `.tsv`, not a record); `C-3170–C-3175` cite the `.md` suffix in prose. A row must name a file that exists, or say why it has no record.
   - Precheck: `python3 -c "import re,glob,os;m={os.path.basename(p)[:-3] for p in glob.glob('docs/experiments/EXP-*.md')};n=[l.split('|')[1].strip() for l in open('docs/research/claims.md') if l.startswith('| C-') and any(not any(p==s or s.startswith(p+'-') for s in m) for p in [x.rstrip('.,;').removesuffix('.md') for x in re.findall(r'EXP-\d{4}-\d{2}-\d{2}-[A-Za-z0-9.\-]+',l)])];print(len(n),n[:4])"` prints `8 ['C-1900', 'C-1901', 'C-1902', 'C-1903']` — the `poi-refs` rows name a `.tsv`, `C-3033` names a `.tsv` with its suffix. (A loose match that also accepts `EXP-…-<slug>.<ext>` reports 0 and hides both; the rule below must therefore require a `.md` record or an explicit `companion:` in the row.)
@@ -784,6 +784,7 @@ of the four numbers above says so in its first line.
   - Done when: `python3 tools/claims_check.py --selftest` covers a row naming a missing EXP (fails), one naming a `.md` record (passes), one naming a `.tsv` next to its stem (passes) and a `-2` suffix (passes); default `claims_check.py` still exits 0 on the current ledger and prints the unresolved count; `--strict` (once H58 lands it) exits 1 and names at least `C-1900` and `C-3033`; `selftest.py` passes.
   - Stop: if H58's `--strict` has not merged, ship the warning mode plus `--selftest` and record in the EXP which rule H58 must pick up; do not fork a second ledger checker.
   - Claims: C-3810–C-3819
+  - Result: EXP-2026-11-19-H61-claims-exp-exists — `unresolved_exp_names()` names 8 rows at `fa7c8af` (C-1900–C-1906 `no-record`: only `poi-refs.tsv` exists; C-3033 `companion-unmarked`), not C-3170–C-3175; default and `--strict` (the gate) stay exit 0 and print the count, H58's `--strict-evidence` exits 1 naming C-1900 and C-3033 (H58's Stop kept `--strict` warning-only); `--selftest` 50 checks (C-3810–C-3815).
 
 - [x] **H62 — `fetch_image.py`: a `US256` head alias pinned to `70d945d8…`, so rule 11 holds for US tasks**
   - Status: done · Owner: task/h62-us256-alias · Critical: no · Pair: solo
