@@ -1,0 +1,36 @@
+role: driver (M3.27)
+model: deepseek-v4.1-flash-free
+start/end (UTC): 2026-11-19T13:11 / 2026-11-19T13:40
+origin/main SHA at start: 8922f97
+
+inputs read
+- AGENTS.md, prompt_common.txt, TODO.md rules 1–17
+- TODO.md M3.27 block, M3.5 (C-860–C-869), M1.26, M3.25/M9.13/M3.6 notes
+- docs/format/map-tiles.md, EXP-2026-11-06-M3.5-tile-reader, EXP-2026-11-06-M3.6, TEMPLATE.md
+- H92 EXP (the C-4580 block provenance), C-4156 row
+
+actions
+- claimed M3.27 (one-line TODO edit), pushed branch, draft PR #231.
+- pdata all three M3.5 VAs + the task's example VA: 0x0042757a is INSIDE 0x00427578; 0x0042c4b0 is INSIDE 0x0042c39c (not a reader).
+- built callgraph.py graph in ~/projekty/leafre-work/scratch/m3.27/g.json (12.99 s).
+- sh4xref --to for each of the three: exactly one call site each.
+- first reading was wrong: trusted callgraph's `callees` and read 0x0041e5e4/e64c/e6d0 as callers of 0x0041f26c. sh4xref --calls and a bsr decode showed those are literal-pool words read as bsr targets; corrected and recorded both readings in the EXP.
+- disassembled the three call sites and prologues; collected write-before-read evidence for r7 (VA1), r6 (VA2), r5/r6/r7 (VA3).
+- wrote docs/format/map-tiles.md §Reader entry arguments (entry table, call-site table, caller chain, M3.25 consequence).
+- wrote EXP-2026-11-19-M3.27-tile-reader-args with falsifier first, positive/negative controls, the correction of the caller list.
+- no fn/sub_ citations added (deliberate, to keep fn_audit snapshots untouched); verified with fn_audit --corpus/--overlay.
+- claim rows C-4580–C-4589 appended; C-4156's stale "H111's block is C-4580" fixed to H111's real block C-4490–C-4499.
+
+decisions
+- third entry recorded as 0x00427578 (pdata), 0x0042757a named as the M3.5 spelling; C-864 corrected in passing, not retracted.
+- r6 (VA1) and r7 (VA2) recorded as OBSERVED-but-UNKNOWN meaning, not blocked: the task's Stop applies to call-site disagreement, and there is only one static call site for each.
+- did not refresh fn_audit snapshots — nothing changed in them; refreshing would move hashes pinned by C-3661/C-3861 and is not the task's file scope.
+- did not add a task for the callgraph bsr bug (out of scope, recorded as EXP Follow-up).
+
+problems
+- callgraph.py reports in-function literal-pool words as bsr targets (misleading); cost one wrong reading before sh4xref settled it.
+- ~20 min lost discovering that the first `--scope docs` snapshot comparison went red only because I had labelled a table row `fn 0x…`; removed the label.
+
+handoff
+- navigator: check the register meanings against the disassembly blocks in the EXP; the r6/r7-UNKNOWN rows are the place to push if you see a use I missed.
+- PR #231 stays draft; task stays in progress, not done, not merged.

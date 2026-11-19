@@ -1897,6 +1897,7 @@ of the four numbers above says so in its first line.
   - Done when: `docs/format/map-tiles.md` has the entry table with a build name on every VA; every argument register names the caller that sets it; `python3 tools/claims_check.py --strict --count-check` green; `python3 tools/gate.py` 4 pass.
   - Stop: if two call sites genuinely disagree on a register and the code does not resolve it, record both readings and block the register, not the task.
   - Falsifier: a register is named from one caller while another caller loads a different base into it, and the table does not say so.
+  - Note (M3.27 driver, 2026-11-19): result is in `docs/format/map-tiles.md` §"Reader entry arguments" and EXP-2026-11-19-M3.27-tile-reader-args (C-4580–C-4589). `0x0042757a` is `INSIDE` `0x00427578`, so the third entry is `0x00427578`; all three have exactly one static call site and none takes a tile buffer (`r4` is a record pointer for `0x0041f26c`/`0x00427578`, a mesh id for `0x004259bc`), so M3.25/M9.13 should target or wrap `0x00425f40` rather than inventing the `(tile, dst)` prototype.
   - Claims: C-4580–C-4589
 
 ## M4 — Data formats (no firmware or hardware needed)
