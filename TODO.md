@@ -1488,11 +1488,11 @@ of the four numbers above says so in its first line.
   - Claims: C-830–C-839
 
 - [ ] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.3-ind-variants · Critical: yes
   - Depends: M3.2, M9.5
   - Done when: accept/reject per variant is recorded and compared with
     `cmpind.py`.
-  - Claims: C-840–C-849
+  - Claims: C-5340–C-5349 (was C-840–C-849; fresh block for this run)
 
     `CMP.LST` (count, order, sentinel, leading `u32 = 0x2f`), which M5.6 must
     satisfy.
