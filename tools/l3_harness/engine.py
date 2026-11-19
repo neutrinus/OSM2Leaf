@@ -1105,13 +1105,17 @@ class PySh4(Backend):
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, rm)
         elif sub == 0x7:                                 # div0s Rm,Rn
+            # M (SR bit 2) = Rn bit 31, Q (SR bit 1) = Rm bit 31, T = 0.
             self._arm = "div0s"
-            self._set_t(bool(rn & 0x80000000))
             if rn & 0x80000000:
+                regs["sr"] |= 0x4
+            else:
+                regs["sr"] &= ~0x4
+            if rm & 0x80000000:
                 regs["sr"] |= 0x2
             else:
                 regs["sr"] &= ~0x2
-            regs["sr"] &= ~0x1
+            self._set_t(False)
         elif sub == 0x8:                                 # tst
             self._arm = "tst"
             self._set_t((rn & rm) == 0)
@@ -1563,6 +1567,7 @@ class PySh4(Backend):
         elif (insn & 0xF) == 0x5:                        # mov.w Rm,@(R0,Rn)
             self._store((regs["r0"] + rn) & M32, 2, rm)
         elif (insn & 0xF) == 0x6:                        # mov.l Rm,@(R0,Rn)
+            self._arm = "mov.l_m_at_r0_plus_n"
             self._store((regs["r0"] + rn) & M32, 4, rm)
         elif (insn & 0xF) == 0xC:                        # mov.b @(R0,Rm),Rn
             regs["r%d" % n] = self._load_signed((regs["r0"] + rm) & M32, 1)
@@ -2632,6 +2637,101 @@ def test_endian_argument():
         pass
     else:
         raise AssertionError("endian='middle' was accepted")
+
+
+@check("pysh4: distinct registers -- every modelled form, no operand hiding")
+def test_distinct_register_forms():
+    """One row per modelled form, with ``Rn``, ``Rm`` and ``R0`` distinct.
+
+    Values are chosen so a register mix-up *and* an ``n == 0``/``m == 0``
+    hiding trick both change the result -- the three pre-M9.37 defects
+    survived because the old tests used zero operands.  Each row's opcode is
+    also decoded independently by ``decode_fields`` and must name the same
+    form and the same ``(n, m)`` register fields the row expects, so the
+    table is checked against the manual encoding, not against the executor.
+    """
+    D = 0x8C100000
+    N, M = 11, 5
+    VN, VM, V0 = 0x00001234, 0x00000102, 0x00005678
+    M32 = 0xFFFFFFFF
+
+    def rr(top, sub, n, m):
+        return (top << 12) | (n << 8) | (m << 4) | sub
+
+    def fresh(**extra):
+        e = PySh4(endian="big")
+        e.map("mem", D, bytearray(0x600), "rw")
+        e.map("code", 0x8C000000, 4, "rwx")
+        base = {"r0": V0, "r%d" % N: VN, "r%d" % M: VM,
+                "r15": D + 0x400, "pc": 0x8C000000, "mach": 0, "macl": 0, "sr": 0}
+        base.update(extra)
+        e.set_regs(**base)
+        return e
+
+    rows = [
+        ("sub", rr(0x3, 0x8, N, M), (N, M), {"r%d" % N: (VN - VM) & M32}, []),
+        ("add", rr(0x3, 0xC, N, M), (N, M), {"r%d" % N: (VN + VM) & M32}, []),
+        ("and", rr(0x2, 0x9, N, M), (N, M), {"r%d" % N: VN & VM}, []),
+        ("xor", rr(0x2, 0xA, N, M), (N, M), {"r%d" % N: VN ^ VM}, []),
+        ("or", rr(0x2, 0xB, N, M), (N, M), {"r%d" % N: VN | VM}, []),
+        ("mulu.w", rr(0x2, 0xE, N, M), (N, M),
+         {"macl": (VN & 0xFFFF) * (VM & 0xFFFF) & M32}, []),
+        ("mov", rr(0x6, 0x3, N, M), (N, M), {"r%d" % N: VM}, []),
+        ("not", rr(0x6, 0x7, N, M), (N, M), {"r%d" % N: ~VM & M32}, []),
+        ("extu.b", rr(0x6, 0xC, N, M), (N, M), {"r%d" % N: VM & 0xFF}, []),
+        ("exts.b", rr(0x6, 0xE, N, M), (N, M), {"r%d" % N: _sx(VM, 8) & M32}, []),
+        ("neg", rr(0x6, 0xB, N, M), (N, M), {"r%d" % N: (-VM) & M32}, []),
+        ("shld", rr(0x4, 0xD, N, M), (N, M),
+         {"r%d" % N: (VN << (VM & 31)) & M32}, []),
+        ("mul.l", rr(0x0, 0x7, N, M), (N, M),
+         {"macl": (VN * VM) & M32, "mach": 0}, []),
+        ("mac.l", rr(0x0, 0xF, N, M), (N, M),
+         {"mach": ((VN * VM) >> 32) & M32, "macl": (VN * VM) & M32}, []),
+        ("div0s", rr(0x2, 0x7, N, M), (N, M), {"sr": 0}, []),
+        ("mov.l Rm,@(R0,Rn)", rr(0x0, 0x6, N, M), (N, M), {},
+         [(D + 0x110, VM.to_bytes(4, "big"))],
+         {"r0": D + 0x10, "r%d" % N: 0x100}),
+        ("mov.l Rm,@-Rn", rr(0x2, 0x6, N, M), (N, M),
+         {"r%d" % N: (D + 0x200 - 4) & M32},
+         [((D + 0x200 - 4) & M32, VM.to_bytes(4, "big"))],
+         {"r%d" % N: D + 0x200}),
+    ]
+
+    for row in rows:
+        label, opcode, (rn, rm), expect_regs, expect_mem = row[:5]
+        setup = row[5] if len(row) > 5 else {}
+        engine = fresh(**setup)
+        for address, data in expect_mem:
+            engine.write_mem(address, data)
+        engine._execute(opcode, 0x8C000000)
+        form, trn, trm, _d = decode_fields(opcode)
+        _expect_equal(engine._arm, form, f"{label}: executor arm vs decode table")
+        _expect_equal((trn, trm), (rn, rm),
+                      f"{label}: decode_fields register fields")
+        snap = engine.get_regs()
+        for name, value in expect_regs.items():
+            _expect_equal(snap[name], value, f"{label}: {name}")
+        for address, data in expect_mem:
+            _expect_equal(bytes(engine.read_mem(address, len(data))), data,
+                          f"{label}: memory at {px(address)}")
+
+    # div0s sets T from Rn bit 31 and Q (sr bit 1) from Rm bit 31.
+    for rn_v, rm_v, want in ((0x80000000, 0, 0b100), (0, 0x80000000, 0b010),
+                             (0x80000000, 0x80000000, 0b110)):
+        e = fresh()
+        e.set_regs(**{"r%d" % N: rn_v, "r%d" % M: rm_v, "sr": 0})
+        e._execute(rr(0x2, 0x7, N, M), 0x8C000000)
+        _expect_equal(e.get_regs()["sr"] & 0b110, want,
+                      f"div0s M/Q from Rn={px(rn_v)} Rm={px(rm_v)}")
+        _expect_equal(e.get_regs()["sr"] & 1, 0, "div0s clears T")
+
+    # mov.w r0,@(disp,Rm): Rn is bits 7-4; r0 holds the value, not the base.
+    engine = fresh(r0=0x0000_ABCD, **{"r%d" % M: D + 0x40})
+    base = engine.get_regs()["r%d" % M]
+    opcode = 0x8100 | (M << 4) | 0x3                    # mov.w r0,@(6,Rm)
+    engine._execute(opcode, 0x8C000000)
+    _expect_equal(bytes(engine.read_mem(base + 6, 2)), b"\xab\xcd",
+                  "mov.w r0,@(disp,Rm) stores through Rm, not r0")
 
 
 def _run_with_alarm(seconds: int, func, *args, **kwargs):
