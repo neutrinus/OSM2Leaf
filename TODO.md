@@ -824,7 +824,7 @@ of the four numbers above says so in its first line.
   - Claims: C-3780–C-3789
 
 - [ ] **H65 — `progress_report`: its L4 prerequisite names an ID that is no longer a block**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h65-progress-l4-prereq · Critical: no · Pair: solo
   - Depends: — (`tools/progress_report.py` is on `main`); coordinates H60 (the same live/archived/ghost distinction, for one hard-coded ID)
   - Goal: every default `progress_report.py` run prints `Parse/input problems — TODO.md: task M8.A1 not found`, because `L4_PREREQ` hard-codes `M8.A1` while `M8.A2`'s block now says `Depends: — (M8.A1, M8.A4 and M8.A5 are merged)` and the block is gone. The dashboard therefore cannot show a checked L4 prerequisite, and a reader cannot tell "missing from this TODO" from "this TODO is broken". QA 2026-11-16 hit it on the first post-#171 run.
   - Precheck: `python3 tools/progress_report.py | grep -n 'M8.A1'` prints the problem line and `prereq 'M8.A1': checked=None · None`; `grep -c '\*\*M8.A1' TODO.md` prints 0.
