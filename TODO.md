@@ -508,7 +508,8 @@ of the four numbers above says so in its first line.
   - Tool: `cerom.py files --extract --decompress` writes stored bytes,
     classifies OK/UNSUPPORTED/FAIL and never writes a wrong-length decode
     (EXP-55, C-573); EXP-51 says the real payload is not a stdlib format.
-  - Status: blocked · Owner: task/m1.4-extract-filesentry-payloads · Critical: no
+  - Status: open · Owner: — · Critical: no
+  - Note (M1.21, 2026-11-19, rule 15): M1.21 decodes every compressed `FILESentry` payload with the kernel routine (`nk_decomp.py files`, B 8/8, C 7/7, `r0 == rsize`); what is left here is `cerom.py files --decompress` wiring / `extract-file NAME`. The `Blocker:` line below is historical.
   - Note (H51, 2026-11-11): re-opened as **M1.21**: try the kernel routine (`nk_decomp.decompress`) on the `FILESentry` payloads.
   - Blocker: all 8 compressed build-B FILESentry payloads carry CE-LZXD block marker `0x8d80805b` and no public/stdlib `cecompress` method decodes them (0 matches, 8 UNSUPPORTED); M1.2b/c path does not suffice, so `rsize`-length decode / readable `ceconfig.h` cannot be produced without the CE-LZXD codec (M1.2f blocked, M8.E1 runtime unavailable in session).
   - Unblock: **M1.21** (the H51 re-scope: decode the `FILESentry` payloads with the kernel routine `tools/nk_decomp.py`, which already decodes 245/245 build-A sections). `M1.2f`/`M8.E1` are superseded (H51) and must not gate this task (H81 closes them). Then decode to `rsize`, add `extract-file NAME` if still desired, verify build C.
@@ -1129,8 +1130,9 @@ of the four numbers above says so in its first line.
   - Stop: a module with no exception directory is listed as such, not guessed.
   - Claims: C-3510–C-3519
 
-- [ ] **M1.21 — Decode the compressed `FILESentry` payloads with the kernel routine (re-opens M1.3/M1.4)**
-  - Status: in progress · Owner: task/m1.21-filesentry-decode · Critical: no
+- [x] **M1.21 — Decode the compressed `FILESentry` payloads with the kernel routine (re-opens M1.3/M1.4)**
+  - Status: done · Owner: task/m1.21-filesentry-decode · Critical: no
+  - Result: `nk_decomp.py files` (kernel `DECOMP_SECT`, section frame, no file-specific header) decodes every compressed `FILESentry`: build B 8/8 and build C 7/7 on EU2011 and US2011 (`r0 == rsize`; `ceconfig.h` text, `celog.dll` MZ, three `EKIM` hives); build A has one stored file and none compressed; a 1- or 3-byte shifted payload fails. `tools/cehive.py` parses the hives (0 dangling links). `docs/research/rom-registry.md`: main SD slot = `SDHC.dll` port 0 → `SDProfile` → `\SystemSD`; `Navi.exe` is not in the registry — `init` starts `device.exe`/`gwes.exe`, which loads `AppLaunch.dll` (`Drivers\BuiltIn\AppLch`) whose compiled-in table names `\windows\Navi.exe`. M1.4 re-opened (rule 15); follow-up **M1.34**. EXP: `docs/experiments/EXP-2026-11-19-M1.21-filesentry-decode.md`. Claims C-3520–C-3527.
   - Depends: — (H51)
   - Goal: read the ROM *files* of builds A/B/C (registry hives, `.lnk`, `initflashfiles.dat`, bitmaps, text), which M1.4 could not extract. They tell which drivers and paths the unit uses for the SD card and the map (`\SystemSD\…`), and M8 needs the registry.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 files | head` lists `FILESentry` rows with `nRealFileSize` ≠ `nCompFileSize`.
@@ -1139,7 +1141,7 @@ of the four numbers above says so in its first line.
   - Hints: try first exactly as for a section (`skip=0, step=1, block=0x1000`). If `r0 = -1`, read the caller of the file path: `sh4xref.py IMG256 nk.exe --image-start 0x3e00200 --to 0x88037590` (`DECOMP_WRAP`) lists every caller; the one that is not the section loader `0x880385e4` is the file reader and shows the arguments it passes (a per-page call with `skip = page*0x1000` is the usual shape). Positive control: a file whose type has a magic (`BM`, `regf`, UTF-16 text, `MZ`).
   - Done when: the EXP lists every `FILESentry` with `real size / decoded length / sha256 / magic`, at least one file per build decodes to a recognisable type, and a short `docs/research/` note names the registry keys that mention `SystemSD`, the SD driver and the Navi launch.
   - Stop: if no argument set decodes a file with a known magic, write the caller's argument trace and stop.
-  - Claims: C-3520–C-3529
+  - Claims: C-3520–C-3527 (C-3528–C-3529 handed to M1.34)
 
 - [x] **M1.22 — The US firmware build: module census and EU→US function map**
   - Status: done · Owner: task/m1.22-us-census · Critical: yes · Pair: required
@@ -1383,6 +1385,17 @@ of the four numbers above says so in its first line.
   - Done when: `tools/gate.py` runs `claims_check --prose-counts`; `gate.py --selftest` proves a seeded stale `prints N` row gives `FAIL exit 1` and a clean ledger `PASS`; the real `python3 tools/gate.py` prints `gate: 4 pass, 0 fail, 0 skip`; the C-927/C-1023 rows are either measured or listed in the gate output as skipped.
   - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
   - Claims: C-4490–C-4499
+
+- [ ] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.21 (done)
+  - Goal: M1.21 found that `Navi.exe` is started by `AppLaunch.dll` (build B, loaded as `Drivers\BuiltIn\AppLch`) from a compiled-in table, not from the registry, and that the same module opens `\SystemSD\VER_INFO\HDD_INFO.TXT` and prints `MapDBVer : %d <= [%d] <= %d`. Name the table's record layout, the function that walks it, and the order of the SD/map-version checks before `Navi.exe` starts, so a generated card's `VER_INFO` can be checked against the gate.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections AppLaunch.dll` shows an uncompressed code section at `realaddr 0x03bb1000` (EU2011); `python3 tools/sh4xref.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --to 0x03bc92f0` (`HDD_INFO.TXT`, EU2011) lists loads in `fn 0x03bd2ad8` and `fn 0x03bd2ce4`, while `--to 0x03bc0f54` (`\windows\Navi.exe`) prints `No literal pool holds` — the Navi entry is reached through a data table, not a code literal (M1.21 session, 2026-11-19).
+  - Scope: build B `AppLaunch.dll` (EU2011; US2011 build B is byte-identical); the launch table and the `HDD_INFO.TXT`/`MapDBVer` path. Not: the error screens already in `docs/format/validation.md`, not Navi.exe itself.
+  - Input: EXP-2026-11-19-M1.21-filesentry-decode (string VAs `0x03bc0f54`, `0x03bc92f0`, `0x03bc9360`, EU2011), `docs/research/rom-registry.md`, `docs/format/validation.md` (AppLaunch router `fn 0x03bd2ecc`), `tools/sh4xref.py`, `tools/sh4dis.py`, `tools/nk_decomp.py pdata --module AppLaunch.dll`.
+  - Done when: an EXP names the table base, record size and the fields for the `Navi.exe` record (EU2011 VAs, function starts checked with `nk_decomp.py pdata`), and the function that opens `HDD_INFO.TXT` with the comparison it makes; `docs/research/rom-registry.md` gains the result.
+  - Stop: if no static reference to the table is found after the string-pool and `.data` search, record the negative with the positive control (a `\Drivers\Launch\SD` reference) and block on an L3 run of the router.
+  - Claims: C-3528–C-3529
 
 ## M2 — Map code, activation, updater
 
