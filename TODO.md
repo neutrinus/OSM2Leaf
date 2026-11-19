@@ -1478,7 +1478,7 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-06-M3.10-drstr-cmplst-fns (C-1860–C-1869). `0x0041ba90` (CMP.LST) does only `fopen`/`fclose` — no content read/compare (existence check). `0x00419684`→`sub_00419350` reads/parses DRSTR001 (heap `*0x009cfcdc` ≤`0x77220`, stack 40B) with size/read checks at `0x419388,0x4193da,0x4193e4,0x419462-0x419468,0x419496-0x4194a6` (`_modlu`/`>=200` caveat noted) but **no 0x2f root / 40-node / 324-entry compare found** (C-1864, strengthens C-859); `sub_004191d0` bounds `entry_count+1 < 15000` at `0x41920a`. All in `Navi.exe`, coredll ordinals named. `drstr.md` updated.
 
 - [ ] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.2b-cmp-chunk-reader · Critical: yes
   - Note (H51, 2026-11-11): **re-opened: the search target was wrong, not the method.** `0x0041c7e8` is the seventh instruction of `fn 0x0041c7dc` (pdata: prologue 30 B, length `0xe8`); nothing references a mid-prologue address. `python3 tools/sh4xref.py IMG256 Navi.exe --image-start 0x200200 --to 0x0041c7dc` → pool `0x0041caac`, caller **`fn 0x0041c990`** (`jsr` at `0x0041ca5a`), whose caller is **`fn 0x0041c044`** (`jsr` at `0x0041c096`). Next: disassemble `0x0041c990` (length `0x120`) — it is the loop over the chunk table and should answer M3.2 (chunk size source, seek vs scan); walk up from `0x0041c044` to the function that opens the `.cmp`/`.ind` pair (M3.23 `callers`). Then fix `FN_CHUNK` in `tools/chunk_decoder_l3.py` to the true entry (H52) and re-run M9.11. No sec1 decode is needed for any of this.
   - Depends: — (**not** M1.2f for the code: no executable section of build A is
     compressed, C-2128)
@@ -1527,7 +1527,7 @@ of the four numbers above says so in its first line.
     `UNSUPPORTED` by `cerom decompress` (C-2067); `.ind` consumer/indirect
     caller unresolved, M3.2a/b open (C-2066 refined). Pass 1:
     EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate.md.
-  - Claims: C-2060–C-2069
+  - Claims: C-5100–C-5109 (was C-2060–C-2069; fresh block for this run)
 
 - [x] **M3.11 — The `POINT` record reader in `Navi.exe`**
   - Status: done (walk; name-copy split to M3.11c, byte order to M3.11b)
