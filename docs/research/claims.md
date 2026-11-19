@@ -3787,6 +3787,7 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3767 | `14` (EU 2011 and EU 2014, last in both lists) selects no speech set and no build's table returns it; its language is UNKNOWN. Refutes the C-2496 reading "`04` is English". | UNKNOWN | — | C-3762, C-3765 |
 | C-3768 | `tools/lang_code_table.py` locates both tables from the image (log-string xref, pdata, `braf` switch decode) with no per-build input; `--selftest` 17/17 on synthetic switches and rows. | VERIFIED (tool) | H | `python3 tools/lang_code_table.py --selftest` |
 | C-3769 | Scope: four CE build-A heads (Navi.exe/Speech.exe uncompressed sections; `rows` over 4 × 268,435,456 stored bytes), three cards; EU 2016 card side not re-read; compressed sections not scanned. | VERIFIED (scope) | H | same EXP §Method 4 |
+
 ## M5.39 — `l2check --tiles` rejects names that are not files (C-4290–C-4299)
 
 | ID | Claim | Status | Confidence | Evidence |
