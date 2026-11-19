@@ -282,6 +282,20 @@ marker; rec0 at `+0x5e`, 999/1000 on page `0x840ba0`).
 Open: M3.11b (byte order / page swap). Full end-to-end PySh4 of field 5 on
 rec0 requires HDLMAP page context in compressed `.data` (M1.2f/M8.E1) → M9.10.
 
+**M3.11c pass 2 (EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5116, done):**
+the "`.data` context" is the BSS slot table, and the M3.22 writer fills it. The resolver
+`fn 0x003f51e0` maps `db` (= the page, slot `+0x1c`) to its companion slot `+0x20`,
+which points to the file's **field dictionary** (one block per `POINT` `.DAT`:
+`u16[0]=0xffff`, `D = C + 2*u16[C+2]`, `u16[D+26]` = 9 fields, chained entries with the
+id at `+12`). `fn 0x003f56bc` finds the record's field area
+(`rec + 2*(hi+lo+8)` of `u16[rec+10]` for header class 3/2). That area starts with one
+length byte per field, in words, and `fn 0x003f5e10` adds them up to reach field 5. PySh4
+(`tools/point_name_accessor.py run`) returns US2011 record 0 = `+0x5e`, 9 words,
+`HANA HEALTH CENTER` (US2011 `0x0041ec8c`/`0x0041e7d8`). After the M5.12 rename it
+returns `OSM2LEAF TEST POI1`. Name + field 6 (address) split the display text on
+1000/1000 records per build. The returned offsets point into the swapped page;
+the byte order of the text is M3.11b.
+
 **M3.13 (EXP-2026-11-06 pass 1, EXP-2026-11-08 pass 2, C-2180–C-2187, partial):**
 `ADDRE`/`REFER001` access path confirmed (C-2180, Navi.exe sec0, A):
 `fn 0x004125a8` maps type `0x14e8` → `REFER001`+`INDEX003.DAT` (C-880);
@@ -323,6 +337,33 @@ struct fields `@(20/24,rX)` from `@r10/@r11/@r15`; computed word; global deref
 remain UNKNOWN**; Done-when unmet (no L3 run/writer-inverse reproducing >=1
 entry, M9.35). Unblock: M9.35 IAT-bound L3 of populate writers to observe slot
 mutations and derive schema (see EXP-2026-11-10-M3.22-bss-table-writer).
+
+**M3.22 pass 2 (EXP-2026-11-19-M3.22-d53500-writer-l3, C-5120–C-5127, done):**
+the "table" is **one structure of 4-byte page-pointer slots**, 46 words (`0xb8` B) at
+`0x00d53500` in EU2011 and 44 words (`0xb0` B) at `0x00c81100` in US2011, not an array
+of records. A reader finds a page's family by comparing the page pointer with the
+slots; the POINT dispatcher `fn 0x003f5cdc` (EU2011) sends `[+0x0c]`/`[+0x14]`/`[+0x24]`
+(n=0) back as the page, `[+0x2c]`/`[+0x70]` to `0x003f5b88`, `[+0x1c]`/`[+0x50]`/`[+0x60]`/
+`[+0x80]`/`[+0x88]`/`[+0x90]` to the walker `0x003f5194`, the rest to `0x003f39c0`.
+The populate writers are the cases of the task-message switch `fn 0x003ff6a0` (EU2011;
+US2011 `0x0042780c`) on message type `@(ctx+104)`:
+
+| type | writer EU2011 (US2011) | slots written (static + L3) |
+| --- | --- | --- |
+| `0x14cc`, `0x14d0`, `0x14d3` | `fn 0x003fc9c8` (`0x0042533c`) | `+0x04`, `+0x7c` |
+| `0x14cd`, `0x14d1` | `fn 0x003fcbf0` (`0x004226f0`) | `+0x2c`, `+0x80`, `+0x9c` |
+| `0x14e4` | `fn 0x003fd390` (`0x00425564`) | `+0x0c..+0x18`, `+0x2c`, `+0xb0` (u16), `+0xb4` |
+| `0x14ef` | `fn 0x003faf04` (`0x00423ba8`) | `+0x1c` = `*(*(0x014a98e0)+20)` (L3), `+0x20` via `0x0040e9dc` |
+| `0x14f0` | `fn 0x003faf04` (`0x00423ba8`) | `+0x38` = `*(*(0x0154ade0)+20)`, `+0x3c` |
+
+Also `fn 0x003fe774` (`+0x2c`) and `fn 0x00412c60` (`+0x0c..+0x18`, `+0xb0`, `+0xb4`);
+clear routines `fn 0x0040dfa8`, `fn 0x00415fe8`, `fn 0x0040e510` (EU2011). The global
+in `*(G)+20` is chosen by the type leaf `0x0040e858` (EU2011; US2011 `0x004368b0`,
+`0x14ef → 0x01319780`). PySh4 run (`tools/d53500_writer.py writer`): with
+`G+0 → OBJ`, `OBJ+20 → factory POINT010 page`, the writer fills `+0x1c` and the real
+dispatcher returns record 1 at `+0x4e` (EU2011) / `+0x80` (US2011), equal to the walker
+alone. Pass-1 label corrections: load `0x00412d12` is in `fn 0x00412c60`, `0x0040e5c0`
+in `fn 0x0040e510`, `0x003f601a` in `fn 0x003f600c` (pdata).
 
 **Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
 `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to
@@ -564,7 +605,7 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | POINT skip walker (globals) | `0x003f39c0` | `0x0041c370` | masked-form twin; same global offsets, moved page-base cell |
 | POINT dispatcher | `0x003f5cdc` | `0x0041e63c` | identical body; its own pool names the two walkers in the same order, which is how the skip walker above was disambiguated from the nth reader |
 | CMP chunk engine | `0x0041c7dc` | `0x00444540` | masked-form twin (111/111 halfwords); its own pool names the relocated helpers |
-| zlib `inflate_mask[17]` | `0x00574de0` | `0x005987b0` | the `shll2 r2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site, unique per build |
+| zlib `inflate_mask[17]` | `0x00574de0` | `0x005987b0` | the `shll2 r2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site, unique per build; both slots are `INIT` and the 17 words read from the `nk_decomp`-decoded sec1 equal `2^n - 1` (`chunk_decoder_l3.py run … --sec1 read-mask`, M9.40) |
 | zlib `zcalloc`/`zcfree` | `0x00543a98`/`0x00543aa8` | `0x00565d94`/`0x00565da4` | the 6-halfword trampoline shape, one calloc and one free hit per build |
 | POINT globals base/count/page | `0x00d5e4c0`/`0x00d5e4d0`/`0x00d5e4e4` | `0x00c8c0c0`/`0x00c8c0d0`/`0x00c8c0e4` | the skip walker's own pool; same offsets inside the RW block, moved block |
 | POINT escape record length (halfwords) | `0x4e8` | `0x4d8` | the nth reader's one differing pool word |
@@ -1187,15 +1228,15 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
 | `0x00417ea0` | fn | `0xc` | thunk: `0x41a600` volume-present test -> return |
 | `0x00417eac` | fn | `0xdc` | volume record set: swap `u8` pairs in `r8+0x20`, warn |
 | `0x00417f88` | fn | `0x58` | volume record get: `r4+42` kind -> 0/1/3 status |
-| `0x00417fe0` | fn | `0x110` | `*.cmp` open by name; `".cmp"` @`0x0017a8a8`, write mode |
+| `0x00417fe0` | fn | `0x110` | open by name for a read: path `0x418dfc`; flag 0 -> `+".cmp"` plain, flag 1 -> `0x41b780(path,1)`; `"rb"` (C-5101) |
 | `0x004180f0` | fn | `0x60` | lookup volume record `(hi:lo)` in `0x18d50`, state test |
 | `0x00418150` | fn | `0x88` | lookup volume record variant, returns `u16` field |
 | `0x004181d8` | fn | `0x244` | big open/dispatch: state `0x41a3b8`, `0x41aaf4`, `0x41a600` |
 | `0x0041841c` | fn | `0xc` | external entry stub -> `0x4181d8` |
 | `0x00418428` | fn | `0x6c` | external entry: OSMDLL #19/#20, `0x41a7e4` |
 | `0x00418494` | fn | `0xc8` | debug dump via `0x417a5c` (stdio through it) |
-| `0x0041855c` | fn | `0xd8` | open/read by name: `0x41b954`, `0x41b8a4`, `0x417d48` |
-| `0x00418634` | fn | `0xc8` | open+seek+read/write trio wrapper, memset |
+| `0x0041855c` | fn | `0xd8` | read request: open `0x417fe0`, seek `(sector<<11)+off` `0x41b8a4`, loop `0x41b954` (C-5106) |
+| `0x00418634` | fn | `0xc8` | serve one queued 48-B request (`0x00e8d8e0`): `0x41855c(+20..+36, flag u16 +46)`, reply `0x4179c8` |
 | `0x004186fc` | fn | `0x4c` | clear volume index: memset `0x1c20` + `0x668a0` B, `0x009cfcd4` |
 | `0x00418748` | fn | `0x2c8` | `.ind`/`.IND` `FindFirstFileW` scan, volume lookup |
 | `0x00418a10` | fn | `0x7c` | read 40-byte record: seek `idx*40+40`, fread 40 |
@@ -1271,33 +1312,33 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
 | `0x0041b650` | fn | `0x4c` | `fclose` wrapper, release io descriptor |
 | `0x0041b69c` | fn | `0x4c` | `ftell` wrapper, release io descriptor |
 | `0x0041b6e8` | fn | `0x98` | block-size init (40<<8 / 50), `memSize` dump |
-| `0x0041b780` | fn | `0x9c` | write-open by name (`"wb"` default), CS-wrapped |
+| `0x0041b780` | fn | `0x9c` | open wrapper `(path, flag)`: flag 0 -> `fopen` `"rb"`; else `.cmp` manager `0x41bed4` (C-5101) |
 | `0x0041b81c` | fn | `0x88` | close/release, `.CMP` close path |
-| `0x0041b8a4` | fn | `0xb0` | read/write by cluster bytes, recursive |
+| `0x0041b8a4` | fn | `0xb0` | seek wrapper `(h, off, whence, flag)`: `fseek` or `.cmp` seek `0x41bfb4` |
 | `0x0041b954` | fn | `0xd4` | read buffer via chunk engine (`0x41c044`) or fread |
 | `0x0041ba28` | fn | `0x68` | file-size probe: ftell, seek 2, restore |
-| `0x0041ba90` | fn | `0x15c` | `CMP.LST` existence check + volume-chain init |
+| `0x0041ba90` | fn | `0x15c` | mount: `CMP.LST` probe, `.cmp` manager config (50/20/`0x20000`/`0x10000`/`0x14000`, ops table) (C-5104) |
 | `0x0041bbec` | fn | `0x74` | debug logger (`NKDbgPrintfW`, `ErrorLogMsg`) |
 | `0x0041bc60` | fn | `0x38` | size round-up wrapper -> `0x41c0cc` |
-| `0x0041bc98` | fn | `0xf0` | node fill: align args, `0x41c190` walk |
-| `0x0041bd88` | fn | `0x98` | critical-section-wrapped node insert |
+| `0x0041bc98` | fn | `0xf0` | `.cmp` manager init: 50 handle slots of `0x118` B, ops copy, ctx `0x41c190` |
+| `0x0041bd88` | fn | `0x98` | critical-section-wrapped `.cmp` manager create (`0x41bc98`) |
 | `0x0041be20` | fn | `0x10` | `DeleteCriticalSection` only |
-| `0x0041be30` | fn | `0xa4` | lookup+insert node (strlen, `0x41c524`) |
-| `0x0041bed4` | fn | `0x60` | CS-wrapped read: `0x41ba90` then `0x41be30` |
-| `0x0041bf34` | fn | `0x80` | CS-wrapped write: `0x41cae8` leaf |
-| `0x0041bfb4` | fn | `0x90` | CS-wrapped op: `0x41cab0` leaf |
-| `0x0041c044` | fn | `0x88` | CS-wrapped chunk read: `0x41c990` |
+| `0x0041be30` | fn | `0xa4` | `.cmp` open: free slot, `CMP.LST` match `0x41c2e0` -> `0x41c524` or plain open; `u16 +0x116` = compressed (C-5101) |
+| `0x0041bed4` | fn | `0x60` | CS-wrapped `.cmp` open -> `0x41be30` |
+| `0x0041bf34` | fn | `0x80` | CS-wrapped `.cmp` close -> `0x41cae8` |
+| `0x0041bfb4` | fn | `0x90` | CS-wrapped `.cmp` seek -> `0x41cab0` (logical position) |
+| `0x0041c044` | fn | `0x88` | CS-wrapped `.cmp` read: `u16 +0x116` 0 -> plain read, 1 -> `0x41c990` |
 | `0x0041c0cc` | leaf | `0x58` | LEAF: slot-size walk, `(count+16)*20` + 4-aligned fields |
-| `0x0041c124` | fn | `0x6c` | indirect ops-vtable call through struct in `r7` |
-| `0x0041c190` | fn | `0x150` | index-block walk over `r4`, `0x41cb1c` leaf |
-| `0x0041c2e0` | fn | `0x124` | path compare: `strlen`, case fold, 73/74-word ctx |
-| `0x0041c404` | fn | `0x70` | `.IND` path build + entry lookup (`0x41d114`) |
-| `0x0041c474` | fn | `0xb0` | `.IND` read 16-byte header via ops vtable |
-| `0x0041c524` | fn | `0xcc` | `.CMP` open via `0x41c474`, `0x41cb1c` leaf |
-| `0x0041c5f0` | fn | `0x1ec` | chunk-table build: 20-B stride, tag check, fill |
+| `0x0041c124` | fn | `0x6c` | read a whole file via ops (open/size/read/close): loads `CMP.LST` at mount (C-5103) |
+| `0x0041c190` | fn | `0x150` | `.cmp` reader ctx init: entries, buffers `0x14000`/`0x10000`, `.IND` cache `0x41cb1c` (C-5104) |
+| `0x0041c2e0` | fn | `0x124` | `CMP.LST` match: NUL-separated, `\`-terminated entry = directory, A-Z fold (C-5103) |
+| `0x0041c404` | fn | `0x70` | whole `.IND` (`path+".IND"`) through the name-keyed cache `0x41d114`/`0x41d084` |
+| `0x0041c474` | fn | `0xb0` | 16-byte `.IND` header: cache or ops open/read 16/close |
+| `0x0041c524` | fn | `0xcc` | `.cmp` handle open: `.IND` header, `.ind` size `(count+4)*4`, `fopen(path+".CMP","rb")` (C-5101) |
+| `0x0041c5f0` | fn | `0x1ec` | loop over `chunk_offset[]`: 20-B entries `+0` off, `+4` clen, `+8` `i*chunk`, `+12` extent; `chunk==0x10000` (C-5102) |
 | `0x0041c7dc` | fn | `0xe8` | per-chunk one-shot zlib `0x00542148` + `memcpy` |
-| `0x0041c8c4` | fn | `0xcc` | `.ind` header decode (`_divlu`/`_modlu`), tag, count |
-| `0x0041c990` | fn | `0x120` | chunk-load driver: decode, build, seek, inflate loop |
+| `0x0041c8c4` | fn | `0xcc` | `.ind` header: `chunk==0x10000` check, first/last chunk index (`_divlu`/`_modlu`) |
+| `0x0041c990` | fn | `0x120` | chunk read driver: index, entries `0x41c5f0`, seek+one read of the batch, inflate `0x41c7dc` (C-5102) |
 
 ### Block boundaries and the controls that bound it
 
