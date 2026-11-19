@@ -1873,7 +1873,7 @@ of the four numbers above says so in its first line.
   - Claims: C-3310–C-3319
 
 - [ ] **M3.22 — Who writes the `0x00d53500` table (HDLMAP / RDSTM schema)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.22-d53500-writer · Critical: yes
   - Note (H51, 2026-11-11): **re-opened (rule 15): its Unblock M9.35 merged on 2026-11-10 and the board did not turn it back.** Two corrections before the L3 run: `0x00412bee`→`fn 0x00412ac0` is not a function — it is inside `fn 0x00412ac0` (pdata: prologue 18 B, length `0x1a0`), whose only static caller is `fn 0x00413a6c` (`jsr` at `0x00413af4`) — enter there, with the frame the caller builds; and the engine fix of H51 changes any run that executes `mov.b/mov.w R0,@(disp,Rn)`. Check every writer VA with `python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe VA…` first. The `INIT` bytes of sec1 are readable now (M1.19/M3.24): a table base loaded from there is no longer a blocker.
   - Blocker: Done-when unmet (M9.35 not merged): all 33 load sites/20 functions classified (11 READ, 22 STORE_WRITE) with opcode evidence and back-trace of stored values (zero-clears in `fn 0x0040dfa8/0x00415fe8/0x0040e28c`; populate/copy in `fn 0x00412ac0`, `fn 0x003fcbf0`, `fn 0x003fd390`, `fn 0x003fe774`, `fn 0x003faf04`, `fn 0x003fc9c8`), but no L3 run or writer-inverse reproducing >=1 entry and no definitive entry size/count/per-field schema provenance without IAT-bound runtime context.
   - Depends: — (H49: the table is BSS, C-3442; its content is produced at run time, so M1.2f cannot give it)
@@ -1885,7 +1885,7 @@ of the four numbers above says so in its first line.
   - Stop: after the store classification of all load sites plus one back-trace family without a source — write the EXP `blocked` with the store list (it is the input for an L3 run of the writer in M9.35).
   - Unblock: M9.35 (harness: zero BSS + IAT bound to stubs/named logging stubs) — run populate writers `fn 0x00412ac0` (ctx r8 handle words), `fn 0x003fd390/0x003fcbf0/0x003fe774/0x003faf04/0x003fc9c8` (ctx r10/r11/r15 structures) with sec0 mapped from IMG256 `92aa525d…` to observe slot mutations and reproduce >=1 entry; then derive entry size/count/per-field provenance.
   - Result: EXP-2026-11-10-M3.22-bss-table-writer.md (blocked). 33/33 sites classified (11 READ, 22 STORE_WRITE) with VA/opcode evidence; writers named: clear/init `fn 0x0040dfa8`, `fn 0x00415fe8`, `fn 0x0040e28c`; populate/copy `fn 0x00412ac0`, `fn 0x003faf04`, `fn 0x003fc9c8`, `fn 0x003fcbf0`, `fn 0x003fd390`, `fn 0x003fe774`. Back-trace: zero constants, context struct fields `@(20/24,rX)` from `@r10/@r11/@r15`, call result `0x0040f168`, handle-word copies from r8 context, global `@(*0x014a9928)->+20`. Entry size/count and per-field schema source remain UNKNOWN (no L3/writer-inverse). Firmware note added (provisional/blocked). C-3460–C-3468.
-  - Claims: C-3460–C-3469
+  - Claims: C-5120–C-5129 (was C-3460–C-3469; fresh block for this run)
 
 ---
 
