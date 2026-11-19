@@ -340,6 +340,7 @@
   "docs/experiments/EXP-2026-11-19-M4.38-lang-code-table.md",
   "docs/experiments/EXP-2026-11-19-M4.41-diff-years.md",
   "docs/experiments/EXP-2026-11-19-M5.30-one-variable-card.md",
+  "docs/experiments/EXP-2026-11-19-M5.37-route-graph-golden.md",
   "docs/experiments/EXP-2026-11-19-M5.39-l2check-bare-cell.md",
   "docs/experiments/EXP-2026-11-19-M5.41-expected.md",
   "docs/experiments/EXP-2026-11-19-M5.42-overtaken-records.md",
@@ -347,6 +348,7 @@
   "docs/experiments/EXP-2026-11-19-M5.48-partial-out.md",
   "docs/experiments/EXP-2026-11-19-M5.50-card-ladder.md",
   "docs/experiments/EXP-2026-11-19-M5.51-metadata-reasons.md",
+  "docs/experiments/EXP-2026-11-19-M6.13-s3-bench-manifest.md",
   "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
   "docs/experiments/EXP-2026-11-19-M9.37-decoder-audit.md",
   "docs/experiments/EXP-2026-11-19-M9.38-read-watch.md",
@@ -357,7 +359,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 350,
+  "files": 352,
   "citations": 940,
   "unique_va": 194,
   "start": 758,
@@ -905,7 +907,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3485,
+   "line": 3499,
    "va": "0x880385e4",
    "kind": "fn",
    "class": "START",
