@@ -4122,8 +4122,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: every run prints the same offsets for the mutant and the factory page (the reader ignored the record bytes).
   - Claims: C-4170–C-4179
 
-- [ ] **M9.40 — `chunk_decoder_l3 --build` names the US `inflate_mask` in C-3535, but the run maps a constant**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M9.40 — `chunk_decoder_l3 --build` names the US `inflate_mask` in C-3535, but the run maps a constant**
+  - Status: done · Owner: task/m9.40-us-mask-read · Critical: no · Pair: required
   - Depends: — (M1.22's `--build` selector and US table are on `main`)
   - Goal: M9.11b found the EU `inflate_mask[17]` by deriving it from `inflate`'s own `shll2` load, and M1.22 added a US `BUILD_TARGETS["us2011"]["inflate_mask"] = 0x005987B0`; C-3535 then says the US run uses "the US `inflate_mask` from the unique `shll2; …` site". That US value is used, but the [17] table is **written**, not read: `chunk_decoder_l3.run()` puts the public zlib `2^n - 1` series at the build's VA, so no firmware byte and no harness assertion proves the US and EU VAs actually hold that table. The verdict (byte-identical decode) is sound; the provenance sentence in C-3535 overstates what was verified.
   - Precheck: `sed -n 242,252p tools/chunk_decoder_l3.py` shows `inflate_mask` written from `(1 << n) - 1`, not read from the image; `python3 tools/chunk_decoder_l3.py --selftest` passes; `python3 tools/chunk_decoder_l3.py run archive/us256.img … --build us2011` prints `verdict: PASS` (the run this provenance must not change).
@@ -4133,6 +4133,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the log line says whether the mask was **read** from the image or **written** from public zlib, per build; a negative control (a deliberately wrong series at the US VA) either fails the read or is reported as `OBSERVED (not read)`; C-3535 and the EXP say only what the run did; `--selftest` and `python3 tools/gate.py` green; the EU/US decode verdicts are unchanged.
   - Stop: if `va_class.py` says both mask VAs are `INIT`, record `OBSERVED: mask is written (public zlib), VA is INIT` and stop — M1.19 is the task that makes them readable, not this one. If C-3535's edit would re-open an M1.22 claim, keep M1.22's wording as printed at `3d79bcc` and mark the correction `Superseded by` this task's EXP instead of editing a done row.
   - Falsifier: C-3535 still claims the US mask was taken from the image after the change, or the change alters either build's decode verdict.
+  - Result: EXP-2026-11-19-M9.40-us-mask-read; C-4180–C-4184. Both mask slots are `INIT`, but readable: `chunk_decoder_l3.py run --sec1 read-mask` decodes `Navi.exe` sec1 with `nk_decomp` and reads 17 words equal to `2^n - 1` at US2011 `0x005987b0` and EU2011 `0x00574de0`; `zero-mask` now logs `WRITTEN … OBSERVED (not read)`. Verdicts unchanged (US POINT010 on US `insns=1057251` PASS; EU POINT010 on both builds `insns=1957314` PASS, read and written alike). Negatives: one planted word in a US sec1 dump and each build's VA on the other image fail the read. C-3535 already said "writes"; left as printed.
   - Claims: C-4180–C-4189
 
 - [x] **M9.38 — Read-watch tracer: which functions read the page buffer**
