@@ -1514,7 +1514,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2120–C-2129, C-2540–C-2549
 
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.11b-point-byteorder · Critical: yes
   - Note (H51, 2026-11-11): answer it dynamically with **M9.38** (write/read watch on the page buffer, started from `fn 0x0041c044`, the `.cmp` caller found by H51) instead of a fourth static pattern.
   - Pair: pair
   - Note (rule 15, 2026-11-09 PO): M9.11b done; re-opened. Prior blocker kept: page handed to walker by `OSM_TaskSend` reply (OSMDLL import 12, `fn 0x3f40ec`); no 16-bit swap loop in Navi.exe/OSMDLL sec0 (C-2547, C-2548). M9.11 is re-opened (was blocked on M9.11b); re-run precheck before dynamic work.
