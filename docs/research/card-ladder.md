@@ -36,7 +36,7 @@ each other than to routing.
 factory tile verbatim and prove the pipeline carries the region tile unchanged
 (delta 0). That is P1's *precondition*, not P1 itself: P1's content is the
 region's OSM roads in section 1. When M5.49 lands, the P1 rows that write OSM
-data are the next rows of the same table (task M5.52).
+data are the next rows of the same table (task M5.53).
 
 The common counts, from the EU 2011 factory tree (480 files; `find FAC -type f | wc -l`):
 `MAPAL001` 46 files (45 tiles + `LEV3456R.DAT`), `REFER001` 388, `REFER002` 16,
@@ -99,7 +99,7 @@ firmware has not read it). A target that exits `BLOCKED (4)` is not a gate.
 - **Inconsistencies:** P0's 2–4 for the whole region, plus:
   1. If P1 ships with only the 9 writable directories, the region is a
      patchwork: OSM roads in 9 boxes, factory roads in 11. That is a
-     *partial* P1 and must be called so (task M5.52 makes the 11 writable).
+     *partial* P1 and must be called so (task M5.53 makes the 11 writable).
   2. The overview levels 3–6 (`LEV3456R.DAT`) still draw factory roads over
      OSM detail. Firmware behaviour at the zoom switch: **unknown** — M9.18.
 - **Gate:** P0's gate over the region; L2 `l2check --semantic-tiles` on every
@@ -185,7 +185,6 @@ on a row whose block is already tagged or closed (stale).
 | --- | --- | --- |
 | M4.16b | P3 | open PR #260 |
 | M4.22 | P0 | open PR #284 |
-| M4.37 | P4 | open PR #261 |
 | M4.39 | P2 | open PR #263 |
 | M5.11 | P1 | open PR #264 |
 | M5.26 | P4 | open PR #265 |
