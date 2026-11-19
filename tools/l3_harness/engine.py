@@ -614,7 +614,7 @@ class Backend:
 #: displacement).  This table is deliberately independent of ``_exec_*``: it
 #: exists so the decoder and the executor can be compared, and a bug in one
 #: cannot hide itself in the other (M9.37).  ``register_fields`` says which
-#: nibbles name a register: ``"n"``, ``"m"``, ``"nm"``, ``"m_only"`` or
+#: nibbles name a register: ``"n"``, ``"m"``, ``"nm"``, ``"m"`` or
 #: ``""`` (no register operand).
 #:
 #: ``(mask, match, form, register_fields)`` in first-match order.
@@ -742,10 +742,10 @@ DECODE_TABLE: tuple[tuple[int, int, str, str], ...] = (
     # group 7: add #imm,Rn
     (0xF000, 0x7000, "add_imm", "n"),
     # group 8: Rn is bits 7-4, d is the low nibble
-    (0xFF00, 0x8000, "mov.b_r0_at_disp_m", "m_only"),
-    (0xFF00, 0x8100, "mov.w_r0_at_disp_m", "m_only"),
-    (0xFF00, 0x8400, "mov.b_at_disp_m_r0", "m_only"),
-    (0xFF00, 0x8500, "mov.w_at_disp_m_r0", "m_only"),
+    (0xFF00, 0x8000, "mov.b_r0_at_disp_m", "m"),
+    (0xFF00, 0x8100, "mov.w_r0_at_disp_m", "m"),
+    (0xFF00, 0x8400, "mov.b_at_disp_m_r0", "m"),
+    (0xFF00, 0x8500, "mov.w_at_disp_m_r0", "m"),
     (0xFF00, 0x8800, "cmp/eq_imm", ""),
     (0xFF00, 0x8900, "bt", ""),
     (0xFF00, 0x8B00, "bf", ""),
@@ -782,14 +782,14 @@ DECODE_TABLE: tuple[tuple[int, int, str, str], ...] = (
 )
 
 
-def decode_fields(insn: int) -> tuple[str, int, int, int]:
+def decode_fields(insn: int) -> tuple[str, int | None, int | None, int]:
     """Independent decode of one halfword: ``(form, rn, rm, d)``.
 
     Walks :data:`DECODE_TABLE` in order and returns the first match.  ``rn``,
-    ``rm`` are the register numbers the form names (0 when the form names
-    none); ``d`` is the 4-bit displacement.  This shares nothing with
-    ``_exec_*`` on purpose -- that independence is what the M9.37 drift test
-    checks.
+    ``rm`` are the register numbers the form names, or ``None`` when the form
+    names no register there; ``d`` is the 4-bit displacement.  This shares
+    nothing with ``_exec_*`` on purpose -- that independence is what the
+    M9.37 drift test checks.
     """
     insn &= 0xFFFF
     n = (insn >> 8) & 0xF
@@ -797,10 +797,10 @@ def decode_fields(insn: int) -> tuple[str, int, int, int]:
     d = insn & 0xF
     for mask, match, form, fields in DECODE_TABLE:
         if insn & mask == match:
-            rn = n if "n" in fields else 0
-            rm = m if "m" in fields else (m if fields == "m_only" else 0)
+            rn = n if "n" in fields else None
+            rm = m if ("m" in fields or fields == "m") else None
             return form, rn, rm, d
-    return "unknown", 0, 0, d
+    return "unknown", None, None, d
 
 
 class _Block:
