@@ -2771,7 +2771,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3420–C-3429
 
 - [ ] **M5.30 — One-variable OSM tile card via `imgpatch`/reconcile (1:1 diff, L1+L2)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m5.30-one-variable-card · Critical: no
   - Depends: M5.29, M5.13 (imgpatch), M5.20 (reconcile)
   - Goal: make the Poland compiler candidate card differ from factory only in changed tile/manifests clusters and their directory entries (same safety pattern as S1/S2).
   - Precheck: `imgpatch.py` and `mkcard.py` selftests pass; M5.29 produces changed tile + rebuilt manifests with known paths.

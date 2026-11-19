@@ -1,0 +1,18 @@
+Role: driver (subagent) for M5.30, navigator reviews after.
+Model: airouter/strong
+Start (UTC): 2026-11-19 13:41
+origin/main at start: 8922f97 (docs: QA cycle-15 delta pass)
+Branch: task/m5.30-one-variable-card (worktree /home/marek/projekty/OSM2Leaf.task-m5.30-one-variable-card)
+
+Inputs read: AGENTS.md, prompt_common.txt, TODO rules 1-17 + M5.30 block,
+EXP-2026-11-17-M5.34-parcel, EXP-2026-11-18-M5.44-level2,
+EXP-2026-11-18-M5.45-idempotence, EXP-2026-11-19-M5.47-fit-census (origin/task/m5.47-fi
+t-census; not yet on main at start), tools/imgpatch.py, tools/mkcard.py,
+tools/cardcheck.py, tools/one_tile_pipeline.py.
+
+Plan: claim first; then find whether imgpatch's allocator refusal (past
+partition end) is a bug or limitation, fix it minimally, apply the M5.44 tile +
+DRSTR via imgpatch to a copy of the factory image, prove --check-diff, cardcheck.
+
+Notes: M5.47 is OPEN PR #230 (branch task/m5.47-fit-census), NOT merged to main
+despite the task brief saying "just merged". Depends M5.29/M5.13/M5.20 done.
