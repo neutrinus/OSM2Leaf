@@ -759,7 +759,7 @@ of the four numbers above says so in its first line.
   - Claims: C-3730–C-3739
 
 - [ ] **H58 — Make the claims ledger reject non-runnable evidence (`...`/`START`/`MODULE` placeholders, prose loops)**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Status: in progress · Owner: task/h58-claims-runnable-evidence · Critical: yes · Pair: solo
   - Depends: — (`tools/claims_check.py` is on `main`; no other task's block is needed)
   - Goal: the evidence column is the ledger's whole value, but `claims_check.py` only checks IDs and annotations. `C-3612`, `C-3613`, `C-3614` (M1.23) cite a "loop over `cerom.py … modules`" and `--image-start START --module MODULE` that exist only in a `/tmp` heredoc, and `C-3711` (H55) cites `cmp ...`. SE 2026-11-15 reproduced the census (A 149/87,530/20 plain, B 91/21,930/19, C 88/25,243/23) only with a throwaway script — that is exactly rule 16's defect, and it reached `VERIFIED` because no check reads the command. (C-3712 is the subtler "producer command omitted" case; a check cannot see it, so reviewers still read.)
   - Precheck: `python3 tools/claims_check.py` is OK today; `grep -n 'C-3612\|C-3613\|C-3614\|C-3711' docs/research/claims.md | grep -cE '…|\.\.\.|--image-start START|--module MODULE'` prints 3 (C-3612, C-3613, C-3711), and `C-3614`'s evidence is the bare prose "census loop over `pdata.load_table`" with no invocation at all — 4 rows fail a runnable-command rule, so the defect is present, not hypothetical.
