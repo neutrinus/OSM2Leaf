@@ -24,7 +24,7 @@ Usage:
                       [--exclude-compressed] [--ghidra-script FILE]
   cerom.py IMG ghidra ...              # alias of memmap
   cerom.py IMG decompress [--modules M1,M2] [--section NAME]
-                          [--method auto|lzss|lzx] [--out DIR]
+                          [--method auto|kernel|lzss|lzx] [--out DIR]
                           [--check] [--json]
   cerom.py IMG comphdr MODULE | --all [--json]
   cerom.py IMG thunks [MODULE | --all] [--json] [--min-coverage N]
@@ -52,6 +52,15 @@ decode produces ``<module>.<rva>.bin`` (under ``DIR/seg<N>/`` when more than
 one segment is walked).  ``--check`` writes nothing.  Exit codes: 0 when every
 requested section is ``OK``, 1 when some are ``UNSUPPORTED``/``FAIL``, 2 on a
 usage or I/O error.
+
+Since M1.19 a section the pure-Python codecs call ``UNSUPPORTED`` is handed to
+the kernel's own routine (``tools/nk_decomp.py``, build B ``nk.exe``
+``DECOMP_SECT 0x88037464`` in PySh4) when the image carries build B:
+``method_used`` is then ``kernel``, ``detected`` holds ``r0`` and the comphdr
+``uncompressed_len``, and the section is ``OK`` only when they are equal
+(``FAIL`` otherwise).  The decoded block is ``r0`` stored bytes then zero BSS
+to ``vsize``.  ``--method kernel`` skips the codecs.  Decodes are cached
+(``nk_decomp.cache_dir()``); the first full run of build A takes minutes.
 
 ``comphdr`` parses and validates the compressed-section framing header so M1.3
 knows every payload.  Form 1 (M1.2a, 22 bytes, 187/245 on build A): ``u24
@@ -762,6 +771,54 @@ def section_out_dir(out_dir, segment_index, segment_count):
     return out_dir
 
 
+class KernelDecoder:
+    """The firmware's own section decompressor, run in PySh4 (M1.19, H51).
+
+    ``tools/nk_decomp.py`` runs ``DECOMP_SECT 0x88037464`` of build B's
+    ``nk.exe`` (``0x3e00200`` in the same image).  A section is ``OK`` when the
+    returned ``r0`` (stored length) equals the comphdr ``uncompressed_len``; the
+    decoded block is the loader's view: ``r0`` stored bytes then zero BSS up to
+    ``vsize``.  Decodes go through the nk_decomp cache.  An image without
+    build B (the synthetic self-test ROM) leaves the codec verdict unchanged.
+    """
+
+    def __init__(self, data):
+        self._ok = None
+        self.why = None
+        self._data = data
+
+    def available(self):
+        if self._ok is None:
+            try:
+                import nk_decomp  # noqa: F401 - sibling tool, lazy (it imports cerom)
+                nk_decomp._regions_for(self._data)
+                self._ok = True
+            except BaseException as exc:  # noqa: BLE001 - SystemExit from a bad nk.exe too
+                self._ok = False
+                self.why = "%s: %s" % (type(exc).__name__, exc)
+        return self._ok
+
+    def decode(self, data, offset, sec, module, index, payload):
+        """Return ``(blob or None, info, error or None)``."""
+        import nk_decomp
+        hdr = classify_comphdr(payload, sec["psize"], sec["vsize"])
+        expected = hdr.get("uncompressed_len") if hdr.get("verdict") == "HOLDS" else None
+        info = {"method": "kernel", "routine": "nk.exe DECOMP_SECT 0x88037464 (build B)",
+                "r0": None, "uncompressed_len": expected, "source": None,
+                "init_sha256": None}
+        try:
+            r0, init, source = nk_decomp.decode_cached(
+                data, offset, sec["psize"], sec["vsize"], module, index)
+        except Exception as exc:  # noqa: BLE001 - engine errors are per section
+            return None, info, "%s: %s" % (type(exc).__name__, exc)
+        info.update(r0=r0, source=source, init_sha256=hashlib.sha256(init).hexdigest())
+        if expected is None:
+            return None, info, "r0=0x%x but comphdr is not HOLDS" % r0
+        if r0 != expected:
+            return None, info, "r0=0x%x != comphdr uncompressed_len 0x%x" % (r0, expected)
+        return init + bytes(sec["vsize"] - r0), info, None
+
+
 def decompress_report(data, image_name, image_size=None, image_sha256=None,
                       sha256_scope=None, modules=None, section=None,
                       method="auto", out_dir=None, check=True, image_start=None):
@@ -774,7 +831,9 @@ def decompress_report(data, image_name, image_size=None, image_sha256=None,
     section record carries the same keys whatever its status.
     """
     cc = cecompress_module()
-    method = cc.normalise_method(method)
+    kernel_only = str(method).strip().lower() == "kernel"
+    method = "kernel" if kernel_only else cc.normalise_method(method)
+    kernel = KernelDecoder(data)
     segments, duplicates = find_segments(data, image_start)
 
     wanted = None
@@ -851,12 +910,37 @@ def decompress_report(data, image_name, image_size=None, image_sha256=None,
                     record["sha256"] = hashlib.sha256(payload).hexdigest()
                     record["sha256_scope"] = "stored"
                     try:
+                        if kernel_only:
+                            raise cc.UnsupportedFormat("kernel only (--method kernel)")
                         blob, info = cc.decompress_info(
                             payload, sec["vsize"], method)
                     except cc.UnsupportedFormat as exc:
-                        record["status"] = "UNSUPPORTED"
-                        record["error_type"] = type(exc).__name__
-                        record["error"] = str(exc)
+                        # M1.19: the pure-Python codecs refuse the CE LZX
+                        # stream; the kernel's own routine (nk_decomp, H51)
+                        # decodes it when the image carries build B.
+                        if method in ("auto", "kernel") and kernel.available():
+                            blob, info, kerr = kernel.decode(
+                                data, offset, sec, name, index, payload)
+                            if kerr is None:
+                                record["status"] = "OK"
+                                record["method_used"] = "kernel"
+                                record["detected"] = info
+                                record["output_size"] = len(blob)
+                                record["sha256"] = hashlib.sha256(blob).hexdigest()
+                                record["sha256_scope"] = "decoded"
+                            else:
+                                blob = None
+                                record["status"] = "FAIL"
+                                record["detected"] = info
+                                record["error_type"] = "KernelDecodeError"
+                                record["error"] = kerr
+                        else:
+                            record["status"] = "UNSUPPORTED"
+                            record["error_type"] = type(exc).__name__
+                            record["error"] = str(exc)
+                            if method == "kernel":
+                                record["error"] = ("UNSUPPORTED(kernel routine: %s)"
+                                                   % kernel.why)
                     except cc.CeCompressError as exc:
                         record["status"] = "FAIL"
                         record["error_type"] = type(exc).__name__
@@ -4072,7 +4156,8 @@ def main(argv=None):
     p.add_argument("--section", metavar="NAME",
                    help="only sec<N>, MODULE/sec<N> or an RVA in hex")
     p.add_argument("--method", default="auto",
-                   help="auto (default), lzss/cecompress or lzx")
+                   help="auto (default: codecs, then the kernel routine), "
+                        "kernel (nk_decomp only), lzss/cecompress or lzx")
     p.add_argument("--out", metavar="DIR",
                    help="write each OK decode as <module>.<rva>.bin")
     p.add_argument("--check", action="store_true",

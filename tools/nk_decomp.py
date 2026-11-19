@@ -19,8 +19,26 @@ No vendor byte is stored here: the tool reads the image the caller names.
 Usage:
   nk_decomp.py --selftest
   nk_decomp.py section IMG256 --module Navi.exe --index 1 [-o OUT.bin]
-  nk_decomp.py check   IMG256 [--module NAME] [--limit N] [--json OUT]
+  nk_decomp.py check   IMG256 [--module NAME] [--limit N] [--json OUT] [--cache]
   nk_decomp.py pdata   IMG256 --module Navi.exe [--index 2] VA [VA ...]
+
+Library interface for other tools (M1.19).  Decode once, then read the cache:
+
+  import nk_decomp
+  data = nk_decomp.load_image("archive/head256.img")          # memoised
+  init = nk_decomp.section_init(data, "Navi.exe", 1)          # stored bytes, len r0
+  full = nk_decomp.section_bytes(data, "Navi.exe", 1)         # init + zero BSS, len vsize
+
+Both take ``image_start`` (default build A, ``0x200200``); the kernel routine
+always comes from build B of the same image (``0x3e00200``; byte-identical on
+the EU2011 and US2011 cards).  A failed decode (``r0 = -1`` or ``r0 > vsize``)
+raises ``DecompError`` and is never cached.  The cache holds one file per
+section, ``<module>.sec<N>.<key12>.bin`` = the ``r0`` stored bytes, where
+``key12`` is the first 12 hex digits of SHA-256 over (stored bytes, vsize):
+content-addressed, so the EU and US images share entries for identical
+sections and hashing a 7.5 GB card image is never needed.  The directory is
+``$OSM2LEAF_DECOMP_CACHE`` or ``<repo>/archive/work/decomp`` (``archive/`` is
+git-ignored: decoded bytes are vendor bytes and are never committed).
 """
 from __future__ import annotations
 
@@ -28,6 +46,7 @@ import argparse
 import bisect
 import hashlib
 import json
+import os
 import struct
 import sys
 from pathlib import Path
@@ -47,6 +66,13 @@ BLOCK = 0x1000
 SRC_VA, DST_VA, STK_VA = 0x90000000, 0x94000000, 0x9C000000
 STK_SIZE = 0x40000
 MAX_INSNS = 4_000_000_000
+MINUS_ONE = 0xFFFFFFFF
+CACHE_ENV = "OSM2LEAF_DECOMP_CACHE"
+REPO = HERE.parent
+
+
+class DecompError(RuntimeError):
+    """The kernel routine did not decode a section (r0 = -1 or r0 > vsize)."""
 
 
 def frame(skip: int = 0, step: int = 1, block: int = BLOCK) -> bytes:
@@ -88,6 +114,101 @@ def decompress(data: bytes, file_off: int, psize: int, vsize: int,
     eng.run_until(None, MAX_INSNS)
     r0 = eng._get_reg("r0") & 0xFFFFFFFF
     return r0, bytes(eng.read_mem(DST_VA, vsize))
+
+
+# --------------------------------------------------------------------------
+# cache + library interface (M1.19)
+
+_IMAGES: dict = {}
+_REGIONS: dict = {}
+
+
+def load_image(path) -> bytes:
+    """Read an image once per process (keyed by real path, size and mtime)."""
+    real = os.path.realpath(str(path))
+    st = os.stat(real)
+    key = (real, st.st_size, st.st_mtime_ns)
+    if key not in _IMAGES:
+        _IMAGES.clear()
+        with open(real, "rb") as handle:
+            _IMAGES[key] = handle.read()
+    return _IMAGES[key]
+
+
+def _regions_for(data: bytes):
+    key = id(data)
+    hit = _REGIONS.get(key)
+    if hit is None or hit[0] is not data:
+        hit = (data, nk_regions(data))
+        _REGIONS.clear()
+        _REGIONS[key] = hit
+    return hit[1]
+
+
+def cache_dir() -> Path:
+    return Path(os.environ.get(CACHE_ENV) or (REPO / "archive" / "work" / "decomp"))
+
+
+def cache_key(stored: bytes, vsize: int) -> str:
+    return hashlib.sha256(bytes(stored) + struct.pack("<I", vsize)).hexdigest()[:12]
+
+
+def cache_path(module: str, index: int, stored: bytes, vsize: int) -> Path:
+    return cache_dir() / ("%s.sec%d.%s.bin" % (module, index, cache_key(stored, vsize)))
+
+
+def section_record(data: bytes, module: str, index: int, image_start: int = IMAGE_A):
+    """(o32 record, file offset) of a compressed section; SystemExit-free."""
+    rom = cerom.CERom(data, image_start)
+    secs = list(rom.o32(rom.module(module)))
+    if not 0 <= index < len(secs):
+        raise DecompError("%s has no section %d" % (module, index))
+    s = secs[index]
+    if not s["flags"] & cerom.IMAGE_SCN_COMPRESSED:
+        raise DecompError("%s sec%d is not compressed" % (module, index))
+    return s, rom.va2file(s["dataptr"])
+
+
+def decode_cached(data: bytes, file_off: int, psize: int, vsize: int,
+                  module: str, index: int, cache: bool = True):
+    """(r0, init bytes, source) for one section, through the cache.
+
+    ``source`` is ``"cache"`` or ``"nk_decomp"``.  Raises ``DecompError``.
+    """
+    stored = data[file_off:file_off + psize]
+    path = cache_path(module, index, stored, vsize)
+    if cache and path.is_file():
+        blob = path.read_bytes()
+        if len(blob) <= vsize:
+            return len(blob), blob, "cache"
+    r0, out = decompress(data, file_off, psize, vsize, regions=_regions_for(data))
+    if r0 == MINUS_ONE or r0 > vsize:
+        raise DecompError("%s sec%d psize=%#x vsize=%#x: kernel routine returned r0=%#x"
+                          % (module, index, psize, vsize, r0))
+    if any(out[r0:]):
+        raise DecompError("%s sec%d: bytes written past r0=%#x" % (module, index, r0))
+    blob = out[:r0]
+    if cache:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".%d.tmp" % os.getpid())
+        tmp.write_bytes(blob)
+        os.replace(tmp, path)   # atomic: parallel readers never see half a file
+    return r0, blob, "nk_decomp"
+
+
+def section_init(data: bytes, module: str, index: int, image_start: int = IMAGE_A,
+                 cache: bool = True) -> bytes:
+    """The initialised (stored) bytes of a compressed section, ``len == r0``."""
+    s, off = section_record(data, module, index, image_start)
+    return decode_cached(data, off, s["psize"], s["vsize"], module, index, cache)[1]
+
+
+def section_bytes(data: bytes, module: str, index: int, image_start: int = IMAGE_A,
+                  cache: bool = True) -> bytes:
+    """What the loader puts at the section: init bytes then zero BSS (``vsize``)."""
+    s, _ = section_record(data, module, index, image_start)
+    init = section_init(data, module, index, image_start, cache)
+    return init + bytes(s["vsize"] - len(init))
 
 
 def compressed_sections(data: bytes, image_a: int = IMAGE_A):
@@ -153,7 +274,15 @@ def cmd_check(args) -> int:
         if args.limit and len(rows) >= args.limit:
             break
         try:
-            r0, out = decompress(data, off, s["psize"], s["vsize"], regions=regions)
+            if args.cache:
+                try:
+                    r0, out, _src = decode_cached(data, off, s["psize"], s["vsize"],
+                                                  name, idx)
+                except DecompError as exc:
+                    r0, out = MINUS_ONE, b""
+                    print("exception: %s" % exc)
+            else:
+                r0, out = decompress(data, off, s["psize"], s["vsize"], regions=regions)
             err = None
         except EngineError as exc:
             r0, out, err = None, b"", str(exc)[:160]
@@ -222,6 +351,45 @@ def selftest() -> int:
     eng.set_regs(r13=7, r6=3)
     eng._execute(0x0D67, 0x8C000000)
     check("engine: mul.l r6,r13", eng._get_reg("macl") == 21)
+    # cache (M1.19): content-addressed, failed decodes never cached
+    import tempfile
+    global decompress
+    real_decompress, calls = decompress, []
+
+    def fake(data, off, psize, vsize, entry=DECOMP_SECT, regions=None):
+        calls.append(off)
+        stored = data[off:off + psize]
+        if stored.startswith(b"BAD"):
+            return MINUS_ONE, bytes(vsize)
+        return 4, stored[:4] + bytes(vsize - 4)
+
+    old_env = os.environ.get(CACHE_ENV)
+    with tempfile.TemporaryDirectory() as td:
+        os.environ[CACHE_ENV] = td
+        data = b"GOODbytes" + b"BADbytes!"
+        decompress = fake
+        globals()["nk_regions"], real_regions = (lambda d: []), nk_regions
+        try:
+            r0, blob, src = decode_cached(data, 0, 9, 0x20, "M.dll", 1)
+            check("cache: first decode runs the routine", (r0, blob, src) == (4, b"GOOD", "nk_decomp"))
+            r0, blob, src = decode_cached(data, 0, 9, 0x20, "M.dll", 1)
+            check("cache: second decode is a cache hit", (src, len(calls)) == ("cache", 1))
+            check("cache: key covers vsize", cache_key(b"x", 1) != cache_key(b"x", 2))
+            try:
+                decode_cached(data, 9, 9, 0x20, "M.dll", 2)
+                check("cache: r0 = -1 raises DecompError", False)
+            except DecompError as exc:
+                check("cache: r0 = -1 raises DecompError", "r0=0xffffffff" in str(exc))
+            check("cache: a failed decode is not cached",
+                  sorted(x.name.split(".")[2] for x in Path(td).iterdir()) == ["sec1"])
+        finally:
+            decompress = real_decompress
+            globals()["nk_regions"] = real_regions
+            _REGIONS.clear()
+            if old_env is None:
+                os.environ.pop(CACHE_ENV, None)
+            else:
+                os.environ[CACHE_ENV] = old_env
     print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
 
@@ -242,6 +410,8 @@ def main(argv=None) -> int:
             p.add_argument("--limit", type=int, default=0)
             p.add_argument("--json")
             p.add_argument("-v", "--verbose", action="store_true")
+            p.add_argument("--cache", action="store_true",
+                           help="read/fill the decode cache (see cache_dir())")
         else:
             p.add_argument("--index", type=int, default=2)
             p.add_argument("va", nargs="+")
