@@ -674,12 +674,12 @@ def module_target(entry=None, **top) -> dict:
     return target
 
 
-def module_fixture(tmp, target=None, code_endian="big") -> dict:
+def module_fixture(tmp, target=None, code_endian="big", code=None) -> dict:
     """A synthetic image, its memory map and a targets file that names it."""
 
     root = Path(tmp)
     image = bytearray(0x2000)
-    for index, word in enumerate(MODULE_CODE):
+    for index, word in enumerate(code or MODULE_CODE):
         image[0x1000 + 2 * index:0x1002 + 2 * index] = word.to_bytes(2, code_endian)
     image_path = root / "synthetic-module.img"
     image_path.write_bytes(bytes(image))
@@ -821,6 +821,94 @@ def test_module_run_unmapped_r0(tmp):
     assert code == runner.EXIT_BLOCKED and payload["status"] == "BLOCKED", payload
     assert "no verdict is guessed" in payload["reason"], payload
     assert payload["accepted"] is None
+
+
+#: Big-endian module code that loads a u16 at the mapped input region and
+#: returns it: mov.w @r4,r0 / rts / nop  (r0 = *(u16*)arg).
+REGION_CODE = [0x6041, 0x000B, 0x0009]
+REGION_VA = 0x8C400000
+REGION_BYTES = b"\x12\x34"
+
+
+@check("module entry: input_region maps bytes at a VA and the run consumes them")
+def test_module_input_region_consumed(tmp):
+    (Path(tmp) / "page.bin").write_bytes(REGION_BYTES)
+    entry = {
+        "va": hex(MODULE_VA), "args": [hex(REGION_VA)], "verdict_map": {"0x1234": "ACCEPT"},
+        "input_region": {
+            "va": hex(REGION_VA), "size": len(REGION_BYTES),
+            "bytes_source": {"kind": "file", "path": "page.bin"},
+            "provenance": "synthetic control: two bytes for REGION_CODE",
+        },
+    }
+    fx = module_fixture(tmp, module_target(entry=entry), code=REGION_CODE)
+    code, payload = run_json(module_argv(fx, "module-probe", "--input-root", tmp))
+    assert payload["status"] == "PASS", payload
+    assert int(payload["returned"], 0) == 0x1234, payload
+    assert "input_region" in payload["rommap"]["blocks_mapped"], payload
+    region = payload["input_region"]
+    assert region["va"] == hex(REGION_VA) and region["size"] == len(REGION_BYTES), region
+    assert region["sha256"] == hashlib.sha256(REGION_BYTES).hexdigest(), region
+    assert region["provenance"], region
+    assert payload["consumed_input"] is True, payload
+    assert region["reads"]["count"] >= 1, region
+    assert region["reads"]["widths"] == [2], region
+
+
+@check("module entry: input_region bounds, overlap and provenance are refused loudly")
+def test_module_input_region_bounds(tmp):
+    (Path(tmp) / "page.bin").write_bytes(REGION_BYTES)
+
+    def region(**over):
+        base = {
+            "va": hex(REGION_VA), "size": len(REGION_BYTES),
+            "bytes_source": {"kind": "file", "path": "page.bin"},
+            "provenance": "synthetic control",
+        }
+        base.update(over)
+        return base
+
+    # A read at va+size is refused: the region is exactly size bytes, no pad.
+    past = {
+        "va": hex(MODULE_VA), "args": [hex(REGION_VA + len(REGION_BYTES))],
+        "verdict_map": {"0x0": "REJECT"},
+        "input_region": region(),
+    }
+    # mov.w @r4 with r4 = va+size lands one word past the end.
+    fx = module_fixture(tmp, module_target(entry=past), code=REGION_CODE)
+    code, payload = run_json(module_argv(fx, "module-probe", "--input-root", tmp))
+    assert payload["status"] == "BLOCKED", payload
+    assert f"covers {hex(REGION_VA + len(REGION_BYTES))}" in payload["reason"], payload
+
+    # Overlap with the module's own code is INVALID, refused before any run.
+    fx = module_fixture(tmp, module_target(entry={
+        "args": [hex(REGION_VA)], "input_region": region(va=hex(MODULE_VA)),
+    }), code=REGION_CODE)
+    code, payload = run_json(module_argv(fx, "module-probe", "--input-root", tmp))
+    assert payload["status"] == "INVALID" and "overlaps" in payload["problems"][0], payload
+
+    # Declared size must equal the supplied bytes; a mismatch is INVALID with
+    # the attempted sha256 in the record (provenance survives a refusal).
+    fx = module_fixture(tmp, module_target(entry={
+        "args": [hex(REGION_VA)], "input_region": region(size=1),
+    }), code=REGION_CODE)
+    code, payload = run_json(module_argv(fx, "module-probe", "--input-root", tmp))
+    assert payload["status"] == "INVALID", payload
+    assert payload["input_region"]["sha256"] == hashlib.sha256(REGION_BYTES).hexdigest(), payload
+
+    # A region without provenance is a validation error, never a silent default.
+    doc = {"schema": runner.TARGETS_SCHEMA,
+           "targets": [module_target(entry={"input_region": region(provenance="")})]}
+    problems = " | ".join(runner.validate_targets(doc))
+    assert "provenance" in problems, problems
+
+    # Unknown keys and an oversized literal are refused by validation.
+    doc = {"schema": runner.TARGETS_SCHEMA, "targets": [module_target(entry={
+        "input_region": region(pad=1)})]}
+    assert "unknown key" in " | ".join(runner.validate_targets(doc))
+    doc = {"schema": runner.TARGETS_SCHEMA, "targets": [module_target(entry={
+        "input_region": region(bytes_source={"kind": "literal", "hex": "00" * 0x401})})]}
+    assert "limited to" in " | ".join(runner.validate_targets(doc))
 
 
 @check("module entry: a VA outside the map or in a non-executable block is BLOCKED")

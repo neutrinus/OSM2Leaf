@@ -1,0 +1,52 @@
+role: driver (M9.28 pair)
+model: airouter/strong
+start: 2026-11-19 15:36 UTC
+end: 2026-11-19 15:36 UTC (record written before the final push)
+origin/main at start: 8922f97f141a5bf1fa970da1eda92d2e6b29cbc9
+
+inputs read
+- AGENTS.md, prompt_common.txt, TODO.md rules 1-17 and the M9.28 block
+- EXP-2026-11-08-M9.20-l3-plumbing (UNMAPPED precedent, page-source open question)
+- EXP-2026-11-08-M9.14-reopen, EXP-2026-11-08-M9.17-reopen
+- docs/format/firmware.md (US/EU walker table), C-3537, C-4172, C-2541, C-2540
+- tools/l3_harness/{runner,engine,rommap,selftest}.py, targets.json, tools/point_walk_l3.py
+
+actions
+- Claim commit f519cbf (`todo: start M9.28`), draft PR #234, rebased on origin/main 8922f97.
+- Reproduced the M9.20 UNMAPPED fault verbatim (target point-walker-real, VA 0x3f5194, args 0x0).
+- Found the EU page evidence the M9.20 note said was missing: EU POINT010 page 0x6e06d0,
+  97,158 B, 1,000 records (C-3537/C-4172); produced the swap16 blob and pinned its SHA-256.
+- Implemented `entry.input_region` in runner.py only (validation, exact bounds, overlap
+  refusal incl. IAT trampolines, provenance on every path, `--input-root`, read watch).
+- Added two selftest checks (consumption/provenance, bounds/overlap/provenance refusals);
+  selftest 32 -> 34 checks.
+- Ran the real EU walker with the mapped page: returns PAGE_VA+0xa8, cross-checked against
+  point_walk_l3; kept it BLOCKED ("no verdict is guessed"), 0xa8 not in verdict_map.
+- Added the n=1000 OOB target (real, fires at va+97158) and the +0x40 pad control.
+- Wrote EXP-2026-11-19-M9.28-input-region, C-3210-C-3219, tools/README.md +
+  l3_harness/README.md; gate 4 pass 0 fail 0 skip.
+
+decisions
+- Mapping at 0x0 refused: that load is the walker's NULL deref, not an input region.
+- Served blob is swap16 (the model's own negative control proves the byte form matters).
+- No r0->ACCEPT/REJECT rule invented for a page offset; the header target stays BLOCKED.
+- engine.py untouched; the read watch is a runner-local WatchedPySh4(GuardedPySh4).
+- M9.38 (claimed at 8b86bfe) has no --watch yet; kept the local counter, coordination
+  noted in the EXP: if M9.38 lands --watch first, rebase additively and switch.
+
+problems / dead ends
+- `0x6051` is `mov.w @r5,r0`, not @r4; the synthetic read was fixed to `0x6041` after the
+  first selftest run caught the unmapped 0x0 load (the check did its job).
+- A padded n=1000 run first reported PASS because the target inherited a 0x0->REJECT map;
+  re-ran with 0x0 unmapped so the control cannot be read as a verdict.
+- The new EXP's `0x003f5194`/`0x0041c044` citations reddened `fn_audit` (CORPUS STALE),
+  not a task defect; both frozen snapshots were refreshed with `--write-snapshot`
+  (docs 328->329 citations, l3 910->915) and the gate then passed 4/4.
+- A botched `git checkout origin/main -- TODO.md claims.md` during that check was undone
+  with `git reset --hard HEAD`; no work lost (both files were already committed).
+
+handoff
+- Navigator: check EXP Observation "pad control" row and the two refusal lines; verify no
+  vendor blob is committed (only its SHA-256).
+- Next reader: M9.33 (depends M9.28) can now treat input-buffer mapping as CLEARED;
+  M9.38 can reuse `input_region.reads` instead of a second read watch.
