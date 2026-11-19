@@ -587,9 +587,11 @@ def _scaffold_tree(root: Path, osm_tile_cell: str) -> list[str]:
     return ["MAPAL001/LEV3456R.DAT", "MAPAL001/B30R060R.DAT", "MMAIN001.DAT", "REFER001/POINT001.DAT.cmp", "REFER001/POINT001.DAT.ind", "CMP.LST", "DRSTR001.DAT"]
 
 def build_synthetic_out(out: Path, cell: str = "B48R058R",
-                        input_root: Path | None = None) -> dict[str, Any]:
+                        input_root: Path | None = None,
+                        force_overwrite: bool = False) -> dict[str, Any]:
     """Build a synthetic minimal tree with one OSM-generated tile. No vendor bytes."""
     _check_out_overlap(out, input_root)
+    _refuse_nonempty_out(out, force_overwrite)
     report: dict[str, Any] = {
         "mode": "synthetic-only",
         "tile": cell,
@@ -954,23 +956,50 @@ def selftest() -> int:
             and keep_rep["partial_out"]["files_left"] > 0,
             "M5.48: --keep-partial report records the tree kept with files_left>0")
 
-        # A --out that already existed before the run is never deleted by the
-        # *cleanup* path: a user's pre-passed directory is their tree, not ours
-        # (the factory copy may already have replaced its files -- that is the
-        # pre-existing copy behaviour, not this rule).
+        # A pre-existing NON-EMPTY --out is refused before the copy (round 2):
+        # the old copy step rmtree'd it, so a user file the run never wrote
+        # (KEEP.ME) vanished while the directory survived.  Now it exits 2 and
+        # KEEP.ME is byte-identical after the run.
         pre_out = td / "pre-existing-out"
         pre_out.mkdir()
-        (pre_out / "KEEP.ME").write_bytes(b"user data")
+        keep_file = pre_out / "KEEP.ME"
+        keep_file.write_bytes(b"user data")
+        keep_sha = sha256_bytes(keep_file.read_bytes())
         pre_rep_path = td / "pre-report.json"
         rc_pre = main(["--factory-root", str(root), "--out", str(pre_out),
                        "--cell", "B48R058R", "--osm", str(fail_osm),
                        "--json", str(pre_rep_path)])
-        pre_rep = json.loads(pre_rep_path.read_text(encoding="utf-8"))
-        chk(rc_pre == 1 and pre_out.is_dir(),
-            "M5.48: a pre-existing --out is not deleted after a failure")
-        chk(pre_rep["partial_out"]["state"] == "kept-existed"
-            and pre_rep["partial_out"]["existed_before_run"] is True,
-            "M5.48: the report marks a pre-existing --out kept-existed (not removed)")
+        chk(rc_pre == 2 and pre_out.is_dir(),
+            "M5.48: a non-empty pre-existing --out is refused (exit 2), not overwritten")
+        chk(keep_file.exists() and sha256_bytes(keep_file.read_bytes()) == keep_sha,
+            "M5.48: a non-empty pre-existing --out keeps KEEP.ME byte-identical")
+        chk(not pre_rep_path.exists(),
+            "M5.48: a refused non-empty --out writes no report (nothing ran)")
+
+        # --force-overwrite is the explicit opt-in to replace it.
+        force_out = td / "force-out"
+        (force_out / "old").mkdir(parents=True)
+        (force_out / "old" / "OLD.DAT").write_bytes(b"stale")
+        rc_force = main(["--factory-root", str(root), "--out", str(force_out),
+                         "--cell", "B48R058R", "--osm", str(fail_osm),
+                         "--force-overwrite"])
+        chk(rc_force == 1 and not (force_out / "old" / "OLD.DAT").exists(),
+            "M5.48: --force-overwrite replaces a non-empty --out (old file gone)")
+
+        # An EMPTY pre-existing --out is allowed: the run uses it, and on a
+        # failure it is restored to empty (the directory the user passed stays).
+        empty_out = td / "empty-out"
+        empty_out.mkdir()
+        empty_rep_path = td / "empty-report.json"
+        rc_empty = main(["--factory-root", str(root), "--out", str(empty_out),
+                         "--cell", "B48R058R", "--osm", str(fail_osm),
+                         "--json", str(empty_rep_path)])
+        empty_rep = json.loads(empty_rep_path.read_text(encoding="utf-8"))
+        chk(rc_empty == 1 and empty_out.is_dir() and not any(empty_out.iterdir()),
+            "M5.48: an empty pre-existing --out stays (restored empty) after a failure")
+        chk(empty_rep["partial_out"]["state"] == "removed-contents"
+            and empty_rep["partial_out"]["state_before_run"] == "empty",
+            "M5.48: the report marks an empty pre-existing --out removed-contents")
 
         # Early usage refusals (before any copy) leave no --out: the chosen
         # directory is not spliceable, so the guard raises before the copy.
@@ -1268,8 +1297,36 @@ def selftest() -> int:
     return 0 if not fails else 1
 
 
-def _copy_factory_root(src: Path, dst: Path) -> None:
+def _out_dir_state(path: Path) -> str:
+    """Classify ``--out`` before a run: ``absent``, ``empty``, ``file`` or ``nonempty``."""
+    if not path.exists():
+        return "absent"
+    if not path.is_dir():
+        return "file"
+    return "empty" if not any(path.iterdir()) else "nonempty"
+
+
+def _refuse_nonempty_out(path: Path, force: bool) -> None:
+    """Refuse to overwrite a non-empty ``--out`` the run did not create.
+
+    The pipeline builds into a directory it creates (or into an empty one).  A
+    pre-existing **non-empty** directory is the user's tree; the old copy step
+    ``rmtree``'d it, so a file the run never wrote (``$S/pre/KEEP.ME``) vanished
+    even though the directory survived (navigator round 2).  ``--force-overwrite``
+    is the explicit opt-in.
+    """
+    if _out_dir_state(path) == "nonempty" and not force:
+        raise UsageError(
+            f"--out {path} is a non-empty existing directory; refusing to "
+            f"overwrite it. Pass --force-overwrite to replace it, or choose a "
+            f"new --out (a refused run is removed, so a fresh path is free).")
+    if _out_dir_state(path) == "file":
+        raise UsageError(f"--out {path} exists and is not a directory")
+
+
+def _copy_factory_root(src: Path, dst: Path, force: bool = False) -> None:
     if dst.exists():
+        _refuse_nonempty_out(dst, force)
         shutil.rmtree(dst)
     shutil.copytree(src, dst, symlinks=True)
 
@@ -1426,7 +1483,8 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
                       osm_path: Path | None = None,
                       osm_bbox: tuple[float, float, float, float] | None = None,
                       parcel: tuple[int, int] | None = None,
-                      clip: bool = False, level: int = 1) -> dict[str, Any]:
+                      clip: bool = False, level: int = 1,
+                      force_overwrite: bool = False) -> dict[str, Any]:
     """Factory-backed path: copy factory root, replace exactly one tile with OSM-generated (provisional-v0).
 
     ``osm_path`` is an OSM XML/PBF read by ``osm_ingest.py``; ``osm_text`` is
@@ -1543,7 +1601,9 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         if rc != 0 or not ctab.exists():
             report["gates"] = {g: gate("BLOCKED", f"roadclass_v0 failed rc={rc}: {se[:300]}") for g in GATES}; return report
         # Every pre-write guard passed; only now copy the root and write one tile.
-        _copy_factory_root(factory_root, out)
+        # A non-empty pre-existing --out is refused (round 2): the copy step used
+        # to rmtree it, so a user file the run never wrote disappeared.
+        _copy_factory_root(factory_root, out, force=force_overwrite)
         if factory_tile.resolve() != out_tile.resolve():
             # H70: a supplied tile is the template; the root's own <cell>.DAT is not used.
             out_tile.parent.mkdir(parents=True, exist_ok=True)
@@ -1611,23 +1671,37 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     return report
 
 
-def _remove_failed_out(out: Path, existed_before: bool, keep_partial: bool) -> str:
-    """Remove an ``--out`` tree that *this run* created after a failed build.
+def _remove_failed_out(out: Path, state_before: str, keep_partial: bool,
+                       force: bool = False) -> str:
+    """Remove what a failed run put at ``--out``; never destroy the user's dir.
 
-    The one thing a later stage may rely on (M5.48): a non-zero exit with
-    ``--keep-partial`` absent leaves **no** ``--out``, so ``os.path.isdir(out)``
-    cannot read a refused run as a built card.  Only a tree this run created is
-    removed: a directory that existed before the run is never deleted (the
-    factory copy may have overwritten files in it, but rolling that back is not
-    this rule's job).  ``--keep-partial`` keeps the tree for inspection.
-    Returns one of ``removed``, ``kept``, ``kept-existed``, ``nothing``.
+    States (M5.48 round 2, navigator): the copy step used to ``rmtree`` a
+    pre-existing directory, so a file the run never wrote disappeared while the
+    directory survived.  Now a non-empty pre-existing ``--out`` is refused
+    before the copy unless ``--force-overwrite``; an **empty** pre-existing
+    directory is allowed and, on failure, is restored to empty (the directory
+    the user passed stays, the run's partial copy does not).  A directory this
+    run created is removed.  ``--keep-partial`` keeps whatever is there.
+
+    Returns one of ``removed``, ``removed-contents``, ``kept``,
+    ``kept-existed``, ``nothing``.
     """
     if not out.exists():
         return "nothing"
     if keep_partial:
         return "kept"
-    if existed_before:
-        return "kept-existed"
+    if state_before == "nonempty":
+        if not force:
+            return "kept-existed"  # unreachable: refused before the copy
+        shutil.rmtree(out)
+        return "removed"
+    if state_before == "empty":
+        for child in out.iterdir():
+            if child.is_dir() and not child.is_symlink():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+        return "removed-contents"
     shutil.rmtree(out)
     return "removed"
 
@@ -1662,6 +1736,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="keep the --out tree even when the run fails (default: a tree this "
                          "run created is removed on a non-zero exit, so a refused run cannot "
                          "be mistaken for a built card)")
+    ap.add_argument("--force-overwrite", action="store_true",
+                    help="allow writing into a non-empty existing --out: the run replaces "
+                         "its contents (default: refuse, so a user's files are not deleted)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
@@ -1688,28 +1765,32 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr); return 2
     if args.clip and parcel is None:
         print("error: --clip requires --parcel", file=sys.stderr); return 2
-    # M5.48: remember whether --out was already a directory; only a tree this
-    # run created is removed after a failure (a user's pre-existing dir is
-    # never deleted).
+    # M5.48: remember whether --out existed and whether it was empty; only a
+    # tree this run created is removed after a failure, and an empty directory
+    # the user passed stays (restored to empty), never deleted.
     out_existed_before = out.exists()
+    out_state_before = _out_dir_state(out)
     try:
         if factory_root is not None:
             _check_out_overlap(out, factory_root)
+        _refuse_nonempty_out(out, args.force_overwrite)
         if args.synthetic or (not args.factory_root and not args.osm):
-            rep = build_synthetic_out(out, args.cell, input_root=Path(args.osm) if args.osm else None)
+            rep = build_synthetic_out(out, args.cell, input_root=Path(args.osm) if args.osm else None,
+                                      force_overwrite=args.force_overwrite)
         elif args.factory_root:
             rep = build_factory_out(out, factory_root, args.cell, country=args.country,
                                     factory_tile_path=factory_tile,
                                     osm_path=Path(args.osm) if args.osm else None,
                                     osm_bbox=osm_bbox, parcel=parcel, clip=args.clip,
-                                    level=args.level)
+                                    level=args.level, force_overwrite=args.force_overwrite)
         else:
-            rep = build_synthetic_out(out, args.cell)
+            rep = build_synthetic_out(out, args.cell, force_overwrite=args.force_overwrite)
             rep["note"] = "OSM provided without --factory-root; synthetic-only fallback"
             rep["real_image_run"] = "blocked"; rep["missing_input"] = "--factory-root required"
     except UsageError as e:
         print(f"error: {e}", file=sys.stderr)
-        print("usage: --out must not be, contain, or be contained by --factory-root/--osm", file=sys.stderr)
+        print("usage: --out must not be, contain, or be contained by --factory-root/--osm; "
+              "a non-empty --out is refused unless --force-overwrite", file=sys.stderr)
         return 2
 
     def _exit_code(rep: dict[str, Any]) -> int:
@@ -1725,22 +1806,18 @@ def main(argv: list[str] | None = None) -> int:
     rc = _exit_code(rep)
     # M5.48: a failed run must not leave a card-looking --out.  The report stays
     # intact (it is written below); only the tree is removed.  The state is
-    # recorded so a caller/selftest can assert "removed" without guessing.
-    if rc != 0:
-        state = _remove_failed_out(out, out_existed_before, args.keep_partial)
-        rep["partial_out"] = {
-            "removed": state == "removed",
-            "state": state,
-            "keep_partial": args.keep_partial,
-            "existed_before_run": out_existed_before,
-            "files_left": 0 if not out.exists() else sum(1 for p in out.rglob("*") if p.is_file()),
-        }
-    else:
-        rep["partial_out"] = {
-            "removed": False, "state": "kept-success", "keep_partial": args.keep_partial,
-            "existed_before_run": out_existed_before,
-            "files_left": sum(1 for p in out.rglob("*") if p.is_file()) if out.exists() else 0,
-        }
+    # recorded so a caller/selftest can assert the outcome without guessing.
+    state = _remove_failed_out(out, out_state_before, args.keep_partial, args.force_overwrite) \
+        if rc != 0 else "kept-success"
+    rep["partial_out"] = {
+        "removed": state in ("removed", "removed-contents"),
+        "state": state,
+        "keep_partial": args.keep_partial,
+        "force_overwrite": args.force_overwrite,
+        "existed_before_run": out_existed_before,
+        "state_before_run": out_state_before,
+        "files_left": sum(1 for p in out.rglob("*") if p.is_file()) if out.exists() else 0,
+    }
     doc = json.dumps(rep, indent=2, ensure_ascii=False)
     if args.json and args.json != "-":
         dest = os.path.abspath(args.json)
