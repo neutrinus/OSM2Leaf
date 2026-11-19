@@ -3587,7 +3587,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-1670–C-1679
 
 - [ ] **M9.6 — First real target: the map-code compare**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m9.6-mapcode-compare · Critical: yes
   - Blocker (resolved, kept as note): M9.20 (`562215a`) added module entry kind / `engine_hook`. The earlier "no `entry.kind = module`" plumbing blocker is gone.
   - Re-opened (PO grooming 2026-11-09, rule 15): M9.20 merged. A new blocker may appear when wiring `KernelIoControl(0x0101302C)` + HDD_INFO FS stubs and the `0x01f74b30` parse cache (M2.4/M9.6 notes); record it with a faulting PC/EXP if so.
   - Negative EXP (prior): EXP-2026-11-08-M9.6-mapcode-compare.
@@ -3598,7 +3598,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: `tools/l3_harness/runner.py`, `stubs.py`, corpus `hddinfo_variants.py` (M9.7).
   - Done when: `runner.py run` returns a firmware verdict for the factory `HDD_INFO.TXT` (accept) and for one edited line-1 variant (reject), with the stub log in the EXP.
   - Stop: if the comparator needs build-B/AppLaunch mapping, globals, or IOCTL state not reproducible from current harness inputs, set `blocked` with the faulting PC/missing stub and a new EXP (do not guess verdicts).
-  - Claims: C-1680–C-1689
+  - Claims: C-5140–C-5149 (was C-1680–C-1689; fresh block for this run)
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
   - Status: open (walk part runnable; name part waits for M3.11c) · Owner: — · Critical: yes
