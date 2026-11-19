@@ -3680,3 +3680,19 @@ is not one of the move's FAT links or FSInfo words.
 | C-4617 | A free FAT entry chosen inside the move's own metadata ranges (cluster 11 in the synthetic resize, which the resize itself links) is correctly named `fat0_link`, not slack — recorded because the first selftest draft assumed it was slack and the control failed, which is the control working. | VERIFIED (tool) | M | §Corrections |
 | C-4618 | `python3 tools/selftest.py` is `passed=96 failed=0 skipped=24` and `tools/gate.py` is `4 pass / 0 fail / 0 skip` with this change. | VERIFIED (gate) | H | checks in the task's log |
 | C-4619 | Scope: the change touches `tools/imgpatch.py` only (`--check-diff` naming + `--strict-metadata` + `--selftest`); no writer behaviour and no `one_tile_pipeline.py` change (M5.41 owns that file this cycle). | VERIFIED (diff) | H | `git diff --stat` |
+
+## H58 — the ledger reports non-runnable evidence (C-3770–C-3779)
+
+`tools/claims_check.py` reads the evidence command of every `VERIFIED` row:
+an elided argument, an unexpanded placeholder, an inline scan, or spans with no
+invocation are reported (warning by default and under `--strict`, error under
+`--strict-evidence`).
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3770 | `tools/claims_check.py` reports a `VERIFIED` row as non-runnable when, after its EXP name, an invocation span (`python3`, `tools/`, `git`, `curl`, `sha256sum`, `grep`, `cmp`, `stat`) holds `...`/`…` (hash abbreviations excepted) or a `START`/`MODULE`/`VA`/`<name>` placeholder, a span is a heredoc or `python3 -c` with no `tools/` path, or the cell has spans and none is an invocation; a cell with no span is not judged. | VERIFIED (tool) | H | EXP-2026-11-19-H58-claims-runnable-evidence; `python3 tools/claims_check.py --selftest` |
+| C-3771 | `python3 tools/claims_check.py --selftest` is `OK (47 checks)`: a `cmp ...` row, a `START`/`MODULE` row, a prose row with spans and a bare `python3 -c` row fail; a `sha256sum` row quoting `92aa525d…`, an EXP plus real command, a span-less prose `…` row and a non-VERIFIED row pass. | VERIFIED (tool) | H | EXP-2026-11-19-H58-claims-runnable-evidence; `python3 tools/claims_check.py --selftest` |
+| C-3772 | On the ledger at `934d76e` (1,376 VERIFIED rows) the rule names 347 rows: `ellipsis` 31, `placeholder` 19, `inline` 3, `no-invocation` 294; 630 VERIFIED rows carry no backticked span and are not judged. | VERIFIED (tool) | H | EXP-2026-11-19-H58-claims-runnable-evidence; `python3 tools/claims_check.py` at `934d76e` |
+| C-3773 | The rule names C-3612 and C-3613 (`placeholder`), C-3614 (`no-invocation`) and C-3711 (`ellipsis`), and does not name C-207 (prose `switch 7…15`) or C-3510 (complete `pdata.py census` command). | VERIFIED (tool) | H | EXP-2026-11-19-H58-claims-runnable-evidence; `python3 tools/claims_check.py --strict-evidence` (its `NONRUN` lines) |
+| C-3774 | The default run and `--strict` (what `tools/gate.py` runs) still exit 0 and print `non-runnable evidence rows: 347` (at `934d76e`); only `--strict-evidence` exits 1. The Stop clause applied (347 ≫ ~20 IDs), so enforcement in `--strict` is handed to H53/H66. | VERIFIED (tool) | H | EXP-2026-11-19-H58-claims-runnable-evidence; `python3 tools/claims_check.py --strict`, `python3 tools/claims_check.py --strict-evidence` |
+| C-3775 | Of the 347, the 53 `ellipsis`/`placeholder`/`inline` rows cannot be re-run as written; most of the 294 `no-invocation` rows are tool shorthand (`cerom.py exports …`, `sh4dis 0x3f8a0c`) a reader can resolve. | OBSERVED | M | EXP-2026-11-19-H58-claims-runnable-evidence §Interpretation |
