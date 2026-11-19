@@ -2950,8 +2950,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-4460–C-4469
   - Result: EXP `docs/experiments/EXP-2026-11-18-M5.45-idempotence.md`. Full clipped corpus (907,969 nodes / 112,965 ways, 1,024 parcels): factory 289,319,168 -> 293,990,518 -> 293,990,518 -> 293,990,518 B (+4,671,350 B once, +0 B after; A0..A3 byte-identical, SHA-256 `b746427c…34c2ef`); the append-always mutant grows the second splice to 298,662,006 B (+4,671,488; `tilewriter --selftest` 69/73, `one_tile_pipeline --selftest` 3 FAIL); the (72,936) level-2 refusal is **physical aliasing** of the level-2 container at [5120,21644) by 9 level-1 preserve-only parsed spans (6 slots start at 5120), not a shared record key — the bounded claim covers level-1 owned slots only; the level-2 cause (parser phantom vs real write) is left to the Follow-up.
 
-- [ ] **M5.46 — P1 first slice: the profile-to-tile containment census (how many tiles a Dolnośląskie card needs, and which are whole)**
-  - Status: in progress · Owner: task/m5.46-p1-containment-census · Critical: yes · Pair: required
+- [x] **M5.46 — P1 first slice: the profile-to-tile containment census (how many tiles a Dolnośląskie card needs, and which are whole)**
+  - Status: done · Owner: task/m5.46-p1-containment-census · Critical: yes · Pair: required
   - Depends: — (the factory tile list and `mesh_grid.py` are on `main`; no write, no OSM extract)
   - Goal: **M5.38** (open) defines P1 as "all tiles of Dolnośląskie display-only", but `profiles/dolnoslaskie-test.json` pins exactly one tile (`include: ["B48R058R"]`, `max_tiles: 1`) and no block answers how many `MAPAL001` tiles the region's 14.0–17.9 E × 49.9–51.9 N box intersects or contains. Without that census the P0 card cannot be extended to P1 and the scale of the rest of the ladder is a guess. This is the rule-17 first slice: enumerate, no splice.
   - Precheck: `python3 tools/mesh_grid.py list <factory MAPAL001>` prints 45 tiles and `cell B48R058R` prints `48.00.. 53.33 N 12.00.. 20.00 E`; a bbox-intersection over those 45 rows is the census (no vendor bytes are read beyond tile names; `profiles/dolnoslaskie-test.json` is the box).
@@ -2962,7 +2962,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if a profile has no `region.bbox`, report the missing field and the profile's `tiles.include` only — do not invent a box (that would be the P1 guess this task removes).
   - Falsifier: the census selects a tile whose `mesh_grid.py cell` box does not touch the profile bbox, or reports P0's tile as anything but `contained`.
   - Pair: required
-  - Claims: none yet
+  - Result: EXP-2026-11-18-M5.46-containment. `python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json <MAPAL001>` prints `census: contained=1 intersects=0 outside=62 lattice=63 factory_tiles=45` (B48R058R the sole contained tile, so P1 is one factory tile copied verbatim); `cover profiles/poland-full.json` prints `contained=0 intersects=4 outside=59`; `--all` prints all 63 lattice rows; `mesh_grid --selftest` OK (16 ok). The task's Hints had the containment test inverted; the Done-when's contained=1 settles the direction (region inside tile). Claims C-4470–C-4475.
+  - Claims: C-4470–C-4479
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -3882,8 +3883,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: done in `docs/experiments/EXP-2026-11-18-M9.42-wrong-build.md` — the wrong-build `walk archive/head256.img … --build us2011` prints one `result: FAIL (unmapped 0x00000000 @ build us2011, UNMAPPED pc=0x0041db48)` and exits 1 (0 tracebacks), while `walk archive/us256.img … --build us2011` prints `result: PASS` and exits 0; the selftest covers `run_skip`, `guarded` and the verdict.
   - Claims: C-4430–C-4439
 
-- [ ] **M9.43 — M9.39's mutant pair is only reproducible from a pasted heredoc; the committed `mutate_refer_poi.py` CLI writes a different, all-149-stream corpus**
-  - Status: in progress · Owner: task/m9.43-mutate-cli-chunk-preserving · Critical: no · Pair: required
+- [x] **M9.43 — M9.39's mutant pair is only reproducible from a pasted heredoc; the committed `mutate_refer_poi.py` CLI writes a different, all-149-stream corpus**
+  - Status: done · Owner: task/m9.43-mutate-cli-chunk-preserving · Critical: no · Pair: required
   - Depends: M9.39 (done — the EXP whose corpus this must reproduce)
   - Goal: SE 2026-11-17 ran the committed CLI as the EXP's `Reproduction` implies (`mutate_refer_poi.py … --page 0x840ba0 --old … --new … --resize`) and it printed `outer .cmp 4240574 -> 4233456 bytes, 149 chunk(s)`, sha `5565c9ba…` — **not** the EXP's pinned `ea2d0e0f…` (4,240,400 B, one differing stream). The chunk-preserving path the EXP's `Method` uses (`cmpind_codec.repack_changed_chunks`) exists only inside a `python3.13 - <<'PY'` heredoc, so rule 16's "commands run as written" fails: a reader cannot regenerate the L3 corpus M9.41 cites as its control.
   - Precheck: `python3 tools/mutate_refer_poi.py /home/marek/projekty/leafre-work/m5.12-us/root-factory/REFER001/POINT010.DAT.cmp …/POINT010.DAT.ind /tmp/cli --page 0x840ba0 --old 'HAWAII ST GOVT FREQNTLY CLLD NMBRS' --new 'HAWAII ST GOVT FREQNTLY CLLD NMBRSXXXX' --resize` prints `149 chunk(s)` and its `.cmp` sha is not `ea2d0e0f…` (the defect); `grep -c "python3.13 - <<'PY'" docs/experiments/EXP-2026-11-17-M9.39-point010-mutant.md` is `2` (two heredoc-only builders).
@@ -3894,7 +3895,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the level-9 fallback cannot be made deterministic across the supported zlibs, keep the heredoc, but commit it as `tools/build_point010_mutant.py` with `--selftest` and re-point the EXP — do not leave a corpus that only a session can rebuild.
   - Falsifier: the committed CLI (with the new mode) still changes all 149 streams, or the EXP still has no committed command that prints its pinned mutant SHAs.
   - Claims: C-4480–C-4489
-  - Result (driver, awaiting navigator; not merged): `docs/experiments/EXP-2026-11-18-M9.43-mutant-cli` (C-4480–C-4489). `mutate_refer_poi.py` now defaults to the chunk-preserving outer rebuild (`cmpind_codec.repack_changed_chunks`, `--whole-blob` for the old path). On stock zlib 1.3.2 the committed command prints the M9.39 pins: US `.cmp` `ea2d0e0f…` (4,240,400 B) / `.ind` `5d576d62…`, EU `.cmp` `e75c298f…` (3,271,483 B) / `.ind` `077937ea…`, `changed chunk(s) [132]`/`[110]` (1 of 149/151 stream(s) differ); the four walks reproduce `n=501` +4; `grep -c "python3.13 - <<'PY'"` over EXP-M9.39 is `0` (Method + control replaced); `--selftest` 13/13; `l2check` on the EU factory tree PASS; `gate.py` 4 pass.
+  - Result: `docs/experiments/EXP-2026-11-18-M9.43-mutant-cli` (C-4480–C-4489). `mutate_refer_poi.py` now defaults to the chunk-preserving outer rebuild (`cmpind_codec.repack_changed_chunks`, `--whole-blob` for the old path). On stock zlib 1.3.2 the committed command prints the M9.39 pins: US `.cmp` `ea2d0e0f…` (4,240,400 B) / `.ind` `5d576d62…`, EU `.cmp` `e75c298f…` (3,271,483 B) / `.ind` `077937ea…`, `changed chunk(s) [132]`/`[110]` (1 of 149/151 stream(s) differ); the four walks reproduce `n=501` +4; `grep -c "python3.13 - <<'PY'"` over EXP-M9.39 is `0` (Method + control replaced); `--selftest` 13/13; `l2check` on the EU factory tree PASS; `gate.py` 4 pass.
 
 - [ ] **M1.33 — M1.22's census and relocated-body tables come from an uncommitted script, and its Method has ellipses**
   - Status: open · Owner: — · Critical: no · Pair: required

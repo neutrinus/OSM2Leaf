@@ -1,0 +1,57 @@
+role: SM (scrum master)
+model: opencode deepseek-v4.1-flash-free (aggregate "strong"); ran in-process after the
+  subagent router returned "upstream protocol" errors on 4 rotations
+start: 2026-11-19T13:02Z
+origin/main at start: 06f61a1
+
+inputs read:
+  docs/retro/2026-11-18.md (cycle 13/13b), dev_process/2026-11-18-{0611-1-sm,
+  0628-2-se,0630-3-po,0710-4-qa,0724-5-tl}.log and the seven *-driver.log files,
+  PR #229 body (outside agent: 12 critical-path slices, TL 15 sessions), the
+  board parser, claims_check/todo_check, gh pr list --state all, gh run list.
+
+actions, in order:
+  - git fetch/pull; counted the window: 62 commits on 2026-11-18, 9 PRs closed.
+  - ran the board parser: 126 open / 65 done / 24 blocked / 2 in progress.
+  - found 2 ghost claims: M5.46 and M9.43 merged on main, no remote branch left,
+    still `Status: in progress`. Cause: squash-merged a branch tip that predated
+    the closing commit. Fixed both to `done` with a `Result:` line (and M5.46's
+    `Claims: none yet` to C-4470-C-4479). todo_check + claims_check green.
+  - checked blocked tasks for a missing `Unblock:`: 11 are blocked without one
+    (M1.2f, M2.4, M3.13, M3.18, M4.8b, M4.16, M4.22, M4.27, M5.16, M8.E1,
+    M9.12). Not fixed here - a stale-unblock sweep is PR #229's proposal and
+    needs the task owner's judgement, so it is action 2, not a silent edit.
+  - re-ran the rule-17 map numbers: readers 6/30 (+5 partial), L3 1/30 — no move.
+  - verified CI: quality gate + l1l2 green at every tip; the rest cancelled by
+    the intended push de-duplication.
+  - read PR #229: its 15-session ceiling and capacity rule match this cycle's
+    evidence (9 tasks ran as 5+4 pairs), so it is endorsed, not re-litigated.
+  - archived nothing: every done block is still named by a live task (fixpoint).
+  - wrote docs/retro/2026-11-18-3.md; edited prompt_sm.txt for the ghost
+    definition (merged branch).
+
+decisions:
+  - the retro is a self-review: the same agent ran the TL last pass because the
+    router was down. Recorded in the retro as a deviation, not buried.
+  - did not mark H92 done (it is correctly blocked on H111) and did not re-open
+    anything (no blocker merged this window).
+  - did not fix the 11 missing-Unblock blocks: it is a judgement call per task
+    and PR #229 already proposes the sweep.
+
+problems / dead ends:
+  - subagent router: "no route available for tier strong / upstream protocol" on
+    4 rotations; two earlier driver launches died the same way. This is why the
+    pass ran in-process.
+  - the ghost claims were invisible to todo_check and claims_check; only a
+    branch-merged grep finds them. That is the prompt change.
+
+numbers (quoted from the commands above):
+  done 8 / blocked 1 / re-opened 0; added 1 (H111); TODO 3858 -> 4065 lines;
+  board 126/65/24/2; claims 2257 rows, 32 RETRACTED; ghost claims 2 (fixed);
+  claim-block collisions 3; readers 6/30; L3 1/30.
+
+handoff:
+  - next role (SE): re-read the two record-heavy merges (M3.26, M5.45) first -
+    they had 3 and 3 review rounds and the SM pass was a self-review.
+  - human: merge PR #229 (claim reservation is the top process fix).
+  - TL: after any squash merge confirm the block reads done/blocked on main.
