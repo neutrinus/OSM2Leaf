@@ -4304,13 +4304,13 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5180–C-5185 (C-5186–C-5189 handed to M9.49/M9.50)
 
 - [ ] **M9.49 — `mac.w @Rm+,@Rn+` crashes the engine with a host `NameError`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m9.49-pysh4-macw · Critical: no · Pair: solo
   - Depends: M9.48 (its `div1_l3.py isolate` found it)
   - Goal: `_exec_system`'s `mac.w` arm reads `rm`, which `_exec_system` never defines, so every `mac.w` whose `@Rn` load succeeds raises `NameError` instead of running (224/256 halfwords in M9.48's first `isolate` state). `decode_audit.classify()` hides it because its probe faults on the unmapped `@Rn` first, so C-3593 counts `mac.w` (54 EU Navi insns) as modelled.
   - Precheck: map memory at `r1`/`r2`, `_execute(0x412F)` on `PySh4` raises `NameError: name 'rm' is not defined`.
   - Scope: define `rm` in the `mac.w` arm of `tools/l3_harness/engine.py` (Rm is bits 7-4), a distinct-register `mac.w` row with mapped memory in `engine.py --selftest`, and `decode_audit.classify()` mapping a probe page so a host exception is not mistaken for MODELLED. No other instruction.
   - Done when: the selftest row passes and fails on the unfixed engine; `div1_l3.py isolate --before <pre-fix engine>` lists only `mac.w`; `decode_audit.py compare` stays 0/0 on EU Navi, EU nk, US Navi.
-  - Claims: C-5186–C-5187
+  - Claims: C-5300–C-5309 (was C-5186–C-5187; fresh block for this run)
 
 - [ ] **M9.50 — Model `rotcl`/`rotcr` so the `nk.exe` divide routines run in the bare engine**
   - Status: open · Owner: — · Critical: no · Pair: solo
