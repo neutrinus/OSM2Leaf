@@ -4120,7 +4120,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-4180–C-4189
 
 - [ ] **M9.38 — Read-watch tracer: which functions read the page buffer**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m9.38-read-watch · Critical: yes
   - Note (SE 2026-11-13): `777fb68` named this task in its subject but changed only `pdata.py`/`fn_match.py`; `engine.py` has no `watch(range, kind=…)` hook and `runner.py` has no `--watch`. Nothing is claimed; take it after M1.20's pdata tool is wired (M1.23).
   - Depends: M1.20 (function names for PCs); M1.19 helps (real `INIT` bytes)
   - Goal: the dynamic counterpart of M3.23. Put a decoded factory page in a buffer, run a caller from the family's access path, and log every load from the buffer with its PC — attributed to a function. The functions that read the record bytes are the reader, whatever their code looks like.
