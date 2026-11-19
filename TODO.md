@@ -2907,7 +2907,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-4300–C-4309
 
 - [ ] **M5.41 — One expected-change-set for the one-tile run: `changed_set_expected` and the gate disagree on `DRSTR001.DAT`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.41-expected-changes · Critical: no · Pair: required
   - Depends: M5.34 (done — the run and the gate it reports)
   - Goal: `one_tile_pipeline.build_factory_out` writes `changed_set_expected = ["MAPAL001/<cell>.DAT"]` (`tools/one_tile_pipeline.py:1250`) while no other place defines what a correct run is allowed to change: the gate's manifest allowlist is a literal at `:1399` and is never exported, and the non-parcel path fills `changed_set` from `counts.rebuilt_files` (`:663`, `:1367`). On the M5.34 run the two disagree (`changed_set_expected` excludes `DRSTR001.DAT`, the file that does change and that the gate accepts), so a reader or a future card gate that trusts `expected` would read the correct run as wrong. Two definitions of one set in one module is the coupling defect; the fix is one function.
   - Precheck: `python3 -c "import json;d=json.load(open('/home/marek/projekty/leafre-work/m5.34/nav-report.json'));print(d['changed_set_expected'], [x['path'] for x in d['tree_diff']['differing_files']])"` prints `['MAPAL001/B48R058R.DAT']` against `['DRSTR001.DAT', 'MAPAL001/B48R058R.DAT']`.
