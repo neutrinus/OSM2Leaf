@@ -850,8 +850,83 @@ def bad_evidence(rows):
     return problems
 
 
+# --- H61: every cited EXP name resolves to a file ---------------------------
+EXP_EXT_RE = re.compile(r"\.(md|tsv|json|csv|txt)$")
+COMPANION_RE = re.compile(r"companion:\s*`?$")
+
+
+def exp_dir_names():
+    """File names in ``docs/experiments/`` (resolved from REPO_ROOT)."""
+    if not EXP_DIR.exists():
+        return set()
+    return {p.name for p in EXP_DIR.iterdir() if p.is_file()}
+
+
+def _record_for(stem, names):
+    """An ``.md`` record whose stem is *stem* or *stem* plus a ``-slug``/``-2``."""
+    for n in sorted(names):
+        if n.endswith(".md"):
+            s = n[:-3]
+            if s == stem or s.startswith(stem + "-"):
+                return n
+    return None
+
+
+def exp_name_reason(token, names, marked_companion=False):
+    """None when *token* resolves, else why not (H61).
+
+    * ``EXP-…`` or ``EXP-….md`` resolves to an ``.md`` record by exact name or
+      stem (``-slug`` and ``-2``/``-3`` suffixes are the same task);
+      ``no-record`` when only a non-record file (``.tsv``) carries the name,
+      ``missing`` when nothing does;
+    * ``EXP-….tsv``/``.json``/… is a companion: the file must exist
+      (``missing``), an ``.md`` record must share its stem
+      (``companion-orphan``), and the row must say ``companion:`` before it
+      (``companion-unmarked``) so a data file is never read as the record.
+    Only file names are checked, never record contents.
+    """
+    m = EXP_EXT_RE.search(token)
+    ext = m.group(1) if m else None
+    if ext is None or ext == "md":
+        stem = token[:-3] if ext == "md" else token
+        if _record_for(stem, names):
+            return None
+        if any(n.startswith(stem + ".") or n.startswith(stem + "-")
+               for n in names):
+            return "no-record"
+        return "missing"
+    if token not in names:
+        return "missing"
+    base = token[: m.start()]
+    if not any(n.endswith(".md")
+               and (base == n[:-3] or base.startswith(n[:-3] + "-"))
+               for n in names):
+        return "companion-orphan"
+    if not marked_companion:
+        return "companion-unmarked"
+    return None
+
+
+def unresolved_exp_names(rows, names):
+    """Rows citing an EXP name that names no record in ``docs/experiments/``."""
+    problems = []
+    for cid, line in rows:
+        bad = []
+        for m in EXP_TOKEN_RE.finditer(line):
+            token = m.group(0).rstrip(".")
+            marked = bool(COMPANION_RE.search(line[:m.start()]))
+            why = exp_name_reason(token, names, marked)
+            if why and (token, why) not in bad:
+                bad.append((token, why))
+        if bad:
+            problems.append({"id": cid, "unresolved": [
+                {"exp": t, "reason": w} for t, w in bad]})
+    return problems
+
+
 def _evidence_strict(args):
-    """The evidence rules fail only under ``--strict-evidence`` (H58 Stop).
+    """The evidence rules (H58 command, H61 EXP name) fail only under
+    ``--strict-evidence`` (H58 Stop).
 
     The current ledger has hundreds of legacy rows (the EXP counts them), far
     past H58's ~20-ID allowlist bound, and ``tools/gate.py`` runs
@@ -873,7 +948,8 @@ def _run_counts(args):
 
 
 def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
-          run_prose=False, prose_runner=None, prose_cmd_runner=None):
+          run_prose=False, prose_runner=None, prose_cmd_runner=None,
+          exp_names=None):
     rows = parse_claim_rows(claims_text)
     dups = duplicate_ids(rows)
     reg = registration_index(claims_text)
@@ -900,6 +976,8 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
                                   cmd_runner=prose_cmd_runner)
              if run_prose else [])
     nonrunnable = bad_evidence(rows)
+    unresolved = unresolved_exp_names(
+        rows, exp_dir_names() if exp_names is None else exp_names)
 
     return {
         "duplicate_ids": dups,
@@ -910,6 +988,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
         "exp_count_conflicts": exp_counts,
         "bad_prose_counts": prose,
         "nonrunnable_evidence": nonrunnable,
+        "unresolved_exp_names": unresolved,
         "ok": not dups and not unregistered and not bad_annotations,
     }
 
@@ -930,8 +1009,9 @@ def main(argv=None):
                              "prints (H92; off by default, not in the gate yet)")
     parser.add_argument("--strict-evidence", action="store_true",
                         help="a VERIFIED row whose evidence has no runnable "
-                             "command exits 1 (H58; off by default and not "
-                             "implied by --strict: the legacy rows are many)")
+                             "command (H58), or any row citing an EXP name "
+                             "with no record (H61), exits 1; off by default "
+                             "and not implied by --strict")
     args = parser.parse_args(argv)
 
     if args.selftest:
@@ -964,7 +1044,8 @@ def main(argv=None):
     conflict_fail = args.strict and bool(result["exp_count_conflicts"])
     prose_fail = bool(args.prose_counts and result["bad_prose_counts"])
     evidence_fail = (_evidence_strict(args)
-                     and bool(result["nonrunnable_evidence"]))
+                     and bool(result["nonrunnable_evidence"]
+                              or result["unresolved_exp_names"]))
     failed = (not result["ok"] or path_fail or count_fail or conflict_fail
               or prose_fail or evidence_fail)
     if args.json:
@@ -1031,6 +1112,13 @@ def main(argv=None):
                  else "warning; --strict-evidence fails"))
         for b in nonrun:
             print("  NONRUN %s %s" % (b["id"], ",".join(b["reasons"])))
+        unres = result["unresolved_exp_names"]
+        print("unresolved EXP names: %d (%s)"
+              % (len(unres), "error" if _evidence_strict(args)
+                 else "warning; --strict-evidence fails"))
+        for u in unres:
+            print("  NOEXP %s %s" % (u["id"], ", ".join(
+                "%s (%s)" % (x["exp"], x["reason"]) for x in u["unresolved"])))
         print("claims_check: OK" if not failed else "claims_check: FAILED")
     return 0 if not failed else 1
 
@@ -1481,7 +1569,43 @@ def run_selftest():
     assert _evidence_strict(_EvArgs(True, False)) is False
     assert _evidence_strict(_EvArgs(False, True)) is True
 
-    print("claims_check selftest: OK (47 checks)")
+    # --- H61: every cited EXP name resolves to a record ----------------------
+    names61 = {"EXP-2026-11-09-M2.18-hddinfo-predictor.md",
+               "EXP-2026-11-09-M2.18-hddinfo-predictor-variants.tsv",
+               "EXP-2026-11-08-M4.8b-poi-refs.tsv",
+               "EXP-2026-11-07-M3.11-point-reader-2.md",
+               "EXP-2026-11-05-38-foo.md"}
+    n_rows = "".join([
+        # (aa) a missing record fails.
+        "| C-9301 | x | VERIFIED | H | EXP-2026-11-19-H61-nothere; `git log` |\n",
+        # (ab) a `.md` record, cited bare or with its suffix, passes.
+        "| C-9302 | x | VERIFIED | H | EXP-2026-11-09-M2.18-hddinfo-predictor.md"
+        " and EXP-2026-11-09-M2.18-hddinfo-predictor. |\n",
+        # (ac) a `.tsv` next to its stem record, marked companion:, passes.
+        "| C-9303 | x | VERIFIED | H | EXP-2026-11-09-M2.18-hddinfo-predictor; "
+        "companion: `EXP-2026-11-09-M2.18-hddinfo-predictor-variants.tsv` |\n",
+        # (ad) a `-2` suffix on the record is the same task: passes.
+        "| C-9304 | x | VERIFIED | H | EXP-2026-11-07-M3.11-point-reader; "
+        "see EXP-2026-11-05-38 |\n",
+        # (ae) the same `.tsv` unmarked fails (C-3033 shape).
+        "| C-9305 | x | VERIFIED | H | "
+        "`EXP-2026-11-09-M2.18-hddinfo-predictor-variants.tsv` |\n",
+        # (af) a name only a `.tsv` carries is no record (C-1900 shape).
+        "| C-9306 | x | VERIFIED | H | EXP-2026-11-08-M4.8b-poi-refs |\n",
+        # (ag) a marked companion with no `.md` stem record is an orphan.
+        "| C-9307 | x | VERIFIED | H | companion: "
+        "EXP-2026-11-08-M4.8b-poi-refs.tsv |\n",
+    ])
+    r61 = check(n_rows, {}, exp_names=names61)
+    got61 = {u["id"]: [x["reason"] for x in u["unresolved"]]
+             for u in r61["unresolved_exp_names"]}
+    assert got61 == {"C-9301": ["missing"], "C-9305": ["companion-unmarked"],
+                     "C-9306": ["no-record"], "C-9307": ["companion-orphan"]}, got61
+    assert r61["ok"], "an unresolved name never changes the default verdict"
+    # (ah) names resolve from REPO_ROOT, not the current directory.
+    assert EXP_DIR == REPO_ROOT / "docs" / "experiments"
+
+    print("claims_check selftest: OK (50 checks)")
     return 0
 
 if __name__ == "__main__":
