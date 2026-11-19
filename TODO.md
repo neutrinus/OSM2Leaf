@@ -2304,8 +2304,8 @@ of the four numbers above says so in its first line.
   - Falsifier: a field the table gives does not vary where the two tiles' roads differ, or the L3 run reads bytes outside section 2 only.
   - Claims: none yet
 
-- [ ] **M4.41 — Differential decoding: the same tile in 2011, 2014 and 2016**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.41 — Differential decoding: the same tile in 2011, 2014 and 2016**
+  - Status: done · Owner: task/m4.41-diff-years · Critical: no · Pair: solo
   - Depends: — (three EU images are on the allowed host)
   - Goal: three editions of the same map are the cheapest oracle for field meaning. A tile where one road was added between 2011 and 2014 shows which bytes of section 1, section 2, section 4 and `LEV3456R` belong to one road. No firmware and no hardware.
   - Precheck: `python3 tools/fetch_image.py --image EU2014 -o PATH` and `--image EU2016` verify; `python3 tools/diff_years.py -h` runs.
@@ -2314,7 +2314,8 @@ of the four numbers above says so in its first line.
   - Hints: sort by edit distance, not by size change — a renamed street changes section 4 only, a new roundabout changes all three. A tile whose section 1 is identical and section 2 differs is a routing-only edit (turn restriction, one-way): those are the pure samples M4.23/M4.3 never had. Record how many bytes of section 2 change per added section-1 road: a constant is the record size.
   - Done when: an EXP with the per-section change census for all tiles (counts) and the 20-tile table; at least three "one variable" pairs (one added road; one renamed road; one routing-only change) named by tile and offset for M4.40, M4.36 and the section-4 reader (M3.6; **M4.21**, the section-4 writer, is done and archived in `todo-history-2026-11-09.md`) to use.
   - Stop: if fewer than three clean pairs exist, publish the census and say so.
-  - Claims: none yet
+  - Claims: C-4590–C-4599
+  - Result: EXP-2026-11-19-M4.41-diff-years (C-4590–C-4599): `tools/diff_years_tiles.py` gives the per-section `kept/changed/added/removed` census for 45 tiles × 2 pairs (2011→2014 sec1 606622/1402020/135997/187413; 2014→2016 sec1 755251/1308596/68171/80792) with the 20-tile tables, and names section-4 rename records (e.g. `B48R070R` `CRICCLETH;`→`CRICCIETH;`) and the `B60R060R` added-road sample. `Stop:` applies — the editions move all three sections together, so fewer than three clean one-variable pairs exist; the census is the result.
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 

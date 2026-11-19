@@ -779,6 +779,23 @@ functions accept; the closest runnable target remains `0x00425f40` (M3.6) fed
 by `0x00427578`, whose `r4` is a 20-byte record. Falsifier for that paragraph: a
 caller that loads `MapViewOfFile`'s return value straight into `r4` of one of
 the three entries (not found: all three have exactly one static call site).
+## Cross-edition differential census (2011/2014/2016)
+
+`tools/diff_years_tiles.py` compares the same `BxxRyyR.DAT` in two EU editions
+per section (the section span `[taddr, next_taddr)`), reporting size, SHA-256
+and the record `kept/changed/added/removed` triple.  It is a **census**, not a
+field decoder: it says which records change *together with* which, and names
+the section-4 rename records and section-1 added records by tile and offset.
+
+- Frame each section by its section-table `taddr` (not by a global offset);
+  the container re-packs sections between editions, so a section's file offset
+  moves and a per-offset byte diff is meaningless for section 2.
+- Match records by identity `(level, dir_y, dir_x, slot, first-4 plain bytes)`
+  before calling something added/removed; a content-only multiset turns every
+  shifted coordinate into a false add+remove pair.
+- The section-4 rename samples (parcel + pre-names header identical, only the
+  name text differs) are listed in EXP-2026-11-19-M4.41-diff-years; they are
+  the cleanest name-index pairs for M4.36 and the section-4 reader.
 
 ## Key questions
 
