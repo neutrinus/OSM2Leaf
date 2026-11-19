@@ -59,6 +59,11 @@ Counts are from `mesh_grid.py cover … /home/marek/projekty/leafre-work/m5.29-f
 not from a card; EXP-2026-11-18-M5.46-containment has the per-row output and
 `cover --all` for the full 63-row table.
 
+**What a region card is at each rung.** The ladder (P0, P1, and the P2 routing
+placeholder) and the command that decides each rung — with its exact expected
+output — live in [`card-ladder.md`](card-ladder.md). This page owns the tile
+grid and the tile census; the ladder page owns the gate per rung.
+
 ## Coordinate encoding (from `COORD001`)
 
 `COORD001` stores per-region bounding boxes in grid units at 1/128 resolution:
