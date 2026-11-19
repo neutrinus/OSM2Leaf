@@ -1,0 +1,96 @@
+role: TL (team lead)
+model: opencode deepseek-v4.1-flash-free (aggregate "strong")
+start: 2026-11-19T15:06Z
+origin/main at start: 8922f97
+
+inputs read:
+  prompt_tl.txt (main checkout), prompt_common.txt, AGENTS.md "Worktrees",
+  TODO.md rules 1-17 + Priorities (PO 17th pass),
+  dev_process logs 2026-11-19-{1302-1-sm,1320-2-se,1335-3-po,1340-4-qa}.log,
+  dev_process/2026-11-18-0724-5-tl.log (cycle-14 batch lesson),
+  docs/retro/2026-11-18-3.md, gh pr list (230-233 open, 229 open).
+
+situation at start: four tasks are already claimed by an earlier run whose
+claim commit never landed Status: in progress on origin/main (M5.30, M5.47,
+M5.48, M3.27 — branches predate the PO/QA cycle-15 commits). Their PRs are
+green (6/6) but drafts, on merged content. NONE is in progress on the board,
+so all seven ready map tasks could be picked; I do not re-claim those four.
+
+batch (rule 17: 6 map + 1 H, one per front, disjoint files):
+  M9.37 (L3 engine) · M1.24 (firmware tool) · M9.28 (L3 harness)
+  M3.11b (firmware search) · M4.41 (data) · M5.41 (card) · H109 (docs/tool)
+  skipped as not ready: M9.32 (M9.11b open), M1.33 (M1.31 not done),
+  M3.27/M5.47/M5.30/M5.48 claimed above; H93/H19 record-band deferred (rule 17).
+  capacity: 6 pairs = 12 sessions under the 15 ceiling (prompt_tl revised).
+
+batch ledger (session): task | worktree | branch | mode | session
+  M9.37  | ../OSM2Leaf.task-m9.37-decoder-audit    | task/m9.37-decoder-audit    | pair  | drv ses_...1x21t69tYC2qzq / nav ses_...3AIdUfg561r092
+  M1.24  | ../OSM2Leaf.task-m1.24-sh4literal       | task/m1.24-sh4literal       | pair  | drv ses_...1e2hVQQAkrbNmevoM / nav ses_...1ergGUtPzbpZOGRB
+  M9.28  | ../OSM2Leaf.task-m9.28-input-buffer      | task/m9.28-input-buffer     | pair  | drv ses_...dnjIwPWnUXTZzvx / nav ses_...dV4O5z0A3u6uxVW
+  M3.11b | ../OSM2Leaf.task-m3.11b-point-byteorder  | task/m3.11b-point-byteorder | pair  | drv ses_...eJY30NpShsEFgeF / nav ses_...e9sgEfwXMITC5az
+  M5.41  | ../OSM2Leaf.task-m5.41-expected-changes  | task/m5.41-expected-changes | pair  | drv ses_...dFy5DDETRdwkdo0
+  M4.41  | ../OSM2Leaf.task-m4.41-diff-years        | task/m4.41-diff-years       | solo  | ses_...2oXr8FOlLfiLyO
+  H109   | ../OSM2Leaf.task-h109-map-signals        | task/h109-map-signals       | solo  | ses_...IHcSdlbrK4IBxV
+phase-1 = claim commit + draft PR + plan; implement only after the plan is reviewed.
+
+added mid-run: M9.38 (read-watch tracer) launched on task/m9.38-read-watch —
+  Depends M1.20 done, so it was free; M3.11b needs its --watch hook. Sole
+  writer of tools/l3_harness/engine.py + runner.py this batch.
+decision: M3.11b does NOT edit engine.py/runner.py; it consumes the watch from
+  M9.38. If M9.38 is not merged when M3.11b is ready it blocks with
+  Unblock: M9.38 and a negative EXP (precheck + signature are real work).
+rejected: letting M3.11b build the watch itself (two owners of engine.py).
+dropped M9.28? no — it edits runner.py too (input-buffer mapping). See collision
+  note in the next update; the navigator must confirm no overlap with M9.38.
+
+--- appended by the first batch's TL (same session, 19:20Z) ---
+
+outcome of the four carried PRs:
+  M5.47 | PR #230 | merged a0719bd (squash of e30e675) | 3 rounds | fit_census.py
+  M5.30 | PR #233 | merged f38ea69 (squash of 7dde1ff) | 3 rounds | allocator bound fixed
+  M3.27 | PR #231 | merged 6cc4282 (squash; PR closed - GraphQL refused a draft) | 2 rounds
+  M5.48 | PR #232 | merged 4897ee2 (squash; PR closed - conflict after main moved) | 2 rounds
+
+P0 IS COMPLETE. M5.30 built the one-variable card on a copy of the EU 2011
+image: SHA-256 b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237,
+cardcheck PASS (480 files), diff 586 ranges / 152,815 B with outside 0 under
+--allow-metadata (strict fails the 9 FAT/FSInfo ranges), L2 PASS on the result
+tree, 7z t and fsck.fat -n accept the partition. The blocker was not the tile:
+alloc_clusters scanned all 115,200 FAT entries while the BPB defines 115,185
+data clusters, so a relocation could pick cluster 115,187 past the partition
+(the M5.47 internal-range refusal). max_cluster from the BPB fixes it.
+
+navigator defects found (all fixed in-run, one per round):
+  M3.27: a fabricated VA2 r5 row (a tst r5,r5 that decodes to extu.w r0,r1 at
+    0x004259ee); two address attributions; r7 "passes 0" contradicted by the
+    call site. Found by two independent decoders.
+  M5.30: geometry said 115,187 clusters (the truth is 115,185, last valid
+    115,186); a reproduction block that patched a copy and proved nothing;
+    --allow-metadata is whole FAT/FSInfo sectors, not "the named fields".
+  M5.47: round 2 replaced the 242-line EXP with only a Corrections section;
+    round 3 restored the body and edited in place. Also: cardcheck --selftest
+    is not a flag.
+  M5.48: _copy_factory_root rmtree'd a pre-existing --out, so a user directory
+    survived by name with its contents gone; now refused (exit 2) with
+    --force-overwrite as the opt-in.
+
+merge mechanics lesson (add to prompt_tl): a squash merge of a branch whose PR
+is still a draft is refused ("Pull Request is still a draft") and one whose PR
+was rebased while main moved reports "merge conflicts" even when the squash is
+clean. Both happened. Rule: `gh pr ready <n>` before merging, and when the
+squash is already on main, close the PR with the squash SHA instead of
+re-merging.
+
+claim-block collisions: none this batch (the SE reserved C-4560-C-4589 and
+C-3060-C-3066 was already M5.30's). claims rows 2257 -> 2297.
+
+concurrent batch: a second TL run on this repo (log dev_process/
+2026-11-19-1506-5-tl.log, the first half) has 8 tasks open in PRs #234-#241
+(M9.37, M1.24, M9.28, M3.11b, M4.41, M5.41, H109, M9.38). I did not touch
+them. M5.41 (one expected-change-set) may also touch one_tile_pipeline.py;
+whoever merges second rebases and keeps both.
+
+next: P0 complete -> P1 (M5.46 says one contained tile B48R058R, copy
+verbatim) and the L3 line (M3.27 done -> M3.25; its target must wrap
+0x00425f40, not a (tile, dst) prototype). H111 is still the only blocked-task
+unblock (H92), and it is not in the concurrent batch either.
