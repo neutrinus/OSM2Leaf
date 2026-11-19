@@ -2779,6 +2779,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Input: factory EU 2011 image, M5.29 outputs, `imgpatch.py`, `mkcard.py`, `cardcheck.py --image`.
   - Done when: `cardcheck.py --image` passes; EXP lists every diff range confined to intended files' clusters/dir entries; manifests touched only when required listed explicitly. Images outside repo.
   - Stop: if changed tile/manifests cannot fit existing chains and relocate/reconcile widens diff beyond changed files, record ranges and stop — do not claim one-variable.
+  - Note: card built and `cardcheck --image` PASS (586 ranges / 152,815 B, all classified); allocator bound + wrap re-pick fixed in `imgpatch`/`mkcard`; see EXP-2026-11-19-M5.30-one-variable-card. Status left `in progress` for the navigator (rule 6).
   - Claims: C-3060–C-3069
 
 - [ ] **M5.32 — Resolve M5.12c's 5 unfit POI pages with the M5.21 slot-budget strategy**

@@ -16,3 +16,23 @@ DRSTR via imgpatch to a copy of the factory image, prove --check-diff, cardcheck
 
 Notes: M5.47 is OPEN PR #230 (branch task/m5.47-fit-census), NOT merged to main
 despite the task brief saying "just merged". Depends M5.29/M5.13/M5.20 done.
+
+Actions (in order):
+1. Claimed M5.30 (TODO line + branch + draft PR #233).
+2. Confirmed M5.47 is PR #230 (open), not on main; read its EXP there.
+3. Reproduced the allocator refusal from a scratch mutant (exit 3, the exact
+   M5.47 message) as the negative control.
+4. mkcard.alloc_clusters: optional max_cluster bound; fixed a same-call
+   duplicate pick on wrap. imgpatch._build_plan passes the BPB cluster count.
+5. imgpatch --check-diff: --allow-metadata adds FAT-sector and FSInfo-sector
+   ranges as a separate class; classification per byte; metadata report.
+6. Built card-tile.img (tile then DRSTR) from the factory image; check-diff
+   outside 0; cardcheck --image PASS; l2check PASS on the M5.44 tree.
+7. EXP-2026-11-19-M5.30-one-variable-card.md, C-3060..C-3067, TODO Note.
+8. selftest 93/0/23, gate 4 pass 0 fail; claims_check OK.
+Numbers: card sha af962c30…3324bd; 586 ranges / 152,815 B (file_data 577/152788,
+dir_entry 1/3, metadata 9/24).
+Dead ends: l2check cannot read an image (root tree only); /tmp is 3.8 GiB and
+l2check filled it — rerun with TMPDIR in the scratch dir.
+Handoff: navigator — check the C-3067 flaky-selftest note and the fsync copy
+time; status deliberately left in progress (driver does not mark done).
