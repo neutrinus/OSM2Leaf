@@ -4319,14 +4319,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the semantics cannot be pinned from the manual in one pass, keep it bucketed and record the negative rather than guessing.
   - Claims: C-5180–C-5185 (C-5186–C-5189 handed to M9.49/M9.50)
 
-- [ ] **M9.49 — `mac.w @Rm+,@Rn+` crashes the engine with a host `NameError`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.49 — `mac.w @Rm+,@Rn+` crashes the engine with a host `NameError`**
+  - Status: done · Owner: task/m9.49-pysh4-macw · Critical: no · Pair: solo
+  - Result: EXP-2026-11-19-M9.49-pysh4-macw; C-5300–C-5304. `mac.w` defines `rm` and follows the manual's MACW (also fixed: words were multiplied as 32-bit register images, n == m read one address twice, S = 1 saturation ignored). `isolate --before 9a9c3cf --expect mac.w` → only `mac.w` (224 halfwords); `compare` 0/0 on EU Navi (28,373), EU nk (11,360), US Navi (28,323). `decode_audit.classify()` maps a probe data page and buckets host exceptions as unmodelled: on the pre-fix engine it now reports 17/1/14 drift. New task M9.51 (`mac.l` is modelled as a register form).
   - Depends: M9.48 (its `div1_l3.py isolate` found it)
   - Goal: `_exec_system`'s `mac.w` arm reads `rm`, which `_exec_system` never defines, so every `mac.w` whose `@Rn` load succeeds raises `NameError` instead of running (224/256 halfwords in M9.48's first `isolate` state). `decode_audit.classify()` hides it because its probe faults on the unmapped `@Rn` first, so C-3593 counts `mac.w` (54 EU Navi insns) as modelled.
   - Precheck: map memory at `r1`/`r2`, `_execute(0x412F)` on `PySh4` raises `NameError: name 'rm' is not defined`.
   - Scope: define `rm` in the `mac.w` arm of `tools/l3_harness/engine.py` (Rm is bits 7-4), a distinct-register `mac.w` row with mapped memory in `engine.py --selftest`, and `decode_audit.classify()` mapping a probe page so a host exception is not mistaken for MODELLED. No other instruction.
   - Done when: the selftest row passes and fails on the unfixed engine; `div1_l3.py isolate --before <pre-fix engine>` lists only `mac.w`; `decode_audit.py compare` stays 0/0 on EU Navi, EU nk, US Navi.
-  - Claims: C-5186–C-5187
+  - Claims: C-5300–C-5309 (was C-5186–C-5187; fresh block for this run)
 
 - [ ] **M9.50 — Model `rotcl`/`rotcr` so the `nk.exe` divide routines run in the bare engine**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -4335,6 +4336,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Scope: `rotcl`/`rotcr` in `_exec_system` plus `DECODE_TABLE` rows, a distinct-register selftest row each, and `div1_l3.py run` without the shim (keep the shim count at 0 as the check). No FPU.
   - Done when: `div1_l3.py run archive/head256.img nk.exe` prints `4/4 runnable functions match` with `rotcl(shim)=0 rotcr(shim)=0`; `isolate --before <pre-change engine>` lists only `rotcl`/`rotcr`; `compare` 0/0 on the three corpora.
   - Claims: C-5188–C-5189
+
+- [ ] **M9.51 — `mac.l` is modelled as `mac.l Rm,Rn`; the SH-4 form is `mac.l @Rm+,@Rn+`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M9.49
+  - Goal: `engine.py`'s `0x0nmF` arm multiplies the two *register values*; the manual's `0000nnnnmmmm1111` is `MAC.L @Rm+,@Rn+` (two memory longs, both pointers +4, S = 1 saturates at 48 bits). The census counts 4,164 EU2011 Navi / 189 EU2011 nk / 4,839 US2011 Navi `mac.l` as modelled with wrong semantics (C-5304); the M9.37 selftest row checks the register form.
+  - Scope: the `mac.l` arm and its selftest row in `tools/l3_harness/engine.py` (manual MACL code: distinct registers, n == m, S = 0/1, fault before register writes); first `grep` the L3 targets for a run that executed `mac.l` and say whether any result changes. No other instruction.
+  - Done when: the new row fails on the current engine and passes after; `div1_l3.py isolate --before <pre-change engine> --expect mac.l` lists only `mac.l`; `decode_audit.py compare` 0/0 on EU Navi, EU nk, US Navi.
+  - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
+  - Claims: none yet (take the next free block when claimed)
 
 ## Retired leads
 

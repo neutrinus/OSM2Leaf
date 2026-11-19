@@ -270,14 +270,15 @@ def load_module(path):
 def cmd_isolate(args):
     before = load_module(args.before)
     changed = isolate(before, engine)
-    allowed = {"div0s", "div0u", "div1"}
+    allowed = set(f for f in args.expect.split(",") if f)
     print("halfwords run  %d (FPU 0xF000-0xFFFF excluded), %d register states"
           % (0xF000, len(STATES)))
     for form in sorted(changed):
         print("changed %-12s %5d halfwords%s"
               % (form, changed[form], "" if form in allowed else "  UNEXPECTED"))
     extra = sorted(set(changed) - allowed)
-    print("result: %s" % ("only div0s/div0u/div1 changed" if not extra
+    print("result: %s" % ("only %s changed" % "/".join(sorted(allowed))
+                          if not extra
                           else "OTHER FORMS CHANGED: " + ", ".join(extra)))
     return 1 if extra else 0
 
@@ -438,6 +439,9 @@ def main(argv=None):
     p = sub.add_parser("isolate")
     p.add_argument("--before", required=True,
                    help="engine.py before the change (e.g. git show REV:...)")
+    p.add_argument("--expect", default="div0s,div0u,div1",
+                   help="comma-separated forms the change may touch "
+                        "(default: the M9.48 set; M9.49: mac.w)")
     for name in ("sites", "run"):
         p = sub.add_parser(name)
         p.add_argument("image")

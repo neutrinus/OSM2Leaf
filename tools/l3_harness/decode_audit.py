@@ -161,14 +161,30 @@ def corpus(data, image_start, module):
 # Classification
 # --------------------------------------------------------------------------
 
+def _probe(engine_mod):
+    """A one-instruction engine: 4 code bytes at 0x1000 and a zeroed data page
+    at 0x0..0x1000.  Registers start at 0, so every ``@Rn``/``@Rm``/``@R0``
+    operand lands in the data page and the instruction runs to its end instead
+    of faulting on the first load (M9.49: ``mac.w``'s host ``NameError`` sat
+    behind an unmapped ``@Rn`` fault and was counted as MODELLED)."""
+    probe = engine_mod.PySh4(endian="little")
+    probe.map("d", 0x0, 0x1000, "rw")
+    probe.map("c", 0x1000, 4, "rwx")
+    probe.set_regs(pc=0x1000)
+    return probe
+
+
 def classify(engine_mod, opcode):
-    """``(bucket, arm)`` for one opcode: MODELLED/FPU/MMU/IN_SCOPE_UNMODELLED/TRAP."""
+    """``(bucket, arm)`` for one opcode: MODELLED/FPU/MMU/IN_SCOPE_UNMODELLED/TRAP.
+
+    A host exception (anything that is not an ``EngineError``) is a crash in
+    the executor, never "modelled": it is bucketed IN_SCOPE_UNMODELLED, so
+    ``compare`` reports a table form that crashes as executor drift.
+    """
     if (opcode >> 12) == 0xF:
         return "FPU", "fpu"
     form, _rn, _rm, _d = engine_mod.decode_fields(opcode)
-    probe = engine_mod.PySh4(endian="little")
-    probe.map("c", 0x1000, 4, "rwx")
-    probe.set_regs(pc=0x1000)
+    probe = _probe(engine_mod)
     try:
         probe._execute(opcode, 0x1000)
     except engine_mod.Trap:
@@ -180,9 +196,11 @@ def classify(engine_mod, opcode):
             return "IN_SCOPE_UNMODELLED", form
         return "IN_SCOPE_UNMODELLED", form
     except engine_mod.EngineError:
-        # Unmapped/unaligned on the 4-byte stub: the instruction decoded and
-        # started to execute, so it is modelled; the fault is the operand.
+        # Unmapped/unaligned outside the probe pages: the instruction decoded
+        # and started to execute, so it is modelled; the fault is the operand.
         return "MODELLED", form
+    except Exception:  # noqa: BLE001 -- a host crash is the finding
+        return "IN_SCOPE_UNMODELLED", form
     return "MODELLED", form
 
 
@@ -422,9 +440,7 @@ def selftest():
             continue
         if w in MMU_OPCODES:
             continue
-        probe = engine_mod.PySh4(endian="little")
-        probe.map("c", 0x1000, 4, "rwx")
-        probe.set_regs(pc=0x1000)
+        probe = _probe(engine_mod)
         try:
             probe._execute(w, 0x1000)
         except engine_mod.Trap:
@@ -432,8 +448,36 @@ def selftest():
         except engine_mod.IllegalInstruction:
             drift.append(hex(w))
         except engine_mod.EngineError:
-            pass  # decoded and faulted on the 4-byte stub: modelled
+            pass  # decoded and faulted outside the probe pages: modelled
+        except Exception as exc:  # noqa: BLE001 -- host crash is drift
+            drift.append("%s:%s" % (hex(w), type(exc).__name__))
     check("all 65536 halfwords: no executor drift", drift[:8], [])
+
+    # M9.49: a host exception inside an arm is not MODELLED.  An engine whose
+    # mac.w arm raises NameError once its loads succeed must be reported, and
+    # the probe page must let mac.w's loads succeed (the old 4-byte stub
+    # faulted on @Rn first and hid the crash).
+    class _CrashingPySh4(engine_mod.PySh4):
+        def _execute(self, insn, pc):
+            if insn & 0xF00F == 0x400F:
+                self._load(self._regs["r%d" % ((insn >> 8) & 0xF)], 2)
+                raise NameError("name 'rm' is not defined")
+            return super()._execute(insn, pc)
+
+    class _CrashingModule:
+        pass
+
+    crashing = _CrashingModule()
+    for name in ("decode_fields", "Trap", "IllegalInstruction", "EngineError"):
+        setattr(crashing, name, getattr(engine_mod, name))
+    crashing.PySh4 = _CrashingPySh4
+    check("classify host NameError is not MODELLED",
+          classify(crashing, 0x412F)[0], "IN_SCOPE_UNMODELLED")
+    check("classify mac.w modelled (M9.49)", classify(engine_mod, 0x412F),
+          ("MODELLED", "mac.w"))
+    crash_cmp = compare(crashing, collections.Counter({0x412F: 1}), info)
+    check("compare: host crash is executor drift",
+          [d["form"] for d in crash_cmp["executor_drift"]], ["mac.w"])
 
     for line in fails:
         print("FAIL", line)
