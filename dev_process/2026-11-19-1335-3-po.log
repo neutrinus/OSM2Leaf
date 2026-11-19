@@ -1,0 +1,53 @@
+role: PO (product owner)
+model: opencode deepseek-v4.1-flash-free; ran in-process (subagent router down)
+start: 2026-11-19T13:35Z
+origin/main at start: dea3e56
+
+inputs read:
+  docs/retro/2026-11-18-3.md (its actions 2 and 4 touch this role), the SE
+  log 2026-11-19-1320-2-se.log and its three additions, PR #229's slice table,
+  the Priorities section and the L1-L4 bullets.
+
+actions, in order:
+  - re-ran the four rule-17 commands; numbers are readers 6/30, L3 1/30, the
+    three tile byte shares unchanged, P0. Added a fifth command: M5.46's
+    census prints contained=1 for the test region.
+  - rewrote Priorities for cycle 15: the cycle moved the card ladder (M5.44/
+    M5.45/M5.46) and no reader number, said first.
+  - archive: applied the stricter fixpoint (an ID not named by any OPEN or
+    BLOCKED block, not only Depends/Unblock). Moved H88, M3.10, M5.1, M5.2 to
+    docs/research/todo-history-2026-11-19.md. 4107 -> 4084 lines at the move.
+  - did NOT move the H-band (H25..H101, 17 blocks) that the same rule frees:
+    they are cited by the reference docs (AGENTS.md, EXP records) and 17
+    blocks is too big a one-pass move to review on the same day as a
+    priorities rewrite; listed as the next archive batch instead.
+  - refreshed the L2 and L3 bullets that still described M5.44/M5.45/M5.46 as
+    open or as blockers; P1 now says one factory tile, no stitching.
+  - no new task: the SE added M5.47/M5.48/M3.27 this cycle and the board
+    already has 126 open; rule 15 re-open sweep found none (no blocked task
+    names a blocker merged in this window - H92's H111 is open, and M5.45's
+    level-2 follow-up is an EXP bullet with no ID yet).
+
+rule 15: 0 re-opens. The one blocker merge (M5.45) produced follow-ups, not a
+blocked task waiting on it; H92 stays blocked on H111 (open).
+
+numbers (quoted from the commands in Priorities):
+  TODO 4107 -> 4088 lines; archive 4 moved (H88/M3.10/M5.1/M5.2); readers
+  6/30; L3 1/30; P0; census contained=1.
+  board: 126 open / 64 done / 24 blocked / 0 in progress (the two ghosts fixed
+  in the SM pass are now done).
+
+decisions:
+  - P1 gets no new block: M5.46's census says the region fits in one tile, so
+    the next step is the copy itself and it belongs to the P0 chain (M5.30),
+    not a separate task. Recorded in the L2 bullet.
+  - did not promote C-4286 (M3.26's follow-up says it is HYPOTHESIS although
+    C-4440/4441 establish it); that is a claim-status edit for a TASK, not a
+    PO edit. Left in M3.27's Input.
+
+handoff:
+  - TL: next map batch M5.47, M5.30, M5.41, M3.27 (+1 H max). M5.48 is solo.
+  - next PO: the H-band archive batch (17 blocks) with the doc citations
+    checked first, and re-check whether any of them is still a live input.
+  - human: PR #229 (claim reservation, 15-session ceiling) is the top process
+    merge; the next batch should run under it.

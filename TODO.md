@@ -246,13 +246,14 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-18, 16th pass; retro 2026-11-18, SE `7b14f71`)
+## Priorities (PO grooming 2026-11-19, 17th pass; retro 2026-11-18-3, SE `81da684`)
 
-**This cycle moved P0 (M5.34, last cycle) and none of the other three
-numbers** — readers 6/30 and L3 1/30 are unchanged; said first, per rule 17.
+**This cycle moved the card ladder, not the two reader numbers.** Cycle 14
+closed eight tasks (P0 deepened: M5.44 level 2, M5.45 idempotence, M5.46 the
+P1 census); readers stay **6/30** and L3 **1/30**; said first, per rule 17.
 
 **The four rule-17 map numbers — run each, do not retype** (snapshot
-2026-11-18T06:45Z; `origin/main` at write time `7b14f71`):
+2026-11-19T13:30Z, `origin/main` `dea3e56`):
 
 ```bash
 # M1 reader rows with a located reader (6) — partial/access-path rows counted apart (5)
@@ -274,48 +275,51 @@ for n in ['B28R070R','B30R048R','B48R058R']:
  print(n,'%.2f%%'%(100*nzc/nza))"
 # M4 highest card-ladder step whose own gate passes (P0 — M5.34 factory-backed run)
 python3 -c "import json;r=json.load(open('/home/marek/projekty/leafre-work/m5.34/report.json'));print('P0' if r['cardcheck_ok'] and r['l2check_ok'] else 'none')"
+# P1 census (M5.46): how many tiles the test region is contained in
+python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json /home/marek/projekty/leafre-work/m5.29-factory-root/MAPAL001 | tail -1
 ```
 
 Numbers now (quoted from those commands, this host): **readers 6/30 located**
-(+5 partial), **L3 running 1/30 rows** (only `cmp_ind_reader`), **factory tile
-nonzero bytes inside structure: B28R070R 99.98 %, B30R048R 95.86 %, B48R058R
-76.28 %** (`clarion_tile` directory+slot spans over the three shape classes),
-**highest step P0** (M5.34 factory run: `cardcheck`+`l2check` PASS, 2 files
-differ). Last SM pass reported none of the four — cycle 13 moved **M5.34**
-(P0 exists now) and nothing else; cycle 14 added five map tasks (M5.41–M5.45).
+(+5 partial), **L3 running 1/30**, **factory tile nonzero bytes inside
+structure unchanged** (B28R070R 99.98 %, B30R048R 95.86 %, B48R058R 76.28 %),
+**highest step P0**, **P1 census: `contained=1 intersects=0 outside=62`** —
+all of Dolnośląskie's 14.0–17.9 E × 49.9–51.9 N box is inside one tile
+(`B48R058R`), so P1 is one factory tile copied verbatim and the all-tile run
+is not a stitching problem.
 
-*How it went since 2026-11-17.* Cycle 13 closed M5.34 (test road in a `0x2046`
-parcel; P0 now real) and cycle 13b closed M8.A2/M8.A10 (QEMU 8.2.10 runs).
-Cycle 14 (SE) merged no task and added five map-facing blocks (M5.41–M5.45),
-all still `open`. **Record loop:** 34 of 47 H blocks are open; the retro asks
-for one record-repair batch (action 1), not one block per cycle.
+*How it went since 2026-11-18.* Cycle 14 merged nine tasks (M5.43, M3.26,
+M9.42, M5.44, M5.45, M5.46, M9.43, H91 done; H92 blocked on H111) in two
+rule-17 batches, with no record-repair task. The two ghosts (M5.46, M9.43)
+were status lines a squash merge left at `in progress`; the SM pass fixed
+them. **Claim collisions** cost three renumber rounds — PR #229's reservation
+is the process fix.
 
 **Directions without hardware, in order:**
-1. **A card in small steps (P0 → P1).** **M5.30** (1:1 diff card, the last
-   P0 step) → **M5.44** level-2 detail → **M5.45** the size budget a second
-   update inherits; **M5.41**/**M5.43** fix the run's own gate. Then **P1**:
-   all Dolnośląskie tiles display-only — first slice **M5.46** (below).
-2. **Firmware as the format specification.** **M3.26** (file layer) →
-   **M4.40** (section 2/router) → **M3.25**→**M9.13** (tile reader entry) →
-   **M3.23**+**M9.38** (REFER families). **M3.2b** is one disassembly of
-   `0x0041c990`.
-3. **Emulation as the unit.** **M9.36**/**M9.37** → **M9.44** (firmware file
-   layer reads a card tree) → **M9.45**; M8.E4 (full `Navi.exe`) after that.
+1. **P0 → P1 on the card.** **M5.47** (fit census: does one changed tile fit
+   its FAT chain) → **M5.30** (1:1 diff card, the last P0 step) → **M5.48**
+   (a refused run must not leave a card-looking tree) → **M5.41** (one
+   expected-change-set). Then **P1**: copy the one contained tile verbatim
+   (M5.46 says it fits) and record the display-only gate — no block yet.
+2. **Firmware as the format specification.** **M3.27** (tile-reader entry
+   arguments, static) → **M3.25** (the L3 run it enables) → **M4.40**
+   (section 2/router) → **M3.23**+**M9.38** (REFER families).
+3. **Emulation as the unit.** **M9.36**/**M9.37** → **M9.44** → **H111**
+   (the gate wiring; H92 waits on it). M8.E4 (full `Navi.exe`) after those.
 4. **Data against data.** **M4.41** (2011/2014/2016 differential) and
    **M4.2**/**M5.36** (OSM ground truth) decode fields with no firmware.
 
-**Next for the TL (map tasks only; rule 17):** **M5.30**, **M5.44**,
-**M5.45**, **M5.41**, **M9.36**, **M3.26**, **M4.40**, **M5.42**, **M9.41**,
-**M3.25**.
+**Next for the TL (map tasks only; rule 17):** **M5.47**, **M5.30**,
+**M5.41**, **M3.27**, **M9.36**, **M5.48**, **M9.41**, **M4.40**, **M3.25**,
+**M9.37**.
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
 - **L1 (cheap, ready):** `cardcheck --image` + `imgpatch`/manifest diff. Blocking: **H40** (vendor-free in-process fixture) → **H41**/**H42** (per-feature matrix). The card path itself waits on L2's **M5.30**. H40 starts from **H103** (a tree `cardcheck` accepts) + **H105** (a broken one that must fail) and is pinned by **H104** (baseline).
-- **L2 (necessary — rule 13): — THIS IS THE CRITICAL PATH.** **M5.34** done → **M5.30** (1:1 diff card, P0 complete) → **M5.44** (level-2 detail; settle the 4× grid first) → **M5.45** (size budget: same input twice) → **M5.11** (OSM→card end to end) → **M5.35** (one command + evidence bundle) → **M7.1** (all Dolnośląskie). **P1 = M5.46** (containment census) then the all-tile run (no block yet). Feature gaps: **M5.16** (routing graph), **M5.36** (road-class golden), **M5.37** (route-graph golden), **M4.36** (names, blocked on **M3.13**); support **M5.3**, **M5.23**, **M5.33**, **M5.32**, **M5.41**, **M5.43**, **M5.38** (ladder page).
+- **L2 (necessary — rule 13): — THIS IS THE CRITICAL PATH.** **M5.34** done, M5.44 (level 2) and M5.45 (idempotence) done → **M5.47** (fit census) → **M5.30** (1:1 diff card, P0 complete) → **M5.11** (OSM→card end to end) → **M5.35** (one command + evidence bundle) → **M7.1** (all Dolnośląskie). **P1 = M5.46** done (contained=1: one factory tile, no stitching) then the all-tile copy step (no block yet). Feature gaps: **M5.16** (routing graph), **M5.36** (road-class golden), **M5.37** (route-graph golden), **M4.36** (names, blocked on **M3.13**); support **M5.3**, **M5.23**, **M5.33**, **M5.32**, **M5.41**, **M5.43**, **M5.38** (ladder page).
 - **L0/L4 readiness (QA 2026-11-18):** the first L4 row is not a run but the **H110** panel (`l4_status.py`, F0–F4, `NOT RUN` without a log); the L2→L3 link is **H106** (the corpus names M5.34's tile) and **H107** (the blocked split).
-- **L3 (virtual; SKIP/BLOCKED never PASS):** **M9.41** (register the US POI walk row) → **M9.31** (no-diff verdicts) → **M9.12** (`l3check --card`). The **tile** reader — the file L2 writes — has no runnable target: **M3.25** → **M9.13**; names need **M3.11c**; discovery **M3.23**/**M3.24** → **M9.38**; **M1.19** for `INIT` bytes. QA 2026-11-18: the corpus does not name M5.34's tile (**H106**) and the `blocked=6` number hides two argument-only rows (**H107**).
+- **L3 (virtual; SKIP/BLOCKED never PASS):** **M9.41** (register the US POI walk row) → **M9.31** (no-diff verdicts) → **M9.12** (`l3check --card`). The **tile** reader — the file L2 writes — has no runnable target: **M3.27** (entry arguments, static) → **M3.25** (the run) → **M9.13**; names need **M3.11c**; discovery **M3.23**/**M3.24** → **M9.38**; **M1.19** for `INIT` bytes. QA 2026-11-18: the corpus does not name M5.34's tile (**H106**) and the `blocked=6` number hides two argument-only rows (**H107**).
 - **L4 (QEMU/M8):** **M8.A2** is `done` (QEMU 8.2.10 `-M ze0`, one run, exceptions 0). Next: **M8.A3**/**M8.A6** → **M8.E4** (full `Navi.exe` on a generated card); **M5.43** repairs the `--check-version` exit code the next bump needs. **M1.19** gates any `INIT`-byte run. The row itself is prose until **H110** (readiness panel + `l4_status.py`).
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; prep **M6.13**, **H29**. Hardware unavailable; `l3_precond.py` before every bench card.
 
@@ -932,18 +936,6 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-17-H87-us-build-comment; C-4100–C-4101. The comment above `US_BUILD_STARTS` now names the list as it is (the M1.28 fixture's US side + M1.22b's six pool-only twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count `0`. Both counts are pinned to H87's own revision `381879b`: `US_BUILD_STARTS` `12` entries (`git show 381879b:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x[0-9A-Fa-f]\{8\}'`) and `fn_audit --selftest` `OK (70 checks, 0 failed)` there. `main` `9beb6a4` ships `15` entries and `OK (72 checks, 0 failed)` (`398db35`): `e199373` added the three POINT-walker starts and `f1c8dbb` the two H88 selftest cases — EXP-2026-11-18-H91.
   - Claims: C-4100–C-4109
 
-- [x] **H88 — `fn_audit --corpus` with a missing image prints a traceback instead of the "no image" exit**
-  - Status: done · Owner: task/h88-corpus-no-image · Critical: no · Pair: solo
-  - Depends: H85 (the gate's SKIP contract assumes `fn_audit` reports a missing image cleanly)
-  - Goal: the live path is clean — `python3 tools/fn_audit.py archive/absent.img; echo $?` prints `error: [Errno 2] No such file or directory: 'archive/absent.img'` and exits `2`. The **`--corpus` path is not**: `python3 tools/fn_audit.py archive/absent.img --corpus docs/research/fn-audit-corpus-2026-11-16.json` raises `FileNotFoundError` (`tools/fn_audit.py`, the `Image(...)` call after `load_corpus`), so a snapshot audit on a checkout without the image shows a traceback. `tools/gate.py` hides it by short-circuiting on the declared `optional_input`; a direct caller sees the crash.
-  - Precheck: the live command above prints `error: …` + exit `2`; the `--corpus` command prints `Traceback` / `FileNotFoundError` and does not exit `2`.
-  - Scope: `tools/fn_audit.py` only: guard the `Image(...)` in the `--corpus` branch with the same existence check the live path effectively gets, so a missing image prints the same `error: [Errno 2] No such file or directory: '<path>'` line and returns `2`; one `--selftest` case for the `--corpus` + missing-image path. No change to `gate.py`.
-  - Input: `tools/fn_audit.py` `main()` (`except OSError` around `Image(...)`, the `args.corpus` branch), `tools/gate.py` `SKIP_MARKERS`.
-  - Hints: keep the wording byte-compatible with the live path (`error: [Errno 2] No such file or directory: '<path>'`) so `tools/gate.py`'s `no such file or directory: 'archive/` marker still matches; do not swallow a genuine OSError on a *present* file into a missing-image SKIP.
-  - Done when: `python3 tools/fn_audit.py archive/absent.img --corpus docs/research/fn-audit-corpus-2026-11-16.json; echo $?` prints the `error: … No such file or directory` line (no traceback) and `2`; `python3 tools/fn_audit.py --selftest` passes with the new case; `python3 tools/gate.py` (image present, and `--image archive/absent.img`) unchanged; `python3 tools/todo_check.py` and `python3 tools/gate.py` green.
-  - Stop: none.
-  - Result: EXP-2026-11-17-H88-corpus-no-image; C-4110–C-4114. Both `main()` image paths now share `_image_sha_or_error`: a missing image under `--corpus` prints the live path's `error: [Errno 2] No such file or directory: '<path>'` and returns `2` (it used to raise inside `image_sha256` at line 781 and exit `1`). `--selftest` `OK (72 checks, 0 failed)` with two new cases; a present-but-corrupt image is still a SHA-256 mismatch (`FAIL`, exit `2`), so "missing" did not widen; `tools/gate.py` unchanged (image present `4 pass`; declared-absent `SKIP`).
-  - Claims: C-4110–C-4119
 
 - [ ] **H89 — The 1,259 unexplained `fn_match` NOMATCH are the next census: rewrites or a second matcher class**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -1406,10 +1398,6 @@ of the four numbers above says so in its first line.
     `cmpind.py`.
   - Claims: C-840–C-849
 
-- [x] **M3.10 — Decode the `DRSTR001`/`CMP.LST` functions found by M3.4**
-  - Status: done · Owner: task/m3.10-drstr-cmplst-fns · Critical: no
-  - Depends: — (M1.9 helps)
-  - Goal: find the checks the firmware applies to `DRSTR001.DAT` and
     `CMP.LST` (count, order, sentinel, leading `u32 = 0x2f`), which M5.6 must
     satisfy.
   - Input: EXP-2026-11-06-M3.4 (`Navi.exe` `0x00419684`, `0x0041ba90`,
@@ -2313,9 +2301,6 @@ of the four numbers above says so in its first line.
 Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 `docs/research/osm-vertical-slice.md` and `profiles/dolnoslaskie-test.*`.
 
-- [x] **M5.1 — OSM ingest to IMF**
-  - Status: done · Owner: session-ZMxuBT · Critical: yes
-  - Note: reopened by the 2026-11-06 review because `tools/osm_ingest.py` was
     not on `main` at a8a1994; it is merged together with this status change.
   - Depends: —
   - Goal: read a Dolnośląskie `.osm.pbf` (Geofabrik) and write IMF v1 with
@@ -2347,10 +2332,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2450–C-2459
   - Result: EXP-2026-11-08-M5.1c-osm-poi (C-2450–C-2458): `osm_ingest.py` reads node tags (XML, plain and dense PBF) and keeps POI, address and place nodes; the synthetic fixture gives 17 nodes, 3 POIs, 3 addresses, 1 place, identical bytes in 3 encodings; `imf_check --strict` (W007–W010); CP1252 fold in `imf_check.fold_cp1252`. Region counts stay open in M5.1b (C-2458).
 
-- [x] **M5.2 — Mesh splitter**
-  - Status: done · Owner: session-ZMxuBT · Critical: yes
-  - Depends: M4.8, M5.1
-  - Done when: every way is assigned to meshes and clipped at borders, and
     `imf_check.py --assign-tiles` agrees.
   - Result: `tools/mesh_split.py` clips ways at cell borders with exact
     intersections and per-side nodes; `imf_check --assign-tiles` agrees
