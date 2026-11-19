@@ -232,7 +232,7 @@ true statement about 44 % of build A and 25 % of `Navi.exe` (rule 14).
 | `IMG` (full EU 2011 card, 7.5 GB) | `python3 tools/fetch_image.py --image EU2011 -o PATH` (resumable) | `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` |
 | `ROOT` (extracted map tree) | `python3 tools/verify.py --image IMG` (extracts to `archive/work/`) | — |
 | `US` (Marek's US 2011 card, 7.5 GB) | `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` | `53342430…c5383` |
-| `US256` (US firmware head, 256 MiB) | `head -c 268435456 PATH_TO_US` until H62 adds `--image US256` | `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da` |
+| `US256` (US firmware head, 256 MiB) | `python3 tools/fetch_image.py --image US256 -o PATH` (pinned, verified, H62; `--image US --part 256M` is the same pin) | `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da` |
 | `EU2014` (7.4 GB) | `https://files.viaaq.eu/sd-images/LEAF_2014_EU_QSD-357-101.img` | `tools/fetch_image.py --image EU2014` (sha256 `4a8a21f477e9fc511f94406976b8d67037842f9c043f49ab24e1adc82d6da89b`, H21 verified) |
 | `EU2016` (7.4 GB) | `https://files.viaaq.eu/sd-images/ENV200_2016_EU_QSD-390-100.img` | `tools/fetch_image.py --image EU2016` (sha256 `f53d55f159fd4232caa0b100b9b12e3910c8fe3849201871a71ee38ac19007fb`, H21 verified) |
 | Other years/markets | `https://files.viaaq.eu/maps/`, `docs/research/image-versions.md` | record per EXP |
@@ -785,8 +785,8 @@ of the four numbers above says so in its first line.
   - Stop: if H58's `--strict` has not merged, ship the warning mode plus `--selftest` and record in the EXP which rule H58 must pick up; do not fork a second ledger checker.
   - Claims: C-3810–C-3819
 
-- [ ] **H62 — `fetch_image.py`: a `US256` head alias pinned to `70d945d8…`, so rule 11 holds for US tasks**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H62 — `fetch_image.py`: a `US256` head alias pinned to `70d945d8…`, so rule 11 holds for US tasks**
+  - Status: done · Owner: task/h62-us256-alias · Critical: no · Pair: solo
   - Depends: — (`tools/fetch_image.py` is on `main`; `--part 256M` exists)
   - Goal: the EU head is a pinned first-class key (`IMG256`, `92aa525d…`), but the US head every US task needs is cited four times (`M1.22`, `M1.22b`, `M1.28` block/Result) as `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img` with the hash `70d945d8…` in prose. `fetch_image.py --image US --part 256M` verifies size only ("no SHA-256 pinned"), so a truncated/overwritten local card is not caught and no command is re-runnable from a clean checkout (rule 11).
   - Precheck: `python3 tools/fetch_image.py --image US --part 256M -o /tmp/opencode/x.img` prints `size verified; no SHA-256 pinned`; `python3 tools/fetch_image.py --image US256 -o /tmp/opencode/x.img` exits `2` `unknown image 'US256'`; `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img | sha256sum` is `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da` and is byte-identical to `/tmp/opencode/us256.img`.
@@ -796,6 +796,7 @@ of the four numbers above says so in its first line.
   - Done when: `python3 tools/fetch_image.py --image US256 -o /tmp/opencode/us256-new.img` verifies `70d945d8…` (or `--verify` names it); `--image US --part 256M` now also verifies the hash; `python3 tools/selftest.py --only fetch_image` passes with the new cases; the `Shared inputs` table gains a `US256` row.
   - Stop: if the upstream US image is re-released (hash differs), record the new full-image hash in an EXP and pin the new head; never pin a hash you cannot reproduce from the card.
   - Claims: C-3820–C-3829
+  - Result: [EXP-2026-11-19-H62-us256-alias](docs/experiments/EXP-2026-11-19-H62-us256-alias.md) — `--image US256` downloads the real US head in 27 s and verifies `70d945d8…` (`cmp`-identical to `archive/us256.img`); `--image US --part 256M` now verifies the same hash; EU head, a 1-byte flip and a 1-byte-short copy are refused (exit 1); selftest +5 checks incl. fixture agreement (C-3820–C-3823).
 
 - [ ] **H63 — `fn_audit`: a `CORRECTED` verdict must name the line-specific evidence that resolved it**
   - Status: open · Owner: — · Critical: no · Pair: required

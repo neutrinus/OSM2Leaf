@@ -3696,3 +3696,18 @@ invocation are reported (warning by default and under `--strict`, error under
 | C-3773 | The rule names C-3612 and C-3613 (`placeholder`), C-3614 (`no-invocation`) and C-3711 (`ellipsis`), and does not name C-207 (prose `switch 7…15`) or C-3510 (complete `pdata.py census` command). | VERIFIED (tool) | H | EXP-2026-11-19-H58-claims-runnable-evidence; `python3 tools/claims_check.py --strict-evidence` (its `NONRUN` lines) |
 | C-3774 | The default run and `--strict` (what `tools/gate.py` runs) still exit 0 and print `non-runnable evidence rows: 347` (at `934d76e`); only `--strict-evidence` exits 1. The Stop clause applied (347 ≫ ~20 IDs), so enforcement in `--strict` is handed to H53/H66. | VERIFIED (tool) | H | EXP-2026-11-19-H58-claims-runnable-evidence; `python3 tools/claims_check.py --strict`, `python3 tools/claims_check.py --strict-evidence` |
 | C-3775 | Of the 347, the 53 `ellipsis`/`placeholder`/`inline` rows cannot be re-run as written; most of the 294 `no-invocation` rows are tool shorthand (`cerom.py exports …`, `sh4dis 0x3f8a0c`) a reader can resolve. | OBSERVED | M | EXP-2026-11-19-H58-claims-runnable-evidence §Interpretation |
+
+## H62 — `fetch_image.py --image US256`, a pinned US firmware head (C-3820–C-3829)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3820 | On 2026-11-19 the first 268,435,456 B of `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` hash to `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da` and are `cmp`-identical to `archive/us256.img`; this is the hash in `tools/fixtures/fn_match_eu_us_2011.json` `us_head`. | VERIFIED (download) | H | EXP-2026-11-19-H62-us256-alias; `python3 tools/fetch_image.py --image US256 -o /home/user/scratch/h62/us256.img` |
+| C-3821 | `fetch_image.py` pins `PART_PINS[("US","256M")]` and the alias `US256 = US --part 256M`: `--image US256` and `--image US --part 256M` both print `SHA-256 verified` (before: `unknown image 'US256'` exit 2, and `size verified; no SHA-256 pinned`); `--verify archive/us256.img` prints `matches US 256M`. | VERIFIED (tool) | H | EXP-2026-11-19-H62-us256-alias; `python3 tools/fetch_image.py --verify archive/us256.img --image US256` |
+| C-3822 | `--verify --image US256` refuses the EU head (`92aa525d…`), a one-byte flip at offset 1000 and a 268,435,455 B truncation, each exit 1. | VERIFIED (tool, mutants) | H | EXP-2026-11-19-H62-us256-alias §Observations |
+| C-3823 | `fetch_image.py --selftest` checks that `US256` resolves to the pinned hash, `resolve("US256","1G")` exits 2, `US --part 256M` is pinned, and the pin equals the fixture's `us_head.sha256`; `failures: 0`. | VERIFIED (tool) | H | `python3 tools/fetch_image.py --selftest` |
+| C-3824 | RESERVED (H62). | — | — | — |
+| C-3825 | RESERVED (H62). | — | — | — |
+| C-3826 | RESERVED (H62). | — | — | — |
+| C-3827 | RESERVED (H62). | — | — | — |
+| C-3828 | RESERVED (H62). | — | — | — |
+| C-3829 | RESERVED (H62). | — | — | — |
