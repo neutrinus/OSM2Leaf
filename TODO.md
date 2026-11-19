@@ -3414,7 +3414,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Depends: M8.B1
   - Claims: C-1320–C-1329
 - [ ] **M8.B3 — RTC/time** (`OEMGetRealTime`).
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.b3-rtc-time · Critical: no
   - Depends: M8.A2
   - Claims: C-1330–C-1339
 - [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
