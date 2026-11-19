@@ -3022,8 +3022,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the P1 tree reports 480 files but `cardcheck --image` on the patched copy fails, or the diff touches any cluster outside `DRSTR001.DAT`/its dir entry (the tile's clusters must be identical to factory).
   - Claims: C-4590–C-4599
 
-- [ ] **M5.50 — the card ladder page P1 needs: one row per rung, each a command with an expected string**
-  - Status: in progress · Owner: task/m5.50-card-ladder-page · Critical: no · Pair: required
+- [x] **M5.50 — the card ladder page P1 needs: one row per rung, each a command with an expected string**
+  - Status: done · Owner: task/m5.50-card-ladder-page · Critical: no · Pair: required
   - Depends: M5.46 (done), M5.30 (done), M5.44/M5.45 (done)
   - Goal: no page says what "P1" *is as a check* — the ladder lives in TODO prose and the Priorities commands, so every pass re-derives it and the rule-17 card row is a hand command. M5.38 (open) defines P1 as "all Dolnośląskie display-only", but no page says which gates that means or what P2 (routing) adds. One page, one row per rung, each row a runnable command with its expected output, stops the "P1 = one tile or many?" drift.
   - Precheck: `grep -rn 'P0\|P1\|P2' docs/format/*.md profiles/*.json | head` shows no single page owns the ladder; `python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json <ROOT>/MAPAL001 | tail -1` prints the census the page must cite.
@@ -3033,6 +3033,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `docs/format/card-ladder.md` exists with one row per rung P0/P1 (and a P2 placeholder naming M5.16/M5.36 as the routing gates it adds); every command in every row runs and prints its expected token on this host (paste outputs); `grep -c 'card-ladder' TODO.md` finds the L2 pointer; `python3 tools/gate.py` 4 pass; no claim is registered (a page of existing facts).
   - Stop: if a rung has no runnable gate yet (P2 routing is M5.16, open), leave it as an explicit `NOT RUN — M5.16` row rather than inventing a check.
   - Falsifier: a rung row's command exits 0 but does not print the token the row says it must, or the page restates a number without the command that prints it.
+  - Result: EXP-2026-11-19-M5.50-card-ladder.md. `docs/format/card-ladder.md` has P0 (10 rows), P1 (5) and P2 (6) as commands with expected tokens; its 40-line block prints 16 x `OK:` + `card-ladder: all rows OK`. P0's card row is the M5.30 SHA `b0faf119...33237`; P1's three card rows are `NOT RUN - M5.49` and the absent `--preserve-tile` flag is itself asserted (`0`); P2's routing/class rows name M5.16/M5.36. Two negative controls (wrong token, a NOT RUN row asserted as present) fail the block. No claim registered; no code touched. Self-reviewed (router down), recorded in the EXP.
   - Claims: none yet (docs page; the commands cite existing claims)
 
 ## M6 — L5 bench/car: hardware and safety

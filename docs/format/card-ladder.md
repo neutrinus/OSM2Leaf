@@ -164,7 +164,7 @@ want '0' 0 "awk '/tile_class_roundtrip/{n++} END{print n+0}' tools/l2check.py"
 [ $BAD -eq 0 ] && echo 'card-ladder: all rows OK' || { echo "card-ladder: $BAD row(s) FAILED"; exit 1; }
 ```
 
-The P0 card is 8 GiB on disk; delete `$S` once the EXP is written.
+The P0 card is 7.50 GiB on disk (`8057257984` B); delete `$S` once the EXP is written.
 
 Nothing in this page registers a claim: it restates facts that already have
 their IDs (`C-3060–C-3066` for the P0 card, `C-4470–C-4475` for the census,

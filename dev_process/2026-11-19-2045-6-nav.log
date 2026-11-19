@@ -1,0 +1,42 @@
+role: NAVIGATOR (M5.50), in-process fallback — the launched navigator failed with the router error
+task: M5.50 — the card ladder page
+worktree: ~/projekty/OSM2Leaf.task-m5.50-card-ladder-page
+branch: task/m5.50-card-ladder-page
+PR: #242 (driver: claim 3f89253, work 492f88e)
+
+verdict: APPROVE with one record fix applied (self-review, not an independent
+navigator — the EXP says so).
+
+what I verified (all re-run, clean scratch):
+  - the page's 40-line block rebuilt the P0 card from the M5.30 recipe and
+    printed 16 x OK: + "card-ladder: all rows OK", exit 0. Every row prints the
+    token it claims, including the two expected-exit-1 rows (fit_census
+    "needs relocation ... delta=+138994", strict check-diff "outside: 9").
+  - negative A: one token changed to metadata: 99 -> FAIL + 1 row(s) FAILED.
+  - negative B: the P1 NOT RUN row (--preserve-tile absent, expected 0)
+    asserted as 1 -> FAIL: want [1] got [0]. A missing gate cannot be
+    reported as present.
+  - P2 rows assert the *state* (M5.16 blocked = 1, M5.36 open = 1,
+    tile_class_roundtrip absent = 0), which is a snapshot that will go red when
+    the routing tasks land — that is the intent (the page is a gate, not prose)
+    but the owner of M5.16/M5.36 must update the row when they merge, and the
+    page says so ("one answer with a command behind it").
+  - the M5.30 card SHA in the page equals the card the block rebuilds
+    (b0faf119...33237); the M5.47 fit row and the census row match their EXPs.
+
+fixes applied in the driver's tree:
+  - page said the P0 card is "8 GiB on disk"; it is 7.50 GiB (8057257984 B).
+    Corrected to the quoted byte count.
+  - the EXP's Corrections section was an empty placeholder; filled with the
+    self-review, the two re-run controls and the size fix (an empty
+    placeholder is the H90 defect the prompt names).
+  - the TODO Result insert had twice glued itself onto the Falsifier line
+    (greedy regex), which todo_check caught as "missing Result" both times;
+    the block now has Status/Result/Falsifier/Claims in order and
+    todo_check passes.
+
+not changed: the P2 rows are a deliberate snapshot; no claim is registered (the
+page cites C-3060-C-3066, C-4470-C-4475, C-4560-C-4569); no code touched.
+
+checks after the fixes: todo_check OK, claims_check --strict --count-check OK,
+gate 4 pass / 0 fail / 0 skip.
