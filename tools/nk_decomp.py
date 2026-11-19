@@ -21,6 +21,17 @@ Usage:
   nk_decomp.py section IMG256 --module Navi.exe --index 1 [-o OUT.bin]
   nk_decomp.py check   IMG256 [--module NAME] [--limit N] [--json OUT]
   nk_decomp.py pdata   IMG256 --module Navi.exe [--index 2] VA [VA ...]
+  nk_decomp.py files   IMG256 --image-start 0x3e00200 [--name N] [-o DIR] [--json OUT]
+                       [--src-skip N]   # negative control: shifted payload
+
+``files`` (M1.21) runs the same routine on every compressed ``FILESentry``
+payload (``csize != rsize``) of one CE segment: ``src`` = the ``csize``
+stored bytes at ``p2f(load)``, ``dest`` length ``rsize``, the section stack
+frame (``skip 0, step 1, block 0x1000``).  The kernel is always build B's
+``nk.exe`` (``--nk-start``, default 0x3e00200).  Each row prints ``real``,
+the decoded length ``r0``, SHA-256 of ``dest[:r0]`` and the file-type magic.
+``OK`` needs ``r0 == rsize``.  ``-o DIR`` writes the decoded files *outside
+the repo* (vendor bytes).
 """
 from __future__ import annotations
 
@@ -195,6 +206,96 @@ def cmd_pdata(args) -> int:
     return 0
 
 
+MAGICS = (
+    (b"regf", "regf (NT registry hive)"),
+    (b"MZ", "MZ (PE executable)"),
+    (b"BM", "BM (bitmap)"),
+    (b"\x00\x01\x00\x00", "TrueType font"),
+    (b"\xff\xfe", "UTF-16LE text (BOM)"),
+    (b"#", "ASCII text (#)"),
+    (b";", "ASCII text (;)"),
+)
+
+
+def magic_of(blob: bytes) -> str:
+    """Short type label from the first bytes (no content beyond 4 bytes)."""
+    if blob[8:12] == b"EKIM":
+        return "CE hive (EKIM at +8)"
+    for sig, label in MAGICS:
+        if blob.startswith(sig):
+            return label
+    head = blob[:64]
+    if len(head) >= 8 and all(b == 0 for b in head[1:16:2]) and all(
+            0x20 <= b < 0x7F or b in (9, 10, 13) for b in head[0:16:2]):
+        return "UTF-16LE text"
+    if head and all(0x20 <= b < 0x7F or b in (9, 10, 13) for b in head):
+        return "ASCII text"
+    return "unknown (%s)" % blob[:4].hex()
+
+
+def compressed_files(rom):
+    """FILESentry rows of ``rom`` with ``csize != rsize``, with file offsets."""
+    for f in rom.files():
+        if f["csize"] != f["rsize"]:
+            yield f, rom.va2file(f["load"])
+
+
+def cmd_files(args) -> int:
+    data = Path(args.image).read_bytes()
+    rom = cerom.CERom(data, args.image_start)
+    regions = nk_regions(data, args.nk_start)
+    rows, bad = [], 0
+    allf = list(rom.files())
+    print("# segment %#x: %d files, %d compressed (csize != rsize); kernel nk.exe @ %#x"
+          % (args.image_start, len(allf), sum(1 for f in allf if f["csize"] != f["rsize"]),
+             args.nk_start))
+    stored = 0
+    for f in allf:
+        if f["csize"] != f["rsize"] or (args.name and f["name"].lower() != args.name.lower()):
+            continue
+        off = rom.va2file(f["load"])
+        blob = data[off:off + f["rsize"]]
+        stored += 1
+        print("%2d %-20s real=%8d comp=%7d (stored, not compressed) sha256=%s magic=%s"
+              % (f["index"], f["name"], f["rsize"], f["csize"],
+                 hashlib.sha256(blob).hexdigest(), magic_of(blob)))
+        rows.append({"index": f["index"], "name": f["name"], "rsize": f["rsize"],
+                     "csize": f["csize"], "r0": None, "status": "STORED",
+                     "sha256": hashlib.sha256(blob).hexdigest(), "magic": magic_of(blob),
+                     "error": None})
+    for f, off in compressed_files(rom):
+        if args.name and f["name"].lower() != args.name.lower():
+            continue
+        try:
+            r0, out = decompress(data, off + args.src_skip, f["csize"], f["rsize"],
+                                 regions=regions)
+            err = None
+        except EngineError as exc:
+            r0, out, err = None, b"", str(exc)[:160]
+        good = err is None and r0 == f["rsize"]
+        bad += not good
+        dec = out[:r0] if good else b""
+        row = {"index": f["index"], "name": f["name"], "rsize": f["rsize"],
+               "csize": f["csize"], "r0": r0, "status": "OK" if good else "FAIL",
+               "sha256": hashlib.sha256(dec).hexdigest() if good else None,
+               "magic": magic_of(dec) if good else None, "error": err}
+        rows.append(row)
+        print("%2d %-20s real=%8d comp=%7d r0=%-9s %-4s sha256=%s magic=%s"
+              % (f["index"], f["name"], f["rsize"], f["csize"],
+                 "-" if r0 is None else hex(r0), row["status"],
+                 row["sha256"] or "-", row["magic"] or err or "-"), flush=True)
+        if good and args.output:
+            Path(args.output).mkdir(parents=True, exist_ok=True)
+            (Path(args.output) / f["name"]).write_bytes(dec)
+    print("%d OK, %d failed, %d compressed files, %d stored"
+          % (len(rows) - stored - bad, bad, len(rows) - stored, stored))
+    if args.json:
+        Path(args.json).write_text(json.dumps({"schema": "osm2leaf.nk_decomp.files/v1",
+                                               "image_start": args.image_start,
+                                               "files": rows}, indent=1))
+    return 0 if bad == 0 and rows else 1
+
+
 def selftest() -> int:
     fails = []
 
@@ -222,6 +323,25 @@ def selftest() -> int:
     eng.set_regs(r13=7, r6=3)
     eng._execute(0x0D67, 0x8C000000)
     check("engine: mul.l r6,r13", eng._get_reg("macl") == 21)
+    check("magic: CE hive (EKIM at +8)",
+          magic_of(b"\x00\x04\x00\x00\x00\x00\x00\x00EKIM") == "CE hive (EKIM at +8)")
+    check("magic: regf hive", magic_of(b"regf\0\0\0\0").startswith("regf"))
+    check("magic: MZ", magic_of(b"MZ\x90\0").startswith("MZ"))
+    check("magic: C header text", magic_of(b"#ifndef __X\r\n") == "ASCII text (#)")
+    check("magic: UTF-16LE text without BOM",
+          magic_of("[HKEY_LOCAL_MACHINE]".encode("utf-16-le")) == "UTF-16LE text")
+    check("magic: binary is unknown with 4 hex bytes",
+          magic_of(bytes([0x12, 0x80, 0x00, 0xfe, 1])) == "unknown (128000fe)")
+
+    class _Rom:
+        def files(self):
+            return iter([dict(index=0, name="a", rsize=10, csize=10, load=0x100),
+                         dict(index=1, name="b", rsize=20, csize=7, load=0x200)])
+
+        def va2file(self, va):
+            return va + 1
+    check("files: only csize != rsize rows, with file offsets",
+          [(f["name"], o) for f, o in compressed_files(_Rom())] == [("b", 0x201)])
     print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
 
@@ -230,7 +350,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--selftest", action="store_true")
     sub = ap.add_subparsers(dest="cmd")
-    for name in ("section", "check", "pdata"):
+    for name in ("section", "check", "pdata", "files"):
         p = sub.add_parser(name)
         p.add_argument("image")
         p.add_argument("--image-start", type=lambda x: int(x, 0), default=IMAGE_A)
@@ -242,6 +362,13 @@ def main(argv=None) -> int:
             p.add_argument("--limit", type=int, default=0)
             p.add_argument("--json")
             p.add_argument("-v", "--verbose", action="store_true")
+        elif name == "files":
+            p.add_argument("--nk-start", type=lambda x: int(x, 0), default=IMAGE_B)
+            p.add_argument("--name")
+            p.add_argument("--src-skip", type=int, default=0,
+                           help="negative control: start the payload N bytes late")
+            p.add_argument("-o", "--output")
+            p.add_argument("--json")
         else:
             p.add_argument("--index", type=int, default=2)
             p.add_argument("va", nargs="+")
@@ -251,7 +378,8 @@ def main(argv=None) -> int:
     if not args.cmd:
         ap.print_help()
         return 2
-    return {"section": cmd_section, "check": cmd_check, "pdata": cmd_pdata}[args.cmd](args)
+    return {"section": cmd_section, "check": cmd_check, "pdata": cmd_pdata,
+            "files": cmd_files}[args.cmd](args)
 
 
 if __name__ == "__main__":
