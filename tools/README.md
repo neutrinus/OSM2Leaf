@@ -777,6 +777,7 @@ python3 tools/l3_harness/runner.py check --manifest corpus.json
 python3 tools/l3_harness/runner.py targets
 python3 tools/l3_harness/runner.py run probe-zlib-cmf --input FILE --json
 python3 tools/l3_harness/runner.py run NAME --rommap map.json --image FW.img --json
+python3 tools/l3_harness/runner.py run NAME --rommap map.json --image FW.img   --input-root DIR --json   # M9.28: entry.input_region file source
 ```
 
 `runner.py run` has two modes. With a target name it runs on the pure-Python
@@ -790,6 +791,36 @@ reports an unearned pass; exit codes are `0` pass, `1` invalid, `2` usage, `3`
 skipped (back end missing), `4` blocked, `5` mismatch. See
 [`l3_harness/README.md`](l3_harness/README.md) and
 [`../docs/research/l3-ghidra.md`](../docs/research/l3-ghidra.md).
+
+### Module-entry input region (M9.28)
+
+A module entry may declare `entry.input_region` to map caller-supplied or
+file-derived bytes at a chosen guest VA, so a reader can consume real input
+instead of faulting on its argument pointer:
+
+```json
+"input_region": {
+  "va": "0x20000000", "size": 97158,
+  "bytes_source": {"kind": "file", "path": "page.bin"},
+  "provenance": "EU2011 POINT010 0x6e06d0, 97158 B swap16, C-3537/C-4172"
+}
+```
+
+- Bounds are **exact**: one byte past `va+size` is unmapped. The region is
+  refused (`INVALID`) if it overlaps any module block, `stack`, `heap` or the
+  IAT trampolines (`0x8C300000`); it is never mapped silently over code.
+- `bytes_source.kind` is `file` (read from `--input-root`, or the current
+  directory for an absolute path) or `literal` (a synthetic control, at most
+  1 KiB). A file must match `size` exactly.
+- `provenance` is mandatory. The result carries `input_region` on **every**
+  path, including refusals: `va`, `size`, `end`, `kind`, `sha256`, `path`,
+  `provenance`.
+- Consumption is proven, not assumed: each run also reports `consumed_input`
+  and `input_region.reads` (`count`, `first`, `last`, `widths`, `first_pc`,
+  `last_pc`), a read watch inside `[va, va+size)` with the loading PC.
+- An `r0` outside the entry's `verdict_map` still makes the run `BLOCKED`
+  ("no verdict is guessed"): a mapped buffer is pipeline evidence, not a
+  reader verdict (`l3_claim: false`).
 
 ## `progress_report.py` — L1–L5 progress dashboard (H27/T2)
 
@@ -913,7 +944,7 @@ python3 tools/selftest.py --json
 Built-in suites cover `cmpind`, `drstr`, `mesh_grid` and the L1 helpers (level
 table, common header, LFN, `.cmp` decode, logical listing). L3 harness suites
 are reported as `tool:l3_harness*`: the aggregate `tool:l3_harness` runs
-`tools/l3_harness/selftest.py` (32 synthetic checks, bounded/quick;
+`tools/l3_harness/selftest.py` (34 synthetic checks, bounded/quick;
 Ghidra/QEMU absent is an honest SKIP inside, never a PASS) and exits non-zero
 on harness failure. Tools without a compatible self-test show `SKIP`; a missing
 tool is never a failure. Expected: `selftest: OK`.

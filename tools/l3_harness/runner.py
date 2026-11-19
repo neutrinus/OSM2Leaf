@@ -222,7 +222,18 @@ BUILDS = ("eu2011", "us2011")
 #: reader whose entry point is not located yet; ``firmware_call``: a located
 #: firmware function run with explicit memory setup (M9.11b, chunk reader).
 ENTRY_KINDS = ("synthetic", "module", "blocked", "firmware_call")
-MODULE_ENTRY_KEYS = {"kind", "module", "va", "endian", "args", "verdict_map", "note"}
+MODULE_ENTRY_KEYS = {
+    "kind", "module", "va", "endian", "args", "verdict_map", "note",
+    "input_region",
+}
+#: A ``entry.input_region`` maps caller-supplied or file-derived bytes at a
+#: chosen guest VA (M9.28) so a module reader can consume real input instead
+#: of faulting on its argument pointer.  Bounds are exact: one byte past
+#: ``va+size`` is unmapped, unlike ``point_walk_l3``'s ``+0x40`` pad.
+INPUT_REGION_KEYS = {"va", "size", "bytes_source", "provenance"}
+INPUT_BYTES_KEYS = {"kind", "path", "hex"}
+#: Small literal fixtures only: a literal is a synthetic control, never a page.
+INPUT_LITERAL_MAX = 0x400
 FIRMWARE_CALL_ENTRY_KEYS = {
     "kind", "program", "module", "va", "endian", "note",
     "sec1_table", "inputs",
@@ -584,6 +595,73 @@ def _validate_stub_spec(spec, where: str, problems: list[str]) -> None:
             )
 
 
+def _validate_input_region(entry, where: str) -> list[str]:
+    """Problems in ``entry.input_region``; empty when absent or valid (M9.28)."""
+
+    region = entry.get("input_region")
+    if region is None:
+        return []
+    problems: list[str] = []
+    if not isinstance(region, dict):
+        return [f"{where}: input_region must be an object"]
+    unknown = sorted(set(region) - INPUT_REGION_KEYS)
+    if unknown:
+        problems.append(f"{where}: input_region has unknown key(s) {unknown}")
+    va = region.get("va")
+    if va is None:
+        problems.append(f"{where}: input_region needs va")
+    else:
+        _hex(va, f"{where}.input_region.va", problems)
+    size = region.get("size")
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        problems.append(f"{where}: input_region.size must be a positive integer")
+    elif isinstance(va, (int, str)):
+        start = _hex(va, f"{where}.input_region.va", problems)
+        if start is not None and start + size > M32 + 1:
+            problems.append(f"{where}: input_region leaves the 32-bit address space")
+    source = region.get("bytes_source")
+    if not isinstance(source, dict):
+        problems.append(f"{where}: input_region needs bytes_source (file or literal)")
+    else:
+        unknown = sorted(set(source) - INPUT_BYTES_KEYS)
+        if unknown:
+            problems.append(f"{where}: bytes_source has unknown key(s) {unknown}")
+        kind = source.get("kind")
+        if kind == "file":
+            if not isinstance(source.get("path"), str) or not source.get("path"):
+                problems.append(f"{where}: bytes_source file needs a path")
+            if "hex" in source:
+                problems.append(f"{where}: bytes_source file must not carry hex")
+        elif kind == "literal":
+            raw = source.get("hex")
+            if not isinstance(raw, str) or not raw:
+                problems.append(f"{where}: bytes_source literal needs hex")
+            else:
+                try:
+                    data = bytes.fromhex(raw[2:] if raw.startswith("0x") else raw)
+                except ValueError:
+                    problems.append(f"{where}: bytes_source hex is not valid hex")
+                else:
+                    if len(data) > INPUT_LITERAL_MAX:
+                        problems.append(
+                            f"{where}: literal bytes_source is limited to "
+                            f"{INPUT_LITERAL_MAX} B (a control, not a page)"
+                        )
+            if "path" in source:
+                problems.append(f"{where}: bytes_source literal must not carry path")
+        else:
+            problems.append(
+                f"{where}: bytes_source.kind must be 'file' or 'literal'"
+            )
+    prov = region.get("provenance")
+    if not isinstance(prov, str) or not prov.strip():
+        problems.append(
+            f"{where}: input_region needs provenance (why these bytes belong at "
+            "this VA); a guessed buffer is not allowed"
+        )
+    return problems
+
+
 def _validate_module_entry(entry, where: str) -> list[str]:
     """Problems in an ``entry.kind = "module"`` block; empty when valid."""
 
@@ -634,6 +712,7 @@ def _validate_module_entry(entry, where: str) -> list[str]:
                 problems.append(
                     f"{where}: verdict_map[{key!r}] must be ACCEPT or REJECT"
                 )
+    problems.extend(_validate_input_region(entry, where))
     return problems
 
 
@@ -1015,6 +1094,36 @@ class GuardedPySh4(engine_mod.PySh4):
         return super()._load_signed(va, size)
 
 
+class WatchedPySh4(GuardedPySh4):
+    """PySh4 that logs every data load inside one input region (M9.28).
+
+    Consumption proof: a mapped buffer must be *read*, not merely mapped, for
+    a run to count as having received input.  The watcher records the width
+    and the faulting PC of each load that touches ``[start, start+size)``; it
+    never changes semantics, so a run with and without it is identical.  It
+    subclasses :class:`GuardedPySh4` so the M9.35 INIT guard composes with the
+    read watch instead of one replacing the other.
+    """
+
+    def __init__(self, endian: str = "big", start: int = 0, size: int = 0):
+        super().__init__(endian=endian)
+        self.watch_start = int(start) & M32
+        self.watch_end = (int(start) + int(size)) & 0xFFFFFFFFFFFF
+        self.reads: list[dict] = []
+
+    def _watch(self, va: int, size: int) -> None:
+        if self.watch_end <= self.watch_start or size <= 0:
+            return
+        if va + size <= self.watch_start or va >= self.watch_end:
+            return
+        self.reads.append({"va": va & M32, "size": int(size), "pc": self._regs["pc"] & M32})
+
+    def _load(self, va: int, size: int) -> int:
+        value = super()._load(va, size)
+        self._watch(va, size)
+        return value
+
+
 # --------------------------------------------------------------------------
 # Input resolution
 # --------------------------------------------------------------------------
@@ -1242,6 +1351,53 @@ def _plan_target(target, args) -> dict:
     return payload
 
 
+def _input_region_bytes(region, args) -> tuple[bytes | None, dict, list[str]]:
+    """Resolve ``entry.input_region`` to bytes, a provenance record, and problems.
+
+    A ``file`` source is read from ``--input-root`` (or the current directory);
+    a ``literal`` is a small synthetic control.  The recorded provenance is
+    emitted on every path, including a refusal, so a verdict can never be read
+    without knowing which bytes (and hash) a target was given.
+    """
+
+    problems: list[str] = []
+    start = int(str(region["va"]), 0) & M32
+    size = int(region["size"])
+    source = region["bytes_source"]
+    record = {
+        "va": engine_mod.px(start),
+        "size": size,
+        "end": engine_mod.px(start + size),
+        "kind": source.get("kind"),
+        "provenance": region.get("provenance"),
+        "sha256": None,
+        "path": None,
+    }
+    data: bytes | None = None
+    if source["kind"] == "literal":
+        raw = source["hex"]
+        data = bytes.fromhex(raw[2:] if raw.startswith("0x") else raw)
+    else:
+        root = getattr(args, "input_root", None)
+        path = Path(source["path"])
+        if not path.is_absolute() and root:
+            path = Path(root) / path
+        record["path"] = str(path)
+        try:
+            data = path.read_bytes()
+        except OSError as exc:
+            problems.append(f"cannot read input_region file {path}: {exc}")
+            return None, record, problems
+    record["sha256"] = hashlib.sha256(data).hexdigest()
+    if len(data) != size:
+        problems.append(
+            f"input_region size {size} does not match {len(data)} B supplied "
+            f"(sha256 {record['sha256']}); exact bounds are required"
+        )
+        return None, record, problems
+    return data, record, problems
+
+
 def _sha256_file(path, limit=None) -> str:
     """SHA-256 of the first *limit* bytes of *path* (the whole file if None)."""
 
@@ -1385,11 +1541,52 @@ def _run_module_target(target, args, base) -> dict:
 
     call_args = [int(str(item), 0) & M32 for item in entry.get("args", [])]
     endian = entry.get("endian", "big")
+
+    region_spec = entry.get("input_region")
+    region_data = None
+    region_record = None
+    if region_spec is not None:
+        region_data, region_record, region_problems = _input_region_bytes(region_spec, args)
+        base["input_region"] = region_record
+        if region_problems:
+            return dict(
+                base, status="INVALID", exit=EXIT_INVALID,
+                problems=region_problems, accepted=None, l3_claim=False,
+            )
+        r_start = int(region_record["va"], 0)
+        r_end = r_start + int(region_record["size"])
+        n_iat = len(rommap_doc.get("iat_bindings") or [])
+        iat_size = max(0x1000, ((n_iat + 0xFF) & ~0xFF) * 4) if n_iat else 0x1000
+        spans = [("stack", STACK_VA, STACK_TOP), ("heap", HEAP_VA, HEAP_VA + HEAP_SIZE),
+                 ("iat_trampolines", 0x8C300000, 0x8C300000 + iat_size)]
+        spans += [(blk["name"], int(blk["address"], 0), int(blk["address"], 0) + blk["size"])
+                  for blk in blocks]
+        for name, lo, hi in spans:
+            if r_start < hi and lo < r_end:
+                return dict(
+                    base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[
+                        f"input_region {engine_mod.px(r_start)}..{engine_mod.px(r_end)} "
+                        f"overlaps {name} {engine_mod.px(lo)}..{engine_mod.px(hi)}; "
+                        "the region is refused, never silently mapped over code"
+                    ],
+                    accepted=None, l3_claim=False,
+                )
+
     iat_bindings = rommap_doc.get("iat_bindings") or []
     init_guards = rommap_doc.get("init_guards") or []
     guarded = bool(init_guards or (rommap_doc.get("load_model") or {}).get("mode"))
     if args.engine == "pysh4":
-        backend = GuardedPySh4(endian=endian) if (init_guards or guarded) else engine_mod.PySh4(endian=endian)
+        if region_record is not None:
+            backend = WatchedPySh4(
+                endian=endian,
+                start=int(region_record["va"], 0),
+                size=int(region_record["size"]),
+            )
+        elif init_guards or guarded:
+            backend = GuardedPySh4(endian=endian)
+        else:
+            backend = engine_mod.PySh4(endian=endian)
     elif endian != "big":
         return blocked(
             f"entry.endian {endian!r} needs the pysh4 engine; "
@@ -1432,6 +1629,11 @@ def _run_module_target(target, args, base) -> dict:
                 mapped.append(block["name"])
         backend.map("stack", STACK_VA, STACK_SIZE, "rw")
         backend.map("heap", HEAP_VA, HEAP_SIZE, "rw")
+        if region_record is not None:
+            region_va = int(region_record["va"], 0)
+            region_size = int(region_record["size"])
+            backend.map("input_region", region_va, region_data, "rw")
+            mapped.append("input_region")
 
         memory = _EngineMemory(backend, endian=endian)
         context = dispatch_mod.StubContext(
@@ -1565,6 +1767,18 @@ def _run_module_target(target, args, base) -> dict:
         },
         l3_claim=False,
     )
+    if isinstance(backend, WatchedPySh4):
+        reads = backend.reads
+        widths = sorted({item["size"] for item in reads})
+        common["input_region"]["reads"] = {
+            "count": len(reads),
+            "first": engine_mod.px(reads[0]["va"]) if reads else None,
+            "last": engine_mod.px(reads[-1]["va"]) if reads else None,
+            "widths": widths,
+            "first_pc": engine_mod.px(reads[0]["pc"]) if reads else None,
+            "last_pc": engine_mod.px(reads[-1]["pc"]) if reads else None,
+        }
+        common["consumed_input"] = bool(reads)
     if observed is None:
         return dict(
             common,
@@ -2772,6 +2986,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="back end for target mode: %s" % ", ".join(engine_mod.BACKENDS),
     )
     run_cmd.add_argument("--targets", help="path to targets.json")
+    run_cmd.add_argument(
+        "--input-root",
+        help=(
+            "base directory for entry.input_region file sources (M9.28); "
+            "relative paths resolve here, not to the firmware image"
+        ),
+    )
     run_cmd.add_argument(
         "--input", help="host file to load into the virtual FS (target mode)"
     )

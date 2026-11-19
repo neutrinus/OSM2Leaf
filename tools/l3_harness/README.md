@@ -23,7 +23,7 @@ the unit accepts a card; that is L4.
 | `targets.json` | the named targets: `entry.kind` `synthetic`, `module` or `blocked`; shipped entries are unchanged (no reader is located as an L3 target yet) |
 | `engine.py` | one engine interface, three SH-4 back ends (`PySh4`, Ghidra, QEMU); `--selftest`, `--probe`, `--demo` — see [`EXP-2026-11-06-M9.4-engine.md`](../../docs/experiments/EXP-2026-11-06-M9.4-engine.md) |
 | `ghidra/l3_run.py` | the one documented Ghidra entry script (`-postScript`): validates the memory map and manifest, writes a result JSON; it runs no reader yet, so it writes `BLOCKED`; `--selftest` — see [`EXP-2026-11-08-M9.20-l3-plumbing.md`](../../docs/experiments/EXP-2026-11-08-M9.20-l3-plumbing.md) |
-| `selftest.py` | 32 synthetic checks (no network, no vendor data, no Ghidra); covers `runner`, manifest, rommap, stubs, `engine_hook`, the module-entry path and the entry script |
+| `selftest.py` | 34 synthetic checks (no network, no vendor data, no Ghidra); covers `runner`, manifest, rommap, stubs, `engine_hook`, the module-entry path (including the M9.28 `input_region` bounds/provenance/consumption checks) and the entry script |
 | `__init__.py` | package marker |
 
 ## Quick start
@@ -88,7 +88,7 @@ the complete suite. Verdict semantics are unchanged: a SKIP is never a PASS.
 
 | Command | Quick (default) | `--full` |
 | --- | --- | --- |
-| `selftest.py` | all 32 synthetic checks | same (already bounded) |
+| `selftest.py` | all 34 synthetic checks | same (already bounded) |
 | `runner.py --selftest` / `selftest` | target checks; external back-end execution skipped honestly when a back end is available but unverified/slow | attempts external back-end execution with a wall-clock bound |
 | `engine.py --selftest` | PySh4/reference checks; Ghidra/QEMU parity execution skipped honestly as `SKIPPED_IN_QUICK` | runs external parity (bounded by wall clock; a timeout/adapter failure is a loud FAIL, not a PASS/SKIP) |
 | `dispatch.py --selftest`, `ghidra/l3_run.py --selftest` | full local checks (already fast) | same, accepts flag for H38 selector consistency |
@@ -246,9 +246,19 @@ memory map and the image, not from a hand-written `-device loader` list:
   into another module is `BLOCKED` (`UnmappedAccess`).
 - A VA outside every loadable block of the module, or in a non-executable
   block, is `BLOCKED`. A `corpus` block is optional for module entries.
+- `entry.input_region` (M9.28) maps caller-supplied or file-derived bytes at a
+  chosen guest VA with **exact** bounds, so a reader can consume real input:
+  `{"va": "0x20000000", "size": 97158, "bytes_source": {"kind": "file",
+  "path": "page.bin"}, "provenance": "…"}`. `file` resolves under
+  `--input-root`; `literal` is a small synthetic control. Overlap with any
+  module block, `stack`, `heap` or the IAT trampolines is `INVALID`, and one
+  byte past `va+size` is `UNMAPPED` (no `+0x40` pad). Every result carries
+  `input_region` (`sha256`, `path`, `provenance`) and `input_region.reads`
+  (`count`, `first`, `last`, `widths`, `first_pc`, `last_pc`); `consumed_input`
+  is true only when a byte inside the region was loaded. A mapped buffer is
+  pipeline evidence: an `r0` outside `verdict_map` stays `BLOCKED`.
 
 ### The Ghidra entry script
-
 `ghidra/l3_run.py` is the only script the legacy `run` (no FUNC) hands to
 `analyzeHeadless`:
 
