@@ -1611,7 +1611,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2547–C-2549 (C-2540–C-2546 unchanged)
 
 - [ ] **M3.11c — The name accessor for a `POINT` record**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.11c-point-name-accessor · Critical: yes
   - Blocker (history, negative EXP kept): end-to-end PySh4 of the identified accessor
     (`0x003f632c`/`0x003f5e78` → `0x003f61bc`/`0x003f5d98` field 5) on record 0
     requires HDLMAP page context (`0x00d53500` handle table + indirect
@@ -1644,7 +1644,7 @@ of the four numbers above says so in its first line.
     `0x003d1150`, `0x003d1188`, `0x003cc93c`, `0x003f5c40`, `0x003f6220`, and
     the other `0x3ff` sites in `0x3f5900–0x3f9400`.
   - Stop: if the accessor needs `bt/s`/`bf/s`, do M9.21 first.
-  - Claims: C-2920–C-2929 (was C-2548–C-2549, overlap with M3.11b fixed by H24)
+  - Claims: C-5110–C-5119 (was C-2920–C-2929 (was C-2548–C-2549, overlap with M3.11b fixed by H24); fresh block for this run)
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
   - Status: blocked · Owner: — · Critical: yes
