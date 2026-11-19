@@ -313,6 +313,10 @@ python3 tools/sh4xref.py --selftest
 
 ## `callgraph.py` — static call graph of a module (H101, M3.23 core)
 
+**Rebuild any graph made before 2026-11-19 (H112):** the first version decoded
+literal-pool words as instructions and reported about 10 % false edges
+(C-4620). Imports by ordinal now carry the export's name (`OSMDLL!OSM_TaskSend`).
+
 Nodes are the `.pdata` functions plus called leaves; edges are `bsr`, calls
 through a pool literal and import calls (thunks folded into their callers).
 A `jsr @Rn` with no literal is counted as unresolved, never guessed.
