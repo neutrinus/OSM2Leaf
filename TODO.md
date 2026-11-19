@@ -2770,8 +2770,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if making the synthetic scaffold validator-coherent requires factory tile bytes or firmware-confirmed structure not available offline, record the exact dependency and block that specific gate as `CANNOT-VERIFY-OFFLINE` with evidence; do not invent bytes.
   - Claims: C-3420–C-3429
 
-- [ ] **M5.30 — One-variable OSM tile card via `imgpatch`/reconcile (1:1 diff, L1+L2)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M5.30 — One-variable OSM tile card via `imgpatch`/reconcile (1:1 diff, L1+L2)**
+  - Status: done · Owner: task/m5.30-one-variable-card · Critical: no
   - Depends: M5.29, M5.13 (imgpatch), M5.20 (reconcile)
   - Goal: make the Poland compiler candidate card differ from factory only in changed tile/manifests clusters and their directory entries (same safety pattern as S1/S2).
   - Precheck: `imgpatch.py` and `mkcard.py` selftests pass; M5.29 produces changed tile + rebuilt manifests with known paths.
@@ -2779,6 +2779,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Input: factory EU 2011 image, M5.29 outputs, `imgpatch.py`, `mkcard.py`, `cardcheck.py --image`.
   - Done when: `cardcheck.py --image` passes; EXP lists every diff range confined to intended files' clusters/dir entries; manifests touched only when required listed explicitly. Images outside repo.
   - Stop: if changed tile/manifests cannot fit existing chains and relocate/reconcile widens diff beyond changed files, record ranges and stop — do not claim one-variable.
+  - Result: EXP-2026-11-19-M5.30-one-variable-card.md — allocator bound fixed (115,185 data clusters, last valid 115,186); one-variable card SHA-256 `b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237`; `cardcheck --image` PASS; diff 586 ranges / 152,815 B, outside 0 with `--allow-metadata` / 9 (FAT/FSInfo) strict; L2 PASS on the result tree; `7z t` and `fsck.fat -n` accept the card; claims C-3060–C-3066.
   - Claims: C-3060–C-3069
 
 - [ ] **M5.32 — Resolve M5.12c's 5 unfit POI pages with the M5.21 slot-budget strategy**

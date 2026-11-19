@@ -572,18 +572,34 @@ def clusters_needed(size: int, cluster_bytes: int) -> int:
     return (size + cluster_bytes - 1) // cluster_bytes
 
 
-def alloc_clusters(fat: bytearray, count: int, start_hint: int = 2) -> list[int]:
+def alloc_clusters(fat: bytearray, count: int, start_hint: int = 2,
+                   max_cluster: int | None = None) -> list[int]:
+    """Allocate ``count`` free clusters, wrapping at ``max_cluster``.
+
+    ``max_cluster`` is the highest cluster the caller's geometry can address
+    (``FatGeo`` data clusters: ``(total_sectors - reserved - fat_count *
+    fat_sectors) // spc``). It is optional because the FAT length is not the
+    partition bound: the EU 2011 card has 115,200 FAT entries but only 115,185
+    data clusters (last valid 115,186), so allocating to ``len(fat) // 4``
+    hands out addresses with no bytes inside the partition (M5.30,
+    EXP-2026-11-19-M5.30-one-variable-card). Callers that hold a ``FatGeo``
+    (``imgpatch``) pass the bound; the fresh-build path keeps the historical
+    behaviour of stopping at the FAT end.
+    """
     if count <= 0:
         return []
-    total = len(fat) // 4
+    total = len(fat) // 4 if max_cluster is None else min(len(fat) // 4,
+                                                         max_cluster + 1)
     out = []
+    taken: set[int] = set()
     c = max(2, start_hint)
     scanned = 0
     while len(out) < count and scanned < total:
         if c >= total:
             c = 2
-        if fat_get(fat, c) == 0:
+        if fat_get(fat, c) == 0 and c not in taken:
             out.append(c)
+            taken.add(c)
         c += 1
         scanned += 1
     if len(out) < count:

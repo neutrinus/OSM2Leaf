@@ -120,6 +120,31 @@ def _fat_payload(old_raw: int, value: int) -> bytes:
     return struct.pack("<I", (old_raw & 0xF0000000) | (value & 0x0FFFFFFF))
 
 
+def _free_clusters_after(fat: bytes, cluster: int, span: int) -> int:
+    """How many of the ``span`` clusters after ``cluster`` are free.
+
+    Informational only: it lets the plan report that the free run it is about
+    to use is a hole behind another file's tail, so the record can state
+    whether the allocator chose that hole deliberately (M5.30).
+    """
+    return sum(1 for i in range(1, span + 1)
+               if mkcard.fat_get(fat, cluster + i) == 0)
+
+
+def _cluster_count(geo: mkcard.FatGeo) -> int:
+    """Data clusters addressable by the BPB.
+
+    The FAT is often longer than the partition's data area (the EU 2011 card
+    has 115,200 FAT entries for 115,185 clusters: 14,743,768 data sectors at
+    128 sectors/cluster, last valid cluster 115,186), so its length must not be
+    used as the allocation bound: a cluster past ``last_valid`` has no bytes
+    inside the partition. ``alloc_clusters`` cannot know the geometry; callers
+    that hold a ``FatGeo`` must pass this bound to it (M5.30 / EXP-M5.47).
+    """
+    return (geo.total_sectors - geo.reserved
+            - geo.fat_count * geo.fat_sectors) // geo.spc
+
+
 # --- directory lookup ------------------------------------------------------
 
 def _locate(handle, geo: mkcard.FatGeo, fat: bytes, rel: str) -> dict:
@@ -214,11 +239,13 @@ def _build_plan(handle, geo: mkcard.FatGeo, fat: bytes, rel: str, data: bytes, *
     new_fat = bytearray(fat)
     chain_after = list(old_chain)
     extra: list[int] = []
+    max_cluster = _cluster_count(geo) + 1
     if need > len(old_chain):
         hint = old_chain[-1] + 1 if old_chain else 2
         try:
             extra = mkcard.alloc_clusters(new_fat, need - len(old_chain),
-                                          start_hint=hint)
+                                          start_hint=hint,
+                                          max_cluster=max_cluster)
         except ValueError as exc:
             raise PatchError("no-space", f"{rel}: {exc}") from exc
         if old_chain:
@@ -325,6 +352,9 @@ def _build_plan(handle, geo: mkcard.FatGeo, fat: bytes, rel: str, data: bytes, *
         "clusters_after": len(chain_after),
         "chain_before": old_chain,
         "chain_after": chain_after,
+        "extra_clusters": extra,
+        "free_after_tail": (_free_clusters_after(fat, old_chain[-1], len(extra))
+                            if old_chain and extra else None),
         "fat_changes": fat_changes,
         "fsinfo": fsinfo,
         "dir_entry": {
@@ -623,6 +653,20 @@ def allowed_ranges_from_bpb(image, files) -> dict:
                     "cluster_ranges": clusters,
                     "dir_entry": entry,
                 })
+            # A size change rewrites FAT links (both copies) and FSInfo. They are
+            # not file bytes but they are the only allowed metadata, and only in
+            # the FAT sectors and the FSInfo sectors -- never "FAT/FSInfo" as a
+            # euphemism for any metadata (M5.30).
+            fat_ranges = [(geo.fat_offset + copy * geo.fat_bytes,
+                           geo.fat_offset + (copy + 1) * geo.fat_bytes)
+                          for copy in range(geo.fat_count)]
+            fsinfo_ranges = []
+            for sector in [geo.fsinfo_sector] + ([geo.backup_boot + geo.fsinfo_sector]
+                                                 if geo.backup_boot else []):
+                if sector and sector < geo.reserved:
+                    off = geo.part_offset + sector * geo.bps
+                    fsinfo_ranges.append((off, off + geo.bps))
+            metadata = _merge_ranges(fat_ranges + fsinfo_ranges)
     except PatchError:
         raise
     except (ValueError, struct.error, OSError) as exc:
@@ -631,15 +675,23 @@ def allowed_ranges_from_bpb(image, files) -> dict:
         "image": str(image_path),
         "files": per_file,
         "allowed_ranges": _merge_ranges(allowed),
+        "metadata_ranges": metadata,
     }
 
 
-def check_diff_ranges(image, reference, files, *, limit: int = 10**7) -> dict:
+def check_diff_ranges(image, reference, files, *, limit: int = 10**7,
+                      allow_metadata: bool = False) -> dict:
     """Verify every byte diff lies in replaced-file clusters/dir entries.
 
     The allowed ranges come from ``allowed_ranges_from_bpb`` on ``image`` (an
-    independent BPB+FAT read), never from patch write offsets. Reports a
-    mismatch when any diff range falls outside the allowed union.
+    independent BPB+FAT read), never from patch write offsets. A mismatch is
+    any diff outside the file bytes. With ``allow_metadata`` the whole FAT
+    sectors and the whole FSInfo sectors are an additional allowed class,
+    reported separately: a size change must rewrite FAT links and the FSInfo
+    count, and those are not file bytes (M5.30). The class is whole-sector, not
+    the named fields: any byte outside the FAT/FSInfo sectors and the files'
+    clusters/directory entries still fails, and strict mode (no flag) plus the
+    per-range classification bound what the flag admits.
     """
     ref_path = Path(reference)
     img_path = Path(image)
@@ -647,19 +699,52 @@ def check_diff_ranges(image, reference, files, *, limit: int = 10**7) -> dict:
         raise PatchError("image-not-found", f"{ref_path}: no such image")
     allowed = allowed_ranges_from_bpb(image, files)
     diff = mkcard.diff_ranges(ref_path, img_path, limit=limit)
-    outside = _outside_ranges(diff, allowed["allowed_ranges"])
+    if allow_metadata:
+        permitted = _merge_ranges(list(allowed["allowed_ranges"])
+                                  + list(allowed["metadata_ranges"]))
+        outside = _outside_ranges(diff, permitted)
+        in_metadata = [r for r in diff
+                       if _ranges_contained([r], allowed["metadata_ranges"])]
+    else:
+        outside = _outside_ranges(diff, allowed["allowed_ranges"])
+        in_metadata = []
+    # Attribute every differing byte to the class of range it falls in, so the
+    # record can say "N ranges / M bytes in file data, dir entries, metadata"
+    # without listing each run, and any unclassified byte is visible (M5.30).
+    labeled = []
+    for item in allowed["files"]:
+        for c in item["cluster_ranges"]:
+            labeled.append((c["offset"], c["offset"] + c["length"],
+                            "file_data", item["file"]))
+        e = item["dir_entry"]
+        labeled.append((e["offset"], e["offset"] + e["length"],
+                        "dir_entry", item["file"]))
+    for s, e in allowed["metadata_ranges"]:
+        labeled.append((s, e, "metadata", "FAT/FSInfo"))
+    classification: dict[str, dict[str, int]] = {}
+    for start, end in diff:
+        for segment in mkcard._split_range_by_labels(start, end, labeled):
+            kind = segment["kind"]
+            bucket = classification.setdefault(kind, {"ranges": 0, "bytes": 0})
+            bucket["ranges"] += 1
+            bucket["bytes"] += segment["bytes"]
     result = {
         "mode": "check-diff",
         "ok": not outside,
         "image": str(img_path),
         "reference": str(ref_path),
         "method": "mkcard.diff_ranges classified against independent BPB+FAT ranges",
+        "allow_metadata": allow_metadata,
         "diff_range_count": len(diff),
+        "diff_bytes": sum(e - s for s, e in diff),
+        "classification": classification,
         "diff_ranges_sample": diff[:50],
+        "metadata_diff_ranges": in_metadata,
         "outside_range_count": len(outside),
         "outside_ranges_sample": outside[:50],
         "files": allowed["files"],
         "allowed_ranges": allowed["allowed_ranges"],
+        "metadata_ranges": allowed["metadata_ranges"],
     }
     return result
 
@@ -671,12 +756,17 @@ def _print_check_diff(result: dict) -> None:
     print(f"  reference: {result['reference']}")
     print(f"  method:    {result['method']}")
     print(f"  diffs: {result['diff_range_count']} range(s), "
-          f"outside: {result['outside_range_count']}")
+          f"outside: {result['outside_range_count']}, "
+          f"metadata: {len(result.get('metadata_diff_ranges') or [])}")
+    for kind, bucket in sorted((result.get("classification") or {}).items()):
+        print(f"  class: {kind:<24} {bucket['ranges']} range(s) / {bucket['bytes']} B")
     for item in result["files"]:
         print(f"  file: {item['file']}  start {item['start_cluster']}  "
-              f"clusters {item['chain']}")
+              f"clusters {len(item['chain'])} (@{item['chain'][:3]}…{item['chain'][-2:]})")
         print(f"        dir entry 0x{item['dir_entry']['offset']:08x}  "
               f"(independent BPB+FAT read)")
+    for start, end in result.get("metadata_diff_ranges") or []:
+        print(f"  METADATA 0x{start:08x}-0x{end:08x}  ({end - start} B)")
     if result["outside_ranges_sample"]:
         for start, end in result["outside_ranges_sample"][:10]:
             print(f"  OUTSIDE 0x{start:08x}-0x{end:08x}  ({end - start} B)")
@@ -1113,6 +1203,65 @@ def selftest() -> int:
         dc4 = check_diff_ranges(bad_img, fixture, ["NOTE.TXT", "SMALL.BIN"])
         check("check-diff: outside diff reported", not dc4["ok"])
         check("check-diff: outside range counted", dc4["outside_range_count"] >= 1)
+        check("check-diff: classification names file_data and an outside byte",
+              "file_data" in dc4["classification"]
+              and "unclassified_in_envelope" in dc4["classification"],
+              str(sorted(dc4["classification"])))
+
+
+        # --- 10. allocation is bounded by the partition, not the FAT (M5.30) --
+        # The fixture's 128 FAT entries address 123 data clusters (2..124), so a
+        # growth that needs the clusters at 125..127 must fail loudly as "no
+        # space", not bind a chain whose offsets fall outside the partition.
+        with ver.open("rb") as handle:
+            _p, geo_v, fat_v = mkcard.open_map_partition(handle)
+        valid_last = _cluster_count(geo_v) + 1
+        check("bound: fixture last valid cluster is 124",
+              valid_last == 124, str(valid_last))
+        free_valid = sum(1 for c in range(2, valid_last + 1)
+                         if mkcard.fat_get(fat_v, c) == 0)
+        small_len = len(mkcard.chain(fat_v, 6))
+        over = b"O" * ((small_len + free_valid + 1) * geo_v.cluster_bytes)
+        over_source = tmp / "over.bin"
+        over_source.write_bytes(over)
+        try:
+            patch_image(ver, "SMALL.BIN", over_source, tmp / "over.img",
+                        allow_resize=True)
+        except PatchError as exc:
+            over_reason = exc.reason
+        else:
+            over_reason = "none"
+        check("bound: over-partition growth refuses as no-space, not internal-range",
+              over_reason == "no-space", over_reason)
+        fit_source = tmp / "fit.bin"
+        fit_source.write_bytes(b"F" * ((small_len + free_valid) * geo_v.cluster_bytes))
+        fit_img = tmp / "fit.img"
+        rep_fit = patch_image(ver, "SMALL.BIN", fit_source, fit_img,
+                              allow_resize=True)
+        drawn = [c for c in rep_fit["chain_after"] if c >= 10]
+        check("bound: fitting growth draws only in-partition clusters",
+              rep_fit["ok"] and drawn and max(drawn) <= valid_last,
+              f"max drawn {max(drawn) if drawn else None} > {valid_last}")
+        check("bound: fitting growth verifies", rep_fit["verify"]["matches"])
+        # Negative control for the test itself: the *old* bound (the FAT length)
+        # would have offered 125..127 to the same request.
+        probe_fat = bytearray(128 * 4)
+        for c in range(2, 10):
+            mkcard.fat_set(probe_fat, c, 0x0FFFFFF8)
+        probe_valid = 124
+        probe_free = sum(1 for c in range(2, probe_valid + 1)
+                         if mkcard.fat_get(probe_fat, c) == 0)
+        try:
+            mkcard.alloc_clusters(bytearray(probe_fat), probe_free + 1,
+                                  start_hint=10, max_cluster=probe_valid)
+            raised = False
+        except ValueError:
+            raised = True
+        check("bound: alloc_clusters with max_cluster refuses the overflow", raised)
+        unbound = mkcard.alloc_clusters(bytearray(probe_fat), probe_free + 1,
+                                       start_hint=10)
+        check("bound: the same request without max_cluster escapes past 124",
+              max(unbound) > probe_valid, str(max(unbound)))
 
         # CLI (same-cluster-count case: NOTE.TXT only, no FAT/FSInfo diffs)
         buffer = io.StringIO()
@@ -1178,6 +1327,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="check that every diff vs --reference lies in each "
                              "--file's clusters/dir entry, resolved from an "
                              "independent BPB+FAT read (M5.24)")
+    parser.add_argument("--allow-metadata", action="store_true",
+                        help="with --check-diff: allow FAT-sector and FSInfo "
+                             "diffs too (a size change must touch them); they "
+                             "are still reported separately (M5.30)")
     parser.add_argument("--reference", metavar="REFIMG",
                         help="baseline image for --check-diff")
     parser.add_argument("--hash", action="store_true",
@@ -1200,7 +1353,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.source or args.out or args.dry_run or args.verify:
             parser.error("--check-diff does not accept --from/-o/--dry-run/--verify")
         try:
-            result = check_diff_ranges(args.image, args.reference, files)
+            result = check_diff_ranges(args.image, args.reference, files,
+                                       allow_metadata=args.allow_metadata)
         except PatchError as exc:
             if args.json:
                 print(json.dumps({"ok": False, "mode": "check-diff",

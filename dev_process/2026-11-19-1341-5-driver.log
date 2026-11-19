@@ -1,0 +1,63 @@
+Role: driver (subagent) for M5.30, navigator reviews after.
+Model: airouter/strong
+Start (UTC): 2026-11-19 13:41
+origin/main at start: 8922f97 (docs: QA cycle-15 delta pass)
+Branch: task/m5.30-one-variable-card (worktree /home/marek/projekty/OSM2Leaf.task-m5.30-one-variable-card)
+
+Inputs read: AGENTS.md, prompt_common.txt, TODO rules 1-17 + M5.30 block,
+EXP-2026-11-17-M5.34-parcel, EXP-2026-11-18-M5.44-level2,
+EXP-2026-11-18-M5.45-idempotence, EXP-2026-11-19-M5.47-fit-census (origin/task/m5.47-fi
+t-census; not yet on main at start), tools/imgpatch.py, tools/mkcard.py,
+tools/cardcheck.py, tools/one_tile_pipeline.py.
+
+Plan: claim first; then find whether imgpatch's allocator refusal (past
+partition end) is a bug or limitation, fix it minimally, apply the M5.44 tile +
+DRSTR via imgpatch to a copy of the factory image, prove --check-diff, cardcheck.
+
+Notes: M5.47 is OPEN PR #230 (branch task/m5.47-fit-census), NOT merged to main
+despite the task brief saying "just merged". Depends M5.29/M5.13/M5.20 done.
+
+Actions (in order):
+1. Claimed M5.30 (TODO line + branch + draft PR #233).
+2. Confirmed M5.47 is PR #230 (open), not on main; read its EXP there.
+3. Reproduced the allocator refusal from a scratch mutant (exit 3, the exact
+   M5.47 message) as the negative control.
+4. mkcard.alloc_clusters: optional max_cluster bound; fixed a same-call
+   duplicate pick on wrap. imgpatch._build_plan passes the BPB cluster count.
+5. imgpatch --check-diff: --allow-metadata adds FAT-sector and FSInfo-sector
+   ranges as a separate class; classification per byte; metadata report.
+6. Built card-tile.img (tile then DRSTR) from the factory image; check-diff
+   outside 0; cardcheck --image PASS; l2check PASS on the M5.44 tree.
+7. EXP-2026-11-19-M5.30-one-variable-card.md, C-3060..C-3067, TODO Note.
+8. selftest 93/0/23, gate 4 pass 0 fail; claims_check OK.
+Numbers: card sha af962c30…3324bd; 586 ranges / 152,815 B (file_data 577/152788,
+dir_entry 1/3, metadata 9/24).
+Dead ends: l2check cannot read an image (root tree only); /tmp is 3.8 GiB and
+l2check filled it — rerun with TMPDIR in the scratch dir.
+Handoff: navigator — check the C-3067 flaky-selftest note and the fsync copy
+time; status deliberately left in progress (driver does not mark done).
+
+Round 2 (navigator CHANGES):
+- Geometry prose fixed to 115,185 data clusters / last 115,186 / phantom=14
+  (code was already right), re-quoted from the one-line print in the EXP.
+- Reproduction/ Method now cp then patch in place (no -o), with a FAT read-back;
+  the in-place rebuild reproduces the same final card b0faf119…; af962c30…
+  is the card after the tile call alone (output_sha256), now named as such.
+- Planted-byte literal 0xc99c547b; C-3066 and §5 fixed.
+- --allow-metadata reworded to whole FAT/FSInfo sectors; the planted FAT/FSInfo
+  control (metadata 11/29, strict outside 11) is in C-3063/§5.
+- Independent FAT check: 7z t -> Everything is Ok; fsck.fat -n on the partition
+  slice (LBA 204802) -> 115185 data clusters, 520 files, 79336/115185, exit 1
+  only for label/dirty-bit findings present on the factory slice too.
+- 4,412 -> 4,415; C-3067 dropped (ledger ends at C-3066); corrections section
+  filled with items 1-8.
+
+Round 3 (approved; close):
+- Phantom count corrected to 13 (115,200 - 115,187), EXP + C-3060; a geometry
+  `python3 -c` is now in the Reproduction block and prints
+  data_sectors=14743768 spc=128 count=115185 last=115186 first_past=115187
+  FAT=115200 phantom=13 (115187..115199).
+- TMPDIR note extended to selftest.py --only mkcard: the bare run fails
+  OSError ENOSPC beside src-slack.img (mkcard.py:1532, R8 copy); with TMPDIR it
+  passes (1/0).
+- TODO M5.30 -> [x] done with the Result line; PR marked ready, not merged.
