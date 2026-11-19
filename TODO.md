@@ -2974,8 +2974,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the census reports `fits` for a file whose delta exceeds its chain slack, or a synthetic over-budget file with spare slack is reported `needs_relocation`.
   - Claims: C-4560–C-4569
 
-- [ ] **M5.48 — `tilewriter` leaves a partial `--out` tree when the build fails, so a failed run looks like a card**
-  - Status: in progress · Owner: task/m5.48-partial-out · Critical: no · Pair: solo
+- [x] **M5.48 — `tilewriter` leaves a partial `--out` tree when the build fails, so a failed run looks like a card**
+  - Status: done · Owner: task/m5.48-partial-out · Critical: no · Pair: solo
   - Depends: — (the behaviour is on `main`; `one_tile_pipeline` copies the factory root before the tile build)
   - Goal: M5.44's and M5.45's refused runs both leave a full copy of the factory root at `--out` with no tile change (M5.44's EXP records it as a candidate task). A later script that tests `os.path.isdir(out)` reads a failed run as a built card; the M5.35 bundle and the M7.1 mass run both do that kind of test. The fix is one cleanup path plus one check that a later task can rely on.
   - Precheck: `python3 tools/one_tile_pipeline.py --selftest` passes; in a scratch dir, `--parcel` a preserve-only directory and `ls --out | wc -l` prints 480 with the run's exit non-zero.
@@ -2986,6 +2986,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the copy is needed by a later stage that runs on failure (a diff of the partial tree), make it `--keep-partial` opt-in and say so in the EXP; do not remove the ability to inspect a failed run.
   - Falsifier: a refused run still leaves a 480-file `--out` with no `--keep-partial`.
   - Claims: C-4570–C-4579
+  - Result: EXP-2026-11-19-M5.48-partial-out.md; `tools/one_tile_pipeline.py` removes a `--out` tree it created on a non-zero exit (refused run: `state=removed`, `files_left=0`, `tilewriter_rc=1`), `--keep-partial` keeps the 480-file failed tree, a non-empty pre-existing `--out` is refused exit 2 with `KEEP.ME` byte-identical and no report (`--force-overwrite` replaces it, an empty `--out` stays empty), and a success splice (`--parcel 76,940 --level 2`) keeps its 480-file tree at exit 0; new `--selftest` cases (red on a removal-disabled mutant). Checks: `selftest.py` passed=93 failed=0 skipped=23 total=116, `gate.py` 4 pass / 0 fail / 0 skip, `claims_check --strict --count-check` OK; C-4570–C-4579.
 
 ## M6 — L5 bench/car: hardware and safety
 
