@@ -3734,3 +3734,18 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3813 | The default run and `--strict` (the gate) still exit 0 and print `unresolved EXP names: 8` (at `fa7c8af`); `--strict-evidence` exits 1 naming C-1900 and C-3033. H61 reuses H58's opt-in flag; no second flag or parser. | VERIFIED (tool) | H | EXP-2026-11-19-H61-claims-exp-exists; `python3 tools/claims_check.py --strict`, `python3 tools/claims_check.py --strict-evidence` |
 | C-3814 | Run from `/tmp`, the tool prints the same `unresolved EXP names: 8`: names resolve relative to `REPO_ROOT`, not the working directory. | VERIFIED (tool) | H | EXP-2026-11-19-H61-claims-exp-exists; `python3 tools/claims_check.py` run with cwd `/tmp` |
 | C-3815 | H61's Input calls `poi-refs.tsv` a record the rule must allow, but its Precheck and Done-when require C-1900 to be named; the Done-when was followed, so C-1900–C-1906 need an `.md` record (or a `companion:` pointer) from the M4.8b owner. | OBSERVED | M | EXP-2026-11-19-H61-claims-exp-exists §Interpretation |
+
+## H65 — `progress_report` resolves an archived L4 prerequisite (C-3850–C-3859)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3850 | `M8.A1` (the dashboard's L4 prerequisite) has no task block on `TODO.md`; its newest block is `- [x] **M8.A1 — Build env**` at `docs/research/todo-history-2026-11-09.md:1375` (the 2026-11-05 snapshot still has it `[ ]` at line 299). | VERIFIED (grep) | H | EXP-2026-11-19-H65-progress-l4-prereq; `grep -n '\*\*M8.A1' docs/research/todo-history-2026-11-05.md docs/research/todo-history-2026-11-09.md` |
+| C-3851 | `python3 tools/progress_report.py` exits 0 with no problems and prints `prereq M8.A1: checked=True · archived (done) in todo-history-2026-11-09.md:1375` (before: `task M8.A1 not found`, `checked=None · None`); `--json` carries the same status in `l4_emulator.prerequisites`. | VERIFIED (tool) | H | EXP-2026-11-19-H65-progress-l4-prereq; `python3 tools/progress_report.py` |
+| C-3852 | An ID with no block on the board and none in any history file still reports `task <ID> not found (no block in TODO.md or N history files)`, and a block archived as `[ ]` reports `archived unfinished`; the same `TODO.md` copied to a directory with no history files reproduces the old M8.A1 problem. | VERIFIED (tool, controls) | H | EXP-2026-11-19-H65-progress-l4-prereq; `python3 tools/progress_report.py --todo /home/user/scratch/h65/TODO.md` |
+| C-3853 | `python3 tools/progress_report.py --selftest` covers the live M8.A1 resolution, the `--json` L4 block, newest-history-wins, archived-done, archived-unfinished, unknown ID and no-history cases; `progress_report selftest: OK`. | VERIFIED (tool) | H | `python3 tools/progress_report.py --selftest` |
+| C-3854 | RESERVED (H65). | — | — | — |
+| C-3855 | RESERVED (H65). | — | — | — |
+| C-3856 | RESERVED (H65). | — | — | — |
+| C-3857 | RESERVED (H65). | — | — | — |
+| C-3858 | RESERVED (H65). | — | — | — |
+| C-3859 | RESERVED (H65). | — | — | — |
