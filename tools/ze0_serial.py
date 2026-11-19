@@ -151,8 +151,12 @@ def cmd_refs(args):
     mem, exec_segs, _imp, _exp = sh4xref.load_module(
         args.image, args.image_start, args.module)
 
+    pdata_of = getattr(mem, "fn_of", None)
+
     def fn_of(va):
-        return sh4xref.fn_start(mem, va)
+        # pdata only: a heuristic start inside a pdata gap can land in the
+        # middle of the previous function's literal pool (fn_audit INSIDE).
+        return pdata_of(va) if pdata_of is not None else sh4xref.fn_start(mem, va)
 
     lo, size = args.window
     words = pool_words_in(exec_segs, lo, lo + size)
@@ -168,7 +172,7 @@ def cmd_refs(args):
         for load, reg in loads:
             fn = fn_of(load)
             print("  pool 0x%08x = 0x%08x  load 0x%08x (r%d) fn %s"
-                  % (pool_va, v, load, reg, "0x%08x" % fn if fn is not None else "?"))
+                  % (pool_va, v, load, reg, "0x%08x" % fn if fn is not None else "? (pdata gap: leaf)"))
     print("window registers referenced: %s" % (" ".join("+0x%02x" % (r - lo) for r in sorted(regs)) or "none"))
     print("window loads: %d" % nloads)
     sites = callers(mem, exec_segs, args.writer)
