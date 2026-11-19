@@ -1156,8 +1156,8 @@ of the four numbers above says so in its first line.
   - Stop: if a tool's selftest depends on the prologue heuristic in a way pdata cannot satisfy, leave that tool on the heuristic, list it in the EXP, and register only the claims the code backs.
   - Claims: C-3610–C-3619
 
-- [ ] **M1.32 — Give the M1.22 US reuse points one owner: `targets.json` starts, `point_walk_l3`/`chunk_decoder_l3` tables, the fn_audit skip set, the EXP, the format doc**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M1.32 — Give the M1.22 US reuse points one owner: `targets.json` starts, `point_walk_l3`/`chunk_decoder_l3` tables, the fn_audit skip set, the EXP, the format doc**
+  - Status: done · Owner: task/m1.32-us-reuse-owner · Critical: no · Pair: required
   - Depends: M1.22 (done) whose US VAs these are; H91 (fixes the one stale count the copy left behind)
   - Goal: M1.22's three US walker starts and the chunk engine now live in five places that must agree: `tools/l3_harness/targets.json` (`build: us2011`), `tools/point_walk_l3.py` `BUILD_TARGETS["us2011"]`, `tools/chunk_decoder_l3.py` `BUILD_TARGETS["us2011"]`, `tools/fn_audit.py` `US_BUILD_STARTS`, and the prose in `docs/format/firmware.md` + the EXP. That is the M1.28/M1.22b lesson repeated one layer up: a VA set copied by hand into five files is one merge away from disagreeing (H91 already found one symptom), and a new reader adds a sixth copy.
   - Precheck: emit the five sets and diff them:
@@ -1168,6 +1168,7 @@ of the four numbers above says so in its first line.
   - Done when: one command prints `0 only-in-*` across the files it owns (or a named, justified exception list with the reason each VA is file-local); `python3 tools/selftest.py --only fn_audit --only point_walk_l3 --only chunk_decoder_l3` passes; `python3 tools/l3check.py --build-corpus` unchanged (`pass=1 blocked=6`); `python3 tools/gate.py` green; the EXP names the owner file.
   - Stop: if a single home needs the runner's JSON schema to grow a second shape the harness cannot read, keep `targets.json` as the home and ship a `check` mode plus one mutation case instead of moving the data.
   - Falsifier: a planted one-halfword drift in one copy is still green after the change.
+  - Result: EXP-2026-11-19-M1.32-us-reuse-owner; C-4160–C-4166. Owner is `tools/build_targets.py` (15 roles × EU2011/US2011, kind `start`/`helper`/`data`/`const`): both L3 tools' `BUILD_TARGETS` and `fn_audit.US_BUILD_STARTS` (= `start` roles ∪ fixture US side ∪ entry, still 15) are derived; `build_targets.py check` diffs `targets.json` and the `firmware.md` table and went from `TOTAL only-in-*: 8` (the doc table lacked 8 pairs, code copies already agreed) to `0 across 8 copies`; five planted one-halfword drifts are red in the selftest. The chunk engine still PASSes on both heads with derived VAs; `l3check --build-corpus` `pass=1 blocked=6`; fn_audit's constant scan now reads the owner file (snapshots refreshed, `INSIDE 0`). Exception: the M1.22 EXP (append-only).
   - Claims: C-4160–C-4169
 
 - [x] **M1.22b — Harden `fn_match` to ≥90 % on the cited EU readers: exact instruction-level diff and the EU→US census EXP**

@@ -61,6 +61,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
+import build_targets  # noqa: E402
 import cerom  # noqa: E402
 import cmpind  # noqa: E402
 import point_walk_l3 as pw  # noqa: E402
@@ -68,48 +69,24 @@ from engine import EngineError, PySh4, StubReturn  # noqa: E402
 
 IMAGE_START = 0x200200
 MODULE = "Navi.exe"
-FN_CHUNK = 0x0041C7DC
-STUB_MEMCPY = 0x003D146C      # COREDLL #1044
-STUB_MOD31 = 0x003D1484       # COREDLL #2006 (r4 % r5)
-ZCALLOC = 0x00543A98          # zlib zcalloc trampoline
-ZCFREE = 0x00543AA8           # zlib zcfree trampoline
-
 # US 2011 builds (M1.22).  Found the same way as the walkers: the chunk
 # engine is a masked-form twin (111/111 halfwords identical) and its own
 # literal pool names the moved helper addresses, so these are not guesses.
 # The EU pool slot <eu_memcpy_slot> holds <eu_memcpy>; the US engine's own
 # pool slot holds the US memcpy, and likewise for the two mod helpers and the
-# zlib wrapper (which moved with the whole zlib blob).  Every value below is
-# a whole image VA, not a fitted delta; see the EXP for the pool-slot
-# transcript.
-BUILD_TARGETS = {
-    "eu2011": {
-        "fn_chunk": 0x0041C7DC,
-        "memcpy": 0x003D146C,
-        "mod_helper": 0x003D140C,
-        "mod31": 0x003D1484,
-        "zcalloc": 0x00543A98,
-        "zcfree": 0x00543AA8,
-        "inflate_mask": 0x00574DE0,
-        "inflate_wrapper": 0x00542148,
-    },
-    "us2011": {
-        "fn_chunk": 0x00444540,
-        "memcpy": 0x00400944,        # COREDLL #1044 (its own pool slot)
-        "mod_helper": 0x004008E4,
-        "mod31": 0x0040098C,
-        # the two zlib trampolines, found by their unique 6-halfword shape
-        # (`mov r5,r4; mov.l @(pc),r3; mov.l @r3,r3; jmp @r3; ...`): exactly
-        # one calloc-shape and one free-shape hit in each build's text.
-        "zcalloc": 0x00565D94,
-        "zcfree": 0x00565DA4,
-        # Derived from the same site as the EU value: the `shll2 r2; mov.l
-        # @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` sequence is unique in each
-        # build's text, and the US one loads this address (`<mask>` below).
-        "inflate_mask": 0x005987B0,
-        "inflate_wrapper": 0x00564444,
-    },
-}
+# zlib wrapper (which moved with the whole zlib blob).  Every value is a whole
+# image VA, not a fitted delta; see EXP-2026-11-17-M1.22-us-build-census for
+# the pool-slot transcript.  The values live in `tools/build_targets.py`
+# (M1.32), the one owner of the per-build reuse points; `build_targets.py
+# check` asserts that targets.json and docs/format/firmware.md agree with it.
+BUILD_TARGETS = build_targets.tool_map("chunk_decoder_l3")
+_EU = BUILD_TARGETS["eu2011"]
+FN_CHUNK = _EU["fn_chunk"]        # EU 2011 0x0041c7dc
+STUB_MEMCPY = _EU["memcpy"]       # COREDLL #1044
+STUB_MOD31 = _EU["mod31"]         # COREDLL #2006 (r4 % r5)
+ZCALLOC = _EU["zcalloc"]          # zlib zcalloc trampoline
+ZCFREE = _EU["zcfree"]            # zlib zcfree trampoline
+
 ENTRY = 20
 ENTRY_TABLE_PTR = 28          # *(ctx + 28) = table base
 CACHE_PTR = 308               # *(ctx + 308) = scratch buffer for partial chunks
@@ -127,7 +104,7 @@ CACHE_VA = 0x60000000
 HEAP_VA = 0x70000000
 HEAP_SIZE = 0x800000
 MAX_EXTENT = 0x10000
-INFLATE_MASK_VA = 0x00574DE0  # indexed by inflate ``fn 0x0054331c`` (its `shll2` load)
+INFLATE_MASK_VA = _EU["inflate_mask"]  # 0x00574de0, indexed by inflate ``fn 0x0054331c`` (its `shll2` load)
 
 MUTATIONS = ("none", "swap-4-8", "corrupt-ind")
 

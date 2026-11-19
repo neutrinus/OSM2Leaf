@@ -3749,3 +3749,15 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3857 | RESERVED (H65). | — | — | — |
 | C-3858 | RESERVED (H65). | — | — | — |
 | C-3859 | RESERVED (H65). | — | — | — |
+
+## M1.32 — one owner for the per-build L3 reuse points (C-4160–C-4169)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4160 | Before M1.32 (`8e91e2e`) the code copies of the M1.22 reuse points agree (`targets.json` both builds, `point_walk_l3`/`chunk_decoder_l3` `BUILD_TARGETS` both builds, `fn_audit.US_BUILD_STARTS`: `0` only-in each) and the `firmware.md` "US build at L3" table lacks 8 owner pairs (POINT globals ×3, escape length, memcpy/mod/mod31 thunks, inflate wrapper): `TOTAL only-in-*: 8 across 8 copies`. | VERIFIED (tool) | H | EXP-2026-11-19-M1.32-us-reuse-owner; `python3 tools/build_targets.py check --root <git archive 8e91e2e>` |
+| C-4161 | `tools/build_targets.py` owns 15 roles × 2 builds (4 `start`, 6 `helper`, 4 `data`, 1 `const`); `point_walk_l3`/`chunk_decoder_l3` `BUILD_TARGETS` and their EU module constants are derived from it, and `fn_audit.US_BUILD_STARTS` is `us_starts()` = `start` roles ∪ the US side of `tools/fixtures/fn_match_eu_us_2011.json` ∪ the US entry `0x0035d894` (15 entries, unchanged). | VERIFIED (tool) | H | EXP-2026-11-19-M1.32-us-reuse-owner; `python3 tools/build_targets.py show` |
+| C-4162 | After M1.32 `python3 tools/build_targets.py check` prints `TOTAL only-in-*: 0 across 8 copies` and exits 0. | VERIFIED (tool) | H | EXP-2026-11-19-M1.32-us-reuse-owner |
+| C-4163 | A one-halfword drift planted in any copy (targets.json `entry.va`, the doc table, a hand override of either tool's map) or a helper added to `US_BUILD_STARTS` makes `check` report a non-zero only-in; `python3 tools/build_targets.py --selftest` → `OK (30 checks, 0 failed)`. | VERIFIED (tool, mutants) | H | EXP-2026-11-19-M1.32-us-reuse-owner |
+| C-4164 | With the derived maps the chunk engine still decodes the synthetic `ADDRE001` pair (`--offset 0 --length 4096 --sec1 zero-mask`) byte-identically on both heads with its own build's VAs (`insns=742232`, identical to `8e91e2e`), and the wrong-build runs do not pass. | VERIFIED (real image, synthetic pair) | H | EXP-2026-11-19-M1.32-us-reuse-owner §Observations |
+| C-4165 | Every owned EU2011/US2011 function pair has the same `nk_decomp pdata` class and holder record length (walkers `GAP` `0x80`/`0x114`, dispatcher `START` `0xb0`, chunk engine `START` `0xe8`, zcalloc/zcfree `START` `0x10`, inflate wrapper `START` `0x7c`, COREDLL thunks `GAP`). | VERIFIED (real image) | H | EXP-2026-11-19-M1.32-us-reuse-owner §Observations |
+| C-4166 | `fn_audit`'s docs-base constant scan reads `tools/build_targets.py` beside `tools/*_l3.py`; the refreshed docs-base snapshot keeps `INSIDE 0` (`START 238, GAP 37, UNMAPPED 62`) and the l3 overlay identity set is unchanged. | VERIFIED (tool) | H | EXP-2026-11-19-M1.32-us-reuse-owner; `python3 tools/selftest.py --only fn_audit_l3_image` |
