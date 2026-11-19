@@ -3192,7 +3192,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: none yet (docs page; the commands cite existing claims)
 
 - [ ] **M5.53 — P1 needs 11 more directories: make the `0x2146`–`0x2946` section-1 kinds writable (or prove they cannot be)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m5.53-p1-section1-kinds · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.38 (done), M5.44 (done), M5.22 (done)
   - Goal: M5.38 measured that the Dolnośląskie bbox `14.0,49.9,17.9,51.9` intersects **20** section-1 directories of `B48R058R` and today's writer can fill **9** (5 level-1 + 4 level-2 `0x2046`); the other **11** are level-1 `0x2146` ×5, `0x2246`, `0x2346` ×2, `0x2546`, `0x2646`, `0x2946`, which `tilewriter` refuses (`PRESERVE_ONLY_DIR_KINDS`, M5.22/C-2810–C-2813). Without them P1 is a patchwork (OSM roads in 9 boxes, factory roads in 11). First slice: one `0x2146` directory.
