@@ -60,7 +60,7 @@ the car is L5 (bench/car) and has not run (`docs/research/card-test-plan.md`).
 | 20 | `MAPAL001/LEV3456R.DAT` | generate · partial — `tools/lev3456.py` re-encodes levels 3–6; no OSM writer | [map-tiles §LEV3456R](../format/map-tiles.md#lev3456rdat-coarse-levels-35) | `L2` byte-identical; `lev3456.py verify` + `cmp` silent (level 5 whole file) | partial: filename load `0x0040a014`/`0x0040a022` (M3.4); content reader unlocated — M3.6 | `tile_reader` covers `BxxRyyR` only — gap (see G8) | — | — | whole-database directory shape; 2014/2016 unmeasured | C-852, C-990–C-999, C-256; EXP-M4.11 | propose M5.16 (see G4) |
 | 21 | `RDSTM001/RDSTM001.DAT` | **generate** for Poland/target region (M3.17: 12 TMC location fields, region-specific; no speed/one-way; record framing unresolved) | [rdstm](../format/rdstm.md) | `L1` header; `rdstm_record.py` 10-row round-trip; `rdstm_scan`/`schema`; no writer | located `0x003bc960` decoder, 12 getters, `0x003f61bc` field directory (M3.7) | no target — gap (see G2) | — | — | EU uses `TMC`; US uses `XMD` instead | C-104–C-106, C-880–C-889, C-1800–C-1812, C-070, C-2226; EXP-M3.7, EXP-M4.1, EXP-M4.15, EXP-M4.16, EXP-2026-11-08-M3.17 | M5.19 (after M4.16b) |
 | 22 | `RDSTM001/LCTBL001.DAT` | **generate** for Poland/target region (M3.17: regional name DB; `lctbl_records.py` re-encodes records but no file/catalog builder) | [rdstm §LCTBL](../format/rdstm.md#lctbl001dat--catalog--compressed-name-database) | `L1` tree/header; `lctbl_records verify` all 517 streams; `lctbl_names verify`; no full-file rebuild | partial: load `0x004125a8`; record walk unlocated — M3.15 | M9.15 planned | — | — | 2011/2014/2016 framing identical, counts grow; US DRSTR name lowercase | C-880, C-1790–C-1799, C-1830–C-1839, C-2227; EXP-M3.7, EXP-M3.9, EXP-M4.18, EXP-2026-11-08-M3.17 | M5.17 (after M3.15) |
-| 23 | `VER_INFO/HDD_INFO.TXT` (+ `0x06000000` copy) | generate · exists — `tools/hddinfo.py`; `mkcard.py` writes the image copy | [validation §HDD_INFO](../format/validation.md#hdd_infoTXT-text-layout-m21m23-verified-static) | `L1` 6 lines, ASCII, label match, image copy; `hddinfo.py` byte-identical round-trip | reader `0x004e7b8c` located (M2.1); comparator `0x03bd2ad8`/`0x03bd2ecc` located but runtime COM/unit state | `hddinfo_compare` — blocked; M9.6 ready: both checks byte-specified (M2.15) | BLOCKED (4) | — | US line 1 `QSD-301-100`, `SDC08-EVNAM`, label `QSD-301-103`; EU values differ | C-005, C-074, C-721–C-728, C-740–C-749, C-766, C-1710–C-1711, C-1770–C-1779, C-2080–C-2087; EXP-M2.1, M2.3, M2.5, M2.11, M2.15 | M9.6 (then M2.4) |
+| 23 | `VER_INFO/HDD_INFO.TXT` (+ `0x06000000` copy) | generate · exists — `tools/hddinfo.py`; `mkcard.py` writes the image copy | [validation §HDD_INFO](../format/validation.md#hdd_infoTXT-text-layout-m21m23-verified-static) | `L1` 6 lines, ASCII, label match, image copy; `hddinfo.py` byte-identical round-trip | reader `0x004e7b8c` located (M2.1); comparator `0x03bd2ad8`/`0x03bd2ecc` (EU2011 build B) located and run (M9.6) | `applaunch_mapcode_compare` (`firmware_call`, check 1 `0x50` only; unit `+0x60` declared); `hddinfo_compare` stays blocked | **L3 PASS**: factory ACCEPT, line-1 edit REJECT, line-2 edit ACCEPT (C-5140–C-5142); check 2 `0x51` not run | — | US line 1 `QSD-301-100`, `SDC08-EVNAM`, label `QSD-301-103`; EU values differ | C-005, C-074, C-721–C-728, C-740–C-749, C-766, C-1710–C-1711, C-1770–C-1779, C-2080–C-2087, C-5140–C-5146; EXP-M2.1, M2.3, M2.5, M2.11, M2.15, M9.6 (2026-11-19) | M2.4 (89 variants through the target) |
 | 24 | `REFER002/*` (16 files, EV layer) | **copy** (EU-base, market-correct EU `REFER002`; M3.17). Cross-market: never copy US `REFER002` to EU/Poland — replace with EU; do **not** empty/omit without reader evidence (EV schema xy/plug/parking undecoded) | [refer §REFER002](../format/refer.md) | `L1` census; format decode is claim-only; no writer | not needed for copy; schema `OBSERVED`, no reader task | — | — | — | 15 POINT shards (2011) → 29 (2016); `ICODE001` from 2013 | C-138, C-143, C-152, C-156, C-1025, C-2224, C-2225; EXP-M4.14, EXP-2026-11-08-M3.17 | — (M3.17 done; cross-market recipe is a follow-up) |
 | 25 | `BICON001/BICON001.DAT` | **copy** (verbatim; M3.17: vendor icon asset, no region-specific map content) | [assets §BICON](../format/assets.md#bicon001bicon001dat--poi-icons) | `L1` header; `poi_icons.py bicon` 103 icons | not needed for map correctness (icon display) | — | — | — | data version differs on 2011 but equals MMAIN on 2014/2016 (C-2497) | C-213, C-980–C-989, C-167, C-2220; EXP-M4.10, EXP-2026-11-08-M3.17 | — (M3.17 done) |
 | 26 | `OPNG/*` | **copy** (verbatim; M3.17: vendor image assets, not map data) | [assets §OPNG](../format/assets.md#opng--images) | `L1` census; no parser | not needed | — | — | — | 2016 sample carries `OIXXEVNI.001`; US unmeasured | C-2221; `assets.md`; EXP-2026-11-08-M3.17 | — (M3.17 done) |
@@ -99,8 +99,9 @@ count as a reader):
 | `MMAIN001.DAT` | **not** unlocated: `0x0041a438` reads it, but no L3 target exists | M9.17 (G1) |
 | `RDSTM001.DAT` | **not** unlocated: `0x003bc960` + `0x003f61bc` are located, but no L3 target exists | proposed G2 |
 
-`HDD_INFO.TXT`, `DRSTR001.DAT` and `CMP.LST` have located readers; their L3
-targets are blocked on engine/corpus work, not on address discovery.
+`DRSTR001.DAT` and `CMP.LST` have located readers; their L3 targets are
+blocked on engine/corpus work, not on address discovery. `HDD_INFO.TXT`
+check 1 runs in L3 since M9.6 (`applaunch_mapcode_compare`).
 
 **Why the reader list is long, and why it is not compression (corrected
 2026-11-08).** M3.11, M3.13 and M3.2b each searched "every uncompressed
@@ -123,12 +124,14 @@ M3.18) carry that requirement.
 
 ## L3 targets and what they actually prove
 
-`tools/l3_harness/targets.json` has seven entries. `probe-zlib-cmf` is a runnable
+`tools/l3_harness/targets.json` has eight entries. `probe-zlib-cmf` is a runnable
 pipeline fixture (not a firmware reader verdict); `cmp_ind_reader` is a
 registered `firmware_call` firmware-fragment target with declared sec1
 provenance (M9.11b) and fragment PASS evidence on named POINT010 page/controls
 (M9.11/M9.11b/closeout), but not full `l3check --card` corpus acceptance
-(M9.12). The other entries remain blocked/retired.
+(M9.12). `applaunch_mapcode_compare` (M9.6) is a `firmware_call` that
+returns the firmware's own verdict for `HDD_INFO.TXT` check 1 under a declared
+unit record. The other entries remain blocked/retired.
 
 | Target | Kind | Reader | Corpus | Result | Matrix rows |
 | --- | --- | --- | --- | --- | --- |
@@ -138,6 +141,7 @@ provenance (M9.11b) and fragment PASS evidence on named POINT010 page/controls
 | `tile_reader` | blocked | `tile` | `MAPAL001/B28R070R.DAT` | BLOCKED (4) | 17, 18, 19 |
 | `drstr_parser` | blocked | `drstr` | `DRSTR001.DAT` | BLOCKED (4) | 4 |
 | `mapcode_comparator` | blocked (retired) | `hdd_info` | HDD_INFO variant | BLOCKED (4) | 23 — must never be revived |
+| `applaunch_mapcode_compare` | `firmware_call` (`mapcode_compare_v1`, EU2011 build B `fn 0x03bd2ad8`; parse cache declared BSS zero; unit `+0x60` declared) | `hdd_info` | factory `HDD_INFO.TXT` + `hddinfo_variants.py` edits | ACCEPT factory / REJECT line-1 edit (M9.6, C-5140–C-5142) | 23 |
 
 No row may say "read by firmware" on the strength of `probe-zlib-cmf`; the
 target notes say so explicitly. The retired comparator chain
