@@ -1826,6 +1826,8 @@ def _run_firmware_call_target(target, args, base) -> dict:
 
     entry = target["entry"]
     program = entry.get("program")
+    if program == "mapcode_compare_v1":
+        return _run_mapcode_target(target, args, base)
     if program != "cmp_ind_chunk_v1":
         return dict(
             base, status="BLOCKED", exit=EXIT_BLOCKED,
@@ -1969,6 +1971,102 @@ def _run_firmware_call_target(target, args, base) -> dict:
             f"firmware output differs from cmpind.decode (r0={ret}, "
             f"first differing byte {next((i for i, (a, b) in enumerate(zip(out, expected)) if a != b), -1)})"
         ],
+    )
+
+
+def _run_mapcode_target(target, args, base) -> dict:
+    """Run AppLaunch.dll ``fn 0x03bd2ad8`` (EU2011 build B, M9.6) on one file.
+
+    ``--input`` is the ``HDD_INFO.TXT`` served at the guest path; the unit
+    record (``KernelIoControl(0x0101302C)`` output ``+0x60``) is a declared
+    input: ``--unit-from FACTORY`` (line-1 bytes 0..10) or ``--unit-code``.
+    The verdict is the firmware's own return value (1 ACCEPT, 0 REJECT);
+    ``--expect`` overrides ``expect.verdict`` for an edited-file control.
+    Engine and stubs live in ``tools/mapcode_l3.py``.
+    """
+
+    entry = target["entry"]
+    sec1 = entry.get("sec1_table")
+    if not isinstance(sec1, dict):
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason="sec1_table (parse cache) not declared", accepted=None,
+                    l3_claim=False)
+    image_path = getattr(args, "image", None)
+    card_path = getattr(args, "input", None)
+    unit_from = getattr(args, "unit_from", None)
+    unit_code = getattr(args, "unit_code", None)
+    missing = [n for n, v in (("--image", image_path), ("--input", card_path)) if not v]
+    if not (unit_from or unit_code):
+        missing.append("--unit-from or --unit-code")
+    if missing:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"mapcode_compare_v1 needs {', '.join(missing)}"])
+    for path in (image_path, card_path, unit_from):
+        if path and not Path(path).exists():
+            return dict(base, status="INVALID", exit=EXIT_INVALID,
+                        problems=[f"missing input: {path}"])
+    try:
+        import mapcode_l3 as ml3
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"cannot import mapcode_l3: {exc}", accepted=None,
+                    l3_claim=False)
+    try:
+        if unit_code:
+            unit = unit_code.encode("latin-1")
+            unit_src = "--unit-code"
+        else:
+            raw = Path(unit_from).read_bytes()
+            unit = ml3.unit_code_from(raw)
+            unit_src = f"--unit-from line 1, sha256 {hashlib.sha256(raw).hexdigest()}"
+        card = Path(card_path).read_bytes()
+        with open(image_path, "rb") as fh:
+            image = fh.read(128 << 20)
+    except (OSError, ValueError, UnicodeEncodeError) as exc:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"cannot prepare mapcode inputs: {exc}"])
+    # The declared parse-cache value is written by run_compare's zero map;
+    # refuse a declaration that is not the BSS zero this program models.
+    values = [int(str(v), 0) for v in sec1.get("values") or []]
+    if any(values):
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason="sec1_table declares a non-zero parse cache; only the "
+                           "BSS zero (first call) is modelled", accepted=None,
+                    l3_claim=False)
+    try:
+        result = ml3.run_compare(image, card, unit,
+                                 fn=int(str(entry.get("va")), 0))
+    except ml3.Blocked as exc:
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"BLOCKED: {exc}", accepted=None, l3_claim=False)
+    except ValueError as exc:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[str(exc)])
+    expected = getattr(args, "expect", None) or target["expect"]["verdict"]
+    observed = result["verdict"]
+    ok = observed == expected
+    return dict(
+        base,
+        status="PASS" if ok else "MISMATCH",
+        exit=EXIT_OK if ok else EXIT_MISMATCH,
+        accepted=observed == "ACCEPT",
+        verdict=observed,
+        expected_verdict=expected,
+        firmware={"r0": result["r0"], "insns": result["insns"],
+                  "fn": result["fn"], "build": result["build"],
+                  "module": result["module"]},
+        sec1_table={"va": sec1.get("va"), "declared": True,
+                    "provenance": sec1.get("provenance")},
+        inputs={"image": str(image_path), "card": str(card_path),
+                "card_sha256": hashlib.sha256(card).hexdigest(),
+                "unit_code": result["unit_code"], "unit_source": unit_src,
+                "card_slot0": result["card_slot0"]},
+        stub_log=result["stub_log"],
+        compressed_section_access=result["compressed_section_access"],
+        problems=[] if ok else [f"firmware verdict {observed}, expected {expected}"],
+        l3_claim=True,
+        note=("firmware verdict of AppLaunch.dll fn 0x03bd2ad8 (EU2011 build B); "
+              "the unit record +0x60 is a declared input, not read from a unit"),
     )
 
 
@@ -2226,16 +2324,31 @@ def _emit_target(payload: dict, as_json: bool) -> None:
         print(f"reason   {payload.get('reason')}")
         print(f"RESULT: {status} (exit {payload['exit']}); nothing was claimed")
         return
-    print(f"verdict  {payload['verdict']} (expected {payload['expect']['verdict']})")
+    expected = payload.get("expected_verdict") or payload["expect"]["verdict"]
+    print(f"verdict  {payload['verdict']} (expected {expected})")
     if payload.get("firmware"):
         fw = payload["firmware"]
-        print(f"firmware r0={fw.get('r0')} insns={fw.get('insns')} memcpy={fw.get('memcpy')}")
+        if "fn" in fw:
+            print(f"firmware fn {fw['fn']} {fw['build']} {fw['module']} "
+                  f"r0={fw.get('r0')} insns={fw.get('insns')}")
+        else:
+            print(f"firmware r0={fw.get('r0')} insns={fw.get('insns')} memcpy={fw.get('memcpy')}")
         inp = payload.get("inputs") or {}
-        if inp:
+        if inp and "card" in inp:
+            print(f"inputs   card={inp.get('card')} sha256={inp.get('card_sha256')}")
+            print(f"unit     +0x60={inp.get('unit_code')!r} ({inp.get('unit_source')})")
+            print(f"card     slot0={inp.get('card_slot0')!r}")
+        elif inp:
             print(f"inputs   cmp={inp.get('cmp')} ind={inp.get('ind')} mutate={inp.get('mutate')}")
         sec1 = payload.get("sec1_table") or {}
         if sec1:
             print(f"sec1     va={sec1.get('va')} declared={sec1.get('declared')}")
+        for call in payload.get("stub_log", []):
+            extra = {k: v for k, v in call.items() if k not in ("stub", "args", "ret")}
+            print(f"stub     {call['stub']}({', '.join(call['args'])}) -> {call['ret']}"
+                  + (f" {extra}" if extra else ""))
+        for key, span in (payload.get("compressed_section_access") or {}).items():
+            print(f"access   {key} {span['lo']}..{span['hi']} ({span['bytes']} B)")
     else:
         print(
             f"call     r0={payload['returned']} over {payload['cycles']} "
@@ -3027,6 +3140,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="firmware_call: page length (default from target entry)",
     )
     run_cmd.add_argument(
+        "--unit-from",
+        help="mapcode_compare_v1: factory HDD_INFO.TXT whose line-1 bytes 0..10 "
+             "are the declared unit record +0x60 (M9.6)",
+    )
+    run_cmd.add_argument(
+        "--unit-code",
+        help="mapcode_compare_v1: declared unit record +0x60, 11 ASCII bytes",
+    )
+    run_cmd.add_argument(
+        "--expect",
+        choices=("ACCEPT", "REJECT"),
+        help="mapcode_compare_v1: expected verdict for this input "
+             "(default: the target's expect.verdict)",
+    )
+    run_cmd.add_argument(
         "--max-insns",
         type=int,
         default=engine_mod.DEFAULT_MAX_INSNS,
@@ -3509,6 +3637,47 @@ def test_firmware_call_missing_file(tmp):
     payload = json.loads(output)
     assert code == EXIT_INVALID, output
     assert "missing input" in " | ".join(payload.get("problems", [])), payload
+
+
+@check("mapcode_compare_v1: shipped target is registered with a declared BSS cache (M9.6)")
+def test_mapcode_registered(tmp):
+    by_name, _doc = load_targets(None)
+    target = by_name["applaunch_mapcode_compare"]
+    entry = target["entry"]
+    assert entry["kind"] == "firmware_call" and entry["program"] == "mapcode_compare_v1", entry
+    assert entry["va"] == "0x03bd2ad8" and target["build"] == "eu2011", entry
+    assert entry["sec1_table"]["values"] == ["0x00000000"], entry["sec1_table"]
+    assert "BSS" in entry["sec1_table"]["provenance"], entry["sec1_table"]
+
+
+@check("mapcode_compare_v1: missing --image/--input/--unit-* is INVALID, not a fake pass")
+def test_mapcode_missing_inputs(tmp):
+    code, output = _run_cli(["run", "applaunch_mapcode_compare", "--json"])
+    payload = json.loads(output)
+    assert code == EXIT_INVALID, output
+    probs = " | ".join(payload.get("problems", []))
+    assert "--image" in probs and "--input" in probs and "--unit-from" in probs, payload
+
+
+@check("mapcode_compare_v1: a non-zero declared parse cache is BLOCKED, not modelled")
+def test_mapcode_nonzero_cache(tmp):
+    by_name, doc = load_targets(None)
+    doc = copy.deepcopy(doc)
+    for target in doc["targets"]:
+        if target["name"] == "applaunch_mapcode_compare":
+            target["entry"]["sec1_table"]["values"] = ["0x51"]
+    path = Path(tmp) / "targets.json"
+    path.write_text(json.dumps(doc))
+    for name in ("img", "card"):
+        (Path(tmp) / name).write_bytes(b"x")
+    code, output = _run_cli([
+        "run", "applaunch_mapcode_compare", "--json", "--targets", str(path),
+        "--image", str(Path(tmp) / "img"), "--input", str(Path(tmp) / "card"),
+        "--unit-code", "QSD-000-000",
+    ])
+    payload = json.loads(output)
+    assert code == EXIT_BLOCKED and payload["status"] == "BLOCKED", output
+    assert payload["l3_claim"] is False, payload
 
 
 

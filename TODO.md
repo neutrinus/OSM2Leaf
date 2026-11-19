@@ -1372,7 +1372,8 @@ of the four numbers above says so in its first line.
 ## M2 — Map code, activation, updater
 
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: blocked · Owner: task/m2.4-predict-hdd-info-variants · Critical: yes
+  - Status: open · Owner: — · Critical: yes
+  - Re-opened (rule 15, M9.6 merged 2026-11-19): `runner.py run applaunch_mapcode_compare --image IMG256 --input VARIANT --unit-from FACTORY` gives the firmware check-1 verdict per variant (EXP-2026-11-19-M9.6-mapcode-compare); the blocker below is kept as a note.
   - Depends: — (**M9.6 merged** `ff8720d`, M2.15 and M2.3 done); the corpus and
     the comparator are both on `main` now
   - Note (sixth pass): the old blocker ("firmware verdicts need the L3 target,
@@ -1381,7 +1382,7 @@ of the four numbers above says so in its first line.
     bytes plus the `+96`/`+112`/`+114` unit fields. Only M9.6 is missing.
     The offline model-M0 gives 66 ACCEPT / 23 DIFFERENT
     (EXP-2026-11-06-M2.4-hddinfo-variants).
-  - Blocker: M9.6 is merged (`ff8720d`) and M9.20 module-entry plumbing is on
+  - Blocker (resolved by M9.6, kept as note): M9.6 is merged (`ff8720d`) and M9.20 module-entry plumbing is on
     `main`, but no runnable `AppLaunch.dll` B `fn 0x03bd2ad8` module target is
     wired (`KernelIoControl(0x0101302C)`/HDD_INFO FS stubs + `0x01f74b30` parse
     cache per M2.5/M2.15); M9.6 remains blocked and `hddinfo_compare`/
@@ -3586,8 +3587,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
     log (EXP-2026-11-06-M9.5-runner); pipeline result, not a reader verdict.
   - Claims: C-1670–C-1679
 
-- [ ] **M9.6 — First real target: the map-code compare**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.6 — First real target: the map-code compare**
+  - Status: done · Owner: task/m9.6-mapcode-compare · Critical: yes
   - Blocker (resolved, kept as note): M9.20 (`562215a`) added module entry kind / `engine_hook`. The earlier "no `entry.kind = module`" plumbing blocker is gone.
   - Re-opened (PO grooming 2026-11-09, rule 15): M9.20 merged. A new blocker may appear when wiring `KernelIoControl(0x0101302C)` + HDD_INFO FS stubs and the `0x01f74b30` parse cache (M2.4/M9.6 notes); record it with a faulting PC/EXP if so.
   - Negative EXP (prior): EXP-2026-11-08-M9.6-mapcode-compare.
@@ -3598,7 +3599,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: `tools/l3_harness/runner.py`, `stubs.py`, corpus `hddinfo_variants.py` (M9.7).
   - Done when: `runner.py run` returns a firmware verdict for the factory `HDD_INFO.TXT` (accept) and for one edited line-1 variant (reject), with the stub log in the EXP.
   - Stop: if the comparator needs build-B/AppLaunch mapping, globals, or IOCTL state not reproducible from current harness inputs, set `blocked` with the faulting PC/missing stub and a new EXP (do not guess verdicts).
-  - Claims: C-1680–C-1689
+  - Claims: C-5140–C-5149 (was C-1680–C-1689; fresh block for this run)
+  - Result: done — EXP-2026-11-19-M9.6-mapcode-compare. Target `applaunch_mapcode_compare` (`firmware_call`/`mapcode_compare_v1`, `tools/mapcode_l3.py`) runs EU2011 build B `fn 0x03bd2ad8` from IMG256: factory `HDD_INFO.TXT` → `r0=1` ACCEPT, `line1_digits_4_002` → `r0=0` REJECT (firmware log `VerInf:QSD-302-100 / HddInf:QSD-002-100`); line-2 edit ACCEPT, byte-10 edit REJECT; unit `+0x60` is a declared input (C-5140–C-5146). Re-opens M2.4 (rule 15).
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
   - Status: open (walk part runnable; name part waits for M3.11c) · Owner: — · Critical: yes

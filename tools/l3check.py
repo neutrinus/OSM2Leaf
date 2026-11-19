@@ -117,6 +117,11 @@ TARGET_EVIDENCE = {
         "claims": ("C-520", "C-528"),
         "note": "retired BT_MGR.dll chain; kept blocked on purpose",
     },
+    "applaunch_mapcode_compare": {
+        "reader": "hdd_info",
+        "claims": ("C-5140", "C-5141", "C-5146"),
+        "note": "AppLaunch.dll fn 0x03bd2ad8 (EU2011 build B), check 1; unit +0x60 declared; M9.6",
+    },
 }
 
 STATUSES = ("PASS", "FAIL", "SKIP", "BLOCKED")
@@ -1221,8 +1226,10 @@ def test_full_run():
     blocked = sorted(name for name, row in rows.items() if row["status"] == "BLOCKED")
     # The firmware_call readers (EU cmp_ind_reader, US cmp_ind_reader_us2011)
     # need external --image/--cmp/--ind, so a corpus-only run reports them
-    # BLOCKED in this mode (M9.11b, M1.22).
+    # BLOCKED in this mode (M9.11b, M1.22); so does the AppLaunch map-code
+    # compare, which needs --image/--input/--unit-from (M9.6).
     assert blocked == [
+        "applaunch_mapcode_compare",
         "cmp_ind_reader",
         "cmp_ind_reader_us2011",
         "drstr_parser",
@@ -1236,8 +1243,8 @@ def test_full_run():
         assert row["l3_claim"] is False and row["reason"], row
         assert row["claims"] == list(TARGET_EVIDENCE[name]["claims"]), row
     assert report["counts"] == {
-        "pass": 1, "fail": 0, "skip": 0, "blocked": 6,
-        "runnable": 1, "total": 7,
+        "pass": 1, "fail": 0, "skip": 0, "blocked": 7,
+        "runnable": 1, "total": 8,
     }, report["counts"]
 
 
