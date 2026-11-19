@@ -564,7 +564,7 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | POINT skip walker (globals) | `0x003f39c0` | `0x0041c370` | masked-form twin; same global offsets, moved page-base cell |
 | POINT dispatcher | `0x003f5cdc` | `0x0041e63c` | identical body; its own pool names the two walkers in the same order, which is how the skip walker above was disambiguated from the nth reader |
 | CMP chunk engine | `0x0041c7dc` | `0x00444540` | masked-form twin (111/111 halfwords); its own pool names the relocated helpers |
-| zlib `inflate_mask[17]` | `0x00574de0` | `0x005987b0` | the `shll2 r2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site, unique per build |
+| zlib `inflate_mask[17]` | `0x00574de0` | `0x005987b0` | the `shll2 r2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site, unique per build; both slots are `INIT` and the 17 words read from the `nk_decomp`-decoded sec1 equal `2^n - 1` (`chunk_decoder_l3.py run … --sec1 read-mask`, M9.40) |
 | zlib `zcalloc`/`zcfree` | `0x00543a98`/`0x00543aa8` | `0x00565d94`/`0x00565da4` | the 6-halfword trampoline shape, one calloc and one free hit per build |
 | POINT globals base/count/page | `0x00d5e4c0`/`0x00d5e4d0`/`0x00d5e4e4` | `0x00c8c0c0`/`0x00c8c0d0`/`0x00c8c0e4` | the skip walker's own pool; same offsets inside the RW block, moved block |
 | POINT escape record length (halfwords) | `0x4e8` | `0x4d8` | the nth reader's one differing pool word |
