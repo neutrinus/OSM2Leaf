@@ -1,0 +1,59 @@
+role: QA (test engineer)
+model: opencode deepseek-v4.1-flash-free; ran in-process (subagent router down)
+start: 2026-11-19T13:40Z
+origin/main at start: 96d06df
+
+inputs read:
+  docs/retro/2026-11-18-3.md (action 5 is mine: add ghost-claim and renumber
+  counts to the per-retro numbers), the QA log 2026-11-18-0710-4-qa.log (last
+  pass), gh run list for both workflows, reader-coverage.md, gate.py output.
+
+CI runs on main since the last QA pass:
+  - CI quality gate: green at every tip (06f61a1, 81da684, dea3e56 reverse
+    order); cancelled rows are the push de-duplication, each with a green
+    replacement seconds later.
+  - L1/L2 synthetic fixtures: green at every tip.
+  - No red run on main since 2026-11-18-0710-4-qa; nothing to file.
+
+delta in the L1-L4 matrix since the last pass (only changed rows):
+  - L1: unchanged. H40 still NOT COVERED; H103/H105 (the fixture and its
+    negative control) are open, not started.
+  - L2: M5.44 (level-2 splice) and M5.45 (idempotence) landed, so the L2
+    writer now proves a level-2 directory change and a bounded repeat. But no
+    CI row changed: l1l2_fixtures still has no real-tile case (needs vendor
+    ROOT, out of scope for CI), and the L2 row is still "factory run by hand".
+    M5.46's census is a profile fact, not a level row.
+  - L3: M9.42 (wrong-build verdict) and M9.43 (chunk-preserving corpus) landed,
+    so the L3 corpus is now reproducible from a committed command (the M9.39
+    pins regrow byte-identically). The l3check runnable count is unchanged
+    (1/7); M9.42 hardens the FAIL path, it does not add a target.
+  - L4: unchanged; M8.A3 still open, H110 (the readiness panel) still open.
+  - Regression gate: unchanged. H92 shipped the prose-count mode BLOCKED on
+    H111 (the gate wiring); until H111 lands nothing in gate.py fails on the
+    H87 stale-count class. This is the one new "gate exists but is not
+    standing" row.
+
+the two retro numbers added to this log (action 5):
+  - ghost claims in the window: 2 (M5.46, M9.43) - both from squash-merging a
+    branch tip that predated the closing commit; fixed in the SM pass.
+  - claim-block renumber commits in the window: 3 (M5.43/M9.42, M5.46/M9.43,
+    H111/M5.45).
+
+local checks (no vendor head needed): l1l2_fixtures rc 0, its own summary
+says L1 vendor-free builder and L2 cmp/ind round-trip are covered and golden
+EU2011 is explicitly out of scope. gate.py 4 pass.
+
+tasks: none added. Every L1/L4 gap the QA prompt asks for already has a task
+(H40/H103/H104/H105, H41, H106/H107, H110, H111) and adding a second block
+for the same gap is the retro's "H band doubles" failure. The only new fact is
+H111's status: it is open and it is the L2/E record-gate link; no new block.
+
+uncertainty: no head256.img in this checkout's archive/ for a realcheck run
+(archive/head256.img is a symlink to the primary checkout; the primary has
+it, so realcheck would run there, not here). I did not re-run realcheck.
+
+handoff:
+  - TL: H111 is the one gate task that unblocks a blocked task (H92);
+    M5.47/M5.30/M3.27 are the map batch.
+  - QA next pass: if H111 lands, add the "prose-counts in gate.py" row to the
+    regression gate and re-check that the mode-off gap is closed.
