@@ -3,7 +3,9 @@
 > **Status:** the gates in this page are `VERIFIED (host, 2026-11-19)` — every
 > command below was run and every row prints the token it says it prints
 > (EXP-2026-11-19-M5.50-card-ladder). The ladder *content* (what each rung
-> should contain) is M5.38's scope; this page only says which command decides a
+> should contain, P0–P4, and the inconsistencies the firmware will see) is
+> [`docs/research/card-ladder.md`](../research/card-ladder.md) (M5.38); this
+> page only says which command decides a
 > rung, so "is P1 one tile or many?" has one answer with a command behind it.
 
 A rung is a **check**, not a description: a region/profile, a tile set, and a
