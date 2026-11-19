@@ -4067,7 +4067,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: `tools/l3_harness/runner.py`, `targets.json`, `tools/chunk_decoder_l3.py`, `tools/cmpind.py`, EXP-2026-11-08-M9.11-chunk-decoder, EXP-2026-11-08-M9.11b-firmware-call-target, M5.13b S1/S2/factory pairs.
   - Done when: M9.11 is `done` with `Result:` naming an EXP that records all three pairs + controls passing through the registered target/path and cites sec1-table provenance, OR M9.11 is `blocked` with the exact missing pair/control/runner gap and `Unblock:` named. No stale "no firmware-call entry kind" text remains in M9.11.
   - Stop: if S1/S2 corpora are unavailable and cannot be obtained by existing tools, block with missing corpus named (do not claim all-pairs pass on factory only).
-  - Result: EXP-2026-11-19-M9.32-reconcile-m9.11; C-3370–C-3375. M9.11 stays `done`: re-measured from the US card, `runner.py run cmp_ind_reader` (EU2011) returns page `0x840ba0` byte-identical for factory/S1/S2 and passes both controls. Found and fixed one runner gap: the `firmware_call` path ignored the target `build`, so `cmp_ind_reader_us2011` always ran EU VAs and BLOCKED; it now routes the build (and refuses a mismatched `entry.va`), and the US target passes the same 3 pairs + 2 controls. S2 rebuilt with zlib 1.3 (`b4ef43b9…`, not the pinned `c2b9c388…`).
+  - Result: EXP-2026-11-19-M9.32-reconcile-m9.11; C-3370–C-3375. All three pairs + both controls through the registered `cmp_ind_reader` path with declared sec1 provenance were first satisfied by EXP-2026-11-09-M9.11-closeout-cmp-ind-reader (C-2157); this task re-measured them (linkage: M9.34). M9.11 stays `done`: re-measured from the US card, `runner.py run cmp_ind_reader` (EU2011) returns page `0x840ba0` byte-identical for factory/S1/S2 and passes both controls. Found and fixed one runner gap: the `firmware_call` path ignored the target `build`, so `cmp_ind_reader_us2011` always ran EU VAs and BLOCKED; it now routes the build (and refuses a mismatched `entry.va`), and the US target passes the same 3 pairs + 2 controls. S2 rebuilt with zlib 1.3 (`b4ef43b9…`, not the pinned `c2b9c388…`).
   - Claims: C-3370–C-3379
 
 - [ ] **M9.33 — Map reopened L3 target rerun prerequisites (M1.2f / M9.24 / M9.28 / H45)**
@@ -4082,8 +4082,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if H45 is unavailable and target metadata is insufficient, record `UNKNOWN` with missing fields and stop (do not guess).
   - Claims: C-3400–C-3409
 
-- [ ] **M9.34 — Close M9.32 as satisfied by M9.11 closeout (board/EXP linkage)**
-  - Status: in progress · Owner: task/m9.34-close-m9.32-link · Critical: no · Pair: solo
+- [x] **M9.34 — Close M9.32 as satisfied by M9.11 closeout (board/EXP linkage)**
+  - Status: done · Owner: task/m9.34-close-m9.32-link · Critical: no · Pair: solo
+  - Result: EXP-2026-11-19-M9.34-close-m9.32-link. M9.32 was already `done` (PR #253); every done-when element (factory/S1/S2, corrupt-ind, swap-4-8, registered `cmp_ind_reader`, declared sec1 `0x574de0`) maps to EXP-2026-11-09-M9.11-closeout and is re-observed on EU2011+US2011 in the M9.32 EXP. Only change: M9.32's `Result:` now cites the closeout EXP. 0 stale blocker lines in M9.11/M9.32; no new claims (C-3430–C-3439 unused).
   - Depends: M9.32, M9.11, M9.11b
   - Goal: remove stale L3-board state now that M9.11 closeout has satisfied M9.32's done-when; keep evidence explicit without duplicating claims or re-running vendor-image checks unnecessarily.
   - Precheck: `test -f docs/experiments/EXP-2026-11-09-M9.11-closeout-cmp-ind-reader.md`; confirm M9.11 is `done` with Result naming that EXP and M9.32 is still `open`; `python3 tools/claims_check.py` and `python3 tools/todo_check.py` pass.
