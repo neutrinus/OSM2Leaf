@@ -4173,7 +4173,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: none yet
 
 - [ ] **M9.48 — Model `div1`, the last integer form the engine rejects**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m9.48-pysh4-div1 · Critical: no · Pair: solo
   - Depends: M9.37 (the decoder audit is its regression suite and census)
   - Goal: `decode_audit.py census` leaves `div1` (`0x3?4`) as the only IN_SCOPE_UNMODELLED integer form: 513 EU and 217 nk instructions, counted but not runnable. It needs the M/Q bits and the divide step, not just T, so the H51-era tests never covered it.
   - Precheck: `python3 tools/l3_harness/decode_audit.py census archive/head256.img Navi.exe --image-start 0x200200` prints `div1=513` with verdict `in-scope-unmodelled`; `engine.py --selftest` passes.
@@ -4181,7 +4181,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: the SH-4 manual divide-step pseudocode; `tools/l3_harness/decode_audit.py` (bucket moves IN_SCOPE_UNMODELLED → MODELLED).
   - Done when: `div1` moves to MODELLED in the census (EU Navi 513, nk 217 instructions), `compare` still reports 0 disagreements / 0 drift, and `engine.py --selftest` has a div1 row that fails if M/Q are ignored.
   - Stop: if the semantics cannot be pinned from the manual in one pass, keep it bucketed and record the negative rather than guessing.
-  - Claims: none yet
+  - Claims: C-5180–C-5189 (was none yet; fresh block for this run)
 
 ## Retired leads
 
