@@ -1,0 +1,61 @@
+driver log — M5.50 card ladder page
+role: driver (subagent) · model: airouter/strong · start 2026-11-19T17:13Z · end 2026-11-19T17:45Z
+origin/main at start: 0f91c7a (QA cycle-16 delta pass)
+worktree: /home/marek/projekty/OSM2Leaf.task-m5.50-card-ladder-page, branch task/m5.50-card-ladder-page
+later fetch showed origin/main at c8e6d15 ([M9.28] #234); rebase kept both sides
+
+inputs read
+- AGENTS.md, prompt_common.txt, TODO "How to take a task" 1-17, Priorities (PO 18th pass)
+- the M5.50 block, M5.38, M5.49, M5.11, M5.16, M5.36
+- EXP-2026-11-19-M5.30-one-variable-card, EXP-2026-11-19-M5.47-fit-census,
+  EXP-2026-11-18-M5.46-containment, EXP-2026-11-18-M5.44-level2, TEMPLATE.md
+- docs/format/map-tiles.md, profiles/*.json + schema.json
+- gh pr list: H109 (map_signals) is PR #240 OPEN, not on main
+
+actions, in order
+1. claim commit 23c17bd "todo: start M5.50" (only the Status line), pushed, draft PR #242.
+2. read the M5.30 recipe and rebuilt the P0 card in scratch from the EU 2011 image
+   (cp, imgpatch tile, imgpatch DRSTR) -> sha b0faf119…33237, matching M5.30. Reason:
+   the page's rule-17 card row must be quoted, not copied from the old EXP.
+3. ran every candidate gate to find its real token and exit code: mesh_grid cover,
+   cardcheck --root/--image, fit_census, check-diff both modes, l2check, 7z t,
+   one_tile_pipeline --help, M5.16/M5.36 status awks, l2check source grep.
+   Reason: the row must print the token, so the token comes from the run.
+4. discovered and fixed my own harness: fit_census exits 1 on needs_relocation and
+   check-diff exits 1 without --allow-metadata (both intended); a `set -e` block
+   aborted at row 3. Replaced with a failure counter + per-row expected exit code.
+5. wrote docs/format/card-ladder.md (P0 10 rows, P1 5 rows with 3 NOT RUN — M5.49,
+   P2 6 rows with 2 NOT RUN — M5.16/M5.36), plus one block that builds the card and
+   asserts token+exit for all 15 runnable rows.
+6. deleted the card, re-ran the block copied verbatim out of the page: 15 OK, exit 0.
+7. controls: token mutation -> 1 row FAILED exit 1; "NOT RUN row hidden" mutation ->
+   1 row FAILED exit 1. Both in scratch copies.
+8. pointer from docs/format/map-tiles.md and from TODO's L2 bullet (grep card-ladder
+   = 6). No code change; map_signals.py cited (H109/PR #240), not created.
+9. selftest 94/0/23 OK, claims_check --strict --count-check OK, todo_check OK,
+   gate 4 pass. Wrote EXP-2026-11-19-M5.50-card-ladder.md and this log.
+
+decisions / alternatives rejected
+- P1 card rows written as NOT RUN — M5.49 rather than "expected: preserved": M5.49 is
+  open, one_tile_pipeline has no --preserve-tile, and an unrun expected string is the
+  page's own falsifier. The absence is asserted (awk prints 0) so the row cannot be
+  reported as passing.
+- lev3456 verify was left out of P2: it exits 3 under python3.15 (zlib-ng) and 0
+  under python3.13 (stock), so a token there depends on the interpreter — M5.16's
+  call, not this page's.
+- Did not restate the M5.30 numbers from its EXP: rebuilt the card and quoted the
+  fresh sha, though it is the same b0faf119…33237.
+
+problems / time
+- /tmp is a 3.8 GiB tmpfs; everything ran with TMPDIR on the scratch tree.
+- the P0 card is 8 GiB on disk; scratch/m5.50 is deleted after this EXP.
+
+handoff (navigator first)
+1. run the block yourself from the page text (it builds the card); check the two
+   expected exit-1 rows are the ones marked **1**.
+2. check the page states no number that its own commands do not print (P0 census,
+   fit deltas, 586/9 ranges, 2333602, card sha).
+3. check the P1/P2 NOT RUN rows name the right tasks and that nothing claims a
+   rung passes that has no card/tree.
+4. confirm no claim row was added (page of existing facts) and that map-tiles.md
+   only gained the pointer.
