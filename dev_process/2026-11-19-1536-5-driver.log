@@ -39,6 +39,11 @@ problems / dead ends
   first selftest run caught the unmapped 0x0 load (the check did its job).
 - A padded n=1000 run first reported PASS because the target inherited a 0x0->REJECT map;
   re-ran with 0x0 unmapped so the control cannot be read as a verdict.
+- The new EXP's `0x003f5194`/`0x0041c044` citations reddened `fn_audit` (CORPUS STALE),
+  not a task defect; both frozen snapshots were refreshed with `--write-snapshot`
+  (docs 328->329 citations, l3 910->915) and the gate then passed 4/4.
+- A botched `git checkout origin/main -- TODO.md claims.md` during that check was undone
+  with `git reset --hard HEAD`; no work lost (both files were already committed).
 
 handoff
 - Navigator: check EXP Observation "pad control" row and the two refusal lines; verify no
