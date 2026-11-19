@@ -24,11 +24,17 @@ without a reproducible command is a hypothesis; mark it so.
 ("How to take a task"); the ones that get broken:
 
 1. Pick an `open` task whose `Depends` are `done` and whose ID appears in no
-   open PR title.
+   open PR title. Check this **right before claiming**, not from an old view:
+   `git fetch origin`, read the task line on `origin/main` (not your
+   worktree's copy), and list open PRs (`gh pr list --state open --search
+   "[ID]"`) and the claim blocks in use.
 2. **First commit claims it**: change only your task's line to
    `Status: in progress · Owner: <branch>`, then `git push -u origin <branch>`
    before any other work, and open a draft PR `[ID] short title`. An unpushed
-   claim is invisible.
+   claim is invisible: a claim edited in a worktree exists only on your disk,
+   other agents read `origin` and open PRs. The claim commit holds the claim
+   alone (no task work), and the push and draft PR follow it within a minute
+   of creating the worktree. Read, plan and code only after the draft PR is up.
 3. One task per PR; touch only your task's files, your EXP, your claim rows.
 4. **Last commit**: the work plus `Status: done`, `[x]` and a `Result:` line
    naming the EXP. `done` requires the task's own `Done when` check to pass —
@@ -71,7 +77,9 @@ authoritative if they drift.
   path yourself (above) and use absolute paths. `--yes` approves the
   project hook in `.config/wt.toml` without a prompt. The branch has no
   upstream yet; the claim push (`git push -u origin "$B"`, rule 2 above)
-  sets it. The default path is `../OSM2Leaf.<branch-sanitized>`, outside the
+  sets it. Make the claim commit and push it **immediately** after
+  `wt switch --create`, before anything else in the worktree: until it is
+  pushed with a draft PR, nobody can see the task is taken. The default path is `../OSM2Leaf.<branch-sanitized>`, outside the
   repo.
 - **`archive/` in the worktree:** the `pre-start` hook symlinks every file
   of the primary checkout's `archive/` into the new worktree, so `gate.py`
