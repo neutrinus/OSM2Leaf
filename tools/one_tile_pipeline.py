@@ -1294,6 +1294,20 @@ def selftest() -> int:
             {"changed_sections": [1], "changed_directories": []})
         chk(g_ind_wide["status"] == "PASS",
             "M5.41 negative control: a widened allowlist would hide the .ind change")
+        # (c) a run that changes ONLY the tile: DRSTR001.DAT is expected but not
+        # actual, and that is not a failure of `expected >= actual`.
+        tile_only_expected = set(changes["expected"])          # tile + DRSTR
+        tile_only_actual = {"MAPAL001/B48R058R.DAT"}
+        chk("DRSTR001.DAT" not in tile_only_actual
+            and tile_only_expected >= tile_only_actual,
+            "M5.41 tile-only run: DRSTR001.DAT left out of actual, expected >= actual")
+        g_tile_only, unexpected_tile_only = one_tile_gate(
+            [{"path": "MAPAL001/B48R058R.DAT", "state": "differs"}],
+            "MAPAL001/B48R058R.DAT",
+            set(changes["allowed_manifests"]), True,
+            {"changed_sections": [1], "changed_directories": []})
+        chk(g_tile_only["status"] == "PASS" and unexpected_tile_only == [],
+            "M5.41 tile-only run still PASSes the gate (no unexpected path)")
 
         # B1: the report states which zlib the running interpreter links.
         rt = _zlib_runtime()

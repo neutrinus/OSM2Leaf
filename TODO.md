@@ -2906,18 +2906,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if a runner cannot hold the 480-file factory tree and the ~90 MB extract within the job timeout, ship the skeleton with the explicit `SKIP` path and record the cache gap in the EXP; do not vendor either input.
   - Claims: C-4300–C-4309
 
-- [ ] **M5.41 — One expected-change-set for the one-tile run: `changed_set_expected` and the gate disagree on `DRSTR001.DAT`**
-  - Status: in progress · Owner: task/m5.41-expected-changes · Critical: no · Pair: required
+- [x] **M5.41 — One expected-change-set for the one-tile run: `changed_set_expected` and the gate disagree on `DRSTR001.DAT`**
+  - Status: done · Owner: task/m5.41-expected-changes · Critical: no · Pair: required
   - Depends: M5.34 (done — the run and the gate it reports)
   - Goal: `one_tile_pipeline.build_factory_out` writes `changed_set_expected = ["MAPAL001/<cell>.DAT"]` (`tools/one_tile_pipeline.py:1250`) while no other place defines what a correct run is allowed to change: the gate's manifest allowlist is a literal at `:1399` and is never exported, and the non-parcel path fills `changed_set` from `counts.rebuilt_files` (`:663`, `:1367`). On the M5.34 run the two disagree (`changed_set_expected` excludes `DRSTR001.DAT`, the file that does change and that the gate accepts), so a reader or a future card gate that trusts `expected` would read the correct run as wrong. Two definitions of one set in one module is the coupling defect; the fix is one function.
   - Precheck: `python3 -c "import json;d=json.load(open('/home/marek/projekty/leafre-work/m5.34/nav-report.json'));print(d['changed_set_expected'], [x['path'] for x in d['tree_diff']['differing_files']])"` prints `['MAPAL001/B48R058R.DAT']` against `['DRSTR001.DAT', 'MAPAL001/B48R058R.DAT']`.
-  - Scope: `tools/one_tile_pipeline.py` only: one `expected_changes(cell, rebuilt)` helper (tile + rebuilt manifests from `counts.rebuilt_files`, deduplicated) used by `build_factory_out` and by `one_tile_gate`'s `manifests` argument; `report.json` keeps both `changed_set_expected` and `changed_set_actual` and the selftest asserts `expected ⊇ actual` on the fixture and that an out-only file still leaves `unexpected_differences` non-empty. No change to the gate's PASS conditions.
+  - Scope: `tools/one_tile_pipeline.py` only: one `expected_changes(cell, rebuilt)` helper returning the **narrow 2-path** `expected` set (tile + `DRSTR001.DAT`, the Done-when literal — not `{tile} ∪ rebuilt_files`, which is 198 on M5.34) plus two separate sets: `allowed_but_unchanged` (`MMAIN001.DAT`, `CMP.LST`, the 194 `.ind` = 196 paths) and `allowed_manifests` (the gate's 3-name allowlist, which must NOT grow with `rebuilt_files`). Used by `build_factory_out` and `build_synthetic_out`; `one_tile_gate`'s `manifests` argument keeps the 3-name allowlist. `report.json` keeps `changed_set_expected`, `changed_set_actual`, `allowed_but_unchanged`, `allowed_manifests` and `expected_superset_of_actual`; the selftest asserts `expected ⊇ actual`, that an out-only file still leaves `unexpected_differences` non-empty, and that a content-differing rebuilt `.ind` still FAILs the narrow gate. No change to the gate's PASS conditions.
   - Input: `tools/one_tile_pipeline.py` (`:663`, `:1250`, `:1367`, `:1395-1410`, `one_tile_gate` at `:1119`), EXP-2026-11-17-M5.34-parcel (`tree_diff`), C-3563.
   - Hints: do not fold `MMAIN001.DAT`/`CMP.LST` in unconditionally — the M5.34 run re-emits them byte-identically and they are *allowed*, not *expected*; keep "allowed" and "expected" as two sets if the export needs both.
   - Done when: on the M5.34 factory run `changed_set_expected` equals `{MAPAL001/B48R058R.DAT, DRSTR001.DAT}` and still satisfies `expected ⊇ actual`; `python3 tools/one_tile_pipeline.py --selftest` passes and covers (a) a report whose actual set is the expected set, (b) an extra out-only file (B2) still FAILs, (c) a run that changes only the tile leaves `DRSTR001.DAT` out of `actual` without failing `expected ⊇ actual`.
   - Stop: if a second caller depends on `changed_set_expected` meaning exactly one path, name it in the EXP and keep both keys (`changed_set_tile`, `changed_set_expected`); do not delete a field another task's Done-when cites.
   - Falsifier: a fixture where `actual` is a strict subset of `expected` still reports `tile_plus_manifests_only: false`, or a gate PASS survives an unexpected file.
-  - Claims: none yet
+  - Result: `expected_changes(cell, rebuilt)` returns `expected = {MAPAL001/B48R058R.DAT, DRSTR001.DAT}`, `allowed_but_unchanged` (196 = 194 `.ind` + `CMP.LST` + `MMAIN001.DAT`) and the narrow `allowed_manifests`; on the M5.34 inputs `changed_set_expected == changed_set_actual` and `expected_superset_of_actual: true`, rebuilt/differing/union `197/2/198`, tile byte-identical (`293990518 B` / `b746427c…34c2ef`); `one_tile_pipeline --selftest` 106 ok / 0 failure, `selftest.py --only one_tile_pipeline` `passed=1 failed=0` — EXP-2026-11-19-M5.41-expected
+  - Claims: C-4600–C-4609
 
 - [ ] **M5.42 — Records overtaken by a later merge: a TEMPLATE section, plus four concrete corrections**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3019,7 +3020,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `python3 tools/one_tile_pipeline.py --preserve-tile B48R058R --out <S>/p1` builds a 480-file tree; `cardcheck.py --root <S>/p1` PASS; patching the factory image with that tree (M5.30's Reproduction) leaves a card whose `--check-diff` is confined to `DRSTR001.DAT`+dir entries (delta 0 tile ⇒ the tile does not move) and passes `cardcheck --image`; the EXP names the display-only vs routing gate split; `python3 tools/selftest.py` and `tools/gate.py` green.
   - Stop: if a verbatim factory tile cannot be the only region of a card without a new DRSTR format change, record the exact byte that resists and hand it to a format task; do not widen the diff to make P1 pass.
   - Falsifier: the P1 tree reports 480 files but `cardcheck --image` on the patched copy fails, or the diff touches any cluster outside `DRSTR001.DAT`/its dir entry (the tile's clusters must be identical to factory).
-  - Claims: C-4600–C-4609
+  - Claims: C-4590–C-4599
 
 - [ ] **M5.50 — the card ladder page P1 needs: one row per rung, each a command with an expected string**
   - Status: open · Owner: — · Critical: no · Pair: required
