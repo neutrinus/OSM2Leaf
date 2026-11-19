@@ -350,12 +350,13 @@
   "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
   "docs/experiments/EXP-2026-11-19-M9.37-decoder-audit.md",
   "docs/experiments/EXP-2026-11-19-M9.38-read-watch.md",
+  "docs/experiments/EXP-2026-11-19-M9.40-us-mask-read.md",
   "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 348,
+  "files": 349,
   "citations": 931,
   "unique_va": 194,
   "start": 749,

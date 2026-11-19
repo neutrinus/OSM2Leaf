@@ -1175,7 +1175,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4145,
+   "line": 4146,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1185,7 +1185,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4148,
+   "line": 4149,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -2705,7 +2705,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 176,
+   "line": 248,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
@@ -2714,7 +2714,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 221,
+   "line": 300,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2723,7 +2723,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 223,
+   "line": 302,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2732,7 +2732,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 438,
+   "line": 546,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2741,7 +2741,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 439,
+   "line": 547,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2750,7 +2750,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 491,
+   "line": 615,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
@@ -2759,7 +2759,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 495,
+   "line": 619,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2768,7 +2768,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 503,
+   "line": 629,
    "va": "0x00574de0",
    "kind": "const",
    "class": "UNMAPPED",
