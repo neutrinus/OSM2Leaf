@@ -1157,7 +1157,7 @@ of the four numbers above says so in its first line.
   - Claims: C-3610–C-3619
 
 - [ ] **M1.32 — Give the M1.22 US reuse points one owner: `targets.json` starts, `point_walk_l3`/`chunk_decoder_l3` tables, the fn_audit skip set, the EXP, the format doc**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m1.32-us-reuse-owner · Critical: no · Pair: required
   - Depends: M1.22 (done) whose US VAs these are; H91 (fixes the one stale count the copy left behind)
   - Goal: M1.22's three US walker starts and the chunk engine now live in five places that must agree: `tools/l3_harness/targets.json` (`build: us2011`), `tools/point_walk_l3.py` `BUILD_TARGETS["us2011"]`, `tools/chunk_decoder_l3.py` `BUILD_TARGETS["us2011"]`, `tools/fn_audit.py` `US_BUILD_STARTS`, and the prose in `docs/format/firmware.md` + the EXP. That is the M1.28/M1.22b lesson repeated one layer up: a VA set copied by hand into five files is one merge away from disagreeing (H91 already found one symptom), and a new reader adds a sixth copy.
   - Precheck: emit the five sets and diff them:
