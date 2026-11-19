@@ -51,3 +51,13 @@ Round 2 (navigator CHANGES):
   only for label/dirty-bit findings present on the factory slice too.
 - 4,412 -> 4,415; C-3067 dropped (ledger ends at C-3066); corrections section
   filled with items 1-8.
+
+Round 3 (approved; close):
+- Phantom count corrected to 13 (115,200 - 115,187), EXP + C-3060; a geometry
+  `python3 -c` is now in the Reproduction block and prints
+  data_sectors=14743768 spc=128 count=115185 last=115186 first_past=115187
+  FAT=115200 phantom=13 (115187..115199).
+- TMPDIR note extended to selftest.py --only mkcard: the bare run fails
+  OSError ENOSPC beside src-slack.img (mkcard.py:1532, R8 copy); with TMPDIR it
+  passes (1/0).
+- TODO M5.30 -> [x] done with the Result line; PR marked ready, not merged.
