@@ -136,6 +136,33 @@ passed=1 failed=0 skipped=0 total=1 time=0.20s
 selftest: OK
 ```
 
+**Portability fix (2026-11-19, after the first push).** On Python 3.11 the
+no-subcommand invocation passed `[]` for a `nargs="*", choices=…` positional and
+argparse rejected it (`invalid choice: []`), so the 3.11 CI gate was red despite
+3.15 being green. The positional `choices=` is gone (manual validation keeps
+the same error text) and an empty `signals` list means all four; the metric code
+is unchanged. Verified on both interpreters:
+
+```
+$ python3.11 tools/map_signals.py
+readers: located 6 partial 5 unlocated 7
+l3_rows: l3-running 1
+tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.28%
+card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)
+
+$ python3.11 tools/selftest.py --only map_signals
+tool:map_signals  PASS  0.06s
+passed=1 failed=0 skipped=0 total=1 time=0.06s
+selftest: OK
+
+$ python3 tools/selftest.py --only map_signals     # 3.15
+tool:map_signals  PASS  0.06s
+selftest: OK
+$ python3.13 tools/selftest.py --only map_signals  # 3.13
+tool:map_signals  PASS  0.07s
+selftest: OK
+```
+
 ## Interpretation
 
 - **FACT:** On this host `python3 tools/map_signals.py` prints the same four

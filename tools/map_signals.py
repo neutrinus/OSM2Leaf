@@ -301,7 +301,7 @@ FORMATTERS = {
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="The four rule-17 map numbers as one command (H109).")
-    parser.add_argument("signals", nargs="*", choices=SIGNALS, metavar="SIGNAL",
+    parser.add_argument("signals", nargs="*", metavar="SIGNAL",
                         help=f"subset of {', '.join(SIGNALS)} (default: all four)")
     parser.add_argument("--matrix", type=Path, default=None,
                         help="reader-coverage matrix (default: docs/research/reader-coverage.md)")
@@ -350,6 +350,11 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.selftest:
         return selftest()
+    invalid = [name for name in args.signals if name not in SIGNALS]
+    if invalid:
+        build_parser().error(
+            f"argument SIGNAL: invalid choice: {invalid[0]!r} "
+            f"(choose from {', '.join(repr(s) for s in SIGNALS)})")
     result = run(args)
     if args.json is not None:
         text = json.dumps(result, indent=2)
@@ -471,6 +476,24 @@ def selftest() -> int:
         chk("tile_bytes: NOT RUN (no factory tiles)" in text,
             "text line 'tile_bytes: NOT RUN (no factory tiles)' is verbatim")
         chk(text.count("NOT RUN") == 4, "all four signals report NOT RUN with no inputs")
+
+        # Bare invocation must run all four on every Python: 3.11 rejects an
+        # empty list against a positional `choices=` (the regression the first
+        # push shipped), so assert the bare call prints one line per signal.
+        old_env = dict(os.environ)
+        os.environ["OSM2LEAF_FACTORY_ROOT"] = str(tmp / "no-factory")
+        os.environ["OSM2LEAF_M5_34_REPORT"] = str(tmp / "nope.json")
+        try:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc_bare = main([])
+        finally:
+            os.environ.clear()
+            os.environ.update(old_env)
+        bare = buf.getvalue()
+        chk(rc_bare == 0, "bare main([]) exits 0 (no subcommand)")
+        chk(all(f"{key}:" in bare for key in ("readers", "l3_rows", "tile_bytes", "card_step")),
+            "bare main([]) prints all four signal keys")
 
     print(f"selftest: {'OK' if not fails else 'FAIL'} ({fails} failure(s))")
     return 0 if not fails else 1
