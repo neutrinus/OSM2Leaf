@@ -102,6 +102,7 @@ __all__ = [
     "Backend",
     "Blocked",
     "EngineError",
+    "WatchRange",
     "GhidraBackend",
     "IllegalInstruction",
     "MissingGhidra",
@@ -259,6 +260,42 @@ class Region:
 
 
 @dataclass
+class WatchRange:
+    """One ``watch()`` request: log every guest access of *kind* to [lo, hi).
+
+    Observation only: the hit is recorded *inside* ``PySh4._load``/``_store``
+    after the real access, so a watch never changes a verdict.  ``kind`` is
+    ``"r"`` (loads), ``"w"`` (stores) or ``"rw"``; the caller-facing report
+    separates ``api`` hits (``read_mem``/``write_mem``, used by stubs and
+    setup) and ``x`` hits (instruction fetch) so they can never be counted as
+    guest reads.
+    """
+
+    lo: int
+    hi: int
+    kind: str
+    name: str
+
+    def covers(self, va: int, size: int) -> bool:
+        return va < self.hi and self.lo < va + size
+
+
+@dataclass
+class WatchHit:
+    """One recorded access: program counter, address, width, kind."""
+
+    pc: int
+    va: int
+    size: int
+    kind: str          # "r" | "w" | "api-r" | "api-w" | "x"
+    name: str
+
+    def as_dict(self) -> dict:
+        return {"pc": px(self.pc), "va": px(self.va), "size": self.size,
+                "kind": self.kind, "watch": self.name}
+
+
+@dataclass
 class RunResult:
     """What happened during one ``run_until``/``call``."""
 
@@ -314,6 +351,10 @@ class Backend:
         self._regions: list[Region] = []
         self._hooks: dict[int, list[Callable]] = {}
         self.last_run: RunResult | None = None
+        self._watches: list[WatchRange] = []
+        self._watch_hits: list[WatchHit] = []
+        self._watch_armed = False
+        self._watches_on = False       # fast path: False means no recording
 
     # -- memory map --------------------------------------------------------
 
@@ -451,6 +492,71 @@ class Backend:
 
     def hooks(self) -> dict[int, int]:
         return {va: len(items) for va, items in self._hooks.items()}
+
+    # -- read/write watch (M9.38) -----------------------------------------
+
+    def watch(self, lo: int, hi: int, kind: str = "r", name: str = "watch") -> WatchRange:
+        """Log every guest access of *kind* to ``[lo, hi)`` at the next arm.
+
+        ``kind``: ``"r"`` loads, ``"w"`` stores, ``"rw"`` both.  The range must
+        already be mapped when :meth:`arm_watch` runs (a typo is a loud usage
+        error, never a silent zero).  Recording is inert until ``arm_watch()``,
+        so set-up writes (map, input bytes, ctx/stack/table) are not hits.
+        """
+        if kind not in ("r", "w", "rw"):
+            raise UsageError(f"watch(): kind must be 'r', 'w' or 'rw', not {kind!r}")
+        lo = int(lo) & M32
+        hi = int(hi) & M32
+        if hi <= lo:
+            raise UsageError(f"watch(): empty range {px(lo)}..{px(hi)}")
+        if not isinstance(name, str) or not name:
+            raise UsageError("watch(): name must be a non-empty string")
+        item = WatchRange(lo=lo, hi=hi, kind=kind, name=name)
+        self._watches.append(item)
+        return item
+
+    def arm_watch(self) -> None:
+        """Start recording; every watch range must be inside a mapped region."""
+        for item in self._watches:
+            if self.region_at(item.lo) is None or self.region_at(item.hi - 1) is None:
+                raise UsageError(
+                    f"watch[{item.name}]: {px(item.lo)}..{px(item.hi)} is not inside "
+                    "a mapped region at arm time (wrong base?)"
+                )
+        self._watch_armed = bool(self._watches)
+        self._watches_on = self._watch_armed
+
+    def disarm_watch(self) -> None:
+        self._watch_armed = False
+        self._watches_on = False
+
+    def watch_hits(self) -> list[WatchHit]:
+        return list(self._watch_hits)
+
+    def watch_ranges(self) -> list[dict]:
+        return [{"name": w.name, "lo": px(w.lo), "hi": px(w.hi), "kind": w.kind}
+                for w in self._watches]
+
+    def _record_watch(self, va: int, size: int, tag: str) -> None:
+        """Called from inside a load/store; ``tag`` is r/w/x or api-r/api-w.
+
+        ``x`` (instruction fetch) never matches a data watch.  ``api-*`` hits
+        are recorded but the summary excludes them from guest reads: they come
+        from stubs and harness setup, not from the function under test.
+        """
+        if not self._watches_on or tag == "x":
+            return
+        base = "r" if tag in ("r", "api-r") else "w"
+        for item in self._watches:
+            if item.kind != "rw" and item.kind != base:
+                continue
+            if not item.covers(va, size):
+                continue
+            self._watch_hits.append(WatchHit(
+                pc=self._get_pc() & M32, va=va & M32, size=size,
+                kind=tag, name=item.name,
+            ))
+            return
 
     def _dispatch(self, va: int):
         for handler in list(self._hooks.get(va, ())):
@@ -874,12 +980,14 @@ class PySh4(Backend):
     def _read(self, va: int, size: int) -> bytes:
         block = self._block(va, size, "r")
         offset = va - block.region.va
+        self._record_watch(va, size, "api-r")
         return bytes(block.data[offset:offset + size])
 
     def _write(self, va: int, data: bytes) -> None:
         block = self._block(va, len(data), "w")
         offset = va - block.region.va
         block.data[offset:offset + len(data)] = data
+        self._record_watch(va, len(data), "api-w")
 
     def _get_reg(self, name: str) -> int:
         return self._regs[name]
@@ -917,7 +1025,9 @@ class PySh4(Backend):
             raise UnalignedAccess(f"{size}-byte load at unaligned {px(va)}")
         block = self._block(va, size, "r")
         offset = va - block.region.va
-        return int.from_bytes(block.data[offset:offset + size], self.endian)
+        value = int.from_bytes(block.data[offset:offset + size], self.endian)
+        self._record_watch(va, size, "r")
+        return value
 
     def _store(self, va: int, size: int, value: int) -> None:
         if va % size:
@@ -927,11 +1037,13 @@ class PySh4(Backend):
         block.data[offset:offset + size] = (value & ((1 << (8 * size)) - 1)).to_bytes(
             size, self.endian
         )
+        self._record_watch(va, size, "w")
 
     def _fetch(self) -> int:
         pc = self._regs["pc"]
         block = self._block(pc, 2, "x")
         offset = pc - block.region.va
+        self._record_watch(pc, 2, "x")
         return int.from_bytes(block.data[offset:offset + 2], self.endian)
 
     # -- the interpreter ---------------------------------------------------
@@ -2732,6 +2844,53 @@ def test_distinct_register_forms():
     engine._execute(opcode, 0x8C000000)
     _expect_equal(bytes(engine.read_mem(base + 6, 2)), b"\xab\xcd",
                   "mov.w r0,@(disp,Rm) stores through Rm, not r0")
+@check("pysh4: watch records guest loads only; api/x tagged; arming after setup")
+def test_watch_hooks():
+    base = 0x8C000100
+    engine = PySh4(endian="little")
+    engine.map("data", base, bytearray(b"\x80\x00\x14\xF9\x7F\x00\x00\x00"), "rw")
+    # Set-up writes happen before arming and must not be hits.
+    engine.write_mem(base, b"\x01\x02")
+    engine.watch(base, base + 4, kind="r", name="first")
+    engine.watch(base + 4, base + 8, kind="r", name="second")
+    engine.arm_watch()
+    _expect_equal(len(engine.watch_hits()), 0, "no hits before the first access")
+    engine.set_regs(r5=base)
+    engine._execute(0x6150, 0x8C000000)               # mov.b @r5,r1 -> base
+    engine._execute(0x6151, 0x8C000000)               # mov.w @r5,r1 -> base
+    hits = engine.watch_hits()
+    _expect_equal([h.size for h in hits], [1, 2], "guest loads r: widths")
+    _expect_equal({h.name for h in hits}, {"first"}, "only the watched half")
+    _expect_equal(len([h for h in hits if h.name == "second"]), 0,
+                  "negative control: unwatched half has no hits")
+    # read_mem/write_mem are api hits, never guest reads.  An api write only
+    # lands in a write watch, an api read only in a read watch.
+    engine.watch(base + 4, base + 8, kind="w", name="second-w")
+    engine.read_mem(base, 2)
+    engine.write_mem(base + 4, b"\xAA\xBB")
+    api = [h for h in engine.watch_hits() if h.kind.startswith("api")]
+    guest = [h for h in engine.watch_hits() if not h.kind.startswith("api")]
+    _expect_equal(sorted(h.kind for h in api), ["api-r", "api-w"],
+                  "api read/write recorded separately")
+    _expect_equal(len(guest), 2, "api accesses excluded from guest reads")
+    # An unmapped watch range fails at arm time, never silently.
+    typo = PySh4()
+    typo.map("data", base, bytearray(16), "rw")
+    typo.watch(0xDEAD0000, 0xDEAD0010)
+    try:
+        typo.arm_watch()
+    except UsageError:
+        pass
+    else:
+        raise AssertionError("arm_watch accepted an unmapped range")
+    # Instruction fetch is tagged x and never lands in a data watch.
+    fetch = PySh4(endian="little")
+    fetch.map("code", 0x8C100000, struct.pack("<H", 0x0009) + struct.pack("<H", 0x0009), "rx")
+    fetch.watch(0x8C100000, 0x8C100004, kind="r")
+    fetch.arm_watch()
+    fetch.set_regs(pc=0x8C100000)
+    fetch.run_until(stop=0x8C100002)
+    _expect_equal(len(fetch.watch_hits()), 0, "fetch is x, not a data read")
 
 
 def _run_with_alarm(seconds: int, func, *args, **kwargs):
