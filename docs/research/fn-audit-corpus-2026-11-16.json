@@ -23,21 +23,20 @@
   "tools/build_targets.py",
   "tools/chunk_decoder_l3.py",
   "tools/l3_harness/targets.json",
-  "tools/mapcode_l3.py",
   "tools/point_walk_l3.py",
   "tools/read_watch_l3.py"
  ],
  "summary": {
-  "files": 21,
-  "citations": 381,
-  "unique_va": 140,
-  "start": 246,
+  "files": 20,
+  "citations": 354,
+  "unique_va": 134,
+  "start": 235,
   "inside": 0,
   "corrected": 20,
   "gap": 37,
   "leaf": 37,
   "ambiguous": 0,
-  "unmapped": 78
+  "unmapped": 62
  },
  "rows": [
   {
@@ -441,7 +440,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1386,
+   "line": 1385,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -450,7 +449,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1392,
+   "line": 1391,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -459,7 +458,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1396,
+   "line": 1395,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -468,7 +467,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1451,
+   "line": 1450,
    "va": "0x00418748",
    "kind": "fn",
    "class": "START",
@@ -477,7 +476,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1478,
+   "line": 1477,
    "va": "0x004191d0",
    "kind": "sub_",
    "class": "START",
@@ -486,7 +485,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1478,
+   "line": 1477,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -495,7 +494,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1482,
+   "line": 1481,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -504,7 +503,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1482,
+   "line": 1481,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -513,7 +512,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1482,
+   "line": 1481,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -1067,16 +1066,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3603,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 3651,
+   "line": 3650,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -1085,7 +1075,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3658,
+   "line": 3657,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -1094,7 +1084,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3750,
+   "line": 3749,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1103,7 +1093,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3758,
+   "line": 3757,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1112,7 +1102,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3763,
+   "line": 3762,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1121,7 +1111,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3772,
+   "line": 3771,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1130,7 +1120,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3919,
+   "line": 3918,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1139,7 +1129,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3963,
+   "line": 3962,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1149,7 +1139,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4083,
+   "line": 4082,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1158,7 +1148,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4086,
+   "line": 4085,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1167,7 +1157,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4093,
+   "line": 4092,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1176,7 +1166,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4095,
+   "line": 4094,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1185,7 +1175,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4147,
+   "line": 4145,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1195,7 +1185,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4150,
+   "line": 4148,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -1206,33 +1196,6 @@
    "file": "docs/format/cerom.md",
    "line": 613,
    "va": "0x880385e4",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/cmp-ind.md",
-   "line": 179,
-   "va": "0x0041c7dc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/cmp-ind.md",
-   "line": 193,
-   "va": "0x0041c7dc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/cmp-ind.md",
-   "line": 195,
-   "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -2742,7 +2705,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 248,
+   "line": 176,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
@@ -2751,7 +2714,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 300,
+   "line": 221,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2760,7 +2723,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 302,
+   "line": 223,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2769,7 +2732,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 546,
+   "line": 438,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2778,7 +2741,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 547,
+   "line": 439,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2787,7 +2750,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 615,
+   "line": 491,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
@@ -2796,7 +2759,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 619,
+   "line": 495,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2805,7 +2768,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 629,
+   "line": 503,
    "va": "0x00574de0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2813,217 +2776,10 @@
    "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
-   "file": "tools/l3_harness/targets.json:applaunch_mapcode_compare",
-   "line": 0,
-   "va": "0x03bd2ad8",
-   "kind": "target",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
    "file": "tools/l3_harness/targets.json:cmp_ind_reader",
    "line": 0,
    "va": "0x0041c7dc",
    "kind": "target",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 2,
-   "va": "0x03bd2ad8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 4,
-   "va": "0x03bd2ad8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 4,
-   "va": "0x03e00200",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 7,
-   "va": "0x03bd2ecc",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 10,
-   "va": "0x0101302c",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 13,
-   "va": "0x01f74b30",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 17,
-   "va": "0x01f74b30",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 83,
-   "va": "0x03e00200",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 86,
-   "va": "0x03bd2ad8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 87,
-   "va": "0x01f74b30",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 89,
-   "va": "0x0101302c",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 101,
-   "va": "0x30000000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 103,
-   "va": "0x40000000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 105,
-   "va": "0x00001234",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 106,
-   "va": "0xffffffff",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 107,
-   "va": "0xffffffff",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 151,
-   "va": "0x20000000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 455,
-   "va": "0x03bd2ad8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 541,
-   "va": "0x60000020",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 542,
-   "va": "0xc0002040",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 561,
-   "va": "0xffffffff",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/mapcode_l3.py",
-   "line": 590,
-   "va": "0x03bd2ad8",
-   "kind": "const",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"

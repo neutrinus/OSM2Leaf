@@ -336,6 +336,7 @@
   "docs/experiments/EXP-2026-11-19-M1.32-us-reuse-owner.md",
   "docs/experiments/EXP-2026-11-19-M1.33-census-command.md",
   "docs/experiments/EXP-2026-11-19-M3.27-tile-reader-args.md",
+  "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
   "docs/experiments/EXP-2026-11-19-M4.38-lang-code-table.md",
   "docs/experiments/EXP-2026-11-19-M4.41-diff-years.md",
   "docs/experiments/EXP-2026-11-19-M5.30-one-variable-card.md",
@@ -349,17 +350,15 @@
   "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
   "docs/experiments/EXP-2026-11-19-M9.37-decoder-audit.md",
   "docs/experiments/EXP-2026-11-19-M9.38-read-watch.md",
-  "docs/experiments/EXP-2026-11-19-M9.40-us-mask-read.md",
   "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
-  "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 349,
-  "citations": 938,
-  "unique_va": 193,
-  "start": 756,
+  "files": 348,
+  "citations": 931,
+  "unique_va": 194,
+  "start": 749,
   "inside": 80,
   "corrected": 11,
   "gap": 79,
@@ -433,7 +432,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1386,
+   "line": 1385,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -442,7 +441,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1392,
+   "line": 1391,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -451,7 +450,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1396,
+   "line": 1395,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -460,35 +459,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 1451,
+   "line": 1450,
    "va": "0x00418748",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1482,
-   "va": "0x0041c044",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1482,
-   "va": "0x0041c7dc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1482,
-   "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -933,6 +905,24 @@
    "file": "TODO.md",
    "line": 3484,
    "va": "0x880385e4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3597,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3598,
+   "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8521,6 +8511,51 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 45,
+   "va": "0x0041c7dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 150,
+   "va": "0x0041c990",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 360,
+   "va": "0x0041c990",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 362,
+   "va": "0x0041855c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 362,
+   "va": "0x0041a438",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
    "line": 24,
    "va": "0x003f5194",
@@ -8636,96 +8671,6 @@
    "file": "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
    "line": 172,
    "va": "0x88042594",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 30,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 36,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 52,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 150,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 153,
-   "va": "0x03bd2ce4",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 153,
-   "va": "0x03bd2ecc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 169,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 191,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 241,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
-   "line": 287,
-   "va": "0x03bd2ce4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -9264,15 +9209,6 @@
    "line": 904,
    "va": "0x0001e3f4",
    "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/l3_harness/targets.json:applaunch_mapcode_compare",
-   "line": 0,
-   "va": "0x03bd2ad8",
-   "kind": "target",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
