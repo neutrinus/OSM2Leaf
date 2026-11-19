@@ -1882,6 +1882,17 @@ def _run_firmware_call_target(target, args, base) -> dict:
                     reason=f"cannot import chunk decoder dependencies: {exc}",
                     accepted=None, l3_claim=False)
 
+    # The target's build picks the chunk-engine and helper VAs (M9.32): the
+    # US target used to run with the EU helpers and could only block.  The
+    # registered entry VA must be that build's engine, or nothing runs.
+    build = target.get("build") or "eu2011"
+    tgt = cdl3.BUILD_TARGETS.get(build)
+    entry_va = int(str(entry.get("va", "0")), 0)
+    if tgt is None or entry_va != tgt["fn_chunk"]:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"entry.va {entry_va:#010x} is not the {build} chunk "
+                              "engine in tools/build_targets.py"])
+
     try:
         usize, csize, _count, chunk_size, offsets = cmpind.read_index(Path(ind_path))
         image = pw.load_image(str(image_path))
@@ -1899,7 +1910,7 @@ def _run_firmware_call_target(target, args, base) -> dict:
     try:
         ret, out, stats = cdl3.run_firmware(
             image, cmp_bytes, rows, offset, length, chunk_size,
-            sec_mode="zero-mask", sec1_table=sec1_table,
+            sec_mode="zero-mask", sec1_table=sec1_table, tgt=tgt,
         )
     except cdl3.Blocked as exc:
         va = exc.args[1] if len(exc.args) > 1 else None
@@ -3680,6 +3691,30 @@ def test_mapcode_nonzero_cache(tmp):
     assert payload["l3_claim"] is False, payload
 
 
+
+
+@check("firmware_call: each target runs its own build's engine; a wrong entry.va is INVALID (M9.32)")
+def test_firmware_call_build_routing(tmp):
+    import types
+    import chunk_decoder_l3 as cdl3
+
+    by_name, _doc = load_targets()
+    for name in ("cmp_ind_reader", "cmp_ind_reader_us2011"):
+        t = by_name[name]
+        want = cdl3.BUILD_TARGETS[t.get("build") or "eu2011"]["fn_chunk"]
+        assert int(t["entry"]["va"], 16) == want, (name, t["entry"]["va"])
+    paths = {}
+    for key in ("image", "cmp", "ind"):
+        paths[key] = Path(tmp) / ("x." + key)
+        paths[key].write_bytes(b"\0" * 16)
+    t = json.loads(json.dumps(by_name["cmp_ind_reader_us2011"]))
+    t["entry"]["va"] = by_name["cmp_ind_reader"]["entry"]["va"]  # EU VA, US build
+    args = types.SimpleNamespace(image=str(paths["image"]), cmp=str(paths["cmp"]),
+                                 ind=str(paths["ind"]), mutate="none",
+                                 offset=None, length=None)
+    res = _run_firmware_call_target(t, args, {"target": t["name"]})
+    assert res["status"] == "INVALID", res
+    assert "us2011 chunk engine" in " | ".join(res.get("problems", [])), res
 
 # --------------------------------------------------------------------------
 # M9.35: sec1 load model (zero BSS, bound IAT, INIT guard)

@@ -3660,6 +3660,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Status: done · Owner: task/m9.11-cmp-ind-reader-closeout · Critical: yes · Pair: pair
   - Result: EXP-2026-11-09-M9.11-closeout-cmp-ind-reader.md (reconciles EXP-2026-11-08-M9.11-chunk-decoder.md / M9.11b). `chunk_decoder_l3.py` and `runner.py cmp_ind_reader` (`firmware_call`, declared sec1 `inflate_mask[17]` at `0x574de0`, provenance explicit, no silent default) return page `0x840ba0` byte-identical to `cmpind.decode` for factory/S1/S2 POINT010 pairs; `--mutate corrupt-ind` rejected (`r0=-1`); `--mutate swap-4-8` fails cleanly (`r0=65536`). `cmp_ind_reader` registered in `targets.json` (M9.11b). Sec1-byte equality remains HYPOTHESIS (M1.2f). L3 fragment scope (chunk decode), not full `.ind` parser/opener or M9.12 `l3check --card` corpus acceptance.
   - Note (rule 15, 2026-11-09 PO): M9.11b done (firmware-call entry kind); re-opened then closeout-verified 2026-11-09. Prior blocker resolved: registration filled by M9.11b; sec1 inflate table (`0x574de0`, `inflate_mask[17]`) provenance explicit/declared, no silent default; sec1 bytes not read from decompressed sec1 (M1.2f open).
+  - Note (M9.32, 2026-11-19): re-run through both registered targets (`cmp_ind_reader` EU2011, `cmp_ind_reader_us2011` US2011 after the runner build-routing fix): 3 pairs + 2 controls PASS each; EXP-2026-11-19-M9.32-reconcile-m9.11.
   - Depends: M9.5, M5.13b (the S1 pair). M3.2b is **no longer** a dependency.
   - Precheck: (reconciled 2026-11-09) `chunk_decoder_l3.py --selftest` and `runner.py selftest` pass; `runner.py run cmp_ind_reader --dry-run` shows declared sec1 table; `l3_precond.py --target cmp_ind_reader` reports READY (mitigated by declared sec1 input). M9.11/M9.11b/closeout EXPs reproduce factory/S1/S2 + controls on local M5.13b pairs/IMG256 (hashes recorded; vendor data outside repo).
   - Goal: prove in software what S1 would prove in the car: the firmware's own
@@ -4055,8 +4056,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the committed census prints a different module delta than C-3530, or a committed command cannot reproduce one row of the relocated-body table.
   - Claims: C-4230–C-4239
 
-- [ ] **M9.32 — Reconcile M9.11: `cmp_ind_reader` meets done-when or block precisely**
-  - Status: in progress · Owner: task/m9.32-reconcile-m9.11 · Critical: yes · Pair: required
+- [x] **M9.32 — Reconcile M9.11: `cmp_ind_reader` meets done-when or block precisely**
+  - Status: done · Owner: task/m9.32-reconcile-m9.11 · Critical: yes · Pair: required
   - Depends: M9.11, M9.11b
   - Goal: close the M9.11 reopen cleanly: M9.11b registered `cmp_ind_reader` as `firmware_call` with declared sec1 `inflate_mask[17]` provenance, but M9.11 remains open with stale precheck/scope text and its done-when requires all three POINT010 pairs + controls through the firmware path/target.
   - Precheck: `python3 tools/chunk_decoder_l3.py --selftest` and `python3 tools/l3_harness/runner.py --selftest` (or bounded equivalent) pass; `targets.json` contains `cmp_ind_reader` `firmware_call` with `sec1_table`; factory/S1/S2 POINT010 pairs available per rule 11 (M5.13b tree or fetchable inputs).
@@ -4064,6 +4065,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: `tools/l3_harness/runner.py`, `targets.json`, `tools/chunk_decoder_l3.py`, `tools/cmpind.py`, EXP-2026-11-08-M9.11-chunk-decoder, EXP-2026-11-08-M9.11b-firmware-call-target, M5.13b S1/S2/factory pairs.
   - Done when: M9.11 is `done` with `Result:` naming an EXP that records all three pairs + controls passing through the registered target/path and cites sec1-table provenance, OR M9.11 is `blocked` with the exact missing pair/control/runner gap and `Unblock:` named. No stale "no firmware-call entry kind" text remains in M9.11.
   - Stop: if S1/S2 corpora are unavailable and cannot be obtained by existing tools, block with missing corpus named (do not claim all-pairs pass on factory only).
+  - Result: EXP-2026-11-19-M9.32-reconcile-m9.11; C-3370–C-3375. M9.11 stays `done`: re-measured from the US card, `runner.py run cmp_ind_reader` (EU2011) returns page `0x840ba0` byte-identical for factory/S1/S2 and passes both controls. Found and fixed one runner gap: the `firmware_call` path ignored the target `build`, so `cmp_ind_reader_us2011` always ran EU VAs and BLOCKED; it now routes the build (and refuses a mismatched `entry.va`), and the US target passes the same 3 pairs + 2 controls. S2 rebuilt with zlib 1.3 (`b4ef43b9…`, not the pinned `c2b9c388…`).
   - Claims: C-3370–C-3379
 
 - [ ] **M9.33 — Map reopened L3 target rerun prerequisites (M1.2f / M9.24 / M9.28 / H45)**
