@@ -1914,7 +1914,7 @@ of the four numbers above says so in its first line.
 
 
 - [ ] **M5.51 — `imgpatch --check-diff` names the 9 metadata ranges but not *which FAT link* each is; a card-diff reader must**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.51-metadata-reasons · Critical: no · Pair: required
   - Depends: M5.30 (done — 586 ranges / 152,815 B, outside 0 wide / 9 strict), M5.47 (done — the allocator identity)
   - Goal: M5.30's `--allow-metadata` passes a card whose 9 metadata ranges are "FAT/FSInfo sectors", but the class is **whole-sector**: the navigator planted a byte at a FAT0 entry and an FSInfo offset and both were reported `metadata 11 ranges / 26 B, outside 0`. An auditor cannot tell, for the real 9 ranges, whether each is a link the relocation *must* change (`FAT[old]=free`, `FAT[last]=new`, `FAT[new]=EOF`) or slack in the same sector. Without a per-range reason the guarantee "the diff is the relocation, nothing else" is one byte wide and untested.
   - Precheck: `python3 tools/imgpatch.py --image <CARD> --reference <IMG> --file MAPAL001/B48R058R.DAT --file DRSTR001.DAT --check-diff --allow-metadata` prints `metadata: 9`; with the navigator's planted FAT0 byte it prints `metadata: 11` (the whole-sector class to name per range). Asset: the M5.30 card `b0faf119…` (rebuild from EXP Reproduction if absent; scratch in `~/projekty/leafre-work/scratch/m5.51/`).
