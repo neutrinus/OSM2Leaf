@@ -730,9 +730,9 @@ table below uses `0x00427578`.
 
 | Entry | Build | `pdata` (start, length, end) | r4 | r5 | r6 | r7 | Return |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `0x0041f26c` (M3.5 "cell-table MAKE END") | EU2011 A | START, `0x170`, `0x0041f3dc` | record pointer: `mov.l r4,@(52,r15)`, then `mov.l @(20,r3)` used as a `mul #20` table index at `0x0041f2b4` | pointer to a 4-entry `u32` array (loop count `mov #4,r3` at `0x0041f280`; `mov.l @r8,r3` at `0x0041f296`) | an incoming `u32` flag/mode: reloaded at `0x0041f294`, tested `tst r6,r6` at `0x0041f29c`, compared with `-1`/`-2` at `0x0041f316`/`0x0041f35c` — **meaning UNKNOWN** (callers pass unset/`0`) | **not an argument**: first write is `mov #11,r7` at `0x0041f320`, so the incoming value is dead | `r0`: no explicit write on either exit path (`rts` at `0x0041f3b8`); `r2` only as a spill |
-| `0x004259bc` (M3.5 "cell-table MAKE START") | EU2011 A | START, `0xfc`, `0x00425ab8` | mesh id / status code: `mov r4,r8`, then `mul.l #20` at `0x004259de` and `0x00425a10`, and `mov r8,@(40,r15)` at `0x00425a64` | record/output pointer: skipped when null (`tst r5,r5` at `0x004259ee`); its `+12`, `+16`, `+24` fields are read at `0x00425a36`/`0x00425a56` | **not an argument**: first write is `extu.w r0,r6` at `0x00425a40` | control flag: `tst r7,r7` at `0x004259c8` returns immediately when zero; the single caller passes `0` | `r0`: no explicit write (`rts` at `0x00425a86`, `mov r5,r0` at `0x00425a02` is a loop test); `r2` is written but never read by the caller |
-| `0x00427578` (M3.5 "cell-table MAKE START", entry `0x0042757a`) | EU2011 A | START, `0x2f8`, `0x00427870` | 20-byte record pointer: `mov.w @r4,r12` (count at `+0`) and `mov r4,r9; add #4,r9` at `0x0042759a`/`0x004275a0` | **not an argument**: first write is `mov.l @r10,r5` at `0x0042762e` | **not an argument**: first write is `mov r13,r6` at `0x00427600` | **not an argument**: overwritten by `mov r14,r7` at `0x004275fe` | `r0`: no explicit write (`rts` at `0x00427834`); `r2` only as a spill |
+| `0x0041f26c` (M3.5 "cell-table MAKE END") | EU2011 A | START, `0x170`, `0x0041f3dc` | record pointer: `mov.l r4,@(52,r15)`, then `mov.l @(20,r3)` used as a `mul #20` table index at `0x0041f2b4` | pointer to a 4-entry `u32` array (loop count `mov #4,r3` at `0x0041f280`; `mov.l @r8,r3` at `0x0041f296`) | an incoming `u32` flag/mode: reloaded at `0x0041f294`, tested `tst r6,r6` at `0x0041f29c`, compared with `-1`/`-2` at `0x0041f316`/`0x0041f35c` — **meaning UNKNOWN** (callers pass unset/`0`) | **not an argument**: first write is `mov #11,r7` at `0x0041f320`, so the incoming value is dead | `r0`: no deliberate return value; the sole caller does not read `r0` (it restores registers and returns at `0x004216a4`); `r2` only as a spill |
+| `0x004259bc` (M3.5 "cell-table MAKE START") | EU2011 A | START, `0xfc`, `0x00425ab8` | mesh id / status code: `mov r4,r8`, then `mul.l #20` at `0x004259de` and `0x00425a10`, and `mov r8,@(40,r15)` at `0x00425a64` | **not an argument**: first touch is the write `mov #0,r5` at `0x004259ce`; a local counter over the 4 mesh-table entries (`add #1,r5` at `0x004259f8`, `cmp/ge #4` at `0x004259fc`) | **not an argument**: first write is `extu.w r0,r6` at `0x00425a40` | control flag: `tst r7,r7` at `0x004259c8` returns immediately when zero; the sole caller reaches the call only when `r7 != 0` (`mov.l @(4,r8),r7` / `tst r7,r7` / `bt` at `0x00426500`–`0x00426504`) | `r0`: no deliberate return value; the sole caller does not read `r0` (it overwrites it at `0x00426512`); `r2` is written but never read by the caller |
+| `0x00427578` (M3.5 "cell-table MAKE START", entry `0x0042757a`) | EU2011 A | START, `0x2f8`, `0x00427870` | 20-byte record pointer: `mov.w @r4,r12` (count at `+0`) and `mov r4,r9; add #4,r9` at `0x0042759a`/`0x004275a0` | **not an argument**: first write is `mov r12,r5` at `0x00427602` | **not an argument**: first write is `mov r13,r6` at `0x00427600` | **not an argument**: overwritten by `mov r14,r7` at `0x004275fe` | `r0`: no deliberate return value; the sole caller does not read `r0` (`rts` at `0x00427834`); `r2` only as a spill |
 
 The three entries are **not one function and not thunks of each other**: the
 three bodies are `0x170`/`0xfc`/`0x2f8` bytes, `0x004259bc` ends in `rts` at
@@ -771,12 +771,12 @@ a file buffer):
   import call: **UNKNOWN** here.
 
 **Consequence for M3.25/M9.13.** No M3.5 entry takes the tile bytes in a
-register: the callers pass a record (`r4`), an index array (`r5`) or the mesh
-id, and the tile content is reached through BSS tables (`0x00e8f5dc`,
-`0x00e99698`) which H101 attributes to a memory-mapped view. A harness
-prototype of `(tile_ptr, dst_ptr)` is therefore **not** what these functions
-accept; the closest runnable target remains `0x00425f40` (M3.6) fed by
-`0x00427578`, whose `r4` is a 20-byte record. Falsifier for that paragraph: a
+register: the callers pass a record (`r4`), an index array (`r5` of VA1) or the
+mesh id (`r4` of VA2), and the tile content is reached through BSS tables
+(`0x00e8f5dc`, `0x00e99698`) which H101 attributes to a memory-mapped view. A
+harness prototype of `(tile_ptr, dst_ptr)` is therefore **not** what these
+functions accept; the closest runnable target remains `0x00425f40` (M3.6) fed
+by `0x00427578`, whose `r4` is a 20-byte record. Falsifier for that paragraph: a
 caller that loads `MapViewOfFile`'s return value straight into `r4` of one of
 the three entries (not found: all three have exactly one static call site).
 

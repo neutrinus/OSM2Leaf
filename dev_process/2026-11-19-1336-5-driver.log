@@ -34,3 +34,20 @@ problems
 handoff
 - navigator: check the register meanings against the disassembly blocks in the EXP; the r6/r7-UNKNOWN rows are the place to push if you see a use I missed.
 - PR #231 stays draft; task stays in progress, not done, not merged.
+
+round 2 (navigator findings, same session, 2026-11-19T13:55Z)
+- VA2 r5 was fabricated: raw LE u16 @0x004259ee = 0x610d (extu.w r0,r1), not tst r5,r5;
+  r5 first write mov #0,r5 @0x004259ce, a local counter (add #1,r5 @0x004259f8,
+  cmp/ge #4 @0x004259fc). Row + C-4583 reworded to "not an argument".
+- the same cell misattributed the field reads: +16/+12 of r2 = *0x00e99698 + 20*r4,
+  no +24 read in VA2 (0x0042768e is VA3). Fixed in map-tiles.md + C-4583.
+- r7 self-contradiction in VA2 ("the single caller passes 0" vs r7 = mov.l @(4,r8)):
+  the 0x00426500-0x00426504 bt proves the call is reached only when r7 != 0; deleted "passes 0".
+- VA3 r5 first write is mov r12,r5 @0x00427602, not mov.l @r10,r5 @0x0042762e (C-4584, VA3 row).
+- C-4585 softened: r0 is a scratch/test register (0x0041f2ae/0x004259d8/0x004275c4);
+  "no deliberate return value, sole callers do not read r0". A botched edit duplicated
+  the C-4585 row for a moment; removed the stale copy by line content, not line number.
+- filled "Corrections after navigator review" items 1-5 with the raw-u16 vs sh4dis commands.
+- checks re-run serially: pdata 3 VAs unchanged, claims_check OK, selftest 93/0/23, gate 4 pass.
+  One intermediate gate run showed 3 pass/1 fail because I ran selftest.py twice in
+  parallel; selftest shares the /tmp/opencode/work decode cache. Run gates serially.
