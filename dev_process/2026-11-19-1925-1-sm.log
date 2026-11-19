@@ -1,0 +1,62 @@
+role: SM (scrum master)
+model: opencode deepseek-v4.1-flash-free (aggregate "strong"); in-process
+start: 2026-11-19T19:25Z
+origin/main at start: ef458c6
+
+inputs read:
+  docs/retro/2026-11-18-3.md, the five role logs of cycle 15 and the three
+  driver logs, the four merged PRs (#230-#233) and the open concurrent batch
+  (#234-#241), gh run list on main, the board parser, claims_check/todo_check.
+
+actions, in order:
+  - fetched and counted the window 685fbb1..ef458c6: 22 commits, 4 PRs closed,
+    4 tasks done, 0 blocked, 0 re-opened, 0 tasks added; M5.47/M5.48/M3.27
+    were added earlier in the same day by the SE pass.
+  - parsed the board: 125 open / 67 done / 24 blocked / 0 in progress. Zero
+    in progress means zero ghosts; the prompt_sm merged-branch definition
+    confirms it (git branch -r --merged origin/main has no task/* from this
+    batch).
+  - rule-15 sweep: 11 blocked tasks still carry no Unblock: line (M1.2f, M2.4,
+    M3.13, M3.18, M4.8b, M4.16, M4.22, M4.27, M5.16, M8.E1, M9.12); none has
+    a now-done blocker named, so no re-open. I did not silently edit them -
+    each needs the owner's judgement and action 5/human covers the sweep.
+  - rule-17 numbers: readers 6/30 (+5 partial), L3 1/30, P1 census contained=1,
+    card step P0 with SHA b0faf119... in M5.30's Result and in two claim rows.
+  - verified CI: quality gate + L1/L2 green at every main tip this window.
+  - found the two TL merge-mechanics failures (draft merge refused, conflict
+    reported after main moved) and wrote them into prompt_tl.txt with the
+    before/after in the retro.
+  - found the TL log written before its own outcome; appended the outcome
+    rather than rewriting (the log states which half is which).
+  - noted 18 local task/* branches (10 beyond the live batch) as stale.
+
+decisions:
+  - the retro's lead is the P0 completion, not a failure: this is the first
+    window in weeks whose map number moved and whose claim batch had zero
+    collisions.
+  - did not mark M5.30's card as a P1 claim: P1 is M5.46's copy step and it has
+    no block yet; action 1 makes the PO say so in Priorities.
+  - did not run the concurrent batch's tasks; PRs #234-#241 belong to that TL
+    run, and #238 (M5.41) collides with M5.48's file - action 2 names the
+    merge order.
+
+problems / dead ends:
+  - a `gh pr merge` on a draft and on a rebased PR both fail after the squash
+    is already pushed; the fix is close-with-SHA, recorded in prompt_tl.
+  - my own first attempt to add M3.27's Result line swallowed the existing
+    driver Note (a greedy regex across the block); fixed by moving the tail
+    explicitly. The board's consistency check (todo_check) caught it as a
+    missing Result, which is the gate working.
+
+numbers (quoted):
+  done 4 / blocked 0 / re-opened 0; TODO 4095 lines; board 125/67/24/0;
+  claims 2297 rows, 32 RETRACTED; ghosts 0; claim-block collisions 0; rounds
+  3/3/2/2; readers 6/30; L3 1/30; card P0; P1 contained=1.
+
+handoff:
+  - SE: re-read M5.47's round-3 restore (the EXP body) as the record-shape
+    example; the next window's EXPs should not need a restore.
+  - PO: action 1 (P0 row in Priorities).
+  - QA: action 4 (four navigator defects + the card SHA as rows).
+  - TL of the concurrent batch: action 2 (M5.41 vs M5.48 in
+    one_tile_pipeline.py).
