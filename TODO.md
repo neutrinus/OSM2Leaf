@@ -1573,6 +1573,7 @@ of the four numbers above says so in its first line.
 
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
   - Status: open · Owner: — · Critical: yes
+  - Note (M9.38, 2026-11-19): the reader list is in. The walker reads the page with one 2-byte native load (`mov.w`, EU `0x003f519c` / US `0x0041db4c`) via the real dispatcher (`0x003f5cdc` / `0x0041e63c`), entry `0x003f5194` / `0x0041db44`. **The chunk-engine caller `fn 0x0041c044` is decode-only**: watching its destination `0x50000000` on EU `POINT010` shows writes only from the stubbed `memcpy` and **no guest read**; so the swap is not on the `.cmp` path. Watched VA per run: EU `0x50000000` (chain), page `0x20000000` (walk); C-3602–C-3605, EXP-2026-11-19-M9.38-read-watch.
   - Note (H51, 2026-11-11): answer it dynamically with **M9.38** (write/read watch on the page buffer, started from `fn 0x0041c044`, the `.cmp` caller found by H51) instead of a fourth static pattern.
   - Pair: pair
   - Note (rule 15, 2026-11-09 PO): M9.11b done; re-opened. Prior blocker kept: page handed to walker by `OSM_TaskSend` reply (OSMDLL import 12, `fn 0x3f40ec`); no 16-bit swap loop in Navi.exe/OSMDLL sec0 (C-2547, C-2548). M9.11 is re-opened (was blocked on M9.11b); re-run precheck before dynamic work.
@@ -1638,6 +1639,7 @@ of the four numbers above says so in its first line.
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
   - Status: blocked · Owner: — · Critical: yes
+  - Note (M9.38, 2026-11-19): dynamic reader list on the decoded `ADDRE001` blob (48,852 B): `fn 0x003fbed8` reads `+0x68` (4-byte) and calls `GAP@0x003f9254` which reads `+0x7c` (4-byte); `fn 0x004125a8` reads `+0x8` (2-byte). `0x003f56bc` and `0x0040b358` read 0 bytes at these entries (both need the BSS `0x00d53500` slots bound — the same context M3.11c names), and `0x0040114e` stops on an FPU `IllegalInstruction` at `0x00401150`. C-3606, EXP-2026-11-19-M9.38-read-watch.
   - Blocker (history, negative EXP kept): `fn 0x003f56bc` (sec0) is confirmed as the sole 0xc000-class header
     gate consuming ADDRE `c0/c8/c1` tag-class (C-973 partial, C-2184), but the
     done-when is not met: no consuming instruction VA named for C-970–C-972,
@@ -1698,6 +1700,7 @@ of the four numbers above says so in its first line.
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
   - Status: blocked · Owner: task/m3.15-lctbl-reader-reopen · Critical: yes
+  - Note (M9.38, 2026-11-19): dynamic reader list on the plain `RDSTM001/LCTBL001.DAT` (7,489,024 B): of the four candidates `0x003f020c`/`0x0040dd40`/`0x0040de98`/`0x0040b358` only `fn 0x0040de98` (`GAP@0x0040de96`) reads it — six reads, widths 4/4/2 at offsets `+0x8/+0x4/+0x2` (read twice, two passes) — plus the shared header read `0x004125a8` `+0x8` (2-byte). C-3607, EXP-2026-11-19-M9.38-read-watch.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52). The two character-set strings found in sec1 `INIT` (M3.24) are a lead for the name encoding.
   - Blocker: H49 reopen (sec1 "helpers" are IAT imports `OSMDLL!OSM_isSender`/`OSM_Printf`, C-3443, not compressed code): two writer-inverse signature families derived from `lctbl_records.py`/`lctbl_names.py` parse invariants of stock `LCTBL001.DAT` (SHA-256 `8cab1775…`) — S1 marker `mov.b @(2,Rm),R0` + `cmp/eq #1,R0` (40 B, from marker@+2==0x01) and S2 four slot-length reads `mov.b @(d,Rm),R0` d∈{3,4,5,6} same base (80 B, from +3..+6) — scanned Navi.exe sec0 exec plain (5,553,430 B, VA `0x00011000`) and OBJDLL.dll sec0 exec plain (349,755 B, VA `0x03481000`) with 0 hits each (C-2207). Reachability from `fn 0x004125a8` traced through resolved IAT/non-import CODE callees and `0x00413a6c`/`0x00412ac0`→`0x00404994` inflate path without locating record parsing/string decode; `0x003bc960` is TMC/RDSTM decoding (C-2208). No cited blocker VA is `INIT` (`va_class.py`), so M1.2f not justified. Done-when unmet (no reader VAs, encoding assumed by code UNKNOWN).
   - Unblock: **M3.23** (candidate readers by call-graph reachability from the access path; its own deps are M1.20 + M3.24, both open) confirmed by **M9.38** (which function reads the page buffer). `M1.2f`/`M8.E1` are superseded (H51: `nk_decomp.py` decodes 245/245 build-A sections) and must not be named as a blocker (H81 closes them; verified by `va_class.py` that no `INIT` byte is needed). The earlier "derive another signature" family is retired per AGENTS.md.
@@ -4119,8 +4122,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: C-3535 still claims the US mask was taken from the image after the change, or the change alters either build's decode verdict.
   - Claims: C-4180–C-4189
 
-- [ ] **M9.38 — Read-watch tracer: which functions read the page buffer**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.38 — Read-watch tracer: which functions read the page buffer**
+  - Status: done · Owner: task/m9.38-read-watch · Critical: yes
+  - Result: EXP-2026-11-19-M9.38-read-watch; C-3600–C-3609. `engine.PySh4` records guest loads/stores in-body with `api`/`x` tags and arms after setup (inert: watch-on vs watch-off `IDENTICAL` on `r0`, OUT SHA-256, `sec_reads`, insns); `watch.py` GAP-labels attribution; `read_watch_l3.py` runs `walk`/`above`/`chain`/`probe`. POINT reader = the walker leaf `0x003f5194`/`0x0041db44` via the real dispatcher `0x003f5cdc`/`0x0041e63c`; the `.cmp` caller `0x0041c044` is decode-only (destination never read); ADDRE readers `0x003fbed8`/`0x003f9254`/`0x004125a8`; LCTBL reader `0x0040de98`. Lists handed to M3.11b/M3.13/M3.15.
   - Note (SE 2026-11-13): `777fb68` named this task in its subject but changed only `pdata.py`/`fn_match.py`; `engine.py` has no `watch(range, kind=…)` hook and `runner.py` has no `--watch`. Nothing is claimed; take it after M1.20's pdata tool is wired (M1.23).
   - Depends: M1.20 (function names for PCs); M1.19 helps (real `INIT` bytes)
   - Goal: the dynamic counterpart of M3.23. Put a decoded factory page in a buffer, run a caller from the family's access path, and log every load from the buffer with its PC — attributed to a function. The functions that read the record bytes are the reader, whatever their code looks like.

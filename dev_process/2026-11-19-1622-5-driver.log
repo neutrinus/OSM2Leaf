@@ -1,0 +1,53 @@
+role: driver (pair with navigator), task M9.38
+model: deepseek-v4.1-flash-free (opencode/airouter)
+start/end (UTC): 2026-11-19 16:10 / 16:25
+origin/main at start: 8922f97
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17 + the M9.38
+block, tools/chunk_decoder_l3.py, tools/l3_harness/{engine,runner}.py,
+tools/point_walk_l3.py, tools/pdata.py, docs/experiments/TEMPLATE.md.
+
+actions, in order:
+1. Claimed the task: Status line only, commit `8b86bfe`, pushed, draft PR #241.
+2. Round 1 plan; navigator returned 11 defects; round 2 delta; APPROVE.
+3. engine: in-body `_load`/`_store` recording, `api`/`x` tags, `arm_watch`,
+   `_insn_pc` so a hit is attributed to the executing instruction (not pc+2).
+4. watch.py: `.pdata` labelling; GAP printed as `GAP@… (pc, entry)`, never the
+   preceding record's `fn`; `UnsupportedWatch` for non-PySh4.
+5. chunk_decoder_l3.run_firmware gains engine=/watches=/seed_page= so the
+   watch attaches to the PySh4 that actually runs (proven by hits > 0).
+6. read_watch_l3.py: walk / above / chain / probe; every run has a watch-off
+   control; chain compares r0, OUT SHA-256, sec_reads, insns.
+7. Corpora: POINT (EU+US via the real dispatcher), .cmp chain (decode-only),
+   ADDRE001, LCTBL001. EXP + claims C-3600–C-3609 + notes in M3.11b/M3.13/
+   M3.15 + README.
+8. fn_audit snapshots refreshed (new citations); gate green.
+
+commits: 8b86bfe todo: start; dcff092 engine watch; e470f13 watch.py;
+dc47496 read_watch_l3 + engine passthrough; 53e0125 EXP/claims/TODO/README.
+
+decisions and rejected alternatives:
+- `above` proves the route through the dispatcher's literal-pool value, not its
+  BSS table slot (the table is zero at load) — rejected: fabricating slot
+  contents.
+- Watch attribution uses the executing instruction (`_insn_pc`), not `pc`
+  which PySh4 has advanced — found by the synthetic case reading 0x8c100006.
+- LCTBL is a plain `RDSTM001/LCTBL001.DAT`, not a `.cmp` pair — probed as a
+  plain buffer.
+- Kept the pitfall that `pdata.py fn` prints the *preceding* record's `fn` for
+  a GAP: never used as the label.
+- A commit that rewrote the pool VAs out of a prose comment: fn_audit counted
+  them as INSIDE citations; pool is now stored as `+0xa8` offsets.
+
+problems / dead ends:
+- `chain` reaches the chunk engine but the caller passes a context pointer, so
+  no page bytes flow; destination never read -> reported decode-only, not a
+  failure of the watch.
+- ADDRE entry `0x0040114e` is FPU-unmodelled; two ADDRE candidates read 0 bytes
+  at these entries (they need the BSS context) — recorded for M3.13.
+- `/tmp` (3.8 GiB tmpfs) hit 98 % from other agents' files; did NOT delete
+  them; ran the gate with TMPDIR in the home scratch tree instead.
+
+handoff: gate is 4 pass with `TMPDIR=~/projekty/leafre-work/scratch/m9.38/tmp`;
+navigator reviews the EXP's corpus table; do not merge (driver). M9.28 will
+rebase onto this branch and consumes `--watch` if it covers consumption.

@@ -202,6 +202,15 @@ python3 tools/point_walk_l3.py sections head256.img        # 0 compressed code s
 python3 tools/point_walk_l3.py walk head256.img --cmp POINT010.DAT.cmp \
     --ind POINT010.DAT.ind --page 0x840ba0 --page-len 42848
 
+# Who reads (and writes) a decoded page: read/write watch, per function (M9.38)
+python3 tools/l3_harness/watch.py label head256.img --entry 0x003f5194 0x003f5194
+python3 tools/read_watch_l3.py walk us256.img --cmp POINT010.DAT.cmp \
+    --ind POINT010.DAT.ind --page 0x840ba0 --build us2011 --n 0,1,2
+python3 tools/read_watch_l3.py above head256.img --cmp POINT010.DAT.cmp \
+    --ind POINT010.DAT.ind --build eu2011 --n 1
+python3 tools/read_watch_l3.py probe head256.img --buf LCTBL001.DAT \
+    --entry 0x0040de98,0x004125a8
+
 # Offline acceptance check
 python3 tools/validate_mutation.py REFER001 /tmp/mut POINT032.DAT \
     --page 0x4200 --drstr DRSTR001.DAT --inner-page 0x4200
