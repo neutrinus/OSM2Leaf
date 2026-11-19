@@ -895,6 +895,92 @@ def selftest() -> int:
         except UsageError:
             chk(True, "build_synthetic_out rejects out parent of input root")
 
+    # M5.48: a failed run must not leave a card-looking --out.  The failure is
+    # a real tilewriter refusal on a real factory tile (no vendor bytes, no
+    # synthetic bypass): the fixture writes one way into a sibling level-1
+    # directory that tilewriter refuses to create, so the copy of the factory
+    # root is already at --out when tilewriter returns non-zero.
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        import tilewriter
+        root = td / "factory-root"
+        (root / "MAPAL001").mkdir(parents=True)
+        (root / "VER_INFO").mkdir()
+        tile_bytes = tilewriter.make_factory("B48R058R")
+        (root / "MAPAL001" / "B48R058R.DAT").write_bytes(tile_bytes)
+        (root / "DRSTR001.DAT").write_bytes(b"x")
+        (root / "MMAIN001.DAT").write_bytes(b"x")
+        (root / "VER_INFO" / "HDD_INFO.TXT").write_bytes(b"x")
+        yb, xb = tilewriter.cell_mesh("B48R058R")
+        sibling = xb + 1
+        sbox = directory_box("B48R058R", (yb, sibling), 1)
+        lon = (sbox["lon_min"] + sbox["lon_max"]) / 2.0
+        lat = (sbox["lat_min"] + sbox["lat_max"]) / 2.0
+        fail_osm = td / "sibling-dir.osm"
+        fail_osm.write_text(
+            '<?xml version="1.0"?><osm version="0.6">'
+            f'<node id="1" lon="{lon:.6f}" lat="{lat:.6f}"/>'
+            f'<node id="2" lon="{lon + 0.001:.6f}" lat="{lat + 0.001:.6f}"/>'
+            '<way id="10"><nd ref="1"/><nd ref="2"/>'
+            '<tag k="highway" v="residential"/></way></osm>', encoding="utf-8")
+        chk(tilewriter.parcel_of(lon, lat, 1)[:2] == (yb, sibling),
+            "M5.48 fixture point lands in the sibling directory (%d,%d)" % (yb, sibling))
+
+        fail_out = td / "fail-out"
+        fail_json = td / "fail-report.json"
+        rc_fail = main(["--factory-root", str(root), "--out", str(fail_out),
+                        "--cell", "B48R058R", "--osm", str(fail_osm),
+                        "--json", str(fail_json)])
+        chk(rc_fail == 1, "M5.48: a tilewriter refusal exits 1")
+        chk(not fail_out.exists(),
+            "M5.48: a refused run leaves no --out (falsifier: a 480-file tree looks like a card)")
+        fail_rep = json.loads(fail_json.read_text(encoding="utf-8"))
+        chk(fail_rep.get("partial_out", {}).get("removed") is True
+            and fail_rep["partial_out"].get("state") == "removed",
+            "M5.48: the report records partial_out removed=true")
+        chk(fail_rep["counts"].get("tilewriter_rc") not in (None, 0),
+            "M5.48: the failure is reported as a tilewriter rc, not hidden")
+
+        # --keep-partial keeps the partial tree for inspection (the opt-in).
+        keep_out = td / "keep-out"
+        keep_json = td / "keep-report.json"
+        rc_keep = main(["--factory-root", str(root), "--out", str(keep_out),
+                        "--cell", "B48R058R", "--osm", str(fail_osm),
+                        "--keep-partial", "--json", str(keep_json)])
+        chk(rc_keep == 1 and keep_out.is_dir(),
+            "M5.48: --keep-partial keeps the failed tree and still exits 1")
+        keep_rep = json.loads(keep_json.read_text(encoding="utf-8"))
+        chk(keep_rep["partial_out"]["state"] == "kept"
+            and keep_rep["partial_out"]["files_left"] > 0,
+            "M5.48: --keep-partial report records the tree kept with files_left>0")
+
+        # A --out that already existed before the run is never deleted by the
+        # *cleanup* path: a user's pre-passed directory is their tree, not ours
+        # (the factory copy may already have replaced its files -- that is the
+        # pre-existing copy behaviour, not this rule).
+        pre_out = td / "pre-existing-out"
+        pre_out.mkdir()
+        (pre_out / "KEEP.ME").write_bytes(b"user data")
+        pre_rep_path = td / "pre-report.json"
+        rc_pre = main(["--factory-root", str(root), "--out", str(pre_out),
+                       "--cell", "B48R058R", "--osm", str(fail_osm),
+                       "--json", str(pre_rep_path)])
+        pre_rep = json.loads(pre_rep_path.read_text(encoding="utf-8"))
+        chk(rc_pre == 1 and pre_out.is_dir(),
+            "M5.48: a pre-existing --out is not deleted after a failure")
+        chk(pre_rep["partial_out"]["state"] == "kept-existed"
+            and pre_rep["partial_out"]["existed_before_run"] is True,
+            "M5.48: the report marks a pre-existing --out kept-existed (not removed)")
+
+        # Early usage refusals (before any copy) leave no --out: the chosen
+        # directory is not spliceable, so the guard raises before the copy.
+        guard_out = td / "guard-out"
+        rc_guard = main(["--factory-root", str(root), "--out", str(guard_out),
+                         "--cell", "B48R058R", "--parcel", "%d,%d" % (yb, sibling),
+                         "--osm", str(fail_osm)])
+        chk(rc_guard == 2 and not guard_out.exists(),
+            "M5.48: a guard refusal leaves no --out either")
+
     # Parcel guard: clip to a directory and refuse a way that leaves it (M5.34).
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
@@ -1525,6 +1611,27 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     return report
 
 
+def _remove_failed_out(out: Path, existed_before: bool, keep_partial: bool) -> str:
+    """Remove an ``--out`` tree that *this run* created after a failed build.
+
+    The one thing a later stage may rely on (M5.48): a non-zero exit with
+    ``--keep-partial`` absent leaves **no** ``--out``, so ``os.path.isdir(out)``
+    cannot read a refused run as a built card.  Only a tree this run created is
+    removed: a directory that existed before the run is never deleted (the
+    factory copy may have overwritten files in it, but rolling that back is not
+    this rule's job).  ``--keep-partial`` keeps the tree for inspection.
+    Returns one of ``removed``, ``kept``, ``kept-existed``, ``nothing``.
+    """
+    if not out.exists():
+        return "nothing"
+    if keep_partial:
+        return "kept"
+    if existed_before:
+        return "kept-existed"
+    shutil.rmtree(out)
+    return "removed"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="M5.29 one-tile OSM pipeline (L1+L2+gate report)")
     ap.add_argument("--selftest", action="store_true")
@@ -1551,6 +1658,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--clip", action="store_true",
                     help="drop ways that leave the parcel's directory instead of refusing "
                          "(default: refuse, naming the kind). Requires --parcel")
+    ap.add_argument("--keep-partial", action="store_true",
+                    help="keep the --out tree even when the run fails (default: a tree this "
+                         "run created is removed on a non-zero exit, so a refused run cannot "
+                         "be mistaken for a built card)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
@@ -1577,6 +1688,10 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr); return 2
     if args.clip and parcel is None:
         print("error: --clip requires --parcel", file=sys.stderr); return 2
+    # M5.48: remember whether --out was already a directory; only a tree this
+    # run created is removed after a failure (a user's pre-existing dir is
+    # never deleted).
+    out_existed_before = out.exists()
     try:
         if factory_root is not None:
             _check_out_overlap(out, factory_root)
@@ -1596,6 +1711,36 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {e}", file=sys.stderr)
         print("usage: --out must not be, contain, or be contained by --factory-root/--osm", file=sys.stderr)
         return 2
+
+    def _exit_code(rep: dict[str, Any]) -> int:
+        ok_tree = (out / "MAPAL001" / f"{args.cell}.DAT").exists() and rep["counts"].get("tilewriter_rc") == 0
+        card_ok = rep.get("cardcheck_ok") or rep.get("cardcheck_applicable")
+        l2_ok = rep.get("l2check_ok") or rep.get("l2_applicable")
+        if rep.get("factory_backed") and card_ok and l2_ok and ok_tree:
+            return 0
+        if ok_tree and (rep.get("mode") == "synthetic-only" or rep.get("real_image_run") == "blocked"):
+            return 0
+        return 1
+
+    rc = _exit_code(rep)
+    # M5.48: a failed run must not leave a card-looking --out.  The report stays
+    # intact (it is written below); only the tree is removed.  The state is
+    # recorded so a caller/selftest can assert "removed" without guessing.
+    if rc != 0:
+        state = _remove_failed_out(out, out_existed_before, args.keep_partial)
+        rep["partial_out"] = {
+            "removed": state == "removed",
+            "state": state,
+            "keep_partial": args.keep_partial,
+            "existed_before_run": out_existed_before,
+            "files_left": 0 if not out.exists() else sum(1 for p in out.rglob("*") if p.is_file()),
+        }
+    else:
+        rep["partial_out"] = {
+            "removed": False, "state": "kept-success", "keep_partial": args.keep_partial,
+            "existed_before_run": out_existed_before,
+            "files_left": sum(1 for p in out.rglob("*") if p.is_file()) if out.exists() else 0,
+        }
     doc = json.dumps(rep, indent=2, ensure_ascii=False)
     if args.json and args.json != "-":
         dest = os.path.abspath(args.json)
@@ -1611,14 +1756,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"report: {dest}")
     else:
         print(doc)
-    ok_tree = (out / "MAPAL001" / f"{args.cell}.DAT").exists() and rep["counts"].get("tilewriter_rc") == 0
-    card_ok = rep.get("cardcheck_ok") or rep.get("cardcheck_applicable")
-    l2_ok = rep.get("l2check_ok") or rep.get("l2_applicable")
-    if rep.get("factory_backed") and card_ok and l2_ok and ok_tree:
-        return 0
-    if ok_tree and (rep.get("mode") == "synthetic-only" or rep.get("real_image_run") == "blocked"):
-        return 0
-    return 1
+    return rc
 
 
 if __name__ == "__main__":
