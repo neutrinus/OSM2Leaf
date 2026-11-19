@@ -1475,7 +1475,7 @@ of the four numbers above says so in its first line.
 ## M3 — Reader contract
 
 - [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
-  - Status: blocked · Owner: task/m3.2-ind-handling · Critical: yes
+  - Status: in progress · Owner: task/m3.2-ind-handling-rerun · Critical: yes
   - Unblock: M3.2b's re-run (the chunk engine and its caller), or M1.2f when
     the `.ind` layer turns out to be in `Navi.exe` sec1.
   - Blocker: `.ind` chunk reader (chunk_count/chunk_size/chunk_offset consumer) not identified; `fn 0x00418748` is a resolver only. See EXP-2026-11-06-M3.2-ind-handling.
@@ -1485,7 +1485,7 @@ of the four numbers above says so in its first line.
     scans for `78 9c`.
   - Input: M3.1 functions; `docs/format/cmp-ind.md`; `tools/ind_mutate.py`.
   - Done when: both answers are in `cmp-ind.md` with VAs.
-  - Claims: C-830–C-839
+  - Claims: C-5330–C-5339 (was C-830–C-839; fresh block for this run)
 
 - [ ] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
   - Status: open · Owner: — · Critical: yes
