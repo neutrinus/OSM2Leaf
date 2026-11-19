@@ -324,6 +324,33 @@ remain UNKNOWN**; Done-when unmet (no L3 run/writer-inverse reproducing >=1
 entry, M9.35). Unblock: M9.35 IAT-bound L3 of populate writers to observe slot
 mutations and derive schema (see EXP-2026-11-10-M3.22-bss-table-writer).
 
+**M3.22 pass 2 (EXP-2026-11-19-M3.22-d53500-writer-l3, C-5120–C-5127, done):**
+the "table" is **one structure of 4-byte page-pointer slots**, 46 words (`0xb8` B) at
+`0x00d53500` in EU2011 and 44 words (`0xb0` B) at `0x00c81100` in US2011, not an array
+of records. A reader finds a page's family by comparing the page pointer with the
+slots; the POINT dispatcher `fn 0x003f5cdc` (EU2011) sends `[+0x0c]`/`[+0x14]`/`[+0x24]`
+(n=0) back as the page, `[+0x2c]`/`[+0x70]` to `0x003f5b88`, `[+0x1c]`/`[+0x50]`/`[+0x60]`/
+`[+0x80]`/`[+0x88]`/`[+0x90]` to the walker `0x003f5194`, the rest to `0x003f39c0`.
+The populate writers are the cases of the task-message switch `fn 0x003ff6a0` (EU2011;
+US2011 `0x0042780c`) on message type `@(ctx+104)`:
+
+| type | writer EU2011 (US2011) | slots written (static + L3) |
+| --- | --- | --- |
+| `0x14cc`, `0x14d0`, `0x14d3` | `fn 0x003fc9c8` (`0x0042533c`) | `+0x04`, `+0x7c` |
+| `0x14cd`, `0x14d1` | `fn 0x003fcbf0` (`0x004226f0`) | `+0x2c`, `+0x80`, `+0x9c` |
+| `0x14e4` | `fn 0x003fd390` (`0x00425564`) | `+0x0c..+0x18`, `+0x2c`, `+0xb0` (u16), `+0xb4` |
+| `0x14ef` | `fn 0x003faf04` (`0x00423ba8`) | `+0x1c` = `*(*(0x014a98e0)+20)` (L3), `+0x20` via `0x0040e9dc` |
+| `0x14f0` | `fn 0x003faf04` (`0x00423ba8`) | `+0x38` = `*(*(0x0154ade0)+20)`, `+0x3c` |
+
+Also `fn 0x003fe774` (`+0x2c`) and `fn 0x00412c60` (`+0x0c..+0x18`, `+0xb0`, `+0xb4`);
+clear routines `fn 0x0040dfa8`, `fn 0x00415fe8`, `fn 0x0040e510` (EU2011). The global
+in `*(G)+20` is chosen by the type leaf `0x0040e858` (EU2011; US2011 `0x004368b0`,
+`0x14ef → 0x01319780`). PySh4 run (`tools/d53500_writer.py writer`): with
+`G+0 → OBJ`, `OBJ+20 → factory POINT010 page`, the writer fills `+0x1c` and the real
+dispatcher returns record 1 at `+0x4e` (EU2011) / `+0x80` (US2011), equal to the walker
+alone. Pass-1 label corrections: load `0x00412d12` is in `fn 0x00412c60`, `0x0040e5c0`
+in `fn 0x0040e510`, `0x003f601a` in `fn 0x003f600c` (pdata).
+
 **Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
 `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to
 `0x1d0f888…894`. But:
