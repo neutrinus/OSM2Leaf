@@ -1489,6 +1489,141 @@ the EXP's scan). The `+4`/`+8`/`+12`/`+0x10` chunk-entry fields are named by
 what the stores and the inflate call do with them; *why* the `.ind` carries
 those numbers is M3.2's format question and stays open.
 
+## Function-pointer tables of `Navi.exe` (M3.24, EU2011 build A)
+
+Who is called indirectly. A *table* is a run of at least three code pointers
+(`.pdata` `START`, or a `GAP` leaf) at a fixed stride: stride 4 is a pointer
+array (NULL slots allowed, as in a sparse state x event matrix), a larger
+stride is an array of rows (`{id, fn}`, `{name, fn, help}`). An `INSIDE` word
+ends a run. Scanned: sec0 rodata `0x00011000…0x0032ed9c` (`0x31dd9c` B) and the
+stored bytes of sec1 `INIT` after the import table (`0x0055dd38…`, `0x172e4` B).
+A *user* is a function whose literal pool holds the base or an entry address
+(*exact*), or a value in the first row before the pointer column (*row prefix*:
+the row's id/name column, but also any shared constant there, so a table whose
+only users are prefix users is weaker).
+
+Tool: `python3 tools/fptables.py scan IMG256 --graph g.json --json t.json`
+(`--selftest`); edges for `callgraph.py` (M3.23) with `--edges`; reverse reach
+with `fptables.py via g.json t.json VA`. Evidence:
+`docs/experiments/EXP-2026-11-19-M3.24-fptables.md`, claims C-3550–C-3559.
+All VAs are EU2011 build A; `0x42af34` is the empty `rts` leaf (M3.26).
+
+Totals: **69 tables** (62 sec0, 7 sec1), 909 slots, 534 distinct targets, 48
+with a code user, 1 with only a data reference, 20 unreferenced. **481 of the
+1,167** functions with no static caller are table entries; 620 more are
+loaded as a code literal (a callback passed as an argument), 66 are neither.
+Only **21 of the 395** unresolved `jsr @Rn` sites sit in table users: most
+indirect calls go through objects or arguments, not through these tables.
+
+### The tables that matter for the map readers
+
+- **`0x0017a0a4` — the REFER/LCTBL message dispatcher.** `fn 0x004124dc`
+  scans up to 15 rows `{u32 msg, fn}` (14 used, NULL row ends it), compares
+  the `u16` at `@(8, msg)` with the row id and calls `fn(msg)`. Messages
+  `0x14cc…0x14f5`. Entries reach the access path in one or two static calls:
+  `0x00413a6c` → `0x004125a8` (`LCTBL001`/`INDEX003` load) and `0x00412ac0`
+  (the `0x00d53500` writer); `0x004003f4`/`0x004005f8` → `0x003fbed8`
+  (POINT access path), `0x003fcbf0`, `0x003fd390` (both touch `0x00d53500`).
+- **`0x00039d5c`, `0x00039e34`, `0x00039efc`, `0x00039f04`** — `{id, fn}`
+  handler tables (users `0x0039cdcc`, `0x0039d18c`, `0x0039d2b8`,
+  `0x0039d3e4`); entries reach the ADDRE path `0x003f56bc`/`0x003f51e0`
+  through `0x003f5d98` in 3–4 calls and the POINT name lead `0x003d1150`
+  through `0x003cd910` in 2.
+- **`0x001796f8`** — entry `0x003f75e4` calls `0x0040b850`, the `MAPAL001`
+  open path (C-4625).
+- **No table holds a reader itself.** No aligned word in either area equals
+  `0x003f5194` (POINT walk), `0x003fbed8`, `0x003f56bc`, `0x003f51e0`,
+  `0x004125a8`, `0x0041c7dc` (chunk engine) or `0x003d1150`; they are called
+  directly, below a table entry. `0x003f5194` and `0x0041c7dc` are reached
+  from no table entry within four static calls.
+- **sec1 `INIT`** holds 7 tables: the shell command table `0x0055ddfc`
+  (`{name, fn, help}`, 39 rows, Shift-JIS help text) and three state x event
+  matrices (`0x0055e348` 75 slots, `0x0055e4d0` 83, `0x0055e790` 35):
+  `fn 0x003335c0` calls `table[*0x00618650 * 15 + event]` if non-NULL.
+  The `Lv1_O`/`Lv2`/`Lv4`/`Lv1_D/TOP`/`Lv5` names (`0x0056084c…`) and the
+  keyboard strings sit in data blocks with **no** code pointer; M3.11c's
+  `0x005628e8` is a record of pointers into sec0 data, not a dispatch table.
+
+### All 69 tables
+
+| Area | Base VA | Stride | Slots (NULL) | START | Users (exact) | Users (row prefix) | Guessed role |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| sec0 | `0x000117a4` | 40 | 25 (0) | 20 | 7 functions | 15 functions | debug-shell commands `{id, fn, name[32]}` (`show srchinf!!`, `show route!!`, …) |
+| sec0 | `0x0001d260` | 20 | 11 (0) | 8 | — | — | unknown |
+| sec0 | `0x0001d368` | 20 | 4 (0) | 4 | — | — | unknown |
+| sec0 | `0x0001d480` | 20 | 6 (0) | 4 | — | — | unknown |
+| sec0 | `0x0001d520` | 20 | 14 (0) | 14 | — | — | unknown |
+| sec0 | `0x0001d660` | 20 | 9 (0) | 9 | — | — | unknown |
+| sec0 | `0x000380a0` | 12 | 9 (0) | 8 | — | — | unknown |
+| sec0 | `0x00039d5c` | 8 | 26 (0) | 26 | — | `0x0039cdcc` | `{id, fn}` handlers; reaches the ADDRE path and the POINT name lead `0x003d1150` (C-3554) |
+| sec0 | `0x00039e34` | 8 | 20 (0) | 20 | — | `0x0039d18c` | `{id, fn}` handlers; reaches the ADDRE path (`0x003f5d98`) (C-3554) |
+| sec0 | `0x00039edc` | 24 | 15 (0) | 15 | — | — | unknown |
+| sec0 | `0x00039efc` | 48 | 4 (0) | 4 | — | `0x0039d2b8` | unknown |
+| sec0 | `0x00039f04` | 24 | 14 (0) | 14 | — | `0x0039d3e4` | unknown |
+| sec0 | `0x00039fec` | 24 | 4 (0) | 4 | — | `0x0039d510` | unknown |
+| sec0 | `0x00177fd4` | 8 | 43 (0) | 41 | — | `0x003ebee8` | unknown |
+| sec0 | `0x00178c1c` | 8 | 7 (0) | 7 | — | `0x003f0368` | unknown |
+| sec0 | `0x00178d64` | 8 | 20 (0) | 20 | — | `0x003f72e4` | unknown |
+| sec0 | `0x001796c8` | 8 | 5 (0) | 5 | — | `0x0040335c` | unknown |
+| sec0 | `0x001796f8` | 8 | 6 (0) | 5 | — | `0x004032e0` | `{id, fn}`; entry `0x003f75e4` calls the `MAPAL001` open path `0x0040b850` |
+| sec0 | `0x0017a0a4` | 8 | 14 (0) | 14 | — | `0x004124dc` | **REFER/LCTBL message dispatcher** `{u16 msg, fn}`, 14 rows, msg `0x14cc…0x14f5` (C-3553) |
+| sec0 | `0x0017ab38` | 4 | 20 (0) | 16 | `0x00419c38` | — | file-layer state × kind matrix (M3.26 positive control) |
+| sec0 | `0x00185a28` | 16 | 6 (0) | 6 | — | — | unknown |
+| sec0 | `0x00187ccc` | 12 | 11 (0) | 3 | — | — | unknown |
+| sec0 | `0x00187d6c` | 12 | 11 (0) | 9 | — | — | unknown |
+| sec0 | `0x00189fdc` | 8 | 7 (0) | 7 | — | `0x004b9174` | unknown |
+| sec0 | `0x0018a01c` | 8 | 16 (0) | 15 | — | `0x004b9174` | unknown |
+| sec0 | `0x0018a0ec` | 8 | 41 (0) | 41 | — | `0x004b9288` | unknown |
+| sec0 | `0x0018a23c` | 8 | 29 (0) | 29 | — | `0x004b9370` | unknown |
+| sec0 | `0x00191804` | 8 | 14 (0) | 14 | — | `0x004bd530` | unknown |
+| sec0 | `0x001a6ccc` | 8 | 14 (0) | 14 | — | `0x004cdb64` | unknown |
+| sec0 | `0x001cb83c` | 8 | 29 (0) | 28 | — | `0x004d0c98` | unknown |
+| sec0 | `0x001cd214` | 8 | 8 (0) | 7 | — | `0x004d53c8` | unknown |
+| sec0 | `0x001cdf44` | 8 | 4 (0) | 4 | — | `0x004dbebc` | unknown |
+| sec0 | `0x001ce36c` | 8 | 5 (0) | 5 | — | `0x004dc08c` | unknown |
+| sec0 | `0x001ce3e4` | 8 | 34 (0) | 34 | — | `0x004dc130` | unknown |
+| sec0 | `0x001d69f4` | 44 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x001d6a54` | 8 | 5 (0) | 5 | — | — | unknown |
+| sec0 | `0x001d6e24` | 52 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x0020618c` | 4 | 8 (0) | 8 | `0x0053a200`, `0x0053b598` | — | unknown |
+| sec0 | `0x002064dc` | 4 | 7 (0) | 6 | `0x0053b870`, `0x0053babc` | — | unknown |
+| sec0 | `0x00206624` | 4 | 5 (0) | 3 | `0x0053bb50`, `0x0053bbd0` | — | unknown |
+| sec0 | `0x002066c8` | 4 | 10 (0) | 9 | 6 functions | — | unknown |
+| sec0 | `0x00206bd8` | 4 | 4 (0) | 1 | `0x0053e018` | — | unknown |
+| sec0 | `0x002080a8` | 4 | 7 (0) | 5 | `0x0053e624`, `0x0053e65c`, `0x0053eaa0` | — | unknown |
+| sec0 | `0x00208168` | 52 | 5 (0) | 5 | — | — | unknown |
+| sec0 | `0x00208348` | 4 | 8 (0) | 8 | `0x0053eefc`, `0x0053f14c` | — | unknown |
+| sec0 | `0x0020852c` | 8 | 3 (0) | 3 | — | data `0x00208548` | unknown |
+| sec0 | `0x00208574` | 8 | 4 (0) | 4 | `0x0053f390`, `0x0053f474` | — | unknown |
+| sec0 | `0x002085cc` | 8 | 7 (0) | 7 | `0x0053f8d8`, `0x0053f908` | — | unknown |
+| sec0 | `0x00208860` | 52 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x00208868` | 52 | 3 (0) | 3 | — | `0x0053f94c`, `0x0053f9b4`, `0x0053f9c4` | unknown |
+| sec0 | `0x00208890` | 8 | 4 (0) | 4 | `0x0053fa08`, `0x0053fe78` | — | unknown |
+| sec0 | `0x00208908` | 4 | 4 (0) | 4 | `0x0053ff34`, `0x0053ff58`, `0x00540538` | — | unknown |
+| sec0 | `0x00208ab4` | 60 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x00208abc` | 60 | 3 (0) | 3 | — | `0x00540708`, `0x00540a14`, `0x00540a40` | unknown |
+| sec0 | `0x00208ae4` | 4 | 3 (0) | 3 | `0x00540a98`, `0x00540b20`, `0x00540b30` | — | unknown |
+| sec0 | `0x00208af4` | 8 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x00208b30` | 8 | 3 (0) | 3 | — | `0x00540b74`, `0x00540bfc`, `0x00540c0c` | unknown |
+| sec0 | `0x00208b3c` | 8 | 4 (0) | 4 | — | — | unknown |
+| sec0 | `0x00209894` | 4 | 7 (0) | 7 | `0x005416a8`, `0x00541984` | — | unknown |
+| sec0 | `0x002098e4` | 4 | 7 (0) | 7 | `0x00541a10`, `0x00541c80` | — | unknown |
+| sec0 | `0x0020a110` | 12 | 10 (0) | 10 | — | — | unknown |
+| sec0 | `0x0024fef4` | 40 | 3 (0) | 3 | — | — | unknown |
+| sec1 | `0x0055ddfc` | 12 | 39 (0) | 31 | — | `0x0032efa8`, `0x0032fe48` | shell command table `{name, fn, help}` (row 0 `help` → `0x0032fe48`), 39 rows; `0x0032efa8` passes `0x0055ddf8` to `0x0032fdf4` (C-3552) |
+| sec1 | `0x0055e348` | 4 | 75 (38) | 37 | `0x003335c0` | — | state × event matrix, 5 × 15, `jsr table[state*15+event]` (C-3552) |
+| sec1 | `0x0055e4d0` | 4 | 83 (45) | 38 | `0x00334b2c` | — | state × event matrix (same shape as `0x0055e348`) |
+| sec1 | `0x0055e790` | 4 | 35 (20) | 15 | `0x00338224` | — | state × event matrix (same shape) |
+| sec1 | `0x00561f80` | 4 | 11 (5) | 6 | `0x00377704` | — | unknown |
+| sec1 | `0x005653f0` | 4 | 17 (12) | 5 | — | `0x004c6be8` | unknown |
+| sec1 | `0x0056553c` | 12 | 5 (0) | 5 | — | `0x004bd83c`, `0x004bd8a4`, `0x004bd8e8`, `0x004da758` | unknown |
+
+"unknown" means the role was not read; decoding what each callee does belongs
+to the M3 family tasks. Excluded: tables in `.data` that is BSS (filled at run
+time, e.g. `0x00d53500`), jump tables inside code (`braf`), C++ vtables whose
+pointer is written by a constructor into BSS objects, and US2011 (the same scan
+prints 150 tables there, not curated).
+
 ## Next steps
 
 Next is `TODO.md` Step 2: fix the file-TOC stride, add `e32`/`o32` and the copy
