@@ -4083,7 +4083,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3400–C-3409
 
 - [ ] **M9.34 — Close M9.32 as satisfied by M9.11 closeout (board/EXP linkage)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m9.34-close-m9.32-link · Critical: no · Pair: solo
   - Depends: M9.32, M9.11, M9.11b
   - Goal: remove stale L3-board state now that M9.11 closeout has satisfied M9.32's done-when; keep evidence explicit without duplicating claims or re-running vendor-image checks unnecessarily.
   - Precheck: `test -f docs/experiments/EXP-2026-11-09-M9.11-closeout-cmp-ind-reader.md`; confirm M9.11 is `done` with Result naming that EXP and M9.32 is still `open`; `python3 tools/claims_check.py` and `python3 tools/todo_check.py` pass.
