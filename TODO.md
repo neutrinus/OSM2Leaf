@@ -2936,8 +2936,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the check passes on a tile whose emitted class was deliberately changed to a different value, or a class that decodes differently still reports PASS.
   - Claims: none yet
 
-- [ ] **M5.37 — L2 golden for the route graph: tile section 2 must decode to the same node/link graph the writer emitted**
-  - Status: in progress · Owner: task/m5.37-route-graph-golden · Critical: yes · Pair: required
+- [x] **M5.37 — L2 golden for the route graph: tile section 2 must decode to the same node/link graph the writer emitted**
+  - Status: done · Owner: task/m5.37-route-graph-golden · Critical: yes · Pair: required
   - Depends: M5.4 (tile splice, done), M5.23 (record fields, open — this task is the read-back side and may run on the fields M5.23 pins), M5.16 (which VA/section the router reads; this task checks the L2 model, not the firmware)
   - Goal: the map is also a router: `MAPAL001` tile section 2 is the routing graph (AGENTS: "Tile section 2 (router graph) copy — always preserved verbatim"), and no L2 check proves that a *generated* graph decodes back to the same edges. Without this, a card can render roads but route on a graph we never verified, and every gate is green. This is the L2 prerequisite for `M5.16`/`M4.39` ever becoming useful.
   - Precheck: `python3 tools/ze0-viewer/harness.py info <tile>` shows a non-zero section 2; `python3 tools/tile_diff.py --selftest` passes; confirm what is checked today: `grep -rn 'section 2\\|sec2\\|graph' tools/l2check.py tools/ze0-viewer/tools_ze0/clarion_tile.py` shows decode but no emitted-vs-decoded graph comparison.
@@ -2948,6 +2948,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if section 2 cannot be decoded for any edge (no grammar), report `BLOCKED — section-2 grammar unknown` naming M4.23/M4.24 and do not claim a graph check.
   - Falsifier: the check passes on a tile whose emitted graph has one fewer link, or a `_preserved` tile is reported as a graph match.
   - Claims: C-5160–C-5169 (was none yet; fresh block for this run)
+  - Result: EXP-2026-11-19-M5.37-route-graph-golden — `tools/tile_graph_roundtrip.py` + `l2check --graph-tiles`: PASS on the synthetic fixture (2/2) and on the real `B48R058R` splice with 32 writer-emitted section-2 records (32/32, 73,384 others factory-identical); FAIL on a moved endpoint, a dropped link and an unclaimed change; `preserved` (73,416) for an untouched section 2; factory re-emit 67,674/69,345 records, 0 failures. Compared: parcel, nodes, links (id, direction), edge entries; `UNKNOWN`: w4, w5, class/cost words, countries, part b (C-5160–C-5166).
 
 - [ ] **M5.38 — The card ladder P0–P4: what a Poland card contains at each step and which software gate it must pass**
   - Status: open · Owner: — · Critical: yes · Pair: solo
