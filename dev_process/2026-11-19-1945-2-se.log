@@ -1,0 +1,60 @@
+role: SE (senior engineer)
+model: opencode deepseek-v4.1-flash-free; in-process (subagent router down)
+start: 2026-11-19T19:45Z
+origin/main at start: 2d53caa
+
+inputs read:
+  docs/retro/2026-11-19.md, the four cycle-15 EXPs (M5.47, M5.30, M3.27,
+  M5.48), the M3.25/M5.38/M5.41 blocks, the open concurrent batch (#234-#241),
+  prompts, claims.md tail.
+
+review of the window (M5.47, M5.30, M3.27, M5.48):
+  - Done-when re-run where cheap: gate 4/0/0; all four EXPs have the ten
+    TEMPLATE sections (grep count 10 each); C-4580..C-4589 and C-3060..C-3066
+    all exist exactly once. No task needs a repair task this window.
+  - M3.27's Claim block was NOT misallocated, but the branch HEAD (fa50aa9) had
+    8 claims while the TODO block still says C-4580-C-4589 — nine rows; the
+    block's own note reserves the whole range, so this is fine (not a repair).
+  - record shape: all four EXPs carry a real "Corrections after navigator
+    review" (the M5.47 restore is the example to copy, not the M5.47 round 2).
+  - retired leads: no big-endian search, no guessed signature (M3.27 derived
+    from pdata + sh4dis; M5.30 derived the BPB bound). Clean.
+
+tasks added (3 map, 0 H; claim blocks free on main: highest used 4589/4594
+in the live batch, so C-4600+ is clear):
+  - M5.49 P1 display-only card (pair, C-4600-C-4609) — the rung after P0.
+  - M5.50 card ladder page (pair, no claims) — one row per rung, commands.
+  - M5.51 per-range metadata reasons in --check-diff (pair, C-4610-C-4619) —
+    closes the one-byte-wide "whole sector" guarantee the M5.30 navigator found.
+  Did NOT add a 4th/5th: the concurrent batch covers M5.41/M9.38/H109 and the
+  board already has 125 open; rule 17 says map first, and the H band is already
+  34 open.
+
+not added (with reason):
+  - no repair task for the M5.30 phantom off-by-one: it was fixed in-run.
+  - no M3.26 claim-status promotion: it is a claim edit for the owning task,
+    not a new task (recorded in the previous pass's handoff; still open).
+  - no new L3 task: M9.38 + M9.37 are live in #241/#237.
+
+small fix made here (a live-block repair, not a new task): M9.14's `Depends`
+names M3.10, which the PO pass archived today; the block now says where it
+lives. todo_check went from 163 to errors-free.
+
+decision on M3.25 (open, Critical): its Note (H101) and Precheck still target
+`0x0041f26c`/`0x004259bc`/`0x00427578` as if they take a tile buffer, while
+M3.27 (done) proves none does and names `0x00425f40` as the renderer consumer.
+I did not rewrite M3.25's text (it is the owner's evidence), but its `Input`
+should be read with M3.27's Result: the runnable target is 0x00425f40 or a
+wrapper, not the three VAs. Flagged for the next pass / the TL picking it.
+
+checks: todo_check OK (M9.14 repaired; remaining warnings are pre-existing
+missing Scope/Stop on M9.5), claims_check --strict --count-check OK, gate
+4 pass / 0 fail / 0 skip.
+
+handoff:
+  - PO: M5.49 is the next rung; M5.50 makes the ladder a page.
+  - TL: M5.49 needs M5.41's expected-change-set on main first (it is in #238).
+    Do not run M5.51 and M5.41 in one batch (both touch imgpatch.py /
+    one_tile_pipeline.py).
+  - QA: M5.51's controls are the two planted-byte mutants the M5.30 navigator
+    found; they belong in the QA row.

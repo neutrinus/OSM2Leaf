@@ -1901,6 +1901,20 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-19-M3.27-tile-reader-args.md — the tile-reader entries' arguments from `.pdata` and the sole call sites: `0x0041f26c` (r4 record pointer, r5 a 4-entry u32 array, r6 flag/mode UNKNOWN, r7 dead), `0x004259bc` (r4 mesh id, r5/r6 local, r7 control flag, the call reached only when r7 != 0), `0x00427578` (r4 20-byte record pointer, r5/r6/r7 overwritten; M3.5's `0x0042757a` is INSIDE it). None takes a tile buffer and none sets a deliberate return value, so M3.25/M9.13 must target or wrap `0x00425f40` instead of the invented `(tile, dst)` prototype. Every row is a claim (C-4580-C-4589) with its decoding command; gate 4 pass, claims_check OK, fn_audit 0 new/0 gone.
   - Claims: C-4580–C-4589
 
+
+- [ ] **M5.51 — `imgpatch --check-diff` names the 9 metadata ranges but not *which FAT link* each is; a card-diff reader must**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M5.30 (done — 586 ranges / 152,815 B, outside 0 wide / 9 strict), M5.47 (done — the allocator identity)
+  - Goal: M5.30's `--allow-metadata` passes a card whose 9 metadata ranges are "FAT/FSInfo sectors", but the class is **whole-sector**: the navigator planted a byte at a FAT0 entry and an FSInfo offset and both were reported `metadata 11 ranges / 26 B, outside 0`. An auditor cannot tell, for the real 9 ranges, whether each is a link the relocation *must* change (`FAT[old]=free`, `FAT[last]=new`, `FAT[new]=EOF`) or slack in the same sector. Without a per-range reason the guarantee "the diff is the relocation, nothing else" is one byte wide and untested.
+  - Precheck: `python3 tools/imgpatch.py --image <CARD> --reference <IMG> --file MAPAL001/B48R058R.DAT --file DRSTR001.DAT --check-diff --allow-metadata` prints `metadata: 9`; with the navigator's planted FAT0 byte it prints `metadata: 11` (the whole-sector class to name per range). Asset: the M5.30 card `b0faf119…` (rebuild from EXP Reproduction if absent; scratch in `~/projekty/leafre-work/scratch/m5.51/`).
+  - Scope: `tools/imgpatch.py` `--check-diff` only: for each metadata range print a **reason** (`fat0_link`, `fat1_link`, `fsinfo_free`, `fsinfo_nxt`, `fsinfo_unknown`) from the FAT entry index the range covers and the old/new chain, plus a `--strict-metadata` that fails any metadata range whose reason is not an expected link field. EXP records the 9 real ranges with their reasons and the planted controls.
+  - Input: EXP-2026-11-19-M5.30-one-variable-card §5/§6 and C-3063, EXP-2026-11-19-M5.47-fit-census (allocator identity), `tools/imgpatch.py` (`_classify_range`, `--check-diff`), `tools/mkcard.py` (`diff_ranges`, FAT geometry).
+  - Hints: the three link fields for a move are `FAT[old_cluster] -> 0`, `FAT[new_cluster] -> 0x0FFFFFFF` (or next), and the chain neighbours; a 512-byte FAT sector holds 128 entries, so one sector change can span up to 128 links — the reason must be per *entry* the range covers, not per sector. FSInfo has free-count and next-free; a relocation changes both, and no other field may change in strict mode.
+  - Done when: the 9 real ranges each carry a reason printed by the tool; `--strict-metadata` exits 0 on the M5.30 card and non-zero on the navigator's planted FAT0-entry mutant and the FSInfo-offset mutant (two negative controls, outputs pasted); `--selftest` covers a per-entry reason and the strict refusal; `python3 tools/selftest.py`, `tools/gate.py` green; EXP + claims.
+  - Stop: if a FSInfo field cannot be tied to the move with the bytes available, print `fsinfo_unknown` and keep strict refusing it — an unknown reason is a result, not a reason to widen the allowlist.
+  - Falsifier: a metadata range outside the move's own `FAT[old]`/`FAT[new]`/neighbour links + FSInfo counters is labelled `fat*_link`/`fsinfo_*` and strict mode passes it.
+  - Claims: C-4610–C-4619
+
 ## M4 — Data formats (no firmware or hardware needed)
 
 - [x] **M4.1 — `RDSTM001`: decode one record and one node/link tuple**
@@ -2994,6 +3008,33 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-4570–C-4579
   - Result: EXP-2026-11-19-M5.48-partial-out.md; `tools/one_tile_pipeline.py` removes a `--out` tree it created on a non-zero exit (refused run: `state=removed`, `files_left=0`, `tilewriter_rc=1`), `--keep-partial` keeps the 480-file failed tree, a non-empty pre-existing `--out` is refused exit 2 with `KEEP.ME` byte-identical and no report (`--force-overwrite` replaces it, an empty `--out` stays empty), and a success splice (`--parcel 76,940 --level 2`) keeps its 480-file tree at exit 0; new `--selftest` cases (red on a removal-disabled mutant). Checks: `selftest.py` passed=93 failed=0 skipped=23 total=116, `gate.py` 4 pass / 0 fail / 0 skip, `claims_check --strict --count-check` OK; C-4570–C-4579.
 
+
+- [ ] **M5.49 — P1 is one contained tile and nothing copies it: a display-only card whose only diff is that factory tile**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M5.46 (done — `contained=1`, B48R058R is the whole test box), M5.30 (done — the relocation tooling and the one-variable card)
+  - Goal: M5.46 answered *how many* tiles P1 needs (one) and M5.30 proved the writer can turn a changed tile into a card that passes `cardcheck`/`7z`/`fsck` with an enumerated diff. What is not done is the P1 rung itself: a card whose Dolnośląskie region is the **factory** B48R058R copied verbatim, with the display-only gate recorded. Without it P1 is a census and a promise, and P0 → P1 has no measured step.
+  - Precheck: `python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json <factory ROOT>/MAPAL001 | tail -1` prints `census: contained=1 intersects=0 outside=62 lattice=63 factory_tiles=45`; `python3 tools/cardcheck.py --root ~/projekty/leafre-work/m5.29-factory-root --fast` prints `RESULT: PASS`; `python3 tools/imgpatch.py --allow-resize --dry-run` on the factory tile is a delta-0 no-op — say which.
+  - Scope: `tools/one_tile_pipeline.py` (a `--preserve-tile MESHTAG` mode: write the factory tile bytes verbatim into `--out`, rebuild only `DRSTR001.DAT` if its length must change, write M5.41's expected-change-set) plus a P1 profile check; **no** OSM ingest, **no** tilewriter change, **no** new format claim. The display-only gate is a row in the EXP: which M5.34/M5.30 checks it must pass and which routing checks it deliberately fails (M5.16 open).
+  - Input: EXP-2026-11-18-M5.46-containment, EXP-2026-11-19-M5.30-one-variable-card, EXP-2026-11-19-M5.47-fit-census, `profiles/dolnoslaskie-test.json`, `tools/one_tile_pipeline.py`, `tools/mkcard.py`, M5.41's expected-change-set (block if it is not on main; do not duplicate it).
+  - Hints: a verbatim factory tile has delta 0, so M5.47's fit question does not fire — say that in the EXP (that is why P1 is cheaper than P0's change). The card is only meaningful if `cardcheck --image` and a diff against the factory *image* both pass; a tree-only check is the M5.44 defect class. Do not claim the car displays it — that is L5.
+  - Done when: `python3 tools/one_tile_pipeline.py --preserve-tile B48R058R --out <S>/p1` builds a 480-file tree; `cardcheck.py --root <S>/p1` PASS; patching the factory image with that tree (M5.30's Reproduction) leaves a card whose `--check-diff` is confined to `DRSTR001.DAT`+dir entries (delta 0 tile ⇒ the tile does not move) and passes `cardcheck --image`; the EXP names the display-only vs routing gate split; `python3 tools/selftest.py` and `tools/gate.py` green.
+  - Stop: if a verbatim factory tile cannot be the only region of a card without a new DRSTR format change, record the exact byte that resists and hand it to a format task; do not widen the diff to make P1 pass.
+  - Falsifier: the P1 tree reports 480 files but `cardcheck --image` on the patched copy fails, or the diff touches any cluster outside `DRSTR001.DAT`/its dir entry (the tile's clusters must be identical to factory).
+  - Claims: C-4600–C-4609
+
+- [ ] **M5.50 — the card ladder page P1 needs: one row per rung, each a command with an expected string**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M5.46 (done), M5.30 (done), M5.44/M5.45 (done)
+  - Goal: no page says what "P1" *is as a check* — the ladder lives in TODO prose and the Priorities commands, so every pass re-derives it and the rule-17 card row is a hand command. M5.38 (open) defines P1 as "all Dolnośląskie display-only", but no page says which gates that means or what P2 (routing) adds. One page, one row per rung, each row a runnable command with its expected output, stops the "P1 = one tile or many?" drift.
+  - Precheck: `grep -rn 'P0\|P1\|P2' docs/format/*.md profiles/*.json | head` shows no single page owns the ladder; `python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json <ROOT>/MAPAL001 | tail -1` prints the census the page must cite.
+  - Scope: one docs page (`docs/format/card-ladder.md`) plus a pointer from `docs/format/map-tiles.md` and `TODO.md`'s L2 bullet; each rung row names (a) the profile/region, (b) the tile set, (c) the gate commands with exact expected strings, (d) what the rung deliberately does *not* prove. **No** code change except a thin consumer of `map_signals` (H109 owns it; link, do not duplicate).
+  - Input: H109 (map_signals), M5.46 census, M5.30 card, M5.34 parcel, `profiles/`, `docs/format/ze0-tools.md`, the Priorities rule-17 block.
+  - Hints: the page's value is that its commands fail loudly — a rung row with "reference says X, got Y" and a non-zero exit, not prose. Cite H109's tool by path; if H109 is not on main yet, write the commands and have H109 replace them with the call.
+  - Done when: `docs/format/card-ladder.md` exists with one row per rung P0/P1 (and a P2 placeholder naming M5.16/M5.36 as the routing gates it adds); every command in every row runs and prints its expected token on this host (paste outputs); `grep -c 'card-ladder' TODO.md` finds the L2 pointer; `python3 tools/gate.py` 4 pass; no claim is registered (a page of existing facts).
+  - Stop: if a rung has no runnable gate yet (P2 routing is M5.16, open), leave it as an explicit `NOT RUN — M5.16` row rather than inventing a check.
+  - Falsifier: a rung row's command exits 0 but does not print the token the row says it must, or the page restates a number without the command that prints it.
+  - Claims: none yet (docs page; the commands cite existing claims)
+
 ## M6 — L5 bench/car: hardware and safety
 
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
@@ -3629,7 +3670,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     module entry kind and `engine_hook`, so the first blocker no longer holds.
     The reopened run (EXP-2026-11-08-M9.14-reopen) ran the module entry on the real head image:
     the reader's data is in compressed `sec1`, so it stops at once.
-  - Depends: M3.10, M9.5 (both done)
+  - Depends: M3.10 (archived 2026-11-19, `docs/research/todo-history-2026-11-19.md`), M9.5 (both done)
   - Precheck: `python3 tools/l3_harness/runner.py --selftest` and M9.20
     module-entry path pass; `python3 tools/cerom.py --image-start 0x200200
     IMG256` confirms `sub_00419350`/`sec1` layout; EU/US factory
