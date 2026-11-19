@@ -246,14 +246,17 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-19, 17th pass; retro 2026-11-18-3, SE `81da684`)
+## Priorities (PO grooming 2026-11-19, 18th pass; retro 2026-11-19, SE `b428c47`)
 
-**This cycle moved the card ladder, not the two reader numbers.** Cycle 14
-closed eight tasks (P0 deepened: M5.44 level 2, M5.45 idempotence, M5.46 the
-P1 census); readers stay **6/30** and L3 **1/30**; said first, per rule 17.
+**P0 is complete — the first card whose whole change set is enumerated.** On a
+copy of the EU 2011 image, the M5.44 tree patches into card
+`b0faf119…33237`: `cardcheck --image` PASS (480 files), diff **586 ranges /
+152,815 B, outside 0** under `--allow-metadata` (9 FAT/FSInfo ranges, strict
+fails them), `7z t` and `fsck.fat -n` accept it. The two reader numbers did
+**not** move: readers **6/30**, L3 **1/30**. Said first, per rule 17.
 
 **The four rule-17 map numbers — run each, do not retype** (snapshot
-2026-11-19T13:30Z, `origin/main` `dea3e56`):
+2026-11-19T19:55Z, `origin/main` `b428c47`):
 
 ```bash
 # M1 reader rows with a located reader (6) — partial/access-path rows counted apart (5)
@@ -273,8 +276,8 @@ for n in ['B28R070R','B30R048R','B48R058R']:
   else:m.append((a,b))
  nza=sum(1 for x in d[0x1000:] if x);nzc=sum(sum(1 for x in d[a:b] if x) for a,b in m)
  print(n,'%.2f%%'%(100*nzc/nza))"
-# M4 highest card-ladder step whose own gate passes (P0 — M5.34 factory-backed run)
-python3 -c "import json;r=json.load(open('/home/marek/projekty/leafre-work/m5.34/report.json'));print('P0' if r['cardcheck_ok'] and r['l2check_ok'] else 'none')"
+# M4 highest card step whose own gate passes — P0 with the card SHA from M5.30
+grep -o 'b0faf119[0-9a-f]*' TODO.md | head -1
 # P1 census (M5.46): how many tiles the test region is contained in
 python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json /home/marek/projekty/leafre-work/m5.29-factory-root/MAPAL001 | tail -1
 ```
@@ -282,50 +285,51 @@ python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json /home/marek/pro
 Numbers now (quoted from those commands, this host): **readers 6/30 located**
 (+5 partial), **L3 running 1/30**, **factory tile nonzero bytes inside
 structure unchanged** (B28R070R 99.98 %, B30R048R 95.86 %, B48R058R 76.28 %),
-**highest step P0**, **P1 census: `contained=1 intersects=0 outside=62`** —
-all of Dolnośląskie's 14.0–17.9 E × 49.9–51.9 N box is inside one tile
-(`B48R058R`), so P1 is one factory tile copied verbatim and the all-tile run
-is not a stitching problem.
+**highest step P0 with card `b0faf119…33237`**, **P1 census: `contained=1
+intersects=0 outside=62`** — the whole Dolnośląskie test box is inside one tile
+(`B48R058R`), so P1 is one factory tile copied verbatim, not a stitching
+problem.
 
-*How it went since 2026-11-18.* Cycle 14 merged nine tasks (M5.43, M3.26,
-M9.42, M5.44, M5.45, M5.46, M9.43, H91 done; H92 blocked on H111) in two
-rule-17 batches, with no record-repair task. The two ghosts (M5.46, M9.43)
-were status lines a squash merge left at `in progress`; the SM pass fixed
-them. **Claim collisions** cost three renumber rounds — PR #229's reservation
-is the process fix.
+*How it went since 2026-11-18-3.* Cycle 15 merged four pairs (M5.47 census,
+M5.30 card, M3.27 reader arguments, M5.48 partial `--out`). Every pair shipped
+one defect the navigator caught (a fabricated register row, wrong cluster
+arithmetic and a restated reproduction, an EXP replaced instead of corrected,
+a pre-existing `--out` whose contents were silently replaced) — all four would
+have passed their own selftests. **Claim-block collisions were 0** for the
+first time: the SE's reservation held.
 
 **Directions without hardware, in order:**
-1. **P0 → P1 on the card.** **M5.47** (fit census: does one changed tile fit
-   its FAT chain) → **M5.30** (1:1 diff card, the last P0 step) → **M5.48**
-   (a refused run must not leave a card-looking tree) → **M5.41** (one
-   expected-change-set). Then **P1**: copy the one contained tile verbatim
-   (M5.46 says it fits) and record the display-only gate — no block yet.
-2. **Firmware as the format specification.** **M3.27** (tile-reader entry
-   arguments, static) → **M3.25** (the L3 run it enables) → **M4.40**
-   (section 2/router) → **M3.23**+**M9.38** (REFER families).
+1. **P1 on the card.** **M5.49** (copy the one contained tile verbatim;
+   delta 0, so none of M5.30's relocation work applies) and **M5.50** (the
+   ladder page: one row per rung, each a command with an expected string).
+   **M5.41** (one expected-change-set) is in the live batch and M5.49 blocks on
+   it. **M5.51** closes the whole-sector `--allow-metadata` gap.
+2. **Firmware as the format specification.** **M3.25** (the L3 run; its target
+   must wrap `0x00425f40`, per M3.27 — not the three reader VAs) → **M4.40**
+   (section 2/router) → **M3.23**/**M9.38** (REFER families).
 3. **Emulation as the unit.** **M9.36**/**M9.37** → **M9.44** → **H111**
    (the gate wiring; H92 waits on it). M8.E4 (full `Navi.exe`) after those.
 4. **Data against data.** **M4.41** (2011/2014/2016 differential) and
    **M4.2**/**M5.36** (OSM ground truth) decode fields with no firmware.
 
-**Next for the TL (map tasks only; rule 17):** **M5.47**, **M5.30**,
-**M5.41**, **M3.27**, **M9.36**, **M5.48**, **M9.41**, **M4.40**, **M3.25**,
-**M9.37**.
+**Next for the TL (map tasks only; rule 17):** **M5.50**, **M5.49**,
+**M3.25**, **M5.51**, **M9.36**, **M9.41**, **M4.40**, **M4.2**. Do not run
+M5.51 with M5.41 (both touch `imgpatch.py`/`one_tile_pipeline.py`).
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
 - **L1 (cheap, ready):** `cardcheck --image` + `imgpatch`/manifest diff. Blocking: **H40** (vendor-free in-process fixture) → **H41**/**H42** (per-feature matrix). The card path itself waits on L2's **M5.30**. H40 starts from **H103** (a tree `cardcheck` accepts) + **H105** (a broken one that must fail) and is pinned by **H104** (baseline).
-- **L2 (necessary — rule 13): — THIS IS THE CRITICAL PATH.** **M5.34** done, M5.44 (level 2) and M5.45 (idempotence) done → **M5.47** (fit census) → **M5.30** (1:1 diff card, P0 complete) → **M5.11** (OSM→card end to end) → **M5.35** (one command + evidence bundle) → **M7.1** (all Dolnośląskie). **P1 = M5.46** done (contained=1: one factory tile, no stitching) then the all-tile copy step (no block yet). Feature gaps: **M5.16** (routing graph), **M5.36** (road-class golden), **M5.37** (route-graph golden), **M4.36** (names, blocked on **M3.13**); support **M5.3**, **M5.23**, **M5.33**, **M5.32**, **M5.41**, **M5.43**, **M5.38** (ladder page).
+- **L2 (necessary — rule 13): — THIS IS THE CRITICAL PATH.** **M5.34** done, M5.44/M5.45 done, **M5.30 P0 card `b0faf119…` done** → **M5.49** (P1 verbatim tile; needs M5.41) → **M5.11** (OSM→card end to end) → **M5.35** (one command + evidence bundle) → **M7.1** (all Dolnośląskie). **P1 = M5.46** done (contained=1) → **M5.49** (the copy) → **M5.50** (the ladder page). Feature gaps: **M5.16** (routing graph), **M5.36** (road-class golden), **M5.37** (route-graph golden), **M4.36** (names, blocked on **M3.13**); support **M5.3**, **M5.23**, **M5.33**, **M5.32**, **M5.41**, **M5.43**, **M5.38** (ladder page).
 - **L0/L4 readiness (QA 2026-11-18):** the first L4 row is not a run but the **H110** panel (`l4_status.py`, F0–F4, `NOT RUN` without a log); the L2→L3 link is **H106** (the corpus names M5.34's tile) and **H107** (the blocked split).
-- **L3 (virtual; SKIP/BLOCKED never PASS):** **M9.41** (register the US POI walk row) → **M9.31** (no-diff verdicts) → **M9.12** (`l3check --card`). The **tile** reader — the file L2 writes — has no runnable target: **M3.27** (entry arguments, static) → **M3.25** (the run) → **M9.13**; names need **M3.11c**; discovery **M3.23**/**M3.24** → **M9.38**; **M1.19** for `INIT` bytes. QA 2026-11-18: the corpus does not name M5.34's tile (**H106**) and the `blocked=6` number hides two argument-only rows (**H107**).
+- **L3 (virtual; SKIP/BLOCKED never PASS):** **M9.41** (register the US POI walk row) → **M9.31** (no-diff verdicts) → **M9.12** (`l3check --card`). The **tile** reader — the file L2 writes — has no runnable target: **M3.27** done (none of the three VAs takes a tile buffer; target `0x00425f40`) → **M3.25** (the run) → **M9.13**; names need **M3.11c**; discovery **M3.23**/**M3.24** → **M9.38**; **M1.19** for `INIT` bytes. QA 2026-11-18: the corpus does not name M5.34's tile (**H106**) and the `blocked=6` number hides two argument-only rows (**H107**).
 - **L4 (QEMU/M8):** **M8.A2** is `done` (QEMU 8.2.10 `-M ze0`, one run, exceptions 0). Next: **M8.A3**/**M8.A6** → **M8.E4** (full `Navi.exe` on a generated card); **M5.43** repairs the `--check-version` exit code the next bump needs. **M1.19** gates any `INIT`-byte run. The row itself is prose until **H110** (readiness panel + `l4_status.py`).
 - **L5 (bench/car, one variable):** never skip S0. **M6.2** S0 (Marek/non-Claude) → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; prep **M6.13**, **H29**. Hardware unavailable; `l3_precond.py` before every bench card.
 
 **Next 5 for the TL (one per cycle is enough; all deps done):**
-1. **M5.30** (L2) — the 1:1 diff card; the last P0 step and the first card that differs from factory in known clusters. It is marked `Critical: no`; the PO recommends the TL raise it, because every later rung rests on it.
-2. **M5.44** (Critical, L2) — level-2 detail; settles the `parcel_geo` vs `directory_bbox` 4× grid before a wrong-geometry splice passes every L2 check.
+1. **M5.49** (L2, Critical) — P1 as a card: the one contained factory tile copied verbatim, with the display-only gate recorded. P0 is done; this is the next measured rung.
+2. **M5.50** (L2) — the card ladder page whose rows are commands with expected strings, so the rule-17 card row is one call, not a hand run.
 3. **M9.41** (Critical, L3) — register the running US POI walk as an S1 evidence row (`M9.31`→`M9.12` next); cheapest turn of L3 prose into a gate.
 4. **M3.25** (Critical, L3) — the tile/route reader VAs; without it L3 never sees a `MAPAL001` file.
 5. **M5.41** (L2) — one expected-change-set; a correct run that `expected` calls wrong is a card-gate defect waiting for M5.30.
@@ -2920,19 +2924,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a record still says `blocked`/`stays blocked` for M8.A2, or C-3563 still attributes both changed words to the size alone.
   - Claims: none yet
 
-- [x] **M5.43 — `build.sh --check-version` reports a verdict, not a traceback**
-  - Status: done · Owner: task/m5.43-check-version-verdict · Critical: no · Pair: required
-  - Depends: M8.A10 (done — the probe and its `QEMU_PINS` table)
-  - Goal: the probe's purpose is a per-patch verdict for a release that may not have a pin; a FAILED patch is its normal answer. Today the 11.1.3 probe prints the correct table, then a second note, and exits `1` (the full build's generic failure code; no traceback), so a caller (M8.A9, a future bump) cannot tell "probe says 3/2" from "the probe broke", and any wrapper that treats rc 1 as a crash will read the answer as a tool failure.
-  - Precheck: `bash tools/qemu-ze0/build.sh --check-version 11.1.3` prints `3 applied, 2 failed, 1 unpinned-tarball`, then the port-delta note, and ends with rc `1`; `bash tools/qemu-ze0/build.sh --selftest` is 56/56.
-  - Scope: `tools/qemu-ze0/build.sh` only: `--check-version` keeps the extraction, the `patch --dry-run` table and the one-line verdict, and exits with a defined code — `0` all patches apply, `4` at least one patch fails to apply (a porting delta), `2` usage, `3` missing input/download fault — printing the verdict line last and nothing after it; `--selftest` gains a red case (an injected patch that must fail) and a green one, both without a network build. `README.md` gets the exit-code table.
-  - Input: `tools/qemu-ze0/build.sh` (`--check-version`, `QEMU_PINS`, the `st_ok`/`st_fail` helpers), EXP-2026-11-17-M8.A10-bump-8210 (the 3/2 table), `docs/research/qemu-ze0-port-delta.md` (M8.A9 consumes the verdict), `tools/qemu-ze0/README.md`.
-  - Hints: the failure is in the check path's cleanup or hash step, not in `patch`; reproduce with `bash -x` once and record the line in the EXP. Do not make a FAILED patch an exit 0 — M8.A9 needs the signal.
-  - Done when: `bash tools/qemu-ze0/build.sh --check-version 11.1.3` prints the 3/2 table and exits `4` with no traceback; `--check-version 8.2.10` exits `0` (5/5); `bash tools/qemu-ze0/build.sh --selftest` passes with both outcomes and `python3 tools/selftest.py` stays green (`--only qemu` exits 2 — not a discovered suite, see C-4424).
-  - Stop: if the failure is inside the pinned tarball's own patch tool rather than the script, record the line and the tool version and exit 4 with the reason — the code path is still the script's.
-  - Falsifier: a probe where some patches fail exits 0, or one where all apply exits non-zero.
-  - Result: `--check-version 11.1.3` → `3 applied, 2 failed` + rc `4`; `--check-version 8.2.10` → `5 applied, 0 failed` + rc `0`; truncated pinned tarball via `--srcdir` → `has 13 bytes, expected 132685948` + rc `3` — `docs/experiments/EXP-2026-11-18-M5.43-check-version.md`
-  - Claims: C-4420–C-4424
 
 - [x] **M5.44 — Splice level-2 directories: a second detail level, on a tile that owns them**
   - Status: done · Owner: task/m5.44-level2-splice · Critical: yes · Pair: required
@@ -3939,33 +3930,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the target appears in `--build-corpus` but a wrong-*build* run (`walk archive/head256.img … --build us2011`) prints `result: PASS` instead of `result: FAIL (unmapped …)`; the M9.39 mutant page is a *positive* witness (it must still pass on its own build), never a negative control.
   - Claims: C-4220–C-4229
 
-- [x] **M9.42 — `point_walk_l3 walk` dies with a traceback and no `result:` line on a wrong build, so M9.41's wrong-build falsifier cannot be evaluated**
-  - Status: done · Owner: task/m9.42-wrong-build-verdict · Critical: no · Pair: required
-  - Depends: M9.39 (done — the mutant page this falsifier names)
-  - Goal: SE 2026-11-17 reproduced the gap M9.41's Falsifier depends on and found it **unsatisfiable as written**: (a) the M9.39 mutant page is a *positive* witness (it must print `result: PASS` and move `n=501` +4), not a negative control, so "the M9.39 mutant also passes" is not a failure; (b) a genuinely wrong *build* (US target on `head256.img`, or EU target on `us256.img`) raises `engine.UnmappedAccess` and exits 1 **with no `result:` line at all** (`grep -c 'result:' ` prints 0), so a script cannot distinguish "wrong build rejected" from "the tool crashed". Make the wrong-build path a clean, machine-readable verdict and fix the falsifier.
-  - Precheck: `python3 tools/point_walk_l3.py walk archive/head256.img --cmp /tmp/opencode/m939/mutant-us.POINT010.DAT.cmp --ind /tmp/opencode/m939/mutant-us.POINT010.DAT.ind --page 0x840ba0 --page-len 42848 --build us2011 > /tmp/wb.out 2>&1; echo $?` prints `1` and `grep -c 'result:' /tmp/wb.out` prints `0` (the defect: crash, not verdict); the same tool on `archive/us256.img` prints `result: PASS` (the run must not change).
-  - Scope: `tools/point_walk_l3.py` only: wrap the `eng.call`/`run_nth`/`run_skip` path so an `UnmappedAccess`/`IllegalInstruction` from `engine.py` becomes `result: FAIL (unmapped 0x… @ build <b>)` and exit 1 (as a build/target mismatch, not a crash); a selftest case that maps a build against an image whose text VA is unmapped; and the one-line edit of M9.41's `Falsifier:` so it names a check that can fail (a wrong-*build* run must print `result: FAIL`, and the mutant page must be labelled the positive witness it is). No verdict change for a matching build; no new VA.
-  - Input: `tools/point_walk_l3.py` (`cmd_walk`, `run_nth`, `run_skip`), `tools/l3_harness/engine.py` (`UnmappedAccess`), EXP-2026-11-17-M9.39-point010-mutant (the positive witness), M9.41 block.
-  - Hints: `chunk_decoder_l3.py` already turns an unmapped access into a named `Blocked`/`FAIL` line — copy that shape rather than inventing one. Keep `result: PASS` the only pass token; a crash is currently indistinguishable from a non-pass, which is the bug. The M9.39 table proves both builds read both *pages*; only the build-vs-image pairing is fatal, so the control must be a build/image mismatch, never a page mismatch.
-  - Done when: the Precheck's wrong-build command exits 1 and prints exactly one `result: FAIL (unmapped …)` line (no traceback); a matching build still prints `result: PASS`; `--selftest` covers the unmapped build; M9.41's `Falsifier:` no longer treats the M9.39 mutant as a negative control; `python3 tools/selftest.py --only point_walk_l3` passes.
-  - Stop: if the failure can only be detected after a stub boundary (an import), record the stub VA and hand the guard to M9.24 rather than faking a verdict.
-  - Falsifier: the wrong-build run still exits on a bare traceback with zero `result:` lines, or a matching build loses its `result: PASS`.
-  - Result: done in `docs/experiments/EXP-2026-11-18-M9.42-wrong-build.md` — the wrong-build `walk archive/head256.img … --build us2011` prints one `result: FAIL (unmapped 0x00000000 @ build us2011, UNMAPPED pc=0x0041db48)` and exits 1 (0 tracebacks), while `walk archive/us256.img … --build us2011` prints `result: PASS` and exits 0; the selftest covers `run_skip`, `guarded` and the verdict.
-  - Claims: C-4430–C-4439
 
-- [x] **M9.43 — M9.39's mutant pair is only reproducible from a pasted heredoc; the committed `mutate_refer_poi.py` CLI writes a different, all-149-stream corpus**
-  - Status: done · Owner: task/m9.43-mutate-cli-chunk-preserving · Critical: no · Pair: required
-  - Depends: M9.39 (done — the EXP whose corpus this must reproduce)
-  - Goal: SE 2026-11-17 ran the committed CLI as the EXP's `Reproduction` implies (`mutate_refer_poi.py … --page 0x840ba0 --old … --new … --resize`) and it printed `outer .cmp 4240574 -> 4233456 bytes, 149 chunk(s)`, sha `5565c9ba…` — **not** the EXP's pinned `ea2d0e0f…` (4,240,400 B, one differing stream). The chunk-preserving path the EXP's `Method` uses (`cmpind_codec.repack_changed_chunks`) exists only inside a `python3.13 - <<'PY'` heredoc, so rule 16's "commands run as written" fails: a reader cannot regenerate the L3 corpus M9.41 cites as its control.
-  - Precheck: `python3 tools/mutate_refer_poi.py /home/marek/projekty/leafre-work/m5.12-us/root-factory/REFER001/POINT010.DAT.cmp …/POINT010.DAT.ind /tmp/cli --page 0x840ba0 --old 'HAWAII ST GOVT FREQNTLY CLLD NMBRS' --new 'HAWAII ST GOVT FREQNTLY CLLD NMBRSXXXX' --resize` prints `149 chunk(s)` and its `.cmp` sha is not `ea2d0e0f…` (the defect); `grep -c "python3.13 - <<'PY'" docs/experiments/EXP-2026-11-17-M9.39-point010-mutant.md` is `2` (two heredoc-only builders).
-  - Scope: `tools/mutate_refer_poi.py` only: add a chunk-preserving rebuild mode (e.g. `--chunk-preserving`, default for `--resize`) that reuses every unchanged 64 KiB outer stream via `cmpind_codec.repack_changed_chunks` and rebuilds `.ind` offsets, keeping the existing whole-blob path behind an explicit flag for the copy-scan use (M5.12c/M5.27); a `--selftest` case asserting the single-differing-chunk property; then replace the two EXP heredocs with the committed command (or re-pin the EXP to the SHAs the committed command prints). No page semantics change, no new mutation type.
-  - Input: `tools/mutate_refer_poi.py` (`main`, `refit_page_budget`, `encode`), `tools/cmpind_codec.py` (`repack_changed_chunks`, `build_ind`), `tools/slot_budget.py` (`fit_page_inplace`), EXP-2026-11-17-M9.39-point010-mutant (Method step 3 + C-4173), the CLI run above.
-  - Hints: the EXP needed level 9 / memLevel 9 for the changed chunk because `factory_compress` overflowed the slot (C-4175); the mode must keep that documented fallback, not silently emit a bigger stream. `cmpind_codec.repack_changed_chunks` is already the single-chunk owner — call it, do not re-implement it. The C-4173/C-4174 SHAs are the acceptance oracle for "same corpus"; if a zlib change moves them, the EXP must state the runtime (`tools/zlibinfo.py`), as C-4175 already does.
-  - Done when: the committed chunk-preserving command reproduces the EXP's `.cmp`/`.ind` SHAs on the runtime the EXP names (or the EXP is corrected to the SHAs the command prints, with the runtime recorded); `grep -c "python3.13 - <<'PY'"` over the EXP's Method is `0`; `python3 tools/selftest.py --only mutate_refer_poi` passes; the M5.12c whole-blob copy-scan path still runs.
-  - Stop: if the level-9 fallback cannot be made deterministic across the supported zlibs, keep the heredoc, but commit it as `tools/build_point010_mutant.py` with `--selftest` and re-point the EXP — do not leave a corpus that only a session can rebuild.
-  - Falsifier: the committed CLI (with the new mode) still changes all 149 streams, or the EXP still has no committed command that prints its pinned mutant SHAs.
-  - Claims: C-4480–C-4489
-  - Result: `docs/experiments/EXP-2026-11-18-M9.43-mutant-cli` (C-4480–C-4489). `mutate_refer_poi.py` now defaults to the chunk-preserving outer rebuild (`cmpind_codec.repack_changed_chunks`, `--whole-blob` for the old path). On stock zlib 1.3.2 the committed command prints the M9.39 pins: US `.cmp` `ea2d0e0f…` (4,240,400 B) / `.ind` `5d576d62…`, EU `.cmp` `e75c298f…` (3,271,483 B) / `.ind` `077937ea…`, `changed chunk(s) [132]`/`[110]` (1 of 149/151 stream(s) differ); the four walks reproduce `n=501` +4; `grep -c "python3.13 - <<'PY'"` over EXP-M9.39 is `0` (Method + control replaced); `--selftest` 13/13; `l2check` on the EU factory tree PASS; `gate.py` 4 pass.
 
 - [ ] **M1.33 — M1.22's census and relocated-body tables come from an uncommitted script, and its Method has ellipses**
   - Status: open · Owner: — · Critical: no · Pair: required

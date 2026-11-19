@@ -1,0 +1,48 @@
+role: PO (product owner)
+model: opencode deepseek-v4.1-flash-free; in-process (subagent router down)
+start: 2026-11-19T19:55Z
+origin/main at start: b428c47
+
+inputs read:
+  docs/retro/2026-11-19.md (action 1 is mine), the SE log 2026-11-19-1945-2-se.log
+  and its three additions, the cycle-15 EXPs (M5.30 in particular), Priorities.
+
+actions, in order:
+  - re-ran the four rule-17 commands. readers 6/30, L3 1/30, P1 census
+    contained=1. The card number is now P0 **with a SHA** (b0faf119...33237).
+  - rewrote Priorities for cycle 15/16: the lead is P0 complete with an
+    enumerated diff, and the fact that the two reader numbers did not move is
+    the second sentence.
+  - replaced the stale M4 rule-17 command (it read the M5.34 report, which
+    says P0 but cannot name the card) with `grep -o 'b0faf119...' TODO.md`,
+    because the card SHA is the thing a later pass must compare.
+  - archive: 3 moved (M5.43, M9.42, M9.43) to
+    docs/research/todo-history-2026-11-19.md, second batch today. They are
+    named by no open/blocked block and completed >24 h ago; M3.27 and M5.48
+    are free by the same rule but were done today, so they stay.
+    TODO 4136 -> 4097 -> 4101 lines (archive then prior+pointer edits).
+  - refreshed the L2/L3 bullets: M5.30 done with the SHA, P1 = M5.46 -> M5.49
+    -> M5.50, M3.27 done and M3.25's target is 0x00425f40.
+  - rule 15: 0 re-opens. The only blocker merged this window is nothing new;
+    H92 still waits on H111 (open), and no blocked task names M5.30/M5.47.
+  - no new task added: the SE added M5.49/M5.50/M5.51 this pass and the board
+    already has 128 open. I did not add a "P2 routing" block because M5.16 and
+    M5.36 already own that.
+
+numbers (quoted):
+  TODO 4136 -> 4101; archive 3 moved; readers 6/30; L3 1/30; P0 with
+  b0faf119; contained=1 outside=62; board 125 open / 66 done / 24 blocked /
+  0 in progress (the 3 archived were done).
+
+decisions:
+  - P1 gets its block now (M5.49, by the SE) rather than staying a "no block
+    yet" line, because P0 has a measured card and the next rung is a copy.
+  - did not promote M3.26's C-4286 hypothesis to VERIFIED: M3.27 cites it but
+    the promotion is the owning task's job; left in M3.25's Input as M3.27's
+    Result says.
+
+handoff:
+  - TL: M5.50 + M5.49 in the next batch (M5.49 after M5.41 lands from #238);
+    M5.51 alone (imgpatch.py). M3.25's Input should be read with M3.27.
+  - next PO: the H band (34 open) is still the biggest band and the archive
+    of the 10 free H blocks is a separate pass with their doc citations checked.
