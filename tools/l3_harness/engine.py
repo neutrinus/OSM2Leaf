@@ -608,6 +608,200 @@ class Backend:
 # PySh4: the reference interpreter
 # --------------------------------------------------------------------------
 
+#: Instruction-form table, written **only** from the SH-4 manual encoding
+#: (``nnnn`` = bits 11-8, ``mmmm`` = bits 7-4, ``dddd`` = bits 3-0; the
+#: ``0x8xxx`` group puts ``Rn`` in bits 7-4 and the low nibble is the
+#: displacement).  This table is deliberately independent of ``_exec_*``: it
+#: exists so the decoder and the executor can be compared, and a bug in one
+#: cannot hide itself in the other (M9.37).  ``register_fields`` says which
+#: nibbles name a register: ``"n"``, ``"m"``, ``"nm"``, ``"m"`` or
+#: ``""`` (no register operand).
+#:
+#: ``(mask, match, form, register_fields)`` in first-match order.
+DECODE_TABLE: tuple[tuple[int, int, str, str], ...] = (
+    # group 0: system / control (low byte distinguishes)
+    (0xFFFF, 0x0009, "nop", ""),
+    (0xFFFF, 0x000B, "rts", ""),
+    (0xFFFF, 0x002B, "rte", ""),
+    (0xFFFF, 0x0008, "clrt", ""),
+    (0xFFFF, 0x0018, "sett", ""),
+    (0xFFFF, 0x0028, "clrmac", ""),
+    (0xFFFF, 0x0019, "div0u", ""),
+    (0xF0FF, 0x0002, "stc_sr", "n"),
+    (0xF0FF, 0x0012, "stc_gbr", "n"),
+    (0xF0FF, 0x0022, "stc_vbr", "n"),
+    (0xF0FF, 0x000A, "sts_mach", "n"),
+    (0xF0FF, 0x001A, "sts_macl", "n"),
+    (0xF0FF, 0x002A, "sts_pr", "n"),
+    (0xF0FF, 0x0029, "movt", "n"),
+    (0xF0FF, 0x0003, "bsrf", "n"),
+    (0xF0FF, 0x0023, "braf", "n"),
+    (0xF00F, 0x0007, "mul.l", "nm"),
+    (0xF0FF, 0x0083, "pref", "n"),
+    (0xF0FF, 0x0093, "ocbi", "n"),
+    (0xF0FF, 0x00A3, "ocbp", "n"),
+    (0xF0FF, 0x00B3, "ocbwb", "n"),
+    (0xF0FF, 0x00C3, "movca.l", "n"),
+    (0xF00F, 0x000F, "mac.l", "nm"),
+    (0xF00F, 0x0004, "mov.b_m_at_r0_plus_n", "nm"),
+    (0xF00F, 0x0005, "mov.w_m_at_r0_plus_n", "nm"),
+    (0xF00F, 0x0006, "mov.l_m_at_r0_plus_n", "nm"),
+    (0xF00F, 0x000C, "mov.b_at_r0_plus_m_n", "nm"),
+    (0xF00F, 0x000D, "mov.w_at_r0_plus_m_n", "nm"),
+    (0xF00F, 0x000E, "mov.l_at_r0_plus_m_n", "nm"),
+    # group 1: mov.l Rm,@(disp,Rn)
+    (0xF000, 0x1000, "mov.l_m_at_disp_n", "nm"),
+    # group 2: stores and alu-immediate (low nibble distinguishes)
+    (0xF00F, 0x2000, "mov.b_m_at_n", "nm"),
+    (0xF00F, 0x2001, "mov.w_m_at_n", "nm"),
+    (0xF00F, 0x2002, "mov.l_m_at_n", "nm"),
+    (0xF00F, 0x2004, "mov.b_m_at_minus_n", "nm"),
+    (0xF00F, 0x2005, "mov.w_m_at_minus_n", "nm"),
+    (0xF00F, 0x2006, "mov.l_m_at_minus_n", "nm"),
+    (0xF00F, 0x2007, "div0s", "nm"),
+    (0xF00F, 0x2008, "tst", "nm"),
+    (0xF00F, 0x2009, "and", "nm"),
+    (0xF00F, 0x200A, "xor", "nm"),
+    (0xF00F, 0x200B, "or", "nm"),
+    (0xF00F, 0x200C, "cmp/str", "nm"),
+    (0xF00F, 0x200D, "xtrct", "nm"),
+    (0xF00F, 0x200E, "mulu.w", "nm"),
+    (0xF00F, 0x200F, "muls.w", "nm"),
+    # group 3: alu register-register
+    (0xF00F, 0x3000, "cmp/eq", "nm"),
+    (0xF00F, 0x3002, "cmp/hs", "nm"),
+    (0xF00F, 0x3003, "cmp/ge", "nm"),
+    (0xF00F, 0x3004, "div1", "nm"),
+    (0xF00F, 0x3006, "cmp/hi", "nm"),
+    (0xF00F, 0x3007, "cmp/gt", "nm"),
+    (0xF00F, 0x3008, "sub", "nm"),
+    (0xF00F, 0x300A, "subc", "nm"),
+    (0xF00F, 0x300B, "subv", "nm"),
+    (0xF00F, 0x300C, "add", "nm"),
+    (0xF00F, 0x300D, "dmuls.l", "nm"),
+    (0xF00F, 0x300E, "addc", "nm"),
+    (0xF00F, 0x300F, "addv", "nm"),
+    (0xF00F, 0x3005, "dmulu.l", "nm"),
+    # group 4: system / shifts / control registers (register is bits 11-8)
+    (0xF0FF, 0x4000, "shll", "n"),
+    (0xF0FF, 0x4001, "shlr", "n"),
+    (0xF0FF, 0x4008, "shll2", "n"),
+    (0xF0FF, 0x4009, "shlr2", "n"),
+    (0xF0FF, 0x4018, "shll8", "n"),
+    (0xF0FF, 0x4019, "shlr8", "n"),
+    (0xF0FF, 0x4020, "shal", "n"),
+    (0xF0FF, 0x4021, "shar", "n"),
+    (0xF0FF, 0x4028, "shll16", "n"),
+    (0xF0FF, 0x4029, "shlr16", "n"),
+    (0xF0FF, 0x4010, "dt", "n"),
+    (0xF0FF, 0x4011, "cmp/pz", "n"),
+    (0xF0FF, 0x4015, "cmp/pl", "n"),
+    (0xF0FF, 0x401B, "tas.b", "n"),
+    (0xF0FF, 0x400B, "jsr", "n"),
+    (0xF0FF, 0x402B, "jmp", "n"),
+    (0xF0FF, 0x400E, "ldc_sr", "n"),
+    (0xF0FF, 0x401E, "ldc_gbr", "n"),
+    (0xF0FF, 0x402E, "ldc_vbr", "n"),
+    (0xF0FF, 0x400A, "lds_mach", "n"),
+    (0xF0FF, 0x401A, "lds_macl", "n"),
+    (0xF0FF, 0x402A, "lds_pr", "n"),
+    (0xF0FF, 0x4002, "sts.l_mach_at_minus_n", "n"),
+    (0xF0FF, 0x4012, "sts.l_macl_at_minus_n", "n"),
+    (0xF0FF, 0x4022, "sts.l_pr_at_minus_n", "n"),
+    (0xF0FF, 0x4003, "stc.l_sr_at_minus_n", "n"),
+    (0xF0FF, 0x4013, "stc.l_gbr_at_minus_n", "n"),
+    (0xF0FF, 0x4023, "stc.l_vbr_at_minus_n", "n"),
+    (0xF0FF, 0x4006, "lds.l_mach_at_n_plus", "n"),
+    (0xF0FF, 0x4016, "lds.l_macl_at_n_plus", "n"),
+    (0xF0FF, 0x4026, "lds.l_pr_at_n_plus", "n"),
+    (0xF0FF, 0x4007, "ldc.l_sr_at_n_plus", "n"),
+    (0xF0FF, 0x4017, "ldc.l_gbr_at_n_plus", "n"),
+    (0xF0FF, 0x4027, "ldc.l_vbr_at_n_plus", "n"),
+    (0xF00F, 0x400C, "shad", "nm"),
+    (0xF00F, 0x400D, "shld", "nm"),
+    (0xF00F, 0x400F, "mac.w", "nm"),
+    # group 5: mov.l @(disp,Rm),Rn
+    (0xF000, 0x5000, "mov.l_at_disp_m_n", "nm"),
+    # group 6: loads
+    (0xF00F, 0x6000, "mov.b_at_m_n", "nm"),
+    (0xF00F, 0x6001, "mov.w_at_m_n", "nm"),
+    (0xF00F, 0x6002, "mov.l_at_m_n", "nm"),
+    (0xF00F, 0x6003, "mov_m_n", "nm"),
+    (0xF00F, 0x6004, "mov.b_at_m_plus_n", "nm"),
+    (0xF00F, 0x6005, "mov.w_at_m_plus_n", "nm"),
+    (0xF00F, 0x6006, "mov.l_at_m_plus_n", "nm"),
+    (0xF00F, 0x6007, "not", "nm"),
+    (0xF00F, 0x6008, "swap.b", "nm"),
+    (0xF00F, 0x6009, "swap.w", "nm"),
+    (0xF00F, 0x600A, "negc", "nm"),
+    (0xF00F, 0x600B, "neg", "nm"),
+    (0xF00F, 0x600C, "extu.b", "nm"),
+    (0xF00F, 0x600D, "extu.w", "nm"),
+    (0xF00F, 0x600E, "exts.b", "nm"),
+    (0xF00F, 0x600F, "exts.w", "nm"),
+    # group 7: add #imm,Rn
+    (0xF000, 0x7000, "add_imm", "n"),
+    # group 8: Rn is bits 7-4, d is the low nibble
+    (0xFF00, 0x8000, "mov.b_r0_at_disp_m", "m"),
+    (0xFF00, 0x8100, "mov.w_r0_at_disp_m", "m"),
+    (0xFF00, 0x8400, "mov.b_at_disp_m_r0", "m"),
+    (0xFF00, 0x8500, "mov.w_at_disp_m_r0", "m"),
+    (0xFF00, 0x8800, "cmp/eq_imm", ""),
+    (0xFF00, 0x8900, "bt", ""),
+    (0xFF00, 0x8B00, "bf", ""),
+    (0xFF00, 0x8D00, "bt/s", ""),
+    (0xFF00, 0x8F00, "bf/s", ""),
+    # group 9: mov.w @(disp,PC),Rn
+    (0xF000, 0x9000, "mov.w_pc", "n"),
+    # group A/B: bra / bsr
+    (0xF000, 0xA000, "bra", ""),
+    (0xF000, 0xB000, "bsr", ""),
+    # group C: immediate byte (the n nibble selects the form)
+    (0xFF00, 0xC000, "mov.b_r0_gbr", ""),
+    (0xFF00, 0xC100, "mov.w_r0_gbr", ""),
+    (0xFF00, 0xC200, "mov.l_r0_gbr", ""),
+    (0xFF00, 0xC300, "trapa", ""),
+    (0xFF00, 0xC400, "mov.b_gbr_r0", ""),
+    (0xFF00, 0xC500, "mov.w_gbr_r0", ""),
+    (0xFF00, 0xC600, "mov.l_gbr_r0", ""),
+    (0xFF00, 0xC700, "mova", ""),
+    (0xFF00, 0xC800, "tst_imm", ""),
+    (0xFF00, 0xC900, "and_imm", ""),
+    (0xFF00, 0xCA00, "xor_imm", ""),
+    (0xFF00, 0xCB00, "or_imm", ""),
+    (0xFF00, 0xCC00, "tst.b_imm", ""),
+    (0xFF00, 0xCD00, "and.b_imm", ""),
+    (0xFF00, 0xCE00, "xor.b_imm", ""),
+    (0xFF00, 0xCF00, "or.b_imm", ""),
+    # group D: mov.l @(disp,PC),Rn
+    (0xF000, 0xD000, "mov.l_pc", "n"),
+    # group E: mov #imm,Rn
+    (0xF000, 0xE000, "mov_imm", "n"),
+    # group F: floating point (not modelled, counted)
+    (0xF000, 0xF000, "fpu", ""),
+)
+
+
+def decode_fields(insn: int) -> tuple[str, int | None, int | None, int]:
+    """Independent decode of one halfword: ``(form, rn, rm, d)``.
+
+    Walks :data:`DECODE_TABLE` in order and returns the first match.  ``rn``,
+    ``rm`` are the register numbers the form names, or ``None`` when the form
+    names no register there; ``d`` is the 4-bit displacement.  This shares
+    nothing with ``_exec_*`` on purpose -- that independence is what the
+    M9.37 drift test checks.
+    """
+    insn &= 0xFFFF
+    n = (insn >> 8) & 0xF
+    m = (insn >> 4) & 0xF
+    d = insn & 0xF
+    for mask, match, form, fields in DECODE_TABLE:
+        if insn & mask == match:
+            rn = n if "n" in fields else None
+            rm = m if ("m" in fields or fields == "m") else None
+            return form, rn, rm, d
+    return "unknown", None, None, d
+
 
 class _Block:
     """A writable copy of a mapped region, for the interpreter."""
@@ -661,6 +855,7 @@ class PySh4(Backend):
         self._regs = {name: 0 for name in REGISTERS}
         self._blocks: list[_Block] = []
         self._delay: int | None = None
+        self._arm: str = ""
 
     # -- back end primitives ----------------------------------------------
 
@@ -770,21 +965,29 @@ class PySh4(Backend):
         top = insn >> 12
 
         if top == 0xE:                                   # mov #imm,Rn
+            self._arm = "mov_imm"
             regs["r%d" % n] = _sx(d8, 8) & M32
         elif top == 0x7:                                 # add #imm,Rn
+            self._arm = "add_imm"
             regs["r%d" % n] = (regs["r%d" % n] + _sx(d8, 8)) & M32
         elif top == 0xD:                                 # mov.l @(disp,PC),Rn
+            self._arm = "mov.l_pc"
             regs["r%d" % n] = self._load(((pc + 4) & ~3) + d8 * 4, 4)
         elif top == 0x9:                                 # mov.w @(disp,PC),Rn
+            self._arm = "mov.w_pc"
             regs["r%d" % n] = self._load_signed(pc + 4 + d8 * 2, 2)
         elif top == 0xA:                                 # bra
+            self._arm = "bra"
             self._delay = (pc + 4 + _sx(insn & 0xFFF, 12) * 2) & M32
         elif top == 0xB:                                 # bsr
+            self._arm = "bsr"
             regs["pr"] = (pc + 4) & M32
             self._delay = (pc + 4 + _sx(insn & 0xFFF, 12) * 2) & M32
         elif top == 0x1:                                 # mov.l Rm,@(disp,Rn)
+            self._arm = "mov.l_m_at_disp_n"
             self._store((regs["r%d" % n] + (insn & 0xF) * 4) & M32, 4, regs["r%d" % m])
         elif top == 0x5:                                 # mov.l @(disp,Rm),Rn
+            self._arm = "mov.l_at_disp_m_n"
             regs["r%d" % n] = self._load((regs["r%d" % m] + (insn & 0xF) * 4) & M32, 4)
         elif top == 0x3:
             self._exec_alu(insn, n, m)
@@ -817,42 +1020,55 @@ class PySh4(Backend):
         sub = insn & 0xF
 
         if sub == 0x0:                                   # cmp/eq
+            self._arm = "cmp/eq"
             self._set_t(rn == rm)
         elif sub == 0x2:                                 # cmp/hs
+            self._arm = "cmp/hs"
             self._set_t(rn >= rm)
         elif sub == 0x3:                                 # cmp/ge
+            self._arm = "cmp/ge"
             self._set_t(_sx(rn, 32) >= _sx(rm, 32))
         elif sub == 0x6:                                 # cmp/hi
+            self._arm = "cmp/hi"
             self._set_t(rn > rm)
         elif sub == 0x7:                                 # cmp/gt
+            self._arm = "cmp/gt"
             self._set_t(_sx(rn, 32) > _sx(rm, 32))
         elif sub == 0x8:                                 # sub
+            self._arm = "sub"
             regs["r%d" % n] = (rn - rm) & M32
         elif sub == 0xC:                                 # add
+            self._arm = "add"
             regs["r%d" % n] = (rn + rm) & M32
         elif sub == 0xE:                                 # addc
+            self._arm = "addc"
             total = rn + rm + (1 if self._t() else 0)
             regs["r%d" % n] = total & M32
             self._set_t(total > M32)
         elif sub == 0xA:                                 # subc
+            self._arm = "subc"
             total = rn - rm - (1 if self._t() else 0)
             regs["r%d" % n] = total & M32
             self._set_t(total < 0)
         elif sub == 0xF:                                 # addv
+            self._arm = "addv"
             a, b = _sx(rn, 32), _sx(rm, 32)
             total = a + b
             regs["r%d" % n] = total & M32
             self._set_t(total < -(1 << 31) or total > (1 << 31) - 1)
         elif sub == 0xB:                                 # subv
+            self._arm = "subv"
             a, b = _sx(rn, 32), _sx(rm, 32)
             total = a - b
             regs["r%d" % n] = total & M32
             self._set_t(total < -(1 << 31) or total > (1 << 31) - 1)
         elif sub == 0xD:                                 # dmuls.l
+            self._arm = "dmuls.l"
             product = _sx(rn, 32) * _sx(rm, 32) & M64
             regs["mach"] = (product >> 32) & M32
             regs["macl"] = product & M32
         elif sub == 0x5:                                 # dmulu.l
+            self._arm = "dmulu.l"
             product = rn * rm & M64
             regs["mach"] = (product >> 32) & M32
             regs["macl"] = product & M32
@@ -868,38 +1084,64 @@ class PySh4(Backend):
         sub = insn & 0xF
 
         if sub == 0x0:                                   # mov.b Rm,@Rn
+            self._arm = "mov.b_m_at_n"
             self._store(rn, 1, rm)
         elif sub == 0x1:                                 # mov.w Rm,@Rn
+            self._arm = "mov.w_m_at_n"
             self._store(rn, 2, rm)
         elif sub == 0x2:                                 # mov.l Rm,@Rn
+            self._arm = "mov.l_m_at_n"
             self._store(rn, 4, rm)
         elif sub == 0x4:                                 # mov.b Rm,@-Rn
+            self._arm = "mov.b_m_at_minus_n"
             regs["r%d" % n] = (rn - 1) & M32
             self._store((rn - 1) & M32, 1, rm)
         elif sub == 0x5:                                 # mov.w Rm,@-Rn
+            self._arm = "mov.w_m_at_minus_n"
             regs["r%d" % n] = (rn - 2) & M32
             self._store((rn - 2) & M32, 2, rm)
         elif sub == 0x6:                                 # mov.l Rm,@-Rn
+            self._arm = "mov.l_m_at_minus_n"
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, rm)
+        elif sub == 0x7:                                 # div0s Rm,Rn
+            # M (SR bit 2) = Rn bit 31, Q (SR bit 1) = Rm bit 31, T = 0.
+            self._arm = "div0s"
+            if rn & 0x80000000:
+                regs["sr"] |= 0x4
+            else:
+                regs["sr"] &= ~0x4
+            if rm & 0x80000000:
+                regs["sr"] |= 0x2
+            else:
+                regs["sr"] &= ~0x2
+            self._set_t(False)
         elif sub == 0x8:                                 # tst
+            self._arm = "tst"
             self._set_t((rn & rm) == 0)
         elif sub == 0x9:                                 # and
+            self._arm = "and"
             regs["r%d" % n] = rn & rm
         elif sub == 0xA:                                 # xor
+            self._arm = "xor"
             regs["r%d" % n] = rn ^ rm
         elif sub == 0xB:                                 # or
+            self._arm = "or"
             regs["r%d" % n] = rn | rm
         elif sub == 0xC:                                 # cmp/str
+            self._arm = "cmp/str"
             left = rn.to_bytes(4, "big")
             right = rm.to_bytes(4, "big")
             self._set_t(any(a == b for a, b in zip(left, right)))
         elif sub == 0xD:                                 # xtrct
+            self._arm = "xtrct"
             combined = ((rm & 0xFFFF) << 16) | ((rn >> 16) & 0xFFFF)
             regs["r%d" % n] = combined & M32
         elif sub == 0xE:                                 # mulu.w
+            self._arm = "mulu.w"
             regs["macl"] = ((rn & 0xFFFF) * (rm & 0xFFFF)) & M32
         elif sub == 0xF:                                 # muls.w
+            self._arm = "muls.w"
             regs["macl"] = (_sx(rn & 0xFFFF, 16) * _sx(rm & 0xFFFF, 16)) & M32
         else:
             raise IllegalInstruction(
@@ -912,42 +1154,58 @@ class PySh4(Backend):
         sub = insn & 0xF
 
         if sub == 0x0:                                   # mov.b @Rm,Rn
+            self._arm = "mov.b_at_m_n"
             regs["r%d" % n] = self._load_signed(rm, 1)
         elif sub == 0x1:                                 # mov.w @Rm,Rn
+            self._arm = "mov.w_at_m_n"
             regs["r%d" % n] = self._load_signed(rm, 2)
         elif sub == 0x2:                                 # mov.l @Rm,Rn
+            self._arm = "mov.l_at_m_n"
             regs["r%d" % n] = self._load(rm, 4)
         elif sub == 0x3:                                 # mov Rm,Rn
+            self._arm = "mov_m_n"
             regs["r%d" % n] = rm
         elif sub == 0x4:                                 # mov.b @Rm+,Rn
+            self._arm = "mov.b_at_m_plus_n"
             regs["r%d" % n] = self._load_signed(rm, 1)
             regs["r%d" % m] = (rm + 1) & M32
         elif sub == 0x5:                                 # mov.w @Rm+,Rn
+            self._arm = "mov.w_at_m_plus_n"
             regs["r%d" % n] = self._load_signed(rm, 2)
             regs["r%d" % m] = (rm + 2) & M32
         elif sub == 0x6:                                 # mov.l @Rm+,Rn
+            self._arm = "mov.l_at_m_plus_n"
             regs["r%d" % n] = self._load(rm, 4)
             regs["r%d" % m] = (rm + 4) & M32
         elif sub == 0x7:                                 # not
+            self._arm = "not"
             regs["r%d" % n] = ~rm & M32
         elif sub == 0x8:                                 # swap.b
+            self._arm = "swap.b"
             regs["r%d" % n] = ((rm & 0xFF00FF00) | ((rm & 0xFF) << 16)
                                | ((rm >> 16) & 0xFF)) & M32
         elif sub == 0x9:                                 # swap.w
+            self._arm = "swap.w"
             regs["r%d" % n] = ((rm << 16) | (rm >> 16)) & M32
         elif sub == 0xA:                                 # negc
+            self._arm = "negc"
             total = 0 - rm - (1 if self._t() else 0)
             regs["r%d" % n] = total & M32
             self._set_t(total < 0)
         elif sub == 0xB:                                 # neg
+            self._arm = "neg"
             regs["r%d" % n] = (-rm) & M32
         elif sub == 0xC:                                 # extu.b
+            self._arm = "extu.b"
             regs["r%d" % n] = rm & 0xFF
         elif sub == 0xD:                                 # extu.w
+            self._arm = "extu.w"
             regs["r%d" % n] = rm & 0xFFFF
         elif sub == 0xE:                                 # exts.b
+            self._arm = "exts.b"
             regs["r%d" % n] = _sx(rm, 8) & M32
         elif sub == 0xF:                                 # exts.w
+            self._arm = "exts.w"
             regs["r%d" % n] = _sx(rm, 16) & M32
         else:  # pragma: no cover - sub is a nibble and all 16 are covered
             raise IllegalInstruction(f"load opcode {px(insn)} is not modelled")
@@ -960,88 +1218,120 @@ class PySh4(Backend):
         low = insn & 0xFF
 
         if low == 0x00:                                  # shll
+            self._arm = "shll"
             self._set_t(bool(rn & 0x80000000))
             regs["r%d" % n] = (rn << 1) & M32
         elif low == 0x01:                                # shlr
+            self._arm = "shlr"
             self._set_t(bool(rn & 1))
             regs["r%d" % n] = rn >> 1
         elif low == 0x08:                                # shll2
+            self._arm = "shll2"
             regs["r%d" % n] = (rn << 2) & M32
         elif low == 0x09:                                # shlr2
+            self._arm = "shlr2"
             regs["r%d" % n] = rn >> 2
         elif low == 0x18:                                # shll8
+            self._arm = "shll8"
             regs["r%d" % n] = (rn << 8) & M32
         elif low == 0x19:                                # shlr8
+            self._arm = "shlr8"
             regs["r%d" % n] = rn >> 8
         elif low == 0x20:                                # shal
+            self._arm = "shal"
             self._set_t(bool(rn & 0x80000000))
             regs["r%d" % n] = (rn << 1) & M32
         elif low == 0x21:                                # shar
+            self._arm = "shar"
             self._set_t(bool(rn & 1))
             regs["r%d" % n] = ((rn >> 1) | (rn & 0x80000000)) & M32
         elif low == 0x28:                                # shll16
+            self._arm = "shll16"
             regs["r%d" % n] = (rn << 16) & M32
         elif low == 0x29:                                # shlr16
+            self._arm = "shlr16"
             regs["r%d" % n] = rn >> 16
         elif low == 0x10:                                # dt
+            self._arm = "dt"
             value = (rn - 1) & M32
             regs["r%d" % n] = value
             self._set_t(value == 0)
         elif low == 0x11:                                # cmp/pz
+            self._arm = "cmp/pz"
             self._set_t(_sx(rn, 32) >= 0)
         elif low == 0x15:                                # cmp/pl
+            self._arm = "cmp/pl"
             self._set_t(_sx(rn, 32) > 0)
         elif low == 0x0B:                                # jsr @Rn
+            self._arm = "jsr"
             regs["pr"] = (pc + 4) & M32
             self._delay = rn
         elif low == 0x2B:                                # jmp @Rn
+            self._arm = "jmp"
             self._delay = rn
         elif low == 0x0E:                                # ldc Rn,SR
+            self._arm = "ldc_sr"
             regs["sr"] = rn
         elif low == 0x1E:                                # ldc Rn,GBR
+            self._arm = "ldc_gbr"
             regs["gbr"] = rn
         elif low == 0x2E:                                # ldc Rn,VBR
+            self._arm = "ldc_vbr"
             regs["vbr"] = rn
         elif low == 0x0A:                                # lds Rn,MACH
+            self._arm = "lds_mach"
             regs["mach"] = rn
         elif low == 0x1A:                                # lds Rn,MACL
+            self._arm = "lds_macl"
             regs["macl"] = rn
         elif low == 0x2A:                                # lds Rn,PR
+            self._arm = "lds_pr"
             regs["pr"] = rn
         elif low == 0x02:                                # sts.l MACH,@-Rn
+            self._arm = "sts.l_mach_at_minus_n"
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, regs["mach"])
         elif low == 0x12:                                # sts.l MACL,@-Rn
+            self._arm = "sts.l_macl_at_minus_n"
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, regs["macl"])
         elif low == 0x22:                                # sts.l PR,@-Rn
+            self._arm = "sts.l_pr_at_minus_n"
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, regs["pr"])
         elif low == 0x03:                                # stc.l SR,@-Rn
+            self._arm = "stc.l_sr_at_minus_n"
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, regs["sr"])
         elif low == 0x13:                                # stc.l GBR,@-Rn
+            self._arm = "stc.l_gbr_at_minus_n"
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, regs["gbr"])
         elif low == 0x23:                                # stc.l VBR,@-Rn
+            self._arm = "stc.l_vbr_at_minus_n"
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, regs["vbr"])
         # ``lds.l @Rn+,...``/``ldc.l @Rn+,...`` keep the post-increment
         # register in the n field (0100 nnnn xxxx 011x), not in the m field
         # that the other system forms use as part of the opcode.
         elif low == 0x06:                                # lds.l @Rn+,MACH
+            self._arm = "lds.l_mach_at_n_plus"
             regs["mach"] = self._load(rn, 4)
             regs["r%d" % n] = (rn + 4) & M32
         elif low == 0x16:                                # lds.l @Rn+,MACL
+            self._arm = "lds.l_macl_at_n_plus"
             regs["macl"] = self._load(rn, 4)
             regs["r%d" % n] = (rn + 4) & M32
         elif low == 0x26:                                # lds.l @Rn+,PR
+            self._arm = "lds.l_pr_at_n_plus"
             regs["pr"] = self._load(rn, 4)
             regs["r%d" % n] = (rn + 4) & M32
         elif low == 0x07:                                # ldc.l @Rn+,SR
+            self._arm = "ldc.l_sr_at_n_plus"
             regs["sr"] = self._load(rn, 4)
             regs["r%d" % n] = (rn + 4) & M32
         elif low == 0x17:                                # ldc.l @Rn+,GBR
+            self._arm = "ldc.l_gbr_at_n_plus"
             regs["gbr"] = self._load(rn, 4)
             regs["r%d" % n] = (rn + 4) & M32
         elif low == 0x27:                                # ldc.l @Rn+,VBR
@@ -1057,6 +1347,7 @@ class PySh4(Backend):
             # Rm >= 0 shifts left by Rm & 31; Rm < 0 shifts right by
             # (~Rm & 31) + 1, and Rm & 31 == 0 (Rm = -32) fills with the sign
             # (shad) or with zero (shld).  zlib's inflate uses 0x469d (shld).
+            self._arm = "shad" if (insn & 0xF) == 0x0C else "shld"
             amount = regs["r%d" % m] & M32
             arithmetic = (insn & 0xF) == 0x0C
             if not amount & 0x80000000:
@@ -1068,6 +1359,19 @@ class PySh4(Backend):
             else:
                 result = rn >> (((~amount) & 0x1F) + 1)
             regs["r%d" % n] = result
+        elif insn & 0xF == 0xF:                          # mac.w @Rm+,@Rn+
+            # 16x16 signed multiply of two memory words, accumulated into
+            # MACH:MACL; both pointer registers post-increment by 2.  Addresses
+            # are formed before either register is updated.
+            self._arm = "mac.w"
+            left = self._load_signed(rn, 2)
+            right = self._load_signed(rm, 2)
+            mac = ((regs["mach"] << 32) | regs["macl"])
+            mac = (mac + left * right) & M64
+            regs["mach"] = (mac >> 32) & M32
+            regs["macl"] = mac & M32
+            regs["r%d" % n] = (rn + 2) & M32
+            regs["r%d" % m] = (rm + 2) & M32
         else:
             raise IllegalInstruction(
                 f"system opcode {px(insn)} at {px(pc)} is not modelled "
@@ -1081,26 +1385,35 @@ class PySh4(Backend):
         target = (pc + 4 + disp * 2) & M32
 
         if sub == 0x0:                                   # mov.b R0,@(disp,Rn)
+            self._arm = "mov.b_r0_at_disp_m"
             # Rn is bits 7-4 here (H51: the store used r0 as the base before)
             self._store((regs["r%d" % m] + (insn & 0xF)) & M32, 1, regs["r0"])
         elif sub == 0x1:                                 # mov.w R0,@(disp,Rn)
+            self._arm = "mov.w_r0_at_disp_m"
             self._store((regs["r%d" % m] + (insn & 0xF) * 2) & M32, 2, regs["r0"])
         elif sub == 0x4:                                 # mov.b @(disp,Rm),R0
+            self._arm = "mov.b_at_disp_m_r0"
             regs["r0"] = self._load_signed((regs["r%d" % m] + (insn & 0xF)) & M32, 1)
         elif sub == 0x5:                                 # mov.w @(disp,Rm),R0
+            self._arm = "mov.w_at_disp_m_r0"
             regs["r0"] = self._load_signed((regs["r%d" % m] + (insn & 0xF) * 2) & M32, 2)
         elif sub == 0x8:                                 # cmp/eq #imm,R0
+            self._arm = "cmp/eq_imm"
             self._set_t((regs["r0"] & M32) == (_sx(insn & 0xFF, 8) & M32))
         elif sub == 0x9:                                 # bt
+            self._arm = "bt"
             if self._t():
                 regs["pc"] = target
         elif sub == 0xB:                                 # bf
+            self._arm = "bf"
             if not self._t():
                 regs["pc"] = target
         elif sub == 0xD:                                 # bt/s
+            self._arm = "bt/s"
             if self._t():
                 self._delay = target
         elif sub == 0xF:                                 # bf/s
+            self._arm = "bf/s"
             if not self._t():
                 self._delay = target
         else:
@@ -1112,41 +1425,57 @@ class PySh4(Backend):
         gbr = regs["gbr"]
 
         if top == 0x0:                                   # mov.b R0,@(disp,GBR)
+            self._arm = "mov.b_r0_gbr"
             self._store((gbr + d8) & M32, 1, regs["r0"])
         elif top == 0x1:                                 # mov.w R0,@(disp,GBR)
+            self._arm = "mov.w_r0_gbr"
             self._store((gbr + d8 * 2) & M32, 2, regs["r0"])
         elif top == 0x2:                                 # mov.l R0,@(disp,GBR)
+            self._arm = "mov.l_r0_gbr"
             self._store((gbr + d8 * 4) & M32, 4, regs["r0"])
         elif top == 0x3:                                 # trapa #imm
+            self._arm = "trapa"
             raise Trap(
                 f"trapa #{d8} at {px(regs['pc'] - 2)}: WinCE system call; "
                 "register a host stub with on_exec() instead of emulating it"
             )
         elif top == 0x4:                                 # mov.b @(disp,GBR),R0
+            self._arm = "mov.b_gbr_r0"
             regs["r0"] = self._load_signed((gbr + d8) & M32, 1)
         elif top == 0x5:                                 # mov.w @(disp,GBR),R0
+            self._arm = "mov.w_gbr_r0"
             regs["r0"] = self._load_signed((gbr + d8 * 2) & M32, 2)
         elif top == 0x6:                                 # mov.l @(disp,GBR),R0
+            self._arm = "mov.l_gbr_r0"
             regs["r0"] = self._load((gbr + d8 * 4) & M32, 4)
         elif top == 0x7:                                 # mova @(disp,PC),R0
+            self._arm = "mova"
             regs["r0"] = ((regs["pc"] - 2 + 4) & ~3) + d8 * 4
         elif top == 0x8:                                 # tst #imm,R0
+            self._arm = "tst_imm"
             self._set_t((regs["r0"] & d8) == 0)
         elif top == 0x9:                                 # and #imm,R0
+            self._arm = "and_imm"
             regs["r0"] &= d8
         elif top == 0xA:                                 # xor #imm,R0
+            self._arm = "xor_imm"
             regs["r0"] ^= d8
         elif top == 0xB:                                 # or #imm,R0
+            self._arm = "or_imm"
             regs["r0"] |= d8
         elif top == 0xC:                                 # tst.b #imm,@(R0,GBR)
+            self._arm = "tst.b_imm"
             self._set_t((self._load((gbr + regs["r0"]) & M32, 1) & d8) == 0)
         elif top == 0xD:                                 # and.b #imm,@(R0,GBR)
+            self._arm = "and.b_imm"
             address = (gbr + regs["r0"]) & M32
             self._store(address, 1, self._load(address, 1) & d8)
         elif top == 0xE:                                 # xor.b #imm,@(R0,GBR)
+            self._arm = "xor.b_imm"
             address = (gbr + regs["r0"]) & M32
             self._store(address, 1, self._load(address, 1) ^ d8)
         elif top == 0xF:                                 # or.b #imm,@(R0,GBR)
+            self._arm = "or.b_imm"
             address = (gbr + regs["r0"]) & M32
             self._store(address, 1, self._load(address, 1) | d8)
         else:  # pragma: no cover - top is a nibble
@@ -1158,54 +1487,87 @@ class PySh4(Backend):
         rn = regs["r%d" % n]
         rm = regs["r%d" % m]
 
-        if pattern == 0x0009:                            # nop
+        if insn == 0x0009:                               # nop
+            self._arm = "nop"
             return
-        if pattern == 0x000B:                            # rts
+        if insn == 0x000B:                               # rts
+            self._arm = "rts"
             self._delay = regs["pr"]
             return
-        if pattern == 0x0002:                            # stc SR,Rn
-            regs["r%d" % n] = regs["sr"]
-        elif pattern == 0x0012:                          # stc GBR,Rn
-            regs["r%d" % n] = regs["gbr"]
-        elif pattern == 0x0022:                          # stc VBR,Rn
-            regs["r%d" % n] = regs["vbr"]
-        elif pattern == 0x000A:                          # sts MACH,Rn
-            regs["r%d" % n] = regs["mach"]
-        elif pattern == 0x001A:                          # sts MACL,Rn
-            regs["r%d" % n] = regs["macl"]
-        elif pattern == 0x002A:                          # sts PR,Rn
-            regs["r%d" % n] = regs["pr"]
-        elif pattern == 0x0029:                          # movt Rn
-            regs["r%d" % n] = 1 if self._t() else 0
-        elif pattern == 0x0008:                          # clrt
+        if insn == 0x0008:                               # clrt
+            self._arm = "clrt"
             self._set_t(False)
-        elif pattern == 0x0018:                          # sett
+            return
+        if insn == 0x0018:                               # sett
+            self._arm = "sett"
             self._set_t(True)
-        elif pattern == 0x0028:                          # clrmac
+            return
+        if insn == 0x0028:                               # clrmac
+            self._arm = "clrmac"
             regs["mach"] = 0
             regs["macl"] = 0
-        elif pattern == 0x0019:                          # div0u
+            return
+        if insn == 0x0019:                               # div0u
+            self._arm = "div0u"
             self._set_t(False)
+            return
+        if (insn & 0xF) == 0xF:                          # mac.l Rm,Rn
+            # 32x32 signed multiply, accumulated into MACH:MACL (no saturation)
+            self._arm = "mac.l"
+            mac = ((regs["mach"] << 32) | regs["macl"])
+            mac = (mac + _sx(rn, 32) * _sx(rm, 32)) & M64
+            regs["mach"] = (mac >> 32) & M32
+            regs["macl"] = mac & M32
+            return
+        if pattern == 0x0002:                            # stc SR,Rn
+            self._arm = "stc_sr"
+            regs["r%d" % n] = regs["sr"]
+        elif pattern == 0x0012:                          # stc GBR,Rn
+            self._arm = "stc_gbr"
+            regs["r%d" % n] = regs["gbr"]
+        elif pattern == 0x0022:                          # stc VBR,Rn
+            self._arm = "stc_vbr"
+            regs["r%d" % n] = regs["vbr"]
+        elif pattern == 0x000A:                          # sts MACH,Rn
+            self._arm = "sts_mach"
+            regs["r%d" % n] = regs["mach"]
+        elif pattern == 0x001A:                          # sts MACL,Rn
+            self._arm = "sts_macl"
+            regs["r%d" % n] = regs["macl"]
+        elif pattern == 0x002A:                          # sts PR,Rn
+            self._arm = "sts_pr"
+            regs["r%d" % n] = regs["pr"]
+        elif pattern == 0x0029:                          # movt Rn
+            self._arm = "movt"
+            regs["r%d" % n] = 1 if self._t() else 0
         elif (insn & 0xF) == 0x7:                        # mul.l Rm,Rn (any Rm, H51)
+            self._arm = "mul.l"
             regs["macl"] = (rn * rm) & M32
         elif pattern == 0x0003:                          # bsrf Rn (0000 nnnn 0000 0011)
+            self._arm = "bsrf"
             regs["pr"] = (pc + 4) & M32
             self._delay = (pc + 4 + rn) & M32
         elif pattern == 0x0023:                          # braf Rn (0000 nnnn 0010 0011)
+            self._arm = "braf"
             # The register is the n field, not m: the m nibble is opcode space
             # here.  Using m sent zlib's inflate jump table to pc+4+Rm (M9.11).
             self._delay = (pc + 4 + rn) & M32
         elif pattern in (0x0083, 0x0093, 0x00A3, 0x00B3):
             # pref @Rn, ocbi/ocbp/ocbwb @Rn: cache hints with no architectural
             # effect, so a functional emulator ignores them on purpose.
+            self._arm = {0x0083: "pref", 0x0093: "ocbi",
+                         0x00A3: "ocbp", 0x00B3: "ocbwb"}[pattern]
             return
         elif pattern == 0x00C3:                          # movca.l R0,@Rn (plain store)
+            self._arm = "movca.l"
             self._store(rn, 4, regs["r0"])
         elif (insn & 0xF) == 0x4:                        # mov.b Rm,@(R0,Rn)
+            self._arm = "mov.b_m_at_r0_plus_n"
             self._store((regs["r0"] + rn) & M32, 1, rm)
         elif (insn & 0xF) == 0x5:                        # mov.w Rm,@(R0,Rn)
             self._store((regs["r0"] + rn) & M32, 2, rm)
         elif (insn & 0xF) == 0x6:                        # mov.l Rm,@(R0,Rn)
+            self._arm = "mov.l_m_at_r0_plus_n"
             self._store((regs["r0"] + rn) & M32, 4, rm)
         elif (insn & 0xF) == 0xC:                        # mov.b @(R0,Rm),Rn
             regs["r%d" % n] = self._load_signed((regs["r0"] + rm) & M32, 1)
@@ -2275,6 +2637,101 @@ def test_endian_argument():
         pass
     else:
         raise AssertionError("endian='middle' was accepted")
+
+
+@check("pysh4: distinct registers -- every modelled form, no operand hiding")
+def test_distinct_register_forms():
+    """One row per modelled form, with ``Rn``, ``Rm`` and ``R0`` distinct.
+
+    Values are chosen so a register mix-up *and* an ``n == 0``/``m == 0``
+    hiding trick both change the result -- the three pre-M9.37 defects
+    survived because the old tests used zero operands.  Each row's opcode is
+    also decoded independently by ``decode_fields`` and must name the same
+    form and the same ``(n, m)`` register fields the row expects, so the
+    table is checked against the manual encoding, not against the executor.
+    """
+    D = 0x8C100000
+    N, M = 11, 5
+    VN, VM, V0 = 0x00001234, 0x00000102, 0x00005678
+    M32 = 0xFFFFFFFF
+
+    def rr(top, sub, n, m):
+        return (top << 12) | (n << 8) | (m << 4) | sub
+
+    def fresh(**extra):
+        e = PySh4(endian="big")
+        e.map("mem", D, bytearray(0x600), "rw")
+        e.map("code", 0x8C000000, 4, "rwx")
+        base = {"r0": V0, "r%d" % N: VN, "r%d" % M: VM,
+                "r15": D + 0x400, "pc": 0x8C000000, "mach": 0, "macl": 0, "sr": 0}
+        base.update(extra)
+        e.set_regs(**base)
+        return e
+
+    rows = [
+        ("sub", rr(0x3, 0x8, N, M), (N, M), {"r%d" % N: (VN - VM) & M32}, []),
+        ("add", rr(0x3, 0xC, N, M), (N, M), {"r%d" % N: (VN + VM) & M32}, []),
+        ("and", rr(0x2, 0x9, N, M), (N, M), {"r%d" % N: VN & VM}, []),
+        ("xor", rr(0x2, 0xA, N, M), (N, M), {"r%d" % N: VN ^ VM}, []),
+        ("or", rr(0x2, 0xB, N, M), (N, M), {"r%d" % N: VN | VM}, []),
+        ("mulu.w", rr(0x2, 0xE, N, M), (N, M),
+         {"macl": (VN & 0xFFFF) * (VM & 0xFFFF) & M32}, []),
+        ("mov", rr(0x6, 0x3, N, M), (N, M), {"r%d" % N: VM}, []),
+        ("not", rr(0x6, 0x7, N, M), (N, M), {"r%d" % N: ~VM & M32}, []),
+        ("extu.b", rr(0x6, 0xC, N, M), (N, M), {"r%d" % N: VM & 0xFF}, []),
+        ("exts.b", rr(0x6, 0xE, N, M), (N, M), {"r%d" % N: _sx(VM, 8) & M32}, []),
+        ("neg", rr(0x6, 0xB, N, M), (N, M), {"r%d" % N: (-VM) & M32}, []),
+        ("shld", rr(0x4, 0xD, N, M), (N, M),
+         {"r%d" % N: (VN << (VM & 31)) & M32}, []),
+        ("mul.l", rr(0x0, 0x7, N, M), (N, M),
+         {"macl": (VN * VM) & M32, "mach": 0}, []),
+        ("mac.l", rr(0x0, 0xF, N, M), (N, M),
+         {"mach": ((VN * VM) >> 32) & M32, "macl": (VN * VM) & M32}, []),
+        ("div0s", rr(0x2, 0x7, N, M), (N, M), {"sr": 0}, []),
+        ("mov.l Rm,@(R0,Rn)", rr(0x0, 0x6, N, M), (N, M), {},
+         [(D + 0x110, VM.to_bytes(4, "big"))],
+         {"r0": D + 0x10, "r%d" % N: 0x100}),
+        ("mov.l Rm,@-Rn", rr(0x2, 0x6, N, M), (N, M),
+         {"r%d" % N: (D + 0x200 - 4) & M32},
+         [((D + 0x200 - 4) & M32, VM.to_bytes(4, "big"))],
+         {"r%d" % N: D + 0x200}),
+    ]
+
+    for row in rows:
+        label, opcode, (rn, rm), expect_regs, expect_mem = row[:5]
+        setup = row[5] if len(row) > 5 else {}
+        engine = fresh(**setup)
+        for address, data in expect_mem:
+            engine.write_mem(address, data)
+        engine._execute(opcode, 0x8C000000)
+        form, trn, trm, _d = decode_fields(opcode)
+        _expect_equal(engine._arm, form, f"{label}: executor arm vs decode table")
+        _expect_equal((trn, trm), (rn, rm),
+                      f"{label}: decode_fields register fields")
+        snap = engine.get_regs()
+        for name, value in expect_regs.items():
+            _expect_equal(snap[name], value, f"{label}: {name}")
+        for address, data in expect_mem:
+            _expect_equal(bytes(engine.read_mem(address, len(data))), data,
+                          f"{label}: memory at {px(address)}")
+
+    # div0s sets T from Rn bit 31 and Q (sr bit 1) from Rm bit 31.
+    for rn_v, rm_v, want in ((0x80000000, 0, 0b100), (0, 0x80000000, 0b010),
+                             (0x80000000, 0x80000000, 0b110)):
+        e = fresh()
+        e.set_regs(**{"r%d" % N: rn_v, "r%d" % M: rm_v, "sr": 0})
+        e._execute(rr(0x2, 0x7, N, M), 0x8C000000)
+        _expect_equal(e.get_regs()["sr"] & 0b110, want,
+                      f"div0s M/Q from Rn={px(rn_v)} Rm={px(rm_v)}")
+        _expect_equal(e.get_regs()["sr"] & 1, 0, "div0s clears T")
+
+    # mov.w r0,@(disp,Rm): Rn is bits 7-4; r0 holds the value, not the base.
+    engine = fresh(r0=0x0000_ABCD, **{"r%d" % M: D + 0x40})
+    base = engine.get_regs()["r%d" % M]
+    opcode = 0x8100 | (M << 4) | 0x3                    # mov.w r0,@(6,Rm)
+    engine._execute(opcode, 0x8C000000)
+    _expect_equal(bytes(engine.read_mem(base + 6, 2)), b"\xab\xcd",
+                  "mov.w r0,@(disp,Rm) stores through Rm, not r0")
 
 
 def _run_with_alarm(seconds: int, func, *args, **kwargs):

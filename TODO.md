@@ -4011,8 +4011,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: a target that needs corpus files not obtainable in the session is listed `NOT RE-RUN` with the reason.
   - Claims: C-3580–C-3589
 
-- [ ] **M9.37 — Decoder audit: every instruction form PySh4 models, tested with distinct registers and compared with `sh4dis.py`**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.37 — Decoder audit: every instruction form PySh4 models, tested with distinct registers and compared with `sh4dis.py`**
+  - Status: done · Owner: task/m9.37-decoder-audit · Critical: yes
   - Depends: —
   - Goal: three decode defects survived five days of L3 work because the engine's own tests used operand values that hide a register mix-up (`n == 0`, `m == 0`). Make that class of defect impossible to miss, and know which opcodes of the firmware the engine cannot run at all.
   - Precheck: `python3 tools/l3_harness/engine.py --selftest`; `python3 tools/sh4dis.py --selftest`.
@@ -4022,6 +4022,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the selftest has one distinct-register case per modelled form; the differential check reports 0 disagreements or each one is fixed/explained; the census is in the EXP; the M9.36 targets still pass.
   - Stop: an opcode family that needs FPU or MMU state is listed as out of scope.
   - Claims: C-3590–C-3599
+  - Result: `docs/experiments/EXP-2026-11-19-M9.37-decoder-audit.md` (C-3590–C-3597). `decode_audit.py compare` reports 0 disagreements / 0 executor drift over 28,198 (EU Navi), 11,321 (EU nk), 28,151 (US Navi) MODELLED distinct opcodes; `census` buckets every other opcode (FPU/MMU/IN_SCOPE_UNMODELLED/TRAP) with counts. Added an independent `DECODE_TABLE`/`decode_fields` + drift test, structured `sh4dis` operands, distinct-register selftest, and modelled mac.l/mac.w/div0s (div1 stays in-scope-unmodelled). Fixed an exact-opcode mask defect (`0x0918` ran as `sett`). `div1` (513 EU Navi insns) needs M/DIV state; the follow-up M9.48 can model it if a target needs it.
 
 - [x] **M9.39 — A POINT010 page whose *records* differ: the L3 corpus M1.22 left to M9.10**
   - Status: done · Owner: task/m9.39-point010-mutant · Critical: no · Pair: required
@@ -4085,6 +4086,17 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: `python3 -m cProfile -s cumtime tools/nk_decomp.py section …` first — optimise what the profile shows, not the list above.
   - Done when: the benchmark is ≥ 8× faster with the same output SHA-256; `engine.py --selftest`, `selftest.py` and the M9.36 table are unchanged; the EXP has the profile before and after.
   - Stop: at 3× with the profile flat, record it and stop.
+  - Claims: none yet
+
+- [ ] **M9.48 — Model `div1`, the last integer form the engine rejects**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M9.37 (the decoder audit is its regression suite and census)
+  - Goal: `decode_audit.py census` leaves `div1` (`0x3?4`) as the only IN_SCOPE_UNMODELLED integer form: 513 EU and 217 nk instructions, counted but not runnable. It needs the M/Q bits and the divide step, not just T, so the H51-era tests never covered it.
+  - Precheck: `python3 tools/l3_harness/decode_audit.py census archive/head256.img Navi.exe --image-start 0x200200` prints `div1=513` with verdict `in-scope-unmodelled`; `engine.py --selftest` passes.
+  - Scope: `_exec_store` sub `0x4` (`div1 Rm,Rn`) and `_exec_alu` `div0s`/`div0u` M/Q handling in `tools/l3_harness/engine.py`; one distinct-register row plus a two-step `div0s;div1` control per sign case. No FPU/MMU, no decoder-table change.
+  - Input: the SH-4 manual divide-step pseudocode; `tools/l3_harness/decode_audit.py` (bucket moves IN_SCOPE_UNMODELLED → MODELLED).
+  - Done when: `div1` moves to MODELLED in the census (EU Navi 513, nk 217 instructions), `compare` still reports 0 disagreements / 0 drift, and `engine.py --selftest` has a div1 row that fails if M/Q are ignored.
+  - Stop: if the semantics cannot be pinned from the manual in one pass, keep it bucketed and record the negative rather than guessing.
   - Claims: none yet
 
 ## Retired leads
