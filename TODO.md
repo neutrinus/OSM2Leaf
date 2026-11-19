@@ -4187,7 +4187,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: none yet
 
 - [ ] **M9.45 — PySh4 ten times faster, measured on the decompressor**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m9.45-pysh4-speed · Critical: no · Pair: solo
   - Depends: M9.37 (the decoder audit is the regression suite for this change)
   - Goal: PySh4 runs about 260,000 instructions per second (H51: 183,114 instructions in 0.7 s). `nk_decomp.py check` takes ten minutes, and anything longer than one reader function is out of reach. Whole-task emulation (M9.44's mount machine, later a headless `Navi.exe` map task) needs an order of magnitude.
   - Precheck: `time python3 tools/nk_decomp.py section IMG256 --module Navi.exe --index 1` (about 16 s; the output SHA-256 is in EXP-2026-11-11-H51).
@@ -4195,7 +4195,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: `python3 -m cProfile -s cumtime tools/nk_decomp.py section …` first — optimise what the profile shows, not the list above.
   - Done when: the benchmark is ≥ 8× faster with the same output SHA-256; `engine.py --selftest`, `selftest.py` and the M9.36 table are unchanged; the EXP has the profile before and after.
   - Stop: at 3× with the profile flat, record it and stop.
-  - Claims: none yet
+  - Claims: C-5320–C-5329 (was none yet; fresh block for this run)
 
 - [x] **M9.48 — Model `div1`, the last integer form the engine rejects**
   - Status: done · Owner: task/m9.48-pysh4-div1 · Critical: no · Pair: solo
