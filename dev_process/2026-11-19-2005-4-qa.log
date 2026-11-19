@@ -1,0 +1,55 @@
+role: QA (test engineer) — delta pass
+model: opencode deepseek-v4.1-flash-free; in-process (subagent router down)
+start: 2026-11-19T20:05Z
+origin/main at start: 9654ad2
+
+inputs read:
+  docs/retro/2026-11-19.md (action 4 is mine), the cycle-15 QA log
+  2026-11-19-1340-4-qa.log, the four cycle-15 EXPs, gh run list on main,
+  l1l2_fixtures summary, gate.py.
+
+CI since the last QA pass: quality gate + L1/L2 green at every tip through
+9654ad2; the one "queued" row is the PO commit's run still starting, not a
+failure. Nothing to file from CI.
+
+delta in the L1-L4 matrix (only changed rows):
+  - L1: unchanged (H40 NOT COVERED, H103/H105 open).
+  - L2: **the P0 card exists.** M5.30's card b0faf119...33237 passes
+    cardcheck (480 files), 7z t, fsck.fat -n, and its diff is 586 ranges /
+    152,815 B with outside 0 under --allow-metadata (strict outside 9). This is
+    the first L2 row whose evidence is a whole card with an enumerated change
+    set, so the L2 row's evidence now names the card SHA instead of "factory
+    run by hand". The CI row is still unchanged: l1l2_fixtures has no
+    real-tile case by design (vendor ROOT out of scope), so this stays a
+    hand-run L2 proof, honestly labelled.
+  - L2 writer guards: M5.48 added a pre-existing --out refusal (exit 2, no
+    report) and a run-created-tree removal on failure; that is a new L2
+    negative-control row (a refused run must not look like a card).
+  - L3: M3.27 landed (the three reader VAs' arguments, statically) but L3's
+    runnable count is unchanged (1/37 rows; the tile reader still has no run).
+    M9.37/M9.38 are live in the concurrent batch (#237, #241) and are not
+    counted until they merge.
+  - L4: unchanged; M8.A3/H110 still open, A2/A10 done.
+  - Regression gate: unchanged; H92's prose-count mode is still blocked on
+    H111. The gate green is 4 pass / 0 fail / 0 skip.
+
+the two retro numbers (action 4): navigator defects this batch = 4, one per
+task: M3.27 fabricated VA2 r5 (2 decoders), M5.30 cluster arithmetic 115,187
+vs 115,185 + restated reproduction, M5.47 EXP replaced instead of corrected,
+M5.48 pre-existing --out contents replaced. Rounds 3/3/2/2.
+
+local checks: l1l2_fixtures rc 0; gate 4 pass; todo_check OK; claims_check OK.
+
+tasks: none added. The only new gaps are M5.51 (per-range metadata reasons,
+already filed by the SE) and the L1/L4 gaps that already have H40/H103/H110/
+H111. Adding a second block for the same gap is the "H band doubles" failure.
+
+uncertainty: I did not re-run realcheck (it needs the 256 MiB head and runs
+better in a worktree with the symlink); the gate's fn_audit PASS already used
+it this pass.
+
+handoff:
+  - TL: when M9.37/M9.38 merge, add two L3 rows (decoder audit, read-watch) to
+    this matrix; they are the next L3 movement.
+  - QA next pass: if H111 lands, the prose-count row moves from "exists but not
+    standing" to the regression gate.
