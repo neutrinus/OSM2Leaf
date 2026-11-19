@@ -2975,7 +2975,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-4560–C-4569
 
 - [ ] **M5.48 — `tilewriter` leaves a partial `--out` tree when the build fails, so a failed run looks like a card**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.48-partial-out · Critical: no · Pair: solo
   - Depends: — (the behaviour is on `main`; `one_tile_pipeline` copies the factory root before the tile build)
   - Goal: M5.44's and M5.45's refused runs both leave a full copy of the factory root at `--out` with no tile change (M5.44's EXP records it as a candidate task). A later script that tests `os.path.isdir(out)` reads a failed run as a built card; the M5.35 bundle and the M7.1 mass run both do that kind of test. The fix is one cleanup path plus one check that a later task can rely on.
   - Precheck: `python3 tools/one_tile_pipeline.py --selftest` passes; in a scratch dir, `--parcel` a preserve-only directory and `ls --out | wc -l` prints 480 with the run's exit non-zero.
