@@ -36,3 +36,18 @@ Dead ends: l2check cannot read an image (root tree only); /tmp is 3.8 GiB and
 l2check filled it — rerun with TMPDIR in the scratch dir.
 Handoff: navigator — check the C-3067 flaky-selftest note and the fsync copy
 time; status deliberately left in progress (driver does not mark done).
+
+Round 2 (navigator CHANGES):
+- Geometry prose fixed to 115,185 data clusters / last 115,186 / phantom=14
+  (code was already right), re-quoted from the one-line print in the EXP.
+- Reproduction/ Method now cp then patch in place (no -o), with a FAT read-back;
+  the in-place rebuild reproduces the same final card b0faf119…; af962c30…
+  is the card after the tile call alone (output_sha256), now named as such.
+- Planted-byte literal 0xc99c547b; C-3066 and §5 fixed.
+- --allow-metadata reworded to whole FAT/FSInfo sectors; the planted FAT/FSInfo
+  control (metadata 11/29, strict outside 11) is in C-3063/§5.
+- Independent FAT check: 7z t -> Everything is Ok; fsck.fat -n on the partition
+  slice (LBA 204802) -> 115185 data clusters, 520 files, 79336/115185, exit 1
+  only for label/dirty-bit findings present on the factory slice too.
+- 4,412 -> 4,415; C-3067 dropped (ledger ends at C-3066); corrections section
+  filled with items 1-8.

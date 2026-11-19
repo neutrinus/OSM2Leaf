@@ -579,11 +579,12 @@ def alloc_clusters(fat: bytearray, count: int, start_hint: int = 2,
     ``max_cluster`` is the highest cluster the caller's geometry can address
     (``FatGeo`` data clusters: ``(total_sectors - reserved - fat_count *
     fat_sectors) // spc``). It is optional because the FAT length is not the
-    partition bound: the EU 2011 card has 115,200 FAT entries but only 115,187
-    data clusters, so allocating to ``len(fat) // 4`` hands out addresses with
-    no bytes inside the partition (M5.30, EXP-2026-11-19-M5.47). Callers that
-    hold a ``FatGeo`` (``imgpatch``) pass the bound; the fresh-build path keeps
-    the historical behaviour of stopping at the FAT end.
+    partition bound: the EU 2011 card has 115,200 FAT entries but only 115,185
+    data clusters (last valid 115,186), so allocating to ``len(fat) // 4``
+    hands out addresses with no bytes inside the partition (M5.30,
+    EXP-2026-11-19-M5.30-one-variable-card). Callers that hold a ``FatGeo``
+    (``imgpatch``) pass the bound; the fresh-build path keeps the historical
+    behaviour of stopping at the FAT end.
     """
     if count <= 0:
         return []

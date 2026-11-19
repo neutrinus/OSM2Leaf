@@ -135,7 +135,8 @@ def _cluster_count(geo: mkcard.FatGeo) -> int:
     """Data clusters addressable by the BPB.
 
     The FAT is often longer than the partition's data area (the EU 2011 card
-    has 115,200 FAT entries for 115,187 clusters), so its length must not be
+    has 115,200 FAT entries for 115,185 clusters: 14,743,768 data sectors at
+    128 sectors/cluster, last valid cluster 115,186), so its length must not be
     used as the allocation bound: a cluster past ``last_valid`` has no bytes
     inside the partition. ``alloc_clusters`` cannot know the geometry; callers
     that hold a ``FatGeo`` must pass this bound to it (M5.30 / EXP-M5.47).
@@ -684,11 +685,13 @@ def check_diff_ranges(image, reference, files, *, limit: int = 10**7,
 
     The allowed ranges come from ``allowed_ranges_from_bpb`` on ``image`` (an
     independent BPB+FAT read), never from patch write offsets. A mismatch is
-    any diff outside the file bytes. With ``allow_metadata`` the FAT sectors
-    and the FSInfo sectors are an additional allowed class, reported
-    separately: a size change must rewrite FAT links and the FSInfo count, and
-    those are not file bytes (M5.30). A diff anywhere else -- including a FAT
-    sector byte the patch plan did not name -- still fails.
+    any diff outside the file bytes. With ``allow_metadata`` the whole FAT
+    sectors and the whole FSInfo sectors are an additional allowed class,
+    reported separately: a size change must rewrite FAT links and the FSInfo
+    count, and those are not file bytes (M5.30). The class is whole-sector, not
+    the named fields: any byte outside the FAT/FSInfo sectors and the files'
+    clusters/directory entries still fails, and strict mode (no flag) plus the
+    per-range classification bound what the flag admits.
     """
     ref_path = Path(reference)
     img_path = Path(image)
