@@ -4012,7 +4012,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3580–C-3589
 
 - [ ] **M9.37 — Decoder audit: every instruction form PySh4 models, tested with distinct registers and compared with `sh4dis.py`**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m9.37-decoder-audit · Critical: yes
   - Depends: —
   - Goal: three decode defects survived five days of L3 work because the engine's own tests used operand values that hide a register mix-up (`n == 0`, `m == 0`). Make that class of defect impossible to miss, and know which opcodes of the firmware the engine cannot run at all.
   - Precheck: `python3 tools/l3_harness/engine.py --selftest`; `python3 tools/sh4dis.py --selftest`.
