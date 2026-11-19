@@ -566,6 +566,17 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | CMP chunk engine | `0x0041c7dc` | `0x00444540` | masked-form twin (111/111 halfwords); its own pool names the relocated helpers |
 | zlib `inflate_mask[17]` | `0x00574de0` | `0x005987b0` | the `shll2 r2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site, unique per build |
 | zlib `zcalloc`/`zcfree` | `0x00543a98`/`0x00543aa8` | `0x00565d94`/`0x00565da4` | the 6-halfword trampoline shape, one calloc and one free hit per build |
+| POINT globals base/count/page | `0x00d5e4c0`/`0x00d5e4d0`/`0x00d5e4e4` | `0x00c8c0c0`/`0x00c8c0d0`/`0x00c8c0e4` | the skip walker's own pool; same offsets inside the RW block, moved block |
+| POINT escape record length (halfwords) | `0x4e8` | `0x4d8` | the nth reader's one differing pool word |
+| chunk helpers memcpy/mod/mod31 | `0x003d146c`/`0x003d140c`/`0x003d1484` | `0x00400944`/`0x004008e4`/`0x0040098c` | the chunk engine's own pool slots (COREDLL thunks) |
+| zlib inflate wrapper | `0x00542148` | `0x00564444` | the chunk engine's own pool slot |
+
+The table is a checked copy, not a source: the values are owned by
+[`tools/build_targets.py`](../../tools/build_targets.py) (M1.32), from which
+`point_walk_l3`/`chunk_decoder_l3` `BUILD_TARGETS` and `fn_audit`'s
+`US_BUILD_STARTS` are derived; `python3 tools/build_targets.py check` diffs
+this table and `tools/l3_harness/targets.json` against it (`TOTAL
+only-in-*: 0`).
 
 Both runs `PASS`; the chunk engine's output is byte-identical to
 `cmpind.decode`, and the walker reproduces `parse_page` offsets for all nine
