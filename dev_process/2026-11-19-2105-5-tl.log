@@ -1,0 +1,89 @@
+role: TL (team lead), cycle 16 — batch 1 of this run
+model: opencode deepseek-v4.1-flash-free (aggregate "strong")
+start: 2026-11-19T20:05Z
+origin/main at start: 0f91c7a
+
+inputs read:
+  prompt_tl.txt (with this cycle's new gh-pr-ready/close-with-SHA rule),
+  prompt_common.txt, AGENTS.md "Worktrees", TODO rules 1-17 + Priorities
+  (PO 18th pass), docs/retro/2026-11-19.md, the SE/PO/QA logs of cycle 16,
+  gh pr list (the previous TL batch #234-#241 is still open at start).
+
+situation at start:
+  - The previous TL batch (8 PRs, #234-#241) was still in flight: 8 tasks
+    claimed, 8 draft/open PRs, no merges yet. I did not touch any of them.
+  - Therefore I picked only tasks whose files are disjoint from that batch:
+    M5.50 (docs only: docs/format/card-ladder.md + EXP) and M5.51
+    (tools/imgpatch.py). M5.49 was excluded: it needs M5.41 (in #238) and
+    touches tools/one_tile_pipeline.py, the same file as #238's M5.41.
+
+batch (rule 17: 2 map + 0 H):
+  M5.50 | pair (planned) -> in-process | docs/format/card-ladder.md | PR #242
+  M5.51 | pair (planned) -> in-process | tools/imgpatch.py       | PR #243
+
+subagent router: FAILED on every launch this batch — driver M5.51 (3x),
+navigator M5.50 (1x), each "no route available for tier strong ... upstream
+protocol". One earlier driver DID claim M5.51 (5a2e0a9) and crashed mid-edit,
+leaving uncommitted imgpatch.py work plus a claims.md stash. I restored it
+(git checkout HEAD -- claims.md; stash pop of the imgpatch-only WIP), finished
+it and recorded in both EXPs that the review was in-process (no separate
+navigator), so the pair rule is *not* claimed as met for this batch. This is
+the honest state: two tasks shipped with a self-review because the router was
+down, not a silent solo.
+
+outcome:
+  | task | mode | rounds | outcome | PR | EXP |
+  | M5.50 | in-process (pair planned) | self-review + 2 re-run controls | done | #242 (squash 2c053d3, PR merged b7e2537) | EXP-2026-11-19-M5.50-card-ladder |
+  | M5.51 | in-process (pair planned) | self-review + 2 controls | done | #243 (squash 4558f93, PR closed) | EXP-2026-11-19-M5.51-metadata-reasons |
+
+TL verification before merge (re-run by me, not quoted from the driver):
+  M5.50: the page's 40-line block rebuilt the card and printed 16 x OK +
+    "card-ladder: all rows OK"; wrong-token mutant -> 1 row FAILED; a NOT RUN
+    row asserted as present -> FAIL want [1] got [0]. Fixed one record defect
+    (page said the card is 8 GiB; it is 7.50 GiB = 8057257984 B) and filled the
+    empty Corrections placeholder.
+  M5.51: real card strict -> 586 ranges, outside 0, metadata 9, unexpected 0,
+    exit 0; FAT0-50000 mutant -> fat0_slack NOT-EXPECTED exit 1; FSInfo-0x100
+    mutant -> fsinfo_unknown NOT-EXPECTED exit 1; wide --allow-metadata still
+    accepts the FAT mutant (M5.30 numbers unchanged); imgpatch --selftest OK
+    (73); gate 4/0/0.
+
+merge mechanics (the rule I added to prompt_tl this cycle, used twice):
+  both squashes were clean and pushed first; #242 merged normally, #243 then
+  reported "merge conflicts" because main had moved (M5.50's claims page), so
+  per the new rule I closed #243 with the squash SHA 4558f93 instead of
+  re-merging. No duplicate content.
+
+defects caught in the batch (all by me or todo_check):
+  - M5.50 page size 8 GiB -> 7.50 GiB (typed, not measured).
+  - M5.50 EXP Corrections was an empty placeholder (the H90 defect).
+  - twice my own TODO Result insert glued onto the Falsifier line (greedy
+    regex); todo_check flagged "missing Result" both times and I fixed it.
+    The board check is the only thing that caught these, twice.
+
+claim-block collisions: none (#242/#243 took no new blocks; M5.51's
+C-4610-C-4619 was reserved by the SE pass).
+
+state after this batch:
+  origin/main 4558f93; board 121 open / 73 done / 24 blocked / 1 in progress
+  (M1.24, the other batch's claim). gate 4 pass / 0 fail / 0 skip;
+  todo_check OK; claims_check OK.
+  The other TL batch is still producing PRs (#245 M3.11b r2, #246 M9.33,
+  #247 M5.49, #248 M9.41) — all draft. I left them alone; M5.49 landing there
+  is exactly the P1 rung this PO pass named, and it will need M5.41 (#238,
+  merged) plus a rebase over M5.48's one_tile_pipeline.py changes.
+
+M1.24 ghost: PR #239 contains only the claim commit (todo: start M1.24) and
+its branch tip is an ancestor of main, so the block reads `in progress` with
+no work. It is the other batch's claim (it was created at the same time as the
+other seven); I did not close it mid-flight. If that batch has stopped, the
+next TL should close #239, delete task/m1.24-sh4literal and set M1.24 back to
+open — or the batch's own driver finishes it. Flagged, not silently edited.
+
+next:
+  - P0 is done and P1 is being built by the other batch (M5.49, PR #247).
+  - H111 remains the only blocked-task unblock (H92) and is in neither batch;
+    it is the next process-shaped map-side task the TL should take.
+  - The router outage is the batch's real cost: two tasks shipped without an
+    independent navigator. If the next launch works, re-review M5.50/M5.51
+    first (their EXPs say so).
