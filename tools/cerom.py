@@ -3785,6 +3785,34 @@ def selftest():
             "code-identical %d / code-different 0" % ((nmods,) * 4)) in buf.getvalue(),
            True)
 
+    # --- M1.19: the kernel-routine verdict (fake nk_decomp, no vendor data)
+    psize, vsize = 0x40, 0x100
+    hdr = (struct.pack("<I", 0x30)[:3] + struct.pack("<I", psize)[:3]
+           + struct.pack("<IIII", COMPHDR_FLAGS, 0x30, psize - 22, 0x30))
+    payload = hdr + bytes(psize - len(hdr))
+    ok("kernel test header HOLDS", classify_comphdr(payload, psize, vsize)["verdict"], "HOLDS")
+    import types
+    fake_r0 = {"n": 0x30}
+    fake = types.SimpleNamespace(decode_cached=lambda d, off, ps, vs, m, i: (
+        fake_r0["n"], b"\x5a" * fake_r0["n"], "nk_decomp"))
+    saved = sys.modules.get("nk_decomp")
+    sys.modules["nk_decomp"] = fake
+    try:
+        kd = KernelDecoder(payload)
+        sec = {"psize": psize, "vsize": vsize}
+        blob, info, err = kd.decode(payload, 0, sec, "M.dll", 1, payload)
+        ok("kernel r0 == uncompressed_len is OK, init + zero BSS",
+           (err, len(blob), blob[0x2f:0x31], info["r0"]), (None, vsize, b"\x5a\x00", 0x30))
+        fake_r0["n"] = 0x2f
+        blob, info, err = kd.decode(payload, 0, sec, "M.dll", 1, payload)
+        ok("kernel r0 != uncompressed_len is refused",
+           (blob, "!= comphdr uncompressed_len 0x30" in (err or "")), (None, True))
+    finally:
+        if saved is None:
+            sys.modules.pop("nk_decomp", None)
+        else:
+            sys.modules["nk_decomp"] = saved
+
     print("cerom selftest: %d checks OK (synthetic ROM, no vendor data)" % len(checks))
     return 0
 

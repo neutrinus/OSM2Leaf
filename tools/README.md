@@ -355,9 +355,23 @@ python3 tools/nk_decomp.py --selftest
 python3 tools/nk_decomp.py section IMG256 --module Navi.exe --index 1 -o sec1.bin
 python3 tools/nk_decomp.py check IMG256                 # 245 OK, ~10 min
 python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x0041c7e8 0x0041c7dc  # INSIDE then START
+python3 tools/nk_decomp.py check IMG256 --cache         # same, and fills the decode cache
+python3 tools/cerom.py --image-start 0x200200 IMG256 decompress --check   # 245 OK (r0 == comphdr), M1.19
 ```
 
 Decoded bytes are vendor data: keep them under `archive/`, never commit them.
+
+**Library interface (M1.19).** Other tools call `nk_decomp.section_init(data,
+MODULE, INDEX)` (the `r0` stored bytes) or `nk_decomp.section_bytes(...)`
+(stored bytes + zero BSS to `vsize`); `data = nk_decomp.load_image(PATH)`.
+Both go through a content-addressed cache, one file per section
+(`<module>.sec<N>.<sha12 of stored bytes+vsize>.bin`) in
+`$OSM2LEAF_DECOMP_CACHE` or `archive/work/decomp/`; a decode that returns
+`-1` raises `DecompError` and is never cached. `cerom.py decompress` falls back
+to this routine when the pure-Python codecs say `UNSUPPORTED` (`--method
+kernel` skips them), `rommap.py --init-from-image` maps compressed sections
+with their decoded bytes, and `runner.py run cmp_ind_reader` reads
+`inflate_mask[17]` from the image (`sec1_table.source: image`).
 
 ## `pdata.py` — the function table of every module, and the census (M1.20/H51)
 
@@ -786,6 +800,7 @@ are labelled and based on documented budgets, not measurements.
 python3 tools/l3_harness/selftest.py
 python3 tools/l3_harness/rommap.py convert --report cerom.json --out ghidra-map.json
 python3 tools/l3_harness/rommap.py convert --report cerom.json --module Navi.exe   --bss-zero --init-guard --image IMG256 --image-start 0x200200 --resolve-with 0x3e00200   --out ghidra-map-guarded.json   # M9.35: zero BSS + bound IAT + INIT guard
+python3 tools/l3_harness/rommap.py convert --report cerom.json --module Navi.exe   --init-from-image --image IMG256 --image-start 0x200200 --resolve-with 0x3e00200   --out ghidra-map-init.json   # M1.19: decoded INIT + zero BSS + bound IAT, no guard
 python3 tools/l3_harness/runner.py check --manifest corpus.json
 python3 tools/l3_harness/runner.py targets
 python3 tools/l3_harness/runner.py run probe-zlib-cmf --input FILE --json
