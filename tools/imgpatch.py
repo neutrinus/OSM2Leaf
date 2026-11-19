@@ -613,13 +613,151 @@ def _outside_ranges(ranges, allowed):
     return outside
 
 
-def allowed_ranges_from_bpb(image, files) -> dict:
+def _metadata_markers(geo, files, ref_fat: bytes, ref_handle, ref_geo,
+                      img_fat: bytes) -> dict:
+    """Where a file allocation may legitimately change metadata.
+
+    ``files`` is a list of (rel, new_chain); ``ref_fat``/``ref_handle``/
+    ``ref_geo`` are an independent read of the reference and ``img_fat`` the
+    independent read of the patched image. An entry is *expected* only when it
+    lies on the replaced file's old or new chain and its 28-bit value actually
+    changed. A relocation rewrites only those entries (``fat{0,1}_link``) and,
+    when the allocation changed, the FSInfo free-count / next-free words
+    (``fsinfo_free`` / ``fsinfo_nxt``). Every other FAT entry, FSInfo byte or
+    sector byte is ``fat{0,1}_slack`` / ``fsinfo_unknown`` -- not a link of the
+    move, refused by strict mode (M5.51).
+    """
+    entries: dict[int, dict] = {}
+    grew = False
+    for rel, new_chain in files:
+        if not new_chain:
+            continue
+        try:
+            ref_info = _locate(ref_handle, ref_geo, ref_fat, rel)
+        except PatchError:
+            ref_info = None
+        old_chain = (mkcard.chain(ref_fat, ref_info["cluster"])
+                     if ref_info and ref_info["cluster"] else [])
+        if len(new_chain) > len(old_chain):
+            grew = True
+        for cluster in sorted(set(old_chain) | set(new_chain)):
+            before = (mkcard.fat_get(ref_fat, cluster)
+                      if cluster in old_chain else 0)
+            after = mkcard.fat_get(img_fat, cluster)
+            if before == after:
+                continue
+            entries[cluster] = {"file": rel, "cluster": cluster,
+                                "before": before, "after": after,
+                                "old": cluster in old_chain,
+                                "new": cluster in new_chain,
+                                "field": "link" if after != 0 else "free"}
+
+    last_valid = _cluster_count(geo) + 1
+    ref_free = sum(1 for c in range(2, last_valid + 1)
+                   if mkcard.fat_get(ref_fat, c) == 0)
+    img_free = sum(1 for c in range(2, last_valid + 1)
+                   if mkcard.fat_get(img_fat, c) == 0)
+    free_expected = ref_free != img_free
+
+    fsinfo = []
+    for label, sector in (("primary", geo.fsinfo_sector),
+                          ("backup", geo.backup_boot + geo.fsinfo_sector
+                           if geo.backup_boot else 0)):
+        if not sector or sector >= geo.reserved:
+            continue
+        base = geo.part_offset + sector * geo.bps
+        ref_handle.seek(base)
+        block = ref_handle.read(geo.bps)
+        if len(block) < geo.bps or block[0:4] != b"RRaA":
+            continue
+        fsinfo.append({"sector": label, "base": base,
+                       "free": mkcard._u32(block, 0x1E8),
+                       "hint": mkcard._u32(block, 0x1EC),
+                       "free_expected": free_expected
+                       and mkcard._u32(block, 0x1E8) != 0xFFFFFFFF,
+                       "nxt_expected": grew})
+    return {"entries": entries, "fsinfo": fsinfo,
+            "fat": {"offset": geo.fat_offset, "bytes": geo.fat_bytes,
+                    "count": geo.fat_count}}
+
+
+def _metadata_reason(start: int, end: int, info: dict) -> dict:
+    """Reason for a metadata diff range: which FAT entry/copy and byte it
+    covers, or which FSInfo field. A byte outside the move's own entries is
+    ``fat{0,1}_slack``; a byte outside an expected FSInfo word is
+    ``fsinfo_unknown``. Neither is a link of the move (M5.51)."""
+    entries = info.get("entries") or {}
+    fsinfo = info.get("fsinfo") or []
+    fat_geo = info.get("fat") or {}
+    count = fat_geo.get("count") or 0
+    bytes_ = fat_geo.get("bytes") or 0
+    base_fat = fat_geo.get("offset") or 0
+    for copy in range(count):
+        f0 = base_fat + copy * bytes_
+        if start >= f0 and end <= f0 + bytes_:
+            first = (start - f0) // 4
+            last = (end - 1 - f0) // 4
+            entry = entries.get(first) if first == last else None
+            if entry is not None and f0 + first * 4 <= start \
+                    and end <= f0 + first * 4 + 4:
+                return {"kind": "fat", "entry": first, "copy": copy,
+                        "entry_offset": f0 + first * 4,
+                        "byte_offset": start - (f0 + first * 4),
+                        "file": entry.get("file"),
+                        "before": entry.get("before"),
+                        "after": entry.get("after"),
+                        "field": entry.get("field"),
+                        "reason": f"fat{copy}_link"}
+            return {"kind": "fat", "entry": first, "copy": copy,
+                    "entry_offset": f0 + first * 4,
+                    "byte_offset": start - (f0 + first * 4),
+                    "file": None, "before": None, "after": None,
+                    "field": "slack", "reason": f"fat{copy}_slack"}
+    for sector in fsinfo:
+        base = sector["base"]
+        if base + 0x1E8 <= start and end <= base + 0x1EC:
+            reason = ("fsinfo_free" if sector["free_expected"]
+                      else "fsinfo_unknown")
+            return {"kind": "fsinfo", "sector": sector["sector"],
+                    "field_name": "free",
+                    "byte_offset": start - base - 0x1E8,
+                    "field": "free", "reason": reason}
+        if base + 0x1EC <= start and end <= base + 0x1F0:
+            reason = ("fsinfo_nxt" if sector["nxt_expected"]
+                      else "fsinfo_unknown")
+            return {"kind": "fsinfo", "sector": sector["sector"],
+                    "field_name": "nxt",
+                    "byte_offset": start - base - 0x1EC,
+                    "field": "nxt", "reason": reason}
+    return {"kind": "unknown", "field": "unknown", "reason": "fsinfo_unknown"}
+
+
+_EXPECTED_REASONS = frozenset(("fat0_link", "fat1_link",
+                               "fsinfo_free", "fsinfo_nxt"))
+
+
+def _expected_metadata_reason(reason: dict) -> bool:
+    """Whether a range's reason is one of the move's expected link fields.
+
+    Expected: a byte of a FAT entry that lies on the replaced files' old or new
+    chain and whose value actually changed, in each FAT copy
+    (``fat0_link`` / ``fat1_link``), and the FSInfo free-count / next-free
+    words when the allocation changed (``fsinfo_free`` / ``fsinfo_nxt``).
+    ``fat*_slack`` and ``fsinfo_unknown`` are not links of the move -- the
+    M5.51 falsifier, refused by ``--strict-metadata``.
+    """
+    return reason.get("reason") in _EXPECTED_REASONS
+
+
+def allowed_ranges_from_bpb(image, files, *, reference=None) -> dict:
     """Resolve each replaced file's clusters and dir entry from an independent
     BPB+FAT read, not from a patch plan or write offset.
 
     ``image`` is the patched image. Returns the allowed byte ranges (cluster
     data for each file's chain plus its 32-byte directory entry) and the
-    per-file metadata the independent read produced.
+    per-file metadata the independent read produced. With ``reference`` the
+    move's expected FAT links and FSInfo fields are resolved from a second
+    independent read, so each metadata range can carry a per-entry reason.
     """
     image_path = Path(image)
     if not image_path.is_file():
@@ -667,20 +805,43 @@ def allowed_ranges_from_bpb(image, files) -> dict:
                     off = geo.part_offset + sector * geo.bps
                     fsinfo_ranges.append((off, off + geo.bps))
             metadata = _merge_ranges(fat_ranges + fsinfo_ranges)
+            markers = None
+            if reference is not None:
+                # The move's expected links come from a second independent read
+                # (the reference image's FAT + FSInfo), so a metadata range can
+                # be named per FAT entry / FSInfo word instead of per sector
+                # (M5.51). Without it the class stays whole-sector (M5.30).
+                ref_path = Path(reference)
+                if not ref_path.is_file():
+                    raise PatchError("image-not-found",
+                                     f"{ref_path}: no such image")
+                with ref_path.open("rb") as ref_handle:
+                    try:
+                        _rp, ref_geo, ref_fat = mkcard.open_map_partition(ref_handle)
+                    except ValueError as exc:
+                        raise PatchError("not-fat32",
+                                         f"{ref_path}: {exc}") from exc
+                    markers = _metadata_markers(
+                        geo,
+                        [(f["file"], f["chain"]) for f in per_file],
+                        ref_fat, ref_handle, ref_geo, fat)
     except PatchError:
         raise
     except (ValueError, struct.error, OSError) as exc:
         raise PatchError("bad-image", f"{image_path}: {exc}") from exc
     return {
         "image": str(image_path),
+        "reference": str(reference) if reference is not None else None,
         "files": per_file,
         "allowed_ranges": _merge_ranges(allowed),
         "metadata_ranges": metadata,
+        "metadata_markers": markers,
     }
 
 
 def check_diff_ranges(image, reference, files, *, limit: int = 10**7,
-                      allow_metadata: bool = False) -> dict:
+                      allow_metadata: bool = False,
+                      strict_metadata: bool = False) -> dict:
     """Verify every byte diff lies in replaced-file clusters/dir entries.
 
     The allowed ranges come from ``allowed_ranges_from_bpb`` on ``image`` (an
@@ -692,12 +853,25 @@ def check_diff_ranges(image, reference, files, *, limit: int = 10**7,
     the named fields: any byte outside the FAT/FSInfo sectors and the files'
     clusters/directory entries still fails, and strict mode (no flag) plus the
     per-range classification bound what the flag admits.
+
+    With ``reference`` each metadata range is *named* (``fat0_link`` /
+    ``fat1_link`` for the FAT entry copy it covers, ``fsinfo_free`` /
+    ``fsinfo_nxt`` for the FSInfo word) by a second independent read of the
+    reference's FAT and FSInfo (M5.51). ``strict_metadata`` additionally fails
+    any metadata range whose reason is not one of the move's own expected link
+    fields -- a byte in FAT slack (any entry not on the old/new chain) or in an
+    FSInfo byte that is not a free-count/next-free word is refused, so a
+    whole-sector class becomes a named one. Strict mode implies
+    ``allow_metadata`` (the named ranges are still admitted).
     """
+    strict_metadata = strict_metadata or False
+    if strict_metadata:
+        allow_metadata = True
     ref_path = Path(reference)
     img_path = Path(image)
     if not ref_path.is_file():
         raise PatchError("image-not-found", f"{ref_path}: no such image")
-    allowed = allowed_ranges_from_bpb(image, files)
+    allowed = allowed_ranges_from_bpb(image, files, reference=ref_path)
     diff = mkcard.diff_ranges(ref_path, img_path, limit=limit)
     if allow_metadata:
         permitted = _merge_ranges(list(allowed["allowed_ranges"])
@@ -708,6 +882,26 @@ def check_diff_ranges(image, reference, files, *, limit: int = 10**7,
     else:
         outside = _outside_ranges(diff, allowed["allowed_ranges"])
         in_metadata = []
+    # Name every metadata range: which FAT entry (and copy) or FSInfo word it
+    # covers, or that it is slack / unknown -- the per-range reason that the
+    # whole-sector class lacked (M5.51). ``unexpected_metadata`` is what strict
+    # mode refuses; without a reference read every range is unnamed.
+    markers = allowed.get("metadata_markers")
+    metadata_reasons = []
+    unexpected = []
+    for start, end in in_metadata:
+        if markers is None:
+            reason = {"kind": "unknown", "field": "unknown",
+                      "reason": "unnamed",
+                      "expected": False}
+        else:
+            reason = _metadata_reason(start, end, markers)
+            reason["expected"] = _expected_metadata_reason(reason)
+        reason = dict(reason, start=start, end=end, bytes=end - start)
+        metadata_reasons.append(reason)
+        if not reason["expected"]:
+            unexpected.append(reason)
+    strict_fail = strict_metadata and bool(unexpected)
     # Attribute every differing byte to the class of range it falls in, so the
     # record can say "N ranges / M bytes in file data, dir entries, metadata"
     # without listing each run, and any unclassified byte is visible (M5.30).
@@ -730,16 +924,19 @@ def check_diff_ranges(image, reference, files, *, limit: int = 10**7,
             bucket["bytes"] += segment["bytes"]
     result = {
         "mode": "check-diff",
-        "ok": not outside,
+        "ok": not outside and not strict_fail,
         "image": str(img_path),
         "reference": str(ref_path),
         "method": "mkcard.diff_ranges classified against independent BPB+FAT ranges",
         "allow_metadata": allow_metadata,
+        "strict_metadata": strict_metadata,
         "diff_range_count": len(diff),
         "diff_bytes": sum(e - s for s, e in diff),
         "classification": classification,
         "diff_ranges_sample": diff[:50],
         "metadata_diff_ranges": in_metadata,
+        "metadata_reasons": metadata_reasons,
+        "unexpected_metadata_count": len(unexpected),
         "outside_range_count": len(outside),
         "outside_ranges_sample": outside[:50],
         "files": allowed["files"],
@@ -747,6 +944,26 @@ def check_diff_ranges(image, reference, files, *, limit: int = 10**7,
         "metadata_ranges": allowed["metadata_ranges"],
     }
     return result
+
+
+def _describe_metadata_reason(reason: dict) -> str:
+    """One-line human description of a metadata range's reason."""
+    tag = reason.get("reason") or "unknown"
+    if reason.get("kind") == "fat":
+        entry = reason.get("entry")
+        field = reason.get("field")
+        detail = (f"FAT copy {reason.get('copy')} entry {entry} "
+                  f"(cluster {entry})")
+        if field == "link":
+            detail += (f" link {reason.get('before')} -> {reason.get('after')}"
+                       f" for {reason.get('file')}")
+        else:
+            detail += " not on the move's old/new chain (slack)"
+        return f"{tag}: {detail}"
+    if reason.get("kind") == "fsinfo":
+        return (f"{tag}: FSInfo {reason.get('sector')} sector "
+                f"{reason.get('field_name')} word")
+    return f"{tag}: not a FAT copy or an FSInfo sector of the move"
 
 
 def _print_check_diff(result: dict) -> None:
@@ -758,6 +975,9 @@ def _print_check_diff(result: dict) -> None:
     print(f"  diffs: {result['diff_range_count']} range(s), "
           f"outside: {result['outside_range_count']}, "
           f"metadata: {len(result.get('metadata_diff_ranges') or [])}")
+    if result.get("strict_metadata"):
+        print(f"  strict:    on, unexpected metadata: "
+              f"{result.get('unexpected_metadata_count', 0)}")
     for kind, bucket in sorted((result.get("classification") or {}).items()):
         print(f"  class: {kind:<24} {bucket['ranges']} range(s) / {bucket['bytes']} B")
     for item in result["files"]:
@@ -765,8 +985,16 @@ def _print_check_diff(result: dict) -> None:
               f"clusters {len(item['chain'])} (@{item['chain'][:3]}…{item['chain'][-2:]})")
         print(f"        dir entry 0x{item['dir_entry']['offset']:08x}  "
               f"(independent BPB+FAT read)")
-    for start, end in result.get("metadata_diff_ranges") or []:
-        print(f"  METADATA 0x{start:08x}-0x{end:08x}  ({end - start} B)")
+    reasons = result.get("metadata_reasons") or []
+    if reasons:
+        for reason in reasons:
+            mark = "" if reason.get("expected") else "  NOT-EXPECTED"
+            print(f"  METADATA 0x{reason['start']:08x}-0x{reason['end']:08x}"
+                  f"  ({reason['bytes']} B)  {_describe_metadata_reason(reason)}"
+                  f"{mark}")
+    else:
+        for start, end in result.get("metadata_diff_ranges") or []:
+            print(f"  METADATA 0x{start:08x}-0x{end:08x}  ({end - start} B)")
     if result["outside_ranges_sample"]:
         for start, end in result["outside_ranges_sample"][:10]:
             print(f"  OUTSIDE 0x{start:08x}-0x{end:08x}  ({end - start} B)")
@@ -1208,6 +1436,61 @@ def selftest() -> int:
               and "unclassified_in_envelope" in dc4["classification"],
               str(sorted(dc4["classification"])))
 
+        # --- 9b. per-range metadata reasons and --strict-metadata (M5.51) --
+        # A resize rewrites only the move's own FAT links and FSInfo words.
+        # With a reference read each metadata range is named; strict mode
+        # accepts those names and refuses any other byte in the FAT/FSInfo.
+        dsm = check_diff_ranges(grow, same, ["SMALL.BIN"],
+                                allow_metadata=True, strict_metadata=True)
+        reasons = dsm["metadata_reasons"]
+        check("strict-metadata: real move has no unexpected metadata",
+              dsm["unexpected_metadata_count"] == 0, str(reasons))
+        check("strict-metadata: every range carries a reason",
+              all(r.get("reason") for r in reasons),
+              str([r.get("reason") for r in reasons]))
+        check("strict-metadata: the move's links are named fat*_link",
+              any(r["reason"] in ("fat0_link", "fat1_link") for r in reasons),
+              str(sorted({r["reason"] for r in reasons})))
+        check("strict-metadata: ok is true on the real move", dsm["ok"])
+
+        # Negative: flip a byte in a FAT entry that is NOT on SMALL.BIN's
+        # old/new chain -> strict mode must name it slack and fail.
+        fslack = tmp / "fat-slack.img"
+        mkcard.copy_image(grow, fslack)
+        with fslack.open("r+b") as handle:
+            _part, geo_s, fat_s = mkcard.open_map_partition(handle)
+            # find a free FAT entry (value 0) in FAT0 that is NOT one of the
+            # move's own metadata ranges, so planting there is genuine slack
+            own = dsm["metadata_diff_ranges"]
+            victim = None
+            for c in range(60, 400):
+                off_c = geo_s.fat_offset + c * 4
+                if mkcard.fat_get(fat_s, c) != 0:
+                    continue
+                if any(a <= off_c < b for a, b in own):
+                    continue
+                victim = c
+                break
+            assert victim is not None
+            entry_off = geo_s.fat_offset + victim * 4
+            handle.seek(entry_off)
+            handle.write(b"\x01\x00\x00\x00")
+            victim_entry = victim
+        dsmb = check_diff_ranges(fslack, same, ["SMALL.BIN"],
+                                 allow_metadata=True, strict_metadata=True)
+        named = [r for r in dsmb["metadata_reasons"]
+                 if r.get("kind") == "fat" and r.get("entry") == victim_entry]
+        check("strict-metadata: planted FAT slack entry is named",
+              bool(named) and named[0]["reason"].endswith("_slack"),
+              str(named[:1]))
+        check("strict-metadata: planted FAT slack fails strict",
+              (not dsmb["ok"]) and dsmb["unexpected_metadata_count"] >= 1)
+        # But without strict it is still admitted as metadata (the M5.30 class)
+        dwide = check_diff_ranges(fslack, same, ["SMALL.BIN"],
+                                  allow_metadata=True)
+        check("allow-metadata: the slack byte is still admitted wide",
+              dwide["ok"])
+
 
         # --- 10. allocation is bounded by the partition, not the FAT (M5.30) --
         # The fixture's 128 FAT entries address 123 data clusters (2..124), so a
@@ -1331,6 +1614,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help="with --check-diff: allow FAT-sector and FSInfo "
                              "diffs too (a size change must touch them); they "
                              "are still reported separately (M5.30)")
+    parser.add_argument("--strict-metadata", action="store_true",
+                        help="with --check-diff: fail any metadata range whose "
+                             "reason is not one of the move's own FAT links "
+                             "(fat0_link/fat1_link) or FSInfo words "
+                             "(fsinfo_free/fsinfo_nxt); implies --allow-metadata")
     parser.add_argument("--reference", metavar="REFIMG",
                         help="baseline image for --check-diff")
     parser.add_argument("--hash", action="store_true",
@@ -1354,7 +1642,8 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--check-diff does not accept --from/-o/--dry-run/--verify")
         try:
             result = check_diff_ranges(args.image, args.reference, files,
-                                       allow_metadata=args.allow_metadata)
+                                       allow_metadata=args.allow_metadata,
+                                       strict_metadata=args.strict_metadata)
         except PatchError as exc:
             if args.json:
                 print(json.dumps({"ok": False, "mode": "check-diff",

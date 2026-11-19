@@ -1,0 +1,48 @@
+role: DRIVER (M5.51), in-process fallback after 3 subagent launch failures
+task: M5.51 — per-range metadata reasons + --strict-metadata
+worktree: ~/projekty/OSM2Leaf.task-m5.51-metadata-reasons
+branch: task/m5.51-metadata-reasons
+claim: 5a2e0a9 (draft PR #243)
+
+situation at start: a driver launched earlier crashed mid-edit and left
+uncommitted imgpatch.py work plus a claims.md stash; the router then refused
+3 fresh launches with "no route available for tier strong". I restored the
+work (git checkout HEAD -- claims.md + stash pop of the imgpatch-only WIP),
+found it sound and finished it.
+
+work:
+  - tools/imgpatch.py: --check-diff now names each admitted metadata range
+    (fat0_link/fat1_link with the FAT entry index and old->new value,
+    fsinfo_free/fsinfo_nxt for the FSInfo words, fat*_slack/fsinfo_unknown
+    otherwise) from a second independent read of the reference's FAT+FSInfo;
+    --strict-metadata fails on any non-link reason and implies
+    --allow-metadata. Three helpers: _metadata_markers, _metadata_reason,
+    _expected_metadata_reason; the CLI passes the flag.
+  - --selftest: 5 new checks (real move is clean, every range named, links
+    named fat*_link, planted slack entry named + strict fail, wide mode still
+    admits). 73 checks total.
+  - EXP docs/experiments/EXP-2026-11-19-M5.51-metadata-reasons.md (10 TEMPLATE
+    sections, falsifier first, two positive and two negative controls, real
+    card + 2 mutants).
+  - claims C-4610-C-4619 (10 rows).
+  - TODO block done + [x] + Result.
+
+results (quoted):
+  real card: 586 ranges, outside 0, metadata 9, unexpected 0, exit 0.
+  FAT0 50000 mutant -> fat0_slack NOT-EXPECTED, exit 1 (metadata 10).
+  FSInfo 0x100 mutant -> fsinfo_unknown NOT-EXPECTED, exit 1 (metadata 10).
+  wide --allow-metadata on both -> outside 0, exit 0 (M5.30 behaviour intact).
+  imgpatch --selftest OK (73); selftest.py 96/0/24; gate 4/0/0;
+  todo_check OK; claims_check OK.
+
+problems:
+  - a selftest draft planted the slack byte at cluster 11, which the synthetic
+    resize itself links (so it was named fat0_link, correctly); moved to
+    cluster 60 outside the move's metadata. Recorded in the EXP Corrections.
+  - a first TODO Result insert consumed the block's trailing Falsifier line
+    (greedy regex across the block); todo_check flagged "missing Result",
+    fixed by inserting before Claims explicitly. Second time this pass the
+    board check caught my own edit — the gate is doing its job.
+
+review: no separate navigator (router down). The EXP says so; the TL will
+re-run the controls before merging.
