@@ -13,7 +13,7 @@ use because the engine's own tests used operands that hide a register mix-up
   "disagreement", so "0 unexplained" can be false.
 * **census** -- every distinct opcode, by bucket: ``MODELLED``, ``FPU``,
   ``MMU`` (control-register/PTE operations), ``IN_SCOPE_UNMODELLED`` (an
-  integer form the engine rejects: ``div1`` etc.) and ``TRAP`` (``trapa``,
+  integer form the engine rejects; ``div1`` until M9.48) and ``TRAP`` (``trapa``,
   which is ``Trap`` by design).  Instructions are counted, not just opcodes.
 
 Corpus: pdata-covered halfwords only (``begin .. begin+length``).  Halfwords
@@ -69,8 +69,9 @@ MMU_OPCODES = {
 
 # Forms the engine rejects that are integer instructions a decoder target may
 # still need; kept explicit so the census names them rather than lumping them
-# in with unknown bytes.
-INTEGER_OUT_OF_SCOPE = frozenset({"div1"})
+# in with unknown bytes.  Empty since M9.48 modelled ``div1``: a table form
+# the executor rejects is executor drift again, with no exemption.
+INTEGER_OUT_OF_SCOPE = frozenset()
 
 
 def load_engine(path=None):
@@ -387,7 +388,9 @@ def selftest():
     check("classify nop", classify(engine_mod, 0x0009)[0], "MODELLED")
     check("classify fpu", classify(engine_mod, 0xF000)[0], "FPU")
     check("classify trapa", classify(engine_mod, 0xC300)[0], "TRAP")
-    check("classify div1", classify(engine_mod, 0x3624)[0], "IN_SCOPE_UNMODELLED")
+    check("classify div1 modelled (M9.48)", classify(engine_mod, 0x3624)[0],
+          "MODELLED")
+    check("classify div0u modelled", classify(engine_mod, 0x0019)[0], "MODELLED")
     check("classify ldtlb", classify(engine_mod, 0x0038)[0], "MMU")
     check("classify mac.l modelled", classify(engine_mod, 0x011F)[0], "MODELLED")
     # compare on a synthetic corpus: no disagreement for a modelled opcode.
