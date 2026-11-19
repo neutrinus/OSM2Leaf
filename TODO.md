@@ -4123,7 +4123,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-4170–C-4179
 
 - [ ] **M9.40 — `chunk_decoder_l3 --build` names the US `inflate_mask` in C-3535, but the run maps a constant**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m9.40-us-mask-read · Critical: no · Pair: required
   - Depends: — (M1.22's `--build` selector and US table are on `main`)
   - Goal: M9.11b found the EU `inflate_mask[17]` by deriving it from `inflate`'s own `shll2` load, and M1.22 added a US `BUILD_TARGETS["us2011"]["inflate_mask"] = 0x005987B0`; C-3535 then says the US run uses "the US `inflate_mask` from the unique `shll2; …` site". That US value is used, but the [17] table is **written**, not read: `chunk_decoder_l3.run()` puts the public zlib `2^n - 1` series at the build's VA, so no firmware byte and no harness assertion proves the US and EU VAs actually hold that table. The verdict (byte-identical decode) is sound; the provenance sentence in C-3535 overstates what was verified.
   - Precheck: `sed -n 242,252p tools/chunk_decoder_l3.py` shows `inflate_mask` written from `(1 << n) - 1`, not read from the image; `python3 tools/chunk_decoder_l3.py --selftest` passes; `python3 tools/chunk_decoder_l3.py run archive/us256.img … --build us2011` prints `verdict: PASS` (the run this provenance must not change).
