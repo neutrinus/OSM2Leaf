@@ -26,9 +26,11 @@ front has fewer, add the next tasks (see rule 9).
    (`[x]` in this file or merged on `main`). Prefer tasks marked
    `Critical: yes`, then the front with the fewest active owners.
 2. **Check for a claim.** A task is taken if its `Owner` is set, or an open PR
-   has the task ID in its title (`[M2.1] …`). Look at both before starting.
-3. **First commit: mark the task `in progress`.** Within your first 10
-   minutes create a branch and make a commit that changes **only** your
+   has the task ID in its title (`[M2.1] …`). Look at both right before
+   claiming, after `git fetch origin`, on `origin/main` and the open PR list,
+   never on a worktree's possibly stale copy of `TODO.md`.
+3. **First commit: mark the task `in progress`.** Immediately after creating
+   the branch/worktree (within a minute, before reading or planning), make a commit that changes **only** your
    task's line to `Status: in progress · Owner: <branch>` (subject
    `todo: start <ID>`). **Push it at once** (`git push -u origin
    <branch>`), before any other work: an unpushed in-progress commit is
