@@ -3996,7 +3996,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3320–C-3329
 
 - [ ] **M9.41 — M9.10's last US-build gap: `point_walk_l3` runs the US reader but the target is not registered as an S1/S2 evidence row**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.41-us-poi-row · Critical: yes · Pair: required
   - Depends: M9.10 (the US `point_walk_l3` run exists), M1.22 (done — US VAs), M9.39 (a record-mutated page is the control), M1.22b (done — the US VAs are justified)
   - Goal: give the US POI walk that M1.22 already runs a registered L3 target and `l3check` evidence row, so rule-13 S1/S2 acceptance for the US POI path is a gate row instead of prose in an EXP.
   - Note (SE 2026-11-17): M1.22's Result and its note on M9.10 say the US walker now runs 9/9 plus guard/count controls on `archive/us256.img`, but M9.10 still reads "name part waits for M3.11c" and nothing in `targets.json`/`l3check.TARGET_EVIDENCE` names the US `point_walk_l3` run. This task is **not** M9.10's `poi_record_decode` runner target (M9.10 ports the walk into `runner.py` and adds the name check); it is the cheaper C-3538-shaped move: register the *existing* `point_walk_l3 --build us2011` run as a `targets.json` evidence row so `l3check` reports it and M9.10 can cite it. Its Scope and files do not overlap M9.10's runner work.
@@ -4007,7 +4007,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `python3 tools/l3check.py --build-corpus` lists the new US target as runnable with its verdict, the `point_walk_l3 walk --build us2011 …` command in the precheck prints `result: PASS` with the M9.39 mutated page failing a control, `python3 tools/l3check.py --selftest` passes, and M9.10's Status/Result either cites the new row as its S1 evidence or states exactly which half is still open.
   - Stop: if the name accessor cannot run on the US build without M3.11c, register the walker row only, mark M9.10's name half open, and do not mark M9.10 `done`.
   - Falsifier: the target appears in `--build-corpus` but a wrong-*build* run (`walk archive/head256.img … --build us2011`) prints `result: PASS` instead of `result: FAIL (unmapped …)`; the M9.39 mutant page is a *positive* witness (it must still pass on its own build), never a negative control.
-  - Claims: C-4220–C-4229
+  - Claims: C-4670–C-4679
 
 
 
