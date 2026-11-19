@@ -248,6 +248,44 @@ qemu-system-misc gdb-multiarch`.
 
 ## Priorities (PO grooming 2026-11-19, 18th pass; retro 2026-11-19, SE `b428c47`)
 
+**PM fifteenth pass (2026-11-19, H112 — read with the PO block below).**
+Rule 17 worked: in two days 19 of the 21 tasks done were outside H, P0 is a real
+card with an enumerated change set, QEMU `-M ze0` builds and runs, and the
+navigator caught one factual defect in every pair. What did **not** move is the
+firmware side: **readers 6/30, L3 1/30**. That is now the bottleneck, and three
+things in this pass bear on it:
+
+1. **The call graph of H101 was about 10 % wrong** (pool words decoded as
+   calls; M3.26 and M3.27 each found one false edge by hand). Fixed in
+   `tools/callgraph.py`; **rebuild `g.json`**. Five H101 claims are retracted
+   (C-4620–C-4623). The tile "readers" `0x00425f40`/`0x004266ec` have 26
+   callees, no file mapping, and end in `OSM_TaskSend`: they ask for a tile,
+   they do not parse one. **Do not wrap `0x00425f40` as the tile target**
+   (line 2 of the PO's directions) expecting a parse — it will stop at the
+   message; see the M3.25 note.
+2. **File names lead to readers.** Every map file name is loaded by a few
+   functions (C-4625–C-4627); the `MAPAL001` open path is `0x0040b850` →
+   `0x0040b3e0` → `0x0040a108` → `0x004192c0`. **M3.28** turns that into
+   located rows — the cheapest way to move readers off 6/30 (solo, no run).
+3. **The firmware is message-driven.** Clients call a thin API
+   (`0x00409ba0…0x0040b358`), which sends a request to the map-file task; the
+   read happens in that task's handlers (M3.26). L3 targets must be cut at a
+   message boundary: handler side with stubbed stdio (M9.44 half 1), client
+   side stopping at `OSM_TaskSend` (half 2). See the M9.44 note.
+
+**Next steps, in order (no hardware):** **M3.28** (solo) → **M9.36** then
+**M9.44** half 1 with `mmain`/`drstr` and the tile open (moves L3 off 1/30) →
+**M5.49** + **M5.50** (P1 card and the ladder page; M5.41 is merged, so M5.49
+is unblocked) → **M3.25** by the new route → **M4.40** (first the one-hour
+message check) → **M8.A3** (loader; L4 is otherwise idle) → **M9.2** (Ghidra
+on the host: the three open questions above are hours in a decompiler).
+**Remarks for the roles:** (a) a tool's output is a claim — when a graph edge
+or a count decides a conclusion, confirm it with a second tool (`sh4xref`,
+`sh4dis`) as the M3.26/M3.27 navigators did; (b) the PO's four numbers should
+come from `map_signals.py` with `--factory-root` set on the host, so
+`tile_bytes` and `card_step` are not `NOT RUN`; (c) M3.27's `OSMDLL!#55` is
+`OSM_SramSet` (C-4624).
+
 **P0 is complete — the first card whose whole change set is enumerated.** On a
 copy of the EU 2011 image, the M5.44 tree patches into card
 `b0faf119…33237`: `cardcheck --image` PASS (480 files), diff **586 ranges /
@@ -1196,6 +1234,7 @@ of the four numbers above says so in its first line.
 
 - [x] **H101 — PM fourteenth pass: six days of board, a call graph, directions without hardware**
   - Status: done · Owner: claude/project-thread-n1nund · Critical: yes
+  - Note (H112, 2026-11-19): five claims of this pass are retracted (C-4281, C-4282, C-4284, C-4285, C-4286) — the graph tool counted pool words as calls. Corrected in H112 (C-4620–C-4623).
   - Depends: —
   - Goal: say how the work went since H51 (2026-11-11), and set research and development directions that need no hardware (Marek, 2026-11-17).
   - Done when: the EXP counts what closed by stream, each direction has a task with hints, and every number in it comes from a committed command.
@@ -1302,6 +1341,14 @@ of the four numbers above says so in its first line.
   - Done when: the §L4 table exists with six rows and no bare numbers (each names its claim); `python3 tools/l4_status.py` prints the table and exits 0 with `F4 BLOCKED (M8.A3, M8.A6, M9.16)`; without a run log every F-row is `NOT RUN`; `--selftest` proves the five statuses and that a missing key is NOT RUN; `selftest.py --only l4_status` PASS.
   - Stop: if `run.sh`'s summary format is unstable, print the statuses from the committed table only and mark `--run-log` as best-effort in the docstring.
   - Claims: C-4410–C-4419
+
+- [x] **H112 — PM fifteenth pass: where we are on 2026-11-19, a corrected call graph, next steps**
+  - Status: done · Owner: claude/project-thread-n1nund · Critical: yes
+  - Depends: —
+  - Goal: Marek, 2026-11-19: look at where we are, write corrections, hints and remarks into the TODO, plan the next steps.
+  - Done when: the review's numbers come from committed commands, wrong statements of the previous pass are retracted in the ledger, and each next step is a task with hints.
+  - Result: `docs/experiments/EXP-2026-11-19-H112-pm-review.md` (C-4620–C-4629). Since H101: 21 tasks done, 19 of them outside H (M1 1, M3 2, M4 1, M5 9, M8 2, M9 4), 2 in H, and H92 recorded as blocked; P0 card done; readers 6/30 and L3 1/30 unchanged. `tools/callgraph.py` fixed (pool words were decoded as calls: 2,201 false EU edges) and names imports by ordinal; five H101 claims retracted. New: the file-name tables and their loaders (the `MAPAL001` open path `0x0040b850` → `0x0040b3e0` → `0x0040a108` → `0x004192c0`). New task M3.28; notes on M3.23, M3.24, M3.25, M4.40, M9.2, M9.44.
+  - Claims: C-4620–C-4629
 
 - [ ] **H111 — `claims_check --prose-counts` is an opt-in flag: the standing gate does not run it**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -1832,6 +1879,7 @@ of the four numbers above says so in its first line.
 
 - [ ] **M3.23 — Static call graph of `Navi.exe` (pdata + pools + dispatch tables), and readers found by reachability**
   - Status: open · Owner: — · Critical: yes
+  - Note (H112, 2026-11-19): **rebuild the graph before using it.** The first `callgraph.py` decoded literal-pool words as instructions: 2,201 of 22,867 EU edges were false (M3.26 and M3.27 each caught one by hand). Fixed, with a selftest case; corrected numbers in C-4620. Imports by ordinal are now named. What is left of this task: (a) table edges (M3.24), (b) the reachability report per file family — start it from the name loaders of C-4627 (M3.28), not from byte signatures.
   - Note (H101, 2026-11-17): **the core exists: `tools/callgraph.py`** (`build`, `callers`, `callees`, `reach`, `users`, `path`, `stats`; `--selftest` 6 cases). `Navi.exe` EU2011: 9,000 nodes (1,404 leaf targets), 22,867 direct edges, 7,721 import edges, 589 unresolved indirect calls, 956 functions with no static caller; US2011: 8,890 / 22,119 / 525 / 970. It reproduces `0x0041c044 → 0x0041c990 → 0x0041c7dc → … → 0x00542250`. What is left of this task: the `loops` query, the map DLLs, and the ranked reader candidates per family. Only 589 calls are indirect — the `Stop` condition (30 %) is far away: in the `REFER` subtree below `0x004125a8` it is 47 unresolved in 223 functions.
   - Depends: M1.20 (function table), M3.24 helps (indirect edges)
   - Goal: stop searching readers by guessed byte signatures. Five tasks (M3.14, M3.15, M3.16, M3.18, M3.2b) ended at "access path found, record walker not found, N signatures 0 hits". With exact function boundaries the question becomes a graph query: which functions are reachable from the family's access path, read memory byte- or word-wise in a loop, and are not shared by the other families.
@@ -1845,6 +1893,7 @@ of the four numbers above says so in its first line.
 
 - [ ] **M3.24 — Dispatch tables in `Navi.exe` sec1 `INIT`: who is called indirectly**
   - Status: open · Owner: — · Critical: yes
+  - Note (H112, 2026-11-19): corrected census (C-4623): 1,167 EU2011 functions have no static caller; 1,110 of them occur as an aligned word in sec0 and 57 in sec1. Unresolved `jsr @Rn` are 395 in 258 functions (not 589). The work is now small and mechanical: find runs of ≥ 3 consecutive code pointers in sec0 rodata (`0x00011000…0x0032ed9c`), find the function that loads each run's base (`sh4xref --to`), add `table` edges to `callgraph.py`. M3.26 already did this by hand for the two tables of the map-file task (`0x0017a888`, `0x0017ab38`) — use them as the positive control.
   - Note (H101, 2026-11-17): **H51 gave a wrong count — corrected (C-4283).** Of the 6,052 pointers in sec1 `INIT` only 281 point at code (163 distinct targets); 5,771 point at strings and constants in sec0 below `0x0032ed9c`. The function-pointer tables are mostly in **sec0**, which was always readable: of the 956 functions with no static caller, 914 appear as a 32-bit word in sec0 (a pool literal passed as a callback, or a table), 42 only in sec1 `INIT`, 1 nowhere. So: scan sec0 for runs of ≥ 3 consecutive words that are pdata `START`s — those are the tables — and tie each to one of the 589 unresolved `jsr @Rn` sites. The functions with the most unresolved calls are `0x003a2b94` (49), `0x004d78b4` (41), `0x0032efa8` (25, calls the file-layer dispatcher `0x00417924`), `0x004c09dc` (19).
   - Depends: — (H51: sec1 decodes; M1.19 gives the cached bytes)
   - Goal: the 98,330 stored bytes of sec1 contain 6,052 words that point into the code range (H51), i.e. function-pointer tables. "No static caller" (M3.2b pass 1/2, M3.11 "indirect call via `.data`") and the run-time table at `0x00d53500` are explained by them or not — find out.
@@ -1858,6 +1907,7 @@ of the four numbers above says so in its first line.
 
 - [ ] **M3.25 — The tile reader's *entry* VAs: one runnable tile target so L3 can read the file L2 writes**
   - Status: open · Owner: — · Critical: yes · Pair: required
+  - Note (H112, 2026-11-19): **the H101 note below is wrong in three places (C-4622).** The renderer/router subtrees have 26 callees each, not 48; they import no `CreateFileMappingW`/`MapViewOfFile`; the tile is not memory-mapped there. With M3.27's negative this changes the task: `0x00425f40`/`0x004266ec` look like *request* functions (mesh id from `STD_PntData_getL1Mesh*` and `OBJ_CarPos_read`, then `OSM_TaskSend` in `0x0041ee14`), not parsers (C-4628, hypothesis). Start from the file side instead: the tile open path is `0x0040b850` → `0x0040b3e0` (loads the `MAPAL001` directory table `0x00179cf8`) → `0x0040a108` → `0x004192c0`, and `LEV3456R.DAT` is named in `0x0040a014` (C-4625, C-4626). Two cheap steps: (1) `callgraph.py callers g.json 0x0040b850 --depth 4` and read what the caller does with the returned handle/buffer; (2) under M9.44's virtual card, log which `(offset, length)` of a tile the file task reads first — the function that asked for the tile's first `0x1000` bytes and reads the level table at `0x2ac` is the parser's front door. A target that wraps `0x00425f40` (PO pass 18) will stop at `OSM_TaskSend`; that stop is the result, do not fake the reply.
   - Note (H101, 2026-11-17): callers measured with `tools/callgraph.py` (EU2011): `0x0041f26c` ← `0x0041e5e4`, `0x0041e64c`, `0x0041e6d0`, `0x00421548`; `0x004259bc` ← `0x0042613c` ← `0x00427144` ← `0x00427a34`; `0x00427578` ← `0x00427c4c` ← `0x00427cd4`; renderer `0x00425f40` and router `0x004266ec` each reach 48 functions with one unresolved call and import `CreateFileMappingW`/`MapViewOfFile` — the tile is memory-mapped, so the entry takes a pointer. `0x00427a34` (length `0x218`) is the common ancestor of the renderer and router readers: start there.
   - Depends: M3.5 (the three reader VAs are recorded there, done), M9.5/M9.20 (module entry + `engine_hook`, done), M9.35 (load model, done), M1.26 (the audit that found one of the three mid-function, done). M1.19 helps for `INIT` bytes; M3.6 (which sections the renderer reads, done) bounds the scope.
   - Goal: `M9.13` cannot start because `targets.json` has `tile_reader` with `reason: "no tile reader entry point has been recovered (M3)"` while the three M3.5 VAs exist — they are *reader* VAs, not a callable `(tile, dst)` entry with a known prototype. Recover the minimal entry (which VA is called with the tile buffer, its argument registers, and where it returns a verdict/level) so `M9.13` has a documented signature instead of guessing one from the format doc (rule 14).
@@ -1896,6 +1946,19 @@ of the four numbers above says so in its first line.
     fire (13 Win32-file-API users, `no static path` from `0x40b358`);
     `targets.json` untouched (M9.44).
 
+
+- [ ] **M3.28 — Who opens which file: one opener function per file family, from the name tables**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Depends: — (H112: corrected `callgraph.py`, the name loaders of C-4625–C-4627)
+  - Goal: `reader-coverage.md` has 7 rows with no located reader and 5 partial, and the number has not moved in three cycles. The firmware names every map file in a handful of functions: H112 found them in ten minutes by asking who loads each file-name string. Turn that list into the matrix's "firmware reader" column: for each of the 30 rows, the function that builds the path, the client API call it makes, and the function that receives the data.
+  - Precheck: `python3 tools/sh4xref.py --image-start 0x200200 IMG256 Navi.exe --to 0x00179fa4` prints one load, `fn 0x0040a014`; `python3 tools/callgraph.py callers g.json 0x0040b358 --depth 1` lists 13 callers (rebuild `g.json` first, H112).
+  - Scope: EU2011 `Navi.exe`. (1) A committed command (`tools/name_loaders.py` or a `sh4xref` mode, with `--selftest`) that lists every file-name string and name-part table in sec0 rodata with the functions that load it — expected 60 strings, 56 with a loader. (2) For each loader, its call into the client API (`0x00409ba0`, `0x00409c28`, `0x00409cc8`, `0x0040b358`) and what it does with the result — one row per file family in `docs/format/firmware.md`. (3) Update the `firmware reader` cell of every `reader-coverage.md` row this locates; `python3 tools/map_signals.py` must show the new count.
+  - Input: C-4625 (the 18-row `(directory, file, CDROM.DAT)` table at `0x00179cf8`, loaded by `0x0040b3e0`), C-4626, C-4627, M3.26's role table, `tools/sh4xref.py`, `tools/callgraph.py`, `tools/sh4dis.py`.
+  - Hints: names are built, not stored: `0x003fbed8`, `0x003f1640` and `0x004011a0` import `strcpy`, `strcat` and `_modls` — prefix + two digits + `.DAT`. Tile names `BxxRyyR.DAT` have no string at all (no `MAPAL001` row has a file): look in `0x0040a014`'s callees `0x00409eac`/`0x00409f60` for the hex-digit formatter, and check it against `mesh_grid.py`. The words before the table (`0x000f0004`, `0x0000f4ff`, …) and after it (`0x400`, `0x403`, `0x406`, `0x40f`) look like id maps: the row index is probably a data-kind id that the client passes in `r4`. `CMP.LST`, `COORD001.DAT`, `ZIPFR001.DAT` have no pool loader — say so in their rows (reached through `DRSTR` lookup, or not read by `Navi.exe`). Write `EU2011` beside every VA; the US build is M1.22's map.
+  - Done when: the command and its selftest are in; `firmware.md` has the table; at least four `reader-coverage.md` rows move from unlocated/partial to located with a VA, each checked with `fn_audit`; rows that stay unlocated say which lookup was tried.
+  - Stop: a family whose name loader only forwards a message — record the message and receiver, do not guess the reader.
+  - Falsifier: a located "reader" that never reaches the client API or the map-file task in the graph.
+  - Claims: none yet
 
 - [x] **M3.27 — M3.25's first half: the tile reader's entry arguments, static, no run**
   - Status: done · Owner: task/m3.27-tile-reader-args · Critical: yes · Pair: required
@@ -2300,6 +2363,7 @@ of the four numbers above says so in its first line.
 
 - [ ] **M4.40 — Tile section 2 (route graph) grammar read from the router's reader, not guessed from bytes**
   - Status: open · Owner: — · Critical: yes · Pair: required
+  - Note (H112, 2026-11-19): **numbers in this block are corrected by C-4622:** `reach g.json 0x004266ec` now prints `reaches 27 functions, 1 unresolved indirect calls` (the root is counted; use that in the Precheck), and the subtree has no file-mapping import. The router differs from the renderer by three small callees only (`0x00425c5c`, `0x00425cb0`, `0x00425cf4`; `0x00425cf4` calls `OSM_SramSet`), and the shared `0x0041ee14` calls `OSM_TaskSend`. So this block's `Stop` ("handed on by message") is the likely first result: do that check first (one hour with `sh4dis` on `0x0041ee14`: which message id, which receiver task), then follow the receiver. The section-2 grammar is then read from the code that handles the *reply*. Data-side help from M4.41: `B60R060R` 2011 vs 2014 has 7 added section-1 streams — the smallest known section-2 delta.
   - Depends: M3.25 (entry and arguments of the tile reader; this task can start from the VAs below without it), M9.38 helps (read-watch)
   - Goal: a generated map cannot route until we can write section 2, and its part b has resisted three byte-level attempts (M4.23, M4.24, M4.3 blocked). The code that parses it is small and isolated: the router data reader `0x004266ec` (EU2011, M3.6) reaches 48 functions with one unresolved indirect call (H101). Read the grammar off that code.
   - Precheck: `python3 tools/callgraph.py reach g.json 0x004266ec` prints `reaches 48 functions, 1 unresolved indirect calls`; `python3 tools/callgraph.py callers g.json 0x004266ec --depth 3` shows `0x00427870` ← `0x00427144`/`0x00427c90` ← `0x00427a34`.
@@ -3480,6 +3544,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.2 — Ghidra project builder**
   - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (Ghidra
+  - Note (H112, 2026-11-19): priority raised by this pass. Three open questions (M3.25 reply path, M4.40 receiver, M3.28 name builders) are each a few hours in a decompiler and days in `sh4dis`. Import `Navi.exe` with the M1.20 pdata starts as function starts and the C-4624 import names; export the decompile of `0x00409ba0…0x0040b8b4` (37 functions, the map client API) and `0x003f1640`, `0x003fbed8`, `0x004011a0` first.
   - Note (H101, 2026-11-17): **runnable on Marek's host** (the agents run there; only the Claude sandbox lacks Ghidra). A decompiler is the largest single speed-up available for M3.26, M4.40 and every reader task: with `pdata` the function boundaries are exact, so import `Navi.exe` sec0 at `0x00011000` (SH-4 **little-endian**), create functions from `pdata.py table --json`, name imports from `cerom.py imports`, and export one `.c` file per function of the file layer (`0x00417d00…0x0041cab0`) and of the two 48-function tile subtrees into `archive/work/` (vendor-derived: never committed).
     cannot be installed in the Claude sandbox; the tool and `--plan` are done)
   - Depends: M9.1 (M1.6b for thunk labels)
@@ -4069,6 +4134,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.44 — Virtual card: stub the three stdio wrappers once and let the firmware's file layer read a card tree ("software S0")**
   - Status: open · Owner: — · Critical: yes · Pair: required
+  - Note (H112, 2026-11-19): wrapper callers corrected (C-4621): `fread` has four callers, not five (`0x0041b2a4` is a debug dump). New fact for the target list: a map client does not call the wrappers. It calls the thin API `0x00409ba0`/`0x00409c28`/`0x00409cc8`/`0x0040b358` → `0x004192c0`, and that path reaches `OSM_TaskSend` but no stdio import (C-4629, hypothesis): the read happens in the map-file task's handlers (M3.26's message → handler table). So build the virtual card in two halves: (1) handler side — run one M3.26 handler with a request record and the stubbed wrappers, get the `(file, offset, length)` log; (2) client side — stop at `OSM_TaskSend`, print the message, and feed it to half 1. Add the tile open `0x0040b850` as the fourth target after `mmain`, `drstr`, `.cmp`; its first read log on a factory tile and on the M5.30 card's tile is the first L3 evidence for row 17.
   - Depends: M9.36 (trust the engine first), M1.19 helps (`INIT` bytes); M3.26 gives names but is not required
   - Goal: the nearest thing to putting a card in the unit that needs no unit. Today each L3 target stubs imports one by one (M9.24) and maps its input by hand (M9.28). The firmware reads map files through three wrappers — `fopen` `0x0041b3bc`, `fseek`/`ftell` `0x0041b470`, `fread` `0x0041b4f8` (EU2011, H101). Replace those three with host stubs that serve files from an extracted card tree, and the real `DRSTR`, `MMAIN`, `CMP.LST` and `.cmp` code runs on whole files, factory or generated.
   - Precheck: `python3 tools/callgraph.py users g.json fread,fseek,fopen` shows the three wrappers; `python3 tools/sh4dis.py IMG256 Navi.exe --image-start 0x200200 --va 0x0041b4f8 --count 40` shows one `fread` import call (arguments `r4…r7` are passed through or re-ordered — record which).

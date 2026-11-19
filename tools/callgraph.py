@@ -58,11 +58,18 @@ def scan_function(code: bytes, base: int, start: int, length: int, iat: dict,
     calls, imports, unresolved, prev_end = [], [], 0, False
     end = min(start + length, base + len(code))
     pc = start
+    pool: set[int] = set()            # literal-pool words: data, never decoded
     while pc + 1 < end:
+        if pc in pool:                                   # H112: a pool word is not a bsr
+            pc += 2
+            continue
         insn = struct.unpack_from("<H", code, pc - base)[0]
         top, n, m, low = insn >> 12, (insn >> 8) & 15, (insn >> 4) & 15, insn & 15
+        if top == 0x9:                                   # mov.w @(disp,PC),Rn
+            pool.add(pc + 4 + (insn & 0xFF) * 2)
         if top == 0xD:                                   # mov.l @(disp,PC),Rn
             addr = (pc & ~3) + 4 + (insn & 0xFF) * 4
+            pool.update((addr, addr + 2))
             if base <= addr and addr + 4 <= base + len(code):
                 lit[n] = struct.unpack_from("<I", code, addr - base)[0]
                 imp.pop(n, None)
@@ -180,6 +187,16 @@ def walk(edges, root, depth):
     return out
 
 
+def parse_exports(text: str) -> dict[str, str]:
+    """``cerom.py exports`` lines (``  55 OSM_SramSet  rva=...``) -> {"#55": name}."""
+    out = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0].isdigit() and parts[-1].startswith("rva="):
+            out["#" + parts[0]] = parts[1]
+    return out
+
+
 def cmd_build(args) -> int:
     import cerom
     import nk_decomp
@@ -198,11 +215,22 @@ def cmd_build(args) -> int:
     text_out = subprocess.run([sys.executable, str(HERE / "cerom.py"), "--image-start",
                                hex(args.image_start), args.image, "imports", args.module,
                                "--resolve-with", hex(IMAGE_B)], capture_output=True, text=True).stdout
+    ordinals: dict[str, dict[str, str]] = {}         # dll -> {"#55": "OSM_SramSet"} (H112)
+
+    def by_ordinal(dll: str) -> dict[str, str]:
+        if dll not in ordinals:
+            out = subprocess.run([sys.executable, str(HERE / "cerom.py"), "--image-start",
+                                  hex(args.image_start), args.image, "exports", dll],
+                                 capture_output=True, text=True).stdout
+            ordinals[dll] = parse_exports(out)
+        return ordinals[dll]
+
     for line in text_out.splitlines():
         if "slot=" in line:
             parts = line.split()
             name = parts[2] if len(parts) > 2 else "?"
             if "!" not in name:                      # by ordinal: OSMDLL.dll ... #55
+                name = by_ordinal(parts[0]).get(name, name)
                 name = parts[0].rsplit(".", 1)[0] + "!" + name
             iat[int(parts[1].split("=")[1], 16)] = name
     graph = build_graph(code, text["realaddr"], pdata, iat)
@@ -315,7 +343,10 @@ def selftest() -> int:
     put(0x10A0, 0xD101, 0x6012, 0x402B, 0x0009)
     struct.pack_into("<I", code, 0xA8, 0x9004)
     put(0x1064, 0xB01C)                                  # f2 also: bsr 0x10a0
-    pdata = [(0x1000, 4, 0x14), (0x1040, 0, 4), (0x1060, 0, 8)]
+    # f3 @0x10c0: loads a pool word whose low half decodes as "bsr 0x1040" -- not a call
+    put(0x10C0, 0xD101, 0x000B, 0x0009, 0x0009)          # mov.l @(0x10c8),r1; rts; nop; pad
+    struct.pack_into("<I", code, 0xC8, 0x0000BFBA)       # 0xBFBA at 0x10c8 = bsr 0x1040
+    pdata = [(0x1000, 4, 0x14), (0x1040, 0, 4), (0x1060, 0, 8), (0x10C0, 0, 0xC)]
     graph = build_graph(bytes(code), base, pdata + [(0x10F0, 0, 4)], {0x9000: "COREDLL!fread", 0x9004: "COREDLL!ReadFile"})
     f = graph["functions"]
     check("bsr and literal jsr are edges", f["0x00001000"]["calls"] == ["0x00001040", "0x00001060"])
@@ -325,6 +356,11 @@ def selftest() -> int:
     check("leaf is an edge of its caller", f["0x00001060"]["calls"] == ["0x00001080"])
     check("a call to an import thunk is an import of the caller, and the thunk is no node",
           f["0x00001060"]["imports"] == ["COREDLL!ReadFile"] and "0x000010a0" not in f)
+    check("export lines give ordinal names; other lines are ignored (H112)",
+          parse_exports("   55 OSM_SramSet      rva=00003930\nexports of X\n 7 A rva=1\n")
+          == {"#55": "OSM_SramSet", "#7": "A"})
+    check("a literal-pool word that looks like bsr is not an edge (H112)",
+          f["0x000010c0"]["calls"] == [])
     print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
 
