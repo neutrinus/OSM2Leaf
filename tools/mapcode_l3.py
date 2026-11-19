@@ -20,25 +20,28 @@ body, decoded with ``tools/sh4dis.py``:
    ``NKDbgPrintfW``.
 
 Only the code and its string pool come from the image (``cerom.py`` module
-and section lookup, no fitted delta).  The calls go through import thunks in
-sec0 whose IAT slots are in compressed sec1; each thunk is replaced by a host
-stub named by the COREDLL ordinal the slot imports (``cerom.py imports`` and
-``cerom.py exports coredll.dll`` on build B):
+and section lookup, no fitted delta).  The calls go through 4-insn import
+thunks in sec0 (``mov.l @(pc),r0; mov.l @r0,r0; jmp @r0; nop``) whose IAT
+slots are in compressed sec1.  ``resolve_thunks`` finds every such thunk in
+sec0, maps its slot (sec1 ``realaddr`` based) to the rva-based import slot,
+and names it by the COREDLL ordinal ``cerom.imports`` gives and the name
+build B's own ``coredll.dll`` export table gives.  The thunk VAs are not
+hard-coded (they are listed in the EXP).  Each needed thunk is replaced by a
+host stub:
 
-=============  ===========  =====================================
-thunk (B)      COREDLL      stub behaviour
-=============  ===========  =====================================
-``0x03bca3e8``  #557         ``KernelIoControl``: writes a pointer to a host
-                             record whose ``+0x60`` holds the declared unit
-                             code (``--unit-code``/``--unit-from``), returns 1
-``0x03bca40c``  #630         ``SetKMode``: returns 0
-``0x03bca9b4``  #168         ``CreateFileW``: opens the one served guest file
-``0x03bd3ad4``  #170         ``ReadFile``: copies from the served file
-``0x03bca9a8``  #553         ``CloseHandle``: returns 1
-``0x03bca99c``  #1047        ``memset``
-``0x03bcb7b4``  #56          ``wsprintfW``: ``%c`` only (the one format used)
-``0x03bca3a0``  #545         ``NKDbgPrintfW``: ``%s`` only, logged
-=============  ===========  =====================================
+==============  ======  =====================================
+COREDLL name    ord.    stub behaviour
+==============  ======  =====================================
+KernelIoControl  #557   writes a pointer to a host record whose ``+0x60``
+                        holds the declared unit code, returns 1
+SetKMode         #630   returns 0
+CreateFileW      #168   opens the one served guest file, else ``-1``
+ReadFile         #170   copies from the served file
+CloseHandle      #553   returns 1
+memset           #1047  fills
+wsprintfW        #56    ``%c`` only (the one format used)
+NKDbgPrintfW     #545   ``%s`` only, logged
+==============  ======  =====================================
 
 The unit record is **not** in the image (a kernel IOCTL answer).  It is a
 declared input: by default it is the first 11 bytes of line 1 of a factory
@@ -87,16 +90,13 @@ IOCTL_TARGET_INFO = 0x0101302C
 UNIT_OFFSET = 0x60
 CODE_LEN = 11
 
-THUNKS = {
-    0x03BCA3E8: ("KernelIoControl", 557),
-    0x03BCA40C: ("SetKMode", 630),
-    0x03BCA9B4: ("CreateFileW", 168),
-    0x03BD3AD4: ("ReadFile", 170),
-    0x03BCA9A8: ("CloseHandle", 553),
-    0x03BCA99C: ("memset", 1047),
-    0x03BCB7B4: ("wsprintfW", 56),
-    0x03BCA3A0: ("NKDbgPrintfW", 545),
+#: COREDLL imports the compare calls, by name and ordinal (build B).
+NEEDED = {
+    "KernelIoControl": 557, "SetKMode": 630, "CreateFileW": 168,
+    "ReadFile": 170, "CloseHandle": 553, "memset": 1047,
+    "wsprintfW": 56, "NKDbgPrintfW": 545,
 }
+THUNK_SHAPE = (0xD001, 0x6002, 0x402B, 0x0009)
 
 STK_VA = 0x30000000
 STK_SIZE = 0x10000
@@ -138,6 +138,38 @@ def module_layout(image: bytes):
     return out
 
 
+def resolve_thunks(image: bytes) -> dict[int, tuple[str, int]]:
+    """{thunk VA: (COREDLL name, ordinal)} for the NEEDED imports, from the image."""
+    rom = cerom.CERom(image, IMAGE_START)
+    mod = rom.module(MODULE)
+    vbase = rom.e32(mod)["vbase"]
+    secs = list(rom.o32(mod))
+    imports = {slot: (dll, ordinal) for dll, slot, _nm, ordinal in rom.imports(mod)}
+    names = {o: n for o, n, _rva in rom.exports(rom.module("coredll.dll"))}
+    out: dict[int, tuple[str, int]] = {}
+    for sec, comp, blob in module_layout(image):
+        if comp or not sec["flags"] & 0x20000000:
+            continue
+        base = sec["realaddr"]
+        for off in range(0, len(blob) - 12, 2):
+            words = struct.unpack_from("<4H", blob, off)
+            if words != THUNK_SHAPE:
+                continue
+            pc = base + off
+            lit = ((pc & ~3) + 4 + 4) - base
+            (slot,) = struct.unpack_from("<I", blob, lit)
+            for data_sec in secs:
+                lo = data_sec["realaddr"]
+                if lo <= slot < lo + data_sec["vsize"]:
+                    rva_slot = vbase + data_sec["rva"] + slot - lo
+                    dll, ordinal = imports.get(rva_slot, (None, None))
+                    if dll and dll.lower() == "coredll.dll" and ordinal is not None:
+                        name = names.get(ordinal)
+                        if NEEDED.get(name) == ordinal:
+                            out[pc] = (name, ordinal)
+    return out
+
+
 def extract_hdd_info(card_path: str) -> bytes:
     """Read ``VER_INFO/HDD_INFO.TXT`` from the card's FAT32 partition."""
     import mkcard
@@ -161,7 +193,7 @@ def _wstr(eng, va: int, limit: int = 512) -> str:
 
 
 def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
-                fn: int = FN_COMPARE) -> dict:
+                fn: int = FN_COMPARE, thunks: dict | None = None) -> dict:
     """Run *fn* with *card* served at the guest path; return the result dict.
 
     ``card=None`` serves no file (``CreateFileW`` fails), a control for the
@@ -274,7 +306,11 @@ def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
                 "CreateFileW": createfile, "ReadFile": readfile,
                 "CloseHandle": closehandle, "memset": memset,
                 "wsprintfW": wsprintf, "NKDbgPrintfW": dbgprint}
-    for va, (name, _ord) in THUNKS.items():
+    thunks = resolve_thunks(image) if thunks is None else thunks
+    found = sorted({name for name, _ord in thunks.values()})
+    if found != sorted(NEEDED):
+        raise Blocked(f"import thunks not resolved: {sorted(set(NEEDED) - set(found))}")
+    for va, (name, _ord) in thunks.items():
         eng.on_exec(va, handlers[name])
 
     orig_load, orig_store = eng._load, eng._store
@@ -314,6 +350,7 @@ def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
         "insns": eng.last_run.insns if hasattr(eng.last_run, "insns") else None,
         "unit_code": unit_code.decode("latin-1"),
         "card_slot0": cache[:CODE_LEN].decode("latin-1"),
+        "thunks": {f"0x{va:08x}": f"COREDLL #{o} {n}" for va, (n, o) in sorted(thunks.items())},
         "stub_log": log,
         "compressed_section_access": accesses,
     }
@@ -418,8 +455,16 @@ def selftest() -> int:
     # call shapes of fn 0x03bd2ad8: IOCTL with out at r15+36 and outsz at
     # @(16,r15); CreateFileW with the path pointer; ReadFile into r15+68.
     # Then compares 11 bytes of *(out)+0x60 with the read buffer.
-    code_va, pool_va = 0x03BD2AD8, 0x03BD2C00
-    path_va = 0x03BD2D00
+    # Synthetic layout: everything is an offset from the real entry, so no
+    # address here stands for a firmware function except FN_COMPARE itself.
+    code_va = FN_COMPARE
+    pool_va, path_va = code_va + 0x128, code_va + 0x228
+    fake_thunks = {code_va + 0x300: ("KernelIoControl", 557),
+                   code_va + 0x310: ("CreateFileW", 168),
+                   code_va + 0x320: ("ReadFile", 170)}
+    for k, (name, ordinal) in enumerate(n for n in NEEDED.items()
+                                         if n[0] not in ("KernelIoControl", "CreateFileW", "ReadFile")):
+        fake_thunks[code_va + 0x330 + 0x10 * k] = (name, ordinal)
     asm = {
         "sts.l pr,@-r15": 0x4F22, "lds.l @r15+,pr": 0x4F26, "rts": 0x000B, "nop": 0x0009,
     }
@@ -433,7 +478,7 @@ def selftest() -> int:
         assert 0 <= disp < 256
         return 0xD000 | (rn << 8) | disp
 
-    pool = [IOCTL_TARGET_INFO, 0x03BCA3E8, path_va, 0x03BCA9B4, 0x03BD3AD4]
+    pool = [IOCTL_TARGET_INFO, code_va + 0x300, path_va, code_va + 0x310, code_va + 0x320]
     prog: list = []
     pc = code_va
 
@@ -477,6 +522,8 @@ def selftest() -> int:
 
     def fake_text():
         text = bytearray(0x400)
+        for va in fake_thunks:   # thunk shape; hooked, so never executed
+            struct.pack_into("<4H", text, va - code_va, *THUNK_SHAPE)
         for i, w in enumerate(prog):
             struct.pack_into("<H", text, i * 2, w)
         for i, v in enumerate(pool):
@@ -492,34 +539,38 @@ def selftest() -> int:
     def fake_layout(_image):
         text = fake_text()
         sec = {"realaddr": code_va, "vsize": len(text), "psize": len(text), "flags": 0x60000020}
-        thunks = {"realaddr": 0x03BCA000, "vsize": 0x1000, "psize": 0x1000, "flags": 0x60000020}
-        ra = {"realaddr": 0x03BD3000, "vsize": 0x1000, "psize": 0x1000, "flags": 0x60000020}
-        bss = {"realaddr": 0x01F73000, "vsize": 0x1B90, "psize": 0x260, "flags": 0xC0002040}
-        return [(thunks, False, bytes(0x1000)), (ra, False, bytes(0x1000)),
-                (sec, False, bytes(text)), (bss, True, None)]
+        bss = {"realaddr": GLOBAL_CACHE & ~0xFFF, "vsize": 0x1000, "psize": 0, "flags": 0xC0002040}
+        return [(sec, False, bytes(text)), (bss, True, None)]
 
     module_layout = fake_layout
     try:
-        good = run_compare(b"", factory, b"QSD-000-000")
+        good = run_compare(b"", factory, b"QSD-000-000", thunks=fake_thunks)
         check("synthetic: equal 11 bytes -> r0=1 ACCEPT", good["verdict"] == "ACCEPT", good["r0"])
         stubs = [s["stub"] for s in good["stub_log"]]
         check("synthetic: stub log names IOCTL, CreateFileW, ReadFile in order",
               stubs == ["KernelIoControl", "CreateFileW", "ReadFile"], stubs)
         check("synthetic: ReadFile served the whole small file",
               good["stub_log"][2]["bytes_read"] == len(factory))
-        bad = run_compare(b"", b"QSD-000-001\r\n" + factory[13:], b"QSD-000-000")
+        bad = run_compare(b"", b"QSD-000-001\r\n" + factory[13:], b"QSD-000-000", thunks=fake_thunks)
         check("synthetic: one changed line-1 byte -> r0=0 REJECT", bad["verdict"] == "REJECT", bad["r0"])
         try:
-            run_compare(b"", None, b"QSD-000-000")
+            run_compare(b"", None, b"QSD-000-000", thunks=fake_thunks)
             check("synthetic: ReadFile on the failed handle is BLOCKED, not served", False)
         except Blocked as exc:
             check("synthetic: ReadFile on the failed handle is BLOCKED, not served",
                   "unknown handle 0xffffffff" in str(exc), str(exc))
         try:
-            run_compare(b"", factory, b"SHORT")
+            run_compare(b"", factory, b"SHORT", thunks=fake_thunks)
             check("synthetic: a unit code that is not 11 bytes is refused", False)
         except ValueError:
             check("synthetic: a unit code that is not 11 bytes is refused", True)
+        partial = dict(list(fake_thunks.items())[:3])
+        try:
+            run_compare(b"", factory, b"QSD-000-000", thunks=partial)
+            check("synthetic: an unresolved import thunk is BLOCKED", False)
+        except Blocked as exc:
+            check("synthetic: an unresolved import thunk is BLOCKED",
+                  "not resolved" in str(exc), str(exc))
     except Exception as exc:  # noqa: BLE001
         check("synthetic run raised no exception", False, repr(exc))
     finally:
