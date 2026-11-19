@@ -2962,7 +2962,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 
 - [ ] **M5.47 — M5.30's fit census: does one changed tile fit an existing cluster chain before anyone writes it?**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m5.47-fit-census · Critical: yes · Pair: required
   - Depends: M5.29 (done — the changed tile and rebuilt manifests), M5.45 (done — the append/in-place/unchanged semantics the fit question needs)
   - Goal: M5.30 is the last P0 rung and its `Stop:` is "if changed tile/manifests cannot fit existing chains and relocate/reconcile widens diff beyond changed files, record ranges and stop". Nobody can tell whether that stop fires until a writing run exists, so the cheap half is a census: for the M5.34 result tile and the manifests it rebuilds, does the new byte length fit the FAT cluster chain `imgpatch` would reuse, and if not, by how much and which file. No write, no image copy. This is the rule-17 first slice of M5.30.
   - Precheck: `python3 tools/imgpatch.py --selftest` passes; the M5.34 report names the changed tile and the rebuilt manifests (`~/projekty/leafre-work/m5.34/report.json`); `python3 tools/cardcheck.py --selftest` passes.
