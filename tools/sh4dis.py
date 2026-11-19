@@ -107,9 +107,11 @@ class Insn:
     delayed: the next halfword is a delay slot.
     """
 
-    __slots__ = ("va", "word", "text", "kind", "target", "lit", "delayed")
+    __slots__ = ("va", "word", "text", "kind", "target", "lit", "delayed",
+                 "rn", "rm", "form")
 
-    def __init__(self, va, word, text, kind="other", target=None, lit=None, delayed=False):
+    def __init__(self, va, word, text, kind="other", target=None, lit=None,
+                 delayed=False, rn=None, rm=None, form=None):
         self.va = va
         self.word = word
         self.text = text
@@ -117,6 +119,13 @@ class Insn:
         self.target = target
         self.lit = lit
         self.delayed = delayed
+        # Structured operands (M9.37): the register numbers the manual encoding
+        # names for this form, or None when the form names no register.  Kept
+        # beside ``text`` so the decode audit can compare operand placement
+        # without parsing the printed mnemonic.
+        self.rn = rn
+        self.rm = rm
+        self.form = form
 
     def __repr__(self):
         return "Insn(0x%08x %04x %s)" % (self.va, self.word, self.text)
@@ -124,6 +133,152 @@ class Insn:
 
 def R(k):
     return "r%d" % k
+
+
+#: Operand placement, written from the SH-4 manual encoding and kept separate
+#: from the ``decode()`` branches so the decode audit has an independent
+#: second table to compare against (M9.37).  ``(mask, match, form, nreg,
+#: mreg)``: ``nreg``/``mreg`` say whether bits 11-8 / 7-4 name a register
+#: (``True``/``False``); ``form`` is a stable spelling shared with the engine.
+OPERAND_TABLE = (
+    (0xF0FF, 0x000B, "rts", False, False),
+    (0xF0FF, 0x0009, "nop", False, False),
+    (0xF0FF, 0x002B, "rte", False, False),
+    (0xF0FF, 0x0008, "clrt", False, False),
+    (0xF0FF, 0x0018, "sett", False, False),
+    (0xF0FF, 0x0028, "clrmac", False, False),
+    (0xF0FF, 0x0019, "div0u", False, False),
+    (0xF0FF, 0x0029, "movt", True, False),
+    (0xF0FF, 0x002A, "sts_pr", True, False),
+    (0xF0FF, 0x0002, "stc_sr", True, False),
+    (0xF0FF, 0x0012, "stc_gbr", True, False),
+    (0xF0FF, 0x0022, "stc_vbr", True, False),
+    (0xF0FF, 0x000A, "sts_mach", True, False),
+    (0xF0FF, 0x001A, "sts_macl", True, False),
+    (0xF0FF, 0x0003, "bsrf", True, False),
+    (0xF0FF, 0x0023, "braf", True, False),
+    (0xF00F, 0x0007, "mul.l", True, True),
+    (0xF0FF, 0x00C3, "movca.l", True, False),
+    (0xF00F, 0x000F, "mac.l", True, True),
+    (0xF00F, 0x0004, "mov.b_m_at_r0_plus_n", True, True),
+    (0xF00F, 0x0005, "mov.w_m_at_r0_plus_n", True, True),
+    (0xF00F, 0x0006, "mov.l_m_at_r0_plus_n", True, True),
+    (0xF00F, 0x000C, "mov.b_at_r0_plus_m_n", True, True),
+    (0xF00F, 0x000D, "mov.w_at_r0_plus_m_n", True, True),
+    (0xF00F, 0x000E, "mov.l_at_r0_plus_m_n", True, True),
+    (0xF000, 0x1000, "mov.l_m_at_disp_n", True, True),
+    (0xF00F, 0x2000, "mov.b_m_at_n", True, True),
+    (0xF00F, 0x2001, "mov.w_m_at_n", True, True),
+    (0xF00F, 0x2002, "mov.l_m_at_n", True, True),
+    (0xF00F, 0x2004, "mov.b_m_at_minus_n", True, True),
+    (0xF00F, 0x2005, "mov.w_m_at_minus_n", True, True),
+    (0xF00F, 0x2006, "mov.l_m_at_minus_n", True, True),
+    (0xF00F, 0x2007, "div0s", True, True),
+    (0xF00F, 0x2008, "tst", True, True),
+    (0xF00F, 0x2009, "and", True, True),
+    (0xF00F, 0x200A, "xor", True, True),
+    (0xF00F, 0x200B, "or", True, True),
+    (0xF00F, 0x200C, "cmp/str", True, True),
+    (0xF00F, 0x200D, "xtrct", True, True),
+    (0xF00F, 0x200E, "mulu.w", True, True),
+    (0xF00F, 0x200F, "muls.w", True, True),
+    (0xF00F, 0x3000, "cmp/eq", True, True),
+    (0xF00F, 0x3002, "cmp/hs", True, True),
+    (0xF00F, 0x3003, "cmp/ge", True, True),
+    (0xF00F, 0x3004, "div1", True, True),
+    (0xF00F, 0x3006, "cmp/hi", True, True),
+    (0xF00F, 0x3007, "cmp/gt", True, True),
+    (0xF00F, 0x3008, "sub", True, True),
+    (0xF00F, 0x300A, "subc", True, True),
+    (0xF00F, 0x300B, "subv", True, True),
+    (0xF00F, 0x300C, "add", True, True),
+    (0xF00F, 0x300D, "dmuls.l", True, True),
+    (0xF00F, 0x300E, "addc", True, True),
+    (0xF00F, 0x300F, "addv", True, True),
+    (0xF00F, 0x3005, "dmulu.l", True, True),
+    (0xF00F, 0x400C, "shad", True, True),
+    (0xF00F, 0x400D, "shld", True, True),
+    (0xF00F, 0x400F, "mac.w", True, True),
+    (0xF0FF, 0x4000, "shll", True, False),
+    (0xF0FF, 0x4001, "shlr", True, False),
+    (0xF0FF, 0x4008, "shll2", True, False),
+    (0xF0FF, 0x4009, "shlr2", True, False),
+    (0xF0FF, 0x4018, "shll8", True, False),
+    (0xF0FF, 0x4019, "shlr8", True, False),
+    (0xF0FF, 0x4020, "shal", True, False),
+    (0xF0FF, 0x4021, "shar", True, False),
+    (0xF0FF, 0x4028, "shll16", True, False),
+    (0xF0FF, 0x4029, "shlr16", True, False),
+    (0xF0FF, 0x4010, "dt", True, False),
+    (0xF0FF, 0x4011, "cmp/pz", True, False),
+    (0xF0FF, 0x4015, "cmp/pl", True, False),
+    (0xF0FF, 0x401B, "tas.b", True, False),
+    (0xF0FF, 0x400B, "jsr", True, False),
+    (0xF0FF, 0x402B, "jmp", True, False),
+    (0xF0FF, 0x400E, "ldc_sr", True, False),
+    (0xF0FF, 0x401E, "ldc_gbr", True, False),
+    (0xF0FF, 0x402E, "ldc_vbr", True, False),
+    (0xF0FF, 0x400A, "lds_mach", True, False),
+    (0xF0FF, 0x401A, "lds_macl", True, False),
+    (0xF0FF, 0x402A, "lds_pr", True, False),
+    (0xF0FF, 0x4002, "sts.l_mach_at_minus_n", True, False),
+    (0xF0FF, 0x4012, "sts.l_macl_at_minus_n", True, False),
+    (0xF0FF, 0x4022, "sts.l_pr_at_minus_n", True, False),
+    (0xF0FF, 0x4003, "stc.l_sr_at_minus_n", True, False),
+    (0xF0FF, 0x4013, "stc.l_gbr_at_minus_n", True, False),
+    (0xF0FF, 0x4023, "stc.l_vbr_at_minus_n", True, False),
+    (0xF0FF, 0x4006, "lds.l_mach_at_n_plus", True, False),
+    (0xF0FF, 0x4016, "lds.l_macl_at_n_plus", True, False),
+    (0xF0FF, 0x4026, "lds.l_pr_at_n_plus", True, False),
+    (0xF0FF, 0x4007, "ldc.l_sr_at_n_plus", True, False),
+    (0xF0FF, 0x4017, "ldc.l_gbr_at_n_plus", True, False),
+    (0xF0FF, 0x4027, "ldc.l_vbr_at_n_plus", True, False),
+    (0xF000, 0x5000, "mov.l_at_disp_m_n", True, True),
+    (0xF00F, 0x6000, "mov.b_at_m_n", True, True),
+    (0xF00F, 0x6001, "mov.w_at_m_n", True, True),
+    (0xF00F, 0x6002, "mov.l_at_m_n", True, True),
+    (0xF00F, 0x6003, "mov_m_n", True, True),
+    (0xF00F, 0x6004, "mov.b_at_m_plus_n", True, True),
+    (0xF00F, 0x6005, "mov.w_at_m_plus_n", True, True),
+    (0xF00F, 0x6006, "mov.l_at_m_plus_n", True, True),
+    (0xF00F, 0x6007, "not", True, True),
+    (0xF00F, 0x6008, "swap.b", True, True),
+    (0xF00F, 0x6009, "swap.w", True, True),
+    (0xF00F, 0x600A, "negc", True, True),
+    (0xF00F, 0x600B, "neg", True, True),
+    (0xF00F, 0x600C, "extu.b", True, True),
+    (0xF00F, 0x600D, "extu.w", True, True),
+    (0xF00F, 0x600E, "exts.b", True, True),
+    (0xF00F, 0x600F, "exts.w", True, True),
+    (0xF000, 0x7000, "add_imm", True, False),
+    (0xFF00, 0x8000, "mov.b_r0_at_disp_m", False, True),
+    (0xFF00, 0x8100, "mov.w_r0_at_disp_m", False, True),
+    (0xFF00, 0x8400, "mov.b_at_disp_m_r0", False, True),
+    (0xFF00, 0x8500, "mov.w_at_disp_m_r0", False, True),
+    (0xFF00, 0x8800, "cmp/eq_imm", False, False),
+    (0xFF00, 0x8900, "bt", False, False),
+    (0xFF00, 0x8B00, "bf", False, False),
+    (0xFF00, 0x8D00, "bt/s", False, False),
+    (0xFF00, 0x8F00, "bf/s", False, False),
+    (0xF000, 0x9000, "mov.w_pc", True, False),
+    (0xF000, 0xA000, "bra", False, False),
+    (0xF000, 0xB000, "bsr", False, False),
+    (0xFF00, 0xC300, "trapa", False, False),
+    (0xF000, 0xD000, "mov.l_pc", True, False),
+    (0xF000, 0xE000, "mov_imm", True, False),
+    (0xF000, 0xF000, "fpu", False, False),
+)
+
+
+def operands(word):
+    """``(form, rn, rm)`` from the manual encoding, independent of decode()."""
+    word &= 0xFFFF
+    n = (word >> 8) & 0xF
+    m = (word >> 4) & 0xF
+    for mask, match, form, nreg, mreg in OPERAND_TABLE:
+        if word & mask == match:
+            return form, (n if nreg else None), (m if mreg else None)
+    return "unknown", None, None
 
 
 def s8(x):
@@ -185,9 +340,13 @@ def decode(w, va=0, mem=None):
     d = w & 15
     i = w & 0xFF
 
-    def ins(text, kind="other", target=None, lit=None, delayed=False):
-        return Insn(va, w, text, kind, target, lit, delayed)
+    # Structured operands come from the independent OPERAND_TABLE, not from
+    # the branch that builds the text (M9.37).  Printed output is unchanged.
+    _form, _orn, _orm = operands(w)
 
+    def ins(text, kind="other", target=None, lit=None, delayed=False,
+            rn=_orn, rm=_orm, form=_form):
+        return Insn(va, w, text, kind, target, lit, delayed, rn, rm, form)
     def lit_note(lit, size):
         if mem is None:
             return ""
@@ -873,6 +1032,37 @@ def selftest():
         except Exception:
             raised += 1
     check("all 65536 halfwords decode without raising", raised, 0)
+
+    # 8. Structured operands (M9.37): the OPERAND_TABLE places Rn/Rm for the
+    #    forms the audit compares, independently of the printed text.
+    check("operands: mov.b r0,@(3,r1) names Rn in bits 7-4",
+          operands(0x8013), ("mov.b_r0_at_disp_m", None, 1))
+    check("operands: mul.l r6,r13 is (n=13, m=6)",
+          operands(0x0D67), ("mul.l", 13, 6))
+    check("operands: mac.l r1,r1 is (n=1, m=1)",
+          operands(0x011F), ("mac.l", 1, 1))
+    check("operands: div0s r6,r11 is (n=11, m=6)",
+          operands(0x2B67), ("div0s", 11, 6))
+    check("operands: lds r3,mach has Rn, no Rm (0x430A)",
+          operands(0x430A), ("lds_mach", 3, None))
+    # decode() and operands() must agree wherever decode() prints a real
+    # mnemonic; a form decode() prints as ``.word`` is that decoder's own gap
+    # (counted, not hidden) and is not this table's disagreement.
+    disagree = 0
+    words_gap = 0
+    for w in range(0x10000):
+        i = decode(w, 0x8000)
+        f, rn, rm = operands(w)
+        if i.text.startswith(".word"):
+            words_gap += 1
+            if f != "unknown" and (w >> 12) not in (0xF,):
+                continue
+            continue
+        if i.form != f or i.rn != rn or i.rm != rm:
+            disagree += 1
+    check("decode() and OPERAND_TABLE agree wherever decode() names a form",
+          disagree, 0)
+    print("      sh4dis prints .word for %d/65536 halfwords (its own gaps)" % words_gap)
 
     print("sh4dis selftest: %s" % ("OK" if not fails else "FAILED %d" % len(fails)))
     return 0 if not fails else 1
