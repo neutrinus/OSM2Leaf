@@ -282,6 +282,20 @@ marker; rec0 at `+0x5e`, 999/1000 on page `0x840ba0`).
 Open: M3.11b (byte order / page swap). Full end-to-end PySh4 of field 5 on
 rec0 requires HDLMAP page context in compressed `.data` (M1.2f/M8.E1) → M9.10.
 
+**M3.11c pass 2 (EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5116, done):**
+the "`.data` context" is the BSS slot table, and the M3.22 writer fills it. The resolver
+`fn 0x003f51e0` maps `db` (= the page, slot `+0x1c`) to its companion slot `+0x20`,
+which points to the file's **field dictionary** (one block per `POINT` `.DAT`:
+`u16[0]=0xffff`, `D = C + 2*u16[C+2]`, `u16[D+26]` = 9 fields, chained entries with the
+id at `+12`). `fn 0x003f56bc` finds the record's field area
+(`rec + 2*(hi+lo+8)` of `u16[rec+10]` for header class 3/2). That area starts with one
+length byte per field, in words, and `fn 0x003f5e10` adds them up to reach field 5. PySh4
+(`tools/point_name_accessor.py run`) returns US2011 record 0 = `+0x5e`, 9 words,
+`HANA HEALTH CENTER` (US2011 `0x0041ec8c`/`0x0041e7d8`). After the M5.12 rename it
+returns `OSM2LEAF TEST POI1`. Name + field 6 (address) split the display text on
+1000/1000 records per build. The returned offsets point into the swapped page;
+the byte order of the text is M3.11b.
+
 **M3.13 (EXP-2026-11-06 pass 1, EXP-2026-11-08 pass 2, C-2180–C-2187, partial):**
 `ADDRE`/`REFER001` access path confirmed (C-2180, Navi.exe sec0, A):
 `fn 0x004125a8` maps type `0x14e8` → `REFER001`+`INDEX003.DAT` (C-880);

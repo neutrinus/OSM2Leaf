@@ -1610,8 +1610,9 @@ of the four numbers above says so in its first line.
     run answer it.
   - Claims: C-2547–C-2549 (C-2540–C-2546 unchanged)
 
-- [ ] **M3.11c — The name accessor for a `POINT` record**
-  - Status: in progress · Owner: task/m3.11c-point-name-accessor · Critical: yes
+- [x] **M3.11c — The name accessor for a `POINT` record**
+  - Status: done · Owner: task/m3.11c-point-name-accessor · Critical: yes
+  - Result: EXP-2026-11-19-M3.11c-point-name-accessor-l3.md (done). `fn 0x003f632c(r4=db=page, r5=rec)` → name pointer and `fn 0x003f5e78` → length in words (EU2011; US2011 `0x0041ec8c`/`0x0041e7d8`) run in PySh4 with the slot table filled by the M3.22 writer (slot `+0x1c` = page, `+0x20` = the file's field dictionary, found once per `.DAT`). US2011 `POINT010` rec0 = `+0x5e`, 9 words, `HANA HEALTH CENTER`; M5.12 rename → `OSM2LEAF TEST POI1`; name + address (field 6) split the display text on 1000/1000 records per build; both negatives -1. The name is located by per-record field-length bytes, not by `ff ff`. Different-length renames break it (C-5117 → new M5.52). The text byte order in memory stays M3.11b. C-5110–C-5117.
   - Blocker (history, negative EXP kept): end-to-end PySh4 of the identified accessor
     (`0x003f632c`/`0x003f5e78` → `0x003f61bc`/`0x003f5d98` field 5) on record 0
     requires HDLMAP page context (`0x00d53500` handle table + indirect
@@ -2002,6 +2003,17 @@ of the four numbers above says so in its first line.
   - Falsifier: a metadata range outside the move's own `FAT[old]`/`FAT[new]`/neighbour links + FSInfo counters is labelled `fat*_link`/`fsinfo_*` and strict mode passes it.  - Result: EXP-2026-11-19-M5.51-metadata-reasons.md (C-4610-C-4619). `imgpatch.py --check-diff --strict-metadata` names every admitted metadata range and fails any that is not a link of the move. On card `b0faf119...33237` it exits 0 with `metadata: 9`, `unexpected metadata: 0`, and the nine ranges are exactly FAT[94806] 268435455->29687, FAT[29687] 0->29688, FAT[29688] 0->268435448 in both copies plus the FSInfo free/next words. Two negative controls (FAT0 entry 50000 -> `fat0_slack`, FSInfo sector-1 0x100 -> `fsinfo_unknown`) exit 1; wide `--allow-metadata` still admits both, so M5.30's numbers are unchanged. `--selftest` 73 checks; selftest.py 96/0/24; gate 4/0/0. Review was in-process (subagent router down), recorded as self-review in the EXP.
   - Result: EXP-2026-11-19-M5.51-metadata-reasons.md (C-4610-C-4619). `imgpatch.py --check-diff --strict-metadata` names every admitted metadata range and fails any that is not a link of the move. On card `b0faf119...33237` it exits 0 with `metadata: 9`, `unexpected metadata: 0`; the nine ranges are exactly FAT[94806] 268435455->29687, FAT[29687] 0->29688, FAT[29688] 0->268435448 in both copies plus the FSInfo free/next words. Two negative controls (FAT0 entry 50000 -> fat0_slack, FSInfo sector-1 0x100 -> fsinfo_unknown) exit 1; wide `--allow-metadata` still admits both, so M5.30's numbers are unchanged. `--selftest` 73 checks; selftest.py 96/0/24; gate 4/0/0. Review was in-process (subagent router down), recorded as self-review in the EXP.
   - Claims: C-4610–C-4619
+
+- [ ] **M5.52 — `mutate_refer_poi.py --resize` must update the record's field-length bytes, or the firmware reads a truncated name**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M3.11c (done — the accessor and the field-length bytes)
+  - Goal: M3.11c found that the firmware finds a POI name through the per-record field-length bytes, in words, plus the file's field dictionary, not through the `ff ff` framing. `resize_name` only rewrites `len2`. After a different-length rename the accessor still returns the old length: US2011 record 0 renamed `HANA HEALTH CENTER`→`HANA HEALTH CENTERXX` reads back as name `HANA HEALTH CENTER` and address `XX4590@HANA HWY` (EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5117). Make `--resize` update the field-5 length byte too, and refuse a delta that is not a whole number of words.
+  - Precheck: `python3 tools/point_name_accessor.py run archive/us256.img --cmp <US POINT010.DAT.cmp> --ind <…ind> --build us2011 --rename "HANA HEALTH CENTER=HANA HEALTH CENTERXX" --expect "HANA HEALTH CENTERXX"` → `mismatch=1`, `result: FAIL` (the defect).
+  - Scope: `tools/mutate_refer_poi.py` (`resize_name`, `verify_resize`) and its selftest; the length byte location comes from C-5115 (field area at `rec + 2*(hi+lo+8)` of `u16[rec+10]` for header class 3/2; `(n+1)/2` words of length bytes, n from the dictionary). Not: page budget, `.cmp` re-encode.
+  - Input: `tools/point_name_accessor.py` (the L3 check), C-5110–C-5117.
+  - Done when: the precheck command exits 0 with `ok=1000 of 1000` and the expected name on a +2-byte and a −2-byte rename, and `resize_name` refuses a record whose header class it cannot place.
+  - Stop: if a record class other than 3/2 needs renaming and its length byte cannot be located, refuse it and record the class count.
+  - Claims: C-5260–C-5269
 
 ## M4 — Data formats (no firmware or hardware needed)
 

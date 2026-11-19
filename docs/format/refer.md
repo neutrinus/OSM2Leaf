@@ -107,6 +107,20 @@ before the next stream (POINT032 page `0x4200`: 655 bytes used, next stream
 at `0x4500`, 768 bytes reserved). `tools/mutate_refer_poi.py --resize`
 implements this and refuses anything else.
 
+### POI name field (firmware view, M3.11c)
+
+The firmware does not split the display text at a delimiter. Each `POINT` `.DAT`
+carries one **field dictionary** block (US2011 `POINT010` at `.DAT` offset
+`0x749500`, EU2011 at `0x6a7d00`; 9 fields, `facility name` = field 5,
+`address` = field 6). Each record's field area starts with one **length byte
+per field** (in 16-bit words). The name accessor (`fn 0x003f632c` EU2011) adds
+those lengths up to find field 5. On US `POINT010` record 0 this gives
+`HANA HEALTH CENTER` (9 words at `+0x5e`), and the address `4590@HANA HWY\0`
+follows as field 6. A renamed record must keep these length bytes consistent with
+the new text. A same-length rename is safe; a different-length rename must also
+change the name's length byte (`mutate_refer_poi.py --resize` does not, yet:
+C-5117, M5.52). Evidence: EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5117.
+
 ### POI → location link (solved)
 
 The 4-byte id is the POI's coordinate. Each record has two copies:
