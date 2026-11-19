@@ -10,6 +10,8 @@ tools still understand the data and that a rebuild is faithful:
 * the five target tiles rebuild byte-identically;
 * the decoded geometry of the target tiles matches a stored golden digest;
 * a one-vertex tile mutation changes exactly one vertex;
+* with ``--graph-tiles``, section 2 decodes to the emitted route graph
+  (``tile_graph_roundtrip``, M5.37; ``preserved`` when nothing was emitted);
 * a same-length POI rename passes the offline mutation validator;
 * a different-length POI rename passes the offline mutation validator and the
   page re-parses into the same records (one record changed, the rest byte
@@ -448,6 +450,38 @@ def check_tile_semantic(root: Path, profile: dict | None,
                 )
             if digest != expected.get("digest"):
                 check.error(f"{name}: geometry digest differs from golden")
+
+
+def check_tile_graph(root: Path, report: cardcheck.Report, tiles: list[str],
+                     emitted: Path | None, factory_root: Path | None) -> None:
+    """M5.37: section 2 decodes to the node/link graph the writer emitted.
+
+    Verdicts per tile come from ``tools/tile_graph_roundtrip.py``: ``PASS``
+    (every emitted record decodes to its emitted framing, every other record
+    byte-identical to the factory), ``preserved`` (no emitted record, section 2
+    identical to the factory: a preservation result, never a graph match) or
+    ``FAIL``."""
+    check = report.add(cardcheck.Check("tile_graph_roundtrip"))
+    import tile_graph_roundtrip as tgr  # noqa: PLC0415
+    graph = tgr.load_graph(emitted) if emitted else None
+    for name in tiles:
+        path = root / "MAPAL001" / name
+        if not path.is_file():
+            check.error(f"MAPAL001/{name}: not present on this card")
+            continue
+        ref = factory_root / "MAPAL001" / name if factory_root else None
+        if ref is not None and not ref.is_file():
+            check.error(f"factory MAPAL001/{name}: not present")
+            continue
+        res = tgr.check_tile(path, graph, ref)
+        check.stats[name] = (f"{res['verdict']} match={res['match']} "
+                             f"preserved={res['preserved']} changed={res['changed']}")
+        if res["verdict"] == "preserved":
+            check.warn(f"{name}: section 2 preserved; no emitted graph checked")
+        elif res["verdict"] != "PASS":
+            for err in res["errors"][:5]:
+                check.error(f"{name}: {err}")
+            check.error(f"{name}: tile_graph_roundtrip {res['verdict']}")
 
 
 def check_tile_mutation(root: Path, report: cardcheck.Report,
@@ -946,6 +980,10 @@ def build_parser() -> argparse.ArgumentParser:
                              "name that is not a file is exit 2")
     parser.add_argument("--include-lev", action="store_true",
                         help="also decode LEV3456R (slow)")
+    parser.add_argument("--graph-tiles", default="",
+                        help="comma-separated tiles for tile_graph_roundtrip (M5.37); off when empty")
+    parser.add_argument("--graph-emitted", help="emitted section-2 graph JSON (ze0-sec2-graph/1)")
+    parser.add_argument("--graph-factory", help="factory card root the non-emitted records must equal")
     parser.add_argument("--skip-mutation", action="store_true")
     parser.add_argument("--image", help="optional raw image for the golden hash")
     parser.add_argument("--hash-image", action="store_true",
@@ -1009,6 +1047,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_tiles:
         check_tile_roundtrip(root, profile, report, tiles)
         check_tile_semantic(root, profile, report, semantic, args.include_lev)
+        graph_tiles = [t.strip() for t in args.graph_tiles.split(",") if t.strip()]
+        if graph_tiles:
+            check_tile_graph(root, report, graph_tiles,
+                             Path(args.graph_emitted) if args.graph_emitted else None,
+                             Path(args.graph_factory) if args.graph_factory else None)
         if not args.skip_mutation:
             check_tile_mutation(root, report)
     if not args.skip_mutation:
