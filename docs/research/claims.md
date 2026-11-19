@@ -3787,3 +3787,13 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3767 | `14` (EU 2011 and EU 2014, last in both lists) selects no speech set and no build's table returns it; its language is UNKNOWN. Refutes the C-2496 reading "`04` is English". | UNKNOWN | — | C-3762, C-3765 |
 | C-3768 | `tools/lang_code_table.py` locates both tables from the image (log-string xref, pdata, `braf` switch decode) with no per-build input; `--selftest` 17/17 on synthetic switches and rows. | VERIFIED (tool) | H | `python3 tools/lang_code_table.py --selftest` |
 | C-3769 | Scope: four CE build-A heads (Navi.exe/Speech.exe uncompressed sections; `rows` over 4 × 268,435,456 stored bytes), three cards; EU 2016 card side not re-read; compressed sections not scanned. | VERIFIED (scope) | H | same EXP §Method 4 |
+## M5.39 — `l2check --tiles` rejects names that are not files (C-4290–C-4299)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4290 | At `a90a83f`, `l2check.py --root <EU2011 factory root> --partial --no-golden --no-cmp --tiles B48R058R` prints `[tile_roundtrip] OK (tiles=0; preserved=0)` and `RESULT: PASS` with exit 0 on the real 480-file EU 2011 root (C-3566 reproduced). | VERIFIED (tool, real image) | H | EXP-2026-11-19-M5.39-l2check-bare-cell |
+| C-4291 | With M5.39, an explicitly requested `--tiles`/`--semantic-tiles` name that is not a `MAPAL001` file exits 2 before any check, prints no `RESULT:` line, and for a bare cell name names the `<cell>.DAT` form to use. | VERIFIED (tool, real image) | H | EXP-2026-11-19-M5.39-l2check-bare-cell |
+| C-4292 | `--tiles B48R058R.DAT` on the EU 2011 factory root still prints `tiles=1` and `RESULT: PASS` (exit 0), with every other check line identical to `a90a83f`; the default tile list keeps its skip-with-warning behaviour. | VERIFIED (tool, real image) | H | EXP-2026-11-19-M5.39-l2check-bare-cell |
+| C-4293 | `python3 tools/l2check.py --selftest` covers both cases on a vendor-free `tilewriter.make_factory` tile, plus a truncated-tile negative control (`tile_roundtrip` FAIL, exit 1); `selftest.py --only l2check` PASS. | VERIFIED (tool) | H | EXP-2026-11-19-M5.39-l2check-bare-cell |
+| C-4294 | The synthetic branch of `tools/one_tile_pipeline.py` still passes `--tiles <cell>`; after M5.39 it gets `l2check_rc=2` (usage error) instead of a silent `tiles=0`, and its `tile_roundtrip_structure` gate stays `CANNOT-VERIFY-OFFLINE`. Fixing the call is M5.33's scope. | VERIFIED (tool) | H | EXP-2026-11-19-M5.39-l2check-bare-cell |
+| C-4295 | Scope: M5.39 changes `tools/l2check.py` only; what each tile check asserts is unchanged. | VERIFIED (diff) | H | `git diff --stat` |
