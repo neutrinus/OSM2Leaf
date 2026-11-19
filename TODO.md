@@ -823,8 +823,8 @@ of the four numbers above says so in its first line.
   - Stop: if the table needs >~20 rows to stay honest, keep the per-level rows and record the rest in §7 prose with `NOT TRACKED: <reason>`; do not build a second issue tracker.
   - Claims: C-3780–C-3789
 
-- [ ] **H65 — `progress_report`: its L4 prerequisite names an ID that is no longer a block**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H65 — `progress_report`: its L4 prerequisite names an ID that is no longer a block**
+  - Status: done · Owner: task/h65-progress-l4-prereq · Critical: no · Pair: solo
   - Depends: — (`tools/progress_report.py` is on `main`); coordinates H60 (the same live/archived/ghost distinction, for one hard-coded ID)
   - Goal: every default `progress_report.py` run prints `Parse/input problems — TODO.md: task M8.A1 not found`, because `L4_PREREQ` hard-codes `M8.A1` while `M8.A2`'s block now says `Depends: — (M8.A1, M8.A4 and M8.A5 are merged)` and the block is gone. The dashboard therefore cannot show a checked L4 prerequisite, and a reader cannot tell "missing from this TODO" from "this TODO is broken". QA 2026-11-16 hit it on the first post-#171 run.
   - Precheck: `python3 tools/progress_report.py | grep -n 'M8.A1'` prints the problem line and `prereq 'M8.A1': checked=None · None`; `grep -c '\*\*M8.A1' TODO.md` prints 0.
@@ -833,6 +833,7 @@ of the four numbers above says so in its first line.
   - Done when: `python3 tools/progress_report.py` exits 0 and prints no `task M8.A1 not found`; the L4 prerequisite line names a live block or says `archived`; `--selftest` (or the synthetic fixture the tool already uses) covers one missing-prereq case; `selftest.py --only progress_report` passes.
   - Stop: if `progress_report.py` has no fixture mechanism, add only the resolution + a `--json` assertion in `--selftest`, and record in the EXP that H60 will take over the general case; do not fork a TODO parser.
   - Claims: C-3850–C-3859
+  - Result: [EXP-2026-11-19-H65-progress-l4-prereq](docs/experiments/EXP-2026-11-19-H65-progress-l4-prereq.md) — an ID with no board block is looked up in `docs/research/todo-history-*.md` (newest first); the default run now prints `prereq M8.A1: checked=True · archived (done) in todo-history-2026-11-09.md:1375` with 0 problems (was `task M8.A1 not found`); an ID in no file or archived `[ ]` stays a problem; selftest +10 checks (C-3850–C-3853).
 
 - [ ] **H66 — H64's `--json` parity rule: a follow-up to the parsed-then-unused flag class**
   - Status: open · Owner: — · Critical: no · Pair: required

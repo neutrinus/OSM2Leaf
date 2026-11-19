@@ -262,8 +262,56 @@ def parse_reader_coverage(path: Path) -> tuple[dict, list[Problem]]:
     }, problems
 
 
-def parse_todo_tasks(path: Path, task_ids: list[str]) -> tuple[dict, list[Problem]]:
-    """Bounded parse: find status/result for specific task IDs only."""
+def _task_block_re(tid: str) -> str:
+    return rf'(?m)^- \[(?P<chk>[ xX])\] \*\*{re.escape(tid)}\b[^\n]*\n(?P<body>(?:  .*\n|\n)*)'
+
+
+def default_history_paths(todo_path: Path) -> list[Path]:
+    """The frozen board snapshots next to TODO.md, newest first (H65)."""
+    return sorted((todo_path.parent / "docs" / "research").glob("todo-history-*.md"),
+                  key=lambda q: q.name, reverse=True)
+
+
+def find_archived_task(tid: str, history_paths: list[Path]) -> dict | None:
+    """Look up a task block that left TODO.md in the history files (H65).
+
+    The newest history file that holds a ``- [ ] **ID`` / ``- [x] **ID`` block
+    wins, because a later snapshot records the later state (M8.A1 is ``[ ]`` in
+    the 2026-11-05 snapshot and ``[x]`` in 2026-11-09). Returns None when no
+    history file has the block.
+    """
+    for hp in history_paths:
+        try:
+            text = hp.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        m = re.search(_task_block_re(tid), text)
+        if not m:
+            continue
+        line = text.count("\n", 0, m.start()) + 1
+        block = m.group(0)
+        status_m = re.search(r'Status:\s*([^\n·.]+)', block)
+        result_m = re.search(r'Result:\s*(.+)', block)
+        checked = m.group("chk").lower() == "x"
+        inner = status_m.group(1).strip() if status_m else ("done" if checked else "open")
+        return {
+            "checked": checked,
+            "status_line": f"archived ({inner}) in {hp.name}:{line}",
+            "result": (result_m.group(1).strip() if result_m else None),
+            "contract": "archived_task_block",
+            "archived_in": f"{hp.name}:{line}",
+        }
+    return None
+
+
+def parse_todo_tasks(path: Path, task_ids: list[str],
+                     history_paths: list[Path] | None = None) -> tuple[dict, list[Problem]]:
+    """Bounded parse: find status/result for specific task IDs only.
+
+    A task with no block in ``path`` is looked up in ``history_paths`` (H65):
+    an ``[x]`` block there is reported as ``archived`` with no problem; an
+    archived ``[ ]`` block, or no block anywhere, is a problem.
+    """
     problems: list[Problem] = []
     try:
         text = path.read_text(encoding="utf-8")
@@ -272,9 +320,18 @@ def parse_todo_tasks(path: Path, task_ids: list[str]) -> tuple[dict, list[Proble
     found: dict[str, dict] = {}
     for tid in task_ids:
         # match task header line
-        m = re.search(rf'(?m)^- \[(?P<chk>[ xX])\] \*\*{re.escape(tid)}\b[^\n]*\n(?P<body>(?:  .*\n|\n)*)', text)
+        m = re.search(_task_block_re(tid), text)
         if not m:
-            problems.append(Problem(str(path), f"task {tid} not found"))
+            archived = find_archived_task(tid, history_paths or [])
+            if archived is None:
+                problems.append(Problem(str(path), f"task {tid} not found "
+                                        f"(no block in TODO.md or {len(history_paths or [])} history files)"))
+            elif not archived["checked"]:
+                found[tid] = archived
+                problems.append(Problem(str(path), f"task {tid} is not on the board and was "
+                                        f"archived unfinished ({archived['archived_in']})"))
+            else:
+                found[tid] = archived
             continue
         block = m.group(0)
         status_m = re.search(r'(?m)^\s+- Status:\s*(.+)$', block)
@@ -809,7 +866,7 @@ def build_report(args) -> dict:
     l5_ids = [tid for _, tid, _ in L5_CAR_TASKS] + [tid for _, tid, _ in L5_PREREQ]
     l4_ids = [tid for _, tid, _ in L4_EMULATOR_TASKS] + [tid for _, tid, _ in L4_PREREQ]
     all_ids = list(dict.fromkeys(l5_ids + l4_ids))
-    todo_tasks, p = parse_todo_tasks(todo_path, all_ids); problems += p
+    todo_tasks, p = parse_todo_tasks(todo_path, all_ids, default_history_paths(todo_path)); problems += p
     # backward compat: --l4-status was v1 car status; prefer --l5-status
     l5_status_input = None
     l5_src = getattr(args, "l5_status", None) or getattr(args, "l4_status", None)
@@ -1054,6 +1111,42 @@ def selftest() -> int:
         ok(must in md, f"markdown contains {ascii(must)}")
     ok("S0" in md and "S1" in md and "F0" in md, "markdown has L5 car stages and L4 emulator stages")
     ok(json.dumps(report), "report is JSON-serializable")
+
+    # H65: a prerequisite whose block left TODO.md resolves from the history
+    # files; the live board's L4 prerequisite (M8.A1) is archived, not missing.
+    probs_live = [p["message"] for p in report.get("problems", [])]
+    ok(not any("M8.A1 not found" in m for m in probs_live), "live report has no 'M8.A1 not found' problem")
+    l4_pre = {q["task"]: q for q in report["l4_emulator"]["prerequisites"]}
+    ok(l4_pre.get("M8.A1", {}).get("checked") is True
+       and str(l4_pre["M8.A1"].get("status", "")).startswith("archived"),
+       "live L4 prerequisite M8.A1 reads checked=True, status 'archived ...'")
+    ok("archived" in json.dumps(report["l4_emulator"]), "--json L4 block names the prerequisite as archived")
+    with tempfile.TemporaryDirectory() as td:
+        tdp = Path(td)
+        board = tdp / "TODO.md"
+        board.write_text("- [ ] **X1 — live**\n  - Status: open · Owner: —\n", encoding="utf-8")
+        old = tdp / "todo-history-2026-01-01.md"
+        new = tdp / "todo-history-2026-02-01.md"
+        old.write_text("- [ ] **Z9 Build env.** old\n\n- [ ] **Y2 — open**\n  - Status: open\n", encoding="utf-8")
+        new.write_text("intro\n\n- [x] **Z9 — Build env** done. Status: done · Owner: s. Result: EXP-Z9\n", encoding="utf-8")
+        hist = [new, old]
+        got, pr = parse_todo_tasks(board, ["X1", "Z9", "Y2", "Q7"], hist)
+        msgs = [x.message for x in pr]
+        ok(got["X1"]["contract"] == "bounded_task_block" and got["X1"]["checked"] is False, "live block still read from TODO")
+        ok(got["Z9"]["checked"] is True and got["Z9"]["status_line"] == "archived (done) in todo-history-2026-02-01.md:3"
+           and got["Z9"]["result"] == "EXP-Z9", f"archived [x] block resolves from newest history file: {got.get('Z9')}")
+        ok(not any("Z9" in m for m in msgs), "archived done prerequisite is not a problem")
+        ok(got["Y2"]["checked"] is False and any("Y2 is not on the board" in m for m in msgs),
+           "archived unfinished block is reported")
+        ok("Q7" not in got and any("task Q7 not found" in m and "2 history files" in m for m in msgs),
+           "ID in no file is still 'not found'")
+        got0, pr0 = parse_todo_tasks(board, ["Z9"])
+        ok("Z9" not in got0 and any("task Z9 not found" in x.message for x in pr0),
+           "without history paths the old 'not found' behaviour holds")
+        l4x, _ = build_l4_emulator(got, None)
+        ok(l4x["prerequisites"] == [{"task": "M8.A1", "what": "qemu-ze0 build env", "checked": None,
+                                     "status": None, "result": None}],
+           "build_l4_emulator keeps an unresolved prereq as checked=None")
 
     # full report with H41/H43 synthetic inputs
     with tempfile.TemporaryDirectory() as td:
