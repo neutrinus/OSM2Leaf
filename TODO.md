@@ -2194,7 +2194,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2100–C-2109
 
 - [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
-  - Status: blocked · Owner: claude/m4.22-identity-codes · Critical: no
+  - Status: open · Owner: — · Critical: no
   - Depends: —
   - Note (SE 2026-11-15, supersedes the PO 2026-11-13 note): the PO note pointed the `0x18c` code table at **M4.36**, which is the unrelated `ADDRE`/tile-section-4 join. The correct unblocker is **M4.38** (SE 2026-11-15); this task stays blocked on the `0x18c` code→language anchor plus its own header-word work (M4.12 delivered the ICODE001 index it needs, not the codes).
   - Goal: three identity fields are still unexplained and a generated card
@@ -2210,8 +2210,8 @@ of the four numbers above says so in its first line.
     `SPEECH/` language sets, and `header_block.py check` runs on the four real
     samples; `drstr.md`/`assets.md` updated in the same commit.
   - Claims: C-2490–C-2499
-  - Blocker: the `0x18c` codes have no code→language anchor in the four images (only counts agree: US 2/2, EU 8 vs 7 and 17 vs 16); `DRSTR001` `0x18c` is a node listing offset, not a language list (C-2493). The header fixes and the BICON001 retraction are done. See EXP-2026-11-08-M4.22-identity-codes.
-  - Unblock: M4.38 (decode the `0x18c` code table from the ICODE001 per-language index or a firmware language table; OQ-44)
+  - Blocker: M4.38 decoded the `0x18c` codes from the firmware (Navi.exe `sdl_com_hdl_get_lang` table joined with Speech.exe's dir switch; all `SPEECH/` sets on EU 2011, US 2011 and EU 2014 matched, C-3760–C-3769, EXP-2026-11-19-M4.38-lang-code-table), except `14 17 18 19 1a`, which no table in four builds returns (firmware language table for them not found). The header fixes and the BICON001 retraction are done (EXP-2026-11-08-M4.22-identity-codes).
+  - Unblock: re-open now to finish `file-header.md`/`drstr.md`/`assets.md` with the M4.38 code table (the language-matching done-when is met for every code with a speech set); `14 17 18 19 1a` stay `UNKNOWN`/`HYPOTHESIS` with the mutation named in `file-header.md`
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
   - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
@@ -2247,8 +2247,8 @@ of the four numbers above says so in its first line.
   - Stop: if no bit page passes bounds after the mask test on all three POINT files, record `NO COORDINATES`, point `M4.8b` at the inflated-stream path only, and do not decode more classes "just in case".
   - Claims: C-3750–C-3759
 
-- [ ] **M4.38 — Identify the `0x18c` language-code table (unblocks M4.22)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M4.38 — Identify the `0x18c` language-code table (unblocks M4.22)**
+  - Status: done · Owner: task/m4.38-lang-code-table · Critical: no · Pair: required
   - Depends: — (M4.12's `tools/coord_zcode_icode.py` is on `main`; M4.22's header-word work is independent of this code-table search)
   - Note (SE 2026-11-15): `M4.22` sat blocked with "new task needed (none on the board yet)" since 2026-11-08; PO's 2026-11-13 note pointed it at `M4.36`, which is the unrelated `ADDRE`/section-4 join (mis-link, fixed in the same pass). This task is the actual missing unblocker, split out so `M4.22`'s header-word work does not wait on it.
   - Goal: map each byte of the `0x18c` code list (`05 04 02 07 0a 06 08 14` on EU 2011, 17 codes on EU 2014) to a language and its `SPEECH/` set, or prove no on-card anchor exists and name the firmware table that would settle it — so `M4.22` can finish `file-header.md`.
@@ -2259,6 +2259,7 @@ of the four numbers above says so in its first line.
   - Done when: an EXP states each `0x18c` code's language and its `SPEECH/` set with an anchor (a directory name, a firmware table VA via `sh4scan`, or a mutation control), OR states "no on-card anchor" with the negative control and names the firmware table to search; `M4.22`'s Unblock/Blocker is updated to cite this EXP; `claims_check.py` OK.
   - Stop: if neither an on-card nor a firmware anchor exists, record the negative (counts agree but no code→name link) and leave `M4.22` blocked on "firmware language table not found", not on "new task needed".
   - Claims: C-3760–C-3769
+  - Result: EXP-2026-11-19-M4.38-lang-code-table. The codes are Navi.exe `sdl_com_hdl_get_lang` values (EU2011 fn `0x003c0228`, rows `0x00045d90`; EU2014 `0x003f3c34`/`0x00047a78`), default `3f`; Speech.exe maps the same `OBJ_Setting_readExpLanguage` setting to the `SPEECH/` dir. `02` EN-UK/BE, `03` EN-US/US, `04` FR (FR, CF), `05` GE, `06` SP, `07` IT, `08` PT, `09` EL (cross-build), `0a` DU, `0c` SV, `0d` DA, `15` FI, `16` NO (+ `01` JP, `0b` RU, `0e` ZH, `0f` KO). `tools/lang_code_table.py join`: EU 2011 7/7, US 2011 2/2, EU 2014 16/16 dirs, shifted ±1 and no-Navi-table controls fail. `14 17 18 19 1a`: no row in four builds (`rows` scan) — named as the open step; the reader of `0x18c` is not traced. `claims_check.py` OK.
 
 - [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
   - Status: blocked · Owner: task/m4.28-poi-lat-residual-r2 · Critical: no
