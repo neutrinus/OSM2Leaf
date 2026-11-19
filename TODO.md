@@ -2972,6 +2972,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the census prints per-file `fits`/`needs_relocation` with the slack and delta, for the real M5.34 tree and for one synthetic over-budget file (control); a `--selftest` on synthetic FAT data covers fit, exact fit and over-budget; `python3 tools/selftest.py` green.
   - Stop: if the answer needs a real image copy to be trusted (FAT quirks), deliver the census on the real image and hand the write to M5.30 rather than copying images here.
   - Falsifier: the census reports `fits` for a file whose delta exceeds its chain slack, or a synthetic over-budget file with spare slack is reported `needs_relocation`.
+  - Work (driver, 2026-11-19): `tools/fit_census.py` + `EXP-2026-11-19-M5.47-fit-census.md` (C-4560–C-4567); level-1 tile `needs_relocation` (slack 22,272 B vs delta +4,671,350 B, 71 extra clusters), level-2 too (+138,994 B, 2 clusters), factory tree 480/480 `fits`, and `imgpatch --allow-resize --dry-run` refuses with `internal-range` (allocator takes clusters 115,187+ past the partition's last valid 115,186). Status left `in progress` for the navigator/TL.
   - Claims: C-4560–C-4569
 
 - [ ] **M5.48 — `tilewriter` leaves a partial `--out` tree when the build fails, so a failed run looks like a card**
