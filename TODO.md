@@ -2301,7 +2301,7 @@ of the four numbers above says so in its first line.
   - Claims: none yet
 
 - [ ] **M4.41 — Differential decoding: the same tile in 2011, 2014 and 2016**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.41-diff-years · Critical: no · Pair: solo
   - Depends: — (three EU images are on the allowed host)
   - Goal: three editions of the same map are the cheapest oracle for field meaning. A tile where one road was added between 2011 and 2014 shows which bytes of section 1, section 2, section 4 and `LEV3456R` belong to one road. No firmware and no hardware.
   - Precheck: `python3 tools/fetch_image.py --image EU2014 -o PATH` and `--image EU2016` verify; `python3 tools/diff_years.py -h` runs.
