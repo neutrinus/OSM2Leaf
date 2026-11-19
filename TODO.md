@@ -3494,7 +3494,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.a6-debug-serial · Critical: no
   - Depends: M8.A2
   - Claims: C-1280–C-1289
 - [ ] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
