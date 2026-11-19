@@ -3312,7 +3312,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
   parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
   `nk.exe` entry. Done when booting needs no `-device loader`.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.a3-builtin-loader · Critical: no
   - Depends: M8.A2
   - Claims: C-1250–C-1259
 - [x] **M8.A10 — Bump the QEMU pin 8.2.7 → 8.2.10**
