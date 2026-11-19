@@ -3121,7 +3121,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
 
 - [ ] **M6.13 — Prepare the S3 bench package manifest (no hardware, no vendor bytes in repo)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m6.13-s3-bench-manifest · Critical: yes
   - Depends: M5.14 (S3 done), M5.24 (diff proof), M9.31 (runnable L3 evidence)
   - Pair: solo
   - Goal: make the S3 (LEV3456) bench run cheap when hardware returns: record artifact SHA-256/size/diff ranges, how it differs from S0/S1/S2 (one variable), which offline/L3 gates passed, and S3 pass/fail criteria. Image stays outside repo.
