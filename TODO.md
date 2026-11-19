@@ -2248,7 +2248,7 @@ of the four numbers above says so in its first line.
   - Claims: C-3750–C-3759
 
 - [ ] **M4.38 — Identify the `0x18c` language-code table (unblocks M4.22)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m4.38-lang-code-table · Critical: no · Pair: required
   - Depends: — (M4.12's `tools/coord_zcode_icode.py` is on `main`; M4.22's header-word work is independent of this code-table search)
   - Note (SE 2026-11-15): `M4.22` sat blocked with "new task needed (none on the board yet)" since 2026-11-08; PO's 2026-11-13 note pointed it at `M4.36`, which is the unrelated `ADDRE`/section-4 join (mis-link, fixed in the same pass). This task is the actual missing unblocker, split out so `M4.22`'s header-word work does not wait on it.
   - Goal: map each byte of the `0x18c` code list (`05 04 02 07 0a 06 08 14` on EU 2011, 17 codes on EU 2014) to a language and its `SPEECH/` set, or prove no on-card anchor exists and name the firmware table that would settle it — so `M4.22` can finish `file-header.md`.
