@@ -23,7 +23,18 @@ offset table in the page: record *n+1* starts at ``record_n.offset +
 size and the page offset still do not change; only the compressed page may
 grow, and the tool refuses if it would cross the next page boundary.
 
-Only these bytes change: the name text, the record length byte (``--resize``),
+The firmware does not find the name through that framing (M3.11c, C-5115):
+its accessor takes the field area of the record (header class ``w>>13`` 3 or
+2: ``rec + 2*(hi+lo+8)`` of ``u16[rec+10]``), which starts with one length
+byte per field in 16-bit words, and field *f* starts after the
+``(n+1)/2``-word length table plus the lengths of fields ``0..f-1`` (``n`` =
+9 fields in the POINT dictionary, C-5114).  The name is field 5.  So
+``--resize`` (M5.52) also patches the field-5 length byte, requires the old
+text to lie inside field 5, and refuses a delta that is not a whole number of
+words or a record whose field area it cannot place.
+
+Only these bytes change: the name text, the record length byte and the
+field-5 length byte (``--resize``),
 the inner zlib stream (recompressed, zero-padded back to the page boundary),
 and the outer chunk that holds that page.  By default (M9.43) the outer
 container is rebuilt chunk-preservingly: ``cmpind_codec.repack_changed_chunks``
@@ -81,6 +92,13 @@ RECORD_TAGS = (0x60, 0x68)
 #: Every record ends with this marker, after its display text.
 RECORD_TERMINATOR = b"\xff\xff"
 MAX_RECORD = 2 * 0xFF
+#: Fields in the POINT field dictionary (C-5114); the name is field 5 and the
+#: address field 6 (C-5112).
+POINT_FIELDS = 9
+NAME_FIELD = 5
+#: Header classes ``u16[rec] >> 13`` whose field area ``fn 0x003f56bc``
+#: (EU2011) places from ``u16[rec+10]`` (C-5115).
+PLACEABLE_CLASSES = (2, 3)
 
 
 class PageError(ValueError):
@@ -150,10 +168,96 @@ def record_at(records: list[dict], offset: int) -> dict | None:
     return None
 
 
+def field_layout(rec: bytes, nfields: int = POINT_FIELDS) -> dict:
+    """Place a record's fields the way the firmware accessor does (C-5115).
+
+    ``rec`` is one record in file order (big-endian u16, the native order the
+    walker sees after the swap).  ``fn 0x003f56bc`` (EU2011; reached from the
+    US2011 accessor ``0x0041ec8c`` the same way) takes the field area from the
+    header class ``w >> 13`` of ``w = u16[rec]``: 3 or 2 → ``rec + 2*(hi+lo+8)``
+    of ``u16[rec+10]``.  ``fn 0x003f5e10`` reads ``(n+1)/2`` words of
+    byte-sized lengths (high byte = even field), so field *f*'s length is the
+    file byte ``loc + f`` and its data starts at
+    ``loc + 2*((n+1)/2 + sum(len[0..f-1]))``.
+
+    Raises :class:`PageError` for a class it cannot place (escape records
+    ``w & 0xfc00 == 0xfc00`` and classes 0/5/6 are read differently) or a
+    field area that does not fit the record.
+    """
+    if len(rec) < 12:
+        raise PageError(f"record of {len(rec)} bytes has no u16[rec+10]")
+    w = (rec[0] << 8) | rec[1]
+    cls = w >> 13
+    if w & 0xFC00 == 0xFC00 or cls not in PLACEABLE_CLASSES:
+        raise PageError(
+            f"header class {cls} (u16[rec]={w:#06x}) cannot be placed: only "
+            f"classes {PLACEABLE_CLASSES} have the field area at u16[rec+10]"
+        )
+    w10 = (rec[10] << 8) | rec[11]
+    loc = 2 * ((w10 >> 8) + (w10 & 0xFF) + 8)
+    table = 2 * ((nfields + 1) // 2)
+    if loc + table > len(rec):
+        raise PageError(
+            f"field area at +{loc:#x} (+{table} B length table) runs past the "
+            f"{len(rec)}-byte record"
+        )
+    lens = list(rec[loc : loc + nfields])
+    starts = []
+    pos = loc + table
+    for words in lens:
+        starts.append(pos)
+        pos += 2 * words
+    return {"class": cls, "loc": loc, "lens": lens, "starts": starts, "end": pos}
+
+
+def name_field(rec: bytes, nfields: int = POINT_FIELDS) -> tuple[int, int, dict]:
+    """``(start, words, layout)`` of field 5 in ``rec``; the fields must
+    account for every byte of the record (as on 2000/2000 real records)."""
+    layout = field_layout(rec, nfields)
+    if layout["end"] != len(rec):
+        raise PageError(
+            f"field lengths {layout['lens']} end at +{layout['end']:#x}, not at "
+            f"the record end +{len(rec):#x}: field area cannot be placed"
+        )
+    return layout["starts"][NAME_FIELD], layout["lens"][NAME_FIELD], layout
+
+
+def census(inner: bytes) -> dict:
+    """Header classes and placeable records of one name page (M5.52 Stop)."""
+    classes: dict[int, int] = {}
+    placed = 0
+    refused: dict[str, int] = {}
+    records = parse_page(inner)
+    for rec in records:
+        w = (rec["bytes"][0] << 8) | rec["bytes"][1]
+        classes[w >> 13] = classes.get(w >> 13, 0) + 1
+        try:
+            name_field(rec["bytes"])
+        except PageError as exc:
+            key = str(exc).split(":")[0][:40]
+            refused[key] = refused.get(key, 0) + 1
+        else:
+            placed += 1
+    return {"records": len(records), "classes": classes, "placed": placed,
+            "refused": refused}
+
+
+def format_census(c: dict) -> str:
+    cls = " ".join(f"class{k}={v}" for k, v in sorted(c["classes"].items()))
+    ref = " ".join(f"[{k}]={v}" for k, v in sorted(c["refused"].items())) or "none"
+    return (f"records={c['records']} {cls} placed={c['placed']} "
+            f"refused={c['records'] - c['placed']} ({ref})")
+
+
 def verify_resize(
     old_page: bytes, new_page: bytes, info: dict, old: bytes, new: bytes
 ) -> None:
-    """Assert that only the renamed record changed and the chain still parses."""
+    """Assert that only the renamed record changed and the chain still parses.
+
+    In the renamed record, every field other than 5 must keep its length and
+    bytes, the field-5 length byte must hold the new word count, and field 5
+    must contain the new text (M5.52).
+    """
     old_records = parse_page(old_page)
     new_records = parse_page(new_page)
     if len(old_records) != len(new_records):
@@ -167,6 +271,25 @@ def verify_resize(
         raise PageError("old text is not in the selected record")
     if new not in new_records[index]["bytes"]:
         raise PageError("new text is not in the renamed record")
+    before_rec = old_records[index]["bytes"]
+    after_rec = new_records[index]["bytes"]
+    _s0, _w0, lay0 = name_field(before_rec)
+    s1, w1, lay1 = name_field(after_rec)
+    if w1 != info["new_name_words"]:
+        raise PageError(
+            f"field-5 length byte is {w1} words, expected {info['new_name_words']}"
+        )
+    if new not in after_rec[s1 : s1 + 2 * w1]:
+        raise PageError("new text is not inside field 5 of the renamed record")
+    if lay0["loc"] != lay1["loc"] or before_rec[2 : lay0["loc"]] != after_rec[2 : lay1["loc"]]:
+        raise PageError("record header changed outside the length byte")
+    for f in range(len(lay0["lens"])):
+        if f == NAME_FIELD:
+            continue
+        a = before_rec[lay0["starts"][f] : lay0["starts"][f] + 2 * lay0["lens"][f]]
+        b = after_rec[lay1["starts"][f] : lay1["starts"][f] + 2 * lay1["lens"][f]]
+        if lay0["lens"][f] != lay1["lens"][f] or a != b:
+            raise PageError(f"field {f} of the renamed record changed")
     for other, (before, after) in enumerate(zip(old_records, new_records)):
         if other == index:
             continue
@@ -177,10 +300,13 @@ def verify_resize(
 
 
 def resize_name(inner: bytes, old: bytes, new: bytes) -> tuple[bytes, dict]:
-    """Replace ``old`` with ``new`` in a record page, fixing the length byte.
+    """Replace ``old`` with ``new`` in a record page, fixing both length bytes.
 
-    ``new`` may differ in length from ``old``; the byte delta must keep the
-    record size even because the framing stores ``size/2`` in one byte.
+    ``new`` may differ in length from ``old`` by a whole number of 16-bit
+    words.  ``old`` must lie inside the record's field 5 (the name, as the
+    firmware accessor places it).  The record length byte ``len2`` and the
+    field-5 length byte (in words, C-5115) are patched; nothing else in the
+    record moves except the bytes after the name.
     """
     if not old or not new:
         raise PageError("old and new text must be non-empty")
@@ -196,25 +322,36 @@ def resize_name(inner: bytes, old: bytes, new: bytes) -> tuple[bytes, dict]:
     if hit < record["offset"] + 2:
         raise PageError("replacement starts inside the record header")
     delta = len(new) - len(old)
-    new_total = record["total"] + delta
-    if new_total % 2:
+    if delta % 2:
         raise PageError(
-            f"record {record['offset']:#x} would be {new_total} bytes (odd); "
-            "the framing stores size/2, so change the name by an even number "
-            "of bytes"
+            f"name delta {delta:+d} bytes is odd: the record length and the "
+            "field-5 length are counted in 16-bit words, so change the name by "
+            "a whole number of words (an even number of bytes)"
         )
+    new_total = record["total"] + delta
     if not 4 <= new_total <= MAX_RECORD:
         raise PageError(
             f"record {record['offset']:#x} would be {new_total} bytes, "
             f"outside 4..{MAX_RECORD}"
         )
-    new_inner = inner[:hit] + new + inner[hit + len(old) :]
+    start, words, layout = name_field(record["bytes"])
+    rel = hit - record["offset"]
+    if not (start <= rel and rel + len(old) <= start + 2 * words):
+        raise PageError(
+            f"{old!r} at record +{rel:#x} is not inside field 5 "
+            f"(+{start:#x}..+{start + 2 * words:#x}, {words} words); "
+            "--resize renames only the name field"
+        )
+    new_words = words + delta // 2
+    if not 1 <= new_words <= 0xFF:
+        raise PageError(f"field 5 would be {new_words} words, outside 1..255")
+    len_at = record["offset"] + layout["loc"] + NAME_FIELD
     new_len2 = new_total // 2
-    new_inner = (
-        new_inner[: record["offset"] + 1]
-        + bytes([new_len2])
-        + new_inner[record["offset"] + 2 :]
-    )
+    out = bytearray(inner[:hit] + new + inner[hit + len(old) :])
+    # both length bytes lie before the name, so the splice did not move them
+    out[record["offset"] + 1] = new_len2
+    out[len_at] = new_words
+    new_inner = bytes(out)
     info = {
         "index": records.index(record),
         "record_offset": record["offset"],
@@ -222,6 +359,9 @@ def resize_name(inner: bytes, old: bytes, new: bytes) -> tuple[bytes, dict]:
         "new_total": new_total,
         "old_len2": record["len2"],
         "new_len2": new_len2,
+        "name_len_offset": len_at,
+        "old_name_words": words,
+        "new_name_words": new_words,
         "delta": delta,
         "records": len(records),
     }
@@ -287,23 +427,31 @@ def _changed_chunks(blob_old: bytes, blob_new: bytes, chunk_size: int) -> list[i
 # self-test (synthetic page, no vendor data)
 
 
-def _synth_record(tag: int, body: bytes, names: bytes) -> bytes:
-    payload = body + names + RECORD_TERMINATOR
-    total = 2 + len(payload)
-    if total % 2:
-        raise AssertionError("synthetic record must be even-sized")
-    if total > MAX_RECORD:
+def _synth_record(tag: int, name: bytes, addr: bytes, w10: int = 0) -> bytes:
+    """A record with the real field layout (C-5115): 12-byte header whose
+    ``u16[+10]`` places the field area, 9 length bytes (+1 pad), fields 0..2,
+    field 5 (name), field 6 (address) and field 8 = the ``ff ff`` terminator."""
+    if len(name) % 2 or len(addr) % 2:
+        raise AssertionError("synthetic fields must be whole words")
+    loc = 2 * ((w10 >> 8) + (w10 & 0xFF) + 8)
+    head = bytes([tag, 0]) + bytes.fromhex("9f6fd43e0c76046a") + w10.to_bytes(2, "big")
+    head += b"\x00" * (loc - len(head))
+    fields = [b"\x01\x02\x03\x04\x05\x06\x07\x08", b"\x00\x09", b"\xff\xff",
+              b"", b"", name, addr, b"", RECORD_TERMINATOR]
+    table = bytes(len(f) // 2 for f in fields) + b"\x00"
+    rec = bytearray(head + table + b"".join(fields))
+    if len(rec) > MAX_RECORD:
         raise AssertionError("synthetic record too large")
-    return bytes([tag, total // 2]) + payload
+    rec[1] = len(rec) // 2
+    return bytes(rec)
 
 
 def selftest() -> int:
-    body = bytes.fromhex("9f6fd43e0c76046a0600")
     page = b"".join(
         [
-            _synth_record(0x60, body, b"ALPHA MUSEUM\0@VIA ONE\0"),
-            _synth_record(0x68, body, b"BETA MUSEUM@VIA TWO\0"),
-            _synth_record(0x60, body, b"GAMMA@VIA THREE\0"),
+            _synth_record(0x60, b"ALPHA MUSEUM", b"1@VIA ONE\x00"),
+            _synth_record(0x68, b"BETA MUSEUMS", b"@VIA TWO", w10=0x0102),
+            _synth_record(0x60, b"GAMMA\x00", b"@VIA THREE\x00\x00"),
         ]
     )
     checks = 0
@@ -315,36 +463,85 @@ def selftest() -> int:
     assert records[2]["offset"] == records[1]["offset"] + records[1]["total"]
     checks += 1
 
+    # the firmware layout: field 5 is the name, field 6 the address (C-5115)
+    for rec, name, addr in zip(records, (b"ALPHA MUSEUM", b"BETA MUSEUMS", b"GAMMA\x00"),
+                               (b"1@VIA ONE\x00", b"@VIA TWO", b"@VIA THREE\x00\x00")):
+        start, words, lay = name_field(rec["bytes"])
+        assert rec["bytes"][start:start + 2 * words] == name
+        s6 = lay["starts"][6]
+        assert rec["bytes"][s6:s6 + 2 * lay["lens"][6]] == addr
+    assert field_layout(records[1]["bytes"])["loc"] == 2 * (1 + 2 + 8)
+    checks += 1
+
+    def name_of(pg: bytes, i: int) -> bytes:
+        rec = parse_page(pg)[i]["bytes"]
+        start, words, _lay = name_field(rec)
+        return rec[start:start + 2 * words]
+
+    def addr_of(pg: bytes, i: int) -> bytes:
+        lay = field_layout(parse_page(pg)[i]["bytes"])
+        rec = parse_page(pg)[i]["bytes"]
+        return rec[lay["starts"][6]:lay["starts"][6] + 2 * lay["lens"][6]]
+
     # same-length rename keeps the page size and every length byte
     same, info = resize_name(page, b"ALPHA MUSEUM", b"ALPHA MUSEU?")
     assert len(same) == len(page)
     assert info["delta"] == 0
     assert parse_page(same)[0]["len2"] == records[0]["len2"]
-    assert b"ALPHA MUSEU?" in same
+    assert info["old_name_words"] == info["new_name_words"] == 6
+    assert name_of(same, 0) == b"ALPHA MUSEU?"
     checks += 1
 
-    # +4 bytes: the length byte grows by 2 and the page grows by 4
+    # +4 bytes: len2 and the field-5 length both grow by 2 words, the
+    # address is read unchanged after the longer name
     grown, info = resize_name(page, b"ALPHA MUSEUM", b"ALPHA MUSEUM TWO")
     assert len(grown) == len(page) + 4
     assert info["delta"] == 4
     assert info["new_len2"] == records[0]["len2"] + 2
+    assert info["new_name_words"] == info["old_name_words"] + 2
+    assert name_of(grown, 0) == b"ALPHA MUSEUM TWO"
+    assert addr_of(grown, 0) == b"1@VIA ONE\x00"
     after = parse_page(grown)
     assert len(after) == 3
     assert after[1]["bytes"] == records[1]["bytes"]
     assert after[2]["bytes"] == records[2]["bytes"]
     checks += 1
 
-    # -2 bytes on the middle record
-    short, info = resize_name(page, b"BETA MUSEUM", b"BETA MUSE")
+    # -2 bytes on the middle record (header class 3 with w10 != 0)
+    short, info = resize_name(page, b"BETA MUSEUMS", b"BETA MUSEU")
     assert len(short) == len(page) - 2
     assert info["delta"] == -2
+    assert info["new_name_words"] == 5
+    assert name_of(short, 1) == b"BETA MUSEU" and addr_of(short, 1) == b"@VIA TWO"
     assert len(parse_page(short)) == 3
     checks += 1
 
+    # the defect M5.52 fixes: patching only len2 leaves field 5 at its old
+    # length, so the reader takes the old-length prefix and shifts the rest
+    # into the address (C-5117)
+    _grown, grown_info = resize_name(page, b"ALPHA MUSEUM", b"ALPHA MUSEUM TWO")
+    stale = bytearray(grown)
+    stale[grown_info["name_len_offset"]] = 6        # the pre-M5.52 output
+    stale_rec = parse_page(bytes(stale))[0]["bytes"]
+    slay = field_layout(stale_rec)
+    s5, s6 = slay["starts"][5], slay["starts"][6]
+    assert stale_rec[s5:s5 + 2 * slay["lens"][5]] == b"ALPHA MUSEUM"
+    assert stale_rec[s6:s6 + 2 * slay["lens"][6]].startswith(b" TWO")
+    try:
+        name_field(stale_rec)
+    except PageError as exc:
+        assert "cannot be placed" in str(exc)
+    else:
+        raise AssertionError("a stale field-5 length was accepted")
+    checks += 1
+
     for bad, message in (
-        ((b"ALPHA MUSEUM", b"ALPHA MUSEUMS"), "odd"),
+        ((b"ALPHA MUSEUM", b"ALPHA MUSEUMS"), "whole number of words"),
         ((b"NO SUCH NAME", b"NO SUCH NAME"), "occurrences"),
         ((b"ALPHA MUSEUM", b"ALPHA\x00MUSEUM"), "NUL"),
+        ((b"VIA ONE", b"VIA ONE!!"), "not inside field 5"),
+        ((b"MUSEUM1@", b"MUSEUM2@XX"), "not inside field 5"),
+        ((b"GAMMA", b"GAMM"), "whole number of words"),
     ):
         try:
             resize_name(page, *bad)
@@ -352,6 +549,37 @@ def selftest() -> int:
             assert message.lower() in str(exc).lower(), (message, exc)
         else:
             raise AssertionError(f"expected PageError for {bad!r}")
+    checks += 1
+
+    # records whose field area cannot be placed are refused, not mutated:
+    # a header class the accessor reads differently (5 = rec+8, 6, 0, escape
+    # 0xfc..), a field area past the record, and field lengths that do not
+    # add up to the record size
+    for w0, message in ((0xA0, "class 5"), (0xC0, "class 6"), (0x00, "class 0"),
+                        (0xFC, "class 7")):
+        rec = bytearray(records[0]["bytes"])
+        rec[0] = w0
+        try:
+            field_layout(bytes(rec))
+        except PageError as exc:
+            assert message in str(exc) and "cannot be placed" in str(exc), exc
+        else:
+            raise AssertionError(f"class byte {w0:#x} was placed")
+    two = bytearray(records[0]["bytes"])
+    two[0] = 0x40                       # class 2: placed like class 3
+    assert name_field(bytes(two))[1] == 6
+    far = bytearray(page)
+    far[10] = 0x7F                      # u16[rec+10] puts the field area past rec 0
+    lens_off = field_layout(records[0]["bytes"])["loc"] + 6   # field-6 length byte
+    off = bytearray(page)
+    off[lens_off] += 1                  # lengths no longer end at the record end
+    for broken in (bytes(far), bytes(off)):
+        try:
+            resize_name(broken, b"ALPHA MUSEUM", b"ALPHA MUSEUM TWO")
+        except PageError as exc:
+            assert "cannot be placed" in str(exc) or "runs past" in str(exc), exc
+        else:
+            raise AssertionError("an unplaceable record was resized")
     checks += 1
 
     # a bit-packed page and a truncated page must be rejected, not "mutated"
@@ -364,18 +592,29 @@ def selftest() -> int:
             raise AssertionError("malformed page was accepted")
     checks += 1
 
+    # census: every synthetic record is class 3 and placeable; a corrupted
+    # length byte is counted as refused
+    c = census(page)
+    assert c == {"records": 3, "classes": {3: 3}, "placed": 3, "refused": {}}, c
+    bad_len = bytearray(page)
+    bad_len[field_layout(records[0]["bytes"])["loc"] + 5] += 1
+    c = census(bytes(bad_len))
+    assert c["placed"] == 2 and sum(c["refused"].values()) == 1, c
+    assert "placed=2 refused=1" in format_census(c)
+    checks += 1
+
     # batch edits: same-length, followed by '@', framing preserved
-    beta_at = page.find(b"BETA MUSEUM")
+    beta_at = page.find(b"BETA MUSEUMS")
     new_inner, applied = edit_inner(page, [
-        {"at": beta_at, "old": "BETA MUSEUM", "new": "OSM2 TEST  "},
+        {"at": beta_at, "old": "BETA MUSEUMS", "new": "OSM2 TEST   "},
     ])
-    assert new_inner.find(b"OSM2 TEST  @VIA TWO") > 0 and len(new_inner) == len(page)
+    assert new_inner.find(b"OSM2 TEST   @VIA TWO") > 0 and len(new_inner) == len(page)
     assert len(parse_page(new_inner)) == 3
     checks += 1
-    alpha_at = page.find(b"ALPHA MUSEUM")  # followed by NUL, not '@': refused
+    alpha_at = page.find(b"ALPHA MUSEUM")  # followed by '1', not '@': refused
     for bad in (
-        {"at": beta_at, "old": "BETA MUSEUM", "new": "SHORT"},
-        {"at": beta_at + 1, "old": "BETA MUSEUM", "new": "OSM2 TEST  "},
+        {"at": beta_at, "old": "BETA MUSEUMS", "new": "SHORT"},
+        {"at": beta_at + 1, "old": "BETA MUSEUMS", "new": "OSM2 TEST   "},
         {"at": alpha_at, "old": "ALPHA MUSEUM", "new": "OSM2 TEST   "},
     ):
         try:
@@ -393,12 +632,12 @@ def selftest() -> int:
     blob = bytearray(stream + b"\x00" * (slot - consumed) + b"\x99" * 0x80)
     before = bytes(blob)
     edited, _applied = edit_inner(page, [
-        {"at": beta_at, "old": "BETA MUSEUM", "new": "OSM2 TEST  "},
+        {"at": beta_at, "old": "BETA MUSEUMS", "new": "OSM2 TEST   "},
     ])
     new_blob, row = refit_page_budget(bytes(blob), 0, edited, headroom_ratio=0.0)
     assert row["decision"] == "fit"
     assert new_blob[slot:] == before[slot:], "fitting refit touched bytes outside slot"
-    assert b"OSM2 TEST  @VIA TWO" in zlib.decompress(new_blob[:row["new_stream"]])
+    assert b"OSM2 TEST   @VIA TWO" in zlib.decompress(new_blob[:row["new_stream"]])
     checks += 1
     try:
         refit_page_budget(bytes(blob), 0, edited, headroom_ratio=10.0)
@@ -484,7 +723,11 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--new", help="replacement Latin-1 text")
     ap.add_argument("--resize", action="store_true",
                     help="allow a different-length name and patch the record "
-                         "length byte (POINT name-page framing)")
+                         "length byte and the field-5 length byte (POINT "
+                         "name-page framing, M5.52)")
+    ap.add_argument("--census", action="store_true",
+                    help="with CMP IND --page: count header classes and records "
+                         "whose field area --resize can place, then exit")
     ap.add_argument("--batch", help="JSON list of same-length POI-name edits "
                                     "(one decode, one encode)")
     ap.add_argument("--headroom", type=float, default=None,
@@ -663,6 +906,18 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
+    if args.census:
+        if not (args.cmp and args.ind and args.page is not None):
+            ap.error("--census needs CMP IND --page")
+        _u, _c, _n, _ch, offs = read_ind(Path(args.ind))
+        blob = decode(Path(args.cmp).read_bytes(), offs)
+        inner, _used = cmpind_codec.decompress_stream_at(
+            blob, args.page, window=len(blob[args.page:]) or 1)
+        try:
+            print(format_census(census(inner)))
+        except PageError as exc:
+            raise SystemExit(f"not a record page: {exc}") from exc
+        return 0
     if args.batch:
         if not (args.cmp and args.ind and args.outdir):
             ap.error("--batch needs CMP IND OUTDIR")
@@ -716,7 +971,9 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"refusing --resize: {exc}") from exc
         print(f"record {info['index']} at {info['record_offset']:#06x}: "
               f"{info['old_total']} -> {info['new_total']} bytes "
-              f"(len2 {info['old_len2']} -> {info['new_len2']})")
+              f"(len2 {info['old_len2']} -> {info['new_len2']}; field-5 length "
+              f"byte at {info['name_len_offset']:#06x}: {info['old_name_words']} -> "
+              f"{info['new_name_words']} words)")
         print(f"name {len(old_b)} -> {len(new_b)} bytes "
               f"(delta {info['delta']:+d}); {info['records']} records re-parsed")
     else:
