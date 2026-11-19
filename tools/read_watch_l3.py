@@ -69,14 +69,15 @@ US_CHAIN_ENTRY = 0x00443DA8
 
 #: The POINT record dispatcher (M9.38 ``above``): it compares the page argument
 #: with slots of a global BSS table and calls the nth reader.  ``slot`` is the
-#: table offset whose match branches to the walker load; ``pool`` is the
-#: dispatcher's own literal slot the walker VA is loaded from -- that value is
-#: what proves the route, because the table itself is BSS (zero at load).
+#: table offset whose match branches to the walker load; ``pool_off`` is the
+#: dispatcher's own literal slot (relative to ``dispatch``, the same byte in
+#: both builds) the walker VA is loaded from.  That pool *value* proves the
+#: route, because the table itself is BSS (zero at load).
 ABOVE = {
     "eu2011": {"dispatch": 0x003F5CDC, "table": 0x00D53500, "walker": 0x003F5194,
-               "slot": 28, "pool": 0x003F5D84},
+               "slot": 28, "pool_off": 0xA8},
     "us2011": {"dispatch": 0x0041E63C, "table": 0x00C81100, "walker": 0x0041DB44,
-               "slot": 28, "pool": 0x0041E6E4},
+               "slot": 28, "pool_off": 0xA8},
 }
 
 
@@ -186,6 +187,64 @@ def cmd_walk(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# probe: run a candidate function on a seeded buffer and keep the readers
+
+
+BUF_VA = 0x40000000
+
+
+def cmd_probe(args) -> int:
+    data = pw.load_image(args.image)
+    _, secs = pw.module_sections(data, IMAGE_START, MODULE)
+    raw = Path(args.buf).read_bytes()
+    start = args.file_offset
+    buf = raw[start:start + args.len] if args.len else raw[start:]
+    entries = [int(x, 0) for x in args.entry.split(",")]
+    watches = [{"lo": BUF_VA, "hi": BUF_VA + len(buf), "kind": kind,
+                "name": f"buf-{kind}"} for kind in ("r", "w")]
+    print(f"buffer {args.buf} +{start:#x} = {len(buf)} B at {BUF_VA:#010x}; "
+          f"entries={[hex(e) for e in entries]}")
+    lab = watch_mod.Labeller(data, IMAGE_START, MODULE)
+    readers = 0
+    for entry in entries:
+        eng = PySh4(endian="little")
+        text_va, text = pw.navi_text(data, IMAGE_START)
+        eng.map("text", text_va, text, "rx")
+        for s, comp, blob in secs:
+            if comp or not (s["flags"] & pw.EXEC) or s["realaddr"] == text_va:
+                continue
+            eng.map("text@%08x" % s["realaddr"], s["realaddr"], blob, "rx")
+        for s, comp, blob in secs:
+            if comp:
+                eng.map("sec@%08x" % s["realaddr"], s["realaddr"],
+                        bytearray(s["vsize"]), "rw")
+        eng.map("buf", BUF_VA, bytearray(buf) + bytearray(0x40), "rw")
+        eng.map("stack", WALK_STACK, bytearray(0x4000), "rw")
+        eng.set_regs(r15=WALK_STACK + 0x3F00)
+        for spec in watches:
+            eng.watch(spec["lo"], spec["hi"], kind=spec["kind"], name=spec["name"])
+        eng.arm_watch()
+        try:
+            ret = eng.call(entry, [BUF_VA])
+            fault = None
+        except Exception as exc:  # noqa: BLE001
+            ret, fault = None, exc
+        hits = eng.watch_hits()
+        rows = watch_mod.summarise(hits, BUF_VA, labeller=lab.label)
+        reads = watch_mod.totals(hits)["r"]
+        if reads:
+            readers += 1
+        print(f"entry={entry:#010x} r0="
+              f"{None if ret is None else hex(ret & 0xFFFFFFFF)} "
+              f"guest-reads={reads}"
+              + (f" fault={type(fault).__name__}: {fault}" if fault else ""))
+        print_table(rows, hits, BUF_VA)
+    print(f"readers={readers}/{len(entries)}")
+    print("result:", "PASS" if readers else "NO READER (never a pass)")
+    return 0 if readers else 1
+
+
+# ---------------------------------------------------------------------------
 # above: the dispatcher that routes the page to the walker
 
 
@@ -210,8 +269,8 @@ def cmd_above(args) -> int:
     text_va, text = pw.navi_text(data, IMAGE_START)
     raw = decoded_page(Path(args.cmp), Path(args.ind), args.page, args.page_len)
     native = pw.swap16(raw)
-    if not route_proven(data, cfg["pool"], cfg["walker"]):
-        print(f"BLOCKED: dispatcher pool {cfg['pool']:#010x} does not hold "
+    if not route_proven(data, cfg["dispatch"] + cfg["pool_off"], cfg["walker"]):
+        print(f"BLOCKED: dispatcher pool +{cfg['pool_off']:#x} does not hold "
               f"the walker {cfg['walker']:#010x}; dispatch route not proven")
         return 4
     slot = cfg["slot"]
@@ -221,7 +280,7 @@ def cmd_above(args) -> int:
     lab = watch_mod.Labeller(data, IMAGE_START, MODULE, entry=tgt["nth"])
     print(f"build {args.build}: dispatch={cfg['dispatch']:#010x} "
           f"table={cfg['table']:#010x} walker_slot=+{slot:#x} "
-          f"pool={cfg['pool']:#010x} -> walker={cfg['walker']:#010x} n={n}")
+          f"pool=+{cfg['pool_off']:#x} -> walker={cfg['walker']:#010x} n={n}")
 
     def run(with_watch: bool):
         eng = PySh4(endian="little")
@@ -454,6 +513,12 @@ def build_parser() -> argparse.ArgumentParser:
     walk.add_argument("--page-len", type=lambda s: int(s, 0), default=0)
     walk.add_argument("--n", help="comma-separated record numbers")
     walk.add_argument("--build", choices=tuple(pw.BUILD_TARGETS), default="us2011")
+    probe = sub.add_parser("probe", help="run candidate functions on a seeded buffer")
+    probe.add_argument("image")
+    probe.add_argument("--buf", required=True, help="plain file whose bytes seed the buffer")
+    probe.add_argument("--file-offset", type=lambda s: int(s, 0), default=0)
+    probe.add_argument("--len", type=lambda s: int(s, 0), default=0)
+    probe.add_argument("--entry", required=True, help="comma-separated candidate VAs")
     above = sub.add_parser("above", help="run the dispatcher that routes the page to the walker")
     above.add_argument("image")
     above.add_argument("--cmp", required=True)
@@ -497,6 +562,8 @@ def main(argv=None) -> int:
         return cmd_chain(args)
     if args.cmd == "walk":
         return cmd_walk(args)
+    if args.cmd == "probe":
+        return cmd_probe(args)
     build_parser().print_help()
     return 2
 
