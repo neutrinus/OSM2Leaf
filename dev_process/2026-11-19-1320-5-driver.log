@@ -50,3 +50,24 @@ Handoff: navigator should check (a) the 22,272 B slack arithmetic against the
 4,415-cluster chain, (b) that `--check-allocation` reproduces
 `alloc_clusters` faithfully, (c) the level-2 DRSTR001 "differs but same size"
 note, (d) whether the Follow-up belongs to M5.30 or a new task ID.
+
+Round 2 (navigator review, same session):
+- Precheck fixed in TODO (cardcheck.py --selftest -> selftest.py --only cardcheck
+  + cardcheck --root … --fast); verified both print OK/PASS.
+- C-4562 rewritten: DRSTR001 is length-same (11,968 B, delta 0) and
+  bytes-different (cmp byte 1693; sha 2b7f2fb8…/307cca5d…/d75b9929…); added
+  C-4569. Defined "changed" = non-zero delta; two files differ by bytes.
+- C-4567 ratios removed (hand arithmetic); deltas/slacks quoted instead.
+- §6 geometry relabelled data_area_end (7654560768) vs partition_end
+  (7654605824) and printed nclusters/cluster_offset(last_valid).
+- Added C-4568 (allocator identity on the real image) after spying on
+  mkcard.alloc_clusters during imgpatch._build_plan: lists identical.
+- Added tools/fit_census.py --delta-probe (factory+slack / +1 on real bytes);
+  selftest 43 checks. Hardened free-tail assertions with .get so a mutant is
+  RED, not a KeyError. Mutant controls: mut1 (delta<slack) 6 FAIL, mut2
+  (always fits) 11 FAIL then TypeError, both exit 1.
+- Records: filled "Corrections after navigator review" with the three controls
+  and commands; poked TODO Result/round-2 line; Status: done, [x].
+- Checks: selftest.py 94/0/23, gate 4/0/0, claims_check --strict OK. First run
+  failed on mkcard ENOSPC from /tmp at 92% (other sessions' debris, no sudo);
+  re-ran with TMPDIR on the home disk, green.

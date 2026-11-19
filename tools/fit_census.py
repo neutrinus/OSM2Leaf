@@ -173,6 +173,34 @@ def census_row(rel: str, factory_bytes: int, generated_bytes: int,
     return row
 
 
+
+def delta_probe(image, rel: str, *, slack_delta: int = 0) -> dict:
+    """Evaluate *rel* at factory size + slack + slack_delta, read-only.
+
+    A boundary control on real bytes: ``slack_delta=0`` is exactly the slack
+    (must be ``fits``) and ``slack_delta=1`` is one byte past it (must be
+    ``needs_relocation``). No generated file is needed.
+    """
+    image_path = Path(image)
+    if not image_path.is_file():
+        raise CensusError(f"{image_path}: no such image")
+    with image_path.open("rb") as handle:
+        _part, geo, fat = mkcard.open_map_partition(handle)
+        try:
+            info = imgpatch._locate(handle, geo, fat, rel)
+        except imgpatch.PatchError as exc:
+            raise CensusError(f"{rel}: {exc.message}") from None
+        chain, _chain_bytes, slack = chain_slack(fat, geo.cluster_bytes,
+                                                 info["cluster"], info["size"])
+        if not chain:
+            raise CensusError(f"{rel}: no cluster chain (zero size)")
+        size = info["size"] + slack + slack_delta
+        row = census_row(rel, info["size"], size, fat, geo.cluster_bytes,
+                         info["cluster"], len(fat) // 4)
+        row["probe"] = {"slack_delta": slack_delta}
+        return row
+
+
 def census(image, tree, *, include_missing: bool = False,
            check_allocation: bool = False) -> dict:
     """The whole census: rows per tree file plus a summary, writes nothing."""
@@ -350,6 +378,8 @@ def make_fixture(root: Path, image: Path) -> None:
 
 
 def selftest() -> int:
+    import contextlib
+    import io
     import tempfile
 
     print("fit_census self-test")
@@ -398,18 +428,18 @@ def selftest() -> int:
         check("over budget: delta", over["delta"] == 3097, str(over["delta"]))
         check("over budget: one extra cluster", over["extra_clusters"] == 1,
               str(over["extra_clusters"]))
-        check("over budget: free tail is seen", over["tail_free_run"] >= 1,
+        check("over budget: free tail is seen", over.get("tail_free_run", 0) >= 1,
               str(over.get("tail_free_run")))
-        check("over budget: tail is enough", over["tail_free_enough"] is True,
+        check("over budget: tail is enough", over.get("tail_free_enough", False) is True,
               str(over.get("tail_free_enough")))
 
         blocked = rows["BLOCKED.BIN"]
         check("blocked tail: relocation",
               blocked["verdict"] == "needs_relocation", blocked["verdict"])
         check("blocked tail: next cluster is another file's",
-              blocked["tail_free_run"] == 0, str(blocked["tail_free_run"]))
+              blocked.get("tail_free_run", 0) == 0, str(blocked.get("tail_free_run")))
         check("blocked tail: relocation cannot use the tail",
-              blocked["tail_free_enough"] is False,
+              blocked.get("tail_free_enough", False) is False,
               str(blocked.get("tail_free_enough")))
         check("falsifier guard: delta=slack+1 never fits",
               over["verdict"] != "fits")
@@ -453,6 +483,19 @@ def selftest() -> int:
         check("boundary: slack-1 fits", under["verdict"] == "fits",
               under["verdict"])
 
+        # Delta probe: exact slack and one byte past it, no tree needed.
+        at = delta_probe(image, "EXACT.BIN", slack_delta=0)
+        past = delta_probe(image, "EXACT.BIN", slack_delta=1)
+        check("delta-probe: slack delta fits", at["verdict"] == "fits",
+              at["verdict"])
+        check("delta-probe: slack+1 relocates",
+              past["verdict"] == "needs_relocation", past["verdict"])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = main(["--image", str(image), "--delta-probe", "EXACT.BIN",
+                       "--probe-delta", "1"])
+        check("delta-probe cli: exit 1 past the slack", rc == 1, str(rc))
+
         # Allocation check: the fixture is small, so a hint near the FAT end
         # must show the allocator walking past the partition's last cluster.
         alloc = census(image, tree, check_allocation=True)["allocation"]
@@ -493,8 +536,6 @@ def selftest() -> int:
 
         # CLI: exit 1 when something needs relocation, 0 with --json on a
         # fits-only tree.
-        import contextlib
-        import io
 
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
@@ -537,6 +578,12 @@ def build_parser() -> argparse.ArgumentParser:
                "from image, 2 usage/input error.")
     parser.add_argument("--image", help="card image (opened read-only)")
     parser.add_argument("--tree", help="generated card tree to compare")
+    parser.add_argument("--delta-probe", metavar="PATH/IN/CARD",
+                        help="evaluate one file at factory size + slack + "
+                             "--probe-delta (a boundary control, no tree)")
+    parser.add_argument("--probe-delta", type=int, default=0,
+                        help="bytes to add beyond the slack for --delta-probe "
+                             "(0 = exactly the slack, 1 = one past it)")
     parser.add_argument("--check-allocation", action="store_true",
                         help="also reproduce the cluster allocator imgpatch "
                              "would use on the largest relocation, read-only")
@@ -556,6 +603,23 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.selftest:
         return selftest()
+    if args.delta_probe:
+        if not args.image:
+            parser.error("--delta-probe requires --image")
+        try:
+            row = delta_probe(args.image, args.delta_probe,
+                              slack_delta=args.probe_delta)
+        except CensusError as exc:
+            print(f"fit_census: {exc}", file=sys.stderr)
+            return exc.exit_code
+        if args.json:
+            print(json.dumps(row, indent=2))
+        else:
+            print(f"{row['file']}: factory={row['factory_bytes']} "
+                  f"generated={row['generated_bytes']} "
+                  f"delta={row['delta']:+d} slack={row['slack']} "
+                  f"verdict={row['verdict']}")
+        return 0 if row["verdict"] == "fits" else 1
     if not args.image or not args.tree:
         parser.error("--image and --tree are required (or use --selftest)")
     try:
