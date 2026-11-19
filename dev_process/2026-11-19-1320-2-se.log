@@ -1,0 +1,45 @@
+role: SE (senior engineer)
+model: opencode deepseek-v4.1-flash-free; ran in-process (subagent router down)
+start: 2026-11-19T13:20Z
+origin/main at start: 685fbb1
+
+inputs read:
+  docs/retro/2026-11-18-3.md, dev_process/2026-11-18-0724-5-tl.log, the nine
+  task blocks and EXPs in the window (M5.43, M3.26, M9.42, M5.44, M5.45, M5.46,
+  M9.43, H91, H92), PR #229's slice table, claims.md tail, TODO board.
+
+review of the window:
+  - M5.43 / M9.42 / M5.44 / M5.45 / M5.46 / M9.43 / H91 Done-when: re-ran the
+    cheap ones (gate 4/0/0, all selftests green, the H91 scoped grep 0).
+    None fails; no repair task filed. H92 is blocked on H111 by design.
+  - EXP shape: every new EXP has a sample or an explicit "tool-only" line, a
+    falsifier before the result, Observations apart from Interpretation, and a
+    Corrections section (M3.26 and M5.45 had 3 rounds and both filled it).
+  - traps from AGENTS.md: no big-endian search, no guessed signature; M3.26
+    derived the dispatcher from the bytes and corrected two docs against
+    sh4xref. M5.45's C-4463 mechanism was corrected from "shared key" to
+    physical aliasing - recorded, not silently retracted.
+
+tasks added (3, all map, claim blocks free on main: highest used C-4489):
+  - M5.47 P0 fit census (pair) C-4560-C-4569 - M5.30's cheap half, no write.
+  - M5.48 partial --out cleanup (solo, reproducible exit check) C-4570-C-4579.
+  - M3.27 tile-reader entry arguments (pair) C-4580-C-4589 - M3.25's static half.
+  Not added: M5.45's level-2 refusal follow-up (already an EXP Follow-up owned
+  by M5.45's task text), and no record-repair task (none needed this window).
+
+decisions:
+  - placed ROW 1's Suggested next 3 (PR #229's M5.47/M3.27) here rather than
+    waiting for #229 to merge, because both are independent of the process PR
+    and the claim blocks are free; #229 must renumber its M3.27/M5.47 blocks
+    when it lands (flagged in the SE log).
+  - did not add a second mutant-corpus task: M9.43's .ind follow-up is one
+    bullet in its EXP and belongs to whoever extends mutate_refer_poi.
+
+checks: todo_check OK (M9.5 WARNs pre-existing), claims_check --strict
+--count-check OK, gate 4/0/0.
+
+handoff:
+  - PO: M5.47 then M5.30 is the P0 pair to take next; M3.27 then M3.25 is the
+    L3 line. PR #229 must renumber its own M3.27 (C-4490) and M5.47 (C-4540).
+  - QA: H92 is blocked on H111; the ghost-claim row is the QA action from the
+    retro.
