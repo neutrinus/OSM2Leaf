@@ -3491,11 +3491,27 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-4320–C-4329
 
 
-- [ ] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
+- [x] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not.
-  - Status: in progress · Owner: task/m8.a6-debug-serial · Critical: no
+  - Status: done · Owner: task/m8.a6-debug-serial · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-19, the original line is kept above):
+    `-M ze0` maps `sh_serial` (SCIF) at `0xffe46000` on serial port 0; a
+    positive-control shim that calls the firmware writer `0x8804cfa4` makes
+    `python3 tools/ze0_serial.py banner LOG` exit 0, and the same shim on
+    the machine without the model exits 1; then either a real boot's
+    `serial.log` passes `banner`, or the EXP names the code path the banner
+    takes instead (static callers + a translated-block trace).
+  - Result: EXP-2026-11-19-M8.A6-debug-serial (C-1280–C-1283). Model wired
+    and proven (69-byte banner via the firmware writer; 0 bytes without the
+    model). The banner never reaches the SCIF: the writer's only caller is
+    the AER exception reporter, and `KernelStart` sends the banner to
+    `fn 0x880404f4` → AstLog (`0x88044478`), gated `DebugLog` path off
+    (`0x89e613b0`/`b4`); 60 s boots on both load extents give 0 serial
+    bytes. `run.sh --serial` added (default `WORK/serial.log`). Found:
+    `run.sh` sizes images from the wrong `u32` (C-1283, input for M8.A3).
+    Patch: `tools/qemu-ze0/patches/ze0-0002-hw-sh4-ze0-debug-serial.patch`.
   - Claims: C-1280–C-1289
 - [ ] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
   - Status: open · Owner: — · Critical: no
