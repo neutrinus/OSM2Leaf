@@ -4219,12 +4219,12 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5186–C-5187
 
 - [ ] **M9.50 — Model `rotcl`/`rotcr` so the `nk.exe` divide routines run in the bare engine**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m9.50-pysh4-rotcl · Critical: no · Pair: solo
   - Depends: M9.48
   - Goal: the firmware's 32-bit divide routines (EU2011/US2011 `nk.exe` `0x88040b6c`, `0x88040c18`, `0x88042594`, `0x88040988`) interleave `div1` with `rotcl` (`0x4n24`) and use `rotcr` (`0x4n25`); the engine rejects both, so M9.48 ran them through a tool-local shim in `div1_l3.py`. Any L3 target that divides through these helpers stops at the first `rotcl`.
   - Scope: `rotcl`/`rotcr` in `_exec_system` plus `DECODE_TABLE` rows, a distinct-register selftest row each, and `div1_l3.py run` without the shim (keep the shim count at 0 as the check). No FPU.
   - Done when: `div1_l3.py run archive/head256.img nk.exe` prints `4/4 runnable functions match` with `rotcl(shim)=0 rotcr(shim)=0`; `isolate --before <pre-change engine>` lists only `rotcl`/`rotcr`; `compare` 0/0 on the three corpora.
-  - Claims: C-5188–C-5189
+  - Claims: C-5310–C-5319 (was C-5188–C-5189; fresh block for this run)
 
 ## Retired leads
 
