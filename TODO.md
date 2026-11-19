@@ -1887,7 +1887,7 @@ of the four numbers above says so in its first line.
 
 
 - [ ] **M3.27 — M3.25's first half: the tile reader's entry arguments, static, no run**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m3.27-tile-reader-args · Critical: yes · Pair: required
   - Depends: M3.5 (done — the three reader VAs), M1.26 (done — the audit that found one entry mid-function)
   - Goal: M3.25 needs both an entry VA and its calling convention before an L3 run can be trusted, and the argument half is a disassembly task with no emulator: which register carries the tile pointer, which the section/level, what the return convention is, and whether the third "reader" VA is a thunk of the first. Splitting it off makes the L3 run (M3.25) one variable instead of a search plus a harness in one pass; PR #229 proposes the same split.
   - Precheck: `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x0042c4b0` (or the VAs M3.5 records) prints START/INSIDE/GAP for each of the three; `python3 tools/sh4dis.py archive/head256.img --va <entry>` prints the prologue.
