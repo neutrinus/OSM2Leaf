@@ -2613,8 +2613,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1910–C-1919
   - Result: EXP-2026-11-06-M5.10-mkcard.md — `mkcard.py` copies firmware/pre-partition/0x06000000 verbatim and rebuilds the FAT32 map partition from a tree. Real EU 2011 unchanged-tree rebuild: byte-identical to IMG (SHA-256 `105e2032…76307`, 0 diff ranges), `cardcheck.py --image` PASS (480 files, 194 pairs, 46 tiles). Synthetic self-test OK (sparse FAT32, 0x06000000 preserved, changed-tree fresh build reads back). Diff ranges explained; cannot reproduce SD lock state/CID. `selftest.py` 34 passed.
 
-- [ ] **M5.11 — End-to-end: one generated tile on an accepted card image**
-  - Status: in progress · Owner: task/m5.11-one-generated-tile · Critical: yes
+- [x] **M5.11 — End-to-end: one generated tile on an accepted card image**
+  - Status: done · Owner: task/m5.11-one-generated-tile · Critical: yes
   - Depends: M5.4, M5.6, M5.10, M5.12b, M4.20 (accept facts: M2.3, M2.5, M2.12
     done; M2.15 and M9.6/M2.4 for the exact map-code bytes)
   - Goal: the Phase-2 milestone — turn OSM input into a card image that the
@@ -2630,6 +2630,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     map-code comparator inputs, attestation, SD lock) and states, per gate,
     pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
   - Claims: C-2330–C-2339 (was C-1970–C-1979, already used by H9)
+  - Result: EXP-2026-11-19-M5.11-one-generated-tile. `out.img` `b88a31f4…f95fe3` = EU 2011 card + `B48R058R` with dir (76,940) level 1 regenerated from the committed Dolnośląskie fixture `m5.37-splice.osm` (sandbox has no OSM host; real-extract run is M5.44): 42,542 diff bytes, all in the tile's clusters; `cardcheck --image` + `l2check` (incl. `--graph-tiles`) PASS; readback 18/18 within 1 m. Gates: 7 PASS (HDD_INFO, map-code check 1 ACCEPT in L3 under the declared unit record, `0x06000000` copy, version block, manifests, zlib, FAT), 2 not-applicable (`HDD_CHK.ATT`, SystemSD/UserSD check), 3 cannot-verify-offline (MapDBVer range, SD lock, tile reader L3 BLOCKED).
 
 - [x] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
   - Status: done (tool; the real S1/S2 images are **M5.13b**, C-2027
