@@ -4036,7 +4036,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3370–C-3379
 
 - [ ] **M9.33 — Map reopened L3 target rerun prerequisites (M1.2f / M9.24 / M9.28 / H45)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m9.33-l3-prereq-map · Critical: no · Pair: solo
   - Depends: H45, M9.28
   - Note (M9.28, 2026-11-19): the input-buffer prerequisite is **cleared** — `entry.input_region` maps a file-derived page at a chosen VA (EXP-2026-11-19-M9.28-input-region, C-3210–C-3219); remaining blockers for the reopened readers are sec1 `INIT` bytes (M1.2f) and import/CRT binding (M9.24).
   - Goal: make "re-run reopened L3 reader targets" cheap to decide: for M9.6/M9.10/M9.13/M9.14/M9.17/M9.11 (open states), state which blockers are cleared (M9.20/M9.11b/M3.20) and which prerequisites remain (sec1 decompression M1.2f, import/CRT/file binding M9.24, input-buffer mapping M9.28, reader VA/signature evidence), using H45 verdicts where available.
@@ -4045,7 +4045,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: H45, M9.28, targets.json, reader-coverage matrix, EXPs for M9.6/M9.11/M9.13/M9.14/M9.17, M1.2f/M9.24 task texts.
   - Done when: each reopened/blocked L3 reader target above has an explicit `READY|BLOCKED|UNKNOWN` prerequisite verdict with missing dependency IDs (or "H45 unavailable") recorded in an EXP; TODO/coverage notes reference it. No target is marked runnable without evidence.
   - Stop: if H45 is unavailable and target metadata is insufficient, record `UNKNOWN` with missing fields and stop (do not guess).
-  - Claims: C-3400–C-3409
+  - Claims: C-4650–C-4659 (re-allocated 2026-11-19: the block's original C-3400–C-3409 are taken on `main`)
 
 - [ ] **M9.34 — Close M9.32 as satisfied by M9.11 closeout (board/EXP linkage)**
   - Status: open · Owner: — · Critical: no · Pair: solo
