@@ -1273,7 +1273,7 @@ of the four numbers above says so in its first line.
   - Claims: C-4390–C-4399
 
 - [ ] **H109 — the four rule-17 map numbers are three Python one-liners, one 10-line shell loop and a host path**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h109-map-signals · Critical: no · Pair: solo
   - Depends: — (the PO wrote the commands; this makes them portable and honest when an input is absent)
   - Goal: retro 2026-11-18 beat 4: "no log quotes the four rule-17 counters from a command". The PO's Priorities block now has them, but one is a 10-line `python3 -c` with a shell loop over `/home/marek/.../m5.4/card-factory`, so on a host without the factory tree it crashes instead of saying "NOT RUN" — and QA cannot quote it. One `tools/map_signals.py` prints all four with a stable key each, `LOCAL`/`NOT RUN` where an input is missing, `--json` for the logs.
   - Precheck: `python3 -c "import sys,pathlib;sys.path[:0]=['tools'];from progress_report import parse_reader_coverage as p;…"` (Priorities block) needs `tools/` on the path; the tile one-liner needs `tools/ze0-viewer/tools_ze0` and three `.DAT` files; the P0 one needs `/home/marek/projekty/leafre-work/m5.34/report.json` hard-coded.
