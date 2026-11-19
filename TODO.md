@@ -3876,8 +3876,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 ---
 
-- [ ] **M9.28 — Module-entry input buffer/region mapping for real reader verdicts**
-  - Status: in progress · Owner: task/m9.28-input-buffer · Critical: yes · Pair: required
+- [x] **M9.28 — Module-entry input buffer/region mapping for real reader verdicts**
+  - Status: done · Owner: — · Critical: yes · Pair: required
+  - Result: EXP-2026-11-19-M9.28-input-region; `entry.input_region` maps file/literal bytes at a chosen VA with exact bounds, overlap refusal and provenance; the EU POINT walker `fn 0x003f5194` runs past its argument-pointer fault on the real EU `POINT010 0x6e06d0` page (returns `0xa8`, cross-checked against `point_walk_l3`), `--selftest` 34 checks (C-3210–C-3219)
   - Depends: M9.20
   - Precheck: `python3 tools/l3_harness/selftest.py` and `python3 tools/l3_harness/runner.py selftest` pass; reproduce M9.20's real run showing the POINT walker stops at `UNMAPPED` on its page argument (`0x0`) rather than at decode/endian. Confirm M9.24 does not already provide a generic input-buffer mapping (it focuses on coredll CRT/import binding and stack args).
   - Scope: `tools/l3_harness/` module-entry path (`runner.py`/ROM map/corpus conventions). Add a way to map a caller-supplied input buffer or file-derived bytes at a chosen guest VA for module targets, with explicit bounds and provenance in results. No firmware format claims; no Ghidra/QEMU.
@@ -3969,6 +3970,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.33 — Map reopened L3 target rerun prerequisites (M1.2f / M9.24 / M9.28 / H45)**
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Depends: H45, M9.28
+  - Note (M9.28, 2026-11-19): the input-buffer prerequisite is **cleared** — `entry.input_region` maps a file-derived page at a chosen VA (EXP-2026-11-19-M9.28-input-region, C-3210–C-3219); remaining blockers for the reopened readers are sec1 `INIT` bytes (M1.2f) and import/CRT binding (M9.24).
   - Goal: make "re-run reopened L3 reader targets" cheap to decide: for M9.6/M9.10/M9.13/M9.14/M9.17/M9.11 (open states), state which blockers are cleared (M9.20/M9.11b/M3.20) and which prerequisites remain (sec1 decompression M1.2f, import/CRT/file binding M9.24, input-buffer mapping M9.28, reader VA/signature evidence), using H45 verdicts where available.
   - Precheck: `test -f tools/l3_precond.py` or the H45-delivered tool exists and `--selftest` passes (else task becomes `blocked` on H45 with that named).
   - Scope: docs/planning output (EXP or a small table update in `docs/research/reader-coverage.md` notes / TODO task notes, named in PR) — no firmware execution, no silent PASS. Keep rule 13: verdict tables are planning aids, not L3 results.
