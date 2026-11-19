@@ -1130,7 +1130,7 @@ of the four numbers above says so in its first line.
   - Claims: C-3510–C-3519
 
 - [ ] **M1.21 — Decode the compressed `FILESentry` payloads with the kernel routine (re-opens M1.3/M1.4)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.21-filesentry-decode · Critical: no
   - Depends: — (H51)
   - Goal: read the ROM *files* of builds A/B/C (registry hives, `.lnk`, `initflashfiles.dat`, bitmaps, text), which M1.4 could not extract. They tell which drivers and paths the unit uses for the SD card and the map (`\SystemSD\…`), and M8 needs the registry.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 files | head` lists `FILESentry` rows with `nRealFileSize` ≠ `nCompFileSize`.
