@@ -2767,7 +2767,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2580–C-2589
 
 - [ ] **M5.26 — Whole-POINT-pair regeneration for OSM name sets (beyond in-place slot budget)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m5.26-point-pair-regen · Critical: yes
   - Depends: M1.13, M1.16, M5.21
   - Goal: make mass POI/name generation feasible for the OSM compiler. M5.21
     showed 98.6 % of edited POINT pages abut their slot and in-place edits fit
