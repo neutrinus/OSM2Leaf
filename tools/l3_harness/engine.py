@@ -547,13 +547,16 @@ class Backend:
         if not self._watches_on or tag == "x":
             return
         base = "r" if tag in ("r", "api-r") else "w"
+        # Attribute a guest access to the instruction that made it, not to
+        # ``pc`` -- PySh4 has already advanced pc past the instruction.
+        pc = self._insn_pc if self._insn_pc is not None else (self._get_pc() & M32)
         for item in self._watches:
             if item.kind != "rw" and item.kind != base:
                 continue
             if not item.covers(va, size):
                 continue
             self._watch_hits.append(WatchHit(
-                pc=self._get_pc() & M32, va=va & M32, size=size,
+                pc=pc & M32, va=va & M32, size=size,
                 kind=tag, name=item.name,
             ))
             return
@@ -962,6 +965,7 @@ class PySh4(Backend):
         self._blocks: list[_Block] = []
         self._delay: int | None = None
         self._arm: str = ""
+        self._insn_pc: int | None = None   # PC of the instruction executing now
 
     # -- back end primitives ----------------------------------------------
 
@@ -1061,9 +1065,13 @@ class PySh4(Backend):
         pc = self._regs["pc"]
         insn = self._fetch()
         self._regs["pc"] = (pc + 2) & M32
+        self._insn_pc = pc
         delayed = self._delay
         self._delay = None
-        self._execute(insn, pc)
+        try:
+            self._execute(insn, pc)
+        finally:
+            self._insn_pc = None
         if delayed is not None:
             # A delayed branch: the instruction at pc+2 was the delay slot and
             # has just run, so the branch target wins over pc+4.

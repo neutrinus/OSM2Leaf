@@ -194,7 +194,8 @@ def section_of(sections, va: int) -> str:
 
 def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                  chunk_size: int, sec_mode: str = "block", sec1_table=None,
-                 tgt: dict | None = None):
+                 tgt: dict | None = None, engine=None, watches=(),
+                 seed_page: bytes | None = None):
     """Run fn 0x41c7dc on the chunks covering [offset, offset+length).
 
     The loop starts at the table entry that ``*(ctx+28)`` points to and walks
@@ -207,12 +208,18 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     zlib 1.1.3 ``inflate_mask[17]`` at ``INFLATE_MASK_VA`` (public source,
     provenance recorded in EXP-2026-11-08-M9.11-chunk-decoder); callers that
     register a passing target through ``runner.py`` must pass it explicitly.
+
+    ``engine`` (M9.38) lets the caller own the ``PySh4`` instance so a
+    read/write watch attaches to the engine that actually runs; the watch is
+    armed only after every set-up write.  ``watches`` is a list of
+    ``{"lo", "hi", "kind", "name"}`` scopes.  The live engine and its hits are
+    returned in ``stats["engine"]`` / ``stats["watch_hits"]``.
     """
     tgt = tgt or BUILD_TARGETS["eu2011"]
     start = chunk_index(offset, chunk_size)
     count = chunk_index(offset + length - 1, chunk_size) - start + 1
     text_va, text = pw.navi_text(image, IMAGE_START)
-    eng = PySh4(endian="little")
+    eng = engine if engine is not None else PySh4(endian="little")
     eng.map("text", text_va, text, "rx")
     eng.map("cmp", CMP_VA, bytearray(cmp_bytes) + bytearray(0x1000), "rw")
     table = pack_rows(rows)
@@ -309,12 +316,32 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     eng.on_exec(tgt["mod31"], mod31_stub)
     eng.on_exec(tgt["zcalloc"], calloc_stub)
     eng.on_exec(tgt["zcfree"], free_stub)
+
+    # M9.38: an optional pre-seeded destination (the decoded page), written
+    # before the watch is armed so the seed is not a hit.
+    if seed_page is not None:
+        eng.write_mem(OUT_VA, seed_page[:length])
+
+    # Arm the watch only now, after every set-up write above.
+    if watches:
+        for spec in watches:
+            eng.watch(int(str(spec["lo"]), 0), int(str(spec["hi"]), 0),
+                      kind=spec.get("kind", "r"), name=spec.get("name", "watch"))
+        eng.arm_watch()
+    else:
+        eng.disarm_watch()
+
     try:
         ret = eng.call(tgt["fn_chunk"], [CTX_VA, ARG_VA, length, count])
     except EngineError as exc:
+        # keep the live engine so a watcher can still read its hits
+        stats["engine"] = eng
+        stats["watch_hits"] = eng.watch_hits()
         match = re.search(r"covers (0x[0-9a-f]+)", str(exc))
         va = int(match.group(1), 16) if match else None
         raise Blocked(str(exc), va, stats) from exc
+    stats["engine"] = eng
+    stats["watch_hits"] = eng.watch_hits()
     out = bytes(eng.read_mem(OUT_VA, length))
     return ret, out, stats
 
