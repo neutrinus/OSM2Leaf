@@ -3120,8 +3120,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
 
-- [ ] **M6.13 — Prepare the S3 bench package manifest (no hardware, no vendor bytes in repo)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M6.13 — Prepare the S3 bench package manifest (no hardware, no vendor bytes in repo)**
+  - Status: done · Owner: task/m6.13-s3-bench-manifest · Critical: yes
   - Depends: M5.14 (S3 done), M5.24 (diff proof), M9.31 (runnable L3 evidence)
   - Pair: solo
   - Goal: make the S3 (LEV3456) bench run cheap when hardware returns: record artifact SHA-256/size/diff ranges, how it differs from S0/S1/S2 (one variable), which offline/L3 gates passed, and S3 pass/fail criteria. Image stays outside repo.
@@ -3131,6 +3131,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: manifest lists artifact path placeholder + SHA-256 + size + diff ranges + base image identity, states "L5 NOT RUN", links pass/fail criteria; negative control: S2 manifest/criteria kept distinct (one variable).
   - Stop: if hash/diff ranges are not recoverable from recorded EXPs, record `UNRECORDED` and file follow-up; do not guess.
   - Claims: C-3230–C-3239
+  - Result: EXP `docs/experiments/EXP-2026-11-19-M6.13-s3-bench-manifest.md`; package `docs/research/bench-packages/s3.md` (L5 NOT RUN): artifact `us_S3.img` placeholder, SHA-256 `186f2ded…9775c1`, 8,057,257,984 B, base `53342430…c5383` (re-hashed), allowed ranges dir `[106124352,106124384)` + clusters 8–38 `[106189824,108221440)` re-resolved on the real base (C-3230), expected diff 117 B in `[107324608,107324896)`; L1/L2 PASS, L3 NOT-YET-AVAILABLE; S3 = factory + one tile, S2 pair ranges disjoint and S2 rename absent (negative control, C-3231). Two gaps filed as **M6.16**: no S3 generator in repo, and the moved vertex is ~45 m at 20.0–20.667°N by the M5.44 grid vs C-2054's ~11.6 km at 20.82°N.
 
 - [ ] **M6.9 — Set and verify an SD lock password from a PC**
   - Status: open · Owner: — · Critical: no · **Runner: non-Claude** (needs a
@@ -3257,6 +3258,18 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: the doc/template exists, references concrete task IDs and commands, and `python3 tools/claims_check.py` / `todo_check.py` still pass; a human can answer "what do we flash/check for S0 and S1?" from it without opening vendor data. Falsifier: if a required precheck command is not runnable from repo state, the manifest marks it `LOCAL_ONLY_VENDOR` or `BLOCKED` with the reason.
   - Stop: if M6.2/M6.5 scope is genuinely undecided on a safety point, record the decision as `NEEDS HUMAN` in the doc and do not guess.
   - Claims: C-3340–C-3349
+
+- [ ] **M6.16 — S3 card: a committed generator and the true on-screen place of the moved vertex**
+  - Status: open · Owner: — · Critical: no
+  - Pair: solo
+  - Depends: M6.13 (done — the package that names both gaps), M5.14 (the edit), M5.44 (the level-1/2 grid)
+  - Goal: the S3 bench card (`docs/research/bench-packages/s3.md`, `186f2ded…9775c1`) has no generator in the repo (M5.14 ran `/tmp/m5_14_patch.py`), and its expected place on screen is doubtful: C-2054 says 20.82→20.92°N (~11.6 km) while the M5.44 grid puts directory (30,65280) at 20.0–20.667°N with +40/2048 units ≈ 45 m. A lost image or a wrong place to look wastes a bench session.
+  - Precheck: `python3 -c "import sys;sys.path[:0]=['tools/ze0-viewer/tools_ze0','tools'];import parcel_census as p;print(p.directory_bbox(1,30,65280))"` prints `lat_min 20.0 … lat_max 20.667` and `lon_min 64356.0` (the lon is wrong for the US mesh); `ls tools | grep -c m5_14` prints `0`.
+  - Scope: one tool (name in the PR, e.g. `tools/s3_vertex_patch.py` with `--selftest`) that applies M5.14's in-place edit (dir (30,65280) slot 8 rec k=17, layer 8 shape 1 vertex 2, +40,0; zlib 9, NUL-pad to 288 B at `0x1150c0`) and reproduces tile `fc4d4bfc…` and, through `imgpatch.py`, image `186f2ded…`; a US-capable `mesh_to_lon` (or a stated mapping) and the vertex's lat/lon before/after, updating C-2054 via a new row if it changes; the S3 package's "Expected place" row. If the bench protocol stacks stages, also the S2-based variant with its SHA-256.
+  - Input: EXP-2026-11-08-M5.14 (Method, the patch description), EXP-2026-11-19-M6.13-s3-bench-manifest, `tools/ze0-viewer/tools_ze0/clarion_bg.py` (`parcel_geo`, `mesh_to_lon`), `tools/coord.py`, the US image (`fetch_image.py --image US`).
+  - Done when: the tool reproduces `fc4d4bfc8365647c…` byte for byte from the factory tile and the image SHA-256 `186f2ded…` (or names the byte that differs); the vertex lat/lon is computed by the M5.44 grid with a positive control (a factory feature at a known place on the US card) and recorded in s3.md; `selftest.py --only <tool>` green.
+  - Stop: if the tile does not reproduce after the described edit, record the differing bytes and set the S3 package's artifact to "regenerate before bench" instead of trying a fourth reconstruction.
+  - Claims: C-5250–C-5259
 
 ---
 
