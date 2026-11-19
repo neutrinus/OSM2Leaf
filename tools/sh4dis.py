@@ -211,6 +211,8 @@ OPERAND_TABLE = (
     (0xF0FF, 0x4019, "shlr8", True, False),
     (0xF0FF, 0x4020, "shal", True, False),
     (0xF0FF, 0x4021, "shar", True, False),
+    (0xF0FF, 0x4024, "rotcl", True, False),
+    (0xF0FF, 0x4025, "rotcr", True, False),
     (0xF0FF, 0x4028, "shll16", True, False),
     (0xF0FF, 0x4029, "shlr16", True, False),
     (0xF0FF, 0x4010, "dt", True, False),
@@ -454,7 +456,8 @@ def decode(w, va=0, mem=None):
             return ins("shad %s,%s" % (R(m), R(n)))
         simple = {0x00: "shll", 0x01: "shlr", 0x08: "shll2", 0x09: "shlr2",
                   0x18: "shll8", 0x19: "shlr8", 0x28: "shll16", 0x29: "shlr16",
-                  0x10: "dt", 0x11: "cmp/pz", 0x15: "cmp/pl", 0x21: "shar"}
+                  0x10: "dt", 0x11: "cmp/pz", 0x15: "cmp/pl", 0x21: "shar",
+                  0x24: "rotcl", 0x25: "rotcr"}
         if i in simple:
             return ins("%s %s" % (simple[i], R(n)))
         return ins(".word 0x%04x" % w)
@@ -1005,6 +1008,9 @@ def selftest():
     check("bt 0x10 disp 0 (0x8900) target", decode(0x8900, 0x10).target, 0x14)
     check("bsr 0x10 disp 0 (0xB000) target", decode(0xB000, 0x10).target, 0x14)
     check("shll r2 (0x4200)", decode(0x4200).text, "shll r2")
+    check("rotcl r3 (0x4324)", decode(0x4324).text, "rotcl r3")
+    check("rotcr r4 (0x4425)", decode(0x4425).text, "rotcr r4")
+    check("rotcl operands", operands(0x4324), ("rotcl", 3, None))
     check("unknown word is .word, no raise", decode(0xF000).text, ".word 0xf000")
 
     # M1.11c (C-2650–C-2652): MOVT 0x0n29, SHAR 0x4n21, SHLD 0x4nmC, SHAD 0x4nmD.
