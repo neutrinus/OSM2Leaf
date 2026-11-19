@@ -1387,7 +1387,7 @@ of the four numbers above says so in its first line.
 ## M2 — Map code, activation, updater
 
 - [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m2.4-hdd-info-predict · Critical: yes
   - Re-opened (rule 15, M9.6 merged 2026-11-19): `runner.py run applaunch_mapcode_compare --image IMG256 --input VARIANT --unit-from FACTORY` gives the firmware check-1 verdict per variant (EXP-2026-11-19-M9.6-mapcode-compare); the blocker below is kept as a note.
   - Depends: — (**M9.6 merged** `ff8720d`, M2.15 and M2.3 done); the corpus and
     the comparator are both on `main` now
@@ -1414,7 +1414,7 @@ of the four numbers above says so in its first line.
   - Result: blocked — EXP-2026-11-08-M2.4-hddinfo-variants-blocked (negative:
     firmware verdicts unavailable; C-2086 retains M2.15-model offline
     reclassification of all 89).
-  - Claims: C-750–C-759
+  - Claims: C-5290–C-5299 (was C-750–C-759; fresh block for this run)
 
 - [ ] **M4.23 — Tile section-2 regulation/connectivity reader (kinds `0x2046`/`0x3e4`)**
   - Status: blocked · Owner: claude/m4.23-restriction-encoding · Critical: no
