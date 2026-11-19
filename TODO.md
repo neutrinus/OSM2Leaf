@@ -1886,8 +1886,8 @@ of the four numbers above says so in its first line.
     `targets.json` untouched (M9.44).
 
 
-- [ ] **M3.27 — M3.25's first half: the tile reader's entry arguments, static, no run**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M3.27 — M3.25's first half: the tile reader's entry arguments, static, no run**
+  - Status: done · Owner: task/m3.27-tile-reader-args · Critical: yes · Pair: required
   - Depends: M3.5 (done — the three reader VAs), M1.26 (done — the audit that found one entry mid-function)
   - Goal: M3.25 needs both an entry VA and its calling convention before an L3 run can be trusted, and the argument half is a disassembly task with no emulator: which register carries the tile pointer, which the section/level, what the return convention is, and whether the third "reader" VA is a thunk of the first. Splitting it off makes the L3 run (M3.25) one variable instead of a search plus a harness in one pass; PR #229 proposes the same split.
   - Precheck: `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x0042c4b0` (or the VAs M3.5 records) prints START/INSIDE/GAP for each of the three; `python3 tools/sh4dis.py archive/head256.img --va <entry>` prints the prologue.
@@ -1897,6 +1897,8 @@ of the four numbers above says so in its first line.
   - Done when: `docs/format/map-tiles.md` has the entry table with a build name on every VA; every argument register names the caller that sets it; `python3 tools/claims_check.py --strict --count-check` green; `python3 tools/gate.py` 4 pass.
   - Stop: if two call sites genuinely disagree on a register and the code does not resolve it, record both readings and block the register, not the task.
   - Falsifier: a register is named from one caller while another caller loads a different base into it, and the table does not say so.
+  - Note (M3.27 driver, 2026-11-19): result is in `docs/format/map-tiles.md` §"Reader entry arguments" and EXP-2026-11-19-M3.27-tile-reader-args (C-4580–C-4589). `0x0042757a` is `INSIDE` `0x00427578`, so the third entry is `0x00427578`; all three have exactly one static call site and none takes a tile buffer (`r4` is a record pointer for `0x0041f26c`/`0x00427578`, a mesh id for `0x004259bc`), so M3.25/M9.13 should target or wrap `0x00425f40` rather than inventing the `(tile, dst)` prototype.
+  - Result: EXP-2026-11-19-M3.27-tile-reader-args.md — the tile-reader entries' arguments from `.pdata` and the sole call sites: `0x0041f26c` (r4 record pointer, r5 a 4-entry u32 array, r6 flag/mode UNKNOWN, r7 dead), `0x004259bc` (r4 mesh id, r5/r6 local, r7 control flag, the call reached only when r7 != 0), `0x00427578` (r4 20-byte record pointer, r5/r6/r7 overwritten; M3.5's `0x0042757a` is INSIDE it). None takes a tile buffer and none sets a deliberate return value, so M3.25/M9.13 must target or wrap `0x00425f40` instead of the invented `(tile, dst)` prototype. Every row is a claim (C-4580-C-4589) with its decoding command; gate 4 pass, claims_check OK, fn_audit 0 new/0 gone.
   - Claims: C-4580–C-4589
 
 ## M4 — Data formats (no firmware or hardware needed)

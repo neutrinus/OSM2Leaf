@@ -713,6 +713,73 @@ located MAP_DATA or RGD_DATA tile-load paths; no section-4-specific handler VA
 was located. It may be consumed by a separate name/search/label subsystem or be
 unused at render time — **UNKNOWN** from this analysis.
 
+### Reader entry arguments (M3.27, static, build A)
+
+> **Status:** `VERIFIED` for the entry addresses, lengths, the single static
+> call site of each and the register setup at those call sites; `OBSERVED` for
+> the meaning of each register; `UNKNOWN` where marked. Evidence:
+> IMG256 `92aa525d…` (`archive/head256.img`), `Navi.exe` `.text` at
+> `0x00011000`, `tools/nk_decomp.py pdata`, `tools/sh4xref.py --to/--calls`,
+> `tools/callgraph.py`, `tools/sh4dis.py`. EXP-2026-11-19-M3.27-tile-reader-args,
+> C-4580–C-4589.
+
+Start addresses come from `.pdata`, never from this page. `0x0042757a` (the
+M3.5 spelling of the third reader) is **2 bytes past** the function start
+`0x00427578`; `pdata` reports it `INSIDE`, and that is the only reason the
+table below uses `0x00427578`.
+
+| Entry | Build | `pdata` (start, length, end) | r4 | r5 | r6 | r7 | Return |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `0x0041f26c` (M3.5 "cell-table MAKE END") | EU2011 A | START, `0x170`, `0x0041f3dc` | record pointer: `mov.l r4,@(52,r15)`, then `mov.l @(20,r3)` used as a `mul #20` table index at `0x0041f2b4` | pointer to a 4-entry `u32` array (loop count `mov #4,r3` at `0x0041f280`; `mov.l @r8,r3` at `0x0041f296`) | an incoming `u32` flag/mode: reloaded at `0x0041f294`, tested `tst r6,r6` at `0x0041f29c`, compared with `-1`/`-2` at `0x0041f316`/`0x0041f35c` — **meaning UNKNOWN** (callers pass unset/`0`) | **not an argument**: first write is `mov #11,r7` at `0x0041f320`, so the incoming value is dead | `r0`: no deliberate return value; the sole caller does not read `r0` (it restores registers and returns at `0x004216a4`); `r2` only as a spill |
+| `0x004259bc` (M3.5 "cell-table MAKE START") | EU2011 A | START, `0xfc`, `0x00425ab8` | mesh id / status code: `mov r4,r8`, then `mul.l #20` at `0x004259de` and `0x00425a10`, and `mov r8,@(40,r15)` at `0x00425a64` | **not an argument**: first touch is the write `mov #0,r5` at `0x004259ce`; a local counter over the 4 mesh-table entries (`add #1,r5` at `0x004259f8`, `cmp/ge #4` at `0x004259fc`) | **not an argument**: first write is `extu.w r0,r6` at `0x00425a40` | control flag: `tst r7,r7` at `0x004259c8` returns immediately when zero; the sole caller reaches the call only when `r7 != 0` (`mov.l @(4,r8),r7` / `tst r7,r7` / `bt` at `0x00426500`–`0x00426504`) | `r0`: no deliberate return value; the sole caller does not read `r0` (it overwrites it at `0x00426512`); `r2` is written but never read by the caller |
+| `0x00427578` (M3.5 "cell-table MAKE START", entry `0x0042757a`) | EU2011 A | START, `0x2f8`, `0x00427870` | 20-byte record pointer: `mov.w @r4,r12` (count at `+0`) and `mov r4,r9; add #4,r9` at `0x0042759a`/`0x004275a0` | **not an argument**: first write is `mov r12,r5` at `0x00427602` | **not an argument**: first write is `mov r13,r6` at `0x00427600` | **not an argument**: overwritten by `mov r14,r7` at `0x004275fe` | `r0`: no deliberate return value; the sole caller does not read `r0` (`rts` at `0x00427834`); `r2` only as a spill |
+
+The three entries are **not one function and not thunks of each other**: the
+three bodies are `0x170`/`0xfc`/`0x2f8` bytes, `0x004259bc` ends in `rts` at
+`0x00425a86`, and no literal pool in the executable sections holds either
+`0x0042757a` or a jump to a sibling. Control flow is a chain instead:
+
+```
+0x00427cd4 (loop over 4 slots) -> 0x00427c4c -> 0x00427578  (renderer)
+0x00427a34 (thread loop, Printf-gated) -> 0x00427144 -> 0x0042613c -> 0x004259bc  (router)
+0x004216dc (task loop -> 0x00421548 -> 0x0041f26c)
+```
+
+What each static call site loads, and nothing else:
+
+| Entry | Sole static call site | `r4` | `r5` | `r6` | `r7` |
+| --- | --- | --- | --- | --- | --- |
+| `0x0041f26c` | `jsr 0x004216a0` in `0x00421548` (pool `0x004216d8`) | `mov r8,r4` (`r8` = the function's own `r4`) | `mov r13,r5` (`r15+24`, a 4-entry array of slot indices, filled at `0x004215ca`/`0x0042163a`) | `mov.l @(16,r15),r6` (`r6 = 0` from `0x00421560`, else the count from `0x0041f04c` at `0x004215d4`) | not set |
+| `0x004259bc` | `jsr 0x0042650c` in `0x0042613c` (pool `0x00426624`) | `mov r10,r4` (`r10` = per-slot iteration counter, `add #20,r10`) | `mov #0,r5` | `mov #0,r6` | `mov.w #0x0218,r7; add r14,r7` then `mov.l @(4,r8),r7` (a record pointer, not zero, so the call proceeds) |
+| `0x00427578` | `jsr 0x00427c6e` in `0x00427c4c` (pool `0x00427c8c`) | `mov r8,r4` (`r8` = `0x00e8ec00` after `jsr 0x003d13e8`, a 68-byte record) | not set | not set | not set |
+
+What the entries call back (they are **readers of already-mapped data**, not of
+a file buffer):
+
+- `0x0041f26c` → `0x0041d798`, `0x0041da5c` (twice each); table base
+  `0x00e8f5dc` (48-byte stride), index table `0x00e99698` (20-byte stride),
+  flag `0x00e99b0a`. `0x00e99698` is BSS (C-3442).
+- `0x004259bc` → `0x0041d798`, `0x0041da5c`, `0x0041ee14` (the type/record
+  validator of M3.6) and `0x003d13e8` (memcpy-like); builds a 20-byte record
+  on the stack with `u16 +8 = 0x0fa0`, `u16 +10 = 0x019a` and the mesh id at
+  `+12` (`0x00425a46`–`0x00425a64`).
+- `0x00427578` → `0x0041d798`, `0x0041da5c`, `0x0041ee14`, `0x00426d78`,
+  and `0x00425f40` (`MAP_DATA READ`, the renderer consumer of C-870) at
+  `0x00427820`, gated on `*0x009cfd80 != 1`; then `rts`.
+- `0x00427578` also calls `OSMDLL!#55` through `0x0055d8b4` (C-3441) with
+  `r4 = 0x89`; `0x0041f26c` calls the same import with `r4 = 4`. Role of that
+  import call: **UNKNOWN** here.
+
+**Consequence for M3.25/M9.13.** No M3.5 entry takes the tile bytes in a
+register: the callers pass a record (`r4`), an index array (`r5` of VA1) or the
+mesh id (`r4` of VA2), and the tile content is reached through BSS tables
+(`0x00e8f5dc`, `0x00e99698`) which H101 attributes to a memory-mapped view. A
+harness prototype of `(tile_ptr, dst_ptr)` is therefore **not** what these
+functions accept; the closest runnable target remains `0x00425f40` (M3.6) fed
+by `0x00427578`, whose `r4` is a 20-byte record. Falsifier for that paragraph: a
+caller that loads `MapViewOfFile`'s return value straight into `r4` of one of
+the three entries (not found: all three have exactly one static call site).
+
 ## Key questions
 
 1. What is the record grammar inside a real (non-448-byte) payload?
