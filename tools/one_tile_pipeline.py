@@ -666,6 +666,12 @@ def build_synthetic_out(out: Path, cell: str = "B48R058R",
         rebuilt.append(f"REFER001/{p.name}")
     report["counts"]["rebuilt_files"] = sorted(set(rebuilt))
     report["changed_set"] = [f"MAPAL001/{cell}.DAT"] + report["counts"]["rebuilt_files"]
+    # M5.41: same helper as the factory path; on the synthetic scaffold the
+    # expected set is still the two paths a correct run must change.
+    _changes = expected_changes(cell, report["counts"]["rebuilt_files"])
+    report["changed_set_expected"] = _changes["expected"]
+    report["allowed_but_unchanged"] = _changes["allowed_but_unchanged"]
+    report["allowed_manifests"] = _changes["allowed_manifests"]
 
     rc, so, se = run_cmd_json("cardcheck.py", ["--root", str(out), "--partial", "--ignore-dump-artifacts", "--fast"])
     report["counts"]["cardcheck_rc"] = rc
@@ -1093,6 +1099,22 @@ def selftest() -> int:
                    "--osm", str(crossing), "--clip"])
         chk(rc != 2, "CLI --clip drops the crossing way instead of failing")
 
+        # M5.41: report-level expected set on a fixture run.  This factory root
+        # has no REFER001 pairs, so the run reports a rebuild failure; that is
+        # exactly the point -- `changed_set_expected` is still the narrow 2-path
+        # set, `allowed_but_unchanged` carries the manifests rebuild re-emits,
+        # and the informational union (`changed_set`) is not the expected set.
+        m541_report = build_factory_out(td / "m541-out", root, "B48R058R",
+                                        osm_path=inside, parcel=(yb, xb))
+        chk(m541_report.get("changed_set_expected") == ["DRSTR001.DAT",
+                                                        "MAPAL001/B48R058R.DAT"],
+            "M5.41 fixture report: changed_set_expected is the narrow 2-path set")
+        chk(set(["MMAIN001.DAT", "CMP.LST"])
+            <= set(m541_report.get("allowed_but_unchanged") or []),
+            "M5.41 fixture report: MMAIN001.DAT + CMP.LST are allowed_but_unchanged")
+        chk(len(m541_report.get("changed_set") or []) >= 4,
+            "M5.41 fixture report: the informational union is wider than expected")
+
         # bbox helper: the default box is the directory box itself.
         dbox = default_osm_bbox(box)
         chk(dbox == (box["lon_min"], box["lat_min"], box["lon_max"], box["lat_max"]),
@@ -1237,6 +1259,42 @@ def selftest() -> int:
             {"changed_sections": [1], "changed_directories": []})
         chk(g_ok["status"] == "PASS", "one-tile gate passes tile + named manifest only")
 
+        # M5.41: the gate allowlist stays narrow.  A REFER001/*.ind that
+        # rebuild_manifests *rewrote* (so it appears in rebuilt_files) but
+        # whose content differs must still be "unexpected" and FAIL -- the
+        # expected set (tile + DRSTR001.DAT) must NOT be fed to `manifests`.
+        changes = expected_changes("B48R058R", [
+            "CMP.LST", "DRSTR001.DAT", "MMAIN001.DAT",
+            "REFER001/POINT001.DAT.ind"])
+        chk(changes["expected"] == ["DRSTR001.DAT", "MAPAL001/B48R058R.DAT"],
+            "M5.41 expected set is the 2-element Done-when literal")
+        chk("REFER001/POINT001.DAT.ind" in changes["allowed_but_unchanged"]
+            and "MMAIN001.DAT" in changes["allowed_but_unchanged"],
+            "M5.41 rebuilt .ind/MMAIN001 are allowed-but-unchanged, not expected")
+        chk(set(changes["allowed_manifests"])
+            == {"DRSTR001.DAT", "MMAIN001.DAT", "CMP.LST"},
+            "M5.41 gate allowlist does not grow with rebuilt_files")
+        g_ind_narrow, unexpected_ind = one_tile_gate(
+            [{"path": "MAPAL001/B48R058R.DAT", "state": "differs"},
+             {"path": "DRSTR001.DAT", "state": "differs"},
+             {"path": "REFER001/POINT001.DAT.ind", "state": "differs"}],
+            "MAPAL001/B48R058R.DAT",
+            set(changes["allowed_manifests"]), True,
+            {"changed_sections": [1], "changed_directories": []})
+        chk(g_ind_narrow["status"] == "FAIL"
+            and [d["path"] for d in unexpected_ind] == ["REFER001/POINT001.DAT.ind"],
+            "M5.41 a content-differing rebuilt REFER001/.ind FAILs the narrow gate")
+        g_ind_wide, _u = one_tile_gate(
+            [{"path": "MAPAL001/B48R058R.DAT", "state": "differs"},
+             {"path": "DRSTR001.DAT", "state": "differs"},
+             {"path": "REFER001/POINT001.DAT.ind", "state": "differs"}],
+            "MAPAL001/B48R058R.DAT",
+            {"DRSTR001.DAT", "MMAIN001.DAT", "CMP.LST",
+             "REFER001/POINT001.DAT.ind"}, True,
+            {"changed_sections": [1], "changed_directories": []})
+        chk(g_ind_wide["status"] == "PASS",
+            "M5.41 negative control: a widened allowlist would hide the .ind change")
+
         # B1: the report states which zlib the running interpreter links.
         rt = _zlib_runtime()
         import zlib as _zlib
@@ -1329,6 +1387,40 @@ def _copy_factory_root(src: Path, dst: Path, force: bool = False) -> None:
         _refuse_nonempty_out(dst, force)
         shutil.rmtree(dst)
     shutil.copytree(src, dst, symlinks=True)
+
+
+ALLOWED_MANIFESTS = ("DRSTR001.DAT", "MMAIN001.DAT", "CMP.LST")
+
+
+def expected_changes(cell: str, rebuilt: list[str] | tuple[str, ...] | None = None
+                     ) -> dict[str, list[str]]:
+    """The one expected-change-set for a correct one-tile run (M5.41).
+
+    Three sets, kept apart on purpose:
+
+    * ``expected`` — the paths a correct run must change: the target tile and
+      ``DRSTR001.DAT`` (its size word for the tile plus the appended directory
+      value word).  This is the task's Done-when literal (2 paths), not the
+      union with every rebuilt manifest.
+    * ``allowed_but_unchanged`` — paths ``rebuild_manifests`` re-emits
+      byte-identically on a correct run: ``MMAIN001.DAT``, ``CMP.LST`` and the
+      ``REFER001/*.ind`` pairs.  Allowed, never required.
+    * ``allowed_manifests`` — the gate's narrow allowlist (see
+      ``ALLOWED_MANIFESTS``); it does **not** grow with ``rebuilt``, so a
+      content-differing ``REFER001/*.ind`` stays ``unexpected`` and FAILs.
+
+    ``rebuilt`` is the report's ``counts.rebuilt_files`` and is used only to
+    classify; a path that is neither expected nor a rebuild is not added.
+    """
+    cell = str(cell)
+    expected = {f"MAPAL001/{cell}.DAT", "DRSTR001.DAT"}
+    rebuilt = list(rebuilt or [])
+    allowed = [p for p in rebuilt if p not in expected]
+    return {
+        "expected": sorted(expected),
+        "allowed_but_unchanged": sorted(set(allowed)),
+        "allowed_manifests": list(ALLOWED_MANIFESTS),
+    }
 
 
 def _tree_differences(root_files: dict[Path, bytes] | set[Path],
@@ -1503,7 +1595,9 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         "level": level,
         "rule13": "roadclass_v0 provisional, not firmware-confirmed; L2 necessary not sufficient; L3/L4/L5 acceptance unknown",
         "factory_backed": True, "factory_root": str(factory_root), "missing_input": "",
-        "real_image_run": "attempted", "gates": {}, "counts": {}, "changed_set_expected": [f"MAPAL001/{cell}.DAT"],
+        "real_image_run": "attempted", "gates": {}, "counts": {},
+        "changed_set_expected": expected_changes(cell)["expected"],
+        "allowed_manifests": expected_changes(cell)["allowed_manifests"],
         "factory_tile_sha256": None, "factory_tile_size": 0,
         "factory_tree_provenance": "not-checked",
         "zlib": rt,
@@ -1624,6 +1718,14 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     rebuilt += [f"REFER001/{p.name}" for p in (out/"REFER001").glob("*.ind")] if (out/"REFER001").exists() else []
     report["counts"]["rebuilt_files"] = sorted(set(rebuilt))
     report["changed_set"] = [f"MAPAL001/{cell}.DAT"] + report["counts"]["rebuilt_files"]
+    # M5.41: one expected-change-set.  ``changed_set`` above stays the
+    # informational union; ``expected`` is the narrow set a correct run must
+    # change and ``allowed_but_unchanged`` the manifests it may re-emit
+    # byte-identically.  The gate allowlist does not grow with ``rebuilt``.
+    _changes = expected_changes(cell, report["counts"]["rebuilt_files"])
+    report["changed_set_expected"] = _changes["expected"]
+    report["allowed_but_unchanged"] = _changes["allowed_but_unchanged"]
+    report["allowed_manifests"] = _changes["allowed_manifests"]
     rc, so, se = run_cmd_json("cardcheck.py", ["--root", str(out), "--ignore-dump-artifacts", "--fast"])
     report["counts"]["cardcheck_rc"] = rc; report["counts"]["cardcheck_tail"] = (so+"\n"+se).strip().splitlines()[-20:]
     card_ok = rc == 0
@@ -1655,7 +1757,12 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
                           for p in out.rglob("*") if p.is_file()}
             differing = _tree_differences(root_hashes, out_hashes)
             tile_path = f"MAPAL001/{cell}.DAT"
-            manifests = {"DRSTR001.DAT", "MMAIN001.DAT", "CMP.LST"}
+            # M5.41: the allowlist is the narrow ALLOWED set, NOT the expected
+            # set.  It must not grow with rebuilt_files: `one_tile_gate` sees
+            # only content-differing paths, so a differing REFER001/*.ind or
+            # MMAIN001.DAT that merely appears in rebuilt_files has to stay
+            # "unexpected" and FAIL (M1.22 "widen a skip set" trap).
+            manifests = set(expected_changes(cell)["allowed_manifests"])
             only_dir = bool(tile_change.get("only_parcel_directory_changed"))
             report["gates"]["one_tile_one_directory"], unexpected = one_tile_gate(
                 differing, tile_path, manifests, only_dir, tile_change)
@@ -1666,6 +1773,8 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
                 "tile_plus_manifests_only": not unexpected,
             }
             report["changed_set_actual"] = [d["path"] for d in differing]
+            report["expected_superset_of_actual"] = (
+                set(report["changed_set_expected"]) >= set(report["changed_set_actual"]))
         except Exception as e:  # a proof failure is a result
             report["tile_change"] = {"error": f"{type(e).__name__}: {e}"}
     return report
