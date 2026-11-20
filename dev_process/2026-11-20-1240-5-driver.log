@@ -55,3 +55,16 @@ handoff for the navigator:
   could be re-scoped to that; if not, M9.55 is the right unblock and M9.41's
   block stands. Everything else (walker PASS, wrong-build FAIL, mutant SHAs) is
   re-runnable from the EXP.
+
+navigator round 1 (CHANGES, 3 record defects; verdict kept blocked):
+- M9.55 Depends: dropped M9.10 (it is open, so the task was unclaimable and
+  M9.41's Unblock could never fire); now M1.22/M1.22b/M9.42 (all done) plus a
+  Note line carrying "the walk run exists (C-4221)".
+- "name half waits for M3.11c" was wrong (M3.11c is done; accessor US 0x0041ec8c
+  runs 1000/1000). Replaced in TODO M9.41 Result, M9.10 status, M9.55 Done-when,
+  C-4228/C-4229 and EXP (Interpretation + Conclusion) with the real gate:
+  M9.10's own poi_record_decode runner + M3.11b (text byte order, still open).
+- C-4221 evidence command now carries `--n 499,500,501,998,999,1000` (the quoted
+  n=499/501 only print with it); re-ran the exact command, values confirmed.
+- Re-ran todo_check, claims_check --strict --count-check, gate.py; kept
+  Status: blocked + Unblock: M9.55.
