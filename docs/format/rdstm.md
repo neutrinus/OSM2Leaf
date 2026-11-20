@@ -330,27 +330,72 @@ dictionary plus a zlib-compressed place/street name database.
 0x7217df  0x2e21 0xff padding to EOF
 ```
 
-### Code-side reader (M3.15, blocked)
+### Code-side reader (M3.15, located)
 
-- Descriptor switch `fn 0x004125a8` (plain code, C-880/C-2122): loads the name
-  `LCTBL001.DAT` at `0x0017a1f8` (8-bit ASCII, not UTF-16) and calls the
-  volume lookup `0x0040b358`; it also reaches indirect slot `0x0055d924`, which
-  is the IAT import `OSMDLL!OSM_isSender` (C-3443/H49), not a compressed sec1
-  helper body.
-- TMC record decoder `fn 0x003bc960` reaches indirect slot `0x0055d954`
-  (`OSMDLL!OSM_Printf`, IAT, C-3443) directly and via `fn 0x003a26b8`.
-- The record-walk VA and the string-decode VA are **not** identified, and the
-  encoding the code assumes is **not** established with evidence (done-when not
-  met). H49 reopen: two writer-inverse signature families (record marker
-  `+2==0x01` / `cmp #1`; slot-length bytes `+3..+6` from common base, derived
-  from `lctbl_records.py`/`lctbl_names.py` parse invariants on stock
-  `LCTBL001.DAT` SHA-256 `8cab1775…`) scanned Navi.exe sec0 exec plain
-  (5,553,430 B) and OBJDLL.dll sec0 exec plain (349,755 B) with 0 hits each;
-  reachability traced through resolved non-import callees and the
-  `0x00413a6c`/`0x00412ac0`→inflate path without locating parsing/decoding. No
-  cited blocker VA is `INIT`, so M1.2f is not the unblocker.
-  EXP-2026-11-10-M3.15-lctbl-reader-reopen; C-2203, C-2204, C-2207–C-2209
-  (supersedes C-2200–C-2202, C-2205, C-2206).
+The record walk and the name decode are named (EXP-2026-11-20-M3.15-lctbl-reader;
+C-2205, C-2208, C-2209). All VAs below are `Navi.exe` build A `CODE sec0`
+(`va_class.py --resolve-with 0x3e00200`), none is `INIT`.
+
+- **Record walk = the C-884 field directory.** `fn 0x003f61bc(handle, rec,
+  field)` is the accessor, built from `0x003f56bc` (data start, C-5131),
+  `0x003f57a8` (field count), `0x003f5e10` (field offset) and `0x003f5d98`
+  (field length). The same rule frames 247,089/247,089 EU and
+  303,023/303,023 US records (M4.16b, C-5132). `0x003f61bc` does **not** read
+  the page itself: `0x003f51e0` maps the handle to the block (C-5130), and the
+  page-buffer reader is the per-volume page-cache registration `0x0040de98`
+  (M9.38, C-3607), which copies `@(8,r4)`/`@(4,r4)`/`@(2,r4)` into a 20-byte
+  slot of the 32×20 table at `0x00d53640` and is *not* the walk (C-2208).
+- **Twelve extractors, one per catalog field,** called in field order by the
+  TMC record decoder `fn 0x003bc960` (C-882); the index is set by the
+  `mov #N,r6` + `jmp 0x003f61bc` thunks `0x003f60e0/ec/f8/6104/6110`,
+  `0x003f68b0`, `0x003f66b8`:
+
+  | Field | Catalog column | Extractors / index | Struct offset |
+  | --- | --- | --- | --- |
+  | 0 | location type | `0x003f66b8` (0) | `+0x04` |
+  | 1 | road number | `0x003bc028` (2) via `0x003f60e0` | `+0x14`/`+0x1c` |
+  | 2 | road name | `0x003bc194` (1) via `0x003f60ec` | `+0x12`/`+0x40` |
+  | 3 | primary location | `0x003bc300` (3) via `0x003f60f8` | `+0x16`/`+0xc4` |
+  | 4 | secondary location | `0x003bc470` (4) via `0x003f6104` | `+0x18`/`+0x148` |
+  | 5 | area | `0x003f6734` (5) | `+0x06` |
+  | 6 | linear | `0x003f6780` (6) | `+0x08` |
+  | 7 | negative | `0x003f67cc` (7) | `+0x0a` |
+  | 8 | positive | `0x003f6818` (8) | `+0x0c` |
+  | 9 | urban | `0x003f6864` (9) | `+0x0e` |
+  | 10 | exit/junction | `0x003bc748` (10) via `0x003f6110` | `+0x1a`/`+0x1cc` |
+  | 11 | inter-section | `0x003f68bc` (11) via `0x003f68b0` | `+0x10` |
+
+  The walk is reached from the TMC handlers `0x003bcac0`/`0x003bcbc4`/
+  `0x003bcc7c`, **not** from the `0x004125a8` subtree M3.23 ranked (C-2208).
+- **String decode = `fn 0x003ca858(buffer, byte_len, mode)`.** `mode == 1`
+  (the branch every string extractor uses, e.g. `0x003bc0ac` in
+  `0x003bc028`) reads a buffer of **big-endian 16-bit words** and stores each
+  as a native little-endian `u16` — `(w<<8)|(w>>8)`, high byte first, `r2 +=
+  2` — one character per halfword; `mode == 2` does the same 4 bytes at a time
+  (C-2205).
+- **Encoding = single-byte CP_ACP** (C-1799): the loop leaves one byte per
+  character in the low half of each `u16` (pad `0x00` in the high half), with
+  no multibyte check and no UTF-16 pair. The only transform is the 16-bit
+  high-byte-first swap. Card record 0 of stream 2 carries
+  `42 65 72 61 6e 6f 76 fd 63 68` (`Beranových`, CP1252 `ý`=`0xfd`), exactly
+  the bytes the swap loop consumes.
+
+Reproduce (see the EXP for the full set):
+
+```bash
+IMG=archive/head256.img
+python3 tools/sh4xref.py $IMG Navi.exe --image-start 0x200200 --resolve-with 0x3e00200 --calls 0x003f61bc
+# jsr 0x003f56bc / 0x003f57a8 / 0x003f5e10
+python3 tools/sh4xref.py $IMG Navi.exe --image-start 0x200200 --resolve-with 0x3e00200 --calls 0x003bc960
+python3 tools/sh4dis.py $IMG Navi.exe --image-start 0x200200 --va 0x003ca858 --count 120
+python3 tools/tmc_fielddir.py walk LCTBL001.DAT   # directory exact 247089, mismatch 0
+```
+
+Prior history: the first M3.15 pass called `0x0055d924`/`0x0055d954`
+"compressed sec1 helpers"; H49/C-3443 showed they are the IAT imports
+`OSMDLL!OSM_isSender`/`OSM_Printf`, and the H49 reopen's two writer-inverse
+signature families scanned Navi.exe sec0 and OBJDLL.dll sec0 with 0 hits
+(C-2203, C-2204, C-2207). The signatures were the miss, not hidden bytes.
 
 ### Catalog (verified)
 
