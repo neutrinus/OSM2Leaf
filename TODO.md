@@ -3308,6 +3308,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the padded tile mounts, but so does a control with one directory truncated below the read length (then the comparison is not testing the lengths).
   - Claims: C-5830–C-5839
 
+- [ ] **M5.59 — `lev3456gen.py`: put level-3 roads in the directory whose box holds them**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: P2
+  - Depends: M5.16 (generator exists), M9.18 (directory-level L3 check, blocked only on records)
+  - Goal: `lev3456gen.py` maps a point to a level-3 directory with a proportional 9 × 5 grid over the database bounds (`l3_cell_for_point`), not by the directory boxes. A Krotoszyn extract (51.70 N 17.45 E) lands in dir 22 (box x −104…−96, the London cell); the firmware at Krotoszyn reads dir 24 (C-2445, EXP-2026-11-20-M9.18). Every generated level-3 road is in the wrong place on the coarse map.
+  - Precheck: `python3 tools/lev3456gen.py generate --template <EU LEV3456R> --extract tools/fixtures/m9.18-krotoszyn-lev3456.json -o G.DAT` then `python3 tools/mount_dirs_l3.py changed <EU LEV3456R> G.DAT` lists `s1 L3 dir 22`.
+  - Scope: `tools/lev3456gen.py` level-3 split/quantisation only: choose the directory from `Dir.box` / head (`y = 1.5·lat`, stored `x = lon − 100`, map-tiles.md "Directory geometry"), the 16 × 16 parcel inside it, and quantise against that parcel. Check levels 4/5 against the same geometry (parcel `w0`/`w1` codes, map-tiles.md C-2805) and fix only if wrong. No container change.
+  - Input: EXP-2026-11-20-M9.18-lev3456r-sec4-l3, `tools/mount_dirs_l3.py changed`, `tools/lev3456.py` (`Dir.box`, `decode_record` header code), `docs/format/map-tiles.md` (directory geometry, parcel code row).
+  - Done when: the Precheck run lists `s1 L3 dir 24` (and no other level-3 directory) for the fixture; `datask_l3.py mount --position 51.70,17.45 --replace MAPAL001/LEV3456R.DAT=G.DAT` + `mount_dirs_l3.py check` gives 9/9 MATCH and the directory it reads at Krotoszyn is one `changed` lists; `lev3456gen.py --selftest` and `lev3456.py verify G.DAT` pass; a second position (London: dir 22) as control.
+  - Stop: if the level-3 parcel code in the record header (`w0`/`w1`) contradicts the box geometry, record both and stop.
+  - Falsifier: the fixed generator still changes a directory whose box does not hold the extract.
+  - Claims: C-6100–C-6109
+
 ## M6 — L5 bench/car: hardware and safety
 
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
@@ -4188,7 +4201,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2370–C-2379
 
 - [ ] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
-  - Status: open · Owner: — · Critical: no
+  - Status: blocked · Owner: — · Critical: no
+  - Blocker: the mount reads no record block (state 2, `0x1507` undelivered), so coarse records and the section-4 name list cannot be compared; directory level is done.
+  - Unblock: M9.53 (a map request reads a record block; then rerun the EXP's G/F pair at record level with `lev3456.py decode_record` / `section4.py parse`).
+  - Result: EXP-2026-11-20-M9.18-lev3456r-sec4-l3 (C-2440–C-2446). New `tools/mount_dirs_l3.py` (`check`/`compare`/`changed`, selftest 11) checks each mount read against `lev3456.py`/`clarion_tile`: factory `LEV3456R` 9/9 and `B48R058R` 9/9 (incl. section-4 table + directory, parser `0x00415330`, typ `0x93`) MATCH; a `lev3456gen.py` file is SAME-RELOCATED; controls (L3 dir rows, s4 dir header, wrong model) MISMATCH. The level-3 directory read is the one under the start position (4 positions). Defect: `lev3456gen.py` writes L3 roads into the wrong directory (C-2445) → M5.59. Targets `lev3456_reader`, `tile_section4_reader` registered as blocked entries naming the tools; rows 18–20 updated.
   - Step: P2
   - Depends: M9.13 (matrix rows 18–20)
   - Precheck: M9.13 `tile_reader` pattern/runner path is available; VAs for
