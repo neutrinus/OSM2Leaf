@@ -383,6 +383,7 @@
   "docs/experiments/EXP-2026-11-20-H116-archive-docs-base.md",
   "docs/experiments/EXP-2026-11-20-H117-main-shadow-run.md",
   "docs/experiments/EXP-2026-11-20-H19-reverify-thin-records.md",
+  "docs/experiments/EXP-2026-11-20-H53-strict-honest.md",
   "docs/experiments/EXP-2026-11-20-H63-corrected-evidence.md",
   "docs/experiments/EXP-2026-11-20-H77-skip-fenced-code.md",
   "docs/experiments/EXP-2026-11-20-H89-nomatch-census.md",
@@ -403,6 +404,7 @@
   "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
+  "docs/experiments/EXP-2026-11-20-M4.31-tmc-road-type-link-class.md",
   "docs/experiments/EXP-2026-11-20-M4.40-request-kinds.md",
   "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
@@ -420,6 +422,7 @@
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M5.54-wide-kinds.md",
   "docs/experiments/EXP-2026-11-20-M5.55-l2check-resize-expectation.md",
+  "docs/experiments/EXP-2026-11-20-M6.16-s3-generator.md",
   "docs/experiments/EXP-2026-11-20-M6.18-prod-screen.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
@@ -432,12 +435,13 @@
   "docs/experiments/EXP-2026-11-20-M9.41-us-poi-row.md",
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
   "docs/experiments/EXP-2026-11-20-M9.51-pysh4-macl.md",
+  "docs/experiments/EXP-2026-11-20-M9.52-mount-1507.md",
   "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 430,
+  "files": 434,
   "citations": 1099,
   "unique_va": 274,
   "start": 948,
@@ -506,7 +510,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1725,
+   "line": 1726,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -515,7 +519,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1725,
+   "line": 1726,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -524,7 +528,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1758,
+   "line": 1759,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -533,7 +537,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1759,
+   "line": 1760,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -542,7 +546,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1781,
+   "line": 1782,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -551,7 +555,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2207,
+   "line": 2208,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -560,7 +564,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2207,
+   "line": 2208,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -569,7 +573,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3831,
+   "line": 3846,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
