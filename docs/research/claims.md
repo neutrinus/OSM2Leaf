@@ -719,13 +719,6 @@ C-3643–C-3649.
 | C-3640 | `tools/fn_audit.py` audits 17 files (`TODO.md`, 13 `docs/format/*.md`, `tools/l3_harness/targets.json`, `tools/chunk_decoder_l3.py`, `tools/point_walk_l3.py`): 293 citations, 112 unique VAs. On `archive/head256.img` (`92aa525d…`) the classes are `START 194, INSIDE 38, GAP 29 (leaf 29), AMBIGUOUS 0, UNMAPPED 32` (counts are citations; 38 `INSIDE` = 12 unique VAs). Exit 1 because at least one citation is `INSIDE`; `--fix-list` prints one sorted `0x<mid> -> 0x<start>` line per unique `INSIDE` VA (12 lines) and edits nothing. | VERIFIED (tool) | H | EXP-2026-11-15-M1.25-fn-audit; `python3 tools/fn_audit.py archive/head256.img`, `python3 tools/fn_audit.py archive/head256.img --fix-list` |
 | C-3641 | The scoped corpus cites 12 unique mid-function VAs, not H52's three: `0x003715a0`→`0x00371594`, `0x003f5fc2`→`0x003f5f48`, `0x0040e4b2`→`0x0040e28c`, `0x00412bee`→`0x00412ac0`, `0x00413af4`→`0x00413a6c`, `0x0041c7e8`→`0x0041c7dc`, `0x0041c802`→`0x0041c7dc`, `0x004e90c8`→`0x004e8f38`, `0x004ea402`→`0x004ea288`, `0x00542256`→`0x00542250`, `0x005423e8`→`0x0054233c`, `0x0054369e`→`0x0054331c`. H52's three (`0x0041c7e8`, `0x00412bee`, `0x00542256`) are among them and are cited in `TODO.md:585` (H52 goal) and `TODO.md:775` (M1.25 goal). | VERIFIED (tool) | H | EXP-2026-11-15-M1.25-fn-audit; `python3 tools/fn_audit.py archive/head256.img --fix-list`, `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x0041c7e8 0x00412bee 0x00542256` |
 | C-3642 | In this corpus every `GAP` citation (29 of 29) is a leaf: `pdata.gaps` finds a direct `bsr`/`jsr`/pool caller for each, e.g. the POINT walker `0x003f5194`. A VA may sit in different modules of different builds (`0x03bd2ad8` = `AppLaunch.dll` B code, `fatutil.dll` A data; `0x880385e4` = `nk.exe` B code, `INSIDE` in C); the tool keeps the strongest class and lists the second holder only with `--verbose` (27 citations). The `--selftest` needs no image and covers START/INSIDE/GAP-leaf/GAP-data/BEFORE/AMBIGUOUS plus the extractors and `--fix-list` format. | VERIFIED (tool) | H | EXP-2026-11-15-M1.25-fn-audit; `python3 tools/fn_audit.py --selftest`, `python3 tools/fn_audit.py archive/head256.img --verbose` |
-| C-3643 | RESERVED (M1.25). | — | — | — |
-| C-3644 | RESERVED (M1.25). | — | — | — |
-| C-3645 | RESERVED (M1.25). | — | — | — |
-| C-3646 | RESERVED (M1.25). | — | — | — |
-| C-3647 | RESERVED (M1.25). | — | — | — |
-| C-3648 | RESERVED (M1.25). | — | — | — |
-| C-3649 | RESERVED (M1.25). | — | — | — |
 
 ## M1.28 — frozen EU→US `fn_match` fixture (C-3740–C-3749)
 `tools/fixtures/fn_match_eu_us_2011.json` pins the 13 EU VAs from M1.22b's
@@ -740,12 +733,6 @@ No image bytes are committed.
 | C-3741 | `fn_match.py --fixture FILE --us IMG --module Navi.exe` replays the table against the pinned US head (`archive/us256.img`, `70d945d8…`, re-created by `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img`) and exits 0 with `13 rows, 0 mismatch`; the five `UNIQUE` rows resolve to the exact US VAs in C-3740. A second copy of the same US head (`se-us256.img`, same SHA-256) gives the same result. | VERIFIED (tool, real image) | H | EXP-2026-11-15-M1.28-eu-us-fixture; the US head is `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` (SHA-256 `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da`), then `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us archive/us256.img --module Navi.exe` |
 | C-3742 | The replay fails loudly, never as a silent `NOMATCH`: changing one `us_va` by 2 (`0x00444540→0x00444542`) exits 1 with `MISMATCH US VA 0x00444540, fixture expects 0x00444542`; a US head with byte 1000 flipped `0x00`→`0xff` (SHA-256 `83b54ba2d66102c676a1aca8cb18047f64b559e2e08b0bd523adb1a2f3a4b101`) exits 2 with `FAIL US SHA-256 …` before any row is evaluated; a 1,000-byte truncated head exits 2 with `FAIL US is 1000 bytes, fixture needs at least 268435456`; `--module` disagreeing with `fixture["module"]` (e.g. `OSMNav.exe`) exits 2 with `FAIL fixture module 'Navi.exe', CLI --module 'OSMNav.exe'` instead of 13 vacuous NOMATCHes, and `image_start` is checked the same way. `check_head` hashes the fixture's pinned 256 MiB prefix, so a full card image is accepted. | VERIFIED (tool, negative control) | H | EXP-2026-11-15-M1.28-eu-us-fixture; `python3 -c "import json;d=json.load(open('tools/fixtures/fn_match_eu_us_2011.json'));[r.update(us_va='0x00444542') for r in d['rows'] if r['eu_va']=='0x0041c7dc'];json.dump(d,open('/tmp/opencode/m1.28-perturbed.json','w'),indent=1)"` then `fn_match.py --fixture /tmp/opencode/m1.28-perturbed.json --us archive/us256.img`; `cp archive/us256.img /tmp/opencode/us256-flip.img` then `python3 -c "f=open('/tmp/opencode/us256-flip.img','r+b');f.seek(1000);b=f.read(1);f.seek(1000);f.write(bytes([b[0]^0xff]));f.close()"` then `fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us /tmp/opencode/us256-flip.img`; `head -c 1000 archive/us256.img > /tmp/opencode/us-trunc.img` then the same replay; `fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us archive/us256.img --module OSMNav.exe` |
 | C-3743 | `fn_match.py --selftest` covers the fixture logic without vendor data: `compare_rows` on a synthetic 2-row table passes when it agrees and reports `UNIQUE→NOMATCH`, `NOMATCH→UNIQUE` and a moved US VA as mismatches; `fixture_header_problem` accepts the matching module/`image_start` and flags a wrong either; `check_head` accepts a matching hash, exits 2 on a wrong hash and is a no-op when no hash is pinned. `python3 tools/selftest.py --only fn_match` passes. | VERIFIED (tool, synthetic) | H | EXP-2026-11-15-M1.28-eu-us-fixture; `python3 tools/fn_match.py --selftest`, `python3 tools/selftest.py --only fn_match` |
-| C-3744 | RESERVED (M1.28). | — | — | — |
-| C-3745 | RESERVED (M1.28). | — | — | — |
-| C-3746 | RESERVED (M1.28). | — | — | — |
-| C-3747 | RESERVED (M1.28). | — | — | — |
-| C-3748 | RESERVED (M1.28). | — | — | — |
-| C-3749 | RESERVED (M1.28). | — | — | — |
 
 ## M1.27 — `fn_match` leaf path for the POINT walker (C-3700–C-3709)
 `tools/fn_match.py` gains a leaf path for `.pdata` `GAP` functions: the window
@@ -763,10 +750,6 @@ the first differing instruction and pool value.
 | C-3703 | With the leaf path, the M1.28 guard over the real US head exits 0 with `13 rows, 0 mismatch`; the fixture is address-only (`us_head` SHA-256 `70d945d8…`), builds the US head from the vendor image with `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` (that hash, rule 11) and replays it with `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us archive/us256.img --module Navi.exe`. The `match --va` histogram, not the fixture replay, is what prints `unique: 5  different: 1  nomatch: 7`; the five `UNIQUE` US VAs are unmoved (`0x00444540`, `0x004446f4`, `0x00443da8`, `0x0041ec8c`, `0x0056454c`). The `0x003f5194` fixture row is `NOMATCH`→`DIFFERENT` with `us_candidate 0x0041db44` and `diff_offset 0x14`. | VERIFIED (tool, real image) | H | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/fn_match.py --fixture tools/fixtures/fn_match_eu_us_2011.json --us archive/us256.img --module Navi.exe`, `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x003f5194 0x0041c7dc 0x0041c990 0x0041c044 0x0041a438 0x00419350 0x004125a8 0x003fbed8 0x0040b358 0x003bc960 0x003f632c 0x003f61bc 0x00542250` |
 | C-3704 | The leaf path is regression-guarded: shifting the leaf's `us_candidate` by 2, its `diff_offset` by 2, or a pinned `us_va` by 2 each makes `--fixture` exit 1 with a `MISMATCH` line naming the row; `fn_match --selftest` at its merge commit `2709645` printed 26 checks (22 at `92550d6`; 29 on `main` today), and it covers a synthetic GAP leaf with a relocated pool pointer (equal), a moved non-address pool constant (`DIFFERENT` at its `mov`), the `leaf_window_limit` clamp (next START / called GAP / cap) and a no-`rts` gap that ends at the next START instead of the `0x400` cap, plus `trim_words`, `code_digest` and `leaf_call_sites`. | VERIFIED (tool, synthetic + real) | H | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/fn_match.py --selftest`, `python3 tools/selftest.py --only fn_match` |
 | C-3705 | `pdata.py gaps` on EU2011 `Navi.exe` reports 677 gaps over 8 B and 635 flagged `leaf`. The leaf window is clamped at `min(gap_end, next pdata START, next called GAP entry, code-section end)` and capped at `0x400` B (`leaf_window_limit`), then cut at its own `rts`; a gap with no `rts` inside the bound (e.g. the 12 B thunk stub `0x0032ef6c`) is not paired through the caller context, so it is `NOMATCH` (`0x0032ef6c` EU→US) rather than a thunk-table `DIFFERENT`. Only `0x003f5194` is exercised here; the other 634 are uncensused and must report `rts` presence per leaf (M1.22b). | VERIFIED (tool, real image) | M | EXP-2026-11-16-M1.27-fn-match-leaf; `python3 tools/pdata.py gaps archive/head256.img --module Navi.exe`, `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x0032ef6c 0x003f5194` |
-| C-3706 | RESERVED (M1.27). | — | — | — |
-| C-3707 | RESERVED (M1.27). | — | — | — |
-| C-3708 | RESERVED (M1.27). | — | — | — |
-| C-3709 | RESERVED (M1.27). | — | — | — |
 
 ## M1.2b — XPRESS plain LZ77 implemented and probed (C-651–C-659)
 | ID | Claim | Status | Confidence | Evidence |
@@ -1708,8 +1691,6 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2925 | On US `POINT010` page `0x840ba0` (1000 records), the raw display name is the `ff ff`-delimited suffix between the penultimate and trailing `ff ff` markers: 999/1000 records have exactly 2 markers (record 236 has 5; body bytes include `ff ff`). Record 0 markers `[0x5c,0x7e]` → name `HANA HEALTH CENTER4590@HANA HWY\0` at `+0x5e`. | OBSERVED | H | EXP-2026-11-08-M3.11c-point-name-accessor; marker census over extracted page |
 | C-2926 | `fn 0x003d1188` wraps `0x003d1150` to copy the SDL-record name into a caller buffer (COREDLL memset/copy, length capped at 255, sets `*out_len`). It inherits `0x003d1150`'s SDL-layout dependency and is not a raw-POINT display-name accessor. | VERIFIED (disasm) | H | EXP-2026-11-08-M3.11c-point-name-accessor; `sh4dis 0x3d1188`, xref from `0x3b1508` |
 | C-2927 | PySh4 (LE, Navi.exe text mapped, no `.data` context) on record 0: `0x003f8a0c`→`-1`; `0x003f8a80`→`rec+25`; `0x003f8a90`→`2` (native)/`1` (swapped); `0x003d1150`(raw/body)→`0`; `0x003f632c`/`0x003f5e78` fault on `UnmappedAccess 0x0055d8f0` (context required). Confirms dispatch/shortcut behavior and the context dependency. | VERIFIED (PySh4, scoped) | H | EXP-2026-11-08-M3.11c-point-name-accessor |
-| C-2928 | RESERVED (M3.11c). | — | — | — |
-| C-2929 | RESERVED (M3.11c). | — | — | — |
 | C-5110 | The POINT name accessor runs in PySh4 with the page context built by the M3.22 writer: `fn 0x003f632c(r4=db=page, r5=rec)` → pointer to field 5 and `fn 0x003f5e78(db, rec)` → its length in 16-bit words (EU2011, IMG256 `92aa525d…`); US2011 `0x0041ec8c` / `0x0041e7d8` (US256 `70d945d8…`). US2011 `POINT010` page `0x840ba0` record 0: field 5 at `+0x5e`, 9 words = `HANA HEALTH CENTER`; EU2011 page `0x6e06d0` record 0: `+0x32`, 13 words = `NATIONAL TRANSPORT MUSEUM\0`. | VERIFIED | H | EXP-2026-11-19-M3.11c-point-name-accessor-l3; `tools/point_name_accessor.py run` |
 | C-5111 | After the M5.12 same-length rename on the US2011 page, the same run returns `OSM2LEAF TEST POI1` for record 0 (1000/1000 records `ok`). | VERIFIED | H | EXP-2026-11-19-M3.11c-point-name-accessor-l3; `tools/point_name_accessor.py run --rename` |
 | C-5112 | On 1000/1000 records of each page (EU2011 `0x6e06d0`, US2011 `0x840ba0`), field 5 (name) followed by field 6 (address, `fn 0x003f61bc`/`fn 0x003f5d98` with `r6=6`; US2011 `0x0041eb1c`/`0x0041e6f8`) equals the record's display text from `parse_page`; with the dictionary slot empty, or with a `db` not in the table, the accessor returns `-1`. | VERIFIED | H | EXP-2026-11-19-M3.11c-point-name-accessor-l3 |
@@ -1791,13 +1772,6 @@ outside the repo), `<root>` an extracted card root, `<tile>` a `BxxRyyR.DAT`.
 | C-2940 | `targets.json` registers `cmp_ind_reader` as `entry.kind="firmware_call"` (`program cmp_ind_chunk_v1`, `Navi.exe fn 0x0041c7e8`, little-endian) with a declared `sec1_table` input at VA `0x00574de0` (17 values `2^n-1`, n=0..16). The VA is sourced from code (`inflate 0x54369e`: `shll2; mov.l @(r0,r3),r2; and r12,r2` = `hold & inflate_mask[n]`); values come from public zlib 1.1.3 source, not decompressed Navi.exe sec1 (M1.2f open). HYPOTHESIS that sec1 bytes equal those values, consistent with M9.11 byte-identical output. Declared input, not a silent default. | OBSERVED (registered, provenance disclosed) / HYPOTHESIS (sec1 byte equality) | M | EXP-2026-11-08-M9.11b-firmware-call-target; `tools/l3_harness/targets.json`; EXP-2026-11-08-M9.11-chunk-decoder (C-2155) |
 | C-2941 | `tools/l3_harness/runner.py` adds `firmware_call` entry validation requiring a declared `sec1_table` with `va`, `values`, and `provenance`; missing table/provenance/values is a validation error. `_run_firmware_call_target` passes the declared table to `chunk_decoder_l3.run_firmware(..., sec_mode="zero-mask", sec1_table=...)` and does not substitute a silent default. `chunk_decoder_l3.run_firmware` accepts explicit `sec1_table`; runner registration callers must pass it. | VERIFIED (selftest + validation) | H | EXP-2026-11-08-M9.11b-firmware-call-target; `runner.py selftest` (`firmware_call: validation rejects...`, `registered with declared sec1 table`); `tools/claims_check.py` OK |
 | C-2942 | Through the runner, `cmp_ind_reader` on the M9.11 factory US POINT010 pair (IMG256 `92aa525d…`, `.cmp` `48812f8c…`, `.ind` `7ac54e3b…`, page `0x840ba0`/42848) reports `ACCEPT`/`PASS` exit 0 with `r0=42848`, `insns=1057245`, `memcpy=11` (byte-identical to `cmpind.decode`). `--mutate corrupt-ind` reports PASS with `r0=-1`, 638 insns (firmware rejects); `--mutate swap-4-8` reports PASS with `r0=65536`, 1057219 insns (clean failure). Controls match EXP-2026-11-08-M9.11-chunk-decoder. | OBSERVED (real run, same sample/counters as M9.11) | H | EXP-2026-11-08-M9.11b-firmware-call-target; `runner.py run cmp_ind_reader --image ... --cmp ... --ind ... [--mutate corrupt-ind|swap-4-8]` |
-| C-2943 | RESERVED (M9.11b). | — | — | — |
-| C-2944 | RESERVED (M9.11b). | — | — | — |
-| C-2945 | RESERVED (M9.11b). | — | — | — |
-| C-2946 | RESERVED (M9.11b). | — | — | — |
-| C-2947 | RESERVED (M9.11b). | — | — | — |
-| C-2948 | RESERVED (M9.11b). | — | — | — |
-| C-2949 | RESERVED (M9.11b). | — | — | — |
 
 ## M1.11 — SH-4 decoder with the LE convention pinned (C-2480–C-2489)
 | ID | Claim | Status | Confidence | Evidence |
@@ -1879,8 +1853,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2805 | LEV3456R level-4/5 parcel code `lev3456_parcel_code(level, ay, ax) = (w0,w1)` with `r20=ay*2, c30=ax*2, R=r20>>2, C=c30>>2, lo0=((r20&2)<<6)|((r20&1)<<4)|0xf, lo1=((c30&2)<<6)|((c30&1)<<4)|(0x5 if level==5 else 0x4)` reproduces **1911/1911** L4/L5 record codes: sec1 L5 62/62, sec1 L4 1021/1021, sec2 L5 68/68, sec2 L4 760/760. Sec2 unique pair-codes = 34+380 = 414 (M4.23). | VERIFIED (data, real file) | H | EXP-2026-11-08-M4.26 (obs 5); `tools/lev3456.py` + `LEV3456R.DAT 08a584fe…` |
 | C-2806 | The absolute coarse-grid addressing for LEV3456R L4/L5 is `ay = head_y + ri*step`, `ax = x0 + (k//per_col)*step` where `x0 = (head_x - 65536 if head_x>32767 else head_x) + 1024` (from directory head), `step = 8` (L5) / `2` (L4), `per_col = pairs_per_row / cols` (1 for sec1 L5, 2 for sec1 L4, sec2 L4/L5). `clarion_bg.parcel_code(level, rr, cc)` with directory-relative indices reproduces 0 codes across all four L4/L5 directories (negative control, confirms C-2629). | VERIFIED (data) | H | EXP-2026-11-08-M4.26 (obs 5) |
 | C-2807 | `fn 0x00426cfc` has no direct literal-pool caller found by `sh4xref --to` in Navi.exe executable sections (indirect call path or unlocated; consistent with indirect-call patterns). Not required for the RGD/MAP reader answer. | OBSERVED (negative, scoped) | M | EXP-2026-11-08-M4.26 (obs 2) |
-| C-2808 | RESERVED (M4.26). | — | — | — |
-| C-2809 | RESERVED (M4.26). | — | — | — |
 
 ## M5.1c — OSM POI, address and place nodes into IMF (C-2450–C-2459)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2085,9 +2057,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2734 | `poi_copies.py` (scanner, listed for migration) now uses `cmpind_codec`'s `ZLIB_HEAD`/`decompress_stream_at` for inner-stream inflation while preserving its `inflate_at` None-on-failure/incomplete behavior (`poi_copies --selftest` OK). `cmpind.py` (reader CLI) and `lev3456.py` (tile stream compression, same factory params) were migrated to shared primitives; their selftests pass. | VERIFIED (tool) | H | EXP-2026-11-08-M1.16-cmpind-unify; `poi_copies/lev3456/cmpind --selftest` |
 | C-2735 | Migration preserved behavior: no migrated tool hardcodes conflicting default zlib parameters for factory/container compression (defaults are `cmpind_codec.FACTORY_*` or explicit factory calls). Full `python3 tools/selftest.py` reports `passed=67 failed=0 skipped=15 total=82`; `python3 tools/claims_check.py` reports OK. | VERIFIED (tool) | H | EXP-2026-11-08-M1.16-cmpind-unify |
 | C-2736 | Read-only/low-risk duplications intentionally left unmigrated in this PR: `ind_mutate.py` (writes `.ind` index fields only, no compression/chunk codec; custom `read_ind` returns raw bytes for mutation), `l2check.py` (consumes `cmpind_writer`), and `decompressobj`/`zlib.compress` uses in selftests/fit fallbacks that do not define the shared container codec contract. Real-factory byte-change stop condition not triggered (no real factory sample modified by this task). | OBSERVED (scope decision) | M | EXP-2026-11-08-M1.16-cmpind-unify |
-| C-2737 | RESERVED (M1.16). | — | — | — |
-| C-2738 | RESERVED (M1.16). | — | — | — |
-| C-2739 | RESERVED (M1.16). | — | — | — |
 
 ## M1.17 — Factory zlib params across non-POINT families (C-2740–C-2749)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2100,8 +2069,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2745 | Across losslessly-recovered sampled streams/pages in M1.17 (1707 outer REFER001 + 5 inner + 517 LCTBL + 7937 tile + 11405 LEV3456R model-matching decoded incl. 243 strict L5 = 21571), 0 mismatches were found where plain was recovered; stock zlib L6/m8/default/wbits15 is sufficient for these families. | VERIFIED | H | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
 | C-2746 | LEV3456R L3/L4 `lev3456` model plain-round-trip gaps and opaque records leave zlib params untested for those specific records; future L3/L4 writer work should close model gaps or keep such records verbatim. | OBSERVED (follow-up) | M | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
 | C-2747 | Scope limited to one representative per sampled family on EU 2011 (plus LEV3456R EU+US noted); EU 2014/2016, other shards, and LEV3456R section 2 not tested. No sampled family disagreed. | OBSERVED | M | EXP-2026-11-08-M1.17-zlib-params-nonpoint |
-| C-2748 | RESERVED (M1.17). | — | — | — |
-| C-2749 | RESERVED (M1.17). | — | — | — |
 
 ## M9.14 — L3 run of the M3.10 DRSTR reader, reopened (C-2240–C-2249)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2295,14 +2262,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 
 | C-2830 | `imgpatch.py --check-diff` resolves each replaced file's cluster data ranges and 32-byte directory-entry slot from an independent BPB+FAT read of the patched image (`mkcard.open_map_partition` + `_locate`/`mkcard.chain`/`geo.cluster_offset`), not from a patch plan or write offset; it classifies `mkcard.diff_ranges` against that union and reports/exits on outside ranges. | VERIFIED (tool+real) | M5.24 | EXP-2026-11-08-M5.24-imgpatch-diff-bpb; `tools/imgpatch.py --selftest` (59 checks); `--check-diff` on M5.13b US S2 vs factory (`53342430…`/`af4c9ff1…`) |
 | C-2831 | On the M5.13b US S2 vs factory image, the independent BPB+FAT diff check reports 17,737 diff ranges, 0 outside, resolving `REFER001/POINT010.DAT.cmp` to clusters 78193–78257 and dir entry `0xb3bb7e80`, and `REFER001/POINT010.DAT.ind` to cluster 78258 and dir entry `0xb3bb7ee0`, matching C-2351/C-2352's recorded ranges without using write offsets. | VERIFIED (real image) | M5.24 | EXP-2026-11-08-M5.24-imgpatch-diff-bpb; `tools/imgpatch.py --check-diff` |
-| C-2832 | RESERVED (M5.24). | — | — | — |
-| C-2833 | RESERVED (M5.24). | — | — | — |
-| C-2834 | RESERVED (M5.24). | — | — | — |
-| C-2835 | RESERVED (M5.24). | — | — | — |
-| C-2836 | RESERVED (M5.24). | — | — | — |
-| C-2837 | RESERVED (M5.24). | — | — | — |
-| C-2838 | RESERVED (M5.24). | — | — | — |
-| C-2839 | RESERVED (M5.24). | — | — | — |
 
 ## M9.25 — harness.py info / viewer crash on opaque records (C-2690–C-2699)
 | ID | Claim | Status | Trust | Evidence |
@@ -2370,15 +2329,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | ID | Claim | Status | Trust | Evidence |
 | --- | --- | --- | --- | --- |
 | C-2760 | `tools/l1l2_fixtures.py` (data-driven registry, `--selftest`, `--json`, `--md`) and `.github/workflows/l1l2-fixtures.yml` run an offline L1/L2 matrix on synthetic/generated fixtures with no vendor data: categories `L1 synthetic`, `L2 DRSTR`, `L2 cmp/ind`, `L2 tile`, `L2 POI mutation`, statuses PASS/FAIL/SKIP/NOT COVERED with command per check; exit code reflects only runnable checks. Initial run (zlib-ng host): 6 runnable PASS, 0 FAIL, 1 SKIP (recompress byte-identical unverifiable, H9), 2 NOT COVERED (`L1 synthetic` lacks a vendor-free full ZE0 card builder; `L2 tile` harness selftest requires a tile fixture). This is an offline signal only — no firmware acceptance claim (rule 13). | VERIFIED (tooling) | H | EXP-2026-11-08-H26-l1l2-fixtures; `tools/l1l2_fixtures.py --selftest` OK; `tools/l1l2_fixtures.py` verdict OK; `.github/workflows/l1l2-fixtures.yml` |
-| C-2761 | RESERVED (H26). | — | — | — |
-| C-2762 | RESERVED (H26). | — | — | — |
-| C-2763 | RESERVED (H26). | — | — | — |
-| C-2764 | RESERVED (H26). | — | — | — |
-| C-2765 | RESERVED (H26). | — | — | — |
-| C-2766 | RESERVED (H26). | — | — | — |
-| C-2767 | RESERVED (H26). | — | — | — |
-| C-2768 | RESERVED (H26). | — | — | — |
-| C-2769 | RESERVED (H26). | — | — | — |
 
 ## M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST` (C-1080–C-1089)
 | ID | Claim | Status | Trust | Evidence |
@@ -2388,11 +2338,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-1082 | The rebuild is idempotent on MMAIN totals for an already-consistent tree: a second rebuild leaves L1 passing and reports `mmain.count_fields_changed == 0`. | VERIFIED (synthetic) | M | EXP-2026-11-08-M5.6-rebuild-manifests |
 | C-1083 | MMAIN rebuild preserves all bytes outside the `0x1ac` level-table `count` fields and only rewrites counts for `(section, level)` keys present in `MAPAL001` tile headers; the firmware checks only the 4096-byte MMAIN length (M3.8/C-1780–C-1789) while `cardcheck` enforces the tile-sum totals. | OBSERVED (by construction) | M | EXP-2026-11-08-M5.6-rebuild-manifests; `rebuild_mmain` implementation |
 | C-1084 | On an unchanged factory tree, `DRSTR`/`MMAIN`/`CMP.LST` byte-stability and a full extracted-root L1 pass were not re-measured in this session (no extracted EU/US root/image available locally at the AGENTS paths); EU `DRSTR` byte-identity on an unchanged tree is supported by M4.20/C-2101 and factory MMAIN totals match cardcheck by construction. | UNKNOWN (not re-measured here) | L | EXP-2026-11-08-M5.6-rebuild-manifests |
-| C-1085 | RESERVED (M5.6). | — | — | — |
-| C-1086 | RESERVED (M5.6). | — | — | — |
-| C-1087 | RESERVED (M5.6). | — | — | — |
-| C-1088 | RESERVED (M5.6). | — | — | — |
-| C-1089 | RESERVED (M5.6). | — | — | — |
 
 ## M5.14 — US geometry edit: move one road/background vertex, S3 (C-2050–C-2059)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2402,11 +2347,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2052 | `harness.py verify` on patched B18R100R: byte-identical rebuild OK (1,994,496 B), records 5730 ok/0 bad, background rebuild 3757 ok/0 bad (111 opaque), graph 775 ok/0 bad, roundtrip OK. | VERIFIED (real image) | H | EXP-2026-11-08-M5.14-us-geometry-vertex-s3 |
 | C-2053 | S3 `us_S3.img` (SHA-256 `186f2ded…9775c1`) built by `imgpatch.py --file MAPAL001/B18R100R.DAT` on US factory `53342430…`: `cardcheck.py --image` PASS (248 files, label `QSD-301-103`); `imgpatch --check-diff` vs factory confines all diffs to B18R100R clusters and its 32-byte dir entry (0 outside). | VERIFIED (real image) | H | EXP-2026-11-08-M5.14-us-geometry-vertex-s3 |
 | C-2054 | Moved vertex location (coord.py `local_to_latlon` B18R100R, scale 2, hypothesis): (1851,52)=20.820312°N,155.796875°W → (1891,52)=20.924479°N,155.796875°W (east Maui, Hawaii; tile B18R100R 16.0–21.33°N 156.0–148.0°W). ~11.6 km north. Road-name partner not resolved. | RETRACTED | — | Superseded by C-5252 (M6.16): the parcel-local (x,y) was read as tile-local scale-2 coordinates; the level-1 grid puts the vertex at 20.167196°N 155.721756°W → 155.721146°W, 63.8 m east, north Kohala (island of Hawaii). EXP-2026-11-08-M5.14-us-geometry-vertex-s3; EXP-2026-11-20-M6.16-s3-generator |
-| C-2055 | RESERVED (M5.14). | — | — | — |
-| C-2056 | RESERVED (M5.14). | — | — | — |
-| C-2057 | RESERVED (M5.14). | — | — | — |
-| C-2058 | RESERVED (M5.14). | — | — | — |
-| C-2059 | RESERVED (M5.14). | — | — | — |
 
 ## M4.25 — Regulation-word audit and no_*/only_* encoding (C-2910–C-2919)
 | ID | Claim | Status | Trust | Evidence |
@@ -2419,8 +2359,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2915 | `only_*` "all other exits carry 0xff naming F" (C-2628 convention) does not separate from background density: L1 n=240, hit 148 (61.7%), ff-naming-F density on forbidden-exit slots 160/259 (61.8%), random-exit baseline 152/237 (64.1%, seed 42); L2 n=193, hit 138 (71.5%), density 143/192 (74.5%), baseline 139/186 (74.7%). | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.25-regulation-word-audit; `tools/rd_restrictions.py audit` |
 | C-2916 | `only_*` encoding remains UNKNOWN. Named negative candidates (B48R058R, L1 n=240 / L2 n=193): `T_has_ff_naming_F` 4/2, `T_has_any_naming_F` 21/9 (byte1 mostly `[1]`/`[255]`), `F_has_ff_naming_T` 22/8, `F_has_any_naming_T` 28/12, `T/F_has_ff_naming_0xf` 0/0. 97/94 `only_*` from-entries are class `arr` (cannot carry words per C-2624). No candidate separates positively from controls. | OBSERVED/VERIFIED (tool, real data) negative; encoding UNKNOWN | M | EXP-2026-11-08-M4.25-regulation-word-audit |
 | C-2917 | M4.25 second-tile coverage attempt: B48R050R L1/L2 and B48R060R/B48R068R/B48R070R L1 (EU 2011 factory copies) had 0/3625 dolnoslaskie restriction vias within 8 graph units (n=0 matched, verdict FAIL n<20). No accessible B48R tile with n>=20 overlapping dolnoslaskie via coverage was found; the "second tile PASS" path was not testable with available data. | OBSERVED (tool, real data) | M | EXP-2026-11-08-M4.25-regulation-word-audit |
-| C-2918 | RESERVED (M4.25). | — | — | — |
-| C-2919 | RESERVED (M4.25). | — | — | — |
 
 ## M4.30 — Restriction word-test deepening: class-dependent encoding and mapping errors (C-2890–C-2899)
 | ID | Claim | Status | Trust | Evidence |
@@ -2431,10 +2369,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2893 | `no_*` miss clustering (M4.30, L1 n=259 / L2 n=107 misses) confirms M4.25 encoding partition and adds mapping/geometry context: `no_ff_word_naming_F_anywhere` 208/90, `osm_from_eq_to` 106/41, `T_has_no_ff_words` 171/61, `T_has_ff_naming_other` 88/46, ambiguous margin `<15°` 10/8. `two->two` misses (188/61) are dominated by `no_u_turn` (103/38) and `osm_from_eq_to` (101/37) with `no_ff_word_naming_F_anywhere` (157/55) — a combined geometry/mapping/encoding class, not a single fix. `arr->lv` misses (24/22) are mostly `no_ff_word_naming_F_anywhere` (21/21) with `T_has_ff_naming_other` 12/12. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.30-restriction-deepening |
 | C-2894 | Held-out evaluation (deterministic by relation-id SHA-256 mod 2, bucket 1 = test; pre-defined entry-class strata, no outcome fitting): **no pre-defined stratum reaches PASS on held-out test with n>=20** at L1 or L2. L2 `two->lv` full PASS (22/18) but test bucket n=13 hit=10 (76.9%, FAIL n<20); L2 `arr->lv` test n=38 hit=29 (76.3%, FAIL hit<0.80); L2 `arr->two` test n=15 hit=12 (80.0%, FAIL n<20). L1 `arr->lv` test n=32 hit=20 (62.5%). | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.30-restriction-deepening |
 | C-2895 | M4.30 result (b): with controls, **no single pre-defined 0xff-on-T-naming-F rule/stratum fits the pre-stated PASS threshold on a held-out subset** (C-2894). The signal remains real above shuffle (large gaps, esp. `arr->lv`/`two->lv`) but below 0.80 or not robust on held-out. Split hypotheses filed as follow-ups (EXP/TODO): (H1) `arr->lv`/`two->lv` direction-explicit strata may follow the convention with residual `no_ff_word_naming_F_anywhere` misses requiring second-position/alternate-byte1 or junction-mapping explanation; (H2) `two->two`/`no_u_turn`/`osm_from_eq_to` is a geometry/mapping class (way identity/split/u-turn representation) distinct from the direction-explicit prohibition encoding; (H3) count-mismatch exclusions (492/737) and level-1/2 graph differences may hide cases — needs per-case graph/way-geometry audit. Pre-stated PASS threshold NOT lowered. | OBSERVED / conclusion (negative for single rule) | M | EXP-2026-11-08-M4.30-restriction-deepening |
-| C-2896 | RESERVED (M4.30). | — | — | — |
-| C-2897 | RESERVED (M4.30). | — | — | — |
-| C-2898 | RESERVED (M4.30). | — | — | — |
-| C-2899 | RESERVED (M4.30). | — | — | — |
 
 ## M4.33 — `two->two`/`no_u_turn`/`osm_from_eq_to` restriction geometry/mapping class (C-2990–C-2999)
 | ID | Claim | Status | Trust | Evidence |
@@ -2444,11 +2378,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2992 | `no_u_turn` representation in `two->two` (matched corpus): L1 misses 103/hits 4, L2 38/5. feq/F==T subclass is 101/103 L1 and 37/38 L2; non-feq `no_u_turn` misses are rare (2/1). The tested self-prohibition form `F_names_F_ff` (0xff word naming F on entry F/T when F==T) is absent in feq `no_u_turn` misses (0/101 L1, 0/37 L2); `F_names_T_ff` 0, `T_names_F` present 0; `T_has_no_ff_words` 64/17. `no_u_turn` hits occur only when !feq and F!=T (4/4 L1, 5/5 L2), consistent with the 0xff-on-T-naming-F convention applying to distinct-entry cases. | VERIFIED (tool, real data) negative for tested self-form; alternate encoding UNKNOWN | H | EXP-2026-11-08-M4.33-twotwo-u-turn-mapping |
 | C-2993 | Counted alternate-location candidates for feq/F==T `no_u_turn` misses (not proven encoding): L1 feq misses 101 have `no_ff_word_naming_F_anywhere` 87 and `ff_naming_F_on_other_entries` 14; L2 37 have 31/6. `F_names_F_ff` is 0 in both. These counts do not establish a firmware-read encoding (rule 13); they narrow tested hypotheses. | OBSERVED (tool, real data) | M | EXP-2026-11-08-M4.33-twotwo-u-turn-mapping |
 | C-2994 | OSM-vs-tile way splitting at via (matched `two->two` population, L1/L2): `dup_osm_way_bearing` 0/188 misses and 0/56 hits (L1), 0/61 and 0/39 (L2); `ambiguous_margin<15` 0/188 L1, 3/61 L2. The dominant matched-class issue is representational identity (same OSM way `from==to` → same tile entry `F==T`, C-2991), not bearing duplication/ambiguity in the matched set. Count-mismatch exclusions (492/737, M4.30/C-2892) remain outside matched scope (M4.34). | VERIFIED (tool, real data) for matched population | H | EXP-2026-11-08-M4.33-twotwo-u-turn-mapping |
-| C-2995 | RESERVED (M4.33). | — | — | — |
-| C-2996 | RESERVED (M4.33). | — | — | — |
-| C-2997 | RESERVED (M4.33). | — | — | — |
-| C-2998 | RESERVED (M4.33). | — | — | — |
-| C-2999 | RESERVED (M4.33). | — | — | — |
 
 ## M4.34 — Bearing count-mismatch exclusion analysis (C-3000–C-3009)
 | ID | Claim | Status | Trust | Evidence |
@@ -2459,10 +2388,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3003 | Junction-distance indicator (2048-units, `JUNCTION_TOL`=8): `junction_dist>4` in 174/492 L1 (35.4%) and 205/737 L2 (27.8%); `<=4` in 318/532. This is a weak possible alignment indicator, not sufficient evidence of "genuine junction mismatch" without per-case geometry audit. | OBSERVED (tool, real data) | M | EXP-2026-11-08-M4.34-bearing-count-mismatch |
 | C-3004 | Geometric recoverability (subset mapping, no outcome fitting, `MATCH_DEG` 25°): assigning only restriction `from`/`to` to distinct tile entries is feasible for 161/492 L1 (32.7%) and 173/737 L2 (23.5%) count-mismatch cases (`osm_more` 96/361, 143/622; `osm_fewer` 65/131, 30/115). These are potential additional from/to bearing mappings; adopting the rule changes semantics and requires outcome-independent validation (not done). Non-recoverable dominated by no feasible from+to assignment (329/563). | OBSERVED (tool, real data) | M | EXP-2026-11-08-M4.34-bearing-count-mismatch |
 | C-3005 | Follow-ups: (1) validate from/to subset-mapping on held-out cases without outcome fitting before pipeline use; (2) per-case `osm_more` audit vs OSM way tags/tile routing-level generalization; (3) quantify separate `tile bearing missing (far node in another record)` bucket and its recoverability; (4) firmware mapping semantics/acceptance remain required (rule 13). | UNKNOWN / follow-up | L | EXP-2026-11-08-M4.34-bearing-count-mismatch |
-| C-3006 | RESERVED (M4.34). | — | — | — |
-| C-3007 | RESERVED (M4.34). | — | — | — |
-| C-3008 | RESERVED (M4.34). | — | — | — |
-| C-3009 | RESERVED (M4.34). | — | — | — |
 
 ## M4.32 — Direction-explicit restriction stratum (C-3010–C-3019)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2473,10 +2398,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3013 | Union-residual `no_ff_word_naming_F_anywhere` misses in `arr->lv`+`two->lv` (L1 20, test 10; L2 21, test 9) are dominated by T-empty (14) or T-has-0xff-word(s)-naming-other-entries (26) with no 0xff-naming-F anywhere, no reverse-ff, no other-b1-on-T-naming-F. One L2 train case (r15988164, non-test) has word naming F with byte1=0x01 on a non-T entry — a position/form outside named M4.25 variants. Residuals support alternate encoding/position or genuine absence over the named forms. | VERIFIED (tool, real data) | M | EXP-2026-11-08-M4.32-direction-explicit-stratum |
 | C-3014 | Junction-mapping signals in M4.32 residuals are weak: `osm_from_eq_to` 0, duplicate OSM way bearing 0, ambiguous bearing margin `<15°` 7/41 (17%, L1 5/20 L2 2/21). Tested mapping/junction signals do not explain the dominant residual class; bearing count-mismatch exclusions remain M4.34 scope. | VERIFIED (tool, real data) | H | EXP-2026-11-08-M4.32-direction-explicit-stratum |
 | C-3015 | Direction-explicit `arr->lv`/`two->lv` prohibition encoding is plausibly `base+v1+v2`-class (0xff-on-T-naming-F, reverse ff-on-F-naming-T, or other byte1 on T naming F) with remaining residuals requiring wider position/form search or alternate storage. **Not firmware-confirmed** (rule 13); regulation-word consumer VA (M4.26, C-2805 context) required before promoting to confirmed encoding. | HYPOTHESIS | L | EXP-2026-11-08-M4.32-direction-explicit-stratum |
-| C-3016 | RESERVED (M4.32). | — | — | — |
-| C-3017 | RESERVED (M4.32). | — | — | — |
-| C-3018 | RESERVED (M4.32). | — | — | — |
-| C-3019 | RESERVED (M4.32). | — | — | — |
 
 ## M5.16 — LEV3456R.DAT generator, levels 3-6 from OSM (C-2400–C-2409)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2500,11 +2421,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2772 | L4 stages S0–S3 default to `NOT RUN`; a `PASS` is accepted only with explicit recorded evidence (`--l4-status`), otherwise demoted/reported — no automatic L4 PASS. | VERIFIED (tool) | H | EXP-2026-11-08-H27-progress-dashboard; selftest L4 demotion/explicit-evidence cases |
 | C-2773 | `reader-coverage.md` is parsed only under an explicit matrix-table contract (header prefix `\| # \| File type / path \|`, fixed 12 leading columns, rows until blank/non-table line); contract mismatch/unreadable input yields `problems` and no guessed statuses. | VERIFIED (tool) | H | EXP-2026-11-08-H27-progress-dashboard; selftest parse 30 rows + unreadable/bad-header cases |
 | C-2774 | Example report on repo files + no-vendor tool JSON (2026-11-08): reader-coverage 30 rows, L3 firmware proof passes 0, synthetic non-proof passes 1, 5 BLOCKED, L4 S0–S3 NOT RUN, problems 0. | OBSERVED (tool run) | H | EXP-2026-11-08-H27-progress-dashboard; `/tmp/opencode/h27-progress.json` reproduction command |
-| C-2775 | RESERVED (H27). | — | — | — |
-| C-2776 | RESERVED (H27). | — | — | — |
-| C-2777 | RESERVED (H27). | — | — | — |
-| C-2778 | RESERVED (H27). | — | — | — |
-| C-2779 | RESERVED (H27). | — | — | — |
 
 ## H46 — Test system map L1–L5 (C-3350–C-3359)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2514,11 +2430,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3352 | The test-system map defines status classes `PASS|FAIL|SKIP|NOT_COVERED|NOT_RUNNABLE|BLOCKED|NOT_RUN` and states that `SKIP/NOT_COVERED/NOT_RUNNABLE/BLOCKED/NOT_RUN` are never `PASS`. | OBSERVED (doc) | H | EXP-2026-11-09-H46-test-system-map |
 | C-3353 | The test-system map records an execution matrix separating PR CI (no vendor), local-only vendor, M8 L4 emulator, and L5 bench/manual work, and a regression gate policy consistent with current no-vendor CI workflows. | OBSERVED (doc) | M | EXP-2026-11-09-H46-test-system-map; `.github/workflows/ci.yml`, `l1l2-fixtures.yml` |
 | C-3354 | `progress_report.py` exposes `--l4-emulator-status` and `--l5-status` with backward-compatible `--l4-status` alias (v1 car naming), reflecting the 2026-11-09 mapping migration; this is a terminology migration note, not a blocking contradiction in H46 scope. | OBSERVED (tool interface) | M | EXP-2026-11-09-H46-test-system-map; `python3 tools/progress_report.py --help` |
-| C-3355 | RESERVED (H46). | — | — | — |
-| C-3356 | RESERVED (H46). | — | — | — |
-| C-3357 | RESERVED (H46). | — | — | — |
-| C-3358 | RESERVED (H46). | — | — | — |
-| C-3359 | RESERVED (H46). | — | — | — |
 
 ## H47 — `progress_report` schema contract for H41/H43 (C-3360–C-3369)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2528,25 +2439,12 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3362 | A synthetic H43-style generated-corpus L3 JSON is normalized with corpus-kind separation (`synthetic|vendor|factory|generated_fixture|unknown`) and evidence-kind separation (`firmware_proof|harness_only|unknown`). Generated-fixture corpus runs are reported as generated-fixture evidence and are not promoted to firmware proof unless explicitly marked by a non-synthetic `l3_claim`/`firmware_proof` PASS; synthetic/harness results never become firmware proof. | VERIFIED (tool, synthetic fixture) | H | EXP-2026-11-09-H47-progress-report-schema; progress_report selftest H47(3) |
 | C-3363 | Legacy H26 `l1l2_fixtures` JSON and H27/legacy `l3check` JSON inputs still parse through `progress_report.py` with backward-compatible legacy fields preserved (auto-detected). | VERIFIED (tool) | H | EXP-2026-11-09-H47-progress-report-schema; progress_report selftest H47(1) and legacy checks |
 | C-3364 | L4 emulator (M8) and L5 bench/car (M6) manual states remain explicit/non-auto-pass in `progress_report.py` v3: no stage is auto-passed, and `PASS` requires recorded evidence (demoted to `NOT RUN` otherwise). | VERIFIED (tool) | H | EXP-2026-11-09-H47-progress-report-schema; progress_report selftest H47(4) |
-| C-3365 | RESERVED (H47). | — | — | — |
-| C-3366 | RESERVED (H47). | — | — | — |
-| C-3367 | RESERVED (H47). | — | — | — |
-| C-3368 | RESERVED (H47). | — | — | — |
-| C-3369 | RESERVED (H47). | — | — | — |
 
 ## H48 — reader_precheck/M1.12 import or delegate to `sh4scan` (C-3410–C-3419)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
 | C-3410 | `tools/reader_precheck.py` (M1.12 precheck) imports `tools/sh4scan.py` and delegates its LE halfword edge-scan primitive (`_words` → `sh4scan.halfword_array` / `sh4dis.halfwords_le`), satisfying M3.19’s done-when clause “M1.12 imports it rather than duplicating the scan” (path a) without changing reader_precheck verdict logic. | VERIFIED (tool, synthetic + real build-A pins when image found) | H | EXP-2026-11-09-H48-reader-precheck-sh4scan; `python3 tools/reader_precheck.py --selftest`; `python3 tools/sh4scan.py --selftest`; TODO H48 PR #170 |
 | C-3411 | Documented non-overlaps left in `reader_precheck.py` (not delegated to `sh4scan`): `point_walk_l3` section/census model, `sh4xref` xref/holder verdict logic, and `sh4scan` pattern/tags/mask-pair/stride/anchors command scans (no direct overlap in reader_precheck’s verdict paths). M3.19 reopened by rule 15 note on PR #170 merge path. | OBSERVED (doc/tool boundary) | H | EXP-2026-11-09-H48-reader-precheck-sh4scan; TODO M3.19 note (rule 15, H48 #170) |
-| C-3412 | RESERVED (H48). | — | — | — |
-| C-3413 | RESERVED (H48). | — | — | — |
-| C-3414 | RESERVED (H48). | — | — | — |
-| C-3415 | RESERVED (H48). | — | — | — |
-| C-3416 | RESERVED (H48). | — | — | — |
-| C-3417 | RESERVED (H48). | — | — | — |
-| C-3418 | RESERVED (H48). | — | — | — |
-| C-3419 | RESERVED (H48). | — | — | — |
 
 ## M4.27 — Bit-packed / non-zlib POINT pages (C-2670–C-2679)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2583,12 +2481,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3331 | `l3_precond` verdict semantics are conservative: `READY` means no known M1.2f/import/input/binding blocker in checked metadata (with declared-input mitigations reported explicitly); `BLOCKED` means a known blocker applies (e.g. M1.2f compressed-sec1 data/imports unreachable, missing entry/mapping); `UNKNOWN` means stable metadata/image facts are insufficient and the verdict is never guessed as `READY`, with missing fields listed. A `READY` verdict is not a firmware acceptance verdict (rule 13). | VERIFIED (tool contract/selftest) | M | EXP-2026-11-09-H45-l3-precond; `tools/l3_precond.py --selftest` (adhoc/metadata-insufficient cases return UNKNOWN) |
 | C-3332 | On real `tools/l3_harness/targets.json` definitions (metadata-only, no image), `l3_precond` reports `cmp_ind_reader` (runnable/baseline-known firmware_call with declared `sec1_table` input, M9.11 path) as `READY` with M1.2f sec1-byte-verification-open mitigated by declared input, and reports `drstr_parser` as `BLOCKED` with M1.2f/compressed-sec1 dependency and blocked import/entry-mapping reachability reasons. `tile_reader`/`hddinfo_compare` (missing entry/mapping/runtime binding) are `BLOCKED`. | VERIFIED (tool, real target metadata) | M | EXP-2026-11-09-H45-l3-precond; `python3 tools/l3_precond.py --target cmp_ind_reader --target drstr_parser --json` |
 | C-3333 | TODO L3 rerun guidance references `l3_precond.py` for precondition checks before reopened L3 reader reruns (H45), enabling TL/SE to reject "fourth attempt, same blocker" reruns when prerequisites remain `BLOCKED`/`UNKNOWN`. | VERIFIED (doc) | H | `TODO.md` L3 (virtual) guidance; EXP-2026-11-09-H45-l3-precond |
-| C-3334 | RESERVED (H45). | — | — | — |
-| C-3335 | RESERVED (H45). | — | — | — |
-| C-3336 | RESERVED (H45). | — | — | — |
-| C-3337 | RESERVED (H45). | — | — | — |
-| C-3338 | RESERVED (H45). | — | — | — |
-| C-3339 | RESERVED (H45). | — | — | — |
 
 ## M1.18 — Bound `l3_harness` selftest runtime (C-3390–C-3399)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2598,11 +2490,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3392 | `tools/l3_harness/runner.py --selftest`/`selftest` and `tools/l3_harness/selftest.py` accept `--quick`/`--full` and report mode. Runner's external engine execution checks skip honestly in quick mode when a back end is available; quick runner target checks ~0.09s and package selftest ~0.18s on this host. | VERIFIED (tool) | H | EXP-2026-11-09-M1.18-l3-harness-selftest-runtime; runner/selftest commands |
 | C-3393 | `tools/l3_harness/dispatch.py --selftest` and `tools/l3_harness/ghidra/l3_run.py --selftest` accept `--quick`/`--full` for H38 selector consistency; their checks are already bounded/fast (~0.09s quick on this host). | VERIFIED (tool) | H | EXP-2026-11-09-M1.18-l3-harness-selftest-runtime |
 | C-3394 | `--full` runs the complete suite with wall-clock bounds on external parity/execution. On this host: `runner.py --selftest --full` completed in 45.10s with QEMU attempted and an honest non-pass contract outcome (never PASS); `engine.py --selftest --full` failed loudly on QEMU parity (`gdbstub single step failed: exceeded 60s wall-clock bound`, adapter unverified) — honest FAIL, not PASS/SKIP. | OBSERVED (bounded full run) | M | EXP-2026-11-09-M1.18-l3-harness-selftest-runtime; full-mode logs |
-| C-3395 | RESERVED (M1.18). | — | — | — |
-| C-3396 | RESERVED (M1.18). | — | — | — |
-| C-3397 | RESERVED (M1.18). | — | — | — |
-| C-3398 | RESERVED (M1.18). | — | — | — |
-| C-3399 | RESERVED (M1.18). | — | — | — |
 
 ## M5.31 — `mkcard --reconcile` resize envelope / stale-tail / contrast (C-3170–C-3179)
 | ID | Claim | Status | Evidence | Supersedes |
@@ -2613,24 +2500,11 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3173 | VERIFIED (synthetic, one variable): R8 shows both stale-tail modes read back correct resized bytes, stay inside envelope, produce no `drstr_other`, and reflect the chosen flag; preserve keeps factory slack bytes in the existing chain cluster. | VERIFIED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md` | — |
 | C-3174 | VERIFIED: on EU2011 (`105e2032…`), one variable per case, uncapped `diff_ranges` show reconcile 1 vs fresh 24,173,274 ranges (eu-same, ~5.17 GB diff bytes) and reconcile 246 vs fresh 24,173,273 ranges (eu-grow), with reconcile `outside_count==0` and cardcheck PASS. | VERIFIED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md` | — |
 | C-3175 | OBSERVED: reconcile resize envelope is complete/understandable for the measured M5.20-equivalent cases (file/dir/DRSTR index ranges named or classified); classification is explanatory only. | OBSERVED | `docs/experiments/EXP-2026-11-09-M5.31-mkcard-reconcile-resize.md` | — |
-| C-3176 | RESERVED (M5.31). | — | — | — |
-| C-3177 | RESERVED (M5.31). | — | — | — |
-| C-3178 | RESERVED (M5.31). | — | — | — |
-| C-3179 | RESERVED (M5.31). | — | — | — |
 
 ## M3.21 — `sh4scan` counts reproduced on IMG256 (C-3380–C-3389)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
 | C-3380 | On IMG256 `92aa525d…` (build A, `--image-start 0x200200`), `tools/sh4scan.py` reproduces M3.19-published counts: 527 build-A sections (282 uncompressed/245 compressed, 23,559,542 B psize uncompressed); Navi.exe tags 26 `cmp/eq #0x60`, 23 `cmp/eq #0x68`, 0 pairs; pattern `8868` 23 incl `0x0037c268`; mask-pair immediate 0, `--via-reg` 1 @ `0x003715c8/ca/cc R3 (+4 B)`; stride final candidates 0. Anchors raw hits reproducible (family grouping as M3.19 addendum). No published count corrected. | VERIFIED (repro) | H | EXP-2026-11-09-M3.21-sh4scan-counts-repro; EXP-2026-11-08-M3.19-sh4scan addendum |
-| C-3381 | RESERVED (M3.21). | — | — | — |
-| C-3382 | RESERVED (M3.21). | — | — | — |
-| C-3383 | RESERVED (M3.21). | — | — | — |
-| C-3384 | RESERVED (M3.21). | — | — | — |
-| C-3385 | RESERVED (M3.21). | — | — | — |
-| C-3386 | RESERVED (M3.21). | — | — | — |
-| C-3387 | RESERVED (M3.21). | — | — | — |
-| C-3388 | RESERVED (M3.21). | — | — | — |
-| C-3389 | RESERVED (M3.21). | — | — | — |
 
 ## H49 — "compressed sec1" is import slots and BSS (C-3440–C-3449)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2641,10 +2515,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3443 | M3.15's "sec1 helpers" `0x0055d924`/`0x0055d954` called from `fn 0x004125a8` and `fn 0x003bc960` are `OSM_isSender` and `OSM_Printf` imports, not the LCTBL record walker or string decoder (corrects C-2200–C-2206's interpretation, not their counts). | VERIFIED (tool) | H | C-3441; M1.10b (C-2600–C-2601 spot-check of `OSM_Printf`) |
 | C-3444 | The M3.15 inflate-table scan read only plain sections; `Navi.exe` constant data sits in sec2 (compressed, initialised), so its 0 hits do not exclude an inflate in plain code. | OBSERVED | M | C-3440; EXP-2026-11-08-M3.15-lctbl-reader scope |
 | C-3445 | With sec1 mapped zero-filled past `0x1801a` and the 846 IAT slots bound to named stubs, the M9.17/M9.14 module runs get past `0x0055d040`/`0x0055d8fc` to their first stub call. | VERIFIED (tool, real IMG256, probe-only) | M | EXP-2026-11-10-M9.35-sec1-load-model (C-3455); M9.35 |
-| C-3446 | RESERVED (H49). | — | — | — |
-| C-3447 | RESERVED (H49). | — | — | — |
-| C-3448 | RESERVED (H49). | — | — | — |
-| C-3449 | RESERVED (H49). | — | — | — |
 
 ## M9.35 — sec1 load model: zero BSS, bound IAT, fail loudly on `INIT` (C-3450–C-3459)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2658,7 +2528,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3456 | The `mmain_reader` next stop `COREDLL.dll!wcstombs` is reached via a bound IAT trampoline path, indicating sec1 IAT/BSS accesses no longer fault at `0x0055d040` for that probe under M9.35. | OBSERVED | M | EXP-2026-11-10-M9.35-sec1-load-model |
 | C-3457 | The `drstr-sub_00419350` next stop is an unmapped low-stack-range access (`0xfffffec6..0xfffffec8`) under scratch empty-args/context; this is a probe-context/stack observation, not an `INIT`-byte requirement and not a reader verdict. | RETRACTED | M | EXP-2026-11-10-M9.35-sec1-load-model; superseded by C-3581 (M9.36): not a stack/context observation but `mov.w R0,@(22,R15)` at EU2011 `0x0041936c` stored through `r0` (H51 defect) |
 | C-3458 | M9.35 satisfies its Done-when: 4 synthetic cases pass and both IMG256 scratch probes get past `0x0055d040`/`0x0055d8fc` with next stops recorded; Rule 15 reopens M9.17/M9.14 and marks M9.24 Depends satisfied by M9.35 in the done commit. | VERIFIED (board) | H | EXP-2026-11-10-M9.35-sec1-load-model; TODO.md M9.35/M9.17/M9.14/M9.24 |
-| C-3459 | RESERVED (M9.35). | — | — | — |
 
 ## M3.22 — `0x00d53500` BSS table writers (C-3460–C-3469)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2672,7 +2541,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3466 | No direct `fread`-into-`0x00d53500` store was observed in sec0 windows. `fread` import slot `0x0055d1a0` is in compressed sec1 IAT (C-3441); indirect I/O-driven fills are not statically excluded but require IAT-bound execution (M9.35) to observe. | OBSERVED (negative, scoped) | M | EXP-2026-11-10-M3.22-bss-table-writer; H49/C-3441 |
 | C-3467 | Table layout is partially observed (fixed/indexed 4-byte and one 2-byte slot accesses spanning at least offsets 0–176, dispatcher/slot comparisons over +12,+20,+28,+36,+44,+56,+60,+80,+96,+112,+128,+136,+156 etc.), but entry size, entry count, and per-field schema provenance (MMAIN001/REFER/RDSTM/file-header source per field) are not uniquely determined from static sec0 evidence alone. | UNKNOWN | — | EXP-2026-11-10-M3.22-bss-table-writer |
 | C-3468 | M3.22 Done-when not met: no L3 run (PySh4 after M9.35 or direct stub) and no writer-inverse check reproducing >=1 entry from a factory file was achieved in this session (M9.35 not merged). Status blocked with full site classification, back-trace, and minimal L3/stub recipe recorded. | OBSERVED (blocked) | H | EXP-2026-11-10-M3.22-bss-table-writer; task Stop |
-| C-3469 | RESERVED (M3.22). | — | — | — |
 | C-5120 | The BSS slot table is one structure of 4-byte slots: `slots` (static tracker over all base-literal load sites) finds 33 sites / 17 containers / 44 distinct offsets spanning `+0x0..+0xb8` at `0x00d53500` (EU2011, IMG256 `92aa525d…`) and 29 sites / 16 containers / 42 offsets spanning `+0x0..+0xb0` at `0x00c81100` (US2011, US256 `70d945d8…`); all 4-byte except one u16 word (`+0xb0` EU2011, `+0xa8` US2011). | VERIFIED | M | EXP-2026-11-19-M3.22-d53500-writer-l3; `tools/d53500_writer.py slots` |
 | C-5121 | The populate writers are the cases of the task-message switch `fn 0x003ff6a0` (EU2011) / `0x0042780c` (US2011) over `@(ctx+104)` = `0x14cc..0x14f0`: `0x003fc9c8` (`0x14cc,0x14d0,0x14d3`), `0x003fcbf0` (`0x14cd,0x14d1`), `0x003fd390` (`0x14e4`), `0x003faf04` (`0x14ef,0x14f0`) EU2011; US2011 `0x0042533c`, `0x004226f0`, `0x00425564`, `0x00423ba8`; 29 types take the common tail. The switch then sends the 32-byte message with `OSMDLL!OSM_TaskSend`. | VERIFIED | H | EXP-2026-11-19-M3.22-d53500-writer-l3; `tools/d53500_writer.py cases` |
 | C-5122 | Executed in PySh4 (all compressed sections zero-filled; declared inputs only `G+0=OBJ`, `G+16=1`, `OBJ+20=PAGE`), `fn 0x003faf04` (EU2011) / `0x00423ba8` (US2011) on type `0x14ef` writes slot `+0x1c` at `0x003fb034` / `0x00423cd8` with `*(*(G)+20)`, `G` = the global the type leaf returns (`0x014a98e0` EU2011, `0x01319780` US2011, found by running the leaf), and writes `+0x20` through the pointer argument of `0x0040e9dc` / `0x004369fc`. | VERIFIED | H | EXP-2026-11-19-M3.22-d53500-writer-l3; `tools/d53500_writer.py writer` |
@@ -2690,11 +2558,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3472 | `l3_precond.py` and `reader_precheck.py` selftests each exercise IAT, BSS, and INIT cases (synthetic va_class-aligned fixtures, no vendor data): IAT/BSS not M1.2f-blocked with correct class/concern shown, INIT M1.2f-blocked; classes appear in text/JSON/report structures. | VERIFIED (tool) | H | `python3 tools/l3_precond.py --selftest`, `python3 tools/reader_precheck.py --selftest` |
 | C-3473 | Audit (IMG256 `92aa525d…`, Navi.exe, `--resolve-with 0x3e00200`): cited blocker VAs `0x0055d8f0` (M3.11c, IAT OSMDLL!taskIdSelf), `0x00d53500` (M3.11c/M3.13/M4.16b, BSS sec1), `0x0055d8fc` (M9.14, IAT OSMDLL!OSM_Malloc), `0x0055d040`/`0x00e23cc0` (M9.17, IAT COREDLL!memset/BSS) are IAT/BSS; M3.11c also cites `0x005628e8` INIT and `0x00840ba0` BSS in context (mixed, explicit per VA). No audited cited blocker VA classified INIT except mixed-context note. | VERIFIED (tool) | H | EXP-2026-11-10-H50-va-class-prechecks audit table |
 | C-3474 | Per rule 15, M3.11c, M3.13, M4.16b, M9.14, M9.17 reopened (Status open, Owner —) in the audit commit with original blockers/negative EXP references kept and H50 reopen notes citing IAT/BSS findings; M3.2b left blocked with no-concrete-VA note. M3.14/M3.16/M3.18/M3.2/M1.4/M1.2f/M8.E1 not reopened (no cited IAT/BSS blocker VA to unblock via va_class). Mandatory names M4.26, M2.17, "M1.12 follow-up" task blocks not found in TODO.md. | VERIFIED (board) | H | EXP-2026-11-10-H50-va-class-prechecks; TODO.md |
-| C-3475 | RESERVED (H50). | — | — | — |
-| C-3476 | RESERVED (H50). | — | — | — |
-| C-3477 | RESERVED (H50). | — | — | — |
-| C-3478 | RESERVED (H50). | — | — | — |
-| C-3479 | RESERVED (H50). | — | — | — |
 
 ## H51 — PM thirteenth pass: kernel decompressor in PySh4, pdata, US build (C-3480–C-3489)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2717,12 +2580,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3711 | With one fixed corpus (`corpus.py build /tmp/opencode/l3-corpus-h55`), `--json PATH` and bare `--json` produce byte-identical documents (`cmp` exit 0, 5280 B, `schema=osm2leaf.l3check/v1`, `result=PASS`, `counts={"pass":1,"fail":0,"skip":0,"blocked":5,"runnable":1,"total":6}`). Two independent `--build-corpus` runs differ only in `corpus.root`/`corpus.manifest`, which name a random temp directory (pre-existing content, not the flag change). | VERIFIED (tool) | H | EXP-2026-11-15-H55-l3check-json-path; `python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus-h55 --json > /tmp/opencode/l3-h55-stdout.json && cmp ...` |
 | C-3712 | The written file is consumed unchanged by `tools/progress_report.py --l3-json PATH` (exit 0, no parse/input problems) — the consumer needs no schema change. | VERIFIED (tool) | H | EXP-2026-11-15-H55-l3check-json-path; `python3 tools/progress_report.py --l3-json /tmp/opencode/l3-h55.json --no-stdout` |
 | C-3713 | `tools/l3check.py --selftest` covers both forms: `cli: --json PATH writes the same document as bare --json` (file equals stdout document, `-` prints, nested directory created, file ends with newline) and `cli: --json PATH still writes the report when the run fails` (exit 1 still writes a `FAIL` document); selftest still OK with 20 checks (1 Ghidra skip). | VERIFIED (tool) | H | EXP-2026-11-15-H55-l3check-json-path; `python3 tools/l3check.py --selftest`, `python3 tools/selftest.py --only l3check` |
-| C-3714 | RESERVED (H55). | — | — | — |
-| C-3715 | RESERVED (H55). | — | — | — |
-| C-3716 | RESERVED (H55). | — | — | — |
-| C-3717 | RESERVED (H55). | — | — | — |
-| C-3718 | RESERVED (H55). | — | — | — |
-| C-3719 | RESERVED (H55). | — | — | — |
 
 ## H54 — `worktree_audit.py`: stale worktrees and ahead-branches (C-3690–C-3699)
 | ID | Claim | Status | Confidence | Evidence |
@@ -2733,10 +2590,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-3693 | `--prune` is a dry run: it prints `git worktree remove -- PATH` for the 18 stale unlocked worktrees and deletes nothing (`git worktree list \| wc -l` = 36 before and after); the printed set equals the `STALE` worktree rows. The tool never deletes a branch, and `--apply` removes worktrees only. | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py --prune` |
 | C-3694 | The 2 `locked` worktrees (`claude agent … pid 16394`) are reported with their lock reason and the `LOCKED` flag, are classified neither stale nor pruneable, and survive `--prune --apply` (selftest keeps the locked fixture tree on disk). | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py --prune` |
 | C-3695 | Task IDs are taken only from the branch name (`task/h54-…` → `H54`); 27 of 39 rows are `UNKNOWN` on this checkout (25 detached trees with no branch name + 2 named branches without an ID, e.g. `chore/decomp-oracle-restore`). The tool does not guess from commit messages or dates. | VERIFIED (tool) | H | EXP-2026-11-15-H54-worktree-audit; `python3 tools/worktree_audit.py --json > /tmp/opencode/h54.json` |
-| C-3696 | RESERVED (H54). | — | — | — |
-| C-3697 | RESERVED (H54). | — | — | — |
-| C-3698 | RESERVED (H54). | — | — | — |
-| C-3699 | RESERVED (H54). | — | — | — |
 
 ## M1.20 — `pdata.py census`: the re-runnable function-table census and its `where` verdict (C-3510–C-3519)
 Supplies the committed census command that the evidence cells of C-3612/C-3613/C-3614
@@ -2801,10 +2654,6 @@ verdict is per citation. `--fix-list` and the exit code follow `is_failure`.
 | C-3793 | The three correction-only VAs (`0x003f5fc2`→`0x003f5f48`, `0x00413af4`→`0x00413a6c`, `0x00542256`→`0x00542250`) leave `--fix-list` (12 → 9 unique lines) and no other unique `INSIDE` VA disappears. They account for 11 of the 13 `CORRECTED` citations (`0x00542256` ×6 on `TODO.md:512/714/729/729/766/771`, `0x00413af4` ×3 on `TODO.md:766/771/1281`, `0x003f5fc2` ×2 on `TODO.md:516/771`); the other 2 are `0x0041c7e8` and `0x00412bee` on `TODO.md:512`, VAs that are also cited as live `fn` labels elsewhere and stay `INSIDE` there. `pdata.py fn` independently confirms each true start (prologue 16/18/14 B). | VERIFIED (tool) | H | EXP-2026-11-15-M1.29-fn-audit; `python3 tools/fn_audit.py archive/head256.img --scope docs | grep CORRECTED`, `python3 tools/pdata.py fn archive/head256.img --module Navi.exe 0x003f5fc2 0x00413af4 0x00542256` |
 | C-3794 | Prose that records a fix without spelling the true start on the same line (`0x00413af4`'s `jsr` call site inside `fn 0x00413a6c`, `0x003f5fc2` as an H49 range end) is resolved only by the explicit, commented `CORRECTION_ONLY` allowlist, and only while the pin matches `pdata.locate`'s start. The `--selftest` proves a matching pin is `CORRECTED`, a wrong pin stays `INSIDE`, and a live label of an allowlisted VA still fails; `--verbose` prints the allowlist in use. | VERIFIED (tool) | H | EXP-2026-11-15-M1.29-fn-audit; `python3 tools/fn_audit.py --selftest`, `python3 tools/fn_audit.py archive/head256.img --verbose` |
 | C-3795 | Two wider extractors were measured once on a working branch and rejected: (a) letting a backtick sit between arrow and `fn` in `CORRECTION_RE` (the `0x003f5fc2`\`→\`fn` form) was seen to add 11 citations and 5 unique VAs, including seven addresses on `TODO.md:884`; (b) scanning every pair line without a marker word was seen to add 29 citations and 4 new `INSIDE` VAs (`0x03bb2c54`, `0x03bb2c64`, `0x00426128`, `0x004268ac`). That variant extractor is not committed, so these counts are a one-off observation, not a reproducible tool result. The committed extractor keeps M1.25's marker set, and the `--selftest` pins the narrow behaviour the choice rests on (a pair without a marker word is not scanned; a cross-build map is a pair shape, not a correction). | OBSERVED | M | EXP-2026-11-15-M1.29-fn-audit; resolver: `python3 tools/fn_audit.py archive/head256.img --scope docs` (17 files, 297 citations, 112 unique VAs, INSIDE 33, CORRECTED 13); `python3 tools/fn_audit.py --selftest` |
-| C-3796 | RESERVED (M1.29). | — | — | — |
-| C-3797 | RESERVED (M1.29). | — | — | — |
-| C-3798 | RESERVED (M1.29). | — | — | — |
-| C-3799 | RESERVED (M1.29). | — | — | — |
 
 ## M1.30 — `fn_audit` frozen corpus snapshot (C-3860–C-3869)
 `tools/fn_audit.py` can freeze its `--scope docs` corpus to one committed,
@@ -2822,10 +2671,6 @@ a months-old snapshot cannot pass.
 | C-3863 | Relabelling one `CORRECTED` row to `INSIDE` (with its `class_sha256` re-signed and the frozen summary adjusted so only the image can tell) makes `--corpus` exit 1 and print `row class disagrees with the image: TODO.md:516 0x00412bee frozen=INSIDE/0x00412ac0 image=CORRECTED/0x00412ac0`. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; mutated `/tmp/fa-mut3.json` via `--corpus` |
 | C-3864 | `--corpus` re-scans the live `--scope docs` corpus by default and exits 1 with `CORPUS STALE: n new / n gone / n moved` when a source line was added, removed or moved after the snapshot; a structural row move is `moved`, a verdict change at an unchanged key is a `verdict change`. `--no-live-check` skips that comparison offline. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; one probe line appended to `TODO.md` then `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` (`CORPUS STALE: 1 new / 0 gone / 125 moved`, exit 1; the moved count is the current line drift, not part of the verdict) |
 | C-3865 | `--corpus … --fix-list` runs the summary/integrity/re-classification/staleness checks first, then prints one `0x<mid> -> 0x<start>` line per snapshot-`INSIDE` row (sorted) and exits 1 when any exist, 0 otherwise; it never falls back to a live scan, so its output is reproducible from the committed artifact, and a tampered snapshot cannot use it to hide a row. A consistent snapshot with one `INSIDE` row prints exactly one line and exits 1 (`corpus_fix_list` + `--fix-list` selftest cases); on the real head a probe `INSIDE` row flipped to `CORRECTED` with a re-signed `class_sha256` prints the class-drift error and exits 1. | VERIFIED (tool) | H | EXP-2026-11-16-M1.30-fn-audit-snapshot; `python3 tools/fn_audit.py --selftest` (fix-list cases), `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --fix-list` (0 lines, exit 0), tampered probe snapshot (`TODO.md:3201 0x0041c7e8`, exit 1) |
-| C-3866 | RESERVED (M1.30). | — | — | — |
-| C-3867 | RESERVED (M1.30). | — | — | — |
-| C-3868 | RESERVED (M1.30). | — | — | — |
-| C-3869 | RESERVED (M1.30). | — | — | — |
 
 ## M1.26 — `fn_audit --scope l3` standing gate (C-3660–C-3669)
 `tools/fn_audit.py --scope l3` widens the audit to the corpora the M9/M3 board
@@ -2845,9 +2690,6 @@ new/gone/class-changed citation is what the overlay fails.
 | C-3664 | H72's candidate-set gate is exercised on real l3 rows, not only a synthetic fixture: the overlay is the first corpus with `AMBIGUOUS` rows (5 rows, 4 unique VAs: `0x0001cee8` twice, `0x00021104`, `0x03bd3ad4`, `0x0001e270`) and **all 5 contain at least one `INSIDE` candidate**, so each is a failure under `Verdict.is_failure`. `--selftest` proves an `AMBIGUOUS` overlay row whose frozen candidates are benign but whose live candidates gain `INSIDE` is a `verdict change` (`CORPUS STALE`, exit 1), while unchanged candidates stay moved-only (exit 0). | VERIFIED (tool) | H | EXP-2026-11-16-M1.26-fn-audit-scope-l3; `python3 tools/fn_audit.py --selftest`, `python3 tools/fn_audit.py archive/head256.img --scope l3 --verbose` |
 | C-3665 | The l3 overlay's 21 unique `INSIDE` VAs (17 `fn`, 4 `sub_`, `0x003715a0`…`0x00542314`) are the append-only register in `docs/research/fn-audit-2026-11-13.md`, each with its true `.pdata` start and disposition; **all 21 are cited only in EXPs** (no open task block contributes one), so each is `accepted data/append-only` — the fix is a correction note appended to the owning EXP, never an edit, and never a `done` task. `0x00542256` (H63) now resolves through the `CORRECTION_ONLY` pin path (`CORRECTED`); `0x0041c7e8` (31 citations) and `0x00412bee` (9) remain `INSIDE` labels because an EXP quotes them mid-function. `US_BUILD_STARTS` (six US-2011 Navi VAs, C-3487/M1.28) are skipped for every kind so a US address is not an EU `INSIDE`. A frozen overlay `INSIDE` does not fail the gate (otherwise an append-only corpus can never be green); a new one arrives as a `new` citation and does. | VERIFIED (tool + register) | H | EXP-2026-11-16-M1.26-fn-audit-scope-l3; `python3 tools/fn_audit.py archive/head256.img --scope l3 --fix-list`, `docs/research/fn-audit-2026-11-13.md` |
 | C-3666 | `tools/selftest.py` wires M1.26 as two suites: `fn_audit_l3` (image-free — a synthetic l3 `INSIDE` must fail the gate, the same VA as `START` must pass; an open block keeps a live label, a correction pair and a pin but skips a bare data address and every US-build start; strict markdown keeps a documented correction and drops a call-site sharing an arrow with its callee) and `fn_audit_l3_image` (the real `--corpus … --overlay …` gate, asserting `CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved` and that the overlay contains neither `0x00d53500` nor any `US_BUILD_STARTS` member, `skip_unless=archive/head256.img`). With the symlink absent the image suite reports `SKIP missing archive/head256.img`; `python3 tools/selftest.py --only fn_audit_l3,fn_audit_l3_image` is 2 PASS and a full `selftest.py` passes with 0 failed. | VERIFIED (tool) | H | EXP-2026-11-16-M1.26-fn-audit-scope-l3; `python3 tools/selftest.py --only fn_audit_l3,fn_audit_l3_image`, `python3 tools/selftest.py` |
-| C-3667 | RESERVED (M1.26). | — | — | — |
-| C-3668 | RESERVED (M1.26). | — | — | — |
-| C-3669 | RESERVED (M1.26). | — | — | — |
 
 ## H64 — factory-tree provenance and `--out` overlap guard (C-3840–C-3849)
 `tools/one_tile_pipeline.py` proves its `--factory-root` is a real, parseable
@@ -2862,12 +2704,6 @@ genuine EU2011 run still reports `tilewriter rc=2`.
 | C-3841 | A zero-byte or unparseable `MAPAL001/<cell>.DAT` sets `real_image_run=factory-tree-invalid` and every gate `BLOCKED` before any copy or mutation, never `attempted`, and creates no output tree. | VERIFIED (tool) | H | EXP-2026-11-16-H64-factory-root-guards; `python3 tools/one_tile_pipeline.py --selftest` (empty-tile negative); temp-tree run in the EXP |
 | C-3842 | An `--out` equal to, a parent of, or a child of `--factory-root`/`--osm` exits 2 with a usage message and no filesystem change; the input tree is intact and the tile byte-identical afterwards. The guard runs in `main` before dispatch and again in `build_factory_out` before `_copy_factory_root` (and in `build_synthetic_out` via `input_root`). All three branches — equal, inside and parent-of-root, for both `main` and `build_synthetic_out` — are covered by `--selftest`. | VERIFIED (tool) | H | EXP-2026-11-16-H64-factory-root-guards; `python3 tools/one_tile_pipeline.py --selftest` (equal/inside/parent cases + `build_synthetic_out` equal/parent) |
 | C-3843 | The genuine EU2011 run is unchanged by the guards: `osm_ingest_rc=0`, `mesh_split_rc=0`, `roadclass_rc=0`, `tilewriter_rc=2` on the `0x2146` directory `y=76 x=941`, all gates `BLOCKED` (M5.22/M5.34 corridor decision not re-run). | OBSERVED | H | EXP-2026-11-16-H64-factory-root-guards; same command as C-3840 |
-| C-3844 | RESERVED (H64). | — | — | — |
-| C-3845 | RESERVED (H64). | — | — | — |
-| C-3846 | RESERVED (H64). | — | — | — |
-| C-3847 | RESERVED (H64). | — | — | — |
-| C-3848 | RESERVED (H64). | — | — | — |
-| C-3849 | RESERVED (H64). | — | — | — |
 
 ## H68 — unparsed `todo_check` block headers are errors (C-3890–C-3899)
 `tools/todo_check.py` rejects any line shaped like a block header that
@@ -2885,9 +2721,6 @@ parser was added; `worktree_audit` reuses `todo_check.parse_tasks`.
 | C-3894 | `tools/worktree_audit.py` reuses `todo_check.parse_tasks` and still sees the whole board: `parse_tasks` returns 176 tasks and `worktree_audit --selftest` passes (14 checks). No second TODO parser was added. | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; `python3 tools/selftest.py --only worktree_audit` |
 | C-3895 | `tools/progress_report.py:265 parse_todo_tasks` has the same family of hole but a different shape: a bounded per-ID lookup that reports `task <ID> not found` rather than absorbing an unparsed dual header. Left unchanged (out of H68 scope; its failure is loud). | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; `parse_todo_tasks` on an `H1` + `**H2 / H3 —**` doc returns `['H1','H2']` and `task H3 not found` |
 | C-3896 | Non-bold section headings (`## H — Housekeeping`, `### ID allocation`) are not block headers and do not error; only a bold heading (`### **…`) is treated as a header. | VERIFIED (tool) | H | EXP-2026-11-16-H68-todo-check-headers; `python3 tools/todo_check.py --selftest` (sections fixture) |
-| C-3897 | RESERVED (H68). | — | — | — |
-| C-3898 | RESERVED (H68). | — | — | — |
-| C-3899 | RESERVED (H68). | — | — | — |
 
 ## H69 — snapshot refresh owner and moved-only warn policy (C-3900–C-3909)
 `tools/fn_audit.py` splits live drift against the frozen corpus into
@@ -2907,11 +2740,6 @@ refresh procedure; M1.26 consumes this policy and must not invent a second one.
 | C-3902 | A refreshed `docs/research/fn-audit-corpus-2026-11-16.json` (`ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`, was `4606aa2aff292d72ec9651cfff0660c246bf1d23255fc59cab3348ea0878fe38`) keeps 313 rows / 112 unique VAs and the unchanged summary (17 files, `START 229, INSIDE 0, CORRECTED 23, GAP 29 (leaf 29), AMBIGUOUS 0, UNMAPPED 32`); the old→new diff is 125 moved occurrences over 44 identities, all line moves in `TODO.md` (those 44 identities hold 126 rows; one, `TODO.md:132 0x0041c7dc fn`, did not move), with 0 new / 0 gone / 0 class or `true_start` changes. | VERIFIED (tool) | H | EXP-2026-11-16-H69-snapshot-refresh; `python3 tools/fn_audit.py archive/head256.img --scope docs --write-snapshot /tmp/opencode/h69-fresh.json --quiet`, `sha256sum docs/research/fn-audit-corpus-2026-11-16.json` |
 | C-3903 | A fresh `--write-snapshot` on the current tree reproduces the committed refreshed file byte-for-byte (`cmp` silent) and `--corpus` on it exits 0 with the unchanged summary; re-classification is independent of the live check (a relabelled `START`→`INSIDE` row with a re-signed `class_sha256` and adjusted summary exits 1 under `--no-live-check`). | VERIFIED (tool) | H | EXP-2026-11-16-H69-snapshot-refresh; at the snapshot's own tree: `mkdir -p /tmp/se-tree && git archive 9b4e6d7 | tar -x -C /tmp/se-tree && ln -sf "$PWD/archive/head256.img" /tmp/se-tree/archive/head256.img && (cd /tmp/se-tree && python3 tools/fn_audit.py archive/head256.img --scope docs --write-snapshot /tmp/se-fresh.json --quiet && cmp /tmp/se-fresh.json docs/research/fn-audit-corpus-2026-11-16.json)` (cmp silent, exit 0); `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` (exit 0, unchanged summary); class flip through the tool's own `row_fingerprint`: `python3 -c "import json,sys;sys.path.insert(0,'tools');import fn_audit as f;d=json.load(open('docs/research/fn-audit-corpus-2026-11-16.json'));r=next(x for x in d['rows'] if x['class']=='START');r.update({'class':'INSIDE','true_start':'0x00401000','class_sha256':f.row_fingerprint('INSIDE','0x00401000')});d['summary']['start']-=1;d['summary']['inside']+=1;json.dump(d,open('/tmp/se-classflip.json','w'))" && `python3 tools/fn_audit.py archive/head256.img --corpus /tmp/se-classflip.json --quiet --no-live-check` (prints `frozen=INSIDE/0x00401000 image=START/None`, exit 1) |
 | C-3904 | `tools/README.md` documents the refresh procedure: only an intentional `--write-snapshot` writes the file (never CI, never `--corpus`), refresh after the task's prose is final, the diff is the review artifact, rows are never deleted and the `file:line:va` sort is kept, and the old/new SHA-256 and counts go in the refresh EXP. No CI workflow calls `fn_audit` or `--write-snapshot`. | VERIFIED (tool; docs) | H | EXP-2026-11-16-H69-snapshot-refresh; `grep -n "Refreshing the snapshot" tools/README.md`, `grep -rn "fn_audit" .github/workflows` (no match) |
-| C-3905 | RESERVED (H69). | — | — | — |
-| C-3906 | RESERVED (H69). | — | — | — |
-| C-3907 | RESERVED (H69). | — | — | — |
-| C-3908 | RESERVED (H69). | — | — | — |
-| C-3909 | RESERVED (H69). | — | — | — |
 
 ## H72 — `fn_audit` gate on `candidates`/`leaf` and `va` normalisation (C-3930–C-3939)
 H69's `verdict_differs` compared only `class` and `true_start`, so two frozen
@@ -2929,11 +2757,6 @@ a latent/future-proof guard, not a live-bug fix (see C-3931); the candidate and
 | C-3932 | `_row_key` normalises `va` through `_canon_va` (`"0x%08x" % int(va, 16)`), so a same-VA row written unpadded (`0x900000`) against the canonical live `0x00900000` no longer prints `CORPUS STALE: 1 new / 1 gone`; the pure-padding case is exit 0 with no `new`/`gone`. Fixture `H72 unpadded va prints no spurious new/gone` covers it. | VERIFIED (tool) | H | EXP-2026-11-16-H72-fn-audit-candidates; `python3 tools/fn_audit.py --selftest` |
 | C-3933 | The same non-canonical `va` class is fixed in `snapshot_summary` (`unique_va` uses `_canon_va`) and `corpus_fix_list` (keyed by `_canon_va`) within `tools/fn_audit.py`; `load_corpus` additionally rejects an `AMBIGUOUS` row that has no `candidates` list (so a missing key is never read as an empty set) and a non-hex `va`. | VERIFIED (tool) | H | EXP-2026-11-16-H72-fn-audit-candidates; `python3 tools/fn_audit.py --selftest` |
 | C-3934 | The benign counter-case is preserved: an `AMBIGUOUS` row with unchanged candidates but a moved line still exits 0 as moved-only (`CORPUS DRIFT: 0 new / 0 gone / 1 moved`, no `verdict change`). On the unchanged real tree `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` stays exit 0 with `CORPUS DRIFT: 0 new / 0 gone` (the `moved` count is prose-dependent by design, so it is not pinned here) and the snapshot SHA-256 stays `ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a`. `--selftest` is 58 checks / 0 failed (was 53). | VERIFIED (tool) | H | EXP-2026-11-16-H72-fn-audit-candidates; `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet`, `sha256sum docs/research/fn-audit-corpus-2026-11-16.json` |
-| C-3935 | RESERVED (H72). | — | — | — |
-| C-3936 | RESERVED (H72). | — | — | — |
-| C-3937 | RESERVED (H72). | — | — | — |
-| C-3938 | RESERVED (H72). | — | — | — |
-| C-3939 | RESERVED (H72). | — | — | — |
 
 ## H52 — audit every cited `fn 0x…` against `.pdata` (C-3490–C-3499)
 Applies M1.25's `--fix-list` table to the live corpus. The audit is
@@ -2965,10 +2788,6 @@ Applies M1.25's `--fix-list` table to the live corpus. The audit is
 | C-3883 | A different cell's tile copied over `MAPAL001/B48R058R.DAT` yields `real_image_run=factory-tree-invalid`, `factory_tree_provenance=factory-tile-mismatch`, every gate `BLOCKED`, and no output tree — never `factory-backed`/`attempted`. | VERIFIED (tool) | H | EXP-2026-11-16-H67-factory-tile-cell; wrong-cell command in the EXP |
 | C-3884 | The honest `B48R058R` run is unchanged by the binding: `mode=factory-backed`, `factory_tile_sha256=e9c9cb2236f6b53ad4fe9687a18a351afe80a46a63c0a1f18dc46d6c8af3ff52`, `factory_tile_sections=3`, `factory_tile_cell_binding` reports 5 box rows in bounds, `tilewriter_rc=2` (the `0x2146` directory, M5.34). | VERIFIED (tool) | H | EXP-2026-11-16-H67-factory-tile-cell; honest command in the EXP |
 | C-3885 | `one_tile_pipeline.py --selftest` gains the wrong-cell negative (a synthetic `B30R060R` tile over `B48R058R.DAT` -> `factory-tile-mismatch`, no output tree) while the H64 empty-tile and `--out`-overlap cases stay green; `selftest.py --only one_tile_pipeline` passes. | VERIFIED (tool) | H | EXP-2026-11-16-H67-factory-tile-cell; `python3 tools/one_tile_pipeline.py --selftest`, `python3 tools/selftest.py --only one_tile_pipeline` |
-| C-3886 | RESERVED (H67). | — | — | — |
-| C-3887 | RESERVED (H67). | — | — | — |
-| C-3888 | RESERVED (H67). | — | — | — |
-| C-3889 | RESERVED (H67). | — | — | — |
 
 ## H70 — `one_tile_pipeline --factory-tile` is wired to the supplied tile (C-3910–C-3919)
 | ID | Claim | Status | Front | Evidence |
@@ -2978,11 +2797,6 @@ Applies M1.25's `--fix-list` table to the live corpus. The audit is
 | C-3912 | On the honest EU2011 tile the override path reproduces the derived-path result: `factory_tile_sha256=e9c9cb2236f6b53ad4fe9687a18a351afe80a46a63c0a1f18dc46d6c8af3ff52`, `factory_tile_size=289,319,168`, `factory_tree_provenance=factory-tile-parsed`, `factory_tile_cell_binding="5 box rows within cell B48R058R bounds"`, `mode=factory-backed`, `tilewriter_rc=2` (the `0x2146` directory, M5.34) — the override does not change the corridor. | VERIFIED (tool) | H | EXP-2026-11-16-H70-factory-tile-flag; `python3 tools/one_tile_pipeline.py --selftest` asserts `factory_tile_sha256` equals `sha256sum` of `MAPAL001/<cell>.DAT`, `factory_tile_size` equals the tile size, `factory_tree_provenance=factory-tile-parsed`, a non-empty `factory_tile_cell_binding`, and a set `tilewriter_rc`; the concrete B48R058R values are OBSERVED (sample on this machine) `B48R058R.DAT` SHA-256 `e9c9cb2236f6b53ad4fe9687a18a351afe80a46a63c0a1f18dc46d6c8af3ff52` (289,319,168 B), not reprinted by the selftest |
 | C-3913 | `--factory-tile` without `--factory-root` exits 2 with `error: --factory-tile requires --factory-root`; a supplied tile inside `--out` is rejected with `UsageError` before the root is copied (a recursive delete would destroy it). | VERIFIED (tool) | H | EXP-2026-11-16-H70-factory-tile-flag; `python3 tools/one_tile_pipeline.py --selftest` |
 | C-3914 | `one_tile_pipeline.py --selftest` gains nine `--factory-tile` checks (honest override, report naming/hash, output tile, tilewriter reached, wrong-cell mismatch + no tree, missing-root exit 2) and still passes with 0 failures; `selftest.py --only one_tile_pipeline` passes. | VERIFIED (tool) | H | EXP-2026-11-16-H70-factory-tile-flag; `python3 tools/one_tile_pipeline.py --selftest`, `python3 tools/selftest.py --only one_tile_pipeline` |
-| C-3915 | RESERVED (H70). | — | — | — |
-| C-3916 | RESERVED (H70). | — | — | — |
-| C-3917 | RESERVED (H70). | — | — | — |
-| C-3918 | RESERVED (H70). | — | — | — |
-| C-3919 | RESERVED (H70). | — | — | — |
 
 ## M1.31 — `pdata` leaf census: `rts` presence, no-`rts` stubs and the `0x400` cap (C-3960–C-3969)
 `tools/pdata.py leaves --called {records,gaps,all}` classifies every `.pdata`
@@ -3024,7 +2838,6 @@ ledger. `tools/fn_match.py`/`tools/fn_audit.py` footers now print the count.
 | C-3956 | The default `python3 tools/claims_check.py` stays exit 0 on the real ledger with the path rule present; `--strict` exits 1 naming exactly the two genuine defects (`MISSING C-3703 archive/us256.img` and `CONFLICT C-3704 claims 26, tools/fn_match.py quotes 22`), and `--strict --count-check` prints `count mismatches: 0` and keeps that exit 1. `--strict` gates the genuine-path set and the claim/EXP conflict; `--count-check` additionally runs the footer-count rule. | VERIFIED (tool) | H | EXP-2026-11-16-H74-claims-count-check; `python3 tools/claims_check.py`, `python3 tools/claims_check.py --strict --count-check` |
 | C-3957 | `tools/fn_match.py --selftest` now prints `fn_match selftest: OK (29 checks, 0 failed)` and `tools/fn_audit.py --selftest` prints `selftest: OK (70 checks, 0 failed)`, counting the `check()` calls they run rather than inferring it from source (`grep -c 'check('` counts unreachable branches). Both selftests still pass and `selftest.py --only fn_match`/`--only fn_audit` pass. | VERIFIED (tool) | H | EXP-2026-11-16-H74-claims-count-check; `python3 tools/fn_match.py --selftest`, `python3 tools/fn_audit.py --selftest`, `python3 tools/selftest.py --only fn_match --only fn_audit` |
 | C-3958 | H58's command-form `bad_evidence` and H61's EXP-name rule are still `open` on `main` at `0650616`, so `claims_check.py` had no `--strict` flag before H74 and H74 adds it; the path rule here is a fresh implementation of H61's intent (existence after a `;`), not a call into an unmerged parser. | VERIFIED (tool + board) | H | EXP-2026-11-16-H74-claims-count-check; `grep -n 'def bad_evidence\|--strict' tools/claims_check.py` |
-| C-3959 | RESERVED (H74). | — | — | — |
 
 ## H76 — l3 image suite accepts the H69 moved-only outcome (C-3990–C-3999)
 `tools/selftest.py`'s `test_fn_audit_scope_l3_image` pinned the exact string
@@ -3038,13 +2851,6 @@ the identity set, not the byte position.
 | C-3990 | `test_fn_audit_scope_l3_image` pins the exact `CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved`; after H74's `TODO.md` edit (51 l3 lines moved) the gate correctly prints `CORPUS DRIFT: L3 OVERLAY: 0 new / 0 gone / 51 moved` with exit 0, the literal is absent (`grep -c` prints `0`), and `python3 tools/selftest.py` fails at `fn_audit_l3_image` (`passed=89 failed=1 skipped=23 total=113`). | VERIFIED (tool) | H | EXP-2026-11-16-H76-l3-image-assert; `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --overlay docs/research/fn-audit-l3-corpus-2026-11-16.json --quiet`, `python3 tools/selftest.py` |
 | C-3991 | The suite now requires `CORPUS (OK\|DRIFT): L3 OVERLAY: 0 new / 0 gone / N moved` and no `CORPUS STALE`, so a moved-only run is a pass and a real `new`/`gone` still fails (exit 1 is already asserted separately). `python3 tools/selftest.py --only fn_audit_l3_image` prints `passed=1 failed=0 skipped=0 total=1` and the full suite `passed=90 failed=0 skipped=23 total=113`. | VERIFIED (tool) | H | EXP-2026-11-16-H76-l3-image-assert; `python3 tools/selftest.py --only fn_audit_l3_image`, `python3 tools/selftest.py` |
 | C-3992 | The relaxed assertion is not vacuous: an overlay with one row deleted makes the gate print `CORPUS STALE: L3 OVERLAY: 1 new / 0 gone / N moved` and exit 1; the same regex no longer matches (`regex matched= False`) and the assertion fails, so the test still catches a genuine corpus change. | VERIFIED (tool) | H | EXP-2026-11-16-H76-l3-image-assert; a `rows[0]`-deleted copy of `docs/research/fn-audit-l3-corpus-2026-11-16.json` fed to `--overlay` |
-| C-3993 | RESERVED (H76). | — | — | — |
-| C-3994 | RESERVED (H76). | — | — | — |
-| C-3995 | RESERVED (H76). | — | — | — |
-| C-3996 | RESERVED (H76). | — | — | — |
-| C-3997 | RESERVED (H76). | — | — | — |
-| C-3998 | RESERVED (H76). | — | — | — |
-| C-3999 | RESERVED (H76). | — | — | — |
 
 ## H75 — M1.27 evidence repair (C-3970–C-3979)
 C-3703's evidence named a US head H62 has not pinned and quoted the `match
@@ -3057,12 +2863,6 @@ the pre-clamp count. Both are fixed here without changing the tool or fixture.
 | C-3971 | The US head `archive/us256.img` is re-creatable from the committed vendor image under rule 11: `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img` yields SHA-256 `70d945d8…04da`, the hash the fixture pins in `us_head`. With that command in C-3703's cell `claims_check --strict` classifies the path `vendor-pin` and prints `genuine missing evidence paths: 0`, exit 0 on a clean checkout. | VERIFIED (tool) | H | EXP-2026-11-16-H75-m1.27-evidence; `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img \| sha256sum`, `python3 tools/claims_check.py --strict` |
 | C-3972 | The M1.27 EXP's `22 checks` is the count at `92550d6`, not its merge commit: `git archive 2709645 tools \| tar -x -C "$d"; PYTHONPATH="$d/tools" python3 "$d/tools/fn_match.py" --selftest \| grep -c '^ok'` prints `26` (the 4 clamp checks were added by `334f092` on the same branch); `main` prints `fn_match selftest: OK (29 checks, 0 failed)`. The EXP keeps its dated body and gains an appended `Correction (H75, 2026-11-16)` section; C-3704 now states the 26 merge-time count, so `claims_check --count-check` prints `count mismatches: 0`. | VERIFIED (tool) | H | EXP-2026-11-16-H75-m1.27-evidence; `git archive 2709645 tools \| tar -x -C "$d"; PYTHONPATH="$d/tools" python3 "$d/tools/fn_match.py" --selftest \| grep -c '^ok'`, `python3 tools/claims_check.py --count-check` |
 | C-3973 | Both H74 defects are now green: `python3 tools/claims_check.py --strict` exits 0 (`genuine missing evidence paths: 0`), `--count-check` prints `count mismatches: 0`, and the default `python3 tools/claims_check.py` stays exit 0 on the real ledger. | VERIFIED (tool) | H | EXP-2026-11-16-H75-m1.27-evidence; `python3 tools/claims_check.py --strict`, `python3 tools/claims_check.py --count-check`, `python3 tools/claims_check.py` |
-| C-3974 | RESERVED (H75). | — | — | — |
-| C-3975 | RESERVED (H75). | — | — | — |
-| C-3976 | RESERVED (H75). | — | — | — |
-| C-3977 | RESERVED (H75). | — | — | — |
-| C-3978 | RESERVED (H75). | — | — | — |
-| C-3979 | RESERVED (H75). | — | — | — |
 
 ## H71 — C-3860/C-3861/C-3864 evidence spans are runnable (C-3920–C-3929)
 Three rows carried elided spans, so a reader could not re-run them. Each now
@@ -3075,12 +2875,6 @@ C-3864 the current staleness counts.
 | C-3921 | C-3861's committed snapshot hash is `ddd113f84228ff85af85fb633beba8dd70ed5dc072b52a542af1511ee0102a1a` (H69 refreshed the pre-H69 `4606aa2a…`); a fresh `--write-snapshot` today prints 313 rows / 112 VAs with the same summary and differs from the committed file only in moved line numbers (`9afe3f7d…`), and two writes are byte-identical. The elided `--write-snapshot …`/`sha256sum …` spans are replaced with real paths. | VERIFIED (tool) | H | EXP-2026-11-16-H71-evidence-spans; `python3 tools/fn_audit.py archive/head256.img --scope docs --write-snapshot /tmp/opencode/snap.json`, `sha256sum docs/research/fn-audit-corpus-2026-11-16.json` |
 | C-3922 | C-3864's quoted staleness is `CORPUS STALE: 1 new / 0 gone / 125 moved` (exit 1), not `0 moved`: appending one probe line to `TODO.md` and running `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` prints it, while the unmodified tree prints `CORPUS DRIFT: 0 new / 0 gone / 125 moved` (exit 0). The elided `--corpus … --quiet` span is replaced with the real path. | VERIFIED (tool) | H | EXP-2026-11-16-H71-evidence-spans; `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` before/after a `TODO.md` probe line |
 | C-3923 | The evidence column of C-3860/C-3861/C-3864 contains no elided span: `awk -F'\|' '/^\| C-386[014] \|/{print $NF}' docs/research/claims.md \| grep -c '…'` prints 0. The two `…` left in those rows are abbreviated hashes inside the claim text (`92aa525d…`, `4606aa2a…`), not commands. | VERIFIED (tool) | H | EXP-2026-11-16-H71-evidence-spans; `awk -F'\|' '/^\| C-386[014] \|/{print $NF}' docs/research/claims.md \| grep -c '…'` |
-| C-3924 | RESERVED (H71). | — | — | — |
-| C-3925 | RESERVED (H71). | — | — | — |
-| C-3926 | RESERVED (H71). | — | — | — |
-| C-3927 | RESERVED (H71). | — | — | — |
-| C-3928 | RESERVED (H71). | — | — | — |
-| C-3929 | RESERVED (H71). | — | — | — |
 
 ## H78 — `--strict` runs the count rule; a docs-only EXP edit does not re-pin (C-4010–C-4019)
 On `main` at `8a2a48a`, `claims_check --strict` exited 0 while the same ledger
@@ -3098,9 +2892,6 @@ to `ec58d12`.
 | C-4014 | `--strict` now runs the count rule: `_run_counts(args)` is true for `--strict`, for `--count-check`, and for both, and false only when neither is set; on the real ledger `--strict` and `--count-check` both exit 0 with `count mismatches: 0`. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `python3 tools/claims_check.py --strict`, `python3 tools/claims_check.py --count-check` |
 | C-4015 | The rule is not disabled, only made visible: changing C-3704's `26` to `25` makes `--strict` exit 1 with `COUNT C-3704 claims 25, tools/fn_match.py prints 26 (334f092…)`; an unchanged ledger exits 0. `tools/claims_check.py --selftest` covers the docs-only-append case with an injected git history and the `_run_counts` truth table, and prints `claims_check selftest: OK (28 checks)`. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `python3 tools/claims_check.py --selftest`, the C-3704 one-digit mutation |
 | C-4016 | The H78 change leaves the rest of the ledger at its measured revision: of the 19 rows that pin a count and cite a resolvable selftest, three revisions move (C-3704 `ec58d12` -> `334f092`, 29 -> 26; C-3713 `b5899ccb` -> `322fd119`, count preserved; C-3934 `7af443f0` -> `96ba9c02`, count preserved at 58), and the other 16 keep theirs; `python3 tools/selftest.py` is `passed=90 failed=0 skipped=23` with the head present and `passed=89 failed=0 skipped=24` without it. | VERIFIED (tool) | H | EXP-2026-11-16-H78-claims-strict-count; `python3 tools/selftest.py` with and without `archive/head256.img` |
-| C-4017 | RESERVED (H78). | — | — | — |
-| C-4018 | RESERVED (H78). | — | — | — |
-| C-4019 | RESERVED (H78). | — | — | — |
 
 ## H79 — The US-head evidence is re-creatable (C-4020–C-4029)
 `EXP-2026-11-16-M1.31-leaf-census` (6 mentions) and C-3741/C-3742/C-3962/C-3965
@@ -3115,12 +2906,6 @@ unchanged.
 | C-4021 | The US head is re-creatable and pinned: `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img` prints `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da` under `sha256sum`, the same hash the EXP and the fixture pin. Both paths are git-ignored. | VERIFIED (tool) | H | EXP-2026-11-16-M1.31-leaf-census; `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img > archive/us256.img; sha256sum archive/us256.img` |
 | C-4022 | Re-run on the re-created head, the M1.31 numbers are unchanged: `python3 tools/pdata.py leaves archive/head256.img --module Navi.exe --called records` still prints `complete 598 (leaf 579), no-rts stub 77 (leaf 54)` and `rts beyond cap … 2`; `fn_match … --va 0x00558300` still prints `TRUNCATED … cap 0x400, natural bound 0x4a16` with `truncated: 1`; the fixture still replays `13 rows, 0 mismatch`. | VERIFIED (tool, real image) | H | EXP-2026-11-16-M1.31-leaf-census; the three commands in its `Correction (H79)` section |
 | C-4023 | The same scratch path was used by the M1.28 rows: C-3741 and C-3742 now name `archive/us256.img`, and C-3742's flip step is runnable as written (`cp archive/us256.img /tmp/opencode/us256-flip.img` + a seek(1000) XOR) and still prints `FAIL US SHA-256 83b54ba2…, fixture expects 70d945d8…`; the perturbed-fixture row still prints `MISMATCH US VA 0x00444540, fixture expects 0x00444542`. | VERIFIED (tool, negative control) | H | EXP-2026-11-16-M1.31-leaf-census; C-3742's evidence command as rewritten |
-| C-4024 | RESERVED (H79). | — | — | — |
-| C-4025 | RESERVED (H79). | — | — | — |
-| C-4026 | RESERVED (H79). | — | — | — |
-| C-4027 | RESERVED (H79). | — | — | — |
-| C-4028 | RESERVED (H79). | — | — | — |
-| C-4029 | RESERVED (H79). | — | — | — |
 
 ## M1.22b — EU→US reader census: 7 matcher misses, 1 rewrite (C-3620–C-3629)
 `fn_match` now explains a `NOMATCH` whose masked instruction-form stream is
@@ -3150,13 +2935,6 @@ claim ID.
 | C-4030 | On `main` before H80 the H71 Precheck's `sed -n '2802,2807p' docs/research/claims.md \| grep -cE 'C-386[014]'` prints `0`, and those six lines are C-3790–C-3795; an ID selector `grep -nE '^\| C-386[014] \|' docs/research/claims.md` prints `2824`, `2825`, `2828`. | VERIFIED (tool) | H | EXP-2026-11-16-H80-precheck-id; `sed -n '2802,2807p' docs/research/claims.md \| grep -cE 'C-386[014]'` and the ID grep |
 | C-4031 | H71's Done-when condition holds independently of the line range: on the evidence column of C-3860/61/64 the elided-span count is `0` both at H71's merge `caff825` and at `5d2dd23`, so the Precheck's staleness was not a hidden failure. | VERIFIED (tool) | H | EXP-2026-11-16-H80-precheck-id; the `for ref in caff825 HEAD` loop over `git show` |
 | C-4032 | The repaired Precheck, run as written, selects `3` rows by ID and prints `0` elided spans; `python3 tools/todo_check.py` prints `todo_check: OK` and `--strict` is unchanged at `69` ERRORs. | VERIFIED (tool) | H | EXP-2026-11-16-H80-precheck-id; the Reproduction block |
-| C-4033 | RESERVED (H80). | — | — | — |
-| C-4034 | RESERVED (H80). | — | — | — |
-| C-4035 | RESERVED (H80). | — | — | — |
-| C-4036 | RESERVED (H80). | — | — | — |
-| C-4037 | RESERVED (H80). | — | — | — |
-| C-4038 | RESERVED (H80). | — | — | — |
-| C-4039 | RESERVED (H80). | — | — | — |
 
 ## H81 — The H51 "superseded" blocks stop inflating the board (C-4040–C-4049)
 Seven blocks carried `Note (H51, 2026-11-11): superseded — do not take.`; five
@@ -3169,11 +2947,6 @@ were still `open`. H81 closes them on the board without deleting history.
 | C-4042 | Every closed block keeps its H51 history note and gains `Result: superseded by H51/M1.19 — tools/nk_decomp.py decodes 245/245 build-A sections …`; no block is deleted and M1.19's own block is untouched. | VERIFIED (tool) | H | EXP-2026-11-16-H81-close-superseded; `git diff TODO.md` shows only the five checkbox/Status lines and five Result lines |
 | C-4043 | `tools/todo_check.py --strict` normalised by task ID goes `69 → 66`: the three `M1.2e: firmware/search task missing Precheck/Scope/Stop` lines disappear and nothing new appears, so H81 adds no exemption. | VERIFIED (tool) | H | EXP-2026-11-16-H81-close-superseded; `python3 tools/todo_check.py --strict` before/after |
 | C-4044 | H81's own Precheck claim that `grep -c 'superseded — do not take' TODO.md` prints `11` was wrong: it prints `10`, and the raw grep counts this block's own prose as well as task notes, so the block probe (not the grep) is the selector; the text is corrected. | VERIFIED (tool) | H | EXP-2026-11-16-H81-close-superseded; `grep -c 'superseded — do not take' TODO.md` |
-| C-4045 | RESERVED (H81). | — | — | — |
-| C-4046 | RESERVED (H81). | — | — | — |
-| C-4047 | RESERVED (H81). | — | — | — |
-| C-4048 | RESERVED (H81). | — | — | — |
-| C-4049 | RESERVED (H81). | — | — | — |
 
 ## H85 — One standing gate with one PASS/FAIL/SKIP policy (C-4080–C-4089)
 `tools/gate.py` runs `selftest.py`, `claims_check.py --strict --count-check`,
@@ -3200,14 +2973,6 @@ applies one policy: PASS, FAIL, or SKIP for a missing vendor input.
 | --- | --- | --- | --- | --- |
 | C-4100 | Before H87 `grep -c "will replace it" tools/fn_audit.py` prints `1` while the list already contains M1.22b's six US VAs (`grep -c` of the six explicit VAs prints `6` of `12` total entries). | VERIFIED (tool) | H | EXP-2026-11-17-H87-us-build-comment; the two greps and the `US_BUILD_STARTS` length |
 | C-4101 | After H87 the comment names the list's actual contents (M1.28's US side plus M1.22b's six twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count is `0` and `US_BUILD_STARTS` is `12` **at `381879b`** (`git show 381879b:tools/fn_audit.py \| sed -n '/^US_BUILD_STARTS/,/^})/p' \| grep -c '0x[0-9A-Fa-f]\{8\}'`), the revision H87 measured — `main` ships `15` (`398db35`), see C-4140; `fn_audit --selftest` there is `OK (70 checks, 0 failed)` (`381879b`), see C-4141. | VERIFIED (tool) | H | EXP-2026-11-17-H87-us-build-comment; the Reproduction block at `381879b`; EXP-2026-11-18-H91 |
-| C-4102 | RESERVED (H87). | — | — | — |
-| C-4103 | RESERVED (H87). | — | — | — |
-| C-4104 | RESERVED (H87). | — | — | — |
-| C-4105 | RESERVED (H87). | — | — | — |
-| C-4106 | RESERVED (H87). | — | — | — |
-| C-4107 | RESERVED (H87). | — | — | — |
-| C-4108 | RESERVED (H87). | — | — | — |
-| C-4109 | RESERVED (H87). | — | — | — |
 
 ## H88 — `fn_audit --corpus` on a missing image returns 2, not a traceback (C-4110–C-4119)
 The live path was clean; the `--corpus` path hashed the image before `Image()`
@@ -3220,11 +2985,6 @@ was built and died with a `FileNotFoundError`.
 | C-4112 | `python3 tools/fn_audit.py --selftest` is `OK (72 checks, 0 failed)` from `f1c8dbb` on (H88's commit added the two cases) and includes them: a missing image under `--corpus` exits `2` with no `Traceback`, and the error names the requested path. It was `OK (70 checks, 0 failed)` at H88's branch base `381879b`; that move is H91's C-4141. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; `--selftest` output; EXP-2026-11-18-H91 |
 | C-4113 | The repair does not widen "missing": a present but corrupt image (4 KiB of random bytes) is a SHA-256 mismatch with exit `2`, and `tools/gate.py --image <corrupt>` reports `fn_audit FAIL` (`gate: 3 pass, 1 fail, 0 skip`), never a SKIP. | VERIFIED (tool, negative control) | H | EXP-2026-11-17-H88-corpus-no-image; the corrupt-image run |
 | C-4114 | `tools/gate.py` is unchanged: with `archive/head256.img` present it is `gate: 4 pass, 0 fail, 0 skip`, and with `--image archive/absent.img` it is `fn_audit SKIP … missing archive/absent.img`, `gate: 3 pass, 0 fail, 1 skip`. | VERIFIED (tool) | H | EXP-2026-11-17-H88-corpus-no-image; both gate runs |
-| C-4115 | RESERVED (H88). | — | — | — |
-| C-4116 | RESERVED (H88). | — | — | — |
-| C-4117 | RESERVED (H88). | — | — | — |
-| C-4118 | RESERVED (H88). | — | — | — |
-| C-4119 | RESERVED (H88). | — | — | — |
 
 ## M1.22 — The US 2011 build: module census and US L3 readers (C-3530–C-3539, C-3630–C-3639)
 The US `Navi.exe` is a different binary; this task names the module delta,
@@ -3252,15 +3012,6 @@ chunk engine on US code from each engine's own literal pool.
 | C-3546 | `ADDRE`, `INTER`/`FRWAY`, `ZCODE` (and `COORD`; C-4677's "no name reference" is retracted by C-2386 — its name is in the `0x00564160` descriptor table, but that is an opener, not a record reader) are not separable statically: all go through `0x003fbed8` (family = ctx +124, C-4666) and the same message-handler entries `0x00400014`…`0x004005f8` (table `0x0017a0a4`, C-3553); their one static candidate list is QC `REFER`: `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (+ library `0x0054233c`, `0x005468d4`, `0x0054705c`). | VERIFIED (tool) + INFERENCE (inseparable) | M | EXP-2026-11-20-M3.23-callgraph-readers (QC) on IMG256 (SHA `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
 | C-3547 | POINT candidates (QC, `0x003ffe80` vs REFER handlers, depth 6): `0x003f56bc`, `0x003f5e10`, `0x003f51e0`, `0x00416880`, `0x0040e28c`, `0x003fe61c`, `0x003f056c`, `0x003f5b88`, `0x0040ec84`, `0x003f01dc`; the top three are known POINT record functions (C-2184, C-884, M5.52). | VERIFIED (tool) | M | EXP-2026-11-20-M3.23-callgraph-readers (QC) on IMG256 (SHA `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
 | C-3630 | The US chunk engine is `0x00444540` (EU `0x0041c7dc`): 111/111 masked halfwords identical, body length 111 halfwords both sides, and its own pool names the relocated `memcpy` and mod helpers, so the US L3 chunk target runs the code the US unit runs. | VERIFIED (tool) | H | EXP-2026-11-17-M1.22-us-build-census; the 12-pair table and the US target's run |
-| C-3631 | RESERVED (M1.22). | — | — | — |
-| C-3632 | RESERVED (M1.22). | — | — | — |
-| C-3633 | RESERVED (M1.22). | — | — | — |
-| C-3634 | RESERVED (M1.22). | — | — | — |
-| C-3635 | RESERVED (M1.22). | — | — | — |
-| C-3636 | RESERVED (M1.22). | — | — | — |
-| C-3637 | RESERVED (M1.22). | — | — | — |
-| C-3638 | RESERVED (M1.22). | — | — | — |
-| C-3639 | RESERVED (M1.22). | — | — | — |
 
 ## H90 — the red CI was a shallow checkout, not a bad ledger (C-4130–C-4139)
 `actions/checkout` defaults to `fetch-depth: 1`, which made H78's revision pin
@@ -3277,7 +3028,6 @@ resolve to the tip for every claim and report nine old counts as mismatches.
 | C-4136 | `python3 tools/claims_check.py --selftest` is `OK (28 checks)`, with three new cases covering `history_is_shallow` for `true`, `false` and an unreadable answer. | VERIFIED (tool) | H | EXP-2026-11-17-H90-ci-shallow-count; `python3 tools/claims_check.py --selftest` |
 | C-4137 | On a full checkout with `archive/head256.img` present, `tools/gate.py` is `4 pass, 0 fail, 0 skip` (selftest, claims_check, todo_check, fn_audit); without the image it is `3 pass, 0 fail, 1 skip — not covered: fn_audit`, because a SKIP is never a pass. The count rule passes in both states. | VERIFIED (tool) | H | EXP-2026-11-17-H90-ci-shallow-count; the two `python3 tools/gate.py` runs |
 | C-4138 | H90 raises `claims_check --selftest` from 25 to 28 checks, so the one claim that quoted the old number (C-4015) is updated to `28 checks` in the same commit; its mutation control and `_run_counts` truth table are unchanged and still pass. | VERIFIED (tool) | H | EXP-2026-11-17-H90-ci-shallow-count; `python3 tools/claims_check.py --selftest` |
-| C-4139 | RESERVED (H90). | — | — | — |
 
 ## H91 — H87's counts were true at `381879b` and moved at merge (C-4140–C-4149)
 H87's `Result` and C-4101 quoted two counts that later merges changed. The
@@ -3288,14 +3038,6 @@ tool-side guard is H92.
 | --- | --- | --- | --- | --- |
 | C-4140 | `US_BUILD_STARTS` has `12` entries at `2e0bed9`, `381879b` and `f1c8dbb`, `19` at `e199373`, and `15` at `398db35` and at `main` `9beb6a4`; `git show <rev>:tools/fn_audit.py \| sed -n '/^US_BUILD_STARTS/,/^})/p' \| grep -c '0x[0-9A-Fa-f]\{8\}'` prints those numbers, and `python3 -c "import sys; sys.path.insert(0,'tools'); import fn_audit as fa; print(len(fa.US_BUILD_STARTS))"` prints `15` on `main`. The move is `e199373` (three POINT-walker starts plus four pool slots) and the four slots' removal at `398db35`. | VERIFIED (tool) | H | EXP-2026-11-18-H91-us-build-starts; the five-revision table |
 | C-4141 | `python3 tools/fn_audit.py --selftest` prints `OK (70 checks, 0 failed)` at `2e0bed9`, `381879b` and `857c9a7`, and `OK (72 checks, 0 failed)` at `f1c8dbb`, `e199373`, `398db35` and `main` `9beb6a4`; the 70→72 move is H88 `f1c8dbb` adding the two `--corpus`-missing-image cases, not M1.22 `e199373` (whole `tools/` tree extracted with `git archive <rev> tools`, then `python3 <dir>/tools/fn_audit.py --selftest`). | VERIFIED (tool) | H | EXP-2026-11-18-H91-us-build-starts; the five-revision table |
-| C-4142 | RESERVED (H91). | — | — | — |
-| C-4143 | RESERVED (H91). | — | — | — |
-| C-4144 | RESERVED (H91). | — | — | — |
-| C-4145 | RESERVED (H91). | — | — | — |
-| C-4146 | RESERVED (H91). | — | — | — |
-| C-4147 | RESERVED (H91). | — | — | — |
-| C-4148 | RESERVED (H91). | — | — | — |
-| C-4149 | RESERVED (H91). | — | — | — |
 
 ## H92 — `--prose-counts`: a claim quoting a count the tree no longer prints (C-4150–C-4159)
 H78's `--count-check` compares a claim's pinned *selftest* count with the tool
@@ -3334,7 +3076,6 @@ re-files it), and the block is recorded in
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
 | C-4210 | `MAINTENANCE.md` does not exist: `git ls-files \| grep -ci maintenance` is `0`, `find . -iname 'MAINTENANCE*'` is `0`, `git rev-list --all --objects \| grep -ci maint` is `0` across `874` commits, `0` of `12` origin heads contain it, and `0` of `212` PRs touch it; positive controls find `README.md` (`1` tracked, `12` of `12` heads). No prompt encodes a log-rotation/archive rule (`grep -niE 'rotat\|archive.*log\|log.*archive\|logs older\|N days' prompt_sm.txt prompt_common.txt` exits 1), so H95's Stop clause does not fire and the "count vs `N = max+1`" disagreement is about a document that was never committed. The reference entered `TODO.md` in `fdba381`, whose diff adds only `TODO.md` and the SE log. | VERIFIED (negative, controlled) | H | EXP-2026-11-17-H95-log-rotation; `git ls-files`, `find`, `git rev-list --all --objects`, the per-head loop, `git log -S 'MAINTENANCE.md' -- TODO.md` |
-| C-4211 | RESERVED (H95). | — | — | — |
 ## M9.39 — a POINT010 page whose record 500 was rewritten (C-4170–C-4179)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
@@ -3347,7 +3088,6 @@ re-files it), and the block is recorded in
 | C-4176 | In all four code-build × page combinations the walker returns `result: PASS` on both factory and mutant pages (`nth=0x003f5194` EU, `0x0041db44` US), with the factory offsets reproduced on the unmutated page — so the +4 on the mutant rows is a property of the edited record bytes, not a differently tuned reader. | VERIFIED (tool, real image) | H | EXP-2026-11-17-M9.39-point010-mutant; the eight-row factory/mutant table |
 | C-4177 | The falsifier did not fire: mutant and factory offsets differ by exactly +4 at `n=501`/998/999 on both builds and both pages, and the record count is 1,000 on every mutant page with `n=1000 → None`; a reader that ignored the record bytes would have returned the factory offsets. | VERIFIED (tool, negative control) | H | EXP-2026-11-17-M9.39-point010-mutant; the mutant-vs-factory delta column |
 | C-4178 | The record walker only proves the *framing* is read: the edit changes record length and a later record's start, not the decoded name/coordinate fields; reading the name text needs the accessor path (M3.11c), so M9.41's target row must cite this page as a framing control, not as a contents reader. | OBSERVED | M | EXP-2026-11-17-M9.39-point010-mutant; Scope and Interpretation |
-| C-4179 | RESERVED (M9.39). | — | — | — |
 
 ## H101 — PM fourteenth pass: board review, call graph, directions without hardware (C-4280–C-4289)
 | ID | Claim | Status | Confidence | Evidence |
@@ -3360,8 +3100,6 @@ re-files it), and the block is recorded in
 | C-4285 | Of the 956 EU2011 functions with no static caller, 914 occur as a 32-bit word in sec0, 42 in sec1 `INIT`, 1 in neither. | RETRACTED (census of the uncorrected graph; see C-4623) | M | EXP-2026-11-17-H101-pm-review |
 | C-4286 | `0x0032efa8` is the task table and `0x00417924` the dispatcher of the map-file task. | RETRACTED (rested on 25 unresolved calls that were pool words; see C-4620) | L | EXP-2026-11-17-H101-pm-review; test: M3.26 |
 | C-4287 | Host stubs at the three stdio wrappers are sufficient to run the `DRSTR` and `MMAIN` readers on a card tree. | HYPOTHESIS | L | EXP-2026-11-17-H101-pm-review; test: M9.44 |
-| C-4288 | RESERVED (H101). | — | — | — |
-| C-4289 | RESERVED (H101). | — | — | — |
 
 ## M3.24 — function-pointer tables in `Navi.exe` sec0 rodata and sec1 `INIT` (C-3550–C-3559)
 | ID | Claim | Status | Confidence | Evidence |
@@ -3415,7 +3153,6 @@ re-files it), and the block is recorded in
 | C-4436 | `tools/point_walk_l3.py --selftest` now covers the wrong build with no vendor data: `run_nth` and `run_skip` each raise `BuildMismatch` with `code == "UNMAPPED"` and `fault_va` equal to their target VA, `guarded` stops at the fault and passes values through otherwise, and `_verdict` prints `result: FAIL (unmapped` / `result: PASS` to an `io.StringIO` sink; deleting `guarded`'s `except BuildMismatch` makes the selftest exit 1. | VERIFIED (tool, synthetic selftest) | H | EXP-2026-11-18-M9.42-wrong-build; the selftest block and the mutation |
 | C-4437 | `PASS` remains the only pass token: `_verdict` is the single printer (a mismatch prints `result: FAIL (unmapped …)` and returns 1, otherwise `result: PASS` and 0), and `guarded` returning a mismatch short-circuits the control printouts; a matching build prints `result: PASS` and a faulted run cannot. | VERIFIED (code read + `guarded` selftest) | H | EXP-2026-11-18-M9.42-wrong-build; `_verdict`/`guarded` and the four-pairing table |
 | C-4438 | The engine-fault path reacts only to address-space faults (`UnmappedAccess`/`IllegalInstruction`) and `check_entry` covers the entry itself; a mismatch that faults after an import/stub boundary is not turned into a verdict and stays the M9.24 stub problem, as the task's `Stop` names. | OBSERVED | M | EXP-2026-11-18-M9.42-wrong-build; Scope / Limitations |
-| C-4439 | RESERVED (M9.42). | — | — | — |
 
 ## M5.44 — Level-2 directory grid and splice (C-4450–C-4459)
 | ID | Claim | Status | Confidence | Evidence |
@@ -3651,12 +3388,6 @@ invocation are reported (warning by default and under `--strict`, error under
 | C-3821 | `fetch_image.py` pins `PART_PINS[("US","256M")]` and the alias `US256 = US --part 256M`: `--image US256` and `--image US --part 256M` both print `SHA-256 verified` (before: `unknown image 'US256'` exit 2, and `size verified; no SHA-256 pinned`); `--verify archive/us256.img` prints `matches US 256M`. | VERIFIED (tool) | H | EXP-2026-11-19-H62-us256-alias; `python3 tools/fetch_image.py --verify archive/us256.img --image US256` |
 | C-3822 | `--verify --image US256` refuses the EU head (`92aa525d…`), a one-byte flip at offset 1000 and a 268,435,455 B truncation, each exit 1. | VERIFIED (tool, mutants) | H | EXP-2026-11-19-H62-us256-alias §Observations |
 | C-3823 | `fetch_image.py --selftest` checks that `US256` resolves to the pinned hash, `resolve("US256","1G")` exits 2, `US --part 256M` is pinned, and the pin equals the fixture's `us_head.sha256`; `failures: 0`. | VERIFIED (tool) | H | `python3 tools/fetch_image.py --selftest` |
-| C-3824 | RESERVED (H62). | — | — | — |
-| C-3825 | RESERVED (H62). | — | — | — |
-| C-3826 | RESERVED (H62). | — | — | — |
-| C-3827 | RESERVED (H62). | — | — | — |
-| C-3828 | RESERVED (H62). | — | — | — |
-| C-3829 | RESERVED (H62). | — | — | — |
 
 ## H63 — `fn_audit` `CORRECTED(line)` vs `CORRECTED(pin)` (C-3830–C-3839)
 | ID | Claim | Status | Confidence | Evidence |
@@ -3668,9 +3399,6 @@ invocation are reported (warning by default and under `--strict`, error under
 | C-3834 | No pinned VA (`0x00542256`, `0x003f5fc2`, `0x00413af4`) has an `INSIDE` row on either the `b56fed2` (setup: EXP §Method step 2) or the live docs corpus, so no pin-resolved VA sits on a line that pairs a different start (0 second defects); by construction a line with its own pair never falls through to the pin. | VERIFIED | H | EXP-2026-11-20-H63-corrected-evidence; `python3 tools/fn_audit.py IMG256 --scope docs` lists no `INSIDE` row for the three pinned VAs, image `archive/head256.img` (IMG256, SHA-256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
 | C-3835 | Each kept pin has a re-check that does not use the allowlist: `sh4dis` shows `0x00542250..56` = `mov.l r8/r9/r10,@-r15; sts.l pr,@-r15` (the VA is the 4th prologue instruction), `0x00413af4` = `jsr @r3` (a call site in `fn 0x00413a6c`), `0x003f5fc2` = `nop` inside `fn 0x003f5f48` (end `0x003f5fd0`), and both `0x00413a6c` and `0x003f5f48` open with `mov.l r8,@-r15; mov.l r9,@-r15`, independent of `.pdata`; M1.24's `--parent-of` is the named follow-on re-check for `0x00542256` once it merges. | VERIFIED | H | EXP-2026-11-20-H63-corrected-evidence; `python3 tools/sh4dis.py --va 0x00542250 --count 4 IMG256 Navi.exe`; `python3 tools/pdata.py fn --module Navi.exe IMG256 0x00542256 0x003f5fc2 0x00413af4`, image `archive/head256.img` (IMG256, SHA-256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
 | C-3836 | On the gate's frozen snapshots the re-derived split is docs base `CORRECTED 20 (12 line, 8 pin)` and l3 overlay `CORRECTED 9 (2 line, 7 pin)` before this task closed its block; after H63's block leaves the open-block scope and the overlay is re-frozen in the same commit it was `CORRECTED 3 (2 line, 1 pin)` (6 of the 7 pin rows were H63's own block); at the final merge of `origin/main` (`fc97028`, the H77 overlay `docs/research/fn-audit-l3-corpus-2026-11-20.json`), with this EXP's own `Pin:` lines in scope, it is `CORRECTED 5 (3 line, 2 pin)`. | OBSERVED | H | EXP-2026-11-20-H63-corrected-evidence; `python3 tools/fn_audit.py IMG256 --corpus docs/research/fn-audit-corpus-2026-11-16.json --overlay docs/research/fn-audit-l3-corpus-2026-11-20.json`, image `archive/head256.img` (IMG256, SHA-256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
-| C-3837 | RESERVED (H63). | — | — | — |
-| C-3838 | RESERVED (H63). | — | — | — |
-| C-3839 | RESERVED (H63). | — | — | — |
 
 ## M1.33 — committed commands for M1.22's census and body table (C-4230–C-4239)
 | ID | Claim | Status | Confidence | Evidence |
@@ -3700,12 +3428,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3851 | `python3 tools/progress_report.py` exits 0 with no problems and prints `prereq M8.A1: checked=True · archived (done) in todo-history-2026-11-09.md:1375` (before: `task M8.A1 not found`, `checked=None · None`); `--json` carries the same status in `l4_emulator.prerequisites`. | VERIFIED (tool) | H | EXP-2026-11-19-H65-progress-l4-prereq; `python3 tools/progress_report.py` |
 | C-3852 | An ID with no block on the board and none in any history file still reports `task <ID> not found (no block in TODO.md or N history files)`, and a block archived as `[ ]` reports `archived unfinished`; the same `TODO.md` copied to a directory with no history files reproduces the old M8.A1 problem. | VERIFIED (tool, controls) | H | EXP-2026-11-19-H65-progress-l4-prereq; `python3 tools/progress_report.py --todo /home/user/scratch/h65/TODO.md` |
 | C-3853 | `python3 tools/progress_report.py --selftest` covers the live M8.A1 resolution, the `--json` L4 block, newest-history-wins, archived-done, archived-unfinished, unknown ID and no-history cases; `progress_report selftest: OK`. | VERIFIED (tool) | H | `python3 tools/progress_report.py --selftest` |
-| C-3854 | RESERVED (H65). | — | — | — |
-| C-3855 | RESERVED (H65). | — | — | — |
-| C-3856 | RESERVED (H65). | — | — | — |
-| C-3857 | RESERVED (H65). | — | — | — |
-| C-3858 | RESERVED (H65). | — | — | — |
-| C-3859 | RESERVED (H65). | — | — | — |
 
 ## M1.32 — one owner for the per-build L3 reuse points (C-4160–C-4169)
 | ID | Claim | Status | Confidence | Evidence |
@@ -3956,8 +3678,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-2955 | The chain locator (where the reader learns a chain base and its table offset) is UNKNOWN: no byte position in `0x0`–`0x7fff` holds a chain base, table offset, chain end or file size under 72 encodings (units 1/2/4/0x100/0x200/0x800 × relative 0/0x200/0x1000 × `>I <I >H <H`) in more than 4/33 EU or 2/11 US files; the positive control (page-0 `comp_w` at table+8) is found 33/33 and 11/11. Moving or growing a chain past the next structure therefore stays refused. | SUPERSEDED (C-5391) | M | same EXP §Locator search; `point_pair_regen.py locator DIR`; task M4.42 |
 | C-2956 | The POINT reader finds a page through the chain table (`start_w`) and not through a stored absolute page offset, so moving pages inside a chain is safe. | HYPOTHESIS | M | consistent with C-2950/C-2955; needs an L3/L4 POINT-reader run on a regenerated pair (rule 13) |
 | C-2957 | Whether a name set fits a chain depends on how well the names compress: 1,000 names from a 18-word generator shrank the EU POINT010 chain (−272 B with +2 B names), 100 real names moved between sites grew it by 828 B. Real OSM names are expected to behave like the second. | OBSERVED (generators) / HYPOTHESIS (OSM) | M | same EXP §Name sets, §Growing set |
-| C-2958 | RESERVED (M5.26). | — | — | — |
-| C-2959 | RESERVED (M5.26). | — | — | — |
 
 ## M4.47 — the POINT chain locator (C-5390–C-5399)
 
@@ -4022,9 +3742,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-4124 | No function differs only in register allocation (`REGALLOC 0`) or only in instruction order (`REORDER 0`), in the sample and over all 1259; register changes do occur together with other edits (EU `0x00416d40` `r10`→`r13`, EU `0x0038e284` `r2`/`r3` swap, EU `0x004e3658` `r8`→`r9`). Typical first differences are constants: `mov #75,r1`→`mov #76,r1` (EU `0x003911b8`), `mov.w @(24,r3),r0`→`@(20,r3)` (EU `0x0045eb44`), and a removed `cmp/eq #12/#11` case chain (EU `0x0041253c`). | VERIFIED (tool, real image) | H | EXP-2026-11-20-H89-nomatch-census; `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --seed 89 --size 40` (the rows), `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --pair 0x003911b8:0x003bfa54` |
 | C-4125 | The tool-only population run over all 1259 gives `same code 360` (28.6 %), `operand-only 81`, `instruction changes 474`, `unpaired 344`; so the 1259 are mostly real code differences (sample 24/40, population 899/1259), with a matcher-recoverable third. The population `REWRITE 317` is an upper bound (best-of-gap pairing, see C-4121's controls). | VERIFIED (tool, real image) / population not hand-checked | M | EXP-2026-11-20-H89-nomatch-census; `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all` (`archive/us256.img` is the US256 head) |
 | C-4126 | 8 of the 40 sampled NOMATCH have no US counterpart at similarity ≥0.5 among unclaimed US records; over all 7520 US records 7 stay unpaired. They sit in runs of NOMATCH neighbours; that they are EU-only code is a hypothesis. | VERIFIED (tool, real image) / interpretation HYPOTHESIS | M | EXP-2026-11-20-H89-nomatch-census; `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --global-all` |
-| C-4127 | RESERVED (H89). | — | — | — |
-| C-4128 | RESERVED (H89). | — | — | — |
-| C-4129 | RESERVED (H89). | — | — | — |
 
 ## H113 — `fn_match` forward pool-slot pass (C-5570–C-5576)
 
@@ -4167,11 +3884,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5192 | In normal mode the unit also runs `Navi.exe` (A) and a kernel from the card: the unit flash `FMD1:` is 8 MiB (C-5193) with ≥ 3.9 MiB user data, so neither A (24.4 MB) nor B (7.2 MB) fits. Contradicts the `us-eu-region.md` "NB04 in NAND, card build not executed" row. | HYPOTHESIS (strong, size argument) | M | C-5190, C-5193, C-080, H51; test: M6.19 |
 | C-5193 | On QY7XXX `FMD1:` has blocks `0..0x86`: blocks 0–7 of 8 KiB, the rest 64 KiB, total 8 MiB; block `n ≥ 8` starts at `(n−7)×0x10000`. LeafSDTools "SRAM" = blocks `0x47..0x56` (1 MiB, `0x400000–0x4FFFFF`) to `\SystemSD\sram_<prod>_<serial>.bin`; "VFlash" = blocks `0x57..0x84` (2.875 MiB) to `vflash_….bin`. Both are user data in flash, not RAM and not code. | VERIFIED (third-party source) / OBSERVED (meaning of the bytes) | H | leafsdtools `422c653` `ReadNAND.h` `MAX_BLOCKS`, `ReadNAND.cpp`, `UserSRAM.cpp` `DumpUserData`; EXP-2026-11-19-M6.17-card-what-runs |
 | C-5194 | Because the OS lives on the card, a generated card must keep the first 100 MB (CE ROMs A/B/C) and the TFAT16 tail byte-identical to the factory card; only the FAT32 map partition is ours. | PLANNED (rule) | H | C-5190–C-5192; M5.13 `imgpatch` |
-| C-5195 | RESERVED (M6.17). | — | — | — |
-| C-5196 | RESERVED (M6.17). | — | — | — |
-| C-5197 | RESERVED (M6.17). | — | — | — |
-| C-5198 | RESERVED (M6.17). | — | — | — |
-| C-5199 | RESERVED (M6.17). | — | — | — |
 
 ## H77 — `fn_audit` skips fenced code blocks (C-4000–C-4009)
 
@@ -4422,8 +4134,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3585 | The kernel decompressor runs the H51 forms most: `nk_decomp section Navi.exe 1` (EU2011) executes 5,754,750 instructions, 67,083 changed (`movca.l` 65,755, `mov.b R0` 664, `mul.l` 338, `mov.w R0` 326), all in `nk.exe`, and still returns `r0=0x1801a` with `sha256(dest[:r0])` `1c73ad74…`. | VERIFIED (real image) | H | EXP-2026-11-20-M9.36-rerun-probes-pysh4 §Observations (D1) |
 | C-3586 | The M3.11c sub-accessor runs of 2026-11-08 (heredoc, not committed) cannot be re-run; statically the called leaves `0x003f8a0c`/`0x003f8a80`/`0x003f8a90` (to `rts`) and `fn 0x003d1150` (len `0x38`) hold 0 changed halfwords, `fn 0x003f632c`/`fn 0x003f5e78` hold 6; `fn 0x00419350` (DRSTR parser, len `0x334`) holds 19 and `fn 0x0041a438` (len `0xf4`) 3 (EU2011). | VERIFIED (tool, static bound) | M | EXP-2026-11-20-M9.36-rerun-probes-pysh4; `engine_exposure.py static` |
 | C-3587 | Exactly one recorded L3 result in M9.36's scope changes on the corrected engine: the M9.35 `drstr` probe stop (C-3581). | VERIFIED (real image) | H | EXP-2026-11-20-M9.36-rerun-probes-pysh4 §Conclusion |
-| C-3588 | RESERVED (M9.36). | — | — | — |
-| C-3589 | RESERVED (M9.36). | — | — | — |
 
 ## M6.16 — S3 generator and the moved vertex's place (C-5250–C-5259)
 
@@ -4433,12 +4143,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5251 | A tile directory header stores `x` as `mesh_x − 1024` in a signed 16-bit word, so the US word `65280` is mesh column 768 = longitude −156° (`clarion_bg.mesh_to_lon` on the raw word gives 64356, the M6.13 symptom). With this column and the level-1 grid (row = slot, column = `k // 2`, `y` north from the parcel's south edge) the factory sea polygons of `B18R100R` (22,575 non-border vertices) put Ka Lae 161 m, Upolu Point 202 m and Cape Kumukahi 1,068 m from their gazetteer coordinates; a y-flipped parcel misses Ka Lae by 1,911 m and Upolu by 3,988 m, and C-2054's `coord.local_to_latlon` reading misses all three by 39–79 km. Gazetteer references were entered by hand (Wikipedia/GNIS), not fetched. | VERIFIED (real tile) | M | EXP-2026-11-20-M6.16-s3-generator; `python3 tools/s3_vertex_patch.py locate B18R100R.DAT` on the tile of US image SHA-256 `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383` |
 | C-5252 | The S3 moved vertex (level 1, dir (30,65280), parcel row 8 col 8, layer 8 shape 1 vertex 2) is at 20.167196°N 155.721756°W before and 20.167196°N 155.721146°W after: 63.8 m east, same latitude, north Kohala on the island of Hawaii. The shape is a 33-vertex level-1 polyline of type `0xc110` (class `0x10`, meaning UNKNOWN). Supersedes C-2054. | VERIFIED (grid, C-5251) | M | EXP-2026-11-20-M6.16-s3-generator; `python3 tools/s3_vertex_patch.py locate B18R100R.DAT` (US image SHA-256 `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383`) |
 | C-5253 | Today's `mutate_refer_poi.py` (default chunk-preserving and `--whole-blob`) writes the S2 `POINT010.DAT.cmp` as 4,240,425 B (`b4ef43b9…`), not M5.13b's 4,233,336 B, so it does not reproduce the recorded S2 `af4c9ff1…`; its S2 is `1f1b444ee3f54fc3…` (check-diff vs factory: 4,162 ranges, 0 outside) and S3 stacked on it is `fc1433d232eacb0f…`. Undoing S2 on that card gives `59265a5e…`, not `186f2ded…` (a resize zero-fills the stale tail of the last cluster), so a stacked card is built forwards from the accepted S2 image. | OBSERVED (real image) | H | EXP-2026-11-20-M6.16-s3-generator; `tools/mutate_refer_poi.py --page 0x840ba0`, `tools/imgpatch.py` on US image SHA-256 `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383` |
-| C-5254 | RESERVED (M6.16). | — | — | — |
-| C-5255 | RESERVED (M6.16). | — | — | — |
-| C-5256 | RESERVED (M6.16). | — | — | — |
-| C-5257 | RESERVED (M6.16). | — | — | — |
-| C-5258 | RESERVED (M6.16). | — | — | — |
-| C-5259 | RESERVED (M6.16). | — | — | — |
 
 
 ## M9.52 — who answers message `0x1507`, and the event that moves the mount to state 3 (C-5900–C-5909)
@@ -4564,11 +4268,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-4372 | `targets.json` `tile_reader` keeps one target and carries `generated_corpus` (4 rows: M5.11 tile, synthetic tile, M9.13 G, M5.34 tile). `l3check` lists them with a SHA-256-driven status (`RAN (recorded: <verdict>)`, `STALE`, `NOT RUNNABLE in runner.py`, `NOT RUN (no tree)`, `NOT RUN (file is not the listed tile)`) and `ran_on_our_generated_data`, outside `counts` (unchanged versus main); `STALE` and a wrong file are problems and make the run exit 1. | VERIFIED (tool) | H | EXP-2026-11-20-H106-l3-on-l2-tile; `python3 tools/l3check.py --build-corpus`, `--selftest` (22 checks) |
 | C-4373 | The M5.34 tile (`b746427cb05612cb34202b012be7e615d5e77ba244f455d67ab52ef62534c2ef`, Geofabrik `dolnoslaskie` input, zlib 1.3.2) has no L3 run; it cannot be rebuilt in the Claude sandbox (`download.geofabrik.de` resets the connection), so its row is `NOT RUN (no tree)`. | OBSERVED | M | EXP-2026-11-20-H106-l3-on-l2-tile; `python3 tools/l3check.py --build-corpus` |
 | C-4374 | Since M5.56, `one_tile_pipeline.py --synthetic --cell B48R058R` writes a 37,376 B tile (`8eb8ae4ca1a3816321eaa112c6efd1f22e576c559046c8950969e66b2db6af00`, not the 22,272 B `a9996371…` of M9.13). Mounted at 51.10 N 16.93 E (EU2011, PySh4) its section-1 level-1 directory read (`0x1100`, len `0x8100`) has status 0 and `fn 0x00414dbc` parses 16,514 B; the run is DIFFERENT from the factory (24 vs 28 reads, `0x100` section tables, no level-2 or section-2/4 directory reads). `l3check`'s synthetic row records this hash; the old hash is STALE. | VERIFIED (real image) | H | EXP-2026-11-20-H106-l3-on-l2-tile; `python3 tools/datask_l3.py mount archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 51.10,16.93 --replace MAPAL001/B48R058R.DAT=syn2/MAPAL001/B48R058R.DAT --bytes --json S2.json` then `python3 tools/datask_l3.py diff F.json S2.json --file B48R058R` on IMG256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9` |
-| C-4375 | RESERVED (H106). | — | — | — |
-| C-4376 | RESERVED (H106). | — | — | — |
-| C-4377 | RESERVED (H106). | — | — | — |
-| C-4378 | RESERVED (H106). | — | — | — |
-| C-4379 | RESERVED (H106). | — | — | — |
 
 ## M9.14 — the DRSTR001.DAT parser on EU2011 and US2011 (C-5940–C-5949)
 
@@ -4581,9 +4280,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5944 | On US2011 a `DRSTR001.DAT` cut to `0x800` and one with the root listing offset `+0x24` xor `0x40` are rejected: state stays 1, two error-log calls from `0x00440dac` (fn 6 line 5) and `0x004411d6` (fn 8 line 20), the EU2011 callers `0x00419048`/`0x00419472` moved by the layer's distance; EU2011 truncation reproduces M9.44. | VERIFIED (real image, L3) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 runs U5, U6, E3 |
 | C-5945 | `vcard_l3.py` refuses a head that is not the selected build (SHA-256 of the 256 MiB file) before the engine starts: `--build us2011` on IMG256 and `--build eu2011` on US256 are `BLOCKED`. | VERIFIED (tool, real images) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 runs X1, X2; `vcard_l3.py --selftest` |
 | C-5946 | Without `DRSTR001.DAT` the US2011 layer still mounts from the file system (20 / 189, table `4afebf4d…`, two error-log calls), as EU2011 does (C-4637): absence is not a reject case. | OBSERVED (real image, L3) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 run U7 |
-| C-5947 | RESERVED (M9.14). | — | — | — |
-| C-5948 | RESERVED (M9.14). | — | — | — |
-| C-5949 | RESERVED (M9.14). | — | — | — |
 
 ## M8.E2 — the ROM registry's driver table (C-1610–C-1619)
 
@@ -4606,11 +4302,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3402 | Given the EU head (IMG256), `l3_precond` classes the US2011 helper VAs `0x00565d94`/`0x00565da4` of `cmp_ind_reader_us2011` as EU sec1 `INIT`; given `archive/us256.img` (US256 `70d945d8…`) they are `CODE sec0`; the verdict is `READY` both ways. | OBSERVED (tool, real images) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map §Observations |
 | C-3403 | M9.10 is the only open task among the six and its prerequisite verdict is `READY`; what remains is its own `poi_record_decode` runner and M9.55's `l3check` row. | VERIFIED (board) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map table |
 | C-3404 | The two `l3_precond` gaps (no per-build head; no "runs elsewhere" state) are the scope of the new task M9.59. | VERIFIED (board) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map §Follow-ups; TODO.md M9.59 |
-| C-3405 | RESERVED (M9.33). | — | — | — |
-| C-3406 | RESERVED (M9.33). | — | — | — |
-| C-3407 | RESERVED (M9.33). | — | — | — |
-| C-3408 | RESERVED (M9.33). | — | — | — |
-| C-3409 | RESERVED (M9.33). | — | — | — |
 
 ## M9.57 — nobody subscribes the data-access task to object-store event 11 (C-6000–C-6009)
 
@@ -4634,10 +4325,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-2643 | A file larger than `0x77220` bytes logs code 26 and is still parsed (zero-padded factory to `0x77221`: ACCEPT); at exactly `0x77220` nothing is logged (`cmp/ge` at `0x00419388`). | VERIFIED (tool) | H | EXP-2026-11-20-M9.24-drstr-parser-runner |
 | C-2644 | A `DRSTR001.DAT` of at most `0x77220` bytes is parsed from the parser's `0x77220`-byte buffer with no bound at the file size: the factory file cut to 32 bytes is ACCEPT when the buffer past it is zero (the heap model's value; in the unit it is whatever `OSM_Malloc` returns). | OBSERVED (tool) | M | EXP-2026-11-20-M9.24-drstr-parser-runner |
 | C-2645 | `runner.py run drstr_parser` refuses the US2011 head (BLOCKED, exit 4, head SHA-256 check before the engine) and reports a REJECT file against `expect ACCEPT` as MISMATCH (exit 5); a missing file is REJECT at stage open (the caller would log code 25). | VERIFIED (tool) | H | EXP-2026-11-20-M9.24-drstr-parser-runner |
-| C-2646 | RESERVED (M9.24). | — | — | — |
-| C-2647 | RESERVED (M9.24). | — | — | — |
-| C-2648 | RESERVED (M9.24). | — | — | — |
-| C-2649 | RESERVED (M9.24). | — | — | — |
 ## M9.53 — the map request `0x14b5` reads, inflates and serves a record block we wrote (C-5910–C-5919)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
@@ -4661,10 +4348,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-6283 | A 2014/2016 ROM set does not simply run on a 2011 unit, and single modules cannot be copied between builds without a ROM rebuild (XIP addresses, ordinal imports). | HYPOTHESIS | M | C-6282; test: M1.38 |
 | C-6284 | Code size 2011→2014 (EU): `Navi.exe` 5,553,664→5,799,424 B, `Audio.exe` 213,504→328,704 B, `Speech.exe` 1,529,344→1,580,544 B; `BT_FW.dll` 34,816 B in all four. | OBSERVED | H | EXP-2026-11-20-M1.36-module-census-4-images |
 | C-6285 | Whether a newer `Navi.exe` routes faster is UNKNOWN; no evidence either way. | UNKNOWN | — | EXP-2026-11-20-M1.36-module-census-4-images |
-| C-6286 | RESERVED (M1.36). | — | — | — |
-| C-6287 | RESERVED (M1.36). | — | — | — |
-| C-6288 | RESERVED (M1.36). | — | — | — |
-| C-6289 | RESERVED (M1.36). | — | — | — |
 
 ## M3.33 — the mount leaves a tile whose section list has no third entry (C-6080–C-6089)
 
@@ -4678,3 +4361,11 @@ the file names in `docs/experiments/` (warning by default and under
 | C-6085 | On the EU 2011 card 37 of the 45 `BxxRyyyR.DAT` tiles list three sections at header `0x800`, 7 list two (`B28R070R`, `B30R060R`, `B38R048R`, `B50R048R`, `B58R070R`, `B60R048R`, `B68R048R`) and 1 lists one (`B58R068R`); `LEV3456R.DAT` lists two and needs no part 2 (no row of `0x179e84` pairs part 2 with level bits `0x3c`). | VERIFIED (counted) | H | EXP-2026-11-20-M3.33-b60-header-drop; `python3 tools/tile_drop_l3.py sections --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` |
 | C-6086 | At 64.5 N 29.0 E, after `B60R048R` is left, a later header check with progress 1 mounts the neighbour `B58R048R.DAT` (three entries, three section tables); `B60R048R` stays at status 3 (EU2011, PySh4). | OBSERVED (run, L3) | M | EXP-2026-11-20-M3.33-b60-header-drop; `python3 tools/tile_drop_l3.py run archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 64.5,29.0` |
 | C-6087 | Generator rule: a generated `BxxRyyyR.DAT` must list three sections at header `0x800`; the fresh container of `tilewriter.py` does (`one_tile_pipeline.py --synthetic --cell B48R058R`: `0x1000`, `0x5500`, `0x5600`). | VERIFIED (run of the writer; rule follows from C-6080–C-6082) | M | EXP-2026-11-20-M3.33-b60-header-drop; `python3 tools/one_tile_pipeline.py --synthetic --cell B48R058R --out OUT` |
+## H100 — RESERVED placeholder rows are a gate-visible state (C-6380–C-6383)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-6380 | `tools/claims_check.py` reads a bare `RESERVED (<owner>).` row as a placeholder only when the whole claim cell is `RESERVED (<owner>).` and both the status and evidence cells are the `—` dash; it then fails under `--strict` (and the new `--reserved`) when the owner's `Status:` in `TODO.md` is `done` or the owner is absent, printing `RESERVED row names done/absent task: <rows> rows over <tasks> tasks` and at most ten owner lines with up to ten IDs each. The board status is read through `todo_check._parse_status`, so a `done (negative …)` owner retires its block; an `open`/`in progress`/`blocked` owner and a row carrying a note in either cell (C-2538) are not placeholders. | VERIFIED (tool) | H | EXP-2026-11-20-H100-claims-reserved; `python3 tools/claims_check.py --selftest` (`claims_check selftest: OK (51 checks)`) |
+| C-6381 | On the ledger at `2e683be` (the baseline `origin/main` at claim time) the new parser counts `RESERVED placeholder rows: 326 (done 117, absent 171, open 7, in progress 0, blocked 31)` and, with the same tool, `--strict --claims` on that revision exits 1 with `RESERVED row names done/absent task: 288 rows over 63 tasks`; the `done`-only share is 117 rows, so the pre-cleanup total is larger than the SE 2026-11-17 count of 285 because the ledger moved between the two revisions. | VERIFIED (tool) | H | EXP-2026-11-20-H100-claims-reserved; `python3 tools/claims_check.py --reserved-census --claims /tmp/h100-pre.md`; `python3 tools/claims_check.py --strict --claims /tmp/h100-pre.md` (exit 1) |
+| C-6382 | Deleting the 288 `done`/absent placeholder rows from `docs/research/claims.md` leaves `RESERVED placeholder rows: 38 (done 0, absent 0, open 7, in progress 0, blocked 31)` over seven live tasks (M6.18 `open` 7; M9.12 `blocked` 9; M4.28 7; M5.16 5; M4.27 4; M4.29 4; H92 `blocked` 2), `--strict` prints `RESERVED row names done/absent task: 0 rows over 0 tasks` and `claims_check: OK`, and `--count-check` still prints `count mismatches: 0`. The row count goes 2902 → 2614 (the exact 288 deleted). A deleted row was a bare placeholder by construction — its evidence cell is `—`, so it carried no pointer cell — and a row-scoped scan of the surviving ledger's `| C-… |` cells for a `Supersede`/`Superseded by` mention of any deleted ID finds 0 (EXP §Observations); the baseline ledger's 61 pointer lines (`git show 2e683be:docs/research/claims.md | grep -cE 'Supersede'` prints `61`) all survive. | VERIFIED (tool) | H | EXP-2026-11-20-H100-claims-reserved; `python3 tools/claims_check.py --reserved-census`; `python3 tools/claims_check.py --strict --count-check`; `grep -cE '^\| C-' docs/research/claims.md` (2614 now, 2902 at `2e683be`); `git show 2e683be:docs/research/claims.md \| grep -cE 'Supersede'` prints `61` |
+| C-6383 | The standing gate sees the new state: `python3 tools/gate.py` runs `claims_check --strict --count-check`, so a `done`/absent owner turns the gate red until the block is used or deleted; the `--selftest` fixture (check `s`) covers done/open/blocked/absent classification and the `_reserved_fail` truth table, and the unchanged ledger keeps `gate: 4 pass, 0 fail, 0 skip`. | VERIFIED (tool, synthetic) | H | EXP-2026-11-20-H100-claims-reserved; `python3 tools/gate.py` (`gate: 4 pass, 0 fail, 0 skip`) |

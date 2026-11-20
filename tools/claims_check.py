@@ -48,6 +48,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CLAIMS_PATH = REPO_ROOT / "docs" / "research" / "claims.md"
 EXP_DIR = REPO_ROOT / "docs" / "experiments"
+TODO_PATH = REPO_ROOT / "TODO.md"
 GITIGNORE_PATH = REPO_ROOT / ".gitignore"
 
 ROW_RE = re.compile(r"^\|\s*(C-\d+)\s*\|")
@@ -783,6 +784,96 @@ def exp_count_problems(rows, exp_files):
     return problems
 
 
+# --- H100: RESERVED placeholder rows --------------------------------------
+# A block of ten IDs was meant as a reservation, but each block was also written
+# out as `| C-xxxx | RESERVED (TASK). | — | — | — |`. That text is a placeholder,
+# not a registered claim: a free-ID scanner sees a wall of dead rows and
+# "reserved" reads as "registered" (`--count-check` saw nothing). The shape is
+# strict: the whole claim cell is `RESERVED (<owner>).` and both the status and
+# evidence cells are the `—` placeholder. A row that carries a status or an
+# evidence cell is a real reservation with a note (C-2538), not a bare
+# placeholder, and is left alone.
+RESERVED_ROW_RE = re.compile(r"^RESERVED \(([^)]+)\)\.$")
+DASH_CELLS = {"—", "–", "-"}
+
+
+def reserved_rows(rows):
+    """The bare ``RESERVED (<owner>).`` placeholder rows (H100), as
+    ``(claim_id, owner)``."""
+    out = []
+    for cid, line in rows:
+        cells = row_cells(line)
+        if len(cells) < 4 or cells[1] not in DASH_CELLS or cells[3] not in DASH_CELLS:
+            continue
+        m = RESERVED_ROW_RE.match(cells[0])
+        if m:
+            out.append((cid, m.group(1)))
+    return out
+
+
+def todo_statuses():
+    """The board's ``ID -> Status`` map, parsed by ``todo_check`` (one parser).
+
+    Returns an empty map when TODO.md is unreadable, so a checkout without the
+    board degrades to "owner absent" rather than a crash; the gate runs from the
+    repository root where TODO.md always exists.
+    """
+    try:
+        import todo_check  # same tools/ dir; one status parser, not a fork
+        text = TODO_PATH.read_text(encoding="utf-8")
+    except (ImportError, OSError):
+        return {}
+    return {t["id"]: todo_check._parse_status(t["fields"].get("Status", ""))
+            for t in todo_check.parse_tasks(text)}
+
+
+def reserved_problems(rows, statuses=None):
+    """Placeholder rows whose owner task is ``done`` or absent from TODO.md.
+
+    An ``open``/``in progress``/``blocked`` owner is a true reservation (the
+    numbers wait for that task), so only ``done`` and absent owners are defects.
+    A ``done (negative …)`` status parses as ``done`` through
+    ``todo_check._parse_status``, so a closed negative task retires its block too.
+    """
+    statuses = todo_statuses() if statuses is None else statuses
+    problems = []
+    for cid, owner in reserved_rows(rows):
+        st = statuses.get(owner)
+        if st is None:
+            why = "absent"
+        elif st == "done":
+            why = "done"
+        else:
+            continue
+        problems.append({"id": cid, "owner": owner, "reason": why})
+    return problems
+
+
+def reserved_census(rows, statuses=None):
+    """The placeholder-row breakdown by owner status, for quoting in an EXP.
+
+    ``total`` counts every bare ``RESERVED (<owner>).`` row; the buckets are the
+    board state of its owner (``absent`` = not in TODO.md; ``done`` = retired).
+    A shipped command, so a record never pastes a one-off script.
+    """
+    statuses = todo_statuses() if statuses is None else statuses
+    out = {"total": 0, "done": 0, "absent": 0, "open": 0, "in progress": 0,
+           "blocked": 0}
+    for _cid, owner in reserved_rows(rows):
+        out["total"] += 1
+        st = statuses.get(owner)
+        key = st if st in ("done", "open", "in progress", "blocked") else "absent"
+        out[key] += 1
+    return out
+
+
+def _reserved_fail(args):
+    """The reserved-row rule runs under ``--reserved``, and ``--strict`` implies
+    it (the retro wants it loud, so the default-off trap of the prose rule does
+    not apply here; H100 Stop)."""
+    return bool(getattr(args, "reserved", False) or getattr(args, "strict", False))
+
+
 # --- H58: runnable evidence ------------------------------------------------
 # A VERIFIED row's evidence is only worth the command a reader can re-run.
 INVOCATION_RE = re.compile(
@@ -949,7 +1040,7 @@ def _run_counts(args):
 
 def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
           run_prose=False, prose_runner=None, prose_cmd_runner=None,
-          exp_names=None):
+          exp_names=None, statuses=None):
     rows = parse_claim_rows(claims_text)
     dups = duplicate_ids(rows)
     reg = registration_index(claims_text)
@@ -978,6 +1069,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
     nonrunnable = bad_evidence(rows)
     unresolved = unresolved_exp_names(
         rows, exp_dir_names() if exp_names is None else exp_names)
+    reserved = reserved_problems(rows, statuses=statuses)
 
     return {
         "duplicate_ids": dups,
@@ -989,6 +1081,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
         "bad_prose_counts": prose,
         "nonrunnable_evidence": nonrunnable,
         "unresolved_exp_names": unresolved,
+        "reserved_dead": reserved,
         "ok": not dups and not unregistered and not bad_annotations,
     }
 
@@ -1012,12 +1105,27 @@ def main(argv=None):
                              "command (H58), or any row citing an EXP name "
                              "with no record (H61), exits 1; off by default "
                              "and not implied by --strict")
+    parser.add_argument("--reserved", action="store_true",
+                        help="a bare `RESERVED (<ID>).` placeholder row whose "
+                             "owner task is done or absent from TODO.md exits 1 "
+                             "(H100); implied by --strict")
+    parser.add_argument("--reserved-census", action="store_true",
+                        help="print the RESERVED placeholder breakdown by owner "
+                             "status (total/done/absent/open/in progress/blocked) "
+                             "and exit 0 unless a rule also failed (H100)")
+    parser.add_argument("--claims", metavar="PATH",
+                        help="read the ledger from PATH instead of "
+                             "docs/research/claims.md (H100: run the census on a "
+                             "pre-cleanup copy via `git show <rev>:...`); the "
+                             "path rule and EXP paths still resolve from the repo")
     args = parser.parse_args(argv)
 
     if args.selftest:
         return run_selftest()
 
     claims_text = CLAIMS_PATH.read_text(encoding="utf-8")
+    if args.claims:
+        claims_text = Path(args.claims).read_text(encoding="utf-8")
     exp_files = {}
     if EXP_DIR.exists():
         for p in sorted(EXP_DIR.glob("*.md")):
@@ -1036,6 +1144,13 @@ def main(argv=None):
     prose_skip = run_prose and history_is_shallow()
     if prose_skip:
         run_prose = False
+    if args.reserved_census:
+        statuses = todo_statuses()
+        c = reserved_census(parse_claim_rows(claims_text), statuses=statuses)
+        print("RESERVED placeholder rows: %d (done %d, absent %d, open %d, "
+              "in progress %d, blocked %d)"
+              % (c["total"], c["done"], c["absent"], c["open"],
+                 c["in progress"], c["blocked"]))
     result = check(claims_text, exp_files, run_counts=run_counts,
                    run_prose=run_prose)
     genuine = genuine_path_problems(result["bad_paths"])
@@ -1046,8 +1161,9 @@ def main(argv=None):
     evidence_fail = (_evidence_strict(args)
                      and bool(result["nonrunnable_evidence"]
                               or result["unresolved_exp_names"]))
+    reserved_fail = _reserved_fail(args) and bool(result["reserved_dead"])
     failed = (not result["ok"] or path_fail or count_fail or conflict_fail
-              or prose_fail or evidence_fail)
+              or prose_fail or evidence_fail or reserved_fail)
     if args.json:
         result["genuine_paths"] = genuine
         result["strict_failed"] = failed
@@ -1119,6 +1235,27 @@ def main(argv=None):
         for u in unres:
             print("  NOEXP %s %s" % (u["id"], ", ".join(
                 "%s (%s)" % (x["exp"], x["reason"]) for x in u["unresolved"])))
+        dead = result["reserved_dead"]
+        if _reserved_fail(args):
+            tasks = {}
+            for d in dead:
+                tasks.setdefault(d["owner"], []).append(d)
+            print("RESERVED row names done/absent task: %d rows over %d tasks"
+                  % (len(dead), len(tasks)))
+            shown = 0
+            for owner in sorted(tasks):
+                if shown >= 10:
+                    print("  RESERVED … %d more tasks not listed"
+                          % (len(tasks) - shown))
+                    break
+                ds = tasks[owner]
+                print("  RESERVED %s (%s): %d rows %s"
+                      % (owner, ds[0]["reason"], len(ds),
+                         " ".join(d["id"] for d in ds[:10])))
+                shown += 1
+        else:
+            print("reserved rows: %d dead (off; --reserved or --strict fails)"
+                  % len(dead))
         print("claims_check: OK" if not failed else "claims_check: FAILED")
     return 0 if not failed else 1
 
@@ -1509,6 +1646,48 @@ def run_selftest():
     assert PROSE_STAYS_RE.findall("`n=500` stays `0xfdb6` in all four pairs") == []
     assert PROSE_STAYS_RE.findall("the list stays `12`") == ["12"]
 
+    # --- H100: RESERVED placeholder rows -----------------------------------
+    # (s) the placeholder shape is a bare `RESERVED (<owner>).` with `—` in the
+    # status and evidence cells; a row carrying a note in either cell is a real
+    # reservation (C-2538) and is never read as a placeholder.
+    res_placeholder = ("| C-9601 | RESERVED (H9001). | — | — | — |\n"
+                       "| C-9602 | RESERVED (H9002). | — | — | — |\n"
+                       "| C-9603 | RESERVED (H9003). | — | — | — |\n"
+                       "| C-9604 | RESERVED (H9001). | VERIFIED | — | — |\n"
+                       "| C-9605 | RESERVED (H9004's `x` is untested). | — | — | "
+                       "EXP-2026-11-16-H74-fixture (Interpretation) |\n"
+                       "| C-9606 | RESERVED. | — | — | — |\n")
+    statuses = {"H9001": "done", "H9002": "open", "H9003": "blocked",
+                "H9004": "in progress"}
+    assert [(c, o) for c, o in reserved_rows(parse_claim_rows(res_placeholder))] == [
+        ("C-9601", "H9001"), ("C-9602", "H9002"), ("C-9603", "H9003")]
+    dead = reserved_problems(parse_claim_rows(res_placeholder), statuses=statuses)
+    # one done owner is a defect; an open or blocked owner is a true reservation;
+    # an owner absent from the board is a defect (H9005 is not in `statuses`).
+    assert dead == [{"id": "C-9601", "owner": "H9001", "reason": "done"}], dead
+    absent = reserved_problems(
+        parse_claim_rows("| C-9607 | RESERVED (H9005). | — | — | — |\n"),
+        statuses=statuses)
+    assert absent == [{"id": "C-9607", "owner": "H9005", "reason": "absent"}], absent
+    # a `done (negative …)` status parses as done through the board parser, so a
+    # closed negative task retires its block too (H95 shape).
+    import todo_check as _tc
+    assert _tc._parse_status("done (negative: no reader)") == "done"
+    # not done/absent: a clean ledger is green, and --strict selects the rule.
+    r_clean = check("| C-9610 | RESERVED (H9002). | — | — | — |\n", {},
+                    statuses=statuses)
+    assert r_clean["reserved_dead"] == [], r_clean["reserved_dead"]
+    r_dirty = check("| C-9611 | RESERVED (H9001). | — | — | — |\n", {},
+                    statuses=statuses)
+    assert [d["id"] for d in r_dirty["reserved_dead"]] == ["C-9611"]
+    assert r_dirty["ok"], "the reserved rule never changes the default verdict"
+    class _ResArgs:
+        def __init__(self, strict, reserved):
+            self.strict, self.reserved = strict, reserved
+    assert _reserved_fail(_ResArgs(True, False)) is True
+    assert _reserved_fail(_ResArgs(False, True)) is True
+    assert _reserved_fail(_ResArgs(False, False)) is False
+
     # (r) a `prints N` row pinned to a commit is measured at that commit, not
     # at the working tree: on `a48bbf9` the ledger had 297 `RESERVED (` rows,
     # so a row claiming 297 there is clean and one claiming more (the tip has
@@ -1605,7 +1784,7 @@ def run_selftest():
     # (ah) names resolve from REPO_ROOT, not the current directory.
     assert EXP_DIR == REPO_ROOT / "docs" / "experiments"
 
-    print("claims_check selftest: OK (50 checks)")
+    print("claims_check selftest: OK (51 checks)")
     return 0
 
 if __name__ == "__main__":
