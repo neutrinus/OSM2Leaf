@@ -156,6 +156,70 @@ not imply coverage or firmware/car acceptance.
   result registration.
 - M8: L4 emulator gates when the emulator path is runnable and policy-compliant.
 
+## L4 full-system emulator readiness (QEMU `ze0`, M8) — H110
+
+This is the matrix row `prompt_qa.txt` asks for: **L4 full-system emulator
+readiness — what can run, what is blocked.** It is *readiness*, not
+acceptance (rule 13): a `PASS` below means the named stage's gate was met on
+the named evidence, never that L4 accepts a generated card. The run itself is
+**M8.E4** (full `Navi.exe` on a generated card); this table only says how far
+the emulator has got and what each next stage waits on.
+
+The machine is **QEMU `-M ze0`** built by `tools/qemu-ze0/build.sh` (default
+pin 8.2.10, C-4330); the boot orchestrator is `tools/qemu-ze0/run.sh`. The
+panel is printed by `python3 tools/l4_status.py` (C-4410); every stage's
+number below names the claim that carries it — none is retyped from TODO prose.
+
+| Stage | Meaning | Gate it must meet | Evidence (claim) | Blocked by | Status without a run log |
+| --- | --- | --- | --- | --- | --- |
+| **F0** boot log | kernel exception log on one image | 0 CPU exceptions on a 10 s boot of one image | **C-4311** | — | `NOT RUN` (a boot log with `exceptions: 0` moves it to `PASS`) |
+| **F1** stable kernel | `filesys.exe` + `device.exe` start, no unhandled fault | the two processes start and the kernel runs without a fault report | **C-1352** | — | `NOT RUN` |
+| **F2** drivers | `filesys`/`device` load the driver set, boot not blocked | the driver set loads and no driver blocks boot | **C-1353** | **M8.C** | `NOT RUN` |
+| **F3** SD mounted | the card's FAT partition mounts (`DSK1:`) | the FAT partition mounts, not `SD Check Error` | **C-1353** | **M8.C** | `NOT RUN` |
+| **F4** `Navi.exe` headless | `Navi.exe` starts and reads map files, no error screen | M8.E4 done-when | **C-537** | **M8.A3, M8.A6, M9.16** | `NOT RUN` |
+| **log** run-summary reader | `run.sh`'s printed keys parse | `tools/l4_status.py --selftest` proves the reader round-trips a summary | **C-4411** | — | `PASS` (self-test, no image needed) |
+
+What the evidence rows say:
+
+- **F0 (C-4311):** `run.sh --machine ze0` on the EU2011 head runs the full
+  10 s wall clock with `exceptions: 0` and one unmodelled `write 0x38`; only
+  the exception count and the access list are reproducible (a sampled PC is
+  not a result). The machine skeleton builds (`build.sh --force`, `-M help`
+  lists `ze0`) per **C-4310**; **C-4312** shows the access list is a
+  `-M none` property and a CCN-modelling machine cannot reproduce it, which is
+  why that clause was withdrawn, not failed.
+- **F1 (C-1352):** with the `ze0-0006` patch the EU2011 kernel starts
+  `filesys.exe` and `device.exe` and runs 839 s of guest time with no
+  unhandled-exception report — the F1 milestone. The next layer is where it
+  stops: the launcher's SD check fails, so F2/F3 are what remains (**C-1353**:
+  the launcher stops at `AppLch > SD Check Error`, `Error Proc<00000080>`; no
+  `gwes.exe`).
+- **F4 (C-537):** the effort/feasibility row; F4 is months of board bring-up
+  in the original estimate. Its entry chain is `M8.A3` and `M8.A6` (both
+  `done`) plus **M9.16** (the L3 map-load chain) and the M8.E4 run itself, so
+  the *one open software link* named on the board is M9.16.
+
+How to read the panel (`python3 tools/l4_status.py`):
+
+- **Without `--run-log`** every F-row status is `NOT RUN` (a missing key is
+  never inferred — §4), and the readiness legend prints
+  `F4 BLOCKED (M8.A3, M8.A6, M9.16)` (plus `F2 BLOCKED (M8.C)` and
+  `F3 BLOCKED (M8.C)`). Status (`NOT RUN`) and readiness (`BLOCKED`) are
+  separate facets: a stage can be blocked and not run at the same time.
+- **With `--run-log WORK`** the tool reads only `run.sh`'s printed keys
+  (`exceptions:`, `unmodelled register accesses (first-seen order):`,
+  `final pc:`); `final pc` is carried for display and never scored. A clean
+  log (`exceptions: 0`) moves **F0** to `PASS`; a non-zero count is an honest
+  `FAIL`. Nothing else is promoted: `run.sh` prints no `filesys`/driver/FAT/
+  `Navi.exe` evidence, so F1–F4 stay `NOT RUN` until their own evidence lands.
+- **`NOT RUN` and `BLOCKED` are never `PASS`** (§4, §6). A `PASS` on this
+  panel is only `F0`-with-a-clean-log; it is not an L4 acceptance claim.
+
+This table replaces the four prose lines that used to live in TODO's critical
+path and in the M8.A2 block; the TODO M8 section stays the task board.
+`docs/research/full-system-emulation.md` §4 is the stage-effort reference and
+its stage numbers are `HYPOTHESIS` (**C-537**), not measurements.
+
 ## Contradictions / follow-ups observed
 
 - `progress_report.py` and TODO/claim prose reflect an in-progress terminology

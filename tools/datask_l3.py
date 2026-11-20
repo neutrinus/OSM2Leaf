@@ -21,12 +21,20 @@ their entry and arguments are what M3.25 asked for.
 
 No vendor byte is stored here: the tool reads the image and card it is given.
 
+The mount ends with the state word at 2 and one message the two tasks do not
+answer: `0x1507` sub 1.  Its receiver is a third task of `Navi.exe`,
+`SDL_task` (M9.52); `--sdl` runs that task too.  It drops the message: it
+takes a message from the data-access task only as the answer to a request of
+its own.  What moves the state word to 3 is an object-store event, message
+`0x07d0` sub 11 with `+28 = 16`; `--event 11:16` delivers it as a stand-in
+(its sender is not part of the run, and the tool says so).
+
 Usage:
   datask_l3.py --selftest
   datask_l3.py tables IMG256
   datask_l3.py diff   A.json B.json [--file NAME]
   datask_l3.py mount  IMG256 --card-image CARD.img [--max-reads N] [--file NAME]
-                      [--position LAT,LON]
+                      [--position LAT,LON] [--sdl] [--event SUB:VALUE ...]
                       [--bytes] [--json OUT] [--flip MAPAL001/LEV3456R.DAT@0x803:0x01]
 
 Exit codes: mount: 0 the run finished and at least one tile read was parsed,
@@ -82,8 +90,27 @@ DA_EU2011 = {
     "len_table": ((0x179 << 12) + 0xC08, 16),
     "ready_msg": (0x07D0, 100),
     "done_msg": 0x04A0,
+    "progress": 0xD98FCC,         # 1 = the dispatcher runs deferred messages (with state 3)
+    "event_msg": 0x07D0,          # object-store event; the sub is the subscriber's event id
+    "state3_sub": 11,             # 0x003f6b1c: state 2 -> 3 when the event's +28 is 16
+    "state3_value": 16,
 }
-DA_TASK, MAP_TASK = 2, 0x10       # any two different non-zero ids
+DA_TASK, MAP_TASK, SDL_TASK = 2, 0x10, 3       # any three different non-zero ids
+
+# SDL_task of Navi.exe, EU2011 build A (M9.52).  Created by 0x0032efa8 with
+# the name "SDL_task" and the entry 0x0039d854; its id lands in the global
+# that 0x00401e94 reads as the receiver of message 0x1507.
+SDL_EU2011 = {
+    "task_id": 0x11FFF50,          # global the data-access task sends 0x1507 to
+    "entry": 0x0039D854,           # init + receive loop (not called: we are the loop)
+    "init": 0x003C001C,
+    "dispatch": 0x0039D6F0,        # (message *): routes by the sender id at +0
+    "from_da": 0x0039D18C,         # messages from the data-access task
+    "gate": 0x003C009C,            # drops a message that answers no pending request
+    "machine": 0x0039CA00,         # (state, table, message, out): the state step after the gate
+    "req_id": 0x6F4650,            # u32 id of the pending request; +4: u32 1 = pending
+    "state": 0x9379B8,             # u16 state of the SDL machine (table at data VA 0x39e30)
+}
 
 # what each completion handler is, from the reads it was seen to serve
 HANDLER_ROLE = {
@@ -102,6 +129,7 @@ class State:
         self.sems = 0x5E00
         self.datavol = None
         self.zeroed: list[str] = []
+        self.ticks = 0
 
 
 def install_models(st: State) -> None:
@@ -121,6 +149,12 @@ def install_models(st: State) -> None:
     for name in ("OSM_SemTake", "OSM_SemGive", "OSM_SemDelete"):
         M[name] = lambda m: 0
     M["OSM_isSender"] = lambda m: 0x20
+
+    def tick(m):
+        # SDL_task's trace stamps: a clock that moves, no other meaning
+        st.ticks += 1
+        return st.ticks
+    M["tickGet"] = tick
     # memory areas 0..3: one 4 MiB area, the rest empty
     M["OSM_MemSize"] = lambda m: (4 << 20) if m.arg(0) == 0 else 0
     M["OSM_MemGet"] = lambda m: m.malloc(m.arg(0)) if m.arg(0) else 0
@@ -248,12 +282,62 @@ def ready_message() -> bytes:
     return bytes(msg)
 
 
+def event_message(sub: int, value: int, build: dict = DA_EU2011) -> bytes:
+    """An object-store event as OBJDLL's notifier 0x034942d8 (EU2011) lays it
+    out for OSM_MsgSend: +8 id, +10 sub, +12..+28 the event's five words; the
+    data-access task reads the last one (+28)."""
+    msg = bytearray(32)
+    struct.pack_into("<HH", msg, 8, build["event_msg"], sub)
+    struct.pack_into("<I", msg, 28, value)
+    return bytes(msg)
+
+
+def parse_event(text: str) -> tuple[int, int]:
+    sub, _, value = text.partition(":")
+    return int(sub, 0), int(value or "0", 0)
+
+
+def sdl_gate(msg_req: int, pending_req: int, pending: int) -> bool:
+    """0x003c009c: SDL_task takes a message from the data-access task only
+    when its +12 equals the pending request id and a request is pending."""
+    return msg_req == pending_req and pending == 1
+
+
+def state3_after(state: int, sub: int, value: int, build: dict = DA_EU2011) -> int:
+    """The data-access task's state word after one object-store event, as
+    0x003f6b1c writes it (only the 2/1 -> 3 step; other subs leave it)."""
+    if sub == build["state3_sub"] and value == build["state3_value"] and state != 0:
+        return 3
+    return state
+
+
+def answer(send: dict, sdl_req: tuple[int, int] = (0, 0)) -> tuple[bytes | None, str]:
+    """The reply model: given one logged send of the data-access task, the
+    message that answers it, or None and why.
+
+    Only 0x1507 is modelled.  Its receiver, SDL_task, runs it through
+    0x0039d18c, whose gate 0x003c009c drops it unless it answers a request
+    SDL_task made (``sdl_req`` = pending id, pending flag).  An accepted
+    message goes to SDL_task's state machine, which answers in its own time;
+    the tool does not invent that answer."""
+    body = bytes.fromhex(send["body"]) if isinstance(send.get("body"), str) else send.get("body", b"")
+    if len(body) < 16:
+        return None, "no message body"
+    msg_id, sub = struct.unpack_from("<HH", body, 8)
+    if msg_id != 0x1507:
+        return None, "no model for message %#06x" % msg_id
+    req = struct.unpack_from("<I", body, 12)[0]
+    if not sdl_gate(req, *sdl_req):
+        return None, "SDL_task drops %#06x sub %d: +12 = %d answers no pending request" % (msg_id, sub, req)
+    return None, "SDL_task accepts %#06x sub %d; its state machine decides the answer" % (msg_id, sub)
+
+
 # --------------------------------------------------------------------------
 
 class DataTask:
     """The data-access task and the map-file task on one virtual card."""
 
-    def __init__(self, image: str, card, build: dict = DA_EU2011, position=None):
+    def __init__(self, image: str, card, build: dict = DA_EU2011, position=None, sdl: bool = False):
         self.b = build
         self.st = State()
         install_models(self.st)
@@ -264,10 +348,21 @@ class DataTask:
         self.boot = out
         m = self.m
         self.st.task = DA_TASK
-        for va in build["init"]:
-            m.call(va, [], max_insns=80_000_000)
+        # 0x0032efa8 stores each task id right after OSM_TaskCreate, before
+        # the task runs its own initialisation: the init code already reads
+        # them (it subscribes object-store events for *0x011fff58).
         m.put(build["da_task_id"], struct.pack("<I", DA_TASK))
         m.put(build["map_task_id"], struct.pack("<I", MAP_TASK))
+        for va in build["init"]:
+            m.call(va, [], max_insns=80_000_000)
+        self.sdl = None
+        self.sdl_log: list[dict] = []
+        if sdl:
+            self.sdl = SDL_EU2011
+            m.put(self.sdl["task_id"], struct.pack("<I", SDL_TASK))
+            self.st.task = SDL_TASK
+            m.call(self.sdl["init"], [], max_insns=80_000_000)
+            self.st.task = DA_TASK
         self.default_position = m.u32(build["position"])
         if position is not None:
             # 0x0040b49c looks the start position up in a per-area table and
@@ -296,6 +391,7 @@ class DataTask:
         self.routed = len(m.messages)
         self.rows: list[dict] = []
         self.other: list[dict] = []
+        self.events: list[dict] = []
 
     @staticmethod
     def _fn_of(image: str):
@@ -353,6 +449,34 @@ class DataTask:
         finally:
             m.free(p)
 
+    def sdl_turn(self, body: bytes) -> dict:
+        """Hand one message to SDL_task's dispatcher and record what it did."""
+        m, s = self.m, self.sdl
+        seen: list[int] = []
+        hooks = (s["from_da"], s["gate"], s["machine"])
+        for va in hooks:
+            m.eng.on_exec(va, (lambda v: (lambda e, _va: seen.append(v)))(va))
+        before = len(m.messages)
+        req = (m.u32(s["req_id"]), m.u32(s["req_id"] + 4))
+        self.st.task = SDL_TASK
+        p = m.malloc(64)
+        m.put(p, body.ljust(64, b"\0"))
+        try:
+            r0 = m.call(s["dispatch"], [p], max_insns=400_000_000)
+        finally:
+            m.free(p)
+            for va in hooks:
+                m.eng._hooks[va].pop()
+            self.st.task = DA_TASK
+        msg_id, sub = struct.unpack_from("<HH", body, 8)
+        model = answer({"body": body}, req)
+        entry = {"id": msg_id, "sub": sub, "r0": r0, "via": [hex(v) for v in seen],
+                 "gate_dropped": s["gate"] in seen and s["machine"] not in seen,
+                 "sent": len(m.messages) - before, "sdl_state": m.u32(s["state"]) & 0xFFFF,
+                 "pending_request": list(req), "model": model[1]}
+        self.sdl_log.append(entry)
+        return entry
+
     def map_task_turn(self) -> None:
         self.st.task = MAP_TASK
         self.m.call(self.s.b["event"], [2])
@@ -392,10 +516,23 @@ class DataTask:
         self.rows.append(row)
         return row
 
-    def run(self, max_reads: int = 0, want_bytes: bool = False, on_row=None) -> str:
-        """Announce the map and carry messages until both tasks are idle."""
-        m = self.m
+    def run(self, max_reads: int = 0, want_bytes: bool = False, on_row=None, events=()) -> str:
+        """Announce the map and carry messages until the tasks are idle; then
+        deliver each stand-in event of ``events`` ((sub, value) pairs) and
+        carry again."""
         self.deliver(ready_message())
+        end = self._carry(max_reads, want_bytes, on_row)
+        for sub, value in events:
+            if end.startswith("stopped"):
+                break
+            self.events.append({"sub": sub, "value": value, "state_before": self.m.u32(self.b["state"])})
+            self.deliver(event_message(sub, value, self.b))
+            end = self._carry(max_reads, want_bytes, on_row)
+            self.events[-1]["state_after"] = self.m.u32(self.b["state"])
+        return end
+
+    def _carry(self, max_reads: int, want_bytes: bool, on_row) -> str:
+        m = self.m
         while True:
             if max_reads and len(self.rows) >= max_reads:
                 return "stopped after %d reads (--max-reads)" % max_reads
@@ -420,13 +557,16 @@ class DataTask:
                     on_row(row)
             elif x["task"] == DA_TASK:
                 self.deliver(body)
+            elif self.sdl is not None and x["task"] == SDL_TASK:
+                self.sdl_turn(body)
             else:
                 self.other.append({"kind": "send", "task": x["task"], "id": msg_id, "sub": sub,
                                    "from": (x["pr"] - 4) & V.M32})
 
     def summary(self) -> dict:
         m = self.m
-        return {"state": m.u32(self.b["state"]), "mesh_count": m.u32(self.b["mesh_count"]),
+        return {"state": m.u32(self.b["state"]), "progress": m.u32(self.b["progress"]),
+                "mesh_count": m.u32(self.b["mesh_count"]),
                 "version": m.u32(self.b["version"]), "reads": len(self.rows),
                 "zero_models": self.st.zeroed}
 
@@ -482,7 +622,8 @@ def cmd_mount(args) -> int:
         if args.position:
             lat, _, lon = args.position.partition(",")
             position = (float(lat), float(lon))
-        t = DataTask(args.image, card, position=position)
+        events = [parse_event(e) for e in args.event]
+        t = DataTask(args.image, card, position=position, sdl=args.sdl)
         print("position: %s (default %.3f, %.3f)" % (
             ("%.3f, %.3f" % position) if position else "default", *decode_position(t.default_position)))
         want = args.file.upper() if args.file else None
@@ -490,16 +631,23 @@ def cmd_mount(args) -> int:
         def on_row(row):
             if want is None or want in row["file"].upper():
                 show_row(row)
-        end = t.run(args.max_reads, args.bytes, on_row)
+        end = t.run(args.max_reads, args.bytes, on_row, events)
     except (V.Blocked, V.EngineError) as exc:
         print("BLOCKED: %s: %s" % (type(exc).__name__, str(exc)[:300]))
         return 3
     out = t.summary()
     out["end"] = end
-    print("end: %s; state %d, tile files %d, map version %#x, reads %d" % (
-        end, out["state"], out["mesh_count"], out["version"], out["reads"]))
+    print("end: %s; state %d, progress %d, tile files %d, map version %#x, reads %d" % (
+        end, out["state"], out["progress"], out["mesh_count"], out["version"], out["reads"]))
     for o in t.other:
         print("not delivered: %s" % json.dumps(o))
+    for e in t.sdl_log:
+        print("SDL_task got %#06x sub %d: %s (gate %s, SDL state %d, sends %d); model: %s" % (
+            e["id"], e["sub"], " -> ".join(e["via"]) or "-",
+            "dropped it" if e["gate_dropped"] else "passed it", e["sdl_state"], e["sent"], e["model"]))
+    for e in t.events:
+        print("event model (stand-in, sender not in the run): %#06x sub %d +28=%d: state %d -> %d" % (
+            DA_EU2011["event_msg"], e["sub"], e["value"], e["state_before"], e.get("state_after", -1)))
     if out["zero_models"]:
         print("models that return 0 and write nothing: %s" % ", ".join(out["zero_models"]))
     tiles = [r for r in t.rows if is_tile(r)]
@@ -507,6 +655,8 @@ def cmd_mount(args) -> int:
     if args.json:
         out["rows"] = t.rows
         out["other"] = t.other
+        out["sdl"] = t.sdl_log
+        out["events"] = t.events
         Path(args.json).write_text(json.dumps(out, indent=1))
     return 0 if tiles else 1
 
@@ -590,6 +740,11 @@ def main(argv=None) -> int:
             p.add_argument("--position", metavar="LAT,LON",
                            help="car position to mount at (decides which BxxRyyR tile is read)")
             p.add_argument("--json")
+            p.add_argument("--sdl", action="store_true",
+                           help="run SDL_task too and carry message 0x1507 to it (M9.52)")
+            p.add_argument("--event", action="append", default=[], metavar="SUB:VALUE",
+                           help="after the mount idles, deliver object-store event 0x07d0 sub SUB "
+                                "with +28 = VALUE (a stand-in: its sender is not in the run)")
     p = sub.add_parser("diff", help="compare two mount --json runs read by read")
     p.add_argument("a")
     p.add_argument("b")
@@ -671,6 +826,25 @@ def selftest() -> int:
     check("--file limits the comparison",
           diff_rows(base, [base[0], base[1], mk(0x9000, name="REFER001/POINT001.DAT")], "B48R058R") == [])
 
+    check("an object-store event is id 0x07d0, the sub, and its value at +28",
+          struct.unpack_from("<HH", event_message(11, 16), 8) == (0x07D0, 11)
+          and struct.unpack_from("<I", event_message(11, 16), 28)[0] == 16)
+    check("--event parses SUB:VALUE in any base", parse_event("11:0x10") == (11, 16) and parse_event("13") == (13, 0))
+    check("SDL's gate passes only the answer to a pending request",
+          sdl_gate(7, 7, 1) and not sdl_gate(0, 0, 0) and not sdl_gate(6, 7, 1) and not sdl_gate(7, 7, 2))
+    check("event 11 with +28 = 16 moves state 2 to 3", state3_after(2, 11, 16) == 3)
+    check("event 11 with another value, or another sub, leaves state 2",
+          state3_after(2, 11, 15) == 2 and state3_after(2, 12, 16) == 2)
+    check("event 11 before the mount started (state 0) does nothing", state3_after(0, 11, 16) == 0)
+    m1507 = bytearray(32)
+    struct.pack_into("<IHH", m1507, 4, 0, 0x1507, 1)
+    check("reply model: 0x1507 with no pending request has no answer",
+          answer({"body": bytes(m1507).hex()})[0] is None and "drops" in answer({"body": bytes(m1507).hex()})[1])
+    check("reply model: an answer to a pending request is passed to SDL's machine",
+          "accepts" in answer({"body": bytes(m1507)}, (0, 1))[1])
+    check("reply model: other messages are not modelled",
+          "no model" in answer({"body": bytes(ready_message())})[1])
+
     saved = dict(V.MODELS)
     st = State()
     install_models(st)
@@ -707,6 +881,31 @@ def selftest() -> int:
             check("each directory read has the length 0x0040901c gives (M3.31)",
                   dirs and all(r["len_lookup"] and r["len_lookup"]["value"] * 0x100 == r["length"] for r in dirs))
             check("the run stopped where asked", end.startswith("stopped after 6"))
+        except (V.Blocked, V.EngineError) as exc:
+            check("firmware run (%s)" % str(exc)[:80], False)
+        finally:
+            V.MODELS.clear()
+            V.MODELS.update(saved)
+        try:
+            t = DataTask(str(head), V.make_card(None, str(card_img)), sdl=True)
+            check("SDL_task starts in state 0 with no pending request",
+                  t.m.u32(SDL_EU2011["state"]) & 0xFFFF == 0 and t.m.u32(SDL_EU2011["req_id"] + 4) == 0)
+            e = t.sdl_turn(struct.pack("<I", DA_TASK) + bytes(m1507[4:]))   # +0: the sender, as 0x00401e94 sets it
+            check("SDL_task drops 0x1507 at its gate and sends nothing",
+                  e["gate_dropped"] and e["sent"] == 0 and e["via"][:2] == ["0x39d18c", "0x3c009c"])
+            # positive control of the gate: with a request pending (id 0) the
+            # same message passes the gate and reaches SDL's state step
+            t.m.put(SDL_EU2011["req_id"], struct.pack("<II", 0, 1))
+            e = t.sdl_turn(struct.pack("<I", DA_TASK) + bytes(m1507[4:]))
+            check("with a request pending the same 0x1507 passes the gate to 0x0039ca00",
+                  not e["gate_dropped"] and "0x39ca00" in e["via"])
+            t.m.put(SDL_EU2011["req_id"], struct.pack("<II", 0, 0))
+            t.deliver(ready_message())         # 0x003f75e4: state 2, the mount starts
+            check("the ready message sets the state word to 2", t.m.u32(DA_EU2011["state"]) == 2)
+            t.deliver(event_message(11, 15))
+            check("event 11 with +28 = 15 leaves the state word at 2", t.m.u32(DA_EU2011["state"]) == 2)
+            t.deliver(event_message(11, 16))
+            check("event 11 with +28 = 16 sets the state word to 3 (0x003f6b1c)", t.m.u32(DA_EU2011["state"]) == 3)
         except (V.Blocked, V.EngineError) as exc:
             check("firmware run (%s)" % str(exc)[:80], False)
         finally:
