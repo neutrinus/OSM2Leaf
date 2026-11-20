@@ -365,6 +365,32 @@ Decision triggers:
       `StatusData`); exact field errors would replace screen OCR.
 - [ ] Keep the original card read-only and test on a spare.
 
+## CI gate verdict on `main` (H117)
+
+The gate that decides L1/L2 progress runs on **every push to `main`**, and that
+run is cancelled by the next push (`concurrency: cancel-in-progress: true`).
+The verdict of a `push` run is therefore not a condition of the next merge: on
+2026-11-20 four red gate runs and sixteen merges shared a 35-minute window
+(EXP-2026-11-20-H117-main-shadow-run). Read a red `main` run as a board line,
+not a log line:
+
+- **Preferred (H98):** branch protection with `quality (py3.11)` and
+  `quality (py3.13)` required on the PR run, so the PR and push verdicts are
+  the same check. `main` is unprotected today (`gh api
+  repos/neutrinus/OSM2Leaf/branches/main/protection` → 404), so this is not
+  yet enforced.
+- **Fallback (shipped, H117):** `.github/workflows/main-watch.yml` plus
+  `.github/scripts/main_watch.py` runs after every gate run on `main` and
+  hourly, opens a `[H117] fix:` issue naming the SHA and the failed
+  job/step while a red tip has **no later green** run, and fails. A red that a
+  later green covers is **shadowed**, counted in the metrics, and does not
+  fail; a `cancelled` run covers nothing. `python3 .github/scripts/main_watch.py
+  --branch main` (or `--replay RUNS_JSON`) reads the history offline.
+
+"Check the runs, not the files" (QA) now has one mechanical command: the
+watchdog's exit code, or its `main-watch.json` artifact, instead of a 40-row
+`gh run list`.
+
 ## Open questions
 
 1. Which spare unit is the right one: US 2011 `CLA-NAVI05-01`, or a later

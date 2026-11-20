@@ -25,6 +25,9 @@ What the test system should show (a progress signal, not a coverage number):
   each one a task; do not assume "green locally" means green in CI (H90: `main`
   was red for 12 pushes because `actions/checkout` fetched only the tip and
   `claims_check --count-check` then measured old pins against today's tools —
-  a defect no local gate could see).
+  a defect no local gate could see). `python3 .github/scripts/main_watch.py
+  --branch main` is the mechanical half (H117): exit 0 = the tip is green or
+  every red is covered by a later green; exit 1 = a salient red with a
+  `[H117] fix:` issue; exit 2 = no runs, never a pass.
 
 Do not do the work; plan it instead — create tasks in TODO (with context: which file, which command, what Done when looks like, which fixture). Mark the order and dependencies between them.

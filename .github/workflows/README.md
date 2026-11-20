@@ -1,5 +1,24 @@
 # GitHub Actions workflows
 
+## `main-watch.yml` — gate verdict on `main` (H117)
+
+The `push` run of `ci.yml` is cancelled by the next push, so a red gate could
+ride into `main` unnoticed (2026-11-20: 4 red runs beside 16 merges). This
+workflow (`workflow_run` after a completed `CI quality gate`/`L1/L2 synthetic
+fixtures` run on `main`, plus an hourly sweep and `workflow_dispatch`) runs
+`.github/scripts/main_watch.py`:
+
+- **salient red** (no later green run on `main`) → one `[H117] fix:` issue
+  naming the SHA and the failed job/step, and the job fails;
+- **shadowed red** (a later green run covers it) → counted, not failed;
+- **`cancelled`** → counted as the concurrency de-dup, never as a green;
+- **no runs** → exit 2, never a pass.
+
+Policy (H98) stays preferred: required PR checks make the PR run and the push
+run the same verdict; `main` is unprotected today, so this watchdog is the
+fallback. `python3 .github/scripts/main_watch.py --selftest` and `--replay
+RUNS_JSON` run the same policy offline. `tools/gate.py` is unchanged.
+
 ## `ci.yml` — quality gate (H25)
 
 Runs on `pull_request` and `push` to `main`. It is a deterministic **test-infrastructure quality gate**, not coverage and not card acceptance.
