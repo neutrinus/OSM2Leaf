@@ -2237,7 +2237,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-890–C-899
 
 - [ ] **M4.2 — `RDSTM001`: link attributes (speed class, one-way, class)**
-  - Status: open · Owner: — · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
+  - Status: in progress · Owner: task/m4.2-rdstm-link-attrs · Critical: yes · **Runner: non-Claude** (needs OSM, rule 12)
   - Step: P3
   - Blocker: no `RDSTM001` row field resolves to a road identity (gate 0 of 9 fields on the US sample); OSM extract verified but not correlated.
   - Unblock: M4.17 (road-number ground truth without OSM; a road key must come first)
