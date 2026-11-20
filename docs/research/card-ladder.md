@@ -190,7 +190,6 @@ on a row whose block is already tagged or closed (stale).
 | ID | Step | Why not in the block |
 | --- | --- | --- |
 | M4.16b | P3 | open PR #260 |
-| M4.22 | P0 | open PR #284 |
 | M4.39 | P2 | open PR #263 |
 | M5.11 | P1 | open PR #264 |
 | M5.26 | P4 | open PR #265 |

@@ -1388,8 +1388,9 @@ of the four numbers above says so in its first line.
   - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
   - Claims: C-4490–C-4499
 
-- [ ] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
-  - Status: open · Owner: — · Critical: no
+- [x] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
+  - Status: done · Owner: task/m1.34-applaunch-table · Critical: no
+  - Result: table base `0x03bb2330` (EU2011 = US2011), 112 records × `0x310` B via getters `0x03bccb84`/`0x03bccb88`, walker `fn 0x03bcc5b0`, filter `fn 0x03bcc564`; EU `Navi.exe` = record #81 `0x03bc1b40` (type 4, area `0x00020000`, waits 80/20/3/4/40/94/82, id `0xa2`). `fn 0x03bcc078` creates `Navi.exe` suspended and resumes it only if the error flag `0x01f733f0` is clear after id 82, which `MountStorage` (`fn 0x03bd224c`) signals after `SDC1:` → `DSK1:` mount → check 1 `fn 0x03bd2ad8` → check 2 `fn 0x03bd2ce4`. Corrected the USA/Euro area masks (C-5350). Tool `tools/applaunch_table.py`; `docs/research/rom-registry.md` updated. EXP: `docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md`. Claims C-3528, C-3529, C-5350, C-5351.
   - Depends: M1.21 (done)
   - Goal: M1.21 found that `Navi.exe` is started by `AppLaunch.dll` (build B, loaded as `Drivers\BuiltIn\AppLch`) from a compiled-in table, not from the registry, and that the same module opens `\SystemSD\VER_INFO\HDD_INFO.TXT` and prints `MapDBVer : %d <= [%d] <= %d`. Name the table's record layout, the function that walks it, and the order of the SD/map-version checks before `Navi.exe` starts, so a generated card's `VER_INFO` can be checked against the gate.
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections AppLaunch.dll` shows an uncompressed code section at `realaddr 0x03bb1000` (EU2011); `python3 tools/sh4xref.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --to 0x03bc92f0` (`HDD_INFO.TXT`, EU2011) lists two loading functions (EU2011, see EXP-2026-11-19-M1.21), while `--to 0x03bc0f54` (`\windows\Navi.exe`) prints `No literal pool holds` — the Navi entry is reached through a data table, not a code literal (M1.21 session, 2026-11-19).
@@ -1397,7 +1398,18 @@ of the four numbers above says so in its first line.
   - Input: EXP-2026-11-19-M1.21-filesentry-decode (string VAs `0x03bc0f54`, `0x03bc92f0`, `0x03bc9360`, EU2011), `docs/research/rom-registry.md`, `docs/format/validation.md` (the AppLaunch router), `tools/sh4xref.py`, `tools/sh4dis.py`, `tools/nk_decomp.py pdata --module AppLaunch.dll`.
   - Done when: an EXP names the table base, record size and the fields for the `Navi.exe` record (EU2011 VAs, function starts checked with `nk_decomp.py pdata`), and the function that opens `HDD_INFO.TXT` with the comparison it makes; `docs/research/rom-registry.md` gains the result.
   - Stop: if no static reference to the table is found after the string-pool and `.data` search, record the negative with the positive control (a `\Drivers\Launch\SD` reference) and block on an L3 run of the router.
-  - Claims: C-3528–C-3529
+  - Claims: C-3528–C-3529 (and C-5350–C-5351 from the reserve)
+
+- [ ] **M1.35 — What `AppLaunch.dll` asks `SDC1:` before the mount (`0x80032000`/`0x80032004`), and who signals wait id 94**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.34 (done)
+  - Goal: M1.34 found that `MountStorage` (`fn 0x03bd224c`, EU2011) opens `SDC1:` and sends `DeviceIoControl 0x80032004`/`0x80032000` with retries (`fn 0x03bd2044`) before `DSK1:` is mounted, failing with error `0x80` `NO SD CARD`; `SD UNLOCK NG` (`0x81`) is never dispatched there. Name the handler of these two IOCTLs in `SDHC.dll` (build B) and say whether it is the CMD42 unlock, and find the signaller of ACM wait id 94 that every non-JP `Navi.exe` record waits for.
+  - Precheck: `python3 tools/sh4dis.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --va 0x03bd2044 --count 80` shows the two IOCTL literals (`0x03bd20f8`, `0x03bd2108`, EU2011); `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections SDHC.dll` lists an uncompressed code section.
+  - Scope: build B `SDHC.dll` `IOControl` dispatch for `0x8003xxxx` and the `ACM9:` driver's `SET_ID` callers outside `AppLaunch.dll`. Not: the lock password value (never written in the repo).
+  - Input: EXP-2026-11-20-M1.34-applaunch-table, `tools/applaunch_table.py`, `tools/sh4xref.py`, `tools/nk_decomp.py pdata`.
+  - Done when: an EXP names the `SDHC.dll` function that handles `0x80032000` and `0x80032004` (pdata START, EU2011) with the SD command it issues, and the module that sends `IOCTL_ACM_SET_ID` with id 94 (or a negative with the `AppLaunch` id-82 sender as positive control).
+  - Stop: if the `SDHC.dll` IOControl dispatch is not found after the literal search and an export walk, record the negative and block on an L3 run of `fn 0x03bd2044`.
+  - Claims: C-5352–C-5359
 
 ## M2 — Map code, activation, updater
 
@@ -2276,8 +2288,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-06-M4.20-us-drstr-roundtrip; `drstr_ze0.build()` preserves DRSTR-stored entry name case (US `XMD/ltntbl.dat` @0x1ae0); US+EU byte-identical, `drstr_ze0 --selftest` OK.
   - Claims: C-2100–C-2109
 
-- [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
+  - Status: done · Owner: task/m4.22-identity-codes · Critical: no
   - Depends: —
   - Note (SE 2026-11-15, supersedes the PO 2026-11-13 note): the PO note pointed the `0x18c` code table at **M4.36**, which is the unrelated `ADDRE`/tile-section-4 join. The correct unblocker is **M4.38** (SE 2026-11-15); this task stays blocked on the `0x18c` code→language anchor plus its own header-word work (M4.12 delivered the ICODE001 index it needs, not the codes).
   - Goal: three identity fields are still unexplained and a generated card
@@ -2292,9 +2304,22 @@ of the four numbers above says so in its first line.
     the mutation that would settle it, the language codes are matched to the
     `SPEECH/` language sets, and `header_block.py check` runs on the four real
     samples; `drstr.md`/`assets.md` updated in the same commit.
-  - Claims: C-2490–C-2499
+  - Claims: C-5280–C-5283 (was C-2490–C-2499; fresh block for this run; C-5286–C-5289 go to M4.48)
   - Blocker: M4.38 decoded the `0x18c` codes from the firmware (Navi.exe `sdl_com_hdl_get_lang` table joined with Speech.exe's dir switch; all `SPEECH/` sets on EU 2011, US 2011 and EU 2014 matched, C-3760–C-3769, EXP-2026-11-19-M4.38-lang-code-table), except `14 17 18 19 1a`, which no table in four builds returns (firmware language table for them not found). The header fixes and the BICON001 retraction are done (EXP-2026-11-08-M4.22-identity-codes).
   - Unblock: re-open now to finish `file-header.md`/`drstr.md`/`assets.md` with the M4.38 code table (the language-matching done-when is met for every code with a speech set); `14 17 18 19 1a` stay `UNKNOWN`/`HYPOTHESIS` with the mutation named in `file-header.md`
+  - Result: done — EXP-2026-11-20-M4.22-identity-codes. `identity_fields.py card` (new) reads MMAIN001/BICON001/DRSTR001 from the FAT of all four cards (EU/US 2011 full, EU 2014/2016 head + fetched clusters): every 2026-11-08 value reproduced; `header_block.py check` PASS on 8 headers, DRSTR negative exit 1; M4.38 language join PASS on all four cards incl. EU 2016 (16/16). `file-header.md`/`drstr.md`/`assets.md` carry the M4.38 code table; `0x180`–`0x183`, `14 17 18 19 1a` stay `UNKNOWN` with their mutations. Only `Navi.exe` imports `OBJ_DriveInfo_readDataVol`, and only fn `0x00377ae0` (EU2011) loads the thunk; the `0x18c` reader is M4.48 (C-5280–C-5283).
+
+- [ ] **M4.48 — Trace the `Navi.exe` reader of `MMAIN001` `0x18c` (map-language list)**
+  - Status: open · Owner: — · Critical: no
+  - Step: P0
+  - Depends: M4.22 (done), M4.38 (done)
+  - Goal: find the EU2011 `Navi.exe` code that reads the `0x18c` language list from the `MMAIN001` header copy and run it in L3, so the code→language reading becomes a firmware verdict instead of a value join.
+  - Precheck: `python3 tools/sh4xref.py archive/head256.img Navi.exe --to 0x01205040` lists the 4 functions that load the header copy (`0x00377ae0`, `0x003796bc`, `0x003798bc`, `0x0037a2c0`); `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x003796bc 0x003798bc 0x0037a2c0` gives `START` for each.
+  - Scope: EU2011 build A `Navi.exe` and OBJDLL; signature from the data (byte-swapped u16 pairs at `+0x18c`, `3f` terminator, `cmp/eq #63`), not from the doc; excludes the meaning of `14 17 18 19 1a`.
+  - Input: EXP-2026-11-20-M4.22-identity-codes (consumer census), EXP-2026-11-19-M4.38-lang-code-table, `tools/identity_fields.py card`, `tools/lang_code_table.py`.
+  - Done when: one function VA (EU2011, `pdata` `START`) is shown to read `+0x18c` of the header copy, and an L3 run of it on the EU 2011 header returns a different result when `05` is replaced by `3f`.
+  - Stop: if none of the four loaders nor their callees reads `+0x18c..+0x19f` within two call levels, set `blocked` with the call tree in the EXP.
+  - Claims: C-5286–C-5289
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
   - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no

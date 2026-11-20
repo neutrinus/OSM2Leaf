@@ -164,8 +164,10 @@ without a new experiment.
 - TODO `0x180`–`0x18b`: six little-endian `u16` words. Only the byte pattern is
   verified (`MMAIN001.DAT`, `REFER002/COORD001.DAT`, `MAPAL001/B28R070R.DAT`,
   `RDSTM001/RDSTM001.DAT` @ `0x180`).
-- TODO `0x18c`–`0x193`: the eight-code list in MMAIN/REFER. `C-037` calls it a
-  per-language code list, but no code has been mapped to a language.
+- `0x18c`–`0x193` (resolved, M4.38/M4.22): the code list holds Navi.exe
+  map-language codes (see Identity fields); only `14 17 18 19 1a` stay
+  without a firmware row, and the Navi.exe code that reads the list is not
+  yet traced (M4.48).
 - TODO `0x194`–`0x19f`: twelve `0x3f` bytes. Fill/default is a hypothesis.
 - TODO `0x1a0`–`0x1ab`: twelve `0xff` bytes. Reserved/absent is a hypothesis.
 - TODO `0x1b0` onward: `level`, `kind` and `count` are names for the observed
@@ -193,7 +195,7 @@ interpretations for validation.
 Evidence: EXP-2026-11-08-M4.22-identity-codes; claims C-2490–C-2499. Samples are
 the MMAIN001 and BICON001 headers of EU 2011, US 2011, EU 2014 and EU 2016.
 
-| Field | Status | Meaning | Settling mutation (not run; needs the L3 harness, M9.20) |
+| Field | Status | Meaning | Settling mutation (not run; the L3 harness exists since M9.20, but no target reads these bytes yet) |
 | --- | --- | --- | --- |
 | `0x180`–`0x181` | `VERIFIED` value, `UNKNOWN` meaning | constant `ffff` | none needed |
 | `0x182`–`0x183` | `VERIFIED` value, `UNKNOWN` meaning | `ff24` (EU) / `ff26` (US) | change only byte `0x183` in a copy of MMAIN001, then run the M3.8 read path of `Navi.exe` (`0x0041a438`) and compare the byte-swapped buffer handed to `OBJ_DriveInfo_writeDataVol`; no change in the consumed fields means `0x182` is not consumed there |
@@ -230,7 +232,8 @@ EU 2011 codes are a subset of the EU 2014 codes, and the nine codes added in
 2014 (`0d 0c 16 15 09 19 17 18 1a`) match the nine languages added in 2014
 (`CS DA EL FI HU NO PL SK SV`) by count. Code `04` appears on both US and EU.
 The `SPEECH/<lang>/GID` headers carry a date string, not a language code, so
-the code-to-language identity is **not decoded**. Two readings fit the counts:
+the code-to-language identity was **not decoded** in M4.22's first pass
+(2026-11-08; superseded by the M4.38 table below). Two readings fit the counts:
 `0x14` is an extra non-speech code on EU, or `04` is English (speech on US,
 text-only on EU). Nothing in the four images separates them.
 
@@ -268,3 +271,25 @@ setting into the `SPEECH/<dir>` name. The second reading above is refuted:
 US 2011 and EU 2014 every `SPEECH/` dir is named by a card code and no code
 names a missing dir; codes shifted by ±1 or read without the Navi table fail.
 The join is by value; the Navi.exe reader of `0x18c` is not yet traced.
+
+**Re-run on four cards (M4.22, 2026-11-20, EXP-2026-11-20-M4.22-identity-codes,
+C-5280–C-5283).** `identity_fields.py card` read the MMAIN001, BICON001 and
+DRSTR001 headers straight from the FAT of all four cards (EU 2011 and US 2011
+full images; EU 2014 and EU 2016 as 256 MiB heads plus the fetched clusters
+it names). The eight headers give the same `0x180` words, bounds, `0x18c`
+lists and stamps as the 2026-11-08 table above; `header_block.py check`
+passes all eight; `lang_code_table.py join` passes on all four cards,
+including EU 2016's own `SPEECH/` dir (16/16), which M4.38 did not read.
+Firmware side: of the 149 build-A modules only `Navi.exe` imports
+`OBJ_DriveInfo_readDataVol` (OBJDLL #240), and only fn `0x00377ae0` (EU2011)
+loads its thunk. If the `0x18c` reader gets the header through `readDataVol`,
+it is inside `Navi.exe` or reads the `0x01205040` copy; a module that opens
+`MMAIN001.DAT` with its own file I/O is not excluded by this census (M4.48).
+
+| Field | Meaning (final for this task) | Status |
+| --- | --- | --- |
+| `0x180`–`0x181` | constant `ffff` | `VERIFIED` value, `UNKNOWN` meaning |
+| `0x182`–`0x183` | `ff24` EU / `ff26` US | `VERIFIED` value, `UNKNOWN` meaning; mutation in the table above |
+| `0x184`–`0x18b` | N, S, W, E bounds, arc-minutes, BE i16 | `OBSERVED` (box contains every tile) |
+| `0x18c`… | Navi.exe map-language codes (`02` EN-UK … `16` NO, table above), `3f` fill | `OBSERVED` identity, firmware-anchored table (M4.38); `14 17 18 19 1a` `UNKNOWN`/`HYPOTHESIS` |
+| `DATA VERSION` | per-file build-date label | `HYPOTHESIS`; `BICON001` differs only on 2011 cards |
