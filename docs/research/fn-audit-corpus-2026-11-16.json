@@ -39,9 +39,9 @@
  ],
  "summary": {
   "files": 31,
-  "citations": 617,
-  "unique_va": 283,
-  "start": 377,
+  "citations": 666,
+  "unique_va": 290,
+  "start": 426,
   "inside": 0,
   "corrected": 0,
   "gap": 65,
@@ -62,7 +62,7 @@
   {
    "file": "TODO.md",
    "line": 1628,
-   "va": "0x003fbed8",
+   "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -71,6 +71,42 @@
   {
    "file": "TODO.md",
    "line": 1628,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1628,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1628,
+   "va": "0x0040b358",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1631,
+   "va": "0x003fbed8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1631,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -79,7 +115,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1632,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -88,7 +124,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1650,
+   "line": 1653,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -98,7 +134,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1660,
+   "line": 1663,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -107,7 +143,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1731,
+   "line": 1734,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -116,7 +152,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1731,
+   "line": 1734,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -125,7 +161,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1764,
+   "line": 1767,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -134,7 +170,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1765,
+   "line": 1768,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -143,7 +179,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1787,
+   "line": 1790,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -152,7 +188,61 @@
   },
   {
    "file": "TODO.md",
-   "line": 2225,
+   "line": 2052,
+   "va": "0x003f5624",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2053,
+   "va": "0x003ad680",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2053,
+   "va": "0x003ad9a4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2053,
+   "va": "0x003b9d38",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2053,
+   "va": "0x003bacc4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2054,
+   "va": "0x003ad440",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2240,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -161,36 +251,9 @@
   },
   {
    "file": "TODO.md",
-   "line": 2225,
+   "line": 2240,
    "va": "0x003c0e68",
    "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4161,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4163,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4171,
-   "va": "0x00419350",
-   "kind": "sub_",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
@@ -206,7 +269,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4185,
+   "line": 4178,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -215,7 +278,34 @@
   },
   {
    "file": "TODO.md",
-   "line": 4342,
+   "line": 4186,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 4191,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 4200,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 4357,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -851,8 +941,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 333,
-   "va": "0x003f51e0",
+   "line": 331,
+   "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -860,8 +950,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 333,
-   "va": "0x003f5cdc",
+   "line": 338,
+   "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -869,26 +959,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 335,
-   "va": "0x0040dfa8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 336,
-   "va": "0x00415fe8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 337,
-   "va": "0x0040e28c",
+   "line": 338,
+   "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -897,7 +969,7 @@
   {
    "file": "docs/format/firmware.md",
    "line": 339,
-   "va": "0x00412ac0",
+   "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -906,51 +978,6 @@
   {
    "file": "docs/format/firmware.md",
    "line": 341,
-   "va": "0x003faf04",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 342,
-   "va": "0x003fc9c8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 342,
-   "va": "0x003fcbf0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 343,
-   "va": "0x003fd390",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 343,
-   "va": "0x003fe774",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 356,
    "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
@@ -959,8 +986,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 359,
-   "va": "0x003ff6a0",
+   "line": 344,
+   "va": "0x003f5624",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -968,8 +995,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 364,
-   "va": "0x003fc9c8",
+   "line": 346,
+   "va": "0x003ad680",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -977,8 +1004,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 365,
-   "va": "0x003fcbf0",
+   "line": 346,
+   "va": "0x003ad9a4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -986,8 +1013,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 366,
-   "va": "0x003fd390",
+   "line": 346,
+   "va": "0x003b9d38",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -995,8 +1022,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 367,
-   "va": "0x003faf04",
+   "line": 346,
+   "va": "0x003bacc4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1004,8 +1031,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 368,
-   "va": "0x003faf04",
+   "line": 347,
+   "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1013,8 +1040,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 370,
-   "va": "0x003fe774",
+   "line": 354,
+   "va": "0x003f51e0",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1022,8 +1049,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 370,
-   "va": "0x00412c60",
+   "line": 354,
+   "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1031,7 +1058,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 371,
+   "line": 356,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -1040,16 +1067,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 371,
-   "va": "0x0040e510",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 371,
+   "line": 357,
    "va": "0x00415fe8",
    "kind": "fn",
    "class": "START",
@@ -1058,7 +1076,142 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 376,
+   "line": 358,
+   "va": "0x0040e28c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 360,
+   "va": "0x00412ac0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 362,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 363,
+   "va": "0x003fc9c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 363,
+   "va": "0x003fcbf0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 364,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 364,
+   "va": "0x003fe774",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 377,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 380,
+   "va": "0x003ff6a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 385,
+   "va": "0x003fc9c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 386,
+   "va": "0x003fcbf0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 387,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 388,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 389,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 391,
+   "va": "0x003fe774",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 391,
    "va": "0x00412c60",
    "kind": "fn",
    "class": "START",
@@ -1067,8 +1220,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 377,
-   "va": "0x003f600c",
+   "line": 392,
+   "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1076,7 +1229,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 377,
+   "line": 392,
    "va": "0x0040e510",
    "kind": "fn",
    "class": "START",
@@ -1085,7 +1238,43 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 429,
+   "line": 392,
+   "va": "0x00415fe8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 397,
+   "va": "0x00412c60",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 398,
+   "va": "0x003f600c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 398,
+   "va": "0x0040e510",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 450,
    "va": "0x00377870",
    "kind": "fn",
    "class": "START",
@@ -1094,7 +1283,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 432,
+   "line": 453,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1103,7 +1292,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 432,
+   "line": 453,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1112,7 +1301,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 435,
+   "line": 456,
    "va": "0x00377870",
    "kind": "fn",
    "class": "START",
@@ -1121,7 +1310,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 436,
+   "line": 457,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1130,7 +1319,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 669,
+   "line": 690,
    "va": "0x004e84c4",
    "kind": "sub_",
    "class": "START",
@@ -1139,7 +1328,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 670,
+   "line": 691,
    "va": "0x004e8f38",
    "kind": "fn",
    "class": "START",
@@ -1148,7 +1337,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 671,
+   "line": 692,
    "va": "0x004e989c",
    "kind": "sub_",
    "class": "START",
@@ -1157,7 +1346,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 671,
+   "line": 692,
    "va": "0x004ea288",
    "kind": "fn",
    "class": "START",
@@ -1166,7 +1355,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 672,
+   "line": 693,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -1175,7 +1364,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 678,
+   "line": 699,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -1184,7 +1373,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 798,
+   "line": 819,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -1193,7 +1382,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 808,
+   "line": 829,
    "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
@@ -1202,7 +1391,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 810,
+   "line": 831,
    "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
@@ -1211,7 +1400,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 812,
+   "line": 833,
    "va": "0x004e7d4c",
    "kind": "fn",
    "class": "START",
@@ -1220,7 +1409,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 828,
+   "line": 849,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -1229,7 +1418,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 960,
+   "line": 981,
    "va": "0x0001e3f4",
    "kind": "sub_",
    "class": "START",
@@ -1238,7 +1427,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1578,
+   "line": 1599,
    "va": "0x004124dc",
    "kind": "fn",
    "class": "START",
@@ -1247,7 +1436,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1600,
+   "line": 1621,
    "va": "0x003335c0",
    "kind": "fn",
    "class": "START",
@@ -1256,7 +1445,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1782,
+   "line": 1803,
    "va": "0x003fd690",
    "kind": "fn",
    "class": "START",
@@ -1265,7 +1454,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1785,
+   "line": 1806,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1275,7 +1464,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1786,
+   "line": 1807,
    "va": "0x00404994",
    "kind": "fn",
    "class": "START",
@@ -1284,7 +1473,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1786,
+   "line": 1807,
    "va": "0x004052d4",
    "kind": "fn",
    "class": "START",
@@ -1293,7 +1482,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1787,
+   "line": 1808,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -1484,7 +1673,79 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 611,
+   "line": 649,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 651,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 651,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 652,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 652,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 653,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 653,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 655,
+   "va": "0x003f5624",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 661,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -1493,7 +1754,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 613,
+   "line": 663,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -1502,7 +1763,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 615,
+   "line": 665,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -1511,7 +1772,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 616,
+   "line": 666,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -1521,7 +1782,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 622,
+   "line": 672,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -1530,7 +1791,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 623,
+   "line": 673,
    "va": "0x003f51e0",
    "kind": "fn",
    "class": "START",
@@ -1539,7 +1800,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 631,
+   "line": 681,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -1548,7 +1809,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 633,
+   "line": 683,
    "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
@@ -1557,7 +1818,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 633,
+   "line": 683,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1566,7 +1827,25 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 649,
+   "line": 694,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f5624",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -1575,7 +1854,169 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 650,
+   "line": 694,
+   "va": "0x003f57a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 699,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 699,
+   "va": "0x003f57a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 704,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 704,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 705,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 705,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003ad680",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003ad9a4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003b9d38",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003bacc4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003f5624",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 710,
+   "va": "0x0040b358",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 718,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 719,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",

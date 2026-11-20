@@ -471,16 +471,25 @@ Each directory run is an array of 6-byte cells. Two shapes are verified
 - Both tags use the same framing: `tag + L`, record size **exactly `2*L`**
   (the old `c8 = 2*L-1` was the size minus one trailing `ff`).
 - `ADDRE021`/`ADDRE033` additionally contain tag **`0xc1`** records whose
-  body is a long point list and whose length is **not** `2*L` (`0x0f` at the
-  observed sample, body ≈540 B). Their framing is `UNKNOWN`; `tools/addre.py`
-  stops at the first one, so `verify` is claimed only for 001/017/003.
+  body is a long point list. **Framing solved (M3.13, C-5932):** the record
+  length is the low **10 bits** of the first big-endian word, `2 * (w & 0x3ff)`
+  bytes, so `c1` is a `c0` with `L ≥ 256` (bit 8 of `L` lands in the tag byte).
+  This frames all 43,602 record blocks of the 33 EU2011 shards to their exact
+  end (59 `c1` records in 10 shards, `L` 261–280;
+  `python3 tools/addre_field_reader.py frame REFER001/ADDRE0*.DAT.cmp`).
+  `tools/addre.py` still stops at the first `c1`, so its `verify` is claimed
+  only for 001/017/003.
 - **`c0` always carries a name section, `c8` never does** — 692/692 vs 0/349
   (`ADDRE001`), 249/249 vs 0/360 (`ADDRE017`), 56,988/56,988 vs 0/38,445
   (`ADDRE003`).
 - Name section: `TT LL 00 ff`, `LL = ceil(name_len/2)`. The name is
   the **last `2*LL` bytes of the record** (NUL-padded when `name_len` is odd);
   the 4–8 bytes between the marker and the name are a small header whose
-  meaning is **UNKNOWN**.
+  meaning is **UNKNOWN**. *Superseded by the firmware reading (M3.13,
+  C-5931):* `TT LL 00 ff` is the **field-length block** of the file's three
+  fields (`area code`, `street name`, `dndc-id`, one byte each in words, `ff`
+  pad), and the "header" is the `area code` field — see
+  [Record fields as the firmware reads them](#record-fields-as-the-firmware-reads-them-m313).
 - **Where the name section starts (M4.46, C-5157):** at byte
   `4 + 2*rec[2] + 2*rec[3]` of a `c0` record — byte 2 counts the words of the
   coordinate id + reference block from byte 4, byte 3 the words of the item
@@ -571,6 +580,39 @@ Each directory run is an array of 6-byte cells. Two shapes are verified
   geographic mapping** (axis/frame unknown). The exact `(XX,YY)` arithmetic
   (2D frame, axis assignment, and the meaning of `XX`) remains `UNKNOWN`.
 
+### Record fields as the firmware reads them (M3.13)
+
+Source: `EXP-2026-11-20-M3.13-addre-reader-l3`, C-5930–C-5939 (EU2011 and
+US2011, PySh4 with the slots the firmware's own writer stores).
+
+```
+word 0      class/length   w >> 13 == 6 (0xc000 class); (w & 0x1800) >> 11 = 0 (c0/c1) or 1 (c8);
+                           record = 2 * (w & 0x3ff) bytes  (c1 = c0 with L >= 256)
+byte 2      n1             words of block 1 (from byte 4): coordinate id + point tokens
+byte 3      n2             words of the item block after it (house ranges)
+4           block 1        2*n1 bytes
+4 + 2*n1    items          length-prefixed: item[0] = item length in words (06/07/08 ...)
+4+2*(n1+n2) length block   one byte per field, in words: area code, street name, dndc-id, pad 0xff
+            fields         area code, street name, dndc-id, each 2*len bytes (NUL-padded)
+```
+
+- The 0x100-byte **schema block is the field dictionary** the `REFER001`
+  accessor reads (`ff ff`, `D = C + 2*u16[C+2]`, `u16[D+26]` = 3 fields,
+  entries chained from `D + 2*u16[D+24]` with the id at `+12`, a length byte at
+  `+14` and the name at `+16`). Entry word `+4` is the largest length of that
+  field in the shard, in words (33/33 EU2011 shards and US `ADDRE010`); entry
+  word `+6` is `0x8000`/`0x6000`/`0x2000`.
+- `c8` records have the same layout with an all-zero length block
+  (`00 00 00 ff`): three empty fields.
+- `TT` = the `area code` length (3–5 words); the `area code` bytes are the
+  former "4–8-byte header". `dndc-id` is empty in every record run.
+- The range-token "prefix" `06/07/08` (C-975) is the item length in words.
+- What the reader needs (read map): the dictionary's `C+2`, `D+24`, `D+26`,
+  entry chain and ids, and the per-record length block; the firmware finds the
+  street by these, not by position from the end. Entry `+4` = max length is
+  **OBSERVED** in the factory files only (33/33 shards); no instruction in the
+  read map reads it, so it is not a known firmware requirement.
+
 ### Trailer table (`T`)
 
 - Located by the last `01 f4 00 00` marker in the file. Each row is 12 bytes,
@@ -598,14 +640,22 @@ each `COORD001` entry, and the 22-byte index record fields.
 Tool: `tools/addre.py` (`layout`, `table`, `cells`, `records`, `stats`,
 `trailer`, `verify`, `--selftest`).
 
-### Firmware reader (M3.13, build A, IMG256 `92aa525d…`, partial)
+### Firmware reader (M3.13, located and run in L3)
 
-> **Status:** access path `VERIFIED` (C-2180). 0xc000-class header consumer
-> `VERIFIED` in Navi.exe sec0 (C-2184, mask/stride re-run C-2129 lesson).
-> Full C-970–C-979 token/grammar mapping **partial** (C-973 tag-class mapped;
-> other fields not mapped to consuming instructions). See
-> `EXP-2026-11-08-M3.13-addre-reader-2.md` (refines
-> `EXP-2026-11-06-M3.13-addre-reader.md`), C-2180–C-2187.
+> **Status (2026-11-20, C-5930–C-5939):** the record reader is located and
+> runs in PySh4 on factory blocks of both builds (EU2011 3,650 records,
+> US2011 57,180, all correct) with the slot binding the firmware's own
+> `0x14e4` writer makes, and on edited blocks. Reader chain (EU2011; US2011 in
+> brackets): writer `fn 0x003fd390` [`0x00425564`] stores page → slots `+0x14`
+> and `+0x2c`, dictionary → `+0x18` (search type 2); field accessor
+> `fn 0x003f61bc(db, rec, f)` / length `fn 0x003f5d98` [`0x0041eb1c` /
+> `0x0041e6f8`] → resolver `fn 0x003f51e0` → locator `fn 0x003f56bc` →
+> `fn 0x003f5e10`; record `n` through the dispatcher `fn 0x003f5cdc` → walker
+> `0x003f5b88`; record leaves `0x003f5468`, `0x003f54f4`, `0x003f5550`,
+> `0x003f559c` and the item accessor `fn 0x003f5624` [`0x0041dfd4`]. Field →
+> instruction table below; `EXP-2026-11-20-M3.13-addre-reader-l3`. The text
+> from here to that table is the pass-1–3 history (C-2180–C-2187); where it
+> says "not mapped" or "HYPOTHESIS", the 2026-11-20 table wins.
 
 ADDRE is resolved through the same `REFER001` family mechanism as POINT
 (M3.11, C-880/C-881/C-2122): descriptor type `0x14e8` in `fn 0x004125a8` (Navi.exe
@@ -640,7 +690,26 @@ found no record-stream walker (282 sections / 23.6 MB) — that negative stands
 for those signatures. Navi.exe sec1/sec2 are compressed *data* (C-2128), so
 "not found in executable code" is not a compression blocker.
 
-**Grammar field (C-970–C-979) → consuming instruction:**
+**Grammar field → consuming instruction (M3.13 L3 run, 2026-11-20, EU2011;
+US2011 offsets per function: `+0x289b0` for `fn 0x003f51e0`, `fn 0x003f56bc`, `fn 0x003f57a8`, the leaves `0x003f5468`/`0x003f54f4`/`0x003f5550`/`0x003f559c` and `fn 0x003f5624`; `+0x28960` for `fn 0x003f5cdc`, `fn 0x003f5d98`, `fn 0x003f5e10`, `fn 0x003f61bc`; `+0x289b8` for the walker `0x003f5b88`; memory offsets are in the
+byte-swapped buffer, so a byte read at memory `+k` is file byte `k^1`):**
+
+| Field (claim) | Consumed by | Status |
+| --- | --- | --- |
+| Schema block = field dictionary (C-970, C-5931) | `fn 0x003f56bc` `0x003f56d2` (`C+2`), `0x003f570c` (`D+26`), `0x003f5716` (`D+24`), `0x003f5726` (chain), `0x003f5736` (id `+12`); `fn 0x003f57a8` `0x003f57b4`/`0x003f57c6` | read |
+| Index chain, directory `0x1108`, cells `0x2000` (C-970–C-972) | — | not inputs of the record reader; reader not located (search path, M3.30) |
+| Header class `c0/c8/c1` (C-973) | `0x003f56e0`–`0x003f570a`; leaf `0x003f5468` (`c8` bit, `0x003f547e`) | read |
+| Record length `2*(w & 0x3ff)`, incl. `c1` (C-973, C-5932) | walker `0x003f5b88` at `0x003f5bb8` | read |
+| `rec[2]` / `rec[3]` word counts (C-5933) | `0x003f5774`; `0x003f5536`, `0x003f5594`, `0x003f55e4`, `0x003f567e` | read |
+| `TT LL 00 ff` = field-length block (C-974, C-5931) | `fn 0x003f5d98` `0x003f5dd2`; `fn 0x003f5e10` `0x003f5e36` | read |
+| `area code` / `street name` / `dndc-id` | pointer + length from `fn 0x003f61bc` / `fn 0x003f5d98` | located; bytes read by callers (UNKNOWN) |
+| Range item length byte (C-975 "prefix", C-5934) | `0x003f5604`, `0x003f5692` | read |
+| Range item body `subtype 00 00 :N:;:M:` (C-975) | item pointer from `fn 0x003f5624` | located; bytes read by callers `fn 0x003ad680`/`fn 0x003ad9a4`/`fn 0x003b9d38`/`fn 0x003bacc4` (UNKNOWN, M3.32) |
+| Block 1: coordinate id + point tokens (C-976) | pointer `0x003f54f4`, words `0x003f5550` | located; bytes read by the same callers (UNKNOWN, M3.32) |
+| Trailer TOC (C-977) | — | not an input of the record reader |
+| `fn 0x0040b358` (pre-M3.13 candidate) | — | a path-name lookup (`0x00409cc8` tests `/` and `\`); reads no record byte |
+
+**Pass-3 table (2026-11-12, history; superseded by the table above):**
 
 | Field (claim) | Consuming instruction VA | Status |
 | --- | --- | --- |
