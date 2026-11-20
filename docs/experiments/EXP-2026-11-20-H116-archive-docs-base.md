@@ -145,10 +145,13 @@ The `25 moved` are the live-block rows shifting up when the done blocks leave
 the file; the identity set `(file, va, kind, class)` is unchanged (H69 moved-only
 drift, exit 0).
 
-Negative control (blocked `M3.13` block moved out, after the re-freeze):
+Negative control (blocked `M3.13` block moved out, after the re-freeze; the
+`moved` count grows when the board gains lines below `M3.13` — it was 16 before
+this task's own `Result` line was added, 18 at the final board — the `5 gone`
+is the stable part):
 
 ```text
-CORPUS STALE: 0 new / 5 gone / 16 moved
+CORPUS STALE: 0 new / 5 gone / 18 moved
 fn_audit:   gone TODO.md:1794 0x003f56bc
 fn_audit:   gone TODO.md:1815 0x0040114e
 fn_audit:   gone TODO.md:1825 0x003f56bc
@@ -164,10 +167,10 @@ checked with `fn_audit.live_todo_lines` against the committed JSON).
 Standing gate on the image host:
 
 ```text
-selftest      PASS     82.35
-claims_check  PASS      5.16
-todo_check    PASS      0.04
-fn_audit      PASS      3.87
+selftest      PASS    142.37
+claims_check  PASS      7.54
+todo_check    PASS      0.07
+fn_audit      PASS      5.92
 gate: 4 pass, 0 fail, 0 skip
 ```
 
@@ -179,7 +182,8 @@ gate: 4 pass, 0 fail, 0 skip
   produced `0 new / 17 gone` before the change (Precheck).
 - **FACT:** After the change and the single re-freeze, moving exactly those
   nine done blocks gives `0 new / 0 gone / 25 moved`, exit 0; moving the open
-  `M3.13` block (a *blocked* block, still live) gives `0 new / 5 gone / 16 moved`, exit 1.
+  `M3.13` block (a *blocked* block, still live) gives `0 new / 5 gone` (18
+  moved at the final board, 16 before this task's own `Result` line), exit 1.
 - **OBSERVED:** The non-`TODO.md` corpus is byte-for-byte the same identity
   set (311 keys), so the change is confined to the `TODO.md` pass.
 - **FACT:** All 20 old `CORRECTED` rows sit in done blocks (20 done / 0 live
@@ -221,10 +225,17 @@ code fix is unchanged.
   99 open, 21 blocked, 1 in progress, 0 blocks with no `Status:` line; the
   99 include the fenced task-field template at `TODO.md:209`.
 - **Negative-control label:** `M3.13` is `blocked`, not `open`; the mask still
-  cites it (blocked is live), so the control is unchanged.
+  cites it (blocked is live), so the control is unchanged; its `moved` count is
+  board-dependent (16 → 18 once this task's `Result` line was added), `5 gone`
+  is not.
 - **Precheck revision:** the `0 new / 17 gone / 151 moved` precheck was run in
   a detached worktree at the branch base `d2fb7b4` (= `origin/main` at claim
   time); `a1efe85` alone gives 149 moved with the same 17 gone.
+
+- **Gate environment:** the first gate run failed `mkcard` on a host whose
+  `/tmp` tmpfs was 93 % full (3.6 G/3.8 G); with `TMPDIR` on the home tree
+  the same suite is 136 pass / 0 fail / 23 skip and the gate
+  `4 pass / 0 fail / 0 skip`. Not an H116 defect (AGENTS.md `/tmp` hazard).
 
 ## Overtaken by a later commit
 
@@ -236,7 +247,8 @@ none
 python3 tools/fn_audit.py --selftest                      # expected: selftest: OK (93 checks, 0 failed)
 python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet
 # expected: exit 0 against this branch's TODO.md; the two controls in Method
-# reproduce 0 new / 0 gone (nine done blocks) and 0 new / 5 gone (blocked M3.13)
+# reproduce 0 new / 0 gone (nine done blocks) and 0 new / 5 gone (blocked M3.13;
+# `moved` depends on board edits, `gone` does not)
 ```
 
 ## Follow-ups
