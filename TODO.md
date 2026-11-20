@@ -3503,6 +3503,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Scope: read-only buttons only. Never `Write NAND`, `RESTORE SRAM`, `RESTORE VFLASH` in this task. Lock the stock card before leaving update mode (README).
   - Done when: an EXP lists file names, sizes (NAND dump expected 8 MiB minus what the tool skips; `sram_*.bin` 1,048,576 B; `vflash_*.bin` 3,014,656 B) and SHA-256; files stay outside the repo (they hold the SD PIN at `0xA100` — never commit).
   - Stop: if a size differs from the expectation, record it and stop; do not retry writes.
+  - Note (2026-11-20): the start screen photo is recorded (EXP-2026-11-20-M6.18-prod-screen: `QY7200ND`, Product ID `10 20 02 12`); the files are still owed.
   - Claims: C-5200–C-5209
 
 - [ ] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**

@@ -4046,3 +4046,18 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5197 | RESERVED (M6.17). | — | — | — |
 | C-5198 | RESERVED (M6.17). | — | — | — |
 | C-5199 | RESERVED (M6.17). | — | — | — |
+
+## M6.18 — LeafSDTools PROD screen on Marek's unit (C-5200–C-5209)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5200 | Marek's US unit is model `QY7200ND`, Product ID `10 20 02 12` (PROD `+0x40` and `+0x20..+0x23`, flash `0xA040`/`0xA020`). | OBSERVED | H | LeafSDTools `111-beta` main screen photo; `Flash.cpp` `GetProdSection`; EXP-2026-11-20-M6.18-prod-screen |
+| C-5201 | The firmware Target ID (`KernelIoControl 0x01013208`, byte 0 non-zero/non-`FF`, byte 1 = area) is PROD `+0x20..+0x23`; the market byte is flash `0xA021` (`0x20` USA here), not `0xA022` as C-078 says (`0xA022` = `0x02`). | HYPOTHESIS (strong) | M | C-5200; us-eu-region.md Target ID; test: M6.19 on the dump |
+| C-5202 | On this unit IMMO code is `FF FF FF FF` and IMMO check is `00` (PROD `+0xA0`, `+0x193`): the immobiliser handshake is disabled. | OBSERVED | H | EXP-2026-11-20-M6.18-prod-screen |
+| C-5203 | RESERVED (M6.18). | — | — | — |
+| C-5204 | RESERVED (M6.18). | — | — | — |
+| C-5205 | RESERVED (M6.18). | — | — | — |
+| C-5206 | RESERVED (M6.18). | — | — | — |
+| C-5207 | RESERVED (M6.18). | — | — | — |
+| C-5208 | RESERVED (M6.18). | — | — | — |
+| C-5209 | RESERVED (M6.18). | — | — | — |
