@@ -29,9 +29,9 @@ CI runs on main since the previous QA pass (11:03Z -> 18:30Z, "CI quality gate",
   saved run list: 0 salient. No red run, so no per-run task.
 
 gaps planned (2 tasks; the rest of the target is already in open blocks):
-  - H120 (C-6310-C-6319, pair required): three checks that say PASS with nothing checked —
+  - H120 (C-6340-C-6349, pair required): three checks that say PASS with nothing checked —
     verify.py --strict with L2 skipped, no compile step for tools, l4_status constant blockers.
-  - M9.62 (C-6320-C-6329, pair required, after M9.60): one manifest and one command for the
+  - M9.62 (C-6370-C-6379, pair required, after M9.60): one manifest and one command for the
     card-level L3 runs, so the three L3 counts become one and the runs have a regression.
   - H40: note that its builder half exists (H103); what is left is the registry row + H105.
 
@@ -47,6 +47,9 @@ decisions / rejected:
     repo rule says English, but it is cosmetic and its selftest asserts the strings; left as a
     note for whoever touches the file next.
   - did not do the work (prompt): the ce_rom_parse.py fix was the SE's, under rule 17.
+
+problems: claim blocks collided three times with a thread that adds tasks at the same time
+  (PR #390, #391); every block of this cycle was moved to C-6330-C-6379 before the merge.
 
 handoff: TL — H119, then M9.60; H120 is small and pairs well with either.
 end: 2026-11-20 18:38 UTC

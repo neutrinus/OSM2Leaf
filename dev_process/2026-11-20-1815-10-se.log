@@ -20,9 +20,9 @@ actions, in order:
   - defect fixed where found (rule 17): tools/ce_rom_parse.py did not compile (three pasted
     shell lines after main) and forwarded "scan IMG" where cerom.py wants "IMG scan"; both
     fixed, checked on IMG256; README now names tools/cerom.py.
-  - added H119 (C-6280-C-6289; first C-6250, taken meanwhile by M5.61 in PR #390): task PRs conflict in the fn_audit snapshots; serves M9.55,
+  - added H119 (C-6330-C-6339; two earlier blocks were taken meanwhile by PR #390 and PR #391): task PRs conflict in the fn_audit snapshots; serves M9.55,
     M3.29, M9.53 (retro action 2). Pair: required because it edits a standing gate.
-  - added M9.60 (C-6290-C-6299; first C-6260, taken meanwhile by M2.20): first slice of the card gate (boot, sweep, mount with an exit
+  - added M9.60 (C-6350-C-6359; same reason): first slice of the card gate (boot, sweep, mount with an exit
     code) that does not wait for M9.55 -> M9.41 -> M9.31. Pair: required (L3 gate).
 
 findings left as notes, no task (rule 17):

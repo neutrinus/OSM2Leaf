@@ -248,7 +248,7 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-20, 21st pass; retro 2026-11-20-2, `origin/main` `ae2cb0c`)
+## Priorities (PO grooming 2026-11-20, 21st pass; retro 2026-11-20-2, `origin/main` `f3251f0`)
 
 **The firmware now reads a road record we wrote.** M9.53 (merged 2026-11-20 18:28Z, #349):
 on a generated Poland tile the EU2011 data-access task reads our record from
@@ -324,7 +324,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 
 ### Map signal (read first)
 
-Board after this pass: **77 open / 24 blocked / 0 in progress / 167 done** (block headers parsed 2026-11-20; the
+Board after this pass: **81 open / 24 blocked / 0 in progress / 168 done** (block headers parsed 2026-11-20 on `f3251f0`; the
 fenced task template is not counted). 30 of the open blocks are H. A cycle
 that moves none of the four numbers above says so in its first line.
 
@@ -1320,6 +1320,42 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-5800–C-5809
   - Result: docs/experiments/EXP-2026-11-20-H118-fnmatch-unloaded-pool.md; C-5800–C-5806. `_pool_loads` walks the function from its entry (`reachable`) and rejects a slot on a reached instruction and, in a function with no reached `braf`/`jmp`, a load at an unreached halfword; the hw50 synthetic no longer blanks hw122, the loaded-pool case still does not (`fn_match --selftest` 46→53). Census `UNIQUE 5954 / DIFFERENT 162 / CALLORDER 56 / AMBIGUOUS 566 / NOMATCH 858` (was `5945/171/56/566/858`): only `DIFFERENT→UNIQUE 9`, same US VAs, 0 moved; the residual explains 0 of the 858 NOMATCH (31 contain such a load, none changes) and 9 of 171 `DIFFERENT` (8 were reads of the next function's bytes past the function end). Control: dropping every unreached load (`--all-closed`) loses 48 `UNIQUE` to `NOMATCH` (switch case bodies). Fixture `13 rows, 0 mismatch`, `bodies` 12/12 unchanged. New `tools/fn_verdict_diff.py` (dump/diff/slots).
 
+- [x] **M1.36 — Module census of the CE ROMs on four cards (EU 2011, US 2011, EU 2014, EU 2016)**
+  - Status: done · Owner: claude/project-thread-64ftoc · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: first answer to "what differs between the binaries of the card generations".
+  - Done when: an EXP has the module counts, added/removed modules and code sizes per image.
+  - Result: EXP-2026-11-20-M1.36-module-census-4-images (C-6280–C-6285): same five-segment SH-4 layout on all four; EU 2011 and US 2011 share kernels B/C byte for byte and differ only in A; 2014/2016 are platform `X212` with different kernels (`FlashManager2`, `fmmdrv_05/07`); `Audio.exe` +54 %, `Navi.exe` +4 % in 2014.
+  - Claims: C-6280–C-6289
+
+- [ ] **M1.36b — `tools/rom_atlas.py`: one table of every module on every card image (the binary and data atlas)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.36 (done), M1.22b (`fn_match`, reloc-masked function hashes, done)
+  - Goal: a committed, reproducible map of what is on a card: per image and ROM (A/B/C) every module with size, sections, reloc-masked code hash, imports/exports, COM class names and its role in one line; plus the data side (FAT tree families, TFAT16 tail, `FILESentry` files). M1.36 was a scratch script whose hashes include XIP relocation.
+  - Precheck: `python3 tools/fetch_image.py --image EU2014 --part 256M -o X` verifies the size; `python3 tools/cerom.py --image-start 0x200200 X modules` lists 153 modules.
+  - Scope: the four pinned images; output `docs/research/rom-atlas.md` (generated, with the command) + `--json`. Role lines only where a string/export supports them, else `unknown`. Pin the EU2014/EU2016 256M SHA-256 in `fetch_image.py`.
+  - Done when: `rom_atlas.py --selftest` passes; the table reproduces M1.36's counts; for EU 2011 vs US 2011 it reports which A modules are equal after reloc masking (negative control: B/C all equal, C-6281).
+  - Claims: C-6290–C-6299
+
+- [ ] **M1.37 — Changelog between builds, module by module (functions, strings, exports)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.36b
+  - Goal: for each module present in two builds: functions added / removed / changed (pdata + `fn_match`), new strings, new exports and COM methods; first for `Navi.exe`, `Audio.exe`, `BT_MGR.dll`/`BT_ENG.dll`/`BT_FW.dll`, `Speech.exe`, `DriveComputerCC.dll`, pairs EU2011→EU2014 and EU2014→EU2016. This is what tells whether a newer Bluetooth or navigation build has anything we want.
+  - Precheck: `python3 tools/pdata.py` lists functions for `BT_MGR.dll` on both images; `fn_match` reaches ≥ 90 % on a module known to be nearly equal (`BT_FW.dll`, same size in all four).
+  - Scope: static diff only; one EXP per module group with counts and the 20 largest changed functions named by their strings. No behaviour claims without a string or an L3 run.
+  - Done when: `docs/research/rom-changelog.md` has the per-module table for the two pairs, with a control (EU2011 vs US2011 B = 0 changes).
+  - Stop: a module whose match rate is < 50 % is reported as `rewritten`, not diffed by hand.
+  - Claims: C-6300–C-6309
+
+- [ ] **M1.38 — Can a 2014/2016 kernel ROM start on the 2011 board? (static)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.36 (done); M6.19 helps (what the unit's own flash holds)
+  - Goal: decide whether "use the newer binaries" is possible at all on Marek's `QY7200ND`: compare ROMHDR RAM windows, BSP/platform strings, the driver set (`fmmdrv` vs `fmmdrv_05`/`_07`, `FlashManager` vs `FlashManager2`, LCD, SDHC) and the launcher's unit checks between `X210` and `X212` builds B.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 <EU2014 head> romhdr` prints a ROMHDR.
+  - Scope: static, builds B/C of EU2011 and EU2014. Output: a table check → 2011 → 2014 → compatible / not / unknown, and one verdict. No card is built.
+  - Done when: the EXP names at least the flash-driver selection rule (how `fmmdrv_05`/`_07` is chosen) or records it as unknown with the VA where the choice is made.
+  - Claims: C-6310–C-6319
+
 - [ ] **H119 — Two task PRs that each add an EXP always conflict in the fn_audit snapshots**
   - Status: open · Owner: — · Critical: yes · Pair: required
   - Depends: — (serves the map tasks whose merges it holds up: M9.55, M3.29, M9.53 waited 21–35 merges behind `main`, retro 2026-11-20-2)
@@ -1330,7 +1366,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: `fn_audit --selftest` builds the Precheck's two branches in a temp repo and their merge has no conflict in either snapshot in both orders, `python3 tools/gate.py` is green on the merge commit without a re-sync commit, and two negatives still exit 1: one cited `START` VA deleted from an EXP, and one new citation of an `INSIDE` VA. EXP with the before/after counts of the two commands in Goal on a replayed five-PR window.
   - Stop: if (a) lets a wrong citation through in the negative and (b) cannot keep the count check, record both and keep today's policy with the re-freeze moved to one TL commit per batch.
   - Falsifier: a merge of two PRs that needs a snapshot re-sync commit after this task lands.
-  - Claims: C-6280–C-6289
+  - Claims: C-6330–C-6339
 
 - [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -1342,7 +1378,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: with no extractor on `PATH`, `verify.py --image IMG --strict` exits 3 and prints `INCOMPLETE`; `verify.py --selftest` covers it with a faked missing extractor; `python3 tools/selftest.py` exits 1 on a temp tree that holds one file with a syntax error and 0 on `main`; `python3 tools/l4_status.py` prints `F4 BLOCKED (M9.16)` today and its selftest proves a `done` blocker is dropped and an unknown ID is kept; `python3 tools/gate.py` green.
   - Stop: if compiling every tool adds more than 10 s to `selftest.py`, compile only files changed against `origin/main` in CI and all files locally, and record the two timings.
   - Falsifier: a second tool that prints `PASS` after a `SKIP` line in the same run (then the status class belongs in one shared helper, say so in the EXP).
-  - Claims: C-6310–C-6319
+  - Claims: C-6340–C-6349
 
 ## M2 — Map code, activation, updater
 
@@ -2681,6 +2717,15 @@ text of this section is in git (`13cb0cf`).
   - Stop: if fewer than three clean pairs exist, publish the census and say so.
   - Claims: C-4590–C-4599
   - Result: EXP-2026-11-19-M4.41-diff-years (C-4590–C-4599): `tools/diff_years_tiles.py` gives the per-section `kept/changed/added/removed` census for 45 tiles × 2 pairs (2011→2014 sec1 606622/1402020/135997/187413; 2014→2016 sec1 755251/1308596/68171/80792) with the 20-tile tables, and names section-4 rename records (e.g. `B48R070R` `CRICCLETH;`→`CRICCIETH;`) and the `B60R060R` added-road sample. `Stop:` applies — the editions move all three sections together, so fewer than three clean one-variable pairs exist; the census is the result.
+
+- [ ] **M4.57 — Polish voice: can the 2011 `Speech.exe` use the `SPEECH/` set of the EU 2014 card?**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (M1.37 helps for `Speech.exe`)
+  - Goal: EU 2011 ships 7 `SPEECH/` languages, EU 2014 adds nine including `PL` (C-2495). Find out whether the language files (VR, TTS, GID) changed format between the cards and how the 2011 firmware picks a language (the `DRSTR` `0x18c` code, C-2496, and the language list in the UI).
+  - Precheck: both roots have `SPEECH/`; `python3 tools/diff_years.py` lists the language sets.
+  - Scope: offline: headers and sizes of one language present on both cards (e.g. `EN`), byte-compared 2011 vs 2014; the SVOX/GID version fields; strings in `Speech.exe`/`SpeechCC.dll` that name languages. No card build.
+  - Done when: an EXP says `same format` / `different` / `unknown` per file kind with the differing fields, and where the 2011 build's language list lives.
+  - Claims: C-6320–C-6329
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
@@ -4871,7 +4916,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: on EU2011 the factory card and the P0 card (`b0faf119…`) exit 0 with three PASS rows; a card whose `B48R058R.DAT` is the M5.56 tile cut at `0x9100` exits 1 naming the read; a card with a corrupt `DRSTR001.DAT` (M9.14's case) exits 1 at `boot`; without a card image the rows are `NOT RUN` and the exit is 3. `--selftest` covers the verdict table without vendor data. `docs/format/card-ladder.md` names this command as the L3 gate of P0 and P1.
   - Stop: if `sweep` on a full card takes more than 20 minutes, gate on `boot` + `mount` and record the sweep time.
   - Falsifier: a card that fails in the factory-compared mount but passes the gate.
-  - Claims: C-6290–C-6299
+  - Claims: C-6350–C-6359
 
 - [ ] **M9.61 — The US build's map client on an EU card: does the firmware in Marek's unit read Poland tiles**
   - Status: open · Owner: — · Critical: yes · Pair: required
@@ -4885,7 +4930,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: runs (1)–(4) are in an EXP with their end state and read lists; (2) is `SAME` as the EU-build run in file/position/length, or the first differing read and the US function that decides it are named with a control that flips it; `datask_l3.py --selftest` covers the build switch; `reader-coverage.md` says for which rows the verdict now holds on US2011.
   - Stop: if fewer than 90 % of the functions the mount enters have a `UNIQUE` US pair, record the list of unpaired ones and stop (then the task is a `fn_match` task first).
   - Falsifier: the US build mounts the US card but, on the EU card, stops before the first tile read with no error-log call — then the position/mesh table, not the file layer, is market-bound.
-  - Claims: C-6300–C-6309
+  - Claims: C-6360–C-6369
 
 - [ ] **M9.62 — One L3 number: a manifest of every card-level L3 run with its pinned verdict, and one command that re-runs it**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -4898,7 +4943,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `l3check.py --runs` on EU2011 (+US256 where a row needs it) prints one row per `l3-running` matrix row, all PASS, and the EXP has the wall time; a deliberately wrong expected verdict in a temp manifest gives FAIL and exit 1; without images every row is `NOT RUN` and the exit is 3; `map_signals.py l3_rows`, `progress_report.py` and the manifest agree on the count (a selftest compares them); `--selftest` runs without vendor data.
   - Stop: if a row cannot be reduced to one command with a stable verdict line, list it as `MANUAL` with its EXP and count it separately — never as PASS.
   - Falsifier: a `l3-running` matrix row with no manifest entry after this task.
-  - Claims: C-6320–C-6329
+  - Claims: C-6370–C-6379
 
 ## Retired leads
 

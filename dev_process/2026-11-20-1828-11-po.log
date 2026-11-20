@@ -13,7 +13,7 @@ actions, in order:
     they move next pass.
   - rule 15: re-opened M9.18 (its Unblock M9.53 merged as #349 at 18:28Z). Checked the other 24
     blocked tasks: none has a done unblocker; M4.51 stays blocked on M8.E4 by its own note.
-  - added M9.61 (C-6300-C-6309, pair required): datask_l3.py on the US2011 build against the EU
+  - added M9.61 (C-6360-C-6369, pair required): datask_l3.py on the US2011 build against the EU
     card. Precheck was run: the US file layer (vcard_l3.py boot --build us2011) mounts the EU
     card with the same volume-table hash as the EU build and 0 error-log calls.
   - M9.16 narrowed by a note to M9.60 + M9.61 (its chain already runs on a card image).
