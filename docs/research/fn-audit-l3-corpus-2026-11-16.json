@@ -375,12 +375,13 @@
   "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md",
+  "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 373,
+  "files": 374,
   "citations": 1090,
   "unique_va": 238,
   "start": 904,
@@ -675,7 +676,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2510,
+   "line": 2523,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -685,7 +686,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2514,
+   "line": 2527,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
