@@ -445,6 +445,7 @@
   "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+  "docs/experiments/EXP-2026-11-20-M9.33-rerun-prereqs-map.md",
   "docs/experiments/EXP-2026-11-20-M9.36-rerun-probes-pysh4.md",
   "docs/experiments/EXP-2026-11-20-M9.41-us-poi-row.md",
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
@@ -455,10 +456,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 448,
-  "citations": 1267,
+  "files": 449,
+  "citations": 1268,
   "unique_va": 298,
-  "start": 1111,
+  "start": 1112,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -11300,6 +11301,15 @@
    "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
    "line": 179,
    "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.33-rerun-prereqs-map.md",
+   "line": 79,
+   "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
