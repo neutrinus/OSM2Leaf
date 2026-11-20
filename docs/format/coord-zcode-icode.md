@@ -289,9 +289,11 @@ to these functions (EU2011, build A; `datask_l3.py mount --file REFER001`):
 
 Slot 4 `(512,60)` and slot 13 `(2308,1)` are the two refer-header slots above;
 the reader decodes them big-endian (the file's own byte order, unlike the
-little-endian code). These readers are content-bound: the same probe functions
-read a struct at the buffer address identically on a zero buffer and on four
-different files (C-5760), so the mount path is the reference, not the probe.
+little-endian code). The mount run is the content-bound reference: the probe
+candidates do not read file records — four of them touch a caller struct at the
+buffer address identically on a zero buffer and four files, and `0x004078e4`
+walks the global `0x00d77d20` node list, gated by the seeded `+0x18` word
+(C-5760).
 
 **ZCODE0nn.** Opener only: `fn 0x003fbed8(ctx, bits, n)` with search type 11/12
 resolves `ZCODE001/002/003.DAT` (C-4666, C-5764). No ZCODE record row appears

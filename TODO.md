@@ -2221,14 +2221,14 @@ in its first line.
 
 - [ ] **M3.30 — Drive the REFER *search* path (not the mount path) with search type 11/12 and watch the `ZCODE` parser; probe whether anything reads `COORD001`**
   - Status: open · Owner: — · Critical: no · Pair: required
-  - Depends: M3.29 (split the shared REFER list at run time)
+  - Depends: M3.29 (open). **Follow-on: cannot be taken until M3.29 merges `done`** — M3.30 reuses M3.29's per-family run for the search path and adds the `COORD001` probe; it is not independently takeable.
   - Goal: M3.14 (2026-11-20) found the mount state machine never reads `ZCODE0nn` or `COORD001` (no row at two positions, C-5764/C-5765), so the record walker is on the search path. Run the caller of `0x003fbed8` that issues the search (`0x003fc0ec`/`0x003fc518`, C-4666 note) with search type 11/12 on a real `ZCODE0nn`, watch the parser, and record any `COORD001` read at all.
   - Precheck: `tools/read_watch_l3.py --selftest` and `tools/vcard_l3.py --selftest` pass; `vcard_l3.py trace 0x003fbed8 --ctx 124=11` resolves `ZCODE001` (C-5764).
   - Scope: EU2011 `Navi.exe`; the search-message handler subtree of `0x003fbed8`; one `ZCODE0nn` file and `COORD001.DAT`. Excludes the mount path (already covered by M3.14).
   - Input: `docs/experiments/EXP-2026-11-20-M3.14-zcode-icode-coord.md`, C-4666, C-3546, `tools/datask_l3.py`, `tools/read_watch_l3.py`, `tools/vcard_l3.py`.
   - Done when: a function that reads `ZCODE0nn` record bytes in the search run is named with offsets/widths, or the run records why the search path reads nothing (message wait, missing model); and `COORD001` has either a reader VA or a recorded "not read by `Navi.exe` on the mount or search path".
   - Stop: if two search-message attempts return no `ZCODE` row and the read issuer does not reach a parser, write the negative with the message ids and stop.
-  - Claims: C-5770–C-5779
+  - Claims: C-5780–C-5789
 
 ## M4 — Data formats (no firmware or hardware needed)
 
