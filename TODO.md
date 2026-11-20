@@ -1236,7 +1236,7 @@ in its first line.
   - Claims: C-3620–C-3629
 
 - [ ] **M1.24 — `sh4literal`: one literal-pool scan that reports referenced vs unreferenced 32-bit words**
-  - Status: in progress · Owner: task/m1.24-sh4literal · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Depends: — (uses `sh4dis`/`pdata` when the image is given)
   - Goal: three recent negative results ("never read") rest on ad-hoc sec0 literal surveys pasted into EXPs (M3.13 pass-3; M3.11c/M3.15 earlier) and are not reproducible from the repo. Replace them with one tool so "literal X appears in no pool" is a command, not a story.
   - Precheck: `python3 tools/sh4scan.py --selftest` passes; `grep -n "def load_literals\|class.*pool\|literal" tools/sh4xref.py` shows the pool resolver to reuse.
@@ -1826,7 +1826,7 @@ in its first line.
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
   - Unblock: M3.23 (2026-11-20) candidates. `ICODE` (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x00401e94`, `0x004082cc`, `0x00402690`, `0x003f6c88`, `0x003f0c7c`, `0x00407724`, `0x003f07f8`, `0x004078e4`, `0x003f08cc`, `0x00409ba0` (3 are C-4694 loaders). `ZCODE`/`COORD` have no static anchor of their own (ctx +124 = 11/12 in `0x003fbed8`; `COORD001` unnamed): shared REFER list `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (C-3546). Confirm with M9.38 / M3.29.
-  - Status: blocked · Owner: claude/m3.14-reader-layout · Critical: yes
+  - Status: open · Owner: — · Critical: yes · Pair: solo
   - Note (M3.25, 2026-11-19): `ICODE001.DAT` and `ICADM001.DAT` are read during the mount run and the functions that load their bytes are listed in C-4694 (`datask_l3.py mount … --file REFER001`); positions are in the decompressed file.
   - Note (M3.28, 2026-11-19): openers found without M1.2f: `ZCODE` = `0x003fbed8` with search type 11/12; `ICODE001` = `0x003f2cc0`, reads through `0x003efe10`/`0x003f0400`/`0x003f2828`; `COORD001` has no name reference in `Navi.exe` at all (C-4666, C-4669, C-4677). The blocker on M1.2f no longer holds for the first two: reopen from these functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
@@ -1854,7 +1854,7 @@ in its first line.
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
   - Unblock: M3.23 (2026-11-20) candidates (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x0040dd40`, `0x0040de98` (rank 2; the M9.38 reader, C-3607), `0x004125a8`, `0x00409cc8`, `0x0040b358` — the whole loop set below `0x004125a8` is these five (C-3544). Next is the record walk behind `0x003fc0ec`/`0x003fc518` (search type 1), which only a run separates (M3.29).
-  - Status: blocked · Owner: task/m3.15-lctbl-reader-reopen · Critical: yes
+  - Status: open · Owner: — · Critical: yes
   - Note (M3.28, 2026-11-19): `LCTBL001.DAT` is opened by `0x003fbed8` when the search type is 1 and ctx +104 is `0x14e4` (run on the card, C-4667), besides the literal in `0x004125a8`. The record walk is behind the read issuers `0x003fc0ec`/`0x003fc518`. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (M9.38, 2026-11-19): dynamic reader list on the plain `RDSTM001/LCTBL001.DAT` (7,489,024 B): of the four candidates `0x003f020c`/`0x0040dd40`/`0x0040de98`/`0x0040b358` only `fn 0x0040de98` (`GAP@0x0040de96`) reads it — six reads, widths 4/4/2 at offsets `+0x8/+0x4/+0x2` (read twice, two passes) — plus the shared header read `0x004125a8` `+0x8` (2-byte). C-3607, EXP-2026-11-19-M9.38-read-watch.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52). The two character-set strings found in sec1 `INIT` (M3.24) are a lead for the name encoding.
@@ -1872,7 +1872,7 @@ in its first line.
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
   - Unblock: M3.23 (2026-11-20) candidates, shared with `ADDRE`/`ZCODE` because the family is ctx +124 at run time (`python3 tools/callgraph.py rank g.json --edges e.json --depth 6 --family REFER=0x00400014,0x004000e8,0x004001bc,0x004003f4,0x004005f8 --family POINT=0x003ffe80 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0`): `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (library `0x0054233c`/`0x005468d4`/`0x0054705c` dropped); the read issuer `0x003fc518` is rank 15 (C-3545, C-3546). Split per family with M3.29.
-  - Status: blocked · Owner: task/m3.16-inter-frway-readers-r2 · Critical: no
+  - Status: open · Owner: — · Critical: no
   - Note (M3.28, 2026-11-19): openers run on the card: `0x003fbed8` with search type 4 (`INTER`) and 3 (`FRWAY`); the reads come from `0x003fc0ec` and `0x003fc518` (C-4666). The two signature searches that found nothing can be replaced by following those two functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Blocker: no content reader VA consuming INTER/FRWAY 12-byte table / blob fields found in decodable build-A Navi.exe sec0 (5.56 MB, 0 compressed exec sections, C-2128) after two structural writer-inverse signature families (12-byte scan + 0xffff@+8 + add#12; 0x1108 construction) returned 0 hits; consumed-field mapping unknown (C-2211–C-2213). Shared REFER001 access path is confirmed (C-2210).
@@ -1893,7 +1893,7 @@ in its first line.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
   - Unblock: M3.23 (2026-11-20): no static root of their own was ranked. `ICADM001` loads appear in the `ICODE` list below `0x003f2cc0` (C-4694 mixes both: `0x003f0c7c`, `0x003f07f8`, `0x003f08cc`, `0x003eff20`); the name builder `0x003f1640` (C-2381) is the root to rank next (`callgraph.py rank g.json --family ICADM=0x003f1640 …`). `ZIPFR001`: shared REFER list of C-3546. Confirm with M9.38 / M3.29.
-  - Status: blocked · Owner: task/m3.18-icadm-zipfr-readers-r2 · Critical: no
+  - Status: open · Owner: — · Critical: no
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
     families and the same compression wall)
