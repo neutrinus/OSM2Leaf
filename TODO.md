@@ -912,8 +912,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Falsifier: a `grep -c`-backed `stays 12` whose command prints 15 is not `STALE COUNT` with exit 1, or a correct `15 at <sha>` row goes red.
   - Claims: C-4150–C-4159
 
-- [ ] **H93 — H90's EXP still has an empty "Corrections after navigator review" section**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H93 — H90's EXP still has an empty "Corrections after navigator review" section**
+  - Status: done · Owner: task/h93-h90-corrections-2 · Critical: no · Pair: required
   - Depends: H90 (the EXP it repairs is on `main`)
   - Goal: H90 was `Pair: required` and the navigator round happened (TL log `2026-11-17-0859-42-tl.log`, commit `4e7ea5d`), but `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` still ends with `## Corrections after navigator review` and `(empty until the navigator round returns)`. A reader cannot tell the record was paired, and an empty placeholder looks filled — the defect class `prompt_tl.txt` now names.
   - Precheck: `grep -A1 'Corrections after navigator review' docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` prints the `(empty until …)` line.
@@ -924,19 +924,21 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if the TL log's two flags cannot be quoted without a vendor byte or a typed number, delete the heading and record why in the EXP, then stop.
   - Falsifier: the empty-placeholder grep still prints after the edit.
   - Claims: C-4190–C-4199
+  - Result: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` § Corrections after navigator review now quotes the TL log's two flags and where `4e7ea5d` applied each: (1) 12 consecutive red pushes `1889340`…`2b3d1b4`, last green `3f9c0b2` (Question, Inputs, Interpretation, C-4130, H90 Goal); (2) the depth-1 recipe pinned to the pre-fix tree. `4e7ea5d` had pinned only C-4131, so the Reproduction block is corrected in place to a depth-1 fetch of `3d79bcc`. Re-run 2026-11-20: shallow (1 commit) `count mismatches: 9`, exit 1; `--unshallow` (809 commits) `0`, exit 0. The placeholder is gone; no claim rows (C-4190–C-4199 unused). The Method's "five `main` pushes" line and the step-2 clone stay for H94.
 
 - [ ] **H94 — H90's EXP sat "done" with hand-typed counts and a broken commands section**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: H90 (the EXP it repairs is on `main`; H93 owns the navigator section only)
   - Goal: make H90's EXP re-runnable as written — every count quoted from a command that prints it, the clone recipe one copy-pasteable block that still demonstrates the defect, and the failed-run count consistent with C-4130.
   - Note (SE 2026-11-17): the SE re-ran H90's Done-when (b)-(e) and all pass, but three EXP defects survived the pair: the Record `809 commits, pack 3.2 MiB` and `Tools: git 2.5x, python3 3.15` are typed, not from a command (AGENTS "every number is quoted"); the Method command block lists `git clone … /tmp/x && cd /tmp/x` then a second `git fetch --unshallow` line that would run in the wrong cwd; and "the five `main` pushes whose run failed" contradicts the nine `COUNT` lines and the twelve red pushes the same EXP states. The recipe also now fails as written: on today's `main` a depth-1 clone prints `count check: skipped`, not `9` (C-4131 covers this, the Reproduction block does not).
+  - Note (H93, 2026-11-20): the Reproduction block is already done by H93 (#377). It is a depth-1 fetch of `3d79bcc` itself and prints 9 mismatches/exit 1 shallow and 0/exit 0 after `--unshallow`. The Reproduction clause is dropped from this task's Scope and Falsifier; the Precheck's clone line describes the state before H93.
   - Precheck: `grep -nE '809 commits|git 2\\.5x|python3 3\\.15|five .main. pushes' docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` prints the typed lines; `rm -rf /tmp/x && git clone --depth 1 file://$PWD /tmp/x && (cd /tmp/x && python3 tools/claims_check.py --strict --count-check | tail -1)` prints `claims_check: OK`, not the `9` the Reproduction says.
-  - Scope: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` only: quote `git rev-list --count 3d79bcc` and `git count-objects -vH | grep size-pack`; state the interpreter `python3 -V` prints and `git --version`; collapse the two-line clone recipe into one `( cd /tmp/opencode/x && … )` subshell; change "five" to the actual failed-run count the `gh run list` prints; replace the Reproduction block with the pinned-tool rev from C-4131 (`git show 3d79bcc:tools/claims_check.py` into the depth-1 clone) or mark it "does not reproduce on today's main, see C-4131". No claim rows; H93 owns the navigator section.
+  - Scope: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` only: quote `git rev-list --count 3d79bcc` and `git count-objects -vH | grep size-pack`; state the interpreter `python3 -V` prints and `git --version`; collapse the two-line clone recipe into one `( cd /tmp/opencode/x && … )` subshell; change "five" to the actual failed-run count the `gh run list` prints. No claim rows; H93 owns the navigator section.
   - Input: the H90 EXP, `docs/experiments/TEMPLATE.md`, C-4131/C-4135, `git rev-list --count`, `git count-objects -vH`.
   - Hints: the `12` in C-4130/C-4131 and the H90 Goal is correct (`gh run list` shows twelve `failure` rows before the first post-fix `success`); the "five" is the only run-count defect. Do not re-pin C-4135's `809`/`3.2 MiB` to `main`'s today value — the claim names `3d79bcc`, so quote the number at that commit and say so.
   - Done when: `grep -cE '809 commits|5x|3\\.15|five .main. pushes'` on the EXP is 0 or each hit cites the command that printed it; the clone recipe is one copy-pasteable block and H90's Done-when (b)-(d) still pass as run in H94's EXP. `python3 tools/claims_check.py --strict --count-check` and `todo_check.py` OK.
   - Stop: if the count really cannot be shown from a command at `3d79bcc`, delete the number and point at C-4135 instead of retyping it.
-  - Falsifier: the typed `809 commits`/`3.15` strings remain, or the Reproduction block still prints `count mismatch` on today's `main`.
+  - Falsifier: the typed `809 commits`/`3.15` strings remain.
   - Claims: C-4200–C-4209
 
 - [x] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
@@ -1052,8 +1054,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Result: EXP-2026-11-16-M1.22b-eu-us-census; C-3620–C-3629. Of the 8 NOMATCH, **6 are matcher misses**: identical masked instruction-form stream with a unique US twin and only literal-pool values moved (`0x0041a438→0x0044219c`, `0x00419350→0x004410b4`, `0x004125a8→0x0043a378`, `0x0040b358→0x00433458`, `0x003bc960→0x003ec274`, `0x003f61bc→0x0041eb1c`); `0x003fbed8` (ADDRE resolve) is a **genuine rewrite** (`bf` vs `mov.l @(pc),r3` at `+0x16c`, 8 vs 7 calls, no form twin) and `0x003f5194`'s leaf stays one pool word (`0x4e8→0x4d8`). Census `unique 5 / different 7 / nomatch 1`; EU-vs-EU control `13/13 UNIQUE`. `fn_match` gains `_pool_only_twin` (33 selftest checks incl. two false-positive shapes), the frozen fixture re-pins the six rows and replays `13 rows, 0 mismatch`, `targets.json` gains `build` (validated), and M9.10 now names the US POINT walker/accessor VAs. The old `≥90 % UNIQUE` floor is **not met** (`38 %`) and is reported as a data-layout metric — 12 of 13 cited readers are located, 5 exactly and 7 with a justified same-code/different-constant pairing.
   - Claims: C-3620–C-3629
 
-- [ ] **M1.24 — `sh4literal`: one literal-pool scan that reports referenced vs unreferenced 32-bit words**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M1.24 — `sh4literal`: one literal-pool scan that reports referenced vs unreferenced 32-bit words**
+  - Status: done · Owner: task/m1.24-sh4literal · Critical: yes · Pair: required
   - Depends: — (uses `sh4dis`/`pdata` when the image is given)
   - Goal: three recent negative results ("never read") rest on ad-hoc sec0 literal surveys pasted into EXPs (M3.13 pass-3; M3.11c/M3.15 earlier) and are not reproducible from the repo. Replace them with one tool so "literal X appears in no pool" is a command, not a story.
   - Precheck: `python3 tools/sh4scan.py --selftest` passes; `grep -n "def load_literals\|class.*pool\|literal" tools/sh4xref.py` shows the pool resolver to reuse.
@@ -1062,7 +1064,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Hints: M3.13's `:;:` (`0x3a3b3a`), `01 f4 00 00` (`0x0000f401`/`0x01f40000`), `4e 20 00 00` (`0x0000204e`/`0x4e200000`), `0x0000ff00`, `0x0000c000`, `0x0000a000` are the regression corpus — the tool must reproduce M3.13's "0 references" for the first three and its "1 reference" for `0xc000`. Positive control: a known-referenced literal (e.g. `LCTBL001.DAT` address at `0x0017a1f8` loaded by `fn 0x004125a8`).
   - Done when: the tool reproduces the M3.13 corpus in an EXP, including whether the constants appear in **decoded sec1/sec2** (a column the pass-3 EXP lacked); `--unreferenced` on `Navi.exe` sec0 gives a count; selftest covers direct/PC-relative/pool-in-data and a false pool word; `--parent-of VA` prints the true enclosing `fn` start from the pool walker's own operand data (so `0x0041c7e8` prints `0x0041c7dc`), and that command is the re-check H63's `Pin:` line names.
   - Stop: if `nk_decomp` cannot decode a target section, print `NOT SEARCHED (section N)` — never fold it into "absent".
-  - Claims: C-3630–C-3639
+  - Claims: C-5980–C-5989 (was C-3630–C-3639; fresh block for this run)
+  - Result: EXP-2026-11-20-M1.24-sh4literal; C-5980–C-5988 (C-5989 reserved). `tools/sh4literal.py` (`find`/`bytes`/`--range`/`--unreferenced`/`--parent-of`/`--parent-audit`, `--json`, 21-check `--selftest`) on `archive/head256.img` (`92aa525d…`) `Navi.exe` EU2011 sec0 + decoded sec1/sec2 (5,712,528 B): M3.13 corpus reproduces — `0x0000f401`/`0x01f40000`/`0x0000204e`/`0x4e200000` 0 pool words module-wide, window `0x003f5000`–`0x003f7000` `0x0000ff00` 0 loads and `0x0000c000` 1 (`0x003f56ec`); module-wide `ff00` 42 / `c000` 82 loads (pass-3 counts are window-scoped); `:;:` 5 occurrences (4 sec0 + 1 decoded sec1 `0x005621d5`), none pointed to; decoded sec1/sec2 add no reference. `--unreferenced` 13,015 not PC-relative-loaded words in 12,562 pool blocks (navigator fix: 3,276 `pointed` by a held address, 9,739 unreferenced; `--h118-compare` 135,975 shared pool halfwords with `fn_match.pool_slots`, 836/189 differ). `--parent-of 0x0041c7e8` → `0x0041c7dc`, `0x00542256` → `0x00542250` (H63 Pin re-check), walker vs `.pdata` 7,507/7,596 agree (1.17 % differ). New: `0x4e20` is a 16-bit `mov.w` literal twice in the window (`0x003f51c2`, `0x003f5bcc`), outside C-970's 32-bit search (C-5986).
 
 - [x] **M1.26 — `fn_audit --scope l3`: turn H52's audit into the standing PR gate the M1.25 plan skipped**
   - Status: done · Owner: task/m1.26-fn-audit-scope-l3 · Critical: yes · Pair: required
@@ -1620,7 +1623,10 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-5110–C-5119 (was C-2920–C-2929 (was C-2548–C-2549, overlap with M3.11b fixed by H24); fresh block for this run)
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m3.13-addre-reader · Critical: yes · Pair: required
+  - Blocker: C-971/C-972 (directory, cells), the block-1 bytes (coordinate id, point tokens, C-976) and the range item body (C-975) are neither mapped to a consuming instruction nor shown never-read (navigator review 2026-11-20).
+  - Unblock: M3.32 (block-1 and item consumers) + M3.30 (search path: directory/cells/index).
+  - Result: EXP-2026-11-20-M3.13-addre-reader-l3 (C-5930–C-5939; blocked, real progress). The reader is the generic `REFER001` field accessor: the `0x14e4` writer `fn 0x003fd390` (search type 2) stores page → `+0x14`/`+0x2c`, dictionary (= the schema block: `area code`, `street name`, `dndc-id`) → `+0x18`; `fn 0x003f61bc`/`fn 0x003f5d98` return the fields of 3,650 EU2011 and 57,180 US2011 factory records (all match `addre.py`), and of two edited blocks. `TT LL 00 ff` is the field-length block, `rec[2]`/`rec[3]` the word counts of block 1 and of the length-prefixed range items, record length `2*(w & 0x3ff)` (`c1` = `L ≥ 256`; 43,602/43,602 EU2011 blocks framed). `refer.md` holds the field → instruction table; not located: readers of the bytes inside block 1 and range items (M3.32) and of directory/cells/index (search path, M3.30). `fn 0x0040b358` is a path lookup.
   - Re-opened (rule 15, PO 2026-11-20): the `Unblock` below is met. The `0x00d53500` slot table is filled at run time by the M3.22 writer and M3.11c ran the `POINT` accessor on it (C-5110–C-5117); M9.38 lists the functions that read a decoded `ADDRE001` blob (C-3606) and M3.28 names both openers (C-4666, C-4670). What remains is this task's own `Done when` on `ADDRE`: bind the slots as M3.11c did, run `0x003f56bc`/`0x0040b358` on one record and name the fields read. Start from `python3 tools/read_watch_l3.py --help` and `python3 tools/vcard_l3.py trace`.
   - Note (M3.28, 2026-11-19): `ADDRE` has two openers, both run on the card: `0x003fbed8` with search type 2 and `0x004011a0(n)` → `ADDRE0<n+1>.DAT` (caller `0x00401ff8`, which also issues the read) (C-4666, C-4670). Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (M9.38, 2026-11-19): dynamic reader list on the decoded `ADDRE001` blob (48,852 B): `fn 0x003fbed8` reads `+0x68` (4-byte) and calls `GAP@0x003f9254` which reads `+0x7c` (4-byte); `fn 0x004125a8` reads `+0x8` (2-byte). `0x003f56bc` and `0x0040b358` read 0 bytes at these entries (both need the BSS `0x00d53500` slots bound — the same context M3.11c names), and `0x0040114e` stops on an FPU `IllegalInstruction` at `0x00401150`. C-3606, EXP-2026-11-19-M9.38-read-watch.
@@ -1653,7 +1659,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: `refer.md` names the reader VA(s) and maps each grammar field
     (C-970–C-979) to the instruction that consumes it, or lists the fields
     the firmware never reads.
-  - Claims: C-2180–C-2189
+  - Claims: C-5930–C-5939 (was C-2180–C-2189; fresh block for this run)
   - Note (SE 2026-11-13): the pass-3 EXP `EXP-2026-11-12-M3.13-addre-reader-3` is the current record; its status line said "done (partial)" and was corrected to `blocked`. Its "never read" labels (C-970/C-975/C-977) are scoped to **sec0 literal pools**; `Navi.exe` sec1/sec2 (decoded by `nk_decomp`) were not searched, so do not read them as "the firmware never reads these".
   - Result: `EXP-2026-11-08-M3.13-addre-reader-2.md` (C-2180–C-2187, partial; refines `EXP-2026-11-06-M3.13-addre-reader.md`). Writer-implied native `u16` class-mask signature finds `fn 0x003f56bc` (Navi.exe sec0, `0x003f56ec`) — sole `*r5 & 0xe000 >= 0xc000` (`cmp/hs` literal `0xc000`, 1/82 loads) gate, accepts ADDRE `c0/c8/c1` (C-973 tag-class mapped). Resolves via `0x003f51e0` (`0x00d53500`, POINT family); callers `0x003f5d98`/`0x003f61bc`. C-970–C-972, C-974–C-977 + sequential `2*L`/token consumers not mapped (done-when not met). L3: `0x0040b358`→`-1`, `0x0040114e` FPU-unmodelled. `refer.md`/`firmware.md`/`reader-coverage.md`/`claims.md` updated.
 
@@ -2040,6 +2046,18 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: the branch that leaves `B60R048R` is named with its VA and the header field it tests, and a run that changes that field (or the position) makes the mount read `B60R048R`'s section tables.
   - Stop: one session; if the choice depends on a table filled by a task not in the run, name the table and its writer and block.
   - Claims: C-6080–C-6089
+
+- [ ] **M3.32 — Who reads the bytes inside an `ADDRE` record's point block and house-range items**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M3.13 (done)
+  - Goal: M3.13 located the record reader and the leaves that return block 1 (`rec+4`, `rec[2]` words: coordinate id + point tokens `TT 40 XX YY`) and range item `i` (`fn 0x003f5624`), but not the code that reads the bytes inside them (C-5938). Run the callers and name the instructions that read the coordinate id, a point token and a range item's `subtype`/`:N:;:M:` text, so the writer (M5.18) knows which of those bytes the firmware uses.
+  - Precheck: `python3 tools/addre_field_reader.py run archive/head256.img --cmp <EU ADDRE001.DAT.cmp> --build eu2011` passes (the bound context), and `python3 tools/sh4xref.py archive/head256.img Navi.exe --to 0x003f5624` lists `fn 0x003ad680`, `fn 0x003ad9a4`, `fn 0x003b9d38`, `fn 0x003bacc4`.
+  - Scope: EU2011 `Navi.exe`, the four callers above and their callees (`fn 0x003ad440`, the `0x003c5bxx` setters); one bound `ADDRE001` block, read watch on the page. Out of scope: the directory/cells/index search path (M3.30).
+  - Input: EXP-2026-11-20-M3.13-addre-reader-l3, `tools/addre_field_reader.py` (`build_context`), `tools/l3_harness/engine.py` read watch, `tools/sh4dis.py`.
+  - Done when: an EXP lists, for record 0 of ADDRE001 block 0, every instruction that reads a byte of block 1 or of a range item, with the byte offset and what it computes; `docs/format/refer.md` field table updated; or a blocked EXP naming the input the callers need.
+  - Stop: one session; if a caller needs a context object nothing builds, name it and block.
+  - Falsifier: a caller that reads none of these bytes when given a record with points and ranges.
+  - Claims: C-6040–C-6049
 
 ## M4 — Data formats (no firmware or hardware needed)
 
