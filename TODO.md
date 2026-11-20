@@ -1431,7 +1431,7 @@ in its first line.
   - Claims: C-5720–C-5729
 
 - [ ] **H116 — the DOCS BASE corpus pins citations inside *done* TODO blocks, so archiving a finished task reddens the standing gate on a host with the image**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h116-archive-vs-docs-base · Critical: no · Pair: required
   - Depends: — (found by the cycle-17 PO archive pass, 2026-11-20)
   - Goal: `tools/fn_audit.py --corpus docs/research/fn-audit-corpus-2026-11-16.json` (DOCS BASE) discovers VAs in `TODO.md` as a whole, including blocks whose `Status: done`. The PO rule ("archive done blocks >24 h old that no live task names") therefore cannot be followed: moving 9 such blocks to `docs/research/todo-history-2026-11-20.md` changed the docs-base identity set by `0 new / 17 gone / 151 moved` and made `tools/selftest.py`'s `fn_audit_l3_image` fail on a host with `archive/head256.img`. CI skips that suite (no image), so the regression is invisible to CI and only bites the TL/QA gate run. Archiving must be safe: a done block's VAs are history, not live citations.
   - Precheck: on a clean `origin/main` with `archive/head256.img`, copy 5 done blocks out of `TODO.md` into a scratch file and run the corpus command above — expect `CORPUS STALE: ... gone`; restore and it is `0 new / 0 gone`. Confirms the corpus covers done blocks.
