@@ -1,0 +1,52 @@
+role: driver (M3.29), model opencode/deepseek-v4.1-flash-free, subagent of a driver session
+start: 2026-11-20 15:xx UTC  end: 2026-11-20 16:21 UTC (approx)
+origin/main at start: 2e683be (Merge pull request #327 from task/m4.54-sec2-read-watch)
+
+inputs read: AGENTS.md, TODO.md rules 1-16 + M3.29 block, docs/experiments/
+TEMPLATE.md, EXP-2026-11-20-M3.23-callgraph-readers.md, C-3540/C-3544/C-3545/
+C-3546/C-4666/C-4694/C-4697/C-3259, tools/datask_l3.py (complete/read watch),
+tools/vcard_l3.py (Session/openers), tools/callgraph.py rank.
+
+worktree: /home/marek/projekty/OSM2Leaf.task-m3.29-refer-family-split, branch
+task/m3.29-refer-family-split off origin/main, archive/ symlinked; never touched
+the primary checkout for this task (a tool draft first landed in it by mistake
+and was deleted there before any commit).
+
+actions, in order:
+- claimed: changed only the M3.29 line to in progress + Owner, committed
+  `todo: start M3.29`, pushed -u, opened draft PR #341 (rule 2/3).
+- built the call graph to scratch (8937 functions / 21344 direct edges = C-3540).
+- wrote tools/m3_29_family_readers.py (run, openers, --selftest) on top of
+  datask_l3.py's DataTask and M9.38's read watch; did not modify datask_l3.py
+  or vcard_l3.py.
+- `run` on the EU card: the boot reads POINT001/ICODE001/ICADM001 only and ends
+  `both tasks idle` with message 0x1507 undelivered; no ADDRE/FRWAY/INTER/
+  ZCODE/COORD read. Nine confirmed readers grouped by read tag.
+- `openers`: 0x003fee70 names POINT001/ADDRE001/FRWAY001(abs)/INTER001/
+  ZCODE001 and queues 0 reads (r0=0x1) for every family.
+- recall: ICODE 3/9 by the tool (0x3eff20/0x3f07f8/0x3f0c7c); re-running the
+  QC query on the same g.json moves 0x003eff20 to the 11th ICODE candidate
+  (0x00409cc8 is rank 2), so the true top-ten recall is 2/9; POINT/REFER/LCTBL
+  0/9. M3.23's prose placing 0x003eff20 in the ten is a doc error (C-5626).
+- extended `run` to report COORD too (no ctx+124 value/opener), and removed the
+  dead OPENER dict; selftest grew to 5 checks.
+- EXP-2026-11-20-M3.29-refer-family-split.md (blocked: the Stop rule fired),
+  claims C-5620-C-5629, firmware.md run-time split table, reader-coverage rows
+  7/8/9/11/12/13, TODO M3.29 Status blocked + Unblock M9.52->M9.53 + Result.
+
+decisions: M3.29 is `blocked`, not `done` — the Done-when's recall half is met
+but the intended per-family split is not: the Stop rule says "if no family but
+POINT/LCTBL reads its file, record the message and stop", and the four
+families' readers cannot be produced until the mount finishes (M9.52) and a
+map request is issued (M9.53). COORD001 is closed to this split (no opener).
+
+problems: the recall denominator (nine confirmed readers) and M3.23's prose
+disagree by one candidate; recorded as a correction rather than a new fact.
+Scratch kept under ~/projekty/leafre-work/scratch/m3.29 (no /tmp). No vendor
+data committed.
+
+gate: selftest PASS, claims_check PASS, todo_check PASS, fn_audit PASS (4/4).
+
+handoff: when M9.52 answers 0x1507 and M9.53 delivers the 0x14b5 record
+request, re-run `m3_29_family_readers.py run` with that request to split the
+four families; and fix the M3.23 EXP's 0x003eff20 placement on its next touch.

@@ -91,7 +91,7 @@ The firmware has drivers for exactly that set (`UsbOhci`, `SDHC`, `CAN`,
 | `0xffe40000`–`0xffe48000` | `serial_scif` | SCIF channels (8, stride `0x1000`) | yes: `hw/char/sh_serial.c` |
 | `0xffe46000` | nk | **kernel debug serial**: polls `SCFSR` (`+0x10`) for `TDFE` (`0x20`), writes `SCFTDR` (`+0x0c`), clears `TDFE`/`TEND` | yes: `sh_serial.c` has the same layout |
 | `0xffe4c000`, `0xffe4d000` | `SDHC`, nk | two SD host controllers | **new model** (no Renesas SD host in QEMU) |
-| `0xffe70000`–`0xffe7081c` | nk | unknown; first boot blocker (reset, then poll `+0x808` until bits 31:30 set) | stub |
+| `0xffe70000`–`0xffe7081c` | nk, `UsbOhci` (`RegBase` `0xffe70400`) | USB host block (C-6415, HYPOTHESIS); first boot blocker (reset, then poll `+0x808` until bits 31:30 set) | stub |
 | `0xfff80000`–`0xfff80018` | nk | unknown | stub |
 
 ### Boot chain

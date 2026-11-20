@@ -1,0 +1,44 @@
+role: driver (H115)
+model: airouter/strong (deepseek-v4.1-flash-free)
+start: 2026-11-20 14:55 UTC
+end: 2026-11-20 15:40 UTC
+origin/main at start: 2e683be (Merge PR #327, m4.54-sec2-read-watch)
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md H115 block,
+tools/fn_audit.py (_open_blocks, citations_open_tasks, fenced_lines,
+live_todo_lines), tools/selftest.py (fn_audit cases), docs/experiments/
+TEMPLATE.md, docs/research/claims.md (H116/H117 rows).
+
+actions:
+- fetched, confirmed H115 open and no open PR claimed it; claim commit
+  `todo: start H115` pushed, draft PR #344 opened.
+- reproduced both defects: template header at TODO.md:209 counted as a block
+  (116 blocks), a fenced VA under a live block cited.
+- made _open_blocks derive fenced_lines (skip fenced headers/boundaries) and
+  citations_open_tasks skip fenced lines; updated the module docstring.
+- added 6 --selftest checks (fenced template not a block, fenced VA not cited,
+  unfenced labels live, done block control, same VA unfenced cited).
+- real board: open blocks 116 -> 115 (contributing 7, citation lines 14
+  unchanged); frozen corpora 0 new / 0 gone (1076 l3 / 521 docs rows), no
+  re-freeze needed.
+- negative control: injected 0x004125a8 in a fence in the H115 body; old code
+  cites TODO.md:1428, fix does not.
+- wrote EXP-2026-11-20-H115-fn-audit-fence.md, C-5720-C-5723, H115 Result.
+- gate caught my EXP saying `fn 0x…` for the control VAs; rewrote them as bare
+  ctx values and re-ran until gate was 4 pass / 0 fail / 0 skip.
+
+decisions:
+- kept UNCLOSED fences hiding nothing (H77) rather than inventing a new rule.
+- fenced lines are part of a block span (skipped, not a boundary) so labels
+  before and after a fence stay live.
+- no snapshot re-freeze: no real cited row was ever fenced.
+
+problems:
+- first EXP draft added 3 l3 rows by spelling control VAs as live `fn` labels;
+  the gate named them, fixed by bare-VA prose. Cost one gate cycle (~2 min).
+- gate timeout at 120 s; rerun with a 300 s timeout.
+
+handoff: PR #344 is ready to review/merge (driver does not merge). Pair review
+should confirm the negative mutation (old cites, new does not) and that 115/7/14
+is the board number at this revision; the moved counts (22 docs / 15 l3) are
+prose drift from the Result line, not stale rows.

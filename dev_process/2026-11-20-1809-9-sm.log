@@ -1,0 +1,45 @@
+role: SM (Scrum Master), cycle 18 (roles SM -> SE -> PO -> QA; TL excluded on request)
+model: Claude Fable 5.2
+start: 2026-11-20 18:09 UTC
+origin/main at start: 99aa93a
+branch: claude/project-thread-alhsg9 (one branch and one PR for the four role runs)
+
+inputs read: prompt_common.txt, prompt_sm.txt, prompt_se/po/qa/tl.txt, AGENTS.md, TODO.md rules
+  and Priorities, docs/retro/2026-11-20.md, dev_process logs 2026-11-20-1019..1623 (names in the
+  retro), open PR list (21), CI run list for main (100 runs), git log 8f18cbf..13cb0cf.
+
+actions, in order:
+  - claim: pushed the header commit and opened draft PR #388 before reading anything, so the
+    three running batches see this cycle.
+  - fetched IMG256 into archive/ (SHA-256 verified) so gate.py does not SKIP fn_audit.
+  - measured the window: 44 PRs merged, board diff 34 done / 9 blocked / 8 re-opened / 19 added,
+    0 in-progress lines on main, 0 ghost claims, CI 47 success / 5 cancelled / 0 failure.
+  - found the lead: six ready PRs (#338 #339 #340 #341 #344 #349) are 21-35 merges behind main
+    and five of them conflict; cause is that every task PR rewrites the two generated fn_audit
+    snapshots (85 and 88 commits touched them in 8 h; 25 re-sync commits; 87 merge-main commits).
+  - checked the claimed tasks' Depends: #385 M5.59, #386 M4.27, #387 M4.35 run on blocked deps.
+  - checked rule 15 on all 25 blocked tasks: none has a done unblocker (M4.51 stays blocked on
+    M8.E4 by a dated note; an earlier draft of the retro called it owed, corrected before merge).
+  - wrote docs/retro/2026-11-20-2.md (numbers table, judge, 3 prompt changes, 5 actions).
+  - prompt edits (before/after in the retro): prompt_common.txt rules 1-16 -> 1-17 and the
+    work-log clarification (developers write no log; a thread batch is a TL run);
+    prompt_tl.txt "clear the queue first"; AGENTS.md rules 1-16 -> 1-17.
+
+decisions / rejected:
+  - did not merge or rebase other sessions' PRs: they belong to running batches; reported.
+  - did not file an H task for "driver log count" (last retro's action 2): the rule never
+    required driver logs; clarified the rule instead (rule 17: no H task for a record defect).
+  - did not count tile_bytes / card_step: map_signals prints NOT RUN here (no factory tree).
+  - the cited dev_process/2026-11-20-1514-6-tl.log exists on no branch; reported, not recreated.
+
+problems:
+  - main moved while measuring (99aa93a -> 13cb0cf); merged it into the branch (force-push is
+    refused in this sandbox, so merge, not rebase).
+  - gh GraphQL is unavailable here; main_watch.py was fed a saved run list (--runs-json).
+
+handoff:
+  - SE: file the snapshot-conflict task (retro action 2) and check the window's EXPs.
+  - PO: group M3.13/M3.14/M3.16/M3.18 under M3.29; Priorities are stale
+    (M9.52, M9.36, M9.14, M4.16, M4.31, M5.56, M3.31 are done).
+  - QA: CI on main is green; the queue, not the gate, is the bottleneck.
+end: 2026-11-20 18:14 UTC

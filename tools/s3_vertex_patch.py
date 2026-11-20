@@ -399,12 +399,19 @@ def selftest() -> int:
             check("refuses " + name, False)
         except PatchError as exc:
             check("refuses " + name, True, str(exc))
-    # COMP TOO BIG: (+40, 0) recompresses to 48 B > the 46 B stream
+    # COMP TOO BIG: recompressed stream must not exceed the original slot.
+    # The overflow case is zlib-implementation-sensitive (stock 1.3.1 vs
+    # zlib-ng / newer runtimes compress the same edit differently), so force
+    # the guard instead of relying on one observed delta.
+    orig_compress = zlib.compress
     try:
+        zlib.compress = lambda b, level=9: b"\x00" * (len(raw) + 10)
         patch_tile(data, replace(edit, dx=40, dy=0))
         check("refuses COMP TOO BIG", False)
     except PatchError as exc:
         check("refuses COMP TOO BIG", "TOO BIG" in str(exc), str(exc))
+    finally:
+        zlib.compress = orig_compress
     # mesh column: US word 65280 -> -156, EU B48R058R word -> 6..
     check("US mesh_x(65280) = 768 (lon -156)", mesh_x(65280) == 768
           and clarion_bg.mesh_to_lon(mesh_x(65280)) == -156)

@@ -2061,6 +2061,36 @@ no function loads the string and no table holds it: `Navi.exe` does not open
 them by name. (Lookup tried: pool literals, rodata tables, and the built names
 of the six `REFER` prefixes.)
 
+### The shared REFER list split at run time (M3.29, EU2011 build A)
+> **Status:** `VERIFIED` (run in PySh4 on the EU 2011 card,
+> `tools/m3_29_family_readers.py`); `OBSERVED` for roles named from one run.
+> EXP-2026-11-20-M3.29-refer-family-split, C-5620–C-5629.
+
+A boot reads `REFER001/POINT001.DAT`, `ICODE001.DAT` and `ICADM001.DAT` and
+stops at `both tasks idle` with message `0x1507` undelivered; it reads **no**
+`ADDRE`, `FRWAY`, `INTER`, `ZCODE` or `COORD` file (C-5620). The read watch
+attributes the returned bytes to nine function starts, separated by the read
+tag (C-5621):
+
+| Tag | Role | Readers |
+| --- | --- | --- |
+| `0x0d02` | volume header | `0x003f0400`, `0x003f2bc4`, `0x0040a8d0` |
+| `0x0d00` | page (`0x100`–`0x300` B) | `0x003eff20`, `0x003f17a4`, `0x003f255c` |
+| `0x0d10`/`0x0d11` | search pages | `0x003f07f8`, `0x003f1bb0`, `0x003f0c7c` |
+
+`0x0040a8d0` also loads the `POINT001` bytes; `0x003f17a4`/`0x003f255c` are
+`ICADM` page readers and `0x003f2bc4` reads the `0x0d02` header of both
+`ICODE` and `ICADM` (C-5622). The `ICODE`/`ICADM` loaders are C-4694's; this
+run adds the tag split and the `POINT` row.
+
+The opener `0x003fee70` names the right file for every ctx +124 family and
+queues no read (C-5623), so the split is not from the opener: a family's
+*record* reader needs the state-2 task to issue its read, which on a boot it
+does not. The per-family readers for `ADDRE`/`INTER`/`FRWAY`/`ZCODE` therefore
+stay open (M3.14/M3.16) until the mount finishes (M9.52 → M9.53); `COORD001`
+has no ctx +124 value and no opener, so it is outside this split even then
+(C-5624). M3.23's top-ten recall for the confirmed set is `2/9` (C-5625).
+
 ## The data-access task (M3.25, EU2011 build A)
 > **Status:** `VERIFIED` (run in PySh4 on the EU 2011 card, `tools/datask_l3.py`)
 > for the tables, the handlers that ran and the bytes they loaded; `OBSERVED`
