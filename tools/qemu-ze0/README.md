@@ -194,6 +194,26 @@ kept), so the next run extracts cleanly.
   EU2011 kernel then starts `filesys.exe` and `device.exe`. Read the
   kernel's debug text with `tools/ze0_dbgmsg.py run -- <qemu argv>`. See
   [`EXP-2026-11-20-M8.B5-ze0-f1-filesys.md`](../../docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md).
+- **M8.B6 (2026-11-20):** `ze0-0007` adds `-M ze0,dbgmsg=VA`: QEMU copies
+  the UTF-16 string at `r4` to serial port 0 whenever the guest runs the
+  instruction at VA (no guest byte changed). The EU2011 kernel has no gate
+  that routes its debug text to a UART (C-6240), so this is how a boot gets
+  a plain log. `run.sh` passes `dbgmsg=0x880404f4` (EU2011) by default on
+  `-M ze0 --image` (`--dbgmsg off` for older builds) and has `--icount`;
+  use `--log /dev/null` for long boots (the `-d int` log reached 11 GB in
+  150 s). See
+  [`EXP-2026-11-20-M8.B6-debuglog-uart.md`](../../docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md).
+- **M8.C10 (2026-11-20):** `ze0-0008` adds the SD host: two SDHI/TMIO-style
+  ports at `0xffe4c000`/`0xffe4d000` (and area-7 aliases) on QEMU's SD bus,
+  their interrupts (INTEVT `0xae0`/`0xb00`, INT2 bit 29), and `sh_serial`
+  stubs on SCIF channels 0–5/7 (a kernel-mode TEND spin in `serial_scif.dll`
+  stopped the boot). Options `sdhi=off`, `sdhi-trace=on`, `scif-stubs=off`.
+  `run.sh --sd CARD.qcow2` puts a card on port 0; QEMU's `sd-card` needs a
+  power-of-two size, so use a qcow2 overlay over the 7.5 GB card image. The
+  launcher's SD check passes; the card driver's first DMA transfer fails
+  until the HPB DMAC exists (M8.C1). `tools/ze0_sdhost.py` decodes the
+  trace. See
+  [`EXP-2026-11-20-M8.C10-sd-host.md`](../../docs/experiments/EXP-2026-11-20-M8.C10-sd-host.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

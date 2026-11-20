@@ -21,12 +21,31 @@ their entry and arguments are what M3.25 asked for.
 
 No vendor byte is stored here: the tool reads the image and card it is given.
 
+The mount ends with the state word at 2 and one message the two tasks do not
+answer: `0x1507` sub 1.  Its receiver is a third task of `Navi.exe`,
+`SDL_task` (M9.52); `--sdl` runs that task too.  It drops the message: it
+takes a message from the data-access task only as the answer to a request of
+its own.  What moves the state word to 3 is an object-store event, message
+`0x07d0` sub 11 with `+28 = 16`; `--event 11:16` delivers it as a stand-in
+(its sender is not part of the run, and the tool says so).
+
+State 3 is not "ready" (M9.53): in state 3 the request check 0x00405970
+refuses every map request.  The map is served in state 2.  `--request MESH`
+sends one map request (message 0x14b5, as C-5641 lays it out) after the
+mount: the client task is first opened with 0x003ed6e8 (without a slot the
+answer is status 9), the data-access task reads the record block of that
+mesh (tag 0x0900, handler 0x00404ee4), byte-swaps it (0x003f6968), inflates
+it (0x0054233c) and swaps the output; the row lists who loads the inflated
+record.  The reply 0x14b6 goes to the client, which is not part of the run:
+the roads in the record are walked there.
+
 Usage:
   datask_l3.py --selftest
   datask_l3.py tables IMG256
   datask_l3.py diff   A.json B.json [--file NAME]
   datask_l3.py mount  IMG256 --card-image CARD.img [--max-reads N] [--file NAME]
-                      [--position LAT,LON]
+                      [--position LAT,LON] [--sdl] [--event SUB:VALUE ...]
+                      [--request MESH ...] [--kind 4|0x40] [--client N] [--divid N]
                       [--bytes] [--json OUT] [--flip MAPAL001/LEV3456R.DAT@0x803:0x01]
 
 Exit codes: mount: 0 the run finished and at least one tile read was parsed,
@@ -36,6 +55,7 @@ model, engine stop); 2 usage or missing input.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import struct
 import sys
@@ -67,18 +87,52 @@ DA_EU2011 = {
     "read_api": 0x0041841C,       # map-file layer: (file id, request *)
     "da_task_id": 0x11FFF58,      # global: task id the reply goes to
     "map_task_id": 0x11FFFB8,     # global: task id of the map-file task
-    "state": 0xD62490,            # 2 = mounting, 3 = ready
+    "state": 0xD62490,            # 2 = map ready, requests served; 3 = requests refused (M9.53)
     "mesh_count": 0xD63CA0,       # tile files found in MAPAL001
     "version": 0xD8AD20,          # map format version from the volume header
     "mmain_buf": 0xE23CC0,        # the volume header the map-file layer read
-    # leaf functions (no pdata record): header date reader, block-header reader
-    "leaves": (0x0040A8D0, 0x004144A8),
+    # leaf functions (no pdata record): header date reader, block-header reader,
+    # u16 byte swap of a buffer (record block before and after inflate, M9.53)
+    "leaves": (0x0040A8D0, 0x004144A8, 0x003F6968),
     "position": (0xD94 << 12) + 0x0E4,   # u32: (lat code << 16) | lon code
     "default_position_fn": 0x0040B49C,   # (kind) -> start position from a per-area table, or -1
+    # directory read length (M3.31): leaf (kind, column) -> u32 from a
+    # 16-row table {u32 kind, u32 length / 0x100, u32 buffer size}; the
+    # directory request of 0x00414338 asks column 1 for the level-table kind
+    "len_lookup": 0x0040901C,
+    "len_table": ((0x179 << 12) + 0xC08, 16),
     "ready_msg": (0x07D0, 100),
     "done_msg": 0x04A0,
+    "progress": 0xD98FCC,         # 1 = the dispatcher runs deferred rows at once (unless state 3)
+    "event_msg": 0x07D0,          # object-store event; the sub is the subscriber's event id
+    "state3_sub": 11,             # 0x003f6b1c: state 2 -> 3 when the event's +28 is 16
+    "state3_value": 16,
+    # the map request (M9.53): message 0x14b5, answered with 0x14b6
+    "request_msg": 0x14B5,
+    "reply_msg": 0x14B6,
+    "client_open": 0x003ED6E8,    # (mode 1, client task id, kind mask, out *): a slot at data VA 0xd98fe0
+    "inflate": 0x0054233C,        # zlib inflate (method 8, header check mod 31) of a record block
+    "mesh_y": 0x004089F4,         # (mesh id) -> y; y >> 5 is the directory row (B48R058R: 72..79)
+    "mesh_x": 0x00408B0C,         # (mesh id) -> x; x >> 5 is the directory column (B48R058R: -88..-81)
 }
-DA_TASK, MAP_TASK = 2, 0x10       # any two different non-zero ids
+DA_TASK, MAP_TASK, SDL_TASK = 2, 0x10, 3       # any three different non-zero ids
+CLIENT_TASK = 5                                 # the task that sends map requests (any id > 1)
+KIND_RENDER, KIND_ROUTE = 4, 0x40               # +16 kinds of the callers in C-5641
+
+# SDL_task of Navi.exe, EU2011 build A (M9.52).  Created by 0x0032efa8 with
+# the name "SDL_task" and the entry 0x0039d854; its id lands in the global
+# that 0x00401e94 reads as the receiver of message 0x1507.
+SDL_EU2011 = {
+    "task_id": 0x11FFF50,          # global the data-access task sends 0x1507 to
+    "entry": 0x0039D854,           # init + receive loop (not called: we are the loop)
+    "init": 0x003C001C,
+    "dispatch": 0x0039D6F0,        # (message *): routes by the sender id at +0
+    "from_da": 0x0039D18C,         # messages from the data-access task
+    "gate": 0x003C009C,            # drops a message that answers no pending request
+    "machine": 0x0039CA00,         # (state, table, message, out): the state step after the gate
+    "req_id": 0x6F4650,            # u32 id of the pending request; +4: u32 1 = pending
+    "state": 0x9379B8,             # u16 state of the SDL machine (table at data VA 0x39e30)
+}
 
 # what each completion handler is, from the reads it was seen to serve
 HANDLER_ROLE = {
@@ -97,6 +151,7 @@ class State:
         self.sems = 0x5E00
         self.datavol = None
         self.zeroed: list[str] = []
+        self.ticks = 0
 
 
 def install_models(st: State) -> None:
@@ -116,6 +171,12 @@ def install_models(st: State) -> None:
     for name in ("OSM_SemTake", "OSM_SemGive", "OSM_SemDelete"):
         M[name] = lambda m: 0
     M["OSM_isSender"] = lambda m: 0x20
+
+    def tick(m):
+        # SDL_task's trace stamps: a clock that moves, no other meaning
+        st.ticks += 1
+        return st.ticks
+    M["tickGet"] = tick
     # memory areas 0..3: one 4 MiB area, the rest empty
     M["OSM_MemSize"] = lambda m: (4 << 20) if m.arg(0) == 0 else 0
     M["OSM_MemGet"] = lambda m: m.malloc(m.arg(0)) if m.arg(0) else 0
@@ -168,6 +229,20 @@ def decode_table(blob: bytes, rows: int) -> list[tuple[int, int, int]]:
     return [struct.unpack_from("<HHI", blob, 8 * i) for i in range(rows)]
 
 
+def len_lookup(rows, kind: int, column: int) -> int:
+    """The firmware's rule in the leaf 0x0040901c (EU2011): the first of the
+    16 rows {kind, length / 0x100, buffer size} whose kind equals ``kind``
+    gives column ``column``; no row gives 0."""
+    for row in rows:
+        if row[0] == kind:
+            return row[column]
+    return 0
+
+
+def decode_len_table(blob: bytes, rows: int) -> list[tuple[int, int, int]]:
+    return [struct.unpack_from("<III", blob, 12 * i) for i in range(rows)]
+
+
 def done_lookup(table, tag: int):
     """The firmware's rule in 0x003f72e4: first row whose key is not zero and
     equals the tag in bits 8..14."""
@@ -203,6 +278,17 @@ def show_runs(rr, limit: int = 10) -> str:
     return text
 
 
+def reader_entry(key, offsets, want_bytes: bool) -> dict:
+    """One reader of a buffer: a function's own loads (key = fn), or the
+    loads of a memcpy/memmove model it called (key = (fn, "memmove"))."""
+    fn, via = key if isinstance(key, tuple) else (key, None)
+    rr = runs(offsets)
+    out = {"fn": fn, "bytes": len(set(offsets)), "runs": rr if want_bytes else rr[:10], "nruns": len(rr)}
+    if via:
+        out["via"] = via
+    return out
+
+
 def decode_request(raw: bytes) -> dict:
     """First 16 bytes of a read request: dst, sector, offset, length / 4."""
     dst, sector, off, words = struct.unpack_from("<IIII", raw)
@@ -229,12 +315,81 @@ def ready_message() -> bytes:
     return bytes(msg)
 
 
+def event_message(sub: int, value: int, build: dict = DA_EU2011) -> bytes:
+    """An object-store event as OBJDLL's notifier 0x034942d8 (EU2011) lays it
+    out for OSM_MsgSend: +8 id, +10 sub, +12..+28 the event's five words; the
+    data-access task reads the last one (+28)."""
+    msg = bytearray(32)
+    struct.pack_into("<HH", msg, 8, build["event_msg"], sub)
+    struct.pack_into("<I", msg, 28, value)
+    return bytes(msg)
+
+
+def request_message(client: int, kind: int, lst: int, build: dict = DA_EU2011) -> bytes:
+    """A map request as its callers build it (C-5641): +0 sender, +8 0x14b5,
+    +10 sub 2, +12 the client task, +16 kind, +20 the list, +24 2."""
+    msg = bytearray(32)
+    struct.pack_into("<IIHHIIII", msg, 0, client, 0, build["request_msg"], 2, client, kind, lst, 2)
+    return bytes(msg)
+
+
+def request_list(meshes, divid: int = 0) -> bytes:
+    """The list the request points at: u16 count at +0, entry i at 32*i with
+    DIVID u16 at +14 and mesh id u32 at +16; 0x2004 bytes (what 0x004066ac
+    copies)."""
+    blob = bytearray(0x2004)
+    struct.pack_into("<H", blob, 0, len(meshes))
+    for i, mesh in enumerate(meshes):
+        struct.pack_into("<HI", blob, 32 * i + 14, divid, mesh)
+    return bytes(blob)
+
+
+def parse_event(text: str) -> tuple[int, int]:
+    sub, _, value = text.partition(":")
+    return int(sub, 0), int(value or "0", 0)
+
+
+def sdl_gate(msg_req: int, pending_req: int, pending: int) -> bool:
+    """0x003c009c: SDL_task takes a message from the data-access task only
+    when its +12 equals the pending request id and a request is pending."""
+    return msg_req == pending_req and pending == 1
+
+
+def state3_after(state: int, sub: int, value: int, build: dict = DA_EU2011) -> int:
+    """The data-access task's state word after one object-store event, as
+    0x003f6b1c writes it (only the 2/1 -> 3 step; other subs leave it)."""
+    if sub == build["state3_sub"] and value == build["state3_value"] and state != 0:
+        return 3
+    return state
+
+
+def answer(send: dict, sdl_req: tuple[int, int] = (0, 0)) -> tuple[bytes | None, str]:
+    """The reply model: given one logged send of the data-access task, the
+    message that answers it, or None and why.
+
+    Only 0x1507 is modelled.  Its receiver, SDL_task, runs it through
+    0x0039d18c, whose gate 0x003c009c drops it unless it answers a request
+    SDL_task made (``sdl_req`` = pending id, pending flag).  An accepted
+    message goes to SDL_task's state machine, which answers in its own time;
+    the tool does not invent that answer."""
+    body = bytes.fromhex(send["body"]) if isinstance(send.get("body"), str) else send.get("body", b"")
+    if len(body) < 16:
+        return None, "no message body"
+    msg_id, sub = struct.unpack_from("<HH", body, 8)
+    if msg_id != 0x1507:
+        return None, "no model for message %#06x" % msg_id
+    req = struct.unpack_from("<I", body, 12)[0]
+    if not sdl_gate(req, *sdl_req):
+        return None, "SDL_task drops %#06x sub %d: +12 = %d answers no pending request" % (msg_id, sub, req)
+    return None, "SDL_task accepts %#06x sub %d; its state machine decides the answer" % (msg_id, sub)
+
+
 # --------------------------------------------------------------------------
 
 class DataTask:
     """The data-access task and the map-file task on one virtual card."""
 
-    def __init__(self, image: str, card, build: dict = DA_EU2011, position=None):
+    def __init__(self, image: str, card, build: dict = DA_EU2011, position=None, sdl: bool = False):
         self.b = build
         self.st = State()
         install_models(self.st)
@@ -245,10 +400,21 @@ class DataTask:
         self.boot = out
         m = self.m
         self.st.task = DA_TASK
-        for va in build["init"]:
-            m.call(va, [], max_insns=80_000_000)
+        # 0x0032efa8 stores each task id right after OSM_TaskCreate, before
+        # the task runs its own initialisation: the init code already reads
+        # them (it subscribes object-store events for *0x011fff58).
         m.put(build["da_task_id"], struct.pack("<I", DA_TASK))
         m.put(build["map_task_id"], struct.pack("<I", MAP_TASK))
+        for va in build["init"]:
+            m.call(va, [], max_insns=80_000_000)
+        self.sdl = None
+        self.sdl_log: list[dict] = []
+        if sdl:
+            self.sdl = SDL_EU2011
+            m.put(self.sdl["task_id"], struct.pack("<I", SDL_TASK))
+            self.st.task = SDL_TASK
+            m.call(self.sdl["init"], [], max_insns=80_000_000)
+            self.st.task = DA_TASK
         self.default_position = m.u32(build["position"])
         if position is not None:
             # 0x0040b49c looks the start position up in a per-area table and
@@ -263,6 +429,10 @@ class DataTask:
         self.names = {f["fid"]: f["path"] for f in s.files()}
         self.requests: dict[int, dict] = {}
         self.called: list[int] = []
+        va, n = build["len_table"]
+        self.len_table = decode_len_table(rd(va, 12 * n), n)
+        self.last_len = None
+        m.eng.on_exec(build["len_lookup"], self._on_len_lookup)
         m.eng.on_exec(build["read_api"], self._on_read)
         for h in sorted({h for _k, _f, h in self.done_table if h}):
             m.eng.on_exec(h, self._on_handler(h))
@@ -273,6 +443,12 @@ class DataTask:
         self.routed = len(m.messages)
         self.rows: list[dict] = []
         self.other: list[dict] = []
+        self.events: list[dict] = []
+        self.inflated: list[dict] = []
+        self.request = None
+        self.requests_log: list[dict] = []
+        self.client_open: dict[int, int] = {}
+        m.eng.on_exec(build["inflate"], self._on_inflate)
 
     @staticmethod
     def _fn_of(image: str):
@@ -290,12 +466,73 @@ class DataTask:
                 best = va
         return best
 
+    def _on_len_lookup(self, engine, va):
+        m = self.m
+        kind, col = m.arg(0), m.arg(1)
+        if col == 1:
+            self.last_len = {"kind": kind, "column": col, "value": len_lookup(self.len_table, kind, col),
+                             "from": (m.reg("pr") - 4) & V.M32}
+        return None
+
     def _on_read(self, engine, va):
         m = self.m
         req = decode_request(bytes(m.eng.read_mem(m.arg(1), 16)))
         req["fid"] = m.arg(0)
+        req["len_lookup"], self.last_len = self.last_len, None
         self.requests[req["dst"]] = req
         return None
+
+    def _on_inflate(self, engine, va):
+        """Entry of inflate: watch the output window (stream +12 next_out,
+        +16 avail_out) so the row can say who reads the inflated record."""
+        m, e = self.m, self.m.eng
+        z = m.arg(0)
+        nxt, avail = m.u32(z + 12), m.u32(z + 16)
+        self.inflated.append({"out": nxt, "avail": avail, "in": m.u32(z + 4)})
+        if e._watches_on and avail and e.region_at(nxt) is not None and e.region_at(nxt + avail - 1) is not None:
+            e.watch(nxt, nxt + avail, "r", "record%d" % len(self.inflated))
+        return None
+
+    def mesh_xy(self, mesh: int) -> tuple[int, int]:
+        """The firmware's own decoders: (y, x) of a mesh id."""
+        s32 = lambda v: v - (1 << 32) if v & 0x80000000 else v
+        return (s32(self.m.call(self.b["mesh_y"], [mesh]) & V.M32),
+                s32(self.m.call(self.b["mesh_x"], [mesh]) & V.M32))
+
+    def request_mesh(self, mesh: int, kind: int = KIND_RENDER, client: int = CLIENT_TASK,
+                     divid: int = 0, want_bytes: bool = False, on_row=None, open_client: bool = True) -> dict:
+        """Send one map request (message 0x14b5) for one mesh as client
+        ``client`` and carry until idle.  The client is first opened with
+        0x003ed6e8 (mode 1, as SDL_task's init does), since 0x00405970
+        answers status 9 to a task with no slot."""
+        m = self.m
+        if open_client and (client, kind) not in self.client_open:
+            out = m.malloc(16)
+            m.put(out, bytes(16))
+            self.st.task = client
+            self.client_open[(client, kind)] = m.call(self.b["client_open"], [1, client, kind, out]) & V.M32
+            self.st.task = DA_TASK
+            m.free(out)
+        lst = m.malloc(0x2004)
+        m.put(lst, request_list([mesh], divid))
+        y, x = self.mesh_xy(mesh)
+        entry = {"mesh": mesh, "kind": kind, "client": client, "divid": divid, "y": y, "x": x,
+                 "state": m.u32(self.b["state"]), "first_row": len(self.rows), "replies": []}
+        self.request = mesh
+        before = len(m.messages)
+        try:
+            self.deliver(request_message(client, kind, lst, self.b))
+            entry["end"] = self._carry(0, want_bytes, on_row)
+        finally:
+            self.request = None
+        for x_ in m.messages[before:]:
+            if x_["kind"] == "send" and x_["task"] == client:
+                body = bytes.fromhex(x_["body"])
+                mid, sub = struct.unpack_from("<HH", body, 8)
+                entry["replies"].append({"id": mid, "sub": sub, "words": list(struct.unpack_from("<5I", body, 12))})
+        entry["rows"] = len(self.rows) - entry["first_row"]
+        self.requests_log.append(entry)
+        return entry
 
     def _on_leaf(self, va):
         def hook(engine, _va):
@@ -321,6 +558,34 @@ class DataTask:
         finally:
             m.free(p)
 
+    def sdl_turn(self, body: bytes) -> dict:
+        """Hand one message to SDL_task's dispatcher and record what it did."""
+        m, s = self.m, self.sdl
+        seen: list[int] = []
+        hooks = (s["from_da"], s["gate"], s["machine"])
+        for va in hooks:
+            m.eng.on_exec(va, (lambda v: (lambda e, _va: seen.append(v)))(va))
+        before = len(m.messages)
+        req = (m.u32(s["req_id"]), m.u32(s["req_id"] + 4))
+        self.st.task = SDL_TASK
+        p = m.malloc(64)
+        m.put(p, body.ljust(64, b"\0"))
+        try:
+            r0 = m.call(s["dispatch"], [p], max_insns=400_000_000)
+        finally:
+            m.free(p)
+            for va in hooks:
+                m.eng._hooks[va].pop()
+            self.st.task = DA_TASK
+        msg_id, sub = struct.unpack_from("<HH", body, 8)
+        model = answer({"body": body}, req)
+        entry = {"id": msg_id, "sub": sub, "r0": r0, "via": [hex(v) for v in seen],
+                 "gate_dropped": s["gate"] in seen and s["machine"] not in seen,
+                 "sent": len(m.messages) - before, "sdl_state": m.u32(s["state"]) & 0xFFFF,
+                 "pending_request": list(req), "model": model[1]}
+        self.sdl_log.append(entry)
+        return entry
+
     def map_task_turn(self) -> None:
         self.st.task = MAP_TASK
         self.m.call(self.s.b["event"], [2])
@@ -333,36 +598,84 @@ class DataTask:
         req = self.requests.pop(buf, {})
         e._watches.clear()
         e._watch_hits.clear()
+        self.inflated = []
         if n:
             e.watch(buf, buf + n, "r", "buffer")
             e.arm_watch()
         first = len(self.called)
+        copies: list[tuple[str, int, str, int, int]] = []
+        saved = {k: V.MODELS[k] for k in ("memcpy", "memmove") if k in V.MODELS}
+
+        def copy_logger(name, inner):
+            # memcpy/memmove are Python models (vcard_l3.py), so the engine's
+            # watch never sees their loads: log the source overlap here and
+            # charge it to the calling function.
+            def wrapped(mm):
+                src, cnt = mm.arg(1), mm.arg(2)
+                if e._watches_on and cnt:
+                    pc = (mm.reg("pr") - 4) & V.M32
+                    fn = self.fn_of(pc) or self.leaf_start(pc)
+                    for w in e._watches:
+                        lo, hi = max(src, w.lo), min(src + cnt, w.hi)
+                        if lo < hi:
+                            copies.append((w.name, fn, name, lo - w.lo, hi - w.lo))
+                return inner(mm)
+            return wrapped
+        for k, f in saved.items():
+            V.MODELS[k] = copy_logger(k, f)
         try:
             self.deliver(body)
         finally:
             e.disarm_watch()
-        by: dict[int, list[int]] = {}
+            V.MODELS.update(saved)
+        by: dict = {}
+        rec: dict = {}
+        out_lo = {w.name: w.lo for w in e._watches}
+        for wname, fn, via, lo, hi in copies:
+            (by if wname == "buffer" else rec).setdefault((fn, via), []).extend(range(lo, hi))
         for hit in e.watch_hits():
             if hit.kind != "r":
                 continue
             fn = self.fn_of(hit.pc)
             if fn is None:                    # a leaf function has no pdata record
                 fn = self.leaf_start(hit.pc)
-            by.setdefault(fn, []).extend(range(hit.va - buf, hit.va - buf + hit.size))
+            if hit.name == "buffer":
+                by.setdefault(fn, []).extend(range(hit.va - buf, hit.va - buf + hit.size))
+            else:                             # "record": the inflated output
+                lo = out_lo[hit.name]
+                rec.setdefault(fn, []).extend(range(hit.va - lo, hit.va - lo + hit.size))
         e._watch_hits.clear()
         handler = self.called[first] if len(self.called) > first else None
         row = {"tag": tag, "status": status, "length": n, "fid": req.get("fid"),
                "file": self.names.get(req.get("fid"), "?"), "pos": req.get("pos"),
                "handler": handler, "expected_handler": done_lookup(self.done_table, tag),
-               "readers": [{"fn": fn, "bytes": len(set(v)), "runs": runs(v) if want_bytes else runs(v)[:10],
-                            "nruns": len(runs(v))} for fn, v in by.items()]}
+               "len_lookup": req.get("len_lookup"),
+               "readers": [reader_entry(k, v, want_bytes) for k, v in by.items()]}
+        if self.inflated:
+            row["inflated"] = self.inflated
+            row["record_readers"] = [reader_entry(k, v, False) for k, v in rec.items()]
+        if self.request is not None:
+            row["request"] = self.request
         self.rows.append(row)
         return row
 
-    def run(self, max_reads: int = 0, want_bytes: bool = False, on_row=None) -> str:
-        """Announce the map and carry messages until both tasks are idle."""
-        m = self.m
+    def run(self, max_reads: int = 0, want_bytes: bool = False, on_row=None, events=()) -> str:
+        """Announce the map and carry messages until the tasks are idle; then
+        deliver each stand-in event of ``events`` ((sub, value) pairs) and
+        carry again."""
         self.deliver(ready_message())
+        end = self._carry(max_reads, want_bytes, on_row)
+        for sub, value in events:
+            if end.startswith("stopped"):
+                break
+            self.events.append({"sub": sub, "value": value, "state_before": self.m.u32(self.b["state"])})
+            self.deliver(event_message(sub, value, self.b))
+            end = self._carry(max_reads, want_bytes, on_row)
+            self.events[-1]["state_after"] = self.m.u32(self.b["state"])
+        return end
+
+    def _carry(self, max_reads: int, want_bytes: bool, on_row) -> str:
+        m = self.m
         while True:
             if max_reads and len(self.rows) >= max_reads:
                 return "stopped after %d reads (--max-reads)" % max_reads
@@ -387,13 +700,16 @@ class DataTask:
                     on_row(row)
             elif x["task"] == DA_TASK:
                 self.deliver(body)
+            elif self.sdl is not None and x["task"] == SDL_TASK:
+                self.sdl_turn(body)
             else:
                 self.other.append({"kind": "send", "task": x["task"], "id": msg_id, "sub": sub,
                                    "from": (x["pr"] - 4) & V.M32})
 
     def summary(self) -> dict:
         m = self.m
-        return {"state": m.u32(self.b["state"]), "mesh_count": m.u32(self.b["mesh_count"]),
+        return {"state": m.u32(self.b["state"]), "progress": m.u32(self.b["progress"]),
+                "mesh_count": m.u32(self.b["mesh_count"]),
                 "version": m.u32(self.b["version"]), "reads": len(self.rows),
                 "zero_models": self.st.zeroed}
 
@@ -403,8 +719,19 @@ def show_row(row: dict) -> None:
     print("tag %#06x  %-28s pos %#10x len %#7x  handler %s  %s" % (
         row["tag"], row["file"], row["pos"] or 0, row["length"],
         ("%#010x" % row["handler"]) if row["handler"] else "-", role))
+    lk = row.get("len_lookup")
+    if lk:
+        print("      length from 0x0040901c(kind %#x, %d) = %#x -> %#x B (call at %#010x)%s" % (
+            lk["kind"], lk["column"], lk["value"], lk["value"] * 0x100, lk["from"],
+            "" if lk["value"] * 0x100 == row["length"] else "  [not this read's length]"))
     for r in row["readers"]:
-        print("      fn %#010x loads %6d B: %s" % (r["fn"], r["bytes"], show_runs(r["runs"])))
+        print("      fn %#010x %s %6d B: %s" % (r["fn"], ("%s copies" % r["via"]) if r.get("via") else "loads",
+                                            r["bytes"], show_runs(r["runs"])))
+    for z in row.get("inflated", []):
+        print("      inflate %#010x: output window %#x bytes" % (DA_EU2011["inflate"], z["avail"]))
+    for r in row.get("record_readers", []):
+        print("      fn %#010x %s %6d B of the inflated record: %s" % (
+            r["fn"], ("%s copies" % r["via"]) if r.get("via") else "loads", r["bytes"], show_runs(r["runs"])))
 
 
 def is_tile(row: dict) -> bool:
@@ -437,14 +764,33 @@ def cmd_tables(args) -> int:
     return 0
 
 
+def card_record(args, card) -> dict:
+    """What this run served: the card source, the mods asked for and, per
+    overlaid path, the size and SHA-256 of the bytes the firmware was given
+    (``None`` for a hidden file).  H106: a run on a generated tile names the
+    tile it ran on, so a verdict cannot be quoted for a file it did not read."""
+    overlay = []
+    for path in sorted(card.overlay):
+        data = card.overlay[path]
+        overlay.append({"path": path, "size": None if data is None else len(data),
+                        "sha256": None if data is None else hashlib.sha256(data).hexdigest()})
+    return {"image": getattr(args, "card_image", None), "root": getattr(args, "card_root", None),
+            "mods": V.parse_mods(args), "overlay": overlay}
+
+
 def cmd_mount(args) -> int:
     card = V.make_card(args.card_root, args.card_image, V.parse_mods(args))
+    served = card_record(args, card)
+    for o in served["overlay"]:
+        print("card overlay: %s <- %s" % (o["path"], "hidden" if o["sha256"] is None
+                                          else "%d bytes sha256 %s" % (o["size"], o["sha256"])))
     try:
         position = None
         if args.position:
             lat, _, lon = args.position.partition(",")
             position = (float(lat), float(lon))
-        t = DataTask(args.image, card, position=position)
+        events = [parse_event(e) for e in args.event]
+        t = DataTask(args.image, card, position=position, sdl=args.sdl)
         print("position: %s (default %.3f, %.3f)" % (
             ("%.3f, %.3f" % position) if position else "default", *decode_position(t.default_position)))
         want = args.file.upper() if args.file else None
@@ -452,23 +798,42 @@ def cmd_mount(args) -> int:
         def on_row(row):
             if want is None or want in row["file"].upper():
                 show_row(row)
-        end = t.run(args.max_reads, args.bytes, on_row)
+        end = t.run(args.max_reads, args.bytes, on_row, events)
+        for mesh in args.request:
+            print("map request %#06x for mesh %#010x (kind %#x, client %d):" % (
+                DA_EU2011["request_msg"], mesh, args.kind, args.client))
+            r = t.request_mesh(mesh, args.kind, args.client, args.divid, args.bytes, on_row)
+            print("  mesh y %d x %d (directory row %d, column %d); state %d; %d read(s); %s" % (
+                r["y"], r["x"], r["y"] >> 5, r["x"] >> 5, r["state"], r["rows"], r["end"]))
+            for rep_ in r["replies"]:
+                print("  reply %#06x sub %d: %s" % (rep_["id"], rep_["sub"], " ".join("%#x" % w for w in rep_["words"])))
     except (V.Blocked, V.EngineError) as exc:
         print("BLOCKED: %s: %s" % (type(exc).__name__, str(exc)[:300]))
         return 3
     out = t.summary()
     out["end"] = end
-    print("end: %s; state %d, tile files %d, map version %#x, reads %d" % (
-        end, out["state"], out["mesh_count"], out["version"], out["reads"]))
+    print("end: %s; state %d, progress %d, tile files %d, map version %#x, reads %d" % (
+        end, out["state"], out["progress"], out["mesh_count"], out["version"], out["reads"]))
     for o in t.other:
         print("not delivered: %s" % json.dumps(o))
+    for e in t.sdl_log:
+        print("SDL_task got %#06x sub %d: %s (gate %s, SDL state %d, sends %d); model: %s" % (
+            e["id"], e["sub"], " -> ".join(e["via"]) or "-",
+            "dropped it" if e["gate_dropped"] else "passed it", e["sdl_state"], e["sent"], e["model"]))
+    for e in t.events:
+        print("event model (stand-in, sender not in the run): %#06x sub %d +28=%d: state %d -> %d" % (
+            DA_EU2011["event_msg"], e["sub"], e["value"], e["state_before"], e.get("state_after", -1)))
     if out["zero_models"]:
         print("models that return 0 and write nothing: %s" % ", ".join(out["zero_models"]))
     tiles = [r for r in t.rows if is_tile(r)]
     print("tile reads parsed by the firmware: %d" % len(tiles))
     if args.json:
+        out["card"] = served
         out["rows"] = t.rows
         out["other"] = t.other
+        out["sdl"] = t.sdl_log
+        out["events"] = t.events
+        out["requests"] = t.requests_log
         Path(args.json).write_text(json.dumps(out, indent=1))
     return 0 if tiles else 1
 
@@ -480,7 +845,8 @@ def row_key(row: dict) -> tuple:
 def row_shape(row: dict) -> tuple:
     """What the firmware did with one read: handler and, per function, how
     many bytes it loaded and in how many runs."""
-    return (row["handler"], tuple(sorted((r["fn"], r["bytes"], r["nruns"]) for r in row["readers"])))
+    return (row["handler"], tuple(sorted((r["fn"], r.get("via") or "", r["bytes"], r["nruns"]) for r in row["readers"])),
+            tuple(sorted((r["fn"], r.get("via") or "", r["bytes"], r["nruns"]) for r in row.get("record_readers", []))))
 
 
 def diff_rows(a: list[dict], b: list[dict], want: str | None = None) -> list[str]:
@@ -504,10 +870,15 @@ def diff_rows(a: list[dict], b: list[dict], want: str | None = None) -> list[str
         elif ra["status"] != rb["status"]:
             out.append("read %d (%s pos %#x) status A %d / B %d" % (i + 1, ra["file"], ra["pos"] or 0, ra["status"], rb["status"]))
         elif row_shape(ra) != row_shape(rb):
-            fa = {r["fn"]: (r["bytes"], r["nruns"]) for r in ra["readers"]}
-            fb = {r["fn"]: (r["bytes"], r["nruns"]) for r in rb["readers"]}
-            parts = ["fn %#010x A %s B %s" % (fn, fa.get(fn), fb.get(fn))
-                     for fn in sorted(set(fa) | set(fb)) if fa.get(fn) != fb.get(fn)]
+            def keyed(row_):
+                d = {("", r["fn"], r.get("via") or ""): (r["bytes"], r["nruns"]) for r in row_["readers"]}
+                d.update({("inflated record: ", r["fn"], r.get("via") or ""): (r["bytes"], r["nruns"])
+                          for r in row_.get("record_readers", [])})
+                return d
+            fa, fb = keyed(ra), keyed(rb)
+            name = (lambda k: "%sfn %#010x%s" % (k[0], k[1], (" via " + k[2]) if k[2] else ""))
+            parts = ["%s A %s B %s" % (name(k), fa.get(k), fb.get(k))
+                     for k in sorted(set(fa) | set(fb)) if fa.get(k) != fb.get(k)]
             if ra["handler"] != rb["handler"]:
                 parts.insert(0, "handler A %s B %s" % (ra["handler"], rb["handler"]))
             out.append("read %d (%s pos %#x len %#x) parsed differently: %s" % (
@@ -525,6 +896,15 @@ def cmd_diff(args) -> int:
     diffs = diff_rows(a["rows"], b["rows"], args.file)
     for line in diffs:
         print("  " + line)
+    # the answers to map requests (M9.53): sub 3 = data served, sub 9 = no record
+    ra_, rb_ = a.get("requests", []), b.get("requests", [])
+    for i in range(max(len(ra_), len(rb_))):
+        xa = [(x["id"], x["sub"]) for x in ra_[i]["replies"]] if i < len(ra_) else None
+        xb = [(x["id"], x["sub"]) for x in rb_[i]["replies"]] if i < len(rb_) else None
+        if xa != xb:
+            diffs.append("request %d answered differently: A %s / B %s" % (
+                i + 1, ", ".join("%#06x sub %d" % r for r in xa or []) or "-",
+                ", ".join("%#06x sub %d" % r for r in xb or []) or "-"))
     same_end = (a["end"], a["state"], a["mesh_count"]) == (b["end"], b["state"], b["mesh_count"])
     if not same_end:
         print("  the runs end differently")
@@ -552,6 +932,18 @@ def main(argv=None) -> int:
             p.add_argument("--position", metavar="LAT,LON",
                            help="car position to mount at (decides which BxxRyyR tile is read)")
             p.add_argument("--json")
+            p.add_argument("--sdl", action="store_true",
+                           help="run SDL_task too and carry message 0x1507 to it (M9.52)")
+            p.add_argument("--event", action="append", default=[], metavar="SUB:VALUE",
+                           help="after the mount idles, deliver object-store event 0x07d0 sub SUB "
+                                "with +28 = VALUE (a stand-in: its sender is not in the run)")
+            p.add_argument("--request", action="append", default=[], type=lambda v: int(v, 0), metavar="MESH",
+                           help="after the mount (and events), send map request 0x14b5 for this mesh id "
+                                "(M9.53); repeat for more")
+            p.add_argument("--kind", type=lambda v: int(v, 0), default=KIND_RENDER,
+                           help="request kind at +16: 4 renderer (default), 0x40 router")
+            p.add_argument("--client", type=int, default=CLIENT_TASK, help="client task id (> 1)")
+            p.add_argument("--divid", type=lambda v: int(v, 0), default=0, help="DIVID u16 of the list entry")
     p = sub.add_parser("diff", help="compare two mount --json runs read by read")
     p.add_argument("a")
     p.add_argument("b")
@@ -590,6 +982,16 @@ def selftest() -> int:
     blob = struct.pack("<HHI", 0x0600, 0, 0x1111) + struct.pack("<HHI", 0x0100, 0, 0x2222) \
         + struct.pack("<HHI", 0x0D01, 0, 0x3333) + struct.pack("<HHI", 0, 0, 0)
     table = decode_table(blob, 4)
+    rq = request_message(5, KIND_RENDER, 0x1234)
+    check("reader_entry marks a copy model's loads with 'via'",
+          reader_entry((0x404EE4, "memmove"), [4, 5, 6], False) == {"fn": 0x404EE4, "bytes": 3, "runs": [(4, 6)],
+                                                                     "nruns": 1, "via": "memmove"})
+    check("a map request carries 0x14b5 sub 2, client at +0 and +12, kind, list, 2",
+          struct.unpack_from("<IIHHIIII", rq) == (5, 0, 0x14B5, 2, 5, 4, 0x1234, 2))
+    rl = request_list([0x26C18AB2], 7)
+    check("the request list holds a count and DIVID/mesh at +14/+16 of entry 0",
+          len(rl) == 0x2004 and struct.unpack_from("<H", rl)[0] == 1
+          and struct.unpack_from("<HI", rl, 14) == (7, 0x26C18AB2))
     check("table rows decode as key, flag, handler", table[1] == (0x0100, 0, 0x2222))
     check("a tag matches its class in bits 8..14", done_lookup(table, 0x0103) == 0x2222)
     check("the low byte of the tag is ignored", done_lookup(table, 0x06FF) == 0x1111)
@@ -602,6 +1004,10 @@ def selftest() -> int:
     check("byte offsets fold into runs", runs([5, 1, 2, 3, 9, 10, 2]) == [(1, 3), (5, 5), (9, 10)])
     check("runs print as ranges", show_runs([(1, 3), (5, 5)]) == "0x1-0x3,0x5")
     check("long run lists are cut and counted", show_runs([(i * 4, i * 4) for i in range(12)]).endswith("(12 runs)"))
+    lt = decode_len_table(struct.pack("<III", 0x92, 0x81, 0x8080) + struct.pack("<III", 0x91, 0x141, 0x14100), 2)
+    check("the length table gives column 1 of the kind's row",
+          len_lookup(lt, 0x91, 1) == 0x141 and len_lookup(lt, 0x92, 2) == 0x8080)
+    check("a kind with no length row gives 0", len_lookup(lt, 0x94, 1) == 0)
     req = decode_request(struct.pack("<IIII", 0x30001000, 3, 0x100, 0x40))
     check("a request decodes to position and length",
           req == {"dst": 0x30001000, "pos": 3 * 0x800 + 0x100, "length": 0x100})
@@ -629,6 +1035,25 @@ def selftest() -> int:
     check("--file limits the comparison",
           diff_rows(base, [base[0], base[1], mk(0x9000, name="REFER001/POINT001.DAT")], "B48R058R") == [])
 
+    check("an object-store event is id 0x07d0, the sub, and its value at +28",
+          struct.unpack_from("<HH", event_message(11, 16), 8) == (0x07D0, 11)
+          and struct.unpack_from("<I", event_message(11, 16), 28)[0] == 16)
+    check("--event parses SUB:VALUE in any base", parse_event("11:0x10") == (11, 16) and parse_event("13") == (13, 0))
+    check("SDL's gate passes only the answer to a pending request",
+          sdl_gate(7, 7, 1) and not sdl_gate(0, 0, 0) and not sdl_gate(6, 7, 1) and not sdl_gate(7, 7, 2))
+    check("event 11 with +28 = 16 moves state 2 to 3", state3_after(2, 11, 16) == 3)
+    check("event 11 with another value, or another sub, leaves state 2",
+          state3_after(2, 11, 15) == 2 and state3_after(2, 12, 16) == 2)
+    check("event 11 before the mount started (state 0) does nothing", state3_after(0, 11, 16) == 0)
+    m1507 = bytearray(32)
+    struct.pack_into("<IHH", m1507, 4, 0, 0x1507, 1)
+    check("reply model: 0x1507 with no pending request has no answer",
+          answer({"body": bytes(m1507).hex()})[0] is None and "drops" in answer({"body": bytes(m1507).hex()})[1])
+    check("reply model: an answer to a pending request is passed to SDL's machine",
+          "accepts" in answer({"body": bytes(m1507)}, (0, 1))[1])
+    check("reply model: other messages are not modelled",
+          "no model" in answer({"body": bytes(ready_message())})[1])
+
     saved = dict(V.MODELS)
     st = State()
     install_models(st)
@@ -637,6 +1062,16 @@ def selftest() -> int:
     V.MODELS.clear()
     V.MODELS.update(saved)
 
+    class _A:
+        card_image, card_root, hide, flip, truncate = "card.img", None, ["X/H.DAT"], [], []
+        replace = ["MAPAL001/T.DAT=host"]
+    fake = V.Card(None, overlay={"MAPAL001/T.DAT": b"abc", "X/H.DAT": None})
+    rec = card_record(_A, fake)
+    check("the run record names each overlaid file with its SHA-256",
+          rec["overlay"] == [{"path": "mapal001/t.dat", "size": 3,
+                              "sha256": hashlib.sha256(b"abc").hexdigest()},
+                             {"path": "x/h.dat", "size": None, "sha256": None}]
+          and rec["mods"]["replace"] == ["MAPAL001/T.DAT=host"])
     head = HERE.parent / "archive" / "head256.img"
     card_img = HERE.parent / "archive" / "sd-images" / "LEAF_2011-2012_QSD-309-101_navi158_eu.img"
     if not (head.is_file() and card_img.is_file()):
@@ -661,7 +1096,68 @@ def selftest() -> int:
             check("every load is attributed to a function",
                   all(x["fn"] for r in t.rows for x in r["readers"]))
             check("46 tile files were found", t.summary()["mesh_count"] == 46)
+            dirs = [r for r in t.rows if r["handler"] == 0x0041597C]
+            check("each directory read has the length 0x0040901c gives (M3.31)",
+                  dirs and all(r["len_lookup"] and r["len_lookup"]["value"] * 0x100 == r["length"] for r in dirs))
             check("the run stopped where asked", end.startswith("stopped after 6"))
+        except (V.Blocked, V.EngineError) as exc:
+            check("firmware run (%s)" % str(exc)[:80], False)
+        finally:
+            V.MODELS.clear()
+            V.MODELS.update(saved)
+        try:
+            t = DataTask(str(head), V.make_card(None, str(card_img)), sdl=True)
+            check("SDL_task starts in state 0 with no pending request",
+                  t.m.u32(SDL_EU2011["state"]) & 0xFFFF == 0 and t.m.u32(SDL_EU2011["req_id"] + 4) == 0)
+            e = t.sdl_turn(struct.pack("<I", DA_TASK) + bytes(m1507[4:]))   # +0: the sender, as 0x00401e94 sets it
+            check("SDL_task drops 0x1507 at its gate and sends nothing",
+                  e["gate_dropped"] and e["sent"] == 0 and e["via"][:2] == ["0x39d18c", "0x3c009c"])
+            # positive control of the gate: with a request pending (id 0) the
+            # same message passes the gate and reaches SDL's state step
+            t.m.put(SDL_EU2011["req_id"], struct.pack("<II", 0, 1))
+            e = t.sdl_turn(struct.pack("<I", DA_TASK) + bytes(m1507[4:]))
+            check("with a request pending the same 0x1507 passes the gate to 0x0039ca00",
+                  not e["gate_dropped"] and "0x39ca00" in e["via"])
+            t.m.put(SDL_EU2011["req_id"], struct.pack("<II", 0, 0))
+            t.deliver(ready_message())         # 0x003f75e4: state 2, the mount starts
+            check("the ready message sets the state word to 2", t.m.u32(DA_EU2011["state"]) == 2)
+            t.deliver(event_message(11, 15))
+            check("event 11 with +28 = 15 leaves the state word at 2", t.m.u32(DA_EU2011["state"]) == 2)
+            t.deliver(event_message(11, 16))
+            check("event 11 with +28 = 16 sets the state word to 3 (0x003f6b1c)", t.m.u32(DA_EU2011["state"]) == 3)
+        except (V.Blocked, V.EngineError) as exc:
+            check("firmware run (%s)" % str(exc)[:80], False)
+        finally:
+            V.MODELS.clear()
+            V.MODELS.update(saved)
+        try:                                   # M9.53: one map request after a full mount
+            t = DataTask(str(head), V.make_card(None, str(card_img)), position=(51.70, 17.45))
+            t.run()
+            mesh = 0xA6CDD6BE                  # the record's own parcel code (words 0-1 of slot 17 record 28)
+            check("the firmware decodes the mesh to directory row 77, column -83",
+                  tuple(v >> 5 for v in t.mesh_xy(mesh)) == (77, -83))
+            r = t.request_mesh(mesh, client=7, open_client=False)
+            check("a client without a slot is answered 0x14b6 status 9 and nothing is read",
+                  r["rows"] == 0 and [(x["id"], x["sub"], x["words"][0]) for x in r["replies"]] == [(0x14B6, 5, 9)])
+            r = t.request_mesh(mesh)
+            row = t.rows[-1] if r["rows"] else {}
+            check("with a slot the request reads one record block (tag 0x0900, handler 0x00404ee4)",
+                  r["rows"] == 1 and row.get("tag") == 0x0900 and row.get("handler") == 0x00404EE4)
+            check("the record block is inflated and its 11172 bytes are swapped by 0x003f6968",
+                  len(row.get("inflated", [])) == 1
+                  and any(x["fn"] == 0x003F6968 and x["bytes"] == 11172 for x in row.get("record_readers", [])))
+            check("0x00405078 loads the record's unit table and the reply is 0x14b6 sub 3 (data)",
+                  any(x["fn"] == 0x00405078 for x in row.get("record_readers", []))
+                  and [x["sub"] for x in r["replies"]] == [5, 3])
+            r = t.request_mesh(0x26C18AB2)     # same directory and record by the decoders, not the record's code
+            row = t.rows[-1] if r["rows"] else {}
+            check("an id that is not the record's code reads the record but gets sub 9 (no record served)",
+                  r["rows"] == 1 and [x["sub"] for x in r["replies"]] == [5, 9]
+                  and not any(x["fn"] == 0x00405078 for x in row.get("record_readers", [])))
+            t.deliver(event_message(11, 16))
+            r = t.request_mesh(mesh)
+            check("in state 3 the same request is refused (status 9, no read)",
+                  r["state"] == 3 and r["rows"] == 0 and any(x["sub"] == 5 and x["words"][0] == 9 for x in r["replies"]))
         except (V.Blocked, V.EngineError) as exc:
             check("firmware run (%s)" % str(exc)[:80], False)
         finally:

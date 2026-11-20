@@ -111,6 +111,7 @@ class Check:
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     stats: dict = field(default_factory=dict)
+    skipped: str = ""
 
     def error(self, message: str) -> None:
         self.ok = False
@@ -119,11 +120,29 @@ class Check:
     def warn(self, message: str) -> None:
         self.warnings.append(message)
 
+    def skip(self, reason: str) -> None:
+        """A check the source cannot satisfy is SKIP, never PASS.
+
+        ``ok`` stays true so a clean run still exits 0, but the JSON carries
+        ``status: SKIP`` and this reason so a skipped check is never read as a
+        pass (H103, H104 key on this).
+        """
+        self.skipped = reason
+        self.stats.setdefault("skipped", reason)
+
+    def status(self, strict: bool = False) -> str:
+        if not self.ok:
+            return "FAIL"
+        if strict and self.warnings:
+            return "FAIL"
+        return "SKIP" if self.skipped else "PASS"
+
 
 class Report:
-    def __init__(self, layer: str, source: dict):
+    def __init__(self, layer: str, source: dict, fixture: str | None = None):
         self.layer = layer
         self.source = source
+        self.fixture = fixture
         self.checks: list[Check] = []
 
     def add(self, check: Check) -> Check:
@@ -136,14 +155,30 @@ class Report:
         if strict:
             errors += [f"{c.id}: warning treated as error: {w}" for c in self.checks for w in c.warnings]
             warnings = []
-        return {
+        checks = []
+        for c in self.checks:
+            row = asdict(c)
+            row["status"] = c.status(strict=strict)
+            row["skipped"] = c.skipped or None
+            checks.append(row)
+        counts = {"pass": 0, "fail": 0, "skip": 0}
+        for c in self.checks:
+            counts[c.status(strict=strict).lower()] += 1
+        result = {
             "layer": self.layer,
             "ok": not errors,
             "source": self.source,
-            "checks": [asdict(c) for c in self.checks],
+            "checks": checks,
+            "counts": counts,
             "errors": errors,
             "warnings": warnings,
         }
+        # H103: a --generate-fixture run sets ``fixture`` to "none", so a
+        # vendor-backed run (fixture absent) can never be mistaken for a
+        # fixture run downstream (the L1 registry row keys on this).
+        if self.fixture is not None:
+            result["fixture"] = self.fixture
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -678,7 +713,7 @@ def logical_tree(source, ignore_artifacts: bool = False) -> tuple[dict[str, dict
 def check_mbr(source, report: Report) -> None:
     check = report.add(Check("mbr"))
     if not isinstance(source, Fat32Image):
-        check.stats["skipped"] = "root source has no MBR"
+        check.skip("root source has no MBR")
         return
     entries = leafimg.mbr_entries(source.handle)
     check.stats["partitions"] = entries
@@ -701,7 +736,7 @@ def check_mbr(source, report: Report) -> None:
 def check_fat(source, report: Report) -> None:
     check = report.add(Check("fat"))
     if not isinstance(source, Fat32Image):
-        check.stats["skipped"] = "root source has no FAT geometry"
+        check.skip("root source has no FAT geometry")
         return
     geo = source.geometry
     check.stats.update(asdict(geo))
@@ -1103,7 +1138,7 @@ def check_version(source, report: Report, partial: bool = False) -> None:
 def check_hash(source, report: Report, expect: str | None) -> None:
     check = report.add(Check("sha256"))
     if not isinstance(source, Fat32Image):
-        check.stats["skipped"] = "root source has no image hash"
+        check.skip("root source has no image hash")
         return
     digest = hashlib.sha256()
     source.handle.seek(0)
@@ -1116,14 +1151,169 @@ def check_hash(source, report: Report, expect: str | None) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Deterministic no-vendor fixture tree (H103)
+# ---------------------------------------------------------------------------
+
+
+FIXTURE_DATA_VERSION = "11/06/27/01"
+FIXTURE_CELL = "B48R058R"
+FIXTURE_HDD_INFO = (
+    b"TST-000-000\r\nTST-000-000\r\n00-000000-00\r\n"
+    b"TST00-EVEUR\r\n11-05\r\n000000000000"
+)
+
+
+def _fixture_put_utf16be(buf: bytearray, off: int, text: str) -> None:
+    raw = text.encode("utf-16-be")
+    buf[off:off + len(raw)] = raw
+
+
+def _fixture_header() -> bytearray:
+    """A 512-byte clone of a ZE0 common header, built from format fields only.
+
+    All values are format constants that ``check_common_header`` asserts; no
+    vendor file is read.  Used as the decoded payload of the REFER001 pair.
+    """
+    buf = bytearray(b"\xff" * 512)
+    _fixture_put_utf16be(buf, 0x00, "CLARION")
+    _fixture_put_utf16be(buf, 0x40, "HITACHI")
+    _fixture_put_utf16be(buf, 0x80, "CLA-NAVI05-01")
+    _fixture_put_utf16be(buf, 0xA0, "FORMAT VERSION X08-02-00")
+    _fixture_put_utf16be(buf, 0xE0, "DATA VERSION " + FIXTURE_DATA_VERSION)
+    buf[0x160:0x162] = b"\x16\x00"
+    _fixture_put_utf16be(buf, 0x162, "V05.00.00")
+    buf[0x180:0x18C] = bytes.fromhex("ff ff 24 ff 12 c0 05 00 fb 50 0f f0")
+    buf[0x18C:0x1A0] = b"\x3f" * 20
+    buf[0x1A0:0x1AC] = b"\xff" * 12
+    return buf
+
+
+def _fixture_lev_tile(ze0_tile_header, clarion_tile) -> bytes:
+    """``LEV3456R.DAT``: sections 1 and 2, no directories, ZE0 header."""
+    sections = [
+        dict(id=sid, count=0,
+             levels=[dict(level=lvl, typ=typ, dirs=[])
+                     for lvl, typ in ze0_tile_header.LEVELS[sid]])
+        for sid in (1, 2)
+    ]
+    for sec in sections:
+        words, _offsets, _groups = clarion_tile.table_words(sec)
+        sec["count"] = -(-2 * words // 256)
+    tile = dict(sections=sections)
+    groups = [(sec["id"], [(L["level"], L["typ"], 0) for L in sec["levels"]])
+              for sec in sections]
+    tile["header"] = ze0_tile_header.author(
+        groups, [], (0, 0, 0, 0), FIXTURE_DATA_VERSION, ())
+    return clarion_tile.write_tile(tile)
+
+
+def _fixture_mmain(ze0_tile_header, totals: dict) -> bytes:
+    """MMAIN001.DAT whose level-table counts equal the tile-header sums."""
+    groups = []
+    for sid, rows in sorted(ze0_tile_header.LEVELS.items()):
+        groups.append((sid, [
+            (lvl, typ, totals.get((sid, lvl), [typ, 0])[1])
+            for lvl, typ in rows
+        ]))
+    return bytes(ze0_tile_header.author(
+        groups, [], (0, 0, 0, 0), FIXTURE_DATA_VERSION, ()))
+
+
+def _fixture_tile_totals(root: Path) -> dict:
+    totals: dict[tuple[int, int], list[int]] = {}
+    for path in sorted((root / "MAPAL001").glob("*.DAT")):
+        for group in parse_level_table(path.read_bytes()[:0x400], 0x1AC):
+            for row in group["rows"]:
+                acc = totals.setdefault((group["section"], row["level"]),
+                                        [row["type"], 0])
+                acc[0] = row["type"]
+                acc[1] += row["count"]
+    return totals
+
+
+def generate_fixture(root) -> Path:
+    """Write a deterministic, vendor-free card tree ``cardcheck`` accepts.
+
+    The tree satisfies every L1 check a FAT32-root tree can (``tree``,
+    ``headers``, ``cmp``, ``drstr``, ``mmain``, ``version``); ``mbr``/``fat``/
+    ``sha256`` are image-only and are reported SKIP with a reason, never PASS.
+
+    Every level/box/header value is derived from the existing modules
+    (``ze0_tile_header`` for ZE0 headers, ``tilewriter.make_factory`` +
+    ``ze0_tile_header.convert`` for the tile body, ``tilewriter.cell_db_bounds``
+    for the box, and the tile headers themselves for the MMAIN counts and the
+    DRSTR sizes via ``drstr_ze0.build``).  Fixed timestamps keep it
+    byte-identical across runs.  No OSM input, no vendor bytes.
+    """
+    import cmpind_writer
+    import drstr_ze0
+    import tilewriter
+    import ze0_tile_header
+
+    root = Path(root)
+    clarion_tile = tilewriter.clarion_tile
+    for name in ("MAPAL001", "REFER001", "REFER002", "RDSTM001",
+                 "BICON001", "OPNG", "SPEECH", "TMC", "VER_INFO"):
+        (root / name).mkdir(parents=True, exist_ok=True)
+
+    # MAPAL001: the LEV file and one real-grid BxxRyyR tile whose body comes
+    # from tilewriter.make_factory and whose header is re-authored to ZE0.
+    (root / "MAPAL001" / "LEV3456R.DAT").write_bytes(
+        _fixture_lev_tile(ze0_tile_header, clarion_tile))
+    box = tilewriter.cell_db_bounds(FIXTURE_CELL)
+    tile = ze0_tile_header.convert(
+        tilewriter.make_factory(FIXTURE_CELL), box=box,
+        data_version=FIXTURE_DATA_VERSION)
+    (root / "MAPAL001" / f"{FIXTURE_CELL}.DAT").write_bytes(tile)
+
+    # MMAIN001.DAT level-table counts = the sum over every tile header.
+    (root / "MMAIN001.DAT").write_bytes(
+        _fixture_mmain(ze0_tile_header, _fixture_tile_totals(root)))
+
+    # REFER001: one .cmp/.ind pair whose decoded payload carries the header.
+    payload = bytearray(_fixture_header())
+    payload.extend(b"\x00" * 64)
+    cmpind_writer.CmpFile.from_dat(bytes(payload)).write(
+        root / "REFER001", "POINT001.DAT")
+
+    (root / "CMP.LST").write_bytes(CMP_LIST)
+    (root / "VER_INFO" / "HDD_INFO.TXT").write_bytes(FIXTURE_HDD_INFO)
+
+    # DRSTR001.DAT last: it sizes every file/dir actually on disk.
+    (root / "DRSTR001.DAT").write_bytes(drstr_ze0.build(root))
+    return root
+
+
+def _run_checks(source, report: Report, *, partial: bool = False,
+                fast: bool = False, ignore_artifacts: bool = False,
+                do_hash: bool = False, expect_sha256: str | None = None,
+                strict: bool = False) -> dict:
+    """Run the fixed L1 check set against ``source`` and finish the report."""
+    check_mbr(source, report)
+    check_fat(source, report)
+    check_tree(source, report, partial=partial, ignore_artifacts=ignore_artifacts)
+    check_headers(source, report, ignore_artifacts=ignore_artifacts)
+    check_cmp(source, report, fast=fast, ignore_artifacts=ignore_artifacts)
+    check_drstr(source, report, partial=partial, ignore_artifacts=ignore_artifacts)
+    check_mmain(source, report, ignore_artifacts=ignore_artifacts)
+    check_version(source, report, partial=partial)
+    if do_hash:
+        check_hash(source, report, expect_sha256)
+    return report.finish(strict=strict)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    source = parser.add_mutually_exclusive_group(required=True)
+    source = parser.add_mutually_exclusive_group()
     source.add_argument("--image", help="raw SD image")
     source.add_argument("--root", help="extracted card root")
+    source.add_argument("--generate-fixture", metavar="DIR",
+                        help="write a deterministic no-vendor tree to DIR and "
+                             "validate it in the same run (H103)")
     parser.add_argument("--json", help="write a JSON report to this path")
     parser.add_argument("--json-only", action="store_true",
                         help="do not print the human summary")
@@ -1139,44 +1329,170 @@ def build_parser() -> argparse.ArgumentParser:
                         help="compute the image SHA-256 (slow)")
     parser.add_argument("--expect-sha256",
                         help="fail if the image SHA-256 does not match")
+    parser.add_argument("--selftest", action="store_true",
+                        help="run the synthetic fixture self-test (no vendor data)")
     return parser
+
+
+def _fixture_sha_list(root: Path) -> dict[str, str]:
+    out = {}
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            out[path.relative_to(root).as_posix()] = hashlib.sha256(
+                path.read_bytes()).hexdigest()
+    return out
+
+
+def _selftest() -> int:
+    """H103: the builder is deterministic, accepted, and can fail loudly."""
+    import tempfile
+
+    failures = 0
+
+    def ok(cond: bool, msg: str) -> None:
+        nonlocal failures
+        print(("  ok   " if cond else "  FAIL ") + msg)
+        failures += 0 if cond else 1
+
+    print("cardcheck --generate-fixture selftest (synthetic, no vendor data)")
+    with tempfile.TemporaryDirectory(prefix="cardcheck-fixture-") as tmp:
+        base = Path(tmp)
+        tree_a = generate_fixture(base / "a")
+        tree_b = generate_fixture(base / "b")
+
+        # Deterministic: a sorted file list with SHA-256 matches across runs.
+        ok(_fixture_sha_list(tree_a) == _fixture_sha_list(tree_b),
+           "two runs are byte-identical (sorted file list + sha256)")
+
+        def run(root: Path) -> dict:
+            source = RootSource(root)
+            try:
+                report = Report("L1", {"kind": "root", "path": str(root)},
+                                fixture="none")
+                return _run_checks(source, report)
+            finally:
+                source.close()
+
+        result = run(tree_a)
+        ok(result["ok"], "generated tree passes L1 (exit-0 equivalent)")
+        ok(result["fixture"] == "none", "JSON names fixture=none")
+        by_id = {c["id"]: c for c in result["checks"]}
+        ok(by_id["tree"]["status"] == "PASS", "tree check PASS")
+        ok(by_id["headers"]["status"] == "PASS", "headers check PASS")
+        ok(by_id["cmp"]["status"] == "PASS", "cmp check PASS")
+        ok(by_id["drstr"]["status"] == "PASS", "drstr check PASS")
+        ok(by_id["mmain"]["status"] == "PASS", "mmain check PASS")
+        ok(by_id["version"]["status"] == "PASS", "version check PASS")
+        ok(by_id["mbr"]["status"] == "SKIP" and by_id["mbr"]["skipped"],
+           "mbr is SKIP with a reason (image-only), never a fake PASS")
+        ok(by_id["fat"]["status"] == "SKIP" and by_id["fat"]["skipped"],
+           "fat is SKIP with a reason (image-only), never a fake PASS")
+        ok(result["counts"]["fail"] == 0, "no FAIL in the generated tree")
+
+        # Negative control: drop the tile's MAPAL001 entry from DRSTR and the
+        # drstr check must fail, so a PASS above is not vacuous.
+        broken = base / "broken"
+        generate_fixture(broken)
+        drstr_path = broken / "DRSTR001.DAT"
+        data = bytearray(drstr_path.read_bytes())
+        # Flip the first byte of the B48R058R.DAT entry name so DRSTR no longer
+        # lists the tile that is on disk.
+        idx = data.find("B48R058R.DAT".encode())
+        ok(idx >= 0, "fixture DRSTR lists the tile (positive control)")
+        if idx >= 0:
+            data[idx] = ord("X")
+            drstr_path.write_bytes(bytes(data))
+            neg = run(broken)
+            ok(not neg["ok"], "a DRSTR/tile mismatch makes L1 FAIL")
+            names = {c["id"] for c in neg["checks"] if c["status"] == "FAIL"}
+            ok("drstr" in names, "the failing check is named drstr")
+
+        # Negative control 2: a tile level not in MMAIN is named mmain.
+        broken2 = base / "broken2"
+        generate_fixture(broken2)
+        mm = bytearray((broken2 / "MMAIN001.DAT").read_bytes())
+        # Zero the counted totals: section 1 level 1 row has no matching tile sum.
+        totals = _fixture_tile_totals(broken2)
+        groups = parse_level_table(bytes(mm), 0x1AC)
+        # find a row with a non-zero tile sum and set the MMAIN count to 0xFFFF
+        # (a wrong count) so mmain must disagree.
+        pos = 0x1AC + 2
+        patched = False
+        for g in groups:
+            pos += 2
+            for row in g["rows"]:
+                if totals.get((g["section"], row["level"]), [None, 0])[1] > 0:
+                    struct.pack_into(">H", mm, pos + 2, 0xBEEF)
+                    patched = True
+                    break
+                pos += 4
+            else:
+                continue
+            break
+        ok(patched, "a non-zero MMAIN row exists to break (positive control)")
+        (broken2 / "MMAIN001.DAT").write_bytes(bytes(mm))
+        neg2 = run(broken2)
+        ok(not neg2["ok"], "a wrong MMAIN count makes L1 FAIL")
+        ok("mmain" in {c["id"] for c in neg2["checks"] if c["status"] == "FAIL"},
+           "the failing check is named mmain")
+
+    print(f"cardcheck selftest: {'PASS' if failures == 0 else 'FAIL'} "
+          f"({failures} failure(s))")
+    return 0 if failures == 0 else 1
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.selftest:
+        return _selftest()
+    if not (args.image or args.root or args.generate_fixture):
+        parser = build_parser()
+        parser.error("one of the arguments --image --root --generate-fixture "
+                     "is required")
     if args.expect_sha256 and not args.hash:
         args.hash = True
-    try:
-        if args.image:
-            source = Fat32Image(Path(args.image))
-            source_info = {
-                "kind": "image",
-                "path": str(Path(args.image)),
-                "size": source.size,
-            }
-        else:
-            source = RootSource(Path(args.root))
-            source_info = {"kind": "root", "path": str(Path(args.root))}
-    except (OSError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+    fixture = None
+    if args.generate_fixture:
+        try:
+            generate_fixture(Path(args.generate_fixture))
+        except (OSError, ValueError) as exc:
+            print(f"error: --generate-fixture: {exc}", file=sys.stderr)
+            return 2
+        root = str(Path(args.generate_fixture))
+        fixture = "none"
+        source_info = {"kind": "root", "path": root, "fixture": fixture}
+        try:
+            source = RootSource(Path(root))
+        except (OSError, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+    else:
+        try:
+            if args.image:
+                source = Fat32Image(Path(args.image))
+                source_info = {
+                    "kind": "image",
+                    "path": str(Path(args.image)),
+                    "size": source.size,
+                }
+            else:
+                source = RootSource(Path(args.root))
+                source_info = {"kind": "root", "path": str(Path(args.root))}
+        except (OSError, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
 
     try:
-        report = Report("L1", source_info)
-        check_mbr(source, report)
-        check_fat(source, report)
-        check_tree(source, report, partial=args.partial,
-                   ignore_artifacts=args.ignore_dump_artifacts)
-        check_headers(source, report, ignore_artifacts=args.ignore_dump_artifacts)
-        check_cmp(source, report, fast=args.fast,
-                  ignore_artifacts=args.ignore_dump_artifacts)
-        check_drstr(source, report, partial=args.partial,
-                    ignore_artifacts=args.ignore_dump_artifacts)
-        check_mmain(source, report, ignore_artifacts=args.ignore_dump_artifacts)
-        check_version(source, report, partial=args.partial)
-        if args.hash:
-            check_hash(source, report, args.expect_sha256)
-        result = report.finish(strict=args.strict)
+        report = Report("L1", source_info, fixture=fixture)
+        result = _run_checks(
+            source, report,
+            partial=args.partial,
+            fast=args.fast,
+            ignore_artifacts=args.ignore_dump_artifacts,
+            do_hash=args.hash,
+            expect_sha256=args.expect_sha256,
+            strict=args.strict,
+        )
     finally:
         source.close()
 
@@ -1184,14 +1500,18 @@ def main(argv: list[str] | None = None) -> int:
         Path(args.json).write_text(json.dumps(result, indent=2) + "\n")
     if not args.json_only:
         print(f"L1 whole-card validation: {source_info['path']}")
+        if fixture is not None:
+            print(f"fixture={fixture} (no vendor bytes)")
         for check in result["checks"]:
-            status = "OK" if check["ok"] else "FAIL"
+            status = {"PASS": "OK", "SKIP": "SKIP", "FAIL": "FAIL"}[check["status"]]
             details = []
             if check["stats"]:
                 details.append(", ".join(f"{k}={v}" for k, v in check["stats"].items()
                                          if not isinstance(v, (dict, list))))
             print(f"  [{check['id']}] {status}"
                   + (f" ({'; '.join(details)})" if details else ""))
+            if check.get("skipped"):
+                print(f"    SKIP  {check['skipped']}")
             for error in check["errors"]:
                 print(f"    ERROR {error}")
             for warning in check["warnings"]:
