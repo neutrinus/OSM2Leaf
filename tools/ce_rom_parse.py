@@ -59,7 +59,8 @@ def main(argv=None):
 
     print("ce_rom_parse.py is deprecated; use tools/cerom.py scan", file=sys.stderr)
     cerom = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cerom.py")
-    cmd = [sys.executable, cerom, "scan", image, "--offset", str(offset)]
+    # cerom.py takes the image before the subcommand (`cerom.py IMG scan`).
+    cmd = [sys.executable, cerom, image, "scan", "--offset", str(offset)]
     if out is not None:
         cmd += ["--out", out]
     return subprocess.call(cmd)
@@ -67,6 +68,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
-PY
-chmod +x /tmp/opencode/h3-worktree/tools/ce_rom_parse.py
-python3 /tmp/opencode/h3-worktree/tools/ce_rom_parse.py --image /tmp/opencode/IMG256 2>&1 | head -3
