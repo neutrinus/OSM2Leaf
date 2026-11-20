@@ -3570,6 +3570,27 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: if the dump has no recognisable structure, record the entropy map and stop.
   - Claims: C-5210–C-5219
 
+- [ ] **M2.20 — Does a region change in PROD keep the unit recoverable? (static, before anyone writes flash)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (M6.18 dump helps: real PROD checksum and blocks)
+  - Goal: LeafSDTools `PRODUCT INF → RESTORE FROM SD` writes an edited PROD block (it recomputes the checksum word at `+0x2D0`), so the area byte PROD `+0x21` (`0x20` USA → `0x30` Euro, C-5201) can be changed without hardware. Before that is ever tried, answer from the code: (1) does software-update mode (build B: `UpdateMng.exe`/`PRGUpdate.exe`, the way back in) start for every area, i.e. what are the area masks of those launch-table records; (2) which launch-table records differ between USA `0x00040000` and Euro `0x00020000` on the **US** card and on the EU card (M1.34 table); (3) does the EU card's build A contain a `Navi.exe` record an area-USA unit starts.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 modules` lists `AppLaunch.dll`; the launch table of M1.34 (`docs/research/rom-registry.md` "The launch table") is readable for B on EU2011 and US256.
+  - Scope: static, both card images (EU2011, US256), builds A and B. Output: a table record → area mask → started for USA / Euro, and the three answers. No flash write, no PROD file with the SD PIN in the repo.
+  - Input: `docs/research/us-eu-region.md`, `docs/research/rom-registry.md`, EXP-2026-11-06-M2.7, M1.34, LeafSDTools `ProdInf.cpp` (`WriteProd`, facts only).
+  - Done when: an EXP gives the per-area launch diff for both cards and states `update mode starts for area 0x30: yes/no/unknown` with the VA of the mask that decides it.
+  - Stop: if the update-mode entry does not go through the area-filtered launch table, name the path and stop.
+  - Claims: C-6260–C-6269
+
+- [ ] **M6.21 — Region change on a unit (PROD `+0x21`): only after the card-only test, only with a way back**
+  - Status: blocked · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
+  - Depends: M6.18 (flash + PROD backup with SHA-256), M6.19, M2.20 (update mode survives the change), the card-only EU test (EU card with `HDD_INFO` matched to the unit) showing that the area is what stops it
+  - Unblock: all four Depends done **and** the card-only test fails for a reason M2.20 ties to the area; otherwise this task is retired as not needed
+  - Goal: change the unit area by restoring an edited `prod_*.bin` with LeafSDTools, as the last resort for European maps on the US unit. Region does not gate the map checks (M2.7, C-787), so this is not expected to be needed.
+  - Scope: prefer a spare unit. One byte (`+0x21`), checksum by the tool, original `prod_*.bin` kept on two media. Record every screen. Do-not-attempt on the only unit while M2.20 says `no` or `unknown` (C-1129).
+  - Done when: an EXP records before/after PROD (PIN masked), what starts, audio yes/no, and the restore of the original PROD verified by a second dump.
+  - Stop: any hang, black screen or missing audio → restore the original PROD at once and stop.
+  - Claims: C-6270–C-6279
+
 ## M7 — Scale and release (later)
 
 - [ ] **M7.1** Full Dolnośląskie run, size budget.
