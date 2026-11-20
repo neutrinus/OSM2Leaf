@@ -2503,7 +2503,7 @@ of the four numbers above says so in its first line.
   - Claims: C-5157–C-5159
 
 - [ ] **M4.47 — Find the POINT chain locator (where a chain base and its table are recorded)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.47-point-chain-locator · Critical: yes
   - Depends: — (M5.26 done: chain tables and `tools/point_pair_regen.py` on `main`)
   - Goal: M5.26 can re-pack a POINT page chain only inside its own slot (24–248 B of slack per name chain) because nothing known tells the reader where a chain base and its chain table are (C-2955). Find that locator so a regenerated chain can move or grow and mass OSM name sets fit.
   - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_pair_regen.py scan EU/REFER001` reports 99 tables / 0 unresolved; `python3 tools/point_pair_regen.py locator EU/REFER001` reproduces `NOT FOUND (best 4/33)` with control 33/33 (the search space already excluded).
