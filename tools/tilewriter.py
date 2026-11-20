@@ -144,15 +144,15 @@ PAIR_ROAD = 0
 #: sub-record sizes, odd pair) and no tail (EXP-2026-11-20-M5.53-wide-rows,
 #: ``tools/s1_wide_dir.py``); the writer splices into the kinds listed in
 #: ``WIDE_SPLICE_DIR_KINDS`` through that row model.
-WIDE_SPLICE_DIR_KINDS = {0x2146}
+#: M5.53 enabled 0x2146; M5.54 enables n = 2..9 (every kind in the P1 bbox
+#: proven by a real-tile splice, EXP-2026-11-20-M5.54-wide-kinds).
+WIDE_SPLICE_DIR_KINDS = {0x2046 + 0x100 * n for n in range(1, 10)}
 SPLICEABLE_DIR_KINDS = {0x2046} | WIDE_SPLICE_DIR_KINDS
 #: Section-1 level-1 kinds that the row model parses (s1_wide_dir census:
-#: every record of EU2011 B48R058R decodes) but the writer does not yet splice
-#: into; it preserves them byte-for-byte.  M5.22 called them opaque because it
-#: read every row as 512 bytes (C-2810-C-2813, corrected by M5.53).
-PRESERVE_ONLY_DIR_KINDS = {
-    0x2246, 0x2346, 0x2446, 0x2546, 0x2646, 0x2746, 0x2946,
-}
+#: every record of 45 EU2011 tiles decodes) but that no real-tile splice has
+#: exercised yet: preserved byte-for-byte.  Observed outside the P1 bbox:
+#: 0x2a46, 0x2b46, 0x2c46, 0x2d46, 0x2f46, 0x3146, 0x3446, 0x3646 (M5.53).
+PRESERVE_ONLY_DIR_KINDS = {0x2046 + 0x100 * n for n in range(10, 32)}
 KNOWN_DIR_KINDS = SPLICEABLE_DIR_KINDS | PRESERVE_ONLY_DIR_KINDS
 # Compatibility alias (M5.4 name); "modelled for mutation" means spliceable.
 MODELLED_DIR_KINDS = SPLICEABLE_DIR_KINDS
@@ -1032,9 +1032,9 @@ def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs)
     For each written parcel the even (road) record is replaced, its 2 x 2
     sub-records are dropped and its flag cleared; the odd partner gets the
     parcel's names (M5.7) as in the 0x2046 path.  Every other record keeps its
-    bytes.  A wide row left with no sub-record becomes a narrow row, so the
-    directory shrinks by 512 bytes per such row and its kind word follows
-    (``0x2146`` -> ``0x2046``).  Rewritten row blocks are appended (new tags);
+    bytes.  When no wide row keeps a sub-record, every wide row becomes narrow
+    and the directory turns into ``0x2046`` (M5.54: narrowing is per
+    directory, so a partial splice keeps the kind word).  Rewritten row blocks are appended (new tags);
     the directory is rewritten at its own offset, and the bytes it no longer
     covers are zeroed (factory directory padding is zero).
     """
@@ -1089,12 +1089,9 @@ def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs)
                 row["cols"][col]["odd"] = (len(rec["raw"]) // 2, rec["words"])
         row["records"] = sorted(recs.values(), key=lambda r: (r["col"], _PART_ORDER[r["part"]]))
         if row["wide"]:
-            if s1_wide_dir.narrow_row(row):
-                rows_narrowed.append(index)
-            else:
-                # Still wide: bit 31 of the row's first word marks the width.
-                ln, xw = row["cols"][0]["even"]
-                row["cols"][0]["even"] = (ln | s1_wide_dir.FLAG, xw)
+            # Still wide (for now): bit 31 of the row's first word marks it.
+            ln, xw = row["cols"][0]["even"]
+            row["cols"][0]["even"] = (ln | s1_wide_dir.FLAG, xw)
         block = s1_wide_dir.row_block(row)
         offset = clarion_tile.pad256(len(out))
         out.extend(b"\x00" * (offset - len(out)))
@@ -1102,6 +1099,16 @@ def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs)
         row["tag"] = clarion_tile.enc_addr(offset)
         stats["appended"] += 1
         stats["superseded_bytes"] += old_len
+    # M5.54: the directory narrows as a whole, only when no wide row keeps a
+    # sub-record; otherwise every wide row (and the kind word) stays as it was.
+    # Narrowing an unwritten wide row changes only its pair flags and layout
+    # (even, odd per column); its block bytes and tag stay.
+    wide = [row for row in model["rows"] if row["wide"]]
+    if wide and all(s1_wide_dir.narrow_row(dict(row, cols=[dict(c) for c in row["cols"]]))
+                    for row in wide):
+        for row in wide:
+            s1_wide_dir.narrow_row(row)
+            rows_narrowed.append(row["index"])
     new_dir = s1_wide_dir.encode_dir(model)
     old_end = model["end"]
     if len(new_dir) > old_end - model["off"]:
@@ -1574,8 +1581,8 @@ def _opaque_directory(kind, level, y0, x0, typ=146, tail_size=None):
     nslots = spec["slots"]
     span = DIR_MESHES[level]
     if tail_size is None:
-        n = (kind >> 8) & 0xF
-        tail_size = n * 512 if 1 <= n <= 7 else 0
+        n = s1_wide_dir.wide_rows_of_kind(kind) or 0
+        tail_size = n * 512
     with _class_mapping(default_class_table()):
         plain, _ = fa_encode.build_record(
             level, y0, x0, 0, 0, [(0x100, 0x100), (0x200, 0x200)],
@@ -1839,14 +1846,15 @@ def selftest():
             2: {"block_off": 0x900, "block_end": 0xa00, "recs": []}}}]}]}]}
         check("same block_off alias is shared", 0x500 in shared_slot_blocks(aliased),
               sorted(shared_slot_blocks(aliased)))
-        check("spliceable kinds are 0x2046 and 0x2146 (M5.53)",
-              SPLICEABLE_DIR_KINDS == {0x2046, 0x2146}
-              and WIDE_SPLICE_DIR_KINDS == {0x2146},
+        check("spliceable kinds are 0x2046 and 0x2146-0x2946 (M5.53, M5.54)",
+              SPLICEABLE_DIR_KINDS == {0x2046, 0x2146, 0x2246, 0x2346, 0x2446,
+                                       0x2546, 0x2646, 0x2746, 0x2846, 0x2946}
+              and 0x2046 not in WIDE_SPLICE_DIR_KINDS,
               sorted(SPLICEABLE_DIR_KINDS))
-        check("preserve-only kinds are 0x2246-0x2946",
-              PRESERVE_ONLY_DIR_KINDS == {0x2246, 0x2346, 0x2446,
-                                          0x2546, 0x2646, 0x2746, 0x2946},
-              sorted(PRESERVE_ONLY_DIR_KINDS))
+        check("preserve-only kinds are 0x2a46 and up (row-modelled, not spliced)",
+              min(PRESERVE_ONLY_DIR_KINDS) == 0x2A46 and 0x3646 in PRESERVE_ONLY_DIR_KINDS
+              and not PRESERVE_ONLY_DIR_KINDS & SPLICEABLE_DIR_KINDS,
+              sorted(PRESERVE_ONLY_DIR_KINDS)[:3])
         check("stream is 78 9c", bytes(record["raw"][:2]) == b"\x78\x9c",
               bytes(record["raw"][:2]).hex())
         check("report key matches the record",
@@ -1893,25 +1901,25 @@ def selftest():
         # whose slot-table structure is modelled (header/tags/bodies/tail), and
         # must refuse to write parcels into it.
         yb, xb = cell_mesh(cell)
-        opaque = _opaque_directory(0x2246, 1, yb, xb + 1)
+        opaque = _opaque_directory(0x2a46, 1, yb, xb + 1)
         factory_opaque = make_factory(cell, extra_dirs={1: [opaque]})
         t_fo = clarion_tile.read_tile(factory_opaque)
         fo_entry = road_level(t_fo, 1)
-        fo_opaque = [d for d in fo_entry["dirs"] if d["kind"] == 0x2246][0]
+        fo_opaque = [d for d in fo_entry["dirs"] if d["kind"] == 0x2a46][0]
         opaque_off, opaque_end = fo_opaque["off"], fo_opaque["end"]
         opaque_before = factory_opaque[opaque_off:opaque_end]
         fop = root / (cell + ".opaque.DAT")
         fop.write_bytes(factory_opaque)
         blob_op, rep_op = build(str(imf_path), cell, factory_path=str(fop),
                                 level=1, country=616)
-        check("splice preserves 0x2246 dir bytes",
+        check("splice preserves 0x2a46 dir bytes",
               blob_op[opaque_off:opaque_end] == opaque_before,
               (opaque_off, opaque_end))
         t_op = clarion_tile.read_tile(blob_op)
-        op_opaque = [d for d in road_level(t_op, 1)["dirs"] if d["kind"] == 0x2246][0]
-        check("0x2246 tail preserved",
+        op_opaque = [d for d in road_level(t_op, 1)["dirs"] if d["kind"] == 0x2a46][0]
+        check("0x2a46 tail preserved",
               bytes(op_opaque.get("tail", b"")) == bytes(fo_opaque.get("tail", b"")))
-        check("0x2246 slot table preserved",
+        check("0x2a46 slot table preserved",
               sector_fingerprint(t_fo, 2) == sector_fingerprint(t_op, 2)
               and sector_fingerprint(t_fo, 4) == sector_fingerprint(t_op, 4))
         # Refuse mutation into a preserve-only directory.
@@ -1927,7 +1935,7 @@ def selftest():
             splice_factory(factory_opaque, 1, {(yb, xb + 1, 0, 0): dict(plain=mut_rec[0], comp=mut_rec[1])})
         except WriterError as exc:
             refused = str(exc)
-        check("splice into 0x2246 refused", "kind 0x2246" in refused and "preserved" in refused, refused)
+        check("splice into 0x2a46 refused", "kind 0x2a46" in refused and "preserved" in refused, refused)
         check("opaque factory round-trips",
               clarion_tile.write_tile(clarion_tile.read_tile(factory_opaque)) == factory_opaque)
 
@@ -2011,6 +2019,58 @@ def selftest():
             caught = str(exc)
         check("negative: tampered unwritten record in the wide dir is caught",
               "changed but was not regenerated" in caught or "does not read back" in caught, caught)
+
+        # M5.54: a 0x2246 directory (rows 3 and 7 wide).  The directory
+        # narrows only when no wide row keeps a sub-record.
+        ph2 = _opaque_directory(0x2246, 1, yb, xb + 1)
+        fw2 = bytearray(make_factory(cell, extra_dirs={1: [ph2]}))
+        wd2 = [d for d in road_level(clarion_tile.read_tile(bytes(fw2)), 1)["dirs"]
+               if d["kind"] == 0x2246][0]
+        syn2, soff2 = s1_wide_dir.synthetic_dir(wide_rows=(3, 7), sub_cols=((3, 5), (7, 2)))
+        wm2 = s1_wide_dir.parse_dir(syn2, soff2)
+        for row in wm2["rows"]:
+            block = s1_wide_dir.row_block(row)
+            at = clarion_tile.pad256(len(fw2))
+            fw2.extend(b"\x00" * (at - len(fw2)))
+            fw2.extend(block)
+            row["tag"] = clarion_tile.enc_addr(at)
+        wm2["y"], wm2["x"] = wd2["y"], wd2["x"]
+        enc2 = s1_wide_dir.encode_dir(wm2)
+        fw2[wd2["off"]:wd2["off"] + len(enc2)] = enc2
+        fw2 = bytes(fw2)
+        check("two-row fixture: kind 0x2246, rows 3 and 7 wide",
+              s1_wide_dir.parse_dir(fw2, wd2["off"])["kind"] == 0x2246
+              and [r["index"] for r in s1_wide_dir.parse_dir(fw2, wd2["off"])["rows"] if r["wide"]] == [3, 7])
+        r72 = _wide_rec(7, 2)
+        # Partial: only row 3's sub-record parcel written -> both rows stay wide.
+        bp = {(yb, xb + 1, 3, 5): dict(plain=r35[0], comp=r35[1], names_sec=None)}
+        pb2, pc2 = splice_factory(fw2, 1, bp)
+        verify_factory(fw2, pb2, 1, bp, pc2)
+        pm2 = s1_wide_dir.parse_dir(pb2, wd2["off"])
+        check("two-row partial: kind stays 0x2246, rows 3 and 7 still wide, records check",
+              pm2["kind"] == 0x2246 and pm2["size_ok"]
+              and [r["index"] for r in pm2["rows"] if r["wide"]] == [3, 7]
+              and pm2["rows"][3]["cols"][0]["even"][0] & s1_wide_dir.FLAG
+              and not pm2["rows"][3]["cols"][5]["even"][0] & s1_wide_dir.FLAG
+              and pc2["wide_dirs"][0]["subs_dropped"] == 4
+              and pc2["wide_dirs"][0]["rows_narrowed"] == []
+              and not any(r["errors"] for r in pm2["rows"]), pc2["wide_dirs"])
+        # Full: both sub-record parcels written -> directory becomes 0x2046.
+        bf = dict(bp)
+        bf[(yb, xb + 1, 7, 2)] = dict(plain=r72[0], comp=r72[1], names_sec=None)
+        fb2, fc2 = splice_factory(fw2, 1, bf)
+        verify_factory(fw2, fb2, 1, bf, fc2)
+        fm2 = s1_wide_dir.parse_dir(fb2, wd2["off"])
+        check("two-row full: 0x2246 -> 0x2046, rows 3 and 7 narrowed, 8 subs dropped",
+              fm2["kind"] == 0x2046 and fm2["size_ok"]
+              and fc2["wide_dirs"][0]["rows_narrowed"] == [3, 7]
+              and fc2["wide_dirs"][0]["subs_dropped"] == 8
+              and not any(r["errors"] for r in fm2["rows"]), fc2["wide_dirs"])
+        check("two-row full: freed 1,024 bytes zeroed",
+              fb2[wd2["off"] + 2 * 0x2046:wd2["off"] + 2 * 0x2246] == bytes(1024))
+        old_r10 = [r["raw"] for r in s1_wide_dir.parse_dir(fw2, wd2["off"])["rows"][10]["records"]]
+        check("two-row full: unwritten row 10 records unchanged",
+              old_r10 == [r["raw"] for r in fm2["rows"][10]["records"]])
 
         # A factory that does not cover the parcel must be refused, not guessed.
         other = root / "B48R050R.DAT"

@@ -241,9 +241,10 @@ All five target tiles now rebuild **byte-identically**, including the dense
   the parent code with `(half << 2) | r`. On `B48R058R` all 68 section-1
   directories parse this way (139,510 records, every one a whole zlib stream of
   its declared size, 0 overlapping row blocks). `tilewriter` splices into
-  `0x2146` through this model (a written parcel loses its sub-records; a wide
-  row left without any becomes narrow, so the directory can turn into
-  `0x2046`) and still preserves `0x2246`–`0x2946`. What the firmware does with
+  `0x2146` (M5.53) and `0x2246`–`0x2946` (M5.54) through this model: a written
+  parcel loses its sub-records, and when no wide row keeps one the whole
+  directory turns into `0x2046` (a partial splice keeps the kind). The row-model
+  kinds `0x2a46` and up (seen outside the P1 bbox) are still preserved. What the firmware does with
   the sub-records is UNKNOWN (no reader located, rule 13);
 - copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
 

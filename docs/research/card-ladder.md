@@ -101,6 +101,9 @@ firmware has not read it). A target that exits `BLOCKED (4)` is not a gate.
   sub-record turns the directory into `0x2046`. The other 6 (`0x2246`,
   `0x2346` ×2, `0x2546`, `0x2646`, `0x2946`) parse with the same model but are
   still preserved (follow-up M5.54).
+  **Update (M5.54, EXP-2026-11-20-M5.54-wide-kinds):** those 6 are spliceable
+  too (**20 of 20**); each was spliced end to end through `one_tile_pipeline`
+  with every sub-record parcel written, and each turned into `0x2046`.
 - **Copied:** sections 2 and 4 of the tile, `LEV3456R.DAT`, all of
   `REFER001`, `RDSTM001`, `MMAIN001.DAT` and the asset families.
 - **Inconsistencies:** P0's 2–4 for the whole region, plus:
