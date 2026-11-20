@@ -2554,8 +2554,8 @@ of the four numbers above says so in its first line.
   - Falsifier: a field the table gives does not vary where the two tiles' roads differ, or the L3 run reads bytes outside section 2 only.
   - Claims: none yet
 
-- [ ] **M4.46 — `tools/addre.py` misses the street name on shards whose name section starts `05 LL 00 ff`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.46 — `tools/addre.py` misses the street name on shards whose name section starts `05 LL 00 ff`**
+  - Status: done · Owner: task/m4.46-addre-tt05-names · Critical: no · Pair: solo
   - Depends: — (found by M4.39)
   - Goal: `addre.parse_record` recognises the 2011 `c0` name section only with `TT` = `0x03`/`0x04`; on `ADDRE005` (Germany) `TT` is `0x05` and it returns no name for all but 18 of the first 81,313 `c0` records, so every ADDRE name census built on it undercounts those shards (C-5156).
   - Precheck: `python3 tools/addre.py records $F/REFER001/ADDRE005.DAT.cmp --limit 20` prints `name=` empty on `c0` rows; `python3 tools/route_link_join.py --selftest` passes (its `street_name` reads the same records by the `TT LL 00 ff` rule).
@@ -2564,6 +2564,7 @@ of the four numbers above says so in its first line.
   - Done when: `TT` per shard is tabulated in `refer.md`, `addre.py` returns a name for every `c0` record on ≥ 3 shards with different `TT` (positive), and still none on `c8` (negative).
   - Stop: if a shard's name section does not follow `TT LL 00 ff`, record the shard and its first 16 bytes and stop.
   - Claims: C-5157–C-5159
+  - Result: EXP-2026-11-20-M4.46-addre-tt05-names (C-5157–C-5159). The `c0` name section sits at byte `4 + 2*rec[2] + 2*rec[3]` in 4,610,363/4,610,363 `c0` records of the 33 EU2011 shards (0 of 7,424,226 `c8`); `addre.parse_record` now places it there and names every `c0`, no `c8`. `TT` per record: `0x03` 2,531 / `0x04` 1,332,147 / `0x05` 3,275,685, constant in 26 shards, mixed in 7 (table in `refer.md`). The old `TT` 3/4 rule (`names --legacy`) missed 3,275,685 names (71.0 %) on 14 shards. New `addre.py names` census; `_zlib_at` no longer copies the file tail per stream (large shards now read in minutes).
 
 - [ ] **M4.47 — Find the POINT chain locator (where a chain base and its table are recorded)**
   - Status: open · Owner: — · Critical: yes
@@ -3457,6 +3458,35 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Hints: write down every version string exactly (program, navi, map, boot, audio). An agent then looks for them with `python3 tools/ce_strfind.py US256.img …` in build A/B/C of the US card image; a string found in the card's build A with the same value means "same build" for our purpose.
   - Done when: an EXP lists the strings from the screens and, per string, found / not found in US256 (offset, module), with the conclusion `same build` / `different build` / `cannot tell`.
   - Claims: C-3570–C-3579
+
+- [x] **M6.17 — Say what on the map card is code and what LeafSDTools "SRAM" is**
+  - Status: done · Owner: claude/project-thread-64ftoc · Critical: no
+  - Depends: —
+  - Goal: answer Marek's question "only maps on the card, or the software too; does the system boot from it" from the ledger and the LeafSDTools source.
+  - Done when: EXP-2026-11-19-M6.17-card-what-runs gives the card layout with code/data per region and the meaning of the SRAM/VFlash dump, each with a status.
+  - Result: card = MBR + CE ROMs A/B/C (OS + Navi.exe, ~38 MB) + FAT32 maps + TFAT16; update mode runs B from the card (VERIFIED, LeafSDTools); normal mode from the card is a strong HYPOTHESIS (unit flash is 8 MiB); "SRAM" dump = 1 MiB user data from flash (C-5190–C-5194).
+  - Claims: C-5190–C-5199
+
+- [ ] **M6.18 — Back up the unit's flash with LeafSDTools (before any card test)**
+  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+  - Depends: — (do it before M6.2 S0; C-1128: unit-side state has no backup)
+  - Goal: a full copy of the unit's 8 MiB flash and its user data, so a failed card test can be undone and M6.19 can tell where the OS runs from.
+  - Input: LeafSDTools card (update mode, README "GUIDE FOR QY7XXX"), menu `Read NAND`, `SRAM → DUMP TO SD`, `PRODUCT INF`.
+  - Scope: read-only buttons only. Never `Write NAND`, `RESTORE SRAM`, `RESTORE VFLASH` in this task. Lock the stock card before leaving update mode (README).
+  - Done when: an EXP lists file names, sizes (NAND dump expected 8 MiB minus what the tool skips; `sram_*.bin` 1,048,576 B; `vflash_*.bin` 3,014,656 B) and SHA-256; files stay outside the repo (they hold the SD PIN at `0xA100` — never commit).
+  - Stop: if a size differs from the expectation, record it and stop; do not retry writes.
+  - Claims: C-5200–C-5209
+
+- [ ] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**
+  - Status: blocked · Owner: — · Critical: no
+  - Depends: M6.18
+  - Unblock: M6.18 (the dump exists and its SHA-256 is recorded)
+  - Goal: settle C-5192 (normal mode runs A/B from the card) with bytes, and name each flash region.
+  - Precheck: dump size and SHA-256 match the M6.18 EXP.
+  - Scope: block map of the 8 MiB (`0..0x86`, 8 KiB/64 KiB); search for `ECEC`, `NKOK`, `CLARION`, `Navi Version`, the A/B/C part numbers (`470-2824-34`, `470-2759-01`, `470-3142-00`) and compare any CE fragment with the card's bytes (`tools/cerom.py`). No PIN bytes in the EXP (mask `0xA100–0xA10F`).
+  - Done when: an EXP gives a table region → content → evidence, and C-5192 becomes VERIFIED or REFUTED (negative control: the same search on a random 8 MiB of the card finds what is expected there).
+  - Stop: if the dump has no recognisable structure, record the entropy map and stop.
+  - Claims: C-5210–C-5219
 
 ## M7 — Scale and release (later)
 
@@ -4543,15 +4573,16 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `div1_l3.py run archive/head256.img nk.exe` prints `4/4 runnable functions match` with `rotcl(shim)=0 rotcr(shim)=0`; `isolate --before <pre-change engine>` lists only `rotcl`/`rotcr`; `compare` 0/0 on the three corpora.
   - Claims: C-5310–C-5319 (was C-5188–C-5189; fresh block for this run)
 
-- [ ] **M9.51 — `mac.l` is modelled as `mac.l Rm,Rn`; the SH-4 form is `mac.l @Rm+,@Rn+`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.51 — `mac.l` is modelled as `mac.l Rm,Rn`; the SH-4 form is `mac.l @Rm+,@Rn+`**
+  - Status: done · Owner: task/m9.51-pysh4-macl · Critical: no · Pair: solo
+  - Result: EXP-2026-11-20-M9.51-pysh4-macl; C-5580–C-5584. `mac.l` now reads `@Rn`/`@Rm` longs with post-increment and S = 1 48-bit saturation; `isolate --before 6512c1b --expect mac.l` → only mac.l (256); `compare` 0/0 on the three corpora. New `tools/l3_harness/arm_census.py`: none of 11 documented L3 runs (31.7 M instructions) executes `mac.l`, so no L3 verdict changes. The M9.45 fast path has no `mac.l` template; `_step` runs it.
   - Depends: M9.49
   - Goal: `engine.py`'s `0x0nmF` arm multiplies the two *register values*; the manual's `0000nnnnmmmm1111` is `MAC.L @Rm+,@Rn+` (two memory longs, both pointers +4, S = 1 saturates at 48 bits). The census counts 4,164 EU2011 Navi / 189 EU2011 nk / 4,839 US2011 Navi `mac.l` as modelled with wrong semantics (C-5304); the M9.37 selftest row checks the register form.
   - Scope: the `mac.l` arm and its selftest row in `tools/l3_harness/engine.py` (manual MACL code: distinct registers, n == m, S = 0/1, fault before register writes); first `grep` the L3 targets for a run that executed `mac.l` and say whether any result changes. No other instruction.
   - Done when: the new row fails on the current engine and passes after; `div1_l3.py isolate --before <pre-change engine> --expect mac.l` lists only `mac.l`; `decode_audit.py compare` 0/0 on EU Navi, EU nk, US Navi.
   - Precheck: `grep -n "mac.l Rm,Rn" tools/l3_harness/engine.py` finds the register-form arm (if it is gone, the task is moot).
   - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
-  - Claims: none yet (take the next free block when claimed)
+  - Claims: C-5580–C-5584 (block C-5580–C-5589)
 
 - [x] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
   - Status: done · Owner: task/m9.54-repin-m9.39-pair · Critical: no · Pair: solo
