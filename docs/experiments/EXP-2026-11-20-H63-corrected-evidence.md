@@ -222,7 +222,7 @@ All three pins are kept, each with a runnable re-check. Whether pin-resolved occ
 
 The PR #319 navigator review approved the numbers and the code after six fixes. Each one was applied in this PR:
 
-1. **Merge and snapshots (HIGH).** `origin/main` was merged at `302154f`. The l3 overlay conflict was resolved by taking main's file and re-freezing it with `--write-snapshot`, and the docs base snapshot was re-frozen too. H77's 11-20 overlay is not on `main` yet, so the 11-16 overlay is the one refreshed. After the refresh:
+1. **Merge and snapshots (HIGH).** `origin/main` was merged at `302154f`, then again at `fc97028`, which includes H77 (#316). H77 made `docs/research/fn-audit-l3-corpus-2026-11-20.json` the live l3 overlay that `gate.py` reads. So `fn-audit-l3-corpus-2026-11-16.json` is kept exactly as `main` has it (frozen by H77), and the 11-20 overlay is the one re-synced with `--scope l3 --write-snapshot`. The docs base snapshot was re-frozen too. After the refresh:
    - docs base: `START 376, INSIDE 0, CORRECTED 20`, `fn_audit: CORRECTED 20 (12 line, 8 pin)`, `CORPUS OK: DOCS BASE`;
    - l3 overlay: `fn_audit: CORRECTED 5 (3 line, 2 pin)`, `CORPUS OK: L3 OVERLAY`. The 5 rows are H51 pm-review :174 (pin), M1.25 :84 (line), M1.29 :72 (line), and this EXP's `Pin:` line, which holds one line occurrence and one pin occurrence.
 
