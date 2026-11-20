@@ -4054,6 +4054,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
   - Status: open (walk part runnable — EXP-2026-11-20-M9.41-us-poi-row; the `l3check` row that would make it S1 evidence is M9.55; name part waits for this task's own `poi_record_decode` runner plus M3.11b's text byte order, the accessor `0x0041ec8c` already runs 1000/1000) · Owner: — · Critical: yes
+  - Note (M9.33, 2026-11-20): prerequisite map — `READY`: US VAs (M1.22), name accessor (M3.11c) and byte order (M3.11b, firmware swap = `swap16`, C-5815) are met; what remains is this task's own runner and M9.55's `l3check` row (C-3403, EXP-2026-11-20-M9.33-rerun-prereqs-map).
   - Step: P4
   - Note (H51, 2026-11-11): the walker and accessor VAs are **EU-build** addresses; the US card carries a different `Navi.exe` (H51). The EU-code run stays as a method check; the gate for S1/S2 is the same run on the US build after **M1.22** gives the US VAs.
   - Note (M1.22b, 2026-11-16): the US VAs now exist and are **justified**, not voted: the POINT walker `0x003f5194 → 0x0041db44` (`DIFFERENT`, one pool word `0x4e8→0x4d8`, C-362x) and the POI name accessor `0x003f632c → 0x0041ec8c` (`UNIQUE`). Register the target with `build: "us2011"`; the run itself stays M9.10.
@@ -4500,8 +4501,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: EXP-2026-11-19-M9.32-reconcile-m9.11; C-3370–C-3375. All three pairs + both controls through the registered `cmp_ind_reader` path with declared sec1 provenance were first satisfied by EXP-2026-11-09-M9.11-closeout-cmp-ind-reader (C-2157); this task re-measured them (linkage: M9.34). M9.11 stays `done`: re-measured from the US card, `runner.py run cmp_ind_reader` (EU2011) returns page `0x840ba0` byte-identical for factory/S1/S2 and passes both controls. Found and fixed one runner gap: the `firmware_call` path ignored the target `build`, so `cmp_ind_reader_us2011` always ran EU VAs and BLOCKED; it now routes the build (and refuses a mismatched `entry.va`), and the US target passes the same 3 pairs + 2 controls. S2 rebuilt with zlib 1.3 (`b4ef43b9…`, not the pinned `c2b9c388…`).
   - Claims: C-3370–C-3379
 
-- [ ] **M9.33 — Map reopened L3 target rerun prerequisites (M1.2f / M9.24 / M9.28 / H45)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.33 — Map reopened L3 target rerun prerequisites (M1.2f / M9.24 / M9.28 / H45)**
+  - Status: done · Owner: task/m9.33-rerun-prereqs-map · Critical: no · Pair: solo
+  - Result: EXP-2026-11-20-M9.33-rerun-prereqs-map; C-3400–C-3404. Every named target has a verdict. M9.6, M9.11, M9.13, M9.14 and M9.17 are done with runs (`READY`; the last three run through `datask_l3.py`/`vcard_l3.py`/`mmain_l3.py`, so their `runner.py` entries stay `blocked` by design). M9.10 is `READY`: US VAs, accessor and byte order are all met, and only its own runner and M9.55's `l3check` row remain. No target waits on M1.2f/M1.19, M9.28 or M9.24. `l3_precond` gaps (cross-build VA classes, no "runs elsewhere" state) → new M9.59.
   - Depends: H45, M9.28
   - Note (M9.28, 2026-11-19): the input-buffer prerequisite is **cleared** — `entry.input_region` maps a file-derived page at a chosen VA (EXP-2026-11-19-M9.28-input-region, C-3210–C-3219); remaining blockers for the reopened readers are sec1 `INIT` bytes (M1.2f) and import/CRT binding (M9.24).
   - Goal: make "re-run reopened L3 reader targets" cheap to decide: for M9.6/M9.10/M9.13/M9.14/M9.17/M9.11 (open states), state which blockers are cleared (M9.20/M9.11b/M3.20) and which prerequisites remain (sec1 decompression M1.2f, import/CRT/file binding M9.24, input-buffer mapping M9.28, reader VA/signature evidence), using H45 verdicts where available.
@@ -4747,6 +4749,16 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the search needs global state the model cannot provide after two fixes (e.g. a cross-tile network level), record which state and stop; that is an M8 (L4) item.
   - Falsifier: the firmware route is unchanged when the only link between start and goal is removed.
   - Claims: C-5860–C-5869
+
+- [ ] **M9.59 — `l3_precond`: classify a target against its own build, and know targets that run outside `runner.py`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: H45 (done)
+  - Goal: M9.33 found two gate gaps (EXP-2026-11-20-M9.33-rerun-prereqs-map, C-3401/C-3402). (1) `--all-targets --image archive/head256.img` classes the US2011 VAs of `cmp_ind_reader_us2011` against EU sections (`INIT` instead of `CODE sec0`). (2) `tile_reader`, `drstr_parser` and `mmain_reader` are `BLOCKED` ("entry kind blocked with no VA") although their `reason` names the tool that runs them (`datask_l3.py`, `vcard_l3.py`, `mmain_l3.py`). The gate should say what is true.
+  - Precheck: `python3 tools/l3_precond.py --selftest` passes; `python3 tools/l3_precond.py --target cmp_ind_reader_us2011 --image archive/head256.img` prints `va_class.0x00565d94: INIT` (the defect).
+  - Scope: `tools/l3_precond.py` only. (1) Read the target's `build`: refuse a head whose SHA-256 is not that build's (or take `--image-us`), never class across builds. (2) A `blocked` entry whose `reason` names an existing `tools/*_l3.py`/`*.py` runner gets the verdict `RUNS-ELSEWHERE` (with the tool name), not `BLOCKED`. No `targets.json` change.
+  - Done when: the two cases above print the corrected classes/verdicts on the real heads; a selftest case for each, plus a negative (a `blocked` reason naming a missing tool stays `BLOCKED`); `python3 tools/gate.py` green.
+  - Stop: if a `RUNS-ELSEWHERE` state breaks `l3check`/`gate` consumers of the verdict enum, keep `BLOCKED` with a `runs_via` field instead and record why.
+  - Claims: C-6060–C-6069
 
 ## Retired leads
 
