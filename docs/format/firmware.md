@@ -1911,5 +1911,34 @@ Models in `tools/datask_l3.py`: semaphores, `OSM_MemSize`/`OSM_MemGet` (one
 `OBJ_DiscInfo_readDiscVol` (the volume header the map-file layer published),
 eight `OBJ_CarPos_*`/`OBJ_Event_*`/`OBJ_RoutePntTbl_*` calls that return 0.
 The two task-id globals (data VAs `0x11fff58`, `0x11fffb8`) are written by
-the tool. One message is sent to a task that is not part of the run
-(`0x1507` sub 1, receiver id 0); the mount state stays 2.
+the tool before the initialisation, as `0x0032efa8` does right after
+`OSM_TaskCreate`. A `tickGet` counter serves `SDL_task`'s trace stamps.
+
+### The end of the mount: `0x1507` and object-store event 11 (M9.52, EU2011)
+The mount sends one message outside the two tasks: `0x1507` sub 1 (built by
+`0x00402690`, sent by `0x00401e94` from `0x003f0394` once the `REFER001`
+search data is in). Its receiver is `SDL_task` (name VA `0x11154`, entry
+`0x0039d854`, id global `0x11fff50`, created by `0x0032efa8`). `SDL_task`
+routes by the sender at `+0` (`0x0039d6f0`); for the data-access task,
+`0x0039d18c` passes a message to its state machine (`0x0039ca00`, table at
+data VA `0x39e30`) only when `+12` equals the pending request id
+`*0x6f4650` and `*0x6f4654` is 1 (gate `0x003c009c`). With no request
+pending it drops `0x1507`; nothing answers it, and nothing waits for it.
+
+The state word goes to 3 only in `0x003f6b1c`, the handler of message
+`0x07d0` sub 11 when its `+28` is 16. `0x07d0` is the object-store event
+(OBJDLL notifier `0x034942d8`, `OSM_MsgSend`), the sub is the event id the
+subscriber gave `OBJ_Event_setPrm`:
+
+| Sub | Handler | Subscribed by | Effect |
+| --- | --- | --- | --- |
+| 100 | `0x003f75e4` | `0x003eb974`, `OBJ_DiscInfo_setEventPublicDisc` kind 1 | state 2, the mount reads start |
+| 199 | `0x003f6b84` | `0x003eb974`, `OBJ_DiscInfo_setEventPublicDisc` kind 3 | — |
+| 13 | `0x003f6bb0` | `0x003eb974`, `OBJ_DiscInfo_setEventJudge` | `+28 = 0x3f7`: answer the judge, state 1 |
+| 6 | `0x00403564` | init, `OBJ_CarPos_setEventMesh` | — |
+| 11 | `0x003f6b1c` | not found in `Navi.exe` (M9.57) | `+28 = 16`: state 3 |
+
+The dispatcher runs the deferred row `0x14b5` at once only with progress
+word `0xd98fcc` = 1 and state 3. `datask_l3.py mount --sdl --event 11:16`
+runs `SDL_task` too and delivers event 11 as a stand-in: the run ends with
+state 3, progress 1 (EXP-2026-11-20-M9.52-mount-1507, C-5900–C-5907).
