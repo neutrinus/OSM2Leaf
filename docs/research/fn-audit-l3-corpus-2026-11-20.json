@@ -379,6 +379,7 @@
   "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/experiments/EXP-2026-11-20-H103-cardcheck-fixture.md",
+  "docs/experiments/EXP-2026-11-20-H106-l3-on-l2-tile.md",
   "docs/experiments/EXP-2026-11-20-H110-l4-panel.md",
   "docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md",
   "docs/experiments/EXP-2026-11-20-H116-archive-docs-base.md",
@@ -453,10 +454,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 446,
-  "citations": 1265,
+  "files": 447,
+  "citations": 1266,
   "unique_va": 297,
-  "start": 1109,
+  "start": 1110,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -467,7 +468,7 @@
  "rows": [
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1630,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -476,7 +477,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1630,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -485,7 +486,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1630,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -494,7 +495,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1630,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -503,7 +504,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1632,
+   "line": 1633,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -512,7 +513,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1632,
+   "line": 1633,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -521,7 +522,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1633,
+   "line": 1634,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -530,7 +531,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1654,
+   "line": 1655,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -540,7 +541,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1664,
+   "line": 1665,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -549,7 +550,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1735,
+   "line": 1736,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -558,7 +559,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1735,
+   "line": 1736,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -567,7 +568,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1768,
+   "line": 1769,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -576,7 +577,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1769,
+   "line": 1770,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -585,7 +586,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1791,
+   "line": 1792,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -594,7 +595,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2053,
+   "line": 2054,
    "va": "0x003f5624",
    "kind": "fn",
    "class": "START",
@@ -603,7 +604,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2055,
    "va": "0x003ad680",
    "kind": "fn",
    "class": "START",
@@ -612,7 +613,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2055,
    "va": "0x003ad9a4",
    "kind": "fn",
    "class": "START",
@@ -621,7 +622,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2055,
    "va": "0x003b9d38",
    "kind": "fn",
    "class": "START",
@@ -630,7 +631,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2055,
    "va": "0x003bacc4",
    "kind": "fn",
    "class": "START",
@@ -639,7 +640,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2056,
    "va": "0x003ad440",
    "kind": "fn",
    "class": "START",
@@ -648,7 +649,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2241,
+   "line": 2242,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -657,7 +658,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2241,
+   "line": 2242,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -7941,6 +7942,15 @@
    "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
    "line": 287,
    "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-H106-l3-on-l2-tile.md",
+   "line": 60,
+   "va": "0x00414dbc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
