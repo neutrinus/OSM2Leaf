@@ -784,7 +784,7 @@ DECODE_TABLE: tuple[tuple[int, int, str, str], ...] = (
     (0xF0FF, 0x00A3, "ocbp", "n"),
     (0xF0FF, 0x00B3, "ocbwb", "n"),
     (0xF0FF, 0x00C3, "movca.l", "n"),
-    (0xF00F, 0x000F, "mac.l", "nm"),
+    (0xF00F, 0x000F, "mac.l", "nm"),            # mac.l @Rm+,@Rn+ (M9.51)
     (0xF00F, 0x0004, "mov.b_m_at_r0_plus_n", "nm"),
     (0xF00F, 0x0005, "mov.w_m_at_r0_plus_n", "nm"),
     (0xF00F, 0x0006, "mov.l_m_at_r0_plus_n", "nm"),
@@ -2233,13 +2233,35 @@ class PySh4(Backend):
             self._set_mq(0, 0)
             self._set_t(False)
             return
-        if (insn & 0xF) == 0xF:                          # mac.l Rm,Rn
-            # 32x32 signed multiply, accumulated into MACH:MACL (no saturation)
+        if (insn & 0xF) == 0xF:                          # mac.l @Rm+,@Rn+
+            # SH-4 manual MACL: tempn = Read_Long(R[n]); R[n] += 4;
+            # tempm = Read_Long(R[m]); R[m] += 4; MACH:MACL += tempn * tempm
+            # (signed 32 x 32).  Until M9.51 this arm multiplied the register
+            # values (a "mac.l Rm,Rn" form the SH-4 does not have).  With
+            # n == m the second long is read at Rn+4 and Rn ends +8.  S = 1
+            # (SR bit 1) saturates the 64-bit sum to 48 bits (MACH
+            # 0xFFFF8000..0x00007FFF), as the manual's code does.  Both loads
+            # happen before any register write (precise exception).
+            # The M9.45 fast path has no template for this form: ``_step``
+            # runs it.
             self._arm = "mac.l"
+            left = _sx(self._load(rn, 4), 32)
+            right = _sx(self._load((rn + 4) & M32 if n == m else rm, 4), 32)
             mac = ((regs["mach"] << 32) | regs["macl"])
-            mac = (mac + _sx(rn, 32) * _sx(rm, 32)) & M64
+            mac = (mac + left * right) & M64
+            if regs["sr"] & 0x2:
+                signed = mac - (1 << 64) if mac & (1 << 63) else mac
+                if signed > 0x00007FFFFFFFFFFF:
+                    mac = 0x00007FFFFFFFFFFF
+                elif signed < -0x0000800000000000:
+                    mac = 0xFFFF800000000000
             regs["mach"] = (mac >> 32) & M32
             regs["macl"] = mac & M32
+            if n == m:
+                regs["r%d" % n] = (rn + 8) & M32
+            else:
+                regs["r%d" % n] = (rn + 4) & M32
+                regs["r%d" % m] = (rm + 4) & M32
             return
         if pattern == 0x0002:                            # stc SR,Rn
             self._arm = "stc_sr"
@@ -3563,8 +3585,15 @@ def test_distinct_register_forms():
          {"r%d" % N: (VN << (VM & 31)) & M32}, []),
         ("mul.l", rr(0x0, 0x7, N, M), (N, M),
          {"macl": (VN * VM) & M32, "mach": 0}, []),
+        # mac.l @Rm+,@Rn+ (M9.51): longs 0x00010000 at @Rn and 0xFFFFFFFE (-2)
+        # at @Rm; MACH:MACL preset to 0x1_00010000 so the add borrows from
+        # MACH.  The register values are not multiplied.
         ("mac.l", rr(0x0, 0xF, N, M), (N, M),
-         {"mach": ((VN * VM) >> 32) & M32, "macl": (VN * VM) & M32}, []),
+         {"mach": 0x0, "macl": 0xFFFF0000,
+          "r%d" % N: D + 0x84, "r%d" % M: D + 0x94},
+         [(D + 0x80, b"\x00\x01\x00\x00"), (D + 0x90, b"\xff\xff\xff\xfe")],
+         {"r%d" % N: D + 0x80, "r%d" % M: D + 0x90,
+          "mach": 0x1, "macl": 0x00010000}),
         ("div0s", rr(0x2, 0x7, N, M), (N, M), {"sr": 0}, []),
         # div1 from Q=M=T=0: Rn = (VN<<1) - VM = 0x2366, no borrow -> Q=0, T=1.
         ("div1", rr(0x3, 0x4, N, M), (N, M),
@@ -3658,6 +3687,41 @@ def test_distinct_register_forms():
         snap = e.get_regs()
         _expect_equal((snap["r%d" % N], snap["sr"]), (want, 0x40000301),
                       f"{e._arm} Rn={px(rn_v)} T=0")
+
+    # mac.l with n == m: the second long is read at Rn+4 and Rn ends +8.
+    e = fresh(**{"r%d" % N: D + 0xA0})
+    e.write_mem(D + 0xA0, b"\x00\x00\x00\x03\xff\xff\xff\xf9")
+    e._execute(rr(0x0, 0xF, N, N), 0x8C000000)
+    snap = e.get_regs()
+    _expect_equal((snap["mach"], snap["macl"], snap["r%d" % N]),
+                  (0xFFFFFFFF, (-21) & M32, D + 0xA8), "mac.l @Rn+,@Rn+: 3*-7 and Rn+8")
+    # mac.l with S = 1: the 64-bit sum saturates to 48 bits.
+    for mach, macl, a, b, want in (
+            (0x00007FFF, 0xFFFFFFF0, 0x00000010, 0x00000010, (0x00007FFF, 0xFFFFFFFF)),
+            (0xFFFF8000, 0x00000010, 0x80000000, 0x7FFFFFFF, (0xFFFF8000, 0x00000000)),
+            (0x00000000, 0x00000010, 0xFFFFFFFF, 0x00000002, (0x00000000, 0x0000000E)),
+            (0x00010000, 0x00000000, 0x00000001, 0x00000001, (0x00007FFF, 0xFFFFFFFF))):
+        e = fresh(sr=0x2, mach=mach, macl=macl,
+                  **{"r%d" % N: D + 0xB0, "r%d" % M: D + 0xC0})
+        e.write_mem(D + 0xB0, a.to_bytes(4, "big"))
+        e.write_mem(D + 0xC0, b.to_bytes(4, "big"))
+        e._execute(rr(0x0, 0xF, N, M), 0x8C000000)
+        snap = e.get_regs()
+        _expect_equal((snap["mach"], snap["macl"]), want,
+                      f"mac.l S=1 MAC={px(mach)}:{px(macl)} {px(a)}*{px(b)}")
+    # A fault on the @Rm load leaves Rn and MAC unchanged (precise exception).
+    e = fresh(**{"r%d" % N: D + 0xB0, "r%d" % M: 0x10, "mach": 5})
+    try:
+        e._execute(rr(0x0, 0xF, N, M), 0x8C000000)
+    except EngineError:
+        pass
+    else:
+        raise AssertionError("mac.l from unmapped @Rm did not fault")
+    _expect_equal((e.get_regs()["r%d" % N], e.get_regs()["mach"]), (D + 0xB0, 5),
+                  "mac.l fault keeps Rn and MACH")
+    # The M9.45 fast path has no mac.l template: _step runs it.
+    _expect_equal(_tc_insn(rr(0x0, 0xF, N, M), 0x8C000000), None,
+                  "mac.l has no fast-path template")
 
     # mac.w with n == m: the second word is read at Rn+2 and Rn ends +4.
     e = fresh(**{"r%d" % N: D + 0x40})
