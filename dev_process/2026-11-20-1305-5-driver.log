@@ -1,0 +1,56 @@
+role: driver (M3.14)
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong)
+start: 2026-11-20 13:05 UTC  end: 2026-11-20 ~13:55 UTC
+origin/main at start: d2fb7b4 (TL cycle-17 housekeeping; M3.14 re-opened per rule 15)
+
+inputs read: AGENTS.md, prompt_common.txt, TODO rules 1-10 + M3.14 block,
+  EXP-2026-11-08-M3.14-reader-layout, EXP-2026-11-20-M3.23-callgraph-readers,
+  EXP-2026-11-19-M9.38-read-watch, EXP-2026-11-19-M3.28-file-openers,
+  docs/format/coord-zcode-icode.md, claims C-3544/3546/4666/4669/4677/4694.
+
+actions:
+- claimed M3.14 (Status in progress, Owner task/m3.14-zcode-icode-coord),
+  pushed, draft PR #329 (rule 2/3).
+- decoded COORD001/ZCODE001/002/018/033/ICODE001 with cmpind.py extract to
+  scratch/m3.14 (outside repo).
+- rebuilt callgraph (8937 fns, 21344 direct, 204 unresolved), table edges
+  (fptables scan), reproduced M3.23 rank (C-3544).
+- probe every M3.23 + C-4694 candidate under read_watch_l3.py on the real
+  buffers; added a zero-buffer control (4608 B of 0x00).
+- ran the file-id literal scan (sh4xref --to 0x00060022 etc.).
+- ran datask_l3 mount (2 positions incl. 52.37,4.90) and vcard_l3 trace
+  (0x003fbed8 type 11/12).
+
+findings:
+- probe hits (0x00407724/0x004078e4/0x003fdd18/0x003f0aec/0x0040d704) are
+  content-independent: identical offsets on zero buffer + 4 files -> struct
+  touches, not file reads. C-5760.
+- file-id literal family: no pool load for any id. C-5761. Two families fail
+  -> rule-14 Stop reached.
+- mount run is content-bound: ICODE001 readers map to refer-header slots
+  4/13 and name rows (0x003f0400/0x0040a8d0/0x003f2bc4/0x003f07f8/0x003f0c7c/
+  0x003f255c/0x003f1bb0). C-5762/C-5763.
+- ZCODE: opener 0x003fbed8 only; no mount row. COORD001: no reader at all.
+  C-5764/C-5765.
+
+decisions:
+- task is blocked, not done (done-when not met). Unblock: M3.29 (search path).
+- added M3.30 (search-path run) as the concrete next step.
+- C-2190-C-2199 block was fully occupied by the 2026-11-08 EXP; per ID
+  allocation took next free block C-5760-C-5767 (reserved C-5768/5769).
+- refreshed both fn_audit snapshots after citations were final (0 new/0 gone/
+  0 moved on re-check).
+
+problems:
+- probe reports "reads" on a zero buffer (struct at BUF_VA) — had to add the
+  zero-buffer control to separate artifact from file read.
+- /tmp tmpfs ENOSPC broke mkcard selftest (256 MiB head + slack > 300 M free);
+  ran with TMPDIR on the home tree. Not a task defect.
+- accidentally `git stash`ed mid-run; popped immediately, clean.
+
+gate: selftest OK, claims_check OK, todo_check OK, gate 4 pass/0 fail/0 skip
+  (fn_audit not SKIP). PR left as draft for navigator; not merged.
+
+handoff: navigator to review the 5-part Method and the zero-buffer control;
+  confirm the negative is content-bound and the ICODE001 field map matches
+  coord-zcode-icode.md. Next dev work is M3.30 after M3.29.
