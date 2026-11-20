@@ -2197,7 +2197,7 @@ of the four numbers above says so in its first line.
   - Claims: C-1810–C-1819
 
 - [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.16b-rdstm-field-dir-placement · Critical: yes
   - Reopen note (M4.16e, 2026-11-20, rule 15): the link groups are decoded (EXP-2026-11-20-M4.16e-rdstm-link-groups); `python3 tools/rdstm_links.py place LCTBL001.DAT RDSTM001.DAT MAPAL001 --table-pair 0` maps 8,532 CZ records to level-2 node coordinates with controls, so the done-when can now be closed (blocker below kept as history).
   - Blocker (2026-11-19, resolved by M4.16e): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
   - Unblock: M4.16e (decode the RDSTM001 link groups after `0xccce00`). The `0x00d53500` table is a handle cache, not a schema (C-5130): M3.22 is no longer this task's unblocker.
