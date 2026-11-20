@@ -707,3 +707,25 @@ instead of fixed offsets, in the same order.
 
 `INTER`/`FRWAY` IDs were not located in these two files (see
 [inter-frway.md](inter-frway.md)).
+
+### Road class from TMC road type (EU 2011, M4.31)
+
+The `LCTBL001` "class code" (header `u16` at +14, M4.17) is field 0, the TMC
+location type (247,089/247,089 records; `0x2775` = 10101 `L1.1` motorway).
+Through the location-code join to section-2 links (M4.16b/M4.16e), a
+record's road type (field 6 followed to an `L1.x`/`L2.x` linear) predicts the
+level-2 entry class nibble `cls & 0xf` (modal accuracy 0.608 vs shuffled
+0.382, 158,445 records, 14 tables; C-5960–C-5965,
+EXP-2026-11-20-M4.31-tmc-road-type-link-class):
+
+| TMC road type | Modal level-2 class | Share |
+| --- | --- | --- |
+| `L1.1` motorway | 1 | 13,796/17,058 (9 of 10 countries) |
+| `L1.2` first class | 4 (3 in FI/DK/SE) | 40,656/58,431 |
+| `L1.3` second class | 5 | 20,824/39,940 |
+| `L1.4` third class | 7 | 6,621/7,400 |
+
+This matches the level-2 column of `fa_encode.CLASSES` (motorway 1, trunk 3,
+primary 4, secondary 5, tertiary and below 7) — HYPOTHESIS until a firmware
+reader or OSM-tagged roads confirm it. `python3 tools/rdstm_class_hint.py run
+LCTBL001.DAT RDSTM001.DAT MAPAL001`.
