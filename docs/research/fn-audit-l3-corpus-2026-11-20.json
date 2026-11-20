@@ -379,6 +379,7 @@
   "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/experiments/EXP-2026-11-20-H103-cardcheck-fixture.md",
+  "docs/experiments/EXP-2026-11-20-H106-l3-on-l2-tile.md",
   "docs/experiments/EXP-2026-11-20-H110-l4-panel.md",
   "docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md",
   "docs/experiments/EXP-2026-11-20-H116-archive-docs-base.md",
@@ -440,6 +441,7 @@
   "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
   "docs/experiments/EXP-2026-11-20-M8.E2-registry-loaded.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
+  "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
@@ -453,10 +455,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 446,
-  "citations": 1264,
-  "unique_va": 295,
-  "start": 1108,
+  "files": 448,
+  "citations": 1269,
+  "unique_va": 297,
+  "start": 1113,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -467,7 +469,7 @@
  "rows": [
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1630,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -476,7 +478,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1630,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -485,7 +487,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1630,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -494,7 +496,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1629,
+   "line": 1630,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -503,7 +505,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1632,
+   "line": 1633,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -512,7 +514,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1632,
+   "line": 1633,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -521,7 +523,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1633,
+   "line": 1634,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -530,7 +532,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1654,
+   "line": 1655,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -540,7 +542,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1664,
+   "line": 1665,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -549,7 +551,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1735,
+   "line": 1736,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -558,7 +560,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1735,
+   "line": 1736,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -567,7 +569,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1768,
+   "line": 1769,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -576,7 +578,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1769,
+   "line": 1770,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -585,7 +587,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1791,
+   "line": 1792,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -594,7 +596,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2053,
+   "line": 2054,
    "va": "0x003f5624",
    "kind": "fn",
    "class": "START",
@@ -603,7 +605,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2055,
    "va": "0x003ad680",
    "kind": "fn",
    "class": "START",
@@ -612,7 +614,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2055,
    "va": "0x003ad9a4",
    "kind": "fn",
    "class": "START",
@@ -621,7 +623,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2055,
    "va": "0x003b9d38",
    "kind": "fn",
    "class": "START",
@@ -630,7 +632,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2055,
    "va": "0x003bacc4",
    "kind": "fn",
    "class": "START",
@@ -639,7 +641,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2056,
    "va": "0x003ad440",
    "kind": "fn",
    "class": "START",
@@ -648,7 +650,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2241,
+   "line": 2242,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -657,7 +659,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2241,
+   "line": 2242,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -7947,6 +7949,15 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-H106-l3-on-l2-tile.md",
+   "line": 60,
+   "va": "0x00414dbc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-H63-corrected-evidence.md",
    "line": 198,
    "va": "0x00413a6c",
@@ -10932,6 +10943,42 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
+   "line": 50,
+   "va": "0x00417924",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
+   "line": 50,
+   "va": "0x00419350",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
+   "line": 50,
+   "va": "0x00419684",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
+   "line": 50,
+   "va": "0x00419c38",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
    "line": 22,
    "va": "0x0041a438",
@@ -12112,7 +12159,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 690,
+   "line": 694,
    "va": "0x004e84c4",
    "kind": "sub_",
    "class": "START",
@@ -12121,7 +12168,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 691,
+   "line": 695,
    "va": "0x004e8f38",
    "kind": "fn",
    "class": "START",
@@ -12130,7 +12177,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 692,
+   "line": 696,
    "va": "0x004e989c",
    "kind": "sub_",
    "class": "START",
@@ -12139,7 +12186,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 692,
+   "line": 696,
    "va": "0x004ea288",
    "kind": "fn",
    "class": "START",
@@ -12148,7 +12195,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 693,
+   "line": 697,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -12157,7 +12204,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 699,
+   "line": 703,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -12166,26 +12213,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 819,
+   "line": 823,
    "va": "0x004e7b8c",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 829,
-   "va": "0x004dd028",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 831,
-   "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -12194,6 +12223,24 @@
   {
    "file": "docs/format/firmware.md",
    "line": 833,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 835,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 837,
    "va": "0x004e7d4c",
    "kind": "fn",
    "class": "START",
@@ -12202,7 +12249,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 849,
+   "line": 853,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -12211,7 +12258,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 948,
+   "line": 952,
    "va": "0x03bcc5b0",
    "kind": "fn",
    "class": "START",
@@ -12220,7 +12267,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1095,
+   "line": 1099,
    "va": "0x0001e3f4",
    "kind": "sub_",
    "class": "START",
@@ -12229,7 +12276,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1713,
+   "line": 1717,
    "va": "0x004124dc",
    "kind": "fn",
    "class": "START",
@@ -12238,7 +12285,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1735,
+   "line": 1739,
    "va": "0x003335c0",
    "kind": "fn",
    "class": "START",
@@ -12247,7 +12294,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1917,
+   "line": 1921,
    "va": "0x003fd690",
    "kind": "fn",
    "class": "START",
@@ -12256,7 +12303,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1920,
+   "line": 1924,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -12266,7 +12313,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1921,
+   "line": 1925,
    "va": "0x00404994",
    "kind": "fn",
    "class": "START",
@@ -12275,7 +12322,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1921,
+   "line": 1925,
    "va": "0x004052d4",
    "kind": "fn",
    "class": "START",
@@ -12284,7 +12331,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1922,
+   "line": 1926,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",

@@ -1147,8 +1147,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Falsifier: the good tree passes and every `--break` kind also exits 0 (the checker never distinguishes them).
   - Claims: C-4360–C-4369
 
-- [ ] **H106 — L3 never runs on the tile L2 actually writes: `tile_reader`'s only corpus is a factory `B28R070R`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H106 — L3 never runs on the tile L2 actually writes: `tile_reader`'s only corpus is a factory `B28R070R`**
+  - Status: done · Owner: task/h106-l3-on-l2-tile · Critical: no · Pair: required
   - Depends: M5.34 (done); M9.13/M3.25 are the entry-point work and stay their own tasks — this task only makes the corpus point at *our* tile
   - Goal: `prompt_qa.txt` asks "L3 which firmware-fragment readers ran on **our data**"; today `tools/l3_harness/targets.json`'s `tile_reader` corpus is the factory `MAPAL001/B28R070R.DAT` and the run is BLOCKED (no entry point). So even after M9.13 lands, the first L3 tile verdict would be on vendor bytes, not the `B48R058R` tile M5.34 edited. A corpus row that names M5.34's generated tile (and `one_tile_pipeline --synthetic`'s tile) makes "L3 on our data" a real row when the reader becomes runnable, and today makes the *absence* explicit instead of hidden behind one blocked target.
   - Precheck: `python3 -c "import json;print(json.load(open('tools/l3_harness/targets.json'))['tile_reader']['corpus'])"` names a factory tile; `grep -c B48R058R tools/l3_harness/targets.json` prints `0`; `python3 tools/l3check.py --build-corpus` lists `tile_reader` BLOCKED with that corpus.
@@ -1158,6 +1158,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: `python3 tools/l3check.py --build-corpus --json /tmp/opencode/h106.json` prints both generated corpus entries with an explicit status and reason; on a host with the M5.34 tree the status is `NOT RUNNABLE (no entry point)`, without it `NOT RUN (no tree)`; count of targets and `runnable` unchanged; `selftest.py --only l3check` PASS.
   - Stop: if M9.13 lands first and makes `tile_reader` runnable, this must assert our tile is the corpus it *ran* on (the runner's log names the path), not merely that it is listed.
   - Claims: C-4370–C-4379
+  - Result: EXP `docs/experiments/EXP-2026-11-20-H106-l3-on-l2-tile.md` (C-4370–C-4373). The Stop clause applied: M9.13 made the reader runnable through `datask_l3.py mount`. This task ran it on the tile L2 actually writes (M5.11, `1927c3a9…`, dir (76,940), position 51.10,16.93): SAME as the factory over 28 reads, with the slot-table parser `0x00414dbc` (EU2011) over both changed pair entries. The header-count flip gives DIFFERENT; the synthetic tile gives DIFFERENT (directory read fails). `datask_l3 mount --json` now names the served file's SHA-256. `targets.json` `tile_reader.generated_corpus` (4 rows), and `l3check` lists them with SHA-256-driven status (`RAN (recorded: SAME)` ×2, `RAN (recorded: DIFFERENT)` for the synthetic tile, M5.34 `NOT RUN (no tree)`, no Geofabrik here; a STALE or wrong file fails the run); counts unchanged versus main. Records not read (M9.53).
 
 - [ ] **H107 — `l3check --build-corpus` says "runnable 1/7" while two of the seven are blocked only on a missing argument**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -4172,8 +4173,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the reader path needs compressed sec1 data, unmapped globals, or file-I/O/import plumbing not yet modeled, block with the faulting PC/missing dependency and a new EXP — do not claim a reader verdict.
   - Claims: C-3250–C-3259
 
-- [ ] **M9.14 — L3 target `drstr_parser`**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.14 — L3 target `drstr_parser`**
+  - Status: done · Owner: task/m9.14-drstr-parser-l3 · Critical: yes
+  - Result: EXP-2026-11-20-M9.14-drstr-parser-l3; C-5940–C-5946 (block C-2240–C-2249 was used by the 2026-11-08 passes; this pass takes the fresh block C-5940–C-5949). The parser runs inside the firmware's mount (`vcard_l3.py boot`), now on both builds: `--build us2011` (13 layer functions paired by `fn_match`, 5 data addresses re-derived from the US literal pools by `vcard_l3.py port`; a head of the other build is refused). Factory `DRSTR001.DAT` ACCEPT on EU2011 (40 dirs/285 files) and US2011 (20/189, equal to the file's own counts); our writer's output (`drstr_rebuild.py`: byte-identical, grown tile, US writer order) ACCEPT on both builds with the table following the content; truncated to `0x800` and a bad listing offset REJECT (state stays 1, error log `0x00440dac`/`0x004411d6` US = EU `0x00419048`/`0x00419472` moved). `targets.json` keeps `drstr_parser` as a `runner.py` BLOCKED entry whose reason names the command.
   - Note (M9.44, 2026-11-19): the parser runs inside `vcard_l3.py boot` with the firmware's own arguments and has 7 controls (C-4636, C-4637, C-4648, C-4649). Close this target as covered by M9.44 unless a `runner.py` entry is still wanted.
   - Note (M9.36, 2026-11-20): re-run done — on the corrected engine the M9.35 probe of `sub_00419350` stops at `BLOCKED STUB OSMDLL.dll!OSM_Malloc` (EU2011, guarded and `--init-from-image` maps); the old `UNMAPPED 0xfffffec6` stop was the H51 `mov.w R0,@(22,R15)` defect at `0x0041936c` (C-3581, EXP-2026-11-20-M9.36-rerun-probes-pysh4). Inside `vcard_l3.py boot` the parser runs to completion (C-3584).
   - Note (H51, 2026-11-11): re-run after H51 before anything else (**M9.36**): the `UNMAPPED 0xfffffec6` stop of M9.35 has the shape of the engine defect fixed in H51 (`mov.w R0,@(disp,Rn)` stored through `r0`) — HYPOTHESIS until re-run. `0x00419350` is a pdata `START` (length `0x334`, ends exactly at `0x00419684`).
@@ -4198,7 +4200,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if execution faults in compressed/unmapped `sec1` or needs coredll
     file/import behavior not yet stubbed, record the faulting PC and keep
     blocked on M1.2f/M9.24/M5.6 as applicable (do not guess verdicts). If a probe stops at `INIT 0x… (M1.2f)`, only that address needs M1.2f.
-  - Claims: C-2240–C-2249
+  - Claims: C-5940–C-5949 (was C-2240–C-2249; fresh block for this run)
   - Prior blocker (kept): `sub_00419350` read its coredll imports and buffer global from
     compressed `Navi.exe` `sec1` (UNMAPPED at `0x0055d8fc`); the Done-when also
     needs a DRSTR rebuilt by M5.6, which is open.
