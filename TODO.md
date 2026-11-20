@@ -2252,6 +2252,7 @@ of the four numbers above says so in its first line.
   - Status: blocked · Owner: task/m4.49-rdstm-group-reader · Critical: no
   - Blocker: no function of the TMC data-layer subtree of `Navi.exe` (EU2011, 230 functions from the `0x14e4`/`0x14f4` message handlers and the TMC search senders, depth 8) shows the derived link-group signature (`and 0x1fff` 0 hits; no function with two of `0x1fff` mask / address build / 6-byte stride / 18-byte head); the module's three mask+address-build functions are guidance code. Lead: message `0x14f4` shares the TMC handler `0x004003f4` with `0x14e4` and has its own buffer in the generic sector reader `0x00417618` (EU2011).
   - Unblock: M4.51 (senders of `0x14f4`/`0x14e4` and the file/offset a `0x14f4` request reads).
+  - Note (M4.51 blocked, 2026-11-20): no static sender of `0x14f4` (EXP-2026-11-20-M4.51-tmc-14f4-senders); the next unblocker is M4.53 (L3) or M8.E4.
   - Result: EXP-2026-11-20-M4.49-rdstm-group-reader (negative with controls; `tools/rdstm_reader_scan.py`). C-5375–C-5379.
   - Depends: M4.16e
   - Goal: rule 13 for the M4.16e decode: find the `Navi.exe` code that reads the `RDSTM001.DAT` header sets, the group index (`u16 size_dwords, u32 addr, u16 blocks, u32 key_min, u32 key_max, u16 n, n x (u32 parcel, u16 count)`) and the 4-byte `(node, link)` entries, and decode the unknown bits (`a` 0x4000/0x8000, `b` 0x4000/0x8000, link-record role `k & 3`, header words `3`/`122`).
@@ -2264,7 +2265,10 @@ of the four numbers above says so in its first line.
   - Claims: C-5375–C-5379 (from M4.16e's block)
 
 - [ ] **M4.51 — Who sends the TMC data-layer messages `0x14f4`/`0x14e4`, and what does `0x14f4` read**
-  - Status: in progress · Owner: task/m4.51-tmc-14f4-senders · Critical: no
+  - Status: blocked · Owner: task/m4.51-tmc-14f4-senders · Critical: no
+  - Blocker: `0x14f4` has no static sender (EU2011): the only send path `fn 0x003c0e68` (id `u16 @(8,req)`, `OSM_TaskSend`) has 25 static callers, each with one id literal (`0x14e4` only from `fn 0x003bcac0`), none `0x14f4`; 7 DLLs load neither id. The request is built at run time; the file/offset it reads needs a dynamic run.
+  - Unblock: M4.53 (L3 data layer on a synthetic `0x14f4` request) or M8.E4 (full `Navi.exe` run with a read watch on `RDSTM001.DAT` `0xcda000`/`0xe78500`/`0xeb6200`).
+  - Result: EXP-2026-11-20-M4.51-tmc-14f4-senders (negative census with control; `rdstm_reader_scan.py --callers-of`). C-5404–C-5408.
   - Depends: M4.49 (blocked; this is its unblocker)
   - Goal: find the requester of message `0x14f4` (the second TMC request type next to the location-record request `0x14e4`, same handler `0x004003f4`, own buffer `0x009cfbb4` in the sector reader `0x00417618`, EU2011) and the file and offsets it reads; if they are the `RDSTM001.DAT` link groups (`0xcda000`/`0xe78500` and the group data), the requester is the M4.49 reader.
   - Precheck: `python3 tools/rdstm_reader_scan.py archive/head256.img --const 0x14f4` → 7 users, all in the data layer (`0x0040dd40` … `0x00417618`); `python3 tools/callgraph.py users GRAPH OSMDLL!OSM_TaskSend` lists the static senders.
@@ -2274,6 +2278,18 @@ of the four numbers above says so in its first line.
   - Done when: a VA (EU2011) of the function that issues `0x14f4` (or the `RDSTM001.DAT` link-group read) and the file/offset it requests, with a control (another message id's request resolved the same way); or `blocked` with the sender census.
   - Stop: if no static sender of `0x14f4` exists in `Navi.exe` and the DLLs it imports, and no L4 run reaches TMC, report `blocked` naming the M8 prerequisite.
   - Claims: C-5404–C-5408 (from M4.16b's spare block C-5404–C-5409)
+
+- [ ] **M4.53 — L3: which file and sector does a TMC `0x14f4` data-layer request read**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.51 (blocked; static census done)
+  - Goal: run the data-layer path of message `0x14f4` (EU2011: dispatcher entry `0x004003f4`, id switch `0x00413828` → `0x004129d0`, sector reader `0x00417618` with buffer slot `0x009cfbb4`) in L3 on a synthetic request and record the volume, file and byte offset handed to the read helper `0x003d140c`; compare with a `0x14e4` request (control, known `RDSTM001`/`LCTBL001.DAT`). If the offsets fall in `RDSTM001.DAT` `0xcda000..EOF`, the M4.16e link groups are what `0x14f4` reads, and the caller-side parser becomes the M4.49 target.
+  - Precheck: `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x004003f4 0x00413828 0x004129d0 0x00417618` → four START; `python3 tools/va_class.py archive/head256.img --module Navi.exe --resolve-with 0x3e00200 0x009cfbb4` (state the runtime state the run must seed).
+  - Signature: the read helper's arguments in the L3 trace (dynamic — the strongest kind), not a byte pattern.
+  - Scope: `Navi.exe` EU2011 data layer only; volume tables seeded from the card (M9.16 map-load chain if needed). No full boot.
+  - Input: EXP-2026-11-20-M4.51-tmc-14f4-senders (C-5404–C-5408), EXP-2026-11-20-M4.49-rdstm-group-reader (C-5375–C-5379), the L3 harness, `tools/rdstm_links.py` (expected offsets).
+  - Done when: an L3 run reports the file and offset for a `0x14f4` request and for a `0x14e4` control request; or `blocked` naming the runtime state that could not be seeded.
+  - Stop: if the data layer needs state the harness cannot seed after two attempts, report `blocked` on M8.E4.
+  - Claims: C-5680–C-5689
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no

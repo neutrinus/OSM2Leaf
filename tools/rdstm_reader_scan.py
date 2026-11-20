@@ -27,6 +27,7 @@ Usage:
   rdstm_reader_scan.py IMG [--module Navi.exe] [--image-start 0x200200] [--top 40]
   rdstm_reader_scan.py IMG --const 0x14f4      # functions loading a constant
   rdstm_reader_scan.py IMG --graph G.json --roots 0x004003f4,0x00412ac0 [--depth 8]
+  rdstm_reader_scan.py IMG --graph G.json --callers-of 0x003c0e68 [--literals 0x1400:0x15ff]
   rdstm_reader_scan.py --selftest
 
 Stdlib only; uses ``tools/cerom.py`` and ``tools/nk_decomp.py`` for the
@@ -141,6 +142,34 @@ def const_users(code: bytes, base: int, pdata, value: int) -> list[tuple[int, in
     return out
 
 
+def literals_in(code: bytes, base: int, start: int, length: int, lo: int, hi: int) -> list[tuple[int, int]]:
+    """[(pc, value)] of ``mov.w``/``mov.l @(disp,PC)`` literals with ``lo <= value <= hi`` in one function."""
+    out = []
+    pool: set[int] = set()
+    pc, end = start, min(start + length, base + len(code))
+    while pc + 1 < end:
+        if pc in pool:
+            pc += 2
+            continue
+        w = struct.unpack_from("<H", code, pc - base)[0]
+        if w >> 12 == 0x9:
+            a = pc + 4 + (w & 0xFF) * 2
+            pool.add(a)
+            if base <= a < base + len(code) - 1:
+                v = struct.unpack_from("<H", code, a - base)[0]
+                if lo <= v <= hi:
+                    out.append((pc, v))
+        elif w >> 12 == 0xD:
+            a = (pc & ~3) + 4 + (w & 0xFF) * 4
+            pool.update((a, a + 2))
+            if base <= a < base + len(code) - 3:
+                v = struct.unpack_from("<I", code, a - base)[0]
+                if lo <= v <= hi:
+                    out.append((pc, v))
+        pc += 2
+    return out
+
+
 def rank(rows: dict, top: int):
     """rows: {va: features} -> sorted [(score, va, features)] for printing."""
     def score(fe):
@@ -179,12 +208,28 @@ def subtree(graph_path: str, roots: list[int], depth: int) -> tuple[set[int], in
 
 def cmd_scan(a) -> int:
     code, base, pdata = load_module(a.image, a.image_start, a.module)
-    if a.graph:
+    if a.graph and a.roots:
         roots = [int(x, 0) for x in a.roots.split(",")]
         keep, unres = subtree(a.graph, roots, a.depth)
         pdata = [p for p in pdata if p[0] in keep]
         print(f"restricted to {len(pdata)} functions reachable from {len(roots)} roots "
               f"(depth {a.depth}; {unres} unresolved indirect calls inside)")
+    if a.callers_of:
+        import callgraph
+        _g, _fwd, rev = callgraph.load(a.graph)
+        lo, hi = (int(x, 0) for x in a.literals.split(":"))
+        target = int(a.callers_of, 0)
+        callers = sorted(set(rev.get(target, [])))
+        size = {b: n for b, _p, n in pdata}
+        census: dict = collections.Counter()
+        print(f"callers of 0x{target:08x}: {len(callers)}; literals in [0x{lo:x}, 0x{hi:x}]")
+        for fn in callers:
+            lits = literals_in(code, base, fn, size.get(fn, 0), lo, hi)
+            for _pc, v in lits:
+                census[v] += 1
+            print(f"  fn 0x{fn:08x}: " + (" ".join(f"0x{v:x}@0x{pc:08x}" for pc, v in lits) or "-"))
+        print("ids: " + ", ".join(f"0x{v:x} x{n}" for v, n in sorted(census.items())))
+        return 0
     if a.const is not None:
         hits = const_users(code, base, pdata, a.const)
         print(f"module {a.module}: loads of 0x{a.const:x}: {len(hits)}")
@@ -242,6 +287,7 @@ def selftest() -> int:
     check("plain function empty", not fb.get("mask1fff") and not fb.get("addr_build"))
     hits = const_users(code, base, [(base, 0, 2 * len(a)), (base + 2 * len(a), 0, 2 * len(b))], 0x1FFF)
     check("const users", hits == [(base, base)])
+    check("literals in range", literals_in(code, base, base, 2 * len(a), 0x1000, 0x2000) == [(base, 0x1FFF)])
     r = rank({base: fa, base + 24: fb}, 5)
     check("rank puts A first", r and r[0][1] == base and r[0][0] == 30 and len(r) == 1)
     print("selftest:", "FAIL" if fails else "PASS")
@@ -258,6 +304,8 @@ def main(argv=None) -> int:
     ap.add_argument("--graph", help="callgraph.py graph JSON; with --roots, scan only the reachable subtree")
     ap.add_argument("--roots", default="", help="comma-separated root VAs for --graph")
     ap.add_argument("--depth", type=int, default=8)
+    ap.add_argument("--callers-of", help="with --graph: list the pool literals in --literals LO:HI of each caller of this VA")
+    ap.add_argument("--literals", default="0x1400:0x15ff")
     ap.add_argument("--const", type=lambda s: int(s, 0), default=None,
                     help="list the functions that load this constant from a literal pool instead")
     a = ap.parse_args(argv)
