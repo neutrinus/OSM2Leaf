@@ -26,6 +26,7 @@
   "tools/datask_l3.py",
   "tools/l3_harness/targets.json",
   "tools/mapcode_l3.py",
+  "tools/mount_dirs_l3.py",
   "tools/point_locator_l3.py",
   "tools/point_walk_l3.py",
   "tools/read_watch_l3.py",
@@ -34,14 +35,14 @@
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 27,
-  "citations": 527,
-  "unique_va": 248,
-  "start": 314,
+  "files": 28,
+  "citations": 546,
+  "unique_va": 255,
+  "start": 329,
   "inside": 0,
   "corrected": 0,
-  "gap": 51,
-  "leaf": 51,
+  "gap": 55,
+  "leaf": 55,
   "ambiguous": 0,
   "unmapped": 162
  },
@@ -166,27 +167,9 @@
   },
   {
    "file": "TODO.md",
-   "line": 3790,
+   "line": 3803,
    "va": "0x880404f4",
    "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4096,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4104,
-   "va": "0x00419350",
-   "kind": "sub_",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
@@ -202,7 +185,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4118,
+   "line": 4117,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -211,7 +194,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4270,
+   "line": 4122,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -220,7 +203,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4424,
+   "line": 4131,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -229,7 +212,25 @@
   },
   {
    "file": "TODO.md",
-   "line": 4426,
+   "line": 4286,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 4440,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 4442,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1272,6 +1273,42 @@
    "file": "docs/format/map-tiles.md",
    "line": 732,
    "va": "0x004266ec",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/map-tiles.md",
+   "line": 951,
+   "va": "0x00414644",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/map-tiles.md",
+   "line": 952,
+   "va": "0x00414930",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/map-tiles.md",
+   "line": 953,
+   "va": "0x00414dbc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/map-tiles.md",
+   "line": 954,
+   "va": "0x00415330",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -3305,6 +3342,145 @@
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 19,
+   "va": "0x0040c308",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 21,
+   "va": "0x0040be84",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 22,
+   "va": "0x0041597c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 24,
+   "va": "0x004157dc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 61,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 62,
+   "va": "0x0040c308",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 63,
+   "va": "0x0041597c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 64,
+   "va": "0x0040be84",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 65,
+   "va": "0x004144a8",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 65,
+   "va": "0x004156a4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 347,
+   "va": "0x0040a8d0",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 350,
+   "va": "0x004144a8",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 350,
+   "va": "0x004156a4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 351,
+   "va": "0x00414930",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mount_dirs_l3.py",
+   "line": 352,
+   "va": "0x0040a8d0",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
   },
   {
    "file": "tools/point_locator_l3.py",
