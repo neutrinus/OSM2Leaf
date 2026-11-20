@@ -1865,7 +1865,7 @@ in its first line.
   - Input: id table `0x00179338` (`ZCODE0`), `coord-zcode-icode.md`, M4.8c, M4.12.
   - Done when: `coord-zcode-icode.md` gives the reader VA per file and which
     fields each one uses, with VAs.
-  - Claims: C-2190–C-2199
+  - Claims: C-5760–C-5767
 
 - [x] **M3.15 — The `LCTBL001` name-table reader**
   - Unblock: M3.23 (2026-11-20) candidates (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x0040dd40`, `0x0040de98` (rank 2; the M9.38 reader, C-3607), `0x004125a8`, `0x00409cc8`, `0x0040b358` — the whole loop set below `0x004125a8` is these five (C-3544). Next is the record walk behind `0x003fc0ec`/`0x003fc518` (search type 1), which only a run separates (M3.29).
