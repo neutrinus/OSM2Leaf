@@ -121,19 +121,35 @@ These values are the regression constants in `tools/profile_validate.py
 --selftest` (1 / 1 / 4 / 56 tiles) and `tools/build.py --selftest`
 (44.6 / 1.5 / 178.4 / 253.4 MB).
 
-## How a build runs (planned)
+## How a build runs
 
-`tools/build.py --dry-run` prints the M5 compiler spine and marks every step
-`NOT IMPLEMENTED`; it executes no stage and writes nothing. Without `--dry-run`
-it exits `3`.
+`tools/build.py --dry-run` prints the M5 compiler spine and the size
+ESTIMATE; it executes no stage and writes nothing.
 
-| # | Stage | Input → output | Status |
+Write mode (M5.15, EXP-2026-11-20-M5.15-build-py-card) runs the spine for
+**one tile and one section-1 directory**:
+
+```bash
+python3 tools/build.py --profile profiles/dolnoslaskie-test.json \
+  --from-image FACTORY.img --osm EXTRACT.osm -o out.img \
+  [--factory-root TREE] [--firmware archive/head256.img] [--report r.json]
+```
+
+| # | Stage | Input → output | Status in `build.py` |
 | --: | --- | --- | --- |
-| 1 | `osm_ingest` | `.osm.pbf` → IMF v1 | **NOT IMPLEMENTED** in `build.py` (tool exists, M5.1) |
-| 2 | `mesh_split` | IMF v1 → whole `BxxRyyR` tiles | **NOT IMPLEMENTED** (M5.2) |
-| 3 | tile writer | tile model → tile `.DAT`/`.cmp` | **NOT IMPLEMENTED** (M5.4) |
-| 4 | manifests | tiles → `DRSTR`/`MMAIN`/`.ind` | **NOT IMPLEMENTED** (M5.6) |
-| 5 | card image | card tree → `<image>.img` | **NOT IMPLEMENTED** (M5.10) |
+| 1 | `osm_ingest` | `.osm`/`.osm.pbf` → IMF v1 | wired (via `one_tile_pipeline.py`) |
+| 2 | `mesh_split` | IMF v1 → whole `BxxRyyR` tiles | wired (via `one_tile_pipeline.py`) |
+| 3 | tile writer | IMF → section 1 of one factory tile | wired: one directory (M5.11); P1 = M5.53 |
+| 4 | manifests | tiles → `DRSTR`/`MMAIN`/`.ind` | wired (`rebuild_manifests.py`, M5.6) |
+| 5 | card image | changed files → copy of the factory image | wired: `imgpatch.py` in place; several tiles / added files exit 3 |
+
+The report lists every file family as *generated*, *rebuilt*, *copied* or
+*not yet generated (factory kept)*, each check's verdict (readback,
+`check-diff --strict-metadata`, `cardcheck --image`, `l2check
+--graph-tiles`, `7z t`, no `HDD_CHK.ATT`, HDD_INFO = factory, L3 map-code
+compare with `--firmware`), the gates it cannot decide offline, and the
+card-ladder step ([`card-ladder.md`](card-ladder.md)). Any FAIL → exit 1 and
+the image is removed.
 
 ## Decision: whole tiles only
 
