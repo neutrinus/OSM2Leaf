@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 role: driver (subagent) | task H97 | model deepseek-v4.1-flash-free
 start: 2026-11-20 15:16 UTC | end: 2026-11-20 15:24 UTC
 origin/main at start: 2e683be (rebased onto ce5f34c mid-run)
@@ -47,3 +48,66 @@ checks (all on task branch):
 
 handoff: reviewer — confirm the ONE-gap reading against M5.36's l2.tile row;
 merge PR #342 (driver does not merge) after CI; then H42 calls --require-covered.
+=======
+role: driver (dev), task M9.55 (N=6)
+model: airouter/strong (harness label deepseek-v4.1-flash-free)
+start: 2026-11-20 15:16 UTC, end: 2026-11-20 16:05 UTC
+origin/main at start: 2e683be (local main 52b2b41 was ahead of the fetch used here)
+
+inputs read: AGENTS.md, TODO.md "How to take a task" rules 1-16 + M9.55/
+M9.41/M9.10/M9.42/M9.39/M9.54, EXP-2026-11-20-M9.41-us-poi-row (the blocked
+predecessor), tools/{l3check,point_walk_l3,build_targets}.py,
+tools/l3_harness/{runner,corpus,manifest,stubs,targets.json},
+docs/research/{claims,reader-coverage}.md, docs/experiments/TEMPLATE.md.
+
+actions, in order:
+1. Claim was already made (538606a todo: start M9.55, draft PR #340).
+2. Ported the walk: runner.py gained a point_walk_v1 firmware_call program
+   (_run_point_walk_target) that calls point_walk_l3.run_nth/guarded with the
+   target's build; SEC1_PROGRAMS scopes the M9.11b sec1 declaration to the two
+   programs that read it; inputs.source is required (corpus-relative .cmp).
+3. l3check.py: TARGET_EVIDENCE["point_walk_us2011"], _find_us256 + BUILD_IMAGES
+   (build -> head image), _corpus_firmware_inputs (image from build, pair from
+   the corpus), BLOCKED on a missing build head (never swapped); selftest
+   totals 108 -> 110 entries, 8 -> 9 targets, pass=1 -> 2.
+4. corpus.py: a synthetic POINT name page (0x60/0x68 chain) zlib-packed at
+   0x840ba0 in a .DAT, point_walk case + verdict_point_walk; manifest.py
+   READERS["point_walk"] / CASES["point_walk_factory"]; stubs allow an empty
+   reader stub list; build_targets OWNED_READERS += point_walk.
+5. targets.json: point_walk_us2011 (build us2011, va 0x0041db44 via
+   build_targets, no sec1_table, inputs offset 0x840ba0 length 42848 source
+   point/POINT010.DAT.cmp n=[0,1,2,3,10,500,998,999,1000]).
+6. Ran every Done-when command and the controls (numbers in the EXP/claims):
+   --build-corpus PASS runnable=2/9, runner on the US page ACCEPT 9/9, wrong
+   build FAIL (unmapped) exit 5, bad offset INVALID, forged build FAIL, all
+   selftests OK.
+7. Wrote EXP-2026-11-20-M9.55-us-poi-runner.md, C-5770-C-5779,
+   reader-coverage.md row 10 + the L3-target table (nine entries, new row),
+   M9.55 done, M9.10 Status/Result, M9.41 done by rule 15.
+
+decisions made / alternatives rejected:
+- point_walk_v1 does NOT read sec1, so requiring sec1_table would be a
+  fabricated declaration (M9.11b stop condition). Scoped the check instead of
+  adding a dummy table.
+- Corpus image is resolved per build (BUILD_IMAGES); a missing head is BLOCKED,
+  never the other build's image (rule 11 + M9.42).
+- Kept the target's VAs out of the docs/tool: read through build_targets.py;
+  build_targets.py check still says 0 only-in-* across 8 copies.
+- Did not merge the PR (instructions) and did not touch M9.54/M9.39.
+
+problems / dead ends:
+- corpus.py --selftest fails 4 hdd_info checks on this machine and on main
+  52b2b41 (hdd_info gave REJECT); pre-existing, unrelated, gate.py does not run
+  it. point_walk test_build_point_walk PASSes.
+- python3 here is 3.15.0 with zlib-ng; no recompression is done, so the
+  byte-identical zlib rule (stock 1.3.1) is not in play.
+
+handoff for the navigator:
+- First check: `python3 tools/l3check.py --build-corpus` lists
+  point_walk_us2011 PASS with pass=2 runnable=2/9; then the wrong-build control
+  via runner.py --image archive/head256.img is FAIL (unmapped), exit 5.
+- The name half stays open: it needs M9.10's own poi_record_decode runner
+  (0x0041ec8c) plus M3.11b; the walker row is framing only (C-4178).
+- Options considered for cmp_ind_reader[_us2011] (same build-derived pair
+  plumbing would make them runnable) are a Follow-up in the EXP, not this PR.
+>>>>>>> dfcd9de (tools: run the US POI walk as a l3check corpus row)

@@ -464,6 +464,7 @@
    ]
   },
   {
+<<<<<<< HEAD
    "name": "lev3456_reader",
    "reader": "tile",
    "what": "MAPAL001/LEV3456R.DAT coarse levels 3-6: header, section tables and the L6/L5/L4 directories plus the level-3 directory under the start position (M9.18)",
@@ -493,11 +494,39 @@
     "guest_path": "\\Storage Card\\MAPAL001\\LEV3456R.DAT",
     "reader": "tile",
     "case": "tile_factory"
+=======
+   "name": "point_walk_us2011",
+   "reader": "point_walk",
+   "what": "POINT0nn name-page record walker fn 0x0041db44 (US 2011 Navi.exe; EU twin 0x003f5194, M1.22/M9.55)",
+   "module": "Navi.exe",
+   "build": "us2011",
+   "entry": {
+    "kind": "firmware_call",
+    "program": "point_walk_v1",
+    "module": "Navi.exe",
+    "va": "0x0041db44",
+    "endian": "little",
+    "inputs": {
+     "offset": "0x840ba0",
+     "length": 42848,
+     "source": "point/POINT010.DAT.cmp",
+     "n": [0, 1, 2, 3, 10, 500, 998, 999, 1000]
+    },
+    "note": "Runs the POINT nth walker fn 0x0041db44(page, n) (US2011; VAs from tools/build_targets.py) on the page at inputs.offset of the --cmp/--ind pair, comparing its record offsets with mutate_refer_poi.parse_page; a wrong build/image pairing is result: FAIL (unmapped ...), M9.42. Pass --image US256 --cmp PAIR.cmp --ind PAIR.ind."
+   },
+   "stubs": [],
+   "corpus": {
+    "path": "point/POINT010.DAT.cmp",
+    "guest_path": "\\Storage Card\\REFER001\\POINT010.DAT.cmp",
+    "reader": "point_walk",
+    "case": "point_walk_factory"
+>>>>>>> aa40b6cd (tools: run the US POI walk as a l3check corpus row)
    },
    "expect": {
     "verdict": "ACCEPT",
     "python_verdict": "ACCEPT",
     "agrees_with_python": null,
+<<<<<<< HEAD
     "rule": "every LEV3456R read of the mount names a table/directory lev3456.py lists, and each slot-table parser loads +0xa to 2*size-1 of that directory (mount_dirs_l3.py check exit 0)"
    },
    "notes": [
@@ -582,6 +611,14 @@
    },
    "notes": [
     "corpus.reader is 'tile' only because the manifest has no mmain reader; the runner never reads this corpus row (blocked entry)."
+=======
+    "rule": "the US nth walker returns the same record offsets as mutate_refer_poi.parse_page and its own length model on the factory POINT010 page; a wrong build/image pairing is FAIL (unmapped ...), never PASS (M9.42, C-4226)."
+   },
+   "notes": [
+    "Registered by M9.55; the walker proves the record framing, not the name/coordinate contents (C-4178).",
+    "Positive control: the factory US POINT010 page PASSes on archive/us256.img; negative control: the wrong-build pairing is a clean FAIL (unmapped ...).",
+    "The M9.39 mutant page is a positive witness (n=501 +4), not a negative control (C-4178/C-4435)."
+>>>>>>> aa40b6cd (tools: run the US POI walk as a l3check corpus row)
    ]
   }
  ]

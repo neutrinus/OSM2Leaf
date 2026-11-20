@@ -163,7 +163,7 @@ FIXTURE = HERE / "fixtures" / "fn_match_eu_us_2011.json"
 DOC_HEADING = "## The US build at L3"
 # targets.json readers whose firmware VAs are roles here (the POINT walkers
 # have no targets.json entry yet; their runner is point_walk_l3 itself).
-OWNED_READERS = ("cmp_ind",)
+OWNED_READERS = ("cmp_ind", "point_walk")
 
 
 def roles(build: str, kinds=KINDS, tool: str | None = None) -> dict:
