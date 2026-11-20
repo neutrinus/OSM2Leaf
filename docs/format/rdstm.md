@@ -229,6 +229,14 @@ confirmation. Link-record roles: role 1 is the role-0 link list reversed in
 24,948 of 66,443 records carrying both (HYPOTHESIS: the two travel
 directions); roles 2/3 are UNKNOWN.
 
+**Firmware reader: not located (M4.49, C-5375–C-5379).** The TMC data-layer
+subtree of `Navi.exe` (EU2011, 230 functions below the `0x14e4`/`0x14f4`
+message handlers) has no `0x1fff` mask and no function with the group-index
+shape; message `0x14f4` shares the TMC handler `0x004003f4` and has its own
+buffer in the generic sector reader `0x00417618` — the lead for M4.50. The
+link-group layout above is therefore a data-side decode, not *confirmed*
+(rule 13).
+
 ### Table dump
 
 `0x003a0034` prints the twelve fields in order; its format strings are at
