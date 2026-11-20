@@ -99,15 +99,53 @@ n × { u32 start_w,   // page offset from the chain base
   `fn 0x003f5194` (EU2011, C-2540): BE `u16 w`, size `2*(w & 0x3ff)` bytes.
   The `ff ff` record end of the section below is **not** universal (6 of the
   16 EU POINT010 name pages fail it); the 10-bit length is the rule.
-- The table holds no chain base and no absolute offset. What tells the reader
-  where a chain and its table are (the **chain locator**) is `UNKNOWN`: no
-  position in the first 0x8000 bytes holds a base, table or chain end in any
-  of 72 encodings in more than 4 of 33 EU files (C-2954).
+- The table holds no chain base and no absolute offset. The base and the
+  table are found through the **chain locator** below (M4.47).
 - Free space after a chain (up to the next non-zero byte) is 24–248 B per
   name chain: 3,656 B over 33 EU files, 1,460 B over 11 US files.
 - `tools/point_pair_regen.py` re-packs a chain in place from these tables;
   index chains (`4e 20 00 00` + `u32` word lengths, as in `ADDRE`) are a
   separate structure and are not covered.
+
+### POINT chain locator: block addresses, directory, descriptor records (M4.47)
+
+> **Status:** `OBSERVED` on EU 2011 (33 files, 99 chains) and US 2011 (11
+> files, 33 chains); the firmware code that reads the directory cell and the
+> base reference is not located (C-5390–C-5396, M4.52).
+
+A POINT `.DAT` addresses its structures in 256-byte blocks with a **block
+address** (BE `u32`):
+
+```
+addr = (offset / 0x800) << 8 | (offset % 0x800) / 0x100   // 2-KiB sector, block 0..7
+offset = (addr >> 8) * 0x800 + (addr & 0xff) * 0x100
+```
+
+- **Directory** at `0x800..0xf06`: 299 cells of 6 bytes `u32 addr, u16
+  blocks`; an empty cell is `ffffffff 0000`. Six or seven cells are used
+  (`0x824` → the `0x1000` record, `0x82a`, `0x85a`, `0xe84`, `0xe8a`,
+  `0xe90`, `0xeba`).
+- Cell **`0x82a`** (2 blocks) points to the record that starts `ffff 0015`:
+  the **field dictionary** block that the name accessor reads (M3.11c,
+  `D = C + 2*u16[C+2] = C+0x2a`). It sits 0x200 before the name chain.
+- Cell **`0xeba`** (1 block) points to the record 0x100 before the 2000 chain.
+- Inside these records each chain has a **base reference** `u32 addr(base),
+  u32 chain length in words` and a **table reference** `u32 addr(table), u32
+  table length in words, u16 per_page`:
+
+| Chain (`per_page`) | Cell | Base reference | Table reference |
+| ---: | --- | --- | --- |
+| 1000 (names) | `0x82a` | record `+0x2e` (= `D+4`) | record `+0x19a` |
+| 400 | `0x82a` | record `+0x13c` | record `+0x1b6` |
+| 2000 | `0xeba` | record `+0x24` | record `+0x94` |
+
+- The layout is the same in all 44 files; each of the 264 references occurs
+  exactly once in its file. Example, EU `POINT010`: cell `0x82a` =
+  `000d4f05 0002` → record `0x6a7d00`; `+0x2e` = `000d4f07 0004d372` → base
+  `0x6a7f00`, 632,548 B; `+0x19a` = `000e9a00 00000062 03e8` → table `0x74d000`.
+- The header holds no file length, so a chain may be appended at the end of
+  the `.DAT` (`point_pair_regen.py relocate`: new base at the next 0x100
+  boundary, base reference and table rewritten, old chain zeroed).
 
 ### POI name page framing (page level)
 
