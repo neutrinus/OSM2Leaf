@@ -390,6 +390,7 @@
   "docs/experiments/EXP-2026-11-20-H77-skip-fenced-code.md",
   "docs/experiments/EXP-2026-11-20-H89-nomatch-census.md",
   "docs/experiments/EXP-2026-11-20-H97-l1l2-verdict.md",
+  "docs/experiments/EXP-2026-11-20-M1.24-sh4literal.md",
   "docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md",
   "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
   "docs/experiments/EXP-2026-11-20-M1.4-filesentry-payloads-2.md",
@@ -450,10 +451,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 443,
-  "citations": 1156,
+  "files": 444,
+  "citations": 1162,
   "unique_va": 287,
-  "start": 1000,
+  "start": 1006,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -464,16 +465,7 @@
  "rows": [
   {
    "file": "TODO.md",
-   "line": 1062,
-   "va": "0x004125a8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1626,
+   "line": 1627,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -482,7 +474,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1626,
+   "line": 1627,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -491,7 +483,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1627,
+   "line": 1628,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -500,7 +492,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1648,
+   "line": 1649,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -510,7 +502,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1658,
+   "line": 1659,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -519,7 +511,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1729,
+   "line": 1730,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -528,7 +520,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1729,
+   "line": 1730,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -537,7 +529,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1762,
+   "line": 1763,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -546,7 +538,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1763,
+   "line": 1764,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -555,7 +547,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1785,
+   "line": 1786,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -564,7 +556,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2223,
+   "line": 2224,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -573,7 +565,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2223,
+   "line": 2224,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -7898,6 +7890,69 @@
    "class": "CORRECTED",
    "true_start": "0x00542250",
    "class_sha256": "ba30c723aba0a3f253a3daafe150fa1a9e272c1e1d3019fdb8588ef6eb2aea42"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.24-sh4literal.md",
+   "line": 31,
+   "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.24-sh4literal.md",
+   "line": 80,
+   "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.24-sh4literal.md",
+   "line": 115,
+   "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.24-sh4literal.md",
+   "line": 124,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.24-sh4literal.md",
+   "line": 145,
+   "va": "0x0041c7dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.24-sh4literal.md",
+   "line": 157,
+   "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.24-sh4literal.md",
+   "line": 275,
+   "va": "0x00542250",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md",
