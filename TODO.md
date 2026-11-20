@@ -4357,13 +4357,14 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the selftest row passes and fails on the unfixed engine; `div1_l3.py isolate --before <pre-fix engine>` lists only `mac.w`; `decode_audit.py compare` stays 0/0 on EU Navi, EU nk, US Navi.
   - Claims: C-5300–C-5309 (was C-5186–C-5187; fresh block for this run)
 
-- [ ] **M9.50 — Model `rotcl`/`rotcr` so the `nk.exe` divide routines run in the bare engine**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.50 — Model `rotcl`/`rotcr` so the `nk.exe` divide routines run in the bare engine**
+  - Status: done · Owner: task/m9.50-pysh4-rotcl · Critical: no · Pair: solo
   - Depends: M9.48
+  - Result: EXP-2026-11-19-M9.50-pysh4-rotcl; C-5310–C-5314. `rotcl`/`rotcr` modelled in the engine (and named in `sh4dis`); `div1_l3.py run archive/head256.img nk.exe` → `4/4 runnable functions match` with `rotcl(shim)=0 rotcr(shim)=0` (EU2011 and US2011); `isolate --before cc15728 --expect rotcl,rotcr` → only rotcl (16) / rotcr (16); `compare` 0/0 on EU Navi (28,394), EU nk (11,374), US Navi (28,345). `rotl`/`rotr` stay unmodelled (30/1, 6/8, 38/1 insns).
   - Goal: the firmware's 32-bit divide routines (EU2011/US2011 `nk.exe` `0x88040b6c`, `0x88040c18`, `0x88042594`, `0x88040988`) interleave `div1` with `rotcl` (`0x4n24`) and use `rotcr` (`0x4n25`); the engine rejects both, so M9.48 ran them through a tool-local shim in `div1_l3.py`. Any L3 target that divides through these helpers stops at the first `rotcl`.
   - Scope: `rotcl`/`rotcr` in `_exec_system` plus `DECODE_TABLE` rows, a distinct-register selftest row each, and `div1_l3.py run` without the shim (keep the shim count at 0 as the check). No FPU.
   - Done when: `div1_l3.py run archive/head256.img nk.exe` prints `4/4 runnable functions match` with `rotcl(shim)=0 rotcr(shim)=0`; `isolate --before <pre-change engine>` lists only `rotcl`/`rotcr`; `compare` 0/0 on the three corpora.
-  - Claims: C-5188–C-5189
+  - Claims: C-5310–C-5319 (was C-5188–C-5189; fresh block for this run)
 
 - [ ] **M9.51 — `mac.l` is modelled as `mac.l Rm,Rn`; the SH-4 form is `mac.l @Rm+,@Rn+`**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -4371,6 +4372,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Goal: `engine.py`'s `0x0nmF` arm multiplies the two *register values*; the manual's `0000nnnnmmmm1111` is `MAC.L @Rm+,@Rn+` (two memory longs, both pointers +4, S = 1 saturates at 48 bits). The census counts 4,164 EU2011 Navi / 189 EU2011 nk / 4,839 US2011 Navi `mac.l` as modelled with wrong semantics (C-5304); the M9.37 selftest row checks the register form.
   - Scope: the `mac.l` arm and its selftest row in `tools/l3_harness/engine.py` (manual MACL code: distinct registers, n == m, S = 0/1, fault before register writes); first `grep` the L3 targets for a run that executed `mac.l` and say whether any result changes. No other instruction.
   - Done when: the new row fails on the current engine and passes after; `div1_l3.py isolate --before <pre-change engine> --expect mac.l` lists only `mac.l`; `decode_audit.py compare` 0/0 on EU Navi, EU nk, US Navi.
+  - Precheck: `grep -n "mac.l Rm,Rn" tools/l3_harness/engine.py` finds the register-form arm (if it is gone, the task is moot).
   - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
   - Claims: none yet (take the next free block when claimed)
 
