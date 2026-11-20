@@ -2230,7 +2230,7 @@ of the four numbers above says so in its first line.
   - Claims: C-5137–C-5139 (block from M4.16b's reserve), C-5370–C-5372 (C-5373–C-5374 spare, C-5375–C-5379 given to M4.49)
 
 - [ ] **M4.49 — Locate the firmware reader of the `RDSTM001.DAT` link groups and run it in L3**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.49-rdstm-group-reader · Critical: no
   - Depends: M4.16e
   - Goal: rule 13 for the M4.16e decode: find the `Navi.exe` code that reads the `RDSTM001.DAT` header sets, the group index (`u16 size_dwords, u32 addr, u16 blocks, u32 key_min, u32 key_max, u16 n, n x (u32 parcel, u16 count)`) and the 4-byte `(node, link)` entries, and decode the unknown bits (`a` 0x4000/0x8000, `b` 0x4000/0x8000, link-record role `k & 3`, header words `3`/`122`).
   - Input: EXP-2026-11-20-M4.16e-rdstm-link-groups (C-5137–C-5139, C-5371); `tools/rdstm_links.py`; the TMC record readers of M3.7/M4.16b (`0x003bc960`, `0x003f61bc`, EU2011 build A).
