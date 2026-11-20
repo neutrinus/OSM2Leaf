@@ -221,12 +221,30 @@ All five target tiles now rebuild **byte-identically**, including the dense
 - mask the `0x80000000` pair flag before computing a compressed length;
 - preserve raw slot tails (e.g. `B30R048` slot 21 at body `+0xE8`);
 - accept `0x7fffffff` empty tags at level 1;
-- keep declared-size directory tails: the EU 2011 section-1 level-1 `0x2n46`
-  family carries an extra `n*512`-byte tail for `n=1–7` observed (e.g. 512 B
-  for `0x2146`, 3584 B for `0x2746`; `0x2946` had 0 in `B48R058R`). Their
-  slot-table container (header/tag/body/tail) round-trips, but many blocks hold
-  non-zlib records / `0xffffffff` pair fields, so `tilewriter` preserves these
-  kinds and refuses mutation inside them (M5.22, C-2810–C-2813);
+- the EU 2011 section-1 level-1 `0x2n46` "kinds" are **not** a 512-byte-row
+  directory with an `n*512`-byte tail (M5.22's reading, C-2810–C-2812,
+  superseded). Header word 0 is the directory size in `u16` words, and
+  `0x2n46` is a `0x2046` directory with **n wide rows** (M5.53,
+  C-5270–C-5273, `tools/s1_wide_dir.py`):
+
+  | Row | Body | Per column (32 columns) |
+  | --- | --: | --- |
+  | narrow | 512 B | even `(u32 ln, u32 X)`, odd `(u32 ln, u32 X)` |
+  | wide | 1,024 B | even (8 B), 4 x `u16` sub-record sizes, 4 x `u16` sub-record inflated sizes, odd (8 B) |
+
+  Bit 31 of a row's first body word marks a wide row (`0xffffffff` when
+  column 0 is empty; never set in a narrow row). In a wide row bit 31 of the
+  even `ln` is also set on every column with sub-records. The row block holds,
+  per column, `even, sub0..sub3, odd`, each `2 * ln` bytes (zlib, zero-padded
+  to a word); `(0, 0)` is an empty sub-record. The sub-records are a 2 x 2
+  split of the parcel: their parcel codes replace the low nibble `0xc | r` of
+  the parent code with `(half << 2) | r`. On `B48R058R` all 68 section-1
+  directories parse this way (139,510 records, every one a whole zlib stream of
+  its declared size, 0 overlapping row blocks). `tilewriter` splices into
+  `0x2146` through this model (a written parcel loses its sub-records; a wide
+  row left without any becomes narrow, so the directory can turn into
+  `0x2046`) and still preserves `0x2246`–`0x2946`. What the firmware does with
+  the sub-records is UNKNOWN (no reader located, rule 13);
 - copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
 
 Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
