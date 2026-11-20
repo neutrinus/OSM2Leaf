@@ -419,7 +419,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Tool: `cerom.py files --extract --decompress` writes stored bytes,
     classifies OK/UNSUPPORTED/FAIL and never writes a wrong-length decode
     (EXP-55, C-573); EXP-51 says the real payload is not a stdlib format.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m1.4-filesentry-payloads · Critical: no
   - Note (M1.21, 2026-11-19, rule 15): M1.21 decodes every compressed `FILESentry` payload with the kernel routine (`nk_decomp.py files`, B 8/8, C 7/7, `r0 == rsize`); what is left here is `cerom.py files --decompress` wiring / `extract-file NAME`. The `Blocker:` line below is historical.
   - Note (H51, 2026-11-11): re-opened as **M1.21**: try the kernel routine (`nk_decomp.decompress`) on the `FILESentry` payloads.
   - Blocker: all 8 compressed build-B FILESentry payloads carry CE-LZXD block marker `0x8d80805b` and no public/stdlib `cecompress` method decodes them (0 matches, 8 UNSUPPORTED); M1.2b/c path does not suffice, so `rsize`-length decode / readable `ceconfig.h` cannot be produced without the CE-LZXD codec (M1.2f blocked, M8.E1 runtime unavailable in session).
@@ -434,7 +434,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     `real` and `ceconfig.h` is readable text (do not commit it; quote ≤ 3
     lines in the EXP).
   - Result: EXP-2026-11-08-M1.4-filesentry-payloads (extraction/characterization done; decode blocked, done-when not met; C-680–C-683).
-  - Claims: C-680–C-683
+  - Claims: C-5990–C-5999 (was C-680–C-683; fresh block for this run)
 
 
 - [x] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
