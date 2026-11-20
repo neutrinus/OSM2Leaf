@@ -26,6 +26,7 @@
   "tools/datask_l3.py",
   "tools/l3_harness/targets.json",
   "tools/mapcode_l3.py",
+  "tools/mmain_l3.py",
   "tools/mount_dirs_l3.py",
   "tools/point_locator_l3.py",
   "tools/point_walk_l3.py",
@@ -35,16 +36,16 @@
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 28,
-  "citations": 579,
-  "unique_va": 272,
-  "start": 353,
+  "files": 29,
+  "citations": 584,
+  "unique_va": 273,
+  "start": 356,
   "inside": 0,
   "corrected": 0,
   "gap": 59,
   "leaf": 59,
   "ambiguous": 0,
-  "unmapped": 167
+  "unmapped": 169
  },
  "rows": [
   {
@@ -58,7 +59,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1623,
+   "line": 1624,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -67,7 +68,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1623,
+   "line": 1624,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -76,7 +77,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1624,
+   "line": 1625,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -85,7 +86,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1645,
+   "line": 1646,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -95,7 +96,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1655,
+   "line": 1656,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -104,7 +105,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1726,
+   "line": 1727,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -113,7 +114,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1726,
+   "line": 1727,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -122,7 +123,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1759,
+   "line": 1760,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -131,7 +132,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1760,
+   "line": 1761,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -140,7 +141,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1782,
+   "line": 1783,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -149,7 +150,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2219,
+   "line": 2220,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -158,7 +159,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2219,
+   "line": 2220,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -167,7 +168,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3829,
+   "line": 3830,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
@@ -176,7 +177,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4149,
+   "line": 4150,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -185,7 +186,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4151,
+   "line": 4152,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -194,7 +195,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4159,
+   "line": 4160,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -203,7 +204,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4164,
+   "line": 4165,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -212,7 +213,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4173,
+   "line": 4174,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -221,7 +222,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4329,
+   "line": 4331,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -3643,6 +3644,51 @@
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 5,
+   "va": "0x0041a438",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 6,
+   "va": "0x0041b780",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 6,
+   "va": "0x0041b954",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 7,
+   "va": "0x00e23cc0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 14,
+   "va": "0x00e23cc0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/mount_dirs_l3.py",
