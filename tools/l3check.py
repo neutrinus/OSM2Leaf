@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import hashlib
 import io
 import json
@@ -101,6 +102,11 @@ TARGET_EVIDENCE = {
         "reader": "cmp_ind",
         "claims": ("C-3630",),
         "note": "US build of the same engine (fn 0x00444540); M1.22",
+    },
+    "point_walk_us2011": {
+        "reader": "point_walk",
+        "claims": ("C-5770", "C-5771", "C-5772"),
+        "note": "US POINT walker fn 0x0041db44; runner point_walk_v1 (M9.55); framing only, not names (C-4178)",
     },
     "tile_reader": {
         "reader": "tile",
@@ -535,6 +541,27 @@ def _find_img256() -> Path | None:
     return None
 
 
+def _find_us256() -> Path | None:
+    candidates = [
+        TOOLS_DIR.parent / "archive" / "us256.img",
+        Path(os.environ.get("US256", "")),
+        Path("/home/marek/projekty/OSM2Leaf/archive/us256.img"),
+    ]
+    for p in candidates:
+        if p and str(p) and p.is_file():
+            return p
+    return None
+
+
+#: ``build`` -> the head image whose firmware the target's VAs belong to.  A
+#: wrong pairing still yields a verdict (``FAIL (unmapped ...)``, M9.42), so a
+#: missing image is never silently swapped for the other build's.
+BUILD_IMAGES = {
+    "eu2011": _find_img256,
+    "us2011": _find_us256,
+}
+
+
 def _card_status_norm(status: str) -> str:
     """M9.12 terminology: pass / fail / not-yet-available."""
     if status in ("pass", "PASS"):
@@ -779,17 +806,57 @@ def _select_targets(by_name: dict[str, dict], requested) -> list[dict]:
             selected.append(name)
     return [by_name[name] for name in selected]
 
+def _corpus_firmware_inputs(target: dict, corpus_root: Path) -> dict:
+    """Corpus-mode ``--image/--cmp/--ind`` for a ``point_walk_v1`` row (M9.55).
+
+    The image comes from the target's ``build`` (``BUILD_IMAGES``), the pair
+    from ``entry.inputs.source`` under the corpus root.  A build with no head
+    image is reported by the caller as BLOCKED (nothing claimed), never
+    swapped for the other build's image.
+    """
+    entry = target.get("entry") or {}
+    if entry.get("program") != "point_walk_v1":
+        return {}
+    source = (entry.get("inputs") or {}).get("source")
+    if not isinstance(source, str) or not source:
+        return {}
+    build = target.get("build") or "eu2011"
+    finder = BUILD_IMAGES.get(build)
+    image = finder() if finder else None
+    cmp_path = corpus_root / source
+    ind_path = cmp_path.with_suffix(".ind")
+    inputs = {
+        "corpus_source": str(cmp_path),
+        "image_missing": image is None,
+    }
+    if image is not None:
+        inputs["image"] = str(image)
+    if cmp_path.is_file():
+        inputs["cmp"] = str(cmp_path)
+    if ind_path.is_file():
+        inputs["ind"] = str(ind_path)
+    return inputs
+
+
 
 def _run_one(target: dict, corpus_root: Path, engine: str) -> dict:
     """Run one target through ``runner.run_target``; never raise at the caller."""
 
     evidence = TARGET_EVIDENCE[target["name"]]
+    firmware_inputs = _corpus_firmware_inputs(target, corpus_root)
     namespace = argparse.Namespace(
         engine=engine,
         input=None,
         corpus=str(corpus_root),
         max_insns=engine_mod.DEFAULT_MAX_INSNS,
         dry_run=False,
+        image=firmware_inputs.get("image"),
+        cmp=firmware_inputs.get("cmp"),
+        ind=firmware_inputs.get("ind"),
+        offset=None,
+        length=None,
+        mutate="none",
+        expect=None,
     )
     try:
         payload = runner_mod.run_target(target, namespace)
@@ -799,6 +866,20 @@ def _run_one(target: dict, corpus_root: Path, engine: str) -> dict:
             "exit": runner_mod.EXIT_INVALID,
             "problems": [f"runner error: {type(exc).__name__}: {exc}"],
             "reason": None,
+            "l3_claim": False,
+        }
+
+    if firmware_inputs.get("image_missing"):
+        payload = {
+            **payload,
+            "status": "BLOCKED",
+            "exit": runner_mod.EXIT_BLOCKED,
+            "problems": [],
+            "reason": (
+                f"firmware head for build {target.get('build')!r} not found "
+                f"({', '.join(sorted(p for p in BUILD_IMAGES if p))} candidates); "
+                "rule 11, rerun with the archive head present"
+            ),
             "l3_claim": False,
         }
 
@@ -1186,6 +1267,8 @@ def _print_report(report: dict) -> None:
         print(f"RESULT: FAIL ({counts['fail']} target(s) failed; exit 1)")
 
 
+
+
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
@@ -1365,7 +1448,7 @@ def test_full_run():
     assert report["claim"] == "C-1700"
     assert report["engine"] == "pysh4"
     assert report["corpus"]["source"] == "supplied", report["corpus"]
-    assert report["corpus"]["entries"] == 108, report["corpus"]
+    assert report["corpus"]["entries"] == 110, report["corpus"]
     rows = {row["name"]: row for row in report["targets"]}
     probe = rows["probe-zlib-cmf"]
     assert probe["status"] == "PASS", probe
@@ -1374,33 +1457,64 @@ def test_full_run():
     assert probe["synthetic"] is True and probe["l3_claim"] is False, probe
     assert probe["input"]["manifest_sha256_match"] is True, probe["input"]
     assert probe["steps"] and probe["steps"] > 0, probe
+    # M9.55: the POINT walker row is runnable from the corpus alone when the
+    # us2011 head is present (image from the target's build, pair from the
+    # corpus); without the archive head it is honestly BLOCKED, not FAIL.
+    point = rows["point_walk_us2011"]
+    us_head = (BUILD_IMAGES.get("us2011") or (lambda: None))()
+    if us_head is not None:
+        assert point["status"] == "PASS", point
+        assert point["verdict"] == "ACCEPT" and point["expected"] == "ACCEPT", point
+        assert point["claims"] == ["C-5770", "C-5771", "C-5772"], point
+        assert point["l3_claim"] is True, point
+        expected_blocked = [
+            "applaunch_mapcode_compare",
+            "cmp_ind_reader",
+            "cmp_ind_reader_us2011",
+            "drstr_parser",
+            "hddinfo_compare",
+            "lev3456_reader",
+            "mapcode_comparator",
+            "mmain_reader",
+            "tile_reader",
+            "tile_section4_reader",
+        ]
+        expected_counts = {"pass": 2, "fail": 0, "skip": 0, "blocked": 10,
+                           "runnable": 2, "total": 12}
+    else:
+        assert point["status"] == "BLOCKED", point
+        assert point["verdict"] is None and point["accepted"] is None, point
+        assert point["l3_claim"] is False and point["reason"], point
+        assert "firmware head for build 'us2011' not found" in point["reason"], point
+        assert point["claims"] == ["C-5770", "C-5771", "C-5772"], point
+        expected_blocked = [
+            "applaunch_mapcode_compare",
+            "cmp_ind_reader",
+            "cmp_ind_reader_us2011",
+            "drstr_parser",
+            "hddinfo_compare",
+            "lev3456_reader",
+            "mapcode_comparator",
+            "mmain_reader",
+            "point_walk_us2011",
+            "tile_reader",
+            "tile_section4_reader",
+        ]
+        expected_counts = {"pass": 1, "fail": 0, "skip": 0, "blocked": 11,
+                           "runnable": 1, "total": 12}
     blocked = sorted(name for name, row in rows.items() if row["status"] == "BLOCKED")
     # The firmware_call readers (EU cmp_ind_reader, US cmp_ind_reader_us2011)
     # need external --image/--cmp/--ind, so a corpus-only run reports them
     # BLOCKED in this mode (M9.11b, M1.22); so does the AppLaunch map-code
     # compare, which needs --image/--input/--unit-from (M9.6), and the
     # DRSTR001 parser, which needs --image/--input (M9.24).
-    assert blocked == [
-        "applaunch_mapcode_compare",
-        "cmp_ind_reader",
-        "cmp_ind_reader_us2011",
-        "drstr_parser",
-        "hddinfo_compare",
-        "lev3456_reader",
-        "mapcode_comparator",
-        "mmain_reader",
-        "tile_reader",
-        "tile_section4_reader",
-    ], blocked
+    assert blocked == expected_blocked, blocked
     for name in blocked:
         row = rows[name]
         assert row["verdict"] is None and row["accepted"] is None, row
         assert row["l3_claim"] is False and row["reason"], row
         assert row["claims"] == list(TARGET_EVIDENCE[name]["claims"]), row
-    assert report["counts"] == {
-        "pass": 1, "fail": 0, "skip": 0, "blocked": 10,
-        "runnable": 1, "total": 11,
-    }, report["counts"]
+    assert report["counts"] == expected_counts, report["counts"]
 
 
 @check("run: --target selects exactly one target (PASS)")
@@ -1520,7 +1634,7 @@ def test_build_corpus():
         assert code == 0, report
         corpus = report["corpus"]
         assert corpus["source"] == "built" and corpus["kept"] is True, corpus
-        assert corpus["entries"] == 108, corpus
+        assert corpus["entries"] == 110, corpus
         assert Path(corpus["root"]).is_dir(), corpus
         assert (Path(corpus["root"]) / "manifest.json").is_file(), corpus
         assert report["targets"][0]["status"] == "PASS", report["targets"]

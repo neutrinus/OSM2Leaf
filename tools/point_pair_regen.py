@@ -396,6 +396,19 @@ def regen_chain(blob: bytearray, chain: Chain, new_inners: list[bytes],
         raise RegenError("chain table size changed")
     blob[chain.toc:chain.toc + len(toc)] = toc
     report["entries_changed"] = sum(1 for a, b in zip(entries, chain.entries) if a != b)
+    # per edited page: where it was and is, its stream before/after (M5.32)
+    edited = []
+    for i, inner in enumerate(new_inners):
+        if inner == chain.pages[i][2] and not force:
+            continue
+        st = enc.compress(inner)
+        off, used, old_inner = chain.pages[i]
+        edited.append({"page": off, "new_page": chain.base + 2 * entries[i][0],
+                       "old_stream": used, "new_stream": len(st),
+                       "old_inner": len(old_inner), "new_inner": len(inner),
+                       "old_sha256": hashlib.sha256(streams_old[i][:used]).hexdigest(),
+                       "new_sha256": hashlib.sha256(st).hexdigest()})
+    report["edited_pages"] = edited
     return report
 
 
@@ -432,8 +445,33 @@ def regen_blob(blob: bytes, names: list[dict], enc: Encoder,
         olds = [blob[off:off + used] for off, used, _ in ch.pages]
         rep = regen_chain(out, ch, new_inners, enc, olds)
         rep["edits"] = sum(len(by_page.get(off, [])) for off, _, _ in ch.pages)
+        rep["base_ref"] = update_base_ref_length(out, blob, ch, rep["new_bytes"])
         reports.append(rep)
     return bytes(out), reports
+
+
+def update_base_ref_length(out: bytearray, blob: bytes, ch: Chain, new_bytes: int) -> int | None:
+    """Rewrite the chain length (words) in the chain's base reference (M4.47).
+
+    The base reference is ``u32 block address, u32 length in words``; a chain
+    that grows or shrinks in place keeps its address but not its length, and
+    ``chain_via_locator`` (the reader's check) refuses a stale length.  Only a
+    reference that points at this chain's base with this chain's old length is
+    rewritten.  Returns its position, or None when the file has no locator for
+    the chain (synthetic files, legacy layouts).  Found by M5.32: before this,
+    an in-place ``regen`` that grew a chain left the stored length stale.
+    """
+    if ch.per_page not in LAYOUT:
+        return None
+    try:
+        pb, _ = locator_positions(blob, ch.per_page)
+        baddr, bw = struct.unpack_from(">II", blob, pb)
+        if blk_off(baddr) != ch.base or 2 * bw != ch.end - ch.base:
+            return None
+    except (ValueError, struct.error):
+        return None
+    struct.pack_into(">I", out, pb + 4, new_bytes // 2)
+    return pb
 
 
 # ---------------------------------------------------------------------------
@@ -571,6 +609,12 @@ def verify_pair(cmp_new: Path, names: list[dict], blob_old: bytes, chains_old: l
     for old in chains_old:
         allowed.append((old.base, old.slot_end))
         allowed.append((old.toc, old.toc + old.toc_size))
+        if old.per_page in LAYOUT and chain_via_locator(blob_old, old.per_page) is not None:
+            pb, _ = locator_positions(blob_old, old.per_page)
+            allowed.append((pb + 4, pb + 8))
+            if chain_via_locator(blob, old.per_page) is None:
+                res["errors"].append(f"per_page {old.per_page} chain no longer reached "
+                                     "through its locator")
     outside = 0
     step = 1 << 16
     for lo in range(0, len(blob), step):
@@ -1451,6 +1495,16 @@ def selftest() -> int:
     lplan = [dict(e, new="".join(chr(65 + b % 26) for b in hashlib.sha256(
               e["old"].encode()).digest() * 2)[:len(e["old"]) + 40])
              for e in plan_names(lb, lchains, 18, grow=0)]
+    gplan = plan_names(lb, lchains, 3, grow=2)
+    gb, greps = regen_blob(lb, gplan, enc, lchains)
+    gch = chain_via_locator(gb, 1000)
+    ok(greps[0]["new_bytes"] > greps[0]["old_bytes"] and greps[0]["base_ref"] is not None
+       and gch is not None and gch.end - gch.base == greps[0]["new_bytes"],
+       "in-place growth rewrites the locator's chain length (M5.32)")
+    stale_len = bytearray(gb)
+    struct.pack_into(">I", stale_len, greps[0]["base_ref"] + 4, greps[0]["old_bytes"] // 2)
+    ok(chain_via_locator(bytes(stale_len), 1000) is None,
+       "a grown chain with the old stored length is refused by the locator")
     try:
         regen_blob(lb, lplan, enc, lchains)
         ok(False, "in-place growth refused")
