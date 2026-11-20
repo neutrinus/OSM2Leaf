@@ -425,6 +425,7 @@
   "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
   "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
   "docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md",
+  "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.36-rerun-probes-pysh4.md",
@@ -436,11 +437,11 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 429,
-  "citations": 1098,
-  "unique_va": 273,
-  "start": 947,
-  "inside": 71,
+  "files": 430,
+  "citations": 1107,
+  "unique_va": 275,
+  "start": 954,
+  "inside": 73,
   "corrected": 5,
   "gap": 68,
   "leaf": 68,
@@ -561,15 +562,6 @@
    "file": "TODO.md",
    "line": 2207,
    "va": "0x003c0e68",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 3803,
-   "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -9829,6 +9821,96 @@
    "file": "docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md",
    "line": 54,
    "va": "0x880404f4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 32,
+   "va": "0x880404f4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 49,
+   "va": "0x880404f4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 50,
+   "va": "0x88048f94",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 50,
+   "va": "0x88049f4c",
+   "kind": "fn",
+   "class": "INSIDE",
+   "true_start": "0x88049f28",
+   "class_sha256": "396b80106ef2e5847f8cc7cb3c4909acff6a0f4011be7ea49e7fa7252abc8924"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 50,
+   "va": "0x8804aa08",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 162,
+   "va": "0x88048f94",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 225,
+   "va": "0x880404f4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 230,
+   "va": "0x88049f4c",
+   "kind": "fn",
+   "class": "INSIDE",
+   "true_start": "0x88049f28",
+   "class_sha256": "396b80106ef2e5847f8cc7cb3c4909acff6a0f4011be7ea49e7fa7252abc8924"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 231,
+   "va": "0x8804aa08",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+   "line": 232,
+   "va": "0x88048f94",
    "kind": "fn",
    "class": "START",
    "true_start": null,
