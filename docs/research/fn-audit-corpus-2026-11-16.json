@@ -27,6 +27,7 @@
   "tools/datask_req_l3.py",
   "tools/drstr_l3.py",
   "tools/l3_harness/targets.json",
+  "tools/lctbl_lookup_l3.py",
   "tools/mapcode_l3.py",
   "tools/mmain_l3.py",
   "tools/mount_dirs_l3.py",
@@ -41,10 +42,10 @@
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 34,
-  "citations": 795,
-  "unique_va": 332,
-  "start": 495,
+  "files": 35,
+  "citations": 798,
+  "unique_va": 334,
+  "start": 498,
   "inside": 0,
   "corrected": 0,
   "gap": 72,
@@ -55,7 +56,7 @@
  "rows": [
   {
    "file": "TODO.md",
-   "line": 1779,
+   "line": 1791,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -64,7 +65,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1779,
+   "line": 1791,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -73,7 +74,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1779,
+   "line": 1791,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -82,7 +83,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1779,
+   "line": 1791,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -91,7 +92,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1782,
+   "line": 1794,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -100,7 +101,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1782,
+   "line": 1794,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -109,7 +110,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1783,
+   "line": 1795,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -118,7 +119,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1804,
+   "line": 1816,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -128,7 +129,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1814,
+   "line": 1826,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -137,7 +138,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1885,
+   "line": 1897,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -146,7 +147,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1885,
+   "line": 1897,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -155,7 +156,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1930,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -164,7 +165,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1919,
+   "line": 1931,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -173,7 +174,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1941,
+   "line": 1953,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -182,7 +183,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2218,
+   "line": 2230,
    "va": "0x003f5624",
    "kind": "fn",
    "class": "START",
@@ -191,7 +192,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2219,
+   "line": 2231,
    "va": "0x003ad680",
    "kind": "fn",
    "class": "START",
@@ -200,7 +201,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2219,
+   "line": 2231,
    "va": "0x003ad9a4",
    "kind": "fn",
    "class": "START",
@@ -209,7 +210,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2219,
+   "line": 2231,
    "va": "0x003b9d38",
    "kind": "fn",
    "class": "START",
@@ -218,7 +219,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2219,
+   "line": 2231,
    "va": "0x003bacc4",
    "kind": "fn",
    "class": "START",
@@ -227,7 +228,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2220,
+   "line": 2232,
    "va": "0x003ad440",
    "kind": "fn",
    "class": "START",
@@ -236,7 +237,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2406,
+   "line": 2418,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -245,7 +246,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2406,
+   "line": 2418,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -254,7 +255,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4180,
+   "line": 4193,
    "va": "0x039bcedc",
    "kind": "fn",
    "class": "GAP",
@@ -1618,7 +1619,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 396,
+   "line": 418,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1627,7 +1628,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 406,
+   "line": 428,
    "va": "0x003bc960",
    "kind": "fn",
    "class": "START",
@@ -1636,7 +1637,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 436,
+   "line": 458,
    "va": "0x003ca858",
    "kind": "fn",
    "class": "GAP",
@@ -4865,6 +4866,33 @@
    "line": 0,
    "va": "0x00419350",
    "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 51,
+   "va": "0x003ebe70",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 52,
+   "va": "0x004052d4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 53,
+   "va": "0x003ec034",
+   "kind": "const",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"

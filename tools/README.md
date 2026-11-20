@@ -375,6 +375,22 @@ python3 tools/tile_drop_l3.py run archive/head256.img --card-image CARD --positi
 python3 tools/tile_drop_l3.py third-entry --card-image CARD B60R048R.DAT   # --flip arguments
 ```
 
+## `lctbl_lookup_l3.py` — the firmware looks a TMC location code up in `LCTBL001.DAT` (M5.60)
+
+Runs the whole lookup of EU2011 `Navi.exe` in PySh4 on a card image: request
+`0x14e4` → catalog → B-tree index pages → page directory → zlib page inflated
+by `HDL_MapTblTask` → answer `0x14fb`, and compares the returned record with
+the model of `lctbl_build.py parse`. `--file` puts a generated file on the
+card for the run; `--flip OFF[:XOR]` damages one byte (negative control).
+Exit 0 all lookups agree, 1 one does not, 3 blocked.
+
+```bash
+python3 tools/lctbl_lookup_l3.py --selftest
+python3 tools/lctbl_lookup_l3.py extract --card-image CARD -o /tmp/LCTBL001.DAT   # never commit
+python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image CARD --lookup 2,25,1203
+python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image CARD --file SYN.DAT --lookup 3,25,3604 --lookup 3,25,5
+```
+
 ## `nk_decomp.py` — decompress ROM sections with the kernel's own routine (H51)
 
 Runs `nk.exe` `DECOMP_SECT 0x88037464` (build B) in the PySh4 engine: no
