@@ -894,8 +894,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-16-H76-l3-image-assert; C-3990–C-3999. `test_fn_audit_scope_l3_image` accepts `CORPUS (OK|DRIFT): L3 OVERLAY: 0 new / 0 gone / N moved` and asserts no `CORPUS STALE`; full `selftest.py` 90/0/23, and a one-row-deleted overlay still yields `CORPUS STALE: … 1 new / 0 gone` exit 1.
   - Claims: C-3990–C-3999
 
-- [ ] **H77 — `fn_audit`/`claims_check` do not skip fenced code blocks, so an EXP that quotes a citation becomes a live citation**
-  - Status: in progress · Owner: task/h77-skip-fenced-code · Critical: no · Pair: required
+- [x] **H77 — `fn_audit`/`claims_check` do not skip fenced code blocks, so an EXP that quotes a citation becomes a live citation**
+  - Status: done · Owner: task/h77-skip-fenced-code · Critical: no · Pair: required
   - Depends: M1.26 (done: the l3 scope and its overlay), H76 (done: the l3 image assertion)
   - Goal: in H71 the driver's first EXP draft put the probe text `Goal: fn 0x<VA> probe` inside a fenced block; `fn_audit.citations_markdown` has no fence state, so the EXP became a live l3 citation and the gate went `CORPUS STALE: 1 new` (full `selftest.py` RED). It was worked around with a `$VA` placeholder — a workaround that every future EXP writer must know. Fenced blocks are the documented way to quote a command; a scanner that treats their contents as prose will keep producing this class (the same failure in the docs scope is silent, because `docs/format/*.md` has few fences). This is a *policy* decision, so it is a pair, not a solo edit.
   - Precheck: `python3 -c "import re;t=open('docs/experiments/EXP-2026-11-16-H71-evidence-spans.md').read();print(bool(re.search(r'(?s)\`\`\`.*?fn 0x[0-9a-f]{6,8}.*?\`\`\`?',t)))"`; append a fenced `fn 0x<start>` to a copy of a `docs/format/*.md` and run `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` — today it prints `CORPUS STALE: 1 new` for a fenced line.
@@ -904,6 +904,7 @@ of the four numbers above says so in its first line.
   - Done when: a fenced `fn 0x…` appended to a copy of `docs/format/firmware.md` (and to an EXP) does **not** change either `--corpus` verdict (exit 0, unchanged counts); an unfenced one does (`CORPUS STALE: 1 new`, exit 1); `python3 tools/fn_audit.py --selftest` covers both, and `python3 tools/selftest.py` stays green; a before/after count of fenced citations (if any) is in the EXP.
   - Stop: if a fence-aware scanner would change any committed snapshot row, say so in the EXP and ship the scanner with a *new* overlay rather than silently rewriting the frozen one (H69's rule).
   - Claims: C-4000–C-4009
+  - Result: EXP-2026-11-20-H77-skip-fenced-code; C-4000–C-4003. `fn_audit.fenced_lines` (any-indent ``` / ~~~ fences, an unclosed fence hides nothing) is applied in `citations_markdown` for both disciplines; `TODO.md` open blocks are unchanged. Docs base: 0/552 citations were fenced, so it is unchanged. l3 overlay: 159/1176 rows were fenced (START 126, GAP 18, INSIDE 10, UNMAPPED 5), so under the Stop rule a new overlay `fn-audit-l3-corpus-2026-11-20.json` (1017 rows) ships as the gate/selftest default and the 2026-11-16 overlay stays frozen. A fenced probe in `firmware.md`, an EXP or `map-tiles.md` leaves both verdicts at exit 0; unfenced, it gives `CORPUS STALE 1 new`, exit 1. `fn_audit --selftest` has 76 checks.
 
 - [x] **H78 — `claims_check --strict` must run the count rule, and a docs-only EXP edit must not re-pin a claim's measured revision**
   - Status: done · Owner: task/h78-count-gate · Critical: no · Pair: required
