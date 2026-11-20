@@ -388,6 +388,7 @@
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
+  "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
   "docs/experiments/EXP-2026-11-20-M4.48-datavol-18c-reader.md",
   "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
@@ -404,14 +405,14 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 397,
-  "citations": 1186,
+  "files": 398,
+  "citations": 1187,
   "unique_va": 276,
-  "start": 999,
+  "start": 1002,
   "inside": 81,
   "corrected": 9,
-  "gap": 85,
-  "leaf": 85,
+  "gap": 83,
+  "leaf": 83,
   "ambiguous": 5,
   "unmapped": 7
  },
@@ -627,23 +628,12 @@
   },
   {
    "file": "TODO.md",
-   "line": 2589,
-   "va": "0x003f5194",
+   "line": 2602,
+   "va": "0x003f56bc",
    "kind": "fn",
-   "class": "GAP",
+   "class": "START",
    "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "TODO.md",
-   "line": 2593,
-   "va": "0x003f5194",
-   "kind": "fn",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "docs/experiments/EXP-2026-11-05-M1.8-sh4xref.md",
@@ -10453,6 +10443,24 @@
    "file": "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
    "line": 144,
    "va": "0x0041c8c4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
+   "line": 193,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
+   "line": 228,
+   "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
