@@ -839,6 +839,94 @@ functions accept; the closest runnable target remains `0x00425f40` (M3.6) fed
 by `0x00427578`, whose `r4` is a 20-byte record. Falsifier for that paragraph: a
 caller that loads `MapViewOfFile`'s return value straight into `r4` of one of
 the three entries (not found: all three have exactly one static call site).
+### Reader entry: the read-completion handlers (M3.25, EU2011 build A)
+
+> **Status:** `VERIFIED` (run in PySh4 on the EU 2011 card with
+> `tools/datask_l3.py mount`; two controls on a changed `B28R070R.DAT`) for the
+> entries, their argument and the byte ranges loaded. Names follow the
+> container model of `tools/ze0-viewer/tools_ze0/clarion_tile.py` (section
+> list at `0x800`, per-section table, directories, record blocks); the M3.25
+> EXP and claims call the section table "level directory" and a directory
+> "data block" (corrected by C-3250). EXP-2026-11-19-M3.25-tile-reader-entry, C-4680–C-4699.
+
+Tile bytes are not passed to a `(tile, dst)` function. The data-access task
+asks the map-file task for a byte range and is called back with a completion
+message ([firmware.md](firmware.md#the-data-access-task-m325-eu2011-build-a)).
+The handler is chosen by the request tag:
+
+| Entry | Called for | `r4` | `r5`–`r7` | Return |
+| --- | --- | --- | --- | --- |
+| `0x0040b8b4` | the first `0x1000` bytes of a tile file | completion message | not arguments | not used; result is the file record and the next requests |
+| `0x0040c308` | one section table | completion message | not arguments | not used |
+| `0x0041597c` | one directory | completion message | not arguments | not used |
+
+Completion message: `+8 u16 = 0x04a0`, `+10 u16` request tag, `+12 u32`
+status, `+16 u32` buffer, `+20 u32` length. The buffer is in the swapped form
+(C-4641): a `u16` loaded at buffer offset N is the file's big-endian `u16` at N.
+
+What each entry loads from a factory tile (file offsets):
+
+| Entry | Function | Arguments | Bytes loaded |
+| --- | --- | --- | --- |
+| header | `0x0040a8d0` (leaf) | `(buffer)` | `0xfa`–`0xfd`, `0x100`–`0x103`, `0x106`–`0x109`, `0x10c`–`0x10f` (the date digits of the common header) |
+| header | `0x0040acb8` | `(kind, volume header, buffer, file record)` | `0x800` onward: 12 bytes on `LEV3456R.DAT`, 18 on `B48R068R.DAT`, 16 on `B28R070R.DAT` |
+| header | `0x0040aa50`, called per level by `0x0040aea4(buffer, file index, 6, file record)` | `(buffer, file index, level)` | the level table at `0x1ac` (`0x1ac`–`0x1d9` on `B28R070R.DAT`) |
+| section table | `0x0040be84` | `(message, control block, table)` | from `+2`; 152 of `0x100` bytes on `B28R070R.DAT` section 1 |
+| directory | `0x004156a4` | `(0, message, control block, slot)` | `+6`–`+9` |
+| directory | `0x004144a8` (leaf) | `(buffer, flags *, out *)` | the directory header: `+2`–`+5` (the two counts `clarion_tile.py` calls `a`, `b`; 32, 32 on a `0x2046` directory), `+0xa`–`+0xb`; `a` above 64 or `b` above 80 sets an error bit |
+| directory | one of eight slot-table parsers picked by `0x004157dc` from the flag word: `0x00414644`, `0x00414930`, `0x00414dbc`, `0x00415330` ran; `0x0041509c`, `0x00414ae0`, `0x0041478c`, `0x00414500` did not | `(buffer, destination)` | from `+0xa` to the end of the slot table (16,514 bytes of a `0x2046` directory) |
+
+The box table at `0x2ac` is **not loaded** by the header entry in this run.
+
+**Section list at header `0x800`** (`SECT_OFF` in `clarion_tile.py`; the firmware's reads confirm its address encoding). 6-byte entries
+`{u24 sector, u8 offset, u16 length}` (big-endian), ended by `ff ff ff ff`:
+`position = sector * 0x800 + offset * 0x100`, `bytes = length * 0x100`.
+`B28R070R.DAT` holds `(2, 0, 1)` and `(0x1d9, 0, 1)` and the firmware reads
+`0x1000`/`0x100` and `0xec800`/`0x100`; with the offset byte of the first
+entry changed to 1 it reads `0x1100`/`0x100` instead. `LEV3456R.DAT` (2
+entries) and `B48R068R.DAT` (3 entries) fit the same rule.
+
+**No bound on the level-table walk.** With the byte at `0x1ac` changed to
+`0xff`, `0x0040aa50` loads 402 bytes up to `0x805` instead of 34.
+
+For M9.13: the runnable target is the whole run (`datask_l3.py mount` with a
+card whose tile is replaced), not a call of one entry on a bare buffer: the
+entries find their request through the slot table that the earlier request
+filled.
+
+### What the mount reads of a tile, and a generated tile (M9.13, EU2011 build A)
+
+> **Status:** `VERIFIED` (PySh4 runs on the EU 2011 card, `datask_l3.py mount
+> --position` + `diff`); `OBSERVED` for the fixed read lengths.
+> EXP-2026-11-20-M9.13-generated-tile-l3, C-3250–C-3259.
+
+The firmware reads the tile under a start position: `(lat code << 16) | lon
+code` on the `COORD001` grid, from a per-area table (`0x0040b49c`; the EU
+card starts at 51.505 N, 0.273 W) or from the `u32` at data VA `0xd940e4`. Of
+that tile the mount reads the header, every section table, and per section
+the level-2 and level-1 directory whose box holds the position. It asks for
+a fixed length per directory, not the directory's own size:
+
+| Directory | Read length |
+| --- | --- |
+| level 2 (sections 1 and 2) | `0x14100` |
+| section 1 level 1 | `0x8100` |
+| section 2 level 1 | `0x2100` |
+| section 4 level 1 | `0x6100` |
+
+No record block is read during the mount.
+
+| Tile on the card (`B48R058R`, position 51.70 N 17.45 E) | Against the factory run |
+| --- | --- |
+| `tilewriter.py --factory`, two OSM ways written in place (directory `0xa10b100`, slots 17/18) | SAME, 28 reads; the slot-table parser `0x00414dbc` loads the changed pair entries |
+| the same, directory header count 32 → 64 | DIFFERENT: the parser loads 33,014 bytes instead of 16,514 |
+| the same, one pair-entry byte inverted | SAME: the mount does not act on record lengths |
+| fresh container (`one_tile_pipeline.py --synthetic`, 22,272 bytes) | DIFFERENT: three section tables read, then the first directory read (`0x1100`, `0x8100` bytes) fails past the end of the file |
+
+So a writer that does not start from a factory container must back every
+directory with the length above. Whether the road records are accepted is
+open (M9.52, M9.53).
+
 ## Cross-edition differential census (2011/2014/2016)
 
 `tools/diff_years_tiles.py` compares the same `BxxRyyR.DAT` in two EU editions

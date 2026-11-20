@@ -1688,3 +1688,213 @@ table to the parser, then build `tools/cerom.py` and a Ghidra memory map — see
 5. **SD bus capture (deferred):** CLK/CMD/DAT0-3 during boot/map entry.
 6. Spare-card `HDD_INFO` matrix for the six-line mapping (89 variants; deferred).
 7. Use `0..2047` and `MESHMAX_LEV1` as runtime/bit-packed tile constraints.
+
+## The map-file layer running on a card (M9.44, EU2011 build A)
+Measured by executing the layer in PySh4 against the factory EU card
+(`tools/vcard_l3.py`, EXP-2026-11-19-M9.44-virtual-card, C-4630–C-4655). The
+section above names the functions; this one says what they do when they run.
+
+### Mount sequence
+| Step | Call | What the firmware does on the card |
+| --- | --- | --- |
+| init | `0x00417924()` | builds tables and pools, state `0/0`; touches no file |
+| event 1 | `0x00419c38(0)` → `0x00419ca0` | opens `\SystemSD\CMP.LST` twice, reads 19 bytes (the prefix `\SystemSD\REFER001\`), opens `MMAIN001.DAT`, reads exactly `0x1000` bytes into `0x00e23cc0`; state `1/1` |
+| event 2 | `0x00419c38(0)` → `0x00419d24` | opens `DRSTR001.DAT`, reads it in **one** `fread` of its whole size (EU: `0x2ec0`), builds the volume table, writes recognition status 2; state `2/2` |
+| later | `0x00419c38(n)` → `0x00419df8` | state-2 worker: serves queued read requests |
+
+The state pair is `*0x009cfce0` (state machine) and `*0x009cfce4` (mount); `2/2`
+is "mounted". The volume root is the wide string at `0x00049fd4`,
+`\SystemSD`. Every file name the layer opens is that root plus a path from the
+volume table.
+
+What the mount checks, by experiment (each row is one changed card):
+
+| Change | Result |
+| --- | --- |
+| `MMAIN001.DAT` absent | not mounted (`0/1`), recognition status 1, a retry timer is set |
+| `MMAIN001.DAT` byte 0 flipped | mounted; the header bytes are not checked at mount |
+| `MMAIN001.DAT` truncated to `0x800` | not mounted (`0/1`), error log from `0x0041a4c4`: the read must return `0x1000` bytes |
+| `CMP.LST` absent | mounted, 2 error-log calls; afterwards **no** `.cmp` file opens (the layer looks for the plain `X.DAT` and retries forever) |
+| `DRSTR001.DAT` absent | mounted by a **fallback**: `0x00418748` walks the card with `FindFirstFileW("\SystemSD\*")`, 40 directories, a different table (ids follow directory order) |
+| `DRSTR001.DAT` truncated to `0x800` | not mounted (`1/1`), error log from `0x00419048` |
+| root record: listing offset (`+0x24`) changed | not mounted (`1/1`), error log from `0x00419472` |
+| root record: entry count (`+0x18`) changed 11 → 10 | mounted, one file fewer |
+| byte `0x2f` (`/` + 0x2f) or a pad byte flipped | mounted, same table: not read |
+| a directory record's name (`+0x28`, `BICON001`) flipped | mounted, same table: the name is taken from the parent's listing entry |
+| a listing entry's name (`0x640`) flipped | mounted, different table |
+
+### The volume table
+After mount, `*0x009cfcd4` is the directory count (EU: 40) and `0x00e25420`
+holds 36-byte directory records: name[20], `u16` id, `u16` parent id, `u16`
+entry count, pad, `u32` size, `u32` pointer to 28-byte entries (name[20],
+`u16` id, `u16` kind (2 = directory), `u32` size). A file is addressed as
+`(directory id << 16) | file id`; both ids come from `DRSTR001.DAT` (EU:
+`MAPAL001` = 3, `REFER001` = 6, so `MAPAL001/B28R070R.DAT` = `0x00030001`).
+**The ids are positions**: a `DRSTR` rebuilt without the reference order
+mounts, but gives the same files other ids. A writer must keep the order.
+
+### The read API
+`0x0041841c(file id, request *)` queues a read (it tail-calls `0x004181d8` with
+flag 1). The request record:
+
+| Offset | Field | Constraint (else `-11`) |
+| ---: | --- | --- |
+| +0 | destination buffer | non-zero, 4-aligned |
+| +4 | start sector (2,048 bytes) | |
+| +8 | byte offset | folded into the sector; the remainder must be 4-aligned |
+| +12 | length | non-zero, multiple of 4, at most `0x100000` |
+| +16 | kind | 1, 2 or 3 |
+| +20 | byte order | 0 = swap every byte pair after the read, 1 = as stored |
+| +32 | reply task | non-zero |
+| +36 | out: request serial | |
+
+Return `0` queued, `-10` queue full, `-11` refused (line number in the error
+log says which check; range check `0x00418150`: `sector·2048 + offset + length`
+must not exceed the file size in the volume table), `-12` not mounted. The
+queued request is announced with `OSM_TaskSend(*0x011fffb8, …)`; the worker
+`0x00418634` pops it, opens the file by name (`0x00417fe0` → `0x00418dfc`),
+seeks, reads, and `0x00417eac` sends the completion to the reply task: message
+id `0x04a0` at +8, status at +12, buffer at +16, length at +20. A failed open
+does not complete: the request goes back on the queue.
+
+**The byte swap asked about in M3.11b is here**: `0x00417eac` swaps each byte
+pair of the buffer when request word +20 is 0 and the status is 0. With word
++20 = 0 the bytes of `POINT010.DAT` arrive pairwise swapped, with 1 as stored.
+
+### The compressed-file layer
+`0x0041b780(path, flag)` decides by the `CMP.LST` prefix (`0x0041c2e0`): a path
+outside it is a plain `fopen`; a path under it opens `X.DAT.IND` and
+`X.DAT.CMP` (upper-case extensions appended to the table's name), reads the
+16-byte `.ind` header, then the offset table in reads of up to 2,048 bytes, then
+only the compressed chunks that cover the request, and inflates them with the
+firmware's zlib. The `.ind` field at +4 (total compressed size) is not compared
+with the `.cmp` file's size: with that field lowered by 169 the first 64 KiB of
+`ADDRE001.DAT` still read correctly and only the read that reaches the last
+chunk fails (hypothesis: the field is the end of the last chunk). A changed
+chunk offset or a changed compressed byte fails the read (error log from
+`0x0041b9d2`), and the request is re-queued.
+
+## Who names which file (M3.28, EU2011 build A)
+From `tools/name_loaders.py` (static) and `tools/vcard_l3.py lookup` / `trace`
+(the firmware's own code run on the EU card); EXP-2026-11-19-M3.28-file-openers,
+C-4660–C-4679.
+
+### The path from a name to bytes
+| Step | Function | What it does |
+| --- | --- | --- |
+| path → directory id | `0x00409cc8(start id, path)` | walks the path components against directory entries with `strncmp`; a leading `/` or `\` is skipped |
+| directory record | `0x004192c0(directory id, out *)` | returns the 36-byte record of the volume table |
+| name → file id | `0x0040b358(directory path, file name)` | `strcmp` (case-sensitive) of the name with every non-directory entry; returns `(directory id << 16) \| file id` or `-1`. 13 callers: the openers below |
+| range clamp | `0x00409ba0(file id, request *)` | length 0 becomes the file size, a length past the end is cut, a start past the end is `-1`. No I/O |
+| read request | `0x003f6c88(slot *)` | builds the 40-byte request (word +20 stays 0, so the data comes back byte-swapped), calls the clamp and then `0x0041841c`; the only caller of the read API |
+| slot fill | `0x003f6e40(tag, control block *, slot *)` | destination = block +20, sector = block +32 `>> 3`, offset = (block +32 `& 7`) `<< 8`, length = block +24 `<< 1`, file id = block +28: a client positions in 256-byte units and counts in 16-bit words |
+| wrappers | `0x003f7384` (37 callers), `0x003f73dc` (11), `0x003f7480` (1) | take a free slot (`0x003f6e90`), fill it, issue the request |
+
+So every map file a client reads goes: opener (name → id into a control block)
+→ one of three wrappers → `0x003f6c88` → `0x0041841c` → the map-file task.
+
+### Openers: one row per caller of the resolver
+"Run" = what `vcard_l3.py trace` showed on the EU 2011 card; "static" = read
+from the pool literals only.
+
+| Opener | Names it builds | Evidence | Called by | Read requests one call away |
+| --- | --- | --- | --- | --- |
+| `0x003fbed8(ctx, bits, n)` | `REFER001/` + prefix + two digits of `n` + `.DAT`; prefix by the search type at ctx +124: 1 → `POINT0`, 2 → `ADDRE0`, 3 → `FRWAY0`, 4 → `INTER0`, 11 and 12 → `ZCODE0`; type 1 with ctx +104 = `0x14e4` → `RDSTM001/LCTBL0nn.DAT`; `REFER002` when a ctx flag is set (static) | run: `POINT001/003/030`, `ADDRE001/003/030`, `FRWAY003/030`, `INTER001/003/030`, `ZCODE001/002/003`, `LCTBL001` all resolve; `FRWAY001` is not on the card | 14 functions `0x003fc40c…0x004004e0` | `0x003fc0ec`, `0x003fc518` |
+| `0x003f1640(n)` | `REFER001/ICADM0` + two digits of `n + 1` + `.DAT` | run: `n = 7` → `ICADM008.DAT`, id `0x00060044` | `0x003f2cc0` | `0x003efe10`, `0x003f0400`, `0x003f2828` |
+| `0x003f2cc0` | `REFER001/ICODE001.DAT`, then `ICADM` through `0x003f1640` | static (the run needs search state) | `0x003f2df8`, `0x003f2f98`, `0x003f30ac` | `0x003efe10`, `0x003f0400`, `0x003f2828` |
+| `0x004011a0(n)` | `REFER001/ADDRE0` + two digits of `n + 1` + `.DAT` | run: `n = 12` → `ADDRE013.DAT`, id `0x0006000d` | `0x00401ff8` | `0x00401ff8` |
+| `0x00410500(n)` | `/REFER001/POINT` + three digits of `n` + `.DAT` (template in `.data`) | run: `n = 5` → `POINT005.DAT`, id `0x00060084` | `0x00410760` | `0x0040a558` |
+| `0x003f7b20` | `REFER001/` + a name from its caller | static | `0x003f7b54`, `0x003f7c38` | the two callers |
+| `0x0040b3e0` | the data-kind table `0x00179cf8` (18 rows of directory, file, `CDROM.DAT`) | run: resolves `RDSTM001/RDSTM001.DAT`, `REFER001/POINT001`, `ADDRE001`, `ICODE001`, `INTER001`, `ICADM001` (found) and `REFER001/REFER001.DAT` (not on the card), then stops on a null argument | `0x0040b850` | none: a presence probe |
+| `0x004125a8` | `RDSTM001/LCTBL001.DAT`, `REFER001/INDEX003.DAT`, the `CHARA*`/`INDEX00n` table `0x0017a054` | static (the run stops at the import `OSM_isSender`) | `0x00413a6c` | none |
+| `0x00413b90` | `BICON001/BICON001.DAT`, `BLND_MRK.DAT` | run: resolves `BICON001.DAT` to `0x00020001`, calls the clamp | `0x003f6b84` | itself |
+| `0x00403828`, `0x004042ac`, `0x00404560` | `MSIZE001.DAT` and the table `0x00179730` (`SOUND001.DAT`, 19 × `DFRMR0nn.DAT`) | static | `0x004038b0`, `0x004039c0`; `0x00404308`; `0x00404770` | `0x004038b0`; none; `0x004043cc`, `0x00404560` |
+| `0x003f817c` | no name literal: both strings come from its caller | static | `0x003f82e8` | none |
+
+Not through the resolver: `MMAIN001.DAT` (`0x0041a438`), `DRSTR001.DAT`
+(`0x00419684`), `CMP.LST` (`0x0041ba90`) are opened by path during the mount;
+`MAPAL001/LEV3456R.DAT` is named in `0x0040a014` (it compares the name with
+`strcmp`); tile names `BxxRyyR.DAT` have no string.
+
+### Names in the firmware against files on the EU 2011 card
+`vcard_l3.py lookup` of all 52 file-name strings in seven directories: **12
+resolve** (`ADDRE001`, `BICON001`, `COORD001` in `REFER001` and `REFER002`,
+`ICADM001`, `ICODE001`, `INTER001`, `LCTBL001`, `LEV3456R`, `MMAIN001`,
+`POINT001`, `RDSTM001`, `ZIPFR001`), **40 do not**: `BLND_MRK`, `CDROM`,
+7 × `CHARA*`, 19 × `DFRMR0nn`, `ETCID001`, `RNDID001`, 6 × `INDEX00n`,
+`MSIZE001`, `REFER001.DAT`, `SOUND001`, and `DRSTR001.DAT`, which is not listed
+in itself. A generated card needs none of the other 39.
+
+`COORD001.DAT` and `ZIPFR001.DAT` exist on the card and have a name string but
+no function loads the string and no table holds it: `Navi.exe` does not open
+them by name. (Lookup tried: pool literals, rodata tables, and the built names
+of the six `REFER` prefixes.)
+
+## The data-access task (M3.25, EU2011 build A)
+> **Status:** `VERIFIED` (run in PySh4 on the EU 2011 card, `tools/datask_l3.py`)
+> for the tables, the handlers that ran and the bytes they loaded; `OBSERVED`
+> for roles named from one run. EXP-2026-11-19-M3.25-tile-reader-entry,
+> C-4680–C-4699. All VAs are EU2011 build A.
+
+The client of the map-file layer is one task. Its entry `0x003ebfb4` calls
+`0x003f6908()` and `0x003eba78()` (memory pools, saved settings, tables) and
+then loops: receive a message, call the dispatcher `0x003ebee8(message)`.
+
+### Messages
+The dispatcher compares the `u16` at message `+8` with a 43-row table at data
+VA `0x177fd0`: `{u16 id, u16 defer flag, u32 handler}`. A row with the defer
+flag set is queued by `0x003ebd44` while the map is not ready and replayed by
+`0x003ebf54`. `python3 tools/datask_l3.py tables IMG256` prints all rows; the
+ones this page uses:
+
+| Message | Handler | Role |
+| --- | --- | --- |
+| `0x07d0` | `0x004032e0` | second table at data VA `0x1796f4`, keyed by the `u16` at `+10`: sub `100` → `0x003f75e4` (map database ready: start the mount) |
+| `0x04a0` | `0x003f72e4` | a read finished (the map-file layer's completion, C-4636) |
+| `0x14b5` (deferred) | `0x004066ac` | reaches `0x0040d4a0` → `0x0040b6b0` → the tile read issuer `0x0040a474`; body not decoded |
+| `0x00a0` | `0x0040335c` | second table at data VA `0x1796c4` (5 rows) |
+
+### The mount, as run
+`0x003f75e4` → `0x0040b850(message)`: `0x0040b258` reads the volume header
+from the object store (`OBJ_DiscInfo_readDiscVol`), takes the map version
+(`0x802` on this card, stored at data VA `0xd8ad20`) and date; `0x0040b3e0`
+scans `MAPAL001` with `0x0040a108`/`0x0040a014` (46 tile files);
+`0x0040b5ac` asks for the first `0x1000` bytes of `LEV3456R.DAT`, of one
+`BxxRyyR.DAT`, of `RDSTM001.DAT` and of `POINT001.DAT`. Every later request
+is made by the handler of an earlier completion.
+
+### Read completions: tag class → handler
+`0x003f72e4` looks the request tag (`u16` at message `+10`) up in a 20-row
+table at data VA `0x178d60`: `{u16 class, u16 0, u32 handler}`; the first row
+with a non-zero class equal to the tag in bits 8..14 wins. The handler gets
+the message in `r4`; its return value is not used.
+
+| Class | Handler | Seen serving |
+| --- | --- | --- |
+| `0x01`, `0x02` | `0x0040b8b4` | first `0x1000` bytes of a file (`MAPAL001`, `RDSTM001`, `POINT001`) |
+| `0x06` | `0x0040c308` | tile section table (one per section, at the address in the header's section list) |
+| `0x07`, `0x08` | `0x0041597c` | tile directory (the slot table of one parcel group) |
+| `0x0d` | `0x003f72cc` | `REFER001/ICODE001`, `ICADM001` data |
+| `0x09` | `0x00404ee4` | not run |
+| `0x0a` | `0x004030f0` | not run |
+| `0x0b` | `0x004007bc` | not run |
+| `0x05` | `0x00404854` | not run |
+| `0x10`, `0x11` | `0x003f4ecc` | not run |
+| `0x15` | `0x003efdb4` | not run |
+| `0x03` | `0x00404ebc` | not run |
+| `0x1d` | `0x003f858c` | not run |
+| `0x1b` | `0x00403b98` | not run |
+| `0x20` | `0x003f7f94` | not run |
+| `0x23`, `0x25` | `0x00413b64` | not run |
+
+What the tile handlers do with the buffer is in
+[map-tiles.md](map-tiles.md#reader-entry-the-read-completion-handlers-m325-eu2011-build-a).
+
+### What the run needs that the unit provides
+Models in `tools/datask_l3.py`: semaphores, `OSM_MemSize`/`OSM_MemGet` (one
+4 MiB area), `OSM_SramGet`/`OSM_SramCheck` (empty, reported not valid),
+`OBJ_DiscInfo_readDiscVol` (the volume header the map-file layer published),
+eight `OBJ_CarPos_*`/`OBJ_Event_*`/`OBJ_RoutePntTbl_*` calls that return 0.
+The two task-id globals (data VAs `0x11fff58`, `0x11fffb8`) are written by
+the tool. One message is sent to a task that is not part of the run
+(`0x1507` sub 1, receiver id 0); the mount state stays 2.

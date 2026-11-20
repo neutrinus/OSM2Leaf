@@ -53,11 +53,20 @@ The UTF-16 strings are in `AppLaunch.dll`: `DIFFERENT MAP CODE` at physical VA
 ### Launcher checks (M2.5, M2.15, VERIFIED static, IMG256 `92aa525d…`)
 
 `AppLaunch.dll` B router `fn 0x03bd2ecc` (C mirror via pools
-`0x03bb2c54`→`0x03bb2858`, `0x03bb2c64`→`0x03bb2a64`) evaluates both checks
-independently and dispatches an error for each that fails (it does **not** skip
-check 2 when check 1 fails): `0x03bd2ed4/0x03bd2eda–0x03bd2ee2` call check 1
-and dispatch `0x50` on `r0==0`, then `0x03bd2ee4/0x03bd2eea–0x03bd2ef2` call
-check 2 and dispatch `0x51` on `r0==0`. The two HDD_INFO-parsing functions
+`0x03bb2c54`→`0x03bb2858`, `0x03bb2c64`→`0x03bb2a64`) runs only for partition
+0 and calls the two checks in order: `0x03bd2ed4/0x03bd2eda–0x03bd2ee2` call
+check 1 and dispatch `0x50` on `r0==0`, then `0x03bd2ee4/0x03bd2eea–0x03bd2ef2`
+call check 2 and dispatch `0x51` on `r0==0`. The router code itself has no
+branch that skips check 2, **but on a production unit check 2 is only reached
+when check 1 passes**: the dispatcher `fn 0x03bcafb8` does not return after the
+first error it shows (screen, wait for ACC off, endless loop; C-5351, M1.34), so
+a card failing check 1 shows `DIFFERENT MAP CODE` only. Both codes are raised
+only when the dispatcher returns, i.e. on a "ProtoLevel" unit
+(`KernelIoControl(0x01013200)` byte `0x1x`/`0x2x`, errors logged, not shown) or
+if the screen object cannot be created. L3 run of the router on the 89
+`HDD_INFO` variants (M2.19, C-5296): with a returning dispatcher 2 variants raise
+`0x50`+`0x51`; with a non-returning one the same 2 raise `0x50` only
+(EXP-2026-11-20-M2.19-check2-router-l3). The two HDD_INFO-parsing functions
 share a parse cache at global `0x01f74b30` (pool `0x03bd2cb8` in B check 1,
 `0x03bd2ea8` in B check 2): if `*0x01f74b30 != 0` they use the cached slots,
 otherwise they open `\SystemSD\VER_INFO\HDD_INFO.TXT` (`pool 0x03bd2cc0`/`0x03bd2eb0`),
@@ -83,7 +92,7 @@ content of the HDD_INFO file).
 | B function / VAs | `fn 0x03bd2ce4` (C `fn 0x03bb2a64`); unit read `KernelIoControl(0x0101302C)` (pool `0x0101302c`/thunk `0x03bca3e8`), unit `+114` (16-bit BE) read at `0x03bd2d38` (`add #114`) stored `r15+0x24`, unit `+112` (16-bit BE) read at `0x03bd2d8a` (`add #112`) stored `r15+0x20`; card MapDBVer extract `0x03bd2e3a–0x03bd2e68` (C `0x03bb2bba`); range `0x03bd2e6c–0x03bd2e7a`; log `MapDBVer : %d <= [%d] <= %d` (`pool 0x03bc9360`, `0x03bd2e7c–0x03bd2e82`). |
 | HDD_INFO source | line **3** (`build`, M2.3 C-740, **slot 2** at global offset 32), **stripped-line positions 5, 6, 7** (0-based, global offsets 37/38/39). Each byte is converted by `fn 0x03bd2a40` (B; 22-char table `0-9a-fA-F` → 0–15, not-found → 0) and combined as **3 nibbles**: `MapDBVer = ((d5*16)+d6)*16 + d7`. For factory EU 2011 line 3 `02-110100-00` (file offset 26, content `30 32 2d 31 31 30 31 30 30 30 2d 30 30`) positions 5,6,7 are `'0','1','0'` (file offsets 31–33) → `0x010` = 16. |
 | Unit-side source | `KernelIoControl(IOCTL 0x0101302C)` output, **offset `+112` (+0x70)** = 16-bit big-endian **minimum** and **offset `+114` (+0x72)** = 16-bit big-endian **maximum** (NAND/system/kernel target-info record). |
-| Verdict | `target[+112] <= MapDBVer <= target[+114]` (unsigned 16-bit) → pass. Otherwise log `MapDBVer : %d <= [%d] <= %d\r\n` (value, min, max) and return 0 → `MAP DATA BASE UNMATCH`. |
+| Verdict | `target[+112] <= MapDBVer <= target[+114]` (unsigned) → pass; run in L3 on the 89 variants, 89/89 = `hddinfo.py classify` check 2 under two declared bounds pairs (M2.19, C-5296). Otherwise log `MapDBVer : %d <= [%d] <= %d\r\n` (min, value, max; L3 run: `MapDBVer : 17 <= [16] <= 20`) and return 0 → `MAP DATA BASE UNMATCH`. |
 
 **The deciding inputs for these two launcher checks are the NAND/system kernel
 target-info record (`0x0101302C` +96/+112/+114) compared against the card's
