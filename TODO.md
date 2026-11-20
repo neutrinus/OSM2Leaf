@@ -4004,7 +4004,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: done — EXP-2026-11-19-M9.6-mapcode-compare. Target `applaunch_mapcode_compare` (`firmware_call`/`mapcode_compare_v1`, `tools/mapcode_l3.py`) runs EU2011 build B `fn 0x03bd2ad8` from IMG256: factory `HDD_INFO.TXT` → `r0=1` ACCEPT, `line1_digits_4_002` → `r0=0` REJECT (firmware log `VerInf:QSD-302-100 / HddInf:QSD-002-100`); line-2 edit ACCEPT, byte-10 edit REJECT; unit `+0x60` is a declared input (C-5140–C-5146). Re-opens M2.4 (rule 15).
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
-  - Status: open (walk part runnable — EXP-2026-11-20-M9.41-us-poi-row; the `l3check` row that would make it S1 evidence is M9.55; name part waits for this task's own `poi_record_decode` runner plus M3.11b's text byte order, the accessor `0x0041ec8c` already runs 1000/1000) · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m9.10-us-poi-name-l3 · Critical: yes
   - Step: P4
   - Note (H51, 2026-11-11): the walker and accessor VAs are **EU-build** addresses; the US card carries a different `Navi.exe` (H51). The EU-code run stays as a method check; the gate for S1/S2 is the same run on the US build after **M1.22** gives the US VAs.
   - Note (M1.22b, 2026-11-16): the US VAs now exist and are **justified**, not voted: the POINT walker `0x003f5194 → 0x0041db44` (`DIFFERENT`, one pool word `0x4e8→0x4d8`, C-362x) and the POI name accessor `0x003f632c → 0x0041ec8c` (`UNIQUE`). Register the target with `build: "us2011"`; the run itself stays M9.10.
