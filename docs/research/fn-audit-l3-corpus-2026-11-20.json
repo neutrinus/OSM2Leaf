@@ -454,16 +454,17 @@
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
   "docs/experiments/EXP-2026-11-20-M9.51-pysh4-macl.md",
   "docs/experiments/EXP-2026-11-20-M9.52-mount-1507.md",
+  "docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md",
   "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
   "docs/experiments/EXP-2026-11-20-M9.57-event11-subscriber.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 453,
-  "citations": 1276,
-  "unique_va": 300,
-  "start": 1120,
+  "files": 454,
+  "citations": 1277,
+  "unique_va": 301,
+  "start": 1121,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -11450,6 +11451,15 @@
    "line": 262,
    "va": "0x00419350",
    "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md",
+   "line": 241,
+   "va": "0x00405078",
+   "kind": "fn",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
