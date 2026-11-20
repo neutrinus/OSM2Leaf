@@ -2434,13 +2434,14 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: after two control samples or two signature families fail to separate class from identity/region, record the negative and stop; do not promote `class_code` to a class mapping.
   - Claims: C-3200–C-3209
 
-- [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
+  - Status: done · Owner: task/m4.31-rdstm-lctbl-class · Critical: no · Pair: solo
+  - Result: EXP-2026-11-20-M4.31-tmc-road-type-link-class — `class_code` is the TMC location type (field 0, 247,089/247,089; `0x2775` = `L1.1` motorway). Through the location-code join (M4.16b/M4.16e) the record's road type predicts the level-2 section-2 class nibble `cls & 0xf`: modal accuracy 0.608 vs shuffled null max 0.382 on 158,445 records of 14 tables (positive control road identity 0.539 vs 0.400, negative `code & 1` 0.350 = null); `L1.1` → 1 (9 of 10 countries), `L1.2` → 4 (3 in FI/DK/SE), `L1.3` → 5, `L1.4` → 7. Generator hint (HYPOTHESIS): level-2 class 1 motorway / 4 primary / 5 secondary / 7 tertiary, the `fa_encode.CLASSES` level-2 column. `tools/rdstm_class_hint.py`. C-5960–C-5965; C-2971/C-2975 superseded.
   - Re-opened (rule 15, PO 2026-11-20): both `Unblock` routes have landed. M4.16b/M4.16e give the offline TMC record join (C-5400–C-5403), and M4.39 gives the route-link key `(parcel code, class & 0xf, entry word 3 & 0x1fff)` and reports that `LCTBL001` has no numeric key, name text only (C-5150–C-5156). Timebox one session: either join `LCTBL001` to links by name text through section 4 and report hit/null rates, or close this block as answered negatively by M4.39.
   - Step: P3
-  - Blocker: no stable join key between `LCTBL001` records and RDSTM/routing links on available samples (LCTBL has no coord/country/mesh/parcel/link id; tile sec2 entries have no LCTBL ref; RDSTM001 C-884 TMC framing not reproduced offline, C-2304, and RDSTM001 is TMC not routing links, C-887).
+  - Blocker (history, resolved by M4.16b/M4.16e): no stable join key between `LCTBL001` records and RDSTM/routing links on available samples (LCTBL has no coord/country/mesh/parcel/link id; tile sec2 entries have no LCTBL ref; RDSTM001 C-884 TMC framing not reproduced offline, C-2304, and RDSTM001 is TMC not routing links, C-887).
   - Unblock: M4.16b/C-884 (offline RDSTM001 TMC extraction for a TMC-side record join) or a new scoped task establishing a decoded, stable LCTBL↔MAPAL tile sec2 routing-link identifier (footer/attrs/page join) with controls.
-  - Result: EXP-2026-11-08-M4.31-rdstm-link-class-hints (negative/Stop; M4.17 Table B precheck reproduced; join-key candidates tested with controls; bounded within-LCTBL record-identity test shows attr/footer co-variation but not a routing-link attribute or generator hint). Claims C-2970–C-2979.
+  - Result (history, superseded): EXP-2026-11-08-M4.31-rdstm-link-class-hints (negative/Stop; M4.17 Table B precheck reproduced; join-key candidates tested with controls; bounded within-LCTBL record-identity test shows attr/footer co-variation but not a routing-link attribute or generator hint). Claims C-2970–C-2979.
   - Depends: M4.17, M4.18
   - Goal: deepen M4.17's negative result toward the project goal (routable OSM
     roads). M4.17 found no general road-class field but observed
@@ -2467,7 +2468,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if no stable join key exists between the LCTBL records and RDSTM
     links on the available samples, set `blocked` and name the missing join
     (do not guess by row order alone).
-  - Claims: C-2970–C-2979
+  - Claims: C-5960–C-5969 (was C-2970–C-2979; fresh block for this run)
 
 ---
 
@@ -4105,6 +4106,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.14 — L3 target `drstr_parser`**
   - Status: open · Owner: — · Critical: yes
   - Note (M9.44, 2026-11-19): the parser runs inside `vcard_l3.py boot` with the firmware's own arguments and has 7 controls (C-4636, C-4637, C-4648, C-4649). Close this target as covered by M9.44 unless a `runner.py` entry is still wanted.
+  - Note (M9.36, 2026-11-20): re-run done — on the corrected engine the M9.35 probe of `sub_00419350` stops at `BLOCKED STUB OSMDLL.dll!OSM_Malloc` (EU2011, guarded and `--init-from-image` maps); the old `UNMAPPED 0xfffffec6` stop was the H51 `mov.w R0,@(22,R15)` defect at `0x0041936c` (C-3581, EXP-2026-11-20-M9.36-rerun-probes-pysh4). Inside `vcard_l3.py boot` the parser runs to completion (C-3584).
   - Note (H51, 2026-11-11): re-run after H51 before anything else (**M9.36**): the `UNMAPPED 0xfffffec6` stop of M9.35 has the shape of the engine defect fixed in H51 (`mov.w R0,@(disp,Rn)` stored through `r0`) — HYPOTHESIS until re-run. `0x00419350` is a pdata `START` (length `0x334`, ends exactly at `0x00419684`).
   - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked/re-open notes kept below. M9.35 IMG256 scratch probe of `sub_00419350` (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d8fc` and stops at `UNMAPPED 0xfffffec6..0xfffffec8` (empty-args/context probe); rerun with proper context, M9.24 import/file stubs and M5.6 rebuilt DRSTR as needed for verdict.
   - Re-opened (ninth pass, rule 15): **M9.20 merged** (`562215a`) with the
@@ -4184,6 +4186,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Status: done · Owner: task/m9.17-mmain-reader-l3 · Critical: no
   - Result: EXP-2026-11-20-M9.17-mmain-reader-l3 (C-5970–C-5973). `tools/mmain_l3.py run` boots the EU card per case (`vcard_l3.py`): factory, `mmain.py`-rebuilt, edited (+1 count) and pipeline-generated `MMAIN001.DAT` ACCEPT with one `0x1000` read, buffer `0x00e23cc0` = `swap16(file)` and an equal `mmain.py` model; 4095-byte and absent REJECT (6/6). `targets.json` `mmain_reader` is a blocked entry naming the tool (the reader runs inside the mount, not as a `runner.py` call; no `corpus.py` row needed); matrix row 3 updated. EU2011 only.
   - Note (M9.44, 2026-11-19): `mmain_reader` runs inside `vcard_l3.py boot`; presence and a full `0x1000`-byte read are the only checks (C-4635). Close as covered by M9.44 unless a `runner.py` entry is still wanted.
+  - Note (M9.36, 2026-11-20): re-run done — the M9.35 probe of `0x0041a438` executes no changed instruction and still stops at `BLOCKED STUB COREDLL.dll!wcstombs` on the corrected engine (EU2011, C-3582, EXP-2026-11-20-M9.36-rerun-probes-pysh4); inside `vcard_l3.py boot` the reader runs to completion (C-3584).
   - Note (H51, 2026-11-11): re-run on the corrected engine (**M9.36**) and with real `INIT` bytes (**M1.19**); `0x0041a438` is a pdata `START` (length `0xf4`).
   - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked note kept: first data access was at `0x0055d040` (compressed sec1, UNMAPPED). M9.35 IMG256 scratch probe (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d040` and stops at `BLOCKED STUB COREDLL.dll!wcstombs`; rerun with proper context/stubs (M9.24) needed for verdict.
   - Re-opened (ninth pass, rule 15): M9.20 merged (`562215a`); the module-VA
@@ -4433,8 +4436,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3450–C-3459
   - Result: `docs/experiments/EXP-2026-11-10-M9.35-sec1-load-model.md` (C-3450–C-3458). `rommap.py --bss-zero/--init-guard` + runner IAT trampolines/INIT guards implemented; 4 synthetic cases pass (`runner.py --selftest` 23/2 skipped quick, `l3_harness/selftest.py` 32/quick, `rommap.py --selftest` 32/quick, `va_class.py --selftest` 8). IMG256 guarded probes get past `0x0055d040`/`0x0055d8fc`: `mmain_reader` (0x0041a438) → `BLOCKED STUB COREDLL.dll!wcstombs`, `drstr-sub_00419350` (0x00419350) → `UNMAPPED 0xfffffec6..0xfffffec8` (scratch empty-args/context). Rule 15 applied: M9.17/M9.14 reopened, M9.24 Depends M9.35 done.
 
-- [ ] **M9.36 — Re-run every L3 probe and blocker on the corrected PySh4**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.36 — Re-run every L3 probe and blocker on the corrected PySh4**
+  - Status: done · Owner: task/m9.36-rerun-probes-pysh4 · Critical: yes
+  - Result: EXP-2026-11-20-M9.36-rerun-probes-pysh4; C-3580–C-3587. New `tools/l3_harness/engine_exposure.py` (`changed`/`run`/`static`) counts the executed halfwords whose outcome differs between an old engine and `main`: 1,867 changed vs `116c826` (720 H51 forms + 1,147 later). Of 47 re-runs (every `targets.json` target, `point_walk_l3` walk/skip, `chunk_decoder_l3` factory/S1/S2/corrupt-ind/swap-4-8 on EU2011+US2011, M9.35/M9.20 probes, M9.6, M9.13 F, M3.11c, M9.44 boot + 2 controls) exactly one result changes: the M9.35 `drstr-sub_00419350` probe stops at `BLOCKED STUB OSMDLL.dll!OSM_Malloc`, not `UNMAPPED 0xfffffec6` — engine-only A/B on the `116c826` tree; the cause is `mov.w R0,@(22,R15)` at EU2011 `0x0041936c` (C-3489 verified, C-3455/C-3457 retracted). Every other verdict and counter reproduces; no run executes a form changed after H51. NOT RE-RUN: the M3.11c 2026-11-08 heredoc runs (static bound: 0 changed halfwords in the called leaves) and M9.13 G/C1/S (need `krotoszyn.osm`).
   - Depends: — (H51 engine fix is on `main` with this task)
   - Goal: until H51, `mov.b R0,@(disp,Rn)` and `mov.w R0,@(disp,Rn)` stored through `r0` instead of `Rn` — silently. Any earlier run that executed one of them wrote to a wrong address: an `UNMAPPED 0xffffffxx` stop is the visible form, a store into a mapped region is the invisible one. Find out which recorded L3 results change.
   - Precheck: `python3 tools/l3_harness/engine.py --selftest` shows the check "mov.b/mov.w R0,@(disp,Rn) base is Rn; mul.l any Rm; movca.l (H51)".
