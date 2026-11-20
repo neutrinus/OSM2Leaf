@@ -11,12 +11,25 @@ possible PC-relative load:
   mov.w @(disp,PC),Rn  0x9ndd  pool half  pc + 4 + disp*2           (16-bit)
   mova  @(disp,PC),R0  0xC7dd  address    ((pc+4) & ~3) + disp*4   (no read)
 
-A linear sweep also decodes pool data as instructions, so references are
+Every halfword is decoded at its own address, so a PC-relative load in a
+delay slot uses the slot instruction's own PC (the SH-4 rule for
+``mov.l``/``mov.w``/``mova`` in a delay slot is the same formula; no
+branch-target PC is substituted).  A linear sweep also decodes pool data as
+instructions, so references are
 filtered in two steps: (1) a target is *structural* when the words before it
 (other pool words, a 0x0009/0x0000 pad) end in the delay slot of an
 unconditional transfer (rts, rte, bra, braf, jmp) — compiled code puts pools
 only there; (2) a reference whose source halfword lies inside a structural
 pool word is data, not code, and is dropped (iterated to a fixed point).
+
+Word classes.  ``referenced``: some ``mov.l @(disp,PC)`` loads exactly
+that word.  ``pointed``: no PC-relative load names it, but it lies at, or
+within ``--pointed-window`` bytes (default 64) after, an address some code or
+data holds (a referenced pool word's value, a ``mova`` target, an aligned
+word of a data section) — a ``base+offset``/``@(r0,Rn)`` read may reach it.
+``unreferenced``: neither.  So ``unreferenced`` means "not PC-relative
+loaded and not near any held address"; base+offset reads from further away
+and computed addresses are **not** checked.
 
 Queries (all print the corpus they covered):
 
@@ -29,7 +42,9 @@ Queries (all print the corpus they covered):
                          occurrence, and pool words / mova targets equal to the
                          occurrence or to its NUL-delimited string start
   --range LO HI          referenced pool words whose value is in [LO, HI]
-  --unreferenced         words inside pool blocks that no instruction reads
+  --unreferenced         words inside pool blocks that no PC-relative load reads,
+                         split into pointed / unreferenced
+  --h118-compare         per .pdata function, these pool slots vs fn_match.pool_slots
   --parent-of VA         enclosing function start from the pool walker's own
                          operand data (pool blocks and rts boundaries), with
                          the ``.pdata`` start beside it (AGREE / DIFFER)
@@ -65,6 +80,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sh4dis  # noqa: E402
 from sh4dis import halfwords_le  # noqa: E402
 from sh4xref import is_prologue_word  # noqa: E402
+from fn_match import pool_addr  # noqa: E402  (H118: mov.l/mov.w slot address)
 
 PAD_HALVES = (0x0009, 0x0000)   # nop / zero pad before a pool
 TAIL_WORDS = 16                 # unread words counted after a block's last read word
@@ -153,12 +169,12 @@ class Pools:
                 top = w & 0xF000
                 if top == 0xD000:
                     a = base + 2 * i
-                    t = ((a + 4) & ~3) + (w & 0xFF) * 4
+                    t = pool_addr(a, w)
                     if t + 4 <= end:
                         self.ref32[t].append(a)
                 elif top == 0x9000:
                     a = base + 2 * i
-                    t = a + 4 + (w & 0xFF) * 2
+                    t = pool_addr(a, w)
                     if t + 2 <= end:
                         self.ref16[t].append(a)
                 elif w & 0xFF00 == 0xC700:
@@ -247,6 +263,36 @@ class Pools:
             self._entries = e
         return self._entries
 
+    def pointer_bases(self):
+        """Sorted addresses that code or data holds (pool values, mova
+        targets, aligned data-section words) and that lie in a section."""
+        if getattr(self, "_bases", None) is None:
+            def inside(v):
+                return v is not None and any(x.base <= v < x.end for x in self.segs)
+            b = {self.u32(t) for t in self.ref32}
+            b.update(self.mova)
+            for sg in self.segs:
+                if sg.exe:
+                    continue
+                for o in range(0, len(sg.blob) - 3, 4):
+                    b.add(sh4dis.read_u32(sg.blob, o))
+            self._bases = sorted(v for v in b if inside(v))
+        return self._bases
+
+    def pointed(self, va, window):
+        """The held address at or below ``va`` within ``window`` bytes, else None."""
+        bases = self.pointer_bases()
+        i = bisect.bisect_right(bases, va) - 1
+        if i >= 0 and va - bases[i] <= window:
+            return bases[i]
+        return None
+
+    def classify(self, va, window):
+        if self.refs_of(va):
+            return "referenced", None
+        p = self.pointed(va, window)
+        return ("pointed", p) if p is not None else ("unreferenced", None)
+
     # -- queries
     def refs_of(self, t):
         return self.ref32.get(t, [])
@@ -289,7 +335,7 @@ def _hx(v):
     return "0x%08x" % v
 
 
-def query_word(pools, value, extra, fn_of=None, window=None):
+def query_word(pools, value, extra, fn_of=None, window=None, pw=64):
     """Result dict for one 32-bit value."""
     rows = []
     for s, va in pools.aligned_hits(value):
@@ -297,9 +343,10 @@ def query_word(pools, value, extra, fn_of=None, window=None):
         if window and not any(window[0] <= a < window[1] for a in refs) and \
                 not window[0] <= va < window[1]:
             continue
+        status, base = pools.classify(va, pw)
         rows.append({
             "va": _hx(va), "section": s.label,
-            "status": "referenced" if refs else "unreferenced",
+            "status": status, "pointer": _hx(base) if base is not None else None,
             "pool": pools.is_pool(va),
             "refs": [{"va": _hx(a), "fn": _hx(fn_of(a)) if fn_of and fn_of(a) else None}
                      for a in refs],
@@ -325,7 +372,8 @@ def query_word(pools, value, extra, fn_of=None, window=None):
         "exec_aligned": len(rows),
         "referenced_pool_words": len(ref_rows),
         "references": sum(len(r["refs"]) for r in ref_rows),
-        "unreferenced": len(rows) - len(ref_rows),
+        "pointed": sum(1 for r in rows if r["status"] == "pointed"),
+        "unreferenced": sum(1 for r in rows if r["status"] == "unreferenced"),
         "mova_targets": mova,
         "movw16": w16,
         "data_aligned": data,
@@ -427,8 +475,47 @@ def _sources(pools):
     return _SRC_CACHE[key]
 
 
+def _near(sorted_bases, va, window):
+    i = bisect.bisect_right(sorted_bases, va) - 1
+    return i >= 0 and va - sorted_bases[i] <= window
+
+
+def h118_compare(pools, records):
+    """Per .pdata function: pool halfwords here vs ``fn_match.pool_slots``."""
+    import fn_match
+    both = only_mine = only_h118 = 0
+    examples = []
+    for begin, _pro, length in records:
+        sg = pools.seg_of(begin)
+        if sg is None or not sg.exe:
+            continue
+        end = min(begin + length, sg.end)
+        words = [pools.u16(x) for x in range(begin, end, 2)]
+        h = {begin + 2 * j for j in fn_match.pool_slots(words, begin)}
+        mine = set()
+        for x in range(begin, end, 2):
+            w = pools.u16(x)
+            if w is None or x in pools.pool_halves:
+                continue
+            top = w & 0xF000
+            if top in (0xD000, 0x9000):
+                t = pool_addr(x, w)
+                if top == 0xD000 and x in pools.ref32.get(t, ()):
+                    mine.update((t, t + 2))
+                elif top == 0x9000 and x in pools.ref16.get(t, ()):
+                    mine.add(t)
+        both += len(mine & h)
+        only_mine += len(mine - h)
+        only_h118 += len(h - mine)
+        if (mine ^ h) and len(examples) < 8:
+            examples.append("%s:+%d/-%d" % (_hx(begin), len(mine - h), len(h - mine)))
+    return {"functions": len(records), "both": both, "only_sh4literal": only_mine,
+            "only_h118": only_h118, "examples": examples}
+
+
 def unreferenced(pools):
-    """Aligned words inside pool blocks that no instruction reads."""
+    """Aligned words inside pool blocks that no PC-relative load reads
+    (``pointed`` ones included; split them with ``Pools.classify``)."""
     out = []
     srcs = _sources(pools)
     for start, end, refd in pool_blocks(pools):
@@ -553,15 +640,15 @@ def load_image_segs(img_path, image_start, module, decode=True):
 def _synthetic():
     """Code section at 0x10000 + data section at 0x20000.
 
-    0x10000 fn A: mov.l @(pc) r1 -> 0x1000c (0xCAFE0001, referenced, direct)
+    0x10000 fn A: mov.l @(pc) r1 -> pool 0x1000c (0xCAFE0001, referenced)
     0x10002       mova  @(pc) r0 -> 0x10010 (PC-relative address)
-    0x10004       mov.w @(pc) r2 -> 0x10014 (16-bit 0x4e20)
-    0x10006       rts ; 0x10008 nop (delay) ; 0x1000a pad 0x0009
+    0x10004       mov.w @(pc) r2 -> 0x10014 (16-bit half 0x4e20)
+    0x10006       rts ; 0x10008 nop (delay slot) ; 0x1000a pad 0x0009
     0x1000c pool  0xCAFE0001 (referenced)
-    0x10010       0x00020000 (mova target; data pointer)
+    0x10010       0x00020004 (mova target; a data pointer)
     0x10014       0x00004e20 (mov.w half 0x4e20 + zero half)
-    0x10018       0xBEEF0002 (false pool word: inside the block, nobody reads it)
-    0x1001c fn B: sts.l pr,@-r15 (prologue) ... 0x10028 rts; nop
+    0x10018       0xBEEF0002 (false pool word: in the block, nobody reads it)
+    0x1001c fn B: sts.l pr,@-r15 (prologue), nops, lds.l, rts; nop (no load)
     0x1002c       0xBEEF0002 again, after rts with no reader (unreferenced)
     0x20000 data  0xCAFE0001 (pool-in-data: same value in a data section)
     0x20004       0x00020008 (data pointer to the string)
@@ -569,29 +656,25 @@ def _synthetic():
     """
     code = bytearray(0x30)
     h = lambda off, w: struct.pack_into("<H", code, off, w)  # noqa: E731
-    h(0x00, 0xD100 | 2)          # mov.l @(2*4 + ((0x10000+4)&~3)) = 0x1000c
-    h(0x02, 0xC700 | 3)          # mova ((0x10002+4)&~3)+12 = 0x10010
-    h(0x04, 0x9200 | 7)          # mov.w 0x10004+4+14 = 0x10016? -> adjust below
-    h(0x06, 0x000B)
-    h(0x08, 0x0009)
-    h(0x0A, 0x0009)
+    h(0x00, 0xD100 | 2)          # mov.l: ((0x10000+4)&~3) + 2*4 = 0x1000c
+    h(0x02, 0xC700 | 3)          # mova:  ((0x10002+4)&~3) + 3*4 = 0x10010
+    h(0x04, 0x9200 | 6)          # mov.w: 0x10004 + 4 + 6*2 = 0x10014
+    h(0x06, 0x000B)              # rts
+    h(0x08, 0x0009)              # delay slot
+    h(0x0A, 0x0009)              # pad
     struct.pack_into("<I", code, 0x0C, 0xCAFE0001)
     struct.pack_into("<I", code, 0x10, 0x00020004)
     struct.pack_into("<I", code, 0x14, 0x00004E20)
     struct.pack_into("<I", code, 0x18, 0xBEEF0002)
-    h(0x1C, 0x4F22)
-    h(0x1E, 0xD200 | 2)          # mov.l ((0x1001e+4)&~3)+8 = 0x1002c? keep pointing in-pool below
+    h(0x1C, 0x4F22)              # fn B: sts.l pr,@-r15
+    h(0x1E, 0x0009)
     h(0x20, 0x0009)
     h(0x22, 0x0009)
-    h(0x24, 0x4F26)
+    h(0x24, 0x4F26)              # lds.l @r15+,pr
     h(0x26, 0x0009)
-    h(0x28, 0x000B)
+    h(0x28, 0x000B)              # rts
     h(0x2A, 0x0009)
     struct.pack_into("<I", code, 0x2C, 0xBEEF0002)
-    # fix mov.w to the 0x4e20 half at 0x10014: disp = (0x10014 - 0x10004 - 4)/2 = 6
-    h(0x04, 0x9200 | 6)
-    # fn B's load: drop it (a nop) so 0x1002c stays unreferenced
-    h(0x1E, 0x0009)
     data = bytearray(0x14)
     struct.pack_into("<I", data, 0, 0xCAFE0001)
     struct.pack_into("<I", data, 4, 0x00020008)   # pointer to the string
@@ -619,10 +702,17 @@ def selftest():
     check("PC-relative mova target", r["mova_targets"], ["0x00010002"])
     r = query_word(p, 0x4E20, extra)
     check("mov.w 16-bit half 0x4e20", [w["va"] for w in r["movw16"]], ["0x00010014"])
-    r = query_word(p, 0xBEEF0002, extra)
+    r = query_word(p, 0xBEEF0002, extra, pw=4)
     check("false pool word: 2 aligned hits", r["exec_aligned"], 2)
     check("false pool word: 0 referenced", r["referenced_pool_words"], 0)
-    check("false pool word: both unreferenced", r["unreferenced"], 2)
+    check("false pool word: both unreferenced (window 4)", r["unreferenced"], 2)
+    # pointed: 0x10018 lies 8 B after the mova target 0x10010 (a base+offset
+    # read from the mova address can reach it); 0x1002c lies 0x1c after it
+    r = query_word(p, 0xBEEF0002, extra, pw=8)
+    check("pointed: in-window word is pointed, the far one unreferenced",
+          [(x["va"], x["status"], x["pointer"]) for x in r["rows"]],
+          [("0x00010018", "pointed", "0x00010010"), ("0x0001002c", "unreferenced", None)])
+    check("pointed: classify an exact held address", p.classify(0x10010, 0), ("pointed", 0x10010))
     u = unreferenced(p)
     check("--unreferenced finds the in-block false word", 0x10018 in u, True)
     rb = query_bytes(p, bytes.fromhex("3a3b3a"), extra)
@@ -643,6 +733,19 @@ def selftest():
     check("pool data decoding as mov.l is not a reference",
           [t for t in p2.ref32], [0x10008])
     check("range query", [r["value"] for r in query_range(p, 0xCAFE0000, 0xCAFEFFFF)], ["0xcafe0001"])
+    # non-structural target: a mov.l whose pool is not opened after a transfer
+    # (it lands in straight-line code) keeps its reference but is not a pool,
+    # so the source inside it is not dropped
+    code = bytearray(0x10)
+    struct.pack_into("<8H", code, 0,
+                     0xD100,   # 0x10000 mov.l -> 0x10004 (no transfer before it)
+                     0xE001,   # 0x10002 mov #1,r0
+                     0xD200,   # 0x10004 mov.l -> 0x10008  (inside the first target)
+                     0xE102,   # 0x10006
+                     0x000B, 0x0009, 0, 0)
+    p5 = Pools([Seg(0x10000, code, True, "sec0")])
+    check("non-structural target is not a pool", p5.is_pool(0x10004), False)
+    check("source inside a non-structural target is kept", p5.refs_of(0x10008), [0x10004])
     # 0x0041c7e8 regression shape: previous fn ends rts, pool, then prologue
     code = bytearray(0x20)
     struct.pack_into("<HHHHHH", code, 0, 0xD101, 0x000B, 0x0009, 0x0009, 0x0000, 0x0000)
@@ -694,6 +797,10 @@ def main(argv=None):
     ap.add_argument("--parent-audit", action="store_true")
     ap.add_argument("--no-decode", action="store_true",
                     help="do not decode compressed sections (they print NOT SEARCHED)")
+    ap.add_argument("--pointed-window", type=_int, default=64, metavar="N",
+                    help="bytes after a held address that count as 'pointed' (default 64)")
+    ap.add_argument("--h118-compare", action="store_true",
+                    help="compare the pool slots with fn_match.pool_slots (H118) per .pdata function")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
@@ -722,21 +829,25 @@ def main(argv=None):
     if a.query:
         kind, rest = a.query[0], a.query[1:]
         if kind == "find" and rest:
-            res = [query_word(pools, _int(w), extra, fn_of, window) for w in rest]
+            res = [query_word(pools, _int(w), extra, fn_of, window, a.pointed_window)
+                   for w in rest]
             out["find"] = res
             if not a.json:
                 for r in res:
                     ns = " NOT SEARCHED (section %s)" % ",".join(map(str, r["not_searched"])) \
                         if r["not_searched"] else ""
                     print("find %s: exec aligned %d, referenced pool words %d (%d refs), "
-                          "unreferenced %d, mova %d, mov.w16 %d, data/decoded aligned %d%s"
+                          "pointed %d, unreferenced %d, mova %d, mov.w16 %d, "
+                          "data/decoded aligned %d%s"
                           % (r["word"], r["exec_aligned"], r["referenced_pool_words"],
-                             r["references"], r["unreferenced"], len(r["mova_targets"]),
+                             r["references"], r["pointed"], r["unreferenced"],
+                             len(r["mova_targets"]),
                              len(r["movw16"]), len(r["data_aligned"]), ns))
                     for row in r["rows"]:
                         refs = ", ".join("%s%s" % (x["va"], " fn " + x["fn"] if x["fn"] else "")
                                          for x in row["refs"])
-                        print("  %s %s %s%s%s" % (row["va"], row["section"], row["status"],
+                        print("  %s %s %s%s%s%s" % (row["va"], row["section"], row["status"],
+                                                 " (held %s)" % row["pointer"] if row["pointer"] else "",
                                                  "" if row["pool"] or not row["refs"] else " (non-structural)",
                                                  " <- " + refs if refs else ""))
                     for w in r["movw16_rows"]:
@@ -767,11 +878,21 @@ def main(argv=None):
     if a.unreferenced:
         u = unreferenced(pools)
         blocks = pool_blocks(pools)
-        out["unreferenced"] = {"pool_blocks": len(blocks), "count": len(u),
-                               "first": [_hx(x) for x in u[:20]]}
+        exact = [x for x in u if pools.pointed(x, 0) is not None]
+        near = [x for x in u if pools.pointed(x, a.pointed_window) is not None]
+        mova_near = [x for x in u if _near(sorted(pools.mova), x, a.pointed_window)]
+        far = [x for x in u if pools.pointed(x, a.pointed_window) is None]
+        out["unreferenced"] = {"pool_blocks": len(blocks), "not_pc_loaded": len(u),
+                               "pointed_exact": len(exact), "pointed_window": len(near),
+                               "near_mova": len(mova_near), "unreferenced": len(far),
+                               "window": a.pointed_window,
+                               "first_unreferenced": [_hx(x) for x in far[:20]]}
         if not a.json:
-            print("unreferenced: %d words inside %d pool blocks (first: %s)"
-                  % (len(u), len(blocks), " ".join(_hx(x) for x in u[:10])))
+            print("not PC-relative-loaded: %d words inside %d pool blocks; pointed %d "
+                  "(exact held address %d, within %d B after a mova target %d); "
+                  "unreferenced %d (first: %s)"
+                  % (len(u), len(blocks), len(near), len(exact), a.pointed_window,
+                     len(mova_near), len(far), " ".join(_hx(x) for x in far[:6])))
     if a.parent_of:
         res = []
         for va in a.parent_of:
@@ -787,6 +908,14 @@ def main(argv=None):
                       % (_hx(va), _hx(st) if st is not None else "?", how,
                          _hx(pd) if pd is not None else "-", verdict))
         out["parent_of"] = res
+    if a.h118_compare:
+        c = h118_compare(pools, extra["records"] or [])
+        out["h118_compare"] = c
+        if not a.json:
+            print("h118-compare: %d .pdata functions; pool halfwords both %d, only sh4literal %d, "
+                  "only fn_match.pool_slots %d (first differ: %s)"
+                  % (c["functions"], c["both"], c["only_sh4literal"], c["only_h118"],
+                     " ".join(c["examples"])))
     if a.parent_audit:
         recs = extra["records"] or []
         agree = differ = 0
