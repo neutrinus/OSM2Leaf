@@ -27,6 +27,7 @@
   "tools/datask_req_l3.py",
   "tools/drstr_l3.py",
   "tools/l3_harness/targets.json",
+  "tools/lctbl_lookup_l3.py",
   "tools/mapcode_l3.py",
   "tools/mmain_l3.py",
   "tools/mount_dirs_l3.py",
@@ -41,10 +42,10 @@
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 34,
-  "citations": 785,
-  "unique_va": 324,
-  "start": 487,
+  "files": 35,
+  "citations": 788,
+  "unique_va": 326,
+  "start": 490,
   "inside": 0,
   "corrected": 0,
   "gap": 71,
@@ -254,7 +255,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4009,
+   "line": 4010,
    "va": "0x039bcedc",
    "kind": "fn",
    "class": "GAP",
@@ -1513,7 +1514,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 396,
+   "line": 418,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1522,7 +1523,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 406,
+   "line": 428,
    "va": "0x003bc960",
    "kind": "fn",
    "class": "START",
@@ -1531,7 +1532,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 436,
+   "line": 458,
    "va": "0x003ca858",
    "kind": "fn",
    "class": "GAP",
@@ -4760,6 +4761,33 @@
    "line": 0,
    "va": "0x00419350",
    "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 51,
+   "va": "0x003ebe70",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 52,
+   "va": "0x004052d4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 53,
+   "va": "0x003ec034",
+   "kind": "const",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"

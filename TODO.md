@@ -3474,8 +3474,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the fixed generator still changes a directory whose box does not hold the extract.
   - Claims: C-6100–C-6109
 
-- [ ] **M5.60 — L3: the `LCTBL001` index lookup and page loader read a generated file**
-  - Status: in progress · Owner: task/m5.60-lctbl-index-l3 · Critical: no · Pair: solo
+- [x] **M5.60 — L3: the `LCTBL001` index lookup and page loader read a generated file**
+  - Status: done · Owner: task/m5.60-lctbl-index-l3 · Critical: no · Pair: solo
   - Step: P3
   - Depends: M5.17 (done)
   - Goal: M5.17 ran only the record walk (`0x003f61bc`/`0x003f5d98`) on a generated `LCTBL001.DAT`; the B-tree lookup (location code → ordinal), the page-directory read and the zlib page load that hand the walk its record were not executed, so rule 13 "accepted" holds only for the record bytes.
@@ -3485,6 +3485,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: an L3 run looks up a location code in a generated file (`lctbl_build.py synth`) and returns the record the model holds for that code, with a negative control (a code absent from the file is not found).
   - Stop: if no reader of the index pages is found after the opener subtree and its indirect calls are enumerated, record the candidates and block.
   - Claims: C-6140–C-6149
+  - Result: EXP-2026-11-20-M5.60-lctbl-index-l3. `tools/lctbl_lookup_l3.py` runs the whole lookup in PySh4 (EU2011): request `0x14e4` sub 1 (country code, database number, location code; table code = hex digit of the country << 8 | number) → catalog → B-tree index pages → page directory → zlib page inflated by `HDL_MapTblTask` (`0x14b8`/`0x14b9`) → answer `0x14fb`. On a `lctbl_build.py synth` file 4/4 held codes return the model's record and 3/3 absent codes are not found; factory file 4/4 agree; a flipped index key and a damaged record page both break the agreement (C-6140–C-6149). Open: the real country/database numbers for Poland; an absent table is served from the first table (observed).
 
 ## M6 — L5 bench/car: hardware and safety
 

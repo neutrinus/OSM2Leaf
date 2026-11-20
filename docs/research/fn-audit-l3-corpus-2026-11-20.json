@@ -435,6 +435,7 @@
   "docs/experiments/EXP-2026-11-20-M5.54-wide-kinds.md",
   "docs/experiments/EXP-2026-11-20-M5.55-l2check-resize-expectation.md",
   "docs/experiments/EXP-2026-11-20-M5.56-no-factory-container.md",
+  "docs/experiments/EXP-2026-11-20-M5.60-lctbl-index-l3.md",
   "docs/experiments/EXP-2026-11-20-M6.16-s3-generator.md",
   "docs/experiments/EXP-2026-11-20-M6.18-prod-screen.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
@@ -464,7 +465,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 457,
+  "files": 458,
   "citations": 1292,
   "unique_va": 308,
   "start": 1133,
@@ -677,7 +678,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4009,
+   "line": 4010,
    "va": "0x039bcedc",
    "kind": "fn",
    "class": "GAP",
