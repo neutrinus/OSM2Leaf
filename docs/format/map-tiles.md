@@ -736,6 +736,43 @@ located MAP_DATA or RGD_DATA tile-load paths; no section-4-specific handler VA
 was located. It may be consumed by a separate name/search/label subsystem or be
 unused at render time — **UNKNOWN** from this analysis.
 
+### Route-link key: what a section-2 entry joins to (M4.39)
+
+> **Status:** `VERIFIED` (L2, factory EU2011 tiles, shuffled and other-parcel
+> nulls) for the link key and the node-coordinate key; `VERIFIED (negative)`
+> for every numeric `LCTBL001` field. Evidence: EXP-2026-11-19-M4.39-route-link-id,
+> C-5150–C-5156, `tools/route_link_join.py`. No firmware run: which key the
+> router itself uses is not tested here (C-887's `link[mesh,no,rdtype]` string
+> is consistent with it, OBSERVED only).
+
+A level-1 section-2 entry (`clarion_rd.parse_record`, seven words + regulation
+words) names its link by **`(parcel code, class, link id)`**: parcel = record
+words 0–1, class = class word `& 0xf`, link id = entry word 3 `& 0x1fff`
+(`0x2000` = the entry sits at the drawn last point). The same triple names one
+drawn link in the parcel's section-1 `0x00fa` shape record (link ids restart at
+1 per class), and that shape's word 4 is the label in the odd partner record.
+ADDRE street records reach the same link from the other side: their parcel
+code + point word offset land on a drawn point, whose link triple is in
+section 2.
+
+| Section-2 field (entry word) | Tested as key into | Hit, `B48R058R` | Shuffled null | Other-parcel null | Hit, `B38R068R` | Verdict |
+| --- | --- | --: | --: | --: | --: | --- |
+| link id (3, `& 0x1fff`) + class | drawn link with an end at the entry's node | 99.9 % | 6.1 % | 0.0 % | 99.9 % | **key** |
+| node `(x, y)` (node words 0–1, `& 0x7ff`) | drawn link end points of the parcel | 100.0 % | — | 0.0 % | 100.0 % | **key** (node, not link) |
+| w4 (1) | same | 3.8 % | 2.6 % | 0.0 % | 2.2 % | not a key |
+| w5 (2) | same | 0.1 % | 0.1 % | 0.0 % | 0.1 % | not a key |
+| travel time `a` (5) | same | 1.0 % | 1.0 % | 0.0 % | 1.6 % | not a key |
+| length `b` (6) | same | 0.8 % | 0.8 % | 0.0 % | 1.4 % | not a key |
+| far node index (0) | same | 6.8 % | 3.8 % | 0.0 % | 7.3 % | not a key |
+| own node index | same | 7.2 % | 3.8 % | 0.0 % | 7.9 % | not a key |
+| link id, w4, w5, a, b, class word, parcel words, node x/y | every `LCTBL001` attr byte, class, footer `u16` of name-matched records | best ratio 1.43 at 0.1 % | shuffled pairing | — | best ratio 1.26 at 1.9 % | **no LCTBL key** |
+
+Chain from a displayed name to the router edge: label (odd record) ← shape
+word 4 ← shape link `(class, id)` = section-2 entry `(class, id & 0x1fff)` in
+the same parcel. `LCTBL001` reaches it only by name string (29.4 % of named
+linked entries on `B48R058R`, median 8 LCTBL records per name), which is not a
+key.
+
 ### Reader entry arguments (M3.27, static, build A)
 
 > **Status:** `VERIFIED` for the entry addresses, lengths, the single static

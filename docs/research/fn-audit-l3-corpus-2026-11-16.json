@@ -333,15 +333,23 @@
   "docs/experiments/EXP-2026-11-19-H61-claims-exp-exists.md",
   "docs/experiments/EXP-2026-11-19-H62-us256-alias.md",
   "docs/experiments/EXP-2026-11-19-H65-progress-l4-prereq.md",
+  "docs/experiments/EXP-2026-11-19-M1.19-kernel-decomp-wiring.md",
+  "docs/experiments/EXP-2026-11-19-M1.21-filesentry-decode.md",
   "docs/experiments/EXP-2026-11-19-M1.32-us-reuse-owner.md",
   "docs/experiments/EXP-2026-11-19-M1.33-census-command.md",
+  "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
   "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
   "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+  "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
   "docs/experiments/EXP-2026-11-19-M3.27-tile-reader-args.md",
   "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+  "docs/experiments/EXP-2026-11-19-M4.16b-tmc-field-directory.md",
   "docs/experiments/EXP-2026-11-19-M4.37-point-bitpack-coords.md",
   "docs/experiments/EXP-2026-11-19-M4.38-lang-code-table.md",
+  "docs/experiments/EXP-2026-11-19-M4.39-route-link-id.md",
   "docs/experiments/EXP-2026-11-19-M4.41-diff-years.md",
+  "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+  "docs/experiments/EXP-2026-11-19-M5.26-point-pair-regen.md",
   "docs/experiments/EXP-2026-11-19-M5.30-one-variable-card.md",
   "docs/experiments/EXP-2026-11-19-M5.33-synthetic-scaffold.md",
   "docs/experiments/EXP-2026-11-19-M5.37-route-graph-golden.md",
@@ -353,6 +361,7 @@
   "docs/experiments/EXP-2026-11-19-M5.48-partial-out.md",
   "docs/experiments/EXP-2026-11-19-M5.50-card-ladder.md",
   "docs/experiments/EXP-2026-11-19-M5.51-metadata-reasons.md",
+  "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
   "docs/experiments/EXP-2026-11-19-M6.13-s3-bench-manifest.md",
   "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
   "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
@@ -362,26 +371,29 @@
   "docs/experiments/EXP-2026-11-19-M9.38-read-watch.md",
   "docs/experiments/EXP-2026-11-19-M9.40-us-mask-read.md",
   "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
+  "docs/experiments/EXP-2026-11-19-M9.49-pysh4-macw.md",
+  "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+  "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 360,
-  "citations": 979,
-  "unique_va": 204,
-  "start": 799,
+  "files": 372,
+  "citations": 1036,
+  "unique_va": 215,
+  "start": 852,
   "inside": 80,
   "corrected": 9,
-  "gap": 79,
-  "leaf": 79,
+  "gap": 83,
+  "leaf": 83,
   "ambiguous": 5,
   "unmapped": 7
  },
  "rows": [
   {
    "file": "TODO.md",
-   "line": 820,
+   "line": 822,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -390,7 +402,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 821,
+   "line": 823,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -399,7 +411,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 824,
+   "line": 826,
    "va": "0x003f5fc2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -408,7 +420,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 824,
+   "line": 826,
    "va": "0x00413af4",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -417,7 +429,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 824,
+   "line": 826,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -426,7 +438,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 825,
+   "line": 827,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -435,7 +447,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1209,
+   "line": 1213,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -444,8 +456,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 1401,
-   "va": "0x03bd2ad8",
+   "line": 1438,
+   "va": "0x03bd2ce4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -453,8 +465,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 1407,
-   "va": "0x03bd2ad8",
+   "line": 1438,
+   "va": "0x03bd2ecc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -462,16 +474,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1411,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1468,
+   "line": 1495,
    "va": "0x00418748",
    "kind": "fn",
    "class": "START",
@@ -480,7 +483,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1602,
+   "line": 1629,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -489,7 +492,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1603,
+   "line": 1630,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -498,7 +501,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1605,
+   "line": 1632,
    "va": "0x003f40ec",
    "kind": "fn",
    "class": "START",
@@ -507,7 +510,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1669,
+   "line": 1696,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -516,7 +519,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1669,
+   "line": 1696,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -525,7 +528,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1670,
+   "line": 1697,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -534,7 +537,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1691,
+   "line": 1718,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -544,7 +547,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1701,
+   "line": 1728,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -553,7 +556,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1706,
+   "line": 1733,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -562,7 +565,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1730,
+   "line": 1757,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -572,7 +575,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1732,
+   "line": 1759,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -581,7 +584,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1761,
+   "line": 1788,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -590,7 +593,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1761,
+   "line": 1788,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -599,7 +602,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1792,
+   "line": 1819,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -608,7 +611,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1793,
+   "line": 1820,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -617,7 +620,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1917,
+   "line": 1944,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -626,16 +629,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1934,
-   "va": "0x00412ac0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1945,
+   "line": 1973,
    "va": "0x0041f26c",
    "kind": "ctx",
    "class": "START",
@@ -644,7 +638,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1985,
+   "line": 2013,
    "va": "0x0040a014",
    "kind": "fn",
    "class": "START",
@@ -653,12 +647,23 @@
   },
   {
    "file": "TODO.md",
-   "line": 3588,
-   "va": "0x880385e4",
+   "line": 2498,
+   "va": "0x003f5194",
    "kind": "fn",
-   "class": "START",
+   "class": "GAP",
    "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "TODO.md",
+   "line": 2502,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
   },
   {
    "file": "docs/experiments/EXP-2026-11-05-M1.8-sh4xref.md",
@@ -8243,6 +8248,87 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 28,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 49,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 115,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 117,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 119,
+   "va": "0x03bd2ecc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 193,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 220,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 241,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 242,
+   "va": "0x03bd2ecc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
    "line": 25,
    "va": "0x003f5e78",
@@ -8576,6 +8662,78 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 140,
+   "va": "0x003335c0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 158,
+   "va": "0x00340f18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 159,
+   "va": "0x00348d34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 160,
+   "va": "0x003cc13c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 178,
+   "va": "0x004124dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 188,
+   "va": "0x00340f18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 203,
+   "va": "0x004124dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 206,
+   "va": "0x00340f18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
    "line": 45,
    "va": "0x0041c7dc",
@@ -8615,6 +8773,215 @@
    "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
    "line": 362,
    "va": "0x0041a438",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 268,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 282,
+   "va": "0x004e7b8c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 283,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 284,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 286,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 307,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.26-point-pair-regen.md",
+   "line": 77,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.26-point-pair-regen.md",
+   "line": 212,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 114,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 114,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 115,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 115,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 116,
+   "va": "0x003f8950",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 118,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 121,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 213,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 213,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 234,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 235,
+   "va": "0x003f5e10",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8859,6 +9226,51 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 108,
+   "va": "0x88040988",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 109,
+   "va": "0x88040b6c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 110,
+   "va": "0x88040c18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 111,
+   "va": "0x88041244",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 112,
+   "va": "0x88042594",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
    "line": 30,
    "va": "0x03bd2ad8",
@@ -8943,6 +9355,105 @@
    "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
    "line": 287,
    "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 39,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 39,
+   "va": "0x8803d168",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 39,
+   "va": "0x8803dc70",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 134,
+   "va": "0x8803dc70",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 153,
+   "va": "0x88023010",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 153,
+   "va": "0x8803d168",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 155,
+   "va": "0x8803d168",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 179,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 230,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 233,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 247,
+   "va": "0x8803cdd8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -9643,6 +10154,24 @@
    "line": 945,
    "va": "0x0001e3f4",
    "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1561,
+   "va": "0x004124dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1583,
+   "va": "0x003335c0",
+   "kind": "fn",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
