@@ -347,6 +347,7 @@
   "docs/experiments/EXP-2026-11-19-M4.38-lang-code-table.md",
   "docs/experiments/EXP-2026-11-19-M4.41-diff-years.md",
   "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+  "docs/experiments/EXP-2026-11-19-M5.26-point-pair-regen.md",
   "docs/experiments/EXP-2026-11-19-M5.30-one-variable-card.md",
   "docs/experiments/EXP-2026-11-19-M5.33-synthetic-scaffold.md",
   "docs/experiments/EXP-2026-11-19-M5.37-route-graph-golden.md",
@@ -374,14 +375,14 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 367,
-  "citations": 998,
+  "files": 368,
+  "citations": 1002,
   "unique_va": 209,
   "start": 818,
   "inside": 80,
   "corrected": 9,
-  "gap": 79,
-  "leaf": 79,
+  "gap": 83,
+  "leaf": 83,
   "ambiguous": 5,
   "unmapped": 7
  },
@@ -648,6 +649,26 @@
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2486,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "TODO.md",
+   "line": 2490,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
   },
   {
    "file": "docs/experiments/EXP-2026-11-05-M1.8-sh4xref.md",
@@ -8734,6 +8755,26 @@
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.26-point-pair-regen.md",
+   "line": 77,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.26-point-pair-regen.md",
+   "line": 212,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
   },
   {
    "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
