@@ -167,7 +167,7 @@ without a new experiment.
 - `0x18c`–`0x193` (resolved, M4.38/M4.22): the code list holds Navi.exe
   map-language codes (see Identity fields); only `14 17 18 19 1a` stay
   without a firmware row, and the Navi.exe code that reads the list is not
-  yet traced (M4.42).
+  yet traced (M4.48).
 - TODO `0x194`–`0x19f`: twelve `0x3f` bytes. Fill/default is a hypothesis.
 - TODO `0x1a0`–`0x1ab`: twelve `0xff` bytes. Reserved/absent is a hypothesis.
 - TODO `0x1b0` onward: `level`, `kind` and `count` are names for the observed
@@ -280,10 +280,11 @@ it names). The eight headers give the same `0x180` words, bounds, `0x18c`
 lists and stamps as the 2026-11-08 table above; `header_block.py check`
 passes all eight; `lang_code_table.py join` passes on all four cards,
 including EU 2016's own `SPEECH/` dir (16/16), which M4.38 did not read.
-Firmware side: `OBJ_DriveInfo_readDataVol` (OBJDLL #240) is imported by
-`Navi.exe` only, from one function (EU2011 fn `0x00377ae0`); none of the 149
-build-A modules imports it otherwise. The `0x18c` reader is therefore inside
-`Navi.exe` or reads the `0x01205040` copy (M4.42).
+Firmware side: of the 149 build-A modules only `Navi.exe` imports
+`OBJ_DriveInfo_readDataVol` (OBJDLL #240), and only fn `0x00377ae0` (EU2011)
+loads its thunk. If the `0x18c` reader gets the header through `readDataVol`,
+it is inside `Navi.exe` or reads the `0x01205040` copy; a module that opens
+`MMAIN001.DAT` with its own file I/O is not excluded by this census (M4.48).
 
 | Field | Meaning (final for this task) | Status |
 | --- | --- | --- |

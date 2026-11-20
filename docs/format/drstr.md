@@ -252,7 +252,8 @@ EU 2014 and EU 2016: the number of `SPEECH/<lang>` directories on each card
   dir switch, and M4.22 re-checked the join on all four cards (C-3760–C-3766,
   C-5282; `file-header.md` Identity fields). `14 17 18 19 1a` have no
   firmware row. The reader of the list in `Navi.exe` is not yet traced
-  (M4.42); only `fn 0x00377ae0` (EU2011) imports `OBJ_DriveInfo_readDataVol`.
+  (M4.48); only `Navi.exe` imports `OBJ_DriveInfo_readDataVol`, and only
+  `fn 0x00377ae0` (EU2011) loads the thunk.
 
 > **Retraction (2026-11-06).** EXP-2026-11-05-M4.5 described `MMAIN001.DAT` as
 > a FAT root-directory log and reported that `0x18c`/`0x1ac` fall inside FAT
