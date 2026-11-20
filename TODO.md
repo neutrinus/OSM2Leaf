@@ -2260,8 +2260,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-06-M4.20-us-drstr-roundtrip; `drstr_ze0.build()` preserves DRSTR-stored entry name case (US `XMD/ltntbl.dat` @0x1ae0); US+EU byte-identical, `drstr_ze0 --selftest` OK.
   - Claims: C-2100–C-2109
 
-- [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
-  - Status: in progress · Owner: task/m4.22-identity-codes · Critical: no
+- [x] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
+  - Status: done · Owner: task/m4.22-identity-codes · Critical: no
   - Depends: —
   - Note (SE 2026-11-15, supersedes the PO 2026-11-13 note): the PO note pointed the `0x18c` code table at **M4.36**, which is the unrelated `ADDRE`/tile-section-4 join. The correct unblocker is **M4.38** (SE 2026-11-15); this task stays blocked on the `0x18c` code→language anchor plus its own header-word work (M4.12 delivered the ICODE001 index it needs, not the codes).
   - Goal: three identity fields are still unexplained and a generated card
@@ -2276,9 +2276,10 @@ of the four numbers above says so in its first line.
     the mutation that would settle it, the language codes are matched to the
     `SPEECH/` language sets, and `header_block.py check` runs on the four real
     samples; `drstr.md`/`assets.md` updated in the same commit.
-  - Claims: C-5280–C-5289 (was C-2490–C-2499; fresh block for this run)
+  - Claims: C-5280–C-5283 (was C-2490–C-2499; fresh block for this run; C-5286–C-5289 go to M4.42)
   - Blocker: M4.38 decoded the `0x18c` codes from the firmware (Navi.exe `sdl_com_hdl_get_lang` table joined with Speech.exe's dir switch; all `SPEECH/` sets on EU 2011, US 2011 and EU 2014 matched, C-3760–C-3769, EXP-2026-11-19-M4.38-lang-code-table), except `14 17 18 19 1a`, which no table in four builds returns (firmware language table for them not found). The header fixes and the BICON001 retraction are done (EXP-2026-11-08-M4.22-identity-codes).
   - Unblock: re-open now to finish `file-header.md`/`drstr.md`/`assets.md` with the M4.38 code table (the language-matching done-when is met for every code with a speech set); `14 17 18 19 1a` stay `UNKNOWN`/`HYPOTHESIS` with the mutation named in `file-header.md`
+  - Result: done — EXP-2026-11-20-M4.22-identity-codes. `identity_fields.py card` (new) reads MMAIN001/BICON001/DRSTR001 from the FAT of all four cards (EU/US 2011 full, EU 2014/2016 head + fetched clusters): every 2026-11-08 value reproduced; `header_block.py check` PASS on 8 headers, DRSTR negative exit 1; M4.38 language join PASS on all four cards incl. EU 2016 (16/16). `file-header.md`/`drstr.md`/`assets.md` carry the M4.38 code table; `0x180`–`0x183`, `14 17 18 19 1a` stay `UNKNOWN` with their mutations. Only `Navi.exe` fn `0x00377ae0` (EU2011) imports `OBJ_DriveInfo_readDataVol`; the `0x18c` reader is M4.42 (C-5280–C-5283).
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
   - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
@@ -2474,6 +2475,18 @@ of the four numbers above says so in its first line.
   - Stop: if fewer than three clean pairs exist, publish the census and say so.
   - Claims: C-4590–C-4599
   - Result: EXP-2026-11-19-M4.41-diff-years (C-4590–C-4599): `tools/diff_years_tiles.py` gives the per-section `kept/changed/added/removed` census for 45 tiles × 2 pairs (2011→2014 sec1 606622/1402020/135997/187413; 2014→2016 sec1 755251/1308596/68171/80792) with the 20-tile tables, and names section-4 rename records (e.g. `B48R070R` `CRICCLETH;`→`CRICCIETH;`) and the `B60R060R` added-road sample. `Stop:` applies — the editions move all three sections together, so fewer than three clean one-variable pairs exist; the census is the result.
+
+- [ ] **M4.42 — Trace the `Navi.exe` reader of `MMAIN001` `0x18c` (map-language list)**
+  - Status: open · Owner: — · Critical: no
+  - Step: P0
+  - Depends: M4.22 (done), M4.38 (done)
+  - Goal: find the EU2011 `Navi.exe` code that reads the `0x18c` language list from the `MMAIN001` header copy and run it in L3, so the code→language reading becomes a firmware verdict instead of a value join.
+  - Precheck: `python3 tools/sh4xref.py archive/head256.img Navi.exe --to 0x01205040` lists the 4 functions that load the header copy (`0x00377ae0`, `0x003796bc`, `0x003798bc`, `0x0037a2c0`); `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x003796bc 0x003798bc 0x0037a2c0` gives `START` for each.
+  - Scope: EU2011 build A `Navi.exe` and OBJDLL; signature from the data (byte-swapped u16 pairs at `+0x18c`, `3f` terminator, `cmp/eq #63`), not from the doc; excludes the meaning of `14 17 18 19 1a`.
+  - Input: EXP-2026-11-20-M4.22-identity-codes (consumer census), EXP-2026-11-19-M4.38-lang-code-table, `tools/identity_fields.py card`, `tools/lang_code_table.py`.
+  - Done when: one function VA (EU2011, `pdata` `START`) is shown to read `+0x18c` of the header copy, and an L3 run of it on the EU 2011 header returns a different result when `05` is replaced by `3f`.
+  - Stop: if none of the four loaders nor their callees reads `+0x18c..+0x19f` within two call levels, set `blocked` with the call tree in the EXP.
+  - Claims: C-5286–C-5289
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 

@@ -231,7 +231,7 @@ EU 2014 and EU 2016: the number of `SPEECH/<lang>` directories on each card
 | `0x000`–`0x17f` | common 512-byte header text, UTF-16BE: `CLARION`, `HITACHI`, `CLA-NAVI05-01`, `FORMAT VERSION X08-02-00`, `DATA VERSION 11/06/27/01`, `V05.00.00` | VERIFIED (C-010) |
 | `0x180` | common prefix `ff ff 24 ff 12 c0 05 00 fb 50 0f f0` | VERIFIED (C-011) |
 | `0x184` | database bounds, big-endian `i16` arc-minutes: `0x12c0 0x0500 0xfb50 0x0ff0` = 4800, 1280, −1200, 4080 (80°N…68°E, the EU extent) | OBSERVED (C-1724) |
-| `0x18c` | variable code list (`05 04 02 07 0a 06 08 14` on EU 2011), then `3f` fill; codes not decoded | VERIFIED bytes, UNKNOWN identity (C-2494, C-2496) |
+| `0x18c` | variable code list (`05 04 02 07 0a 06 08 14` on EU 2011), then `3f` fill; Navi.exe map-language codes (`05` German, `04` French, `02` English UK, `07` Italian, `0a` Dutch, `06` Spanish, `08` Portuguese, `14` unknown) | VERIFIED bytes, OBSERVED identity (C-2494, C-3760–C-3766, C-5282) |
 | `0x194` | `3f` × 12 | OBSERVED (C-552) |
 | `0x1a0` | `ff` × 12 | OBSERVED (C-552) |
 | `0x1ac` | three-table descriptor: `00 03`, then table `01` (6 entries), table `02` (4), table `04` (1) = 11 `(level, kind, count)` tuples; `00` terminator at `0x1e0` | VERIFIED structure (C-550); counts (C-164) |
@@ -247,10 +247,12 @@ EU 2014 and EU 2016: the number of `SPEECH/<lang>` directories on each card
   `tools/cardcheck.py` already parse/write `>H`.
 - The `0x184`/`0x5d0` word pair repeats the lat/lon bounds (`0x05d0`:
   `05 00 fb 50 0b 0b`) and is written big-endian by the same builder.
-- The `0x18c` codes are **not** mapped to languages in this repo. That the
-  list is language/volume codes is a fitted reading (C-551), not a verified
-  code→language table; M4.22 found no anchor (C-2496, `file-header.md`
-  Identity fields).
+- The `0x18c` codes are Navi.exe map-language codes: M4.38 joined the
+  `sdl_com_hdl_get_lang` row table (EU2011 fn `0x003c0228`) with Speech.exe's
+  dir switch, and M4.22 re-checked the join on all four cards (C-3760–C-3766,
+  C-5282; `file-header.md` Identity fields). `14 17 18 19 1a` have no
+  firmware row. The reader of the list in `Navi.exe` is not yet traced
+  (M4.42); only `fn 0x00377ae0` (EU2011) imports `OBJ_DriveInfo_readDataVol`.
 
 > **Retraction (2026-11-06).** EXP-2026-11-05-M4.5 described `MMAIN001.DAT` as
 > a FAT root-directory log and reported that `0x18c`/`0x1ac` fall inside FAT
