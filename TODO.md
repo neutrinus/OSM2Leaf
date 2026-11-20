@@ -3744,10 +3744,26 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     `tools/ze0_intc.py`.
   - Claims: C-1310–C-1319
 
-- [ ] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
+- [x] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
   Done when `CurMSec` advances.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.b2-ze0-tmu · Critical: no
   - Depends: M8.B1
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    on `-M ze0 -kernel archive/head256.img`, EU2011 `CurMSec`
+    (`0x89e41888`) sampled over HMP makes a jump of at least 1000 ms, and
+    `ze0_tmu.py rate` puts (CurMSec delta / 1000) per host second within
+    [0.98, 1.02]. Negative controls: `-M ze0,tmu=off` (no TMU) leaves
+    `CurMSec` without such a jump; the old 60 MHz clock gives a ratio
+    outside the band. Also: two `-icount` boots give the same exception
+    sequence, interrupts included.
+  - Result: EXP-2026-11-20-M8.B2-ze0-tmu (C-1320–C-1323). Patch
+    `tools/qemu-ze0/patches/ze0-0005-hw-sh4-ze0-tmu-clock.patch`: Pphi
+    42 MHz from the OAL count rate 2 625 000 Hz (`0x88004cf8`, TPSC Pphi/16),
+    option `tmu=off`. `CurMSec` jumps by the max period 818 088 ms after
+    818.0 host s (ratio 1.0001); 60 MHz gives 1.43, `tmu=off` stays 0;
+    two `-icount shift=0,sleep=off` boots are identical. TMU ch3–5 unused.
+    The kernel ends in its `Halting system` loop (`0x88022170`), so
+    `OEMIdle` is not reached (M8.B5). Tool: `tools/ze0_tmu.py`.
   - Claims: C-1320–C-1329
 
 - [x] **M8.B3 — RTC/time** (`OEMGetRealTime`).

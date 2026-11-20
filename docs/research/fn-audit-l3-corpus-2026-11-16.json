@@ -365,6 +365,7 @@
   "docs/experiments/EXP-2026-11-19-M5.51-metadata-reasons.md",
   "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
   "docs/experiments/EXP-2026-11-19-M6.13-s3-bench-manifest.md",
+  "docs/experiments/EXP-2026-11-19-M6.17-card-what-runs.md",
   "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
   "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
   "docs/experiments/EXP-2026-11-19-M9.32-reconcile-m9.11.md",
@@ -391,6 +392,7 @@
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+  "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
   "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
@@ -399,10 +401,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 392,
-  "citations": 1176,
-  "unique_va": 273,
-  "start": 989,
+  "files": 394,
+  "citations": 1180,
+  "unique_va": 274,
+  "start": 993,
   "inside": 81,
   "corrected": 9,
   "gap": 85,
@@ -10547,6 +10549,42 @@
    "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
    "line": 247,
    "va": "0x8803cdd8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
+   "line": 52,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
+   "line": 52,
+   "va": "0x8803d060",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
+   "line": 131,
+   "va": "0x8803d060",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
+   "line": 135,
+   "va": "0x8803cb34",
    "kind": "fn",
    "class": "START",
    "true_start": null,
