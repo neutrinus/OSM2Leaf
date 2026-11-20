@@ -4167,8 +4167,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     chain partial rather than faking a pass.
   - Claims: C-2260–C-2269
 
-- [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
-  - Status: in progress · Owner: task/m9.17-mmain-reader-l3 · Critical: no
+- [x] **M9.17 — L3 target `mmain_reader` (H11 G1)**
+  - Status: done · Owner: task/m9.17-mmain-reader-l3 · Critical: no
+  - Result: EXP-2026-11-20-M9.17-mmain-reader-l3 (C-5970–C-5973). `tools/mmain_l3.py run` boots the EU card per case (`vcard_l3.py`): factory, `mmain.py`-rebuilt, edited (+1 count) and pipeline-generated `MMAIN001.DAT` ACCEPT with one `0x1000` read, buffer `0x00e23cc0` = `swap16(file)` and an equal `mmain.py` model; 4095-byte and absent REJECT (6/6). `targets.json` `mmain_reader` is a blocked entry naming the tool (the reader runs inside the mount, not as a `runner.py` call; no `corpus.py` row needed); matrix row 3 updated. EU2011 only.
   - Note (M9.44, 2026-11-19): `mmain_reader` runs inside `vcard_l3.py boot`; presence and a full `0x1000`-byte read are the only checks (C-4635). Close as covered by M9.44 unless a `runner.py` entry is still wanted.
   - Note (H51, 2026-11-11): re-run on the corrected engine (**M9.36**) and with real `INIT` bytes (**M1.19**); `0x0041a438` is a pdata `START` (length `0xf4`).
   - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked note kept: first data access was at `0x0055d040` (compressed sec1, UNMAPPED). M9.35 IMG256 scratch probe (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d040` and stops at `BLOCKED STUB COREDLL.dll!wcstombs`; rerun with proper context/stubs (M9.24) needed for verdict.
