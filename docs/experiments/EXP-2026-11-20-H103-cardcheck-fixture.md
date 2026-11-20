@@ -26,7 +26,12 @@ on CI — and does that tree still fail when a check is broken?
 `cardcheck`'s six root-source checks (`tree`, `headers`, `cmp`, `drstr`,
 `mmain`, `version`) are structural, not semantic: a ZE0-format tree whose
 level/box/header/count values come from the writer modules should pass them
-with no tile *content*. `mbr`, `fat` and `sha256` are image-only and must be
+with no tile *content*. A few inert literals are carried, not derived: the
+`_fixture_header` 0x180 block is exactly `diff_years.synth_header`'s, the
+`VER_INFO/HDD_INFO.TXT` body is exactly `one_tile_pipeline._synth_hdd_info()`'s,
+and `check_version` asserts only the 6-line/printable/72-B shape, so neither
+feeds a PASS number; the DRSTR `MMAIN001.DAT` checksum is a filename literal
+that the file's content does not change. `mbr`, `fat` and `sha256` are image-only and must be
 SKIP (never PASS) on a root tree. **Falsifier:** the tree passes while a
 deliberately broken copy also passes (a check that cannot fail), or the two
 runs are not byte-identical.
@@ -140,13 +145,24 @@ the MMAIN positive control, the MMAIN negative control (`not ok`, failing id
 
 Cross-build control: on python3.13/stock zlib the six root verdicts are
 **identical** (`mbr SKIP, fat SKIP, tree/headers/cmp/drstr/mmain/version PASS`;
-`counts` equal) and the run exits 0, but the raw bytes differ in the two
-files that pass through zlib — `MAPAL001/B48R058R.DAT`
-(`ced1a8ec…` vs `0d997f18…`), `REFER001/POINT001.DAT.cmp/.ind`
-(`2e16eccc…`/`aa0ee65e…` vs `878adbd5…`/`bc598c34…`). The tree is
-byte-identical **per interpreter**; the module-level `zlib.compressobj`
-output is not portable across zlib builds (AGENTS "recompression needs stock
-zlib 1.3.1"). This does not affect any verdict or the L1 exit code.
+`counts` equal) and the run exits 0, but the raw bytes differ in **three**
+files that pass through zlib. `sha256sum` of the python3 (3.15.0 / zlib
+1.3.1.zlib-ng) vs python3.13 (3.13.17 / stock zlib 1.3.2) fixture runs:
+
+```
+MAPAL001/B48R058R.DAT      0d997f18c58ea6f7602dd83e3c12ed223de681addce9c3decdcbc3376a56d3f0  python3
+                           ced1a8ec1507697c43bacac6aa851fc5514cc5330923b7641c3c3d7653367745  python3.13
+REFER001/POINT001.DAT.cmp  878adbd5481ec5561b4a6181115da348c319edc81dd84cc9715a2b3c24942441  python3
+                           2e16eccc5533ff9d6b6ac84916b8de556c4dc195445467aafffd0cbb2b0f0bd8  python3.13
+REFER001/POINT001.DAT.ind  bc598c346b479085d9e2f8439485a252e5231f477d38c1c52747172244a20478  python3
+                           aa0ee65e386cab2c05ef52879912e53a952ee3658032e80837ea652a7546f826  python3.13
+```
+
+The `.ind` differs because its chunk offsets are the `.cmp` chunk sizes. The
+tree is byte-identical **per interpreter**; the module-level
+`zlib.compressobj` output is not portable across zlib builds (AGENTS
+"recompression needs stock zlib 1.3.1"). This does not affect any verdict or
+the L1 exit code.
 
 `--image archive/head256.img`: exit 1, `counts={"pass":1,"fail":7,"skip":0}`,
 and each check's `errors` list equals `origin/main`'s `cardcheck.py` output for
@@ -164,9 +180,15 @@ usage error and exits 2.
 - **FACT:** two consecutive runs on one interpreter produce byte-identical
   files; the selftest's negative controls make `drstr`/`mmain` FAIL on a
   one-field break, so the passing tree is a real test.
+- **FACT:** the header (`_fixture_header`) is byte-identical to
+  `diff_years.synth_header` (SHA-256 `b209b617…`) and the 72-B
+  `VER_INFO/HDD_INFO.TXT` is byte-identical to
+  `one_tile_pipeline._synth_hdd_info()` (`0466d767…`); `check_version` treats
+  both as shape-only, so they are inert literals, not derived values.
 - **FACT:** `mbr`/`fat`/`sha256` are SKIP with reasons on a root tree, not PASS.
 - **OBSERVED:** the generator is byte-portable per interpreter, not across
-  zlib builds; verdicts are invariant.
+  zlib builds (three files differ, the `.ind` with the `.cmp`); verdicts are
+  invariant.
 - **HYPOTHESIS:** none needed — this is a tool result, not a format claim.
 - **UNKNOWN:** whether an L1 CI row built on this fixture catches the same
   defects as a vendor tree; that is H40/H104/H105's job (this is the primitive).
