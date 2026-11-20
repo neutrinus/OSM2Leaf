@@ -438,6 +438,7 @@
   "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
   "docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md",
   "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+  "docs/experiments/EXP-2026-11-20-M8.E2-registry-loaded.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
@@ -452,10 +453,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 445,
-  "citations": 1261,
+  "files": 446,
+  "citations": 1264,
   "unique_va": 295,
-  "start": 1105,
+  "start": 1108,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -10913,6 +10914,24 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M8.E2-registry-loaded.md",
+   "line": 140,
+   "va": "0x03bcc5b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.E2-registry-loaded.md",
+   "line": 168,
+   "va": "0x03bcc5b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
    "line": 22,
    "va": "0x0041a438",
@@ -12192,7 +12211,16 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 981,
+   "line": 948,
+   "va": "0x03bcc5b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1095,
    "va": "0x0001e3f4",
    "kind": "sub_",
    "class": "START",
@@ -12201,7 +12229,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1599,
+   "line": 1713,
    "va": "0x004124dc",
    "kind": "fn",
    "class": "START",
@@ -12210,7 +12238,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1621,
+   "line": 1735,
    "va": "0x003335c0",
    "kind": "fn",
    "class": "START",
@@ -12219,7 +12247,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1803,
+   "line": 1917,
    "va": "0x003fd690",
    "kind": "fn",
    "class": "START",
@@ -12228,7 +12256,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1806,
+   "line": 1920,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -12238,7 +12266,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1807,
+   "line": 1921,
    "va": "0x00404994",
    "kind": "fn",
    "class": "START",
@@ -12247,7 +12275,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1807,
+   "line": 1921,
    "va": "0x004052d4",
    "kind": "fn",
    "class": "START",
@@ -12256,7 +12284,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1808,
+   "line": 1922,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
