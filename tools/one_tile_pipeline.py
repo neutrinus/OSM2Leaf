@@ -633,7 +633,7 @@ def _synth_hdd_info() -> bytes:
 
     ``cardcheck.check_version`` requires exactly 6 CRLF-separated lines, no
     trailing CRLF and printable ASCII; the byte shape matches the factory file
-    (C-xxxx) without copying its vendor content.
+    (C-005: 72 B, five CRLF separators) without copying its vendor content.
     """
     return (b"TST-000-000\r\nTST-000-000\r\n00-000000-00\r\n"
             b"TST00-EVEUR\r\n11-05\r\n000000000000")
@@ -1493,6 +1493,8 @@ def selftest() -> int:
         chk(rep["gates"]["section4"]["status"] == "PASS",
             "M5.49: section4 PASS (factory section 4 untouched)")
         chk(rep["cardcheck_ok"] is True, "M5.49: cardcheck --root PASS on the P1 tree")
+        chk(rep["l2check_ok"] is None and rep.get("l2check_partial") is True,
+            "M5.49: l2check is not-run (not a bare true) on a synthetic fixture")
         chk(rep["display_only_gates"]["road_geometry"]["status"] == "NOT-APPLICABLE"
             and "M5.16" in rep["display_only_gates"]["road_geometry"]["detail"],
             "M5.49: the display-only/routing split names road_geometry not-run (M5.16)")
@@ -2075,10 +2077,15 @@ def build_preserve_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         set(report["changed_set_expected"]) >= set(report["changed_set_actual"]))
     # A factory root carries VER_INFO/HDD_INFO.TXT; a synthetic test fixture
     # does not, and cardcheck must be told --partial there exactly as the
-    # synthetic path does.  The real factory run stays strict.
-    partial = not (factory_root / "VER_INFO" / "HDD_INFO.TXT").is_file()
+    # synthetic path does.  The real factory run stays strict.  Separately, a
+    # fixture root is not a card, so its ``l2check`` is marked not-run rather
+    # than reported as a pass (``_preserve_fixture_root`` writes a placeholder
+    # HDD_INFO whose bytes identify it).
+    hdd_info = factory_root / "VER_INFO" / "HDD_INFO.TXT"
+    fixture = hdd_info.is_file() and hdd_info.read_bytes() == _synth_hdd_info()
+    partial = (not hdd_info.is_file()) or fixture
     cc_argv = ["--root", str(out), "--ignore-dump-artifacts", "--fast"]
-    if partial:
+    if not hdd_info.is_file():
         cc_argv.insert(1, "--partial")
     report["cardcheck_partial"] = partial
     rc, so, se = run_cmd_json("cardcheck.py", cc_argv)
@@ -2108,7 +2115,28 @@ def build_preserve_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         f"rebuild rc={report['counts']['rebuild_rc']}, cardcheck rc={report['counts']['cardcheck_rc']}, differing={len(differing)}.",
         "rebuild_manifests + cardcheck + tree diff")
     report["cardcheck_ok"] = card_ok
-    report["l2check_ok"] = True  # a verbatim tile is the factory tile; l2 passed on it (M5.30)
+    # l2check is run, not assumed: a bare ``True`` here made map_signals.card_step
+    # print P0 on a card whose l2check fails (C-4402 honesty rule).  On a real
+    # factory root the targeted command is the honest signal (it fails today on
+    # the pre-existing M5.52 ``refer_rename_resize`` regression, C-5543/M5.55 —
+    # which also fails on the untouched factory root).  A synthetic fixture is
+    # not a card, so it is marked not-run rather than reported as a pass.
+    if fixture:
+        report["l2check_ok"] = None
+        report["l2check_partial"] = True
+        report["l2check_not_run"] = "synthetic fixture root: l2check is not run (no real card tree)"
+    else:
+        rc2, so2, se2 = run_cmd_json("l2check.py", ["--root", str(out), "--no-golden",
+                                                    "--tiles", f"{cell}.DAT",
+                                                    "--semantic-tiles", f"{cell}.DAT",
+                                                    "--cmp-limit", "20"])
+        report["counts"]["l2check_rc"] = rc2
+        report["counts"]["l2check_tail"] = (so2+"\n"+se2).strip().splitlines()[-25:]
+        l2_out = so2 + se2
+        tile_checked = "tiles=1" in l2_out and "not present on this card" not in l2_out
+        report["counts"]["l2check_tile_checked"] = tile_checked
+        report["l2check_partial"] = False
+        report["l2check_ok"] = rc2 == 0 and tile_checked
     report["display_only_gates"] = {
         k: gate(v[0], v[1], "P1 display-only split")
         for k, v in DISPLAY_ONLY_GATES.items()}
