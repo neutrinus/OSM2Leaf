@@ -2013,8 +2013,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: a function that reads `ZCODE0nn` record bytes in the search run is named with offsets/widths, or the run records why the search path reads nothing (message wait, missing model); and `COORD001` has either a reader VA or a recorded "not read by `Navi.exe` on the mount or search path".
   - Stop: if two search-message attempts return no `ZCODE` row and the read issuer does not reach a parser, write the negative with the message ids and stop.
   - Claims: C-5780–C-5789
-- [ ] **M3.31 — Where the firmware gets the length of a tile directory read**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M3.31 — Where the firmware gets the length of a tile directory read**
+  - Status: done · Owner: task/m3.31-dir-read-length · Critical: no · Pair: required
   - Depends: M3.25, M9.13 (done)
   - Goal: M9.13 observed that the data-access task reads every directory of a tile with a fixed length per level and section (`0x14100`, `0x8100`, `0x2100`, `0x6100` on three EU tiles, C-3257) and not with the directory's own size, and that a tile whose file ends before that length fails the read (C-3256). The rule is OBSERVED only. Read it from the code, so a writer can compute the length for any tile instead of copying four constants.
   - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image <EU card> --max-reads 40 --json out.json` lists reads handled by `0x0041597c` with the four lengths above.
@@ -2024,6 +2024,17 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: one session. If the length comes from a table filled by another task at run time, name the table VA and its writer and block.
   - Falsifier: the fourth tile shows a length the rule did not predict.
   - Claims: C-5820–C-5829
+  - Result: EXP-2026-11-20-M3.31-dir-read-length. `fn 0x00414338` (EU2011) asks `0x100 * T[kind].n` bytes, `T` = 16 rows at `0x179c08` read by the leaf `0x0040901c(kind, 1)`, `kind` = the header level-table kind byte (merged by `0x0040aa50`, stored by `0x00409834`): `0x91` `0x14100`, `0x92` `0x8100`, `0x90` `0x2100`, `0x93` `0x6100`, `0x80` `0x1100`. 105/105 directory reads in 11 runs match; kind-byte controls give `0x3100`/`0x4100`/`0xa100`/`0x1100` and no read for a kind without a row. Fourth tile `B40R060R` (45.46 N 9.19 E): 5/5 reads as predicted before the run. New `tools/dir_read_len.py` (`table`, `predict`: length per level and directories read past EOF — 5 factory section-4 directories on 3 tiles); `datask_l3.py` prints the lookup per read. `B60R048R` mounts only its header (C-5825) → new **M3.33**. C-5820–C-5826.
+- [ ] **M3.33 — Why the mount leaves `B60R048R.DAT` after its header**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M3.31 (done)
+  - Goal: at 65.0 N 30.0 E and 64.5 N 29.0 E, both inside the `0x2ac` boxes of EU2011 `B60R048R.DAT`, `datask_l3.py mount --position` reads that tile's header and then the directories of `B28R070R.DAT` (C-5825). Find the check that drops the tile (header handler `0x0040b8b4` and what it decides), so a generated tile outside the factory set is not dropped the same way.
+  - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image <EU card> --position 65.0,30.0 --json P1.json` shows one `B60R048R.DAT` read (`0x1000`, handler `0x0040b8b4`) and directory reads of `B28R070R.DAT`.
+  - Scope: EU2011 `Navi.exe`; the header handler and the position-to-tile choice (`0x0040b49c`, the global at `0xd940e4`). Excludes record blocks.
+  - Input: EXP-2026-11-20-M3.31-dir-read-length (runs P1, P1c), EXP-2026-11-20-M9.13-generated-tile-l3 (position check), `tools/datask_l3.py`.
+  - Done when: the branch that leaves `B60R048R` is named with its VA and the header field it tests, and a run that changes that field (or the position) makes the mount read `B60R048R`'s section tables.
+  - Stop: one session; if the choice depends on a table filled by a task not in the run, name the table and its writer and block.
+  - Claims: C-6080–C-6089
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -2129,8 +2140,10 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     shuffled-field control; `rdstm.md` updated.
   - Claims: C-1800–C-1809
 
-- [ ] **M4.16 — Place `RDSTM001` rows on the map** (blocked: no join key)
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M4.16 — Place `RDSTM001` rows on the map**
+  - Status: done · Owner: task/m4.16-rdstm-place · Critical: yes · Pair: solo
+  - Result: EXP-2026-11-20-M4.16-rdstm-place-closure — done-when met on the EU 2011 card: join key = TMC location code; `rdstm_place.py place-all` carries 110,788/110,795 joined records of all 14 RDSTM tables to a level-2 (tile, parcel, node, link) with coordinates, positive neighbour < 1 km 94,551/95,176 vs shuffled 129 (reproduces C-5400/C-5401 exactly); 20 CZ D5 junctions listed with tile `B48R058R.DAT` and coordinates (Stříbro, Plzeň-západ, Rokycany at their known positions). C-5950–C-5951; C-1812 superseded. M4.16c and M4.2 no longer wait on this block. Data-side only: the firmware reader is M4.49.
+  - Done when: ≥ 20 rows are matched to tile road segments with coordinates, with the join key named and a random-key control showing ~0 matches (original wording, restored at close).
   - Re-opened (rule 15, PO 2026-11-20): `Unblock` M4.16b is done and it found the join the blocker lacked: location code → `(group, entry)` → level-2 node (M4.16e, M4.16b second EXP, C-5400–C-5403; table codes M4.16d, C-2320–C-2323). This task is now a closure: re-run its own `Done when` with `python3 tools/rdstm_place.py place-all`, record the numbers, and close it or name what is still missing. Then check `M4.2` and `M4.16c`, which wait on this block.
   - Step: P3
   - Depends: M4.15 (M4.8 helps)
@@ -2139,13 +2152,13 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     (`tools_ze0`, `harness.py`), `COORD001` mesh formula, `mesh_grid.py`.
   - Unblock: M4.16b (per-record field directory), or M4.16c (the `INTER`/`FRWAY`
     `ref` lead) if the directory does not resolve the join.
-  - Blocker: M4.1 16-byte fields (`ref/src/dst/code`) give no segment-specific
+  - Blocker (history, resolved by M4.16b/M4.16e): M4.1 16-byte fields (`ref/src/dst/code`) give no segment-specific
     join (hits at chance vs dense lid space; `ref`∩parcel/AB=0; C-1810) and
     M4.15/M3.7 leave framing/TMC semantics undecoded. `INTER*` `ref` byte-pattern
     enrichment (real>>random) is an unverified lead (C-1811).
-  - Result: EXP-2026-11-06-M4.16-rdstm-placement; `tools/rdstm_place.py` probe
+  - Result (history, superseded): EXP-2026-11-06-M4.16-rdstm-placement; `tools/rdstm_place.py` probe
     + selftest. Join key NOT identified; done-when not met (negative).
-  - Claims: C-1810–C-1819
+  - Claims: C-5950–C-5959 (was C-1810–C-1819; fresh block for this run)
 
 - [x] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
   - Status: done · Owner: task/m4.16b-rdstm-field-dir-placement · Critical: yes
@@ -3767,6 +3780,16 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     M8.C10), OEM IOCTLs, `gwes.exe` not started. Tool:
     `tools/ze0_dbgmsg.py` (kernel debug text over the gdbstub).
   - Claims: C-1350–C-1359
+
+- [ ] **M8.B6 — Kernel debug text on the debug UART (no gdbstub needed)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M8.A6 (SCIF model at `0xffe46000`, done), M8.B5 (F1 boot, done)
+  - Goal: today the kernel's debug strings never reach the SCIF: `KernelStart` and every `NKDbgPrintfW` go through `fn 0x880404f4` → AstLog (`0x88044478`, EU2011) with the `DebugLog` path gated off (`0x89e613b0`/`0x89e613b4`), so a 60 s boot writes 0 serial bytes (M8.A6, C-1280–C-1283) and M8.B5 had to read the text over the gdbstub (`tools/ze0_dbgmsg.py`). Make the same text appear on `run.sh --serial` so every L4 run has a plain log, and so long boots (M8.C rows, M8.E4) need no breakpoint per string.
+  - Scope: find what sets the `DebugLog` gate and which output routine it enables (static: callers of `0x880404f4`, readers/writers of `0x89e613b0`/`b4`; the OAL `OEMWriteDebugString`/`OEMWriteDebugByte` pair, which in CE normally writes the debug UART). Then pick the least invasive way to turn it on, in this order: (a) a board/boot argument the OAL already reads (registry, boot-args block, a strap the `ze0` machine can present); (b) a `ze0` machine option that presents the gate value at boot; (c) a documented one-word guest patch applied by `run.sh` (never committed vendor bytes, only VA + old/new word). Not in scope: changing what the kernel prints, or the gdbstub tool (keep `ze0_dbgmsg.py` as the cross-check).
+  - Done when: one `-M ze0` boot of EU2011 IMG256 (`run.sh --serial`, `-icount shift=0,sleep=off`) writes the kernel debug text to `WORK/serial.log`, and for the first 200 lines it equals what `tools/ze0_dbgmsg.py run` captures for the same boot (diff = 0, or every difference explained); the boot still reaches F1 (M8.B5 checks 1–3). Negative control: the same boot without the option/patch writes 0 bytes (reproduces C-1281). The EXP names the gate, its writer, and the output routine with EU2011 VAs.
+  - Stop: if the debug text can only reach the UART by patching more than one code word, or the gate is set from hardware the `ze0` machine cannot model, record the path and stop (negative EXP).
+  - Hints: `tools/ze0_serial.py banner`, `tools/ze0_dbgmsg.py`, patches in `tools/qemu-ze0/patches/`, QEMU binaries from M8.B5. Requested by Marek 2026-11-20.
+  - Claims: C-6240–C-6249
 
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
   [`todo-history-2026-11-05.md`](docs/research/todo-history-2026-11-05.md),
