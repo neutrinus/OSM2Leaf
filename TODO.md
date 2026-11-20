@@ -1314,6 +1314,42 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-5800–C-5809
   - Result: docs/experiments/EXP-2026-11-20-H118-fnmatch-unloaded-pool.md; C-5800–C-5806. `_pool_loads` walks the function from its entry (`reachable`) and rejects a slot on a reached instruction and, in a function with no reached `braf`/`jmp`, a load at an unreached halfword; the hw50 synthetic no longer blanks hw122, the loaded-pool case still does not (`fn_match --selftest` 46→53). Census `UNIQUE 5954 / DIFFERENT 162 / CALLORDER 56 / AMBIGUOUS 566 / NOMATCH 858` (was `5945/171/56/566/858`): only `DIFFERENT→UNIQUE 9`, same US VAs, 0 moved; the residual explains 0 of the 858 NOMATCH (31 contain such a load, none changes) and 9 of 171 `DIFFERENT` (8 were reads of the next function's bytes past the function end). Control: dropping every unreached load (`--all-closed`) loses 48 `UNIQUE` to `NOMATCH` (switch case bodies). Fixture `13 rows, 0 mismatch`, `bodies` 12/12 unchanged. New `tools/fn_verdict_diff.py` (dump/diff/slots).
 
+- [x] **M1.36 — Module census of the CE ROMs on four cards (EU 2011, US 2011, EU 2014, EU 2016)**
+  - Status: done · Owner: claude/project-thread-64ftoc · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: first answer to "what differs between the binaries of the card generations".
+  - Done when: an EXP has the module counts, added/removed modules and code sizes per image.
+  - Result: EXP-2026-11-20-M1.36-module-census-4-images (C-6280–C-6285): same five-segment SH-4 layout on all four; EU 2011 and US 2011 share kernels B/C byte for byte and differ only in A; 2014/2016 are platform `X212` with different kernels (`FlashManager2`, `fmmdrv_05/07`); `Audio.exe` +54 %, `Navi.exe` +4 % in 2014.
+  - Claims: C-6280–C-6289
+
+- [ ] **M1.36b — `tools/rom_atlas.py`: one table of every module on every card image (the binary and data atlas)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.36 (done), M1.22b (`fn_match`, reloc-masked function hashes, done)
+  - Goal: a committed, reproducible map of what is on a card: per image and ROM (A/B/C) every module with size, sections, reloc-masked code hash, imports/exports, COM class names and its role in one line; plus the data side (FAT tree families, TFAT16 tail, `FILESentry` files). M1.36 was a scratch script whose hashes include XIP relocation.
+  - Precheck: `python3 tools/fetch_image.py --image EU2014 --part 256M -o X` verifies the size; `python3 tools/cerom.py --image-start 0x200200 X modules` lists 153 modules.
+  - Scope: the four pinned images; output `docs/research/rom-atlas.md` (generated, with the command) + `--json`. Role lines only where a string/export supports them, else `unknown`. Pin the EU2014/EU2016 256M SHA-256 in `fetch_image.py`.
+  - Done when: `rom_atlas.py --selftest` passes; the table reproduces M1.36's counts; for EU 2011 vs US 2011 it reports which A modules are equal after reloc masking (negative control: B/C all equal, C-6281).
+  - Claims: C-6290–C-6299
+
+- [ ] **M1.37 — Changelog between builds, module by module (functions, strings, exports)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.36b
+  - Goal: for each module present in two builds: functions added / removed / changed (pdata + `fn_match`), new strings, new exports and COM methods; first for `Navi.exe`, `Audio.exe`, `BT_MGR.dll`/`BT_ENG.dll`/`BT_FW.dll`, `Speech.exe`, `DriveComputerCC.dll`, pairs EU2011→EU2014 and EU2014→EU2016. This is what tells whether a newer Bluetooth or navigation build has anything we want.
+  - Precheck: `python3 tools/pdata.py` lists functions for `BT_MGR.dll` on both images; `fn_match` reaches ≥ 90 % on a module known to be nearly equal (`BT_FW.dll`, same size in all four).
+  - Scope: static diff only; one EXP per module group with counts and the 20 largest changed functions named by their strings. No behaviour claims without a string or an L3 run.
+  - Done when: `docs/research/rom-changelog.md` has the per-module table for the two pairs, with a control (EU2011 vs US2011 B = 0 changes).
+  - Stop: a module whose match rate is < 50 % is reported as `rewritten`, not diffed by hand.
+  - Claims: C-6300–C-6309
+
+- [ ] **M1.38 — Can a 2014/2016 kernel ROM start on the 2011 board? (static)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.36 (done); M6.19 helps (what the unit's own flash holds)
+  - Goal: decide whether "use the newer binaries" is possible at all on Marek's `QY7200ND`: compare ROMHDR RAM windows, BSP/platform strings, the driver set (`fmmdrv` vs `fmmdrv_05`/`_07`, `FlashManager` vs `FlashManager2`, LCD, SDHC) and the launcher's unit checks between `X210` and `X212` builds B.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 <EU2014 head> romhdr` prints a ROMHDR.
+  - Scope: static, builds B/C of EU2011 and EU2014. Output: a table check → 2011 → 2014 → compatible / not / unknown, and one verdict. No card is built.
+  - Done when: the EXP names at least the flash-driver selection rule (how `fmmdrv_05`/`_07` is chosen) or records it as unknown with the VA where the choice is made.
+  - Claims: C-6310–C-6319
+
 ## M2 — Map code, activation, updater
 
 - [x] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
@@ -2661,6 +2697,15 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-4590–C-4599
   - Result: EXP-2026-11-19-M4.41-diff-years (C-4590–C-4599): `tools/diff_years_tiles.py` gives the per-section `kept/changed/added/removed` census for 45 tiles × 2 pairs (2011→2014 sec1 606622/1402020/135997/187413; 2014→2016 sec1 755251/1308596/68171/80792) with the 20-tile tables, and names section-4 rename records (e.g. `B48R070R` `CRICCLETH;`→`CRICCIETH;`) and the `B60R060R` added-road sample. `Stop:` applies — the editions move all three sections together, so fewer than three clean one-variable pairs exist; the census is the result.
 
+- [ ] **M4.57 — Polish voice: can the 2011 `Speech.exe` use the `SPEECH/` set of the EU 2014 card?**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (M1.37 helps for `Speech.exe`)
+  - Goal: EU 2011 ships 7 `SPEECH/` languages, EU 2014 adds nine including `PL` (C-2495). Find out whether the language files (VR, TTS, GID) changed format between the cards and how the 2011 firmware picks a language (the `DRSTR` `0x18c` code, C-2496, and the language list in the UI).
+  - Precheck: both roots have `SPEECH/`; `python3 tools/diff_years.py` lists the language sets.
+  - Scope: offline: headers and sizes of one language present on both cards (e.g. `EN`), byte-compared 2011 vs 2014; the SVOX/GID version fields; strings in `Speech.exe`/`SpeechCC.dll` that name languages. No card build.
+  - Done when: an EXP says `same format` / `different` / `unknown` per file kind with the differing fields, and where the 2011 build's language list lives.
+  - Claims: C-6320–C-6329
+
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
 Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
@@ -3960,6 +4005,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no
   - Depends: —
   - Claims: C-1360–C-1589 (per-row blocks, see above)
+  - Row notes:
+    - C10 (SD host): done 2026-11-20 (task/m8.c-sd-host-c10). Result: EXP-2026-11-20-M8.C10-sd-host (C-1460–C-1464). Patch `ze0-0008`: SDHI/TMIO-style ports at `0xffe4c000`/`0xffe4d000` on QEMU's SD bus (card detect = SD_INFO1 bit 5, `SDHC.dll fn 0x039bcedc`, EU2011), IRQs INTEVT `0xae0`/`0xb00` (SYSINTR `0x1f`/`0x20`, INT2 bit 29), SCIF stubs for a kernel-mode TEND spin in `serial_scif.dll`; `run.sh --sd`; tool `ze0_sdhost.py`. The launcher's SD check passes, `ActivateSDCardDriver` runs the card identification on the EU card and its init returns `End(NG)` without hanging boot; the first data transfer (ACMD13) uses the HPB DMAC and times out, so F3 (FAT mount) waits on **C1** (HPB DMAC, channel registers at `0xffc08200`).
 
 - [ ] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: open · Owner: — · Critical: no · Pair: solo
