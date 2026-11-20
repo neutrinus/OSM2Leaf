@@ -2010,6 +2010,15 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-5378 | Still UNKNOWN after M4.49: the reader VA, entry bits `a`/`b` 0x4000/0x8000, roles `k&3` (roles 0/1: C-5403), header words `3`/`122`; no L3 run without a candidate. | UNKNOWN | — | EXP-2026-11-20-M4.49-rdstm-group-reader |
 | C-5379 | M4.49 is `blocked` (rule 14 stop: reachability walk + two derived signature families without a candidate); unblocker M4.51 (senders of `0x14f4`/`0x14e4`, what `0x14f4` reads). Positive controls: `0x1fff` loads found at 230 sites (e.g. `0x004248da` in `fn 0x004247c0`, section-2 band); `--const 0x14e4` lists the known sites `0x004125fa` and `0x003bcb48`. | OBSERVED (gap) | H | EXP-2026-11-20-M4.49-rdstm-group-reader |
 
+## M4.16d — TMC service list and RDSTM table codes (C-2320–C-2329)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2320 | EU 2011 `RDSTM001.DAT` table code = `ord(CC hex digit) << 8 \| LTN` (RDS country code, TMC location table number): all 14 codes decode to the RDS CC of the country their own records land in (14/14; 1,000 shuffles of the countries: max 8, mean 1.41). | VERIFIED (EU, with control) | H | EXP-2026-11-20-M4.16d-tmc-reception-table-codes; `tmc_reception.py join` |
+| C-2321 | EU 2011 `TMC/reception.dat` (208 B, `09603f6b…`) lists exactly the card's 14 (CC, LTN) pairs — 13 rows `ff 0f CC LTN 00 ff ff ff`, GB in the row `03 0a 0c 0a …` — one per RDSTM table, none unmatched either way. | VERIFIED (EU) | H | EXP-2026-11-20-M4.16d-tmc-reception-table-codes; `tmc_reception.py rows` |
+| C-2322 | The first two `reception.dat` rows (`01 3e 0f 1e 00 …`, `02 32 0d 00 01 01 …`) and the `03` row kind are not decoded. | OBSERVED | M | EXP-2026-11-20-M4.16d-tmc-reception-table-codes |
+| C-2323 | A Poland build would need location table CC 3 + Polish LTN, an RDSTM table code `0x33nn` and a `reception.dat` row `ff 0f 03 nn`. | HYPOTHESIS | M | EXP-2026-11-20-M4.16d-tmc-reception-table-codes; C-2320, C-2321 |
+
 ## M1.13 — Factory encoder for REFER001 POI pages (C-2570–C-2579)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |

@@ -2284,8 +2284,10 @@ of the four numbers above says so in its first line.
     coordinate` with random-key control.
   - Claims: C-2310–C-2319 (was C-1950–C-1959, already used by M2.13b)
 
-- [ ] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
+  - Status: done · Owner: task/m4.16d-tmc-segment-placement · Critical: no
+  - Result: EXP-2026-11-20-M4.16d-tmc-reception-table-codes — `TMC/reception.dat` lists the card's 14 (CC, LTN) pairs, one per RDSTM table; a table code is `ord(CC hex digit) << 8 | LTN` (14/14 listed, 14/14 codes carry the RDS CC of the country their records land in; shuffled countries max 8/14). With M4.16b (C-5400/C-5402) the chain (CC, LTN, location code) → RDSTM table → record → MAPAL node is closed. `TFTBL001` is absent on 2011 cards (C-122), not tested. `tools/tmc_reception.py`. C-2320–C-2323.
+  - Done when (set at close, the block had none): every `reception.dat` (CC, LTN) maps to exactly one RDSTM table whose placed records lie in the country with that RDS CC, above a shuffled-country control — met.
   - Step: P3
   - Depends: M4.16b, M4.7
   - Goal: if `RDSTM001` is TMC (C-882), test placement through the TMC
