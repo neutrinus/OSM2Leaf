@@ -1,0 +1,53 @@
+role: driver (H103), model opencode/deepseek-v4.1-flash-free, subagent of a driver session
+start: 2026-11-20 14:10 UTC  end: 2026-11-20 15:30 UTC (approx)
+origin/main at start: 2e683be (merge PR #327, M4.54 section-2 read-watch)
+
+inputs read: AGENTS.md, TODO.md rules 1-16 + H103/H104/H105 blocks,
+docs/experiments/TEMPLATE.md, docs/research/claims.md M5.43/M9.42 section
+format, tools/cardcheck.py whole file, tools/ze0_tile_header.py,
+tools/tilewriter.py, tools/drstr_ze0.py, tools/cmpind_writer.py,
+tools/selftest.py (builtin cardcheck suite), H40's Input line.
+
+worktree: /home/marek/projekty/OSM2Leaf.task-h103-cardcheck-fixture, branch
+task/h103-cardcheck-fixture off origin/main, archive/ symlinked; never touched
+the primary checkout.
+
+actions, in order:
+- fetched, confirmed no H103 owner/PR, set only its line to in progress,
+  committed `todo: start H103`, pushed -u, opened draft PR #337 (rule 2/3).
+- reproduced the precheck (`--help | grep -c generate-fixture` = 0, only
+  --image/--root; `one_tile_pipeline --selftest` OK).
+- prototyped the builder in ~/projekty/leafre-work/scratch/h103/proto.py and
+  found the six root checks all pass with the real writer modules (no vendor).
+- implemented in tools/cardcheck.py: Check.skipped/status(), Report(fixture=)
+  and finish() emitting per-check `status`/`skipped` + top-level `counts`,
+  check_mbr/fat/hash via check.skip(), the fixture section
+  (FIXTURE_*, _fixture_header/_lev_tile/_mmain/_tile_totals, generate_fixture),
+  a shared _run_checks, `--generate-fixture` + `--selftest`, rewritten main.
+- found and fixed the parser: the source group was required=True, so
+  `--selftest` alone exited 2; made the group optional and moved the
+  "one of --image/--root/--generate-fixture is required" check after the
+  selftest branch (a bare invocation still exits 2 with the same message).
+- added `--selftest`: determinism, six PASS, mbr/fat SKIP with reason, and two
+  negative controls (DRSTR tile-name flip -> drstr FAIL; 0xBEEF into a non-zero
+  MMAIN level count -> mmain FAIL). 18/18 ok.
+- verified Done-when: `--generate-fixture /tmp/opencode/h103-tree --json …`
+  exits 0, ok=true, counts {pass:6, fail:0, skip:2}, fixture=none; two runs
+  byte-identical on python3.15; `--root` on the same tree exits 0 with no
+  `fixture` key; `--image archive/head256.img` exits 1 with per-check errors
+  equal to origin/main's cardcheck.py (only the new `counts` key differs).
+
+decisions: `--generate-fixture DIR` (not a second tool, not in-process-only) so
+one validator and one exit code; do NOT force --partial (the tree is complete
+and --partial made drstr warn about VER_INFO it does not list); fixed
+timestamps; MMAIN counts summed from the written tile headers, DRSTR sizes from
+drstr_ze0.build. Added the zlib portability control: on python3.13/stock zlib
+the tile and REFER .cmp bytes differ while all six verdicts stay identical, so
+byte-identity is stated as per-interpreter, not cross-build.
+
+problems: python3 here is 3.15/zlib-ng, so the first determinism claim was
+narrow; the EXP/claim now name both builds and the verdict-only invariance.
+No vendor data committed. Scratch deleted.
+
+handoff to navigator: review the `--selftest` negative controls and the
+EXP's C-4340–C-4349; then H104 (baseline) / H105 (--break) build on this.
