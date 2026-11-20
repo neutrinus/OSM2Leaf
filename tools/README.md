@@ -504,9 +504,16 @@ US-2011 Navi VAs, M1.28/C-3487) are skipped for every kind in both scopes so
 the EU head never reports a valid US address as `INSIDE`. It reports
 `NOT SCANNED <reason>` for a corpus whose parser or file is missing, and exits
 1 on any `INSIDE` (or an `AMBIGUOUS` whose candidates include one). The whole
-l3 citation set is frozen to `docs/research/fn-audit-l3-corpus-2026-11-16.json`
+l3 citation set is frozen to `docs/research/fn-audit-l3-corpus-2026-11-20.json`
 by the same `--write-snapshot` (scope `l3`), because EXPs cannot be edited:
-their stale VAs are a register, not a diff to fix.
+their stale VAs are a register, not a diff to fix. Since H77 both scopes skip
+fenced code blocks (```` ``` ```` / `~~~`, any indentation; an unclosed fence, or one whose
+body dedents below its opener, hides nothing): a VA quoted in a command or output block is not a citation.
+The pre-H77 overlay `fn-audit-l3-corpus-2026-11-16.json` is kept at `main`'s
+state when H77 merged (1204 rows, 159 of them fenced, SHA-256 `c80330ac…`); it
+is not re-synced after H77 (`--write-snapshot` refuses that name, exit 2).
+Re-sync `fn-audit-l3-corpus-2026-11-20.json` instead
+(EXP-2026-11-20-H77-skip-fenced-code).
 
 `--corpus BASE --overlay L3` audits both layers and applies the H69 policy
 **per source**: each layer gets its own live comparison (`docs` for the base,
@@ -525,10 +532,10 @@ python3 tools/fn_audit.py archive/head256.img --fix-list   # machine-readable fi
 python3 tools/fn_audit.py archive/head256.img --scope docs \
     --write-snapshot docs/research/fn-audit-corpus-2026-11-16.json
 python3 tools/fn_audit.py archive/head256.img --scope l3 \
-    --write-snapshot docs/research/fn-audit-l3-corpus-2026-11-16.json
+    --write-snapshot docs/research/fn-audit-l3-corpus-2026-11-20.json
 python3 tools/fn_audit.py archive/head256.img \
     --corpus docs/research/fn-audit-corpus-2026-11-16.json \
-    --overlay docs/research/fn-audit-l3-corpus-2026-11-16.json --quiet
+    --overlay docs/research/fn-audit-l3-corpus-2026-11-20.json --quiet
 python3 tools/fn_audit.py --selftest                       # no image needed
 ```
 

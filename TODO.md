@@ -894,8 +894,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-16-H76-l3-image-assert; C-3990–C-3999. `test_fn_audit_scope_l3_image` accepts `CORPUS (OK|DRIFT): L3 OVERLAY: 0 new / 0 gone / N moved` and asserts no `CORPUS STALE`; full `selftest.py` 90/0/23, and a one-row-deleted overlay still yields `CORPUS STALE: … 1 new / 0 gone` exit 1.
   - Claims: C-3990–C-3999
 
-- [ ] **H77 — `fn_audit`/`claims_check` do not skip fenced code blocks, so an EXP that quotes a citation becomes a live citation**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H77 — `fn_audit`/`claims_check` do not skip fenced code blocks, so an EXP that quotes a citation becomes a live citation**
+  - Status: done · Owner: task/h77-skip-fenced-code · Critical: no · Pair: required
   - Depends: M1.26 (done: the l3 scope and its overlay), H76 (done: the l3 image assertion)
   - Goal: in H71 the driver's first EXP draft put the probe text `Goal: fn 0x<VA> probe` inside a fenced block; `fn_audit.citations_markdown` has no fence state, so the EXP became a live l3 citation and the gate went `CORPUS STALE: 1 new` (full `selftest.py` RED). It was worked around with a `$VA` placeholder — a workaround that every future EXP writer must know. Fenced blocks are the documented way to quote a command; a scanner that treats their contents as prose will keep producing this class (the same failure in the docs scope is silent, because `docs/format/*.md` has few fences). This is a *policy* decision, so it is a pair, not a solo edit.
   - Precheck: `python3 -c "import re;t=open('docs/experiments/EXP-2026-11-16-H71-evidence-spans.md').read();print(bool(re.search(r'(?s)\`\`\`.*?fn 0x[0-9a-f]{6,8}.*?\`\`\`?',t)))"`; append a fenced `fn 0x<start>` to a copy of a `docs/format/*.md` and run `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` — today it prints `CORPUS STALE: 1 new` for a fenced line.
@@ -904,6 +904,7 @@ of the four numbers above says so in its first line.
   - Done when: a fenced `fn 0x…` appended to a copy of `docs/format/firmware.md` (and to an EXP) does **not** change either `--corpus` verdict (exit 0, unchanged counts); an unfenced one does (`CORPUS STALE: 1 new`, exit 1); `python3 tools/fn_audit.py --selftest` covers both, and `python3 tools/selftest.py` stays green; a before/after count of fenced citations (if any) is in the EXP.
   - Stop: if a fence-aware scanner would change any committed snapshot row, say so in the EXP and ship the scanner with a *new* overlay rather than silently rewriting the frozen one (H69's rule).
   - Claims: C-4000–C-4009
+  - Result: EXP-2026-11-20-H77-skip-fenced-code; C-4000–C-4003. `fn_audit.fenced_lines` (any-indent ``` / ~~~ fences, an unclosed fence hides nothing) is applied in `citations_markdown` for both disciplines; `TODO.md` open blocks keep their rule (they are not fence-aware, H115); the docs-base scan of `TODO.md` is. Docs base: 0/552 citations were fenced, so it is unchanged. l3 overlay: 159/1176 rows were fenced (START 126, GAP 18, INSIDE 10, UNMAPPED 5), so under the Stop rule a new overlay `fn-audit-l3-corpus-2026-11-20.json` (1017 rows at measurement, 1045 after the last `main` merge) ships as the gate/selftest default; the 2026-11-16 overlay is kept at `main`'s state when H77 merged (1204 rows, SHA-256 `c80330acac8b7839cfa38681ff7c865f80477d095c9750e3e4a7f430803f83d8`); not re-synced after H77 (`--write-snapshot` refuses its name). A fenced probe in `firmware.md`, an EXP or `map-tiles.md` leaves both verdicts at exit 0; unfenced, it gives `CORPUS STALE 1 new`, exit 1. `fn_audit --selftest` has 78 checks. `claims_check` unchanged: it has no citation scanner and its evidence rules read fenced commands; the title's mention is superseded by the Scope. Navigator fixes: EXP §Corrections after navigator review.
 
 - [x] **H78 — `claims_check --strict` must run the count rule, and a docs-only EXP edit must not re-pin a claim's measured revision**
   - Status: done · Owner: task/h78-count-gate · Critical: no · Pair: required
@@ -1012,8 +1013,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-17-H87-us-build-comment; C-4100–C-4101. The comment above `US_BUILD_STARTS` now names the list as it is (the M1.28 fixture's US side + M1.22b's six pool-only twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count `0`. Both counts are pinned to H87's own revision `381879b`: `US_BUILD_STARTS` `12` entries (`git show 381879b:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x[0-9A-Fa-f]\{8\}'`) and `fn_audit --selftest` `OK (70 checks, 0 failed)` there. `main` `9beb6a4` ships `15` entries and `OK (72 checks, 0 failed)` (`398db35`): `e199373` added the three POINT-walker starts and `f1c8dbb` the two H88 selftest cases — EXP-2026-11-18-H91.
   - Claims: C-4100–C-4109
 
-- [ ] **H89 — The 1,259 unexplained `fn_match` NOMATCH are the next census: rewrites or a second matcher class**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H89 — The 1,259 unexplained `fn_match` NOMATCH are the next census: rewrites or a second matcher class**
+  - Status: done · Owner: task/h89-nomatch-census · Critical: no · Pair: required
   - Depends: M1.22b (which classified the 13 cited readers and left 1,259 unexplained)
   - Goal: after M1.22b the module census is `UNIQUE 2392 / DIFFERENT 3214 / CALLORDER 213 / AMBIGUOUS 518 / NOMATCH 1259` (total 7596). The 1,259 are unexplained: each has no hash hit, no unique masked-form twin and no call-order match. Decide per sample whether they are real rewrites (a differing instruction) or a second matcher class (e.g. reordered basic blocks, a different register allocation with the same semantics, a function split/merge), so a future leaf/reader task knows whether the US code is missing or the matcher is.
   - Precheck: `python3 - <<'EOF'` (the M1.22b census script) prints `NOMATCH 1259`; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va <one unexplained VA> --json /tmp/x.json` carries `diff: null` and `verdict: NOMATCH`.
@@ -1022,6 +1023,7 @@ of the four numbers above says so in its first line.
   - Hints: this is the same shape as M1.22b, one level down — do not start from a matcher idea, start from disassembly of a handful and let the classes fall out. A sample of 30–50 is enough to size the classes; a full 1,259 classification is not the goal.
   - Done when: an EXP reports the sampled distribution with counts and the first differing instruction per class, and says whether the 1,259 are mostly rewrites or a matcher class; a claim names the dominant class and its evidence; `python3 tools/gate.py` green.
   - Stop: if the sample is all one class with no cheap fix, record it and do not change `fn_match.py`.
+  - Result: docs/experiments/EXP-2026-11-20-H89-nomatch-census.md; C-4120–C-4126. New tool `tools/nomatch_census.py` pairs each NOMATCH by address order (no matcher hash; anchor control 38/40 UNIQUE re-paired; classifier control 0/40 wrong neighbours classed same code; pipeline controls: shifted anchors without fallback keep 73 of 360 same-code rows, shuffled 1). Sample seed 89, 40 of 1259: `TWIN 13  PHANTOM-SLOT 3  IMMEDIATE 4  EDIT 7  REWRITE 5  UNPAIRED 8` — 16 identical code, 24 real differences or no counterpart; no function differs only in register allocation or only in order (`REGALLOC`/`REORDER` 0). Population (tool only): same code 360/1259. Mostly rewrites, but the largest single class is a matcher class: `TWIN` (identical stream shared by ≥2 US functions). Two cheap fixes filed as H113 (forward-pass pool slots, 141 functions) and H114 (address-order pick among twins, 219 rows; must be one-to-one); `fn_match.py` unchanged. Navigator round 1 corrections are in the EXP.
   - Claims: C-4120–C-4129
 
 - [x] **H91 — M1.22's shipped `US_BUILD_STARTS` is 15 entries, but H87's Result and C-4101 say it "stays 12"**
@@ -1392,6 +1394,16 @@ of the four numbers above says so in its first line.
   - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
   - Claims: C-4490–C-4499
 
+- [ ] **H115 — `TODO.md` open-block citations are not fence-aware: the fenced task template counts as an open block**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H77 (`fn_audit.fenced_lines`)
+  - Goal: H77 made the docs-base and EXP scans skip fenced code, but `fn_audit._open_blocks`/`citations_open_tasks` (the l3 open-block scan) still read `TODO.md` line by line, and `TODO.md` has fences (the task-field template at about line 208, others near 307 and 927). The fenced template's `- [ ] **ID — title**` line is parsed as a real open block (pre-existing bug), so any `0x…` quoted in a fenced example under an open task becomes a live l3 citation.
+  - Precheck: `grep -n '^```' TODO.md` lists the fences; `python3 tools/fn_audit.py archive/head256.img --scope l3` prints `open blocks N`; record N and whether the template block is among them.
+  - Scope: `tools/fn_audit.py` (`_open_blocks`, `citations_open_tasks`) plus `--selftest` cases; re-freeze `docs/research/fn-audit-l3-corpus-2026-11-20.json` if rows change. No `TODO.md` text edit.
+  - Done when: a fenced `- [ ] **H999` template is not an open block and a fenced `0x…` under a real open block is not cited (selftest), the unfenced controls still are; the EXP records the open-block count before/after on the real board; `python3 tools/gate.py` stays green.
+  - Stop: if the board's fences are unbalanced (an unclosed fence hides nothing, per H77), record the lines and ship only the template fix.
+  - Claims: C-5720–C-5729
+
 - [x] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
   - Status: done · Owner: task/m1.34-applaunch-table · Critical: no
   - Result: table base `0x03bb2330` (EU2011 = US2011), 112 records × `0x310` B via getters `0x03bccb84`/`0x03bccb88`, walker `fn 0x03bcc5b0`, filter `fn 0x03bcc564`; EU `Navi.exe` = record #81 `0x03bc1b40` (type 4, area `0x00020000`, waits 80/20/3/4/40/94/82, id `0xa2`). `fn 0x03bcc078` creates `Navi.exe` suspended and resumes it only if the error flag `0x01f733f0` is clear after id 82, which `MountStorage` (`fn 0x03bd224c`) signals after `SDC1:` → `DSK1:` mount → check 1 `fn 0x03bd2ad8` → check 2 `fn 0x03bd2ce4`. Corrected the USA/Euro area masks (C-5350). Tool `tools/applaunch_table.py`; `docs/research/rom-registry.md` updated. EXP: `docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md`. Claims C-3528, C-3529, C-5350, C-5351.
@@ -1415,6 +1427,30 @@ of the four numbers above says so in its first line.
   - Stop: if the `SDHC.dll` IOControl dispatch is not found after the literal search and an export walk, record the negative and block on an L3 run of `fn 0x03bd2044`.
   - Claims: C-5352–C-5359
   - Result: done — EXP-2026-11-20-M1.35-sdc1-ioctl-wait94. `SDC1:` = `CSDCMain` in `SDHC.dll` (EU2011 = US2011); `fn 0x039b4498` dispatches `0x80032004` to `fn 0x039b4850` (port state: 2 inactive, 4 `DSK1:` active, 8 failed, 1 no card, `|0x80000000` if unpowered) and `0x80032000` to `fn 0x039b4664` (insert/remove request: port power + wake the load thread). Neither issues CMD42; the unlock runs inside the `DSK1:` activation (`fn 0x039b4b18` → `CDSKMain::Init` → `fn 0x039b6ac4`), which then sets ACM id 37. Id 94: no SET_ID sender in images A+B+C of either build (`tools/acm_id_scan.py`: 0 of 71/72 calls; controls 37, 22, 82 found), so `Navi.exe` waits out its 30 s (C-5352–C-5357; C-5358–C-5359 unused).
+
+- [ ] **H113 — `fn_match` blanks real instructions as pool slots when pool data decodes as `mov.x @(disp,PC)`**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H89 (done; the PHANTOM-SLOT class and its count)
+  - Goal: `fn_match._instruction_tokens` and `fingerprint` mark a pool slot for every halfword that decodes as a PC-relative load, including halfwords that are themselves pool data, and then hash a real instruction as `0x0000`. H89 (C-4123) found `141` of the 1259 NOMATCH that differ only by such a phantom slot; a forward pass (a halfword already marked as a slot never names another one; PC loads only reach forward) gives each a unique US digest, and address-order pairing (131 anchor, 10 gap/global) names the same US function in 141/141.
+  - Precheck: `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all | grep 'forward-pass'` prints `forward-pass digest unique in US: 141 of 1259 (the anchor pairs the same US function in 141)`; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x0033d00c` prints `NOMATCH`.
+  - Scope: `tools/fn_match.py` slot derivation (`fingerprint`, `_instruction_tokens`, `pool_masked` if it shares the flaw) + selftest case + re-pinned census numbers (C-3626 is then historical: say so with a revision, never edit the old count in place); `tools/fixtures/fn_match_eu_us_2011.json` must still replay `0 mismatch`.
+  - Input: `tools/nomatch_census.py` (`pool_slots`, `naive_slots`, `phantom_sources`, `--pair`), EXP-2026-11-20-H89-nomatch-census, C-3626.
+  - Hints: reuse `nomatch_census.pool_slots` rather than writing a second pass. The change also alters UNIQUE hashes on both sides, so re-run the full census and report every verdict that moves, not only the 141.
+  - Done when: an EXP gives the new module census with the before/after verdict table; `0x0033d00c` is no longer `NOMATCH`; the fixture replays `0 mismatch`; `python3 tools/gate.py` green.
+  - Stop: if any `UNIQUE` pair of the old census changes its US address, stop and record it instead of merging the change.
+  - Claims: C-5570–C-5579
+
+- [ ] **H114 — `fn_match` refuses an identical masked stream with two or more US twins; address order can pick one**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H89 (done; the TWIN class), H113 (land the slot fix first so the twin counts are final)
+  - Goal: `_pool_only_twin` returns `None` when the masked form stream has ≥2 US twins. H89 (C-4122) found `219` such NOMATCH (13/40 in the sample, the largest class), `188` of them with an exact address-order anchor: the matched neighbours on both sides bracket a US gap of the same size, and the record at the same offset is one of the twins. Pairing those as `DIFFERENT`/`ANCHOR` (a new, separately counted verdict) would locate them by address order.
+  - Precheck: `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all | grep '^#   anchor '` lists `TWIN 188`; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x003c0108` prints `NOMATCH`.
+  - Scope: `tools/fn_match.py` only (a new verdict, reported separately from `UNIQUE`, never used for a twin outside an exact same-size anchor gap) + selftest + census EXP; no change to `UNIQUE`/`DIFFERENT` semantics.
+  - Input: `tools/nomatch_census.py` (`anchor_candidates`, the `control+`/`control-` lines), EXP-2026-11-20-H89-nomatch-census.
+  - Hints: H89's positive control re-paired 38/40 UNIQUE through the anchor; repeat it with a larger sample before trusting the new verdict, and keep the 21 order inversions in the anchor list out of the pairing.
+  - Done when: an EXP reports how many TWIN rows get the new verdict and a positive control (UNIQUE functions re-paired by anchor ≥95 %) and a negative control (a shuffled anchor pairs 0 twins); a ±1 shifted-anchor control re-pairs 0 TWIN rows to the same US twin, or rows whose ±1 neighbour is also a twin are listed and excluded; the verdict is one-to-one (no US twin claimed by two EU rows — H89's `--all` run names 30 US records from more than one row, e.g. EU `0x003c3a34` and `0x003c3ad8`); `python3 tools/gate.py` green.
+  - Stop: if the positive control falls below 95 %, record it and leave the verdict out.
+  - Claims: C-5700–C-5709
 
 ## M2 — Map code, activation, updater
 
@@ -1752,6 +1788,7 @@ of the four numbers above says so in its first line.
   - Result: `EXP-2026-11-08-M3.13-addre-reader-2.md` (C-2180–C-2187, partial; refines `EXP-2026-11-06-M3.13-addre-reader.md`). Writer-implied native `u16` class-mask signature finds `fn 0x003f56bc` (Navi.exe sec0, `0x003f56ec`) — sole `*r5 & 0xe000 >= 0xc000` (`cmp/hs` literal `0xc000`, 1/82 loads) gate, accepts ADDRE `c0/c8/c1` (C-973 tag-class mapped). Resolves via `0x003f51e0` (`0x00d53500`, POINT family); callers `0x003f5d98`/`0x003f61bc`. C-970–C-972, C-974–C-977 + sequential `2*L`/token consumers not mapped (done-when not met). L3: `0x0040b358`→`-1`, `0x0040114e` FPU-unmodelled. `refer.md`/`firmware.md`/`reader-coverage.md`/`claims.md` updated.
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
+  - Unblock: M3.23 (2026-11-20) candidates. `ICODE` (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x00401e94`, `0x004082cc`, `0x00402690`, `0x003f6c88`, `0x003f0c7c`, `0x00407724`, `0x003f07f8`, `0x004078e4`, `0x003f08cc`, `0x00409ba0` (3 are C-4694 loaders). `ZCODE`/`COORD` have no static anchor of their own (ctx +124 = 11/12 in `0x003fbed8`; `COORD001` unnamed): shared REFER list `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (C-3546). Confirm with M9.38 / M3.29.
   - Status: blocked · Owner: claude/m3.14-reader-layout · Critical: yes
   - Note (M3.25, 2026-11-19): `ICODE001.DAT` and `ICADM001.DAT` are read during the mount run and the functions that load their bytes are listed in C-4694 (`datask_l3.py mount … --file REFER001`); positions are in the decompressed file.
   - Note (M3.28, 2026-11-19): openers found without M1.2f: `ZCODE` = `0x003fbed8` with search type 11/12; `ICODE001` = `0x003f2cc0`, reads through `0x003efe10`/`0x003f0400`/`0x003f2828`; `COORD001` has no name reference in `Navi.exe` at all (C-4666, C-4669, C-4677). The blocker on M1.2f no longer holds for the first two: reopen from these functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
@@ -1779,6 +1816,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2190–C-2199
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
+  - Unblock: M3.23 (2026-11-20) candidates (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x0040dd40`, `0x0040de98` (rank 2; the M9.38 reader, C-3607), `0x004125a8`, `0x00409cc8`, `0x0040b358` — the whole loop set below `0x004125a8` is these five (C-3544). Next is the record walk behind `0x003fc0ec`/`0x003fc518` (search type 1), which only a run separates (M3.29).
   - Status: blocked · Owner: task/m3.15-lctbl-reader-reopen · Critical: yes
   - Note (M3.28, 2026-11-19): `LCTBL001.DAT` is opened by `0x003fbed8` when the search type is 1 and ctx +104 is `0x14e4` (run on the card, C-4667), besides the literal in `0x004125a8`. The record walk is behind the read issuers `0x003fc0ec`/`0x003fc518`. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (M9.38, 2026-11-19): dynamic reader list on the plain `RDSTM001/LCTBL001.DAT` (7,489,024 B): of the four candidates `0x003f020c`/`0x0040dd40`/`0x0040de98`/`0x0040b358` only `fn 0x0040de98` (`GAP@0x0040de96`) reads it — six reads, widths 4/4/2 at offsets `+0x8/+0x4/+0x2` (read twice, two passes) — plus the shared header read `0x004125a8` `+0x8` (2-byte). C-3607, EXP-2026-11-19-M9.38-read-watch.
@@ -1796,6 +1834,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2200–C-2209
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
+  - Unblock: M3.23 (2026-11-20) candidates, shared with `ADDRE`/`ZCODE` because the family is ctx +124 at run time (`python3 tools/callgraph.py rank g.json --edges e.json --depth 6 --family REFER=0x00400014,0x004000e8,0x004001bc,0x004003f4,0x004005f8 --family POINT=0x003ffe80 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0`): `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (library `0x0054233c`/`0x005468d4`/`0x0054705c` dropped); the read issuer `0x003fc518` is rank 15 (C-3545, C-3546). Split per family with M3.29.
   - Status: blocked · Owner: task/m3.16-inter-frway-readers-r2 · Critical: no
   - Note (M3.28, 2026-11-19): openers run on the card: `0x003fbed8` with search type 4 (`INTER`) and 3 (`FRWAY`); the reads come from `0x003fc0ec` and `0x003fc518` (C-4666). The two signature searches that found nothing can be replaced by following those two functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
@@ -1816,6 +1855,7 @@ of the four numbers above says so in its first line.
   - Result: `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (negative/blocked; done-when not met). Shared REFER001 access path confirmed: `INTER0`/`FRWAY0` in volume-id table `0x00179338` (~VA `0x0017934c`/`0x00179354`, C-881), descriptor `0x14e8` `fn 0x004125a8` → `REFER001`+`INDEX003.DAT` via `jsr 0x0040b358`, name-builder `fn 0x003fbed8` path (C-880/C-2180/C-2210). Two writer-inverse signature families over Navi.exe sec0 (5.56 MB, 0 compressed exec, C-2128) found 0 content-reader candidates (C-2211); consumed fields `UNKNOWN` (C-2213). `refer.md` INTER/FRWAY sections and `claims.md` C-2210–C-2214 updated.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
+  - Unblock: M3.23 (2026-11-20): no static root of their own was ranked. `ICADM001` loads appear in the `ICODE` list below `0x003f2cc0` (C-4694 mixes both: `0x003f0c7c`, `0x003f07f8`, `0x003f08cc`, `0x003eff20`); the name builder `0x003f1640` (C-2381) is the root to rank next (`callgraph.py rank g.json --family ICADM=0x003f1640 …`). `ZIPFR001`: shared REFER list of C-3546. Confirm with M9.38 / M3.29.
   - Status: blocked · Owner: task/m3.18-icadm-zipfr-readers-r2 · Critical: no
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
@@ -1963,8 +2003,9 @@ of the four numbers above says so in its first line.
 
 ---
 
-- [ ] **M3.23 — Static call graph of `Navi.exe` (pdata + pools + dispatch tables), and readers found by reachability**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M3.23 — Static call graph of `Navi.exe` (pdata + pools + dispatch tables), and readers found by reachability**
+  - Status: done · Owner: — · Critical: yes
+  - Result: `docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md` (C-3540–C-3547). `callgraph.py` joins register state across branches (+668 direct edges, 0 removed; unresolved 395 → 204) and gains `loops` and `rank`; known edges and the `.cmp` chain from table `0x0017ab38` (`0x00419c38`) down to `fopen`/inflate reproduced. Stop not met (2.9 % unresolved). Ranked lists per family: `LCTBL` confirmed reader `0x0040de98` at rank 2; `ICODE` 3–4 of 10 are C-4694 loaders; `POINT` top 3 are known record functions, but the walker `0x003f5194` is 15–18 (weak recall). `ADDRE`/`INTER`/`FRWAY`/`ZCODE`/`COORD` share one list: the family is ctx +124 at run time. Follow-up M3.29.
   - Note (H112, 2026-11-19): **rebuild the graph before using it.** The first `callgraph.py` decoded literal-pool words as instructions: 2,201 of 22,867 EU edges were false (M3.26 and M3.27 each caught one by hand). Fixed, with a selftest case; corrected numbers in C-4620. Imports by ordinal are now named. What is left of this task: (a) table edges (M3.24), (b) the reachability report per file family — start it from the name loaders of C-4627 (M3.28), not from byte signatures.
   - Note (H101, 2026-11-17): **the core exists: `tools/callgraph.py`** (`build`, `callers`, `callees`, `reach`, `users`, `path`, `stats`; `--selftest` 6 cases). `Navi.exe` EU2011: 9,000 nodes (1,404 leaf targets), 22,867 direct edges, 7,721 import edges, 589 unresolved indirect calls, 956 functions with no static caller; US2011: 8,890 / 22,119 / 525 / 970. It reproduces `0x0041c044 → 0x0041c990 → 0x0041c7dc → … → 0x00542250`. What is left of this task: the `loops` query, the map DLLs, and the ranked reader candidates per family. Only 589 calls are indirect — the `Stop` condition (30 %) is far away: in the `REFER` subtree below `0x004125a8` it is 47 unresolved in 223 functions.
   - Depends: M1.20 (function table), M3.24 helps (indirect edges)
@@ -2092,6 +2133,16 @@ of the four numbers above says so in its first line.
   - Stop: if a record class other than 3/2 needs renaming and its length byte cannot be located, refuse it and record the class count.
   - Result: EXP-2026-11-19-M5.52-resize-field-len.md (done). `--resize` places field 5 like `fn 0x003f56bc`/`fn 0x003f5e10` (EU2011; length of field f = byte `loc+f`), requires the old text inside field 5, patches `len2` and the field-5 length byte, refuses odd deltas and unplaceable records; `--census`: 2000/2000 records class 3, all placeable. Accessor (US2011 `0x0041ec8c`, EU2011 `fn 0x003f632c`): US rec 0 −2/0/+2/+10 B and EU rec 0 −2/+2, rec 1 +2 → whole new name, address unchanged, `ok=1000 of 1000`, PASS; pre-fix +2 `mismatch=1` (precheck), old-name expectation FAIL, odd/address renames refused. The M9.39 US mutant `ea2d0e0f…` has the same stale byte at rec 500 (`mismatch=1`); the fixed CLI writes `34fb3aab…` (`ok=1000`) → new M9.54 (re-pin). selftest 17/17.
   - Claims: C-5260–C-5265 (C-5266–C-5269 handed to M9.54)
+
+- [ ] **M3.29 — Split the shared REFER candidate list per family at run time, and measure M3.23's recall**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M3.23 (done), M9.38 (read watch), M3.28 (`vcard_l3.py trace`)
+  - Goal: M3.23 found that `ADDRE`, `INTER`/`FRWAY`, `ZCODE` and `COORD` go through one opener `0x003fbed8` whose family is ctx +124 at run time, so a static graph gives one shared candidate list (C-3546), and its ranking misses small walkers (C-3545). A run per family with the read watch turns the shared list into per-family readers.
+  - Scope: for ctx +124 = 2, 3, 4, 11 (and 1 for `POINT`) run one caller of `0x003fbed8` on the card with M9.38's read watch over the page buffer; record the functions that load record bytes per family; compare them with M3.23's QC list and the POINT/ICODE lists (recall = confirmed readers in the top 10 / confirmed readers).
+  - Input: `docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md`, `tools/callgraph.py rank`, `tools/vcard_l3.py trace`, C-4666, C-3607.
+  - Done when: each of `ADDRE`, `INTER`, `FRWAY`, `ZCODE` has a list of functions that read its record bytes (or a recorded reason none was read), and the EXP gives the recall of M3.23's ranking per family.
+  - Stop: if no family other than `POINT`/`LCTBL` reads its file in the run (message wait as in C-3259), record the message and stop.
+  - Claims: C-5620–C-5629
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -2249,7 +2300,11 @@ of the four numbers above says so in its first line.
   - Claims: C-5137–C-5139 (block from M4.16b's reserve), C-5370–C-5372 (C-5373–C-5374 spare, C-5375–C-5379 given to M4.49)
 
 - [ ] **M4.49 — Locate the firmware reader of the `RDSTM001.DAT` link groups and run it in L3**
-  - Status: open · Owner: — · Critical: no
+  - Status: blocked · Owner: task/m4.49-rdstm-group-reader · Critical: no
+  - Blocker: no function of the TMC data-layer subtree of `Navi.exe` (EU2011, 230 functions from the `0x14e4`/`0x14f4` message handlers and the TMC search senders, depth 8) shows the derived link-group signature (`and 0x1fff` 0 hits; no function with two of `0x1fff` mask / address build / 6-byte stride / 18-byte head); the module's three mask+address-build functions are guidance code. Lead: message `0x14f4` shares the TMC handler `0x004003f4` with `0x14e4` and has its own buffer in the generic sector reader `0x00417618` (EU2011).
+  - Unblock: M4.51 (senders of `0x14f4`/`0x14e4` and the file/offset a `0x14f4` request reads).
+  - Note (M4.51 blocked, 2026-11-20): no static sender of `0x14f4` (EXP-2026-11-20-M4.51-tmc-14f4-senders); the next unblocker is M4.53 (L3) or M8.E4.
+  - Result: EXP-2026-11-20-M4.49-rdstm-group-reader (negative with controls; `tools/rdstm_reader_scan.py`). C-5375–C-5379.
   - Depends: M4.16e
   - Goal: rule 13 for the M4.16e decode: find the `Navi.exe` code that reads the `RDSTM001.DAT` header sets, the group index (`u16 size_dwords, u32 addr, u16 blocks, u32 key_min, u32 key_max, u16 n, n x (u32 parcel, u16 count)`) and the 4-byte `(node, link)` entries, and decode the unknown bits (`a` 0x4000/0x8000, `b` 0x4000/0x8000, link-record role `k & 3`, header words `3`/`122`).
   - Input: EXP-2026-11-20-M4.16e-rdstm-link-groups (C-5137–C-5139, C-5371); `tools/rdstm_links.py`; the TMC record readers of M3.7/M4.16b (`0x003bc960`, `0x003f61bc`, EU2011 build A).
@@ -2260,6 +2315,33 @@ of the four numbers above says so in its first line.
   - Stop: after the reachability walk and two derived signatures without a hit, report `blocked` with the call tree searched.
   - Claims: C-5375–C-5379 (from M4.16e's block)
 
+- [ ] **M4.51 — Who sends the TMC data-layer messages `0x14f4`/`0x14e4`, and what does `0x14f4` read**
+  - Status: blocked · Owner: task/m4.51-tmc-14f4-senders · Critical: no
+  - Blocker: `0x14f4` has no static sender (EU2011): the only send path `fn 0x003c0e68` (id `u16 @(8,req)`, `OSM_TaskSend`) has 25 static callers, each with one id literal (`0x14e4` only from `fn 0x003bcac0`), none `0x14f4`; 7 DLLs load neither id. The request is built at run time; the file/offset it reads needs a dynamic run.
+  - Unblock: M4.53 (L3 data layer on a synthetic `0x14f4` request) or M8.E4 (full `Navi.exe` run with a read watch on `RDSTM001.DAT` `0xcda000`/`0xe78500`/`0xeb6200`).
+  - Result: EXP-2026-11-20-M4.51-tmc-14f4-senders (negative census with control; `rdstm_reader_scan.py --callers-of`). C-5404–C-5408.
+  - Depends: M4.49 (blocked; this is its unblocker)
+  - Goal: find the requester of message `0x14f4` (the second TMC request type next to the location-record request `0x14e4`, same handler `0x004003f4`, own buffer `0x009cfbb4` in the sector reader `0x00417618`, EU2011) and the file and offsets it reads; if they are the `RDSTM001.DAT` link groups (`0xcda000`/`0xe78500` and the group data), the requester is the M4.49 reader.
+  - Precheck: `python3 tools/rdstm_reader_scan.py archive/head256.img --const 0x14f4` → 7 users, all in the data layer (`0x0040dd40` … `0x00417618`); `python3 tools/callgraph.py users GRAPH OSMDLL!OSM_TaskSend` lists the static senders.
+  - Signature: the message id stored into a request before `OSM_TaskSend` (static); or, dynamically, an L4 read watch on `RDSTM001.DAT` sector offsets `0xcda000`, `0xe78500`, `0xeb6200` (from the M4.16e decode — data-side, say so).
+  - Scope: `Navi.exe` EU2011 senders, then OBJDLL/STDDLL if `Navi.exe` has none; L4 (M8 `ze0`) only if the static search ends without a sender.
+  - Input: EXP-2026-11-20-M4.49-rdstm-group-reader (C-5375–C-5379); M3.24 dispatcher tables (C-3553); `tools/rdstm_reader_scan.py`, `tools/callgraph.py`, `tools/rdstm_links.py` (expected bytes).
+  - Done when: a VA (EU2011) of the function that issues `0x14f4` (or the `RDSTM001.DAT` link-group read) and the file/offset it requests, with a control (another message id's request resolved the same way); or `blocked` with the sender census.
+  - Stop: if no static sender of `0x14f4` exists in `Navi.exe` and the DLLs it imports, and no L4 run reaches TMC, report `blocked` naming the M8 prerequisite.
+  - Claims: C-5404–C-5408 (from M4.16b's spare block C-5404–C-5409)
+
+- [ ] **M4.53 — L3: which file and sector does a TMC `0x14f4` data-layer request read**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.51 (blocked; static census done)
+  - Goal: run the data-layer path of message `0x14f4` (EU2011: dispatcher entry `0x004003f4`, id switch `0x00413828` → `0x004129d0`, sector reader `0x00417618` with buffer slot `0x009cfbb4`) in L3 on a synthetic request and record the volume, file and byte offset handed to the read helper `0x003d140c`; compare with a `0x14e4` request (control, known `RDSTM001`/`LCTBL001.DAT`). If the offsets fall in `RDSTM001.DAT` `0xcda000..EOF`, the M4.16e link groups are what `0x14f4` reads, and the caller-side parser becomes the M4.49 target.
+  - Precheck: `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x004003f4 0x00413828 0x004129d0 0x00417618` → four START; `python3 tools/va_class.py archive/head256.img --module Navi.exe --resolve-with 0x3e00200 0x009cfbb4` (state the runtime state the run must seed).
+  - Signature: the read helper's arguments in the L3 trace (dynamic — the strongest kind), not a byte pattern.
+  - Scope: `Navi.exe` EU2011 data layer only; volume tables seeded from the card (M9.16 map-load chain if needed). No full boot.
+  - Input: EXP-2026-11-20-M4.51-tmc-14f4-senders (C-5404–C-5408), EXP-2026-11-20-M4.49-rdstm-group-reader (C-5375–C-5379), the L3 harness, `tools/rdstm_links.py` (expected offsets).
+  - Done when: an L3 run reports the file and offset for a `0x14f4` request and for a `0x14e4` control request; or `blocked` naming the runtime state that could not be seeded.
+  - Stop: if the data layer needs state the harness cannot seed after two attempts, report `blocked` on M8.E4.
+  - Claims: C-5680–C-5689
+
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no
   - Step: P4
@@ -2269,8 +2351,10 @@ of the four numbers above says so in its first line.
     coordinate` with random-key control.
   - Claims: C-2310–C-2319 (was C-1950–C-1959, already used by M2.13b)
 
-- [ ] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
+  - Status: done · Owner: task/m4.16d-tmc-segment-placement · Critical: no
+  - Result: EXP-2026-11-20-M4.16d-tmc-reception-table-codes — `TMC/reception.dat` lists the card's 14 (CC, LTN) pairs, one per RDSTM table; a table code is `ord(CC hex digit) << 8 | LTN` (14/14 listed, 14/14 codes carry the RDS CC of the country their records land in; shuffled countries max 8/14). With M4.16b (C-5400/C-5402) the chain (CC, LTN, location code) → RDSTM table → record → MAPAL node is closed. `TFTBL001` is absent on 2011 cards (C-122), not tested. `tools/tmc_reception.py`. C-2320–C-2323.
+  - Done when (set at close, the block had none): every `reception.dat` (CC, LTN) maps to exactly one RDSTM table whose placed records lie in the country with that RDS CC, above a shuffled-country control — met.
   - Step: P3
   - Depends: M4.16b, M4.7
   - Goal: if `RDSTM001` is TMC (C-882), test placement through the TMC
@@ -2566,8 +2650,8 @@ of the four numbers above says so in its first line.
   - Claims: C-5157–C-5159
   - Result: EXP-2026-11-20-M4.46-addre-tt05-names (C-5157–C-5159). The `c0` name section sits at byte `4 + 2*rec[2] + 2*rec[3]` in 4,610,363/4,610,363 `c0` records of the 33 EU2011 shards (0 of 7,424,226 `c8`); `addre.parse_record` now places it there and names every `c0`, no `c8`. `TT` per record: `0x03` 2,531 / `0x04` 1,332,147 / `0x05` 3,275,685, constant in 26 shards, mixed in 7 (table in `refer.md`). The old `TT` 3/4 rule (`names --legacy`) missed 3,275,685 names (71.0 %) on 14 shards. New `addre.py names` census; `_zlib_at` no longer copies the file tail per stream (large shards now read in minutes).
 
-- [ ] **M4.47 — Find the POINT chain locator (where a chain base and its table are recorded)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.47 — Find the POINT chain locator (where a chain base and its table are recorded)**
+  - Status: done · Owner: task/m4.47-point-chain-locator · Critical: yes
   - Depends: — (M5.26 done: chain tables and `tools/point_pair_regen.py` on `main`)
   - Goal: M5.26 can re-pack a POINT page chain only inside its own slot (24–248 B of slack per name chain) because nothing known tells the reader where a chain base and its chain table are (C-2955). Find that locator so a regenerated chain can move or grow and mass OSM name sets fit.
   - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_pair_regen.py scan EU/REFER001` reports 99 tables / 0 unresolved; `python3 tools/point_pair_regen.py locator EU/REFER001` reproduces `NOT FOUND (best 4/33)` with control 33/33 (the search space already excluded).
@@ -2576,7 +2660,20 @@ of the four numbers above says so in its first line.
   - Hints: the three bases differ between files while the `0x1000` record's words do not scale with them — try differences between chains (base2000 − table1000 etc.), counts of records/pages (1000/page), and sums of `comp_w` of *other* chains. A differential is strongest: move one chain in a synthetic copy and run the L3 POINT walk path.
   - Done when: an EXP names the field(s) (offset, width, unit, base) that give each chain base and table offset in 44/44 files with a negative control (a shuffled value fails), and `point_pair_regen.py` gains a relocation mode that moves a chain to the end of the `.DAT` and updates that field, with its selftest; or the EXP shows the locator lives in firmware/another file with the reading VA (EU2011) and a control.
   - Stop: if neither the file search (directory + index chains) nor the firmware caller path of `fn 0x003f5194` yields it after both are searched, record the scopes searched and set blocked on the first M3 reader task that executes the POINT open path in L3.
-  - Claims: C-5390–C-5399
+  - Claims: C-5390–C-5396 (C-5397–C-5399 given to M4.52)
+  - Result: EXP-2026-11-20-M4.47-point-chain-locator (C-5390–C-5396). Structures are addressed by a BE `u32` block address `(off/0x800)<<8 | (off%0x800)/0x100`; directory cell `0x82a` (6-byte cells at `0x800..0xf06`) → the field-dictionary record holding base references (`addr, length_w`) at `+0x2e` (1000) / `+0x13c` (400) and table references (`addr, length_w, per_page`) at `+0x19a` / `+0x1b6`; cell `0xeba` → the 2000 chain's record `+0x24` / `+0x94`. One layout in 44/44 files, 264 references each unique, 132/132 chains verified through it; shuffled and plain-unit values reach 0 chains. `point_pair_regen.py relocate` moves a chain to the end of the `.DAT` (selftest 37 checks); EU POINT010 takes 1,000 and 6,199 real names M5.26 refused. Firmware reader of the reference not located → M4.52.
+
+- [ ] **M4.52 — Run the POINT open path on a relocated name chain (who reads the chain locator)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.47 (done)
+  - Goal: M4.47 found the chain locator in the file (directory cell `0x82a` → field-dictionary record → base reference `+0x2e`) and `point_pair_regen.py relocate` moves a chain to the end of the `.DAT`, but no firmware code was seen reading the reference (C-5396 is a hypothesis). Rule 13 needs the reader to read a relocated chain.
+  - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_name_accessor.py --selftest`; `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x0040ee4c` prints `START` or `INSIDE`.
+  - Scope: EU2011 `Navi.exe` (name the build next to every VA, then US2011): the loader that fills header-table entry `+44` (`0x0040ee4c`'s 100 × 80 table, `0x0140e240` EU2011, M3.11c) with the dictionary block, the code that reads the directory cell at `0x800` and the reference at dictionary `D+4` (`D = C + 2*u16[C+2]`, the header `fn 0x003f56bc` reads), and the code that turns `start_w` into a page read. No writer change.
+  - Input: EXP-2026-11-20-M4.47-point-chain-locator, EXP-2026-11-19-M3.11c-point-name-accessor-l3, `tools/d53500_writer.py`, `tools/point_name_accessor.py`, `tools/sh4xref.py`.
+  - Hints: the base reference is a block address: look for a `shlr8`/`shll8` pair or a byte load of `addr & 0xff` (the data is BE on an LE CPU, so the reader may build it from bytes); the `mov #11`+`shad` sites `0x003f6ae6`/`0x003f6d5c` (EU2011) log `(@(12,r) << 11) + @(16,r)`, a sector/offset pair of a request struct — its writer is a candidate.
+  - Done when: an EXP names the VA (EU2011 and US2011) that reads the base reference, and an L3 run of that path on `relocate` output reads record 1 of the moved name chain at its new base (positive) while a pair with the reference left at the old base does not (negative).
+  - Stop: if the loader is reached only through an IAT import that M9.35 cannot bind, record the call chain and set blocked on that binding task.
+  - Claims: C-5397–C-5399
 
 - [x] **M4.41 — Differential decoding: the same tile in 2011, 2014 and 2016**
   - Status: done · Owner: task/m4.41-diff-years · Critical: no · Pair: solo
@@ -2929,8 +3026,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     updates or is proven unnecessary.
   - Claims: C-2420–C-2429
 
-- [ ] **M5.19 — `RDSTM001` writer (H11 G7)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M5.19 — `RDSTM001` writer (H11 G7)**
+  - Status: done · Owner: task/m5.19-rdstm-writer · Critical: no
+  - Result: EXP-2026-11-20-M5.19-rdstm-writer — exit (b) fails: the rows are region-tied (a copied file resolves 6,910/200,987 refs against a renumbered `B48R058R` section 2, the re-pointed one 200,190/200,987 = factory). Exit (a) met for the TMC rows: `tools/rdstm_write.py` (selftest 20 checks) rebuilds the EU 2011 `RDSTM001.DAT` byte for byte from records + triples + `(parcel, node, link)` targets (set-1 4 × 4 boxes, entries in location-code order; file order fails), and EU2011 `fn 0x003f61bc`/`0x003f5d98` in PySh4 walk written rows exactly for 24 + 500 factory and 24 synthetic Polish rows (controls 0). Link-group firmware L3 waits for M4.49's reader VA; the 16-bit record swap and the `0x80000` chunk limit are hypotheses. C-2430–C-2436.
   - Step: P3
   - Depends: M4.16b (record framing), M3.7
   - Goal: every `RDSTM001` row is copied verbatim from the factory card today;
@@ -2941,7 +3039,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: a writer produces a file the firmware decoder walks with the
     expected values for ≥ 20 rows (an L3 target), or the EXP shows that
     copying is correct because the rows are region-independent.
-  - Claims: C-2430–C-2439
+  - Claims: C-2430–C-2436 (C-2437–C-2439 spare)
 
 - [x] **M5.21 — Slot budget for generated pages: reject or re-pack, never overrun**
   - Status: done · Owner: claude/m5.21-slot-budget · Critical: yes
@@ -3475,6 +3573,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Scope: read-only buttons only. Never `Write NAND`, `RESTORE SRAM`, `RESTORE VFLASH` in this task. Lock the stock card before leaving update mode (README).
   - Done when: an EXP lists file names, sizes (NAND dump expected 8 MiB minus what the tool skips; `sram_*.bin` 1,048,576 B; `vflash_*.bin` 3,014,656 B) and SHA-256; files stay outside the repo (they hold the SD PIN at `0xA100` — never commit).
   - Stop: if a size differs from the expectation, record it and stop; do not retry writes.
+  - Note (2026-11-20): the start screen photo is recorded (EXP-2026-11-20-M6.18-prod-screen: `QY7200ND`, Product ID `10 20 02 12`); the files are still owed.
   - Claims: C-5200–C-5209
 
 - [ ] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**
