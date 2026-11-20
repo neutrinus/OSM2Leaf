@@ -383,8 +383,10 @@
   "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
   "docs/experiments/EXP-2026-11-20-M2.19-check2-router-l3.md",
   "docs/experiments/EXP-2026-11-20-M3.2-ind-handling-l3.md",
+  "docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md",
   "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
   "docs/experiments/EXP-2026-11-20-M4.16b-tmc-placement-all-tables.md",
+  "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
@@ -393,6 +395,7 @@
   "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
+  "docs/experiments/EXP-2026-11-20-M6.18-prod-screen.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
   "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
@@ -405,7 +408,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 398,
+  "files": 401,
   "citations": 1187,
   "unique_va": 276,
   "start": 1002,
@@ -555,7 +558,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1759,
+   "line": 1760,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -564,7 +567,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1784,
+   "line": 1786,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -574,7 +577,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1786,
+   "line": 1788,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -583,7 +586,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1816,
+   "line": 1819,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -592,7 +595,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1816,
+   "line": 1819,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -601,7 +604,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1847,
+   "line": 1851,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -610,7 +613,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1848,
+   "line": 1852,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -619,16 +622,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1972,
-   "va": "0x0041c990",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 2602,
+   "line": 2619,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -10389,6 +10383,15 @@
    "file": "docs/experiments/EXP-2026-11-20-M3.2-ind-handling-l3.md",
    "line": 208,
    "va": "0x00418748",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md",
+   "line": 151,
+   "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
