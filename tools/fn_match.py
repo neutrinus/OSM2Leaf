@@ -49,6 +49,15 @@ Usage:
       [--pdata-a FILE] [--pdata-b FILE] [--json OUT] [--all]
   fn_match.py --fixture FILE --us IMG_B [--eu IMG_A] [--module Navi.exe]
       [--json OUT]
+  fn_match.py bodies IMG_A IMG_B [--fixture-rows FILE] [--pair EU:US ...]
+      [--negative EU:US ...] [--window 0x800]
+
+``bodies`` prints the M1.22 relocated-body table (M1.33): for each EU/US pair
+the body length (first ``rts`` plus its delay slot, in halfwords) and the first
+difference of the two windows after zeroing every pool value a body load
+points at.  A pair is "identical masked form stream" when the bodies have the
+same length and the first masked difference is past the body.  ``--negative``
+pairs must differ inside the body.  Exit 1 when a pair or a negative disagrees.
 
 ``--fixture`` replays a committed, vendor-free table of EU VAs and their
 expected EU→US verdicts (``tools/fixtures/fn_match_eu_us_2011.json``) against a
@@ -763,6 +772,42 @@ def selftest() -> int:
     check("pool-only twin: a shifted masked stream stays unexplained (NOMATCH)",
           mM._pool_only_twin(0x1000, words2, bytes(ca), 0x1000) is None)
 
+    # M1.33: relocated-body table (pool-masked masked-form compare).
+    va_x, va_y = 0x2000, 0x7000           # same alignment mod 4
+    # body: mov.l @(2,PC),r1 (slot hw 6..7) ; mov.w @(2,PC),r2 (hw 5) ;
+    # add r2,r1 ; rts ; nop  | pool: hw 5 = word, hw 6..7 = long
+    bodyx = [0xD102, 0x9202, 0x312C, 0x000B, 0x0009, 0x1111, 0x2222, 0x3333]
+    bodyy = list(bodyx)
+    mx = pool_masked(bodyx, va_x, body_length(bodyx))
+    lx = (pool_addr(va_x, 0xD102) - va_x) // 2
+    lw = (pool_addr(va_x + 2, 0x9202) - va_x) // 2
+    check("bodies: body length = first rts + delay slot", body_length(bodyx) == 5)
+    check("bodies: mov.l zeroes two halfwords, mov.w one",
+          mx[lx] == 0 and mx[lx + 1] == 0 and mx[lw] == 0 and mx[0] == 0xD102
+          and (lx, lw) == (6, 5))
+    bodyy[lx] ^= 0x5A5A
+    bodyy[lw] ^= 0x00FF
+    r1 = body_compare(bodyx, va_x, bodyy, va_y)
+    check("bodies: a pool-value move is not an in-body difference",
+          not r1["inside"] and r1["first_diff"] is None
+          and r1["raw_first_diff"] is not None)
+    bodyz = list(bodyx)
+    bodyz[2] = 0x313C                     # add -> different opcode in body
+    r2 = body_compare(bodyx, va_x, bodyz, va_y)
+    check("bodies: an in-body opcode change is inside at halfword 2",
+          r2["inside"] and r2["first_diff"] == 2)
+    bodyw = [0xD103] + bodyx[1:]          # displacement moved: not masked away
+    r3 = body_compare(bodyx, va_x, bodyw, va_y)
+    check("bodies: a moved displacement is an in-body difference",
+          r3["inside"] and r3["first_diff"] == 0)
+    bodyv = [0x0009] + bodyx              # one more insn: body length differs
+    r4 = body_compare(bodyx, va_x, bodyv, va_y)
+    check("bodies: a body-length change is inside", r4["inside"]
+          and (r4["body_a"], r4["body_b"]) == (5, 6))
+    check("bodies: no rts in window is never identical",
+          body_compare([0x0009] * 4, 0, [0x0009] * 4, 0)["inside"])
+    check("bodies: EU:US pair parser", parse_pair("0x10:0x20") == (0x10, 0x20))
+
     print("fn_match selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))
     return 1 if fails else 0
@@ -1338,6 +1383,148 @@ def cmd_match(args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------- bodies
+
+BODY_WINDOW = 0x800    # bytes read past a body start for the masked compare
+
+
+def window_words(code_bytes, code_base, va, size=BODY_WINDOW):
+    """Little-endian halfwords of ``size`` bytes at ``va`` (clipped)."""
+    out = []
+    o = va - code_base
+    for k in range(0, size, 2):
+        if o + k < 0 or o + k + 2 > len(code_bytes):
+            break
+        out.append(code_bytes[o + k] | (code_bytes[o + k + 1] << 8))
+    return out
+
+
+def body_length(words):
+    """Halfwords up to and including the delay slot of the first ``rts``."""
+    for i, w in enumerate(words):
+        if w == 0x000B:
+            return min(i + 2, len(words))
+    return None
+
+
+def pool_masked(words, va, body):
+    """Copy of ``words`` with every pool value a body load points at zeroed.
+
+    Only loads inside the first ``body`` halfwords count: ``mov.l
+    @(disp,PC)`` zeroes the two halfwords of its 32-bit slot, ``mov.w``
+    the one halfword.  The displacement field itself is kept, so a moved
+    pool slot is still a difference.
+    """
+    out = list(words)
+    for i in range(min(body, len(words))):
+        w = words[i]
+        if not is_mov_pc(w):
+            continue
+        j = (pool_addr(va + 2 * i, w) - va) // 2
+        for k in ((j, j + 1) if (w >> 12) == 0xD else (j,)):
+            if 0 <= k < len(out):
+                out[k] = 0
+    return out
+
+
+def body_compare(words_a, va_a, words_b, va_b):
+    """Masked-form comparison of two bodies (M1.22 relocated-body table).
+
+    Returns ``dict(body_a, body_b, first_diff, inside, raw_first_diff,
+    raw_pair)``: body lengths in halfwords (first ``rts`` + delay slot),
+    the first differing halfword index of the pool-masked windows (``None``
+    when the windows agree), ``inside`` = True when the bodies differ in
+    length or the first masked difference falls inside the body, and the
+    first raw (unmasked) difference with its two halfwords.
+    """
+    ba, bb = body_length(words_a), body_length(words_b)
+    if ba is None or bb is None:
+        return dict(body_a=ba, body_b=bb, first_diff=None, inside=True,
+                    raw_first_diff=None, raw_pair=None)
+    ma, mb = pool_masked(words_a, va_a, ba), pool_masked(words_b, va_b, bb)
+    n = min(len(ma), len(mb))
+    first = next((i for i in range(n) if ma[i] != mb[i]), None)
+    raw = next((i for i in range(n) if words_a[i] != words_b[i]), None)
+    inside = ba != bb or (first is not None and first < ba)
+    return dict(body_a=ba, body_b=bb, first_diff=first, inside=inside,
+                raw_first_diff=raw,
+                raw_pair=None if raw is None else (words_a[raw], words_b[raw]))
+
+
+def parse_pair(text):
+    a, sep, b = text.partition(":")
+    if not sep:
+        raise argparse.ArgumentTypeError("expected EU_VA:US_VA, got %r" % text)
+    return int(a, 0), int(b, 0)
+
+
+def body_rows_from_fixture(path):
+    """(label, eu_va, us_va) for every fixture row that names a US address."""
+    doc = load_fixture(path)
+    rows = []
+    for r in doc["rows"]:
+        us = r.get("us_va") or r.get("us_candidate")
+        if us:
+            rows.append((r.get("role", "").split(" (")[0],
+                         int(str(r["eu_va"]), 0), int(str(us), 0)))
+    return rows
+
+
+def format_body_row(label, va_a, va_b, res):
+    if res["body_a"] is None or res["body_b"] is None:
+        return "%-22s %#010x -> %#010x  no rts in window" % (label, va_a, va_b)
+    if res["inside"]:
+        where = "halfword %d @+%#x" % (res["first_diff"], 2 * res["first_diff"]) \
+            if res["first_diff"] is not None else "body length"
+        txt = "first masked diff: %s" % where
+        if res["raw_pair"]:
+            txt += " (raw first diff halfword %d @+%#x: %#06x vs %#06x)" % (
+                res["raw_first_diff"], 2 * res["raw_first_diff"],
+                res["raw_pair"][0], res["raw_pair"][1])
+    else:
+        txt = "first masked diff: NONE (next diff %s)" % (
+            "halfword %d, past the body" % res["first_diff"]
+            if res["first_diff"] is not None else "none in window")
+    return "%-22s %#010x -> %#010x  body EU=%-3d US=%-3d %s" % (
+        label, va_a, va_b, res["body_a"], res["body_b"], txt)
+
+
+def cmd_bodies(args) -> int:
+    rows = []
+    if args.fixture_rows:
+        rows.extend(body_rows_from_fixture(args.fixture_rows))
+    rows.extend(("pair", a, b) for a, b in args.pair or [])
+    negs = [("NEGATIVE", a, b) for a, b in args.negative or []]
+    if not rows and not negs:
+        raise SystemExit("bodies: give --fixture-rows FILE, --pair or --negative")
+    data_a, code_a, off_a, _lr, _rom = code_section(args.image_a, args.image_start, args.module)
+    data_b, code_b, off_b, _lr, _rom = code_section(args.image_b, args.image_start, args.module)
+    cb_a = data_a[off_a:off_a + code_a["vsize"]]
+    cb_b = data_b[off_b:off_b + code_b["vsize"]]
+    bad = 0
+    same = 0
+    print("# %s A=%s B=%s window=%#x B; pool values a body load points at are "
+          "zeroed; body = first rts + delay slot" % (
+              args.module, Path(args.image_a).name, Path(args.image_b).name,
+              args.window))
+    for label, va_a, va_b in rows + negs:
+        wa = window_words(cb_a, code_a["realaddr"], va_a, args.window)
+        wb = window_words(cb_b, code_b["realaddr"], va_b, args.window)
+        res = body_compare(wa, va_a, wb, va_b)
+        print(format_body_row(label, va_a, va_b, res))
+        if label == "NEGATIVE":
+            if not res["inside"]:
+                print("  FAIL negative control has an identical masked body")
+                bad += 1
+        elif res["inside"]:
+            bad += 1
+        else:
+            same += 1
+    print("summary: %d/%d identical masked form stream; negatives %d; problems %d"
+          % (same, len(rows), len(negs), bad))
+    return 1 if bad else 0
+
+
 # ---------------------------------------------------------------- fixture
 
 FIXTURE_SCHEMA = "osm2leaf.fn_match.fixture/v1"
@@ -1534,7 +1721,22 @@ def main(argv=None) -> int:
     m.add_argument("--leaf", action="store_true",
                    help="force the leaf path for every --va (GAP targets use "
                         "it by default)")
+    bo = sub.add_parser("bodies",
+                        help="pool-masked relocated-body table (M1.22/M1.33)")
+    bo.add_argument("image_a")
+    bo.add_argument("image_b")
+    bo.add_argument("--module", default="Navi.exe")
+    bo.add_argument("--image-start", type=lambda x: int(x, 0), default=0x200200)
+    bo.add_argument("--fixture-rows", metavar="FILE",
+                    help="take every fixture row with a us_va/us_candidate")
+    bo.add_argument("--pair", type=parse_pair, action="append",
+                    metavar="EU:US", help="an extra pair expected identical")
+    bo.add_argument("--negative", type=parse_pair, action="append",
+                    metavar="EU:US", help="a pair expected to differ in-body")
+    bo.add_argument("--window", type=lambda x: int(x, 0), default=BODY_WINDOW)
     args = ap.parse_args(argv)
+    if args.cmd == "bodies":
+        return cmd_bodies(args)
     if args.selftest:
         return selftest()
     if args.fixture:

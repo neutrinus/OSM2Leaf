@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic OSM input (not OSM data) for the M5.37 real-tile splice:
+     three ways inside B48R058R section-1 directory y=76 x=940 (0x2046). -->
+<osm version="0.6" generator="osm2leaf-fixture">
+ <node id="1" lat="51.1000" lon="16.9000"/>
+ <node id="2" lat="51.1050" lon="16.9200"/>
+ <node id="3" lat="51.1100" lon="16.9400"/>
+ <node id="4" lat="51.1200" lon="16.9400"/>
+ <node id="5" lat="51.0950" lon="16.9600"/>
+ <node id="6" lat="51.1150" lon="16.9700"/>
+ <way id="10">
+  <nd ref="1"/><nd ref="2"/><nd ref="3"/>
+  <tag k="highway" v="primary"/><tag k="name" v="Fixture Primary"/>
+ </way>
+ <way id="11">
+  <nd ref="3"/><nd ref="4"/>
+  <tag k="highway" v="residential"/>
+ </way>
+ <way id="12">
+  <nd ref="5"/><nd ref="3"/><nd ref="6"/>
+  <tag k="highway" v="secondary"/>
+ </way>
+</osm>

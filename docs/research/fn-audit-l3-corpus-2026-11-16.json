@@ -329,25 +329,55 @@
   "docs/experiments/EXP-2026-11-18-M9.43-mutant-cli.md",
   "docs/experiments/EXP-2026-11-19-H109-map-signals.md",
   "docs/experiments/EXP-2026-11-19-H112-pm-review.md",
+  "docs/experiments/EXP-2026-11-19-H58-claims-runnable-evidence.md",
+  "docs/experiments/EXP-2026-11-19-H61-claims-exp-exists.md",
+  "docs/experiments/EXP-2026-11-19-H62-us256-alias.md",
+  "docs/experiments/EXP-2026-11-19-H65-progress-l4-prereq.md",
+  "docs/experiments/EXP-2026-11-19-M1.21-filesentry-decode.md",
+  "docs/experiments/EXP-2026-11-19-M1.32-us-reuse-owner.md",
+  "docs/experiments/EXP-2026-11-19-M1.33-census-command.md",
+  "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+  "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+  "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
   "docs/experiments/EXP-2026-11-19-M3.27-tile-reader-args.md",
+  "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+  "docs/experiments/EXP-2026-11-19-M4.16b-tmc-field-directory.md",
+  "docs/experiments/EXP-2026-11-19-M4.37-point-bitpack-coords.md",
+  "docs/experiments/EXP-2026-11-19-M4.38-lang-code-table.md",
   "docs/experiments/EXP-2026-11-19-M4.41-diff-years.md",
+  "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
   "docs/experiments/EXP-2026-11-19-M5.30-one-variable-card.md",
+  "docs/experiments/EXP-2026-11-19-M5.33-synthetic-scaffold.md",
+  "docs/experiments/EXP-2026-11-19-M5.37-route-graph-golden.md",
+  "docs/experiments/EXP-2026-11-19-M5.38-card-ladder.md",
+  "docs/experiments/EXP-2026-11-19-M5.39-l2check-bare-cell.md",
   "docs/experiments/EXP-2026-11-19-M5.41-expected.md",
+  "docs/experiments/EXP-2026-11-19-M5.42-overtaken-records.md",
   "docs/experiments/EXP-2026-11-19-M5.47-fit-census.md",
   "docs/experiments/EXP-2026-11-19-M5.48-partial-out.md",
+  "docs/experiments/EXP-2026-11-19-M5.50-card-ladder.md",
+  "docs/experiments/EXP-2026-11-19-M5.51-metadata-reasons.md",
+  "docs/experiments/EXP-2026-11-19-M6.13-s3-bench-manifest.md",
+  "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
   "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
+  "docs/experiments/EXP-2026-11-19-M9.32-reconcile-m9.11.md",
+  "docs/experiments/EXP-2026-11-19-M9.34-close-m9.32-link.md",
   "docs/experiments/EXP-2026-11-19-M9.37-decoder-audit.md",
   "docs/experiments/EXP-2026-11-19-M9.38-read-watch.md",
+  "docs/experiments/EXP-2026-11-19-M9.40-us-mask-read.md",
+  "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
+  "docs/experiments/EXP-2026-11-19-M9.49-pysh4-macw.md",
+  "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 335,
-  "citations": 924,
-  "unique_va": 188,
-  "start": 742,
+  "files": 365,
+  "citations": 994,
+  "unique_va": 209,
+  "start": 814,
   "inside": 80,
-  "corrected": 11,
+  "corrected": 9,
   "gap": 79,
   "leaf": 79,
   "ambiguous": 5,
@@ -356,7 +386,7 @@
  "rows": [
   {
    "file": "TODO.md",
-   "line": 800,
+   "line": 821,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -365,7 +395,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 801,
+   "line": 822,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -374,7 +404,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 804,
+   "line": 825,
    "va": "0x003f5fc2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -383,7 +413,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 804,
+   "line": 825,
    "va": "0x00413af4",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -392,7 +422,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 804,
+   "line": 825,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -401,7 +431,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 805,
+   "line": 826,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -410,7 +440,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1187,
+   "line": 1211,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -419,7 +449,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1378,
+   "line": 1414,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -428,7 +458,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1384,
+   "line": 1420,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -437,7 +467,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1388,
+   "line": 1424,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -446,7 +476,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1443,
+   "line": 1481,
    "va": "0x00418748",
    "kind": "fn",
    "class": "START",
@@ -455,7 +485,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1474,
+   "line": 1615,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -464,25 +494,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1474,
-   "va": "0x0041c7dc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1474,
-   "va": "0x0041c990",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1576,
+   "line": 1616,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -491,16 +503,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1577,
-   "va": "0x0041c044",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1579,
+   "line": 1618,
    "va": "0x003f40ec",
    "kind": "fn",
    "class": "START",
@@ -509,43 +512,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1623,
-   "va": "0x003f5e78",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1623,
-   "va": "0x003f632c",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1626,
-   "va": "0x003d1150",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1633,
-   "va": "0x003a03b4",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1642,
+   "line": 1682,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -554,7 +521,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1642,
+   "line": 1682,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -563,7 +530,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1643,
+   "line": 1683,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -572,7 +539,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1664,
+   "line": 1704,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -582,7 +549,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1674,
+   "line": 1714,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -591,7 +558,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1679,
+   "line": 1719,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -600,7 +567,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1703,
+   "line": 1743,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -610,7 +577,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1705,
+   "line": 1745,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -619,7 +586,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1734,
+   "line": 1774,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -628,7 +595,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1734,
+   "line": 1774,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -637,7 +604,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1765,
+   "line": 1805,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -646,7 +613,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1766,
+   "line": 1806,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -655,233 +622,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
-   "va": "0x00412ac0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1868,
-   "va": "0x00412ac0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1868,
-   "va": "0x00412bee",
-   "kind": "ctx",
-   "class": "CORRECTED",
-   "true_start": "0x00412ac0",
-   "class_sha256": "e75e471bca3e6f0789de9d6907eb8963a2c0b660f8669af3237bd1996754ca0e",
-   "correction": "0x00412ac0"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1868,
-   "va": "0x00413a6c",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1868,
-   "va": "0x00413af4",
-   "kind": "ctx",
-   "class": "CORRECTED",
-   "true_start": "0x00413a6c",
-   "class_sha256": "f5826445c32aa25d0c6334d2a40259c4b08a81238aeb76b102cb2508bcbc6cd2"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1869,
-   "va": "0x003faf04",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1869,
-   "va": "0x003fc9c8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1869,
-   "va": "0x003fcbf0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1869,
-   "va": "0x003fd390",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1869,
-   "va": "0x003fe774",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1869,
-   "va": "0x0040dfa8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1869,
-   "va": "0x00412ac0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1872,
-   "va": "0x0040dfa8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1872,
-   "va": "0x00415fe8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1877,
-   "va": "0x003fd390",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1877,
-   "va": "0x00412ac0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x003faf04",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x003fc9c8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x003fcbf0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x003fd390",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x003fe774",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x0040dfa8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x0040e28c",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x00412ac0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1878,
-   "va": "0x00415fe8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1889,
+   "line": 1930,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -890,16 +631,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1906,
-   "va": "0x00412ac0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1917,
+   "line": 1959,
    "va": "0x0041f26c",
    "kind": "ctx",
    "class": "START",
@@ -908,7 +640,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1957,
+   "line": 1999,
    "va": "0x0040a014",
    "kind": "fn",
    "class": "START",
@@ -917,26 +649,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 3471,
+   "line": 3617,
    "va": "0x880385e4",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 3584,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 3585,
-   "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8436,7 +8150,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-17-M1.22-us-build-census.md",
-   "line": 267,
+   "line": 284,
    "va": "0x004444d0",
    "kind": "fn",
    "class": "START",
@@ -8445,7 +8159,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md",
-   "line": 323,
+   "line": 326,
    "va": "0x8804b6ac",
    "kind": "fn",
    "class": "START",
@@ -8454,7 +8168,7 @@
   },
   {
    "file": "docs/experiments/EXP-2026-11-17-M8.A2-machine-skeleton-reprobe.md",
-   "line": 521,
+   "line": 529,
    "va": "0x880440f4",
    "kind": "fn",
    "class": "INSIDE",
@@ -8519,6 +8233,627 @@
    "file": "docs/experiments/EXP-2026-11-19-H112-pm-review.md",
    "line": 119,
    "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 25,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 25,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 31,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 34,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 47,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 47,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 48,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 48,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 49,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 50,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 104,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 105,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 106,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 108,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 113,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 119,
+   "va": "0x003f57a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 120,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 194,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 196,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 218,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
+   "line": 219,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 34,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 35,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 51,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 54,
+   "va": "0x003ff6a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 105,
+   "va": "0x003fc9c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 193,
+   "va": "0x003fa574",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 198,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 209,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 232,
+   "va": "0x0040e510",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 232,
+   "va": "0x00412c60",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 233,
+   "va": "0x003f600c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 239,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 256,
+   "va": "0x003ff6a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 258,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 258,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
+   "line": 271,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 140,
+   "va": "0x003335c0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 158,
+   "va": "0x00340f18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 159,
+   "va": "0x00348d34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 160,
+   "va": "0x003cc13c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 178,
+   "va": "0x004124dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 188,
+   "va": "0x00340f18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 203,
+   "va": "0x004124dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
+   "line": 206,
+   "va": "0x00340f18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 45,
+   "va": "0x0041c7dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 150,
+   "va": "0x0041c990",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 360,
+   "va": "0x0041c990",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 362,
+   "va": "0x0041855c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
+   "line": 362,
+   "va": "0x0041a438",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 268,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 282,
+   "va": "0x004e7b8c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 283,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 284,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 286,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 307,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 46,
+   "va": "0x880404f4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 46,
+   "va": "0x8804cdf8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 176,
+   "va": "0x8804cdf8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 177,
+   "va": "0x8804c018",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 186,
+   "va": "0x8804cdf8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 189,
+   "va": "0x8804c018",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 204,
+   "va": "0x88010398",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 205,
+   "va": "0x880404f4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 217,
+   "va": "0x88010398",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 219,
+   "va": "0x8804aa08",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 282,
+   "va": "0x8804cdf8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 283,
+   "va": "0x8804c018",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
+   "line": 286,
+   "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8595,6 +8930,141 @@
    "file": "docs/experiments/EXP-2026-11-19-M9.38-read-watch.md",
    "line": 164,
    "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
+   "line": 168,
+   "va": "0x88040988",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
+   "line": 169,
+   "va": "0x88040b6c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
+   "line": 170,
+   "va": "0x88040c18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
+   "line": 171,
+   "va": "0x88041244",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
+   "line": 172,
+   "va": "0x88042594",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 30,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 36,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 52,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 150,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 153,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 153,
+   "va": "0x03bd2ecc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 169,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 191,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 241,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+   "line": 287,
+   "va": "0x03bd2ce4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8815,35 +9285,7 @@
   {
    "file": "docs/format/firmware.md",
    "line": 287,
-   "va": "0x004125a8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 288,
-   "va": "0x003fbed8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 288,
-   "va": "0x0040114e",
-   "kind": "fn",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 289,
-   "va": "0x0040b358",
+   "va": "0x003f51e0",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8860,8 +9302,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 294,
-   "va": "0x003f51e0",
+   "line": 292,
+   "va": "0x003f5e10",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8869,8 +9311,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 296,
-   "va": "0x003f5d98",
+   "line": 301,
+   "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8878,8 +9320,36 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 296,
-   "va": "0x003f61bc",
+   "line": 302,
+   "va": "0x003fbed8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 302,
+   "va": "0x0040114e",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 303,
+   "va": "0x0040b358",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 304,
+   "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8889,15 +9359,6 @@
    "file": "docs/format/firmware.md",
    "line": 308,
    "va": "0x003f51e0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 308,
-   "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -8906,6 +9367,42 @@
   {
    "file": "docs/format/firmware.md",
    "line": 310,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 310,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 322,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 322,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 324,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -8914,7 +9411,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 311,
+   "line": 325,
    "va": "0x00415fe8",
    "kind": "fn",
    "class": "START",
@@ -8923,7 +9420,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 312,
+   "line": 326,
    "va": "0x0040e28c",
    "kind": "fn",
    "class": "START",
@@ -8932,7 +9429,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 314,
+   "line": 328,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -8941,7 +9438,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 316,
+   "line": 330,
    "va": "0x003faf04",
    "kind": "fn",
    "class": "START",
@@ -8950,7 +9447,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 317,
+   "line": 331,
    "va": "0x003fc9c8",
    "kind": "fn",
    "class": "START",
@@ -8959,7 +9456,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 317,
+   "line": 331,
    "va": "0x003fcbf0",
    "kind": "fn",
    "class": "START",
@@ -8968,7 +9465,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 318,
+   "line": 332,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -8977,7 +9474,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 318,
+   "line": 332,
    "va": "0x003fe774",
    "kind": "fn",
    "class": "START",
@@ -8986,7 +9483,142 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 377,
+   "line": 345,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 348,
+   "va": "0x003ff6a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 353,
+   "va": "0x003fc9c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 354,
+   "va": "0x003fcbf0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 355,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 356,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 357,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 359,
+   "va": "0x003fe774",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 359,
+   "va": "0x00412c60",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 360,
+   "va": "0x0040dfa8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 360,
+   "va": "0x0040e510",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 360,
+   "va": "0x00415fe8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 365,
+   "va": "0x00412c60",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 366,
+   "va": "0x003f600c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 366,
+   "va": "0x0040e510",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 418,
    "va": "0x00377870",
    "kind": "fn",
    "class": "START",
@@ -8995,7 +9627,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 380,
+   "line": 421,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -9004,7 +9636,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 380,
+   "line": 421,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -9013,7 +9645,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 383,
+   "line": 424,
    "va": "0x00377870",
    "kind": "fn",
    "class": "START",
@@ -9022,7 +9654,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 384,
+   "line": 425,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -9031,7 +9663,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 602,
+   "line": 654,
    "va": "0x004e84c4",
    "kind": "sub_",
    "class": "START",
@@ -9040,7 +9672,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 603,
+   "line": 655,
    "va": "0x004e8f38",
    "kind": "fn",
    "class": "START",
@@ -9049,7 +9681,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 604,
+   "line": 656,
    "va": "0x004e989c",
    "kind": "sub_",
    "class": "START",
@@ -9058,7 +9690,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 604,
+   "line": 656,
    "va": "0x004ea288",
    "kind": "fn",
    "class": "START",
@@ -9067,7 +9699,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 605,
+   "line": 657,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -9076,7 +9708,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 611,
+   "line": 663,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -9085,7 +9717,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 731,
+   "line": 783,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -9094,7 +9726,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 741,
+   "line": 793,
    "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
@@ -9103,7 +9735,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 743,
+   "line": 795,
    "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
@@ -9112,7 +9744,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 745,
+   "line": 797,
    "va": "0x004e7d4c",
    "kind": "fn",
    "class": "START",
@@ -9121,7 +9753,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 761,
+   "line": 813,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -9130,9 +9762,36 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 893,
+   "line": 945,
    "va": "0x0001e3f4",
    "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1561,
+   "va": "0x004124dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1583,
+   "va": "0x003335c0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/l3_harness/targets.json:applaunch_mapcode_compare",
+   "line": 0,
+   "va": "0x03bd2ad8",
+   "kind": "target",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"

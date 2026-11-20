@@ -300,6 +300,51 @@
    ]
   },
   {
+   "name": "applaunch_mapcode_compare",
+   "reader": "hdd_info",
+   "what": "AppLaunch.dll map-code compare fn 0x03bd2ad8 (EU2011 build B; DIFFERENT MAP CODE, M2.5/M2.15/M9.6)",
+   "module": "AppLaunch.dll",
+   "build": "eu2011",
+   "entry": {
+    "kind": "firmware_call",
+    "program": "mapcode_compare_v1",
+    "module": "AppLaunch.dll",
+    "va": "0x03bd2ad8",
+    "endian": "little",
+    "sec1_table": {
+     "va": "0x01f74b30",
+     "values": [
+      "0x00000000"
+     ],
+     "provenance": "HDD_INFO parse cache, first byte tested by fn 0x03bd2ad8 at 0x03bd2b78 (pool 0x03bd2cb8). AppLaunch.dll sec1 realaddr 0x01f73000 +0x1b30 >= init 0x3ac: BSS, zero at load (tools/va_class.py on rva VA 0x03bd7b30). Zero = first call, the file path is taken."
+    },
+    "inputs": {
+     "image_start": "0x3e00200",
+     "guest_path": "\\SystemSD\\VER_INFO\\HDD_INFO.TXT",
+     "unit_record": "KernelIoControl(0x0101302C) out +0x60, 11 bytes: declared by --unit-from (factory line-1 bytes 0..10) or --unit-code; not read from a unit"
+    },
+    "note": "Runs fn 0x03bd2ad8 from the image with 8 COREDLL import thunks stubbed (tools/mapcode_l3.py). Pass --image IMG256 --input HDD_INFO.TXT --unit-from FACTORY_HDD_INFO.TXT [--expect REJECT]."
+   },
+   "stubs": [],
+   "corpus": {
+    "path": "hdd_info/factory/HDD_INFO.TXT",
+    "guest_path": "\\SystemSD\\VER_INFO\\HDD_INFO.TXT",
+    "reader": "hdd_info",
+    "case": "hdd_info_factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "fn 0x03bd2ad8 returns 1 (ACCEPT) when the unit record +0x60 equals HDD_INFO line-1 bytes 0..10, else 0 (REJECT, router fn 0x03bd2ecc raises 0x50 DIFFERENT MAP CODE); pass --expect REJECT for an edited line-1 control"
+   },
+   "notes": [
+    "Registered by M9.6 (EXP-2026-11-19-M9.6-mapcode-compare).",
+    "The unit record is an assumption (factory card matches its unit), stated in every result.",
+    "Covers check 1 (0x50) only; the MapDBVer range check fn 0x03bd2ce4 (0x51) is not run."
+   ]
+  },
+  {
    "name": "cmp_ind_reader_us2011",
    "reader": "cmp_ind",
    "what": "REFER001 .cmp + .ind chunk reader (US 2011 Navi.exe fn 0x00444540, EU->US twin of 0x0041c7dc; M1.22)",
