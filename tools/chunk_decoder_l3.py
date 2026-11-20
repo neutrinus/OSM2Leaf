@@ -241,10 +241,28 @@ def read_mask(image: bytes, va: int, dump: Path | None = None) -> dict:
     return out
 
 
+def image_init_sections(image: bytes, module: str = MODULE,
+                        image_start: int = IMAGE_START) -> dict:
+    """``{va: bytes}`` for every compressed section of *module* (M1.19).
+
+    Each value is what the CE loader maps there: the stored bytes decoded by
+    the kernel's own routine (``nk_decomp.section_bytes``, cached), then zero
+    BSS up to ``vsize``.
+    """
+    import nk_decomp
+    rom = cerom.CERom(image, image_start)
+    out = {}
+    for index, sec in enumerate(rom.o32(rom.module(module))):
+        if sec["flags"] & cerom.IMAGE_SCN_COMPRESSED:
+            out[sec["realaddr"]] = nk_decomp.section_bytes(image, module, index, image_start)
+    return out
+
+
 def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                  chunk_size: int, sec_mode: str = "block", sec1_table=None,
                  tgt: dict | None = None, engine=None, watches=(),
-                 seed_page: bytes | None = None, mask_values=None):
+                 seed_page: bytes | None = None, mask_values=None,
+                 init_sections=None):
     """Run fn 0x41c7dc on the chunks covering [offset, offset+length).
 
     The loop starts at the table entry that ``*(ctx+28)`` points to and walks
@@ -268,6 +286,11 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     with them ``zero-mask`` writes what was read instead of the public
     constant.  ``stats["mask"]`` says which happened: ``DECLARED`` (a
     ``sec1_table``), ``READ`` or ``WRITTEN`` (public zlib, not read).
+
+    ``sec_mode="image"`` (M1.19) maps every compressed section with the bytes
+    the loader puts there — ``init_sections`` ``{va: bytes}``, from
+    ``image_init_sections`` (kernel decoder, init bytes + zero BSS) — and
+    writes nothing else: ``stats["mask"]`` is ``IMAGE``.
     """
     tgt = tgt or BUILD_TARGETS["eu2011"]
     start = chunk_index(offset, chunk_size)
@@ -285,7 +308,14 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     eng.map("stack", STK_VA, bytearray(STK_SIZE), "rw")
     comp_ranges = []
     mask_how = None
-    if sec_mode in ("zero", "zero-mask"):
+    if sec_mode == "image":
+        if not init_sections:
+            raise Blocked("sec_mode image needs init_sections (image_init_sections)")
+        for va, blob in sorted(init_sections.items()):
+            eng.map("sec@%08x" % va, va, bytearray(blob), "rw")
+            comp_ranges.append((va, va + len(blob)))
+        mask_how = "IMAGE"
+    elif sec_mode in ("zero", "zero-mask"):
         # Diagnostic: the compressed sections are mapped as zero-filled RW so
         # the run continues, and every read that lands in them is logged.
         _, secs = pw.module_sections(image, IMAGE_START, MODULE)
@@ -462,10 +492,16 @@ def cmd_run(args) -> int:
     elif args.sec1 == "zero-mask":
         print(f"inflate_mask[17] @ {tgt['inflate_mask']:#010x} ({args.build}): "
               "WRITTEN from public zlib 2^n - 1, OBSERVED (not read from the image)")
+    init_sections = None
+    if args.sec1 == "image":
+        init_sections = image_init_sections(image)
+        print(f"compressed {MODULE} sections mapped from the image (nk_decomp, M1.19): "
+              + ", ".join(f"{va:#010x}+{len(b):#x}" for va, b in sorted(init_sections.items())))
     try:
         ret, out, stats = run_firmware(image, cmp_bytes, rows, args.offset,
                                        args.length, chunk_size, sec_mode,
-                                       tgt=tgt, mask_values=mask_values)
+                                       tgt=tgt, mask_values=mask_values,
+                                       init_sections=init_sections)
     except Blocked as exc:
         args = exc.args
         va = args[1] if len(args) > 1 else None
@@ -621,14 +657,15 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--mutate", choices=MUTATIONS, default="none")
     run.add_argument("--build", choices=tuple(BUILD_TARGETS), default="eu2011",
                      help="firmware build whose chunk-engine VAs to run")
-    run.add_argument("--sec1", choices=("block", "zero", "zero-mask", "read-mask"),
+    run.add_argument("--sec1", choices=("block", "zero", "zero-mask", "read-mask", "image"),
                      default="block",
                      help="block: a compressed-section access stops the run (default); "
                           "zero: diagnostic, map compressed sections as zeros and log reads; "
                           "zero-mask: as zero, plus zlib's public inflate_mask[17] written "
                           "at the build's slot (EU 0x574de0; not read); read-mask: as zero-mask, but the "
                           "17 words are read from the image (sec1 decoded by nk_decomp) and "
-                          "the run fails unless they equal 2^n - 1")
+                          "the run fails unless they equal 2^n - 1; image: every compressed "
+                          "section mapped with its decoded INIT bytes + zero BSS (M1.19)")
     run.add_argument("--sec1-dump", metavar="PATH",
                      help="with --sec1 read-mask: a decoded section written by "
                           "`nk_decomp.py section -o` instead of decoding it again")
