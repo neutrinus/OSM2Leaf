@@ -1,6 +1,6 @@
 # EXP-2026-11-20-H116: the DOCS BASE cites only live TODO blocks
 
-- **Status:** done (pair review pending)
+- **Status:** done (navigator reviewed; see "Corrections after navigator review")
 - **Date:** 2026-11-20
 - **Sample:** `archive/head256.img` (EU 2011 IMG256, SHA-256
   `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`); the
@@ -34,9 +34,9 @@ VA out no longer prints a `gone` row and exits 1.
 | Item | Value |
 | --- | --- |
 | Image | `archive/head256.img`, SHA-256 `92aa525d…a007f9` (above) |
-| Frozen docs base (before) | `docs/research/fn-audit-corpus-2026-11-16.json` at `main` head `a1efe85`, 609 rows, SHA-256 `0970f663c2af46dfcc4bddb9acf7578baca013d6657d4f721d74f649e4e75fad` |
+| Frozen docs base (before) | `docs/research/fn-audit-corpus-2026-11-16.json` at the branch base `d2fb7b4` (= `origin/main` at claim time), 609 rows, SHA-256 `0970f663c2af46dfcc4bddb9acf7578baca013d6657d4f721d74f649e4e75fad` |
 | Frozen docs base (after) | same path, re-frozen once (this task), 466 rows, SHA-256 `a07fd7624ea5e1ece030cd70bce7d8559e062e66ad4e73f2f9478d8678a5fbea` |
-| `TODO.md` | 144 `[x]`/done blocks, 121 live blocks (97 open, 21 blocked, 1 in progress, 2 header-only) at the branch head |
+| `TODO.md` | 144 done, 99 open, 21 blocked, 1 in progress blocks (0 with no `Status:` line) at the branch head; the 99 "open" include the fenced task-field template at `TODO.md:209`, whose `Status: open \| in progress \| …` enum matches `open` but whose fenced body yields no citation |
 | Repo tool | `tools/fn_audit.py` (`live_todo_lines`, `citations_markdown(mask=…)`, `collect("docs")`) |
 
 ## Method
@@ -50,8 +50,9 @@ VA out no longer prints a `gone` row and exits 1.
    `- [` item or a `## ` section (the `_open_blocks` span). `collect("docs")`
    passes the complement of that set as `citations_markdown(mask=…)` for
    `TODO.md` only, so docs/EXP/target/const corpora stay whole-file. A block
-   with no `Status:` line (the fenced task-field template at `TODO.md` ~209)
-   stays live, so H77/H115 fence behaviour is untouched.
+   with no matching `Status:` token stays live (so the fenced task-field template
+   at `TODO.md:209`, whose enum matches `open`, stays live; its fenced body is
+   still dropped by `fenced_lines`), and H77/H115 fence behaviour is untouched.
 3. **Commands** (worktree root; the move is reversed in a `finally`):
 
 ```bash
@@ -86,27 +87,33 @@ try:
 finally:
     open(todo, "w", encoding="utf-8").write(text)
 PY
-# negative control: the same script with "M3.13" (an open block)
+# negative control: the same script with "M3.13" (a blocked block)
 ```
 4. **Controls.** *Positive:* the nine done blocks the cycle-17 PO pass wanted
    to archive — they carry VAs, so if the fix did not narrow the scan the
-   payload would go `gone`. *Negative:* the open `M3.13` block, whose unique
+   payload would go `gone`. *Negative:* the blocked `M3.13` block, whose unique
    VAs must still be reported `gone` and exit 1; the pre-fix precheck below is
    the same method before the change (must go stale).
 5. **Falsifier** stated in Hypothesis, before the result.
 
-**Precheck (before the fix, `main` head `a1efe85`, 9 done blocks removed):**
+**Precheck (before the fix, branch base `d2fb7b4` = `origin/main` at claim
+time, 9 done blocks removed):**
 
 ```text
 CORPUS STALE: 0 new / 17 gone / 151 moved
-EXIT=1
+exit=1
 ```
+
+Run in a detached worktree at `d2fb7b4` (corpus blob unchanged from `a1efe85`,
+SHA-256 `0970f663…`): the `moved` count is TODO-revision-dependent — `d2fb7b4`
+gives 151 moved, `a1efe85` alone gives 149 moved (both `17 gone`, exit 1). The
+corpus identity change, `17 gone`, is the same at either revision.
 
 ## Observations
 
 `python3 tools/fn_audit.py --selftest` → `selftest: OK (93 checks, 0 failed)`
 (89 before this task; +4 H116 checks: done block not cited, open/in progress/
-blocked cited, unmasked scan is the control, no-`Status` template stays live).
+blocked cited, unmasked scan is the control, the enum-`Status` template stays live).
 
 Corpus counts, writer before → after (both on IMG256):
 
@@ -121,9 +128,11 @@ Only `TODO.md` rows changed: the 311 non-`TODO.md` `(file, va, kind)` keys are
 identical before and after (`added [] gone []`, no file added or removed).
 Where the old 168 `TODO.md` rows sat, measured against `git show a1efe85:TODO.md`
 (the freeze revision, not the moved head board): 142 in done blocks, 14 in
-blocked, 10 in open, 1 in progress, 1 on a section header/prose line. The 25
-rows that remain in the re-frozen corpus (head board) are 18 open + 7 blocked
-(23 START + 2 GAP); 0 of them falls outside `live_todo_lines`.
+blocked, 10 in open, 1 in progress, 1 on a section header/prose line. Mapping
+the same 168 rows to the *head* board (whose headings and line numbers moved)
+re-classifies a few rows into shifted blocks, so the 25 rows the re-frozen
+corpus keeps (head board) are 18 open + 7 blocked (23 START + 2 GAP); 0 of
+them falls outside `live_todo_lines` at the head.
 
 Positive control (nine done blocks moved out, after the re-freeze):
 
@@ -136,7 +145,7 @@ The `25 moved` are the live-block rows shifting up when the done blocks leave
 the file; the identity set `(file, va, kind, class)` is unchanged (H69 moved-only
 drift, exit 0).
 
-Negative control (open `M3.13` block moved out, after the re-freeze):
+Negative control (blocked `M3.13` block moved out, after the re-freeze):
 
 ```text
 CORPUS STALE: 0 new / 5 gone / 16 moved
@@ -170,16 +179,17 @@ gate: 4 pass, 0 fail, 0 skip
   produced `0 new / 17 gone` before the change (Precheck).
 - **FACT:** After the change and the single re-freeze, moving exactly those
   nine done blocks gives `0 new / 0 gone / 25 moved`, exit 0; moving the open
-  `M3.13` block gives `0 new / 5 gone / 16 moved`, exit 1.
+  `M3.13` block (a *blocked* block, still live) gives `0 new / 5 gone / 16 moved`, exit 1.
 - **OBSERVED:** The non-`TODO.md` corpus is byte-for-byte the same identity
   set (311 keys), so the change is confined to the `TODO.md` pass.
-- **FACT:** All 20 old `CORRECTED` rows split 18 in done blocks and 2 in the
-  open `H41` block. The three `CORRECTION_ONLY` pins (`0x003f5fc2`,
-  `0x00413af4`, `0x00542256`) occur only in done blocks (M1.16, M1.26, H61,
-  M1.22b); the narrower scan finds none of them in a live block and the l3
+- **FACT:** All 20 old `CORRECTED` rows sit in done blocks (20 done / 0 live
+  at the freeze revision `a1efe85`): M1.29 8, H52 7, M1.26 2, M3.22 2, H63 1.
+  The three `CORRECTION_ONLY` pins (`0x003f5fc2`, `0x00413af4`,
+  `0x00542256`) are named by M1.29, H52, H63, M1.26 and M3.22 (all done); the
+  narrower scan finds none of them in a live block and the l3
   `citations_open_tasks` scan (which reads only `- [ ]` blocks) yields none
   either, so the `CORRECTED 20 → 0` drop is exactly those 20 rows. The pins
-  keep their selftest-fixture coverage (M1.29's `CORRECT-OBLY` checks).
+  keep their `--selftest` coverage (M1.29's `CORRECTION_ONLY` pin tests).
 - **UNKNOWN:** Whether the PO archive pass will find that no *live* block
   names the moved VAs; this task only makes the archive safe, it does not
   perform it.
@@ -196,6 +206,26 @@ green on the image host. `docs/format/` is unchanged; the claimed policy is in
 `docs/research/claims.md` C-5740–C-5743. The PO archive itself stays a separate
 pass (rule 9 of this task's Done when).
 
+## Corrections after navigator review
+
+The navigator re-ran the controls and required five record/count fixes; the
+code fix is unchanged.
+
+- **CORRECTED rows:** the 20 old `CORRECTED` rows are 20 done / 0 live at the
+  freeze revision `a1efe85` (M1.29 8, H52 7, M1.26 2, M3.22 2, H63 1); the
+  earlier "18 done / 2 in the open H41 block" was a head-offset artifact.
+- **Pin attribution:** the three `CORRECTION_ONLY` pins are named by M1.29,
+  H52, H63, M1.26 and M3.22 (all done); M1.16, H61 and M1.22b are not names
+  the pins rely on.
+- **Board breakdown:** re-measured at the branch head `2bf36c7`: 144 done,
+  99 open, 21 blocked, 1 in progress, 0 blocks with no `Status:` line; the
+  99 include the fenced task-field template at `TODO.md:209`.
+- **Negative-control label:** `M3.13` is `blocked`, not `open`; the mask still
+  cites it (blocked is live), so the control is unchanged.
+- **Precheck revision:** the `0 new / 17 gone / 151 moved` precheck was run in
+  a detached worktree at the branch base `d2fb7b4` (= `origin/main` at claim
+  time); `a1efe85` alone gives 149 moved with the same 17 gone.
+
 ## Overtaken by a later commit
 
 none
@@ -206,7 +236,7 @@ none
 python3 tools/fn_audit.py --selftest                      # expected: selftest: OK (93 checks, 0 failed)
 python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet
 # expected: exit 0 against this branch's TODO.md; the two controls in Method
-# reproduce 0 new / 0 gone (nine done blocks) and 0 new / 5 gone (M3.13)
+# reproduce 0 new / 0 gone (nine done blocks) and 0 new / 5 gone (blocked M3.13)
 ```
 
 ## Follow-ups

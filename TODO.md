@@ -1430,8 +1430,8 @@ in its first line.
   - Stop: if the board's fences are unbalanced (an unclosed fence hides nothing, per H77), record the lines and ship only the template fix.
   - Claims: C-5720–C-5729
 
-- [ ] **H116 — the DOCS BASE corpus pins citations inside *done* TODO blocks, so archiving a finished task reddens the standing gate on a host with the image**
-  - Status: in progress · Owner: task/h116-archive-vs-docs-base · Critical: no · Pair: required
+- [x] **H116 — the DOCS BASE corpus pins citations inside *done* TODO blocks, so archiving a finished task reddens the standing gate on a host with the image**
+  - Status: done · Owner: task/h116-archive-vs-docs-base · Critical: no · Pair: required
   - Depends: — (found by the cycle-17 PO archive pass, 2026-11-20)
   - Goal: `tools/fn_audit.py --corpus docs/research/fn-audit-corpus-2026-11-16.json` (DOCS BASE) discovers VAs in `TODO.md` as a whole, including blocks whose `Status: done`. The PO rule ("archive done blocks >24 h old that no live task names") therefore cannot be followed: moving 9 such blocks to `docs/research/todo-history-2026-11-20.md` changed the docs-base identity set by `0 new / 17 gone / 151 moved` and made `tools/selftest.py`'s `fn_audit_l3_image` fail on a host with `archive/head256.img`. CI skips that suite (no image), so the regression is invisible to CI and only bites the TL/QA gate run. Archiving must be safe: a done block's VAs are history, not live citations.
   - Precheck: on a clean `origin/main` with `archive/head256.img`, copy 5 done blocks out of `TODO.md` into a scratch file and run the corpus command above — expect `CORPUS STALE: ... gone`; restore and it is `0 new / 0 gone`. Confirms the corpus covers done blocks.
@@ -1440,6 +1440,7 @@ in its first line.
   - Done when: after the fix, moving a *done* block with a unique VA into a history page leaves `fn_audit ... --corpus <base>` at `0 new / 0 gone` (negative control: moving an *open* block's VA out still reports the `gone` row and exits 1); the refreshed corpus contains no row whose only home is a done block; `python3 tools/selftest.py` and `python3 tools/gate.py` are green on a host with the image; the EXP records the pre/post corpus row counts. **Then** the PO may re-run the archive (a separate pass; this task only makes it safe).
   - Stop: if the docs-base scan is intentionally whole-file (a citation anywhere in `TODO.md` is proof), do not narrow it — instead make the archive tool strip or move the block's citations in the same commit and record that the corpus is a whole-file snapshot; the task closes with that decision and a `docs/research` note, not with a silent corpus edit.
   - Claims: C-5740–C-5749
+  - Result: done — EXP-2026-11-20-H116-archive-docs-base. DOCS BASE now cites only live TODO blocks (`live_todo_lines`, `_open_blocks` span; a done block is history); corpus re-frozen once 609→466 rows (TODO.md 168→25, non-TODO 311 keys unchanged). Moving the cycle-17 nine done blocks is `0 new / 0 gone / 25 moved` exit 0 (pre-fix at branch base `d2fb7b4`: `0 new / 17 gone / 151 moved`, exit 1); moving the blocked M3.13 block still `0 new / 5 gone / 16 moved`, exit 1. gate 4 pass/0 fail/0 skip.
 
 - [x] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
   - Status: done · Owner: task/m1.34-applaunch-table · Critical: no
