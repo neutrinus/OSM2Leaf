@@ -193,17 +193,9 @@ on a row whose block is already tagged or closed (stale).
 
 | ID | Step | Why not in the block |
 | --- | --- | --- |
-| M4.16b | P3 | open PR #260 |
-| M4.39 | P2 | open PR #263 |
-| M5.11 | P1 | open PR #264 |
-| M5.26 | P4 | open PR #265 |
-| M5.49 | P1 | open PR #247 |
+| M9.55 | P4 | owned by the parallel TL batch of 2026-11-20 (`dev_process/2026-11-20-1514-6-tl.log`) |
 | M9.14 | P0 | owned by a parallel thread (waits on M9.36) |
 | M9.17 | tooling | owned by a parallel thread (waits on M9.36) |
 | M9.33 | tooling | open PR #246 |
 | M9.36 | tooling | owned by a parallel thread |
 | M9.41 | P4 | open PR #248 |
-| M9.44 | P0 | open PR #280 |
-| M9.45 | tooling | open PR #288 |
-| M9.49 | tooling | open PR #286 |
-| M9.50 | tooling | open PR #287 |
