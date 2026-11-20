@@ -36,15 +36,15 @@
  ],
  "summary": {
   "files": 28,
-  "citations": 560,
-  "unique_va": 274,
-  "start": 327,
-  "inside": 7,
+  "citations": 566,
+  "unique_va": 265,
+  "start": 336,
+  "inside": 0,
   "corrected": 0,
-  "gap": 56,
-  "leaf": 56,
+  "gap": 55,
+  "leaf": 55,
   "ambiguous": 0,
-  "unmapped": 170
+  "unmapped": 175
  },
  "rows": [
   {
@@ -1091,7 +1091,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 669,
+   "line": 673,
    "va": "0x004e84c4",
    "kind": "sub_",
    "class": "START",
@@ -1100,7 +1100,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 670,
+   "line": 674,
    "va": "0x004e8f38",
    "kind": "fn",
    "class": "START",
@@ -1109,7 +1109,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 671,
+   "line": 675,
    "va": "0x004e989c",
    "kind": "sub_",
    "class": "START",
@@ -1118,7 +1118,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 671,
+   "line": 675,
    "va": "0x004ea288",
    "kind": "fn",
    "class": "START",
@@ -1127,7 +1127,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 672,
+   "line": 676,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -1136,7 +1136,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 678,
+   "line": 682,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -1145,26 +1145,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 798,
+   "line": 802,
    "va": "0x004e7b8c",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 808,
-   "va": "0x004dd028",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 810,
-   "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1173,6 +1155,24 @@
   {
    "file": "docs/format/firmware.md",
    "line": 812,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 814,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 816,
    "va": "0x004e7d4c",
    "kind": "fn",
    "class": "START",
@@ -1181,7 +1181,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 828,
+   "line": 832,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -1190,7 +1190,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 960,
+   "line": 964,
    "va": "0x0001e3f4",
    "kind": "sub_",
    "class": "START",
@@ -1199,7 +1199,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1578,
+   "line": 1582,
    "va": "0x004124dc",
    "kind": "fn",
    "class": "START",
@@ -1208,7 +1208,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1600,
+   "line": 1604,
    "va": "0x003335c0",
    "kind": "fn",
    "class": "START",
@@ -2014,6 +2014,213 @@
    "true_start": null,
    "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
    "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 118,
+   "va": "0x00417924",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 120,
+   "va": "0x00419c38",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 122,
+   "va": "0x0041841c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 124,
+   "va": "0x0040b358",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 126,
+   "va": "0x00418428",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 128,
+   "va": "0x0041bbec",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 130,
+   "va": "0x00409ba0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 132,
+   "va": "0x003f6c88",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 134,
+   "va": "0x003f7384",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 136,
+   "va": "0x003f73dc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 138,
+   "va": "0x00419350",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 140,
+   "va": "0x00419684",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 142,
+   "va": "0x0041a438",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 144,
+   "va": "0x009cfce0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 144,
+   "va": "0x00a10ea8",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 146,
+   "va": "0x009cfce4",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 146,
+   "va": "0x00a10eac",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 148,
+   "va": "0x009cfcd4",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 148,
+   "va": "0x00a10e9c",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 150,
+   "va": "0x00d53020",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 150,
+   "va": "0x00e25420",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 152,
+   "va": "0x00d518c0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 152,
+   "va": "0x00e23cc0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/chunk_decoder_l3.py",
@@ -4955,161 +5162,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 926,
-   "va": "0x0043f688",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0043f608",
-   "class_sha256": "aa8275bb51dfea9aee0b5ad67ca528deb84d6f7f90e5de39dd4e178518063556"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 927,
-   "va": "0x0044199c",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 928,
-   "va": "0x00440180",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0043fe80",
-   "class_sha256": "abcb0800f2675779a55fca751714a8e3a8515ffd5bd65b63afcff6e8cd2b87d7"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 930,
-   "va": "0x00431ca0",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00431b14",
-   "class_sha256": "916af87daf535b1e9f69929a791c6a3daf7de31185ed54cbaae17e9b2b9d10ff"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 931,
-   "va": "0x0041fce4",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0041f3dc",
-   "class_sha256": "50d72913ceba2c68b18a2c0a1fd64b2d1597077010c62ba17aaa55c706915f3a"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 931,
-   "va": "0x0041fd3c",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0041f3dc",
-   "class_sha256": "50d72913ceba2c68b18a2c0a1fd64b2d1597077010c62ba17aaa55c706915f3a"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 932,
-   "va": "0x0044018c",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0043fe80",
-   "class_sha256": "abcb0800f2675779a55fca751714a8e3a8515ffd5bd65b63afcff6e8cd2b87d7"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 933,
-   "va": "0x00443950",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 934,
-   "va": "0x00a10ea8",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 935,
-   "va": "0x00a10eac",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 936,
-   "va": "0x00a10e9c",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 937,
-   "va": "0x00d53020",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 938,
-   "va": "0x00d518c0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 945,
-   "va": "0x00419350",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 946,
-   "va": "0x00419684",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 946,
-   "va": "0x004413e8",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x004413a8",
-   "class_sha256": "d250cdce97466815817ac34c1fa2c48628ed0f33c0c2ea48611a395b278f76cb"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 947,
-   "va": "0x0041a438",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/vcard_l3.py",
-   "line": 1751,
+   "line": 1755,
    "va": "0xfffffff4",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5118,7 +5171,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 1758,
+   "line": 1762,
    "va": "0x12345678",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5127,7 +5180,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 1759,
+   "line": 1763,
    "va": "0x9abcdef0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5136,7 +5189,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 1761,
+   "line": 1765,
    "va": "0x11111111",
    "kind": "const",
    "class": "UNMAPPED",

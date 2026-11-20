@@ -913,38 +913,42 @@ EU2011 = {
 }
 
 # The same layer in the US2011 build A (`archive/us256.img`, SHA-256 70d945d8…).
-# Functions: `fn_match.py match` (12 UNIQUE pairs; `read` is a 12-byte stub
-# that fn_match calls AMBIGUOUS and is taken as the pdata START at the same
-# distance as its EU neighbours, with the same words). Data addresses: the
-# literal-pool value at the same load index of the matched function
-# (`vcard_l3.py port EU_HEAD US_HEAD` re-derives and checks every one, M9.14);
-# `mount` is `state + 4` as in EU2011 (no pool of these functions loads it).
-US2011 = {
-    "build": "us2011",
-    "head_sha256": "70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da",
-    "volume_root_w": 0x10000 + 0x46634,
-    "init": 0x0043F688,
-    "event": 0x0044199C,
-    "read": 0x00440180,
-    "resolve": 0x00433458,
-    "read_clients": {0x00431CA0: "range clamp", 0x0041F5E8: "read request",
-                     0x0041FCE4: "read wrapper A", 0x0041FD3C: "read wrapper B"},
-    "cancel": 0x0044018C,
-    "logger": 0x00443950,
-    "state": 0x00A10EA8,
-    "mount": 0x00A10EAC,
-    "ndirs": 0x00A10E9C,
-    "dirs": 0x00D53020,
-    "mmain_buf": 0x00D518C0,
-    "reply_msg": 0x04A0,
-}
+# The values are owned by tools/build_targets.py (roles of tool "vcard_l3",
+# M9.14): functions are fn_match pairs (pdata START, equal lengths), data
+# addresses the pool value at the same load index of the paired function;
+# `vcard_l3.py port EU_HEAD US_HEAD` re-derives and checks every one.
+_LAYER_KEYS = {"init": "layer_init", "event": "layer_event", "read": "layer_read",
+               "resolve": "layer_resolve", "cancel": "layer_cancel", "logger": "layer_logger",
+               "state": "layer_state", "mount": "layer_mount", "ndirs": "layer_ndirs",
+               "dirs": "layer_dirs", "mmain_buf": "mmain_buf", "volume_root_w": "volume_root_w"}
+_CLIENT_KEYS = (("read_clamp", "range clamp"), ("read_request", "read request"),
+                ("read_wrap_a", "read wrapper A"), ("read_wrap_b", "read wrapper B"))
+
+
+def layer_build(build: str) -> dict:
+    """The layer dict of *build* from ``build_targets`` (the owner)."""
+    import build_targets
+    r = build_targets.tool_map("vcard_l3")[build]
+    out = {"build": build,
+           "head_sha256": {"eu2011": "92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9",
+                           "us2011": "70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da"}[build],
+           "reply_msg": 0x04A0}
+    out.update({k: r[v] for k, v in _LAYER_KEYS.items()})
+    out["read_clients"] = {r[k]: text for k, text in _CLIENT_KEYS}
+    return out
+
+
+US2011 = layer_build("us2011")
 BUILDS = {"eu2011": EU2011, "us2011": US2011}
 
 #: Functions that only ``port`` uses: they load data addresses the layer
-#: dict names (EU2011 -> US2011, fn_match UNIQUE).
-PORT_EXTRA = {0x00419350: 0x004410B4,   # DRSTR parser
-              0x00419684: 0x004413E8,   # its caller (volume table build)
-              0x0041A438: 0x0044219C}   # mmain_reader
+#: dict names (DRSTR parser, its caller, the MMAIN reader; EU -> US).
+def _port_extra() -> dict:
+    import build_targets
+    m = build_targets.tool_map("vcard_l3")
+    return {m["eu2011"][k]: m["us2011"][k] for k in ("drstr_parser", "drstr_caller", "mmain_reader")}
+
+
 PORT_DATA = ("volume_root_w", "state", "ndirs", "dirs", "mmain_buf")
 
 
@@ -954,7 +958,7 @@ def port_pairs(a: dict, b: dict) -> list[tuple[int, int]]:
     for key in ("init", "event", "read", "resolve", "cancel", "logger"):
         pairs.append((a[key], b[key]))
     pairs += list(zip(a["read_clients"], b["read_clients"]))
-    pairs += sorted(PORT_EXTRA.items())
+    pairs += sorted(_port_extra().items())
     return pairs
 
 
@@ -1759,6 +1763,7 @@ def selftest() -> int:
     check("port: the US pool value at the same load index", got == {"state": {0x9ABCDEF0: 1}})
     check("port: an EU value no pool loads is not found",
           port_data([(0x100, 0x200)], eu, us, {0x100: 8}, {0x11111111: "x"}) == {})
+    check("EU2011 layer dict equals its build_targets roles", layer_build("eu2011") == EU2011)
     check("port: the US dict pairs every EU layer function",
           len(port_pairs(EU2011, US2011)) == 13 and set(EU2011) == set(US2011))
     with tempfile.TemporaryDirectory() as tmp:

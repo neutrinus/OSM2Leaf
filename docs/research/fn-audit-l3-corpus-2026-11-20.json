@@ -10692,7 +10692,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 669,
+   "line": 673,
    "va": "0x004e84c4",
    "kind": "sub_",
    "class": "START",
@@ -10701,7 +10701,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 670,
+   "line": 674,
    "va": "0x004e8f38",
    "kind": "fn",
    "class": "START",
@@ -10710,7 +10710,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 671,
+   "line": 675,
    "va": "0x004e989c",
    "kind": "sub_",
    "class": "START",
@@ -10719,7 +10719,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 671,
+   "line": 675,
    "va": "0x004ea288",
    "kind": "fn",
    "class": "START",
@@ -10728,7 +10728,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 672,
+   "line": 676,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -10737,7 +10737,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 678,
+   "line": 682,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -10746,26 +10746,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 798,
+   "line": 802,
    "va": "0x004e7b8c",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 808,
-   "va": "0x004dd028",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 810,
-   "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -10774,6 +10756,24 @@
   {
    "file": "docs/format/firmware.md",
    "line": 812,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 814,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 816,
    "va": "0x004e7d4c",
    "kind": "fn",
    "class": "START",
@@ -10782,7 +10782,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 828,
+   "line": 832,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -10791,7 +10791,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 960,
+   "line": 964,
    "va": "0x0001e3f4",
    "kind": "sub_",
    "class": "START",
@@ -10800,7 +10800,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1578,
+   "line": 1582,
    "va": "0x004124dc",
    "kind": "fn",
    "class": "START",
@@ -10809,7 +10809,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1600,
+   "line": 1604,
    "va": "0x003335c0",
    "kind": "fn",
    "class": "START",
