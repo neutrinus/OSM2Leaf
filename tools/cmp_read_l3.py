@@ -9,9 +9,9 @@ PySh4 with the file-system ``ops`` table bound to host files:
   the manager constructor the mount ``0x0041ba90`` calls through
   ``0x0041bd88``; it builds the ctx (``0x0041c190``), reads ``CMP.LST``
   (``0x0041c124``) and sets up the ``.IND`` cache (``0x0041cb1c``).  The
-  ``cfg`` words are the mount's own constants (``0x0041baee``..``0x0041bb0a``):
+  ``cfg`` words are the mount's own constants (``fn 0x0041ba90`` +0x5e..+0x7a):
   50 handles, 20 entries, ``0x20000``, ``0x10000``, ``0x14000``; arena size
-  ``0x82c60`` (pool ``0x0041bbe0``).  The result is stored at ``*0x009cfd18``
+  ``0x82c60`` (its pool, ``fn 0x0041ba90`` +0x150).  The result is stored at ``*0x009cfd18``
   as the mount does.
 * ``fn 0x0041b780(path, 1)`` — open; ``0x0041be30`` asks ``0x0041c2e0``
   (``CMP.LST`` match) and opens ``path.IND``/``path.CMP`` (``0x0041c524``).
@@ -85,15 +85,15 @@ FN_SEEK = 0x0041B8A4        # seek(h, off, whence, flag)
 FN_READ = 0x0041B954        # read(h, buf, len, flag)
 FN_ERRLOG = 0x0041BBEC      # error reporter (NKDbgPrintfW / ErrorLogMsg)
 G_MGR = 0x009CFD18          # *0x009cfd18 = manager (BSS, Navi.exe sec1)
-MOUNT_CFG = (50, 20, 0x20000, 0x10000, 0x14000)   # 0x0041baee..0x0041bb0a
-ARENA_SIZE = 0x82C60                              # pool 0x0041bbe0
+MOUNT_CFG = (50, 20, 0x20000, 0x10000, 0x14000)   # fn 0x0041ba90 +0x5e..+0x7a
+ARENA_SIZE = 0x82C60                              # fn 0x0041ba90 pool +0x150
 SLOT_COMPRESSED = 0x116     # u16 per handle slot, 1 = served through .ind/.cmp
 
 # compare sites observed during a run (EU2011): VA -> (label, left reg, right reg)
 PROBES = {
-    0x0041C92A: ("chunk_size==cfg (0x41c8c4)", "r8", "r3"),
-    0x0041C696: ("chunk_size==cfg (0x41c5f0)", "r8", "r1"),
-    0x0041CA3C: ("read len==batch (0x41c990)", "r0", "r12"),
+    0x0041C8C4 + 0x66: ("chunk_size==cfg (fn 0x0041c8c4 +0x66)", "r8", "r3"),
+    0x0041C5F0 + 0xA6: ("chunk_size==cfg (fn 0x0041c5f0 +0xa6)", "r8", "r1"),
+    0x0041C990 + 0xAC: ("read len==batch (fn 0x0041c990 +0xac)", "r0", "r12"),
 }
 
 IMPORTS = ("strlen", "strcpy", "strcat", "memcpy", "memset", "_divls",
@@ -655,7 +655,7 @@ def build_parser():
             s.add_argument("--expect", choices=("ACCEPT", "REJECT", "WRONG"))
             s.add_argument("--cfg-chunk", type=lambda v: int(v, 0), default=0x10000,
                            help="harness control: the mount's chunk constant "
-                                "(firmware 0x10000, built at 0x0041bafe)")
+                                "(firmware 0x10000, built in fn 0x0041ba90 +0x6e)")
             s.add_argument("--json", action="store_true")
         else:
             s.add_argument("--mutants", required=True)
