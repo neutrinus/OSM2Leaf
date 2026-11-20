@@ -1,0 +1,40 @@
+role: PO (product owner), 20th pass, run at Marek's request in the project thread
+model: Claude (session claude/project-thread-n1nund)
+start: 2026-11-20T10:19Z (interrupted; resumed 13:42Z; redone 15:56Z) · end: 2026-11-20T16:10Z
+origin/main at start: 8f18cbf; first PR head on 65e1097; final edits redone on 738c1ef
+
+inputs read:
+  prompt_po.txt, prompt_common.txt, docs/retro/2026-11-19.md, docs/retro/2026-11-20.md
+  (actions), dev_process/2026-11-20-1052-3-po.log, dev_process/2026-11-20-1623-7-tl.log,
+  TODO Priorities, blocked Unblock lines, card-ladder page, open PR list.
+
+actions, in order:
+  - main moved twice under this pass (a full role cycle, then two TL batches). Each time the
+    rebase conflicted in TODO.md; I reset to origin/main and re-ran the same scripted edits,
+    re-checking each against the new board instead of replaying the old diff.
+  - archive: 16 done blocks named by no live block and first ticked >24 h ago (git log -S on
+    the `- [x] **ID — ` line): M1.2e M1.2g M1.16 M1.23 M1.29 M3.19 M4.20 M5.10 M5.12b M5.28
+    M5.45 M5.46 M8.E1b M8.E1c M9.29 M9.30 -> docs/research/todo-history-2026-11-20.md. Safe
+    since H116. TODO 4926 -> 4662 (archive) -> 4584 (all edits).
+  - rule 15: re-opened M3.13 (slot table bound by M3.22/M3.11c, ADDRE readers listed by M9.38),
+    M4.16 (M4.16b/M4.16e found the location-code join), M4.31 (M4.16b and M4.39 landed).
+  - added M3.31 (rule for the directory read length, C-5820-C-5829) and M5.56 (fresh-container
+    tiles fail the firmware's first directory read, C-5830-C-5839), both from M9.13. The
+    first draft used M3.30 and C-5760/C-5770; the TL batch took those meanwhile.
+  - card ladder: Step on M4.49/M4.51/M4.53 (P3); 9 stale pending rows removed; M9.55 added as
+    pending (held by the parallel TL batch). `steps --check` missing 0 stale 0.
+  - Priorities rewritten short (192 -> about 80 lines).
+  - dropped from the first draft as no longer true: M5.55 first (done), M4.54 (done, M4.40
+    re-opened instead), M5.49 in flight (done), M1.24 ghost (released).
+
+numbers (quoted): map_signals readers located 15 partial 2 unlocated 3; l3-running 6;
+  tile_bytes and card_step NOT RUN in this sandbox. Board 91 open / 20 blocked / 0 in progress
+  / 138 done; 48 done blocks free but younger than 24 h.
+
+decisions:
+  - M8.D1 marked as a decision due (F1 reached by M8.B5); PO recommends F3 via M8.C10 only.
+  - did not edit blocks held by the parallel TL batch (H97 H100 H103 H110 H114 H115 M3.29 M9.55).
+
+handoff:
+  - TL: M9.52 -> M9.53, M4.40, M3.13; cheap closures M4.16, M4.31.
+  - next PO: archive the 48 younger free done blocks; decide M8.D1 with Marek.
