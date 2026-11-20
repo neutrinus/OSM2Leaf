@@ -24,6 +24,7 @@
   "tools/chunk_decoder_l3.py",
   "tools/cmp_read_l3.py",
   "tools/datask_l3.py",
+  "tools/datask_req_l3.py",
   "tools/l3_harness/targets.json",
   "tools/mapcode_l3.py",
   "tools/mmain_l3.py",
@@ -38,16 +39,16 @@
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 31,
-  "citations": 687,
-  "unique_va": 300,
-  "start": 434,
+  "files": 32,
+  "citations": 716,
+  "unique_va": 307,
+  "start": 443,
   "inside": 0,
   "corrected": 0,
-  "gap": 65,
-  "leaf": 65,
+  "gap": 66,
+  "leaf": 66,
   "ambiguous": 0,
-  "unmapped": 188
+  "unmapped": 207
  },
  "rows": [
   {
@@ -251,7 +252,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4361,
+   "line": 4389,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1446,7 +1447,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 732,
+   "line": 736,
    "va": "0x004266ec",
    "kind": "fn",
    "class": "START",
@@ -1455,7 +1456,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1031,
+   "line": 1035,
    "va": "0x00414644",
    "kind": "fn",
    "class": "START",
@@ -1464,7 +1465,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1032,
+   "line": 1036,
    "va": "0x00414930",
    "kind": "fn",
    "class": "START",
@@ -1473,7 +1474,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1033,
+   "line": 1037,
    "va": "0x00414dbc",
    "kind": "fn",
    "class": "START",
@@ -1482,7 +1483,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1034,
+   "line": 1038,
    "va": "0x00415330",
    "kind": "fn",
    "class": "START",
@@ -4021,6 +4022,268 @@
    "file": "tools/datask_l3.py",
    "line": 938,
    "va": "0x003f6b1c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 65,
+   "va": "0x004066ac",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 84,
+   "va": "0x00408f9c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 92,
+   "va": "0x00425f40",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 92,
+   "va": "0x004266ec",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 101,
+   "va": "0x004266ec",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 178,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 187,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 208,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 257,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 314,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 314,
+   "va": "0x0040c308",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 314,
+   "va": "0x0041597c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 341,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 373,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 394,
+   "va": "0x00422eac",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 478,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 491,
+   "va": "0x11112222",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 491,
+   "va": "0xa68cd68c",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 493,
+   "va": "0xa68cd68c",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 494,
+   "va": "0x11112222",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 495,
+   "va": "0x0303ffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 495,
+   "va": "0xa6b2d6e2",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 495,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 499,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 508,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 509,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 509,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 523,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 553,
+   "va": "0x00422eac",
    "kind": "const",
    "class": "START",
    "true_start": null,

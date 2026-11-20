@@ -413,6 +413,7 @@
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.31-tmc-road-type-link-class.md",
+  "docs/experiments/EXP-2026-11-20-M4.40-request-kinds.md",
   "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
   "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
@@ -455,10 +456,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 448,
-  "citations": 1269,
-  "unique_va": 297,
-  "start": 1113,
+  "files": 449,
+  "citations": 1270,
+  "unique_va": 298,
+  "start": 1114,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -10189,6 +10190,15 @@
    "file": "docs/experiments/EXP-2026-11-20-M3.31-dir-read-length.md",
    "line": 210,
    "va": "0x0040ba48",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.40-request-kinds.md",
+   "line": 126,
+   "va": "0x00408ea4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
