@@ -63,25 +63,16 @@ for _p in (HERE, os.path.join(HERE, "l3_harness")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-#: Per-build VAs (EU2011 head ``92aa525d…``, US2011 head ``70d945d8…``);
-#: ``pool`` pairs are checked against the image before a run.
-BUILDS = {
-    "eu2011": {
-        "header": 0x003F930C, "loader": 0x003FE2D4, "decode": 0x0040F00C,
-        "lookup": 0x0040EE4C, "memset": 0x003D13C4, "divlu": 0x003D140C,
-        "cache": 0x00407724, "alloc": 0x004086B4, "log": 0x003EC9FC,
-        "request": 0x003F6C88, "hdr_tail": 0x0040A8D0, "walker": 0x003F5194,
-        "pool": ((0x003F9418, 0x0040F00C), (0x003FE5F4, 0x0040F00C),
-                 (0x003FE5F0, 0x0040E9DC)),
-    },
-    "us2011": {
-        "header": 0x00421C3C, "loader": 0x00426480, "decode": 0x00436F58,
-        "lookup": 0x00436DD4, "memset": 0x0040089C, "divlu": 0x004008E4,
-        "cache": 0x0042F824, "alloc": 0x004307B4, "log": 0x0041551C,
-        "request": 0x0041F5E8, "hdr_tail": 0x004329D0, "walker": 0x0041DB44,
-        "pool": ((0x004267A0, 0x00436F58),),
-    },
-}
+import build_targets  # noqa: E402
+
+#: Per-build VAs, owned by ``tools/build_targets.py`` (M1.32; EU2011 head
+#: ``92aa525d…``, US2011 head ``70d945d8…``); the walker is the M1.22 ``nth``
+#: role.  ``check_build`` verifies them against the image before a run.
+BUILDS = {b: dict(build_targets.roles(b, tool="point_locator_l3"),
+                  walker=build_targets.roles(b)["nth"])
+          for b in build_targets.BUILDS}
+#: How far into the loader/parser body the decode leaf's pool slot must sit.
+POOL_SPAN = 0x400
 
 HDR_BUF = 0x23000000
 OBJ = 0x23010000
@@ -141,12 +132,28 @@ def _put32(eng, va, v):
     eng.write_mem(va, struct.pack("<I", v & 0xFFFFFFFF))
 
 
+def pool_words(mem, start: int, span: int = POOL_SPAN) -> set:
+    """Aligned 32-bit words in ``[start, start+span)`` (a function's literal pools)."""
+    out = set()
+    for va in range((start + 3) & ~3, start + span, 4):
+        try:
+            out.add(mem.u32(va))
+        except Exception:  # noqa: BLE001 - past the mapped text
+            break
+    return out
+
+
 def check_build(data: bytes, cfg: dict) -> None:
+    """The parser and the loader of *cfg* must each hold the decode leaf (and
+    the loader the cache helpers) in their own literal pools on this image."""
     import d53500_writer as dw
     mem = dw.sec0_mem(data)
-    for pool, want in cfg["pool"]:
-        if mem.u32(pool) != want:
-            raise dw.Mismatch(f"pool {pool:#010x} holds {mem.u32(pool):#010x}, not {want:#010x}")
+    for fn, need in (("header", ("decode",)), ("loader", ("decode", "cache", "alloc", "memset"))):
+        words = pool_words(mem, cfg[fn])
+        miss = [k for k in need if cfg[k] not in words]
+        if miss:
+            raise dw.Mismatch(f"{fn} {cfg[fn]:#010x}: no pool slot for {', '.join(miss)} "
+                              "on this image: wrong --build?")
 
 
 def table_of(blob: bytes, per_page: int = 1000):
@@ -337,7 +344,20 @@ def selftest() -> int:
     ok(judge((3, 2), (1, 2), b"x", b"x") == "REJECT", "wrong offset rejects")
     ok(judge((1, 2), (1, 2), None, b"x") == "REJECT", "no record rejects")
     for b, cfg in BUILDS.items():
-        ok(len({cfg[k] for k in cfg if k != "pool"}) == len(cfg) - 1, f"{b}: distinct VAs")
+        ok(len(set(cfg.values())) == len(cfg), f"{b}: distinct VAs")
+        ok({"header", "loader", "decode", "request", "walker"} <= set(cfg), f"{b}: roles present")
+
+    class _Mem:
+        def __init__(self, words):
+            self.w = words
+
+        def u32(self, va):
+            if va not in self.w:
+                raise KeyError(va)
+            return self.w[va]
+    m = _Mem({0x1000: 7, 0x1004: 9})
+    ok(pool_words(m, 0x1000, 0x10) == {7, 9}, "pool scan stops at unmapped")
+    ok(pool_words(m, 0x1001, 0x10) == {9}, "pool scan aligns up")
     print(f"point_locator_l3 selftest: {n} checks OK")
     return 0
 
