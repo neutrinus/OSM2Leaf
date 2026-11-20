@@ -72,6 +72,43 @@ There are 33 numbered shards, matching the 33 regions:
   brand code (last two bytes of the record). The brand code selects the
   `BICON001` logo; see [assets.md](assets.md) for the verified table.
 
+### POINT page chains and chain tables (M5.26)
+
+> **Status:** `OBSERVED` on EU 2011 (33 files) and US 2011 (11 files);
+> not yet tied to a firmware reader (C-2950–C-2953).
+
+Inner zlib pages of a POINT `.DAT` are stored as **chains**: each chain
+starts at a 0x100-aligned base and its pages follow back to back, each
+padded with zeros to a 4-byte boundary. Every chain is described by a
+**chain table** at a 0x100-aligned offset after it (all integers big-endian,
+lengths in 16-bit words):
+
+```
+u16 per_page      // 1000 (name pages), 400, 2000 — the three chains of every file
+u16 0
+n × { u32 start_w,   // page offset from the chain base
+      u32 comp_w,    // stream length rounded up to 4 bytes
+      u32 inner_w }  // inflated page length
+// start_w[i+1] = start_w[i] + comp_w[i]
+```
+
+- Every file of both builds carries exactly three tables (per_page 400, 1000
+  and 2000); the 1000 chain is the name chain. US 2011: 8,229 name pages,
+  the same count M5.21 edited by pattern.
+- Every page of every chain walks exactly with the firmware record walk of
+  `fn 0x003f5194` (EU2011, C-2540): BE `u16 w`, size `2*(w & 0x3ff)` bytes.
+  The `ff ff` record end of the section below is **not** universal (6 of the
+  16 EU POINT010 name pages fail it); the 10-bit length is the rule.
+- The table holds no chain base and no absolute offset. What tells the reader
+  where a chain and its table are (the **chain locator**) is `UNKNOWN`: no
+  position in the first 0x8000 bytes holds a base, table or chain end in any
+  of 72 encodings in more than 4 of 33 EU files (C-2954).
+- Free space after a chain (up to the next non-zero byte) is 24–248 B per
+  name chain: 3,656 B over 33 EU files, 1,460 B over 11 US files.
+- `tools/point_pair_regen.py` re-packs a chain in place from these tables;
+  index chains (`4e 20 00 00` + `u32` word lengths, as in `ADDRE`) are a
+  separate structure and are not covered.
+
 ### POI name page framing (page level)
 
 A POINT inner zlib page that carries display names is a chain of
@@ -106,6 +143,20 @@ delta must be **even**. The recompressed page must still fit in the space
 before the next stream (POINT032 page `0x4200`: 655 bytes used, next stream
 at `0x4500`, 768 bytes reserved). `tools/mutate_refer_poi.py --resize`
 implements this and refuses anything else.
+
+### POI name field (firmware view, M3.11c)
+
+The firmware does not split the display text at a delimiter. Each `POINT` `.DAT`
+carries one **field dictionary** block (US2011 `POINT010` at `.DAT` offset
+`0x749500`, EU2011 at `0x6a7d00`; 9 fields, `facility name` = field 5,
+`address` = field 6). Each record's field area starts with one **length byte
+per field** (in 16-bit words). The name accessor (`fn 0x003f632c` EU2011) adds
+those lengths up to find field 5. On US `POINT010` record 0 this gives
+`HANA HEALTH CENTER` (9 words at `+0x5e`), and the address `4590@HANA HWY\0`
+follows as field 6. A renamed record must keep these length bytes consistent with
+the new text. A same-length rename is safe; a different-length rename must also
+change the name's length byte (`mutate_refer_poi.py --resize` does not, yet:
+C-5117, M5.52). Evidence: EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5117.
 
 ### POI → location link (solved)
 
@@ -161,6 +212,27 @@ Still open:
   bit-packed attributes; the field dictionary gives bit offsets such as area
   code 32/44, category 58).
 - `REFER002/POINT002.DAT` explicit `xy-coordinates` bits.
+
+### Where POINT coordinates are, and are not (M4.37)
+
+**OBSERVED (EU 2011, POINT002/008/029; C-3750–C-3754):**
+
+- The non-name zlib inner pages ("bit pages": phone, `w0=2` mixed,
+  24-byte index, keyword) carry **no coordinate pair** in the COORD001 form
+  at any of 32 alignments (BE/LE words, bit phase 0..15): 0 of 1,212 pages
+  pass the region-bounds test, while the `78 9c` name page control passes.
+  The 24-byte index records start with `w0 = shard - 1` and end with the
+  POI id `f11`; the keyword pages are variable records
+  `len_words, 0x0401|0x0501, xx ff, w0, …, ASCII`.
+- The non-stream ("raw") part of the decoded `.DAT` holds a **spatial
+  index**: 16-byte records `00 08 | u32 | u16 | x | y | 00 00 00 00` (the
+  first word reads as a C-2129 header: type 0, 8 words). Their finer
+  `(x, y)` equal name-record **copy A** (every distinct copy-A id of each
+  shard occurs; 92.6–100 % of the finer pairs are copy-A ids, a +37-unit
+  shift gives 0 %), and a coarser level sits on a 16-unit lattice from the
+  tile origin 52736 (1/12° × 1/8°). No field finer than one packed unit
+  and no 0..2047 tile-local field was found: POINT positions are copy A
+  (and B) only. `tools/point_bitpack_decode.py --coord-test`, `raw-index`.
 
 `BICON001` is a PNG container with 103 icons; see
 [assets.md](assets.md).

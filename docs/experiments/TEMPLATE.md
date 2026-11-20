@@ -71,6 +71,22 @@ Every number that the Conclusion will rely on appears here.
 What changed in `docs/format/` and `docs/research/claims.md`? What is still
 open? One paragraph that a reader could check against the Observations.
 
+## Overtaken by a later commit
+
+Required whenever a later merge changes a status, a count or a limit that
+this record (or a claim row it backs) cites — for example a task closed
+`done` after the record said `blocked`, a pin bumped, a gate relaxed. The
+record is append-only, so the stale line is corrected in place *and* listed
+here; `claims_check` cannot see prose, so this list is the only trace. One
+bullet per stale line, with the same "quote the command" rule as everywhere
+else:
+
+- `claim/EXP line` | `overtaking commit` (short SHA + PR, and the command
+  that shows the change, e.g. `git show <sha> -- TODO.md`) | what it now
+  reads as
+
+Write `none` when no later commit touches what this record cites.
+
 ## Reproduction
 
 One block that re-runs the headline result from the repository and the sample:

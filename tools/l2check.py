@@ -10,6 +10,8 @@ tools still understand the data and that a rebuild is faithful:
 * the five target tiles rebuild byte-identically;
 * the decoded geometry of the target tiles matches a stored golden digest;
 * a one-vertex tile mutation changes exactly one vertex;
+* with ``--graph-tiles``, section 2 decodes to the emitted route graph
+  (``tile_graph_roundtrip``, M5.37; ``preserved`` when nothing was emitted);
 * a same-length POI rename passes the offline mutation validator;
 * a different-length POI rename passes the offline mutation validator and the
   page re-parses into the same records (one record changed, the rest byte
@@ -23,6 +25,14 @@ Usage:
     python3 tools/l2check.py --root /path/to/root
     python3 tools/l2check.py --root /path/to/root --cmp-limit 20 --no-tiles
     python3 tools/l2check.py --root /path/to/root --update-golden tools/golden/eu2011.json
+    python3 tools/l2check.py --root /path/to/root --tiles B48R058R.DAT
+    python3 tools/l2check.py --selftest
+
+``--tiles``/``--semantic-tiles`` take ``MAPAL001`` **file** names
+(``B48R058R.DAT``).  An explicitly requested name that is not a file on the
+card is a usage error (exit 2) that names the ``.DAT`` form, because a bare
+cell name used to check 0 tiles and still print ``RESULT: PASS`` (C-3566,
+M5.39).  The default tile list keeps its skip-with-warning behaviour.
 """
 
 from __future__ import annotations
@@ -71,6 +81,7 @@ REFER_NEW = "OSM2LEAF PROBE"
 REFER_RESIZE_OLD = "VATICAN MUSEUM"
 REFER_RESIZE_NEW = "OSM2LEAF PROBE POI"
 RESIZE_SUFFIX = " OSM"
+CELL_RE = re.compile(r"^(B[0-9A-F]{2}R[0-9A-F]{3}R|LEV3456R)$", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
@@ -439,6 +450,38 @@ def check_tile_semantic(root: Path, profile: dict | None,
                 )
             if digest != expected.get("digest"):
                 check.error(f"{name}: geometry digest differs from golden")
+
+
+def check_tile_graph(root: Path, report: cardcheck.Report, tiles: list[str],
+                     emitted: Path | None, factory_root: Path | None) -> None:
+    """M5.37: section 2 decodes to the node/link graph the writer emitted.
+
+    Verdicts per tile come from ``tools/tile_graph_roundtrip.py``: ``PASS``
+    (every emitted record decodes to its emitted framing, every other record
+    byte-identical to the factory), ``preserved`` (no emitted record, section 2
+    identical to the factory: a preservation result, never a graph match) or
+    ``FAIL``."""
+    check = report.add(cardcheck.Check("tile_graph_roundtrip"))
+    import tile_graph_roundtrip as tgr  # noqa: PLC0415
+    graph = tgr.load_graph(emitted) if emitted else None
+    for name in tiles:
+        path = root / "MAPAL001" / name
+        if not path.is_file():
+            check.error(f"MAPAL001/{name}: not present on this card")
+            continue
+        ref = factory_root / "MAPAL001" / name if factory_root else None
+        if ref is not None and not ref.is_file():
+            check.error(f"factory MAPAL001/{name}: not present")
+            continue
+        res = tgr.check_tile(path, graph, ref)
+        check.stats[name] = (f"{res['verdict']} match={res['match']} "
+                             f"preserved={res['preserved']} changed={res['changed']}")
+        if res["verdict"] == "preserved":
+            check.warn(f"{name}: section 2 preserved; no emitted graph checked")
+        elif res["verdict"] != "PASS":
+            for err in res["errors"][:5]:
+                check.error(f"{name}: {err}")
+            check.error(f"{name}: tile_graph_roundtrip {res['verdict']}")
 
 
 def check_tile_mutation(root: Path, report: cardcheck.Report,
@@ -876,12 +919,41 @@ def check_image(image: Path | None, profile: dict | None,
 
 
 # ---------------------------------------------------------------------------
+# requested tile names (M5.39, C-3566)
+
+
+def split_tiles(value: str) -> list[str]:
+    return [t.strip() for t in value.split(",") if t.strip()]
+
+
+def missing_tile_requests(root: Path, option: str, names: list[str]) -> list[str]:
+    """Usage errors for explicitly requested tiles that are not files on the card.
+
+    A bare cell name (``B48R058R``) gets the ``.DAT`` file name to use, so the
+    caller cannot read ``tiles=0`` + ``RESULT: PASS`` as a passing tile gate.
+    """
+    problems = []
+    for name in names:
+        if (root / "MAPAL001" / name).is_file():
+            continue
+        msg = f"{option} {name}: MAPAL001/{name} is not a file on this card"
+        if CELL_RE.match(name):
+            msg += (f"; tile names are file names: use {option} {name}.DAT"
+                    + ("" if (root / "MAPAL001" / f"{name}.DAT").is_file()
+                       else f" (MAPAL001/{name}.DAT is not present either)"))
+        problems.append(msg)
+    return problems
+
+
+# ---------------------------------------------------------------------------
 # CLI
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--root", required=True, help="extracted card root")
+    parser.add_argument("--root", help="extracted card root (required unless --selftest)")
+    parser.add_argument("--selftest", action="store_true",
+                        help="run the vendor-free self-test and exit")
     parser.add_argument("--profile", default=str(DEFAULT_PROFILE),
                         help="golden profile (default: tools/golden/eu2011.json)")
     parser.add_argument("--json", help="write a JSON report to this path")
@@ -897,12 +969,21 @@ def build_parser() -> argparse.ArgumentParser:
                         help="check only the first N .cmp pairs (0 = all)")
     parser.add_argument("--no-cmp", action="store_true")
     parser.add_argument("--no-tiles", action="store_true")
-    parser.add_argument("--tiles", default=",".join(ROUNDTRIP_TILES),
-                        help="comma-separated tiles for the round-trip check")
-    parser.add_argument("--semantic-tiles", default=",".join(SEMANTIC_TILES),
-                        help="comma-separated tiles for the geometry digest")
+    parser.add_argument("--tiles", default=None,
+                        help="comma-separated MAPAL001 file names for the round-trip "
+                             "check, e.g. B48R058R.DAT (default: the five target "
+                             "tiles, skipped with a warning when absent); an "
+                             "explicit name that is not a file is exit 2")
+    parser.add_argument("--semantic-tiles", default=None,
+                        help="comma-separated MAPAL001 file names for the geometry "
+                             "digest (default: the four target cells); an explicit "
+                             "name that is not a file is exit 2")
     parser.add_argument("--include-lev", action="store_true",
                         help="also decode LEV3456R (slow)")
+    parser.add_argument("--graph-tiles", default="",
+                        help="comma-separated tiles for tile_graph_roundtrip (M5.37); off when empty")
+    parser.add_argument("--graph-emitted", help="emitted section-2 graph JSON (ze0-sec2-graph/1)")
+    parser.add_argument("--graph-factory", help="factory card root the non-emitted records must equal")
     parser.add_argument("--skip-mutation", action="store_true")
     parser.add_argument("--image", help="optional raw image for the golden hash")
     parser.add_argument("--hash-image", action="store_true",
@@ -913,11 +994,31 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.selftest:
+        return selftest()
+    if not args.root:
+        parser.error("--root is required")
     root = Path(args.root)
     if not root.is_dir():
         print(f"error: {root} is not a directory", file=sys.stderr)
         return 2
+    tiles = split_tiles(args.tiles) if args.tiles is not None else list(ROUNDTRIP_TILES)
+    semantic = (split_tiles(args.semantic_tiles) if args.semantic_tiles is not None
+                else list(SEMANTIC_TILES))
+    if not args.no_tiles:
+        problems = []
+        if args.tiles is not None:
+            problems += missing_tile_requests(root, "--tiles", tiles)
+        if args.semantic_tiles is not None:
+            problems += missing_tile_requests(root, "--semantic-tiles", semantic)
+        if problems:
+            for problem in problems:
+                print(f"error: {problem}", file=sys.stderr)
+            print("error: requested tiles not checked; no RESULT printed (exit 2)",
+                  file=sys.stderr)
+            return 2
     image = Path(args.image) if args.image else None
 
     if args.update_golden:
@@ -944,10 +1045,13 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_cmp:
         check_cmp_roundtrip(root, profile, report, limit=args.cmp_limit)
     if not args.no_tiles:
-        tiles = [t.strip() for t in args.tiles.split(",") if t.strip()]
-        semantic = [t.strip() for t in args.semantic_tiles.split(",") if t.strip()]
         check_tile_roundtrip(root, profile, report, tiles)
         check_tile_semantic(root, profile, report, semantic, args.include_lev)
+        graph_tiles = [t.strip() for t in args.graph_tiles.split(",") if t.strip()]
+        if graph_tiles:
+            check_tile_graph(root, report, graph_tiles,
+                             Path(args.graph_emitted) if args.graph_emitted else None,
+                             Path(args.graph_factory) if args.graph_factory else None)
         if not args.skip_mutation:
             check_tile_mutation(root, report)
     if not args.skip_mutation:
@@ -977,6 +1081,106 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"    WARN  {warning}")
         print("RESULT:", "PASS" if result["ok"] else "FAIL")
     return 0 if result["ok"] else 1
+
+
+# ---------------------------------------------------------------------------
+# self-test (no vendor data)
+
+
+def _fixture_root(root: Path, cell: str = "B48R058R") -> Path:
+    """A partial card root: one synthetic tile (tilewriter.make_factory) + DRSTR."""
+    import tilewriter
+
+    (root / "MAPAL001").mkdir(parents=True, exist_ok=True)
+    tile = root / "MAPAL001" / f"{cell}.DAT"
+    tile.write_bytes(tilewriter.make_factory(cell))
+    drstr = root / "DRSTR001.DAT"
+    drstr.write_bytes(b"")
+    for _ in range(4):  # DRSTR lists its own size: iterate to a fixed point
+        built = drstr_ze0.build(root)
+        if built == drstr.read_bytes():
+            break
+        drstr.write_bytes(built)
+    return tile
+
+
+def _run_main(argv: list[str]) -> tuple[int, str, str]:
+    import contextlib
+    import io
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            rc = main(argv)
+        except SystemExit as exc:  # argparse usage errors
+            rc = exc.code if isinstance(exc.code, int) else 2
+    return rc, out.getvalue(), err.getvalue()
+
+
+def selftest() -> int:
+    failures = 0
+
+    def ok(cond: bool, msg: str) -> None:
+        nonlocal failures
+        print(("  ok   " if cond else "  FAIL ") + msg)
+        if not cond:
+            failures += 1
+
+    print("l2check selftest (synthetic tile, no vendor data)")
+    base = ["--partial", "--no-golden", "--no-cmp"]
+    with tempfile.TemporaryDirectory(prefix="l2check-") as tmp:
+        root = Path(tmp) / "root"
+        tile = _fixture_root(root)
+        args = ["--root", str(root)] + base
+
+        ok(CELL_RE.match("B48R058R") is not None and CELL_RE.match("B48R058R.DAT") is None,
+           "CELL_RE: bare cell matches, file name does not")
+        ok(missing_tile_requests(root, "--tiles", ["B48R058R.DAT"]) == [],
+           "present file name -> no usage error")
+
+        # The C-3566 footgun: a bare cell name.
+        rc, out, err = _run_main(args + ["--tiles", "B48R058R"])
+        ok(rc == 2, f"--tiles B48R058R -> exit 2 (got {rc})")
+        ok("B48R058R.DAT" in err and "--tiles B48R058R.DAT" in err,
+           "usage error names the .DAT form")
+        ok("RESULT: PASS" not in out and "tiles=0" not in out,
+           "no tiles=0 / RESULT: PASS printed")
+        rc, out, err = _run_main(args + ["--tiles", "B48R058R.DAT",
+                                         "--semantic-tiles", "B48R058R"])
+        ok(rc == 2 and "--semantic-tiles B48R058R.DAT" in err,
+           "--semantic-tiles bare cell -> exit 2 naming the .DAT form")
+        rc, out, err = _run_main(args + ["--tiles", "B30R060R.DAT"])
+        ok(rc == 2 and "MAPAL001/B30R060R.DAT is not a file" in err,
+           "absent file name -> exit 2")
+        rc, out, err = _run_main(args + ["--tiles", "B30R060R"])
+        ok(rc == 2 and "not present either" in err,
+           "bare cell with no .DAT file either -> exit 2, says so")
+
+        # Positive control: the file name checks exactly one tile and passes.
+        rc, out, err = _run_main(args + ["--tiles", "B48R058R.DAT",
+                                         "--semantic-tiles", "B48R058R.DAT"])
+        ok(rc == 0, f"--tiles B48R058R.DAT -> exit 0 (got {rc}; {err.strip()[:200]})")
+        ok("[tile_roundtrip] OK (tiles=1; preserved=0)" in out, "tiles=1 printed")
+        ok("RESULT: PASS" in out, "RESULT: PASS printed")
+        ok("not present" not in out.split("[tile_mutation]")[0],
+           "no 'not present' warning for the requested tile")
+
+        # Unchanged: --no-tiles ignores the names; defaults still skip-with-warn.
+        rc, out, _err = _run_main(args + ["--no-tiles", "--tiles", "B48R058R"])
+        ok(rc == 0 and "tile_roundtrip" not in out, "--no-tiles: names not validated")
+        rc, out, _err = _run_main(args)
+        ok(rc == 0 and "tiles=0" in out and "not present on this card" in out,
+           "default tile list: absent tiles still a warning (behaviour unchanged)")
+
+        # Negative control: a broken requested tile fails the tile gate (exit 1).
+        tile.write_bytes(tile.read_bytes()[:1000])
+        rc, out, _err = _run_main(args + ["--tiles", "B48R058R.DAT",
+                                          "--semantic-tiles", "B48R058R.DAT"])
+        ok(rc == 1 and "[tile_roundtrip] FAIL" in out and "RESULT: FAIL" in out,
+           f"truncated tile -> tile_roundtrip FAIL, exit 1 (got {rc})")
+
+    print(f"l2check selftest: {'PASS' if failures == 0 else 'FAIL'} ({failures} failure(s))")
+    return 0 if failures == 0 else 1
 
 
 if __name__ == "__main__":

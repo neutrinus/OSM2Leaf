@@ -123,8 +123,11 @@ archive shape is:
 0x20  entries: name[12] + u32 offset + u32 size + u32 size2
 ```
 
-Language sets per image (M4.22, counted from the 7z FAT listings; codes not
-decoded, see `file-header.md`):
+Language sets per image (M4.22, counted from the 7z FAT listings). The
+`0x18c` code of each dir (M4.38, `file-header.md` Identity fields): BE `02`,
+US `03`, FR/CF `04`, GE `05`, SP `06`, IT `07`, PT `08`, DU `0a`, DA `0d`,
+SV `0c`, FI `15`, NO `16`; EL (`09`), PL, CS, HU, SK speak with map text code
+`02` in the 2014/2016 firmware.
 
 | Image | `SPEECH/` language dirs | Dirs with `VR`+`TTS`+`GID` |
 | --- | --- | --- |
