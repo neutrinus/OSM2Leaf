@@ -3827,14 +3827,15 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     `tools/ze0_dbgmsg.py` (kernel debug text over the gdbstub).
   - Claims: C-1350–C-1359
 
-- [ ] **M8.B6 — Kernel debug text on the debug UART (no gdbstub needed)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.B6 — Kernel debug text on the debug UART (no gdbstub needed)**
+  - Status: done · Owner: task/m8.b6-debuglog-uart · Critical: no · Pair: solo
   - Depends: M8.A6 (SCIF model at `0xffe46000`, done), M8.B5 (F1 boot, done)
   - Goal: today the kernel's debug strings never reach the SCIF: `KernelStart` and every `NKDbgPrintfW` go through `fn 0x880404f4` → AstLog (`0x88044478`, EU2011) with the `DebugLog` path gated off (`0x89e613b0`/`0x89e613b4`), so a 60 s boot writes 0 serial bytes (M8.A6, C-1280–C-1283) and M8.B5 had to read the text over the gdbstub (`tools/ze0_dbgmsg.py`). Make the same text appear on `run.sh --serial` so every L4 run has a plain log, and so long boots (M8.C rows, M8.E4) need no breakpoint per string.
   - Scope: find what sets the `DebugLog` gate and which output routine it enables (static: callers of `0x880404f4`, readers/writers of `0x89e613b0`/`b4`; the OAL `OEMWriteDebugString`/`OEMWriteDebugByte` pair, which in CE normally writes the debug UART). Then pick the least invasive way to turn it on, in this order: (a) a board/boot argument the OAL already reads (registry, boot-args block, a strap the `ze0` machine can present); (b) a `ze0` machine option that presents the gate value at boot; (c) a documented one-word guest patch applied by `run.sh` (never committed vendor bytes, only VA + old/new word). Not in scope: changing what the kernel prints, or the gdbstub tool (keep `ze0_dbgmsg.py` as the cross-check).
   - Done when: one `-M ze0` boot of EU2011 IMG256 (`run.sh --serial`, `-icount shift=0,sleep=off`) writes the kernel debug text to `WORK/serial.log`, and for the first 200 lines it equals what `tools/ze0_dbgmsg.py run` captures for the same boot (diff = 0, or every difference explained); the boot still reaches F1 (M8.B5 checks 1–3). Negative control: the same boot without the option/patch writes 0 bytes (reproduces C-1281). The EXP names the gate, its writer, and the output routine with EU2011 VAs.
   - Stop: if the debug text can only reach the UART by patching more than one code word, or the gate is set from hardware the `ze0` machine cannot model, record the path and stop (negative EXP).
   - Hints: `tools/ze0_serial.py banner`, `tools/ze0_dbgmsg.py`, patches in `tools/qemu-ze0/patches/`, QEMU binaries from M8.B5. Requested by Marek 2026-11-20.
+  - Result: EXP-2026-11-20-M8.B6-debuglog-uart (C-6240–C-6243). No gate routes the text to a UART: `fn 0x880404f4` → AstLog `0x88044478`, gated (`0x89e613b0` by IOCTL handler `fn 0x88049f4c`, `0x89e613b4` by `fn 0x8804aa08`) → `L"DebugLog"` handle `0x8804048c`/`0x88044fe8`, none loads `0xffe46000` (EU2011). Patch `ze0-0007`: machine option `-M ze0,dbgmsg=0x880404f4` copies `r4`'s UTF-16 string to serial port 0, no guest byte changed; `run.sh` turns it on by default (`--dbgmsg off`) and gains `--icount`. Same boot: serial = gdbstub for 279/279 lines; `run.sh` boot 9 288 B, byte-repeatable, 2 time-derived lines differ from the gdbstub boot; option off = 0 bytes; F1 checks 1–3 still pass. Tool: `ze0_serial.py dbgcmp`.
   - Claims: C-6240–C-6249
 
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
