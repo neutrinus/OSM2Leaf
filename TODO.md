@@ -3788,6 +3788,16 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   without a fault.
   - Status: in progress · Owner: task/m8.b5-ze0-f1-filesys · Critical: no
   - Depends: M8.B1, M8.B2
+  - Done when (made concrete 2026-11-20, before the controlled runs; the
+    original line is kept above): one `-M ze0 -kernel archive/head256.img
+    -icount shift=0,sleep=off` boot under `tools/ze0_dbgmsg.py run`
+    (debug-string hook `0x880404f4`, EU2011) ends with (1) `ze0_dbgmsg.py
+    modules` on a RAM dump of `0x89e40000`+256 KiB listing `filesys.exe`
+    and `device.exe`; (2) 0 hits at `0x88011cb8` ("Unhandled exception")
+    and `0x88022164` ("Halting system"), and no `Exception` line in the
+    kernel's debug output; (3) `CurMSec` (`0x89e41888`) ≥ 60 000 at the
+    end. Negative controls: `ext-ram=off` and the M8.B2 binary (no
+    odd-PC address error) must fail (1) or (2).
   - Claims: C-1350–C-1359
 
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
