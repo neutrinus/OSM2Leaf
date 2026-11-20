@@ -83,14 +83,17 @@ would touch the tile.
 | --- | --- | --- | --- | --- |
 | 1 | `python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json $FAC/MAPAL001` | `census: contained=1 intersects=0 outside=62 lattice=63 factory_tiles=45` | 0 | runs |
 | 2 | `python3 tools/fit_census.py --image $IMG --tree $FAC` | `files=480 changed=0 fits=480 needs_relocation=0 not_on_image=0 total_delta=+0` | 0 | runs (delta-0 is the P1 property) |
-| 3 | `python3 tools/one_tile_pipeline.py --preserve-tile B48R058R --out $S/p1` | — | — | **NOT RUN — M5.49** (flag absent) |
-| 4 | `python3 tools/imgpatch.py --check-diff --image $S/p1.img --reference $IMG --file DRSTR001.DAT --allow-metadata` | — | — | **NOT RUN — M5.49** |
-| 5 | `python3 tools/cardcheck.py --image $S/p1.img` | — | — | **NOT RUN — M5.49** |
+| 3 | `python3 tools/one_tile_pipeline.py --preserve-tile B48R058R --factory-root $FAC --out $S/p1 --json $S/p1-report.json && find $S/p1 -type f \| wc -l` | `480` | 0 | runs (M5.49) |
+| 4 | `python3 tools/imgpatch.py --check-diff --image $S/p1.img --reference $IMG --file MAPAL001/B48R058R.DAT --file DRSTR001.DAT --allow-metadata` | `diffs: 0 range(s), outside: 0, metadata: 0` | 0 | runs (M5.49) |
+| 5 | `python3 tools/cardcheck.py --image $S/p1.img` | `RESULT: PASS` | 0 | runs (M5.49) |
 
-Row 3's absence is checkable today, and it is the row's own negative control:
-`python3 tools/one_tile_pipeline.py --help | awk '/--preserve-tile/{n++} END{print n+0}'`
-prints `0` (exit 0) — the flag that the row calls does not exist yet, so the
-row may not be reported as passing.
+Row 3 is the flag's own positive control:
+`python3 tools/one_tile_pipeline.py --help | grep -c '^  --preserve-tile MESHTAG'`
+prints `1` (exit 0). The P1 report's `tile_delta` is `0` and
+`tile_sha256_matches_factory` is `true`; the patch in row 4 writes exactly the
+factory bytes, so `$S/p1.img` is byte-identical to `$IMG` and the diff is
+`0 range(s)` — the strictest possible form of "only the tile, and the tile does
+not move".
 
 **What P1 deliberately does not prove.** Everything P0 does not prove, plus the
 one P1-specific gap: a verbatim factory tile proves the *pipeline* carries the
@@ -119,9 +122,10 @@ generated data (rule 13: L3 target M3.25, L4 M8, car L5).
 
 `want TOKEN WANT_RC COMMAND` succeeds only if the exit code **and** the token
 match, so a command that exits 0 with the wrong text fails. It builds the P0
-card if `$S/p0.img` is absent (M5.30 recipe), so the block is runnable from the
-repo root on a clean scratch directory. Rows that are `NOT RUN` are not silently
-skipped: P1's absent flag is asserted to be absent.
+card if `$S/p0.img` is absent (M5.30 recipe) and the P1 card if `$S/p1.img` is
+absent (M5.49 recipe), so the block is runnable from the repo root on a clean
+scratch directory. Rows that are `NOT RUN` are not silently skipped: the P2
+routing rows assert their task is still open.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -136,6 +140,15 @@ if [ ! -f $S/p0.img ]; then
     --from $W/MAPAL001/B48R058R.DAT --allow-resize --json > /dev/null
   python3 tools/imgpatch.py --image $S/p0.img --file DRSTR001.DAT \
     --from $W/DRSTR001.DAT --json > /dev/null
+fi
+if [ ! -f $S/p1.img ]; then
+  python3 tools/one_tile_pipeline.py --preserve-tile B48R058R --factory-root $FAC \
+    --out $S/p1 --json $S/p1-report.json > /dev/null
+  cp $IMG $S/p1.img
+  python3 tools/imgpatch.py --image $S/p1.img --file MAPAL001/B48R058R.DAT \
+    --from $S/p1/MAPAL001/B48R058R.DAT --json > /dev/null
+  python3 tools/imgpatch.py --image $S/p1.img --file DRSTR001.DAT \
+    --from $S/p1/DRSTR001.DAT --json > /dev/null
 fi
 BAD=0
 want() { w=$1; wr=$2; o=$(sh -c "$3" 2>&1); r=$?
@@ -157,7 +170,12 @@ want 'diffs: 586 range(s), outside: 9, metadata: 0' 1 \
 want 'tile_semantic] OK (B48R058R.DAT=2333602)' 0 \
   "python3 tools/l2check.py --root $W --no-golden --tiles B48R058R.DAT --semantic-tiles B48R058R.DAT --cmp-limit 20"
 want 'Everything is Ok' 0 "7z t $S/p0.img"
-want '0' 0 "python3 tools/one_tile_pipeline.py --help | awk '/--preserve-tile/{n++} END{print n+0}'"
+want '1' 0 "python3 tools/one_tile_pipeline.py --help | grep -c '^  --preserve-tile MESHTAG'"
+want '480' 0 "find $S/p1 -type f | wc -l"
+want 'RESULT: PASS' 0 "python3 tools/cardcheck.py --root $S/p1 --fast"
+want 'diffs: 0 range(s), outside: 0, metadata: 0' 0 \
+  "python3 tools/imgpatch.py --check-diff --image $S/p1.img --reference $IMG --file MAPAL001/B48R058R.DAT --file DRSTR001.DAT --allow-metadata"
+want 'RESULT: PASS' 0 "python3 tools/cardcheck.py --image $S/p1.img"
 want 'census: contained=0 intersects=4 outside=59 lattice=63 factory_tiles=45' 0 \
   "python3 tools/mesh_grid.py cover profiles/poland-full.json $FAC/MAPAL001"
 want '1' 0 "awk '/\\*\\*M5.16 —/,/Claims:/' TODO.md | awk '/Status: blocked/{n++} END{print n+0}'"
