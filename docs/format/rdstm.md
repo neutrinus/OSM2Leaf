@@ -216,7 +216,7 @@ Node `(x, y)` (0..2047) gives coordinates: level 2 parcel origin
 `col = ((w0>>15)<<8 | w1>>8)<<4 | (w1>>4 & 0xf)`, size 1/12° × 1/8°. With this,
 every joined record of the CZ (8,532) and DE (22,884) tables lands in its own
 country and next to its TMC positive neighbour (C-5370). The firmware reader of
-these blocks is not located yet (M4.48).
+these blocks is not located yet (M4.49).
 
 ### Table dump
 

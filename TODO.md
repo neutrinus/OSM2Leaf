@@ -1500,8 +1500,8 @@ of the four numbers above says so in its first line.
 
 ## M3 — Reader contract
 
-- [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
-  - Status: blocked · Owner: task/m3.2-ind-handling · Critical: yes
+- [x] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
+  - Status: done · Owner: — · Critical: yes
   - Unblock: M3.2b's re-run (the chunk engine and its caller), or M1.2f when
     the `.ind` layer turns out to be in `Navi.exe` sec1.
   - Blocker: `.ind` chunk reader (chunk_count/chunk_size/chunk_offset consumer) not identified; `fn 0x00418748` is a resolver only. See EXP-2026-11-06-M3.2-ind-handling.
@@ -1511,7 +1511,8 @@ of the four numbers above says so in its first line.
     scans for `78 9c`.
   - Input: M3.1 functions; `docs/format/cmp-ind.md`; `tools/ind_mutate.py`.
   - Done when: both answers are in `cmp-ind.md` with VAs.
-  - Claims: C-830–C-839
+  - Claims: C-5330–C-5339 (was C-830–C-839; fresh block for this run)
+  - Result: EXP-2026-11-20-M3.2-ind-handling-l3.md (done, C-5330–C-5334). EU2011 L3 run of the whole compressed layer (`tools/cmp_read_l3.py`: mount `0x41bc98`, open `0x41b780`, seek `0x41b8a4`, read `0x41b954`, host ops): (a) `chunk_size` compared with the mount word at `0x41c92a` (0x8000/0x20000 rejected before any `.cmp` read; mount word 0x20000 rejects the factory file; both 0x20000 -> 79,360 wrong bytes), sizes nothing; (b) seek to `chunk_offset[first]` + one read (POINT010 seek `0x234d7f`), `78 9c` decoy + shifted index still correct, `off_last_m1` -> -1, no scan. Factory ADDRE001/POINT010 byte-identical. Static answers were already in `cmp-ind.md` (M3.2b); L3 paragraph added.
 
 - [ ] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
   - Status: open · Owner: — · Critical: yes
@@ -2218,7 +2219,7 @@ of the four numbers above says so in its first line.
 
 - [x] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
   - Status: done · Owner: task/m4.16e-rdstm-link-groups · Critical: yes
-  - Result: EXP-2026-11-20-M4.16e-rdstm-link-groups — the `0x1000` header lists two sets of 14 tables and one group index per set (`0xcda000`, `0xe78500`); ref `(group, entry)` → 4-byte entry `(node, link)` of the section-2 record of a level-4 (set 0) / level-2 (set 1) parcel named in the group (1,877,054/1,877,891 and 417,540/422,683 fit, random node 5.7 %/0.4 %); every joined TMC record of the CZ (8,532) and DE (22,884) tables lands on a node in its own country (random refs 5 %/19 %) and next to its TMC neighbour (< 1 km 99.9 %, shuffled 0.1 %). `tools/rdstm_links.py`. Firmware reader not located: M4.48. C-5137–C-5139, C-5370–C-5372.
+  - Result: EXP-2026-11-20-M4.16e-rdstm-link-groups — the `0x1000` header lists two sets of 14 tables and one group index per set (`0xcda000`, `0xe78500`); ref `(group, entry)` → 4-byte entry `(node, link)` of the section-2 record of a level-4 (set 0) / level-2 (set 1) parcel named in the group (1,877,054/1,877,891 and 417,540/422,683 fit, random node 5.7 %/0.4 %); every joined TMC record of the CZ (8,532) and DE (22,884) tables lands on a node in its own country (random refs 5 %/19 %) and next to its TMC neighbour (< 1 km 99.9 %, shuffled 0.1 %). `tools/rdstm_links.py`. Firmware reader not located: M4.49. C-5137–C-5139, C-5370–C-5372.
   - Depends: M4.16b (record directory + location-code join, done as far as the link refs)
   - Goal: turn an `RDSTM001` link reference (`u32`: `>>16` = group 0..3131, `&0xffff` = entry) into a MAPAL mesh/parcel/link, so ≥20 TMC records map to coordinates (the M4.16b done-when).
   - Input: EXP-2026-11-19-M4.16b-tmc-field-directory (C-5134–C-5136); `tools/tmc_fielddir.py join` (codes → refs); EU `RDSTM001.DAT` `f822044c…` region `0xccce00..EOF` (≈2,790 0x100-aligned blocks of 4-byte entries with `0x40/0x60/0x80/0xa0/0xc0/0xe0` tags; 2,294,877 indexed entries in 3,132 groups); the `0x1000` header (`0x180` words) of `RDSTM001.DAT`; `clarion_rd.py` (sec2 parcel code, 13-bit link ids).
@@ -2226,9 +2227,9 @@ of the four numbers above says so in its first line.
   - Scope: EU 2011 card only; groups → blocks, entry format, group → mesh; no writer.
   - Done when: ≥20 TMC records (code, name) map through their refs to MAPAL tile/parcel/link coordinates, with a random-key control near 0 and a named mapping rule; or the mapping is shown not to exist with method recorded.
   - Stop: if the group directory cannot be found from the file header or block order, look for the firmware reader of these blocks (search the readers of `RDSTM001` by reachability, M3.23) and report `blocked` with the block census.
-  - Claims: C-5137–C-5139 (block from M4.16b's reserve), C-5370–C-5372 (C-5373–C-5374 spare, C-5375–C-5379 given to M4.48)
+  - Claims: C-5137–C-5139 (block from M4.16b's reserve), C-5370–C-5372 (C-5373–C-5374 spare, C-5375–C-5379 given to M4.49)
 
-- [ ] **M4.48 — Locate the firmware reader of the `RDSTM001.DAT` link groups and run it in L3**
+- [ ] **M4.49 — Locate the firmware reader of the `RDSTM001.DAT` link groups and run it in L3**
   - Status: open · Owner: — · Critical: no
   - Depends: M4.16e
   - Goal: rule 13 for the M4.16e decode: find the `Navi.exe` code that reads the `RDSTM001.DAT` header sets, the group index (`u16 size_dwords, u32 addr, u16 blocks, u32 key_min, u32 key_max, u16 n, n x (u32 parcel, u16 count)`) and the 4-byte `(node, link)` entries, and decode the unknown bits (`a` 0x4000/0x8000, `b` 0x4000/0x8000, link-record role `k & 3`, header words `3`/`122`).
@@ -4485,14 +4486,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
   - Claims: none yet (take the next free block when claimed)
 
-- [ ] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
+  - Status: done · Owner: task/m9.54-repin-m9.39-pair · Critical: no · Pair: solo
   - Depends: M5.52 (done — `--resize` patches the field-5 length byte)
   - Goal: the M9.39 mutant pairs (US `.cmp` `ea2d0e0f…`, EU `e75c298f…`, C-4174) were built before M5.52, so the renamed record keeps its old field-5 length: on US record 500 the firmware accessor reads the name 2 words short (`point_name_accessor.py run` on the pair: `mismatch=1 ok=999`, C-5264). The committed command now writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` (`ok=1000`), so C-4482 ("the committed command reproduces `ea2d0e0f…`") holds only for the pre-M5.52 tool. Rebuild both pairs with the current CLI, check them with the accessor, and re-pin the SHAs where M9.39/M9.42/M9.43 records and claims cite them (append-only: "Overtaken by a later commit" sections + new claim rows), or state per citation why the stale pair is still the right control (its walker and container results do not read field lengths).
   - Precheck: `python3 tools/point_name_accessor.py run archive/us256.img --cmp <M9.39 US mutant .cmp> --ind <…ind> --build us2011 --show 0 --expect "HANA HEALTH CENTER"` → `mismatch=1 ok=999 of 1000`, `result: FAIL` (the stale pair).
   - Scope: the M9.39 US and EU pairs only (US rec 500 `HAWAII ST GOVT FREQNTLY CLLD NMBRS`→`…XXXX`, EU page `0x6e06d0` `DROMAHAIR GARDA STATION`→`…ABCD`); records/claims that pin their SHAs (C-4174, C-4482 and the M9.42/M9.43 EXPs). Not: M9.41's target registration (other owner) beyond pointing it at the new SHAs if it cites them.
   - Done when: both rebuilt pairs give `ok=1000 of 1000` with the accessor on their build (US2011 and EU2011), the new SHAs are recorded in claim rows, and every citation of `ea2d0e0f…`/`e75c298f…` is either re-pinned or marked as the pre-M5.52 pair with a reason.
   - Claims: C-5266–C-5269
+  - Result: EXP-2026-11-20-M9.54-repin-m9.39-pair (C-5266–C-5269). The current `--resize` writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` and EU `.cmp` `979dff4a…` / `.ind` `7ee2e542…`; the name accessor gives `ok=1000 of 1000` on US2011 (`0x0041ec8c`) and EU2011 (`fn 0x003f632c`) with the whole new rec-500 name. The pre-M5.52 tool (`9316b77`) still writes the old pins, and **both** old pairs fail the accessor at rec 500 (`mismatch=1 ok=999`; EU was not known before). Walker table, wrong-build verdicts and the same-length control are unchanged on the new pairs, so only C-4482/C-4483 were stale; C-4174/C-4482/C-4483 are annotated, and EXP-M9.39/M9.42/M9.43 each have an `Overtaken by a later commit` section. M9.41 untouched (cites no pin in its own files).
 
 ## Retired leads
 
