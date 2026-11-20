@@ -1192,8 +1192,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Result: `EXP-2026-11-19-H109-map-signals` (C-4400–C-4406). `tools/map_signals.py` prints `readers: located 6 partial 5 unlocated 7`, `l3_rows: l3-running 1`, `tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.28%`, `card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)`; absent `--factory-root` prints `tile_bytes: NOT RUN (no factory tiles)`, exit 0; `--json` carries the Priorities keys; `--selftest` (synthetic tile + stub report) `OK`; `selftest.py --only map_signals` `PASS`; the Priorities block cites it as the one command.
   - Claims: C-4400–C-4409
 
-- [ ] **H110 — the L4 row of the matrix is prose: M8.A2's boot numbers live only in the TODO block**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H110 — the L4 row of the matrix is prose: M8.A2's boot numbers live only in the TODO block**
+  - Status: done · Owner: task/h110-l4-panel · Critical: no · Pair: required
   - Depends: M8.A2 (done), M8.A10 (done); M8.A3 invents no new row, it fills this one
   - Goal: `prompt_qa.txt` requires the matrix to show "L4 full-system emulator readiness (what can run, what is blocked)". Today that is four prose lines in TODO's critical path plus the M8.A2 block; a QA pass must re-read EXP/TODO to say "QEMU 8.2.10 `-M ze0` boots one image: 10 s, exceptions 0, one unmodelled `write 0x38`" (C-4311) and "M8.E4 needs M8.A3/A6 + M9.16". A committed L4 panel with one row per stage (`F0`…`F4`), each naming its gate and blocker, and `NOT RUN` when no run log is supplied, makes the L4 delta a row instead of a paragraph.
   - Precheck: `grep -c 'M8.A3' docs/research/test-system.md` prints `0`; the only L4 statements are TODO.md's critical-path bullet and M8.A2's block.
@@ -1202,6 +1202,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Hints: `--run-log` should read `run.sh`'s summary keys only (exceptions count, unmodelled accesses, wall clock) — those exist; anything absent is `NOT RUN`, never inferred. The panel is readiness, not acceptance (rule 13): say "boots one image", not "L4 pass".
   - Done when: the §L4 table exists with six rows and no bare numbers (each names its claim); `python3 tools/l4_status.py` prints the table and exits 0 with `F4 BLOCKED (M8.A3, M8.A6, M9.16)`; without a run log every F-row is `NOT RUN`; `--selftest` proves the five statuses and that a missing key is NOT RUN; `selftest.py --only l4_status` PASS.
   - Stop: if `run.sh`'s summary format is unstable, print the statuses from the committed table only and mark `--run-log` as best-effort in the docstring.
+  - Result: `docs/experiments/EXP-2026-11-20-H110-l4-panel.md` (C-4410–C-4418; C-4419 reserved). New §L4 in `docs/research/test-system.md` (F0 boot log, F1 stable kernel, F2 drivers, F3 SD mounted, F4 `Navi.exe` headless, log reader; each names its gate and evidence claim C-4311/C-1352/C-1353/C-537) and `tools/l4_status.py` (`--run-log`, `--json`, `--selftest`). `python3 tools/l4_status.py` prints the table, exits 0, `F4 BLOCKED (M8.A3, M8.A6, M9.16)`; without a log every F-row is `NOT RUN`; a clean log moves only F0 to `PASS` and a non-zero count is `FAIL`; `--selftest` proves the five checks; `selftest.py --only l4_status` PASS.
   - Claims: C-4410–C-4419
 
 - [x] **H112 — PM fifteenth pass: where we are on 2026-11-19, a corrected call graph, next steps**
@@ -2848,8 +2849,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M9.18 (firmware reader verdict for generated L3/4/5).
   - Result: EXP-2026-11-08-M5.16-lev3456-generator. `tools/lev3456gen.py` (selftest OK, python3.13 stock zlib): generates L3/4/5 road records from mesh-split synthetic extract, template-splices EU 2011 LEV3456R; unchanged template round-trip byte-identical (76,066,304 B); generated L3/4/5 accepted by `lev3456.py verify` (exit 0, L5 strict 62/62 plain+stream, 0 opaque; L3/L4 best-effort matches factory preserved pattern); `generate()` deterministic. Not `[x]`: M9.18 firmware-reader clause unmet.
 
-- [ ] **M5.17 — `LCTBL001.DAT` file builder (H11 G5)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.17 — `LCTBL001.DAT` file builder (H11 G5)**
+  - Status: done · Owner: task/m5.17-lctbl-builder · Critical: yes
   - Step: P3
   - Depends: M3.15, M4.18
   - Goal: `lctbl_records.py` re-encodes streams, but no tool builds the
@@ -2864,6 +2865,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     output passes L1/L2, and an unchanged input rebuilds byte-identically;
     the sort order matches the firmware's weight table (`--selftest`).
   - Claims: C-2410–C-2419
+  - Result: EXP-2026-11-20-M5.17-lctbl-builder. `tools/lctbl_build.py` decodes the whole file (sector addresses, 3-list catalog, per-table B-tree index, ≤500-record zlib pages, page directories at the end — the old "0xff padding" was the directories) and writes it from `{header, flag word, tables: code, location codes, records}`: EU (247,089 records) and US 2011 (303,023) rebuild byte-identically; a synthetic 5-table Polish set (3,668 records) builds deterministically, passes L1 `cardcheck` (stale-DRSTR control FAILs) and the non-golden L2 checks (unchanged rebuild: L2 PASS); L3 `0x003f61bc`/`0x003f5d98` read the generated catalog descriptor + records, 3,668/3,668 fields == model (C-2410–C-2417). Sort clause: the file order is the location-code B-tree key (selftest refuses unsorted codes); names are not collated in the file (rdstm.md rule 4), so no weight-table order is applied. Index lookup / page loader at L3 → **M5.60**.
 
 - [ ] **M5.18 — `POINT` and `ADDRE` writers, the two families Poland must generate (H11 G6)**
   - Status: open · Owner: — · Critical: yes
@@ -3306,6 +3308,31 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the firmware then rejects the tile for a reason other than a short read, record the read and the handler and block with a follow-up.
   - Falsifier: the padded tile mounts, but so does a control with one directory truncated below the read length (then the comparison is not testing the lengths).
   - Claims: C-5830–C-5839
+
+- [ ] **M5.59 — `lev3456gen.py`: put level-3 roads in the directory whose box holds them**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: P2
+  - Depends: M5.16 (generator exists), M9.18 (directory-level L3 check, blocked only on records)
+  - Goal: `lev3456gen.py` maps a point to a level-3 directory with a proportional 9 × 5 grid over the database bounds (`l3_cell_for_point`), not by the directory boxes. A Krotoszyn extract (51.70 N 17.45 E) lands in dir 22 (box x −104…−96, the London cell); the firmware at Krotoszyn reads dir 24 (C-2445, EXP-2026-11-20-M9.18). Every generated level-3 road is in the wrong place on the coarse map.
+  - Precheck: `python3 tools/lev3456gen.py generate --template <EU LEV3456R> --extract tools/fixtures/m9.18-krotoszyn-lev3456.json -o G.DAT` then `python3 tools/mount_dirs_l3.py changed <EU LEV3456R> G.DAT` lists `s1 L3 dir 22`.
+  - Scope: `tools/lev3456gen.py` level-3 split/quantisation only: choose the directory from `Dir.box` / head (`y = 1.5·lat`, stored `x = lon − 100`, map-tiles.md "Directory geometry"), the 16 × 16 parcel inside it, and quantise against that parcel. Check levels 4/5 against the same geometry (parcel `w0`/`w1` codes, map-tiles.md C-2805) and fix only if wrong. No container change.
+  - Input: EXP-2026-11-20-M9.18-lev3456r-sec4-l3, `tools/mount_dirs_l3.py changed`, `tools/lev3456.py` (`Dir.box`, `decode_record` header code), `docs/format/map-tiles.md` (directory geometry, parcel code row).
+  - Done when: the Precheck run lists `s1 L3 dir 24` (and no other level-3 directory) for the fixture; `datask_l3.py mount --position 51.70,17.45 --replace MAPAL001/LEV3456R.DAT=G.DAT` + `mount_dirs_l3.py check` gives 9/9 MATCH and the directory it reads at Krotoszyn is one `changed` lists; `lev3456gen.py --selftest` and `lev3456.py verify G.DAT` pass; a second position (London: dir 22) as control.
+  - Stop: if the level-3 parcel code in the record header (`w0`/`w1`) contradicts the box geometry, record both and stop.
+  - Falsifier: the fixed generator still changes a directory whose box does not hold the extract.
+  - Claims: C-6100–C-6109
+
+- [ ] **M5.60 — L3: the `LCTBL001` index lookup and page loader read a generated file**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: P3
+  - Depends: M5.17 (done)
+  - Goal: M5.17 ran only the record walk (`0x003f61bc`/`0x003f5d98`) on a generated `LCTBL001.DAT`; the B-tree lookup (location code → ordinal), the page-directory read and the zlib page load that hand the walk its record were not executed, so rule 13 "accepted" holds only for the record bytes.
+  - Precheck: `python3 tools/lctbl_build.py l3 archive/head256.img FILE` passes (record walk); `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x003fbed8` (search type 1 opener, M3.28) is `START`.
+  - Scope: EU2011 build A `Navi.exe`; candidates below the opener `0x003fbed8`/`0x004125a8` that read 0x1000-byte pages keyed by `u32 ordinal + BCD4` (signature from the writer's inverse, `lctbl_build.py`, not the format doc).
+  - Input: EXP-2026-11-20-M5.17-lctbl-builder (C-2410–C-2417), EXP-2026-11-19-M3.28-file-openers, `docs/format/rdstm.md` "File structure (M5.17)".
+  - Done when: an L3 run looks up a location code in a generated file (`lctbl_build.py synth`) and returns the record the model holds for that code, with a negative control (a code absent from the file is not found).
+  - Stop: if no reader of the index pages is found after the opener subtree and its indirect calls are enumerated, record the candidates and block.
+  - Claims: C-6140–C-6149
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -4079,6 +4106,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.14 — L3 target `drstr_parser`**
   - Status: open · Owner: — · Critical: yes
   - Note (M9.44, 2026-11-19): the parser runs inside `vcard_l3.py boot` with the firmware's own arguments and has 7 controls (C-4636, C-4637, C-4648, C-4649). Close this target as covered by M9.44 unless a `runner.py` entry is still wanted.
+  - Note (M9.36, 2026-11-20): re-run done — on the corrected engine the M9.35 probe of `sub_00419350` stops at `BLOCKED STUB OSMDLL.dll!OSM_Malloc` (EU2011, guarded and `--init-from-image` maps); the old `UNMAPPED 0xfffffec6` stop was the H51 `mov.w R0,@(22,R15)` defect at `0x0041936c` (C-3581, EXP-2026-11-20-M9.36-rerun-probes-pysh4). Inside `vcard_l3.py boot` the parser runs to completion (C-3584).
   - Note (H51, 2026-11-11): re-run after H51 before anything else (**M9.36**): the `UNMAPPED 0xfffffec6` stop of M9.35 has the shape of the engine defect fixed in H51 (`mov.w R0,@(disp,Rn)` stored through `r0`) — HYPOTHESIS until re-run. `0x00419350` is a pdata `START` (length `0x334`, ends exactly at `0x00419684`).
   - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked/re-open notes kept below. M9.35 IMG256 scratch probe of `sub_00419350` (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d8fc` and stops at `UNMAPPED 0xfffffec6..0xfffffec8` (empty-args/context probe); rerun with proper context, M9.24 import/file stubs and M5.6 rebuilt DRSTR as needed for verdict.
   - Re-opened (ninth pass, rule 15): **M9.20 merged** (`562215a`) with the
@@ -4157,6 +4185,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
   - Status: open · Owner: — · Critical: no
   - Note (M9.44, 2026-11-19): `mmain_reader` runs inside `vcard_l3.py boot`; presence and a full `0x1000`-byte read are the only checks (C-4635). Close as covered by M9.44 unless a `runner.py` entry is still wanted.
+  - Note (M9.36, 2026-11-20): re-run done — the M9.35 probe of `0x0041a438` executes no changed instruction and still stops at `BLOCKED STUB COREDLL.dll!wcstombs` on the corrected engine (EU2011, C-3582, EXP-2026-11-20-M9.36-rerun-probes-pysh4); inside `vcard_l3.py boot` the reader runs to completion (C-3584).
   - Note (H51, 2026-11-11): re-run on the corrected engine (**M9.36**) and with real `INIT` bytes (**M1.19**); `0x0041a438` is a pdata `START` (length `0xf4`).
   - Note (Rule 15, M9.35 done): load-model blocker removed by M9.35 (zero BSS + bound IAT + INIT guard). Prior blocked note kept: first data access was at `0x0055d040` (compressed sec1, UNMAPPED). M9.35 IMG256 scratch probe (EXP-2026-11-10-M9.35-sec1-load-model) gets past `0x0055d040` and stops at `BLOCKED STUB COREDLL.dll!wcstombs`; rerun with proper context/stubs (M9.24) needed for verdict.
   - Re-opened (ninth pass, rule 15): M9.20 merged (`562215a`); the module-VA
@@ -4188,7 +4217,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2370–C-2379
 
 - [ ] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
-  - Status: open · Owner: — · Critical: no
+  - Status: blocked · Owner: — · Critical: no
+  - Blocker: the mount reads no record block (state 2, `0x1507` undelivered), so coarse records and the section-4 name list cannot be compared; directory level is done.
+  - Unblock: M9.53 (a map request reads a record block; then rerun the EXP's G/F pair at record level with `lev3456.py decode_record` / `section4.py parse`).
+  - Result: EXP-2026-11-20-M9.18-lev3456r-sec4-l3 (C-2440–C-2446). New `tools/mount_dirs_l3.py` (`check`/`compare`/`changed`, selftest 11) checks each mount read against `lev3456.py`/`clarion_tile`: factory `LEV3456R` 9/9 and `B48R058R` 9/9 (incl. section-4 table + directory, parser `0x00415330`, typ `0x93`) MATCH; a `lev3456gen.py` file is SAME-RELOCATED; controls (L3 dir rows, s4 dir header, wrong model) MISMATCH. The level-3 directory read is the one under the start position (4 positions). Defect: `lev3456gen.py` writes L3 roads into the wrong directory (C-2445) → M5.59. Targets `lev3456_reader`, `tile_section4_reader` registered as blocked entries naming the tools; rows 18–20 updated.
   - Step: P2
   - Depends: M9.13 (matrix rows 18–20)
   - Precheck: M9.13 `tile_reader` pattern/runner path is available; VAs for
@@ -4403,8 +4435,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3450–C-3459
   - Result: `docs/experiments/EXP-2026-11-10-M9.35-sec1-load-model.md` (C-3450–C-3458). `rommap.py --bss-zero/--init-guard` + runner IAT trampolines/INIT guards implemented; 4 synthetic cases pass (`runner.py --selftest` 23/2 skipped quick, `l3_harness/selftest.py` 32/quick, `rommap.py --selftest` 32/quick, `va_class.py --selftest` 8). IMG256 guarded probes get past `0x0055d040`/`0x0055d8fc`: `mmain_reader` (0x0041a438) → `BLOCKED STUB COREDLL.dll!wcstombs`, `drstr-sub_00419350` (0x00419350) → `UNMAPPED 0xfffffec6..0xfffffec8` (scratch empty-args/context). Rule 15 applied: M9.17/M9.14 reopened, M9.24 Depends M9.35 done.
 
-- [ ] **M9.36 — Re-run every L3 probe and blocker on the corrected PySh4**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.36 — Re-run every L3 probe and blocker on the corrected PySh4**
+  - Status: done · Owner: task/m9.36-rerun-probes-pysh4 · Critical: yes
+  - Result: EXP-2026-11-20-M9.36-rerun-probes-pysh4; C-3580–C-3587. New `tools/l3_harness/engine_exposure.py` (`changed`/`run`/`static`) counts the executed halfwords whose outcome differs between an old engine and `main`: 1,867 changed vs `116c826` (720 H51 forms + 1,147 later). Of 47 re-runs (every `targets.json` target, `point_walk_l3` walk/skip, `chunk_decoder_l3` factory/S1/S2/corrupt-ind/swap-4-8 on EU2011+US2011, M9.35/M9.20 probes, M9.6, M9.13 F, M3.11c, M9.44 boot + 2 controls) exactly one result changes: the M9.35 `drstr-sub_00419350` probe stops at `BLOCKED STUB OSMDLL.dll!OSM_Malloc`, not `UNMAPPED 0xfffffec6` — engine-only A/B on the `116c826` tree; the cause is `mov.w R0,@(22,R15)` at EU2011 `0x0041936c` (C-3489 verified, C-3455/C-3457 retracted). Every other verdict and counter reproduces; no run executes a form changed after H51. NOT RE-RUN: the M3.11c 2026-11-08 heredoc runs (static bound: 0 changed halfwords in the called leaves) and M9.13 G/C1/S (need `krotoszyn.osm`).
   - Depends: — (H51 engine fix is on `main` with this task)
   - Goal: until H51, `mov.b R0,@(disp,Rn)` and `mov.w R0,@(disp,Rn)` stored through `r0` instead of `Rn` — silently. Any earlier run that executed one of them wrote to a wrong address: an `UNMAPPED 0xffffffxx` stop is the visible form, a store into a mapped region is the invisible one. Find out which recorded L3 results change.
   - Precheck: `python3 tools/l3_harness/engine.py --selftest` shows the check "mov.b/mov.w R0,@(disp,Rn) base is Rn; mul.l any Rm; movca.l (H51)".
