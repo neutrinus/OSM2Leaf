@@ -934,6 +934,35 @@ So a writer that does not start from a factory container must back every
 directory with the length above. Whether the road records are accepted is
 open (M9.52, M9.53).
 
+### `LEV3456R` and section 4 at mount, against the Python readers (M9.18, EU2011 build A)
+
+> **Status:** `VERIFIED` (PySh4 runs on the EU 2011 card, `datask_l3.py
+> mount` + `mount_dirs_l3.py check`); `OBSERVED` for the parser per `typ`.
+> EXP-2026-11-20-M9.18-lev3456r-sec4-l3, C-2440–C-2446.
+
+Of `LEV3456R.DAT` the mount reads the header, both section tables, the
+section-1 L6/L5/L4 directories, the section-2 L5/L4 directories and **one**
+of the 45 level-3 directories: the one whose box (directory geometry above)
+holds the start position, i.e. the cell of the `BxxRyyR` tile read in the
+same run (Krotoszyn → dir 24, London → 22, Madrid → 10, Rome → 12). Every
+read lands on a table or directory `lev3456.py` / `clarion_tile.read_tile`
+list, and the slot-table parser loads exactly `+0xa … 2·size − 1` (header
+word 0). Which parser runs follows the directory `typ` on the 13 directories
+seen:
+
+| `typ` | Slot-table parser | Seen in |
+| --- | --- | --- |
+| `0x80`, `0x90` | `fn 0x00414644` | `LEV3456R` L6/L5 (s1); tile s2 L1 |
+| `0x91` | `fn 0x00414930` | `LEV3456R` L4/L3, s2 L5/L4; tile s1/s2 L2 |
+| `0x92` | `fn 0x00414dbc` | tile s1 L1 |
+| `0x93` | `fn 0x00415330` | tile **section 4** L1 |
+
+A `lev3456gen.py` file is read the same way relative to its own layout (the
+firmware follows the moved pointers). A level-3 directory with a wrong row
+count is dropped (no parser runs). No coarse record and no section-4 record
+is read at mount (M9.53). Writers must place level-3 data in the directory
+whose box holds it; `lev3456gen.py` does not yet (C-2445, M5.59).
+
 ### The router reader asks; it does not parse (M4.40, EU2011 build A)
 
 > **Status:** `VERIFIED (static)` for the message and the receiver, `VERIFIED (run, L3)` for the
