@@ -2264,7 +2264,7 @@ of the four numbers above says so in its first line.
   - Claims: C-5375–C-5379 (from M4.16e's block)
 
 - [ ] **M4.51 — Who sends the TMC data-layer messages `0x14f4`/`0x14e4`, and what does `0x14f4` read**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.51-tmc-14f4-senders · Critical: no
   - Depends: M4.49 (blocked; this is its unblocker)
   - Goal: find the requester of message `0x14f4` (the second TMC request type next to the location-record request `0x14e4`, same handler `0x004003f4`, own buffer `0x009cfbb4` in the sector reader `0x00417618`, EU2011) and the file and offsets it reads; if they are the `RDSTM001.DAT` link groups (`0xcda000`/`0xe78500` and the group data), the requester is the M4.49 reader.
   - Precheck: `python3 tools/rdstm_reader_scan.py archive/head256.img --const 0x14f4` → 7 users, all in the data layer (`0x0040dd40` … `0x00417618`); `python3 tools/callgraph.py users GRAPH OSMDLL!OSM_TaskSend` lists the static senders.
