@@ -971,7 +971,7 @@ its result). C-5646–C-5649.
 
 `tools/rgd_reply_l3.py` stores a factory block through the real `0x004268c0` and runs
 `0x00422eac` with a read-watch. The store is a **pass-through** (it copies the block's plain
-length, e.g. 3508 B for `B48R058R` `0xb91d078`, and does not inspect the bytes), so the words
+length, e.g. 3508 B for `B48R058R` `0xb91d078`, and stores even a section-1 block's 2424 B), so the words
 are ordinary part-a section-2 words at record-relative index `k`. On `B48R058R` `0xb91d078`
 `k = 221` is **node 7's header word 0** (`x = 0x4fd`, count 3; unit-0 base at plain word 27):
 

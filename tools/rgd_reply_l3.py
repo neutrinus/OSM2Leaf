@@ -446,7 +446,7 @@ def cmd_walk(args) -> int:
     print(f"image {args.image}; tile {data.name} sha256 {sha}")
     print(f"build {BUILD}; reader {READER:#010x}; store {STORE:#010x}; "
           f"size_query {SIZE_QUERY:#010x}")
-    sec2 = one_block(args.image, data, 2, args.off, mesh, divid, args.k)
+    sec2 = one_block(args.image, data, args.section, args.off, mesh, divid, args.k)
     report(sec2)
     control = None
     if args.control_section:
@@ -708,6 +708,8 @@ def build_parser() -> argparse.ArgumentParser:
     w.add_argument("image")
     w.add_argument("--tile", required=True)
     w.add_argument("--off", type=lambda s: int(s, 0), help="section-2 block file offset")
+    w.add_argument("--section", type=int, default=2,
+                   help="section of the driven block (default 2; 1 stores a section-1 block)")
     w.add_argument("--k", type=lambda s: int(s, 0), help="declared k (default: first passing)")
     w.add_argument("--control-section", type=int, default=1,
                    help="negative control: a block of this section (0 = none)")
