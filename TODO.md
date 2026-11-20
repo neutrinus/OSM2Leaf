@@ -1143,7 +1143,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-4360–C-4369
 
 - [ ] **H106 — L3 never runs on the tile L2 actually writes: `tile_reader`'s only corpus is a factory `B28R070R`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h106-l3-on-l2-tile · Critical: no · Pair: required
   - Depends: M5.34 (done); M9.13/M3.25 are the entry-point work and stay their own tasks — this task only makes the corpus point at *our* tile
   - Goal: `prompt_qa.txt` asks "L3 which firmware-fragment readers ran on **our data**"; today `tools/l3_harness/targets.json`'s `tile_reader` corpus is the factory `MAPAL001/B28R070R.DAT` and the run is BLOCKED (no entry point). So even after M9.13 lands, the first L3 tile verdict would be on vendor bytes, not the `B48R058R` tile M5.34 edited. A corpus row that names M5.34's generated tile (and `one_tile_pipeline --synthetic`'s tile) makes "L3 on our data" a real row when the reader becomes runnable, and today makes the *absence* explicit instead of hidden behind one blocked target.
   - Precheck: `python3 -c "import json;print(json.load(open('tools/l3_harness/targets.json'))['tile_reader']['corpus'])"` names a factory tile; `grep -c B48R058R tools/l3_harness/targets.json` prints `0`; `python3 tools/l3check.py --build-corpus` lists `tile_reader` BLOCKED with that corpus.
