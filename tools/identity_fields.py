@@ -14,6 +14,15 @@ Subcommands (all read-only):
                      PATH is a directory holding MAPAL001/ or a `7z l -slt`
                      listing saved to a text file.
   speech LISTING     SPEECH/<lang>/<kind>/ sets from a `7z l -slt` listing.
+  card IMG REL... -o DIR
+                     copy the first --bytes (default 0x1000) of each card file
+                     REL from the FAT32 map partition of IMG (a full card or a
+                     256 MiB head, optionally a sparse file with fetched
+                     clusters) to DIR/<REL with / -> _>.  A file or directory
+                     whose cluster is not in IMG (past EOF or all zero) is
+                     reported as `NEED <what> cluster C offset O length L`, the
+                     byte range to fetch (e.g. `curl -r O-(O+L-1)`) and write
+                     into a sparse copy at O; exit 2 then.  (M4.22 2026-11-19)
 
 Evidence: docs/research/claims.md C-2490..C-2496; EXP-2026-11-08-M4.22.
 Run `python3 tools/identity_fields.py --selftest` for synthetic checks.
@@ -175,6 +184,125 @@ def _cmd_speech(args) -> int:
     return 0
 
 
+class NeedCluster(Exception):
+    """A FAT cluster this tool must read is not present in the image."""
+
+    def __init__(self, what: str, cluster: int, offset: int, length: int):
+        super().__init__(f"NEED {what} cluster {cluster} offset {offset} length {length}")
+        self.offset, self.length = offset, length
+
+
+def _cluster_offset(geo, cluster: int) -> int:
+    return geo.partition_offset + (
+        geo.reserved_sectors + geo.fat_count * geo.fat_size_sectors
+    ) * geo.bytes_per_sector + (cluster - 2) * geo.cluster_bytes
+
+
+def _present(fat, cluster: int) -> bool:
+    block = fat._read_cluster(cluster)
+    return len(block) == fat.geometry.cluster_bytes and any(block)
+
+
+def card_extract(img: str, rel: str, nbytes: int = 0x1000) -> bytes:
+    """First *nbytes* of card file *rel*; raise NeedCluster for a missing cluster."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import cardcheck
+    from pathlib import Path
+    fat = cardcheck.Fat32Image(Path(img))
+    try:
+        geo = fat.geometry
+        parts = rel.strip("/").split("/")
+        cur = ""
+        for i, part in enumerate(parts):
+            dir_cluster = fat._resolve(cur).cluster
+            for c in fat._cluster_chain(dir_cluster):
+                if not _present(fat, c):
+                    raise NeedCluster(f"dir {cur or '/'}", c, _cluster_offset(geo, c), geo.cluster_bytes)
+            cur = f"{cur}/{part}".strip("/")
+            fat._resolve(cur)  # FileNotFoundError if absent from a present dir
+        entry = fat._resolve(cur)
+        want = min(nbytes, entry.size)
+        chain = fat._cluster_chain(entry.cluster)[: (want + geo.cluster_bytes - 1) // geo.cluster_bytes]
+        for c in chain:
+            if not _present(fat, c):
+                raise NeedCluster(f"file {rel}", c, _cluster_offset(geo, c), geo.cluster_bytes)
+        return fat.read_range(cur, 0, want)
+    finally:
+        fat.close()
+
+
+def _cmd_card(args) -> int:
+    import hashlib
+    os.makedirs(args.out, exist_ok=True)
+    rc = 0
+    for rel in args.rel:
+        try:
+            data = card_extract(args.img, rel, args.bytes)
+        except NeedCluster as exc:
+            print(f"{rel}: {exc}")
+            rc = 2
+            continue
+        except FileNotFoundError:
+            print(f"{rel}: not on the card")
+            rc = 2
+            continue
+        dest = os.path.join(args.out, rel.strip("/").replace("/", "_"))
+        with open(dest, "wb") as f:
+            f.write(data)
+        print(f"{rel}: {len(data)} B sha256 {hashlib.sha256(data).hexdigest()} -> {dest}")
+    return rc
+
+
+def _synthetic_card(path: str, cut_after: int | None = None, hole: int | None = None) -> None:
+    """Tiny MBR + FAT32 image: /MMAIN001.DAT (cluster 3), /BICON001/ (4) holding
+    BICON001.DAT (5).  1 sector per cluster.  *cut_after* truncates the image."""
+    sec = 512
+    part_lba, reserved, fat_secs, nclus = 1, 2, 1, 16
+    img = bytearray(sec * (part_lba + reserved + fat_secs + nclus))
+    mbr = bytearray(sec)
+    struct.pack_into("<BBBBBBBBII", mbr, 0x1BE, 0, 0, 0, 0, 0x0C, 0, 0, 0, part_lba, len(img) // sec - part_lba)
+    mbr[510:512] = b"\x55\xaa"
+    img[0:sec] = mbr
+    bs = bytearray(sec)
+    bs[3:11] = b"MSWIN4.1"
+    struct.pack_into("<HBH", bs, 11, sec, 1, reserved)
+    bs[16] = 1
+    struct.pack_into("<I", bs, 32, len(img) // sec - part_lba)
+    struct.pack_into("<I", bs, 36, fat_secs)
+    struct.pack_into("<I", bs, 44, 2)
+    bs[71:82] = b"TESTCARD   "
+    bs[510:512] = b"\x55\xaa"
+    po = part_lba * sec
+    img[po:po + sec] = bs
+    fat = bytearray(sec)
+    for c in (0, 1, 2, 3, 4, 5):
+        struct.pack_into("<I", fat, 4 * c, 0x0FFFFFFF)
+    img[po + reserved * sec: po + (reserved + 1) * sec] = fat
+    data0 = po + (reserved + fat_secs) * sec
+
+    def ent(name11: bytes, attr: int, cl: int, size: int) -> bytes:
+        e = bytearray(32)
+        e[0:11] = name11
+        e[11] = attr
+        struct.pack_into("<H", e, 20, cl >> 16)
+        struct.pack_into("<H", e, 26, cl & 0xFFFF)
+        struct.pack_into("<I", e, 28, size)
+        return bytes(e)
+
+    def put(cl: int, blob: bytes) -> None:
+        o = data0 + (cl - 2) * sec
+        img[o:o + len(blob)] = blob
+
+    put(2, ent(b"MMAIN001DAT", 0x20, 3, 600) + ent(b"BICON001   ", 0x10, 4, 0))
+    put(3, b"M" * sec)
+    put(4, ent(b".          ", 0x10, 4, 0) + ent(b"..         ", 0x10, 0, 0) + ent(b"BICON001DAT", 0x20, 5, 100))
+    put(5, b"B" * 100)
+    if hole is not None:
+        put(hole, bytes(sec))
+    with open(path, "wb") as f:
+        f.write(img if cut_after is None else img[:cut_after])
+
+
 def run_selftest() -> int:
     failures = 0
 
@@ -234,6 +362,39 @@ def run_selftest() -> int:
     finally:
         os.remove(tmp)
 
+    base = os.path.join(os.environ.get("TMPDIR", "/tmp"), f"identity_fields_card_{os.getpid()}")
+    try:
+        _synthetic_card(base + ".img")
+        got = card_extract(base + ".img", "BICON001/BICON001.DAT")
+        expect("card: subdir file read through FAT", got == b"B" * 100)
+        got = card_extract(base + ".img", "MMAIN001.DAT", 0x200)
+        expect("card: first 0x200 bytes of a root file", got == b"M" * 0x200)
+        _synthetic_card(base + "_hole.img", hole=5)  # sparse hole: cluster 5 zero
+        try:
+            card_extract(base + "_hole.img", "BICON001/BICON001.DAT")
+            expect("card: an all-zero file cluster is NEED, not data", False)
+        except NeedCluster as exc:
+            expect("card: an all-zero file cluster is NEED, not data",
+                   "file BICON001/BICON001.DAT cluster 5" in str(exc))
+        sec = 512
+        data0 = sec * (1 + 2 + 1)
+        _synthetic_card(base + "_cut.img", cut_after=data0 + 2 * sec)  # clusters 2,3 present
+        try:
+            card_extract(base + "_cut.img", "BICON001/BICON001.DAT")
+            expect("card: dir cluster past EOF is NEED with its offset", False)
+        except NeedCluster as exc:
+            expect("card: dir cluster past EOF is NEED with its offset",
+                   exc.offset == data0 + 2 * sec and exc.length == sec and "dir BICON001" in str(exc))
+        try:
+            card_extract(base + ".img", "NOFILE.DAT")
+            expect("card: an absent name is FileNotFoundError", False)
+        except FileNotFoundError:
+            expect("card: an absent name is FileNotFoundError", True)
+    finally:
+        for suffix in (".img", "_cut.img", "_hole.img"):
+            if os.path.exists(base + suffix):
+                os.remove(base + suffix)
+
     print(f"identity_fields selftest: {'OK' if failures == 0 else f'{failures} FAILED'}")
     return 0 if failures == 0 else 1
 
@@ -260,6 +421,12 @@ def main(argv=None) -> int:
     p = sub.add_parser("speech")
     p.add_argument("listing")
     p.set_defaults(func=_cmd_speech)
+    p = sub.add_parser("card")
+    p.add_argument("img")
+    p.add_argument("rel", nargs="+")
+    p.add_argument("-o", "--out", required=True)
+    p.add_argument("--bytes", type=lambda v: int(v, 0), default=0x1000)
+    p.set_defaults(func=_cmd_card)
     args = parser.parse_args(argv)
     return args.func(args)
 
