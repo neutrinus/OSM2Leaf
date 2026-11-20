@@ -2215,7 +2215,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-5404–C-5408 (from M4.16b's spare block C-5404–C-5409)
 
 - [ ] **M4.53 — L3: which file and sector does a TMC `0x14f4` data-layer request read**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.53-tmc-14f4-l3 · Critical: no
   - Step: P3
   - Depends: M4.51 (blocked; static census done)
   - Goal: run the data-layer path of message `0x14f4` (EU2011: dispatcher entry `0x004003f4`, id switch `0x00413828` → `0x004129d0`, sector reader `0x00417618` with buffer slot `0x009cfbb4`) in L3 on a synthetic request and record the volume, file and byte offset handed to the read helper `0x003d140c`; compare with a `0x14e4` request (control, known `RDSTM001`/`LCTBL001.DAT`). If the offsets fall in `RDSTM001.DAT` `0xcda000..EOF`, the M4.16e link groups are what `0x14f4` reads, and the caller-side parser becomes the M4.49 target.
