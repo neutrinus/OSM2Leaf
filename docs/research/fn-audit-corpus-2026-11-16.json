@@ -28,6 +28,7 @@
   "tools/mapcode_l3.py",
   "tools/mmain_l3.py",
   "tools/mount_dirs_l3.py",
+  "tools/point_byteorder_l3.py",
   "tools/point_locator_l3.py",
   "tools/point_walk_l3.py",
   "tools/read_watch_l3.py",
@@ -37,16 +38,16 @@
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 30,
-  "citations": 599,
-  "unique_va": 279,
-  "start": 370,
+  "files": 31,
+  "citations": 618,
+  "unique_va": 284,
+  "start": 378,
   "inside": 0,
   "corrected": 0,
-  "gap": 59,
-  "leaf": 59,
+  "gap": 65,
+  "leaf": 65,
   "ambiguous": 0,
-  "unmapped": 170
+  "unmapped": 175
  },
  "rows": [
   {
@@ -1257,6 +1258,52 @@
    "file": "docs/format/firmware.md",
    "line": 1600,
    "va": "0x003335c0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1782,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1785,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1786,
+   "va": "0x00404994",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1786,
+   "va": "0x004052d4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1787,
+   "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -3829,6 +3876,137 @@
    "true_start": null,
    "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
    "leaf": true
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 8,
+   "va": "0x003fd690",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 9,
+   "va": "0x003f6968",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 10,
+   "va": "0x00542100",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 16,
+   "va": "0x003f6968",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 19,
+   "va": "0x00542100",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 23,
+   "va": "0x003f5194",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 34,
+   "va": "0x006e06d0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 54,
+   "va": "0x006e06d0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 55,
+   "va": "0x003f6908",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 55,
+   "va": "0x003f6968",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 56,
+   "va": "0x20000000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 57,
+   "va": "0x30000000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 65,
+   "va": "0x003f6968",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/point_byteorder_l3.py",
+   "line": 111,
+   "va": "0x00200200",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/point_locator_l3.py",

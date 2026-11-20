@@ -434,6 +434,7 @@
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
+  "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
   "docs/experiments/EXP-2026-11-20-M9.36-rerun-probes-pysh4.md",
   "docs/experiments/EXP-2026-11-20-M9.41-us-poi-row.md",
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
@@ -444,14 +445,14 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 437,
-  "citations": 1114,
-  "unique_va": 280,
-  "start": 963,
+  "files": 438,
+  "citations": 1147,
+  "unique_va": 285,
+  "start": 993,
   "inside": 71,
   "corrected": 5,
-  "gap": 68,
-  "leaf": 68,
+  "gap": 71,
+  "leaf": 71,
   "ambiguous": 5,
   "unmapped": 2
  },
@@ -8958,6 +8959,15 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M3.11b-point-byteorder-2.md",
+   "line": 227,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M3.14-zcode-icode-coord.md",
    "line": 245,
    "va": "0x003eba78",
@@ -10060,6 +10070,251 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 24,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 35,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 51,
+   "va": "0x0041c7dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 52,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 53,
+   "va": "0x003f6908",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 55,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 91,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 93,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 120,
+   "va": "0x0041c7dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 123,
+   "va": "0x0041c7dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 124,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 124,
+   "va": "0x00542100",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 125,
+   "va": "0x00404994",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 125,
+   "va": "0x004052d4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 126,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 127,
+   "va": "0x00404994",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 127,
+   "va": "0x004052d4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 129,
+   "va": "0x003f6908",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 129,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 140,
+   "va": "0x0041c7dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 152,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 159,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 159,
+   "va": "0x00404994",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 159,
+   "va": "0x004052d4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 162,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 165,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
+   "line": 179,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M9.36-rerun-probes-pysh4.md",
    "line": 42,
    "va": "0x00419350",
@@ -10924,6 +11179,52 @@
    "file": "docs/format/firmware.md",
    "line": 1600,
    "va": "0x003335c0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1782,
+   "va": "0x003fd690",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1785,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1786,
+   "va": "0x00404994",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1786,
+   "va": "0x004052d4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1787,
+   "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
