@@ -117,6 +117,11 @@ TARGET_EVIDENCE = {
         "claims": ("C-2441", "C-2442", "C-2444", "C-2446"),
         "note": "tile section-4 directory at mount, parser 0x00415330 (M9.18); name list: M9.53",
     },
+    "mmain_reader": {
+        "reader": "tile",
+        "claims": ("C-5970", "C-5971", "C-5972"),
+        "note": "MMAIN001 reader inside the firmware mount via tools/mmain_l3.py (M9.17)",
+    },
     "drstr_parser": {
         "reader": "drstr",
         "claims": (),
@@ -1246,6 +1251,7 @@ def test_full_run():
         "hddinfo_compare",
         "lev3456_reader",
         "mapcode_comparator",
+        "mmain_reader",
         "tile_reader",
         "tile_section4_reader",
     ], blocked
@@ -1255,8 +1261,8 @@ def test_full_run():
         assert row["l3_claim"] is False and row["reason"], row
         assert row["claims"] == list(TARGET_EVIDENCE[name]["claims"]), row
     assert report["counts"] == {
-        "pass": 1, "fail": 0, "skip": 0, "blocked": 9,
-        "runnable": 1, "total": 10,
+        "pass": 1, "fail": 0, "skip": 0, "blocked": 10,
+        "runnable": 1, "total": 11,
     }, report["counts"]
 
 

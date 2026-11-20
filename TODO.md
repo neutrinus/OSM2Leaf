@@ -930,13 +930,14 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Depends: H90 (the EXP it repairs is on `main`; H93 owns the navigator section only)
   - Goal: make H90's EXP re-runnable as written — every count quoted from a command that prints it, the clone recipe one copy-pasteable block that still demonstrates the defect, and the failed-run count consistent with C-4130.
   - Note (SE 2026-11-17): the SE re-ran H90's Done-when (b)-(e) and all pass, but three EXP defects survived the pair: the Record `809 commits, pack 3.2 MiB` and `Tools: git 2.5x, python3 3.15` are typed, not from a command (AGENTS "every number is quoted"); the Method command block lists `git clone … /tmp/x && cd /tmp/x` then a second `git fetch --unshallow` line that would run in the wrong cwd; and "the five `main` pushes whose run failed" contradicts the nine `COUNT` lines and the twelve red pushes the same EXP states. The recipe also now fails as written: on today's `main` a depth-1 clone prints `count check: skipped`, not `9` (C-4131 covers this, the Reproduction block does not).
+  - Note (H93, 2026-11-20): the Reproduction block is already done by H93 (#377). It is a depth-1 fetch of `3d79bcc` itself and prints 9 mismatches/exit 1 shallow and 0/exit 0 after `--unshallow`. The Reproduction clause is dropped from this task's Scope and Falsifier; the Precheck's clone line describes the state before H93.
   - Precheck: `grep -nE '809 commits|git 2\\.5x|python3 3\\.15|five .main. pushes' docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` prints the typed lines; `rm -rf /tmp/x && git clone --depth 1 file://$PWD /tmp/x && (cd /tmp/x && python3 tools/claims_check.py --strict --count-check | tail -1)` prints `claims_check: OK`, not the `9` the Reproduction says.
-  - Scope: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` only: quote `git rev-list --count 3d79bcc` and `git count-objects -vH | grep size-pack`; state the interpreter `python3 -V` prints and `git --version`; collapse the two-line clone recipe into one `( cd /tmp/opencode/x && … )` subshell; change "five" to the actual failed-run count the `gh run list` prints; replace the Reproduction block with the pinned-tool rev from C-4131 (`git show 3d79bcc:tools/claims_check.py` into the depth-1 clone) or mark it "does not reproduce on today's main, see C-4131". No claim rows; H93 owns the navigator section.
+  - Scope: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` only: quote `git rev-list --count 3d79bcc` and `git count-objects -vH | grep size-pack`; state the interpreter `python3 -V` prints and `git --version`; collapse the two-line clone recipe into one `( cd /tmp/opencode/x && … )` subshell; change "five" to the actual failed-run count the `gh run list` prints. No claim rows; H93 owns the navigator section.
   - Input: the H90 EXP, `docs/experiments/TEMPLATE.md`, C-4131/C-4135, `git rev-list --count`, `git count-objects -vH`.
   - Hints: the `12` in C-4130/C-4131 and the H90 Goal is correct (`gh run list` shows twelve `failure` rows before the first post-fix `success`); the "five" is the only run-count defect. Do not re-pin C-4135's `809`/`3.2 MiB` to `main`'s today value — the claim names `3d79bcc`, so quote the number at that commit and say so.
   - Done when: `grep -cE '809 commits|5x|3\\.15|five .main. pushes'` on the EXP is 0 or each hit cites the command that printed it; the clone recipe is one copy-pasteable block and H90's Done-when (b)-(d) still pass as run in H94's EXP. `python3 tools/claims_check.py --strict --count-check` and `todo_check.py` OK.
   - Stop: if the count really cannot be shown from a command at `3d79bcc`, delete the number and point at C-4135 instead of retyping it.
-  - Falsifier: the typed `809 commits`/`3.15` strings remain, or the Reproduction block still prints `count mismatch` on today's `main`.
+  - Falsifier: the typed `809 commits`/`3.15` strings remain.
   - Claims: C-4200–C-4209
 
 - [x] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
@@ -1298,8 +1299,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if the positive control falls below 95 %, record it and leave the verdict out.
   - Claims: C-5700–C-5709
 
-- [ ] **H118 — `fn_match` still blanks real instructions when UNLOADED pool data decodes as `mov.x @(disp,PC)`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H118 — `fn_match` still blanks real instructions when UNLOADED pool data decodes as `mov.x @(disp,PC)`**
+  - Status: done · Owner: task/h118-fnmatch-unloaded-pool · Critical: no · Pair: required
   - Depends: H113 (done; the marked-slot rule and its residual)
   - Goal: H113's forward pass exempts only a halfword **already named** as a slot. Pool data that no load names (a data run after the function's own loads, alignment words, a literal a dead load pointed at) still decodes as `mov.x @(disp,PC)` and names a slot that lands on a real instruction, which `fingerprint`/`_instruction_tokens` hash as `0x0000` and `pool_masked` zeroes. Synthetic control: `hw0 = 0xD702` (loads hw6), `hw6 = 0xDA39` (loaded, exempt), `hw50 = 0xD023` (named by no load), `hw122 = 0xC11E` → `pool_slots` contains 122, `_instruction_tokens[122] == 0x0000`, `pool_masked[122] == 0`. Measure how many of the 858 H113 NOMATCH (and how many `DIFFERENT` rows) are this residual, then narrow the slot rule (e.g. a slot target must lie in the function's own trailing pool region, or a slot may only be named by a load whose target is not past the last instruction the `.pdata` length covers).
   - Precheck: `python3 tools/fn_match.py --selftest` is `OK (46 checks, 0 failed)`; the residual script in EXP-2026-11-20-H113-fnmatch-pool's Observations (synthetic hw50) reproduces `122 in slots: True`, `tokens[122]: 0000`, `masked[122]: 0`.
@@ -1308,6 +1309,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: an EXP gives the before/after census and the count of rows the residual explains; the synthetic hw50 case no longer blanks hw122 (selftest) while the loaded-pool-word case still does not; `python3 tools/gate.py` green and the `fn_match_eu_us_2011.json` fixture replays `0 mismatch`.
   - Stop: if no narrowing rule keeps every H113 `UNIQUE` US address, record the negative with the count and leave the residual documented instead of merging a behaviour change.
   - Claims: C-5800–C-5809
+  - Result: docs/experiments/EXP-2026-11-20-H118-fnmatch-unloaded-pool.md; C-5800–C-5806. `_pool_loads` walks the function from its entry (`reachable`) and rejects a slot on a reached instruction and, in a function with no reached `braf`/`jmp`, a load at an unreached halfword; the hw50 synthetic no longer blanks hw122, the loaded-pool case still does not (`fn_match --selftest` 46→53). Census `UNIQUE 5954 / DIFFERENT 162 / CALLORDER 56 / AMBIGUOUS 566 / NOMATCH 858` (was `5945/171/56/566/858`): only `DIFFERENT→UNIQUE 9`, same US VAs, 0 moved; the residual explains 0 of the 858 NOMATCH (31 contain such a load, none changes) and 9 of 171 `DIFFERENT` (8 were reads of the next function's bytes past the function end). Control: dropping every unreached load (`--all-closed`) loses 48 `UNIQUE` to `NOMATCH` (switch case bodies). Fixture `13 rows, 0 mismatch`, `bodies` 12/12 unchanged. New `tools/fn_verdict_diff.py` (dump/diff/slots).
 
 ## M2 — Map code, activation, updater
 
@@ -2017,8 +2019,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: a function that reads `ZCODE0nn` record bytes in the search run is named with offsets/widths, or the run records why the search path reads nothing (message wait, missing model); and `COORD001` has either a reader VA or a recorded "not read by `Navi.exe` on the mount or search path".
   - Stop: if two search-message attempts return no `ZCODE` row and the read issuer does not reach a parser, write the negative with the message ids and stop.
   - Claims: C-5780–C-5789
-- [ ] **M3.31 — Where the firmware gets the length of a tile directory read**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M3.31 — Where the firmware gets the length of a tile directory read**
+  - Status: done · Owner: task/m3.31-dir-read-length · Critical: no · Pair: required
   - Depends: M3.25, M9.13 (done)
   - Goal: M9.13 observed that the data-access task reads every directory of a tile with a fixed length per level and section (`0x14100`, `0x8100`, `0x2100`, `0x6100` on three EU tiles, C-3257) and not with the directory's own size, and that a tile whose file ends before that length fails the read (C-3256). The rule is OBSERVED only. Read it from the code, so a writer can compute the length for any tile instead of copying four constants.
   - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image <EU card> --max-reads 40 --json out.json` lists reads handled by `0x0041597c` with the four lengths above.
@@ -2028,6 +2030,17 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: one session. If the length comes from a table filled by another task at run time, name the table VA and its writer and block.
   - Falsifier: the fourth tile shows a length the rule did not predict.
   - Claims: C-5820–C-5829
+  - Result: EXP-2026-11-20-M3.31-dir-read-length. `fn 0x00414338` (EU2011) asks `0x100 * T[kind].n` bytes, `T` = 16 rows at `0x179c08` read by the leaf `0x0040901c(kind, 1)`, `kind` = the header level-table kind byte (merged by `0x0040aa50`, stored by `0x00409834`): `0x91` `0x14100`, `0x92` `0x8100`, `0x90` `0x2100`, `0x93` `0x6100`, `0x80` `0x1100`. 118/118 directory reads in 11 runs match; kind-byte controls give `0x3100`/`0x4100`/`0xa100`/`0x1100` and no read for a kind without a row. Fourth tile `B40R060R` (45.46 N 9.19 E): 5/5 reads as predicted before the run. New `tools/dir_read_len.py` (`table`, `predict`: length per level and directories read past EOF — 53 factory section-4 directories in 35 of 46 files); `datask_l3.py` prints the lookup per read. `B60R048R` mounts only its header (C-5825) → new **M3.33**. C-5820–C-5826.
+- [ ] **M3.33 — Why the mount leaves `B60R048R.DAT` after its header**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M3.31 (done)
+  - Goal: at 65.0 N 30.0 E and 64.5 N 29.0 E, both inside the `0x2ac` boxes of EU2011 `B60R048R.DAT`, `datask_l3.py mount --position` reads that tile's header and then the directories of `B28R070R.DAT` (C-5825). Find the check that drops the tile (header handler `0x0040b8b4` and what it decides), so a generated tile outside the factory set is not dropped the same way.
+  - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image <EU card> --position 65.0,30.0 --json P1.json` shows one `B60R048R.DAT` read (`0x1000`, handler `0x0040b8b4`) and directory reads of `B28R070R.DAT`.
+  - Scope: EU2011 `Navi.exe`; the header handler and the position-to-tile choice (`0x0040b49c`, the global at `0xd940e4`). Excludes record blocks.
+  - Input: EXP-2026-11-20-M3.31-dir-read-length (runs P1, P1c), EXP-2026-11-20-M9.13-generated-tile-l3 (position check), `tools/datask_l3.py`.
+  - Done when: the branch that leaves `B60R048R` is named with its VA and the header field it tests, and a run that changes that field (or the position) makes the mount read `B60R048R`'s section tables.
+  - Stop: one session; if the choice depends on a table filled by a task not in the run, name the table and its writer and block.
+  - Claims: C-6080–C-6089
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -2193,6 +2206,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Blocker: no function of the TMC data-layer subtree of `Navi.exe` (EU2011, 230 functions from the `0x14e4`/`0x14f4` message handlers and the TMC search senders, depth 8) shows the derived link-group signature (`and 0x1fff` 0 hits; no function with two of `0x1fff` mask / address build / 6-byte stride / 18-byte head); the module's three mask+address-build functions are guidance code. Lead: message `0x14f4` shares the TMC handler `0x004003f4` with `0x14e4` and has its own buffer in the generic sector reader `0x00417618` (EU2011).
   - Unblock: M4.51 (senders of `0x14f4`/`0x14e4` and the file/offset a `0x14f4` request reads).
   - Note (M4.51 blocked, 2026-11-20): no static sender of `0x14f4` (EXP-2026-11-20-M4.51-tmc-14f4-senders); the next unblocker is M4.53 (L3) or M8.E4.
+  - Note (M4.53 done, 2026-11-20, rule 15): in L3 a `0x14f4` request reads `REFER001` POINT/ADDRE/INTER files by its sub word, never `RDSTM001.DAT` (EXP-2026-11-20-M4.53-tmc-14f4-l3, C-5680–C-5682); the `0x14f4` lead is refuted, so this task stays blocked with M8.E4 (read watch on `RDSTM001.DAT` `0xcda000`/`0xe78500`) as the unblocker.
   - Result: EXP-2026-11-20-M4.49-rdstm-group-reader (negative with controls; `tools/rdstm_reader_scan.py`). C-5375–C-5379.
   - Depends: M4.16e
   - Goal: rule 13 for the M4.16e decode: find the `Navi.exe` code that reads the `RDSTM001.DAT` header sets, the group index (`u16 size_dwords, u32 addr, u16 blocks, u32 key_min, u32 key_max, u16 n, n x (u32 parcel, u16 count)`) and the 4-byte `(node, link)` entries, and decode the unknown bits (`a` 0x4000/0x8000, `b` 0x4000/0x8000, link-record role `k & 3`, header words `3`/`122`).
@@ -2209,6 +2223,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Step: P3
   - Blocker: `0x14f4` has no static sender (EU2011): the only send path `fn 0x003c0e68` (id `u16 @(8,req)`, `OSM_TaskSend`) has 25 static callers, each with one id literal (`0x14e4` only from `fn 0x003bcac0`), none `0x14f4`; 7 DLLs load neither id. The request is built at run time; the file/offset it reads needs a dynamic run.
   - Unblock: M4.53 (L3 data layer on a synthetic `0x14f4` request) or M8.E4 (full `Navi.exe` run with a read watch on `RDSTM001.DAT` `0xcda000`/`0xe78500`/`0xeb6200`).
+  - Note (M4.53 done, 2026-11-20, rule 15): the file/offset half is answered in L3 — `0x14f4` reads `REFER001` POINT/ADDRE/INTER by its sub word, not `RDSTM001.DAT` (EXP-2026-11-20-M4.53-tmc-14f4-l3, C-5680); the sender VA is still unknown, so this block stays blocked on M8.E4.
   - Result: EXP-2026-11-20-M4.51-tmc-14f4-senders (negative census with control; `rdstm_reader_scan.py --callers-of`). C-5404–C-5408.
   - Depends: M4.49 (blocked; this is its unblocker)
   - Goal: find the requester of message `0x14f4` (the second TMC request type next to the location-record request `0x14e4`, same handler `0x004003f4`, own buffer `0x009cfbb4` in the sector reader `0x00417618`, EU2011) and the file and offsets it reads; if they are the `RDSTM001.DAT` link groups (`0xcda000`/`0xe78500` and the group data), the requester is the M4.49 reader.
@@ -2220,8 +2235,9 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if no static sender of `0x14f4` exists in `Navi.exe` and the DLLs it imports, and no L4 run reaches TMC, report `blocked` naming the M8 prerequisite.
   - Claims: C-5404–C-5408 (from M4.16b's spare block C-5404–C-5409)
 
-- [ ] **M4.53 — L3: which file and sector does a TMC `0x14f4` data-layer request read**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.53 — L3: which file and sector does a TMC `0x14f4` data-layer request read**
+  - Status: done · Owner: task/m4.53-tmc-14f4-l3 · Critical: no
+  - Result: EXP-2026-11-20-M4.53-tmc-14f4-l3 — `tools/tmc_req_l3.py` mounts the EU card with `datask_l3` and hands the data-access task synthetic requests: `0x14f4` reads a `REFER001` family file chosen by its sub word (1 `POINT001.DAT` `0x36600`/`0x36700`/`0x36900`, 2 `ADDRE001.DAT`, 4 `INTER001.DAT`, 3 `FRWAY001` absent), never `RDSTM001.DAT`; control `0x14e4` sub 1 reads `RDSTM001/LCTBL001.DAT` (`0x0`, `0x1000`, `0x4600`, `0x5600`). The M4.51 chain `0x00413828`/`0x004129d0`/`0x00417618` is not entered. The "`0x14f4` = link-group reader" lead is refuted; M4.49/M4.51 stay blocked on M8.E4. C-5680–C-5686.
   - Step: P3
   - Depends: M4.51 (blocked; static census done)
   - Goal: run the data-layer path of message `0x14f4` (EU2011: dispatcher entry `0x004003f4`, id switch `0x00413828` → `0x004129d0`, sector reader `0x00417618` with buffer slot `0x009cfbb4`) in L3 on a synthetic request and record the volume, file and byte offset handed to the read helper `0x003d140c`; compare with a `0x14e4` request (control, known `RDSTM001`/`LCTBL001.DAT`). If the offsets fall in `RDSTM001.DAT` `0xcda000..EOF`, the M4.16e link groups are what `0x14f4` reads, and the caller-side parser becomes the M4.49 target.
@@ -2233,8 +2249,10 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if the data layer needs state the harness cannot seed after two attempts, report `blocked` on M8.E4.
   - Claims: C-5680–C-5689
 
-- [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
+  - Status: done · Owner: task/m4.16c-inter-frway-ref · Critical: no
+  - Result: EXP-2026-11-20-M4.16c-inter-ref-aligned — negative with controls: the C-1811 enrichment (257 vs 10 uniform random over `INTER001`–`005`) is a byte-composition artifact; a byte-profile control hits more often than the real values in the byte scan (477), aligned `u32` (135 vs 55), blob-0 element +2 (30 vs 7) and table fields (15 vs 3), and the decoded M4.16e link refs stay below their control too (aligned 10 vs 30). No RDSTM key reaches `INTER`; placement goes through M4.16b/M4.16e (C-5950). `tools/inter_ref_probe.py`. C-2310–C-2314; C-1811 superseded.
+  - Done when (set at close, the block had none): C-1811 tested as aligned fields against controls with the same byte make-up, and the reference decoded or the lead refuted. Met (refuted).
   - Step: P4
   - Depends: M4.16
   - Goal: test C-1811 as aligned u32 fields (not byte scan) in `INTER*`/
@@ -2701,7 +2719,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [x] **M5.11 — End-to-end: one generated tile on an accepted card image**
   - Status: done · Owner: task/m5.11-one-generated-tile · Critical: yes
-  - Note (M9.13, 2026-11-20): software evidence for the factory-backed splice: the firmware's mount reads a `tilewriter.py --factory` `B48R058R` (two ways in a `0x2046` directory) read-for-read like the factory tile (C-3253). A fresh-container tile is not readable: every directory must be backed by the fixed length the firmware reads (`0x8100` for section 1 level 1; C-3256, C-3257). Check a card's tile with `python3 tools/datask_l3.py mount … --position LAT,LON --replace MAPAL001/<tile>=<file> --json B.json` then `diff`.
+  - Note (M9.13, 2026-11-20): software evidence for the factory-backed splice: the firmware's mount reads a `tilewriter.py --factory` `B48R058R` (two ways in a `0x2046` directory) read-for-read like the factory tile (C-3253). A fresh-container tile is not readable: every directory must be backed by the fixed length the firmware reads (`0x8100` for section 1 level 1; C-3256, C-3257). Check a card's tile with `python3 tools/datask_l3.py mount … --position LAT,LON --replace MAPAL001/<tile>=<file> --json B.json` then `diff`. Corrected by M5.56 (DRSTR001 clamp; tilewriter pads), C-5832/C-5833.
   - Depends: M5.4, M5.6, M5.10, M5.12b, M4.20 (accept facts: M2.3, M2.5, M2.12
     done; M2.15 and M9.6/M2.4 for the exact map-code bytes)
   - Goal: the Phase-2 milestone — turn OSM input into a card image that the
@@ -3234,7 +3252,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [x] **M5.49 — P1 is one contained tile and nothing copies it: a display-only card whose only diff is that factory tile**
   - Status: done · Owner: task/m5.49-p1-verbatim-tile · Critical: yes · Pair: required
-  - Note (M9.13, 2026-11-20): software evidence for the factory-backed splice: the firmware's mount reads a `tilewriter.py --factory` `B48R058R` (two ways in a `0x2046` directory) read-for-read like the factory tile (C-3253). A fresh-container tile is not readable: every directory must be backed by the fixed length the firmware reads (`0x8100` for section 1 level 1; C-3256, C-3257). Check a card's tile with `python3 tools/datask_l3.py mount … --position LAT,LON --replace MAPAL001/<tile>=<file> --json B.json` then `diff`.
+  - Note (M9.13, 2026-11-20): software evidence for the factory-backed splice: the firmware's mount reads a `tilewriter.py --factory` `B48R058R` (two ways in a `0x2046` directory) read-for-read like the factory tile (C-3253). A fresh-container tile is not readable: every directory must be backed by the fixed length the firmware reads (`0x8100` for section 1 level 1; C-3256, C-3257). Check a card's tile with `python3 tools/datask_l3.py mount … --position LAT,LON --replace MAPAL001/<tile>=<file> --json B.json` then `diff`. Corrected by M5.56 (DRSTR001 clamp; tilewriter pads), C-5832/C-5833.
   - Depends: M5.46 (done — `contained=1`, B48R058R is the whole test box), M5.30 (done — the relocation tooling and the one-variable card)
   - Goal: M5.46 answered *how many* tiles P1 needs (one) and M5.30 proved the writer can turn a changed tile into a card that passes `cardcheck`/`7z`/`fsck` with an enumerated diff. What is not done is the P1 rung itself: a card whose Dolnośląskie region is the **factory** B48R058R copied verbatim, with the display-only gate recorded. Without it P1 is a census and a promise, and P0 → P1 has no measured step.
   - Precheck: `python3 tools/mesh_grid.py cover profiles/dolnoslaskie-test.json <factory ROOT>/MAPAL001 | tail -1` prints `census: contained=1 intersects=0 outside=62 lattice=63 factory_tiles=45`; `python3 tools/cardcheck.py --root ~/projekty/leafre-work/m5.29-factory-root --fast` prints `RESULT: PASS`; `python3 tools/imgpatch.py --allow-resize --dry-run` on the factory tile is a delta-0 no-op — say which.
@@ -3300,8 +3318,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if field 5 is not the only extra byte that `--resize` changes, block and name the byte.
   - Claims: C-5550–C-5559
   - Result: EXP-2026-11-20-M5.55-l2check-resize-expectation. `check_refer_rename_resize` builds the expected record through the new `_expected_resize_record` (rec[1] `len2` **and** the field-5 length byte, field 5 from `mutate_refer_poi.name_field`), so on the EU factory tree `[refer_rename_resize] OK (… records=39; changed_records=1)` and `RESULT: PASS`; the pre-fix run printed `record 8 is not the rename-only edit (got 84 bytes, expected 84)` / `RESULT: FAIL`. The only stale byte was `rec+0x21` (field-5 7→9 words); reverting it alone still FAILs at the same 84-byte length, and the l2check selftest carries that negative. `mutate_refer_poi.py`/`validate_mutation.py` unchanged; `docs/format/` unchanged. C-5550–C-5552; closes C-5543's l2check gate.
-- [ ] **M5.56 — A tile written without a factory container must survive the firmware's directory reads**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.56 — A tile written without a factory container must survive the firmware's directory reads**
+  - Status: done · Owner: task/m5.56-no-factory-container · Critical: no · Pair: required
   - Step: P1
   - Depends: M9.13 (done); M3.31 helps (the rule instead of the observed constants)
   - Goal: the fresh-container writers (`tilewriter.py` without `--factory`, `one_tile_pipeline.py --synthetic`) produce a tile the firmware cannot mount: its first directory read (`0x8100` bytes at `0x1100`) runs past the end of the 22,272-byte file and fails with status `-1` (EXP-2026-11-20-M9.13, C-3256). Every tile outside the factory coverage will be written this way, so the writer has to back each directory with the length the firmware asks for.
@@ -3312,6 +3330,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the firmware then rejects the tile for a reason other than a short read, record the read and the handler and block with a follow-up.
   - Falsifier: the padded tile mounts, but so does a control with one directory truncated below the read length (then the comparison is not testing the lengths).
   - Claims: C-5830–C-5839
+  - Result: EXP-2026-11-20-M5.56-no-factory-container. The firmware asks `min(0x100 * T[kind].n, size - pos)` with `size` from `DRSTR001.DAT`: the factory's last section-4 directories are read short (`0x2900`, `0x5d00`) and parsed. The run-S failure (C-3256) came from `--replace` keeping the factory DRSTR001 size; with the true size the unpadded tile mounts, with `0x100` too much it fails. `tilewriter.py` (fresh path only) now zero-pads to the longest directory read (`pad_directory_reads`, 22,272 → 37,376 B): Precheck run has no negative status, the one declared directory (section 1; sections 2/4 declare none) is read and parsed by `0x00414dbc` (16,514 B); cut `0x100` short → -1 (falsifier control); targeted `l2check` PASS, `tilewriter --selftest` 89/89; `--factory` F/G SAME (28 reads). New `dir_read_len.py drstr-size`. C-5830–C-5834.
 
 - [ ] **M5.59 — `lev3456gen.py`: put level-3 roads in the directory whose box holds them**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3814,14 +3833,15 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     `tools/ze0_dbgmsg.py` (kernel debug text over the gdbstub).
   - Claims: C-1350–C-1359
 
-- [ ] **M8.B6 — Kernel debug text on the debug UART (no gdbstub needed)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.B6 — Kernel debug text on the debug UART (no gdbstub needed)**
+  - Status: done · Owner: task/m8.b6-debuglog-uart · Critical: no · Pair: solo
   - Depends: M8.A6 (SCIF model at `0xffe46000`, done), M8.B5 (F1 boot, done)
   - Goal: today the kernel's debug strings never reach the SCIF: `KernelStart` and every `NKDbgPrintfW` go through `fn 0x880404f4` → AstLog (`0x88044478`, EU2011) with the `DebugLog` path gated off (`0x89e613b0`/`0x89e613b4`), so a 60 s boot writes 0 serial bytes (M8.A6, C-1280–C-1283) and M8.B5 had to read the text over the gdbstub (`tools/ze0_dbgmsg.py`). Make the same text appear on `run.sh --serial` so every L4 run has a plain log, and so long boots (M8.C rows, M8.E4) need no breakpoint per string.
   - Scope: find what sets the `DebugLog` gate and which output routine it enables (static: callers of `0x880404f4`, readers/writers of `0x89e613b0`/`b4`; the OAL `OEMWriteDebugString`/`OEMWriteDebugByte` pair, which in CE normally writes the debug UART). Then pick the least invasive way to turn it on, in this order: (a) a board/boot argument the OAL already reads (registry, boot-args block, a strap the `ze0` machine can present); (b) a `ze0` machine option that presents the gate value at boot; (c) a documented one-word guest patch applied by `run.sh` (never committed vendor bytes, only VA + old/new word). Not in scope: changing what the kernel prints, or the gdbstub tool (keep `ze0_dbgmsg.py` as the cross-check).
   - Done when: one `-M ze0` boot of EU2011 IMG256 (`run.sh --serial`, `-icount shift=0,sleep=off`) writes the kernel debug text to `WORK/serial.log`, and for the first 200 lines it equals what `tools/ze0_dbgmsg.py run` captures for the same boot (diff = 0, or every difference explained); the boot still reaches F1 (M8.B5 checks 1–3). Negative control: the same boot without the option/patch writes 0 bytes (reproduces C-1281). The EXP names the gate, its writer, and the output routine with EU2011 VAs.
   - Stop: if the debug text can only reach the UART by patching more than one code word, or the gate is set from hardware the `ze0` machine cannot model, record the path and stop (negative EXP).
   - Hints: `tools/ze0_serial.py banner`, `tools/ze0_dbgmsg.py`, patches in `tools/qemu-ze0/patches/`, QEMU binaries from M8.B5. Requested by Marek 2026-11-20.
+  - Result: EXP-2026-11-20-M8.B6-debuglog-uart (C-6240–C-6243). No gate routes the text to a UART: `fn 0x880404f4` → AstLog `0x88044478`, gated (`0x89e613b0` by IOCTL handler `fn 0x88049f4c`, `0x89e613b4` by `fn 0x8804aa08`) → `L"DebugLog"` handle `0x8804048c`/`0x88044fe8`, none loads `0xffe46000` (EU2011). Patch `ze0-0007`: machine option `-M ze0,dbgmsg=0x880404f4` copies `r4`'s UTF-16 string to serial port 0, no guest byte changed; `run.sh` turns it on by default (`--dbgmsg off`) and gains `--icount`. Same boot: serial = gdbstub for 279/279 lines; `run.sh` boot 9 288 B, byte-repeatable, 2 time-derived lines differ from the gdbstub boot; option off = 0 bytes; F1 checks 1–3 still pass. Tool: `ze0_serial.py dbgcmp`.
   - Claims: C-6240–C-6249
 
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
@@ -4213,8 +4233,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     chain partial rather than faking a pass.
   - Claims: C-2260–C-2269
 
-- [ ] **M9.17 — L3 target `mmain_reader` (H11 G1)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M9.17 — L3 target `mmain_reader` (H11 G1)**
+  - Status: done · Owner: task/m9.17-mmain-reader-l3 · Critical: no
+  - Result: EXP-2026-11-20-M9.17-mmain-reader-l3 (C-5970–C-5973). `tools/mmain_l3.py run` boots the EU card per case (`vcard_l3.py`): factory, `mmain.py`-rebuilt, edited (+1 count) and pipeline-generated `MMAIN001.DAT` ACCEPT with one `0x1000` read, buffer `0x00e23cc0` = `swap16(file)` and an equal `mmain.py` model; 4095-byte and absent REJECT (6/6). `targets.json` `mmain_reader` is a blocked entry naming the tool (the reader runs inside the mount, not as a `runner.py` call; no `corpus.py` row needed); matrix row 3 updated. EU2011 only.
   - Note (M9.44, 2026-11-19): `mmain_reader` runs inside `vcard_l3.py boot`; presence and a full `0x1000`-byte read are the only checks (C-4635). Close as covered by M9.44 unless a `runner.py` entry is still wanted.
   - Note (M9.36, 2026-11-20): re-run done — the M9.35 probe of `0x0041a438` executes no changed instruction and still stops at `BLOCKED STUB COREDLL.dll!wcstombs` on the corrected engine (EU2011, C-3582, EXP-2026-11-20-M9.36-rerun-probes-pysh4); inside `vcard_l3.py boot` the reader runs to completion (C-3584).
   - Note (H51, 2026-11-11): re-run on the corrected engine (**M9.36**) and with real `INIT` bytes (**M1.19**); `0x0041a438` is a pdata `START` (length `0xf4`).
@@ -4245,7 +4266,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if execution faults in compressed/unmapped `sec1` `.data` (current
     blocker), record faulting PC and keep blocked on M1.2f; do not stub away
     the missing mapping.
-  - Claims: C-2370–C-2379
+  - Claims: C-5970–C-5979 (was C-2370–C-2379; fresh block for this run)
 
 - [ ] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
   - Status: blocked · Owner: — · Critical: no
@@ -4334,8 +4355,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `cerom.py imports Navi.exe --resolve-with 0x3e00200` names them (H49).
   - Claims: C-2640–C-2649
 
-- [ ] **M9.26 — Revisit `POINT` byte-order / source after M9.11b registers `cmp_ind_reader`**
-  - Status: open · Owner: — · Critical: no
+- [x] **M9.26 — Revisit `POINT` byte-order / source after M9.11b registers `cmp_ind_reader`**
+  - Status: done · Owner: task/m9.26-point-byteorder-revisit · Critical: no
+  - Result: EXP-2026-11-20-M9.26-point-byteorder-revisit (C-2900–C-2905). New `tools/point_byteorder_l3.py run` (EU card, 9/9): decoder outputs are file order; the layer's +20 = 0 swap also hits the compressed page (not inflatable); page loader `fn 0x003fd690` runs leaf `0x003f6968` before the inflate (undo) and after it (native); the walker reads the leaf output (`parse_page` offsets 7/7; file-order page fails). C-5815 retracted for zlib pages (superseded by C-2903); C-2545(a) answered (C-2905). The task text's C-2234/C-2239 are M9.13 tile rows and are unchanged.
   - Step: P4
   - Depends: M9.11b, M3.11b
   - Goal: M3.11b found the POINT page already as native little-endian `u16` in

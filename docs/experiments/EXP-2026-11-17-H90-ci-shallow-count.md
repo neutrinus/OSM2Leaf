@@ -162,13 +162,14 @@ measurement revision exists" — the H78 skip rule it already had — printing
 ## Reproduction
 
 ```bash
-# pinned to the PRE-fix tree 3d79bcc (navigator correction 2, H93);
-# X is any empty scratch directory
-git init -q X && git -C X fetch -q --depth 1 file://$PWD 3d79bccf3dd62c368eb8417e532a7d6d4b34bce2
-git -C X checkout -q FETCH_HEAD && cd X
+# pinned to the PRE-fix tree 3d79bcc (navigator correction 2, H93); run from the repo root
+R=$PWD; X=$(mktemp -d)
+git init -q "$X" && git -C "$X" fetch -q --depth 1 "file://$R" 3d79bccf3dd62c368eb8417e532a7d6d4b34bce2
+git -C "$X" checkout -q FETCH_HEAD && cd "$X"
 python3 tools/claims_check.py --strict --count-check   # 9 COUNT lines, count mismatches: 9, exit 1
-git fetch -q --unshallow file://$OLDPWD 3d79bccf3dd62c368eb8417e532a7d6d4b34bce2
-python3 tools/claims_check.py --strict --count-check   # count mismatches: 0, exit 0 (809 commits)
+git fetch -q --unshallow "file://$R" 3d79bccf3dd62c368eb8417e532a7d6d4b34bce2
+git rev-list --count HEAD                              # 809
+python3 tools/claims_check.py --strict --count-check   # count mismatches: 0, exit 0
 ```
 
 ## Corrections after navigator review
@@ -184,17 +185,34 @@ pre-fix tool revision)". The log says "Both fixed before merge"; commit
    merge, #206) to `2b3d1b4`, with `3f9c0b2` (#205) the last green.
    `4e7ea5d` applied this to the Question, the Inputs row "Repo state", the
    first FACT under Interpretation, C-4130 and the H90 Goal. The Method's
-   "The five `main` pushes" line was not changed by `4e7ea5d`. This section
+   step-1 run count ("five") was not changed by `4e7ea5d`. This section
    leaves it as it is: H94 owns that line and the other typed counts.
 2. **Depth-1 recipe pinned to the pre-fix tool.** `4e7ea5d` pinned C-4131
    to `git show 3d79bcc:tools/claims_check.py`. This record's Reproduction
-   block still cloned the current tip, which now prints the post-fix skip
+   block still cloned the current tip
+   (`git clone --depth 1 file://$PWD /tmp/x && cd /tmp/x`), which now prints the post-fix skip
    instead of the nine `COUNT` lines. H93 corrects that block in place to a
    depth-1 fetch of `3d79bcc` itself. Re-run on 2026-11-20 (branch
    `task/h93-h90-corrections-2`): shallow, 1 commit:
    `count mismatches: 9`, nine `COUNT` lines, exit 1. After
-   `--unshallow`, 809 commits: `count mismatches: 0`, `claims_check: OK`,
+   `--unshallow`, `git rev-list --count HEAD` prints `809`: `count mismatches: 0`, `claims_check: OK`,
    exit 0. These are the same numbers as C-4131. The Method block (step 2) still
    shows the unpinned clone; H94 owns making the whole recipe one block.
 
 No third flag was raised.
+
+H93 navigator round (PR #377): no blockers, 2 should-fix, 2 nits. All four
+are fixed:
+
+1. *(should-fix, scope overlap)* H93 rewrote the Reproduction block above,
+   which H94's Scope also claimed. H94's block in `TODO.md` now has a note
+   that H93 did this, and the Reproduction clause is gone from its Scope and
+   Falsifier.
+2. *(should-fix)* The two typed `809` commit counts in this section and in
+   Reproduction had no command beside them. Both now quote
+   `git rev-list --count HEAD`. Correction 1 no longer quotes the Method's
+   run-count phrase either, so H94's Done-when grep finds only H94's own lines.
+3. *(nit)* The recipe used a relative `X` and `$OLDPWD`. It now uses
+   `X=$(mktemp -d)` and `R=$PWD`.
+4. *(nit)* Correction 2 now quotes the line it replaced:
+   `git clone --depth 1 file://$PWD /tmp/x && cd /tmp/x`.
