@@ -2249,7 +2249,10 @@ of the four numbers above says so in its first line.
   - Claims: C-5137–C-5139 (block from M4.16b's reserve), C-5370–C-5372 (C-5373–C-5374 spare, C-5375–C-5379 given to M4.49)
 
 - [ ] **M4.49 — Locate the firmware reader of the `RDSTM001.DAT` link groups and run it in L3**
-  - Status: open · Owner: — · Critical: no
+  - Status: blocked · Owner: task/m4.49-rdstm-group-reader · Critical: no
+  - Blocker: no function of the TMC data-layer subtree of `Navi.exe` (EU2011, 230 functions from the `0x14e4`/`0x14f4` message handlers and the TMC search senders, depth 8) shows the derived link-group signature (`and 0x1fff` 0 hits; no function with two of `0x1fff` mask / address build / 6-byte stride / 18-byte head); the module's three mask+address-build functions are guidance code. Lead: message `0x14f4` shares the TMC handler `0x004003f4` with `0x14e4` and has its own buffer in the generic sector reader `0x00417618` (EU2011).
+  - Unblock: M4.51 (senders of `0x14f4`/`0x14e4` and the file/offset a `0x14f4` request reads).
+  - Result: EXP-2026-11-20-M4.49-rdstm-group-reader (negative with controls; `tools/rdstm_reader_scan.py`). C-5375–C-5379.
   - Depends: M4.16e
   - Goal: rule 13 for the M4.16e decode: find the `Navi.exe` code that reads the `RDSTM001.DAT` header sets, the group index (`u16 size_dwords, u32 addr, u16 blocks, u32 key_min, u32 key_max, u16 n, n x (u32 parcel, u16 count)`) and the 4-byte `(node, link)` entries, and decode the unknown bits (`a` 0x4000/0x8000, `b` 0x4000/0x8000, link-record role `k & 3`, header words `3`/`122`).
   - Input: EXP-2026-11-20-M4.16e-rdstm-link-groups (C-5137–C-5139, C-5371); `tools/rdstm_links.py`; the TMC record readers of M3.7/M4.16b (`0x003bc960`, `0x003f61bc`, EU2011 build A).
@@ -2259,6 +2262,18 @@ of the four numbers above says so in its first line.
   - Done when: the reader has a VA in `docs/format/rdstm.md` and an L3 run resolves one ref of the EU card to the same (parcel, node, link) as `rdstm_links.py`; or `blocked` with the searched signature, corpus and a control.
   - Stop: after the reachability walk and two derived signatures without a hit, report `blocked` with the call tree searched.
   - Claims: C-5375–C-5379 (from M4.16e's block)
+
+- [ ] **M4.51 — Who sends the TMC data-layer messages `0x14f4`/`0x14e4`, and what does `0x14f4` read**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.49 (blocked; this is its unblocker)
+  - Goal: find the requester of message `0x14f4` (the second TMC request type next to the location-record request `0x14e4`, same handler `0x004003f4`, own buffer `0x009cfbb4` in the sector reader `0x00417618`, EU2011) and the file and offsets it reads; if they are the `RDSTM001.DAT` link groups (`0xcda000`/`0xe78500` and the group data), the requester is the M4.49 reader.
+  - Precheck: `python3 tools/rdstm_reader_scan.py archive/head256.img --const 0x14f4` → 7 users, all in the data layer (`0x0040dd40` … `0x00417618`); `python3 tools/callgraph.py users GRAPH OSMDLL!OSM_TaskSend` lists the static senders.
+  - Signature: the message id stored into a request before `OSM_TaskSend` (static); or, dynamically, an L4 read watch on `RDSTM001.DAT` sector offsets `0xcda000`, `0xe78500`, `0xeb6200` (from the M4.16e decode — data-side, say so).
+  - Scope: `Navi.exe` EU2011 senders, then OBJDLL/STDDLL if `Navi.exe` has none; L4 (M8 `ze0`) only if the static search ends without a sender.
+  - Input: EXP-2026-11-20-M4.49-rdstm-group-reader (C-5375–C-5379); M3.24 dispatcher tables (C-3553); `tools/rdstm_reader_scan.py`, `tools/callgraph.py`, `tools/rdstm_links.py` (expected bytes).
+  - Done when: a VA (EU2011) of the function that issues `0x14f4` (or the `RDSTM001.DAT` link-group read) and the file/offset it requests, with a control (another message id's request resolved the same way); or `blocked` with the sender census.
+  - Stop: if no static sender of `0x14f4` exists in `Navi.exe` and the DLLs it imports, and no L4 run reaches TMC, report `blocked` naming the M8 prerequisite.
+  - Claims: C-5404–C-5408 (from M4.16b's spare block C-5404–C-5409)
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no
@@ -3475,6 +3490,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Scope: read-only buttons only. Never `Write NAND`, `RESTORE SRAM`, `RESTORE VFLASH` in this task. Lock the stock card before leaving update mode (README).
   - Done when: an EXP lists file names, sizes (NAND dump expected 8 MiB minus what the tool skips; `sram_*.bin` 1,048,576 B; `vflash_*.bin` 3,014,656 B) and SHA-256; files stay outside the repo (they hold the SD PIN at `0xA100` — never commit).
   - Stop: if a size differs from the expectation, record it and stop; do not retry writes.
+  - Note (2026-11-20): the start screen photo is recorded (EXP-2026-11-20-M6.18-prod-screen: `QY7200ND`, Product ID `10 20 02 12`); the files are still owed.
   - Claims: C-5200–C-5209
 
 - [ ] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**
@@ -3744,10 +3760,26 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     `tools/ze0_intc.py`.
   - Claims: C-1310–C-1319
 
-- [ ] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
+- [x] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
   Done when `CurMSec` advances.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.b2-ze0-tmu · Critical: no
   - Depends: M8.B1
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    on `-M ze0 -kernel archive/head256.img`, EU2011 `CurMSec`
+    (`0x89e41888`) sampled over HMP makes a jump of at least 1000 ms, and
+    `ze0_tmu.py rate` puts (CurMSec delta / 1000) per host second within
+    [0.98, 1.02]. Negative controls: `-M ze0,tmu=off` (no TMU) leaves
+    `CurMSec` without such a jump; the old 60 MHz clock gives a ratio
+    outside the band. Also: two `-icount` boots give the same exception
+    sequence, interrupts included.
+  - Result: EXP-2026-11-20-M8.B2-ze0-tmu (C-1320–C-1323). Patch
+    `tools/qemu-ze0/patches/ze0-0005-hw-sh4-ze0-tmu-clock.patch`: Pphi
+    42 MHz from the OAL count rate 2 625 000 Hz (`0x88004cf8`, TPSC Pphi/16),
+    option `tmu=off`. `CurMSec` jumps by the max period 818 088 ms after
+    818.0 host s (ratio 1.0001); 60 MHz gives 1.43, `tmu=off` stays 0;
+    two `-icount shift=0,sleep=off` boots are identical. TMU ch3–5 unused.
+    The kernel ends in its `Halting system` loop (`0x88022170`), so
+    `OEMIdle` is not reached (M8.B5). Tool: `tools/ze0_tmu.py`.
   - Claims: C-1320–C-1329
 
 - [x] **M8.B3 — RTC/time** (`OEMGetRealTime`).
