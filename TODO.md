@@ -1104,7 +1104,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-4280–C-4289
 
 - [ ] **H103 — `cardcheck` cannot check a tree we built: no `--generate-fixture`, so L1 can never be a CI row**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/h103-cardcheck-fixture · Critical: yes · Pair: required
   - Depends: H26 (the registry); H40 calls it — this task is the primitive only, not the L1 row
   - Goal: retro 2026-11-18 action 3 closes H40, but H40 cannot start from zero: `cardcheck.py` only accepts `--image` (7.5 GB vendor card) or `--root` (a vendor-extracted tree), and the one no-vendor builder we have, `one_tile_pipeline.py --synthetic`, produces a tree QA measured at `cardcheck rc=1` (section 2 levels 2/4/5 and section 4 level 1 not in `MMAIN` — 2026-11-17-1851-53-qa.log, H40's Input). So on CI there is nothing to point `--root` at, and the L1 row stays NOT COVERED forever. A tiny in-process tree that `cardcheck` *accepts* is a ~200-line deterministic builder, not an OSM run; making it a `cardcheck` mode (not a second tool) keeps one validator and one exit code.
   - Precheck: `python3 tools/cardcheck.py --help | grep -c generate-fixture` prints `0`; `grep -n 'add_argument("--image"\|add_argument("--root"' tools/cardcheck.py` shows the two source flags and nothing that builds a tree; `python3 tools/one_tile_pipeline.py --selftest` prints the synthetic path's honest `cardcheck` line (not PASS).
