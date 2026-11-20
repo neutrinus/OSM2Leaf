@@ -394,6 +394,7 @@
   "docs/experiments/EXP-2026-11-20-M4.48-datavol-18c-reader.md",
   "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
+  "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M6.18-prod-screen.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
@@ -408,10 +409,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 401,
-  "citations": 1187,
+  "files": 402,
+  "citations": 1197,
   "unique_va": 276,
-  "start": 1002,
+  "start": 1012,
   "inside": 81,
   "corrected": 9,
   "gap": 83,
@@ -10518,6 +10519,96 @@
    "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
    "line": 66,
    "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 23,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f57a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 93,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 93,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 115,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 115,
+   "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
