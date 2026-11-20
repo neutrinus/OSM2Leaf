@@ -175,7 +175,7 @@
     "kind": "blocked",
     "program": null,
     "va": null,
-    "reason": "no tile reader entry point has been recovered (M3)"
+    "reason": "not callable from runner.py: tile bytes arrive as read completions handled by 0x0040b8b4 / 0x0040c308 / 0x0041597c (r4 = message; M3.25). The target runs as tools/datask_l3.py mount --position LAT,LON [--replace MAPAL001/<tile>=FILE] + diff; first verdicts in EXP-2026-11-20-M9.13 (factory-backed generated B48R058R: SAME as factory; fresh-container tile: directory read fails). Record blocks: M9.53"
    },
    "stubs": [
     "CreateFileW",
