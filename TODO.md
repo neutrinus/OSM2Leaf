@@ -3457,6 +3457,35 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: an EXP lists the strings from the screens and, per string, found / not found in US256 (offset, module), with the conclusion `same build` / `different build` / `cannot tell`.
   - Claims: C-3570–C-3579
 
+- [x] **M6.17 — Say what on the map card is code and what LeafSDTools "SRAM" is**
+  - Status: done · Owner: claude/project-thread-64ftoc · Critical: no
+  - Depends: —
+  - Goal: answer Marek's question "only maps on the card, or the software too; does the system boot from it" from the ledger and the LeafSDTools source.
+  - Done when: EXP-2026-11-19-M6.17-card-what-runs gives the card layout with code/data per region and the meaning of the SRAM/VFlash dump, each with a status.
+  - Result: card = MBR + CE ROMs A/B/C (OS + Navi.exe, ~38 MB) + FAT32 maps + TFAT16; update mode runs B from the card (VERIFIED, LeafSDTools); normal mode from the card is a strong HYPOTHESIS (unit flash is 8 MiB); "SRAM" dump = 1 MiB user data from flash (C-5190–C-5194).
+  - Claims: C-5190–C-5199
+
+- [ ] **M6.18 — Back up the unit's flash with LeafSDTools (before any card test)**
+  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+  - Depends: — (do it before M6.2 S0; C-1128: unit-side state has no backup)
+  - Goal: a full copy of the unit's 8 MiB flash and its user data, so a failed card test can be undone and M6.19 can tell where the OS runs from.
+  - Input: LeafSDTools card (update mode, README "GUIDE FOR QY7XXX"), menu `Read NAND`, `SRAM → DUMP TO SD`, `PRODUCT INF`.
+  - Scope: read-only buttons only. Never `Write NAND`, `RESTORE SRAM`, `RESTORE VFLASH` in this task. Lock the stock card before leaving update mode (README).
+  - Done when: an EXP lists file names, sizes (NAND dump expected 8 MiB minus what the tool skips; `sram_*.bin` 1,048,576 B; `vflash_*.bin` 3,014,656 B) and SHA-256; files stay outside the repo (they hold the SD PIN at `0xA100` — never commit).
+  - Stop: if a size differs from the expectation, record it and stop; do not retry writes.
+  - Claims: C-5200–C-5209
+
+- [ ] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**
+  - Status: blocked · Owner: — · Critical: no
+  - Depends: M6.18
+  - Unblock: M6.18 (the dump exists and its SHA-256 is recorded)
+  - Goal: settle C-5192 (normal mode runs A/B from the card) with bytes, and name each flash region.
+  - Precheck: dump size and SHA-256 match the M6.18 EXP.
+  - Scope: block map of the 8 MiB (`0..0x86`, 8 KiB/64 KiB); search for `ECEC`, `NKOK`, `CLARION`, `Navi Version`, the A/B/C part numbers (`470-2824-34`, `470-2759-01`, `470-3142-00`) and compare any CE fragment with the card's bytes (`tools/cerom.py`). No PIN bytes in the EXP (mask `0xA100–0xA10F`).
+  - Done when: an EXP gives a table region → content → evidence, and C-5192 becomes VERIFIED or REFUTED (negative control: the same search on a random 8 MiB of the card finds what is expected there).
+  - Stop: if the dump has no recognisable structure, record the entropy map and stop.
+  - Claims: C-5210–C-5219
+
 ## M7 — Scale and release (later)
 
 - [ ] **M7.1** Full Dolnośląskie run, size budget.

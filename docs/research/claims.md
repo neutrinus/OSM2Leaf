@@ -3983,3 +3983,17 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3257 | The firmware reads a fixed length per directory: `0x14100` (level 2), `0x8100` (section 1 level 1), `0x2100` (section 2 level 1), `0x6100` (section 4 level 1) on `B48R058R`, `B48R068R` and `B28R070R`. Where the lengths come from is not read from the code. | OBSERVED (3 tiles) | M | `python3 tools/datask_l3.py mount …` rows with tag class `0x07` |
 | C-3258 | `python3 tools/datask_l3.py --selftest` covers `diff` (equal runs, other position, other byte counts, missing read, failed read, `--file`) and the position packing; 22 host checks, 9 firmware checks. | VERIFIED (tool) | H | `python3 tools/datask_l3.py --selftest` |
 | C-3259 | Scope: the verdicts cover header, section tables and directories; the road records themselves are not read (the mount stops at state 2 waiting on message `0x1507`, and a record read needs a map request). EU2011 build A, EU card, PySh4 models; not a statement about the unit. | — | — | EXP-2026-11-20-M9.13-generated-tile-l3 "Interpretation" |
+## M6.17 — what on the card runs; LeafSDTools "SRAM" dump (C-5190–C-5199)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5190 | The map card is not data-only: before the FAT32 partition it carries three complete Windows CE ROM images, A (apps, `Navi.exe`, 24.4 MB, copy at `0x2000000`), B (kernel + updaters, 7.2 MB at `0x3e00000`, copy at `0x4800000`) and C (kernel + test mode, 6.7 MB at `0x5200000`); map data is only in the FAT32 partition from `0x06400400`. | VERIFIED | H | C-060, C-160, C-535; EXP-2026-11-05-36; EXP-2026-11-19-M6.17-card-what-runs |
+| C-5191 | In software-update mode a QY7XXX unit executes CE ROM B from the card: LeafSDTools builds its SH-4 card by replacing `PRGUpdate.exe` inside the ROM banks at card offsets `0x03E00000`/`0x04800000` (bank `0xA00000`) and recomputing the SUM4 word sum. | VERIFIED (third-party source) | H | leafsdtools `422c653` `ci/make-card-image.py` (`SH4_BANK_SLOTS`, `patch_sh4_slot`); EXP-2026-11-19-M6.17-card-what-runs |
+| C-5192 | In normal mode the unit also runs `Navi.exe` (A) and a kernel from the card: the unit flash `FMD1:` is 8 MiB (C-5193) with ≥ 3.9 MiB user data, so neither A (24.4 MB) nor B (7.2 MB) fits. Contradicts the `us-eu-region.md` "NB04 in NAND, card build not executed" row. | HYPOTHESIS (strong, size argument) | M | C-5190, C-5193, C-080, H51; test: M6.19 |
+| C-5193 | On QY7XXX `FMD1:` has blocks `0..0x86`: blocks 0–7 of 8 KiB, the rest 64 KiB, total 8 MiB; block `n ≥ 8` starts at `(n−7)×0x10000`. LeafSDTools "SRAM" = blocks `0x47..0x56` (1 MiB, `0x400000–0x4FFFFF`) to `\SystemSD\sram_<prod>_<serial>.bin`; "VFlash" = blocks `0x57..0x84` (2.875 MiB) to `vflash_….bin`. Both are user data in flash, not RAM and not code. | VERIFIED (third-party source) / OBSERVED (meaning of the bytes) | H | leafsdtools `422c653` `ReadNAND.h` `MAX_BLOCKS`, `ReadNAND.cpp`, `UserSRAM.cpp` `DumpUserData`; EXP-2026-11-19-M6.17-card-what-runs |
+| C-5194 | Because the OS lives on the card, a generated card must keep the first 100 MB (CE ROMs A/B/C) and the TFAT16 tail byte-identical to the factory card; only the FAT32 map partition is ours. | PLANNED (rule) | H | C-5190–C-5192; M5.13 `imgpatch` |
+| C-5195 | RESERVED (M6.17). | — | — | — |
+| C-5196 | RESERVED (M6.17). | — | — | — |
+| C-5197 | RESERVED (M6.17). | — | — | — |
+| C-5198 | RESERVED (M6.17). | — | — | — |
+| C-5199 | RESERVED (M6.17). | — | — | — |
