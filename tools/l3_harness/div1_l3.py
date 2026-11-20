@@ -17,10 +17,11 @@ sequences; this tool checks the model against the *firmware's* divide code:
   oracle is a failure (exit 1).  ``--mq-blind`` runs the negative control: a
   ``div1`` that ignores M/Q must make the matches go away.
 
-``rotcl``/``rotcr`` are not modelled by the engine (M9.48 is additive and
-touches only ``div0s``/``div0u``/``div1``).  This tool runs them in a
-tool-local shim subclass and prints how many it executed; every other
-instruction, including every ``div*``, runs in the unmodified engine.
+``rotcl``/``rotcr`` are modelled by the engine since M9.50.  The tool-local
+shim that ran them for M9.48 is kept only as a fallback for an engine that
+rejects them (``IllegalInstruction``), and ``run`` prints how many times it
+fired: ``rotcl(shim)=0 rotcr(shim)=0`` means every instruction ran in the
+bare engine.
 
 The divisor-zero path of the routines calls an exception helper and is not
 exercised (no pair has ``r5 == 0``).
@@ -29,10 +30,11 @@ exercised (no pair has ``r5 == 0``).
   change (``--before``, e.g. ``git show REV:tools/l3_harness/engine.py``) and
   on the current one, from four register states, and list the forms whose
   outcome (registers, 4 KiB of memory, delay slot, or exception) differs.
-  Anything other than ``div0s``/``div0u``/``div1`` is a failure (exit 1).
+  Anything outside ``--expect`` (default ``div0s,div0u,div1``) is a
+  failure (exit 1).
 
 Usage:
-  div1_l3.py isolate --before PATH
+  div1_l3.py isolate --before PATH [--expect FORM,...]
   div1_l3.py sites IMG MODULE [--image-start 0x3e00200] [--min-div1 8]
   div1_l3.py run   IMG MODULE [--image-start 0x3e00200] [--fn VA ...]
                               [--mq-blind]
@@ -125,33 +127,46 @@ def classify_sites(funcs, min_div1=8):
 # run
 # --------------------------------------------------------------------------
 
+COUNTED = ("div0s", "div0u", "div1", "rotcl", "rotcr")
+
+
 class ShimSh4(engine.PySh4):
-    """PySh4 plus tool-local ``rotcl``/``rotcr``; counts the div forms run."""
+    """PySh4 that counts the div/rotc forms run; a ``rotcl``/``rotcr`` the
+    engine rejects falls back to a tool-local shim (counted separately)."""
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
-        self.counts = {"rotcl(shim)": 0, "rotcr(shim)": 0,
-                       "div0s": 0, "div0u": 0, "div1": 0}
+        self.counts = {"rotcl(shim)": 0, "rotcr(shim)": 0}
+        self.counts.update((name, 0) for name in COUNTED)
 
     def _execute(self, insn, pc):
-        if insn & 0xF0FE == 0x4024:
-            reg = "r%d" % ((insn >> 8) & 0xF)
-            value = self._regs[reg]
-            t = 1 if self._t() else 0
-            if insn & 1:                                 # rotcr Rn
-                self._regs[reg] = (value >> 1) | (t << 31)
-                self._set_t(value & 1)
-                name = "rotcr(shim)"
-            else:                                        # rotcl Rn
-                self._regs[reg] = ((value << 1) | t) & M32
-                self._set_t(value >> 31)
-                name = "rotcl(shim)"
-            self._arm = name
-            self.counts[name] += 1
+        # Not every engine arm names itself; clear the label so a stale one
+        # from the previous instruction is never counted twice.
+        self._arm = None
+        try:
+            super()._execute(insn, pc)
+        except engine.IllegalInstruction:
+            if insn & 0xF0FE != 0x4024:
+                raise
+            self._shim_rotc(insn)
             return
-        super()._execute(insn, pc)
-        if self._arm in ("div0s", "div0u", "div1"):
+        if self._arm in self.counts:
             self.counts[self._arm] += 1
+
+    def _shim_rotc(self, insn):
+        reg = "r%d" % ((insn >> 8) & 0xF)
+        value = self._regs[reg]
+        t = 1 if self._t() else 0
+        if insn & 1:                                 # rotcr Rn
+            self._regs[reg] = (value >> 1) | (t << 31)
+            self._set_t(value & 1)
+            name = "rotcr(shim)"
+        else:                                        # rotcl Rn
+            self._regs[reg] = ((value << 1) | t) & M32
+            self._set_t(value >> 31)
+            name = "rotcl(shim)"
+        self._arm = name
+        self.counts[name] += 1
 
 
 ORACLES = (
@@ -270,14 +285,15 @@ def load_module(path):
 def cmd_isolate(args):
     before = load_module(args.before)
     changed = isolate(before, engine)
-    allowed = {"div0s", "div0u", "div1"}
+    allowed = set(f for f in args.expect.split(",") if f)
     print("halfwords run  %d (FPU 0xF000-0xFFFF excluded), %d register states"
           % (0xF000, len(STATES)))
     for form in sorted(changed):
         print("changed %-12s %5d halfwords%s"
               % (form, changed[form], "" if form in allowed else "  UNEXPECTED"))
     extra = sorted(set(changed) - allowed)
-    print("result: %s" % ("only div0s/div0u/div1 changed" if not extra
+    print("result: %s" % ("only %s changed" % "/".join(sorted(allowed))
+                          if not extra
                           else "OTHER FORMS CHANGED: " + ", ".join(extra)))
     return 1 if extra else 0
 
@@ -339,9 +355,10 @@ def cmd_run(args):
                 unmatched += 1
                 continue
             print("fn 0x%08x  match=%-10s div0s=%d div0u=%d div1=%d "
-                  "rotcl(shim)=%d rotcr(shim)=%d"
+                  "rotcl=%d rotcr=%d rotcl(shim)=%d rotcr(shim)=%d"
                   % (fn, ",".join(matches) or "NONE", counts["div0s"],
-                     counts["div0u"], counts["div1"], counts["rotcl(shim)"],
+                     counts["div0u"], counts["div1"], counts["rotcl"],
+                     counts["rotcr"], counts["rotcl(shim)"],
                      counts["rotcr(shim)"]))
             if not matches:
                 unmatched += 1
@@ -389,7 +406,8 @@ def selftest():
     check("run: no stop", error, None)
     check("run: synthetic udiv matches udiv only", matches, ["udiv"])
     check("run: div1 count", counts["div1"], 32 * len(PAIRS))
-    check("run: rotcl shim count", counts["rotcl(shim)"], 33 * len(PAIRS))
+    check("run: rotcl in the engine", counts["rotcl"], 33 * len(PAIRS))
+    check("run: rotcl shim never fired (M9.50)", counts["rotcl(shim)"], 0)
 
     saved = engine._div1_step
     real = saved
@@ -438,6 +456,9 @@ def main(argv=None):
     p = sub.add_parser("isolate")
     p.add_argument("--before", required=True,
                    help="engine.py before the change (e.g. git show REV:...)")
+    p.add_argument("--expect", default="div0s,div0u,div1",
+                   help="comma-separated forms the change may touch "
+                        "(default: the M9.48 set; M9.49: mac.w)")
     for name in ("sites", "run"):
         p = sub.add_parser(name)
         p.add_argument("image")
