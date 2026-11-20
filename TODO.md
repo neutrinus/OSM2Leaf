@@ -284,7 +284,7 @@ PR rewrites the two fn_audit snapshots).
 7. **M3.32** and **M3.30** — the two tasks the `REFER` family waits for. **M3.13, M3.14, M3.16 and M3.18 are one group** blocked on them and on M3.29 (#341 ends `blocked`): do not pick the four one by one again.
 8. **M9.18** (re-opened this pass, rule 15) — `LEV3456R` and section 4 at record level; unblocks M5.16.
 
-**In flight (draft PRs, do not claim):** M5.59 #385, M5.60 #382,
+**In flight (draft PRs, do not claim):** M5.60 #382,
 M3.33 #381, M4.35 #387, M4.27 #386, M5.32 #368, M8.C row C10 #355, M8.A8 #372,
 M8.A9 #383.
 
@@ -3637,8 +3637,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the gate passes on a card where one directory was written with the ways of the neighbouring directory.
   - Claims: C-6250–C-6259
 
-- [ ] **M5.59 — `lev3456gen.py`: put level-3 roads in the directory whose box holds them**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.59 — `lev3456gen.py`: put level-3 roads in the directory whose box holds them**
+  - Status: done · Owner: task/m5.59-lev3-dir-box · Critical: no · Pair: solo
   - Step: P2
   - Depends: M5.16 (generator exists), M9.18 (directory-level L3 check, blocked only on records)
   - Goal: `lev3456gen.py` maps a point to a level-3 directory with a proportional 9 × 5 grid over the database bounds (`l3_cell_for_point`), not by the directory boxes. A Krotoszyn extract (51.70 N 17.45 E) lands in dir 22 (box x −104…−96, the London cell); the firmware at Krotoszyn reads dir 24 (C-2445, EXP-2026-11-20-M9.18). Every generated level-3 road is in the wrong place on the coarse map.
@@ -3649,6 +3649,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the level-3 parcel code in the record header (`w0`/`w1`) contradicts the box geometry, record both and stop.
   - Falsifier: the fixed generator still changes a directory whose box does not hold the extract.
   - Claims: C-6100–C-6109
+  - Result: EXP-2026-11-20-M5.59-lev3-dir-box. The level-3 directory is now chosen by its box (`y = 1.5·lat`, stored `x = lon − 100`, 0.5-unit parcels): the Krotoszyn fixture changes `s1 L3 dir 24` only, the firmware mount there reads that directory (`MATCH 9/9`, `SAME-RELOCATED`), London control → dir 22. New `lev3456gen.py placement` decodes every changed record back to lat/lon and requires it on a road (worst 1.08 steps; the old generator FAILs), new `codes` shows the record header is the geometric parcel code on 13,142/13,142 factory records of levels 3/4/5 (0 with a shifted column), so the generator computes it instead of copying. Levels 4/5 were already right. C-6100–C-6109.
 
 - [x] **M5.60 — L3: the `LCTBL001` index lookup and page loader read a generated file**
   - Status: done · Owner: task/m5.60-lctbl-index-l3 · Critical: no · Pair: solo

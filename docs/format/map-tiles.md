@@ -390,6 +390,18 @@ where `x` is stored as `x0 − 1024`. Rows are at `y = 1.5 × lat` and columns a
 `(compressed words, plain words)` pair per record slot. Level 6 is one raw
 record (not zlib) and is preserved verbatim.
 
+**Placing a point (M5.59).** In the unit the head stores, a point is
+`y = 1.5 × lat`, `x = lon − 100` (the signed head `x`). A directory holds it
+when `head_y ≤ y < head_y + rows × step` and `head_x ≤ x < head_x + cols ×
+step`, with `step` 0.5 (level 3), 2 (level 4), 8 (level 5); the parcel is
+`row = ⌊(y − head_y) / step⌋`, `col = ⌊(x − head_x) / step⌋` and the stored
+11-bit point is the fraction inside the parcel × 2048. Krotoszyn (51.70 N
+17.45 E) is level-3 directory `(72, −88)` (index 24 on the EU 2011 card), row
+11, col 10. The record header `(w0, w1)` is the parcel code of the row below
+(C-2805) in half units with low nibble 3/4/5 for the level; it fits every
+section-1 record of levels 3, 4 and 5 of the EU 2011 file (13,142 of 13,142;
+`python3 tools/lev3456gen.py codes`, C-6106).
+
 ### Splice semantics and the size consequence (M5.45)
 
 `tools/tilewriter.py:splice_factory` patches a factory tile in place where it
@@ -1055,7 +1067,8 @@ A `lev3456gen.py` file is read the same way relative to its own layout (the
 firmware follows the moved pointers). A level-3 directory with a wrong row
 count is dropped (no parser runs). No coarse record and no section-4 record
 is read at mount (M9.53). Writers must place level-3 data in the directory
-whose box holds it; `lev3456gen.py` does not yet (C-2445, M5.59).
+whose box holds it; `lev3456gen.py` does since M5.59 (C-6100–C-6103), and
+`lev3456gen.py placement` checks a generated file for it.
 
 ### The router reader asks; it does not parse (M4.40, EU2011 build A)
 

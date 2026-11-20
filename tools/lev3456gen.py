@@ -27,7 +27,15 @@ Commands::
 
     python3 tools/lev3456gen.py generate --template LEV3456R.DAT \\
         --extract extract.json -o OUT.DAT [--levels 3,4,5]
+    python3 tools/lev3456gen.py placement --template LEV3456R.DAT \\
+        --generated OUT.DAT --extract extract.json [--expect-l3-dir 24]
+    python3 tools/lev3456gen.py codes LEV3456R.DAT
     python3 tools/lev3456gen.py --selftest
+
+``placement`` (M5.59) reads every record of OUT that differs from the
+template, turns its stored points back into lat/lon by the directory
+geometry and requires each to lie on a road of the extract; it also compares
+the record header with the template's parcel code for that slot.
 """
 
 from __future__ import annotations
@@ -678,11 +686,10 @@ def splice_level5(sections_data, cont, roads, geo):
         old_spec = recs[col]
         # decode template record to preserve background/names
         bg_rec = None
-        code = (0, 0)
+        code = slot_code(Dsrc, 5, row, col, (col,))
         if Dsrc.rows[row] and Dsrc.rows[row][col] and Dsrc.rows[row][col].is_z:
             try:
                 bg_rec = lev3456.decode_record(Dsrc.rows[row][col].plain, 5, col, 1)
-                code = (bg_rec["header"][0], bg_rec["header"][1])
             except Exception:
                 bg_rec = None
         plain = build_l5_record(code, road_shapes=shapes, bg_record=bg_rec)
@@ -738,6 +745,8 @@ def generate(template_path, extract, output_path, levels=(3, 4, 5)):
         stats["l4_shapes"] = splice_level4(sections_data, cont, roads, geo)
     if 3 in levels:
         stats["l3_shapes"] = splice_level3(sections_data, cont, roads, geo)
+        stats["l3_segments_outside_every_directory"] = L3_STATS["outside"]
+        stats["l3_shapes_skipped_no_row"] = L3_STATS["skipped_no_row"]
     out = write_container(tdata, sections_data)
     open(output_path, "wb").write(out)
     return out, stats
@@ -757,15 +766,7 @@ def splice_level4(sections_data, cont, roads, geo):
         if recs is None: continue
         ri = 2 * col  # even = road
         if ri >= len(recs): continue
-        code = (0, 0)
-        if Dsrc.rows[row]:
-            # try to get code from existing road or bg
-            for k in (ri, ri+1):
-                if k < len(Dsrc.rows[row]) and Dsrc.rows[row][k] and Dsrc.rows[row][k].is_z:
-                    try:
-                        dr = lev3456.decode_record(Dsrc.rows[row][k].plain, 4, k, 1)
-                        code = (dr["header"][0], dr["header"][1]); break
-                    except Exception: pass
+        code = slot_code(Dsrc, 4, row, col, (ri, ri + 1))
         plain = build_road_record(4, code, shapes)
         recs[ri] = {"plain": plain}
         count += len(shapes)
@@ -797,6 +798,100 @@ def split_roads_l4_geo(roads, geo, nrows, ncols):
     return parcels
 
 
+# ---- directory geometry (map-tiles.md "Directory geometry", M5.59) ----
+#
+# The coarse grid is y = 1.5 * lat, x = lon - 100 in the unit the directory
+# head stores (head y, head x as a signed word; x0 = head x + 1024).  A
+# directory covers rows * step by cols * step units from its head: step 0.5 at
+# level 3 (16 x 16 parcels of 30' x 20'), 2 at level 4, 8 at level 5.
+STEP = {3: 0.5, 4: 2.0, 5: 8.0}
+LEVEL_NIBBLE = {3: 0x3, 4: 0x4, 5: 0x5}
+
+
+def coarse_yx(lat, lon):
+    """(y, x) of a point in directory-head units."""
+    return 1.5 * lat, lon - 100.0
+
+
+def dir_origin(D):
+    """(y, x) of a directory head, x as the signed stored word."""
+    x = D.head[4]
+    return D.head[3], (x - 65536 if x > 32767 else x)
+
+
+def dir_holds(D, level, lat, lon):
+    y, x = coarse_yx(lat, lon)
+    hy, hx = dir_origin(D)
+    return (hy <= y < hy + D.nrows * STEP[level]
+            and hx <= x < hx + D.cols * STEP[level])
+
+
+def cell_in_dir(D, level, lat, lon):
+    """(row, col) of the parcel of *D* that holds the point (clamped)."""
+    y, x = coarse_yx(lat, lon)
+    hy, hx = dir_origin(D)
+    row = int((y - hy) / STEP[level])
+    col = int((x - hx) / STEP[level])
+    return max(0, min(D.nrows - 1, row)), max(0, min(D.cols - 1, col))
+
+
+def quant_in_dir(D, level, row, col, lat, lon):
+    """11-bit (x, y) of the point inside parcel (row, col) of *D*."""
+    y, x = coarse_yx(lat, lon)
+    hy, hx = dir_origin(D)
+    fx = (x - hx) / STEP[level] - col
+    fy = (y - hy) / STEP[level] - row
+    return (max(0, min(2047, round(fx * 2048))),
+            max(0, min(2047, round(fy * 2048))))
+
+
+def point_in_dir(D, level, row, col, qx, qy):
+    """Inverse of ``quant_in_dir``: (lat, lon) of a stored point."""
+    hy, hx = dir_origin(D)
+    y = hy + (row + qy / 2048.0) * STEP[level]
+    x = hx + (col + qx / 2048.0) * STEP[level]
+    return y / 1.5, x + 100.0
+
+
+def parcel_code(D, level, row, col):
+    """Record header words (w0, w1) of parcel (row, col) of *D*.
+
+    The rule of map-tiles.md (C-2805, levels 4 and 5) in half units, which
+    also fits every level-3 record of the EU 2011 file (12,059 of 12,059,
+    M5.59): ``r = 2*(head_y + row*step)``, ``c = 2*(x0 + col*step)``.
+    """
+    hy, hx = dir_origin(D)
+    r20 = int(round(2 * (hy + row * STEP[level])))
+    c30 = int(round(2 * (hx + 1024 + col * STEP[level])))
+    R, C = r20 >> 2, c30 >> 2
+    w0 = (((C >> 8) << 7 | R) << 8) | (((r20 & 2) << 6) | ((r20 & 1) << 4) | 0xF)
+    w1 = ((C & 0xFF) << 8) | (((c30 & 2) << 6) | ((c30 & 1) << 4) | LEVEL_NIBBLE[level])
+    return w0 & 0xFFFF, w1 & 0xFFFF
+
+
+def template_code(Dsrc, level, row, slots):
+    """Header (w0, w1) of the first template record in *slots* of *row*, or None."""
+    if not Dsrc.rows[row]:
+        return None
+    for k in slots:
+        if k < len(Dsrc.rows[row]) and Dsrc.rows[row][k] and Dsrc.rows[row][k].is_z:
+            w = lev3456.words(Dsrc.rows[row][k].plain[:4])
+            return w[0], w[1]
+    return None
+
+
+def slot_code(Dsrc, level, row, col, slots):
+    """The parcel code by geometry; refuses a template record that disagrees."""
+    code = parcel_code(Dsrc, level, row, col)
+    have = template_code(Dsrc, level, row, slots)
+    if have is not None and have != code:
+        raise ValueError(
+            "level %d row %d col %d: the template record header %04x %04x is not "
+            "the parcel code %04x %04x the directory geometry gives"
+            % (level, row, col, have[0], have[1], code[0], code[1]))
+    return code
+
+
 def splice_level3(sections_data, cont, roads, geo):
     sec1 = next(s for s in sections_data if s["id"] == 1)
     l3 = next(L for L in sec1["levels"] if L["level"] == 3)
@@ -811,37 +906,39 @@ def splice_level3(sections_data, cont, roads, geo):
     # 45 dirs arranged to cover 45 tile cells.
     parcels = split_roads_l3_geo(roads, geo, L)
     count = 0
-    for (di, row, col), shapes in parcels.items():
-        if di >= len(l3["dirs"]): continue
+    skipped = 0
+    for (di, row, col), shapes in sorted(parcels.items()):
         D = l3["dirs"][di]; Dsrc = L.dirs[di]
-        if row >= D["rows"] or col >= D["cols"]: continue
         recs = D["rows_data"][row]
-        if recs is None: continue
         ri = 2 * col
-        if ri >= len(recs): continue
-        code = (0, 0)
-        if Dsrc.rows[row]:
-            for k in (ri, ri+1):
-                if k < len(Dsrc.rows[row]) and Dsrc.rows[row][k] and Dsrc.rows[row][k].is_z:
-                    try:
-                        dr = lev3456.decode_record(Dsrc.rows[row][k].plain, 3, k, 1)
-                        code = (dr["header"][0], dr["header"][1]); break
-                    except Exception: pass
+        if recs is None or ri >= len(recs):
+            # the template has no row block here; adding one changes the
+            # container (out of scope), so the shapes are counted, not hidden
+            skipped += len(shapes)
+            continue
+        code = slot_code(Dsrc, 3, row, col, (ri, ri + 1))
         plain = build_road_record(3, code, shapes)
         recs[ri] = {"plain": plain}
         count += len(shapes)
+    L3_STATS["skipped_no_row"] = skipped
     return count
 
 
+#: Counters of the last ``splice_level3`` run: segments outside every
+#: directory box, and shapes for a row the template does not have.
+L3_STATS = {"outside": 0, "skipped_no_row": 0}
+
+
 def split_roads_l3_geo(roads, geo, level3):
-    """Split roads for level 3 using template's dir grid."""
-    lat_max, lat_min, lon_min, lon_max = geo
+    """Split roads for level 3 into (directory, row, col) parcels by the
+    directory boxes; *geo* is unused."""
     dirs = level3.dirs
     # Build a spatial index: find which dir covers a lat/lon by grid position
     # Each dir is 16x16. Total coverage matches bounds.
     # Determine dir grid layout from number of dirs and bounds
     # EU: 45 dirs = 9 rows x 5 cols of tile cells
     parcels = {}
+    L3_STATS["outside"] = 0
     for road in roads:
         cls = road_class(road)
         nodes = road.get("nodes") or []
@@ -854,6 +951,8 @@ def split_roads_l3_geo(roads, geo, level3):
                 # find dir and cell
                 di, row, col = l3_cell_for_point(p0[1],p0[0], geo, dirs)
                 di1, r1, c1 = l3_cell_for_point(p1[1],p1[0], geo, dirs)
+                if di < 0 and di1 < 0 and depth == 0:
+                    L3_STATS["outside"] += 1
                 if (di,row,col)==(di1,r1,c1) or depth>20 or di<0:
                     if di>=0 and di<len(dirs):
                         D = dirs[di]
@@ -869,52 +968,176 @@ def split_roads_l3_geo(roads, geo, level3):
 
 
 def l3_cell_for_point(lat, lon, geo, dirs):
-    """Map a point to (dir_index, row, col) using proportional grid mapping.
+    """Map a point to (dir_index, row, col) by the directory boxes.
 
-    Level 3 has multiple directories (45 in EU) covering the DB bounds.
-    Uses proportional mapping over the template bounds; records are
-    structurally valid regardless of exact geographic placement.
+    The directory is the one whose head box holds the point (M5.59; until
+    then a proportional 9 x 5 grid over the database bounds was used, which
+    put Krotoszyn in the London directory).  ``-1`` when no directory holds
+    the point.  *geo* is unused and kept for the callers.
     """
-    lat_max, lat_min, lon_min, lon_max = geo
-    nd = len(dirs)
-    if nd == 0:
-        return -1, 0, 0
-    # Infer grid layout from dir boxes: count unique y and x ranges
-    # Fallback to proportional split
-    if nd == 45:
-        nlat, nlon = 9, 5
-    else:
-        nlon = max(1, int(round((nd * (lon_max-lon_min) / max(1e-9, lat_max-lat_min)) ** 0.5)))
-        nlat = max(1, (nd + nlon - 1) // nlon)
-    gi_r = min(nlat-1, max(0, int((lat - lat_min) / max(1e-9, lat_max-lat_min) * nlat)))
-    gi_c = min(nlon-1, max(0, int((lon - lon_min) / max(1e-9, lon_max-lon_min) * nlon)))
-    di = min(nd - 1, gi_r * nlon + gi_c)
-    D = dirs[di]
-    lat_max_d = lat_min + (gi_r + 1) * (lat_max - lat_min) / nlat
-    lat_min_d = lat_min + gi_r * (lat_max - lat_min) / nlat
-    lon_max_d = lon_min + (gi_c + 1) * (lon_max - lon_min) / nlon
-    lon_min_d = lon_min + gi_c * (lon_max - lon_min) / nlon
-    row = max(0, min(D.nrows - 1, int((lat - lat_min_d) / max(1e-9, lat_max_d - lat_min_d) * D.nrows)))
-    col = max(0, min(D.cols - 1, int((lon - lon_min_d) / max(1e-9, lon_max_d - lon_min_d) * D.cols)))
-    return di, row, col
+    for di, D in enumerate(dirs):
+        if dir_holds(D, 3, lat, lon):
+            row, col = cell_in_dir(D, 3, lat, lon)
+            return di, row, col
+    return -1, 0, 0
 
 
 def quant_l3_in_dir(lat, lon, row, col, geo, D, dirs):
-    lat_max, lat_min, lon_min, lon_max = geo
-    nd = len(dirs)
-    if nd == 45: nlat, nlon = 9, 5
-    else:
-        nlon = max(1, int(round((nd * (lon_max-lon_min) / max(1e-9, lat_max-lat_min)) ** 0.5)))
-        nlat = max(1, (nd + nlon - 1) // nlon)
-    gi_r = min(nlat-1, max(0, int((lat-lat_min)/max(1e-9, lat_max-lat_min)*nlat)))
-    gi_c = min(nlon-1, max(0, int((lon-lon_min)/max(1e-9, lon_max-lon_min)*nlon)))
-    cell_h = (lat_max-lat_min)/nlat/D.nrows
-    cell_w = (lon_max-lon_min)/nlon/D.cols
-    cla = lat_min + gi_r*(lat_max-lat_min)/nlat + row*cell_h
-    clo = lon_min + gi_c*(lon_max-lon_min)/nlon + col*cell_w
-    x = max(0, min(2047, round((lon-clo)/max(1e-12,cell_w)*2048)))
-    y = max(0, min(2047, round((lat-cla)/max(1e-12,cell_h)*2048)))
-    return x, y
+    return quant_in_dir(D, 3, row, col, lat, lon)
+
+# ---- placement check (M5.59): are the changed records where their roads are? ----
+
+
+def _seg_dist(p, a, b):
+    """Distance in coarse units from point p to segment a-b, all (y, x)."""
+    (py, px), (ay, ax), (by, bx) = p, a, b
+    dy, dx = by - ay, bx - ax
+    den = dy * dy + dx * dx
+    t = 0.0 if den == 0 else max(0.0, min(1.0, ((py - ay) * dy + (px - ax) * dx) / den))
+    cy, cx = ay + t * dy, ax + t * dx
+    return ((py - cy) ** 2 + (px - cx) ** 2) ** 0.5
+
+
+def road_points(block):
+    """Every stored (x, y) of a decoded road block."""
+    out = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            if "start" in node and "links" in node:
+                out.append(node["start"][:2])
+                for _lid, pts in node["links"]:
+                    out.extend(p[:2] for p in pts)
+            else:
+                for v in node.values():
+                    walk(v)
+        elif isinstance(node, (list, tuple)):
+            for v in node:
+                walk(v)
+    walk(block)
+    return out
+
+
+def placement(template_data, generated_data, extract, levels=(3, 4, 5), tol_quanta=2.0):
+    """Check every record that differs from the template against the extract.
+
+    For each changed record of section 1: its directory box must hold the
+    parcel, its header must be the parcel code of that slot in the template
+    (when the template has a record there), and each stored road point,
+    turned back into lat/lon by the directory geometry, must lie within
+    *tol_quanta* coordinate steps of a road segment of the extract.  This
+    reads the geometry from the file, not from the generator's split.
+    """
+    a = lev3456.Container(template_data)
+    b = lev3456.Container(generated_data)
+    segs = []
+    for road in extract.get("roads") or []:
+        nodes = road.get("nodes") or []
+        for j in range(len(nodes) - 1):
+            segs.append((coarse_yx(nodes[j][1], nodes[j][0]),
+                         coarse_yx(nodes[j + 1][1], nodes[j + 1][0])))
+    report = {"levels": {}, "ok": True}
+    for level in levels:
+        La, Lb = a.level(1, level), b.level(1, level)
+        per = 1 if level == 5 else 2
+        rows = []
+        for di, (Da, Db) in enumerate(zip(La.dirs, Lb.dirs)):
+            for ri, (ra, rb) in enumerate(zip(Da.rows, Db.rows)):
+                if not rb:
+                    continue
+                for k, rec in enumerate(rb):
+                    old = ra[k] if ra and k < len(ra) else None
+                    if rec is None or not rec.is_z:
+                        continue
+                    if old is not None and old.is_z and old.plain == rec.plain:
+                        continue
+                    col = k // per
+                    w = lev3456.words(rec.plain[:4])
+                    dec = lev3456.decode_record(rec.plain, level, k, 1)
+                    block = dec.get("road") if level == 5 else dec.get("block")
+                    pts = road_points(block) if block is not None else []
+                    worst = 0.0
+                    for qx, qy in pts:
+                        lat, lon = point_in_dir(Db, level, ri, col, qx, qy)
+                        p = coarse_yx(lat, lon)
+                        d = min(_seg_dist(p, s0, s1) for s0, s1 in segs) if segs else float("inf")
+                        worst = max(worst, d / (STEP[level] / 2048.0))
+                    tcode = template_code(Da, level, ri, range(col * per, col * per + per))
+                    row = {"dir": di, "box": list(Db.box), "row": ri, "col": col, "slot": k,
+                           "header": "%04x %04x" % (w[0], w[1]),
+                           "code_ok": (w[0], w[1]) == parcel_code(Db, level, ri, col)
+                           and (tcode is None or tcode == (w[0], w[1])),
+                           "template_code": None if tcode is None else "%04x %04x" % tcode,
+                           "points": len(pts), "worst_quanta": round(worst, 3)}
+                    row["ok"] = row["code_ok"] and bool(pts) and worst <= tol_quanta
+                    report["ok"] &= row["ok"]
+                    rows.append(row)
+        report["levels"][level] = rows
+    return report
+
+
+def cmd_placement(args):
+    extract = load_extract(args.extract)
+    rep = placement(open(args.template, "rb").read(), open(args.generated, "rb").read(),
+                    extract, tol_quanta=args.tolerance)
+    for level, rows in sorted(rep["levels"].items()):
+        dirs = sorted({r["dir"] for r in rows})
+        print("L%d: %d changed record(s) in directory(ies) %s" % (level, len(rows), dirs))
+        for r in rows:
+            print("  dir %d box %s row %d col %d slot %d header %s (template %s) %d points, "
+                  "worst %.2f steps from a road: %s"
+                  % (r["dir"], r["box"], r["row"], r["col"], r["slot"], r["header"],
+                     r["template_code"], r["points"], r["worst_quanta"],
+                     "OK" if r["ok"] else "FAIL"))
+    if args.expect_l3_dir is not None:
+        got = sorted({r["dir"] for r in rep["levels"].get(3, [])})
+        want = sorted(args.expect_l3_dir)
+        print("level-3 directories changed: %s, expected %s" % (got, want))
+        rep["ok"] &= got == want
+    if args.json:
+        with open(args.json, "w") as f:
+            json.dump(rep, f, indent=1)
+    print("placement:", "PASS" if rep["ok"] else "FAIL")
+    return 0 if rep["ok"] else 1
+
+
+def code_census(data, shift=0):
+    """Count section-1 records of levels 3/4/5 whose header is ``parcel_code``.
+
+    *shift* moves the column index before the code is computed (a control:
+    with ``shift=1`` no record may fit)."""
+    cont = lev3456.Container(data)
+    out = {}
+    for level in (3, 4, 5):
+        L = cont.level(1, level)
+        per = 1 if level == 5 else 2
+        total = fit = 0
+        for _di, D in enumerate(L.dirs):
+            for ri, row in enumerate(D.rows):
+                if not row:
+                    continue
+                for k, rec in enumerate(row):
+                    if rec is None or not rec.is_z:
+                        continue
+                    w = lev3456.words(rec.plain[:4])
+                    total += 1
+                    fit += (w[0], w[1]) == parcel_code(D, level, ri, k // per + shift)
+        out[level] = (fit, total)
+    return out
+
+
+def cmd_codes(args):
+    data = open(args.file, "rb").read()
+    ok = True
+    for shift in (0, 1):
+        res = code_census(data, shift)
+        for level, (fit, total) in sorted(res.items()):
+            print("L%d: %d of %d record headers equal the parcel code%s"
+                  % (level, fit, total, "" if not shift else " (control: column + 1)"))
+            ok &= (fit == total) if not shift else (fit == 0)
+    print("codes:", "PASS" if ok else "FAIL")
+    return 0 if ok else 1
+
 
 # ---- selftest and CLI ----
 
@@ -987,6 +1210,44 @@ def selftest():
     assert p5, "L5 split produced no parcels"
     assert p4, "L4 split produced no parcels"
     print("mesh split: L5 %d cells, L4 %d cells" % (len(p5), len(p4)))
+
+    # 5b. Directory geometry (M5.59): the level-3 directory is the one whose
+    # box holds the point.  Stub directories with the EU 2011 heads.
+    def stub(y, xs, rows=16, cols=16):
+        x = xs & 0xFFFF
+        return lev3456.Dir(0, (y + 8, y, x, (x + 8) & 0xFFFF), (0, rows, cols, y, x, 0x91),
+                           [None] * rows, 2 * cols)
+    dirs = [stub(72, -104), stub(72, -96), stub(72, -88), stub(80, -88)]
+    assert l3_cell_for_point(51.70, 17.45, None, dirs) == (2, 11, 10), \
+        l3_cell_for_point(51.70, 17.45, None, dirs)          # Krotoszyn
+    assert l3_cell_for_point(51.505, -0.273, None, dirs)[0] == 0   # London
+    assert l3_cell_for_point(53.40, 14.55, None, dirs)[0] == 3     # Szczecin, next row up
+    assert l3_cell_for_point(40.0, 17.45, None, dirs)[0] == -1     # no directory
+    assert quant_l3_in_dir(51.70, 17.45, 11, 10, None, dirs[2], dirs) == (1843, 205)
+    lat, lon = point_in_dir(dirs[2], 3, 11, 10, 1843, 205)
+    assert abs(lat - 51.70) < 1e-3 and abs(lon - 17.45) < 1e-3, (lat, lon)
+    assert parcel_code(dirs[2], 3, 11, 10) == (0xA69F, 0xD683)
+    big = stub(32, -120, 44, 44)
+    assert cell_in_dir(big, 4, 51.70, 17.45) == (22, 18)
+    assert parcel_code(big, 4, 22, 18) == (0xA60F, 0xD604)
+    big5 = stub(32, -120, 11, 11)
+    assert cell_in_dir(big5, 5, 51.70, 17.45) == (5, 4)
+    assert parcel_code(big5, 5, 5, 4) == (0xA40F, 0xD405)
+    # negative: the old proportional 9 x 5 grid put Krotoszyn in column 2 of 5,
+    # the London directory; the box rule must not
+    old_col = int((17.45 - -20.0) / (68.0 - -20.0) * 5)
+    assert old_col == 2 and dir_holds(dirs[0], 3, 51.70, 17.45) is False
+    # a road across the directory edge at 12 E is split into both directories
+    L3_STATS["outside"] = 0
+
+    class _Lvl:
+        pass
+    lvl = _Lvl(); lvl.dirs = dirs
+    cells = split_roads_l3_geo([{"class": 3, "nodes": [[11.9, 51.0], [12.1, 51.0]]}], None, lvl)
+    assert {k[0] for k in cells} == {1, 2}, sorted(cells)
+    assert split_roads_l3_geo([{"class": 3, "nodes": [[17.0, 40.0], [17.2, 40.0]]}], None, lvl) == {}
+    assert L3_STATS["outside"] == 1
+    print("directory geometry: OK (box rule, quantisation round trip, parcel codes, edge split)")
 
     # 6. Determinism: same input -> same record bytes
     plain_a = build_l5_record((0x980F, 0xC805), road_shapes=shapes)
@@ -1071,12 +1332,27 @@ def main(argv=None):
     p.add_argument("--extract", required=True)
     p.add_argument("-o", "--output", required=True)
     p.add_argument("--levels", default="3,4,5")
+    q = sub.add_parser("placement", help="check that each changed record lies where its roads are")
+    q.add_argument("--template", required=True)
+    q.add_argument("--generated", required=True)
+    q.add_argument("--extract", required=True)
+    q.add_argument("--tolerance", type=float, default=2.0,
+                   help="allowed distance from a road, in coordinate steps (default 2)")
+    q.add_argument("--expect-l3-dir", type=int, action="append",
+                   help="level-3 directory index that must be changed (repeat); no other may be")
+    q.add_argument("--json")
+    c = sub.add_parser("codes", help="count record headers that equal the geometric parcel code")
+    c.add_argument("file")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
     if args.cmd == "generate":
         return cmd_generate(args)
+    if args.cmd == "placement":
+        return cmd_placement(args)
+    if args.cmd == "codes":
+        return cmd_codes(args)
     ap.print_help()
     return 2
 
