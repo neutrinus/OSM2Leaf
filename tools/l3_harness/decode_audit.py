@@ -342,6 +342,8 @@ NAMED = (
     ("mac.w", 0x41DF),
     ("div0s", 0x2B67),
     ("div1", 0x3624),
+    ("rotcl", 0x4124),
+    ("rotcr", 0x4125),
 )
 
 
