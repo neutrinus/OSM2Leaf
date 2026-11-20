@@ -2850,8 +2850,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M9.18 (firmware reader verdict for generated L3/4/5).
   - Result: EXP-2026-11-08-M5.16-lev3456-generator. `tools/lev3456gen.py` (selftest OK, python3.13 stock zlib): generates L3/4/5 road records from mesh-split synthetic extract, template-splices EU 2011 LEV3456R; unchanged template round-trip byte-identical (76,066,304 B); generated L3/4/5 accepted by `lev3456.py verify` (exit 0, L5 strict 62/62 plain+stream, 0 opaque; L3/L4 best-effort matches factory preserved pattern); `generate()` deterministic. Not `[x]`: M9.18 firmware-reader clause unmet.
 
-- [ ] **M5.17 — `LCTBL001.DAT` file builder (H11 G5)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.17 — `LCTBL001.DAT` file builder (H11 G5)**
+  - Status: done · Owner: task/m5.17-lctbl-builder · Critical: yes
   - Step: P3
   - Depends: M3.15, M4.18
   - Goal: `lctbl_records.py` re-encodes streams, but no tool builds the
@@ -2866,6 +2866,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     output passes L1/L2, and an unchanged input rebuilds byte-identically;
     the sort order matches the firmware's weight table (`--selftest`).
   - Claims: C-2410–C-2419
+  - Result: EXP-2026-11-20-M5.17-lctbl-builder. `tools/lctbl_build.py` decodes the whole file (sector addresses, 3-list catalog, per-table B-tree index, ≤500-record zlib pages, page directories at the end — the old "0xff padding" was the directories) and writes it from `{header, flag word, tables: code, location codes, records}`: EU (247,089 records) and US 2011 (303,023) rebuild byte-identically; a synthetic 5-table Polish set (3,668 records) builds deterministically, passes L1 `cardcheck` (stale-DRSTR control FAILs) and the non-golden L2 checks (unchanged rebuild: L2 PASS); L3 `0x003f61bc`/`0x003f5d98` read the generated catalog descriptor + records, 3,668/3,668 fields == model (C-2410–C-2417). Sort clause: the file order is the location-code B-tree key (selftest refuses unsorted codes); names are not collated in the file (rdstm.md rule 4), so no weight-table order is applied. Index lookup / page loader at L3 → **M5.60**.
 
 - [ ] **M5.18 — `POINT` and `ADDRE` writers, the two families Poland must generate (H11 G6)**
   - Status: open · Owner: — · Critical: yes
@@ -3321,6 +3322,18 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the level-3 parcel code in the record header (`w0`/`w1`) contradicts the box geometry, record both and stop.
   - Falsifier: the fixed generator still changes a directory whose box does not hold the extract.
   - Claims: C-6100–C-6109
+
+- [ ] **M5.60 — L3: the `LCTBL001` index lookup and page loader read a generated file**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: P3
+  - Depends: M5.17 (done)
+  - Goal: M5.17 ran only the record walk (`0x003f61bc`/`0x003f5d98`) on a generated `LCTBL001.DAT`; the B-tree lookup (location code → ordinal), the page-directory read and the zlib page load that hand the walk its record were not executed, so rule 13 "accepted" holds only for the record bytes.
+  - Precheck: `python3 tools/lctbl_build.py l3 archive/head256.img FILE` passes (record walk); `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x003fbed8` (search type 1 opener, M3.28) is `START`.
+  - Scope: EU2011 build A `Navi.exe`; candidates below the opener `0x003fbed8`/`0x004125a8` that read 0x1000-byte pages keyed by `u32 ordinal + BCD4` (signature from the writer's inverse, `lctbl_build.py`, not the format doc).
+  - Input: EXP-2026-11-20-M5.17-lctbl-builder (C-2410–C-2417), EXP-2026-11-19-M3.28-file-openers, `docs/format/rdstm.md` "File structure (M5.17)".
+  - Done when: an L3 run looks up a location code in a generated file (`lctbl_build.py synth`) and returns the record the model holds for that code, with a negative control (a code absent from the file is not found).
+  - Stop: if no reader of the index pages is found after the opener subtree and its indirect calls are enumerated, record the candidates and block.
+  - Claims: C-6140–C-6149
 
 ## M6 — L5 bench/car: hardware and safety
 
