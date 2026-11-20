@@ -50,7 +50,8 @@ scans for ``78 9c`` from 0 inflates the decoy).
 
 Exit codes: 0 the verdict matches ``--expect`` (or no ``--expect``), 1 it
 does not, 3 input missing, 4 BLOCKED.
-Method and results: docs/experiments/EXP-2026-11-20-M3.2-ind-handling-l3.md
+Method and results: docs/experiments/EXP-2026-11-20-M3.2-ind-handling-l3.md,
+docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md (batch)
 """
 
 from __future__ import annotations
@@ -567,10 +568,20 @@ def cmd_run(args) -> int:
     return 0 if args.expect in (None, res["verdict"]) else 1
 
 
+def agrees(firmware: str, python: str) -> bool:
+    """Same decision: both reject, or both deliver the file.
+
+    ``WRONG`` (the firmware returns success with other bytes) is a delivery,
+    so it never agrees with a Python ``REJECT``.
+    """
+    return (firmware == "REJECT") == (python == "REJECT") and firmware != "BLOCKED"
+
+
 def cmd_batch(args) -> int:
     card, mdir = Path(args.card), Path(args.mutants)
     rows, rc = [], 0
-    for ind in sorted(mdir.glob("*.ind")):
+    cases = [None] + sorted(mdir.glob("*.ind"))     # None = the factory .ind (positive control)
+    for ind in cases:
         res = run_case(args.image, card, args.name, ind, 0, None, 0)
         show(res)
         rows.append(res)
@@ -578,9 +589,10 @@ def cmd_batch(args) -> int:
             rc = 4
     print("\nvariant        firmware  python   agree")
     for r in rows:
-        agree = (r["verdict"] == "ACCEPT") == (r["python"] == "ACCEPT")
-        print(f"{Path(r['ind']).stem:<14} {r['verdict']:<9} {r['python']:<8} "
-              f"{'yes' if agree else 'NO'}  stage={r.get('stage', '-')}")
+        label = "factory" if r["ind"] == "factory" else Path(r["ind"]).stem
+        print(f"{label:<14} {r['verdict']:<9} {r['python']:<8} "
+              f"{'yes' if agrees(r['verdict'], r['python']) else 'NO'}  "
+              f"stage={r.get('stage', '-')} r0={r.get('r0')} first_diff={r.get('first_diff', '-')}")
     if args.json_out:
         Path(args.json_out).write_text(json.dumps(rows, indent=1, default=str))
     return rc
@@ -634,6 +646,10 @@ def selftest() -> int:
     check("thunk: pool slot named", find_thunks(0x1000, text + b"\0" * 8, {0x55D030: "strlen"}) == {"strlen": 0x1000})
     check("thunk: unknown slot ignored", find_thunks(0x1000, text + b"\0" * 8, {}) == {})
     check("signed()", signed(0xFFFFFFFF) == -1 and signed(5) == 5)
+    check("agree: both reject", agrees("REJECT", "REJECT"))
+    check("agree: wrong bytes never agree with a reject", not agrees("WRONG", "REJECT"))
+    check("agree: accept vs reject disagree", not agrees("ACCEPT", "REJECT"))
+    check("agree: blocked never agrees", not agrees("BLOCKED", "ACCEPT"))
     print("selftest:", "OK" if not fails else f"FAIL ({len(fails)})")
     return 0 if not fails else 1
 

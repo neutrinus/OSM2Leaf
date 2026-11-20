@@ -218,6 +218,17 @@ every joined record of the CZ (8,532) and DE (22,884) tables lands in its own
 country and next to its TMC positive neighbour (C-5370). The firmware reader of
 these blocks is not located yet (M4.49).
 
+**All 14 tables, both levels (M4.16b, C-5400–C-5403).** `python3
+tools/rdstm_place.py place-all LCTBL001.DAT RDSTM001.DAT MAPAL001` places
+110,788 of the 110,795 location-code-joined records of all 14 RDSTM tables
+(CZ, CH, IT, BE, FI, NL, DK, AT, GB, DE, ES, SE, FR, NO) on level-2 nodes, each
+in its table's country; set 0 (pair `t`, level 4) places 60,321 of the same
+records within 5 km of their level-2 nodes (median 0.02–0.03 km). The join key
+is the location code alone; the (negative, positive) agreement of C-5135 is a
+confirmation. Link-record roles: role 1 is the role-0 link list reversed in
+24,948 of 66,443 records carrying both (HYPOTHESIS: the two travel
+directions); roles 2/3 are UNKNOWN.
+
 ### Table dump
 
 `0x003a0034` prints the twelve fields in order; its format strings are at
