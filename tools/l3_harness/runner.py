@@ -803,11 +803,11 @@ def _validate_firmware_call_entry(entry, where: str) -> list[str]:
                     problems.append(f"{where}: verdict_map[{key}] must be ACCEPT or REJECT")
     # M9.55: point_walk_v1 reads its page through --cmp/--ind; the corpus-relative
     # path lets l3check --build-corpus name the same fixture the manifest hashed.
-    if program == "point_walk_v1" and isinstance(inputs, dict):
+    if program in ("point_walk_v1", "point_name_v1") and isinstance(inputs, dict):
         source = inputs.get("source")
         if not isinstance(source, str) or not source.strip():
             problems.append(
-                f"{where}: point_walk_v1 needs inputs.source (corpus-relative "
+                f"{where}: {program} needs inputs.source (corpus-relative "
                 ".cmp path of the POINT page)"
             )
         elif source.startswith("/") or ".." in source.split("/"):
@@ -1897,6 +1897,8 @@ def _run_firmware_call_target(target, args, base) -> dict:
         return _run_drstr_target(target, args, base)
     if program == "point_walk_v1":
         return _run_point_walk_target(target, args, base)
+    if program == "point_name_v1":
+        return _run_point_name_target(target, args, base)
     if program != "cmp_ind_chunk_v1":
         return dict(
             base, status="BLOCKED", exit=EXIT_BLOCKED,
@@ -2234,6 +2236,228 @@ def _run_point_walk_target(target, args, base) -> dict:
               "record offsets like mutate_refer_poi.parse_page; the walker "
               "proves the record framing, not the name/coordinate contents "
               "(C-4178)"),
+    )
+
+
+def _run_point_name_target(target, args, base) -> dict:
+    """Run the POINT name accessor from the target's build (M9.10).
+
+    ``point_name_accessor.py`` (M3.11c) builds the page context with the
+    firmware's own writer and calls the name/length accessors; this program
+    ports that run into the runner.  ACCEPT needs all of: the writer filled
+    both slots, every record's name + address equal the record's display
+    text, the two built-in negative controls return -1, and - when a name is
+    expected - the target's record returns exactly that name.
+
+    ``--mutate corrupt-len2`` is the control M9.10 asks for: record 0's
+    length byte is raised by 2 words.  The Python parser refuses such a page;
+    the result says what the firmware's accessor and walker do with it.
+    """
+
+    entry = target["entry"]
+    image_path = getattr(args, "image", None)
+    cmp_path = getattr(args, "cmp", None)
+    ind_path = getattr(args, "ind", None)
+    missing = [n for n, v in (("--image", image_path), ("--cmp", cmp_path),
+                              ("--ind", ind_path)) if not v]
+    if missing:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"point_name_v1 needs {', '.join(missing)}"])
+    for path in (image_path, cmp_path, ind_path):
+        if not Path(path).exists():
+            return dict(base, status="INVALID", exit=EXIT_INVALID,
+                        problems=[f"missing input: {path}"])
+    try:
+        import d53500_writer as dw
+        import mutate_refer_poi as mrp
+        import point_name_accessor as pna
+        import point_walk_l3 as pw
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"cannot import point_name_accessor: {exc}",
+                    accepted=None, l3_claim=False)
+    import zlib
+
+    build = target.get("build") or "eu2011"
+    cfg = pna.BUILDS.get(build)
+    if cfg is None:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"point_name_v1 has no accessor VAs for build {build!r}"])
+    text_entry = int(str(entry.get("va", "0")), 0)
+    if text_entry and text_entry != cfg["name"]:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"entry.va {text_entry:#010x} is not the {build} "
+                              "POINT name accessor in tools/point_name_accessor.py"])
+
+    inputs = entry.get("inputs") or {}
+    offset = getattr(args, "offset", None)
+    if offset is None:
+        offset = inputs.get("offset", 0x840BA0)
+    length = getattr(args, "length", None)
+    if length is None:
+        length = inputs.get("length", 42848)
+    offset = int(str(offset), 0)
+    length = int(str(length), 0)
+    index = int(inputs.get("record", 0))
+    mutate = getattr(args, "mutate", "none") or "none"
+    if mutate not in ("none", "corrupt-len2"):
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"point_name_v1 has no mutation {mutate!r}"])
+    want_name = getattr(args, "expect_name", None)
+
+    try:
+        _u, _c, _n, _cs, offsets = mrp.read_ind(Path(ind_path))
+        blob = mrp.decode(Path(cmp_path).read_bytes(), offsets)
+        end = offset + length if length else len(blob)
+        raw = zlib.decompressobj().decompress(blob[offset:end])
+        records = mrp.parse_page(raw)
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"cannot decode the POINT page: {exc}"])
+    if not 0 <= index < len(records):
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"inputs.record {index} is outside the page "
+                              f"({len(records)} records)"])
+
+    common = dict(
+        firmware={"build": build, "name": f"0x{cfg['name']:08x}",
+                  "length": f"0x{cfg['length']:08x}",
+                  "resolver": f"0x{cfg['resolver']:08x}"},
+        inputs={"image": str(image_path), "cmp": str(cmp_path),
+                "ind": str(ind_path), "page": f"0x{offset:x}",
+                "records": len(records), "record": index, "mutate": mutate},
+    )
+
+    def wrong_build(exc) -> dict:
+        verdict = f"FAIL (wrong build: {exc})"
+        return dict(base, **common, status="FAIL", exit=EXIT_MISMATCH,
+                    accepted=None, verdict=verdict, problems=[verdict],
+                    l3_claim=True,
+                    note="the image is not the target's build (M9.42); a "
+                         "verdict, not a crash")
+
+    try:
+        data = pw.load_image(str(image_path))
+    except SystemExit as exc:
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"cannot load {image_path}: {exc}",
+                    accepted=None, l3_claim=False)
+
+    if mutate == "corrupt-len2":
+        rec0 = records[0]
+        bad = bytearray(raw)
+        bad[rec0["offset"] + 1] = (rec0["len2"] + 2) & 0xFF
+        bad = bytes(bad)
+        try:
+            mrp.parse_page(bad)
+            python = {"verdict": "ACCEPT", "error": None}
+        except Exception as exc:  # noqa: BLE001
+            python = {"verdict": "REJECT", "error": str(exc)}
+        try:
+            got = pna.name_of_record0(data, build, blob, bad)
+            image = pw.load_image(str(image_path))
+            text_va, text = pw.navi_text(image, 0x200200)
+            tgt = pw.target(build)
+            values, fault = pw.guarded(
+                [lambda: pw.run_nth(text_va, text, pw.swap16(bad), 1, tgt, build)])
+        except (dw.Mismatch, SystemExit) as exc:
+            return wrong_build(exc)
+        if got.get("blocked"):
+            return dict(base, **common, status="BLOCKED", exit=EXIT_BLOCKED,
+                        reason=got["blocked"], accepted=None, l3_claim=False)
+        name = got.get("name")
+        factory_next = records[1]["offset"] if len(records) > 1 else None
+        walked = None if fault is not None else values[0]
+        firmware_rejects = bool(got.get("fault")) or name is None
+        observed = "REJECT" if firmware_rejects else "ACCEPT"
+        expected = getattr(args, "expect", None) or (
+            (inputs.get("controls") or {}).get("corrupt-len2") or "ACCEPT")
+        ok = observed == expected
+        return dict(
+            base, **common,
+            status="PASS" if ok else "MISMATCH",
+            exit=EXIT_OK if ok else EXIT_MISMATCH,
+            accepted=observed == "ACCEPT",
+            verdict=observed,
+            expected_verdict=expected,
+            name=None if name is None else name.rstrip(b"\x00").decode("latin-1"),
+            control={
+                "mutation": f"record 0 len2 {rec0['len2']} -> {(rec0['len2'] + 2) & 0xFF}",
+                "python": python,
+                "firmware_name": None if name is None
+                else name.rstrip(b"\x00").decode("latin-1"),
+                "firmware_walker_record1": None if walked is None else f"0x{walked:x}",
+                "factory_record1": None if factory_next is None else f"0x{factory_next:x}",
+                "walker_follows_len2": walked is not None and walked != factory_next,
+            },
+            agrees_with_python=observed == python["verdict"],
+            stub_log=[{"stub": "OSMDLL!taskIdSelf", "args": [], "ret": "1",
+                       "calls": got.get("stub_calls", 0)}],
+            problems=[] if ok else [f"control verdict {observed}, expected {expected}"],
+            l3_claim=True,
+            note=("corrupt-len2 control: the name accessor places the name "
+                  "through the record header, not len2, and neither it nor "
+                  "the walker checks the ff ff terminator the Python parser "
+                  "requires"),
+        )
+
+    try:
+        res = pna.decode_page(data, build, blob, raw)
+    except (dw.Mismatch, SystemExit) as exc:
+        return wrong_build(exc)
+    if res.get("blocked"):
+        return dict(base, **common, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=res["blocked"], accepted=None, l3_claim=False)
+
+    row = res["rows"][index]
+    name = row.get("name")
+    text = None if name is None else name.rstrip(b"\x00").decode("latin-1")
+    addr = row.get("addr")
+    problems: list[str] = []
+    if not res["slots_ok"]:
+        problems.append("the populate writer did not fill slot +0x1c/+0x20")
+    bad_rows = len(res["rows"]) - res["verdicts"].get("ok", 0)
+    if bad_rows:
+        problems.append(f"{bad_rows} of {len(res['rows'])} records: name + "
+                        f"address != display text ({res['verdicts']})")
+    if not res["negative"]["ok"]:
+        problems.append("a negative control returned a pointer")
+    if want_name is not None and text != want_name:
+        problems.append(f"record {index} name {text!r}, expected {want_name!r}")
+    expected = getattr(args, "expect", None) or target["expect"]["verdict"]
+    observed = "ACCEPT" if not problems else "REJECT"
+    ok = observed == expected
+
+    def ptr(value):
+        return None if value is None else f"0x{value:08x}"
+
+    return dict(
+        base, **common,
+        status="PASS" if ok else "MISMATCH",
+        exit=EXIT_OK if ok else EXIT_MISMATCH,
+        accepted=observed == "ACCEPT",
+        verdict=observed,
+        expected_verdict=expected,
+        name=text,
+        expected_name=want_name,
+        name_offset=None if "rel" not in row else f"0x{row['offset'] + row['rel']:x}",
+        name_words=row.get("len"),
+        address=None if addr is None else addr.rstrip(b"\x00").decode("latin-1"),
+        record_checks={"ok": res["verdicts"].get("ok", 0), "of": len(res["rows"]),
+                       "verdicts": res["verdicts"]},
+        dictionary={"offset": f"0x{res['dictionary'][0][0]:x}",
+                    "fields": res["dictionary"][0][2]},
+        slots=[ptr(v) for v in res["slots"]],
+        stub_log=[{"stub": "OSMDLL!taskIdSelf", "args": [], "ret": "1",
+                   "calls": res["stub_calls"]}],
+        negative={"no_dictionary": ptr(res["negative"]["no_dictionary"]),
+                  "db_not_in_table": ptr(res["negative"]["db_not_in_table"])},
+        problems=[] if ok else problems,
+        l3_claim=True,
+        note=(f"POINT name accessor {cfg['name']:#010x} ({build}) with the "
+              "page context built by the firmware's own populate writer "
+              "(M3.11c/M3.22); the page is fed decoded and swapped to native "
+              "u16 (M3.11b: the firmware's own swap is swap16)"),
     )
 
 
@@ -2661,7 +2885,33 @@ def _emit_target(payload: dict, as_json: bool) -> None:
         return
     expected = payload.get("expected_verdict") or payload["expect"]["verdict"]
     print(f"verdict  {payload['verdict']} (expected {expected})")
-    if payload.get("records"):
+    if "record_checks" in payload or payload.get("control"):
+        fw = payload.get("firmware") or {}
+        inp = payload.get("inputs") or {}
+        print(f"accessor name={fw.get('name')} length={fw.get('length')} "
+              f"build={fw.get('build')}")
+        print(f"inputs   cmp={inp.get('cmp')} ind={inp.get('ind')} "
+              f"page={inp.get('page')} mutate={inp.get('mutate')}")
+        print(f"name     record {inp.get('record')}: {payload.get('name')!r}"
+              + (f" (expected {payload['expected_name']!r})"
+                 if payload.get("expected_name") is not None else ""))
+        if "record_checks" in payload:
+            rc = payload["record_checks"]
+            print(f"address  {payload.get('address')!r}; name at page "
+                  f"{payload.get('name_offset')}, {payload.get('name_words')} words")
+            print(f"records  {rc['ok']}/{rc['of']} name + address == display text")
+            neg = payload.get("negative") or {}
+            print(f"negative no dictionary -> {neg.get('no_dictionary')}; "
+                  f"db not in table -> {neg.get('db_not_in_table')}")
+        ctl = payload.get("control")
+        if ctl:
+            print(f"control  {ctl['mutation']}")
+            print(f"  python   {ctl['python']['verdict']}: {ctl['python']['error']}")
+            print(f"  firmware name {ctl['firmware_name']!r}; walker record 1 at "
+                  f"{ctl['firmware_walker_record1']} (factory {ctl['factory_record1']})")
+        for call in payload.get("stub_log", []):
+            print(f"stub     {call['stub']}() -> {call['ret']} x {call['calls']}")
+    elif payload.get("records"):
         fw = payload.get("firmware") or {}
         print(f"walker   nth={fw.get('nth')} build={fw.get('build')} "
               f"records={len(payload['records'])}")
@@ -3471,8 +3721,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument(
         "--mutate",
         default="none",
-        choices=("none", "swap-4-8", "corrupt-ind"),
-        help="firmware_call: control mutation (M9.11b; default none)",
+        choices=("none", "swap-4-8", "corrupt-ind", "corrupt-len2"),
+        help="firmware_call: control mutation (M9.11b; corrupt-len2 is "
+             "point_name_v1's record-0 length-byte control, M9.10; default none)",
     )
     run_cmd.add_argument(
         "--offset",
@@ -3500,6 +3751,12 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("ACCEPT", "REJECT"),
         help="mapcode_compare_v1, drstr_parser_v1: expected verdict for this input "
              "(default: the target's expect.verdict)",
+    )
+    run_cmd.add_argument(
+        "--expect-name",
+        help="point_name_v1: the name the accessor must return for the "
+             "target's record (Latin-1; default: none, or inputs.corpus_name "
+             "in a corpus-only run)",
     )
     run_cmd.add_argument(
         "--max-insns",
@@ -4113,6 +4370,101 @@ def test_firmware_call_build_routing(tmp):
     res = _run_firmware_call_target(t, args, {"target": t["name"]})
     assert res["status"] == "INVALID", res
     assert "us2011 chunk engine" in " | ".join(res.get("problems", [])), res
+
+@check("point_name_v1: poi_record_decode is registered; missing inputs and a wrong entry.va are INVALID (M9.10)")
+def test_point_name_registration(tmp):
+    import types
+    import point_name_accessor as pna
+
+    by_name, _doc = load_targets()
+    t = by_name["poi_record_decode"]
+    entry = t["entry"]
+    assert entry["kind"] == "firmware_call" and entry["program"] == "point_name_v1", entry
+    assert int(entry["va"], 16) == pna.BUILDS[t["build"]]["name"], entry
+    args = types.SimpleNamespace(image=None, cmp=None, ind=None, mutate="none",
+                                 offset=None, length=None, expect=None, expect_name=None)
+    res = _run_firmware_call_target(t, args, {"target": t["name"]})
+    assert res["status"] == "INVALID" and "--image" in res["problems"][0], res
+    paths = {}
+    for key in ("image", "cmp", "ind"):
+        paths[key] = Path(tmp) / ("x." + key)
+        paths[key].write_bytes(b"\0" * 16)
+    bad = json.loads(json.dumps(t))
+    bad["entry"]["va"] = "0x003f632c"          # the EU accessor under build us2011
+    args = types.SimpleNamespace(image=str(paths["image"]), cmp=str(paths["cmp"]),
+                                 ind=str(paths["ind"]), mutate="none", offset=None,
+                                 length=None, expect=None, expect_name=None)
+    res = _run_firmware_call_target(bad, args, {"target": t["name"]})
+    assert res["status"] == "INVALID", res
+    assert "POINT name accessor" in " | ".join(res.get("problems", [])), res
+
+
+def _us_head():
+    for candidate in (HERE.parent.parent / "archive" / "us256.img",
+                      Path("archive/us256.img")):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+@check("point_name_v1: the US accessor returns the synthetic page's names; controls fail (M9.10, needs the US head)")
+def test_point_name_synthetic(tmp):
+    import types
+    from l3_harness import corpus as corpus_mod
+    import mutate_refer_poi as mrp
+    import point_name_accessor as pna
+
+    head = _us_head()
+    if head is None:
+        SELFTEST_SKIPS.append("point_name_v1: archive/us256.img not present; "
+                              "the accessor was not run")
+        return
+    by_name, _doc = load_targets()
+    t = by_name["poi_record_decode"]
+
+    def pair(name: str, blob: bytes):
+        cmp_bytes, ind_bytes = corpus_mod._cmp_pair(blob)
+        c = Path(tmp) / (name + ".cmp")
+        i = Path(tmp) / (name + ".ind")
+        c.write_bytes(cmp_bytes)
+        i.write_bytes(ind_bytes)
+        return str(c), str(i)
+
+    def run(cmp_path, ind_path, image=head, **kw):
+        ns = dict(image=str(image), cmp=cmp_path, ind=ind_path, mutate="none",
+                  offset=None, length=None, expect=None, expect_name=None)
+        ns.update(kw)
+        return _run_firmware_call_target(t, types.SimpleNamespace(**ns),
+                                         {"target": t["name"]})
+
+    good = pair("good", corpus_mod.point_name_dat())
+    want = corpus_mod.POINT_NAME_RECORDS[0][1].decode("ascii")
+    res = run(*good, expect_name=want)
+    assert res["status"] == "PASS" and res["verdict"] == "ACCEPT", res
+    assert res["name"] == want and res["l3_claim"] is True, res
+    assert res["record_checks"]["ok"] == res["record_checks"]["of"] == 3, res
+    assert res["stub_log"][0]["stub"] == "OSMDLL!taskIdSelf" and res["stub_log"][0]["calls"] > 0, res
+    # negative: another expected name
+    res = run(*good, expect_name="HANA HEALTH CENTER")
+    assert res["status"] == "MISMATCH" and res["verdict"] == "REJECT", res
+    # negative: a 7-field dictionary shifts every field; the firmware's name is not the name
+    blob = bytearray(corpus_mod.point_name_dat())
+    seven = pna._synthetic_dictionary(7)
+    nine = pna._synthetic_dictionary(mrp.POINT_FIELDS)
+    o = corpus_mod.POINT_DICT_OFFSET
+    blob[o:o + len(nine)] = bytes(len(nine))
+    blob[o:o + len(seven)] = seven
+    res = run(*pair("seven", bytes(blob)))
+    assert res["status"] == "MISMATCH" and res["verdict"] == "REJECT", res
+    assert res["name"] != want, res
+    # control: record 0's len2 raised; python refuses, the firmware returns the name
+    res = run(*good, mutate="corrupt-len2")
+    assert res["status"] == "PASS" and res["verdict"] == "ACCEPT", res
+    assert res["control"]["python"]["verdict"] == "REJECT", res
+    assert res["control"]["firmware_name"] == want, res
+    assert res["control"]["walker_follows_len2"] is True, res
+    assert res["agrees_with_python"] is False, res
+
 
 # --------------------------------------------------------------------------
 # M9.35: sec1 load model (zero BSS, bound IAT, INIT guard)

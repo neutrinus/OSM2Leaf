@@ -453,6 +453,7 @@
   "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
   "docs/experiments/EXP-2026-11-20-M8.C10-sd-host.md",
   "docs/experiments/EXP-2026-11-20-M8.E2-registry-loaded.md",
+  "docs/experiments/EXP-2026-11-20-M9.10-us-poi-name-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
@@ -473,7 +474,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 466,
+  "files": 467,
   "citations": 1305,
   "unique_va": 309,
   "start": 1144,
@@ -487,7 +488,7 @@
  "rows": [
   {
    "file": "TODO.md",
-   "line": 1791,
+   "line": 1804,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -496,7 +497,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1791,
+   "line": 1804,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -505,7 +506,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1791,
+   "line": 1804,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -514,7 +515,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1791,
+   "line": 1804,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -523,7 +524,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1794,
+   "line": 1807,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -532,7 +533,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1794,
+   "line": 1807,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -541,7 +542,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1795,
+   "line": 1808,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -550,7 +551,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1816,
+   "line": 1829,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -560,7 +561,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1826,
+   "line": 1839,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -569,7 +570,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1897,
+   "line": 1910,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -578,7 +579,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1897,
+   "line": 1910,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -587,7 +588,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1930,
+   "line": 1943,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -596,7 +597,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1931,
+   "line": 1944,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -605,7 +606,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1953,
+   "line": 1966,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -614,7 +615,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2230,
+   "line": 2243,
    "va": "0x003f5624",
    "kind": "fn",
    "class": "START",
@@ -623,7 +624,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2231,
+   "line": 2244,
    "va": "0x003ad680",
    "kind": "fn",
    "class": "START",
@@ -632,7 +633,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2231,
+   "line": 2244,
    "va": "0x003ad9a4",
    "kind": "fn",
    "class": "START",
@@ -641,7 +642,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2231,
+   "line": 2244,
    "va": "0x003b9d38",
    "kind": "fn",
    "class": "START",
@@ -650,7 +651,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2231,
+   "line": 2244,
    "va": "0x003bacc4",
    "kind": "fn",
    "class": "START",
@@ -659,7 +660,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2232,
+   "line": 2245,
    "va": "0x003ad440",
    "kind": "fn",
    "class": "START",
@@ -668,7 +669,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2418,
+   "line": 2431,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -677,7 +678,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2418,
+   "line": 2431,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -686,7 +687,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4193,
+   "line": 4206,
    "va": "0x039bcedc",
    "kind": "fn",
    "class": "GAP",

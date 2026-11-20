@@ -862,6 +862,8 @@ python3 tools/l3_harness/runner.py check --manifest corpus.json
 python3 tools/l3_harness/runner.py targets
 python3 tools/l3_harness/runner.py run probe-zlib-cmf --input FILE --json
 python3 tools/l3_harness/runner.py run NAME --rommap map.json --image FW.img --json
+# the US firmware's POI name accessor on a POINT pair (M9.10); --mutate corrupt-len2 is the len2 control
+python3 tools/l3_harness/runner.py run poi_record_decode --image archive/us256.img --cmp POINT010.DAT.cmp --ind POINT010.DAT.ind --expect-name "HANA HEALTH CENTER"
 python3 tools/l3_harness/runner.py run NAME --rommap map.json --image FW.img   --input-root DIR --json   # M9.28: entry.input_region file source
 ```
 

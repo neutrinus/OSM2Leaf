@@ -215,6 +215,44 @@ def point_walk_dat() -> bytes:
     return bytes(blob)
 
 
+#: Logical ``.DAT`` offset of the synthetic field dictionary (M9.10).
+POINT_DICT_OFFSET = 0x1000
+#: ``(tag, name, address)`` of the synthetic name-page records; names and
+#: addresses are whole words.  Record 0's name is what the corpus-only
+#: ``poi_record_decode`` row expects (``targets.json`` ``inputs.corpus_name``).
+POINT_NAME_RECORDS = (
+    (0x60, b"OSM2LEAF TEST POI1", b"1@RYNEK\x00"),
+    (0x68, b"KROTOSZYN RATUSZ" , b""),
+    (0x60, b"SYNTHETIC POI 3\x00", b"22@ZDUNOWSKA"),
+)
+
+
+def point_name_page() -> bytes:
+    """A POINT name page whose records have the real field layout (C-5115)."""
+    import mutate_refer_poi as mrp
+
+    return b"".join(mrp._synth_record(tag, name, addr)
+                    for tag, name, addr in POINT_NAME_RECORDS)
+
+
+def point_name_dat() -> bytes:
+    """A ``.DAT`` blob with a 9-field dictionary block and the name page.
+
+    The dictionary is the block the firmware's accessor reads the field
+    count from (``point_name_accessor.find_dictionary``); 9 fields is the
+    POINT dictionary of both 2011 cards (C-5114).
+    """
+    import mutate_refer_poi as mrp
+    import point_name_accessor as pna
+
+    page = zlib.compress(point_name_page(), 6)
+    blob = bytearray(POINT_PAGE_OFFSET)
+    dictionary = pna._synthetic_dictionary(mrp.POINT_FIELDS)
+    blob[POINT_DICT_OFFSET:POINT_DICT_OFFSET + len(dictionary)] = dictionary
+    blob[POINT_PAGE_OFFSET:POINT_PAGE_OFFSET + len(page)] = page
+    return bytes(blob)
+
+
 def tile_payload(vertices) -> bytes:
     out = bytearray(struct.pack(">H", len(vertices)))
     for x, y in vertices:
@@ -691,12 +729,36 @@ def verdict_point_walk(root: Path, relative: str) -> str:
     return "ACCEPT"
 
 
+def verdict_point_name(root: Path, relative: str) -> str:
+    """ACCEPT iff the page parses, the dictionary is unique and every record's
+    field 5 (``mutate_refer_poi.name_field``) is printable text."""
+    import mutate_refer_poi as mrp
+    import point_name_accessor as pna
+
+    try:
+        _usize, _csize, _count, _chunk, offsets = mrp.read_ind(
+            (root / relative).with_suffix(".ind"))
+        dat = mrp.decode((root / relative).read_bytes(), offsets)
+        raw = zlib.decompressobj().decompress(dat[POINT_PAGE_OFFSET:])
+        records = mrp.parse_page(raw)
+        if len(pna.find_dictionary(dat)) != 1:
+            return "REJECT"
+        for rec in records:
+            start, words, _layout = mrp.name_field(rec["bytes"])
+            if not pna.printable(rec["bytes"][start:start + 2 * words]):
+                return "REJECT"
+    except (OSError, zlib.error, ValueError):
+        return "REJECT"
+    return "ACCEPT"
+
+
 VERDICT_FUNCTIONS = {
     "cmp_ind": verdict_cmp_ind,
     "drstr": verdict_drstr,
     "tile": verdict_tile,
     "hdd_info": verdict_hdd_info,
     "point_walk": verdict_point_walk,
+    "point_name": verdict_point_name,
 }
 
 
@@ -836,6 +898,17 @@ def build_corpus(root) -> dict:
     notes[("point_walk_factory", path)] = (
         "synthetic POINT name page at 0x%x (zlib inside the .DAT): 4 "
         "0x60/0x68 records then 00 00" % POINT_PAGE_OFFSET
+    )
+
+    # ---- POINT name field (M9.10) ------------------------------------
+    pn_cmp, pn_ind = _cmp_pair(point_name_dat())
+    path = _write_cmp_pair(root, "point", "POINTNAME.DAT", pn_cmp, pn_ind)
+    specs.append(("point_name_synthetic", "point_name", path, None))
+    notes[("point_name_synthetic", path)] = (
+        "synthetic POINT name page at 0x%x with the real field layout and a "
+        "9-field dictionary block at 0x%x; record 0 is named %s"
+        % (POINT_PAGE_OFFSET, POINT_DICT_OFFSET,
+           POINT_NAME_RECORDS[0][1].decode("ascii"))
     )
 
     # ---- DRSTR family ------------------------------------------------
@@ -1219,6 +1292,33 @@ def test_build_point_walk(tmp):
     assert verdict_point_walk(root, path) == "ACCEPT"
 
 
+@check("build: the POINT name fixture has the field layout and one dictionary (M9.10)")
+def test_build_point_name(tmp):
+    import mutate_refer_poi as mrp
+    import point_name_accessor as pna
+
+    page = point_name_page()
+    recs = mrp.parse_page(page)
+    assert len(recs) == len(POINT_NAME_RECORDS), recs
+    for rec, (_tag, name, _addr) in zip(recs, POINT_NAME_RECORDS):
+        start, words, _layout = mrp.name_field(rec["bytes"])
+        assert rec["bytes"][start:start + 2 * words] == name, rec
+    dat = point_name_dat()
+    hits = pna.find_dictionary(dat)
+    assert [(c, n) for c, _d, n in hits] == [(POINT_DICT_OFFSET, mrp.POINT_FIELDS)], hits
+    root, report = _build(tmp)
+    path = "point/POINTNAME.DAT.cmp"
+    entry = next(e for e in report["document"]["corpus"]
+                 if e["reader"] == "point_name" and e["path"] == path)
+    assert entry["expected"] == "ACCEPT", entry
+    assert verdict_point_name(root, path) == "ACCEPT"
+    # negative: without the dictionary block the python verdict is REJECT
+    _u, _c, _n, _cs, offsets = mrp.read_ind(root / "point" / "POINTNAME.DAT.ind")
+    blob = bytearray(mrp.decode((root / path).read_bytes(), offsets))
+    blob[POINT_DICT_OFFSET:POINT_DICT_OFFSET + 2] = b"\x00\x00"
+    assert pna.find_dictionary(bytes(blob)) == []
+
+
 def first_pair(root: Path) -> tuple[bytes, bytes]:
     base = root / "cmp" / "factory"
     return (
@@ -1253,7 +1353,8 @@ def test_verdicts(tmp):
         assert allowed[reader] <= verdicts, (
             f"{reader} covered {verdicts}, cases allow {allowed[reader]}"
         )
-    assert set(seen) == {"cmp_ind", "drstr", "tile", "hdd_info", "point_walk"}, sorted(seen)
+    assert set(seen) == {"cmp_ind", "drstr", "tile", "hdd_info", "point_walk",
+                         "point_name"}, sorted(seen)
 
 
 @check("readers: hdd_info discriminates line 1 and line 4")
