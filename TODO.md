@@ -2076,13 +2076,15 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-5260–C-5265 (C-5266–C-5269 handed to M9.54)
 
 - [ ] **M3.29 — Split the shared REFER candidate list per family at run time, and measure M3.23's recall**
-  - Status: in progress · Owner: task/m3.29-refer-family-split · Critical: no
+  - Status: blocked · Owner: task/m3.29-refer-family-split · Critical: no
   - Depends: M3.23 (done), M9.38 (read watch), M3.28 (`vcard_l3.py trace`)
   - Goal: M3.23 found that `ADDRE`, `INTER`/`FRWAY`, `ZCODE` and `COORD` go through one opener `0x003fbed8` whose family is ctx +124 at run time, so a static graph gives one shared candidate list (C-3546), and its ranking misses small walkers (C-3545). A run per family with the read watch turns the shared list into per-family readers.
   - Scope: for ctx +124 = 2, 3, 4, 11 (and 1 for `POINT`) run one caller of `0x003fbed8` on the card with M9.38's read watch over the page buffer; record the functions that load record bytes per family; compare them with M3.23's QC list and the POINT/ICODE lists (recall = confirmed readers in the top 10 / confirmed readers).
   - Input: `docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md`, `tools/callgraph.py rank`, `tools/vcard_l3.py trace`, C-4666, C-3607.
   - Done when: each of `ADDRE`, `INTER`, `FRWAY`, `ZCODE` has a list of functions that read its record bytes (or a recorded reason none was read), and the EXP gives the recall of M3.23's ranking per family.
   - Stop: if no family other than `POINT`/`LCTBL` reads its file in the run (message wait as in C-3259), record the message and stop.
+  - Unblock: **M9.52** (answer message `0x1507` to finish the mount) → **M9.53** (deliver a map request); once the mount reaches state 3 the record request `0x14b5` (`0x004066ac` → … → `0x0040a474`) issues the per-family reads, and `python3 tools/m3_29_family_readers.py run` with that request gives the `ADDRE`/`INTER`/`FRWAY`/`ZCODE` reader lists. `COORD001` stays on M3.14 (no ctx +124 value, no opener — C-5624).
+  - Result: EXP-2026-11-20-M3.29-refer-family-split (blocked; Stop rule met). A boot reads `POINT001`/`ICODE001`/`ICADM001` only and ends `both tasks idle` with `0x1507` undelivered; `ADDRE`/`FRWAY`/`INTER`/`ZCODE`/`COORD` get a recorded reason (C-5620). Nine confirmed readers (`0x3eff20`, `0x3f0400`, `0x3f07f8`, `0x3f0c7c`, `0x3f17a4`, `0x3f1bb0`, `0x3f255c`, `0x3f2bc4`, `0x40a8d0`) grouped by read tag (C-5621); opener `0x003fee70` names all five families but queues no read (C-5623). M3.23 top-ten recall `2/9`; `0x003eff20` is the 11th `ICODE` candidate on the committed tree, not the 8th (C-5625, C-5626). `tools/m3_29_family_readers.py`, selftest 5/5.
   - Claims: C-5620–C-5629
 
 - [ ] **M3.30 — Drive the REFER *search* path (not the mount path) with search type 11/12 and watch the `ZCODE` parser; probe whether anything reads `COORD001`**
