@@ -216,7 +216,7 @@
     "kind": "blocked",
     "program": null,
     "va": null,
-    "reason": "entry VA sub_00419350 (Navi.exe 0x00419350, M3.10) lies in the executable, uncompressed sec0, but its coredll imports and buffer global sit in compressed sec1 (0x0055d000): the first read, 0x0055d8fc, is UNMAPPED (EXP-2026-11-08-M9.14-reopen); unblock: M1.2f, then M9.24"
+    "reason": "not callable from runner.py: the parser (EU2011 fn 0x00419350 via 0x00419684; US2011 0x004410b4 via 0x004413e8) runs inside the map-file layer's mount, with the firmware's own arguments and file reads. The target runs as tools/vcard_l3.py boot IMG --card-image CARD [--build us2011] [--replace DRSTR001.DAT=FILE | --truncate DRSTR001.DAT@N | --flip DRSTR001.DAT@OFF:XOR]; verdicts in EXP-2026-11-20-M9.14-drstr-parser-l3 (factory EU/US ACCEPT, rebuilt ACCEPT, truncated and bad listing offset REJECT)"
    },
    "stubs": [
     "CreateFileW",

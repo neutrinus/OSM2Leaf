@@ -45,6 +45,7 @@ import json
 import struct
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -910,6 +911,120 @@ EU2011 = {
     "mmain_buf": 0x00E23CC0,       # 0x1000 bytes of MMAIN001.DAT
     "reply_msg": 0x04A0,           # message id of a read completion
 }
+
+# The same layer in the US2011 build A (`archive/us256.img`, SHA-256 70d945d8…).
+# Functions: `fn_match.py match` (12 UNIQUE pairs; `read` is a 12-byte stub
+# that fn_match calls AMBIGUOUS and is taken as the pdata START at the same
+# distance as its EU neighbours, with the same words). Data addresses: the
+# literal-pool value at the same load index of the matched function
+# (`vcard_l3.py port EU_HEAD US_HEAD` re-derives and checks every one, M9.14);
+# `mount` is `state + 4` as in EU2011 (no pool of these functions loads it).
+US2011 = {
+    "build": "us2011",
+    "head_sha256": "70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da",
+    "volume_root_w": 0x10000 + 0x46634,
+    "init": 0x0043F688,
+    "event": 0x0044199C,
+    "read": 0x00440180,
+    "resolve": 0x00433458,
+    "read_clients": {0x00431CA0: "range clamp", 0x0041F5E8: "read request",
+                     0x0041FCE4: "read wrapper A", 0x0041FD3C: "read wrapper B"},
+    "cancel": 0x0044018C,
+    "logger": 0x00443950,
+    "state": 0x00A10EA8,
+    "mount": 0x00A10EAC,
+    "ndirs": 0x00A10E9C,
+    "dirs": 0x00D53020,
+    "mmain_buf": 0x00D518C0,
+    "reply_msg": 0x04A0,
+}
+BUILDS = {"eu2011": EU2011, "us2011": US2011}
+
+#: Functions that only ``port`` uses: they load data addresses the layer
+#: dict names (EU2011 -> US2011, fn_match UNIQUE).
+PORT_EXTRA = {0x00419350: 0x004410B4,   # DRSTR parser
+              0x00419684: 0x004413E8,   # its caller (volume table build)
+              0x0041A438: 0x0044219C}   # mmain_reader
+PORT_DATA = ("volume_root_w", "state", "ndirs", "dirs", "mmain_buf")
+
+
+def port_pairs(a: dict, b: dict) -> list[tuple[int, int]]:
+    """EU -> US function pairs implied by two build dicts (+ PORT_EXTRA)."""
+    pairs = []
+    for key in ("init", "event", "read", "resolve", "cancel", "logger"):
+        pairs.append((a[key], b[key]))
+    pairs += list(zip(a["read_clients"], b["read_clients"]))
+    pairs += sorted(PORT_EXTRA.items())
+    return pairs
+
+
+def pool_values(u16, va: int, length: int) -> list[int]:
+    """Values of the PC-relative loads of the function at *va*, in order."""
+    from fn_match import _pool_loads
+    words = [u16(va + 2 * i) for i in range(length // 2)]
+    out = []
+    for _i, lit, size, _dest in _pool_loads(words, va):
+        lo = u16(lit)
+        out.append(lo if size == 2 else lo | (u16(lit + 2) << 16))
+    return out
+
+
+def port_data(pairs, eu_u16, us_u16, lengths, wanted: dict) -> dict:
+    """For every EU data value in *wanted* (value -> name), the US values found
+    at the same pool-load index of the paired function; ``{name: {us: n}}``."""
+    found: dict = {}
+    for eva, uva in pairs:
+        ea = pool_values(eu_u16, eva, lengths[eva])
+        ub = pool_values(us_u16, uva, lengths[eva])
+        if len(ea) != len(ub):
+            continue
+        for x, y in zip(ea, ub):
+            if x in wanted:
+                found.setdefault(wanted[x], {}).setdefault(y, 0)
+                found[wanted[x]][y] += 1
+    return found
+
+
+def cmd_port(args) -> int:
+    import sh4dis
+    from fn_match import parse_pdata, locate
+    import nk_decomp
+    heads = {}
+    for name, path in (("eu", args.image), ("us", args.other)):
+        data = nk_decomp.load_image(path)
+        heads[name] = (sh4dis.load_segments(path, IMAGE_A, "Navi.exe")[0],
+                       parse_pdata(nk_decomp.section_init(data, "Navi.exe", 2)))
+    (me, pe), (mu, pu) = heads["eu"], heads["us"]
+    pairs = port_pairs(EU2011, US2011)
+    lengths, bad = {}, 0
+    for eva, uva in pairs:
+        ke, re_ = locate(pe, eva)
+        ku, ru = locate(pu, uva)
+        same = 0
+        if ke == "START":
+            lengths[eva] = re_[2]
+            same = sum(me.u16(eva + i) == mu.u16(uva + i) for i in range(0, re_[2], 2))
+        ok = ke == ku == "START" and re_[2] == ru[2]
+        bad += not ok
+        print("fn 0x%08x -> 0x%08x  EU %s US %s  len %s/%s  same halfwords %d  %s" % (
+            eva, uva, ke, ku, hex(re_[2]) if re_ else "-", hex(ru[2]) if ru else "-",
+            same, "ok" if ok else "MISMATCH"))
+    wanted = {EU2011[k]: k for k in PORT_DATA}
+    found = port_data([p for p in pairs if p[0] in lengths], me.u16, mu.u16, lengths, wanted)
+    for key in PORT_DATA:
+        hits = found.get(key, {})
+        ok = list(hits) == [US2011[key]]
+        bad += not ok
+        print("%-14s EU 0x%08x -> US %s (dict 0x%08x) %s" % (
+            key, EU2011[key], ", ".join("0x%08x x%d" % kv for kv in hits.items()) or "none",
+            US2011[key], "ok" if ok else "MISMATCH"))
+    ok = US2011["mount"] - US2011["state"] == EU2011["mount"] - EU2011["state"]
+    bad += not ok
+    print("mount          state + %d in both builds %s" % (EU2011["mount"] - EU2011["state"], "ok" if ok else "MISMATCH"))
+    print("port: %s" % ("OK" if not bad else "%d MISMATCH" % bad))
+    return 0 if not bad else 1
+
+
 STATUS_TEXT = {-10: "request queue full", -11: "request refused (bad range or arguments)",
                -12: "card not mounted", 0x1FF: "no completion: the open failed and the request was re-queued"}
 REPLY_TASK = 0x77            # our "client task" id; any non-zero value
@@ -1148,10 +1263,17 @@ def make_card(root: str | None, image: str | None, mods: dict | None = None, sou
     return Card(source, overlay=overlay)
 
 
-def boot_report(image: str, card: Card, trace: bool = False) -> tuple[dict, "Session | None"]:
-    out = {"build": EU2011["build"]}
+def boot_report(image: str, card: Card, trace: bool = False,
+                build: dict | None = None) -> tuple[dict, "Session | None"]:
+    build = build or EU2011
+    out = {"build": build["build"]}
+    digest = hashlib.sha256(Path(image).read_bytes()).hexdigest()
+    if digest != build["head_sha256"]:
+        out.update(verdict="BLOCKED", blocked="image SHA-256 %s… is not the %s head (%s…); pass --build"
+                   % (digest[:8], build["build"], build["head_sha256"][:8]))
+        return out, None
     try:
-        s = Session(image, card, trace)
+        s = Session(image, card, trace, build)
     except Blocked as exc:
         out.update(verdict="BLOCKED", blocked=str(exc))
         return out, None
@@ -1172,7 +1294,7 @@ def boot_report(image: str, card: Card, trace: bool = False) -> tuple[dict, "Ses
     out["fwlog"] = [(("%#010x" % e["caller"]), e["level"], e["func"], e["line"]) for e in s.fwlog]
     out["recog_sts"] = [o["args"][1] for o in s.m.objects if o["kind"] == "OBJ_DriveInfo_writeRecogSts"]
     out["timers"] = len([x for x in s.m.messages if x["kind"] == "timer"])
-    out["mmain_sha256"] = hashlib.sha256(bytes(s.m.eng.read_mem(EU2011["mmain_buf"], 0x1000))).hexdigest()
+    out["mmain_sha256"] = hashlib.sha256(bytes(s.m.eng.read_mem(build["mmain_buf"], 0x1000))).hexdigest()
     out["prints"] = [p.strip() for p in s.m.prints[-8:]]
     return out, s
 
@@ -1197,7 +1319,7 @@ def show_boot(out: dict, label: str = "") -> None:
 
 def cmd_boot(args) -> int:
     card = make_card(args.card_root, args.card_image, parse_mods(args))
-    out, s = boot_report(args.image, card, args.trace_imports)
+    out, s = boot_report(args.image, card, args.trace_imports, build=BUILDS[args.build])
     show_boot(out)
     if args.tree and s is not None and out["verdict"] == "ACCEPT":
         for d in s.tree():
@@ -1208,8 +1330,8 @@ def cmd_boot(args) -> int:
 
 
 def cmd_compare(args) -> int:
-    a, _ = boot_report(args.image, make_card(args.card_root, args.card_image))
-    b, _ = boot_report(args.image, make_card(args.other_root, args.other_image, parse_mods(args)))
+    a, _ = boot_report(args.image, make_card(args.card_root, args.card_image), build=BUILDS[args.build])
+    b, _ = boot_report(args.image, make_card(args.other_root, args.other_image, parse_mods(args)), build=BUILDS[args.build])
     show_boot(a, " A")
     show_boot(b, " B")
     keys = ("verdict", "states", "reads", "tree_sha256", "mmain_sha256", "recog_sts")
@@ -1257,7 +1379,7 @@ def check_file(s: Session, exp: Expected, f: dict, nbytes: int) -> dict:
 
 def cmd_read(args) -> int:
     card = make_card(args.card_root, args.card_image, parse_mods(args))
-    out, s = boot_report(args.image, card, args.trace_imports)
+    out, s = boot_report(args.image, card, args.trace_imports, build=BUILDS[args.build])
     if out["verdict"] != "ACCEPT":
         show_boot(out)
         return {"REJECT": 1}.get(out["verdict"], 3)
@@ -1309,7 +1431,7 @@ def cmd_read(args) -> int:
 
 def cmd_sweep(args) -> int:
     card = make_card(args.card_root, args.card_image, parse_mods(args))
-    out, s = boot_report(args.image, card)
+    out, s = boot_report(args.image, card, build=BUILDS[args.build])
     if out["verdict"] != "ACCEPT":
         show_boot(out)
         return {"REJECT": 1}.get(out["verdict"], 3)
@@ -1361,7 +1483,7 @@ def resolve_name(s: Session, directory: str, name: str) -> int:
 
 def cmd_lookup(args) -> int:
     card = make_card(args.card_root, args.card_image, parse_mods(args))
-    out, s = boot_report(args.image, card, args.trace_imports)
+    out, s = boot_report(args.image, card, args.trace_imports, build=BUILDS[args.build])
     if out["verdict"] != "ACCEPT":
         show_boot(out)
         return {"REJECT": 1}.get(out["verdict"], 3)
@@ -1377,7 +1499,7 @@ def cmd_lookup(args) -> int:
 def cmd_trace(args) -> int:
     """Call one firmware function on a mounted card and list the files it names."""
     card = make_card(args.card_root, args.card_image, parse_mods(args))
-    out, s = boot_report(args.image, card, args.trace_imports)
+    out, s = boot_report(args.image, card, args.trace_imports, build=BUILDS[args.build])
     if out["verdict"] != "ACCEPT":
         show_boot(out)
         return {"REJECT": 1}.get(out["verdict"], 3)
@@ -1442,7 +1564,7 @@ def cmd_trace(args) -> int:
 def cmd_call(args) -> int:
     card = make_card(args.card_root, args.card_image)
     m = load_machine(args.image, card, args.trace_imports)
-    card.set_mount(m.wstr(EU2011["volume_root_w"]))
+    card.set_mount(m.wstr(BUILDS[args.build]["volume_root_w"]))
     try:
         for va in args.va:
             print("%s -> r0=%#x" % (va, m.call(int(va, 0))))
@@ -1492,6 +1614,8 @@ def main(argv=None) -> int:
         p.add_argument("--card-image", help="raw SD image; its FAT32 partition is read in place")
         p.add_argument("--trace-imports", action="store_true")
         p.add_argument("--json")
+        p.add_argument("--build", choices=sorted(BUILDS), default="eu2011",
+                       help="Navi.exe build of IMAGE (its map-file layer VAs)")
         if mods:
             p.add_argument("--hide", action="append", metavar="PATH", help="the file is not on the card")
             p.add_argument("--replace", action="append", metavar="PATH=FILE", help="serve FILE's bytes as PATH")
@@ -1530,6 +1654,9 @@ def main(argv=None) -> int:
     p.add_argument("--ctx", action="append", metavar="OFF=VALUE", help="store a 32-bit value in the block")
     p.add_argument("--max-insns", type=int, default=3_000_000)
     p.add_argument("--show", type=int, default=8)
+    p = sub.add_parser("port", help="check the US2011 layer dict against the EU2011 one (pdata + literal pools)")
+    p.add_argument("image", help="EU2011 head (archive/head256.img)")
+    p.add_argument("other", help="US2011 head (archive/us256.img)")
     p = sub.add_parser("call", help="research: call raw VAs in order")
     common(p, mods=False)
     p.add_argument("va", nargs="+")
@@ -1539,6 +1666,8 @@ def main(argv=None) -> int:
     if not args.cmd:
         ap.print_help()
         return 2
+    if args.cmd == "port":
+        return cmd_port(args)
     paths = [args.image, args.card_root, args.card_image,
              getattr(args, "other_root", None), getattr(args, "other_image", None)]
     for path in paths:
@@ -1621,6 +1750,23 @@ def selftest() -> int:
     check("printf subset", text == "n=7 h=00001234 s=str@100")
     check("signed 32-bit helper", _s32(0xFFFFFFF4) == -12 and _s32(5) == 5)
     check("every import model is callable", all(callable(f) for f in MODELS.values()) and len(MODELS) > 60)
+
+    def mem(words):
+        return lambda va: words.get(va)
+    eu = mem({0x100: 0xD100, 0x102: 0x000B, 0x104: 0x5678, 0x106: 0x1234})
+    us = mem({0x200: 0xD100, 0x202: 0x000B, 0x204: 0xDEF0, 0x206: 0x9ABC})
+    got = port_data([(0x100, 0x200)], eu, us, {0x100: 8}, {0x12345678: "state"})
+    check("port: the US pool value at the same load index", got == {"state": {0x9ABCDEF0: 1}})
+    check("port: an EU value no pool loads is not found",
+          port_data([(0x100, 0x200)], eu, us, {0x100: 8}, {0x11111111: "x"}) == {})
+    check("port: the US dict pairs every EU layer function",
+          len(port_pairs(EU2011, US2011)) == 13 and set(EU2011) == set(US2011))
+    with tempfile.TemporaryDirectory() as tmp:
+        fake = Path(tmp) / "head.img"
+        fake.write_bytes(b"not a head")
+        out, sess = boot_report(str(fake), Card(src), build=US2011)
+        check("a head of another build is BLOCKED before the engine starts",
+              out["verdict"] == "BLOCKED" and "us2011" in out["blocked"] and sess is None)
 
     head = HERE.parent / "archive" / "head256.img"
     full = HERE.parent / "archive" / "sd-images" / "LEAF_2011-2012_QSD-309-101_navi158_eu.img"
