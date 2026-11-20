@@ -1,0 +1,101 @@
+name: Main gate watchdog
+
+# H117: a `push` run of the gate on `main` is cancelled by the next push, so a
+# red gate can ride into `main` unnoticed (2026-11-20 04:12-04:36Z: 4 red runs,
+# 16 merges).  This watchdog runs after every gate run on `main`, fails while
+# the newest unmasked red is unaddressed, and opens/updates one `[H117] fix:`
+# issue naming the SHA and the failing step.  The preferred fix is H98 branch
+# protection (required PR checks); this is the fallback until it lands.
+#
+# The policy lives in `.github/scripts/main_watch.py` so it has an offline
+# `--selftest` and can be replayed against a saved run list (the H117 EXP).
+
+on:
+  workflow_run:
+    workflows: ["CI quality gate", "L1/L2 synthetic fixtures"]
+    types: [completed]
+    branches: [main]
+  schedule:
+    # a coverage sweep: a cancelled run creates no `workflow_run`, so a burst
+    # that ends in cancellations is only seen by a later full read
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: main-watch
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Offline selftest of the policy
+        shell: bash
+        run: python .github/scripts/main_watch.py --selftest
+
+      - name: Gate verdict on main
+        id: watch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set +e
+          python .github/scripts/main_watch.py \
+            --branch main --workflow "CI quality gate" --limit 40 \
+            --json main-watch.json 2>&1 | tee main-watch.txt
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Verdict summary
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          try:
+              with open('main-watch.json', encoding='utf-8') as f:
+                  d = json.load(f)
+          except OSError:
+              d = None
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## Main gate watchdog (H117)\n\n')
+              if d is None:
+                  out.write('*no verdict document (the watchdog did not run)*\n')
+              else:
+                  c = d['counts']
+                  out.write('| quantity | value |\n| --- | --- |\n')
+                  out.write(f"| tip | `{str(d['tip_sha'])[:8]}` **{d['tip_conclusion']}** |\n")
+                  out.write(f"| salient red (unaddressed) | {c['salient']} |\n")
+                  out.write(f"| shadowed red (later green covers) | {c['shadowed']} |\n")
+                  out.write(f"| cancelled (concurrency de-dup) | {c['cancelled']} |\n")
+                  out.write(f"| runs read | {c['runs']} |\n")
+              out.write('\n- A **salient** red opens/updates one `[H117] fix:` issue naming the SHA and the failing step; the step fails while it is open.\n')
+              out.write('- A **shadowed** red is counted, not failed: a later green run on `main` covers it. This is the count H117 watches.\n')
+              out.write('- Policy: `.github/scripts/main_watch.py` (`--selftest`, `--replay RUNS_JSON`). Not a gate-semantics tool; `tools/gate.py` is unchanged.\n')
+          PY
+
+      - name: Upload verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: main-watch
+          path: |
+            main-watch.json
+            main-watch.txt
+          if-no-files-found: warn

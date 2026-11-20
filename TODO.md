@@ -732,8 +732,8 @@ in its first line.
   - Falsifier: `main` can still take a commit whose `CI quality gate` run is red and no local check refuses it.
   - Claims: C-4260–C-4269
 
-- [ ] **H117 — the push-to-main gate is a shadow run: 16 PRs merged in a 35-minute burst while `main` carried 4 red gate runs, and nothing refused a merge**
-  - Status: in progress · Owner: task/h117-main-shadow-run · Critical: yes · Pair: required
+- [x] **H117 — the push-to-main gate is a shadow run: 16 PRs merged in a 35-minute burst while `main` carried 4 red gate runs, and nothing refused a merge**
+  - Status: done · Owner: task/h117-main-shadow-run · Critical: yes · Pair: required
   - Depends: H98 (the pre-merge gate; this is its observed cost), H108 (the QA CI check that should have caught the burst)
   - Precheck: `gh run list --workflow "CI quality gate" --branch main --limit 60 --json conclusion,headSha,createdAt` lists 4 `failure` runs between `2026-11-20T04:12:10Z` and `2026-11-20T04:36:05Z` (`6270c0cc`, `b3333cde`, `a480a8a6`, `98e0e3eb`); `gh pr list --state merged --json number,mergedAt` lists 16 merges between `04:05Z` and `04:45Z`. The failures were real gate defects, not infra: `6270c0cc` `todo_check FAIL exit 1` (`duplicate task ID M4.48 at lines [2231, 2326]`), then `claims_check FAIL exit 1` on the next three (`b3333cde`, `a480a8a6`, `98e0e3eb`). The 16 PRs were merged without waiting for those runs to finish; the first green after the burst is `ac2a199` (#303, the dup-ID fix). The same pattern repeated at 08:45–09:30Z with 3 more `cancelled` runs shadowed by `success` runs.
   - Goal: make each `push`-to-`main` run's verdict a condition of the *next* merge, not a log line a role reads later. Either policy: (a) rework `ci.yml` so a PR run and the post-merge push run are the same verdict the TL reads (required check on the PR, which H98's branch protection then enforces), or (b) a `main`-only watchdog (scheduled or `workflow_run`) that, when the tip run is red, opens a `fix:` issue / red board line naming the SHA and fails; the QA "check the runs, not the files" step reads that instead of a 40-row `gh run list`. Prefer (a) if H98 lands branch protection; (b) is the fallback if the owner declines.
@@ -744,6 +744,7 @@ in its first line.
   - Stop: if the owner declines both (a) and (b), record the refusal and the residual risk in the EXP, set `blocked` with `Unblock: <human>`, and do not re-open it each cycle.
   - Falsifier: `git log origin/main` contains a merge whose immediately-preceding `CI quality gate` run for that tip is `failure`, and no issue/board line names it within a day.
   - Claims: C-5750–C-5759
+  - Result: EXP-2026-11-20-H117-main-shadow-run; policy (b) shipped (policy (a) parked on H98: `main` unprotected, `gh api …/protection` 404). `.github/workflows/main-watch.yml` + `.github/scripts/main_watch.py` fail on a salient red `main` run and open one `[H117] fix:` issue naming the SHA and the failed job/step; a later green covers a red (shadowed, counted), `cancelled` covers nothing, an empty list is exit 2. Offline selftest `OK (19 checks)`; `--replay` of the 100-run list prints 7 red-tip moments; today's tip `d2fb7b48` is `0 salient`. Claims C-5750–C-5753.
 
 - [ ] **H99 — `.github/workflows/README.md` still documents the pre-H85 hard gate (selftest + claims + todo), not `tools/gate.py`**
   - Status: open · Owner: — · Critical: no · Pair: solo
