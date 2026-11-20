@@ -248,6 +248,52 @@ def check_l2_tile_harness_selftest() -> tuple[str, str]:
     return FAIL, f"rc={rc}\n{out[:500]}"
 
 
+def check_l2_tile_class_roundtrip() -> tuple[str, str]:
+    """M5.36: the road class the writer emits decodes back unchanged.
+
+    Builds a synthetic tile from a synthetic IMF with ``tilewriter.build``,
+    derives the emitted class map from the same input (``from-imf``), and
+    compares it with the tile's decoded classes. A one-value mutant of the
+    emitted map must FAIL.
+    """
+    sys.path.insert(0, str(TOOLS))
+    try:
+        import tile_class_roundtrip as tcr  # type: ignore
+        import tilewriter  # type: ignore
+    except Exception as exc:
+        return FAIL, f"import: {exc}"
+    cell = "B48R058R"
+    with tempfile.TemporaryDirectory(prefix="h26-class-") as td:
+        td = Path(td)
+        imf = td / "fixture.imf.jsonl"
+        imf.write_text(
+            "".join(json.dumps(record, sort_keys=True) + "\n"
+                    for record in tilewriter._fixture_imf(cell)),
+            encoding="utf-8",
+        )
+        try:
+            blob, _report = tilewriter.build(str(imf), cell,
+                                             data_version="11/01/01/01")
+        except Exception as exc:
+            return FAIL, f"tilewriter.build: {type(exc).__name__}: {exc}"
+        tile = td / (cell + ".DAT")
+        tile.write_bytes(blob)
+        expected, source = tcr.emitted_from_imf(str(imf), cell)
+        if not expected:
+            return FAIL, "from-imf produced no parcel"
+        res = tcr.check_tile(tile, expected)
+        if res["verdict"] != "PASS":
+            return FAIL, ("emitted class map did not round-trip: %s; %s"
+                          % (res["verdict"], "; ".join(res["errors"][:3])))
+        bad = tcr.mutate(expected)
+        res_bad = tcr.check_tile(tile, bad)
+        if res_bad["verdict"] != "FAIL":
+            return FAIL, "one-value class mutant still reported %s" % res_bad["verdict"]
+        return PASS, ("%d parcel(s), %d shape(s) round-trip; one-value mutant "
+                      "FAIL (%s)" % (res["records"], res["shapes"],
+                                     "; ".join(res["classes"])))
+
+
 def check_l2_poi_mutation_imgpatch() -> tuple[str, str]:
     """imgpatch --selftest exercises synthetic mutation/patch scenarios."""
     rc, out = _run_cmd([PY, str(TOOLS / "imgpatch.py"), "--selftest"], timeout=180)
@@ -317,6 +363,15 @@ REGISTRY: list[CheckSpec] = [
         description="tile round-trip on synthetic/small cases supported by harness",
         command="python3 tools/ze0-viewer/harness.py selftest <tile>",
         run=check_l2_tile_harness_selftest,
+    ),
+    CheckSpec(
+        id="l2.tile.class-roundtrip",
+        category="L2 tile",
+        description="M5.36: the level-1 road class the writer emits decodes back "
+                    "unchanged; a one-value mutant FAILs",
+        command="python3 tools/l1l2_fixtures.py (internal: tilewriter.build + "
+                "tile_class_roundtrip check)",
+        run=check_l2_tile_class_roundtrip,
     ),
     CheckSpec(
         id="l2.poi.mutation.imgpatch-selftest",
