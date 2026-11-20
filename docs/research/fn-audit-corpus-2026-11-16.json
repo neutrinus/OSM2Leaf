@@ -33,19 +33,20 @@
   "tools/read_watch_l3.py",
   "tools/rgd_reply_l3.py",
   "tools/swap_witness_l3.py",
+  "tools/tmc_req_l3.py",
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 29,
-  "citations": 583,
-  "unique_va": 272,
-  "start": 355,
+  "files": 30,
+  "citations": 598,
+  "unique_va": 278,
+  "start": 369,
   "inside": 0,
   "corrected": 0,
   "gap": 59,
   "leaf": 59,
   "ambiguous": 0,
-  "unmapped": 169
+  "unmapped": 170
  },
  "rows": [
   {
@@ -150,7 +151,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2220,
+   "line": 2221,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -159,7 +160,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2220,
+   "line": 2221,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -168,7 +169,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4151,
+   "line": 4154,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -177,7 +178,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4153,
+   "line": 4156,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -186,7 +187,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4161,
+   "line": 4164,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -195,7 +196,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4166,
+   "line": 4169,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -204,7 +205,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4175,
+   "line": 4178,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -213,7 +214,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4332,
+   "line": 4335,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1299,7 +1300,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 277,
+   "line": 286,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -1308,7 +1309,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 277,
+   "line": 286,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1317,7 +1318,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 387,
+   "line": 396,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1326,7 +1327,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 397,
+   "line": 406,
    "va": "0x003bc960",
    "kind": "fn",
    "class": "START",
@@ -1335,7 +1336,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 427,
+   "line": 436,
    "va": "0x003ca858",
    "kind": "fn",
    "class": "GAP",
@@ -5097,6 +5098,141 @@
    "file": "tools/swap_witness_l3.py",
    "line": 54,
    "va": "0x00417eac",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 13,
+   "va": "0x003fbed8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 18,
+   "va": "0x003bcac0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 44,
+   "va": "0x003fbed8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 46,
+   "va": "0x004007b0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 46,
+   "va": "0x0041330c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x004003f4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x004007b0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x004125a8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x004129d0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x0041330c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x00413828",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x00417618",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 67,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 173,
+   "va": "0x003fbed8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 176,
+   "va": "0x003fbed8",
    "kind": "const",
    "class": "START",
    "true_start": null,
