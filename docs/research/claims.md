@@ -3466,6 +3466,21 @@ re-files it), and the block is recorded in
 | C-4288 | RESERVED (H101). | — | — | — |
 | C-4289 | RESERVED (H101). | — | — | — |
 
+## M3.24 — function-pointer tables in `Navi.exe` sec0 rodata and sec1 `INIT` (C-3550–C-3559)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3550 | EU2011 `Navi.exe` readable data (sec0 rodata `0x31dd9c` B + sec1 stored bytes after the IAT `0x172e4` B) holds 69 code-pointer tables (≥ 3 `START`/`GAP` words at one stride; 62 sec0, 7 sec1), 909 slots, 534 distinct targets, 48 with a code user; 481 of the 1,167 functions with no static caller are entries. Shifted controls (±2, +0x10) find 4–10 tables. | VERIFIED (tool, real image) | H | EXP-2026-11-19-M3.24-fptables; `python3 tools/fptables.py scan IMG256 --graph g.json` |
+| C-3551 | Only 21 of the 395 unresolved `jsr @Rn` sites (EU2011) lie in table users; 620 more uncalled functions are code literals (callbacks), 66 are neither. Most indirect calls are object/argument calls, not data tables. | VERIFIED (tool) | M | EXP-2026-11-19-M3.24-fptables |
+| C-3552 | sec1 `INIT` (EU2011) holds the shell command table `0x0055ddfc` (`{name, fn, help}`, 39 rows, passed by `0x0032efa8` to `0x0032fdf4`) and three sparse state x event matrices `0x0055e348`, `0x0055e4d0`, `0x0055e790`; `fn 0x003335c0` calls `0x0055e348[*0x00618650 * 15 + event]` when non-NULL. | VERIFIED (tool + listing) | H | EXP-2026-11-19-M3.24-fptables; `sh4dis.py --va 0x003335c0` |
+| C-3553 | `0x0017a0a4` (EU2011) is a message dispatcher: `fn 0x004124dc` scans ≤ 15 rows `{u32 id, fn}` for the `u16` at `@(8,msg)` and calls `fn(msg)`; ids `0x14cc…0x14f5`; its entries reach `0x004125a8` and `0x00412ac0` in 1 call and `0x003fbed8`, `0x003fcbf0`, `0x003fd390` in 2. | VERIFIED (tool + listing) | H | EXP-2026-11-19-M3.24-fptables; `fptables.py via g.json t.json 0x004125a8` |
+| C-3554 | No aligned word in sec0 rodata or sec1 `INIT` (EU2011) equals the reader VAs `0x003f5194`, `0x003fbed8`, `0x003f56bc`, `0x003f51e0`, `0x004125a8`, `0x0041c7dc`, `0x003d1150`: no table holds a POINT/ADDRE/LCTBL reader; `0x003f5194` and `0x0041c7dc` are reached from no table entry within 4 static calls; the ADDRE path is reached from the `{id, fn}` tables `0x00039d5c…0x00039fec` in 3–4. | VERIFIED (tool) | H | EXP-2026-11-19-M3.24-fptables; `fptables.py refs`, `fptables.py via` |
+| C-3555 | The `Lv1_O`/`Lv2`/`Lv4`/`Lv1_D/TOP`/`Lv5` names (sec1 `0x0056084c…0x0056087c`, EU2011) lie in a data block of pointers to sec0 tags (`RT0`…`RT5`, `GS`, `WK`, `SRV`, …) with no code pointer and no literal or data word in `[0x00560780, 0x005608a0)`; not a function table. That they are debug categories reached from `fn 0x00340f18` (base `0x00560694`) is a hypothesis. | OBSERVED | M | EXP-2026-11-19-M3.24-fptables |
+| C-3556 | `0x005628e8` (EU2011, M3.11c's `INIT` pointer) is a data record of pointers into sec0 data (`0x00048b08`, `0x00049fe8`, …), 0 code pointers; loaded by `0x003d09a0` and `0x003d0a24`. | VERIFIED (tool) | H | EXP-2026-11-19-M3.24-fptables |
+| C-3557 | The `0x00d53500` functions `0x00412ac0`, `0x003fcbf0`, `0x003fd390` (EU2011) load no table base; the static table above them is the `0x0017a0a4` message map (C-3553). | VERIFIED (tool) | M | EXP-2026-11-19-M3.24-fptables |
+| C-3558 | US2011 `Navi.exe`: the same scan prints 150 tables (143 sec0, 7 sec1), 65 with a code user, 81 unreferenced (not curated). | VERIFIED (tool) | M | EXP-2026-11-19-M3.24-fptables; `fptables.py scan US256` |
+| C-3559 | Limitation: "row prefix" users can be shared constants (`0x000117a0` is loaded by 15 functions as a zero/empty constant before the shell table `0x000117a4`); a table with only prefix users is weak evidence of its indexer. | OBSERVED | M | EXP-2026-11-19-M3.24-fptables |
+
 ## M5.34 — OSM test road into a `0x2046` parcel (C-3560–C-3569)
 
 | ID | Claim | Status | Confidence | Evidence |
