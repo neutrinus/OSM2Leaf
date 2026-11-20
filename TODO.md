@@ -4610,7 +4610,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3320–C-3329
 
 - [ ] **M9.41 — M9.10's last US-build gap: `point_walk_l3` runs the US reader but the target is not registered as an S1/S2 evidence row**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.41-us-poi-row · Critical: yes · Pair: required
   - Depends: M9.10 (the US `point_walk_l3` run exists), M1.22 (done — US VAs), M9.39 (a record-mutated page is the control), M1.22b (done — the US VAs are justified)
   - Goal: give the US POI walk that M1.22 already runs a registered L3 target and `l3check` evidence row, so rule-13 S1/S2 acceptance for the US POI path is a gate row instead of prose in an EXP.
   - Note (SE 2026-11-17): M1.22's Result and its note on M9.10 say the US walker now runs 9/9 plus guard/count controls on `archive/us256.img`, but M9.10 still reads "name part waits for M3.11c" and nothing in `targets.json`/`l3check.TARGET_EVIDENCE` names the US `point_walk_l3` run. This task is **not** M9.10's `poi_record_decode` runner target (M9.10 ports the walk into `runner.py` and adds the name check); it is the cheaper C-3538-shaped move: register the *existing* `point_walk_l3 --build us2011` run as a `targets.json` evidence row so `l3check` reports it and M9.10 can cite it. Its Scope and files do not overlap M9.10's runner work.
