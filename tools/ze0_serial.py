@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Kernel debug-serial evidence for the QEMU ``ze0`` machine (TODO M8.A6).
 
-Three questions, one sub-command each:
+Four questions, one sub-command each:
 
   refs IMG     Which nk.exe code touches the debug SCIF window, and who calls
                the polling writer?  Lists every literal-pool word whose value
@@ -26,6 +26,18 @@ Three questions, one sub-command each:
                (``-serial file:LOG``)?  Exit 0 when a boot-banner line is
                present, 1 when none is.
 
+  dbgcmp SERIAL DBGLOG
+               Does the kernel debug text on the serial port (``-M
+               ze0,dbgmsg=0x880404f4``, TODO M8.B6) equal what
+               ``ze0_dbgmsg.py run`` read over the gdbstub?  Both are cut
+               into text lines (serial: on ``\n``; the gdbstub log: one
+               message per hook line, ``" | "`` marks an embedded CRLF),
+               empty lines dropped, and the first ``--lines`` are compared.
+               A serial line that the gdbstub line is a prefix of, where the
+               gdbstub string hit ``--max-len`` (256 UTF-16 units), counts as
+               ``truncated``, not as a difference.  Exit 0 when there is no
+               other difference.
+
 Addresses are EU2011 (``archive/head256.img``, image B at ``0x3e00200``) and
 come from ``tools/cerom.py``/``tools/sh4xref.py``; the SH-4 decoding is
 ``tools/sh4dis.py`` (little-endian, pinned there).  Stdlib only.
@@ -36,6 +48,7 @@ Usage:
   ze0_serial.py shim -o FILE [--base 0x8f000000] [--string 0x88001060]
                 [--writer 0x8804cfa4]
   ze0_serial.py banner LOG
+  ze0_serial.py dbgcmp SERIAL DBGLOG [--lines 200] [--max-chars 256]
   ze0_serial.py --selftest
 
 Method and results: docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md
@@ -43,6 +56,7 @@ Method and results: docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md
 
 import argparse
 import os
+import re
 import struct
 import sys
 
@@ -248,6 +262,79 @@ def cmd_banner(args):
     return 0 if found else 1
 
 
+DBGMSG_LINE = re.compile(r"^\s*[0-9.]+ 0x[0-9a-f]{8} pr=0x[0-9a-f]{8} r\d+=0x[0-9a-f]{8} ?(.*)$")
+DBGMSG_TAIL = re.compile(r"^(word|dump|count) 0x[0-9a-f]{8}|^hook hits: ")
+
+
+def serial_lines(data):
+    """Text lines of a serial log (UTF-8), CR stripped, empty lines dropped."""
+    text = data.decode("utf-8", "replace")
+    return [ln.rstrip("\r") for ln in text.split("\n") if ln.rstrip("\r")]
+
+
+def dbgmsg_lines(text):
+    """Text lines of a ze0_dbgmsg.py run log, in the same cut as serial_lines.
+
+    One hook line holds one message (trailing CRLF stripped, inner CRLF
+    written as " | "); a raw newline inside a message continues it on the
+    next log line.  The word/dump/count/hook-hits tail is skipped."""
+    msgs = []
+    for raw in text.split("\n"):
+        m = DBGMSG_LINE.match(raw)
+        if m:
+            msgs.append(m.group(1))
+        elif DBGMSG_TAIL.match(raw) or not msgs:
+            continue
+        else:
+            msgs[-1] += "\n" + raw
+    out = []
+    for msg in msgs:
+        for part in msg.split(" | "):
+            for ln in part.split("\n"):
+                ln = ln.rstrip("\r")
+                if ln:
+                    out.append(ln)
+    return out
+
+
+def compare_lines(ser, dbg, n, max_chars=256):
+    """Compare the first n lines; returns (same, truncated, diffs)."""
+    same = trunc = 0
+    diffs = []
+    for i in range(min(n, max(len(ser), len(dbg)))):
+        a = ser[i] if i < len(ser) else None
+        b = dbg[i] if i < len(dbg) else None
+        if a == b:
+            same += 1
+        elif a is not None and b is not None and len(b) < len(a) and a.startswith(b) \
+                and len(b) >= max_chars - 2:
+            trunc += 1
+        else:
+            diffs.append((i + 1, a, b))
+    return same, trunc, diffs
+
+
+def cmd_dbgcmp(args):
+    try:
+        with open(args.serial, "rb") as fh:
+            ser = serial_lines(fh.read())
+        with open(args.dbglog, encoding="utf-8", errors="replace") as fh:
+            dbg = dbgmsg_lines(fh.read())
+    except OSError as e:
+        print("dbgcmp: %s" % e, file=sys.stderr)
+        return 2
+    n = min(args.lines, max(len(ser), len(dbg)))
+    same, trunc, diffs = compare_lines(ser, dbg, args.lines, args.max_chars)
+    print("serial lines %d, gdbstub lines %d, compared %d" % (len(ser), len(dbg), n))
+    print("equal %d, truncated by gdbstub max-len %d, different %d" % (same, trunc, len(diffs)))
+    for i, a, b in diffs[:20]:
+        print("  line %d\n    serial : %r\n    gdbstub: %r" % (i, a, b))
+    if n < args.lines:
+        print("dbgcmp: only %d line(s) to compare (want %d)" % (n, args.lines))
+        return 1
+    return 0 if not diffs else 1
+
+
 # --------------------------------------------------------------------------
 # selftest
 # --------------------------------------------------------------------------
@@ -349,6 +436,25 @@ def selftest():
     wide = "Windows CE Kernel for Hitachi SH".encode("utf-16le")
     check("utf-16 log is not a banner", scan_log(wide)[BANNER_LINES[0]], 0)
 
+    ser = serial_lines(b"\r\nWindows CE Kernel\r\nSH-4 Kernel\r\nA\r\n\r\nB\nlong" + b"x" * 300 + b"\n")
+    check("serial lines", ser[:4], ["Windows CE Kernel", "SH-4 Kernel", "A", "B"])
+    dlog = ("   0.010 0x880404f4 pr=0xa8010420 r4=0x88001060 Windows CE Kernel\n"
+            "   0.011 0x880404f4 pr=0xa8010428 r4=0x88001044 SH-4 Kernel\n"
+            "   0.012 0x880404f4 pr=0x88000000 r4=0x88000000 A |  | B\n"
+            "   0.013 0x880404f4 pr=0x88000000 r4=0x88000000 long" + "x" * 252 + "\n"
+            "word 0x89e41888: 0x00000001\nhook hits: 4\n")
+    dbg = dbgmsg_lines(dlog)
+    check("dbgmsg lines", dbg[:4], ["Windows CE Kernel", "SH-4 Kernel", "A", "B"])
+    check("dbgmsg tail skipped", len(dbg), 5)
+    same, trunc, diffs = compare_lines(ser, dbg, 5)
+    check("compare equal+truncated", (same, trunc, len(diffs)), (4, 1, 0))
+    same, trunc, diffs = compare_lines(ser, ["Windows CE Kernel", "SH-4 Kernel!"], 2)
+    check("compare finds a difference (negative)", (same, len(diffs)), (1, 1))
+    check("compare: empty serial differs", len(compare_lines([], dbg, 2)[2]), 2)
+    check("continuation line joins", dbgmsg_lines(
+        "   1.000 0x880404f4 pr=0x0 r4=0x0 x\ny\n".replace("pr=0x0 r4=0x0", "pr=0x00000000 r4=0x00000000")),
+        ["x", "y"])
+
     print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -381,6 +487,12 @@ def main(argv=None):
     s.add_argument("--writer", type=_int, default=WRITER_EU2011)
     b = sub.add_parser("banner")
     b.add_argument("log")
+    c = sub.add_parser("dbgcmp")
+    c.add_argument("serial")
+    c.add_argument("dbglog")
+    c.add_argument("--lines", type=int, default=200)
+    c.add_argument("--max-chars", type=int, default=256,
+                   help="ze0_dbgmsg.py --max-len in UTF-16 units (default 512 bytes = 256)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
@@ -390,6 +502,8 @@ def main(argv=None):
         return cmd_shim(args)
     if args.cmd == "banner":
         return cmd_banner(args)
+    if args.cmd == "dbgcmp":
+        return cmd_dbgcmp(args)
     ap.print_help()
     return 2
 
