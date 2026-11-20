@@ -64,6 +64,12 @@ Options:
   --serial SPEC       first serial port (-M ze0: the debug SCIF at 0xffe46000,
                       M8.A6): log = file:WORK/serial.log (default), none,
                       stdio, or any QEMU -serial chardev spec
+  --dbgmsg VA|off     -M ze0 with --image: copy the kernel debug strings to
+                      the first serial port (machine option dbgmsg=VA, M8.B6;
+                      needs ze0-0007). Default 0x880404f4 (EU2011 nk.exe
+                      debug-string sink); off for older QEMU builds
+  --icount SPEC       pass -icount SPEC (e.g. shift=0,sleep=off: guest time
+                      independent of host load, M8.B2)
   --qemu PATH         qemu-system-sh4 binary (default: from PATH)
   --no-summary        do not filter the log afterwards
   --memmap FILE       use this memmap JSON instead of writing one from the image
@@ -72,7 +78,8 @@ Options:
   -h, --help          this text
 
 Outputs in the work dir: qemu.log (everything -d logged), serial.log (the
-debug SCIF output with --serial log), registers.txt (HMP
+debug SCIF output and, on -M ze0 with --image, the kernel debug text, one
+message per line, M8.B6), registers.txt (HMP
 `info registers` before the kill, when reachable), memmap.json (VA -> module
 and section, from cerom.py), plus kernel.bin/app.bin when --image is given on -M none.
 EOF
@@ -294,6 +301,8 @@ TIMEOUT=10
 WORK=
 LOG=
 SERIAL=log
+DBGMSG=0x880404f4
+ICOUNT=
 QEMU=qemu-system-sh4
 SUMMARY=1
 MEMMAP=1
@@ -317,7 +326,7 @@ while [ "$#" -gt 0 ]; do
   case $_opt in
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
     --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
-    --serial)
+    --serial | --dbgmsg | --icount)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
         _val=$2
@@ -348,6 +357,8 @@ while [ "$#" -gt 0 ]; do
         --qemu) QEMU=$_val ;;
         --memmap) MEMMAP_SRC=$_val ;;
         --serial) SERIAL=$_val ;;
+        --dbgmsg) DBGMSG=$_val ;;
+        --icount) ICOUNT=$_val ;;
       esac
       ;;
     --gdb)
@@ -394,6 +405,9 @@ want_addr --app "$APP_OFF"
 want_addr --kernel-addr "$KERNEL_ADDR"
 want_addr --app-addr "$APP_ADDR"
 want_addr --entry "$ENTRY"
+if [ "$DBGMSG" != off ]; then
+  want_addr --dbgmsg "$DBGMSG"
+fi
 
 KERNEL_OFF=$((KERNEL_OFF))
 APP_OFF=$((APP_OFF))
@@ -457,8 +471,12 @@ set -- "$QEMU"
 if [ "$MACHINE" = ze0 ]; then
   if [ -n "$IMAGE" ]; then
     # Built-in loader (M8.A3): the machine reads the CE images itself.
-    set -- "$@" -M "ze0,kernel-off=$(printf '0x%x' "$KERNEL_OFF"),app-off=$(printf '0x%x' "$APP_OFF")" \
-      -kernel "$IMAGE"
+    _mopts="ze0,kernel-off=$(printf '0x%x' "$KERNEL_OFF"),app-off=$(printf '0x%x' "$APP_OFF")"
+    if [ "$DBGMSG" != off ]; then
+      # Kernel debug text on serial port 0 (M8.B6, ze0-0007).
+      _mopts="$_mopts,dbgmsg=$(printf '0x%x' "$((DBGMSG))")"
+    fi
+    set -- "$@" -M "$_mopts" -kernel "$IMAGE"
   else
     set -- "$@" -M ze0
   fi
@@ -474,6 +492,9 @@ case $SERIAL in
 esac
 set -- "$@" -nographic -serial "$SERIAL_SPEC"
 set -- "$@" -monitor "unix:$WORK/hmp.sock,server,nowait"
+if [ -n "$ICOUNT" ]; then
+  set -- "$@" -icount "$ICOUNT"
+fi
 
 if [ "$GDB" -eq 1 ]; then
   set -- "$@" -gdb "tcp:127.0.0.1:$GDB_PORT"
