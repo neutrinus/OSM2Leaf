@@ -4374,3 +4374,18 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5257 | RESERVED (M6.16). | — | — | — |
 | C-5258 | RESERVED (M6.16). | — | — | — |
 | C-5259 | RESERVED (M6.16). | — | — | — |
+
+## H106 — L3 on the tile L2 actually writes (C-4370–C-4379)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4370 | The EU2011 tile mount (PySh4, `datask_l3.py mount --position 51.10,16.93`) run on the M5.11 card-ladder tile (`one_tile_pipeline` + `tools/fixtures/m5.37-splice.osm`, `B48R058R.DAT` SHA-256 `1927c3a9f3c201331484361cab8f1cf16936c485bdf4443801eff55ef546f6a8`) reads section-1 level-1 directory `0x9a1dc00` (y 76), where slot-table parser `fn 0x00414dbc` (EU2011) loads `+0xa..+0x408b` over both changed pair entries. The run is SAME as the factory tile over 28 reads; the header-count flip at `0x9a1dc03` gives DIFFERENT, and the `one_tile_pipeline --synthetic` tile (`a9996371…`) gives DIFFERENT (its first directory read fails). Record blocks are not read (M9.53). | VERIFIED (real image) | H | EXP-2026-11-20-H106-l3-on-l2-tile; `datask_l3.py mount` + `diff` on IMG256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9` and EU card `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` |
+| C-4371 | `datask_l3.py mount --json` records `card` = source image/root, the mods, and per overlaid path the size and SHA-256 of the bytes served (or `null` when hidden), and prints `card overlay: PATH <- N bytes sha256 H`; a mount verdict names the file it ran on. | VERIFIED (tool + real run) | H | EXP-2026-11-20-H106-l3-on-l2-tile; `python3 tools/datask_l3.py --selftest` |
+| C-4372 | `targets.json` `tile_reader` keeps one target and carries `generated_corpus` (4 rows: M5.11 tile, synthetic tile, M9.13 G, M5.34 tile). `l3check` lists them with a SHA-256-driven status (`RAN (recorded)`, `STALE`, `NOT RUNNABLE in runner.py`, `NOT RUN (no tree)`, `NOT RUN (file is not the listed tile)`) and `ran_on_our_generated_data`, outside `counts`: `runnable=1/10` and exit codes are unchanged. | VERIFIED (tool) | H | EXP-2026-11-20-H106-l3-on-l2-tile; `python3 tools/l3check.py --build-corpus`, `--selftest` (22 checks) |
+| C-4373 | The M5.34 tile (`b746427cb05612cb34202b012be7e615d5e77ba244f455d67ab52ef62534c2ef`, Geofabrik `dolnoslaskie` input, zlib 1.3.2) has no L3 run; it cannot be rebuilt in the Claude sandbox (`download.geofabrik.de` resets the connection), so its row is `NOT RUN (no tree)`. | OBSERVED | M | EXP-2026-11-20-H106-l3-on-l2-tile; `python3 tools/l3check.py --build-corpus` |
+| C-4374 | RESERVED (H106). | — | — | — |
+| C-4375 | RESERVED (H106). | — | — | — |
+| C-4376 | RESERVED (H106). | — | — | — |
+| C-4377 | RESERVED (H106). | — | — | — |
+| C-4378 | RESERVED (H106). | — | — | — |
+| C-4379 | RESERVED (H106). | — | — | — |

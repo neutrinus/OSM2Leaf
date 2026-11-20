@@ -203,7 +203,69 @@
     "rule": "the factory tile must decode; a first byte other than 0x78 is not evidence either way, the tile is not a zlib stream at offset 0"
    },
    "notes": [
-    "Do not point probe-zlib-cmf at this file and call the REJECT a reader verdict."
+    "Do not point probe-zlib-cmf at this file and call the REJECT a reader verdict.",
+    "generated_corpus (H106): our tiles this target has run on, or could run on, with datask_l3.py; l3check lists them with a status and never counts them as targets."
+   ],
+   "generated_corpus": [
+    {
+     "id": "generated:m5.11:B48R058R",
+     "what": "the card-ladder tile L2 writes: factory B48R058R with section-1 level-1 directory (76,940) regenerated from the committed fixture (M5.11, = M5.15 build.py)",
+     "generator": "python3 tools/one_tile_pipeline.py --factory-root FACTORY_ROOT --cell B48R058R --parcel 76,940 --level 1 --osm tools/fixtures/m5.37-splice.osm --out OUT",
+     "path": "MAPAL001/B48R058R.DAT",
+     "size": 289319168,
+     "sha256": "1927c3a9f3c201331484361cab8f1cf16936c485bdf4443801eff55ef546f6a8",
+     "run": "python3 tools/datask_l3.py mount archive/head256.img --card-image EU2011-CARD --position 51.10,16.93 --replace MAPAL001/B48R058R.DAT=FILE --bytes --json OUT.json; python3 tools/datask_l3.py diff FACTORY.json OUT.json",
+     "recorded": {
+      "exp": "EXP-2026-11-20-H106-l3-on-l2-tile",
+      "sha256": "1927c3a9f3c201331484361cab8f1cf16936c485bdf4443801eff55ef546f6a8",
+      "verdict": "SAME",
+      "detail": "mount, EU2011 PySh4: 28 reads equal to the factory; directory 0x9a1dc00 (y 76) is read and its slot table parsed (0x00414dbc, +0xa..+0x408b) over both changed pair entries; header-count flip control DIFFERENT. Record blocks not read (M9.53)"
+     },
+     "ran_on_our_generated_data": true
+    },
+    {
+     "id": "synthetic:one_tile_pipeline",
+     "what": "fresh-container roads-only tile (no factory bytes)",
+     "generator": "python3 tools/one_tile_pipeline.py --synthetic --cell B48R058R --out OUT",
+     "path": "MAPAL001/B48R058R.DAT",
+     "size": 22272,
+     "sha256": "a9996371bcced56c3cdd5c37819060f3975ca7219b488397bbec5d33a0259159",
+     "run": "python3 tools/datask_l3.py mount archive/head256.img --card-image EU2011-CARD --position 51.10,16.93 --replace MAPAL001/B48R058R.DAT=FILE --bytes --json OUT.json; python3 tools/datask_l3.py diff FACTORY.json OUT.json",
+     "recorded": {
+      "exp": "EXP-2026-11-20-H106-l3-on-l2-tile",
+      "sha256": "a9996371bcced56c3cdd5c37819060f3975ca7219b488397bbec5d33a0259159",
+      "verdict": "DIFFERENT",
+      "detail": "mount, EU2011 PySh4: the first directory read (0x1100, len 0x8100) runs past the 22,272-byte file and fails (status -1); no further reads of the tile (same as EXP-2026-11-20-M9.13 at 51.70,17.45)"
+     },
+     "ran_on_our_generated_data": true
+    },
+    {
+     "id": "generated:m9.13:B48R058R",
+     "what": "tilewriter --factory B48R058R with two hand-written ways near Krotoszyn (M9.13 tile G; its OSM input is not committed)",
+     "generator": null,
+     "path": "MAPAL001/B48R058R.DAT",
+     "size": 289319168,
+     "sha256": "439a8f79edcdbf2eb8b3b603569d41238ff4bc59f795e65267ca5a999466055f",
+     "run": "python3 tools/datask_l3.py mount archive/head256.img --card-image EU2011-CARD --position 51.70,17.45 --replace MAPAL001/B48R058R.DAT=FILE --bytes --json OUT.json; python3 tools/datask_l3.py diff FACTORY.json OUT.json",
+     "recorded": {
+      "exp": "EXP-2026-11-20-M9.13-generated-tile-l3",
+      "sha256": "439a8f79edcdbf2eb8b3b603569d41238ff4bc59f795e65267ca5a999466055f",
+      "verdict": "SAME",
+      "detail": "mount, EU2011 PySh4: 28 reads equal to the factory; directory 0xa10b100 (y 77) parsed. Record blocks not read (M9.53)"
+     },
+     "ran_on_our_generated_data": true
+    },
+    {
+     "id": "generated:m5.34:B48R058R",
+     "what": "M5.34 tile: Geofabrik dolnoslaskie extract clipped into directory (76,940), stock zlib 1.3.2",
+     "generator": "python3.13 tools/one_tile_pipeline.py --factory-root FACTORY_ROOT --cell B48R058R --parcel 76,940 --level 1 --osm dolnoslaskie-latest.osm.pbf --clip --out OUT",
+     "path": "MAPAL001/B48R058R.DAT",
+     "size": 293990518,
+     "sha256": "b746427cb05612cb34202b012be7e615d5e77ba244f455d67ab52ef62534c2ef",
+     "run": "python3 tools/datask_l3.py mount archive/head256.img --card-image EU2011-CARD --position 51.10,16.93 --replace MAPAL001/B48R058R.DAT=FILE --bytes --json OUT.json; python3 tools/datask_l3.py diff FACTORY.json OUT.json",
+     "recorded": null,
+     "ran_on_our_generated_data": false
+    }
    ]
   },
   {

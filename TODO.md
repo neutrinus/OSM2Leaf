@@ -1142,8 +1142,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Falsifier: the good tree passes and every `--break` kind also exits 0 (the checker never distinguishes them).
   - Claims: C-4360–C-4369
 
-- [ ] **H106 — L3 never runs on the tile L2 actually writes: `tile_reader`'s only corpus is a factory `B28R070R`**
-  - Status: in progress · Owner: task/h106-l3-on-l2-tile · Critical: no · Pair: required
+- [x] **H106 — L3 never runs on the tile L2 actually writes: `tile_reader`'s only corpus is a factory `B28R070R`**
+  - Status: done · Owner: task/h106-l3-on-l2-tile · Critical: no · Pair: required
   - Depends: M5.34 (done); M9.13/M3.25 are the entry-point work and stay their own tasks — this task only makes the corpus point at *our* tile
   - Goal: `prompt_qa.txt` asks "L3 which firmware-fragment readers ran on **our data**"; today `tools/l3_harness/targets.json`'s `tile_reader` corpus is the factory `MAPAL001/B28R070R.DAT` and the run is BLOCKED (no entry point). So even after M9.13 lands, the first L3 tile verdict would be on vendor bytes, not the `B48R058R` tile M5.34 edited. A corpus row that names M5.34's generated tile (and `one_tile_pipeline --synthetic`'s tile) makes "L3 on our data" a real row when the reader becomes runnable, and today makes the *absence* explicit instead of hidden behind one blocked target.
   - Precheck: `python3 -c "import json;print(json.load(open('tools/l3_harness/targets.json'))['tile_reader']['corpus'])"` names a factory tile; `grep -c B48R058R tools/l3_harness/targets.json` prints `0`; `python3 tools/l3check.py --build-corpus` lists `tile_reader` BLOCKED with that corpus.
@@ -1153,6 +1153,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: `python3 tools/l3check.py --build-corpus --json /tmp/opencode/h106.json` prints both generated corpus entries with an explicit status and reason; on a host with the M5.34 tree the status is `NOT RUNNABLE (no entry point)`, without it `NOT RUN (no tree)`; count of targets and `runnable` unchanged; `selftest.py --only l3check` PASS.
   - Stop: if M9.13 lands first and makes `tile_reader` runnable, this must assert our tile is the corpus it *ran* on (the runner's log names the path), not merely that it is listed.
   - Claims: C-4370–C-4379
+  - Result: EXP `docs/experiments/EXP-2026-11-20-H106-l3-on-l2-tile.md` (C-4370–C-4373). The Stop clause applied: M9.13 made the reader runnable through `datask_l3.py mount`. This task ran it on the tile L2 actually writes (M5.11, `1927c3a9…`, dir (76,940), position 51.10,16.93): SAME as the factory over 28 reads, with the slot-table parser `0x00414dbc` (EU2011) over both changed pair entries. The header-count flip gives DIFFERENT; the synthetic tile gives DIFFERENT (directory read fails). `datask_l3 mount --json` now names the served file's SHA-256. `targets.json` `tile_reader.generated_corpus` (4 rows), and `l3check` lists them with SHA-256-driven status (`RAN (recorded)` ×3, M5.34 `NOT RUN (no tree)`, no Geofabrik here); `runnable=1/10` unchanged. Records not read (M9.53).
 
 - [ ] **H107 — `l3check --build-corpus` says "runnable 1/7" while two of the seven are blocked only on a missing argument**
   - Status: open · Owner: — · Critical: no · Pair: required
