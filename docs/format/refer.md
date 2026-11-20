@@ -72,6 +72,43 @@ There are 33 numbered shards, matching the 33 regions:
   brand code (last two bytes of the record). The brand code selects the
   `BICON001` logo; see [assets.md](assets.md) for the verified table.
 
+### POINT page chains and chain tables (M5.26)
+
+> **Status:** `OBSERVED` on EU 2011 (33 files) and US 2011 (11 files);
+> not yet tied to a firmware reader (C-2950–C-2953).
+
+Inner zlib pages of a POINT `.DAT` are stored as **chains**: each chain
+starts at a 0x100-aligned base and its pages follow back to back, each
+padded with zeros to a 4-byte boundary. Every chain is described by a
+**chain table** at a 0x100-aligned offset after it (all integers big-endian,
+lengths in 16-bit words):
+
+```
+u16 per_page      // 1000 (name pages), 400, 2000 — the three chains of every file
+u16 0
+n × { u32 start_w,   // page offset from the chain base
+      u32 comp_w,    // stream length rounded up to 4 bytes
+      u32 inner_w }  // inflated page length
+// start_w[i+1] = start_w[i] + comp_w[i]
+```
+
+- Every file of both builds carries exactly three tables (per_page 400, 1000
+  and 2000); the 1000 chain is the name chain. US 2011: 8,229 name pages,
+  the same count M5.21 edited by pattern.
+- Every page of every chain walks exactly with the firmware record walk of
+  `fn 0x003f5194` (EU2011, C-2540): BE `u16 w`, size `2*(w & 0x3ff)` bytes.
+  The `ff ff` record end of the section below is **not** universal (6 of the
+  16 EU POINT010 name pages fail it); the 10-bit length is the rule.
+- The table holds no chain base and no absolute offset. What tells the reader
+  where a chain and its table are (the **chain locator**) is `UNKNOWN`: no
+  position in the first 0x8000 bytes holds a base, table or chain end in any
+  of 72 encodings in more than 4 of 33 EU files (C-2954).
+- Free space after a chain (up to the next non-zero byte) is 24–248 B per
+  name chain: 3,656 B over 33 EU files, 1,460 B over 11 US files.
+- `tools/point_pair_regen.py` re-packs a chain in place from these tables;
+  index chains (`4e 20 00 00` + `u32` word lengths, as in `ADDRE`) are a
+  separate structure and are not covered.
+
 ### POI name page framing (page level)
 
 A POINT inner zlib page that carries display names is a chain of
@@ -99,8 +136,8 @@ Only some pages are record pages. In the EU 2011 `REFER001` tree 1,834 of
 8); the others start `00 xx 00 yy` and are a different (bit-packed) page
 type.
 
-Consequence for a rename: a different-length name needs only the record's
-`len2` byte updated; the rest of the page shifts, and the `.DAT` logical
+Consequence for a rename: a different-length name needs the record's
+`len2` byte and the field-5 length byte updated (see the next section); the rest of the page shifts, and the `.DAT` logical
 size does not change because the page keeps its absolute offset. The byte
 delta must be **even**. The recompressed page must still fit in the space
 before the next stream (POINT032 page `0x4200`: 655 bytes used, next stream
@@ -118,8 +155,14 @@ those lengths up to find field 5. On US `POINT010` record 0 this gives
 `HANA HEALTH CENTER` (9 words at `+0x5e`), and the address `4590@HANA HWY\0`
 follows as field 6. A renamed record must keep these length bytes consistent with
 the new text. A same-length rename is safe; a different-length rename must also
-change the name's length byte (`mutate_refer_poi.py --resize` does not, yet:
-C-5117, M5.52). Evidence: EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5117.
+change the name's length byte. In the file-order record the length of field `f`
+is byte `loc + f`, `loc = 2*((hi+lo)+8)` of `u16[rec+10]` for header class 3/2
+(`fn 0x003f5e10` reads the high byte for even `f`); on the US and EU `POINT010`
+name pages all 2000 records are class 3 (C-5260). `mutate_refer_poi.py --resize`
+patches both `len2` and that byte, and the accessor then returns the whole new
+name and the unchanged address for −2, 0, +2 and +10-byte renames (M5.52,
+C-5261). Evidence: EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5117;
+EXP-2026-11-19-M5.52-resize-field-len, C-5260–C-5265.
 
 ### POI → location link (solved)
 
