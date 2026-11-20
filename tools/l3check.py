@@ -1457,40 +1457,64 @@ def test_full_run():
     assert probe["synthetic"] is True and probe["l3_claim"] is False, probe
     assert probe["input"]["manifest_sha256_match"] is True, probe["input"]
     assert probe["steps"] and probe["steps"] > 0, probe
-    # M9.55: the POINT walker row is runnable from the corpus alone (its image
-    # comes from the target's build, its pair from the corpus).
+    # M9.55: the POINT walker row is runnable from the corpus alone when the
+    # us2011 head is present (image from the target's build, pair from the
+    # corpus); without the archive head it is honestly BLOCKED, not FAIL.
     point = rows["point_walk_us2011"]
-    assert point["status"] == "PASS", point
-    assert point["verdict"] == "ACCEPT" and point["expected"] == "ACCEPT", point
-    assert point["claims"] == ["C-5770", "C-5771", "C-5772"], point
-    assert point["l3_claim"] is True, point
+    us_head = (BUILD_IMAGES.get("us2011") or (lambda: None))()
+    if us_head is not None:
+        assert point["status"] == "PASS", point
+        assert point["verdict"] == "ACCEPT" and point["expected"] == "ACCEPT", point
+        assert point["claims"] == ["C-5770", "C-5771", "C-5772"], point
+        assert point["l3_claim"] is True, point
+        expected_blocked = [
+            "applaunch_mapcode_compare",
+            "cmp_ind_reader",
+            "cmp_ind_reader_us2011",
+            "drstr_parser",
+            "hddinfo_compare",
+            "lev3456_reader",
+            "mapcode_comparator",
+            "mmain_reader",
+            "tile_reader",
+            "tile_section4_reader",
+        ]
+        expected_counts = {"pass": 2, "fail": 0, "skip": 0, "blocked": 10,
+                           "runnable": 2, "total": 12}
+    else:
+        assert point["status"] == "BLOCKED", point
+        assert point["verdict"] is None and point["accepted"] is None, point
+        assert point["l3_claim"] is False and point["reason"], point
+        assert "firmware head for build 'us2011' not found" in point["reason"], point
+        assert point["claims"] == ["C-5770", "C-5771", "C-5772"], point
+        expected_blocked = [
+            "applaunch_mapcode_compare",
+            "cmp_ind_reader",
+            "cmp_ind_reader_us2011",
+            "drstr_parser",
+            "hddinfo_compare",
+            "lev3456_reader",
+            "mapcode_comparator",
+            "mmain_reader",
+            "point_walk_us2011",
+            "tile_reader",
+            "tile_section4_reader",
+        ]
+        expected_counts = {"pass": 1, "fail": 0, "skip": 0, "blocked": 11,
+                           "runnable": 1, "total": 12}
     blocked = sorted(name for name, row in rows.items() if row["status"] == "BLOCKED")
     # The firmware_call readers (EU cmp_ind_reader, US cmp_ind_reader_us2011)
     # need external --image/--cmp/--ind, so a corpus-only run reports them
     # BLOCKED in this mode (M9.11b, M1.22); so does the AppLaunch map-code
     # compare, which needs --image/--input/--unit-from (M9.6), and the
     # DRSTR001 parser, which needs --image/--input (M9.24).
-    assert blocked == [
-        "applaunch_mapcode_compare",
-        "cmp_ind_reader",
-        "cmp_ind_reader_us2011",
-        "drstr_parser",
-        "hddinfo_compare",
-        "lev3456_reader",
-        "mapcode_comparator",
-        "mmain_reader",
-        "tile_reader",
-        "tile_section4_reader",
-    ], blocked
+    assert blocked == expected_blocked, blocked
     for name in blocked:
         row = rows[name]
         assert row["verdict"] is None and row["accepted"] is None, row
         assert row["l3_claim"] is False and row["reason"], row
         assert row["claims"] == list(TARGET_EVIDENCE[name]["claims"]), row
-    assert report["counts"] == {
-        "pass": 2, "fail": 0, "skip": 0, "blocked": 10,
-        "runnable": 2, "total": 12,
-    }, report["counts"]
+    assert report["counts"] == expected_counts, report["counts"]
 
 
 @check("run: --target selects exactly one target (PASS)")
