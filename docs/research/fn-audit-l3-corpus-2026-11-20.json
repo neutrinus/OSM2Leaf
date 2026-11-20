@@ -403,6 +403,7 @@
   "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
+  "docs/experiments/EXP-2026-11-20-M4.40-request-kinds.md",
   "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
   "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
@@ -436,10 +437,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 429,
-  "citations": 1098,
-  "unique_va": 273,
-  "start": 947,
+  "files": 430,
+  "citations": 1099,
+  "unique_va": 274,
+  "start": 948,
   "inside": 71,
   "corrected": 5,
   "gap": 68,
@@ -568,7 +569,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3803,
+   "line": 3831,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
@@ -9198,6 +9199,15 @@
    "file": "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
    "line": 144,
    "va": "0x0041c8c4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.40-request-kinds.md",
+   "line": 126,
+   "va": "0x00408ea4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
