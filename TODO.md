@@ -3944,7 +3944,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Result: EXP `docs/experiments/EXP-2026-11-20-M6.16-s3-generator.md`; `tools/s3_vertex_patch.py` (selftest 18 checks) reproduces the patched tile `fc4d4bfc…` and the S3 image `186f2ded…` byte for byte from the factory US image (117 B in `[107324608,107324896)`, cardcheck PASS, C-5250). The directory `x` word is signed `mesh_x − 1024` (65280 → lon −156); the level-1 grid hits Ka Lae/Upolu/Kumukahi within 161/202/1,068 m, y-flip and C-2054's reading miss (C-5251). The vertex moves **63.8 m east** at 20.1672°N 155.7218°W, north Kohala, island of Hawaii (C-5252; C-2054 retracted); s3.md "Expected place", "Generator" and "Stacked variant" rows updated. S2 is not reproducible today (`1f1b444e…` ≠ `af4c9ff1…`; S3-on-today's-S2 `fc1433d2…`, C-5253) → **M6.20**.
 
 - [ ] **M6.20 — S2 card: a generator that reproduces `af4c9ff1…`, or a re-pinned S2**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m6.20-s2-generator · Critical: no
   - Pair: solo
   - Depends: M6.16 (done — found the gap), M5.13b (the S2 recipe)
   - Goal: the card plan stacks stages (S3 starts from the accepted S2), but the recorded S2 image `af4c9ff14e6b2749…` (M5.13b, C-2351) has no generator: today's `mutate_refer_poi.py --page 0x840ba0 --old "HANA HEALTH CENTER" --new "OSM2LEAF TEST POI1"` (default and `--whole-blob`) writes a 4,240,425 B `.cmp` (`b4ef43b9…`) where M5.13b wrote 4,233,336 B, giving S2 `1f1b444e…` (C-5253). A bench session that loses `us_S2.img` cannot rebuild it, and the stacked S3 hash depends on it.
