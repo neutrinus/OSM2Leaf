@@ -332,14 +332,16 @@ lookup path. Navi.exe has 0 compressed executable sections (C-2128).
 **Content reader / consumed fields (NOT FOUND, M3.16 stop):** No reader VA that
 consumes the real 12-byte table (big-endian `key`/`length`/`offset`) was
 identified in decodable build-A Navi.exe. Four signature families over sec0
-(5,556,224 B) — the two of r2, plus (3) `mov.w @Rm,R0` + `add #12` +
-`cmp/eq #-1` (2 candidates, `0x0043f45e`/`0x004a1626`, both compare a scanned
-`u16` to `#1`/`#16`, not `0xffff`), and (4) `mov.w @(10,Rm)` +
-`mov.w @(6,Rm)` + `add #12` (16 candidates, all unrelated record consumers) —
-put no function on both `0xffff`-at-+0 and the +6/+10 fields. L3 read-watch of
-the M3.23 candidates on the factory INTER001 page attributes only generic
-context-header reads (`0x003fdd18`/`0x0040eed8` at +0x68; `0x00407724` at
-+0x0..+0x1c), not record bytes. Consumed-field mapping is `UNKNOWN`. The
+(5,553,664 B stored / 5,553,430 B vsize, `python3 tools/inter_reader_scan.py
+scan archive/head256.img`) — the two of r2, plus (3) `mov.w @Rm,R0` + `add #12`
++ `cmp/eq #-1` (1 candidate, `0x00392122`, a byte `@(1,Rm)`/`0xff` walker, not
+the u16-key table), and (4) `mov.w @(10,Rm)` + `mov.w @(6,Rm)` + `add #12`
+(0 candidates) — put no function on both `0xffff`-at-+0 and the +6/+10 fields.
+f1 (`mov.w @(8,Rm)` + `cmp/eq #-1` + `add #12`) and f2 (`0x1108` construction)
+return 0. L3 read-watch of the M3.23 candidates on the factory INTER001 page
+attributes only generic context reads (`0x00407724` at +0x0..+0x1c; `0x003f0aec`
+a `u16` at +0x0; the rest fault on an unmapped null target), not record bytes.
+Consumed-field mapping is `UNKNOWN`. The
 `0x003f51e0` tagged field-dispatch resolver (POINT/ADDRE/RDSTM, C-884/C-2184)
 is not the same record form. See
 `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (C-2210–C-2214) and
