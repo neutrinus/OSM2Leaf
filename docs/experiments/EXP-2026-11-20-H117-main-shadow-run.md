@@ -77,7 +77,9 @@ the tip and is not shadowed.
 
 - **Positive:** the same classifier on the real 04:12–04:36 window must find
   the four red runs of the task block; `--replay` prints 7 red-tip moments for
-  the 100-run list.
+  the 100-run list. A deliberately red branch (`h117-red-control`, one
+  duplicate claim row) must show `claims_check: FAILED` and red `quality`
+  checks on its PR (the Done-when control).
 - **Negative:** a run list whose newest run is `success` must be `0 salient`
   and exit 0 (`--dry-run` on today's tip); an empty run list must be exit **2**
   ("cannot verify"), never 0; a `cancelled` run must not count as a green that
@@ -146,6 +148,9 @@ main_watch: main tip d2fb7b48 success: 0 salient, 3 shadowed, 9 cancelled, 40 ru
 main_watch: GREEN -- no salient red on main
 ```
 
+The report command, `--branch main --limit 20`: `0 salient, 0 shadowed, 1
+cancelled, 20 runs`, tip `d2fb7b48` `success` — no red without a board line.
+
 Synthetic red tip (`--runs-json h117-fixture-red.json --dry-run`) exits **1**:
 
 ```
@@ -157,6 +162,27 @@ main_watch: RED -- opened (dry-run) issue
 Empty list exits **2** (`0 runs for main/CI quality gate -- cannot verify`).
 
 `--selftest`: `main_watch selftest: OK (19 checks)`.
+
+**Control on a real red PR** (branches off `origin/main` at `d2fb7b4`, one row
+`| C-5540 | control: … |` appended to `claims.md`, pushed as
+`h117-red-control`, PR #335):
+
+```
+duplicate claim IDs: 1
+claims_check: FAILED                       # rc=1
+gate: 1 pass, 2 fail, 1 skip -- not covered: fn_audit (missing archive/head256.img)   # gate rc=1
+
+gh pr checks 335
+quality (py3.11)  fail  1m0s
+quality (py3.13)  fail  1m3s
+quality (py3.14, informational)  fail  1m12s
+l1l2 (py3.11)  pass
+l1l2 (py3.13)  pass
+```
+
+The control PR was closed unmerged and its branch deleted; it proves a red
+verdict is visible on the PR and that `main` is unprotected (a red PR can still
+be merged by a push — the gap C-5750 records).
 
 Branch protection:
 
@@ -179,6 +205,10 @@ Cycle after the burst (`08:43`–`11:10`): `Counter({'success': 22, 'cancelled':
   40-minute window; the latest red (`98e0e3eb`) is covered only by a later
   green on a *different* commit (`52acb7c7`, `04:43:37Z`), not by a red-free
   tip.
+- **FACT:** the control PR #335 (one duplicate claim row on `origin/main`) runs
+  `quality (py3.11)` and `quality (py3.13)` to **fail** (`1m0s`, `1m3s`), so a
+  red verdict is visible on the PR; the same red is mergeable by any push
+  because `main` is unprotected.
 - **OBSERVED:** under the new policy the same 100-run history has **7** red-tip
   moments (each would have failed the watchdog), and **3** shadowed reds in the
   newest 40 runs. The `cancelled` rows (21/100) are the concurrency de-dup and
@@ -214,6 +244,13 @@ gh run list --workflow "CI quality gate" --branch main --limit 100 \
 python3 .github/scripts/main_watch.py --replay /tmp/runs.json          # 7 red-tip moments
 python3 .github/scripts/main_watch.py --runs-json /tmp/runs.json --dry-run
 python3 .github/scripts/main_watch.py --selftest                       # OK (19 checks)
+
+# the Done-when control: a deliberately red branch shows a red PR check
+git worktree add -b h117-red-control /tmp/h117-red origin/main
+printf '\n| C-5540 | control: duplicate claim ID must fail claims_check | VERIFIED | H | EXP-2026-11-20-H117-main-shadow-run |\n' \
+  >> /tmp/h117-red/docs/research/claims.md
+(cd /tmp/h117-red && python3 tools/claims_check.py; git commit -am control && git push -u origin h117-red-control)
+gh pr checks <the control PR>          # quality (py3.11)/(py3.13) fail
 ```
 
 ## Follow-ups
