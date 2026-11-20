@@ -2000,6 +2000,16 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-5402 | The location code alone is the join key: the 47,678 code-matched records whose LCTBL neg/pos differ from the RDSTM triple place equally (47,657 placed, all in their country, random 1,876/26,050; neighbours < 1 km 7,303/7,326, shuffled 16); 46,822 of them are road ends (no LCTBL neg/pos field, triple holds 0). Code alone: 158,445/158,473 records placed. Refines C-5135 (neg/pos agreement is a confirmation, not a condition). | VERIFIED (EU, with control) | H | EXP-2026-11-20-M4.16b-tmc-placement-all-tables; `rdstm_place.py place-all --join code-only` |
 | C-5403 | Link-record roles `k&3`: role 1 is exactly the role-0 link list reversed in 24,948/66,443 joined records that carry both (per table 16 %–65 %); HYPOTHESIS roles 0/1 = the two travel directions; roles 2/3 and the entry bits `a`/`b` 0x4000/0x8000 stay UNKNOWN (M4.49). | OBSERVED | M | EXP-2026-11-20-M4.16b-tmc-placement-all-tables; `rdstm_place.py place-all` |
 
+## M4.49 — RDSTM001 link-group reader search, EU2011 (C-5375–C-5379)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5375 | EU2011 `Navi.exe` (IMG256 `92aa525d…`): no function of the TMC data-layer subtree (230 functions reachable within depth 8 from `0x004003f4`, `0x004007b0`, `0x00412ac0`, `0x00417618`, `0x0041359c`, `0x00413708`, `0x00413828`, `0x004129d0`, `0x003bcd20`, `0x003bcc7c`) masks with a `0x1fff` pool literal, and none shows two of the derived link-group features (mask, container address build, 6-byte stride loop, 18-byte head); module-wide the 3 mask+address-build functions (`0x004b5eb8`, `0x004f4a24`, `0x0050b41c`) are guidance code. Signature is data-derived (weakest kind). | OBSERVED (negative, with control) | M | EXP-2026-11-20-M4.49-rdstm-group-reader; `rdstm_reader_scan.py --graph … --roots …` |
+| C-5376 | EU2011: message `0x14f4` shares dispatcher entry `0x004003f4` with the TMC location request `0x14e4` (table `0x0017a0a0`), and the generic sector reader `0x00417618` / `0x00412ac0` gives it its own buffer slot `0x009cfbb4` (`0x14e4` kind 1 `0x009cfbac`, `0x14e8` `0x009cfbb0`); `0x14f4` is loaded by 7 functions, all in the data layer. | OBSERVED | H | EXP-2026-11-20-M4.49-rdstm-group-reader; `rdstm_reader_scan.py IMG256 --const 0x14f4`; `sh4dis.py --va 0x00417618` |
+| C-5377 | The link groups are likely read as raw sectors through the generic reader (request `0x14f4` or `0x14e4` with another kind) and parsed by a requester outside the static TMC subtree (indirect call or another task's `OSM_TaskSend`). | HYPOTHESIS | L | EXP-2026-11-20-M4.49-rdstm-group-reader |
+| C-5378 | Still UNKNOWN after M4.49: the reader VA, entry bits `a`/`b` 0x4000/0x8000, roles `k&3` (roles 0/1: C-5403), header words `3`/`122`; no L3 run without a candidate. | UNKNOWN | — | EXP-2026-11-20-M4.49-rdstm-group-reader |
+| C-5379 | M4.49 is `blocked` (rule 14 stop: reachability walk + two derived signature families without a candidate); unblocker M4.51 (senders of `0x14f4`/`0x14e4`, what `0x14f4` reads). Positive controls: `0x1fff` loads found at 230 sites (e.g. `0x004248da` in `fn 0x004247c0`, section-2 band); `--const 0x14e4` lists the known sites `0x004125fa` and `0x003bcb48`. | OBSERVED (gap) | H | EXP-2026-11-20-M4.49-rdstm-group-reader |
+
 ## M1.13 — Factory encoder for REFER001 POI pages (C-2570–C-2579)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
@@ -4021,6 +4031,21 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5197 | RESERVED (M6.17). | — | — | — |
 | C-5198 | RESERVED (M6.17). | — | — | — |
 | C-5199 | RESERVED (M6.17). | — | — | — |
+
+## M6.18 — LeafSDTools PROD screen on Marek's unit (C-5200–C-5209)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5200 | Marek's US unit is model `QY7200ND`, Product ID `10 20 02 12` (PROD `+0x40` and `+0x20..+0x23`, flash `0xA040`/`0xA020`). | OBSERVED | H | LeafSDTools `111-beta` main screen photo; `Flash.cpp` `GetProdSection`; EXP-2026-11-20-M6.18-prod-screen |
+| C-5201 | The firmware Target ID (`KernelIoControl 0x01013208`, byte 0 non-zero/non-`FF`, byte 1 = area) is PROD `+0x20..+0x23`; the market byte is flash `0xA021` (`0x20` USA here), not `0xA022` as C-078 says (`0xA022` = `0x02`). | HYPOTHESIS (strong) | M | C-5200; us-eu-region.md Target ID; test: M6.19 on the dump |
+| C-5202 | On this unit IMMO code is `FF FF FF FF` and IMMO check is `00` (PROD `+0xA0`, `+0x193`): the immobiliser handshake is disabled. | OBSERVED | H | EXP-2026-11-20-M6.18-prod-screen |
+| C-5203 | RESERVED (M6.18). | — | — | — |
+| C-5204 | RESERVED (M6.18). | — | — | — |
+| C-5205 | RESERVED (M6.18). | — | — | — |
+| C-5206 | RESERVED (M6.18). | — | — | — |
+| C-5207 | RESERVED (M6.18). | — | — | — |
+| C-5208 | RESERVED (M6.18). | — | — | — |
+| C-5209 | RESERVED (M6.18). | — | — | — |
 
 ## M4.40 — the router reader hands section 2 to the data-access task (C-5640–C-5649)
 
