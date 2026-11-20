@@ -192,7 +192,10 @@ def reachable(words) -> set[int]:
     next instruction.  Code reached only through a computed jump (a switch
     table) is **not** in the set, so the set under-approximates code; the
     slot pass trusts an unreached halfword to be data only when the function
-    has no reached computed jump (H118).
+    has no reached computed jump (H118).  Known blind spots: code reached only
+    by an in-function ``bsr`` or by an SEH ``__except`` handler is treated as
+    unreached, so in a "closed" function its loads are dropped (no effect on
+    the EU2011/US2011 ``Navi.exe`` census, H118 navigator review).
     """
     n = len(words)
     seen: set[int] = set()

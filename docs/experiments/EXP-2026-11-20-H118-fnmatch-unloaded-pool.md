@@ -57,7 +57,7 @@ address (H113/H118 Stop); or any `UNIQUE` row that stops being `UNIQUE`.
 2. **Commands** (from the worktree root; `S` is any scratch directory):
 
    ```bash
-   S=/home/user/scratch/h118; mkdir -p "$S/before"
+   S=$(mktemp -d); mkdir -p "$S/before"
    git archive d8e838f tools | tar -x -C "$S/before"
    python3 tools/fn_verdict_diff.py dump archive/head256.img archive/us256.img -o "$S/before.json" --tools "$S/before/tools"
    python3 tools/fn_verdict_diff.py dump archive/head256.img archive/us256.img -o "$S/after.json"
@@ -127,10 +127,14 @@ PHANTOM-SLOT 0 … IMMEDIATE 68 OPERANDS 1 EDIT 147 REWRITE 299 UNPAIRED 329`.
 ### Residual counted (`fn_verdict_diff slots --verdicts before.json`)
 
 ```
-# A: 7596 functions, 89567 H113 loads; dropped: target 27  unreached 233  in 102 functions
-# B: 7520 functions, 87830 H113 loads; dropped: target 22  unreached 218  in 98 functions
-# rows with a dropped load on either side: UNIQUE 45/5945  DIFFERENT 10/171  CALLORDER 7/56  AMBIGUOUS 13/566  NOMATCH 31/858
+# A: 7596 functions, 89567 H113 loads; dropped: target 27  unreached 233  in 102 functions; gained 3
+# B: 7520 functions, 87830 H113 loads; dropped: target 22  unreached 218  in 98 functions; gained 3
+# rows with a dropped load on either side (EU side only when the row has no B address): UNIQUE 45/5945  DIFFERENT 10/171  CALLORDER 7/56  AMBIGUOUS 13/566  NOMATCH 31/858
 ```
+
+`gained` counts halfwords H113 had masked as slots that H118 unmasks and
+keeps as real loads (3 per build). A NOMATCH row has no US address, so
+only its EU function is checked.
 
 In the nine changed rows the dropped loads are identical in EU and US
 (same index, same word), e.g. `0x00422188`: `i=246 9d39`, `i=248 df46`,
@@ -176,6 +180,10 @@ transitions `UNIQUE→NOMATCH 48`, `UNIQUE→AMBIGUOUS 11`, `UNIQUE→CALLORDER 
 - **HYPOTHESIS:** the 858 NOMATCH are not a slot problem any more; their mix
   (`TWIN 14`, `EDIT 147`, `REWRITE 299`, `UNPAIRED 329`) is real code change
   or pairing, which H114 and the classifier address.
+- **UNKNOWN:** code reached only by an in-function `bsr` or by an SEH
+  `__except` handler counts as unreached, so in a "closed" function its real
+  loads are dropped. No row of this corpus is affected (navigator probe), but
+  another module could be.
 - **UNKNOWN:** whether `mova` targets (multi-word constants such as the
   doubles above) should be masked as pool data; today their bytes are hashed
   as instructions, identically on both sides.
@@ -190,6 +198,32 @@ case still does not, and the census moves `DIFFERENT 171 → 162`,
 `UNIQUE 5945 → 5954` with no other change; NOMATCH stays 858 (the residual
 explains none of them). Claims C-5800–C-5806; C-5571's census is historical
 for the 9 rows.
+
+## Corrections after navigator review
+
+Round 1: no blockers, 2 should-fix, 4 nits. All six were fixed on this branch:
+
+1. *(should-fix)* C-5571's census was stale for the 9 rows and not marked
+   historical. It now carries "Historical for 9 rows: H118 supersedes it with
+   5954/162/56/566/858 (C-5801)", the same way C-3626 is marked.
+2. *(should-fix)* C-5570 still said "Residual (open)" next to "Closed by
+   H118". It is reworded as closed, and its `OK (46 checks …)` evidence is now
+   marked "at `d8e838f`; 53 after H118".
+3. *(nit)* `fn_verdict_diff.dropped` did not count the loads H118 newly keeps
+   once a slot is unmasked. `slots` now prints `gained 3` for each build
+   (Observations, C-5802).
+4. *(nit)* "on either side" was inaccurate for NOMATCH rows, which have no B
+   address. The `slots` header, the Observations and C-5802 now say that only
+   the EU side is checked for those rows.
+5. *(nit)* `reachable` treats code reached only by an in-function `bsr` or an
+   SEH `__except` handler as unreached. This is now stated in its docstring
+   and under UNKNOWN in Interpretation. The navigator's probe found no effect
+   in this corpus.
+6. *(nit)* Method used a personal scratch path. It now uses `S=$(mktemp -d)`.
+
+The navigator re-ran the census, the selftest (53), the fixture (0 mismatch),
+the gate (4/4) and the falsifier (0), and got the same numbers. None of the
+fixes changes a verdict.
 
 ## Overtaken by a later commit
 

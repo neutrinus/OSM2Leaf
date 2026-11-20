@@ -96,10 +96,16 @@ def h113_loads(fm, words, base_va):
 
 
 def dropped(fm, words, base_va):
-    """``{"target": n, "unreached": n}`` loads H113 kept and H118 drops."""
+    """``{"target", "unreached"}``: loads H113 kept and H118 drops.
+
+    ``"gained"`` counts the converse: a halfword H113 had marked as a slot
+    (so it named nothing) that H118 unmasks and keeps as a real load.
+    """
     now = {i for i, _l, _s, _d in fm._pool_loads(words, base_va)}
     live = fm.reachable(words)
     out = Counter()
+    old = {i for i, _j, _s in h113_loads(fm, words, base_va)}
+    out["gained"] += len(now - old)
     for i, j, size in h113_loads(fm, words, base_va):
         if i in now:
             continue
@@ -120,13 +126,13 @@ def slots_report(eu, us, module, image_start, verdicts=None):
             d = dropped(fm, words, va)
             tot["loads"] += sum(1 for _ in h113_loads(fm, words, va))
             tot.update(d)
-            if d:
+            if d["target"] or d["unreached"]:
                 tot["functions"] += 1
                 hit[(name, va)] = d
         print("# %s: %d functions, %d H113 loads; dropped: target %d  "
-              "unreached %d  in %d functions" % (
+              "unreached %d  in %d functions; gained %d" % (
                   name, len(funcs), tot["loads"], tot["target"],
-                  tot["unreached"], tot["functions"]))
+                  tot["unreached"], tot["functions"], tot["gained"]))
     if verdicts:
         by = Counter()
         rows = Counter()
@@ -136,7 +142,8 @@ def slots_report(eu, us, module, image_start, verdicts=None):
             b = int(r["b"], 16) if r["b"] else None
             if ("A", va) in hit or (b is not None and ("B", b) in hit):
                 by[r["v"]] += 1
-        print("# rows with a dropped load on either side: " + "  ".join(
+        print("# rows with a dropped load on either side (EU side only when "
+              "the row has no B address): " + "  ".join(
             "%s %d/%d" % (v, by[v], rows[v]) for v in _cols(rows)))
     return 0
 
@@ -224,7 +231,7 @@ def selftest() -> int:
         ws[k] = w
     check("slots: hw50 is an H113 load that H118 drops as unreached",
           50 in {i for i, _j, _s in h113_loads(fm, ws, 0x1000)}
-          and dropped(fm, ws, 0x1000) == Counter(unreached=1))
+          and dropped(fm, ws, 0x1000) == Counter(unreached=1, gained=0))
     ws[1], ws[11] = 0xA039, 0x0023        # bra over the pool, open function
     ws[124] = 0x0023
     check("slots: a slot on a reached insn is dropped as target",
