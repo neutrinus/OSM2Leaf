@@ -1935,8 +1935,9 @@ of the four numbers above says so in its first line.
   - Stop: if more than 30 % of calls in the REFER subtree are unresolved indirect calls, stop and do M3.24 first.
   - Claims: C-3540–C-3549
 
-- [ ] **M3.24 — Dispatch tables in `Navi.exe` sec1 `INIT`: who is called indirectly**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M3.24 — Dispatch tables in `Navi.exe` sec1 `INIT`: who is called indirectly**
+  - Status: done · Owner: task/m3.24-sec1-dispatch-tables · Critical: yes
+  - Result: `docs/experiments/EXP-2026-11-19-M3.24-fptables.md` (C-3550–C-3559), new `tools/fptables.py`. EU2011: 69 tables (62 sec0, 7 sec1), 481 of 1,167 uncalled functions are entries, but only 21 of 395 unresolved `jsr @Rn` are table calls. No table holds a POINT/ADDRE/LCTBL reader; `0x0017a0a4` (message map, `fn 0x004124dc`) sits 1–2 calls above `0x004125a8`, `0x00412ac0`, `0x003fbed8`. `Lv*` block is data with no code pointer and no direct reference. Table list in `docs/format/firmware.md`; `--edges` (1,113) ready for M3.23.
   - Note (H112, 2026-11-19): corrected census (C-4623): 1,167 EU2011 functions have no static caller; 1,110 of them occur as an aligned word in sec0 and 57 in sec1. Unresolved `jsr @Rn` are 395 in 258 functions (not 589). The work is now small and mechanical: find runs of ≥ 3 consecutive code pointers in sec0 rodata (`0x00011000…0x0032ed9c`), find the function that loads each run's base (`sh4xref --to`), add `table` edges to `callgraph.py`. M3.26 already did this by hand for the two tables of the map-file task (`0x0017a888`, `0x0017ab38`) — use them as the positive control.
   - Note (H101, 2026-11-17): **H51 gave a wrong count — corrected (C-4283).** Of the 6,052 pointers in sec1 `INIT` only 281 point at code (163 distinct targets); 5,771 point at strings and constants in sec0 below `0x0032ed9c`. The function-pointer tables are mostly in **sec0**, which was always readable: of the 956 functions with no static caller, 914 appear as a 32-bit word in sec0 (a pool literal passed as a callback, or a table), 42 only in sec1 `INIT`, 1 nowhere. So: scan sec0 for runs of ≥ 3 consecutive words that are pdata `START`s — those are the tables — and tie each to one of the 589 unresolved `jsr @Rn` sites. The functions with the most unresolved calls are `0x003a2b94` (49), `0x004d78b4` (41), `0x0032efa8` (25, calls the file-layer dispatcher `0x00417924`), `0x004c09dc` (19).
   - Depends: — (H51: sec1 decodes; M1.19 gives the cached bytes)
@@ -2625,8 +2626,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-1910–C-1919
   - Result: EXP-2026-11-06-M5.10-mkcard.md — `mkcard.py` copies firmware/pre-partition/0x06000000 verbatim and rebuilds the FAT32 map partition from a tree. Real EU 2011 unchanged-tree rebuild: byte-identical to IMG (SHA-256 `105e2032…76307`, 0 diff ranges), `cardcheck.py --image` PASS (480 files, 194 pairs, 46 tiles). Synthetic self-test OK (sparse FAT32, 0x06000000 preserved, changed-tree fresh build reads back). Diff ranges explained; cannot reproduce SD lock state/CID. `selftest.py` 34 passed.
 
-- [ ] **M5.11 — End-to-end: one generated tile on an accepted card image**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.11 — End-to-end: one generated tile on an accepted card image**
+  - Status: done · Owner: task/m5.11-one-generated-tile · Critical: yes
   - Depends: M5.4, M5.6, M5.10, M5.12b, M4.20 (accept facts: M2.3, M2.5, M2.12
     done; M2.15 and M9.6/M2.4 for the exact map-code bytes)
   - Goal: the Phase-2 milestone — turn OSM input into a card image that the
@@ -2642,6 +2643,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     map-code comparator inputs, attestation, SD lock) and states, per gate,
     pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
   - Claims: C-2330–C-2339 (was C-1970–C-1979, already used by H9)
+  - Result: EXP-2026-11-19-M5.11-one-generated-tile. `out.img` `b88a31f4…f95fe3` = EU 2011 card + `B48R058R` with dir (76,940) level 1 regenerated from the committed Dolnośląskie fixture `m5.37-splice.osm` (sandbox has no OSM host; real-extract run is M5.44): 42,542 diff bytes, all in the tile's clusters; `cardcheck --image` + `l2check` (incl. `--graph-tiles`) PASS; readback 18/18 within 1 m. Gates: 7 PASS (HDD_INFO, map-code check 1 ACCEPT in L3 under the declared unit record, `0x06000000` copy, version block, manifests, zlib, FAT), 2 not-applicable (`HDD_CHK.ATT`, SystemSD/UserSD check), 3 cannot-verify-offline (MapDBVer range, SD lock, tile reader L3 BLOCKED).
 
 - [x] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
   - Status: done (tool; the real S1/S2 images are **M5.13b**, C-2027
