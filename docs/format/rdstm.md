@@ -345,34 +345,47 @@ C-2205, C-2208, C-2209). All VAs below are `Navi.exe` build A `CODE sec0`
   page-buffer reader is the per-volume page-cache registration `0x0040de98`
   (M9.38, C-3607), which copies `@(8,r4)`/`@(4,r4)`/`@(2,r4)` into a 20-byte
   slot of the 32×20 table at `0x00d53640` and is *not* the walk (C-2208).
-- **Twelve extractors, one per catalog field,** called in field order by the
-  TMC record decoder `fn 0x003bc960` (C-882); the index is set by the
-  `mov #N,r6` + `jmp 0x003f61bc` thunks `0x003f60e0/ec/f8/6104/6110`,
-  `0x003f68b0`, `0x003f66b8`:
+- **Twelve extractors, one per catalog field,** called in this order by the
+  TMC record decoder `fn 0x003bc960` (C-882), filling the 496-byte struct at
+  `0x006f3918`. The field index is the `r6` each extractor passes to
+  `0x003f61bc`; the accessor thunks are `0x003f6704` (`mov #1`, field 1),
+  `0x003f6710` (2), `0x003f671c` (3), `0x003f6728` (4), `0x003f68b0` (10).
+  The `0x003f60e0/ec/f8/6104/6110` thunks are **not** accessor thunks — they
+  `jmp 0x003f5d98`, the field-length function:
 
-  | Field | Catalog column | Extractors / index | Struct offset |
-  | --- | --- | --- | --- |
-  | 0 | location type | `0x003f66b8` (0) | `+0x04` |
-  | 1 | road number | `0x003bc028` (2) via `0x003f60e0` | `+0x14`/`+0x1c` |
-  | 2 | road name | `0x003bc194` (1) via `0x003f60ec` | `+0x12`/`+0x40` |
-  | 3 | primary location | `0x003bc300` (3) via `0x003f60f8` | `+0x16`/`+0xc4` |
-  | 4 | secondary location | `0x003bc470` (4) via `0x003f6104` | `+0x18`/`+0x148` |
-  | 5 | area | `0x003f6734` (5) | `+0x06` |
-  | 6 | linear | `0x003f6780` (6) | `+0x08` |
-  | 7 | negative | `0x003f67cc` (7) | `+0x0a` |
-  | 8 | positive | `0x003f6818` (8) | `+0x0c` |
-  | 9 | urban | `0x003f6864` (9) | `+0x0e` |
-  | 10 | exit/junction | `0x003bc748` (10) via `0x003f6110` | `+0x1a`/`+0x1cc` |
-  | 11 | inter-section | `0x003f68bc` (11) via `0x003f68b0` | `+0x10` |
+  | Call | Field | Catalog column | Extractor VA | Scalar → struct | Name buffer |
+  | --- | --- | --- | --- | --- | --- |
+  | 1 | 0 | location type | `0x003f66b8` | `+0x04` | — |
+  | 2 | 5 | area | `0x003f6734` | `+0x06` | — |
+  | 3 | 6 | linear | `0x003f6780` | `+0x08` | — |
+  | 4 | 7 | negative | `0x003f67cc` | `+0x0a` | — |
+  | 5 | 8 | positive | `0x003f6818` | `+0x0c` | — |
+  | 6 | 9 | urban | `0x003f6864` | `+0x0e` | — |
+  | 7 | 11 | inter-section | `0x003f68bc` | `+0x10` | — |
+  | 8 | 1 | road number | `0x003bc028` | `+0x12` | `+0x1c` |
+  | 9 | 2 | road name | `0x003bc194` | `+0x14` | `+0x40` |
+  | 10 | 3 | primary location | `0x003bc300` | `+0x16` | `+0xc4` |
+  | 11 | 4 | secondary location | `0x003bc470` | `+0x18` | `+0x148` |
+  | 12 | 10 | exit/junction | `0x003bc748` | `+0x1a` | `+0x1cc` |
 
-  The walk is reached from the TMC handlers `0x003bcac0`/`0x003bcbc4`/
-  `0x003bcc7c`, **not** from the `0x004125a8` subtree M3.23 ranked (C-2208).
+  **Field 1 (road number) is `0x003bc028`; field 2 (road name) is
+  `0x003bc194`.** An earlier draft had these two reversed; the `r6` in each
+  extractor (`0x003bc07e` → `0x003f6704`/`mov #1,r6`, `0x003bc1f8` →
+  `0x003f6710`/`mov #2,r6`) and the struct stores in `0x003bc960`
+  (`@(18,r9)=+0x12` after `0x003bc028`, `@(20,r9)=+0x14` after `0x003bc194`)
+  are the proof (EXP-2026-11-20-M3.15-lctbl-reader). The walk is reached
+  from the TMC handlers `0x003bcac0`/`0x003bcbc4`/`0x003bcc7c`, **not** from
+  the `0x004125a8` subtree M3.23 ranked (C-2208).
 - **String decode = `fn 0x003ca858(buffer, byte_len, mode)`.** `mode == 1`
   (the branch every string extractor uses, e.g. `0x003bc0ac` in
   `0x003bc028`) reads a buffer of **big-endian 16-bit words** and stores each
   as a native little-endian `u16` — `(w<<8)|(w>>8)`, high byte first, `r2 +=
   2` — one character per halfword; `mode == 2` does the same 4 bytes at a time
-  (C-2205).
+  (C-2205). **Executed** (not only static): `tools/lctbl_string_decode.py`
+  runs `0x003ca858` on the real record name and shows `42 65 72 61 6e 6f 76
+  fd 63 68` → `65 42 61 72 6f 6e fd 76 68 63` (`--expect swap`), with a
+  `--mode 0` negative control that leaves the bytes unchanged (`--expect
+  none`).
 - **Encoding = single-byte CP_ACP** (C-1799): the loop leaves one byte per
   character in the low half of each `u16` (pad `0x00` in the high half), with
   no multibyte check and no UTF-16 pair. The only transform is the 16-bit
