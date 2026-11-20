@@ -3317,8 +3317,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if M5.11's CLI is not yet callable as a library or command, deliver the stage runner + manifest with the compiler stage `NOT_IMPLEMENTED` and block on M5.11 naming its entry point.
   - Claims: C-3680–C-3689
 
-- [ ] **M5.36 — L2 golden for the road-class table: an OSM class written to a tile must decode back to the same class**
-  - Status: in progress · Owner: task/m5.36-tile-class-roundtrip · Critical: yes · Pair: required
+- [x] **M5.36 — L2 golden for the road-class table: an OSM class written to a tile must decode back to the same class**
+  - Status: done · Owner: task/m5.36-tile-class-roundtrip · Critical: yes · Pair: required
   - Step: P2
   - Depends: M5.16 not required; M5.4 (tile splice, done), M5.28 (`roadclass_v0`, done), H41 (per-feature matrix, open — this task supplies the L2 row it reports, not the reporter)
   - Goal: `roadclass_v0` maps 17 OSM highway classes to a provisional Clarion class, but nothing checks the *round trip* at L2: no test asserts that the class emitted into a tile's road records decodes back to the same OSM class under `l2check`/`clarion_tile`. A wrong table can ship a road drawn as a motorway and every existing gate stays green. This is the cheapest map-quality check that can fail loudly.
@@ -3329,7 +3329,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `python3 tools/l2check.py --root <synthetic> --semantic-tiles BxxRyyR` reports `tile_class_roundtrip: PASS` on the fixture and `FAIL` when the fixture's emitted class is mutated by one value; the real `B48R058R` splice reports its class rows; `python3 tools/selftest.py` passes; EXP records the per-class table and the negative control.
   - Stop: if the tile record does not carry a recoverable class for any road (M5.23 not decoded), record `NOT_APPLICABLE — class field not readable` with the field location, and do not fake a pass.
   - Falsifier: the check passes on a tile whose emitted class was deliberately changed to a different value, or a class that decodes differently still reports PASS.
-  - Claims: none yet
+  - Claims: C-5760–C-5769
+  - Result: EXP-2026-11-20-M5.36-tile-class-roundtrip — `tools/tile_class_roundtrip.py` + `l2check --class-tiles`: PASS on the synthetic fixture (2 parcels, 3 shapes; one-value mutant FAIL by name) and on the real `B48R058R` splice (`match=6 fail=0`, 47,650 factory records untouched); dump→check on the untouched factory tile 47,656/47,656; a tile with no emitted map reports a `decoded` census, never PASS. Level-1 class field `w[p+2] >> 12` recoverable for every road, so the Stop does not apply (C-5760–C-5762).
 
 - [x] **M5.37 — L2 golden for the route graph: tile section 2 must decode to the same node/link graph the writer emitted**
   - Status: done · Owner: task/m5.37-route-graph-golden · Critical: yes · Pair: required
