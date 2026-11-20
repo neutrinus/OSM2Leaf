@@ -893,6 +893,20 @@ The box table at `0x2ac` is **not loaded** by the header entry in this run.
 entry changed to 1 it reads `0x1100`/`0x100` instead. `LEV3456R.DAT` (2
 entries) and `B48R068R.DAT` (3 entries) fit the same rule.
 
+**A tile must list three sections (M3.33, EU2011).** Every tile box of the
+firmware's table (data VA `0xd624a0`, 24 B: `+4` part mask = 7, `+6` level
+bits = 3, `+8`…`+14` y0/x0/y1/x1, `+16` status) asks for parts 0, 1 and 2,
+whose entries are at `0x800`, `0x806` and `0x80c`. On the first mount the
+header check `0x0040acb8` gives a tile whose third entry is `ff ff ff ff`
+status 3 and returns -1 (`0x0040ad36` → `0x0040ae26`): no section table of
+that tile is read, the box finder `0x0040a1dc` skips it, and the mount goes
+on in box 0 of the table (`B28R070R.DAT` on the EU 2011 card). 8 of the 45
+factory tiles have fewer than three entries and behave this way; with a
+third entry written into `B60R048R.DAT` it mounts, with the third entry of
+`B48R058R.DAT` removed it does not (`tools/tile_drop_l3.py`,
+EXP-2026-11-20-M3.33-b60-header-drop, C-6080–C-6087). `LEV3456R.DAT` (level
+bits `0x3c`) needs two.
+
 **No bound on the level-table walk.** With the byte at `0x1ac` changed to
 `0xff`, `0x0040aa50` loads 402 bytes up to `0x805` instead of 34.
 

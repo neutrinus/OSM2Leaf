@@ -406,6 +406,7 @@
   "docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md",
   "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
   "docs/experiments/EXP-2026-11-20-M3.31-dir-read-length.md",
+  "docs/experiments/EXP-2026-11-20-M3.33-b60-header-drop.md",
   "docs/experiments/EXP-2026-11-20-M4.16-rdstm-place-closure.md",
   "docs/experiments/EXP-2026-11-20-M4.16b-tmc-placement-all-tables.md",
   "docs/experiments/EXP-2026-11-20-M4.16c-inter-ref-aligned.md",
@@ -458,7 +459,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 451,
+  "files": 452,
   "citations": 1273,
   "unique_va": 300,
   "start": 1117,
@@ -599,7 +600,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2066,
    "va": "0x003f5624",
    "kind": "fn",
    "class": "START",
@@ -608,7 +609,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2067,
    "va": "0x003ad680",
    "kind": "fn",
    "class": "START",
@@ -617,7 +618,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2067,
    "va": "0x003ad9a4",
    "kind": "fn",
    "class": "START",
@@ -626,7 +627,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2067,
    "va": "0x003b9d38",
    "kind": "fn",
    "class": "START",
@@ -635,7 +636,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2067,
    "va": "0x003bacc4",
    "kind": "fn",
    "class": "START",
@@ -644,7 +645,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2056,
+   "line": 2068,
    "va": "0x003ad440",
    "kind": "fn",
    "class": "START",
@@ -653,7 +654,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2242,
+   "line": 2254,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -662,7 +663,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2242,
+   "line": 2254,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",

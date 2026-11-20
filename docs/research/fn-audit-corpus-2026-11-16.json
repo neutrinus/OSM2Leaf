@@ -35,20 +35,21 @@
   "tools/read_watch_l3.py",
   "tools/rgd_reply_l3.py",
   "tools/swap_witness_l3.py",
+  "tools/tile_drop_l3.py",
   "tools/tmc_req_l3.py",
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 32,
-  "citations": 716,
-  "unique_va": 307,
-  "start": 443,
+  "files": 33,
+  "citations": 735,
+  "unique_va": 313,
+  "start": 454,
   "inside": 0,
   "corrected": 0,
   "gap": 66,
   "leaf": 66,
   "ambiguous": 0,
-  "unmapped": 207
+  "unmapped": 215
  },
  "rows": [
   {
@@ -180,7 +181,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2054,
+   "line": 2066,
    "va": "0x003f5624",
    "kind": "fn",
    "class": "START",
@@ -189,7 +190,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2067,
    "va": "0x003ad680",
    "kind": "fn",
    "class": "START",
@@ -198,7 +199,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2067,
    "va": "0x003ad9a4",
    "kind": "fn",
    "class": "START",
@@ -207,7 +208,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2067,
    "va": "0x003b9d38",
    "kind": "fn",
    "class": "START",
@@ -216,7 +217,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2055,
+   "line": 2067,
    "va": "0x003bacc4",
    "kind": "fn",
    "class": "START",
@@ -225,7 +226,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2056,
+   "line": 2068,
    "va": "0x003ad440",
    "kind": "fn",
    "class": "START",
@@ -234,7 +235,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2242,
+   "line": 2254,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -243,7 +244,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2242,
+   "line": 2254,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -252,7 +253,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4390,
+   "line": 4402,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1456,7 +1457,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1035,
+   "line": 1049,
    "va": "0x00414644",
    "kind": "fn",
    "class": "START",
@@ -1465,7 +1466,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1036,
+   "line": 1050,
    "va": "0x00414930",
    "kind": "fn",
    "class": "START",
@@ -1474,7 +1475,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1037,
+   "line": 1051,
    "va": "0x00414dbc",
    "kind": "fn",
    "class": "START",
@@ -1483,7 +1484,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1038,
+   "line": 1052,
    "va": "0x00415330",
    "kind": "fn",
    "class": "START",
@@ -6146,6 +6147,177 @@
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 5,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 6,
+   "va": "0x0040acb8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 14,
+   "va": "0x0040a61c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 17,
+   "va": "0x0040a1dc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 17,
+   "va": "0x0040a61c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 56,
+   "va": "0x0040acb8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 57,
+   "va": "0x0040acb8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 58,
+   "va": "0x0040acb8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 59,
+   "va": "0x0040a1dc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 60,
+   "va": "0x0040a61c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 61,
+   "va": "0x0040a61c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 62,
+   "va": "0x00d624a0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 63,
+   "va": "0x00d63ca0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 64,
+   "va": "0x00d98fcc",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 92,
+   "va": "0x00d624a0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 180,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 186,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 316,
+   "va": "0x0aec5f00",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 316,
+   "va": "0x1128cb00",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/tmc_req_l3.py",

@@ -2037,8 +2037,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Falsifier: the fourth tile shows a length the rule did not predict.
   - Claims: C-5820–C-5829
   - Result: EXP-2026-11-20-M3.31-dir-read-length. `fn 0x00414338` (EU2011) asks `0x100 * T[kind].n` bytes, `T` = 16 rows at `0x179c08` read by the leaf `0x0040901c(kind, 1)`, `kind` = the header level-table kind byte (merged by `0x0040aa50`, stored by `0x00409834`): `0x91` `0x14100`, `0x92` `0x8100`, `0x90` `0x2100`, `0x93` `0x6100`, `0x80` `0x1100`. 118/118 directory reads in 11 runs match; kind-byte controls give `0x3100`/`0x4100`/`0xa100`/`0x1100` and no read for a kind without a row. Fourth tile `B40R060R` (45.46 N 9.19 E): 5/5 reads as predicted before the run. New `tools/dir_read_len.py` (`table`, `predict`: length per level and directories read past EOF — 53 factory section-4 directories in 35 of 46 files); `datask_l3.py` prints the lookup per read. `B60R048R` mounts only its header (C-5825) → new **M3.33**. C-5820–C-5826.
-- [ ] **M3.33 — Why the mount leaves `B60R048R.DAT` after its header**
-  - Status: in progress · Owner: task/m3.33-b60-header-drop · Critical: no · Pair: solo
+- [x] **M3.33 — Why the mount leaves `B60R048R.DAT` after its header**
+  - Status: done · Owner: task/m3.33-b60-header-drop · Critical: no · Pair: solo
   - Depends: M3.31 (done)
   - Goal: at 65.0 N 30.0 E and 64.5 N 29.0 E, both inside the `0x2ac` boxes of EU2011 `B60R048R.DAT`, `datask_l3.py mount --position` reads that tile's header and then the directories of `B28R070R.DAT` (C-5825). Find the check that drops the tile (header handler `0x0040b8b4` and what it decides), so a generated tile outside the factory set is not dropped the same way.
   - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image <EU card> --position 65.0,30.0 --json P1.json` shows one `B60R048R.DAT` read (`0x1000`, handler `0x0040b8b4`) and directory reads of `B28R070R.DAT`.
@@ -2047,6 +2047,18 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: the branch that leaves `B60R048R` is named with its VA and the header field it tests, and a run that changes that field (or the position) makes the mount read `B60R048R`'s section tables.
   - Stop: one session; if the choice depends on a table filled by a task not in the run, name the table and its writer and block.
   - Claims: C-6080–C-6089
+  - Result: `docs/experiments/EXP-2026-11-20-M3.33-b60-header-drop.md` (C-6080–C-6087), new `tools/tile_drop_l3.py`. The branch is `0x0040ad36`–`0x0040ad78` → `0x0040ae26` of the header check `0x0040acb8` (EU2011): every tile box asks for three parts, and a tile whose **third section-list entry (header `0x80c`) is `ff ff ff ff`** gets box status 3 and is left on the first mount; the box finder then skips it, answers -1, and the caller takes that as box 0 (`B28R070R.DAT`). Causal controls: `B60R048R` with a third entry written mounts (3 section tables); `B48R058R` with its third entry removed is left. 8 of the 45 factory tiles list fewer than three sections. Rule for the generator: list three sections (the fresh container already does). Follow-up: M5.61.
+
+- [ ] **M5.61 — `l2check`: refuse a generated tile that lists fewer than three sections**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: P1
+  - Depends: M3.33 (done)
+  - Goal: the firmware leaves a `BxxRyyyR.DAT` whose section list at header `0x800` has fewer than three entries on the first mount and goes on in the first tile of its box table (C-6080–C-6083). Nothing in L2 says so: a writer change that drops an empty section would pass every gate and lose the tile on the unit.
+  - Precheck: `python3 tools/tile_drop_l3.py --selftest` passes; `python3 tools/l2check.py --help` lists the tile checks.
+  - Scope: one rule in `tools/l2check.py` (and its selftest) for generated `BxxRyyyR.DAT` tiles: three entries at `0x800`, `0x806`, `0x80c`, none `ff ff ff ff`. Factory tiles copied verbatim are reported as INFO, not failed (8 of 45 factory tiles have fewer, C-6085). Use `tile_drop_l3.parse_section_list`.
+  - Done when: `l2check` fails a synthetic tile whose third entry is blanked and passes the unchanged `one_tile_pipeline.py --synthetic` tile; the selftest holds both cases.
+  - Stop: one session.
+  - Claims: none yet (take the next free block when claimed)
 
 - [ ] **M3.32 — Who reads the bytes inside an `ADDRE` record's point block and house-range items**
   - Status: open · Owner: — · Critical: no · Pair: solo
