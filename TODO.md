@@ -415,11 +415,11 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if target metadata lacks stable VA/section fields for a verdict, report `UNKNOWN` with the missing fields (do not guess READY).
   - Claims: C-3330–C-3339
 
-- [ ] **M1.4 — Extract compressed `FILESentry` payloads**
+- [x] **M1.4 — Extract compressed `FILESentry` payloads**
   - Tool: `cerom.py files --extract --decompress` writes stored bytes,
     classifies OK/UNSUPPORTED/FAIL and never writes a wrong-length decode
     (EXP-55, C-573); EXP-51 says the real payload is not a stdlib format.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m1.4-filesentry-payloads · Critical: no
   - Note (M1.21, 2026-11-19, rule 15): M1.21 decodes every compressed `FILESentry` payload with the kernel routine (`nk_decomp.py files`, B 8/8, C 7/7, `r0 == rsize`); what is left here is `cerom.py files --decompress` wiring / `extract-file NAME`. The `Blocker:` line below is historical.
   - Note (H51, 2026-11-11): re-opened as **M1.21**: try the kernel routine (`nk_decomp.decompress`) on the `FILESentry` payloads.
   - Blocker: all 8 compressed build-B FILESentry payloads carry CE-LZXD block marker `0x8d80805b` and no public/stdlib `cecompress` method decodes them (0 matches, 8 UNSUPPORTED); M1.2b/c path does not suffice, so `rsize`-length decode / readable `ceconfig.h` cannot be produced without the CE-LZXD codec (M1.2f blocked, M8.E1 runtime unavailable in session).
@@ -434,7 +434,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     `real` and `ceconfig.h` is readable text (do not commit it; quote ≤ 3
     lines in the EXP).
   - Result: EXP-2026-11-08-M1.4-filesentry-payloads (extraction/characterization done; decode blocked, done-when not met; C-680–C-683).
-  - Claims: C-680–C-683
+  - Claims: C-5990–C-5999 (was C-680–C-683; fresh block for this run)
+  - Result: EXP-2026-11-20-M1.4-filesentry-payloads-2; C-5990–C-5994 (C-5995–C-5999 reserved). `cerom.py files --decompress` now falls back to the kernel routine (`nk_decomp.decode_cached`, `OK` only when `r0 == rsize`; `--method kernel` skips the codecs; records gain `decoded_sha256`/`kernel`), and new `cerom.py extract-file NAME -o PATH` writes one entry at its real length or prints `REFUSED` and writes nothing. On `archive/head256.img` (`92aa525d…`) EU2011 build B 8/8 and build C 7/7 compressed rows `OK`, all decoded SHA-256s equal to M1.21; `extract-file` writes `ceconfig.h` 6,611 B (ASCII C source, `#ifndef __CECONFIG_H__`), `initobj.dat` 15,706, `boot.hv` 32,768, `default.hv` 126,976, `user.hv` 28,672, `UpdateNK.skn` 1,966,080; negative `--method lzss` → `REFUSED`, exit 1, no file. `cerom --selftest` 432 checks OK.
 
 
 - [x] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
