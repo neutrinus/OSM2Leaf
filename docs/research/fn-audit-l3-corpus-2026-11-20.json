@@ -378,6 +378,7 @@
   "docs/experiments/EXP-2026-11-19-M9.49-pysh4-macw.md",
   "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+  "docs/experiments/EXP-2026-11-20-H110-l4-panel.md",
   "docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md",
   "docs/experiments/EXP-2026-11-20-H116-archive-docs-base.md",
   "docs/experiments/EXP-2026-11-20-H117-main-shadow-run.md",
@@ -424,6 +425,7 @@
   "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
   "docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
+  "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.41-us-poi-row.md",
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
@@ -433,10 +435,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 426,
-  "citations": 1083,
+  "files": 428,
+  "citations": 1085,
   "unique_va": 273,
-  "start": 933,
+  "start": 935,
   "inside": 71,
   "corrected": 5,
   "gap": 67,
@@ -456,7 +458,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1622,
+   "line": 1623,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -465,7 +467,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1622,
+   "line": 1623,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -474,7 +476,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1623,
+   "line": 1624,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -483,7 +485,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1644,
+   "line": 1645,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -493,7 +495,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1654,
+   "line": 1655,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -502,7 +504,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1724,
+   "line": 1725,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -511,7 +513,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1724,
+   "line": 1725,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -520,7 +522,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1757,
+   "line": 1758,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -529,7 +531,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1758,
+   "line": 1759,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -538,7 +540,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1780,
+   "line": 1781,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -547,7 +549,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2206,
+   "line": 2207,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -556,7 +558,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2206,
+   "line": 2207,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -565,7 +567,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3789,
+   "line": 3790,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
@@ -9789,6 +9791,24 @@
    "file": "docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md",
    "line": 54,
    "va": "0x880404f4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
+   "line": 22,
+   "va": "0x0041a438",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
+   "line": 42,
+   "va": "0x0041a438",
    "kind": "fn",
    "class": "START",
    "true_start": null,
