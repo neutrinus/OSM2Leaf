@@ -2189,7 +2189,7 @@ of the four numbers above says so in its first line.
   - Claims: C-5130–C-5136 (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
 
 - [ ] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.16e-rdstm-link-groups · Critical: yes
   - Depends: M4.16b (record directory + location-code join, done as far as the link refs)
   - Goal: turn an `RDSTM001` link reference (`u32`: `>>16` = group 0..3131, `&0xffff` = entry) into a MAPAL mesh/parcel/link, so ≥20 TMC records map to coordinates (the M4.16b done-when).
   - Input: EXP-2026-11-19-M4.16b-tmc-field-directory (C-5134–C-5136); `tools/tmc_fielddir.py join` (codes → refs); EU `RDSTM001.DAT` `f822044c…` region `0xccce00..EOF` (≈2,790 0x100-aligned blocks of 4-byte entries with `0x40/0x60/0x80/0xa0/0xc0/0xe0` tags; 2,294,877 indexed entries in 3,132 groups); the `0x1000` header (`0x180` words) of `RDSTM001.DAT`; `clarion_rd.py` (sec2 parcel code, 13-bit link ids).
