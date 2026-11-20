@@ -253,7 +253,8 @@ EU 2014 and EU 2016: the number of `SPEECH/<lang>` directories on each card
   C-5282; `file-header.md` Identity fields). `14 17 18 19 1a` have no
   firmware row. No EU2011 reader of the list was found: OBJDLL's
   data-volume field table names it index 9, and no call site or
-  constant-offset access reads it (M4.48, C-5286–C-5288,
+  constant-offset access reads it, neither in `fn 0x00377ae0` (EU2011,
+  the only `readDataVol` caller) nor elsewhere (M4.48, C-5286–C-5288,
   EXP-2026-11-20-M4.48-datavol-18c-reader; run-time check M4.50).
 
 > **Retraction (2026-11-06).** EXP-2026-11-05-M4.5 described `MMAIN001.DAT` as
