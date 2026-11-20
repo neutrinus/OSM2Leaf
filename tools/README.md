@@ -341,6 +341,40 @@ python3 tools/callgraph.py path    archive/work/navi_eu.json 0x0041c044 0x005422
 
 The graph file is derived from vendor code: keep it under `archive/`.
 
+## `event_subs.py` — who listens to which object-store event (M9.57)
+
+Lists every call of `OBJ_Event_setPrm` / `OBJ_Event_setPrmForMP` in every
+module of a CE segment, with the task, the sub (the `+10` word of the
+`0x07d0` message the task will receive) and the object call that follows.
+Import stubs come from each module's own import table, so DLLs are covered;
+helpers that take the task or sub as an argument are listed once per caller.
+
+```bash
+python3 tools/event_subs.py --selftest
+python3 tools/event_subs.py archive/head256.img --expect-site 0x003eb99c
+python3 tools/event_subs.py archive/head256.img --task 0x011fff58 \
+    --handler-table Navi.exe:0x001796f4:6        # table rows without a subscriber
+python3 tools/event_subs.py archive/head256.img --sub 11 --json out.json
+```
+
+With `--task`/`--sub` the exit status is 1 when no row matches; a negative
+needs `--expect-site` (a known site that must be in the census, else exit 2).
+
+## `tile_drop_l3.py` — does the mount keep the tile under a position? (M3.33)
+
+Runs `datask_l3.py`'s mount with hooks on the header check `0x0040acb8`
+(EU2011) and prints, per tile header, the box, the section list at `0x800`
+and whether a part is missing (status 3, the tile is left and the mount
+goes on in box 0). `sections` lists the section lists of a card's tiles
+without the firmware.
+
+```bash
+python3 tools/tile_drop_l3.py --selftest
+python3 tools/tile_drop_l3.py sections --card-image CARD
+python3 tools/tile_drop_l3.py run archive/head256.img --card-image CARD --position 65.0,30.0
+python3 tools/tile_drop_l3.py third-entry --card-image CARD B60R048R.DAT   # --flip arguments
+```
+
 ## `nk_decomp.py` — decompress ROM sections with the kernel's own routine (H51)
 
 Runs `nk.exe` `DECOMP_SECT 0x88037464` (build B) in the PySh4 engine: no
