@@ -118,6 +118,7 @@ for _path in (str(TOOLS_DIR), str(ZE0_DIR)):
 
 import clarion_bg  # noqa: E402
 import clarion_tile  # noqa: E402
+import dir_read_len  # noqa: E402
 import fa_encode  # noqa: E402
 import s1_wide_dir  # noqa: E402
 import section4  # noqa: E402
@@ -1242,7 +1243,21 @@ def synthetic_tile(built, level, cell, data_version):
     tile["header"] = tile_header.author(
         tile_header.level_groups(tile), [], cell_db_bounds(cell), data_version
     )
-    return clarion_tile.write_tile(tile)
+    return pad_directory_reads(clarion_tile.write_tile(tile))
+
+
+def pad_directory_reads(blob: bytes) -> bytes:
+    """Zero-pad the file so every directory is backed by the length the
+    firmware reads for it (M3.31: ``0x100 * T[kind].n`` by level kind, e.g.
+    ``0x8100`` for a section-1 level-1 directory; EU2011 build A table,
+    US2011 not checked).  Without it the first
+    directory read of a small fresh tile runs past the end of the file and
+    fails (M9.13, C-3256; M5.56).  Only the tail grows: offsets, tables and
+    directories are unchanged."""
+    import io
+    rep = dir_read_len.predict(io.BytesIO(blob), len(blob))
+    end = max([s["end"] for s in rep["short_reads"]], default=len(blob))
+    return blob + bytes(end - len(blob))
 
 
 def verify_synthetic(blob: bytes, level: int, built):
@@ -2121,6 +2136,12 @@ def selftest():
                   (lvl, typ, ()) for lvl, typ in tile_header.LEVELS[4]),
               sector_fingerprint(parsed, 4))
         check("synthetic report says why", "synthesised" in synthetic["reasons"][0])
+        dr = dir_read_len.predict(io.BytesIO(roads_only), len(roads_only))
+        check("synthetic directories backed by their read length (M5.56)",
+              not dr["short_reads"] and any(r["dirs"] for r in dr["levels"]), dr["short_reads"])
+        unpadded = roads_only.rstrip(b"\0")
+        check("unpadded synthetic tile would be read short",
+              dir_read_len.predict(io.BytesIO(unpadded), len(unpadded))["short_reads"] != [])
 
         # The same code path at level 2 (parcel 1/8 x 1/12 deg); the fixture's
         # two ways share one level-2 parcel.

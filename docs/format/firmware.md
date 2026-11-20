@@ -1797,6 +1797,16 @@ does not complete: the request goes back on the queue.
 pair of the buffer when request word +20 is 0 and the status is 0. With word
 +20 = 0 the bytes of `POINT010.DAT` arrive pairwise swapped, with 1 as stored.
 
+**For zlib pages the swap is undone (M9.26, C-2900–C-2905, EU2011).** A
+`POINT` page is a zlib stream inside the `.DAT`; the layer swaps its
+compressed bytes too, which makes them uninflatable. The page loader
+`fn 0x003fd690` therefore calls the byte-pair leaf `0x003f6968(buf, nbytes)`
+on the compressed buffer (`0x003fd9de`), inflates with `0x00542100`
+(`0x003fd9ec`), and calls the leaf again on the inflated page (`0x003fda02`).
+That second call makes the page native `u16` for the walker `fn 0x003f5194`.
+The other two callers of `0x00542100` (`fn 0x00404994`, `fn 0x004052d4`) do
+the same. Decoder outputs (`fn 0x0041c7dc`, the inflate) are file order.
+
 ### The compressed-file layer
 `0x0041b780(path, flag)` decides by the `CMP.LST` prefix (`0x0041c2e0`): a path
 outside it is a plain `fopen`; a path under it opens `X.DAT.IND` and
