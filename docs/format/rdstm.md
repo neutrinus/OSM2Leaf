@@ -237,6 +237,15 @@ buffer in the generic sector reader `0x00417618` — the lead for M4.51. The
 link-group layout above is therefore a data-side decode, not *confirmed*
 (rule 13).
 
+**M4.53 (L3, EU2011):** the `0x14f4` lead is refuted for the data-access
+path. Delivered to the data-access task, a `0x14f4` request reads a
+`REFER001` family file chosen by its sub word (1 `POINT001.DAT`, 2
+`ADDRE001.DAT`, 4 `INTER001.DAT`; search type of `0x003fbed8`), never
+`RDSTM001.DAT`, while the `0x14e4` control reads `LCTBL001.DAT`; the chain
+`0x00413828`/`0x004129d0`/`0x00417618` is not entered (C-5680–C-5682,
+`python3 tools/tmc_req_l3.py run`). The link-group reader stays unlocated
+(M8.E4).
+
 ### Writer (M5.19)
 
 Source: EXP-2026-11-20-M5.19-rdstm-writer (C-2430–C-2436); tool
@@ -322,13 +331,61 @@ It is **not** a raw string table or a road-class lookup. It is a data
 dictionary plus a zlib-compressed place/street name database.
 
 ```
-0x000000  512    common Clarion/Hitachi header (text + binary @0x180)
-0x000200  0xe00  0xff then zero fill
-0x001000  0x3600 catalog: 90 x "Location Data" descriptors (+ 12 columns)
-0x004600  0x312000 packed binary index/geometry (not decoded)
-0x316600  0x40b1df 517 independent zlib streams -> 11,481,060 bytes
-0x7217df  0x2e21 0xff padding to EOF
+0x000000  512      common Clarion/Hitachi header (text + binary @0x180)
+0x000200  0x3cc    constant 0xff/0x00 fill runs
+0x0005cc  0x178    range block: per table BCD first/last location code
+0x000800  0x708    slot table, 300 x (u32 address, u16 sectors); slot 7 = catalog
+0x001000  0x3600   catalog: 30 table + 30 column-schema + 30 page-directory descriptors
+0x004600  0x312000 per-table B-tree indexes (786 pages of 0x1000)
+0x316600  0x40b200 per-table record pages: 517 zlib streams -> 11,481,060 bytes
+0x721800  0x2d9c   per-table page directories, then zero fill to a sector
 ```
+
+The whole file is a function of the records: `tools/lctbl_build.py`
+(M5.17, EXP-2026-11-20-M5.17-lctbl-builder) decodes it into
+`{header, flag word, tables: (code, location codes, records)}` and writes it
+back byte-identically for EU 2011 and US 2011 (C-2410–C-2415). The earlier
+reading of this table (`0xff then zero fill`, an undecoded "index/geometry"
+block, `0xff padding to EOF`) was wrong on all three rows.
+
+### File structure (M5.17, verified by full rebuild)
+
+- **Addresses** are sector addresses: sector `s` (0x100 B) is stored as
+  `((s // 8) << 8) | (s % 8)`; sizes are 16-bit words (C-2410).
+- **Range block `0x5cc`:** `u32 0x80000000`, the header's south/west words
+  (`0x186`/`0x188`), a flag word (EU `0x0b0b`, US `0x0f0f`, meaning unknown),
+  `u32 0`, `u16` table count, then per table `0x0220 0x0004` + BCD4 first and
+  last location code (C-2414).
+- **Catalog `0x1000`** (C-2411), three lists, one entry per table, each
+  ending in the name `Location Data` (u16 LE length, text, NUL pad to even):
+  - table descriptor, 46 B: `u16 next` (words from `0x1000`, `0xffff` last),
+    `u16` schema pointer, `u32` index address, `u32` index words, constants
+    `0000 0000 0800 0000 0000 1000 000c 2000`, `u16` table code (`3219` …);
+  - column schema, 376 B: `ffff`, `u16` directory-descriptor pointer, `u32`
+    record-page address, `u32` record-page words, `u32 0`, `u16` max record
+    words, 6 zero bytes, `u16 0x16` (first column, words from the schema
+    start), `u16 12` (field count), name, then 12 columns `u16 next, u16 0,
+    u16 max length words, u16 type (0x8000 number, 0x6000 string), u32 0,
+    u16 index, name`. The firmware field walk reads exactly this layout
+    (`+24`, `+26`, column `+0`/`+12`; C-2417);
+  - page-directory descriptor, 34 B: `u32` directory address, `u32`
+    directory words, `u16 500`, 8 zero bytes, name.
+- **Index** (C-2412): a B-tree of 0x1000-byte pages, `u32 P0` then
+  `(u32 ordinal, BCD4 location code, u32 P)` triples, unused bytes `0xff`.
+  `P` is the child's word offset inside the table's index, `0xffffffff` in a
+  leaf; a non-root leaf ends with `u32 0`. ≤ 339 keys: one leaf. Otherwise a
+  root plus `L = max(16, ceil(n/340))` leaves of `ceil(n/L) − 1` keys, each
+  followed by one separator key in the root (49/49 two-level indexes).
+- **Record pages** (C-2413): zlib level 6 streams of ≤ 500 records in
+  location-code order; streams 4-byte aligned (zero pad), each table sector
+  aligned.
+- **Page directory** per table: `u16 500, u16 0`, then per page `u32` word
+  offset, `u32` compressed words (padded to 4 B), `u32` plain words; sector
+  aligned; the file ends at the next sector boundary.
+
+Build a file: `python3 tools/lctbl_build.py synth SPEC.json -o LCTBL001.DAT`
+(`example-spec` writes a synthetic Polish spec); check one:
+`python3 tools/lctbl_build.py check -v FILE`.
 
 ### Code-side reader (M3.15, located)
 
@@ -659,3 +716,25 @@ instead of fixed offsets, in the same order.
 
 `INTER`/`FRWAY` IDs were not located in these two files (see
 [inter-frway.md](inter-frway.md)).
+
+### Road class from TMC road type (EU 2011, M4.31)
+
+The `LCTBL001` "class code" (header `u16` at +14, M4.17) is field 0, the TMC
+location type (247,089/247,089 records; `0x2775` = 10101 `L1.1` motorway).
+Through the location-code join to section-2 links (M4.16b/M4.16e), a
+record's road type (field 6 followed to an `L1.x`/`L2.x` linear) predicts the
+level-2 entry class nibble `cls & 0xf` (modal accuracy 0.608 vs shuffled
+0.382, 158,445 records, 14 tables; C-5960–C-5965,
+EXP-2026-11-20-M4.31-tmc-road-type-link-class):
+
+| TMC road type | Modal level-2 class | Share |
+| --- | --- | --- |
+| `L1.1` motorway | 1 | 13,796/17,058 (9 of 10 countries) |
+| `L1.2` first class | 4 (3 in FI/DK/SE) | 40,656/58,431 |
+| `L1.3` second class | 5 | 20,824/39,940 |
+| `L1.4` third class | 7 | 6,621/7,400 |
+
+This matches the level-2 column of `fa_encode.CLASSES` (motorway 1, trunk 3,
+primary 4, secondary 5, tertiary and below 7) — HYPOTHESIS until a firmware
+reader or OSM-tagged roads confirm it. `python3 tools/rdstm_class_hint.py run
+LCTBL001.DAT RDSTM001.DAT MAPAL001`.
