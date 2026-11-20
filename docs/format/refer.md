@@ -366,11 +366,27 @@ path and corrected record layout confirmed, C-2210–C-2219).
   `char[60]` admin terminology.
 - All 33 ISO codes match the country whose terminology follows (020 Andorra →
   `PARROQUIA`; 826 UK → `POSTAL COUNTY`).
+- Open path (EU2011, M3.18 r3): the name is built by `fn 0x003f1640(n)` →
+  `ICADM0<n+1>.DAT` (C-4669); the data-block reads complete through the shared
+  `REFER001` handler `0x003f72cc` and are loaded by `0x003eff20`, `0x003f17a4`,
+  `0x003f2bc4`, `0x003f0c7c` (C-4694). **No field-consuming reader** (462-byte
+  stride / `0x00e7` tag) is located; the term blob is a `u16 code, u16 len,
+  u32 ffffffff, u8 0, text\0` record run with no discrete indexed reader in
+  decodable code (EXP-2026-11-20-M3.18, negative).
 
 ## `ZIPFR001` — postal/freeway masks
 
 - 14-byte records: `char key[10] + u32 LE mask`; 36,881 records, 119 distinct
   masks. Keys look like truncated postal codes.
+- Open path (EU2011, M3.18 r3): `ZIPFR001.DAT` (`0x00178e08`) is **row 4** of a
+  24-byte descriptor table in sec1 at `0x00564160` (`0x005641c0`, style code
+  16, id `0x040c`, sec1 pointer `0x005641c4`). The table is loaded by
+  `0x003f7d94`/`0x003f7f40`/`0x003f7b20`; row lookup `0x003f7ae4(16,0)` → 4;
+  the issuer `0x003f7b54`/`0x003f7c38` builds a search packet and resolves the
+  name through `0x0040b358` (card: `0x000600c2`). The name has **no**
+  literal-pool xref in executable sections — it is data-only (C-2382
+  retracted). No 14-byte record consumer is located; `0x003f7f94` is the
+  generic read-request issuer (EXP-2026-11-20-M3.18, negative for the walker).
 
 ## `ADDRE0nn` — addresses
 

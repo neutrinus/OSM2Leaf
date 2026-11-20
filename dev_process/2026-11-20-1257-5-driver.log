@@ -1,0 +1,49 @@
+role: driver (M3.18)
+model: Airouter Strong (aggregate)
+start: 2026-11-20 12:57 UTC
+end: 2026-11-20 13:05 UTC
+origin/main at start: d2fb7b4 (task/m3.18-icadm-zipfr off origin/main)
+
+inputs read: AGENTS.md, prompt_common.txt, TODO rules 1-16, TODO M3.18 block,
+  EXP-2026-11-08-M3.18-icadm-zipfr-readers, EXP-2026-11-20-M3.23-callgraph-readers,
+  EXP-2026-11-19-M3.28-file-openers, EXP-2026-11-19-M3.25-tile-reader-entry,
+  docs/format/refer.md (ICADM/ZIPFR), docs/research/reader-coverage.md rows 14-15.
+
+actions:
+- Claimed M3.18 (TODO line only, pushed, draft PR #332) before reading/coding.
+- Rebuilt callgraph (8937 fn / 21344 direct) and re-ran M3.23 rank with
+  ICADM=0x003f1640,0x003f2cc0: 0x003f1640 adds no candidate (leaf name builder).
+- Decoded Navi.exe sec1 (nk_decomp) and scanned it for the name pointers:
+  ZIPFR001.DAT 0x00178e08 has ONE sec1 pointer at 0x5641c4.
+- Followed it: 24-byte descriptor table 0x00564160 (row 4 ZIPFR001.DAT,
+  style 16, id 0x040c), loaded by 0x003f7d94/0x003f7f40/0x003f7b20,
+  row lookup 0x003f7ae4 returns 4 for (16,0) in vcard trace.
+- Read issuers 0x003f7b54/0x003f7c38 -> search packet -> 0x0040b358;
+  0x003f7e74(4,0) resolves ZIPFR001.DAT on the card (0x000600c2).
+- Completion class 0x2000 -> 0x003f7f94 is generic read-request issuer, not
+  a record handler; no add #14 anywhere on the subtree.
+- ICADM: datask mount reproduces tags 0x0d00/0x0d01/0x0d02 -> 0x003f72cc;
+  loaders 0x003eff20/0x003f17a4/0x003f2bc4/0x003f0c7c have no 462 stride/tag.
+- Validated all quoted VAs with nk_decomp pdata (START; 0x003f7ae4 is a GAP
+  boundary = next entry after 0x003f79d8).
+
+decisions:
+- Retracted C-2382 (name has no exec xref => true but its "no open anchor"
+  conclusion is wrong: it is sec1 data, excluded by the old exec-only filter).
+- Classified rows 14-15 as partial (open/descriptor located), NOT located:
+  no field-consuming reader, no copy-only control => Done-when not met.
+- Task status blocked (rule 14 / Stop), not done.
+
+problems:
+- /tmp was 93% full (3.5G/3.8G); selftest mkcard FAILed on ENOSPC initially.
+  Re-ran with TMPDIR on the home disk: selftest OK 137/0/23.
+- 0x003f7b20(16)/0x003f7f94 trace stops on an unmapped 0x0 read (needs the
+  full virtual-card mount, not a bare trace); the issuer is proven by 0x3f7ae4
+  and 0x3f7e74(4,0) instead.
+
+gates: selftest OK (137 pass/0 fail/23 skip), claims_check OK, todo_check OK,
+  gate.py 4 pass / 0 fail / 0 skip (fn_audit PASS).
+
+handoff: next role — the ZIPFR/ICADM record consumer is run-time registered
+  (fn 0x003f7f40 writes the empty +12 handler); M9.38 read-watch on
+  0x003f7f94/0x003f7b54 with the map-file task live is the unblock.
