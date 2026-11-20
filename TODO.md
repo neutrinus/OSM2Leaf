@@ -324,14 +324,14 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 
 ### Map signal (read first)
 
-Board after this pass: **75 open / 24 blocked / 0 in progress / 167 done** (block headers parsed 2026-11-20; the
-fenced task template is not counted). 29 of the open blocks are H. A cycle
+Board after this pass: **77 open / 24 blocked / 0 in progress / 167 done** (block headers parsed 2026-11-20; the
+fenced task template is not counted). 30 of the open blocks are H. A cycle
 that moves none of the four numbers above says so in its first line.
 
 **This pass:** archive **0 moved** — 62 done blocks are named by no live
 block, all ticked 0–22 h ago; they move next pass (TODO.md 4896 lines before and after the archive step).
 Rule 15: **M9.18** re-opened (M9.53 merged). Added **M9.61**; the SE pass
-added **H119** and **M9.60**. **M9.16** narrowed to M9.60 + M9.61; **M5.35**
+added **H119** and **M9.60**, the QA pass **H120** and **M9.62**. **M9.16** narrowed to M9.60 + M9.61; **M5.35**
 now waits on M9.60 instead of the M9.12 chain. `Step:` set on M4.55, M4.56,
 M9.59; 4 stale pending rows removed from the card-ladder page. The 20th-pass
 text of this section is in git (`13cb0cf`).
@@ -1332,6 +1332,18 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: a merge of two PRs that needs a snapshot re-sync commit after this task lands.
   - Claims: C-6280–C-6289
 
+- [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: — (serves M5.61 and M5.35: their gates run the card verifier chain on hosts we do not control; rule 17)
+  - Goal: QA cycle 18 ran the test tools in a fresh cloud container and three of them reported a result they had not measured. (1) `python3 tools/verify.py --image IMG --strict` printed `L2: SKIP (7z not found; L2 skipped)`, then `RESULT: PASS`, exit 0 — a card "passes" with L2 never run. (2) No gate compiles the tools: `tools/ce_rom_parse.py` was a `SyntaxError` on `main` at `13cb0cf` (fixed in the SE pass) and `selftest.py` did not notice, because it only discovers tools that have `--selftest`. (3) `python3 tools/l4_status.py` prints `F4 BLOCKED (M8.A3, M8.A6, M9.16)`; the list is a constant and M8.A3 and M8.A6 are done.
+  - Precheck: on a host where `command -v 7z` prints nothing, `python3 tools/verify.py --image IMG --strict; echo $?` prints `L2: SKIP (7z not found; L2 skipped)`, `RESULT: PASS` and `0` (the defect; seen 2026-11-20 on the EU2011 image); `python3 tools/l4_status.py | grep 'F4 BLOCKED'` names M8.A3.
+  - Scope: `tools/verify.py` (a skipped level is never `PASS`: `RESULT: INCOMPLETE (L2 NOT RUN: <reason>)`, exit 3 with `--strict`, the level named in the result line without it); `tools/selftest.py` (first step: byte-compile every `tools/**/*.py` and `.github/scripts/*.py`, a file that does not compile is a FAIL row); `tools/l4_status.py` (`blocked_by` stays the declared list, the printed list drops IDs whose block is `done` in `TODO.md`, or whose block is archived). No workflow change: CI already runs `selftest.py`.
+  - Input: `tools/verify.py`, `tools/selftest.py`, `tools/l4_status.py` (`--selftest` asserts the literal F4 string today, update it), `docs/research/test-system.md` §4 (status classes).
+  - Done when: with no extractor on `PATH`, `verify.py --image IMG --strict` exits 3 and prints `INCOMPLETE`; `verify.py --selftest` covers it with a faked missing extractor; `python3 tools/selftest.py` exits 1 on a temp tree that holds one file with a syntax error and 0 on `main`; `python3 tools/l4_status.py` prints `F4 BLOCKED (M9.16)` today and its selftest proves a `done` blocker is dropped and an unknown ID is kept; `python3 tools/gate.py` green.
+  - Stop: if compiling every tool adds more than 10 s to `selftest.py`, compile only files changed against `origin/main` in CI and all files locally, and record the two timings.
+  - Falsifier: a second tool that prints `PASS` after a `SKIP` line in the same run (then the status class belongs in one shared helper, say so in the EXP).
+  - Claims: C-6310–C-6319
+
 ## M2 — Map code, activation, updater
 
 - [x] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
@@ -1827,6 +1839,7 @@ text of this section is in git (`13cb0cf`).
 - [ ] **H40 — L1/L2 generated-fixture contract: deterministic in-process fixture + coherent ZE0 card/tree builder (no vendor data)**
   - Status: open · Owner: — · Critical: yes
   - Depends: H26; H103 (the `--generate-fixture` primitive) and H105 (its `--break` control) — the L1 CI row cannot exist before the tree can be built and made to fail
+  - Note (QA 2026-11-20, cycle 18): the builder half exists — `python3 tools/cardcheck.py --generate-fixture DIR --json OUT` (H103) writes a vendor-free tree, byte-identical over two runs here, 6 checks PASS and 2 SKIP. `python3 tools/l1l2_fixtures.py --require-covered` still exits 1 because the registry row `l1.synthetic.cardcheck` says "no vendor-free synthetic ZE0 card builder". What is left of this task is that row (run the H103 tree) plus H105's broken tree as its negative.
   - Goal: close H26 gaps (`L1 synthetic`/`L2 tile` NOT COVERED where feasible) with a tiny deterministic in-process fixture representing generated content (roads/names/POIs/geometry) and a coherent ZE0 card tree/image that `cardcheck.py --root/--image` and targeted L2 round-trips can run on in CI (no network, no OSM download, no vendor data).
   - Scope: test infrastructure only. Procedural/committed fixture (no vendor dump, no downloaded OSM extract) and a minimal builder producing coherent DRSTR/MMAIN/tile level tables/headers/REFER001/top-level layout as current tools support. Do not claim firmware acceptance (rule 13); no full M5 compiler coverage.
   - Input: `tools/l1l2_fixtures.py`, `tools/cardcheck.py`, `tools/mkcard.py`, `tools/drstr_ze0.py`, `tools/tilewriter.py`/harness, `tools/imgpatch.py`, `tools/one_tile_pipeline.py` (`--synthetic` already builds a no-vendor card tree, but its `MAPAL001` tile set is not `cardcheck`-coherent — QA 2026-11-17 measured `cardcheck rc=1`, section 2 levels 2/4/5 and section 4 level 1 not in `MMAIN`); AGENTS data rules.
@@ -4873,6 +4886,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if fewer than 90 % of the functions the mount enters have a `UNIQUE` US pair, record the list of unpaired ones and stop (then the task is a `fn_match` task first).
   - Falsifier: the US build mounts the US card but, on the EU card, stops before the first tile read with no error-log call — then the position/mesh table, not the file layer, is market-bound.
   - Claims: C-6300–C-6309
+
+- [ ] **M9.62 — One L3 number: a manifest of every card-level L3 run with its pinned verdict, and one command that re-runs it**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: tooling
+  - Depends: M9.60 (its row runner and exit codes; this task extends the row list beyond the three gate rows)
+  - Goal: three tools give three L3 counts on the same commit (`ae2cb0c`, 2026-11-20): `python3 tools/l3check.py --build-corpus` prints `runnable=1/11`, `python3 tools/progress_report.py --run-tools` prints `"pass_firmware": 4`, `python3 tools/map_signals.py l3_rows` prints `l3-running 8`. The rows run in separate scripts (`ls tools/*_l3.py | wc -l` prints 16), each with its own arguments and verdict text, and nothing re-runs them together: an engine change that breaks one is found only when someone repeats that EXP (M9.36 did it by hand for 47 runs). This is the weekly/manual vendor-image regression the QA prompt asks for, for L3.
+  - Precheck: the three commands above print three different counts; `python3 tools/mmain_l3.py run archive/head256.img --card-image EUCARD` prints `RESULT: PASS (6/6 cases as expected)` and `python3 tools/point_byteorder_l3.py run archive/head256.img --card-image EUCARD` prints `RESULT: PASS (9/9)` (both re-run 2026-11-20).
+  - Scope: new `tools/l3_harness/runs.json` (one entry per run: reader-coverage row, tool, arguments with `{IMG}`/`{CARD}`/`{US256}` placeholders, build, expected verdict line or JSON key, source EXP and claim) and `python3 tools/l3check.py --runs [--only ROW]`, which executes the entries and prints PASS / FAIL / NOT RUN (no image) per row; exit 1 on a FAIL, 3 when nothing ran. `map_signals.py l3_rows` and `progress_report.py` read the manifest's row list, so the three counts are one. Local or weekly only — never in PR CI (vendor images). Not covered: new L3 runs; the `runner.py` targets keep their own `--build-corpus` path.
+  - Input: `docs/research/reader-coverage.md` (the eight `l3-running` rows and their EXPs), `tools/map_signals.py`, `tools/progress_report.py`, EXP-2026-11-20-M9.36-rerun-probes-pysh4 (the hand-made re-run list), M9.59 (`RUNS-ELSEWHERE`).
+  - Done when: `l3check.py --runs` on EU2011 (+US256 where a row needs it) prints one row per `l3-running` matrix row, all PASS, and the EXP has the wall time; a deliberately wrong expected verdict in a temp manifest gives FAIL and exit 1; without images every row is `NOT RUN` and the exit is 3; `map_signals.py l3_rows`, `progress_report.py` and the manifest agree on the count (a selftest compares them); `--selftest` runs without vendor data.
+  - Stop: if a row cannot be reduced to one command with a stable verdict line, list it as `MANUAL` with its EXP and count it separately — never as PASS.
+  - Falsifier: a `l3-running` matrix row with no manifest entry after this task.
+  - Claims: C-6320–C-6329
 
 ## Retired leads
 

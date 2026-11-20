@@ -1,0 +1,52 @@
+role: QA (test engineer), cycle 18
+model: Claude Fable 5.2
+start: 2026-11-20 18:35 UTC
+origin/main at start: ae2cb0c
+
+inputs read: prompt_common.txt, prompt_qa.txt, docs/retro/2026-11-20-2.md, this cycle's SM, SE and
+  PO logs, dev_process/2026-11-20-1103-4-qa.log, .github/workflows/*.yml, docs/research/
+  test-system.md, the open QA blocks (H28-H44, H56-H60, H82-H86, H96-H111, M5.40), the CI run
+  list for main.
+
+what the test system shows today (each from a command run in this pass, cloud sandbox,
+IMG256 + full EU2011 card + US256 fetched and SHA-256 verified):
+  - L1: cardcheck --image on the EU2011 card PASS; cardcheck --generate-fixture PASS (6 PASS,
+    2 SKIP, byte-identical over two runs); l1l2_fixtures exit 0, --require-covered exit 1
+    (L1 synthetic still NOT COVERED: the registry row is not wired to the H103 tree).
+  - L2: verify.py on the EU2011 card, L2 PASS once 7z is installed.
+  - L3: l3check --build-corpus runnable 1/11, 10 blocked; map_signals l3-running 8;
+    progress_report pass_firmware 4 — three counts. Re-ran by hand: datask_l3 mount (state 2,
+    28 reads), vcard_l3 boot (0 error-log calls; also on the US2011 build), mmain_l3 6/6,
+    point_byteorder_l3 9/9, the M5.56 pass/fail pair. realcheck IMG256: 8 PASS, 0 FAIL, 0 SKIP.
+  - L4: l4_status prints every F-row NOT RUN here (no run log); F2/F3 blocked on M8.C.
+  - L5: four stages NOT RUN (hardware unavailable).
+  - gate.py: 4 pass / 0 fail / 0 skip. todo_check --strict: 10 ERROR on 4 tasks (M3.13, M3.29,
+    M8.A8, M8.C) — reported, not a new regression (H53 closed with its lowered Done-when).
+
+CI runs on main since the previous QA pass (11:03Z -> 18:30Z, "CI quality gate", push):
+  48 success, 6 cancelled, 0 failure. Every cancelled run (46555c2, 0f3493b, 7840272, aa3e136,
+  2cd5e2e, 651dbec) is covered by a later green run; tip ae2cb0c is green. main_watch.py on a
+  saved run list: 0 salient. No red run, so no per-run task.
+
+gaps planned (2 tasks; the rest of the target is already in open blocks):
+  - H120 (C-6310-C-6319, pair required): three checks that say PASS with nothing checked —
+    verify.py --strict with L2 skipped, no compile step for tools, l4_status constant blockers.
+  - M9.62 (C-6320-C-6329, pair required, after M9.60): one manifest and one command for the
+    card-level L3 runs, so the three L3 counts become one and the runs have a regression.
+  - H40: note that its builder half exists (H103); what is left is the registry row + H105.
+
+order and dependencies: H119 (SE) first — it shortens every merge; M9.60 -> M9.62; H105 -> H40
+  -> H41 -> H42 for the vendor-free L1 row; H96 -> H107 for the corpus-only L3 verdict; H84 for
+  the weekly IMG256 job; H98 needs the repo owner (branch protection).
+
+decisions / rejected:
+  - no task for the queue of ready PRs: it is not a test defect (SM action 1, SE H119).
+  - no task per stale Precheck number in H96/H107 (they say 1/7, today 1/11): the owner
+    re-measures at claim time; noted here only.
+  - did not translate progress_report.py's Polish section titles or H28/H29's Polish text:
+    repo rule says English, but it is cosmetic and its selftest asserts the strings; left as a
+    note for whoever touches the file next.
+  - did not do the work (prompt): the ce_rom_parse.py fix was the SE's, under rule 17.
+
+handoff: TL — H119, then M9.60; H120 is small and pairs well with either.
+end: 2026-11-20 18:38 UTC
