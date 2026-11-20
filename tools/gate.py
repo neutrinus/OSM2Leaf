@@ -158,7 +158,7 @@ def standing_gate(*, count_check: bool = True, board_strict: bool = False,
     if board_strict:
         todo.append("--strict")
     corpus = corpus or "docs/research/fn-audit-corpus-2026-11-16.json"
-    overlay = overlay or "docs/research/fn-audit-l3-corpus-2026-11-16.json"
+    overlay = overlay or "docs/research/fn-audit-l3-corpus-2026-11-20.json"
     image = image or "archive/head256.img"
     fn_audit = [PY, "tools/fn_audit.py", image, "--corpus", corpus,
                 "--overlay", overlay, "--quiet"]
