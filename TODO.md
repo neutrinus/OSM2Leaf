@@ -2310,7 +2310,7 @@ of the four numbers above says so in its first line.
   - Result: done — EXP-2026-11-20-M4.22-identity-codes. `identity_fields.py card` (new) reads MMAIN001/BICON001/DRSTR001 from the FAT of all four cards (EU/US 2011 full, EU 2014/2016 head + fetched clusters): every 2026-11-08 value reproduced; `header_block.py check` PASS on 8 headers, DRSTR negative exit 1; M4.38 language join PASS on all four cards incl. EU 2016 (16/16). `file-header.md`/`drstr.md`/`assets.md` carry the M4.38 code table; `0x180`–`0x183`, `14 17 18 19 1a` stay `UNKNOWN` with their mutations. Only `Navi.exe` imports `OBJ_DriveInfo_readDataVol`, and only fn `0x00377ae0` (EU2011) loads the thunk; the `0x18c` reader is M4.48 (C-5280–C-5283).
 
 - [ ] **M4.48 — Trace the `Navi.exe` reader of `MMAIN001` `0x18c` (map-language list)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.48-drstr-18c-reader · Critical: no
   - Step: P0
   - Depends: M4.22 (done), M4.38 (done)
   - Goal: find the EU2011 `Navi.exe` code that reads the `0x18c` language list from the `MMAIN001` header copy and run it in L3, so the code→language reading becomes a firmware verdict instead of a value join.
