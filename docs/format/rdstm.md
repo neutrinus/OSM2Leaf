@@ -237,6 +237,15 @@ buffer in the generic sector reader `0x00417618` — the lead for M4.51. The
 link-group layout above is therefore a data-side decode, not *confirmed*
 (rule 13).
 
+**M4.53 (L3, EU2011):** the `0x14f4` lead is refuted for the data-access
+path. Delivered to the data-access task, a `0x14f4` request reads a
+`REFER001` family file chosen by its sub word (1 `POINT001.DAT`, 2
+`ADDRE001.DAT`, 4 `INTER001.DAT`; search type of `0x003fbed8`), never
+`RDSTM001.DAT`, while the `0x14e4` control reads `LCTBL001.DAT`; the chain
+`0x00413828`/`0x004129d0`/`0x00417618` is not entered (C-5680–C-5682,
+`python3 tools/tmc_req_l3.py run`). The link-group reader stays unlocated
+(M8.E4).
+
 ### Writer (M5.19)
 
 Source: EXP-2026-11-20-M5.19-rdstm-writer (C-2430–C-2436); tool
@@ -634,6 +643,12 @@ record (C-5136); the route to coordinates is the link-group decode, done in
 M4.16e: a ref is `(group, entry)` → `(node, link)` of a section-2 parcel record
 (see "Link groups" above, C-5139/C-5370).
 
+M4.16c tested the `INTER` lead as aligned fields: a byte-profile control
+(bytes drawn from the real values' histogram) hits `INTER001`–`005` more often
+than the M4.1 `ref` values (aligned `u32` 135 vs 55) and than the decoded
+M4.16e link refs (30 vs 10), so the enrichment is a byte-composition
+artifact, not a join (C-2310–C-2311, `python3 tools/inter_ref_probe.py scan`).
+
 ## `RDSTM001.DAT` — uncompressed packed binary
 
 **Negative result (verified):** no zlib streams. A sequential `78 9c` scan and
@@ -707,3 +722,25 @@ instead of fixed offsets, in the same order.
 
 `INTER`/`FRWAY` IDs were not located in these two files (see
 [inter-frway.md](inter-frway.md)).
+
+### Road class from TMC road type (EU 2011, M4.31)
+
+The `LCTBL001` "class code" (header `u16` at +14, M4.17) is field 0, the TMC
+location type (247,089/247,089 records; `0x2775` = 10101 `L1.1` motorway).
+Through the location-code join to section-2 links (M4.16b/M4.16e), a
+record's road type (field 6 followed to an `L1.x`/`L2.x` linear) predicts the
+level-2 entry class nibble `cls & 0xf` (modal accuracy 0.608 vs shuffled
+0.382, 158,445 records, 14 tables; C-5960–C-5965,
+EXP-2026-11-20-M4.31-tmc-road-type-link-class):
+
+| TMC road type | Modal level-2 class | Share |
+| --- | --- | --- |
+| `L1.1` motorway | 1 | 13,796/17,058 (9 of 10 countries) |
+| `L1.2` first class | 4 (3 in FI/DK/SE) | 40,656/58,431 |
+| `L1.3` second class | 5 | 20,824/39,940 |
+| `L1.4` third class | 7 | 6,621/7,400 |
+
+This matches the level-2 column of `fa_encode.CLASSES` (motorway 1, trunk 3,
+primary 4, secondary 5, tertiary and below 7) — HYPOTHESIS until a firmware
+reader or OSM-tagged roads confirm it. `python3 tools/rdstm_class_hint.py run
+LCTBL001.DAT RDSTM001.DAT MAPAL001`.
