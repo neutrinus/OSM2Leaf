@@ -3555,7 +3555,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 
 - [x] **M5.55 — l2check `refer_rename_resize` expects the pre-M5.52 edit and FAILs on every EU card**
-  - Status: done · Owner: task/m5.55-l2check-resize · Critical: yes · Pair: solo
+  - Status: done · Owner: task/m5.55-l2check-resize · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.52 (done)
   - Goal: since M5.52 (`608f949`) `mutate_refer_poi.py --resize` also patches the field-5 length byte, but `l2check.check_refer_rename_resize` still builds the expected record as "rename only" (`tools/l2check.py` ~line 881). Every full `l2check` run on an EU tree now ends `RESULT: FAIL` with `record 8 is not the rename-only edit (got 84 bytes, expected 84)`, including the untouched factory tree, so the `l2check` gate of `one_tile_pipeline` (and of every P1 run) cannot PASS (found by M5.54, EXP-2026-11-20-M5.54-wide-kinds).

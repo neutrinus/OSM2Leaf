@@ -59,3 +59,17 @@ verify C-5550's Precheck command prints OK/PASS on the EU factory root, and
 that reverting the field-5 byte still FAILs. No docs/format change.
 
 cleanup: scratch ~/projekty/leafre-work/scratch/m5.55 removed after EXP.
+
+## Navigator review (2026-11-20, after PR ready)
+
+CHANGES returned, both fixed in one commit:
+1. Evidence fidelity: the EXP's "fixture facts" and "Negative control" blocks
+   quoted a hand-assembled script's output that Method.2 did not list. Method.2
+   now runs `mutate_refer_poi.py ... --page 0x4200 --resize` (prints
+   `record 8 at 0x02a0 ... field-5 length byte at 0x02c1: 7 -> 9 words`) and a
+   heredoc that prints the four negative-control lines; Observations and
+   Reproduction now quote exactly those. Dropped page_used/page_gap/lens/start
+   numbers from Method.1 that no listed command printed.
+2. M5.55 Pair: solo -> Pair: required (it edits a user-visible l2check
+   assertion; prompt_common's pair-required class). The reviewer ran me as a
+   pair, so this only makes the record honest.
