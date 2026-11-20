@@ -831,6 +831,8 @@ DECODE_TABLE: tuple[tuple[int, int, str, str], ...] = (
     (0xF0FF, 0x4019, "shlr8", "n"),
     (0xF0FF, 0x4020, "shal", "n"),
     (0xF0FF, 0x4021, "shar", "n"),
+    (0xF0FF, 0x4024, "rotcl", "n"),
+    (0xF0FF, 0x4025, "rotcr", "n"),
     (0xF0FF, 0x4028, "shll16", "n"),
     (0xF0FF, 0x4029, "shlr16", "n"),
     (0xF0FF, 0x4010, "dt", "n"),
@@ -1407,6 +1409,18 @@ class PySh4(Backend):
             self._arm = "shar"
             self._set_t(bool(rn & 1))
             regs["r%d" % n] = ((rn >> 1) | (rn & 0x80000000)) & M32
+        elif low == 0x24:                                # rotcl Rn
+            # SH-4 manual ROTCL: T <- Rn[31], Rn <- Rn << 1 | old T (M9.50).
+            self._arm = "rotcl"
+            t_in = regs["sr"] & 1
+            self._set_t(bool(rn & 0x80000000))
+            regs["r%d" % n] = ((rn << 1) | t_in) & M32
+        elif low == 0x25:                                # rotcr Rn
+            # SH-4 manual ROTCR: T <- Rn[0], Rn <- old T << 31 | Rn >> 1.
+            self._arm = "rotcr"
+            t_in = regs["sr"] & 1
+            self._set_t(bool(rn & 1))
+            regs["r%d" % n] = (rn >> 1) | (t_in << 31)
         elif low == 0x28:                                # shll16
             self._arm = "shll16"
             regs["r%d" % n] = (rn << 16) & M32
@@ -2876,6 +2890,12 @@ def test_distinct_register_forms():
         # div1 from Q=M=T=0: Rn = (VN<<1) - VM = 0x2366, no borrow -> Q=0, T=1.
         ("div1", rr(0x3, 0x4, N, M), (N, M),
          {"r%d" % N: ((VN << 1) - VM) & M32, "sr": 0x001}, []),
+        # rotcl/rotcr Rn (M9.50): T in = 1, so the carried-in bit shows; the
+        # bit shifted out (VN[31] = 0, VN[0] = 0) lands in T.
+        ("rotcl", rr(0x4, 0x4, N, 0x2), (N, None),
+         {"r%d" % N: ((VN << 1) | 1) & M32, "sr": 0x0}, [], {"sr": 0x1}),
+        ("rotcr", rr(0x4, 0x5, N, 0x2), (N, None),
+         {"r%d" % N: (VN >> 1) | 0x80000000, "sr": 0x0}, [], {"sr": 0x1}),
         # mac.w @Rm+,@Rn+ (M9.49): words 0x1234 at @Rn and 0xFF02 (-254) at
         # @Rm, MACH:MACL preset so the 64-bit add carries into MACH.
         ("mac.w", rr(0x4, 0xF, N, M), (N, M),
@@ -2950,6 +2970,16 @@ def test_distinct_register_forms():
     e._execute(rr(0x3, 0x4, N, N), 0x8C000000)
     _expect_equal(e.get_regs()["r%d" % N], 0x00000005, "div1 Rn,Rn: (5<<1)-5")
 
+    # rotcl/rotcr with T in = 0 and the outgoing bit set: T out = 1, the
+    # vacated bit is 0, other SR bits kept.
+    for word, rn_v, want in ((rr(0x4, 0x4, N, 0x2), 0x80000001, 0x00000002),
+                             (rr(0x4, 0x5, N, 0x2), 0x80000001, 0x40000000)):
+        e = fresh(sr=0x40000300, **{"r%d" % N: rn_v})
+        e._execute(word, 0x8C000000)
+        snap = e.get_regs()
+        _expect_equal((snap["r%d" % N], snap["sr"]), (want, 0x40000301),
+                      f"{e._arm} Rn={px(rn_v)} T=0")
+
     # mac.w with n == m: the second word is read at Rn+2 and Rn ends +4.
     e = fresh(**{"r%d" % N: D + 0x40})
     e.write_mem(D + 0x40, b"\x00\x03\x00\x07")
@@ -2990,9 +3020,9 @@ def _divide_32(signed: bool, dividend: int, divisor: int, step=None) -> int:
     """Run the SH-4 manual's 32-bit divide sequence (div0u/div0s + 32 x
     ``rotcl; div1``) on PySh4 and return R2 (the quotient).
 
-    ``rotcl`` is not modelled by the engine, so this test applies it on the
-    host between engine steps; every div0*/div1/subc/addc/movt runs in the
-    engine.  *step* replaces ``_div1_step`` (the negative control).
+    Every instruction, ``rotcl`` included (modelled since M9.50; before it
+    the host applied it between engine steps), runs in the engine.  *step*
+    replaces ``_div1_step`` (the negative control).
     """
     e = PySh4(endian="big")
     e.map("code", 0x8C000000, 4, "rwx")
@@ -3004,10 +3034,7 @@ def _divide_32(signed: bool, dividend: int, divisor: int, step=None) -> int:
             e._execute(word, 0x8C000000)
 
         def rotcl(reg):
-            regs = e.get_regs()
-            value = regs[reg]
-            e.set_regs(**{reg: ((value << 1) | regs["t"]) & M32,
-                          "t": (value >> 31) & 1})
+            run(0x4024 | (int(reg[1:]) << 8))            # rotcl Rn
 
         e.set_regs(r0=divisor & M32, r2=dividend & M32, sr=0)
         if signed:

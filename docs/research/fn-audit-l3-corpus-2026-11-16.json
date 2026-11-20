@@ -368,15 +368,16 @@
   "docs/experiments/EXP-2026-11-19-M9.40-us-mask-read.md",
   "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
   "docs/experiments/EXP-2026-11-19-M9.49-pysh4-macw.md",
+  "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 366,
-  "citations": 998,
+  "files": 367,
+  "citations": 1003,
   "unique_va": 209,
-  "start": 814,
+  "start": 819,
   "inside": 80,
   "corrected": 9,
   "gap": 83,
@@ -9015,6 +9016,51 @@
   {
    "file": "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
    "line": 172,
+   "va": "0x88042594",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 108,
+   "va": "0x88040988",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 109,
+   "va": "0x88040b6c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 110,
+   "va": "0x88040c18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 111,
+   "va": "0x88041244",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
+   "line": 112,
    "va": "0x88042594",
    "kind": "fn",
    "class": "START",
