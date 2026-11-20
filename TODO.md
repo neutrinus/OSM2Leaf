@@ -4298,7 +4298,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-1590–C-1594
 
 - [ ] **M8.D2 — Decision gate after F3: go to F4?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.d2-decision-after-f3 · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F3 SD mounted; see `todo-history-2026-11-05.md` §M8.D)
   - Goal: after F3, go to F4 only if the micon/CAN handshake (M8.C4/C5) looks scriptable; F5 stays out of scope unless M8.C19 shows a simple frame-buffer path.
   - Precheck: `python3 tools/l4_status.py --run-log RUN.log` prints `F3    PASS` for a boot log of the F3 run (without a log every row is `NOT RUN`, i.e. the trigger is not reached and the gate is not due).
