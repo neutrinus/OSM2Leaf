@@ -2255,7 +2255,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2310–C-2319 (was C-1950–C-1959, already used by M2.13b)
 
 - [ ] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m4.16d-tmc-segment-placement · Critical: no
   - Step: P3
   - Depends: M4.16b, M4.7
   - Goal: if `RDSTM001` is TMC (C-882), test placement through the TMC
