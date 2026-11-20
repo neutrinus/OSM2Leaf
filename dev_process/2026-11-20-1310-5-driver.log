@@ -1,0 +1,50 @@
+role: driver (M5.49, pair)
+model: deepseek-v4.1-flash-free (aggregate)
+start: 2026-11-20 13:10 UTC
+end:   2026-11-20 ~14:05 UTC
+origin/main at start: d2fb7b4
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-16 + M5.49 block,
+  EXP-2026-11-19-M5.30, EXP-2026-11-18-M5.46, EXP-2026-11-19-M5.47,
+  EXP-2026-11-19-M5.50, docs/format/card-ladder.md, tools/one_tile_pipeline.py
+
+actions:
+- Claimed M5.49 first commit + push + draft PR [M5.49] (PR #325), per rule 2.
+- Precheck: mesh_grid cover 1/0/62, cardcheck --root --fast PASS, imgpatch
+  dry-run on the factory tile is delta-0 (same size/start/clusters).
+- Prototyped copy+rebuild_manifests on the factory root: byte-identical tree;
+  and on the case the task cites — the P1 tree diff is empty, patched image
+  byte-identical to the factory image.
+- Added --preserve-tile MESHTAG to one_tile_pipeline.py: build_preserve_out
+  (copy, rebuild manifests, full-tree diff, gate the empty diff), CLI dispatch,
+  _emit_report refactor, DISPLAY_ONLY_GATES split, synthetic fixture helper
+  (_preserve_fixture_root/_synth_hdd_info) and 13 selftest checks.
+- Updated docs/format/card-ladder.md P1 rows 3-5 to runnable (M5.50 handed these
+  rows to M5.49); fixed the flag assertion to the option-definition line.
+- Wrote EXP-2026-11-20-M5.49-p1-verbatim-tile.md and C-5380-C-5389.
+
+Done-when evidence (all quoted from commands in the EXP):
+- 480-file tree; cardcheck --root PASS.
+- p1.img byte-identical to factory (sha 105e2032...76307); check-diff 0 range(s);
+  cardcheck --image PASS.
+- Negatives: missing cell BLOCKED no --out; flipped tile byte -> 1 range.
+- selftest 137/0/23 (160); gate 4 pass/0 fail/0 skip (fn_audit PASS);
+  claims_check OK; todo_check OK.
+
+decisions:
+- Reused the M5.41 expected_changes set (expected = tile+DRSTR) rather than a
+  new one; on P1 nothing changes, so expected is a superset of an empty actual.
+- cardcheck --fast (not --partial) on the real factory root (it has VER_INFO);
+  --partial only for the synthetic fixture, exactly like the synthetic path.
+- Kept the pre-existing M5.52 refer_rename_resize FAIL out of scope (it fails on
+  the untouched factory root; C-5543/M5.55 already own it) and cited it.
+
+problems:
+- gate() rejects NOT-RUN; the honest vocabulary fit is NOT-APPLICABLE.
+- card-ladder's flag assertion counted both the usage line and the options line
+  (prints 2); switched to `grep -c '^  --preserve-tile MESHTAG'` -> 1.
+- The P0 l2check row in card-ladder fails (M5.52 regression), unrelated to P1.
+
+handoff (navigator): check build_preserve_out's tree-diff emptiness claim and
+  that the negatives fail; decide whether the card-ladder P0 l2 row should be
+  annotated with the M5.55 reference here or in M5.55.
