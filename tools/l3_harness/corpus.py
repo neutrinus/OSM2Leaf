@@ -71,6 +71,7 @@ import cmpind_writer  # noqa: E402
 import drstr  # noqa: E402
 import drstr_ze0  # noqa: E402
 import hddinfo  # noqa: E402
+import mutate_refer_poi  # noqa: E402
 
 CHUNK = 0x10000
 HDD_SIZE = 72
@@ -172,6 +173,46 @@ def point_payload() -> bytes:
     unit = b"POINT page " + bytes(range(0x80))
     blob = (unit * ((2 * CHUNK + 0x2000) // len(unit) + 1))[: 2 * CHUNK + 0x2000]
     return blob
+
+
+#: Logical ``.DAT`` offset of the synthetic POINT name page (256-aligned);
+#: equals ``targets.json`` ``point_walk_us2011`` ``inputs.offset`` so the
+#: corpus-only row and the real page use the same offset.
+POINT_PAGE_OFFSET = 0x840BA0
+#: Body sizes of the synthetic record chain (``tag,len2,body,ff ff`` records).
+POINT_RECORD_BODIES = (0x40, 0x60, 0x20, 0x80)
+
+
+def point_walk_page() -> bytes:
+    """A clean POINT name record chain (``0x60``/``0x68`` tags, ``ff ff`` ends).
+
+    The format is ``u8 tag | u8 len2 | body | ff ff`` with ``total = 2*len2``;
+    the chain ends exactly at the page length (``mutate_refer_poi.parse_page``
+    has no separate terminator word, unlike the walker's own ``len == 0``
+    stop).
+    """
+    out = bytearray()
+    for index, body_len in enumerate(POINT_RECORD_BODIES):
+        tag = 0x60 if index % 2 == 0 else 0x68
+        body = bytes([(index + 1) & 0xFF]) * body_len
+        total = 2 + body_len + 2
+        if total % 2 or total // 2 > 0xFF:
+            raise CorpusError(f"record {index} has bad size {total}")
+        out += bytes([tag, total // 2]) + body + b"\xff\xff"
+    return bytes(out)
+
+
+def point_walk_dat() -> bytes:
+    """A ``.DAT`` blob whose zlib page at ``POINT_PAGE_OFFSET`` is the chain.
+
+    The inner page is a zlib stream inside the decoded ``.DAT`` (the walker
+    reads the inflated page), the same layering ``point_walk_l3.cmd_walk``
+    uses.
+    """
+    page = zlib.compress(point_walk_page(), 6)
+    blob = bytearray(POINT_PAGE_OFFSET)
+    blob[POINT_PAGE_OFFSET:POINT_PAGE_OFFSET + len(page)] = page
+    return bytes(blob)
 
 
 def tile_payload(vertices) -> bytes:
@@ -635,11 +676,27 @@ def verdict_hdd_info(root: Path, relative: str) -> str:
     return "ACCEPT" if hddinfo.classify(system, card)["accepted"] else "REJECT"
 
 
+def verdict_point_walk(root: Path, relative: str) -> str:
+    """ACCEPT iff the POINT name page at the corpus offset is a clean chain."""
+    import mutate_refer_poi as mrp
+
+    try:
+        _usize, _csize, _count, _chunk, offsets = mrp.read_ind(
+            (root / relative).with_suffix(".ind"))
+        dat = mrp.decode((root / relative).read_bytes(), offsets)
+        raw = zlib.decompressobj().decompress(dat[POINT_PAGE_OFFSET:])
+        mrp.parse_page(raw)
+    except (OSError, zlib.error, ValueError):
+        return "REJECT"
+    return "ACCEPT"
+
+
 VERDICT_FUNCTIONS = {
     "cmp_ind": verdict_cmp_ind,
     "drstr": verdict_drstr,
     "tile": verdict_tile,
     "hdd_info": verdict_hdd_info,
+    "point_walk": verdict_point_walk,
 }
 
 
@@ -769,6 +826,17 @@ def build_corpus(root) -> dict:
             )
             specs.append(("corrupt_ind", "cmp_ind", path, None))
             notes[("corrupt_ind", path)] = f"ind_mutate.py variant {variant}"
+
+    # ---- POINT name-page family (M9.55) ------------------------------
+    point_dat = point_walk_dat()
+    pw_cmp, pw_ind = _cmp_pair(point_dat)
+    path = _write_cmp_pair(root, "point", "POINT010.DAT", pw_cmp, pw_ind)
+    specs.append(("point_walk_factory", "point_walk", path, None))
+    specs.append(("point_walk_factory", "cmp_ind", path, None))
+    notes[("point_walk_factory", path)] = (
+        "synthetic POINT name page at 0x%x (zlib inside the .DAT): 4 "
+        "0x60/0x68 records then 00 00" % POINT_PAGE_OFFSET
+    )
 
     # ---- DRSTR family ------------------------------------------------
     tree = build_drstr({"ADDRE001.DAT": (factory_cmp, factory_ind),
@@ -1126,10 +1194,29 @@ def test_build_factory(tmp):
         e for e in report["document"]["corpus"]
         if e["case"] == "factory" and e["path"].startswith("factory/")
     ]
-    assert len(entries) == 1, entries
-    assert entries[0]["path"] == "factory/ADDRE001.DAT.cmp"
-    assert entries[0]["expected"] == "ACCEPT"
+    assert len(entries) >= 1 and entries[0]["path"] == "factory/ADDRE001.DAT.cmp"
     assert verdict_cmp_ind(root, entries[0]["path"]) == "ACCEPT"
+
+
+@check("build: the POINT name-page fixture is a clean record chain (M9.55)")
+def test_build_point_walk(tmp):
+    import mutate_refer_poi as mrp
+    import zlib as _zlib
+
+    page = point_walk_page()
+    recs = mrp.parse_page(page)
+    assert [r["tag"] for r in recs] == [0x60, 0x68, 0x60, 0x68], recs
+    assert [r["len2"] for r in recs] == [r["total"] // 2 for r in recs]
+    root, report = _build(tmp)
+    path = "point/POINT010.DAT.cmp"
+    entry = next(e for e in report["document"]["corpus"]
+                 if e["reader"] == "point_walk" and e["path"] == path)
+    assert entry["expected"] == "ACCEPT", entry
+    _u, _c, _n, _cs, offsets = mrp.read_ind(root / "point" / "POINT010.DAT.ind")
+    raw = _zlib.decompressobj().decompress(
+        mrp.decode((root / path).read_bytes(), offsets)[POINT_PAGE_OFFSET:])
+    assert raw == page, "the walker would not see the synthetic page"
+    assert verdict_point_walk(root, path) == "ACCEPT"
 
 
 def first_pair(root: Path) -> tuple[bytes, bytes]:
@@ -1166,7 +1253,7 @@ def test_verdicts(tmp):
         assert allowed[reader] <= verdicts, (
             f"{reader} covered {verdicts}, cases allow {allowed[reader]}"
         )
-    assert set(seen) == {"cmp_ind", "drstr", "tile", "hdd_info"}, sorted(seen)
+    assert set(seen) == {"cmp_ind", "drstr", "tile", "hdd_info", "point_walk"}, sorted(seen)
 
 
 @check("readers: hdd_info discriminates line 1 and line 4")

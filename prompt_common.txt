@@ -5,7 +5,7 @@ displays. Everything else serves this goal.
 
 Before you start:
 - Read AGENTS.md and the "How to take a task" rules at the top of TODO.md
-  (rules 1–16, ID allocation, task fields). They override anything here.
+  (rules 1–17, ID allocation, task fields). They override anything here.
 - Run `git fetch` and work from an up-to-date `origin/main`.
 
 Hard rules:
@@ -95,6 +95,11 @@ finds nothing to do or fails):
   files, SHAs and task IDs instead.
 - Commit the log in your final commit (or a `chore: <role> work log` commit)
   and push it; a run that changed nothing still commits its log.
+- A developer (driver or navigator) writes no log of its own: its record is
+  the EXP (with "Corrections after navigator review") and the PR body. A
+  batch of tasks run from a chat thread is a TL run: commit its `-tl.log`
+  with the first merge and append to it, so the table exists while the batch
+  runs (retro 2026-11-20-2).
 - Read only the logs since your own previous run, never the whole folder.
 
 Finish with a short summary for the user: what you changed, which task IDs

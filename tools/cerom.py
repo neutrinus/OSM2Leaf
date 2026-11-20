@@ -14,7 +14,8 @@ Usage:
   cerom.py IMG modules
   cerom.py modules --census IMG_EU IMG_US   # M1.33: build census (A = EU)
   cerom.py IMG files [--extract DIR] [--decompress]
-                      [--method auto|lzss|lzx] [--json]
+                      [--method auto|kernel|lzss|lzx] [--json]
+  cerom.py IMG extract-file NAME -o PATH [--method auto|kernel]
   cerom.py IMG sections MODULE
   cerom.py IMG exports MODULE
   cerom.py IMG va2file VA
@@ -108,10 +109,16 @@ a decode whose length differs from ``rsize`` is refused and never written.  An
 entry with ``csize == rsize`` is ``UNCOMPRESSED`` (nothing extracted) and one
 whose stored bytes were written without ``--decompress`` is ``STORED``.
 ``--json`` emits one record per entry with the stable keys ``index, name,
-attrib, rsize, csize, load, status, method_used, output_size, sha256, error``
-(``sha256`` always covers the stored bytes).  EXP-2026-11-05-51 showed that the
-real compressed ``FILESentry`` payloads are not a stdlib format, so what the
-real image decodes to with this classifier remains UNKNOWN.  Exit codes: 0 when
+attrib, rsize, csize, load, status, method_used, output_size, sha256,
+decoded_sha256, kernel, error`` (``sha256`` always covers the stored bytes,
+``decoded_sha256`` the ``OK`` decode).  EXP-2026-11-05-51 showed that the real
+compressed ``FILESentry`` payloads are not a stdlib format; since M1.4 (2026-11-20)
+a payload the codecs call ``UNSUPPORTED`` goes to the kernel's own routine
+(``tools/nk_decomp.py``, M1.21) and is ``OK`` only when ``r0 == rsize``
+(``method_used`` ``kernel``; ``--method kernel`` skips the codecs).
+``extract-file NAME -o PATH`` writes one entry at its real length (copy for an
+uncompressed entry, decode otherwise) and refuses, writing nothing, when the
+decode is not exactly ``rsize`` bytes.  Exit codes: 0 when
 what was asked for succeeded, 1 when a requested decode is
 ``UNSUPPORTED``/``FAIL`` or an ``--extract`` entry could not be written, 2 on a
 usage or I/O error.
@@ -167,7 +174,8 @@ THUNKS_RECORD_KEYS = ("stub_va", "slot_va", "module", "export", "ordinal",
                       "owner", "segment")
 THUNKS_PATTERN_RANK = {"4-insn": 2, "inlined": 2, "3-insn": 1, "2-insn": 0}
 FILES_RECORD_KEYS = ("index", "name", "attrib", "rsize", "csize", "load",
-                     "status", "method_used", "output_size", "sha256", "error")
+                     "status", "method_used", "output_size", "sha256",
+                     "decoded_sha256", "kernel", "error")
 SEGMENT_MAX_MODULES = 4096
 
 
@@ -817,6 +825,29 @@ class KernelDecoder:
         if r0 != expected:
             return None, info, "r0=0x%x != comphdr uncompressed_len 0x%x" % (r0, expected)
         return init + bytes(sec["vsize"] - r0), info, None
+
+
+    def decode_file(self, data, offset, entry):
+        """Decode one ``FILESentry`` payload: ``(blob or None, info, error)``.
+
+        Same call as a section (``r4=src, r5=csize, r6=dest, r7=rsize``,
+        frame ``skip 0, step 1, block 0x1000``, M1.21); OK only when the
+        returned ``r0`` equals ``rsize``.  Cached by content under the name
+        ``FILES.<name>`` (``nk_decomp`` cache, outside the repo).
+        """
+        import nk_decomp
+        info = {"method": "kernel", "routine": "nk.exe DECOMP_SECT 0x88037464 (build B)",
+                "r0": None, "source": None}
+        try:
+            r0, init, source = nk_decomp.decode_cached(
+                data, offset, entry["csize"], entry["rsize"],
+                "FILES.%s" % entry["name"], entry["index"])
+        except Exception as exc:  # noqa: BLE001 - engine errors are per file
+            return None, info, "%s: %s" % (type(exc).__name__, exc)
+        info.update(r0=r0, source=source)
+        if r0 != entry["rsize"]:
+            return None, info, "r0=0x%x != rsize 0x%x" % (r0, entry["rsize"])
+        return bytes(init), info, None
 
 
 def decompress_report(data, image_name, image_size=None, image_sha256=None,
@@ -2052,7 +2083,7 @@ def stored_name(name, index):
 
 def files_report(cerom, data, image_name, image_size=None, image_sha256=None,
                  sha256_scope=None, extract_dir=None, decompress=False,
-                 method="auto"):
+                 method="auto", names=None):
     """List ``FILESentry`` records and classify their stored payloads.
 
     ``sha256`` always covers the stored ``csize`` bytes.  A record is
@@ -2065,13 +2096,17 @@ def files_report(cerom, data, image_name, image_size=None, image_sha256=None,
     is refused, never written.
     """
     cc = cecompress_module()
-    method = cc.normalise_method(method)
+    kernel_only = str(method).strip().lower() == "kernel"
+    method = "kernel" if kernel_only else cc.normalise_method(method)
+    kernel = KernelDecoder(data)
     write = bool(extract_dir)
     if write:
         extract_dir = os.path.abspath(extract_dir)
 
-    records, extracted = [], []
+    records, extracted, blobs = [], [], {}
     for entry in cerom.files():
+        if names is not None and entry["name"].lower() not in names:
+            continue
         record = {
             "index": entry["index"],
             "name": entry["name"],
@@ -2083,6 +2118,8 @@ def files_report(cerom, data, image_name, image_size=None, image_sha256=None,
             "method_used": None,
             "output_size": None,
             "sha256": None,
+            "decoded_sha256": None,
+            "kernel": None,
             "error": None,
         }
         compressed = entry["csize"] != entry["rsize"]
@@ -2110,11 +2147,32 @@ def files_report(cerom, data, image_name, image_size=None, image_sha256=None,
                 record["status"] = "STORED"
             else:
                 try:
+                    if kernel_only:
+                        raise cc.UnsupportedFormat("kernel only (--method kernel)")
                     blob, info = cc.decompress_info(
                         stored, entry["rsize"], method)
                 except cc.UnsupportedFormat as exc:
                     record["status"] = "UNSUPPORTED"
                     record["error"] = str(exc)
+                    # M1.4: the stdlib/cecompress codecs do not read the CE-LZX
+                    # payloads (EXP-2026-11-08-M1.4); the kernel's own routine
+                    # does (M1.21).  Accept it only when r0 == rsize.
+                    if method in ("auto", "kernel") and kernel.available():
+                        kblob, kinfo, kerr = kernel.decode_file(
+                            data, offset, entry)
+                        record["kernel"] = kinfo
+                        if kerr is None:
+                            blob, info = kblob, {"method": "kernel"}
+                            record["status"] = "OK"
+                            record["method_used"] = "kernel"
+                            record["output_size"] = len(blob)
+                            record["error"] = None
+                        else:
+                            record["status"] = "FAIL"
+                            record["error"] = "%s; kernel routine: %s" % (exc, kerr)
+                    elif method == "kernel":
+                        record["error"] = ("UNSUPPORTED(kernel routine: %s)"
+                                           % kernel.why)
                 except cc.CeCompressError as exc:
                     record["status"] = "FAIL"
                     record["error"] = str(exc)
@@ -2133,6 +2191,8 @@ def files_report(cerom, data, image_name, image_size=None, image_sha256=None,
                         record["status"] = "OK"
                         record["method_used"] = info.get("method")
                         record["output_size"] = len(blob)
+                if record["status"] == "OK" and blob is not None:
+                    record["decoded_sha256"] = hashlib.sha256(blob).hexdigest()
 
         if stored is not None and write and compressed:
             os.makedirs(extract_dir, exist_ok=True)
@@ -2149,6 +2209,8 @@ def files_report(cerom, data, image_name, image_size=None, image_sha256=None,
                     handle.write(blob)
                 paths["out"] = decoded_path
             extracted.append(paths)
+        if record["status"] == "OK" and blob is not None:
+            blobs[entry["index"]] = blob
         records.append(record)
 
     counts = {"files": len(records), "compressed": 0, "uncompressed": 0,
@@ -2181,6 +2243,7 @@ def files_report(cerom, data, image_name, image_size=None, image_sha256=None,
         "counts": counts,
         "extracted": extracted,
         "files": records,
+        "_blobs": blobs,
     }
 
 
@@ -2221,6 +2284,52 @@ def print_files_text(report, cerom):
     print(summary)
 
 
+def extract_file_command(args, cerom, data):
+    """``extract-file NAME -o PATH``: write one ROM file at its real length.
+
+    An uncompressed entry is copied; a compressed one is decoded (codecs, then
+    the kernel routine) and written only when the result is exactly ``rsize``
+    bytes.  Exit 0 written, 1 refused (no file written), 2 usage/I-O error.
+    """
+    try:
+        report = files_report(cerom, data, args.image, decompress=True,
+                              method=args.method, names={args.name.lower()})
+    except Exception as exc:  # noqa: BLE001
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
+    rows = report["files"]
+    if not rows:
+        print("error: no FILESentry named %r at image start 0x%x"
+              % (args.name, cerom.start), file=sys.stderr)
+        return 2
+    rec = rows[0]
+    offset = cerom.va2file(rec["load"])
+    if rec["csize"] == rec["rsize"]:
+        blob = data[offset:offset + rec["rsize"]]
+        how = "stored"
+    elif rec["status"] == "OK":
+        blob = report["_blobs"][rec["index"]]
+        how = rec["method_used"]
+    else:
+        print("REFUSED %s real=%d comp=%d status=%s error=%s (nothing written)"
+              % (rec["name"], rec["rsize"], rec["csize"], rec["status"], rec["error"]))
+        return 1
+    if len(blob) != rec["rsize"]:
+        print("REFUSED %s: %d bytes, real %d (nothing written)"
+              % (rec["name"], len(blob), rec["rsize"]))
+        return 1
+    out = os.path.abspath(args.o)
+    parent = os.path.dirname(out)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(out, "wb") as handle:
+        handle.write(blob)
+    print("OK %s real=%d comp=%d method=%s sha256=%s -> %s"
+          % (rec["name"], rec["rsize"], rec["csize"], how,
+             hashlib.sha256(blob).hexdigest(), out))
+    return 0
+
+
 def files_command(args, cerom, data):
     """Run ``files``: listing, optional stored extraction and decode."""
     try:
@@ -2243,6 +2352,7 @@ def files_command(args, cerom, data):
         print("error: %s" % exc, file=sys.stderr)
         return 2
 
+    report.pop("_blobs", None)
     if args.json:
         sys.stdout.write(json.dumps(report, indent=2) + "\n")
     else:
@@ -3178,6 +3288,36 @@ def selftest():
         with open(os.path.join(out_dir, "boot.hv.1.stored.bin"), "rb") as fh:
             ok("files unsupported stores the raw stream",
                fh.read(), exp["unsupported_stream"])
+        ok("files json decoded hash", hive["decoded_sha256"],
+           hashlib.sha256(exp["file_hive_plain"]).hexdigest())
+        ok("files json kernel unused on synthetic ROM (no build B)",
+           (hive["kernel"], boot["kernel"]), (None, None))
+
+        # --- extract-file NAME (M1.4) ----------------------------------------
+        one = os.path.join(td, "one", "DEFAULT.HV")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli extract-file OK exit",
+               main([path, "extract-file", "Default.HV", "-o", one]), 0)
+        with open(one, "rb") as fh:
+            ok("extract-file writes rsize decoded bytes", fh.read(), exp["file_hive_plain"])
+        ok("extract-file OK line", buf.getvalue().startswith("OK default.hv real=512"), True)
+        raw_out = os.path.join(td, "one", "wince.nls")
+        with contextlib.redirect_stdout(io.StringIO()):
+            ok("cli extract-file uncompressed exit",
+               main([path, "extract-file", "wince.nls", "-o", raw_out]), 0)
+        with open(raw_out, "rb") as fh:
+            ok("extract-file copies an uncompressed entry", fh.read(), exp["file_raw_plain"])
+        bad_out = os.path.join(td, "one", "boot.hv")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli extract-file refused exit",
+               main([path, "extract-file", "boot.hv", "-o", bad_out]), 1)
+        ok("extract-file refused writes nothing", os.path.exists(bad_out), False)
+        ok("extract-file refused line", buf.getvalue().startswith("REFUSED boot.hv"), True)
+        with contextlib.redirect_stderr(io.StringIO()):
+            ok("cli extract-file unknown name exit",
+               main([path, "extract-file", "nope.txt", "-o", bad_out]), 2)
 
         text_dir = os.path.join(td, "files-text")
         buf = io.StringIO()
@@ -4153,8 +4293,16 @@ def main(argv=None):
     p.add_argument("--decompress", action="store_true",
                    help="decode extracted payloads through tools/cecompress.py")
     p.add_argument("--method", default="auto",
-                   help="auto (default), lzss/cecompress or lzx")
+                   help="auto (default: codecs, then the kernel routine), "
+                        "kernel (nk_decomp only), lzss/cecompress or lzx")
     p.add_argument("--json", action="store_true", help="machine-readable output")
+    p = sub.add_parser("extract-file",
+                       help="write one FILESentry payload at its real length (M1.4)")
+    p.add_argument("name", help="FILESentry name (case-insensitive)")
+    p.add_argument("-o", required=True, metavar="PATH",
+                   help="output file (vendor bytes: keep it outside the repo)")
+    p.add_argument("--method", default="auto",
+                   help="auto (default: codecs, then the kernel routine) or kernel")
     p = sub.add_parser("sections"); p.add_argument("module")
     p = sub.add_parser("exports"); p.add_argument("module")
     p = sub.add_parser("imports",
@@ -4222,7 +4370,8 @@ def main(argv=None):
     if a.image is None:
         ap.error("the following arguments are required: image")
     if a.cmd is None:
-        ap.error("a subcommand is required (scan, romhdr, modules, files, sections, exports, "
+        ap.error("a subcommand is required (scan, romhdr, modules, files, extract-file, "
+                 "sections, exports, "
                  "va2file, file2va, extract, memmap, decompress, comphdr, thunks)")
 
     try:
@@ -4264,6 +4413,8 @@ def main(argv=None):
                   % (m["index"], m["name"], m["attrib"], m["size"], m["load"], e["vbase"], e["objcnt"]))
     elif a.cmd == "files":
         return files_command(a, r, data)
+    elif a.cmd == "extract-file":
+        return extract_file_command(a, r, data)
     elif a.cmd == "sections":
         m = r.module(a.module)
         e = r.e32(m)

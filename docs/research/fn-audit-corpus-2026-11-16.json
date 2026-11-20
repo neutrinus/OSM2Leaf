@@ -24,7 +24,10 @@
   "tools/chunk_decoder_l3.py",
   "tools/cmp_read_l3.py",
   "tools/datask_l3.py",
+  "tools/datask_req_l3.py",
+  "tools/drstr_l3.py",
   "tools/l3_harness/targets.json",
+  "tools/lctbl_lookup_l3.py",
   "tools/mapcode_l3.py",
   "tools/mmain_l3.py",
   "tools/mount_dirs_l3.py",
@@ -34,26 +37,27 @@
   "tools/read_watch_l3.py",
   "tools/rgd_reply_l3.py",
   "tools/swap_witness_l3.py",
+  "tools/tile_drop_l3.py",
   "tools/tmc_req_l3.py",
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 31,
-  "citations": 617,
-  "unique_va": 283,
-  "start": 377,
+  "files": 35,
+  "citations": 798,
+  "unique_va": 334,
+  "start": 498,
   "inside": 0,
   "corrected": 0,
-  "gap": 65,
-  "leaf": 65,
-  "ambiguous": 0,
-  "unmapped": 175
+  "gap": 72,
+  "leaf": 72,
+  "ambiguous": 1,
+  "unmapped": 227
  },
  "rows": [
   {
    "file": "TODO.md",
-   "line": 1061,
-   "va": "0x004125a8",
+   "line": 1791,
+   "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -61,7 +65,34 @@
   },
   {
    "file": "TODO.md",
-   "line": 1625,
+   "line": 1791,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1791,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1791,
+   "va": "0x0040b358",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1794,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -70,7 +101,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1625,
+   "line": 1794,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -79,7 +110,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1626,
+   "line": 1795,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -88,7 +119,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1647,
+   "line": 1816,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -98,7 +129,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1657,
+   "line": 1826,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -107,7 +138,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1728,
+   "line": 1897,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -116,7 +147,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1728,
+   "line": 1897,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -125,7 +156,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1761,
+   "line": 1930,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -134,7 +165,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1762,
+   "line": 1931,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -143,7 +174,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1784,
+   "line": 1953,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -152,7 +183,61 @@
   },
   {
    "file": "TODO.md",
-   "line": 2222,
+   "line": 2230,
+   "va": "0x003f5624",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2231,
+   "va": "0x003ad680",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2231,
+   "va": "0x003ad9a4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2231,
+   "va": "0x003b9d38",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2231,
+   "va": "0x003bacc4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2232,
+   "va": "0x003ad440",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2418,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -161,7 +246,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2222,
+   "line": 2418,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -170,57 +255,13 @@
   },
   {
    "file": "TODO.md",
-   "line": 4158,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
+   "line": 4193,
+   "va": "0x039bcedc",
+   "kind": "fn",
+   "class": "GAP",
    "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4160,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4168,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4173,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4182,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4339,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
   },
   {
    "file": "docs/format/cerom.md",
@@ -851,8 +892,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 333,
-   "va": "0x003f51e0",
+   "line": 331,
+   "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -860,8 +901,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 333,
-   "va": "0x003f5cdc",
+   "line": 338,
+   "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -869,26 +910,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 335,
-   "va": "0x0040dfa8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 336,
-   "va": "0x00415fe8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 337,
-   "va": "0x0040e28c",
+   "line": 338,
+   "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -897,7 +920,7 @@
   {
    "file": "docs/format/firmware.md",
    "line": 339,
-   "va": "0x00412ac0",
+   "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -906,51 +929,6 @@
   {
    "file": "docs/format/firmware.md",
    "line": 341,
-   "va": "0x003faf04",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 342,
-   "va": "0x003fc9c8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 342,
-   "va": "0x003fcbf0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 343,
-   "va": "0x003fd390",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 343,
-   "va": "0x003fe774",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 356,
    "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
@@ -959,8 +937,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 359,
-   "va": "0x003ff6a0",
+   "line": 344,
+   "va": "0x003f5624",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -968,8 +946,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 364,
-   "va": "0x003fc9c8",
+   "line": 346,
+   "va": "0x003ad680",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -977,8 +955,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 365,
-   "va": "0x003fcbf0",
+   "line": 346,
+   "va": "0x003ad9a4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -986,8 +964,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 366,
-   "va": "0x003fd390",
+   "line": 346,
+   "va": "0x003b9d38",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -995,8 +973,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 367,
-   "va": "0x003faf04",
+   "line": 346,
+   "va": "0x003bacc4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1004,8 +982,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 368,
-   "va": "0x003faf04",
+   "line": 347,
+   "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1013,8 +991,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 370,
-   "va": "0x003fe774",
+   "line": 354,
+   "va": "0x003f51e0",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1022,8 +1000,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 370,
-   "va": "0x00412c60",
+   "line": 354,
+   "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1031,7 +1009,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 371,
+   "line": 356,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -1040,16 +1018,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 371,
-   "va": "0x0040e510",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 371,
+   "line": 357,
    "va": "0x00415fe8",
    "kind": "fn",
    "class": "START",
@@ -1058,7 +1027,142 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 376,
+   "line": 358,
+   "va": "0x0040e28c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 360,
+   "va": "0x00412ac0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 362,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 363,
+   "va": "0x003fc9c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 363,
+   "va": "0x003fcbf0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 364,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 364,
+   "va": "0x003fe774",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 377,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 380,
+   "va": "0x003ff6a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 385,
+   "va": "0x003fc9c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 386,
+   "va": "0x003fcbf0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 387,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 388,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 389,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 391,
+   "va": "0x003fe774",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 391,
    "va": "0x00412c60",
    "kind": "fn",
    "class": "START",
@@ -1067,8 +1171,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 377,
-   "va": "0x003f600c",
+   "line": 392,
+   "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1076,7 +1180,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 377,
+   "line": 392,
    "va": "0x0040e510",
    "kind": "fn",
    "class": "START",
@@ -1085,7 +1189,43 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 429,
+   "line": 392,
+   "va": "0x00415fe8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 397,
+   "va": "0x00412c60",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 398,
+   "va": "0x003f600c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 398,
+   "va": "0x0040e510",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 450,
    "va": "0x00377870",
    "kind": "fn",
    "class": "START",
@@ -1094,7 +1234,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 432,
+   "line": 453,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1103,7 +1243,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 432,
+   "line": 453,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1112,7 +1252,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 435,
+   "line": 456,
    "va": "0x00377870",
    "kind": "fn",
    "class": "START",
@@ -1121,7 +1261,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 436,
+   "line": 457,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1130,7 +1270,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 669,
+   "line": 694,
    "va": "0x004e84c4",
    "kind": "sub_",
    "class": "START",
@@ -1139,7 +1279,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 670,
+   "line": 695,
    "va": "0x004e8f38",
    "kind": "fn",
    "class": "START",
@@ -1148,7 +1288,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 671,
+   "line": 696,
    "va": "0x004e989c",
    "kind": "sub_",
    "class": "START",
@@ -1157,7 +1297,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 671,
+   "line": 696,
    "va": "0x004ea288",
    "kind": "fn",
    "class": "START",
@@ -1166,7 +1306,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 672,
+   "line": 697,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -1175,7 +1315,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 678,
+   "line": 703,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -1184,7 +1324,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 798,
+   "line": 823,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -1193,7 +1333,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 808,
+   "line": 833,
    "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
@@ -1202,7 +1342,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 810,
+   "line": 835,
    "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
@@ -1211,7 +1351,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 812,
+   "line": 837,
    "va": "0x004e7d4c",
    "kind": "fn",
    "class": "START",
@@ -1220,7 +1360,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 828,
+   "line": 853,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -1229,7 +1369,121 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 960,
+   "line": 943,
+   "va": "0x8803dc70",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 944,
+   "va": "0x8803d168",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 944,
+   "va": "0x8803dc70",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 944,
+   "va": "0x8803fcdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 944,
+   "va": "0x8803fd40",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 946,
+   "va": "0x8803c9c6",
+   "kind": "fn",
+   "class": "AMBIGUOUS",
+   "true_start": null,
+   "class_sha256": "600f524d687889b3c91d5b2ba253236698dfc7128a7a023f3936aa980672ed8a",
+   "candidates": [
+    [
+     "B",
+     "nk.exe",
+     "GAP",
+     2281949476
+    ],
+    [
+     "C",
+     "nk.exe",
+     "GAP",
+     2281949428
+    ]
+   ]
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 946,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 947,
+   "va": "0x0398e888",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 949,
+   "va": "0x039bcedc",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 949,
+   "va": "0x039bcf20",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1019,
+   "va": "0x03bcc5b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1166,
    "va": "0x0001e3f4",
    "kind": "sub_",
    "class": "START",
@@ -1238,7 +1492,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1578,
+   "line": 1784,
    "va": "0x004124dc",
    "kind": "fn",
    "class": "START",
@@ -1247,7 +1501,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1600,
+   "line": 1806,
    "va": "0x003335c0",
    "kind": "fn",
    "class": "START",
@@ -1256,7 +1510,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1782,
+   "line": 1988,
    "va": "0x003fd690",
    "kind": "fn",
    "class": "START",
@@ -1265,7 +1519,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1785,
+   "line": 1991,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1275,7 +1529,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1786,
+   "line": 1992,
    "va": "0x00404994",
    "kind": "fn",
    "class": "START",
@@ -1284,7 +1538,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1786,
+   "line": 1992,
    "va": "0x004052d4",
    "kind": "fn",
    "class": "START",
@@ -1293,7 +1547,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1787,
+   "line": 1993,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -1302,7 +1556,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 732,
+   "line": 736,
    "va": "0x004266ec",
    "kind": "fn",
    "class": "START",
@@ -1311,7 +1565,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1031,
+   "line": 1049,
    "va": "0x00414644",
    "kind": "fn",
    "class": "START",
@@ -1320,7 +1574,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1032,
+   "line": 1050,
    "va": "0x00414930",
    "kind": "fn",
    "class": "START",
@@ -1329,7 +1583,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1033,
+   "line": 1051,
    "va": "0x00414dbc",
    "kind": "fn",
    "class": "START",
@@ -1338,7 +1592,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1034,
+   "line": 1052,
    "va": "0x00415330",
    "kind": "fn",
    "class": "START",
@@ -1365,7 +1619,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 396,
+   "line": 418,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1374,7 +1628,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 406,
+   "line": 428,
    "va": "0x003bc960",
    "kind": "fn",
    "class": "START",
@@ -1383,7 +1637,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 436,
+   "line": 458,
    "va": "0x003ca858",
    "kind": "fn",
    "class": "GAP",
@@ -1484,7 +1738,79 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 611,
+   "line": 649,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 651,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 651,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 652,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 652,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 653,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 653,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 655,
+   "va": "0x003f5624",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 661,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -1493,7 +1819,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 613,
+   "line": 663,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -1502,7 +1828,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 615,
+   "line": 665,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -1511,7 +1837,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 616,
+   "line": 666,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -1521,7 +1847,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 622,
+   "line": 672,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -1530,7 +1856,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 623,
+   "line": 673,
    "va": "0x003f51e0",
    "kind": "fn",
    "class": "START",
@@ -1539,7 +1865,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 631,
+   "line": 681,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -1548,7 +1874,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 633,
+   "line": 683,
    "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
@@ -1557,7 +1883,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 633,
+   "line": 683,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1566,7 +1892,25 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 649,
+   "line": 694,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f5624",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -1575,7 +1919,169 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 650,
+   "line": 694,
+   "va": "0x003f57a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 694,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 699,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 699,
+   "va": "0x003f57a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 704,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 704,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 705,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 705,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003ad680",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003ad9a4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003b9d38",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003bacc4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 707,
+   "va": "0x003f5624",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 710,
+   "va": "0x0040b358",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 718,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 719,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -2099,6 +2605,213 @@
    "true_start": null,
    "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
    "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 118,
+   "va": "0x00417924",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 120,
+   "va": "0x00419c38",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 122,
+   "va": "0x0041841c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 124,
+   "va": "0x0040b358",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 126,
+   "va": "0x00418428",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 128,
+   "va": "0x0041bbec",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 130,
+   "va": "0x00409ba0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 132,
+   "va": "0x003f6c88",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 134,
+   "va": "0x003f7384",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 136,
+   "va": "0x003f73dc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 138,
+   "va": "0x00419350",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 140,
+   "va": "0x00419684",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 142,
+   "va": "0x0041a438",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 144,
+   "va": "0x009cfce0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 144,
+   "va": "0x00a10ea8",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 146,
+   "va": "0x009cfce4",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 146,
+   "va": "0x00a10eac",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 148,
+   "va": "0x009cfcd4",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 148,
+   "va": "0x00a10e9c",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 150,
+   "va": "0x00d53020",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 150,
+   "va": "0x00e25420",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 152,
+   "va": "0x00d518c0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 152,
+   "va": "0x00e23cc0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/chunk_decoder_l3.py",
@@ -2879,7 +3592,53 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 66,
+   "line": 32,
+   "va": "0x00405970",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 35,
+   "va": "0x003ed6e8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 37,
+   "va": "0x003f6968",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 37,
+   "va": "0x00404ee4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 38,
+   "va": "0x0054233c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 78,
    "va": "0x003ebfb4",
    "kind": "const",
    "class": "START",
@@ -2888,7 +3647,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 67,
+   "line": 79,
    "va": "0x003eba78",
    "kind": "const",
    "class": "START",
@@ -2897,7 +3656,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 67,
+   "line": 79,
    "va": "0x003f6908",
    "kind": "const",
    "class": "START",
@@ -2906,7 +3665,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 68,
+   "line": 80,
    "va": "0x003ebee8",
    "kind": "const",
    "class": "START",
@@ -2915,7 +3674,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 72,
+   "line": 84,
    "va": "0x003f72e4",
    "kind": "const",
    "class": "START",
@@ -2924,7 +3683,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 75,
+   "line": 87,
    "va": "0x0041841c",
    "kind": "const",
    "class": "START",
@@ -2933,7 +3692,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 76,
+   "line": 88,
    "va": "0x011fff58",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2942,7 +3701,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 77,
+   "line": 89,
    "va": "0x011fffb8",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2951,7 +3710,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 78,
+   "line": 90,
    "va": "0x00d62490",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2960,7 +3719,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 79,
+   "line": 91,
    "va": "0x00d63ca0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2969,7 +3728,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 80,
+   "line": 92,
    "va": "0x00d8ad20",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2978,7 +3737,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 81,
+   "line": 93,
    "va": "0x00e23cc0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2987,7 +3746,17 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 83,
+   "line": 96,
+   "va": "0x003f6968",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 96,
    "va": "0x0040a8d0",
    "kind": "const",
    "class": "GAP",
@@ -2997,7 +3766,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 83,
+   "line": 96,
    "va": "0x004144a8",
    "kind": "const",
    "class": "GAP",
@@ -3007,54 +3776,8 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 85,
+   "line": 98,
    "va": "0x0040b49c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 88,
-   "va": "0x00414338",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 89,
-   "va": "0x0040901c",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 93,
-   "va": "0x00d98fcc",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 95,
-   "va": "0x003f6b1c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 100,
-   "va": "0x0032efa8",
    "kind": "const",
    "class": "START",
    "true_start": null,
@@ -3063,7 +3786,7 @@
   {
    "file": "tools/datask_l3.py",
    "line": 101,
-   "va": "0x0039d854",
+   "va": "0x00414338",
    "kind": "const",
    "class": "START",
    "true_start": null,
@@ -3072,141 +3795,6 @@
   {
    "file": "tools/datask_l3.py",
    "line": 102,
-   "va": "0x00401e94",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 104,
-   "va": "0x011fff50",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 105,
-   "va": "0x0039d854",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 106,
-   "va": "0x003c001c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 107,
-   "va": "0x0039d6f0",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 108,
-   "va": "0x0039d18c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 109,
-   "va": "0x003c009c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 110,
-   "va": "0x0039ca00",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 111,
-   "va": "0x006f4650",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 112,
-   "va": "0x009379b8",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 117,
-   "va": "0x0040b8b4",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 118,
-   "va": "0x0040c308",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 119,
-   "va": "0x0041597c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 120,
-   "va": "0x003f72cc",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 183,
-   "va": "0x00377ae0",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 211,
    "va": "0x0040901c",
    "kind": "const",
    "class": "GAP",
@@ -3216,34 +3804,16 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 225,
-   "va": "0x003f72e4",
+   "line": 106,
+   "va": "0x00d98fcc",
    "kind": "const",
-   "class": "START",
+   "class": "UNMAPPED",
    "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 286,
-   "va": "0x034942d8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 301,
-   "va": "0x003c009c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 308,
+   "line": 108,
    "va": "0x003f6b1c",
    "kind": "const",
    "class": "START",
@@ -3252,8 +3822,8 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 319,
-   "va": "0x0039d18c",
+   "line": 113,
+   "va": "0x003ed6e8",
    "kind": "const",
    "class": "START",
    "true_start": null,
@@ -3261,8 +3831,17 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 319,
-   "va": "0x003c009c",
+   "line": 113,
+   "va": "0x00d98fe0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 114,
+   "va": "0x0054233c",
    "kind": "const",
    "class": "START",
    "true_start": null,
@@ -3270,7 +3849,25 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 351,
+   "line": 115,
+   "va": "0x004089f4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 116,
+   "va": "0x00408b0c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 122,
    "va": "0x0032efa8",
    "kind": "const",
    "class": "START",
@@ -3279,17 +3876,8 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 353,
-   "va": "0x011fff58",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 368,
-   "va": "0x0040b49c",
+   "line": 123,
+   "va": "0x0039d854",
    "kind": "const",
    "class": "START",
    "true_start": null,
@@ -3297,72 +3885,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 581,
-   "va": "0x0040901c",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 802,
-   "va": "0x30001000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 804,
-   "va": "0x30001000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 874,
-   "va": "0x0040b8b4",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 876,
-   "va": "0x0040c308",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 880,
-   "va": "0x0041597c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 881,
-   "va": "0x0040901c",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 893,
+   "line": 124,
    "va": "0x00401e94",
    "kind": "const",
    "class": "START",
@@ -3371,7 +3894,43 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 895,
+   "line": 126,
+   "va": "0x011fff50",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 127,
+   "va": "0x0039d854",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 128,
+   "va": "0x003c001c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 129,
+   "va": "0x0039d6f0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 130,
    "va": "0x0039d18c",
    "kind": "const",
    "class": "START",
@@ -3380,7 +3939,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 895,
+   "line": 131,
    "va": "0x003c009c",
    "kind": "const",
    "class": "START",
@@ -3389,7 +3948,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 900,
+   "line": 132,
    "va": "0x0039ca00",
    "kind": "const",
    "class": "START",
@@ -3398,7 +3957,325 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 901,
+   "line": 133,
+   "va": "0x006f4650",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 134,
+   "va": "0x009379b8",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 139,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 140,
+   "va": "0x0040c308",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 141,
+   "va": "0x0041597c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 142,
+   "va": "0x003f72cc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 205,
+   "va": "0x00377ae0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 233,
+   "va": "0x0040901c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 247,
+   "va": "0x003f72e4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 319,
+   "va": "0x034942d8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 338,
+   "va": "0x004066ac",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 353,
+   "va": "0x003c009c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 360,
+   "va": "0x003f6b1c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 371,
+   "va": "0x0039d18c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 371,
+   "va": "0x003c009c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 403,
+   "va": "0x0032efa8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 405,
+   "va": "0x011fff58",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 420,
+   "va": "0x0040b49c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 498,
+   "va": "0x80000000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 506,
+   "va": "0x003ed6e8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 506,
+   "va": "0x00405970",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 724,
+   "va": "0x0040901c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 987,
+   "va": "0x00404ee4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 987,
+   "va": "0x00404ee4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 991,
+   "va": "0x26c18ab2",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 994,
+   "va": "0x26c18ab2",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1011,
+   "va": "0x30001000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1013,
+   "va": "0x30001000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1093,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1095,
+   "va": "0x0040c308",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1099,
+   "va": "0x0041597c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1100,
+   "va": "0x0040901c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1112,
+   "va": "0x00401e94",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1114,
+   "va": "0x0039d18c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1114,
+   "va": "0x003c009c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1119,
    "va": "0x0039ca00",
    "kind": "const",
    "class": "START",
@@ -3407,7 +4284,16 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 903,
+   "line": 1120,
+   "va": "0x0039ca00",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1122,
    "va": "0x003f75e4",
    "kind": "const",
    "class": "START",
@@ -3416,8 +4302,542 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 908,
+   "line": 1127,
    "va": "0x003f6b1c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1136,
+   "va": "0xa6cdd6be",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1144,
+   "va": "0x00404ee4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1145,
+   "va": "0x00404ee4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1146,
+   "va": "0x003f6968",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1148,
+   "va": "0x003f6968",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1149,
+   "va": "0x00405078",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1150,
+   "va": "0x00405078",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1152,
+   "va": "0x26c18ab2",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 1156,
+   "va": "0x00405078",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 65,
+   "va": "0x004066ac",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 84,
+   "va": "0x00408f9c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 92,
+   "va": "0x00425f40",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 92,
+   "va": "0x004266ec",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 101,
+   "va": "0x004266ec",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 178,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 187,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 208,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 257,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 314,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 314,
+   "va": "0x0040c308",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 314,
+   "va": "0x0041597c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 341,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 373,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 394,
+   "va": "0x00422eac",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 478,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 491,
+   "va": "0x11112222",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 491,
+   "va": "0xa68cd68c",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 493,
+   "va": "0xa68cd68c",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 494,
+   "va": "0x11112222",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 495,
+   "va": "0x0303ffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 495,
+   "va": "0xa6b2d6e2",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 495,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 499,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 508,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 509,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 509,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 523,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_req_l3.py",
+   "line": 553,
+   "va": "0x00422eac",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 2,
+   "va": "0x00419350",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 7,
+   "va": "0x00419684",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 10,
+   "va": "0x0041b3bc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 13,
+   "va": "0x00419350",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 14,
+   "va": "0x0041b650",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 25,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 26,
+   "va": "0x0041bbec",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 54,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 57,
+   "va": "0x00419684",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 61,
+   "va": "0x00419684",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 62,
+   "va": "0x00419350",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 63,
+   "va": "0x0041b3bc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 64,
+   "va": "0x0041b650",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 65,
+   "va": "0x0041bbec",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 71,
+   "va": "0x00419684",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 76,
+   "va": "0x00419350",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 77,
+   "va": "0x00000000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 77,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 79,
+   "va": "0x00000000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 80,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/drstr_l3.py",
+   "line": 84,
+   "va": "0x0041bbec",
    "kind": "const",
    "class": "START",
    "true_start": null,
@@ -3437,6 +4857,42 @@
    "line": 0,
    "va": "0x0041c7dc",
    "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/l3_harness/targets.json:drstr_parser",
+   "line": 0,
+   "va": "0x00419350",
+   "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 51,
+   "va": "0x003ebe70",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 52,
+   "va": "0x004052d4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/lctbl_lookup_l3.py",
+   "line": 53,
+   "va": "0x003ec034",
+   "kind": "const",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
@@ -5282,6 +6738,177 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "tools/tile_drop_l3.py",
+   "line": 5,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 6,
+   "va": "0x0040acb8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 14,
+   "va": "0x0040a61c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 17,
+   "va": "0x0040a1dc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 17,
+   "va": "0x0040a61c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 56,
+   "va": "0x0040acb8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 57,
+   "va": "0x0040acb8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 58,
+   "va": "0x0040acb8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 59,
+   "va": "0x0040a1dc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 60,
+   "va": "0x0040a61c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 61,
+   "va": "0x0040a61c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 62,
+   "va": "0x00d624a0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 63,
+   "va": "0x00d63ca0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 64,
+   "va": "0x00d98fcc",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 92,
+   "va": "0x00d624a0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 180,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 186,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 316,
+   "va": "0x0aec5f00",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tile_drop_l3.py",
+   "line": 316,
+   "va": "0x1128cb00",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
    "file": "tools/tmc_req_l3.py",
    "line": 13,
    "va": "0x003fbed8",
@@ -5427,7 +7054,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 57,
+   "line": 58,
    "va": "0x00200200",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5436,7 +7063,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 57,
+   "line": 58,
    "va": "0x03e00200",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5445,7 +7072,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 58,
+   "line": 59,
    "va": "0x7e000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5454,7 +7081,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 59,
+   "line": 60,
    "va": "0x30000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5463,7 +7090,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 60,
+   "line": 61,
    "va": "0x7f000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5472,7 +7099,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 61,
+   "line": 62,
    "va": "0x6f000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5481,7 +7108,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 62,
+   "line": 63,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5490,7 +7117,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 282,
+   "line": 283,
    "va": "0x80000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5499,7 +7126,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 346,
+   "line": 347,
    "va": "0x80000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5508,7 +7135,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 464,
+   "line": 465,
    "va": "0x80000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5517,7 +7144,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 872,
+   "line": 873,
    "va": "0x0041a244",
    "kind": "const",
    "class": "START",
@@ -5526,7 +7153,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 898,
+   "line": 899,
    "va": "0x00417924",
    "kind": "const",
    "class": "START",
@@ -5535,7 +7162,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 899,
+   "line": 900,
    "va": "0x00419c38",
    "kind": "const",
    "class": "START",
@@ -5544,7 +7171,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 900,
+   "line": 901,
    "va": "0x0041841c",
    "kind": "const",
    "class": "START",
@@ -5553,7 +7180,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 901,
+   "line": 902,
    "va": "0x0040b358",
    "kind": "const",
    "class": "START",
@@ -5562,7 +7189,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 902,
+   "line": 903,
    "va": "0x003f6c88",
    "kind": "const",
    "class": "START",
@@ -5571,7 +7198,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 902,
+   "line": 903,
    "va": "0x00409ba0",
    "kind": "const",
    "class": "START",
@@ -5580,7 +7207,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 903,
+   "line": 904,
    "va": "0x003f7384",
    "kind": "const",
    "class": "START",
@@ -5589,7 +7216,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 903,
+   "line": 904,
    "va": "0x003f73dc",
    "kind": "const",
    "class": "START",
@@ -5598,7 +7225,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 904,
+   "line": 905,
    "va": "0x00418428",
    "kind": "const",
    "class": "START",
@@ -5607,7 +7234,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 905,
+   "line": 906,
    "va": "0x0041bbec",
    "kind": "const",
    "class": "START",
@@ -5616,7 +7243,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 906,
+   "line": 907,
    "va": "0x009cfce0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5625,7 +7252,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 907,
+   "line": 908,
    "va": "0x009cfce4",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5634,7 +7261,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 908,
+   "line": 909,
    "va": "0x009cfcd4",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5643,7 +7270,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 909,
+   "line": 910,
    "va": "0x00e25420",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5652,7 +7279,7 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 910,
+   "line": 911,
    "va": "0x00e23cc0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -5661,8 +7288,35 @@
   },
   {
    "file": "tools/vcard_l3.py",
-   "line": 1622,
+   "line": 1755,
    "va": "0xfffffff4",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/vcard_l3.py",
+   "line": 1763,
+   "va": "0x12345678",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/vcard_l3.py",
+   "line": 1764,
+   "va": "0x9abcdef0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/vcard_l3.py",
+   "line": 1766,
+   "va": "0x11111111",
    "kind": "const",
    "class": "UNMAPPED",
    "true_start": null,
