@@ -345,6 +345,7 @@
   "docs/experiments/EXP-2026-11-19-M4.16b-tmc-field-directory.md",
   "docs/experiments/EXP-2026-11-19-M4.37-point-bitpack-coords.md",
   "docs/experiments/EXP-2026-11-19-M4.38-lang-code-table.md",
+  "docs/experiments/EXP-2026-11-19-M4.39-route-link-id.md",
   "docs/experiments/EXP-2026-11-19-M4.41-diff-years.md",
   "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
   "docs/experiments/EXP-2026-11-19-M5.26-point-pair-regen.md",
@@ -359,6 +360,7 @@
   "docs/experiments/EXP-2026-11-19-M5.48-partial-out.md",
   "docs/experiments/EXP-2026-11-19-M5.50-card-ladder.md",
   "docs/experiments/EXP-2026-11-19-M5.51-metadata-reasons.md",
+  "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
   "docs/experiments/EXP-2026-11-19-M6.13-s3-bench-manifest.md",
   "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
   "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
@@ -371,14 +373,15 @@
   "docs/experiments/EXP-2026-11-19-M9.49-pysh4-macw.md",
   "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+  "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 368,
-  "citations": 1002,
-  "unique_va": 209,
-  "start": 818,
+  "files": 371,
+  "citations": 1028,
+  "unique_va": 215,
+  "start": 844,
   "inside": 80,
   "corrected": 9,
   "gap": 83,
@@ -652,7 +655,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2486,
+   "line": 2499,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -662,7 +665,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2490,
+   "line": 2503,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -8777,6 +8780,141 @@
    "leaf": true
   },
   {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 114,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 114,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 115,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 115,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 116,
+   "va": "0x003f8950",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 118,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 121,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 213,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 213,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 234,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 235,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
    "line": 46,
    "va": "0x880404f4",
@@ -9144,6 +9282,105 @@
    "file": "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
    "line": 287,
    "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 39,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 39,
+   "va": "0x8803d168",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 39,
+   "va": "0x8803dc70",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 134,
+   "va": "0x8803dc70",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 153,
+   "va": "0x88023010",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 153,
+   "va": "0x8803d168",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 155,
+   "va": "0x8803d168",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 179,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 230,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 233,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+   "line": 247,
+   "va": "0x8803cdd8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
