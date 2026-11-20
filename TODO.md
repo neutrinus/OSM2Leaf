@@ -1238,7 +1238,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-4490–C-4499
 
 - [ ] **H115 — `TODO.md` open-block citations are not fence-aware: the fenced task template counts as an open block**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h115-fn-audit-fence · Critical: no · Pair: required
   - Depends: H77 (`fn_audit.fenced_lines`)
   - Goal: H77 made the docs-base and EXP scans skip fenced code, but `fn_audit._open_blocks`/`citations_open_tasks` (the l3 open-block scan) still read `TODO.md` line by line, and `TODO.md` has fences (the task-field template at about line 208, others near 307 and 927). The fenced template's `- [ ] **ID — title**` line is parsed as a real open block (pre-existing bug), so any `0x…` quoted in a fenced example under an open task becomes a live l3 citation.
   - Precheck: `grep -n '^```' TODO.md` lists the fences; `python3 tools/fn_audit.py archive/head256.img --scope l3` prints `open blocks N`; record N and whether the template block is among them.
