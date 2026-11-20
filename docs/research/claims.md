@@ -4542,3 +4542,18 @@ the file names in `docs/experiments/` (warning by default and under
 | C-4377 | RESERVED (H106). | — | — | — |
 | C-4378 | RESERVED (H106). | — | — | — |
 | C-4379 | RESERVED (H106). | — | — | — |
+
+## M9.14 — the DRSTR001.DAT parser on EU2011 and US2011 (C-5940–C-5949)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5940 | The US2011 map-file layer (`archive/us256.img`, US256 SHA-256 `70d945d8…`) is the EU2011 one moved: `init` `0x0043f688`, `event` `0x0044199c`, `read` `0x00440180`, `resolve` `0x00433458`, `cancel` `0x0044018c`, `logger` `0x00443950`, read clients `0x00431ca0`/`0x0041f5e8`/`0x0041fce4`/`0x0041fd3c`, DRSTR parser `0x004410b4` via `0x004413e8`, mmain reader `0x0044219c` are pdata `START` with the EU lengths (12 `fn_match` UNIQUE + the 12-byte `read` stub). | VERIFIED (real image) | H | EXP-2026-11-20-M9.14-drstr-parser-l3; `vcard_l3.py port`, `fn_match.py match` |
+| C-5941 | The US2011 layer data addresses are the pool values at the same load index of the paired functions: `\SystemSD` `0x00056634`, `state` `0x00a10ea8`, `ndirs` `0x00a10e9c`, `dirs` `0x00d53020`, `mmain_buf` `0x00d518c0`; `mount` = `state + 4` as in EU2011. `vcard_l3.py port` re-derives and checks all five (`port: OK`). | VERIFIED (real image) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 §Observations |
+| C-5942 | Run in its mount by `vcard_l3.py boot`, the firmware accepts the factory `DRSTR001.DAT` on both builds: EU2011 (EU card `105e2032…`) 40 directories / 285 files, US2011 (US card SHA-256 `53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383`) 20 / 189, each equal to the file's own record and file-entry counts; 0 error-log calls. | VERIFIED (real image, L3) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 runs U1, E1 |
+| C-5943 | Files written by `drstr_ze0.build` via `tools/drstr_rebuild.py` (sparse skeleton from the card image) are accepted on both builds: byte-identical rebuilds (US 7,456 B, EU 11,968 B), a tile grown by 6,144 B (US `9b8c58b1…`, EU `ff926993…`), and the writer's own child order (US `5d65bab1…`); the firmware's volume table changes with the content (`compare` exit 1). | VERIFIED (real image, L3) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 runs U2–U4, U8, U9, E2 |
+| C-5944 | On US2011 a `DRSTR001.DAT` cut to `0x800` and one with the root listing offset `+0x24` xor `0x40` are rejected: state stays 1, two error-log calls from `0x00440dac` (fn 6 line 5) and `0x004411d6` (fn 8 line 20), the EU2011 callers `0x00419048`/`0x00419472` moved by the layer's distance; EU2011 truncation reproduces M9.44. | VERIFIED (real image, L3) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 runs U5, U6, E3 |
+| C-5945 | `vcard_l3.py` refuses a head that is not the selected build (SHA-256 of the 256 MiB file) before the engine starts: `--build us2011` on IMG256 and `--build eu2011` on US256 are `BLOCKED`. | VERIFIED (tool, real images) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 runs X1, X2; `vcard_l3.py --selftest` |
+| C-5946 | Without `DRSTR001.DAT` the US2011 layer still mounts from the file system (20 / 189, table `4afebf4d…`, two error-log calls), as EU2011 does (C-4637): absence is not a reject case. | OBSERVED (real image, L3) | H | EXP-2026-11-20-M9.14-drstr-parser-l3 run U7 |
+| C-5947 | RESERVED (M9.14). | — | — | — |
+| C-5948 | RESERVED (M9.14). | — | — | — |
+| C-5949 | RESERVED (M9.14). | — | — | — |

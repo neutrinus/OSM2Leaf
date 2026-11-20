@@ -647,6 +647,10 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | block-address leaf / header-table lookup (M4.52) | `0x0040f00c`/`0x0040ee4c` | `0x00436f58`/`0x00436dd4` | the parser's and the loader's own pool slots |
 | locator-path stubs: cache lookup/allocate, debug log, read request, parser tail (M4.52) | `0x00407724`/`0x004086b4`/`0x003ec9fc`/`0x003f6c88`/`0x0040a8d0` | `0x0042f824`/`0x004307b4`/`0x0041551c`/`0x0041f5e8`/`0x004329d0` | the loader's and the parser's own pool slots |
 | locator-path memset / `_divlu` thunks (M4.52) | `0x003d13c4`/`0x003d140c` | `0x0040089c`/`0x004008e4` | the loader's own pool slots |
+| map-file layer init / event / queue read / resolve / cancel / logger (M9.14) | `0x00417924`/`0x00419c38`/`0x0041841c`/`0x0040b358`/`0x00418428`/`0x0041bbec` | `0x0043f688`/`0x0044199c`/`0x00440180`/`0x00433458`/`0x0044018c`/`0x00443950` | `fn_match` pairs, pdata START with equal lengths (`read` is a 12-byte stub `fn_match` calls AMBIGUOUS; same words, same place) |
+| read API clients: clamp / request / wrapper A / wrapper B (M9.14) | `0x00409ba0`/`0x003f6c88`/`0x003f7384`/`0x003f73dc` | `0x00431ca0`/`0x0041f5e8`/`0x0041fce4`/`0x0041fd3c` | `fn_match` UNIQUE |
+| DRSTR parser / its caller / MMAIN reader (M9.14) | `0x00419350`/`0x00419684`/`0x0041a438` | `0x004410b4`/`0x004413e8`/`0x0044219c` | `fn_match` UNIQUE; their pools give the data cells below |
+| layer state / mount / directory count / directory records / MMAIN buffer / `\SystemSD` (M9.14) | `0x009cfce0`/`0x009cfce4`/`0x009cfcd4`/`0x00e25420`/`0x00e23cc0`/`0x00049fd4` | `0x00a10ea8`/`0x00a10eac`/`0x00a10e9c`/`0x00d53020`/`0x00d518c0`/`0x00056634` | pool value at the same load index of the paired function (`vcard_l3.py port`); mount = state + 4 in both |
 
 The table is a checked copy, not a source: the values are owned by
 [`tools/build_targets.py`](../../tools/build_targets.py) (M1.32), from which
