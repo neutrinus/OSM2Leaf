@@ -22,6 +22,9 @@ Usage:
   callgraph.py users   graph.json IMPORT[,IMPORT...]  # functions that call them
   callgraph.py path    graph.json FROM TO
   callgraph.py stats   graph.json
+  callgraph.py loops   graph.json VA [--depth N] [--edges E]   # read-loop functions below VA
+  callgraph.py rank    graph.json --family NAME=VA[,VA] ... [--top 10] [--edges E]
+                       # per family: read-loop functions below the roots, family-specific first
 """
 from __future__ import annotations
 
@@ -47,37 +50,105 @@ def sx(v: int, bits: int) -> int:
     return v - (1 << bits) if v & (1 << (bits - 1)) else v
 
 
+def _branch(insn: int, pc: int):
+    """(target, delayed, conditional) of a PC-relative branch, else None."""
+    top = insn >> 12
+    if top == 0xA:                                       # bra
+        return (pc + 4 + sx(insn & 0xFFF, 12) * 2) & 0xFFFFFFFF, True, False
+    if top == 0x8 and (insn >> 8) & 15 in (0x9, 0xB, 0xD, 0xF):   # bt bf bt/s bf/s
+        return (pc + 4 + sx(insn & 0xFF, 8) * 2) & 0xFFFFFFFF, (insn >> 8) & 15 in (0xD, 0xF), True
+    return None
+
+
+def _data_load(insn: int):
+    """'bw' for a byte/word load from memory (not PC-relative), 'l' for a long, else None."""
+    top, low = insn >> 12, insn & 15
+    if top == 0x6 and low in (0, 1, 4, 5):               # mov.b/w @Rm(+),Rn
+        return "bw"
+    if top == 0x8 and (insn >> 8) & 15 in (4, 5):        # mov.b/w @(disp,Rm),R0
+        return "bw"
+    if top == 0x0 and low in (0xC, 0xD):                 # mov.b/w @(R0,Rm),Rn
+        return "bw"
+    if (top == 0x6 and low in (2, 6)) or top == 0x5 or (top == 0x0 and low == 0xE):
+        return "l"
+    return None
+
+
 def scan_function(code: bytes, base: int, start: int, length: int, iat: dict,
-                  leaf: bool = False):
+                  leaf: bool = False, features: dict | None = None):
     """Edges of one function.  ``code`` is the section, ``base`` its VA.
 
     Returns (direct targets, import names, unresolved indirect call count).
+
+    Literal tracking is a forward pass with merges (M3.23): a register holds a
+    *set* of pool literals; at a forward branch the state is saved for the
+    target (after the delay slot for ``bra``/``bt/s``/``bf/s``) and joined
+    there, and after an unconditional ``bra``/``rts``/``jmp`` the fall-through
+    starts from the saved state (or, when no forward branch reaches it, keeps
+    the linear state: such a block is a loop body entered from below).  A
+    register's set is the union over the joined paths that define it.  So a
+    ``jsr @r3`` reached from two loads of ``r3`` on two paths gives two edges
+    instead of the last load's one.
+
+    ``features`` (a dict, optional) receives the read-loop shape: ``loops`` =
+    backward branches whose body ``[target, branch]`` holds a byte/word data
+    load, ``lloops`` = the same with any data load, ``bw`` = byte/word data
+    loads in the function.
     """
-    lit: dict[int, int] = {}          # register -> literal value
-    imp: dict[int, str] = {}          # register -> import name (after @Rm load)
+    lit: dict[int, frozenset] = {}    # register -> possible literal values
+    imp: dict[int, frozenset] = {}    # register -> possible import names (after @Rm load)
+    pending: dict[int, list] = {}     # branch target -> saved (lit, imp) states
     calls, imports, unresolved, prev_end = [], [], 0, False
     end = min(start + length, base + len(code))
     pc = start
     pool: set[int] = set()            # literal-pool words: data, never decoded
+    deferred = None                   # (target, conditional) saved after the delay slot
+    dead = False                      # previous instruction ended an unconditional transfer
+    loads: list[tuple[int, str]] = []
+    back: list[tuple[int, int]] = []
+
+    def save(target):
+        pending.setdefault(target, []).append((dict(lit), dict(imp)))
+
     while pc + 1 < end:
         if pc in pool:                                   # H112: a pool word is not a bsr
             pc += 2
             continue
+        if pc in pending:
+            states = pending.pop(pc)
+            if not dead:
+                states.append((dict(lit), dict(imp)))
+            lit = {}
+            for r in set().union(*(st[0].keys() for st in states)):
+                lit[r] = frozenset().union(*(st[0][r] for st in states if r in st[0]))
+            imp = {}
+            for r in set().union(*(st[1].keys() for st in states)):
+                imp[r] = frozenset().union(*(st[1][r] for st in states if r in st[1]))
+        # a block entered only by a backward branch (no saved state) keeps the
+        # linear state, as the pre-M3.23 scan did
+        dead = False
         insn = struct.unpack_from("<H", code, pc - base)[0]
         top, n, m, low = insn >> 12, (insn >> 8) & 15, (insn >> 4) & 15, insn & 15
+        kind = _data_load(insn)
+        if kind:
+            loads.append((pc, kind))
+        br = _branch(insn, pc)
+        if br and br[0] <= pc:
+            back.append((br[0], pc))
         if top == 0x9:                                   # mov.w @(disp,PC),Rn
             pool.add(pc + 4 + (insn & 0xFF) * 2)
         if top == 0xD:                                   # mov.l @(disp,PC),Rn
             addr = (pc & ~3) + 4 + (insn & 0xFF) * 4
             pool.update((addr, addr + 2))
             if base <= addr and addr + 4 <= base + len(code):
-                lit[n] = struct.unpack_from("<I", code, addr - base)[0]
+                lit[n] = frozenset({struct.unpack_from("<I", code, addr - base)[0]})
                 imp.pop(n, None)
         elif top == 0xB:                                 # bsr
             calls.append((pc + 4 + sx(insn & 0xFFF, 12) * 2) & 0xFFFFFFFF)
         elif top == 0x6 and low == 0x2:                  # mov.l @Rm,Rn
-            if m in lit and lit[m] in iat:
-                imp[n] = iat[lit[m]]
+            named = frozenset(iat[v] for v in lit.get(m, ()) if v in iat)
+            if named:
+                imp[n] = named
             else:
                 imp.pop(n, None)
             lit.pop(n, None)
@@ -88,14 +159,15 @@ def scan_function(code: bytes, base: int, start: int, length: int, iat: dict,
                 else:
                     table.pop(n, None)
         elif top == 0x4 and (insn & 0xFF) in (0x0B, 0x2B):   # jsr/jmp @Rn
-            if n in imp:
-                imports.append(imp[n])
-            elif n in lit:
-                if lit[n] in iat:
-                    imports.append(iat[lit[n]])
-                else:
-                    calls.append(lit[n])
-            elif (insn & 0xFF) == 0x0B:
+            if n in imp:                                 # joined paths may give both
+                imports.extend(sorted(imp[n]))
+            if n in lit:
+                for v in sorted(lit[n]):
+                    if v in iat:
+                        imports.append(iat[v])
+                    else:
+                        calls.append(v)
+            if n not in imp and n not in lit and (insn & 0xFF) == 0x0B:
                 unresolved += 1
             if (insn & 0xFF) == 0x0B:                    # r0-r7 do not survive a call
                 for reg in range(8):
@@ -107,10 +179,31 @@ def scan_function(code: bytes, base: int, start: int, length: int, iat: dict,
             if top != 0x2:                               # 0x2: stores, Rn is a pointer
                 lit.pop(n, None)
                 imp.pop(n, None)
+        if deferred is not None:                         # this was the delay slot
+            target, conditional = deferred
+            if target > pc:
+                save(target)
+            dead = not conditional
+            deferred = None
+        elif br:
+            target, delayed, conditional = br
+            if delayed:
+                deferred = (target, conditional)
+            else:
+                if target > pc:
+                    save(target)
+        elif insn == 0x000B or (top == 0x4 and (insn & 0xFF) == 0x2B):   # rts / jmp
+            deferred = (-1, False)
         if leaf and prev_end:                            # delay slot of rts/jmp done
             break
         prev_end = leaf and (insn == 0x000B or (top == 0x4 and (insn & 0xFF) == 0x2B))
         pc += 2
+    if features is not None:
+        bw = [a for a, k in loads if k == "bw"]
+        anyl = [a for a, _ in loads]
+        features["bw"] = len(bw)
+        features["loops"] = sum(1 for t, b in back if any(t <= a <= b for a in bw))
+        features["lloops"] = sum(1 for t, b in back if any(t <= a <= b for a in anyl))
     return calls, imports, unresolved
 
 
@@ -119,9 +212,10 @@ def build_graph(code: bytes, base: int, pdata, iat: dict) -> dict:
     lo, hi = starts[0], pdata[-1][0] + pdata[-1][2]
     fns = {}
     for begin, _prolog, length in pdata:
-        calls, imports, unresolved = scan_function(code, base, begin, length, iat)
+        feat: dict = {}
+        calls, imports, unresolved = scan_function(code, base, begin, length, iat, features=feat)
         fns[begin] = {"len": length, "calls": sorted({c for c in calls if lo <= c < hi}),
-                      "imports": sorted(set(imports)), "unresolved": unresolved}
+                      "imports": sorted(set(imports)), "unresolved": unresolved} | feat
     # a call target that is not a START: map INSIDE to its function, keep a GAP as a leaf
     leaves = {}
     for begin, info in fns.items():
@@ -138,9 +232,11 @@ def build_graph(code: bytes, base: int, pdata, iat: dict) -> dict:
                 fixed.append(c)
         info["calls"] = sorted(set(fixed))
     for va, room in leaves.items():
-        calls, imports, unresolved = scan_function(code, base, va, min(room, 0x400), iat, leaf=True)
+        feat = {}
+        calls, imports, unresolved = scan_function(code, base, va, min(room, 0x400), iat, leaf=True,
+                                                   features=feat)
         fns[va] = {"len": 0, "leaf": True, "calls": sorted({c for c in calls if c in fns}),
-                   "imports": sorted(set(imports)), "unresolved": unresolved}
+                   "imports": sorted(set(imports)), "unresolved": unresolved} | feat
     # an import thunk (literal slot, load, jmp) is not a function: fold it into its callers
     thunks = {va: v["imports"][0] for va, v in fns.items()
               if v.get("leaf") and len(v["imports"]) == 1 and not v["calls"] and not v["unresolved"]}
@@ -309,6 +405,97 @@ def cmd_path(args) -> int:
     return 0
 
 
+def subtree(fwd, roots, depth=10 ** 6):
+    """Nodes reachable from *roots* (inclusive) with their BFS depth."""
+    seen = {r: 0 for r in roots}
+    q = deque(roots)
+    while q:
+        node = q.popleft()
+        if seen[node] >= depth:
+            continue
+        for nxt in fwd.get(node, []):
+            if nxt not in seen:
+                seen[nxt] = seen[node] + 1
+                q.append(nxt)
+    return seen
+
+
+def rank_family(fwd, info, roots, others, top=10, depth=4):
+    """Candidate readers of one family (M3.23).
+
+    The subtree below *roots* (to *depth* calls), restricted to functions with
+    a read loop (``loops``: a byte/word load in the loop body, or ``lloops``:
+    any data load).  ``others`` is a list of root lists, one per other family;
+    ``share`` counts how many of them reach the function within the same
+    depth.  Ranked by ``share`` (family-specific first), then ``loops``,
+    ``lloops``, byte/word loads, depth.  Returns ``(va, loops, bw, depth, share)``.
+    """
+    mine = subtree(fwd, roots, depth)
+    theirs = [set(subtree(fwd, o, depth)) for o in others if o]
+    rows = []
+    for n, d in mine.items():
+        v = info.get(n, {})
+        loops, lloops, bw = v.get("loops", 0), v.get("lloops", 0), v.get("bw", 0)
+        if loops or lloops:
+            share = sum(1 for t in theirs if n in t)
+            rows.append((share, -loops, -lloops, -bw, d, n, loops, bw))
+    rows.sort()
+    return [(n, loops, bw, d, share) for share, _, _, _, d, n, loops, bw in rows[:top]]
+
+
+def load_extra(g, fwd, path):
+    """Merge table edges (``fptables.py scan --edges``: ``{"edges": [[user, target], ...]}``)."""
+    if not path:
+        return 0
+    added = 0
+    doc = json.loads(Path(path).read_text())
+    for user, target in (doc["edges"] if isinstance(doc, dict) else doc):
+        u, t = int(str(user), 0), int(str(target), 0)
+        if u in fwd and ("%#010x" % t) in g and t not in fwd[u]:
+            fwd[u].append(t)
+            added += 1
+    return added
+
+
+def cmd_loops(args) -> int:
+    g, fwd, _ = load(args.graph)
+    load_extra(g, fwd, args.edges)
+    root = owner(g, int(args.va, 0))
+    tree = subtree(fwd, [root], args.depth)
+    rows = sorted(((n, g["%#010x" % n]) for n in tree), key=lambda kv: (tree[kv[0]], kv[0]))
+    hits = [(n, v) for n, v in rows if v.get("loops") or v.get("lloops")]
+    print("%#010x: %d functions within depth %d, %d with a read loop"
+          % (root, len(tree), args.depth, len(hits)))
+    for n, v in hits:
+        print("  d=%d %#010x len=%#x loops=%d lloops=%d bw=%d unresolved=%d%s"
+              % (tree[n], n, v["len"], v["loops"], v["lloops"], v["bw"], v["unresolved"],
+                 " leaf" if v.get("leaf") else ""))
+    return 0
+
+
+def cmd_rank(args) -> int:
+    g, fwd, _ = load(args.graph)
+    extra = load_extra(g, fwd, args.edges)
+    info = {int(k, 0): v for k, v in g.items()}
+    fams = {}
+    for spec in args.family:
+        name, vas = spec.split("=", 1)
+        fams[name] = [owner(g, int(v, 0)) for v in vas.split(",")]
+    if extra:
+        print("table edges merged: %d" % extra)
+    for name, roots in fams.items():
+        others = [rs for o, rs in fams.items() if o != name]
+        tree = subtree(fwd, roots, args.depth)
+        unres = sum(info[n]["unresolved"] for n in tree)
+        print("%s roots=%s subtree(depth %d)=%d unresolved=%d"
+              % (name, ",".join("%#010x" % r for r in roots), args.depth, len(tree), unres))
+        for va, loops, bw, depth, share in rank_family(fwd, info, roots, others, args.top, args.depth):
+            print("  %#010x share=%d loops=%d lloops=%d bw=%d depth=%d len=%#x%s"
+                  % (va, share, loops, info[va].get("lloops", 0), bw, depth, info[va]["len"],
+                     " leaf" if info[va].get("leaf") else ""))
+    return 0
+
+
 def selftest() -> int:
     fails = []
 
@@ -361,6 +548,36 @@ def selftest() -> int:
           == {"#55": "OSM_SramSet", "#7": "A"})
     check("a literal-pool word that looks like bsr is not an edge (H112)",
           f["0x000010c0"]["calls"] == [])
+    # M3.23: two paths load r3 with different literals before one jsr @r3
+    code2 = bytearray(0x80)
+
+    def put2(va, *words):
+        for i, w in enumerate(words):
+            struct.pack_into("<H", code2, va - 0x2000 + 2 * i, w)
+    put2(0x2000,
+         0x8B02,                  # 2000 bf 0x2008
+         0xD305,                  # 2002 mov.l @(0x2018),r3 -> 0x2040
+         0xA002,                  # 2004 bra 0x200c
+         0x0009,                  # 2006 nop
+         0xD304,                  # 2008 mov.l @(0x201c),r3 -> 0x2050
+         0x0009,                  # 200a nop
+         0x430B,                  # 200c jsr @r3
+         0x0009,                  # 200e nop
+         0x000B, 0x0009)          # 2010 rts
+    struct.pack_into("<I", code2, 0x18, 0x2040)
+    struct.pack_into("<I", code2, 0x1C, 0x2050)
+    # f @0x2040: byte loop: mov.b @r4+,r0; dt r5; bf 0x2040
+    put2(0x2040, 0x6044, 0x4510, 0x8BFC, 0x000B, 0x0009)
+    put2(0x2050, 0x000B, 0x0009)
+    g2 = build_graph(bytes(code2), 0x2000, [(0x2000, 0, 0x14), (0x2040, 0, 0xA), (0x2050, 0, 4)], {})["functions"]
+    check("jsr after a join gets the literal of both paths (M3.23)",
+          g2["0x00002000"]["calls"] == ["0x00002040", "0x00002050"])
+    check("backward branch around mov.b @Rm+ is a read loop (M3.23)",
+          g2["0x00002040"]["loops"] == 1 and g2["0x00002050"]["loops"] == 0)
+    check("rank: family-specific loop functions first, shared ones after (M3.23)",
+          rank_family({1: [2, 3], 2: [4], 3: [5], 6: [3]},
+                      {4: {"loops": 1, "bw": 3}, 5: {"loops": 2, "bw": 1}, 2: {}, 3: {}},
+                      [1], [[6]], 10) == [(4, 1, 3, 2, 0), (5, 2, 1, 2, 1)])
     print("selftest: %s (%d failed)" % ("OK" if not fails else "FAIL", len(fails)))
     return 1 if fails else 0
 
@@ -389,6 +606,18 @@ def main(argv=None) -> int:
     p.add_argument("graph")
     p.add_argument("src")
     p.add_argument("dst")
+    p = sub.add_parser("loops")
+    p.add_argument("graph")
+    p.add_argument("va")
+    p.add_argument("--depth", type=int, default=4)
+    p.add_argument("--edges", help="table edges (fptables.py scan --edges)")
+    p = sub.add_parser("rank")
+    p.add_argument("graph")
+    p.add_argument("--family", action="append", required=True,
+                   help="NAME=VA[,VA...]: the family's roots; repeat per family")
+    p.add_argument("--top", type=int, default=10)
+    p.add_argument("--depth", type=int, default=4, help="call depth below the roots")
+    p.add_argument("--edges", help="table edges (fptables.py scan --edges)")
     p = sub.add_parser("stats")
     p.add_argument("graph")
     args = ap.parse_args(argv)
@@ -398,7 +627,8 @@ def main(argv=None) -> int:
         ap.print_help()
         return 2
     return {"build": cmd_build, "stats": cmd_stats, "callers": cmd_walk, "callees": cmd_walk,
-            "reach": cmd_reach, "users": cmd_users, "path": cmd_path}[args.cmd](args)
+            "reach": cmd_reach, "users": cmd_users, "path": cmd_path,
+            "loops": cmd_loops, "rank": cmd_rank}[args.cmd](args)
 
 
 if __name__ == "__main__":
