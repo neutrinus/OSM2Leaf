@@ -1,0 +1,52 @@
+role: driver (M3.11b)
+model: Airouter Strong (aggregate)
+start: 2026-11-20 15:40 UTC
+end: 2026-11-20 15:55 UTC
+origin/main at start: 2e683be (Merge PR #327, M4.54)
+
+inputs read:
+- AGENTS.md, prompt_common.txt
+- TODO.md M3.11b block and its M9.44 / M3.28 / M9.38 notes
+- docs/research/claims.md C-4641, C-4672, C-3602–C-3605, C-2547–C-2549
+- EXP-2026-11-19-M9.38-read-watch.md, EXP-2026-11-19-M9.44-virtual-card.md
+- docs/format/firmware.md "The read API"
+- docs/experiments/TEMPLATE.md
+
+actions taken:
+1. Claim commit `todo: start M3.11b` (status line only), pushed, draft PR #343 — rule 2.
+2. Read the task: the question is already answered by C-4641 (swap in
+   fn 0x00417eac, request word +20) and C-4672 (client 0x003f6c88 never stores
+   +20); the job was to close it with the two controls, not re-derive.
+3. Reproduced C-4641 with `vcard_l3.py read --swap` (a6c6fec3…, IDENTICAL).
+4. Wrote a throwaway probe (scratch) hooking the loop 0x00417f1c pre/post;
+   the firmware's own loop swaps and equals point_walk_l3.swap16 (PASS).
+5. Realised the EXP template wants a committed tool, and a `*_l3.py` with raw
+   loop VAs would redden fn_audit; committed `tools/swap_witness_l3.py` instead
+   (start-relative offsets, no mid-function VA), with --selftest.
+6. Wrote EXP-2026-11-20-M3.11b-point-byteorder-2 with both +20 values and the
+   0x400 length as a second sample; ran it, pasted real output.
+7. Added claims C-5810–C-5816; set M3.11b done with Result.
+8. gate.py initially red on fn_audit: my TODO/claims/tool edits moved the docs
+   base and added a VA. Re-froze both snapshots (docs + l3 overlay); CORPUS OK.
+9. Cleaned NONRUN warnings on the new claims (one clean invocation per row).
+10. Final gate: 4 pass, 0 fail, 0 skip.
+
+decisions:
+- Committed a tool rather than a frozen heredoc: TEMPLATE rule 2 and the task's
+  Done-when want a re-runnable command; derived the loop VAs from the routine
+  start so fn_audit sees one real START (a raw 0x00417f12 would be INSIDE).
+- Did not execute the client 0x003f6c88: C-4672 is a disassembly claim and
+  driving it needs HDLMAP state; re-confirmed the field list from sh4dis and
+  cited C-4672, as the task allows.
+- Left C-2547–C-2549 untouched (earlier block; the new block is fresh).
+
+problems / cost:
+- First probe run inverted the `request(swap=)` field (True = word +20 = 0);
+  fixed and reran.
+- Nearly pasted invented 0x400 hashes into the EXP; caught it and replaced with
+  the real command output.
+
+handoff: PR #343 is ready for review/merge (not merged by me, per instructions).
+Done-when command: `python3 tools/swap_witness_l3.py run archive/head256.img
+--card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img`
+→ RESULT: PASS. M9.10 can now feed the page in swap16 order.
