@@ -368,6 +368,127 @@
     "Controls: the wrong build's walker/helper addresses do not reproduce (M1.22 EXP).",
     "Runs the US build's chunk engine with the same .ind-derived 20-byte table and helper stubs relocated from its own literal pool (memcpy 0x00400944, mod 0x0040098c, zcalloc 0x00565d94, zcfree 0x00565da4). Pass --image US256 --cmp PAIR.cmp --ind PAIR.ind."
    ]
+  },
+  {
+   "name": "lev3456_reader",
+   "reader": "tile",
+   "what": "MAPAL001/LEV3456R.DAT coarse levels 3-6: header, section tables and the L6/L5/L4 directories plus the level-3 directory under the start position (M9.18)",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "blocked",
+    "program": null,
+    "va": null,
+    "reason": "not callable from runner.py: LEV3456R bytes arrive as read completions (header 0x0040b8b4, section table 0x0040c308 -> 0x0040be84, directory 0x0041597c -> 0x004157dc -> 0x00414644 / 0x00414930; EU2011). The target runs as tools/datask_l3.py mount --position LAT,LON [--replace MAPAL001/LEV3456R.DAT=FILE] + tools/mount_dirs_l3.py check/compare against lev3456.py (EXP-2026-11-20-M9.18-lev3456r-sec4-l3: factory MATCH 9/9, lev3456gen file SAME-RELOCATED). Record blocks are not read at mount: M9.53"
+   },
+   "stubs": [
+    "CreateFileW",
+    "ReadFile",
+    "SetFilePointer",
+    "GetFileSize",
+    "CloseHandle",
+    "HeapAlloc",
+    "HeapFree",
+    "memset",
+    "memcpy",
+    "OSM_Printf",
+    "OSM_LogMsg"
+   ],
+   "corpus": {
+    "path": "tile/LEV3456R.DAT",
+    "guest_path": "\\Storage Card\\MAPAL001\\LEV3456R.DAT",
+    "reader": "tile",
+    "case": "tile_factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "every LEV3456R read of the mount names a table/directory lev3456.py lists, and each slot-table parser loads +0xa to 2*size-1 of that directory (mount_dirs_l3.py check exit 0)"
+   },
+   "notes": [
+    "Directory-level only: the coarse records (and their names) are first read by a map request, M9.53."
+   ]
+  },
+  {
+   "name": "tile_section4_reader",
+   "reader": "tile",
+   "what": "MAPAL001 BxxRyyR.DAT section 4 (admin/place-name index): section table and the level-1 directory under the start position, slot-table parser 0x00415330 (typ 0x93; M9.18)",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "blocked",
+    "program": null,
+    "va": null,
+    "reason": "not callable from runner.py: section-4 bytes arrive as read completions (section table 0x0040c308 tag 0x0602, directory 0x0041597c tag 0x0702 -> 0x00415330; EU2011). The target runs as tools/datask_l3.py mount --position LAT,LON + tools/mount_dirs_l3.py check against clarion_tile.read_tile (EXP-2026-11-20-M9.18-lev3456r-sec4-l3: B48R058R section 4 MATCH; header-word control DIFFERENT). No section-4 record (name list) is read at mount: M9.53; no section-4 writer: section4.py build refuses"
+   },
+   "stubs": [
+    "CreateFileW",
+    "ReadFile",
+    "SetFilePointer",
+    "GetFileSize",
+    "CloseHandle",
+    "HeapAlloc",
+    "HeapFree",
+    "memset",
+    "memcpy",
+    "OSM_Printf",
+    "OSM_LogMsg"
+   ],
+   "corpus": {
+    "path": "tile/B28R070R.DAT",
+    "guest_path": "\\Storage Card\\MAPAL001\\B28R070R.DAT",
+    "reader": "tile",
+    "case": "tile_factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "the section-4 table and directory reads match clarion_tile's model (mount_dirs_l3.py check exit 0)"
+   },
+   "notes": [
+    "Directory-level only; the name list needs a record read (M9.53)."
+   ]
+  },
+  {
+   "name": "mmain_reader",
+   "reader": "tile",
+   "what": "MMAIN001.DAT database header reader (EU2011 fn 0x0041a438: open 0x0041b780, read 0x0041b954, exactly 0x1000 bytes, swap16 into data VA 0x00e23cc0; M3.8/M9.17)",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "blocked",
+    "program": null,
+    "va": null,
+    "reason": "not a runner.py call: the reader runs inside the firmware's own mount (tools/vcard_l3.py boot, M9.44). The target is tools/mmain_l3.py run IMG256 --card-image CARD (factory, rebuilt, edited, generated ACCEPT with buffer == swap16(file) and an equal mmain.py model; 4095-byte and absent REJECT; EXP-2026-11-20-M9.17-mmain-reader-l3)"
+   },
+   "stubs": [
+    "CreateFileW",
+    "ReadFile",
+    "SetFilePointer",
+    "GetFileSize",
+    "CloseHandle",
+    "memset",
+    "memcpy",
+    "OSM_Printf",
+    "OSM_LogMsg"
+   ],
+   "corpus": {
+    "path": "mmain/MMAIN001.DAT",
+    "guest_path": "\\SystemSD\\MMAIN001.DAT",
+    "reader": "tile",
+    "case": "factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "a 0x1000-byte MMAIN001.DAT is accepted and lands swap16 in the buffer; a 4095-byte or absent file stops the mount (mmain_l3.py run exit 0)"
+   },
+   "notes": [
+    "corpus.reader is 'tile' only because the manifest has no mmain reader; the runner never reads this corpus row (blocked entry)."
+   ]
   }
  ]
 }
