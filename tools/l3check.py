@@ -976,7 +976,7 @@ def build_report(args) -> dict:
 #: Status words of a ``generated_corpus`` row.  None of them is a target
 #: result: the rows are listed next to the targets and never change
 #: ``counts`` (H107: two names for one reader would read as progress).
-GEN_RAN = "RAN (recorded)"
+GEN_RAN = "RAN (recorded)"   # printed as "RAN (recorded: <verdict>)"
 GEN_STALE = "STALE (file differs from the recorded run)"
 GEN_NOT_RUN_TREE = "NOT RUN (no tree)"
 GEN_NOT_RUNNABLE = "NOT RUNNABLE in runner.py (run it with the 'run' command)"
@@ -1046,8 +1046,14 @@ def generated_rows(by_name: dict, files: dict[str, Path] | None = None) -> tuple
                     local = None
                 else:
                     local_sha = _sha256_file(local)
-            if recorded is not None:
-                status = GEN_STALE if local_sha not in (None, sha) else GEN_RAN
+            if recorded is not None and local_sha not in (None, sha):
+                status = GEN_STALE
+                reason = (f"recorded {recorded.get('verdict')} applies to {sha[:16]}..., "
+                          f"not this file ({local} has {local_sha[:16]}...); re-run: "
+                          + (entry.get("run") or "-"))
+                problems.append(f"{where} ({ident}): {status}: {reason}")
+            elif recorded is not None:
+                status = f"{GEN_RAN[:-1]}: {recorded.get('verdict')})"
                 reason = f"{recorded.get('verdict')}: {recorded.get('detail')} ({recorded.get('exp')})"
             elif local_sha is None:
                 status = GEN_NOT_RUN_TREE
@@ -1056,6 +1062,7 @@ def generated_rows(by_name: dict, files: dict[str, Path] | None = None) -> tuple
             elif local_sha != sha:
                 status = GEN_BAD_FILE
                 reason = f"{local} has sha256 {local_sha[:16]}..., listed {sha[:16]}..."
+                problems.append(f"{where} ({ident}): {status}: {reason}")
             else:
                 status = GEN_NOT_RUNNABLE
                 reason = "no run recorded; " + (entry.get("run") or "-")
@@ -1068,7 +1075,8 @@ def generated_rows(by_name: dict, files: dict[str, Path] | None = None) -> tuple
                 "size": entry.get("size"),
                 "file": str(local) if local is not None else None,
                 "file_sha256": local_sha,
-                "ran_on_our_generated_data": recorded is not None and status == GEN_RAN,
+                "ran_on_our_generated_data": status.startswith(GEN_RAN[:-1]),
+                "recorded_verdict": None if recorded is None else recorded.get("verdict"),
                 "recorded": recorded,
             })
     for ident in sorted(set(files) - seen):
@@ -1632,12 +1640,27 @@ def test_generated_corpus_listed():
     rows = {r["id"]: r for r in report["generated_corpus"]}
     for ident in ("generated:m5.11:B48R058R", "synthetic:one_tile_pipeline"):
         assert ident in rows and rows[ident]["target"] == "tile_reader", rows.keys()
-        assert rows[ident]["status"] in (GEN_RAN, GEN_NOT_RUN_TREE), rows[ident]
+        assert rows[ident]["status"].startswith(GEN_RAN[:-1]) \
+            or rows[ident]["status"] == GEN_NOT_RUN_TREE, rows[ident]
+    assert rows["synthetic:one_tile_pipeline"]["status"] == "RAN (recorded: DIFFERENT)", rows
+    assert rows["generated:m5.11:B48R058R"]["status"] == "RAN (recorded: SAME)", rows
     assert rows["generated:m5.34:B48R058R"]["status"] == GEN_NOT_RUN_TREE
     assert not rows["generated:m5.34:B48R058R"]["ran_on_our_generated_data"]
     names = [t["name"] for t in report["targets"]]
     assert names.count("tile_reader") == 1, names
     assert report["counts"]["total"] == len(names) == report["target_count"]
+
+
+@check("generated corpus (H106): a STALE file makes the run FAIL (exit 1), never PASS")
+def test_generated_corpus_stale_fails():
+    bad = Path(_SELFTEST_TMP) / "gen-stale.DAT"
+    bad.write_bytes(b"not the M5.11 tile")
+    code, report = _json_cli(["--corpus", str(_corpus()),
+                              "--generated", f"generated:m5.11:B48R058R={bad}"])
+    assert code == 1 and report["result"] == "FAIL", (code, report["result"])
+    row = next(r for r in report["generated_corpus"] if r["id"] == "generated:m5.11:B48R058R")
+    assert row["status"] == GEN_STALE and "applies to 1927c3a9" in row["reason"], row
+    assert any(GEN_STALE in p for p in report["problems"]), report["problems"]
 
 
 def _gen_fixture(recorded: bool, data: bytes = b"our tile"):
@@ -1663,12 +1686,16 @@ def test_generated_corpus_status():
     assert not probs and rows[0]["status"] == GEN_NOT_RUNNABLE, rows
     assert not rows[0]["ran_on_our_generated_data"]
     rows, probs = generated_rows(by_name, {"generated:test:T": bad})
-    assert rows[0]["status"] == GEN_BAD_FILE, rows
+    assert rows[0]["status"] == GEN_BAD_FILE and any(GEN_BAD_FILE in p for p in probs), (rows, probs)
     by_name, _sha = _gen_fixture(True)
     rows, probs = generated_rows(by_name)
-    assert not probs and rows[0]["status"] == GEN_RAN and rows[0]["ran_on_our_generated_data"]
+    assert not probs and rows[0]["status"] == "RAN (recorded: SAME)" and rows[0]["ran_on_our_generated_data"]
+    rows, probs = generated_rows(by_name, {"generated:test:T": good})
+    assert not probs and rows[0]["status"] == "RAN (recorded: SAME)", (rows, probs)
     rows, probs = generated_rows(by_name, {"generated:test:T": bad})
     assert rows[0]["status"] == GEN_STALE and not rows[0]["ran_on_our_generated_data"], rows
+    assert any(GEN_STALE in p for p in probs), probs
+    assert "applies to" in rows[0]["reason"] and not rows[0]["reason"].startswith("SAME"), rows
     # negative: a record for another file, or a flag that disagrees, is a problem
     by_name["tile_reader"]["generated_corpus"][0]["recorded"]["sha256"] = "0" * 64
     _rows, probs = generated_rows(by_name)
