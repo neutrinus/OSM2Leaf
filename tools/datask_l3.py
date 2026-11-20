@@ -95,6 +95,11 @@ DA_EU2011 = {
     "leaves": (0x0040A8D0, 0x004144A8, 0x003F6968),
     "position": (0xD94 << 12) + 0x0E4,   # u32: (lat code << 16) | lon code
     "default_position_fn": 0x0040B49C,   # (kind) -> start position from a per-area table, or -1
+    # directory read length (M3.31): leaf (kind, column) -> u32 from a
+    # 16-row table {u32 kind, u32 length / 0x100, u32 buffer size}; the
+    # directory request of 0x00414338 asks column 1 for the level-table kind
+    "len_lookup": 0x0040901C,
+    "len_table": ((0x179 << 12) + 0xC08, 16),
     "ready_msg": (0x07D0, 100),
     "done_msg": 0x04A0,
     "progress": 0xD98FCC,         # 1 = the dispatcher runs deferred rows at once (unless state 3)
@@ -221,6 +226,20 @@ def install_models(st: State) -> None:
 def decode_table(blob: bytes, rows: int) -> list[tuple[int, int, int]]:
     """Rows of {u16 key, u16 flag, u32 handler}."""
     return [struct.unpack_from("<HHI", blob, 8 * i) for i in range(rows)]
+
+
+def len_lookup(rows, kind: int, column: int) -> int:
+    """The firmware's rule in the leaf 0x0040901c (EU2011): the first of the
+    16 rows {kind, length / 0x100, buffer size} whose kind equals ``kind``
+    gives column ``column``; no row gives 0."""
+    for row in rows:
+        if row[0] == kind:
+            return row[column]
+    return 0
+
+
+def decode_len_table(blob: bytes, rows: int) -> list[tuple[int, int, int]]:
+    return [struct.unpack_from("<III", blob, 12 * i) for i in range(rows)]
 
 
 def done_lookup(table, tag: int):
@@ -398,6 +417,10 @@ class DataTask:
         self.names = {f["fid"]: f["path"] for f in s.files()}
         self.requests: dict[int, dict] = {}
         self.called: list[int] = []
+        va, n = build["len_table"]
+        self.len_table = decode_len_table(rd(va, 12 * n), n)
+        self.last_len = None
+        m.eng.on_exec(build["len_lookup"], self._on_len_lookup)
         m.eng.on_exec(build["read_api"], self._on_read)
         for h in sorted({h for _k, _f, h in self.done_table if h}):
             m.eng.on_exec(h, self._on_handler(h))
@@ -431,10 +454,19 @@ class DataTask:
                 best = va
         return best
 
+    def _on_len_lookup(self, engine, va):
+        m = self.m
+        kind, col = m.arg(0), m.arg(1)
+        if col == 1:
+            self.last_len = {"kind": kind, "column": col, "value": len_lookup(self.len_table, kind, col),
+                             "from": (m.reg("pr") - 4) & V.M32}
+        return None
+
     def _on_read(self, engine, va):
         m = self.m
         req = decode_request(bytes(m.eng.read_mem(m.arg(1), 16)))
         req["fid"] = m.arg(0)
+        req["len_lookup"], self.last_len = self.last_len, None
         self.requests[req["dst"]] = req
         return None
 
@@ -582,6 +614,7 @@ class DataTask:
         row = {"tag": tag, "status": status, "length": n, "fid": req.get("fid"),
                "file": self.names.get(req.get("fid"), "?"), "pos": req.get("pos"),
                "handler": handler, "expected_handler": done_lookup(self.done_table, tag),
+               "len_lookup": req.get("len_lookup"),
                "readers": [{"fn": fn, "bytes": len(set(v)), "runs": runs(v) if want_bytes else runs(v)[:10],
                             "nruns": len(runs(v))} for fn, v in by.items()]}
         if self.inflated:
@@ -653,6 +686,11 @@ def show_row(row: dict) -> None:
     print("tag %#06x  %-28s pos %#10x len %#7x  handler %s  %s" % (
         row["tag"], row["file"], row["pos"] or 0, row["length"],
         ("%#010x" % row["handler"]) if row["handler"] else "-", role))
+    lk = row.get("len_lookup")
+    if lk:
+        print("      length from 0x0040901c(kind %#x, %d) = %#x -> %#x B (call at %#010x)%s" % (
+            lk["kind"], lk["column"], lk["value"], lk["value"] * 0x100, lk["from"],
+            "" if lk["value"] * 0x100 == row["length"] else "  [not this read's length]"))
     for r in row["readers"]:
         print("      fn %#010x loads %6d B: %s" % (r["fn"], r["bytes"], show_runs(r["runs"])))
     for z in row.get("inflated", []):
@@ -901,6 +939,10 @@ def selftest() -> int:
     check("byte offsets fold into runs", runs([5, 1, 2, 3, 9, 10, 2]) == [(1, 3), (5, 5), (9, 10)])
     check("runs print as ranges", show_runs([(1, 3), (5, 5)]) == "0x1-0x3,0x5")
     check("long run lists are cut and counted", show_runs([(i * 4, i * 4) for i in range(12)]).endswith("(12 runs)"))
+    lt = decode_len_table(struct.pack("<III", 0x92, 0x81, 0x8080) + struct.pack("<III", 0x91, 0x141, 0x14100), 2)
+    check("the length table gives column 1 of the kind's row",
+          len_lookup(lt, 0x91, 1) == 0x141 and len_lookup(lt, 0x92, 2) == 0x8080)
+    check("a kind with no length row gives 0", len_lookup(lt, 0x94, 1) == 0)
     req = decode_request(struct.pack("<IIII", 0x30001000, 3, 0x100, 0x40))
     check("a request decodes to position and length",
           req == {"dst": 0x30001000, "pos": 3 * 0x800 + 0x100, "length": 0x100})
@@ -979,6 +1021,9 @@ def selftest() -> int:
             check("every load is attributed to a function",
                   all(x["fn"] for r in t.rows for x in r["readers"]))
             check("46 tile files were found", t.summary()["mesh_count"] == 46)
+            dirs = [r for r in t.rows if r["handler"] == 0x0041597C]
+            check("each directory read has the length 0x0040901c gives (M3.31)",
+                  dirs and all(r["len_lookup"] and r["len_lookup"]["value"] * 0x100 == r["length"] for r in dirs))
             check("the run stopped where asked", end.startswith("stopped after 6"))
         except (V.Blocked, V.EngineError) as exc:
             check("firmware run (%s)" % str(exc)[:80], False)

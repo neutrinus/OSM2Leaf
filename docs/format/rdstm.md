@@ -237,6 +237,15 @@ buffer in the generic sector reader `0x00417618` — the lead for M4.51. The
 link-group layout above is therefore a data-side decode, not *confirmed*
 (rule 13).
 
+**M4.53 (L3, EU2011):** the `0x14f4` lead is refuted for the data-access
+path. Delivered to the data-access task, a `0x14f4` request reads a
+`REFER001` family file chosen by its sub word (1 `POINT001.DAT`, 2
+`ADDRE001.DAT`, 4 `INTER001.DAT`; search type of `0x003fbed8`), never
+`RDSTM001.DAT`, while the `0x14e4` control reads `LCTBL001.DAT`; the chain
+`0x00413828`/`0x004129d0`/`0x00417618` is not entered (C-5680–C-5682,
+`python3 tools/tmc_req_l3.py run`). The link-group reader stays unlocated
+(M8.E4).
+
 ### Writer (M5.19)
 
 Source: EXP-2026-11-20-M5.19-rdstm-writer (C-2430–C-2436); tool
@@ -633,6 +642,12 @@ field and no form of the RDSTM link reference joins tile ids above chance per
 record (C-5136); the route to coordinates is the link-group decode, done in
 M4.16e: a ref is `(group, entry)` → `(node, link)` of a section-2 parcel record
 (see "Link groups" above, C-5139/C-5370).
+
+M4.16c tested the `INTER` lead as aligned fields: a byte-profile control
+(bytes drawn from the real values' histogram) hits `INTER001`–`005` more often
+than the M4.1 `ref` values (aligned `u32` 135 vs 55) and than the decoded
+M4.16e link refs (30 vs 10), so the enrichment is a byte-composition
+artifact, not a join (C-2310–C-2311, `python3 tools/inter_ref_probe.py scan`).
 
 ## `RDSTM001.DAT` — uncompressed packed binary
 
