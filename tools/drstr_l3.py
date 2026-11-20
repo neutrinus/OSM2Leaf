@@ -5,22 +5,23 @@
 slot bound to a host model, a card behind ``fopen``/``fread``/``fseek``).
 This tool calls the same three functions, in the same order, that the
 parser's only caller ``fn 0x00419684`` calls (EU2011, ``tools/sh4dis.py``
-at ``0x00419732``..``0x00419756``):
+at ``caller+0xae``..``caller+0xd2``):
 
 1. ``0x0041b3bc(path, "rb")`` - the firmware's ``fopen`` wrapper; the file
-   name (``0x0017ab24``) and the mode (``0x0017ab20``) are read from the image,
+   name and the mode (sec0 data words loaded from the caller's pool) are read from the image,
    the directory is the layer's own volume root (``vcard_l3`` ``volume_root_w``);
 2. ``0x00419350(fd)`` - the parser; its return value is the verdict;
 3. ``0x0041b650(fd)`` - the ``fclose`` wrapper.
 
 When the open wrapper returns 0 the caller skips the parser and logs code 25
-(``0x00419760``); this tool then reports ``REJECT`` at stage ``open``.
+(``caller+0xdc``); this tool then reports ``REJECT`` at stage ``open``.
 
 The verdict map is decoded from the parser's three exits, not guessed: every
-exit returns ``r2`` (``rts; mov r2,r0`` at ``0x00419648``), and ``r2`` is
-``0`` (``0x0041961c``), ``-1`` (``0x00419634``) or the frame word
-``@(24,r15)`` (``0x00419494``), which is written only at ``0x00419478``
-(``-1``) and ``0x00419522`` (``0``).  So the parser returns ``0`` (ACCEPT)
+exit returns ``r2`` (``rts; mov r2,r0`` at ``parser+0x2f8``), and ``r2`` is
+``0`` (``parser+0x2cc``), ``-1`` (``parser+0x2e4``) or the frame word
+``@(24,r15)`` (``parser+0x144``), which is written only at ``parser+0x128``
+(``-1``) and ``parser+0x1d2`` (``0``).  Instruction sites are written as
+``parser+off`` / ``caller+off`` (offsets from the function starts).  So the parser returns ``0`` (ACCEPT)
 or ``0xffffffff`` (REJECT) and nothing else; any other value stops the run
 as ``BLOCKED``.  The error logger ``0x0041bbec(1, 11, 9, code, value)`` is
 hooked (it still runs); each REJECT carries its log codes (``LOG_CODES``).
@@ -63,33 +64,35 @@ EU2011 = {
     "close": 0x0041B650,
     "logger": 0x0041BBEC,
     # "DRSTR001.DAT" and "rb": data addresses in sec0 (pool words
-    # 0x00419870 and 0x00419874), written as sums so fn_audit does not read
+    # caller+0x1ec and caller+0x1f0), written as sums so fn_audit does not read
     # them as function citations
-    "name": 0x170000 + 0xAB24,
-    "mode": 0x170000 + 0xAB20,
+    "name": (0x17 << 16) | 0xAB24,
+    "mode": (0x17 << 16) | 0xAB20,
     "parse_end": 0x00419684,      # the parser's pdata end = the caller's start
 }
+
+_P = EU2011["parse"]
 
 #: Decoded return values of ``fn 0x00419350`` (see the module docstring).
 VERDICT_MAP = {0x00000000: "ACCEPT", 0xFFFFFFFF: "REJECT"}
 RETURN_SITES = (
-    (0x0041961C, "mov #0,r2 (delay slot of bra 0x00419636)", 0x00000000),
-    (0x00419634, "mov #-1,r2", 0xFFFFFFFF),
-    (0x00419494, "mov.l @(24,r15),r2; slot written 0x00419478 (-1), 0x00419522 (0)", None),
+    (_P + 0x2CC, "mov #0,r2 (delay slot of bra parser+0x2e6)", 0x00000000),
+    (_P + 0x2E4, "mov #-1,r2", 0xFFFFFFFF),
+    (_P + 0x144, "mov.l @(24,r15),r2; slot written parser+0x128 (-1), parser+0x1d2 (0)", None),
 )
 
 #: Logger calls ``0x0041bbec(1, 11, 9, code, value)`` in the parser and in the
 #: caller (code is r7, ``mov #code,r7`` at the site).  ``returns`` is the
 #: parser's path after the log, from the branch that follows it.
 LOG_CODES = {
-    27: (0x00419408, "allocation of the file buffer failed", "-1"),
-    26: (0x0041938C, "file size > 0x77220 (cmp/ge at 0x00419388): the buffer is freed and the "
+    27: (_P + 0xB8, "allocation of the file buffer failed", "-1"),
+    26: (_P + 0x3C, "file size > 0x77220 (cmp/ge at parser+0x38): the buffer is freed and the "
                      "parser reads the file directly", "continues"),
-    23: (0x004193E8, "whole-file read != file size (0x00419446: uncached first 40-byte read != 40)", "-1"),
-    16: (0x00419424, "buffer pointer null", "-1"),
-    20: (0x0041946A, "u32 at node +36 is not a multiple of 40 (_modlu)", "-1"),
-    10: (0x004194A8, "u32 at node +36 / 40 > 200", "-1"),
-    25: (0x00419760, "caller: open wrapper returned 0, parser not called", "caller"),
+    23: (_P + 0x98, "whole-file read != file size (parser+0xf6: uncached first 40-byte read != 40)", "-1"),
+    16: (_P + 0xD4, "buffer pointer null", "-1"),
+    20: (_P + 0x11A, "u32 at node +36 is not a multiple of 40 (_modlu)", "-1"),
+    10: (_P + 0x158, "u32 at node +36 / 40 > 200", "-1"),
+    25: (EU2011["caller"] + 0xDC, "caller: open wrapper returned 0, parser not called", "caller"),
 }
 
 

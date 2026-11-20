@@ -41,10 +41,10 @@
  ],
  "summary": {
   "files": 33,
-  "citations": 767,
-  "unique_va": 331,
+  "citations": 737,
+  "unique_va": 308,
   "start": 458,
-  "inside": 30,
+  "inside": 0,
   "corrected": 0,
   "gap": 66,
   "leaf": 66,
@@ -4301,48 +4301,12 @@
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 8,
-   "va": "0x00419732",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419684",
-   "class_sha256": "25415cb15dd291a4e3bcbfbd6a82802703635ce164d9c4c59fa961f742211934"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 8,
-   "va": "0x00419756",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419684",
-   "class_sha256": "25415cb15dd291a4e3bcbfbd6a82802703635ce164d9c4c59fa961f742211934"
-  },
-  {
-   "file": "tools/drstr_l3.py",
    "line": 10,
    "va": "0x0041b3bc",
    "kind": "const",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 11,
-   "va": "0x0017ab20",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0017aa54",
-   "class_sha256": "74b1fa9ed91adf6bc6f88ff677062248b7c5febad2ac95d30c0794c10eafd751"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 11,
-   "va": "0x0017ab24",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0017aa54",
-   "class_sha256": "74b1fa9ed91adf6bc6f88ff677062248b7c5febad2ac95d30c0794c10eafd751"
   },
   {
    "file": "tools/drstr_l3.py",
@@ -4364,70 +4328,7 @@
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 17,
-   "va": "0x00419760",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419684",
-   "class_sha256": "25415cb15dd291a4e3bcbfbd6a82802703635ce164d9c4c59fa961f742211934"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 20,
-   "va": "0x00419648",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 21,
-   "va": "0x0041961c",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 21,
-   "va": "0x00419634",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 22,
-   "va": "0x00419478",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 22,
-   "va": "0x00419494",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 23,
-   "va": "0x00419522",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 24,
+   "line": 25,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -4436,7 +4337,7 @@
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 25,
+   "line": 26,
    "va": "0x0041bbec",
    "kind": "const",
    "class": "START",
@@ -4445,7 +4346,7 @@
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 53,
+   "line": 54,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -4454,16 +4355,7 @@
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 56,
-   "va": "0x00419684",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 60,
+   "line": 57,
    "va": "0x00419684",
    "kind": "const",
    "class": "START",
@@ -4473,78 +4365,6 @@
   {
    "file": "tools/drstr_l3.py",
    "line": 61,
-   "va": "0x00419350",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 62,
-   "va": "0x0041b3bc",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 63,
-   "va": "0x0041b650",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 64,
-   "va": "0x0041bbec",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 66,
-   "va": "0x00419870",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419684",
-   "class_sha256": "25415cb15dd291a4e3bcbfbd6a82802703635ce164d9c4c59fa961f742211934"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 66,
-   "va": "0x00419874",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419684",
-   "class_sha256": "25415cb15dd291a4e3bcbfbd6a82802703635ce164d9c4c59fa961f742211934"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 68,
-   "va": "0x00170000",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0016fff4",
-   "class_sha256": "3895512168de653952a277232b0200e6d75d65a0f9bf2a435d951c3a36e07456"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 69,
-   "va": "0x00170000",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x0016fff4",
-   "class_sha256": "3895512168de653952a277232b0200e6d75d65a0f9bf2a435d951c3a36e07456"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 70,
    "va": "0x00419684",
    "kind": "const",
    "class": "START",
@@ -4553,7 +4373,7 @@
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 73,
+   "line": 62,
    "va": "0x00419350",
    "kind": "const",
    "class": "START",
@@ -4562,97 +4382,25 @@
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 74,
-   "va": "0x00000000",
+   "line": 63,
+   "va": "0x0041b3bc",
    "kind": "const",
-   "class": "UNMAPPED",
+   "class": "START",
    "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 74,
-   "va": "0xffffffff",
+   "line": 64,
+   "va": "0x0041b650",
    "kind": "const",
-   "class": "UNMAPPED",
+   "class": "START",
    "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 76,
-   "va": "0x00000000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 76,
-   "va": "0x0041961c",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 76,
-   "va": "0x00419636",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 77,
-   "va": "0x00419634",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 77,
-   "va": "0xffffffff",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 78,
-   "va": "0x00419478",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 78,
-   "va": "0x00419494",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 78,
-   "va": "0x00419522",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 81,
+   "line": 65,
    "va": "0x0041bbec",
    "kind": "const",
    "class": "START",
@@ -4661,84 +4409,66 @@
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 85,
-   "va": "0x00419408",
+   "line": 71,
+   "va": "0x00419684",
    "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 86,
-   "va": "0x00419388",
+   "line": 76,
+   "va": "0x00419350",
    "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 86,
-   "va": "0x0041938c",
+   "line": 77,
+   "va": "0x00000000",
    "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 88,
-   "va": "0x004193e8",
+   "line": 77,
+   "va": "0xffffffff",
    "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 88,
-   "va": "0x00419446",
+   "line": 79,
+   "va": "0x00000000",
    "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 89,
-   "va": "0x00419424",
+   "line": 80,
+   "va": "0xffffffff",
    "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/drstr_l3.py",
-   "line": 90,
-   "va": "0x0041946a",
+   "line": 84,
+   "va": "0x0041bbec",
    "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 91,
-   "va": "0x004194a8",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419350",
-   "class_sha256": "434b3a7418643a02e0c670450c93bdb649c11450b80a76c39f0ba5dcce1f3e86"
-  },
-  {
-   "file": "tools/drstr_l3.py",
-   "line": 92,
-   "va": "0x00419760",
-   "kind": "const",
-   "class": "INSIDE",
-   "true_start": "0x00419684",
-   "class_sha256": "25415cb15dd291a4e3bcbfbd6a82802703635ce164d9c4c59fa961f742211934"
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "tools/l3_harness/targets.json:applaunch_mapcode_compare",
