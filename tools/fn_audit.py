@@ -174,8 +174,8 @@ CORRECTION_ONLY = {
 # frozen EU->US fixture `tools/fixtures/fn_match_eu_us_2011.json` (M1.28's
 # UNIQUE rows, C-3740/C-3703, and M1.22b's six pool-only twins, C-3622) and
 # (c) the M1.22 `start` roles the L3 tools run (POINT nth/skip/dispatcher,
-# CMP chunk engine).  Helpers, data cells and constants are never in it (the
-# over-broad-skip bug).  15 entries; `build_targets.py check` diffs it.
+# CMP chunk engine; M4.52 POINT locator path).  Helpers, data cells and constants are never in it (the
+# over-broad-skip bug).  24 entries (15 + the M4.52 locator path); `build_targets.py check` diffs it.
 US_BUILD_STARTS = build_targets.us_starts()
 
 
