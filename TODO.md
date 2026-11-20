@@ -1623,7 +1623,10 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-5110–C-5119 (was C-2920–C-2929 (was C-2548–C-2549, overlap with M3.11b fixed by H24); fresh block for this run)
 
 - [ ] **M3.13 — The `ADDRE` (address) reader**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m3.13-addre-reader · Critical: yes · Pair: required
+  - Blocker: C-971/C-972 (directory, cells), the block-1 bytes (coordinate id, point tokens, C-976) and the range item body (C-975) are neither mapped to a consuming instruction nor shown never-read (navigator review 2026-11-20).
+  - Unblock: M3.32 (block-1 and item consumers) + M3.30 (search path: directory/cells/index).
+  - Result: EXP-2026-11-20-M3.13-addre-reader-l3 (C-5930–C-5939; blocked, real progress). The reader is the generic `REFER001` field accessor: the `0x14e4` writer `fn 0x003fd390` (search type 2) stores page → `+0x14`/`+0x2c`, dictionary (= the schema block: `area code`, `street name`, `dndc-id`) → `+0x18`; `fn 0x003f61bc`/`fn 0x003f5d98` return the fields of 3,650 EU2011 and 57,180 US2011 factory records (all match `addre.py`), and of two edited blocks. `TT LL 00 ff` is the field-length block, `rec[2]`/`rec[3]` the word counts of block 1 and of the length-prefixed range items, record length `2*(w & 0x3ff)` (`c1` = `L ≥ 256`; 43,602/43,602 EU2011 blocks framed). `refer.md` holds the field → instruction table; not located: readers of the bytes inside block 1 and range items (M3.32) and of directory/cells/index (search path, M3.30). `fn 0x0040b358` is a path lookup.
   - Re-opened (rule 15, PO 2026-11-20): the `Unblock` below is met. The `0x00d53500` slot table is filled at run time by the M3.22 writer and M3.11c ran the `POINT` accessor on it (C-5110–C-5117); M9.38 lists the functions that read a decoded `ADDRE001` blob (C-3606) and M3.28 names both openers (C-4666, C-4670). What remains is this task's own `Done when` on `ADDRE`: bind the slots as M3.11c did, run `0x003f56bc`/`0x0040b358` on one record and name the fields read. Start from `python3 tools/read_watch_l3.py --help` and `python3 tools/vcard_l3.py trace`.
   - Note (M3.28, 2026-11-19): `ADDRE` has two openers, both run on the card: `0x003fbed8` with search type 2 and `0x004011a0(n)` → `ADDRE0<n+1>.DAT` (caller `0x00401ff8`, which also issues the read) (C-4666, C-4670). Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (M9.38, 2026-11-19): dynamic reader list on the decoded `ADDRE001` blob (48,852 B): `fn 0x003fbed8` reads `+0x68` (4-byte) and calls `GAP@0x003f9254` which reads `+0x7c` (4-byte); `fn 0x004125a8` reads `+0x8` (2-byte). `0x003f56bc` and `0x0040b358` read 0 bytes at these entries (both need the BSS `0x00d53500` slots bound — the same context M3.11c names), and `0x0040114e` stops on an FPU `IllegalInstruction` at `0x00401150`. C-3606, EXP-2026-11-19-M9.38-read-watch.
@@ -1656,7 +1659,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: `refer.md` names the reader VA(s) and maps each grammar field
     (C-970–C-979) to the instruction that consumes it, or lists the fields
     the firmware never reads.
-  - Claims: C-2180–C-2189
+  - Claims: C-5930–C-5939 (was C-2180–C-2189; fresh block for this run)
   - Note (SE 2026-11-13): the pass-3 EXP `EXP-2026-11-12-M3.13-addre-reader-3` is the current record; its status line said "done (partial)" and was corrected to `blocked`. Its "never read" labels (C-970/C-975/C-977) are scoped to **sec0 literal pools**; `Navi.exe` sec1/sec2 (decoded by `nk_decomp`) were not searched, so do not read them as "the firmware never reads these".
   - Result: `EXP-2026-11-08-M3.13-addre-reader-2.md` (C-2180–C-2187, partial; refines `EXP-2026-11-06-M3.13-addre-reader.md`). Writer-implied native `u16` class-mask signature finds `fn 0x003f56bc` (Navi.exe sec0, `0x003f56ec`) — sole `*r5 & 0xe000 >= 0xc000` (`cmp/hs` literal `0xc000`, 1/82 loads) gate, accepts ADDRE `c0/c8/c1` (C-973 tag-class mapped). Resolves via `0x003f51e0` (`0x00d53500`, POINT family); callers `0x003f5d98`/`0x003f61bc`. C-970–C-972, C-974–C-977 + sequential `2*L`/token consumers not mapped (done-when not met). L3: `0x0040b358`→`-1`, `0x0040114e` FPU-unmodelled. `refer.md`/`firmware.md`/`reader-coverage.md`/`claims.md` updated.
 
@@ -2043,6 +2046,18 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: the branch that leaves `B60R048R` is named with its VA and the header field it tests, and a run that changes that field (or the position) makes the mount read `B60R048R`'s section tables.
   - Stop: one session; if the choice depends on a table filled by a task not in the run, name the table and its writer and block.
   - Claims: C-6080–C-6089
+
+- [ ] **M3.32 — Who reads the bytes inside an `ADDRE` record's point block and house-range items**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M3.13 (done)
+  - Goal: M3.13 located the record reader and the leaves that return block 1 (`rec+4`, `rec[2]` words: coordinate id + point tokens `TT 40 XX YY`) and range item `i` (`fn 0x003f5624`), but not the code that reads the bytes inside them (C-5938). Run the callers and name the instructions that read the coordinate id, a point token and a range item's `subtype`/`:N:;:M:` text, so the writer (M5.18) knows which of those bytes the firmware uses.
+  - Precheck: `python3 tools/addre_field_reader.py run archive/head256.img --cmp <EU ADDRE001.DAT.cmp> --build eu2011` passes (the bound context), and `python3 tools/sh4xref.py archive/head256.img Navi.exe --to 0x003f5624` lists `fn 0x003ad680`, `fn 0x003ad9a4`, `fn 0x003b9d38`, `fn 0x003bacc4`.
+  - Scope: EU2011 `Navi.exe`, the four callers above and their callees (`fn 0x003ad440`, the `0x003c5bxx` setters); one bound `ADDRE001` block, read watch on the page. Out of scope: the directory/cells/index search path (M3.30).
+  - Input: EXP-2026-11-20-M3.13-addre-reader-l3, `tools/addre_field_reader.py` (`build_context`), `tools/l3_harness/engine.py` read watch, `tools/sh4dis.py`.
+  - Done when: an EXP lists, for record 0 of ADDRE001 block 0, every instruction that reads a byte of block 1 or of a range item, with the byte offset and what it computes; `docs/format/refer.md` field table updated; or a blocked EXP naming the input the callers need.
+  - Stop: one session; if a caller needs a context object nothing builds, name it and block.
+  - Falsifier: a caller that reads none of these bytes when given a record with points and ranges.
+  - Claims: C-6040–C-6049
 
 ## M4 — Data formats (no firmware or hardware needed)
 
