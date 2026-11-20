@@ -162,12 +162,39 @@ measurement revision exists" — the H78 skip rule it already had — printing
 ## Reproduction
 
 ```bash
-rm -rf /tmp/x && git clone --depth 1 file://$PWD /tmp/x && cd /tmp/x
-python3 tools/claims_check.py --strict --count-check   # 9 COUNT lines, exit 1
-git fetch --unshallow
-python3 tools/claims_check.py --strict --count-check   # count mismatches: 0, exit 0
+# pinned to the PRE-fix tree 3d79bcc (navigator correction 2, H93);
+# X is any empty scratch directory
+git init -q X && git -C X fetch -q --depth 1 file://$PWD 3d79bccf3dd62c368eb8417e532a7d6d4b34bce2
+git -C X checkout -q FETCH_HEAD && cd X
+python3 tools/claims_check.py --strict --count-check   # 9 COUNT lines, count mismatches: 9, exit 1
+git fetch -q --unshallow file://$OLDPWD 3d79bccf3dd62c368eb8417e532a7d6d4b34bce2
+python3 tools/claims_check.py --strict --count-check   # count mismatches: 0, exit 0 (809 commits)
 ```
 
 ## Corrections after navigator review
 
-(empty until the navigator round returns)
+Navigator round 1 (TL log `dev_process/2026-11-17-0859-42-tl.log`):
+"APPROVE, with two non-blocking number flags (the red run is 12 consecutive
+pushes 1889340..2b3d1b4, last green 3f9c0b2; the depth-1 recipe must pin the
+pre-fix tool revision)". The log says "Both fixed before merge"; commit
+`4e7ea5d` (`git show 4e7ea5d`) is that fix.
+
+1. **Red-run span.** The record first said CI was red at five SHAs since H85.
+   The navigator pinned it to 12 consecutive `main` pushes, `1889340` (H85's
+   merge, #206) to `2b3d1b4`, with `3f9c0b2` (#205) the last green.
+   `4e7ea5d` applied this to the Question, the Inputs row "Repo state", the
+   first FACT under Interpretation, C-4130 and the H90 Goal. The Method's
+   "The five `main` pushes" line was not changed by `4e7ea5d`. This section
+   leaves it as it is: H94 owns that line and the other typed counts.
+2. **Depth-1 recipe pinned to the pre-fix tool.** `4e7ea5d` pinned C-4131
+   to `git show 3d79bcc:tools/claims_check.py`. This record's Reproduction
+   block still cloned the current tip, which now prints the post-fix skip
+   instead of the nine `COUNT` lines. H93 corrects that block in place to a
+   depth-1 fetch of `3d79bcc` itself. Re-run on 2026-11-20 (branch
+   `task/h93-h90-corrections-2`): shallow, 1 commit:
+   `count mismatches: 9`, nine `COUNT` lines, exit 1. After
+   `--unshallow`, 809 commits: `count mismatches: 0`, `claims_check: OK`,
+   exit 0. These are the same numbers as C-4131. The Method block (step 2) still
+   shows the unpinned clone; H94 owns making the whole recipe one block.
+
+No third flag was raised.
