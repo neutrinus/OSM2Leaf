@@ -368,11 +368,12 @@
   "docs/experiments/EXP-2026-11-19-M9.48-pysh4-div1.md",
   "docs/experiments/EXP-2026-11-19-M9.49-pysh4-macw.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+  "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 365,
+  "files": 366,
   "citations": 994,
   "unique_va": 209,
   "start": 814,
@@ -649,7 +650,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3617,
+   "line": 3630,
    "va": "0x880385e4",
    "kind": "fn",
    "class": "START",
