@@ -341,6 +341,25 @@ python3 tools/callgraph.py path    archive/work/navi_eu.json 0x0041c044 0x005422
 
 The graph file is derived from vendor code: keep it under `archive/`.
 
+## `event_subs.py` — who listens to which object-store event (M9.57)
+
+Lists every call of `OBJ_Event_setPrm` / `OBJ_Event_setPrmForMP` in every
+module of a CE segment, with the task, the sub (the `+10` word of the
+`0x07d0` message the task will receive) and the object call that follows.
+Import stubs come from each module's own import table, so DLLs are covered;
+helpers that take the task or sub as an argument are listed once per caller.
+
+```bash
+python3 tools/event_subs.py --selftest
+python3 tools/event_subs.py archive/head256.img --expect-site 0x003eb99c
+python3 tools/event_subs.py archive/head256.img --task 0x011fff58 \
+    --handler-table Navi.exe:0x001796f4:6        # table rows without a subscriber
+python3 tools/event_subs.py archive/head256.img --sub 11 --json out.json
+```
+
+With `--task`/`--sub` the exit status is 1 when no row matches; a negative
+needs `--expect-site` (a known site that must be in the census, else exit 2).
+
 ## `nk_decomp.py` — decompress ROM sections with the kernel's own routine (H51)
 
 Runs `nk.exe` `DECOMP_SECT 0x88037464` (build B) in the PySh4 engine: no

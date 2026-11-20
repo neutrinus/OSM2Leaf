@@ -2085,7 +2085,8 @@ subscriber gave `OBJ_Event_setPrm`:
 | 199 | `0x003f6b84` | `0x003eb974`, `OBJ_DiscInfo_setEventPublicDisc` kind 3 | — |
 | 13 | `0x003f6bb0` | `0x003eb974`, `OBJ_DiscInfo_setEventJudge` | `+28 = 0x3f7`: answer the judge, state 1 |
 | 6 | `0x00403564` | init, `OBJ_CarPos_setEventMesh` | — |
-| 11 | `0x003f6b1c` | not found in `Navi.exe` (M9.57) | `+28 = 16`: state 3 |
+| 11 | `0x003f6b1c` | nobody, in any of the 149 modules (M9.57, C-6001) | `+28 = 16`: state 3; no static sender |
+| 12 | `0x0042af34` | nobody | none (`rts`) |
 
 The dispatcher (`0x003ebee8`, `0x003ebf14`–`0x003ebf22`) runs the deferred
 row `0x14b5` at once when the progress word `0xd98fcc` is 1 and the state
