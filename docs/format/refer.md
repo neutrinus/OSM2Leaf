@@ -72,6 +72,43 @@ There are 33 numbered shards, matching the 33 regions:
   brand code (last two bytes of the record). The brand code selects the
   `BICON001` logo; see [assets.md](assets.md) for the verified table.
 
+### POINT page chains and chain tables (M5.26)
+
+> **Status:** `OBSERVED` on EU 2011 (33 files) and US 2011 (11 files);
+> not yet tied to a firmware reader (C-2950–C-2953).
+
+Inner zlib pages of a POINT `.DAT` are stored as **chains**: each chain
+starts at a 0x100-aligned base and its pages follow back to back, each
+padded with zeros to a 4-byte boundary. Every chain is described by a
+**chain table** at a 0x100-aligned offset after it (all integers big-endian,
+lengths in 16-bit words):
+
+```
+u16 per_page      // 1000 (name pages), 400, 2000 — the three chains of every file
+u16 0
+n × { u32 start_w,   // page offset from the chain base
+      u32 comp_w,    // stream length rounded up to 4 bytes
+      u32 inner_w }  // inflated page length
+// start_w[i+1] = start_w[i] + comp_w[i]
+```
+
+- Every file of both builds carries exactly three tables (per_page 400, 1000
+  and 2000); the 1000 chain is the name chain. US 2011: 8,229 name pages,
+  the same count M5.21 edited by pattern.
+- Every page of every chain walks exactly with the firmware record walk of
+  `fn 0x003f5194` (EU2011, C-2540): BE `u16 w`, size `2*(w & 0x3ff)` bytes.
+  The `ff ff` record end of the section below is **not** universal (6 of the
+  16 EU POINT010 name pages fail it); the 10-bit length is the rule.
+- The table holds no chain base and no absolute offset. What tells the reader
+  where a chain and its table are (the **chain locator**) is `UNKNOWN`: no
+  position in the first 0x8000 bytes holds a base, table or chain end in any
+  of 72 encodings in more than 4 of 33 EU files (C-2954).
+- Free space after a chain (up to the next non-zero byte) is 24–248 B per
+  name chain: 3,656 B over 33 EU files, 1,460 B over 11 US files.
+- `tools/point_pair_regen.py` re-packs a chain in place from these tables;
+  index chains (`4e 20 00 00` + `u32` word lengths, as in `ADDRE`) are a
+  separate structure and are not covered.
+
 ### POI name page framing (page level)
 
 A POINT inner zlib page that carries display names is a chain of
