@@ -3334,8 +3334,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-5270–C-5279
   - Result: EXP-2026-11-20-M5.53-wide-rows. `0x2n46` is not a tail: header word 0 is the directory size, and `0x2n46` = `0x2046` with **n wide rows** (1,024-byte body: even pair, 4+4 `u16` sub-record sizes for a 2 x 2 parcel split, odd pair; bit 31 of the row's first word marks it). New `tools/s1_wide_dir.py census` decodes 1,855/1,855 section-1 directories of 45 EU2011 tiles, 2,443,997 records all whole zlib streams, 0 overlaps; M5.22's non-zlib/`0xffffffff`/aliasing were the 512-byte misreading (C-2810–C-2812 superseded). `tilewriter` splices `0x2146` through the row model: real `B48R058R (76,941)` → `0x2046`, diff confined to the directory, `cardcheck` + `l2check --semantic-tiles` PASS, readback 16/16. Precheck token deviates on purpose: 0x2146 is now classified spliceable, so factory and output both print `spliceable=14 preserve-only=6`; the by-kind line prints `narrow(0x2046)=10 wide(0x2n46)=10` on the output (factory 9/11) — see EXP Interpretation. Follow-up **M5.54** (other kinds).
 
-- [ ] **M5.54 — P1: splice the remaining wide-row kinds `0x2246`–`0x2946`**
-  - Status: in progress · Owner: task/m5.54-s1-wide-kinds · Critical: yes · Pair: required
+- [x] **M5.54 — P1: splice the remaining wide-row kinds `0x2246`–`0x2946`**
+  - Status: done · Owner: task/m5.54-s1-wide-kinds · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.53 (done)
   - Goal: M5.53 proved every `0x2n46` directory is a `0x2046` directory with n wide rows and made `0x2146` writable (P1: 14 of 20 directories). The 6 left in the Dolnośląskie bbox (`0x2246`, `0x2346` x2, `0x2546`, `0x2646`, `0x2946`) parse with the same model (`tools/s1_wide_dir.py`) but `tilewriter` still preserves them (`PRESERVE_ONLY_DIR_KINDS`). Enable them so P1 writes 20/20.
@@ -3345,7 +3345,20 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: for each of the 6 directories a pipeline run with ways over all its sub-record columns ends with `cardcheck` PASS, `l2check --semantic-tiles` PASS, `one_tile_one_directory` PASS and `s1_wide_dir census` OK on the output, and the precheck on the factory prints `spliceable=20 preserve-only=0`; a partial run (one wide row left) keeps the kind and still passes the census.
   - Stop: if a kind needs anything beyond `WIDE_SPLICE_DIR_KINDS` (a row the model cannot narrow, a record that does not re-read), block with the directory and row named.
   - Claims: C-5540–C-5549
+  - Result: EXP-2026-11-20-M5.54-wide-kinds. `WIDE_SPLICE_DIR_KINDS` = `0x2146`–`0x2946`; narrowing is per directory (a partial splice keeps the kind). Seven real pipeline runs on `B48R058R`: each of the six remaining bbox directories (2–22 fixture ways from the new `s1_wide_dir.py fixture`) ends as `0x2046` with the diff confined to it, `cardcheck` + `one_tile_one_directory` PASS, `l2check --semantic-tiles --skip-mutation` PASS, census OK; the partial `(74,938)` run keeps `0x2246`. Factory precheck: `spliceable=20 preserve-only=0` (P1 20/20). Deviation: the full `l2check` FAILs only `refer_rename_resize`, identically on the untouched factory tree (C-5543) → new **M5.55**. `clarion_tile` remainder limit raised to `31*512` (C-5542); `0x2a46`+ are now preserve-only.
 
+
+- [ ] **M5.55 — l2check `refer_rename_resize` expects the pre-M5.52 edit and FAILs on every EU card**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Step: P1
+  - Depends: M5.52 (done)
+  - Goal: since M5.52 (`608f949`) `mutate_refer_poi.py --resize` also patches the field-5 length byte, but `l2check.check_refer_rename_resize` still builds the expected record as "rename only" (`tools/l2check.py` ~line 881). Every full `l2check` run on an EU tree now ends `RESULT: FAIL` with `record 8 is not the rename-only edit (got 84 bytes, expected 84)`, including the untouched factory tree, so the `l2check` gate of `one_tile_pipeline` (and of every P1 run) cannot PASS (found by M5.54, EXP-2026-11-20-M5.54-wide-kinds).
+  - Precheck: `python3 tools/l2check.py --root FAC --no-golden --tiles B48R058R.DAT --semantic-tiles B48R058R.DAT --cmp-limit 20 | tail -3` prints the `refer_rename_resize] FAIL` line and `RESULT: FAIL` on the EU factory tree.
+  - Scope: `check_refer_rename_resize` in `tools/l2check.py` (the expected bytes include M5.52's field-5 length patch) and an l2check self-test case for it; no change to `mutate_refer_poi.py`.
+  - Input: EXP-2026-11-19-M5.52-resize-field-len, `tools/mutate_refer_poi.py --resize`, `tools/l2check.py`.
+  - Done when: the Precheck command prints `[refer_rename_resize] OK` and `RESULT: PASS` on the EU factory tree, and a negative (a resize edit that leaves field 5 stale) FAILs.
+  - Stop: if field 5 is not the only extra byte that `--resize` changes, block and name the byte.
+  - Claims: C-5550–C-5559
 ## M6 — L5 bench/car: hardware and safety
 
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
