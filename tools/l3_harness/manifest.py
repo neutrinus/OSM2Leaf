@@ -48,6 +48,7 @@ READERS = {
     "tile": "MAPAL001 BxxRyyR.DAT tile reader",
     "hdd_info": "VER_INFO/HDD_INFO.TXT map-code parser",
     "point_walk": "POINT0nn name-page record chain (tag,len2 records)",
+    "point_name": "POINT0nn record name field through the field dictionary (M9.10)",
 }
 
 #: ``case`` -> allowed readers, mandatory verdict and purpose.
@@ -71,6 +72,11 @@ CASES = {
         "readers": ("cmp_ind",),
         "verdict": "ACCEPT",
         "purpose": "same-length POI rename is accepted",
+    },
+    "point_name_synthetic": {
+        "readers": ("point_name",),
+        "verdict": "ACCEPT",
+        "purpose": "synthetic POINT page + field dictionary: every record's field 5 is its name",
     },
     "point_walk_factory": {
         "readers": ("point_walk", "cmp_ind"),

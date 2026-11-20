@@ -108,6 +108,11 @@ TARGET_EVIDENCE = {
         "claims": ("C-5770", "C-5771", "C-5772"),
         "note": "US POINT walker fn 0x0041db44; runner point_walk_v1 (M9.55); framing only, not names (C-4178)",
     },
+    "poi_record_decode": {
+        "reader": "point_name",
+        "claims": ("C-2140", "C-2141", "C-2142"),
+        "note": "US POINT name accessor fn 0x0041ec8c; runner point_name_v1 (M9.10); names, not the .cmp layer",
+    },
     "tile_reader": {
         "reader": "tile",
         "claims": (),
@@ -447,7 +452,7 @@ _CARD_TARGETS = [
         "label": "POI record reader (M9.10)",
         "applies": lambda p: p.upper().startswith("REFER001/POINT") and p.upper().endswith(".DAT.CMP"),
         "adapter": "not-yet-available",
-        "unavailable_note": "POI reader not yet available (M9.10; no poi_record_decode target in targets.json, name accessor waits M3.11c)",
+        "unavailable_note": "POI reader not yet available in --card mode: the target exists since M9.10 (runner.py run poi_record_decode --image US256 --cmp PAIR.cmp --ind PAIR.ind --expect-name NAME) but this gate does not yet find the changed page of a POINT pair (M9.12)",
     },
     {
         "name": "drstr_parser",
@@ -815,7 +820,7 @@ def _corpus_firmware_inputs(target: dict, corpus_root: Path) -> dict:
     swapped for the other build's image.
     """
     entry = target.get("entry") or {}
-    if entry.get("program") != "point_walk_v1":
+    if entry.get("program") not in ("point_walk_v1", "point_name_v1"):
         return {}
     source = (entry.get("inputs") or {}).get("source")
     if not isinstance(source, str) or not source:
@@ -831,6 +836,11 @@ def _corpus_firmware_inputs(target: dict, corpus_root: Path) -> dict:
     }
     if image is not None:
         inputs["image"] = str(image)
+    # M9.10: the synthetic corpus page declares record 0's name; a card run
+    # passes its own --expect-name to runner.py instead.
+    corpus_name = (entry.get("inputs") or {}).get("corpus_name")
+    if entry.get("program") == "point_name_v1" and isinstance(corpus_name, str):
+        inputs["expect_name"] = corpus_name
     if cmp_path.is_file():
         inputs["cmp"] = str(cmp_path)
     if ind_path.is_file():
@@ -857,6 +867,7 @@ def _run_one(target: dict, corpus_root: Path, engine: str) -> dict:
         length=None,
         mutate="none",
         expect=None,
+        expect_name=firmware_inputs.get("expect_name"),
     )
     try:
         payload = runner_mod.run_target(target, namespace)
@@ -1448,7 +1459,7 @@ def test_full_run():
     assert report["claim"] == "C-1700"
     assert report["engine"] == "pysh4"
     assert report["corpus"]["source"] == "supplied", report["corpus"]
-    assert report["corpus"]["entries"] == 110, report["corpus"]
+    assert report["corpus"]["entries"] == 111, report["corpus"]
     rows = {row["name"]: row for row in report["targets"]}
     probe = rows["probe-zlib-cmf"]
     assert probe["status"] == "PASS", probe
@@ -1479,8 +1490,13 @@ def test_full_run():
             "tile_reader",
             "tile_section4_reader",
         ]
-        expected_counts = {"pass": 2, "fail": 0, "skip": 0, "blocked": 10,
-                           "runnable": 2, "total": 12}
+        # M9.10: the name accessor row runs on the synthetic corpus page too
+        name = rows["poi_record_decode"]
+        assert name["status"] == "PASS", name
+        assert name["verdict"] == "ACCEPT" and name["l3_claim"] is True, name
+        assert name["claims"] == ["C-2140", "C-2141", "C-2142"], name
+        expected_counts = {"pass": 3, "fail": 0, "skip": 0, "blocked": 10,
+                           "runnable": 3, "total": 13}
     else:
         assert point["status"] == "BLOCKED", point
         assert point["verdict"] is None and point["accepted"] is None, point
@@ -1496,12 +1512,14 @@ def test_full_run():
             "lev3456_reader",
             "mapcode_comparator",
             "mmain_reader",
+            "poi_record_decode",
             "point_walk_us2011",
             "tile_reader",
             "tile_section4_reader",
         ]
-        expected_counts = {"pass": 1, "fail": 0, "skip": 0, "blocked": 11,
-                           "runnable": 1, "total": 12}
+        assert rows["poi_record_decode"]["status"] == "BLOCKED", rows["poi_record_decode"]
+        expected_counts = {"pass": 1, "fail": 0, "skip": 0, "blocked": 12,
+                           "runnable": 1, "total": 13}
     blocked = sorted(name for name, row in rows.items() if row["status"] == "BLOCKED")
     # The firmware_call readers (EU cmp_ind_reader, US cmp_ind_reader_us2011)
     # need external --image/--cmp/--ind, so a corpus-only run reports them
@@ -1634,7 +1652,7 @@ def test_build_corpus():
         assert code == 0, report
         corpus = report["corpus"]
         assert corpus["source"] == "built" and corpus["kept"] is True, corpus
-        assert corpus["entries"] == 110, corpus
+        assert corpus["entries"] == 111, corpus
         assert Path(corpus["root"]).is_dir(), corpus
         assert (Path(corpus["root"]) / "manifest.json").is_file(), corpus
         assert report["targets"][0]["status"] == "PASS", report["targets"]

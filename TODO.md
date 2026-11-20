@@ -284,7 +284,7 @@ PR rewrites the two fn_audit snapshots).
 7. **M3.32** and **M3.30** — the two tasks the `REFER` family waits for. **M3.13, M3.14, M3.16 and M3.18 are one group** blocked on them and on M3.29 (#341 ends `blocked`): do not pick the four one by one again.
 8. **M9.18** (re-opened this pass, rule 15) — `LEV3456R` and section 4 at record level; unblocks M5.16.
 
-**In flight (draft PRs, do not claim):** M9.10 #384, M5.59 #385, M5.60 #382,
+**In flight (draft PRs, do not claim):** M5.59 #385, M5.60 #382,
 M3.33 #381, M4.35 #387, M4.27 #386, M5.32 #368, M8.C row C10 #355, M8.A8 #372,
 M8.A9 #383.
 
@@ -1474,6 +1474,19 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the merge base cannot be found in CI's shallow clone, fetch `origin/main` with depth 200 in the workflow and record the time it adds.
   - Falsifier: a legitimate PR of the last 50 merged that the check would have failed (then widen the exemption and say which).
   - Claims: C-6520–C-6529
+
+- [ ] **H122 — `l3_harness/corpus.py --selftest` fails 4 `hdd_info` checks on main and the gate skips the suite**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: `python3 tools/l3_harness/corpus.py --selftest` ends `FAILED (4/14 checks)` on `main` (2026-11-20, also before PR #340): the factory `HDD_INFO.TXT` fixture is `REJECT` where the manifest expects `ACCEPT`, because `hddinfo.classify(...)["accepted"]` is false when the check-2 bounds are unknown (`verdict 'ACCEPT (check1); check2 BOUNDS_UNKNOWN'`). `python3 tools/selftest.py --only l3_harness.corpus` prints `SKIP no --selftest`, so `gate.py` never ran it. Found during M9.10 (C-2149).
+  - Precheck: both commands above print what the Goal quotes.
+  - Scope: `tools/l3_harness/corpus.py` (`verdict_hdd_info`: decide from `no_proven_failure` or pass declared bounds, whichever matches the M2.15 model; say which in the EXP), `tools/selftest.py` (the suite must be discovered: its `--help` has to declare `--selftest`, or the discovery rule changes). No change to `hddinfo.py`'s model.
+  - Input: `tools/hddinfo.py` (`classify`), `tools/l3_harness/corpus.py`, `tools/selftest.py` (`exposes_selftest`), H120 (same class of defect).
+  - Done when: `corpus.py --selftest` passes 14/14, `selftest.py --only l3_harness.corpus` runs it (PASS, not SKIP), and a deliberately broken fixture makes `gate.py` fail.
+  - Stop: if the M2.15 model says the factory file must not be `ACCEPT` without bounds, change the manifest's expectation instead and record why.
+  - Falsifier: another `l3_harness/*.py` suite that `selftest.py` reports as `SKIP no --selftest` while its own `--selftest` exits non-zero.
+  - Claims: C-6530–C-6539
+
 
 ## M2 — Map code, activation, updater
 
@@ -4342,8 +4355,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5140–C-5149 (was C-1680–C-1689; fresh block for this run)
   - Result: done — EXP-2026-11-19-M9.6-mapcode-compare. Target `applaunch_mapcode_compare` (`firmware_call`/`mapcode_compare_v1`, `tools/mapcode_l3.py`) runs EU2011 build B `fn 0x03bd2ad8` from IMG256: factory `HDD_INFO.TXT` → `r0=1` ACCEPT, `line1_digits_4_002` → `r0=0` REJECT (firmware log `VerInf:QSD-302-100 / HddInf:QSD-002-100`); line-2 edit ACCEPT, byte-10 edit REJECT; unit `+0x60` is a declared input (C-5140–C-5146). Re-opens M2.4 (rule 15).
 
-- [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
-  - Status: open (walk half is S1 evidence — the `point_walk_us2011` `l3check --build-corpus` row, M9.55/EXP-2026-11-20-M9.55-us-poi-runner, C-5770/C-5778; name half is the only open half: this task's own `poi_record_decode` runner, M3.11b's byte order now closed (C-5810–C-5816), the accessor `0x0041ec8c` already runs 1000/1000) · Owner: — · Critical: yes
+- [x] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
+  - Status: done · Owner: task/m9.10-us-poi-name-l3 · Critical: yes
   - Note (M9.33, 2026-11-20): prerequisite map — `READY`: US VAs (M1.22), name accessor (M3.11c) and byte order (M3.11b, firmware swap = `swap16`, C-5815) are met; what remains is this task's own runner and M9.55's `l3check` row (C-3403, EXP-2026-11-20-M9.33-rerun-prereqs-map).
   - Step: P4
   - Note (H51, 2026-11-11): the walker and accessor VAs are **EU-build** addresses; the US card carries a different `Navi.exe` (H51). The EU-code run stays as a method check; the gate for S1/S2 is the same run on the US build after **M1.22** gives the US VAs.
@@ -4381,6 +4394,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     record the walk-only verdict as partial, keep name check blocked on
     M3.11c, and do not invent an accessor VA.
   - Claims: C-2140–C-2149
+  - Result: EXP-2026-11-20-M9.10-us-poi-name-l3. `runner.py run poi_record_decode` (new program `point_name_v1`, US2011 accessor `0x0041ec8c`) returns `HANA HEALTH CENTER` on the factory `POINT010` page `0x840ba0` and `OSM2LEAF TEST POI1` on the pair `mutate_refer_poi.py` wrote; 1,000/1,000 records per page split into name + address like their display text; stub log = `OSMDLL!taskIdSelf` only. Controls: wrong expected name `MISMATCH`, EU image `FAIL (wrong build)`, 7-field dictionary `REJECT`. `len2` control: the Python parser refuses a raised `len2`, the firmware does not (name still returned, walker 4 bytes late) — keep `parse_page` as the writer's gate. A synthetic corpus page makes the row runnable in `l3check --build-corpus` (`pass=3 runnable=3/13`). C-2140–C-2149. `--card` wiring stays with M9.12.
 
 - [x] **M9.11 — L3: the firmware's chunk decoder on our recompressed `.cmp` (software S1)**
   - Status: done · Owner: task/m9.11-cmp-ind-reader-closeout · Critical: yes · Pair: pair

@@ -642,6 +642,9 @@ READER_STUBS = {
     ],
     # the record walker touches no WinCE API: the harness maps text+page+stack
     "point_walk": [],
+    # the name accessor's one import (OSMDLL!taskIdSelf) is bound by
+    # point_name_accessor.py itself and reported in the run's own stub log
+    "point_name": [],
     "drstr": [
         "CreateFileW",
         "ReadFile",
