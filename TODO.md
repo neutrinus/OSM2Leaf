@@ -1192,8 +1192,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Result: `EXP-2026-11-19-H109-map-signals` (C-4400–C-4406). `tools/map_signals.py` prints `readers: located 6 partial 5 unlocated 7`, `l3_rows: l3-running 1`, `tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.28%`, `card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)`; absent `--factory-root` prints `tile_bytes: NOT RUN (no factory tiles)`, exit 0; `--json` carries the Priorities keys; `--selftest` (synthetic tile + stub report) `OK`; `selftest.py --only map_signals` `PASS`; the Priorities block cites it as the one command.
   - Claims: C-4400–C-4409
 
-- [ ] **H110 — the L4 row of the matrix is prose: M8.A2's boot numbers live only in the TODO block**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H110 — the L4 row of the matrix is prose: M8.A2's boot numbers live only in the TODO block**
+  - Status: done · Owner: task/h110-l4-panel · Critical: no · Pair: required
   - Depends: M8.A2 (done), M8.A10 (done); M8.A3 invents no new row, it fills this one
   - Goal: `prompt_qa.txt` requires the matrix to show "L4 full-system emulator readiness (what can run, what is blocked)". Today that is four prose lines in TODO's critical path plus the M8.A2 block; a QA pass must re-read EXP/TODO to say "QEMU 8.2.10 `-M ze0` boots one image: 10 s, exceptions 0, one unmodelled `write 0x38`" (C-4311) and "M8.E4 needs M8.A3/A6 + M9.16". A committed L4 panel with one row per stage (`F0`…`F4`), each naming its gate and blocker, and `NOT RUN` when no run log is supplied, makes the L4 delta a row instead of a paragraph.
   - Precheck: `grep -c 'M8.A3' docs/research/test-system.md` prints `0`; the only L4 statements are TODO.md's critical-path bullet and M8.A2's block.
@@ -1202,6 +1202,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Hints: `--run-log` should read `run.sh`'s summary keys only (exceptions count, unmodelled accesses, wall clock) — those exist; anything absent is `NOT RUN`, never inferred. The panel is readiness, not acceptance (rule 13): say "boots one image", not "L4 pass".
   - Done when: the §L4 table exists with six rows and no bare numbers (each names its claim); `python3 tools/l4_status.py` prints the table and exits 0 with `F4 BLOCKED (M8.A3, M8.A6, M9.16)`; without a run log every F-row is `NOT RUN`; `--selftest` proves the five statuses and that a missing key is NOT RUN; `selftest.py --only l4_status` PASS.
   - Stop: if `run.sh`'s summary format is unstable, print the statuses from the committed table only and mark `--run-log` as best-effort in the docstring.
+  - Result: `docs/experiments/EXP-2026-11-20-H110-l4-panel.md` (C-4410–C-4418; C-4419 reserved). New §L4 in `docs/research/test-system.md` (F0 boot log, F1 stable kernel, F2 drivers, F3 SD mounted, F4 `Navi.exe` headless, log reader; each names its gate and evidence claim C-4311/C-1352/C-1353/C-537) and `tools/l4_status.py` (`--run-log`, `--json`, `--selftest`). `python3 tools/l4_status.py` prints the table, exits 0, `F4 BLOCKED (M8.A3, M8.A6, M9.16)`; without a log every F-row is `NOT RUN`; a clean log moves only F0 to `PASS` and a non-zero count is `FAIL`; `--selftest` proves the five checks; `selftest.py --only l4_status` PASS.
   - Claims: C-4410–C-4419
 
 - [x] **H112 — PM fifteenth pass: where we are on 2026-11-19, a corrected call graph, next steps**
@@ -2129,8 +2130,10 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     shuffled-field control; `rdstm.md` updated.
   - Claims: C-1800–C-1809
 
-- [ ] **M4.16 — Place `RDSTM001` rows on the map** (blocked: no join key)
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M4.16 — Place `RDSTM001` rows on the map**
+  - Status: done · Owner: task/m4.16-rdstm-place · Critical: yes · Pair: solo
+  - Result: EXP-2026-11-20-M4.16-rdstm-place-closure — done-when met on the EU 2011 card: join key = TMC location code; `rdstm_place.py place-all` carries 110,788/110,795 joined records of all 14 RDSTM tables to a level-2 (tile, parcel, node, link) with coordinates, positive neighbour < 1 km 94,551/95,176 vs shuffled 129 (reproduces C-5400/C-5401 exactly); 20 CZ D5 junctions listed with tile `B48R058R.DAT` and coordinates (Stříbro, Plzeň-západ, Rokycany at their known positions). C-5950–C-5951; C-1812 superseded. M4.16c and M4.2 no longer wait on this block. Data-side only: the firmware reader is M4.49.
+  - Done when: ≥ 20 rows are matched to tile road segments with coordinates, with the join key named and a random-key control showing ~0 matches (original wording, restored at close).
   - Re-opened (rule 15, PO 2026-11-20): `Unblock` M4.16b is done and it found the join the blocker lacked: location code → `(group, entry)` → level-2 node (M4.16e, M4.16b second EXP, C-5400–C-5403; table codes M4.16d, C-2320–C-2323). This task is now a closure: re-run its own `Done when` with `python3 tools/rdstm_place.py place-all`, record the numbers, and close it or name what is still missing. Then check `M4.2` and `M4.16c`, which wait on this block.
   - Step: P3
   - Depends: M4.15 (M4.8 helps)
@@ -2139,13 +2142,13 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     (`tools_ze0`, `harness.py`), `COORD001` mesh formula, `mesh_grid.py`.
   - Unblock: M4.16b (per-record field directory), or M4.16c (the `INTER`/`FRWAY`
     `ref` lead) if the directory does not resolve the join.
-  - Blocker: M4.1 16-byte fields (`ref/src/dst/code`) give no segment-specific
+  - Blocker (history, resolved by M4.16b/M4.16e): M4.1 16-byte fields (`ref/src/dst/code`) give no segment-specific
     join (hits at chance vs dense lid space; `ref`∩parcel/AB=0; C-1810) and
     M4.15/M3.7 leave framing/TMC semantics undecoded. `INTER*` `ref` byte-pattern
     enrichment (real>>random) is an unverified lead (C-1811).
-  - Result: EXP-2026-11-06-M4.16-rdstm-placement; `tools/rdstm_place.py` probe
+  - Result (history, superseded): EXP-2026-11-06-M4.16-rdstm-placement; `tools/rdstm_place.py` probe
     + selftest. Join key NOT identified; done-when not met (negative).
-  - Claims: C-1810–C-1819
+  - Claims: C-5950–C-5959 (was C-1810–C-1819; fresh block for this run)
 
 - [x] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
   - Status: done · Owner: task/m4.16b-rdstm-field-dir-placement · Critical: yes
@@ -3780,6 +3783,16 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     M8.C10), OEM IOCTLs, `gwes.exe` not started. Tool:
     `tools/ze0_dbgmsg.py` (kernel debug text over the gdbstub).
   - Claims: C-1350–C-1359
+
+- [ ] **M8.B6 — Kernel debug text on the debug UART (no gdbstub needed)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M8.A6 (SCIF model at `0xffe46000`, done), M8.B5 (F1 boot, done)
+  - Goal: today the kernel's debug strings never reach the SCIF: `KernelStart` and every `NKDbgPrintfW` go through `fn 0x880404f4` → AstLog (`0x88044478`, EU2011) with the `DebugLog` path gated off (`0x89e613b0`/`0x89e613b4`), so a 60 s boot writes 0 serial bytes (M8.A6, C-1280–C-1283) and M8.B5 had to read the text over the gdbstub (`tools/ze0_dbgmsg.py`). Make the same text appear on `run.sh --serial` so every L4 run has a plain log, and so long boots (M8.C rows, M8.E4) need no breakpoint per string.
+  - Scope: find what sets the `DebugLog` gate and which output routine it enables (static: callers of `0x880404f4`, readers/writers of `0x89e613b0`/`b4`; the OAL `OEMWriteDebugString`/`OEMWriteDebugByte` pair, which in CE normally writes the debug UART). Then pick the least invasive way to turn it on, in this order: (a) a board/boot argument the OAL already reads (registry, boot-args block, a strap the `ze0` machine can present); (b) a `ze0` machine option that presents the gate value at boot; (c) a documented one-word guest patch applied by `run.sh` (never committed vendor bytes, only VA + old/new word). Not in scope: changing what the kernel prints, or the gdbstub tool (keep `ze0_dbgmsg.py` as the cross-check).
+  - Done when: one `-M ze0` boot of EU2011 IMG256 (`run.sh --serial`, `-icount shift=0,sleep=off`) writes the kernel debug text to `WORK/serial.log`, and for the first 200 lines it equals what `tools/ze0_dbgmsg.py run` captures for the same boot (diff = 0, or every difference explained); the boot still reaches F1 (M8.B5 checks 1–3). Negative control: the same boot without the option/patch writes 0 bytes (reproduces C-1281). The EXP names the gate, its writer, and the output routine with EU2011 VAs.
+  - Stop: if the debug text can only reach the UART by patching more than one code word, or the gate is set from hardware the `ze0` machine cannot model, record the path and stop (negative EXP).
+  - Hints: `tools/ze0_serial.py banner`, `tools/ze0_dbgmsg.py`, patches in `tools/qemu-ze0/patches/`, QEMU binaries from M8.B5. Requested by Marek 2026-11-20.
+  - Claims: C-6240–C-6249
 
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
   [`todo-history-2026-11-05.md`](docs/research/todo-history-2026-11-05.md),
