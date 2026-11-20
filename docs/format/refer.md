@@ -294,12 +294,28 @@ Still open:
 
 ## `INTER0nn` — intersections
 
-- Table 1 at `0x1108`, behind an 8-byte block header.
-- **12-byte records**: `u8 id`, `u16 n`, `u16 0`, `u16 offset`,
-  `u16 length (6*k)`, `u16 0`; `0xffff` length = terminator.
+- Table 1 at `0x1108`, behind an 8-byte block header; records start at `0x1110`.
+- **12-byte records, big-endian** (corrected by M3.16, C-2215): `u16 key`,
+  `u16 0`, `u8 id`, `u8 flag`, `u16 length`, `u16 b8`, `u16 offset`. The
+  `0xffff` **key** at record +0 is the terminator. `u16@+2` is 0 in every
+  factory record; `u8 flag` and `u16 b8` are variant fields (b8 is nonzero in
+  25/35 INTER002, 8/29 INTER003, 23/31 INTER004, 25/36 INTER005 records; flag
+  is nonzero in 4 INTER005 records). `tools/inter_table.py check` validates
+  all ten EU INTER/FRWAY shards (`OK`, exit 0).
 - Offsets index blob 0, whose 6-byte elements are `FFFF…` (empty),
   `4000 0000 XXXX` (node ref) or `0000 a b` (attribute).
-- `n` is not `length/6` (counter-example in FRWAY023); meaning unknown.
+- `key` and `length` meanings are `UNKNOWN`.
+
+> **The pre-M3.16 little-endian layout is refuted (C-2216).** `refer.md` had
+> written `u8 id, u16 n, u16 0, u16 offset, u16 length (6*k), u16 0` as
+> **little-endian** (that sums to 11 bytes, not 12), with the `0xffff`
+> terminator at +8. Read from the factory bytes, the doc's "`u16 0` at +3" and
+> "`0xffff` length at +8" hold in **0** of the 177 records (over all ten EU
+> shards, `python3 tools/inter_table.py refute`), while the big-endian
+> `u16 key`/`u16 0` at +0/+2 holds in all of them (177/177). The earlier
+> writer-inverse signature (`mov.w @(8,Rm)` near `cmp/eq #-1` + `add #12`)
+> tested the wrong offsets, which is why it found 0 candidates (C-2211 did not
+> test the real shape).
 
 ### Firmware access path / reader search (M3.16, build A, IMG256 `92aa525d…`, negative for content reader)
 
@@ -314,27 +330,32 @@ selected through the `fn 0x003fbed8` name-builder / `fn 0x0040b358` volume-
 lookup path. Navi.exe has 0 compressed executable sections (C-2128).
 
 **Content reader / consumed fields (NOT FOUND, M3.16 stop):** No reader VA that
-consumes the 12-byte table fields, `0xffff` terminator, blob 0 6-byte elements,
-or (for FRWAY) blob 1 route refs / blob 2 mesh-id+serial+text records was
-identified. Two structural writer-inverse signature families — (1) 12-byte
-record scan with `u16 length` at +8 tested for `0xffff` and `add #12` stride,
-(2) `0x1108` table-offset construction `mov #0x11,Rn; shll8; add #8` — found
-**0 candidates** in Navi.exe sec0 (5,556,224 B decodable executable).
-Consumed-field mapping is therefore `UNKNOWN`. The `0x003f51e0` tagged
-field-dispatch resolver (POINT/ADDRE/RDSTM, C-884/C-2184) is not the same
-record form as INTER/FRWAY's 12-byte table+blobs. See
-`EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (C-2210–C-2214).
+consumes the real 12-byte table (big-endian `key`/`length`/`offset`) was
+identified in decodable build-A Navi.exe. Four signature families over sec0
+(5,556,224 B) — the two of r2, plus (3) `mov.w @Rm,R0` + `add #12` +
+`cmp/eq #-1` (2 candidates, `0x0043f45e`/`0x004a1626`, both compare a scanned
+`u16` to `#1`/`#16`, not `0xffff`), and (4) `mov.w @(10,Rm)` +
+`mov.w @(6,Rm)` + `add #12` (16 candidates, all unrelated record consumers) —
+put no function on both `0xffff`-at-+0 and the +6/+10 fields. L3 read-watch of
+the M3.23 candidates on the factory INTER001 page attributes only generic
+context-header reads (`0x003fdd18`/`0x0040eed8` at +0x68; `0x00407724` at
++0x0..+0x1c), not record bytes. Consumed-field mapping is `UNKNOWN`. The
+`0x003f51e0` tagged field-dispatch resolver (POINT/ADDRE/RDSTM, C-884/C-2184)
+is not the same record form. See
+`EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (C-2210–C-2214) and
+`EXP-2026-11-20-M3.16-inter-frway.md` (C-2215–C-2219).
 
 ## `FRWAY0nn` — freeways/routes
 
-- Same 12-byte table, then blob 1 = route refs (`A1`, `E70`, `E773`…), and
-  blob 2 = main table.
+- Same 12-byte big-endian table (corrected layout above), then blob 1 = route
+  refs (`A1`, `E70`, `E773`…), and blob 2 = main table.
 - Records end with `u16, u16 0, u8 serial, text\0` and repeat a 4-byte **mesh
   id** (`9f be da 1e`, `a0 6f db cf`…). Encoding unresolved.
 
 Firmware access path / reader search: see `INTER0nn` above and
-`EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (M3.16, negative for content
-reader VAs/consumed fields; shared REFER001 access path confirmed, C-2210–C-2214).
+`EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` / `EXP-2026-11-20-M3.16-inter-frway.md`
+(M3.16, negative for content reader VAs/consumed fields; shared REFER001 access
+path and corrected record layout confirmed, C-2210–C-2219).
 
 ## `ICADM0nn` — administrative country data
 
