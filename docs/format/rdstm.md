@@ -229,6 +229,57 @@ confirmation. Link-record roles: role 1 is the role-0 link list reversed in
 24,948 of 66,443 records carrying both (HYPOTHESIS: the two travel
 directions); roles 2/3 are UNKNOWN.
 
+### Writer (M5.19)
+
+Source: EXP-2026-11-20-M5.19-rdstm-writer (C-2430–C-2436); tool
+`tools/rdstm_write.py`. Copying the factory file is correct only while
+section 2 is the factory one. Against a renumbered section 2 the copied refs
+resolve at random (6,910/200,987 on `B48R058R`), so a generated map needs
+re-pointed refs (C-2430).
+
+The writer rebuilds the EU 2011 file **byte for byte** from records,
+`{code: (negative, positive)}` triples and ref targets `(parcel_key, a, b)`
+(C-2431). These layout rules are pinned by that identity:
+
+- **Layout.**
+  - Blocks are contiguous and zero-padded to `0x100`.
+  - The order is: header `0x1000` (`0x180` words), set 0 tables, set 1
+    tables, set 0 group index + data, set 1 group index + data, EOF.
+  - Group heads are padded to whole dwords (`size_dwords`).
+  - A link record's size word is `size_words`; the last record of a chunk
+    has `0xffff`.
+- **Tables.**
+  - Records are sorted by location code.
+  - A table is split into 1, 2 or 4 equal-count chunks (remainder to the
+    last chunks), stored in the order 0, 2, 1, 3.
+  - Triples are in stored order.
+  - Chunk count: 1 up to 506,394 B, 2 from 575,240 B, 4 from 1,340,644 B.
+    The limit `0x80000` is a HYPOTHESIS.
+- **Groups.**
+  - Set 1: aligned 4 × 4 level-2 parcel boxes in ascending key.
+  - Set 0: a supplied parcel → group table (3 of 33 factory groups hold
+    parcels outside their box).
+  - One entry per ref. Per group, parcels are in key order; per parcel,
+    entries are in the location-code order of the records (C-2432).
+
+`rdstm_write.py repoint` renumbers nodes and links and re-points the targets.
+The written file then resolves exactly as the factory pair does
+(200,190/200,987) (C-2433).
+
+**Firmware walk (L3, EU2011 build A).** `fn 0x003f61bc` and `fn 0x003f5d98`
+walk writer-encoded TMC rows (`encode_tmc`) exactly by the field-directory
+rule above:
+
+- 24 + 500 factory rows and 24 synthetic Polish rows match;
+- controls are at 0: type 7, a 13-field block, unswapped bytes (C-2434).
+
+The handle block carries a descriptor chain: `u16[hdr+24]` = first
+descriptor, `+0` = next, `+12` = field index, which must equal the requested
+index (C-2435). The walk reads little-endian halfwords and takes field `2k`
+from the high byte, so card records are walked after a 16-bit swap. The
+loader that swaps is not located (C-2436). The link groups have no firmware
+reader VA yet (M4.49).
+
 ### Table dump
 
 `0x003a0034` prints the twelve fields in order; its format strings are at

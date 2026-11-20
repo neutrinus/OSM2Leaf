@@ -2911,8 +2911,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     updates or is proven unnecessary.
   - Claims: C-2420–C-2429
 
-- [ ] **M5.19 — `RDSTM001` writer (H11 G7)**
-  - Status: in progress · Owner: task/m5.19-rdstm-writer · Critical: no
+- [x] **M5.19 — `RDSTM001` writer (H11 G7)**
+  - Status: done · Owner: task/m5.19-rdstm-writer · Critical: no
+  - Result: EXP-2026-11-20-M5.19-rdstm-writer — exit (b) fails: the rows are region-tied (a copied file resolves 6,910/200,987 refs against a renumbered `B48R058R` section 2, the re-pointed one 200,190/200,987 = factory). Exit (a) met for the TMC rows: `tools/rdstm_write.py` (selftest 20 checks) rebuilds the EU 2011 `RDSTM001.DAT` byte for byte from records + triples + `(parcel, node, link)` targets (set-1 4 × 4 boxes, entries in location-code order; file order fails), and EU2011 `fn 0x003f61bc`/`0x003f5d98` in PySh4 walk written rows exactly for 24 + 500 factory and 24 synthetic Polish rows (controls 0). Link-group firmware L3 waits for M4.49's reader VA; the 16-bit record swap and the `0x80000` chunk limit are hypotheses. C-2430–C-2436.
   - Step: P3
   - Depends: M4.16b (record framing), M3.7
   - Goal: every `RDSTM001` row is copied verbatim from the factory card today;
@@ -2923,7 +2924,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: a writer produces a file the firmware decoder walks with the
     expected values for ≥ 20 rows (an L3 target), or the EXP shows that
     copying is correct because the rows are region-independent.
-  - Claims: C-2430–C-2439
+  - Claims: C-2430–C-2436 (C-2437–C-2439 spare)
 
 - [x] **M5.21 — Slot budget for generated pages: reject or re-pack, never overrun**
   - Status: done · Owner: claude/m5.21-slot-budget · Critical: yes
