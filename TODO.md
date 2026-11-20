@@ -1401,8 +1401,8 @@ of the four numbers above says so in its first line.
 
 ## M2 — Map code, activation, updater
 
-- [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
+  - Status: done · Owner: task/m2.4-hdd-info-predict · Critical: yes
   - Re-opened (rule 15, M9.6 merged 2026-11-19): `runner.py run applaunch_mapcode_compare --image IMG256 --input VARIANT --unit-from FACTORY` gives the firmware check-1 verdict per variant (EXP-2026-11-19-M9.6-mapcode-compare); the blocker below is kept as a note.
   - Depends: — (**M9.6 merged** `ff8720d`, M2.15 and M2.3 done); the corpus and
     the comparator are both on `main` now
@@ -1426,10 +1426,22 @@ of the four numbers above says so in its first line.
     `AppLaunch.dll` `fn 0x03bd2ad8` (M2.5), not M2.2's user-data check.
   - Done when: each variant has a firmware verdict and it is compared with
     `hddinfo.py classify`.
-  - Result: blocked — EXP-2026-11-08-M2.4-hddinfo-variants-blocked (negative:
+  - Earlier result (2026-11-08, blocked): EXP-2026-11-08-M2.4-hddinfo-variants-blocked (negative:
     firmware verdicts unavailable; C-2086 retains M2.15-model offline
     reclassification of all 89).
-  - Claims: C-750–C-759
+  - Claims: C-5290–C-5295 (was C-750–C-759; fresh block for this run; C-5296–C-5299 go to M2.19)
+  - Result: done — EXP-2026-11-19-M2.4-hddinfo-fw-verdicts. `tools/hddinfo_fw_matrix.py run` puts all 89 variants through EU2011 build B `fn 0x03bd2ad8` (check 1): firmware 69 ACCEPT / 20 REJECT, agrees with `hddinfo.py classify` check 1 on 89/89 (factory ACCEPT, no-file REJECT controls ok); M0's 66/23 is refuted. Edge probes are consistent with a byte-exact compare of line-1 bytes 0..10 (BOM, lower case, leading space fail; 10 probes + 14 line-1 edits), and LF-only / line-1-only files pass check 1 although `hddinfo.py` refuses them (C-5290–C-5295). Check 2 (`0x51`) is M2.19.
+
+- [ ] **M2.19 — Check 2 (MapDBVer, `0x51`) and the router on the `HDD_INFO` variants in L3**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M2.4 (done), M9.6 (done)
+  - Goal: run AppLaunch `fn 0x03bd2ce4` (MapDBVer range, EU2011 build B) and the router `fn 0x03bd2ecc` on the 89 variants, so each has a full launcher verdict, not only check 1.
+  - Precheck: `python3 tools/nk_decomp.py pdata --image-start 0x3e00200 --module AppLaunch.dll archive/head256.img 0x03bd2ce4 0x03bd2ecc` gives `START` for both; `python3 tools/sh4dis.py --image-start 0x3e00200 --va 0x03bd2ce4 --count 120 archive/head256.img AppLaunch.dll` shows its imports are a subset of the 8 `mapcode_l3` stubs (else name the missing one).
+  - Scope: EU2011 build B only; unit bounds `+112/+114` are declared inputs (bracketing the factory MapDBVer `0x010`), not measurements; the 12 MapDBVer-changing variants (C-3034) are the ones that can move.
+  - Input: `tools/mapcode_l3.py`, `tools/hddinfo_fw_matrix.py`, `hddinfo.py` (`extract_mapdbver`), EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.
+  - Done when: each of the 89 variants has a check-2 firmware verdict under a stated bounds pair, compared with `hddinfo.py classify --mapdbver-min/--mapdbver-max`, plus a run of the router that returns `0x50`/`0x51`/pass.
+  - Stop: if check 2 needs the parse cache filled by a prior check-1 call and the harness cannot chain the two calls, or calls an unmodelled import, set `blocked` with the PC.
+  - Claims: C-5296–C-5299
 
 - [ ] **M4.23 — Tile section-2 regulation/connectivity reader (kinds `0x2046`/`0x3e4`)**
   - Status: blocked · Owner: claude/m4.23-restriction-encoding · Critical: no

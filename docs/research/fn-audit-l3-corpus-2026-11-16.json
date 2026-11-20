@@ -337,6 +337,7 @@
   "docs/experiments/EXP-2026-11-19-M1.21-filesentry-decode.md",
   "docs/experiments/EXP-2026-11-19-M1.32-us-reuse-owner.md",
   "docs/experiments/EXP-2026-11-19-M1.33-census-command.md",
+  "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
   "docs/experiments/EXP-2026-11-19-M3.11c-point-name-accessor-l3.md",
   "docs/experiments/EXP-2026-11-19-M3.22-d53500-writer-l3.md",
   "docs/experiments/EXP-2026-11-19-M3.24-fptables.md",
@@ -378,10 +379,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 371,
-  "citations": 1028,
+  "files": 372,
+  "citations": 1036,
   "unique_va": 215,
-  "start": 844,
+  "start": 852,
   "inside": 80,
   "corrected": 9,
   "gap": 83,
@@ -455,8 +456,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 1416,
-   "va": "0x03bd2ad8",
+   "line": 1438,
+   "va": "0x03bd2ce4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -464,8 +465,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 1422,
-   "va": "0x03bd2ad8",
+   "line": 1438,
+   "va": "0x03bd2ecc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -473,16 +474,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1426,
-   "va": "0x03bd2ad8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1483,
+   "line": 1495,
    "va": "0x00418748",
    "kind": "fn",
    "class": "START",
@@ -491,7 +483,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1617,
+   "line": 1629,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -500,7 +492,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1618,
+   "line": 1630,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -509,7 +501,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1620,
+   "line": 1632,
    "va": "0x003f40ec",
    "kind": "fn",
    "class": "START",
@@ -518,7 +510,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1684,
+   "line": 1696,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -527,7 +519,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1684,
+   "line": 1696,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -536,7 +528,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1685,
+   "line": 1697,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -545,7 +537,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1706,
+   "line": 1718,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -555,7 +547,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1716,
+   "line": 1728,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -564,7 +556,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1721,
+   "line": 1733,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -573,7 +565,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1745,
+   "line": 1757,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -583,7 +575,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1747,
+   "line": 1759,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -592,7 +584,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1776,
+   "line": 1788,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -601,7 +593,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1776,
+   "line": 1788,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -610,7 +602,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1807,
+   "line": 1819,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -619,7 +611,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1808,
+   "line": 1820,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -628,7 +620,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1932,
+   "line": 1944,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -637,7 +629,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1961,
+   "line": 1973,
    "va": "0x0041f26c",
    "kind": "ctx",
    "class": "START",
@@ -646,7 +638,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2001,
+   "line": 2013,
    "va": "0x0040a014",
    "kind": "fn",
    "class": "START",
@@ -655,7 +647,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2499,
+   "line": 2498,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -665,7 +657,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2503,
+   "line": 2502,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -8250,6 +8242,87 @@
    "file": "docs/experiments/EXP-2026-11-19-H112-pm-review.md",
    "line": 119,
    "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 28,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 49,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 115,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 117,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 119,
+   "va": "0x03bd2ecc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 193,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 220,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 241,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.md",
+   "line": 242,
+   "va": "0x03bd2ecc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
