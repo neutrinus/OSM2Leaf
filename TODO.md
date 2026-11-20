@@ -3554,8 +3554,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-20-M5.54-wide-kinds. `WIDE_SPLICE_DIR_KINDS` = `0x2146`–`0x2946`; narrowing is per directory (a partial splice keeps the kind). Seven real pipeline runs on `B48R058R`: each of the six remaining bbox directories (2–22 fixture ways from the new `s1_wide_dir.py fixture`) ends as `0x2046` with the diff confined to it, `cardcheck` + `one_tile_one_directory` PASS, `l2check --semantic-tiles --skip-mutation` PASS, census OK; the partial `(74,938)` run keeps `0x2246`. Factory precheck: `spliceable=20 preserve-only=0` (P1 20/20). Deviation: the full `l2check` FAILs only `refer_rename_resize`, identically on the untouched factory tree (C-5543) → new **M5.55**. `clarion_tile` remainder limit raised to `31*512` (C-5542); `0x2a46`+ are now preserve-only. After review: `0x2446`/`0x2746`/`0x2846` spliced by tilewriter runs on `B30R058R`/`B30R068R`/`B38R058R` (C-5548); L3 mount: the firmware reads each of the six spliced directories with `0x00414dbc` at the `0x2046` length, header-flip control DIFFERENT (C-5546/C-5547); record/sub-record decoding not covered (rule 13).
 
 
-- [ ] **M5.55 — l2check `refer_rename_resize` expects the pre-M5.52 edit and FAILs on every EU card**
-  - Status: in progress · Owner: task/m5.55-l2check-resize · Critical: yes · Pair: solo
+- [x] **M5.55 — l2check `refer_rename_resize` expects the pre-M5.52 edit and FAILs on every EU card**
+  - Status: done · Owner: task/m5.55-l2check-resize · Critical: yes · Pair: solo
   - Step: P1
   - Depends: M5.52 (done)
   - Goal: since M5.52 (`608f949`) `mutate_refer_poi.py --resize` also patches the field-5 length byte, but `l2check.check_refer_rename_resize` still builds the expected record as "rename only" (`tools/l2check.py` ~line 881). Every full `l2check` run on an EU tree now ends `RESULT: FAIL` with `record 8 is not the rename-only edit (got 84 bytes, expected 84)`, including the untouched factory tree, so the `l2check` gate of `one_tile_pipeline` (and of every P1 run) cannot PASS (found by M5.54, EXP-2026-11-20-M5.54-wide-kinds).
@@ -3565,6 +3565,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the Precheck command prints `[refer_rename_resize] OK` and `RESULT: PASS` on the EU factory tree, and a negative (a resize edit that leaves field 5 stale) FAILs.
   - Stop: if field 5 is not the only extra byte that `--resize` changes, block and name the byte.
   - Claims: C-5550–C-5559
+  - Result: EXP-2026-11-20-M5.55-l2check-resize-expectation. `check_refer_rename_resize` builds the expected record through the new `_expected_resize_record` (rec[1] `len2` **and** the field-5 length byte, field 5 from `mutate_refer_poi.name_field`), so on the EU factory tree `[refer_rename_resize] OK (… records=39; changed_records=1)` and `RESULT: PASS`; the pre-fix run printed `record 8 is not the rename-only edit (got 84 bytes, expected 84)` / `RESULT: FAIL`. The only stale byte was `rec+0x21` (field-5 7→9 words); reverting it alone still FAILs at the same 84-byte length, and the l2check selftest carries that negative. `mutate_refer_poi.py`/`validate_mutation.py` unchanged; `docs/format/` unchanged. C-5550–C-5552; closes C-5543's l2check gate.
 ## M6 — L5 bench/car: hardware and safety
 
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.

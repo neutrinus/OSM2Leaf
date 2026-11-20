@@ -1,0 +1,61 @@
+role: driver (subagent, M5.55)
+model: opencode/deepseek-v4.1-flash-free
+start: 2026-11-20 14:00 UTC (approx; first command after context read)
+origin/main at start: 2e683be (Merge PR #327, task/m4.54-sec2-read-watch)
+worktree: /home/marek/projekty/OSM2Leaf.task-m5.55-l2check-resize
+branch: task/m5.55-l2check-resize ; PR #346 (draft)
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md M5.55 block,
+EXP-2026-11-19-M5.52-resize-field-len, tools/mutate_refer_poi.py --resize,
+tools/l2check.py check_refer_rename_resize (~line 881 initially, 819 in tree).
+
+actions, in order:
+1. Read the task block, M5.52 EXP, mutate_refer_poi.resize_name/name_field,
+   l2check check_refer_rename_resize and its selftest — established the check
+   builds the expected record as rename-only (only rec[1]=len2 patched).
+2. Claimed: edited only the M5.55 Status line to "in progress · Owner:
+   task/m5.55-l2check-resize", commit "todo: start M5.55", pushed, opened
+   draft PR #346.
+3. Reproduced the Precheck on the EU factory root
+   (/home/marek/projekty/leafre-work/m5.29-factory-root): [refer_rename_resize]
+   FAIL, "record 8 is not the rename-only edit (got 84 bytes, expected 84)",
+   RESULT: FAIL. validate_mutation already PASS, so the diff is a byte value,
+   not a size.
+4. Extracted the expectation into _expected_resize_record(): patches rec[1]
+   AND the field-5 length byte at layout["loc"]+NAME_FIELD, field 5 from
+   mutate_refer_poi.name_field (the shared C-5115 model). check now calls it.
+5. Added an l2check selftest case: synthetic record, resize_name (real writer)
+   == _expected_resize_record (positive); field-5-reverted record != expected
+   (the negative). First run failed: helper typed `new: str` but selftest
+   passes bytes -> encode defensively (str|bytes).
+6. Re-ran the Precheck: [refer_rename_resize] OK, records=39,
+   changed_records=1, RESULT: PASS (~1m40s).
+7. Negative end to end on the real fixture (scratch script): writer record ==
+   expectation True; reverting only rec+0x21 to 7 words != expectation True;
+   same 84-byte length (so the old "got 84, expected 84" message is right,
+   only the byte rule changed).
+8. Wrote EXP-2026-11-20-M5.55-l2check-resize-expectation.md and claims
+   C-5550–C-5552 (new M5.55 section in claims.md).
+9. Ran selftest --only l2check (OK), claims_check (OK, strict+count-check
+   exit 0), todo_check (OK, pre-existing WARNs only).
+10. Wrote this log; final commit sets TODO Status done + Result, then squash-
+    merge after rebase.
+
+decisions:
+- Fix in l2check only; mutate_refer_poi.py untouched (task Scope).
+- Derive the expected record through mutate_refer_poi.name_field rather than a
+  second field-layout copy, so the check cannot drift from the writer again.
+- Kept the error text change minimal ("rename-only edit" ->
+  "M5.52 rename+field-5 edit"); the got/expected numbers stay.
+
+problems:
+- First selftest attempt crashed on `new.encode` (bytes vs str); fixed by
+  accepting both.
+- Scratch script used info["name_len_offset"] (page-absolute) as a record
+  index; fixed by subtracting record_offset.
+
+handoff (navigator): the only behavioural change is the expected-record bytes;
+verify C-5550's Precheck command prints OK/PASS on the EU factory root, and
+that reverting the field-5 byte still FAILs. No docs/format change.
+
+cleanup: scratch ~/projekty/leafre-work/scratch/m5.55 removed after EXP.
