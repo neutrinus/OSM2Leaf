@@ -607,9 +607,11 @@ byte 3      n2             words of the item block after it (house ranges)
 - `TT` = the `area code` length (3–5 words); the `area code` bytes are the
   former "4–8-byte header". `dndc-id` is empty in every record run.
 - The range-token "prefix" `06/07/08` (C-975) is the item length in words.
-- A writer must emit the dictionary (with entry `+4` = max length) and the
-  length block; the firmware finds the street by these, not by position from
-  the end.
+- What the reader needs (read map): the dictionary's `C+2`, `D+24`, `D+26`,
+  entry chain and ids, and the per-record length block; the firmware finds the
+  street by these, not by position from the end. Entry `+4` = max length is
+  **OBSERVED** in the factory files only (33/33 shards); no instruction in the
+  read map reads it, so it is not a known firmware requirement.
 
 ### Trailer table (`T`)
 
@@ -689,7 +691,7 @@ for those signatures. Navi.exe sec1/sec2 are compressed *data* (C-2128), so
 "not found in executable code" is not a compression blocker.
 
 **Grammar field → consuming instruction (M3.13 L3 run, 2026-11-20, EU2011;
-US2011 at `+0x289b0` for the accessor and the leaves; memory offsets are in the
+US2011 offsets per function: `+0x289b0` for `fn 0x003f51e0`, `fn 0x003f56bc`, `fn 0x003f57a8`, the leaves `0x003f5468`/`0x003f54f4`/`0x003f5550`/`0x003f559c` and `fn 0x003f5624`; `+0x28960` for `fn 0x003f5cdc`, `fn 0x003f5d98`, `fn 0x003f5e10`, `fn 0x003f61bc`; `+0x289b8` for the walker `0x003f5b88`; memory offsets are in the
 byte-swapped buffer, so a byte read at memory `+k` is file byte `k^1`):**
 
 | Field (claim) | Consumed by | Status |

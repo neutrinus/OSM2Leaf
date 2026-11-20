@@ -326,11 +326,14 @@ L3 trace needed). Buffer-slot→ADDRE binding is `HYPOTHESIS`. L3 probe of
 COREDLL/state). Navi.exe sec1/sec2 are compressed *data* (C-2128), not a code
 blocker. See `docs/format/refer.md` "Firmware reader (M3.13)".
 
-**M3.13 pass 4 (EXP-2026-11-20-M3.13-addre-reader-l3, C-5930–C-5939, done):** the
+**M3.13 pass 4 (EXP-2026-11-20-M3.13-addre-reader-l3, C-5930–C-5939, blocked on M3.32/M3.30 for the remaining fields):** the
 `ADDRE` record reader is the generic `REFER001` field accessor of M3.11c. The populate
 writer of message type `0x14e4`, `fn 0x003fd390` (EU2011; US2011 `0x00425564`), run with
 search type 2 at ctx `+124`, stores the page in slots `+0x14` and `+0x2c` and the field
-dictionary (header entry `+44`, copied by `0x0040e9dc`) in `+0x18`. The dictionary is the
+dictionary (header entry `+44`, copied by `0x0040e9dc`) in `+0x18`. Header entry `+44` and
+the page object (`OBJ+20` = page) are **seeded inputs** of the harness: no firmware loader
+was seen filling them, and the schema block is chosen as the dictionary by the accessor's
+own checks (the only block in the file that passes them). The dictionary is the
 `ADDRE` schema block (3 fields: `area code`, `street name`, `dndc-id`).
 `fn 0x003f61bc(db, rec, f)` / `fn 0x003f5d98` then return each field's pointer and length;
 `fn 0x003f56bc` places the field-length block at `rec + 2*(rec[2] + rec[3] + 2)` for class
