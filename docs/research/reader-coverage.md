@@ -141,6 +141,11 @@ unit record. The other entries remain blocked/retired.
 | `mapcode_comparator` | blocked (retired) | `hdd_info` | HDD_INFO variant | BLOCKED (4) | 23 — must never be revived |
 | `applaunch_mapcode_compare` | `firmware_call` (`mapcode_compare_v1`, EU2011 build B `fn 0x03bd2ad8`; parse cache declared BSS zero; unit `+0x60` declared) | `hdd_info` | factory `HDD_INFO.TXT` + `hddinfo_variants.py` edits | ACCEPT factory / REJECT line-1 edit (M9.6, C-5140–C-5142) | 23 |
 
+Rerun prerequisites of every target above are mapped in
+[`EXP-2026-11-20-M9.33-rerun-prereqs-map`](../experiments/EXP-2026-11-20-M9.33-rerun-prereqs-map.md)
+(M9.33): none waits on M1.2f/M1.19, M9.28 or M9.24; `tile_reader`,
+`drstr_parser` and `mmain_reader` are `blocked` only as `runner.py` calls.
+
 No row may say "read by firmware" on the strength of `probe-zlib-cmf`; the
 target notes say so explicitly. The retired comparator chain
 `0x6fab2c → 0x6faeb0 → 0x6fb05c` is `BT_MGR.dll` code (C-520, C-528) and is

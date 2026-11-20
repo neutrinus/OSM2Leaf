@@ -4569,6 +4569,21 @@ the file names in `docs/experiments/` (warning by default and under
 | C-1614 | Build C (`--image-start 0x5200200`, EU2011) has the same 72 driver keys with the same `Dll`/`Order`; its launch table holds 62 `Drivers\\Launch` records (no `UART3`). | VERIFIED (tool) | H | EXP-2026-11-20-M8.E2-registry-loaded; `python3 tools/ce_drivers.py archive/head256.img --image-start 0x5200200`, image `archive/head256.img` (IMG256, SHA-256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
 | C-1615 | US2011 build B prints the same driver rows as EU2011 build B. | VERIFIED (tool) | H | EXP-2026-11-20-M8.E2-registry-loaded; `python3 tools/ce_drivers.py archive/us256.img --image-start 0x3e00200`, image `archive/us256.img` (US256, SHA-256 `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da`) |
 | C-1616 | The driver table is in `docs/format/firmware.md` ("Registry driver table, as loaded from the ROM hives"); it covers the ROM hives only, not a runtime `system.hv`. | VERIFIED (docs) | H | EXP-2026-11-20-M8.E2-registry-loaded; `docs/format/firmware.md` |
+
+## M9.33 — rerun prerequisites of the reopened L3 reader targets (C-3400–C-3409)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3400 | None of the L3 reader targets of M9.6, M9.10, M9.11, M9.13, M9.14 and M9.17 waits on sec1 `INIT` bytes (M1.2f/M1.19 done), input-region mapping (M9.28 done) or `runner.py` import binding (M9.24, narrowed by M9.44): five of the six are done with recorded runs, M9.10's prerequisites (US VAs, accessor, byte order) are met. | VERIFIED (board + EXPs) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map table |
+| C-3401 | `l3_precond.py --all-targets` reports `BLOCKED` ("entry kind blocked with no VA") for `tile_reader`, `drstr_parser` and `mmain_reader`, whose `targets.json` reasons name the tools that run them (`datask_l3.py mount`, `vcard_l3.py boot`, `mmain_l3.py run`): the gate models only `runner.py` entries. | VERIFIED (tool, IMG256) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map §Observations |
+| C-3402 | Given the EU head (IMG256), `l3_precond` classes the US2011 helper VAs `0x00565d94`/`0x00565da4` of `cmp_ind_reader_us2011` as EU sec1 `INIT`; given `archive/us256.img` (US256 `70d945d8…`) they are `CODE sec0`; the verdict is `READY` both ways. | OBSERVED (tool, real images) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map §Observations |
+| C-3403 | M9.10 is the only open task among the six and its prerequisite verdict is `READY`; what remains is its own `poi_record_decode` runner and M9.55's `l3check` row. | VERIFIED (board) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map table |
+| C-3404 | The two `l3_precond` gaps (no per-build head; no "runs elsewhere" state) are the scope of the new task M9.59. | VERIFIED (board) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map §Follow-ups; TODO.md M9.59 |
+| C-3405 | RESERVED (M9.33). | — | — | — |
+| C-3406 | RESERVED (M9.33). | — | — | — |
+| C-3407 | RESERVED (M9.33). | — | — | — |
+| C-3408 | RESERVED (M9.33). | — | — | — |
+| C-3409 | RESERVED (M9.33). | — | — | — |
 ## M9.53 — the map request `0x14b5` reads, inflates and serves a record block we wrote (C-5910–C-5919)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
