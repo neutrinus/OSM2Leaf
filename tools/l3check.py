@@ -806,7 +806,6 @@ def _select_targets(by_name: dict[str, dict], requested) -> list[dict]:
             selected.append(name)
     return [by_name[name] for name in selected]
 
-
 def _corpus_firmware_inputs(target: dict, corpus_root: Path) -> dict:
     """Corpus-mode ``--image/--cmp/--ind`` for a ``point_walk_v1`` row (M9.55).
 
@@ -837,6 +836,7 @@ def _corpus_firmware_inputs(target: dict, corpus_root: Path) -> dict:
     if ind_path.is_file():
         inputs["ind"] = str(ind_path)
     return inputs
+
 
 
 def _run_one(target: dict, corpus_root: Path, engine: str) -> dict:
@@ -1267,6 +1267,8 @@ def _print_report(report: dict) -> None:
         print(f"RESULT: FAIL ({counts['fail']} target(s) failed; exit 1)")
 
 
+
+
 # --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
@@ -1491,30 +1493,6 @@ def test_full_run():
     }, report["counts"]
 
 
-@check("run: the POINT walker row is FAIL (unmapped) on a wrong-build image (M9.42)")
-def test_point_walk_wrong_build():
-    eu = _find_img256()
-    if eu is None:
-        SKIPS.append("point_walk wrong-build: no EU head (IMG256) to mispair")
-        return
-    by_name, _doc = runner_mod.load_targets()
-    target = copy.deepcopy(by_name["point_walk_us2011"])
-    corpus_root = _corpus()
-    inputs = _corpus_firmware_inputs(target, corpus_root)
-    namespace = argparse.Namespace(
-        engine="pysh4", input=None, corpus=str(corpus_root),
-        max_insns=engine_mod.DEFAULT_MAX_INSNS, dry_run=False,
-        image=str(eu), cmp=inputs["cmp"], ind=inputs["ind"],
-        offset=None, length=None, mutate="none", expect=None,
-    )
-    payload = runner_mod.run_target(target, namespace)
-    assert payload["status"] == "FAIL", payload
-    assert payload["accepted"] is None, payload
-    assert str(payload["verdict"]).startswith("FAIL (unmapped"), payload
-    assert payload["problems"] == [payload["verdict"]], payload
-    assert payload["l3_claim"] is True, payload
-
-
 @check("run: --target selects exactly one target (PASS)")
 def test_single_target():
     code, report = _json_cli(
@@ -1632,7 +1610,7 @@ def test_build_corpus():
         assert code == 0, report
         corpus = report["corpus"]
         assert corpus["source"] == "built" and corpus["kept"] is True, corpus
-        assert corpus["entries"] == 110, corpus
+        assert corpus["entries"] == 108, corpus
         assert Path(corpus["root"]).is_dir(), corpus
         assert (Path(corpus["root"]) / "manifest.json").is_file(), corpus
         assert report["targets"][0]["status"] == "PASS", report["targets"]

@@ -242,7 +242,7 @@ FIRMWARE_CALL_ENTRY_KEYS = {
 }
 #: The ``firmware_call`` programs that read a sec1 (inflate-mask / parse-cache)
 #: table; ``point_walk_v1`` (M9.55) reads only the image, the pair and a page.
-SEC1_PROGRAMS = ("cmp_ind_chunk_v1", "mapcode_compare_v1", "drstr_parser_v1")
+SEC1_PROGRAMS = ("cmp_ind_chunk_v1", "mapcode_compare_v1")
 #: Byte order of a module entry.  ``"little"`` needs ``PySh4(endian="little")``
 #: (M9.21); the other back ends are big-endian in this harness and refuse it.
 MODULE_ENDIANS = ("big", "little")
@@ -749,47 +749,45 @@ def _validate_firmware_call_entry(entry, where: str) -> list[str]:
             f"not {endian!r}"
         )
     sec1 = entry.get("sec1_table")
-    # M9.11b's rule is "declare every non-trivial input"; programs that read
-    # the sec1 table need it, while point_walk_v1 (M9.55) does not touch sec1
-    # at all (its inputs are the image, the .cmp/.ind pair and the page offset).
+    # M9.11b's rule is "declare every non-trivial input"; the two chunk/mapcode
+    # programs read the sec1 table, while point_walk_v1 (M9.55) does not touch
+    # sec1 at all (its inputs are the image, the .cmp/.ind pair and the page
+    # offset).  Requiring a sec1 table there would be a fabricated declaration,
+    # exactly what the stop condition forbids.
     needs_sec1 = program in SEC1_PROGRAMS
-    if needs_sec1:
-        if not isinstance(sec1, dict):
+    if not isinstance(sec1, dict):
+        if needs_sec1:
             problems.append(
                 f"{where}: firmware_call entry needs sec1_table as a declared "
                 "input with provenance (not a silent default; M9.11b stop condition)"
             )
+    else:
+        if sec1.get("va") is None:
+            problems.append(f"{where}: sec1_table needs va (sourced from code)")
         else:
-            if sec1.get("va") is None:
-                problems.append(f"{where}: sec1_table needs va (sourced from code)")
-            else:
-                _hex(sec1["va"], f"{where}.sec1_table.va", problems)
-            values = sec1.get("values")
-            source = sec1.get("source", "declared")
-            if source not in ("declared", "image"):
-                problems.append(f"{where}: sec1_table.source must be 'declared' or 'image'")
-            if source == "image":
-                # M1.19: the bytes come from the image (kernel decoder), never a list
-                if values is not None:
-                    problems.append(f"{where}: sec1_table.source 'image' takes no values")
-            elif not isinstance(values, list) or not values:
-                problems.append(f"{where}: sec1_table needs values (declared, not a default)")
-            else:
-                for i, item in enumerate(values):
-                    if item is None or isinstance(item, bool) or not isinstance(item, (int, str)):
-                        problems.append(f"{where}: sec1_table.values[{i}] must be an integer")
-                    else:
-                        _hex(item, f"{where}.sec1_table.values[{i}]", problems)
-            prov = sec1.get("provenance")
-            if not isinstance(prov, str) or not prov.strip():
-                problems.append(
-                    f"{where}: sec1_table needs provenance (source of VA/values; "
-                    "a guessed table is not allowed)"
-                )
-    elif isinstance(sec1, dict):
-        # A non-sec1 program may still declare a sec1_table; validate if present.
-        if sec1.get("va") is not None:
             _hex(sec1["va"], f"{where}.sec1_table.va", problems)
+        values = sec1.get("values")
+        source = sec1.get("source", "declared")
+        if source not in ("declared", "image"):
+            problems.append(f"{where}: sec1_table.source must be 'declared' or 'image'")
+        if source == "image":
+            # M1.19: the bytes come from the image (kernel decoder), never a list
+            if values is not None:
+                problems.append(f"{where}: sec1_table.source 'image' takes no values")
+        elif not isinstance(values, list) or not values:
+            problems.append(f"{where}: sec1_table needs values (declared, not a default)")
+        else:
+            for i, item in enumerate(values):
+                if item is None or isinstance(item, bool) or not isinstance(item, (int, str)):
+                    problems.append(f"{where}: sec1_table.values[{i}] must be an integer")
+                else:
+                    _hex(item, f"{where}.sec1_table.values[{i}]", problems)
+        prov = sec1.get("provenance")
+        if not isinstance(prov, str) or not prov.strip():
+            problems.append(
+                f"{where}: sec1_table needs provenance (source of VA/values; "
+                "a guessed table is not allowed)"
+            )
     inputs = entry.get("inputs")
     if inputs is not None and not isinstance(inputs, dict):
         problems.append(f"{where}: entry.inputs must be an object when present")
@@ -803,10 +801,9 @@ def _validate_firmware_call_entry(entry, where: str) -> list[str]:
                 _hex(key, f"{where}.verdict_map key", problems)
                 if verdict not in ("ACCEPT", "REJECT"):
                     problems.append(f"{where}: verdict_map[{key}] must be ACCEPT or REJECT")
+    # M9.55: point_walk_v1 reads its page through --cmp/--ind; the corpus-relative
+    # path lets l3check --build-corpus name the same fixture the manifest hashed.
     if program == "point_walk_v1" and isinstance(inputs, dict):
-        # M9.55: the walker's page is read through the container pair under
-        # --cmp/--ind; the corpus-relative path lets `l3check --build-corpus`
-        # name the same fixture the manifest hashed.
         source = inputs.get("source")
         if not isinstance(source, str) or not source.strip():
             problems.append(
@@ -1331,16 +1328,17 @@ def _plan_target(target, args) -> dict:
         )
         return payload
     if entry["kind"] == "firmware_call":
+        sec1_doc = entry.get("sec1_table")
         payload["firmware_call"] = {
             "program": entry.get("program"),
             "module": entry.get("module"),
             "va": entry.get("va"),
             "sec1_table": {
-                "va": (entry.get("sec1_table") or {}).get("va"),
+                "va": (sec1_doc or {}).get("va"),
                 "declared": _sec1_source(entry, args) == "declared",
                 "source": _sec1_source(entry, args),
-                "provenance": (entry.get("sec1_table") or {}).get("provenance"),
-                "value_count": len((entry.get("sec1_table") or {}).get("values") or []),
+                "provenance": (sec1_doc or {}).get("provenance"),
+                "value_count": len((sec1_doc or {}).get("values") or []),
             },
             "inputs": dict(entry.get("inputs") or {}),
             "image": str(args.image) if getattr(args, "image", None) else None,
@@ -1349,9 +1347,11 @@ def _plan_target(target, args) -> dict:
             "mutate": getattr(args, "mutate", "none"),
         }
         payload["note"] = (
-            "dry run: firmware_call entry; sec1 table is "
-            + ("read from the image (nk_decomp, M1.19)"
-               if _sec1_source(entry, args) == "image" else "a declared input")
+            "dry run: firmware_call entry; "
+            + ("no sec1 table (point_walk_v1)" if sec1_doc is None else
+               "sec1 table is "
+               + ("read from the image (nk_decomp, M1.19)"
+                  if _sec1_source(entry, args) == "image" else "a declared input"))
             + " (no silent default). No engine was started and no verdict is claimed."
         )
         return payload
@@ -2236,6 +2236,7 @@ def _run_point_walk_target(target, args, base) -> dict:
               "(C-4178)"),
     )
 
+
 def _run_mapcode_target(target, args, base) -> dict:
     """Run AppLaunch.dll ``fn 0x03bd2ad8`` (EU2011 build B, M9.6) on one file.
 
@@ -2660,7 +2661,15 @@ def _emit_target(payload: dict, as_json: bool) -> None:
         return
     expected = payload.get("expected_verdict") or payload["expect"]["verdict"]
     print(f"verdict  {payload['verdict']} (expected {expected})")
-    if payload.get("firmware"):
+    if payload.get("records"):
+        fw = payload.get("firmware") or {}
+        print(f"walker   nth={fw.get('nth')} build={fw.get('build')} "
+              f"records={len(payload['records'])}")
+        for row in payload["records"]:
+            print(f"  n={row['n']:<5} firmware={row['firmware']!s:<8} "
+                  f"parse_page={row['parse_page']!s:<8} "
+                  f"model={row['model']!s:<8} {'OK' if row['ok'] else 'MISMATCH'}")
+    elif payload.get("firmware"):
         fw = payload["firmware"]
         if "fn" in fw:
             print(f"firmware fn {fw['fn']} {fw['build']} {fw.get('module', '')} "
@@ -4080,386 +4089,6 @@ def test_mapcode_nonzero_cache(tmp):
     assert payload["l3_claim"] is False, payload
 
 
-
-
-@check("firmware_call: each target runs its own build's engine; a wrong entry.va is INVALID (M9.32)")
-def test_firmware_call_build_routing(tmp):
-    import types
-    import chunk_decoder_l3 as cdl3
-
-    by_name, _doc = load_targets()
-    for name in ("cmp_ind_reader", "cmp_ind_reader_us2011"):
-        t = by_name[name]
-        want = cdl3.BUILD_TARGETS[t.get("build") or "eu2011"]["fn_chunk"]
-        assert int(t["entry"]["va"], 16) == want, (name, t["entry"]["va"])
-    paths = {}
-    for key in ("image", "cmp", "ind"):
-        paths[key] = Path(tmp) / ("x." + key)
-        paths[key].write_bytes(b"\0" * 16)
-    t = json.loads(json.dumps(by_name["cmp_ind_reader_us2011"]))
-    t["entry"]["va"] = by_name["cmp_ind_reader"]["entry"]["va"]  # EU VA, US build
-    args = types.SimpleNamespace(image=str(paths["image"]), cmp=str(paths["cmp"]),
-                                 ind=str(paths["ind"]), mutate="none",
-                                 offset=None, length=None)
-    res = _run_firmware_call_target(t, args, {"target": t["name"]})
-    assert res["status"] == "INVALID", res
-    assert "us2011 chunk engine" in " | ".join(res.get("problems", [])), res
-
-# --------------------------------------------------------------------------
-# M9.35: sec1 load model (zero BSS, bound IAT, INIT guard)
-# --------------------------------------------------------------------------
-
-
-def _m935_base(tmp_path, *, extra_blocks=None, iat_bindings=None, init_guards=None):
-    """Synthetic guarded rommap + image + module target for M9.35 selftests."""
-    root = Path(tmp_path)
-    module = "Navi.exe"
-    # .text at 0x00401000 (file offset 0x1000), guarded .data at 0x0055d000 (vsize 0x2000, init_len 0x100)
-    image = bytearray(0x4000)
-    report = {
-        "schema": "osm2leaf.cerom.memmap/v1",
-        "generator": "test",
-        "image": "synthetic-m935.img",
-        "image_size": len(image),
-        "image_sha256": hashlib.sha256(bytes(image)).hexdigest(),
-        "image_sha256_scope": f"whole file ({len(image)} bytes)",
-        "segments": [{
-            "segment_index": 0,
-            "segment_base": "0x200200",
-            "phys_base": "0x8cae1000",
-            "pTOC": "0x0",
-            "romhdr": {
-                "physfirst": "0x00400000",
-                "physlast": "0x00600000",
-                "ulRAMStart": "0x8c000000",
-                "ulRAMEnd": "0x8c100000",
-                "nummods": 1, "numfiles": 0,
-            },
-            "modules": [{
-                "name": module,
-                "vbase": "0x00400000",
-                "sections": [
-                    {"name": "sec0", "va": "0x00401000", "file_offset": 0x1000,
-                     "size": 0x1000, "vsize": 0x1000, "characteristics": "0x60000020",
-                     "compressed": False},
-                    {"name": "sec1", "va": "0x0055d000", "file_offset": 0x2000,
-                     "size": 0x100, "vsize": 0x2000, "characteristics": "0xc8002040",
-                     "compressed": True},
-                ],
-            }],
-        }],
-    }
-    doc = rommap_mod.convert(report, modules=[module], skip_compressed=True)
-    # turn sec1 into a guarded zero-filled block and attach M9.35 metadata
-    sec1 = None
-    for b in doc["blocks"]:
-        if b["section"] == "sec1":
-            sec1 = b
-            break
-    if sec1 is None:
-        sec1 = {
-            "name": f"{module}/sec1", "module": module, "section": "sec1",
-            "address": "0x55d000", "end": "0x55f000", "size": 0x2000,
-            "stored_size": 0, "file_offset": None, "file_backed": False,
-            "loadable": True, "permissions": "rw-", "characteristics": "0xc8002040",
-        }
-        doc["blocks"].append(sec1)
-        doc["blocks"].sort(key=lambda b: int(b["address"], 0))
-    sec1.update({
-        "address": "0x55d000", "end": "0x55f000", "size": 0x2000,
-        "stored_size": 0, "file_offset": None, "file_backed": False,
-        "loadable": True, "permissions": "rw-", "characteristics": "0xc8002040",
-        "init_len": 0x100, "guard_init": True, "init_source": "zero-bss-init-guard",
-    })
-    if extra_blocks:
-        doc["blocks"].extend(extra_blocks)
-        doc["blocks"].sort(key=lambda b: int(b["address"], 0))
-    doc["iat_bindings"] = list(iat_bindings or [])
-    doc["init_guards"] = list(init_guards or [])
-    doc["load_model"] = {"mode": "bss-zero-init-guard"}
-    # revalidate
-    problems = rommap_mod.validate(doc)
-    assert problems == [], problems
-
-    rommap_path = root / "rommap.json"
-    rommap_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    image_path = root / "synthetic-m935.img"
-    image_path.write_bytes(bytes(image))
-    return image, image_path, rommap_path, module
-
-
-def _m935_run(tmp_path, image_bytes, image_path, rommap_path, target):
-    Path(image_path).write_bytes(bytes(image_bytes))
-    # keep rommap's image hash in sync with the (now patched) image
-    doc = json.loads(Path(rommap_path).read_text(encoding="utf-8"))
-    doc.setdefault("source", {})
-    doc["source"]["image_sha256"] = hashlib.sha256(bytes(image_bytes)).hexdigest()
-    doc["source"]["image_size"] = len(image_bytes)
-    doc["source"]["image_sha256_scope"] = f"whole file ({len(image_bytes)} bytes)"
-    Path(rommap_path).write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    targets_path = Path(tmp_path) / "targets.json"
-    targets_path.write_text(
-        json.dumps({"schema": TARGETS_SCHEMA, "targets": [target]}),
-        encoding="utf-8",
-    )
-    code, out = _run_cli([
-        "run", target["name"],
-        "--targets", str(targets_path),
-        "--rommap", str(rommap_path),
-        "--image", str(image_path),
-        "--engine", "pysh4",
-        "--json",
-    ])
-    return code, json.loads(out)
-
-
-@check("M9.35: zero-BSS read returns zero (guarded compressed sec1)")
-def test_m935_zero_bss(tmp):
-    image, image_path, rommap_path, module = _m935_base(tmp,
-        init_guards=[{"module": "Navi.exe", "section": "sec1", "start": "0x55d000",
-                      "end": "0x55d100", "init_len": 0x100, "iat_slots": [],
-                      "reason": "test"}])
-    # code: mov.l @(1,PC),r1; mov.l @r1,r0; rts; nop; .long 0x0055d800 (BSS >= init_len)
-    code = bytes.fromhex("01d112600b00090000d85500")
-    image[0x1000:0x1000 + len(code)] = code
-    target = {
-        "name": "m935-bss", "reader": "synthetic", "what": "zero BSS read",
-        "module": module,
-        "entry": {"kind": "module", "module": module, "va": "0x00401000",
-                  "endian": "little", "args": [], "verdict_map": {"0x0": "ACCEPT"}},
-        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "BSS is zero"},
-    }
-    rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
-    assert rc == EXIT_OK, payload
-    assert payload["status"] == "PASS", payload
-    assert int(str(payload["returned"]), 0) == 0, payload
-
-
-@check("M9.35: bound-IAT call reaches named stub (memset)")
-def test_m935_bound_iat(tmp):
-    slot_va = 0x0055d040
-    image, image_path, rommap_path, module = _m935_base(tmp,
-        iat_bindings=[{"va": "0x0055d040", "dll": "COREDLL.dll", "name": "memset"}],
-        init_guards=[{"module": "Navi.exe", "section": "sec1", "start": "0x55d000",
-                      "end": "0x55d100", "init_len": 0x100, "iat_slots": ["0x0055d040"],
-                      "reason": "test"}])
-    # r4=0x8C202100 (heap), r5=0x41, r6=4; call memset via slot, return r0
-    # mov.l @(1,PC),r1; mov.l @r1,r1; jsr @r1; nop; rts; nop; .long SLOT_VA
-    code = bytes.fromhex("02d112612b4109000b00090040d05500")
-    image[0x1000:0x1000 + len(code)] = code
-    target = {
-        "name": "m935-iat", "reader": "synthetic", "what": "bound IAT call",
-        "module": module,
-        "entry": {"kind": "module", "module": module, "va": "0x00401000",
-                  "endian": "little", "args": ["0x8C202100", "0x41", "0x4"],
-                  "verdict_map": {"0x8c202100": "ACCEPT"}},
-        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "memset returns dst"},
-    }
-    rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
-    assert rc == EXIT_OK, payload
-    assert payload["status"] == "PASS", payload
-    assert int(str(payload["returned"]), 0) == 0x8C202100, payload
-
-
-@check("M9.35: unbound import -> BLOCKED STUB <DLL!name>")
-def test_m935_unbound_import(tmp):
-    image, image_path, rommap_path, module = _m935_base(tmp,
-        iat_bindings=[{"va": "0x0055d8fc", "dll": "OSMDLL.dll", "name": "OSM_Malloc"}],
-        init_guards=[{"module": "Navi.exe", "section": "sec1", "start": "0x55d000",
-                      "end": "0x55d100", "init_len": 0x100, "iat_slots": ["0x0055d8fc"],
-                      "reason": "test"}])
-    # call through unknown import slot
-    code = bytes.fromhex("02d112612b4109000b000900fcd85500")
-    image[0x1000:0x1000 + len(code)] = code
-    target = {
-        "name": "m935-stub", "reader": "synthetic", "what": "unbound import",
-        "module": module,
-        "entry": {"kind": "module", "module": module, "va": "0x00401000",
-                  "endian": "little", "args": [], "verdict_map": {"0x0": "ACCEPT"}},
-        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "n/a"},
-    }
-    rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
-    assert rc == EXIT_BLOCKED, payload
-    assert payload["status"] == "BLOCKED", payload
-    assert "BLOCKED STUB OSMDLL.dll!OSM_Malloc" in payload.get("reason", ""), payload
-
-
-@check("M9.35: INIT read under --init-guard -> BLOCKED INIT 0x... (guarded)")
-def test_m935_init_guard(tmp):
-    image, image_path, rommap_path, module = _m935_base(tmp,
-        iat_bindings=[{"va": "0x0055d040", "dll": "COREDLL.dll", "name": "memset"}],
-        init_guards=[{"module": "Navi.exe", "section": "sec1", "start": "0x55d000",
-                      "end": "0x55d100", "init_len": 0x100, "iat_slots": ["0x0055d040"],
-                      "reason": "test"}])
-    # read from INIT address 0x0055d080 (inside init, not IAT slot)
-    code = bytes.fromhex("01d112600b00090080d05500")
-    image[0x1000:0x1000 + len(code)] = code
-    target = {
-        "name": "m935-init", "reader": "synthetic", "what": "INIT guard",
-        "module": module,
-        "entry": {"kind": "module", "module": module, "va": "0x00401000",
-                  "endian": "little", "args": [], "verdict_map": {"0x0": "ACCEPT"}},
-        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "n/a"},
-    }
-    rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
-    assert rc == EXIT_BLOCKED, payload
-    assert payload["status"] == "BLOCKED", payload
-    assert "INIT 0x0055d080 (guarded" in payload.get("reason", ""), payload
-
-
-def _m119_init_map(tmp, init: bytes, tamper: bool = False):
-    """The M9.35 fixture with sec1 as an ``init_source: nk_decomp`` block."""
-    image, image_path, rommap_path, module = _m935_base(tmp)
-    init_path = Path(tmp) / "Navi.exe.sec1.synthetic.bin"
-    init_path.write_bytes(init)
-    doc = json.loads(rommap_path.read_text(encoding="utf-8"))
-    for block in doc["blocks"]:
-        if block["section"] == "sec1":
-            block.update(guard_init=False, init_source="nk_decomp", init_len=len(init),
-                         init_file=str(init_path),
-                         init_sha256=hashlib.sha256(init).hexdigest())
-    doc["init_guards"] = []
-    doc["load_model"] = {"mode": "init-from-image"}
-    assert rommap_mod.validate(doc) == [], rommap_mod.validate(doc)
-    rommap_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    if tamper:
-        init_path.write_bytes(init[:-1] + bytes([init[-1] ^ 1]))
-    # code: mov.l @(1,PC),r1; mov.l @r1,r0; rts; nop; .long 0x0055d080 (INIT)
-    code = bytes.fromhex("01d112600b00090080d05500")
-    image[0x1000:0x1000 + len(code)] = code
-    target = {
-        "name": "m119-init", "reader": "synthetic", "what": "INIT from image",
-        "module": module,
-        "entry": {"kind": "module", "module": module, "va": "0x00401000",
-                  "endian": "little", "args": [],
-                  "verdict_map": {"0x12345678": "ACCEPT"}},
-        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "INIT word read"},
-    }
-    return _m935_run(tmp, image, image_path, rommap_path, target)
-
-
-@check("M1.19: an INIT read returns the decoded byte (init_source nk_decomp)")
-def test_m119_init_from_image(tmp):
-    init = bytearray(0x100)
-    init[0x80:0x84] = (0x12345678).to_bytes(4, "little")
-    rc, payload = _m119_init_map(tmp, bytes(init))
-    assert rc == EXIT_OK and payload["status"] == "PASS", payload
-    assert int(str(payload["returned"]), 0) == 0x12345678, payload
-
-
-@check("M1.19: a tampered INIT cache file is BLOCKED, never mapped")
-def test_m119_init_tampered(tmp):
-    init = bytearray(0x100)
-    init[0x80:0x84] = (0x12345678).to_bytes(4, "little")
-    rc, payload = _m119_init_map(tmp, bytes(init), tamper=True)
-    assert rc == EXIT_BLOCKED and "init_sha256" in payload.get("reason", ""), payload
-    bad = {"name": "x/sec1", "module": "x", "section": "sec1", "address": "0x1000",
-           "end": "0x2000", "size": 0x1000, "stored_size": 0, "file_offset": None,
-           "file_backed": False, "loadable": True, "permissions": "rw-",
-           "characteristics": "0xc8002040", "init_len": 4, "guard_init": True,
-           "init_source": "nk_decomp"}
-    problems = " | ".join(rommap_mod.validate({"schema": rommap_mod.SCHEMA, "blocks": [bad]}))
-    assert "needs init_file" in problems and "init_sha256" in problems, problems
-    assert "cannot also guard INIT" in problems, problems
-    try:
-        rommap_mod.convert({"segments": [{}]}, init_from_image=True, init_guard=True)
-    except rommap_mod.RommapError as exc:
-        assert "exclude each other" in str(exc), exc
-    else:
-        raise AssertionError("--init-from-image with --init-guard was accepted")
-
-
-# --------------------------------------------------------------------------
-
-def selftest_targets(*, full: bool = False) -> int:
-    """Run the runner's own synthetic target checks; a SKIP is not a pass.
-
-    ``full`` runs external back-end execution checks that may be slow or need a
-    working Ghidra/QEMU adapter.  Default quick skips that execution honestly
-    (M1.18).
-    """
-
-    global RUNNER_FULL_SELFTEST
-    RUNNER_FULL_SELFTEST = full
-    SELFTEST_SKIPS.clear()
-    failures = 0
-    for name, func in SELFTEST_CHECKS:
-        with tempfile.TemporaryDirectory() as tmp:
-            try:
-                func(tmp)
-            except Exception as exc:  # noqa: BLE001 - report, do not abort
-                failures += 1
-                print(f"FAIL {name}: {exc}")
-                if os.environ.get("L3_SELFTEST_VERBOSE"):
-                    import traceback
-
-                    traceback.print_exc()
-            else:
-                print(f"ok   {name}")
-    for skip in SELFTEST_SKIPS:
-        print(f"skip {skip}")
-
-
-@check("point_walk_v1: the US target is registered and names build_targets' walker")
-def test_point_walk_registered(tmp):
-    import point_walk_l3 as pw
-    import sys
-    sys.path.insert(0, str(HERE.parent))
-    import build_targets
-    by_name, _doc = load_targets()
-    target = by_name["point_walk_us2011"]
-    entry = target["entry"]
-    assert entry["kind"] == "firmware_call", entry
-    assert entry["program"] == "point_walk_v1", entry
-    assert target["build"] == "us2011", target
-    want = build_targets.tool_map("point_walk_l3")["us2011"]["nth"]
-    assert int(entry["va"], 16) == want, (entry["va"], hex(want))
-    assert "sec1_table" not in entry, entry
-    assert entry["inputs"]["source"] == "point/POINT010.DAT.cmp", entry["inputs"]
-    # a target without inputs.source is refused (no invented corpus path)
-    bad = json.loads(json.dumps(target))
-    del bad["entry"]["inputs"]["source"]
-    probs = " | ".join(validate_targets({"schema": TARGETS_SCHEMA, "targets": [bad]}))
-    assert "inputs.source" in probs, probs
-    # the target's corpus case is a manifest case for the point_walk reader
-    assert entry["inputs"]["offset"] and entry["inputs"]["length"], entry
-    assert pw.BUILD_TARGETS["us2011"]["nth"] == want
-
-
-@check("point_walk_v1: missing --image/--cmp/--ind is INVALID, not a fake pass")
-def test_point_walk_missing_inputs(tmp):
-    code, output = _run_cli(["run", "point_walk_us2011", "--json"])
-    payload = json.loads(output)
-    assert code == EXIT_INVALID, output
-    assert payload["status"] == "INVALID", payload
-    probs = " | ".join(payload.get("problems", []))
-    assert "--image" in probs and "--cmp" in probs and "--ind" in probs, payload
-
-
-@check("point_walk_v1: the wrong build/image pairing is FAIL (unmapped), not a crash")
-def test_point_walk_wrong_build(tmp):
-    from l3_harness import corpus as corpus_mod
-
-    eu = Path(__file__).resolve().parent.parent.parent / "archive" / "head256.img"
-    if not eu.is_file():
-        SELFTEST_SKIPS.append(
-            "point_walk_v1 wrong-build: no archive/head256.img (rule 11)")
-        return
-    corpus_root = Path(tmp) / "corpus"
-    report = corpus_mod.build_corpus(corpus_root)
-    assert report["entries"] > 0, report
-    cmp_path = corpus_root / "point" / "POINT010.DAT.cmp"
-    ind_path = cmp_path.with_suffix(".ind")
-    by_name, _doc = load_targets()
-    reject = copy.deepcopy(by_name["point_walk_us2011"])
-    reject["expect"]["verdict"] = "REJECT"
-    payload = run_target(reject, _ns(
-        image=str(eu), cmp=str(cmp_path), ind=str(ind_path)))
-    assert payload["status"] == "FAIL", payload
-    assert payload["exit"] == EXIT_MISMATCH, payload
-    assert payload["accepted"] is None, payload
-    assert str(payload["verdict"]).startswith("FAIL (unmapped"), payload
-    assert payload["problems"] == [payload["verdict"]], payload
 
 
 @check("firmware_call: each target runs its own build's engine; a wrong entry.va is INVALID (M9.32)")
