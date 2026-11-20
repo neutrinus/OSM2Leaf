@@ -30,9 +30,9 @@
  ],
  "summary": {
   "files": 22,
-  "citations": 484,
+  "citations": 485,
   "unique_va": 175,
-  "start": 329,
+  "start": 330,
   "inside": 0,
   "corrected": 20,
   "gap": 41,
@@ -1443,6 +1443,15 @@
    "file": "TODO.md",
    "line": 4405,
    "va": "0x0041c044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 4484,
+   "va": "0x003f632c",
    "kind": "fn",
    "class": "START",
    "true_start": null,
