@@ -163,6 +163,11 @@ kept), so the next run extracts cleanly.
   chardev) carries it. The retail EU2011 banner does not go there — only
   the AER exception dump does. See
   [`EXP-2026-11-19-M8.A6-debug-serial.md`](../../docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md).
+- **M8.B1 (2026-11-20):** `ze0-0003` adds the INTC/INT2 model
+  (`0xff802000`, `0xff804000`) and TMU ch0–2 at `0xffd80000`; the EU2011
+  kernel's TMU0 interrupt (INTEVT `0x400`) is delivered to its ISR and
+  acknowledged. See
+  [`EXP-2026-11-20-M8.B1-intc-model.md`](../../docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

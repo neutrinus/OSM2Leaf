@@ -3574,11 +3574,25 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no
   - Depends: M8.A3, M8.A6 (M8.A4/M8.A5 merged, archived 2026-11-06)
   - Claims: C-1300–C-1309
-- [ ] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from
+- [x] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from
   `OEMInterrupt*` and the ISR at `VBR+0x600`). Done when a TMU0 interrupt is
   delivered and acknowledged.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.b1-intc-model · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    on the EU2011 head (physfirst..physlast loads) `-M ze0 -d int` shows
+    `exception 0x400 [interrupt]`, the firmware's TMU0 ISR runs (`in_asm`),
+    TCR0.UNF reads clear afterwards and the interrupt does not re-enter;
+    plus a synthetic shim control whose delivery count drops to 0 when INT2
+    bit 1 stays masked.
+  - Result: EXP-2026-11-20-M8.B1-intc-model (C-1310–C-1313). Patch
+    `tools/qemu-ze0/patches/ze0-0003-hw-sh4-ze0-intc-tmu.patch` (INTC/INT2
+    model + TMU ch0–2 at `0xffd80000`; `sh_intc` compares level-tracking
+    sources with SR.IMASK). Real kernel: one INTEVT `0x400` in 60 s, ISR
+    `fn 0x8803cb34` clears UNF, no re-entry; shim 70/5 s (ack), 2 (no
+    ack), 0 (masked). The TMU0 level had to match the kernel's IntrPrio
+    (1): the SH7785 field 28:24 gave a 7.5 M-entry storm (C-1312). Tool:
+    `tools/ze0_intc.py`.
   - Claims: C-1310–C-1319
 - [ ] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
   Done when `CurMSec` advances.
