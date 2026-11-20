@@ -26,8 +26,17 @@ its own snapshot so the docs base stays readable:
     end of that block), as a bare ``l3`` citation.
 A corpus without a parser is reported ``NOT SCANNED`` with the reason, never
 guessed.  The overlay snapshot is
-``docs/research/fn-audit-l3-corpus-2026-11-16.json``; ``--corpus`` takes an
+``docs/research/fn-audit-l3-corpus-2026-11-20.json`` (H77; the pre-H77
+``…-2026-11-16.json`` is kept at main's state when H77 merged and is not
+re-synced after it: ``--write-snapshot`` refuses that name); ``--corpus`` takes an
 optional ``overlay`` object and runs the H69 policy **per source**.
+
+Fenced code blocks (H77): in every Markdown corpus a ```` ``` ```` or ``~~~``
+block is quoted text (a command, a listing), so a ``fn 0x…`` inside it is not
+a citation.  ``fenced_lines`` finds the blocks; an unclosed fence (or one
+whose body dedents below its opener) hides nothing.  ``TODO.md`` open blocks
+keep their rule (they are not fence-aware, H115); the docs-base scan of
+``TODO.md`` is.
 
 A VA is resolved to a build (A ``0x200200`` / B ``0x3e00200`` / C ``0x5200200``
 of the same image) and a module when the module's pdata span
@@ -187,6 +196,57 @@ def _line_of(text, pos):
     return text.count("\n", 0, pos) + 1
 
 
+FROZEN_L3_OVERLAY = "fn-audit-l3-corpus-2026-11-16.json"  # pre-H77 record
+
+FENCE_OPEN_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
+
+
+def fenced_lines(text):
+    """0-based line numbers inside fenced code blocks (fence lines included).
+
+    H77: a fenced block is a quoted command or output, not prose, so its
+    ``fn 0x…`` text is not a citation.  A fence opens on a line whose first
+    non-blank characters are three or more backticks or tildes (any
+    indentation: EXPs nest fences in numbered lists) and closes on a line of
+    the same character, at least as long, with nothing else after it.  A
+    backtick fence whose info string holds a backtick is not a fence
+    (CommonMark).  An **unclosed** fence hides nothing: its lines stay prose,
+    so a missing closing fence can never silently drop citations.
+
+    Indentation (navigator review): unlike CommonMark, an opener indented four
+    or more spaces (or a tab) still counts as a fence, because EXPs nest
+    fences under list items and a nested list can push them that deep.  To
+    keep that choice from hiding prose, the search for the closing fence
+    stops at the first non-blank inner line indented **less** than the
+    opener; such a fence is treated as unclosed and hides nothing.
+    """
+    lines = text.split("\n")
+    out = set()
+
+    def indent(line):
+        return len(line.expandtabs(4)) - len(line.expandtabs(4).lstrip(" "))
+
+    i = 0
+    while i < len(lines):
+        m = FENCE_OPEN_RE.match(lines[i])
+        if m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
+            char, width = m.group(1)[0], len(m.group(1))
+            close = re.compile(r"^[ \t]*%s{%d,}[ \t]*$" % (re.escape(char), width))
+            opener = indent(lines[i])
+            j = i + 1
+            while j < len(lines) and not close.match(lines[j]):
+                if lines[j].strip() and indent(lines[j]) < opener:
+                    j = len(lines)  # dedented prose: treat as unclosed
+                    break
+                j += 1
+            if j < len(lines):
+                out.update(range(i, j + 1))
+                i = j + 1
+                continue
+        i += 1
+    return out
+
+
 def citations_markdown(paths, strict=False):
     """``fn``/``sub_`` VAs from prose files, one Citation per occurrence.
 
@@ -197,10 +257,14 @@ def citations_markdown(paths, strict=False):
     sub_003f06a8``, where the arrow is the callee) is not a correction and is
     skipped, and a US-build start is skipped for every kind.  The docs base
     keeps the old rule (``strict=False``) so its frozen snapshot is unchanged.
+
+    Both disciplines skip fenced code blocks (``fenced_lines``, H77): a VA
+    quoted inside a fence is not a live citation.
     """
     for path in paths:
         text = open(path, encoding="utf-8", errors="replace").read()
         rel = os.path.relpath(path, REPO)
+        fenced = fenced_lines(text)
         hits = [(m.start(), int(m.group(2), 16), m.group(1), None)
                 for m in FN_RE.finditer(text)
                 if int(m.group(2), 16) not in US_BUILD_STARTS]
@@ -217,7 +281,10 @@ def citations_markdown(paths, strict=False):
         # (``0x0041c7dc→0x00444540``) is a pair shape whose named start is not
         # the left VA's ``pdata.locate`` start, so it resolves to nothing.
         offset = 0
-        for line in text.split("\n"):
+        for lineno, line in enumerate(text.split("\n")):
+            if lineno in fenced:
+                offset += len(line) + 1
+                continue
             pairs = {}
             for m in CORRECTION_PAIR_RE.finditer(line):
                 pairs.setdefault(m.start(), int(m.group(3), 16))
@@ -237,7 +304,10 @@ def citations_markdown(paths, strict=False):
                     hits.append((pos, va, "ctx", corr))
             offset += len(line) + 1
         for pos, va, kind, correction in sorted(hits):
-            yield Citation(va, "%s:%d" % (rel, _line_of(text, pos)), kind,
+            line = _line_of(text, pos)
+            if line - 1 in fenced:
+                continue
+            yield Citation(va, "%s:%d" % (rel, line), kind,
                            correction=correction)
 
 
@@ -1312,6 +1382,37 @@ def selftest():
         check("markdown extractor", got == [
             (0x0041c7e8, "fn"), (0x004e989c, "sub_"), (0x00542256, "sub_"),
             (0x004125a8, "fn"), (0x004125a8, "fn")])
+        # H77: a fenced block is quoted text, not a citation, in both
+        # disciplines; an unfenced line, an unclosed fence and an inline code
+        # span stay live.
+        fmd = os.path.join(tmp, "fenced.md")
+        with open(fmd, "w", encoding="utf-8") as fh:
+            fh.write("live fn 0x0041c7e8\n"
+                     "```bash\n"
+                     "python3 x.py  # Goal: fn 0x00542256 probe\n"
+                     "```\n"
+                     "2. list item\n"
+                     "   ~~~~\n"
+                     "   sub_004e989c and `0x00542256` -> fn 0x00542250 correction\n"
+                     "   ~~~\n"
+                     "   still fenced fn 0x00411111\n"
+                     "   ~~~~\n"
+                     "inline `fn 0x004125a8` stays live\n"
+                     "```\n"
+                     "unclosed fence: fn 0x00422222 stays live\n")
+        for strict in (False, True):
+            got = [(c.va, c.where.rpartition(":")[2]) for c in citations_markdown([fmd], strict=strict)]
+            check("H77 fenced citations skipped (strict=%s)" % strict, got == [
+                (0x0041c7e8, "1"), (0x004125a8, "11"), (0x00422222, "13")])
+        check("H77 fenced_lines spans", fenced_lines(open(fmd).read()) == set(range(1, 4)) | set(range(5, 10)))
+        check("H77 info string with backtick is not a fence",
+              fenced_lines("``` a`b\nfn 0x1\n```\n") == set())
+        check("H77 body dedented below the opener: unclosed, hides nothing",
+              fenced_lines("    ```\n    fn 0x1\nprose fn 0x2\n    ```\n") == set())
+        check("H77 frozen pre-H77 overlay refuses --write-snapshot",
+              main(["--write-snapshot", os.path.join(tmp, FROZEN_L3_OVERLAY),
+                    "--scope", "l3"]) == 2
+              and not os.path.exists(os.path.join(tmp, FROZEN_L3_OVERLAY)))
         # M1.26: an open block uses the docs discipline — a live label, a
         # correction pair and a documented pin are cited; a bare data address
         # and a US-build start are not.
@@ -2078,6 +2179,12 @@ def _run(ap, args):
     if args.corpus and args.write_snapshot:
         print("error: --corpus and --write-snapshot are exclusive",
               file=sys.stderr)
+        return 2
+    if (args.write_snapshot
+            and os.path.basename(args.write_snapshot) == FROZEN_L3_OVERLAY):
+        print("error: %s is the frozen pre-H77 record; write "
+              "docs/research/fn-audit-l3-corpus-2026-11-20.json"
+              % FROZEN_L3_OVERLAY, file=sys.stderr)
         return 2
     if args.overlay and not args.corpus:
         print("error: --overlay requires --corpus", file=sys.stderr)
