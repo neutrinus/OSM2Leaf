@@ -3344,7 +3344,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6100–C-6109
 
 - [ ] **M5.60 — L3: the `LCTBL001` index lookup and page loader read a generated file**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.60-lctbl-index-l3 · Critical: no · Pair: solo
   - Step: P3
   - Depends: M5.17 (done)
   - Goal: M5.17 ran only the record walk (`0x003f61bc`/`0x003f5d98`) on a generated `LCTBL001.DAT`; the B-tree lookup (location code → ordinal), the page-directory read and the zlib page load that hand the walk its record were not executed, so rule 13 "accepted" holds only for the record bytes.
