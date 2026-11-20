@@ -406,6 +406,25 @@ python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image CARD --loo
 python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image CARD --file SYN.DAT --lookup 3,25,3604 --lookup 3,25,5
 ```
 
+## `point_census.py` — every byte of a `POINTnnn.DAT` by structure, and the fine POI position (M4.27)
+
+Walks a decoded POINT file from its directory: descriptor records, name
+tries, index chains, spatial trees, the phone B-tree and the three page
+chains, and reports the bytes of each class and the bytes nothing reached
+(0 in all 44 files of EU 2011 and US 2011). `joins` checks the cross
+references (spatial leaf ↔ name record, index key ↔ name record, phone key ↔
+`INFORMATION` record). `refs` checks the fine position formula
+(`fine_position`, inverse `encode_position`) against reference coordinates.
+Read-only.
+
+```bash
+python3 tools/point_census.py --selftest
+python3 tools/point_census.py extract --card-image CARD /tmp/pt   # never commit
+python3 tools/point_census.py census /tmp/pt
+python3 tools/point_census.py joins /tmp/pt
+python3 tools/point_census.py refs --us /tmp/pt_us --eu /tmp/pt_eu --refs docs/experiments/EXP-2026-11-08-M4.8b-poi-refs.tsv
+```
+
 ## `nk_decomp.py` — decompress ROM sections with the kernel's own routine (H51)
 
 Runs `nk.exe` `DECOMP_SECT 0x88037464` (build B) in the PySh4 engine: no

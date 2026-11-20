@@ -2225,6 +2225,16 @@ text of this section is in git (`13cb0cf`).
   - Stop: one session; if the choice depends on a table filled by a task not in the run, name the table and its writer and block.
   - Claims: C-6080–C-6089
   - Result: `docs/experiments/EXP-2026-11-20-M3.33-b60-header-drop.md` (C-6080–C-6087), new `tools/tile_drop_l3.py`. The branch is `0x0040ad36`–`0x0040ad78` → `0x0040ae26` of the header check `0x0040acb8` (EU2011): every tile box asks for three parts, and a tile whose **third section-list entry (header `0x80c`) is `ff ff ff ff`** gets box status 3 and is left on the first mount; the box finder then skips it, answers -1, and the caller takes that as box 0 (`B28R070R.DAT`). Causal controls: `B60R048R` with a third entry written mounts (3 section tables); `B48R058R` with its third entry removed is left. 8 of the 45 factory tiles list fewer than three sections. Rule for the generator: list three sections (the fresh container already does). Follow-up: M5.62.
+- [ ] **M3.34 — Firmware reader of the POINT spatial tree and the code that turns (copy A, fine) into map units**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Depends: M4.27 (done), M4.52 (POINT header parser and page loader located, done)
+  - Goal: M4.27 read the POI position from the file structure and fitted it to 16 reference points (C-2679): `u = (v & ~15) + 4·(v & 3) + fine/512`, origin 52736. Rule 13 wants the firmware's own arithmetic: find the code that takes a name record's copy A and bytes 6–9 (or a spatial-tree leaf) and produces a map coordinate, and the reader of the spatial tree (cell `0x85a`, 16-byte entries `0008 …`), so the formula, the two marker bits and the leaf flag bits stop being a fit.
+  - Precheck: `python3 tools/point_census.py --selftest` passes; `tools/point_locator_l3.py` runs the header parser `fn 0x003f930c` (EU2011) on a card.
+  - Scope: EU2011 `Navi.exe` (name the US2011 twin if cheap). Start from the header parser's object (cell `0x85a` lands next to cell `0x82a` at `+24`), the constants `0x7ff`, `0x1ff`/`>> 9`, `52736`, and callers of the name accessor `0x003f632c`. L3 run on a factory page: feed one name record, read back the coordinate, compare with `point_census.fine_position`.
+  - Input: EXP-2026-11-20-M4.27-point-census-fine-position, `docs/format/refer.md` "Fine POI position", EXP-2026-11-20 M4.52 (`point_locator_l3.py`), `tools/callgraph.py`.
+  - Done when: the conversion routine is named with its VA and its arithmetic written out, and an L3 run on ≥ 100 factory name records agrees with `fine_position` (or the EXP states the exact difference and `point_census.py` is corrected); the spatial-tree reader is named or the EXP says which message handler receives the tree bytes.
+  - Stop: one session; if the conversion happens in another task's handler that the harness cannot reach, name the handler and block.
+  - Claims: C-6540–C-6549
 
 - [ ] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -2236,6 +2246,16 @@ text of this section is in git (`13cb0cf`).
   - Done when: `l2check` fails a synthetic tile whose third entry is blanked and passes the unchanged `one_tile_pipeline.py --synthetic` tile; the selftest holds both cases.
   - Stop: one session.
   - Claims: none yet (take the next free block when claimed)
+- [ ] **M5.63 — POI writer: fine position, spatial-tree leaf and index records for a moved or added POI**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Depends: M4.27 (done), M5.26 / M4.47 (chain regeneration and relocation, done); M3.34 strengthens the gate but does not block the build
+  - Goal: the POI tools rename only (`mutate_refer_poi.py`, `point_pair_regen.py`). A POI for Poland needs a position: copy A with the `11xx` nibble, the two fine words, and the same values in the leaf of its category's spatial tree; a new POI also needs its index records, trie entries and (US) phone key. Build the first step: move one existing POI to a given lat/lon and keep every structure `point_census.py` checks consistent.
+  - Precheck: `python3 tools/point_census.py --selftest` passes; `python3 tools/point_census.py joins DIR --files POINT010` prints `joins hold` on a factory pair.
+  - Scope: one `POINTnnn.DAT` pair. Step 1 (required): move within the same copy-A cell (name record bytes 6–9 and the leaf `fine` word only). Step 2 (if time): move to another cell of the same level-1 node (leaf moves between nodes of the spatial tree). No new POI, no trie change.
+  - Input: `tools/point_census.py` (`encode_position`, `walk_spatial`, `census`), `tools/point_pair_regen.py` (page re-pack), EXP-2026-11-20-M4.27-point-census-fine-position.
+  - Done when: a tool with `--selftest` writes a pair in which the chosen POI decodes to the requested position within 2 m, `point_census.py census` and `joins` pass on the output, every other byte outside the touched page and leaf is unchanged, and a no-op run is byte-identical; negative control: a pair with the record moved but the leaf left is refused by `joins`.
+  - Stop: one session.
+  - Claims: C-6550–C-6559
 
 - [ ] **M3.32 — Who reads the bytes inside an `ADDRE` record's point block and house-range items**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -2297,7 +2317,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-960–C-969
 
 - [ ] **M4.8b — Check `coord.py` on 10 real POIs**
-  - Status: blocked · Owner: task/m4.8b-coord-py-real-pois · Critical: yes
+  - Status: open · Owner: task/m4.8b-coord-py-real-pois · Critical: yes
   - Step: P4
   - Blocker: bit-packed POINT pages (`POINT002/008/029`, 5405 pages) remain
     undecoded; no 0..2047-class geographic sub-unit position field linkable to
@@ -2306,7 +2326,7 @@ text of this section is in git (`13cb0cf`).
     is untestable and the "within a few metres"/local-scale done-when is unmet.
     Latitude-offset "other method" is a non-pinnable fit to Wikipedia centroids.
     Origin 52742 (longitude) remains supported (C-1902).
-  - Unblock: blocked (format carries no sub-unit coordinate): M4.37 found no coordinate in any bit page and showed the raw POINT index only repeats copy A (EXP-2026-11-19-M4.37-point-bitpack-coords, C-3751/C-3753/C-3754), so POINT data cannot pin local scale or reach metre level; only an independent firmware/tile-geometry method (MAPAL section 2 reader, entrance points) can re-open this. Use copy A (inflated-stream path) only.
+  - Unblock: re-opened 2026-11-20 by M4.27 (C-2679, EXP-2026-11-20-M4.27-point-census-fine-position): the name record holds the fine position (`rec[6..9]`, 512 steps per packed unit inside a 4-unit sub-cell of copy A; `tools/point_census.py refs`, median 115 m on the 16 references, 3 within 15 m). What is left for this task: `coord.py` for point ids (M4.61) and ≥ 10 POIs with a building-level reference, so the "within a few metres" done-when can be judged. The earlier note (M4.37: format carries no sub-unit coordinate) is corrected.
   - Result: EXP-2026-11-08-M4.8b-bitpack-avenues.md (C-2936–C-2939, negative for
     tested scope). Prior: EXP-2026-11-08-M4.8b-transform-proof.md (16 POIs,
     origin 52742 fits longitude, latitude bias +2.8 km unexplained);
@@ -2557,8 +2577,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the L4 run cannot reach `0x00377ae0`, set `blocked` and name the missing peripheral/import.
   - Claims: C-5470–C-5479
 
-- [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
-  - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
+- [x] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
+  - Status: done · Owner: task/m4.27-point-index-pages-r3 · Critical: no
   - Step: P4
   - Depends: — (M3.11b, M4.8b)
   - Goal: M4.8b counted 16 POIs from inflated (`78 9c`) POINT streams; bit-packed
@@ -2575,9 +2595,7 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the container is not zlib and not the known record grammar, record
     the header bytes and stop — do not guess the layout.
   - Claims: C-2670–C-2679
-  - Blocker: done-when partially met — dominant non-`0x60|0x68` zlib inner pages decoded as phone/contact records (US 16B `w0=8,w1=6`, EU 20B `w0=10,w1=8`) carrying no coordinate-bearing POI positions, with counts/tool/controls (C-2670–C-2671); but index (`w0=1`/`w0=28`), mixed (`w0=2`), rare unknown classes, and 72.2% non-zlib raw POINT `.DAT` payload regions remain undecoded for potential indirect coordinate content (header bytes recorded, stop condition). A wider POI *position* sample is not enabled. M3.11b/M4.8b deps remain blocked.
-  - Unblock: decode `w0=1`/`w0=28` index and `w0=2`/rare-unknown semantics (or prove non-coordinate with a stronger control) and/or characterize non-zlib raw payload POI-position storage; if a coordinate-bearing grammar is found, extend `poi_point_check` with counts to enable wider position sample (relevant to M4.8b/M4.28). Dep context: M3.11b, M4.8b.
-  - Result: EXP-2026-11-08-M4.27-bitpacked-point-pages-r2.md (partial/blocked). Precheck: `poi_point_check` counts only `0x60|0x68` records; POINT002 2k–400k zlib sub-streams all `789c` (2543); gap = non-name zlib inner pages + 72.2% non-zlib raw payload. `tools/point_bitpack_decode.py` (+`--selftest`) classifies/counts bit pages: POINT002 747 name/1796 bit (1598 phone-us-fixed16 coord=no), POINT008 1359/3163 (2956 phone-us-fixed16), POINT029 208/446 (249 phone-intl-fixed20). Phone pages decode to ASCII numbers; heuristic coord-like scan 0/50 sampled phone and 0/50 unknown. Index/mixed/rare/unknown + raw regions not fully decoded (headers/counts recorded). `python3 tools/claims_check.py` OK; `tools/selftest.py --only poi_point_check --only poi_bitpack_probe --only point_bitpack_decode` OK.
+  - Result: `docs/experiments/EXP-2026-11-20-M4.27-point-census-fine-position.md` (C-2676–C-2679; r2 partial result: EXP-2026-11-08-M4.27-bitpacked-point-pages-r2, C-2670–C-2675). New `tools/point_census.py` (`--selftest`, 32 checks) walks every structure of a POINT `.DAT` from its directory: all 44 files of EU 2011 and US 2011 (3,545,547,776 B) have 0 unaccounted bytes. The "undecoded" part is name tries, index chains (key + ordinal of a name record: 28,295,255/28,295,255 keys found in their record), spatial trees, the US phone B-tree (7,018,762/7,018,762 keys equal the `INFORMATION` number) and the `INFORMATION`/`ADM` tables; none has a position of its own. The spatial-tree leaves repeat bytes 6–9 of the name record (10,718,316/10,718,316), which gives the fine position: copy-A low nibble is `11xx`, `u = (v & ~15) + 4·(v & 3) + fine/512`, longitude origin 52736. On the 16 M4.8b references: median 115 m against 3,558 m, closer 16/16. Re-opens M4.8b and M4.28; follow-ups M3.34, M4.61, M5.63.
 
 - [x] **M4.37 — Prove or refute that bit-packed `POINT` pages carry coordinates (one-command control)**
   - Status: done · Owner: task/m4.37-point-bitpack-coords · Critical: yes · Pair: required
@@ -2608,10 +2626,10 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-19-M4.38-lang-code-table. The codes are Navi.exe `sdl_com_hdl_get_lang` values (EU2011 fn `0x003c0228`, rows `0x00045d90`; EU2014 `0x003f3c34`/`0x00047a78`), default `3f`; Speech.exe maps the same `OBJ_Setting_readExpLanguage` setting to the `SPEECH/` dir. `02` EN-UK/BE, `03` EN-US/US, `04` FR (FR, CF), `05` GE, `06` SP, `07` IT, `08` PT, `09` EL (cross-build), `0a` DU, `0c` SV, `0d` DA, `15` FI, `16` NO (+ `01` JP, `0b` RU, `0e` ZH, `0f` KO). `tools/lang_code_table.py join`: EU 2011 7/7, US 2011 2/2, EU 2014 16/16 dirs, shifted ±1 and no-Navi-table controls fail. `14 17 18 19 1a`: no row in four builds (`rows` scan) — named as the open step; the reader of `0x18c` is not traced. `claims_check.py` OK.
 
 - [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
-  - Status: blocked · Owner: task/m4.28-poi-lat-residual-r2 · Critical: no
+  - Status: open · Owner: task/m4.28-poi-lat-residual-r2 · Critical: no
   - Step: P4
   - Blocker: M4.27 (bit-packed POINT wider sample) unavailable in this session; M4.28 precheck not satisfied on M4.8b's 16 inflated-stream POIs — no POI with a reliably known, checkable entrance-vs-centroid/reference coordinate separation from allowed non-OSM sources identified (airports share ARP ref; building landmarks have sub-packed-unit separation, too small for the km-scale residual). Stop triggered; H1/H2 untestable. Analysis narrows C-1903 (dlat 132–6401 m, 48×, not a uniform fixed offset) but C-1904 not confirmed/narrowed-to-verdict/retracted.
-  - Unblock: M4.27 (wider bit-packed POI sample) and/or identification of ≥ 3 POIs with citable entrance and centroid/reference coordinates from allowed non-OSM sources and a checkable separation; re-run precheck and complete the entrance/centroid/neither test, then update C-1904.
+  - Unblock: re-opened 2026-11-20 by M4.27 (C-2679): the +2.8 km latitude residual is explained without an entrance test — the copy-A low nibble is `11xx` (marker bits, 4-unit sub-cell), so the 1-unit reading is off by up to 15 units; with the fine fields the 16 references fit to a median of 115 m. Left to do here: update or retract C-1903/C-1904 against `tools/point_census.py refs`, and close.
   - Depends: M4.27 (wider sample helps), M4.8d (sub-unit field)
   - Goal: M4.8b found a +2.8 km latitude bias (median 3.6 km total error, 16
     POIs) and could not separate transform error from "POI stored at a street/
@@ -2879,7 +2897,17 @@ text of this section is in git (`13cb0cf`).
   - Hints: the GID header carries a 16-digit date string (C-2496). SVOX TTS data is a vendor voice, not replaceable by a recording; recorded prompts are the realistic target for a custom voice.
   - Done when: `docs/format/sounds.md` lists every source with status, and states for the guidance prompts either a decoded sample (duration, codec) or the reason it could not be decoded; one line each: `replaceable as data: yes/no/unknown`.
   - Stop: if beeps turn out to be generated by the audio microcontroller (no sample data on the card), say so with the IOCTL/driver evidence and close that branch.
-  - Claims: C-6350–C-6359
+  - Claims: C-6570–C-6579
+- [ ] **M4.61 — `COORD001` and `ADDRE` ids: is the low nibble `11xx` there too; make `coord.py` right for point ids**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M4.27 (done)
+  - Goal: POINT copy-A words are not 1-unit coordinates (C-2679): the low nibble is `11xx` and the position continues in two 11-bit fields. `coord.py` and `refer.md` use `(x−32768)/192`, `(y−52742)/128` for `COORD001`, POINT and `ADDRE` ids alike. Check the nibble on every `COORD001` and `ADDRE` id of both cards, find the `ADDRE` counterpart of the fine fields (the `TT 40 XX YY` sub-cell tokens of C-1960–C-1969 are the candidate), and give `coord.py` one function for point ids that matches `point_census.fine_position`.
+  - Precheck: `python3 tools/point_census.py refs --us DIR --eu DIR --refs docs/experiments/EXP-2026-11-08-M4.8b-poi-refs.tsv` prints `fine model holds`.
+  - Scope: offline, EU2011 + US2011 `REFER001/COORD001`, `ADDRE0nn`; `tools/coord.py`. No firmware work (M3.34).
+  - Input: EXP-2026-11-20-M4.27-point-census-fine-position, `tools/point_census.py` (`packed_units`, `fine_position`, `encode_position`), `docs/format/refer.md` (ADDRE sections), M4.19 EXP.
+  - Done when: an EXP gives the low-nibble census of `COORD001` and `ADDRE` ids on both cards; `coord.py` has a point-id decode/encode with a selftest against `point_census`; `refer.md` says which files use the nibble form; for `ADDRE` either the fine field is named with a join against POINT records of the same address or the EXP says it is absent.
+  - Stop: one session.
+  - Claims: C-6560–C-6569
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
