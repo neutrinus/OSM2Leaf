@@ -2247,8 +2247,10 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if the data layer needs state the harness cannot seed after two attempts, report `blocked` on M8.E4.
   - Claims: C-5680–C-5689
 
-- [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
+  - Status: done · Owner: task/m4.16c-inter-frway-ref · Critical: no
+  - Result: EXP-2026-11-20-M4.16c-inter-ref-aligned — negative with controls: the C-1811 enrichment (257 vs 10 uniform random over `INTER001`–`005`) is a byte-composition artifact; a byte-profile control hits more often than the real values in the byte scan (477), aligned `u32` (135 vs 55), blob-0 element +2 (30 vs 7) and table fields (15 vs 3), and the decoded M4.16e link refs stay below their control too (aligned 10 vs 30). No RDSTM key reaches `INTER`; placement goes through M4.16b/M4.16e (C-5950). `tools/inter_ref_probe.py`. C-2310–C-2314; C-1811 superseded.
+  - Done when (set at close, the block had none): C-1811 tested as aligned fields against controls with the same byte make-up, and the reference decoded or the lead refuted. Met (refuted).
   - Step: P4
   - Depends: M4.16
   - Goal: test C-1811 as aligned u32 fields (not byte scan) in `INTER*`/

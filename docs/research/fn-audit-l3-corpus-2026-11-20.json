@@ -404,6 +404,7 @@
   "docs/experiments/EXP-2026-11-20-M3.31-dir-read-length.md",
   "docs/experiments/EXP-2026-11-20-M4.16-rdstm-place-closure.md",
   "docs/experiments/EXP-2026-11-20-M4.16b-tmc-placement-all-tables.md",
+  "docs/experiments/EXP-2026-11-20-M4.16c-inter-ref-aligned.md",
   "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
@@ -447,7 +448,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 440,
+  "files": 441,
   "citations": 1156,
   "unique_va": 287,
   "start": 1000,
