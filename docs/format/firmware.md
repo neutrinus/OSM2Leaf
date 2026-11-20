@@ -282,6 +282,20 @@ marker; rec0 at `+0x5e`, 999/1000 on page `0x840ba0`).
 Open: M3.11b (byte order / page swap). Full end-to-end PySh4 of field 5 on
 rec0 requires HDLMAP page context in compressed `.data` (M1.2f/M8.E1) → M9.10.
 
+**M3.11c pass 2 (EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5116, done):**
+the "`.data` context" is the BSS slot table, and the M3.22 writer fills it. The resolver
+`fn 0x003f51e0` maps `db` (= the page, slot `+0x1c`) to its companion slot `+0x20`,
+which points to the file's **field dictionary** (one block per `POINT` `.DAT`:
+`u16[0]=0xffff`, `D = C + 2*u16[C+2]`, `u16[D+26]` = 9 fields, chained entries with the
+id at `+12`). `fn 0x003f56bc` finds the record's field area
+(`rec + 2*(hi+lo+8)` of `u16[rec+10]` for header class 3/2). That area starts with one
+length byte per field, in words, and `fn 0x003f5e10` adds them up to reach field 5. PySh4
+(`tools/point_name_accessor.py run`) returns US2011 record 0 = `+0x5e`, 9 words,
+`HANA HEALTH CENTER` (US2011 `0x0041ec8c`/`0x0041e7d8`). After the M5.12 rename it
+returns `OSM2LEAF TEST POI1`. Name + field 6 (address) split the display text on
+1000/1000 records per build. The returned offsets point into the swapped page;
+the byte order of the text is M3.11b.
+
 **M3.13 (EXP-2026-11-06 pass 1, EXP-2026-11-08 pass 2, C-2180–C-2187, partial):**
 `ADDRE`/`REFER001` access path confirmed (C-2180, Navi.exe sec0, A):
 `fn 0x004125a8` maps type `0x14e8` → `REFER001`+`INDEX003.DAT` (C-880);
@@ -323,6 +337,33 @@ struct fields `@(20/24,rX)` from `@r10/@r11/@r15`; computed word; global deref
 remain UNKNOWN**; Done-when unmet (no L3 run/writer-inverse reproducing >=1
 entry, M9.35). Unblock: M9.35 IAT-bound L3 of populate writers to observe slot
 mutations and derive schema (see EXP-2026-11-10-M3.22-bss-table-writer).
+
+**M3.22 pass 2 (EXP-2026-11-19-M3.22-d53500-writer-l3, C-5120–C-5127, done):**
+the "table" is **one structure of 4-byte page-pointer slots**, 46 words (`0xb8` B) at
+`0x00d53500` in EU2011 and 44 words (`0xb0` B) at `0x00c81100` in US2011, not an array
+of records. A reader finds a page's family by comparing the page pointer with the
+slots; the POINT dispatcher `fn 0x003f5cdc` (EU2011) sends `[+0x0c]`/`[+0x14]`/`[+0x24]`
+(n=0) back as the page, `[+0x2c]`/`[+0x70]` to `0x003f5b88`, `[+0x1c]`/`[+0x50]`/`[+0x60]`/
+`[+0x80]`/`[+0x88]`/`[+0x90]` to the walker `0x003f5194`, the rest to `0x003f39c0`.
+The populate writers are the cases of the task-message switch `fn 0x003ff6a0` (EU2011;
+US2011 `0x0042780c`) on message type `@(ctx+104)`:
+
+| type | writer EU2011 (US2011) | slots written (static + L3) |
+| --- | --- | --- |
+| `0x14cc`, `0x14d0`, `0x14d3` | `fn 0x003fc9c8` (`0x0042533c`) | `+0x04`, `+0x7c` |
+| `0x14cd`, `0x14d1` | `fn 0x003fcbf0` (`0x004226f0`) | `+0x2c`, `+0x80`, `+0x9c` |
+| `0x14e4` | `fn 0x003fd390` (`0x00425564`) | `+0x0c..+0x18`, `+0x2c`, `+0xb0` (u16), `+0xb4` |
+| `0x14ef` | `fn 0x003faf04` (`0x00423ba8`) | `+0x1c` = `*(*(0x014a98e0)+20)` (L3), `+0x20` via `0x0040e9dc` |
+| `0x14f0` | `fn 0x003faf04` (`0x00423ba8`) | `+0x38` = `*(*(0x0154ade0)+20)`, `+0x3c` |
+
+Also `fn 0x003fe774` (`+0x2c`) and `fn 0x00412c60` (`+0x0c..+0x18`, `+0xb0`, `+0xb4`);
+clear routines `fn 0x0040dfa8`, `fn 0x00415fe8`, `fn 0x0040e510` (EU2011). The global
+in `*(G)+20` is chosen by the type leaf `0x0040e858` (EU2011; US2011 `0x004368b0`,
+`0x14ef → 0x01319780`). PySh4 run (`tools/d53500_writer.py writer`): with
+`G+0 → OBJ`, `OBJ+20 → factory POINT010 page`, the writer fills `+0x1c` and the real
+dispatcher returns record 1 at `+0x4e` (EU2011) / `+0x80` (US2011), equal to the walker
+alone. Pass-1 label corrections: load `0x00412d12` is in `fn 0x00412c60`, `0x0040e5c0`
+in `fn 0x0040e510`, `0x003f601a` in `fn 0x003f600c` (pdata).
 
 **Initializer found at `0xc43430`** (NaviStateCC). It writes `0x1d0f720`,
 `0x1d0f898=obj`, type tag `0x84`, `+88=0x300`, and the 16-byte class ID to
@@ -564,8 +605,19 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | POINT skip walker (globals) | `0x003f39c0` | `0x0041c370` | masked-form twin; same global offsets, moved page-base cell |
 | POINT dispatcher | `0x003f5cdc` | `0x0041e63c` | identical body; its own pool names the two walkers in the same order, which is how the skip walker above was disambiguated from the nth reader |
 | CMP chunk engine | `0x0041c7dc` | `0x00444540` | masked-form twin (111/111 halfwords); its own pool names the relocated helpers |
-| zlib `inflate_mask[17]` | `0x00574de0` | `0x005987b0` | the `shll2 r2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site, unique per build |
+| zlib `inflate_mask[17]` | `0x00574de0` | `0x005987b0` | the `shll2 r2; mov.l @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` site, unique per build; both slots are `INIT` and the 17 words read from the `nk_decomp`-decoded sec1 equal `2^n - 1` (`chunk_decoder_l3.py run … --sec1 read-mask`, M9.40) |
 | zlib `zcalloc`/`zcfree` | `0x00543a98`/`0x00543aa8` | `0x00565d94`/`0x00565da4` | the 6-halfword trampoline shape, one calloc and one free hit per build |
+| POINT globals base/count/page | `0x00d5e4c0`/`0x00d5e4d0`/`0x00d5e4e4` | `0x00c8c0c0`/`0x00c8c0d0`/`0x00c8c0e4` | the skip walker's own pool; same offsets inside the RW block, moved block |
+| POINT escape record length (halfwords) | `0x4e8` | `0x4d8` | the nth reader's one differing pool word |
+| chunk helpers memcpy/mod/mod31 | `0x003d146c`/`0x003d140c`/`0x003d1484` | `0x00400944`/`0x004008e4`/`0x0040098c` | the chunk engine's own pool slots (COREDLL thunks) |
+| zlib inflate wrapper | `0x00542148` | `0x00564444` | the chunk engine's own pool slot |
+
+The table is a checked copy, not a source: the values are owned by
+[`tools/build_targets.py`](../../tools/build_targets.py) (M1.32), from which
+`point_walk_l3`/`chunk_decoder_l3` `BUILD_TARGETS` and `fn_audit`'s
+`US_BUILD_STARTS` are derived; `python3 tools/build_targets.py check` diffs
+this table and `tools/l3_harness/targets.json` against it (`TOTAL
+only-in-*: 0`).
 
 Both runs `PASS`; the chunk engine's output is byte-identical to
 `cmpind.decode`, and the walker reproduces `parse_page` offsets for all nine
@@ -1176,15 +1228,15 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
 | `0x00417ea0` | fn | `0xc` | thunk: `0x41a600` volume-present test -> return |
 | `0x00417eac` | fn | `0xdc` | volume record set: swap `u8` pairs in `r8+0x20`, warn |
 | `0x00417f88` | fn | `0x58` | volume record get: `r4+42` kind -> 0/1/3 status |
-| `0x00417fe0` | fn | `0x110` | `*.cmp` open by name; `".cmp"` @`0x0017a8a8`, write mode |
+| `0x00417fe0` | fn | `0x110` | open by name for a read: path `0x418dfc`; flag 0 -> `+".cmp"` plain, flag 1 -> `0x41b780(path,1)`; `"rb"` (C-5101) |
 | `0x004180f0` | fn | `0x60` | lookup volume record `(hi:lo)` in `0x18d50`, state test |
 | `0x00418150` | fn | `0x88` | lookup volume record variant, returns `u16` field |
 | `0x004181d8` | fn | `0x244` | big open/dispatch: state `0x41a3b8`, `0x41aaf4`, `0x41a600` |
 | `0x0041841c` | fn | `0xc` | external entry stub -> `0x4181d8` |
 | `0x00418428` | fn | `0x6c` | external entry: OSMDLL #19/#20, `0x41a7e4` |
 | `0x00418494` | fn | `0xc8` | debug dump via `0x417a5c` (stdio through it) |
-| `0x0041855c` | fn | `0xd8` | open/read by name: `0x41b954`, `0x41b8a4`, `0x417d48` |
-| `0x00418634` | fn | `0xc8` | open+seek+read/write trio wrapper, memset |
+| `0x0041855c` | fn | `0xd8` | read request: open `0x417fe0`, seek `(sector<<11)+off` `0x41b8a4`, loop `0x41b954` (C-5106) |
+| `0x00418634` | fn | `0xc8` | serve one queued 48-B request (`0x00e8d8e0`): `0x41855c(+20..+36, flag u16 +46)`, reply `0x4179c8` |
 | `0x004186fc` | fn | `0x4c` | clear volume index: memset `0x1c20` + `0x668a0` B, `0x009cfcd4` |
 | `0x00418748` | fn | `0x2c8` | `.ind`/`.IND` `FindFirstFileW` scan, volume lookup |
 | `0x00418a10` | fn | `0x7c` | read 40-byte record: seek `idx*40+40`, fread 40 |
@@ -1260,33 +1312,33 @@ pdata length for `fn` rows and `next fn start - this GAP` for `leaf` rows.
 | `0x0041b650` | fn | `0x4c` | `fclose` wrapper, release io descriptor |
 | `0x0041b69c` | fn | `0x4c` | `ftell` wrapper, release io descriptor |
 | `0x0041b6e8` | fn | `0x98` | block-size init (40<<8 / 50), `memSize` dump |
-| `0x0041b780` | fn | `0x9c` | write-open by name (`"wb"` default), CS-wrapped |
+| `0x0041b780` | fn | `0x9c` | open wrapper `(path, flag)`: flag 0 -> `fopen` `"rb"`; else `.cmp` manager `0x41bed4` (C-5101) |
 | `0x0041b81c` | fn | `0x88` | close/release, `.CMP` close path |
-| `0x0041b8a4` | fn | `0xb0` | read/write by cluster bytes, recursive |
+| `0x0041b8a4` | fn | `0xb0` | seek wrapper `(h, off, whence, flag)`: `fseek` or `.cmp` seek `0x41bfb4` |
 | `0x0041b954` | fn | `0xd4` | read buffer via chunk engine (`0x41c044`) or fread |
 | `0x0041ba28` | fn | `0x68` | file-size probe: ftell, seek 2, restore |
-| `0x0041ba90` | fn | `0x15c` | `CMP.LST` existence check + volume-chain init |
+| `0x0041ba90` | fn | `0x15c` | mount: `CMP.LST` probe, `.cmp` manager config (50/20/`0x20000`/`0x10000`/`0x14000`, ops table) (C-5104) |
 | `0x0041bbec` | fn | `0x74` | debug logger (`NKDbgPrintfW`, `ErrorLogMsg`) |
 | `0x0041bc60` | fn | `0x38` | size round-up wrapper -> `0x41c0cc` |
-| `0x0041bc98` | fn | `0xf0` | node fill: align args, `0x41c190` walk |
-| `0x0041bd88` | fn | `0x98` | critical-section-wrapped node insert |
+| `0x0041bc98` | fn | `0xf0` | `.cmp` manager init: 50 handle slots of `0x118` B, ops copy, ctx `0x41c190` |
+| `0x0041bd88` | fn | `0x98` | critical-section-wrapped `.cmp` manager create (`0x41bc98`) |
 | `0x0041be20` | fn | `0x10` | `DeleteCriticalSection` only |
-| `0x0041be30` | fn | `0xa4` | lookup+insert node (strlen, `0x41c524`) |
-| `0x0041bed4` | fn | `0x60` | CS-wrapped read: `0x41ba90` then `0x41be30` |
-| `0x0041bf34` | fn | `0x80` | CS-wrapped write: `0x41cae8` leaf |
-| `0x0041bfb4` | fn | `0x90` | CS-wrapped op: `0x41cab0` leaf |
-| `0x0041c044` | fn | `0x88` | CS-wrapped chunk read: `0x41c990` |
+| `0x0041be30` | fn | `0xa4` | `.cmp` open: free slot, `CMP.LST` match `0x41c2e0` -> `0x41c524` or plain open; `u16 +0x116` = compressed (C-5101) |
+| `0x0041bed4` | fn | `0x60` | CS-wrapped `.cmp` open -> `0x41be30` |
+| `0x0041bf34` | fn | `0x80` | CS-wrapped `.cmp` close -> `0x41cae8` |
+| `0x0041bfb4` | fn | `0x90` | CS-wrapped `.cmp` seek -> `0x41cab0` (logical position) |
+| `0x0041c044` | fn | `0x88` | CS-wrapped `.cmp` read: `u16 +0x116` 0 -> plain read, 1 -> `0x41c990` |
 | `0x0041c0cc` | leaf | `0x58` | LEAF: slot-size walk, `(count+16)*20` + 4-aligned fields |
-| `0x0041c124` | fn | `0x6c` | indirect ops-vtable call through struct in `r7` |
-| `0x0041c190` | fn | `0x150` | index-block walk over `r4`, `0x41cb1c` leaf |
-| `0x0041c2e0` | fn | `0x124` | path compare: `strlen`, case fold, 73/74-word ctx |
-| `0x0041c404` | fn | `0x70` | `.IND` path build + entry lookup (`0x41d114`) |
-| `0x0041c474` | fn | `0xb0` | `.IND` read 16-byte header via ops vtable |
-| `0x0041c524` | fn | `0xcc` | `.CMP` open via `0x41c474`, `0x41cb1c` leaf |
-| `0x0041c5f0` | fn | `0x1ec` | chunk-table build: 20-B stride, tag check, fill |
+| `0x0041c124` | fn | `0x6c` | read a whole file via ops (open/size/read/close): loads `CMP.LST` at mount (C-5103) |
+| `0x0041c190` | fn | `0x150` | `.cmp` reader ctx init: entries, buffers `0x14000`/`0x10000`, `.IND` cache `0x41cb1c` (C-5104) |
+| `0x0041c2e0` | fn | `0x124` | `CMP.LST` match: NUL-separated, `\`-terminated entry = directory, A-Z fold (C-5103) |
+| `0x0041c404` | fn | `0x70` | whole `.IND` (`path+".IND"`) through the name-keyed cache `0x41d114`/`0x41d084` |
+| `0x0041c474` | fn | `0xb0` | 16-byte `.IND` header: cache or ops open/read 16/close |
+| `0x0041c524` | fn | `0xcc` | `.cmp` handle open: `.IND` header, `.ind` size `(count+4)*4`, `fopen(path+".CMP","rb")` (C-5101) |
+| `0x0041c5f0` | fn | `0x1ec` | loop over `chunk_offset[]`: 20-B entries `+0` off, `+4` clen, `+8` `i*chunk`, `+12` extent; `chunk==0x10000` (C-5102) |
 | `0x0041c7dc` | fn | `0xe8` | per-chunk one-shot zlib `0x00542148` + `memcpy` |
-| `0x0041c8c4` | fn | `0xcc` | `.ind` header decode (`_divlu`/`_modlu`), tag, count |
-| `0x0041c990` | fn | `0x120` | chunk-load driver: decode, build, seek, inflate loop |
+| `0x0041c8c4` | fn | `0xcc` | `.ind` header: `chunk==0x10000` check, first/last chunk index (`_divlu`/`_modlu`) |
+| `0x0041c990` | fn | `0x120` | chunk read driver: index, entries `0x41c5f0`, seek+one read of the batch, inflate `0x41c7dc` (C-5102) |
 
 ### Block boundaries and the controls that bound it
 
@@ -1477,6 +1529,141 @@ to `fn`. Two numeric facts are the block's own, not a format claim: no literal
 the EXP's scan). The `+4`/`+8`/`+12`/`+0x10` chunk-entry fields are named by
 what the stores and the inflate call do with them; *why* the `.ind` carries
 those numbers is M3.2's format question and stays open.
+
+## Function-pointer tables of `Navi.exe` (M3.24, EU2011 build A)
+
+Who is called indirectly. A *table* is a run of at least three code pointers
+(`.pdata` `START`, or a `GAP` leaf) at a fixed stride: stride 4 is a pointer
+array (NULL slots allowed, as in a sparse state x event matrix), a larger
+stride is an array of rows (`{id, fn}`, `{name, fn, help}`). An `INSIDE` word
+ends a run. Scanned: sec0 rodata `0x00011000…0x0032ed9c` (`0x31dd9c` B) and the
+stored bytes of sec1 `INIT` after the import table (`0x0055dd38…`, `0x172e4` B).
+A *user* is a function whose literal pool holds the base or an entry address
+(*exact*), or a value in the first row before the pointer column (*row prefix*:
+the row's id/name column, but also any shared constant there, so a table whose
+only users are prefix users is weaker).
+
+Tool: `python3 tools/fptables.py scan IMG256 --graph g.json --json t.json`
+(`--selftest`); edges for `callgraph.py` (M3.23) with `--edges`; reverse reach
+with `fptables.py via g.json t.json VA`. Evidence:
+`docs/experiments/EXP-2026-11-19-M3.24-fptables.md`, claims C-3550–C-3559.
+All VAs are EU2011 build A; `0x42af34` is the empty `rts` leaf (M3.26).
+
+Totals: **69 tables** (62 sec0, 7 sec1), 909 slots, 534 distinct targets, 48
+with a code user, 1 with only a data reference, 20 unreferenced. **481 of the
+1,167** functions with no static caller are table entries; 620 more are
+loaded as a code literal (a callback passed as an argument), 66 are neither.
+Only **21 of the 395** unresolved `jsr @Rn` sites sit in table users: most
+indirect calls go through objects or arguments, not through these tables.
+
+### The tables that matter for the map readers
+
+- **`0x0017a0a4` — the REFER/LCTBL message dispatcher.** `fn 0x004124dc`
+  scans up to 15 rows `{u32 msg, fn}` (14 used, NULL row ends it), compares
+  the `u16` at `@(8, msg)` with the row id and calls `fn(msg)`. Messages
+  `0x14cc…0x14f5`. Entries reach the access path in one or two static calls:
+  `0x00413a6c` → `0x004125a8` (`LCTBL001`/`INDEX003` load) and `0x00412ac0`
+  (the `0x00d53500` writer); `0x004003f4`/`0x004005f8` → `0x003fbed8`
+  (POINT access path), `0x003fcbf0`, `0x003fd390` (both touch `0x00d53500`).
+- **`0x00039d5c`, `0x00039e34`, `0x00039efc`, `0x00039f04`** — `{id, fn}`
+  handler tables (users `0x0039cdcc`, `0x0039d18c`, `0x0039d2b8`,
+  `0x0039d3e4`); entries reach the ADDRE path `0x003f56bc`/`0x003f51e0`
+  through `0x003f5d98` in 3–4 calls and the POINT name lead `0x003d1150`
+  through `0x003cd910` in 2.
+- **`0x001796f8`** — entry `0x003f75e4` calls `0x0040b850`, the `MAPAL001`
+  open path (C-4625).
+- **No table holds a reader itself.** No aligned word in either area equals
+  `0x003f5194` (POINT walk), `0x003fbed8`, `0x003f56bc`, `0x003f51e0`,
+  `0x004125a8`, `0x0041c7dc` (chunk engine) or `0x003d1150`; they are called
+  directly, below a table entry. `0x003f5194` and `0x0041c7dc` are reached
+  from no table entry within four static calls.
+- **sec1 `INIT`** holds 7 tables: the shell command table `0x0055ddfc`
+  (`{name, fn, help}`, 39 rows, Shift-JIS help text) and three state x event
+  matrices (`0x0055e348` 75 slots, `0x0055e4d0` 83, `0x0055e790` 35):
+  `fn 0x003335c0` calls `table[*0x00618650 * 15 + event]` if non-NULL.
+  The `Lv1_O`/`Lv2`/`Lv4`/`Lv1_D/TOP`/`Lv5` names (`0x0056084c…`) and the
+  keyboard strings sit in data blocks with **no** code pointer; M3.11c's
+  `0x005628e8` is a record of pointers into sec0 data, not a dispatch table.
+
+### All 69 tables
+
+| Area | Base VA | Stride | Slots (NULL) | START | Users (exact) | Users (row prefix) | Guessed role |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| sec0 | `0x000117a4` | 40 | 25 (0) | 20 | 7 functions | 15 functions | debug-shell commands `{id, fn, name[32]}` (`show srchinf!!`, `show route!!`, …) |
+| sec0 | `0x0001d260` | 20 | 11 (0) | 8 | — | — | unknown |
+| sec0 | `0x0001d368` | 20 | 4 (0) | 4 | — | — | unknown |
+| sec0 | `0x0001d480` | 20 | 6 (0) | 4 | — | — | unknown |
+| sec0 | `0x0001d520` | 20 | 14 (0) | 14 | — | — | unknown |
+| sec0 | `0x0001d660` | 20 | 9 (0) | 9 | — | — | unknown |
+| sec0 | `0x000380a0` | 12 | 9 (0) | 8 | — | — | unknown |
+| sec0 | `0x00039d5c` | 8 | 26 (0) | 26 | — | `0x0039cdcc` | `{id, fn}` handlers; reaches the ADDRE path and the POINT name lead `0x003d1150` (C-3554) |
+| sec0 | `0x00039e34` | 8 | 20 (0) | 20 | — | `0x0039d18c` | `{id, fn}` handlers; reaches the ADDRE path (`0x003f5d98`) (C-3554) |
+| sec0 | `0x00039edc` | 24 | 15 (0) | 15 | — | — | unknown |
+| sec0 | `0x00039efc` | 48 | 4 (0) | 4 | — | `0x0039d2b8` | unknown |
+| sec0 | `0x00039f04` | 24 | 14 (0) | 14 | — | `0x0039d3e4` | unknown |
+| sec0 | `0x00039fec` | 24 | 4 (0) | 4 | — | `0x0039d510` | unknown |
+| sec0 | `0x00177fd4` | 8 | 43 (0) | 41 | — | `0x003ebee8` | unknown |
+| sec0 | `0x00178c1c` | 8 | 7 (0) | 7 | — | `0x003f0368` | unknown |
+| sec0 | `0x00178d64` | 8 | 20 (0) | 20 | — | `0x003f72e4` | unknown |
+| sec0 | `0x001796c8` | 8 | 5 (0) | 5 | — | `0x0040335c` | unknown |
+| sec0 | `0x001796f8` | 8 | 6 (0) | 5 | — | `0x004032e0` | `{id, fn}`; entry `0x003f75e4` calls the `MAPAL001` open path `0x0040b850` |
+| sec0 | `0x0017a0a4` | 8 | 14 (0) | 14 | — | `0x004124dc` | **REFER/LCTBL message dispatcher** `{u16 msg, fn}`, 14 rows, msg `0x14cc…0x14f5` (C-3553) |
+| sec0 | `0x0017ab38` | 4 | 20 (0) | 16 | `0x00419c38` | — | file-layer state × kind matrix (M3.26 positive control) |
+| sec0 | `0x00185a28` | 16 | 6 (0) | 6 | — | — | unknown |
+| sec0 | `0x00187ccc` | 12 | 11 (0) | 3 | — | — | unknown |
+| sec0 | `0x00187d6c` | 12 | 11 (0) | 9 | — | — | unknown |
+| sec0 | `0x00189fdc` | 8 | 7 (0) | 7 | — | `0x004b9174` | unknown |
+| sec0 | `0x0018a01c` | 8 | 16 (0) | 15 | — | `0x004b9174` | unknown |
+| sec0 | `0x0018a0ec` | 8 | 41 (0) | 41 | — | `0x004b9288` | unknown |
+| sec0 | `0x0018a23c` | 8 | 29 (0) | 29 | — | `0x004b9370` | unknown |
+| sec0 | `0x00191804` | 8 | 14 (0) | 14 | — | `0x004bd530` | unknown |
+| sec0 | `0x001a6ccc` | 8 | 14 (0) | 14 | — | `0x004cdb64` | unknown |
+| sec0 | `0x001cb83c` | 8 | 29 (0) | 28 | — | `0x004d0c98` | unknown |
+| sec0 | `0x001cd214` | 8 | 8 (0) | 7 | — | `0x004d53c8` | unknown |
+| sec0 | `0x001cdf44` | 8 | 4 (0) | 4 | — | `0x004dbebc` | unknown |
+| sec0 | `0x001ce36c` | 8 | 5 (0) | 5 | — | `0x004dc08c` | unknown |
+| sec0 | `0x001ce3e4` | 8 | 34 (0) | 34 | — | `0x004dc130` | unknown |
+| sec0 | `0x001d69f4` | 44 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x001d6a54` | 8 | 5 (0) | 5 | — | — | unknown |
+| sec0 | `0x001d6e24` | 52 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x0020618c` | 4 | 8 (0) | 8 | `0x0053a200`, `0x0053b598` | — | unknown |
+| sec0 | `0x002064dc` | 4 | 7 (0) | 6 | `0x0053b870`, `0x0053babc` | — | unknown |
+| sec0 | `0x00206624` | 4 | 5 (0) | 3 | `0x0053bb50`, `0x0053bbd0` | — | unknown |
+| sec0 | `0x002066c8` | 4 | 10 (0) | 9 | 6 functions | — | unknown |
+| sec0 | `0x00206bd8` | 4 | 4 (0) | 1 | `0x0053e018` | — | unknown |
+| sec0 | `0x002080a8` | 4 | 7 (0) | 5 | `0x0053e624`, `0x0053e65c`, `0x0053eaa0` | — | unknown |
+| sec0 | `0x00208168` | 52 | 5 (0) | 5 | — | — | unknown |
+| sec0 | `0x00208348` | 4 | 8 (0) | 8 | `0x0053eefc`, `0x0053f14c` | — | unknown |
+| sec0 | `0x0020852c` | 8 | 3 (0) | 3 | — | data `0x00208548` | unknown |
+| sec0 | `0x00208574` | 8 | 4 (0) | 4 | `0x0053f390`, `0x0053f474` | — | unknown |
+| sec0 | `0x002085cc` | 8 | 7 (0) | 7 | `0x0053f8d8`, `0x0053f908` | — | unknown |
+| sec0 | `0x00208860` | 52 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x00208868` | 52 | 3 (0) | 3 | — | `0x0053f94c`, `0x0053f9b4`, `0x0053f9c4` | unknown |
+| sec0 | `0x00208890` | 8 | 4 (0) | 4 | `0x0053fa08`, `0x0053fe78` | — | unknown |
+| sec0 | `0x00208908` | 4 | 4 (0) | 4 | `0x0053ff34`, `0x0053ff58`, `0x00540538` | — | unknown |
+| sec0 | `0x00208ab4` | 60 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x00208abc` | 60 | 3 (0) | 3 | — | `0x00540708`, `0x00540a14`, `0x00540a40` | unknown |
+| sec0 | `0x00208ae4` | 4 | 3 (0) | 3 | `0x00540a98`, `0x00540b20`, `0x00540b30` | — | unknown |
+| sec0 | `0x00208af4` | 8 | 3 (0) | 3 | — | — | unknown |
+| sec0 | `0x00208b30` | 8 | 3 (0) | 3 | — | `0x00540b74`, `0x00540bfc`, `0x00540c0c` | unknown |
+| sec0 | `0x00208b3c` | 8 | 4 (0) | 4 | — | — | unknown |
+| sec0 | `0x00209894` | 4 | 7 (0) | 7 | `0x005416a8`, `0x00541984` | — | unknown |
+| sec0 | `0x002098e4` | 4 | 7 (0) | 7 | `0x00541a10`, `0x00541c80` | — | unknown |
+| sec0 | `0x0020a110` | 12 | 10 (0) | 10 | — | — | unknown |
+| sec0 | `0x0024fef4` | 40 | 3 (0) | 3 | — | — | unknown |
+| sec1 | `0x0055ddfc` | 12 | 39 (0) | 31 | — | `0x0032efa8`, `0x0032fe48` | shell command table `{name, fn, help}` (row 0 `help` → `0x0032fe48`), 39 rows; `0x0032efa8` passes `0x0055ddf8` to `0x0032fdf4` (C-3552) |
+| sec1 | `0x0055e348` | 4 | 75 (38) | 37 | `0x003335c0` | — | state × event matrix, 5 × 15, `jsr table[state*15+event]` (C-3552) |
+| sec1 | `0x0055e4d0` | 4 | 83 (45) | 38 | `0x00334b2c` | — | state × event matrix (same shape as `0x0055e348`) |
+| sec1 | `0x0055e790` | 4 | 35 (20) | 15 | `0x00338224` | — | state × event matrix (same shape) |
+| sec1 | `0x00561f80` | 4 | 11 (5) | 6 | `0x00377704` | — | unknown |
+| sec1 | `0x005653f0` | 4 | 17 (12) | 5 | — | `0x004c6be8` | unknown |
+| sec1 | `0x0056553c` | 12 | 5 (0) | 5 | — | `0x004bd83c`, `0x004bd8a4`, `0x004bd8e8`, `0x004da758` | unknown |
+
+"unknown" means the role was not read; decoding what each callee does belongs
+to the M3 family tasks. Excluded: tables in `.data` that is BSS (filled at run
+time, e.g. `0x00d53500`), jump tables inside code (`braf`), C++ vtables whose
+pointer is written by a constructor into BSS objects, and US2011 (the same scan
+prints 150 tables there, not curated).
 
 ## Next steps
 

@@ -14,7 +14,8 @@ format and the leaf-caller heuristic have one implementation only.
 Corpora (``--scope docs``, the M1.25 scope):
   * ``docs/format/*.md`` and ``TODO.md`` — every ``fn 0x…`` / ``sub_…``;
   * ``tools/l3_harness/targets.json`` — firmware ``entry.va`` values;
-  * ``tools/*_l3.py`` — every ``0x…`` constant that lands in a pdata span.
+  * ``tools/*_l3.py`` and ``tools/build_targets.py`` (their per-build VA
+    owner, M1.32) — every ``0x…`` constant that lands in a pdata span.
 
 The M1.26 l3 overlay (``--scope l3``) is the wider gate corpus, frozen into
 its own snapshot so the docs base stays readable:
@@ -98,6 +99,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
+import build_targets  # noqa: E402
 import cerom  # noqa: E402
 import pdata  # noqa: E402
 
@@ -132,6 +134,10 @@ CORRECTION_PAIR_TIGHT_RE = re.compile(
 DOC_FILES = ("TODO.md", "docs/format/*.md")
 TARGETS = "tools/l3_harness/targets.json"
 L3_GLOB = "tools/*_l3.py"
+# M1.32: the per-build VAs the ``*_l3.py`` tools used to spell inline now live
+# in their one owner, so the constant scan reads it too (same rule, same
+# US-start skip); without it the EU helper VAs would leave the docs base.
+L3_OWNER = "tools/build_targets.py"
 FIRMWARE_DOC = "docs/format/firmware.md"
 EXP_GLOB = "docs/experiments/EXP-*.md"
 OPEN_TASK_RE = re.compile(r"^- \[ \] \*\*[A-Za-z0-9]")
@@ -153,33 +159,15 @@ CORRECTION_ONLY = {
 # against.  The US build is a different binary (C-3487): `0x0035d894` is its
 # entry and the CMP chain sits at `0x00444540…`, so classifying these against
 # the EU `.pdata` reports a valid US address as an EU ``INSIDE`` (M1.26
-# blocker 2).  Every entry is a verified US start, not a range guess: the
-# M1.28 fixture's US side (C-3740/C-3703) plus M1.22b's six pool-only twins
-# (C-3622).  The EU→US table lives in `docs/format/firmware.md` ("EU→US
-# function matches"); a per-module build map is `build` in
-# `tools/l3_harness/targets.json`, and a per-module census over every US
-# module is still the follow-up M1.22 asks for.
-US_BUILD_STARTS = frozenset({
-    0x0035D894,  # US Navi.exe entry (C-3487)
-    0x00444540,  # CMP chunk engine          (EU 0x0041c7dc)
-    0x004446F4,  # CMP chunk-table loop      (EU 0x0041c990)
-    0x00443DA8,  # CMP/.ind opener           (EU 0x0041c044)
-    0x0041EC8C,  # POI name accessor         (EU 0x003f632c)
-    0x0056454C,  # zlib purge                (EU 0x00542250)
-    # M1.22b: the six readers whose masked instruction-form stream is unique
-    # in the US build (C-3622). Same form stream, moved literal pool.
-    0x0044219C,  # MMAIN                  (EU 0x0041a438)
-    0x004410B4,  # DRSTR                  (EU 0x00419350)
-    0x0043A378,  # REFER access path      (EU 0x004125a8)
-    0x00433458,  # ADDRE0 resolve         (EU 0x0040b358)
-    0x003EC274,  # RDSTM                  (EU 0x003bc960)
-    0x0041EB1C,  # POI field accessor     (EU 0x003f61bc)
-    # M1.22: the US POINT walker set, located through the US dispatcher's own
-    # pool (same three slots in the same order as the EU dispatcher).
-    0x0041DB44,  # POINT nth reader       (EU 0x003f5194)
-    0x0041C370,  # POINT skip walker      (EU 0x003f39c0)
-    0x0041E63C,  # POINT dispatcher       (EU 0x003f5cdc)
-})
+# blocker 2).  Every entry is a verified US start, not a range guess.  Since
+# M1.32 the set is derived, never typed: `tools/build_targets.py` owns it as
+# the union of (a) the US entry `0x0035d894` (C-3487), (b) the US side of the
+# frozen EU->US fixture `tools/fixtures/fn_match_eu_us_2011.json` (M1.28's
+# UNIQUE rows, C-3740/C-3703, and M1.22b's six pool-only twins, C-3622) and
+# (c) the M1.22 `start` roles the L3 tools run (POINT nth/skip/dispatcher,
+# CMP chunk engine).  Helpers, data cells and constants are never in it (the
+# over-broad-skip bug).  15 entries; `build_targets.py check` diffs it.
+US_BUILD_STARTS = build_targets.us_starts()
 
 
 class Citation:
@@ -439,6 +427,7 @@ def collect(scope="docs"):
     files.extend(md)
     files.append(os.path.join(REPO, TARGETS))
     l3 = sorted(glob.glob(os.path.join(REPO, L3_GLOB)))
+    l3.append(os.path.join(REPO, L3_OWNER))
     files.extend(l3)
     cites = list(citations_markdown(md))
     cites.extend(citations_targets(os.path.join(REPO, TARGETS)))

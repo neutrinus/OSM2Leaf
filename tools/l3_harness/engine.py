@@ -141,6 +141,10 @@ REGISTERS: tuple[str, ...] = (
 #: Pseudo-register: the SH-4 T bit, stored as bit 0 of ``sr``.
 T_BIT = "t"
 
+#: SR.Q and SR.M (bits 8 and 9), the divide-step state of div0s/div0u/div1.
+SR_Q = 0x100
+SR_M = 0x200
+
 #: Return sentinel.  ``call()`` puts this into ``pr``; ``run_until`` stops when
 #: the PC reaches it, so no back end has to fetch from it.  Chosen inside the
 #: SH-4 P1 area (physical ``0x0c0fff00``) and far from any mapping the harness
@@ -228,6 +232,33 @@ def _sx(value: int, bits: int) -> int:
     sign = 1 << (bits - 1)
     value &= (1 << bits) - 1
     return (value - (1 << bits)) if value & sign else value
+
+
+def _div1_step(rn: int, rm: int, t: bool, old_q: int, mbit: int):
+    """One SH-4 ``div1 Rm,Rn`` step, transcribed from the manual's C code.
+
+    Returns ``(new Rn, new Q)``; the caller sets T = (Q == M).  ``rm`` is read
+    before Rn is shifted, so ``div1 Rn,Rn`` matches the manual too.
+    """
+    q = (rn >> 31) & 1
+    rn = ((rn << 1) | (1 if t else 0)) & M32
+    tmp0 = rn
+    if old_q == mbit:                    # (Q,M) = (0,0) or (1,1): subtract
+        rn = (rn - rm) & M32
+        tmp1 = 1 if rn > tmp0 else 0     # borrow
+    else:                                # (0,1) or (1,0): add
+        rn = (rn + rm) & M32
+        tmp1 = 1 if rn < tmp0 else 0     # carry
+    # Manual: Q = tmp1 when Q == (M ^ old_q ^ ... ) -- spelled out per case:
+    # old_q=0,M=0: Q=0 -> tmp1, Q=1 -> !tmp1
+    # old_q=0,M=1: Q=0 -> !tmp1, Q=1 -> tmp1
+    # old_q=1,M=0: Q=0 -> tmp1, Q=1 -> !tmp1
+    # old_q=1,M=1: Q=0 -> !tmp1, Q=1 -> tmp1
+    if mbit == 0:
+        q = tmp1 if q == 0 else 1 - tmp1
+    else:
+        q = 1 - tmp1 if q == 0 else tmp1
+    return rn, q
 
 
 def _mask(value: int) -> int:
@@ -939,10 +970,12 @@ class PySh4(Backend):
       ``bt/s``/``bf/s``, ``jsr``/``jmp``/``rts`` with their delay slots,
       ``dt``, ``nop``;
     * system: ``stc``/``ldc``/``sts``/``lds`` and their ``.l @-``/``@+``
-      stack forms, ``clrt``/``sett``/``clrmac``.
+      stack forms, ``clrt``/``sett``/``clrmac``;
+    * divide step: ``div0s``/``div0u``/``div1`` with SR.M/SR.Q/T as in the
+      SH-4 manual (M9.48).
 
     Not modelled, and raised as :class:`IllegalInstruction` rather than
-    guessed: FPU (``0xF``), ``div0s``/``div1``, ``trapa``
+    guessed: FPU (``0xF``), ``trapa``
     (:class:`Trap`), and anything unrecognised.
 
     ``endian`` selects the byte order of loads, stores and instruction
@@ -1060,6 +1093,11 @@ class PySh4(Backend):
 
     def _t(self) -> bool:
         return bool(self._regs["sr"] & 1)
+
+    def _set_mq(self, mbit: int, q: int) -> None:
+        """Write SR.M (bit 9) and SR.Q (bit 8); used only by div0s/div0u/div1."""
+        sr = self._regs["sr"] & ~(SR_M | SR_Q)
+        self._regs["sr"] = sr | (SR_M if mbit else 0) | (SR_Q if q else 0)
 
     def _step(self) -> None:
         pc = self._regs["pc"]
@@ -1192,6 +1230,14 @@ class PySh4(Backend):
             product = rn * rm & M64
             regs["mach"] = (product >> 32) & M32
             regs["macl"] = product & M32
+        elif sub == 0x4:                                 # div1 Rm,Rn
+            self._arm = "div1"
+            regs["r%d" % n], q = _div1_step(rn, rm, self._t(),
+                                            (regs["sr"] >> 8) & 1,
+                                            (regs["sr"] >> 9) & 1)
+            mbit = (regs["sr"] >> 9) & 1
+            self._set_mq(mbit, q)
+            self._set_t(q == mbit)
         else:
             raise IllegalInstruction(
                 f"ALU opcode {px(insn)} at {px(regs['pc'] - 2)} is not modelled"
@@ -1225,17 +1271,13 @@ class PySh4(Backend):
             regs["r%d" % n] = (rn - 4) & M32
             self._store((rn - 4) & M32, 4, rm)
         elif sub == 0x7:                                 # div0s Rm,Rn
-            # M (SR bit 2) = Rn bit 31, Q (SR bit 1) = Rm bit 31, T = 0.
+            # SH-4 manual: Q (SR bit 8) = Rn bit 31, M (SR bit 9) = Rm bit 31,
+            # T = !(M == Q).  (M9.37 wrote bits 2/1 and cleared T; M9.48.)
             self._arm = "div0s"
-            if rn & 0x80000000:
-                regs["sr"] |= 0x4
-            else:
-                regs["sr"] &= ~0x4
-            if rm & 0x80000000:
-                regs["sr"] |= 0x2
-            else:
-                regs["sr"] &= ~0x2
-            self._set_t(False)
+            q = (rn >> 31) & 1
+            mbit = (rm >> 31) & 1
+            self._set_mq(mbit, q)
+            self._set_t(mbit != q)
         elif sub == 0x8:                                 # tst
             self._arm = "tst"
             self._set_t((rn & rm) == 0)
@@ -1480,18 +1522,39 @@ class PySh4(Backend):
                 result = rn >> (((~amount) & 0x1F) + 1)
             regs["r%d" % n] = result
         elif insn & 0xF == 0xF:                          # mac.w @Rm+,@Rn+
-            # 16x16 signed multiply of two memory words, accumulated into
-            # MACH:MACL; both pointer registers post-increment by 2.  Addresses
-            # are formed before either register is updated.
+            # SH-4 manual MACW: tempn = Read_Word(R[n]); R[n] += 2;
+            # tempm = Read_Word(R[m]); R[m] += 2.  Rm is bits 7-4 (M9.49: the
+            # arm read an undefined ``rm`` and raised a host NameError).  With
+            # n == m the second word is read at Rn+2 and Rn ends +4.  Both
+            # loads happen before any register is written, so a fault leaves
+            # the registers as they were (precise exception).
+            # S = 0: the signed product is added to the 64-bit MACH:MACL.
+            # S = 1: it is added to MACL alone, saturating at 32 bits; MACH is
+            # not changed (the manual's C code).
             self._arm = "mac.w"
-            left = self._load_signed(rn, 2)
-            right = self._load_signed(rm, 2)
-            mac = ((regs["mach"] << 32) | regs["macl"])
-            mac = (mac + left * right) & M64
-            regs["mach"] = (mac >> 32) & M32
-            regs["macl"] = mac & M32
-            regs["r%d" % n] = (rn + 2) & M32
-            regs["r%d" % m] = (rm + 2) & M32
+            rm = regs["r%d" % m]
+            # ``_load_signed`` returns the register image (& M32); the
+            # product needs the signed 16-bit value.
+            left = _sx(self._load(rn, 2), 16)
+            right = _sx(self._load((rn + 2) & M32 if n == m else rm, 2), 16)
+            product = left * right
+            if regs["sr"] & 0x2:
+                total = _sx(regs["macl"], 32) + product
+                if total > 0x7FFFFFFF:
+                    total = 0x7FFFFFFF
+                elif total < -0x80000000:
+                    total = -0x80000000
+                regs["macl"] = total & M32
+            else:
+                mac = ((regs["mach"] << 32) | regs["macl"])
+                mac = (mac + product) & M64
+                regs["mach"] = (mac >> 32) & M32
+                regs["macl"] = mac & M32
+            if n == m:
+                regs["r%d" % n] = (rn + 4) & M32
+            else:
+                regs["r%d" % n] = (rn + 2) & M32
+                regs["r%d" % m] = (rm + 2) & M32
         else:
             raise IllegalInstruction(
                 f"system opcode {px(insn)} at {px(pc)} is not modelled "
@@ -1628,7 +1691,9 @@ class PySh4(Backend):
             regs["macl"] = 0
             return
         if insn == 0x0019:                               # div0u
+            # SH-4 manual: M = Q = T = 0.
             self._arm = "div0u"
+            self._set_mq(0, 0)
             self._set_t(False)
             return
         if (insn & 0xF) == 0xF:                          # mac.l Rm,Rn
@@ -2808,6 +2873,18 @@ def test_distinct_register_forms():
         ("mac.l", rr(0x0, 0xF, N, M), (N, M),
          {"mach": ((VN * VM) >> 32) & M32, "macl": (VN * VM) & M32}, []),
         ("div0s", rr(0x2, 0x7, N, M), (N, M), {"sr": 0}, []),
+        # div1 from Q=M=T=0: Rn = (VN<<1) - VM = 0x2366, no borrow -> Q=0, T=1.
+        ("div1", rr(0x3, 0x4, N, M), (N, M),
+         {"r%d" % N: ((VN << 1) - VM) & M32, "sr": 0x001}, []),
+        # mac.w @Rm+,@Rn+ (M9.49): words 0x1234 at @Rn and 0xFF02 (-254) at
+        # @Rm, MACH:MACL preset so the 64-bit add carries into MACH.
+        ("mac.w", rr(0x4, 0xF, N, M), (N, M),
+         {"macl": (0xFFFFFFF0 + 0x1234 * -254) & M32,
+          "mach": ((0x1_FFFFFFF0 + 0x1234 * -254) >> 32) & M32,
+          "r%d" % N: D + 0x22, "r%d" % M: D + 0x32},
+         [(D + 0x20, b"\x12\x34"), (D + 0x30, b"\xff\x02")],
+         {"r%d" % N: D + 0x20, "r%d" % M: D + 0x30,
+          "mach": 0x1, "macl": 0xFFFFFFF0}),
         ("mov.l Rm,@(R0,Rn)", rr(0x0, 0x6, N, M), (N, M), {},
          [(D + 0x110, VM.to_bytes(4, "big"))],
          {"r0": D + 0x10, "r%d" % N: 0x100}),
@@ -2835,15 +2912,72 @@ def test_distinct_register_forms():
             _expect_equal(bytes(engine.read_mem(address, len(data))), data,
                           f"{label}: memory at {px(address)}")
 
-    # div0s sets T from Rn bit 31 and Q (sr bit 1) from Rm bit 31.
-    for rn_v, rm_v, want in ((0x80000000, 0, 0b100), (0, 0x80000000, 0b010),
-                             (0x80000000, 0x80000000, 0b110)):
+    # div0s (SH-4 manual): Q (SR bit 8) = Rn[31], M (SR bit 9) = Rm[31],
+    # T = !(M == Q); other SR bits untouched.  M9.37 had bits 2/1 and T=0.
+    for rn_v, rm_v, want in ((0, 0, 0x000), (0x80000000, 0, 0x101),
+                             (0, 0x80000000, 0x201),
+                             (0x80000000, 0x80000000, 0x300)):
+        e = fresh()
+        e.set_regs(**{"r%d" % N: rn_v, "r%d" % M: rm_v, "sr": 0x40000006})
+        e._execute(rr(0x2, 0x7, N, M), 0x8C000000)
+        _expect_equal(e.get_regs()["sr"], 0x40000006 | want,
+                      f"div0s M/Q/T from Rn={px(rn_v)} Rm={px(rm_v)}")
+    # div0u clears M, Q and T only.
+    e = fresh(sr=0x40000301)
+    e._execute(0x0019, 0x8C000000)
+    _expect_equal(e._arm, "div0u", "div0u arm")
+    _expect_equal(e.get_regs()["sr"], 0x40000000, "div0u clears M/Q/T only")
+    # div0s;div1 Rm,Rn, one control per sign case (hand-computed from the
+    # manual's DIV1 C code).  Every row but ++ differs if M/Q are ignored
+    # (always "shift, subtract, Q=borrow").
+    for rn_v, rm_v, want_rn, want_sr in (
+            (0x00000010, 0x00000003, 0x0000001D, 0x001),   # + / +
+            (0x00000010, 0xFFFFFFFD, 0x0000001E, 0x200),   # + / -
+            (0xFFFFFFF0, 0x00000003, 0xFFFFFFE4, 0x100),   # - / +
+            (0xFFFFFFF0, 0xFFFFFFFD, 0xFFFFFFE3, 0x301)):  # - / -
         e = fresh()
         e.set_regs(**{"r%d" % N: rn_v, "r%d" % M: rm_v, "sr": 0})
-        e._execute(rr(0x2, 0x7, N, M), 0x8C000000)
-        _expect_equal(e.get_regs()["sr"] & 0b110, want,
-                      f"div0s M/Q from Rn={px(rn_v)} Rm={px(rm_v)}")
-        _expect_equal(e.get_regs()["sr"] & 1, 0, "div0s clears T")
+        e._execute(rr(0x2, 0x7, N, M), 0x8C000000)       # div0s Rm,Rn
+        e._execute(rr(0x3, 0x4, N, M), 0x8C000000)       # div1 Rm,Rn
+        snap = e.get_regs()
+        _expect_equal(snap["r%d" % N], want_rn,
+                      f"div0s;div1 Rn from Rn={px(rn_v)} Rm={px(rm_v)}")
+        _expect_equal(snap["sr"], want_sr,
+                      f"div0s;div1 M/Q/T from Rn={px(rn_v)} Rm={px(rm_v)}")
+    # div1 Rn,Rn reads Rm before the shift (manual: tmp2 = R[m] first).
+    e = fresh()
+    e.set_regs(**{"r%d" % N: 0x00000005, "sr": 0})
+    e._execute(rr(0x3, 0x4, N, N), 0x8C000000)
+    _expect_equal(e.get_regs()["r%d" % N], 0x00000005, "div1 Rn,Rn: (5<<1)-5")
+
+    # mac.w with n == m: the second word is read at Rn+2 and Rn ends +4.
+    e = fresh(**{"r%d" % N: D + 0x40})
+    e.write_mem(D + 0x40, b"\x00\x03\x00\x07")
+    e._execute(rr(0x4, 0xF, N, N), 0x8C000000)
+    snap = e.get_regs()
+    _expect_equal((snap["macl"], snap["r%d" % N]), (21, D + 0x44),
+                  "mac.w @Rn+,@Rn+: 3*7 and Rn+4")
+    # mac.w with S = 1 (SR bit 1): 32-bit saturation of MACL, MACH kept.
+    for macl, a, b, want in ((0x7FFFFFF0, 0x7FFF, 0x7FFF, 0x7FFFFFFF),
+                             (0x80000010, 0x8000, 0x7FFF, 0x80000000),
+                             (0x00000010, 0xFFFF, 0x0002, 0x0000000E)):
+        e = fresh(sr=0x2, mach=0x55, macl=macl,
+                  **{"r%d" % N: D + 0x50, "r%d" % M: D + 0x60})
+        e.write_mem(D + 0x50, a.to_bytes(2, "big"))
+        e.write_mem(D + 0x60, b.to_bytes(2, "big"))
+        e._execute(rr(0x4, 0xF, N, M), 0x8C000000)
+        snap = e.get_regs()
+        _expect_equal((snap["mach"], snap["macl"]), (0x55, want),
+                      f"mac.w S=1 MACL={px(macl)} {px(a)}*{px(b)}")
+    # A fault on the @Rm load leaves Rn unchanged (precise exception).
+    e = fresh(**{"r%d" % N: D + 0x40, "r%d" % M: 0x10})
+    try:
+        e._execute(rr(0x4, 0xF, N, M), 0x8C000000)
+    except EngineError:
+        pass
+    else:
+        raise AssertionError("mac.w from unmapped @Rm did not fault")
+    _expect_equal(e.get_regs()["r%d" % N], D + 0x40, "mac.w fault keeps Rn")
 
     # mov.w r0,@(disp,Rm): Rn is bits 7-4; r0 holds the value, not the base.
     engine = fresh(r0=0x0000_ABCD, **{"r%d" % M: D + 0x40})
@@ -2852,6 +2986,76 @@ def test_distinct_register_forms():
     engine._execute(opcode, 0x8C000000)
     _expect_equal(bytes(engine.read_mem(base + 6, 2)), b"\xab\xcd",
                   "mov.w r0,@(disp,Rm) stores through Rm, not r0")
+def _divide_32(signed: bool, dividend: int, divisor: int, step=None) -> int:
+    """Run the SH-4 manual's 32-bit divide sequence (div0u/div0s + 32 x
+    ``rotcl; div1``) on PySh4 and return R2 (the quotient).
+
+    ``rotcl`` is not modelled by the engine, so this test applies it on the
+    host between engine steps; every div0*/div1/subc/addc/movt runs in the
+    engine.  *step* replaces ``_div1_step`` (the negative control).
+    """
+    e = PySh4(endian="big")
+    e.map("code", 0x8C000000, 4, "rwx")
+    saved = globals()["_div1_step"]
+    if step is not None:
+        globals()["_div1_step"] = step
+    try:
+        def run(word):
+            e._execute(word, 0x8C000000)
+
+        def rotcl(reg):
+            regs = e.get_regs()
+            value = regs[reg]
+            e.set_regs(**{reg: ((value << 1) | regs["t"]) & M32,
+                          "t": (value >> 31) & 1})
+
+        e.set_regs(r0=divisor & M32, r2=dividend & M32, sr=0)
+        if signed:
+            run(0x6323)                                  # mov r2,r3
+            rotcl("r3")                                  # rotcl r3
+            run(0x311A)                                  # subc r1,r1
+            run(0xE300)                                  # mov #0,r3
+            run(0x323A)                                  # subc r3,r2
+            run(0x2107)                                  # div0s r0,r1
+        else:
+            run(0xE100)                                  # mov #0,r1
+            run(0x0019)                                  # div0u
+        for _ in range(32):
+            rotcl("r2")
+            run(0x3104)                                  # div1 r0,r1
+        rotcl("r2")
+        if signed:
+            run(0x323E)                                  # addc r3,r2
+        return e.get_regs()["r2"]
+    finally:
+        globals()["_div1_step"] = saved
+
+
+@check("pysh4: div0u/div0s + 32 x div1 divide like C (unsigned and signed)")
+def test_div1_full_divide():
+    vectors = ((100, 7), (0xFFFFFFFF, 1), (0xFFFFFFFF, 0xFFFFFFFF),
+               (0x80000000, 3), (12345678, 1000), (5, 9), (0, 5),
+               (0x7FFFFFFF, 2), (1000, 0x7FFFFFFF))
+    for a, b in vectors:
+        _expect_equal(_divide_32(False, a, b), (a // b) & M32,
+                      f"unsigned {px(a)} / {px(b)}")
+    svectors = ((100, 7), (-100, 7), (100, -7), (-100, -7), (7, -100),
+                (-(1 << 31), 3), ((1 << 31) - 1, -2), (-1, 1), (0, -5),
+                (-12345678, 1000), (12345678, -1000))
+    for a, b in svectors:
+        want = abs(a) // abs(b) * (1 if (a < 0) == (b < 0) else -1)
+        _expect_equal(_divide_32(True, a, b), want & M32,
+                      f"signed {a} / {b}")
+    # Negative control: a div1 that ignores the M/Q state (always "shift,
+    # subtract, Q = borrow") must get a signed case wrong.
+    real_step = _div1_step
+    blind = lambda rn, rm, t, old_q, mbit: real_step(rn, rm, t, 0, 0)
+    _expect_equal(_divide_32(True, -100, 7, step=blind) == ((-14) & M32),
+                  False, "M/Q-blind div1 must fail the signed control")
+    _expect_equal(_divide_32(False, 100, 7, step=blind) == 14, False,
+                  "Q-blind div1 must fail the unsigned control")
+
+
 @check("pysh4: watch records guest loads only; api/x tagged; arming after setup")
 def test_watch_hooks():
     base = 0x8C000100

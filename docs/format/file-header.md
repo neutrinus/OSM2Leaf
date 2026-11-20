@@ -59,7 +59,7 @@ semantic meaning beyond the class patterns.
 | `0x186` | 2 | `OBSERVED` | bound, south | BE i16 EU `0x0500` = 1280 (21.33° N); US `0x0000` = 0 | C-2491; the box contains every tile (C-2492) |
 | `0x188` | 2 | `OBSERVED` | bound, west | BE i16 EU `0xfb50` = −1200 (−20°); US `0xd7b0` = −10320 (−172°) | C-2491; west edge equals the westernmost tile edge on both (C-2492) |
 | `0x18a` | 2 | `OBSERVED` | bound, east | BE i16 EU `0x0ff0` = 4080 (68°); US `0xf3d0` = −3120 (−52°) | C-2491; US east equals the easternmost tile edge; EU 68° is beyond the 36° E tile edge (C-2492) |
-| `0x18c` | variable: 2, 8 or 17 bytes | `VERIFIED` bytes, `UNKNOWN` identity | code list, then `3f` fill | US `03 04`; EU 2011 `05 04 02 07 0a 06 08 14`; EU 2014 and 2016 `05 04 02 07 0a 06 08 0d 0c 16 15 09 19 17 18 1a 14`; same bytes in MMAIN001 and BICON001 of each image | codes not decoded to languages (C-2494–C-2496) |
+| `0x18c` | variable: 2, 8 or 17 bytes | `VERIFIED` bytes, `OBSERVED` identity (M4.38) | Navi.exe map-language codes, then `3f` fill | US `03 04`; EU 2011 `05 04 02 07 0a 06 08 14`; EU 2014 and 2016 `05 04 02 07 0a 06 08 0d 0c 16 15 09 19 17 18 1a 14`; same bytes in MMAIN001 and BICON001 of each image | languages per code: see `0x18c` code list below (C-3760–C-3766) |
 | `0x194` | variable | `OBSERVED` | `3f` fill to the end of the list | 12 bytes after the 8-code list, 3 bytes after the 17-code list, 18 bytes after the 2-code list | C-2494 |
 | `0x1a0` | 12 | `OBSERVED` | reserved run | `ff` × 12 in MMAIN001; `00` × 12 in BICON001 (which has no descriptor) | C-2494; "reserved" is only a hypothesis |
 | `0x1ac` | 1 | `VERIFIED` | descriptor lead byte | `00` | C-052; `MAPAL001/B28R070R.DAT` @ `0x1ac`; `MMAIN001.DAT` @ `0x1ac`; `REFER002/COORD001.DAT` @ `0x1ac`; `RDSTM001/RDSTM001.DAT` @ `0x1ac` |
@@ -198,7 +198,7 @@ the MMAIN001 and BICON001 headers of EU 2011, US 2011, EU 2014 and EU 2016.
 | `0x180`–`0x181` | `VERIFIED` value, `UNKNOWN` meaning | constant `ffff` | none needed |
 | `0x182`–`0x183` | `VERIFIED` value, `UNKNOWN` meaning | `ff24` (EU) / `ff26` (US) | change only byte `0x183` in a copy of MMAIN001, then run the M3.8 read path of `Navi.exe` (`0x0041a438`) and compare the byte-swapped buffer handed to `OBJ_DriveInfo_writeDataVol`; no change in the consumed fields means `0x182` is not consumed there |
 | `0x184`–`0x18b` | `OBSERVED` | N, S, W, E bounds in arc-minutes, BE i16 | the box contains every `MAPAL001` tile on all four images (C-2492); a mutated west edge that cuts a tile must fail the same check |
-| `0x18c`… | `OBSERVED` bytes, `UNKNOWN` identity | code list, `3f`-terminated, 2/8/17 entries | edit one code in a copy, and see which `SPEECH/<lang>` set the reader selects; needs the speech selector in `Navi.exe`, which M4.22 did not locate |
+| `0x18c`… | `OBSERVED` bytes, `OBSERVED` identity (M4.38: Navi.exe language codes, joined by value; `14 17 18 19 1a` `UNKNOWN`) | code list, `3f`-terminated, 2/8/17 entries | replace `05` (German) by `3f` in a copy of MMAIN001, select German (ExpLanguage 3006), and see German map text/selection disappear; the reader of `0x18c` is not yet traced (EXP-2026-11-19-M4.38) |
 | `DATA VERSION` | `OBSERVED` text, `HYPOTHESIS` meaning (build-date stamp) | `YY/MM/DD/NN` | no firmware literal compares it (drstr.md, M3.8), so the stamp is a label; the BICON001 stamp could only matter if the BICON001 open path compares it, which is not yet checked |
 
 ### `DATA VERSION` per file (C-2497)
@@ -233,3 +233,38 @@ The `SPEECH/<lang>/GID` headers carry a date string, not a language code, so
 the code-to-language identity is **not decoded**. Two readings fit the counts:
 `0x14` is an extra non-speech code on EU, or `04` is English (speech on US,
 text-only on EU). Nothing in the four images separates them.
+
+**Decoded (M4.38, EXP-2026-11-19-M4.38-lang-code-table, C-3760–C-3769).**
+The codes are the values of Navi.exe `sdl_com_hdl_get_lang` (EU2011 fn
+`0x003c0228`, rows at `0x00045d90`; EU2014 fn `0x003f3c34`, rows at
+`0x00047a78`), which converts the `OBJ_Setting_readExpLanguage` setting into a
+one-byte code (default `3f`, the list's fill). Speech.exe turns the same
+setting into the `SPEECH/<dir>` name. The second reading above is refuted:
+`04` is French.
+
+| Code | Language | `SPEECH/` dir(s) via the same setting | Anchor |
+| --- | --- | --- | --- |
+| `01` | Japanese | JP | all four builds |
+| `02` | English (UK) | BE; in 2014/2016 also the text code for EL, PL, CS, HU, SK speech | all four builds |
+| `03` | English (US) | US | all four builds |
+| `04` | French | FR (EU), CF (US) | all four builds |
+| `05` | German | GE | all four builds |
+| `06` | Spanish | SP; MX (2014) | all four builds |
+| `07` | Italian | IT | all four builds |
+| `08` | Portuguese | PT | all four builds |
+| `09` | Greek | EL (2014) | cross-build: EU2011/US2011 Navi maps setting 3009 to `09`, EU2014 Speech names 3009 `EL` (`OBSERVED`) |
+| `0a` | Dutch | DU | all four builds |
+| `0b` | Russian | RU (2014 speech only) | Navi all builds, Speech 2014 |
+| `0c` | Swedish | SV | EU2014/EU2016 |
+| `0d` | Danish | DA | EU2014/EU2016 |
+| `0e` | Chinese | ZH (2014 speech only) | Navi all builds, Speech 2014 |
+| `0f` | Korean | KO (2014 speech only) | Navi all builds, Speech 2014 |
+| `15` | Finnish | FI | EU2014/EU2016 |
+| `16` | Norwegian | NO | EU2014/EU2016 |
+| `17 18 19 1a` | `HYPOTHESIS`: Polish, Czech, Hungarian, Slovak in some order | — | no row in four builds; only count and grouping |
+| `14` | `UNKNOWN` (EU only, no speech set) | — | no row in four builds |
+
+`python3 tools/lang_code_table.py join FW_HEAD CARD` checks a card: on EU 2011,
+US 2011 and EU 2014 every `SPEECH/` dir is named by a card code and no code
+names a missing dir; codes shifted by ±1 or read without the Navi table fail.
+The join is by value; the Navi.exe reader of `0x18c` is not yet traced.

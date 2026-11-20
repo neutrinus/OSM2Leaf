@@ -61,6 +61,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
+import build_targets  # noqa: E402
 import cerom  # noqa: E402
 import cmpind  # noqa: E402
 import point_walk_l3 as pw  # noqa: E402
@@ -68,48 +69,24 @@ from engine import EngineError, PySh4, StubReturn  # noqa: E402
 
 IMAGE_START = 0x200200
 MODULE = "Navi.exe"
-FN_CHUNK = 0x0041C7DC
-STUB_MEMCPY = 0x003D146C      # COREDLL #1044
-STUB_MOD31 = 0x003D1484       # COREDLL #2006 (r4 % r5)
-ZCALLOC = 0x00543A98          # zlib zcalloc trampoline
-ZCFREE = 0x00543AA8           # zlib zcfree trampoline
-
 # US 2011 builds (M1.22).  Found the same way as the walkers: the chunk
 # engine is a masked-form twin (111/111 halfwords identical) and its own
 # literal pool names the moved helper addresses, so these are not guesses.
 # The EU pool slot <eu_memcpy_slot> holds <eu_memcpy>; the US engine's own
 # pool slot holds the US memcpy, and likewise for the two mod helpers and the
-# zlib wrapper (which moved with the whole zlib blob).  Every value below is
-# a whole image VA, not a fitted delta; see the EXP for the pool-slot
-# transcript.
-BUILD_TARGETS = {
-    "eu2011": {
-        "fn_chunk": 0x0041C7DC,
-        "memcpy": 0x003D146C,
-        "mod_helper": 0x003D140C,
-        "mod31": 0x003D1484,
-        "zcalloc": 0x00543A98,
-        "zcfree": 0x00543AA8,
-        "inflate_mask": 0x00574DE0,
-        "inflate_wrapper": 0x00542148,
-    },
-    "us2011": {
-        "fn_chunk": 0x00444540,
-        "memcpy": 0x00400944,        # COREDLL #1044 (its own pool slot)
-        "mod_helper": 0x004008E4,
-        "mod31": 0x0040098C,
-        # the two zlib trampolines, found by their unique 6-halfword shape
-        # (`mov r5,r4; mov.l @(pc),r3; mov.l @r3,r3; jmp @r3; ...`): exactly
-        # one calloc-shape and one free-shape hit in each build's text.
-        "zcalloc": 0x00565D94,
-        "zcfree": 0x00565DA4,
-        # Derived from the same site as the EU value: the `shll2 r2; mov.l
-        # @(pc),r3; mov.l @(r0,r3),r2; and r12,r2` sequence is unique in each
-        # build's text, and the US one loads this address (`<mask>` below).
-        "inflate_mask": 0x005987B0,
-        "inflate_wrapper": 0x00564444,
-    },
-}
+# zlib wrapper (which moved with the whole zlib blob).  Every value is a whole
+# image VA, not a fitted delta; see EXP-2026-11-17-M1.22-us-build-census for
+# the pool-slot transcript.  The values live in `tools/build_targets.py`
+# (M1.32), the one owner of the per-build reuse points; `build_targets.py
+# check` asserts that targets.json and docs/format/firmware.md agree with it.
+BUILD_TARGETS = build_targets.tool_map("chunk_decoder_l3")
+_EU = BUILD_TARGETS["eu2011"]
+FN_CHUNK = _EU["fn_chunk"]        # EU 2011 0x0041c7dc
+STUB_MEMCPY = _EU["memcpy"]       # COREDLL #1044
+STUB_MOD31 = _EU["mod31"]         # COREDLL #2006 (r4 % r5)
+ZCALLOC = _EU["zcalloc"]          # zlib zcalloc trampoline
+ZCFREE = _EU["zcfree"]            # zlib zcfree trampoline
+
 ENTRY = 20
 ENTRY_TABLE_PTR = 28          # *(ctx + 28) = table base
 CACHE_PTR = 308               # *(ctx + 308) = scratch buffer for partial chunks
@@ -127,7 +104,7 @@ CACHE_VA = 0x60000000
 HEAP_VA = 0x70000000
 HEAP_SIZE = 0x800000
 MAX_EXTENT = 0x10000
-INFLATE_MASK_VA = 0x00574DE0  # indexed by inflate ``fn 0x0054331c`` (its `shll2` load)
+INFLATE_MASK_VA = _EU["inflate_mask"]  # 0x00574de0, indexed by inflate ``fn 0x0054331c`` (its `shll2` load)
 
 MUTATIONS = ("none", "swap-4-8", "corrupt-ind")
 
@@ -192,10 +169,82 @@ def section_of(sections, va: int) -> str:
     return "outside every Navi.exe section"
 
 
+ZLIB_MASK = tuple((1 << n) - 1 for n in range(17))  # zlib 1.1.3 inflate_mask[17]
+
+
+class MaskMismatch(Exception):
+    """The image's inflate_mask[17] is not zlib's 2^n - 1 series."""
+
+
+def mask_from_section(blob: bytes, sec_va: int, va: int) -> tuple:
+    """The 17 little-endian words at *va* inside a decoded section *blob*."""
+    off = va - sec_va
+    if off < 0 or off + 4 * 17 > len(blob):
+        raise MaskMismatch("inflate_mask VA %#010x lies outside the decoded "
+                           "section at %#010x (+%#x)" % (va, sec_va, len(blob)))
+    return struct.unpack_from("<17I", blob, off)
+
+
+def check_mask(values) -> int | None:
+    """Index of the first word that differs from zlib's series, or None."""
+    for i, (got, want) in enumerate(zip(values, ZLIB_MASK)):
+        if got != want:
+            return i
+    return None if len(values) == 17 else len(values)
+
+
+def read_mask(image: bytes, va: int, dump: Path | None = None) -> dict:
+    """Read inflate_mask[17] from the image at *va* (M9.40).
+
+    The table lies in ``Navi.exe`` sec1 (``INIT``: compressed, stored bytes),
+    so the section is decoded with the kernel's own decompressor
+    (``nk_decomp.decompress``, H51).  ``dump`` reuses a section already written
+    by ``nk_decomp.py section -o`` (and lets a control plant a wrong series).
+    Returns ``{"values", "section_va", "sha256", "source"}``; raises
+    ``MaskMismatch`` when the words are not zlib's series.
+    """
+    import hashlib
+    import nk_decomp
+    rom = cerom.CERom(image, IMAGE_START)
+    sec = None
+    for s in rom.o32(rom.module(MODULE)):
+        if s["realaddr"] <= va < s["realaddr"] + s["vsize"]:
+            sec = s
+            break
+    if sec is None:
+        raise MaskMismatch("no %s section covers %#010x" % (MODULE, va))
+    if dump is not None:
+        blob = Path(dump).read_bytes()
+        source = "dump %s" % dump
+        digest_len = len(blob)
+    else:
+        if not sec["flags"] & cerom.IMAGE_SCN_COMPRESSED:
+            blob = bytes(image[rom.va2file(sec["dataptr"]):][:sec["psize"]])
+            source = "plain section"
+            digest_len = len(blob)
+        else:
+            r0, blob = nk_decomp.decompress(image, rom.va2file(sec["dataptr"]),
+                                            sec["psize"], sec["vsize"])
+            if r0 == MINUS_ONE:
+                raise MaskMismatch("nk_decomp failed on the section at %#010x"
+                                   % sec["realaddr"])
+            source = "nk_decomp r0=%#x" % r0
+            blob = blob[:r0] + bytes(len(blob) - r0)  # stored bytes + zero BSS
+            digest_len = r0
+    values = mask_from_section(blob, sec["realaddr"], va)
+    out = {"values": values, "section_va": sec["realaddr"], "source": source,
+           "sha256": hashlib.sha256(blob[:digest_len]).hexdigest()}
+    bad = check_mask(values)
+    if bad is not None:
+        raise MaskMismatch("inflate_mask[%d] at %#010x reads %#x, zlib has %#x"
+                           % (bad, va + 4 * bad, values[bad], ZLIB_MASK[bad]))
+    return out
+
+
 def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                  chunk_size: int, sec_mode: str = "block", sec1_table=None,
                  tgt: dict | None = None, engine=None, watches=(),
-                 seed_page: bytes | None = None):
+                 seed_page: bytes | None = None, mask_values=None):
     """Run fn 0x41c7dc on the chunks covering [offset, offset+length).
 
     The loop starts at the table entry that ``*(ctx+28)`` points to and walks
@@ -214,6 +263,11 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     armed only after every set-up write.  ``watches`` is a list of
     ``{"lo", "hi", "kind", "name"}`` scopes.  The live engine and its hits are
     returned in ``stats["engine"]`` / ``stats["watch_hits"]``.
+
+    ``mask_values`` (M9.40) are the 17 words ``read_mask`` read from the image;
+    with them ``zero-mask`` writes what was read instead of the public
+    constant.  ``stats["mask"]`` says which happened: ``DECLARED`` (a
+    ``sec1_table``), ``READ`` or ``WRITTEN`` (public zlib, not read).
     """
     tgt = tgt or BUILD_TARGETS["eu2011"]
     start = chunk_index(offset, chunk_size)
@@ -230,6 +284,7 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     eng.map("heap", HEAP_VA, bytearray(HEAP_SIZE), "rw")
     eng.map("stack", STK_VA, bytearray(STK_SIZE), "rw")
     comp_ranges = []
+    mask_how = None
     if sec_mode in ("zero", "zero-mask"):
         # Diagnostic: the compressed sections are mapped as zero-filled RW so
         # the run continues, and every read that lands in them is logged.
@@ -241,6 +296,7 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                 comp_ranges.append((sec["realaddr"], sec["realaddr"] + sec["vsize"]))
         if sec_mode == "zero-mask":
             if sec1_table is not None:
+                mask_how = "DECLARED"
                 tva = int(str(sec1_table["va"]), 0) & 0xFFFFFFFF
                 vals = sec1_table["values"]
                 mask = b"".join(struct.pack("<I", int(str(v), 0) & 0xFFFFFFFF) for v in vals)
@@ -253,8 +309,15 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
                 # zlib 1.1.3 inflate_mask[17] (public source: 2^n - 1), written at
                 # the address the build's inflate indexes (see BUILD_TARGETS;
                 # the EU slot comes from the inflate's own `shll2` load).
-                # Not read from the image.
-                mask = b"".join(struct.pack("<I", (1 << n) - 1) for n in range(17))
+                # Not read from the image unless the caller passes the words
+                # ``read_mask`` read (M9.40).
+                if mask_values is not None:
+                    mask_how = "READ"
+                    words = mask_values
+                else:
+                    mask_how = "WRITTEN"
+                    words = ZLIB_MASK
+                mask = b"".join(struct.pack("<I", w) for w in words)
                 eng.write_mem(inflate_mask_va, mask)
     stack_top = STK_VA + STK_SIZE // 2
     eng.write_mem(CTX_VA + ENTRY_TABLE_PTR, struct.pack("<I", TAB_VA + ENTRY * start))
@@ -264,7 +327,7 @@ def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,
     eng.set_regs(r15=stack_top)
 
     stats = {"insns": 0, "memcpy": 0, "mod": [], "calloc": 0, "free": 0,
-             "last_pc": None, "sec_reads": {}}
+             "last_pc": None, "sec_reads": {}, "mask": mask_how}
     orig_load = eng._load
 
     def logged_load(va, size):
@@ -377,10 +440,32 @@ def cmd_run(args) -> int:
     if args.mutate == "swap-4-8":
         mutate_rows(rows, args.mutate, index)
     cmp_bytes = cmp_path.read_bytes()
+    tgt = BUILD_TARGETS[args.build]
+    mask_values = None
+    sec_mode = args.sec1
+    if args.sec1 == "read-mask":
+        # M9.40: read the table from the image instead of writing the
+        # public constant; a series that is not 2^n - 1 fails the read.
+        sec_mode = "zero-mask"
+        try:
+            got = read_mask(image, tgt["inflate_mask"],
+                            Path(args.sec1_dump) if args.sec1_dump else None)
+        except MaskMismatch as exc:
+            print(f"inflate_mask[17] @ {tgt['inflate_mask']:#010x} ({args.build}): "
+                  f"READ FAILED: {exc}")
+            print("verdict: FAIL (the image's inflate_mask is not zlib's 2^n - 1)")
+            return 1
+        mask_values = got["values"]
+        print(f"inflate_mask[17] @ {tgt['inflate_mask']:#010x} ({args.build}): "
+              f"READ from the image ({MODULE} section {got['section_va']:#010x} "
+              f"via {got['source']}, sha256 {got['sha256'][:16]}…), equals zlib 2^n - 1")
+    elif args.sec1 == "zero-mask":
+        print(f"inflate_mask[17] @ {tgt['inflate_mask']:#010x} ({args.build}): "
+              "WRITTEN from public zlib 2^n - 1, OBSERVED (not read from the image)")
     try:
         ret, out, stats = run_firmware(image, cmp_bytes, rows, args.offset,
-                                       args.length, chunk_size, args.sec1,
-                                       tgt=BUILD_TARGETS[args.build])
+                                       args.length, chunk_size, sec_mode,
+                                       tgt=tgt, mask_values=mask_values)
     except Blocked as exc:
         args = exc.args
         va = args[1] if len(args) > 1 else None
@@ -500,6 +585,22 @@ def selftest() -> int:
     check("table for the synthetic pair: last entry ends at the .cmp size",
           rows2[-1][1] == len(cmp_bytes) - offsets[-1])
 
+    # M9.40: the mask read path (synthetic section, no vendor bytes)
+    sec = bytearray(0x100) + b"".join(struct.pack("<I", w) for w in ZLIB_MASK)
+    vals = mask_from_section(bytes(sec), 0x1000, 0x1100)
+    check("mask: 17 words read at the VA equal zlib 2^n - 1",
+          vals == ZLIB_MASK and check_mask(vals) is None)
+    wrong = list(ZLIB_MASK)
+    wrong[9] ^= 0x2
+    check("mask: a planted wrong word is named by index", check_mask(wrong) == 9)
+    check("mask: a short table fails", check_mask(ZLIB_MASK[:16]) == 16)
+    try:
+        mask_from_section(bytes(sec), 0x1000, 0x1100 + 8)
+        outside = False
+    except MaskMismatch:
+        outside = True
+    check("mask: a VA whose 17 words run past the section is refused", outside)
+
     print("selftest:", "OK" if not failures else f"FAIL ({len(failures)})")
     return 0 if not failures else 1
 
@@ -520,10 +621,17 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--mutate", choices=MUTATIONS, default="none")
     run.add_argument("--build", choices=tuple(BUILD_TARGETS), default="eu2011",
                      help="firmware build whose chunk-engine VAs to run")
-    run.add_argument("--sec1", choices=("block", "zero", "zero-mask"), default="block",
+    run.add_argument("--sec1", choices=("block", "zero", "zero-mask", "read-mask"),
+                     default="block",
                      help="block: a compressed-section access stops the run (default); "
                           "zero: diagnostic, map compressed sections as zeros and log reads; "
-                          "zero-mask: as zero, plus zlib's public inflate_mask[17] at 0x574de0")
+                          "zero-mask: as zero, plus zlib's public inflate_mask[17] written "
+                          "at the build's slot (EU 0x574de0; not read); read-mask: as zero-mask, but the "
+                          "17 words are read from the image (sec1 decoded by nk_decomp) and "
+                          "the run fails unless they equal 2^n - 1")
+    run.add_argument("--sec1-dump", metavar="PATH",
+                     help="with --sec1 read-mask: a decoded section written by "
+                          "`nk_decomp.py section -o` instead of decoding it again")
     return parser
 
 

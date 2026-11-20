@@ -172,6 +172,17 @@ descriptor `0x00d995e0`), which is synchronized init, not content validation.
 M5.6: keep `CMP.LST` present/openable; content (`\SystemSD\REFER001\`, 19 bytes)
 is not compared by this path.
 
+> **Correction (M3.2b, C-5103, EU2011):** the content **is** read, one level
+> down: the path buffer is passed to `0x0041bd88` → `0x0041bc98` →
+> `0x0041c190` → `0x0041c124`, which opens, sizes, reads and closes
+> `CMP.LST` through the `.cmp` manager's ops table. `0x0041c2e0` then decides,
+> on every open with the compressed flag, whether a path is served from
+> `NAME.CMP`/`NAME.IND`: entries are NUL-separated, an entry ending in `\`
+> matches the path's directory, only `A`–`Z` are case-folded, and a CR/LF
+> would become part of the entry. So the bytes matter: keep exactly
+> `\SystemSD\REFER001\` (no newline). See
+> [`cmp-ind.md`](cmp-ind.md#firmware-reader-eu2011-navi-exe-build-a--located-m32b).
+
 ## What it is used for
 
 Static firmware evidence names `DRSTR001.DAT` and `\CMP.LST` in `Navi.exe`
