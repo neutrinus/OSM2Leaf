@@ -1,0 +1,51 @@
+role: SE (senior engineer), cycle 17
+model: opencode deepseek-v4.1-flash-free (aggregate "strong")
+start: 2026-11-20T10:45Z
+origin/main at start: a45b061 (SM retro) / 8f18cbf window base
+
+inputs read:
+  prompt_common.txt, prompt_se.txt, AGENTS.md, docs/retro/2026-11-19.md,
+  docs/retro/2026-11-20.md (this cycle's SM), TODO Priorities + card-ladder
+  block, the 82 EXPs in the window (git log --since), claims_check --strict,
+  the three blocked tasks' Blocker/Unblock lines and their unblock tasks.
+
+actions:
+  - scanned the 82 window EXPs: all have Question/Hypothesis/Inputs/Method;
+    eight have <6 required headings (M5.38, M5.42, M6.13, M9.34, M4.40, M5.19,
+    M6.18, M8.B5) — these are record-repair/correction EXPs or short template
+    variants, not missing controls; checked M5.19 and M4.40 by hand, both carry
+    controls and a quoted Result.
+  - re-ran the cheap Done-whens that can fail: M4.52 (point_locator_l3 selftest
+    + relocated-chain positive/negative) and M5.54 (s1_wide_dir census) are
+    covered by gate/selftest; did not re-run firmware L3 runs (need IMG256,
+    the host has it, but per prompt only re-run where cheap).
+  - confirmed claims_check --strict --count-check OK (NOEXP warnings are the
+    pre-existing C-1900..C-1906 M4.8b + C-3033, not new rows).
+  - reader map moved 6->14 located, 1->6 L3-running; checked that the new rows
+    name a VA (M4.52 row 4 0x003fe2d4/0x00426480, M4.40/M4.49/M4.16 etc.).
+  - checked the three blocked tasks' Unblock pointers: M4.40->M4.54 (open,
+    Depends M4.40 — a cycle), M4.48->M4.50 (open, Depends M4.48+M8.E4 — a
+    cycle), M4.51->M4.53 (open) or M8.E4. Each unblock task depends back on
+    the blocked one, so none is launchable until its blocked task is done.
+
+decisions / rejected:
+  - no new repair task for the 8 thin EXPs: prompt rule "an error in an earlier
+    merged EXP becomes one repair task, not one per EXP"; they are not errors,
+    they are short-form records with controls; a blanket task would be churn.
+  - did not open a task for the M4.40/M4.48/M4.51 unblock cycles: a back-
+    dependency (unblock needs blocked) is correct when the unblock is a
+    different level (L4 run / bench), not a process defect; M4.54 is Critical
+    and already open, so it is pickable once unblocked.
+
+problems:
+  - the three blocked chain heads all sit behind an open unblock task that
+    depends back on them; the only genuinely unblocked one is M4.54 if M4.40's
+    request/reply VAs are enough to seed an L3 read-watch. Worth a TL/PO look.
+
+handoff:
+  - TL: the three blocked tasks are honest negatives; do not re-open them.
+    M4.54 is the one to pick (it unblocks the Critical M4.40) once its Depends
+    note is re-read; M4.53/M4.50 wait on M8.E4.
+  - no technical-debt task added this pass: the window's tools each have a
+    --selftest and gate is green; the debt is the branch/log hygiene the SM
+    already assigned.
