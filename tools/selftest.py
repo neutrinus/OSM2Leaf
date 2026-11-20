@@ -383,7 +383,7 @@ def test_fn_audit_scope_l3_image() -> None:
     import subprocess
 
     image = REPO_ROOT / "archive" / "head256.img"
-    overlay = REPO_ROOT / "docs" / "research" / "fn-audit-l3-corpus-2026-11-16.json"
+    overlay = REPO_ROOT / "docs" / "research" / "fn-audit-l3-corpus-2026-11-20.json"
     base = REPO_ROOT / "docs" / "research" / "fn-audit-corpus-2026-11-16.json"
     proc = subprocess.run(
         [sys.executable, str(TOOLS_DIR / "fn_audit.py"), str(image),
