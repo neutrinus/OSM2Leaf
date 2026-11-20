@@ -296,6 +296,17 @@ returns `OSM2LEAF TEST POI1`. Name + field 6 (address) split the display text on
 1000/1000 records per build. The returned offsets point into the swapped page;
 the byte order of the text is M3.11b.
 
+**M4.52 POINT chain locator reader (EXP-2026-11-20-M4.52-point-locator-reader, C-5397–C-5399):**
+the header parser `fn 0x003f930c` (EU2011) / `fn 0x00421c3c` (US2011) decodes the
+`.DAT` directory cells at `0x800` with the block-address leaf `0x0040f00c` /
+`0x00436f58`; cell `0x82a` (field dictionary) goes to object `+24`. The POINT page loader
+`fn 0x003fe2d4` / `fn 0x00426480` (caller `fn 0x003ffce0` / `fn 0x00427e1c`) reads the
+dictionary record from header-table entry `+64` (`0x0040ee4c`), decodes the base
+reference `D+4` with the same leaf, adds `start_w` and requests `2*comp_w` bytes through
+`0x003f6c88` / `0x0041f5e8` (slot `+8` sector, `+12` offset, `+16` length). In PySh4 it
+reads a `relocate`d name chain at its new base (6/6, both builds) and a stale reference at
+the old base (`tools/point_locator_l3.py`).
+
 **M3.13 (EXP-2026-11-06 pass 1, EXP-2026-11-08 pass 2, C-2180–C-2187, partial):**
 `ADDRE`/`REFER001` access path confirmed (C-2180, Navi.exe sec0, A):
 `fn 0x004125a8` maps type `0x14e8` → `REFER001`+`INDEX003.DAT` (C-880);
