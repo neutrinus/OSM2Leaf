@@ -1014,13 +1014,15 @@ the four bytes are logged as `Target ID Code >> %02X%02X%02X%02X`
 | Area | Name | Mask |
 | --- | --- | --- |
 | `0x10` | Japan | `0x00010000` |
-| `0x20` | USA | `0x00020000` |
-| `0x30` | Euro | `0x00040000` |
+| `0x20` | USA | `0x00040000` |
+| `0x30` | Euro | `0x00020000` |
 | `0x40` | Russia | `0x00080000` |
 | `0x50` | China | `0x00100000` |
 | other | WorldWide | `-1` |
 
 Unknown areas fall back to `KernelIoControl(0x0101304C)` ("Env Variable").
+(USA/Euro masks corrected by M1.34, C-5350; the table layout and the
+`Navi.exe` records are in `docs/research/rom-registry.md`.)
 The mask filters the launcher table (B `0x03bcc5b0`/`0x03bcc564`), i.e. it
 selects processes/drivers, not the map database. The map/navigation modules do
 not import the area API. The card's `HDD_INFO.TXT` is checked against unit-side
