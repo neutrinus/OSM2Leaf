@@ -1,0 +1,64 @@
+role: TL (team lead)  model: airouter/strong  start: 2026-11-20T16:23Z
+origin/main at start: ce5f34c (merge #329 M3.14) — wide-batch merges complete
+inputs: prompt_common.txt, prompt_tl.txt, TODO.md, AGENTS.md, docs/research/claims.md, open PR list, wt list
+
+scope: the wide 10-driver batch launched earlier this cycle (one wt worktree / branch / draft PR each),
+plus H116 (PO finding) and the H117 follow-up. Driver + navigator pairs, max 3 review rounds each,
+all merged by this TL session, one PR at a time, after each PR's own gate went green.
+
+merged PRs (in order; main tip after each):
+- #324 H116 DOCS BASE must not pin done-block citations      -> 65e1097
+- #330 M3.15 LCTBL001 name-table reader (done)               -> d30e671
+- #331 M3.16 INTER/FRWAY readers (blocked, BE layout fix)    -> 042820a
+- #334 H117 main gate must not be a shadow run (done)        -> 46555c2
+- #332 M3.18 ICADM0nn/ZIPFR001 readers (blocked, C-2382 retracted) -> 0f3493b
+- #333 H113 fn_match pool-slot false blanks (done)           -> 0964ccb (same push)
+- #325 M5.49 P1 verbatim-tile display-only card (done)       -> a69d5eb
+- #326 M9.41 US POI walk S1/S2 evidence row (blocked, +M9.55) -> 5acb771
+- #328 M5.36 tile_class_roundtrip L2 check + fixture (done)  -> 57666d9
+- #327 M4.54 section-2 read watch, re-opens M4.40 (done)     -> 2e683be
+- #329 M3.14 ZCODE/ICODE001/COORD001 readers (blocked, +M3.30) -> ce5f34c
+
+outcome: 7 done (H116, M3.15, H117, H113, M5.49, M5.36, M4.54), 4 honest blocked with negative
+EXPs and a named Unblock (M3.16 -> M3.29/M9.38, M3.18 -> M3.29/M9.38, M9.41 -> M9.55,
+M3.14 -> M3.30).
+
+new tasks filed by the batch: M9.55 (US POI runner; C-5770-C-5779, now open, depends done work only),
+M3.30 (REFER search-path run; C-5780-C-5789, follow-on to open M3.29), H118 (fn_match unloaded-pool-data
+residual; C-5800-C-5809, open).
+
+claim-block collisions resolved before merge (5 live reservations on 10 branches):
+- M3.14 C-5760-C-5767, M9.55 C-5770-C-5779 (moved off 5760), M3.30 C-5780-C-5789 (moved off 5770),
+  M5.36 C-5790-C-5799 (renumbered off 5760), H118 C-5800-C-5809 (renumbered off 5760).
+- final: no two merged rows share an ID; claims_check --strict --count-check OK on main.
+
+notable review catches:
+- M3.15: extractor<->index mapping was reversed (0x003bc028=field1/index1); swap direction was
+  static-only + unreproducible -> commit 264ab7d added tools/lctbl_string_decode.py (executed swap
+  control). Also had silently deleted C-2210-C-2213 (M3.16's block) -> restored; branch rebased.
+- M5.49: hardcoded l2check_ok=True produced a false P0 -> now runs the targeted l2check (real root
+  l2check_ok=false, only pre-existing refer_rename_resize C-5543). Then a present non-contained tile
+  (B48R050R) was accepted -> added a real region.bbox containment guard (refused by containment,
+  not by a missing file).
+- M5.36: mutant direction inverted in docs ((6,5)->(6,6), not the reverse); Done-when named
+  --semantic-tiles but the check runs under --class-tiles.
+- H113: the "cannot blank" title was overclaimed (only marked slots are exempt; unloaded pool data
+  still blanks) -> narrowed C-5570 + filed H118; C-3627 marked historical.
+- M3.14: zero-buffer control was NOT identical (+0x18 gate) -> claim narrowed to the four real
+  offsets; disassembly corrected; stale d2fb7b4 base rebased onto main.
+- M3.16: refer.md reader counts were fabricated -> replaced with the real f1-f4 run.
+- M3.18: packet constant 0xff0a0001 (not 0x0a000001); C-4677 retracted (ZIPFR name IS reachable
+  via table 0x00564160 row 4).
+- H117: policy (b) watchdog shipped because main is unprotected (branch protection 404, rulesets []);
+  C-5752 quote corrected to 0 salient/3 shadowed/9 cancelled.
+
+post-batch gate on main (ce5f34c): gate 4 pass / 0 fail / 0 skip
+  selftest PASS 100.08s · claims_check PASS 5.55s · todo_check PASS 0.05s · fn_audit PASS 4.05s
+
+note: another concurrent TL session (dev_process/2026-11-20-1514-6-tl.log) is running a second batch
+in 10 other worktrees (H97/H100/H103/H110/H114/H115/M3.11b/M3.29/M5.55/M9.55). This session did not
+touch those worktrees or their task blocks.
+
+repo state: no task/* branch or worktree from this batch remains; main fast-forwarded; gate green.
+next: rule-15 re-opens were checked — no task whose Unblock names a just-finished task needed a flip
+(M9.41 waits on open M9.55; M3.14 waits on open M3.30). Continue SM->SE->PO->QA->TL.
