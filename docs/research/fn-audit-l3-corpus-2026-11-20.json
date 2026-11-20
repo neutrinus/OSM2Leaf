@@ -405,6 +405,7 @@
   "docs/experiments/EXP-2026-11-20-M3.31-dir-read-length.md",
   "docs/experiments/EXP-2026-11-20-M4.16-rdstm-place-closure.md",
   "docs/experiments/EXP-2026-11-20-M4.16b-tmc-placement-all-tables.md",
+  "docs/experiments/EXP-2026-11-20-M4.16c-inter-ref-aligned.md",
   "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
@@ -426,6 +427,7 @@
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M5.54-wide-kinds.md",
   "docs/experiments/EXP-2026-11-20-M5.55-l2check-resize-expectation.md",
+  "docs/experiments/EXP-2026-11-20-M5.56-no-factory-container.md",
   "docs/experiments/EXP-2026-11-20-M6.16-s3-generator.md",
   "docs/experiments/EXP-2026-11-20-M6.18-prod-screen.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
@@ -448,7 +450,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 441,
+  "files": 443,
   "citations": 1156,
   "unique_va": 287,
   "start": 1000,

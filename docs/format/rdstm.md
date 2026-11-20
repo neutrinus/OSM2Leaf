@@ -643,6 +643,12 @@ record (C-5136); the route to coordinates is the link-group decode, done in
 M4.16e: a ref is `(group, entry)` → `(node, link)` of a section-2 parcel record
 (see "Link groups" above, C-5139/C-5370).
 
+M4.16c tested the `INTER` lead as aligned fields: a byte-profile control
+(bytes drawn from the real values' histogram) hits `INTER001`–`005` more often
+than the M4.1 `ref` values (aligned `u32` 135 vs 55) and than the decoded
+M4.16e link refs (30 vs 10), so the enrichment is a byte-composition
+artifact, not a join (C-2310–C-2311, `python3 tools/inter_ref_probe.py scan`).
+
 ## `RDSTM001.DAT` — uncompressed packed binary
 
 **Negative result (verified):** no zlib streams. A sequential `78 9c` scan and
