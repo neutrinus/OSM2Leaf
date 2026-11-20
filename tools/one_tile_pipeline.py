@@ -1095,7 +1095,7 @@ def selftest() -> int:
         import tilewriter
         yb, xb = tilewriter.cell_mesh("B48R058R")
         tile_bytes = tilewriter.make_factory(
-            "B48R058R", extra_dirs={1: [tilewriter._opaque_directory(0x2146, 1, yb, xb + 1)]})
+            "B48R058R", extra_dirs={1: [tilewriter._opaque_directory(0x2246, 1, yb, xb + 1)]})
         (root / "MAPAL001" / "B48R058R.DAT").write_bytes(tile_bytes)
         (root / "DRSTR001.DAT").write_bytes(b"x")
         (root / "MMAIN001.DAT").write_bytes(b"x")
@@ -1137,8 +1137,8 @@ def selftest() -> int:
             guard_parcel(imf_cross, (yb, xb), tile_bytes)
             chk(False, "guard refuses a way that leaves the chosen directory")
         except UsageError as e:
-            chk("kind" in str(e) and ("0x%04x" % 0x2146) in str(e),
-                "guard refusal names the touched directory kind (0x2146)")
+            chk("kind" in str(e) and ("0x%04x" % 0x2246) in str(e),
+                "guard refusal names the touched directory kind (0x2246)")
         clipped = td / "cross.clipped.jsonl"
         clip = clip_imf_to_directory(imf_cross, clipped, box)
         chk(clip["ways_kept"] == 0 and clip["ways_dropped"] == 1,
@@ -1151,7 +1151,7 @@ def selftest() -> int:
             guard_parcel(imf_ok, (yb, xb + 1), tile_bytes)
             chk(False, "guard refuses a preserve-only target directory")
         except UsageError as e:
-            chk("0x2146" in str(e), "preserve-only target names kind 0x2146")
+            chk("0x2246" in str(e), "preserve-only target names kind 0x2246")
 
         # The full CLI refuses the crossing way by default (negative control),
         # before creating --out.

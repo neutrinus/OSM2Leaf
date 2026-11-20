@@ -371,7 +371,7 @@ Every open M4/M5/M9 block carries `Step:`; the live grouping is
 in the page while the owner's PR is open). Critical tasks per step (2026-11-19):
 
 - **P0 (built, card `b0faf119…`)** — gate it at L3: **M9.13** (`tile_reader`), **M9.14** (`drstr_parser`), **M9.44** (virtual card); QA pin **M5.40**.
-- **P1 (all Dolnośląskie section 1)** — **M5.49** (pipeline carries the tile, delta 0), **M5.53** (11 of 20 directories not writable), **M5.11** (end to end).
+- **P1 (all Dolnośląskie section 1)** — **M5.49** (pipeline carries the tile, delta 0), **M5.54** (6 of 20 directories not writable), **M5.11** (end to end).
 - **P2 (routing)** — **M4.40**, **M4.39**, **M5.3**, **M5.36**; then M5.16 (blocked), M5.5, M9.18.
 - **P3 (names)** — **M4.36**, **M5.17**, **M4.2**, **M4.16**/**M4.16b**, **M9.15**.
 - **P4 (search)** — **M5.18**, **M5.26**, **M5.32**, **M5.52**, **M4.8b**, **M5.12c**, **M9.10**/**M9.41**.
@@ -542,8 +542,9 @@ of the four numbers above says so in its first line.
   - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` decodes 245/245 build-A sections with lengths equal `comphdr` (C-3440, EXP-2026-11-10-M9.35-sec1-load-model), so the codec port/QEMU oracle this task asked for is moot; H81 closes it on the board (M1.19 re-opens nothing here).
   - Claims: C-2070–C-2079
 
-- [ ] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
-  - Status: blocked · Owner: task/m1.2f-decomp-blk-python · Critical: no
+- [x] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
+  - Status: done · Owner: task/m1.2f-decomp-blk-python · Critical: no
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` runs the kernel's own `DECOMP_SECT` in PySh4 and `cerom.py decompress --check` reports 245/245 build-A sections OK with `r0 == comphdr uncompressed_len` (EXP-2026-11-19-M1.19-kernel-decomp-wiring); no codec port or QEMU run is needed (M1.19 rule-15 closure).
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Note (PM twelfth pass, H49): **not the L3 gate any more.** Only `INIT`
     bytes need it — 1.67 MB of 30.2 MB compressed (C-3440): sec2 constants,
@@ -1101,8 +1102,9 @@ of the four numbers above says so in its first line.
   - Stop: if the README's contract already names the gate (it may, after H85), mark this done as "H85 closed the claims half; README updated" with a one-line Result and leave the todo half to H53's follow-up.
   - Claims: C-4090–C-4099
 
-- [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
+  - Status: done · Owner: task/m1.19-kernel-decomp-wiring · Critical: yes
+  - Result: EXP-2026-11-19-M1.19-kernel-decomp-wiring; C-3500–C-3506. `cerom.py --image-start 0x200200 IMG256 decompress --check` → `245 OK, 0 UNSUPPORTED, 0 FAIL` with `r0 == comphdr uncompressed_len` for all 245 (EU2011, 1,674,478 B) and 249/249 on US256 (US2011, 1,684,059 B); `nk_decomp` gained a cached library interface (`section_init`/`section_bytes`/`load_image`, cache `$OSM2LEAF_DECOMP_CACHE` or `archive/work/decomp/`); `rommap.py --init-from-image` maps decoded INIT + zero BSS with IAT bound and no guard; `runner.py run cmp_ind_reader` (EU2011) and `cmp_ind_reader_us2011` PASS with `sec1_table.source: image` (no declared values; mask words equal `2^n-1`; counters equal the declared run, zero-sec1 control FAILs); probes `mmain_reader` → `BLOCKED STUB COREDLL.dll!wcstombs`, `drstr-sub_00419350` → `BLOCKED STUB OSMDLL.dll!OSM_Malloc` (same under `--init-guard`: no INIT read first); `va_class` prints `INIT (readable: nk_decomp)`; `reader-coverage.md` row 6 updated. Rule 15: M1.2f and M8.E1 closed as superseded (the other five were closed by H81); M1.4 was already re-opened by M1.21 (rule 15). Builds B/C not run (EXP Follow-ups).
   - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)
   - Goal: make the stored bytes of every compressed section an ordinary input. Today `cerom.py decompress` says `UNSUPPORTED` 245 times, the L3 harness maps `INIT` bytes as a guard that stops the run (M9.35), and `cmp_ind_reader` gets `inflate_mask[17]` as a declared table instead of from the image.
   - Precheck: `python3 tools/nk_decomp.py --selftest`; `python3 tools/nk_decomp.py section IMG256 --module NaviMapCC.dll --index 1` prints `r0=0x484 OK` (0.7 s); `python3 tools/nk_decomp.py check IMG256` (several minutes) prints the count recorded in EXP-2026-11-11-H51.
@@ -1386,8 +1388,9 @@ of the four numbers above says so in its first line.
   - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
   - Claims: C-4490–C-4499
 
-- [ ] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
-  - Status: open · Owner: — · Critical: no
+- [x] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
+  - Status: done · Owner: task/m1.34-applaunch-table · Critical: no
+  - Result: table base `0x03bb2330` (EU2011 = US2011), 112 records × `0x310` B via getters `0x03bccb84`/`0x03bccb88`, walker `fn 0x03bcc5b0`, filter `fn 0x03bcc564`; EU `Navi.exe` = record #81 `0x03bc1b40` (type 4, area `0x00020000`, waits 80/20/3/4/40/94/82, id `0xa2`). `fn 0x03bcc078` creates `Navi.exe` suspended and resumes it only if the error flag `0x01f733f0` is clear after id 82, which `MountStorage` (`fn 0x03bd224c`) signals after `SDC1:` → `DSK1:` mount → check 1 `fn 0x03bd2ad8` → check 2 `fn 0x03bd2ce4`. Corrected the USA/Euro area masks (C-5350). Tool `tools/applaunch_table.py`; `docs/research/rom-registry.md` updated. EXP: `docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md`. Claims C-3528, C-3529, C-5350, C-5351.
   - Depends: M1.21 (done)
   - Goal: M1.21 found that `Navi.exe` is started by `AppLaunch.dll` (build B, loaded as `Drivers\BuiltIn\AppLch`) from a compiled-in table, not from the registry, and that the same module opens `\SystemSD\VER_INFO\HDD_INFO.TXT` and prints `MapDBVer : %d <= [%d] <= %d`. Name the table's record layout, the function that walks it, and the order of the SD/map-version checks before `Navi.exe` starts, so a generated card's `VER_INFO` can be checked against the gate.
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections AppLaunch.dll` shows an uncompressed code section at `realaddr 0x03bb1000` (EU2011); `python3 tools/sh4xref.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --to 0x03bc92f0` (`HDD_INFO.TXT`, EU2011) lists two loading functions (EU2011, see EXP-2026-11-19-M1.21), while `--to 0x03bc0f54` (`\windows\Navi.exe`) prints `No literal pool holds` — the Navi entry is reached through a data table, not a code literal (M1.21 session, 2026-11-19).
@@ -1395,12 +1398,24 @@ of the four numbers above says so in its first line.
   - Input: EXP-2026-11-19-M1.21-filesentry-decode (string VAs `0x03bc0f54`, `0x03bc92f0`, `0x03bc9360`, EU2011), `docs/research/rom-registry.md`, `docs/format/validation.md` (the AppLaunch router), `tools/sh4xref.py`, `tools/sh4dis.py`, `tools/nk_decomp.py pdata --module AppLaunch.dll`.
   - Done when: an EXP names the table base, record size and the fields for the `Navi.exe` record (EU2011 VAs, function starts checked with `nk_decomp.py pdata`), and the function that opens `HDD_INFO.TXT` with the comparison it makes; `docs/research/rom-registry.md` gains the result.
   - Stop: if no static reference to the table is found after the string-pool and `.data` search, record the negative with the positive control (a `\Drivers\Launch\SD` reference) and block on an L3 run of the router.
-  - Claims: C-3528–C-3529
+  - Claims: C-3528–C-3529 (and C-5350–C-5351 from the reserve)
+
+- [x] **M1.35 — What `AppLaunch.dll` asks `SDC1:` before the mount (`0x80032000`/`0x80032004`), and who signals wait id 94**
+  - Status: done · Owner: task/m1.35-sdc1-ioctl-wait94 · Critical: no
+  - Depends: M1.34 (done)
+  - Goal: M1.34 found that `MountStorage` (`fn 0x03bd224c`, EU2011) opens `SDC1:` and sends `DeviceIoControl 0x80032004`/`0x80032000` with retries (`fn 0x03bd2044`) before `DSK1:` is mounted, failing with error `0x80` `NO SD CARD`; `SD UNLOCK NG` (`0x81`) is never dispatched there. Name the handler of these two IOCTLs in `SDHC.dll` (build B) and say whether it is the CMD42 unlock, and find the signaller of ACM wait id 94 that every non-JP `Navi.exe` record waits for.
+  - Precheck: `python3 tools/sh4dis.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --va 0x03bd2044 --count 80` shows the two IOCTL literals (`0x03bd20f8`, `0x03bd2108`, EU2011); `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections SDHC.dll` lists an uncompressed code section.
+  - Scope: build B `SDHC.dll` `IOControl` dispatch for `0x8003xxxx` and the `ACM9:` driver's `SET_ID` callers outside `AppLaunch.dll`. Not: the lock password value (never written in the repo).
+  - Input: EXP-2026-11-20-M1.34-applaunch-table, `tools/applaunch_table.py`, `tools/sh4xref.py`, `tools/nk_decomp.py pdata`.
+  - Done when: an EXP names the `SDHC.dll` function that handles `0x80032000` and `0x80032004` (pdata START, EU2011) with the SD command it issues, and the module that sends `IOCTL_ACM_SET_ID` with id 94 (or a negative with the `AppLaunch` id-82 sender as positive control).
+  - Stop: if the `SDHC.dll` IOControl dispatch is not found after the literal search and an export walk, record the negative and block on an L3 run of `fn 0x03bd2044`.
+  - Claims: C-5352–C-5359
+  - Result: done — EXP-2026-11-20-M1.35-sdc1-ioctl-wait94. `SDC1:` = `CSDCMain` in `SDHC.dll` (EU2011 = US2011); `fn 0x039b4498` dispatches `0x80032004` to `fn 0x039b4850` (port state: 2 inactive, 4 `DSK1:` active, 8 failed, 1 no card, `|0x80000000` if unpowered) and `0x80032000` to `fn 0x039b4664` (insert/remove request: port power + wake the load thread). Neither issues CMD42; the unlock runs inside the `DSK1:` activation (`fn 0x039b4b18` → `CDSKMain::Init` → `fn 0x039b6ac4`), which then sets ACM id 37. Id 94: no SET_ID sender in images A+B+C of either build (`tools/acm_id_scan.py`: 0 of 71/72 calls; controls 37, 22, 82 found), so `Navi.exe` waits out its 30 s (C-5352–C-5357; C-5358–C-5359 unused).
 
 ## M2 — Map code, activation, updater
 
-- [ ] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
+  - Status: done · Owner: task/m2.4-hdd-info-predict · Critical: yes
   - Re-opened (rule 15, M9.6 merged 2026-11-19): `runner.py run applaunch_mapcode_compare --image IMG256 --input VARIANT --unit-from FACTORY` gives the firmware check-1 verdict per variant (EXP-2026-11-19-M9.6-mapcode-compare); the blocker below is kept as a note.
   - Depends: — (**M9.6 merged** `ff8720d`, M2.15 and M2.3 done); the corpus and
     the comparator are both on `main` now
@@ -1424,10 +1439,22 @@ of the four numbers above says so in its first line.
     `AppLaunch.dll` `fn 0x03bd2ad8` (M2.5), not M2.2's user-data check.
   - Done when: each variant has a firmware verdict and it is compared with
     `hddinfo.py classify`.
-  - Result: blocked — EXP-2026-11-08-M2.4-hddinfo-variants-blocked (negative:
+  - Earlier result (2026-11-08, blocked): EXP-2026-11-08-M2.4-hddinfo-variants-blocked (negative:
     firmware verdicts unavailable; C-2086 retains M2.15-model offline
     reclassification of all 89).
-  - Claims: C-750–C-759
+  - Claims: C-5290–C-5295 (was C-750–C-759; fresh block for this run; C-5296–C-5299 go to M2.19)
+  - Result: done — EXP-2026-11-19-M2.4-hddinfo-fw-verdicts. `tools/hddinfo_fw_matrix.py run` puts all 89 variants through EU2011 build B `fn 0x03bd2ad8` (check 1): firmware 69 ACCEPT / 20 REJECT, agrees with `hddinfo.py classify` check 1 on 89/89 (factory ACCEPT, no-file REJECT controls ok); M0's 66/23 is refuted. Edge probes are consistent with a byte-exact compare of line-1 bytes 0..10 (BOM, lower case, leading space fail; 10 probes + 14 line-1 edits), and LF-only / line-1-only files pass check 1 although `hddinfo.py` refuses them (C-5290–C-5295). Check 2 (`0x51`) is M2.19.
+
+- [ ] **M2.19 — Check 2 (MapDBVer, `0x51`) and the router on the `HDD_INFO` variants in L3**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M2.4 (done), M9.6 (done)
+  - Goal: run AppLaunch `fn 0x03bd2ce4` (MapDBVer range, EU2011 build B) and the router `fn 0x03bd2ecc` on the 89 variants, so each has a full launcher verdict, not only check 1.
+  - Precheck: `python3 tools/nk_decomp.py pdata --image-start 0x3e00200 --module AppLaunch.dll archive/head256.img 0x03bd2ce4 0x03bd2ecc` gives `START` for both; `python3 tools/sh4dis.py --image-start 0x3e00200 --va 0x03bd2ce4 --count 120 archive/head256.img AppLaunch.dll` shows its imports are a subset of the 8 `mapcode_l3` stubs (else name the missing one).
+  - Scope: EU2011 build B only; unit bounds `+112/+114` are declared inputs (bracketing the factory MapDBVer `0x010`), not measurements; the 12 MapDBVer-changing variants (C-3034) are the ones that can move.
+  - Input: `tools/mapcode_l3.py`, `tools/hddinfo_fw_matrix.py`, `hddinfo.py` (`extract_mapdbver`), EXP-2026-11-19-M2.4-hddinfo-fw-verdicts.
+  - Done when: each of the 89 variants has a check-2 firmware verdict under a stated bounds pair, compared with `hddinfo.py classify --mapdbver-min/--mapdbver-max`, plus a run of the router that returns `0x50`/`0x51`/pass.
+  - Stop: if check 2 needs the parse cache filled by a prior check-1 call and the harness cannot chain the two calls, or calls an unmodelled import, set `blocked` with the PC.
+  - Claims: C-5296–C-5299
 
 - [ ] **M4.23 — Tile section-2 regulation/connectivity reader (kinds `0x2046`/`0x3e4`)**
   - Status: blocked · Owner: claude/m4.23-restriction-encoding · Critical: no
@@ -1474,8 +1501,8 @@ of the four numbers above says so in its first line.
 
 ## M3 — Reader contract
 
-- [ ] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
-  - Status: blocked · Owner: task/m3.2-ind-handling · Critical: yes
+- [x] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
+  - Status: done · Owner: — · Critical: yes
   - Unblock: M3.2b's re-run (the chunk engine and its caller), or M1.2f when
     the `.ind` layer turns out to be in `Navi.exe` sec1.
   - Blocker: `.ind` chunk reader (chunk_count/chunk_size/chunk_offset consumer) not identified; `fn 0x00418748` is a resolver only. See EXP-2026-11-06-M3.2-ind-handling.
@@ -1485,7 +1512,8 @@ of the four numbers above says so in its first line.
     scans for `78 9c`.
   - Input: M3.1 functions; `docs/format/cmp-ind.md`; `tools/ind_mutate.py`.
   - Done when: both answers are in `cmp-ind.md` with VAs.
-  - Claims: C-830–C-839
+  - Claims: C-5330–C-5339 (was C-830–C-839; fresh block for this run)
+  - Result: EXP-2026-11-20-M3.2-ind-handling-l3.md (done, C-5330–C-5334). EU2011 L3 run of the whole compressed layer (`tools/cmp_read_l3.py`: mount `0x41bc98`, open `0x41b780`, seek `0x41b8a4`, read `0x41b954`, host ops): (a) `chunk_size` compared with the mount word at `0x41c92a` (0x8000/0x20000 rejected before any `.cmp` read; mount word 0x20000 rejects the factory file; both 0x20000 -> 79,360 wrong bytes), sizes nothing; (b) seek to `chunk_offset[first]` + one read (POINT010 seek `0x234d7f`), `78 9c` decoy + shifted index still correct, `off_last_m1` -> -1, no scan. Factory ADDRE001/POINT010 byte-identical. Static answers were already in `cmp-ind.md` (M3.2b); L3 paragraph added.
 
 - [ ] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
   - Status: open · Owner: — · Critical: yes
@@ -2035,8 +2063,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-19-M5.51-metadata-reasons.md (C-4610-C-4619). `imgpatch.py --check-diff --strict-metadata` names every admitted metadata range and fails any that is not a link of the move. On card `b0faf119...33237` it exits 0 with `metadata: 9`, `unexpected metadata: 0`; the nine ranges are exactly FAT[94806] 268435455->29687, FAT[29687] 0->29688, FAT[29688] 0->268435448 in both copies plus the FSInfo free/next words. Two negative controls (FAT0 entry 50000 -> fat0_slack, FSInfo sector-1 0x100 -> fsinfo_unknown) exit 1; wide `--allow-metadata` still admits both, so M5.30's numbers are unchanged. `--selftest` 73 checks; selftest.py 96/0/24; gate 4/0/0. Review was in-process (subagent router down), recorded as self-review in the EXP.
   - Claims: C-4610–C-4619
 
-- [ ] **M5.52 — `mutate_refer_poi.py --resize` must update the record's field-length bytes, or the firmware reads a truncated name**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.52 — `mutate_refer_poi.py --resize` must update the record's field-length bytes, or the firmware reads a truncated name**
+  - Status: done · Owner: task/m5.52-resize-field-len · Critical: yes
   - Step: P4
   - Depends: M3.11c (done — the accessor and the field-length bytes)
   - Goal: M3.11c found that the firmware finds a POI name through the per-record field-length bytes, in words, plus the file's field dictionary, not through the `ff ff` framing. `resize_name` only rewrites `len2`. After a different-length rename the accessor still returns the old length: US2011 record 0 renamed `HANA HEALTH CENTER`→`HANA HEALTH CENTERXX` reads back as name `HANA HEALTH CENTER` and address `XX4590@HANA HWY` (EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5117). Make `--resize` update the field-5 length byte too, and refuse a delta that is not a whole number of words.
@@ -2045,7 +2073,8 @@ of the four numbers above says so in its first line.
   - Input: `tools/point_name_accessor.py` (the L3 check), C-5110–C-5117.
   - Done when: the precheck command exits 0 with `ok=1000 of 1000` and the expected name on a +2-byte and a −2-byte rename, and `resize_name` refuses a record whose header class it cannot place.
   - Stop: if a record class other than 3/2 needs renaming and its length byte cannot be located, refuse it and record the class count.
-  - Claims: C-5260–C-5269
+  - Result: EXP-2026-11-19-M5.52-resize-field-len.md (done). `--resize` places field 5 like `fn 0x003f56bc`/`fn 0x003f5e10` (EU2011; length of field f = byte `loc+f`), requires the old text inside field 5, patches `len2` and the field-5 length byte, refuses odd deltas and unplaceable records; `--census`: 2000/2000 records class 3, all placeable. Accessor (US2011 `0x0041ec8c`, EU2011 `fn 0x003f632c`): US rec 0 −2/0/+2/+10 B and EU rec 0 −2/+2, rec 1 +2 → whole new name, address unchanged, `ok=1000 of 1000`, PASS; pre-fix +2 `mismatch=1` (precheck), old-name expectation FAIL, odd/address renames refused. The M9.39 US mutant `ea2d0e0f…` has the same stale byte at rec 500 (`mismatch=1`); the fixed CLI writes `34fb3aab…` (`ok=1000`) → new M9.54 (re-pin). selftest 17/17.
+  - Claims: C-5260–C-5265 (C-5266–C-5269 handed to M9.54)
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -2168,9 +2197,11 @@ of the four numbers above says so in its first line.
     + selftest. Join key NOT identified; done-when not met (negative).
   - Claims: C-1810–C-1819
 
-- [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: blocked · Owner: task/m4.16b-rdstm-field-dir · Critical: yes
-  - Blocker (2026-11-19): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
+- [x] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
+  - Status: done · Owner: task/m4.16b-rdstm-field-dir-placement · Critical: yes
+  - Result: EXP-2026-11-20-M4.16b-tmc-placement-all-tables — with the M4.16e link-group rule, `rdstm_place.py place-all` carries 110,788/110,795 location-code-joined TMC records of all 14 RDSTM tables (14 countries) to level-2 node coordinates: 110,788/110,788 in the table's country (random refs 2,048/27,998), 94,551/95,176 < 1 km from the TMC positive neighbour (shuffled 129); 60,321 also resolve through set 0 (level 4) and all lie < 5 km from their level-2 nodes (shuffled 256). Join key = location code (neg/pos agreement is a confirmation). Roles `k&3`: role 1 = reversed role 0 in 24,948/66,443 (HYPOTHESIS, to M4.49); flag bits not decoded. C-5400–C-5403.
+  - Reopen note (M4.16e, 2026-11-20, rule 15): the link groups are decoded (EXP-2026-11-20-M4.16e-rdstm-link-groups); `python3 tools/rdstm_links.py place LCTBL001.DAT RDSTM001.DAT MAPAL001 --table-pair 0` maps 8,532 CZ records to level-2 node coordinates with controls, so the done-when can now be closed (blocker below kept as history).
+  - Blocker (2026-11-19, resolved by M4.16e): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
   - Unblock: M4.16e (decode the RDSTM001 link groups after `0xccce00`). The `0x00d53500` table is a handle cache, not a schema (C-5130): M3.22 is no longer this task's unblocker.
   - Result: EXP-2026-11-19-M4.16b-tmc-field-directory (directory rule from `0x003f56bc/0x003f5d98/0x003f5e10`; `tools/tmc_fielddir.py`; `rdstm_place.py probe-decoded` negative). C-5130–C-5136.
   - Blocker (history, negative EXP kept): **impossible with current inputs / blocked by compressed `.data` (Navi.exe sec1)**. Precheck: `sh4dis Navi.exe --image-start 0x200200 --check-real` OK on IMG256 `92aa525d…` (M1.11c RDSTM pins, no `.word` gap at named walk sites; MOVT/SHAR/SHLD/SHAD done). `cerom va2file 0x00d53500` → unmapped (`0x-8bb8d900`); `0x00d53500` (schema descriptor consulted by `0x003f51e0`, `[0x003f52b8]=0x00d53500`) lies in **Navi.exe sec1 `va 0x55d000 vsize 0xff16ae psize 0x457c flags 0xc8002040 COMPRESSED rw-`** (covers `0x55d000–0x154e6ae`), so schema bytes/field lengths are unreadable with current inputs. C-884 walk not reproduced to true per-record boundaries; `rdstm_place.py` not re-run on decoded fields; no ≥20 decoded-record mapping, no named join key, no ~0 random-key control. Done-when **not met**. Join/placement route remains **M4.16d** (once true decoded TMC fields exist).
@@ -2186,10 +2217,11 @@ of the four numbers above says so in its first line.
   - Scope: the C-884 directory walk (`0x003f56bc`, `0x003f5e10`, schema `0x00d53500`) on Navi.exe build A; ≥20 decoded records tested for placement. No RDSTM writer.
   - Done when: ≥20 decoded records map to tile/mesh/coordinates with a named join key and ~0 random-key control, or the mapping is proven impossible with method recorded.
   - Stop: if schema table `0x00d53500` is unreadable (compressed `.data`) or the walk cannot be reproduced with current inputs, set `blocked` naming that dependency and keep the negative result.
-  - Claims: C-5130–C-5136 (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
+  - Claims: C-5130–C-5136, C-5400–C-5403 (second pass; block C-5400–C-5409, C-5404–C-5409 spare) (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
 
-- [ ] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
+  - Status: done · Owner: task/m4.16e-rdstm-link-groups · Critical: yes
+  - Result: EXP-2026-11-20-M4.16e-rdstm-link-groups — the `0x1000` header lists two sets of 14 tables and one group index per set (`0xcda000`, `0xe78500`); ref `(group, entry)` → 4-byte entry `(node, link)` of the section-2 record of a level-4 (set 0) / level-2 (set 1) parcel named in the group (1,877,054/1,877,891 and 417,540/422,683 fit, random node 5.7 %/0.4 %); every joined TMC record of the CZ (8,532) and DE (22,884) tables lands on a node in its own country (random refs 5 %/19 %) and next to its TMC neighbour (< 1 km 99.9 %, shuffled 0.1 %). `tools/rdstm_links.py`. Firmware reader not located: M4.49. C-5137–C-5139, C-5370–C-5372.
   - Depends: M4.16b (record directory + location-code join, done as far as the link refs)
   - Goal: turn an `RDSTM001` link reference (`u32`: `>>16` = group 0..3131, `&0xffff` = entry) into a MAPAL mesh/parcel/link, so ≥20 TMC records map to coordinates (the M4.16b done-when).
   - Input: EXP-2026-11-19-M4.16b-tmc-field-directory (C-5134–C-5136); `tools/tmc_fielddir.py join` (codes → refs); EU `RDSTM001.DAT` `f822044c…` region `0xccce00..EOF` (≈2,790 0x100-aligned blocks of 4-byte entries with `0x40/0x60/0x80/0xa0/0xc0/0xe0` tags; 2,294,877 indexed entries in 3,132 groups); the `0x1000` header (`0x180` words) of `RDSTM001.DAT`; `clarion_rd.py` (sec2 parcel code, 13-bit link ids).
@@ -2197,7 +2229,19 @@ of the four numbers above says so in its first line.
   - Scope: EU 2011 card only; groups → blocks, entry format, group → mesh; no writer.
   - Done when: ≥20 TMC records (code, name) map through their refs to MAPAL tile/parcel/link coordinates, with a random-key control near 0 and a named mapping rule; or the mapping is shown not to exist with method recorded.
   - Stop: if the group directory cannot be found from the file header or block order, look for the firmware reader of these blocks (search the readers of `RDSTM001` by reachability, M3.23) and report `blocked` with the block census.
-  - Claims: C-5137–C-5139 (block from M4.16b's reserve; take the next free block if more are needed)
+  - Claims: C-5137–C-5139 (block from M4.16b's reserve), C-5370–C-5372 (C-5373–C-5374 spare, C-5375–C-5379 given to M4.49)
+
+- [ ] **M4.49 — Locate the firmware reader of the `RDSTM001.DAT` link groups and run it in L3**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.16e
+  - Goal: rule 13 for the M4.16e decode: find the `Navi.exe` code that reads the `RDSTM001.DAT` header sets, the group index (`u16 size_dwords, u32 addr, u16 blocks, u32 key_min, u32 key_max, u16 n, n x (u32 parcel, u16 count)`) and the 4-byte `(node, link)` entries, and decode the unknown bits (`a` 0x4000/0x8000, `b` 0x4000/0x8000, link-record role `k & 3`, header words `3`/`122`).
+  - Input: EXP-2026-11-20-M4.16e-rdstm-link-groups (C-5137–C-5139, C-5371); `tools/rdstm_links.py`; the TMC record readers of M3.7/M4.16b (`0x003bc960`, `0x003f61bc`, EU2011 build A).
+  - Precheck: `python3 tools/rdstm_links.py groups RDSTM001.DAT` → `set 1: groups 3132 … all referenced 3132/3132` (the structure the reader must parse exists), and `python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x003bc960` → START.
+  - Signature: derived from the decode (weakest kind, say so): a loop over `u16 n` entries of 6 bytes after an 18-byte group head, a `<<11` + `<<8` address build (`(v>>8)*0x800 + (v&0xff)*0x100`), and `& 0x1fff` on both halfwords of a 4-byte entry; prefer callers of the RDSTM volume open (`0x004125a8`) by reachability (M3.23) over pattern scans.
+  - Scope: `Navi.exe` sec0 (EU2011 build A) plus the DLLs it calls for TMC; L3 on one ref of table 0.
+  - Done when: the reader has a VA in `docs/format/rdstm.md` and an L3 run resolves one ref of the EU card to the same (parcel, node, link) as `rdstm_links.py`; or `blocked` with the searched signature, corpus and a control.
+  - Stop: after the reachability walk and two derived signatures without a hit, report `blocked` with the call tree searched.
+  - Claims: C-5375–C-5379 (from M4.16e's block)
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no
@@ -2261,8 +2305,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-06-M4.20-us-drstr-roundtrip; `drstr_ze0.build()` preserves DRSTR-stored entry name case (US `XMD/ltntbl.dat` @0x1ae0); US+EU byte-identical, `drstr_ze0 --selftest` OK.
   - Claims: C-2100–C-2109
 
-- [ ] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.22 — Identity codes: header `0x180`, `DRSTR` `0x18c`, `BICON001` version**
+  - Status: done · Owner: task/m4.22-identity-codes · Critical: no
   - Depends: —
   - Note (SE 2026-11-15, supersedes the PO 2026-11-13 note): the PO note pointed the `0x18c` code table at **M4.36**, which is the unrelated `ADDRE`/tile-section-4 join. The correct unblocker is **M4.38** (SE 2026-11-15); this task stays blocked on the `0x18c` code→language anchor plus its own header-word work (M4.12 delivered the ICODE001 index it needs, not the codes).
   - Goal: three identity fields are still unexplained and a generated card
@@ -2277,9 +2321,22 @@ of the four numbers above says so in its first line.
     the mutation that would settle it, the language codes are matched to the
     `SPEECH/` language sets, and `header_block.py check` runs on the four real
     samples; `drstr.md`/`assets.md` updated in the same commit.
-  - Claims: C-2490–C-2499
+  - Claims: C-5280–C-5283 (was C-2490–C-2499; fresh block for this run; C-5286–C-5289 go to M4.48)
   - Blocker: M4.38 decoded the `0x18c` codes from the firmware (Navi.exe `sdl_com_hdl_get_lang` table joined with Speech.exe's dir switch; all `SPEECH/` sets on EU 2011, US 2011 and EU 2014 matched, C-3760–C-3769, EXP-2026-11-19-M4.38-lang-code-table), except `14 17 18 19 1a`, which no table in four builds returns (firmware language table for them not found). The header fixes and the BICON001 retraction are done (EXP-2026-11-08-M4.22-identity-codes).
   - Unblock: re-open now to finish `file-header.md`/`drstr.md`/`assets.md` with the M4.38 code table (the language-matching done-when is met for every code with a speech set); `14 17 18 19 1a` stay `UNKNOWN`/`HYPOTHESIS` with the mutation named in `file-header.md`
+  - Result: done — EXP-2026-11-20-M4.22-identity-codes. `identity_fields.py card` (new) reads MMAIN001/BICON001/DRSTR001 from the FAT of all four cards (EU/US 2011 full, EU 2014/2016 head + fetched clusters): every 2026-11-08 value reproduced; `header_block.py check` PASS on 8 headers, DRSTR negative exit 1; M4.38 language join PASS on all four cards incl. EU 2016 (16/16). `file-header.md`/`drstr.md`/`assets.md` carry the M4.38 code table; `0x180`–`0x183`, `14 17 18 19 1a` stay `UNKNOWN` with their mutations. Only `Navi.exe` imports `OBJ_DriveInfo_readDataVol`, and only fn `0x00377ae0` (EU2011) loads the thunk; the `0x18c` reader is M4.48 (C-5280–C-5283).
+
+- [ ] **M4.48 — Trace the `Navi.exe` reader of `MMAIN001` `0x18c` (map-language list)**
+  - Status: open · Owner: — · Critical: no
+  - Step: P0
+  - Depends: M4.22 (done), M4.38 (done)
+  - Goal: find the EU2011 `Navi.exe` code that reads the `0x18c` language list from the `MMAIN001` header copy and run it in L3, so the code→language reading becomes a firmware verdict instead of a value join.
+  - Precheck: `python3 tools/sh4xref.py archive/head256.img Navi.exe --to 0x01205040` lists the 4 functions that load the header copy (`0x00377ae0`, `0x003796bc`, `0x003798bc`, `0x0037a2c0`); `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x003796bc 0x003798bc 0x0037a2c0` gives `START` for each.
+  - Scope: EU2011 build A `Navi.exe` and OBJDLL; signature from the data (byte-swapped u16 pairs at `+0x18c`, `3f` terminator, `cmp/eq #63`), not from the doc; excludes the meaning of `14 17 18 19 1a`.
+  - Input: EXP-2026-11-20-M4.22-identity-codes (consumer census), EXP-2026-11-19-M4.38-lang-code-table, `tools/identity_fields.py card`, `tools/lang_code_table.py`.
+  - Done when: one function VA (EU2011, `pdata` `START`) is shown to read `+0x18c` of the header copy, and an L3 run of it on the EU 2011 header returns a different result when `05` is replaced by `3f`.
+  - Stop: if none of the four loaders nor their callees reads `+0x18c..+0x19f` within two call levels, set `blocked` with the call tree in the EXP.
+  - Claims: C-5286–C-5289
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
   - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
@@ -2435,8 +2492,8 @@ of the four numbers above says so in its first line.
   - Stop: if the join is not one-to-one, record the ambiguity classes (same name on two streets, unnamed ways), and stop at the mapping table.
   - Claims: C-3670–C-3679
 
-- [ ] **M4.39 — Route-link id: what in a `MAPAL001` tile section 2 can a `LCTBL001` road or an `ADDRE` record be joined to**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M4.39 — Route-link id: what in a `MAPAL001` tile section 2 can a `LCTBL001` road or an `ADDRE` record be joined to**
+  - Status: done · Owner: task/m4.39-route-link-id · Critical: yes · Pair: required
   - Depends: M5.37 (the L2 graph model this task needs to name nodes/links), M4.31 (the negative join search this narrows); M3.6 (which sections the router reads, done)
   - Goal: routing needs a stable key from a displayed road name/record back to the graph edge the router uses. M4.31 proved there is no `LCTBL↔RDSTM` join and M3.7 showed `RDSTM001` is TMC, not routing; nobody has asked whether section 2 itself carries an id an `ADDRE` name can reach. Without it the map routes on an anonymous graph and "route across the moved road" (M6.7) cannot be aimed at a chosen OSM way.
   - Precheck: `python3 tools/tile_diff.py B48R058R.DAT --section 2` lists section-2 records (M4.23/M4.24 framing); `python3 tools/ze0-viewer/harness.py info` shows section 2 non-zero; `grep -rn 'link_id\\|link_id\\|edge_id' tools/ docs/format/` prints nothing outside the M4.31 negative, i.e. the key is unnamed today.
@@ -2446,7 +2503,8 @@ of the four numbers above says so in its first line.
   - Done when: the EXP lists every section-2 field tested, the join rate against the name layer and against `LCTBL001` for each, the shuffle/null baseline, and either names a key that beats its null (with a second-tile control) or records the tested fields as a controlled negative; `docs/format/map-tiles.md` gets the field table.
   - Stop: if no field survives the framing on two tiles, record the negative with the null and stop; do not fit a key from row order.
   - Falsifier: a claimed key scores no better than its shuffled null, or works on `B48R058R` and not on the control tile without a named reason.
-  - Claims: none yet
+  - Claims: C-5150–C-5156 (block C-5150–C-5159; C-5157–C-5159 handed to M4.46)
+  - Result: EXP-2026-11-19-M4.39-route-link-id (C-5150–C-5156, `tools/route_link_join.py`): the key is `(parcel code, class & 0xf, entry word 3 & 0x1fff)` — it names the drawn section-1 link with an end at the entry's node for 99.9 % of entries on `B48R058R` (4,970,122) and on the control `B38R068R` (1,590,948), against 6.1 % with the field shuffled and ~0 with another parcel's shapes; node `(x, y)` keys nodes (100.0 % vs ≤ 0.05 %); w4/w5/a/b/node indices are not keys (≤ 7.9 % vs nulls 0.8–4.2 %). ADDRE refs reach it through the drawn point (Andorra on `B38R068R` 2,125/2,125 land, 2,112 on the named street vs 406/2 rotated-parcel null; Germany on `B48R058R` 44,631/44,631, 44,576 named vs 7,741/180). `LCTBL001` has no numeric key (best hit/null 1.43 at 0.1 %); name text only, median 8 records per name. Field table in `docs/format/map-tiles.md` ("Route-link key"). Section-2 decoding used: `clarion_rd`/`rd_check` on `main` (M5.37 merged meanwhile; not needed). New: M4.46.
 
 - [ ] **M4.40 — Tile section 2 (route graph) grammar read from the router's reader, not guessed from bytes**
   - Status: open · Owner: — · Critical: yes · Pair: required
@@ -2462,6 +2520,29 @@ of the four numbers above says so in its first line.
   - Stop: if the subtree turns out to hand section 2 to another task by message (an `OSM_TaskSend` with the buffer), name the receiver and stop — that is the next subtree.
   - Falsifier: a field the table gives does not vary where the two tiles' roads differ, or the L3 run reads bytes outside section 2 only.
   - Claims: none yet
+
+- [ ] **M4.46 — `tools/addre.py` misses the street name on shards whose name section starts `05 LL 00 ff`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (found by M4.39)
+  - Goal: `addre.parse_record` recognises the 2011 `c0` name section only with `TT` = `0x03`/`0x04`; on `ADDRE005` (Germany) `TT` is `0x05` and it returns no name for all but 18 of the first 81,313 `c0` records, so every ADDRE name census built on it undercounts those shards (C-5156).
+  - Precheck: `python3 tools/addre.py records $F/REFER001/ADDRE005.DAT.cmp --limit 20` prints `name=` empty on `c0` rows; `python3 tools/route_link_join.py --selftest` passes (its `street_name` reads the same records by the `TT LL 00 ff` rule).
+  - Scope: `tools/addre.py` `parse_record` name detection and its selftest; census of `TT` per shard over the 33 EU2011 ADDRE files (count only). No ADDRE writer change.
+  - Input: EXP-2026-11-19-M4.39-route-link-id (C-5156), `docs/format/refer.md` §Address records, `tools/route_link_join.py` `street_name`.
+  - Done when: `TT` per shard is tabulated in `refer.md`, `addre.py` returns a name for every `c0` record on ≥ 3 shards with different `TT` (positive), and still none on `c8` (negative).
+  - Stop: if a shard's name section does not follow `TT LL 00 ff`, record the shard and its first 16 bytes and stop.
+  - Claims: C-5157–C-5159
+
+- [ ] **M4.47 — Find the POINT chain locator (where a chain base and its table are recorded)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: — (M5.26 done: chain tables and `tools/point_pair_regen.py` on `main`)
+  - Goal: M5.26 can re-pack a POINT page chain only inside its own slot (24–248 B of slack per name chain) because nothing known tells the reader where a chain base and its chain table are (C-2955). Find that locator so a regenerated chain can move or grow and mass OSM name sets fit.
+  - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_pair_regen.py scan EU/REFER001` reports 99 tables / 0 unresolved; `python3 tools/point_pair_regen.py locator EU/REFER001` reproduces `NOT FOUND (best 4/33)` with control 33/33 (the search space already excluded).
+  - Scope: decoded `REFER001/POINT0nn.DAT` of EU and US 2011 (44 files): the 0x200–0x2000 directory area (`ffff 0000 0201` record at `0x1000`, 6-byte cells near `0x820`/`0xe80`), the `4e 20 00 00` index chains, the area after the tables; then, if the file does not hold it, the firmware: the caller(s) of `fn 0x003f5194` (EU2011) and the `0x00d53500` buffer table (C-2184/C-2540) that hands it a page. Name the build next to every VA. No writer change beyond `point_pair_regen.py`.
+  - Input: EXP-2026-11-19-M5.26-point-pair-regen (`chains_detail` in `scan --json` gives every base/table/end), `docs/format/refer.md` §POINT page chains, `tools/point_walk_l3.py`, `tools/sh4xref.py`, `tools/nk_decomp.py pdata`.
+  - Hints: the three bases differ between files while the `0x1000` record's words do not scale with them — try differences between chains (base2000 − table1000 etc.), counts of records/pages (1000/page), and sums of `comp_w` of *other* chains. A differential is strongest: move one chain in a synthetic copy and run the L3 POINT walk path.
+  - Done when: an EXP names the field(s) (offset, width, unit, base) that give each chain base and table offset in 44/44 files with a negative control (a shuffled value fails), and `point_pair_regen.py` gains a relocation mode that moves a chain to the end of the `.DAT` and updates that field, with its selftest; or the EXP shows the locator lives in firmware/another file with the reading VA (EU2011) and a control.
+  - Stop: if neither the file search (directory + index chains) nor the firmware caller path of `fn 0x003f5194` yields it after both are searched, record the scopes searched and set blocked on the first M3 reader task that executes the POINT open path in L3.
+  - Claims: C-5390–C-5399
 
 - [x] **M4.41 — Differential decoding: the same tile in 2011, 2014 and 2016**
   - Status: done · Owner: task/m4.41-diff-years · Critical: no · Pair: solo
@@ -2735,8 +2816,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     clusters+dir entry). Partner road name not resolved. Artifacts outside repo.
   - Claims: C-2050–C-2059
 
-- [ ] **M5.15 — `build.py` writes a card: factory image + OSM → card image → checks**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.15 — `build.py` writes a card: factory image + OSM → card image → checks**
+  - Status: done · Owner: task/m5.15-build-py-card · Critical: yes
   - Step: tooling
   - Depends: M5.11 (one tile end to end); grows with each writer (M5.4–M5.7, H11 rows)
   - Goal: the one command Marek described: take a factory card image, drop
@@ -2755,7 +2836,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     then each check's verdict; it refuses to report success if any check
     fails. First milestone: one generated tile (= M5.11); every new writer
     adds its family. OSM extracts stay outside the repo (rule 12).
-  - Claims: C-2280–C-2289
+  - Claims: C-5360–C-5369 (was C-2280–C-2289; fresh block for this run)
+  - Result: EXP-2026-11-20-M5.15-build-py-card. `build.py` write mode (one tile, one section-1 directory): EU 2011 + `m5.37-splice.osm` → `out.img` `b88a31f4…` (= M5.11 byte for byte), 24 families (1 generated, 4 rebuilt, 7 not yet generated, 12 copied), 8 checks PASS incl. L3 map-code ACCEPT, 5 gates cannot-verify-offline, ladder P0; failures exit 1 and remove the image; several tiles / added files exit 3.
 
 - [ ] **M5.16 — `LEV3456R.DAT` generator: levels 3–6 from OSM (H11 G4)**
   - Status: blocked · Owner: task/m5.16-lev3456-generator · Critical: no
@@ -2859,8 +2941,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     is a page-relocation design (pointer tables), a separate task.
   - Claims: C-2580–C-2589
 
-- [ ] **M5.26 — Whole-POINT-pair regeneration for OSM name sets (beyond in-place slot budget)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.26 — Whole-POINT-pair regeneration for OSM name sets (beyond in-place slot budget)**
+  - Status: done · Owner: task/m5.26-point-pair-regen · Critical: yes
   - Depends: M1.13, M1.16, M5.21
   - Goal: make mass POI/name generation feasible for the OSM compiler. M5.21
     showed 98.6 % of edited POINT pages abut their slot and in-place edits fit
@@ -2888,6 +2970,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     record the exact field and open/block on the specific M4/M3 task instead of
     guessing offsets.
   - Claims: C-2950–C-2959
+  - Result: EXP-2026-11-19-M5.26-point-pair-regen (C-2950–C-2957). New tool `tools/point_pair_regen.py` (`scan`/`regen`/`verify`/`locator`/`summarize`). POINT pages sit in chains described by chain tables (`u16 per_page, u16 0, n × (start_w, comp_w, inner_w)`, three per file); `regen` re-packs a whole chain, rewrites its table and rebuilds the pair; the no-op control with stock zlib 1.3.1 is byte-identical on 44/44 EU+US pairs; EU POINT010 takes 1,000 names (+2 B each, page 0 +176 B past its own slot), all with `@`, `cmpind` decodes it. Limit: a chain cannot move — its locator is UNKNOWN (C-2955) and chain slack is 24–248 B, so real-name sets of 10–100 names already overflow most chains → M4.47.
 
 - [ ] **M5.27 — Finish M5.12c uncompressed-file scan and reconcile EXP/TODO status**
   - Status: open · Owner: — · Critical: no
@@ -3207,17 +3290,30 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-19-M5.50-card-ladder.md. `docs/format/card-ladder.md` has P0 (10 rows), P1 (5) and P2 (6) as commands with expected tokens; its 40-line block prints 16 x `OK:` + `card-ladder: all rows OK`. P0's card row is the M5.30 SHA `b0faf119...33237`; P1's three card rows are `NOT RUN - M5.49` and the absent `--preserve-tile` flag is itself asserted (`0`); P2's routing/class rows name M5.16/M5.36. Two negative controls (wrong token, a NOT RUN row asserted as present) fail the block. No claim registered; no code touched. Self-reviewed (router down), recorded in the EXP.
   - Claims: none yet (docs page; the commands cite existing claims)
 
-- [ ] **M5.53 — P1 needs 11 more directories: make the `0x2146`–`0x2946` section-1 kinds writable (or prove they cannot be)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M5.53 — P1 needs 11 more directories: make the `0x2146`–`0x2946` section-1 kinds writable (or prove they cannot be)**
+  - Status: done · Owner: task/m5.53-p1-section1-kinds · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.38 (done), M5.44 (done), M5.22 (done)
   - Goal: M5.38 measured that the Dolnośląskie bbox `14.0,49.9,17.9,51.9` intersects **20** section-1 directories of `B48R058R` and today's writer can fill **9** (5 level-1 + 4 level-2 `0x2046`); the other **11** are level-1 `0x2146` ×5, `0x2246`, `0x2346` ×2, `0x2546`, `0x2646`, `0x2946`, which `tilewriter` refuses (`PRESERVE_ONLY_DIR_KINDS`, M5.22/C-2810–C-2813). Without them P1 is a patchwork (OSM roads in 9 boxes, factory roads in 11). First slice: one `0x2146` directory.
-  - Precheck: `python3 tools/parcel_census.py FAC/MAPAL001/B48R058R.DAT --sections 1 --json C.json && python3 tools/card_ladder.py dirs C.json --bbox 14.0,49.9,17.9,51.9 | tail -1` prints `section1 in bbox: total=20 spliceable=9 preserve-only=11 unmodelled=0`.
+  - Precheck: `python3 tools/parcel_census.py FAC/MAPAL001/B48R058R.DAT --sections 1 --json C.json && python3 tools/card_ladder.py dirs C.json --bbox 14.0,49.9,17.9,51.9 | tail -1` prints `section1 in bbox: total=20 spliceable=9 preserve-only=11 unmodelled=0` (prints 9/11 at base 85086f8 only; with post-M5.53 tools the factory prints spliceable=14 preserve-only=6, C-5275).
   - Scope: the record grammar inside one `0x2146` directory (non-zlib blocks, `0xffffffff` pair fields, the `n*512` tail) as far as a splice needs it; `tilewriter.py` gains mutation for that kind only with a byte-identical preserve round trip and a decode-back of the spliced records. No other kind until the first passes; no section 2/4 change.
   - Input: `tools/tilewriter.py`, `tools/parcel_census.py`, `tools/card_ladder.py dirs`, `docs/format/map-tiles.md` ("Dense tiles and roads"), EXP-2026-11-08-M5.22, EXP-2026-11-18-M5.44, `docs/research/card-ladder.md` (P1).
-  - Done when: a splice of OSM ways into one `0x2146` directory (e.g. `(76,941)`) completes with `cardcheck` PASS and `l2check --semantic-tiles` PASS, the tile diff touches only that directory, and the re-run of the Precheck command on the generated tile prints `spliceable=10 preserve-only=10`; or the task is `blocked` with the exact record field that resists, an EXP with a positive control (`0x2046` splice) and a negative one.
+  - Done when: a splice of OSM ways into one `0x2146` directory (e.g. `(76,941)`) completes with `cardcheck` PASS and `l2check --semantic-tiles` PASS, the tile diff touches only that directory, and the re-run of the Precheck command on the generated tile prints `spliceable=10 preserve-only=10`; or the task is `blocked` with the exact record field that resists, an EXP with a positive control (`0x2046` splice) and a negative one. (amended 2026-11-20, pair review, C-5275: once 0x2146 is classified spliceable the class line prints spliceable=14 preserve-only=6 on factory and output alike; the token on the generated tile is the by-kind line `narrow(0x2046)=10 wide(0x2n46)=10`, factory 9/11)
   - Stop: if the non-zlib blocks cannot be decoded from bytes alone after one session, block and name the reader task (M3.25/M4.40) that would read them in the firmware; do not mutate a block whose boundary is guessed.
   - Claims: C-5270–C-5279
+  - Result: EXP-2026-11-20-M5.53-wide-rows. `0x2n46` is not a tail: header word 0 is the directory size, and `0x2n46` = `0x2046` with **n wide rows** (1,024-byte body: even pair, 4+4 `u16` sub-record sizes for a 2 x 2 parcel split, odd pair; bit 31 of the row's first word marks it). New `tools/s1_wide_dir.py census` decodes 1,855/1,855 section-1 directories of 45 EU2011 tiles, 2,443,997 records all whole zlib streams, 0 overlaps; M5.22's non-zlib/`0xffffffff`/aliasing were the 512-byte misreading (C-2810–C-2812 superseded). `tilewriter` splices `0x2146` through the row model: real `B48R058R (76,941)` → `0x2046`, diff confined to the directory, `cardcheck` + `l2check --semantic-tiles` PASS, readback 16/16. Precheck token deviates on purpose: 0x2146 is now classified spliceable, so factory and output both print `spliceable=14 preserve-only=6`; the by-kind line prints `narrow(0x2046)=10 wide(0x2n46)=10` on the output (factory 9/11) — see EXP Interpretation. Follow-up **M5.54** (other kinds).
+
+- [ ] **M5.54 — P1: splice the remaining wide-row kinds `0x2246`–`0x2946`**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M5.53 (done)
+  - Goal: M5.53 proved every `0x2n46` directory is a `0x2046` directory with n wide rows and made `0x2146` writable (P1: 14 of 20 directories). The 6 left in the Dolnośląskie bbox (`0x2246`, `0x2346` x2, `0x2546`, `0x2646`, `0x2946`) parse with the same model (`tools/s1_wide_dir.py`) but `tilewriter` still preserves them (`PRESERVE_ONLY_DIR_KINDS`). Enable them so P1 writes 20/20.
+  - Precheck: `python3 tools/s1_wide_dir.py census FAC/MAPAL001/B48R058R.DAT | tail -1` ends with `records_bad=0 block_overlaps=0 OK`, and `python3 tools/parcel_census.py FAC/MAPAL001/B48R058R.DAT --sections 1 --json C.json && python3 tools/card_ladder.py dirs C.json --bbox 14.0,49.9,17.9,51.9 | tail -1` prints `spliceable=14 preserve-only=6`.
+  - Scope: `WIDE_SPLICE_DIR_KINDS` in `tools/tilewriter.py` (and its selftest), one real-tile splice per kind present in the bbox (6 directories, 6 kinds), multi-row narrowing (a directory narrows only when every wide row lost its sub-records). No section 2/4 change.
+  - Input: EXP-2026-11-20-M5.53-wide-rows, `tools/s1_wide_dir.py`, `tools/tilewriter.py` (`_splice_row_model_dir`), `tools/one_tile_pipeline.py --parcel`.
+  - Done when: for each of the 6 directories a pipeline run with ways over all its sub-record columns ends with `cardcheck` PASS, `l2check --semantic-tiles` PASS, `one_tile_one_directory` PASS and `s1_wide_dir census` OK on the output, and the precheck on the factory prints `spliceable=20 preserve-only=0`; a partial run (one wide row left) keeps the kind and still passes the census.
+  - Stop: if a kind needs anything beyond `WIDE_SPLICE_DIR_KINDS` (a row the model cannot narrow, a record that does not re-read), block with the directory and row named.
+  - Claims: C-5540–C-5549
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -3437,11 +3533,24 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     (SHA-256 `59a47b7f…a9792`).
   - Claims: C-1240–C-1249
 
-- [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
+- [x] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
   parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
   `nk.exe` entry. Done when booting needs no `-device loader`.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.a3-builtin-loader · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    `-M ze0 -kernel archive/head256.img` with no `-device` option puts RAM
+    bytes identical to the physfirst..physlast cuts of images B and A,
+    starts at PC `0x8800ebd0`, and its 60 s non-interrupt exception
+    sequence equals the `-device loader` boot's; a wrong offset exits
+    non-zero.
+  - Result: EXP-2026-11-20-M8.A3-builtin-loader (C-1250–C-1253). Patch
+    `tools/qemu-ze0/patches/ze0-0004-hw-sh4-ze0-builtin-loader.patch`;
+    options are `kernel-off=`/`app-off=` (`kernel` is QEMU's `-kernel`
+    property). RAM byte-identical, PC `0x8800ebd0`, 30-event fault
+    sequence identical in 2 + 2 boots; old short cuts differ (0 events).
+    `run.sh` uses `-kernel` on ze0 and ROMHDR lengths on `-M none`
+    (C-1283 fixed). Tool: `tools/ze0_ceload.py`.
   - Claims: C-1250–C-1259
 - [x] **M8.A10 — Bump the QEMU pin 8.2.7 → 8.2.10**
   The pin is 8.2.7 (2024-09-18) while 8.2.10 (2025-03-26) is the last release
@@ -3546,20 +3655,47 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no
   - Depends: M8.A3, M8.A6 (M8.A4/M8.A5 merged, archived 2026-11-06)
   - Claims: C-1300–C-1309
-- [ ] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from
+- [x] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from
   `OEMInterrupt*` and the ISR at `VBR+0x600`). Done when a TMU0 interrupt is
   delivered and acknowledged.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.b1-intc-model · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    on the EU2011 head (physfirst..physlast loads) `-M ze0 -d int` shows
+    `exception 0x400 [interrupt]`, the firmware's TMU0 ISR runs (`in_asm`),
+    TCR0.UNF reads clear afterwards and the interrupt does not re-enter;
+    plus a synthetic shim control whose delivery count drops to 0 when INT2
+    bit 1 stays masked.
+  - Result: EXP-2026-11-20-M8.B1-intc-model (C-1310–C-1313). Patch
+    `tools/qemu-ze0/patches/ze0-0003-hw-sh4-ze0-intc-tmu.patch` (INTC/INT2
+    model + TMU ch0–2 at `0xffd80000`; `sh_intc` compares level-tracking
+    sources with SR.IMASK). Real kernel: one INTEVT `0x400` in 60 s, ISR
+    `fn 0x8803cb34` clears UNF, no re-entry; shim 70/5 s (ack), 2 (no
+    ack), 0 (masked). The TMU0 level had to match the kernel's IntrPrio
+    (1): the SH7785 field 28:24 gave a 7.5 M-entry storm (C-1312). Tool:
+    `tools/ze0_intc.py`.
   - Claims: C-1310–C-1319
 - [ ] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
   Done when `CurMSec` advances.
   - Status: open · Owner: — · Critical: no
   - Depends: M8.B1
   - Claims: C-1320–C-1329
-- [ ] **M8.B3 — RTC/time** (`OEMGetRealTime`).
-  - Status: open · Owner: — · Critical: no
+- [x] **M8.B3 — RTC/time** (`OEMGetRealTime`).
+  - Status: done · Owner: task/m8.b3-rtc-time · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-20; history: "the date read is
+    deterministic"): `OEMGetRealTime` located (EU2011 VA) with every input
+    named; it reads no hardware register (or that register is modelled);
+    two or more `-M ze0` runs give the identical date; plus a positive
+    control (`OEMSetRealTime` of a valid date reads back) and a negative
+    one (an invalid date is refused).
+  - Result: EXP-2026-11-20-M8.B3-rtc-time (C-1330–C-1333).
+    `OEMGetRealTime` `fn 0x880400a8` is a software clock over RAM words
+    seeded from `nk.exe` data (copy entry 0): power-on date 2009-07-10
+    07:10:00, identical across boots; no MMIO, so no QEMU RTC model. The
+    kernel calls it 63× in boot from `fn 0x880453b0` (Unix-seconds
+    conversion); set/get round-trip and a month-13 refusal as controls.
+    Tool: `tools/ze0_rtc.py`.
   - Claims: C-1330–C-1339
 - [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
   without a fault.
@@ -3589,8 +3725,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Goal: after F3, go to F4 only if the micon/CAN handshake (M8.C4/C5) looks scriptable; F5 stays out of scope unless M8.C19 shows a simple frame-buffer path.
   - Done when: the decision is written down; no code change implied.
   - Claims: C-1595–C-1599
-- [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: blocked · Owner: task/m8.e1-run-rom-decompressor-retry (retry 2026-11-08) · Critical: no
+- [x] **M8.E1 — Run the kernel's ROM decompressor as a tool**
+  - Status: done · Owner: task/m8.e1-run-rom-decompressor-retry (retry 2026-11-08) · Critical: no
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` runs the kernel's own `DECOMP_SECT` in PySh4 and `cerom.py decompress --check` reports 245/245 build-A sections OK with `r0 == comphdr uncompressed_len` (EXP-2026-11-19-M1.19-kernel-decomp-wiring); no codec port or QEMU run is needed (M1.19 rule-15 closure).
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Depends: M8.E1b (VAs verified, C-2290–C-2293). Does **not** need F1: call
     the function under `-M none` + gdbstub with RAM-only state (LE SH-4).
@@ -4363,6 +4500,16 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Precheck: `grep -n "mac.l Rm,Rn" tools/l3_harness/engine.py` finds the register-form arm (if it is gone, the task is moot).
   - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
   - Claims: none yet (take the next free block when claimed)
+
+- [x] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
+  - Status: done · Owner: task/m9.54-repin-m9.39-pair · Critical: no · Pair: solo
+  - Depends: M5.52 (done — `--resize` patches the field-5 length byte)
+  - Goal: the M9.39 mutant pairs (US `.cmp` `ea2d0e0f…`, EU `e75c298f…`, C-4174) were built before M5.52, so the renamed record keeps its old field-5 length: on US record 500 the firmware accessor reads the name 2 words short (`point_name_accessor.py run` on the pair: `mismatch=1 ok=999`, C-5264). The committed command now writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` (`ok=1000`), so C-4482 ("the committed command reproduces `ea2d0e0f…`") holds only for the pre-M5.52 tool. Rebuild both pairs with the current CLI, check them with the accessor, and re-pin the SHAs where M9.39/M9.42/M9.43 records and claims cite them (append-only: "Overtaken by a later commit" sections + new claim rows), or state per citation why the stale pair is still the right control (its walker and container results do not read field lengths).
+  - Precheck: `python3 tools/point_name_accessor.py run archive/us256.img --cmp <M9.39 US mutant .cmp> --ind <…ind> --build us2011 --show 0 --expect "HANA HEALTH CENTER"` → `mismatch=1 ok=999 of 1000`, `result: FAIL` (the stale pair).
+  - Scope: the M9.39 US and EU pairs only (US rec 500 `HAWAII ST GOVT FREQNTLY CLLD NMBRS`→`…XXXX`, EU page `0x6e06d0` `DROMAHAIR GARDA STATION`→`…ABCD`); records/claims that pin their SHAs (C-4174, C-4482 and the M9.42/M9.43 EXPs). Not: M9.41's target registration (other owner) beyond pointing it at the new SHAs if it cites them.
+  - Done when: both rebuilt pairs give `ok=1000 of 1000` with the accessor on their build (US2011 and EU2011), the new SHAs are recorded in claim rows, and every citation of `ea2d0e0f…`/`e75c298f…` is either re-pinned or marked as the pre-M5.52 pair with a reason.
+  - Claims: C-5266–C-5269
+  - Result: EXP-2026-11-20-M9.54-repin-m9.39-pair (C-5266–C-5269). The current `--resize` writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` and EU `.cmp` `979dff4a…` / `.ind` `7ee2e542…`; the name accessor gives `ok=1000 of 1000` on US2011 (`0x0041ec8c`) and EU2011 (`fn 0x003f632c`) with the whole new rec-500 name. The pre-M5.52 tool (`9316b77`) still writes the old pins, and **both** old pairs fail the accessor at rec 500 (`mismatch=1 ok=999`; EU was not known before). Walker table, wrong-build verdicts and the same-length control are unchanged on the new pairs, so only C-4482/C-4483 were stale; C-4174/C-4482/C-4483 are annotated, and EXP-M9.39/M9.42/M9.43 each have an `Overtaken by a later commit` section. M9.41 untouched (cites no pin in its own files).
 
 ## Retired leads
 

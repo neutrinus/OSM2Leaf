@@ -221,12 +221,30 @@ All five target tiles now rebuild **byte-identically**, including the dense
 - mask the `0x80000000` pair flag before computing a compressed length;
 - preserve raw slot tails (e.g. `B30R048` slot 21 at body `+0xE8`);
 - accept `0x7fffffff` empty tags at level 1;
-- keep declared-size directory tails: the EU 2011 section-1 level-1 `0x2n46`
-  family carries an extra `n*512`-byte tail for `n=1–7` observed (e.g. 512 B
-  for `0x2146`, 3584 B for `0x2746`; `0x2946` had 0 in `B48R058R`). Their
-  slot-table container (header/tag/body/tail) round-trips, but many blocks hold
-  non-zlib records / `0xffffffff` pair fields, so `tilewriter` preserves these
-  kinds and refuses mutation inside them (M5.22, C-2810–C-2813);
+- the EU 2011 section-1 level-1 `0x2n46` "kinds" are **not** a 512-byte-row
+  directory with an `n*512`-byte tail (M5.22's reading, C-2810–C-2812,
+  superseded). Header word 0 is the directory size in `u16` words, and
+  `0x2n46` is a `0x2046` directory with **n wide rows** (M5.53,
+  C-5270–C-5273, `tools/s1_wide_dir.py`):
+
+  | Row | Body | Per column (32 columns) |
+  | --- | --: | --- |
+  | narrow | 512 B | even `(u32 ln, u32 X)`, odd `(u32 ln, u32 X)` |
+  | wide | 1,024 B | even (8 B), 4 x `u16` sub-record sizes, 4 x `u16` sub-record inflated sizes, odd (8 B) |
+
+  Bit 31 of a row's first body word marks a wide row (`0xffffffff` when
+  column 0 is empty; never set in a narrow row). In a wide row bit 31 of the
+  even `ln` is also set on every column with sub-records. The row block holds,
+  per column, `even, sub0..sub3, odd`, each `2 * ln` bytes (zlib, zero-padded
+  to a word); `(0, 0)` is an empty sub-record. The sub-records are a 2 x 2
+  split of the parcel: their parcel codes replace the low nibble `0xc | r` of
+  the parent code with `(half << 2) | r`. On `B48R058R` all 68 section-1
+  directories parse this way (139,510 records, every one a whole zlib stream of
+  its declared size, 0 overlapping row blocks). `tilewriter` splices into
+  `0x2146` through this model (a written parcel loses its sub-records; a wide
+  row left without any becomes narrow, so the directory can turn into
+  `0x2046`) and still preserves `0x2246`–`0x2946`. What the firmware does with
+  the sub-records is UNKNOWN (no reader located, rule 13);
 - copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
 
 Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
@@ -717,6 +735,43 @@ Per-section status (each tile section = "read by VA" or "not read by located pat
 located MAP_DATA or RGD_DATA tile-load paths; no section-4-specific handler VA
 was located. It may be consumed by a separate name/search/label subsystem or be
 unused at render time — **UNKNOWN** from this analysis.
+
+### Route-link key: what a section-2 entry joins to (M4.39)
+
+> **Status:** `VERIFIED` (L2, factory EU2011 tiles, shuffled and other-parcel
+> nulls) for the link key and the node-coordinate key; `VERIFIED (negative)`
+> for every numeric `LCTBL001` field. Evidence: EXP-2026-11-19-M4.39-route-link-id,
+> C-5150–C-5156, `tools/route_link_join.py`. No firmware run: which key the
+> router itself uses is not tested here (C-887's `link[mesh,no,rdtype]` string
+> is consistent with it, OBSERVED only).
+
+A level-1 section-2 entry (`clarion_rd.parse_record`, seven words + regulation
+words) names its link by **`(parcel code, class, link id)`**: parcel = record
+words 0–1, class = class word `& 0xf`, link id = entry word 3 `& 0x1fff`
+(`0x2000` = the entry sits at the drawn last point). The same triple names one
+drawn link in the parcel's section-1 `0x00fa` shape record (link ids restart at
+1 per class), and that shape's word 4 is the label in the odd partner record.
+ADDRE street records reach the same link from the other side: their parcel
+code + point word offset land on a drawn point, whose link triple is in
+section 2.
+
+| Section-2 field (entry word) | Tested as key into | Hit, `B48R058R` | Shuffled null | Other-parcel null | Hit, `B38R068R` | Verdict |
+| --- | --- | --: | --: | --: | --: | --- |
+| link id (3, `& 0x1fff`) + class | drawn link with an end at the entry's node | 99.9 % | 6.1 % | 0.0 % | 99.9 % | **key** |
+| node `(x, y)` (node words 0–1, `& 0x7ff`) | drawn link end points of the parcel | 100.0 % | — | 0.0 % | 100.0 % | **key** (node, not link) |
+| w4 (1) | same | 3.8 % | 2.6 % | 0.0 % | 2.2 % | not a key |
+| w5 (2) | same | 0.1 % | 0.1 % | 0.0 % | 0.1 % | not a key |
+| travel time `a` (5) | same | 1.0 % | 1.0 % | 0.0 % | 1.6 % | not a key |
+| length `b` (6) | same | 0.8 % | 0.8 % | 0.0 % | 1.4 % | not a key |
+| far node index (0) | same | 6.8 % | 3.8 % | 0.0 % | 7.3 % | not a key |
+| own node index | same | 7.2 % | 3.8 % | 0.0 % | 7.9 % | not a key |
+| link id, w4, w5, a, b, class word, parcel words, node x/y | every `LCTBL001` attr byte, class, footer `u16` of name-matched records | best ratio 1.43 at 0.1 % | shuffled pairing | — | best ratio 1.26 at 1.9 % | **no LCTBL key** |
+
+Chain from a displayed name to the router edge: label (odd record) ← shape
+word 4 ← shape link `(class, id)` = section-2 entry `(class, id & 0x1fff)` in
+the same parcel. `LCTBL001` reaches it only by name string (29.4 % of named
+linked entries on `B48R058R`, median 8 LCTBL records per name), which is not a
+key.
 
 ### Reader entry arguments (M3.27, static, build A)
 

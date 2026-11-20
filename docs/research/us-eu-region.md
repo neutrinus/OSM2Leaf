@@ -50,16 +50,19 @@ from these four bytes.
 | Area | Name | Launch mask |
 | --- | --- | --- |
 | `0x10` | Japan | `0x00010000` |
-| `0x20` | USA | `0x00020000` |
-| `0x30` | Euro | `0x00040000` |
+| `0x20` | USA | `0x00040000` |
+| `0x30` | Euro | `0x00020000` |
 | `0x40` | Russia | `0x00080000` |
 | `0x50` | China | `0x00100000` |
 | other | WorldWide | `-1` (then a kernel "Env Variable" fallback, IOCTL `0x0101304C`) |
 
 The area mask filters the launcher's process/driver table (B `0x03bcc5b0` /
-`0x03bcc564`), so it selects what starts; the launcher name block contains a
-JP-specific `NxJpNavi.exe` (its per-entry mask is in compressed `.data` and was
-not decoded). The area does **not** select the map database. Navigation and map
+`0x03bcc564`), so it selects what starts. (USA/Euro masks corrected by M1.34,
+C-5350: `fn 0x03bcba58` gives USA `0x00040000`, Euro `0x00020000`.) The table
+is in the code section, not compressed `.data`: an EU unit starts `Navi.exe`
+record #81 (area `0x00020000`), a US unit #80 (`0x00040000`), and the
+JP-specific `NxJpNavi.exe` record carries `0x00010000`
+([rom-registry.md](rom-registry.md#the-launch-table-m134)). The area does **not** select the map database. Navigation and map
 modules (`Navi.exe`, `NaviMapCC`, `NaviSearchCC`, `NaviRouteCC`, `OBJDLL`, …)
 do not import the area API; UI/audio/system modules do.
 

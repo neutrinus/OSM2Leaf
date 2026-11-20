@@ -163,6 +163,24 @@ kept), so the next run extracts cleanly.
   chardev) carries it. The retail EU2011 banner does not go there — only
   the AER exception dump does. See
   [`EXP-2026-11-19-M8.A6-debug-serial.md`](../../docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md).
+- **M8.B1 (2026-11-20):** `ze0-0003` adds the INTC/INT2 model
+  (`0xff802000`, `0xff804000`) and TMU ch0–2 at `0xffd80000`; the EU2011
+  kernel's TMU0 interrupt (INTEVT `0x400`) is delivered to its ISR and
+  acknowledged. See
+  [`EXP-2026-11-20-M8.B1-intc-model.md`](../../docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md).
+- **M8.B3 (2026-11-20):** no RTC model is needed: EU2011 `OEMGetRealTime`
+  is a software clock seeded from `nk.exe` data (2009-07-10 07:10:00) plus
+  `CurMSec`. `tools/ze0_rtc.py` drives Get/Set from a shim and reads the
+  date words. See
+  [`EXP-2026-11-20-M8.B3-rtc-time.md`](../../docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md).
+- **M8.A3 (2026-11-20):** `ze0-0004` gives `-M ze0` a built-in CE loader:
+  `-M ze0 -kernel SD-IMAGE` (options `kernel-off=`, default `0x3e00200`,
+  and `app-off=`, default `0x200200`, 0 = none) copies physfirst..physlast
+  of each image and starts at the `nk.exe` entry (`0x8800ebd0`, EU2011), so
+  no `-device loader` lines are needed. `run.sh --image` uses it on ze0 and
+  sizes the `-M none` cuts from the ROMHDR (C-1283 fixed).
+  `tools/ze0_ceload.py plan` prints the same load plan. See
+  [`EXP-2026-11-20-M8.A3-builtin-loader.md`](../../docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
@@ -173,6 +191,8 @@ kept), so the next run extracts cleanly.
 QEMU=~/.cache/qemu-ze0/build/qemu-system-sh4
 "$QEMU" -M help | grep ze0
 "$QEMU" -M ze0 -cpu sh7785 -m 512M -nographic
+# boot the EU2011 kernel + application images straight from the SD image (M8.A3)
+"$QEMU" -M ze0 -kernel archive/head256.img -nographic -serial file:serial.log -monitor none
 
 # stock QEMU for comparison: the probe already works with -M none
 python3 tools/ce_qemu_probe.py --qemu "$QEMU" IMAGE
