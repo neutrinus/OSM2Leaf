@@ -30,9 +30,16 @@ Usage:
   dir_read_len.py --selftest
   dir_read_len.py table IMG256
   dir_read_len.py predict TILE [--json OUT]
+  dir_read_len.py drstr-size DRSTR001.DAT MAPAL001/B48R058R.DAT SIZE -o OUT
+
+`drstr-size` (M5.56) writes a copy of DRSTR001.DAT whose entry for one file
+says SIZE: the firmware clamps a directory read to the size DRSTR001 gives
+(`min(length, size - position)`), so a card test that replaces one tile must
+state its size there, or test the stale-size case on purpose.
 
 Exit codes: predict: 0 every directory is backed by its read length, 1 at
-least one read runs past the end of the file; table: 0 the image matches the
+least one read runs past the end of the file (the firmware then reads up to
+the size DRSTR001 records, M5.56); table: 0 the image matches the
 copy, 1 it differs; 2 usage or missing input.
 """
 from __future__ import annotations
@@ -134,7 +141,8 @@ def show(rep: dict) -> None:
             r["section"], r["level"], r["kind"], r["count"],
             ("%#x" % r["read_length"]) if r["read_length"] else "none (no row)", r["dirs"], r["max_declared"]))
     for s in rep["short_reads"]:
-        print("SHORT: section %d level %d directory at %#x is read to %#x, past the end of the file (%#x)" % (
+        print("SHORT: section %d level %d directory at %#x is read to %#x, past the end of the file (%#x); "
+              "the firmware cuts it at the DRSTR001 size, so it fails only if DRSTR001 says more (M5.56)" % (
             s["section"], s["level"], s["pos"], s["end"], s["size"]))
     print("directories read past the end of the file: %d" % len(rep["short_reads"]))
 
@@ -171,6 +179,30 @@ def cmd_predict(args) -> int:
     if args.json:
         Path(args.json).write_text(json.dumps(rep, indent=1))
     return 1 if rep["short_reads"] else 0
+
+
+def drstr_entry_offset(data: bytes, path: str) -> int:
+    """File offset of the u32 value of DRSTR001's entry for ``DIR/NAME``."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import drstr
+    folder, _, name = path.replace("\\", "/").rpartition("/")
+    for node in drstr.parse(data)["nodes"]:
+        if node["name"].upper() != (folder.upper() or "/"):
+            continue
+        for e in node["entries"]:
+            if e["name"].upper() == name.upper():
+                return node["listing_offset"] + e["index"] * drstr.ENTRY_SIZE + 0x1C
+    raise KeyError(path)
+
+
+def cmd_drstr_size(args) -> int:
+    data = bytearray(Path(args.drstr).read_bytes())
+    off = drstr_entry_offset(bytes(data), args.path)
+    old = struct.unpack_from("<I", data, off)[0]
+    struct.pack_into("<I", data, off, int(args.size, 0))
+    Path(args.out).write_bytes(bytes(data))
+    print("%s: entry value at %#x %d -> %d; wrote %s" % (args.path, off, old, int(args.size, 0), args.out))
+    return 0
 
 
 def synth_tile(dir_len: int = 0x200, file_pad: int = 0x9000) -> bytes:
@@ -220,6 +252,12 @@ def selftest() -> int:
           [(s["level"], s["pos"]) for s in rep["short_reads"]] == [(2, 0x1100)])
     big = synth_tile(file_pad=0x14100)
     check("a 0x14100-byte pad backs both reads", predict(io.BytesIO(big), len(big))["short_reads"] == [])
+    node = b"MAPAL001".ljust(0x14, b"\0") + struct.pack("<HHIIII", 0, 0, 1, 0, 0, 40)
+    entry = b"B48R058R.DAT".ljust(0x16, b"\0") + struct.pack("<HII", 1, 0, 289319168)
+    blob = node + entry
+    off = drstr_entry_offset(blob, "MAPAL001/B48R058R.DAT")
+    check("drstr-size finds the entry value of MAPAL001/B48R058R.DAT",
+          off == 40 + 0x1C and struct.unpack_from("<I", blob, off)[0] == 289319168)
     print("dir_read_len selftest: %d failed" % len(fails))
     return 1 if fails else 0
 
@@ -233,17 +271,22 @@ def main(argv=None) -> int:
     p = sub.add_parser("predict", help="read length per section/level of a tile, and short reads")
     p.add_argument("tile")
     p.add_argument("--json")
+    p = sub.add_parser("drstr-size", help="copy DRSTR001.DAT with one file's size changed")
+    p.add_argument("drstr")
+    p.add_argument("path", help="DIR/NAME, e.g. MAPAL001/B48R058R.DAT")
+    p.add_argument("size")
+    p.add_argument("-o", "--out", required=True)
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
     if not args.cmd:
         ap.print_usage()
         return 2
-    path = args.image if args.cmd == "table" else args.tile
-    if not Path(path).is_file():
-        print("missing input: %s" % path)
+    path = {"table": "image", "predict": "tile", "drstr-size": "drstr"}[args.cmd]
+    if not Path(getattr(args, path)).is_file():
+        print("missing input: %s" % getattr(args, path))
         return 2
-    return {"table": cmd_table, "predict": cmd_predict}[args.cmd](args)
+    return {"table": cmd_table, "predict": cmd_predict, "drstr-size": cmd_drstr_size}[args.cmd](args)
 
 
 if __name__ == "__main__":

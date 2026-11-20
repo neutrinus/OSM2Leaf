@@ -929,7 +929,10 @@ No record block is read during the mount.
 
 So a writer that does not start from a factory container must back every
 directory with the length above. Whether the road records are accepted is
-open (M9.52, M9.53).
+open (M9.52, M9.53). *Corrected by M5.56 (below): the firmware cuts each
+read at the size `DRSTR001.DAT` records; the fresh tile failed because the
+test card kept the factory DRSTR001 entry. Padding or a true DRSTR001 size
+each suffice.*
 
 ### Where the directory read length comes from (M3.31, EU2011 build A)
 
@@ -977,6 +980,33 @@ and level and lists every directory whose read runs past the end of the
 file. On the factory card it lists 2 section-4 directories of `B48R058R`,
 2 of `B48R068R` and 1 of `B40R060R` (the last directories of each file); the
 mount of this record did not read them (M5.56).
+
+### A read past the end of the file, and a tile without a factory container (M5.56, EU2011 build A)
+
+> **Status:** `VERIFIED` (PySh4 runs on the EU 2011 card, `datask_l3.py
+> mount`). EXP-2026-11-20-M5.56-no-factory-container, C-5830–C-5834.
+
+The length asked is `min(0x100 * T[kind].n, size - position)`, with `size`
+the file's size **as `DRSTR001.DAT` records it**. The factory's last
+section-4 directories of `B48R058R` are asked as `0x2900` and `0x5d00` (to
+the file end `0x113ea900`) and parsed. A read fails (status -1) only when
+the file holds fewer bytes than asked: a tile shorter than its DRSTR001
+entry.
+
+| Tile on the card (position 51.70 N 17.45 E) | Directory read `0x1100` |
+| --- | --- |
+| fresh tile 22,272 B, factory DRSTR001 entry (289,319,168) | `0x8100`, **-1** (C-3256) |
+| the same, DRSTR001 entry 22,272 | `0x4600`, 0, slot table parsed |
+| the same, DRSTR001 entry `0x5800` | `0x4700`, **-1** |
+| fresh tile padded by `tilewriter.py` (37,376 B), factory DRSTR001 entry | `0x8100`, 0, slot table parsed |
+| the padded tile cut to `0x9100` | `0x8100`, **-1** |
+
+`tools/tilewriter.py` without `--factory` now zero-pads the file to the end
+of its longest directory read (`pad_directory_reads`), so the tile mounts
+whether or not DRSTR001 is rebuilt. A card built with
+`rebuild_manifests.py` (true DRSTR001 sizes) needs no padding.
+`dir_read_len.py drstr-size` writes a DRSTR001 copy with one size changed
+for such tests.
 
 ### The router reader asks; it does not parse (M4.40, EU2011 build A)
 
