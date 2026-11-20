@@ -84,6 +84,11 @@ IMAGE_START = 0x3E00200
 MODULE = "AppLaunch.dll"
 BUILD = "eu2011"
 FN_COMPARE = 0x03BD2AD8
+FN_CHECK2 = 0x03BD2CE4      # MapDBVer range (error 0x51), M2.19
+FN_ROUTER = 0x03BD2ECC      # router(partition): check 1 -> 0x50, check 2 -> 0x51
+FN_DISPATCH = 0x03BCAFB8    # AppLaunch error dispatcher (M1.34, C-5351)
+BOUNDS_MIN_OFFSET = 112     # unit record +112: MapDBVer min, u16 big-endian
+BOUNDS_MAX_OFFSET = 114     # unit record +114: MapDBVer max, u16 big-endian
 GLOBAL_CACHE = 0x01F74B30
 GUEST_PATH = "\\SystemSD\\VER_INFO\\HDD_INFO.TXT"
 IOCTL_TARGET_INFO = 0x0101302C
@@ -109,6 +114,11 @@ M32 = 0xFFFFFFFF
 
 class Blocked(Exception):
     """The run stopped on something the harness does not model."""
+
+
+class _Halt(Exception):
+    """The dispatcher stub in ``halt`` mode: the production dispatcher does
+    not return after the first shown error (C-5351), so the run ends here."""
 
 
 # ---------------------------------------------------------------------------
@@ -193,11 +203,22 @@ def _wstr(eng, va: int, limit: int = 512) -> str:
 
 
 def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
-                fn: int = FN_COMPARE, thunks: dict | None = None) -> dict:
+                fn: int = FN_COMPARE, thunks: dict | None = None,
+                bounds: tuple[int, int] | None = None, args: tuple = (),
+                dispatch: str | None = None) -> dict:
     """Run *fn* with *card* served at the guest path; return the result dict.
 
     ``card=None`` serves no file (``CreateFileW`` fails), a control for the
     open-failure branch.
+
+    M2.19 extensions (defaults keep the M9.6 behaviour): *bounds* = declared
+    ``(min, max)`` MapDBVer written big-endian at record ``+112``/``+114``
+    (check 2 reads them); *args* are passed in ``r4``.. (the router takes the
+    partition number); *dispatch* stubs the error dispatcher ``fn 0x03bcafb8``
+    and records its code: ``"return"`` returns to the caller (the ProtoLevel /
+    no-screen path), ``"halt"`` ends the run there (the production path,
+    C-5351).  Without *dispatch* a call of the dispatcher runs into
+    unmodelled code and is reported ``Blocked``.
     """
     if len(unit_code) != CODE_LEN:
         raise ValueError(f"unit code must be {CODE_LEN} bytes")
@@ -217,6 +238,8 @@ def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
     eng.map("stack", STK_VA, bytearray(STK_SIZE), "rw")
     record = bytearray(REC_SIZE)
     record[UNIT_OFFSET:UNIT_OFFSET + CODE_LEN] = unit_code
+    if bounds is not None:
+        struct.pack_into(">HH", record, BOUNDS_MIN_OFFSET, bounds[0] & 0xFFFF, bounds[1] & 0xFFFF)
     eng.map("ioctl_record", REC_VA, record, "rw")
     eng.set_regs(r15=STK_VA + STK_SIZE // 2)
 
@@ -294,13 +317,20 @@ def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
         fmt_va = reg("r4")
         fmt = _wstr(e, fmt_va)
         values = [reg("r5"), reg("r6"), reg("r7")]
-        parts, out, i = fmt.split("%s"), "", 0
-        if fmt.count("%") != fmt.count("%s") or len(parts) - 1 > 3:
+        specs = [fmt[i + 1:i + 2] for i in range(len(fmt)) if fmt[i] == "%"]
+        if any(sp not in ("s", "d") for sp in specs) or len(specs) > 3:
             raise Blocked(f"NKDbgPrintfW format {fmt!r} not modelled")
-        for i, piece in enumerate(parts[:-1]):
-            out += piece + _wstr(e, values[i])
-        out += parts[-1]
-        return note("NKDbgPrintfW", [fmt_va] + values[:len(parts) - 1], 0, text=out)
+        out, k, i = "", 0, 0
+        while i < len(fmt):
+            if fmt[i] == "%":
+                v = values[k]
+                out += _wstr(e, v) if fmt[i + 1] == "s" else str(v - (1 << 32) if v & 0x80000000 else v)
+                k += 1
+                i += 2
+            else:
+                out += fmt[i]
+                i += 1
+        return note("NKDbgPrintfW", [fmt_va] + values[:k], 0, text=out)
 
     handlers = {"KernelIoControl": k_ioctl, "SetKMode": setkmode,
                 "CreateFileW": createfile, "ReadFile": readfile,
@@ -312,6 +342,21 @@ def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
         raise Blocked(f"import thunks not resolved: {sorted(set(NEEDED) - set(found))}")
     for va, (name, _ord) in thunks.items():
         eng.on_exec(va, handlers[name])
+
+    dispatched: list[int] = []
+    if dispatch is not None:
+        if dispatch not in ("return", "halt"):
+            raise ValueError("dispatch must be 'return' or 'halt'")
+
+        def dispatcher(e, va):
+            code = reg("r4")
+            dispatched.append(code)
+            note("dispatch", [code], 0, mode=dispatch)
+            if dispatch == "halt":
+                raise _Halt()
+            return StubReturn(0)
+
+        eng.on_exec(FN_DISPATCH, dispatcher)
 
     orig_load, orig_store = eng._load, eng._store
 
@@ -329,8 +374,11 @@ def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
         return orig_store(va, size, value)
 
     eng._load, eng._store = load, store
+    halted = False
     try:
-        r0 = eng.call(fn, [])
+        r0 = eng.call(fn, list(args))
+    except _Halt:
+        halted, r0 = True, None
     except Blocked:
         raise
     except EngineError as exc:
@@ -346,7 +394,12 @@ def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
         "build": BUILD,
         "module": MODULE,
         "r0": r0,
-        "verdict": {1: "ACCEPT", 0: "REJECT"}.get(r0, f"UNKNOWN r0=0x{r0:x}"),
+        "verdict": ("HALTED" if halted else
+                    {1: "ACCEPT", 0: "REJECT"}.get(r0, f"UNKNOWN r0=0x{r0:x}")),
+        "dispatched": [f"0x{c:x}" for c in dispatched],
+        "halted": halted,
+        "bounds": None if bounds is None else {"min": bounds[0], "max": bounds[1]},
+        "card_slot2": cache[32:48].split(b"\x00", 1)[0].decode("latin-1"),
         "insns": eng.last_run.insns if hasattr(eng.last_run, "insns") else None,
         "unit_code": unit_code.decode("latin-1"),
         "card_slot0": cache[:CODE_LEN].decode("latin-1"),
