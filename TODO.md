@@ -3879,9 +3879,29 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     Patch: `tools/qemu-ze0/patches/ze0-0002-hw-sh4-ze0-debug-serial.patch`.
   - Claims: C-1280–C-1289
 
-- [ ] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
-  - Status: in progress · Owner: task/m8.a8-f0-exp-registers · Critical: no
+- [x] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
+  - Status: done · Owner: task/m8.a8-f0-exp-registers · Critical: no
   - Depends: M8.A3, M8.A6 (M8.A4/M8.A5 merged, archived 2026-11-06)
+  - Precheck: `-M ze0` boots EU2011 past F1 (M8.B5) and `dbgmsg` exists
+    (M8.B6); F0 per `docs/research/full-system-emulation.md` §4.
+  - Scope: one EXP, `tools/ze0_regs.py`, one section in
+    `docs/format/firmware.md`; no QEMU patch.
+  - Goal: record stage F0 and write down what `-M ze0` models and what the
+    boot still touches outside the models.
+  - Done when: (made concrete 2026-11-20) an EXP records an EU2011 boot
+    with kernel debug text on serial port 0, MMUCR.AT = 1 and 0 hits on the
+    halt/unhandled-exception paths, with a negative control; and
+    `firmware.md` has a table of modelled windows (address, size, reset
+    value, read from) plus the registers the boot touches unmodelled.
+  - Stop: if F0 fails, record the first fault and the register behind it
+    instead of the table of unmodelled registers.
+  - Result: EXP-2026-11-20-M8.A8-f0-registers (C-1300–C-1304). F0 reached:
+    150 s boot, 23 896 B / 548 lines on serial port 0, MMUCR `0xfc00b801`,
+    0/0 fault-path hits; `dbgmsg=0` gives 0 B with 176 sink calls.
+    `firmware.md` § "ze0 register table": 18 modelled windows and 177
+    unmodelled registers on 25 pages (148 on-chip, all via the area-7
+    alias; DMAC/HPB DMAC and IOLIB.dll blocks lead). New tool
+    `tools/ze0_regs.py` (`census`, `who`).
   - Claims: C-1300–C-1309
 
 - [x] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from

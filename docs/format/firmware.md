@@ -922,6 +922,73 @@ P-code emulation headlessly. Use those for selected routines; use the Python
 round-trip validator for the whole-card feedback loop. The full option matrix
 is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
+## ze0 register table (M8.A8, EU2011)
+
+What the QEMU `-M ze0` machine (QEMU 8.2.10, patches up to `ze0-0008`)
+models, and which registers the EU2011 boot still touches outside those
+models. Source: EXP-2026-11-20-M8.A8-f0-registers (claims C-1300–C-1304).
+"Read from" names the EU2011 code that reads or programs the window
+(`nk.exe` VAs are kernel P1 addresses; driver VAs are build B, `--image-start
+0x3e00200`). A7 = the area-7 alias `0x1fxxxxxx` of P4 `0xffxxxxxx`.
+
+### Modelled windows
+
+| Address | Size | Model | Reset value | Read from (EU2011) | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| `0x08000000` (P1 `0x88000000`, P2 `0xa8000000`) | 128 MiB | DRAM | image B loaded at `physfirst` | kernel image | C-1240 |
+| `0x10000000` (P1/P2 aliases) | 128 MiB | extension DRAM (`ext-ram`) | 0 | OAL RAM table `{0x90000000, 0x08000000}` | C-1351 |
+| `0xf0000000` | 128 MiB | SH-4 cache/TLB arrays (`sh4-ccn`) | arrays 0 | `nk.exe` cache flush/TLB code | M8.A4 |
+| `0xff000000` | `0x1000` | CCN/MMU/exception regs (`sh4-ccn`) | MMUCR 0 (kernel sets AT; `0xfc00b801` at 150 s) | `nk.exe` | M8.A4, C-1300 |
+| `0xff200000` | `0x100` | UBC read-back stub (`ze0-stubs`) | 0 | `nk.exe` | C-1270 |
+| `0xff802000` | `0x100` | INTC: ICR0 `+0`, INTPRI `+0x10`, ICR1 `+0x1c`, INTMSK0/1 `+0x44`/`+0x48`, INTMSKCLR0 `+0x64` | INTMSK0 `0xff000000`, others 0 | BSPIntrInit `fn 0x8803dc70` | C-1310 |
+| `0xff804000` | `0x100` | INT2: INT2PRI0–7 `+0`–`+0x1c`, status `+0x3c`, INT2MSKR `+0x40`, INT2MSKCR `+0x44` | INT2MSKR `0xffffffff`, others 0 | `fn 0x8803dc70`, timer hook `fn 0x8803d168`; SD ISRs `fn 0x8803fcdc`/`fn 0x8803fd40` read `+0x3c` bit 29 | C-1310, C-1461 |
+| `0xffc80000` | `0x100` | CPG stub: MSTPCR0–3 `+0x30`–`+0x3c`, MSTPACK `+0x44` = OR of MSTPCR0–3 | 0 | `nk.exe` | C-1270 |
+| `0xffd80000` (and A7 `0x1fd80000`) | TMU ch0–2 block | QEMU `tmu012` (Pphi 42 MHz) | TCR0 0 (kernel sets `0x0021`) | `fn 0x8803c9c6`, ISR `fn 0x8803cb34` | C-1311, M8.B2 |
+| `0xffe40000` + n·`0x1000`, n = 0–5, 7 (and A7) | `0x28` each | `sh_serial` (SCIF) stubs, TEND/TDFE set | QEMU `sh_serial` reset | `serial_scif.dll fn 0x0398e888` (SCFSR.TEND spin) | C-1463 |
+| `0xffe46000` (and A7) | `0x28` | debug SCIF, `sh_serial` on serial port 0 | QEMU `sh_serial` reset | `nk.exe` writer `0x8804cfa4` (AER only) | C-1280, C-1281 |
+| `0xffe4c000`, `0xffe4d000` (and A7) | `0x100` each | SDHI/TMIO host (`ze0-sdhi`) | SD_INFO1 0 (bit 5 set when a card is attached), SD_INFO2 `0x2080`, SD_INFO1_MASK `0x031d`, SD_INFO2_MASK `0x8b7f`, SD_CLK_CTRL `0x0020`, SD_SIZE `0x0200`, SD_OPTION `0x40ee`, SDIO_INFO1_MASK `0xc007` | `SDHC.dll fn 0x039bcedc` (card detect), `fn 0x039bcf20` (init) | C-1460 |
+| `0xffe70000` | `0x1000` | read-back stub; `+0x808` forced `0xc0000000` | `+0x808` `0xc0000000`, others 0 | `nk.exe` boot poll on `+0x808` bits 31:30 | C-1270 |
+| `0xfff80000` (P4 only) | `0x100` | read-back stub | 0 | `nk.exe` | C-1270 |
+| `0x19300000` (area 6) | `0x100` | read-back stub | 0 | `nk.exe` | C-1270 |
+| `0xff800000`–`0xffffffff` | 8 MiB | `ze0-p4` catch-all (`-d unimp` log, reads 0) | 0 | — | C-1240 |
+| `0x10000000` (with `ext-ram=off`) | 64 MiB | `ze0-area4` catch-all | 0 | — | C-1240 |
+| `0x18000000` | 64 MiB | `ze0-area6` catch-all | 0 | — | C-1240 |
+
+### Registers the F0 boot touches without a model (150 s, EU2011, EU card)
+
+`python3 tools/ze0_regs.py census` on the `-d unimp,guest_errors` log: 177
+registers on 25 pages. "Via" is how the boot reached them: `A7` = an
+`Invalid read/write` at the area-7 alias (nothing is mapped there), `P4` =
+the `ze0-p4` catch-all, `area 6` = the `ze0-area6` catch-all, `none` =
+unmapped low address. Reset value: unknown for all of them (the model
+returns 0 or the access is rejected). "Read from" is `tools/ze0_regs.py
+who` (literal-pool words in images B and A).
+
+| Address | Regs (size) | Via | Accesses in 150 s | Read from (EU2011) |
+| --- | --- | --- | --- | --- |
+| `0x19400000`–`0x19400008` | 5 (16-bit) | area 6 | 10 R, 2 W (`+6` ← `0x100`) | no pool word |
+| `0x19800000` | 1 (16-bit) | area 6 | 3 R | no pool word |
+| `0x19b00000`–`0x19b0000c` | 7 (16-bit) | area 6 | 27 R, 37 W (`+0` ← `0x9d`, `+4` ← `0x33`, `+6` ← `0x3`, `+a` ← `0x40`) | no pool word |
+| `0x19e00002`–`0x19e0000c` | 5 (16-bit) | area 6 | 8 R, 7 W (`+4` ← `0x83`, `+6` ← `0x3`) | no pool word |
+| `0xff800250`, `+258`, `+2f0`, `+2f8` | 4 (32-bit) | A7 | 1 R + 1 W each | IOLIB.dll, tcpstk.dll, Navi.exe, audevman.dll (`phys>>8`) |
+| `0xff801000`–`0xff80102c` (DMAC) | 5 (32-bit) | A7 | 10 W each (`+28` once) | SDHC.dll, serial_scif.dll, serial_uat.dll, wavessi1/2.dll |
+| `0xffc08040`–`0xffc081ec` (HPB DMAC common) | 27 (32-bit) | A7 | 1 W each | same five drivers |
+| `0xffc08200`–`0xffc08234` (HPB DMAC ch) | 8 (32-bit) | A7 | 2–4 W; `+234` 4 R | same five drivers |
+| `0xffc08280`–`0xffc082ac` (HPB DMAC ch) | 6 (32-bit) | A7 | 20 W each | same five drivers |
+| `0xffc08810`, `0xffc08814` | 2 (32-bit) | A7 and P4 | 42 R, 42 W (first W `0x100`) | `nk.exe` (5 pool words, image B) |
+| `0xffc40008` | 1 (32-bit) | A7 | 6 R, 3 W | no pool word |
+| `0xffc5a000`–`0xffc5a00c`, `0xffc5a040` | 5 (32-bit) | A7 | 4 W; `+40` 170 R | kepdrv.dll, navdrv.dll |
+| `0xffc5b004`, `+08`, `+1c` | 3 (32-bit) | A7 | 4 W | kepdrv.dll, navdrv.dll |
+| SCIF ch 1, 3, 6, 7 `+0x30`, `+0x34` | 8 (16-bit) | A7 | 1–2 W each (past the `0x28` `sh_serial` window) | serial_scif.dll |
+| `0xffe48020` | 1 (16-bit) | A7 | 1 R | serial_scif.dll |
+| `0xffe80000`–`0xffe80100` | 16 (32-bit) | A7 | 1–2 W each | IOLIB.dll |
+| `0xfff80000`–`0xfff80450`, `0xfff813fc` | 61 (32-bit) | A7 (the P4 stub is not hit) | 1–2 W each, `+18` 1 R | IOLIB.dll, tcpstk.dll, Navi.exe (`phys>>8`) |
+| `0xfff90000` | 1 (32-bit) | A7 | 1 W | IOLIB.dll |
+| `0x2`, `0x30`, `0x34`, `0x5554`, `0xa000`, `0xaaaa`, `0x30029`–`0x3002b`, `0x480000`, `0x490000` | 11 | none | `0xa000` 170 R; `0x30`/`0x34` 7 W; `0x5554` 2 W, `0xaaaa` 4 W | not traced (looks like a NOR CFI/ID probe, HYPOTHESIS) |
+
+Next models by weight: DMAC + HPB DMAC (M8.C1), the A7 aliases of the P4
+stubs, IOLIB.dll's `0xffe80000`/`0xfff80000` blocks.
+
 ## CE ROM segment (pointer)
 
 The full layout — wrapper header, `ROMHDR` field table, TOC, `e32`/`o32`,
