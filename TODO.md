@@ -4726,8 +4726,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the firmware reads the record block but no function loads the inflated bytes (then the consumer is another task: name the message that carries the buffer away).
   - Claims: none yet (take the next free block when claimed)
 
-- [ ] **M9.57 — Find who subscribes the data-access task to object-store event 11 (state 3 of the mount)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M9.57 — Find who subscribes the data-access task to object-store event 11 (state 3 of the mount)**
+  - Status: done · Owner: task/m9.57-event11-subscriber · Critical: no
   - Step: P1
   - Depends: M9.52 (done)
   - Goal: M9.52 showed the mount reaches state 3 only through `0x003f6b1c`, the handler of object-store event `0x07d0` sub 11 with `+28 = 16` (C-5904), and `datask_l3.py --event 11:16` delivers that event as a stand-in. Find the real subscription (subscriber task `*0x011fff58`, event id 11), the object it watches and what makes the event carry 16, so the stand-in can be replaced by the object call that fires it.
@@ -4736,6 +4736,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the EXP names the subscribing call (module, VA, object call) and the value 16's source, and `datask_l3.py` fires the event from a model of that object instead of `--event`; or the search is counted and negative with a positive control (the sub-100 subscription at `0x003eb99c` must be found by the same method).
   - Stop: if the subscriber is outside `Navi.exe` and needs that module's own task to run, name the module and export and stop.
   - Claims: C-6000–C-6009
+  - Result: `docs/experiments/EXP-2026-11-20-M9.57-event11-subscriber.md` (C-6000–C-6006), by the counted-negative branch. New `tools/event_subs.py` lists every `OBJ_Event_setPrm`/`OBJ_Event_setPrmForMP` call of a segment from each module's own import table: EU2011 build A, 149 modules, 10 importers, 131 call sites, sub literal in every row. **Nobody subscribes the data-access task to sub 11**; the same census finds its subscriptions to 100, 199, 13, 6 and 1 (positive controls), and of the six rows of its event table 11 and 12 have no subscriber (12 is a bare `rts`). No function that addresses the task builds `0x07d0` by hand. State 3 therefore has no static sender in this firmware; `--event 11:16` stays a test switch, and the mount model needs no event 11 (M9.53: the map is served in state 2). No follow-up task.
 
 - [ ] **M9.56 — The router computes a route on our graph in L3 (not only reads it)**
   - Status: blocked · Owner: — · Critical: yes · Pair: required
