@@ -55,6 +55,7 @@ model, engine stop); 2 usage or missing input.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import struct
 import sys
@@ -729,8 +730,26 @@ def cmd_tables(args) -> int:
     return 0
 
 
+def card_record(args, card) -> dict:
+    """What this run served: the card source, the mods asked for and, per
+    overlaid path, the size and SHA-256 of the bytes the firmware was given
+    (``None`` for a hidden file).  H106: a run on a generated tile names the
+    tile it ran on, so a verdict cannot be quoted for a file it did not read."""
+    overlay = []
+    for path in sorted(card.overlay):
+        data = card.overlay[path]
+        overlay.append({"path": path, "size": None if data is None else len(data),
+                        "sha256": None if data is None else hashlib.sha256(data).hexdigest()})
+    return {"image": getattr(args, "card_image", None), "root": getattr(args, "card_root", None),
+            "mods": V.parse_mods(args), "overlay": overlay}
+
+
 def cmd_mount(args) -> int:
     card = V.make_card(args.card_root, args.card_image, V.parse_mods(args))
+    served = card_record(args, card)
+    for o in served["overlay"]:
+        print("card overlay: %s <- %s" % (o["path"], "hidden" if o["sha256"] is None
+                                          else "%d bytes sha256 %s" % (o["size"], o["sha256"])))
     try:
         position = None
         if args.position:
@@ -775,6 +794,7 @@ def cmd_mount(args) -> int:
     tiles = [r for r in t.rows if is_tile(r)]
     print("tile reads parsed by the firmware: %d" % len(tiles))
     if args.json:
+        out["card"] = served
         out["rows"] = t.rows
         out["other"] = t.other
         out["sdl"] = t.sdl_log
@@ -997,6 +1017,16 @@ def selftest() -> int:
     V.MODELS.clear()
     V.MODELS.update(saved)
 
+    class _A:
+        card_image, card_root, hide, flip, truncate = "card.img", None, ["X/H.DAT"], [], []
+        replace = ["MAPAL001/T.DAT=host"]
+    fake = V.Card(None, overlay={"MAPAL001/T.DAT": b"abc", "X/H.DAT": None})
+    rec = card_record(_A, fake)
+    check("the run record names each overlaid file with its SHA-256",
+          rec["overlay"] == [{"path": "mapal001/t.dat", "size": 3,
+                              "sha256": hashlib.sha256(b"abc").hexdigest()},
+                             {"path": "x/h.dat", "size": None, "sha256": None}]
+          and rec["mods"]["replace"] == ["MAPAL001/T.DAT=host"])
     head = HERE.parent / "archive" / "head256.img"
     card_img = HERE.parent / "archive" / "sd-images" / "LEAF_2011-2012_QSD-309-101_navi158_eu.img"
     if not (head.is_file() and card_img.is_file()):

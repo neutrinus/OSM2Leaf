@@ -210,6 +210,7 @@ TARGET_KEYS = {
     "expect",
     "notes",
     "build",
+    "generated_corpus",   # H106: our tiles, listed by l3check, never run here
 }
 
 #: Firmware builds a target can be registered against (M1.22b).  A target run

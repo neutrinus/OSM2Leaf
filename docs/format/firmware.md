@@ -647,6 +647,10 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | block-address leaf / header-table lookup (M4.52) | `0x0040f00c`/`0x0040ee4c` | `0x00436f58`/`0x00436dd4` | the parser's and the loader's own pool slots |
 | locator-path stubs: cache lookup/allocate, debug log, read request, parser tail (M4.52) | `0x00407724`/`0x004086b4`/`0x003ec9fc`/`0x003f6c88`/`0x0040a8d0` | `0x0042f824`/`0x004307b4`/`0x0041551c`/`0x0041f5e8`/`0x004329d0` | the loader's and the parser's own pool slots |
 | locator-path memset / `_divlu` thunks (M4.52) | `0x003d13c4`/`0x003d140c` | `0x0040089c`/`0x004008e4` | the loader's own pool slots |
+| map-file layer init / event / queue read / resolve / cancel / logger (M9.14) | `0x00417924`/`0x00419c38`/`0x0041841c`/`0x0040b358`/`0x00418428`/`0x0041bbec` | `0x0043f688`/`0x0044199c`/`0x00440180`/`0x00433458`/`0x0044018c`/`0x00443950` | `fn_match` pairs, pdata START with equal lengths (`read` is a 12-byte stub `fn_match` calls AMBIGUOUS; same words, same place) |
+| read API clients: clamp / request / wrapper A / wrapper B (M9.14) | `0x00409ba0`/`0x003f6c88`/`0x003f7384`/`0x003f73dc` | `0x00431ca0`/`0x0041f5e8`/`0x0041fce4`/`0x0041fd3c` | `fn_match` UNIQUE |
+| DRSTR parser / its caller / MMAIN reader (M9.14) | `0x00419350`/`0x00419684`/`0x0041a438` | `0x004410b4`/`0x004413e8`/`0x0044219c` | `fn_match` UNIQUE; their pools give the data cells below |
+| layer state / mount / directory count / directory records / MMAIN buffer / `\SystemSD` (M9.14) | `0x009cfce0`/`0x009cfce4`/`0x009cfcd4`/`0x00e25420`/`0x00e23cc0`/`0x00049fd4` | `0x00a10ea8`/`0x00a10eac`/`0x00a10e9c`/`0x00d53020`/`0x00d518c0`/`0x00056634` | pool value at the same load index of the paired function (`vcard_l3.py port`); mount = state + 4 in both |
 
 The table is a checked copy, not a source: the values are owned by
 [`tools/build_targets.py`](../../tools/build_targets.py) (M1.32), from which
@@ -938,6 +942,120 @@ This supersedes the old "no XIP/section table" negative (C-380/C-381, now
 RETRACTED; C-088/C-089). It does **not** mean the map readers are located —
 [`cerom.md`](cerom.md) §9 lists what remains unknown. Raw runs:
 `EXP-2026-11-05-33` and `EXP-2026-11-05-34`.
+
+## Registry driver table, as loaded from the ROM hives (M8.E2, EU2011 build B)
+
+Static route: `boot.hv` and `default.hv` of build B (`--image-start
+0x3e00200`) decoded by the kernel routine (`cerom.py` files decode, M1.4),
+parsed by `tools/cehive.py`, and joined with the `AppLaunch.dll` launch
+records of M1.34 (`tools/applaunch_table.py`: table `0x03bb2330`, 112
+records × `0x310` B, walker `fn 0x03bcc5b0`). The table below is
+`python3 tools/ce_drivers.py archive/head256.img --markdown` (IMG256,
+`92aa525d…`; EXP-2026-11-20-M8.E2-registry-loaded, claims C-1610–C-1616).
+US2011 build B prints the same rows.
+
+- **Process start** (`init`): `Launch20=device.exe`, `Launch30=gwes.exe`
+  (`Depend30` = `14 00`, waits for 20). `boot.hv` has no driver subkey; its
+  `Drivers\BuiltIn` only names the bus (`BusEnum.dll`, `Flags 0x8`).
+- **`Drivers\BuiltIn`** (9 drivers, loaded by `device.exe`/`BusEnum.dll`):
+  all `Order 0`; the last is `AppLch` = `AppLaunch.dll` (prefix `LDR`).
+- **`Drivers\Launch`** (63 keys): not a CE bus. `AppLaunch.dll` starts
+  them from its own record table: 63 of the 112 records (#7 `GDISUB` …
+  #69 `PPP`) name a `\Drivers\Launch\<key>`; 62 hive keys have a record
+  (`WAPIMAN` has two, `I2C_1` none). The walker visits records in index order
+  and each record's thread waits on the listed ids before it starts (M1.34),
+  so the load order of these drivers is **record index + waits**, not the
+  hive `Order` value (column "AppLaunch record": `#index device id waits`).
+  Build C (`0x5200200`): the same 72 keys; its table lacks `UART3`.
+- **Resources:** only three keys carry hardware resources in the registry:
+  `OHCI` (`UsbOhci.dll`) `MemBase=0x099a1000, SysIntr=0x1c`, `WaveSSI1`
+  `SysIntr=0x24`, `WaveSSI2` `SysIntr=0x25`. No driver key has `IoBase` or
+  `Irq`; the only `IoBase` values are four PCMCIA serial templates
+  (`0x3f8/0x2f8/0x3e8/0x2e8`, `Drivers\PCCARD\PCMCIA\TEMPLATE`), not loaded
+  drivers. `Drivers\Resources\IRQ`: `Ranges 19-21,25,36-39`, `Shared
+  36-39`; `Drivers\Resources\ID`: `0-0x3FFFF`. Other drivers' addresses
+  and IRQs are compiled into the DLLs.
+- **Scope:** ROM hives only. The runtime system hive (`init\BootVars
+  SYSTEMHIVE = Documents and Settings\system.hv`) can differ after the first
+  boot; an M8 RAM/hive dump would show it.
+
+Column `#` ranks each root by hive `Order` (stable; for `Drivers\Launch`
+the launch order is the record column).
+
+| # | root | key | Dll | device | Order | AppLaunch record | Flags | resources |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `BuiltIn/default` | `notify` | `NOTIFY.Dll` | `NFY0` | `0x0` | - | - | - |
+| 2 | `BuiltIn/default` | `DResUsage` | `DResUsage.dll` | `REU1` | `0x0` | - | - | - |
+| 3 | `BuiltIn/default` | `Battery` | `battdrvr.dll` | `BAT` | `0x0` | - | `0x8` | - |
+| 4 | `BuiltIn/default` | `ErrHandServ` | `ErrHandServ.dll` | `EHS1` | `0x0` | - | - | - |
+| 5 | `BuiltIn/default` | `ACM` | `ActivateCtlDriver.dll` | `ACM9` | `0x0` | - | - | - |
+| 6 | `BuiltIn/default` | `PowerMonitor` | `PowerMonitor.dll` | `POW1` | `0x0` | - | - | - |
+| 7 | `BuiltIn/default` | `LogDriver` | `LogDriver.dll` | `LOG1` | `0x0` | - | - | - |
+| 8 | `BuiltIn/default` | `Flash` | `flash.dll` | `FMD1` | `0x0` | - | - | - |
+| 9 | `BuiltIn/default` | `AppLch` | `AppLaunch.dll` | `LDR1` | `0x0` | - | - | - |
+| 1 | `Launch/default` | `LogSaverDriver` | `LogSaver.dll` | `LSD1` | `0x0` | `44 LSD1: id 0x26 waits -` | - | - |
+| 2 | `Launch/default` | `SCIF0` | `serial_scif.dll` | `SCI0` | `0x0` | `9 SCI0: id 0x5 waits -` | - | - |
+| 3 | `Launch/default` | `SCIF1` | `serial_scif.dll` | `SCI1` | `0x0` | `10 SCI1: id 0x6 waits -` | - | - |
+| 4 | `Launch/default` | `SCIF2` | `serial_scif.dll` | `SCI2` | `0x0` | `11 SCI2: id 0x7 waits -` | - | - |
+| 5 | `Launch/default` | `SCIF3` | `serial_scif.dll` | `SCI3` | `0x0` | `12 SCI3: id 0x8 waits -` | - | - |
+| 6 | `Launch/default` | `SCIF5` | `serial_scif.dll` | `SCI5` | `0x0` | `13 SCI5: id 0x9 waits -` | - | - |
+| 7 | `Launch/default` | `SCIF6` | `serial_scif.dll` | `SCI6` | `0x0` | `14 SCI6: id 0xa waits -` | - | - |
+| 8 | `Launch/default` | `SCIF7` | `serial_scif.dll` | `SCI7` | `0x0` | `15 SCI7: id 0xb waits -` | - | - |
+| 9 | `Launch/default` | `HSCIF` | `serial_scif.dll` | `SCI8` | `0x0` | `16 SCI8: id 0xc waits -` | - | - |
+| 10 | `Launch/default` | `UART3` | `serial_uat.Dll` | `UAT3` | `0x0` | `17 UAT3: id 0xd waits -` | - | - |
+| 11 | `Launch/default` | `UART4` | `serial_uat.Dll` | `UAT4` | `0x0` | `18 UAT4: id 0xe waits -` | - | - |
+| 12 | `Launch/default` | `I2C_0` | `I2C.dll` | `I2C1` | `0x0` | `50 I2C1: id 0x22 waits 91` | - | - |
+| 13 | `Launch/default` | `NDIS` | `NDIS.Dll` | `NDS0` | `0x1` | `66 NDIS id 0x4c waits 91` | - | - |
+| 14 | `Launch/default` | `TAPI` | `TAPI.dll` | - | `0x1` | `67 TAPI id 0x4d waits 91/76` | - | - |
+| 15 | `Launch/default` | `WAPIMAN` | `waveapi.dll` | `WAM1` | `0x1` | `40 WAM1: id 0x29 waits 91/17` | - | - |
+| 16 | `Launch/default` | `CAN` | `CAN.dll` | `CAN1` | `0x1` | `31 CAN1: id 0x16 waits 13/40` | - | - |
+| 17 | `Launch/default` | `I2C_1` | `I2C.dll` | `I2C2` | `0x1` | - | - | - |
+| 18 | `Launch/default` | `GPIO` | `GPIO.dll` | `GPI1` | `0x1` | `8 GPI1: id 0x1 waits 0` | - | - |
+| 19 | `Launch/default` | `LCD` | `lcddrv.dll` | `LCD1` | `0x1` | `35 LCD1: id 0xf waits 3/8` | - | - |
+| 20 | `Launch/default` | `MuteDrv` | `MuteDrv.dll` | `MUT1` | `0x1` | `38 MUT1: id 0x15 waits 1` | - | - |
+| 21 | `Launch/default` | `VSram` | `VSram.dll` | `SRM1` | `0x1` | `46 SRM1: id 0x3 waits 40` | - | - |
+| 22 | `Launch/default` | `FlashManager` | `FlashManager.dll` | `FLM1` | `0x1` | `45 FLM1: id 0x4 waits 40` | - | - |
+| 23 | `Launch/default` | `BCN` | `bcndrv.dll` | `BCN1` | `0x1` | `52 BCN1: id 0x17 waits 9/91` | - | - |
+| 24 | `Launch/default` | `AFD` | `AFD.Dll` | - | `0x2` | `68 AFD id 0x4e waits 91/77` | - | - |
+| 25 | `Launch/default` | `OHCI` | `UsbOhci.dll` | `HCD` | `0x2` | `39 HCD1: id 0x24 waits 91` | - | `MemBase=0x99a1000, SysIntr=0x1c` |
+| 26 | `Launch/default` | `FMM` | `fmmdrv.dll` | `FMM1` | `0x2` | `51 FMM1: id 0x1f waits 91/34` | - | - |
+| 27 | `Launch/default` | `KEP` | `kepdrv.dll` | `KEP1` | `0x2` | `36 KEP1: id 0x10 waits 15/22/40` | - | - |
+| 28 | `Launch/default` | `PPP` | `PPP.Dll` | - | `0x3` | `69 PPP id 0x4f waits 91/78` | - | - |
+| 29 | `Launch/default` | `Bolero` | `Bolero.dll` | `BLR1` | `0x5` | `37 BLR1: id 0x13 waits 1/91/80` | - | - |
+| 30 | `Launch/default` | `DspDriver` | `DspDrv.dll` | `DSP1` | `0x5` | `48 DSP1: id 0x21 waits 1/91` | - | - |
+| 31 | `Launch/default` | `DTvDriver` | `dtvdrv.dll` | `DTV1` | `0x5` | `49 DTV1: id 0x20 waits 7/91` | - | - |
+| 32 | `Launch/default` | `DebugShell` | `DebugShell.dll` | `DSD1` | `0x8` | `32 DSD1: id 0x28 waits 10/1` | - | - |
+| 33 | `Launch/default` | `Audio` | `anwdrv.dll` | `AUD1` | `0x9` | `19 AUD1: id 0x2c waits 6` | - | - |
+| 34 | `Launch/default` | `MultiMediaPlayer` | `anwdrv.dll` | `MMP1` | `0x9` | `20 MMP1: id 0x2d waits 6` | - | - |
+| 35 | `Launch/default` | `CeNet` | `anwdrv.dll` | `CEN1` | `0x9` | `21 CEN1: id 0x2e waits 6` | - | - |
+| 36 | `Launch/default` | `Update` | `anwdrv.dll` | `UPD1` | `0x9` | `22 UPD1: id 0x2f waits 6` | - | - |
+| 37 | `Launch/default` | `Antitheft` | `anwdrv.dll` | `ANT1` | `0x9` | `23 ANT1: id 0x30 waits 6` | - | - |
+| 38 | `Launch/default` | `ProductTest` | `anwdrv.dll` | `PDT1` | `0x9` | `24 PDT1: id 0x31 waits 6` | - | - |
+| 39 | `Launch/default` | `SelfDiagnosis` | `anwdrv.dll` | `PDT2` | `0x9` | `25 PDT2: id 0x32 waits 6` | - | - |
+| 40 | `Launch/default` | `Radio` | `anwdrv.dll` | `TNR1` | `0x9` | `26 TNR1: id 0x33 waits 6` | - | - |
+| 41 | `Launch/default` | `Rds` | `anwdrv.dll` | `TNR2` | `0x9` | `27 TNR2: id 0x34 waits 6` | - | - |
+| 42 | `Launch/default` | `XMRadio` | `anwdrv.dll` | `TNR3` | `0x9` | `28 TNR3: id 0x35 waits 6` | - | - |
+| 43 | `Launch/default` | `Rbds` | `anwdrv.dll` | `TNR4` | `0x9` | `29 TNR4: id 0x36 waits 6` | - | - |
+| 44 | `Launch/default` | `Tmc` | `anwdrv.dll` | `TMC1` | `0x9` | `30 TMC1: id 0x37 waits 6` | - | - |
+| 45 | `Launch/default` | `Navigation` | `navdrv.dll` | `NAV1` | `0x9` | `33 NAV1: id 0x14 waits 11/15` | - | - |
+| 46 | `Launch/default` | `BTA1` | `BT_MGR.dll` | `BTA1` | `0x9` | `53 BTA1: id 0x3c waits 1/40/12/91/80` | - | - |
+| 47 | `Launch/default` | `BTA2` | `BT_MGR.dll` | `BTA2` | `0x9` | `54 BTA2: id 0x3d waits 91/80/1/12/60` | - | - |
+| 48 | `Launch/default` | `BTA3` | `BT_MGR.dll` | `BTA3` | `0x9` | `55 BTA3: id 0x3e waits 91/80/1/12/61` | - | - |
+| 49 | `Launch/default` | `BTA4` | `BT_MGR.dll` | `BTA4` | `0x9` | `56 BTA4: id 0x3f waits 91/80/1/12/62` | - | - |
+| 50 | `Launch/default` | `BTA5` | `BT_MGR.dll` | `BTA5` | `0x9` | `57 BTA5: id 0x40 waits 91/80/1/12/63` | - | - |
+| 51 | `Launch/default` | `BTA6` | `BT_MGR.dll` | `BTA6` | `0x9` | `58 BTA6: id 0x41 waits 91/80/1/12/64` | - | - |
+| 52 | `Launch/default` | `BTA7` | `BT_MGR.dll` | `BTA7` | `0x9` | `59 BTA7: id 0x42 waits 91/80/1/12/65` | - | - |
+| 53 | `Launch/default` | `BTA8` | `BT_MGR.dll` | `BTA8` | `0x9` | `60 BTA8: id 0x43 waits 91/80/1/12/66` | - | - |
+| 54 | `Launch/default` | `BTA9` | `BT_MGR.dll` | `BTA9` | `0x9` | `61 BTA9: id 0x44 waits 91/80/1/12/67` | - | - |
+| 55 | `Launch/default` | `BT_FW` | `BT_FW.dll` | `FWB1` | `0x9` | `63 FWB1: id 0x46 waits 80/1/12` | - | - |
+| 56 | `Launch/default` | `VideoIn` | `VIN.dll` | `VIN1` | `0xa` | `47 VIN1: id 0x23 waits 1/0/15/46` | - | - |
+| 57 | `Launch/default` | `Beep` | `BeepDrv.dll` | `BEP1` | `0xa` | `64 BEP1: id 0x18 waits 3/46/16` | - | - |
+| 58 | `Launch/default` | `COM8` | - | `COM8` | `0xa` | `62 COM8: id 0x45 waits 91/80/68` | - | - |
+| 59 | `Launch/default` | `ThreadStackMonitor` | `ThreadStackMonitor.dll` | `TSM1` | `0x100` | `65 TSM1: id 0xc0 waits 91` | - | - |
+| 60 | `Launch/default` | `GDISUB` | `gdisubdrv.dll` | - | - | `7 gdisubdrv.dll id 0x0 waits -` | - | - |
+| 61 | `Launch/default` | `SD` | `SDHC.dll` | `SDC1` | - | `34 SDC1: id 0x2 waits 1` | - | - |
+| 62 | `Launch/default` | `WaveSSI1` | `wavessi1.dll` | `WAV0` | - | `42 WAV0: id 0x11 waits 91/1` | - | `SysIntr=0x24` |
+| 63 | `Launch/default` | `WaveSSI2` | `wavessi2.dll` | `WAV1` | - | `43 WAV1: id 0x12 waits 91/17` | - | `SysIntr=0x25` |
 
 ## MapUpdate.exe (image B, M2.6)
 
