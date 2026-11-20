@@ -27,25 +27,27 @@
   "tools/datask_req_l3.py",
   "tools/l3_harness/targets.json",
   "tools/mapcode_l3.py",
+  "tools/mmain_l3.py",
   "tools/mount_dirs_l3.py",
   "tools/point_locator_l3.py",
   "tools/point_walk_l3.py",
   "tools/read_watch_l3.py",
   "tools/rgd_reply_l3.py",
   "tools/swap_witness_l3.py",
+  "tools/tmc_req_l3.py",
   "tools/vcard_l3.py"
  ],
  "summary": {
-  "files": 29,
-  "citations": 600,
-  "unique_va": 277,
-  "start": 360,
+  "files": 31,
+  "citations": 625,
+  "unique_va": 285,
+  "start": 378,
   "inside": 0,
   "corrected": 0,
-  "gap": 56,
-  "leaf": 56,
+  "gap": 60,
+  "leaf": 60,
   "ambiguous": 0,
-  "unmapped": 184
+  "unmapped": 187
  },
  "rows": [
   {
@@ -59,7 +61,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1623,
+   "line": 1625,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -68,7 +70,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1623,
+   "line": 1625,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -77,7 +79,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1624,
+   "line": 1626,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -86,7 +88,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1645,
+   "line": 1647,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -96,7 +98,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1655,
+   "line": 1657,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -105,7 +107,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1726,
+   "line": 1728,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -114,7 +116,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1726,
+   "line": 1728,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -123,7 +125,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1759,
+   "line": 1761,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -132,7 +134,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1760,
+   "line": 1762,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -141,7 +143,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1782,
+   "line": 1784,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -150,7 +152,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2208,
+   "line": 2222,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -159,7 +161,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2208,
+   "line": 2222,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -168,16 +170,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3846,
-   "va": "0x880404f4",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4166,
+   "line": 4183,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -186,7 +179,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4168,
+   "line": 4185,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -195,7 +188,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4176,
+   "line": 4193,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -204,7 +197,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4181,
+   "line": 4198,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -213,7 +206,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4190,
+   "line": 4207,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -222,7 +215,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4346,
+   "line": 4364,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1272,7 +1265,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 955,
+   "line": 1004,
    "va": "0x00414644",
    "kind": "fn",
    "class": "START",
@@ -1281,7 +1274,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 956,
+   "line": 1005,
    "va": "0x00414930",
    "kind": "fn",
    "class": "START",
@@ -1290,7 +1283,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 957,
+   "line": 1006,
    "va": "0x00414dbc",
    "kind": "fn",
    "class": "START",
@@ -1299,7 +1292,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 958,
+   "line": 1007,
    "va": "0x00415330",
    "kind": "fn",
    "class": "START",
@@ -1308,7 +1301,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 277,
+   "line": 286,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -1317,7 +1310,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 277,
+   "line": 286,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1326,7 +1319,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 387,
+   "line": 396,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -1335,7 +1328,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 397,
+   "line": 406,
    "va": "0x003bc960",
    "kind": "fn",
    "class": "START",
@@ -1344,7 +1337,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 427,
+   "line": 436,
    "va": "0x003ca858",
    "kind": "fn",
    "class": "GAP",
@@ -2978,6 +2971,25 @@
   {
    "file": "tools/datask_l3.py",
    "line": 88,
+   "va": "0x00414338",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 89,
+   "va": "0x0040901c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 93,
    "va": "0x00d98fcc",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2986,7 +2998,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 90,
+   "line": 95,
    "va": "0x003f6b1c",
    "kind": "const",
    "class": "START",
@@ -2995,44 +3007,8 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 95,
-   "va": "0x0032efa8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 96,
-   "va": "0x0039d854",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 97,
-   "va": "0x00401e94",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 99,
-   "va": "0x011fff50",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
    "line": 100,
-   "va": "0x0039d854",
+   "va": "0x0032efa8",
    "kind": "const",
    "class": "START",
    "true_start": null,
@@ -3041,7 +3017,7 @@
   {
    "file": "tools/datask_l3.py",
    "line": 101,
-   "va": "0x003c001c",
+   "va": "0x0039d854",
    "kind": "const",
    "class": "START",
    "true_start": null,
@@ -3050,222 +3026,6 @@
   {
    "file": "tools/datask_l3.py",
    "line": 102,
-   "va": "0x0039d6f0",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 103,
-   "va": "0x0039d18c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 104,
-   "va": "0x003c009c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 105,
-   "va": "0x0039ca00",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 106,
-   "va": "0x006f4650",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 107,
-   "va": "0x009379b8",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 112,
-   "va": "0x0040b8b4",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 113,
-   "va": "0x0040c308",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 114,
-   "va": "0x0041597c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 115,
-   "va": "0x003f72cc",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 178,
-   "va": "0x00377ae0",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 206,
-   "va": "0x003f72e4",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 267,
-   "va": "0x034942d8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 282,
-   "va": "0x003c009c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 289,
-   "va": "0x003f6b1c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 300,
-   "va": "0x0039d18c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 300,
-   "va": "0x003c009c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 332,
-   "va": "0x0032efa8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 334,
-   "va": "0x011fff58",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 349,
-   "va": "0x0040b49c",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 760,
-   "va": "0x30001000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 762,
-   "va": "0x30001000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 832,
-   "va": "0x0040b8b4",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 834,
-   "va": "0x0040c308",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/datask_l3.py",
-   "line": 848,
    "va": "0x00401e94",
    "kind": "const",
    "class": "START",
@@ -3274,7 +3034,43 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 850,
+   "line": 104,
+   "va": "0x011fff50",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 105,
+   "va": "0x0039d854",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 106,
+   "va": "0x003c001c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 107,
+   "va": "0x0039d6f0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 108,
    "va": "0x0039d18c",
    "kind": "const",
    "class": "START",
@@ -3283,7 +3079,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 850,
+   "line": 109,
    "va": "0x003c009c",
    "kind": "const",
    "class": "START",
@@ -3292,7 +3088,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 855,
+   "line": 110,
    "va": "0x0039ca00",
    "kind": "const",
    "class": "START",
@@ -3301,7 +3097,253 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 856,
+   "line": 111,
+   "va": "0x006f4650",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 112,
+   "va": "0x009379b8",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 117,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 118,
+   "va": "0x0040c308",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 119,
+   "va": "0x0041597c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 120,
+   "va": "0x003f72cc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 183,
+   "va": "0x00377ae0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 211,
+   "va": "0x0040901c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 225,
+   "va": "0x003f72e4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 286,
+   "va": "0x034942d8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 301,
+   "va": "0x003c009c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 308,
+   "va": "0x003f6b1c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 319,
+   "va": "0x0039d18c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 319,
+   "va": "0x003c009c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 351,
+   "va": "0x0032efa8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 353,
+   "va": "0x011fff58",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 368,
+   "va": "0x0040b49c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 581,
+   "va": "0x0040901c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 802,
+   "va": "0x30001000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 804,
+   "va": "0x30001000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 874,
+   "va": "0x0040b8b4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 876,
+   "va": "0x0040c308",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 880,
+   "va": "0x0041597c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 881,
+   "va": "0x0040901c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 893,
+   "va": "0x00401e94",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 895,
+   "va": "0x0039d18c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 895,
+   "va": "0x003c009c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 900,
    "va": "0x0039ca00",
    "kind": "const",
    "class": "START",
@@ -3310,7 +3352,16 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 858,
+   "line": 901,
+   "va": "0x0039ca00",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/datask_l3.py",
+   "line": 903,
    "va": "0x003f75e4",
    "kind": "const",
    "class": "START",
@@ -3319,7 +3370,7 @@
   },
   {
    "file": "tools/datask_l3.py",
-   "line": 863,
+   "line": 908,
    "va": "0x003f6b1c",
    "kind": "const",
    "class": "START",
@@ -3830,6 +3881,51 @@
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 5,
+   "va": "0x0041a438",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 6,
+   "va": "0x0041b780",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 6,
+   "va": "0x0041b954",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 7,
+   "va": "0x00e23cc0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mmain_l3.py",
+   "line": 14,
+   "va": "0x00e23cc0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/mount_dirs_l3.py",
@@ -5247,6 +5343,141 @@
    "file": "tools/swap_witness_l3.py",
    "line": 54,
    "va": "0x00417eac",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 13,
+   "va": "0x003fbed8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 18,
+   "va": "0x003bcac0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 44,
+   "va": "0x003fbed8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 46,
+   "va": "0x004007b0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 46,
+   "va": "0x0041330c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x004003f4",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x004007b0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x004125a8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x004129d0",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x0041330c",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x00413828",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 47,
+   "va": "0x00417618",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 67,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 173,
+   "va": "0x003fbed8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/tmc_req_l3.py",
+   "line": 176,
+   "va": "0x003fbed8",
    "kind": "const",
    "class": "START",
    "true_start": null,
