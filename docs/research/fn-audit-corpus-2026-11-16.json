@@ -170,7 +170,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4157,
+   "line": 4158,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -179,7 +179,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4159,
+   "line": 4160,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -188,7 +188,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4167,
+   "line": 4168,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -197,7 +197,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4172,
+   "line": 4173,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -206,7 +206,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4181,
+   "line": 4182,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -215,7 +215,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4338,
+   "line": 4339,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1311,7 +1311,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1000,
+   "line": 1031,
    "va": "0x00414644",
    "kind": "fn",
    "class": "START",
@@ -1320,7 +1320,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1001,
+   "line": 1032,
    "va": "0x00414930",
    "kind": "fn",
    "class": "START",
@@ -1329,7 +1329,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1002,
+   "line": 1033,
    "va": "0x00414dbc",
    "kind": "fn",
    "class": "START",
@@ -1338,7 +1338,7 @@
   },
   {
    "file": "docs/format/map-tiles.md",
-   "line": 1003,
+   "line": 1034,
    "va": "0x00415330",
    "kind": "fn",
    "class": "START",
