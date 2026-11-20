@@ -170,36 +170,98 @@ zlib, the index is simple, and regenerated files can be validated offline
 before touching a card. Address/POI data is therefore a good first target for
 a round-trip writer.
 
-## Firmware reader (build A, Navi.exe — partial, M3.2b)
+## Firmware reader (EU2011 `Navi.exe` build A — located, M3.2b)
 
-> Evidence: `EXP-2026-11-06-M3.2b-cmp-chunk-reader-inflate.md` (pass 1),
-> `EXP-2026-11-08-M3.2b-cmp-chunk-reader-inflate-2.md` (pass 2, blocked),
-> C-2060–C-2069.
-> Status: **inflate + chunk decompression engine VERIFIED; `.ind` chunk_offset[]
-> consumer / M3.2a,b NOT YET LOCATED.** Pass 2 found 0 refs to `fn 0x0041c7dc` in
-> all uncompressed sections of builds A/B/C (282/527 build-A sections searched);
-> `Navi.exe` sec1 is compressed `.data` (`cerom decompress` UNSUPPORTED), so an
-> indirect-call pointer there is not statically readable. M3.2a/b open.
+> Evidence: `EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md` (C-5100–C-5109;
+> supersedes the pass-2 "no static caller" blocker, which searched the
+> mid-prologue VA `0x0041c7e8`), pass 1 `EXP-2026-11-06-M3.2b-…` (zlib,
+> C-2060–C-2063). All VAs are EU2011 (`--image-start 0x200200`, sec0). The
+> rules a writer must meet are checked by `tools/cmp_reader_contract.py`
+> (factory EU set: 194/194 pass).
 
-`Navi.exe` (A, `--image-start 0x200200`, sec0 uncompressed) statically links
-zlib 1.1.3 and provides:
+zlib 1.1.3 is linked into `Navi.exe` sec0: `inflateInit2_` `0x542256`,
+`inflate` `0x54233c` (tramp `0x54232c`), `inflateEnd` `0x54220c`, one-shot
+wrapper `0x542148` (C-2061, C-2062). The `.cmp` layer is the only caller of the
+wrapper besides `0x542100` (an argument-checking front used by three other
+functions, C-5108).
 
-| Function | VA | Role |
+**Open** (`NAME.DAT` requested with the "compressed" flag set):
+
+`0x0041855c` → `0x00417fe0` (path from `0x00418dfc`) → `0x0041b780(path, 1)`
+→ `0x0041bed4` (critical section) → `0x0041be30`: take a free handle slot
+(50 × `0x118` B), then `0x0041c2e0` matches the path against `CMP.LST` —
+listed: `0x0041c524` reads the 16-byte header of `path + ".IND"`
+(`0x0041c474`), stores the logical size and the `.ind` size
+`16 + 4*count`, opens `path + ".CMP"` with `"rb"`, marks the slot
+compressed (`u16 +0x116 = 1`); not listed: plain `fopen(path)`. `CMP.LST` is
+read whole at mount (`0x0041ba90` → … → `0x0041c124`); entries are
+NUL-separated, an entry ending in `\` matches the path's directory part, any
+other entry the whole path, only `A`–`Z` are case-folded (C-5103). The
+factory list `\SystemSD\REFER001\` therefore covers exactly the files
+directly in `REFER001`. The flag alone does not compress: `MMAIN001.DAT` is
+opened with flag 1 (`0x0041a438`) and served plain.
+
+**Read:** `0x0041b954` → `0x0041c044` → `0x0041c990(ctx, handle, buf, len)`:
+
+1. `0x0041c8c4` gets the `.ind` (through a name-keyed cache, `0x0041c404`),
+   checks **word 3 (`chunk_size`) `== 0x10000`** (`0x0041c92a`) and turns
+   position/length into a first and last chunk index (`_divlu` by
+   `chunk_size`, last clamped to `count`).
+2. `0x0041c5f0` — **the loop over `chunk_offset[]`** — re-checks
+   `chunk_size` (`0x0041c696`) and fills 20-byte entries for
+   `i = first..last`: `+0 = chunk_offset[i]` (read at `ind + 16 + 4*i`),
+   `+4 = chunk_offset[i+1] - chunk_offset[i]` (last: `.ind` word 1 minus
+   `chunk_offset[i]`), `+8 = i * chunk_size`, `+12 = chunk_size` (last:
+   `logical % chunk_size`, or `chunk_size` if 0; `logical` when `count == 1`).
+   A batch stops at 20 entries or before the compressed sum exceeds
+   `0x14000` bytes.
+3. `0x0041c990` sets `+16` to the stream's address in the compressed buffer,
+   **seeks the `.cmp` to `chunk_offset[first]`** (`0x0041ca28`) and **reads the
+   batch's summed length in one call**, which must return exactly that many
+   bytes (`0x0041ca3c`).
+4. `0x0041c7dc` inflates each entry with `0x542148`: whole chunks straight
+   into the caller's buffer, a partial first/last chunk into a `0x10000`
+   scratch buffer and `memcpy`.
+
+**M3.2 answered (C-5102, C-5104):** (a) `chunk_size` is **compared** with the
+configured `0x10000` (`0x0041c92a`, `0x0041c696`; the constant is built by
+`mov #1; shll16` at `0x0041bafe` in the mount `0x0041ba90`) and is then the
+divisor/multiplier; it sizes nothing — the scratch (`0x10000`) and batch
+(`0x14000`) buffers come from the mount configuration. (b) The reader
+**seeks by `chunk_offset[]`**; there is no `78 9c` scan.
+
+**L3 run (M3.2, C-5330–C-5334, EXP-2026-11-20-M3.2-ind-handling-l3):**
+`tools/cmp_read_l3.py` executes the EU2011 layer — manager ctor `0x0041bc98`
+with the mount's constants, open `0x0041b780`, seek `0x0041b8a4`, read
+`0x0041b954` — with the ops table bound to host files. Factory ADDRE001
+(whole) and POINT010 (page `0x840ba0`) come back byte-identical to
+`cmpind_codec`; the `.cmp` is accessed only as `seek(chunk_offset[first])` +
+one `read(sum)` (POINT010: seek `0x234d7f` = `chunk_offset[132]`); with a
+valid `78 9c` decoy prepended and the index shifted by `0x1000` the reader
+seeks to `0x1000` and is still correct; a last offset one byte early fails
+(-1), no resync. `chunk_size` `0x8000`/`0x20000` is rejected at `0x0041c92a`
+before any `.cmp` byte is read; changing only the mount word to `0x20000`
+rejects the factory file (the compare is against the configuration), and with
+both at `0x20000` the read returns 79,360 **wrong** bytes — the equality
+compare is the only `chunk_size` check.
+
+**The 8 `ind_mutate` variants through the layer (M3.3, C-5340–C-5344, EXP-2026-11-20-M3.3-ind-variants-l3):**
+ADDRE001 with the original `.cmp`, whole-file read. Rejected (-1), as
+`cmpind.py`: `size_20000`, `size_8000` (at the `chunk_size` compare, no `.cmp`
+access), `off0_1`, `off_last_m1`, `off_last_p1`, `off_last_0` (inflate fails).
+**More lenient than `cmpind.py`:** `count_p1` is read byte-identical (the extra
+entry is never visited); `count_m1` returns the full 79,360 B with bytes from
+65,536 on **wrong** — no error. D1 below is therefore a writer obligation the
+firmware does not enforce.
+
+**Writer contract** (each rule tied to a compare above; `cmp_reader_contract.py
+check DIR`):
+
+| Rule | Requirement | Firmware site |
 | --- | --- | --- |
-| `inflateInit2_` | `0x542256` | version `'1'`/stream_size `56` check; init + reset |
-| `inflate` | `0x54233c` (tramp `0x54232c`) | outer z_stream state machine |
-| `inflateEnd` | `0x54220c` | free blocks/state |
-| one-shot wrapper | `0x542148` | `inflateInit2_` + `inflate`(Z_FINISH=4) + `inflateEnd` |
-| chunked decompressor | `fn 0x0041c7dc` | random-access: 20-byte-stride chunk table at `@(28,ctx)`, reads `+8` uncomp offset / `+12` uncomp extent, passes `+16`/`+4` to wrapper (`0x542148`), `memcpy`s slice via `0x003d146c` |
-
-**M3.2 (partial, `fn 0x0041c7dc` layer only):** (a) `+12` is used as an
-uncompressed extent for range math — **no compare against `0x10000` observed** in
-this function. (b) compressed data is consumed by direct pointer — **no seek,
-no `78 9c` scan** in this function. This does *not* answer whether the `.ind`
-*parser* validates `chunk_size==0x10000` or seeks by `chunk_offset[]` vs scans:
-`0x0041c7dc` has no callers in uncompressed A o32 sections (527 searched) and
-Navi.exe sec1/sec2 are compressed/undecoded (M1.3 0/245; M1.2f/M8.E1). The
-`.ind` `chunk_offset[]` consumer remains open.
-
-Dynamic fallback (when available): break on `0x542148` / `0x0041c7dc` / `0x542256`
-while opening `REFER001/*.cmp`.
+| R1 | `.ind` word 3 == `0x10000` | `0x0041c92a`, `0x0041c696` |
+| R2 | every compressed chunk ≤ `0x14000` B (factory max 65,562) | `0x0041c72a`, `0x0041c9da` |
+| R3 | `.ind` word 1 == `.cmp` size | last-chunk length `0x0041c6fc`; read check `0x0041ca3c` |
+| R4 | `.ind` is `16 + 4*count` bytes | `0x0041c6c6`, `0x0041c576` |
+| D1 | `count == ceil(logical/0x10000)`, offsets increase from 0 | not tested; a too-small count reads **wrong bytes without error**, a too-large one is ignored (M3.3, C-5341/C-5342) |
+| — | the directory (or file) is listed in `CMP.LST` | `0x0041c2e0` |

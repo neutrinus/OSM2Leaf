@@ -10,7 +10,7 @@ Sample: `LEAF_2011-2012_QSD-309-101_navi158_eu.img`
 - SHA-256: `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`
 - Source: <https://files.viaaq.eu/sd-images/>
 
-## What is code and what is data (summary, EXP-2026-11-19-M6.16)
+## What is code and what is data (summary, EXP-2026-11-19-M6.17)
 
 | Region | Content | Kind |
 | --- | --- | --- |

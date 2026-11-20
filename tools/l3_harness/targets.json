@@ -137,26 +137,8 @@
     "endian": "little",
     "sec1_table": {
      "va": "0x00574de0",
-     "values": [
-      "0x00000000",
-      "0x00000001",
-      "0x00000003",
-      "0x00000007",
-      "0x0000000f",
-      "0x0000001f",
-      "0x0000003f",
-      "0x0000007f",
-      "0x000000ff",
-      "0x000001ff",
-      "0x000003ff",
-      "0x000007ff",
-      "0x00000fff",
-      "0x00001fff",
-      "0x00003fff",
-      "0x00007fff",
-      "0x0000ffff"
-     ],
-     "provenance": "zlib 1.1.3 inflate_mask[17] (2^n - 1, n=0..16), public source; written at VA 0x574de0 indexed by Navi.exe inflate at 0x54369e (shll2; mov.l @(r0,r3),r2; and r12,r2 = hold & inflate_mask[n]). VA sourced from code; values from public zlib source, not read from Navi.exe sec1 (M1.2f open) \u2014 HYPOTHESIS that sec1 bytes equal these values, consistent with byte-identical output (EXP-2026-11-08-M9.11-chunk-decoder). Declared input, not a silent default (M9.11b)."
+     "source": "image",
+     "provenance": "EU2011 Navi.exe inflate_mask[17] at VA 0x00574de0 (slot indexed by the inflate at 0x0054369e: shll2; mov.l @(r0,r3),r2; and r12,r2). Read from the image: runner maps Navi.exe's compressed sections with their INIT bytes decoded by the kernel routine (tools/nk_decomp.py, M1.19) plus zero BSS; the 17 words read there equal 2^n - 1 (H51, M9.40, EXP-2026-11-19-M1.19-kernel-decomp-wiring). No declared values."
     },
     "inputs": {
      "offset": "0x840ba0",
@@ -178,7 +160,7 @@
     "rule": "firmware fn 0x41c7dc returns the requested page byte-identical to cmpind.decode on the factory/S1/S2 pairs; --mutate corrupt-ind is rejected (-1); --mutate swap-4-8 fails cleanly (EXP-2026-11-08-M9.11-chunk-decoder controls, M9.11b)."
    },
    "notes": [
-    "Registered by M9.11b. The sec1 inflate_mask table is an explicit declared input with provenance; runner never uses a silent default.",
+    "Registered by M9.11b. Since M1.19 the sec1 inflate_mask table is read from the image (sec1_table.source=image, nk_decomp); no declared values, no silent default.",
     "Controls: runner.py run cmp_ind_reader --image IMG256 --cmp ... --ind ... [--mutate corrupt-ind|swap-4-8].",
     "This target covers the chunk decode path (fn 0x41c7dc), not the full .ind parser or the file opener."
    ]
@@ -193,7 +175,7 @@
     "kind": "blocked",
     "program": null,
     "va": null,
-    "reason": "no tile reader entry point has been recovered (M3)"
+    "reason": "not callable from runner.py: tile bytes arrive as read completions handled by 0x0040b8b4 / 0x0040c308 / 0x0041597c (r4 = message; M3.25). The target runs as tools/datask_l3.py mount --position LAT,LON [--replace MAPAL001/<tile>=FILE] + diff; first verdicts in EXP-2026-11-20-M9.13 (factory-backed generated B48R058R: SAME as factory; fresh-container tile: directory read fails). Record blocks: M9.53"
    },
    "stubs": [
     "CreateFileW",
@@ -300,6 +282,51 @@
    ]
   },
   {
+   "name": "applaunch_mapcode_compare",
+   "reader": "hdd_info",
+   "what": "AppLaunch.dll map-code compare fn 0x03bd2ad8 (EU2011 build B; DIFFERENT MAP CODE, M2.5/M2.15/M9.6)",
+   "module": "AppLaunch.dll",
+   "build": "eu2011",
+   "entry": {
+    "kind": "firmware_call",
+    "program": "mapcode_compare_v1",
+    "module": "AppLaunch.dll",
+    "va": "0x03bd2ad8",
+    "endian": "little",
+    "sec1_table": {
+     "va": "0x01f74b30",
+     "values": [
+      "0x00000000"
+     ],
+     "provenance": "HDD_INFO parse cache, first byte tested by fn 0x03bd2ad8 at 0x03bd2b78 (pool 0x03bd2cb8). AppLaunch.dll sec1 realaddr 0x01f73000 +0x1b30 >= init 0x3ac: BSS, zero at load (tools/va_class.py on rva VA 0x03bd7b30). Zero = first call, the file path is taken."
+    },
+    "inputs": {
+     "image_start": "0x3e00200",
+     "guest_path": "\\SystemSD\\VER_INFO\\HDD_INFO.TXT",
+     "unit_record": "KernelIoControl(0x0101302C) out +0x60, 11 bytes: declared by --unit-from (factory line-1 bytes 0..10) or --unit-code; not read from a unit"
+    },
+    "note": "Runs fn 0x03bd2ad8 from the image with 8 COREDLL import thunks stubbed (tools/mapcode_l3.py). Pass --image IMG256 --input HDD_INFO.TXT --unit-from FACTORY_HDD_INFO.TXT [--expect REJECT]."
+   },
+   "stubs": [],
+   "corpus": {
+    "path": "hdd_info/factory/HDD_INFO.TXT",
+    "guest_path": "\\SystemSD\\VER_INFO\\HDD_INFO.TXT",
+    "reader": "hdd_info",
+    "case": "hdd_info_factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "fn 0x03bd2ad8 returns 1 (ACCEPT) when the unit record +0x60 equals HDD_INFO line-1 bytes 0..10, else 0 (REJECT, router fn 0x03bd2ecc raises 0x50 DIFFERENT MAP CODE); pass --expect REJECT for an edited line-1 control"
+   },
+   "notes": [
+    "Registered by M9.6 (EXP-2026-11-19-M9.6-mapcode-compare).",
+    "The unit record is an assumption (factory card matches its unit), stated in every result.",
+    "Covers check 1 (0x50) only; the MapDBVer range check fn 0x03bd2ce4 (0x51) is not run."
+   ]
+  },
+  {
    "name": "cmp_ind_reader_us2011",
    "reader": "cmp_ind",
    "what": "REFER001 .cmp + .ind chunk reader (US 2011 Navi.exe fn 0x00444540, EU->US twin of 0x0041c7dc; M1.22)",
@@ -313,26 +340,8 @@
     "endian": "little",
     "sec1_table": {
      "va": "0x005987b0",
-     "values": [
-      "0x00000000",
-      "0x00000001",
-      "0x00000003",
-      "0x00000007",
-      "0x0000000f",
-      "0x0000001f",
-      "0x0000003f",
-      "0x0000007f",
-      "0x000000ff",
-      "0x000001ff",
-      "0x000003ff",
-      "0x000007ff",
-      "0x00000fff",
-      "0x00001fff",
-      "0x00003fff",
-      "0x00007fff",
-      "0x0000ffff"
-     ],
-     "provenance": "zlib 1.1.3 inflate_mask[17] (2^n - 1, n=0..16), public source; written at VA 0x005987b0, the pool slot the US Navi.exe inflate loads at 0x00565996 (shll2 r2; mov.l @(pc),r3 -> 0x005987b0; mov.l @(r0,r3),r2; and r12,r2). Structural derivation: the instruction sequence is unique in each build's text (EU 0x0054369a -> 0x00574de0). Values from public zlib source, not read from the image (M1.2f open), as for the EU target (M9.11b)."
+     "source": "image",
+     "provenance": "US2011 Navi.exe inflate_mask[17] at VA 0x005987b0, the pool slot the US inflate loads at 0x00565996 (structural twin of EU 0x0054369a -> 0x00574de0). Read from the image: runner maps Navi.exe's compressed sections with their INIT bytes decoded by the kernel routine (tools/nk_decomp.py, M1.19) plus zero BSS; the 17 words read there equal 2^n - 1 (M9.40, EXP-2026-11-19-M1.19-kernel-decomp-wiring). No declared values."
     },
     "inputs": {
      "offset": "0x840ba0",

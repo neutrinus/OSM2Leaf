@@ -50,16 +50,19 @@ from these four bytes.
 | Area | Name | Launch mask |
 | --- | --- | --- |
 | `0x10` | Japan | `0x00010000` |
-| `0x20` | USA | `0x00020000` |
-| `0x30` | Euro | `0x00040000` |
+| `0x20` | USA | `0x00040000` |
+| `0x30` | Euro | `0x00020000` |
 | `0x40` | Russia | `0x00080000` |
 | `0x50` | China | `0x00100000` |
 | other | WorldWide | `-1` (then a kernel "Env Variable" fallback, IOCTL `0x0101304C`) |
 
 The area mask filters the launcher's process/driver table (B `0x03bcc5b0` /
-`0x03bcc564`), so it selects what starts; the launcher name block contains a
-JP-specific `NxJpNavi.exe` (its per-entry mask is in compressed `.data` and was
-not decoded). The area does **not** select the map database. Navigation and map
+`0x03bcc564`), so it selects what starts. (USA/Euro masks corrected by M1.34,
+C-5350: `fn 0x03bcba58` gives USA `0x00040000`, Euro `0x00020000`.) The table
+is in the code section, not compressed `.data`: an EU unit starts `Navi.exe`
+record #81 (area `0x00020000`), a US unit #80 (`0x00040000`), and the
+JP-specific `NxJpNavi.exe` record carries `0x00010000`
+([rom-registry.md](rom-registry.md#the-launch-table-m134)). The area does **not** select the map database. Navigation and map
 modules (`Navi.exe`, `NaviMapCC`, `NaviSearchCC`, `NaviRouteCC`, `OBJDLL`, …)
 do not import the area API; UI/audio/system modules do.
 
@@ -77,7 +80,7 @@ unit-vs-card; no area or region value from the card enters them.
 | Version | `NAVI VERSION NG` compares the card's version/record with the unit's `NAVI-1`; the launcher's unit-side record is read through `KernelIoControl` (see above), not from the card. | PARTLY VERIFIED (firmware path) / HYPOTHESIS (screen assignment) |
 | Map code | `DIFFERENT MAP CODE` compares the card's `VER_INFO/HDD_INFO.TXT` with a unit-side target-info record (`manufacturer_id`, `userdata_type`, `destination_id`, map-DB range); the unit side cannot be supplied by the card. | PARTLY VERIFIED (firmware path) / HYPOTHESIS (field mapping) |
 | Unit region | The market is a NAND byte in the PROD block at `0xA022` (`0x10` JP/world, `0x20` US, `0x30` EU, `0x40` RU, `0x50` CN). The firmware confirms the **values and the five-way switch**, but reads the byte as part of a 4-byte Target ID via `KernelIoControl(0x01013208)`; the `0xA022` address itself is external. The old "`AppLaunch` compares against `0x10`" wording is wrong: `0x10` is only the Japan branch. | VALUES VERIFIED / ADDRESS HYPOTHESIS |
-| Firmware | Navi app `NB00` on card / `NB04` in NAND are build copies; the card's build is not executed while the unit runs its own. **Contested (C-5192, EXP-2026-11-19-M6.16):** the QY7 unit flash is 8 MiB and A is 24.4 MB, so the card build is most likely what runs; M6.17 decides. Audio CPU is separate: `70F3355` JP, `70F3356` US, `70F3357` EU. The EU image's `Navi.exe` is compiled `## COMPILE OPTION ## EUROPE FOR NISSAN ##`; the launcher name block also carries a JP-specific `NxJpNavi.exe`. | EU card image build OBSERVED; NB04/US build and audio mapping HYPOTHESIS |
+| Firmware | Navi app `NB00` on card / `NB04` in NAND are build copies; the card's build is not executed while the unit runs its own. **Contested (C-5192, EXP-2026-11-19-M6.17):** the QY7 unit flash is 8 MiB and A is 24.4 MB, so the card build is most likely what runs; M6.19 decides. Audio CPU is separate: `70F3355` JP, `70F3356` US, `70F3357` EU. The EU image's `Navi.exe` is compiled `## COMPILE OPTION ## EUROPE FOR NISSAN ##`; the launcher name block also carries a JP-specific `NxJpNavi.exe`. | EU card image build OBSERVED; NB04/US build and audio mapping HYPOTHESIS |
 | Precedent | A US QY7210NN booted and drew European streets from an EU card (leafsdtools issue #3). | OBSERVED / HEARSAY |
 | JP→EU teardown | PROD byte alone changed little and broke TV/hangs. PROD + EU loader + EU card gave EU languages, time zones and map, but killed all audio. | OBSERVED / HEARSAY |
 | Anti-theft | `SECURE` is a CAN/VIN check. Clearing PROD `A0A0–A0A3` or grounding `TEST_B1` disables it. | OBSERVED / HEARSAY |

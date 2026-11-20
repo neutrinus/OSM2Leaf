@@ -547,20 +547,56 @@ def _write_level_table(buf: bytearray, groups: list[tuple[int, list[tuple]]]) ->
             struct.pack_into(">BBH", buf, pos, level, kind, count)
             pos += 4
 
+SYNTH_DATA_VERSION = "26/11/09/01"
+# Baseline (non-OSM) tile of the synthetic scaffold: l2check's tile_semantic and
+# tile_mutation target this cell, so it must be a real container (M5.33).
+SYNTH_BASELINE_CELL = "B30R060R"
+
+
 def _synth_mmain() -> bytes:
+    """MMAIN with the full ZE0 level table (sections 1/2/4, every factory row).
+
+    Counts start at 0; ``rebuild_manifests`` recomputes them from the tiles, so
+    every (section, level) a tile lists is an MMAIN row (cardcheck ``mmain``)."""
+    import ze0_tile_header
     buf = bytearray(_synth_header())
     buf.extend(b"\x00" * (0x1000 - len(buf)))
-    _write_level_table(buf, [(1, [(6, 0x80, 1), (5, 0x90, 1)])])
+    _write_level_table(buf, [(sid, [(lvl, typ, 0) for lvl, typ in rows])
+                             for sid, rows in sorted(ze0_tile_header.LEVELS.items())])
     return bytes(buf)
 
-def _synth_tile() -> bytes:
-    buf = bytearray(_synth_header())
-    buf.extend(b"\x00" * (0x400 - len(buf)))
-    _write_level_table(buf, [(1, [(6, 0x80, 1), (5, 0x90, 1)])])
-    struct.pack_into(">H", buf, 0x2AC, 1)
-    buf[0x2AE] = 1; buf[0x2AF] = 1
-    struct.pack_into(">BBhhhh", buf, 0x2B0, 2, 0, 1920, 1685, -720, -562)
-    return bytes(buf)
+
+def _ze0_container(blob: bytes, cell: str | None) -> bytes:
+    """Re-author an X08-03-00 container's header as ZE0 X08-02-00 (M5.33)."""
+    import tilewriter
+    import ze0_tile_header
+    box = tilewriter.cell_db_bounds(cell) if cell else None
+    return ze0_tile_header.convert(blob, box=box, data_version=SYNTH_DATA_VERSION)
+
+
+def _synth_tile(cell: str = SYNTH_BASELINE_CELL) -> bytes:
+    """A synthetic baseline tile: ``tilewriter.make_factory`` (vendor-free, three
+    sections, one road + background parcels) with a ZE0 header."""
+    import tilewriter
+    return _ze0_container(tilewriter.make_factory(cell), cell)
+
+
+def _synth_lev() -> bytes:
+    """A synthetic ``LEV3456R.DAT``: sections 1 and 2 (as on the factory card),
+    no directories, ZE0 header."""
+    import tilewriter
+    import ze0_tile_header
+    clarion_tile = tilewriter.clarion_tile
+    sections = [dict(id=sid, count=0,
+                     levels=[dict(level=lvl, typ=typ, dirs=[]) for lvl, typ in ze0_tile_header.LEVELS[sid]])
+                for sid in (1, 2)]
+    for sec in sections:
+        words, _offsets, _groups = clarion_tile.table_words(sec)
+        sec["count"] = -(-2 * words // 256)
+    tile = dict(sections=sections)
+    groups = [(sec["id"], [(L["level"], L["typ"], 0) for L in sec["levels"]]) for sec in sections]
+    tile["header"] = ze0_tile_header.author(groups, [], (0, 0, 0, 0), SYNTH_DATA_VERSION)
+    return clarion_tile.write_tile(tile)
 
 def _synth_cmp_ind(root: Path, stem: str = "POINT001.DAT") -> None:
     import cmpind_writer
@@ -579,12 +615,12 @@ def _scaffold_tree(root: Path, osm_tile_cell: str) -> list[str]:
         (root / d).mkdir(exist_ok=True)
     (root / "MMAIN001.DAT").write_bytes(_synth_mmain())
     # Synthetic baseline tiles (not OSM-generated). Do NOT create osm_tile_cell here.
-    (root / "MAPAL001" / "LEV3456R.DAT").write_bytes(_synth_tile())
-    (root / "MAPAL001" / "B30R060R.DAT").write_bytes(_synth_tile())
+    (root / "MAPAL001" / "LEV3456R.DAT").write_bytes(_synth_lev())
+    (root / "MAPAL001" / f"{SYNTH_BASELINE_CELL}.DAT").write_bytes(_synth_tile())
     _synth_cmp_ind(root)
     (root / "CMP.LST").write_bytes(b"\\SystemSD\\REFER001\\")
     (root / "DRSTR001.DAT").write_bytes(drstr_ze0.build(root))
-    return ["MAPAL001/LEV3456R.DAT", "MAPAL001/B30R060R.DAT", "MMAIN001.DAT", "REFER001/POINT001.DAT.cmp", "REFER001/POINT001.DAT.ind", "CMP.LST", "DRSTR001.DAT"]
+    return ["MAPAL001/LEV3456R.DAT", f"MAPAL001/{SYNTH_BASELINE_CELL}.DAT", "MMAIN001.DAT", "REFER001/POINT001.DAT.cmp", "REFER001/POINT001.DAT.ind", "CMP.LST", "DRSTR001.DAT"]
 
 def build_synthetic_out(out: Path, cell: str = "B48R058R",
                         input_root: Path | None = None,
@@ -650,6 +686,13 @@ def build_synthetic_out(out: Path, cell: str = "B48R058R",
         if rc != 0 or not tile_out.exists():
             report["gates"] = {g: gate("BLOCKED", f"tilewriter failed rc={rc}: {(se or so)[:400]}") for g in GATES}
             return report
+        # tilewriter's synthetic mode authors the X08-03-00 (2014+) header; a ZE0
+        # card needs X08-02-00 (cardcheck headers). Re-author the header only;
+        # the body tilewriter wrote and verified is unchanged (M5.33).
+        x08_03 = tile_out.read_bytes()
+        report["counts"]["tilewriter_sha256"] = sha256_bytes(x08_03)
+        tile_out.write_bytes(_ze0_container(x08_03, cell))
+        report["counts"]["tile_header"] = "X08-02-00 (ze0_tile_header.convert)"
         report["counts"]["tile_size"] = tile_out.stat().st_size
         report["counts"]["tile_sha256"] = sha256_bytes(tile_out.read_bytes())
 
@@ -678,7 +721,9 @@ def build_synthetic_out(out: Path, cell: str = "B48R058R",
     report["counts"]["cardcheck_tail"] = (so + "\n" + se).strip().splitlines()[-15:]
     card_ok = rc == 0
 
-    rc2, so2, se2 = run_cmd_json("l2check.py", ["--root", str(out), "--partial", "--no-golden", "--no-cmp", "--tiles", cell])
+    # --tiles takes the file name (C-3566, M5.39): a bare cell is exit 2.
+    rc2, so2, se2 = run_cmd_json("l2check.py", ["--root", str(out), "--partial", "--no-golden", "--no-cmp",
+                                                "--tiles", f"{cell}.DAT"])
     report["counts"]["l2check_rc"] = rc2
     report["counts"]["l2check_tail"] = (so2 + "\n" + se2).strip().splitlines()[-15:]
     l2_ok = rc2 == 0
@@ -743,6 +788,31 @@ def selftest() -> int:
         chk("B48R058R.DAT" in tiles, "B48R058R OSM-generated tile present")
         chk(rep["osm_generated_tile"] == "MAPAL001/B48R058R.DAT", "only B48R058R recorded as OSM-generated tile")
         chk(all(rep["mapping"] == "provisional-v0" for _ in [1]), "mapping field is provisional-v0")
+        # M5.33: the synthetic scaffold + OSM tile are coherent for L1 and targeted L2.
+        import ze0_tile_header
+        osm_tile = (out / "MAPAL001" / "B48R058R.DAT").read_bytes()
+        chk(ze0_tile_header.check(osm_tile[:0x1000]) == []
+            and osm_tile[0xa0:0xd0].decode("utf-16-be") == "FORMAT VERSION X08-02-00",
+            "M5.33: OSM tile carries an exact ZE0 X08-02-00 header")
+        for name in ("LEV3456R.DAT", f"{SYNTH_BASELINE_CELL}.DAT"):
+            chk(ze0_tile_header.check((out / "MAPAL001" / name).read_bytes()[:0x1000]) == [],
+                f"M5.33: scaffold {name} has an exact ZE0 header")
+        chk(rep["counts"].get("cardcheck_rc") == 0, f"M5.33: cardcheck rc=0 on the synthetic tree (got {rep['counts'].get('cardcheck_rc')})")
+        chk(rep["counts"].get("l2check_rc") == 0, f"M5.33: targeted l2check rc=0 (got {rep['counts'].get('l2check_rc')})")
+        chk(any("tiles=1" in ln for ln in rep["counts"].get("l2check_tail", [])),
+            "M5.33: targeted l2check checked tiles=1 (file name, not bare cell)")
+        chk(rep["gates"]["tile_roundtrip_structure"]["status"] == "PASS"
+            and rep["gates"]["drstr_mmain_cmplst_ind"]["status"] == "PASS",
+            "M5.33: tile/manifest gates PASS on a coherent scaffold")
+        # Negative control: the X08-03-00 header tilewriter writes in synthetic
+        # mode must still fail cardcheck on this ZE0 tree (the M5.29 defect).
+        neg = Path(td) / "neg"
+        shutil.copytree(out, neg)
+        import tilewriter
+        (neg / "MAPAL001" / f"{SYNTH_BASELINE_CELL}.DAT").write_bytes(tilewriter.make_factory(SYNTH_BASELINE_CELL))
+        rc_neg, so_neg, _se = run_cmd_json("cardcheck.py", ["--root", str(neg), "--partial", "--ignore-dump-artifacts", "--fast"])
+        chk(rc_neg == 1 and "expected 'HITACHI'" in so_neg,
+            "M5.33 negative control: an X08-03-00 tile fails cardcheck headers")
         # gates present and honest
         for g in GATES:
             chk(g in rep["gates"], f"gate present: {g}")
@@ -1025,7 +1095,7 @@ def selftest() -> int:
         import tilewriter
         yb, xb = tilewriter.cell_mesh("B48R058R")
         tile_bytes = tilewriter.make_factory(
-            "B48R058R", extra_dirs={1: [tilewriter._opaque_directory(0x2146, 1, yb, xb + 1)]})
+            "B48R058R", extra_dirs={1: [tilewriter._opaque_directory(0x2246, 1, yb, xb + 1)]})
         (root / "MAPAL001" / "B48R058R.DAT").write_bytes(tile_bytes)
         (root / "DRSTR001.DAT").write_bytes(b"x")
         (root / "MMAIN001.DAT").write_bytes(b"x")
@@ -1067,8 +1137,8 @@ def selftest() -> int:
             guard_parcel(imf_cross, (yb, xb), tile_bytes)
             chk(False, "guard refuses a way that leaves the chosen directory")
         except UsageError as e:
-            chk("kind" in str(e) and ("0x%04x" % 0x2146) in str(e),
-                "guard refusal names the touched directory kind (0x2146)")
+            chk("kind" in str(e) and ("0x%04x" % 0x2246) in str(e),
+                "guard refusal names the touched directory kind (0x2246)")
         clipped = td / "cross.clipped.jsonl"
         clip = clip_imf_to_directory(imf_cross, clipped, box)
         chk(clip["ways_kept"] == 0 and clip["ways_dropped"] == 1,
@@ -1081,7 +1151,7 @@ def selftest() -> int:
             guard_parcel(imf_ok, (yb, xb + 1), tile_bytes)
             chk(False, "guard refuses a preserve-only target directory")
         except UsageError as e:
-            chk("0x2146" in str(e), "preserve-only target names kind 0x2146")
+            chk("0x2246" in str(e), "preserve-only target names kind 0x2246")
 
         # The full CLI refuses the crossing way by default (negative control),
         # before creating --out.

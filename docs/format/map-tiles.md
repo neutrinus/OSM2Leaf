@@ -221,12 +221,30 @@ All five target tiles now rebuild **byte-identically**, including the dense
 - mask the `0x80000000` pair flag before computing a compressed length;
 - preserve raw slot tails (e.g. `B30R048` slot 21 at body `+0xE8`);
 - accept `0x7fffffff` empty tags at level 1;
-- keep declared-size directory tails: the EU 2011 section-1 level-1 `0x2n46`
-  family carries an extra `n*512`-byte tail for `n=1–7` observed (e.g. 512 B
-  for `0x2146`, 3584 B for `0x2746`; `0x2946` had 0 in `B48R058R`). Their
-  slot-table container (header/tag/body/tail) round-trips, but many blocks hold
-  non-zlib records / `0xffffffff` pair fields, so `tilewriter` preserves these
-  kinds and refuses mutation inside them (M5.22, C-2810–C-2813);
+- the EU 2011 section-1 level-1 `0x2n46` "kinds" are **not** a 512-byte-row
+  directory with an `n*512`-byte tail (M5.22's reading, C-2810–C-2812,
+  superseded). Header word 0 is the directory size in `u16` words, and
+  `0x2n46` is a `0x2046` directory with **n wide rows** (M5.53,
+  C-5270–C-5273, `tools/s1_wide_dir.py`):
+
+  | Row | Body | Per column (32 columns) |
+  | --- | --: | --- |
+  | narrow | 512 B | even `(u32 ln, u32 X)`, odd `(u32 ln, u32 X)` |
+  | wide | 1,024 B | even (8 B), 4 x `u16` sub-record sizes, 4 x `u16` sub-record inflated sizes, odd (8 B) |
+
+  Bit 31 of a row's first body word marks a wide row (`0xffffffff` when
+  column 0 is empty; never set in a narrow row). In a wide row bit 31 of the
+  even `ln` is also set on every column with sub-records. The row block holds,
+  per column, `even, sub0..sub3, odd`, each `2 * ln` bytes (zlib, zero-padded
+  to a word); `(0, 0)` is an empty sub-record. The sub-records are a 2 x 2
+  split of the parcel: their parcel codes replace the low nibble `0xc | r` of
+  the parent code with `(half << 2) | r`. On `B48R058R` all 68 section-1
+  directories parse this way (139,510 records, every one a whole zlib stream of
+  its declared size, 0 overlapping row blocks). `tilewriter` splices into
+  `0x2146` through this model (a written parcel loses its sub-records; a wide
+  row left without any becomes narrow, so the directory can turn into
+  `0x2046`) and still preserves `0x2246`–`0x2946`. What the firmware does with
+  the sub-records is UNKNOWN (no reader located, rule 13);
 - copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
 
 Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
@@ -718,6 +736,43 @@ located MAP_DATA or RGD_DATA tile-load paths; no section-4-specific handler VA
 was located. It may be consumed by a separate name/search/label subsystem or be
 unused at render time — **UNKNOWN** from this analysis.
 
+### Route-link key: what a section-2 entry joins to (M4.39)
+
+> **Status:** `VERIFIED` (L2, factory EU2011 tiles, shuffled and other-parcel
+> nulls) for the link key and the node-coordinate key; `VERIFIED (negative)`
+> for every numeric `LCTBL001` field. Evidence: EXP-2026-11-19-M4.39-route-link-id,
+> C-5150–C-5156, `tools/route_link_join.py`. No firmware run: which key the
+> router itself uses is not tested here (C-887's `link[mesh,no,rdtype]` string
+> is consistent with it, OBSERVED only).
+
+A level-1 section-2 entry (`clarion_rd.parse_record`, seven words + regulation
+words) names its link by **`(parcel code, class, link id)`**: parcel = record
+words 0–1, class = class word `& 0xf`, link id = entry word 3 `& 0x1fff`
+(`0x2000` = the entry sits at the drawn last point). The same triple names one
+drawn link in the parcel's section-1 `0x00fa` shape record (link ids restart at
+1 per class), and that shape's word 4 is the label in the odd partner record.
+ADDRE street records reach the same link from the other side: their parcel
+code + point word offset land on a drawn point, whose link triple is in
+section 2.
+
+| Section-2 field (entry word) | Tested as key into | Hit, `B48R058R` | Shuffled null | Other-parcel null | Hit, `B38R068R` | Verdict |
+| --- | --- | --: | --: | --: | --: | --- |
+| link id (3, `& 0x1fff`) + class | drawn link with an end at the entry's node | 99.9 % | 6.1 % | 0.0 % | 99.9 % | **key** |
+| node `(x, y)` (node words 0–1, `& 0x7ff`) | drawn link end points of the parcel | 100.0 % | — | 0.0 % | 100.0 % | **key** (node, not link) |
+| w4 (1) | same | 3.8 % | 2.6 % | 0.0 % | 2.2 % | not a key |
+| w5 (2) | same | 0.1 % | 0.1 % | 0.0 % | 0.1 % | not a key |
+| travel time `a` (5) | same | 1.0 % | 1.0 % | 0.0 % | 1.6 % | not a key |
+| length `b` (6) | same | 0.8 % | 0.8 % | 0.0 % | 1.4 % | not a key |
+| far node index (0) | same | 6.8 % | 3.8 % | 0.0 % | 7.3 % | not a key |
+| own node index | same | 7.2 % | 3.8 % | 0.0 % | 7.9 % | not a key |
+| link id, w4, w5, a, b, class word, parcel words, node x/y | every `LCTBL001` attr byte, class, footer `u16` of name-matched records | best ratio 1.43 at 0.1 % | shuffled pairing | — | best ratio 1.26 at 1.9 % | **no LCTBL key** |
+
+Chain from a displayed name to the router edge: label (odd record) ← shape
+word 4 ← shape link `(class, id)` = section-2 entry `(class, id & 0x1fff)` in
+the same parcel. `LCTBL001` reaches it only by name string (29.4 % of named
+linked entries on `B48R058R`, median 8 LCTBL records per name), which is not a
+key.
+
 ### Reader entry arguments (M3.27, static, build A)
 
 > **Status:** `VERIFIED` for the entry addresses, lengths, the single static
@@ -784,6 +839,94 @@ functions accept; the closest runnable target remains `0x00425f40` (M3.6) fed
 by `0x00427578`, whose `r4` is a 20-byte record. Falsifier for that paragraph: a
 caller that loads `MapViewOfFile`'s return value straight into `r4` of one of
 the three entries (not found: all three have exactly one static call site).
+### Reader entry: the read-completion handlers (M3.25, EU2011 build A)
+
+> **Status:** `VERIFIED` (run in PySh4 on the EU 2011 card with
+> `tools/datask_l3.py mount`; two controls on a changed `B28R070R.DAT`) for the
+> entries, their argument and the byte ranges loaded. Names follow the
+> container model of `tools/ze0-viewer/tools_ze0/clarion_tile.py` (section
+> list at `0x800`, per-section table, directories, record blocks); the M3.25
+> EXP and claims call the section table "level directory" and a directory
+> "data block" (corrected by C-3250). EXP-2026-11-19-M3.25-tile-reader-entry, C-4680–C-4699.
+
+Tile bytes are not passed to a `(tile, dst)` function. The data-access task
+asks the map-file task for a byte range and is called back with a completion
+message ([firmware.md](firmware.md#the-data-access-task-m325-eu2011-build-a)).
+The handler is chosen by the request tag:
+
+| Entry | Called for | `r4` | `r5`–`r7` | Return |
+| --- | --- | --- | --- | --- |
+| `0x0040b8b4` | the first `0x1000` bytes of a tile file | completion message | not arguments | not used; result is the file record and the next requests |
+| `0x0040c308` | one section table | completion message | not arguments | not used |
+| `0x0041597c` | one directory | completion message | not arguments | not used |
+
+Completion message: `+8 u16 = 0x04a0`, `+10 u16` request tag, `+12 u32`
+status, `+16 u32` buffer, `+20 u32` length. The buffer is in the swapped form
+(C-4641): a `u16` loaded at buffer offset N is the file's big-endian `u16` at N.
+
+What each entry loads from a factory tile (file offsets):
+
+| Entry | Function | Arguments | Bytes loaded |
+| --- | --- | --- | --- |
+| header | `0x0040a8d0` (leaf) | `(buffer)` | `0xfa`–`0xfd`, `0x100`–`0x103`, `0x106`–`0x109`, `0x10c`–`0x10f` (the date digits of the common header) |
+| header | `0x0040acb8` | `(kind, volume header, buffer, file record)` | `0x800` onward: 12 bytes on `LEV3456R.DAT`, 18 on `B48R068R.DAT`, 16 on `B28R070R.DAT` |
+| header | `0x0040aa50`, called per level by `0x0040aea4(buffer, file index, 6, file record)` | `(buffer, file index, level)` | the level table at `0x1ac` (`0x1ac`–`0x1d9` on `B28R070R.DAT`) |
+| section table | `0x0040be84` | `(message, control block, table)` | from `+2`; 152 of `0x100` bytes on `B28R070R.DAT` section 1 |
+| directory | `0x004156a4` | `(0, message, control block, slot)` | `+6`–`+9` |
+| directory | `0x004144a8` (leaf) | `(buffer, flags *, out *)` | the directory header: `+2`–`+5` (the two counts `clarion_tile.py` calls `a`, `b`; 32, 32 on a `0x2046` directory), `+0xa`–`+0xb`; `a` above 64 or `b` above 80 sets an error bit |
+| directory | one of eight slot-table parsers picked by `0x004157dc` from the flag word: `0x00414644`, `0x00414930`, `0x00414dbc`, `0x00415330` ran; `0x0041509c`, `0x00414ae0`, `0x0041478c`, `0x00414500` did not | `(buffer, destination)` | from `+0xa` to the end of the slot table (16,514 bytes of a `0x2046` directory) |
+
+The box table at `0x2ac` is **not loaded** by the header entry in this run.
+
+**Section list at header `0x800`** (`SECT_OFF` in `clarion_tile.py`; the firmware's reads confirm its address encoding). 6-byte entries
+`{u24 sector, u8 offset, u16 length}` (big-endian), ended by `ff ff ff ff`:
+`position = sector * 0x800 + offset * 0x100`, `bytes = length * 0x100`.
+`B28R070R.DAT` holds `(2, 0, 1)` and `(0x1d9, 0, 1)` and the firmware reads
+`0x1000`/`0x100` and `0xec800`/`0x100`; with the offset byte of the first
+entry changed to 1 it reads `0x1100`/`0x100` instead. `LEV3456R.DAT` (2
+entries) and `B48R068R.DAT` (3 entries) fit the same rule.
+
+**No bound on the level-table walk.** With the byte at `0x1ac` changed to
+`0xff`, `0x0040aa50` loads 402 bytes up to `0x805` instead of 34.
+
+For M9.13: the runnable target is the whole run (`datask_l3.py mount` with a
+card whose tile is replaced), not a call of one entry on a bare buffer: the
+entries find their request through the slot table that the earlier request
+filled.
+
+### What the mount reads of a tile, and a generated tile (M9.13, EU2011 build A)
+
+> **Status:** `VERIFIED` (PySh4 runs on the EU 2011 card, `datask_l3.py mount
+> --position` + `diff`); `OBSERVED` for the fixed read lengths.
+> EXP-2026-11-20-M9.13-generated-tile-l3, C-3250–C-3259.
+
+The firmware reads the tile under a start position: `(lat code << 16) | lon
+code` on the `COORD001` grid, from a per-area table (`0x0040b49c`; the EU
+card starts at 51.505 N, 0.273 W) or from the `u32` at data VA `0xd940e4`. Of
+that tile the mount reads the header, every section table, and per section
+the level-2 and level-1 directory whose box holds the position. It asks for
+a fixed length per directory, not the directory's own size:
+
+| Directory | Read length |
+| --- | --- |
+| level 2 (sections 1 and 2) | `0x14100` |
+| section 1 level 1 | `0x8100` |
+| section 2 level 1 | `0x2100` |
+| section 4 level 1 | `0x6100` |
+
+No record block is read during the mount.
+
+| Tile on the card (`B48R058R`, position 51.70 N 17.45 E) | Against the factory run |
+| --- | --- |
+| `tilewriter.py --factory`, two OSM ways written in place (directory `0xa10b100`, slots 17/18) | SAME, 28 reads; the slot-table parser `0x00414dbc` loads the changed pair entries |
+| the same, directory header count 32 → 64 | DIFFERENT: the parser loads 33,014 bytes instead of 16,514 |
+| the same, one pair-entry byte inverted | SAME: the mount does not act on record lengths |
+| fresh container (`one_tile_pipeline.py --synthetic`, 22,272 bytes) | DIFFERENT: three section tables read, then the first directory read (`0x1100`, `0x8100` bytes) fails past the end of the file |
+
+So a writer that does not start from a factory container must back every
+directory with the length above. Whether the road records are accepted is
+open (M9.52, M9.53).
+
 ## Cross-edition differential census (2011/2014/2016)
 
 `tools/diff_years_tiles.py` compares the same `BxxRyyR.DAT` in two EU editions
