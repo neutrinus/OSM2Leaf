@@ -150,8 +150,23 @@ def count_dirs(rows: list[dict], bbox: tuple[float, float, float, float]) -> Cou
     return c
 
 
-def render_dirs(c: Counter) -> str:
+def count_kinds(rows: list[dict], bbox: tuple[float, float, float, float]) -> Counter:
+    """Section-1 directory kinds (``kind_hex``) whose box intersects ``bbox``."""
+    w, s, e, n = bbox
+    return Counter(x["kind_hex"] for x in rows
+                   if x["section"] == 1 and "kind_hex" in x
+                   and not (x["lon_max"] <= w or x["lon_min"] >= e or x["lat_max"] <= s or x["lat_min"] >= n))
+
+
+def render_dirs(c: Counter, kinds: Counter | None = None) -> str:
     lines = [f"section={k[0]} level={k[1]} class={k[2]} dirs={v}" for k, v in sorted(c.items())]
+    if kinds:
+        # M5.53: 0x2n46 = a 0x2046 directory with n wide rows; a splice that
+        # leaves no sub-record narrows the directory back to 0x2046.
+        narrow = kinds.get("0x2046", 0)
+        lines.append(f"section1 in bbox by kind: narrow(0x2046)={narrow} "
+                     f"wide(0x2n46)={sum(kinds.values()) - narrow} "
+                     + " ".join(f"{k}={v}" for k, v in sorted(kinds.items())))
     s1 = {cls: sum(v for k, v in c.items() if k[0] == 1 and k[2] == cls)
           for cls in ("spliceable", "preserve-only", "unmodelled")}
     total = sum(s1.values())
@@ -223,6 +238,12 @@ def selftest() -> int:
     chk("section1 in bbox: total=2 spliceable=1 preserve-only=1 unmodelled=0" in txt,
         "dirs counts only intersecting boxes (edge-touching box at lon 18 excluded)")
     chk("section=2 level=1 class=router-graph dirs=1" in txt, "dirs reports other sections")
+    for r_, k_ in zip(rows, ("0x2046", "0x2146", "0x2046", "0x0826", "0x2046")):
+        r_["kind_hex"] = k_
+    kt = render_dirs(c, count_kinds(rows, (14.0, 49.9, 17.9, 51.9)))
+    chk("section1 in bbox by kind: narrow(0x2046)=1 wide(0x2n46)=1 0x2046=1 0x2146=1" in kt
+        and kt.splitlines()[-1].startswith("section1 in bbox: total=2"),
+        "by-kind line (M5.53) sits before the summary line")
     print(f"selftest: {'OK' if not fails else 'FAIL'} ({fails} failure(s))")
     return 1 if fails else 0
 
@@ -249,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "dirs":
         w, s, e, n = (float(v) for v in a.bbox.split(","))
         rows = json.loads(Path(a.census).read_text(encoding="utf-8"))["rows"]
-        print(render_dirs(count_dirs(rows, (w, s, e, n))))
+        print(render_dirs(count_dirs(rows, (w, s, e, n)), count_kinds(rows, (w, s, e, n))))
         return 0
     ap.print_help()
     return 2
