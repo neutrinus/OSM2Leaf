@@ -37,6 +37,9 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+# The profile a bare ``--preserve-tile`` is checked against: P1's own rung.
+DEFAULT_P1_PROFILE = HERE.parent / "profiles" / "dolnoslaskie-test.json"
+
 GATES = [
     "hdd_info_map_code",
     "drstr_mmain_cmplst_ind",
@@ -606,6 +609,43 @@ def _synth_cmp_ind(root: Path, stem: str = "POINT001.DAT") -> None:
     refer = root / "REFER001"
     refer.mkdir(exist_ok=True)
     c.write(refer, stem)
+
+def _preserve_fixture_root(root: Path, cell: str = "B48R058R",
+                           extra_cell: str | None = "B48R078R") -> Path:
+    """A cardcheck-passable synthetic factory root for a preserve-tile selftest.
+
+    Built from the synthetic scaffold, plus: a ZE0 (X08-02-00) baseline tile,
+    the ``VER_INFO/HDD_INFO.TXT`` cardcheck's version check reads for a
+    non-partial card, and a final manifest rebuild so the tree is self-
+    consistent.  It reuses ``_ze0_container``'s ``B30R060R`` mesh cell so the
+    card has the two real-grid tiles cardcheck's ``mmain`` check expects; the
+    target ``cell`` is authored as a factory tile, never as a src229229 tile.
+
+    ``extra_cell`` is a *present but not contained* tile: the selftest uses it
+    to prove ``--preserve-tile`` refuses on containment, not on absence.
+    """
+    import drstr_ze0
+    _scaffold_tree(root, "B30R060R")  # baseline already written as B30R060R
+    (root / "VER_INFO").mkdir(exist_ok=True)
+    (root / "VER_INFO" / "HDD_INFO.TXT").write_bytes(_synth_hdd_info())
+    import tilewriter
+    for present in [cell] + ([extra_cell] if extra_cell else []):
+        (root / "MAPAL001" / f"{present}.DAT").write_bytes(
+            _ze0_container(tilewriter.make_factory(present), present))
+    run_cmd_json("rebuild_manifests.py", ["--root", str(root)])
+    return root
+
+
+def _synth_hdd_info() -> bytes:
+    """A 72-byte, 6-line, printable-ASCII ``VER_INFO/HDD_INFO.TXT`` for the selftest.
+
+    ``cardcheck.check_version`` requires exactly 6 CRLF-separated lines, no
+    trailing CRLF and printable ASCII; the byte shape matches the factory file
+    (C-005: 72 B, five CRLF separators) without copying its vendor content.
+    """
+    return (b"TST-000-000\r\nTST-000-000\r\n00-000000-00\r\n"
+            b"TST00-EVEUR\r\n11-05\r\n000000000000")
+
 
 def _scaffold_tree(root: Path, osm_tile_cell: str) -> list[str]:
     """Create synthetic baseline scaffold (not OSM-generated) so manifests/checks can run."""
@@ -1435,6 +1475,86 @@ def selftest() -> int:
             "M5.45 bounded: the second splice appends nothing")
         chk(rep_update["container"].get("unchanged", 0) >= 1,
             "M5.45 bounded: the second splice reports the blocks unchanged")
+
+    # M5.49: --preserve-tile (P1) copies the factory tile verbatim and rebuilds
+    # only the directory entries; the whole tree must be byte-identical.
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        root = _preserve_fixture_root(td / "pres-root")
+        target_sha = sha256_bytes((root / "MAPAL001" / "B48R058R.DAT").read_bytes())
+        p1 = td / "p1"
+        rc = main(["--preserve-tile", "B48R058R", "--factory-root", str(root),
+                   "--out", str(p1), "--json", str(td / "p1.json")])
+        rep = json.loads((td / "p1.json").read_text(encoding="utf-8"))
+        chk(rc == 0, f"M5.49: --preserve-tile exits 0 (got {rc})")
+        chk(rep["mode"] == "preserve-tile" and rep["preserve"] is True,
+            "M5.49: report mode is preserve-tile")
+        chk((p1 / "MAPAL001" / "B48R058R.DAT").exists()
+            and sha256_bytes((p1 / "MAPAL001" / "B48R058R.DAT").read_bytes()) == target_sha,
+            "M5.49: the factory tile is copied byte for byte (delta 0)")
+        chk(rep["tile_sha256_matches_factory"] is True, "M5.49: tile sha256 matches factory")
+        chk(rep["tile_delta"] == 0, "M5.49: tile delta is 0")
+        chk(rep["tree_diff"]["differing_files"] == [],
+            "M5.49: rebuilding the directory entries leaves the tree byte-identical")
+        chk(rep["gates"]["tile_roundtrip_structure"]["status"] == "PASS",
+            "M5.49: tile_roundtrip_structure PASS on the verbatim copy")
+        chk(rep["gates"]["section4"]["status"] == "PASS",
+            "M5.49: section4 PASS (factory section 4 untouched)")
+        chk(rep["cardcheck_ok"] is True, "M5.49: cardcheck --root PASS on the P1 tree")
+        chk(rep["l2check_ok"] is None and rep.get("l2check_partial") is True,
+            "M5.49: l2check is not-run (not a bare true) on a synthetic fixture")
+        chk(rep["display_only_gates"]["road_geometry"]["status"] == "NOT-APPLICABLE"
+            and "M5.16" in rep["display_only_gates"]["road_geometry"]["detail"],
+            "M5.49: the display-only/routing split names road_geometry not-run (M5.16)")
+        chk(rep["display_only_gates"]["names"]["status"] == "NOT-APPLICABLE"
+            and "M4.36" in rep["display_only_gates"]["names"]["detail"],
+            "M5.49: the display-only/routing split names names not-run (M4.36)")
+
+        # Negative control 1: a wrong cell is BLOCKED, no tree left behind.
+        blocked = td / "blocked"
+        rc_b = main(["--preserve-tile", "B48R059R", "--factory-root", str(root),
+                     "--out", str(blocked)])
+        chk(rc_b != 0 and not blocked.exists(),
+            "M5.49: a missing factory tile is refused and leaves no --out")
+        # Negative control 1b: a PRESENT but not-contained tile is refused by
+        # the profile guard (B48R078R is a factory tile outside Dolnośląskie),
+        # so the refusal is about containment, not a missing file.
+        nc = td / "not-contained"
+        nc_json = td / "nc.json"
+        rc_nc = main(["--preserve-tile", "B48R078R", "--factory-root", str(root),
+                      "--out", str(nc), "--json", str(nc_json)])
+        nc_rep = json.loads(nc_json.read_text(encoding="utf-8"))
+        chk((root / "MAPAL001" / "B48R078R.DAT").is_file(),
+            "M5.49: the not-contained tile is present on the factory root")
+        chk(rc_nc != 0 and not nc.exists()
+            and nc_rep["real_image_run"] == "refused-not-contained"
+            and nc_rep["containment"]["class"] == "outside",
+            "M5.49: a present not-contained tile is refused by containment, no --out")
+        # ...and --no-profile-guard turns that same tile into an operator-
+        # asserted card, which is how the control proves the guard is the cause.
+        ng = td / "no-guard"
+        rc_ng = main(["--preserve-tile", "B48R078R", "--factory-root", str(root),
+                      "--no-profile-guard", "--out", str(ng)])
+        chk(rc_ng == 0 and ng.exists(),
+            "M5.49: --no-profile-guard lets the same tile through (guard is the refusal)")
+        # Negative control 2: a flipped byte inside the copied tile is a diff,
+        # so the empty-tree requirement is not vacuous.
+        with tempfile.TemporaryDirectory() as td2:
+            td2 = Path(td2)
+            root2 = _preserve_fixture_root(td2 / "root2")
+            out2 = td2 / "out2"
+            build_preserve_out(out2, root2, "B48R058R")
+            tile2 = out2 / "MAPAL001" / "B48R058R.DAT"
+            data = bytearray(tile2.read_bytes())
+            data[-1] ^= 0xFF
+            tile2.write_bytes(bytes(data))
+            rh = {p.relative_to(root2): sha256_bytes(p.read_bytes())
+                  for p in root2.rglob("*") if p.is_file()}
+            oh = {p.relative_to(out2): sha256_bytes(p.read_bytes())
+                  for p in out2.rglob("*") if p.is_file()}
+            chk([d["path"] for d in _tree_differences(rh, oh)]
+                == ["MAPAL001/B48R058R.DAT"],
+                "M5.49: a flipped tile byte is reported as the one differing path")
     print(f"selftest: {'OK' if not fails else 'FAIL'} ({fails} failure(s))")
     return 0 if not fails else 1
 
@@ -1864,6 +1984,242 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
     return report
 
 
+DISPLAY_ONLY_GATES = {
+    "road_geometry": ("NOT-APPLICABLE", "deliberately not run (M5.16 route graph open): a verbatim tile carries no generated roads; P1 is display-only."),
+    "road_class_roundtrip": ("NOT-APPLICABLE", "deliberately not run (M5.36 road-class golden open): no class round trip is attempted."),
+    "route_graph": ("NOT-APPLICABLE", "deliberately not run (M5.37 route-graph golden open): no route is computed."),
+    "names": ("NOT-APPLICABLE", "deliberately not run (M4.36 street names blocked on M3.13): the tile's names section is factory bytes."),
+    "firmware_read": ("CANNOT-VERIFY-OFFLINE", "rule 13: L3 target M3.25, L4 M8, car L5; no firmware read is run here."),
+}
+PRESERVED_GATES = {
+    "tile_bytes_verbatim": "factory tile copied byte for byte (delta 0); no tilewriter pass",
+    "tile_clusters_identical": "the patched card's tile clusters are identical to the factory image",
+    "manifests": "rebuild_manifests re-emits the tree byte-identically (delta 0)",
+    "one_tile_one_directory": "tree diff is empty: no tile byte moves",
+}
+
+
+def _preserve_tile_provenance(factory_root: Path, cell: str) -> dict[str, Any]:
+    """Prove ``MAPAL001/<cell>.DAT`` on ``factory_root`` is a parseable factory tile.
+
+    A missing tile is ``BLOCKED`` (not ``factory-tree-invalid``): the root may
+    simply not hold that cell, which is a usage/input-dir problem, not a
+    malformed tile.  A present-but-mismatched tile keeps the provenance error.
+    """
+    tile = factory_root / "MAPAL001" / f"{cell}.DAT"
+    if not tile.is_file():
+        return {"real_image_run": "blocked", "factory_backed": False,
+                "missing_input": f"factory tile not found: {tile}",
+                "prov": None}
+    prov = _factory_tile_provenance(factory_root, cell)
+    return {"missing_input": "", "prov": prov}
+
+
+def _preserve_containment(profile: dict, cell: str) -> dict[str, Any]:
+    """P1's profile guard: the tile must cover the whole region (``contained``).
+
+    Reuses ``mesh_grid``'s tiling and ``classify_tile`` — one implementation of
+    the containment rule, not a new formula.  A tile that is ``intersects`` or
+    ``outside`` is refused: P1 is "the profile's region is one factory tile",
+    so a non-contained tile is a different (larger) rung, not a P1 card.
+    """
+    import mesh_grid
+    region = profile.get("region")
+    if not isinstance(region, dict) or "bbox" not in region:
+        raise UsageError(f"profile {profile.get('name')!r} has no region.bbox")
+    cls = mesh_grid.classify_tile(
+        mesh_grid.tile_box(f"{cell}.DAT"), region["bbox"],
+        float(profile.get("border_buffer_deg", 0.0) or 0.0))
+    return {"profile": profile.get("name"), "region_name": region.get("name"),
+            "region_bbox": [float(v) for v in region["bbox"]],
+            "class": cls, "contained": cls == "contained"}
+
+
+def build_preserve_out(out: Path, factory_root: Path, cell: str = "B48R058R",
+                       force_overwrite: bool = False,
+                       profile: Path | None = None) -> dict[str, Any]:
+    """P1 path (M5.49): copy the factory root verbatim and rebuild only manifests.
+
+    No OSM ingest and no ``tilewriter`` write: the target tile is the factory
+    file byte for byte (delta 0), so the M5.30 relocation work does not apply.
+    ``rebuild_manifests`` regenerates ``DRSTR001.DAT``/``MMAIN001.DAT``/
+    ``CMP.LST``/the ``REFER001`` ``.ind`` pairs from the copied tree; on a
+    factory root it is a no-op (delta 0), so the whole tree is byte-identical
+    to factory.  The gate proves that, not merely the tile's hash: anything
+    that differs is a failure, because P1's whole claim is "only the tile,
+    and here the tile copies itself".
+    """
+    _check_out_overlap(out, factory_root)
+    report: dict[str, Any] = {
+        "mode": "preserve-tile", "tile": cell, "mapping": "factory-verbatim",
+        "level": None, "preserve": True,
+        "rule13": "the factory tile is factory data; a car/bench read is L5 and unknown (rule 13)",
+        "factory_backed": True, "factory_root": str(factory_root),
+        "missing_input": "", "real_image_run": "attempted", "gates": {},
+        "counts": {}, "tile_delta": 0,
+        "changed_set_expected": expected_changes(cell)["expected"],
+        "allowed_manifests": expected_changes(cell)["allowed_manifests"],
+        "factory_tile_sha256": None, "factory_tile_size": 0,
+        "factory_tree_provenance": "not-checked",
+        "profile": str(profile) if profile is not None else None,
+        "containment": "not-checked",
+    }
+    # The profile guard runs before the file probe: a present-but-not-contained
+    # tile is refused for containment, which is a different result from the
+    # absent-file BLOCKED path and must not be masked by it.
+    if profile is not None:
+        try:
+            doc = json.loads(Path(profile).read_text(encoding="utf-8"))
+            containment = _preserve_containment(doc, cell)
+        except (OSError, ValueError) as e:
+            report["containment"] = "profile-invalid"
+            report["missing_input"] = f"profile {profile} unreadable: {e}"
+            report["real_image_run"] = "blocked"; report["factory_backed"] = False
+            report["gates"] = {g: gate("BLOCKED", report["missing_input"]) for g in GATES}
+            return report
+        report["containment"] = containment
+        if not containment["contained"]:
+            report["missing_input"] = (
+                f"tile {cell} is {containment['class']}, not contained, in profile "
+                f"{containment['profile']} ({containment['region_name']}): P1 needs the "
+                f"one tile that covers the whole region")
+            report["real_image_run"] = "refused-not-contained"
+            report["factory_backed"] = False
+            report["gates"] = {g: gate("BLOCKED", report["missing_input"], "profile containment")
+                               for g in GATES}
+            return report
+    if not factory_root.is_dir():
+        report["gates"] = {g: gate("BLOCKED", f"factory root not a directory: {factory_root}") for g in GATES}
+        report["real_image_run"] = "blocked"; return report
+    probe = _preserve_tile_provenance(factory_root, cell)
+    if probe["missing_input"]:
+        report["missing_input"] = probe["missing_input"]
+        report["real_image_run"] = "blocked"; report["factory_backed"] = False
+        report["gates"] = {g: gate("BLOCKED", report["missing_input"]) for g in GATES}
+        return report
+    prov = probe["prov"]
+    report["factory_tile"] = prov["factory_tile"]
+    report["factory_tile_size"] = prov["factory_tile_size"]
+    report["factory_tile_sha256"] = prov["factory_tile_sha256"]
+    report["factory_tree_provenance"] = prov["factory_tree_provenance"]
+    report["factory_tile_cell_binding"] = prov.get("factory_tile_cell_binding")
+    report["factory_tile_box_rows"] = prov.get("factory_tile_box_rows")
+    if prov["factory_tree_provenance"] != "factory-tile-parsed":
+        kind = ("different cell's tile" if prov["factory_tree_provenance"] == "factory-tile-mismatch"
+                else "not a parseable factory tile")
+        report["missing_input"] = f"factory tile {prov['factory_tile']} is {kind}: {prov['parse_error']}"
+        report["real_image_run"] = "factory-tree-invalid"
+        report["factory_backed"] = False
+        report["gates"] = {g: gate("BLOCKED", report["missing_input"], "factory_tile_provenance") for g in GATES}
+        return report
+    report["factory_tile_sections"] = prov.get("factory_tile_sections")
+
+    # Nothing to clip, guard or write: the tile is the factory file.  Copy the
+    # whole root, then regenerate the manifests from it (a no-op on factory).
+    _copy_factory_root(factory_root, out, force=force_overwrite)
+    out_tile = out / "MAPAL001" / f"{cell}.DAT"
+    report["counts"]["tile_size"] = out_tile.stat().st_size
+    report["counts"]["tile_sha256"] = sha256_bytes(out_tile.read_bytes())
+    report["tile_sha256_matches_factory"] = (
+        report["counts"]["tile_sha256"] == report["factory_tile_sha256"])
+    rc, so, se = run_cmd_json("rebuild_manifests.py", ["--root", str(out)])
+    report["counts"]["rebuild_rc"] = rc
+    report["counts"]["rebuild_tail"] = (so + "\n" + se).strip().splitlines()[-20:]
+    rebuilt = [n for n in ["DRSTR001.DAT","MMAIN001.DAT","REFER001/CMP.LST","CMP.LST"] if (out/n).exists()]
+    rebuilt += [f"REFER001/{p.name}" for p in (out/"REFER001").glob("*.ind")] if (out/"REFER001").exists() else []
+    report["counts"]["rebuilt_files"] = sorted(set(rebuilt))
+    report["changed_set"] = [f"MAPAL001/{cell}.DAT"] + report["counts"]["rebuilt_files"]
+    _changes = expected_changes(cell, report["counts"]["rebuilt_files"])
+    report["changed_set_expected"] = _changes["expected"]
+    report["allowed_but_unchanged"] = _changes["allowed_but_unchanged"]
+    report["allowed_manifests"] = _changes["allowed_manifests"]
+
+    # Full tree diff vs the factory root: P1 requires it empty, so a stray
+    # write (a mangled DRSTR, a re-emitted .ind) is caught, not assumed.
+    root_hashes = {p.relative_to(factory_root): sha256_bytes(p.read_bytes())
+                   for p in factory_root.rglob("*") if p.is_file()}
+    out_hashes = {p.relative_to(out): sha256_bytes(p.read_bytes())
+                  for p in out.rglob("*") if p.is_file()}
+    differing = _tree_differences(root_hashes, out_hashes)
+    tile_path = f"MAPAL001/{cell}.DAT"
+    report["tree_diff"] = {
+        "files_compared": len(set(root_hashes) | set(out_hashes)),
+        "differing_files": differing,
+        "unexpected_differences": [d for d in differing if d["path"] != tile_path],
+        "tile_plus_manifests_only": all(d["path"] == tile_path for d in differing),
+    }
+    report["changed_set_actual"] = [d["path"] for d in differing]
+    report["expected_superset_of_actual"] = (
+        set(report["changed_set_expected"]) >= set(report["changed_set_actual"]))
+    # A factory root carries VER_INFO/HDD_INFO.TXT; a synthetic test fixture
+    # does not, and cardcheck must be told --partial there exactly as the
+    # synthetic path does.  The real factory run stays strict.  Separately, a
+    # fixture root is not a card, so its ``l2check`` is marked not-run rather
+    # than reported as a pass (``_preserve_fixture_root`` writes a placeholder
+    # HDD_INFO whose bytes identify it).
+    hdd_info = factory_root / "VER_INFO" / "HDD_INFO.TXT"
+    fixture = hdd_info.is_file() and hdd_info.read_bytes() == _synth_hdd_info()
+    partial = (not hdd_info.is_file()) or fixture
+    cc_argv = ["--root", str(out), "--ignore-dump-artifacts", "--fast"]
+    if not hdd_info.is_file():
+        cc_argv.insert(1, "--partial")
+    report["cardcheck_partial"] = partial
+    rc, so, se = run_cmd_json("cardcheck.py", cc_argv)
+    report["counts"]["cardcheck_rc"] = rc
+    report["counts"]["cardcheck_tail"] = (so+"\n"+se).strip().splitlines()[-20:]
+    card_ok = rc == 0
+    tile_ok = report["tile_sha256_matches_factory"]
+    tree_ok = not differing
+    report["gates"]["hdd_info_map_code"] = gate(
+        "CANNOT-VERIFY-OFFLINE",
+        "HDD_INFO/MAP CODE bytes present but not byte-verified against unit target offline (M2.18/M9.6); firmware acceptance unknown (rule 13).",
+        "VER_INFO/HDD_INFO.TXT present")
+    report["gates"]["drstr_mmain_cmplst_ind"] = gate(
+        "PASS" if (card_ok and report["counts"]["rebuild_rc"] == 0 and tree_ok) else "CANNOT-VERIFY-OFFLINE",
+        f"rebuild_manifests rc={report['counts']['rebuild_rc']}; cardcheck rc={report['counts']['cardcheck_rc']}; tree_diff differing={len(differing)} (delta 0).",
+        "rebuild_manifests + cardcheck --fast + full tree diff")
+    report["gates"]["tile_roundtrip_structure"] = gate(
+        "PASS" if (tile_ok and tree_ok) else "FAIL",
+        f"factory tile {cell} copied byte for byte (sha256 matches={tile_ok}, delta 0); no tilewriter pass.",
+        "tile sha256 vs factory + tree diff")
+    report["gates"]["section4"] = gate(
+        "PASS",
+        "section 4 is factory bytes (verbatim tile); this rung does not generate or alter section 4.",
+        "verbatim factory tile")
+    report["gates"]["manifests"] = gate(
+        "PASS" if (report["counts"]["rebuild_rc"] == 0 and card_ok and tree_ok) else "CANNOT-VERIFY-OFFLINE",
+        f"rebuild rc={report['counts']['rebuild_rc']}, cardcheck rc={report['counts']['cardcheck_rc']}, differing={len(differing)}.",
+        "rebuild_manifests + cardcheck + tree diff")
+    report["cardcheck_ok"] = card_ok
+    # l2check is run, not assumed: a bare ``True`` here made map_signals.card_step
+    # print P0 on a card whose l2check fails (C-4402 honesty rule).  On a real
+    # factory root the targeted command is the honest signal (it fails today on
+    # the pre-existing M5.52 ``refer_rename_resize`` regression, C-5543/M5.55 —
+    # which also fails on the untouched factory root).  A synthetic fixture is
+    # not a card, so it is marked not-run rather than reported as a pass.
+    if fixture:
+        report["l2check_ok"] = None
+        report["l2check_partial"] = True
+        report["l2check_not_run"] = "synthetic fixture root: l2check is not run (no real card tree)"
+    else:
+        rc2, so2, se2 = run_cmd_json("l2check.py", ["--root", str(out), "--no-golden",
+                                                    "--tiles", f"{cell}.DAT",
+                                                    "--semantic-tiles", f"{cell}.DAT",
+                                                    "--cmp-limit", "20"])
+        report["counts"]["l2check_rc"] = rc2
+        report["counts"]["l2check_tail"] = (so2+"\n"+se2).strip().splitlines()[-25:]
+        l2_out = so2 + se2
+        tile_checked = "tiles=1" in l2_out and "not present on this card" not in l2_out
+        report["counts"]["l2check_tile_checked"] = tile_checked
+        report["l2check_partial"] = False
+        report["l2check_ok"] = rc2 == 0 and tile_checked
+    report["display_only_gates"] = {
+        k: gate(v[0], v[1], "P1 display-only split")
+        for k, v in DISPLAY_ONLY_GATES.items()}
+    report["preserved_gates"] = dict(PRESERVED_GATES)
+    return report
+
+
 def _remove_failed_out(out: Path, state_before: str, keep_partial: bool,
                        force: bool = False) -> str:
     """Remove what a failed run put at ``--out``; never destroy the user's dir.
@@ -1899,6 +2255,25 @@ def _remove_failed_out(out: Path, state_before: str, keep_partial: bool,
     return "removed"
 
 
+def _emit_report(rep: dict[str, Any], json_arg: str | None) -> None:
+    """Print the report JSON to stdout (bare/``-``) or write it atomically to PATH."""
+    doc = json.dumps(rep, indent=2, ensure_ascii=False)
+    if json_arg and json_arg != "-":
+        dest = os.path.abspath(json_arg)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(dest), prefix=".one_tile_pipeline.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(doc + "\n")
+            os.replace(tmp, dest)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+            raise
+        print(f"report: {dest}")
+    else:
+        print(doc)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="M5.29 one-tile OSM pipeline (L1+L2+gate report)")
     ap.add_argument("--selftest", action="store_true")
@@ -1907,6 +2282,17 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--synthetic", action="store_true")
     ap.add_argument("--osm", help="OSM input")
     ap.add_argument("--factory-root", help="factory-extracted card root (outside repo)")
+    ap.add_argument("--preserve-tile", metavar="MESHTAG",
+                    help="P1: copy the factory tile MESHTAG (e.g. B48R058R) verbatim into "
+                         "--out and rebuild only the directory entries (no OSM ingest, no "
+                         "tilewriter, delta 0). Requires --factory-root or $OSM2LEAF_FACTORY_ROOT.")
+    ap.add_argument("--preserve-profile", metavar="PATH",
+                    help="build profile whose region the preserved tile must cover "
+                         f"(default {DEFAULT_P1_PROFILE}); a present-but-not-contained "
+                         "tile is refused. --no-profile-guard disables the check.")
+    ap.add_argument("--no-profile-guard", action="store_true",
+                    help="--preserve-tile only: skip the containment check (P1 is then "
+                         "operator-asserted; recorded in the report as 'not-checked')")
     ap.add_argument("--factory-tile", help="factory tile DAT to use as the template instead of FACTORY_ROOT/MAPAL001/<cell>.DAT (must bind to --cell)")
     ap.add_argument("--country", default="616")
     ap.add_argument("--json", nargs="?", const="-", default=None, metavar="PATH",
@@ -1942,6 +2328,48 @@ def main(argv: list[str] | None = None) -> int:
     if not args.out:
         print("error: --out required (or --selftest)", file=sys.stderr); return 2
     out = Path(args.out)
+    if args.preserve_tile:
+        # P1 (M5.49): a verbatim factory tile.  No --osm/--parcel/--level: the
+        # tile is not generated, so a flag that implies generation is a usage
+        # error rather than a silently ignored input.
+        if args.osm or args.parcel or args.osm_bbox or args.clip or args.synthetic:
+            print("error: --preserve-tile does not take --osm/--parcel/--osm-bbox/--clip/--synthetic "
+                  "(it copies the factory tile verbatim)", file=sys.stderr); return 2
+        fr = args.factory_root or os.environ.get("OSM2LEAF_FACTORY_ROOT")
+        if not fr:
+            print("error: --preserve-tile requires --factory-root or $OSM2LEAF_FACTORY_ROOT",
+                  file=sys.stderr); return 2
+        if args.no_profile_guard and args.preserve_profile:
+            print("error: --no-profile-guard and --preserve-profile are mutually exclusive",
+                  file=sys.stderr); return 2
+        profile = None if args.no_profile_guard else Path(
+            args.preserve_profile or DEFAULT_P1_PROFILE)
+        out_existed_before = out.exists()
+        out_state_before = _out_dir_state(out)
+        factory_root = Path(fr)
+        try:
+            _check_out_overlap(out, factory_root)
+            _refuse_nonempty_out(out, args.force_overwrite)
+            rep = build_preserve_out(out, factory_root, args.preserve_tile,
+                                     force_overwrite=args.force_overwrite,
+                                     profile=profile)
+        except UsageError as e:
+            print(f"error: {e}", file=sys.stderr); return 2
+        rc = 0 if (rep.get("factory_backed") and rep.get("cardcheck_ok")
+                   and not rep.get("tree_diff", {}).get("differing_files")) else 1
+        state = _remove_failed_out(out, out_state_before, args.keep_partial,
+                                   args.force_overwrite) if rc != 0 else "kept-success"
+        rep["partial_out"] = {
+            "removed": state in ("removed", "removed-contents"), "state": state,
+            "keep_partial": args.keep_partial, "force_overwrite": args.force_overwrite,
+            "existed_before_run": out_existed_before, "state_before_run": out_state_before,
+            "files_left": sum(1 for p in out.rglob("*") if p.is_file()) if out.exists() else 0,
+        }
+        _emit_report(rep, args.json)
+        return rc
+    if args.no_profile_guard or args.preserve_profile:
+        print("error: --no-profile-guard/--preserve-profile only apply to --preserve-tile",
+              file=sys.stderr); return 2
     factory_root = Path(args.factory_root) if args.factory_root else None
     factory_tile = Path(args.factory_tile) if args.factory_tile else None
     if factory_tile is not None and factory_root is None:
@@ -2011,21 +2439,7 @@ def main(argv: list[str] | None = None) -> int:
         "state_before_run": out_state_before,
         "files_left": sum(1 for p in out.rglob("*") if p.is_file()) if out.exists() else 0,
     }
-    doc = json.dumps(rep, indent=2, ensure_ascii=False)
-    if args.json and args.json != "-":
-        dest = os.path.abspath(args.json)
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(dest), prefix=".one_tile_pipeline.", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(doc + "\n")
-            os.replace(tmp, dest)
-        except BaseException:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp)
-            raise
-        print(f"report: {dest}")
-    else:
-        print(doc)
+    _emit_report(rep, args.json)
     return rc
 
 

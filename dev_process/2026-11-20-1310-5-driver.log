@@ -1,0 +1,92 @@
+role: driver (M5.49, pair)
+model: deepseek-v4.1-flash-free (aggregate)
+start: 2026-11-20 13:10 UTC
+end:   2026-11-20 ~14:05 UTC
+origin/main at start: d2fb7b4
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-16 + M5.49 block,
+  EXP-2026-11-19-M5.30, EXP-2026-11-18-M5.46, EXP-2026-11-19-M5.47,
+  EXP-2026-11-19-M5.50, docs/format/card-ladder.md, tools/one_tile_pipeline.py
+
+actions:
+- Claimed M5.49 first commit + push + draft PR [M5.49] (PR #325), per rule 2.
+- Precheck: mesh_grid cover 1/0/62, cardcheck --root --fast PASS, imgpatch
+  dry-run on the factory tile is delta-0 (same size/start/clusters).
+- Prototyped copy+rebuild_manifests on the factory root: byte-identical tree;
+  and on the case the task cites — the P1 tree diff is empty, patched image
+  byte-identical to the factory image.
+- Added --preserve-tile MESHTAG to one_tile_pipeline.py: build_preserve_out
+  (copy, rebuild manifests, full-tree diff, gate the empty diff), CLI dispatch,
+  _emit_report refactor, DISPLAY_ONLY_GATES split, synthetic fixture helper
+  (_preserve_fixture_root/_synth_hdd_info) and 13 selftest checks.
+- Updated docs/format/card-ladder.md P1 rows 3-5 to runnable (M5.50 handed these
+  rows to M5.49); fixed the flag assertion to the option-definition line.
+- Wrote EXP-2026-11-20-M5.49-p1-verbatim-tile.md and C-5380-C-5389.
+
+Done-when evidence (all quoted from commands in the EXP):
+- 480-file tree; cardcheck --root PASS.
+- p1.img byte-identical to factory (sha 105e2032...76307); check-diff 0 range(s);
+  cardcheck --image PASS.
+- Negatives: missing cell BLOCKED no --out; flipped tile byte -> 1 range.
+- selftest 137/0/23 (160); gate 4 pass/0 fail/0 skip (fn_audit PASS);
+  claims_check OK; todo_check OK.
+
+decisions:
+- Reused the M5.41 expected_changes set (expected = tile+DRSTR) rather than a
+  new one; on P1 nothing changes, so expected is a superset of an empty actual.
+- cardcheck --fast (not --partial) on the real factory root (it has VER_INFO);
+  --partial only for the synthetic fixture, exactly like the synthetic path.
+- Kept the pre-existing M5.52 refer_rename_resize FAIL out of scope (it fails on
+  the untouched factory root; C-5543/M5.55 already own it) and cited it.
+
+problems:
+- gate() rejects NOT-RUN; the honest vocabulary fit is NOT-APPLICABLE.
+- card-ladder's flag assertion counted both the usage line and the options line
+  (prints 2); switched to `grep -c '^  --preserve-tile MESHTAG'` -> 1.
+- The P0 l2check row in card-ladder fails (M5.52 regression), unrelated to P1.
+
+handoff (navigator): check build_preserve_out's tree-diff emptiness claim and
+  that the negatives fail; decide whether the card-ladder P0 l2 row should be
+  annotated with the M5.55 reference here or in M5.55.
+
+navigator review fix (2026-11-20):
+- tools/one_tile_pipeline.py: the P1 path no longer hardcodes l2check_ok=True.
+  A real factory root runs the targeted l2check and reports l2check_ok =
+  (rc2 == 0 and tile_checked); the real P1 gives l2check_ok=false /
+  counts.l2check_rc=1 / l2check_tile_checked=true (the pre-existing M5.52
+  refer_rename_resize regression, C-5543/M5.55, which fails on the untouched
+  factory root too). A synthetic fixture root (placeholder HDD_INFO) reports
+  l2check_ok=null / l2check_partial=true / l2check_not_run, never a bare true.
+  tile_roundtrip_structure stays keyed to the tile bytes (delta-0 proof), so
+  P1's own gates are unchanged. cardcheck --partial now keys on HDD_INFO
+  absence only (the fixture has a placeholder, so it stays strict and its
+  version row passes).
+- _synth_hdd_info docstring C-xxxx -> C-005.
+- EXP §5 records the run (l2check rc=1) and §6 renumbers the negatives;
+  Interpretation/Conclusion, C-5389, C-5380's check count (14) and the TODO
+  Result line match l2check_ok=false. Ladder P0 row 9 (M5.55's) untouched.
+- Re-ran on the fix: real P1 tree 480 files, tree_diff 480/[], p1.img cmp
+  identical to factory 105e2032…76307, check-diff diff_range_count=0,
+  cardcheck --image PASS; selftest 137/0/23 (160), gate 4/0/0 (fn_audit PASS),
+  claims_check --strict --count-check OK, todo_check OK.
+
+navigator defect 2 (containment guard, 2026-11-20):
+- build_preserve_out gained a profile guard that runs BEFORE the file probe:
+  mesh_grid.classify_tile(tile_box(cell), profile.region.bbox) must be
+  "contained" or the run is refused (rc 1, real_image_run=refused-not-contained,
+  all gates BLOCKED, no --out). Default profile profiles/dolnoslaskie-test.json;
+  --preserve-profile PATH overrides, --no-profile-guard turns it into the
+  recorded operator assertion (containment="not-checked"). New flags are
+  preserve-tile-only (usage error elsewhere).
+- Refuse control is now a PRESENT tile: --preserve-tile B48R050R (factory tile,
+  class=outside) -> rc 1, containment={'class':'outside','contained':False},
+  no --out; the same with --no-profile-guard -> rc 0. The contained P1 records
+  containment={'class':'contained','contained':True}.
+- Selftest fixture writes a second present tile (B48R078R, outside) and the
+  three checks assert present+refused+no-out and the --no-profile-guard
+  contrast; M5.49 checks 14 -> 17. EXP gains §6 (guard) and §7 (negatives);
+  C-5387 covers both controls, C-5380 cites 17.
+- Re-ran: P1 tree 480 files, tree_diff 480/[], p1.img cmp-identical to factory
+  105e2032…76307, check-diff 0 ranges (1 on a flipped byte), cardcheck
+  --root/--image PASS; selftest 137/0/23 (160), gate 4/0/0 (fn_audit PASS),
+  claims_check --strict --count-check OK, todo_check OK.
