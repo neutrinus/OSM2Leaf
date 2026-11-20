@@ -927,6 +927,43 @@ So a writer that does not start from a factory container must back every
 directory with the length above. Whether the road records are accepted is
 open (M9.52, M9.53).
 
+### The router reader asks; it does not parse (M4.40, EU2011 build A)
+
+> **Status:** `VERIFIED (static)` for the message and the receiver, `OBSERVED` for the
+> meaning of the kind word. Evidence: IMG256 `92aa525d…` (`archive/head256.img`),
+> `tools/sh4dis.py`, `tools/callgraph.py`, `tools/datask_l3.py tables`.
+> EXP-2026-11-20-M4.40-sec2-router-grammar, C-5640–C-5645.
+
+`RGD_DATA READ` `0x004266ec` (router) and `MAP_DATA READ` `0x00425f40` (renderer) read no tile
+bytes: their 27-function subtrees have no file or file-mapping import (C-4622). Each builds a
+list of `(mesh id, DIVID)` requests (32-byte entries, mesh id at `+16`, `DIVID` at `+14`,
+`u16` count at `+0`) and sends one message through `0x0041ee14` → `OSM_TaskSend` to the
+data-access task (`*0x011fff58`):
+
+| Word | Router `0x004266ec` | Renderer `0x00425f40` |
+| --- | --- | --- |
+| `+8 u16` id | `0x14b5` | `0x14b5` |
+| `+10 u16` sub | 2 | 2 |
+| `+12 u32` | `*0x011fff5c` | `*0x011fff5c` |
+| `+16 u32` data kind | **`0x40`** | **`4`** |
+| `+20 u32` | request list | request list |
+| `+24 u32` | 2 | 2 |
+
+Before sending, the router reserves a `0x1f400`-byte buffer per requested slot (`0x00425cb0`,
+pool `*0x00ea675c`, stored at entry `+4` of the 12-byte slot table `*0x00ec3954`). The
+data-access task hands `0x14b5` to `0x004066ac` (deferred while the map is not ready), which
+uses the list (copied to `0x00d53f20` only when `+12` ≤ 1) and passes the kind word to
+`0x00408480`; its subtree reaches 140 functions.
+
+The data come back as message `0x14b6`: `0x00427144` sends kind 64 to `0x004268c0`, which asks
+`0x003edf5c(mesh id, 0x40, …)` for a size (≤ `0x1f400`), copies that many bytes from the reply's
+`+20` pointer into the slot's buffer and marks the slot state 2. **The router code that reads
+that buffer is `0x00422eac`** (callers `0x0043fabc`/`0x0043fba8` ← `0x00440e00`), not
+`0x004266ec`: with `k` taken from a table that `0x00424464(19, …)` returns, it reads `u16`
+words `k + 15` (`& 0x0f00` must be `0x0900`), `k + 7`, `k + 6` = `d` and `k + d` (bits 3–7 are
+its result). What the buffer holds and which section-2 fields these words are is open: M4.54
+(L3) drives `0x004268c0` with a factory block and read-watches `0x00422eac`. C-5646–C-5649.
+
 ## Cross-edition differential census (2011/2014/2016)
 
 `tools/diff_years_tiles.py` compares the same `BxxRyyR.DAT` in two EU editions
