@@ -429,8 +429,8 @@ of the four numbers above says so in its first line.
 
 ## H — Housekeeping
 
-- [ ] **H19 — Re-verify the five thinnest records of the last 24 h**
-  - Status: open · Owner: — · Critical: no
+- [x] **H19 — Re-verify the five thinnest records of the last 24 h**
+  - Status: done · Owner: task/h19-reverify-thin-records · Critical: no
   - Depends: M3.19 (for the VAs that come from a scan)
   - Goal: five records carry a result in under 40 lines or with no command
     block at all (M2.6 `MapUpdate.exe` 32 lines, M3.5 tile reader 19, M3.10
@@ -449,6 +449,7 @@ of the four numbers above says so in its first line.
   - Stop: after the table is complete; disagreements go to `claims.md`, not to
     a second round of analysis.
   - Claims: C-2520–C-2529
+  - Result: done — EXP-2026-11-20-H19-reverify-thin-records. Coordinator's selection: the five shortest 2026-11-20 records (M4.16b, M4.16e, M2.19, M4.48, M3.3) were re-run with committed tools and the records' input hashes, and 19/19 rows (counts, controls, `pdata` VAs) reproduce exactly. No retraction (C-2520). The 2026-11-06 list in the Goal (M2.6, M3.5, M3.10, M9.1, M8.E1) was not covered by this pass.
 
 - [x] **H25 — Fundament CI (GitHub Actions): bramka PR bez danych vendorowych**
   - Status: done · Owner: task/h25-ci-github-actions · Critical: yes

@@ -3996,6 +3996,13 @@ the file names in `docs/experiments/` (warning by default and under
 | C-3257 | The firmware reads a fixed length per directory: `0x14100` (level 2), `0x8100` (section 1 level 1), `0x2100` (section 2 level 1), `0x6100` (section 4 level 1) on `B48R058R`, `B48R068R` and `B28R070R`. Where the lengths come from is not read from the code. | OBSERVED (3 tiles) | M | `python3 tools/datask_l3.py mount …` rows with tag class `0x07` |
 | C-3258 | `python3 tools/datask_l3.py --selftest` covers `diff` (equal runs, other position, other byte counts, missing read, failed read, `--file`) and the position packing; 22 host checks, 9 firmware checks. | VERIFIED (tool) | H | `python3 tools/datask_l3.py --selftest` |
 | C-3259 | Scope: the verdicts cover header, section tables and directories; the road records themselves are not read (the mount stops at state 2 waiting on message `0x1507`, and a record read needs a map request). EU2011 build A, EU card, PySh4 models; not a statement about the unit. | — | — | EXP-2026-11-20-M9.13-generated-tile-l3 "Interpretation" |
+
+## H19 — re-run of the five shortest 2026-11-20 records (C-2520–C-2529)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2520 | Re-run in a separate session, the headline counts, controls and `pdata` VAs of the five shortest records merged on 2026-11-20 (M4.16b, M4.16e, M2.19, M4.48, M3.3; EU 2011, IMG256 `92aa525d…` and full card `105e2032…`, input hashes equal to the records') reproduce exactly: 19/19 rows, no retraction. | VERIFIED (re-run, real data) | H | EXP-2026-11-20-H19-reverify-thin-records | `python3 tools/datavol_trace.py calls archive/head256.img --field 0x18c --size 20` (IMG256); full command list in EXP-2026-11-20-H19-reverify-thin-records §Method |
+
 ## M6.17 — what on the card runs; LeafSDTools "SRAM" dump (C-5190–C-5199)
 
 | ID | Claim | Status | Confidence | Evidence |
