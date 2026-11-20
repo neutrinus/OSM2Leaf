@@ -69,3 +69,24 @@ navigator review fix (2026-11-20):
   identical to factory 105e2032…76307, check-diff diff_range_count=0,
   cardcheck --image PASS; selftest 137/0/23 (160), gate 4/0/0 (fn_audit PASS),
   claims_check --strict --count-check OK, todo_check OK.
+
+navigator defect 2 (containment guard, 2026-11-20):
+- build_preserve_out gained a profile guard that runs BEFORE the file probe:
+  mesh_grid.classify_tile(tile_box(cell), profile.region.bbox) must be
+  "contained" or the run is refused (rc 1, real_image_run=refused-not-contained,
+  all gates BLOCKED, no --out). Default profile profiles/dolnoslaskie-test.json;
+  --preserve-profile PATH overrides, --no-profile-guard turns it into the
+  recorded operator assertion (containment="not-checked"). New flags are
+  preserve-tile-only (usage error elsewhere).
+- Refuse control is now a PRESENT tile: --preserve-tile B48R050R (factory tile,
+  class=outside) -> rc 1, containment={'class':'outside','contained':False},
+  no --out; the same with --no-profile-guard -> rc 0. The contained P1 records
+  containment={'class':'contained','contained':True}.
+- Selftest fixture writes a second present tile (B48R078R, outside) and the
+  three checks assert present+refused+no-out and the --no-profile-guard
+  contrast; M5.49 checks 14 -> 17. EXP gains §6 (guard) and §7 (negatives);
+  C-5387 covers both controls, C-5380 cites 17.
+- Re-ran: P1 tree 480 files, tree_diff 480/[], p1.img cmp-identical to factory
+  105e2032…76307, check-diff 0 ranges (1 on a flipped byte), cardcheck
+  --root/--image PASS; selftest 137/0/23 (160), gate 4/0/0 (fn_audit PASS),
+  claims_check --strict --count-check OK, todo_check OK.

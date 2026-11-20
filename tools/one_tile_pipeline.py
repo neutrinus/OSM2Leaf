@@ -37,6 +37,9 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+# The profile a bare ``--preserve-tile`` is checked against: P1's own rung.
+DEFAULT_P1_PROFILE = HERE.parent / "profiles" / "dolnoslaskie-test.json"
+
 GATES = [
     "hdd_info_map_code",
     "drstr_mmain_cmplst_ind",
@@ -607,7 +610,8 @@ def _synth_cmp_ind(root: Path, stem: str = "POINT001.DAT") -> None:
     refer.mkdir(exist_ok=True)
     c.write(refer, stem)
 
-def _preserve_fixture_root(root: Path, cell: str = "B48R058R") -> Path:
+def _preserve_fixture_root(root: Path, cell: str = "B48R058R",
+                           extra_cell: str | None = "B48R078R") -> Path:
     """A cardcheck-passable synthetic factory root for a preserve-tile selftest.
 
     Built from the synthetic scaffold, plus: a ZE0 (X08-02-00) baseline tile,
@@ -616,14 +620,18 @@ def _preserve_fixture_root(root: Path, cell: str = "B48R058R") -> Path:
     consistent.  It reuses ``_ze0_container``'s ``B30R060R`` mesh cell so the
     card has the two real-grid tiles cardcheck's ``mmain`` check expects; the
     target ``cell`` is authored as a factory tile, never as a src229229 tile.
+
+    ``extra_cell`` is a *present but not contained* tile: the selftest uses it
+    to prove ``--preserve-tile`` refuses on containment, not on absence.
     """
     import drstr_ze0
     _scaffold_tree(root, "B30R060R")  # baseline already written as B30R060R
     (root / "VER_INFO").mkdir(exist_ok=True)
     (root / "VER_INFO" / "HDD_INFO.TXT").write_bytes(_synth_hdd_info())
     import tilewriter
-    (root / "MAPAL001" / f"{cell}.DAT").write_bytes(
-        _ze0_container(tilewriter.make_factory(cell), cell))
+    for present in [cell] + ([extra_cell] if extra_cell else []):
+        (root / "MAPAL001" / f"{present}.DAT").write_bytes(
+            _ze0_container(tilewriter.make_factory(present), present))
     run_cmd_json("rebuild_manifests.py", ["--root", str(root)])
     return root
 
@@ -1508,6 +1516,27 @@ def selftest() -> int:
                      "--out", str(blocked)])
         chk(rc_b != 0 and not blocked.exists(),
             "M5.49: a missing factory tile is refused and leaves no --out")
+        # Negative control 1b: a PRESENT but not-contained tile is refused by
+        # the profile guard (B48R078R is a factory tile outside Dolnośląskie),
+        # so the refusal is about containment, not a missing file.
+        nc = td / "not-contained"
+        nc_json = td / "nc.json"
+        rc_nc = main(["--preserve-tile", "B48R078R", "--factory-root", str(root),
+                      "--out", str(nc), "--json", str(nc_json)])
+        nc_rep = json.loads(nc_json.read_text(encoding="utf-8"))
+        chk((root / "MAPAL001" / "B48R078R.DAT").is_file(),
+            "M5.49: the not-contained tile is present on the factory root")
+        chk(rc_nc != 0 and not nc.exists()
+            and nc_rep["real_image_run"] == "refused-not-contained"
+            and nc_rep["containment"]["class"] == "outside",
+            "M5.49: a present not-contained tile is refused by containment, no --out")
+        # ...and --no-profile-guard turns that same tile into an operator-
+        # asserted card, which is how the control proves the guard is the cause.
+        ng = td / "no-guard"
+        rc_ng = main(["--preserve-tile", "B48R078R", "--factory-root", str(root),
+                      "--no-profile-guard", "--out", str(ng)])
+        chk(rc_ng == 0 and ng.exists(),
+            "M5.49: --no-profile-guard lets the same tile through (guard is the refusal)")
         # Negative control 2: a flipped byte inside the copied tile is a diff,
         # so the empty-tree requirement is not vacuous.
         with tempfile.TemporaryDirectory() as td2:
@@ -1986,8 +2015,29 @@ def _preserve_tile_provenance(factory_root: Path, cell: str) -> dict[str, Any]:
     return {"missing_input": "", "prov": prov}
 
 
+def _preserve_containment(profile: dict, cell: str) -> dict[str, Any]:
+    """P1's profile guard: the tile must cover the whole region (``contained``).
+
+    Reuses ``mesh_grid``'s tiling and ``classify_tile`` — one implementation of
+    the containment rule, not a new formula.  A tile that is ``intersects`` or
+    ``outside`` is refused: P1 is "the profile's region is one factory tile",
+    so a non-contained tile is a different (larger) rung, not a P1 card.
+    """
+    import mesh_grid
+    region = profile.get("region")
+    if not isinstance(region, dict) or "bbox" not in region:
+        raise UsageError(f"profile {profile.get('name')!r} has no region.bbox")
+    cls = mesh_grid.classify_tile(
+        mesh_grid.tile_box(f"{cell}.DAT"), region["bbox"],
+        float(profile.get("border_buffer_deg", 0.0) or 0.0))
+    return {"profile": profile.get("name"), "region_name": region.get("name"),
+            "region_bbox": [float(v) for v in region["bbox"]],
+            "class": cls, "contained": cls == "contained"}
+
+
 def build_preserve_out(out: Path, factory_root: Path, cell: str = "B48R058R",
-                       force_overwrite: bool = False) -> dict[str, Any]:
+                       force_overwrite: bool = False,
+                       profile: Path | None = None) -> dict[str, Any]:
     """P1 path (M5.49): copy the factory root verbatim and rebuild only manifests.
 
     No OSM ingest and no ``tilewriter`` write: the target tile is the factory
@@ -2011,7 +2061,33 @@ def build_preserve_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         "allowed_manifests": expected_changes(cell)["allowed_manifests"],
         "factory_tile_sha256": None, "factory_tile_size": 0,
         "factory_tree_provenance": "not-checked",
+        "profile": str(profile) if profile is not None else None,
+        "containment": "not-checked",
     }
+    # The profile guard runs before the file probe: a present-but-not-contained
+    # tile is refused for containment, which is a different result from the
+    # absent-file BLOCKED path and must not be masked by it.
+    if profile is not None:
+        try:
+            doc = json.loads(Path(profile).read_text(encoding="utf-8"))
+            containment = _preserve_containment(doc, cell)
+        except (OSError, ValueError) as e:
+            report["containment"] = "profile-invalid"
+            report["missing_input"] = f"profile {profile} unreadable: {e}"
+            report["real_image_run"] = "blocked"; report["factory_backed"] = False
+            report["gates"] = {g: gate("BLOCKED", report["missing_input"]) for g in GATES}
+            return report
+        report["containment"] = containment
+        if not containment["contained"]:
+            report["missing_input"] = (
+                f"tile {cell} is {containment['class']}, not contained, in profile "
+                f"{containment['profile']} ({containment['region_name']}): P1 needs the "
+                f"one tile that covers the whole region")
+            report["real_image_run"] = "refused-not-contained"
+            report["factory_backed"] = False
+            report["gates"] = {g: gate("BLOCKED", report["missing_input"], "profile containment")
+                               for g in GATES}
+            return report
     if not factory_root.is_dir():
         report["gates"] = {g: gate("BLOCKED", f"factory root not a directory: {factory_root}") for g in GATES}
         report["real_image_run"] = "blocked"; return report
@@ -2210,6 +2286,13 @@ def main(argv: list[str] | None = None) -> int:
                     help="P1: copy the factory tile MESHTAG (e.g. B48R058R) verbatim into "
                          "--out and rebuild only the directory entries (no OSM ingest, no "
                          "tilewriter, delta 0). Requires --factory-root or $OSM2LEAF_FACTORY_ROOT.")
+    ap.add_argument("--preserve-profile", metavar="PATH",
+                    help="build profile whose region the preserved tile must cover "
+                         f"(default {DEFAULT_P1_PROFILE}); a present-but-not-contained "
+                         "tile is refused. --no-profile-guard disables the check.")
+    ap.add_argument("--no-profile-guard", action="store_true",
+                    help="--preserve-tile only: skip the containment check (P1 is then "
+                         "operator-asserted; recorded in the report as 'not-checked')")
     ap.add_argument("--factory-tile", help="factory tile DAT to use as the template instead of FACTORY_ROOT/MAPAL001/<cell>.DAT (must bind to --cell)")
     ap.add_argument("--country", default="616")
     ap.add_argument("--json", nargs="?", const="-", default=None, metavar="PATH",
@@ -2256,6 +2339,11 @@ def main(argv: list[str] | None = None) -> int:
         if not fr:
             print("error: --preserve-tile requires --factory-root or $OSM2LEAF_FACTORY_ROOT",
                   file=sys.stderr); return 2
+        if args.no_profile_guard and args.preserve_profile:
+            print("error: --no-profile-guard and --preserve-profile are mutually exclusive",
+                  file=sys.stderr); return 2
+        profile = None if args.no_profile_guard else Path(
+            args.preserve_profile or DEFAULT_P1_PROFILE)
         out_existed_before = out.exists()
         out_state_before = _out_dir_state(out)
         factory_root = Path(fr)
@@ -2263,7 +2351,8 @@ def main(argv: list[str] | None = None) -> int:
             _check_out_overlap(out, factory_root)
             _refuse_nonempty_out(out, args.force_overwrite)
             rep = build_preserve_out(out, factory_root, args.preserve_tile,
-                                     force_overwrite=args.force_overwrite)
+                                     force_overwrite=args.force_overwrite,
+                                     profile=profile)
         except UsageError as e:
             print(f"error: {e}", file=sys.stderr); return 2
         rc = 0 if (rep.get("factory_backed") and rep.get("cardcheck_ok")
@@ -2278,6 +2367,9 @@ def main(argv: list[str] | None = None) -> int:
         }
         _emit_report(rep, args.json)
         return rc
+    if args.no_profile_guard or args.preserve_profile:
+        print("error: --no-profile-guard/--preserve-profile only apply to --preserve-tile",
+              file=sys.stderr); return 2
     factory_root = Path(args.factory_root) if args.factory_root else None
     factory_tile = Path(args.factory_tile) if args.factory_tile else None
     if factory_tile is not None and factory_root is None:
