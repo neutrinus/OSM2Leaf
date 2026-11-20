@@ -38,6 +38,12 @@ Method
 3. Hashes are grouped; a digest with exactly one A function and one B
    function is a UNIQUE match. A digest with several on either side is
    AMBIGUOUS and never guessed. No shared digest is NOMATCH.
+   An AMBIGUOUS masked-form stream (``code_digest`` shared by ≥2 B
+   functions) whose **exact same-size anchor gap** names one of those twins,
+   and that twin is named by no other row (neither a base match nor another
+   anchor), is the separate verdict ``ANCHOR``: address order chooses the
+   twin, never a coin flip (H114). It never fires outside an exact gap, never
+   for a single-twin stream, and never changes a UNIQUE/DIFFERENT row.
 4. Unmatched functions are propagated through **call order**: if an unmatched
    A function ``f`` is only ever called (direct ``bsr``) from A functions
    that have UNIQUE B matches, and exactly one B callee of those B matches
@@ -82,10 +88,13 @@ from __future__ import annotations
 
 import argparse
 import bisect
+import contextlib
 import hashlib
+import io
 import json
 import struct
 import sys
+from collections import Counter, defaultdict
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -96,6 +105,9 @@ import cerom  # noqa: E402
 
 MEM_EXECUTE = 0x20000000
 LEAF_CAP = 0x400       # byte cap on a pdata GAP leaf window (M1.27)
+# Verdicts a base match can carry; ANCHOR is added in a second pass, so it is
+# never an anchor itself (H114).
+MATCHED = ("UNIQUE", "DIFFERENT", "CALLORDER")
 
 # ---------------------------------------------------------------- pdata
 
@@ -432,6 +444,36 @@ def code_digest(words, base_va, image_bytes, code_base):
     for t in _instruction_tokens(words, base_va, image_bytes, code_base):
         fp.update(t)
     return fp.hexdigest()
+
+
+def anchor_candidates(i, amap, keys, n_b):
+    """``('anchor'|'gap'|'edge', [US indexes])`` for EU pdata index ``i``.
+
+    ``amap`` maps base-matched EU pdata indexes to US pdata indexes and
+    ``keys`` is ``sorted(amap)``.  The nearest matched neighbours on each
+    side bracket a US range: when the EU gap and the US gap hold the same
+    number of records, the counterpart is the record at the same offset
+    (``anchor``, one candidate).  Otherwise the gap holds several candidates
+    (``gap``, ordered by distance from the proportional index, capped at 64)
+    or none, and a record without a matched neighbour on both sides is
+    ``edge``.  This is the same pairing H89 used (nomatch_census delegates).
+    """
+    k = bisect.bisect_left(keys, i)
+    p = keys[k - 1] if k > 0 else None
+    q = keys[k] if k < len(keys) and keys[k] != i else (
+        keys[k + 1] if k + 1 < len(keys) else None)
+    if p is None or q is None:
+        return "edge", []
+    jp, jq = amap[p], amap[q]
+    if jq - jp == q - p:
+        return "anchor", [jp + (i - p)]
+    lo, hi = jp + 1, jq
+    if hi <= lo:
+        return "gap", []
+    exp = jp + (i - p) * (jq - jp) / float(q - p)
+    cands = sorted(range(lo, hi), key=lambda j: abs(j - exp))[:64]
+    _ = n_b
+    return "gap", cands
 
 
 def _pool_value(words, i, base_va, image_bytes, code_base):
@@ -997,6 +1039,67 @@ def selftest() -> int:
     check("H118: trailing data never pulls bytes past the function into the hash",
           pool_slots(ws, 0x1000) == set() and fp1 == fp2)
 
+    # ---- H114: ANCHOR resolves a multi-twin stream only through an exact
+    # same-size gap, never a gap/edge, a single-twin stream or a double claim.
+    twin = [0x4F22, 0x000B, 0x0009]        # sts.l pr / rts / nop
+    other = [0x2F86, 0x000B, 0x0009]
+    zero = bytes(0x100)
+
+    def fnc(va, words):
+        return (va, words, (va, va + 0x100), zero, va)
+
+    class FakeM:
+        pass
+
+    def run_anchor(fa, fb, base, amap):
+        fk = FakeM()
+        fk.fa, fk.fb = fa, fb
+        return anchor_verdicts(fk, base, sorted(amap), amap)[0]
+
+    # fb: other, twin, other, twin (idx 1 and 3 share the twin stream)
+    fb = [fnc(0x5000, other), fnc(0x5100, twin),
+          fnc(0x5200, other), fnc(0x5300, twin)]
+    fa = [fnc(0x1000, other), fnc(0x1100, twin), fnc(0x1200, other)]
+    base = {0x1000: (0x1000, 0x5000, "UNIQUE", "START"),
+            0x1100: (0x1100, None, "NOMATCH", "START"),
+            0x1200: (0x1200, 0x5200, "UNIQUE", "START")}
+    got = run_anchor(fa, fb, base, {0: 0, 2: 2})
+    check("H114: exact gap picks one of >=2 twins",
+          got.get(0x1100) == 0x5100)
+    # a UNIQUE row is never rewritten by the pass
+    check("H114: base UNIQUE is not an ANCHOR candidate",
+          0x1000 not in got and 0x1200 not in got)
+    # unequal gap (gap, not anchor) must not fire
+    got = run_anchor(fa, fb, base, {0: 0, 2: 3})
+    check("H114: a gap (unequal sizes) never fires", 0x1100 not in got)
+    # the anchor target is not one of the twins -> no join
+    fb2 = [fnc(0x5000, other), fnc(0x5100, other),
+           fnc(0x5200, other), fnc(0x5300, twin), fnc(0x5400, twin)]
+    got = run_anchor(fa[:3], fb2, base, {0: 0, 2: 2})
+    check("H114: anchor target that is not a twin does not fire",
+          0x1100 not in got)
+    # a single-twin stream stays as it was
+    fb3 = [fnc(0x5000, other), fnc(0x5100, twin),
+           fnc(0x5200, other), fnc(0x5300, other)]
+    got = run_anchor(fa, fb3, base, {0: 0, 2: 2})
+    check("H114: a single-twin stream does not fire", 0x1100 not in got)
+    # one-to-one: a US twin already owned by a base match is not re-claimed
+    fa4 = fa + [fnc(0x1300, other)]
+    base4 = dict(base)
+    base4[0x1300] = (0x1300, 0x5100, "UNIQUE", "START")   # owns US idx 1
+    got = run_anchor(fa4, fb, base4, {0: 0, 2: 2})
+    check("H114: one-to-one, a base-owned twin is not double-claimed",
+          0x1100 not in got)
+    # anchor_candidates itself: exact, gap and edge
+    check("H114: anchor_candidates exact gap is one candidate",
+          anchor_candidates(2, {0: 0, 4: 4, 6: 9}, [0, 4], 10)
+          == ("anchor", [2]))
+    how, c = anchor_candidates(5, {0: 0, 4: 4, 6: 9}, [0, 4, 6], 10)
+    check("H114: anchor_candidates unequal gap is a gap",
+          how == "gap" and sorted(c) == [5, 6, 7, 8])
+    check("H114: anchor_candidates with no right neighbour is edge",
+          anchor_candidates(7, {0: 0, 4: 4}, [0, 4], 10) == ("edge", []))
+
     print("fn_match selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))
     return 1 if fails else 0
@@ -1546,12 +1649,191 @@ class Matcher:
         return (va, bva, verdict, kind)
 
 
+def anchor_verdicts(m, base, keys, amap):
+    """Resolve multi-twin ``AMBIGUOUS``/``NOMATCH`` rows by exact address order.
+
+    ``base`` is ``{EU va: verdict tuple}`` from a full base pass over
+    ``m.fa``.  A row qualifies when its ``code_digest`` stream has two or more
+    US twins, its exact same-size anchor gap (``anchor_candidates``,
+    ``'anchor'`` only) names one of those twins, and that US record is the
+    sole twin any anchor proposes and no base match already claims.  The last
+    two conditions enforce one-to-one: no US record is named by two EU rows,
+    and a row whose anchor would double-claim one is left as it was (H114).
+    The verdict is ``ANCHOR``: address order picks the twin, never a coin
+    flip.  ``gap``/``edge`` rows, single-twin streams and colliding rows stay
+    as they were.  Returns ``({EU va: US va}, {US index: [EU va, ...]})``; the
+    caller sets the ``ANCHOR`` verdict.
+    """
+    b_index = {f[0]: j for j, f in enumerate(m.fb)}
+    b_forms = defaultdict(list)
+    for va, w, lr, cb, cc in m.fb:
+        b_forms[code_digest(w, va, cb, cc)].append(va)
+    owner = defaultdict(list)
+    for f in m.fa:
+        bva, verdict = base[f[0]][1], base[f[0]][2]
+        if verdict in MATCHED and bva in b_index:
+            owner[b_index[bva]].append(f[0])
+    props = defaultdict(list)
+    for i, f in enumerate(m.fa):
+        va, w, lr, cb, cc = f
+        verdict = base[va][2]
+        if verdict not in ("AMBIGUOUS", "NOMATCH"):
+            continue
+        twins = b_forms.get(code_digest(w, va, cb, cc), [])
+        if len(twins) < 2:
+            continue
+        how, cands = anchor_candidates(i, amap, keys, len(m.fb))
+        if how != "anchor" or len(cands) != 1 or not (0 <= cands[0] < len(m.fb)):
+            continue
+        j = cands[0]
+        if m.fb[j][0] not in twins:
+            continue
+        props[j].append((va, verdict))
+    keep = {j: p[0] for j, p in props.items() if len(p) == 1 and j not in owner}
+    return {va: m.fb[j][0] for j, (va, _verdict) in keep.items()}, owner
+
+
+def _anchor_pass(m, base, shift=0, shuffle=None):
+    """(anchored {EU va: US va}, owner map) for a base census ``base``.
+
+    ``shift`` moves every anchor ``K`` US records and ``shuffle`` reorders
+    them (H89's pipeline negative controls): both should break the pairing.
+    """
+    b_index = {f[0]: j for j, f in enumerate(m.fb)}
+    amap = {}
+    for i, f in enumerate(m.fa):
+        bva, verdict = base[f[0]][1], base[f[0]][2]
+        if verdict in MATCHED and bva in b_index:
+            amap[i] = b_index[bva]
+    keys = sorted(amap)
+    if shift:
+        amap = {i: min(max(j + shift, 0), len(m.fb) - 1) for i, j in amap.items()}
+        keys = sorted(amap)
+    if shuffle is not None:
+        import random
+        vals = [amap[i] for i in keys]
+        random.Random(shuffle).shuffle(vals)
+        amap = dict(zip(keys, vals))
+    return anchor_verdicts(m, base, keys, amap)
+
+
+def cmd_anchor(args) -> int:
+    """Full base census + ANCHOR second pass; prints the before/after table.
+
+    The positive control re-runs ``anchor_candidates`` for every base
+    ``UNIQUE`` row with its own anchor removed (its true US function hidden):
+    the row is *pairable* when the anchor still fires, and *correct* when it
+    names the matcher's US function.
+    """
+    m = Matcher(args.image_a, args.image_b, args.module, args.image_start,
+                args.index_a, args.index_b, args.pdata_a, args.pdata_b)
+    with contextlib.redirect_stdout(io.StringIO()):
+        base = {f[0]: m.verdict(f[0]) for f in m.fa}
+    anchored, owner = _anchor_pass(m, base)
+    final = {va: v for va, v in base.items()}
+    for va, bva in anchored.items():
+        final[va] = (va, bva, "ANCHOR", final[va][3])
+    order = ("UNIQUE", "DIFFERENT", "CALLORDER", "ANCHOR", "AMBIGUOUS", "NOMATCH")
+    b = Counter(v[2] for v in base.values())
+    f = Counter(v[2] for v in final.values())
+    print("# base census (first pass):")
+    print("#   " + "  ".join("%s %d" % (k, b[k]) for k in order if k != "ANCHOR"))
+    print("# after ANCHOR:")
+    print("#   " + "  ".join("%s %d" % (k, f[k]) for k in order))
+    moved = [va for va in final if final[va][2] != base[va][2]]
+    print("# ANCHOR rows %d: from %s" % (len(anchored), "  ".join(
+        "%s %d" % (k, sum(1 for va in anchored if base[va][2] == k))
+        for k in ("AMBIGUOUS", "NOMATCH")
+        if sum(1 for va in anchored if base[va][2] == k))))
+    if moved:
+        print("#   first %d: %s" % (min(len(moved), 8), "  ".join(
+            "%#x->%#x" % (va, final[va][1]) for va in sorted(moved)[:8])))
+    bad = [va for va in final if base[va][1] is not None and
+           final[va][1] != base[va][1]]
+    print("# rows whose base US address moved: %d" % len(bad))
+    targets = defaultdict(list)
+    for va, r in final.items():
+        if r[2] in MATCHED + ("ANCHOR",) and r[1] is not None:
+            targets[r[1]].append(va)
+    shared = {us: rows for us, rows in targets.items() if len(rows) > 1}
+    a_shared = {us: rows for us, rows in shared.items()
+                if any(final[va][2] == "ANCHOR" for va in rows)}
+    print("# US records named by more than one EU row: %d (with an ANCHOR: %d)"
+          % (len(shared), len(a_shared)))
+    for us, rows in sorted(a_shared.items())[:8]:
+        print("#   %#x: %s" % (us, "  ".join(
+            "%#x %s" % (va, final[va][2]) for va in rows)))
+    # ±1 neighbour transparency: ANCHOR rows in a run of ANCHOR rows
+    ai = {f[0]: j for j, f in enumerate(m.fa)}
+    bi = {f[0]: j for j, f in enumerate(m.fb)}
+    eu_anchor = {ai[va] for va in anchored}
+    us_anchor = {bi[us] for us in anchored.values()}
+    both = sum(1 for va in anchored
+               if (ai[va] - 1 in eu_anchor or ai[va] + 1 in eu_anchor)
+               and (bi[anchored[va]] - 1 in us_anchor
+                    or bi[anchored[va]] + 1 in us_anchor))
+    print("# neighbour: %d ANCHOR rows have an ANCHOR at ±1 in both builds "
+          "(%d isolated)" % (both, len(anchored) - both))
+    # positive control: every base UNIQUE, own anchor removed
+    b_index = {f[0]: j for j, f in enumerate(m.fb)}
+    amap = {i: b_index[base[f[0]][1]] for i, f in enumerate(m.fa)
+            if base[f[0]][2] in MATCHED and base[f[0]][1] in b_index}
+    keys = sorted(amap)
+    uniq = [i for i in keys if base[m.fa[i][0]][2] == "UNIQUE"]
+    fired = correct = wrong = declined = 0
+    for i in uniq:
+        k2 = [k for k in keys if k != i]
+        how, cands = anchor_candidates(i, amap, k2, len(m.fb))
+        if how == "anchor" and len(cands) == 1:
+            fired += 1
+            if cands[0] == amap[i]:
+                correct += 1
+            else:
+                wrong += 1
+        else:
+            declined += 1
+    print("# positive control: %d base UNIQUE, own anchor removed: pairable %d "
+          "(%.2f%% of all, opportunity %d), correct %d (%.2f%% of pairable), "
+          "wrong %d, declined %d" % (
+              len(uniq), fired, 100.0 * fired / len(uniq), fired + declined,
+              correct, 100.0 * correct / fired if fired else 0.0, wrong,
+              declined))
+    # pipeline negatives on the ANCHOR pass over the twin rows
+    for shift in (1, -1):
+        a2, _o = _anchor_pass(m, base, shift=shift)
+        same = sum(1 for va, us in a2.items() if anchored.get(va) == us)
+        print("# control shift %+d: ANCHOR %d, same US twin as unshifted %d"
+              % (shift, len(a2), same))
+    for seed in (7, 89, 12345):
+        a3, _o = _anchor_pass(m, base, shuffle=seed)
+        print("# control shuffle %d: ANCHOR %d" % (seed, len(a3)))
+    return 0
+
+
 def cmd_match(args) -> int:
     m = Matcher(args.image_a, args.image_b, args.module, args.image_start,
                 args.index_a, args.index_b, args.pdata_a, args.pdata_b)
     if getattr(args, "leaf", False):
         m.force_leaf = True
-    results = [m.verdict(int(v, 0)) for v in args.va]
+    base = {}
+    if not getattr(args, "no_anchor", False):
+        with contextlib.redirect_stdout(io.StringIO()):
+            for f in m.fa:
+                base[f[0]] = m.verdict(f[0])
+    if base:
+        b_index = {f[0]: j for j, f in enumerate(m.fb)}
+        amap = {}
+        for i, f in enumerate(m.fa):
+            bva, verdict = base[f[0]][1], base[f[0]][2]
+            if verdict in MATCHED and bva in b_index:
+                amap[i] = b_index[bva]
+        keys = sorted(amap)
+        anchored, _owner = anchor_verdicts(m, base, keys, amap)
+        for va, bva in sorted(anchored.items()):
+            base[va] = (va, bva, "ANCHOR", base[va][3])
+        results = [base[int(v, 0)] for v in args.va]
+    else:
+        results = [m.verdict(int(v, 0)) for v in args.va]
     if args.json:
         Path(args.json).write_text(json.dumps(
             [{"a": v, "b": b, "verdict": s, "pdata": k,
@@ -1563,12 +1845,14 @@ def cmd_match(args) -> int:
             indent=1))
     uniq = sum(1 for r in results if r[2] == "UNIQUE")
     amb = sum(1 for r in results if r[2] == "AMBIGUOUS")
+    anc = sum(1 for r in results if r[2] == "ANCHOR")
     dif = sum(1 for r in results if r[2] == "DIFFERENT")
     leaf = sum(1 for r in results if r[2] == "LEAF")
     nom = sum(1 for r in results if r[2] == "NOMATCH")
     trunc = sum(1 for r in results if r[2] == "TRUNCATED")
-    print("# unique: %d  ambiguous: %d  different: %d  leaf: %d  nomatch: %d  "
-          "truncated: %d  of %d" % (uniq, amb, dif, leaf, nom, trunc, len(results)))
+    print("# unique: %d  ambiguous: %d  anchor: %d  different: %d  leaf: %d  "
+          "nomatch: %d  truncated: %d  of %d" % (
+              uniq, amb, anc, dif, leaf, nom, trunc, len(results)))
     return 0
 
 
@@ -1910,6 +2194,8 @@ def main(argv=None) -> int:
     m.add_argument("--leaf", action="store_true",
                    help="force the leaf path for every --va (GAP targets use "
                         "it by default)")
+    m.add_argument("--no-anchor", action="store_true",
+                   help="skip the ANCHOR second pass (base census only)")
     bo = sub.add_parser("bodies",
                         help="pool-masked relocated-body table (M1.22/M1.33)")
     bo.add_argument("image_a")
@@ -1923,9 +2209,21 @@ def main(argv=None) -> int:
     bo.add_argument("--negative", type=parse_pair, action="append",
                     metavar="EU:US", help="a pair expected to differ in-body")
     bo.add_argument("--window", type=lambda x: int(x, 0), default=BODY_WINDOW)
+    an = sub.add_parser("anchor", help="base census + ANCHOR pass and controls "
+                                      "(H114)")
+    an.add_argument("image_a")
+    an.add_argument("image_b")
+    an.add_argument("--module", default="Navi.exe")
+    an.add_argument("--image-start", type=lambda x: int(x, 0), default=0x200200)
+    an.add_argument("--index-a", type=int, default=2)
+    an.add_argument("--index-b", type=int, default=2)
+    an.add_argument("--pdata-a", default=None, help="JSON cache of A pdata")
+    an.add_argument("--pdata-b", default=None, help="JSON cache of B pdata")
     args = ap.parse_args(argv)
     if args.cmd == "bodies":
         return cmd_bodies(args)
+    if args.cmd == "anchor":
+        return cmd_anchor(args)
     if args.selftest:
         return selftest()
     if args.fixture:
