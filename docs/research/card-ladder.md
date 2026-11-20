@@ -96,7 +96,8 @@ firmware has not read it). A target that exits `BLOCKED (4)` is not a gate.
   The 11 are refused by `tilewriter` (`PRESERVE_ONLY_DIR_KINDS`, M5.22/C-3054).
   **Update (M5.53, EXP-2026-11-20-M5.53-wide-rows):** `0x2n46` is a `0x2046` directory
   with n wide rows (C-5270); `tilewriter` now splices into `0x2146` (the five
-  `0x2146` boxes are writable: **14 of 20**), and a splice that leaves no
+  `0x2146` boxes are classified spliceable, **14 of 20**; all five splice with
+  `verify_factory` OK in the pair review), and a splice that leaves no
   sub-record turns the directory into `0x2046`. The other 6 (`0x2246`,
   `0x2346` ×2, `0x2546`, `0x2646`, `0x2946`) parse with the same model but are
   still preserved (follow-up M5.54).
