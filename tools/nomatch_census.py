@@ -47,7 +47,8 @@ Every row prints the first differing body instruction in both builds.
 
 Usage:
   nomatch_census.py EU_IMG US_IMG [--seed 89] [--size 40] [--all]
-      [--no-global | --global-all] [--verbose] [--module Navi.exe] [--image-start 0x200200]
+      [--no-global | --global-all] [--verbose]
+      [--anchor-shift K | --anchor-shuffle SEED] [--module Navi.exe] [--image-start 0x200200]
       [--json OUT]
   nomatch_census.py EU_IMG US_IMG --pair EU_VA:US_VA
   nomatch_census.py --selftest
@@ -299,7 +300,12 @@ def classify_one(m, i, amap, keys, b_forms, b_fixed, free_bodies=None):
         g = global_best(ba, free_bodies)
         if g is not None:
             how = how + "+global"
-            best = (g[1], g[2], classify_bodies(ba, g[2]))
+            gva, gw, _glr, gcb, gcbase = m.fb[g[1]]
+            if fm.code_digest(gw, gva, gcb, gcbase) == cdig:
+                gres = ("TWIN", None, None, 1.0)
+            else:
+                gres = classify_bodies(ba, g[2])
+            best = (g[1], g[2], gres)
     row = {"eu": va, "eu_bytes": 2 * len(words), "pairing": how,
            "eu_phantom": phantom(words, va), "us_phantom": None,
            "candidates": len(cands), "us_twins": len(twins),
@@ -331,12 +337,13 @@ def classify_one(m, i, amap, keys, b_forms, b_fixed, free_bodies=None):
 
 
 def controls(m, verdicts, amap, keys, seed, size):
-    """Positive: a UNIQUE function, its own anchor removed, must be paired with
-    the matcher's US function and classed as same code.  Negative: the same
-    EU body against the next US record must not be classed as same code."""
+    """Anchor control: a UNIQUE function, its own anchor removed, must be
+    paired with the matcher's US function.  Classifier control: the same EU
+    body against the next US record must not be classed as same code.  (The
+    whole-pipeline negative control is ``--anchor-shift``/``--anchor-shuffle``.)"""
     uniq = [i for i in keys if verdicts[m.fa[i][0]][1] == "UNIQUE"]
     pick = sorted(random.Random(seed).sample(uniq, min(size, len(uniq))))
-    pos_pair = pos_same = 0
+    pos_pair = 0
     neg = Counter()
     for i in pick:
         k2 = [k for k in keys if k != i]
@@ -346,15 +353,12 @@ def controls(m, verdicts, amap, keys, seed, size):
         j = amap[i]
         if how == "anchor" and cands == [j]:
             pos_pair += 1
-        bva, bw = m.fb[j][0], m.fb[j][1]
-        if classify_bodies(ba, body(bw, bva))[0] == "POOL-LAYOUT":
-            pos_same += 1
         if j + 1 < len(m.fb):
             nva, nw = m.fb[j + 1][0], m.fb[j + 1][1]
             neg[classify_bodies(ba, body(nw, nva))[0]] += 1
-    print("# control+: %d UNIQUE (seed %d): anchor pairs the matcher's US "
-          "function in %d, body equal in %d" % (len(pick), seed, pos_pair, pos_same))
-    print("# control-: same EU body vs the next US record: " +
+    print("# anchor control: %d UNIQUE (seed %d), own anchor removed: the "
+          "anchor names the matcher's US function in %d" % (len(pick), seed, pos_pair))
+    print("# classifier control: same EU body vs the next US record: " +
           "  ".join("%s %d" % (c, neg[c]) for c in CLASSES if neg[c]))
 
 
@@ -436,6 +440,16 @@ def run(args) -> int:
             amap[i] = b_index[bva]
     keys = sorted(amap)
     inv = sum(1 for a, b in zip(keys, keys[1:]) if amap[b] < amap[a])
+    if args.anchor_shift:
+        # pipeline negative control: every anchor points k US records off
+        amap = {i: min(max(j + args.anchor_shift, 0), len(m.fb) - 1)
+                for i, j in amap.items()}
+        print("# CONTROL: anchors shifted by %+d US records" % args.anchor_shift)
+    if args.anchor_shuffle is not None:
+        vals = [amap[i] for i in keys]
+        random.Random(args.anchor_shuffle).shuffle(vals)
+        amap = dict(zip(keys, vals))
+        print("# CONTROL: anchors shuffled (seed %d)" % args.anchor_shuffle)
     print("# anchors: %d matched EU records, %d order inversions" % (len(keys), inv))
     nomatch = [i for i, f in enumerate(m.fa) if verdicts[f[0]][1] == "NOMATCH"]
     b_forms = {}
@@ -469,6 +483,10 @@ def run(args) -> int:
         sub = Counter(r["class"] for r in rows if r["pairing"] == how)
         print("#   %-13s %4d: " % (how, sum(sub.values())) +
               "  ".join("%s %d" % (c, sub[c]) for c in CLASSES if sub[c]))
+    named = Counter(r["us"] for r in rows if r["us"] is not None)
+    multi = sorted(v for v, n in named.items() if n > 1)
+    print("# US records named by more than one row: %d (rows %d)" % (
+        len(multi), sum(named[v] for v in multi)))
     same = sum(dist[c] for c in SAME_CODE)
     print("# same code (TWIN+PHANTOM-SLOT+POOL-LAYOUT): %d  operand-only (REGALLOC+IMMEDIATE+"
           "OPERANDS): %d  instruction changes (REORDER+EDIT+REWRITE): %d  "
@@ -476,7 +494,7 @@ def run(args) -> int:
               same, dist["REGALLOC"] + dist["IMMEDIATE"] + dist["OPERANDS"],
               dist["REORDER"] + dist["EDIT"] + dist["REWRITE"],
               dist["UNPAIRED"], len(rows)))
-    if not args.all:
+    if not args.all and not args.anchor_shift and args.anchor_shuffle is None:
         controls(m, verdicts, amap, keys, args.seed, args.size)
     fix1 = [r for r in rows if r["us_fixed_twins"] == 1]
     agree = sum(1 for r in fix1 if r["us"] == r["us_fixed"])
@@ -589,6 +607,10 @@ def main(argv=None) -> int:
                     help="fallback searches every US record, claimed ones too")
     ap.add_argument("--pair", metavar="EU:US",
                     help="raw compare of one EU/US pdata pair and exit")
+    ap.add_argument("--anchor-shift", type=int, default=0, metavar="K",
+                    help="negative control: move every anchor K US records")
+    ap.add_argument("--anchor-shuffle", type=int, default=None, metavar="SEED",
+                    help="negative control: shuffle the anchors' US indexes")
     ap.add_argument("--json")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)

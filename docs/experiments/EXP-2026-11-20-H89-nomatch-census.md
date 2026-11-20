@@ -59,6 +59,11 @@ differing instruction in `sh4dis` output, not only a differing literal.
    python3 tools/nomatch_census.py archive/head256.img archive/us256.img --pair 0x003911b8:0x003bfa54
    # UNPAIRED rows: fall back over every US record, claimed ones too
    python3 tools/nomatch_census.py archive/head256.img archive/us256.img --global-all
+   # whole-pipeline negative controls (navigator round, see Corrections)
+   python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all --anchor-shift 1 --no-global
+   python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all --anchor-shift 1
+   python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all --anchor-shuffle 7 --no-global
+   python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all --anchor-shuffle 7
    # independent instruction check of a pair (EU, then US)
    python3 tools/sh4dis.py archive/head256.img Navi.exe --va 0x003c0108 --count 48
    python3 tools/sh4dis.py archive/us256.img Navi.exe --va 0x003eef2c --count 48
@@ -80,10 +85,14 @@ differing instruction in `sh4dis` output, not only a differing literal.
    ≥2 US twins), `PHANTOM-SLOT`, `POOL-LAYOUT`, `REGALLOC`, `IMMEDIATE`,
    `OPERANDS`, `REORDER`, `EDIT` (ratio ≥0.9), `REWRITE` (0.5–0.9), `UNPAIRED`
    (definitions in the tool's docstring).
-3. **Controls.** *Positive*: 40 `UNIQUE` functions (seed 89), each with its
-   own anchor removed, must be paired with the matcher's own US function and
-   classed body-equal. *Negative*: the same 40 EU bodies against the **next**
-   US record must not be classed as same code. Selftest: 20 synthetic cases,
+3. **Controls.** *Anchor (positive)*: 40 `UNIQUE` functions (seed 89),
+   each with its own anchor removed, must be paired with the matcher's own US
+   function. *Classifier (negative)*: the same 40 EU bodies against the
+   **next** US record must not be classed as same code; this tests
+   `classify_bodies`, not the pairing. *Pipeline (negative)*: the whole
+   NOMATCH run with every anchor moved one US record (`--anchor-shift 1`)
+   or with the anchors' US indexes shuffled (`--anchor-shuffle 7`), each
+   with and without the `+global` fallback. Selftest: 20 synthetic cases,
    one per class plus the phantom-slot case and the anchor/gap/edge pairing.
 4. **Scope.** `Navi.exe` build A only, pdata functions only (leaves are not
    in the 1259). The 40 sampled rows are the result; the `--all` run is a
@@ -147,21 +156,33 @@ instruction (EU offset), as EU word/text and US word/text.
 #   anchor          22: TWIN 10  PHANTOM-SLOT 3  IMMEDIATE 2  EDIT 5  REWRITE 2
 #   gap             18: TWIN 3  IMMEDIATE 2  EDIT 2  REWRITE 3  UNPAIRED 8
 # same code (TWIN+PHANTOM-SLOT+POOL-LAYOUT): 16  operand-only (REGALLOC+IMMEDIATE+OPERANDS): 4  instruction changes (REORDER+EDIT+REWRITE): 12  unpaired: 8  of 40
-# control+: 40 UNIQUE (seed 89): anchor pairs the matcher's US function in 38, body equal in 40
-# control-: same EU body vs the next US record: EDIT 2  REWRITE 1  UNPAIRED 37
+# US records named by more than one row: 0 (rows 0)
+# anchor control: 40 UNIQUE (seed 89), own anchor removed: the anchor names the matcher's US function in 38
+# classifier control: same EU body vs the next US record: EDIT 2  REWRITE 1  UNPAIRED 37
 # forward-pass digest unique in US: 3 of 40 (the anchor pairs the same US function in 3)
 ```
 
 Population cross-check (`--all`, tool only):
 
 ```text
-# classes: TWIN 215  PHANTOM-SLOT 141  POOL-LAYOUT 4  REGALLOC 0  IMMEDIATE 80  OPERANDS 1  REORDER 0  EDIT 157  REWRITE 317  UNPAIRED 344
+# classes: TWIN 219  PHANTOM-SLOT 141  POOL-LAYOUT 0  REGALLOC 0  IMMEDIATE 80  OPERANDS 1  REORDER 0  EDIT 157  REWRITE 317  UNPAIRED 344
 #   anchor         729: TWIN 188  PHANTOM-SLOT 131  IMMEDIATE 62  OPERANDS 1  EDIT 120  REWRITE 183  UNPAIRED 44
 #   anchor+global   10: REWRITE 10
 #   gap            467: TWIN 27  PHANTOM-SLOT 7  IMMEDIATE 17  EDIT 32  REWRITE 84  UNPAIRED 300
-#   gap+global      53: PHANTOM-SLOT 3  POOL-LAYOUT 4  IMMEDIATE 1  EDIT 5  REWRITE 40
+#   gap+global      53: TWIN 4  PHANTOM-SLOT 3  IMMEDIATE 1  EDIT 5  REWRITE 40
+# US records named by more than one row: 30 (rows 63)
 # same code (TWIN+PHANTOM-SLOT+POOL-LAYOUT): 360  operand-only (REGALLOC+IMMEDIATE+OPERANDS): 81  instruction changes (REORDER+EDIT+REWRITE): 474  unpaired: 344  of 1259
 # forward-pass digest unique in US: 141 of 1259 (the anchor pairs the same US function in 141)
+```
+
+Whole-pipeline negative controls (`--all`, the `# same code` and `# classes`
+lines; added in the navigator round):
+
+```text
+--anchor-shift 1 --no-global : same code 73 (TWIN 69, 49 of them anchor; PHANTOM-SLOT 4)  IMMEDIATE 21  EDIT 37  REWRITE 105  UNPAIRED 1023
+--anchor-shift 1             : same code 158 (TWIN 123  PHANTOM-SLOT 35)  IMMEDIATE 41  EDIT 82  REWRITE 264  UNPAIRED 713
+--anchor-shuffle 7 --no-global: same code 1 (TWIN 1)  REWRITE 30  UNPAIRED 1228
+--anchor-shuffle 7           : same code 342 (TWIN 201: 200 via gap+global; PHANTOM-SLOT 141, all via gap+global)  IMMEDIATE 82  EDIT 157  REWRITE 312  UNPAIRED 365
 ```
 
 Independent `sh4dis` checks (EU 2011 / US 2011, offsets from the start):
@@ -176,9 +197,10 @@ Independent `sh4dis` checks (EU 2011 / US 2011, offsets from the start):
 - **PHANTOM-SLOT** `0x0033d00c` / `0x0036bb5c`, 1268 B each: `--pair`
   prints `raw halfword diffs over the common length: 15, in a pool slot of
   both builds: 15` and `US phantom: pool data +0x284 = da3c decodes as
-  mov.l @(0x0036bed4,pc),r10 and blanks +0x378 (c11e …)`. The 15 halfwords (`+0x280…+0x286`, `+0x430…+0x432`,
-  `+0x4dc…+0x4f2`), and all 15 are forward-pass pool slots in both builds
-  (pointer halves such as `0x0032`/`0x0035`). In the US build the pool halfword at `+0x284` is
+  mov.l @(0x0036bed4,pc),r10 and blanks +0x378 (c11e …)`. The 15 differing
+  halfwords (`+0x280…+0x286`, `+0x430…+0x432`, `+0x4dc…+0x4f2`; pointer
+  halves such as `0x0032`/`0x0035`) are all forward-pass pool slots in both
+  builds. In the US build the pool halfword at `+0x284` is
   `0xda3c`, which decodes as `mov.l @(disp,PC),r10`; `fn_match`'s slot pass
   treats it as a load and blanks `+0x378`, which is the real instruction
   `0xc11e` (`mov.w r0,@(disp,GBR)`) in both builds. A forward pass that
@@ -209,30 +231,45 @@ is in the PR body.
 ## Interpretation
 
 - **FACT:** the sample splits **16 same code / 24 code differs**: 13 `TWIN`
-  + 3 `PHANTOM-SLOT` have an identical instruction stream to their anchored
-  US counterpart (checked with `sh4dis` for one of each), while 4
+  (10 `anchor`, 3 `gap`) + 3 `PHANTOM-SLOT` (all `anchor`) have an identical
+  instruction stream to their paired US counterpart (checked with `sh4dis` for one of each), while 4
   `IMMEDIATE`, 7 `EDIT`, 5 `REWRITE` show a differing instruction and 8 have
   no counterpart at similarity ≥0.5. 95 % Wilson intervals: same code
   26–55 %, code differs 45–74 %.
 - **FACT:** two matcher classes exist, both cheap:
   (1) **TWIN** — the masked form stream is shared by ≥2 US functions
   (small accessors, generated-looking stubs), so `_pool_only_twin` refuses;
-  address order picks one (188 of the 215 population TWIN rows are exact
-  `anchor` pairs). (2) **PHANTOM-SLOT** — `fn_match` derives pool slots from
-  every halfword that decodes as `mov.x @(disp,PC)`, including pool *data*,
-  and blanks a real instruction; a forward pass fixes it (141/141 rows get a
-  unique forward-pass digest that names the same US function the anchor
-  picks).
-- **OBSERVED:** no `REGALLOC` and no `REORDER` row in the sample or the
-  population: the US build is the same compiler on mostly the same source;
-  when code differs it differs in constants (`mov #75`→`#76`, struct offsets
-  24→20, enum bounds 12→11) or in inserted/removed statements.
+  address order can pick one (188 of the 219 population TWIN rows are exact
+  `anchor` pairs; the tool's pairing is not one-to-one: 30 US records are
+  named by more than one row, 63 rows, e.g. EU `0x003c3a34` and `0x003c3ad8`
+  both name US `0x003f267c`, so H114 must enforce it).
+  (2) **PHANTOM-SLOT** — `fn_match` derives pool slots from every halfword
+  that decodes as `mov.x @(disp,PC)`, including pool *data*, and blanks a
+  real instruction; a forward pass fixes it (all 141 rows get a unique
+  forward-pass digest, and address-order pairing — 131 `anchor`, 10
+  `gap`/`gap+global` — names the same US function in 141/141).
+- **OBSERVED:** no function differs *only* in register allocation
+  (`REGALLOC 0`) or *only* in instruction order (`REORDER 0`), in the sample
+  and over all 1259. Register changes do occur together with other edits
+  (EU `0x00416d40` `mov r5,r10`→`mov r5,r13` in an `EDIT`; EU `0x0038e284`
+  `r2`/`r3` swapped next to a replaced `add #36,r1`; EU `0x004e3658`
+  `r8`→`r9` in a `REWRITE`). Constant-only changes are common (`mov #75`→`#76`,
+  struct offsets 24→20, enum bounds 12→11).
+- **OBSERVED (pipeline controls):** with anchors shifted by one US record and
+  no `+global` fallback, same code drops from 360 to 73 (TWIN 69, of which 49
+  `anchor` — rows whose neighbour is also a twin) and `UNPAIRED` rises from
+  344 to 1023; with shuffled anchors and no fallback, same code is 1. With the
+  fallback on, shifted anchors give 158 and shuffled anchors 342 (TWIN 201
+  and PHANTOM-SLOT 141, nearly all via `gap+global`). So the anchors drive
+  the `IMMEDIATE`/`EDIT`/`REWRITE` pairings, while the same-code classes are
+  recovered by similarity alone once the fallback runs: their *class* does
+  not depend on the anchor, but which US twin a `TWIN` row names does.
 - **OBSERVED:** the population cross-check gives a lower same-code share
-  (`360/1259`, 28.6 %) than the sample (40 %); `TWIN` is `215` (17.1 %) vs
+  (`360/1259`, 28.6 %) than the sample (40 %); `TWIN` is `219` (17.4 %) vs
   13/40 in the sample (the sample hit the `0x003c…` cluster of twins).
   `REWRITE` (317) and `UNPAIRED` (344) are larger there; 300 of the 344
   `UNPAIRED` come from `gap` rows, and a `gap` best-of-N pick inflates
-  similarity (the negative control puts 3/40 wrong neighbours at EDIT or
+  similarity (the classifier control puts 3/40 wrong neighbours at EDIT or
   REWRITE), so the population `REWRITE` count is an upper bound on rewrites
   that have a counterpart.
 - **HYPOTHESIS:** the `UNPAIRED` rows are EU-only code (they cluster in
@@ -249,8 +286,8 @@ differs or is missing; but the **largest single class in the sample is a
 matcher class**, `TWIN` (13/40), and with `PHANTOM-SLOT` (3/40) about a
 third of the NOMATCH are identical code that `fn_match` cannot see. Both
 are cheap: H113 (forward-pass pool slots, 141 functions in the population)
-and H114 (address-order anchor for multi-twin streams, 215 TWIN rows, 188 of
-them anchor-exact). `fn_match.py` is not changed here (task Stop/Scope).
+and H114 (address-order anchor for multi-twin streams, 219 TWIN rows, 188 of
+them anchor-exact; it must be one-to-one and pass a shifted-anchor control). `fn_match.py` is not changed here (task Stop/Scope).
 Claims C-4120–C-4126.
 
 ## Overtaken by a later commit
@@ -275,4 +312,34 @@ python3 tools/nomatch_census.py --selftest
 
 ## Corrections after navigator review
 
-(empty until the navigator round returns)
+Round 1 (REQUEST CHANGES), all applied in the commit after `af5cd10`:
+
+1. **Claim-block collision.** H114's block C-5580–C-5589 is M9.51's on
+   `main`; H114 now uses C-5700–C-5709 (H113 keeps C-5570–C-5579).
+2. **Merge with `main`.** `origin/main` merged (no rebase); `TODO.md` keeps
+   H89 `[x]`/done, `claims.md` keeps the whole H89 section and main's
+   trailing M9.51…M6.18 sections; the ledger diff against `main` is
+   additions only.
+3. **"Never in register allocation" was wrong** (C-4124, Interpretation):
+   EU `0x00416d40`, `0x0038e284`, `0x004e3658` change registers together
+   with other edits. Reworded to "no function differs *only* in register
+   allocation or *only* in order".
+4. **C-4121 overclaimed.** Its negative control runs `classify_bodies`
+   against US record `j+1`, which controls the classifier, not the pairing;
+   "body equal in 40" is true by construction for `UNIQUE`. Reworded to
+   anchor control + classifier control, the body-equal count dropped (the
+   tool no longer prints it), and the whole-pipeline controls added as
+   `--anchor-shift`/`--anchor-shuffle` with their numbers in Observations
+   (the navigator's scratch `negctl.py` gave the same numbers, except
+   POOL-LAYOUT which item 7 reclassifies as TWIN).
+5. **H114 Done when** gains a ±1 shifted-anchor control and a one-to-one
+   requirement (30 US records are named by more than one row); "without
+   guessing" became "by address order".
+6. This section.
+7. **The `+global` path skipped the `TWIN` test**, so 4 population rows
+   were `POOL-LAYOUT` instead of `TWIN`; fixed in `classify_one`: population
+   now `TWIN 219`, `POOL-LAYOUT 0` (sample unchanged).
+8. Claim evidence cells now carry full commands and name the US256 head.
+9. TWIN in the sample is "10 anchor, 3 gap", not all anchored; PHANTOM-SLOT's
+   141/141 agreement is "address-order pairing (131 anchor, 10 gap/global)".
+10. The PHANTOM-SLOT observation's verbless sentence is rewritten.
