@@ -822,8 +822,8 @@ of the four numbers above says so in its first line.
   - Claims: C-3820–C-3829
   - Result: [EXP-2026-11-19-H62-us256-alias](docs/experiments/EXP-2026-11-19-H62-us256-alias.md) — `--image US256` downloads the real US head in 27 s and verifies `70d945d8…` (`cmp`-identical to `archive/us256.img`); `--image US --part 256M` now verifies the same hash; EU head, a 1-byte flip and a 1-byte-short copy are refused (exit 1); selftest +5 checks incl. fixture agreement (C-3820–C-3823).
 
-- [ ] **H63 — `fn_audit`: a `CORRECTED` verdict must name the line-specific evidence that resolved it**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H63 — `fn_audit`: a `CORRECTED` verdict must name the line-specific evidence that resolved it**
+  - Status: done · Owner: task/h63-corrected-evidence · Critical: no · Pair: required
   - Depends: — (`tools/fn_audit.py`, M1.29 on `main`); coordinates H52 (edits the citations) and M1.26 (reuses the verdict)
   - Goal: `CORRECTED` is a success class, so its evidence must be visible on the row. Today an `INSIDE` becomes `CORRECTED` either because the *same line* pairs the VA with its true start or because the VA is on the static `CORRECTION_ONLY` pin; the printed row says only `CORRECTED 0x…`. The pin is a fleet-wide allowlist, so a bare `… are mid-function` line is resolved by the pin even though the line names no start. On the frozen `b56fed2` corpus the example is `TODO.md:714` (the M1.25 Goal lists the three H51 VAs as mid-function, no pair, no start): dropping the `0x00542256` pin alone turns that line's third VA into `INSIDE` — `INSIDE` 33→36, `CORRECTED` 13→10. **Post-H52 (2026-11-16) the same defect survives but smaller:** on `main` at `26f33cd` `--scope docs` is `START 229, INSIDE 0, CORRECTED 25`, and popping the same pin gives `INSIDE 5, CORRECTED 20`; the pinned VA stays `CORRECTED(pin)` on a line where the other two H51 VAs are `INSIDE` (H52 left them as historical co-citations), so the pin hides which VA the line actually resolved.
   - Precheck: on the `b56fed2` worktree (`git worktree add --detach /tmp/opencode/h63wt b56fed2`, then run `tools/fn_audit.py <abs>/archive/head256.img --scope docs --quiet` from it) the summary is `START 190, INSIDE 33, CORRECTED 13, GAP 29`; popping the `0x00542256` pin gives `INSIDE 36, CORRECTED 10`. On `main` at `26f33cd` the same command is `START 229, INSIDE 0, CORRECTED 25`; popping the pin gives `INSIDE 5, CORRECTED 20` (measured 2026-11-16) — the split must be exported on `b56fed2` as the stable corpus and only *re-measured* on `main`, never re-pinned to freeze a number. The pinned VA's line shows it as `CORRECTED` while the other H51 VAs on that line are `INSIDE` — one pin resolved a line that names no start.
@@ -833,6 +833,7 @@ of the four numbers above says so in its first line.
   - Done when: on `b56fed2` the split prints `CORRECTED 13 (<line> line, <pin> pin)` with the arithmetic in the EXP and the live tree's larger `CORRECTED` measured in the same EXP (same `INSIDE`, so the difference is only the added prose); every pin the EXP keeps has a `Pin:` line whose re-check command runs; `--selftest` proves a pair-resolved citation is labelled `line` and a pin-resolved one `pin`; with the `0x00542256` pin removed on `b56fed2` the summary reads `INSIDE 36, CORRECTED 10`; `selftest.py --only fn_audit` and `claims_check.py` pass.
   - Stop: if the split cannot be exported without changing the 13/33 counts, record the counts as an OBSERVED claim and ship only the label; do not redefine `CORRECTED`.
   - Claims: C-3830–C-3839
+  - Result: EXP-2026-11-20-H63-corrected-evidence; C-3830–C-3836 (C-3837–C-3839 reserved). Rows print `CORRECTED(line)`/`CORRECTED(pin)` and a `fn_audit: CORRECTED <n> (<line> line, <pin> pin)` line; on `b56fed2` **`CORRECTED 13 (5 line, 8 pin)`** with `INSIDE 33` unchanged, `--drop-pin 0x00542256` → `INSIDE 36, CORRECTED 10`; live tree `CORRECTED 20 (12 line, 8 pin)`, `INSIDE 0`; 0 second defects; all three pins kept with `Pin:` re-checks (`sh4dis`/`pdata.py fn`; M1.24 `--parent-of` once merged).
 
 - [ ] **H59 — Trace the test-system plan to the board so "plan complete?" is checkable**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3884,10 +3885,30 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     Tool: `tools/ze0_rtc.py`.
   - Claims: C-1330–C-1339
 
-- [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
+- [x] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
   without a fault.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.b5-ze0-f1-filesys · Critical: no
   - Depends: M8.B1, M8.B2
+  - Done when (made concrete 2026-11-20, before the controlled runs; the
+    original line is kept above): one `-M ze0 -kernel archive/head256.img
+    -icount shift=0,sleep=off` boot under `tools/ze0_dbgmsg.py run`
+    (debug-string hook `0x880404f4`, EU2011) ends with (1) `ze0_dbgmsg.py
+    modules` on a RAM dump of `0x89e40000`+256 KiB listing `filesys.exe`
+    and `device.exe`; (2) 0 hits at `0x88011cb8` ("Unhandled exception")
+    and `0x88022164` ("Halting system"), and no `Exception` line in the
+    kernel's debug output; (3) `CurMSec` (`0x89e41888`) ≥ 60 000 at the
+    end. Negative controls: `ext-ram=off` and the M8.B2 binary (no
+    odd-PC address error) must fail (1) or (2).
+  - Result: EXP-2026-11-20-M8.B5-ze0-f1-filesys (C-1350–C-1354). Patch
+    `ze0-0006-sh4-iaddr-error-ze0-ext-ram.patch`: an odd-PC fetch raises
+    the SH-4 address error 0x0e0 (the CE API trap; QEMU raised 0x180, the
+    kernel's "Unhandled exception c000001d" → `Halting system`), and the
+    OAL's second 128 MiB DRAM at phys `0x10000000`. `filesys.exe` and
+    `device.exe` start (RAM loader records + their debug text), 839 s of
+    guest time, no unhandled exception; `ext-ram=off` and the M8.B2
+    binary fail. Next blockers: SD host (launcher `SD Check Error`,
+    M8.C10), OEM IOCTLs, `gwes.exe` not started. Tool:
+    `tools/ze0_dbgmsg.py` (kernel debug text over the gdbstub).
   - Claims: C-1350–C-1359
 
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in

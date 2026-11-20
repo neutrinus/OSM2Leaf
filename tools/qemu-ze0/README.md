@@ -187,6 +187,13 @@ kept), so the next run extracts cleanly.
   `-M ze0,tmu=off` leaves the TMU unmapped. For repeatable traces, add
   `-icount shift=0,sleep=off`. `tools/ze0_tmu.py` samples `CurMSec`. See
   [`EXP-2026-11-20-M8.B2-ze0-tmu.md`](../../docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md).
+- **M8.B5 (2026-11-20), milestone F1:** `ze0-0006` makes an odd-PC fetch
+  raise the SH-4 address error (the Windows CE API trap; QEMU raised an
+  illegal instruction and the kernel halted), and maps the OAL's second
+  128 MiB DRAM at phys `0x10000000` (`ext-ram=off` = old catch-all). The
+  EU2011 kernel then starts `filesys.exe` and `device.exe`. Read the
+  kernel's debug text with `tools/ze0_dbgmsg.py run -- <qemu argv>`. See
+  [`EXP-2026-11-20-M8.B5-ze0-f1-filesys.md`](../../docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
