@@ -3303,7 +3303,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-20-M5.53-wide-rows. `0x2n46` is not a tail: header word 0 is the directory size, and `0x2n46` = `0x2046` with **n wide rows** (1,024-byte body: even pair, 4+4 `u16` sub-record sizes for a 2 x 2 parcel split, odd pair; bit 31 of the row's first word marks it). New `tools/s1_wide_dir.py census` decodes 1,855/1,855 section-1 directories of 45 EU2011 tiles, 2,443,997 records all whole zlib streams, 0 overlaps; M5.22's non-zlib/`0xffffffff`/aliasing were the 512-byte misreading (C-2810–C-2812 superseded). `tilewriter` splices `0x2146` through the row model: real `B48R058R (76,941)` → `0x2046`, diff confined to the directory, `cardcheck` + `l2check --semantic-tiles` PASS, readback 16/16. Precheck token deviates on purpose: 0x2146 is now classified spliceable, so factory and output both print `spliceable=14 preserve-only=6`; the by-kind line prints `narrow(0x2046)=10 wide(0x2n46)=10` on the output (factory 9/11) — see EXP Interpretation. Follow-up **M5.54** (other kinds).
 
 - [ ] **M5.54 — P1: splice the remaining wide-row kinds `0x2246`–`0x2946`**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m5.54-s1-wide-kinds · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.53 (done)
   - Goal: M5.53 proved every `0x2n46` directory is a `0x2046` directory with n wide rows and made `0x2146` writable (P1: 14 of 20 directories). The 6 left in the Dolnośląskie bbox (`0x2246`, `0x2346` x2, `0x2546`, `0x2646`, `0x2946`) parse with the same model (`tools/s1_wide_dir.py`) but `tilewriter` still preserves them (`PRESERVE_ONLY_DIR_KINDS`). Enable them so P1 writes 20/20.
