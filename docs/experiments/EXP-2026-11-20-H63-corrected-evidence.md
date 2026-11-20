@@ -165,7 +165,7 @@ The task's `26f33cd` figures (`START 229, CORRECTED 25`; popped `INSIDE 5, CORRE
 
 **Second defect.** No pinned VA has an `INSIDE` row on either corpus. Both `grep -E '^0x(003f5fc2|00413af4|00542256) .*INSIDE'` searches print nothing. So no pin-resolved VA appears with a line that pairs a different start: **0 second defects**.
 
-**Frozen snapshots (corpus mode, the gate's input).** The docs base gives `CORRECTED 20 (12 line, 8 pin)` and the l3 overlay gives `CORRECTED 9 (2 line, 7 pin)`. Six of those 7 l3 `pin` rows sit in H63's own open block (`TODO.md:828–833`). Marking H63 done removes the block from the l3 open-block scope, and `--write-snapshot` re-freezes the overlay in the same commit. After that the overlay reads (at the PR's final merge of `origin/main`; its `START` count moves with other merges) `fn_audit: CORRECTED 3 (2 line, 1 pin)`, with `CORPUS OK: L3 OVERLAY`. The split is re-derived from the image, because a snapshot row stores only the class.
+**Frozen snapshots (corpus mode, the gate's input).** The docs base gives `CORRECTED 20 (12 line, 8 pin)` and the l3 overlay gives `CORRECTED 9 (2 line, 7 pin)`. Six of those 7 l3 `pin` rows sit in H63's own open block (`TODO.md:828–833`). Marking H63 done removes the block from the l3 open-block scope, and `--write-snapshot` re-freezes the overlay in the same commit. After that the overlay reads (at the PR's final merge of `origin/main`; its `START` count moves with other merges) `fn_audit: CORRECTED 3 (2 line, 1 pin)`, with `CORPUS OK: L3 OVERLAY` (re-quoted after navigator review: see below). The split is re-derived from the image, because a snapshot row stores only the class.
 
 **Pin re-checks:**
 
@@ -217,6 +217,27 @@ Pin lines:
 On `b56fed2` the split is `CORRECTED 13 (5 line, 8 pin)`. On the live tree it is `CORRECTED 20 (12 line, 8 pin)`. `--drop-pin VA` makes the pin-removal measurement a command.
 
 All three pins are kept, each with a runnable re-check. Whether pin-resolved occurrences such as `TODO.md:714`/`828` (no start on the line) or `729`/`1281` (start named in another form) should instead carry their own arrow pair is H52's question (citations), not this task's.
+
+## Corrections after navigator review
+
+The PR #319 navigator review approved the numbers and the code after six fixes. Each one was applied in this PR:
+
+1. **Merge and snapshots (HIGH).** `origin/main` was merged at `302154f`. The l3 overlay conflict was resolved by taking main's file and re-freezing it with `--write-snapshot`, and the docs base snapshot was re-frozen too. H77's 11-20 overlay is not on `main` yet, so the 11-16 overlay is the one refreshed. After the refresh:
+   - docs base: `START 376, INSIDE 0, CORRECTED 20`, `fn_audit: CORRECTED 20 (12 line, 8 pin)`, `CORPUS OK: DOCS BASE`;
+   - l3 overlay: `fn_audit: CORRECTED 5 (3 line, 2 pin)`, `CORPUS OK: L3 OVERLAY`. The 5 rows are H51 pm-review :174 (pin), M1.25 :84 (line), M1.29 :72 (line), and this EXP's `Pin:` line, which holds one line occurrence and one pin occurrence.
+
+   C-3836 is re-quoted, and `gate.py` reports 4 pass.
+2. **Overclaim on what `pin` means (HIGH).** `pin` means that *this occurrence carries no arrow pair of its own*. It does not mean the line names no start. On `b56fed2`:
+   - `TODO.md:729` pairs the third H51 VA with its start by an arrow and then names the same VA bare, so it holds one `line` and one `pin` occurrence;
+   - `TODO.md:1281` names the `jsr` pin's enclosing `fn` in non-arrow form.
+
+   This item deliberately writes no hex VA, so that it adds no rows to the l3 overlay it quotes. The exact text is in the FACT bullet above.
+
+   The Question, the Hypothesis, the first FACT bullet, the Conclusion and C-3830/C-3831 now say: "8 occurrences carry no arrow pair of their own; 2 (729, 1281) sit on lines that name the start in another form". `_resolved` is unchanged, so no number moves.
+3. **Pin re-checks independent of `.pdata` (LOW).** `sh4dis --va 0x00413a6c --count 2` and `sh4dis --va 0x003f5f48 --count 2` both print `mov.l r8,@-r15; mov.l r9,@-r15`. They were added to the Method, the Observations, the `Pin:` lines and C-3835.
+4. **Selftest (LOW).** Two checks were added: a successful `--drop-pin` run, in which the pin's row is `INSIDE` during the run and the allowlist is restored afterwards, and two occurrences of one VA on one line, which give evidence `["line", "pin"]`. The selftest now reads `selftest: OK (83 checks, 0 failed)`.
+5. **`--drop-pin` mutated module state (LOW).** `main` now validates every VA before touching the allowlist and drops the pins only around `_run(...)`. A `try/finally` then restores `CORRECTION_ONLY`.
+6. **Setup reference (LOW).** C-3831, C-3832 and C-3834 now say "(setup: EXP §Method step 2)" for the `b56fed2` tree.
 
 ## Overtaken by a later commit
 
