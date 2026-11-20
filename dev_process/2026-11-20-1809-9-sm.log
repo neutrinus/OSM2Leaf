@@ -1,0 +1,5 @@
+role: SM (Scrum Master), cycle 18 (roles SM -> SE -> PO -> QA; TL excluded on request)
+model: Claude Fable 5.2
+start: 2026-11-20 18:09 UTC
+origin/main at start: 99aa93a
+branch: claude/project-thread-alhsg9 (one branch and one PR for the four role runs)
