@@ -1,0 +1,51 @@
+role: SM (Scrum Master), cycle 17
+model: opencode deepseek-v4.1-flash-free (aggregate "strong")
+start: 2026-11-20T10:33Z
+origin/main at start: 8f18cbf
+
+inputs read:
+  prompt_common.txt, prompt_sm.txt, AGENTS.md, TODO.md (Priorities + rules 1-17),
+  docs/retro/2026-11-19.md, the cycle-16 TL log and the two pair logs
+  (2030-5-driver, 2045-6-nav), gh pr list (open + merged window), gh run list
+  (CI quality gate), tools/map_signals.py output.
+
+window: origin/main 4558f93 (cycle-16 TL end) -> 8f18cbf; PRs merged
+2026-11-19T19:25Z -> 2026-11-20T10:03Z: 40 (37 task PRs, 3 process fixes).
+
+actions:
+  - counted the window: 40 merges, 37 tasks done / 3 blocked / 0 re-opened,
+    ~30 added; board 93 open / 1 in progress / 144 done / 25 blocked.
+  - read map_signals: readers located 6 -> 14, L3-running 1 -> 6, tiles flat,
+    card P0. This window moved the map; said first in the retro.
+  - checked ghosts: found M1.24 (branch merged, block still in progress, no
+    tool, no C-363x) = work-lost claim; and #245-#248 = claim-only drafts ~13h,
+    releaseable at ~20:45Z.
+  - checked work logs: only driver/nav/TL logs in window; 37 tasks landed with
+    no per-task log -> prompt_common work-log rule not honoured for the batch.
+  - counted branches: 78 remote task/*, 74 with no open PR (merged/abandoned);
+    10 local; 3 worktrees (clean).
+  - claims: 2849 rows, 37 RETRACTED, 0 new retractions, 0 block collisions,
+    claims_check --strict --count-check OK. CI main last 12 runs green.
+  - wrote docs/retro/2026-11-20.md and edited prompt_sm.txt ghost definition
+    (before/after recorded in the retro).
+
+decisions / rejected:
+  - did not release the M1.24 claim myself: the SM reports, the TL releases
+    (prompt division); action assigned to TL.
+  - did not sweep branches myself: same, TL owns worktree/branch hygiene.
+  - rejected calling the 74 stale branches a worktree problem: wt list is clean;
+    it is remote-branch deletion that was skipped.
+
+problems:
+  - 37 task PRs with zero per-task driver/nav logs; "who reviewed what" cannot
+    be reconstructed. Not a data defect (EXPs/CI cover it), a governance one.
+  - one work-lost ghost (M1.24) and four frozen claim-only drafts that will hit
+    the 24h release clock before the next TL run unless worked.
+
+handoff:
+  - TL first: resolve M1.24 ghost (action 1), the four claim-only drafts
+    (#245-#248, action 4), then the branch sweep (action 3) — all cheap.
+  - TL batch selection: the map moved to 14/6; the P1 rung task M5.49 is one
+    of the frozen drafts, so un-freezing it is on the critical path.
+  - SE: the three blocked tasks (M4.51, M4.40->M4.54, M4.48) need their Unblock
+    tasks checked for readiness.

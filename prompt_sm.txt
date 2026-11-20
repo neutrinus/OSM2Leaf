@@ -6,7 +6,7 @@ Review the commits from the last 24h (`git log --since=24.hours --stat origin/ma
 
 Review the prompts of the other roles in this repo (prompt_*.txt, including prompt_common.txt).
 
-Write a retro to docs/retro/YYYY-MM-DD.md (today's date; add -2 for a second one on the same day). Look for places where we got stuck or where someone is going around in circles. Also list ghost claims: tasks `in progress` with no owner branch, no PR and no work log for >24h — they block pickups just as much as open PRs — **or whose owner branch is already merged on `main`** (the squash-merge leak: the work landed, the status line did not; check `git branch -r --merged origin/main | grep <owner>`).
+Write a retro to docs/retro/YYYY-MM-DD.md (today's date; add -2 for a second one on the same day). Look for places where we got stuck or where someone is going around in circles. Also list ghost claims: tasks `in progress` with no owner branch, no PR and no work log for >24h — they block pickups just as much as open PRs — **or whose owner branch is already merged on `main`** (the squash-merge leak: the work landed, the status line did not; check `git branch -r --merged origin/main | grep <owner>`). Distinguish the two kinds: if the merged branch's task line still says `in progress` **and the task's own deliverables do not exist yet** (grep its named tool/claim), it is a *work-lost ghost* — only the claim landed; release the claim, do not assume the work is on `main`.
 
 Include a few numbers so retros can be compared over time:
 - tasks done / blocked / re-opened in the window; tasks claimed but with no commit for >24h;
