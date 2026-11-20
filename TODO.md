@@ -2595,7 +2595,7 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-20-M4.47-point-chain-locator (C-5390–C-5396). Structures are addressed by a BE `u32` block address `(off/0x800)<<8 | (off%0x800)/0x100`; directory cell `0x82a` (6-byte cells at `0x800..0xf06`) → the field-dictionary record holding base references (`addr, length_w`) at `+0x2e` (1000) / `+0x13c` (400) and table references (`addr, length_w, per_page`) at `+0x19a` / `+0x1b6`; cell `0xeba` → the 2000 chain's record `+0x24` / `+0x94`. One layout in 44/44 files, 264 references each unique, 132/132 chains verified through it; shuffled and plain-unit values reach 0 chains. `point_pair_regen.py relocate` moves a chain to the end of the `.DAT` (selftest 37 checks); EU POINT010 takes 1,000 and 6,199 real names M5.26 refused. Firmware reader of the reference not located → M4.52.
 
 - [ ] **M4.52 — Run the POINT open path on a relocated name chain (who reads the chain locator)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.52-point-locator-reader · Critical: yes
   - Depends: M4.47 (done)
   - Goal: M4.47 found the chain locator in the file (directory cell `0x82a` → field-dictionary record → base reference `+0x2e`) and `point_pair_regen.py relocate` moves a chain to the end of the `.DAT`, but no firmware code was seen reading the reference (C-5396 is a hypothesis). Rule 13 needs the reader to read a relocated chain.
   - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_name_accessor.py --selftest`; `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x0040ee4c` prints `START` or `INSIDE`.
