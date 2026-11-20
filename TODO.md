@@ -1353,7 +1353,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6280–C-6289
 
 - [ ] **M1.36b — `tools/rom_atlas.py`: one table of every module on every card image (the binary and data atlas)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.36b-rom-atlas · Critical: no · Pair: solo
   - Depends: M1.36 (done), M1.22b (`fn_match`, reloc-masked function hashes, done)
   - Goal: a committed, reproducible map of what is on a card: per image and ROM (A/B/C) every module with size, sections, reloc-masked code hash, imports/exports, COM class names and its role in one line; plus the data side (FAT tree families, TFAT16 tail, `FILESentry` files). M1.36 was a scratch script whose hashes include XIP relocation.
   - Precheck: `python3 tools/fetch_image.py --image EU2014 --part 256M -o X` verifies the size; `python3 tools/cerom.py --image-start 0x200200 X modules` lists 153 modules.
