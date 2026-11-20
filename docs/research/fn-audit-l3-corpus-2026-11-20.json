@@ -405,6 +405,7 @@
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
   "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
   "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+  "docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
   "docs/experiments/EXP-2026-11-20-M9.51-pysh4-macl.md",
@@ -413,10 +414,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 406,
-  "citations": 1048,
+  "files": 407,
+  "citations": 1049,
   "unique_va": 250,
-  "start": 896,
+  "start": 897,
   "inside": 71,
   "corrected": 9,
   "gap": 65,
@@ -9551,6 +9552,15 @@
    "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
    "line": 222,
    "va": "0x880453b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md",
+   "line": 54,
+   "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
