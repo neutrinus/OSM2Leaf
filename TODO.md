@@ -2437,8 +2437,8 @@ of the four numbers above says so in its first line.
   - Stop: if the join is not one-to-one, record the ambiguity classes (same name on two streets, unnamed ways), and stop at the mapping table.
   - Claims: C-3670–C-3679
 
-- [ ] **M4.39 — Route-link id: what in a `MAPAL001` tile section 2 can a `LCTBL001` road or an `ADDRE` record be joined to**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M4.39 — Route-link id: what in a `MAPAL001` tile section 2 can a `LCTBL001` road or an `ADDRE` record be joined to**
+  - Status: done · Owner: task/m4.39-route-link-id · Critical: yes · Pair: required
   - Depends: M5.37 (the L2 graph model this task needs to name nodes/links), M4.31 (the negative join search this narrows); M3.6 (which sections the router reads, done)
   - Goal: routing needs a stable key from a displayed road name/record back to the graph edge the router uses. M4.31 proved there is no `LCTBL↔RDSTM` join and M3.7 showed `RDSTM001` is TMC, not routing; nobody has asked whether section 2 itself carries an id an `ADDRE` name can reach. Without it the map routes on an anonymous graph and "route across the moved road" (M6.7) cannot be aimed at a chosen OSM way.
   - Precheck: `python3 tools/tile_diff.py B48R058R.DAT --section 2` lists section-2 records (M4.23/M4.24 framing); `python3 tools/ze0-viewer/harness.py info` shows section 2 non-zero; `grep -rn 'link_id\\|link_id\\|edge_id' tools/ docs/format/` prints nothing outside the M4.31 negative, i.e. the key is unnamed today.
@@ -2448,7 +2448,8 @@ of the four numbers above says so in its first line.
   - Done when: the EXP lists every section-2 field tested, the join rate against the name layer and against `LCTBL001` for each, the shuffle/null baseline, and either names a key that beats its null (with a second-tile control) or records the tested fields as a controlled negative; `docs/format/map-tiles.md` gets the field table.
   - Stop: if no field survives the framing on two tiles, record the negative with the null and stop; do not fit a key from row order.
   - Falsifier: a claimed key scores no better than its shuffled null, or works on `B48R058R` and not on the control tile without a named reason.
-  - Claims: none yet
+  - Claims: C-5150–C-5156 (block C-5150–C-5159; C-5157–C-5159 handed to M4.46)
+  - Result: EXP-2026-11-19-M4.39-route-link-id (C-5150–C-5156, `tools/route_link_join.py`): the key is `(parcel code, class & 0xf, entry word 3 & 0x1fff)` — it names the drawn section-1 link with an end at the entry's node for 99.9 % of entries on `B48R058R` (4,970,122) and on the control `B38R068R` (1,590,948), against 6.1 % with the field shuffled and ~0 with another parcel's shapes; node `(x, y)` keys nodes (100.0 % vs ≤ 0.05 %); w4/w5/a/b/node indices are not keys (≤ 7.9 % vs nulls 0.8–4.2 %). ADDRE refs reach it through the drawn point (Andorra on `B38R068R` 2,125/2,125 land, 2,112 on the named street vs 406/2 rotated-parcel null; Germany on `B48R058R` 44,631/44,631, 44,576 named vs 7,741/180). `LCTBL001` has no numeric key (best hit/null 1.43 at 0.1 %); name text only, median 8 records per name. Field table in `docs/format/map-tiles.md` ("Route-link key"). Section-2 decoding used: `clarion_rd`/`rd_check` on `main` (M5.37 merged meanwhile; not needed). New: M4.46.
 
 - [ ] **M4.40 — Tile section 2 (route graph) grammar read from the router's reader, not guessed from bytes**
   - Status: open · Owner: — · Critical: yes · Pair: required
@@ -2464,6 +2465,17 @@ of the four numbers above says so in its first line.
   - Stop: if the subtree turns out to hand section 2 to another task by message (an `OSM_TaskSend` with the buffer), name the receiver and stop — that is the next subtree.
   - Falsifier: a field the table gives does not vary where the two tiles' roads differ, or the L3 run reads bytes outside section 2 only.
   - Claims: none yet
+
+- [ ] **M4.46 — `tools/addre.py` misses the street name on shards whose name section starts `05 LL 00 ff`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (found by M4.39)
+  - Goal: `addre.parse_record` recognises the 2011 `c0` name section only with `TT` = `0x03`/`0x04`; on `ADDRE005` (Germany) `TT` is `0x05` and it returns no name for all but 18 of the first 81,313 `c0` records, so every ADDRE name census built on it undercounts those shards (C-5156).
+  - Precheck: `python3 tools/addre.py records $F/REFER001/ADDRE005.DAT.cmp --limit 20` prints `name=` empty on `c0` rows; `python3 tools/route_link_join.py --selftest` passes (its `street_name` reads the same records by the `TT LL 00 ff` rule).
+  - Scope: `tools/addre.py` `parse_record` name detection and its selftest; census of `TT` per shard over the 33 EU2011 ADDRE files (count only). No ADDRE writer change.
+  - Input: EXP-2026-11-19-M4.39-route-link-id (C-5156), `docs/format/refer.md` §Address records, `tools/route_link_join.py` `street_name`.
+  - Done when: `TT` per shard is tabulated in `refer.md`, `addre.py` returns a name for every `c0` record on ≥ 3 shards with different `TT` (positive), and still none on `c8` (negative).
+  - Stop: if a shard's name section does not follow `TT LL 00 ff`, record the shard and its first 16 bytes and stop.
+  - Claims: C-5157–C-5159
 
 - [x] **M4.41 — Differential decoding: the same tile in 2011, 2014 and 2016**
   - Status: done · Owner: task/m4.41-diff-years · Critical: no · Pair: solo
