@@ -1,0 +1,49 @@
+DRIVER log — task H100 (claims.md RESERVED placeholder rows)
+Model: deepseek-v4.1-flash-free (opencode) · worktree: task/h100-claims-reserved
+Start: 2026-11-20T15:05Z  End: 2026-11-20T15:35Z
+origin/main at start: 2e683be
+
+Inputs read: AGENTS.md, prompt_common.txt, TODO.md H100 block,
+tools/claims_check.py, tools/todo_check.py, tools/gate.py, tools/selftest.py,
+docs/experiments/TEMPLATE.md, docs/research/claims.md (H58/H74/H92 sections).
+
+Actions:
+- Claimed H100: TODO.md status -> in progress/Owner, pushed, draft PR #338
+  (commit "todo: start H100"), before any other work.
+- Prechecks: grep RESERVED = 328 (task said 285 — stale at this revision);
+  gate strict+count green with placeholders present (the defect).
+- Designed the strict placeholder shape (whole cell `RESERVED (<owner>).`,
+  status+evidence both `—`) so real reservation notes (C-2538, C-5719) are not
+  placeholders; read owner status through todo_check._parse_status (one parser).
+- Implemented in tools/claims_check.py: reserved_rows/reserved_problems/
+  reserved_census, --reserved (implied by --strict), --reserved-census,
+  --claims PATH (so a pre-cleanup census is reproducible from git show),
+  output line "RESERVED row names done/absent task: N rows over M tasks",
+  selftest check (s). Selftest 50 -> 51 checks.
+- Verified degradation both ways: --strict --claims <2e683be ledger> = 288 rows
+  / 63 tasks, exit 1; cleaned ledger = 0 rows, exit 0.
+- Deleted 288 done/absent placeholder rows (2902 -> 2614 claim rows); kept 38
+  over 7 live tasks. Before deleting, confirmed no Supersedes pointer row
+  named a dead ID (61 Supersede lines unchanged).
+- Appended section "H100 — RESERVED placeholder rows are a gate-visible state"
+  with C-5810–C-5813 (C-5810–C-5813 block, next free after C-5809).
+- EXP: docs/experiments/EXP-2026-11-20-H100-claims-reserved.md.
+- TODO: H100 Claims: C-5810–C-5813 (placeholder "none until rows are committed"
+  replaced).
+- Gates after change: claims_check --selftest OK (51); --strict --count-check
+  0 mismatches / 0 reserved / OK; todo_check OK (0 errors); gate.py 4 pass.
+
+Decisions / rejected:
+- Did NOT add a section header range note for retired IDs: no row/pointer names
+  them, and the task's Stop allows retention only when a pointer breaks.
+- Counts use the current tip (326 placeholder / 288 dead), not the retro 285:
+  the ledger moved; EXP records both.
+- Considered auto-rewriting `grep -c` (41 = 38 placeholders + 3 literal
+  mentions) via a note row; rejected — that would delete C-2538/C-5719 notes.
+
+Problem: an errant `write` call briefly overwrote claims.md; restored with
+`git checkout HEAD -- docs/research/claims.md` and redid the deletion
+(verified 3974 lines / 2614 rows). No data lost; no vendor bytes involved.
+
+Handoff: run `python3 tools/gate.py`; the new --reserved rule is red the moment
+M6.18/M9.12/M4.27/M4.28/M4.29/M5.16 are closed until their blocks retire.
