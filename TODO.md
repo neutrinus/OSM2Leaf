@@ -4846,7 +4846,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `python3 tools/l3check.py --build-corpus` lists `point_walk_us2011` as runnable with its verdict (or, on a forged wrong-build corpus, as `FAIL (unmapped …)`), `runner.py run point_walk_us2011` returns the walker's verdict on the US page, `l3check --selftest` passes, and M9.10's Status/Result cites the row or states the name half as the only open half (the `poi_record_decode` runner plus M3.11b's text byte order; the accessor itself already runs, C-5110–C-5112).
   - Stop: if `runner.py` cannot host the walker without a sec1/INIT dependency it cannot satisfy (M1.2f), record the fault, keep the target BLOCKED-with-reason, and re-open M9.41 as `blocked` naming the dependency.
   - Falsifier: the row is runnable but returns a verdict on a wrong build (it must be `FAIL (unmapped …)`), or the walker verdict disagrees with `point_walk_l3.py walk` on the same page.
-  - Claims: C-5760–C-5769
+  - Claims: C-5770–C-5779
 
 
 - [ ] **M9.52 — Finish the firmware's mount in `datask_l3.py`: who answers message `0x1507`**

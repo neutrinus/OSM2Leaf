@@ -68,3 +68,9 @@ navigator round 1 (CHANGES, 3 record defects; verdict kept blocked):
   n=499/501 only print with it); re-ran the exact command, values confirmed.
 - Re-ran todo_check, claims_check --strict --count-check, gate.py; kept
   Status: blocked + Unblock: M9.55.
+
+claim-block fix (navigator follow-up 2):
+- M3.14's branch (task/m3.14-zcode-icode-coord) owns C-5760–C-5767 and moved
+  M9.55 to C-5770–C-5779; this branch's M9.55 Claims line is now
+  C-5770–C-5779 too (no row here claims that block). M9.41 itself stays
+  C-4220–C-4229; its Result cites no 576x.
