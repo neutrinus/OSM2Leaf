@@ -1270,6 +1270,26 @@ takes about 9 s, a 64 KiB compressed read about 4 s (PySh4 speed, M9.45); the
 read API takes lengths in multiples of 4, so the last `size % 4` bytes of a file
 are out of reach. Results: `docs/experiments/EXP-2026-11-19-M9.44-virtual-card.md`.
 
+## `swap_witness_l3.py` — the firmware's own POINT byte swap, equal to `swap16` (M3.11b)
+
+Boots the EU 2011 factory card through `vcard_l3.py`, reads
+`REFER001/POINT010.DAT` through the firmware's own request queue and brackets the
+completion routine's swap loop (the loop inside `fn 0x00417eac`, C-4641) with
+three `on_exec` hooks derived from the routine start (`+0x66` pre-swap snapshot,
+`+0x70` iteration count, `+0x86` post-swap snapshot). It shows the loop runs
+`length/2` times and the buffer it leaves equals `point_walk_l3.swap16` byte for
+byte when request word +20 = 0, and that +20 = 1 never enters the loop.
+
+```bash
+python3 tools/swap_witness_l3.py run IMG256 --card-image CARD.img
+python3 tools/swap_witness_l3.py run IMG256 --card-image CARD.img --length 0x400
+python3 tools/swap_witness_l3.py --selftest
+```
+
+Exit codes: 0 PASS, 1 FAIL, 3 BLOCKED (boot rejected or the loop never ran),
+2 usage. The head offsets are start-relative, so the tool spells no mid-function
+VA. Results: `docs/experiments/EXP-2026-11-20-M3.11b-point-byteorder-2.md`.
+
 ## `imgpatch.py` — patch one file inside a card image in place
 
 Writes one file's new bytes into its **existing** clusters of a card image,
