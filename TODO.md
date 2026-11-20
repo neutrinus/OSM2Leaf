@@ -1227,7 +1227,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-4620–C-4629
 
 - [ ] **H111 — `claims_check --prose-counts` is an opt-in flag: the standing gate does not run it**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h111-prose-counts-in-gate · Critical: no · Pair: required
   - Depends: H92 (the mode, `--selftest` cases and the off-by-default decision), H78 (`--count-check` is in `gate.py`), H90 (the shallow-history skip)
   - Goal: H92 ships `--prose-counts` but leaves it off: `grep -c 'prose-counts' tools/gate.py` prints `0`, so `tools/gate.py` cannot fail on a stale quoted count (H87's `stays 12` class). Turning the rule into a standing gate needs the unmeasurable rows resolved first: C-927 and C-1023 say `stays N` with no allowlisted command and no cell selftest, so the mode skips them and the gate would be green while they stay unmeasured (C-4171's `stays `0xfdb6`` is a hex offset and no shape at all).
   - Precheck: `grep -c 'prose-counts' tools/gate.py` prints `0`; `python3 tools/claims_check.py --prose-counts` prints `census: rows 2252 prints ['C-3740', 'C-4156'] stays ['C-927', 'C-1023'] footer []` and `stale prose counts: 0` — two measurable `prints` shapes (C-3740 measured, C-4156 unmeasured: it has no revision), two unmeasured.
