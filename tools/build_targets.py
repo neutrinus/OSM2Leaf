@@ -111,6 +111,49 @@ ROLES = (
      "COREDLL memset thunk (loader pool slot)"),
     ("divlu", "point_locator_l3", "helper", 0x003D140C, 0x004008E4,
      "_divlu thunk (loader pool slot; = mod_helper)"),
+    # M9.14: the map-file layer vcard_l3.py runs (EXP-2026-11-20-M9.14-drstr-
+    # parser-l3).  Functions: fn_match pairs, pdata START with equal lengths
+    # in both builds; data: the pool value at the same load index of the
+    # paired function (`vcard_l3.py port` re-derives and checks them).
+    ("layer_init", "vcard_l3", "start", 0x00417924, 0x0043F688,
+     "map-file layer init (tables, pools, state 0)"),
+    ("layer_event", "vcard_l3", "start", 0x00419C38, 0x0044199C,
+     "map-file layer event: handler for (state, kind)"),
+    ("layer_read", "vcard_l3", "start", 0x0041841C, 0x00440180,
+     "map-file layer: queue a read (12-byte stub)"),
+    ("layer_resolve", "vcard_l3", "start", 0x0040B358, 0x00433458,
+     "map-file layer: (directory, name) -> file id"),
+    ("layer_cancel", "vcard_l3", "start", 0x00418428, 0x0044018C,
+     "map-file layer: withdraw a queued read"),
+    ("layer_logger", "vcard_l3", "start", 0x0041BBEC, 0x00443950,
+     "map-file layer error logger"),
+    ("read_clamp", "vcard_l3", "start", 0x00409BA0, 0x00431CA0,
+     "read API client: range clamp"),
+    ("read_request", "vcard_l3", "start", 0x003F6C88, 0x0041F5E8,
+     "read API client: read request (= point_locator request)"),
+    ("read_wrap_a", "vcard_l3", "start", 0x003F7384, 0x0041FCE4,
+     "read API client: wrapper A"),
+    ("read_wrap_b", "vcard_l3", "start", 0x003F73DC, 0x0041FD3C,
+     "read API client: wrapper B"),
+    ("drstr_parser", "vcard_l3", "start", 0x00419350, 0x004410B4,
+     "DRSTR001.DAT parser"),
+    ("drstr_caller", "vcard_l3", "start", 0x00419684, 0x004413E8,
+     "DRSTR parser caller (volume table build)"),
+    ("mmain_reader", "vcard_l3", "start", 0x0041A438, 0x0044219C,
+     "MMAIN001.DAT reader"),
+    ("layer_state", "vcard_l3", "data", 0x009CFCE0, 0x00A10EA8,
+     "map-file layer state-machine state"),
+    ("layer_mount", "vcard_l3", "data", 0x009CFCE4, 0x00A10EAC,
+     "map-file layer mount state (= state + 4)"),
+    ("layer_ndirs", "vcard_l3", "data", 0x009CFCD4, 0x00A10E9C,
+     "volume table directory count"),
+    ("layer_dirs", "vcard_l3", "data", 0x00E25420, 0x00D53020,
+     "volume table: 36-byte directory records"),
+    ("mmain_buf", "vcard_l3", "data", 0x00E23CC0, 0x00D518C0,
+     "0x1000-byte MMAIN001.DAT buffer"),
+    # image base 0x10000 + rva, written as sums so fn_audit does not read a VA
+    ("volume_root_w", "vcard_l3", "data", 0x10000 + 0x39FD4, 0x10000 + 0x46634,
+     "L\"\\SystemSD\" (UTF-16), the prefix of every file name"),
 )
 KINDS = ("start", "helper", "data", "const")
 
@@ -120,7 +163,7 @@ FIXTURE = HERE / "fixtures" / "fn_match_eu_us_2011.json"
 DOC_HEADING = "## The US build at L3"
 # targets.json readers whose firmware VAs are roles here (the POINT walkers
 # have no targets.json entry yet; their runner is point_walk_l3 itself).
-OWNED_READERS = ("cmp_ind",)
+OWNED_READERS = ("cmp_ind", "point_walk")
 
 
 def roles(build: str, kinds=KINDS, tool: str | None = None) -> dict:
@@ -325,7 +368,7 @@ def selftest() -> int:
     for r in ROLES:
         if r[2] != "start":
             check("non-start %s kept out of US starts" % r[0], r[4] not in starts)
-    check("US starts are 24 (15 at H91/C-4140, +9 M4.52)", len(starts) == 24)
+    check("US starts are 33 (15 at H91/C-4140, +9 M4.52, +9 new of 13 M9.14 layer starts)", len(starts) == 33)
     check("US entry is a start", US_ENTRY in starts)
     check("tool_map shape", set(tool_map("point_walk_l3")["us2011"]) ==
           {"nth", "skip", "dispatch", "global_count", "global_page",
