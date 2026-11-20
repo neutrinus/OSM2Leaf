@@ -1,0 +1,46 @@
+role: PO (Product Owner), cycle 17, 19th pass
+model: opencode deepseek-v4.1-flash-free (aggregate "strong")
+start: 2026-11-20T10:52Z
+origin/main at start: c390ad0
+
+inputs read:
+  docs/retro/2026-11-20.md (this cycle's SM), docs/retro/2026-11-19.md, the
+  SE log 2026-11-20-1045-2-se, TODO Priorities + card-ladder + critical path,
+  python3 tools/map_signals.py, the blocked tasks' Unblock lines.
+
+actions:
+  - archive pass FIRST (TODO 4807 > 1500): selected done blocks not named by
+    any live task and >24h old -> 9 blocks (M1.16, M1.23, M1.29, M3.2, M3.19,
+    M4.20, M5.10, M5.12b, M8.E1b) moved to
+    docs/research/todo-history-2026-11-20.md; TODO 4807 -> 4625 (-182).
+  - refreshed the "Numbers now" paragraph with the cycle-17 map_signals values
+    (readers 14, L3 6, tiles, P0) and dated it to origin/main a45b061.
+  - rewrote "Next steps" and "Next 5 for the TL": M5.49 + M9.41 (Critical,
+    deps done) first; then M9.31 (re-opens M9.12), M4.54 (re-opens M4.40),
+    M3.13 (re-opens by rule 15, unblocks M4.36).
+  - rule 15: M3.13/M3.14/M3.15/M3.16/M3.18 all name M3.23 (done) in Unblock
+    but read `blocked`; left them for the TL to flip (the board check does not
+    auto-flip; the TL owns the re-open) and flagged it in the priorities note.
+  - refreshed the Map signal board line to 93 open / 135 done / 1 in progress /
+    25 blocked and named the M1.24 ghost.
+  - added no new tasks this pass: the window added ~30 already and the
+    critical path is fully named by existing blocks; adding would be sprawl.
+
+decisions / rejected:
+  - rejected a blanket "fix the 8 thin EXPs" task (SE already judged them not
+    errors; one task would be churn).
+  - rejected archiving the ~24 other done-but-unreferenced blocks: only 9 are
+    >24h old; the rest are this window's and must wait a day per the rule.
+  - did not flip the M3.13-family re-opens myself: rule 15 is the TL's job at
+    merge time, and flipping a `blocked` claim the owner might still hold is
+    the ghost-claim hazard the rules guard against.
+
+problems:
+  - the board grew ~700 lines this window; even after 9 archived it is 4625,
+    far over the 1500 target. The next PO pass must keep archiving daily.
+  - 1 in-progress ghost (M1.24) still on the board; TL action.
+
+handoff:
+  - TL: work or release #245-#248 before ~20:45Z; flip M3.13/M3.14/M3.15/
+    M3.16/M3.18 to open (rule 15); then take M5.49 + M9.41.
+  - QA: M9.31 is the cheapest L3 gate move and unblocks the blocked M9.12.
