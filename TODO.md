@@ -425,7 +425,7 @@ of the four numbers above says so in its first line.
 ## H — Housekeeping
 
 - [ ] **H19 — Re-verify the five thinnest records of the last 24 h**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/h19-reverify-thin-records · Critical: no
   - Depends: M3.19 (for the VAs that come from a scan)
   - Goal: five records carry a result in under 40 lines or with no command
     block at all (M2.6 `MapUpdate.exe` 32 lines, M3.5 tile reader 19, M3.10
