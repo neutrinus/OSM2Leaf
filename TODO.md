@@ -2327,7 +2327,7 @@ of the four numbers above says so in its first line.
   - Result: done — EXP-2026-11-20-M4.22-identity-codes. `identity_fields.py card` (new) reads MMAIN001/BICON001/DRSTR001 from the FAT of all four cards (EU/US 2011 full, EU 2014/2016 head + fetched clusters): every 2026-11-08 value reproduced; `header_block.py check` PASS on 8 headers, DRSTR negative exit 1; M4.38 language join PASS on all four cards incl. EU 2016 (16/16). `file-header.md`/`drstr.md`/`assets.md` carry the M4.38 code table; `0x180`–`0x183`, `14 17 18 19 1a` stay `UNKNOWN` with their mutations. Only `Navi.exe` imports `OBJ_DriveInfo_readDataVol`, and only fn `0x00377ae0` (EU2011) loads the thunk; the `0x18c` reader is M4.48 (C-5280–C-5283).
 
 - [ ] **M4.48 — Trace the `Navi.exe` reader of `MMAIN001` `0x18c` (map-language list)**
-  - Status: in progress · Owner: task/m4.48-drstr-18c-reader · Critical: no
+  - Status: blocked · Owner: task/m4.48-drstr-18c-reader · Critical: no
   - Step: P0
   - Depends: M4.22 (done), M4.38 (done)
   - Goal: find the EU2011 `Navi.exe` code that reads the `0x18c` language list from the `MMAIN001` header copy and run it in L3, so the code→language reading becomes a firmware verdict instead of a value join.
@@ -2337,6 +2337,21 @@ of the four numbers above says so in its first line.
   - Done when: one function VA (EU2011, `pdata` `START`) is shown to read `+0x18c` of the header copy, and an L3 run of it on the EU 2011 header returns a different result when `05` is replaced by `3f`.
   - Stop: if none of the four loaders nor their callees reads `+0x18c..+0x19f` within two call levels, set `blocked` with the call tree in the EXP.
   - Claims: C-5286–C-5289
+  - Blocker: no EU2011 code reads `0x18c..0x1a0` statically: OBJDLL's field table (`0x01e33290`) names it index 9, and none of 31 `getSize`/`getOffset`/`readDiscVol` call sites (all importers + OBJDLL) asks for index 9; the whole-header copies reach 40 functions to depth 2 with no constant access in `0x18c..0x1a0` (bounds reader `0x003f7008` at `0x184..0x18a` is the positive control). No function VA exists to run in L3.
+  - Unblock: M4.50 (read watch on the header copies in a full `Navi.exe` run, or a bench `05`→`3f` mutation).
+  - Result: blocked — EXP-2026-11-20-M4.48-datavol-18c-reader. `tools/datavol_trace.py` (new: `table`, `calls`, `taint`, `--selftest`). Header path (EU2011): `0x0041a438` reads `MMAIN001.DAT` → `0x0041a304` swaps + `writeDataVol` → `0x00377ae0` `readDataVol`/`writeDiscVol` → five `readDiscVol(…, 20, …)` copies; field requests: indices 3/4/7/8 only (C-5286–C-5289).
+
+- [ ] **M4.50 — Watch run-time reads of the `MMAIN001` `0x18c` language list**
+  - Status: open · Owner: — · Critical: no
+  - Step: P0
+  - Depends: M4.48 (blocked, static negative), M8.E4 (full `Navi.exe` run) — or a car/bench slot
+  - Goal: decide whether any EU2011 code reads header bytes `0x18c..0x1a0` at run time, now that a static census found no reader (C-5287, C-5288).
+  - Precheck: `python3 tools/datavol_trace.py calls archive/head256.img --field 0x18c --size 20` still exits 1 (no field request), and the L4 run reaches fn `0x00377ae0` (EU2011) with the header in `0x01205040`.
+  - Scope: EU2011 build A; read watch on `0x00e23cc0`, `0x01205040`, `0x00625668`, `0x009c9600`, `0x009c8600` and the block `0x00d8b070` points at, bytes `+0x18c..+0x1a0`, from card insert to map display and a language change; excludes the meaning of codes `14 17 18 19 1a`.
+  - Input: EXP-2026-11-20-M4.48-datavol-18c-reader (call tree, seeds), `tools/datavol_trace.py`, `tools/read_watch_l3.py` (watch pattern), M8.E4.
+  - Done when: the watch reports the PC of every read of `+0x18c..+0x1a0` (or `NO HITS` with a positive watch hit on `+0x184` by fn `0x003f7008` in the same run); if a reader is found, an L3 run of it with `05`→`3f` gives a different result.
+  - Stop: if the L4 run cannot reach `0x00377ae0`, set `blocked` and name the missing peripheral/import.
+  - Claims: C-5470–C-5479
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
   - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
