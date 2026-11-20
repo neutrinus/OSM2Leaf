@@ -277,6 +277,10 @@ level-5 `LEV3456R` record layout (below) uses different header semantics for
 ### Section 4, road names and streaming
 
 Section 4 is a per-parcel **administrative/place-name index**, not geometry.
+(M4.40, L3: it is also what the router's `RGD_DATA` request fetches, and the records it served hold
+signpost destinations and road numbers, e.g. `0=POZNAN:KALISZ:(36):RAWICZ`; header word 6 is the
+name text's word offset and word 7 its length in words — see
+[Which section each request kind fetches](#which-section-each-request-kind-fetches-m440-l3-eu2011-build-a), C-5925.)
 `B30R048R` has 20 records / 68 names; record word 2 = `0x0009`, word 8 = ISO
 3166 numeric country (300 = Greece). Names are `0=NAME` strings (`RODOS`,
 `LINDOS`, `PARALIP AFANTOU`, …). `ze0_section4.py` emits GeoJSON points.
@@ -969,6 +973,12 @@ its result). C-5646–C-5649.
 
 #### What the four words are (M4.54, L3)
 
+> **Corrected by M4.40 (C-5924):** the table below was produced with a **section-2** block put into
+> the buffer by hand and `k` chosen as the first index that clears the gate. The firmware fills this
+> buffer with a **section-4** record (kind `0x40`, next subsection), and a passing `k` exists by chance
+> in about a third of section-2 records, so the part-a field names below are retracted (C-5713–C-5715).
+> The run facts (pass-through store, four reads, the gate) stand.
+
 `tools/rgd_reply_l3.py` stores a factory block through the real `0x004268c0` and runs
 `0x00422eac` with a read-watch. The store is a **pass-through** (it copies the block's plain
 length, e.g. 3508 B for `B48R058R` `0xb91d078`, and stores even a section-1 block's 2424 B), so the words
@@ -994,6 +1004,32 @@ the section-2 block fails it too (`0x06d6`); `B28R070R` has no passing `k` in it
 section-2 records. Over single-`k` records whose `k` is a node header, `d` always equals the
 entry 0 `id` (4513/4513 on `B48R058R`), while `k+d` lands on entry 0 `a` in only 92 — `k+d` is
 a record field, not necessarily `a`. C-5710–C-5717.
+
+#### Which section each request kind fetches (M4.40, L3, EU2011 build A)
+
+> **Status:** `VERIFIED (run, L3)` — the firmware's data-access task, mounted on the EU 2011 card by
+> `tools/datask_l3.py`, served `0x14b5` requests sent by `tools/datask_req_l3.py` (one declared model:
+> the client row). EXP-2026-11-20-M4.40-request-kinds, C-5920–C-5927. US2011 not run.
+
+`0x00408f9c` maps the request kind (`+16`) to a section index through the table at data `0x179b20`
+(`{u32 group mask, u32 kind mask, u32 index}`); the index counts the tile's sections in the order of
+its section list (`B48R058R`: 1, 2, 4):
+
+| Kind | Sent by (EU2011) | Index | Record read (L3, `B48R058R` and `B30R058R`) | Reply pointers (list entry `+16`…`+28`) |
+| --- | --- | --: | --- | --- |
+| 4 | `MAP_DATA READ` `0x00425f40` (renderer) | 0 | section 1, `0x00fa` road shapes | `+16` word 22 (layer table), `+28` word 0 |
+| 8 | `RPF_PreMap_start` `0x00336bf0` (route path finder) | 1 | section 2, level 1 | `+16` **unit 0** (word 27), `+24` **unit 2** when present (word 6113 of `a6bed6ee`), absent units `0xffffffff` |
+| `0x10` | `RPF_PreMap_start` `0x00336bf0` | 1 | none for `a68cd68c` (status 4) | — |
+| `0x20` | — | 1 | refused (status 9) | — |
+| `0x40` | `RGD_DATA READ` `0x004266ec` (router) | 2 | **section 4**, `0x0009` records (`a6bed6ee`, `9b8fd56e`); status 4 where the parcel has none | `+16` word 0, `+24` name text (= header word 6), `+28` word 9 |
+
+So the router's kind-64 reply that `0x004268c0` stores and `0x00422eac` reads is a **section-4**
+record (guidance: signposts), and the section-2 reader is in the route path finder, which asks for
+kinds 8 and `0x10` and gets pointers to the record's units 0 and 2 (C-5921–C-5923). The reply entry
+is `+0 u16` status (1 data, 2 pending — a read was queued and a second reply follows, 3 refused,
+4 no data), `+4` kind, `+10 u16` DIVID, `+12` mesh id (the level-1 parcel code, rounded to the
+`0x80`-unit box for kinds 4 and 8), `+16`…`+28` pointers. A requester must have a row in the client
+table (data `0xd98fe0`, 24 × 64 B); an unknown one is refused with status 9 (C-5926).
 
 ## Cross-edition differential census (2011/2014/2016)
 
