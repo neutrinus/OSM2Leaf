@@ -900,7 +900,8 @@ filled.
 ### What the mount reads of a tile, and a generated tile (M9.13, EU2011 build A)
 
 > **Status:** `VERIFIED` (PySh4 runs on the EU 2011 card, `datask_l3.py mount
-> --position` + `diff`); `OBSERVED` for the fixed read lengths.
+> --position` + `diff`); the read lengths were `OBSERVED` here and are
+> read from the code in the next section (M3.31, C-5820–C-5826).
 > EXP-2026-11-20-M9.13-generated-tile-l3, C-3250–C-3259.
 
 The firmware reads the tile under a start position: `(lat code << 16) | lon
@@ -929,6 +930,54 @@ No record block is read during the mount.
 So a writer that does not start from a factory container must back every
 directory with the length above. Whether the road records are accepted is
 open (M9.52, M9.53).
+
+### Where the directory read length comes from (M3.31, EU2011 build A)
+
+> **Status:** `VERIFIED` (disassembly + PySh4 runs on the EU 2011 card:
+> 118/118 directory reads in 11 runs, 6 kind-byte changes, a fourth tile
+> predicted before its run). EXP-2026-11-20-M3.31-dir-read-length,
+> C-5820–C-5826.
+
+The directory request is built by `0x00414338(…, section, level)`; its
+length comes from the leaf `0x0040901c(kind, 1)`, not from the directory:
+
+```
+length = 0x100 * T[kind].n            (no row for kind -> 0, the directory is not read)
+```
+
+`T` is a 16-row table `{u32 kind, u32 n, u32 buffer}` at data VA `0x179c08`
+(`Navi.exe` section 0, uncompressed; `python3 tools/dir_read_len.py table
+IMG256` prints it and checks the copy in the tool):
+
+| kind | read length | | kind | read length |
+| --- | --- | --- | --- | --- |
+| `0x00`, `0x80` | `0x1100` | | `0x10`, `0x90` | `0x2100` |
+| `0x01`, `0x81` | `0xa100` | | `0x11`, `0x91` | `0x14100` |
+| `0x02`, `0x82` | `0x4100` | | `0x12`, `0x92` | `0x8100` |
+| `0x03`, `0x83` | `0x3100` | | `0x13`, `0x93` | `0x6100` |
+
+`kind` is the runtime level kind of the (section, level) pair at
+`0xd982a0 + 72*i + 12*(level - 1)`, `i` the section's position in the level
+table (0 = section 1, 1 = section 2, 2 = section 4). `0x00409834` writes it (store at
+`0x00409960`) from the low byte of the merged level table, which
+`0x0040aa50` builds from the headers of the mounted files; a header entry
+with a non-zero count replaces the merged entry, an entry with count 0 does
+not. So for a tile **`kind` is byte 1 of its level-table entry
+`(level, kind, u16 count)` at header `0x1ac`**: on every EU2011 tile section
+1 = `0x80 0x90 0x91 0x91 0x91 0x92` (levels 6..1), section 2 = `0x91 0x91
+0x91 0x90` (levels 5, 4, 2, 1), section 4 = `0x93` (level 1), which gives the
+four lengths of the table above (`0x14100`, `0x8100`, `0x2100`, `0x6100`)
+and `0x1100`/`0x2100` for `LEV3456R.DAT` levels 6/5.
+
+For a writer: keep the factory kind bytes (the merged table is card-wide, so
+a tile with another kind changes the length the firmware uses for that
+level), and back every directory with `length` bytes of file:
+`python3 tools/dir_read_len.py predict TILE` prints the length per section
+and level and lists every directory whose read runs past the end of the
+file. Over the 46 EU2011 `MAPAL001` files it lists 53 section-4 level-1
+directories in 35 files (the last directories of each file; for example 2 in
+`B48R058R`, 2 in `B48R068R`, 1 in `B40R060R`); the mount of this record did
+not read them (M5.56).
 
 ### `LEV3456R` and section 4 at mount, against the Python readers (M9.18, EU2011 build A)
 
