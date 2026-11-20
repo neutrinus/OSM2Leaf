@@ -1013,8 +1013,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-17-H87-us-build-comment; C-4100–C-4101. The comment above `US_BUILD_STARTS` now names the list as it is (the M1.28 fixture's US side + M1.22b's six pool-only twins) and points at `docs/format/firmware.md` and `tools/l3_harness/targets.json`; `will replace it` count `0`. Both counts are pinned to H87's own revision `381879b`: `US_BUILD_STARTS` `12` entries (`git show 381879b:tools/fn_audit.py | sed -n '/^US_BUILD_STARTS/,/^})/p' | grep -c '0x[0-9A-Fa-f]\{8\}'`) and `fn_audit --selftest` `OK (70 checks, 0 failed)` there. `main` `9beb6a4` ships `15` entries and `OK (72 checks, 0 failed)` (`398db35`): `e199373` added the three POINT-walker starts and `f1c8dbb` the two H88 selftest cases — EXP-2026-11-18-H91.
   - Claims: C-4100–C-4109
 
-- [ ] **H89 — The 1,259 unexplained `fn_match` NOMATCH are the next census: rewrites or a second matcher class**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H89 — The 1,259 unexplained `fn_match` NOMATCH are the next census: rewrites or a second matcher class**
+  - Status: done · Owner: task/h89-nomatch-census · Critical: no · Pair: required
   - Depends: M1.22b (which classified the 13 cited readers and left 1,259 unexplained)
   - Goal: after M1.22b the module census is `UNIQUE 2392 / DIFFERENT 3214 / CALLORDER 213 / AMBIGUOUS 518 / NOMATCH 1259` (total 7596). The 1,259 are unexplained: each has no hash hit, no unique masked-form twin and no call-order match. Decide per sample whether they are real rewrites (a differing instruction) or a second matcher class (e.g. reordered basic blocks, a different register allocation with the same semantics, a function split/merge), so a future leaf/reader task knows whether the US code is missing or the matcher is.
   - Precheck: `python3 - <<'EOF'` (the M1.22b census script) prints `NOMATCH 1259`; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va <one unexplained VA> --json /tmp/x.json` carries `diff: null` and `verdict: NOMATCH`.
@@ -1023,6 +1023,7 @@ of the four numbers above says so in its first line.
   - Hints: this is the same shape as M1.22b, one level down — do not start from a matcher idea, start from disassembly of a handful and let the classes fall out. A sample of 30–50 is enough to size the classes; a full 1,259 classification is not the goal.
   - Done when: an EXP reports the sampled distribution with counts and the first differing instruction per class, and says whether the 1,259 are mostly rewrites or a matcher class; a claim names the dominant class and its evidence; `python3 tools/gate.py` green.
   - Stop: if the sample is all one class with no cheap fix, record it and do not change `fn_match.py`.
+  - Result: docs/experiments/EXP-2026-11-20-H89-nomatch-census.md; C-4120–C-4126. New tool `tools/nomatch_census.py` pairs each NOMATCH by address order (no matcher hash; anchor control 38/40 UNIQUE re-paired; classifier control 0/40 wrong neighbours classed same code; pipeline controls: shifted anchors without fallback keep 73 of 360 same-code rows, shuffled 1). Sample seed 89, 40 of 1259: `TWIN 13  PHANTOM-SLOT 3  IMMEDIATE 4  EDIT 7  REWRITE 5  UNPAIRED 8` — 16 identical code, 24 real differences or no counterpart; no function differs only in register allocation or only in order (`REGALLOC`/`REORDER` 0). Population (tool only): same code 360/1259. Mostly rewrites, but the largest single class is a matcher class: `TWIN` (identical stream shared by ≥2 US functions). Two cheap fixes filed as H113 (forward-pass pool slots, 141 functions) and H114 (address-order pick among twins, 219 rows; must be one-to-one); `fn_match.py` unchanged. Navigator round 1 corrections are in the EXP.
   - Claims: C-4120–C-4129
 
 - [x] **H91 — M1.22's shipped `US_BUILD_STARTS` is 15 entries, but H87's Result and C-4101 say it "stays 12"**
@@ -1416,6 +1417,30 @@ of the four numbers above says so in its first line.
   - Stop: if the `SDHC.dll` IOControl dispatch is not found after the literal search and an export walk, record the negative and block on an L3 run of `fn 0x03bd2044`.
   - Claims: C-5352–C-5359
   - Result: done — EXP-2026-11-20-M1.35-sdc1-ioctl-wait94. `SDC1:` = `CSDCMain` in `SDHC.dll` (EU2011 = US2011); `fn 0x039b4498` dispatches `0x80032004` to `fn 0x039b4850` (port state: 2 inactive, 4 `DSK1:` active, 8 failed, 1 no card, `|0x80000000` if unpowered) and `0x80032000` to `fn 0x039b4664` (insert/remove request: port power + wake the load thread). Neither issues CMD42; the unlock runs inside the `DSK1:` activation (`fn 0x039b4b18` → `CDSKMain::Init` → `fn 0x039b6ac4`), which then sets ACM id 37. Id 94: no SET_ID sender in images A+B+C of either build (`tools/acm_id_scan.py`: 0 of 71/72 calls; controls 37, 22, 82 found), so `Navi.exe` waits out its 30 s (C-5352–C-5357; C-5358–C-5359 unused).
+
+- [ ] **H113 — `fn_match` blanks real instructions as pool slots when pool data decodes as `mov.x @(disp,PC)`**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H89 (done; the PHANTOM-SLOT class and its count)
+  - Goal: `fn_match._instruction_tokens` and `fingerprint` mark a pool slot for every halfword that decodes as a PC-relative load, including halfwords that are themselves pool data, and then hash a real instruction as `0x0000`. H89 (C-4123) found `141` of the 1259 NOMATCH that differ only by such a phantom slot; a forward pass (a halfword already marked as a slot never names another one; PC loads only reach forward) gives each a unique US digest, and address-order pairing (131 anchor, 10 gap/global) names the same US function in 141/141.
+  - Precheck: `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all | grep 'forward-pass'` prints `forward-pass digest unique in US: 141 of 1259 (the anchor pairs the same US function in 141)`; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x0033d00c` prints `NOMATCH`.
+  - Scope: `tools/fn_match.py` slot derivation (`fingerprint`, `_instruction_tokens`, `pool_masked` if it shares the flaw) + selftest case + re-pinned census numbers (C-3626 is then historical: say so with a revision, never edit the old count in place); `tools/fixtures/fn_match_eu_us_2011.json` must still replay `0 mismatch`.
+  - Input: `tools/nomatch_census.py` (`pool_slots`, `naive_slots`, `phantom_sources`, `--pair`), EXP-2026-11-20-H89-nomatch-census, C-3626.
+  - Hints: reuse `nomatch_census.pool_slots` rather than writing a second pass. The change also alters UNIQUE hashes on both sides, so re-run the full census and report every verdict that moves, not only the 141.
+  - Done when: an EXP gives the new module census with the before/after verdict table; `0x0033d00c` is no longer `NOMATCH`; the fixture replays `0 mismatch`; `python3 tools/gate.py` green.
+  - Stop: if any `UNIQUE` pair of the old census changes its US address, stop and record it instead of merging the change.
+  - Claims: C-5570–C-5579
+
+- [ ] **H114 — `fn_match` refuses an identical masked stream with two or more US twins; address order can pick one**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H89 (done; the TWIN class), H113 (land the slot fix first so the twin counts are final)
+  - Goal: `_pool_only_twin` returns `None` when the masked form stream has ≥2 US twins. H89 (C-4122) found `219` such NOMATCH (13/40 in the sample, the largest class), `188` of them with an exact address-order anchor: the matched neighbours on both sides bracket a US gap of the same size, and the record at the same offset is one of the twins. Pairing those as `DIFFERENT`/`ANCHOR` (a new, separately counted verdict) would locate them by address order.
+  - Precheck: `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all | grep '^#   anchor '` lists `TWIN 188`; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x003c0108` prints `NOMATCH`.
+  - Scope: `tools/fn_match.py` only (a new verdict, reported separately from `UNIQUE`, never used for a twin outside an exact same-size anchor gap) + selftest + census EXP; no change to `UNIQUE`/`DIFFERENT` semantics.
+  - Input: `tools/nomatch_census.py` (`anchor_candidates`, the `control+`/`control-` lines), EXP-2026-11-20-H89-nomatch-census.
+  - Hints: H89's positive control re-paired 38/40 UNIQUE through the anchor; repeat it with a larger sample before trusting the new verdict, and keep the 21 order inversions in the anchor list out of the pairing.
+  - Done when: an EXP reports how many TWIN rows get the new verdict and a positive control (UNIQUE functions re-paired by anchor ≥95 %) and a negative control (a shuffled anchor pairs 0 twins); a ±1 shifted-anchor control re-pairs 0 TWIN rows to the same US twin, or rows whose ±1 neighbour is also a twin are listed and excluded; the verdict is one-to-one (no US twin claimed by two EU rows — H89's `--all` run names 30 US records from more than one row, e.g. EU `0x003c3a34` and `0x003c3ad8`); `python3 tools/gate.py` green.
+  - Stop: if the positive control falls below 95 %, record it and leave the verdict out.
+  - Claims: C-5700–C-5709
 
 ## M2 — Map code, activation, updater
 
@@ -2991,8 +3016,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     updates or is proven unnecessary.
   - Claims: C-2420–C-2429
 
-- [ ] **M5.19 — `RDSTM001` writer (H11 G7)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M5.19 — `RDSTM001` writer (H11 G7)**
+  - Status: done · Owner: task/m5.19-rdstm-writer · Critical: no
+  - Result: EXP-2026-11-20-M5.19-rdstm-writer — exit (b) fails: the rows are region-tied (a copied file resolves 6,910/200,987 refs against a renumbered `B48R058R` section 2, the re-pointed one 200,190/200,987 = factory). Exit (a) met for the TMC rows: `tools/rdstm_write.py` (selftest 20 checks) rebuilds the EU 2011 `RDSTM001.DAT` byte for byte from records + triples + `(parcel, node, link)` targets (set-1 4 × 4 boxes, entries in location-code order; file order fails), and EU2011 `fn 0x003f61bc`/`0x003f5d98` in PySh4 walk written rows exactly for 24 + 500 factory and 24 synthetic Polish rows (controls 0). Link-group firmware L3 waits for M4.49's reader VA; the 16-bit record swap and the `0x80000` chunk limit are hypotheses. C-2430–C-2436.
   - Step: P3
   - Depends: M4.16b (record framing), M3.7
   - Goal: every `RDSTM001` row is copied verbatim from the factory card today;
@@ -3003,7 +3029,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: a writer produces a file the firmware decoder walks with the
     expected values for ≥ 20 rows (an L3 target), or the EXP shows that
     copying is correct because the rows are region-independent.
-  - Claims: C-2430–C-2439
+  - Claims: C-2430–C-2436 (C-2437–C-2439 spare)
 
 - [x] **M5.21 — Slot budget for generated pages: reject or re-pack, never overrun**
   - Status: done · Owner: claude/m5.21-slot-budget · Critical: yes
