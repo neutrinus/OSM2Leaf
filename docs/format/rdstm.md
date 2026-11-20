@@ -387,6 +387,28 @@ Build a file: `python3 tools/lctbl_build.py synth SPEC.json -o LCTBL001.DAT`
 (`example-spec` writes a synthetic Polish spec); check one:
 `python3 tools/lctbl_build.py check -v FILE`.
 
+### Lookup path at L3 (M5.60, EU2011)
+
+The whole lookup runs in PySh4 on a generated file
+(`python3 tools/lctbl_lookup_l3.py run`, EXP-2026-11-20-M5.60-lctbl-index-l3,
+C-6140–C-6149):
+
+- request `0x14e4` sub 1 (sender fn `0x003bcac0`,
+  `sdl_rdstmc_search_non_cache`): body `+16` country code, `+20` location
+  database number, `+24` location code;
+- **table code = (ASCII hex digit of the country code) << 8 | database
+  number** (country 2, database 25 → `0x3219`; country 13 → `0x4401`). A
+  generated table is reachable only under a code of this form;
+- reads: header, catalog, index pages (root, then one leaf), page directory,
+  the zlib record page; the page is inflated by `HDL_MapTblTask` (entry fn
+  `0x003ebe70`, messages `0x14b8`/`0x14b9`);
+- answer `0x14fb` sub 29: `+16` status (1 found, 4 not found), `+24` pointer
+  to the record, the file's record with each `u16` byte-swapped.
+
+On a `lctbl_build.py synth` file the record equals the writer's model for
+4/4 held codes; absent codes are not found. Observed, not explained: a table
+code missing from the catalog is served from the file's first table.
+
 ### Code-side reader (M3.15, located)
 
 The record walk and the name decode are named (EXP-2026-11-20-M3.15-lctbl-reader;

@@ -226,9 +226,21 @@ def run(*, cwd: Path = REPO, timeout: float = 900.0, json_out=None,
     _print_table(results, stream=table_stream)
     failed = [r for r in results if r["status"] == "FAIL"]
     for r in failed:
-        print("\n--- %s output (tail) ---" % r["gate"], file=table_stream)
-        print("\n".join((r["output"] or "").splitlines()[-40:]),
-              file=table_stream)
+        out = r["output"] or ""
+        lines = out.splitlines()
+        if r["gate"] == "selftest":
+            # Show FAIL lines and summary so CI logs identify the failing
+            # suite even when gate.py's normal tail omits earlier output.
+            shown = [ln for ln in lines if "FAIL" in ln or ln.startswith("passed=") or ln.startswith("selftest:")]
+            if shown:
+                print("\n--- %s output (failures) ---" % r["gate"], file=table_stream)
+                print("\n".join(shown[-120:]), file=table_stream)
+            else:
+                print("\n--- %s output (tail) ---" % r["gate"], file=table_stream)
+                print("\n".join(lines[-80:]), file=table_stream)
+        else:
+            print("\n--- %s output (tail) ---" % r["gate"], file=table_stream)
+            print("\n".join(lines[-40:]), file=table_stream)
     print(_summary(results), file=table_stream)
     if to_stdout:
         print(json.dumps(doc, indent=2))

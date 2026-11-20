@@ -91,7 +91,7 @@ offsets live in [`docs/format/`](docs/format/).
   `470-2824-34`, `NKOK`, `ECEC`). There are **no PE files**; the payload is
   SH-4/WinCE ROM code (capstone decodes it cleanly). The image is a standard
   Windows CE ROM: build A starts at `0x00200200`, with `ROMHDR` at file
-  `0x01951b78`, 149 modules and 1 file. `tools/ce_rom_parse.py` recovers the
+  `0x01951b78`, 149 modules and 1 file. `tools/cerom.py` recovers the
   TOC, module names and section records; see
   [`docs/format/cerom.md`](docs/format/cerom.md). The `\CMP.LST` opener is
   **not** located: the old `0xc438a4` pointer was retracted (C-330).
