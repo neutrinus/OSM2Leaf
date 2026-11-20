@@ -13,7 +13,8 @@ What is decoded here (see `docs/format/refer.md`):
   `(pointer, 0xff00, 0)`, where the pointer is 6-byte aligned;
 * the address records (`c0`/`c8`, size `2 * L`), their coordinate id,
   point tokens (`TT 40 XX YY`), house-range tokens (`06/07 54/58
-  :N:;:M:`) and the `03/04 LL 00 ff` name section;
+  :N:;:M:`) and the `TT LL 00 ff` name section of `c0` records, placed by the
+  record's word counts (`4 + 2*rec[2] + 2*rec[3]`; `TT` per shard, M4.46);
 * the per-file trailer (`01 f4 00 00` marker, then 12-byte
   `(start, length, value)` rows that form a contiguous partition): one row
   per record zlib block, `length` = compressed size / 2 and `value` =
@@ -44,6 +45,7 @@ Usage::
     python3 tools/addre.py stats   REFER001/ADDRE001.DAT.cmp
     python3 tools/addre.py trailer REFER001/ADDRE001.DAT.cmp
     python3 tools/addre.py verify  REFER001/ADDRE001.DAT.cmp
+    python3 tools/addre.py names   REFER001/ADDRE0*.DAT.cmp [--parse]
     python3 tools/addre.py --selftest
 
 Exit codes: ``0`` success, ``1`` a verification check failed, ``2`` bad
@@ -69,6 +71,7 @@ CELL_SIZE = 6
 TAG_REC_FULL = 0xC0
 TAG_REC_PART = 0xC8
 RANGE_SUBTYPES = (0x54, 0x58, 0x64, 0x68)
+_ZLIB_PIECE = 1 << 16
 
 
 # --------------------------------------------------------------------------
@@ -123,14 +126,24 @@ def load_blob(path: Path) -> bytes:
 def _zlib_at(blob: bytes, pos: int) -> tuple[bytes, int] | None:
     if pos >= len(blob) or blob[pos] != 0x78 or blob[pos + 1] not in (0x01, 0x5E, 0x9C, 0xDA):
         return None
+    # Feed the stream in pieces: decompressing ``blob[pos:]`` copies the rest of
+    # the file (and its ``unused_data``) once per stream, which is quadratic on
+    # the 100+ MB shards (M4.46). The result is the same stream and end offset.
     dec = zlib.decompressobj()
+    view = memoryview(blob)
+    parts = []
+    fed = pos
     try:
-        data = dec.decompress(blob[pos:])
+        while not dec.eof and fed < len(blob):
+            piece = view[fed:fed + _ZLIB_PIECE]
+            fed += len(piece)
+            parts.append(dec.decompress(piece))
     except zlib.error:
         return None
+    data = b"".join(parts)
     if not dec.eof or len(data) == 0:
         return None
-    return data, len(blob) - len(dec.unused_data)
+    return data, fed - len(dec.unused_data)
 
 
 def _chain_from(blob: bytes, pos: int, stop: int) -> list[tuple[int, int, bytes]]:
@@ -263,10 +276,51 @@ def _range_string(rec: bytes, start: int) -> tuple[bytes, int]:
     return rec[start:i], i
 
 
-def parse_record(rec: bytes) -> dict:
+def name_section_pos(rec: bytes) -> int | None:
+    """Byte offset of the `TT LL 00 ff` name section of a `c0` record, or None.
+
+    The position comes from the record's own word counts, not from a token scan
+    (M4.46, after `route_link_join.street_name`, M4.39): byte 2 counts the words
+    of the coordinate id + reference block from byte 4, byte 3 the words of the
+    item block that follows it, so the name section starts at
+    `4 + 2*rec[2] + 2*rec[3]`.  `TT` is per shard (0x03, 0x04, 0x05, ...); it is
+    not part of the test, because a point token `05 40 00 ff` has the same shape
+    on a `TT = 0x05` shard and only the position tells them apart.
+    """
+    if len(rec) < 4 or rec[0] != TAG_REC_FULL:
+        return None
+    pos = 4 + 2 * rec[2] + 2 * rec[3]
+    if pos + 4 > len(rec) or rec[pos + 2] != 0x00 or rec[pos + 3] != 0xFF:
+        return None
+    if not 0 < rec[pos + 1] <= 0x7F:
+        return None
+    return pos
+
+
+def _name_at(rec: bytes, i: int) -> tuple[int, bytes, bytes] | None:
+    half = rec[i + 1]
+    start = len(rec) - 2 * half
+    if start <= i + 4:
+        return None
+    text = rec[start:]
+    if text.endswith(b"\x00"):
+        text = text[:-1]
+    if not text or not all(byte >= 0x20 and byte != 0x7F for byte in text):
+        return None
+    return half, rec[i + 4 : start], text
+
+
+def parse_record(rec: bytes, structural: bool = True) -> dict:
+    """Parse one `c0`/`c8` record. ``structural=False`` is the pre-M4.46 parser
+    (name only from the `03/04 LL 00 ff` token scan, C-974), kept as the
+    negative control of ``names --legacy``."""
     if len(rec) < 2 or rec[0] not in (TAG_REC_FULL, TAG_REC_PART):
         raise AddreError("not an address record")
     full = rec[0] == TAG_REC_FULL
+    name_pos = name_section_pos(rec) if structural else None
+    named = _name_at(rec, name_pos) if name_pos is not None else None
+    if named is None:
+        name_pos = None
     out = {
         "tag": rec[0],
         "path": "c0" if full else "c8",
@@ -277,28 +331,29 @@ def parse_record(rec: bytes) -> dict:
         "name": None,
         "name_half": None,
         "unknown": 0,
+        "name_tt": None,
+        "name_pos": None,
     }
     i = 2
     while i < len(rec) and i + 3 < len(rec):
         if all(byte in (0x00, 0xFF) for byte in rec[i:]):
             break
+        if named is not None and i >= name_pos:
+            break
         if (
-            rec[i] in (0x03, 0x04)
+            named is None
+            and rec[i] in (0x03, 0x04)
             and rec[i + 2] == 0x00
             and rec[i + 3] == 0xFF
             and 0 < rec[i + 1] <= 0x7F
         ):
-            half = rec[i + 1]
-            start = len(rec) - 2 * half
-            if start > i + 4:
-                text = rec[start:]
-                if text.endswith(b"\x00"):
-                    text = text[:-1]
-                if text and all(byte >= 0x20 and byte != 0x7F for byte in text):
-                    out["name_half"] = half
-                    out["name_header"] = rec[i + 4 : start]
-                    out["name"] = text
-                    break
+            # Legacy token-scan rule (C-974): kept for records whose word
+            # counts do not place a name section.
+            legacy = _name_at(rec, i)
+            if legacy is not None:
+                out["name_half"], out["name_header"], out["name"] = legacy
+                out["name_tt"], out["name_pos"] = rec[i], i
+                break
         tag = rec[i]
         sub = rec[i + 1]
         if sub == 0x40:
@@ -334,6 +389,9 @@ def parse_record(rec: bytes) -> dict:
         else:
             out["unknown"] += 1
             i += 1
+    if named is not None:
+        out["name_half"], out["name_header"], out["name"] = named
+        out["name_tt"], out["name_pos"] = rec[name_pos], name_pos
     return out
 
 
@@ -714,6 +772,38 @@ def selftest() -> int:
     check("name", first["name"] == b"TEST STREET", str(first["name"]))
     check("name half", first["name_half"] == 6, str(first["name_half"]))
     check("c8 has no name", second["name"] is None)
+    check("name TT and position", first["name_tt"] == 0x03 and first["name_pos"] == 40,
+          f"{first['name_tt']} {first['name_pos']}")
+
+    # M4.46: a TT = 0x05 shard. The reference block holds a point token
+    # `05 40 00 ff` of the same shape as the name section; the word counts
+    # (byte 2 = 4 words from byte 4, byte 3 = 0 item words) put the name
+    # section at 12, so the name is found there and only there.
+    body5 = (bytes([0x04, 0x00]) + bytes.fromhex("9feccded")
+             + bytes([0x05, 0x40, 0x00, 0xFF])
+             + bytes([0x05, 6, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00])
+             + b"HAUPTSTRASSE")
+    rec5 = bytes([0xC0, (len(body5) + 2) // 2]) + body5
+    p5 = parse_record(rec5)
+    check("TT 0x05 name", p5["name"] == b"HAUPTSTRASSE", str(p5["name"]))
+    check("TT 0x05 name TT/position", p5["name_tt"] == 0x05 and p5["name_pos"] == 12,
+          f"{p5['name_tt']} {p5['name_pos']}")
+    check("TT 0x05 point token kept", [(q["tag"], q["x"], q["y"]) for q in p5["points"]]
+          == [(0x05, 0x00, 0xFF)], str(p5["points"]))
+    check("TT 0x05 legacy rule misses it (pre-M4.46 control)",
+          parse_record(rec5, structural=False)["name"] is None)
+    rec5c8 = bytes([0xC8]) + rec5[1:]
+    check("TT 0x05 c8 stays unnamed", parse_record(rec5c8)["name"] is None)
+    census = name_census(rec5 + rec5c8 + sec["record_bytes"], parse=True)
+    check("census TT", census["tt"] == {0x05: 1, 0x03: 1} and census["c0"] == 2
+          and census["c8"] == 2 and census["c0_named"] == 2 and census["c8_named"] == 0,
+          str(census))
+    legacy = name_census(rec5 + sec["record_bytes"], parse=True, structural=False)
+    check("census legacy names only the TT 0x03 record", legacy["c0_named"] == 1,
+          str(legacy["c0_named"]))
+    shifted = bytearray(rec5)
+    shifted[3] = 1          # one item word claimed: the section is no longer at 4+2*b2+2*b3
+    check("wrong word count places no section", name_section_pos(bytes(shifted)) is None)
     check("no unknown tokens", first["unknown"] == 0 and second["unknown"] == 0)
 
     trailer = read_trailer(blob)
@@ -851,6 +941,60 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+def name_census(data: bytes, parse: bool = False, structural: bool = True) -> dict:
+    """Per-shard name-section census (M4.46): `c0`/`c8` counts, `TT` of the
+    name section at the word-count position, `c0` records without one (with the
+    first 16 bytes of the first such record), and, with ``parse``, how many
+    `c0`/`c8` records ``parse_record`` names. Walks the `c0`/`c8` framing and
+    stops at the first other tag (the undecoded `c1` kind)."""
+    out = {"c0": 0, "c8": 0, "tt": {}, "no_section": 0, "first_no_section": None,
+           "c0_named": 0, "c8_named": 0, "stop_tag": None, "stop_pos": None}
+    pos = 0
+    while pos + 2 <= len(data):
+        tag = data[pos]
+        if tag not in (TAG_REC_FULL, TAG_REC_PART) or data[pos + 1] == 0:
+            out["stop_tag"], out["stop_pos"] = tag, pos
+            break
+        end = pos + 2 * data[pos + 1]
+        rec = data[pos:end]
+        pos = end
+        if tag == TAG_REC_PART:
+            out["c8"] += 1
+            if parse and parse_record(rec, structural)["name"] is not None:
+                out["c8_named"] += 1
+            continue
+        out["c0"] += 1
+        npos = name_section_pos(rec)
+        if npos is None:
+            out["no_section"] += 1
+            if out["first_no_section"] is None:
+                out["first_no_section"] = rec[:16].hex()
+        else:
+            out["tt"][rec[npos]] = out["tt"].get(rec[npos], 0) + 1
+        if parse and parse_record(rec, structural)["name"] is not None:
+            out["c0_named"] += 1
+    return out
+
+
+def _cmd_names(args: argparse.Namespace) -> int:
+    bad = 0
+    for f in args.files:
+        c = name_census(sections(load_blob(Path(f)))["record_bytes"], args.parse,
+                        not args.legacy)
+        tts = " ".join(f"{k:#04x}:{v}" for k, v in sorted(c["tt"].items())) or "-"
+        line = (f"{Path(f).name} c0={c['c0']} c8={c['c8']} TT={tts} "
+                f"no_section={c['no_section']}")
+        if args.parse:
+            line += f" c0_named={c['c0_named']} c8_named={c['c8_named']}"
+            bad += c["c0_named"] != c["c0"] or c["c8_named"] != 0
+        if c["stop_tag"] is not None:
+            line += f" stop={c['stop_tag']:#04x}@{c['stop_pos']:#x}"
+        if c["first_no_section"]:
+            line += f" first_no_section={c['first_no_section']}"
+        print(line, flush=True)
+    return 1 if bad else 0
+
+
 def _cmd_trailer(args: argparse.Namespace) -> int:
     t = read_trailer(load_blob(Path(args.file)))
     print(f"marker 0x{t['pos']:06x} rows={len(t['rows'])} "
@@ -889,6 +1033,15 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "verify":
             sp.add_argument("--cell-base", type=lambda v: int(v, 0), default=CELL_OFF)
         sp.set_defaults(func=func)
+
+    sp = sub.add_parser("names", help="per-shard name-section census (TT, named c0/c8)")
+    sp.add_argument("files", nargs="+")
+    sp.add_argument("--parse", action="store_true",
+                    help="also count names returned by parse_record; exit 1 unless "
+                         "every c0 and no c8 is named")
+    sp.add_argument("--legacy", action="store_true",
+                    help="with --parse: use the pre-M4.46 token-scan name rule")
+    sp.set_defaults(func=_cmd_names)
 
     sp = sub.add_parser("cells", help="print the 6-byte cells")
     sp.add_argument("file")

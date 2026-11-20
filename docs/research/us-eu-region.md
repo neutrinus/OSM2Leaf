@@ -42,7 +42,7 @@ object; it is not a compiled-in market table, and there is no setter.
 The value comes from a 4-byte **Target ID** read by
 `KernelIoControl(0x01013208, in = {1}, 4, out = 4 bytes)` in build B
 `0x03c0c830` / C `0x03bec98c`. Byte `+4` must be non-zero and not `0xFF`;
-byte `+5` is the area. The firmware logs `Target ID Code >> %02X%02X%02X%02X`
+byte `+5` is the area. On Marek's unit the LeafSDTools Product ID (PROD `+0x20`) reads `10 20 02 12`, which fits Target ID = PROD `+0x20..+0x23` with the area at flash `0xA021` (C-5201, HYPOTHESIS; C-078's `0xA022` holds `0x02`). The firmware logs `Target ID Code >> %02X%02X%02X%02X`
 from these four bytes.
 
 `AppLaunch.dll` (`0x03bb…` in B, `0x03b9…` in C) maps the area:
@@ -80,7 +80,7 @@ unit-vs-card; no area or region value from the card enters them.
 | Version | `NAVI VERSION NG` compares the card's version/record with the unit's `NAVI-1`; the launcher's unit-side record is read through `KernelIoControl` (see above), not from the card. | PARTLY VERIFIED (firmware path) / HYPOTHESIS (screen assignment) |
 | Map code | `DIFFERENT MAP CODE` compares the card's `VER_INFO/HDD_INFO.TXT` with a unit-side target-info record (`manufacturer_id`, `userdata_type`, `destination_id`, map-DB range); the unit side cannot be supplied by the card. | PARTLY VERIFIED (firmware path) / HYPOTHESIS (field mapping) |
 | Unit region | The market is a NAND byte in the PROD block at `0xA022` (`0x10` JP/world, `0x20` US, `0x30` EU, `0x40` RU, `0x50` CN). The firmware confirms the **values and the five-way switch**, but reads the byte as part of a 4-byte Target ID via `KernelIoControl(0x01013208)`; the `0xA022` address itself is external. The old "`AppLaunch` compares against `0x10`" wording is wrong: `0x10` is only the Japan branch. | VALUES VERIFIED / ADDRESS HYPOTHESIS |
-| Firmware | Navi app `NB00` on card / `NB04` in NAND are build copies; the card's build is not executed while the unit runs its own. Audio CPU is separate: `70F3355` JP, `70F3356` US, `70F3357` EU. The EU image's `Navi.exe` is compiled `## COMPILE OPTION ## EUROPE FOR NISSAN ##`; the launcher name block also carries a JP-specific `NxJpNavi.exe`. | EU card image build OBSERVED; NB04/US build and audio mapping HYPOTHESIS |
+| Firmware | Navi app `NB00` on card / `NB04` in NAND are build copies; the card's build is not executed while the unit runs its own. **Contested (C-5192, EXP-2026-11-19-M6.17):** the QY7 unit flash is 8 MiB and A is 24.4 MB, so the card build is most likely what runs; M6.19 decides. Audio CPU is separate: `70F3355` JP, `70F3356` US, `70F3357` EU. The EU image's `Navi.exe` is compiled `## COMPILE OPTION ## EUROPE FOR NISSAN ##`; the launcher name block also carries a JP-specific `NxJpNavi.exe`. | EU card image build OBSERVED; NB04/US build and audio mapping HYPOTHESIS |
 | Precedent | A US QY7210NN booted and drew European streets from an EU card (leafsdtools issue #3). | OBSERVED / HEARSAY |
 | JP→EU teardown | PROD byte alone changed little and broke TV/hangs. PROD + EU loader + EU card gave EU languages, time zones and map, but killed all audio. | OBSERVED / HEARSAY |
 | Anti-theft | `SECURE` is a CAN/VIN check. Clearing PROD `A0A0–A0A3` or grounding `TEST_B1` disables it. | OBSERVED / HEARSAY |

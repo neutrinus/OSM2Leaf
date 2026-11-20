@@ -181,6 +181,12 @@ kept), so the next run extracts cleanly.
   sizes the `-M none` cuts from the ROMHDR (C-1283 fixed).
   `tools/ze0_ceload.py plan` prints the same load plan. See
   [`EXP-2026-11-20-M8.A3-builtin-loader.md`](../../docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md).
+- **M8.B2 (2026-11-20):** `ze0-0005` sets the TMU input clock to
+  Pφ = 42 MHz, the rate the EU2011 OAL assumes (2 625 000 Hz at Pφ/16), so
+  `CurMSec` follows real time (ratio 1.000; 60 MHz ran 1.43× fast).
+  `-M ze0,tmu=off` leaves the TMU unmapped. For repeatable traces, add
+  `-icount shift=0,sleep=off`. `tools/ze0_tmu.py` samples `CurMSec`. See
+  [`EXP-2026-11-20-M8.B2-ze0-tmu.md`](../../docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
