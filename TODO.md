@@ -2276,7 +2276,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: none yet (take the next free block when claimed)
 
 - [ ] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.62-l2-tile-section-list · Critical: no · Pair: solo
   - Step: P1
   - Depends: M3.33 (done)
   - Goal: the firmware leaves a `BxxRyyyR.DAT` whose section list at header `0x800` has fewer than three entries on the first mount and goes on in the first tile of its box table (C-6080–C-6083). Nothing in L2 says so: a writer change that drops an empty section would pass every gate and lose the tile on the unit.
