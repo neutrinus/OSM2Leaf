@@ -233,7 +233,7 @@ directions); roles 2/3 are UNKNOWN.
 subtree of `Navi.exe` (EU2011, 230 functions below the `0x14e4`/`0x14f4`
 message handlers) has no `0x1fff` mask and no function with the group-index
 shape; message `0x14f4` shares the TMC handler `0x004003f4` and has its own
-buffer in the generic sector reader `0x00417618` — the lead for M4.50. The
+buffer in the generic sector reader `0x00417618` — the lead for M4.51. The
 link-group layout above is therefore a data-side decode, not *confirmed*
 (rule 13).
 
