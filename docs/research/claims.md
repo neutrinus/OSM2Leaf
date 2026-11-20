@@ -4558,6 +4558,33 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5948 | RESERVED (M9.14). | — | — | — |
 | C-5949 | RESERVED (M9.14). | — | — | — |
 
+## M8.E2 — the ROM registry's driver table (C-1610–C-1619)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-1610 | `tools/ce_drivers.py` decodes `boot.hv`/`default.hv` of one CE segment in memory (kernel routine via `cerom.files_report`), lists the direct subkeys of `Drivers\\BuiltIn` and `Drivers\\Launch` with `Dll`, prefix/index, `Order`, `Flags` and `IoBase`/`IoLen`/`MemBase`/`MemLen`/`Irq`/`SysIntr`, and joins each `Drivers\\Launch` key to its `AppLaunch.dll` record (M1.34 getters), cross-checked by a stride scan. | VERIFIED (tool) | H | EXP-2026-11-20-M8.E2-registry-loaded; `python3 tools/ce_drivers.py --selftest` |
+| C-1611 | EU2011 build B ROM hives (`boot.hv` `3636dfd3…`, `default.hv` `65322773…`, 0 dangling links) name 72 driver keys: 9 under `Drivers\\BuiltIn` (all `Order 0`, last `AppLch` = `AppLaunch.dll`) and 63 under `Drivers\\Launch`; `boot.hv` holds no driver subkey; `init` starts `device.exe` (20) then `gwes.exe` (30, `Depend30` = `14 00`). | VERIFIED (tool) | H | EXP-2026-11-20-M8.E2-registry-loaded; `python3 tools/ce_drivers.py archive/head256.img --image-start 0x3e00200`, image `archive/head256.img` (IMG256, SHA-256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
+| C-1612 | Only three driver keys carry hardware resources: `OHCI` (`UsbOhci.dll`) `MemBase 0x099a1000`, `SysIntr 0x1c`; `WaveSSI1` `SysIntr 0x24`; `WaveSSI2` `SysIntr 0x25` (EU2011 build B). No driver key has `IoBase` or `Irq`; `Drivers\\Resources\\IRQ` ranges `19-21,25,36-39` (shared `36-39`). | VERIFIED (tool) | H | EXP-2026-11-20-M8.E2-registry-loaded; `python3 tools/ce_drivers.py archive/head256.img --image-start 0x3e00200 --json /home/user/scratch/m1.4/m8e2-B.json`, image `archive/head256.img` (IMG256, SHA-256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
+| C-1613 | The 63 `Drivers\\Launch` keys are the `\\Drivers\\Launch\\<key>` paths of `AppLaunch.dll` launch records #7–#69 (table `0x03bb2330`, EU2011 build B); 62 hive keys have a record (`WAPIMAN` two, #40/#41; `I2C_1` none). With M1.34's walker (`fn 0x03bcc5b0`, index order, per-record waits) the load order of these drivers is record index plus waits, not the hive `Order`. | VERIFIED (tool) | H | EXP-2026-11-20-M8.E2-registry-loaded; `python3 tools/ce_drivers.py archive/head256.img --image-start 0x3e00200`; C-3528, C-3529, image `archive/head256.img` (IMG256, SHA-256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
+| C-1614 | Build C (`--image-start 0x5200200`, EU2011) has the same 72 driver keys with the same `Dll`/`Order`; its launch table holds 62 `Drivers\\Launch` records (no `UART3`). | VERIFIED (tool) | H | EXP-2026-11-20-M8.E2-registry-loaded; `python3 tools/ce_drivers.py archive/head256.img --image-start 0x5200200`, image `archive/head256.img` (IMG256, SHA-256 `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9`) |
+| C-1615 | US2011 build B prints the same driver rows as EU2011 build B. | VERIFIED (tool) | H | EXP-2026-11-20-M8.E2-registry-loaded; `python3 tools/ce_drivers.py archive/us256.img --image-start 0x3e00200`, image `archive/us256.img` (US256, SHA-256 `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da`) |
+| C-1616 | The driver table is in `docs/format/firmware.md` ("Registry driver table, as loaded from the ROM hives"); it covers the ROM hives only, not a runtime `system.hv`. | VERIFIED (docs) | H | EXP-2026-11-20-M8.E2-registry-loaded; `docs/format/firmware.md` |
+
+## M9.33 — rerun prerequisites of the reopened L3 reader targets (C-3400–C-3409)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3400 | None of the L3 reader targets of M9.6, M9.10, M9.11, M9.13, M9.14 and M9.17 waits on sec1 `INIT` bytes (M1.2f/M1.19 done), input-region mapping (M9.28 done) or `runner.py` import binding (M9.24, narrowed by M9.44): five of the six are done with recorded runs, M9.10's prerequisites (US VAs, accessor, byte order) are met. | VERIFIED (board + EXPs) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map table |
+| C-3401 | `l3_precond.py --all-targets` reports `BLOCKED` ("entry kind blocked with no VA") for `tile_reader`, `drstr_parser` and `mmain_reader`, whose `targets.json` reasons name the tools that run them (`datask_l3.py mount`, `vcard_l3.py boot`, `mmain_l3.py run`): the gate models only `runner.py` entries. | VERIFIED (tool, IMG256) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map §Observations |
+| C-3402 | Given the EU head (IMG256), `l3_precond` classes the US2011 helper VAs `0x00565d94`/`0x00565da4` of `cmp_ind_reader_us2011` as EU sec1 `INIT`; given `archive/us256.img` (US256 `70d945d8…`) they are `CODE sec0`; the verdict is `READY` both ways. | OBSERVED (tool, real images) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map §Observations |
+| C-3403 | M9.10 is the only open task among the six and its prerequisite verdict is `READY`; what remains is its own `poi_record_decode` runner and M9.55's `l3check` row. | VERIFIED (board) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map table |
+| C-3404 | The two `l3_precond` gaps (no per-build head; no "runs elsewhere" state) are the scope of the new task M9.59. | VERIFIED (board) | H | EXP-2026-11-20-M9.33-rerun-prereqs-map §Follow-ups; TODO.md M9.59 |
+| C-3405 | RESERVED (M9.33). | — | — | — |
+| C-3406 | RESERVED (M9.33). | — | — | — |
+| C-3407 | RESERVED (M9.33). | — | — | — |
+| C-3408 | RESERVED (M9.33). | — | — | — |
+| C-3409 | RESERVED (M9.33). | — | — | — |
+
 ## M9.57 — nobody subscribes the data-access task to object-store event 11 (C-6000–C-6009)
 
 | ID | Claim | Status | Confidence | Evidence |
