@@ -388,12 +388,13 @@
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
-  "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
   "docs/experiments/EXP-2026-11-20-M4.48-datavol-18c-reader.md",
+  "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+  "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
   "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
@@ -403,14 +404,14 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 396,
-  "citations": 1177,
-  "unique_va": 273,
-  "start": 992,
+  "files": 397,
+  "citations": 1186,
+  "unique_va": 276,
+  "start": 999,
   "inside": 81,
   "corrected": 9,
-  "gap": 83,
-  "leaf": 83,
+  "gap": 85,
+  "leaf": 85,
   "ambiguous": 5,
   "unmapped": 7
  },
@@ -626,12 +627,23 @@
   },
   {
    "file": "TODO.md",
-   "line": 2587,
-   "va": "0x003f56bc",
+   "line": 2589,
+   "va": "0x003f5194",
    "kind": "fn",
-   "class": "START",
+   "class": "GAP",
    "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "TODO.md",
+   "line": 2593,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
   },
   {
    "file": "docs/experiments/EXP-2026-11-05-M1.8-sh4xref.md",
@@ -10447,18 +10459,54 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
-   "file": "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
-   "line": 193,
-   "va": "0x003f56bc",
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 51,
+   "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
-   "file": "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
-   "line": 228,
-   "va": "0x003f56bc",
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 51,
+   "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 51,
+   "va": "0x004247c0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 57,
+   "va": "0x003bc960",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 57,
+   "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 66,
+   "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -10558,6 +10606,42 @@
    "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
    "line": 247,
    "va": "0x8803cdd8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
+   "line": 52,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
+   "line": 52,
+   "va": "0x8803d060",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
+   "line": 131,
+   "va": "0x8803d060",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md",
+   "line": 135,
+   "va": "0x8803cb34",
    "kind": "fn",
    "class": "START",
    "true_start": null,
