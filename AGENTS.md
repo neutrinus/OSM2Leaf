@@ -11,7 +11,7 @@ commits) is English; conversation may be Polish.
 | --- | --- |
 | Is this fact established? | `docs/research/claims.md` — canonical ledger, trust it over prose |
 | What does this format look like? | `docs/format/*.md` — living pages |
-| What is being done now? | `TODO.md` — the board, rules 1–16, task blocks |
+| What is being done now? | `TODO.md` — the board, rules 1–17, task blocks |
 | Can the firmware read our file? | `docs/research/reader-coverage.md` — 30-row matrix |
 | What was tried and why did it fail? | `docs/experiments/EXP-*.md` — append-only |
 
