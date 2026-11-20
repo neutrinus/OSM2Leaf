@@ -512,6 +512,45 @@
    "notes": [
     "Directory-level only; the name list needs a record read (M9.53)."
    ]
+  },
+  {
+   "name": "mmain_reader",
+   "reader": "tile",
+   "what": "MMAIN001.DAT database header reader (EU2011 fn 0x0041a438: open 0x0041b780, read 0x0041b954, exactly 0x1000 bytes, swap16 into data VA 0x00e23cc0; M3.8/M9.17)",
+   "module": null,
+   "build": "eu2011",
+   "entry": {
+    "kind": "blocked",
+    "program": null,
+    "va": null,
+    "reason": "not a runner.py call: the reader runs inside the firmware's own mount (tools/vcard_l3.py boot, M9.44). The target is tools/mmain_l3.py run IMG256 --card-image CARD (factory, rebuilt, edited, generated ACCEPT with buffer == swap16(file) and an equal mmain.py model; 4095-byte and absent REJECT; EXP-2026-11-20-M9.17-mmain-reader-l3)"
+   },
+   "stubs": [
+    "CreateFileW",
+    "ReadFile",
+    "SetFilePointer",
+    "GetFileSize",
+    "CloseHandle",
+    "memset",
+    "memcpy",
+    "OSM_Printf",
+    "OSM_LogMsg"
+   ],
+   "corpus": {
+    "path": "mmain/MMAIN001.DAT",
+    "guest_path": "\\SystemSD\\MMAIN001.DAT",
+    "reader": "tile",
+    "case": "factory"
+   },
+   "expect": {
+    "verdict": "ACCEPT",
+    "python_verdict": "ACCEPT",
+    "agrees_with_python": null,
+    "rule": "a 0x1000-byte MMAIN001.DAT is accepted and lands swap16 in the buffer; a 4095-byte or absent file stops the mount (mmain_l3.py run exit 0)"
+   },
+   "notes": [
+    "corpus.reader is 'tile' only because the manifest has no mmain reader; the runner never reads this corpus row (blocked entry)."
+   ]
   }
  ]
 }
