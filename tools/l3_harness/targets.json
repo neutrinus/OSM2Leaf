@@ -225,17 +225,17 @@
     },
     {
      "id": "synthetic:one_tile_pipeline",
-     "what": "fresh-container roads-only tile (no factory bytes)",
+     "what": "fresh-container roads-only tile (no factory bytes), padded directories since M5.56",
      "generator": "python3 tools/one_tile_pipeline.py --synthetic --cell B48R058R --out OUT",
      "path": "MAPAL001/B48R058R.DAT",
-     "size": 22272,
-     "sha256": "a9996371bcced56c3cdd5c37819060f3975ca7219b488397bbec5d33a0259159",
+     "size": 37376,
+     "sha256": "8eb8ae4ca1a3816321eaa112c6efd1f22e576c559046c8950969e66b2db6af00",
      "run": "python3 tools/datask_l3.py mount archive/head256.img --card-image EU2011-CARD --position 51.10,16.93 --replace MAPAL001/B48R058R.DAT=FILE --bytes --json OUT.json; python3 tools/datask_l3.py diff FACTORY.json OUT.json",
      "recorded": {
       "exp": "EXP-2026-11-20-H106-l3-on-l2-tile",
-      "sha256": "a9996371bcced56c3cdd5c37819060f3975ca7219b488397bbec5d33a0259159",
+      "sha256": "8eb8ae4ca1a3816321eaa112c6efd1f22e576c559046c8950969e66b2db6af00",
       "verdict": "DIFFERENT",
-      "detail": "mount, EU2011 PySh4: the first directory read (0x1100, len 0x8100) runs past the 22,272-byte file and fails (status -1); no further reads of the tile (same as EXP-2026-11-20-M9.13 at 51.70,17.45)"
+      "detail": "mount, EU2011 PySh4: header, three 0x100 section tables and the section-1 level-1 directory (0x1100, len 0x8100) read with status 0, slot table parsed by 0x00414dbc (16,514 B); 24 reads instead of the factory's 28 (other container layout, no level-2 or section-2/4 directory reads). The pre-M5.56 tile a9996371... failed that directory read"
      },
      "ran_on_our_generated_data": true
     },
