@@ -29,12 +29,23 @@ its own.  What moves the state word to 3 is an object-store event, message
 `0x07d0` sub 11 with `+28 = 16`; `--event 11:16` delivers it as a stand-in
 (its sender is not part of the run, and the tool says so).
 
+State 3 is not "ready" (M9.53): in state 3 the request check 0x00405970
+refuses every map request.  The map is served in state 2.  `--request MESH`
+sends one map request (message 0x14b5, as C-5641 lays it out) after the
+mount: the client task is first opened with 0x003ed6e8 (without a slot the
+answer is status 9), the data-access task reads the record block of that
+mesh (tag 0x0900, handler 0x00404ee4), byte-swaps it (0x003f6968), inflates
+it (0x0054233c) and swaps the output; the row lists who loads the inflated
+record.  The reply 0x14b6 goes to the client, which is not part of the run:
+the roads in the record are walked there.
+
 Usage:
   datask_l3.py --selftest
   datask_l3.py tables IMG256
   datask_l3.py diff   A.json B.json [--file NAME]
   datask_l3.py mount  IMG256 --card-image CARD.img [--max-reads N] [--file NAME]
                       [--position LAT,LON] [--sdl] [--event SUB:VALUE ...]
+                      [--request MESH ...] [--kind 4|0x40] [--client N] [--divid N]
                       [--bytes] [--json OUT] [--flip MAPAL001/LEV3456R.DAT@0x803:0x01]
 
 Exit codes: mount: 0 the run finished and at least one tile read was parsed,
@@ -75,22 +86,32 @@ DA_EU2011 = {
     "read_api": 0x0041841C,       # map-file layer: (file id, request *)
     "da_task_id": 0x11FFF58,      # global: task id the reply goes to
     "map_task_id": 0x11FFFB8,     # global: task id of the map-file task
-    "state": 0xD62490,            # 2 = mounting, 3 = ready
+    "state": 0xD62490,            # 2 = map ready, requests served; 3 = requests refused (M9.53)
     "mesh_count": 0xD63CA0,       # tile files found in MAPAL001
     "version": 0xD8AD20,          # map format version from the volume header
     "mmain_buf": 0xE23CC0,        # the volume header the map-file layer read
-    # leaf functions (no pdata record): header date reader, block-header reader
-    "leaves": (0x0040A8D0, 0x004144A8),
+    # leaf functions (no pdata record): header date reader, block-header reader,
+    # u16 byte swap of a buffer (record block before and after inflate, M9.53)
+    "leaves": (0x0040A8D0, 0x004144A8, 0x003F6968),
     "position": (0xD94 << 12) + 0x0E4,   # u32: (lat code << 16) | lon code
     "default_position_fn": 0x0040B49C,   # (kind) -> start position from a per-area table, or -1
     "ready_msg": (0x07D0, 100),
     "done_msg": 0x04A0,
-    "progress": 0xD98FCC,         # 1 = the dispatcher runs deferred messages (with state 3)
+    "progress": 0xD98FCC,         # 1 = the dispatcher runs deferred rows at once (unless state 3)
     "event_msg": 0x07D0,          # object-store event; the sub is the subscriber's event id
     "state3_sub": 11,             # 0x003f6b1c: state 2 -> 3 when the event's +28 is 16
     "state3_value": 16,
+    # the map request (M9.53): message 0x14b5, answered with 0x14b6
+    "request_msg": 0x14B5,
+    "reply_msg": 0x14B6,
+    "client_open": 0x003ED6E8,    # (mode 1, client task id, kind mask, out *): a slot at data VA 0xd98fe0
+    "inflate": 0x0054233C,        # zlib inflate (method 8, header check mod 31) of a record block
+    "mesh_y": 0x004089F4,         # (mesh id) -> y; y >> 5 is the directory row (B48R058R: 72..79)
+    "mesh_x": 0x00408B0C,         # (mesh id) -> x; x >> 5 is the directory column (B48R058R: -88..-81)
 }
 DA_TASK, MAP_TASK, SDL_TASK = 2, 0x10, 3       # any three different non-zero ids
+CLIENT_TASK = 5                                 # the task that sends map requests (any id > 1)
+KIND_RENDER, KIND_ROUTE = 4, 0x40               # +16 kinds of the callers in C-5641
 
 # SDL_task of Navi.exe, EU2011 build A (M9.52).  Created by 0x0032efa8 with
 # the name "SDL_task" and the entry 0x0039d854; its id lands in the global
@@ -273,6 +294,25 @@ def event_message(sub: int, value: int, build: dict = DA_EU2011) -> bytes:
     return bytes(msg)
 
 
+def request_message(client: int, kind: int, lst: int, build: dict = DA_EU2011) -> bytes:
+    """A map request as its callers build it (C-5641): +0 sender, +8 0x14b5,
+    +10 sub 2, +12 the client task, +16 kind, +20 the list, +24 2."""
+    msg = bytearray(32)
+    struct.pack_into("<IIHHIIII", msg, 0, client, 0, build["request_msg"], 2, client, kind, lst, 2)
+    return bytes(msg)
+
+
+def request_list(meshes, divid: int = 0) -> bytes:
+    """The list the request points at: u16 count at +0, entry i at 32*i with
+    DIVID u16 at +14 and mesh id u32 at +16; 0x2004 bytes (what 0x004066ac
+    copies)."""
+    blob = bytearray(0x2004)
+    struct.pack_into("<H", blob, 0, len(meshes))
+    for i, mesh in enumerate(meshes):
+        struct.pack_into("<HI", blob, 32 * i + 14, divid, mesh)
+    return bytes(blob)
+
+
 def parse_event(text: str) -> tuple[int, int]:
     sub, _, value = text.partition(":")
     return int(sub, 0), int(value or "0", 0)
@@ -369,6 +409,11 @@ class DataTask:
         self.rows: list[dict] = []
         self.other: list[dict] = []
         self.events: list[dict] = []
+        self.inflated: list[dict] = []
+        self.request = None
+        self.requests_log: list[dict] = []
+        self.client_open: dict[int, int] = {}
+        m.eng.on_exec(build["inflate"], self._on_inflate)
 
     @staticmethod
     def _fn_of(image: str):
@@ -392,6 +437,58 @@ class DataTask:
         req["fid"] = m.arg(0)
         self.requests[req["dst"]] = req
         return None
+
+    def _on_inflate(self, engine, va):
+        """Entry of inflate: watch the output window (stream +12 next_out,
+        +16 avail_out) so the row can say who reads the inflated record."""
+        m, e = self.m, self.m.eng
+        z = m.arg(0)
+        nxt, avail = m.u32(z + 12), m.u32(z + 16)
+        self.inflated.append({"out": nxt, "avail": avail, "in": m.u32(z + 4)})
+        if e._watches_on and avail and e.region_at(nxt) is not None and e.region_at(nxt + avail - 1) is not None:
+            e.watch(nxt, nxt + avail, "r", "record%d" % len(self.inflated))
+        return None
+
+    def mesh_xy(self, mesh: int) -> tuple[int, int]:
+        """The firmware's own decoders: (y, x) of a mesh id."""
+        s32 = lambda v: v - (1 << 32) if v & 0x80000000 else v
+        return (s32(self.m.call(self.b["mesh_y"], [mesh]) & V.M32),
+                s32(self.m.call(self.b["mesh_x"], [mesh]) & V.M32))
+
+    def request_mesh(self, mesh: int, kind: int = KIND_RENDER, client: int = CLIENT_TASK,
+                     divid: int = 0, want_bytes: bool = False, on_row=None, open_client: bool = True) -> dict:
+        """Send one map request (message 0x14b5) for one mesh as client
+        ``client`` and carry until idle.  The client is first opened with
+        0x003ed6e8 (mode 1, as SDL_task's init does), since 0x00405970
+        answers status 9 to a task with no slot."""
+        m = self.m
+        if open_client and (client, kind) not in self.client_open:
+            out = m.malloc(16)
+            m.put(out, bytes(16))
+            self.st.task = client
+            self.client_open[(client, kind)] = m.call(self.b["client_open"], [1, client, kind, out]) & V.M32
+            self.st.task = DA_TASK
+            m.free(out)
+        lst = m.malloc(0x2004)
+        m.put(lst, request_list([mesh], divid))
+        y, x = self.mesh_xy(mesh)
+        entry = {"mesh": mesh, "kind": kind, "client": client, "divid": divid, "y": y, "x": x,
+                 "state": m.u32(self.b["state"]), "first_row": len(self.rows), "replies": []}
+        self.request = mesh
+        before = len(m.messages)
+        try:
+            self.deliver(request_message(client, kind, lst, self.b))
+            entry["end"] = self._carry(0, want_bytes, on_row)
+        finally:
+            self.request = None
+        for x_ in m.messages[before:]:
+            if x_["kind"] == "send" and x_["task"] == client:
+                body = bytes.fromhex(x_["body"])
+                mid, sub = struct.unpack_from("<HH", body, 8)
+                entry["replies"].append({"id": mid, "sub": sub, "words": list(struct.unpack_from("<5I", body, 12))})
+        entry["rows"] = len(self.rows) - entry["first_row"]
+        self.requests_log.append(entry)
+        return entry
 
     def _on_leaf(self, va):
         def hook(engine, _va):
@@ -457,6 +554,7 @@ class DataTask:
         req = self.requests.pop(buf, {})
         e._watches.clear()
         e._watch_hits.clear()
+        self.inflated = []
         if n:
             e.watch(buf, buf + n, "r", "buffer")
             e.arm_watch()
@@ -466,13 +564,19 @@ class DataTask:
         finally:
             e.disarm_watch()
         by: dict[int, list[int]] = {}
+        rec: dict[int, list[int]] = {}
+        out_lo = {w.name: w.lo for w in e._watches}
         for hit in e.watch_hits():
             if hit.kind != "r":
                 continue
             fn = self.fn_of(hit.pc)
             if fn is None:                    # a leaf function has no pdata record
                 fn = self.leaf_start(hit.pc)
-            by.setdefault(fn, []).extend(range(hit.va - buf, hit.va - buf + hit.size))
+            if hit.name == "buffer":
+                by.setdefault(fn, []).extend(range(hit.va - buf, hit.va - buf + hit.size))
+            else:                             # "record": the inflated output
+                lo = out_lo[hit.name]
+                rec.setdefault(fn, []).extend(range(hit.va - lo, hit.va - lo + hit.size))
         e._watch_hits.clear()
         handler = self.called[first] if len(self.called) > first else None
         row = {"tag": tag, "status": status, "length": n, "fid": req.get("fid"),
@@ -480,6 +584,12 @@ class DataTask:
                "handler": handler, "expected_handler": done_lookup(self.done_table, tag),
                "readers": [{"fn": fn, "bytes": len(set(v)), "runs": runs(v) if want_bytes else runs(v)[:10],
                             "nruns": len(runs(v))} for fn, v in by.items()]}
+        if self.inflated:
+            row["inflated"] = self.inflated
+            row["record_readers"] = [{"fn": fn, "bytes": len(set(v)), "runs": runs(v)[:10], "nruns": len(runs(v))}
+                                     for fn, v in rec.items()]
+        if self.request is not None:
+            row["request"] = self.request
         self.rows.append(row)
         return row
 
@@ -545,6 +655,10 @@ def show_row(row: dict) -> None:
         ("%#010x" % row["handler"]) if row["handler"] else "-", role))
     for r in row["readers"]:
         print("      fn %#010x loads %6d B: %s" % (r["fn"], r["bytes"], show_runs(r["runs"])))
+    for z in row.get("inflated", []):
+        print("      inflate %#010x: output window %#x bytes" % (DA_EU2011["inflate"], z["avail"]))
+    for r in row.get("record_readers", []):
+        print("      fn %#010x loads %6d B of the inflated record: %s" % (r["fn"], r["bytes"], show_runs(r["runs"])))
 
 
 def is_tile(row: dict) -> bool:
@@ -594,6 +708,14 @@ def cmd_mount(args) -> int:
             if want is None or want in row["file"].upper():
                 show_row(row)
         end = t.run(args.max_reads, args.bytes, on_row, events)
+        for mesh in args.request:
+            print("map request %#06x for mesh %#010x (kind %#x, client %d):" % (
+                DA_EU2011["request_msg"], mesh, args.kind, args.client))
+            r = t.request_mesh(mesh, args.kind, args.client, args.divid, args.bytes, on_row)
+            print("  mesh y %d x %d (directory row %d, column %d); state %d; %d read(s); %s" % (
+                r["y"], r["x"], r["y"] >> 5, r["x"] >> 5, r["state"], r["rows"], r["end"]))
+            for rep_ in r["replies"]:
+                print("  reply %#06x sub %d: %s" % (rep_["id"], rep_["sub"], " ".join("%#x" % w for w in rep_["words"])))
     except (V.Blocked, V.EngineError) as exc:
         print("BLOCKED: %s: %s" % (type(exc).__name__, str(exc)[:300]))
         return 3
@@ -619,6 +741,7 @@ def cmd_mount(args) -> int:
         out["other"] = t.other
         out["sdl"] = t.sdl_log
         out["events"] = t.events
+        out["requests"] = t.requests_log
         Path(args.json).write_text(json.dumps(out, indent=1))
     return 0 if tiles else 1
 
@@ -630,7 +753,8 @@ def row_key(row: dict) -> tuple:
 def row_shape(row: dict) -> tuple:
     """What the firmware did with one read: handler and, per function, how
     many bytes it loaded and in how many runs."""
-    return (row["handler"], tuple(sorted((r["fn"], r["bytes"], r["nruns"]) for r in row["readers"])))
+    return (row["handler"], tuple(sorted((r["fn"], r["bytes"], r["nruns"]) for r in row["readers"])),
+            tuple(sorted((r["fn"], r["bytes"], r["nruns"]) for r in row.get("record_readers", []))))
 
 
 def diff_rows(a: list[dict], b: list[dict], want: str | None = None) -> list[str]:
@@ -656,8 +780,14 @@ def diff_rows(a: list[dict], b: list[dict], want: str | None = None) -> list[str
         elif row_shape(ra) != row_shape(rb):
             fa = {r["fn"]: (r["bytes"], r["nruns"]) for r in ra["readers"]}
             fb = {r["fn"]: (r["bytes"], r["nruns"]) for r in rb["readers"]}
-            parts = ["fn %#010x A %s B %s" % (fn, fa.get(fn), fb.get(fn))
-                     for fn in sorted(set(fa) | set(fb)) if fa.get(fn) != fb.get(fn)]
+            for r in ra.get("record_readers", []):
+                fa[("record", r["fn"])] = (r["bytes"], r["nruns"])
+            for r in rb.get("record_readers", []):
+                fb[("record", r["fn"])] = (r["bytes"], r["nruns"])
+            name = (lambda k: ("inflated record: fn %#010x" % k[1]) if isinstance(k, tuple) else ("fn %#010x" % k))
+            parts = ["%s A %s B %s" % (name(fn), fa.get(fn), fb.get(fn))
+                     for fn in sorted(set(fa) | set(fb), key=lambda k: (isinstance(k, tuple), k if isinstance(k, int) else k[1]))
+                     if fa.get(fn) != fb.get(fn)]
             if ra["handler"] != rb["handler"]:
                 parts.insert(0, "handler A %s B %s" % (ra["handler"], rb["handler"]))
             out.append("read %d (%s pos %#x len %#x) parsed differently: %s" % (
@@ -707,6 +837,13 @@ def main(argv=None) -> int:
             p.add_argument("--event", action="append", default=[], metavar="SUB:VALUE",
                            help="after the mount idles, deliver object-store event 0x07d0 sub SUB "
                                 "with +28 = VALUE (a stand-in: its sender is not in the run)")
+            p.add_argument("--request", action="append", default=[], type=lambda v: int(v, 0), metavar="MESH",
+                           help="after the mount (and events), send map request 0x14b5 for this mesh id "
+                                "(M9.53); repeat for more")
+            p.add_argument("--kind", type=lambda v: int(v, 0), default=KIND_RENDER,
+                           help="request kind at +16: 4 renderer (default), 0x40 router")
+            p.add_argument("--client", type=int, default=CLIENT_TASK, help="client task id (> 1)")
+            p.add_argument("--divid", type=lambda v: int(v, 0), default=0, help="DIVID u16 of the list entry")
     p = sub.add_parser("diff", help="compare two mount --json runs read by read")
     p.add_argument("a")
     p.add_argument("b")
@@ -745,6 +882,13 @@ def selftest() -> int:
     blob = struct.pack("<HHI", 0x0600, 0, 0x1111) + struct.pack("<HHI", 0x0100, 0, 0x2222) \
         + struct.pack("<HHI", 0x0D01, 0, 0x3333) + struct.pack("<HHI", 0, 0, 0)
     table = decode_table(blob, 4)
+    rq = request_message(5, KIND_RENDER, 0x1234)
+    check("a map request carries 0x14b5 sub 2, client at +0 and +12, kind, list, 2",
+          struct.unpack_from("<IIHHIIII", rq) == (5, 0, 0x14B5, 2, 5, 4, 0x1234, 2))
+    rl = request_list([0x26C18AB2], 7)
+    check("the request list holds a count and DIVID/mesh at +14/+16 of entry 0",
+          len(rl) == 0x2004 and struct.unpack_from("<H", rl)[0] == 1
+          and struct.unpack_from("<HI", rl, 14) == (7, 0x26C18AB2))
     check("table rows decode as key, flag, handler", table[1] == (0x0100, 0, 0x2222))
     check("a tag matches its class in bits 8..14", done_lookup(table, 0x0103) == 0x2222)
     check("the low byte of the tag is ignored", done_lookup(table, 0x06FF) == 0x1111)
@@ -861,6 +1005,33 @@ def selftest() -> int:
             check("event 11 with +28 = 15 leaves the state word at 2", t.m.u32(DA_EU2011["state"]) == 2)
             t.deliver(event_message(11, 16))
             check("event 11 with +28 = 16 sets the state word to 3 (0x003f6b1c)", t.m.u32(DA_EU2011["state"]) == 3)
+        except (V.Blocked, V.EngineError) as exc:
+            check("firmware run (%s)" % str(exc)[:80], False)
+        finally:
+            V.MODELS.clear()
+            V.MODELS.update(saved)
+        try:                                   # M9.53: one map request after a full mount
+            t = DataTask(str(head), V.make_card(None, str(card_img)), position=(51.70, 17.45))
+            t.run()
+            mesh = 0x26C18AB2                  # y 2481, x -2642: directory row 77, column -83
+            check("the firmware decodes the mesh to directory row 77, column -83",
+                  tuple(v >> 5 for v in t.mesh_xy(mesh)) == (77, -83))
+            r = t.request_mesh(mesh, client=7, open_client=False)
+            check("a client without a slot is answered 0x14b6 status 9 and nothing is read",
+                  r["rows"] == 0 and [(x["id"], x["sub"], x["words"][0]) for x in r["replies"]] == [(0x14B6, 5, 9)])
+            r = t.request_mesh(mesh)
+            row = t.rows[-1] if r["rows"] else {}
+            check("with a slot the request reads one record block (tag 0x0900, handler 0x00404ee4)",
+                  r["rows"] == 1 and row.get("tag") == 0x0900 and row.get("handler") == 0x00404EE4)
+            check("the record block is inflated and its 11172 bytes are swapped by 0x003f6968",
+                  len(row.get("inflated", [])) == 1
+                  and any(x["fn"] == 0x003F6968 and x["bytes"] == 11172 for x in row.get("record_readers", [])))
+            check("the reply is 0x14b6 sub 9 naming the mesh",
+                  any(x["sub"] == 9 and x["words"][1] == mesh for x in r["replies"]))
+            t.deliver(event_message(11, 16))
+            r = t.request_mesh(mesh)
+            check("in state 3 the same request is refused (status 9, no read)",
+                  r["state"] == 3 and r["rows"] == 0 and any(x["sub"] == 5 and x["words"][0] == 9 for x in r["replies"]))
         except (V.Blocked, V.EngineError) as exc:
             check("firmware run (%s)" % str(exc)[:80], False)
         finally:

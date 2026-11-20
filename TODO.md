@@ -4623,8 +4623,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5900–C-5909 (was none yet (take the next free block when claimed); fresh block for this run)
   - Result: `docs/experiments/EXP-2026-11-20-M9.52-mount-1507.md` (C-5900–C-5907). `0x1507` goes to `SDL_task` (id global `0x11fff50`, entry `0x0039d854`, EU2011), which drops it at its gate `0x003c009c` (it takes a data-access message only as the answer to its own pending request) and answers nothing; the mount does not wait for it. The only writer of state 3 is `0x003f6b1c`, object-store event `0x07d0` sub 11 with `+28 = 16`; `datask_l3.py mount --sdl --event 11:16` (stand-in event) ends with state 3, progress 1; controls `11:15`, `12:16` stay at 2. The subscriber that delivers event 11 is not found in `Navi.exe`: M9.57.
 
-- [ ] **M9.53 — Make the firmware read a record block we wrote: one map request through `datask_l3.py`**
-  - Status: in progress · Owner: task/m9.53-record-block-read · Critical: yes · Pair: required
+- [x] **M9.53 — Make the firmware read a record block we wrote: one map request through `datask_l3.py`**
+  - Status: done · Owner: task/m9.53-record-block-read · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.52
   - Precheck: `python3 tools/datask_l3.py tables archive/head256.img` lists `0x14b5  1  0x004066ac`; M9.52's run ends with state 3.
@@ -4635,6 +4635,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the request needs state the run cannot provide after M9.52, record the faulting read/branch and stop.
   - Falsifier: the firmware reads the record block but no function loads the inflated bytes (then the consumer is another task: name the message that carries the buffer away).
   - Claims: C-5910–C-5919 (was none yet (take the next free block when claimed); fresh block for this run)
+  - Result: `docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md` (C-5910–C-5917). `datask_l3.py mount --request MESH` (new; opens the client slot with `0x003ed6e8`, which `0x00405970` requires) reads one record block after the mount: mesh `0x26c18ab2` (firmware decoders: directory (77, −83) of `B48R058R`) → tag `0x0900`, handler `0x00404ee4`, word swap `0x003f6968`, inflate `0x0054233c`, 11,172 inflated bytes loaded. On the generated tile the firmware reads **our** record (from our pair entries), inflates it to 184 B with the Adler-32 checked and answers the client as for the factory record; pair-entry flip (M9.13 C2) and record-byte flip are DIFFERENT. Correction of M9.52: state 3 refuses map requests; they are served in state 2 (C-5913). The roads are walked by the client task (`0x14b6` sub 9): M9.58.
+
+- [ ] **M9.58 — Walk our road record in the client task: hand `0x14b6` sub 9 to the renderer**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M9.53 (done)
+  - Goal: M9.53 makes the data-access task read and inflate our record, but no function there walks it (C-5916): the client task gets `0x14b6` sub 9 and walks the roads. Rule 13 for records: see the firmware walk *our* links.
+  - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 51.70,17.45 --request 0x26c18ab2` prints `reply 0x14b6 sub 9: 0x4 0x26c18ab2 0x4 0x303 0x0`.
+  - Scope: EU2011. (1) find the task that sends `0x14b5` with kind 4 (renderer, C-5641/C-4628: `0x00425f40`, `0x004266ec`) and its handler for `0x14b6` sub 9; (2) where it finds the inflated record (slot `0xd98fe0`, the copy at `0x00d53f20`, or the reply); (3) run that handler in `datask_l3.py` (or a new tool next to it) and watch the inflated record; (4) F/G compare and a control that changes one link of our record (decoded with `clarion_tile`).
+  - Done when: the functions that load our record's link and shape words are named with byte counts on F and G, and a one-link change gives DIFFERENT; EXP + claims; reader-coverage row 17.
+  - Stop: if the handler needs the renderer's own state that cannot be set after two models, record the faulting read and stop.
+  - Falsifier: the client handler copies the record but loads none of its link words (then name where it goes next).
+  - Claims: C-6010–C-6019
 
 - [ ] **M9.57 — Find who subscribes the data-access task to object-store event 11 (state 3 of the mount)**
   - Status: open · Owner: — · Critical: no
@@ -4646,6 +4659,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the EXP names the subscribing call (module, VA, object call) and the value 16's source, and `datask_l3.py` fires the event from a model of that object instead of `--event`; or the search is counted and negative with a positive control (the sub-100 subscription at `0x003eb99c` must be found by the same method).
   - Stop: if the subscriber is outside `Navi.exe` and needs that module's own task to run, name the module and export and stop.
   - Claims: C-6000–C-6009
+  - Note (M9.53, C-5913): state 3 *refuses* map requests; requests are served in state 2. This task explains state 3 but is no longer on the path to road records.
 
 - [ ] **M9.56 — The router computes a route on our graph in L3 (not only reads it)**
   - Status: blocked · Owner: — · Critical: yes · Pair: required
