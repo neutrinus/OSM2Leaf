@@ -1757,12 +1757,13 @@ def selftest() -> int:
 
     def mem(words):
         return lambda va: words.get(va)
-    eu = mem({0x100: 0xD100, 0x102: 0x000B, 0x104: 0x5678, 0x106: 0x1234})
-    us = mem({0x200: 0xD100, 0x202: 0x000B, 0x204: 0xDEF0, 0x206: 0x9ABC})
-    got = port_data([(0x100, 0x200)], eu, us, {0x100: 8}, {0x12345678: "state"})
+    # mov.l @(4,PC),r1; rts; nop (delay slot); nop; pool word at +8
+    eu = mem({0x100: 0xD101, 0x102: 0x000B, 0x104: 0x0009, 0x106: 0x0009, 0x108: 0x5678, 0x10A: 0x1234})
+    us = mem({0x200: 0xD101, 0x202: 0x000B, 0x204: 0x0009, 0x206: 0x0009, 0x208: 0xDEF0, 0x20A: 0x9ABC})
+    got = port_data([(0x100, 0x200)], eu, us, {0x100: 12}, {0x12345678: "state"})
     check("port: the US pool value at the same load index", got == {"state": {0x9ABCDEF0: 1}})
     check("port: an EU value no pool loads is not found",
-          port_data([(0x100, 0x200)], eu, us, {0x100: 8}, {0x11111111: "x"}) == {})
+          port_data([(0x100, 0x200)], eu, us, {0x100: 12}, {0x11111111: "x"}) == {})
     check("EU2011 layer dict equals its build_targets roles", layer_build("eu2011") == EU2011)
     check("port: the US dict pairs every EU layer function",
           len(port_pairs(EU2011, US2011)) == 13 and set(EU2011) == set(US2011))
