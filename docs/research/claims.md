@@ -2031,6 +2031,16 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2322 | The first two `reception.dat` rows (`01 3e 0f 1e 00 …`, `02 32 0d 00 01 01 …`) and the `03` row kind are not decoded. | OBSERVED | M | EXP-2026-11-20-M4.16d-tmc-reception-table-codes |
 | C-2323 | A Poland build would need location table CC 3 + Polish LTN, an RDSTM table code `0x33nn` and a `reception.dat` row `ff 0f 03 nn`. | HYPOTHESIS | M | EXP-2026-11-20-M4.16d-tmc-reception-table-codes; C-2320, C-2321 |
 
+## M4.51 — senders of the TMC data-layer messages, EU2011 (C-5404–C-5408)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5404 | EU2011 `Navi.exe` (IMG256 `92aa525d…`): data-layer requests are sent through `fn 0x003c0e68` (id = `u16 @(8,req)`, then `0x003c01c8` and `OSMDLL!OSM_TaskSend`); its 25 static callers each hold one id literal (`0x14cc` ×5, `0x14cd` ×7, `0x14d0`, `0x14d1`, `0x14d3`, `0x14d8` ×2, `0x14e4`, `0x14ef` ×3, `0x14f0` ×4); the TMC location request `0x14e4` has one static sender, `fn 0x003bcac0`. | VERIFIED (static) | H | EXP-2026-11-20-M4.51-tmc-14f4-senders; `rdstm_reader_scan.py --callers-of 0x003c0e68` |
+| C-5405 | No static sender of message `0x14f4`: none of the 25 callers and none of OBJDLL, STDDLL, OSMDLL, RASTERIZER_DLL, ScreenState, IconDrawCC, RDSCC loads `0x14f4`; `fn 0x00413828` handles `0x14e4` and `0x14f4` alike. Six other dispatcher ids also lack a static sender. | OBSERVED (negative, with control) | M | EXP-2026-11-20-M4.51-tmc-14f4-senders |
+| C-5406 | `0x14f4` requests are built at run time (id from a table or argument, or an indirect call of the helper), probably by traffic display/route code placing TMC events. | HYPOTHESIS | L | EXP-2026-11-20-M4.51-tmc-14f4-senders |
+| C-5407 | The file and offsets a `0x14f4` request reads, and the link-group reader VA, remain unknown. | UNKNOWN | — | EXP-2026-11-20-M4.51-tmc-14f4-senders |
+| C-5408 | M4.51 is `blocked` (no static sender; no dynamic run); unblockers M4.53 (L3 data layer on a synthetic `0x14f4` request) or M8.E4 (full run with a read watch). | OBSERVED (gap) | H | EXP-2026-11-20-M4.51-tmc-14f4-senders |
+
 ## M1.13 — Factory encoder for REFER001 POI pages (C-2570–C-2579)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
