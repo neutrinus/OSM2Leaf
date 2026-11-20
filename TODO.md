@@ -1359,6 +1359,86 @@ text of this section is in git (`13cb0cf`).
   - Done when: the EXP names at least the flash-driver selection rule (how `fmmdrv_05`/`_07` is chosen) or records it as unknown with the VA where the choice is made.
   - Claims: C-6310–C-6319
 
+- [x] **M1.39 — Hardware map of the head unit: CPU, RAM, flash, serial ports, buses (from the firmware)**
+  - Status: done · Owner: claude/project-thread-64ftoc · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: Marek's question "what CPU, how much RAM and flash, what is connected to which I/O" answered in one page under `docs/hardware/`.
+  - Done when: `docs/hardware/head-unit.md` exists with a status per row and an EXP behind it.
+  - Result: EXP-2026-11-20-M1.39-hardware-map (C-6410–C-6416), page [`docs/hardware/head-unit.md`](docs/hardware/head-unit.md): SH-4A (SH-NaviJ family, part unproven), DRAM from `0x08000000`, at least 102 MiB (128 MiB guessed), 44.6 MiB for applications; 8 MiB NOR flash; 800 × 480 × 16 bpp; port users from device-name strings — `SCI1:` audio microcontroller, `SCI3:` display, `SCI6:` debug console (= kernel debug SCIF `0xffe46000`), `SCI7:` GPS, `SCI8:` Bluetooth, `UAT3:` CAN sub-microcontroller; `0xffe70000` is the USB host block (OHCI at `+0x400`).
+  - Claims: C-6410–C-6419
+
+- [ ] **M1.40 — Hardware map II: I2C slaves, GPIO pin roles, baud rates, the users of `SCI0:` and `UAT4:`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.39 (done)
+  - Goal: fill the rows `docs/hardware/head-unit.md` leaves open, still from the firmware: which I2C slave addresses each driver uses on which bus (and what chip that suggests), which GPIO bits `GPIO.dll` clients set or read and for what (mute, SD power, card detect, LCD power, reverse, illumination), the baud rate and framing each port user sets (`SetCommState` DCB), and who opens `SCI0:` / `UAT4:` (compressed sections were not searched in M1.39).
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports I2C.dll` and `… exports GPIO.dll` print the driver entry points; `python3 tools/nk_decomp.py` decompresses a `.data` section of `SDHC.dll`.
+  - Scope: static, build B (+ A for clients), EU2011 = US2011 for B. For each client: the `DeviceIoControl` code and the constant arguments at the call site (`tools/sh4xref.py`, `callgraph.py`); decompress `.data` sections before the string search. Update `docs/hardware/head-unit.md` and the peripheral table of `docs/research/full-system-emulation.md`.
+  - Hints: the debug shell on `SCI6:` (C-6414) is the most useful row for bench work: its baud rate and command list tell what a serial adapter on that pin would give. `0xffe70808` (C-6415) is worth one look in `UsbOhci.dll` for the register name.
+  - Done when: the page has ≥ 5 I2C (bus, address, driver) rows or the reason they cannot be read statically, a GPIO table with ≥ 8 named bits, and baud rates for `SCI1:`, `SCI6:`, `SCI7:`, `SCI8:`, `UAT3:`.
+  - Stop: chip names stay HYPOTHESIS without a board photo; do not guess a part from an address alone.
+  - Claims: C-6420–C-6429
+
+- [ ] **M1.41 — Decompile map of the Bluetooth stack, and why two phones work badly**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (M1.36b/M1.37 help: the same modules in the 2014/2016 builds)
+  - Goal: side track, not on the map path. Modules: `BT_FW.dll` (B), `BT_MGR.dll`, `BT_ENG.dll`, `BT_WRPENG.dll`, `BT_DB.dll`, `BT_Modem.dll`, `PhoneBTA.exe`, `PhoneCC.dll`, `BtAudioCC.dll` (A). Answer: (1) what each module does and how they call each other; (2) the data model for paired devices — how many can be stored, how many can be connected at once, per profile (HFP, A2DP/AVRCP, PBAP, DUN); (3) where the limit that hurts with two phones is: a constant in the unit's code (patchable), the reconnect policy (which phone wins at start), or the Bluetooth module's own firmware (`BtUpdate.exe` payload, not patchable by us); (4) whether the 2014/2016 builds changed any of this.
+  - Precheck: `python3 tools/pdata.py` lists functions for `BT_MGR.dll`; `python3 tools/cerom.py --image-start 0x200200 IMG256 exports BT_ENG.dll` prints exports.
+  - Scope: static (strings, exports, `callgraph.py`, `sh4dis.py`; Ghidra from M9.2 if a non-Claude runner has it). Output `docs/firmware/bluetooth.md` in the common template of `docs/firmware/README.md`: module table, feature list, call graph between modules, the device-table layout, and a "what could be changed" list with the VA of each constant. No patch is built.
+  - Hints: the registry starts nine `BT_MGR.dll` device instances `BTA1:`–`BTA9:` and the module talks to the radio on `SCI8:` (EXP-2026-11-20-M1.39); `BT_FW.dll` has the same size in all four builds (M1.36), so the stack above it is where builds differ.
+  - Done when: the page states the maximum paired and simultaneously connected devices with the code evidence (VA, constant), and one verdict for two-phone support: `patchable constant / policy in code / module firmware / unknown`.
+  - Stop: if the connection limit is enforced inside the Bluetooth module (HCI error from the module, not a check in our code), say so and close the patch idea.
+  - Claims: C-6430–C-6439
+
+- [ ] **M1.42 — Decompile map of the audio stack (`Audio.exe`, `anwdrv`, `wavessi`, `DspDrv`, `MuteDrv`, `BeepDrv`)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (M4.60 is the data side: where the sounds are)
+  - Goal: side track. What the SH-4 does itself and what it only asks the audio microcontroller to do over `SCI1:`: source switching, volume, mixing of guidance over media, USB/iPod/Bluetooth audio path, radio. List the message set of the `anwdrv` protocol (device `AUD`/`TNR`/`TMC`/`UPD`…: command ids, lengths).
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports anwdrv.dll` prints exports.
+  - Scope: static, EU2011; compare sizes with EU2014 (`Audio.exe` +54 %, M1.36). Output `docs/firmware/audio.md` (template: `docs/firmware/README.md`).
+  - Done when: the page has the audio path diagram (who produces PCM, on which SSI, who mixes) and ≥ 20 `anwdrv` messages with direction and meaning or `unknown`.
+  - Stop: the microcontroller's own firmware (`AudioMiconUpdate.exe` payload, V850) is out of scope.
+  - Claims: C-6440–C-6449
+
+- [ ] **M1.43 — Decompile map of the vehicle screens (`Vehicle.exe`, `DriveComputerCC`, `EvTimerCC`, `EvNoticeCC`, `HvacCC`, `ComfortCC`)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: side track. Which CAN signals reach the SH-4 (through `CAN.dll` on `UAT3:`), in what units and resolution, and what the drive computer does with them: is energy shown rounded from a finer value (so a finer display or other aggregates are a UI change), or does the coarse value arrive already rounded.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports CAN.dll` prints exports.
+  - Scope: static, EU2011. Output `docs/firmware/vehicle.md`: signal table (id, name from strings, scale if a multiply/divide is visible, consumer module), the formulas of the drive computer screens.
+  - Done when: ≥ 10 signals with consumer and unit, and for the energy economy value the VA where it is scaled for display.
+  - Stop: do not send anything to a car; this task is read-only knowledge.
+  - Claims: C-6450–C-6459
+
+- [ ] **M1.44 — Decompile map of the camera path (`CameraCC.dll`, `VIN.dll`)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: side track. How the reversing camera image gets to the screen (video input driver, overlay of guide lines), what triggers it (reverse signal over CAN or GPIO), and whether the input can be shown on demand.
+  - Scope: static, EU2011. Output `docs/firmware/camera.md` (template: `docs/firmware/README.md`).
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports VIN.dll` prints exports.
+  - Done when: the page names the trigger (signal and VA of the check) and the IOCTLs `CameraCC` sends to `VIN1:`.
+  - Stop: static only; nothing is tried in a car.
+  - Claims: C-6460–C-6469
+
+- [ ] **M1.45 — Decompile map of telematics (`Telema.exe`, `ComMid.exe`, `Telema*CC`, `Cws_Apl`, `Prb_Apl`, `DCM_API`)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: side track. The Carwings client: how it reaches the TCU (`COM3:`/`COM4:` over USB) or a phone (`COM8:` Bluetooth dial-up), server names and URLs in the binary, the request types. Useful for OpenCarwings users: what the unit can fetch (points of interest, routes, charging spots) and in what format.
+  - Precheck: UTF-16 and ASCII strings of `Telema.exe` contain a host name or `http`.
+  - Scope: static, EU2011 and US2011 (build A differs). Output `docs/firmware/telematics.md`: transport table, endpoint list, message types. No network traffic is generated.
+  - Done when: the page lists the endpoints and for ≥ 3 request types the builder function VA and the payload fields readable from strings.
+  - Stop: do not contact any server; credentials or identifiers found in the binary are not copied into the repo.
+  - Claims: C-6470–C-6479
+
+- [ ] **M1.46 — Subsystem map of `Navi.exe`: what a rewrite or a port would have to replace**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (uses the reader work of M3 and the call graph)
+  - Goal: side track, the base for Marek's "rewrite Navi in modern code" idea and for "is the 2014 `Navi.exe` faster". Split the 10 MB of `Navi.exe` and its `Navi*CC`/`Navi*DLL` modules into subsystems (map data access, rendering, search, route calculation, guidance, positioning, traffic, UI glue, IPC) with function counts and code size each, and the interfaces between them (COM classes, message ids, exported C APIs).
+  - Precheck: `python3 tools/callgraph.py` builds the graph for `Navi.exe` (US2011 or EU2011) and `python3 tools/pdata.py` gives the function list.
+  - Scope: static. Cluster by call graph + strings + known reader VAs (`docs/research/reader-coverage.md`); output `docs/firmware/navi-subsystems.md` with the table and a diagram, and a list of the external interfaces a replacement process would have to speak (who starts Navi, which messages the HMI sends it).
+  - Done when: ≥ 80 % of `Navi.exe` code bytes are assigned to a named subsystem or to `unknown`, and the route-calculation subsystem's entry points are listed (ties to M9.56).
+  - Stop: this is a map, not a rewrite; do not start re-implementing.
+  - Claims: C-6480–C-6489
+
 - [ ] **H119 — Two task PRs that each add an EXP always conflict in the fn_audit snapshots**
   - Status: open · Owner: — · Critical: yes · Pair: required
   - Depends: — (serves the map tasks whose merges it holds up: M9.55, M3.29, M9.53 waited 21–35 merges behind `main`, retro 2026-11-20-2)
