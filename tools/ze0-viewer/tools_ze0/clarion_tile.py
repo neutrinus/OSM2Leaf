@@ -112,11 +112,15 @@ def read_dir(d, off, box, nslots=SLOTS, section=1):
             D.setdefault('empty_tags', {})[i] = tag
         p += 4 + body
     # Some ZE0 directories (kind 0x2146 and relatives) declare a larger size
-    # in header word 0 than 12 + nslots*(4+body).  The difference is a trailing
-    # table after the slots; keep it verbatim so the directory round-trips.
+    # in header word 0 than 12 + nslots*(4+body).  Header word 0 is the
+    # directory size in u16 words and the difference is n wide rows of 1,024
+    # bytes (M5.53, tools/s1_wide_dir.py), not a trailing table; this reader
+    # keeps the 512-byte rows and carries the n*512 remainder verbatim as
+    # 'tail' so the directory round-trips.  Up to n = 31 (M5.54: the old 4096
+    # limit dropped the 4,608-byte remainder of 0x2946).
     declared = 2 * struct.unpack_from('>H', d, off)[0]
     extra = declared - (12 + nslots * (4 + body))
-    if 0 < extra <= 4096 and p + extra <= len(d):
+    if 0 < extra <= 31 * 512 and p + extra <= len(d):
         D['tail'] = d[p:p + extra]
         p += extra
     D['end'] = p

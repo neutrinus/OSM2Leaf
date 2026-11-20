@@ -402,6 +402,7 @@
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
+  "docs/experiments/EXP-2026-11-20-M5.54-wide-kinds.md",
   "docs/experiments/EXP-2026-11-20-M6.18-prod-screen.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
@@ -416,7 +417,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 409,
+  "files": 410,
   "citations": 1057,
   "unique_va": 251,
   "start": 909,
