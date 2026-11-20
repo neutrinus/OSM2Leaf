@@ -1,0 +1,76 @@
+role: driver (dev), task M9.41
+model: airouter/strong (harness label deepseek-v4.1-flash-free)
+start: 2026-11-20 12:30 UTC, end: 2026-11-20 12:45 UTC
+origin/main at start: d2fb7b4
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-16 + M9.41/M9.10/
+M9.39/M9.42/M9.54, EXP-2026-11-17-M9.39-point010-mutant,
+EXP-2026-11-20-M9.54-repin-m9.39-pair, EXP-2026-11-17-M1.22-us-build-census,
+tools/{point_walk_l3,l3check,build_targets}.py, tools/l3_harness/{runner,
+corpus,targets.json}, reader-coverage.md rows 6/10 + L3 table, claims.md.
+
+actions, in order:
+1. Claimed M9.41: TODO line only -> in progress, pushed, draft PR #326.
+   (PR #248 on the same branch was the released ghost; its claim commit is on
+   this branch's history, so #326 re-uses the branch rather than a second PR.)
+2. Ran the Precheck: US factory POINT010 on us256.img --build us2011 ->
+   result: PASS (9/9), wrong-build eu2011 -> result: FAIL (unmapped ...).
+3. Rebuilt the M9.39 US mutant with the current CLI: cmp 34fb3aab… / ind
+   e525fd19…, same as M9.54's re-pin; walker moves n=501/998/999 by +4, count
+   1,000. So the control exists and is reproducible.
+4. Checked what "--build-corpus lists the target runnable with its verdict"
+   needs: runner.py dispatches only cmp_ind_chunk_v1/mapcode_compare_v1, and
+   l3check corpus mode passes no --image/--cmp/--ind. Proved it with a scratch
+   targets.json: a Scope-sized POINT target is BLOCKED "unknown
+   firmware_call program 'point_walk_v1'".
+5. Concluded the Done-when is unsatisfiable inside Scope (targets.json +
+   TARGET_EVIDENCE + POI row); making it runnable needs runner.py + l3check
+   plumbing + corpus entry = M9.55. Marked M9.41 blocked with Blocker/Unblock,
+   not done (rule 6: only done when the task's own Done-when passes).
+6. Wrote EXP-2026-11-20-M9.41-us-poi-row.md (TEMPLATE five-part Method,
+   negative result with positive/negative/registration controls), C-4220–C-4229
+   in claims.md, and the reader-coverage.md POINT-row correction.
+7. Added M9.55 (next free ID, claim block C-5760–C-5769, verified unused) as
+   the unblock task; M9.10 Status now points at both EXPs.
+8. Ran selftest.py, claims_check.py, todo_check.py, gate.py (see PR body).
+
+decisions made / alternatives rejected:
+- Did NOT invent a point_walk_v1 dispatch in runner.py: out of Scope, and a
+  registered-but-BLOCKED row would be the "BLOCKED is not a pass" trap the task
+  warns about.
+- Kept claim IDs C-4220–C-4229: they are free on main despite the old #248 body
+  saying 422x was taken (that was never merged; 467x went to M3.28).
+- Kept M9.54 untouched; cited its SHAs only (C-5266), did not re-pin anything.
+
+problems / dead ends:
+- /tmp/opencode/m939 is gone; rebuilt the mutant under
+  leafre-work/scratch/m9.41/ (stock python3.13 for the writer, zlib-ng python3
+  only for the walker).
+- The existing l3check --selftest pins total=8; adding a row would need the
+  selftest count updated, another reason the row belongs in M9.55.
+
+handoff for the navigator:
+- First check: does registering a BLOCKED-with-reason POINT row now (cheap, no
+  runner.py) satisfy a defensible reading of "S1/S2 evidence"? If yes, M9.41
+  could be re-scoped to that; if not, M9.55 is the right unblock and M9.41's
+  block stands. Everything else (walker PASS, wrong-build FAIL, mutant SHAs) is
+  re-runnable from the EXP.
+
+navigator round 1 (CHANGES, 3 record defects; verdict kept blocked):
+- M9.55 Depends: dropped M9.10 (it is open, so the task was unclaimable and
+  M9.41's Unblock could never fire); now M1.22/M1.22b/M9.42 (all done) plus a
+  Note line carrying "the walk run exists (C-4221)".
+- "name half waits for M3.11c" was wrong (M3.11c is done; accessor US 0x0041ec8c
+  runs 1000/1000). Replaced in TODO M9.41 Result, M9.10 status, M9.55 Done-when,
+  C-4228/C-4229 and EXP (Interpretation + Conclusion) with the real gate:
+  M9.10's own poi_record_decode runner + M3.11b (text byte order, still open).
+- C-4221 evidence command now carries `--n 499,500,501,998,999,1000` (the quoted
+  n=499/501 only print with it); re-ran the exact command, values confirmed.
+- Re-ran todo_check, claims_check --strict --count-check, gate.py; kept
+  Status: blocked + Unblock: M9.55.
+
+claim-block fix (navigator follow-up 2):
+- M3.14's branch (task/m3.14-zcode-icode-coord) owns C-5760–C-5767 and moved
+  M9.55 to C-5770–C-5779; this branch's M9.55 Claims line is now
+  C-5770–C-5779 too (no row here claims that block). M9.41 itself stays
+  C-4220–C-4229; its Result cites no 576x.
