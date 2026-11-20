@@ -10,11 +10,11 @@
 
 ## Question
 
-For each `CORRECTED` citation, did the line itself pair the VA with its true start (`line`) or did the static `CORRECTION_ONLY` allowlist resolve it (`pin`), and how many of each are there on the frozen `b56fed2` corpus and on the live tree?
+For each `CORRECTED` citation, did this occurrence carry its own arrow pair to the true start (`line`) or did the static `CORRECTION_ONLY` allowlist resolve it (`pin`), and how many of each are there on the frozen `b56fed2` corpus and on the live tree?
 
 ## Hypothesis
 
-`_resolved` has exactly two branches, and they are mutually exclusive: a `ctx` citation that carries its own pair is decided by the pair alone, and the pin is consulted only when the line names no start. So the 13 `CORRECTED` rows of `b56fed2` split into `line + pin = 13` with no row counted twice, and the `INSIDE 33` count stays the same. M1.29's composition table, `0x00542256` ×6, `0x00413af4` ×3, `0x003f5fc2` ×2, `0x0041c7e8` ×1 and `0x00412bee` ×1, predicts that the two live-elsewhere VAs are `line`, because they are not pinned. The three pinned VAs can be either.
+`_resolved` has exactly two branches, and they are mutually exclusive: a `ctx` citation that carries its own pair is decided by the pair alone, and the pin is consulted only when this occurrence carries no arrow pair of its own (the line may still name the start in another form). So the 13 `CORRECTED` rows of `b56fed2` split into `line + pin = 13` with no row counted twice, and the `INSIDE 33` count stays the same. M1.29's composition table, `0x00542256` ×6, `0x00413af4` ×3, `0x003f5fc2` ×2, `0x0041c7e8` ×1 and `0x00412bee` ×1, predicts that the two live-elsewhere VAs are `line`, because they are not pinned. The three pinned VAs can be either.
 
 **Falsifier:** any of these refutes it:
 - on `b56fed2`, the H63 tool prints a total other than `CORRECTED 13`, or `INSIDE` other than 33;
@@ -65,6 +65,8 @@ For each `CORRECTED` citation, did the line itself pair the VA with its true sta
    python3 tools/sh4dis.py --va 0x00542250 --count 4 $IMG Navi.exe
    python3 tools/sh4dis.py --va 0x00413af4 --count 1 $IMG Navi.exe
    python3 tools/sh4dis.py --va 0x003f5fc2 --count 1 $IMG Navi.exe
+   python3 tools/sh4dis.py --va 0x00413a6c --count 2 $IMG Navi.exe
+   python3 tools/sh4dis.py --va 0x003f5f48 --count 2 $IMG Navi.exe
    python3 tools/fn_audit.py --selftest
    python3 tools/selftest.py --only fn_audit
    ```
@@ -181,17 +183,23 @@ $ python3 tools/sh4dis.py --va 0x00413af4 --count 1 $IMG Navi.exe
 0x00413af4  430b  jsr @r3
 $ python3 tools/sh4dis.py --va 0x003f5fc2 --count 1 $IMG Navi.exe
 0x003f5fc2  0009  nop
+$ python3 tools/sh4dis.py --va 0x00413a6c --count 2 $IMG Navi.exe
+0x00413a6c  2f86  mov.l r8,@-r15
+0x00413a6e  2f96  mov.l r9,@-r15
+$ python3 tools/sh4dis.py --va 0x003f5f48 --count 2 $IMG Navi.exe
+0x003f5f48  2f86  mov.l r8,@-r15
+0x003f5f4a  2f96  mov.l r9,@-r15
 ```
 
-**Selftest:** `python3 tools/fn_audit.py --selftest` prints `selftest: OK (81 checks, 0 failed)`. That was 72 before H63; the 9 new checks are the H63 ones listed under Controls. `python3 tools/selftest.py --only fn_audit` gives `passed=1 failed=0`, and `python3 tools/gate.py` reports `4 pass, 0 fail, 0 skip`.
+**Selftest:** `python3 tools/fn_audit.py --selftest` printed `selftest: OK (81 checks, 0 failed)` at review time (83 after the corrections below). That was 72 before H63; the 9 first-round checks are the H63 ones listed under Controls. `python3 tools/selftest.py --only fn_audit` gives `passed=1 failed=0`, and `python3 tools/gate.py` reports `4 pass, 0 fail, 0 skip`.
 
 ## Interpretation
 
-- **FACT:** on the frozen `b56fed2` corpus, 8 of the 13 `CORRECTED` citations rest on the static allowlist alone; the line names no start. Only 5 are resolved by the line's own pair (C-3831). The split leaves `INSIDE 33` and `CORRECTED 13` unchanged, so the Stop condition does not apply.
+- **FACT:** on the frozen `b56fed2` corpus, 8 of the 13 `CORRECTED` occurrences carry no arrow pair of their own and are resolved by the static allowlist; 5 are resolved by their own `VA → start` pair (C-3831). Of the 8, 2 sit on lines that name the start in another form: `TODO.md:729` has `0x00542256 → fn 0x00542250` and then a bare `0x00542256`, and `TODO.md:1281` names `fn 0x00413a6c` without an arrow. So `pin` means "no arrow pair on this occurrence", not "the line names no start" (corrected after navigator review). The split leaves `INSIDE 33` and `CORRECTED 13` unchanged, so the Stop condition does not apply.
 - **FACT:** the two branches never both fire for one citation. A line that carries a pair is decided by that pair. A pinned VA with a wrong pair stays `INSIDE` (selftest), and on both real corpora no such line exists (C-3834).
 - **FACT:** `--drop-pin 0x00542256` on `b56fed2` moves exactly the three `pin` rows of that VA, giving `INSIDE 36, CORRECTED 10` (C-3832). That is the task's precheck, reproduced with a committed flag instead of a hand edit.
 - **OBSERVED:** the live tree's `CORRECTED 20` is not "the same `INSIDE`, plus prose", as the Done-when expected. H52 already rewrote the live `INSIDE` citations (live `INSIDE 0`), and the 7 extra `line` rows are post-H52 pairs. The `pin` count is 8 on both corpora, at different lines (C-3833).
-- **OBSERVED:** each kept pin has a re-check that does not use the pin. The `0x00542256` check is byte-level: `0x00542250` opens with three register pushes, and `0x00542256` is the fourth prologue instruction (`sts.l pr`). The `0x00413af4` check confirms that the VA is a `jsr` call site, not an entry. M1.24's `--parent-of`, which the task names for `0x00542256`, is not on `main` yet (M1.24 is in progress), so its `Pin:` line names it as the follow-on check (C-3835).
+- **OBSERVED:** each kept pin has a re-check that does not use the pin or `.pdata`: `sh4dis` shows that all three true starts open with `mov.l r8,@-r15; mov.l r9,@-r15`. The `0x00542256` check is byte-level: `0x00542250` opens with three register pushes, and `0x00542256` is the fourth prologue instruction (`sts.l pr`). The `0x00413af4` check confirms that the VA is a `jsr` call site, not an entry. M1.24's `--parent-of`, which the task names for `0x00542256`, is not on `main` yet (M1.24 is in progress), so its `Pin:` line names it as the follow-on check (C-3835).
 
 Pin lines:
 
@@ -199,8 +207,8 @@ Pin lines:
   - Re-check now: `python3 tools/sh4dis.py --va 0x00542250 --count 4 IMG256 Navi.exe` shows the prologue; the push sequence puts the VA mid-prologue.
   - Also: `python3 tools/pdata.py fn --module Navi.exe IMG256 0x00542256`.
   - When M1.24 merges: `sh4literal.py --parent-of 0x00542256`.
-- `Pin: 0x003f5fc2 → 0x003f5f48`. Re-check: `python3 tools/pdata.py fn --module Navi.exe IMG256 0x003f5fc2` (`end 0x003f5fd0`) and `python3 tools/sh4dis.py --va 0x003f5fc2 --count 1 IMG256 Navi.exe` (`nop`, an instruction in the body, not an entry).
-- `Pin: 0x00413af4 → 0x00413a6c`. Re-check: `python3 tools/pdata.py fn --module Navi.exe IMG256 0x00413af4` and `python3 tools/sh4dis.py --va 0x00413af4 --count 1 IMG256 Navi.exe` (`jsr @r3`, the call site).
+- `Pin: 0x003f5fc2 → 0x003f5f48`. Re-check: `python3 tools/sh4dis.py --va 0x003f5f48 --count 2 IMG256 Navi.exe` (`mov.l r8,@-r15; mov.l r9,@-r15`, a prologue), `python3 tools/pdata.py fn --module Navi.exe IMG256 0x003f5fc2` (`end 0x003f5fd0`) and `python3 tools/sh4dis.py --va 0x003f5fc2 --count 1 IMG256 Navi.exe` (`nop`, an instruction in the body, not an entry).
+- `Pin: 0x00413af4 → 0x00413a6c`. Re-check: `python3 tools/sh4dis.py --va 0x00413a6c --count 2 IMG256 Navi.exe` (`mov.l r8,@-r15; mov.l r9,@-r15`, a prologue), `python3 tools/pdata.py fn --module Navi.exe IMG256 0x00413af4` and `python3 tools/sh4dis.py --va 0x00413af4 --count 1 IMG256 Navi.exe` (`jsr @r3`, the call site).
 
 ## Conclusion
 
@@ -208,7 +216,7 @@ Pin lines:
 
 On `b56fed2` the split is `CORRECTED 13 (5 line, 8 pin)`. On the live tree it is `CORRECTED 20 (12 line, 8 pin)`. `--drop-pin VA` makes the pin-removal measurement a command.
 
-All three pins are kept, each with a runnable re-check. Whether bare pin-resolved lines such as `TODO.md:714`/`828` should instead carry their own pair is H52's question (citations), not this task's.
+All three pins are kept, each with a runnable re-check. Whether pin-resolved occurrences such as `TODO.md:714`/`828` (no start on the line) or `729`/`1281` (start named in another form) should instead carry their own arrow pair is H52's question (citations), not this task's.
 
 ## Overtaken by a later commit
 
@@ -219,7 +227,7 @@ none
 ```bash
 python3 tools/fn_audit.py IMG256 --scope docs --quiet          # on a b56fed2 tree with this tool: CORRECTED 13 (5 line, 8 pin)
 python3 tools/fn_audit.py IMG256 --scope docs --quiet --drop-pin 0x00542256   # b56fed2: INSIDE 36, CORRECTED 10
-python3 tools/fn_audit.py --selftest                           # selftest: OK (81 checks, 0 failed)
+python3 tools/fn_audit.py --selftest                           # selftest: OK (83 checks, 0 failed)
 ```
 
 ## Follow-ups

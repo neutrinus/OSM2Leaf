@@ -1423,6 +1423,29 @@ def selftest():
                             "--write-snapshot", "x.json"])
         check("H63 --drop-pin refuses a VA that is not a pin, and a snapshot",
               rc_unknown == 2 and rc_snap == 2 and 0x401048 in CORRECTION_ONLY)
+        # A successful --drop-pin: the pin's row falls back to INSIDE for
+        # that run only, and the allowlist is restored afterwards.
+        seen_inside = []
+        saved_run = globals()["_run"]
+
+        def fake_run(_ap, _args):
+            got = audit([Citation(0x401048, "doc.md:7", "ctx")], stub)
+            seen_inside.append(got[0][1].klass)
+            return 0
+        globals()["_run"] = fake_run
+        try:
+            rc_ok = main(["img", "--drop-pin", "0x00401048"])
+        finally:
+            globals()["_run"] = saved_run
+        check("H63 --drop-pin drops the pin for the run and restores it",
+              rc_ok == 0 and seen_inside == ["INSIDE"]
+              and 0x401048 in CORRECTION_ONLY)
+        # Two occurrences of one VA on one line: the paired one is `line`,
+        # the bare one `pin` (TODO.md:729 on b56fed2).
+        two = audit([Citation(0x401048, "doc.md:8", "ctx", correction=0x401040),
+                     Citation(0x401048, "doc.md:8", "ctx")], stub)
+        check("H63 two occurrences on one line split line + pin",
+              [v.evidence for _c, v in two] == ["line", "pin"])
         CORRECTION_ONLY[0x401048] = "pinned to 0x00401000 instead"
         bad_allow = audit([Citation(0x401048, "doc.md:5", "ctx")], stub)
         check("allowlist with a wrong pinned start stays INSIDE",
@@ -2025,6 +2048,10 @@ def main(argv=None):
         print("error: --drop-pin is a live-scan measurement; it cannot write "
               "or audit a snapshot", file=sys.stderr)
         return 2
+    # Validate every --drop-pin VA before touching the allowlist, then drop
+    # them only for this run: the module-level dict is restored on return,
+    # so an in-process caller (the selftest) never sees a pin go missing.
+    drop = []
     for text in args.drop_pin:
         try:
             va = int(text, 16)
@@ -2035,7 +2062,19 @@ def main(argv=None):
             print("error: --drop-pin 0x%08x is not a CORRECTION_ONLY pin" % va,
                   file=sys.stderr)
             return 2
-        del CORRECTION_ONLY[va]
+        drop.append(va)
+    saved = dict(CORRECTION_ONLY)
+    for va in drop:
+        CORRECTION_ONLY.pop(va, None)
+    try:
+        return _run(ap, args)
+    finally:
+        CORRECTION_ONLY.clear()
+        CORRECTION_ONLY.update(saved)
+
+
+def _run(ap, args):
+    """``main`` after argument parsing and the ``--drop-pin`` setup."""
     if args.corpus and args.write_snapshot:
         print("error: --corpus and --write-snapshot are exclusive",
               file=sys.stderr)
