@@ -68,6 +68,10 @@ Options:
                       the first serial port (machine option dbgmsg=VA, M8.B6;
                       needs ze0-0007). Default 0x880404f4 (EU2011 nk.exe
                       debug-string sink); off for older QEMU builds
+  --sd FILE           -M ze0: SD card image on SD host port 0 (-drive
+                      if=sd,index=0, M8.C10; needs ze0-0008). The size must
+                      be a power of two: give a qcow2 overlay over a card
+                      image (qemu-img create -f qcow2 -b CARD -F raw F 8G)
   --icount SPEC       pass -icount SPEC (e.g. shift=0,sleep=off: guest time
                       independent of host load, M8.B2)
   --qemu PATH         qemu-system-sh4 binary (default: from PATH)
@@ -302,6 +306,7 @@ WORK=
 LOG=
 SERIAL=log
 DBGMSG=0x880404f4
+SD=
 ICOUNT=
 QEMU=qemu-system-sh4
 SUMMARY=1
@@ -326,7 +331,7 @@ while [ "$#" -gt 0 ]; do
   case $_opt in
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
     --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
-    --serial | --dbgmsg | --icount)
+    --serial | --dbgmsg | --icount | --sd)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
         _val=$2
@@ -359,6 +364,7 @@ while [ "$#" -gt 0 ]; do
         --serial) SERIAL=$_val ;;
         --dbgmsg) DBGMSG=$_val ;;
         --icount) ICOUNT=$_val ;;
+        --sd) SD=$_val ;;
       esac
       ;;
     --gdb)
@@ -494,6 +500,10 @@ set -- "$@" -nographic -serial "$SERIAL_SPEC"
 set -- "$@" -monitor "unix:$WORK/hmp.sock,server,nowait"
 if [ -n "$ICOUNT" ]; then
   set -- "$@" -icount "$ICOUNT"
+fi
+if [ -n "$SD" ] && [ "$MACHINE" = ze0 ]; then
+  # SD host port 0 (M8.C10, ze0-0008)
+  set -- "$@" -drive "if=sd,index=0,file=$SD"
 fi
 
 if [ "$GDB" -eq 1 ]; then

@@ -277,6 +277,10 @@ level-5 `LEV3456R` record layout (below) uses different header semantics for
 ### Section 4, road names and streaming
 
 Section 4 is a per-parcel **administrative/place-name index**, not geometry.
+(M4.40, L3: it is also what the router's `RGD_DATA` request fetches, and the records it served hold
+signpost destinations and road numbers, e.g. `0=POZNAN:KALISZ:(36):RAWICZ`; header word 6 is the
+name text's word offset and word 7 its length in words — see
+[Which section each request kind fetches](#which-section-each-request-kind-fetches-m440-l3-eu2011-build-a), C-5925.)
 `B30R048R` has 20 records / 68 names; record word 2 = `0x0009`, word 8 = ISO
 3166 numeric country (300 = Greece). Names are `0=NAME` strings (`RODOS`,
 `LINDOS`, `PARALIP AFANTOU`, …). `ze0_section4.py` emits GeoJSON points.
@@ -385,6 +389,18 @@ where `x` is stored as `x0 − 1024`. Rows are at `y = 1.5 × lat` and columns a
 `u32` block address (`0xffffffff` when the row is empty) and one
 `(compressed words, plain words)` pair per record slot. Level 6 is one raw
 record (not zlib) and is preserved verbatim.
+
+**Placing a point (M5.59).** In the unit the head stores, a point is
+`y = 1.5 × lat`, `x = lon − 100` (the signed head `x`). A directory holds it
+when `head_y ≤ y < head_y + rows × step` and `head_x ≤ x < head_x + cols ×
+step`, with `step` 0.5 (level 3), 2 (level 4), 8 (level 5); the parcel is
+`row = ⌊(y − head_y) / step⌋`, `col = ⌊(x − head_x) / step⌋` and the stored
+11-bit point is the fraction inside the parcel × 2048. Krotoszyn (51.70 N
+17.45 E) is level-3 directory `(72, −88)` (index 24 on the EU 2011 card), row
+11, col 10. The record header `(w0, w1)` is the parcel code of the row below
+(C-2805) in half units with low nibble 3/4/5 for the level; it fits every
+section-1 record of levels 3, 4 and 5 of the EU 2011 file (13,142 of 13,142;
+`python3 tools/lev3456gen.py codes`, C-6106).
 
 ### Splice semantics and the size consequence (M5.45)
 
@@ -889,6 +905,20 @@ The box table at `0x2ac` is **not loaded** by the header entry in this run.
 entry changed to 1 it reads `0x1100`/`0x100` instead. `LEV3456R.DAT` (2
 entries) and `B48R068R.DAT` (3 entries) fit the same rule.
 
+**A tile must list three sections (M3.33, EU2011).** Every tile box of the
+firmware's table (data VA `0xd624a0`, 24 B: `+4` part mask = 7, `+6` level
+bits = 3, `+8`…`+14` y0/x0/y1/x1, `+16` status) asks for parts 0, 1 and 2,
+whose entries are at `0x800`, `0x806` and `0x80c`. On the first mount the
+header check `0x0040acb8` gives a tile whose third entry is `ff ff ff ff`
+status 3 and returns -1 (`0x0040ad36` → `0x0040ae26`): no section table of
+that tile is read, the box finder `0x0040a1dc` skips it, and the mount goes
+on in box 0 of the table (`B28R070R.DAT` on the EU 2011 card). 8 of the 45
+factory tiles have fewer than three entries and behave this way; with a
+third entry written into `B60R048R.DAT` it mounts, with the third entry of
+`B48R058R.DAT` removed it does not (`tools/tile_drop_l3.py`,
+EXP-2026-11-20-M3.33-b60-header-drop, C-6080–C-6087). `LEV3456R.DAT` (level
+bits `0x3c`) needs two.
+
 **No bound on the level-table walk.** With the byte at `0x1ac` changed to
 `0xff`, `0x0040aa50` loads 402 bytes up to `0x805` instead of 34.
 
@@ -1037,7 +1067,8 @@ A `lev3456gen.py` file is read the same way relative to its own layout (the
 firmware follows the moved pointers). A level-3 directory with a wrong row
 count is dropped (no parser runs). No coarse record and no section-4 record
 is read at mount (M9.53). Writers must place level-3 data in the directory
-whose box holds it; `lev3456gen.py` does not yet (C-2445, M5.59).
+whose box holds it; `lev3456gen.py` does since M5.59 (C-6100–C-6103), and
+`lev3456gen.py placement` checks a generated file for it.
 
 ### The router reader asks; it does not parse (M4.40, EU2011 build A)
 
@@ -1078,6 +1109,12 @@ its result). C-5646–C-5649.
 
 #### What the four words are (M4.54, L3)
 
+> **Corrected by M4.40 (C-5924):** the table below was produced with a **section-2** block put into
+> the buffer by hand and `k` chosen as the first index that clears the gate. The firmware fills this
+> buffer with a **section-4** record (kind `0x40`, next subsection), and a passing `k` exists by chance
+> in about a third of section-2 records, so the part-a field names below are retracted (C-5713–C-5715).
+> The run facts (pass-through store, four reads, the gate) stand.
+
 `tools/rgd_reply_l3.py` stores a factory block through the real `0x004268c0` and runs
 `0x00422eac` with a read-watch. The store is a **pass-through** (it copies the block's plain
 length, e.g. 3508 B for `B48R058R` `0xb91d078`, and stores even a section-1 block's 2424 B), so the words
@@ -1103,6 +1140,41 @@ the section-2 block fails it too (`0x06d6`); `B28R070R` has no passing `k` in it
 section-2 records. Over single-`k` records whose `k` is a node header, `d` always equals the
 entry 0 `id` (4513/4513 on `B48R058R`), while `k+d` lands on entry 0 `a` in only 92 — `k+d` is
 a record field, not necessarily `a`. C-5710–C-5717.
+
+#### Which section each request kind fetches (M4.40, L3, EU2011 build A)
+
+> **Status:** `VERIFIED (run, L3)` — the firmware's data-access task, mounted on the EU 2011 card by
+> `tools/datask_l3.py`, served `0x14b5` requests sent by `tools/datask_req_l3.py` (one declared model:
+> the client row). EXP-2026-11-20-M4.40-request-kinds, C-5920–C-5927. US2011 not run.
+
+`0x00408f9c` maps the request kind (`+16`) to a section index through the table at data `0x179b20`
+(`{u32 group mask, u32 kind mask, u32 index}`). Observed on two tiles whose section list is 1, 2, 4
+(`B48R058R`, `B30R058R`): index 0 read section 1, index 1 section 2, index 2 section 4. That the index
+counts the tile's sections in list order is not tested on a tile with another section list:
+
+| Kind | Sent by (EU2011) | Index | Record read (L3, `B48R058R` and `B30R058R`) | Reply pointers (list entry `+16`…`+28`) |
+| --- | --- | --: | --- | --- |
+| 4 | `MAP_DATA READ` `0x00425f40` (renderer) | 0 | section 1, `0x00fa` road shapes | `+16` word 22 (layer table), `+28` word 0 |
+| 8 | `RPF_PreMap_start` `0x00336bf0` (route path finder) | 1 | section 2, level 1 | `+16` **unit 0** (word 27), `+24` **unit 2** when present (word 6113 of `a6bed6ee`), absent units `0xffffffff` |
+| `0x10` | `RPF_PreMap_start` `0x00336bf0` | 1 | none for `a68cd68c` (status 4) | — |
+| `0x20` | — | 1 | refused: message status 9, entry status 3 | — |
+| `0x40` | `RGD_DATA READ` `0x004266ec` (router) | 2 | **section 4**, `0x0009` records (`a6bed6ee`, `9b8fd56e`); status 4 where the parcel has none | `+16` word 0, `+24` name text (= header word 6), `+28` word 9 |
+
+Run (L3): a kind-`0x40` request from a declared client reads a **section-4** record (guidance:
+signposts), and a kind-8 request reads section 2 and gets pointers to the record's units 0 and 2
+(C-5921, C-5922). Static: the route path finder sends kinds 8 and `0x10` (C-5923).
+
+> **Inference (static chain + L3, not run end to end):** the router's kind-64 reply that
+> `0x004268c0` stores and `0x00422eac` reads is then a section-4 record, and the section-2 reader is
+> in the route path finder. The router, `0x004268c0` and `0x00422eac` were not driven with the real
+> reply; the request came from a fake client (C-5921).
+
+The reply entry
+is `+0 u16` status (1 data, 2 pending — a read was queued and a second reply follows, 3 refused,
+4 no data), `+4` kind, `+10 u16` DIVID, `+12` mesh id (the level-1 parcel code, rounded to the
+`0x80`-unit box for kinds 4, 8 and `0x40`), `+16`…`+28` pointers. The message status is
+separate: 9 = refused. A requester must have a row in the client table (data `0xd98fe0`, 24 × 64 B);
+an unknown one is refused with message status 9 and entry status 3 (C-5926).
 
 ## Cross-edition differential census (2011/2014/2016)
 

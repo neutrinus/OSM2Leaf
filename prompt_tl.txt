@@ -4,6 +4,8 @@ Take on the role of the developers' team lead.
 
 Run git fetch, then fast-forward the primary checkout (`git pull --ff-only` on `main`); it stays on `main` for the whole run and nobody commits in it. Worktrees are managed with worktrunk (`wt`) — read "Worktrees (worktrunk)" in AGENTS.md.
 
+First clear the queue: merge or return every open PR that is not a draft (`gh pr list --state open --draft=false`), critical-path IDs first, before you launch anything. A finished PR that waits collects one conflict per merge on `main` (retro 2026-11-20-2: six ready PRs, 21–35 merges behind).
+
 Pick up to 10 tasks from TODO — as many as actually qualify, never filler:
 - `Status: open`, every `Depends` is done on origin/main, and the task ID appears in no open PR title (`gh pr list --state open`).
 - Prefer tasks on the critical path in the Priorities section.
