@@ -258,7 +258,7 @@ section tables and directories (M9.13, C-3253). It has not yet read a road
 record we wrote: that is the next gate (**M9.52** → **M9.53**). Card ladder:
 **P0** built (card `b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237`),
 **P1** display-only card built (M5.49), routing golden in L2 (M5.36), section-2
-words mapped in L3 (M4.54 → M4.40 re-opened).
+requester found in L3 (M4.40 → M4.55; M4.54's word mapping retracted, C-5924).
 
 **The four rule-17 numbers: run, do not retype.** `python3 tools/map_signals.py`
 (`--json -` for logs; `--factory-root` on a host with the factory tree, else
@@ -269,7 +269,7 @@ sandbox, `738c1ef`: `readers: located 15 partial 2 unlocated 3`,
 **Next for the TL (dependencies done, no owner, in this order):**
 
 1. **M9.52** → **M9.53** — finish the firmware's mount, then make it read a record block we wrote. This turns "the container is read" into "our roads are read".
-2. **M4.40** (re-opened by M4.54) — the section-2 field table from the router's reader; it unblocks M4.23, M4.24, M4.3 (routing, P2).
+2. **M4.40** (blocked on **M4.55**) — the section-2 field table from the route path finder's reply handler (the router's reader fetches section 4, C-5921); it unblocks M4.23, M4.24, M4.3 (routing, P2).
 3. **M3.13** (re-opened this pass) — the `ADDRE` reader; M4.36, M5.18 and M9.15 wait on it (names and search).
 4. **M3.29**, then **M3.30** — split the shared REFER candidate list per family and drive the search path; M3.14, M3.16 and M3.18 are blocked on them.
 5. **M9.55** — the US POI runner row that unblocks M9.41 → M9.31 → **M9.12** (`l3check --card`, the gate before any car test).
@@ -300,7 +300,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 
 - **P0 (built)** — L3: M9.13 done for the container; **M9.14** (`drstr_parser`); QA pin **M5.40**.
 - **P1 (display-only card built)** — **M9.52**, **M9.53** (records read by the firmware); **M5.56** for tiles without a factory container.
-- **P2 (routing)** — **M4.40** → M4.23, M4.24, M4.3 → M5.5; **M9.18** → M5.16; **M5.3** (waits on M4.2).
+- **P2 (routing)** — **M4.55** → **M4.40** → M4.23, M4.24, M4.3 → M5.5; **M9.18** → M5.16; **M5.3** (waits on M4.2).
 - **P3 (names)** — **M3.13** → **M4.36**; **M3.29** → **M5.17**; **M4.16** → **M4.2**; **M9.15**.
 - **P4 (search)** — **M5.18** (waits on M3.13), M5.27 → **M5.32**, **M9.55** → M9.41 → **M9.10**.
 - **tooling** — **M9.36**, **M9.24**, **M9.2**, **M9.16**, M9.31 → **M9.12** → **M5.35**.
@@ -311,7 +311,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 
 - **L1 (ready for real cards, not for fixtures):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards. A vendor-free fixture is still missing: **H103** → **H40** → **H105** → **H41** → **H42**.
 - **L2 (the product path):** P0 and P1 cards built, routing golden (M5.36). Next **M5.35** (one command, waits on M9.12) → **M7.1** (all Dolnośląskie). Feature gaps by step are in the list above.
-- **L3 (the bottleneck that started to move):** tile container read: done (M9.13). Records: **M9.52** → **M9.53**. Routing: **M4.40** → **M5.57** (section-2 writer) → **M9.56** (route computed in L3). Names: **M3.13**, **M3.29**/**M3.30**. Card gate: **M9.55** → M9.41 → M9.31 → **M9.12**. SKIP and BLOCKED are never PASS.
+- **L3 (the bottleneck that started to move):** tile container read: done (M9.13). Records: **M9.52** → **M9.53**. Routing: **M4.55** → **M4.40** → **M5.57** (section-2 writer) → **M9.56** (route computed in L3). Names: **M3.13**, **M3.29**/**M3.30**. Card gate: **M9.55** → M9.41 → M9.31 → **M9.12**. SKIP and BLOCKED are never PASS.
 - **L4 (QEMU `-M ze0`):** F1 reached (M8.A3, M8.A6, M8.B5). Next **M8.D1** (decision), **M8.C** row C10, then **M8.E4** (full `Navi.exe`, waits on M9.16). M8.A9 (port to current QEMU) is off the path.
 - **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes `l3check --card` (M9.12) first.
 
@@ -2526,9 +2526,9 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Note (M3.25, 2026-11-19): the block decoders are named and run: `0x004157dc` picks one of eight (`0x00414644`, `0x00414930`, `0x00414dbc`, `0x00415330` ran; C-4691). `python3 tools/datask_l3.py mount … --bytes --json out.json` lists every byte each decoder loaded per block: the first byte not loaded bounds a record, and the decoder's branches are the grammar. Start from `0x00414930` (largest blocks).
   - Note (H112, 2026-11-19): **numbers in this block are corrected by C-4622:** `reach g.json 0x004266ec` now prints `reaches 27 functions, 1 unresolved indirect calls` (the root is counted; use that in the Precheck), and the subtree has no file-mapping import. The router differs from the renderer by three small callees only (`0x00425c5c`, `0x00425cb0`, `0x00425cf4`; `0x00425cf4` calls `OSM_SramSet`), and the shared `0x0041ee14` calls `OSM_TaskSend`. So this block's `Stop` ("handed on by message") is the likely first result: do that check first (one hour with `sh4dis` on `0x0041ee14`: which message id, which receiver task), then follow the receiver. The section-2 grammar is then read from the code that handles the *reply*. Data-side help from M4.41: `B60R060R` 2011 vs 2014 has 7 added section-1 streams — the smallest known section-2 delta.
   - Depends: M3.25 (entry and arguments of the tile reader; this task can start from the VAs below without it), M9.38 helps (read-watch)
-  - Goal: a generated map cannot route until we can write section 2, and its part b has resisted three byte-level attempts (M4.23, M4.24, M4.3 blocked). The code that parses it is small and isolated: the router data reader `0x004266ec` (EU2011, M3.6) reaches 27 functions with one unresolved indirect call (corrected 2026-11-20 by C-5640; 48 came from the retracted C-4284). Read the grammar off that code.
-  - Precheck: `python3 tools/callgraph.py reach g.json 0x004266ec` prints `reaches 27 functions, 1 unresolved indirect calls, 23 distinct imports` (corrected 2026-11-20 by C-5640; the 48 came from the retracted C-4284); `python3 tools/callgraph.py callers g.json 0x004266ec --depth 3` shows `0x00426d3c`, `0x0042810c` and `0x00427870` ← `0x00427144`/`0x00427c90` ← `0x00427a34`.
-  - Scope: the 27-function subtree, EU2011. Output is a field table for the section-2 record (offset, width, endianness, meaning or `unknown`, the VA that reads it) and the loop structure (what counts records, what ends one). Check each field on factory `B48R058R` and one second tile with `tools/tile_diff.py --section 2`. No writer.
+  - Goal: a generated map cannot route until we can write section 2, and its part b has resisted three byte-level attempts (M4.23, M4.24, M4.3 blocked). ~~The code that parses it is small and isolated: the router data reader `0x004266ec` (EU2011, M3.6) reaches 27 functions with one unresolved indirect call.~~ (corrected 2026-11-20 by C-5921/C-5927: `0x004266ec` fetches section 4 and reaches 30 functions; the section-2 reader is the route path finder's reply handler, M4.55.) Read the grammar off the code that walks the kind-8 reply (M4.55).
+  - Precheck: `python3 tools/callgraph.py reach g.json 0x004266ec` prints `reaches 30 functions, 1 unresolved indirect calls, 23 distinct imports` (C-5927; C-5640 said 27, the 48 came from the retracted C-4284) — that subtree fetches section 4 (C-5921), the section-2 requester is `0x00336bf0` (`reaches 14 functions`, C-5927; M4.55); `python3 tools/callgraph.py callers g.json 0x004266ec --depth 3` shows `0x00426d3c`, `0x0042810c` and `0x00427870` ← `0x00427144`/`0x00427c90` ← `0x00427a34`.
+  - Scope: the code that walks the kind-8 reply (M4.55; was "the 27-function subtree" of `0x004266ec`, which fetches section 4, C-5921), EU2011. Output is a field table for the section-2 record (offset, width, endianness, meaning or `unknown`, the VA that reads it) and the loop structure (what counts records, what ends one). Check each field on factory `B48R058R` and one second tile with `tools/tile_diff.py --section 2`. No writer.
   - Input: `tools/sh4dis.py`, `tools/callgraph.py`, `tools/rd_restrictions.py` (the framing M4.23/M4.24 already have), EXP-2026-11-06-M3.6 (MAP_DATA `0x00425f40` renderer / RGD_DATA `0x004266ec` router, shared `0x0041ee14`), `docs/format/map-tiles.md`. ~~The subtree imports `CreateFileMappingW`/`MapViewOfFile`: the tile is memory-mapped, so the reader takes a pointer — the easiest kind of function to run in L3.~~ (false: C-4284 retracted by C-4622; no mapping import, C-5640)
   - Hints: the renderer subtree `0x00425f40` has about the same size (27 for the router) and shares `0x0041ee14` — diff the two callee sets first; what only the router calls is the section-2 parser. In SH-4 a record field read is `mov.b/mov.w/mov.l @(disp,Rn)` off one base register: list the displacements per function and you have the struct. A Ghidra decompile of these 27 functions (M9.2, runnable on Marek's host) turns days into hours; without it use `sh4dis` and the read-watch tracer. Run the entry in PySh4 with the factory tile mapped and watch which bytes of section 2 are read and in what order: the read order is the grammar.
   - Done when: the field table is in `docs/format/map-tiles.md` with the reading VA per field; `tools/rd_restrictions.py` (or a new `tools/sec2.py`) decodes part b of both tiles with 0 bytes unexplained or lists the unexplained ranges; M4.23/M4.24/M4.3 get an `Unblock:` line pointing here.

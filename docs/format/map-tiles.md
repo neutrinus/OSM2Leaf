@@ -1090,24 +1090,33 @@ a record field, not necessarily `a`. C-5710–C-5717.
 > the client row). EXP-2026-11-20-M4.40-request-kinds, C-5920–C-5927. US2011 not run.
 
 `0x00408f9c` maps the request kind (`+16`) to a section index through the table at data `0x179b20`
-(`{u32 group mask, u32 kind mask, u32 index}`); the index counts the tile's sections in the order of
-its section list (`B48R058R`: 1, 2, 4):
+(`{u32 group mask, u32 kind mask, u32 index}`). Observed on two tiles whose section list is 1, 2, 4
+(`B48R058R`, `B30R058R`): index 0 read section 1, index 1 section 2, index 2 section 4. That the index
+counts the tile's sections in list order is not tested on a tile with another section list:
 
 | Kind | Sent by (EU2011) | Index | Record read (L3, `B48R058R` and `B30R058R`) | Reply pointers (list entry `+16`…`+28`) |
 | --- | --- | --: | --- | --- |
 | 4 | `MAP_DATA READ` `0x00425f40` (renderer) | 0 | section 1, `0x00fa` road shapes | `+16` word 22 (layer table), `+28` word 0 |
 | 8 | `RPF_PreMap_start` `0x00336bf0` (route path finder) | 1 | section 2, level 1 | `+16` **unit 0** (word 27), `+24` **unit 2** when present (word 6113 of `a6bed6ee`), absent units `0xffffffff` |
 | `0x10` | `RPF_PreMap_start` `0x00336bf0` | 1 | none for `a68cd68c` (status 4) | — |
-| `0x20` | — | 1 | refused (status 9) | — |
+| `0x20` | — | 1 | refused: message status 9, entry status 3 | — |
 | `0x40` | `RGD_DATA READ` `0x004266ec` (router) | 2 | **section 4**, `0x0009` records (`a6bed6ee`, `9b8fd56e`); status 4 where the parcel has none | `+16` word 0, `+24` name text (= header word 6), `+28` word 9 |
 
-So the router's kind-64 reply that `0x004268c0` stores and `0x00422eac` reads is a **section-4**
-record (guidance: signposts), and the section-2 reader is in the route path finder, which asks for
-kinds 8 and `0x10` and gets pointers to the record's units 0 and 2 (C-5921–C-5923). The reply entry
+Run (L3): a kind-`0x40` request from a declared client reads a **section-4** record (guidance:
+signposts), and a kind-8 request reads section 2 and gets pointers to the record's units 0 and 2
+(C-5921, C-5922). Static: the route path finder sends kinds 8 and `0x10` (C-5923).
+
+> **Inference (static chain + L3, not run end to end):** the router's kind-64 reply that
+> `0x004268c0` stores and `0x00422eac` reads is then a section-4 record, and the section-2 reader is
+> in the route path finder. The router, `0x004268c0` and `0x00422eac` were not driven with the real
+> reply; the request came from a fake client (C-5921).
+
+The reply entry
 is `+0 u16` status (1 data, 2 pending — a read was queued and a second reply follows, 3 refused,
 4 no data), `+4` kind, `+10 u16` DIVID, `+12` mesh id (the level-1 parcel code, rounded to the
-`0x80`-unit box for kinds 4 and 8), `+16`…`+28` pointers. A requester must have a row in the client
-table (data `0xd98fe0`, 24 × 64 B); an unknown one is refused with status 9 (C-5926).
+`0x80`-unit box for kinds 4, 8 and `0x40`), `+16`…`+28` pointers. The message status is
+separate: 9 = refused. A requester must have a row in the client table (data `0xd98fe0`, 24 × 64 B);
+an unknown one is refused with message status 9 and entry status 3 (C-5926).
 
 ## Cross-edition differential census (2011/2014/2016)
 

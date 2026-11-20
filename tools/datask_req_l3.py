@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import struct
 import sys
 import zlib
@@ -62,7 +63,7 @@ REQ_EU2011 = {
 }
 CLIENT_TASK = 0x77         # any id the two tasks do not use (datask_l3: 2 and 0x10)
 LIST_BYTES = 0x2004        # the list size 0x004066ac copies (C-5643)
-STATUS = {1: "data", 2: "pending (a read was queued)", 3: "refused", 4: "no data", 9: "client not registered"}
+STATUS = {1: "data", 2: "pending (a read was queued)", 3: "refused", 4: "no data", 9: "refused (message status)"}
 
 
 # --------------------------------------------------------------------------
@@ -188,13 +189,43 @@ def unit_at(pairs, word: int) -> int | None:
     return None
 
 
-def section_of(plain: bytes) -> str:
-    """Record family by its documented header word 2 (map-tiles.md)."""
-    if len(plain) < 6:
-        return "?"
-    w2 = struct.unpack_from(">H", plain, 4)[0]
-    return {0x00FA: "section 1 (0x00fa road shapes)", 0x0009: "section 4 (0x0009 records)"}.get(
-        w2, "section 2 (part a: unit pairs from word 3)" if w2 == 0 else "w2=%#06x" % w2)
+HEAD_BYTES = 0x1000         # level table (0x1ac) and section table (0x800) of a tile
+
+
+def section_starts(head: bytes) -> list[tuple[int, int]]:
+    """``[(start, section id)]`` sorted by start: the tile's section table
+    (``tile_scan.SECT_OFF``) zipped with its level table, as ``TileScan._dirs``
+    and ``diff_years_tiles`` frame a section (span ``[taddr, next taddr)``)."""
+    ze0 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ze0-viewer", "tools_ze0")
+    if ze0 not in sys.path:
+        sys.path.insert(0, ze0)
+    import tile_scan as TS
+    ids = [sid for sid, _lv in TS.TileScan(head).sections()]
+    starts, p = [], TS.SECT_OFF
+    while p + 6 <= len(head):
+        a, _c = struct.unpack_from(">IH", head, p)
+        p += 6
+        if a == 0xFFFFFFFF:
+            break
+        starts.append(TS.addr_of(a))
+    return sorted(zip(starts, ids))
+
+
+def section_at(starts, pos: int) -> int | None:
+    """Section whose span ``[taddr, next taddr)`` holds file position *pos*."""
+    got = None
+    for start, sid in starts:
+        if pos >= start:
+            got = sid
+    return got
+
+
+def section_of(sid: int | None, plain: bytes) -> str:
+    """Label: the section whose span the read position falls in; header word 2
+    (map-tiles.md: 0x00fa section 1, 0x0009 section 4) is shown as a cross-check."""
+    w2 = struct.unpack_from(">H", plain, 4)[0] if len(plain) >= 6 else None
+    name = "section %s" % sid if sid is not None else "section ?"
+    return name + ("" if w2 is None else " (w2=%#06x)" % w2)
 
 
 # --------------------------------------------------------------------------
@@ -254,6 +285,14 @@ class Client:
             else:
                 out.append({"task": x["task"], "id": mid, "sub": sub, "body": body})
 
+    def starts(self, row: dict) -> list[tuple[int, int]]:
+        """Section spans of the tile *row* read, from its first HEAD_BYTES (cached)."""
+        cache = self.__dict__.setdefault("_starts", {})
+        if row["file"] not in cache:
+            head = self.read_raw({"file": row["file"], "pos": 0, "length": HEAD_BYTES})
+            cache[row["file"]] = section_starts(head) if head else []
+        return cache[row["file"]]
+
     def read_raw(self, row: dict) -> bytes | None:
         entry = self.card.resolve(row["file"].replace("/", "\\"))
         if entry is None:
@@ -277,14 +316,16 @@ class Client:
             raw = (self.read_raw(row) if is_record and row["file"].upper().startswith("MAPAL001/")
                    else None)
             if raw is not None:
+                sid = section_at(self.starts(row), row["pos"])
+                rec["section_id"] = sid
                 parts = streams_of(raw)
                 rec["streams"] = []
                 for off, plain in parts:
-                    one = {"offset": off, "plain_bytes": len(plain), "section": section_of(plain),
-                           "units": unit_pairs(plain) if section_of(plain).startswith("section 2") else None,
+                    one = {"offset": off, "plain_bytes": len(plain), "section": section_of(sid, plain),
+                           "units": unit_pairs(plain) if sid == 2 else None,
                            "code": "%04x%04x" % struct.unpack_from(">HH", plain, 0) if len(plain) >= 4 else "?"}
                     rec["streams"].append(one)
-                    records.append(({"code": one["code"], "pos": row["pos"] + off}, plain))
+                    records.append(({"code": one["code"], "pos": row["pos"] + off, "sid": sid}, plain))
             res["reads"].append(rec)
         for s in sent:
             if s["task"] != CLIENT_TASK or s["id"] != REQ_EU2011["reply_msg"]:
@@ -310,7 +351,7 @@ class Client:
                         at = locate(g, plain)
                         if at is not None:
                             hit = {"record": rec["code"], "pos": rec["pos"], "byte": at, "word": at // 2}
-                            if section_of(plain).startswith("section 2"):
+                            if rec["sid"] == 2:
                                 hit["unit"] = unit_at(unit_pairs(plain), at // 2)
                             break
                     e["targets"].append(hit or {"record": None, "head": g[:16].hex()})
@@ -475,10 +516,18 @@ def selftest() -> int:
     got = streams_of(two)
     check("a read with two streams gives both, with offsets",
           len(got) == 2 and got[0] == (0, plain) and got[1][1] == plain[::-1] and got[1][0] == len(raw) + (len(raw) & 1))
-    check("record family by header word 2",
-          section_of(struct.pack(">3H", 1, 2, 0xFA)).startswith("section 1")
-          and section_of(struct.pack(">3H", 1, 2, 9)).startswith("section 4")
-          and section_of(struct.pack(">3H", 1, 2, 0)).startswith("section 2"))
+    head = bytearray(HEAD_BYTES)
+    lv = struct.pack(">H", 3) + b"".join(bytes([sid, 1]) + bytes(4) for sid in (1, 2, 4))
+    head[0x1AC:0x1AC + len(lv)] = lv
+    # sections 1, 2, 4 at file 0x1000, 0x5000, 0x9000 (addr_of: (v >> 8) * 2048 + (v & 0xff) * 256)
+    st = b"".join(struct.pack(">IH", v, 0) for v in (0x200, 0xA00, 0x1200)) + struct.pack(">IH", 0xFFFFFFFF, 0)
+    head[0x800:0x800 + len(st)] = st
+    sp = section_starts(bytes(head))
+    check("section spans from the level and section tables", sp == [(0x1000, 1), (0x5000, 2), (0x9000, 4)])
+    check("a read position is labelled by the span it falls in, not by header word 2",
+          section_at(sp, 0x4FFF) == 1 and section_at(sp, 0x5000) == 2 and section_at(sp, 0x9100) == 4
+          and section_at(sp, 0x800) is None
+          and section_of(2, struct.pack(">3H", 1, 2, 0xFA)).startswith("section 2 (w2=0x00fa)"))
 
     img = HERE.parent / "archive" / "head256.img"
     if img.is_file():
