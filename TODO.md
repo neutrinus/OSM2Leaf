@@ -3677,7 +3677,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-1280–C-1289
 
 - [ ] **M8.A8 — F0 EXP + register table** in `docs/format/firmware.md`.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.a8-f0-exp-registers · Critical: no
   - Depends: M8.A3, M8.A6 (M8.A4/M8.A5 merged, archived 2026-11-06)
   - Claims: C-1300–C-1309
 
