@@ -2748,7 +2748,7 @@ text of this section is in git (`13cb0cf`).
   - Hints: `.skn` is small, so it is an index/manifest rather than pixels; look for names or resource ids that match PNG entries. Compare `ReleaseMain.skn` with build B's `UpdateNK.skn` (compressed `FILESentry`, decode with `tools/nk_decomp.py files`): two samples of one format.
   - Done when: `docs/format/skins.md` exists with the TFAT16 listing (count, total bytes), a field table for `.skn` with every byte range `known`/`unknown`, and the answer "a skin is selected by … and its images come from …" with evidence status per sentence.
   - Stop: if the TFAT16 volume holds no skin files, record its real contents and correct C-166.
-  - Claims: C-6330–C-6339
+  - Claims: C-6390–C-6399
 
 - [ ] **M4.59 — One changed image on the screen: the smallest skin edit that passes the checks**
   - Status: blocked · Owner: — · Critical: no · Pair: required
@@ -2758,7 +2758,7 @@ text of this section is in git (`13cb0cf`).
   - Scope: a tool `tools/skin_patch.py` that patches a card image in place and reports changed ranges; `cardcheck --image` and `cerom.py` must still parse the ROM; an L3/L4 check if the loader can be run. Car test is M6 and belongs to Marek, after S0.
   - Done when: the patched image differs from factory only in the listed ranges, `SUM4` recomputed equals the stored value on both copies (negative control: without the fix it does not), and the patched PNG decodes.
   - Stop: if the image is in a compressed section or its size cannot stay equal, record why and stop.
-  - Claims: C-6340–C-6349
+  - Claims: C-6400–C-6409
 
 - [ ] **M4.60 — Sounds: inventory of every sound the unit plays and where its data is (beeps, chimes, voice prompts, TTS)**
   - Status: open · Owner: — · Critical: no · Pair: solo
