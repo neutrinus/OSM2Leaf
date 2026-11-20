@@ -1445,8 +1445,8 @@ of the four numbers above says so in its first line.
   - Claims: C-5290–C-5295 (was C-750–C-759; fresh block for this run; C-5296–C-5299 go to M2.19)
   - Result: done — EXP-2026-11-19-M2.4-hddinfo-fw-verdicts. `tools/hddinfo_fw_matrix.py run` puts all 89 variants through EU2011 build B `fn 0x03bd2ad8` (check 1): firmware 69 ACCEPT / 20 REJECT, agrees with `hddinfo.py classify` check 1 on 89/89 (factory ACCEPT, no-file REJECT controls ok); M0's 66/23 is refuted. Edge probes are consistent with a byte-exact compare of line-1 bytes 0..10 (BOM, lower case, leading space fail; 10 probes + 14 line-1 edits), and LF-only / line-1-only files pass check 1 although `hddinfo.py` refuses them (C-5290–C-5295). Check 2 (`0x51`) is M2.19.
 
-- [ ] **M2.19 — Check 2 (MapDBVer, `0x51`) and the router on the `HDD_INFO` variants in L3**
-  - Status: open · Owner: — · Critical: no
+- [x] **M2.19 — Check 2 (MapDBVer, `0x51`) and the router on the `HDD_INFO` variants in L3**
+  - Status: done · Owner: task/m2.19-check2-router-l3 · Critical: no
   - Depends: M2.4 (done), M9.6 (done)
   - Goal: run AppLaunch `fn 0x03bd2ce4` (MapDBVer range, EU2011 build B) and the router `fn 0x03bd2ecc` on the 89 variants, so each has a full launcher verdict, not only check 1.
   - Precheck: `python3 tools/nk_decomp.py pdata --image-start 0x3e00200 --module AppLaunch.dll archive/head256.img 0x03bd2ce4 0x03bd2ecc` gives `START` for both; `python3 tools/sh4dis.py --image-start 0x3e00200 --va 0x03bd2ce4 --count 120 archive/head256.img AppLaunch.dll` shows its imports are a subset of the 8 `mapcode_l3` stubs (else name the missing one).
@@ -1455,6 +1455,7 @@ of the four numbers above says so in its first line.
   - Done when: each of the 89 variants has a check-2 firmware verdict under a stated bounds pair, compared with `hddinfo.py classify --mapdbver-min/--mapdbver-max`, plus a run of the router that returns `0x50`/`0x51`/pass.
   - Stop: if check 2 needs the parse cache filled by a prior check-1 call and the harness cannot chain the two calls, or calls an unmodelled import, set `blocked` with the PC.
   - Claims: C-5296–C-5299
+  - Result: done — EXP-2026-11-20-M2.19-check2-router-l3. `tools/hddinfo_check2_matrix.py` runs check 2 `fn 0x03bd2ce4` and the router `fn 0x03bd2ecc(0)` (EU2011 build B) on the 89 variants: check 2 = `hddinfo.py classify` 89/89 under `0x010:0x010` (77/12) and `0x001:0x0ff` (81/8), logged MapDBVer = model 20/20; router codes = model failures 89/89 with a returning dispatcher (2 rows `0x50`+`0x51`) and first-code-only with a halting one. `validation.md`'s "does not skip check 2" corrected: on a production unit check 2 runs only after check 1 passes (C-5296–C-5299).
 
 - [ ] **M4.23 — Tile section-2 regulation/connectivity reader (kinds `0x2046`/`0x3e4`)**
   - Status: blocked · Owner: claude/m4.23-restriction-encoding · Critical: no
@@ -1515,12 +1516,13 @@ of the four numbers above says so in its first line.
   - Claims: C-5330–C-5339 (was C-830–C-839; fresh block for this run)
   - Result: EXP-2026-11-20-M3.2-ind-handling-l3.md (done, C-5330–C-5334). EU2011 L3 run of the whole compressed layer (`tools/cmp_read_l3.py`: mount `0x41bc98`, open `0x41b780`, seek `0x41b8a4`, read `0x41b954`, host ops): (a) `chunk_size` compared with the mount word at `0x41c92a` (0x8000/0x20000 rejected before any `.cmp` read; mount word 0x20000 rejects the factory file; both 0x20000 -> 79,360 wrong bytes), sizes nothing; (b) seek to `chunk_offset[first]` + one read (POINT010 seek `0x234d7f`), `78 9c` decoy + shifted index still correct, `off_last_m1` -> -1, no scan. Factory ADDRE001/POINT010 byte-identical. Static answers were already in `cmp-ind.md` (M3.2b); L3 paragraph added.
 
-- [ ] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
+  - Status: done · Owner: — · Critical: yes
   - Depends: M3.2, M9.5
   - Done when: accept/reject per variant is recorded and compared with
     `cmpind.py`.
-  - Claims: C-840–C-849
+  - Claims: C-5340–C-5349 (was C-840–C-849; fresh block for this run)
+  - Result: EXP-2026-11-20-M3.3-ind-variants-l3.md (done, C-5340–C-5344). EU2011 full-layer L3 run (`cmp_read_l3.py batch`, firmware's own `.ind` parser) on the 8 ADDRE001 variants vs `cmpind.py`: 6 agree (both reject: `size_20000`/`size_8000` at the `chunk_size` compare, `off0_1`/`off_last_m1`/`off_last_p1`/`off_last_0` in inflate); 2 disagree — `count_p1` read byte-identical, `count_m1` returns 79,360 B wrong from byte 65,536 with no error (D1 is a writer obligation). The `cmp_ind_reader` fragment target cannot judge `.ind` variants (harness-built table).
 
     `CMP.LST` (count, order, sentinel, leading `u32 = 0x2f`), which M5.6 must
     satisfy.
@@ -2327,7 +2329,7 @@ of the four numbers above says so in its first line.
   - Result: done — EXP-2026-11-20-M4.22-identity-codes. `identity_fields.py card` (new) reads MMAIN001/BICON001/DRSTR001 from the FAT of all four cards (EU/US 2011 full, EU 2014/2016 head + fetched clusters): every 2026-11-08 value reproduced; `header_block.py check` PASS on 8 headers, DRSTR negative exit 1; M4.38 language join PASS on all four cards incl. EU 2016 (16/16). `file-header.md`/`drstr.md`/`assets.md` carry the M4.38 code table; `0x180`–`0x183`, `14 17 18 19 1a` stay `UNKNOWN` with their mutations. Only `Navi.exe` imports `OBJ_DriveInfo_readDataVol`, and only fn `0x00377ae0` (EU2011) loads the thunk; the `0x18c` reader is M4.48 (C-5280–C-5283).
 
 - [ ] **M4.48 — Trace the `Navi.exe` reader of `MMAIN001` `0x18c` (map-language list)**
-  - Status: open · Owner: — · Critical: no
+  - Status: blocked · Owner: task/m4.48-drstr-18c-reader · Critical: no
   - Step: P0
   - Depends: M4.22 (done), M4.38 (done)
   - Goal: find the EU2011 `Navi.exe` code that reads the `0x18c` language list from the `MMAIN001` header copy and run it in L3, so the code→language reading becomes a firmware verdict instead of a value join.
@@ -2337,6 +2339,21 @@ of the four numbers above says so in its first line.
   - Done when: one function VA (EU2011, `pdata` `START`) is shown to read `+0x18c` of the header copy, and an L3 run of it on the EU 2011 header returns a different result when `05` is replaced by `3f`.
   - Stop: if none of the four loaders nor their callees reads `+0x18c..+0x19f` within two call levels, set `blocked` with the call tree in the EXP.
   - Claims: C-5286–C-5289
+  - Blocker: no EU2011 code reads `0x18c..0x1a0` statically: OBJDLL's field table (`0x01e33290`) names it index 9, and none of 31 `getSize`/`getOffset`/`readDiscVol` call sites (all importers + OBJDLL) asks for index 9; the whole-header copies reach 40 functions to depth 2 with no constant access in `0x18c..0x1a0` (bounds reader `0x003f7008` at `0x184..0x18a` is the positive control). No function VA exists to run in L3.
+  - Unblock: M4.50 (read watch on the header copies in a full `Navi.exe` run, or a bench `05`→`3f` mutation).
+  - Result: blocked — EXP-2026-11-20-M4.48-datavol-18c-reader. `tools/datavol_trace.py` (new: `table`, `calls`, `taint`, `--selftest`). Header path (EU2011): `0x0041a438` reads `MMAIN001.DAT` → `0x0041a304` swaps + `writeDataVol` → `0x00377ae0` `readDataVol`/`writeDiscVol` → five `readDiscVol(…, 20, …)` copies; field requests: indices 3/4/7/8 only (C-5286–C-5289).
+
+- [ ] **M4.50 — Watch run-time reads of the `MMAIN001` `0x18c` language list**
+  - Status: open · Owner: — · Critical: no
+  - Step: P0
+  - Depends: M4.48 (blocked, static negative), M8.E4 (full `Navi.exe` run) — or a car/bench slot
+  - Goal: decide whether any EU2011 code reads header bytes `0x18c..0x1a0` at run time, now that a static census found no reader (C-5287, C-5288).
+  - Precheck: `python3 tools/datavol_trace.py calls archive/head256.img --field 0x18c --size 20` still exits 1 (no field request), and the L4 run reaches fn `0x00377ae0` (EU2011) with the header in `0x01205040`.
+  - Scope: EU2011 build A; read watch on `0x00e23cc0`, `0x01205040`, `0x00625668`, `0x009c9600`, `0x009c8600` and the block `0x00d8b070` points at, bytes `+0x18c..+0x1a0`, from card insert to map display and a language change; excludes the meaning of codes `14 17 18 19 1a`.
+  - Input: EXP-2026-11-20-M4.48-datavol-18c-reader (call tree, seeds), `tools/datavol_trace.py`, `tools/read_watch_l3.py` (watch pattern), M8.E4.
+  - Done when: the watch reports the PC of every read of `+0x18c..+0x1a0` (or `NO HITS` with a positive watch hit on `+0x184` by fn `0x003f7008` in the same run); if a reader is found, an L3 run of it with `05`→`3f` gives a different result.
+  - Stop: if the L4 run cannot reach `0x00377ae0`, set `blocked` and name the missing peripheral/import.
+  - Claims: C-5470–C-5479
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
   - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
@@ -4462,8 +4479,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the factory tree gives a reject verdict (then the harness, not the card, is wrong).
   - Claims: none yet
 
-- [ ] **M9.45 — PySh4 ten times faster, measured on the decompressor**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.45 — PySh4 ten times faster, measured on the decompressor**
+  - Status: done · Owner: task/m9.45-pysh4-speed · Critical: no · Pair: solo
+  - Result: EXP-2026-11-20-M9.45-pysh4-speed; C-5320–C-5324. `PySh4.run_until` runs translated blocks (per-site memory caches, registers in locals, shared compiled code). `Navi.exe` sec1: `run_until` 25.89 s → 2.54 s median under load (10.2×; 10.7× at load 2.5), CPU 9.1×, SHA-256 unchanged; `check` 245/245 byte-identical JSON, user 5 m 23 s → 27 s. New differential selftests (all 65,536 halfwords in `--full`, random blocks with SMC/stops/budgets). Overriding engines (`GuardedPySh4`, `ShimSh4`) stay stepped.
   - Depends: M9.37 (the decoder audit is the regression suite for this change)
   - Goal: PySh4 runs about 260,000 instructions per second (H51: 183,114 instructions in 0.7 s). `nk_decomp.py check` takes ten minutes, and anything longer than one reader function is out of reach. Whole-task emulation (M9.44's mount machine, later a headless `Navi.exe` map task) needs an order of magnitude.
   - Precheck: `time python3 tools/nk_decomp.py section IMG256 --module Navi.exe --index 1` (about 16 s; the output SHA-256 is in EXP-2026-11-11-H51).
@@ -4471,7 +4489,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: `python3 -m cProfile -s cumtime tools/nk_decomp.py section …` first — optimise what the profile shows, not the list above.
   - Done when: the benchmark is ≥ 8× faster with the same output SHA-256; `engine.py --selftest`, `selftest.py` and the M9.36 table are unchanged; the EXP has the profile before and after.
   - Stop: at 3× with the profile flat, record it and stop.
-  - Claims: none yet
+  - Claims: C-5320–C-5324 (block C-5320–C-5329)
 
 - [x] **M9.48 — Model `div1`, the last integer form the engine rejects**
   - Status: done · Owner: task/m9.48-pysh4-div1 · Critical: no · Pair: solo
