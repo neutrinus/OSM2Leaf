@@ -937,7 +937,7 @@ each suffice.*
 ### Where the directory read length comes from (M3.31, EU2011 build A)
 
 > **Status:** `VERIFIED` (disassembly + PySh4 runs on the EU 2011 card:
-> 105/105 directory reads in 11 runs, 6 kind-byte changes, a fourth tile
+> 118/118 directory reads in 11 runs, 6 kind-byte changes, a fourth tile
 > predicted before its run). EXP-2026-11-20-M3.31-dir-read-length,
 > C-5820–C-5826.
 
@@ -977,9 +977,10 @@ a tile with another kind changes the length the firmware uses for that
 level), and back every directory with `length` bytes of file:
 `python3 tools/dir_read_len.py predict TILE` prints the length per section
 and level and lists every directory whose read runs past the end of the
-file. On the factory card it lists 2 section-4 directories of `B48R058R`,
-2 of `B48R068R` and 1 of `B40R060R` (the last directories of each file); the
-mount of this record did not read them (M5.56).
+file. Over the 46 EU2011 `MAPAL001` files it lists 53 section-4 level-1
+directories in 35 files (the last directories of each file; for example 2 in
+`B48R058R`, 2 in `B48R068R`, 1 in `B40R060R`); the mount of this record did
+not read them (M5.56).
 
 ### A read past the end of the file, and a tile without a factory container (M5.56, EU2011 build A)
 
@@ -1002,7 +1003,8 @@ entry.
 | the padded tile cut to `0x9100` | `0x8100`, **-1** |
 
 `tools/tilewriter.py` without `--factory` now zero-pads the file to the end
-of its longest directory read (`pad_directory_reads`), so the tile mounts
+of its longest directory read (`pad_directory_reads`; EU2011 build A table,
+US2011 not checked), so the tile mounts
 whether or not DRSTR001 is rebuilt. A card built with
 `rebuild_manifests.py` (true DRSTR001 sizes) needs no padding.
 `dir_read_len.py drstr-size` writes a DRSTR001 copy with one size changed

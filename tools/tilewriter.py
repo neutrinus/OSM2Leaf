@@ -1249,7 +1249,8 @@ def synthetic_tile(built, level, cell, data_version):
 def pad_directory_reads(blob: bytes) -> bytes:
     """Zero-pad the file so every directory is backed by the length the
     firmware reads for it (M3.31: ``0x100 * T[kind].n`` by level kind, e.g.
-    ``0x8100`` for a section-1 level-1 directory).  Without it the first
+    ``0x8100`` for a section-1 level-1 directory; EU2011 build A table,
+    US2011 not checked).  Without it the first
     directory read of a small fresh tile runs past the end of the file and
     fails (M9.13, C-3256; M5.56).  Only the tail grows: offsets, tables and
     directories are unchanged."""
