@@ -382,6 +382,8 @@
   "docs/experiments/EXP-2026-11-20-M4.16b-tmc-placement-all-tables.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
+  "docs/experiments/EXP-2026-11-20-M4.48-datavol-18c-reader.md",
+  "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
@@ -393,10 +395,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 386,
-  "citations": 1178,
-  "unique_va": 275,
-  "start": 991,
+  "files": 388,
+  "citations": 1184,
+  "unique_va": 277,
+  "start": 997,
   "inside": 81,
   "corrected": 9,
   "gap": 85,
@@ -634,7 +636,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2542,
+   "line": 2572,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -644,7 +646,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2546,
+   "line": 2576,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -10460,6 +10462,60 @@
    "file": "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
    "line": 144,
    "va": "0x0041c8c4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 51,
+   "va": "0x003bcac0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 51,
+   "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 51,
+   "va": "0x004247c0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 57,
+   "va": "0x003bc960",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 57,
+   "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+   "line": 66,
+   "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
