@@ -169,10 +169,54 @@ The TMC location code joins the decoded records to these blocks: 167,204 of
 172,752 records carry the same (negative, positive) pair as the triple of
 their code, and 0 at ordinal shifts ±1/+2 (C-5135,
 `python3 tools/tmc_fielddir.py join LCTBL001.DAT RDSTM001.DAT`). A `ref` is
-`group (>>16, 0..3131)` + `entry (&0xffff)`; the groups are lists of 4-byte
-entries after `0xccce00`, **not yet decoded** to MAPAL mesh/parcel/link
+`group (>>16)` + `entry (&0xffff)`, decoded to MAPAL parcel/node/link below
 (M4.16e). The US 2011 card's index and `RDSTM001.DAT` use other offsets (not
 parsed yet).
+
+### Link groups: ref → MAPAL section-2 link (EU 2011, M4.16e)
+
+Source: EXP-2026-11-20-M4.16e-rdstm-link-groups (C-5137–C-5139, C-5370);
+tool `tools/rdstm_links.py`. All words big-endian; an *addr* is the MAPAL
+container address `(v >> 8) * 0x800 + (v & 0xff) * 0x100`, *blocks* are 0x100
+bytes.
+
+```
+0x1000 header  u16 0x180 (words), u16 3, u16 122          (last two UNKNOWN)
+               2 x set: u32 group_index_addr, u16 blocks, u16 ntables (14)
+                        ntables x ( u16 table_code, u16 nlink,
+                                    nlink x (u32 addr, u16 blocks),   link blocks
+                                    u32 triple_addr, u16 blocks )     triple block
+group index    u16 ngroups
+               ngroups x (4-byte aligned):
+                 u16 size_dwords, u32 data_addr, u16 data_blocks,
+                 u32 key_min, u32 key_max,                  box of parcel codes
+                 u16 n, n x ( u32 parcel_key, u16 count )
+group data     sum(count) x ( u16 a, u16 b ), parcel by parcel in key order
+```
+
+| Set | Pairs (tables) | Group index | Groups | Parcel level | Entries |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 0–13 | `0xcda000` | 33 (≈ one grid tile each) | 4 (`LEV3456R.DAT`) | 422,683 |
+| 1 | 14–27 | `0xe78500` | 3,132 (4 × 4 level-2 parcels each) | 2 (grid tiles) | 1,877,891 |
+
+Resolving a ref of a location record in pair `p`: take the set of `p`, group
+`ref >> 16`, entry `ref & 0xffff`; the entry belongs to the parcel whose
+cumulative count range holds it. `parcel_key = (w0 << 16) | w1` is the MAPAL
+parcel code (`w1 & 0xf` = level). In that parcel's section-2 record (graph
+part a):
+
+- `a & 0x1fff` = **node index**, `b & 0x1fff` = **link id**; the node is an
+  end of the link (99.96 % level 2, 98.8 % level 4; random node 5.7 % / 0.4 %);
+- `b & 0x2000` = the end flag of that link end (as in the node's id word);
+- `a` 0x4000/0x8000, `b` 0x4000/0x8000 and the link-record role `k & 3` are
+  UNKNOWN (C-5371).
+
+Node `(x, y)` (0..2047) gives coordinates: level 2 parcel origin
+`lat = row/12`, `lon = col/8 − 924` with `row = (w0>>8 & 0x7f)<<4 | (w0>>4 & 0xf)`,
+`col = ((w0>>15)<<8 | w1>>8)<<4 | (w1>>4 & 0xf)`, size 1/12° × 1/8°. With this,
+every joined record of the CZ (8,532) and DE (22,884) tables lands in its own
+country and next to its TMC positive neighbour (C-5370). The firmware reader of
+these blocks is not located yet (M4.48).
 
 ### Table dump
 
@@ -401,7 +445,9 @@ Tool: `tools/rdstm_place.py`.
 
 M4.16b re-test (`rdstm_place.py probe-decoded`, tile `B48R058R`): no decoded
 field and no form of the RDSTM link reference joins tile ids above chance per
-record (C-5136); the route to coordinates is the link-group decode (M4.16e).
+record (C-5136); the route to coordinates is the link-group decode, done in
+M4.16e: a ref is `(group, entry)` → `(node, link)` of a section-2 parcel record
+(see "Link groups" above, C-5139/C-5370).
 
 ## `RDSTM001.DAT` — uncompressed packed binary
 
