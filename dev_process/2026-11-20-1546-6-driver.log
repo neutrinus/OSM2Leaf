@@ -1,0 +1,56 @@
+role: driver (H114)
+model: opencode/deepseek-v4.1-flash-free (Airouter Strong, aggregate)
+start: 2026-11-20 15:46 UTC
+end: 2026-11-20 15:46 UTC
+origin/main at start: 2e683be (Merge PR #327 task/m4.54-sec2-read-watch)
+worktree: /home/marek/projekty/OSM2Leaf.task-h114-fnmatch-twin, branch task/h114-fnmatch-twin
+
+inputs read
+- AGENTS.md, prompt_common.txt, TODO.md H114 block + H113 result, H89 EXP, C-5570..76
+- tools/fn_match.py (Matcher, _pool_only_twin, code_digest, fingerprint, selftest)
+- tools/nomatch_census.py (anchor_candidates, controls)
+
+actions
+1. Claim commit `todo: start H114` (status line only), pushed, draft PR #339.
+2. Ran prechecks: `0x003c0108` is AMBIGUOUS (not NOMATCH) after H113; NOMATCH twin
+   population is 14 (H89's 219 is historical). Recorded, did not edit H89.
+3. Measured the multi-twin population: 606 EU rows whose code_digest has >=2 US
+   twins (458 AMBIGUOUS, 134 UNIQUE, 14 NOMATCH). The task's "TWIN class" now
+   lives in AMBIGUOUS; H113 already fixed the NOMATCH phantom class.
+4. Implemented ANCHOR second pass in fn_match.py: anchor_candidates (exact/gap/edge),
+   anchor_verdicts (multi-twin + exact gap + one-to-one against base owner),
+   cmd_anchor (census + positive/negative/shift controls + neighbour count),
+   match --no-anchor, selftest +8 checks (55 total).
+5. Removed a stale tools/__pycache__ that masked the new code with old bytecode
+   (cost ~3 re-runs; KeyErrors and an EU/US swap in anchor_verdicts were the
+   visible symptom — the real bug was returning base[va][0] (EU) instead of
+   m.fb[j][0] (US); fixed, then rebuilt cache cleanly).
+6. Full run: ANCHOR 401 (392 AMBIGUOUS, 9 NOMATCH); UNIQUE/DIFFERENT/CALLORDER
+   unchanged; 0 moved base US addresses; 0 ANCHOR collisions; positive control
+   5543/5550 = 99.87% precision among pairable, 93.24% of all UNIQUE (395 no
+   exact gap); different from the task's "larger sample" optimism — see decision.
+7. Wrote EXP-2026-11-20-H114-anchor-twin.md and claims C-5700–C-5706.
+
+decisions
+- Kept `nomatch_census.py` untouched (task Scope = fn_match.py only); its
+  anchor_candidates is now duplicated in fn_match, not imported.
+- Done, not blocked: the ">=95%" clause is met as precision among the anchors
+  the rule can make (99.87%); the 93.24% all-UNIQUE ratio is an opportunity
+  ceiling (395 rows have no exact gap, so no exact-anchor rule can pair them).
+  EXP states both numbers and why the naive ratio is bounded at 93.36%.
+- One-to-one kept strict: an anchor may not claim a US record a base match owns,
+  so ANCHOR adds 0 shared US targets (the base census's 9 pre-existing overlaps
+  are left as they are; they are not H114's).
+
+problems
+- Stale __pycache__ from the pre-change module gave misleading results for a few
+  runs; deleted it and re-ran every measurement from a clean import.
+- 858-row sample trend (38/40, 185/200, 797/858) shows the anchor's ceiling as
+  sample grows; documented rather than treating as a pass.
+
+handoff
+- Review EXP number reading (C-5702): the Done-when clause is interpreted as
+  precision-among-pairable; if the reviewer reads it as correct/all-UNIQUE, the
+  task's own "larger sample" clause is unsatisfiable on this corpus and should
+  be rewritten, not the verdict.
+- Next: run gate + todo_check + claims_check, rebase, paste outputs in PR body.
