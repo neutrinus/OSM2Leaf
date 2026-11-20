@@ -16,7 +16,7 @@ work:
     mutant FAIL).
   - EXP docs/experiments/EXP-2026-11-20-M5.36-tile-class-roundtrip.md
     (10 TEMPLATE sections, falsifier first, positive + negative controls).
-  - claims C-5760-C-5762; reader-coverage rows 17/18 updated.
+  - claims C-5790-C-5792; reader-coverage rows 17/18 updated.
   - TODO block done + [x] + Claims + Result.
 
 results (quoted):
@@ -36,8 +36,8 @@ decisions:
   - the real-image emitted map is built from the writer's own IMF input via
     from-imf, not by inverting the binary, so the check is not a writer-
     inverse vanity test.
-  - next free claim block was C-5760-C-5769 (highest on the board was
-    C-5750-C-5759).
+  - claim block: the first pick collided with M3.14/M9.55 in the same batch;
+    renumbered to C-5790-C-5799 (highest free at the time was C-5750-C-5759).
 
 problems:
   - gate.py printed passed=137 failed=1 for selftest once, then three
