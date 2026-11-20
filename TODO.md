@@ -3483,7 +3483,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-3340–C-3349
 
 - [ ] **M6.16 — S3 card: a committed generator and the true on-screen place of the moved vertex**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m6.16-s3-generator · Critical: no
   - Pair: solo
   - Depends: M6.13 (done — the package that names both gaps), M5.14 (the edit), M5.44 (the level-1/2 grid)
   - Goal: the S3 bench card (`docs/research/bench-packages/s3.md`, `186f2ded…9775c1`) has no generator in the repo (M5.14 ran `/tmp/m5_14_patch.py`), and its expected place on screen is doubtful: C-2054 says 20.82→20.92°N (~11.6 km) while the M5.44 grid puts directory (30,65280) at 20.0–20.667°N with +40/2048 units ≈ 45 m. A lost image or a wrong place to look wastes a bench session.
