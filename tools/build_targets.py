@@ -85,6 +85,32 @@ ROLES = (
      "zlib inflate_mask[17]"),
     ("inflate_wrapper", "chunk_decoder_l3", "helper", 0x00542148, 0x00564444,
      "zlib inflate wrapper (engine pool slot)"),
+    # M4.52: the POINT chain-locator path (EXP-2026-11-20-M4.52-point-locator-
+    # reader).  Every entry is a function start in both builds (pdata START,
+    # or a leaf with no pdata record right after the preceding one: decode,
+    # hdr_tail); the stubbed ones are starts too, so they are kind ``start``.
+    ("header", "point_locator_l3", "start", 0x003F930C, 0x00421C3C,
+     "POINT .DAT header parser (directory cells -> object)"),
+    ("loader", "point_locator_l3", "start", 0x003FE2D4, 0x00426480,
+     "POINT page loader (reads the base reference D+4)"),
+    ("decode", "point_locator_l3", "start", 0x0040F00C, 0x00436F58,
+     "block address -> 256-byte block number (leaf)"),
+    ("lookup", "point_locator_l3", "start", 0x0040EE4C, 0x00436DD4,
+     "header-table entry lookup (100 x 80 B)"),
+    ("cache", "point_locator_l3", "start", 0x00407724, 0x0042F824,
+     "sector cache lookup (stubbed: miss)"),
+    ("alloc", "point_locator_l3", "start", 0x004086B4, 0x004307B4,
+     "sector cache allocate (stubbed: host buffer)"),
+    ("log", "point_locator_l3", "start", 0x003EC9FC, 0x0041551C,
+     "debug log (stubbed: no-op)"),
+    ("request", "point_locator_l3", "start", 0x003F6C88, 0x0041F5E8,
+     "read request (stubbed: served from the .DAT)"),
+    ("hdr_tail", "point_locator_l3", "start", 0x0040A8D0, 0x004329D0,
+     "header parser tail call (leaf, stubbed: 0)"),
+    ("memset", "point_locator_l3", "helper", 0x003D13C4, 0x0040089C,
+     "COREDLL memset thunk (loader pool slot)"),
+    ("divlu", "point_locator_l3", "helper", 0x003D140C, 0x004008E4,
+     "_divlu thunk (loader pool slot; = mod_helper)"),
 )
 KINDS = ("start", "helper", "data", "const")
 
@@ -299,7 +325,7 @@ def selftest() -> int:
     for r in ROLES:
         if r[2] != "start":
             check("non-start %s kept out of US starts" % r[0], r[4] not in starts)
-    check("US starts are 15 (H91/C-4140)", len(starts) == 15)
+    check("US starts are 24 (15 at H91/C-4140, +9 M4.52)", len(starts) == 24)
     check("US entry is a start", US_ENTRY in starts)
     check("tool_map shape", set(tool_map("point_walk_l3")["us2011"]) ==
           {"nth", "skip", "dispatch", "global_count", "global_page",

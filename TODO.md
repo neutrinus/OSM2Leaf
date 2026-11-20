@@ -822,8 +822,8 @@ of the four numbers above says so in its first line.
   - Claims: C-3820–C-3829
   - Result: [EXP-2026-11-19-H62-us256-alias](docs/experiments/EXP-2026-11-19-H62-us256-alias.md) — `--image US256` downloads the real US head in 27 s and verifies `70d945d8…` (`cmp`-identical to `archive/us256.img`); `--image US --part 256M` now verifies the same hash; EU head, a 1-byte flip and a 1-byte-short copy are refused (exit 1); selftest +5 checks incl. fixture agreement (C-3820–C-3823).
 
-- [ ] **H63 — `fn_audit`: a `CORRECTED` verdict must name the line-specific evidence that resolved it**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H63 — `fn_audit`: a `CORRECTED` verdict must name the line-specific evidence that resolved it**
+  - Status: done · Owner: task/h63-corrected-evidence · Critical: no · Pair: required
   - Depends: — (`tools/fn_audit.py`, M1.29 on `main`); coordinates H52 (edits the citations) and M1.26 (reuses the verdict)
   - Goal: `CORRECTED` is a success class, so its evidence must be visible on the row. Today an `INSIDE` becomes `CORRECTED` either because the *same line* pairs the VA with its true start or because the VA is on the static `CORRECTION_ONLY` pin; the printed row says only `CORRECTED 0x…`. The pin is a fleet-wide allowlist, so a bare `… are mid-function` line is resolved by the pin even though the line names no start. On the frozen `b56fed2` corpus the example is `TODO.md:714` (the M1.25 Goal lists the three H51 VAs as mid-function, no pair, no start): dropping the `0x00542256` pin alone turns that line's third VA into `INSIDE` — `INSIDE` 33→36, `CORRECTED` 13→10. **Post-H52 (2026-11-16) the same defect survives but smaller:** on `main` at `26f33cd` `--scope docs` is `START 229, INSIDE 0, CORRECTED 25`, and popping the same pin gives `INSIDE 5, CORRECTED 20`; the pinned VA stays `CORRECTED(pin)` on a line where the other two H51 VAs are `INSIDE` (H52 left them as historical co-citations), so the pin hides which VA the line actually resolved.
   - Precheck: on the `b56fed2` worktree (`git worktree add --detach /tmp/opencode/h63wt b56fed2`, then run `tools/fn_audit.py <abs>/archive/head256.img --scope docs --quiet` from it) the summary is `START 190, INSIDE 33, CORRECTED 13, GAP 29`; popping the `0x00542256` pin gives `INSIDE 36, CORRECTED 10`. On `main` at `26f33cd` the same command is `START 229, INSIDE 0, CORRECTED 25`; popping the pin gives `INSIDE 5, CORRECTED 20` (measured 2026-11-16) — the split must be exported on `b56fed2` as the stable corpus and only *re-measured* on `main`, never re-pinned to freeze a number. The pinned VA's line shows it as `CORRECTED` while the other H51 VAs on that line are `INSIDE` — one pin resolved a line that names no start.
@@ -833,6 +833,7 @@ of the four numbers above says so in its first line.
   - Done when: on `b56fed2` the split prints `CORRECTED 13 (<line> line, <pin> pin)` with the arithmetic in the EXP and the live tree's larger `CORRECTED` measured in the same EXP (same `INSIDE`, so the difference is only the added prose); every pin the EXP keeps has a `Pin:` line whose re-check command runs; `--selftest` proves a pair-resolved citation is labelled `line` and a pin-resolved one `pin`; with the `0x00542256` pin removed on `b56fed2` the summary reads `INSIDE 36, CORRECTED 10`; `selftest.py --only fn_audit` and `claims_check.py` pass.
   - Stop: if the split cannot be exported without changing the 13/33 counts, record the counts as an OBSERVED claim and ship only the label; do not redefine `CORRECTED`.
   - Claims: C-3830–C-3839
+  - Result: EXP-2026-11-20-H63-corrected-evidence; C-3830–C-3836 (C-3837–C-3839 reserved). Rows print `CORRECTED(line)`/`CORRECTED(pin)` and a `fn_audit: CORRECTED <n> (<line> line, <pin> pin)` line; on `b56fed2` **`CORRECTED 13 (5 line, 8 pin)`** with `INSIDE 33` unchanged, `--drop-pin 0x00542256` → `INSIDE 36, CORRECTED 10`; live tree `CORRECTED 20 (12 line, 8 pin)`, `INSIDE 0`; 0 second defects; all three pins kept with `Pin:` re-checks (`sh4dis`/`pdata.py fn`; M1.24 `--parent-of` once merged).
 
 - [ ] **H59 — Trace the test-system plan to the board so "plan complete?" is checkable**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -2678,8 +2679,8 @@ of the four numbers above says so in its first line.
   - Claims: C-5390–C-5396 (C-5397–C-5399 given to M4.52)
   - Result: EXP-2026-11-20-M4.47-point-chain-locator (C-5390–C-5396). Structures are addressed by a BE `u32` block address `(off/0x800)<<8 | (off%0x800)/0x100`; directory cell `0x82a` (6-byte cells at `0x800..0xf06`) → the field-dictionary record holding base references (`addr, length_w`) at `+0x2e` (1000) / `+0x13c` (400) and table references (`addr, length_w, per_page`) at `+0x19a` / `+0x1b6`; cell `0xeba` → the 2000 chain's record `+0x24` / `+0x94`. One layout in 44/44 files, 264 references each unique, 132/132 chains verified through it; shuffled and plain-unit values reach 0 chains. `point_pair_regen.py relocate` moves a chain to the end of the `.DAT` (selftest 37 checks); EU POINT010 takes 1,000 and 6,199 real names M5.26 refused. Firmware reader of the reference not located → M4.52.
 
-- [ ] **M4.52 — Run the POINT open path on a relocated name chain (who reads the chain locator)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.52 — Run the POINT open path on a relocated name chain (who reads the chain locator)**
+  - Status: done · Owner: task/m4.52-point-locator-reader · Critical: yes
   - Depends: M4.47 (done)
   - Goal: M4.47 found the chain locator in the file (directory cell `0x82a` → field-dictionary record → base reference `+0x2e`) and `point_pair_regen.py relocate` moves a chain to the end of the `.DAT`, but no firmware code was seen reading the reference (C-5396 is a hypothesis). Rule 13 needs the reader to read a relocated chain.
   - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_name_accessor.py --selftest`; `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x0040ee4c` prints `START` or `INSIDE`.
@@ -2689,6 +2690,7 @@ of the four numbers above says so in its first line.
   - Done when: an EXP names the VA (EU2011 and US2011) that reads the base reference, and an L3 run of that path on `relocate` output reads record 1 of the moved name chain at its new base (positive) while a pair with the reference left at the old base does not (negative).
   - Stop: if the loader is reached only through an IAT import that M9.35 cannot bind, record the call chain and set blocked on that binding task.
   - Claims: C-5397–C-5399
+  - Result: EXP-2026-11-20-M4.52-point-locator-reader (C-5397–C-5399, C-5396 updated). The base reference is read by the POINT page loader `fn 0x003fe2d4` EU2011 / `0x00426480` US2011 (callers `0x003ffce0` / `0x00427e1c`), which decodes `D+4` with the block-address leaf `0x0040f00c` / `0x00436f58` and requests `base + 2*start_w`; cell `0x82a` is decoded by the header parser `fn 0x003f930c` / `0x00421c3c`. `tools/point_locator_l3.py` (selftest 21) runs parser + loader + walker in PySh4: on `relocate` output 6/6 runs (EU2011 5, US2011 1; pages 0/1/15) request the new base and record 1 matches; with the reference left at the old base 6/6 request the old base and REJECT; factory 5/5. Declared: dictionary record placed in header-table `+64` (`0x003fc518` not run), host inflate.
 
 - [x] **M4.41 — Differential decoding: the same tile in 2011, 2014 and 2016**
   - Status: done · Owner: task/m4.41-diff-years · Critical: no · Pair: solo
