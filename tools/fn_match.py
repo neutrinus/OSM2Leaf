@@ -26,9 +26,10 @@ Method
      forward pass: a halfword **already named** as a slot is pool data and never
      names another slot, so a pool word that was loaded (already marked) and
      decodes as a load cannot blank a real instruction (H113, H89
-     PHANTOM-SLOT). This does not cover pool data that no load names: an
-     unloaded data word that decodes as a load still names a slot, an open
-     residual (H113 EXP, H118).
+     PHANTOM-SLOT). Pool data that no load names is caught by static control
+     flow (H118): a slot never lies on a halfword the entry reaches, and in a
+     function without a reached ``braf``/``jmp`` an unreached halfword names
+     no slot.
    * Everything else (opcodes, register fields, immediates that are not
      addresses) is hashed verbatim.
 
@@ -176,6 +177,51 @@ def is_bsr(w: int) -> bool:
     return (w >> 12) == 0xB
 
 
+def is_computed_jump(w: int) -> bool:
+    """``braf Rn`` or ``jmp @Rn``: a jump whose target the walk cannot see."""
+    return ((w >> 12) == 0x0 and (w & 0xFF) == 0x23) or \
+        ((w >> 12) == 0x4 and (w & 0xFF) == 0x2B)
+
+
+def reachable(words) -> set[int]:
+    """Halfword indexes the entry (index 0) reaches by static control flow.
+
+    Fall-through, ``bt``/``bf``(``/s``) both ways, ``bra`` to its target,
+    delay slots of every delayed branch; ``rts``/``rte``/``jmp``/``braf`` end
+    a path after their delay slot, ``bsr``/``jsr``/``bsrf`` return to the
+    next instruction.  Code reached only through a computed jump (a switch
+    table) is **not** in the set, so the set under-approximates code; the
+    slot pass trusts an unreached halfword to be data only when the function
+    has no reached computed jump (H118).
+    """
+    n = len(words)
+    seen: set[int] = set()
+    todo = [0] if n else []
+    while todo:
+        i = todo.pop()
+        while 0 <= i < n and i not in seen:
+            seen.add(i)
+            w = words[i]
+            hi = w >> 12
+            if w in (0x000B, 0x002B) or is_computed_jump(w):
+                if i + 1 < n:                  # rts/rte/braf/jmp: delay slot
+                    seen.add(i + 1)
+                break
+            if hi == 0xA:                      # bra: delay slot, then target
+                if i + 1 < n:
+                    seen.add(i + 1)
+                i = branch_target(2 * i, w) // 2
+                continue
+            if hi == 0x8 and ((w >> 8) & 0xF) in (0x9, 0xB, 0xD, 0xF):
+                todo.append(branch_target(2 * i, w) // 2)
+                if ((w >> 8) & 0xF) in (0xD, 0xF) and i + 1 < n:
+                    seen.add(i + 1)            # bt/s, bf/s delay slot
+                    i += 2
+                    continue
+            i += 1
+    return seen
+
+
 def _pool_loads(words, base_va: int):
     """``(index, slot_va, size, dest)`` for each real PC-relative load.
 
@@ -186,14 +232,31 @@ def _pool_loads(words, base_va: int):
     ``mov.x @(disp,PC)`` (e.g. ``0xda3c``) names a real instruction, which is
     then blanked and hashed as ``0x0000`` (H89 PHANTOM-SLOT, H113).  Loads
     whose slot sits past ``len(words)`` are real (the trailing pool area).
+
+    Pool data that **no** load names is caught by control flow (H118): a
+    slot that lands on a halfword the entry reaches (``reachable``) is not a
+    slot, and in a function without a reached ``braf``/``jmp`` (no switch
+    table can hide code from the walk) an unreached halfword names nothing.
+    A function with a computed jump keeps its unreached loads (case bodies).
     """
     slots: set[int] = set()
+    live = reachable(words)
+    closed = not any(is_computed_jump(words[k]) for k in live)
     for i, w in enumerate(words):
         if i in slots or not is_mov_pc(w):
             continue
         size = 4 if (w >> 12) == 0xD else 2
         lit = pool_addr(base_va + 2 * i, w)
         j = (lit - base_va) // 2
+        # A slot never lies on an instruction the entry reaches: such a
+        # "load" is pool data no load names (H118), so it names nothing.
+        if any(k in live for k in ((j, j + 1) if size == 4 else (j,))):
+            continue
+        # In a function with no computed jump every instruction is reached,
+        # so an unreached "load" is pool data (e.g. the double 0x9999999a)
+        # and must not pull bytes past the function into the hash (H118).
+        if closed and i not in live:
+            continue
         slots.update((j, j + 1) if size == 4 else (j,))
         yield i, lit, size, (w >> 8) & 0xF
 
@@ -844,14 +907,21 @@ def selftest() -> int:
     # H113: a pool word that decodes as mov.l @(disp,PC) must not name a slot.
     # hw0 = mov.l @(2,pc),r7 -> slot {6,7}; hw6 = 0xda39 is pool data whose low
     # half decodes as a load that would otherwise blank hw122, a real insn.
-    # hw10 = mov.l @(5,pc),r1 -> a real load with slot {22,23}.
-    def make_phantom(real_word):
+    # hw10 = mov.l @(5,pc),r1 -> a real load with slot {22,23}, reached by
+    # hw1 = bt -> hw10 (H118: an unreached halfword of a function without a
+    # computed jump is data, so the real load must be on a path).  hw11 ends
+    # that path: braf r0 (default, keeps the H113 rule isolated) or rts.
+    def make_phantom(real_word, end=0x0023, extra=()):
         ws = [0x0009] * 130
         ws[0] = 0xD702
-        ws[1] = 0x000B
+        ws[1] = 0x8907
+        ws[2] = 0x000B
         ws[6] = 0xDA39
         ws[10] = 0xD105
+        ws[11] = end
         ws[122] = real_word
+        for k, w in extra:
+            ws[k] = w
         buf = bytearray(2 * len(ws))
         for k, w in enumerate(ws):
             struct.pack_into("<H", buf, 2 * k, w)
@@ -876,6 +946,53 @@ def selftest() -> int:
     check("H113: pool_masked still zeroes a real load's slot",
           masked[22] == 0 and masked[6] == 0 and masked[122] == 0xC11E
           and masked[0] == 0xD702 and masked[10] == 0xD105)
+
+    # H118: pool data that NO load names.  hw50 = 0xd023 (mov.l @(0x23,pc),r0)
+    # is named by no load and would name hw122.  The fixture function has no
+    # computed jump (hw11 = rts), so hw50 is unreached data and names nothing.
+    check("H118: the walk reaches the bt target and stops at rts",
+          reachable(make_phantom(0xC11E, 0x000B)[0]) == {0, 1, 2, 3, 10, 11, 12})
+    hw50 = ((50, 0xD023),)
+    ws, buf = make_phantom(0xC11E, 0x000B, hw50)
+    check("H118: hw50 decodes as a load that would name hw122",
+          (pool_addr(0x1000 + 2 * 50, 0xD023) - 0x1000) // 2 == 122)
+    slots = pool_slots(ws, 0x1000)
+    toks = _instruction_tokens(ws, 0x1000, buf, 0x1000)
+    masked = pool_masked(ws, 0x1000, len(ws))
+    check("H118: unloaded hw50 does not blank hw122 (slots/tokens/masked)",
+          122 not in slots and toks[122] == struct.pack("<H", 0xC11E)
+          and masked[122] == 0xC11E)
+    check("H118: the loaded pool word and the real load still blank their slots",
+          {6, 7, 22, 23} <= slots and toks[6] == b"\x00\x00"
+          and masked[6] == 0 and masked[22] == 0)
+    ws_o, _ = make_phantom(0xC11E, 0x0023, hw50)
+    check("H118 negative: with a reached braf an unreached load is kept "
+          "(switch case bodies), so hw50 still names hw122",
+          122 in pool_slots(ws_o, 0x1000))
+    # Rule A: the slot lands on a reached instruction.  bra at hw1 jumps over a
+    # mid-function pool (hw3..59) to hw60; the path runs over hw122 to a braf
+    # at hw124, so the function is open and only the reached-target rule works.
+    ws = [0x0009] * 130
+    for k, w in ((0, 0xD702), (1, 0xA039), (6, 0xDA39), (50, 0xD023),
+                 (64, 0xD11E), (122, 0xC11E), (124, 0x0023)):
+        ws[k] = w
+    live = reachable(ws)
+    slots = pool_slots(ws, 0x1000)
+    check("H118: a slot on a reached instruction is not a slot (open function)",
+          50 not in live and 122 in live and 122 not in slots
+          and {6, 7, 126, 127} <= slots)
+    # Out-of-function read: the double 0x9999999a after rts decodes as two
+    # mov.w loads whose slots lie past the function.  Their "pool value" is
+    # another function's bytes and must not enter the hash.
+    ws = [0x000B, 0x0009, 0x999A, 0x9999]
+    big = bytearray(0x400)
+    for k, w in enumerate(ws):
+        struct.pack_into("<H", big, 2 * k, w)
+    fp1, _, _ = fingerprint(ws, 0x1000, (0x1000, 0x1400), bytes(big), 0x1000)
+    big[2 * 158] ^= 0xFF
+    fp2, _, _ = fingerprint(ws, 0x1000, (0x1000, 0x1400), bytes(big), 0x1000)
+    check("H118: trailing data never pulls bytes past the function into the hash",
+          pool_slots(ws, 0x1000) == set() and fp1 == fp2)
 
     print("fn_match selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))

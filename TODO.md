@@ -1295,8 +1295,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if the positive control falls below 95 %, record it and leave the verdict out.
   - Claims: C-5700–C-5709
 
-- [ ] **H118 — `fn_match` still blanks real instructions when UNLOADED pool data decodes as `mov.x @(disp,PC)`**
-  - Status: in progress · Owner: task/h118-fnmatch-unloaded-pool · Critical: no · Pair: required
+- [x] **H118 — `fn_match` still blanks real instructions when UNLOADED pool data decodes as `mov.x @(disp,PC)`**
+  - Status: done · Owner: task/h118-fnmatch-unloaded-pool · Critical: no · Pair: required
   - Depends: H113 (done; the marked-slot rule and its residual)
   - Goal: H113's forward pass exempts only a halfword **already named** as a slot. Pool data that no load names (a data run after the function's own loads, alignment words, a literal a dead load pointed at) still decodes as `mov.x @(disp,PC)` and names a slot that lands on a real instruction, which `fingerprint`/`_instruction_tokens` hash as `0x0000` and `pool_masked` zeroes. Synthetic control: `hw0 = 0xD702` (loads hw6), `hw6 = 0xDA39` (loaded, exempt), `hw50 = 0xD023` (named by no load), `hw122 = 0xC11E` → `pool_slots` contains 122, `_instruction_tokens[122] == 0x0000`, `pool_masked[122] == 0`. Measure how many of the 858 H113 NOMATCH (and how many `DIFFERENT` rows) are this residual, then narrow the slot rule (e.g. a slot target must lie in the function's own trailing pool region, or a slot may only be named by a load whose target is not past the last instruction the `.pdata` length covers).
   - Precheck: `python3 tools/fn_match.py --selftest` is `OK (46 checks, 0 failed)`; the residual script in EXP-2026-11-20-H113-fnmatch-pool's Observations (synthetic hw50) reproduces `122 in slots: True`, `tokens[122]: 0000`, `masked[122]: 0`.
@@ -1305,6 +1305,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: an EXP gives the before/after census and the count of rows the residual explains; the synthetic hw50 case no longer blanks hw122 (selftest) while the loaded-pool-word case still does not; `python3 tools/gate.py` green and the `fn_match_eu_us_2011.json` fixture replays `0 mismatch`.
   - Stop: if no narrowing rule keeps every H113 `UNIQUE` US address, record the negative with the count and leave the residual documented instead of merging a behaviour change.
   - Claims: C-5800–C-5809
+  - Result: docs/experiments/EXP-2026-11-20-H118-fnmatch-unloaded-pool.md; C-5800–C-5806. `_pool_loads` walks the function from its entry (`reachable`) and rejects a slot on a reached instruction and, in a function with no reached `braf`/`jmp`, a load at an unreached halfword; the hw50 synthetic no longer blanks hw122, the loaded-pool case still does not (`fn_match --selftest` 46→53). Census `UNIQUE 5954 / DIFFERENT 162 / CALLORDER 56 / AMBIGUOUS 566 / NOMATCH 858` (was `5945/171/56/566/858`): only `DIFFERENT→UNIQUE 9`, same US VAs, 0 moved; the residual explains 0 of the 858 NOMATCH (31 contain such a load, none changes) and 9 of 171 `DIFFERENT` (8 were reads of the next function's bytes past the function end). Control: dropping every unreached load (`--all-closed`) loses 48 `UNIQUE` to `NOMATCH` (switch case bodies). Fixture `13 rows, 0 mismatch`, `bodies` 12/12 unchanged. New `tools/fn_verdict_diff.py` (dump/diff/slots).
 
 ## M2 — Map code, activation, updater
 
