@@ -77,11 +77,19 @@ a ready-made Leaf ZE0 emulator.
 | <https://www.gnu.org/licenses/gpl-3.0.html> | GPL-3.0, license for this project's code | FACT |
 | <https://www.gnu.org/licenses/gpl-3.0.txt> | Plain-text GPL-3.0 used for `LICENSE` | FACT |
 
+## Official manuals
+
+| Source | What it is | Type | Status / note |
+| --- | --- | --- | --- |
+| <https://www.nissan-techinfo.com/refgh0v/og/leaf/2011-Nissan-LEAF-Navi.pdf> | 2011 Nissan LEAF Navigation System Owner's Manual (PDF) | FACT (official document) | Checked 2026-11-20: reachable (HTTP 200, `application/pdf`, 4,316,796 bytes). SHA-256 of the fetched copy: `b6f9c23037b04267391377ffbde3e2b1a6a4c2c108dcab17902bcc62cfff6aed`. User-facing navigation behavior reference (menus, map/version screens, SD/map operations) for the ZE0 2011 navigation unit; not firmware or map-format evidence by itself. |
+
 ## Format-adjacent references
 
 These are not Leaf-specific but are potentially useful for the mesh-code
 and Windows CE/SH-4 parts of the work.
 
+| Source | What it is | Type |
+| --- | --- | --- |
 | <https://www.stat.go.jp/english/data/mesh/> | Japanese grid/mesh code reference (JIS X 0410) | reference |
 | <https://learn.microsoft.com/en-us/windows/win32/debug/pe-format> | PE/COFF format reference | FACT |
 | <https://rizin.re/> | Reverse-engineering framework used for SH-4 analysis | reference |
