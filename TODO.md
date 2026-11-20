@@ -2735,8 +2735,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     clusters+dir entry). Partner road name not resolved. Artifacts outside repo.
   - Claims: C-2050–C-2059
 
-- [ ] **M5.15 — `build.py` writes a card: factory image + OSM → card image → checks**
-  - Status: in progress · Owner: task/m5.15-build-py-card · Critical: yes
+- [x] **M5.15 — `build.py` writes a card: factory image + OSM → card image → checks**
+  - Status: done · Owner: task/m5.15-build-py-card · Critical: yes
   - Step: tooling
   - Depends: M5.11 (one tile end to end); grows with each writer (M5.4–M5.7, H11 rows)
   - Goal: the one command Marek described: take a factory card image, drop
@@ -2756,6 +2756,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     fails. First milestone: one generated tile (= M5.11); every new writer
     adds its family. OSM extracts stay outside the repo (rule 12).
   - Claims: C-5360–C-5369 (was C-2280–C-2289; fresh block for this run)
+  - Result: EXP-2026-11-20-M5.15-build-py-card. `build.py` write mode (one tile, one section-1 directory): EU 2011 + `m5.37-splice.osm` → `out.img` `b88a31f4…` (= M5.11 byte for byte), 24 families (1 generated, 4 rebuilt, 7 not yet generated, 12 copied), 8 checks PASS incl. L3 map-code ACCEPT, 5 gates cannot-verify-offline, ladder P0; failures exit 1 and remove the image; several tiles / added files exit 3.
 
 - [ ] **M5.16 — `LEV3456R.DAT` generator: levels 3–6 from OSM (H11 G4)**
   - Status: blocked · Owner: task/m5.16-lev3456-generator · Critical: no
