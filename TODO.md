@@ -4300,7 +4300,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   Claim one row at a time as `[M8.C10]` etc.; claim block: C-1360 +
   10 × row number (C1 → C-1370–C-1379, …, C22 → C-1580–C-1589). Priority
   rows: **C10 SD host**, C4 micon/power, C8 NOR flash, C18 display.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.c1-hpb-dmac · Critical: no
   - Depends: —
   - Claims: C-1360–C-1589 (per-row blocks, see above)
   - Row notes:
