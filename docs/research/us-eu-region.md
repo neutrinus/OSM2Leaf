@@ -42,7 +42,7 @@ object; it is not a compiled-in market table, and there is no setter.
 The value comes from a 4-byte **Target ID** read by
 `KernelIoControl(0x01013208, in = {1}, 4, out = 4 bytes)` in build B
 `0x03c0c830` / C `0x03bec98c`. Byte `+4` must be non-zero and not `0xFF`;
-byte `+5` is the area. The firmware logs `Target ID Code >> %02X%02X%02X%02X`
+byte `+5` is the area. On Marek's unit the LeafSDTools Product ID (PROD `+0x20`) reads `10 20 02 12`, which fits Target ID = PROD `+0x20..+0x23` with the area at flash `0xA021` (C-5201, HYPOTHESIS; C-078's `0xA022` holds `0x02`). The firmware logs `Target ID Code >> %02X%02X%02X%02X`
 from these four bytes.
 
 `AppLaunch.dll` (`0x03bb…` in B, `0x03b9…` in C) maps the area:

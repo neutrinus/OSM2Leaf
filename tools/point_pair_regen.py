@@ -14,14 +14,18 @@ back on 4-byte boundaries from a 0x100-aligned chain base, described by a
 ``start_w`` is the page offset from the chain base, ``comp_w`` the stream
 length rounded up to 4 bytes, ``inner_w`` the inflated page length, all in
 2-byte words; ``start_w[i+1] = start_w[i] + comp_w[i]`` (OBSERVED, M5.26 EXP).
-The table carries no chain base: the base is located by matching the first
-page.  The field that tells the reader *where* the chain base and the table
-are (``chain locator``) is not known; therefore this tool never moves a chain
-base or a table.  It regenerates every page of a chain, re-packs the chain
-from the same base, rewrites the table's ``comp_w``/``inner_w``/``start_w``
-and refuses when the new chain does not fit before the next non-zero byte
-after the old chain (the ``chain slot``).  Pages may now grow into slack that
-other pages of the same chain give back (pooled budget, not per page).
+The table carries no chain base: ``scan`` locates the base by matching the
+first page.  The **chain locator** (M4.47) is a pair of references in a
+descriptor record that a directory cell at 0x800..0xf06 points to: the chain
+base as a *block address* ``u32 (off // 0x800) << 8 | (off % 0x800) // 0x100``
+plus the chain length in words, and the table's block address, length in
+words and ``per_page`` (see ``LAYOUT``).  ``regen`` re-packs a chain from the
+same base, rewrites the table's ``comp_w``/``inner_w``/``start_w`` and refuses
+when the new chain does not fit before the next non-zero byte after the old
+chain (the ``chain slot``); pages may grow into slack that other pages of the
+same chain give back.  ``relocate`` moves one chain to the end of the
+``.DAT``, rewrites its table and its base reference and zeroes the old bytes,
+so a chain has no slot limit.
 
 Recompression uses stock zlib at the factory setting (level 6, memLevel 8,
 wbits 15, default strategy; M1.13/M1.16).  ``--libz PATH`` loads that zlib
@@ -50,6 +54,8 @@ Commands::
   python3 tools/point_pair_regen.py regen CMP OUTDIR --names NAMES.json [--libz PATH]
   python3 tools/point_pair_regen.py regen CMP OUTDIR --noop [--libz PATH]
   python3 tools/point_pair_regen.py regen CMP OUTDIR --generate N --grow K [--libz PATH]
+  python3 tools/point_pair_regen.py relocate CMP OUTDIR [--chain 1000] [--permute N | --generate N | --names J] [--libz PATH]
+  python3 tools/point_pair_regen.py locator DIR [--shuffle] [--jobs N] [--legacy]
   python3 tools/point_pair_regen.py verify CMP OUTDIR/POINTnnn.DAT.cmp --names NAMES.json
   python3 tools/point_pair_regen.py --selftest
 
@@ -340,9 +346,9 @@ def check_factory_encoder(blob: bytes, chain: Chain, enc: Encoder) -> list[int]:
             if enc.compress(inner) != blob[off:off + used]]
 
 
-def regen_chain(blob: bytearray, chain: Chain, new_inners: list[bytes],
-                enc: Encoder, streams_old: list[bytes], force: bool = False) -> dict:
-    """Re-pack *chain* with *new_inners*; mutate *blob* in place or raise."""
+def pack_chain(chain: Chain, new_inners: list[bytes], enc: Encoder,
+               streams_old: list[bytes], force: bool = False) -> tuple[bytes, list]:
+    """Chain body (pages on 4-byte boundaries) and its table entries."""
     streams = []
     for i, inner in enumerate(new_inners):
         if inner == chain.pages[i][2] and not force:
@@ -356,6 +362,17 @@ def regen_chain(blob: bytearray, chain: Chain, new_inners: list[bytes],
         entries.append((pos // 2, comp // 2, (len(inner) + 1) // 2))
         body += st + bytes(comp - len(st))
         pos += comp
+    return bytes(body), entries
+
+
+def toc_bytes(per_page: int, entries: list) -> bytes:
+    return struct.pack(">HH", per_page, 0) + b"".join(struct.pack(">III", *e) for e in entries)
+
+
+def regen_chain(blob: bytearray, chain: Chain, new_inners: list[bytes],
+                enc: Encoder, streams_old: list[bytes], force: bool = False) -> dict:
+    """Re-pack *chain* with *new_inners*; mutate *blob* in place or raise."""
+    body, entries = pack_chain(chain, new_inners, enc, streams_old, force)
     old_len = chain.end - chain.base
     slot = chain.slot_end - chain.base
     report = {"base": chain.base, "toc": chain.toc, "pages": len(entries),
@@ -365,7 +382,7 @@ def regen_chain(blob: bytearray, chain: Chain, new_inners: list[bytes],
         raise RegenError(
             f"chain at {chain.base:#x} (table {chain.toc:#x}): new chain {len(body)} B "
             f"> chain slot {slot} B (next non-zero byte {chain.slot_end:#x}); growing "
-            "past it needs the chain locator field (UNKNOWN, see the M5.26 EXP)"
+            "past it needs the chain to move (use `relocate`, M4.47)"
         )
     if chain.base < chain.toc < chain.slot_end:
         raise RegenError(f"chain table {chain.toc:#x} lies inside the chain slot")
@@ -677,8 +694,8 @@ def locator_targets(chains: list[Chain], blob_len: int) -> dict:
     return t
 
 
-def cmd_locator(args) -> int:
-    """Search one position/encoding that holds a chain base or table in every file."""
+def cmd_locator_legacy(args) -> int:
+    """M5.26 search: one position/encoding in 0..window holding a base or table (negative)."""
     import collections
     counts = collections.Counter()
     nfiles = 0
@@ -708,6 +725,411 @@ def cmd_locator(args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# chain locator (M4.47)
+#
+# A POINT ``.DAT`` addresses its structures in 256-byte blocks with a
+# *block address*: ``u32 (offset // 0x800) << 8 | (offset % 0x800) // 0x100``
+# (a 2-KiB sector number in the upper 24 bits, the block inside the sector in
+# the low byte, 0..7).  The 6-byte cells at 0x800..0xf06 (``u32 block address,
+# u16 block count``; empty = ``ffffffff 0000``) list the descriptor records.
+# A descriptor record holds, for each chain, a *base reference*
+# ``u32 block address of the chain base, u32 chain length in words`` and a
+# *table reference* ``u32 block address of the table, u32 table length in
+# words, u16 per_page``.  (OBSERVED on 44/44 files, see the M4.47 EXP.)
+
+BLOCK = 0x100
+SECTOR = 0x800
+DIR_START = 0x800
+DIR_CELL = 6
+DIR_CELLS = 299          # 0x800 .. 0xf06
+
+
+def blk_addr(off: int) -> int:
+    """Block address of a 0x100-aligned file offset."""
+    if off % BLOCK or off < 0:
+        raise ValueError(f"{off:#x} is not 0x100-aligned")
+    return (off // SECTOR) << 8 | (off % SECTOR) // BLOCK
+
+
+def blk_off(addr: int) -> int:
+    """File offset of a block address; ValueError when the low byte is not 0..7."""
+    sub = addr & 0xFF
+    if sub >= SECTOR // BLOCK:
+        raise ValueError(f"block address {addr:#x}: block {sub} > 7")
+    return (addr >> 8) * SECTOR + sub * BLOCK
+
+
+def directory(blob: bytes) -> list[tuple[int, int, int]]:
+    """Non-empty directory cells as ``(cell_offset, record_offset, blocks)``."""
+    out = []
+    for i in range(DIR_CELLS):
+        pos = DIR_START + DIR_CELL * i
+        if pos + DIR_CELL > len(blob):
+            break
+        addr, n = struct.unpack_from(">IH", blob, pos)
+        if addr == 0xFFFFFFFF:
+            continue
+        try:
+            out.append((pos, blk_off(addr), n))
+        except ValueError:
+            continue
+    return out
+
+
+def base_ref(chain: Chain) -> bytes:
+    return struct.pack(">II", blk_addr(chain.base), (chain.end - chain.base) // 2)
+
+
+def toc_ref(chain: Chain) -> bytes:
+    return struct.pack(">IIH", blk_addr(chain.toc), chain.toc_size // 2, chain.per_page)
+
+
+def _all(blob: bytes, pat: bytes) -> list[int]:
+    out, i = [], blob.find(pat)
+    while i != -1:
+        out.append(i)
+        i = blob.find(pat, i + 1)
+    return out
+
+
+def find_locators(blob: bytes, chains: list[Chain]) -> list[dict]:
+    """For every chain: positions of its base and table reference.
+
+    ``base_pos``/``toc_pos`` are the hits inside the directory records; the
+    ``*_file`` lists are all hits in the whole file (uniqueness check).
+    """
+    recs = directory(blob)
+    out = []
+    for c in chains:
+        row = {"per_page": c.per_page, "base": c.base, "toc": c.toc}
+        for key, pat in (("base", base_ref(c)), ("toc", toc_ref(c))):
+            hits = _all(blob, pat)
+            row[f"{key}_file"] = hits
+            inside = []
+            for h in hits:
+                for cell, rec, n in recs:
+                    if rec <= h and h + len(pat) <= rec + n * BLOCK:
+                        inside.append({"pos": h, "cell": cell, "record": rec, "rel": h - rec})
+            row[f"{key}_pos"] = inside
+        out.append(row)
+    return out
+
+
+def read_base_ref(blob: bytes, pos: int) -> tuple[int, int]:
+    """``(base offset, chain length in bytes)`` stored at *pos*."""
+    addr, words = struct.unpack_from(">II", blob, pos)
+    return blk_off(addr), 2 * words
+
+
+# per_page -> (directory cell, base reference, table reference) offsets in the
+# record the cell points to; one layout in all 44 files (M4.47 EXP)
+LAYOUT = {1000: (0x82A, 0x2E, 0x19A), 400: (0x82A, 0x13C, 0x1B6), 2000: (0xEBA, 0x24, 0x94)}
+
+
+def locator_positions(blob: bytes, per_page: int) -> tuple[int, int]:
+    """Absolute positions of the base and table reference of the *per_page* chain."""
+    cell, rb, rt = LAYOUT[per_page]
+    addr, _ = struct.unpack_from(">IH", blob, cell)
+    rec = blk_off(addr)
+    return rec + rb, rec + rt
+
+
+def chain_via_locator(blob: bytes, per_page: int, base_value: int | None = None,
+                      decode=blk_off) -> Chain | None:
+    """Follow directory cell -> record -> references, as a reader would, and
+    verify every page; ``None`` when the references do not lead to the chain.
+    *base_value*/*decode* replace the stored base address (negative controls)."""
+    try:
+        pb, pt = locator_positions(blob, per_page)
+        taddr, tw, pp = struct.unpack_from(">IIH", blob, pt)
+        if pp != per_page:
+            return None
+        ch = parse_toc(blob, blk_off(taddr))
+        if ch is None or ch.per_page != per_page or ch.toc_size != 2 * tw:
+            return None
+        baddr, bw = struct.unpack_from(">II", blob, pb)
+        base = decode(baddr if base_value is None else base_value)
+    except (ValueError, struct.error):
+        return None
+    if not 0 <= base < len(blob) or not locate_chain(blob, ch, [base]) or ch.end - ch.base != 2 * bw:
+        return None
+    return ch
+
+
+def locator_file(cmp_path: Path, shuffled: dict | None = None) -> dict:
+    blob, *_ = read_pair(cmp_path)
+    chains = find_chains(blob)
+    locs = find_locators(blob, chains)
+    for row in locs:
+        pp = row["per_page"]
+        got = chain_via_locator(blob, pp) if pp in LAYOUT else None
+        row["via_layout"] = bool(got and got.base == row["base"] and got.toc == row["toc"])
+        if pp in LAYOUT:
+            pb, _ = locator_positions(blob, pp)
+            row["stored_addr"] = struct.unpack_from(">I", blob, pb)[0]
+            # unit control: the same word read as a plain 0x800-sector / 0x100-block number
+            row["as_sector"] = chain_via_locator(blob, pp, decode=lambda a: a * SECTOR) is not None
+            row["as_block"] = chain_via_locator(blob, pp, decode=lambda a: a * BLOCK) is not None
+            if shuffled and pp in shuffled:
+                row["shuffled_ok"] = chain_via_locator(blob, pp, base_value=shuffled[pp]) is not None
+    return {"file": cmp_path.name, "size": len(blob),
+            "directory": [(c, r, n) for c, r, n in directory(blob)],
+            "chains": locs}
+
+
+def locator_layout(row: dict) -> tuple:
+    """The (cell, rel) layout of one file: what a fixed-position reader would use."""
+    key = []
+    for c in sorted(row["chains"], key=lambda x: x["per_page"]):
+        for k in ("base", "toc"):
+            ps = c[f"{k}_pos"]
+            key.append((c["per_page"], k, ps[0]["cell"], ps[0]["rel"]) if len(ps) == 1 else
+                       (c["per_page"], k, None, None))
+    return tuple(key)
+
+
+def cmd_locator(args) -> int:
+    """Read every chain's base and table reference through the directory."""
+    if args.legacy:
+        return cmd_locator_legacy(args)
+    import collections
+    paths = sorted(Path(args.dir).glob("POINT*.DAT.cmp"))
+    if args.jobs > 1:
+        from concurrent.futures import ProcessPoolExecutor
+        with ProcessPoolExecutor(args.jobs) as ex:
+            rows = list(ex.map(locator_file, paths))
+    else:
+        rows = [locator_file(p) for p in paths]
+    layouts = collections.Counter()
+    unique = collections.Counter()
+    total = collections.Counter()
+    for row in rows:
+        lay = locator_layout(row)
+        layouts[lay] += 1
+        parts = []
+        for c in row["chains"]:
+            for k in ("base", "toc"):
+                total[(c["per_page"], k)] += 1
+                ps, fs = c[f"{k}_pos"], c[f"{k}_file"]
+                if len(ps) == 1 and len(fs) == 1:
+                    unique[(c["per_page"], k)] += 1
+                parts.append(f"{c['per_page']}.{k} " + (
+                    f"cell {ps[0]['cell']:#x} rec {ps[0]['record']:#x}+{ps[0]['rel']:#x}"
+                    if len(ps) == 1 else f"{len(ps)} in records/{len(fs)} in file"))
+        print(f"{row['file']}: size {row['size']:#x}; " + "; ".join(parts))
+    n = len(rows)
+    print(f"files {n}; chains {sum(len(r['chains']) for r in rows)}")
+    for key in sorted(total):
+        print(f"  per_page {key[0]} {key[1]} reference: unique in a directory record and in the file "
+              f"{unique[key]}/{total[key]}")
+    print(f"  layouts (cell, offset in record) shared: {len(layouts)} distinct; "
+          f"most common in {layouts.most_common(1)[0][1] if layouts else 0}/{n} files")
+    if layouts:
+        for pp, k, cell, rel in layouts.most_common(1)[0][0]:
+            print(f"    {pp}.{k}: cell {cell:#x} record +{rel:#x}" if cell is not None
+                  else f"    {pp}.{k}: none")
+    nch = sum(len(r["chains"]) for r in rows)
+    via = sum(c.get("via_layout", False) for r in rows for c in r["chains"])
+    print(f"positive (cell -> record -> references, every page verified): {via}/{nch} chains")
+    sec = sum(c.get("as_sector", False) for r in rows for c in r["chains"])
+    blk = sum(c.get("as_block", False) for r in rows for c in r["chains"])
+    print(f"negative (same word read as a plain 0x800 sector / 0x100 block number): "
+          f"{sec}/{nch} / {blk}/{nch} chains verify")
+    # shuffled values: each file's stored base address replaced by the next
+    # file's (same per_page); a correct field must stop leading to the chain
+    matched = tried = 0
+    if args.shuffle and n > 1:
+        vals = [{c["per_page"]: c["stored_addr"] for c in r["chains"] if "stored_addr" in c}
+                for r in rows]
+        for i, path in enumerate(paths):
+            sv = {k: v for k, v in vals[(i + 1) % n].items() if v != vals[i].get(k)}
+            if not sv:
+                continue
+            for c in locator_file(path, sv)["chains"]:
+                if "shuffled_ok" in c:
+                    tried += 1
+                    matched += c["shuffled_ok"]
+        print(f"negative (base address shuffled from the next file): "
+              f"{matched}/{tried} chains still verify")
+    ok = (all(unique[k] == total[k] for k in total) and len(layouts) == 1
+          and via == nch and matched == 0 and sec == 0 and blk == 0)
+    print("locator:", "FOUND (one layout, every reference unique)" if ok else "INCOMPLETE")
+    if args.json:
+        Path(args.json).write_text(json.dumps(rows, indent=1))
+    return 0 if ok else 1
+
+
+# ---------------------------------------------------------------------------
+# relocation (M4.47): move a chain to the end of the .DAT through its locator
+
+
+def relocate_blob(blob: bytes, per_page: int, names: list[dict], enc: Encoder,
+                  zero_old: bool = True) -> tuple[bytes, dict]:
+    """Re-pack the *per_page* chain with *names* at the end of the file.
+
+    The chain is found through its locator (directory cell -> record ->
+    base/table reference), its pages are regenerated as ``regen`` does, the
+    new chain is appended at the next 0x100 boundary, the base reference
+    (block address, length in words) and the table are rewritten in place and
+    the old chain bytes are zeroed.  There is no slot limit.
+    """
+    ch = chain_via_locator(blob, per_page)
+    if ch is None:
+        raise RegenError(f"the per_page {per_page} locator does not lead to a verified chain")
+    by_page: dict[int, list[dict]] = {}
+    for e in names:
+        page = int(e["page"], 0) if isinstance(e["page"], str) else int(e["page"])
+        by_page.setdefault(page, []).append(e)
+    pages = {off for off, _, _ in ch.pages}
+    stray = [p for p in by_page if p not in pages]
+    if stray:
+        raise RegenError(f"{len(stray)} edited page(s) are not in the per_page {per_page} chain "
+                         f"(first {stray[0]:#x})")
+    if by_page:
+        bad = check_factory_encoder(blob, ch, enc)
+        if bad:
+            raise RegenError(
+                f"chain {ch.base:#x}: encoder {enc.version} does not reproduce {len(bad)} of "
+                f"{len(ch.pages)} factory pages (first page {bad[0]}); refusing to re-encode")
+    new_inners = [apply_names(inner, by_page[off]) if off in by_page else inner
+                  for off, _, inner in ch.pages]
+    olds = [blob[off:off + used] for off, used, _ in ch.pages]
+    body, entries = pack_chain(ch, new_inners, enc, olds)
+    toc = toc_bytes(ch.per_page, entries)
+    if len(toc) != ch.toc_size:
+        raise RegenError("chain table size changed")
+    new_base = -(-len(blob) // BLOCK) * BLOCK
+    out = bytearray(blob) + bytes(new_base - len(blob)) + body
+    out += bytes((-len(out)) % BLOCK)
+    if zero_old:
+        out[ch.base:ch.end] = bytes(ch.end - ch.base)
+    out[ch.toc:ch.toc + len(toc)] = toc
+    pb, _ = locator_positions(blob, per_page)
+    struct.pack_into(">II", out, pb, blk_addr(new_base), len(body) // 2)
+    rep = {"per_page": per_page, "old_base": ch.base, "new_base": new_base, "toc": ch.toc,
+           "base_ref": pb, "pages": len(entries), "old_bytes": ch.end - ch.base,
+           "new_bytes": len(body), "old_size": len(blob), "new_size": len(out),
+           "edits": sum(len(v) for v in by_page.values()),
+           "entries_changed": sum(1 for a, b in zip(entries, ch.entries) if a != b)}
+    return bytes(out), rep
+
+
+def write_pair_grown(packed, offsets, chunk, blob_old, blob_new, enc: Encoder):
+    """Outer pair for a blob that may be longer than the old one: every old
+    chunk whose bytes are unchanged (and complete) is kept verbatim."""
+    out = bytearray()
+    offs = []
+    n = -(-len(blob_new) // chunk)
+    for i in range(n):
+        lo, hi = i * chunk, min((i + 1) * chunk, len(blob_new))
+        offs.append(len(out))
+        if i < len(offsets) and hi <= len(blob_old) and (i + 1) * chunk <= len(blob_old) \
+                and blob_old[lo:hi] == blob_new[lo:hi]:
+            end = offsets[i + 1] if i + 1 < len(offsets) else len(packed)
+            out += packed[offsets[i]:end]
+        else:
+            out += enc.compress(blob_new[lo:hi])
+    return bytes(out), cmpind_codec.build_ind(len(blob_new), len(out), chunk, offs)
+
+
+def verify_relocated(cmp_new: Path, names: list[dict], blob_old: bytes, rep: dict) -> dict:
+    """Decode the rebuilt pair (``cmpind`` codec) and check the moved chain is
+    reached through its locator, names are present and nothing else changed."""
+    blob, *_ = read_pair(cmp_new)
+    pp = rep["per_page"]
+    res = {"errors": [], "names": 0, "names_ok": 0}
+    ch = chain_via_locator(blob, pp)
+    if ch is None or ch.base != rep["new_base"] or len(ch.pages) != rep["pages"]:
+        res["errors"].append("moved chain is not reached through its locator")
+    found = {c.base: c for c in find_chains(blob)}
+    if rep["new_base"] not in found:
+        res["errors"].append("table does not match the pages at the new base (independent scan)")
+    if rep["old_base"] in found:
+        res["errors"].append("a chain is still found at the old base")
+    for other in LAYOUT:
+        if other != pp and (chain_via_locator(blob_old, other) is not None) != (
+                chain_via_locator(blob, other) is not None):
+            res["errors"].append(f"per_page {other} chain no longer reached")
+    inners = {} if ch is None else {o: p[2] for o, p in zip(
+        [o for o, _, _ in chain_via_locator(blob_old, pp).pages], ch.pages)}
+    for e in names:
+        res["names"] += 1
+        page = int(e["page"], 0) if isinstance(e["page"], str) else int(e["page"])
+        if (e["new"].encode("latin-1") + b"@") in inners.get(page, b""):
+            res["names_ok"] += 1
+        else:
+            res["errors"].append(f"name {e['new']!r} not found with '@' (old page {page:#x})")
+    old_ch = chain_via_locator(blob_old, pp)
+    allowed = [(rep["old_base"], rep["old_base"] + rep["old_bytes"]),
+               (rep["toc"], rep["toc"] + old_ch.toc_size),
+               (rep["base_ref"], rep["base_ref"] + 8)]
+    outside = 0
+    n = len(blob_old)
+    step = 1 << 16
+    for lo in range(0, n, step):
+        a, b = blob_old[lo:lo + step], blob[lo:min(lo + step, n)]
+        if a == b:
+            continue
+        for i in range(len(a)):
+            if a[i] != b[i] and not any(s <= lo + i < e for s, e in allowed):
+                outside += 1
+    res["outside_changed"] = outside
+    if outside:
+        res["errors"].append(f"{outside} bytes changed outside the old chain, table and base reference")
+    res["new_size"] = len(blob)
+    res["ok"] = not res["errors"]
+    return res
+
+
+def cmd_relocate(args) -> int:
+    enc = _require_encoder(args)
+    print(f"encoder: zlib {enc.version} via {enc.source}")
+    cmp_path = Path(args.cmp)
+    blob, packed, offsets, usize, chunk = read_pair(cmp_path)
+    ch = chain_via_locator(blob, args.chain)
+    if ch is None:
+        print(f"REFUSED: per_page {args.chain}: locator does not lead to a verified chain")
+        return 1
+    if args.names:
+        names = json.loads(Path(args.names).read_text())
+    elif args.generate:
+        names = plan_names(blob, [ch], args.generate, args.grow)
+    elif args.permute:
+        names = plan_permuted(blob, [ch], args.permute)
+    else:
+        names = []
+    try:
+        blob_new, rep = relocate_blob(blob, args.chain, names, enc)
+    except RegenError as exc:
+        print(f"REFUSED: {exc}")
+        if args.json:
+            Path(args.json).write_text(json.dumps({"refused": str(exc), "names": len(names)}))
+        return 1
+    outdir = Path(args.outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    stem = cmp_path.name
+    cmp_new, ind_new = write_pair_grown(packed, offsets, chunk, blob, blob_new, enc)
+    (outdir / stem).write_bytes(cmp_new)
+    (outdir / stem.replace(".cmp", ".ind")).write_bytes(ind_new)
+    if names:
+        (outdir / (stem + ".names.json")).write_text(json.dumps(names, indent=1))
+    ver = verify_relocated(outdir / stem, names, blob, rep)
+    print(f"chain per_page {rep['per_page']}: {rep['pages']} pages moved {rep['old_base']:#x} -> "
+          f"{rep['new_base']:#x} ({rep['old_bytes']} -> {rep['new_bytes']} B); base reference at "
+          f"{rep['base_ref']:#x}; table {rep['toc']:#x} entries changed {rep['entries_changed']}; "
+          f".DAT {rep['old_size']:#x} -> {rep['new_size']:#x}")
+    print(f"names {ver['names_ok']}/{ver['names']} present with '@'; bytes changed outside "
+          f"old chain/table/reference {ver['outside_changed']}")
+    if args.json:
+        Path(args.json).write_text(json.dumps({"file": stem, "encoder": enc.describe(),
+                                               "relocate": rep, "verify": ver,
+                                               "sha256_cmp": hashlib.sha256(cmp_new).hexdigest()},
+                                              indent=1))
+    print("verify:", "PASS" if ver["ok"] else "FAIL " + "; ".join(ver["errors"][:5]))
+    return 0 if ver["ok"] else 1
+
+
 def cmd_summarize(args) -> int:
     """Count fitted/refused regen runs from the ``--json`` files in DIR."""
     rows = []
@@ -717,6 +1139,12 @@ def cmd_summarize(args) -> int:
             over = d["refused"].split("new chain ")[1].split(" B")[0] if "new chain " in d["refused"] else "?"
             slot = d["refused"].split("chain slot ")[1].split(" B")[0] if "chain slot " in d["refused"] else "?"
             rows.append((f.stem, "REFUSED", d["names"], f"needs {over} B, slot {slot} B"))
+        elif "relocate" in d:
+            v, r = d["verify"], d["relocate"]
+            rows.append((f.stem, "PASS" if v["ok"] else "FAIL", v["names"],
+                         f"moved {r['old_base']:#x}->{r['new_base']:#x}, {r['old_bytes']}->"
+                         f"{r['new_bytes']} B, names {v['names_ok']}/{v['names']}, "
+                         f"outside {v['outside_changed']}"))
         else:
             v = d["verify"]
             ch = d["chains"][0] if d["chains"] else {}
@@ -833,8 +1261,11 @@ def _synth_record(name: bytes, body: bytes = b"\x11" * 44) -> bytes:
 
 
 def synth_blob(enc: Encoder, names_per_page=(6, 5, 7), extra_slack: int = 0x40,
-               seed: int = 1) -> tuple[bytes, dict]:
-    """Factory-like decoded POINT ``.DAT``: header, a name chain, its table, a tail."""
+               seed: int = 1, located: bool = False) -> tuple[bytes, dict]:
+    """Factory-like decoded POINT ``.DAT``: header, a name chain, its table, a tail.
+
+    With *located*, the 0x800 directory and a descriptor record carry the
+    chain's base and table reference as in the factory files (M4.47)."""
     import random
     rnd = random.Random(seed)
     pages = []
@@ -851,7 +1282,7 @@ def synth_blob(enc: Encoder, names_per_page=(6, 5, 7), extra_slack: int = 0x40,
         pages.append(recs)
     hdr = bytearray(b"\xff" * 0x200)
     hdr[0:14] = "CLARION".encode("utf-16-be")
-    base = 0x1000
+    base = 0x1200 if located else 0x1000
     body = bytearray()
     entries = []
     for inner in pages:
@@ -866,6 +1297,15 @@ def synth_blob(enc: Encoder, names_per_page=(6, 5, 7), extra_slack: int = 0x40,
     blob += struct.pack(">HH", 1000, 0) + b"".join(struct.pack(">III", *e) for e in entries)
     blob += bytes((-len(blob)) % 0x100)
     blob += b"\xffTAIL-STRUCTURE\xff" * 8  # non-zero neighbour after the table
+    if located:
+        cell, rb, rt = LAYOUT[1000]
+        for i in range(DIR_CELLS):
+            blob[DIR_START + DIR_CELL * i:DIR_START + DIR_CELL * (i + 1)] = b"\xff" * 4 + b"\0\0"
+        rec = base - 0x200
+        struct.pack_into(">IH", blob, cell, blk_addr(rec), 2)
+        blob[rec:rec + 4] = b"\xff\xff\x00\x15"
+        struct.pack_into(">II", blob, rec + rb, blk_addr(base), len(body) // 2)
+        struct.pack_into(">IIH", blob, rec + rt, blk_addr(toc_off), (4 + 12 * len(entries)) // 2, 1000)
     return bytes(blob), {"base": base, "toc": toc_off, "pages": pages}
 
 
@@ -988,6 +1428,67 @@ def selftest() -> int:
         except RegenError as exc:
             ok("does not reproduce" in str(exc), "non-factory encoder refused")
 
+    # --- chain locator and relocation (M4.47) ---
+    ok(blk_addr(0x6A7F00) == 0xD4F07 and blk_off(0xD4F07) == 0x6A7F00, "block address round trip")
+    try:
+        blk_off(0x108)
+        ok(False, "block 8 rejected")
+    except ValueError:
+        ok(True, "")
+    lb, lmeta = synth_blob(enc, located=True)
+    lch = chain_via_locator(lb, 1000)
+    ok(lch is not None and lch.base == lmeta["base"] and lch.toc == lmeta["toc"],
+       "locator leads to the chain base and table")
+    locs = find_locators(lb, find_chains(lb))
+    ok(len(locs[0]["base_pos"]) == 1 and locs[0]["base_pos"][0]["rel"] == LAYOUT[1000][1],
+       "base reference found once, inside the directory record")
+    shuf = blk_addr(lmeta["base"] + 0x100)
+    ok(chain_via_locator(lb, 1000, base_value=shuf) is None, "a shuffled base address fails")
+    ok(chain_via_locator(lb, 1000, decode=lambda a: a * SECTOR) is None,
+       "the base word read as a plain sector number fails")
+    ok(chain_via_locator(blob, 1000) is None, "no locator in a file without the directory")
+    lchains = find_chains(lb)
+    lplan = [dict(e, new="".join(chr(65 + b % 26) for b in hashlib.sha256(
+              e["old"].encode()).digest() * 2)[:len(e["old"]) + 40])
+             for e in plan_names(lb, lchains, 18, grow=0)]
+    try:
+        regen_blob(lb, lplan, enc, lchains)
+        ok(False, "in-place growth refused")
+    except RegenError as exc:
+        ok("relocate" in str(exc), "in-place regen refuses and names relocate")
+    moved, rep = relocate_blob(lb, 1000, lplan, enc)
+    ok(rep["new_base"] == -(-len(lb) // BLOCK) * BLOCK and rep["new_bytes"] > rep["old_bytes"] + (
+        lchains[0].slot_end - lchains[0].end), "relocated chain grew past its old slot")
+    mch = chain_via_locator(moved, 1000)
+    ok(mch is not None and mch.base == rep["new_base"] and mch.toc == lmeta["toc"],
+       "the locator leads to the moved chain")
+    ok(not any(moved[lmeta["base"]:lmeta["base"] + rep["old_bytes"]]), "old chain bytes are zero")
+    stale = bytearray(moved)
+    struct.pack_into(">I", stale, rep["base_ref"], blk_addr(lmeta["base"]))
+    ok(chain_via_locator(bytes(stale), 1000) is None, "a moved chain with a stale locator fails")
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        packed, ind = _pair_from_blob(lb, enc)
+        (td / "POINT098.DAT.cmp").write_bytes(packed)
+        (td / "POINT098.DAT.ind").write_bytes(ind)
+        b0, packed0, offs0, _, ch0 = read_pair(td / "POINT098.DAT.cmp")
+        c5, i5 = write_pair_grown(packed0, offs0, ch0, b0, moved, enc)
+        out = td / "out"
+        out.mkdir()
+        (out / "POINT098.DAT.cmp").write_bytes(c5)
+        (out / "POINT098.DAT.ind").write_bytes(i5)
+        ok(c5[:offs0[1]] == packed0[:offs0[1]], "unchanged outer chunks kept verbatim")
+        ver = verify_relocated(out / "POINT098.DAT.cmp", lplan, lb, rep)
+        ok(ver["ok"] and ver["names_ok"] == len(lplan), "relocated pair decodes, names present")
+        c6, i6 = write_pair_grown(packed0, offs0, ch0, b0, bytes(stale), enc)
+        (out / "POINT098.DAT.cmp").write_bytes(c6)
+        (out / "POINT098.DAT.ind").write_bytes(i6)
+        ok(not verify_relocated(out / "POINT098.DAT.cmp", lplan, lb, rep)["ok"],
+           "verify fails on a stale locator")
+        noop, nrep = relocate_blob(lb, 1000, [], enc)
+        ok(noop[nrep["new_base"]:nrep["new_base"] + nrep["new_bytes"]]
+           == lb[lmeta["base"]:lmeta["base"] + nrep["old_bytes"]], "no-op move copies the chain verbatim")
+
     print(f"point_pair_regen selftest: {checks} checks OK "
           f"(encoder zlib {enc.version}; byte-identity uses this runtime)")
     return 0
@@ -1002,10 +1503,16 @@ def main(argv=None) -> int:
     p.add_argument("--json")
     p.add_argument("--jobs", type=int, default=1)
     p.add_argument("--streams", action="store_true", help="also count every inner zlib stream (slow)")
-    p = sub.add_parser("locator", help="search the chain-base/table locator in DIR (negative so far)")
+    p = sub.add_parser("locator", help="read every chain's base/table reference through the directory")
     p.add_argument("dir")
+    p.add_argument("--legacy", action="store_true",
+                   help="the M5.26 fixed-encoding search of bytes 0..--window (negative control)")
+    p.add_argument("--jobs", type=int, default=1)
+    p.add_argument("--json")
     p.add_argument("--window", type=lambda x: int(x, 0), default=0x8000)
     p.add_argument("--top", type=int, default=8)
+    p.add_argument("--shuffle", action="store_true",
+                   help="also run the shuffled-value control (reads every file twice)")
     p = sub.add_parser("summarize", help="count PASS/REFUSED regen --json results in DIR")
     p.add_argument("dir")
     p = sub.add_parser("regen", help="regenerate the chains of one pair")
@@ -1024,6 +1531,19 @@ def main(argv=None) -> int:
     p.add_argument("--reencode-outer", action="store_true",
                    help="deflate every outer 64 KiB chunk (default keeps unchanged chunks verbatim)")
     p.add_argument("--json")
+    p = sub.add_parser("relocate", help="move one chain to the end of the .DAT (updates its locator)")
+    p.add_argument("cmp")
+    p.add_argument("outdir")
+    p.add_argument("--chain", type=int, default=1000, choices=sorted(LAYOUT),
+                   help="per_page of the chain to move (1000 = name chain)")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--names", help="JSON name set (pages of that chain)")
+    g.add_argument("--generate", type=int, help="plan N OSM-like names on the chain")
+    g.add_argument("--permute", type=int, help="move N real names between sites of the chain")
+    p.add_argument("--grow", type=int, default=0)
+    p.add_argument("--libz")
+    p.add_argument("--allow-nonreference", action="store_true")
+    p.add_argument("--json")
     p = sub.add_parser("verify", help="check a rebuilt pair against the factory pair and a name set")
     p.add_argument("factory")
     p.add_argument("built")
@@ -1039,6 +1559,8 @@ def main(argv=None) -> int:
         return cmd_summarize(args)
     if args.cmd == "locator":
         return cmd_locator(args)
+    if args.cmd == "relocate":
+        return cmd_relocate(args)
     if args.cmd == "verify":
         return cmd_verify(args)
     ap.print_help()
