@@ -1,0 +1,95 @@
+{
+ "schema": "osm2leaf.l3.targets/v1",
+ "notes": [
+  "M9.36: the M9.20 real-image plumbing probes (EU2011 Navi.exe), committed so the re-run is",
+  "reproducible (M9.20 wrote them in a heredoc). Not part of targets.json; no verdict is claimed."
+ ],
+ "targets": [
+  {
+   "name": "point-walker-real",
+   "reader": "point",
+   "what": "POINT page walker fn 0x3f5194 (C-2540), little-endian",
+   "entry": {
+    "kind": "module",
+    "module": "Navi.exe",
+    "va": "0x003f5194",
+    "endian": "little",
+    "args": [
+     "0x0",
+     "0x0"
+    ],
+    "verdict_map": {
+     "0x0": "REJECT"
+    }
+   },
+   "stubs": [],
+   "expect": {
+    "verdict": "REJECT",
+    "rule": "M9.20 real-image plumbing check; no verdict is expected"
+   }
+  },
+  {
+   "name": "point-walker-real-be",
+   "reader": "point",
+   "what": "the same, big-endian (C-2546 control)",
+   "entry": {
+    "kind": "module",
+    "module": "Navi.exe",
+    "va": "0x003f5194",
+    "endian": "big",
+    "args": [
+     "0x0",
+     "0x0"
+    ],
+    "verdict_map": {
+     "0x0": "REJECT"
+    }
+   },
+   "stubs": [],
+   "expect": {
+    "verdict": "REJECT",
+    "rule": "M9.20 real-image plumbing check; no verdict is expected"
+   }
+  },
+  {
+   "name": "point-walker-compressed",
+   "reader": "point",
+   "what": "control: VA in compressed sec1",
+   "entry": {
+    "kind": "module",
+    "module": "Navi.exe",
+    "va": "0x0055d100",
+    "endian": "little",
+    "args": [],
+    "verdict_map": {
+     "0x0": "REJECT"
+    }
+   },
+   "stubs": [],
+   "expect": {
+    "verdict": "REJECT",
+    "rule": "M9.20 real-image plumbing check; no verdict is expected"
+   }
+  },
+  {
+   "name": "point-walker-outside",
+   "reader": "point",
+   "what": "control: VA outside every block",
+   "entry": {
+    "kind": "module",
+    "module": "Navi.exe",
+    "va": "0x8cae1000",
+    "endian": "little",
+    "args": [],
+    "verdict_map": {
+     "0x0": "REJECT"
+    }
+   },
+   "stubs": [],
+   "expect": {
+    "verdict": "REJECT",
+    "rule": "M9.20 real-image plumbing check; no verdict is expected"
+   }
+  }
+ ]
+}
