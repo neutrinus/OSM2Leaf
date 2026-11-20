@@ -168,6 +168,11 @@ kept), so the next run extracts cleanly.
   kernel's TMU0 interrupt (INTEVT `0x400`) is delivered to its ISR and
   acknowledged. See
   [`EXP-2026-11-20-M8.B1-intc-model.md`](../../docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md).
+- **M8.B3 (2026-11-20):** no RTC model is needed: EU2011 `OEMGetRealTime`
+  is a software clock seeded from `nk.exe` data (2009-07-10 07:10:00) plus
+  `CurMSec`. `tools/ze0_rtc.py` drives Get/Set from a shim and reads the
+  date words. See
+  [`EXP-2026-11-20-M8.B3-rtc-time.md`](../../docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

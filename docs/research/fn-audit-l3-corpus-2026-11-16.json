@@ -375,17 +375,20 @@
   "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md",
+  "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
+  "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
+  "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 374,
-  "citations": 1090,
-  "unique_va": 238,
-  "start": 904,
-  "inside": 80,
+  "files": 377,
+  "citations": 1108,
+  "unique_va": 248,
+  "start": 921,
+  "inside": 81,
   "corrected": 9,
   "gap": 85,
   "leaf": 85,
@@ -676,7 +679,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2523,
+   "line": 2537,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -686,7 +689,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2527,
+   "line": 2541,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -9944,6 +9947,168 @@
    "file": "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
    "line": 247,
    "va": "0x8803cdd8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 37,
+   "va": "0x8803fbcc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 49,
+   "va": "0x880400a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 97,
+   "va": "0x880453b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 134,
+   "va": "0x880400a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 155,
+   "va": "0x880149a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 155,
+   "va": "0x8801ba24",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 156,
+   "va": "0x880220a4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 156,
+   "va": "0x8804028c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 156,
+   "va": "0x880453b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 157,
+   "va": "0x8804cc34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 158,
+   "va": "0x880220dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 158,
+   "va": "0x8804028c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 159,
+   "va": "0x880400a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 160,
+   "va": "0x880401a2",
+   "kind": "fn",
+   "class": "INSIDE",
+   "true_start": "0x880400a8",
+   "class_sha256": "89058bf1d93b35cb5f6ec8578e5356b22a27bfaebacb902089e3641891e2ecc9"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 195,
+   "va": "0x880453b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 202,
+   "va": "0x880453b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 211,
+   "va": "0x880400a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+   "line": 222,
+   "va": "0x880453b0",
    "kind": "fn",
    "class": "START",
    "true_start": null,
