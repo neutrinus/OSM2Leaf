@@ -389,7 +389,6 @@
   "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
-  "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
   "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
   "docs/experiments/EXP-2026-11-20-M4.48-datavol-18c-reader.md",
@@ -411,10 +410,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 404,
-  "citations": 1207,
-  "unique_va": 280,
-  "start": 1022,
+  "files": 403,
+  "citations": 1204,
+  "unique_va": 278,
+  "start": 1019,
   "inside": 81,
   "corrected": 9,
   "gap": 83,
@@ -643,7 +642,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2650,
+   "line": 2635,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -10467,33 +10466,6 @@
    "file": "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
    "line": 144,
    "va": "0x0041c8c4",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
-   "line": 113,
-   "va": "0x00425bdc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
-   "line": 114,
-   "va": "0x003d1320",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
-   "line": 114,
-   "va": "0x0042555c",
    "kind": "fn",
    "class": "START",
    "true_start": null,

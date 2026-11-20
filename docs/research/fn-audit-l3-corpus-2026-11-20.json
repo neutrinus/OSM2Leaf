@@ -380,6 +380,7 @@
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/experiments/EXP-2026-11-20-H19-reverify-thin-records.md",
   "docs/experiments/EXP-2026-11-20-H77-skip-fenced-code.md",
+  "docs/experiments/EXP-2026-11-20-H89-nomatch-census.md",
   "docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md",
   "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
   "docs/experiments/EXP-2026-11-20-M2.19-check2-router-l3.md",
@@ -390,6 +391,7 @@
   "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
+  "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
   "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
   "docs/experiments/EXP-2026-11-20-M4.48-datavol-18c-reader.md",
@@ -411,10 +413,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 404,
-  "citations": 1045,
-  "unique_va": 248,
-  "start": 893,
+  "files": 406,
+  "citations": 1048,
+  "unique_va": 250,
+  "start": 896,
   "inside": 71,
   "corrected": 9,
   "gap": 65,
@@ -479,7 +481,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1218,
+   "line": 1219,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -488,7 +490,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1653,
+   "line": 1688,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -497,7 +499,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1654,
+   "line": 1689,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -506,7 +508,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1656,
+   "line": 1691,
    "va": "0x003f40ec",
    "kind": "fn",
    "class": "START",
@@ -515,7 +517,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1721,
+   "line": 1756,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -524,7 +526,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1721,
+   "line": 1756,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -533,7 +535,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1722,
+   "line": 1757,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -542,7 +544,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1743,
+   "line": 1778,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -552,7 +554,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1753,
+   "line": 1788,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -561,7 +563,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1761,
+   "line": 1796,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -570,7 +572,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1787,
+   "line": 1822,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -580,7 +582,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1789,
+   "line": 1824,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -589,7 +591,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1820,
+   "line": 1855,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -598,7 +600,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1820,
+   "line": 1855,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -607,7 +609,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1852,
+   "line": 1887,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -616,7 +618,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1853,
+   "line": 1888,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -625,7 +627,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2285,
+   "line": 2320,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -634,7 +636,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2285,
+   "line": 2320,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -643,7 +645,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2636,
+   "line": 2686,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -9036,6 +9038,33 @@
    "file": "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
    "line": 144,
    "va": "0x0041c8c4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
+   "line": 113,
+   "va": "0x00425bdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
+   "line": 114,
+   "va": "0x003d1320",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
+   "line": 114,
+   "va": "0x0042555c",
    "kind": "fn",
    "class": "START",
    "true_start": null,
