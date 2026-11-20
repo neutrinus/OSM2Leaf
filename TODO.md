@@ -4189,7 +4189,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: done — EXP-2026-11-19-M9.6-mapcode-compare. Target `applaunch_mapcode_compare` (`firmware_call`/`mapcode_compare_v1`, `tools/mapcode_l3.py`) runs EU2011 build B `fn 0x03bd2ad8` from IMG256: factory `HDD_INFO.TXT` → `r0=1` ACCEPT, `line1_digits_4_002` → `r0=0` REJECT (firmware log `VerInf:QSD-302-100 / HddInf:QSD-002-100`); line-2 edit ACCEPT, byte-10 edit REJECT; unit `+0x60` is a declared input (C-5140–C-5146). Re-opens M2.4 (rule 15).
 
 - [ ] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
-  - Status: open (walk part runnable; name part waits for M3.11c) · Owner: — · Critical: yes
+  - Status: open (walk part runnable — EXP-2026-11-20-M9.41-us-poi-row; the `l3check` row that would make it S1 evidence is M9.55; name part waits for M3.11c) · Owner: — · Critical: yes
   - Step: P4
   - Note (H51, 2026-11-11): the walker and accessor VAs are **EU-build** addresses; the US card carries a different `Navi.exe` (H51). The EU-code run stays as a method check; the gate for S1/S2 is the same run on the US build after **M1.22** gives the US VAs.
   - Note (M1.22b, 2026-11-16): the US VAs now exist and are **justified**, not voted: the POINT walker `0x003f5194 → 0x0041db44` (`DIFFERENT`, one pool word `0x4e8→0x4d8`, C-362x) and the POI name accessor `0x003f632c → 0x0041ec8c` (`UNIQUE`). Register the target with `build: "us2011"`; the run itself stays M9.10.
@@ -4610,7 +4610,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3320–C-3329
 
 - [ ] **M9.41 — M9.10's last US-build gap: `point_walk_l3` runs the US reader but the target is not registered as an S1/S2 evidence row**
-  - Status: in progress · Owner: task/m9.41-us-poi-row · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m9.41-us-poi-row · Critical: yes · Pair: required
+  - Blocker: the Done-when needs a `--build-corpus` row that is **runnable with its verdict**, but `runner.py` dispatches only `cmp_ind_chunk_v1`/`mapcode_compare_v1` (`unknown firmware_call program` otherwise) and `l3check --build-corpus` never passes `--image/--cmp/--ind`, so a POINT target added exactly within the Scope is BLOCKED; making it runnable needs `runner.py`/`l3check.py`/`corpus.py`, outside the Scope (EXP-2026-11-20-M9.41-us-poi-row, C-4223–C-4225).
+  - Unblock: M9.55
   - Depends: M9.10 (the US `point_walk_l3` run exists), M1.22 (done — US VAs), M9.39 (a record-mutated page is the control), M1.22b (done — the US VAs are justified)
   - Goal: give the US POI walk that M1.22 already runs a registered L3 target and `l3check` evidence row, so rule-13 S1/S2 acceptance for the US POI path is a gate row instead of prose in an EXP.
   - Note (SE 2026-11-17): M1.22's Result and its note on M9.10 say the US walker now runs 9/9 plus guard/count controls on `archive/us256.img`, but M9.10 still reads "name part waits for M3.11c" and nothing in `targets.json`/`l3check.TARGET_EVIDENCE` names the US `point_walk_l3` run. This task is **not** M9.10's `poi_record_decode` runner target (M9.10 ports the walk into `runner.py` and adds the name check); it is the cheaper C-3538-shaped move: register the *existing* `point_walk_l3 --build us2011` run as a `targets.json` evidence row so `l3check` reports it and M9.10 can cite it. Its Scope and files do not overlap M9.10's runner work.
@@ -4622,6 +4624,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the name accessor cannot run on the US build without M3.11c, register the walker row only, mark M9.10's name half open, and do not mark M9.10 `done`.
   - Falsifier: the target appears in `--build-corpus` but a wrong-*build* run (`walk archive/head256.img … --build us2011`) prints `result: PASS` instead of `result: FAIL (unmapped …)`; the M9.39 mutant page is a *positive* witness (it must still pass on its own build), never a negative control.
   - Claims: C-4220–C-4229
+  - Result: `blocked` — EXP-2026-11-20-M9.41-us-poi-row (C-4220–C-4229). Not done: the Done-when's "`--build-corpus` lists the new US target as runnable with its verdict" needs `runner.py` dispatch for a POINT program (only `cmp_ind_chunk_v1`/`mapcode_compare_v1` exist: `unknown firmware_call program 'point_walk_v1'`) and `l3check.py` `--build-corpus` `--image/--cmp/--ind` plumbing — three files outside this task's Scope; a Scope-sized target is BLOCKED (C-4223–C-4225). Evidence the walk itself is sound is kept: factory + M9.39 mutant `result: PASS` on `us256.img` with `n=501 0xfe4e→0xfe52`, `n=998/999 +4`, count 1,000 (C-4221–C-4222); wrong-build `result: FAIL (unmapped …)`, exit 1, 0 tracebacks (C-4226). M9.10's name half stays open on M3.11c (the walker proves framing only, C-4178). Unblock: **M9.55**.
 
 - [x] **M1.33 — M1.22's census and relocated-body tables come from an uncommitted script, and its Method has ellipses**
   - Status: done · Owner: task/m1.33-census-command · Critical: no · Pair: required
@@ -4831,6 +4834,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: both rebuilt pairs give `ok=1000 of 1000` with the accessor on their build (US2011 and EU2011), the new SHAs are recorded in claim rows, and every citation of `ea2d0e0f…`/`e75c298f…` is either re-pinned or marked as the pre-M5.52 pair with a reason.
   - Claims: C-5266–C-5269
   - Result: EXP-2026-11-20-M9.54-repin-m9.39-pair (C-5266–C-5269). The current `--resize` writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` and EU `.cmp` `979dff4a…` / `.ind` `7ee2e542…`; the name accessor gives `ok=1000 of 1000` on US2011 (`0x0041ec8c`) and EU2011 (`fn 0x003f632c`) with the whole new rec-500 name. The pre-M5.52 tool (`9316b77`) still writes the old pins, and **both** old pairs fail the accessor at rec 500 (`mismatch=1 ok=999`; EU was not known before). Walker table, wrong-build verdicts and the same-length control are unchanged on the new pairs, so only C-4482/C-4483 were stale; C-4174/C-4482/C-4483 are annotated, and EXP-M9.39/M9.42/M9.43 each have an `Overtaken by a later commit` section. M9.41 untouched (cites no pin in its own files).
+
+- [ ] **M9.55 — Run the US POI walk from `runner.py` and register the target so `l3check` reports its verdict**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M9.10 (the US `point_walk_l3` run exists), M9.42 (done — the wrong-build verdict is clean), M1.22b (done — `build` field)
+  - Goal: M9.41 showed the walker runs (factory + M9.39 mutant PASS, wrong-build FAIL) but cannot be a `l3check --build-corpus` row from `targets.json`/`TARGET_EVIDENCE` alone: `runner.py` has no POINT `firmware_call` program (`unknown firmware_call program 'point_walk_v1'`) and corpus mode supplies no `--image/--cmp/--ind`, so a Scope-sized target is BLOCKED (EXP-2026-11-20-M9.41-us-poi-row, C-4223–C-4225). Port the walk into `runner.py` as a registered program and plumb the walker inputs, so the row reports a verdict.
+  - Precheck: `python3 tools/point_walk_l3.py walk archive/us256.img --cmp <US POINT010.DAT.cmp> --ind <…ind> --page 0x840ba0 --page-len 42848 --build us2011` prints `result: PASS`; `python3 tools/l3_harness/runner.py run point_walk_us2011 --targets <scratch targets.json> …` today prints `BLOCKED: unknown firmware_call program 'point_walk_v1'` (the gap).
+  - Scope: `tools/l3_harness/runner.py` (a `point_walk_v1` `firmware_call` program that calls `point_walk_l3.run_nth`/`run_skip` with the target's build, refusing a wrong build as `result: FAIL`, M9.42 shape), `tools/l3check.py` (corpus-mode `--image/--cmp/--ind` pass-through and the `TARGET_EVIDENCE` row), `tools/l3_harness/corpus.py` (an optional POINT010 page entry), and `tools/l3_harness/targets.json` (`point_walk_us2011`, `build: us2011`, VAs read through `build_targets.py`, not retyped). Update M9.10's Status/Result to cite the row. No new VA; no writer change; no map-format claim.
+  - Hints: the walker VAs are already the single-owner map (`build_targets.py show`, `point_walk_l3`); reuse `point_walk_l3.load_page`/`run_nth` rather than re-deriving the page swap. The M9.39 mutant page is the positive witness (`n=501 +4`), never a negative control (C-4178/C-4435). Keep `l3check --selftest`'s `total` in step with any added target.
+  - Done when: `python3 tools/l3check.py --build-corpus` lists `point_walk_us2011` as runnable with its verdict (or, on a forged wrong-build corpus, as `FAIL (unmapped …)`), `runner.py run point_walk_us2011` returns the walker's verdict on the US page, `l3check --selftest` passes, and M9.10's Status/Result cites the row or states the name half (M3.11c) as the only open half.
+  - Stop: if `runner.py` cannot host the walker without a sec1/INIT dependency it cannot satisfy (M1.2f), record the fault, keep the target BLOCKED-with-reason, and re-open M9.41 as `blocked` naming the dependency.
+  - Falsifier: the row is runnable but returns a verdict on a wrong build (it must be `FAIL (unmapped …)`), or the walker verdict disagrees with `point_walk_l3.py walk` on the same page.
+  - Claims: C-5760–C-5769
+
 
 - [ ] **M9.52 — Finish the firmware's mount in `datask_l3.py`: who answers message `0x1507`**
   - Status: open · Owner: — · Critical: yes · Pair: solo
