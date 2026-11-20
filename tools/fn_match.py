@@ -22,7 +22,13 @@ Method
    * Literal-pool words (the data a ``mov.l @(disp,PC)`` / ``mov.w`` loads)
      are hashed as *content* when they are not pointers into the module's own
      load range, and masked to a marker when they are (a relocated pointer is
-     not a constant). The pool's address is never hashed.
+     not a constant). The pool's address is never hashed. Slots are found in a
+     forward pass: a halfword **already named** as a slot is pool data and never
+     names another slot, so a pool word that was loaded (already marked) and
+     decodes as a load cannot blank a real instruction (H113, H89
+     PHANTOM-SLOT). This does not cover pool data that no load names: an
+     unloaded data word that decodes as a load still names a slot, an open
+     residual (H113 EXP, H118).
    * Everything else (opcodes, register fields, immediates that are not
      addresses) is hashed verbatim.
 
@@ -170,6 +176,40 @@ def is_bsr(w: int) -> bool:
     return (w >> 12) == 0xB
 
 
+def _pool_loads(words, base_va: int):
+    """``(index, slot_va, size, dest)`` for each real PC-relative load.
+
+    A forward pass: a PC-relative load only reaches forward (its displacement
+    is unsigned), so every slot is named before the scan reaches it, and a
+    halfword already marked as a slot is pool data and never names another
+    slot.  Without the second rule a pool word whose low half decodes as
+    ``mov.x @(disp,PC)`` (e.g. ``0xda3c``) names a real instruction, which is
+    then blanked and hashed as ``0x0000`` (H89 PHANTOM-SLOT, H113).  Loads
+    whose slot sits past ``len(words)`` are real (the trailing pool area).
+    """
+    slots: set[int] = set()
+    for i, w in enumerate(words):
+        if i in slots or not is_mov_pc(w):
+            continue
+        size = 4 if (w >> 12) == 0xD else 2
+        lit = pool_addr(base_va + 2 * i, w)
+        j = (lit - base_va) // 2
+        slots.update((j, j + 1) if size == 4 else (j,))
+        yield i, lit, size, (w >> 8) & 0xF
+
+
+def pool_slots(words, base_va: int) -> set[int]:
+    """Halfword indexes (relative to ``base_va``) of literal-pool data.
+
+    Indexes may fall past ``len(words)`` (a slot in the trailing pool area).
+    """
+    out: set[int] = set()
+    for i, lit, size, _dest in _pool_loads(words, base_va):
+        j = (lit - base_va) // 2
+        out.update((j, j + 1) if size == 4 else (j,))
+    return out
+
+
 # ------------------------------------------------------------ fingerprint
 
 def fingerprint(words, base_va: int, load_range, image_bytes: bytes,
@@ -198,20 +238,16 @@ def fingerprint(words, base_va: int, load_range, image_bytes: bytes,
             return struct.unpack_from("<H", image_bytes, off)[0]
         return None
 
-    # Pass 1: find every literal-pool slot referenced by this function.
-    # Offsets are relative to code_base (image), matching pass 2.
+    # Pass 1: find every literal-pool slot referenced by this function, in a
+    # forward pass that never lets pool data name a slot (H113).  Offsets are
+    # relative to code_base (image), matching pass 2.
     pool_bytes: set[int] = set()
     pool_meta: dict[int, tuple] = {}
-    for i, w in enumerate(words):
-        if not is_mov_pc(w):
-            continue
-        va = base_va + 2 * i
-        lit = pool_addr(va, w)
+    for _i, lit, size, dest in _pool_loads(words, base_va):
         off2 = lit - code_base
-        size = 4 if (w >> 12) == 0xD else 2
         for k in range(size):
             pool_bytes.add(off2 + k)
-        pool_meta[off2] = (lit, size, (w >> 8) & 0xF)
+        pool_meta[off2] = (lit, size, dest)
 
     # Pass 2: hash instructions; pool halfwords hash as 0x0000 (their value
     # travels through the referencing mov.* in pass 3 below).
@@ -294,16 +330,13 @@ def _instruction_tokens(words, base_va, image_bytes, code_base):
     at most in the values their literal pools hold; it lets a caller match a
     callee even when a relocated constant inside the callee moved.
     """
-    pool_bytes: set[int] = set()
-    for i, w in enumerate(words):
-        if not is_mov_pc(w):
-            continue
-        va = base_va + 2 * i
-        lit = pool_addr(va, w)
-        off2 = lit - code_base
-        size = 4 if (w >> 12) == 0xD else 2
+    # A forward pass marks pool data only; a pool word that decodes as a
+    # PC load does not name another slot (H113).
+    pool_offs = set()
+    for _i, lit, size, _dest in _pool_loads(words, base_va):
         for k in range(size):
-            pool_bytes.add(off2 + k)
+            pool_offs.add(lit - code_base + k)
+    pool_bytes = pool_offs
 
     tokens: list[bytes] = []
     n = len(words)
@@ -807,6 +840,42 @@ def selftest() -> int:
     check("bodies: no rts in window is never identical",
           body_compare([0x0009] * 4, 0, [0x0009] * 4, 0)["inside"])
     check("bodies: EU:US pair parser", parse_pair("0x10:0x20") == (0x10, 0x20))
+
+    # H113: a pool word that decodes as mov.l @(disp,PC) must not name a slot.
+    # hw0 = mov.l @(2,pc),r7 -> slot {6,7}; hw6 = 0xda39 is pool data whose low
+    # half decodes as a load that would otherwise blank hw122, a real insn.
+    # hw10 = mov.l @(5,pc),r1 -> a real load with slot {22,23}.
+    def make_phantom(real_word):
+        ws = [0x0009] * 130
+        ws[0] = 0xD702
+        ws[1] = 0x000B
+        ws[6] = 0xDA39
+        ws[10] = 0xD105
+        ws[122] = real_word
+        buf = bytearray(2 * len(ws))
+        for k, w in enumerate(ws):
+            struct.pack_into("<H", buf, 2 * k, w)
+        return ws, bytes(buf)
+
+    ws, buf = make_phantom(0xC11E)
+    slots = pool_slots(ws, 0x1000)
+    check("H113: forward pass marks the real slots and not the phantom one",
+          {6, 7, 22, 23} <= slots and 122 not in slots)
+    check("H113: the pool word decodes as a load that would name hw122",
+          (pool_addr(0x1000 + 2 * 6, ws[6]) - 0x1000) // 2 == 122)
+    ws_b, buf_b = make_phantom(0xC11F)
+    fp_a, _, _ = fingerprint(ws, 0x1000, (0x1000, 0x1400), buf, 0x1000)
+    fp_b, _, _ = fingerprint(ws_b, 0x1000, (0x1000, 0x1400), buf_b, 0x1000)
+    check("H113: a real instruction the old pass blanked still changes the hash",
+          fp_a != fp_b)
+    toks = _instruction_tokens(ws, 0x1000, buf, 0x1000)
+    check("H113: the real instruction hashes as itself, not as 0x0000",
+          toks[122] == struct.pack("<H", 0xC11E)
+          and toks[6] == b"\x00\x00" and toks[22] == b"\x00\x00")
+    masked = pool_masked(ws, 0x1000, 20)
+    check("H113: pool_masked still zeroes a real load's slot",
+          masked[22] == 0 and masked[6] == 0 and masked[122] == 0xC11E
+          and masked[0] == 0xD702 and masked[10] == 0xD105)
 
     print("fn_match selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))
@@ -1416,12 +1485,12 @@ def pool_masked(words, va, body):
     pool slot is still a difference.
     """
     out = list(words)
-    for i in range(min(body, len(words))):
-        w = words[i]
-        if not is_mov_pc(w):
-            continue
-        j = (pool_addr(va + 2 * i, w) - va) // 2
-        for k in ((j, j + 1) if (w >> 12) == 0xD else (j,)):
+    # Forward pass: pool data never names a slot, so a body load whose slot
+    # lands on a real instruction cannot blank it (H113).  A load whose slot
+    # falls past the body (trailing pool) still counts.
+    for i, lit, size, _dest in _pool_loads(words[:body], va):
+        j = (lit - va) // 2
+        for k in ((j, j + 1) if size == 4 else (j,)):
             if 0 <= k < len(out):
                 out[k] = 0
     return out

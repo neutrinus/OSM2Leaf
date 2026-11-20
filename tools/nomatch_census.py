@@ -98,19 +98,9 @@ def naive_slots(words, va):
 
 
 def pool_slots(words, va):
-    """Pool slot indexes from a forward pass that skips pool data.
-
-    A PC-relative load only reaches forward (``disp`` is unsigned), so a slot
-    is always marked before the scan reaches it; a halfword already marked as
-    a slot is data and never names another slot.
-    """
-    out = set()
-    for i, w in enumerate(words):
-        if i in out or not fm.is_mov_pc(w):
-            continue
-        j = (fm.pool_addr(va + 2 * i, w) - va) // 2
-        out.update((j, j + 1) if (w >> 12) == 0xD else (j,))
-    return out
+    """Pool slot indexes: ``fn_match.pool_slots``, the forward pass that skips
+    pool data (one implementation, H113)."""
+    return fm.pool_slots(words, va)
 
 
 def phantom(words, va):
