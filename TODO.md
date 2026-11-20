@@ -4493,15 +4493,16 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `div1_l3.py run archive/head256.img nk.exe` prints `4/4 runnable functions match` with `rotcl(shim)=0 rotcr(shim)=0`; `isolate --before <pre-change engine>` lists only `rotcl`/`rotcr`; `compare` 0/0 on the three corpora.
   - Claims: C-5310–C-5319 (was C-5188–C-5189; fresh block for this run)
 
-- [ ] **M9.51 — `mac.l` is modelled as `mac.l Rm,Rn`; the SH-4 form is `mac.l @Rm+,@Rn+`**
-  - Status: in progress · Owner: task/m9.51-pysh4-macl · Critical: no · Pair: solo
+- [x] **M9.51 — `mac.l` is modelled as `mac.l Rm,Rn`; the SH-4 form is `mac.l @Rm+,@Rn+`**
+  - Status: done · Owner: task/m9.51-pysh4-macl · Critical: no · Pair: solo
+  - Result: EXP-2026-11-20-M9.51-pysh4-macl; C-5580–C-5584. `mac.l` now reads `@Rn`/`@Rm` longs with post-increment and S = 1 48-bit saturation; `isolate --before 6512c1b --expect mac.l` → only mac.l (256); `compare` 0/0 on the three corpora. New `tools/l3_harness/arm_census.py`: none of 11 documented L3 runs (31.7 M instructions) executes `mac.l`, so no L3 verdict changes. The M9.45 fast path has no `mac.l` template; `_step` runs it.
   - Depends: M9.49
   - Goal: `engine.py`'s `0x0nmF` arm multiplies the two *register values*; the manual's `0000nnnnmmmm1111` is `MAC.L @Rm+,@Rn+` (two memory longs, both pointers +4, S = 1 saturates at 48 bits). The census counts 4,164 EU2011 Navi / 189 EU2011 nk / 4,839 US2011 Navi `mac.l` as modelled with wrong semantics (C-5304); the M9.37 selftest row checks the register form.
   - Scope: the `mac.l` arm and its selftest row in `tools/l3_harness/engine.py` (manual MACL code: distinct registers, n == m, S = 0/1, fault before register writes); first `grep` the L3 targets for a run that executed `mac.l` and say whether any result changes. No other instruction.
   - Done when: the new row fails on the current engine and passes after; `div1_l3.py isolate --before <pre-change engine> --expect mac.l` lists only `mac.l`; `decode_audit.py compare` 0/0 on EU Navi, EU nk, US Navi.
   - Precheck: `grep -n "mac.l Rm,Rn" tools/l3_harness/engine.py` finds the register-form arm (if it is gone, the task is moot).
   - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
-  - Claims: none yet (take the next free block when claimed)
+  - Claims: C-5580–C-5584 (block C-5580–C-5589)
 
 - [x] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
   - Status: done · Owner: task/m9.54-repin-m9.39-pair · Critical: no · Pair: solo
