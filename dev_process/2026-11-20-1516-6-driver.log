@@ -1,0 +1,49 @@
+role: driver (subagent) | task H97 | model deepseek-v4.1-flash-free
+start: 2026-11-20 15:16 UTC | end: 2026-11-20 15:24 UTC
+origin/main at start: 2e683be (rebased onto ce5f34c mid-run)
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md H97 block,
+  tools/l1l2_fixtures.py, .github/workflows/l1l2-fixtures.yml,
+  docs/experiments/TEMPLATE.md, claims rows around C-4250
+open PRs for [H97]: none (claim made fresh)
+
+actions, in order:
+- Verified worktree clean at 2e683be, no remote branch, no [H97] PR.
+- Claim commit only the H97 status line -> `todo: start H97`; pushed
+  branch task/h97-l1l2-verdict; opened draft PR #342 (rule 2).
+- Precheck: default run printed verdict=OK, ok=true, missing=[],
+  NOT COVERED=2, rc 0; JSON had no coverage_gaps key (defect reproduced).
+- Implemented in tools/l1l2_fixtures.py: coverage_gaps (required category
+  with zero runnable checks) + covered key; verdict line names the gap;
+  exit_code() helper keeps default rc 0 and adds opt-in --require-covered rc 1.
+- Extended selftest with coverage_gaps/covered/--require-covered controls
+  (positive fully-covered, negative gap + FAIL); added check counter so the
+  footer pins 30 checks (repo convention, verifiable by claims_check).
+- Fixed a first selftest attempt that asserted the wrong gap set
+  (L1 synthetic is covered by a runnable PASS; gaps were L2 DRSTR/tile/POI).
+- Rebased onto newer origin/main ce5f34c (tool identical at 2e683be/ce5f34c).
+- Measured true pre-fix state in a detached worktree at ce5f34c; the copied
+  scratch script was invalid (ROOT from __file__) so corrected the EXP method.
+- Wrote EXP-2026-11-20-H97-l1l2-verdict.md and claims C-4250–C-4254.
+- Filled TODO Result line (done, [x]); Stop rule applied: key kept, list measured.
+
+decisions:
+- Measured gap is ONE fully-uncovered category (L1 synthetic), not two: the
+  task prose's "two NOT COVERED levels" are two NOT COVERED *rows*; L2 tile is
+  covered by l2.tile.class-roundtrip (M5.36). Recorded honestly, not forced to 2.
+- Did NOT edit l1l2-fixtures.yml (Scope is the tool only); verified its summary
+  block still parses the additive JSON and the .md it embeds now names the gap.
+- No fixture invented (H40/H41 own that).
+
+problems / dead ends:
+- Scratch copy of the pre-fix tool gave 9 FAILs because ROOT resolved to the
+  scratch dir; replaced with a detached worktree at ce5f34c for the real precheck.
+
+checks (all on task branch):
+- selftest --only l1l2_fixtures: PASS
+- l1l2_fixtures (default): rc 0
+- l1l2_fixtures --require-covered: rc 1
+- claims_check: OK | todo_check: OK
+
+handoff: reviewer — confirm the ONE-gap reading against M5.36's l2.tile row;
+merge PR #342 (driver does not merge) after CI; then H42 calls --require-covered.

@@ -11,7 +11,13 @@ reported as NOT COVERED, never PASS.
 Usage:
     python3 tools/l1l2_fixtures.py                # JSON + Markdown to stdout
     python3 tools/l1l2_fixtures.py --json out.json --md out.md
+    python3 tools/l1l2_fixtures.py --require-covered  # exit 1 on a coverage gap
     python3 tools/l1l2_fixtures.py --selftest
+
+A "coverage gap" is a required category with zero runnable (PASS/FAIL/SKIP)
+checks; the default exit reflects runnable failures only, so a NOT COVERED
+level is named (`coverage_gaps`, `verdict=OK (N ... NOT COVERED)`) but does not
+fail. `--require-covered` makes such a gap exit 1 (H97).
 """
 
 from __future__ import annotations
@@ -420,22 +426,51 @@ def summarize(results: list[CheckResult]) -> dict:
     runnable_fail = sum(1 for r in results if r.runnable and r.status == FAIL)
     runnable_pass = sum(1 for r in results if r.runnable and r.status == PASS)
     runnable_skip = sum(1 for r in results if r.runnable and r.status == SKIP)
+    # A required category is covered only when it has at least one *runnable*
+    # check. A category made entirely of NOT COVERED rows (or absent from the
+    # registry) is a gap, never a pass (H97). `ok` keeps its old meaning
+    # (no runnable failure) so the default exit code does not change; the
+    # `--require-covered` flag is what turns a gap into a failure.
+    coverage_gaps = [
+        c for c in REQUIRED_CATEGORIES
+        if not any(cats.get(c, {}).get(st, 0) for st in RUNNABLE)
+    ]
+    ok = runnable_fail == 0
     return {
         "total": len(results),
         "counts": counts,
         "categories": cats,
         "required_categories": REQUIRED_CATEGORIES,
         "missing_categories": [c for c in REQUIRED_CATEGORIES if c not in cats],
+        "coverage_gaps": coverage_gaps,
         "runnable_pass": runnable_pass,
         "runnable_fail": runnable_fail,
         "runnable_skip": runnable_skip,
         "runnable_total": runnable_pass + runnable_fail + runnable_skip,
-        "ok": runnable_fail == 0,
+        "ok": ok,
+        "covered": ok and not coverage_gaps,
     }
+
+
+def exit_code(summary: dict, require_covered: bool = False) -> int:
+    """Exit 1 on a runnable failure (always) or, opt-in, on a coverage gap."""
+    if not summary.get("ok", False):
+        return 1
+    if require_covered and summary.get("coverage_gaps"):
+        return 1
+    return 0
 
 
 def render_markdown(results: list[CheckResult], summary: dict) -> str:
     rv, stock = _zlib_runtime()
+    gaps = summary.get("coverage_gaps", [])
+    gap_text = ", ".join(gaps) if gaps else "none"
+    verdict = "OK" if summary["ok"] else "FAIL"
+    if gaps:
+        verdict = (
+            f"{verdict} ({len(gaps)} required "
+            f"{'category' if len(gaps) == 1 else 'categories'} NOT COVERED)"
+        )
     lines = [
         "# H26 L1/L2 synthetic/generated fixture matrix",
         "",
@@ -445,7 +480,18 @@ def render_markdown(results: list[CheckResult], summary: dict) -> str:
         f"- zlib runtime: `{rv}` ({'stock-like' if stock else 'zlib-ng/H9: byte-identical recompress unverifiable'})",
         f"- runnable: {summary['runnable_pass']} PASS / {summary['runnable_fail']} FAIL / {summary['runnable_skip']} SKIP",
         f"- not covered: {summary['counts'].get(NOT_COVERED, 0)}",
-        f"- verdict: **{'OK' if summary['ok'] else 'FAIL'}** (exit reflects runnable failures only)",
+        f"- required categories: {len(summary['required_categories'])} (gaps: {gap_text})",
+        f"- verdict: **{verdict}** (exit reflects runnable failures only; `--require-covered` also fails on a gap)",
+        "",
+        "## Coverage gaps (required categories with no runnable check)",
+        "",
+    ]
+    if gaps:
+        for c in gaps:
+            lines.append(f"- **{c}**")
+    else:
+        lines.append("- none")
+    lines += [
         "",
         "## Matrix",
         "",
@@ -492,9 +538,11 @@ def make_report(results: list[CheckResult]) -> dict:
 
 def _selftest() -> int:
     errors = 0
+    checks = 0
 
     def ok(cond: bool, msg: str) -> None:
-        nonlocal errors
+        nonlocal errors, checks
+        checks += 1
         if cond:
             print(f"  ok: {msg}")
         else:
@@ -525,6 +573,32 @@ def _selftest() -> int:
     ok(s["runnable_total"] == 3, "NOT COVERED excluded from runnable total")
     s2 = summarize(run_checks([fake[0], fake[2], fake[3]]))
     ok(s2["ok"], "SKIP/NOT COVERED do not fail exit verdict")
+    ok(s2["coverage_gaps"] == ["L2 DRSTR", "L2 tile", "L2 POI mutation"],
+       "coverage_gaps names every required category with no runnable check")
+    ok("L1 synthetic" not in s2["coverage_gaps"],
+       "a required category with a runnable PASS is not a gap")
+    ok(not s2["covered"], "covered false while a required category is a gap")
+    ok(exit_code(s2) == 0, "default exit 0 despite a coverage gap (H97)")
+    ok(exit_code(s2, require_covered=True) == 1,
+       "--require-covered exits 1 on a coverage gap")
+    res2 = run_checks([fake[0], fake[2], fake[3]])
+    md2 = render_markdown(res2, s2)
+    ok("L2 tile" in md2, "markdown names the gap category")
+    ok("verdict: **OK (3 required categories NOT COVERED)**" in md2,
+       "markdown verdict names the gap count")
+    # Fully covered: every required category needs at least one runnable row.
+    full = [CheckSpec(f"c.{i}", c, "fake", "cmd", lambda: (PASS, "ok"))
+            for i, c in enumerate(REQUIRED_CATEGORIES)]
+    s3 = summarize(run_checks(full))
+    ok(s3["coverage_gaps"] == [], "no gaps when every required category runs")
+    ok(s3["covered"], "covered true when every required category runs")
+    ok(exit_code(s3, require_covered=True) == 0,
+       "--require-covered exits 0 once both gaps are runnable")
+    # A runnable failure must still win over --require-covered.
+    s4 = summarize(run_checks(full[:1] + [
+        CheckSpec("x.f", REQUIRED_CATEGORIES[0], "f", "c", lambda: (FAIL, "bad"))]))
+    ok(exit_code(s4, require_covered=True) == 1,
+       "--require-covered still fails on a runnable FAIL")
 
     # Report/markdown generation.
     report = make_report(res)
@@ -541,9 +615,9 @@ def _selftest() -> int:
     ok(bad[0].status == FAIL, "invalid status normalized to FAIL")
 
     if errors:
-        print(f"l1l2_fixtures self-test: {errors} FAIL")
+        print(f"l1l2_fixtures self-test: {errors} FAIL ({checks} checks)")
         return 1
-    print("l1l2_fixtures self-test: OK")
+    print(f"l1l2_fixtures self-test: OK ({checks} checks)")
     return 0
 
 
@@ -553,6 +627,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--md", metavar="PATH", help="write Markdown report")
     p.add_argument("--no-stdout-md", action="store_true",
                    help="do not print Markdown to stdout")
+    p.add_argument("--require-covered", action="store_true",
+                   help="exit 1 when a required category has no runnable check "
+                        "(coverage gap); default exit reflects runnable failures "
+                        "only")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
 
@@ -571,13 +649,19 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(md)
     if args.json or args.no_stdout_md:
         s = report["summary"]
+        gaps = s.get("coverage_gaps", [])
+        gap_note = (
+            f" ({len(gaps)} required categor"
+            f"{'y' if len(gaps) == 1 else 'ies'} NOT COVERED: {', '.join(gaps)})"
+            if gaps else ""
+        )
         print(
             f"l1l2_fixtures: runnable {s['runnable_pass']}P/{s['runnable_fail']}F/"
             f"{s['runnable_skip']}S, not_covered={s['counts'].get(NOT_COVERED,0)}, "
-            f"verdict={'OK' if s['ok'] else 'FAIL'}",
+            f"verdict={'OK' if s['ok'] else 'FAIL'}{gap_note}",
             file=sys.stderr,
         )
-    return 0 if report["summary"]["ok"] else 1
+    return exit_code(report["summary"], require_covered=args.require_covered)
 
 
 if __name__ == "__main__":
