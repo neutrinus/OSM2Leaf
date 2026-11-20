@@ -8,13 +8,14 @@ SHA-256, so nobody transcribes a URL or a hash by hand.
 
 Images
     IMG256   first 256 MiB of the EU 2011 card (firmware A, B, C heads)
+    US256    first 256 MiB of the US 2011 card (US firmware head, H62)
     EU2011   LEAF_2011-2012_QSD-309-101_navi158_eu.img  (7.5 GiB)
     US       LEAF_2011-2012_US.img                       (7.5 GiB)
     EU2014   LEAF_2014_EU_QSD-357-101.img                 (7.4 GiB)
     EU2016   ENV200_2016_EU_QSD-390-100.img               (7.4 GiB)
 
     ``--part 256M`` downloads the first 256 MiB of any listed image. The SHA-256
-    of that head is pinned only for EU2011 (it is IMG256); full-image SHA-256 is
+    of that head is pinned for EU2011 (it is IMG256) and US (it is US256); full-image SHA-256 is
     pinned for EU2011, US, EU2014 and EU2016 (H21 audit).
 
 Modes
@@ -45,6 +46,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import http.server
+import json
 import os
 import socket
 import sys
@@ -105,13 +107,23 @@ IMAGES: dict[str, Image] = {
 
 # Head pins: (image key, part) -> (size, sha256). IMG256 is an alias for EU2011
 # with part 256M, the head that the firmware tasks have used since M1.2.
+# US256 is the same for the US 2011 card (H62); its hash must agree with
+# tools/fixtures/fn_match_eu_us_2011.json "us_head" (checked by --selftest).
 PART_PINS: dict[tuple[str, str], tuple[int, str]] = {
     ("EU2011", "256M"): (
         256 * MIB,
         "92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9",
     ),
+    ("US", "256M"): (
+        256 * MIB,
+        "70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da",
+    ),
 }
-ALIASES: dict[str, tuple[str, str | None]] = {"IMG256": ("EU2011", "256M")}
+ALIASES: dict[str, tuple[str, str | None]] = {
+    "IMG256": ("EU2011", "256M"),
+    "US256": ("US", "256M"),
+}
+FIXTURE_US_HEAD = Path(__file__).resolve().parent / "fixtures" / "fn_match_eu_us_2011.json"
 
 
 class FetchError(Exception):
@@ -249,7 +261,10 @@ def listing() -> str:
     for image in IMAGES.values():
         rows.append(f"{image.key:8} {image.size:>14}  {image.sha256 or '(not pinned)':64}  {image.file}")
     rows.append("")
-    rows.append("IMG256 = EU2011 --part 256M (size 268435456, sha256 pinned)")
+    for alias, (akey, apart) in ALIASES.items():
+        if apart is not None and (akey, apart) in PART_PINS:
+            psize, psha = PART_PINS[(akey, apart)]
+            rows.append(f"{alias:8} {psize:>14}  {psha:64}  = {akey} --part {apart}")
     rows.append(f"base URL: {BASE_URL}")
     return "\n".join(rows)
 
@@ -257,7 +272,7 @@ def listing() -> str:
 def run(argv: list[str] | None = None, base_url: str = BASE_URL) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--list", action="store_true", help="print the image table")
-    parser.add_argument("--image", metavar="KEY", help="IMG256, EU2011, US, EU2014 or EU2016")
+    parser.add_argument("--image", metavar="KEY", help="IMG256, US256, EU2011, US, EU2014 or EU2016")
     parser.add_argument("--part", metavar="SIZE", help="only the first SIZE bytes (256M)")
     parser.add_argument("-o", "--output", type=Path, metavar="PATH", help="where to write the image")
     parser.add_argument("--force", action="store_true", help="replace an existing output")
@@ -423,7 +438,22 @@ def selftest() -> int:
         expect("EU2016 full image is SHA-256 pinned",
                resolve("EU2016", None)[2] == IMAGES["EU2016"].sha256 and IMAGES["EU2016"].sha256 is not None)
         expect("un-pinned part resolves with sha None", resolve("EU2014", "256M")[2] is None)
-        expect("listing names all five keys", all(k in listing() for k in ("IMG256", "EU2011", "US", "EU2014", "EU2016")))
+        expect("listing names all six keys",
+               all(k in listing() for k in ("IMG256", "US256", "EU2011", "US", "EU2014", "EU2016")))
+
+        # 10. US256 (H62): alias resolves to the pinned US head; US --part 256M
+        # now carries the same hash; another part is refused; the pin agrees
+        # with the fn_match fixture's us_head.
+        image, size, sha = resolve("US256", None)
+        us_pin = PART_PINS[("US", "256M")][1]
+        expect("US256 resolves to US 256M head with pinned sha",
+               image.key == "US" and size == 256 * MIB and sha == us_pin
+               and sha.startswith("70d945d8"))
+        expect("US --part 256M is SHA-256 pinned", resolve("US", "256M")[2] == us_pin)
+        expect_raises("US256 with another part refused", lambda: resolve("US256", "1G"), code=2)
+        fixture_sha = json.loads(FIXTURE_US_HEAD.read_text())["us_head"]["sha256"]
+        expect("US256 pin agrees with fn_match fixture us_head", fixture_sha == us_pin)
+        expect("US256 pin differs from IMG256 pin", us_pin != PART_PINS[("EU2011", "256M")][1])
 
     print("failures: %d" % len(failures))
     return 1 if failures else 0

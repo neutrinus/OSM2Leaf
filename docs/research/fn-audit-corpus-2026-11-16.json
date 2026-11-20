@@ -7,6 +7,7 @@
  "files": [
   "TODO.md",
   "docs/format/assets.md",
+  "docs/format/card-ladder.md",
   "docs/format/cerom.md",
   "docs/format/cmp-ind.md",
   "docs/format/coord-zcode-icode.md",
@@ -19,27 +20,29 @@
   "docs/format/sd-card-layout.md",
   "docs/format/validation.md",
   "docs/format/ze0-tools.md",
+  "tools/build_targets.py",
   "tools/chunk_decoder_l3.py",
   "tools/l3_harness/targets.json",
+  "tools/mapcode_l3.py",
   "tools/point_walk_l3.py",
   "tools/read_watch_l3.py"
  ],
  "summary": {
-  "files": 18,
-  "citations": 364,
-  "unique_va": 134,
-  "start": 240,
+  "files": 21,
+  "citations": 429,
+  "unique_va": 156,
+  "start": 291,
   "inside": 0,
   "corrected": 20,
-  "gap": 39,
-  "leaf": 39,
+  "gap": 40,
+  "leaf": 40,
   "ambiguous": 0,
-  "unmapped": 65
+  "unmapped": 78
  },
  "rows": [
   {
    "file": "TODO.md",
-   "line": 137,
+   "line": 139,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -48,7 +51,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -57,7 +60,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -66,7 +69,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x00412bee",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -76,7 +79,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x0041c7dc",
    "kind": "ctx",
    "class": "START",
@@ -85,7 +88,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -94,7 +97,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x0041c7e8",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -104,7 +107,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x00542250",
    "kind": "ctx",
    "class": "START",
@@ -113,7 +116,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x00542250",
    "kind": "fn",
    "class": "START",
@@ -122,7 +125,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 637,
+   "line": 656,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -132,7 +135,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x003f5a1e",
    "kind": "ctx",
    "class": "GAP",
@@ -142,7 +145,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x003f5fc2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -151,7 +154,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x0040e28c",
    "kind": "ctx",
    "class": "START",
@@ -160,7 +163,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x0040e28c",
    "kind": "fn",
    "class": "START",
@@ -169,7 +172,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x0040e4b2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -179,7 +182,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -188,7 +191,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -197,7 +200,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x00412bee",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -207,7 +210,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x0041c7dc",
    "kind": "ctx",
    "class": "START",
@@ -216,7 +219,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -225,7 +228,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 641,
+   "line": 660,
    "va": "0x0041c7e8",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -235,7 +238,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 800,
+   "line": 822,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -244,7 +247,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1090,
+   "line": 1107,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -253,7 +256,16 @@
   },
   {
    "file": "TODO.md",
-   "line": 1141,
+   "line": 1114,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1166,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -262,7 +274,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1148,
+   "line": 1173,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -271,7 +283,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1187,
+   "line": 1213,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -280,7 +292,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1197,
+   "line": 1223,
    "va": "0x00542250",
    "kind": "ctx",
    "class": "START",
@@ -289,7 +301,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1197,
+   "line": 1223,
    "va": "0x00542250",
    "kind": "fn",
    "class": "START",
@@ -298,7 +310,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1197,
+   "line": 1223,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -308,7 +320,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1197,
+   "line": 1223,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -317,7 +329,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1225,
+   "line": 1251,
    "va": "0x00413af4",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -326,7 +338,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1225,
+   "line": 1251,
    "va": "0x00542250",
    "kind": "ctx",
    "class": "START",
@@ -335,7 +347,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1225,
+   "line": 1251,
    "va": "0x00542250",
    "kind": "fn",
    "class": "START",
@@ -344,7 +356,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1225,
+   "line": 1251,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -354,7 +366,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1229,
+   "line": 1255,
    "va": "0x0040e28c",
    "kind": "ctx",
    "class": "START",
@@ -363,7 +375,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1229,
+   "line": 1255,
    "va": "0x0040e4b2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -373,7 +385,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1229,
+   "line": 1255,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -382,7 +394,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1229,
+   "line": 1255,
    "va": "0x00412bee",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -392,7 +404,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1229,
+   "line": 1255,
    "va": "0x0041c7dc",
    "kind": "ctx",
    "class": "START",
@@ -401,7 +413,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1229,
+   "line": 1255,
    "va": "0x0041c7e8",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -411,7 +423,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1230,
+   "line": 1256,
    "va": "0x003f5fc2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -420,7 +432,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1230,
+   "line": 1256,
    "va": "0x00413af4",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -429,7 +441,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1230,
+   "line": 1256,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -438,7 +450,43 @@
   },
   {
    "file": "TODO.md",
-   "line": 1378,
+   "line": 1393,
+   "va": "0x03bcc078",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1393,
+   "va": "0x03bcc564",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1393,
+   "va": "0x03bcc5b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1393,
+   "va": "0x03bd224c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1393,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -447,7 +495,43 @@
   },
   {
    "file": "TODO.md",
-   "line": 1384,
+   "line": 1393,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1406,
+   "va": "0x03bd2044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1406,
+   "va": "0x03bd224c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1411,
+   "va": "0x03bd2044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1428,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -456,7 +540,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1388,
+   "line": 1434,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -465,7 +549,43 @@
   },
   {
    "file": "TODO.md",
-   "line": 1443,
+   "line": 1438,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1445,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1450,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1450,
+   "va": "0x03bd2ecc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1507,
    "va": "0x00418748",
    "kind": "fn",
    "class": "START",
@@ -474,7 +594,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1470,
+   "line": 1534,
    "va": "0x004191d0",
    "kind": "sub_",
    "class": "START",
@@ -483,7 +603,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1470,
+   "line": 1534,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -492,7 +612,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1474,
+   "line": 1538,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -501,7 +621,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1474,
+   "line": 1538,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -510,7 +630,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1474,
+   "line": 1538,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -519,7 +639,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1532,
+   "line": 1597,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -529,7 +649,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1540,
+   "line": 1605,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -539,7 +659,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1558,
+   "line": 1623,
    "va": "0x003a03b4",
    "kind": "fn",
    "class": "START",
@@ -548,62 +668,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 1560,
+   "line": 1625,
    "va": "0x003cd910",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1561,
-   "va": "0x003d1150",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1576,
-   "va": "0x0041c044",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1577,
-   "va": "0x0041c044",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1579,
-   "va": "0x003f40ec",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1623,
-   "va": "0x003f5e78",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1623,
-   "va": "0x003f632c",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -620,7 +686,79 @@
   },
   {
    "file": "TODO.md",
-   "line": 1633,
+   "line": 1641,
+   "va": "0x0041c044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1642,
+   "va": "0x0041c044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1644,
+   "va": "0x003f40ec",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1671,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1671,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1689,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1689,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1692,
+   "va": "0x003d1150",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1699,
    "va": "0x003a03b4",
    "kind": "fn",
    "class": "START",
@@ -629,7 +767,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1642,
+   "line": 1708,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -638,7 +776,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1642,
+   "line": 1708,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -647,7 +785,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1643,
+   "line": 1709,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -656,7 +794,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1664,
+   "line": 1730,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -666,7 +804,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1674,
+   "line": 1740,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -675,7 +813,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1679,
+   "line": 1745,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -684,7 +822,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1703,
+   "line": 1769,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -694,7 +832,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1705,
+   "line": 1771,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -703,7 +841,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1734,
+   "line": 1800,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -712,7 +850,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1734,
+   "line": 1800,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -721,7 +859,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1765,
+   "line": 1831,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -730,7 +868,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1766,
+   "line": 1832,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -739,7 +877,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
+   "line": 1934,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -748,7 +886,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
+   "line": 1934,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -757,7 +895,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
+   "line": 1934,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -766,7 +904,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
+   "line": 1934,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -775,7 +913,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
+   "line": 1934,
    "va": "0x00412bee",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -785,7 +923,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
+   "line": 1934,
    "va": "0x00413a6c",
    "kind": "ctx",
    "class": "START",
@@ -794,7 +932,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
+   "line": 1934,
    "va": "0x00413a6c",
    "kind": "fn",
    "class": "START",
@@ -803,7 +941,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1868,
+   "line": 1934,
    "va": "0x00413af4",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -812,7 +950,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1869,
+   "line": 1935,
    "va": "0x003faf04",
    "kind": "fn",
    "class": "START",
@@ -821,7 +959,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1869,
+   "line": 1935,
    "va": "0x003fc9c8",
    "kind": "fn",
    "class": "START",
@@ -830,7 +968,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1869,
+   "line": 1935,
    "va": "0x003fcbf0",
    "kind": "fn",
    "class": "START",
@@ -839,7 +977,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1869,
+   "line": 1935,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -848,7 +986,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1869,
+   "line": 1935,
    "va": "0x003fe774",
    "kind": "fn",
    "class": "START",
@@ -857,7 +995,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1869,
+   "line": 1935,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -866,7 +1004,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1869,
+   "line": 1935,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -875,7 +1013,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1872,
+   "line": 1938,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -884,7 +1022,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1872,
+   "line": 1938,
    "va": "0x00415fe8",
    "kind": "fn",
    "class": "START",
@@ -893,7 +1031,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1877,
+   "line": 1943,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -902,7 +1040,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1877,
+   "line": 1943,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -911,7 +1049,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x003faf04",
    "kind": "fn",
    "class": "START",
@@ -920,7 +1058,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x003fc9c8",
    "kind": "fn",
    "class": "START",
@@ -929,7 +1067,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x003fcbf0",
    "kind": "fn",
    "class": "START",
@@ -938,7 +1076,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -947,7 +1085,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x003fe774",
    "kind": "fn",
    "class": "START",
@@ -956,7 +1094,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -965,7 +1103,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x0040e28c",
    "kind": "fn",
    "class": "START",
@@ -974,7 +1112,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -983,7 +1121,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1878,
+   "line": 1944,
    "va": "0x00415fe8",
    "kind": "fn",
    "class": "START",
@@ -992,7 +1130,25 @@
   },
   {
    "file": "TODO.md",
-   "line": 1889,
+   "line": 1945,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1945,
+   "va": "0x003ff6a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1956,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -1001,7 +1157,16 @@
   },
   {
    "file": "TODO.md",
-   "line": 1906,
+   "line": 1966,
+   "va": "0x004124dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1974,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -1010,7 +1175,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1917,
+   "line": 1985,
    "va": "0x0041f26c",
    "kind": "ctx",
    "class": "START",
@@ -1019,7 +1184,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1957,
+   "line": 2025,
    "va": "0x0040a014",
    "kind": "fn",
    "class": "START",
@@ -1028,8 +1193,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 3471,
-   "va": "0x880385e4",
+   "line": 2074,
+   "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1037,8 +1202,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 3502,
-   "va": "0x880385e4",
+   "line": 2074,
+   "va": "0x003f5e10",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1046,8 +1211,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 3584,
-   "va": "0x03bd2ad8",
+   "line": 2074,
+   "va": "0x003f632c",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1055,17 +1220,28 @@
   },
   {
    "file": "TODO.md",
-   "line": 3585,
-   "va": "0x03bd2ad8",
+   "line": 2537,
+   "va": "0x003f5194",
    "kind": "fn",
-   "class": "START",
+   "class": "GAP",
    "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
   },
   {
    "file": "TODO.md",
-   "line": 3637,
-   "va": "0x0041c7dc",
+   "line": 2541,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "TODO.md",
+   "line": 3619,
+   "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1074,6 +1250,78 @@
   {
    "file": "TODO.md",
    "line": 3644,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3664,
+   "va": "0x880400a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3667,
+   "va": "0x880453b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3725,
+   "va": "0x880385e4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3756,
+   "va": "0x880385e4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3839,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3840,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3845,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3895,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -1082,7 +1330,16 @@
   },
   {
    "file": "TODO.md",
-   "line": 3736,
+   "line": 3902,
+   "va": "0x0041c7dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3996,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1091,7 +1348,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3744,
+   "line": 4004,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1100,7 +1357,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3749,
+   "line": 4009,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1109,7 +1366,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3758,
+   "line": 4018,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1118,7 +1375,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3905,
+   "line": 4169,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1127,7 +1384,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3949,
+   "line": 4214,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1137,7 +1394,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4068,
+   "line": 4337,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1146,7 +1403,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4071,
+   "line": 4340,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1155,7 +1412,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4078,
+   "line": 4347,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1164,7 +1421,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4080,
+   "line": 4349,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1173,7 +1430,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4131,
+   "line": 4401,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1183,7 +1440,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4134,
+   "line": 4404,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -1194,33 +1451,6 @@
    "file": "docs/format/cerom.md",
    "line": 613,
    "va": "0x880385e4",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/cmp-ind.md",
-   "line": 179,
-   "va": "0x0041c7dc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/cmp-ind.md",
-   "line": 193,
-   "va": "0x0041c7dc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/cmp-ind.md",
-   "line": 195,
-   "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1420,6 +1650,15 @@
    "line": 170,
    "va": "0x0041bc98",
    "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/drstr.md",
+   "line": 256,
+   "va": "0x00377ae0",
+   "kind": "fn",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
@@ -1648,35 +1887,7 @@
   {
    "file": "docs/format/firmware.md",
    "line": 287,
-   "va": "0x004125a8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 288,
-   "va": "0x003fbed8",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 288,
-   "va": "0x0040114e",
-   "kind": "fn",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 289,
-   "va": "0x0040b358",
+   "va": "0x003f51e0",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1693,8 +1904,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 294,
-   "va": "0x003f51e0",
+   "line": 292,
+   "va": "0x003f5e10",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1702,8 +1913,8 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 296,
-   "va": "0x003f5d98",
+   "line": 301,
+   "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1711,8 +1922,36 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 296,
-   "va": "0x003f61bc",
+   "line": 302,
+   "va": "0x003fbed8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 302,
+   "va": "0x0040114e",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 303,
+   "va": "0x0040b358",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 304,
+   "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1722,15 +1961,6 @@
    "file": "docs/format/firmware.md",
    "line": 308,
    "va": "0x003f51e0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "docs/format/firmware.md",
-   "line": 308,
-   "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -1739,6 +1969,42 @@
   {
    "file": "docs/format/firmware.md",
    "line": 310,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 310,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 322,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 322,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 324,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -1747,7 +2013,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 311,
+   "line": 325,
    "va": "0x00415fe8",
    "kind": "fn",
    "class": "START",
@@ -1756,7 +2022,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 312,
+   "line": 326,
    "va": "0x0040e28c",
    "kind": "fn",
    "class": "START",
@@ -1765,7 +2031,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 314,
+   "line": 328,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -1774,7 +2040,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 316,
+   "line": 330,
    "va": "0x003faf04",
    "kind": "fn",
    "class": "START",
@@ -1783,7 +2049,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 317,
+   "line": 331,
    "va": "0x003fc9c8",
    "kind": "fn",
    "class": "START",
@@ -1792,7 +2058,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 317,
+   "line": 331,
    "va": "0x003fcbf0",
    "kind": "fn",
    "class": "START",
@@ -1801,7 +2067,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 318,
+   "line": 332,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -1810,7 +2076,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 318,
+   "line": 332,
    "va": "0x003fe774",
    "kind": "fn",
    "class": "START",
@@ -1819,7 +2085,142 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 377,
+   "line": 345,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 348,
+   "va": "0x003ff6a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 353,
+   "va": "0x003fc9c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 354,
+   "va": "0x003fcbf0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 355,
+   "va": "0x003fd390",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 356,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 357,
+   "va": "0x003faf04",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 359,
+   "va": "0x003fe774",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 359,
+   "va": "0x00412c60",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 360,
+   "va": "0x0040dfa8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 360,
+   "va": "0x0040e510",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 360,
+   "va": "0x00415fe8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 365,
+   "va": "0x00412c60",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 366,
+   "va": "0x003f600c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 366,
+   "va": "0x0040e510",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 418,
    "va": "0x00377870",
    "kind": "fn",
    "class": "START",
@@ -1828,7 +2229,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 380,
+   "line": 421,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1837,7 +2238,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 380,
+   "line": 421,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1846,7 +2247,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 383,
+   "line": 424,
    "va": "0x00377870",
    "kind": "fn",
    "class": "START",
@@ -1855,7 +2256,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 384,
+   "line": 425,
    "va": "0x00377ae0",
    "kind": "fn",
    "class": "START",
@@ -1864,7 +2265,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 602,
+   "line": 654,
    "va": "0x004e84c4",
    "kind": "sub_",
    "class": "START",
@@ -1873,7 +2274,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 603,
+   "line": 655,
    "va": "0x004e8f38",
    "kind": "fn",
    "class": "START",
@@ -1882,7 +2283,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 604,
+   "line": 656,
    "va": "0x004e989c",
    "kind": "sub_",
    "class": "START",
@@ -1891,7 +2292,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 604,
+   "line": 656,
    "va": "0x004ea288",
    "kind": "fn",
    "class": "START",
@@ -1900,7 +2301,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 605,
+   "line": 657,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -1909,7 +2310,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 611,
+   "line": 663,
    "va": "0x004df31c",
    "kind": "sub_",
    "class": "START",
@@ -1918,7 +2319,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 731,
+   "line": 783,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -1927,7 +2328,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 741,
+   "line": 793,
    "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
@@ -1936,7 +2337,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 743,
+   "line": 795,
    "va": "0x004dd028",
    "kind": "fn",
    "class": "START",
@@ -1945,7 +2346,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 745,
+   "line": 797,
    "va": "0x004e7d4c",
    "kind": "fn",
    "class": "START",
@@ -1954,7 +2355,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 761,
+   "line": 813,
    "va": "0x004e7b8c",
    "kind": "fn",
    "class": "START",
@@ -1963,7 +2364,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 893,
+   "line": 945,
    "va": "0x0001e3f4",
    "kind": "sub_",
    "class": "START",
@@ -1971,8 +2372,26 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/format/firmware.md",
+   "line": 1563,
+   "va": "0x004124dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1585,
+   "va": "0x003335c0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/format/map-tiles.md",
-   "line": 706,
+   "line": 711,
    "va": "0x004266ec",
    "kind": "fn",
    "class": "START",
@@ -1981,7 +2400,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 169,
+   "line": 256,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -1990,7 +2409,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 174,
+   "line": 261,
    "va": "0x003bc960",
    "kind": "fn",
    "class": "START",
@@ -1999,7 +2418,7 @@
   },
   {
    "file": "docs/format/rdstm.md",
-   "line": 175,
+   "line": 262,
    "va": "0x003a26b8",
    "kind": "fn",
    "class": "START",
@@ -2008,7 +2427,35 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 184,
+   "line": 99,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 153,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 160,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 262,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -2017,7 +2464,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 186,
+   "line": 264,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -2026,7 +2473,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 186,
+   "line": 264,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -2035,7 +2482,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 392,
+   "line": 470,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -2044,7 +2491,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 394,
+   "line": 472,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -2053,7 +2500,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 396,
+   "line": 474,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -2062,7 +2509,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 397,
+   "line": 475,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -2072,7 +2519,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 403,
+   "line": 481,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -2081,7 +2528,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 404,
+   "line": 482,
    "va": "0x003f51e0",
    "kind": "fn",
    "class": "START",
@@ -2090,7 +2537,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 412,
+   "line": 490,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -2099,7 +2546,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 414,
+   "line": 492,
    "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
@@ -2108,7 +2555,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 414,
+   "line": 492,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -2117,7 +2564,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 430,
+   "line": 508,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -2126,7 +2573,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 431,
+   "line": 509,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -2296,6 +2743,230 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "tools/build_targets.py",
+   "line": 53,
+   "va": "0x003f5194",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 55,
+   "va": "0x003f39c0",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 57,
+   "va": "0x003f5cdc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 59,
+   "va": "0x00c8c0d0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 59,
+   "va": "0x00d5e4d0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 61,
+   "va": "0x00c8c0e4",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 61,
+   "va": "0x00d5e4e4",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 63,
+   "va": "0x00c8c0c0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 63,
+   "va": "0x00d5e4c0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 67,
+   "va": "0x0041c7dc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 69,
+   "va": "0x003d146c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 69,
+   "va": "0x00400944",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 71,
+   "va": "0x003d140c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 71,
+   "va": "0x004008e4",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 73,
+   "va": "0x003d1484",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 73,
+   "va": "0x0040098c",
+   "kind": "const",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 78,
+   "va": "0x00543a98",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 78,
+   "va": "0x00565d94",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 80,
+   "va": "0x00543aa8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 80,
+   "va": "0x00565da4",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 84,
+   "va": "0x00574de0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 84,
+   "va": "0x005987b0",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 86,
+   "va": "0x00542148",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/build_targets.py",
+   "line": 86,
+   "va": "0x00564444",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
    "file": "tools/chunk_decoder_l3.py",
    "line": 2,
    "va": "0x0041c7dc",
@@ -2389,7 +3060,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 69,
+   "line": 70,
    "va": "0x00200200",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2398,195 +3069,16 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 71,
+   "line": 84,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 72,
-   "va": "0x003d146c",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 73,
-   "va": "0x003d1484",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 74,
-   "va": "0x00543a98",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 75,
-   "va": "0x00543aa8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 87,
-   "va": "0x0041c7dc",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 88,
-   "va": "0x003d146c",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 89,
-   "va": "0x003d140c",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 90,
-   "va": "0x003d1484",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 91,
-   "va": "0x00543a98",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 92,
-   "va": "0x00543aa8",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 93,
-   "va": "0x00574de0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/chunk_decoder_l3.py",
    "line": 94,
-   "va": "0x00542148",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 98,
-   "va": "0x00400944",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 99,
-   "va": "0x004008e4",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 100,
-   "va": "0x0040098c",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 104,
-   "va": "0x00565d94",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 105,
-   "va": "0x00565da4",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 109,
-   "va": "0x005987b0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 110,
-   "va": "0x00564444",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/chunk_decoder_l3.py",
-   "line": 117,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2595,7 +3087,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 119,
+   "line": 96,
    "va": "0x20000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2604,7 +3096,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 120,
+   "line": 97,
    "va": "0x30000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2613,7 +3105,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 123,
+   "line": 100,
    "va": "0x40000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2622,7 +3114,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 124,
+   "line": 101,
    "va": "0x40001000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2631,7 +3123,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 125,
+   "line": 102,
    "va": "0x50000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2640,7 +3132,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 126,
+   "line": 103,
    "va": "0x60000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2649,7 +3141,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 127,
+   "line": 104,
    "va": "0x70000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2658,7 +3150,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 128,
+   "line": 105,
    "va": "0x00800000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2667,7 +3159,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 130,
+   "line": 107,
    "va": "0x0054331c",
    "kind": "const",
    "class": "START",
@@ -2676,7 +3168,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 130,
+   "line": 107,
    "va": "0x00574de0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2685,7 +3177,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 199,
+   "line": 266,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
@@ -2694,7 +3186,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 244,
+   "line": 330,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2703,7 +3195,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 246,
+   "line": 332,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2712,7 +3204,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 461,
+   "line": 582,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2721,7 +3213,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 462,
+   "line": 583,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2730,7 +3222,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 514,
+   "line": 651,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
@@ -2739,7 +3231,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 518,
+   "line": 655,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2748,18 +3240,225 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 526,
+   "line": 665,
    "va": "0x00574de0",
    "kind": "const",
    "class": "UNMAPPED",
    "true_start": null,
    "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/l3_harness/targets.json:applaunch_mapcode_compare",
+   "line": 0,
+   "va": "0x03bd2ad8",
+   "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
    "file": "tools/l3_harness/targets.json:cmp_ind_reader",
    "line": 0,
    "va": "0x0041c7dc",
    "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 2,
+   "va": "0x03bd2ad8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 4,
+   "va": "0x03bd2ad8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 4,
+   "va": "0x03e00200",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 7,
+   "va": "0x03bd2ecc",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 10,
+   "va": "0x0101302c",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 13,
+   "va": "0x01f74b30",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 17,
+   "va": "0x01f74b30",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 83,
+   "va": "0x03e00200",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 86,
+   "va": "0x03bd2ad8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 87,
+   "va": "0x01f74b30",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 89,
+   "va": "0x0101302c",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 101,
+   "va": "0x30000000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 103,
+   "va": "0x40000000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 105,
+   "va": "0x00001234",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 106,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 107,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 151,
+   "va": "0x20000000",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 455,
+   "va": "0x03bd2ad8",
+   "kind": "const",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 541,
+   "va": "0x60000020",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 542,
+   "va": "0xc0002040",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 561,
+   "va": "0xffffffff",
+   "kind": "const",
+   "class": "UNMAPPED",
+   "true_start": null,
+   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
+  },
+  {
+   "file": "tools/mapcode_l3.py",
+   "line": 590,
+   "va": "0x03bd2ad8",
+   "kind": "const",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
@@ -2849,7 +3548,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 67,
+   "line": 79,
    "va": "0x003f5194",
    "kind": "const",
    "class": "GAP",
@@ -2859,7 +3558,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 68,
+   "line": 80,
    "va": "0x003f39c0",
    "kind": "const",
    "class": "GAP",
@@ -2869,7 +3568,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 69,
+   "line": 81,
    "va": "0x003f39c0",
    "kind": "const",
    "class": "GAP",
@@ -2879,7 +3578,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 69,
+   "line": 81,
    "va": "0x003f5194",
    "kind": "const",
    "class": "GAP",
@@ -2889,7 +3588,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 69,
+   "line": 81,
    "va": "0x003f5b88",
    "kind": "const",
    "class": "GAP",
@@ -2899,82 +3598,17 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 69,
+   "line": 81,
    "va": "0x003f5cdc",
    "kind": "const",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 70,
-   "va": "0x00d5e4d0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 71,
-   "va": "0x00d5e4e4",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 72,
-   "va": "0x00d5e4c0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 84,
-   "va": "0x003f5194",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 85,
-   "va": "0x003f39c0",
-   "kind": "const",
-   "class": "GAP",
-   "true_start": null,
-   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
-   "leaf": true
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 86,
-   "va": "0x003f5cdc",
-   "kind": "const",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 87,
-   "va": "0x00d5e4d0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
   },
   {
    "file": "tools/point_walk_l3.py",
    "line": 88,
-   "va": "0x00d5e4e4",
+   "va": "0x20000000",
    "kind": "const",
    "class": "UNMAPPED",
    "true_start": null,
@@ -2983,51 +3617,6 @@
   {
    "file": "tools/point_walk_l3.py",
    "line": 89,
-   "va": "0x00d5e4c0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 96,
-   "va": "0x00c8c0d0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 97,
-   "va": "0x00c8c0e4",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 98,
-   "va": "0x00c8c0c0",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 103,
-   "va": "0x20000000",
-   "kind": "const",
-   "class": "UNMAPPED",
-   "true_start": null,
-   "class_sha256": "580571181fb264773ed228dc17b55e1e131fdd264e379c8fa952b6ad7e8bb3f1"
-  },
-  {
-   "file": "tools/point_walk_l3.py",
-   "line": 104,
    "va": "0x30000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -3036,7 +3625,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 105,
+   "line": 90,
    "va": "0x20000000",
    "kind": "const",
    "class": "UNMAPPED",
@@ -3045,7 +3634,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 132,
+   "line": 117,
    "va": "0x003f5194",
    "kind": "const",
    "class": "GAP",
@@ -3055,7 +3644,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 350,
+   "line": 335,
    "va": "0x003f51ae",
    "kind": "const",
    "class": "GAP",
@@ -3065,7 +3654,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 350,
+   "line": 335,
    "va": "0x003f51ae",
    "kind": "const",
    "class": "GAP",
@@ -3075,7 +3664,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 461,
+   "line": 446,
    "va": "0x003f39c0",
    "kind": "const",
    "class": "GAP",
@@ -3085,7 +3674,7 @@
   },
   {
    "file": "tools/point_walk_l3.py",
-   "line": 569,
+   "line": 554,
    "va": "0x00200200",
    "kind": "const",
    "class": "UNMAPPED",

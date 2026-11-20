@@ -12,6 +12,7 @@ start. See docs/experiments/EXP-2026-11-05-35-ce-romhdr.md.
 Usage:
   cerom.py IMG romhdr
   cerom.py IMG modules
+  cerom.py modules --census IMG_EU IMG_US   # M1.33: build census (A = EU)
   cerom.py IMG files [--extract DIR] [--decompress]
                       [--method auto|lzss|lzx] [--json]
   cerom.py IMG sections MODULE
@@ -23,7 +24,7 @@ Usage:
                       [--exclude-compressed] [--ghidra-script FILE]
   cerom.py IMG ghidra ...              # alias of memmap
   cerom.py IMG decompress [--modules M1,M2] [--section NAME]
-                          [--method auto|lzss|lzx] [--out DIR]
+                          [--method auto|kernel|lzss|lzx] [--out DIR]
                           [--check] [--json]
   cerom.py IMG comphdr MODULE | --all [--json]
   cerom.py IMG thunks [MODULE | --all] [--json] [--min-coverage N]
@@ -51,6 +52,15 @@ decode produces ``<module>.<rva>.bin`` (under ``DIR/seg<N>/`` when more than
 one segment is walked).  ``--check`` writes nothing.  Exit codes: 0 when every
 requested section is ``OK``, 1 when some are ``UNSUPPORTED``/``FAIL``, 2 on a
 usage or I/O error.
+
+Since M1.19 a section the pure-Python codecs call ``UNSUPPORTED`` is handed to
+the kernel's own routine (``tools/nk_decomp.py``, build B ``nk.exe``
+``DECOMP_SECT 0x88037464`` in PySh4) when the image carries build B:
+``method_used`` is then ``kernel``, ``detected`` holds ``r0`` and the comphdr
+``uncompressed_len``, and the section is ``OK`` only when they are equal
+(``FAIL`` otherwise).  The decoded block is ``r0`` stored bytes then zero BSS
+to ``vsize``.  ``--method kernel`` skips the codecs.  Decodes are cached
+(``nk_decomp.cache_dir()``); the first full run of build A takes minutes.
 
 ``comphdr`` parses and validates the compressed-section framing header so M1.3
 knows every payload.  Form 1 (M1.2a, 22 bytes, 187/245 on build A): ``u24
@@ -343,6 +353,107 @@ class CERom:
             if m["name"] and m["name"].lower() == name.lower():
                 return m
         raise KeyError(name)
+
+
+# --------------------------------------------------------------------------
+# Module census (`modules --census A B`, M1.33): set algebra over two builds.
+# --------------------------------------------------------------------------
+
+CENSUS_DEFAULT_START = 0x200200
+
+
+def module_exec_digests(rom):
+    """``{name: {"name", "exec", "compressed"}}`` for every module of ``rom``.
+
+    ``exec`` is a tuple of SHA-256 digests, one per ``MEM_EXECUTE`` o32
+    section, over its stored bytes (``psize`` at ``p2f(dataptr)``), in section
+    order.  A compressed EXECUTE section is not hashed (its digest slot is
+    ``None``) and counted in ``compressed``: the census never compares bytes
+    it would have to decode.  Keys are lower-case names (the TOC is
+    case-insensitive); ``name`` keeps the spelling of the image.
+    """
+    out = {}
+    for m in rom.modules():
+        digests = []
+        compressed = 0
+        for s in rom.o32(m):
+            if not s["flags"] & MEM_EXECUTE:
+                continue
+            if s["flags"] & IMAGE_SCN_COMPRESSED:
+                compressed += 1
+                digests.append(None)
+                continue
+            o = rom.va2file(s["dataptr"])
+            digests.append(hashlib.sha256(rom.d[o:o + s["psize"]]).hexdigest())
+        out[m["name"].lower()] = dict(name=m["name"], exec=tuple(digests),
+                                      compressed=compressed)
+    return out
+
+
+def module_census(a, b):
+    """Compare two ``module_exec_digests`` maps (A = EU, B = US).
+
+    Returns a dict: ``count_a``/``count_b``, sorted name lists ``common``,
+    ``only_a``, ``only_b``; and over ``common`` the split ``identical`` (same
+    number of EXECUTE sections, every one uncompressed in both builds and
+    byte-identical), ``different`` (some uncompressed EXECUTE section differs
+    or the section count differs) and ``unreadable`` (a compressed EXECUTE
+    section in either build, with nothing else differing); plus the total of
+    compressed EXECUTE sections per build.
+    """
+    common = sorted(set(a) & set(b))
+    rep = dict(count_a=len(a), count_b=len(b),
+               common=[a[k]["name"] for k in common],
+               only_a=sorted(a[k]["name"] for k in set(a) - set(b)),
+               only_b=sorted(b[k]["name"] for k in set(b) - set(a)),
+               identical=[], different=[], unreadable=[],
+               compressed_a=sum(v["compressed"] for v in a.values()),
+               compressed_b=sum(v["compressed"] for v in b.values()))
+    for k in common:
+        ea, eb = a[k]["exec"], b[k]["exec"]
+        if len(ea) != len(eb) or any(x is not None and y is not None and x != y
+                                     for x, y in zip(ea, eb)):
+            rep["different"].append(a[k]["name"])
+        elif any(x is None or y is None for x, y in zip(ea, eb)):
+            rep["unreadable"].append(a[k]["name"])
+        else:
+            rep["identical"].append(a[k]["name"])
+    return rep
+
+
+def print_census(rep, label_a="EU", label_b="US"):
+    print("%s modules %d, %s modules %d, common %d"
+          % (label_a, rep["count_a"], label_b, rep["count_b"], len(rep["common"])))
+    print("only %s (%d): %s" % (label_a, len(rep["only_a"]), ", ".join(rep["only_a"]) or "-"))
+    print("only %s (%d): %s" % (label_b, len(rep["only_b"]), ", ".join(rep["only_b"]) or "-"))
+    print("compressed EXECUTE sections: %s %d, %s %d"
+          % (label_a, rep["compressed_a"], label_b, rep["compressed_b"]))
+    print("code-identical (every EXECUTE section, stored bytes): %d   %s"
+          % (len(rep["identical"]), ", ".join(rep["identical"]) or "-"))
+    print("code-different: %d" % len(rep["different"]))
+    if rep["unreadable"]:
+        print("code-unreadable (compressed EXECUTE section): %d   %s"
+              % (len(rep["unreadable"]), ", ".join(rep["unreadable"])))
+    print("summary: %s %d / %s %d / common %d / only-%s %d / only-%s %d / "
+          "code-identical %d / code-different %d"
+          % (label_a, rep["count_a"], label_b, rep["count_b"], len(rep["common"]),
+             label_a, len(rep["only_a"]), label_b, len(rep["only_b"]),
+             len(rep["identical"]), len(rep["different"])))
+
+
+def census_command(paths, image_start):
+    maps = []
+    for path in paths:
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read(128 << 20)
+        except OSError as exc:
+            print("error: %s" % exc, file=sys.stderr)
+            return 2
+        start = CENSUS_DEFAULT_START if image_start is None else image_start
+        maps.append(module_exec_digests(CERom(data, start)))
+    print_census(module_census(maps[0], maps[1]))
+    return 0
 
 
 # --------------------------------------------------------------------------
@@ -660,6 +771,54 @@ def section_out_dir(out_dir, segment_index, segment_count):
     return out_dir
 
 
+class KernelDecoder:
+    """The firmware's own section decompressor, run in PySh4 (M1.19, H51).
+
+    ``tools/nk_decomp.py`` runs ``DECOMP_SECT 0x88037464`` of build B's
+    ``nk.exe`` (``0x3e00200`` in the same image).  A section is ``OK`` when the
+    returned ``r0`` (stored length) equals the comphdr ``uncompressed_len``; the
+    decoded block is the loader's view: ``r0`` stored bytes then zero BSS up to
+    ``vsize``.  Decodes go through the nk_decomp cache.  An image without
+    build B (the synthetic self-test ROM) leaves the codec verdict unchanged.
+    """
+
+    def __init__(self, data):
+        self._ok = None
+        self.why = None
+        self._data = data
+
+    def available(self):
+        if self._ok is None:
+            try:
+                import nk_decomp  # noqa: F401 - sibling tool, lazy (it imports cerom)
+                nk_decomp._regions_for(self._data)
+                self._ok = True
+            except BaseException as exc:  # noqa: BLE001 - SystemExit from a bad nk.exe too
+                self._ok = False
+                self.why = "%s: %s" % (type(exc).__name__, exc)
+        return self._ok
+
+    def decode(self, data, offset, sec, module, index, payload):
+        """Return ``(blob or None, info, error or None)``."""
+        import nk_decomp
+        hdr = classify_comphdr(payload, sec["psize"], sec["vsize"])
+        expected = hdr.get("uncompressed_len") if hdr.get("verdict") == "HOLDS" else None
+        info = {"method": "kernel", "routine": "nk.exe DECOMP_SECT 0x88037464 (build B)",
+                "r0": None, "uncompressed_len": expected, "source": None,
+                "init_sha256": None}
+        try:
+            r0, init, source = nk_decomp.decode_cached(
+                data, offset, sec["psize"], sec["vsize"], module, index)
+        except Exception as exc:  # noqa: BLE001 - engine errors are per section
+            return None, info, "%s: %s" % (type(exc).__name__, exc)
+        info.update(r0=r0, source=source, init_sha256=hashlib.sha256(init).hexdigest())
+        if expected is None:
+            return None, info, "r0=0x%x but comphdr is not HOLDS" % r0
+        if r0 != expected:
+            return None, info, "r0=0x%x != comphdr uncompressed_len 0x%x" % (r0, expected)
+        return init + bytes(sec["vsize"] - r0), info, None
+
+
 def decompress_report(data, image_name, image_size=None, image_sha256=None,
                       sha256_scope=None, modules=None, section=None,
                       method="auto", out_dir=None, check=True, image_start=None):
@@ -672,7 +831,9 @@ def decompress_report(data, image_name, image_size=None, image_sha256=None,
     section record carries the same keys whatever its status.
     """
     cc = cecompress_module()
-    method = cc.normalise_method(method)
+    kernel_only = str(method).strip().lower() == "kernel"
+    method = "kernel" if kernel_only else cc.normalise_method(method)
+    kernel = KernelDecoder(data)
     segments, duplicates = find_segments(data, image_start)
 
     wanted = None
@@ -749,12 +910,37 @@ def decompress_report(data, image_name, image_size=None, image_sha256=None,
                     record["sha256"] = hashlib.sha256(payload).hexdigest()
                     record["sha256_scope"] = "stored"
                     try:
+                        if kernel_only:
+                            raise cc.UnsupportedFormat("kernel only (--method kernel)")
                         blob, info = cc.decompress_info(
                             payload, sec["vsize"], method)
                     except cc.UnsupportedFormat as exc:
-                        record["status"] = "UNSUPPORTED"
-                        record["error_type"] = type(exc).__name__
-                        record["error"] = str(exc)
+                        # M1.19: the pure-Python codecs refuse the CE LZX
+                        # stream; the kernel's own routine (nk_decomp, H51)
+                        # decodes it when the image carries build B.
+                        if method in ("auto", "kernel") and kernel.available():
+                            blob, info, kerr = kernel.decode(
+                                data, offset, sec, name, index, payload)
+                            if kerr is None:
+                                record["status"] = "OK"
+                                record["method_used"] = "kernel"
+                                record["detected"] = info
+                                record["output_size"] = len(blob)
+                                record["sha256"] = hashlib.sha256(blob).hexdigest()
+                                record["sha256_scope"] = "decoded"
+                            else:
+                                blob = None
+                                record["status"] = "FAIL"
+                                record["detected"] = info
+                                record["error_type"] = "KernelDecodeError"
+                                record["error"] = kerr
+                        else:
+                            record["status"] = "UNSUPPORTED"
+                            record["error_type"] = type(exc).__name__
+                            record["error"] = str(exc)
+                            if method == "kernel":
+                                record["error"] = ("UNSUPPORTED(kernel routine: %s)"
+                                                   % kernel.why)
                     except cc.CeCompressError as exc:
                         record["status"] = "FAIL"
                         record["error_type"] = type(exc).__name__
@@ -3567,6 +3753,66 @@ def selftest():
         ok("coredll #1145 -> COREDLL!_wfopen via names file",
            (sym_c, res_c), ("COREDLL!_wfopen", True))
 
+        # M1.33: module census over two synthetic module lists (no image).
+        def mod(name, *exec_digests):
+            return name.lower(), dict(
+                name=name, exec=tuple(exec_digests),
+                compressed=sum(1 for d in exec_digests if d is None))
+        ca = dict([mod("Same.dll", "h1", "h2"), mod("Diff.dll", "h3"),
+                   mod("Navi.exe", "h4"), mod("OnlyEU.dll", "h5"),
+                   mod("Packed.dll", None)])
+        cb = dict([mod("SAME.DLL", "h1", "h2"), mod("Diff.dll", "h3x"),
+                   mod("Navi.exe", "h4", "h6"), mod("OnlyUS1.dll", "h7"),
+                   mod("OnlyUS2.dll", "h8"), mod("Packed.dll", "h9")])
+        crep = module_census(ca, cb)
+        ok("census counts", (crep["count_a"], crep["count_b"], len(crep["common"])),
+           (5, 6, 4))
+        ok("census only-A / only-B", (crep["only_a"], crep["only_b"]),
+           (["OnlyEU.dll"], ["OnlyUS1.dll", "OnlyUS2.dll"]))
+        ok("census identical (case-insensitive name)", crep["identical"], ["Same.dll"])
+        ok("census different (bytes; section count)", crep["different"],
+           ["Diff.dll", "Navi.exe"])
+        ok("census compressed EXECUTE is unreadable, not identical",
+           (crep["unreadable"], crep["compressed_a"], crep["compressed_b"]),
+           (["Packed.dll"], 1, 0))
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok("cli modules --census exit", main(["--image-start", "0x%x" % exp["image_start"],
+                                                  "modules", "--census", path, path]), 0)
+        nmods = len(list(CERom(data).modules()))
+        ok("cli modules --census self-compare is all identical",
+           ("summary: EU %d / US %d / common %d / only-EU 0 / only-US 0 / "
+            "code-identical %d / code-different 0" % ((nmods,) * 4)) in buf.getvalue(),
+           True)
+
+    # --- M1.19: the kernel-routine verdict (fake nk_decomp, no vendor data)
+    psize, vsize = 0x40, 0x100
+    hdr = (struct.pack("<I", 0x30)[:3] + struct.pack("<I", psize)[:3]
+           + struct.pack("<IIII", COMPHDR_FLAGS, 0x30, psize - 22, 0x30))
+    payload = hdr + bytes(psize - len(hdr))
+    ok("kernel test header HOLDS", classify_comphdr(payload, psize, vsize)["verdict"], "HOLDS")
+    import types
+    fake_r0 = {"n": 0x30}
+    fake = types.SimpleNamespace(decode_cached=lambda d, off, ps, vs, m, i: (
+        fake_r0["n"], b"\x5a" * fake_r0["n"], "nk_decomp"))
+    saved = sys.modules.get("nk_decomp")
+    sys.modules["nk_decomp"] = fake
+    try:
+        kd = KernelDecoder(payload)
+        sec = {"psize": psize, "vsize": vsize}
+        blob, info, err = kd.decode(payload, 0, sec, "M.dll", 1, payload)
+        ok("kernel r0 == uncompressed_len is OK, init + zero BSS",
+           (err, len(blob), blob[0x2f:0x31], info["r0"]), (None, vsize, b"\x5a\x00", 0x30))
+        fake_r0["n"] = 0x2f
+        blob, info, err = kd.decode(payload, 0, sec, "M.dll", 1, payload)
+        ok("kernel r0 != uncompressed_len is refused",
+           (blob, "!= comphdr uncompressed_len 0x30" in (err or "")), (None, True))
+    finally:
+        if saved is None:
+            sys.modules.pop("nk_decomp", None)
+        else:
+            sys.modules["nk_decomp"] = saved
+
     print("cerom selftest: %d checks OK (synthetic ROM, no vendor data)" % len(checks))
     return 0
 
@@ -3888,7 +4134,12 @@ def main(argv=None):
                     help="run the synthetic-ROM self-test and exit (needs no image)")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("romhdr")
-    sub.add_parser("modules")
+    p = sub.add_parser("modules",
+                       help="list the module TOC; --census A B compares two builds")
+    p.add_argument("--census", nargs=2, metavar=("IMG_A", "IMG_B"),
+                   help="module census of two images (A=EU, B=US): only-A/only-B/"
+                        "common names and the EXECUTE-section identical/different "
+                        "split (default --image-start 0x200200, build A)")
     p = sub.add_parser("scan",
                        help="scan the whole image for CE ROM (ECEC) segments")
     p.add_argument("--offset", type=lambda x: int(x, 0), default=0,
@@ -3933,7 +4184,8 @@ def main(argv=None):
     p.add_argument("--section", metavar="NAME",
                    help="only sec<N>, MODULE/sec<N> or an RVA in hex")
     p.add_argument("--method", default="auto",
-                   help="auto (default), lzss/cecompress or lzx")
+                   help="auto (default: codecs, then the kernel routine), "
+                        "kernel (nk_decomp only), lzss/cecompress or lzx")
     p.add_argument("--out", metavar="DIR",
                    help="write each OK decode as <module>.<rva>.bin")
     p.add_argument("--check", action="store_true",
@@ -3965,6 +4217,8 @@ def main(argv=None):
 
     if a.selftest:
         return selftest()
+    if a.cmd == "modules" and getattr(a, "census", None):
+        return census_command(a.census, a.image_start)
     if a.image is None:
         ap.error("the following arguments are required: image")
     if a.cmd is None:

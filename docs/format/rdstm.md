@@ -62,7 +62,10 @@ Routing needs the first three, and none of them is settled.
    either the rows are variable length or the table ends there. A grid score
    cannot settle it; it can only show where a constant size stops fitting.
    The firmware decodes records through a per-record length/offset directory
-   (C-884), which supports variable length but is not yet reproducible offline.
+   (C-884). **Resolved (M4.16b):** that directory frames the `LCTBL001.DAT`
+   page records, not this table; the `0x1000` block here is a `0x180`-word
+   header followed at `0x1300` by variable-length location → link records
+   (see "`RDSTM001.DAT` location → link records" below).
 3. **graph tuple roles.** A `(src, dst)` reading of the `0x1a700` arrays is a
    hypothesis. `--layout` reports reciprocity and back references as
    diagnostics: high reciprocity is what a road graph should show, but other
@@ -71,9 +74,9 @@ Routing needs the first three, and none of them is settled.
    name records or a class code is unknown; `join` only reports how often a
    code is a known LCTBL code, which is necessary but not sufficient.
 5. **code position drift.** Why the code moves from `+14` to `+4` at `0x10a0`
-   is unexplained by a fixed layout; the firmware's per-record field directory
-   (C-884) is the likely reason, but the concrete walk is not yet reproduced
-   offline.
+   is unexplained by a fixed layout. The `0x1000..0x1224` bytes are the
+   file's table header (per-table rows ending in the catalog code, e.g.
+   `3219`), not records; its row layout is not decoded (M4.16e).
 
 ## What the firmware reads (field list with VAs)
 
@@ -115,21 +118,105 @@ The field order is the `LCTBL001` catalog column order (see the schema table
 below), so the catalog's column offsets are the record's field order — the
 byte offsets themselves are looked up per record, not fixed.
 
-### Per-record field directory
+### Per-record field directory (decoded, M4.16b)
 
-The record does not have a constant stride. `0x003f61bc(record, ?, index)`
-returns a pointer to field `index`; it uses `0x003f51e0` (schema/record-kind
-descriptor), `0x003f56bc` and `0x003f5d98` (walk the per-record length table at
-`record + 2*u16[record+2]`) and `0x003f5e10` (accumulate to the byte/bit
-offset). That is the mechanism behind the framing drift at `0x10a0` (C-106)
-and it replaces the fixed-16-byte hypothesis.
+The record does not have a constant stride. `0x003f61bc(handle, record,
+index)` (EU2011 build A) returns a pointer to field `index`; the rule is read
+from the code and verified on the card (EXP-2026-11-19-M4.16b-tmc-field-directory,
+C-5130–C-5133):
 
-M4.16b gate (EXP-2026-11-08-M4.16b-record-framing, C-2300–C-2307): the five
-functions are plain code in build-A `Navi.exe` `sec0` (`va2file` → file
-`0x010743bc`, `0x010733e0`, `0x010738bc`, `0x01073f98`, `0x01074010`); `0x003f61bc`
-calls `0x003f51e0`, `0x003f56bc`, `0x003f57a8`, `0x003f5e10`. The walk is not
-reproduced: `sh4dis.py` lacks MOVT, SHAR, SHLD and SHAD, which appear in the walk
-and accumulator code, and the schema table `0x00d53500` is not decoded.
+| Step | VA (EU2011) | Rule |
+| --- | --- | --- |
+| handle → block | `0x003f51e0` | key/value word pairs at `0x00d53500` (fallback `0x003f3a10`); a handle cache, **not** a field schema |
+| data start | `0x003f56bc` | `w = u16 rec[0]`; reject `(w & 0xe000) > 0xc000` or bits 11–12 ∉ {0,1}; `w>>13`: 0 → `rec+2`, 5 → `rec+8`, 2/3 → `rec+2*(hi+lo+8)` of `u16 rec[10]`, 6 → `rec+2*(hi+lo+2)` of `u16 rec[2]`, else invalid |
+| field count | `0x003f57a8` | `u16 [hdr+26]` of the handle's block (`hdr = base + 2*u16[base+2]`); 12 for TMC records |
+| field length | `0x003f5d98` | byte `i` of the length table at the data start (even `i` = high byte of the halfword), in 16-bit words |
+| field offset | `0x003f5e10` | `data + 2*((n+1)/2 + Σ len[0:i])` (length table padded to whole halfwords) |
+
+The records this walk reads are the `LCTBL001.DAT` page records (all of type
+0, so data starts at `+2`). With 12 fields the rule frames **247,089/247,089**
+EU and **303,023/303,023** US records exactly; 11 or 13 fields do not
+(`python3 tools/tmc_fielddir.py walk LCTBL001.DAT`). The "16-byte header + 4
+name slots + footer" layout under [Record layout](#record-layout-verified) is
+the same thing seen from outside: `marker 0x01` = length of field 0, `len1..4`
+= fields 1–4, the 7 "attribute" bytes = lengths of fields 5–11, and the
+"footer" = fields 5–11 (u16 codes and the exit-number string).
+
+Two corrections to the field table above:
+
+- raw field 0 is the TMC **location type** (120 values: 100 continent,
+  300 country, 20111 …), not the location code;
+- the **location code** is not stored in the record. It is the BCD value of
+  the record's ordinal in the index at `0x4600..0x316600` (0x1000-byte pages;
+  leaf pages start `ffffffff` and hold up to 340 entries `u32 ordinal` + 8
+  bytes BCD padded with `0xf`; one run per location table, 30 runs on EU 2011,
+  `python3 tools/tmc_fielddir.py index LCTBL001.DAT`).
+
+### `RDSTM001.DAT` location → link records (EU 2011, M4.16b)
+
+From `0x1300` to `0xccce00` the file holds 28 pairs of 0x100-aligned blocks,
+two per location table (C-5134):
+
+```
+link record   u16 size_words (0xffff on the last record of a block)
+              u16 location code
+              u16 n
+              n x ( u16 k ; (k >> 2) x u32 ref )      k & 3: role (UNKNOWN)
+triple block  u16 count ; count x ( u16 code, u16 negative, u16 positive )
+```
+
+The TMC location code joins the decoded records to these blocks: 167,204 of
+172,752 records carry the same (negative, positive) pair as the triple of
+their code, and 0 at ordinal shifts ±1/+2 (C-5135,
+`python3 tools/tmc_fielddir.py join LCTBL001.DAT RDSTM001.DAT`). A `ref` is
+`group (>>16)` + `entry (&0xffff)`, decoded to MAPAL parcel/node/link below
+(M4.16e). The US 2011 card's index and `RDSTM001.DAT` use other offsets (not
+parsed yet).
+
+### Link groups: ref → MAPAL section-2 link (EU 2011, M4.16e)
+
+Source: EXP-2026-11-20-M4.16e-rdstm-link-groups (C-5137–C-5139, C-5370);
+tool `tools/rdstm_links.py`. All words big-endian; an *addr* is the MAPAL
+container address `(v >> 8) * 0x800 + (v & 0xff) * 0x100`, *blocks* are 0x100
+bytes.
+
+```
+0x1000 header  u16 0x180 (words), u16 3, u16 122          (last two UNKNOWN)
+               2 x set: u32 group_index_addr, u16 blocks, u16 ntables (14)
+                        ntables x ( u16 table_code, u16 nlink,
+                                    nlink x (u32 addr, u16 blocks),   link blocks
+                                    u32 triple_addr, u16 blocks )     triple block
+group index    u16 ngroups
+               ngroups x (4-byte aligned):
+                 u16 size_dwords, u32 data_addr, u16 data_blocks,
+                 u32 key_min, u32 key_max,                  box of parcel codes
+                 u16 n, n x ( u32 parcel_key, u16 count )
+group data     sum(count) x ( u16 a, u16 b ), parcel by parcel in key order
+```
+
+| Set | Pairs (tables) | Group index | Groups | Parcel level | Entries |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 0–13 | `0xcda000` | 33 (≈ one grid tile each) | 4 (`LEV3456R.DAT`) | 422,683 |
+| 1 | 14–27 | `0xe78500` | 3,132 (4 × 4 level-2 parcels each) | 2 (grid tiles) | 1,877,891 |
+
+Resolving a ref of a location record in pair `p`: take the set of `p`, group
+`ref >> 16`, entry `ref & 0xffff`; the entry belongs to the parcel whose
+cumulative count range holds it. `parcel_key = (w0 << 16) | w1` is the MAPAL
+parcel code (`w1 & 0xf` = level). In that parcel's section-2 record (graph
+part a):
+
+- `a & 0x1fff` = **node index**, `b & 0x1fff` = **link id**; the node is an
+  end of the link (99.96 % level 2, 98.8 % level 4; random node 5.7 % / 0.4 %);
+- `b & 0x2000` = the end flag of that link end (as in the node's id word);
+- `a` 0x4000/0x8000, `b` 0x4000/0x8000 and the link-record role `k & 3` are
+  UNKNOWN (C-5371).
+
+Node `(x, y)` (0..2047) gives coordinates: level 2 parcel origin
+`lat = row/12`, `lon = col/8 − 924` with `row = (w0>>8 & 0x7f)<<4 | (w0>>4 & 0xf)`,
+`col = ((w0>>15)<<8 | w1>>8)<<4 | (w1>>4 & 0xf)`, size 1/12° × 1/8°. With this,
+every joined record of the CZ (8,532) and DE (22,884) tables lands in its own
+country and next to its TMC positive neighbour (C-5370). The firmware reader of
+these blocks is not located yet (M4.48).
 
 ### Table dump
 
@@ -355,6 +442,12 @@ segment join. M4.15/C-884 (undecoded per-record field directory) and
 M3.7/C-887 (RDSTM is TMC, not a mesh-keyed graph) mean placement likely needs
 the per-record/TMC→location decode or an `INTER/FRWAY`→mesh→coordinate chain.
 Tool: `tools/rdstm_place.py`.
+
+M4.16b re-test (`rdstm_place.py probe-decoded`, tile `B48R058R`): no decoded
+field and no form of the RDSTM link reference joins tile ids above chance per
+record (C-5136); the route to coordinates is the link-group decode, done in
+M4.16e: a ref is `(group, entry)` → `(node, link)` of a section-2 parcel record
+(see "Link groups" above, C-5139/C-5370).
 
 ## `RDSTM001.DAT` — uncompressed packed binary
 

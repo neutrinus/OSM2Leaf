@@ -61,17 +61,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
+import build_targets  # noqa: E402
 import cerom  # noqa: E402
 from engine import (IllegalInstruction, PySh4, UnmappedAccess)  # noqa: E402
-
-WALK_NTH = 0x003F5194      # EU 2011: record_at(page, n)
-WALK_SKIP = 0x003F39C0     # EU 2011: skip n records from the loaded page (globals)
-WALK_DISPATCH = 0x003F5CDC  # EU 2011: chooses 0x3f5b88 / 0x3f5194 / 0x3f39c0
-GLOBAL_COUNT = 0x00D5E4D0   # EU 2011: *GLOBAL_COUNT: record count of the page
-GLOBAL_PAGE = 0x00D5E4E4    # EU 2011: *GLOBAL_PAGE: current page base
-GLOBALS_BASE = 0x00D5E4C0   # EU 2011: scratch RW region that holds both cells
-ESCAPE_TYPE = 0x3F
-ESCAPE_LEN = 0x4E8         # EU 2011 escape record length (US: 0x4D8)
 
 # US 2011 `Navi.exe` (M1.22): the same three walkers, located by the masked
 # instruction-form stream and cross-checked through the dispatcher's own
@@ -79,26 +71,19 @@ ESCAPE_LEN = 0x4E8         # EU 2011 escape record length (US: 0x4D8)
 # the skip walker, in the same order as the EU dispatcher).  The record
 # length is one pool word shorter (0x4e8 -> 0x4d8), which is the only
 # code-visible difference; the walk/index arithmetic is shared.
-BUILD_TARGETS = {
-    "eu2011": {
-        "nth": 0x003F5194,
-        "skip": 0x003F39C0,
-        "dispatch": 0x003F5CDC,
-        "global_count": 0x00D5E4D0,
-        "global_page": 0x00D5E4E4,
-        "globals_base": 0x00D5E4C0,
-        "escape_len": 0x4E8,
-    },
-    "us2011": {
-        "nth": 0x0041DB44,
-        "skip": 0x0041C370,
-        "dispatch": 0x0041E63C,
-        "global_count": 0x00C8C0D0,
-        "global_page": 0x00C8C0E4,
-        "globals_base": 0x00C8C0C0,
-        "escape_len": 0x4D8,
-    },
-}
+# The values live in `tools/build_targets.py` (M1.32), the one owner of the
+# per-build reuse points; `build_targets.py check` asserts targets.json and
+# docs/format/firmware.md agree with it.  Same {build: {key: va}} shape.
+BUILD_TARGETS = build_targets.tool_map("point_walk_l3")
+_EU = BUILD_TARGETS["eu2011"]
+WALK_NTH = _EU["nth"]            # EU 2011 0x003f5194: record_at(page, n)
+WALK_SKIP = _EU["skip"]          # EU 2011 0x003f39c0: skip n records (globals)
+WALK_DISPATCH = _EU["dispatch"]  # EU 2011 0x003f5cdc: chooses 0x3f5b88 / 0x3f5194 / 0x3f39c0
+GLOBAL_COUNT = _EU["global_count"]  # EU 2011: *GLOBAL_COUNT: record count of the page
+GLOBAL_PAGE = _EU["global_page"]    # EU 2011: *GLOBAL_PAGE: current page base
+GLOBALS_BASE = _EU["globals_base"]  # EU 2011: scratch RW region that holds both cells
+ESCAPE_TYPE = 0x3F
+ESCAPE_LEN = _EU["escape_len"]   # EU 2011 escape record length 0x4e8 (US: 0x4d8)
 MAX_RECORDS = 20000
 PAGE_VA = 0x20000000
 STACK_VA = 0x30000000
