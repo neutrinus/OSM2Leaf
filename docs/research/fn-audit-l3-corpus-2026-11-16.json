@@ -375,6 +375,7 @@
   "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
   "docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md",
+  "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
   "docs/experiments/EXP-2026-11-20-M3.2-ind-handling-l3.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
@@ -386,10 +387,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 379,
-  "citations": 1112,
-  "unique_va": 249,
-  "start": 925,
+  "files": 380,
+  "citations": 1162,
+  "unique_va": 274,
+  "start": 975,
   "inside": 81,
   "corrected": 9,
   "gap": 85,
@@ -463,34 +464,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1406,
-   "va": "0x03bd2044",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1406,
-   "va": "0x03bd224c",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1411,
-   "va": "0x03bd2044",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1450,
+   "line": 1451,
    "va": "0x03bd2ce4",
    "kind": "fn",
    "class": "START",
@@ -499,17 +473,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 1450,
+   "line": 1451,
    "va": "0x03bd2ecc",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1642,
-   "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -526,7 +491,16 @@
   },
   {
    "file": "TODO.md",
-   "line": 1645,
+   "line": 1644,
+   "va": "0x0041c044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1646,
    "va": "0x003f40ec",
    "kind": "fn",
    "class": "START",
@@ -535,7 +509,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1709,
+   "line": 1710,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -544,7 +518,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1709,
+   "line": 1710,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -553,7 +527,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1710,
+   "line": 1711,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -562,7 +536,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1731,
+   "line": 1732,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -572,7 +546,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1741,
+   "line": 1742,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -581,7 +555,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1746,
+   "line": 1747,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -590,7 +564,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1770,
+   "line": 1771,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -600,7 +574,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1772,
+   "line": 1773,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -609,7 +583,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1801,
+   "line": 1802,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -618,7 +592,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1801,
+   "line": 1802,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -627,7 +601,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1832,
+   "line": 1833,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -636,7 +610,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1833,
+   "line": 1834,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -645,7 +619,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1957,
+   "line": 1958,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -654,7 +628,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1986,
+   "line": 1987,
    "va": "0x0041f26c",
    "kind": "ctx",
    "class": "START",
@@ -663,7 +637,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2026,
+   "line": 2027,
    "va": "0x0040a014",
    "kind": "fn",
    "class": "START",
@@ -672,7 +646,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2538,
+   "line": 2539,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -682,7 +656,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2542,
+   "line": 2543,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -9841,6 +9815,483 @@
    "file": "docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md",
    "line": 280,
    "va": "0x03bcafb8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 24,
+   "va": "0x03bd2044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 48,
+   "va": "0x03c08be4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 48,
+   "va": "0x03c08c40",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 133,
+   "va": "0x88025fac",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 147,
+   "va": "0x039b4498",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 148,
+   "va": "0x039b4498",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 151,
+   "va": "0x039b3c74",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 157,
+   "va": "0x039b4498",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 165,
+   "va": "0x039b4850",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 169,
+   "va": "0x039b3d80",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 170,
+   "va": "0x039b6c58",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 173,
+   "va": "0x039b963c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 176,
+   "va": "0x039b3c74",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 178,
+   "va": "0x039b4b18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 179,
+   "va": "0x039b474c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 179,
+   "va": "0x039b4794",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 179,
+   "va": "0x039b4808",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 180,
+   "va": "0x039b4dfc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 180,
+   "va": "0x039b4e90",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 182,
+   "va": "0x039b4850",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 183,
+   "va": "0x039b4664",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 188,
+   "va": "0x039b46f8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 190,
+   "va": "0x039b474c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 193,
+   "va": "0x039b48fc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 194,
+   "va": "0x039b4a14",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 198,
+   "va": "0x039b4b18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 208,
+   "va": "0x039b5308",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 210,
+   "va": "0x039b53c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 211,
+   "va": "0x039b6ac4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 219,
+   "va": "0x03bcc2dc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 220,
+   "va": "0x03bcc974",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 221,
+   "va": "0x03bd2044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 221,
+   "va": "0x03bd224c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 232,
+   "va": "0x03be1654",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 232,
+   "va": "0x03be17a0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 240,
+   "va": "0x0001f3ac",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 242,
+   "va": "0x03c08c40",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 243,
+   "va": "0x03c08be4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 244,
+   "va": "0x03bcc904",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 244,
+   "va": "0x03bcc974",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 264,
+   "va": "0x03bcc974",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 273,
+   "va": "0x039b4498",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 274,
+   "va": "0x039b4664",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 274,
+   "va": "0x039b4850",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 286,
+   "va": "0x039b48fc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 287,
+   "va": "0x039b4b18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 288,
+   "va": "0x039b53c8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 289,
+   "va": "0x039b6ac4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 312,
+   "va": "0x039b963c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 318,
+   "va": "0x039b4850",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 320,
+   "va": "0x039b4664",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 321,
+   "va": "0x039b4b18",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
+   "line": 321,
+   "va": "0x039b6ac4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
