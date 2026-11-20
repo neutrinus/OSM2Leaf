@@ -952,7 +952,7 @@ data-access task (`*0x011fff58`):
 The data-access task hands `0x14b5` to `0x004066ac` (deferred while the map is not ready),
 which copies the list to `0x00d53f20` and passes the kind word to `0x00408480`; its subtree
 reaches 140 functions. **The section-2 record grammar is therefore read in that subtree or in a
-read-completion handler it arms, not in `0x004266ec`.** Following it is M4.51.
+read-completion handler it arms, not in `0x004266ec`.** Following it is M4.53.
 
 ## Cross-edition differential census (2011/2014/2016)
 
