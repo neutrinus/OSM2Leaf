@@ -4550,8 +4550,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5770–C-5779
 
 
-- [ ] **M9.52 — Finish the firmware's mount in `datask_l3.py`: who answers message `0x1507`**
-  - Status: in progress · Owner: task/m9.52-mount-1507 · Critical: yes · Pair: solo
+- [x] **M9.52 — Finish the firmware's mount in `datask_l3.py`: who answers message `0x1507`**
+  - Status: done · Owner: task/m9.52-mount-1507 · Critical: yes · Pair: solo
   - Step: P1
   - Depends: M3.25, M9.13 (done)
   - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image <EU card> --max-reads 40` ends with `state 2` and a `not delivered: {"kind": "send", "task": 0, "id": 5383, …}` line (5383 = `0x1507`).
@@ -4562,6 +4562,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the answer needs a task whose code is outside `Navi.exe`, name the module and export and stop.
   - Falsifier: the state word reaches 3 without any reply (then the wait is on something else: say what).
   - Claims: C-5900–C-5909 (was none yet (take the next free block when claimed); fresh block for this run)
+  - Result: `docs/experiments/EXP-2026-11-20-M9.52-mount-1507.md` (C-5900–C-5907). `0x1507` goes to `SDL_task` (id global `0x11fff50`, entry `0x0039d854`, EU2011), which drops it at its gate `0x003c009c` (it takes a data-access message only as the answer to its own pending request) and answers nothing; the mount does not wait for it. The only writer of state 3 is `0x003f6b1c`, object-store event `0x07d0` sub 11 with `+28 = 16`; `datask_l3.py mount --sdl --event 11:16` (stand-in event) ends with state 3, progress 1; controls `11:15`, `12:16` stay at 2. The subscriber that delivers event 11 is not found in `Navi.exe`: M9.57.
 
 - [ ] **M9.53 — Make the firmware read a record block we wrote: one map request through `datask_l3.py`**
   - Status: open · Owner: — · Critical: yes · Pair: required
@@ -4575,6 +4576,17 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the request needs state the run cannot provide after M9.52, record the faulting read/branch and stop.
   - Falsifier: the firmware reads the record block but no function loads the inflated bytes (then the consumer is another task: name the message that carries the buffer away).
   - Claims: none yet (take the next free block when claimed)
+
+- [ ] **M9.57 — Find who subscribes the data-access task to object-store event 11 (state 3 of the mount)**
+  - Status: open · Owner: — · Critical: no
+  - Step: P1
+  - Depends: M9.52 (done)
+  - Goal: M9.52 showed the mount reaches state 3 only through `0x003f6b1c`, the handler of object-store event `0x07d0` sub 11 with `+28 = 16` (C-5904), and `datask_l3.py --event 11:16` delivers that event as a stand-in. Find the real subscription (subscriber task `*0x011fff58`, event id 11), the object it watches and what makes the event carry 16, so the stand-in can be replaced by the object call that fires it.
+  - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --sdl --event 11:16` ends with `state 3`; `python3 tools/sh4xref.py archive/head256.img Navi.exe --image-start 0x200200 --to 0x003d18b0` lists the 92 `OBJ_Event_setPrm` sites M9.52 read (none names sub 11 for the data-access task, C-5907).
+  - Scope: EU2011. (1) `Navi.exe` subscriptions with a non-literal event id (the 37 `OBJ_Event_setPrm` sites whose `r6` is not a `mov #imm`), and subscriptions made with `OBJ_Event_setPrmForMP` or a hand-filled block; (2) the other modules that import `OBJ_Event_setPrm` and could name the map task (`taskLibGetIDfromName("HDL_MapMainTask")`, the UTF-16 name is in `OSMDLL.dll`); (3) in `OBJDLL.dll`, which object's notifier puts 16 in the event's last word.
+  - Done when: the EXP names the subscribing call (module, VA, object call) and the value 16's source, and `datask_l3.py` fires the event from a model of that object instead of `--event`; or the search is counted and negative with a positive control (the sub-100 subscription at `0x003eb99c` must be found by the same method).
+  - Stop: if the subscriber is outside `Navi.exe` and needs that module's own task to run, name the module and export and stop.
+  - Claims: C-6000–C-6009
 
 - [ ] **M9.56 — The router computes a route on our graph in L3 (not only reads it)**
   - Status: blocked · Owner: — · Critical: yes · Pair: required
