@@ -10,7 +10,8 @@ read a directory with the directory's own size.  The request built by
 `T` is a 16-row table at data VA 0x179c08 (EU2011, `Navi.exe` section 0,
 uncompressed) of rows `{u32 kind, u32 n, u32 buffer}`; a kind with no row
 gives 0 and the directory is not read.  `kind` is the runtime level kind of
-the (section, level) pair at 0xd982a0 + 72*section + 12*level, which
+the (section, level) pair at 0xd982a0 + 72*i + 12*(level - 1) (i = the
+section's position in the level table), which
 `0x00409834` copies from the low byte of the merged level table: the second
 byte of the 4-byte entry `(level, kind, u16 count)` in the tile header at
 0x1ac (`0x0040aa50` merges the headers of the mounted files; an entry with a

@@ -640,6 +640,10 @@ def selftest() -> int:
     check("byte offsets fold into runs", runs([5, 1, 2, 3, 9, 10, 2]) == [(1, 3), (5, 5), (9, 10)])
     check("runs print as ranges", show_runs([(1, 3), (5, 5)]) == "0x1-0x3,0x5")
     check("long run lists are cut and counted", show_runs([(i * 4, i * 4) for i in range(12)]).endswith("(12 runs)"))
+    lt = decode_len_table(struct.pack("<III", 0x92, 0x81, 0x8080) + struct.pack("<III", 0x91, 0x141, 0x14100), 2)
+    check("the length table gives column 1 of the kind's row",
+          len_lookup(lt, 0x91, 1) == 0x141 and len_lookup(lt, 0x92, 2) == 0x8080)
+    check("a kind with no length row gives 0", len_lookup(lt, 0x94, 1) == 0)
     req = decode_request(struct.pack("<IIII", 0x30001000, 3, 0x100, 0x40))
     check("a request decodes to position and length",
           req == {"dst": 0x30001000, "pos": 3 * 0x800 + 0x100, "length": 0x100})
@@ -699,6 +703,9 @@ def selftest() -> int:
             check("every load is attributed to a function",
                   all(x["fn"] for r in t.rows for x in r["readers"]))
             check("46 tile files were found", t.summary()["mesh_count"] == 46)
+            dirs = [r for r in t.rows if r["handler"] == 0x0041597C]
+            check("each directory read has the length 0x0040901c gives (M3.31)",
+                  dirs and all(r["len_lookup"] and r["len_lookup"]["value"] * 0x100 == r["length"] for r in dirs))
             check("the run stopped where asked", end.startswith("stopped after 6"))
         except (V.Blocked, V.EngineError) as exc:
             check("firmware run (%s)" % str(exc)[:80], False)
