@@ -29,13 +29,13 @@
  ],
  "summary": {
   "files": 21,
-  "citations": 405,
-  "unique_va": 148,
-  "start": 270,
+  "citations": 414,
+  "unique_va": 149,
+  "start": 276,
   "inside": 0,
   "corrected": 20,
-  "gap": 37,
-  "leaf": 37,
+  "gap": 40,
+  "leaf": 40,
   "ambiguous": 0,
   "unmapped": 78
  },
@@ -51,7 +51,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -60,7 +60,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -69,7 +69,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x00412bee",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -79,7 +79,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x0041c7dc",
    "kind": "ctx",
    "class": "START",
@@ -88,7 +88,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -97,7 +97,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x0041c7e8",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -107,7 +107,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x00542250",
    "kind": "ctx",
    "class": "START",
@@ -116,7 +116,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x00542250",
    "kind": "fn",
    "class": "START",
@@ -125,7 +125,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 655,
+   "line": 656,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -135,7 +135,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x003f5a1e",
    "kind": "ctx",
    "class": "GAP",
@@ -145,7 +145,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x003f5fc2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -154,7 +154,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x0040e28c",
    "kind": "ctx",
    "class": "START",
@@ -163,7 +163,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x0040e28c",
    "kind": "fn",
    "class": "START",
@@ -172,7 +172,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x0040e4b2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -182,7 +182,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -191,7 +191,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -200,7 +200,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x00412bee",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -210,7 +210,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x0041c7dc",
    "kind": "ctx",
    "class": "START",
@@ -219,7 +219,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -228,7 +228,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 659,
+   "line": 660,
    "va": "0x0041c7e8",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -238,7 +238,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 821,
+   "line": 822,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -247,7 +247,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1112,
+   "line": 1107,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -256,7 +256,16 @@
   },
   {
    "file": "TODO.md",
-   "line": 1164,
+   "line": 1114,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1166,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -265,7 +274,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1171,
+   "line": 1173,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -274,7 +283,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1211,
+   "line": 1213,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -283,7 +292,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1221,
+   "line": 1223,
    "va": "0x00542250",
    "kind": "ctx",
    "class": "START",
@@ -292,7 +301,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1221,
+   "line": 1223,
    "va": "0x00542250",
    "kind": "fn",
    "class": "START",
@@ -301,7 +310,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1221,
+   "line": 1223,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -311,7 +320,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1221,
+   "line": 1223,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -320,7 +329,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1249,
+   "line": 1251,
    "va": "0x00413af4",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -329,7 +338,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1249,
+   "line": 1251,
    "va": "0x00542250",
    "kind": "ctx",
    "class": "START",
@@ -338,7 +347,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1249,
+   "line": 1251,
    "va": "0x00542250",
    "kind": "fn",
    "class": "START",
@@ -347,7 +356,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1249,
+   "line": 1251,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -357,7 +366,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1253,
+   "line": 1255,
    "va": "0x0040e28c",
    "kind": "ctx",
    "class": "START",
@@ -366,7 +375,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1253,
+   "line": 1255,
    "va": "0x0040e4b2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -376,7 +385,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1253,
+   "line": 1255,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -385,7 +394,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1253,
+   "line": 1255,
    "va": "0x00412bee",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -395,7 +404,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1253,
+   "line": 1255,
    "va": "0x0041c7dc",
    "kind": "ctx",
    "class": "START",
@@ -404,7 +413,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1253,
+   "line": 1255,
    "va": "0x0041c7e8",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -414,7 +423,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1254,
+   "line": 1256,
    "va": "0x003f5fc2",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -423,7 +432,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1254,
+   "line": 1256,
    "va": "0x00413af4",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -432,7 +441,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1254,
+   "line": 1256,
    "va": "0x00542256",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -441,7 +450,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1414,
+   "line": 1416,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -450,7 +459,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1420,
+   "line": 1422,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -459,7 +468,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1424,
+   "line": 1426,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -468,7 +477,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1481,
+   "line": 1483,
    "va": "0x00418748",
    "kind": "fn",
    "class": "START",
@@ -477,7 +486,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1508,
+   "line": 1510,
    "va": "0x004191d0",
    "kind": "sub_",
    "class": "START",
@@ -486,7 +495,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1508,
+   "line": 1510,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -495,7 +504,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1512,
+   "line": 1514,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -504,7 +513,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1512,
+   "line": 1514,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -513,7 +522,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1512,
+   "line": 1514,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -522,7 +531,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1571,
+   "line": 1573,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -532,7 +541,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1579,
+   "line": 1581,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -542,7 +551,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1597,
+   "line": 1599,
    "va": "0x003a03b4",
    "kind": "fn",
    "class": "START",
@@ -551,7 +560,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1599,
+   "line": 1601,
    "va": "0x003cd910",
    "kind": "fn",
    "class": "START",
@@ -560,7 +569,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1600,
+   "line": 1602,
    "va": "0x003d1150",
    "kind": "fn",
    "class": "START",
@@ -569,16 +578,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1615,
-   "va": "0x0041c044",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1616,
+   "line": 1617,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -588,6 +588,15 @@
   {
    "file": "TODO.md",
    "line": 1618,
+   "va": "0x0041c044",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 1620,
    "va": "0x003f40ec",
    "kind": "fn",
    "class": "START",
@@ -596,7 +605,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1645,
+   "line": 1647,
    "va": "0x003f5e78",
    "kind": "fn",
    "class": "START",
@@ -605,7 +614,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1645,
+   "line": 1647,
    "va": "0x003f632c",
    "kind": "fn",
    "class": "START",
@@ -614,7 +623,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1663,
+   "line": 1665,
    "va": "0x003f5e78",
    "kind": "fn",
    "class": "START",
@@ -623,7 +632,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1663,
+   "line": 1665,
    "va": "0x003f632c",
    "kind": "fn",
    "class": "START",
@@ -632,7 +641,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1666,
+   "line": 1668,
    "va": "0x003d1150",
    "kind": "fn",
    "class": "START",
@@ -641,7 +650,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1673,
+   "line": 1675,
    "va": "0x003a03b4",
    "kind": "fn",
    "class": "START",
@@ -650,7 +659,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1682,
+   "line": 1684,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -659,7 +668,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1682,
+   "line": 1684,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -668,7 +677,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1683,
+   "line": 1685,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -677,7 +686,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1704,
+   "line": 1706,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -687,7 +696,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1714,
+   "line": 1716,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -696,7 +705,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1719,
+   "line": 1721,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -705,7 +714,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1743,
+   "line": 1745,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -715,7 +724,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1745,
+   "line": 1747,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -724,7 +733,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1774,
+   "line": 1776,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -733,7 +742,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1774,
+   "line": 1776,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -742,7 +751,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1805,
+   "line": 1807,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -751,7 +760,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1806,
+   "line": 1808,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -760,7 +769,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1910,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -769,7 +778,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1910,
    "va": "0x00412ac0",
    "kind": "ctx",
    "class": "START",
@@ -778,7 +787,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1910,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -787,7 +796,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1910,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -796,7 +805,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1910,
    "va": "0x00412bee",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -806,7 +815,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1910,
    "va": "0x00413a6c",
    "kind": "ctx",
    "class": "START",
@@ -815,7 +824,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1910,
    "va": "0x00413a6c",
    "kind": "fn",
    "class": "START",
@@ -824,7 +833,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1910,
    "va": "0x00413af4",
    "kind": "ctx",
    "class": "CORRECTED",
@@ -833,7 +842,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1909,
+   "line": 1911,
    "va": "0x003faf04",
    "kind": "fn",
    "class": "START",
@@ -842,7 +851,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1909,
+   "line": 1911,
    "va": "0x003fc9c8",
    "kind": "fn",
    "class": "START",
@@ -851,7 +860,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1909,
+   "line": 1911,
    "va": "0x003fcbf0",
    "kind": "fn",
    "class": "START",
@@ -860,7 +869,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1909,
+   "line": 1911,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -869,7 +878,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1909,
+   "line": 1911,
    "va": "0x003fe774",
    "kind": "fn",
    "class": "START",
@@ -878,7 +887,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1909,
+   "line": 1911,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -887,7 +896,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1909,
+   "line": 1911,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -896,7 +905,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1912,
+   "line": 1914,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -905,7 +914,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1912,
+   "line": 1914,
    "va": "0x00415fe8",
    "kind": "fn",
    "class": "START",
@@ -914,7 +923,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1917,
+   "line": 1919,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -923,7 +932,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1917,
+   "line": 1919,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -932,7 +941,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x003faf04",
    "kind": "fn",
    "class": "START",
@@ -941,7 +950,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x003fc9c8",
    "kind": "fn",
    "class": "START",
@@ -950,7 +959,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x003fcbf0",
    "kind": "fn",
    "class": "START",
@@ -959,7 +968,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x003fd390",
    "kind": "fn",
    "class": "START",
@@ -968,7 +977,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x003fe774",
    "kind": "fn",
    "class": "START",
@@ -977,7 +986,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x0040dfa8",
    "kind": "fn",
    "class": "START",
@@ -986,7 +995,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x0040e28c",
    "kind": "fn",
    "class": "START",
@@ -995,7 +1004,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -1004,7 +1013,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1918,
+   "line": 1920,
    "va": "0x00415fe8",
    "kind": "fn",
    "class": "START",
@@ -1013,7 +1022,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1919,
+   "line": 1921,
    "va": "0x003faf04",
    "kind": "fn",
    "class": "START",
@@ -1022,7 +1031,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1919,
+   "line": 1921,
    "va": "0x003ff6a0",
    "kind": "fn",
    "class": "START",
@@ -1031,7 +1040,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1930,
+   "line": 1932,
    "va": "0x0041c990",
    "kind": "fn",
    "class": "START",
@@ -1040,7 +1049,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1940,
+   "line": 1942,
    "va": "0x004124dc",
    "kind": "fn",
    "class": "START",
@@ -1049,7 +1058,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1948,
+   "line": 1950,
    "va": "0x00412ac0",
    "kind": "fn",
    "class": "START",
@@ -1058,7 +1067,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1959,
+   "line": 1961,
    "va": "0x0041f26c",
    "kind": "ctx",
    "class": "START",
@@ -1067,7 +1076,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1999,
+   "line": 2001,
    "va": "0x0040a014",
    "kind": "fn",
    "class": "START",
@@ -1076,7 +1085,54 @@
   },
   {
    "file": "TODO.md",
-   "line": 3539,
+   "line": 2050,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2050,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2050,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2499,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "TODO.md",
+   "line": 2503,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "TODO.md",
+   "line": 3567,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
@@ -1085,7 +1141,16 @@
   },
   {
    "file": "TODO.md",
-   "line": 3617,
+   "line": 3592,
+   "va": "0x8803cb34",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3660,
    "va": "0x880385e4",
    "kind": "fn",
    "class": "START",
@@ -1094,7 +1159,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3648,
+   "line": 3691,
    "va": "0x880385e4",
    "kind": "fn",
    "class": "START",
@@ -1103,7 +1168,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3731,
+   "line": 3774,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -1112,7 +1177,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3732,
+   "line": 3775,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -1121,7 +1186,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3737,
+   "line": 3780,
    "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
@@ -1130,7 +1195,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3787,
+   "line": 3830,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -1139,7 +1204,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3794,
+   "line": 3837,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -1148,7 +1213,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3888,
+   "line": 3931,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1157,7 +1222,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3896,
+   "line": 3939,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1166,7 +1231,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3901,
+   "line": 3944,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1175,7 +1240,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3910,
+   "line": 3953,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1184,7 +1249,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4061,
+   "line": 4104,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1193,7 +1258,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4106,
+   "line": 4149,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1203,7 +1268,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4229,
+   "line": 4272,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1212,7 +1277,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4232,
+   "line": 4275,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1221,7 +1286,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4239,
+   "line": 4282,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1230,7 +1295,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4241,
+   "line": 4284,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -1239,7 +1304,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4293,
+   "line": 4336,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -1249,7 +1314,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4296,
+   "line": 4339,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -2227,7 +2292,17 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 116,
+   "line": 99,
+   "va": "0x003f5194",
+   "kind": "fn",
+   "class": "GAP",
+   "true_start": null,
+   "class_sha256": "3688836affb429d749f8b45f97fe16adf8d126ded974d1800195439e5f47d0f9",
+   "leaf": true
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 153,
    "va": "0x003f632c",
    "kind": "fn",
    "class": "START",
@@ -2236,7 +2311,16 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 219,
+   "line": 160,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/refer.md",
+   "line": 262,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -2245,7 +2329,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 221,
+   "line": 264,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -2254,7 +2338,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 221,
+   "line": 264,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -2263,7 +2347,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 427,
+   "line": 470,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -2272,7 +2356,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 429,
+   "line": 472,
    "va": "0x0040b358",
    "kind": "fn",
    "class": "START",
@@ -2281,7 +2365,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 431,
+   "line": 474,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -2290,7 +2374,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 432,
+   "line": 475,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -2300,7 +2384,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 438,
+   "line": 481,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -2309,7 +2393,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 439,
+   "line": 482,
    "va": "0x003f51e0",
    "kind": "fn",
    "class": "START",
@@ -2318,7 +2402,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 447,
+   "line": 490,
    "va": "0x003f5d98",
    "kind": "fn",
    "class": "START",
@@ -2327,7 +2411,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 449,
+   "line": 492,
    "va": "0x003f5cdc",
    "kind": "fn",
    "class": "START",
@@ -2336,7 +2420,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 449,
+   "line": 492,
    "va": "0x003f61bc",
    "kind": "fn",
    "class": "START",
@@ -2345,7 +2429,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 465,
+   "line": 508,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -2354,7 +2438,7 @@
   },
   {
    "file": "docs/format/refer.md",
-   "line": 466,
+   "line": 509,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -2958,7 +3042,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 248,
+   "line": 266,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
@@ -2967,7 +3051,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 300,
+   "line": 330,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2976,7 +3060,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 302,
+   "line": 332,
    "va": "0xffffffff",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2985,7 +3069,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 546,
+   "line": 582,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -2994,7 +3078,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 547,
+   "line": 583,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -3003,7 +3087,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 615,
+   "line": 651,
    "va": "0x0041c7dc",
    "kind": "const",
    "class": "START",
@@ -3012,7 +3096,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 619,
+   "line": 655,
    "va": "0x00840ba0",
    "kind": "const",
    "class": "UNMAPPED",
@@ -3021,7 +3105,7 @@
   },
   {
    "file": "tools/chunk_decoder_l3.py",
-   "line": 629,
+   "line": 665,
    "va": "0x00574de0",
    "kind": "const",
    "class": "UNMAPPED",

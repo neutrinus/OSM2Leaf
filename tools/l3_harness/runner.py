@@ -755,7 +755,14 @@ def _validate_firmware_call_entry(entry, where: str) -> list[str]:
         else:
             _hex(sec1["va"], f"{where}.sec1_table.va", problems)
         values = sec1.get("values")
-        if not isinstance(values, list) or not values:
+        source = sec1.get("source", "declared")
+        if source not in ("declared", "image"):
+            problems.append(f"{where}: sec1_table.source must be 'declared' or 'image'")
+        if source == "image":
+            # M1.19: the bytes come from the image (kernel decoder), never a list
+            if values is not None:
+                problems.append(f"{where}: sec1_table.source 'image' takes no values")
+        elif not isinstance(values, list) or not values:
             problems.append(f"{where}: sec1_table needs values (declared, not a default)")
         else:
             for i, item in enumerate(values):
@@ -1034,7 +1041,7 @@ class InitGuardError(engine_mod.EngineError):
 
     def __init__(self, va: int):
         self.va = int(va) & 0xFFFFFFFF
-        super().__init__(f"INIT 0x{self.va:08x} (M1.2f)")
+        super().__init__(f"INIT 0x{self.va:08x} (guarded; rommap.py --init-from-image maps it)")
 
 
 class StubBlockError(engine_mod.Blocked):
@@ -1292,7 +1299,8 @@ def _plan_target(target, args) -> dict:
             "va": entry.get("va"),
             "sec1_table": {
                 "va": (entry.get("sec1_table") or {}).get("va"),
-                "declared": True,
+                "declared": _sec1_source(entry, args) == "declared",
+                "source": _sec1_source(entry, args),
                 "provenance": (entry.get("sec1_table") or {}).get("provenance"),
                 "value_count": len((entry.get("sec1_table") or {}).get("values") or []),
             },
@@ -1303,8 +1311,10 @@ def _plan_target(target, args) -> dict:
             "mutate": getattr(args, "mutate", "none"),
         }
         payload["note"] = (
-            "dry run: firmware_call entry; sec1 table is a declared input "
-            "(no silent default). No engine was started and no verdict is claimed."
+            "dry run: firmware_call entry; sec1 table is "
+            + ("read from the image (nk_decomp, M1.19)"
+               if _sec1_source(entry, args) == "image" else "a declared input")
+            + " (no silent default). No engine was started and no verdict is claimed."
         )
         return payload
 
@@ -1515,7 +1525,7 @@ def _run_module_target(target, args, base) -> dict:
     )
     if owner is None:
         # A compressed section is skipped by the map, not mapped: say so, so
-        # the reason is not confused with a wrong VA (decompressor: M1.2f).
+        # the reason is not confused with a wrong VA.
         hidden = next(
             (
                 item for item in rommap_doc.get("skipped", [])
@@ -1528,7 +1538,7 @@ def _run_module_target(target, args, base) -> dict:
             return blocked(
                 f"entry VA {engine_mod.px(va)} is in compressed section "
                 f"{module}/{hidden['section']} ({hidden['reason']}); the memory "
-                "map skips it, so no code is mapped (M1.2f)"
+                "map skips it, so no code is mapped (rommap.py --init-from-image maps it)"
             )
         return blocked(
             f"entry VA {engine_mod.px(va)} is outside every loadable block of {module}"
@@ -1624,6 +1634,12 @@ def _run_module_target(target, args, base) -> dict:
                     data = handle.read(stored)
                     if len(data) != stored:
                         return blocked(f"short read for {block['name']} from {image}")
+                elif block.get("init_source") == "nk_decomp":
+                    # M1.19: INIT bytes decoded by the kernel routine (cache file)
+                    try:
+                        data = rommap_mod.read_init(block)
+                    except (OSError, rommap_mod.RommapError) as exc:
+                        return blocked(f"INIT bytes for {block['name']}: {exc}")
                 perm = "".join(letter for letter in block["permissions"] if letter in "rwx")
                 backend.map(block["name"], address, data + bytes(size - len(data)), perm)
                 mapped.append(block["name"])
@@ -1816,6 +1832,17 @@ def _run_module_target(target, args, base) -> dict:
     )
 
 
+def _sec1_source(entry, args) -> str:
+    """``image`` when the compressed sections come from the image (M1.19).
+
+    Either the target says so (``sec1_table.source: image``) or the caller
+    passed ``--init-from-image``; otherwise the declared table is used.
+    """
+    if getattr(args, "init_from_image", False):
+        return "image"
+    return (entry.get("sec1_table") or {}).get("source", "declared")
+
+
 def _run_firmware_call_target(target, args, base) -> dict:
     """Run a firmware_call target (M9.11b): chunk reader with declared inputs.
 
@@ -1907,10 +1934,29 @@ def _run_firmware_call_target(target, args, base) -> dict:
         return dict(base, status="INVALID", exit=EXIT_INVALID,
                     problems=[f"cannot prepare firmware_call inputs: {exc}"])
 
+    source = _sec1_source(entry, args)
+    init_sections = None
+    mask_words = None
+    if source == "image":
+        # M1.19: map Navi.exe's compressed sections as the loader does, with
+        # the INIT bytes decoded by the kernel routine (cached), then zero BSS.
+        try:
+            init_sections = cdl3.image_init_sections(image)
+            tva = int(str(sec1_table.get("va", tgt["inflate_mask"])), 0)
+            for sva, blob in init_sections.items():
+                if sva <= tva < sva + len(blob):
+                    mask_words = list(cdl3.mask_from_section(blob, sva, tva))
+        except Exception as exc:  # noqa: BLE001
+            return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                        reason=f"--init-from-image: cannot decode {cdl3.MODULE} "
+                               f"compressed sections: {exc}",
+                        accepted=None, l3_claim=False)
     try:
         ret, out, stats = cdl3.run_firmware(
             image, cmp_bytes, rows, offset, length, chunk_size,
-            sec_mode="zero-mask", sec1_table=sec1_table, tgt=tgt,
+            sec_mode="image" if source == "image" else "zero-mask",
+            sec1_table=None if source == "image" else sec1_table, tgt=tgt,
+            init_sections=init_sections,
         )
     except cdl3.Blocked as exc:
         va = exc.args[1] if len(exc.args) > 1 else None
@@ -1927,8 +1973,12 @@ def _run_firmware_call_target(target, args, base) -> dict:
         base,
         firmware={"r0": ret if ret != cdl3.MINUS_ONE else -1, "insns": stats["insns"],
                   "memcpy": stats["memcpy"], "mod_calls": len(stats["mod"])},
-        sec1_table={"va": sec1_table.get("va"), "declared": True,
-                    "provenance": sec1_table.get("provenance")},
+        sec1_table={"va": sec1_table.get("va"), "declared": source == "declared",
+                    "source": source, "provenance": sec1_table.get("provenance"),
+                    "mask": stats.get("mask"),
+                    "image_words": None if mask_words is None else [f"0x{w:x}" for w in mask_words],
+                    "image_words_equal_zlib": None if mask_words is None
+                    else cdl3.check_mask(mask_words) is None},
         inputs={"cmp": str(cmp_path), "ind": str(ind_path), "image": str(image_path),
                 "offset": f"0x{offset:x}", "length": length, "mutate": mutate},
         l3_claim=False,
@@ -3179,6 +3229,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="extra directory to glob for ghidra* (repeatable)",
     )
     run_cmd.add_argument("--image", help="firmware image for -import")
+    run_cmd.add_argument(
+        "--init-from-image", action="store_true",
+        help="firmware_call: map the module's compressed sections with their "
+             "INIT bytes decoded by tools/nk_decomp.py instead of the declared "
+             "sec1 table (M1.19)",
+    )
     run_cmd.add_argument("--project-dir", default="/tmp/opencode/l3-ghidra")
     run_cmd.add_argument("--result", help="result JSON path")
     run_cmd.add_argument("--timeout", type=float, default=1800.0)
@@ -3571,18 +3627,22 @@ def test_run_qemu(tmp):
     _backend_skip("qemu", b"\x78\x9c" + b"Q" * 30, tmp, "qemu")
 
 
-@check("firmware_call: shipped cmp_ind_reader is registered with declared sec1 table")
+@check("firmware_call: shipped cmp_ind readers take sec1 from the image (M1.19), no declared values")
 def test_firmware_call_registered(tmp):
     by_name, _doc = load_targets()
-    target = by_name["cmp_ind_reader"]
-    assert target["entry"]["kind"] == "firmware_call", target["entry"]
-    assert target["entry"]["program"] == "cmp_ind_chunk_v1", target["entry"]
-    sec1 = target["entry"]["sec1_table"]
-    assert sec1["va"].lower() == "0x00574de0", sec1
-    assert len(sec1["values"]) == 17, sec1
-    assert int(str(sec1["values"][0]), 0) == 0 and int(str(sec1["values"][16]), 0) == 0xFFFF, sec1
-    assert "provenance" in sec1 and sec1["provenance"].strip(), sec1
-    assert "silent default" not in sec1["provenance"].lower() or "not a silent default" in sec1["provenance"].lower(), sec1
+    for name, va in (("cmp_ind_reader", "0x00574de0"), ("cmp_ind_reader_us2011", "0x005987b0")):
+        target = by_name[name]
+        assert target["entry"]["kind"] == "firmware_call", target["entry"]
+        assert target["entry"]["program"] == "cmp_ind_chunk_v1", target["entry"]
+        sec1 = target["entry"]["sec1_table"]
+        assert sec1["va"].lower() == va, sec1
+        assert sec1["source"] == "image" and "values" not in sec1, sec1
+        assert "nk_decomp" in sec1["provenance"] and "HYPOTHESIS" not in sec1["provenance"], sec1
+    # source=image with values is refused (one source per table)
+    bad = json.loads(json.dumps(by_name["cmp_ind_reader"]))
+    bad["entry"]["sec1_table"]["values"] = ["0x0"]
+    probs = " | ".join(validate_targets({"schema": TARGETS_SCHEMA, "targets": [bad]}))
+    assert "takes no values" in probs, probs
 
 
 @check("firmware_call: validation rejects a missing/undeclared sec1 table (no silent default)")
@@ -3614,17 +3674,19 @@ def test_firmware_call_sec1_required(tmp):
     assert "values" in probs, probs
 
 
-@check("firmware_call: --dry-run declares sec1 table and claims no verdict")
+@check("firmware_call: --dry-run names the sec1 source (image) and claims no verdict")
 def test_firmware_call_dry_run(tmp):
     code, output = _run_cli(["run", "cmp_ind_reader", "--dry-run", "--json"])
     payload = json.loads(output)
     assert code == EXIT_OK, output
     assert payload["status"] == "DRY_RUN", payload
     fc = payload["firmware_call"]
-    assert fc["sec1_table"]["declared"] is True, fc
+    assert fc["sec1_table"]["declared"] is False, fc
+    assert fc["sec1_table"]["source"] == "image", fc
     assert fc["sec1_table"]["va"].lower() == "0x00574de0", fc
-    assert fc["sec1_table"]["value_count"] == 17, fc
+    assert fc["sec1_table"]["value_count"] == 0, fc
     assert "no verdict is claimed" in payload["note"].lower(), payload
+    assert "nk_decomp" in payload["note"], payload
 
 
 @check("firmware_call: missing --cmp/--ind/--image is INVALID, not a fake pass")
@@ -3895,7 +3957,7 @@ def test_m935_unbound_import(tmp):
     assert "BLOCKED STUB OSMDLL.dll!OSM_Malloc" in payload.get("reason", ""), payload
 
 
-@check("M9.35: INIT read -> BLOCKED INIT 0x... (M1.2f)")
+@check("M9.35: INIT read under --init-guard -> BLOCKED INIT 0x... (guarded)")
 def test_m935_init_guard(tmp):
     image, image_path, rommap_path, module = _m935_base(tmp,
         iat_bindings=[{"va": "0x0055d040", "dll": "COREDLL.dll", "name": "memset"}],
@@ -3915,7 +3977,69 @@ def test_m935_init_guard(tmp):
     rc, payload = _m935_run(tmp, image, image_path, rommap_path, target)
     assert rc == EXIT_BLOCKED, payload
     assert payload["status"] == "BLOCKED", payload
-    assert "INIT 0x0055d080 (M1.2f)" in payload.get("reason", ""), payload
+    assert "INIT 0x0055d080 (guarded" in payload.get("reason", ""), payload
+
+
+def _m119_init_map(tmp, init: bytes, tamper: bool = False):
+    """The M9.35 fixture with sec1 as an ``init_source: nk_decomp`` block."""
+    image, image_path, rommap_path, module = _m935_base(tmp)
+    init_path = Path(tmp) / "Navi.exe.sec1.synthetic.bin"
+    init_path.write_bytes(init)
+    doc = json.loads(rommap_path.read_text(encoding="utf-8"))
+    for block in doc["blocks"]:
+        if block["section"] == "sec1":
+            block.update(guard_init=False, init_source="nk_decomp", init_len=len(init),
+                         init_file=str(init_path),
+                         init_sha256=hashlib.sha256(init).hexdigest())
+    doc["init_guards"] = []
+    doc["load_model"] = {"mode": "init-from-image"}
+    assert rommap_mod.validate(doc) == [], rommap_mod.validate(doc)
+    rommap_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+    if tamper:
+        init_path.write_bytes(init[:-1] + bytes([init[-1] ^ 1]))
+    # code: mov.l @(1,PC),r1; mov.l @r1,r0; rts; nop; .long 0x0055d080 (INIT)
+    code = bytes.fromhex("01d112600b00090080d05500")
+    image[0x1000:0x1000 + len(code)] = code
+    target = {
+        "name": "m119-init", "reader": "synthetic", "what": "INIT from image",
+        "module": module,
+        "entry": {"kind": "module", "module": module, "va": "0x00401000",
+                  "endian": "little", "args": [],
+                  "verdict_map": {"0x12345678": "ACCEPT"}},
+        "stubs": [], "expect": {"verdict": "ACCEPT", "rule": "INIT word read"},
+    }
+    return _m935_run(tmp, image, image_path, rommap_path, target)
+
+
+@check("M1.19: an INIT read returns the decoded byte (init_source nk_decomp)")
+def test_m119_init_from_image(tmp):
+    init = bytearray(0x100)
+    init[0x80:0x84] = (0x12345678).to_bytes(4, "little")
+    rc, payload = _m119_init_map(tmp, bytes(init))
+    assert rc == EXIT_OK and payload["status"] == "PASS", payload
+    assert int(str(payload["returned"]), 0) == 0x12345678, payload
+
+
+@check("M1.19: a tampered INIT cache file is BLOCKED, never mapped")
+def test_m119_init_tampered(tmp):
+    init = bytearray(0x100)
+    init[0x80:0x84] = (0x12345678).to_bytes(4, "little")
+    rc, payload = _m119_init_map(tmp, bytes(init), tamper=True)
+    assert rc == EXIT_BLOCKED and "init_sha256" in payload.get("reason", ""), payload
+    bad = {"name": "x/sec1", "module": "x", "section": "sec1", "address": "0x1000",
+           "end": "0x2000", "size": 0x1000, "stored_size": 0, "file_offset": None,
+           "file_backed": False, "loadable": True, "permissions": "rw-",
+           "characteristics": "0xc8002040", "init_len": 4, "guard_init": True,
+           "init_source": "nk_decomp"}
+    problems = " | ".join(rommap_mod.validate({"schema": rommap_mod.SCHEMA, "blocks": [bad]}))
+    assert "needs init_file" in problems and "init_sha256" in problems, problems
+    assert "cannot also guard INIT" in problems, problems
+    try:
+        rommap_mod.convert({"segments": [{}]}, init_from_image=True, init_guard=True)
+    except rommap_mod.RommapError as exc:
+        assert "exclude each other" in str(exc), exc
+    else:
+        raise AssertionError("--init-from-image with --init-guard was accepted")
 
 
 # --------------------------------------------------------------------------
