@@ -4551,7 +4551,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 
 - [ ] **M9.52 — Finish the firmware's mount in `datask_l3.py`: who answers message `0x1507`**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Status: in progress · Owner: task/m9.52-mount-1507 · Critical: yes · Pair: solo
   - Step: P1
   - Depends: M3.25, M9.13 (done)
   - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image <EU card> --max-reads 40` ends with `state 2` and a `not delivered: {"kind": "send", "task": 0, "id": 5383, …}` line (5383 = `0x1507`).
@@ -4561,7 +4561,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: a `mount` run ends with state 3 (or the EXP names the next message the mount waits for, with sender, receiver and the function that would answer); `--selftest` covers the reply model; EXP + claims.
   - Stop: if the answer needs a task whose code is outside `Navi.exe`, name the module and export and stop.
   - Falsifier: the state word reaches 3 without any reply (then the wait is on something else: say what).
-  - Claims: none yet (take the next free block when claimed)
+  - Claims: C-5900–C-5909 (was none yet (take the next free block when claimed); fresh block for this run)
 
 - [ ] **M9.53 — Make the firmware read a record block we wrote: one map request through `datask_l3.py`**
   - Status: open · Owner: — · Critical: yes · Pair: required
