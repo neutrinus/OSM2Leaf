@@ -3519,11 +3519,24 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     (SHA-256 `59a47b7f…a9792`).
   - Claims: C-1240–C-1249
 
-- [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
+- [x] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
   parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
   `nk.exe` entry. Done when booting needs no `-device loader`.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.a3-builtin-loader · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    `-M ze0 -kernel archive/head256.img` with no `-device` option puts RAM
+    bytes identical to the physfirst..physlast cuts of images B and A,
+    starts at PC `0x8800ebd0`, and its 60 s non-interrupt exception
+    sequence equals the `-device loader` boot's; a wrong offset exits
+    non-zero.
+  - Result: EXP-2026-11-20-M8.A3-builtin-loader (C-1250–C-1253). Patch
+    `tools/qemu-ze0/patches/ze0-0004-hw-sh4-ze0-builtin-loader.patch`;
+    options are `kernel-off=`/`app-off=` (`kernel` is QEMU's `-kernel`
+    property). RAM byte-identical, PC `0x8800ebd0`, 30-event fault
+    sequence identical in 2 + 2 boots; old short cuts differ (0 events).
+    `run.sh` uses `-kernel` on ze0 and ROMHDR lengths on `-M none`
+    (C-1283 fixed). Tool: `tools/ze0_ceload.py`.
   - Claims: C-1250–C-1259
 - [x] **M8.A10 — Bump the QEMU pin 8.2.7 → 8.2.10**
   The pin is 8.2.7 (2024-09-18) while 8.2.10 (2025-03-26) is the last release

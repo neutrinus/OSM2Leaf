@@ -9,12 +9,15 @@
 #
 # What one command does:
 #   1. picks the machine: -M ze0, else -M none -cpu sh7785 -m 512M;
-#   2. with --image, cuts the kernel image (B/C) and the application image (A)
-#      out of the SD image with `tail | head` and loads them with -device
-#      loader, exactly as tools/ce_qemu_probe.py does (the card has no
-#      bootloader; the IPL lives in on-board flash). The loader devices are
-#      passed for -M ze0 too; when M8.A3 moves the copy into the machine
-#      (-kernel), this block becomes the -M none fallback only.
+#   2. with --image: on -M ze0 passes the SD image as -kernel and the CE image
+#      offsets as -M ze0,kernel-off=...,app-off=...; the machine's built-in
+#      loader (M8.A3, ze0-0004) copies physfirst..physlast of each image and
+#      sets the PC to the nk.exe entry, so no -device loader is needed. On
+#      -M none it cuts the kernel image (B/C) and the application image (A)
+#      out of the SD image with `tail | head` (physfirst..physlast from the
+#      ROMHDR, M8.A3; the u32 at the image start is not the length, C-1283)
+#      and loads them with -device loader, as tools/ce_qemu_probe.py does
+#      (the card has no bootloader; the IPL lives in on-board flash).
 #   3. runs QEMU with -d unimp,guest_errors,int -D WORK/qemu.log, an optional
 #      gdbstub (--gdb) and a wall-clock --timeout, then asks the HMP monitor
 #      for `info registers` before killing it;
@@ -47,9 +50,10 @@ Options:
   --image FILE        CE/SD image to boot (default: none, bare CPU + RAM)
   --kernel OFFSET     kernel image start (default 0x3e00200; C = 0x5200200)
   --app OFFSET        application image start (default 0x200200, 0 = none)
-  --kernel-addr ADDR  physical load address (default 0x08000000)
-  --app-addr ADDR     physical load address (default 0x0cae1000)
-  --entry ADDR        initial PC (default 0x8800ebd0 = nk.exe entry, EXP-37)
+  --kernel-addr ADDR  -M none: physical load address (default 0x08000000)
+  --app-addr ADDR     -M none: physical load address (default 0x0cae1000)
+  --entry ADDR        initial PC (-M none default 0x8800ebd0 = nk.exe entry,
+                      EXP-37; -M ze0 takes it from nk.exe unless given)
   --mem MB            -M none RAM in MiB (default 512)
   --machine WHAT      auto | ze0 | none (default auto)
   --gdb[=PORT]        gdbstub on 127.0.0.1:PORT (default port 1234)
@@ -70,7 +74,7 @@ Options:
 Outputs in the work dir: qemu.log (everything -d logged), serial.log (the
 debug SCIF output with --serial log), registers.txt (HMP
 `info registers` before the kill, when reachable), memmap.json (VA -> module
-and section, from cerom.py), plus kernel.bin/app.bin when --image is given.
+and section, from cerom.py), plus kernel.bin/app.bin when --image is given on -M none.
 EOF
 }
 
@@ -172,7 +176,17 @@ load_image() {
     die "$_label image has no ECEC at 0x$(printf '%x' "$((_off + 0x40))"); wrong --kernel/--app offset?"
   fi
 
-  _len=$(le32 "$_img" "$_off") || die "cannot read a u32 at 0x$(printf '%x' "$_off") in $_img"
+  # Length = ROMHDR physlast - physfirst (M8.A3). pTOC (+0x44) minus the
+  # ROMHDR offset (+0x48) must equal ROMHDR physfirst. The u32 at the image
+  # start is not the image length (C-1283).
+  _ptoc=$(le32 "$_img" "$((_off + 0x44))") || die "cannot read pTOC at 0x$(printf '%x' "$((_off + 0x44))") in $_img"
+  _roff=$(le32 "$_img" "$((_off + 0x48))") || die "cannot read the ROMHDR offset at 0x$(printf '%x' "$((_off + 0x48))") in $_img"
+  _pfirst=$(le32 "$_img" "$((_off + _roff + 8))") || die "cannot read ROMHDR physfirst of the $_label image"
+  _plast=$(le32 "$_img" "$((_off + _roff + 12))") || die "cannot read ROMHDR physlast of the $_label image"
+  if [ "$_pfirst" -ne "$((_ptoc - _roff))" ]; then
+    die "$_label image at 0x$(printf '%x' "$_off"): ROMHDR physfirst 0x$(printf '%x' "$_pfirst") != pTOC - offset 0x$(printf '%x' "$((_ptoc - _roff))")"
+  fi
+  _len=$((_plast - _pfirst))
   _size=$(wc -c < "$_img" | tr -d ' \t\n')
   if [ "$_len" -le 0 ] || [ "$_len" -gt 268435456 ]; then
     die "$_label image at 0x$(printf '%x' "$_off") claims $_len bytes, not a CE image"
@@ -270,6 +284,7 @@ APP_OFF=0x200200
 KERNEL_ADDR=0x08000000
 APP_ADDR=0x0cae1000
 ENTRY=0x8800ebd0
+ENTRY_SET=0
 MEM=512
 MACHINE=auto
 GDB=0
@@ -315,7 +330,10 @@ while [ "$#" -gt 0 ]; do
         --app) APP_OFF=$_val ;;
         --kernel-addr) KERNEL_ADDR=$_val ;;
         --app-addr) APP_ADDR=$_val ;;
-        --entry) ENTRY=$_val ;;
+        --entry)
+          ENTRY=$_val
+          ENTRY_SET=1
+          ;;
         --mem)
           want_int "$_opt" "$_val"
           MEM=$_val
@@ -437,7 +455,13 @@ fi
 set -- "$QEMU"
 
 if [ "$MACHINE" = ze0 ]; then
-  set -- "$@" -M ze0
+  if [ -n "$IMAGE" ]; then
+    # Built-in loader (M8.A3): the machine reads the CE images itself.
+    set -- "$@" -M "ze0,kernel-off=$(printf '0x%x' "$KERNEL_OFF"),app-off=$(printf '0x%x' "$APP_OFF")" \
+      -kernel "$IMAGE"
+  else
+    set -- "$@" -M ze0
+  fi
 else
   set -- "$@" -M none -cpu sh7785 -m "${MEM}M"
 fi
@@ -460,7 +484,12 @@ fi
 
 set -- "$@" -d unimp,guest_errors,int -D "$LOG"
 
-if [ -n "$IMAGE" ]; then
+if [ -n "$IMAGE" ] && [ "$MACHINE" = ze0 ]; then
+  info "kernel  -kernel $IMAGE, kernel-off=0x$(printf '%x' "$KERNEL_OFF"), app-off=0x$(printf '%x' "$APP_OFF") (built-in loader, M8.A3)"
+  if [ "$ENTRY_SET" -eq 1 ]; then
+    set -- "$@" -device "loader,addr=0x$(printf '%x' "$ENTRY"),cpu-num=0"
+  fi
+elif [ -n "$IMAGE" ]; then
   load_image "$IMAGE" "$KERNEL_OFF" "$KERNEL_ADDR" "$WORK/kernel.bin" kernel
   set -- "$@" -device "$LOADER_SPEC"
   if [ "$APP_OFF" -ne 0 ]; then
