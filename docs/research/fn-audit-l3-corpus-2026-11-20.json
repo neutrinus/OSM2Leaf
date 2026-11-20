@@ -403,6 +403,7 @@
   "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
+  "docs/experiments/EXP-2026-11-20-M4.31-tmc-road-type-link-class.md",
   "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
   "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
@@ -436,7 +437,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 429,
+  "files": 430,
   "citations": 1098,
   "unique_va": 273,
   "start": 947,
@@ -568,7 +569,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3803,
+   "line": 3804,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
