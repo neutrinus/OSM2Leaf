@@ -230,6 +230,30 @@ divisor/multiplier; it sizes nothing — the scratch (`0x10000`) and batch
 (`0x14000`) buffers come from the mount configuration. (b) The reader
 **seeks by `chunk_offset[]`**; there is no `78 9c` scan.
 
+**L3 run (M3.2, C-5330–C-5334, EXP-2026-11-20-M3.2-ind-handling-l3):**
+`tools/cmp_read_l3.py` executes the EU2011 layer — manager ctor `0x0041bc98`
+with the mount's constants, open `0x0041b780`, seek `0x0041b8a4`, read
+`0x0041b954` — with the ops table bound to host files. Factory ADDRE001
+(whole) and POINT010 (page `0x840ba0`) come back byte-identical to
+`cmpind_codec`; the `.cmp` is accessed only as `seek(chunk_offset[first])` +
+one `read(sum)` (POINT010: seek `0x234d7f` = `chunk_offset[132]`); with a
+valid `78 9c` decoy prepended and the index shifted by `0x1000` the reader
+seeks to `0x1000` and is still correct; a last offset one byte early fails
+(-1), no resync. `chunk_size` `0x8000`/`0x20000` is rejected at `0x0041c92a`
+before any `.cmp` byte is read; changing only the mount word to `0x20000`
+rejects the factory file (the compare is against the configuration), and with
+both at `0x20000` the read returns 79,360 **wrong** bytes — the equality
+compare is the only `chunk_size` check.
+
+**The 8 `ind_mutate` variants through the layer (M3.3, C-5340–C-5344, EXP-2026-11-20-M3.3-ind-variants-l3):**
+ADDRE001 with the original `.cmp`, whole-file read. Rejected (-1), as
+`cmpind.py`: `size_20000`, `size_8000` (at the `chunk_size` compare, no `.cmp`
+access), `off0_1`, `off_last_m1`, `off_last_p1`, `off_last_0` (inflate fails).
+**More lenient than `cmpind.py`:** `count_p1` is read byte-identical (the extra
+entry is never visited); `count_m1` returns the full 79,360 B with bytes from
+65,536 on **wrong** — no error. D1 below is therefore a writer obligation the
+firmware does not enforce.
+
 **Writer contract** (each rule tied to a compare above; `cmp_reader_contract.py
 check DIR`):
 
@@ -239,5 +263,5 @@ check DIR`):
 | R2 | every compressed chunk ≤ `0x14000` B (factory max 65,562) | `0x0041c72a`, `0x0041c9da` |
 | R3 | `.ind` word 1 == `.cmp` size | last-chunk length `0x0041c6fc`; read check `0x0041ca3c` |
 | R4 | `.ind` is `16 + 4*count` bytes | `0x0041c6c6`, `0x0041c576` |
-| D1 | `count == ceil(logical/0x10000)`, offsets increase from 0 | not tested; offsets/extents computed as above |
+| D1 | `count == ceil(logical/0x10000)`, offsets increase from 0 | not tested; a too-small count reads **wrong bytes without error**, a too-large one is ignored (M3.3, C-5341/C-5342) |
 | — | the directory (or file) is listed in `CMP.LST` | `0x0041c2e0` |

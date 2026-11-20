@@ -84,8 +84,10 @@ Known limits (deliberate, loud, and recorded in the M9.4 EXP):
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
+import re
 import shutil
 import socket
 import struct
@@ -945,6 +947,529 @@ def decode_fields(insn: int) -> tuple[str, int | None, int | None, int]:
     return "unknown", None, None, d
 
 
+# --------------------------------------------------------------------------
+# PySh4 fast path (M9.45): basic blocks translated to Python once
+# --------------------------------------------------------------------------
+#
+# ``PySh4.run_until`` used to fetch, decode and dispatch every instruction
+# through ``_step`` -> ``_execute`` -> ``_exec_*`` with a linear region search
+# per fetch and per access: about 2.2 us per instruction.  The fast path
+# translates each straight-line run of instructions (a *block*) into one
+# Python function the first time its start PC is reached, and runs that.
+#
+# Equivalence with ``_step`` is the contract, not an aim:
+#
+# * every template below is a transcription of the ``_exec_*`` arm with the
+#   same order of register writes, loads and stores, so a fault leaves the
+#   same partial state; the faulting instruction's PC + 2 goes to ``pc`` and
+#   its arm name to ``_arm``, as ``_step`` leaves them;
+# * an instruction without a template ends the block and runs through
+#   ``_step`` (every FPU, MMU, div, mac, trapa... form);
+# * a block never contains a PC that ``run_until`` must look at: a stop
+#   address, an ``on_exec`` hook or ``RETURN_VA`` can only be a block start;
+# * a store that lands in an executable region invalidates every block and
+#   leaves the current one after that instruction (self-modifying code runs
+#   the new bytes, as ``_step`` would);
+# * the fast path is off -- and ``_step`` runs everything -- while a watch is
+#   armed, for a callable ``stop``, inside a pending delay slot, when a block
+#   would run past ``max_insns``, and for any subclass or instance that
+#   overrides an interpreter method (``runner.GuardedPySh4``,
+#   ``div1_l3.ShimSh4``, a patched ``_execute``).
+#
+# ``engine.py --selftest`` holds the differential check: all 65,536
+# halfwords from several register states, and random straight-line blocks,
+# through both paths.
+
+
+class _SMC(Exception):
+    """Internal: a fast-path store hit an executable region."""
+
+
+_TC_MAX = 64          # instructions per block
+
+#: ``(start pc, instruction words, end kind)`` -> compiled block, shared by
+#: every engine in the process (``nk_decomp check`` builds one engine per
+#: section and would re-translate otherwise).  The source is a pure function
+#: of the key; per-engine state (cache cells, ``ENG``) is bound at exec time.
+_TC_CODE_CACHE: dict = {}
+
+
+def _tc_r(k: int) -> str:
+    return "R['r%d']" % k
+
+
+def _tc_sett(cond: str) -> list:
+    return ["R['sr'] = (R['sr'] | 1) if (%s) else (R['sr'] & -2)" % cond]
+
+
+def _tc_sx8(expr: str) -> str:
+    return "(((((%s) & 0xFF) ^ 0x80) - 0x80) & 0xFFFFFFFF)" % expr
+
+
+def _tc_sx16(expr: str) -> str:
+    return "(((((%s) & 0xFFFF) ^ 0x8000) - 0x8000) & 0xFFFFFFFF)" % expr
+
+
+def _tc_load(dest: str, size: int, addr: str, signed: bool) -> list:
+    """Lines for ``dest = _load[_signed](addr, size)``.  ``@C`` is this
+    site's one-region cache cell ``[lo, hi, data]`` (numbered by the block
+    builder); a miss goes through ``LDM`` -> ``_load``, which raises what
+    ``_step`` raises."""
+    align = "" if size == 1 else "not ma & %d and " % (size - 1)
+    if size == 1:
+        hit = "mv = mc[2][ma - mc[0]]"
+    else:
+        hit = "mv = U%d(mc[2], ma - mc[0])[0]" % size
+    value = "mv"
+    if signed and size == 1:
+        value = _tc_sx8("mv")
+    elif signed and size == 2:
+        value = _tc_sx16("mv")
+    return ["ma = %s" % addr, "mc = @C",
+            "if %smc[0] <= ma and ma + %d <= mc[1]:" % (align, size),
+            "    " + hit,
+            "else:",
+            "    mv = LDM(ma, %d, mc)" % size,
+            "%s = %s" % (dest, value)]
+
+
+def _tc_store(size: int, addr: str, value: str) -> list:
+    """Lines for ``_store(addr, size, value)`` with a per-site cache cell; a
+    miss (or an executable region) goes through ``STM`` -> ``_store``."""
+    align = "" if size == 1 else "not ma & %d and " % (size - 1)
+    if size == 1:
+        hit = "mc[2][ma - mc[0]] = (%s) & 0xFF"
+    else:
+        hit = "P%d(mc[2], ma - mc[0], (%%s) & %s)" % (size, "0xFFFF" if size == 2 else "0xFFFFFFFF")
+    return ["ma = %s" % addr, "mv = %s" % value, "mc = @C",
+            "if %smc[0] <= ma and ma + %d <= mc[1]:" % (align, size),
+            "    " + hit % "mv",
+            "else:",
+            "    STM(ma, %d, mv, mc)" % size]
+
+
+def _tc_insn(insn: int, pc: int):
+    """Template for one instruction at *pc*.
+
+    Returns ``None`` (no template: ``_step`` runs it), or a tuple
+    ``(kind, lines, faults, arm)`` with *kind* ``"op"`` (straight-line),
+    ``"delay"`` (sets local ``tgt``; the slot follows), ``"cond"`` (bt/bf:
+    *lines* is the T condition source, the target is in ``arm``'s slot --
+    see below) or ``"pcend"`` (unused).  For ``"cond"`` the tuple is
+    ``("cond", (cond_src, target), False, arm)``.
+    """
+    n = (insn >> 8) & 0xF
+    m = (insn >> 4) & 0xF
+    d8 = insn & 0xFF
+    top = insn >> 12
+    Rn, Rm = _tc_r(n), _tc_r(m)
+    M = "0xFFFFFFFF"
+
+    def op(lines, arm, faults=False):
+        return ("op", lines, faults, arm)
+
+    if top == 0xE:
+        return op(["%s = %d" % (Rn, _sx(d8, 8) & M32)], "mov_imm")
+    if top == 0x7:
+        return op(["%s = (%s + %d) & %s" % (Rn, Rn, _sx(d8, 8), M)], "add_imm")
+    if top == 0xD:
+        return op(_tc_load(Rn, 4, str(((pc + 4) & ~3) + d8 * 4), False), "mov.l_pc", True)
+    if top == 0x9:
+        return op(_tc_load(Rn, 2, str(pc + 4 + d8 * 2), True), "mov.w_pc", True)
+    if top == 0xA:
+        return ("delay", ["tgt = %d" % ((pc + 4 + _sx(insn & 0xFFF, 12) * 2) & M32)],
+                False, "bra")
+    if top == 0xB:
+        return ("delay", ["R['pr'] = %d" % ((pc + 4) & M32),
+                          "tgt = %d" % ((pc + 4 + _sx(insn & 0xFFF, 12) * 2) & M32)],
+                False, "bsr")
+    if top == 0x1:
+        return op(_tc_store(4, "(%s + %d) & %s" % (Rn, (insn & 0xF) * 4, M), Rm),
+                  "mov.l_m_at_disp_n", True)
+    if top == 0x5:
+        return op(_tc_load(Rn, 4, "(%s + %d) & %s" % (Rm, (insn & 0xF) * 4, M), False),
+                  "mov.l_at_disp_m_n", True)
+    if top == 0x3:
+        sub = insn & 0xF
+        if sub == 0x0:
+            return op(_tc_sett("%s == %s" % (Rn, Rm)), "cmp/eq")
+        if sub == 0x2:
+            return op(_tc_sett("%s >= %s" % (Rn, Rm)), "cmp/hs")
+        if sub == 0x3:
+            return op(_tc_sett("(%s ^ 0x80000000) >= (%s ^ 0x80000000)" % (Rn, Rm)),
+                      "cmp/ge")
+        if sub == 0x6:
+            return op(_tc_sett("%s > %s" % (Rn, Rm)), "cmp/hi")
+        if sub == 0x7:
+            return op(_tc_sett("(%s ^ 0x80000000) > (%s ^ 0x80000000)" % (Rn, Rm)),
+                      "cmp/gt")
+        if sub == 0x8:
+            return op(["%s = (%s - %s) & %s" % (Rn, Rn, Rm, M)], "sub")
+        if sub == 0xC:
+            return op(["%s = (%s + %s) & %s" % (Rn, Rn, Rm, M)], "add")
+        if sub == 0xE:
+            return op(["v = %s + %s + (R['sr'] & 1)" % (Rn, Rm),
+                       "%s = v & %s" % (Rn, M)] + _tc_sett("v > %s" % M), "addc")
+        if sub == 0xA:
+            return op(["v = %s - %s - (R['sr'] & 1)" % (Rn, Rm),
+                       "%s = v & %s" % (Rn, M)] + _tc_sett("v < 0"), "subc")
+        return None
+    if top == 0x2:
+        sub = insn & 0xF
+        if sub in (0x0, 0x1, 0x2):
+            size = (1, 2, 4)[sub]
+            arm = ("mov.b_m_at_n", "mov.w_m_at_n", "mov.l_m_at_n")[sub]
+            return op(_tc_store(size, Rn, Rm), arm, True)
+        if sub in (0x4, 0x5, 0x6):
+            size = (1, 2, 4)[sub - 4]
+            arm = ("mov.b_m_at_minus_n", "mov.w_m_at_minus_n",
+                   "mov.l_m_at_minus_n")[sub - 4]
+            return op(["v = %s" % Rm, "a = (%s - %d) & %s" % (Rn, size, M),
+                       "%s = a" % Rn] + _tc_store(size, "a", "v"), arm, True)
+        if sub == 0x8:
+            return op(_tc_sett("(%s & %s) == 0" % (Rn, Rm)), "tst")
+        if sub == 0x9:
+            return op(["%s = %s & %s" % (Rn, Rn, Rm)], "and")
+        if sub == 0xA:
+            return op(["%s = %s ^ %s" % (Rn, Rn, Rm)], "xor")
+        if sub == 0xB:
+            return op(["%s = %s | %s" % (Rn, Rn, Rm)], "or")
+        if sub == 0xE:
+            return op(["R['macl'] = ((%s & 0xFFFF) * (%s & 0xFFFF)) & %s" % (Rn, Rm, M)],
+                      "mulu.w")
+        return None
+    if top == 0x6:
+        sub = insn & 0xF
+        if sub in (0x0, 0x1, 0x2):
+            size = (1, 2, 4)[sub]
+            arm = ("mov.b_at_m_n", "mov.w_at_m_n", "mov.l_at_m_n")[sub]
+            return op(_tc_load(Rn, size, Rm, size != 4), arm, True)
+        if sub == 0x3:
+            return op(["%s = %s" % (Rn, Rm)], "mov_m_n")
+        if sub in (0x4, 0x5, 0x6):
+            size = (1, 2, 4)[sub - 4]
+            arm = ("mov.b_at_m_plus_n", "mov.w_at_m_plus_n",
+                   "mov.l_at_m_plus_n")[sub - 4]
+            return op(["a = %s" % Rm] + _tc_load(Rn, size, "a", size != 4)
+                      + ["%s = (a + %d) & %s" % (Rm, size, M)], arm, True)
+        if sub == 0x7:
+            return op(["%s = ~%s & %s" % (Rn, Rm, M)], "not")
+        if sub == 0x8:
+            return op(["v = %s" % Rm,
+                       "%s = ((v & 0xFF00FF00) | ((v & 0xFF) << 16) | ((v >> 16) & 0xFF)) & %s"
+                       % (Rn, M)], "swap.b")
+        if sub == 0x9:
+            return op(["v = %s" % Rm, "%s = ((v << 16) | (v >> 16)) & %s" % (Rn, M)],
+                      "swap.w")
+        if sub == 0xB:
+            return op(["%s = (-%s) & %s" % (Rn, Rm, M)], "neg")
+        if sub == 0xC:
+            return op(["%s = %s & 0xFF" % (Rn, Rm)], "extu.b")
+        if sub == 0xD:
+            return op(["%s = %s & 0xFFFF" % (Rn, Rm)], "extu.w")
+        if sub == 0xE:
+            return op(["%s = %s" % (Rn, _tc_sx8(Rm))], "exts.b")
+        if sub == 0xF:
+            return op(["%s = %s" % (Rn, _tc_sx16(Rm))], "exts.w")
+        return None
+    if top == 0x4:
+        low = insn & 0xFF
+        simple = {
+            0x08: ("shll2", "(%s << 2) & %s"), 0x09: ("shlr2", "%s >> 2"),
+            0x18: ("shll8", "(%s << 8) & %s"), 0x19: ("shlr8", "%s >> 8"),
+            0x28: ("shll16", "(%s << 16) & %s"), 0x29: ("shlr16", "%s >> 16"),
+        }
+        if low in simple:
+            arm, expr = simple[low]
+            expr = expr % ((Rn, M) if "&" in expr else (Rn,))
+            return op(["%s = %s" % (Rn, expr)], arm)
+        if low in (0x00, 0x20):
+            return op(["v = %s" % Rn] + _tc_sett("v & 0x80000000")
+                      + ["%s = (v << 1) & %s" % (Rn, M)],
+                      "shll" if low == 0x00 else "shal")
+        if low == 0x01:
+            return op(["v = %s" % Rn] + _tc_sett("v & 1") + ["%s = v >> 1" % Rn], "shlr")
+        if low == 0x21:
+            return op(["v = %s" % Rn] + _tc_sett("v & 1")
+                      + ["%s = ((v >> 1) | (v & 0x80000000)) & %s" % (Rn, M)], "shar")
+        if low == 0x10:
+            return op(["v = (%s - 1) & %s" % (Rn, M), "%s = v" % Rn]
+                      + _tc_sett("v == 0"), "dt")
+        if low == 0x11:
+            return op(_tc_sett("not %s & 0x80000000" % Rn), "cmp/pz")
+        if low == 0x15:
+            return op(_tc_sett("0 < %s < 0x80000000" % Rn), "cmp/pl")
+        if low == 0x0B:
+            return ("delay", ["v = %s" % Rn, "R['pr'] = %d" % ((pc + 4) & M32),
+                              "tgt = v"], False, "jsr")
+        if low == 0x2B:
+            return ("delay", ["tgt = %s" % Rn], False, "jmp")
+        if low == 0x2A:
+            return op(["R['pr'] = %s" % Rn], "lds_pr")
+        if low == 0x1A:
+            return op(["R['macl'] = %s" % Rn], "lds_macl")
+        if low == 0x22:
+            return op(["a = (%s - 4) & %s" % (Rn, M), "%s = a" % Rn,
+                       ] + _tc_store(4, "a", "R['pr']"), "sts.l_pr_at_minus_n", True)
+        if low == 0x26:
+            return op(["a = %s" % Rn] + _tc_load("R['pr']", 4, "a", False)
+                      + ["%s = (a + 4) & %s" % (Rn, M)], "lds.l_pr_at_n_plus", True)
+        if insn & 0xF in (0x0C, 0x0D):
+            arithmetic = (insn & 0xF) == 0x0C
+            lines = ["v = %s" % Rn, "s = %s" % Rm,
+                     "if not s & 0x80000000:",
+                     "    %s = (v << (s & 0x1F)) & %s" % (Rn, M),
+                     "elif s & 0x1F == 0:"]
+            if arithmetic:
+                lines += ["    %s = %s if v & 0x80000000 else 0" % (Rn, M),
+                          "else:",
+                          "    %s = ((((v ^ 0x80000000) - 0x80000000) >> "
+                          "(((~s) & 0x1F) + 1))) & %s" % (Rn, M)]
+            else:
+                lines += ["    %s = 0" % Rn,
+                          "else:",
+                          "    %s = v >> (((~s) & 0x1F) + 1)" % Rn]
+            return op(lines, "shad" if arithmetic else "shld")
+        return None
+    if top == 0x8:
+        sub = (insn >> 8) & 0xF
+        target = (pc + 4 + _sx(d8, 8) * 2) & M32
+        if sub == 0x0:
+            return op(_tc_store(1, "(%s + %d) & %s" % (Rm, insn & 0xF, M), "R['r0']"),
+                      "mov.b_r0_at_disp_m", True)
+        if sub == 0x1:
+            return op(_tc_store(2, "(%s + %d) & %s" % (Rm, (insn & 0xF) * 2, M), "R['r0']"),
+                      "mov.w_r0_at_disp_m", True)
+        if sub == 0x4:
+            return op(_tc_load("R['r0']", 1, "(%s + %d) & %s" % (Rm, insn & 0xF, M), True),
+                      "mov.b_at_disp_m_r0", True)
+        if sub == 0x5:
+            return op(_tc_load("R['r0']", 2, "(%s + %d) & %s" % (Rm, (insn & 0xF) * 2, M),
+                               True), "mov.w_at_disp_m_r0", True)
+        if sub == 0x8:
+            return op(_tc_sett("R['r0'] == %d" % (_sx(d8, 8) & M32)), "cmp/eq_imm")
+        if sub == 0x9:
+            return ("cond", ("R['sr'] & 1", target), False, "bt")
+        if sub == 0xB:
+            return ("cond", ("not R['sr'] & 1", target), False, "bf")
+        if sub == 0xD:
+            return ("delay", ["tgt = %d if R['sr'] & 1 else %d"
+                              % (target, (pc + 4) & M32)], False, "bt/s")
+        if sub == 0xF:
+            return ("delay", ["tgt = %d if not R['sr'] & 1 else %d"
+                              % (target, (pc + 4) & M32)], False, "bf/s")
+        return None
+    if top == 0xC:
+        sub = (insn >> 8) & 0xF
+        if sub == 0x7:
+            return op(["R['r0'] = %d" % (((pc + 4) & ~3) + d8 * 4)], "mova")
+        if sub == 0x8:
+            return op(_tc_sett("(R['r0'] & %d) == 0" % d8), "tst_imm")
+        if sub == 0x9:
+            return op(["R['r0'] &= %d" % d8], "and_imm")
+        if sub == 0xA:
+            return op(["R['r0'] ^= %d" % d8], "xor_imm")
+        if sub == 0xB:
+            return op(["R['r0'] |= %d" % d8], "or_imm")
+        if sub in (0x0, 0x1, 0x2):
+            size = (1, 2, 4)[sub]
+            return op(_tc_store(size, "(R['gbr'] + %d) & %s" % (d8 * size, M), "R['r0']"),
+                      ("mov.b_r0_gbr", "mov.w_r0_gbr", "mov.l_r0_gbr")[sub], True)
+        if sub in (0x4, 0x5, 0x6):
+            size = (1, 2, 4)[sub - 4]
+            return op(_tc_load("R['r0']", size, "(R['gbr'] + %d) & %s" % (d8 * size, M),
+                               size != 4),
+                      ("mov.b_gbr_r0", "mov.w_gbr_r0", "mov.l_gbr_r0")[sub - 4], True)
+        return None
+    if top == 0x0:
+        # The order of the checks is the order of ``_exec_misc``.
+        if insn == 0x0009:
+            return op([], "nop")
+        if insn == 0x000B:
+            return ("delay", ["tgt = R['pr']"], False, "rts")
+        if insn == 0x0008:
+            return op(["R['sr'] &= -2"], "clrt")
+        if insn == 0x0018:
+            return op(["R['sr'] |= 1"], "sett")
+        if insn in (0x0028, 0x0019) or (insn & 0xF) == 0xF:
+            return None
+        pattern = insn & 0xF0FF
+        if pattern in (0x0002, 0x0012, 0x0022, 0x000A, 0x001A, 0x002A):
+            reg = {0x0002: "sr", 0x0012: "gbr", 0x0022: "vbr", 0x000A: "mach",
+                   0x001A: "macl", 0x002A: "pr"}[pattern]
+            arm = {0x0002: "stc_sr", 0x0012: "stc_gbr", 0x0022: "stc_vbr",
+                   0x000A: "sts_mach", 0x001A: "sts_macl", 0x002A: "sts_pr"}[pattern]
+            return op(["%s = R['%s']" % (Rn, reg)], arm)
+        if pattern == 0x0029:
+            return op(["%s = R['sr'] & 1" % Rn], "movt")
+        if (insn & 0xF) == 0x7:
+            return op(["R['macl'] = (%s * %s) & %s" % (Rn, Rm, M)], "mul.l")
+        if pattern == 0x0003:
+            return ("delay", ["v = %s" % Rn, "R['pr'] = %d" % ((pc + 4) & M32),
+                              "tgt = (%d + v) & %s" % (pc + 4, M)], False, "bsrf")
+        if pattern == 0x0023:
+            return ("delay", ["tgt = (%d + %s) & %s" % (pc + 4, Rn, M)], False, "braf")
+        if pattern in (0x0083, 0x0093, 0x00A3, 0x00B3):
+            return op([], {0x0083: "pref", 0x0093: "ocbi", 0x00A3: "ocbp",
+                           0x00B3: "ocbwb"}[pattern])
+        if pattern == 0x00C3:
+            return op(_tc_store(4, Rn, "R['r0']"), "movca.l", True)
+        low = insn & 0xF
+        if low in (0x4, 0x5, 0x6):
+            size = (1, 2, 4)[low - 4]
+            # mov.w Rm,@(R0,Rn) has no arm name in ``_exec_misc``: it keeps
+            # the previous instruction's; None here means "leave _arm".
+            arm = {0x4: "mov.b_m_at_r0_plus_n", 0x5: None,
+                   0x6: "mov.l_m_at_r0_plus_n"}[low]
+            return op(_tc_store(size, "(R['r0'] + %s) & %s" % (Rn, M), Rm), arm, True)
+        if low in (0xC, 0xD, 0xE):
+            size = (1, 2, 4)[low - 0xC]
+            return op(_tc_load(Rn, size, "(R['r0'] + %s) & %s" % (Rm, M), size != 4),
+                      None, True)
+        return None
+    return None
+
+
+#: Templates are pure functions of (word, pc); blocks are rebuilt per engine.
+_tc_insn_memo = functools.lru_cache(maxsize=1 << 17)(_tc_insn)
+
+
+#: Interpreter methods a subclass or instance may override; any override
+#: turns the fast path off for that engine (it would bypass the override).
+_TC_METHODS = ("_step", "_execute", "_fetch", "_block", "_load", "_load_signed",
+               "_store", "_record_watch", "_dispatch", "_get_pc", "_set_pc",
+               "_get_reg", "_set_reg", "_set_t", "_t", "_exec_alu",
+               "_exec_store", "_exec_load", "_exec_system", "_exec_branch8",
+               "_exec_imm", "_exec_misc")
+
+
+def _tc_build(eng, pc: int, barrier):
+    """Translate the block at *pc*; ``None`` if its first instruction has no
+    template (or cannot be fetched).  *barrier(va)* is true for a PC that
+    ``run_until`` must see (stop, hook, ``RETURN_VA``): never inside a block."""
+    items = []          # (pc, kind, lines, faults, arm)
+    words = []
+    cur = pc
+    end_kind = None
+    while len(items) < _TC_MAX:
+        if items and barrier(cur):
+            break
+        try:
+            insn = eng._tc_word(cur)
+        except EngineError:
+            break
+        t = _tc_insn_memo(insn, cur)
+        if t is None:
+            break
+        kind, lines, faults, arm = t
+        if kind == "delay":
+            slot = (cur + 2) & M32
+            if barrier(slot):
+                break
+            try:
+                slot_word = eng._tc_word(slot)
+                slot_t = _tc_insn_memo(slot_word, slot)
+            except EngineError:
+                slot_t = None
+            if slot_t is None or slot_t[0] != "op":
+                break
+            items.append((cur, kind, lines, faults, arm))
+            items.append((slot, "slot", slot_t[1], slot_t[2], slot_t[3]))
+            words.append(insn)
+            words.append(slot_word)
+            end_kind = "delay"
+            break
+        items.append((cur, kind, lines, faults, arm))
+        words.append(insn)
+        if kind == "cond":
+            end_kind = "cond"
+            break
+        cur = (cur + 2) & M32
+    if not items:
+        return None
+    key = (pc, tuple(words), end_kind)
+    built = _TC_CODE_CACHE.get(key)
+    if built is None:
+        if len(_TC_CODE_CACHE) > 50000:
+            _TC_CODE_CACHE.clear()
+        built = _TC_CODE_CACHE[key] = _tc_codegen(pc, items, end_kind)
+    code, pcs, arms, cells = built
+    scope = {"_SMC": _SMC, "PCS": pcs, "ARMS": arms, "ENG": eng}
+    scope.update(eng._tc_helpers())
+    for k in range(cells):
+        scope["C%d" % k] = [0, 0, b""]
+    exec(code, scope)
+    return scope["_blk"], len(items)
+
+
+def _tc_codegen(pc, items, end_kind):
+    """Source -> code object for one block; returns ``(code, PCS, ARMS,
+    number of cache cells)``.  Pure function of the instruction words."""
+
+    pcs, arms = [], []
+    eff = None
+    for item in items:
+        if item[4] is not None:
+            eff = item[4]
+        pcs.append(item[0])
+        arms.append(eff)
+    body = []
+    tgt_set = False
+    for k, (ipc, kind, lines, faults, _arm) in enumerate(items):
+        if faults:
+            body.append("i = %d" % k)
+        if kind == "cond":
+            cond, target = lines
+            body.append("npc = %d if (%s) else %d" % (target, cond, (ipc + 2) & M32))
+            continue
+        body.extend(lines)
+        if kind == "delay":
+            tgt_set = True
+    if end_kind == "delay":
+        body.append("npc = tgt")
+    elif end_kind is None:
+        body.append("npc = %d" % ((pcs[-1] + 2) & M32))
+    # Registers live in locals for the block: loaded once before ``try``
+    # (cannot fault), written back on every exit -- normal, _SMC and a
+    # fault -- so R holds exactly what the per-instruction path would.
+    text = "\n".join(body)
+    used = sorted(set(re.findall(r"R\['(\w+)'\]", text)))
+    written = sorted(set(re.findall(r"R\['(\w+)'\]\s*[&|^]?=(?!=)", text)))
+    text = re.sub(r"R\['(\w+)'\]", r"L_\1", text)
+    back = ["R['%s'] = L_%s" % (name, name) for name in written]
+    src = ["def _blk(R):"]
+    src += ["    L_%s = R['%s']" % (name, name) for name in used]
+    src += ["    i = 0", "    try:"]
+    src += ["        " + line for line in text.split("\n")]
+    src.append("    except _SMC:")
+    src += ["        " + line for line in back]
+    # The store completed: continue after instruction i (a slot continues
+    # at the branch target).
+    if tgt_set:
+        src.append("        R['pc'] = tgt if i == %d else (PCS[i] + 2) & 0xFFFFFFFF"
+                   % (len(items) - 1))
+    else:
+        src.append("        R['pc'] = (PCS[i] + 2) & 0xFFFFFFFF")
+    src.append("        return i + 1, ARMS[i]")
+    src.append("    except BaseException:")
+    src += ["        " + line for line in back]
+    src.append("        R['pc'] = (PCS[i] + 2) & 0xFFFFFFFF")
+    src.append("        if ARMS[i] is not None:")
+    src.append("            ENG._arm = ARMS[i]")
+    src.append("        raise")
+    src += ["    " + line for line in back]
+    src.append("    R['pc'] = npc")
+    src.append("    return %d, %r" % (len(items), arms[-1]))
+    text = "\n".join(src)
+    cell = 0
+    while "@C" in text:
+        text = text.replace("@C", "C%d" % cell, 1)
+        cell += 1
+    code = compile(text, "<pysh4 block %s>" % px(pc), "exec")
+    return code, tuple(pcs), tuple(arms), cell
+
+
+
 class _Block:
     """A writable copy of a mapped region, for the interpreter."""
 
@@ -1001,6 +1526,9 @@ class PySh4(Backend):
         self._delay: int | None = None
         self._arm: str = ""
         self._insn_pc: int | None = None   # PC of the instruction executing now
+        self._tc_cache: dict = {}          # block start -> (fn, count) | None (M9.45)
+        self._tc_stops: frozenset = frozenset()
+        self._tc_bar: set = set()          # PCs run_until must see (M9.45)
 
     # -- back end primitives ----------------------------------------------
 
@@ -1015,18 +1543,13 @@ class PySh4(Backend):
     def _map(self, region: Region) -> None:
         self._blocks.append(_Block(region))
         self._blocks.sort(key=lambda block: block.region.va)
+        self._tc_reset()
 
     def _read(self, va: int, size: int) -> bytes:
         block = self._block(va, size, "r")
         offset = va - block.region.va
         self._record_watch(va, size, "api-r")
         return bytes(block.data[offset:offset + size])
-
-    def _write(self, va: int, data: bytes) -> None:
-        block = self._block(va, len(data), "w")
-        offset = va - block.region.va
-        block.data[offset:offset + len(data)] = data
-        self._record_watch(va, len(data), "api-w")
 
     def _get_reg(self, name: str) -> int:
         return self._regs[name]
@@ -1780,6 +2303,162 @@ class PySh4(Backend):
                 "(the PySh4 subset fails loudly instead of guessing)"
             )
 
+    # -- fast path (M9.45) -------------------------------------------------
+
+    def _tc_word(self, pc: int) -> int:
+        """Instruction fetch for the translator: same checks as ``_fetch``."""
+        block = self._block(pc, 2, "x")
+        offset = pc - block.region.va
+        return int.from_bytes(block.data[offset:offset + 2], self.endian)
+
+    def _tc_eligible(self) -> bool:
+        cls = type(self)
+        for name in _TC_METHODS:
+            if name in self.__dict__ or getattr(cls, name) is not _PYSH4_IMPL[name]:
+                return False
+        return True
+
+    def _tc_reset(self) -> None:
+        """Drop every translated block (code bytes, hooks or the map
+        changed).  Cleared in place: a running loop holds the dict."""
+        self._tc_cache.clear()
+
+    def _tc_helpers(self) -> dict:
+        """Names the translated blocks use: struct accessors for this
+        endianness, and ``LDM``/``STM``, the cache-miss paths.  A miss runs
+        ``_load``/``_store`` (so an unmapped, unaligned or forbidden access
+        raises exactly as in ``_step``) and then points the site's cell at
+        the region that served it.  A store into an executable region drops
+        every block and raises ``_SMC`` so the block ends after it."""
+        helpers = self.__dict__.get("_tc_helpers_cache")
+        if helpers is not None:
+            return helpers
+        eng = self
+        little = self.endian == "little"
+        s2 = struct.Struct("<H" if little else ">H")
+        s4 = struct.Struct("<I" if little else ">I")
+
+        def ldm(a, size, cell):
+            value = eng._load(a, size)
+            block = eng._block(a, size, "r")
+            cell[0] = block.region.va
+            cell[1] = block.region.va + block.region.size
+            cell[2] = block.data
+            return value
+
+        def stm(a, size, value, cell):
+            eng._store(a, size, value)
+            block = eng._block(a, size, "w")
+            if "x" in block.region.rwx:
+                eng._tc_reset()
+                raise _SMC()
+            cell[0] = block.region.va
+            cell[1] = block.region.va + block.region.size
+            cell[2] = block.data
+
+        helpers = {"U2": s2.unpack_from, "U4": s4.unpack_from,
+                   "P2": s2.pack_into, "P4": s4.pack_into,
+                   "LDM": ldm, "STM": stm}
+        self.__dict__["_tc_helpers_cache"] = helpers
+        return helpers
+
+    def on_exec(self, va: int, handler: Callable) -> None:
+        super().on_exec(va, handler)
+        self._tc_bar.add(va & M32)
+        self._tc_reset()
+
+    def _write(self, va: int, data: bytes) -> None:
+        block = self._block(va, len(data), "w")
+        offset = va - block.region.va
+        block.data[offset:offset + len(data)] = data
+        self._record_watch(va, len(data), "api-w")
+        if "x" in block.region.rwx:
+            self._tc_reset()
+
+    def run_until(self, stop=None, max_insns: int = DEFAULT_MAX_INSNS) -> RunResult:
+        """:meth:`Backend.run_until` with translated blocks (M9.45).
+
+        Same results, same exceptions, same instruction count; see the
+        fast-path notes above ``_TC_METHODS``.  Falls back to the base loop
+        for a callable *stop* and for engines that override the interpreter.
+        """
+        if (callable(stop) or not self._tc_eligible()
+                or not isinstance(max_insns, int) or max_insns <= 0):
+            return super().run_until(stop, max_insns)
+        if stop is None:
+            stops = frozenset()
+        elif isinstance(stop, int):
+            stops = frozenset((stop & M32,))
+        else:
+            try:
+                stops = frozenset(int(item) & M32 for item in stop)
+            except TypeError:
+                return super().run_until(stop, max_insns)
+        if stops != self._tc_stops:
+            self._tc_reset()
+            self._tc_stops = stops
+        hooks = self._hooks
+        bar = self._tc_bar = {RETURN_VA} | set(stops) | set(hooks)
+        barrier = bar.__contains__
+        cache = self._tc_cache
+        regs = self._regs
+        insns = 0
+        stubs: list[dict] = []
+        # ``fast`` is re-derived after every ``_step`` and every hook call --
+        # the only places a delay slot can become pending or a watch armed.
+        fast = self._delay is None and not self._watches_on
+        while True:
+            pc = regs["pc"] & M32
+            if pc in bar:
+                if pc == RETURN_VA:
+                    result = RunResult(insns=insns, pc=pc, reason="return", stubs=stubs)
+                    self.last_run = result
+                    return result
+                if pc in stops:
+                    result = RunResult(insns=insns, pc=pc, reason="stop", stubs=stubs)
+                    self.last_run = result
+                    return result
+                outcome = self._dispatch(pc)
+                if outcome is not None:
+                    self._set_reg("r0", outcome.value)
+                    target = self._get_reg("pr") & M32
+                    if target == pc:
+                        raise Runaway(
+                            f"host stub at {px(pc)} returned to itself (pr == pc); "
+                            "the stub did not set a usable return address"
+                        )
+                    self._set_pc(target)
+                    stubs.append({"va": pc, "value": outcome.value})
+                    insns += 1
+                    if insns > max_insns:
+                        raise Runaway(
+                            f"run_until(): more than {max_insns} instruction/stub cycles; "
+                            f"stuck at {px(pc)} (loop or a stub that never returns)"
+                        )
+                    fast = self._delay is None and not self._watches_on
+                    continue
+                fast = self._delay is None and not self._watches_on
+            if insns >= max_insns:
+                raise Runaway(
+                    f"run_until(): more than {max_insns} instructions without reaching "
+                    f"{px(RETURN_VA)} or a stop address; last pc {px(pc)} (infinite loop?)"
+                )
+            if fast:
+                entry = cache.get(pc)
+                if entry is None and pc not in cache:
+                    entry = cache[pc] = _tc_build(self, pc, barrier)
+                if entry is not None and insns + entry[1] <= max_insns:
+                    done, arm = entry[0](regs)
+                    if arm is not None:
+                        self._arm = arm
+                    insns += done
+                    continue
+            self._step()
+            insns += 1
+            fast = self._delay is None and not self._watches_on
+
+
+_PYSH4_IMPL = {name: getattr(PySh4, name) for name in _TC_METHODS}
 
 # --------------------------------------------------------------------------
 # GhidraBackend
@@ -3209,6 +3888,198 @@ class _AliasPySh4(PySh4):
     """
 
     name = "alias"
+
+
+# -- M9.45: the fast path (translated blocks) against ``_step`` -----------
+
+_TCT_CODE, _TCT_DATA = 0x8C000000, 0x8C100000
+
+
+def _tct_code(words) -> bytes:
+    blob = b"".join(w.to_bytes(2, "little") for w in words)
+    return blob + bytes(0x1000 - len(blob))
+
+
+def _tct_engine(code_perm="rwx", words=()):
+    e = PySh4(endian="little")
+    e.map("code", _TCT_CODE, _tct_code(words), code_perm)
+    e.map("data", _TCT_DATA, 0x1000, "rw")
+    return e
+
+
+def _tct_state(e, state, words, data_seed):
+    if "w" in e.region_at(_TCT_CODE).rwx:
+        e.write_mem(_TCT_CODE, _tct_code(words))
+    e.write_mem(_TCT_DATA, bytes((data_seed * 7 + k * 13) & 0xFF for k in range(0x1000)))
+    regs = {"r%d" % k: (_TCT_DATA + 0x400 + 16 * k) for k in range(16)}
+    regs.update(state)
+    regs.setdefault("pc", _TCT_CODE)
+    e.set_regs(**regs)
+    e._delay = None
+    e._arm = "previous"
+
+
+def _tct_outcome(e, run):
+    try:
+        count = run()
+        error = None
+    except Exception as exc:  # noqa: BLE001 - the exception is the outcome
+        count, error = None, (type(exc).__name__, str(exc))
+    return (count, error, e.get_regs(), bytes(e.read_mem(_TCT_DATA, 0x1000)),
+            e._delay, e._arm)
+
+
+#: Register states: pointers into the data page, and arithmetic seeds that
+#: send pointer forms off the map (so faults are compared too).
+_TCT_STATES = (
+    {"r0": 0x40, "sr": 0x00000000, "gbr": _TCT_DATA + 0x800, "pr": _TCT_CODE + 0x100,
+     "mach": 0x11, "macl": 0x22},
+    {"r0": 0x41, "sr": 0x00000301, "gbr": _TCT_DATA + 0x801, "pr": _TCT_CODE + 0x100},
+    {"r0": 0x80000001, "r1": 0xFFFFFFFF, "r2": 0x7FFFFFFF, "r3": 0x80,
+     "r4": 0xFFFFFF80, "r5": 31, "r6": 0xFFFFFFE0, "r7": 0xFFFFFFE1,
+     "sr": 0x00000001, "gbr": 0x10, "pr": 0x1234},
+)
+
+
+def _tct_words():
+    """Quick mode: every top/low nibble and immediate high nibble, with the
+    n and m fields drawn from {0, 1, 5, 15}; ``--full``: all 65,536."""
+    if FULL_SELFTEST:
+        return range(0x10000)
+    fields = (0x0, 0x1, 0x5, 0xF)
+    return [w for w in range(0x10000)
+            if (w >> 8) & 0xF in fields and (w >> 4) & 0xF in fields]
+
+
+@check("pysh4: fast path == _step on templated halfwords, 3 states (M9.45)")
+def test_tc_every_halfword():
+    slow, fast = _tct_engine(), _tct_engine()
+    templated = 0
+    words_run = _tct_words()
+    for word in words_run:
+        t = _tc_insn(word, _TCT_CODE)
+        if t is None:
+            continue
+        templated += 1
+        for k, state in enumerate(_TCT_STATES):
+            # A delayed branch gets a nop slot; anything else is followed by
+            # an FPU word, which has no template, so the block is one insn.
+            words = [word, 0x0009 if t[0] == "delay" else 0xF00D]
+            _tct_state(slow, state, words, k)
+            _tct_state(fast, state, words, k)
+
+            def run_slow(delayed=t[0] == "delay"):
+                slow._step()
+                if not delayed:
+                    return 1
+                slow._step()                         # the slot, taken or not
+                return 2
+
+            def run_fast():
+                entry = _tc_build(fast, _TCT_CODE, lambda va: va == _TCT_CODE + 4)
+                if entry is None:
+                    return "no block"
+                count, arm = entry[0](fast._regs)
+                if arm is not None:
+                    fast._arm = arm
+                return count
+
+            want = _tct_outcome(slow, run_slow)
+            got = _tct_outcome(fast, run_fast)
+            if got != want:
+                raise AssertionError(
+                    f"{px(word)} state {k}: fast {got[:2]} {got[4:]} != step {want[:2]} "
+                    f"{want[4:]}; regs differ in "
+                    f"{sorted(n for n in want[2] if want[2][n] != got[2][n])}, "
+                    f"memory {'differs' if want[3] != got[3] else 'same'}")
+    if templated < len(words_run) // 2:
+        raise AssertionError(f"only {templated}/{len(words_run)} halfwords have a template")
+
+
+def _tct_run(e, slow, stop=None, max_insns=400):
+    run = (lambda: Backend.run_until(e, stop, max_insns).insns) if slow else \
+        (lambda: e.run_until(stop, max_insns).insns)
+    return _tct_outcome(e, run)
+
+
+@check("pysh4: fast run_until == stepped run_until on random blocks, SMC, stops (M9.45)")
+def test_tc_random_blocks():
+    import random
+    rng = random.Random(4545)
+    pool = [w for w in range(0x10000)
+            if (t := _tc_insn(w, _TCT_CODE)) is not None and t[0] == "op"]
+    straight = [w for w in pool if (w >> 12) not in (0x0, 0x8, 0xC)
+                or w & 0xF0FF in (0x0029,)]
+    for case in range(400):
+        body = [rng.choice(straight if case % 2 else pool) for _ in range(rng.randint(1, 24))]
+        # A backward bf/s loop over the body, then rts; nop.
+        loop = (0x8F00 | ((-(len(body) + 2)) & 0xFF))     # bf/s to the start
+        words = body + [0x4010 | (14 << 8), loop, 0x0009, 0x000B, 0x0009]
+        state = dict(rng.choice(_TCT_STATES))
+        state["r14"] = rng.randint(1, 5)                  # dt r14 loop counter
+        state["pr"] = RETURN_VA
+        perm = "rwx" if case % 5 == 0 else "rx"            # SMC on some cases
+        # Pointers into the code itself on some cases: with "rwx" a store
+        # rewrites an instruction of the running block.
+        code_regs = ({"r%d" % k: _TCT_CODE + 2 * rng.randint(0, 8) for k in (4, 5, 6)}
+                     if case % 7 == 0 else {})
+        stop = _TCT_CODE + 2 * rng.randint(1, len(body)) if case % 3 == 0 else None
+        budget = rng.choice((7, 50, 400))
+        outs = []
+        for slow in (True, False):
+            e = _tct_engine(perm, words)
+            _tct_state(e, state, words, case)
+            if code_regs:
+                e.set_regs(**code_regs)
+            outs.append((_tct_run(e, slow, stop, budget),
+                         bytes(e.read_mem(_TCT_CODE, 0x80))))
+        if outs[0] != outs[1]:
+            diff = [k for k in range(len(outs[0][0])) if outs[0][0][k] != outs[1][0][k]]
+            raise AssertionError(f"case {case}: words {[hex(w) for w in words]} "
+                                 f"fast {outs[1][0][:2]} != step {outs[0][0][:2]}; "
+                                 f"fields {diff} code {outs[0][1] != outs[1][1]} "
+                                 f"{[(outs[0][0][k], outs[1][0][k]) for k in diff if k != 3]}")
+
+
+@check("pysh4: fast path stays off for overrides, watches and callable stops (M9.45)")
+def test_tc_fallbacks():
+    class Counting(PySh4):
+        def _execute(self, insn, pc):
+            self.seen = getattr(self, "seen", 0) + 1
+            super()._execute(insn, pc)
+
+    words = [0x7001] * 10 + [0x000B, 0x0009]                # add #1,r0 x10; rts
+    for factory, expect_seen in ((Counting, 12),):
+        e = factory(endian="little")
+        e.map("code", _TCT_CODE, _tct_code(words), "rx")
+        e.set_regs(pc=_TCT_CODE, pr=RETURN_VA, r0=0)
+        result = e.run_until(None, 100)
+        _expect_equal((result.insns, e.get_regs()["r0"], e.seen), (12, 10, expect_seen),
+                      "subclass override runs every instruction through _execute")
+    e = PySh4(endian="little")
+    e.map("code", _TCT_CODE, _tct_code(words), "rx")
+    e.set_regs(pc=_TCT_CODE, pr=RETURN_VA, r0=0)
+    seen = []
+    result = e.run_until(lambda va: seen.append(va) or False, 100)
+    _expect_equal(len(seen), 12, "callable stop sees every PC")
+    # A hook registered mid-run (by another hook) inside a translated block.
+    e.set_regs(pc=_TCT_CODE, pr=RETURN_VA, r0=0)
+    hits = []
+    e.on_exec(_TCT_CODE, lambda eng, va: eng.on_exec(_TCT_CODE + 8, lambda g, v: hits.append(v)))
+    e.run_until(None, 100)
+    _expect_equal(hits, [_TCT_CODE + 8], "hook added mid-run is honoured")
+    # max_insns: the same Runaway, at the same PC, as the stepped loop.
+    for budget in (1, 5, 11):
+        msgs = []
+        for slow in (True, False):
+            e = PySh4(endian="little")
+            e.map("code", _TCT_CODE, _tct_code(words), "rx")
+            e.set_regs(pc=_TCT_CODE, pr=RETURN_VA, r0=0)
+            try:
+                (Backend.run_until if slow else PySh4.run_until)(e, None, budget)
+            except Runaway as exc:
+                msgs.append((str(exc), e.get_regs()["r0"]))
+        _expect_equal(msgs[1], msgs[0], f"Runaway at max_insns={budget}")
 
 
 @check("parity: an available back end is compared without its label")
