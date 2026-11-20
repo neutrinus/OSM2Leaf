@@ -1324,7 +1324,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: `fn_audit --selftest` builds the Precheck's two branches in a temp repo and their merge has no conflict in either snapshot in both orders, `python3 tools/gate.py` is green on the merge commit without a re-sync commit, and two negatives still exit 1: one cited `START` VA deleted from an EXP, and one new citation of an `INSIDE` VA. EXP with the before/after counts of the two commands in Goal on a replayed five-PR window.
   - Stop: if (a) lets a wrong citation through in the negative and (b) cannot keep the count check, record both and keep today's policy with the re-freeze moved to one TL commit per batch.
   - Falsifier: a merge of two PRs that needs a snapshot re-sync commit after this task lands.
-  - Claims: C-6250–C-6259
+  - Claims: C-6280–C-6289
 
 ## M2 — Map code, activation, updater
 
@@ -4833,7 +4833,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: on EU2011 the factory card and the P0 card (`b0faf119…`) exit 0 with three PASS rows; a card whose `B48R058R.DAT` is the M5.56 tile cut at `0x9100` exits 1 naming the read; a card with a corrupt `DRSTR001.DAT` (M9.14's case) exits 1 at `boot`; without a card image the rows are `NOT RUN` and the exit is 3. `--selftest` covers the verdict table without vendor data. `docs/format/card-ladder.md` names this command as the L3 gate of P0 and P1.
   - Stop: if `sweep` on a full card takes more than 20 minutes, gate on `boot` + `mount` and record the sweep time.
   - Falsifier: a card that fails in the factory-compared mount but passes the gate.
-  - Claims: C-6260–C-6269
+  - Claims: C-6290–C-6299
 
 ## Retired leads
 

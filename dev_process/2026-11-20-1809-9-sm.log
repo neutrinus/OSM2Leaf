@@ -18,7 +18,8 @@ actions, in order:
     and five of them conflict; cause is that every task PR rewrites the two generated fn_audit
     snapshots (85 and 88 commits touched them in 8 h; 25 re-sync commits; 87 merge-main commits).
   - checked the claimed tasks' Depends: #385 M5.59, #386 M4.27, #387 M4.35 run on blocked deps.
-  - found one owed rule-15 re-open: M4.51 (M4.53 merged in #364). Left to the PO pass.
+  - checked rule 15 on all 25 blocked tasks: none has a done unblocker (M4.51 stays blocked on
+    M8.E4 by a dated note; an earlier draft of the retro called it owed, corrected before merge).
   - wrote docs/retro/2026-11-20-2.md (numbers table, judge, 3 prompt changes, 5 actions).
   - prompt edits (before/after in the retro): prompt_common.txt rules 1-16 -> 1-17 and the
     work-log clarification (developers write no log; a thread batch is a TL run);
@@ -38,7 +39,7 @@ problems:
 
 handoff:
   - SE: file the snapshot-conflict task (retro action 2) and check the window's EXPs.
-  - PO: re-open M4.51; group M3.13/M3.14/M3.16/M3.18 under M3.29; Priorities are stale
+  - PO: group M3.13/M3.14/M3.16/M3.18 under M3.29; Priorities are stale
     (M9.52, M9.36, M9.14, M4.16, M4.31, M5.56, M3.31 are done).
   - QA: CI on main is green; the queue, not the gate, is the bottleneck.
 end: 2026-11-20 18:14 UTC
