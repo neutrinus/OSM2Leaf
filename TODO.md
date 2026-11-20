@@ -1896,8 +1896,8 @@ in its first line.
   - Result (r2): `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (negative/blocked). Shared REFER001 access path confirmed (C-2210; `INTER0`/`FRWAY0` in volume-id table `0x00179338` ~VA `0x0017934c`/`0x00179354`, descriptor `0x14e8` `fn 0x004125a8` → `REFER001`+`INDEX003.DAT`, name-builder `fn 0x003fbed8`); two writer-inverse families found 0 candidates (C-2211). `refer.md` INTER/FRWAY sections and `claims.md` C-2210–C-2214 updated.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
-  - Unblock: M3.23 (2026-11-20): no static root of their own was ranked. `ICADM001` loads appear in the `ICODE` list below `0x003f2cc0` (C-4694 mixes both: `0x003f0c7c`, `0x003f07f8`, `0x003f08cc`, `0x003eff20`); the name builder `0x003f1640` (C-2381) is the root to rank next (`callgraph.py rank g.json --family ICADM=0x003f1640 …`). `ZIPFR001`: shared REFER list of C-3546. Confirm with M9.38 / M3.29.
-  - Status: open · Owner: — · Critical: no
+  - Note (2026-11-20, rule 15): re-opened by **M3.23** (done); the r3 run is in EXP-2026-11-20-M3.18. M3.23 gave no static root of the family's own — `ICADM001` loads sit in the `ICODE` list below `0x003f2cc0` (C-4694: `0x003f0c7c`, `0x003f07f8`, `0x003f08cc`, `0x003eff20`), and `0x003f1640` (C-2381) adds no candidate of its own.
+  - Status: blocked · Owner: task/m3.18-icadm-zipfr · Critical: no
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
     families and the same compression wall)
@@ -1908,8 +1908,9 @@ in its first line.
     grammar in `refer.md` (that assumption is how M3.11's walker was missed,
     C-2129).
   - Scope: build-A executable sections (all readable); `.data` tables only via
-    a pointer found in code. `Stop:` after two signature families fail — then
-    `blocked` + EXP listing the signatures tested.
+    a pointer found in code.
+  - Stop: after two signature families fail — then `blocked` + EXP listing the
+    signatures tested (reached: three families, r3 EXP).
   - Goal: the two families with no reader task at all. Both carry content a
     Poland card must generate (`ICADM` country/admin terms, `ZIPFR`
     postal/freeway masks), so a wrong writer is undetectable today.
@@ -1937,9 +1938,29 @@ in its first line.
     trace from `0x003f1640`/REFER001/ZIPFR open to first field access that
     names reader VAs/consumed fields or demonstrates copy-only with a positive
     control.
-  - Result: EXP-2026-11-08-M3.18-icadm-zipfr-readers (negative/partial,
-    C-2380–C-2385; `refer.md`/matrix rows 14–15 NOT updated — reader VAs/field
-    consumption not established).
+  - Note (2026-11-20, r3 after M3.23): the **open/descriptor** path is now
+    located for both families. `ZIPFR001.DAT` (`0x00178e08`) is row 4 of a
+    24-byte sec1 descriptor table `0x00564160` (`0x005641c0`, style 16, id
+    `0x040c`), loaded by `0x003f7d94`/`0x003f7f40`/`0x003f7b20`, looked up by
+    `0x003f7ae4` (`(16,0)`→4), issued by `0x003f7b54`/`0x003f7c38` →
+    `0x0040b358`. **C-2382 retracted.** ICADM reads still go through
+    `0x003f72cc` (`0x003eff20`, `0x003f17a4`, `0x003f2bc4`, `0x003f0c7c`).
+    Neither family's **field-consuming** reader is located.
+  - Blocker (2026-11-20, third signature family): reader VAs + consumed fields
+    still not named. The record consumer is registered at run time — the
+    static `+12` handler slot of the `0x00564160` rows is empty and filled by
+    `fn 0x003f7f40` — or the firmware only carries the search result to the
+    caller; no 14-byte (`add #14`) ZIPFR stride and no 462-byte (`add #0x1ce`)
+    /`0x00e7` ICADM stride in the located subtree. `refer.md` and matrix rows
+    14–15 updated to `partial` (open path only).
+  - Unblock: **M3.29 / M9.38** — the run-time observation of the completion
+    for the ZIPFR/ICADM search (`0x003f7f94`/`0x003f7b54` with the map-file
+    task live; M9.38 read-watch) that names the handler written into `+12` (or
+    proves copy-only with a positive control); then re-run the field scan over
+    that handler. Not M3.23 (done).
+  - Result: EXP-2026-11-20-M3.18-icadm-zipfr (blocked; open/descriptor path
+    located and confirmed by run — C-2386–C-2389; C-2382 retracted; field
+    readers not located).
   - Claims: C-2380–C-2389
 
 ---
