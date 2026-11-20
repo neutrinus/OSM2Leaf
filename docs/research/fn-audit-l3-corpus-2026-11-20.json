@@ -446,6 +446,7 @@
   "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
+  "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
   "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
   "docs/experiments/EXP-2026-11-20-M9.33-rerun-prereqs-map.md",
   "docs/experiments/EXP-2026-11-20-M9.36-rerun-probes-pysh4.md",
@@ -459,10 +460,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 452,
-  "citations": 1273,
+  "files": 453,
+  "citations": 1276,
   "unique_va": 300,
-  "start": 1117,
+  "start": 1120,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -11083,6 +11084,24 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
+   "line": 24,
+   "va": "0x00419350",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
+   "line": 90,
+   "va": "0x00419350",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
    "line": 24,
    "va": "0x003f5194",
@@ -12391,6 +12410,15 @@
    "file": "tools/l3_harness/targets.json:cmp_ind_reader",
    "line": 0,
    "va": "0x0041c7dc",
+   "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/l3_harness/targets.json:drstr_parser",
+   "line": 0,
+   "va": "0x00419350",
    "kind": "target",
    "class": "START",
    "true_start": null,

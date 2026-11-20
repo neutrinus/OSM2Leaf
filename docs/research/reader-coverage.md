@@ -137,14 +137,15 @@ unit record. The other entries remain blocked/retired.
 | `hddinfo_compare` | blocked | `hdd_info` | `VER_INFO/HDD_INFO.TXT` | BLOCKED (4) | 23 |
 | `cmp_ind_reader` | `firmware_call` (declared sec1 `inflate_mask[17]`, provenance; sec1-byte HYPOTHESIS M1.2f) | `cmp_ind` | POINT010 factory/S1/S2 runs via `chunk_decoder_l3.py`/`runner.py` (page `0x840ba0`); `targets.json` corpus path may differ | fragment PASS on named page+controls (M9.11/M9.11b/closeout); not `l3check --card` corpus (M9.12) | 6 |
 | `tile_reader` | blocked (in `runner.py`; runs via `datask_l3.py mount`) | `tile` | `MAPAL001/B28R070R.DAT`; `generated_corpus` (H106): M5.11 tile, `one_tile_pipeline --synthetic`, M9.13 G (RAN, recorded), M5.34 tile (NOT RUN, no tree) | BLOCKED (4) in `l3check`; mount SAME (M5.11, M9.13 G) / DIFFERENT (synthetic) | 17, 18, 19 |
-| `drstr_parser` | blocked (runs as `vcard_l3.py boot`, M9.14) | `drstr` | `DRSTR001.DAT` | BLOCKED (4) in `runner.py`; ACCEPT factory/rebuilt, REJECT truncated/bad offset on EU2011 + US2011 via `vcard_l3.py` | 4 |
+| `drstr_parser` | `firmware_call` (`drstr_parser_v1`, EU2011 `fn 0x00419350` via `tools/drstr_l3.py`; sec1 from the image; `verdict_map` decoded, M9.24) | `drstr` | `DRSTR001.DAT` (`--image IMG256 --input FILE`) | PASS ACCEPT factory in `runner.py` (C-2640); `+36` mutations REJECT codes 20/10 (C-2642); mount route ACCEPT factory/rebuilt, REJECT truncated/bad offset on EU2011 + US2011 via `vcard_l3.py` (M9.14) | 4 |
 | `mapcode_comparator` | blocked (retired) | `hdd_info` | HDD_INFO variant | BLOCKED (4) | 23 — must never be revived |
 | `applaunch_mapcode_compare` | `firmware_call` (`mapcode_compare_v1`, EU2011 build B `fn 0x03bd2ad8`; parse cache declared BSS zero; unit `+0x60` declared) | `hdd_info` | factory `HDD_INFO.TXT` + `hddinfo_variants.py` edits | ACCEPT factory / REJECT line-1 edit (M9.6, C-5140–C-5142) | 23 |
 
 Rerun prerequisites of every target above are mapped in
 [`EXP-2026-11-20-M9.33-rerun-prereqs-map`](../experiments/EXP-2026-11-20-M9.33-rerun-prereqs-map.md)
-(M9.33): none waits on M1.2f/M1.19, M9.28 or M9.24; `tile_reader`,
-`drstr_parser` and `mmain_reader` are `blocked` only as `runner.py` calls.
+(M9.33): none waits on M1.2f/M1.19, M9.28 or M9.24; `tile_reader`
+and `mmain_reader` are `blocked` only as `runner.py` calls; `drstr_parser`
+runs from `runner.py` since M9.24.
 
 No row may say "read by firmware" on the strength of `probe-zlib-cmf`; the
 target notes say so explicitly. The retired comparator chain

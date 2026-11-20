@@ -4399,9 +4399,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
     0x4362 under big-endian decode and runs under little-endian until its
     unmapped page argument; no Ghidra run, out of scope and not installed)
 
-- [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
+- [x] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
   - Note (M9.44, 2026-11-19): covered for the map-file layer: `tools/vcard_l3.py` has 81 import models (file, string, memory, printf, heap, task, object calls) and a card behind `fopen`/`fread`/`fseek`. What is left here is only reuse of those models from `runner.py` targets outside the layer; if no target needs that, close as covered.
-  - Status: open · Owner: — · Critical: yes
+  - Status: done · Owner: task/m9.24-coredll-file-apis · Critical: yes
+  - Result: EXP-2026-11-20-M9.24-drstr-parser-runner (C-2640–C-2645). `runner.py run drstr_parser --image IMG256 --input DRSTR001.DAT` (new firmware_call program `drstr_parser_v1`, new `tools/drstr_l3.py`) runs EU2011 open wrapper `0x0041b3bc` → parser `0x00419350` → close `0x0041b650` with `vcard_l3`'s bound imports: factory file PASS, ACCEPT, r0 0, no fault, 16 imports all modelled. `verdict_map` `{0: ACCEPT, 0xffffffff: REJECT}` decoded from the parser's three exits (the runner BLOCKs any other map). Controls 9/9: `+36` not a multiple of 40 → REJECT code 20, `> 200` entries → code 10, size `> 0x77220` → code 26 but still parsed; a 32-byte file is ACCEPT (parsed from the buffer past EOF, zero heap).
   - Step: tooling
   - Note (H101, 2026-11-17): narrowed by **M9.44**: stub the firmware's three stdio wrappers (`0x0041b3bc`, `0x0041b470`, `0x0041b4f8`) instead of the coredll imports behind them.
   - Depends: M9.35 (done, H49: the import slots and BSS of sec1 need no decompression; M9.35 maps them)

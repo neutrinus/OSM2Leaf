@@ -124,8 +124,8 @@ TARGET_EVIDENCE = {
     },
     "drstr_parser": {
         "reader": "drstr",
-        "claims": (),
-        "note": "no DRSTR parser entry point yet",
+        "claims": ("C-2640", "C-2641", "C-2642"),
+        "note": "Navi.exe fn 0x00419350 (EU2011) via tools/drstr_l3.py; needs --image/--input (M9.24)",
     },
     "mapcode_comparator": {
         "reader": "hdd_info",
@@ -448,7 +448,7 @@ _CARD_TARGETS = [
         "label": "DRSTR001 parser (M9.14)",
         "applies": lambda p: p.upper() == "DRSTR001.DAT",
         "adapter": "targets.json",
-        "unavailable_note": "drstr_parser blocked (compressed sec1/import stubs; M1.2f/M9.24)",
+        "unavailable_note": "drstr_parser is a firmware_call (M9.24): run it with runner.py run drstr_parser --image IMG --input DRSTR001.DAT",
     },
     {
         "name": "tile_reader",
@@ -1378,7 +1378,8 @@ def test_full_run():
     # The firmware_call readers (EU cmp_ind_reader, US cmp_ind_reader_us2011)
     # need external --image/--cmp/--ind, so a corpus-only run reports them
     # BLOCKED in this mode (M9.11b, M1.22); so does the AppLaunch map-code
-    # compare, which needs --image/--input/--unit-from (M9.6).
+    # compare, which needs --image/--input/--unit-from (M9.6), and the
+    # DRSTR001 parser, which needs --image/--input (M9.24).
     assert blocked == [
         "applaunch_mapcode_compare",
         "cmp_ind_reader",
