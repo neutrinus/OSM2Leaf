@@ -4175,7 +4175,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2370–C-2379
 
 - [ ] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m9.18-lev3456r-targets · Critical: no
   - Step: P2
   - Depends: M9.13 (matrix rows 18–20)
   - Precheck: M9.13 `tile_reader` pattern/runner path is available; VAs for
