@@ -465,11 +465,17 @@ class Table:
 
 
 class Verdict:
-    __slots__ = ("va", "klass", "start", "module", "build", "leaf", "candidates")
+    __slots__ = ("va", "klass", "start", "module", "build", "leaf", "candidates",
+                 "evidence")
 
     def __init__(self, va, klass, start=None, module=None, build=None,
-                 leaf=None, candidates=()):
+                 leaf=None, candidates=(), evidence=None):
         self.va = va
+        # H63: for CORRECTED, which ``_resolved`` branch fired: ``"line"``
+        # (the citation's own line pairs the VA with its true start) or
+        # ``"pin"`` (the static ``CORRECTION_ONLY`` allowlist).  ``None``
+        # for every other class.
+        self.evidence = evidence
         self.klass = klass
         self.start = start
         self.module = module
@@ -487,7 +493,7 @@ class Verdict:
         if self.klass == "INSIDE":
             return "INSIDE 0x%08x" % self.start
         if self.klass == "CORRECTED":
-            return "CORRECTED 0x%08x" % self.start
+            return "CORRECTED(%s) 0x%08x" % (self.evidence or "?", self.start)
         if self.klass == "GAP":
             return "GAP(%s)" % ("leaf" if self.leaf else "DATA/UNKNOWN")
         return self.klass
@@ -570,13 +576,22 @@ def audit(cites, image):
         if cite.va not in seen:
             seen[cite.va] = classify(image.tables, cite.va, image.leaf_of)
         verdict = seen[cite.va]
-        if (verdict.klass == "INSIDE" and cite.kind == "ctx"
-                and _resolved(cite, verdict, image)):
-            verdict = Verdict(verdict.va, "CORRECTED", start=verdict.start,
-                              module=verdict.module, build=verdict.build,
-                              candidates=verdict.candidates)
+        verdict = _corrected(cite, verdict, image)
         verdicts.append((cite, verdict))
     return verdicts
+
+
+def _corrected(cite, verdict, image):
+    """``verdict`` turned CORRECTED (with its evidence) when ``_resolved``
+    fires for this ``ctx`` citation; otherwise ``verdict`` unchanged."""
+    if verdict.klass != "INSIDE" or cite.kind != "ctx":
+        return verdict
+    evidence = _resolved(cite, verdict, image)
+    if not evidence:
+        return verdict
+    return Verdict(verdict.va, "CORRECTED", start=verdict.start,
+                   module=verdict.module, build=verdict.build,
+                   candidates=verdict.candidates, evidence=evidence)
 
 
 def _resolved(cite, verdict, image):
@@ -588,13 +603,32 @@ def _resolved(cite, verdict, image):
     start — the allowlist is prose about a fix whose target sits on another
     line.  A ``fn 0x…``/``sub_…``/target/const citation never takes either
     path; that is what keeps a live mislabel failing.
+
+    Returns the branch that fired, ``"line"`` or ``"pin"`` (H63), or
+    ``None``.  A line that pairs a *different* start never falls through to
+    the pin: it stays INSIDE (a second defect, reported, not auto-fixed).
     """
     if cite.correction is not None:
-        return cite.correction == verdict.start
+        return "line" if cite.correction == verdict.start else None
     pinned = CORRECTION_ONLY.get(cite.va)
     if pinned is None:
-        return False
-    return "0x%08x" % verdict.start in pinned
+        return None
+    return "pin" if "0x%08x" % verdict.start in pinned else None
+
+
+def corrected_split(verdicts):
+    """``(line, pin)`` counts of CORRECTED verdicts (H63)."""
+    line = sum(1 for v in verdicts if v.klass == "CORRECTED" and v.evidence == "line")
+    pin = sum(1 for v in verdicts if v.klass == "CORRECTED" and v.evidence == "pin")
+    return line, pin
+
+
+def corrected_split_line(verdicts):
+    """``fn_audit: CORRECTED <n> (<line> line, <pin> pin)``.  Printed after
+    the frozen two-line summary and never stored in a snapshot, so M1.30
+    snapshots stay byte-compatible."""
+    line, pin = corrected_split(verdicts)
+    return "fn_audit: CORRECTED %d (%d line, %d pin)" % (line + pin, line, pin)
 
 
 def stats(cites, kept):
@@ -667,6 +701,7 @@ def report(kept, files, cites, unique, counts, unmapped, quiet=False, verbose=Fa
     for line in summary_lines(summary_counts(files, cites, unique, counts,
                                             unmapped, kept)):
         print(line)
+    print(corrected_split_line([v for _c, v in kept]))
     if verbose and CORRECTION_ONLY:
         for va in sorted(CORRECTION_ONLY):
             print("fn_audit: CORRECTION_ONLY 0x%08x  (%s)" % (va, CORRECTION_ONLY[va]))
@@ -932,11 +967,7 @@ def reclassify_rows(doc, image):
             seen[va] = classify(image.tables, va, image.leaf_of)
         verdict = seen[va]
         cite = _cite_from_row(row)
-        if (verdict.klass == "INSIDE" and cite.kind == "ctx"
-                and _resolved(cite, verdict, image)):
-            verdict = Verdict(verdict.va, "CORRECTED", start=verdict.start,
-                              module=verdict.module, build=verdict.build,
-                              candidates=verdict.candidates)
+        verdict = _corrected(cite, verdict, image)
         out.append((row, verdict))
     return out
 
@@ -1144,6 +1175,9 @@ def _audit_layer(doc, image, live_check, quiet, show_summary=True, label=None,
             print("fn_audit: %s:" % label)
         for line in summary_lines(got):
             print(line)
+        # H63: the split is re-derived from the image (the snapshot stores
+        # only the class), so it names the evidence the rows hold today.
+        print(corrected_split_line([v for _r, v in reclassify_rows(doc, image)]))
     _report_problems(problems)
     if drift:
         _report_drift(drift, stale, label=label,
@@ -1341,6 +1375,11 @@ def selftest():
           fix_list(kept, {0x401048}) == ["0x00401048 -> 0x00401040"])
     check("live VA is not reported correction-only",
           0x401048 not in corrected_only(kept))
+    check("H63 pair-resolved CORRECTED carries evidence 'line'",
+          kept[0][1].evidence == "line"
+          and kept[0][1].label() == "CORRECTED(line) 0x00401040")
+    check("H63 INSIDE rows carry no evidence",
+          kept[1][1].evidence is None and kept[2][1].evidence is None)
 
     old_allow = dict(CORRECTION_ONLY)
     CORRECTION_ONLY[0x401048] = "true start 0x00401040 is on another line"
@@ -1348,6 +1387,42 @@ def selftest():
         only = audit([Citation(0x401048, "doc.md:4", "ctx")], stub)
         check("allowlisted correction is CORRECTED",
               only[0][1].klass == "CORRECTED" and not only[0][1].is_failure)
+        check("H63 pin-resolved CORRECTED carries evidence 'pin'",
+              only[0][1].evidence == "pin"
+              and only[0][1].label() == "CORRECTED(pin) 0x00401040")
+        # A line that pairs a *different* start is not rescued by the pin.
+        other = audit([Citation(0x401048, "doc.md:6", "ctx",
+                                correction=0x401100)], stub)
+        check("H63 pinned VA whose own line pairs another start stays INSIDE",
+              other[0][1].klass == "INSIDE" and other[0][1].is_failure)
+        mixed = [v for _c, v in kept] + [only[0][1]]
+        check("H63 split counts line and pin separately",
+              corrected_split(mixed) == (1, 1)
+              and corrected_split_line(mixed)
+              == "fn_audit: CORRECTED 2 (1 line, 1 pin)")
+        check("H63 --fix-list unchanged by a pin CORRECTED",
+              fix_list(kept + only, {0x401048}) == ["0x00401048 -> 0x00401040"])
+        import io
+        import contextlib
+        buf = io.StringIO()
+        both = kept + only
+        u, cnt, unm = stats([c for c, _v in both], both)
+        with contextlib.redirect_stdout(buf):
+            report(both, ["doc.md"], [c for c, _v in both], u, cnt, unm,
+                   verbose=True)
+        out = buf.getvalue()
+        check("H63 report prints the row labels and the split line",
+              "CORRECTED(line) 0x00401040" in out
+              and "CORRECTED(pin) 0x00401040" in out
+              and "fn_audit: CORRECTED 2 (1 line, 1 pin)" in out)
+        check("H63 --verbose still prints the allowlist",
+              "fn_audit: CORRECTION_ONLY 0x00401048" in out)
+        with contextlib.redirect_stderr(io.StringIO()):
+            rc_unknown = main(["img", "--drop-pin", "0x00401234"])
+            rc_snap = main(["img", "--drop-pin", "0x00401048",
+                            "--write-snapshot", "x.json"])
+        check("H63 --drop-pin refuses a VA that is not a pin, and a snapshot",
+              rc_unknown == 2 and rc_snap == 2 and 0x401048 in CORRECTION_ONLY)
         CORRECTION_ONLY[0x401048] = "pinned to 0x00401000 instead"
         bad_allow = audit([Citation(0x401048, "doc.md:5", "ctx")], stub)
         check("allowlist with a wrong pinned start stays INSIDE",
@@ -1939,9 +2014,28 @@ def main(argv=None):
     ap.add_argument("--quiet", action="store_true", help="summary and --fix-list only")
     ap.add_argument("--verbose", action="store_true",
                     help="also list the other build/module holders of a VA")
+    ap.add_argument("--drop-pin", metavar="VA", action="append", default=[],
+                    help="measurement only (H63): run as if this "
+                         "CORRECTION_ONLY pin were absent, so its pin-resolved "
+                         "rows fall back to INSIDE (repeatable)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
+    if args.drop_pin and (args.write_snapshot or args.corpus):
+        print("error: --drop-pin is a live-scan measurement; it cannot write "
+              "or audit a snapshot", file=sys.stderr)
+        return 2
+    for text in args.drop_pin:
+        try:
+            va = int(text, 16)
+        except ValueError:
+            print("error: --drop-pin %r is not a hex VA" % text, file=sys.stderr)
+            return 2
+        if va not in CORRECTION_ONLY:
+            print("error: --drop-pin 0x%08x is not a CORRECTION_ONLY pin" % va,
+                  file=sys.stderr)
+            return 2
+        del CORRECTION_ONLY[va]
     if args.corpus and args.write_snapshot:
         print("error: --corpus and --write-snapshot are exclusive",
               file=sys.stderr)
