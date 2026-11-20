@@ -706,8 +706,8 @@ in its first line.
   - Falsifier: today's `main` exits 0 while printing `runnable=1/7` and a second run with one runnable target removed also exits 0.
   - Claims: C-4240–C-4249
 
-- [ ] **H97 — `l1l2_fixtures` computes `ok` without the required categories, so two NOT COVERED levels still read "OK"**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H97 — `l1l2_fixtures` computes `ok` without the required categories, so two NOT COVERED levels still read "OK"**
+  - Status: done · Owner: task/h97-l1l2-verdict · Critical: no · Pair: required
   - Depends: H26 (the registry, done); H40/H41 own *filling* the two rows — this task is only the verdict
   - Goal: `summarize()` sets `"ok": runnable_fail == 0` and publishes `required_categories`/`missing_categories` but never consults them, so `python3 tools/l1l2_fixtures.py` prints `verdict=OK` and exits 0 while **L1 synthetic** and **L2 tile** are `NOT COVERED` (today: `runnable 6/0/1`, NC 2, rc 0). A level that never ran is silently a pass in the one L1/L2 signal CI runs on every PR (`.github/workflows/l1l2-fixtures.yml`).
   - Precheck: `python3 tools/l1l2_fixtures.py --json /tmp/opencode/l1l2.json` exits 0 with `summary.ok=true`, `missing_categories=[]` and a `NOT COVERED` in categories `L1 synthetic` and `L2 tile`; `grep -n '"ok": runnable_fail' tools/l1l2_fixtures.py` shows the line that ignores `required_categories`.
@@ -718,6 +718,7 @@ in its first line.
   - Stop: if H40 lands first and both categories become runnable, keep the `coverage_gaps` key (now empty) and mark this task done with the measured list; do not delete the contract.
   - Falsifier: the JSON still prints `"ok": true` with a required category at zero runnable and no gap named.
   - Claims: C-4250–C-4259
+  - Result: EXP-2026-11-20-H97-l1l2-verdict. `summarize()` now publishes `coverage_gaps` (required categories with zero runnable checks) and `covered`; the verdict line names the gap (`verdict=OK (1 required category NOT COVERED: L1 synthetic)`) and `--require-covered` exits 1 on it. Default exit stays 0 and the JSON keys are unchanged, so `l1l2-fixtures.yml` is untouched and keeps uploading. Measured on `origin/main` `ce5f34c`: `coverage_gaps=['L1 synthetic']` (default rc 0, `--require-covered` rc 1); the task prose's "two NOT COVERED categories" is two `NOT COVERED` *rows* — `L2 tile` is already covered by `l2.tile.class-roundtrip` (M5.36), so only one fully-uncovered category remains (Stop rule: key kept, list measured). Selftest 30 checks; `selftest.py --only l1l2_fixtures` PASS; claims_check/todo_check OK.
 
 - [ ] **H98 — `main` merges on unverified CI: the repo has no branch protection, so a red run blocks nothing**
   - Status: open · Owner: — · Critical: yes · Pair: required
