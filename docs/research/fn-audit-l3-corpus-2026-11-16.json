@@ -381,14 +381,15 @@
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
   "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
+  "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 378,
-  "citations": 1109,
+  "files": 379,
+  "citations": 1112,
   "unique_va": 249,
-  "start": 922,
+  "start": 925,
   "inside": 81,
   "corrected": 9,
   "gap": 85,
@@ -10119,6 +10120,33 @@
    "file": "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
    "line": 222,
    "va": "0x880453b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
+   "line": 52,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
+   "line": 52,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
+   "line": 236,
+   "va": "0x003f632c",
    "kind": "fn",
    "class": "START",
    "true_start": null,
