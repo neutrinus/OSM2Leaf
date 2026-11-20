@@ -285,6 +285,21 @@ OK (section 1 level 5 strict; levels 3/4 best-effort)
 See [`../docs/format/map-tiles.md`](../docs/format/map-tiles.md) "LEV3456R.DAT:
 coarse levels 3–5".
 
+## `lev3456gen.py` — write coarse-level roads into `LEV3456R.DAT` (M5.16, M5.59)
+
+Splices road shapes for levels 3, 4 and 5 from a JSON extract into a factory
+template. The level-3 directory is chosen by the directory box (M5.59).
+`placement` checks a generated file without the generator's split: every
+changed record is decoded back to lat/lon and must lie on a road of the
+extract. `codes` counts record headers that equal the geometric parcel code.
+
+```bash
+python3 tools/lev3456gen.py --selftest
+python3 tools/lev3456gen.py generate --template LEV3456R.DAT --extract tools/fixtures/m9.18-krotoszyn-lev3456.json -o G.DAT
+python3 tools/lev3456gen.py placement --template LEV3456R.DAT --generated G.DAT --extract tools/fixtures/m9.18-krotoszyn-lev3456.json --expect-l3-dir 24
+python3 tools/lev3456gen.py codes LEV3456R.DAT
+```
+
 ## `cerom.py` — CE ROM header, modules and sections
 
 Reads the Windows CE ROM (`ECEC` → `ROMHDR` → `TOCentry`/`e32_rom`/`o32_rom`,
