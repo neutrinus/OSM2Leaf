@@ -168,7 +168,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3804,
+   "line": 3817,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
@@ -177,25 +177,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4109,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4111,
-   "va": "0x00419350",
-   "kind": "sub_",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 4119,
+   "line": 4122,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -213,7 +195,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4133,
+   "line": 4132,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -222,7 +204,25 @@
   },
   {
    "file": "TODO.md",
-   "line": 4290,
+   "line": 4137,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 4146,
+   "va": "0x00419350",
+   "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 4303,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
