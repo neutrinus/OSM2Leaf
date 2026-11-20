@@ -2765,11 +2765,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-08-M5.13b-us-s1-s2. S1 is byte-identical to the factory US image; S2 passes cardcheck (label QSD-301-103); all 17,737 S2 diff ranges lie in POINT010 clusters or its directory entry; M5.12b fresh build PASS. Fixed an imgpatch EOC rewrite (C-2355). Recompression used zlib 1.3.2, not 1.3.1 (C-2354).
 
 
-- [ ] **M5.12c — Every copy of the renamed POI name on the US card**
-  - Status: blocked · Owner: — · Critical: yes
+- [x] **M5.12c — Every copy of the renamed POI name on the US card**
+  - Status: done · Owner: — · Critical: yes
   - Step: P4
-  - Blocker: the uncompressed-files exact scan never finished, so the EXP has no list of every hit outside the compressed pages; the Done when is not met. `EXP-2026-11-08-M5.12c-poi-copies.md` still says `Status: done` in its header — reconcile it (M5.27).
-  - Unblock: M5.27 (re-run the scan in EXP-2026-11-08-M5.12c-poi-copies Method 3, record hits, and reconcile EXP/TODO status).
   - Depends: — (M5.12)
   - Goal: tell Marek which screens should show `OSM2LEAF TEST POI1` (map
     label, POI list, name search) and whether any other file still holds the
@@ -2785,6 +2783,12 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     if a search/sort index also holds the name, either extend the edit (new
     S2 via M5.13) or state what Marek should expect on screen.
   - Claims: C-2040–C-2049
+  - Result: EXP-2026-11-08-M5.12c-poi-copies (POINT pages, 131/136 renamed)
+    + EXP-2026-11-20-M5.27-m5.12c-scan (uncompressed files, finished by M5.27):
+    175 hits in the 132 uncompressed US files, none followed by `@`, no
+    `HANA HEALTH` hit; 20 bare `CRAB ORCHARD` tile labels may still draw on
+    the map, POI list/search read the POINT records. No search index holds
+    the names, so no extra edit is needed. The 5 unfit records are M5.32.
 
 - [x] **M5.14 — US geometry edit: move one road vertex (S3)**
   - Status: done · Owner: task/m5.14-us-geometry-vertex-s3 · Critical: yes
@@ -2964,11 +2968,11 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2950–C-2959
   - Result: EXP-2026-11-19-M5.26-point-pair-regen (C-2950–C-2957). New tool `tools/point_pair_regen.py` (`scan`/`regen`/`verify`/`locator`/`summarize`). POINT pages sit in chains described by chain tables (`u16 per_page, u16 0, n × (start_w, comp_w, inner_w)`, three per file); `regen` re-packs a whole chain, rewrites its table and rebuilds the pair; the no-op control with stock zlib 1.3.1 is byte-identical on 44/44 EU+US pairs; EU POINT010 takes 1,000 names (+2 B each, page 0 +176 B past its own slot), all with `@`, `cmpind` decodes it. Limit: a chain cannot move — its locator is UNKNOWN (C-2955) and chain slack is 24–248 B, so real-name sets of 10–100 names already overflow most chains → M4.47.
 
-- [ ] **M5.27 — Finish M5.12c uncompressed-file scan and reconcile EXP/TODO status**
-  - Status: in progress · Owner: task/m5.27-m5.12c-scan · Critical: no
+- [x] **M5.27 — Finish M5.12c uncompressed-file scan and reconcile EXP/TODO status**
+  - Status: done · Owner: task/m5.27-m5.12c-scan · Critical: no
   - Step: P4
   - Note (H51, 2026-11-11): unowned for three days and it gates what Marek should expect on screen for S2 (M6.6). It is a scan, not research: `python3 tools/poi_copies.py` on the US tree; the full US image is on the allowed host (`fetch_image.py --image US`).
-  - Depends: M5.12c (blocked)
+  - Depends: M5.12c
   - Goal: close the integrity gap left by M5.12c: commit `95a4b42` and TODO mark
     M5.12c blocked because the uncompressed-files exact scan never finished and
     the done-when is unmet, while `EXP-2026-11-08-M5.12c-poi-copies.md` still
@@ -2992,6 +2996,13 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     EXP done.
   - Unblock: M5.12c
   - Claims: C-2960–C-2969
+  - Result: EXP-2026-11-20-M5.27-m5.12c-scan. Complete: 132 files,
+    2,966,260,099 B, 6,964,109 zlib streams inflated (97 min, after a
+    `poi_copies.py` fix that skips header candidates inside an inflated
+    stream). 175 Latin-1 hits (155 street/feature names such as `CRAB ORCHARD
+    RD`, 20 bare `CRAB ORCHARD` tile labels), none followed by `@`; 0 hits for
+    `HANA HEALTH*`, `GODFATHER'S`, `BLIMPIE`. The M5.12c EXP header is
+    corrected in place and M5.12c is done. Claims C-2960–C-2963.
 
 ---
 
