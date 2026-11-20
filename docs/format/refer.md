@@ -427,11 +427,64 @@ Each directory run is an array of 6-byte cells. Two shapes are verified
 - **`c0` always carries a name section, `c8` never does** — 692/692 vs 0/349
   (`ADDRE001`), 249/249 vs 0/360 (`ADDRE017`), 56,988/56,988 vs 0/38,445
   (`ADDRE003`).
-- Name section: `TT LL 00 ff` where `TT` is `0x03` on `ADDRE001`/`ADDRE017`
-  and `0x04` on `ADDRE003` (per-shard), `LL = ceil(name_len/2)`. The name is
+- Name section: `TT LL 00 ff`, `LL = ceil(name_len/2)`. The name is
   the **last `2*LL` bytes of the record** (NUL-padded when `name_len` is odd);
   the 4–8 bytes between the marker and the name are a small header whose
   meaning is **UNKNOWN**.
+- **Where the name section starts (M4.46, C-5157):** at byte
+  `4 + 2*rec[2] + 2*rec[3]` of a `c0` record — byte 2 counts the words of the
+  coordinate id + reference block from byte 4, byte 3 the words of the item
+  block after it (the same rule as `route_link_join.street_name`, M4.39). The
+  position, not `TT`, identifies it: on a `TT = 0x05` shard a reference point
+  token `05 40 00 ff` can have the same shape (the `addre.py` self-test plants
+  one). EXP-2026-11-20-M4.46-addre-tt05-names. `tools/addre.py parse_record` uses
+  this rule (the pre-M4.46 token scan accepted only `TT` `0x03`/`0x04` and
+  named 0 of ADDRE002's 198,497 `c0` records).
+- **`TT` per shard** (EU2011, all 33 shards, `c0`/`c8` records before the first
+  `c1`; `python3 tools/addre.py names REFER001/ADDRE0*.DAT.cmp --parse`):
+  4,610,363 `c0` records, 4,610,363 with a section at that position, `TT`
+  `0x03` 2,531 / `0x04` 1,332,147 / `0x05` 3,275,685; 0 of 7,424,226 `c8`
+  records carry one. `TT` is a per-record byte that is constant in 26 shards and
+  mixed in 7 (e.g. ADDRE005 `0x04` 456 / `0x05` 1,420,930). **HYPOTHESIS:**
+  `TT` is the area-level count `nl` that `tools/ze0-viewer/tools_ze0/addre_io.py`
+  `name_record` writes before the level halfwords (`LL 00` = the first
+  little-endian halfword, the name length in words); not tested here.
+
+| Shard | `c0` | `c8` | `TT` histogram (`c0` records) | stops at `c1` |
+| --- | --: | --: | --- | --- |
+| `ADDRE001` | 692 | 349 | `0x03` 692 | — |
+| `ADDRE002` | 198,497 | 359,800 | `0x05` 198,497 | — |
+| `ADDRE003` | 56,988 | 38,445 | `0x04` 56,988 | — |
+| `ADDRE004` | 45,037 | 108,188 | `0x04` 45,037 | `0xc1@0x6f0aec` |
+| `ADDRE005` | 1,421,386 | 2,397,537 | `0x04` 456, `0x05` 1,420,930 | — |
+| `ADDRE006` | 15,347 | 31,955 | `0x04` 15,347 | — |
+| `ADDRE007` | 277,985 | 915,140 | `0x05` 277,985 | — |
+| `ADDRE008` | 127,839 | 186,717 | `0x05` 127,839 | `0xc1@0xf8d7a8` |
+| `ADDRE009` | 12,371 | 24,546 | `0x04` 6, `0x05` 12,365 | `0xc1@0x1b2ddc` |
+| `ADDRE010` | 90,512 | 47,017 | `0x04` 90,512 | — |
+| `ADDRE011` | 414 | 352 | `0x05` 414 | `0xc1@0x8d32` |
+| `ADDRE012` | 42,331 | 67,883 | `0x04` 42,331 | — |
+| `ADDRE013` | 14,414 | 24,762 | `0x03` 241, `0x04` 14,173 | `0xc1@0x1ba1ec` |
+| `ADDRE014` | 1,271 | 2,083 | `0x04` 1,271 | — |
+| `ADDRE015` | 13,046 | 35,768 | `0x05` 13,046 | — |
+| `ADDRE016` | 8,682 | 12,242 | `0x05` 8,682 | — |
+| `ADDRE017` | 249 | 360 | `0x03` 249 | — |
+| `ADDRE018` | 103,156 | 206,843 | `0x04` 103,156 | `0xc1@0xdac356` |
+| `ADDRE019` | 147,628 | 226,305 | `0x04` 147,628 | — |
+| `ADDRE020` | 200,388 | 256,812 | `0x04` 32, `0x05` 200,356 | — |
+| `ADDRE021` | 11,894 | 16,292 | `0x05` 11,894 | `0xc1@0x123392` |
+| `ADDRE022` | 261,580 | 238,124 | `0x04` 261,580 | — |
+| `ADDRE023` | 37,037 | 13,092 | `0x03` 339, `0x04` 36,698 | — |
+| `ADDRE024` | 969 | 1,217 | `0x03` 969 | — |
+| `ADDRE025` | 357,478 | 515,423 | `0x04` 357,478 | `0xc1@0x272629c` |
+| `ADDRE026` | 217,045 | 252,205 | `0x05` 217,045 | — |
+| `ADDRE027` | 30,055 | 68,860 | `0x04` 3, `0x05` 30,052 | — |
+| `ADDRE028` | 33,151 | 139,297 | `0x04` 33,151 | — |
+| `ADDRE029` | 651,783 | 916,999 | `0x04` 14, `0x05` 651,769 | `0xc1@0x4b60c9e` |
+| `ADDRE030` | 104,811 | 86,829 | `0x05` 104,811 | — |
+| `ADDRE031` | 123,812 | 229,864 | `0x04` 123,812 | — |
+| `ADDRE032` | 41 | 0 | `0x03` 41 | — |
+| `ADDRE033` | 2,474 | 2,920 | `0x04` 2,474 | `0xc1@0x401b6` |
 - Coordinate id: first `TT ss` id token (tags `0x06`, `0x0a`, `0x12` observed)
   followed by 4 bytes: `x = id >> 16`, `y = id & 0xffff`,
   `lat = (x-32768)/192`, `lon = (y-52742)/128`. Verified against Andorra,
