@@ -2037,8 +2037,8 @@ of the four numbers above says so in its first line.
   - Result: EXP-2026-11-19-M5.51-metadata-reasons.md (C-4610-C-4619). `imgpatch.py --check-diff --strict-metadata` names every admitted metadata range and fails any that is not a link of the move. On card `b0faf119...33237` it exits 0 with `metadata: 9`, `unexpected metadata: 0`; the nine ranges are exactly FAT[94806] 268435455->29687, FAT[29687] 0->29688, FAT[29688] 0->268435448 in both copies plus the FSInfo free/next words. Two negative controls (FAT0 entry 50000 -> fat0_slack, FSInfo sector-1 0x100 -> fsinfo_unknown) exit 1; wide `--allow-metadata` still admits both, so M5.30's numbers are unchanged. `--selftest` 73 checks; selftest.py 96/0/24; gate 4/0/0. Review was in-process (subagent router down), recorded as self-review in the EXP.
   - Claims: C-4610–C-4619
 
-- [ ] **M5.52 — `mutate_refer_poi.py --resize` must update the record's field-length bytes, or the firmware reads a truncated name**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.52 — `mutate_refer_poi.py --resize` must update the record's field-length bytes, or the firmware reads a truncated name**
+  - Status: done · Owner: task/m5.52-resize-field-len · Critical: yes
   - Step: P4
   - Depends: M3.11c (done — the accessor and the field-length bytes)
   - Goal: M3.11c found that the firmware finds a POI name through the per-record field-length bytes, in words, plus the file's field dictionary, not through the `ff ff` framing. `resize_name` only rewrites `len2`. After a different-length rename the accessor still returns the old length: US2011 record 0 renamed `HANA HEALTH CENTER`→`HANA HEALTH CENTERXX` reads back as name `HANA HEALTH CENTER` and address `XX4590@HANA HWY` (EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5117). Make `--resize` update the field-5 length byte too, and refuse a delta that is not a whole number of words.
@@ -2047,7 +2047,8 @@ of the four numbers above says so in its first line.
   - Input: `tools/point_name_accessor.py` (the L3 check), C-5110–C-5117.
   - Done when: the precheck command exits 0 with `ok=1000 of 1000` and the expected name on a +2-byte and a −2-byte rename, and `resize_name` refuses a record whose header class it cannot place.
   - Stop: if a record class other than 3/2 needs renaming and its length byte cannot be located, refuse it and record the class count.
-  - Claims: C-5260–C-5269
+  - Result: EXP-2026-11-19-M5.52-resize-field-len.md (done). `--resize` places field 5 like `fn 0x003f56bc`/`fn 0x003f5e10` (EU2011; length of field f = byte `loc+f`), requires the old text inside field 5, patches `len2` and the field-5 length byte, refuses odd deltas and unplaceable records; `--census`: 2000/2000 records class 3, all placeable. Accessor (US2011 `0x0041ec8c`, EU2011 `fn 0x003f632c`): US rec 0 −2/0/+2/+10 B and EU rec 0 −2/+2, rec 1 +2 → whole new name, address unchanged, `ok=1000 of 1000`, PASS; pre-fix +2 `mismatch=1` (precheck), old-name expectation FAIL, odd/address renames refused. The M9.39 US mutant `ea2d0e0f…` has the same stale byte at rec 500 (`mismatch=1`); the fixed CLI writes `34fb3aab…` (`ok=1000`) → new M9.54 (re-pin). selftest 17/17.
+  - Claims: C-5260–C-5265 (C-5266–C-5269 handed to M9.54)
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -4405,6 +4406,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Precheck: `grep -n "mac.l Rm,Rn" tools/l3_harness/engine.py` finds the register-form arm (if it is gone, the task is moot).
   - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
   - Claims: none yet (take the next free block when claimed)
+
+- [ ] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M5.52 (done — `--resize` patches the field-5 length byte)
+  - Goal: the M9.39 mutant pairs (US `.cmp` `ea2d0e0f…`, EU `e75c298f…`, C-4174) were built before M5.52, so the renamed record keeps its old field-5 length: on US record 500 the firmware accessor reads the name 2 words short (`point_name_accessor.py run` on the pair: `mismatch=1 ok=999`, C-5264). The committed command now writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` (`ok=1000`), so C-4482 ("the committed command reproduces `ea2d0e0f…`") holds only for the pre-M5.52 tool. Rebuild both pairs with the current CLI, check them with the accessor, and re-pin the SHAs where M9.39/M9.42/M9.43 records and claims cite them (append-only: "Overtaken by a later commit" sections + new claim rows), or state per citation why the stale pair is still the right control (its walker and container results do not read field lengths).
+  - Precheck: `python3 tools/point_name_accessor.py run archive/us256.img --cmp <M9.39 US mutant .cmp> --ind <…ind> --build us2011 --show 0 --expect "HANA HEALTH CENTER"` → `mismatch=1 ok=999 of 1000`, `result: FAIL` (the stale pair).
+  - Scope: the M9.39 US and EU pairs only (US rec 500 `HAWAII ST GOVT FREQNTLY CLLD NMBRS`→`…XXXX`, EU page `0x6e06d0` `DROMAHAIR GARDA STATION`→`…ABCD`); records/claims that pin their SHAs (C-4174, C-4482 and the M9.42/M9.43 EXPs). Not: M9.41's target registration (other owner) beyond pointing it at the new SHAs if it cites them.
+  - Done when: both rebuilt pairs give `ok=1000 of 1000` with the accessor on their build (US2011 and EU2011), the new SHAs are recorded in claim rows, and every citation of `ea2d0e0f…`/`e75c298f…` is either re-pinned or marked as the pre-M5.52 pair with a reason.
+  - Claims: C-5266–C-5269
 
 ## Retired leads
 

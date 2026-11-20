@@ -136,8 +136,8 @@ Only some pages are record pages. In the EU 2011 `REFER001` tree 1,834 of
 8); the others start `00 xx 00 yy` and are a different (bit-packed) page
 type.
 
-Consequence for a rename: a different-length name needs only the record's
-`len2` byte updated; the rest of the page shifts, and the `.DAT` logical
+Consequence for a rename: a different-length name needs the record's
+`len2` byte and the field-5 length byte updated (see the next section); the rest of the page shifts, and the `.DAT` logical
 size does not change because the page keeps its absolute offset. The byte
 delta must be **even**. The recompressed page must still fit in the space
 before the next stream (POINT032 page `0x4200`: 655 bytes used, next stream
@@ -155,8 +155,14 @@ those lengths up to find field 5. On US `POINT010` record 0 this gives
 `HANA HEALTH CENTER` (9 words at `+0x5e`), and the address `4590@HANA HWY\0`
 follows as field 6. A renamed record must keep these length bytes consistent with
 the new text. A same-length rename is safe; a different-length rename must also
-change the name's length byte (`mutate_refer_poi.py --resize` does not, yet:
-C-5117, M5.52). Evidence: EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5117.
+change the name's length byte. In the file-order record the length of field `f`
+is byte `loc + f`, `loc = 2*((hi+lo)+8)` of `u16[rec+10]` for header class 3/2
+(`fn 0x003f5e10` reads the high byte for even `f`); on the US and EU `POINT010`
+name pages all 2000 records are class 3 (C-5260). `mutate_refer_poi.py --resize`
+patches both `len2` and that byte, and the accessor then returns the whole new
+name and the unchanged address for −2, 0, +2 and +10-byte renames (M5.52,
+C-5261). Evidence: EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5110–C-5117;
+EXP-2026-11-19-M5.52-resize-field-len, C-5260–C-5265.
 
 ### POI → location link (solved)
 
