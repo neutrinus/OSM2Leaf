@@ -371,7 +371,7 @@ Every open M4/M5/M9 block carries `Step:`; the live grouping is
 in the page while the owner's PR is open). Critical tasks per step (2026-11-19):
 
 - **P0 (built, card `b0faf119…`)** — gate it at L3: **M9.13** (`tile_reader`), **M9.14** (`drstr_parser`), **M9.44** (virtual card); QA pin **M5.40**.
-- **P1 (all Dolnośląskie section 1)** — **M5.49** (pipeline carries the tile, delta 0), **M5.53** (11 of 20 directories not writable), **M5.11** (end to end).
+- **P1 (all Dolnośląskie section 1)** — **M5.49** (pipeline carries the tile, delta 0), **M5.54** (6 of 20 directories not writable), **M5.11** (end to end).
 - **P2 (routing)** — **M4.40**, **M4.39**, **M5.3**, **M5.36**; then M5.16 (blocked), M5.5, M9.18.
 - **P3 (names)** — **M4.36**, **M5.17**, **M4.2**, **M4.16**/**M4.16b**, **M9.15**.
 - **P4 (search)** — **M5.18**, **M5.26**, **M5.32**, **M5.52**, **M4.8b**, **M5.12c**, **M9.10**/**M9.41**.
@@ -2198,8 +2198,9 @@ of the four numbers above says so in its first line.
     + selftest. Join key NOT identified; done-when not met (negative).
   - Claims: C-1810–C-1819
 
-- [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
+  - Status: done · Owner: task/m4.16b-rdstm-field-dir-placement · Critical: yes
+  - Result: EXP-2026-11-20-M4.16b-tmc-placement-all-tables — with the M4.16e link-group rule, `rdstm_place.py place-all` carries 110,788/110,795 location-code-joined TMC records of all 14 RDSTM tables (14 countries) to level-2 node coordinates: 110,788/110,788 in the table's country (random refs 2,048/27,998), 94,551/95,176 < 1 km from the TMC positive neighbour (shuffled 129); 60,321 also resolve through set 0 (level 4) and all lie < 5 km from their level-2 nodes (shuffled 256). Join key = location code (neg/pos agreement is a confirmation). Roles `k&3`: role 1 = reversed role 0 in 24,948/66,443 (HYPOTHESIS, to M4.49); flag bits not decoded. C-5400–C-5403.
   - Reopen note (M4.16e, 2026-11-20, rule 15): the link groups are decoded (EXP-2026-11-20-M4.16e-rdstm-link-groups); `python3 tools/rdstm_links.py place LCTBL001.DAT RDSTM001.DAT MAPAL001 --table-pair 0` maps 8,532 CZ records to level-2 node coordinates with controls, so the done-when can now be closed (blocker below kept as history).
   - Blocker (2026-11-19, resolved by M4.16e): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
   - Unblock: M4.16e (decode the RDSTM001 link groups after `0xccce00`). The `0x00d53500` table is a handle cache, not a schema (C-5130): M3.22 is no longer this task's unblocker.
@@ -2217,7 +2218,7 @@ of the four numbers above says so in its first line.
   - Scope: the C-884 directory walk (`0x003f56bc`, `0x003f5e10`, schema `0x00d53500`) on Navi.exe build A; ≥20 decoded records tested for placement. No RDSTM writer.
   - Done when: ≥20 decoded records map to tile/mesh/coordinates with a named join key and ~0 random-key control, or the mapping is proven impossible with method recorded.
   - Stop: if schema table `0x00d53500` is unreadable (compressed `.data`) or the walk cannot be reproduced with current inputs, set `blocked` naming that dependency and keep the negative result.
-  - Claims: C-5130–C-5136 (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
+  - Claims: C-5130–C-5136, C-5400–C-5403 (second pass; block C-5400–C-5409, C-5404–C-5409 spare) (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
 
 - [x] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
   - Status: done · Owner: task/m4.16e-rdstm-link-groups · Critical: yes
@@ -3290,17 +3291,30 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-19-M5.50-card-ladder.md. `docs/format/card-ladder.md` has P0 (10 rows), P1 (5) and P2 (6) as commands with expected tokens; its 40-line block prints 16 x `OK:` + `card-ladder: all rows OK`. P0's card row is the M5.30 SHA `b0faf119...33237`; P1's three card rows are `NOT RUN - M5.49` and the absent `--preserve-tile` flag is itself asserted (`0`); P2's routing/class rows name M5.16/M5.36. Two negative controls (wrong token, a NOT RUN row asserted as present) fail the block. No claim registered; no code touched. Self-reviewed (router down), recorded in the EXP.
   - Claims: none yet (docs page; the commands cite existing claims)
 
-- [ ] **M5.53 — P1 needs 11 more directories: make the `0x2146`–`0x2946` section-1 kinds writable (or prove they cannot be)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M5.53 — P1 needs 11 more directories: make the `0x2146`–`0x2946` section-1 kinds writable (or prove they cannot be)**
+  - Status: done · Owner: task/m5.53-p1-section1-kinds · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.38 (done), M5.44 (done), M5.22 (done)
   - Goal: M5.38 measured that the Dolnośląskie bbox `14.0,49.9,17.9,51.9` intersects **20** section-1 directories of `B48R058R` and today's writer can fill **9** (5 level-1 + 4 level-2 `0x2046`); the other **11** are level-1 `0x2146` ×5, `0x2246`, `0x2346` ×2, `0x2546`, `0x2646`, `0x2946`, which `tilewriter` refuses (`PRESERVE_ONLY_DIR_KINDS`, M5.22/C-2810–C-2813). Without them P1 is a patchwork (OSM roads in 9 boxes, factory roads in 11). First slice: one `0x2146` directory.
-  - Precheck: `python3 tools/parcel_census.py FAC/MAPAL001/B48R058R.DAT --sections 1 --json C.json && python3 tools/card_ladder.py dirs C.json --bbox 14.0,49.9,17.9,51.9 | tail -1` prints `section1 in bbox: total=20 spliceable=9 preserve-only=11 unmodelled=0`.
+  - Precheck: `python3 tools/parcel_census.py FAC/MAPAL001/B48R058R.DAT --sections 1 --json C.json && python3 tools/card_ladder.py dirs C.json --bbox 14.0,49.9,17.9,51.9 | tail -1` prints `section1 in bbox: total=20 spliceable=9 preserve-only=11 unmodelled=0` (prints 9/11 at base 85086f8 only; with post-M5.53 tools the factory prints spliceable=14 preserve-only=6, C-5275).
   - Scope: the record grammar inside one `0x2146` directory (non-zlib blocks, `0xffffffff` pair fields, the `n*512` tail) as far as a splice needs it; `tilewriter.py` gains mutation for that kind only with a byte-identical preserve round trip and a decode-back of the spliced records. No other kind until the first passes; no section 2/4 change.
   - Input: `tools/tilewriter.py`, `tools/parcel_census.py`, `tools/card_ladder.py dirs`, `docs/format/map-tiles.md` ("Dense tiles and roads"), EXP-2026-11-08-M5.22, EXP-2026-11-18-M5.44, `docs/research/card-ladder.md` (P1).
-  - Done when: a splice of OSM ways into one `0x2146` directory (e.g. `(76,941)`) completes with `cardcheck` PASS and `l2check --semantic-tiles` PASS, the tile diff touches only that directory, and the re-run of the Precheck command on the generated tile prints `spliceable=10 preserve-only=10`; or the task is `blocked` with the exact record field that resists, an EXP with a positive control (`0x2046` splice) and a negative one.
+  - Done when: a splice of OSM ways into one `0x2146` directory (e.g. `(76,941)`) completes with `cardcheck` PASS and `l2check --semantic-tiles` PASS, the tile diff touches only that directory, and the re-run of the Precheck command on the generated tile prints `spliceable=10 preserve-only=10`; or the task is `blocked` with the exact record field that resists, an EXP with a positive control (`0x2046` splice) and a negative one. (amended 2026-11-20, pair review, C-5275: once 0x2146 is classified spliceable the class line prints spliceable=14 preserve-only=6 on factory and output alike; the token on the generated tile is the by-kind line `narrow(0x2046)=10 wide(0x2n46)=10`, factory 9/11)
   - Stop: if the non-zlib blocks cannot be decoded from bytes alone after one session, block and name the reader task (M3.25/M4.40) that would read them in the firmware; do not mutate a block whose boundary is guessed.
   - Claims: C-5270–C-5279
+  - Result: EXP-2026-11-20-M5.53-wide-rows. `0x2n46` is not a tail: header word 0 is the directory size, and `0x2n46` = `0x2046` with **n wide rows** (1,024-byte body: even pair, 4+4 `u16` sub-record sizes for a 2 x 2 parcel split, odd pair; bit 31 of the row's first word marks it). New `tools/s1_wide_dir.py census` decodes 1,855/1,855 section-1 directories of 45 EU2011 tiles, 2,443,997 records all whole zlib streams, 0 overlaps; M5.22's non-zlib/`0xffffffff`/aliasing were the 512-byte misreading (C-2810–C-2812 superseded). `tilewriter` splices `0x2146` through the row model: real `B48R058R (76,941)` → `0x2046`, diff confined to the directory, `cardcheck` + `l2check --semantic-tiles` PASS, readback 16/16. Precheck token deviates on purpose: 0x2146 is now classified spliceable, so factory and output both print `spliceable=14 preserve-only=6`; the by-kind line prints `narrow(0x2046)=10 wide(0x2n46)=10` on the output (factory 9/11) — see EXP Interpretation. Follow-up **M5.54** (other kinds).
+
+- [ ] **M5.54 — P1: splice the remaining wide-row kinds `0x2246`–`0x2946`**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M5.53 (done)
+  - Goal: M5.53 proved every `0x2n46` directory is a `0x2046` directory with n wide rows and made `0x2146` writable (P1: 14 of 20 directories). The 6 left in the Dolnośląskie bbox (`0x2246`, `0x2346` x2, `0x2546`, `0x2646`, `0x2946`) parse with the same model (`tools/s1_wide_dir.py`) but `tilewriter` still preserves them (`PRESERVE_ONLY_DIR_KINDS`). Enable them so P1 writes 20/20.
+  - Precheck: `python3 tools/s1_wide_dir.py census FAC/MAPAL001/B48R058R.DAT | tail -1` ends with `records_bad=0 block_overlaps=0 OK`, and `python3 tools/parcel_census.py FAC/MAPAL001/B48R058R.DAT --sections 1 --json C.json && python3 tools/card_ladder.py dirs C.json --bbox 14.0,49.9,17.9,51.9 | tail -1` prints `spliceable=14 preserve-only=6`.
+  - Scope: `WIDE_SPLICE_DIR_KINDS` in `tools/tilewriter.py` (and its selftest), one real-tile splice per kind present in the bbox (6 directories, 6 kinds), multi-row narrowing (a directory narrows only when every wide row lost its sub-records). No section 2/4 change.
+  - Input: EXP-2026-11-20-M5.53-wide-rows, `tools/s1_wide_dir.py`, `tools/tilewriter.py` (`_splice_row_model_dir`), `tools/one_tile_pipeline.py --parcel`.
+  - Done when: for each of the 6 directories a pipeline run with ways over all its sub-record columns ends with `cardcheck` PASS, `l2check --semantic-tiles` PASS, `one_tile_one_directory` PASS and `s1_wide_dir census` OK on the output, and the precheck on the factory prints `spliceable=20 preserve-only=0`; a partial run (one wide row left) keeps the kind and still passes the census.
+  - Stop: if a kind needs anything beyond `WIDE_SPLICE_DIR_KINDS` (a row the model cannot narrow, a record that does not re-read), block with the directory and row named.
+  - Claims: C-5540–C-5549
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -3520,11 +3534,24 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     (SHA-256 `59a47b7f…a9792`).
   - Claims: C-1240–C-1249
 
-- [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
+- [x] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
   parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
   `nk.exe` entry. Done when booting needs no `-device loader`.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.a3-builtin-loader · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    `-M ze0 -kernel archive/head256.img` with no `-device` option puts RAM
+    bytes identical to the physfirst..physlast cuts of images B and A,
+    starts at PC `0x8800ebd0`, and its 60 s non-interrupt exception
+    sequence equals the `-device loader` boot's; a wrong offset exits
+    non-zero.
+  - Result: EXP-2026-11-20-M8.A3-builtin-loader (C-1250–C-1253). Patch
+    `tools/qemu-ze0/patches/ze0-0004-hw-sh4-ze0-builtin-loader.patch`;
+    options are `kernel-off=`/`app-off=` (`kernel` is QEMU's `-kernel`
+    property). RAM byte-identical, PC `0x8800ebd0`, 30-event fault
+    sequence identical in 2 + 2 boots; old short cuts differ (0 events).
+    `run.sh` uses `-kernel` on ze0 and ROMHDR lengths on `-M none`
+    (C-1283 fixed). Tool: `tools/ze0_ceload.py`.
   - Claims: C-1250–C-1259
 - [x] **M8.A10 — Bump the QEMU pin 8.2.7 → 8.2.10**
   The pin is 8.2.7 (2024-09-18) while 8.2.10 (2025-03-26) is the last release
