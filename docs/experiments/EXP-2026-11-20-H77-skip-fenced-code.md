@@ -150,3 +150,18 @@ Still open for the navigator:
 
 Agents that re-sync the l3 snapshot after a merge must now write the
 `2026-11-20` file.
+
+## Overtaken by a later commit
+
+After `origin/main` was merged (new EXPs from other tasks, and `main`'s re-sync
+of the 2026-11-16 overlay to 1187 rows), the l3 overlay was rewritten with the
+same `--write-snapshot` command:
+
+- the new overlay now has 1028 rows (SHA-256
+  `0ad0300ff19057071999655ed2969e9be358b9f5a41e05cf2de826514e32be0c`);
+- the old overlay still reports exactly `0 new / 159 gone` against the
+  fence-aware scan, so the fenced set is unchanged;
+- the new overlay gives `CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved`.
+
+The 1176/1017 counts and the hash `c9e1b154…` above describe the branch before
+that merge. C-4002 cites the current file.
