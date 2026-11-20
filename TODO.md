@@ -594,8 +594,8 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: `README.md` still tells an agent that `ci.yml` runs `selftest.py --json` and `claims_check.py` as separate hard-gate steps.
   - Claims: C-4270–C-4279
 
-- [ ] **H100 — `claims.md` carries 285 `RESERVED (TASK).` placeholder rows, and no gate notices when the task is `done`**
-  - Status: in progress · Owner: task/h100-claims-reserved · Critical: no · Pair: required
+- [x] **H100 — `claims.md` carries 285 `RESERVED (TASK).` placeholder rows, and no gate notices when the task is `done`**
+  - Status: done · Owner: task/h100-claims-reserved · Critical: no · Pair: required
   - Depends: — (claims_check is on `main`); the retro 2026-11-17-3 multiplicity finding
   - Goal: a 10-ID block was meant to be a reservation, but every block was also written out as ten `| C-xxxx | RESERVED (TASK). | — | — | — |` rows, and nothing ever removes them. SE 2026-11-17 counted **285 RESERVED rows over 60 tasks**: **97 rows name a `done` task** (e.g. C-4179 for the just-merged M9.39, C-4139 for H90, C-4102…C-4109 for H87), 34 name a `blocked` task, and 151 name a task no longer in TODO.md. `claims_check --strict --count-check` passes over all of them, so "reserved" reads as "registered" (the retro's exact defect) and an agent scanning for the next free claim sees a wall of dead placeholders. Make the placeholder a gate-visible state and retire the rows whose owner is `done`.
   - Precheck: `grep -c 'RESERVED (' docs/research/claims.md` prints `285`; `grep -o 'RESERVED ([A-Za-z0-9._]*)' docs/research/claims.md | sort | uniq -c | sort -rn | head` shows the per-task spread; `python3 tools/claims_check.py --strict --count-check` is OK with those rows present (the defect: no gate sees them).
@@ -605,7 +605,8 @@ text of this section is in git (`13cb0cf`).
   - Done when: `python3 tools/claims_check.py --strict` fails on today's `claims.md` with a `RESERVED row names done/absent task` list; after the cleanup it passes and `grep -c 'RESERVED (' docs/research/claims.md` counts only rows whose owner is `open`/`in progress`; a synthetic fixture with one done-owner RESERVED row fails and one open-owner row passes (`--selftest`); `python3 tools/gate.py` green; `--count-check` still `0` mismatches.
   - Stop: if deleting the absent-task rows would break a `Supersedes:`/`Superseded by:` pointer, keep those specific rows and list them as `OBSERVED retained` — never renumber a real claim.
   - Falsifier: a `RESERVED (M9.39).` row (M9.39 is `done`) still passes `--strict` after the change.
-  - Claims: none until rows are committed
+  - Claims: C-5970–C-5973
+  - Result: done (owner renumber round). `tools/claims_check.py --reserved` (on under `--strict`) fails on a bare `RESERVED (owner).` row whose owner is `done`/absent; the 288 dead rows were deleted and the two `M9.36`-owned placeholders (C-3588/C-3589, whose M9.36 block is done) retired, leaving 38 live placeholder rows. The four H100 claims were renumbered C-5810–C-5813 → **C-5970–C-5973** because M3.11b merged and took C-5810–C-5816 first (a main merge collision). Rebased onto `origin/main`; `claims_check --strict` `0 rows over 0`, `--count-check` 0 mismatches, gate green. EXP: EXP-2026-11-20-H100-claims-reserved.
 
 - [x] **H55 — `l3check --json PATH`: the tool writes a report file, not only stdout**
   - Status: done · Owner: task/h55-l3check-json-path · Critical: yes · Pair: solo
