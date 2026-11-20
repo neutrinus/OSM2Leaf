@@ -133,6 +133,9 @@ python3 tools/gate.py
   output text in EXPs, not prose claims that a VA is a function start. Their
   prose occurrences, where any exist, are still in the overlay (71 INSIDE
   remain).
+- **FACT:** `claims_check` is unchanged: it has no citation scanner, and its
+  evidence rules read fenced commands. The title's mention is superseded by
+  the Scope.
 - **HYPOTHESIS:** H71's `$VA` placeholder is no longer needed. Future EXPs can
   quote `fn 0x…` inside a fence.
 
@@ -146,7 +149,7 @@ Still open for the navigator:
 
 - whether to delete the 2026-11-16 overlay later;
 - whether `claims_check` (named in the H77 title, not in its Scope) needs the
-  same rule.
+  same rule. (Answered in review: no, see Interpretation.)
 
 Agents that re-sync the l3 snapshot after a merge must now write the
 `2026-11-20` file.
@@ -165,3 +168,53 @@ same `--write-snapshot` command:
 
 The 1176/1017 counts and the hash `c9e1b154…` above describe the branch before
 that merge. C-4002 cites the current file.
+
+## Corrections after navigator review
+
+The navigator review of PR #316 approved the approach and asked for these fixes
+(all applied on the branch before merge):
+
+1. **Overlay re-synced after `main` moved again.** `main` had re-synced the
+   2026-11-16 overlay twice more, so a simulated merge gave `STALE 8 new /
+   1 gone` against the 2026-11-20 file. After `git merge origin/main` (to
+   `f1af191`), `--scope l3 --write-snapshot
+   docs/research/fn-audit-l3-corpus-2026-11-20.json` gives **1045 rows**
+   (SHA-256 `9b0289db25e4e9a900e68f7a1be5ec80c684ce176783432cc9df9e9c2e2bbfb6`).
+   The old overlay (now 1204 rows) still reports exactly `0 new / 159 gone /
+   18 moved` against the fence-aware scan (1204 − 159 = 1045). This replaces
+   the 1028-row figure in "Overtaken by a later commit".
+2. **The 2026-11-16 overlay was a living file.** Agents re-sync it after every
+   task, so "kept unchanged" would have been silently false. `fn_audit main()`
+   now refuses `--write-snapshot` to the basename
+   `fn-audit-l3-corpus-2026-11-16.json` (exit 2, `frozen pre-H77 record; write
+   docs/research/fn-audit-l3-corpus-2026-11-20.json`), with one selftest
+   check. The 2026-11-16 file is **kept at `main`'s state when H77 merged
+   (1204 rows, SHA-256
+   `c80330acac8b7839cfa38681ff7c865f80477d095c9750e3e4a7f430803f83d8`); not
+   re-synced after H77**. `docs/research/fn-audit-2026-11-13.md` (the overlay
+   paragraph and the command block) and `tools/README.md` now name the
+   2026-11-20 path. C-4002 is reworded.
+3. **Row counts.** The TODO Result now reads "1017 rows at measurement, 1045
+   after the last `main` merge".
+4. **`TODO.md` does have fences** (the task-field template near line 208,
+   others near 307 and 927). The docs-base scan of `TODO.md` is fence-aware.
+   The l3 open-block scan (`_open_blocks`, `citations_open_tasks`) is not, and
+   the fenced template already counts as an open block (a pre-existing bug).
+   The docstring and the Result say so, and follow-up **H115** (C-5720–C-5729)
+   is filed.
+5. **Indented openers.** `fenced_lines` still accepts any indentation, unlike
+   CommonMark's four-space rule, because EXPs nest fences under lists. To stop
+   that choice from hiding prose, the search for the closing fence now ends at
+   the first non-blank inner line indented less than the opener, and the fence
+   is treated as unclosed. The docstring notes this, and there is one selftest
+   check. The real corpora are unchanged by it (the re-written overlay is
+   byte-identical before and after this rule).
+6. **C-4003 wording.** It now reads "fenced command/output lines, including
+   shell comments in them", and adds that 4 VAs leave `INSIDE` (22 → 18
+   unique: `0x0039ecf4`, `0x003f52b4`, `0x003f5fc2`, `0x004bda20`). The
+   Remaining `INSIDE` section of `fn-audit-2026-11-13.md` notes the same.
+7. **`claims_check`.** Added to Interpretation and to the TODO Result:
+   unchanged, because it has no citation scanner and its evidence rules read
+   fenced commands. The title's mention is superseded by the Scope.
+
+`fn_audit --selftest` is now 78 checks (6 H77).

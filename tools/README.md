@@ -507,10 +507,13 @@ the EU head never reports a valid US address as `INSIDE`. It reports
 l3 citation set is frozen to `docs/research/fn-audit-l3-corpus-2026-11-20.json`
 by the same `--write-snapshot` (scope `l3`), because EXPs cannot be edited:
 their stale VAs are a register, not a diff to fix. Since H77 both scopes skip
-fenced code blocks (```` ``` ```` / `~~~`, any indentation; an unclosed fence
-hides nothing): a VA quoted in a command or output block is not a citation.
-The pre-H77 overlay `fn-audit-l3-corpus-2026-11-16.json` stays frozen as the
-record (159 of its 1176 rows were fenced, EXP-2026-11-20-H77-skip-fenced-code).
+fenced code blocks (```` ``` ```` / `~~~`, any indentation; an unclosed fence, or one whose
+body dedents below its opener, hides nothing): a VA quoted in a command or output block is not a citation.
+The pre-H77 overlay `fn-audit-l3-corpus-2026-11-16.json` is kept at `main`'s
+state when H77 merged (1204 rows, 159 of them fenced, SHA-256 `c80330ac…`); it
+is not re-synced after H77 (`--write-snapshot` refuses that name, exit 2).
+Re-sync `fn-audit-l3-corpus-2026-11-20.json` instead
+(EXP-2026-11-20-H77-skip-fenced-code).
 
 `--corpus BASE --overlay L3` audits both layers and applies the H69 policy
 **per source**: each layer gets its own live comparison (`docs` for the base,

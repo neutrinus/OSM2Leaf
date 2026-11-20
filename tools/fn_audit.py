@@ -27,13 +27,16 @@ its own snapshot so the docs base stays readable:
 A corpus without a parser is reported ``NOT SCANNED`` with the reason, never
 guessed.  The overlay snapshot is
 ``docs/research/fn-audit-l3-corpus-2026-11-20.json`` (H77; the pre-H77
-``…-2026-11-16.json`` stays frozen as the record); ``--corpus`` takes an
+``…-2026-11-16.json`` is kept at main's state when H77 merged and is not
+re-synced after it: ``--write-snapshot`` refuses that name); ``--corpus`` takes an
 optional ``overlay`` object and runs the H69 policy **per source**.
 
 Fenced code blocks (H77): in every Markdown corpus a ```` ``` ```` or ``~~~``
 block is quoted text (a command, a listing), so a ``fn 0x…`` inside it is not
-a citation.  ``fenced_lines`` finds the blocks; an unclosed fence hides
-nothing.  ``TODO.md`` open blocks keep their rule (the board has no fences).
+a citation.  ``fenced_lines`` finds the blocks; an unclosed fence (or one
+whose body dedents below its opener) hides nothing.  ``TODO.md`` open blocks
+keep their rule (they are not fence-aware, H115); the docs-base scan of
+``TODO.md`` is.
 
 A VA is resolved to a build (A ``0x200200`` / B ``0x3e00200`` / C ``0x5200200``
 of the same image) and a module when the module's pdata span
@@ -193,6 +196,8 @@ def _line_of(text, pos):
     return text.count("\n", 0, pos) + 1
 
 
+FROZEN_L3_OVERLAY = "fn-audit-l3-corpus-2026-11-16.json"  # pre-H77 record
+
 FENCE_OPEN_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 
 
@@ -207,17 +212,32 @@ def fenced_lines(text):
     backtick fence whose info string holds a backtick is not a fence
     (CommonMark).  An **unclosed** fence hides nothing: its lines stay prose,
     so a missing closing fence can never silently drop citations.
+
+    Indentation (navigator review): unlike CommonMark, an opener indented four
+    or more spaces (or a tab) still counts as a fence, because EXPs nest
+    fences under list items and a nested list can push them that deep.  To
+    keep that choice from hiding prose, the search for the closing fence
+    stops at the first non-blank inner line indented **less** than the
+    opener; such a fence is treated as unclosed and hides nothing.
     """
     lines = text.split("\n")
     out = set()
+
+    def indent(line):
+        return len(line.expandtabs(4)) - len(line.expandtabs(4).lstrip(" "))
+
     i = 0
     while i < len(lines):
         m = FENCE_OPEN_RE.match(lines[i])
         if m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
             char, width = m.group(1)[0], len(m.group(1))
             close = re.compile(r"^[ \t]*%s{%d,}[ \t]*$" % (re.escape(char), width))
+            opener = indent(lines[i])
             j = i + 1
             while j < len(lines) and not close.match(lines[j]):
+                if lines[j].strip() and indent(lines[j]) < opener:
+                    j = len(lines)  # dedented prose: treat as unclosed
+                    break
                 j += 1
             if j < len(lines):
                 out.update(range(i, j + 1))
@@ -1353,6 +1373,12 @@ def selftest():
         check("H77 fenced_lines spans", fenced_lines(open(fmd).read()) == set(range(1, 4)) | set(range(5, 10)))
         check("H77 info string with backtick is not a fence",
               fenced_lines("``` a`b\nfn 0x1\n```\n") == set())
+        check("H77 body dedented below the opener: unclosed, hides nothing",
+              fenced_lines("    ```\n    fn 0x1\nprose fn 0x2\n    ```\n") == set())
+        check("H77 frozen pre-H77 overlay refuses --write-snapshot",
+              main(["--write-snapshot", os.path.join(tmp, FROZEN_L3_OVERLAY),
+                    "--scope", "l3"]) == 2
+              and not os.path.exists(os.path.join(tmp, FROZEN_L3_OVERLAY)))
         # M1.26: an open block uses the docs discipline — a live label, a
         # correction pair and a documented pin are cited; a bare data address
         # and a US-build start are not.
@@ -2020,6 +2046,12 @@ def main(argv=None):
     if args.corpus and args.write_snapshot:
         print("error: --corpus and --write-snapshot are exclusive",
               file=sys.stderr)
+        return 2
+    if (args.write_snapshot
+            and os.path.basename(args.write_snapshot) == FROZEN_L3_OVERLAY):
+        print("error: %s is the frozen pre-H77 record; write "
+              "docs/research/fn-audit-l3-corpus-2026-11-20.json"
+              % FROZEN_L3_OVERLAY, file=sys.stderr)
         return 2
     if args.overlay and not args.corpus:
         print("error: --overlay requires --corpus", file=sys.stderr)

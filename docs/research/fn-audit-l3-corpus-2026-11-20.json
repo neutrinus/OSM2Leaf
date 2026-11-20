@@ -384,15 +384,19 @@
   "docs/experiments/EXP-2026-11-20-M1.35-sdc1-ioctl-wait94.md",
   "docs/experiments/EXP-2026-11-20-M2.19-check2-router-l3.md",
   "docs/experiments/EXP-2026-11-20-M3.2-ind-handling-l3.md",
+  "docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md",
   "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
   "docs/experiments/EXP-2026-11-20-M4.16b-tmc-placement-all-tables.md",
+  "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
   "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
   "docs/experiments/EXP-2026-11-20-M4.48-datavol-18c-reader.md",
   "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
+  "docs/experiments/EXP-2026-11-20-M4.51-tmc-14f4-senders.md",
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
+  "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M6.18-prod-screen.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
@@ -407,10 +411,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 400,
-  "citations": 1028,
-  "unique_va": 246,
-  "start": 876,
+  "files": 404,
+  "citations": 1045,
+  "unique_va": 248,
+  "start": 893,
   "inside": 71,
   "corrected": 9,
   "gap": 65,
@@ -557,7 +561,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1760,
+   "line": 1761,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -566,7 +570,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1785,
+   "line": 1787,
    "va": "0x0040de98",
    "kind": "fn",
    "class": "GAP",
@@ -576,7 +580,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1787,
+   "line": 1789,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -585,7 +589,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1817,
+   "line": 1820,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -594,7 +598,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1817,
+   "line": 1820,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -603,7 +607,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1848,
+   "line": 1852,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -612,7 +616,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1849,
+   "line": 1853,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -621,8 +625,8 @@
   },
   {
    "file": "TODO.md",
-   "line": 1973,
-   "va": "0x0041c990",
+   "line": 2285,
+   "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -630,7 +634,16 @@
   },
   {
    "file": "TODO.md",
-   "line": 2603,
+   "line": 2285,
+   "va": "0x003c0e68",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 2636,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -8975,6 +8988,15 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md",
+   "line": 151,
+   "va": "0x003f5cdc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
    "line": 56,
    "va": "0x0041c5f0",
@@ -9086,6 +9108,141 @@
    "file": "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
    "line": 66,
    "va": "0x004125a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.51-tmc-14f4-senders.md",
+   "line": 24,
+   "va": "0x003bcac0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.51-tmc-14f4-senders.md",
+   "line": 25,
+   "va": "0x003c0e68",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.51-tmc-14f4-senders.md",
+   "line": 53,
+   "va": "0x00413828",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.51-tmc-14f4-senders.md",
+   "line": 58,
+   "va": "0x003bcac0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M4.51-tmc-14f4-senders.md",
+   "line": 58,
+   "va": "0x003c0e68",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 23,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f57a8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 54,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 93,
+   "va": "0x003f5d98",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 93,
+   "va": "0x003f61bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 115,
+   "va": "0x003f51e0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+   "line": 115,
+   "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
    "true_start": null,

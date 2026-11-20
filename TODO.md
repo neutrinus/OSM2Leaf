@@ -904,7 +904,7 @@ of the four numbers above says so in its first line.
   - Done when: a fenced `fn 0x…` appended to a copy of `docs/format/firmware.md` (and to an EXP) does **not** change either `--corpus` verdict (exit 0, unchanged counts); an unfenced one does (`CORPUS STALE: 1 new`, exit 1); `python3 tools/fn_audit.py --selftest` covers both, and `python3 tools/selftest.py` stays green; a before/after count of fenced citations (if any) is in the EXP.
   - Stop: if a fence-aware scanner would change any committed snapshot row, say so in the EXP and ship the scanner with a *new* overlay rather than silently rewriting the frozen one (H69's rule).
   - Claims: C-4000–C-4009
-  - Result: EXP-2026-11-20-H77-skip-fenced-code; C-4000–C-4003. `fn_audit.fenced_lines` (any-indent ``` / ~~~ fences, an unclosed fence hides nothing) is applied in `citations_markdown` for both disciplines; `TODO.md` open blocks are unchanged. Docs base: 0/552 citations were fenced, so it is unchanged. l3 overlay: 159/1176 rows were fenced (START 126, GAP 18, INSIDE 10, UNMAPPED 5), so under the Stop rule a new overlay `fn-audit-l3-corpus-2026-11-20.json` (1017 rows) ships as the gate/selftest default and the 2026-11-16 overlay stays frozen. A fenced probe in `firmware.md`, an EXP or `map-tiles.md` leaves both verdicts at exit 0; unfenced, it gives `CORPUS STALE 1 new`, exit 1. `fn_audit --selftest` has 76 checks.
+  - Result: EXP-2026-11-20-H77-skip-fenced-code; C-4000–C-4003. `fn_audit.fenced_lines` (any-indent ``` / ~~~ fences, an unclosed fence hides nothing) is applied in `citations_markdown` for both disciplines; `TODO.md` open blocks keep their rule (they are not fence-aware, H115); the docs-base scan of `TODO.md` is. Docs base: 0/552 citations were fenced, so it is unchanged. l3 overlay: 159/1176 rows were fenced (START 126, GAP 18, INSIDE 10, UNMAPPED 5), so under the Stop rule a new overlay `fn-audit-l3-corpus-2026-11-20.json` (1017 rows at measurement, 1045 after the last `main` merge) ships as the gate/selftest default; the 2026-11-16 overlay is kept at `main`'s state when H77 merged (1204 rows, SHA-256 `c80330acac8b7839cfa38681ff7c865f80477d095c9750e3e4a7f430803f83d8`); not re-synced after H77 (`--write-snapshot` refuses its name). A fenced probe in `firmware.md`, an EXP or `map-tiles.md` leaves both verdicts at exit 0; unfenced, it gives `CORPUS STALE 1 new`, exit 1. `fn_audit --selftest` has 78 checks. `claims_check` unchanged: it has no citation scanner and its evidence rules read fenced commands; the title's mention is superseded by the Scope. Navigator fixes: EXP §Corrections after navigator review.
 
 - [x] **H78 — `claims_check --strict` must run the count rule, and a docs-only EXP edit must not re-pin a claim's measured revision**
   - Status: done · Owner: task/h78-count-gate · Critical: no · Pair: required
@@ -1392,6 +1392,16 @@ of the four numbers above says so in its first line.
   - Done when: `tools/gate.py` runs `claims_check --prose-counts`; `gate.py --selftest` proves a seeded stale `prints N` row gives `FAIL exit 1` and a clean ledger `PASS`; the real `python3 tools/gate.py` prints `gate: 4 pass, 0 fail, 0 skip`; the C-927/C-1023 rows are either measured or listed in the gate output as skipped.
   - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
   - Claims: C-4490–C-4499
+
+- [ ] **H115 — `TODO.md` open-block citations are not fence-aware: the fenced task template counts as an open block**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H77 (`fn_audit.fenced_lines`)
+  - Goal: H77 made the docs-base and EXP scans skip fenced code, but `fn_audit._open_blocks`/`citations_open_tasks` (the l3 open-block scan) still read `TODO.md` line by line, and `TODO.md` has fences (the task-field template at about line 208, others near 307 and 927). The fenced template's `- [ ] **ID — title**` line is parsed as a real open block (pre-existing bug), so any `0x…` quoted in a fenced example under an open task becomes a live l3 citation.
+  - Precheck: `grep -n '^```' TODO.md` lists the fences; `python3 tools/fn_audit.py archive/head256.img --scope l3` prints `open blocks N`; record N and whether the template block is among them.
+  - Scope: `tools/fn_audit.py` (`_open_blocks`, `citations_open_tasks`) plus `--selftest` cases; re-freeze `docs/research/fn-audit-l3-corpus-2026-11-20.json` if rows change. No `TODO.md` text edit.
+  - Done when: a fenced `- [ ] **H999` template is not an open block and a fenced `0x…` under a real open block is not cited (selftest), the unfenced controls still are; the EXP records the open-block count before/after on the real board; `python3 tools/gate.py` stays green.
+  - Stop: if the board's fences are unbalanced (an unclosed fence hides nothing, per H77), record the lines and ship only the template fix.
+  - Claims: C-5720–C-5729
 
 - [x] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
   - Status: done · Owner: task/m1.34-applaunch-table · Critical: no
