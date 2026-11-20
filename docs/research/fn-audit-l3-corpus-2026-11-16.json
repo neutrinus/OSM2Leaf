@@ -382,6 +382,7 @@
   "docs/experiments/EXP-2026-11-20-M4.16b-tmc-placement-all-tables.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
+  "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
@@ -393,7 +394,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 386,
+  "files": 387,
   "citations": 1178,
   "unique_va": 275,
   "start": 991,
@@ -634,7 +635,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2542,
+   "line": 2543,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -644,7 +645,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2546,
+   "line": 2547,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
