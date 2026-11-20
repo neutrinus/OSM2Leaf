@@ -240,6 +240,9 @@ FIRMWARE_CALL_ENTRY_KEYS = {
     "kind", "program", "module", "va", "endian", "note",
     "sec1_table", "inputs", "verdict_map",
 }
+#: The ``firmware_call`` programs that read a sec1 (inflate-mask / parse-cache)
+#: table; ``point_walk_v1`` (M9.55) reads only the image, the pair and a page.
+SEC1_PROGRAMS = ("cmp_ind_chunk_v1", "mapcode_compare_v1")
 #: Byte order of a module entry.  ``"little"`` needs ``PySh4(endian="little")``
 #: (M9.21); the other back ends are big-endian in this harness and refuse it.
 MODULE_ENDIANS = ("big", "little")
@@ -746,11 +749,18 @@ def _validate_firmware_call_entry(entry, where: str) -> list[str]:
             f"not {endian!r}"
         )
     sec1 = entry.get("sec1_table")
+    # M9.11b's rule is "declare every non-trivial input"; the two chunk/mapcode
+    # programs read the sec1 table, while point_walk_v1 (M9.55) does not touch
+    # sec1 at all (its inputs are the image, the .cmp/.ind pair and the page
+    # offset).  Requiring a sec1 table there would be a fabricated declaration,
+    # exactly what the stop condition forbids.
+    needs_sec1 = program in SEC1_PROGRAMS
     if not isinstance(sec1, dict):
-        problems.append(
-            f"{where}: firmware_call entry needs sec1_table as a declared "
-            "input with provenance (not a silent default; M9.11b stop condition)"
-        )
+        if needs_sec1:
+            problems.append(
+                f"{where}: firmware_call entry needs sec1_table as a declared "
+                "input with provenance (not a silent default; M9.11b stop condition)"
+            )
     else:
         if sec1.get("va") is None:
             problems.append(f"{where}: sec1_table needs va (sourced from code)")
@@ -791,6 +801,19 @@ def _validate_firmware_call_entry(entry, where: str) -> list[str]:
                 _hex(key, f"{where}.verdict_map key", problems)
                 if verdict not in ("ACCEPT", "REJECT"):
                     problems.append(f"{where}: verdict_map[{key}] must be ACCEPT or REJECT")
+    # M9.55: point_walk_v1 reads its page through --cmp/--ind; the corpus-relative
+    # path lets l3check --build-corpus name the same fixture the manifest hashed.
+    if program == "point_walk_v1" and isinstance(inputs, dict):
+        source = inputs.get("source")
+        if not isinstance(source, str) or not source.strip():
+            problems.append(
+                f"{where}: point_walk_v1 needs inputs.source (corpus-relative "
+                ".cmp path of the POINT page)"
+            )
+        elif source.startswith("/") or ".." in source.split("/"):
+            problems.append(
+                f"{where}: inputs.source must be relative and inside the corpus"
+            )
     return problems
 
 
@@ -1305,16 +1328,17 @@ def _plan_target(target, args) -> dict:
         )
         return payload
     if entry["kind"] == "firmware_call":
+        sec1_doc = entry.get("sec1_table")
         payload["firmware_call"] = {
             "program": entry.get("program"),
             "module": entry.get("module"),
             "va": entry.get("va"),
             "sec1_table": {
-                "va": (entry.get("sec1_table") or {}).get("va"),
+                "va": (sec1_doc or {}).get("va"),
                 "declared": _sec1_source(entry, args) == "declared",
                 "source": _sec1_source(entry, args),
-                "provenance": (entry.get("sec1_table") or {}).get("provenance"),
-                "value_count": len((entry.get("sec1_table") or {}).get("values") or []),
+                "provenance": (sec1_doc or {}).get("provenance"),
+                "value_count": len((sec1_doc or {}).get("values") or []),
             },
             "inputs": dict(entry.get("inputs") or {}),
             "image": str(args.image) if getattr(args, "image", None) else None,
@@ -1323,9 +1347,11 @@ def _plan_target(target, args) -> dict:
             "mutate": getattr(args, "mutate", "none"),
         }
         payload["note"] = (
-            "dry run: firmware_call entry; sec1 table is "
-            + ("read from the image (nk_decomp, M1.19)"
-               if _sec1_source(entry, args) == "image" else "a declared input")
+            "dry run: firmware_call entry; "
+            + ("no sec1 table (point_walk_v1)" if sec1_doc is None else
+               "sec1 table is "
+               + ("read from the image (nk_decomp, M1.19)"
+                  if _sec1_source(entry, args) == "image" else "a declared input"))
             + " (no silent default). No engine was started and no verdict is claimed."
         )
         return payload
@@ -1869,6 +1895,8 @@ def _run_firmware_call_target(target, args, base) -> dict:
         return _run_mapcode_target(target, args, base)
     if program == "drstr_parser_v1":
         return _run_drstr_target(target, args, base)
+    if program == "point_walk_v1":
+        return _run_point_walk_target(target, args, base)
     if program != "cmp_ind_chunk_v1":
         return dict(
             base, status="BLOCKED", exit=EXIT_BLOCKED,
@@ -2046,6 +2074,166 @@ def _run_firmware_call_target(target, args, base) -> dict:
             f"firmware output differs from cmpind.decode (r0={ret}, "
             f"first differing byte {next((i for i, (a, b) in enumerate(zip(out, expected)) if a != b), -1)})"
         ],
+    )
+
+
+def _run_point_walk_target(target, args, base) -> dict:
+    """Run the POINT record walker from the target's build (M9.55).
+
+    ``point_walk_l3.py`` already executes ``fn 0x003f5194`` (EU) /
+    ``0x0041db44`` (US); this program ports that run into the runner so an
+    ``l3check`` row can report its verdict.  The page is read from the
+    ``--cmp``/``--ind`` pair, the walker VAs come from the target's ``build``
+    (``tools/build_targets.py``), and the verdict compares the firmware's
+    record offsets with ``mutate_refer_poi.parse_page`` and the walker's own
+    length model over the records the caller names.
+
+    A wrong build/image pairing is a verdict, not a crash: an engine fault or
+    an entry outside this image's executable text is ``status=FAIL`` with the
+    ``FAIL (unmapped ...)`` text (M9.42 shape), never a fabricated PASS.
+    """
+
+    entry = target["entry"]
+    image_path = getattr(args, "image", None)
+    cmp_path = getattr(args, "cmp", None)
+    ind_path = getattr(args, "ind", None)
+    missing = [n for n, v in (("--image", image_path), ("--cmp", cmp_path),
+                              ("--ind", ind_path)) if not v]
+    if missing:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"point_walk_v1 needs {', '.join(missing)}"])
+    for path in (image_path, cmp_path, ind_path):
+        if not Path(path).exists():
+            return dict(base, status="INVALID", exit=EXIT_INVALID,
+                        problems=[f"missing input: {path}"])
+
+    try:
+        import mutarefer  # noqa: F401
+    except ImportError:
+        pass
+    try:
+        import point_walk_l3 as pw
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"cannot import point_walk_l3: {exc}",
+                    accepted=None, l3_claim=False)
+
+    build = target.get("build") or "eu2011"
+    try:
+        tgt = pw.target(build)
+    except SystemExit as exc:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[str(exc)])
+
+    inputs = entry.get("inputs") or {}
+    offset = getattr(args, "offset", None)
+    if offset is None:
+        offset = inputs.get("offset", 0x840BA0)
+    length = getattr(args, "length", None)
+    if length is None:
+        length = inputs.get("length", 42848)
+    offset = int(str(offset), 0)
+    length = int(str(length), 0)
+
+    import mutate_refer_poi as mrp
+    import zlib
+
+    try:
+        cmp_bytes = Path(cmp_path).read_bytes()
+        _u, _c, _n, _cs, offsets = mrp.read_ind(Path(ind_path))
+        dat = mrp.decode(cmp_bytes, offsets)
+        end = offset + length if length else len(dat)
+        raw = zlib.decompressobj().decompress(dat[offset:end])
+        recs = mrp.parse_page(raw)
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"cannot decode the POINT page: {exc}"])
+
+    try:
+        image = pw.load_image(str(image_path))
+        text_va, text = pw.navi_text(image, 0x200200)
+    except SystemExit as exc:
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"no executable text in {image_path}: {exc}",
+                    accepted=None, l3_claim=False)
+
+    count = len(recs)
+    requested = inputs.get("n")
+    if requested is None:
+        ns = sorted({0, 1, 2, 3, 10, count // 2, count - 2, count - 1, count})
+    else:
+        ns = [int(x) if isinstance(x, int) else int(str(x), 0)
+              for x in requested]
+    native = pw.swap16(raw)
+    text_entry = int(str(entry.get("va", "0")), 0)
+    if text_entry and text_entry != tgt["nth"]:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"entry.va {text_entry:#010x} is not the {build} "
+                              "POINT walker in tools/build_targets.py"])
+
+    problems: list[str] = []
+    rows: list[dict] = []
+    mismatch = None
+    values, mismatch = pw.guarded(
+        [lambda n=n: pw.run_nth(text_va, text, native, n, tgt, build)
+         for n in ns])
+    for n, fw in zip(ns, values):
+        py = recs[n]["offset"] if n < count else None
+        model = pw.model_nth(raw, n, escape_len=tgt["escape_len"])
+        ok = fw == py == model
+        if not ok:
+            problems.append(
+                f"n={n}: firmware {fw!r} parse_page {py!r} model {model!r}")
+        rows.append({"n": n,
+                     "firmware": None if fw is None else f"0x{fw:x}",
+                     "parse_page": None if py is None else f"0x{py:x}",
+                     "model": None if model is None else f"0x{model:x}",
+                     "ok": ok})
+
+    if mismatch is not None:
+        where = ("" if mismatch.fault_va is None
+                 else f" 0x{mismatch.fault_va:08x}")
+        verdict = (f"FAIL (unmapped{where} @ build {build}, {mismatch.code})")
+        return dict(
+            base,
+            status="FAIL",
+            exit=EXIT_MISMATCH,
+            accepted=None,
+            verdict=verdict,
+            firmware={"build": build, "nth": f"0x{tgt['nth']:08x}",
+                      "insns": None},
+            inputs={"image": str(image_path), "cmp": str(cmp_path),
+                    "ind": str(ind_path), "page": f"0x{offset:x}",
+                    "records": count},
+            records=rows,
+            problems=[verdict],
+            l3_claim=True,
+            note=("wrong build/image pairing: the walker entry is not this "
+                  "image's (M9.42); a verdict, not a crash"),
+        )
+
+    expected = getattr(args, "expect", None) or target["expect"]["verdict"]
+    observed = "ACCEPT" if not problems else "REJECT"
+    ok = observed == expected
+    return dict(
+        base,
+        status="PASS" if ok else "MISMATCH",
+        exit=EXIT_OK if ok else EXIT_MISMATCH,
+        accepted=observed == "ACCEPT",
+        verdict=observed,
+        expected_verdict=expected,
+        firmware={"build": build, "nth": f"0x{tgt['nth']:08x}",
+                  "insns": None},
+        inputs={"image": str(image_path), "cmp": str(cmp_path),
+                "ind": str(ind_path), "page": f"0x{offset:x}",
+                "records": count},
+        records=rows,
+        problems=[] if ok else problems,
+        l3_claim=True,
+        note=(f"POINT record walker {tgt['nth']:#010x} ({build}) reads "
+              "record offsets like mutate_refer_poi.parse_page; the walker "
+              "proves the record framing, not the name/coordinate contents "
+              "(C-4178)"),
     )
 
 
@@ -2473,7 +2661,15 @@ def _emit_target(payload: dict, as_json: bool) -> None:
         return
     expected = payload.get("expected_verdict") or payload["expect"]["verdict"]
     print(f"verdict  {payload['verdict']} (expected {expected})")
-    if payload.get("firmware"):
+    if payload.get("records"):
+        fw = payload.get("firmware") or {}
+        print(f"walker   nth={fw.get('nth')} build={fw.get('build')} "
+              f"records={len(payload['records'])}")
+        for row in payload["records"]:
+            print(f"  n={row['n']:<5} firmware={row['firmware']!s:<8} "
+                  f"parse_page={row['parse_page']!s:<8} "
+                  f"model={row['model']!s:<8} {'OK' if row['ok'] else 'MISMATCH'}")
+    elif payload.get("firmware"):
         fw = payload["firmware"]
         if "fn" in fw:
             print(f"firmware fn {fw['fn']} {fw['build']} {fw.get('module', '')} "

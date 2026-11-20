@@ -640,6 +640,8 @@ READER_STUBS = {
         "OSM_Printf",
         "OSM_LogMsg",
     ],
+    # the record walker touches no WinCE API: the harness maps text+page+stack
+    "point_walk": [],
     "drstr": [
         "CreateFileW",
         "ReadFile",
@@ -988,8 +990,8 @@ def validate(table=None) -> list[str]:
         problems.append(f"missing required stubs: {missing}")
 
     for reader, wanted in READER_STUBS.items():
-        if not isinstance(wanted, list) or not wanted:
-            problems.append(f"READER_STUBS[{reader}]: must be a non-empty list")
+        if not isinstance(wanted, list):
+            problems.append(f"READER_STUBS[{reader}]: must be a list")
             continue
         for stub_name in wanted:
             if stub_name not in seen:
@@ -998,7 +1000,6 @@ def validate(table=None) -> list[str]:
                 )
 
     return problems
-
 
 def json_schema() -> dict:
     """Return the JSON Schema for a stub table document."""

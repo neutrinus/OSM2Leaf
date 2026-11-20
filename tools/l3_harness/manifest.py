@@ -47,6 +47,7 @@ READERS = {
     "drstr": "DRSTR001.DAT directory tree parser",
     "tile": "MAPAL001 BxxRyyR.DAT tile reader",
     "hdd_info": "VER_INFO/HDD_INFO.TXT map-code parser",
+    "point_walk": "POINT0nn name-page record chain (tag,len2 records)",
 }
 
 #: ``case`` -> allowed readers, mandatory verdict and purpose.
@@ -70,6 +71,11 @@ CASES = {
         "readers": ("cmp_ind",),
         "verdict": "ACCEPT",
         "purpose": "same-length POI rename is accepted",
+    },
+    "point_walk_factory": {
+        "readers": ("point_walk", "cmp_ind"),
+        "verdict": "ACCEPT",
+        "purpose": "synthetic POINT name page is a clean record chain",
     },
     "corrupt_ind": {
         "readers": ("cmp_ind",),
