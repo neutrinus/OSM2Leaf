@@ -157,6 +157,12 @@ kept), so the next run extracts cleanly.
   unchanged, and the built binary boots `archive/head256.img` with the same
   stable result as 8.2.7 (0 exceptions, one `write 0x38`). See
   [`EXP-2026-11-17-M8.A10-bump-8210.md`](../../docs/experiments/EXP-2026-11-17-M8.A10-bump-8210.md).
+- **M8.A6 (2026-11-19):** `ze0-0002` maps the kernel debug SCIF
+  (`sh_serial`, SCIF mode) at `0xffe46000` on serial port 0; `run.sh
+  --serial` (default `log` = `WORK/serial.log`; `stdio`, `none` or any QEMU
+  chardev) carries it. The retail EU2011 banner does not go there — only
+  the AER exception dump does. See
+  [`EXP-2026-11-19-M8.A6-debug-serial.md`](../../docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
