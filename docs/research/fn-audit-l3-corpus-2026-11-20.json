@@ -383,6 +383,7 @@
   "docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md",
   "docs/experiments/EXP-2026-11-20-H116-archive-docs-base.md",
   "docs/experiments/EXP-2026-11-20-H117-main-shadow-run.md",
+  "docs/experiments/EXP-2026-11-20-H118-fnmatch-unloaded-pool.md",
   "docs/experiments/EXP-2026-11-20-H19-reverify-thin-records.md",
   "docs/experiments/EXP-2026-11-20-H53-strict-honest.md",
   "docs/experiments/EXP-2026-11-20-H63-corrected-evidence.md",
@@ -445,7 +446,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 438,
+  "files": 439,
   "citations": 1123,
   "unique_va": 282,
   "start": 970,
@@ -468,7 +469,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1624,
+   "line": 1625,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -477,7 +478,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1624,
+   "line": 1625,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -486,7 +487,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1625,
+   "line": 1626,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -495,7 +496,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1646,
+   "line": 1647,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -505,7 +506,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1656,
+   "line": 1657,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -514,7 +515,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1727,
+   "line": 1728,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -523,7 +524,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1727,
+   "line": 1728,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -532,7 +533,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1760,
+   "line": 1761,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -541,7 +542,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1761,
+   "line": 1762,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -550,7 +551,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1783,
+   "line": 1784,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -559,7 +560,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2221,
+   "line": 2222,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -568,7 +569,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2221,
+   "line": 2222,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
