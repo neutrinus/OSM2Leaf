@@ -326,6 +326,27 @@ L3 trace needed). Buffer-slot→ADDRE binding is `HYPOTHESIS`. L3 probe of
 COREDLL/state). Navi.exe sec1/sec2 are compressed *data* (C-2128), not a code
 blocker. See `docs/format/refer.md` "Firmware reader (M3.13)".
 
+**M3.13 pass 4 (EXP-2026-11-20-M3.13-addre-reader-l3, C-5930–C-5939, blocked on M3.32/M3.30 for the remaining fields):** the
+`ADDRE` record reader is the generic `REFER001` field accessor of M3.11c. The populate
+writer of message type `0x14e4`, `fn 0x003fd390` (EU2011; US2011 `0x00425564`), run with
+search type 2 at ctx `+124`, stores the page in slots `+0x14` and `+0x2c` and the field
+dictionary (header entry `+44`, copied by `0x0040e9dc`) in `+0x18`. Header entry `+44` and
+the page object (`OBJ+20` = page) are **seeded inputs** of the harness: no firmware loader
+was seen filling them, and the schema block is chosen as the dictionary by the accessor's
+own checks (the only block in the file that passes them). The dictionary is the
+`ADDRE` schema block (3 fields: `area code`, `street name`, `dndc-id`).
+`fn 0x003f61bc(db, rec, f)` / `fn 0x003f5d98` then return each field's pointer and length;
+`fn 0x003f56bc` places the field-length block at `rec + 2*(rec[2] + rec[3] + 2)` for class
+6 (`0xc000`), and that block is the old `TT LL 00 ff` "name section". The dispatcher
+`fn 0x003f5cdc` reaches record `n` through slot `+0x2c` → walker `0x003f5b88`, stride
+`2*(w & 0x3ff)` (so `c1` = `L ≥ 256`). Record leaves (EU2011, no pdata rows):
+`0x003f5468` → `c8` bit, `0x003f5550`/`0x003f54f4` → block 1 (`rec+4`, `rec[2]` words),
+`0x003f559c` → number of house-range items, `fn 0x003f5624(db, rec, i)` → item `i`
+(item length = its first byte, in words). Callers of the item accessor:
+`fn 0x003ad680`, `fn 0x003ad9a4`, `fn 0x003b9d38`, `fn 0x003bacc4` (not run; M3.32).
+`fn 0x0040b358` is a path lookup, not a record reader. PySh4: EU2011 3,650 and US2011
+57,180 factory records correct, edited blocks read back (`tools/addre_field_reader.py`).
+
 **M3.22 (EXP-2026-11-10, C-3460–C-3468, blocked — provisional):** `0x00d53500`
 is BSS in `Navi.exe` sec1 (C-3442/H49), so its contents are run-time written.
 `sh4xref --to 0x00d53500` (IMG256 `92aa525d…`, build A) gives **33 loads / 20
@@ -626,6 +647,10 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | block-address leaf / header-table lookup (M4.52) | `0x0040f00c`/`0x0040ee4c` | `0x00436f58`/`0x00436dd4` | the parser's and the loader's own pool slots |
 | locator-path stubs: cache lookup/allocate, debug log, read request, parser tail (M4.52) | `0x00407724`/`0x004086b4`/`0x003ec9fc`/`0x003f6c88`/`0x0040a8d0` | `0x0042f824`/`0x004307b4`/`0x0041551c`/`0x0041f5e8`/`0x004329d0` | the loader's and the parser's own pool slots |
 | locator-path memset / `_divlu` thunks (M4.52) | `0x003d13c4`/`0x003d140c` | `0x0040089c`/`0x004008e4` | the loader's own pool slots |
+| map-file layer init / event / queue read / resolve / cancel / logger (M9.14) | `0x00417924`/`0x00419c38`/`0x0041841c`/`0x0040b358`/`0x00418428`/`0x0041bbec` | `0x0043f688`/`0x0044199c`/`0x00440180`/`0x00433458`/`0x0044018c`/`0x00443950` | `fn_match` pairs, pdata START with equal lengths (`read` is a 12-byte stub `fn_match` calls AMBIGUOUS; same words, same place) |
+| read API clients: clamp / request / wrapper A / wrapper B (M9.14) | `0x00409ba0`/`0x003f6c88`/`0x003f7384`/`0x003f73dc` | `0x00431ca0`/`0x0041f5e8`/`0x0041fce4`/`0x0041fd3c` | `fn_match` UNIQUE |
+| DRSTR parser / its caller / MMAIN reader (M9.14) | `0x00419350`/`0x00419684`/`0x0041a438` | `0x004410b4`/`0x004413e8`/`0x0044219c` | `fn_match` UNIQUE; their pools give the data cells below |
+| layer state / mount / directory count / directory records / MMAIN buffer / `\SystemSD` (M9.14) | `0x009cfce0`/`0x009cfce4`/`0x009cfcd4`/`0x00e25420`/`0x00e23cc0`/`0x00049fd4` | `0x00a10ea8`/`0x00a10eac`/`0x00a10e9c`/`0x00d53020`/`0x00d518c0`/`0x00056634` | pool value at the same load index of the paired function (`vcard_l3.py port`); mount = state + 4 in both |
 
 The table is a checked copy, not a source: the values are owned by
 [`tools/build_targets.py`](../../tools/build_targets.py) (M1.32), from which
