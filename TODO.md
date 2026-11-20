@@ -542,8 +542,9 @@ of the four numbers above says so in its first line.
   - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` decodes 245/245 build-A sections with lengths equal `comphdr` (C-3440, EXP-2026-11-10-M9.35-sec1-load-model), so the codec port/QEMU oracle this task asked for is moot; H81 closes it on the board (M1.19 re-opens nothing here).
   - Claims: C-2070–C-2079
 
-- [ ] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
-  - Status: blocked · Owner: task/m1.2f-decomp-blk-python · Critical: no
+- [x] **M1.2f — Port the nk.exe block codec (`DECOMP_BLK`) to pure Python**
+  - Status: done · Owner: task/m1.2f-decomp-blk-python · Critical: no
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` runs the kernel's own `DECOMP_SECT` in PySh4 and `cerom.py decompress --check` reports 245/245 build-A sections OK with `r0 == comphdr uncompressed_len` (EXP-2026-11-19-M1.19-kernel-decomp-wiring); no codec port or QEMU run is needed (M1.19 rule-15 closure).
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Note (PM twelfth pass, H49): **not the L3 gate any more.** Only `INIT`
     bytes need it — 1.67 MB of 30.2 MB compressed (C-3440): sec2 constants,
@@ -1101,8 +1102,9 @@ of the four numbers above says so in its first line.
   - Stop: if the README's contract already names the gate (it may, after H85), mark this done as "H85 closed the claims half; README updated" with a one-line Result and leave the todo half to H53's follow-up.
   - Claims: C-4090–C-4099
 
-- [ ] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
+  - Status: done · Owner: task/m1.19-kernel-decomp-wiring · Critical: yes
+  - Result: EXP-2026-11-19-M1.19-kernel-decomp-wiring; C-3500–C-3506. `cerom.py --image-start 0x200200 IMG256 decompress --check` → `245 OK, 0 UNSUPPORTED, 0 FAIL` with `r0 == comphdr uncompressed_len` for all 245 (EU2011, 1,674,478 B) and 249/249 on US256 (US2011, 1,684,059 B); `nk_decomp` gained a cached library interface (`section_init`/`section_bytes`/`load_image`, cache `$OSM2LEAF_DECOMP_CACHE` or `archive/work/decomp/`); `rommap.py --init-from-image` maps decoded INIT + zero BSS with IAT bound and no guard; `runner.py run cmp_ind_reader` (EU2011) and `cmp_ind_reader_us2011` PASS with `sec1_table.source: image` (no declared values; mask words equal `2^n-1`; counters equal the declared run, zero-sec1 control FAILs); probes `mmain_reader` → `BLOCKED STUB COREDLL.dll!wcstombs`, `drstr-sub_00419350` → `BLOCKED STUB OSMDLL.dll!OSM_Malloc` (same under `--init-guard`: no INIT read first); `va_class` prints `INIT (readable: nk_decomp)`; `reader-coverage.md` row 6 updated. Rule 15: M1.2f and M8.E1 closed as superseded (the other five were closed by H81); M1.4 was already re-opened by M1.21 (rule 15). Builds B/C not run (EXP Follow-ups).
   - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)
   - Goal: make the stored bytes of every compressed section an ordinary input. Today `cerom.py decompress` says `UNSUPPORTED` 245 times, the L3 harness maps `INIT` bytes as a guard that stops the run (M9.35), and `cmp_ind_reader` gets `inflate_mask[17]` as a declared table instead of from the image.
   - Precheck: `python3 tools/nk_decomp.py --selftest`; `python3 tools/nk_decomp.py section IMG256 --module NaviMapCC.dll --index 1` prints `r0=0x484 OK` (0.7 s); `python3 tools/nk_decomp.py check IMG256` (several minutes) prints the count recorded in EXP-2026-11-11-H51.
@@ -3590,8 +3592,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Goal: after F3, go to F4 only if the micon/CAN handshake (M8.C4/C5) looks scriptable; F5 stays out of scope unless M8.C19 shows a simple frame-buffer path.
   - Done when: the decision is written down; no code change implied.
   - Claims: C-1595–C-1599
-- [ ] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: blocked · Owner: task/m8.e1-run-rom-decompressor-retry (retry 2026-11-08) · Critical: no
+- [x] **M8.E1 — Run the kernel's ROM decompressor as a tool**
+  - Status: done · Owner: task/m8.e1-run-rom-decompressor-retry (retry 2026-11-08) · Critical: no
+  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` runs the kernel's own `DECOMP_SECT` in PySh4 and `cerom.py decompress --check` reports 245/245 build-A sections OK with `r0 == comphdr uncompressed_len` (EXP-2026-11-19-M1.19-kernel-decomp-wiring); no codec port or QEMU run is needed (M1.19 rule-15 closure).
   - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
   - Depends: M8.E1b (VAs verified, C-2290–C-2293). Does **not** need F1: call
     the function under `-M none` + gdbstub with RAM-only state (LE SH-4).
