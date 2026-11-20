@@ -3243,8 +3243,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-19-M5.30-one-variable-card.md — allocator bound fixed (115,185 data clusters, last valid 115,186); one-variable card SHA-256 `b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237`; `cardcheck --image` PASS; diff 586 ranges / 152,815 B, outside 0 with `--allow-metadata` / 9 (FAT/FSInfo) strict; L2 PASS on the result tree; `7z t` and `fsck.fat -n` accept the card; claims C-3060–C-3066.
   - Claims: C-3060–C-3069
 
-- [ ] **M5.32 — Resolve M5.12c's 5 unfit POI pages with the M5.21 slot-budget strategy**
-  - Status: in progress · Owner: task/m5.32-unfit-poi-pages · Critical: yes · Pair: required
+- [x] **M5.32 — Resolve M5.12c's 5 unfit POI pages with the M5.21 slot-budget strategy**
+  - Status: done · Owner: task/m5.32-unfit-poi-pages · Critical: yes · Pair: required
   - Step: P4
   - Depends: M5.21, M5.27
   - Goal: close the remaining 5 unfit POI pages from M5.12c (131/136 edited; 5 left per M5.12c S4) using a slot-safe strategy, now that M1.13 establishes stock zlib L6/m8 as the factory-equivalent encoder.
@@ -3254,6 +3254,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: each of the 5 records is either edited on a `cardcheck`-passing image with diff ranges confined to the affected page/slot envelope (reported) or listed as refused with slot/candidate sizes and a concrete follow-up; EXP gives per-page before/after sizes and hashes.
   - Stop: if no slot-safe same-page strategy fits after the M5.21/M1.13 encoder search, stop with `blocked` or `open` follow-up for page relocation; do not pad over non-zero bytes or overwrite the next page.
   - Claims: C-3190–C-3199
+  - Result: EXP-2026-11-20-M5.32-unfit-poi-pages. All 5 records edited (4 × `RAB ORCHARD` → `OSM2 RAB 01` on `POINT006` `0x12d94cc0`, 1 × `HARDEE'S` → `OSM2 H01` on `POINT008` `0x152e4a08`). With stock zlib L6/m8 the pages grow by only 5 / 7 B (M5.12c's 250 / 72 B was zlib-ng); they abut their neighbours, so the per-page M5.21 rule refuses, and the chain-level `point_pair_regen.py regen` fits them in the pooled chain slack (196 / 132 B left), with no relocation. Inside the `.DAT` nothing changed outside the chain slot, table and base-reference length (`outside 0`); the US card passes `cardcheck` (RESULT: PASS) and `imgpatch --check-diff` (outside 0, only the 4 files). L3 `point_locator_l3.py` (US2011 `0x00426480`) ACCEPTs the edited and shifted pages. Fix: `regen` now rewrites the M4.47 base reference's length word, which it had left stale (C-3193). Claims C-3190–C-3194.
 
 - [x] **M5.34 — Put the OSM test road into a `0x2046` parcel so the factory-backed one-tile run completes (unblocks M5.29, PR #171)**
   - Status: done · Owner: task/m5.34-parcel · Critical: yes · **Runnable here** (2026-11-17: OSM API 200, Geofabrik 307, full EU card in `archive/sd-images/`; the `Runner: non-Claude` flag was a Claude-sandbox property, rule 12); the parcel census part needs no download
