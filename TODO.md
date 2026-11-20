@@ -4776,7 +4776,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3370–C-3379
 
 - [ ] **M9.33 — Map reopened L3 target rerun prerequisites (M1.2f / M9.24 / M9.28 / H45)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m9.33-rerun-prereqs-map · Critical: no · Pair: solo
   - Depends: H45, M9.28
   - Note (M9.28, 2026-11-19): the input-buffer prerequisite is **cleared** — `entry.input_region` maps a file-derived page at a chosen VA (EXP-2026-11-19-M9.28-input-region, C-3210–C-3219); remaining blockers for the reopened readers are sec1 `INIT` bytes (M1.2f) and import/CRT binding (M9.24).
   - Goal: make "re-run reopened L3 reader targets" cheap to decide: for M9.6/M9.10/M9.13/M9.14/M9.17/M9.11 (open states), state which blockers are cleared (M9.20/M9.11b/M3.20) and which prerequisites remain (sec1 decompression M1.2f, import/CRT/file binding M9.24, input-buffer mapping M9.28, reader VA/signature evidence), using H45 verdicts where available.
