@@ -63,11 +63,13 @@ There are 33 numbered shards, matching the 33 regions:
 - The 24-byte index record is 12 big-endian `u16`; `f11` is the POI id (dense
   only for single-page shards).
 - **Coordinates are present, but not as a named field.** Each POI record
-  contains a 4-byte id (two `u16`); it decodes with the same formula as
-  `COORD001`/`ADDRE`:
-  `lat = (x-32768)/192`, `lon = (y-52742)/128`. The two copies are usually
-  equal; the second can differ by a small delta (e.g. `(8,8)` in Vatican
-  records).
+  contains a 4-byte id (two `u16`, "copy A") followed by two 11-bit fine
+  fields; together they give the position to about 1 m — see
+  [Fine POI position](#fine-poi-position-and-the-map-of-a-point-file-m427).
+  The older reading `lat = (x-32768)/192`, `lon = (y-52742)/128` treats the
+  id as a 1-unit coordinate and is 1.5–7 km off (the low nibble of each word
+  is `11xx`, not four position bits). A second copy of the id follows at
+  bytes 12–15 and can differ (e.g. by `(8,8)` in Vatican records).
 - Each facility name is bracketed by a 16-bit category code and a 16-bit
   brand code (last two bytes of the record). The brand code selects the
   `BICON001` logo; see [assets.md](assets.md) for the verified table.
@@ -263,12 +265,106 @@ Still open:
   (two 0..2047-class fields between copy A and copy B); `v16`/`v20` are
   2047-class but discrete (`{576,1088}`, `{512,576,832,1024,1088,1344}`).
   `(p6,v8)` does **not** encode a tile-local geographic position of copy A at
-  scale 1 or 2 (negative, C-2931) and their meaning is `UNKNOWN` (possibly
-  bit-packed attributes; the field dictionary gives bit offsets such as area
-  code 32/44, category 58).
+  scale 1 or 2 (negative, C-2931). **Solved by M4.27 (C-2679):** they are the
+  fine position inside a 4-unit sub-cell of copy A, 512 steps per packed
+  unit (`p6` longitude, `v8` latitude); see "Fine POI position" below.
 - `REFER002/POINT002.DAT` explicit `xy-coordinates` bits.
 
+### Fine POI position and the map of a POINT file (M4.27)
+
+> **Status:** `OBSERVED` on EU 2011 (33 files, 937,131,520 B decoded) and
+> US 2011 (11 files, 2,608,416,256 B) (C-2676–C-2679). Not yet tied to a
+> firmware reader (M3.34); a writer does not use it yet (M5.63).
+
+**Every byte of a POINT `.DAT` belongs to a structure reached from the
+directory.** `tools/point_census.py census` walks them all; no byte is left
+over in any of the 44 files. Share of the decoded bytes, EU / US:
+
+| Class | Reached from | EU | US |
+| --- | --- | ---: | ---: |
+| name tries | cells `0x824`, `0xe84`, `0xe8a`, `0xe90` | 22.5 % | 30.6 % |
+| index chains | each trie descriptor | 7.5 % | 10.0 % |
+| spatial trees | cell `0x85a` | 55.8 % | 35.4 % |
+| phone B-tree | cell `0x82a` record `+4` | — | 5.0 % |
+| page chains 1000 / 400 / 2000 | cells `0x82a`, `0xeba` | 12.8 / 0.8 / 0.4 % | 17.3 / 1.5 / 0.04 % |
+| header, directory, descriptors, tables, fill | | 0.2 % | 0.06 % |
+
+**Structure reference** (inside a descriptor record; lists chain entries
+with a leading `u16 next_w`, `ffff` on the last):
+
+```
+u32 block address   // of the trie or tree
+u32 length in words
+u32 0
+u16 root node size in words
+u16 flags           // 4c40: trie + chain of 12-word records; 4d40: 9-word
+                    // records; 8000: spatial tree (no chain)
+u32 block address of the index chain, u32 inflated words   // not for 8000
+```
+
+**Name trie** (spelling search; one for the whole file at cell `0x824`, one
+per category `0xe84`, per sub-category `0xe8a`, one for area names `0xe90`).
+A node is a run of 12-byte entries:
+
+```
+u32 off_w, u16 size_w, u16 0, u8 char, u24 count      // child or leaf
+u32 index_off_w, u32 parent_node_off_w, ff 00, u16 n  // last entry of a node
+```
+
+`size_w > 0`: the child node is `size_w` words at `off_w` (from the trie
+start). `size_w = 0`: `off_w` is a word offset into the trie's index chain.
+The nodes tile the region exactly.
+
+**Index chain**: `4e20 0000`, `n × u32 comp_w`, then `n` zlib streams of up
+to 20,000 fixed records. The 12-word record is the sort key of a name
+record plus its ordinal (`u32` in words 10–11, 0-based over the name chain);
+words 0–1, the words 2–5 that are not `ffff`, and words 7–8 occur verbatim
+in that name record just before the name (all 28,295,255 records of the
+cell-`0x824` chains checked). It
+holds no position. The 9-word record ends with the ordinal of a 2000-chain
+(`ADM`) record.
+
+**Spatial tree** (one per category): 16-byte entries
+`0008, u32 ptr, u16 size_w, u16 kx, u16 ky, u32 fine`, a node ends with
+`0005 ffffffff u32`. Levels 0, 1, 2 are keyed by the copy-A id with the low
+7, 4 and 0 bits cleared; some trees add a level keyed by a category code.
+A leaf (`size_w = 0`) has `ptr` = name-record ordinal and `fine` = that
+record's bytes 6–9 with flag bits on top (usually `0x8800 | fine_lon`,
+`0xf800 | fine_lat`). Checked for all 10,718,316 leaves of both builds.
+
+**Phone B-tree** (US only): 0x1000-byte nodes of 16-byte entries
+`u32 child_w, u32 name ordinal, 8-byte BCD number (f-padded)`. The number
+equals the one in the `INFORMATION` record of that POI (7,018,762 keys).
+
+**400 chain** = one `INFORMATION` record (postcode, telephone number, ASCII)
+per name record whose tag is `0x60`, in the same order (a `0x68` name record
+has none). **2000 chain** = `ADM` records (area code, language type, area
+name).
+
+**Fine position.** The copy-A words are not 1-unit coordinates: their low
+nibble is always `11xx` (two marker bits, then a 4-unit sub-cell index), and
+bytes 6–9 of the record refine the sub-cell in 1/512 unit:
+
+```
+u(v, fine) = (v & ~15) + 4 * (v & 3) + fine / 512        // packed units
+lat = (u(A.x, rec[8..9])          - 32768) / 192
+lon = (u(A.y, rec[6..7] & 0x7ff)  - 52736) / 128         // tile origin
+```
+
+One step is 1/98,304° of latitude (1.1 m) and 1/65,536° of longitude.
+Against the 16 reference POIs of M4.8b the median error is 115 m (8 within
+100 m, the far ones are airports), against 3,558 m for the 1-unit reading;
+it is closer for 16 of 16, and exchanging the two fine fields gives 1,568 m.
+The longitude origin is the tile origin 52736; the "52742" of the older
+formula absorbed the average of the marker bits. `point_census.py
+encode_position` is the inverse for a writer.
+
 ### Where POINT coordinates are, and are not (M4.37)
+
+> **Corrected by M4.27 (C-2679):** the statement below that no field is
+> finer than one packed unit holds for the bit pages only. The name record
+> itself carries the fine position (bytes 6–9) and the spatial index leaves
+> repeat it; see the section above.
 
 **OBSERVED (EU 2011, POINT002/008/029; C-3750–C-3754):**
 
