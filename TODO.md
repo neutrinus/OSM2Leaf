@@ -3676,7 +3676,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-1310–C-1319
 - [ ] **M8.B2 — TMU** (`0xffd80000`, `0xffd81000`, `hw/timer/sh_timer.c`).
   Done when `CurMSec` advances.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.b2-ze0-tmu · Critical: no
   - Depends: M8.B1
   - Claims: C-1320–C-1329
 - [x] **M8.B3 — RTC/time** (`OEMGetRealTime`).
