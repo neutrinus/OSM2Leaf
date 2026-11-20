@@ -398,7 +398,7 @@ in the page while the owner's PR is open). Critical tasks per step (2026-11-19):
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
 - **L1 (cheap, ready):** `cardcheck --image` + `imgpatch`/manifest diff. Blocking: **H40** (vendor-free in-process fixture) → **H41**/**H42** (per-feature matrix). The card path itself waits on L2's **M5.30**. H40 starts from **H103** (a tree `cardcheck` accepts) + **H105** (a broken one that must fail) and is pinned by **H104** (baseline).
-- **L2 (necessary — rule 13): — THIS IS THE CRITICAL PATH.** **M5.34** done, M5.44/M5.45 done, **M5.30 P0 card `b0faf119…` done** → **M5.49** (P1 verbatim tile; needs M5.41) → **M5.11** (OSM→card end to end) → **M5.35** (one command + evidence bundle) → **M7.1** (all Dolnośląskie). **P1 = M5.46** done (contained=1) → **M5.49** (the copy) → **M5.50** ([the ladder page](docs/format/card-ladder.md)). Feature gaps: **M5.16** (routing graph), **M5.36** (road-class golden), **M5.37** (route-graph golden), **M4.36** (names, blocked on **M3.13**); support **M5.3**, **M5.23**, **M5.33**, **M5.32**, **M5.41**, **M5.43**, **M5.38** (ladder page).
+- **L2 (necessary — rule 13): — THIS IS THE CRITICAL PATH.** **M5.34** done, M5.44/M5.45 done, **M5.30 P0 card `b0faf119…` done** → **M5.49** (P1 verbatim tile; needs M5.41) → **M5.11** (OSM→card end to end) → **M5.35** (one command + evidence bundle) → **M7.1** (all Dolnośląskie). **P1 = M5.46** done (contained=1) → **M5.49** (the copy) → **M5.50** ([the ladder page](docs/format/card-ladder.md)). Feature gaps: **M5.16** (LEV3456R levels 3–6; routing graph is **M4.40** → **M5.56**, tested by **M9.56**), **M5.36** (road-class golden), **M5.37** (route-graph golden), **M4.36** (names, blocked on **M3.13**); support **M5.3**, **M5.23**, **M5.33**, **M5.32**, **M5.41**, **M5.43**, **M5.38** (ladder page).
 - **L0/L4 readiness (QA 2026-11-18):** the first L4 row is not a run but the **H110** panel (`l4_status.py`, F0–F4, `NOT RUN` without a log); the L2→L3 link is **H106** (the corpus names M5.34's tile) and **H107** (the blocked split).
 - **L3 (virtual; SKIP/BLOCKED never PASS):** **M9.41** (register the US POI walk row) → **M9.31** (no-diff verdicts) → **M9.12** (`l3check --card`). The **tile** reader — the file L2 writes — has no runnable target: **M3.27** done (none of the three VAs takes a tile buffer; target `0x00425f40`) → **M3.25** (the run) → **M9.13**; names need **M3.11c**; discovery **M3.23**/**M3.24** → **M9.38**; **M1.19** for `INIT` bytes. QA 2026-11-18: the corpus does not name M5.34's tile (**H106**) and the `blocked=6` number hides two argument-only rows (**H107**).
 - **L4 (QEMU/M8):** **M8.A2** is `done` (QEMU 8.2.10 `-M ze0`, one run, exceptions 0). Next: **M8.A3**/**M8.A6** → **M8.E4** (full `Navi.exe` on a generated card); **M5.43** repairs the `--check-version` exit code the next bump needs. **M1.19** gates any `INIT`-byte run. The row itself is prose until **H110** (readiness panel + `l4_status.py`).
@@ -3371,6 +3371,20 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-5160–C-5169 (was none yet; fresh block for this run)
   - Result: EXP-2026-11-19-M5.37-route-graph-golden — `tools/tile_graph_roundtrip.py` + `l2check --graph-tiles`: PASS on the synthetic fixture (2/2) and on the real `B48R058R` splice with 32 writer-emitted section-2 records (32/32, 73,384 others factory-identical); FAIL on a moved endpoint, a dropped link and an unclaimed change; `preserved` (73,416) for an untouched section 2; factory re-emit 67,674/69,345 records, 0 failures. Compared: parcel, nodes, links (id, direction), edge entries; `UNKNOWN`: w4, w5, class/cost words, countries, part b (C-5160–C-5166).
 
+- [ ] **M5.56 — Section-2 writer: the full route graph of a generated tile from OSM (attributes, not only framing)**
+  - Status: blocked · Owner: — · Critical: yes · Pair: required
+  - Depends: M4.40 (section-2 grammar incl. part b), M5.37 (L2 graph round-trip, done), M4.39 (link key `(parcel, class & 0xf, w3 & 0x1fff)`, done), M5.23 (section-1 record fields)
+  - Unblock: M4.40 (field table for part a and part b in `docs/format/map-tiles.md` with the reading VA per field)
+  - Goal: a generated tile can render roads today but routes on a graph we never wrote: the writer emits section-2 framing (nodes, links, direction, M5.37) and keeps the rest factory/empty. Write every section-2 field from OSM so the router has the data it needs: one-way (`oneway`), road class (from the M5.36 class map), connectivity at shared nodes, and turn restrictions (`type=restriction`) where the grammar has a place for them.
+  - Precheck: M4.40 is `done` and its field table lists part b with 0 unexplained bytes (or the unexplained ranges named); `python3 tools/tile_graph_roundtrip.py --selftest` passes; `python3 tools/l2check.py --help` shows `--graph-tiles`.
+  - Scope: the section-2 emitter used by `tools/tilewriter.py` (new `tools/sec2_writer.py` if cleaner), EU2011 ZE0 X08-02-00 tiles, Dolnośląskie test bbox. Each OSM attribute maps to a named field or is listed `not representable`. No LEV3456R, no section 4 (names), no new grammar claims beyond M4.40.
+  - Input: M4.40 EXP + `docs/format/map-tiles.md` §section 2, `tools/rd_restrictions.py`/`clarion_rd` (part-a layout), `tools/tile_graph_roundtrip.py`, M5.36 class map, M4.39 `tools/route_link_join.py`, M5.44 grid.
+  - Hints: start from a factory tile: re-emit its section 2 from its own decoded graph and require byte identity (or list each differing range with the reason) before writing an OSM graph. Junctions: OSM ways share node ids, the tile shares `(x, y)`; keep both sides of a split way connected.
+  - Done when: (1) factory `B48R058R` and one control tile re-emit section 2 byte-identically from the decoded graph (or the residue is enumerated); (2) an OSM-built tile passes `l2check --graph-tiles` with every edge attribute compared (none `UNKNOWN` that M4.40 decoded); (3) a mutant that flips one `oneway` FAILs the round-trip.
+  - Stop: if factory re-emit is not byte-identical after two rounds, record the differing fields and stop; do not ship an approximate graph to a card.
+  - Falsifier: the round-trip passes on a tile whose emitted graph has one link with reversed direction.
+  - Claims: C-5820–C-5829
+
 - [x] **M5.38 — The card ladder P0–P4: what a Poland card contains at each step and which software gate it must pass**
   - Status: done · Owner: task/m5.38-card-ladder · Critical: yes · Pair: solo
   - Result: EXP-2026-11-19-M5.38-card-ladder. Page `docs/research/card-ladder.md` (P0–P4: generated / copied / inconsistencies with the task that finds out / gate, ungated files in bold; P2 = routing, P3 = names to match the merged gate page). `tools/card_ladder.py steps --check` → `open=55 tagged=40 pending=15 missing=0`: 40 blocks tagged, 15 held in open PRs recorded in the page's Pending tags table. Measured on the factory `B48R058R` (`e9c9cb22…`): Dolnośląskie intersects 20 section-1 directories, today's writer can fill 9 (11 preserve-only `0x2146`–`0x2946`) → new **M5.53** (M5.52 was taken by M3.11c in parallel). Priorities gained "By card-ladder step".
@@ -4902,6 +4916,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the request needs state the run cannot provide after M9.52, record the faulting read/branch and stop.
   - Falsifier: the firmware reads the record block but no function loads the inflated bytes (then the consumer is another task: name the message that carries the buffer away).
   - Claims: none yet (take the next free block when claimed)
+
+- [ ] **M9.56 — The router computes a route on our graph in L3 (not only reads it)**
+  - Status: blocked · Owner: — · Critical: yes · Pair: required
+  - Depends: M4.40 (grammar), M4.54 (reply path driven in L3, done, `tools/rgd_reply_l3.py`), M5.56 (a written section 2), M9.13 (generated tile read in L3, done)
+  - Unblock: M4.40 done (M5.56 needed only for the generated half of Done when)
+  - Goal: rule 13 for routing: today L3 shows the router *receives* section 2 (M4.54); nobody has seen `Navi.exe` produce a route. Run the router's search over a factory tile and over an M5.56 tile and compare the result with a route we compute ourselves on the decoded graph.
+  - Precheck: `python3 tools/rgd_reply_l3.py --selftest` passes; `python3 tools/callgraph.py callers G 0x004266ec --depth 3` shows `0x00427a34` (common ancestor); the route-search entry above the reader is named in M4.40's EXP (if not, finding it is step 1, with `callgraph.py` from the route-request message).
+  - Scope: a new `tools/route_l3.py` (do not edit `datask_l3.py`/`vcard_l3.py`/`rgd_reply_l3.py`): set start/goal on two nodes of one tile, feed section-2 replies through the M4.54 path, read the firmware's link list. EU2011 first; one tile, no cross-tile route. Reference: shortest path on the decoded graph (`tile_graph_roundtrip` model) with the same cost the firmware uses, or link-sequence equality only if cost is unknown (say which).
+  - Input: M4.40/M4.54 EXPs, `tools/rgd_reply_l3.py`, `tools/datask_l3.py`, `tools/tile_graph_roundtrip.py`, M4.39 link key.
+  - Done when: factory tile: the firmware's link sequence for one start/goal pair equals the reference; control: blocking one link (or flipping its `oneway`) in the tile changes the firmware route (or makes it fail); generated half (after M5.56): the same check on an OSM-built tile.
+  - Stop: if the search needs global state the model cannot provide after two fixes (e.g. a cross-tile network level), record which state and stop; that is an M8 (L4) item.
+  - Falsifier: the firmware route is unchanged when the only link between start and goal is removed.
+  - Claims: C-5830–C-5839
 
 ## Retired leads
 
