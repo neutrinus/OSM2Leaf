@@ -476,7 +476,7 @@ Each directory run is an array of 6-byte cells. Two shapes are verified
   bytes, so `c1` is a `c0` with `L ≥ 256` (bit 8 of `L` lands in the tag byte).
   This frames all 43,602 record blocks of the 33 EU2011 shards to their exact
   end (59 `c1` records in 10 shards, `L` 261–280;
-  `python3 tools/addre_reader_l3.py frame REFER001/ADDRE0*.DAT.cmp`).
+  `python3 tools/addre_field_reader.py frame REFER001/ADDRE0*.DAT.cmp`).
   `tools/addre.py` still stops at the first `c1`, so its `verify` is claimed
   only for 001/017/003.
 - **`c0` always carries a name section, `c8` never does** — 692/692 vs 0/349

@@ -342,7 +342,7 @@ dictionary (header entry `+44`, copied by `0x0040e9dc`) in `+0x18`. The dictiona
 (item length = its first byte, in words). Callers of the item accessor:
 `fn 0x003ad680`, `fn 0x003ad9a4`, `fn 0x003b9d38`, `fn 0x003bacc4` (not run; M3.32).
 `fn 0x0040b358` is a path lookup, not a record reader. PySh4: EU2011 3,650 and US2011
-57,180 factory records correct, edited blocks read back (`tools/addre_reader_l3.py`).
+57,180 factory records correct, edited blocks read back (`tools/addre_field_reader.py`).
 
 **M3.22 (EXP-2026-11-10, C-3460–C-3468, blocked — provisional):** `0x00d53500`
 is BSS in `Navi.exe` sec1 (C-3442/H49), so its contents are run-time written.

@@ -51,9 +51,9 @@ on the dictionary itself instead of a record.
 
 Usage::
 
-  addre_reader_l3.py --selftest
-  addre_reader_l3.py run IMG --cmp C --build eu2011 [--block N|all|c1] [--rename OLD=NEW]
-  addre_reader_l3.py frame REFER001/ADDRE0*.DAT.cmp
+  addre_field_reader.py --selftest
+  addre_field_reader.py run IMG --cmp C --build eu2011 [--block N|all|c1] [--rename OLD=NEW]
+  addre_field_reader.py frame REFER001/ADDRE0*.DAT.cmp
 
 Method and results: docs/experiments/EXP-2026-11-20-M3.13-addre-reader-l3.md
 """
