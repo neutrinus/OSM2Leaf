@@ -3840,7 +3840,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   driver list, `IoBase`, `Irq`, load order. Two routes: static hive parser
   after M1.4, or a RAM dump after M8.B5. Done when the driver table is in
   `firmware.md`.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.e2-registry-loaded · Critical: no
   - Depends: M1.4, M8.B5 (either route: static hive parser or RAM dump)
   - Claims: C-1610–C-1619
 
