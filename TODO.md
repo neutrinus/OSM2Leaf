@@ -4259,7 +4259,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2640–C-2649
 
 - [ ] **M9.26 — Revisit `POINT` byte-order / source after M9.11b registers `cmp_ind_reader`**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m9.26-point-byteorder-revisit · Critical: no
   - Step: P4
   - Depends: M9.11b, M3.11b
   - Goal: M3.11b found the POINT page already as native little-endian `u16` in
