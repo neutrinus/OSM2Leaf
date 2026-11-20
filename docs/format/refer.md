@@ -110,8 +110,8 @@ n × { u32 start_w,   // page offset from the chain base
 ### POINT chain locator: block addresses, directory, descriptor records (M4.47)
 
 > **Status:** `OBSERVED` on EU 2011 (33 files, 99 chains) and US 2011 (11
-> files, 33 chains); the firmware code that reads the directory cell and the
-> base reference is not located (C-5390–C-5396, M4.52).
+> files, 33 chains) (C-5390–C-5395); firmware reader `VERIFIED (L3)` in both
+> builds, a relocated name chain read at its new base (C-5396–C-5399, M4.52).
 
 A POINT `.DAT` addresses its structures in 256-byte blocks with a **block
 address** (BE `u32`):
@@ -146,6 +146,17 @@ offset = (addr >> 8) * 0x800 + (addr & 0xff) * 0x100
 - The header holds no file length, so a chain may be appended at the end of
   the `.DAT` (`point_pair_regen.py relocate`: new base at the next 0x100
   boundary, base reference and table rewritten, old chain zeroed).
+- **Firmware reader (M4.52).** The header parser `fn 0x003f930c` (EU2011) /
+  `0x00421c3c` (US2011) decodes the directory cells with the leaf
+  `0x0040f00c` / `0x00436f58` (`(w0<<11) | ((w1>>5)&0x7f8) | (w1&7)` = block
+  number, on native u16); cell `0x82a` lands in object `+24`. The POINT page
+  loader `fn 0x003fe2d4` (EU2011) / `0x00426480` (US2011), called by
+  `fn 0x003ffce0` / `0x00427e1c`, takes the dictionary record from
+  header-table entry `+64`, decodes the base reference `D+4` with the same
+  leaf, adds `start_w` of the requested page and reads `2*comp_w` bytes there.
+  Run in PySh4 on `relocate` output it requests the new base and record 1
+  matches; with the reference left at the old base it requests the old bytes
+  (`tools/point_locator_l3.py`, C-5397, C-5398).
 
 ### POI name page framing (page level)
 

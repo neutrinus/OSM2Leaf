@@ -296,6 +296,17 @@ returns `OSM2LEAF TEST POI1`. Name + field 6 (address) split the display text on
 1000/1000 records per build. The returned offsets point into the swapped page;
 the byte order of the text is M3.11b.
 
+**M4.52 POINT chain locator reader (EXP-2026-11-20-M4.52-point-locator-reader, C-5397–C-5399):**
+the header parser `fn 0x003f930c` (EU2011) / `0x00421c3c` (US2011) decodes the
+`.DAT` directory cells at `0x800` with the block-address leaf `0x0040f00c` /
+`0x00436f58`; cell `0x82a` (field dictionary) goes to object `+24`. The POINT page loader
+`fn 0x003fe2d4` / `0x00426480` (caller `fn 0x003ffce0` / `0x00427e1c`) reads the
+dictionary record from header-table entry `+64` (`0x0040ee4c`), decodes the base
+reference `D+4` with the same leaf, adds `start_w` and requests `2*comp_w` bytes through
+`0x003f6c88` / `0x0041f5e8` (slot `+8` sector, `+12` offset, `+16` length). In PySh4 it
+reads a `relocate`d name chain at its new base (6/6, both builds) and a stale reference at
+the old base (`tools/point_locator_l3.py`).
+
 **M3.13 (EXP-2026-11-06 pass 1, EXP-2026-11-08 pass 2, C-2180–C-2187, partial):**
 `ADDRE`/`REFER001` access path confirmed (C-2180, Navi.exe sec0, A):
 `fn 0x004125a8` maps type `0x14e8` → `REFER001`+`INDEX003.DAT` (C-880);
@@ -611,6 +622,10 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | POINT escape record length (halfwords) | `0x4e8` | `0x4d8` | the nth reader's one differing pool word |
 | chunk helpers memcpy/mod/mod31 | `0x003d146c`/`0x003d140c`/`0x003d1484` | `0x00400944`/`0x004008e4`/`0x0040098c` | the chunk engine's own pool slots (COREDLL thunks) |
 | zlib inflate wrapper | `0x00542148` | `0x00564444` | the chunk engine's own pool slot |
+| POINT header parser / page loader (M4.52) | `0x003f930c`/`0x003fe2d4` | `0x00421c3c`/`0x00426480` | `.DAT` header literals `0x082a`/`0x0eba`/`0x0e90`; the loader's base-reference decode (`add #4` before the leaf call); both pdata START |
+| block-address leaf / header-table lookup (M4.52) | `0x0040f00c`/`0x0040ee4c` | `0x00436f58`/`0x00436dd4` | the parser's and the loader's own pool slots |
+| locator-path stubs: cache lookup/allocate, debug log, read request, parser tail (M4.52) | `0x00407724`/`0x004086b4`/`0x003ec9fc`/`0x003f6c88`/`0x0040a8d0` | `0x0042f824`/`0x004307b4`/`0x0041551c`/`0x0041f5e8`/`0x004329d0` | the loader's and the parser's own pool slots |
+| locator-path memset / `_divlu` thunks (M4.52) | `0x003d13c4`/`0x003d140c` | `0x0040089c`/`0x004008e4` | the loader's own pool slots |
 
 The table is a checked copy, not a source: the values are owned by
 [`tools/build_targets.py`](../../tools/build_targets.py) (M1.32), from which

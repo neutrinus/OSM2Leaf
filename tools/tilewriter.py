@@ -144,8 +144,10 @@ PAIR_ROAD = 0
 #: sub-record sizes, odd pair) and no tail (EXP-2026-11-20-M5.53-wide-rows,
 #: ``tools/s1_wide_dir.py``); the writer splices into the kinds listed in
 #: ``WIDE_SPLICE_DIR_KINDS`` through that row model.
-#: M5.53 enabled 0x2146; M5.54 enables n = 2..9 (every kind in the P1 bbox
-#: proven by a real-tile splice, EXP-2026-11-20-M5.54-wide-kinds).
+#: M5.53 enabled 0x2146; M5.54 enables n = 2..9 (EXP-2026-11-20-M5.54-wide-kinds):
+#: the P1-bbox kinds 0x2246/0x2346/0x2546/0x2646/0x2946 by pipeline runs and,
+#: outside the bbox, 0x2446 (B30R058R), 0x2746 (B30R068R) and 0x2846
+#: (B38R058R) by tilewriter runs on real tiles.
 WIDE_SPLICE_DIR_KINDS = {0x2046 + 0x100 * n for n in range(1, 10)}
 SPLICEABLE_DIR_KINDS = {0x2046} | WIDE_SPLICE_DIR_KINDS
 #: Section-1 level-1 kinds that the row model parses (s1_wide_dir census:
