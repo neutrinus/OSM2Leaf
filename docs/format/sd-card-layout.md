@@ -10,6 +10,21 @@ Sample: `LEAF_2011-2012_QSD-309-101_navi158_eu.img`
 - SHA-256: `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307`
 - Source: <https://files.viaaq.eu/sd-images/>
 
+## What is code and what is data (summary, EXP-2026-11-19-M6.17)
+
+| Region | Content | Kind |
+| --- | --- | --- |
+| `0x0`–`0x1FFFFF` | MBR + `CLARION ID` | metadata |
+| `0x00200000`, copy `0x02000000` | CE ROM A: `Navi.exe` + app DLLs | code |
+| `0x03e00000`, copy `0x04800000` | CE ROM B: kernel, drivers, `PRGUpdate.exe`, `MapUpdate.exe` | code |
+| `0x05200000` | CE ROM C: kernel + `TestMode.exe` | code |
+| `0x06400400`–`0x1C8400400` | FAT32 `\SystemSD`: map files | data |
+| `0x1C8400400`– | TFAT16 (`DONT_DEL*`), then `0xff` | system data |
+
+No bootloader is on the card (the IPL is on board, C-535). Update mode runs
+ROM B from the card (C-5191, VERIFIED); normal mode most likely runs A and a
+kernel from the card too (C-5192, HYPOTHESIS: the unit flash is only 8 MiB).
+
 ## Partition table
 
 The image begins with a DOS MBR. The first 448 bytes are zero, the partition
