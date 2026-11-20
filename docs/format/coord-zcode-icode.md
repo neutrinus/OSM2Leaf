@@ -270,8 +270,41 @@ the commands above reproduce the verified checks from the `.cmp/.ind` pairs.
 
 Name VAs in `Navi.exe` plain sec0 (EU image, build A): `ZCODE0` `0x0017933c`,
 `ICODE001.DAT` `0x00178c88`, `COORD001.DAT` `0x00178e18`. `ICODE001` is loaded by
-`fn 0x003f2cc0` (`0x003f2d70`), the candidate opener. No reader body and no
-field-to-instruction map is located for any of the three files; `ZCODE0` and
-`COORD001` have no plain-code literal load. Negative with control:
-EXP-2026-11-08-M3.14-reader-layout (C-2190–C-2199). The layouts above stay as
-written; this section adds only the firmware-side status.
+`fn 0x003f2cc0` (`0x003f2d70`), the candidate opener. `ZCODE0` and `COORD001`
+have no plain-code literal load of the name (C-2193, C-2195).
+
+**ICODE001 field use (M3.14 reopen 2026-11-20, C-5762/C-5763).** On the card,
+the mount state machine reads `REFER001/ICODE001.DAT` and attributes the reads
+to these functions (EU2011, build A; `datask_l3.py mount --file REFER001`):
+
+| function | bytes read | field |
+| --- | --- | --- |
+| `fn 0x003f0400` | `+0x818..+0x81d` | refer-header **slot 4** (`addr 512, blk 60`) |
+| leaf `0x0040a8d0` | `+0x818..+0x81b`, `+0x84e..+0x851` | slot 4 addr; slot 13 addr |
+| `fn 0x003f2bc4` | `+0x81c..+0x81d`, `+0x852..+0x853` | slot 4 blk, slot 13 blk |
+| `fn 0x003f07f8` | `+0x0`/+`0x4`/+`0xa` (2-byte, `& 0x7fff`, `cmp/hi #6`, `cmp/eq #-1`) per name row | area-name rows at a per-language root (`pos 0x1a91900`) |
+| `fn 0x003f0c7c` | 2-byte at `+0x90` onward | country chain (`pos 0x273ee00`) |
+| `fn 0x003f255c` | `+0x2`/`+0x4` (2-byte) | chain link |
+| `fn 0x003f1bb0` | `+0x290..+0x295` | tail of a language chain |
+
+Slot 4 `(512,60)` and slot 13 `(2308,1)` are the two refer-header slots above;
+the reader decodes them big-endian (the file's own byte order, unlike the
+little-endian code). The mount run is the content-bound reference: the probe
+candidates do not read file records — four of them touch a caller struct at the
+buffer address identically on a zero buffer and four files, and `0x004078e4`
+walks the global `0x00d77d20` node list, gated by the seeded `+0x18` word
+(C-5760).
+
+**ZCODE0nn.** Opener only: `fn 0x003fbed8(ctx, bits, n)` with search type 11/12
+resolves `ZCODE001/002/003.DAT` (C-4666, C-5764). No ZCODE record row appears
+in the mount run (two positions, including one inside ZCODE018's region), so
+the record/trie walker is not on the mount path. Record-walker VA UNKNOWN.
+
+**COORD001.** No reader located: no name reference (C-4677), no id-literal pool
+load (C-5761), no row in either mount run; whether `Navi.exe` reads it at all is
+UNKNOWN (C-5765). Copy-only status (M3.17) is unchanged.
+
+Negative with control: EXP-2026-11-20-M3.14-zcode-icode-coord (C-2190–C-2199,
+C-5760–C-5767); the earlier EXP-2026-11-08-M3.14-reader-layout stays as the
+first pass. The layouts above stay as written; this section adds only the
+firmware-side status.

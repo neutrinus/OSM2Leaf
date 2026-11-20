@@ -34,9 +34,9 @@
  ],
  "summary": {
   "files": 26,
-  "citations": 521,
-  "unique_va": 241,
-  "start": 308,
+  "citations": 527,
+  "unique_va": 247,
+  "start": 314,
   "inside": 0,
   "corrected": 0,
   "gap": 51,
@@ -129,16 +129,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1847,
-   "va": "0x003f2cc0",
-   "kind": "fn",
-   "class": "START",
-   "true_start": null,
-   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
-  },
-  {
-   "file": "TODO.md",
-   "line": 1908,
+   "line": 1909,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -147,7 +138,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1908,
+   "line": 1909,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -156,7 +147,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1941,
+   "line": 1942,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -165,7 +156,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1942,
+   "line": 1943,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -174,7 +165,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1964,
+   "line": 1965,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -183,7 +174,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2394,
+   "line": 2406,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -192,7 +183,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2394,
+   "line": 2406,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -201,7 +192,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4347,
+   "line": 4359,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -210,7 +201,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4355,
+   "line": 4367,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -219,7 +210,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4360,
+   "line": 4372,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -228,7 +219,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4369,
+   "line": 4381,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -237,7 +228,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4521,
+   "line": 4533,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -246,7 +237,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4700,
+   "line": 4712,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -255,7 +246,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4702,
+   "line": 4714,
    "va": "0x00419350",
    "kind": "sub_",
    "class": "START",
@@ -275,6 +266,69 @@
    "file": "docs/format/coord-zcode-icode.md",
    "line": 273,
    "va": "0x003f2cc0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/coord-zcode-icode.md",
+   "line": 282,
+   "va": "0x003f0400",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/coord-zcode-icode.md",
+   "line": 284,
+   "va": "0x003f2bc4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/coord-zcode-icode.md",
+   "line": 285,
+   "va": "0x003f07f8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/coord-zcode-icode.md",
+   "line": 286,
+   "va": "0x003f0c7c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/coord-zcode-icode.md",
+   "line": 287,
+   "va": "0x003f255c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/coord-zcode-icode.md",
+   "line": 288,
+   "va": "0x003f1bb0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/coord-zcode-icode.md",
+   "line": 298,
+   "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
    "true_start": null,

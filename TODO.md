@@ -1840,13 +1840,13 @@ in its first line.
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
   - Unblock: M3.23 (2026-11-20) candidates. `ICODE` (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x00401e94`, `0x004082cc`, `0x00402690`, `0x003f6c88`, `0x003f0c7c`, `0x00407724`, `0x003f07f8`, `0x004078e4`, `0x003f08cc`, `0x00409ba0` (3 are C-4694 loaders). `ZCODE`/`COORD` have no static anchor of their own (ctx +124 = 11/12 in `0x003fbed8`; `COORD001` unnamed): shared REFER list `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (C-3546). Confirm with M9.38 / M3.29.
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Status: blocked · Owner: task/m3.14-zcode-icode-coord · Critical: yes · Pair: solo
+  - Blocker: two signature families fail in EU2011 `Navi.exe` (M3.23 candidate probe with a zero-buffer control; file-id literal scan), so no content-bound reader is located for `ZCODE0nn` or `COORD001` (`ICODE001` now has a field-to-reader map from the mount run). Done-when not met (C-5760, C-5761, C-5766).
+  - Unblock: **M3.30** (drive the REFER search path with search type 11/12 and watch the `ZCODE` parser; probe `COORD001`). M3.30 itself depends on M3.29 (open), so the search-path run that issues `0x003fc0ec`/`0x003fc518` is what re-opens this task.
+  - Result: EXP-2026-11-20-M3.14-zcode-icode-coord (negative for ZCODE0/COORD001, ICODE001 field map; done-when not met; C-5760–C-5767). Prior: EXP-2026-11-08-M3.14-reader-layout.
   - Note (M3.25, 2026-11-19): `ICODE001.DAT` and `ICADM001.DAT` are read during the mount run and the functions that load their bytes are listed in C-4694 (`datask_l3.py mount … --file REFER001`); positions are in the decompressed file.
   - Note (M3.28, 2026-11-19): openers found without M1.2f: `ZCODE` = `0x003fbed8` with search type 11/12; `ICODE001` = `0x003f2cc0`, reads through `0x003efe10`/`0x003f0400`/`0x003f2828`; `COORD001` has no name reference in `Navi.exe` at all (C-4666, C-4669, C-4677). The blocker on M1.2f no longer holds for the first two: reopen from these functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
-  - Blocker: no reader body for `ZCODE0nn` or `COORD001` is in decodable build-A code (their names have no plain literal load; `ICODE001` has only the opener `fn 0x003f2cc0`), so the done-when is not met (C-2190–C-2199).
-  - Unblock: **M3.23** (candidate readers by call-graph reachability from the access path; its own deps are M1.20 + M3.24, both open) confirmed by **M9.38** (which function reads the page buffer). `M1.2f`/`M8.E1` are superseded (H51: `nk_decomp.py` decodes 245/245 build-A sections) and must not be named as a blocker (H81 closes them; verified by `va_class.py` that no `INIT` byte is needed). The earlier "derive another signature" family is retired per AGENTS.md.
-  - Result: EXP-2026-11-08-M3.14-reader-layout (negative for ZCODE0/COORD001, partial for ICODE001; done-when not met).
   - Depends: — (M4.12 already decoded the layout from bytes; this task only
     looks for the consuming code)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
@@ -1856,15 +1856,16 @@ in its first line.
     grammar in `refer.md` (that assumption is how M3.11's walker was missed,
     C-2129).
   - Scope: build-A executable sections (all readable); `.data` tables only via
-    a pointer found in code. `Stop:` after two signature families fail — then
-    `blocked` + EXP listing the signatures tested.
+    a pointer found in code.
+  - Stop: after two signature families fail — then `blocked` + EXP listing the
+    signatures tested (reached 2026-11-20: candidate probe + id-literal scan).
   - Goal: the region/index/coordinate tables decide where a generated
     Poland map lives; confirm their layout (C-110, C-1992,
     `coord-zcode-icode.md`) from the code.
   - Input: id table `0x00179338` (`ZCODE0`), `coord-zcode-icode.md`, M4.8c, M4.12.
   - Done when: `coord-zcode-icode.md` gives the reader VA per file and which
     fields each one uses, with VAs.
-  - Claims: C-2190–C-2199
+  - Claims: C-5760–C-5767
 
 - [x] **M3.15 — The `LCTBL001` name-table reader**
   - Unblock: M3.23 (2026-11-20) candidates (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x0040dd40`, `0x0040de98` (rank 2; the M9.38 reader, C-3607), `0x004125a8`, `0x00409cc8`, `0x0040b358` — the whole loop set below `0x004125a8` is these five (C-3544). Next is the record walk behind `0x003fc0ec`/`0x003fc518` (search type 1), which only a run separates (M3.29).
@@ -2217,6 +2218,17 @@ in its first line.
   - Done when: each of `ADDRE`, `INTER`, `FRWAY`, `ZCODE` has a list of functions that read its record bytes (or a recorded reason none was read), and the EXP gives the recall of M3.23's ranking per family.
   - Stop: if no family other than `POINT`/`LCTBL` reads its file in the run (message wait as in C-3259), record the message and stop.
   - Claims: C-5620–C-5629
+
+- [ ] **M3.30 — Drive the REFER *search* path (not the mount path) with search type 11/12 and watch the `ZCODE` parser; probe whether anything reads `COORD001`**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M3.29 (open). **Follow-on: cannot be taken until M3.29 merges `done`** — M3.30 reuses M3.29's per-family run for the search path and adds the `COORD001` probe; it is not independently takeable.
+  - Goal: M3.14 (2026-11-20) found the mount state machine never reads `ZCODE0nn` or `COORD001` (no row at two positions, C-5764/C-5765), so the record walker is on the search path. Run the caller of `0x003fbed8` that issues the search (`0x003fc0ec`/`0x003fc518`, C-4666 note) with search type 11/12 on a real `ZCODE0nn`, watch the parser, and record any `COORD001` read at all.
+  - Precheck: `tools/read_watch_l3.py --selftest` and `tools/vcard_l3.py --selftest` pass; `vcard_l3.py trace 0x003fbed8 --ctx 124=11` resolves `ZCODE001` (C-5764).
+  - Scope: EU2011 `Navi.exe`; the search-message handler subtree of `0x003fbed8`; one `ZCODE0nn` file and `COORD001.DAT`. Excludes the mount path (already covered by M3.14).
+  - Input: `docs/experiments/EXP-2026-11-20-M3.14-zcode-icode-coord.md`, C-4666, C-3546, `tools/datask_l3.py`, `tools/read_watch_l3.py`, `tools/vcard_l3.py`.
+  - Done when: a function that reads `ZCODE0nn` record bytes in the search run is named with offsets/widths, or the run records why the search path reads nothing (message wait, missing model); and `COORD001` has either a reader VA or a recorded "not read by `Navi.exe` on the mount or search path".
+  - Stop: if two search-message attempts return no `ZCODE` row and the read issuer does not reach a parser, write the negative with the message ids and stop.
+  - Claims: C-5780–C-5789
 
 ## M4 — Data formats (no firmware or hardware needed)
 
