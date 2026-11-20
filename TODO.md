@@ -1103,8 +1103,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Result: `docs/experiments/EXP-2026-11-17-H101-pm-review.md` (C-4280–C-4289). 33 tasks closed in six days: 22 H, 10 M1, 1 M9, none in M3/M4/M5; of H51's twelve tasks two closed. New `tools/callgraph.py` (M3.23 core): `Navi.exe` EU2011 = 9,000 nodes, 22,867 direct edges, 589 unresolved indirect calls; the map-file layer is 117 functions with three stdio wrappers; the router reader `0x004266ec` reaches 48 functions. H51's C-3488 corrected (281 code pointers in sec1 `INIT`, not 6,052). Rule 17 added.
   - Claims: C-4280–C-4289
 
-- [ ] **H103 — `cardcheck` cannot check a tree we built: no `--generate-fixture`, so L1 can never be a CI row**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **H103 — `cardcheck` cannot check a tree we built: no `--generate-fixture`, so L1 can never be a CI row**
+  - Status: done · Owner: task/h103-cardcheck-fixture · Critical: yes · Pair: required
   - Depends: H26 (the registry); H40 calls it — this task is the primitive only, not the L1 row
   - Goal: retro 2026-11-18 action 3 closes H40, but H40 cannot start from zero: `cardcheck.py` only accepts `--image` (7.5 GB vendor card) or `--root` (a vendor-extracted tree), and the one no-vendor builder we have, `one_tile_pipeline.py --synthetic`, produces a tree QA measured at `cardcheck rc=1` (section 2 levels 2/4/5 and section 4 level 1 not in `MMAIN` — 2026-11-17-1851-53-qa.log, H40's Input). So on CI there is nothing to point `--root` at, and the L1 row stays NOT COVERED forever. A tiny in-process tree that `cardcheck` *accepts* is a ~200-line deterministic builder, not an OSM run; making it a `cardcheck` mode (not a second tool) keeps one validator and one exit code.
   - Precheck: `python3 tools/cardcheck.py --help | grep -c generate-fixture` prints `0`; `grep -n 'add_argument("--image"\|add_argument("--root"' tools/cardcheck.py` shows the two source flags and nothing that builds a tree; `python3 tools/one_tile_pipeline.py --selftest` prints the synthetic path's honest `cardcheck` line (not PASS).
@@ -1115,6 +1115,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if `cardcheck` turns out to require a real FAT32 geometry that cannot be produced deterministically in-process, split the builder into a committed tree under `tools/fixtures/` (a few KiB, `git add -f` under AGENTS' tiny-fixture rule) and keep `--root` as the only invocation; block the `--generate-fixture` half with the measured reason.
   - Falsifier: `cardcheck --generate-fixture` does not exist, so no L1 row can read a tree that no vendor produced.
   - Claims: C-4340–C-4349
+  - Result: EXP-2026-11-20-H103-cardcheck-fixture. `tools/cardcheck.py` gains `--generate-fixture DIR` (writes a no-vendor tree from `ze0_tile_header`/`tilewriter`/`drstr_ze0`/`cmpind_writer` and validates it in the same run) and `--selftest` (temp dir, no vendor data). Done-when passes: `--generate-fixture /tmp/opencode/h103-tree --json …` exits 0, `ok=true`, `counts={"pass":6,"fail":0,"skip":2}`, `fixture=none` in the JSON, six PASS (`tree`,`headers`,`cmp`,`drstr`,`mmain`,`version`) and `mbr`/`fat` SKIP with a reason; two runs are byte-identical on one interpreter; `--selftest` 18/18 ok and `selftest.py --only cardcheck` PASS. The byte-identity is per interpreter only (zlib-ng vs stock zlib change the tile and REFER `.cmp`/`.ind` bytes, not the verdicts). `--root`/`--image` behavior unchanged. H40 (CI row), H104 (baseline) and H105 (breaks) stay their own blocks.
 
 - [ ] **H104 — `cardcheck` has no committed baseline: a green L1 can silently lose a check**
   - Status: open · Owner: — · Critical: no · Pair: required
