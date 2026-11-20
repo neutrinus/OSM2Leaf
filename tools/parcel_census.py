@@ -3,7 +3,8 @@
 
 For one ``MAPAL001/BxxRyyR.DAT`` this prints every directory as
 ``(section, level, y, x, kind, slots, bbox)`` and marks whether
-``tools/tilewriter.py`` may splice roads into it (``0x2046`` in section 1) or
+``tools/tilewriter.py`` may splice roads into it (``SPLICEABLE_DIR_KINDS``:
+``0x2046`` and, since M5.53, ``0x2146`` in section 1) or
 must keep it byte-for-byte (the ``PRESERVE_ONLY_DIR_KINDS`` family).  With
 ``--parcel Y,X`` it prints the 32 x 32 parcel bounding boxes of one directory,
 the geometry ``--parcel`` clipping in ``tools/one_tile_pipeline.py`` uses.
@@ -164,7 +165,7 @@ def selftest() -> int:
     print("parcel_census selftest (synthetic tile, no vendor data)")
     cell = "B48R058R"
     yb, xb = tilewriter.cell_mesh(cell)          # (72, 936)
-    extra = {1: [tilewriter._opaque_directory(0x2146, 1, yb, xb + 1)]}
+    extra = {1: [tilewriter._opaque_directory(0x2246, 1, yb, xb + 1)]}
     data = tilewriter.make_factory(cell, extra_dirs=extra)
     tile = clarion_tile.read_tile(data)
     rows = census(tile, sections=(1,))
@@ -174,9 +175,11 @@ def selftest() -> int:
     chk(by_pos[(yb, xb)]["kind"] == 0x2046
         and by_pos[(yb, xb)]["class"] == "spliceable",
         "0x2046 directory classified spliceable")
-    chk(by_pos[(yb, xb + 1)]["kind"] == 0x2146
+    chk(by_pos[(yb, xb + 1)]["kind"] == 0x2246
         and by_pos[(yb, xb + 1)]["class"] == "preserve-only",
-        "0x2146 directory classified preserve-only")
+        "0x2246 directory classified preserve-only")
+    chk(classify(1, 0x2146) == "spliceable" and classify(1, 0x2246) == "preserve-only",
+        "0x2146 is spliceable since M5.53; 0x2246 stays preserve-only")
     chk(all(r["slots"] == 32 for r in by_pos.values()),
         "every directory reports 32 slots")
 
@@ -232,7 +235,7 @@ def selftest() -> int:
     chk(summary["section1_spliceable"] == 1, "summary counts one spliceable section-1 directory")
     json.dumps(rows)
     chk(True, "census rows are JSON-serializable")
-    chk("0x2146" in render_text(rows, str(cell)), "text render names the preserve-only kind")
+    chk("0x2246" in render_text(rows, str(cell)), "text render names the preserve-only kind")
 
     # Usage failures are loud.
     import contextlib
