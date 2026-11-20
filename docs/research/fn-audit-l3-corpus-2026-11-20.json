@@ -445,12 +445,13 @@
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
   "docs/experiments/EXP-2026-11-20-M9.51-pysh4-macl.md",
   "docs/experiments/EXP-2026-11-20-M9.52-mount-1507.md",
+  "docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md",
   "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 443,
+  "files": 444,
   "citations": 1156,
   "unique_va": 287,
   "start": 1000,
