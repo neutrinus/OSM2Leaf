@@ -9,38 +9,48 @@ inputs read:
   python3 tools/map_signals.py, the blocked tasks' Unblock lines.
 
 actions:
-  - archive pass FIRST (TODO 4807 > 1500): selected done blocks not named by
-    any live task and >24h old -> 9 blocks (M1.16, M1.23, M1.29, M3.2, M3.19,
-    M4.20, M5.10, M5.12b, M8.E1b) moved to
-    docs/research/todo-history-2026-11-20.md; TODO 4807 -> 4625 (-182).
+  - FIRST tried the archive the rule demands (TODO 4807 > 1500): selected 9
+    done blocks not named by any live task and >24h old (M1.16, M1.23, M1.29,
+    M3.2, M3.19, M4.20, M5.10, M5.12b, M8.E1b). Kept only the priorities
+    rewrite. But the move broke the standing gate (see problems).
+  - REVERTED the archive: restored TODO.md to c390ad0, deleted
+    docs/research/todo-history-2026-11-20.md, re-applied only the priorities
+    refresh (below). Gate green again (fn_audit_l3_image exit 0).
   - refreshed the "Numbers now" paragraph with the cycle-17 map_signals values
     (readers 14, L3 6, tiles, P0) and dated it to origin/main a45b061.
-  - rewrote "Next steps" and "Next 5 for the TL": M5.49 + M9.41 (Critical,
-    deps done) first; then M9.31 (re-opens M9.12), M4.54 (re-opens M4.40),
-    M3.13 (re-opens by rule 15, unblocks M4.36).
-  - rule 15: M3.13/M3.14/M3.15/M3.16/M3.18 all name M3.23 (done) in Unblock
-    but read `blocked`; left them for the TL to flip (the board check does not
-    auto-flip; the TL owns the re-open) and flagged it in the priorities note.
-  - refreshed the Map signal board line to 93 open / 135 done / 1 in progress /
+  - rewrote "Next steps", "Next for the TL" and "Next 5": M5.49 + M9.41
+    (Critical, deps done) first; then M9.31 (re-opens M9.12), M4.54 (re-opens
+    M4.40), M3.13 (re-opens by rule 15, unblocks M4.36).
+  - added H116 (the archive-vs-DOCS-BASE defect found this pass), C-5740–5749.
+  - refreshed the Map signal board line to 93 open / 144 done / 1 in progress /
     25 blocked and named the M1.24 ghost.
-  - added no new tasks this pass: the window added ~30 already and the
-    critical path is fully named by existing blocks; adding would be sprawl.
+  - checked in-file max claim block: highest reserved low is C-5730 (H115), so
+    H116 takes C-5740–5749 per the "highest block plus ten" rule (not the
+    5730–5739 that C-5730's block leaves partially free — another agent may
+    claim the rest of C-5720–5729).
 
 decisions / rejected:
+  - rejected the mass archive: it is unsafe until H116 narrows the docs-base
+    scan. The PO rule "archive done blocks >24h" conflicts with the standing
+    gate; H116 resolves it; the next PO pass may archive again.
   - rejected a blanket "fix the 8 thin EXPs" task (SE already judged them not
     errors; one task would be churn).
-  - rejected archiving the ~24 other done-but-unreferenced blocks: only 9 are
-    >24h old; the rest are this window's and must wait a day per the rule.
   - did not flip the M3.13-family re-opens myself: rule 15 is the TL's job at
     merge time, and flipping a `blocked` claim the owner might still hold is
-    the ghost-claim hazard the rules guard against.
+    the ghost-claim hazard.
 
 problems:
-  - the board grew ~700 lines this window; even after 9 archived it is 4625,
-    far over the 1500 target. The next PO pass must keep archiving daily.
+  - REAL: archiving done blocks reddens the local gate. `fn_audit` DOCS BASE
+    cites VAs inside done blocks; moving 9 blocks gave `0 new / 17 gone /
+    151 moved` and made `tools/selftest.py` fn_audit_l3_image fail on a host
+    with archive/head256.img. CI skips that suite (no image), so it is
+    invisible to CI. TODO 4807 > 1500 stays unfixed until H116. This is the
+    cycle's most important PO finding.
   - 1 in-progress ghost (M1.24) still on the board; TL action.
 
 handoff:
   - TL: work or release #245-#248 before ~20:45Z; flip M3.13/M3.14/M3.15/
-    M3.16/M3.18 to open (rule 15); then take M5.49 + M9.41.
-  - QA: M9.31 is the cheapest L3 gate move and unblocks the blocked M9.12.
+    M3.16/M3.18 to open (rule 15); then take M5.49 + M9.41. H116 is pair,
+    Required (it edits a standing-gate definition and freezes a snapshot).
+  - QA: M9.31 is the cheapest L3 gate move; H116 is a gate-correctness task
+    (the corpus must not pin history).
