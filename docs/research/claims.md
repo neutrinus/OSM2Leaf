@@ -4021,3 +4021,18 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5197 | RESERVED (M6.17). | — | — | — |
 | C-5198 | RESERVED (M6.17). | — | — | — |
 | C-5199 | RESERVED (M6.17). | — | — | — |
+
+## M4.40 — the router reader hands section 2 to the data-access task (C-5640–C-5649)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5640 | EU2011 `0x004266ec` (`RGD_DATA READ`) reaches 27 functions (root counted), 1 unresolved indirect call, 23 imports, none of them a file, file-read or file-mapping import; callers `0x00426d3c` and `0x00427870` (← `0x00427144`, `0x00427c90` ← `0x00427a34`, `0x0042810c`). | VERIFIED (static) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; IMG256 `92aa525d…`; `python3 tools/callgraph.py reach G 0x004266ec` after `python3 tools/callgraph.py build archive/head256.img --module Navi.exe -o G` |
+| C-5641 | `0x004266ec` builds a message at `r15+24`: `+8 u16 0x14b5`, `+10 u16 2`, `+12 u32 *0x011fff5c`, `+16 u32 0x40`, `+20` = a list of 32-byte `(DIVID +14, mesh id +16)` entries with a `u16` count at `+0` (one per pending slot of 4), `+24 u32 2`, and sends it with `0x0041ee14(*0x011fff58, r15+24)` (`0x00426848`–`0x00426850`); `0x0041ee14` calls `OSM_TaskSend`. It loads no other data than the slot tables, the list and the message. | VERIFIED (static) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; IMG256; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x004266ec --count 230` |
+| C-5642 | The renderer `0x00425f40` sends the same message (`0x14b5`, sub 2, `+12 *0x011fff5c`, `+24 2`) to the same task with data kind `+16 = 4`; the kind word is the only message difference between the two readers. | VERIFIED (static, control) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; IMG256; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x00425f40 --count 210` |
+| C-5643 | The receiver is the data-access task (`0x011fff58` = its task-id global) and its message-table row `0x14b5` → `0x004066ac` (defer flag 1); `0x004066ac` copies `0x2004` bytes from the list pointer `+20` to `0x00d53f20`, branches on sub `+10` (11, 4), passes the kind word `+16` to `0x00408480`, and reaches 140 functions. | VERIFIED (static) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; IMG256; `python3 tools/datask_l3.py tables archive/head256.img`; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x004066ac --count 120` |
+| C-5644 | Kind `0x40` = route (section-2) data and kind `4` = map (section-1) data, read from the two senders only; not tested by a run. | OBSERVED | M | EXP-2026-11-20-M4.40-sec2-router-grammar; C-5641/C-5642 |
+| C-5645 | The section-2 grammar cannot be read off the `0x004266ec` subtree (task `Stop` fired): M4.40 is blocked on M4.51 (follow `0x14b5` kind `0x40` through `0x004066ac` to the record reader, L3). The block's `Input` claim that the subtree imports `CreateFileMappingW`/`MapViewOfFile` came from the retracted C-4284. | VERIFIED (static, negative) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; C-5640 |
+| C-5646 | RESERVED (M4.51). | — | — | — |
+| C-5647 | RESERVED (M4.51). | — | — | — |
+| C-5648 | RESERVED (M4.51). | — | — | — |
+| C-5649 | RESERVED (M4.51). | — | — | — |

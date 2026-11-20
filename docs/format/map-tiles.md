@@ -927,6 +927,33 @@ So a writer that does not start from a factory container must back every
 directory with the length above. Whether the road records are accepted is
 open (M9.52, M9.53).
 
+### The router reader asks; it does not parse (M4.40, EU2011 build A)
+
+> **Status:** `VERIFIED (static)` for the message and the receiver, `OBSERVED` for the
+> meaning of the kind word. Evidence: IMG256 `92aa525d…` (`archive/head256.img`),
+> `tools/sh4dis.py`, `tools/callgraph.py`, `tools/datask_l3.py tables`.
+> EXP-2026-11-20-M4.40-sec2-router-grammar, C-5640–C-5645.
+
+`RGD_DATA READ` `0x004266ec` (router) and `MAP_DATA READ` `0x00425f40` (renderer) read no tile
+bytes: their 27-function subtrees have no file or file-mapping import (C-4622). Each builds a
+list of `(mesh id, DIVID)` requests (32-byte entries, mesh id at `+16`, `DIVID` at `+14`,
+`u16` count at `+0`) and sends one message through `0x0041ee14` → `OSM_TaskSend` to the
+data-access task (`*0x011fff58`):
+
+| Word | Router `0x004266ec` | Renderer `0x00425f40` |
+| --- | --- | --- |
+| `+8 u16` id | `0x14b5` | `0x14b5` |
+| `+10 u16` sub | 2 | 2 |
+| `+12 u32` | `*0x011fff5c` | `*0x011fff5c` |
+| `+16 u32` data kind | **`0x40`** | **`4`** |
+| `+20 u32` | request list | request list |
+| `+24 u32` | 2 | 2 |
+
+The data-access task hands `0x14b5` to `0x004066ac` (deferred while the map is not ready),
+which copies the list to `0x00d53f20` and passes the kind word to `0x00408480`; its subtree
+reaches 140 functions. **The section-2 record grammar is therefore read in that subtree or in a
+read-completion handler it arms, not in `0x004266ec`.** Following it is M4.51.
+
 ## Cross-edition differential census (2011/2014/2016)
 
 `tools/diff_years_tiles.py` compares the same `BxxRyyR.DAT` in two EU editions
