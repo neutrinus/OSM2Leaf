@@ -1,0 +1,41 @@
+role: DRIVER for H110 (L4 readiness panel)
+model: deepseek-v4.1-flash-free (opencode)
+start: 2026-11-20 15:17 UTC
+end: 2026-11-20 15:40 UTC
+origin/main at start: 2e683be (Merge PR #327)
+
+Inputs read: AGENTS.md, prompt_common.txt, TODO.md H110 block + M8 blocks
+(M8.A2/A3/A6/A10, M8.C, M8.D1/D2, M8.E4, M9.16), docs/research/test-system.md,
+docs/research/full-system-emulation.md, EXP-2026-11-17-M8.A2-machine-skeleton-reprobe,
+C-4310/C-4311/C-4312, C-1352/C-1353, C-537, tools/qemu-ze0/run.sh (summary keys),
+tools/selftest.py discovery, tools/map_signals.py (style).
+
+Actions, in order:
+- Claim commit `todo: start H110` (status line only), pushed, draft PR #345.
+- Read run.sh: summary prints exceptions/unmodelled-accesses/final-pc only.
+- Designed the panel so execution status (NOT RUN without a log) and readiness
+  (BLOCKED with task IDs) are separate facets; the done-when needs both.
+- Wrote tools/l4_status.py (--run-log/--json/--selftest, parse only run.sh keys).
+- Verified: no-log panel prints F4 BLOCKED (M8.A3, M8.A6, M9.16), exit 0;
+  selftest OK; selftest.py --only l4_status PASS.
+- Added §L4 (six rows: F0-F4 + log reader) to docs/research/test-system.md.
+- Added claims C-4410-C-4419 (C-4419 reserved) to docs/research/claims.md.
+- Wrote EXP-2026-11-20-H110-l4-panel.md.
+- Set H110 done + [x] + Result line.
+- Ran claims_check / todo_check / selftest --only l4_status (all green).
+
+Decisions:
+- F4 blockers kept as the task's literal M8.A3, M8.A6, M9.16; docstring/§L4 prose
+  note M8.A3/M8.A6 are done and M9.16 is the one open link.
+- Responsibility split (not a merge): evidence claims C-4311/C-1352/C-1353/C-537;
+  the panel prints numbers only from committed claims and run-log keys.
+- Rejected: a single status column carrying BLOCKED under a log (contradicts
+  "every F-row NOT RUN without a log"); chose status + readiness legend.
+- Rejected: promoting F1 from a clean boot log (run.sh prints no filesys/device
+  evidence) — left the honest NOT RUN.
+
+Problems: none blocking. H110's done-when mixes execution and readiness; resolved
+by modelling both (documented in the EXP). No hardware/image needed for the tool.
+
+Handoff: TL to review PR #345 (draft->ready) and merge to main; no vendor data,
+no QEMU run added. Next L4 work is M9.16 (F4's open link) and the M8.E4 run.
