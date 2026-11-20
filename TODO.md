@@ -1952,11 +1952,11 @@ in its first line.
     caller; no 14-byte (`add #14`) ZIPFR stride and no 462-byte (`add #0x1ce`)
     /`0x00e7` ICADM stride in the located subtree. `refer.md` and matrix rows
     14–15 updated to `partial` (open path only).
-  - Unblock: a run-time observation of the completion for the ZIPFR/ICADM
-    search (`0x003f7f94`/`0x003f7b54` with the map-file task live, M9.38
-    read-watch pattern) that names the handler written into `+12` (or proves
-    copy-only with a positive control); then re-run the field scan over that
-    handler. Not M3.23 (done).
+  - Unblock: **M3.29 / M9.38** — the run-time observation of the completion
+    for the ZIPFR/ICADM search (`0x003f7f94`/`0x003f7b54` with the map-file
+    task live; M9.38 read-watch) that names the handler written into `+12` (or
+    proves copy-only with a positive control); then re-run the field scan over
+    that handler. Not M3.23 (done).
   - Result: EXP-2026-11-20-M3.18-icadm-zipfr (blocked; open/descriptor path
     located and confirmed by run — C-2386–C-2389; C-2382 retracted; field
     readers not located).
