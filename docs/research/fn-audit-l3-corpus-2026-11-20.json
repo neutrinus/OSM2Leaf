@@ -427,6 +427,7 @@
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M5.17-lctbl-builder.md",
   "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+  "docs/experiments/EXP-2026-11-20-M5.27-m5.12c-scan.md",
   "docs/experiments/EXP-2026-11-20-M5.36-tile-class-roundtrip.md",
   "docs/experiments/EXP-2026-11-20-M5.49-p1-verbatim-tile.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
@@ -446,6 +447,7 @@
   "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
+  "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
   "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
   "docs/experiments/EXP-2026-11-20-M9.33-rerun-prereqs-map.md",
   "docs/experiments/EXP-2026-11-20-M9.36-rerun-probes-pysh4.md",
@@ -453,16 +455,17 @@
   "docs/experiments/EXP-2026-11-20-M9.45-pysh4-speed.md",
   "docs/experiments/EXP-2026-11-20-M9.51-pysh4-macl.md",
   "docs/experiments/EXP-2026-11-20-M9.52-mount-1507.md",
+  "docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md",
   "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
   "docs/experiments/EXP-2026-11-20-M9.57-event11-subscriber.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 452,
-  "citations": 1273,
-  "unique_va": 300,
-  "start": 1117,
+  "files": 455,
+  "citations": 1277,
+  "unique_va": 301,
+  "start": 1121,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -11083,6 +11086,24 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
+   "line": 24,
+   "va": "0x00419350",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
+   "line": 90,
+   "va": "0x00419350",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
    "line": 24,
    "va": "0x003f5194",
@@ -11431,6 +11452,15 @@
    "line": 262,
    "va": "0x00419350",
    "kind": "sub_",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md",
+   "line": 241,
+   "va": "0x00405078",
+   "kind": "fn",
    "class": "START",
    "true_start": null,
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
@@ -12391,6 +12421,15 @@
    "file": "tools/l3_harness/targets.json:cmp_ind_reader",
    "line": 0,
    "va": "0x0041c7dc",
+   "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/l3_harness/targets.json:drstr_parser",
+   "line": 0,
+   "va": "0x00419350",
    "kind": "target",
    "class": "START",
    "true_start": null,

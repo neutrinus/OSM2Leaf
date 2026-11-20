@@ -299,7 +299,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 (`*` = critical, `(page)` = tag held in the page while the owner's PR is open).
 
 - **P0 (built)** — L3: M9.13 done for the container; **M9.14** (`drstr_parser`); QA pin **M5.40**.
-- **P1 (display-only card built)** — **M9.52**, **M9.53** (records read by the firmware); **M5.56** for tiles without a factory container.
+- **P1 (display-only card built)** — **M5.61** ("Poland to look at": all section-1 directories of the 4 tiles); **M9.52**, **M9.53** (records read by the firmware); **M5.56** for tiles without a factory container.
 - **P2 (routing)** — **M4.55** → **M4.40** → M4.23, M4.24, M4.3 → M5.5; **M9.18** → M5.16; **M5.3** (waits on M4.2).
 - **P3 (names)** — **M3.13** → **M4.36**; **M3.29** → **M5.17**; **M4.16** → **M4.2**; **M9.15**.
 - **P4 (search)** — **M5.18** (waits on M3.13), M5.27 → **M5.32**, **M9.55** → M9.41 → **M9.10**.
@@ -2845,11 +2845,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-08-M5.13b-us-s1-s2. S1 is byte-identical to the factory US image; S2 passes cardcheck (label QSD-301-103); all 17,737 S2 diff ranges lie in POINT010 clusters or its directory entry; M5.12b fresh build PASS. Fixed an imgpatch EOC rewrite (C-2355). Recompression used zlib 1.3.2, not 1.3.1 (C-2354).
 
 
-- [ ] **M5.12c — Every copy of the renamed POI name on the US card**
-  - Status: blocked · Owner: — · Critical: yes
+- [x] **M5.12c — Every copy of the renamed POI name on the US card**
+  - Status: done · Owner: — · Critical: yes
   - Step: P4
-  - Blocker: the uncompressed-files exact scan never finished, so the EXP has no list of every hit outside the compressed pages; the Done when is not met. `EXP-2026-11-08-M5.12c-poi-copies.md` still says `Status: done` in its header — reconcile it (M5.27).
-  - Unblock: M5.27 (re-run the scan in EXP-2026-11-08-M5.12c-poi-copies Method 3, record hits, and reconcile EXP/TODO status).
   - Depends: — (M5.12)
   - Goal: tell Marek which screens should show `OSM2LEAF TEST POI1` (map
     label, POI list, name search) and whether any other file still holds the
@@ -2865,6 +2863,12 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     if a search/sort index also holds the name, either extend the edit (new
     S2 via M5.13) or state what Marek should expect on screen.
   - Claims: C-2040–C-2049
+  - Result: EXP-2026-11-08-M5.12c-poi-copies (POINT pages, 131/136 renamed)
+    + EXP-2026-11-20-M5.27-m5.12c-scan (uncompressed files, finished by M5.27):
+    175 hits in the 132 uncompressed US files, none followed by `@`, no
+    `HANA HEALTH` hit; 20 bare `CRAB ORCHARD` tile labels may still draw on
+    the map, POI list/search read the POINT records. No search index holds
+    the names, so no extra edit is needed. The 5 unfit records are M5.32.
 
 - [x] **M5.14 — US geometry edit: move one road vertex (S3)**
   - Status: done · Owner: task/m5.14-us-geometry-vertex-s3 · Critical: yes
@@ -3044,11 +3048,11 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2950–C-2959
   - Result: EXP-2026-11-19-M5.26-point-pair-regen (C-2950–C-2957). New tool `tools/point_pair_regen.py` (`scan`/`regen`/`verify`/`locator`/`summarize`). POINT pages sit in chains described by chain tables (`u16 per_page, u16 0, n × (start_w, comp_w, inner_w)`, three per file); `regen` re-packs a whole chain, rewrites its table and rebuilds the pair; the no-op control with stock zlib 1.3.1 is byte-identical on 44/44 EU+US pairs; EU POINT010 takes 1,000 names (+2 B each, page 0 +176 B past its own slot), all with `@`, `cmpind` decodes it. Limit: a chain cannot move — its locator is UNKNOWN (C-2955) and chain slack is 24–248 B, so real-name sets of 10–100 names already overflow most chains → M4.47.
 
-- [ ] **M5.27 — Finish M5.12c uncompressed-file scan and reconcile EXP/TODO status**
-  - Status: open · Owner: — · Critical: no
+- [x] **M5.27 — Finish M5.12c uncompressed-file scan and reconcile EXP/TODO status**
+  - Status: done · Owner: task/m5.27-m5.12c-scan · Critical: no
   - Step: P4
   - Note (H51, 2026-11-11): unowned for three days and it gates what Marek should expect on screen for S2 (M6.6). It is a scan, not research: `python3 tools/poi_copies.py` on the US tree; the full US image is on the allowed host (`fetch_image.py --image US`).
-  - Depends: M5.12c (blocked)
+  - Depends: M5.12c
   - Goal: close the integrity gap left by M5.12c: commit `95a4b42` and TODO mark
     M5.12c blocked because the uncompressed-files exact scan never finished and
     the done-when is unmet, while `EXP-2026-11-08-M5.12c-poi-copies.md` still
@@ -3072,6 +3076,13 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     EXP done.
   - Unblock: M5.12c
   - Claims: C-2960–C-2969
+  - Result: EXP-2026-11-20-M5.27-m5.12c-scan. Complete: 132 files,
+    2,966,260,099 B, 6,964,109 zlib streams inflated (97 min, after a
+    `poi_copies.py` fix that skips header candidates inside an inflated
+    stream). 175 Latin-1 hits (155 street/feature names such as `CRAB ORCHARD
+    RD`, 20 bare `CRAB ORCHARD` tile labels), none followed by `@`; 0 hits for
+    `HANA HEALTH*`, `GODFATHER'S`, `BLIMPIE`. The M5.12c EXP header is
+    corrected in place and M5.12c is done. Claims C-2960–C-2963.
 
 ---
 
@@ -3186,6 +3197,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [ ] **M5.57 — Section-2 writer: the full route graph of a generated tile from OSM (attributes, not only framing)**
   - Status: blocked · Owner: — · Critical: yes · Pair: required
+  - Step: P2
   - Depends: M4.40 (section-2 grammar incl. part b), M5.37 (L2 graph round-trip, done), M4.39 (link key `(parcel, class & 0xf, w3 & 0x1fff)`, done), M5.23 (section-1 record fields)
   - Unblock: M4.40 (field table for part a and part b in `docs/format/map-tiles.md` with the reading VA per field)
   - Goal: a generated tile can render roads today but routes on a graph we never wrote: the writer emits section-2 framing (nodes, links, direction, M5.37) and keeps the rest factory/empty. Write every section-2 field from OSM so the router has the data it needs: one-way (`oneway`), road class (from the M5.36 class map), connectivity at shared nodes, and turn restrictions (`type=restriction`) where the grammar has a place for them.
@@ -3390,6 +3402,20 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-5830–C-5839
   - Result: EXP-2026-11-20-M5.56-no-factory-container. The firmware asks `min(0x100 * T[kind].n, size - pos)` with `size` from `DRSTR001.DAT`: the factory's last section-4 directories are read short (`0x2900`, `0x5d00`) and parsed. The run-S failure (C-3256) came from `--replace` keeping the factory DRSTR001 size; with the true size the unpadded tile mounts, with `0x100` too much it fails. `tilewriter.py` (fresh path only) now zero-pads to the longest directory read (`pad_directory_reads`, 22,272 → 37,376 B): Precheck run has no negative status, the one declared directory (section 1; sections 2/4 declare none) is read and parsed by `0x00414dbc` (16,514 B); cut `0x100` short → -1 (falsifier control); targeted `l2check` PASS, `tilewriter --selftest` 89/89; `--factory` F/G SAME (28 reads). New `dir_read_len.py drstr-size`. C-5830–C-5834.
 
+- [ ] **M5.61 — "Poland to look at": a display-only card with OSM roads in every section-1 directory of the 4 Poland tiles**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M5.53/M5.54 (all 20 directory kinds spliceable, done), M5.30 (relocation + manifest patch, done), M9.13 (container read in L3, done); M9.53 strengthens the gate (records read) but does not block the build
+  - Goal: the ladder has P0 (one directory) and P1 as a census/one-tile row, but no task builds the first card a person would call a map of Poland: `profiles/poland-full.json`, tiles `B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`, every level-1 and level-2 section-1 directory that intersects the profile filled from OSM; sections 2/4, `LEV3456R`, `REFER001`, `RDSTM001` and assets factory. This is the nearest result that can be shown in a car, and it measures the size budget (M7.1/M7.2) on real data.
+  - Precheck: `python3 tools/mesh_grid.py cover profiles/poland-full.json <FAC>/MAPAL001` prints `contained=0 intersects=4`; `python3 tools/tilewriter.py --selftest` passes; an OSM extract is on disk (see Input).
+  - Scope: build with `one_tile_pipeline.py --factory` per tile + `imgpatch` on the EU 2011 image; first on the Dolnośląskie extract (one tile, all 20 directories), then the 4 tiles. Record per tile: directories written / refused (with reason), ways in / ways dropped (class filter, parcel capacity), size delta, clusters relocated. No section 2, no names, no `LEV3456R`.
+  - Input: Dolnośląskie / Poland `.osm.pbf` — **the Claude sandbox cannot download OSM (rule 12)**: a non-Claude runner or Marek puts the extract on disk (M5.1b); the committed fixture `m5.37-splice.osm` is enough for the dry run only. `docs/research/card-ladder.md` §P1, `docs/format/card-ladder.md` §P0 rows 1–10 (the gate to repeat per tile).
+  - Hints: expect capacity limits before format limits — a parcel slot body is 512 B per row and a city centre may not fit; decide and record the drop rule (lowest class first) instead of failing the tile. The level-1 and level-2 directories of one area must come from the same OSM snapshot (card-ladder P0 inconsistency 1).
+  - Done when: an image whose `cardcheck --image` is PASS, `imgpatch --check-diff … --allow-metadata` reports `outside: 0` for the 4 tiles + `DRSTR001.DAT`, `l2check --semantic-tiles` PASS on all 4, `7z t` OK, and `datask_l3.py mount --position` at one point per tile reads every directory with no negative status; the EXP has the per-tile table and the image SHA-256 (image outside the repo).
+  - Stop: if a tile cannot hold its directories (FAT free space or a directory length the firmware does not read, M3.31), record the tile, the number and stop at the largest subset that passes.
+  - Falsifier: the gate passes on a card where one directory was written with the ways of the neighbouring directory.
+  - Claims: C-6250–C-6259
+
 - [ ] **M5.59 — `lev3456gen.py`: put level-3 roads in the directory whose box holds them**
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Step: P2
@@ -3555,6 +3581,27 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: an EXP gives a table region → content → evidence, and C-5192 becomes VERIFIED or REFUTED (negative control: the same search on a random 8 MiB of the card finds what is expected there).
   - Stop: if the dump has no recognisable structure, record the entropy map and stop.
   - Claims: C-5210–C-5219
+
+- [ ] **M2.20 — Does a region change in PROD keep the unit recoverable? (static, before anyone writes flash)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (M6.18 dump helps: real PROD checksum and blocks)
+  - Goal: LeafSDTools `PRODUCT INF → RESTORE FROM SD` writes an edited PROD block (it recomputes the checksum word at `+0x2D0`), so the area byte PROD `+0x21` (`0x20` USA → `0x30` Euro, C-5201) can be changed without hardware. Before that is ever tried, answer from the code: (1) does software-update mode (build B: `UpdateMng.exe`/`PRGUpdate.exe`, the way back in) start for every area, i.e. what are the area masks of those launch-table records; (2) which launch-table records differ between USA `0x00040000` and Euro `0x00020000` on the **US** card and on the EU card (M1.34 table); (3) does the EU card's build A contain a `Navi.exe` record an area-USA unit starts.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 modules` lists `AppLaunch.dll`; the launch table of M1.34 (`docs/research/rom-registry.md` "The launch table") is readable for B on EU2011 and US256.
+  - Scope: static, both card images (EU2011, US256), builds A and B. Output: a table record → area mask → started for USA / Euro, and the three answers. No flash write, no PROD file with the SD PIN in the repo.
+  - Input: `docs/research/us-eu-region.md`, `docs/research/rom-registry.md`, EXP-2026-11-06-M2.7, M1.34, LeafSDTools `ProdInf.cpp` (`WriteProd`, facts only).
+  - Done when: an EXP gives the per-area launch diff for both cards and states `update mode starts for area 0x30: yes/no/unknown` with the VA of the mask that decides it.
+  - Stop: if the update-mode entry does not go through the area-filtered launch table, name the path and stop.
+  - Claims: C-6260–C-6269
+
+- [ ] **M6.21 — Region change on a unit (PROD `+0x21`): only after the card-only test, only with a way back**
+  - Status: blocked · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
+  - Depends: M6.18 (flash + PROD backup with SHA-256), M6.19, M2.20 (update mode survives the change), the card-only EU test (EU card with `HDD_INFO` matched to the unit) showing that the area is what stops it
+  - Unblock: all four Depends done **and** the card-only test fails for a reason M2.20 ties to the area; otherwise this task is retired as not needed
+  - Goal: change the unit area by restoring an edited `prod_*.bin` with LeafSDTools, as the last resort for European maps on the US unit. Region does not gate the map checks (M2.7, C-787), so this is not expected to be needed.
+  - Scope: prefer a spare unit. One byte (`+0x21`), checksum by the tool, original `prod_*.bin` kept on two media. Record every screen. Do-not-attempt on the only unit while M2.20 says `no` or `unknown` (C-1129).
+  - Done when: an EXP records before/after PROD (PIN masked), what starts, audio yes/no, and the restore of the original PROD verified by a second dump.
+  - Stop: any hang, black screen or missing audio → restore the original PROD at once and stop.
+  - Claims: C-6270–C-6279
 
 ## M7 — Scale and release (later)
 
@@ -4385,9 +4432,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
     0x4362 under big-endian decode and runs under little-endian until its
     unmapped page argument; no Ghidra run, out of scope and not installed)
 
-- [ ] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
+- [x] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
   - Note (M9.44, 2026-11-19): covered for the map-file layer: `tools/vcard_l3.py` has 81 import models (file, string, memory, printf, heap, task, object calls) and a card behind `fopen`/`fread`/`fseek`. What is left here is only reuse of those models from `runner.py` targets outside the layer; if no target needs that, close as covered.
-  - Status: open · Owner: — · Critical: yes
+  - Status: done · Owner: task/m9.24-coredll-file-apis · Critical: yes
+  - Result: EXP-2026-11-20-M9.24-drstr-parser-runner (C-2640–C-2645). `runner.py run drstr_parser --image IMG256 --input DRSTR001.DAT` (new firmware_call program `drstr_parser_v1`, new `tools/drstr_l3.py`) runs EU2011 open wrapper `0x0041b3bc` → parser `0x00419350` → close `0x0041b650` with `vcard_l3`'s bound imports: factory file PASS, ACCEPT, r0 0, no fault, 16 imports all modelled. `verdict_map` `{0: ACCEPT, 0xffffffff: REJECT}` decoded from the parser's three exits (the runner BLOCKs any other map). Controls 9/9: `+36` not a multiple of 40 → REJECT code 20, `> 200` entries → code 10, size `> 0x77220` → code 26 but still parsed; a 32-byte file is ACCEPT (parsed from the buffer past EOF, zero heap).
   - Step: tooling
   - Note (H101, 2026-11-17): narrowed by **M9.44**: stub the firmware's three stdio wrappers (`0x0041b3bc`, `0x0041b470`, `0x0041b4f8`) instead of the coredll imports behind them.
   - Depends: M9.35 (done, H49: the import slots and BSS of sec1 need no decompression; M9.35 maps them)
@@ -4725,8 +4773,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5900–C-5909 (was none yet (take the next free block when claimed); fresh block for this run)
   - Result: `docs/experiments/EXP-2026-11-20-M9.52-mount-1507.md` (C-5900–C-5907). `0x1507` goes to `SDL_task` (id global `0x11fff50`, entry `0x0039d854`, EU2011), which drops it at its gate `0x003c009c` (it takes a data-access message only as the answer to its own pending request) and answers nothing; the mount does not wait for it. The only writer of state 3 is `0x003f6b1c`, object-store event `0x07d0` sub 11 with `+28 = 16`; `datask_l3.py mount --sdl --event 11:16` (stand-in event) ends with state 3, progress 1; controls `11:15`, `12:16` stay at 2. The subscriber that delivers event 11 is not found in `Navi.exe`: M9.57.
 
-- [ ] **M9.53 — Make the firmware read a record block we wrote: one map request through `datask_l3.py`**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M9.53 — Make the firmware read a record block we wrote: one map request through `datask_l3.py`**
+  - Status: done · Owner: task/m9.53-record-block-read · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.52
   - Precheck: `python3 tools/datask_l3.py tables archive/head256.img` lists `0x14b5  1  0x004066ac`; M9.52's run ends with state 3.
@@ -4736,7 +4784,20 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: one record block of the factory tile is read and parsed in the run; the same request on the generated tile gives a named verdict; the C2 control differs; EXP + claims; `reader-coverage.md` row 17 updated.
   - Stop: if the request needs state the run cannot provide after M9.52, record the faulting read/branch and stop.
   - Falsifier: the firmware reads the record block but no function loads the inflated bytes (then the consumer is another task: name the message that carries the buffer away).
-  - Claims: none yet (take the next free block when claimed)
+  - Claims: C-5910–C-5919 (was none yet (take the next free block when claimed); fresh block for this run)
+  - Result: `docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md` (C-5910–C-5917). `datask_l3.py mount --request MESH` (new; opens the client slot with `0x003ed6e8`, which `0x00405970` requires) reads one record block after the mount: parcel code `0xa6cdd6be` (the record's own words 0–1; directory (77, −83) of `B48R058R`) → tag `0x0900`, handler `0x00404ee4` (memmove to the buffer start), word swap `0x003f6968`, inflate `0x0054233c`, unit table read by `0x00405078` (the "parsed" of Done when: read, inflated, unit table read and served; the link walk is M9.58), reply `0x14b6` sub 3 (data). On the generated tile the firmware reads **our** record (from our pair entries), inflates it to 184 B with the Adler-32 checked, reads its unit table and answers sub 3 as for the factory record; pair-entry flip (M9.13 C2) and record-byte flip are DIFFERENT (the latter: sub 9). Navigator review fixed the request id (`0x26c18ab2` got sub 9 = no record; C-5916 retracted, C-5918). Correction of M9.52: state 3 refuses map requests; they are served in state 2 (C-5913). The links are walked by the client task (`0x14b6` sub 3): M9.58.
+
+- [ ] **M9.58 — Walk our road record in the client task: hand `0x14b6` sub 3 to the renderer**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M9.53 (done)
+  - Goal: M9.53 makes the data-access task read and inflate our record and serve it (`0x00405078` reads the unit table, reply `0x14b6` sub 3; C-5918); the links are walked by the client task that gets that reply. Rule 13 for records: see the firmware walk *our* links.
+  - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 51.70,17.45 --request 0xa6cdd6be` prints `reply 0x14b6 sub 3: 0x1 0x4 0xd8b53c 0x0 0x0`; M4.40's `tools/datask_req_l3.py` covers the same request path (C-5920–C-5927).
+  - Scope: EU2011. (1) find the task that sends `0x14b5` with kind 4 (renderer, C-5641/C-4628: `0x00425f40`) and its handler for `0x14b6` sub 3; (2) where it finds the inflated record (the reply's `+20` pointer, the slot at `0xd98fe0`, or the copy at `0x00d53f20`); (3) run that handler in `datask_l3.py` (or a new tool next to it) and watch the inflated record; (4) F/G compare and a control that changes one link of our record (decoded with `clarion_tile`).
+  - Done when: the functions that load our record's link and shape words are named with byte counts on F and G, and a one-link change gives DIFFERENT; EXP + claims; reader-coverage row 17.
+  - Stop: if the handler needs the renderer's own state that cannot be set after two models, record the faulting read and stop.
+  - Falsifier: the client handler copies the record but loads none of its link words (then name where it goes next).
+  - Claims: C-6010–C-6019
 
 - [x] **M9.57 — Find who subscribes the data-access task to object-store event 11 (state 3 of the mount)**
   - Status: done · Owner: task/m9.57-event11-subscriber · Critical: no
@@ -4749,9 +4810,11 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the subscriber is outside `Navi.exe` and needs that module's own task to run, name the module and export and stop.
   - Claims: C-6000–C-6009
   - Result: `docs/experiments/EXP-2026-11-20-M9.57-event11-subscriber.md` (C-6000–C-6006), by the counted-negative branch. New `tools/event_subs.py` lists every `OBJ_Event_setPrm`/`OBJ_Event_setPrmForMP` call of a segment from each module's own import table: EU2011 build A, 149 modules, 10 importers, 131 call sites, sub literal in every row. **Nobody subscribes the data-access task to sub 11**; the same census finds its subscriptions to 100, 199, 13, 6 and 1 (positive controls), and of the six rows of its event table 11 and 12 have no subscriber (12 is a bare `rts`). No function that addresses the task builds `0x07d0` by hand. State 3 therefore has no static sender in this firmware; `--event 11:16` stays a test switch, and the mount model needs no event 11 (M9.53: the map is served in state 2). No follow-up task.
+  - Note (M9.53, C-5913): state 3 *refuses* map requests; requests are served in state 2. This task explains state 3 but is no longer on the path to road records.
 
 - [ ] **M9.56 — The router computes a route on our graph in L3 (not only reads it)**
   - Status: blocked · Owner: — · Critical: yes · Pair: required
+  - Step: P2
   - Depends: M4.40 (grammar), M4.54 (reply path driven in L3, done, `tools/rgd_reply_l3.py`), M5.57 (a written section 2), M9.13 (generated tile read in L3, done)
   - Unblock: M4.40 done (M5.57 needed only for the generated half of Done when)
   - Goal: rule 13 for routing: today L3 shows the router *receives* section 2 (M4.54); nobody has seen `Navi.exe` produce a route. Run the router's search over a factory tile and over an M5.57 tile and compare the result with a route we compute ourselves on the decoded graph.

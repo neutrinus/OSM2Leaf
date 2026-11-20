@@ -2015,7 +2015,7 @@ ones this page uses:
 | --- | --- | --- |
 | `0x07d0` | `0x004032e0` | second table at data VA `0x1796f4`, keyed by the `u16` at `+10`: sub `100` → `0x003f75e4` (map database ready: start the mount) |
 | `0x04a0` | `0x003f72e4` | a read finished (the map-file layer's completion, C-4636) |
-| `0x14b5` (deferred) | `0x004066ac` | reaches `0x0040d4a0` → `0x0040b6b0` → the tile read issuer `0x0040a474`; body not decoded |
+| `0x14b5` (deferred) | `0x004066ac` | the map request: reaches `0x0040d4a0` → `0x0040b6b0` → the tile read issuer `0x0040a474`; body and answer below (M9.53) |
 | `0x00a0` | `0x0040335c` | second table at data VA `0x1796c4` (5 rows) |
 
 ### The mount, as run
@@ -2088,7 +2088,54 @@ subscriber gave `OBJ_Event_setPrm`:
 | 11 | `0x003f6b1c` | nobody, in any of the 149 modules (M9.57, C-6001) | `+28 = 16`: state 3; no static sender |
 | 12 | `0x0042af34` | nobody | none (`rts`) |
 
-The dispatcher runs the deferred row `0x14b5` at once only with progress
-word `0xd98fcc` = 1 and state 3. `datask_l3.py mount --sdl --event 11:16`
-runs `SDL_task` too and delivers event 11 as a stand-in: the run ends with
-state 3, progress 1 (EXP-2026-11-20-M9.52-mount-1507, C-5900–C-5907).
+The dispatcher (`0x003ebee8`, `0x003ebf14`–`0x003ebf22`) runs the deferred
+row `0x14b5` at once when the progress word `0xd98fcc` is 1 and the state
+word is **not** 3; otherwise the row goes through `0x003ebd44` (queue and
+duplicate check), which may still run it. `datask_l3.py mount --sdl --event
+11:16` runs `SDL_task` too and delivers event 11 as a stand-in: the run ends
+with state 3, progress 1 (EXP-2026-11-20-M9.52-mount-1507, C-5900–C-5907).
+State 3 is not "map ready": in state 3 the request check `0x00405970`
+refuses every map request (`0x00405ab2`, C-5913). The map is served in
+state 2, where the mount already ends (M9.53).
+
+### The map request `0x14b5` (M9.53, EU2011)
+Body (C-5641): `+0` sender, `+8` `0x14b5`, `+10` sub 2, `+12` client task,
+`+16` kind (4 renderer, `0x40` router), `+20` list, `+24` 2. The list has a
+`u16` count at `+0`; entry *i* at `32·i` holds the DIVID `u16` at `+14` and
+the mesh id `u32` at `+16`. The handler `0x004066ac` calls the check
+`0x00405970`, which needs:
+
+1. a client slot: `0x00409828` → `0x0040904c` looks the client task up in
+   24 slots of 64 bytes at data VA `0xd98fe0`; a client opens one with
+   `0x003ed6e8(1, task, kind mask, out)` (`SDL_task`'s init does it with
+   mask `0x10000`); the slot's mask must share a bit with `+16`;
+2. the state word not 3.
+
+If either fails the answer is `0x14b6` sub 5 with `+12 = 9` through
+`0x00405dac`, and nothing is read. Otherwise the mesh id is turned into a
+position by the firmware's decoders `0x004089f4` (y) and `0x00408b0c` (x)
+(with the mode word at data VA `0x56389c` = `0x2000`); `y >> 5` and `x >> 5`
+are the directory row and column (`0x0040a33c` compares them with the tile
+boxes at data VA `0xd624a0`, 24 bytes per tile: `+8` y0, `+10` x0, `+12` y1,
+`+14` x1, from the `BxxRyyR` name read as hex, x negative). The parcel
+code `0xa6cdd6be` (words 0–1 of the record itself) is y 2481, x −2642:
+`B48R058R`, directory `(77, −83)` at `0xa10b100`, slot 17, record 28
+(51.70 N, 17.45 E; `y ≈ 48·lat`, `x ≈ 32·(lon − 100)` here). The request
+must carry the record's own code: `0x26c18ab2` decodes to the same place
+and the record is read, but the answer is "no record" (sub 9, C-5918).
+
+The record block comes back as a completion with tag class `0x09`, handler
+`0x00404ee4`: it moves the record to the buffer start (`memmove(buf, buf +
+skip, length)` at `0x00404f96`; the read itself is 256-aligned),
+`0x003f6968` swaps the `u16` words of the buffer, `0x00542100`
+→ `0x0054233c` inflates it (zlib: method 8, header check mod 31, Adler-32
+read at the end; `0x0054331c` builds the code tables, `0x00545978` decodes),
+`0x003f6968` swaps the output words, `0x004048cc` reads its first 4 bytes
+(the code) and `0x00405078` reads the unit table (section 1: `+0xe`,
+`+0x28`). The answer is `0x14b6` sub 5 (`+12 = 1`) and **sub 3**, the data
+reply (`+12 = 1`, `+16` the kind, `+20` a pointer into the data-access
+task's tables). Sub 9 (`+12 = 4`, `+16` the code, `+20` the kind, `+24 =
+0x303`) means no record served: wrong code, or a record that does not
+inflate. The links of the record are walked by the client
+(EXP-2026-11-20-M9.53-record-block-read, C-5910–C-5918; M4.40's
+`datask_req_l3.py`, C-5920–C-5927).
