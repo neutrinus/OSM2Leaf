@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Classify module VAs by what the CE loader puts there (H49).
 
-A "compressed sec1" blocker hides three different cases, and only one of them
-needs the CE codec (M1.2f):
+A "compressed sec1" blocker hides three different cases; none of them is a
+blocker since M1.19 (the kernel's own decompressor runs in PySh4,
+``tools/nk_decomp.py``):
 
   CODE    executable section, stored plain: read it from the image.
   IAT     an import slot (FirstThunk entry). The loader overwrites it with the
@@ -10,11 +11,13 @@ needs the CE codec (M1.2f):
           to a stub. The DLL and the export name are printed.
   INIT    inside a compressed section, below its ``uncompressed_len`` (the
           size of the stored, initialised bytes, parsed by ``cerom.py
-          comphdr``). Only these bytes need M1.2f.
+          comphdr``). Printed ``INIT (readable: nk_decomp)``: read them with
+          ``nk_decomp.section_init()`` or map them with ``rommap.py
+          --init-from-image`` (M1.19).
   BSS     inside a section, at or above its initialised length and below
           ``vsize``. The loader zero-fills it; the program writes it at run
-          time. Decompressing the section yields zeros here, so M1.2f cannot
-          unblock a reader that needs these bytes: find the writer instead.
+          time. Decompressing the section yields zeros here, so decoding cannot
+          supply these bytes: find the writer instead.
   DATA    a plain (stored) non-executable section below ``psize``.
   OUTSIDE no section of the module covers the VA.
 
@@ -143,7 +146,7 @@ def classify(va, sections, slots):
                 return dict(cls="UNKNOWN", detail=tag + " compressed, header not parsed")
             if off < s["init_len"]:
                 if s["compressed"]:
-                    return dict(cls="INIT", detail="%s +0x%x < init 0x%x (needs M1.2f)"
+                    return dict(cls="INIT", detail="(readable: nk_decomp) %s +0x%x < init 0x%x"
                                 % (tag, off, s["init_len"]))
                 return dict(cls="DATA", detail=tag)
             return dict(cls="BSS", detail="%s +0x%x >= init 0x%x (zero at load; find the writer)"
@@ -188,6 +191,10 @@ def selftest():
     cases = [(0x11010, "CODE"), (0x12000, "IAT"), (0x12002, "IAT"), (0x12400, "INIT"),
              (0x12800, "BSS"), (0x1ffff, "BSS"), (0x22010, "UNKNOWN"), (0x30000, "OUTSIDE")]
     bad = 0
+    text = format_class(classify(0x12400, secs, slots))
+    if not text.startswith("INIT (readable: nk_decomp)") or "M1.2f" in text:
+        print("FAIL INIT text: %r" % text)
+        bad += 1
     for va, want in cases:
         got = classify(va, secs, slots)["cls"]
         if got != want:
