@@ -2433,13 +2433,14 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: after two control samples or two signature families fail to separate class from identity/region, record the negative and stop; do not promote `class_code` to a class mapping.
   - Claims: C-3200–C-3209
 
-- [ ] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
-  - Status: in progress · Owner: task/m4.31-rdstm-lctbl-class · Critical: no · Pair: solo
+- [x] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
+  - Status: done · Owner: task/m4.31-rdstm-lctbl-class · Critical: no · Pair: solo
+  - Result: EXP-2026-11-20-M4.31-tmc-road-type-link-class — `class_code` is the TMC location type (field 0, 247,089/247,089; `0x2775` = `L1.1` motorway). Through the location-code join (M4.16b/M4.16e) the record's road type predicts the level-2 section-2 class nibble `cls & 0xf`: modal accuracy 0.608 vs shuffled null max 0.382 on 158,445 records of 14 tables (positive control road identity 0.539 vs 0.400, negative `code & 1` 0.350 = null); `L1.1` → 1 (9 of 10 countries), `L1.2` → 4 (3 in FI/DK/SE), `L1.3` → 5, `L1.4` → 7. Generator hint (HYPOTHESIS): level-2 class 1 motorway / 4 primary / 5 secondary / 7 tertiary, the `fa_encode.CLASSES` level-2 column. `tools/rdstm_class_hint.py`. C-5960–C-5965; C-2971/C-2975 superseded.
   - Re-opened (rule 15, PO 2026-11-20): both `Unblock` routes have landed. M4.16b/M4.16e give the offline TMC record join (C-5400–C-5403), and M4.39 gives the route-link key `(parcel code, class & 0xf, entry word 3 & 0x1fff)` and reports that `LCTBL001` has no numeric key, name text only (C-5150–C-5156). Timebox one session: either join `LCTBL001` to links by name text through section 4 and report hit/null rates, or close this block as answered negatively by M4.39.
   - Step: P3
-  - Blocker: no stable join key between `LCTBL001` records and RDSTM/routing links on available samples (LCTBL has no coord/country/mesh/parcel/link id; tile sec2 entries have no LCTBL ref; RDSTM001 C-884 TMC framing not reproduced offline, C-2304, and RDSTM001 is TMC not routing links, C-887).
+  - Blocker (history, resolved by M4.16b/M4.16e): no stable join key between `LCTBL001` records and RDSTM/routing links on available samples (LCTBL has no coord/country/mesh/parcel/link id; tile sec2 entries have no LCTBL ref; RDSTM001 C-884 TMC framing not reproduced offline, C-2304, and RDSTM001 is TMC not routing links, C-887).
   - Unblock: M4.16b/C-884 (offline RDSTM001 TMC extraction for a TMC-side record join) or a new scoped task establishing a decoded, stable LCTBL↔MAPAL tile sec2 routing-link identifier (footer/attrs/page join) with controls.
-  - Result: EXP-2026-11-08-M4.31-rdstm-link-class-hints (negative/Stop; M4.17 Table B precheck reproduced; join-key candidates tested with controls; bounded within-LCTBL record-identity test shows attr/footer co-variation but not a routing-link attribute or generator hint). Claims C-2970–C-2979.
+  - Result (history, superseded): EXP-2026-11-08-M4.31-rdstm-link-class-hints (negative/Stop; M4.17 Table B precheck reproduced; join-key candidates tested with controls; bounded within-LCTBL record-identity test shows attr/footer co-variation but not a routing-link attribute or generator hint). Claims C-2970–C-2979.
   - Depends: M4.17, M4.18
   - Goal: deepen M4.17's negative result toward the project goal (routable OSM
     roads). M4.17 found no general road-class field but observed
