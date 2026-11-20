@@ -1159,6 +1159,110 @@ python3 tools/fetch_image.py --selftest                              # local HTT
 EU2016 has no pinned SHA-256 yet: its download is checked by size only.
 The host answers 403 to Python's default User-Agent, so the tool sends its own.
 
+## `name_loaders.py` — which firmware function names which map file (M3.28)
+
+Static census of `Navi.exe`: every map-file name string in the first section,
+the function whose literal pool loads it or the rodata table it sits in, and
+the functions that load each table (`census`); then the callers of the name
+resolver `0x0040b358` with the names each can pass and the read requests issued
+one call away (`openers`). Needs the image and a graph from `callgraph.py
+build`.
+
+```bash
+python3 tools/callgraph.py build IMG256 -o g.json
+python3 tools/name_loaders.py census  IMG256 --graph g.json
+python3 tools/name_loaders.py openers IMG256 --graph g.json
+python3 tools/name_loaders.py --selftest
+```
+
+EU2011: 60 name strings (52 files, 8 directory copies), 13 resolver callers.
+The dynamic half, running an opener on a card, is `vcard_l3.py trace` and
+`lookup`. Table and results: `docs/format/firmware.md` "Who names which file",
+`docs/experiments/EXP-2026-11-19-M3.28-file-openers.md`.
+
+## `datask_l3.py` — the firmware's map client on a virtual card (M3.25)
+
+Runs the data-access task of `Navi.exe` (EU2011 build A) next to the map-file
+task of `vcard_l3.py` in one PySh4 machine and carries the messages between
+them. The firmware then mounts the card by itself: it asks for file headers,
+tile level directories and data blocks, and its own handlers parse what comes
+back. For each completed read the tool prints file, position, length, the
+handler the firmware chose and which bytes of the buffer each function loaded.
+
+```bash
+python3 tools/datask_l3.py tables IMG256
+python3 tools/datask_l3.py mount  IMG256 --card-image CARD.img [--max-reads 7] [--file B28R070R]
+python3 tools/datask_l3.py mount  IMG256 --card-image CARD.img --flip MAPAL001/B28R070R.DAT@0x803:0x01
+python3 tools/datask_l3.py mount  IMG256 --card-image CARD.img --bytes --json out.json
+python3 tools/datask_l3.py mount  IMG256 --card-image CARD.img --position 51.70,17.45 --replace MAPAL001/B48R058R.DAT=OUR.DAT --bytes --json B.json
+python3 tools/datask_l3.py diff   A.json B.json [--file B48R058R]
+python3 tools/datask_l3.py --selftest
+```
+
+`--position LAT,LON` places the car, which decides the `BxxRyyR` tile the
+mount reads; `diff` compares two runs read by read (file, position, length,
+status, handler, bytes parsed) and prints `SAME` or `DIFFERENT` (M9.13).
+`--hide`, `--replace`, `--flip`, `--truncate` change one file of the card as
+in `vcard_l3.py`. A full mount of the EU card takes about two minutes. Exit 0
+when at least one `MAPAL001` read was parsed, 1 when none, 3 on a missing
+model or engine stop. Models (object store, saved settings, memory areas, car
+position) are listed in the module; the run says which of them return 0.
+Results: `docs/format/firmware.md` "The data-access task",
+`docs/format/map-tiles.md` "Reader entry",
+`docs/experiments/EXP-2026-11-19-M3.25-tile-reader-entry.md`,
+`docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md`.
+
+## `vcard_l3.py` — a virtual card in a virtual unit (M9.44)
+
+Runs the map-file layer of `Navi.exe` (EU2011 build A) in PySh4 with the files
+of a card behind the firmware's own `fopen`/`fseek`/`fread` imports. The card is
+an extracted tree (`--card-root`) or a raw SD image (`--card-image`, FAT32 read
+in place, no extraction). Nothing in the layer is replaced: its init, its mount
+state machine, its `DRSTR001.DAT` parser, its request queue, its `.cmp`/`.ind`
+decoder and the firmware's zlib all execute. The verdict is the firmware's own
+state (`2/2` = mounted), not ours.
+
+```bash
+python3 tools/vcard_l3.py boot    IMG256 --card-image CARD.img --tree
+python3 tools/vcard_l3.py boot    IMG256 --card-image CARD.img --truncate DRSTR001.DAT@0x800
+python3 tools/vcard_l3.py compare IMG256 --card-image A.img --other-root B_ROOT
+python3 tools/vcard_l3.py read    IMG256 --card-image CARD.img REFER001/POINT010.DAT --length 0x10000
+python3 tools/vcard_l3.py read    IMG256 --card-image CARD.img REFER001/ADDRE001.DAT \
+    --replace REFER001/ADDRE001.DAT.cmp=NEW.cmp --replace REFER001/ADDRE001.DAT.ind=NEW.ind
+python3 tools/vcard_l3.py sweep   IMG256 --card-image CARD.img --bytes 0x4000
+python3 tools/vcard_l3.py --selftest
+```
+
+- `boot` prints every open and read the firmware makes while mounting, its
+  error-log calls (caller, function number, line number), the recognition status
+  it writes and a SHA-256 of the volume table it built.
+- `compare` boots two cards and exits 0 only when verdict, state sequence, read
+  log, volume table and `MMAIN` buffer are the same.
+- `read` asks the layer for a byte range of one file (request record, queue,
+  worker, completion message) and compares the bytes with a host-side decode.
+  For a file under the `CMP.LST` prefix the firmware opens `X.IND` and `X.CMP`
+  and inflates with its own zlib, so this is the rule-13 test for a rebuilt
+  `.cmp`/`.ind` pair.
+- `sweep` does that for the head and tail of every file in the firmware's
+  volume table.
+- `lookup DIR/NAME…` runs the firmware's own name lookup (`0x0040b358`) on the
+  mounted card and prints the file id, or `not found` (exit 1). The lookup is
+  case-sensitive.
+- `trace VA --args … --ctx OFF=VALUE` calls one firmware function on the mounted
+  card and lists every name it resolves, every read request it makes and the
+  card accesses: the way to see which file an opener names (M3.28).
+- `--hide`, `--replace PATH=FILE`, `--flip PATH@OFF[:XOR]`, `--truncate PATH@N`
+  change one file of the card for one run: the negative controls and the way to
+  test a generated file without building an image.
+
+Exit codes: 0 accept / identical / all OK, 1 reject / different, 3 BLOCKED (an
+import with no model, an engine stop: no verdict), 2 usage. `IMG256` is the
+first 256 MiB of the EU card image (the firmware); the 30 MiB of decompressed
+`.data` is cached under `archive/work/`. Limits: EU2011 addresses only; a boot
+takes about 9 s, a 64 KiB compressed read about 4 s (PySh4 speed, M9.45); the
+read API takes lengths in multiples of 4, so the last `size % 4` bytes of a file
+are out of reach. Results: `docs/experiments/EXP-2026-11-19-M9.44-virtual-card.md`.
+
 ## `imgpatch.py` — patch one file inside a card image in place
 
 Writes one file's new bytes into its **existing** clusters of a card image,
