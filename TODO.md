@@ -3512,8 +3512,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: if M6.2/M6.5 scope is genuinely undecided on a safety point, record the decision as `NEEDS HUMAN` in the doc and do not guess.
   - Claims: C-3340–C-3349
 
-- [ ] **M6.16 — S3 card: a committed generator and the true on-screen place of the moved vertex**
-  - Status: open · Owner: — · Critical: no
+- [x] **M6.16 — S3 card: a committed generator and the true on-screen place of the moved vertex**
+  - Status: done · Owner: task/m6.16-s3-generator · Critical: no
   - Pair: solo
   - Depends: M6.13 (done — the package that names both gaps), M5.14 (the edit), M5.44 (the level-1/2 grid)
   - Goal: the S3 bench card (`docs/research/bench-packages/s3.md`, `186f2ded…9775c1`) has no generator in the repo (M5.14 ran `/tmp/m5_14_patch.py`), and its expected place on screen is doubtful: C-2054 says 20.82→20.92°N (~11.6 km) while the M5.44 grid puts directory (30,65280) at 20.0–20.667°N with +40/2048 units ≈ 45 m. A lost image or a wrong place to look wastes a bench session.
@@ -3523,6 +3523,19 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: the tool reproduces `fc4d4bfc8365647c…` byte for byte from the factory tile and the image SHA-256 `186f2ded…` (or names the byte that differs); the vertex lat/lon is computed by the M5.44 grid with a positive control (a factory feature at a known place on the US card) and recorded in s3.md; `selftest.py --only <tool>` green.
   - Stop: if the tile does not reproduce after the described edit, record the differing bytes and set the S3 package's artifact to "regenerate before bench" instead of trying a fourth reconstruction.
   - Claims: C-5250–C-5259
+  - Result: EXP `docs/experiments/EXP-2026-11-20-M6.16-s3-generator.md`; `tools/s3_vertex_patch.py` (selftest 18 checks) reproduces the patched tile `fc4d4bfc…` and the S3 image `186f2ded…` byte for byte from the factory US image (117 B in `[107324608,107324896)`, cardcheck PASS, C-5250). The directory `x` word is signed `mesh_x − 1024` (65280 → lon −156); the level-1 grid hits Ka Lae/Upolu/Kumukahi within 161/202/1,068 m, y-flip and C-2054's reading miss (C-5251). The vertex moves **63.8 m east** at 20.1672°N 155.7218°W, north Kohala, island of Hawaii (C-5252; C-2054 retracted); s3.md "Expected place", "Generator" and "Stacked variant" rows updated. S2 is not reproducible today (`1f1b444e…` ≠ `af4c9ff1…`; S3-on-today's-S2 `fc1433d2…`, C-5253) → **M6.20**.
+
+- [ ] **M6.20 — S2 card: a generator that reproduces `af4c9ff1…`, or a re-pinned S2**
+  - Status: open · Owner: — · Critical: no
+  - Pair: solo
+  - Depends: M6.16 (done — found the gap), M5.13b (the S2 recipe)
+  - Goal: the card plan stacks stages (S3 starts from the accepted S2), but the recorded S2 image `af4c9ff14e6b2749…` (M5.13b, C-2351) has no generator: today's `mutate_refer_poi.py --page 0x840ba0 --old "HANA HEALTH CENTER" --new "OSM2LEAF TEST POI1"` (default and `--whole-blob`) writes a 4,240,425 B `.cmp` (`b4ef43b9…`) where M5.13b wrote 4,233,336 B, giving S2 `1f1b444e…` (C-5253). A bench session that loses `us_S2.img` cannot rebuild it, and the stacked S3 hash depends on it.
+  - Precheck: `python3 tools/mutate_refer_poi.py <factory POINT010.DAT.cmp> <.ind> OUT --page 0x840ba0 --old "HANA HEALTH CENTER" --new "OSM2LEAF TEST POI1"` prints `outer .cmp 4240574 -> 4240425` (not 4233336).
+  - Scope: find which M5.13b-era code path (git history of `tools/mutate_refer_poi.py` / `cmpind_writer.py` before the chunk-preserving default, M9.43) wrote 4,233,336 B, and either pin it as a flag that reproduces `af4c9ff1…` through `imgpatch.py`, or record a new S2 SHA-256 from today's tool in the S2 record (and the S3 package's "Stacked variant" row) with the reason.
+  - Input: EXP-2026-11-08-M5.13b-us-s1-s2, EXP-2026-11-20-M6.16-s3-generator (C-5253), the US image (`fetch_image.py --image US`).
+  - Done when: one committed command produces an S2 image whose SHA-256 equals `af4c9ff1…` (or the EXP names the first differing byte and the S2 + stacked-S3 hashes are re-pinned in the records), with `imgpatch --check-diff` 0 outside.
+  - Stop: if no historical code path gives 4,233,336 B after two candidates, re-pin instead of reconstructing further.
+  - Claims: C-6200–C-6209
 
 ---
 
