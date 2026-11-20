@@ -1237,8 +1237,8 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: with `--prose-counts` wired in, a seeded stale count is still `gate: … 0 fail` (the rule does not bite), or a clean ledger turns the gate red.
   - Claims: C-4490–C-4499
 
-- [ ] **H115 — `TODO.md` open-block citations are not fence-aware: the fenced task template counts as an open block**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H115 — `TODO.md` open-block citations are not fence-aware: the fenced task template counts as an open block**
+  - Status: done · Owner: task/h115-fn-audit-fence · Critical: no · Pair: required
   - Depends: H77 (`fn_audit.fenced_lines`)
   - Goal: H77 made the docs-base and EXP scans skip fenced code, but `fn_audit._open_blocks`/`citations_open_tasks` (the l3 open-block scan) still read `TODO.md` line by line, and `TODO.md` has fences (the task-field template at about line 208, others near 307 and 927). The fenced template's `- [ ] **ID — title**` line is parsed as a real open block (pre-existing bug), so any `0x…` quoted in a fenced example under an open task becomes a live l3 citation.
   - Precheck: `grep -n '^```' TODO.md` lists the fences; `python3 tools/fn_audit.py archive/head256.img --scope l3` prints `open blocks N`; record N and whether the template block is among them.
@@ -1246,6 +1246,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: a fenced `- [ ] **H999` template is not an open block and a fenced `0x…` under a real open block is not cited (selftest), the unfenced controls still are; the EXP records the open-block count before/after on the real board; `python3 tools/gate.py` stays green.
   - Stop: if the board's fences are unbalanced (an unclosed fence hides nothing, per H77), record the lines and ship only the template fix.
   - Claims: C-5720–C-5729
+  - Result: `docs/experiments/EXP-2026-11-20-H115-fn-audit-fence.md` (C-5720–C-5723). `fn_audit._open_blocks` now derives `fenced_lines` and ignores a fenced header/boundary (the line-209 template is no longer a block); `citations_open_tasks` skips fenced lines. Real board open blocks `116 → 115` at base `2e683be` (`115 → 114` after the `3d263f9` rebase; contributing/citation lines unchanged by the fix); frozen corpora keep identity (`0 new / 0 gone`, 1076 l3 / 521 docs rows, line-only drift, no re-freeze). Negative control: a `fn 0x004125a8` fenced in the H115 block is cited by the old code at `TODO.md:1428` and not by the fix. `fn_audit --selftest` `OK (99 checks, 0 failed)`; `gate.py` `4 pass, 0 fail, 0 skip`.
 
 - [x] **H116 — the DOCS BASE corpus pins citations inside *done* TODO blocks, so archiving a finished task reddens the standing gate on a host with the image**
   - Status: done · Owner: task/h116-archive-vs-docs-base · Critical: no · Pair: required

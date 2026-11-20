@@ -35,8 +35,8 @@ Fenced code blocks (H77): in every Markdown corpus a ```` ``` ```` or ``~~~``
 block is quoted text (a command, a listing), so a ``fn 0x…`` inside it is not
 a citation.  ``fenced_lines`` finds the blocks; an unclosed fence (or one
 whose body dedents below its opener) hides nothing.  ``TODO.md`` open blocks
-keep their rule (they are not fence-aware, H115); the docs-base scan of
-``TODO.md`` is.
+are fence-aware too (H115): the fenced task-field template is not a block, and
+a ``0x…`` quoted inside a fence under a real open task is not an l3 citation.
 
 A VA is resolved to a build (A ``0x200200`` / B ``0x3e00200`` / C ``0x5200200``
 of the same image) and a module when the module's pdata span
@@ -362,15 +362,29 @@ def _open_blocks(lines):
 
     Shared by ``citations_open_tasks`` and ``open_block_counts`` so the
     reported block count and the scanned span cannot drift apart.
+
+    H115: a fenced block is quoted text, not a task.  ``TODO.md`` carries the
+    task-field template inside a ````text```` fence, so its ``- [ ] **ID``
+    header is not a block (it used to be counted as one), and a fenced
+    ``- [ ]``/``## `` line inside a block is never a boundary either — the
+    span runs across the fence so ``citations_open_tasks`` can skip its body
+    while the live labels before and after stay in scope.  An unclosed fence
+    hides nothing (``fenced_lines``, H77).
     """
-    starts = [i for i, line in enumerate(lines) if OPEN_TASK_RE.match(line)]
+    fenced = fenced_lines("\n".join(lines))
+    starts = [i for i, line in enumerate(lines)
+              if i not in fenced and OPEN_TASK_RE.match(line)]
     blocks = []
     for start in starts:
         end = start + 1
-        while (end < len(lines)
-               and not OPEN_TASK_RE.match(lines[end])
-               and not lines[end].startswith("- [")
-               and not lines[end].startswith("## ")):
+        while end < len(lines):
+            if end in fenced:
+                end += 1  # quoted text: part of the span, not a boundary
+                continue
+            if (OPEN_TASK_RE.match(lines[end])
+                    or lines[end].startswith("- [")
+                    or lines[end].startswith("## ")):
+                break
             end += 1
         blocks.append((start, end))
     return blocks
@@ -453,10 +467,19 @@ def citations_open_tasks(text):
 
     Everything else is skipped, and a US-build VA is skipped for every kind
     (it is not a start in the EU head this gate classifies against).
+
+    H115: a fenced code block inside a real open task is quoted text, exactly
+    as ``citations_markdown`` treats it (H77), so a ``fn 0x…`` in a fenced
+    example is not a citation.  ``_open_blocks`` no longer treats a fenced
+    ``- [ ]`` header as a block boundary, so the span still covers the live
+    labels before and after the fence.
     """
     lines = text.split("\n")
+    fenced = fenced_lines(text)
     for start, end in _open_blocks(lines):
         for lineno in range(start, end):
+            if lineno in fenced:
+                continue
             line = lines[lineno]
             pairs = {}
             for m in CORRECTION_PAIR_RE.finditer(line):
@@ -1489,6 +1512,50 @@ def selftest():
               opened.get(0x003F5FC2) == ("ctx", None))
         check("open-block skips US-build starts",
               0x00444540 not in opened and 0x004446F4 not in opened)
+        # H115: the open-block scan is fence-aware.  A fenced task-field
+        # template header (the real board's at line 209) is not a block, and a
+        # `fn 0x…` quoted inside a fence under a real open task is not a
+        # citation, while the unfenced labels before and after the fence stay
+        # live.  Mirrors TODO.md: a top-level `text` fence holds the template.
+        fboard = (
+            "```text\n"
+            "- [ ] **ID — title**\n"
+            "  - Status: open | in progress | blocked | done\n"
+            "  - Goal: example fn 0x0041c002 inside a fence\n"
+            "```\n"
+            "\n"
+            "- [ ] **H998 — real open task**\n"
+            "  - Status: open · Owner: —\n"
+            "  - live label before fn 0x0041c001\n"
+            "  ~~~~\n"
+            "  fenced example fn 0x0041c005 must not count\n"
+            "  ~~~~\n"
+            "  - live label after fn 0x0041c003\n"
+            "\n"
+            "- [x] **DONE1 — done task**\n"
+            "  - Status: done · Owner: —\n"
+            "  - history fn 0x0041c004\n"
+        )
+        flines = fboard.split("\n")
+        fblocks = _open_blocks(flines)
+        check("H115 fenced template header is not an open block",
+              not any(flines[s].startswith("- [ ] **ID") for s, _e in fblocks))
+        check("H115 the real open block is still found",
+              [flines[s] for s, _e in fblocks]
+              == ["- [ ] **H998 — real open task**"])
+        fvas = {c.va for c in citations_open_tasks(fboard)}
+        check("H115 a fenced fn under an open block is not cited",
+              0x0041C002 not in fvas and 0x0041C005 not in fvas)
+        check("H115 unfenced labels around the fence stay live",
+              {0x0041C001, 0x0041C003} <= fvas)
+        check("H115 a done block is not cited (control)",
+              0x0041C004 not in fvas)
+        # The same fenced VA unfenced is a citation: the fence, not the VA,
+        # is what hides it (positive control for the skip above).
+        check("H115 the same VA unfenced is cited (positive control)",
+              0x0041C005 in {c.va for c in citations_open_tasks(
+                  fboard.replace("  ~~~~\n", "").replace(
+                      "  ~~~~\n", ""))})
         # H116: the docs-base pass cites only live (open/in progress/blocked)
         # blocks; a done block is history and must not pin the corpus, or
         # archiving it reddens the gate.  A header with no Status line (the
