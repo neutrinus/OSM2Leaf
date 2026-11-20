@@ -2197,8 +2197,9 @@ of the four numbers above says so in its first line.
     + selftest. Join key NOT identified; done-when not met (negative).
   - Claims: C-1810–C-1819
 
-- [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
+  - Status: done · Owner: task/m4.16b-rdstm-field-dir-placement · Critical: yes
+  - Result: EXP-2026-11-20-M4.16b-tmc-placement-all-tables — with the M4.16e link-group rule, `rdstm_place.py place-all` carries 110,788/110,795 location-code-joined TMC records of all 14 RDSTM tables (14 countries) to level-2 node coordinates: 110,788/110,788 in the table's country (random refs 2,048/27,998), 94,551/95,176 < 1 km from the TMC positive neighbour (shuffled 129); 60,321 also resolve through set 0 (level 4) and all lie < 5 km from their level-2 nodes (shuffled 256). Join key = location code (neg/pos agreement is a confirmation). Roles `k&3`: role 1 = reversed role 0 in 24,948/66,443 (HYPOTHESIS, to M4.49); flag bits not decoded. C-5400–C-5403.
   - Reopen note (M4.16e, 2026-11-20, rule 15): the link groups are decoded (EXP-2026-11-20-M4.16e-rdstm-link-groups); `python3 tools/rdstm_links.py place LCTBL001.DAT RDSTM001.DAT MAPAL001 --table-pair 0` maps 8,532 CZ records to level-2 node coordinates with controls, so the done-when can now be closed (blocker below kept as history).
   - Blocker (2026-11-19, resolved by M4.16e): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
   - Unblock: M4.16e (decode the RDSTM001 link groups after `0xccce00`). The `0x00d53500` table is a handle cache, not a schema (C-5130): M3.22 is no longer this task's unblocker.
@@ -2216,7 +2217,7 @@ of the four numbers above says so in its first line.
   - Scope: the C-884 directory walk (`0x003f56bc`, `0x003f5e10`, schema `0x00d53500`) on Navi.exe build A; ≥20 decoded records tested for placement. No RDSTM writer.
   - Done when: ≥20 decoded records map to tile/mesh/coordinates with a named join key and ~0 random-key control, or the mapping is proven impossible with method recorded.
   - Stop: if schema table `0x00d53500` is unreadable (compressed `.data`) or the walk cannot be reproduced with current inputs, set `blocked` naming that dependency and keep the negative result.
-  - Claims: C-5130–C-5136 (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
+  - Claims: C-5130–C-5136, C-5400–C-5403 (second pass; block C-5400–C-5409, C-5404–C-5409 spare) (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
 
 - [x] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
   - Status: done · Owner: task/m4.16e-rdstm-link-groups · Critical: yes

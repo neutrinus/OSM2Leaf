@@ -2110,6 +2110,15 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-5371 | Not decoded: entry bits `a` 0x4000/0x8000 and `b` 0x4000/0x8000, link-record role `k&3`, header words `3`/`122`; misses of C-5139 concentrate on `a&0x4000` entries (possible node in a neighbouring parcel, HYPOTHESIS). Set 0 = level-4 graph (one group ≈ one grid tile), set 1 = level-2 graph (4 × 4 parcels per group): each table is linked to both levels. | OBSERVED | M | EXP-2026-11-20-M4.16e-rdstm-link-groups; `rdstm_links.py check` misses table |
 | C-5372 | The firmware reader of the RDSTM001 group index/data is not located (not searched in M4.16e); the decode is data-side only and the format is not *confirmed* under rule 13 (follow-up M4.49). | OBSERVED (gap) | H | EXP-2026-11-20-M4.16e-rdstm-link-groups |
 
+## M4.16b (second pass) — TMC records of all 14 RDSTM tables placed at level 2 and level 4 (C-5400–C-5409)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5400 | EU 2011: through location code → RDSTM link record (pair 14+t) → ref → set-1 group/entry → level-2 parcel node, 110,788 of the 110,795 neg/pos-joined TMC records of all 14 RDSTM tables reach coordinates; 110,788/110,788 have a node in a parcel of the table's majority country (14 countries; random refs 2,048/27,998); 94,551/95,176 lie < 1 km from their TMC positive neighbour (shuffled 129). | VERIFIED (EU, with control) | H | EXP-2026-11-20-M4.16b-tmc-placement-all-tables; `rdstm_place.py place-all` |
+| C-5401 | The set-0 (level-4) refs of the same codes (pair t) place 60,321 of those records, and all 60,321 lie < 5 km from the record's level-2 nodes (median 0.02–0.03 km per table; shuffled record 256/60,321): the two link sets agree. | VERIFIED (EU, with control) | H | EXP-2026-11-20-M4.16b-tmc-placement-all-tables; `rdstm_place.py place-all` |
+| C-5402 | The location code alone is the join key: the 47,678 code-matched records whose LCTBL neg/pos differ from the RDSTM triple place equally (47,657 placed, all in their country, random 1,876/26,050; neighbours < 1 km 7,303/7,326, shuffled 16); 46,822 of them are road ends (no LCTBL neg/pos field, triple holds 0). Code alone: 158,445/158,473 records placed. Refines C-5135 (neg/pos agreement is a confirmation, not a condition). | VERIFIED (EU, with control) | H | EXP-2026-11-20-M4.16b-tmc-placement-all-tables; `rdstm_place.py place-all --join code-only` |
+| C-5403 | Link-record roles `k&3`: role 1 is exactly the role-0 link list reversed in 24,948/66,443 joined records that carry both (per table 16 %–65 %); HYPOTHESIS roles 0/1 = the two travel directions; roles 2/3 and the entry bits `a`/`b` 0x4000/0x8000 stay UNKNOWN (M4.49). | OBSERVED | M | EXP-2026-11-20-M4.16b-tmc-placement-all-tables; `rdstm_place.py place-all` |
+
 ## M1.13 — Factory encoder for REFER001 POI pages (C-2570–C-2579)
 
 | ID | Claim | Status | Confidence | Evidence |
