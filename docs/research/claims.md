@@ -4333,6 +4333,14 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5965 | `tools/rdstm_class_hint.py --selftest` passes on synthetic data: a label equal to the class scores 1.0 and beats its shuffled null, a random label stays within its null, groups below `--min-group` are pooled, and the road-type walk accepts only `L1.x`/`L2.x`. | VERIFIED (tool, synthetic) | H | `python3 tools/rdstm_class_hint.py --selftest` |
 
 
+## H53 — `todo_check --strict` board cleanup (C-3650–C-3652)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3650 | `todo_check.py --strict` is implemented as documented: on `TODO.md` at `ea15563` it exits 1 with 33 `ERROR` lines over 13 firmware/search tasks (the task block's 69/25 is an older count; `done` tasks fell to WARN), while the default run exits 0; no strict-path bug was found and the tool is unchanged. | VERIFIED (tool) | H | EXP-2026-11-20-H53-strict-honest; `git show ea15563:TODO.md > F; python3 tools/todo_check.py --strict F` |
+| C-3651 | Backfilling `Precheck`/`Scope`/`Stop` on the six unheld tasks (M3.16 Stop; M8.D1, M8.D2, M8.E3, M8.E4, M9.2 all three) brings the strict count to 17 `ERROR` lines, every one on a task held by an open PR (M1.4 #370, M3.13 #351, M3.29 #341, M8.A8 #372, M8.B6 #379, M8.C #355, M8.E2 #371); WARN lines stay 136 and the default run exits 0. | VERIFIED (tool) | H | EXP-2026-11-20-H53-strict-honest; `python3 tools/todo_check.py --strict`; `python3 tools/selftest.py --only todo_check` |
+| C-3652 | The held branches as pushed do not add their own fields (3/3/1/3/1/3/3 errors remain on M1.4/M3.13/M3.29/M8.A8/M8.B6/M8.C/M8.E2), so `--strict` reaches exit 0 on `main` only when those PRs land `done` (a `done` task warns only) or add the fields. | VERIFIED (tool) | M | EXP-2026-11-20-H53-strict-honest; `git show origin/task/m1.4-filesentry-payloads:TODO.md > F; python3 tools/todo_check.py --strict F` (same for each held branch) |
+
 ## M5.17 — `LCTBL001.DAT` file builder (C-2410–C-2419)
 | ID | Claim | Status | Confidence | Evidence |
 |---|---|---|---|---|

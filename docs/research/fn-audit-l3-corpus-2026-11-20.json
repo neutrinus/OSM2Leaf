@@ -383,6 +383,7 @@
   "docs/experiments/EXP-2026-11-20-H116-archive-docs-base.md",
   "docs/experiments/EXP-2026-11-20-H117-main-shadow-run.md",
   "docs/experiments/EXP-2026-11-20-H19-reverify-thin-records.md",
+  "docs/experiments/EXP-2026-11-20-H53-strict-honest.md",
   "docs/experiments/EXP-2026-11-20-H63-corrected-evidence.md",
   "docs/experiments/EXP-2026-11-20-H77-skip-fenced-code.md",
   "docs/experiments/EXP-2026-11-20-H89-nomatch-census.md",
@@ -508,7 +509,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1725,
+   "line": 1726,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -517,7 +518,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1725,
+   "line": 1726,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -526,7 +527,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1758,
+   "line": 1759,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -535,7 +536,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1759,
+   "line": 1760,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -544,7 +545,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1781,
+   "line": 1782,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -553,7 +554,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2207,
+   "line": 2208,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -562,7 +563,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2207,
+   "line": 2208,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
@@ -571,7 +572,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3817,
+   "line": 3818,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
