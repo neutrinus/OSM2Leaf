@@ -3784,9 +3784,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     Tool: `tools/ze0_rtc.py`.
   - Claims: C-1330–C-1339
 
-- [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
+- [x] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
   without a fault.
-  - Status: in progress · Owner: task/m8.b5-ze0-f1-filesys · Critical: no
+  - Status: done · Owner: task/m8.b5-ze0-f1-filesys · Critical: no
   - Depends: M8.B1, M8.B2
   - Done when (made concrete 2026-11-20, before the controlled runs; the
     original line is kept above): one `-M ze0 -kernel archive/head256.img
@@ -3798,6 +3798,16 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     kernel's debug output; (3) `CurMSec` (`0x89e41888`) ≥ 60 000 at the
     end. Negative controls: `ext-ram=off` and the M8.B2 binary (no
     odd-PC address error) must fail (1) or (2).
+  - Result: EXP-2026-11-20-M8.B5-ze0-f1-filesys (C-1350–C-1354). Patch
+    `ze0-0006-sh4-iaddr-error-ze0-ext-ram.patch`: an odd-PC fetch raises
+    the SH-4 address error 0x0e0 (the CE API trap; QEMU raised 0x180, the
+    kernel's "Unhandled exception c000001d" → `Halting system`), and the
+    OAL's second 128 MiB DRAM at phys `0x10000000`. `filesys.exe` and
+    `device.exe` start (RAM loader records + their debug text), 839 s of
+    guest time, no unhandled exception; `ext-ram=off` and the M8.B2
+    binary fail. Next blockers: SD host (launcher `SD Check Error`,
+    M8.C10), OEM IOCTLs, `gwes.exe` not started. Tool:
+    `tools/ze0_dbgmsg.py` (kernel debug text over the gdbstub).
   - Claims: C-1350–C-1359
 
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
