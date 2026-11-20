@@ -378,7 +378,9 @@
   "docs/experiments/EXP-2026-11-19-M9.49-pysh4-macw.md",
   "docs/experiments/EXP-2026-11-19-M9.50-pysh4-rotcl.md",
   "docs/experiments/EXP-2026-11-19-M9.6-mapcode-compare.md",
+  "docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md",
   "docs/experiments/EXP-2026-11-20-H116-archive-docs-base.md",
+  "docs/experiments/EXP-2026-11-20-H117-main-shadow-run.md",
   "docs/experiments/EXP-2026-11-20-H19-reverify-thin-records.md",
   "docs/experiments/EXP-2026-11-20-H63-corrected-evidence.md",
   "docs/experiments/EXP-2026-11-20-H77-skip-fenced-code.md",
@@ -403,6 +405,7 @@
   "docs/experiments/EXP-2026-11-20-M4.49-rdstm-group-reader.md",
   "docs/experiments/EXP-2026-11-20-M4.51-tmc-14f4-senders.md",
   "docs/experiments/EXP-2026-11-20-M4.52-point-locator-reader.md",
+  "docs/experiments/EXP-2026-11-20-M4.54-section2-read-watch.md",
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
@@ -421,7 +424,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 414,
+  "files": 417,
   "citations": 1076,
   "unique_va": 263,
   "start": 927,
@@ -435,7 +438,7 @@
  "rows": [
   {
    "file": "TODO.md",
-   "line": 1245,
+   "line": 1246,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -444,7 +447,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1726,
+   "line": 1739,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -453,7 +456,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1727,
+   "line": 1740,
    "va": "0x0041c044",
    "kind": "fn",
    "class": "START",
@@ -462,7 +465,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1729,
+   "line": 1742,
    "va": "0x003f40ec",
    "kind": "fn",
    "class": "START",
@@ -471,7 +474,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1794,
+   "line": 1807,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -480,7 +483,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1794,
+   "line": 1807,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -489,7 +492,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1795,
+   "line": 1808,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -498,7 +501,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1816,
+   "line": 1829,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -508,7 +511,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1826,
+   "line": 1839,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -517,7 +520,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1834,
+   "line": 1847,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -526,7 +529,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1895,
+   "line": 1908,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -535,7 +538,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1895,
+   "line": 1908,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -544,7 +547,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1928,
+   "line": 1941,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -553,7 +556,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1929,
+   "line": 1942,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -562,7 +565,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1951,
+   "line": 1964,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -571,7 +574,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2381,
+   "line": 2394,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -580,7 +583,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2381,
+   "line": 2394,
    "va": "0x003c0e68",
    "kind": "fn",
    "class": "START",
