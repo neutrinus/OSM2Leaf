@@ -291,6 +291,7 @@ def main(argv=None) -> int:
         split = argv.index("--")
         argv, tool = argv[:split], argv[split + 1:]
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--selftest", action="store_true", help="run the synthetic self-test")
     ap.add_argument("cmd", choices=["changed", "run", "static"])
     ap.add_argument("image", nargs="?")
     ap.add_argument("vas", nargs="*")
