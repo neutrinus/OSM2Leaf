@@ -426,6 +426,7 @@
   "docs/experiments/EXP-2026-11-20-M5.15-build-py-card.md",
   "docs/experiments/EXP-2026-11-20-M5.17-lctbl-builder.md",
   "docs/experiments/EXP-2026-11-20-M5.19-rdstm-writer.md",
+  "docs/experiments/EXP-2026-11-20-M5.27-m5.12c-scan.md",
   "docs/experiments/EXP-2026-11-20-M5.36-tile-class-roundtrip.md",
   "docs/experiments/EXP-2026-11-20-M5.49-p1-verbatim-tile.md",
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
@@ -459,7 +460,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 452,
+  "files": 453,
   "citations": 1276,
   "unique_va": 300,
   "start": 1120,
