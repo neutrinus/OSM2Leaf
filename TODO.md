@@ -1896,7 +1896,7 @@ in its first line.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
   - Unblock: M3.23 (2026-11-20): no static root of their own was ranked. `ICADM001` loads appear in the `ICODE` list below `0x003f2cc0` (C-4694 mixes both: `0x003f0c7c`, `0x003f07f8`, `0x003f08cc`, `0x003eff20`); the name builder `0x003f1640` (C-2381) is the root to rank next (`callgraph.py rank g.json --family ICADM=0x003f1640 …`). `ZIPFR001`: shared REFER list of C-3546. Confirm with M9.38 / M3.29.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.18-icadm-zipfr · Critical: no
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
     families and the same compression wall)
