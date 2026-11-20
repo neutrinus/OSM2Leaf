@@ -345,6 +345,7 @@
   "docs/experiments/EXP-2026-11-19-M4.37-point-bitpack-coords.md",
   "docs/experiments/EXP-2026-11-19-M4.38-lang-code-table.md",
   "docs/experiments/EXP-2026-11-19-M4.41-diff-years.md",
+  "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
   "docs/experiments/EXP-2026-11-19-M5.30-one-variable-card.md",
   "docs/experiments/EXP-2026-11-19-M5.33-synthetic-scaffold.md",
   "docs/experiments/EXP-2026-11-19-M5.37-route-graph-golden.md",
@@ -371,10 +372,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 364,
-  "citations": 988,
+  "files": 365,
+  "citations": 994,
   "unique_va": 209,
-  "start": 808,
+  "start": 814,
   "inside": 80,
   "corrected": 9,
   "gap": 79,
@@ -648,7 +649,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3616,
+   "line": 3617,
    "va": "0x880385e4",
    "kind": "fn",
    "class": "START",
@@ -8682,6 +8683,60 @@
    "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
    "line": 362,
    "va": "0x0041a438",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 268,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 282,
+   "va": "0x004e7b8c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 283,
+   "va": "0x03bd2ad8",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 284,
+   "va": "0x03bd2ce4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 286,
+   "va": "0x004dd028",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.11-one-generated-tile.md",
+   "line": 307,
+   "va": "0x03bd2ad8",
    "kind": "fn",
    "class": "START",
    "true_start": null,
