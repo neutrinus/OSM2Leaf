@@ -99,8 +99,9 @@ match; the change is then wrong for `UNIQUE` and must be stopped (H113 Stop).
    ```
 3. **Controls.**
    - *Positive:* `--selftest` of `fn_match` builds the crammed pool word
-     `0xda39` (low half `0xda39`/`0x0039` = `mov.l @(9,pc),r10`) and asserts
-     the forward pass does **not** mark the real instruction at hw 122
+     `0xda39` (low half `0xda39`/`0x0039` = `mov.l @(9,pc),r10`) **loaded**
+     by the `mov.l @(2,pc),r7` at hw 0, and asserts the forward pass does
+     **not** mark the real instruction at hw 122
      (`H113: forward pass marks the real slots and not the phantom one`), that
      the pool word *would* name it (`… would name hw122`), that a changed real
      instruction still changes the `fingerprint` hash (`… still changes the
@@ -249,12 +250,23 @@ constant really moved, C-3701).
   load), and part is the TWIN class (H114).
 - **UNKNOWN:** whether `_pool_only_twin` (masked-form `DIFFERENT`) is the right
   verdict for the 12 old-NOMATCH rows that stay `DIFFERENT`.
+- **FACT (residual, not closed):** the mark-only rule exempts a pool word that
+  a load has **already named**. *Unloaded* pool data (a data run no load
+  points at) that decodes as `mov.x @(disp,PC)` still names a slot and blanks a
+  real instruction. Synthetic control: `hw0 = 0xD702` (loads hw6), `hw6 =
+  0xDA39` (loaded, exempt), `hw50 = 0xD023` (named by no load), `hw122 =
+  0xC11E`; `pool_slots` contains 122 (`50 not in slots`), `_instruction_tokens
+  [122] == 0x0000`, `pool_masked[122] == 0`. So the H113 title class is only
+  closed for loaded pool words; the unloaded-data case is open (Follow-ups).
 
 ## Conclusion
 
 `pool_slots`/`_pool_loads` in `tools/fn_match.py` now find slots in one forward
 pass and feed `fingerprint`, `_instruction_tokens`/`code_digest` and
-`pool_masked`; `nomatch_census.pool_slots` delegates to it. C-3626's
+`pool_masked`; `nomatch_census.pool_slots` delegates to it. The rule is
+mark-only: it closes the class for a pool word a load already names, **not**
+for unloaded pool data that decodes as a load (H118, filed by the navigator's
+review). C-3626's
 `DIFFERENT 3214 / UNIQUE 2392 / …` is historical (measured at `d2fb7b4`); the
 module census is now `UNIQUE 5945 / DIFFERENT 171 / CALLORDER 56 / AMBIGUOUS
 566 / NOMATCH 858`. The fixture is re-pinned (6 rows `DIFFERENT`→`UNIQUE`, same
@@ -283,3 +295,7 @@ python3 tools/fn_match.py --selftest        # expected: OK (46 checks, 0 failed)
   population is now 858, not 1259.
 - [ ] Re-run the H89 `--seed 89` sample on the new population if a class mix is
   wanted; the old sample is not comparable.
+- [ ] H118 (filed by the navigator's review): the **unloaded** pool-data
+  residual above — measure it among the 858 NOMATCH and narrow the slot rule.
+  The H113 title class is therefore **not** fully closed: this record closes
+  the class for pool words a load already names.

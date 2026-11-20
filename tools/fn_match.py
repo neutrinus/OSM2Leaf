@@ -23,9 +23,12 @@ Method
      are hashed as *content* when they are not pointers into the module's own
      load range, and masked to a marker when they are (a relocated pointer is
      not a constant). The pool's address is never hashed. Slots are found in a
-     forward pass: a halfword already named as a slot is pool data and never
-     names another slot, so a literal that happens to decode as a load does not
-     blank a real instruction (H113, H89 PHANTOM-SLOT).
+     forward pass: a halfword **already named** as a slot is pool data and never
+     names another slot, so a pool word that was loaded (already marked) and
+     decodes as a load cannot blank a real instruction (H113, H89
+     PHANTOM-SLOT). This does not cover pool data that no load names: an
+     unloaded data word that decodes as a load still names a slot, an open
+     residual (H113 EXP, H118).
    * Everything else (opcodes, register fields, immediates that are not
      addresses) is hashed verbatim.
 

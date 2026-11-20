@@ -1477,7 +1477,7 @@ in its first line.
   - Done when: an EXP gives the new module census with the before/after verdict table; `0x0033d00c` is no longer `NOMATCH`; the fixture replays `0 mismatch`; `python3 tools/gate.py` green.
   - Stop: if any `UNIQUE` pair of the old census changes its US address, stop and record it instead of merging the change.
   - Claims: C-5570–C-5579
-  - Result: docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md; C-5570–C-5576. One forward slot pass (`pool_slots`/`_pool_loads` in `tools/fn_match.py`, `nomatch_census.pool_slots` delegates) feeds `fingerprint`, `_instruction_tokens`/`code_digest` and `pool_masked`; `fn_match --selftest` 41→46. Module census `UNIQUE 5945 / DIFFERENT 171 / CALLORDER 56 / AMBIGUOUS 566 / NOMATCH 858` (was `2392/3214/213/518/1259` at `d2fb7b4`, C-3626 historical); 0 rows move to another non-null US, all 3028 `DIFFERENT`→`UNIQUE` are phantom-slot, 129 of the 141 forward-pass rows are `UNIQUE` + 12 `DIFFERENT` to the same US. `0x0033d00c` is now `UNIQUE → 0x0036bb5c`; fixture 6 rows `DIFFERENT`→`UNIQUE` (same US VAs), replay `13 rows, 0 mismatch`; 6 old `UNIQUE` are now `AMBIGUOUS` (twin runs, never guessed). `gate.py` 4/4.
+  - Result: docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md; C-5570–C-5576. One forward slot pass (`pool_slots`/`_pool_loads` in `tools/fn_match.py`, `nomatch_census.pool_slots` delegates) feeds `fingerprint`, `_instruction_tokens`/`code_digest` and `pool_masked`; `fn_match --selftest` 41→46. Module census `UNIQUE 5945 / DIFFERENT 171 / CALLORDER 56 / AMBIGUOUS 566 / NOMATCH 858` (was `2392/3214/213/518/1259` at `d2fb7b4`, C-3626 historical); 0 rows move to another non-null US, all 3028 `DIFFERENT`→`UNIQUE` are phantom-slot, 129 of the 141 forward-pass rows are `UNIQUE` + 12 `DIFFERENT` to the same US. `0x0033d00c` is now `UNIQUE → 0x0036bb5c`; fixture 6 rows `DIFFERENT`→`UNIQUE` (same US VAs), replay `13 rows, 0 mismatch`; 6 old `UNIQUE` are now `AMBIGUOUS` (twin runs, never guessed). `gate.py` 4/4. Known residual (open, H118): an *unloaded* pool-data word that decodes as a load still blanks a real instruction; the marked-slot rule covers only words a load already named.
 
 - [ ] **H114 — `fn_match` refuses an identical masked stream with two or more US twins; address order can pick one**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -1490,6 +1490,17 @@ in its first line.
   - Done when: an EXP reports how many TWIN rows get the new verdict and a positive control (UNIQUE functions re-paired by anchor ≥95 %) and a negative control (a shuffled anchor pairs 0 twins); a ±1 shifted-anchor control re-pairs 0 TWIN rows to the same US twin, or rows whose ±1 neighbour is also a twin are listed and excluded; the verdict is one-to-one (no US twin claimed by two EU rows — H89's `--all` run names 30 US records from more than one row, e.g. EU `0x003c3a34` and `0x003c3ad8`); `python3 tools/gate.py` green.
   - Stop: if the positive control falls below 95 %, record it and leave the verdict out.
   - Claims: C-5700–C-5709
+
+- [ ] **H118 — `fn_match` still blanks real instructions when UNLOADED pool data decodes as `mov.x @(disp,PC)`**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H113 (done; the marked-slot rule and its residual)
+  - Goal: H113's forward pass exempts only a halfword **already named** as a slot. Pool data that no load names (a data run after the function's own loads, alignment words, a literal a dead load pointed at) still decodes as `mov.x @(disp,PC)` and names a slot that lands on a real instruction, which `fingerprint`/`_instruction_tokens` hash as `0x0000` and `pool_masked` zeroes. Synthetic control: `hw0 = 0xD702` (loads hw6), `hw6 = 0xDA39` (loaded, exempt), `hw50 = 0xD023` (named by no load), `hw122 = 0xC11E` → `pool_slots` contains 122, `_instruction_tokens[122] == 0x0000`, `pool_masked[122] == 0`. Measure how many of the 858 H113 NOMATCH (and how many `DIFFERENT` rows) are this residual, then narrow the slot rule (e.g. a slot target must lie in the function's own trailing pool region, or a slot may only be named by a load whose target is not past the last instruction the `.pdata` length covers).
+  - Precheck: `python3 tools/fn_match.py --selftest` is `OK (46 checks, 0 failed)`; the residual script in EXP-2026-11-20-H113-fnmatch-pool's Observations (synthetic hw50) reproduces `122 in slots: True`, `tokens[122]: 0000`, `masked[122]: 0`.
+  - Scope: `tools/fn_match.py` slot derivation (`_pool_loads`/`pool_slots`) + selftest + census EXP; no change to `UNIQUE`/`DIFFERENT` semantics beyond the phantom class. Not: `_pool_only_twin` (H114).
+  - Falsifier: if narrowing the rule moves any row's non-null US address to a different non-null one, stop and record it (H113 Stop).
+  - Done when: an EXP gives the before/after census and the count of rows the residual explains; the synthetic hw50 case no longer blanks hw122 (selftest) while the loaded-pool-word case still does not; `python3 tools/gate.py` green and the `fn_match_eu_us_2011.json` fixture replays `0 mismatch`.
+  - Stop: if no narrowing rule keeps every H113 `UNIQUE` US address, record the negative with the count and leave the residual documented instead of merging a behaviour change.
+  - Claims: C-5760–C-5769
 
 ## M2 — Map code, activation, updater
 
