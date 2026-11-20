@@ -41,4 +41,4 @@ handoff:
   - PO: re-open M4.51; group M3.13/M3.14/M3.16/M3.18 under M3.29; Priorities are stale
     (M9.52, M9.36, M9.14, M4.16, M4.31, M5.56, M3.31 are done).
   - QA: CI on main is green; the queue, not the gate, is the bottleneck.
-end: 2026-11-20 18:50 UTC
+end: 2026-11-20 18:14 UTC
