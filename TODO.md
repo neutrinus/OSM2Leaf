@@ -2897,7 +2897,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2420–C-2429
 
 - [ ] **M5.19 — `RDSTM001` writer (H11 G7)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m5.19-rdstm-writer · Critical: no
   - Step: P3
   - Depends: M4.16b (record framing), M3.7
   - Goal: every `RDSTM001` row is copied verbatim from the factory card today;
