@@ -1,0 +1,49 @@
+role: DRIVER (M5.36), pair-mode driver
+task: M5.36 — L2 golden for the road-class table (emitted class decodes back)
+worktree: ~/projekty/OSM2Leaf.task-m5.36-tile-class-roundtrip
+branch: task/m5.36-tile-class-roundtrip
+claim: b2d02a0 (draft PR #328)
+
+work:
+  - tools/tile_class_roundtrip.py (new; commands check/dump/from-imf/mutate;
+    --selftest 6 checks). Decodes level-1 even 0x00fa records, reads the class
+    as w[p+2] >> 12 plus the unit layer table, compares against an emitted
+    map in the ze0-road-class/1 sidecar format.
+  - tools/l2check.py: check_tile_class + --class-tiles/--class-emitted; a tile
+    with no emitted map prints a decoded census, never PASS. Selftest 19 checks.
+  - tools/l1l2_fixtures.py: check_l2_tile_class_roundtrip + registry row
+    l2.tile.class-roundtrip (synthetic no-vendor fixture, PASS + one-value
+    mutant FAIL).
+  - EXP docs/experiments/EXP-2026-11-20-M5.36-tile-class-roundtrip.md
+    (10 TEMPLATE sections, falsifier first, positive + negative controls).
+  - claims C-5790-C-5792; reader-coverage rows 17/18 updated.
+  - TODO block done + [x] + Claims + Result.
+
+results (quoted):
+  splice check: PASS records=47656 shapes=1693334 match=6 fail=0 missing=0.
+  mutant check: FAIL match=5 fail=1 (1,2452,13724): classes decoded [(6,5)]
+    != emitted [(6,6)].
+  l2check card RESULT: PASS (exit 0); negcard RESULT: FAIL (exit 1).
+  factory dump->check: PASS match=47656 fail=0 missing=0.
+  l1l2_fixtures: runnable 7P/0F/1S, not_covered=2, verdict=OK.
+  selftest.py 138/0/23; gate.py 4 pass / 0 fail / 0 skip; todo_check OK;
+  claims_check OK.
+
+decisions:
+  - a new tool alongside l2check (mirrors M5.37's tile_graph_roundtrip) keeps
+    l2check thin; the task text said "one new check", the check name is still
+    tile_class_roundtrip and H41 reports the l2.tile.class-roundtrip row.
+  - the real-image emitted map is built from the writer's own IMF input via
+    from-imf, not by inverting the binary, so the check is not a writer-
+    inverse vanity test.
+  - claim block: the first pick collided with M3.14/M9.55 in the same batch;
+    renumbered to C-5790-C-5799 (highest free at the time was C-5750-C-5759).
+
+problems:
+  - gate.py printed passed=137 failed=1 for selftest once, then three
+    consecutive gate runs and two standalone selftests were clean; no failing
+    test could be reproduced, so the flake is unrecorded beyond this log.
+  - the first TODO edit used a heredoc that failed an assertion (old-string
+    drift); redone with exact-line edits and todo_check confirmed.
+
+review: NOT merged — navigator reviews PR #328 (pair: required).

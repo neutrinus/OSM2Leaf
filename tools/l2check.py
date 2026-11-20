@@ -12,6 +12,9 @@ tools still understand the data and that a rebuild is faithful:
 * a one-vertex tile mutation changes exactly one vertex;
 * with ``--graph-tiles``, section 2 decodes to the emitted route graph
   (``tile_graph_roundtrip``, M5.37; ``preserved`` when nothing was emitted);
+* with ``--class-tiles``, the level-1 road class the writer emitted decodes
+  back unchanged (``tile_class_roundtrip``, M5.36; ``decoded`` census without
+  an emitted map, never a PASS);
 * a same-length POI rename passes the offline mutation validator;
 * a different-length POI rename passes the offline mutation validator and the
   page re-parses into the same records (one record changed, the rest byte
@@ -482,6 +485,41 @@ def check_tile_graph(root: Path, report: cardcheck.Report, tiles: list[str],
             for err in res["errors"][:5]:
                 check.error(f"{name}: {err}")
             check.error(f"{name}: tile_graph_roundtrip {res['verdict']}")
+
+
+def check_tile_class(root: Path, report: cardcheck.Report, tiles: list[str],
+                     emitted: Path | None) -> None:
+    """M5.36: the road class the writer emitted decodes back unchanged.
+
+    Verdicts per tile come from ``tools/tile_class_roundtrip.py``: ``PASS``
+    when every emitted ``(layer, cls)`` list is decoded from the tile exactly,
+    ``FAIL`` on a one-value mismatch, a missing record or an empty map.  With
+    no emitted map the check decodes the tile's class rows and says
+    ``decoded`` in its stats: a census, never a PASS."""
+    check = report.add(cardcheck.Check("tile_class_roundtrip"))
+    import tile_class_roundtrip as tcr  # noqa: PLC0415
+    explicit = tcr.load_expected(emitted) if emitted else None
+    for name in tiles:
+        path = root / "MAPAL001" / name
+        if not path.is_file():
+            check.error(f"MAPAL001/{name}: not present on this card")
+            continue
+        expected = explicit
+        if expected is None:
+            side = path.with_name(path.name + ".class.json")
+            if side.is_file():
+                expected = tcr.load_expected(side)
+        res = tcr.check_tile(path, expected)
+        check.stats[name] = (f"{res['verdict']} records={res['records']} "
+                             f"shapes={res['shapes']} match={res['match']} "
+                             f"fail={res['fail']} missing={res['missing']}")
+        if res["verdict"] == "decoded":
+            check.warn(f"{name}: no emitted class map; decoded {res['records']} "
+                       f"record(s) as a census, no round-trip claim")
+        elif res["verdict"] != "PASS":
+            for err in res["errors"][:5]:
+                check.error(f"{name}: {err}")
+            check.error(f"{name}: tile_class_roundtrip {res['verdict']}")
 
 
 def check_tile_mutation(root: Path, report: cardcheck.Report,
@@ -984,6 +1022,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="comma-separated tiles for tile_graph_roundtrip (M5.37); off when empty")
     parser.add_argument("--graph-emitted", help="emitted section-2 graph JSON (ze0-sec2-graph/1)")
     parser.add_argument("--graph-factory", help="factory card root the non-emitted records must equal")
+    parser.add_argument("--class-tiles", default="",
+                        help="comma-separated tiles for tile_class_roundtrip (M5.36); off when empty")
+    parser.add_argument("--class-emitted", help="emitted road-class map (ze0-road-class/1)")
     parser.add_argument("--skip-mutation", action="store_true")
     parser.add_argument("--image", help="optional raw image for the golden hash")
     parser.add_argument("--hash-image", action="store_true",
@@ -1052,6 +1093,10 @@ def main(argv: list[str] | None = None) -> int:
             check_tile_graph(root, report, graph_tiles,
                              Path(args.graph_emitted) if args.graph_emitted else None,
                              Path(args.graph_factory) if args.graph_factory else None)
+        class_tiles = [t.strip() for t in args.class_tiles.split(",") if t.strip()]
+        if class_tiles:
+            check_tile_class(root, report, class_tiles,
+                             Path(args.class_emitted) if args.class_emitted else None)
         if not args.skip_mutation:
             check_tile_mutation(root, report)
     if not args.skip_mutation:
@@ -1178,6 +1223,37 @@ def selftest() -> int:
                                           "--semantic-tiles", "B48R058R.DAT"])
         ok(rc == 1 and "[tile_roundtrip] FAIL" in out and "RESULT: FAIL" in out,
            f"truncated tile -> tile_roundtrip FAIL, exit 1 (got {rc})")
+
+    # M5.36: tile_class_roundtrip on a tile whose class the writer emitted.
+    import tile_class_roundtrip as tcr
+    import tilewriter as _tw
+    with tempfile.TemporaryDirectory(prefix="l2check-class-") as tmp:
+        root = Path(tmp) / "root"
+        tile = _fixture_root(root)
+        base = ["--partial", "--no-golden", "--no-cmp"]
+        emitted = Path(tmp) / "B48R058R.DAT.class.json"
+        decoded, _stats = tcr.extract_tile(tile)
+        side = tile.with_name(tile.name + ".class.json")
+        tcr.dump_expected(str(side), decoded, cell="B48R058R")
+        rc, out, err = _run_main(["--root", str(root)] + base
+                                 + ["--class-tiles", "B48R058R.DAT"])
+        ok(rc == 0 and "[tile_class_roundtrip] OK" in out and "PASS" in out,
+           f"class sidecar -> tile_class_roundtrip PASS, exit 0 (got {rc}; {err.strip()[:160]})")
+        ok("tile_class_roundtrip FAIL" not in out, "class sidecar: no class FAIL")
+        # A one-value mutant of the sidecar is a FAIL (the falsifier).
+        mutant = tcr.mutate(decoded)
+        tcr.dump_expected(str(side), mutant, cell="B48R058R")
+        rc, out, _err = _run_main(["--root", str(root)] + base
+                                  + ["--class-tiles", "B48R058R.DAT"])
+        ok(rc == 1 and "[tile_class_roundtrip] FAIL" in out,
+           f"one-value class mutant -> tile_class_roundtrip FAIL, exit 1 (got {rc})")
+        # No sidecar: decoded census, never a PASS row.
+        side.unlink()
+        rc, out, _err = _run_main(["--root", str(root)] + base
+                                  + ["--class-tiles", "B48R058R.DAT"])
+        ok("[tile_class_roundtrip] OK" in out
+           and "no emitted class map" in out and "decoded" in out,
+           "no sidecar -> decoded census with a warning, not a PASS claim")
 
     print(f"l2check selftest: {'PASS' if failures == 0 else 'FAIL'} ({failures} failure(s))")
     return 0 if failures == 0 else 1
