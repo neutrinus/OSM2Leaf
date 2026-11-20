@@ -137,12 +137,16 @@ def _classify_m1_2f(target: dict) -> dict:
     has_m1_2f = bool(_M1_2F_RE.search(text))
     mitigated = False
     mitigation = None
-    if _has_declared_sec1_input(entry):
-        # The real sec1 bytes are still M1.2f-open for verification in cmp_ind_reader's case,
-        # but the rerun path is supplied with a declared input.
+    if (entry.get("sec1_table") or {}).get("source") == "image":
+        # M1.19: the runner maps the compressed sections from the image
+        # (kernel decoder, nk_decomp); nothing is declared and nothing is open.
+        mitigated = True
+        mitigation = "sec1 bytes read from the image (nk_decomp, M1.19)"
+    elif _has_declared_sec1_input(entry):
+        # The rerun path is supplied with a declared input.
         if "sec1" in _join_text(entry.get("sec1_table", {}).get("provenance")).lower() or has_m1_2f:
             mitigated = True
-            mitigation = "declared sec1_table input supplied (sec1 byte verification may remain M1.2f-open)"
+            mitigation = "declared sec1_table input supplied"
         else:
             mitigated = True
             mitigation = "declared sec1_table input supplied"
@@ -153,7 +157,8 @@ def _classify_m1_2f(target: dict) -> dict:
         return {"status": "mitigated", "blocker": False, "detail": mitigation,
                 "evidence": _first_match(text, _M1_2F_RE)}
     if mitigated:
-        return {"status": "mitigated", "blocker": False, "detail": mitigation, "evidence": "sec1_table declared input"}
+        return {"status": "mitigated", "blocker": False, "detail": mitigation,
+                "evidence": "sec1_table " + (entry.get("sec1_table") or {}).get("source", "declared")}
     # No explicit M1.2f mention - cannot claim absent without image/code analysis; be honest.
     if entry.get("kind") == "synthetic":
         return {"status": "absent", "blocker": False, "detail": "synthetic program, no firmware sec1/data dependency", "evidence": "entry.kind=synthetic"}
@@ -365,8 +370,10 @@ def _classify_vas_for_report(vas, sections, slots):
 
 def _va_class_dim(cls):
     if cls == "INIT":
-        return {"status": "present", "blocker": True,
-                "detail": "INIT (initialised compressed .data bytes; needs M1.2f)",
+        # M1.19: the kernel's own routine decodes every compressed section
+        # (tools/nk_decomp.py), so INIT bytes are an ordinary input now.
+        return {"status": "init_readable", "blocker": False,
+                "detail": "INIT (initialised compressed .data; readable: nk_decomp, map with rommap.py --init-from-image)",
                 "evidence": "va_class=INIT"}
     if cls == "IAT":
         return {"status": "iat", "blocker": False,
@@ -478,7 +485,8 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
                     # do not add "maps to a compressed section" as M1.2f blocker reason
                     pass
                 elif entry_cls_row and entry_cls_row["cls"] == "INIT":
-                    reasons.append(f"entry VA {hex(va)} is INIT in compressed section ({va_info.get('kind')}): needs M1.2f")
+                    reasons.append(f"entry VA {hex(va)} is INIT in compressed section ({va_info.get('kind')}): "
+                                   "readable: nk_decomp (rommap.py --init-from-image)")
                 elif not entry_cls_row or entry_cls_row.get("cls") == "UNKNOWN":
                     reasons.append(f"entry VA {hex(va)} maps to a compressed section ({va_info.get('kind')})")
             # Replace metadata "unmapped/compressed sec1" import-binding blocker with class concern when IAT/BSS known.
@@ -498,9 +506,9 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
                     reach = dict(reach)
                     reach["import_binding"] = {"status": "blocked", "detail": "; ".join(concerns) or "IAT/BSS concern (not M1.2f)"}
             elif ib and ib.get("status") == "blocked" and override_rows and init_rows:
-                # Mixed: keep/adjust to mention INIT still M1.2f plus other concerns
+                # Mixed: INIT is readable (nk_decomp, M1.19); the IAT/BSS concerns remain
                 reach = dict(reach)
-                concerns = [f"INIT (M1.2f): " + ", ".join(r["va"] + " " + r["class_text"] for r in init_rows)]
+                concerns = ["INIT (readable: nk_decomp): " + ", ".join(r["va"] + " " + r["class_text"] for r in init_rows)]
                 if any(r["cls"] == "IAT" for r in override_rows):
                     concerns.append("IAT needs import/binding/stub: " + ", ".join(r["va"] + " " + r["class_text"] for r in override_rows if r["cls"]=="IAT"))
                 if any(r["cls"] == "BSS" for r in override_rows):
@@ -562,7 +570,7 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
             elif r["cls"] == "BSS":
                 reasons.append(f"VA {r['va']} {r['class_text']}: find writer/runtime init (zero at load), not M1.2f")
             elif r["cls"] == "INIT":
-                reasons.append(f"VA {r['va']} {r['class_text']}: M1.2f blocker")
+                reasons.append(f"VA {r['va']} {r['class_text']}: map with rommap.py --init-from-image")
 
     # Stable fields check for UNKNOWN stop condition.
     if verdict == UNKNOWN and not missing_fields:
@@ -647,12 +655,13 @@ def assess_adhoc(*, va: int | None, module: str | None, image: str | None = None
             va_classifications = _classify_vas_for_report([va], sections, slots)
             row = va_classifications[0] if va_classifications else None
             if row and row["cls"] == "INIT":
+                # M1.19: readable through nk_decomp; not a blocker, but an
+                # ad-hoc VA still proves no reader context (verdict UNKNOWN).
                 m1_2f = _va_class_dim("INIT").copy()
                 m1_2f["detail"] = f"{row['va']} {row['class_text']}"
-                verdict = BLOCKED
-                reasons.append(f"VA {hex(va)} is INIT in compressed section: M1.2f blocker")
-                reach = dict(reach)
-                reach["import_binding"] = {"status": "blocked", "detail": "INIT bytes need M1.2f (compressed .data)"}
+                verdict = UNKNOWN
+                reasons.append(f"VA {hex(va)} is INIT in compressed section: readable: nk_decomp "
+                               "(rommap.py --init-from-image)")
                 return {
                     "name": None, "reader": None, "entry_kind": "adhoc", "module": module, "va": hex(va),
                     "executable_vs_data_bytes": bytes_info, "va_section": va_info,
@@ -938,9 +947,13 @@ def run_selftest() -> int:
         rn = assess_target(t_init, image="synthetic.img", image_start=0x200200)
         check("INIT va_class present", any(v.get("cls") == "INIT" for v in rn.get("va_classifications", [])),
               json.dumps(rn.get("va_classifications")))
-        check("INIT M1.2f-blocked", rn["compressed_sec1_data_dependency_m1_2f"].get("blocker") is True,
+        check("INIT readable, not M1.2f-blocked (M1.19)",
+              rn["compressed_sec1_data_dependency_m1_2f"].get("blocker") is False
+              and rn["compressed_sec1_data_dependency_m1_2f"].get("status") == "init_readable",
               json.dumps(rn["compressed_sec1_data_dependency_m1_2f"]))
-        check("INIT verdict BLOCKED", rn["verdict"] == BLOCKED, rn["verdict"])
+        check("INIT names nk_decomp, never M1.2f",
+              any("nk_decomp" in x for x in rn["reasons"])
+              and not any("M1.2f" in x and "INIT" in x for x in rn["reasons"]), str(rn["reasons"]))
 
         # adhoc IAT/BSS/INIT
         ra_iat = assess_adhoc(va=0x0055d040, module="Navi.exe", image="synthetic.img")
@@ -952,7 +965,9 @@ def run_selftest() -> int:
               json.dumps(ra_bss["compressed_sec1_data_dependency_m1_2f"]))
         check("adhoc BSS classified", any(v.get("cls")=="BSS" for v in ra_bss.get("va_classifications", [])))
         ra_init = assess_adhoc(va=0x0055d100, module="Navi.exe", image="synthetic.img")
-        check("adhoc INIT M1.2f-blocked", ra_init["compressed_sec1_data_dependency_m1_2f"].get("blocker") is True,
+        check("adhoc INIT readable (nk_decomp), not blocked",
+              ra_init["compressed_sec1_data_dependency_m1_2f"].get("blocker") is False
+              and ra_init["verdict"] != BLOCKED,
               json.dumps(ra_init["compressed_sec1_data_dependency_m1_2f"]))
         check("adhoc classes in JSON", "va_classifications" in ra_iat and "class_text" in (ra_iat.get("va_classifications") or [{}])[0])
 

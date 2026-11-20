@@ -30,8 +30,14 @@ Section fields accept the ``o32_rom`` aliases as well (``realaddr``/``dataptr``/
 Output is one segment per document: a Ghidra program is one build, so builds
 A/B/C are converted separately with ``--segment``.  Every block carries
 ``address``/``size``/``file_offset``/``permissions``/``loadable``; a BSS
-section has no file bytes, and a compressed section is **rejected** because
-nothing in the repo can decompress it yet.
+section has no file bytes, and a compressed section is **rejected** unless a
+load model is chosen: ``--bss-zero`` (zeros, M9.35), ``--init-guard`` (zeros,
+reads below ``init_len`` stop as BLOCKED INIT) or ``--init-from-image``
+(M1.19: the section's stored bytes decoded by the kernel's own routine,
+``tools/nk_decomp.py``, then zero BSS; IAT slots stay bound to stubs, no
+guard).  An ``--init-from-image`` block names its bytes by ``init_file`` (the
+nk_decomp cache file, outside the repo) and ``init_sha256``; the runner reads
+and re-hashes that file.
 
 This module never imports ``tools/cerom.py``: it only needs the documented
 JSON contract.
@@ -99,7 +105,12 @@ BLOCK_KEYS = {
     "init_len",
     "guard_init",
     "init_source",
+    "init_file",
+    "init_sha256",
 }
+
+#: ``init_source`` values that make a compressed section loadable.
+LOADABLE_INIT_SOURCES = ("zero-bss", "zero-bss-init-guard", "nk_decomp")
 
 _PERMISSIONS_RE = re.compile(r"^[r-][w-][x-]$")
 
@@ -182,8 +193,13 @@ def _select_segment(segments, selection):
 
 def _collect(report, selection, selected_modules, skip_compressed,
              bss_zero=False, init_guard=False, image_path=None,
-             image_start=0x200200, resolve_with=None):
+             image_start=0x200200, resolve_with=None, init_from_image=False):
     problems: list[str] = []
+    if init_from_image and init_guard:
+        raise RommapError(["--init-from-image and --init-guard exclude each other: "
+                           "the INIT bytes are either decoded or guarded"])
+    if init_from_image:
+        bss_zero = True
     resolve_with = list(resolve_with or [])
     if not isinstance(report, dict):
         raise RommapError(["report must be a JSON object"])
@@ -233,7 +249,8 @@ def _collect(report, selection, selected_modules, skip_compressed,
     if bss_zero or init_guard:
         if not image_path:
             raise RommapError([
-                "--bss-zero/--init-guard need --image (to read comphdr and imports)"
+                "--bss-zero/--init-guard/--init-from-image need --image "
+                "(to read comphdr and imports)"
             ])
         try:
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -382,7 +399,7 @@ def _collect(report, selection, selected_modules, skip_compressed,
                                 "dll": dll,
                                 "name": name,
                             })
-                    if init_guard and slots:
+                    if (init_guard or init_from_image) and slots:
                         for slot in slots:
                             if slot not in iat_bindings:
                                 iat_bindings.append(slot)
@@ -413,6 +430,21 @@ def _collect(report, selection, selected_modules, skip_compressed,
                         "guard_init": bool(init_guard),
                         "init_source": "zero-bss-init-guard" if init_guard else "zero-bss",
                     }
+                    if init_from_image and init_len > 0:
+                        try:
+                            init_file, init_sha = _decoded_init(
+                                image_data, module_name, section_index, image_start)
+                        except Exception as exc:  # noqa: BLE001
+                            problems.append(f"{where} ({section_name}): nk_decomp: {exc}")
+                            continue
+                        if init_file.stat().st_size != init_len:
+                            problems.append(
+                                f"{where} ({section_name}): nk_decomp r0 "
+                                f"{init_file.stat().st_size:#x} != comphdr "
+                                f"uncompressed_len {init_len:#x}")
+                            continue
+                        block.update(init_source="nk_decomp", init_file=str(init_file),
+                                     init_sha256=init_sha)
                     blocks.append(block)
                     continue
                 if skip_compressed:
@@ -521,7 +553,8 @@ def _collect(report, selection, selected_modules, skip_compressed,
     }
     if bss_zero or init_guard:
         doc["load_model"] = {
-            "mode": "bss-zero-init-guard" if init_guard else "bss-zero",
+            "mode": ("init-from-image" if init_from_image
+                     else "bss-zero-init-guard" if init_guard else "bss-zero"),
             "image": Path(str(image_path)).name if image_path else None,
             "image_start": _hex(image_start),
             "resolve_with": [_hex(v) for v in resolve_with],
@@ -532,6 +565,32 @@ def _collect(report, selection, selected_modules, skip_compressed,
     if problems:
         raise RommapError(problems)
     return doc
+
+
+def _decoded_init(image_data, module, index, image_start):
+    """(cache path, sha256) of a section's decoded INIT bytes (M1.19)."""
+    import hashlib
+
+    import nk_decomp
+    sec, off = nk_decomp.section_record(image_data, module, index, image_start)
+    nk_decomp.section_init(image_data, module, index, image_start)   # fills the cache
+    stored = image_data[off:off + sec["psize"]]
+    path = nk_decomp.cache_path(module, index, stored, sec["vsize"])
+    return path, hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def read_init(block) -> bytes:
+    """The decoded INIT bytes of an ``init_source: nk_decomp`` block, re-hashed."""
+    import hashlib
+
+    path = Path(str(block["init_file"]))
+    data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != block.get("init_sha256"):
+        raise RommapError([f"{block.get('name')}: {path} does not hash to init_sha256"])
+    if len(data) != block.get("init_len"):
+        raise RommapError([f"{block.get('name')}: {path} is {len(data)} bytes, "
+                           f"init_len {block.get('init_len')}"])
+    return data
 
 
 def _check_overlaps(blocks):
@@ -644,7 +703,7 @@ def validate(doc) -> list[str]:
                 f"{where}: stored_size {stored_size} exceeds size {size}"
             )
         if characteristics is not None and characteristics & SCN_COMPRESSED:
-            if block.get("loadable") and not block.get("guard_init") and block.get("init_source") not in ("zero-bss", "zero-bss-init-guard"):
+            if block.get("loadable") and not block.get("guard_init") and block.get("init_source") not in LOADABLE_INIT_SOURCES:
                 problems.append(
                     f"{where}: compressed section marked loadable"
                 )
@@ -663,6 +722,14 @@ def validate(doc) -> list[str]:
                 problems.append(f"{where}: init_len outside block size")
         if "guard_init" in block and not isinstance(block.get("guard_init"), bool):
             problems.append(f"{where}: guard_init must be a boolean")
+        if block.get("init_source") == "nk_decomp":
+            if not isinstance(block.get("init_file"), str) or not block.get("init_file"):
+                problems.append(f"{where}: nk_decomp block needs init_file")
+            digest = block.get("init_sha256")
+            if not isinstance(digest, str) or not re.match(r"^[0-9a-f]{64}$", digest):
+                problems.append(f"{where}: nk_decomp block needs a lowercase init_sha256")
+            if block.get("guard_init"):
+                problems.append(f"{where}: nk_decomp block cannot also guard INIT")
 
         file_offset = block.get("file_offset")
         if block.get("file_backed"):
@@ -700,6 +767,7 @@ def convert(
     image: str | None = None,
     image_start: int = 0x200200,
     resolve_with=None,
+    init_from_image: bool = False,
 ) -> dict:
     """Convert a cerom-style report into a memory map document."""
 
@@ -707,7 +775,7 @@ def convert(
         report, segment, modules, skip_compressed,
         bss_zero=bss_zero, init_guard=init_guard,
         image_path=image, image_start=image_start,
-        resolve_with=resolve_with,
+        resolve_with=resolve_with, init_from_image=init_from_image,
     )
 
 
@@ -757,8 +825,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="with --bss-zero, guard INIT reads outside IAT as BLOCKED INIT (M9.35)",
     )
     convert_cmd.add_argument(
+        "--init-from-image",
+        action="store_true",
+        help="map compressed sections with their INIT bytes decoded by "
+             "tools/nk_decomp.py, then zero BSS; IAT slots bound, no guard (M1.19)",
+    )
+    convert_cmd.add_argument(
         "--image",
-        help="firmware image for --bss-zero/--init-guard (comphdr/imports)",
+        help="firmware image for --bss-zero/--init-guard/--init-from-image",
     )
     convert_cmd.add_argument(
         "--image-start",
@@ -818,6 +892,7 @@ def main(argv=None) -> int:
                 image=getattr(args, "image", None),
                 image_start=image_start,
                 resolve_with=resolve_with,
+                init_from_image=getattr(args, "init_from_image", False),
             )
         except RommapError as exc:
             for problem in exc.problems:

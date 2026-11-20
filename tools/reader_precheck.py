@@ -719,7 +719,9 @@ def selftest_synthetic():
     if e_init:
         vc = _edge_va_classes(e_init[0], va_ctx)
         _check(fails, "edge target INIT class", ((vc or {}).get("target") or {}).get("cls"), "INIT")
-        _check(fails, "edge target INIT needs M1.2f detail", "M1.2f" in (((vc or {}).get("target") or {}).get("detail") or ""), True)
+        init_detail = ((vc or {}).get("target") or {}).get("detail") or ""
+        _check(fails, "edge target INIT readable: nk_decomp (M1.19), not M1.2f",
+               "readable: nk_decomp" in init_detail and "M1.2f" not in init_detail, True)
     else:
         fails.append("edge target INIT class: missing 0x1c40 edge")
     # BSS target: synthetic has no edge to BSS by default; create via direct classification of reported VA
