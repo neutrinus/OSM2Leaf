@@ -3678,6 +3678,14 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   Done when `CurMSec` advances.
   - Status: in progress · Owner: task/m8.b2-ze0-tmu · Critical: no
   - Depends: M8.B1
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    on `-M ze0 -kernel archive/head256.img`, EU2011 `CurMSec`
+    (`0x89e41888`) sampled over HMP makes a jump of at least 1000 ms, and
+    `ze0_tmu.py rate` puts (CurMSec delta / 1000) per host second within
+    [0.98, 1.02]. Negative controls: `-M ze0,tmu=off` (no TMU) leaves
+    `CurMSec` without such a jump; the old 60 MHz clock gives a ratio
+    outside the band. Also: two `-icount` boots give the same exception
+    sequence, interrupts included.
   - Claims: C-1320–C-1329
 - [x] **M8.B3 — RTC/time** (`OEMGetRealTime`).
   - Status: done · Owner: task/m8.b3-rtc-time · Critical: no
