@@ -1400,8 +1400,8 @@ of the four numbers above says so in its first line.
   - Stop: if no static reference to the table is found after the string-pool and `.data` search, record the negative with the positive control (a `\Drivers\Launch\SD` reference) and block on an L3 run of the router.
   - Claims: C-3528–C-3529 (and C-5350–C-5351 from the reserve)
 
-- [ ] **M1.35 — What `AppLaunch.dll` asks `SDC1:` before the mount (`0x80032000`/`0x80032004`), and who signals wait id 94**
-  - Status: open · Owner: — · Critical: no
+- [x] **M1.35 — What `AppLaunch.dll` asks `SDC1:` before the mount (`0x80032000`/`0x80032004`), and who signals wait id 94**
+  - Status: done · Owner: task/m1.35-sdc1-ioctl-wait94 · Critical: no
   - Depends: M1.34 (done)
   - Goal: M1.34 found that `MountStorage` (`fn 0x03bd224c`, EU2011) opens `SDC1:` and sends `DeviceIoControl 0x80032004`/`0x80032000` with retries (`fn 0x03bd2044`) before `DSK1:` is mounted, failing with error `0x80` `NO SD CARD`; `SD UNLOCK NG` (`0x81`) is never dispatched there. Name the handler of these two IOCTLs in `SDHC.dll` (build B) and say whether it is the CMD42 unlock, and find the signaller of ACM wait id 94 that every non-JP `Navi.exe` record waits for.
   - Precheck: `python3 tools/sh4dis.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --va 0x03bd2044 --count 80` shows the two IOCTL literals (`0x03bd20f8`, `0x03bd2108`, EU2011); `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections SDHC.dll` lists an uncompressed code section.
@@ -1410,6 +1410,7 @@ of the four numbers above says so in its first line.
   - Done when: an EXP names the `SDHC.dll` function that handles `0x80032000` and `0x80032004` (pdata START, EU2011) with the SD command it issues, and the module that sends `IOCTL_ACM_SET_ID` with id 94 (or a negative with the `AppLaunch` id-82 sender as positive control).
   - Stop: if the `SDHC.dll` IOControl dispatch is not found after the literal search and an export walk, record the negative and block on an L3 run of `fn 0x03bd2044`.
   - Claims: C-5352–C-5359
+  - Result: done — EXP-2026-11-20-M1.35-sdc1-ioctl-wait94. `SDC1:` = `CSDCMain` in `SDHC.dll` (EU2011 = US2011); `fn 0x039b4498` dispatches `0x80032004` to `fn 0x039b4850` (port state: 2 inactive, 4 `DSK1:` active, 8 failed, 1 no card, `|0x80000000` if unpowered) and `0x80032000` to `fn 0x039b4664` (insert/remove request: port power + wake the load thread). Neither issues CMD42; the unlock runs inside the `DSK1:` activation (`fn 0x039b4b18` → `CDSKMain::Init` → `fn 0x039b6ac4`), which then sets ACM id 37. Id 94: no SET_ID sender in images A+B+C of either build (`tools/acm_id_scan.py`: 0 of 71/72 calls; controls 37, 22, 82 found), so `Navi.exe` waits out its 30 s (C-5352–C-5357; C-5358–C-5359 unused).
 
 ## M2 — Map code, activation, updater
 
@@ -3519,11 +3520,24 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     (SHA-256 `59a47b7f…a9792`).
   - Claims: C-1240–C-1249
 
-- [ ] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
+- [x] **M8.A3 — Built-in loader** (`kernel=0x3e00200`, `app=0x200200`):
   parse `ECEC`/`ROMHDR`, copy B/C and A to `physfirst & 0x1fffffff`, PC =
   `nk.exe` entry. Done when booting needs no `-device loader`.
-  - Status: open · Owner: — · Critical: no
+  - Status: done · Owner: task/m8.a3-builtin-loader · Critical: no
   - Depends: M8.A2
+  - Done when (made concrete 2026-11-20, the original line is kept above):
+    `-M ze0 -kernel archive/head256.img` with no `-device` option puts RAM
+    bytes identical to the physfirst..physlast cuts of images B and A,
+    starts at PC `0x8800ebd0`, and its 60 s non-interrupt exception
+    sequence equals the `-device loader` boot's; a wrong offset exits
+    non-zero.
+  - Result: EXP-2026-11-20-M8.A3-builtin-loader (C-1250–C-1253). Patch
+    `tools/qemu-ze0/patches/ze0-0004-hw-sh4-ze0-builtin-loader.patch`;
+    options are `kernel-off=`/`app-off=` (`kernel` is QEMU's `-kernel`
+    property). RAM byte-identical, PC `0x8800ebd0`, 30-event fault
+    sequence identical in 2 + 2 boots; old short cuts differ (0 events).
+    `run.sh` uses `-kernel` on ze0 and ROMHDR lengths on `-M none`
+    (C-1283 fixed). Tool: `tools/ze0_ceload.py`.
   - Claims: C-1250–C-1259
 - [x] **M8.A10 — Bump the QEMU pin 8.2.7 → 8.2.10**
   The pin is 8.2.7 (2024-09-18) while 8.2.10 (2025-03-26) is the last release
@@ -4474,14 +4488,15 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if an L3 result depends on the register-form `mac.l`, record which and set `blocked` on the owning task's re-run instead of changing two things at once.
   - Claims: none yet (take the next free block when claimed)
 
-- [ ] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
+  - Status: done · Owner: task/m9.54-repin-m9.39-pair · Critical: no · Pair: solo
   - Depends: M5.52 (done — `--resize` patches the field-5 length byte)
   - Goal: the M9.39 mutant pairs (US `.cmp` `ea2d0e0f…`, EU `e75c298f…`, C-4174) were built before M5.52, so the renamed record keeps its old field-5 length: on US record 500 the firmware accessor reads the name 2 words short (`point_name_accessor.py run` on the pair: `mismatch=1 ok=999`, C-5264). The committed command now writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` (`ok=1000`), so C-4482 ("the committed command reproduces `ea2d0e0f…`") holds only for the pre-M5.52 tool. Rebuild both pairs with the current CLI, check them with the accessor, and re-pin the SHAs where M9.39/M9.42/M9.43 records and claims cite them (append-only: "Overtaken by a later commit" sections + new claim rows), or state per citation why the stale pair is still the right control (its walker and container results do not read field lengths).
   - Precheck: `python3 tools/point_name_accessor.py run archive/us256.img --cmp <M9.39 US mutant .cmp> --ind <…ind> --build us2011 --show 0 --expect "HANA HEALTH CENTER"` → `mismatch=1 ok=999 of 1000`, `result: FAIL` (the stale pair).
   - Scope: the M9.39 US and EU pairs only (US rec 500 `HAWAII ST GOVT FREQNTLY CLLD NMBRS`→`…XXXX`, EU page `0x6e06d0` `DROMAHAIR GARDA STATION`→`…ABCD`); records/claims that pin their SHAs (C-4174, C-4482 and the M9.42/M9.43 EXPs). Not: M9.41's target registration (other owner) beyond pointing it at the new SHAs if it cites them.
   - Done when: both rebuilt pairs give `ok=1000 of 1000` with the accessor on their build (US2011 and EU2011), the new SHAs are recorded in claim rows, and every citation of `ea2d0e0f…`/`e75c298f…` is either re-pinned or marked as the pre-M5.52 pair with a reason.
   - Claims: C-5266–C-5269
+  - Result: EXP-2026-11-20-M9.54-repin-m9.39-pair (C-5266–C-5269). The current `--resize` writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` and EU `.cmp` `979dff4a…` / `.ind` `7ee2e542…`; the name accessor gives `ok=1000 of 1000` on US2011 (`0x0041ec8c`) and EU2011 (`fn 0x003f632c`) with the whole new rec-500 name. The pre-M5.52 tool (`9316b77`) still writes the old pins, and **both** old pairs fail the accessor at rec 500 (`mismatch=1 ok=999`; EU was not known before). Walker table, wrong-build verdicts and the same-length control are unchanged on the new pairs, so only C-4482/C-4483 were stale; C-4174/C-4482/C-4483 are annotated, and EXP-M9.39/M9.42/M9.43 each have an `Overtaken by a later commit` section. M9.41 untouched (cites no pin in its own files).
 
 ## Retired leads
 

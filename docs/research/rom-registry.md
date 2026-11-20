@@ -104,7 +104,8 @@ python3 tools/applaunch_table.py archive/head256.img select --area 0x30 --name N
   1, id `0xa2`: #77 `0x03bc0f00` and #79 `0x03bc1520` (Japan, base type 1/2),
   #78 `0x03bc1210` `NxJpNavi.exe` (Japan), **#80 `0x03bc1830` USA**, **#81
   `0x03bc1b40` Euro**. The EU record waits for ids 80 (`SystemEventGdi`),
-  20 (`NAV1:`), 3 (`SRM1:`), 4 (`FLM1:`), 40 (`DSD1:`), 94 (not a table id)
+  20 (`NAV1:`), 3 (`SRM1:`), 4 (`FLM1:`), 40 (`DSD1:`), 94 (no sender in
+  the EU2011/US2011 ROM: the 30 s wait expires, C-5356/C-5357)
   and **82 (system SD mounted and checked)**, 30 s each, and has no argument.
 
 ### The gate before `Navi.exe` runs
@@ -114,8 +115,14 @@ main thread at once. It resumes it only when its waits have returned and the
 launch error flag `0x01f733f0` is still 0. The `MountStorage` thread
 (`fn 0x03bcc2dc` → `fn 0x03bd224c`) is what signals id 82, in this order:
 
-1. open `SDC1:` and its IOCTLs `0x80032004`/`0x80032000` (retries) — fail →
-   error `0x80` `NO SD CARD`;
+1. after waiting for id 37 (set by `SDHC.dll` when `DSK1:` is activated,
+   15 s), open `SDC1:` and poll the port-0 state with `0x80032004` (`SDHC.dll`
+   `fn 0x039b4850`): 4 = card driver active → go on; 2 = not active → post an
+   insert request `0x80032000(1)` (`fn 0x039b4664`), which wakes the slot thread
+   that activates `Drivers\SD\Card`; the CMD42 unlock runs inside that
+   activation (`CDSKMain::Init` → `fn 0x039b6ac4`), not in either IOCTL; 4 rounds
+   without state 4 → error `0x80` `NO SD CARD` (C-5352–C-5355,
+   EXP-2026-11-20-M1.35-sdc1-ioctl-wait94);
 2. wait for `DSK1:`, open the store, mount every partition — fail → `0x82`
    `SD INIT NG`;
 3. partition 0 only (`fn 0x03bd2ecc(0)`): check 1 `fn 0x03bd2ad8` (HDD_INFO
