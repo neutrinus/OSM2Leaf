@@ -4056,8 +4056,8 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5642 | The renderer `0x00425f40` sends the same message (`0x14b5`, sub 2, `+12 *0x011fff5c`, `+24 2`) to the same task with data kind `+16 = 4`; the kind word is the only message difference between the two readers. | VERIFIED (static, control) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; IMG256; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x00425f40 --count 210` |
 | C-5643 | The receiver is the data-access task (`0x011fff58` = its task-id global) and its message-table row `0x14b5` → `0x004066ac` (defer flag 1); `0x004066ac` copies `0x2004` bytes from the list pointer `+20` to `0x00d53f20`, branches on sub `+10` (11, 4), passes the kind word `+16` to `0x00408480`, and reaches 140 functions. | VERIFIED (static) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; IMG256; `python3 tools/datask_l3.py tables archive/head256.img`; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x004066ac --count 120` |
 | C-5644 | Kind `0x40` = route (section-2) data and kind `4` = map (section-1) data, read from the two senders only; not tested by a run. | OBSERVED | M | EXP-2026-11-20-M4.40-sec2-router-grammar; C-5641/C-5642 |
-| C-5645 | The section-2 grammar cannot be read off the `0x004266ec` subtree (task `Stop` fired): M4.40 is blocked on M4.53 (follow `0x14b5` kind `0x40` through `0x004066ac` to the record reader, L3). The block's `Input` claim that the subtree imports `CreateFileMappingW`/`MapViewOfFile` came from the retracted C-4284. | VERIFIED (static, negative) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; C-5640 |
-| C-5646 | RESERVED (M4.53). | — | — | — |
-| C-5647 | RESERVED (M4.53). | — | — | — |
-| C-5648 | RESERVED (M4.53). | — | — | — |
-| C-5649 | RESERVED (M4.53). | — | — | — |
+| C-5645 | The section-2 grammar cannot be read off the `0x004266ec` subtree (task `Stop` fired): M4.40 is blocked on M4.54 (follow `0x14b5` kind `0x40` through `0x004066ac` to the record reader, L3). The block's `Input` claim that the subtree imports `CreateFileMappingW`/`MapViewOfFile` came from the retracted C-4284. | VERIFIED (static, negative) | H | EXP-2026-11-20-M4.40-sec2-router-grammar; C-5640 |
+| C-5646 | RESERVED (M4.54). | — | — | — |
+| C-5647 | RESERVED (M4.54). | — | — | — |
+| C-5648 | RESERVED (M4.54). | — | — | — |
+| C-5649 | RESERVED (M4.54). | — | — | — |
