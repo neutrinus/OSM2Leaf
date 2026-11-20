@@ -326,6 +326,27 @@ L3 trace needed). Buffer-slot→ADDRE binding is `HYPOTHESIS`. L3 probe of
 COREDLL/state). Navi.exe sec1/sec2 are compressed *data* (C-2128), not a code
 blocker. See `docs/format/refer.md` "Firmware reader (M3.13)".
 
+**M3.13 pass 4 (EXP-2026-11-20-M3.13-addre-reader-l3, C-5930–C-5939, blocked on M3.32/M3.30 for the remaining fields):** the
+`ADDRE` record reader is the generic `REFER001` field accessor of M3.11c. The populate
+writer of message type `0x14e4`, `fn 0x003fd390` (EU2011; US2011 `0x00425564`), run with
+search type 2 at ctx `+124`, stores the page in slots `+0x14` and `+0x2c` and the field
+dictionary (header entry `+44`, copied by `0x0040e9dc`) in `+0x18`. Header entry `+44` and
+the page object (`OBJ+20` = page) are **seeded inputs** of the harness: no firmware loader
+was seen filling them, and the schema block is chosen as the dictionary by the accessor's
+own checks (the only block in the file that passes them). The dictionary is the
+`ADDRE` schema block (3 fields: `area code`, `street name`, `dndc-id`).
+`fn 0x003f61bc(db, rec, f)` / `fn 0x003f5d98` then return each field's pointer and length;
+`fn 0x003f56bc` places the field-length block at `rec + 2*(rec[2] + rec[3] + 2)` for class
+6 (`0xc000`), and that block is the old `TT LL 00 ff` "name section". The dispatcher
+`fn 0x003f5cdc` reaches record `n` through slot `+0x2c` → walker `0x003f5b88`, stride
+`2*(w & 0x3ff)` (so `c1` = `L ≥ 256`). Record leaves (EU2011, no pdata rows):
+`0x003f5468` → `c8` bit, `0x003f5550`/`0x003f54f4` → block 1 (`rec+4`, `rec[2]` words),
+`0x003f559c` → number of house-range items, `fn 0x003f5624(db, rec, i)` → item `i`
+(item length = its first byte, in words). Callers of the item accessor:
+`fn 0x003ad680`, `fn 0x003ad9a4`, `fn 0x003b9d38`, `fn 0x003bacc4` (not run; M3.32).
+`fn 0x0040b358` is a path lookup, not a record reader. PySh4: EU2011 3,650 and US2011
+57,180 factory records correct, edited blocks read back (`tools/addre_field_reader.py`).
+
 **M3.22 (EXP-2026-11-10, C-3460–C-3468, blocked — provisional):** `0x00d53500`
 is BSS in `Navi.exe` sec1 (C-3442/H49), so its contents are run-time written.
 `sh4xref --to 0x00d53500` (IMG256 `92aa525d…`, build A) gives **33 loads / 20
