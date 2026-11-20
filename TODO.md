@@ -2196,8 +2196,9 @@ of the four numbers above says so in its first line.
   - Claims: C-1810–C-1819
 
 - [ ] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
-  - Status: blocked · Owner: task/m4.16b-rdstm-field-dir · Critical: yes
-  - Blocker (2026-11-19): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
+  - Status: open · Owner: — · Critical: yes
+  - Reopen note (M4.16e, 2026-11-20, rule 15): the link groups are decoded (EXP-2026-11-20-M4.16e-rdstm-link-groups); `python3 tools/rdstm_links.py place LCTBL001.DAT RDSTM001.DAT MAPAL001 --table-pair 0` maps 8,532 CZ records to level-2 node coordinates with controls, so the done-when can now be closed (blocker below kept as history).
+  - Blocker (2026-11-19, resolved by M4.16e): field directory decoded and verified (EU 247,089 / US 303,023 records exact) and the records join `RDSTM001.DAT` by TMC location code (167,204/172,752, controls 0), but the `RDSTM001` link references (`group 0..3131`, `index`) are not decoded to MAPAL mesh/parcel/link, so no record reaches tile/mesh/coordinates.
   - Unblock: M4.16e (decode the RDSTM001 link groups after `0xccce00`). The `0x00d53500` table is a handle cache, not a schema (C-5130): M3.22 is no longer this task's unblocker.
   - Result: EXP-2026-11-19-M4.16b-tmc-field-directory (directory rule from `0x003f56bc/0x003f5d98/0x003f5e10`; `tools/tmc_fielddir.py`; `rdstm_place.py probe-decoded` negative). C-5130–C-5136.
   - Blocker (history, negative EXP kept): **impossible with current inputs / blocked by compressed `.data` (Navi.exe sec1)**. Precheck: `sh4dis Navi.exe --image-start 0x200200 --check-real` OK on IMG256 `92aa525d…` (M1.11c RDSTM pins, no `.word` gap at named walk sites; MOVT/SHAR/SHLD/SHAD done). `cerom va2file 0x00d53500` → unmapped (`0x-8bb8d900`); `0x00d53500` (schema descriptor consulted by `0x003f51e0`, `[0x003f52b8]=0x00d53500`) lies in **Navi.exe sec1 `va 0x55d000 vsize 0xff16ae psize 0x457c flags 0xc8002040 COMPRESSED rw-`** (covers `0x55d000–0x154e6ae`), so schema bytes/field lengths are unreadable with current inputs. C-884 walk not reproduced to true per-record boundaries; `rdstm_place.py` not re-run on decoded fields; no ≥20 decoded-record mapping, no named join key, no ~0 random-key control. Done-when **not met**. Join/placement route remains **M4.16d** (once true decoded TMC fields exist).
@@ -2215,8 +2216,9 @@ of the four numbers above says so in its first line.
   - Stop: if schema table `0x00d53500` is unreadable (compressed `.data`) or the walk cannot be reproduced with current inputs, set `blocked` naming that dependency and keep the negative result.
   - Claims: C-5130–C-5136 (reserved block C-5130–C-5139, C-5137–C-5139 given to M4.16e; was C-2300–C-2309 (was C-1840–C-1849, a collision with M5.1b))
 
-- [ ] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.16e — Decode the `RDSTM001.DAT` link groups to MAPAL mesh/parcel/link**
+  - Status: done · Owner: task/m4.16e-rdstm-link-groups · Critical: yes
+  - Result: EXP-2026-11-20-M4.16e-rdstm-link-groups — the `0x1000` header lists two sets of 14 tables and one group index per set (`0xcda000`, `0xe78500`); ref `(group, entry)` → 4-byte entry `(node, link)` of the section-2 record of a level-4 (set 0) / level-2 (set 1) parcel named in the group (1,877,054/1,877,891 and 417,540/422,683 fit, random node 5.7 %/0.4 %); every joined TMC record of the CZ (8,532) and DE (22,884) tables lands on a node in its own country (random refs 5 %/19 %) and next to its TMC neighbour (< 1 km 99.9 %, shuffled 0.1 %). `tools/rdstm_links.py`. Firmware reader not located: M4.48. C-5137–C-5139, C-5370–C-5372.
   - Depends: M4.16b (record directory + location-code join, done as far as the link refs)
   - Goal: turn an `RDSTM001` link reference (`u32`: `>>16` = group 0..3131, `&0xffff` = entry) into a MAPAL mesh/parcel/link, so ≥20 TMC records map to coordinates (the M4.16b done-when).
   - Input: EXP-2026-11-19-M4.16b-tmc-field-directory (C-5134–C-5136); `tools/tmc_fielddir.py join` (codes → refs); EU `RDSTM001.DAT` `f822044c…` region `0xccce00..EOF` (≈2,790 0x100-aligned blocks of 4-byte entries with `0x40/0x60/0x80/0xa0/0xc0/0xe0` tags; 2,294,877 indexed entries in 3,132 groups); the `0x1000` header (`0x180` words) of `RDSTM001.DAT`; `clarion_rd.py` (sec2 parcel code, 13-bit link ids).
@@ -2224,7 +2226,19 @@ of the four numbers above says so in its first line.
   - Scope: EU 2011 card only; groups → blocks, entry format, group → mesh; no writer.
   - Done when: ≥20 TMC records (code, name) map through their refs to MAPAL tile/parcel/link coordinates, with a random-key control near 0 and a named mapping rule; or the mapping is shown not to exist with method recorded.
   - Stop: if the group directory cannot be found from the file header or block order, look for the firmware reader of these blocks (search the readers of `RDSTM001` by reachability, M3.23) and report `blocked` with the block census.
-  - Claims: C-5137–C-5139 (block from M4.16b's reserve; take the next free block if more are needed)
+  - Claims: C-5137–C-5139 (block from M4.16b's reserve), C-5370–C-5372 (C-5373–C-5374 spare, C-5375–C-5379 given to M4.48)
+
+- [ ] **M4.48 — Locate the firmware reader of the `RDSTM001.DAT` link groups and run it in L3**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M4.16e
+  - Goal: rule 13 for the M4.16e decode: find the `Navi.exe` code that reads the `RDSTM001.DAT` header sets, the group index (`u16 size_dwords, u32 addr, u16 blocks, u32 key_min, u32 key_max, u16 n, n x (u32 parcel, u16 count)`) and the 4-byte `(node, link)` entries, and decode the unknown bits (`a` 0x4000/0x8000, `b` 0x4000/0x8000, link-record role `k & 3`, header words `3`/`122`).
+  - Input: EXP-2026-11-20-M4.16e-rdstm-link-groups (C-5137–C-5139, C-5371); `tools/rdstm_links.py`; the TMC record readers of M3.7/M4.16b (`0x003bc960`, `0x003f61bc`, EU2011 build A).
+  - Precheck: `python3 tools/rdstm_links.py groups RDSTM001.DAT` → `set 1: groups 3132 … all referenced 3132/3132` (the structure the reader must parse exists), and `python3 tools/nk_decomp.py pdata IMG256 --module Navi.exe 0x003bc960` → START.
+  - Signature: derived from the decode (weakest kind, say so): a loop over `u16 n` entries of 6 bytes after an 18-byte group head, a `<<11` + `<<8` address build (`(v>>8)*0x800 + (v&0xff)*0x100`), and `& 0x1fff` on both halfwords of a 4-byte entry; prefer callers of the RDSTM volume open (`0x004125a8`) by reachability (M3.23) over pattern scans.
+  - Scope: `Navi.exe` sec0 (EU2011 build A) plus the DLLs it calls for TMC; L3 on one ref of table 0.
+  - Done when: the reader has a VA in `docs/format/rdstm.md` and an L3 run resolves one ref of the EU card to the same (parcel, node, link) as `rdstm_links.py`; or `blocked` with the searched signature, corpus and a control.
+  - Stop: after the reachability walk and two derived signatures without a hit, report `blocked` with the call tree searched.
+  - Claims: C-5375–C-5379 (from M4.16e's block)
 
 - [ ] **M4.16c — Verify `INTER`/`FRWAY` `ref` lead as aligned records**
   - Status: open · Owner: — · Critical: no
