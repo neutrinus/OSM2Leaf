@@ -932,10 +932,11 @@ open (M9.52, M9.53).
 
 ### The router reader asks; it does not parse (M4.40, EU2011 build A)
 
-> **Status:** `VERIFIED (static)` for the message and the receiver, `OBSERVED` for the
-> meaning of the kind word. Evidence: IMG256 `92aa525d…` (`archive/head256.img`),
-> `tools/sh4dis.py`, `tools/callgraph.py`, `tools/datask_l3.py tables`.
-> EXP-2026-11-20-M4.40-sec2-router-grammar, C-5640–C-5645.
+> **Status:** `VERIFIED (static)` for the message and the receiver, `VERIFIED (run, L3)` for the
+> reply path and the words `0x00422eac` reads (M4.54). Evidence: IMG256 `92aa525d…`
+> (`archive/head256.img`), `tools/sh4dis.py`, `tools/callgraph.py`, `tools/datask_l3.py tables`,
+> `tools/rgd_reply_l3.py`.
+> EXP-2026-11-20-M4.40-sec2-router-grammar (C-5640–C-5645), EXP-2026-11-20-M4.54-section2-read-watch (C-5710–C-5717).
 
 `RGD_DATA READ` `0x004266ec` (router) and `MAP_DATA READ` `0x00425f40` (renderer) read no tile
 bytes: their 27-function subtrees have no file or file-mapping import (C-4622). Each builds a
@@ -964,8 +965,35 @@ The data come back as message `0x14b6`: `0x00427144` sends kind 64 to `0x004268c
 that buffer is `0x00422eac`** (callers `0x0043fabc`/`0x0043fba8` ← `0x00440e00`), not
 `0x004266ec`: with `k` taken from a table that `0x00424464(19, …)` returns, it reads `u16`
 words `k + 15` (`& 0x0f00` must be `0x0900`), `k + 7`, `k + 6` = `d` and `k + d` (bits 3–7 are
-its result). What the buffer holds and which section-2 fields these words are is open: M4.54
-(L3) drives `0x004268c0` with a factory block and read-watches `0x00422eac`. C-5646–C-5649.
+its result). C-5646–C-5649.
+
+#### What the four words are (M4.54, L3)
+
+`tools/rgd_reply_l3.py` stores a factory block through the real `0x004268c0` and runs
+`0x00422eac` with a read-watch. The store is a **pass-through** (it copies the block's plain
+length, e.g. 3508 B for `B48R058R` `0xb91d078`, and stores even a section-1 block's 2424 B), so the words
+are ordinary part-a section-2 words at record-relative index `k`. On `B48R058R` `0xb91d078`
+`k = 221` is **node 7's header word 0** (`x = 0x4fd`, count 3; unit-0 base at plain word 27):
+
+| Read | PC | Word | Part-a field | Value | Meaning |
+| --- | --- | --- | --- | --- | --- |
+| `k + 15` | `0x00422fc8` | `k+15` | node 7 entry 1 `cls` | `0x0919` | class word; `& 0x0f00 == 0x0900` is the gate |
+| `k + 7` | `0x00422fda` | `k+7` | node 7 entry 0 `cls` | `0x0717` | class word; 0 → alternative `k` via `0x004250e4` |
+| `k + 6` | `0x0042305a` | `k+6` | node 7 entry 0 `id` | `0x0008` | link id; this is `d` |
+| `k + d` | `0x00423064` | `k+d` | node 7 entry 0 `a` | `0x003b` | result `(a & 0xf8) >> 3 = 7` |
+
+So `k` is a record-relative `u16` index, and on this block it starts a node's entry block:
+`k+6` and `k+7` are the first entry's `id`/`cls`, `k+15` is the second entry's `cls`, and `k+d`
+is a field of the node. On a second tile (`B30R058R` `0x5759f4`, `k = 78`) `k` is an entry's
+`a` word rather than a node header, so the node-header alignment is a sample, not a rule; what
+the unknown `0x00424464(19, …)` table selects is still open (C-5714).
+
+Controls: the same `k` on a **section-1** block (`B48R058R` `0x176a800` at `k=221`,
+`B30R058R` `0x66700` at `k=78`) fails the gate (`0x1d0d`, `0x7500`), and a declared `k=0` on
+the section-2 block fails it too (`0x06d6`); `B28R070R` has no passing `k` in its 303
+section-2 records. Over single-`k` records whose `k` is a node header, `d` always equals the
+entry 0 `id` (4513/4513 on `B48R058R`), while `k+d` lands on entry 0 `a` in only 92 — `k+d` is
+a record field, not necessarily `a`. C-5710–C-5717.
 
 ## Cross-edition differential census (2011/2014/2016)
 
