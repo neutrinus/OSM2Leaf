@@ -413,6 +413,7 @@
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
   "docs/experiments/EXP-2026-11-20-M4.22-identity-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.31-tmc-road-type-link-class.md",
+  "docs/experiments/EXP-2026-11-20-M4.40-request-kinds.md",
   "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
   "docs/experiments/EXP-2026-11-20-M4.46-addre-tt05-names.md",
   "docs/experiments/EXP-2026-11-20-M4.47-point-chain-locator.md",
@@ -439,10 +440,12 @@
   "docs/experiments/EXP-2026-11-20-M8.B3-rtc-time.md",
   "docs/experiments/EXP-2026-11-20-M8.B5-ze0-f1-filesys.md",
   "docs/experiments/EXP-2026-11-20-M8.B6-debuglog-uart.md",
+  "docs/experiments/EXP-2026-11-20-M8.E2-registry-loaded.md",
   "docs/experiments/EXP-2026-11-20-M9.13-generated-tile-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.17-mmain-reader-l3.md",
   "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
+  "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
   "docs/experiments/EXP-2026-11-20-M9.26-point-byteorder-revisit.md",
   "docs/experiments/EXP-2026-11-20-M9.36-rerun-probes-pysh4.md",
   "docs/experiments/EXP-2026-11-20-M9.41-us-poi-row.md",
@@ -454,10 +457,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 447,
-  "citations": 1266,
-  "unique_va": 297,
-  "start": 1110,
+  "files": 450,
+  "citations": 1273,
+  "unique_va": 298,
+  "start": 1117,
   "inside": 73,
   "corrected": 5,
   "gap": 71,
@@ -10194,6 +10197,15 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M4.40-request-kinds.md",
+   "line": 126,
+   "va": "0x00408ea4",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M4.40-sec2-router-grammar.md",
    "line": 113,
    "va": "0x00425bdc",
@@ -10924,6 +10936,24 @@
    "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
   },
   {
+   "file": "docs/experiments/EXP-2026-11-20-M8.E2-registry-loaded.md",
+   "line": 140,
+   "va": "0x03bcc5b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M8.E2-registry-loaded.md",
+   "line": 168,
+   "va": "0x03bcc5b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
    "file": "docs/experiments/EXP-2026-11-20-M9.14-drstr-parser-l3.md",
    "line": 50,
    "va": "0x00417924",
@@ -11045,6 +11075,24 @@
    "file": "docs/experiments/EXP-2026-11-20-M9.18-lev3456r-sec4-l3.md",
    "line": 52,
    "va": "0x00415330",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
+   "line": 24,
+   "va": "0x00419350",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-20-M9.24-drstr-parser-runner.md",
+   "line": 90,
+   "va": "0x00419350",
    "kind": "fn",
    "class": "START",
    "true_start": null,
@@ -12239,7 +12287,16 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 985,
+   "line": 952,
+   "va": "0x03bcc5b0",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/format/firmware.md",
+   "line": 1099,
    "va": "0x0001e3f4",
    "kind": "sub_",
    "class": "START",
@@ -12248,7 +12305,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1603,
+   "line": 1717,
    "va": "0x004124dc",
    "kind": "fn",
    "class": "START",
@@ -12257,7 +12314,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1625,
+   "line": 1739,
    "va": "0x003335c0",
    "kind": "fn",
    "class": "START",
@@ -12266,7 +12323,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1807,
+   "line": 1921,
    "va": "0x003fd690",
    "kind": "fn",
    "class": "START",
@@ -12275,7 +12332,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1810,
+   "line": 1924,
    "va": "0x003f5194",
    "kind": "fn",
    "class": "GAP",
@@ -12285,7 +12342,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1811,
+   "line": 1925,
    "va": "0x00404994",
    "kind": "fn",
    "class": "START",
@@ -12294,7 +12351,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1811,
+   "line": 1925,
    "va": "0x004052d4",
    "kind": "fn",
    "class": "START",
@@ -12303,7 +12360,7 @@
   },
   {
    "file": "docs/format/firmware.md",
-   "line": 1812,
+   "line": 1926,
    "va": "0x0041c7dc",
    "kind": "fn",
    "class": "START",
@@ -12323,6 +12380,15 @@
    "file": "tools/l3_harness/targets.json:cmp_ind_reader",
    "line": 0,
    "va": "0x0041c7dc",
+   "kind": "target",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "tools/l3_harness/targets.json:drstr_parser",
+   "line": 0,
+   "va": "0x00419350",
    "kind": "target",
    "class": "START",
    "true_start": null,
