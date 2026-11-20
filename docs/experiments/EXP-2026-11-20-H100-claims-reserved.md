@@ -6,7 +6,7 @@
   checked-in text, no vendor bytes)
 - **Tools:** `python3 3.15.0`; repo tools `tools/claims_check.py`,
   `tools/todo_check.py`, `tools/gate.py`
-- **Claims:** C-6290, C-6291, C-6292, C-6293
+- **Claims:** C-6380, C-6381, C-6382, C-6383
 - **Supersedes:** none
 - **Superseded by:** none
 
@@ -99,7 +99,7 @@ names.
   (a row-scoped scan over `| C-… |` lines returned `0`).
 - The baseline ledger has 61 `Supersede`-carrying lines
   (`git show 2e683be:docs/research/claims.md | grep -cE 'Supersede'` prints
-  `61`); the cleaned ledger prints 62 only because C-6292 quotes the word once,
+  `61`); the cleaned ledger prints 62 only because C-6382 quotes the word once,
   and the diff of those lines is exactly that one added row — no pointer line
   was deleted.
 - Row count `grep -cE '^\| C-' docs/research/claims.md`: `2614` now, `2902` at
@@ -111,7 +111,7 @@ names.
 - `grep -c 'RESERVED (' docs/research/claims.md` prints `41`: the 38
   placeholder rows plus three literal `RESERVED (` mentions that are not bare
   placeholders — C-2538 (a real reservation with an evidence note), C-5719 (an
-  `OBSERVED` row that opens with `RESERVED (` and carries a note) and C-6290
+  `OBSERVED` row that opens with `RESERVED (` and carries a note) and C-6380
   (this task's own claim quoting the shape). The Done-when's grep is a coarse
   sentinel; the gate-visible count is `--reserved-census`, which counts only
   the bare shape.
