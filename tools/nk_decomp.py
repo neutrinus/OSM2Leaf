@@ -60,6 +60,7 @@ import json
 import os
 import struct
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -108,8 +109,12 @@ def nk_regions(data: bytes, image_b: int = IMAGE_B):
 
 
 def decompress(data: bytes, file_off: int, psize: int, vsize: int,
-               entry: int = DECOMP_SECT, regions=None) -> tuple[int, bytes]:
-    """Run the kernel routine on one section.  Returns (r0, dest[:vsize])."""
+               entry: int = DECOMP_SECT, regions=None,
+               stats: dict | None = None) -> tuple[int, bytes]:
+    """Run the kernel routine on one section.  Returns (r0, dest[:vsize]).
+
+    *stats*, if given, receives ``insns`` and ``seconds`` of ``run_until``
+    alone (M9.45's benchmark)."""
     eng = PySh4(endian="little")
     for name, va, blob, size, perms in (regions or nk_regions(data)):
         buf = bytearray((size + 0xFFF) & ~0xFFF)
@@ -122,7 +127,11 @@ def decompress(data: bytes, file_off: int, psize: int, vsize: int,
     eng.write_mem(sp + 16, frame())
     eng.set_regs(r15=sp, r4=SRC_VA, r5=psize, r6=DST_VA, r7=vsize, pr=RETURN_VA)
     eng.set_regs(pc=entry)
-    eng.run_until(None, MAX_INSNS)
+    started = time.perf_counter()
+    result = eng.run_until(None, MAX_INSNS)
+    if stats is not None:
+        stats["insns"] = result.insns
+        stats["seconds"] = time.perf_counter() - started
     r0 = eng._get_reg("r0") & 0xFFFFFFFF
     return r0, bytes(eng.read_mem(DST_VA, vsize))
 
@@ -265,7 +274,13 @@ def cmd_section(args) -> int:
     s = list(rom.o32(rom.module(args.module)))[args.index]
     if not s["flags"] & cerom.IMAGE_SCN_COMPRESSED:
         raise SystemExit("section %d of %s is not compressed" % (args.index, args.module))
-    r0, out = decompress(data, rom.va2file(s["dataptr"]), s["psize"], s["vsize"])
+    stats: dict = {}
+    r0, out = decompress(data, rom.va2file(s["dataptr"]), s["psize"], s["vsize"],
+                         stats=stats)
+    if args.time:
+        print("engine: %d instructions in %.3f s = %.0f instructions/s"
+              % (stats["insns"], stats["seconds"],
+                 stats["insns"] / max(stats["seconds"], 1e-9)))
     status = "ERROR" if r0 == 0xFFFFFFFF else "OK"
     print("%s sec%d va=%#010x vsize=%#x psize=%#x -> r0=%#x %s sha256(dest[:r0])=%s"
           % (args.module, args.index, s["realaddr"], s["vsize"], s["psize"], r0, status,
@@ -526,6 +541,9 @@ def main(argv=None) -> int:
         if name == "section":
             p.add_argument("--index", type=int, required=True)
             p.add_argument("-o", "--output")
+            p.add_argument("--time", action="store_true",
+                           help="print run_until's instruction count, seconds "
+                                "and instructions/s (M9.45)")
         elif name == "check":
             p.add_argument("--limit", type=int, default=0)
             p.add_argument("--json")
