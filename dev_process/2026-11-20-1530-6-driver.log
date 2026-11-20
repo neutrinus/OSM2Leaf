@@ -1,7 +1,7 @@
 DRIVER log — task H100 (claims.md RESERVED placeholder rows)
 Model: deepseek-v4.1-flash-free (opencode) · worktree: task/h100-claims-reserved
-Start: 2026-11-20T15:05Z  End: 2026-11-20T15:35Z
-origin/main at start: 2e683be
+Start: 2026-11-20T15:05Z  End: 2026-11-20T15:50Z
+origin/main at start: 2e683be (rebased onto 3d263f9 before finishing)
 
 Inputs read: AGENTS.md, prompt_common.txt, TODO.md H100 block,
 tools/claims_check.py, tools/todo_check.py, tools/gate.py, tools/selftest.py,
@@ -47,3 +47,7 @@ Problem: an errant `write` call briefly overwrote claims.md; restored with
 
 Handoff: run `python3 tools/gate.py`; the new --reserved rule is red the moment
 M6.18/M9.12/M4.27/M4.28/M4.29/M5.16 are closed until their blocks retire.
+
+Rebase 2026-11-20T15:50Z: origin/main moved to 3d263f9 (H97 appended a section
+at the claims.md tail). Resolved the one conflict by keeping both H97 and H100
+sections; re-ran selftest/claims_check/todo_check/gate -> all green.
