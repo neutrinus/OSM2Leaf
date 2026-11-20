@@ -1515,12 +1515,13 @@ of the four numbers above says so in its first line.
   - Claims: C-5330–C-5339 (was C-830–C-839; fresh block for this run)
   - Result: EXP-2026-11-20-M3.2-ind-handling-l3.md (done, C-5330–C-5334). EU2011 L3 run of the whole compressed layer (`tools/cmp_read_l3.py`: mount `0x41bc98`, open `0x41b780`, seek `0x41b8a4`, read `0x41b954`, host ops): (a) `chunk_size` compared with the mount word at `0x41c92a` (0x8000/0x20000 rejected before any `.cmp` read; mount word 0x20000 rejects the factory file; both 0x20000 -> 79,360 wrong bytes), sizes nothing; (b) seek to `chunk_offset[first]` + one read (POINT010 seek `0x234d7f`), `78 9c` decoy + shifted index still correct, `off_last_m1` -> -1, no scan. Factory ADDRE001/POINT010 byte-identical. Static answers were already in `cmp-ind.md` (M3.2b); L3 paragraph added.
 
-- [ ] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
+  - Status: done · Owner: — · Critical: yes
   - Depends: M3.2, M9.5
   - Done when: accept/reject per variant is recorded and compared with
     `cmpind.py`.
-  - Claims: C-840–C-849
+  - Claims: C-5340–C-5349 (was C-840–C-849; fresh block for this run)
+  - Result: EXP-2026-11-20-M3.3-ind-variants-l3.md (done, C-5340–C-5344). EU2011 full-layer L3 run (`cmp_read_l3.py batch`, firmware's own `.ind` parser) on the 8 ADDRE001 variants vs `cmpind.py`: 6 agree (both reject: `size_20000`/`size_8000` at the `chunk_size` compare, `off0_1`/`off_last_m1`/`off_last_p1`/`off_last_0` in inflate); 2 disagree — `count_p1` read byte-identical, `count_m1` returns 79,360 B wrong from byte 65,536 with no error (D1 is a writer obligation). The `cmp_ind_reader` fragment target cannot judge `.ind` variants (harness-built table).
 
     `CMP.LST` (count, order, sentinel, leading `u32 = 0x2f`), which M5.6 must
     satisfy.
@@ -4449,8 +4450,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the factory tree gives a reject verdict (then the harness, not the card, is wrong).
   - Claims: none yet
 
-- [ ] **M9.45 — PySh4 ten times faster, measured on the decompressor**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.45 — PySh4 ten times faster, measured on the decompressor**
+  - Status: done · Owner: task/m9.45-pysh4-speed · Critical: no · Pair: solo
+  - Result: EXP-2026-11-20-M9.45-pysh4-speed; C-5320–C-5324. `PySh4.run_until` runs translated blocks (per-site memory caches, registers in locals, shared compiled code). `Navi.exe` sec1: `run_until` 25.89 s → 2.54 s median under load (10.2×; 10.7× at load 2.5), CPU 9.1×, SHA-256 unchanged; `check` 245/245 byte-identical JSON, user 5 m 23 s → 27 s. New differential selftests (all 65,536 halfwords in `--full`, random blocks with SMC/stops/budgets). Overriding engines (`GuardedPySh4`, `ShimSh4`) stay stepped.
   - Depends: M9.37 (the decoder audit is the regression suite for this change)
   - Goal: PySh4 runs about 260,000 instructions per second (H51: 183,114 instructions in 0.7 s). `nk_decomp.py check` takes ten minutes, and anything longer than one reader function is out of reach. Whole-task emulation (M9.44's mount machine, later a headless `Navi.exe` map task) needs an order of magnitude.
   - Precheck: `time python3 tools/nk_decomp.py section IMG256 --module Navi.exe --index 1` (about 16 s; the output SHA-256 is in EXP-2026-11-11-H51).
@@ -4458,7 +4460,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Input: `python3 -m cProfile -s cumtime tools/nk_decomp.py section …` first — optimise what the profile shows, not the list above.
   - Done when: the benchmark is ≥ 8× faster with the same output SHA-256; `engine.py --selftest`, `selftest.py` and the M9.36 table are unchanged; the EXP has the profile before and after.
   - Stop: at 3× with the profile flat, record it and stop.
-  - Claims: none yet
+  - Claims: C-5320–C-5324 (block C-5320–C-5329)
 
 - [x] **M9.48 — Model `div1`, the last integer form the engine rejects**
   - Status: done · Owner: task/m9.48-pysh4-div1 · Critical: no · Pair: solo
