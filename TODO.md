@@ -4675,7 +4675,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: none yet (take the next free block when claimed)
 
 - [ ] **M9.57 — Find who subscribes the data-access task to object-store event 11 (state 3 of the mount)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m9.57-event11-subscriber · Critical: no
   - Step: P1
   - Depends: M9.52 (done)
   - Goal: M9.52 showed the mount reaches state 3 only through `0x003f6b1c`, the handler of object-store event `0x07d0` sub 11 with `+28 = 16` (C-5904), and `datask_l3.py --event 11:16` delivers that event as a stand-in. Find the real subscription (subscriber task `*0x011fff58`, event id 11), the object it watches and what makes the event carry 16, so the stand-in can be replaced by the object call that fires it.
