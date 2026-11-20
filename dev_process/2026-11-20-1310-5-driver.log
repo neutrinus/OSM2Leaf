@@ -48,3 +48,24 @@ problems:
 handoff (navigator): check build_preserve_out's tree-diff emptiness claim and
   that the negatives fail; decide whether the card-ladder P0 l2 row should be
   annotated with the M5.55 reference here or in M5.55.
+
+navigator review fix (2026-11-20):
+- tools/one_tile_pipeline.py: the P1 path no longer hardcodes l2check_ok=True.
+  A real factory root runs the targeted l2check and reports l2check_ok =
+  (rc2 == 0 and tile_checked); the real P1 gives l2check_ok=false /
+  counts.l2check_rc=1 / l2check_tile_checked=true (the pre-existing M5.52
+  refer_rename_resize regression, C-5543/M5.55, which fails on the untouched
+  factory root too). A synthetic fixture root (placeholder HDD_INFO) reports
+  l2check_ok=null / l2check_partial=true / l2check_not_run, never a bare true.
+  tile_roundtrip_structure stays keyed to the tile bytes (delta-0 proof), so
+  P1's own gates are unchanged. cardcheck --partial now keys on HDD_INFO
+  absence only (the fixture has a placeholder, so it stays strict and its
+  version row passes).
+- _synth_hdd_info docstring C-xxxx -> C-005.
+- EXP §5 records the run (l2check rc=1) and §6 renumbers the negatives;
+  Interpretation/Conclusion, C-5389, C-5380's check count (14) and the TODO
+  Result line match l2check_ok=false. Ladder P0 row 9 (M5.55's) untouched.
+- Re-ran on the fix: real P1 tree 480 files, tree_diff 480/[], p1.img cmp
+  identical to factory 105e2032…76307, check-diff diff_range_count=0,
+  cardcheck --image PASS; selftest 137/0/23 (160), gate 4/0/0 (fn_audit PASS),
+  claims_check --strict --count-check OK, todo_check OK.
