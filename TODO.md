@@ -1734,7 +1734,7 @@ in its first line.
   - Claims: C-2120–C-2129, C-2540–C-2549
 
 - [ ] **M3.11b — Where the `POINT` page becomes native u16**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.11b-point-byteorder · Critical: yes
   - Note (M9.44, 2026-11-19): **the swap is found** (C-4641): the map-file layer's completion routine `0x00417eac` swaps every byte pair of the read buffer when request word +20 is 0 (1 = as stored). `python3 tools/vcard_l3.py read IMG256 --card-image CARD REFER001/POINT010.DAT --length 0x1000 --swap` shows it on the real file. What remains for this task: name the client that queues the `POINT` read with word +20 = 0 (callers of `0x0041841c`), then close.
   - Note (M3.28, 2026-11-19): **the client is named** (C-4672): `0x003f6c88` is the only caller of the read API; it `memset`s the request and never stores to +20, so every client read (not only `POINT`) comes back byte-swapped. Both halves of this task's question are answered; close it with a pointer to C-4641 and C-4672.
   - Note (M9.38, 2026-11-19): the reader list is in. The walker reads the page with one 2-byte native load (`mov.w`, EU `0x003f519c` / US `0x0041db4c`) via the real dispatcher (`0x003f5cdc` / `0x0041e63c`), entry `0x003f5194` / `0x0041db44`. **The chunk-engine caller `fn 0x0041c044` is decode-only**: watching its destination `0x50000000` on EU `POINT010` shows writes only from the stubbed `memcpy` and **no guest read**; so the swap is not on the `.cmp` path. Watched VA per run: EU `0x50000000` (chain), page `0x20000000` (walk); C-3602–C-3605, EXP-2026-11-19-M9.38-read-watch.
