@@ -381,6 +381,7 @@
   "docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md",
   "docs/experiments/EXP-2026-11-20-H116-archive-docs-base.md",
   "docs/experiments/EXP-2026-11-20-H117-main-shadow-run.md",
+  "docs/experiments/EXP-2026-11-20-H118-fnmatch-unloaded-pool.md",
   "docs/experiments/EXP-2026-11-20-H19-reverify-thin-records.md",
   "docs/experiments/EXP-2026-11-20-H63-corrected-evidence.md",
   "docs/experiments/EXP-2026-11-20-H77-skip-fenced-code.md",
@@ -397,6 +398,7 @@
   "docs/experiments/EXP-2026-11-20-M3.2-ind-handling-l3.md",
   "docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md",
   "docs/experiments/EXP-2026-11-20-M3.3-ind-variants-l3.md",
+  "docs/experiments/EXP-2026-11-20-M4.16-rdstm-place-closure.md",
   "docs/experiments/EXP-2026-11-20-M4.16b-tmc-placement-all-tables.md",
   "docs/experiments/EXP-2026-11-20-M4.16d-tmc-reception-table-codes.md",
   "docs/experiments/EXP-2026-11-20-M4.16e-rdstm-link-groups.md",
@@ -431,10 +433,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 424,
-  "citations": 1074,
+  "files": 426,
+  "citations": 1075,
   "unique_va": 265,
-  "start": 925,
+  "start": 926,
   "inside": 71,
   "corrected": 5,
   "gap": 66,
@@ -445,7 +447,7 @@
  "rows": [
   {
    "file": "TODO.md",
-   "line": 1247,
+   "line": 1061,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -454,7 +456,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1819,
+   "line": 1623,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -463,7 +465,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1819,
+   "line": 1623,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -472,7 +474,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1820,
+   "line": 1624,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -481,7 +483,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1841,
+   "line": 1645,
    "va": "0x0040114e",
    "kind": "fn",
    "class": "GAP",
@@ -491,7 +493,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1851,
+   "line": 1655,
    "va": "0x003f56bc",
    "kind": "fn",
    "class": "START",
@@ -500,7 +502,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1921,
+   "line": 1725,
    "va": "0x003fbed8",
    "kind": "fn",
    "class": "START",
@@ -509,7 +511,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1921,
+   "line": 1725,
    "va": "0x004125a8",
    "kind": "fn",
    "class": "START",
@@ -518,7 +520,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1954,
+   "line": 1758,
    "va": "0x003f1640",
    "kind": "fn",
    "class": "START",
@@ -527,7 +529,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1955,
+   "line": 1759,
    "va": "0x003f2cc0",
    "kind": "fn",
    "class": "START",
@@ -536,7 +538,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 1977,
+   "line": 1781,
    "va": "0x003f7f40",
    "kind": "fn",
    "class": "START",
@@ -545,7 +547,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 2418,
+   "line": 2207,
    "va": "0x003bcac0",
    "kind": "fn",
    "class": "START",
@@ -554,8 +556,17 @@
   },
   {
    "file": "TODO.md",
-   "line": 2418,
+   "line": 2207,
    "va": "0x003c0e68",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "TODO.md",
+   "line": 3777,
+   "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
    "true_start": null,
