@@ -356,6 +356,7 @@
   "docs/experiments/EXP-2026-11-19-M5.48-partial-out.md",
   "docs/experiments/EXP-2026-11-19-M5.50-card-ladder.md",
   "docs/experiments/EXP-2026-11-19-M5.51-metadata-reasons.md",
+  "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
   "docs/experiments/EXP-2026-11-19-M6.13-s3-bench-manifest.md",
   "docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md",
   "docs/experiments/EXP-2026-11-19-M9.28-input-region.md",
@@ -371,10 +372,10 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 364,
-  "citations": 988,
-  "unique_va": 209,
-  "start": 808,
+  "files": 365,
+  "citations": 1003,
+  "unique_va": 210,
+  "start": 823,
   "inside": 80,
   "corrected": 9,
   "gap": 79,
@@ -648,7 +649,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3616,
+   "line": 3617,
    "va": "0x880385e4",
    "kind": "fn",
    "class": "START",
@@ -8682,6 +8683,141 @@
    "file": "docs/experiments/EXP-2026-11-19-M3.2b-cmp-chunk-reader-walk-up.md",
    "line": 362,
    "va": "0x0041a438",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 42,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 114,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 114,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 115,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 115,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 116,
+   "va": "0x003f8950",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 118,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 121,
+   "va": "0x003f5e10",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 213,
+   "va": "0x003f5e78",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 213,
+   "va": "0x003f632c",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 234,
+   "va": "0x003f56bc",
+   "kind": "fn",
+   "class": "START",
+   "true_start": null,
+   "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"
+  },
+  {
+   "file": "docs/experiments/EXP-2026-11-19-M5.52-resize-field-len.md",
+   "line": 235,
+   "va": "0x003f5e10",
    "kind": "fn",
    "class": "START",
    "true_start": null,
