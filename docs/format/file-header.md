@@ -166,8 +166,11 @@ without a new experiment.
   `RDSTM001/RDSTM001.DAT` @ `0x180`).
 - `0x18c`–`0x193` (resolved, M4.38/M4.22): the code list holds Navi.exe
   map-language codes (see Identity fields); only `14 17 18 19 1a` stay
-  without a firmware row, and the Navi.exe code that reads the list is not
-  yet traced (M4.48).
+  without a firmware row. EU2011 OBJDLL's data-volume table (`0x01e33290`)
+  makes `0x18c`–`0x19f` one field (index 9, 10 `u16`, so the `0x3f` fill
+  below belongs to it); no EU2011 code asks for index 9 or reads a constant
+  offset in it (M4.48 static census, C-5286–C-5288,
+  EXP-2026-11-20-M4.48-datavol-18c-reader); run-time check is M4.50.
 - TODO `0x194`–`0x19f`: twelve `0x3f` bytes. Fill/default is a hypothesis.
 - TODO `0x1a0`–`0x1ab`: twelve `0xff` bytes. Reserved/absent is a hypothesis.
 - TODO `0x1b0` onward: `level`, `kind` and `count` are names for the observed
@@ -284,7 +287,12 @@ Firmware side: of the 149 build-A modules only `Navi.exe` imports
 `OBJ_DriveInfo_readDataVol` (OBJDLL #240), and only fn `0x00377ae0` (EU2011)
 loads its thunk. If the `0x18c` reader gets the header through `readDataVol`,
 it is inside `Navi.exe` or reads the `0x01205040` copy; a module that opens
-`MMAIN001.DAT` with its own file I/O is not excluded by this census (M4.48).
+`MMAIN001.DAT` with its own file I/O is not excluded by this census. M4.48
+(EXP-2026-11-20-M4.48-datavol-18c-reader) traced the path: `Navi.exe`
+fn `0x0041a438` is the only code that opens `MMAIN001.DAT`; the swapped copy
+goes through OBJDLL's field table (index 7 `0x162`–`0x181`, 8 `0x182`–`0x18b`,
+9 `0x18c`–`0x19f`, 10 `0x1a0`–`0x1ab`), and no EU2011 call site or
+constant-offset access reads index 9 (C-5287, C-5288).
 
 | Field | Meaning (final for this task) | Status |
 | --- | --- | --- |
