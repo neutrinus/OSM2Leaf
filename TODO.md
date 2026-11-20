@@ -2129,8 +2129,10 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     shuffled-field control; `rdstm.md` updated.
   - Claims: C-1800–C-1809
 
-- [ ] **M4.16 — Place `RDSTM001` rows on the map** (blocked: no join key)
-  - Status: in progress · Owner: task/m4.16-rdstm-place · Critical: yes · Pair: solo
+- [x] **M4.16 — Place `RDSTM001` rows on the map**
+  - Status: done · Owner: task/m4.16-rdstm-place · Critical: yes · Pair: solo
+  - Result: EXP-2026-11-20-M4.16-rdstm-place-closure — done-when met on the EU 2011 card: join key = TMC location code; `rdstm_place.py place-all` carries 110,788/110,795 joined records of all 14 RDSTM tables to a level-2 (tile, parcel, node, link) with coordinates, positive neighbour < 1 km 94,551/95,176 vs shuffled 129 (reproduces C-5400/C-5401 exactly); 20 CZ D5 junctions listed with tile `B48R058R.DAT` and coordinates (Stříbro, Plzeň-západ, Rokycany at their known positions). C-5950–C-5951; C-1812 superseded. M4.16c and M4.2 no longer wait on this block. Data-side only: the firmware reader is M4.49.
+  - Done when: ≥ 20 rows are matched to tile road segments with coordinates, with the join key named and a random-key control showing ~0 matches (original wording, restored at close).
   - Re-opened (rule 15, PO 2026-11-20): `Unblock` M4.16b is done and it found the join the blocker lacked: location code → `(group, entry)` → level-2 node (M4.16e, M4.16b second EXP, C-5400–C-5403; table codes M4.16d, C-2320–C-2323). This task is now a closure: re-run its own `Done when` with `python3 tools/rdstm_place.py place-all`, record the numbers, and close it or name what is still missing. Then check `M4.2` and `M4.16c`, which wait on this block.
   - Step: P3
   - Depends: M4.15 (M4.8 helps)
@@ -2139,11 +2141,11 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     (`tools_ze0`, `harness.py`), `COORD001` mesh formula, `mesh_grid.py`.
   - Unblock: M4.16b (per-record field directory), or M4.16c (the `INTER`/`FRWAY`
     `ref` lead) if the directory does not resolve the join.
-  - Blocker: M4.1 16-byte fields (`ref/src/dst/code`) give no segment-specific
+  - Blocker (history, resolved by M4.16b/M4.16e): M4.1 16-byte fields (`ref/src/dst/code`) give no segment-specific
     join (hits at chance vs dense lid space; `ref`∩parcel/AB=0; C-1810) and
     M4.15/M3.7 leave framing/TMC semantics undecoded. `INTER*` `ref` byte-pattern
     enrichment (real>>random) is an unverified lead (C-1811).
-  - Result: EXP-2026-11-06-M4.16-rdstm-placement; `tools/rdstm_place.py` probe
+  - Result (history, superseded): EXP-2026-11-06-M4.16-rdstm-placement; `tools/rdstm_place.py` probe
     + selftest. Join key NOT identified; done-when not met (negative).
   - Claims: C-5950–C-5959 (was C-1810–C-1819; fresh block for this run)
 
