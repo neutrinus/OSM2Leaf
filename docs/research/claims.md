@@ -3958,6 +3958,16 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5303 | Census `mac.w` instructions moved from in-scope-unmodelled (pre-fix engine, new probe) to modelled: EU2011 `Navi.exe` 54, EU2011 `nk.exe` 2, US2011 `Navi.exe` 45. | VERIFIED (tool, real image) | H | EXP-2026-11-19-M9.49-pysh4-macw; `python3 tools/l3_harness/decode_audit.py census archive/head256.img Navi.exe --image-start 0x200200` |
 | C-5304 | The engine's `0x0nmF` arm computes `mac.l Rm,Rn` (register values); the SH-4 encoding `0000nnnnmmmm1111` is `MAC.L @Rm+,@Rn+` (memory, post-increment), so 4,164 EU2011 Navi / 189 EU2011 nk / 4,839 US2011 Navi `mac.l` instructions are counted modelled with wrong semantics (follow-up M9.51). | OBSERVED (code reading vs manual encoding) | H | EXP-2026-11-19-M9.49-pysh4-macw; `grep -n "mac.l Rm,Rn" tools/l3_harness/engine.py` |
 
+## M9.50 — PySh4 models `rotcl`/`rotcr`; the `nk.exe` divide routines run in the bare engine (C-5310–C-5314)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-5310 | `tools/l3_harness/engine.py` models `rotcl Rn` (`0x4n24`: T ← Rn[31], Rn ← Rn << 1 \| old T) and `rotcr Rn` (`0x4n25`: T ← Rn[0], Rn ← old T << 31 \| Rn >> 1) with `DECODE_TABLE` rows; the self-test rows and the manual's divide sequences (now with `rotcl` in the engine) pass, and fail when the two arms are removed. | VERIFIED (diff, selftest) | H | EXP-2026-11-19-M9.50-pysh4-rotcl; `python3 tools/l3_harness/engine.py --selftest` |
+| C-5311 | `div1_l3.py isolate` against the engine at `cc15728`: of 61,440 non-FPU halfwords from 4 register states, only `rotcl` (16) and `rotcr` (16) change outcome. | VERIFIED (tool) | H | EXP-2026-11-19-M9.50-pysh4-rotcl; `python3 tools/l3_harness/div1_l3.py isolate --before /home/user/scratch/m9.50/engine.before.py --expect rotcl,rotcr` |
+| C-5312 | On EU2011 (and the byte-identical US2011) `nk.exe`, `0x88040988` (srem), `0x88040b6c` (udiv), `0x88040c18` (urem) and `0x88042594` (sdiv) return the C result on 20 operand pairs with every instruction in the bare engine (`rotcl(shim)=0 rotcr(shim)=0`; engine `rotcl`/`rotcr` counts equal M9.48's shim counts); `--mq-blind` matches 0/4. | VERIFIED (tool, real image) | H | EXP-2026-11-19-M9.50-pysh4-rotcl; `python3 tools/l3_harness/div1_l3.py run archive/head256.img nk.exe --image-start 0x3e00200` |
+| C-5313 | `decode_audit.py compare` after the change: EU2011 Navi 28,394 / EU2011 nk 11,374 / US2011 Navi 28,345 MODELLED distinct, 0 disagreements, 0 drift (`sh4dis.OPERAND_TABLE` gained the same two rows). Census MODELLED instructions grow by exactly the `rotcl`+`rotcr` counts: 67+84, 212+46, 66+78. | VERIFIED (tool, real image) | H | EXP-2026-11-19-M9.50-pysh4-rotcl; `python3 tools/l3_harness/decode_audit.py census archive/head256.img nk.exe --image-start 0x3e00200` (with and without `--engine-module`) |
+| C-5314 | `rotl`/`rotr` (`0x4n04`/`0x4n05`) remain unmodelled: pdata-covered counts EU2011 Navi 30/1, EU2011 nk 6/8, US2011 Navi 38/1. | OBSERVED (tool, real image) | H | EXP-2026-11-19-M9.50-pysh4-rotcl §Follow-ups |
+
 ## M5.11 — one OSM-generated tile on the accepted EU 2011 card (C-2330–C-2339)
 
 | ID | Claim | Status | Confidence | Evidence |
