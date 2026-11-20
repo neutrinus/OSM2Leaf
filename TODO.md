@@ -2349,7 +2349,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-5470–C-5479
 
 - [ ] **M4.27 — Decode bit-packed / non-zlib `POINT` pages**
-  - Status: blocked · Owner: task/m4.27-bitpacked-point-pages-r2 · Critical: no
+  - Status: in progress · Owner: task/m4.27-point-index-pages-r3 · Critical: no
   - Step: P4
   - Depends: — (M3.11b, M4.8b)
   - Goal: M4.8b counted 16 POIs from inflated (`78 9c`) POINT streams; bit-packed
