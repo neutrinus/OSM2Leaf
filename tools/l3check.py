@@ -1610,7 +1610,7 @@ def test_build_corpus():
         assert code == 0, report
         corpus = report["corpus"]
         assert corpus["source"] == "built" and corpus["kept"] is True, corpus
-        assert corpus["entries"] == 108, corpus
+        assert corpus["entries"] == 110, corpus
         assert Path(corpus["root"]).is_dir(), corpus
         assert (Path(corpus["root"]) / "manifest.json").is_file(), corpus
         assert report["targets"][0]["status"] == "PASS", report["targets"]
