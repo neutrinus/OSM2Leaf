@@ -733,6 +733,34 @@ def _page_records(inner: bytes) -> list[dict] | None:
         return None
 
 
+def _expected_resize_record(before: bytes, hit: int, old_b: bytes,
+                            new: str | bytes, delta: int) -> bytes:
+    """Expected record bytes after an M5.52 ``--resize``.
+
+    The rename moves the text and patches two bytes: the record length byte
+    (``len2``) and, since M5.52 (``608f949``), the field-5 length byte (the
+    name, in 16-bit words) because the firmware accessor places field 5 from
+    it (C-5115/C-5117).  A rename-only expectation (only ``len2`` patched)
+    was the pre-M5.52 edit and no longer matches what the tool writes.
+
+    Raises :class:`mutate_refer_poi.PageError` when the pre-mutation record's
+    field 5 cannot be placed.
+    """
+    _start, words, layout = mutate_refer_poi.name_field(before)
+    length_at = layout["loc"] + mutate_refer_poi.NAME_FIELD
+    new_b = new.encode("latin-1") if isinstance(new, str) else new
+    new_total = len(before) + delta
+    return (
+        before[:1]
+        + bytes([new_total // 2])
+        + before[2:length_at]
+        + bytes([words + delta // 2])
+        + before[length_at + 1:hit]
+        + new_b
+        + before[hit + len(old_b):]
+    )
+
+
 def _resize_candidate(inner: bytes, page: int, used: int,
                       old: str, new: str) -> tuple[str, str] | None:
     """Return ``(old, new)`` when the rename parses and fits the page."""
@@ -917,16 +945,16 @@ def check_refer_rename_resize(root: Path, report: cardcheck.Report) -> None:
             check.error("old text is not in the header-free part of the record")
             return
         new_total = len(before) + delta
-        expected = (
-            before[:1]
-            + bytes([new_total // 2])
-            + before[2:hit]
-            + new.encode("latin-1")
-            + before[hit + len(old_b):]
-        )
+        # M5.52 (608f949): --resize also patches the field-5 length byte; the
+        # expected record therefore includes that patch (see the helper).
+        try:
+            expected = _expected_resize_record(before, hit, old_b, new, delta)
+        except mutate_refer_poi.PageError as exc:
+            check.error(f"record {changed[0]} field 5 cannot be placed: {exc}")
+            return
         if after != expected:
             check.error(
-                f"record {changed[0]} is not the rename-only edit "
+                f"record {changed[0]} is not the M5.52 rename+field-5 edit "
                 f"(got {len(after)} bytes, expected {new_total})"
             )
             return
@@ -1254,6 +1282,32 @@ def selftest() -> int:
         ok("[tile_class_roundtrip] OK" in out
            and "no emitted class map" in out and "decoded" in out,
            "no sidecar -> decoded census with a warning, not a PASS claim")
+
+    # M5.55: the expected record must include M5.52's field-5 length patch, so
+    # a rename-only expectation (the pre-M5.52 edit) is a FAIL.  The synthetic
+    # record uses the real field layout, and resize_name is the actual writer.
+    rec = mutate_refer_poi._synth_record(0x60, b"ALPHA MUSEUM",
+                                         b"1@VIA ONE\x00")
+    page = rec + mutate_refer_poi._synth_record(0x68, b"BETA MUSEUMS",
+                                                b"@VIA TWO", w10=0x0102)
+    old_b, new = b"ALPHA MUSEUM", b"ALPHA MUSEUM TWO"
+    delta = len(new) - len(old_b)
+    mutated, _info = mutate_refer_poi.resize_name(page, old_b, new)
+    before = mutate_refer_poi.parse_page(page)[0]["bytes"]
+    after = mutate_refer_poi.parse_page(mutated)[0]["bytes"]
+    hit = before.find(old_b)
+    expected = _expected_resize_record(before, hit, old_b, new, delta)
+    ok(expected == after,
+       "M5.52 rename: expected record (len2 + field-5 length) == writer")
+    stale = (
+        before[:1]
+        + bytes([(len(before) + delta) // 2])
+        + before[2:hit]
+        + new
+        + before[hit + len(old_b):]
+    )
+    ok(stale != after and expected != stale,
+       "pre-M5.52 rename-only (field 5 stale) is not the M5.52 edit")
 
     print(f"l2check selftest: {'PASS' if failures == 0 else 'FAIL'} ({failures} failure(s))")
     return 0 if failures == 0 else 1
