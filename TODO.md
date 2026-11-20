@@ -1466,8 +1466,8 @@ in its first line.
   - Claims: C-5352–C-5359
   - Result: done — EXP-2026-11-20-M1.35-sdc1-ioctl-wait94. `SDC1:` = `CSDCMain` in `SDHC.dll` (EU2011 = US2011); `fn 0x039b4498` dispatches `0x80032004` to `fn 0x039b4850` (port state: 2 inactive, 4 `DSK1:` active, 8 failed, 1 no card, `|0x80000000` if unpowered) and `0x80032000` to `fn 0x039b4664` (insert/remove request: port power + wake the load thread). Neither issues CMD42; the unlock runs inside the `DSK1:` activation (`fn 0x039b4b18` → `CDSKMain::Init` → `fn 0x039b6ac4`), which then sets ACM id 37. Id 94: no SET_ID sender in images A+B+C of either build (`tools/acm_id_scan.py`: 0 of 71/72 calls; controls 37, 22, 82 found), so `Navi.exe` waits out its 30 s (C-5352–C-5357; C-5358–C-5359 unused).
 
-- [ ] **H113 — `fn_match` blanks real instructions as pool slots when pool data decodes as `mov.x @(disp,PC)`**
-  - Status: in progress · Owner: task/h113-fnmatch-pool · Critical: no · Pair: required
+- [x] **H113 — `fn_match` blanks real instructions as pool slots when pool data decodes as `mov.x @(disp,PC)`**
+  - Status: done · Owner: task/h113-fnmatch-pool · Critical: no · Pair: required
   - Depends: H89 (done; the PHANTOM-SLOT class and its count)
   - Goal: `fn_match._instruction_tokens` and `fingerprint` mark a pool slot for every halfword that decodes as a PC-relative load, including halfwords that are themselves pool data, and then hash a real instruction as `0x0000`. H89 (C-4123) found `141` of the 1259 NOMATCH that differ only by such a phantom slot; a forward pass (a halfword already marked as a slot never names another one; PC loads only reach forward) gives each a unique US digest, and address-order pairing (131 anchor, 10 gap/global) names the same US function in 141/141.
   - Precheck: `python3 tools/nomatch_census.py archive/head256.img archive/us256.img --all | grep 'forward-pass'` prints `forward-pass digest unique in US: 141 of 1259 (the anchor pairs the same US function in 141)`; `python3 tools/fn_match.py match archive/head256.img archive/us256.img --module Navi.exe --va 0x0033d00c` prints `NOMATCH`.
@@ -1477,6 +1477,7 @@ in its first line.
   - Done when: an EXP gives the new module census with the before/after verdict table; `0x0033d00c` is no longer `NOMATCH`; the fixture replays `0 mismatch`; `python3 tools/gate.py` green.
   - Stop: if any `UNIQUE` pair of the old census changes its US address, stop and record it instead of merging the change.
   - Claims: C-5570–C-5579
+  - Result: docs/experiments/EXP-2026-11-20-H113-fnmatch-pool.md; C-5570–C-5576. One forward slot pass (`pool_slots`/`_pool_loads` in `tools/fn_match.py`, `nomatch_census.pool_slots` delegates) feeds `fingerprint`, `_instruction_tokens`/`code_digest` and `pool_masked`; `fn_match --selftest` 41→46. Module census `UNIQUE 5945 / DIFFERENT 171 / CALLORDER 56 / AMBIGUOUS 566 / NOMATCH 858` (was `2392/3214/213/518/1259` at `d2fb7b4`, C-3626 historical); 0 rows move to another non-null US, all 3028 `DIFFERENT`→`UNIQUE` are phantom-slot, 129 of the 141 forward-pass rows are `UNIQUE` + 12 `DIFFERENT` to the same US. `0x0033d00c` is now `UNIQUE → 0x0036bb5c`; fixture 6 rows `DIFFERENT`→`UNIQUE` (same US VAs), replay `13 rows, 0 mismatch`; 6 old `UNIQUE` are now `AMBIGUOUS` (twin runs, never guessed). `gate.py` 4/4.
 
 - [ ] **H114 — `fn_match` refuses an identical masked stream with two or more US twins; address order can pick one**
   - Status: open · Owner: — · Critical: no · Pair: required

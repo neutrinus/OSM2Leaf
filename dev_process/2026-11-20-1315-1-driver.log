@@ -1,0 +1,47 @@
+role: driver (H113), model opencode/deepseek-v4.1-flash-free, subagent of a driver session
+start: 2026-11-20 13:15 UTC  end: 2026-11-20 14:05 UTC (approx)
+origin/main at start: d2fb7b4 (todo: TL cycle-17 housekeeping)
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-16, H113 block,
+docs/experiments/TEMPLATE.md, docs/research/claims.md H89/C-3626 area,
+tools/fn_match.py, tools/nomatch_census.py
+
+worktree: /home/marek/projekty/OSM2Leaf.task-h113-fnmatch-pool, branch
+task/h113-fnmatch-pool off origin/main, archive/ symlinked; never touched the
+primary checkout.
+
+actions, in order:
+- fetched, confirmed no owner/PR for H113, set only its line to in progress,
+  committed `todo: start H113`, pushed -u, opened draft PR #333 (rule 2/3).
+- reproduced the precheck: census before `1259` NOMATCH, `0x0033d00c` NOMATCH.
+- found the flaw in fingerprint/_instruction_tokens/pool_masked: every
+  is_mov_pc halfword (including pool data) named a slot; wrote
+  `_pool_loads` + `pool_slots` (forward pass) and routed all three consumers,
+  and made nomatch_census.pool_slots delegate to it (one implementation).
+- added 5 selftest checks (crammed pool word 0xda39, real instruction at hw122);
+  fn_match 41 -> 46 checks.
+- ran the full census: a pure phantom-slot pass is not enough: 3028
+  DIFFERENT->UNIQUE, but 6 old UNIQUE -> AMBIGUOUS (B digest twins) and the
+  fixture 6-mismatch. Per rule 5 / H113 scope, re-pinned the 6 fixture rows
+  (same US VAs) and re-took every count.
+- wrote the verdict-dump comparison: 0 rows move to a different non-null US
+  (H113 Stop did not fire); every 3028 DIFFERENT->UNIQUE row has an old load
+  now marked as pool data (EU only 1139 / US only 844 / both 1045 / neither 0).
+- EXP + claims C-5570-C-5576 + C-3626 marked historical; firmware.md table
+  rows updated; TODO row Status/Result.
+- gate.py green (4/4) once mkcard's ENOSPC on the full /tmp tmpfs is avoided
+  with a home-tree TMPDIR (the tmpfs was already 95 % full from other sessions;
+  mkcard is unrelated to fn_match). Also confirmed at d2fb7b4 the fixture
+  replays 0 mismatch, so the 6 mismatches are the tool change.
+
+decisions: forward pass in fn_match (single implementation; census delegates);
+fixture re-pinned rather than relaxing compare_rows (the rows really do hash
+match now); 6 UNIQUE->AMBIGUOUS kept as AMBIGUOUS (never guess among twins);
+H89's 141-row label kept but re-measured (129 UNIQUE + 12 DIFFERENT).
+
+problems: /tmp is a 3.8 GiB tmpfs at 95 % (other sessions) -> mkcard selftest
+ENOSPC; run with TMPDIR in the home scratch tree. No vendor data committed.
+
+handoff to navigator: mutation check (a planted false pool word must not be
+blanked; a real blank must still be masked); then review the fixture re-pin
+and the 6 UNIQUE->AMBIGUOUS rows.
