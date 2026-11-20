@@ -595,7 +595,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-4270–C-4279
 
 - [ ] **H100 — `claims.md` carries 285 `RESERVED (TASK).` placeholder rows, and no gate notices when the task is `done`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h100-claims-reserved · Critical: no · Pair: required
   - Depends: — (claims_check is on `main`); the retro 2026-11-17-3 multiplicity finding
   - Goal: a 10-ID block was meant to be a reservation, but every block was also written out as ten `| C-xxxx | RESERVED (TASK). | — | — | — |` rows, and nothing ever removes them. SE 2026-11-17 counted **285 RESERVED rows over 60 tasks**: **97 rows name a `done` task** (e.g. C-4179 for the just-merged M9.39, C-4139 for H90, C-4102…C-4109 for H87), 34 name a `blocked` task, and 151 name a task no longer in TODO.md. `claims_check --strict --count-check` passes over all of them, so "reserved" reads as "registered" (the retro's exact defect) and an agent scanning for the next free claim sees a wall of dead placeholders. Make the placeholder a gate-visible state and retire the rows whose owner is `done`.
   - Precheck: `grep -c 'RESERVED (' docs/research/claims.md` prints `285`; `grep -o 'RESERVED ([A-Za-z0-9._]*)' docs/research/claims.md | sort | uniq -c | sort -rn | head` shows the per-task spread; `python3 tools/claims_check.py --strict --count-check` is OK with those rows present (the defect: no gate sees them).
