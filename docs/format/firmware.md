@@ -326,6 +326,27 @@ L3 trace needed). Buffer-slot→ADDRE binding is `HYPOTHESIS`. L3 probe of
 COREDLL/state). Navi.exe sec1/sec2 are compressed *data* (C-2128), not a code
 blocker. See `docs/format/refer.md` "Firmware reader (M3.13)".
 
+**M3.13 pass 4 (EXP-2026-11-20-M3.13-addre-reader-l3, C-5930–C-5939, blocked on M3.32/M3.30 for the remaining fields):** the
+`ADDRE` record reader is the generic `REFER001` field accessor of M3.11c. The populate
+writer of message type `0x14e4`, `fn 0x003fd390` (EU2011; US2011 `0x00425564`), run with
+search type 2 at ctx `+124`, stores the page in slots `+0x14` and `+0x2c` and the field
+dictionary (header entry `+44`, copied by `0x0040e9dc`) in `+0x18`. Header entry `+44` and
+the page object (`OBJ+20` = page) are **seeded inputs** of the harness: no firmware loader
+was seen filling them, and the schema block is chosen as the dictionary by the accessor's
+own checks (the only block in the file that passes them). The dictionary is the
+`ADDRE` schema block (3 fields: `area code`, `street name`, `dndc-id`).
+`fn 0x003f61bc(db, rec, f)` / `fn 0x003f5d98` then return each field's pointer and length;
+`fn 0x003f56bc` places the field-length block at `rec + 2*(rec[2] + rec[3] + 2)` for class
+6 (`0xc000`), and that block is the old `TT LL 00 ff` "name section". The dispatcher
+`fn 0x003f5cdc` reaches record `n` through slot `+0x2c` → walker `0x003f5b88`, stride
+`2*(w & 0x3ff)` (so `c1` = `L ≥ 256`). Record leaves (EU2011, no pdata rows):
+`0x003f5468` → `c8` bit, `0x003f5550`/`0x003f54f4` → block 1 (`rec+4`, `rec[2]` words),
+`0x003f559c` → number of house-range items, `fn 0x003f5624(db, rec, i)` → item `i`
+(item length = its first byte, in words). Callers of the item accessor:
+`fn 0x003ad680`, `fn 0x003ad9a4`, `fn 0x003b9d38`, `fn 0x003bacc4` (not run; M3.32).
+`fn 0x0040b358` is a path lookup, not a record reader. PySh4: EU2011 3,650 and US2011
+57,180 factory records correct, edited blocks read back (`tools/addre_field_reader.py`).
+
 **M3.22 (EXP-2026-11-10, C-3460–C-3468, blocked — provisional):** `0x00d53500`
 is BSS in `Navi.exe` sec1 (C-3442/H49), so its contents are run-time written.
 `sh4xref --to 0x00d53500` (IMG256 `92aa525d…`, build A) gives **33 loads / 20
@@ -626,6 +647,10 @@ were run on the US `POINT010` page `0x840ba0` (record 0..1000, 1000 records):
 | block-address leaf / header-table lookup (M4.52) | `0x0040f00c`/`0x0040ee4c` | `0x00436f58`/`0x00436dd4` | the parser's and the loader's own pool slots |
 | locator-path stubs: cache lookup/allocate, debug log, read request, parser tail (M4.52) | `0x00407724`/`0x004086b4`/`0x003ec9fc`/`0x003f6c88`/`0x0040a8d0` | `0x0042f824`/`0x004307b4`/`0x0041551c`/`0x0041f5e8`/`0x004329d0` | the loader's and the parser's own pool slots |
 | locator-path memset / `_divlu` thunks (M4.52) | `0x003d13c4`/`0x003d140c` | `0x0040089c`/`0x004008e4` | the loader's own pool slots |
+| map-file layer init / event / queue read / resolve / cancel / logger (M9.14) | `0x00417924`/`0x00419c38`/`0x0041841c`/`0x0040b358`/`0x00418428`/`0x0041bbec` | `0x0043f688`/`0x0044199c`/`0x00440180`/`0x00433458`/`0x0044018c`/`0x00443950` | `fn_match` pairs, pdata START with equal lengths (`read` is a 12-byte stub `fn_match` calls AMBIGUOUS; same words, same place) |
+| read API clients: clamp / request / wrapper A / wrapper B (M9.14) | `0x00409ba0`/`0x003f6c88`/`0x003f7384`/`0x003f73dc` | `0x00431ca0`/`0x0041f5e8`/`0x0041fce4`/`0x0041fd3c` | `fn_match` UNIQUE |
+| DRSTR parser / its caller / MMAIN reader (M9.14) | `0x00419350`/`0x00419684`/`0x0041a438` | `0x004410b4`/`0x004413e8`/`0x0044219c` | `fn_match` UNIQUE; their pools give the data cells below |
+| layer state / mount / directory count / directory records / MMAIN buffer / `\SystemSD` (M9.14) | `0x009cfce0`/`0x009cfce4`/`0x009cfcd4`/`0x00e25420`/`0x00e23cc0`/`0x00049fd4` | `0x00a10ea8`/`0x00a10eac`/`0x00a10e9c`/`0x00d53020`/`0x00d518c0`/`0x00056634` | pool value at the same load index of the paired function (`vcard_l3.py port`); mount = state + 4 in both |
 
 The table is a checked copy, not a source: the values are owned by
 [`tools/build_targets.py`](../../tools/build_targets.py) (M1.32), from which
@@ -1776,6 +1801,16 @@ does not complete: the request goes back on the queue.
 pair of the buffer when request word +20 is 0 and the status is 0. With word
 +20 = 0 the bytes of `POINT010.DAT` arrive pairwise swapped, with 1 as stored.
 
+**For zlib pages the swap is undone (M9.26, C-2900–C-2905, EU2011).** A
+`POINT` page is a zlib stream inside the `.DAT`; the layer swaps its
+compressed bytes too, which makes them uninflatable. The page loader
+`fn 0x003fd690` therefore calls the byte-pair leaf `0x003f6968(buf, nbytes)`
+on the compressed buffer (`0x003fd9de`), inflates with `0x00542100`
+(`0x003fd9ec`), and calls the leaf again on the inflated page (`0x003fda02`).
+That second call makes the page native `u16` for the walker `fn 0x003f5194`.
+The other two callers of `0x00542100` (`fn 0x00404994`, `fn 0x004052d4`) do
+the same. Decoder outputs (`fn 0x0041c7dc`, the inflate) are file order.
+
 ### The compressed-file layer
 `0x0041b780(path, flag)` decides by the `CMP.LST` prefix (`0x0041c2e0`): a path
 outside it is a plain `fopen`; a path under it opens `X.DAT.IND` and
@@ -1911,5 +1946,34 @@ Models in `tools/datask_l3.py`: semaphores, `OSM_MemSize`/`OSM_MemGet` (one
 `OBJ_DiscInfo_readDiscVol` (the volume header the map-file layer published),
 eight `OBJ_CarPos_*`/`OBJ_Event_*`/`OBJ_RoutePntTbl_*` calls that return 0.
 The two task-id globals (data VAs `0x11fff58`, `0x11fffb8`) are written by
-the tool. One message is sent to a task that is not part of the run
-(`0x1507` sub 1, receiver id 0); the mount state stays 2.
+the tool before the initialisation, as `0x0032efa8` does right after
+`OSM_TaskCreate`. A `tickGet` counter serves `SDL_task`'s trace stamps.
+
+### The end of the mount: `0x1507` and object-store event 11 (M9.52, EU2011)
+The mount sends one message outside the two tasks: `0x1507` sub 1 (built by
+`0x00402690`, sent by `0x00401e94` from `0x003f0394` once the `REFER001`
+search data is in). Its receiver is `SDL_task` (name VA `0x11154`, entry
+`0x0039d854`, id global `0x11fff50`, created by `0x0032efa8`). `SDL_task`
+routes by the sender at `+0` (`0x0039d6f0`); for the data-access task,
+`0x0039d18c` passes a message to its state machine (`0x0039ca00`, table at
+data VA `0x39e30`) only when `+12` equals the pending request id
+`*0x6f4650` and `*0x6f4654` is 1 (gate `0x003c009c`). With no request
+pending it drops `0x1507`; nothing answers it, and nothing waits for it.
+
+The state word goes to 3 only in `0x003f6b1c`, the handler of message
+`0x07d0` sub 11 when its `+28` is 16. `0x07d0` is the object-store event
+(OBJDLL notifier `0x034942d8`, `OSM_MsgSend`), the sub is the event id the
+subscriber gave `OBJ_Event_setPrm`:
+
+| Sub | Handler | Subscribed by | Effect |
+| --- | --- | --- | --- |
+| 100 | `0x003f75e4` | `0x003eb974`, `OBJ_DiscInfo_setEventPublicDisc` kind 1 | state 2, the mount reads start |
+| 199 | `0x003f6b84` | `0x003eb974`, `OBJ_DiscInfo_setEventPublicDisc` kind 3 | — |
+| 13 | `0x003f6bb0` | `0x003eb974`, `OBJ_DiscInfo_setEventJudge` | `+28 = 0x3f7`: answer the judge, state 1 |
+| 6 | `0x00403564` | init, `OBJ_CarPos_setEventMesh` | — |
+| 11 | `0x003f6b1c` | not found in `Navi.exe` (M9.57) | `+28 = 16`: state 3 |
+
+The dispatcher runs the deferred row `0x14b5` at once only with progress
+word `0xd98fcc` = 1 and state 3. `datask_l3.py mount --sdl --event 11:16`
+runs `SDL_task` too and delivers event 11 as a stand-in: the run ends with
+state 3, progress 1 (EXP-2026-11-20-M9.52-mount-1507, C-5900–C-5907).
