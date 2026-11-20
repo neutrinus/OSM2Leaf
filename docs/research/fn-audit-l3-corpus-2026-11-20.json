@@ -420,6 +420,7 @@
   "docs/experiments/EXP-2026-11-20-M5.53-wide-rows.md",
   "docs/experiments/EXP-2026-11-20-M5.54-wide-kinds.md",
   "docs/experiments/EXP-2026-11-20-M5.55-l2check-resize-expectation.md",
+  "docs/experiments/EXP-2026-11-20-M6.16-s3-generator.md",
   "docs/experiments/EXP-2026-11-20-M6.18-prod-screen.md",
   "docs/experiments/EXP-2026-11-20-M8.A3-builtin-loader.md",
   "docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md",
@@ -437,7 +438,7 @@
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 430,
+  "files": 431,
   "citations": 1098,
   "unique_va": 273,
   "start": 947,
@@ -569,7 +570,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 3804,
+   "line": 3817,
    "va": "0x880404f4",
    "kind": "fn",
    "class": "START",
