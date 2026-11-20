@@ -1951,7 +1951,7 @@ of the four numbers above says so in its first line.
 ---
 
 - [ ] **M3.23 — Static call graph of `Navi.exe` (pdata + pools + dispatch tables), and readers found by reachability**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m3.23-callgraph-readers · Critical: yes
   - Note (H112, 2026-11-19): **rebuild the graph before using it.** The first `callgraph.py` decoded literal-pool words as instructions: 2,201 of 22,867 EU edges were false (M3.26 and M3.27 each caught one by hand). Fixed, with a selftest case; corrected numbers in C-4620. Imports by ordinal are now named. What is left of this task: (a) table edges (M3.24), (b) the reachability report per file family — start it from the name loaders of C-4627 (M3.28), not from byte signatures.
   - Note (H101, 2026-11-17): **the core exists: `tools/callgraph.py`** (`build`, `callers`, `callees`, `reach`, `users`, `path`, `stats`; `--selftest` 6 cases). `Navi.exe` EU2011: 9,000 nodes (1,404 leaf targets), 22,867 direct edges, 7,721 import edges, 589 unresolved indirect calls, 956 functions with no static caller; US2011: 8,890 / 22,119 / 525 / 970. It reproduces `0x0041c044 → 0x0041c990 → 0x0041c7dc → … → 0x00542250`. What is left of this task: the `loops` query, the map DLLs, and the ranked reader candidates per family. Only 589 calls are indirect — the `Stop` condition (30 %) is far away: in the `REFER` subtree below `0x004125a8` it is 47 unresolved in 223 functions.
   - Depends: M1.20 (function table), M3.24 helps (indirect edges)
