@@ -3786,7 +3786,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 
 - [ ] **M8.B5 — Milestone F1**: `filesys.exe` and `device.exe` start, 60 s
   without a fault.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.b5-ze0-f1-filesys · Critical: no
   - Depends: M8.B1, M8.B2
   - Claims: C-1350–C-1359
 
