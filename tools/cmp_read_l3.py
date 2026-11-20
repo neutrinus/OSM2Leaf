@@ -89,6 +89,13 @@ MOUNT_CFG = (50, 20, 0x20000, 0x10000, 0x14000)   # 0x0041baee..0x0041bb0a
 ARENA_SIZE = 0x82C60                              # pool 0x0041bbe0
 SLOT_COMPRESSED = 0x116     # u16 per handle slot, 1 = served through .ind/.cmp
 
+# compare sites observed during a run (EU2011): VA -> (label, left reg, right reg)
+PROBES = {
+    0x0041C92A: ("chunk_size==cfg (0x41c8c4)", "r8", "r3"),
+    0x0041C696: ("chunk_size==cfg (0x41c5f0)", "r8", "r1"),
+    0x0041CA3C: ("read len==batch (0x41c990)", "r0", "r12"),
+}
+
 IMPORTS = ("strlen", "strcpy", "strcat", "memcpy", "memset", "_divls",
            "_divlu", "_modls", "_modlu", "EnterCriticalSection",
            "LeaveCriticalSection")
@@ -244,7 +251,7 @@ class Layer:
         import nk_decomp
         import point_walk_l3 as pw
         self.fs = fs
-        self.stats = {"insns": 0, "errlog": [], "zalloc": [], "imports": {}}
+        self.stats = {"insns": 0, "errlog": [], "zalloc": [], "imports": {}, "probes": []}
         data = pw.load_image(image_path)
         rom, secs = pw.module_sections(data, IMAGE_START, MODULE)
         text_va, text = pw.navi_text(data, IMAGE_START)
@@ -272,6 +279,8 @@ class Layer:
         eng.on_exec(tgt["zcalloc"], self._zcalloc)
         eng.on_exec(tgt["zcfree"], lambda e, va: StubReturn(0))
         eng.on_exec(FN_ERRLOG, self._errlog)
+        for va, (label, a, b) in PROBES.items():
+            eng.on_exec(va, self._probe(label, a, b))
         counted = eng._execute
 
         def count(insn, pc):
@@ -386,6 +395,13 @@ class Layer:
         self.stats["zalloc"].append(items * size)
         return StubReturn(p)
 
+    def _probe(self, label, a, b):
+        def hook(eng, va):
+            x, y = eng._get_reg(a), eng._get_reg(b)
+            self.stats["probes"].append((label, x, y, x == y))
+            return None              # observe only; the instruction runs
+        return hook
+
     def _errlog(self, eng, va):
         r = eng.get_regs()
         self.stats["errlog"].append((r["r4"], r["r5"], r["r6"], r["r7"],
@@ -434,7 +450,7 @@ class Layer:
     def read(self, h: int, length: int) -> tuple[int, bytes]:
         self.eng.map("out", OUT_VA, bytearray((length + 0x10FFF) & ~0xFFF), "rw")
         r = signed(self.call(FN_READ, [h, OUT_VA, length, 1]))
-        return r, bytes(self.eng.read_mem(OUT_VA, max(r, 0)))
+        return r, (bytes(self.eng.read_mem(OUT_VA, r)) if r > 0 else b"")
 
 
 # ---------------------------------------------------------------------------
@@ -506,6 +522,7 @@ def finish(res: dict, fs: GuestFS, layer: Layer) -> dict:
     res["errlog"] = layer.stats["errlog"]
     res["zalloc_sizes"] = sorted(set(layer.stats["zalloc"]))
     res["imports"] = layer.stats["imports"]
+    res["probes"] = layer.stats["probes"]
     return res
 
 
@@ -523,6 +540,8 @@ def show(res: dict) -> None:
             print(f"  ops.{op[0]} {op[1]}")
     if res.get("errlog"):
         print("  errlog " + "; ".join("(%d,%d,%d,%d,%#x)" % e for e in res["errlog"]))
+    for label, x, y, eq in res.get("probes", []):
+        print(f"  probe {label}: {x:#x} vs {y:#x} -> {'equal' if eq else 'DIFFER'}")
     if "compressed" in res:
         print(f"  handle {res['handle']:#x} slot u16 +0x116 = {res['compressed']}")
     if res.get("zalloc_sizes"):
