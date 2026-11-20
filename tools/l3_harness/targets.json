@@ -272,30 +272,46 @@
    "name": "drstr_parser",
    "reader": "drstr",
    "what": "DRSTR001.DAT tree parser (40-byte nodes, 32-byte entries)",
-   "module": null,
+   "module": "Navi.exe",
    "build": "eu2011",
    "entry": {
-    "kind": "blocked",
-    "program": null,
-    "va": null,
-    "reason": "not callable from runner.py: the parser (EU2011 fn 0x00419350 via 0x00419684; US2011 0x004410b4 via 0x004413e8) runs inside the map-file layer's mount, with the firmware's own arguments and file reads. The target runs as tools/vcard_l3.py boot IMG --card-image CARD [--build us2011] [--replace DRSTR001.DAT=FILE | --truncate DRSTR001.DAT@N | --flip DRSTR001.DAT@OFF:XOR]; verdicts in EXP-2026-11-20-M9.14-drstr-parser-l3 (factory EU/US ACCEPT, rebuilt ACCEPT, truncated and bad listing offset REJECT)"
+    "kind": "firmware_call",
+    "program": "drstr_parser_v1",
+    "module": "Navi.exe",
+    "va": "0x00419350",
+    "endian": "little",
+    "note": "EU2011 build A. tools/drstr_l3.py calls the caller's sequence (fn 0x00419684, 0x00419732..0x00419756): open wrapper 0x0041b3bc(volume root + name at 0x0017ab24, mode at 0x0017ab20) -> parser 0x00419350(fd) -> close wrapper 0x0041b650(fd), with tools/vcard_l3.py's bound imports (M9.44). Error logger 0x0041bbec is hooked (code = r7).",
+    "sec1_table": {
+     "va": "0x009cfcd8",
+     "source": "image",
+     "provenance": "Navi.exe sec1 decoded from the image by nk_decomp inside vcard_l3.Machine (M9.44, M1.19); 0x009cfcd8 and 0x009cfcdc are the parser's state words (pool words 0x00419654, 0x004195bc), written by the parser itself"
+    },
+    "verdict_map": {
+     "0x00000000": "ACCEPT",
+     "0xffffffff": "REJECT"
+    }
    },
    "stubs": [
-    "CreateFileW",
-    "ReadFile",
-    "SetFilePointer",
-    "CloseHandle",
-    "LocalAlloc",
-    "LocalFree",
-    "HeapAlloc",
+    "fopen",
+    "fread",
+    "fseek",
+    "ftell",
+    "ferror",
+    "clearerr",
+    "fclose",
+    "_modlu",
+    "OSM_Malloc",
+    "OSM_Free",
+    "memmove",
     "memset",
-    "memcpy",
-    "OSM_Printf",
-    "OSM_LogMsg"
+    "strcmp",
+    "strlen",
+    "strncat",
+    "strncpy"
    ],
    "corpus": {
     "path": "drstr/DRSTR001.DAT",
-    "guest_path": "\\Storage Card\\DRSTR001.DAT",
+    "guest_path": "\\SystemSD\\DRSTR001.DAT",
     "reader": "drstr",
     "case": "drstr_factory"
    },
@@ -303,11 +319,11 @@
     "verdict": "ACCEPT",
     "python_verdict": "ACCEPT",
     "agrees_with_python": null,
-    "rule": "the factory tree must parse; the size-mismatch tree in the manifest must be rejected"
+    "rule": "the factory tree must parse (r0 0); mutation controls in EXP-2026-11-20-M9.24-drstr-parser-runner"
    },
    "notes": [
-    "The reader's CRT calls are coredll fopen/fread/fseek/ftell/ferror/clearerr/fclose (M3.10 decode, wrappers sub_0041b3bc/sub_0041b4f8/sub_0041b470), not CreateFileW/ReadFile; the stub list below is not the reader's call list and is kept only until M9.24 replaces it.",
-    "Verdict rule not established: sub_00419350 returns error codes 26/23/20/10 (M3.10), so no verdict_map is written; the 40 | size and size/40 >= 200 checks are unreconciled."
+    "verdict_map decoded from fn 0x00419350's exits (EXP-2026-11-20-M9.24-drstr-parser-runner): every exit returns r2, which is 0 (0x0041961c), -1 (0x00419634) or the frame word @(24,r15) written only with -1 (0x00419478) or 0 (0x00419522).",
+    "The whole-layer route (mount, state machine) stays tools/vcard_l3.py boot (EXP-2026-11-20-M9.14-drstr-parser-l3)."
    ]
   },
   {
