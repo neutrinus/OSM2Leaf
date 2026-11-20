@@ -2130,7 +2130,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-1800–C-1809
 
 - [ ] **M4.16 — Place `RDSTM001` rows on the map** (blocked: no join key)
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Status: in progress · Owner: task/m4.16-rdstm-place · Critical: yes · Pair: solo
   - Re-opened (rule 15, PO 2026-11-20): `Unblock` M4.16b is done and it found the join the blocker lacked: location code → `(group, entry)` → level-2 node (M4.16e, M4.16b second EXP, C-5400–C-5403; table codes M4.16d, C-2320–C-2323). This task is now a closure: re-run its own `Done when` with `python3 tools/rdstm_place.py place-all`, record the numbers, and close it or name what is still missing. Then check `M4.2` and `M4.16c`, which wait on this block.
   - Step: P3
   - Depends: M4.15 (M4.8 helps)
@@ -2145,7 +2145,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
     enrichment (real>>random) is an unverified lead (C-1811).
   - Result: EXP-2026-11-06-M4.16-rdstm-placement; `tools/rdstm_place.py` probe
     + selftest. Join key NOT identified; done-when not met (negative).
-  - Claims: C-1810–C-1819
+  - Claims: C-5950–C-5959 (was C-1810–C-1819; fresh block for this run)
 
 - [x] **M4.16b — Decode RDSTM per-record field directory (C-884) and re-test placement**
   - Status: done · Owner: task/m4.16b-rdstm-field-dir-placement · Critical: yes
