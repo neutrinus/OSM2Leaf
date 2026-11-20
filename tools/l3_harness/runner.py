@@ -140,9 +140,10 @@ TRACE_TARGETS = [
         "reader": "drstr",
         "role": "reader",
         "what": "DRSTR001.DAT tree parser (40-byte nodes, 32-byte entries)",
-        "anchor": None,
-        "status": "unknown",
-        "note": "no entry point recovered",
+        "anchor": "0x00419350",
+        "status": "anchor-only",
+        "note": ("EU2011 fn 0x00419350 (caller 0x00419684); runs as target "
+                 "drstr_parser (firmware_call drstr_parser_v1, M9.24)"),
     },
     {
         "id": "cmp-lst-opener",
@@ -237,7 +238,7 @@ INPUT_BYTES_KEYS = {"kind", "path", "hex"}
 INPUT_LITERAL_MAX = 0x400
 FIRMWARE_CALL_ENTRY_KEYS = {
     "kind", "program", "module", "va", "endian", "note",
-    "sec1_table", "inputs",
+    "sec1_table", "inputs", "verdict_map",
 }
 #: Byte order of a module entry.  ``"little"`` needs ``PySh4(endian="little")``
 #: (M9.21); the other back ends are big-endian in this harness and refuse it.
@@ -780,6 +781,16 @@ def _validate_firmware_call_entry(entry, where: str) -> list[str]:
     inputs = entry.get("inputs")
     if inputs is not None and not isinstance(inputs, dict):
         problems.append(f"{where}: entry.inputs must be an object when present")
+    vmap = entry.get("verdict_map")
+    if vmap is not None:
+        # M9.24: return value -> verdict, decoded from the function's exits
+        if not isinstance(vmap, dict) or not vmap:
+            problems.append(f"{where}: entry.verdict_map must be a non-empty object")
+        else:
+            for key, verdict in vmap.items():
+                _hex(key, f"{where}.verdict_map key", problems)
+                if verdict not in ("ACCEPT", "REJECT"):
+                    problems.append(f"{where}: verdict_map[{key}] must be ACCEPT or REJECT")
     return problems
 
 
@@ -1856,6 +1867,8 @@ def _run_firmware_call_target(target, args, base) -> dict:
     program = entry.get("program")
     if program == "mapcode_compare_v1":
         return _run_mapcode_target(target, args, base)
+    if program == "drstr_parser_v1":
+        return _run_drstr_target(target, args, base)
     if program != "cmp_ind_chunk_v1":
         return dict(
             base, status="BLOCKED", exit=EXIT_BLOCKED,
@@ -2132,6 +2145,78 @@ def _run_mapcode_target(target, args, base) -> dict:
     )
 
 
+def _run_drstr_target(target, args, base) -> dict:
+    """Run Navi.exe's ``DRSTR001.DAT`` parser ``fn 0x00419350`` (EU2011, M9.24).
+
+    ``--input`` is the ``DRSTR001.DAT`` served at the layer's volume root;
+    ``tools/drstr_l3.py`` calls open wrapper -> parser -> close wrapper with
+    ``vcard_l3``'s bound imports.  The verdict is the parser's return value
+    through ``entry.verdict_map``, which must equal the map decoded from the
+    parser's exits (``drstr_l3.VERDICT_MAP``); a fault is ``BLOCKED`` with
+    its PC.
+    """
+
+    entry = target["entry"]
+    sec1 = entry.get("sec1_table")
+    if not isinstance(sec1, dict):
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason="sec1_table not declared", accepted=None, l3_claim=False)
+    image_path = getattr(args, "image", None)
+    file_path = getattr(args, "input", None)
+    missing = [n for n, v in (("--image", image_path), ("--input", file_path)) if not v]
+    if missing:
+        return dict(base, status="INVALID", exit=EXIT_INVALID,
+                    problems=[f"drstr_parser_v1 needs {', '.join(missing)}"])
+    for path in (image_path, file_path):
+        if not Path(path).exists():
+            return dict(base, status="INVALID", exit=EXIT_INVALID,
+                        problems=[f"missing input: {path}"])
+    try:
+        import drstr_l3 as dl3
+    except Exception as exc:  # noqa: BLE001
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"cannot import drstr_l3: {exc}", accepted=None, l3_claim=False)
+    declared = {int(str(k), 0): v for k, v in (entry.get("verdict_map") or {}).items()}
+    if declared != dl3.VERDICT_MAP:
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason="entry.verdict_map differs from the map decoded from "
+                           "fn 0x00419350's exits (drstr_l3.VERDICT_MAP)",
+                    accepted=None, l3_claim=False)
+    if int(str(entry.get("va")), 0) != dl3.EU2011["parse"]:
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason="entry.va is not the EU2011 parser fn 0x00419350",
+                    accepted=None, l3_claim=False)
+    data = Path(file_path).read_bytes()
+    try:
+        result = dl3.run(str(image_path), dl3.memory_card("DRSTR001.DAT", data))
+    except dl3.Blocked as exc:
+        return dict(base, status="BLOCKED", exit=EXIT_BLOCKED,
+                    reason=f"BLOCKED: {exc}", accepted=None, l3_claim=False)
+    expected = getattr(args, "expect", None) or target["expect"]["verdict"]
+    observed = result["verdict"]
+    ok = observed == expected
+    return dict(
+        base,
+        status="PASS" if ok else "MISMATCH",
+        exit=EXIT_OK if ok else EXIT_MISMATCH,
+        accepted=observed == "ACCEPT",
+        verdict=observed,
+        expected_verdict=expected,
+        firmware={"r0": result["r0"], "fn": result["fn"], "build": result["build"],
+                  "module": "Navi.exe", "stage": result["stage"], "log_codes": result["log_codes"],
+                  "log_sites": result["log_sites"], "guest_path": result["guest_path"]},
+        verdict_map={("%#010x" % k): v for k, v in sorted(dl3.VERDICT_MAP.items())},
+        sec1_table={"va": sec1.get("va"), "declared": False, "source": sec1.get("source"),
+                    "provenance": sec1.get("provenance")},
+        inputs={"image": str(image_path), "file": str(file_path),
+                "file_sha256": hashlib.sha256(data).hexdigest(), "size": len(data)},
+        imports_called=result["imports"],
+        problems=[] if ok else [f"firmware verdict {observed}, expected {expected}"],
+        l3_claim=True,
+        note="firmware verdict of Navi.exe fn 0x00419350 (EU2011 build A), via its open/close wrappers",
+    )
+
+
 def run_target(target, args) -> dict:
     """Execute one target and return its verdict payload.
 
@@ -2391,8 +2476,10 @@ def _emit_target(payload: dict, as_json: bool) -> None:
     if payload.get("firmware"):
         fw = payload["firmware"]
         if "fn" in fw:
-            print(f"firmware fn {fw['fn']} {fw['build']} {fw['module']} "
+            print(f"firmware fn {fw['fn']} {fw['build']} {fw.get('module', '')} "
                   f"r0={fw.get('r0')} insns={fw.get('insns')}")
+            if "log_codes" in fw:
+                print(f"fwlog    codes={fw['log_codes']} sites={fw['log_sites']}")
         else:
             print(f"firmware r0={fw.get('r0')} insns={fw.get('insns')} memcpy={fw.get('memcpy')}")
         inp = payload.get("inputs") or {}
@@ -2400,6 +2487,8 @@ def _emit_target(payload: dict, as_json: bool) -> None:
             print(f"inputs   card={inp.get('card')} sha256={inp.get('card_sha256')}")
             print(f"unit     +0x60={inp.get('unit_code')!r} ({inp.get('unit_source')})")
             print(f"card     slot0={inp.get('card_slot0')!r}")
+        elif inp and "file" in inp:
+            print(f"inputs   file={inp.get('file')} sha256={inp.get('file_sha256')} size={inp.get('size')}")
         elif inp:
             print(f"inputs   cmp={inp.get('cmp')} ind={inp.get('ind')} mutate={inp.get('mutate')}")
         sec1 = payload.get("sec1_table") or {}
@@ -3213,7 +3302,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument(
         "--expect",
         choices=("ACCEPT", "REJECT"),
-        help="mapcode_compare_v1: expected verdict for this input "
+        help="mapcode_compare_v1, drstr_parser_v1: expected verdict for this input "
              "(default: the target's expect.verdict)",
     )
     run_cmd.add_argument(
@@ -3711,6 +3800,56 @@ def test_firmware_call_missing_file(tmp):
     payload = json.loads(output)
     assert code == EXIT_INVALID, output
     assert "missing input" in " | ".join(payload.get("problems", [])), payload
+
+
+@check("drstr_parser_v1: shipped target is a firmware_call with the decoded verdict_map (M9.24)")
+def test_drstr_registered(tmp):
+    by_name, _doc = load_targets(None)
+    entry = by_name["drstr_parser"]["entry"]
+    assert entry["kind"] == "firmware_call" and entry["program"] == "drstr_parser_v1", entry
+    assert entry["va"] == "0x00419350" and entry["sec1_table"]["source"] == "image", entry
+    assert entry["verdict_map"] == {"0x00000000": "ACCEPT", "0xffffffff": "REJECT"}, entry
+
+
+@check("drstr_parser_v1: missing --image/--input is INVALID, not a fake pass")
+def test_drstr_missing_inputs(tmp):
+    code, output = _run_cli(["run", "drstr_parser", "--json"])
+    payload = json.loads(output)
+    assert code == EXIT_INVALID, output
+    probs = " | ".join(payload.get("problems", []))
+    assert "--image" in probs and "--input" in probs, payload
+
+
+@check("drstr_parser_v1: a verdict_map that differs from the decoded one is BLOCKED")
+def test_drstr_guessed_map(tmp):
+    _by_name, doc = load_targets(None)
+    doc = copy.deepcopy(doc)
+    for target in doc["targets"]:
+        if target["name"] == "drstr_parser":
+            target["entry"]["verdict_map"] = {"0x00000000": "ACCEPT", "0x00000001": "REJECT"}
+    path = Path(tmp) / "targets.json"
+    path.write_text(json.dumps(doc))
+    for name in ("img", "dat"):
+        (Path(tmp) / name).write_bytes(b"x")
+    code, output = _run_cli([
+        "run", "drstr_parser", "--json", "--targets", str(path),
+        "--image", str(Path(tmp) / "img"), "--input", str(Path(tmp) / "dat"),
+    ])
+    payload = json.loads(output)
+    assert code == EXIT_BLOCKED, output
+    assert "verdict_map differs" in payload["reason"], payload
+
+
+@check("drstr_parser_v1: a wrong head image is BLOCKED before the engine starts")
+def test_drstr_wrong_head(tmp):
+    for name in ("img", "dat"):
+        (Path(tmp) / name).write_bytes(b"x")
+    code, output = _run_cli([
+        "run", "drstr_parser", "--json",
+        "--image", str(Path(tmp) / "img"), "--input", str(Path(tmp) / "dat"),
+    ])
+    payload = json.loads(output)
+    assert code == EXIT_BLOCKED and "not the eu2011 head" in payload["reason"], payload
 
 
 @check("mapcode_compare_v1: shipped target is registered with a declared BSS cache (M9.6)")

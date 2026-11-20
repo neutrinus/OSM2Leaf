@@ -4549,3 +4549,18 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5947 | RESERVED (M9.14). | — | — | — |
 | C-5948 | RESERVED (M9.14). | — | — | — |
 | C-5949 | RESERVED (M9.14). | — | — | — |
+
+## M9.24 — `runner.py run drstr_parser` with a decoded verdict map (C-2640–C-2649)
+
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-2640 | `runner.py run drstr_parser --image IMG256 --input DRSTR001.DAT` (firmware_call `drstr_parser_v1`, `tools/drstr_l3.py`) runs EU2011 `Navi.exe` open wrapper `0x0041b3bc` → parser `0x00419350` → close wrapper `0x0041b650` with `vcard_l3`'s bound imports; on the EU factory `DRSTR001.DAT` (`2b7f2fb8…25f6`) it returns PASS, verdict ACCEPT, r0 `0x00000000`, no log code, no fault, 16 imports called, all modelled. | VERIFIED (tool) | H | EXP-2026-11-20-M9.24-drstr-parser-runner |
+| C-2641 | The EU2011 parser `fn 0x00419350` returns only `0` or `0xffffffff`: its exits return `r2`, set to 0 at `0x0041961c`, -1 at `0x00419634`, or loaded from the frame word `@(24,r15)` (`0x00419494`), written only with -1 (`0x00419478`) and 0 (`0x00419522`). The target's `verdict_map` `{0x00000000: ACCEPT, 0xffffffff: REJECT}` is this decode; the runner BLOCKs a declared map that differs. | VERIFIED (decode + tool) | H | EXP-2026-11-20-M9.24-drstr-parser-runner |
+| C-2642 | On the factory file, `+36` xor 1 (1601) is REJECT with log code 20 (logger call `0x00419472`) and `+36 = 201·40` is REJECT with code 10; `+36 = 200·40` is REJECT with no log code; `+36` rewritten to its own value (1600) is ACCEPT. | VERIFIED (tool) | H | EXP-2026-11-20-M9.24-drstr-parser-runner |
+| C-2643 | A file larger than `0x77220` bytes logs code 26 and is still parsed (zero-padded factory to `0x77221`: ACCEPT); at exactly `0x77220` nothing is logged (`cmp/ge` at `0x00419388`). | VERIFIED (tool) | H | EXP-2026-11-20-M9.24-drstr-parser-runner |
+| C-2644 | A `DRSTR001.DAT` of at most `0x77220` bytes is parsed from the parser's `0x77220`-byte buffer with no bound at the file size: the factory file cut to 32 bytes is ACCEPT when the buffer past it is zero (the heap model's value; in the unit it is whatever `OSM_Malloc` returns). | OBSERVED (tool) | M | EXP-2026-11-20-M9.24-drstr-parser-runner |
+| C-2645 | `runner.py run drstr_parser` refuses the US2011 head (BLOCKED, exit 4, head SHA-256 check before the engine) and reports a REJECT file against `expect ACCEPT` as MISMATCH (exit 5); a missing file is REJECT at stage open (the caller would log code 25). | VERIFIED (tool) | H | EXP-2026-11-20-M9.24-drstr-parser-runner |
+| C-2646 | RESERVED (M9.24). | — | — | — |
+| C-2647 | RESERVED (M9.24). | — | — | — |
+| C-2648 | RESERVED (M9.24). | — | — | — |
+| C-2649 | RESERVED (M9.24). | — | — | — |
