@@ -2961,7 +2961,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-19-M5.26-point-pair-regen (C-2950–C-2957). New tool `tools/point_pair_regen.py` (`scan`/`regen`/`verify`/`locator`/`summarize`). POINT pages sit in chains described by chain tables (`u16 per_page, u16 0, n × (start_w, comp_w, inner_w)`, three per file); `regen` re-packs a whole chain, rewrites its table and rebuilds the pair; the no-op control with stock zlib 1.3.1 is byte-identical on 44/44 EU+US pairs; EU POINT010 takes 1,000 names (+2 B each, page 0 +176 B past its own slot), all with `@`, `cmpind` decodes it. Limit: a chain cannot move — its locator is UNKNOWN (C-2955) and chain slack is 24–248 B, so real-name sets of 10–100 names already overflow most chains → M4.47.
 
 - [ ] **M5.27 — Finish M5.12c uncompressed-file scan and reconcile EXP/TODO status**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m5.27-m5.12c-scan · Critical: no
   - Step: P4
   - Note (H51, 2026-11-11): unowned for three days and it gates what Marek should expect on screen for S2 (M6.6). It is a scan, not research: `python3 tools/poi_copies.py` on the US tree; the full US image is on the allowed host (`fetch_image.py --image US`).
   - Depends: M5.12c (blocked)
