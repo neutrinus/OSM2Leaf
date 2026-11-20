@@ -1314,6 +1314,18 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-5800–C-5809
   - Result: docs/experiments/EXP-2026-11-20-H118-fnmatch-unloaded-pool.md; C-5800–C-5806. `_pool_loads` walks the function from its entry (`reachable`) and rejects a slot on a reached instruction and, in a function with no reached `braf`/`jmp`, a load at an unreached halfword; the hw50 synthetic no longer blanks hw122, the loaded-pool case still does not (`fn_match --selftest` 46→53). Census `UNIQUE 5954 / DIFFERENT 162 / CALLORDER 56 / AMBIGUOUS 566 / NOMATCH 858` (was `5945/171/56/566/858`): only `DIFFERENT→UNIQUE 9`, same US VAs, 0 moved; the residual explains 0 of the 858 NOMATCH (31 contain such a load, none changes) and 9 of 171 `DIFFERENT` (8 were reads of the next function's bytes past the function end). Control: dropping every unreached load (`--all-closed`) loses 48 `UNIQUE` to `NOMATCH` (switch case bodies). Fixture `13 rows, 0 mismatch`, `bodies` 12/12 unchanged. New `tools/fn_verdict_diff.py` (dump/diff/slots).
 
+- [ ] **H119 — Two task PRs that each add an EXP always conflict in the fn_audit snapshots**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: — (serves the map tasks whose merges it holds up: M9.55, M3.29, M9.53 waited 21–35 merges behind `main`, retro 2026-11-20-2)
+  - Goal: a task PR that adds a correct `fn` citation must not have to rewrite `docs/research/fn-audit-corpus-2026-11-16.json` or `fn-audit-l3-corpus-2026-11-20.json`. Today a `new` row is `CORPUS STALE` (exit 1), so every PR re-freezes both files; they hold one row per citation **with its line number**, so two PRs always conflict and the loser merges `main`, re-syncs and pushes again. Measured 2026-11-20 10:03Z–18:09Z: `git log 8f18cbf..13cb0cf --format=%s | grep -ciE "re-sync|re-freeze|refresh.*snapshot"` printed 25, and `git log 8f18cbf..13cb0cf --format=%h -- docs/research/fn-audit-l3-corpus-2026-11-20.json | wc -l` printed 85.
+  - Precheck: in a scratch clone, two branches from one commit each add one EXP that cites a different `START` VA and run `fn_audit … --write-snapshot`; `git merge` of the second reports a conflict in a snapshot file (the defect).
+  - Scope: `tools/fn_audit.py`, `tools/gate.py` and the two snapshot files. Pick one, say which in the EXP: (a) the gate fails only on a `gone` row, a verdict change, or a `new` row whose class is not `START`/`CORRECTED`/`leaf`; valid new rows are reported and the snapshot is re-frozen on `main` only (one commit per TL batch or a scheduled job); or (b) the snapshot is stored one row per line without `line`, sorted by `(file, va, kind)`, with a `merge=union` attribute and the summary recomputed, so parallel additions merge as text. H69's protections stay: a lost duplicate and an `INSIDE` citation still fail.
+  - Input: `tools/fn_audit.py` (`compare_live`, `_audit_layer`, `--write-snapshot`), EXP-2026-11-16-H69-snapshot-refresh, EXP-2026-11-20-H77-skip-fenced-code, EXP-2026-11-20-H116-archive-docs-base.
+  - Done when: `fn_audit --selftest` builds the Precheck's two branches in a temp repo and their merge has no conflict in either snapshot in both orders, `python3 tools/gate.py` is green on the merge commit without a re-sync commit, and two negatives still exit 1: one cited `START` VA deleted from an EXP, and one new citation of an `INSIDE` VA. EXP with the before/after counts of the two commands in Goal on a replayed five-PR window.
+  - Stop: if (a) lets a wrong citation through in the negative and (b) cannot keep the count check, record both and keep today's policy with the re-freeze moved to one TL commit per batch.
+  - Falsifier: a merge of two PRs that needs a snapshot re-sync commit after this task lands.
+  - Claims: C-6250–C-6259
+
 ## M2 — Map code, activation, updater
 
 - [x] **M2.4 — Predict accept/reject for the 89 `HDD_INFO` variants**
@@ -4759,6 +4771,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the two cases above print the corrected classes/verdicts on the real heads; a selftest case for each, plus a negative (a `blocked` reason naming a missing tool stays `BLOCKED`); `python3 tools/gate.py` green.
   - Stop: if a `RUNS-ELSEWHERE` state breaks `l3check`/`gate` consumers of the verdict enum, keep `BLOCKED` with a `runs_via` field instead and record why.
   - Claims: C-6060–C-6069
+
+- [ ] **M9.60 — Card gate, first slice: the firmware's own mount and file sweep as `l3check --card` rows with an exit code**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: tooling
+  - Depends: M9.13 (done), M9.14 (done), M9.52 (done)
+  - Goal: M9.12 (the software gate before any car test) waits on M9.31 → M9.41 → M9.55, all for the POI row. The rows that check a whole card already run and do not need it: `vcard_l3.py boot` and `sweep` (M9.12's own note, C-4630/C-4651) and `datask_l3.py mount` + `diff` against the factory run. They are not a gate yet: `datask_l3.py mount` exits 0 on a tile the firmware fails to read (re-run 2026-11-20 on EU2011: the M5.56 padded tile cut at `0x9100` logs two extra `ErrorLogMsg` and still exits 0). Make them one command whose exit code is the verdict, so P0/P1 cards are gated at L3 now and M9.12 only adds rows later.
+  - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image CARD --position 51.70,17.45 --json F.json` ends `state 2 … reads 28` on the EU2011 factory card (SHA-256 `105e2032…76307`); `python3 tools/vcard_l3.py boot archive/head256.img --card-image CARD` prints `firmware error log calls: 0`.
+  - Scope: `tools/l3check.py --card IMG --factory IMG [--position LAT,LON]…` runs three rows and prints PASS/FAIL/NOT RUN per row: `boot` (mount verdict, 0 error-log calls), `sweep` (every file read back through the firmware), `mount` (no tile read with a negative status, error-log count equal to the factory run; `SAME` when the card claims to be a no-op). EU2011 build only; a US card is `NOT RUN (build)`, never PASS. No change to `targets.json` semantics; M9.31/M9.12 keep their rows.
+  - Input: `tools/vcard_l3.py`, `tools/datask_l3.py` (`mount`, `diff`), `tools/l3check.py`, EXP-2026-11-20-M5.56-no-factory-container (the negative cases), M5.49's P1 card recipe.
+  - Done when: on EU2011 the factory card and the P0 card (`b0faf119…`) exit 0 with three PASS rows; a card whose `B48R058R.DAT` is the M5.56 tile cut at `0x9100` exits 1 naming the read; a card with a corrupt `DRSTR001.DAT` (M9.14's case) exits 1 at `boot`; without a card image the rows are `NOT RUN` and the exit is 3. `--selftest` covers the verdict table without vendor data. `docs/format/card-ladder.md` names this command as the L3 gate of P0 and P1.
+  - Stop: if `sweep` on a full card takes more than 20 minutes, gate on `boot` + `mount` and record the sweep time.
+  - Falsifier: a card that fails in the factory-compared mount but passes the gate.
+  - Claims: C-6260–C-6269
 
 ## Retired leads
 

@@ -1,0 +1,45 @@
+role: SE (senior engineer), cycle 18
+model: Claude Fable 5.2
+start: 2026-11-20 18:15 UTC
+origin/main at start: 13cb0cf
+
+inputs read: prompt_common.txt, prompt_se.txt, docs/retro/2026-11-20-2.md, SM log
+  2026-11-20-1809-9-sm.log, the 40 EXP files added in 8f18cbf..13cb0cf (names via git diff),
+  the Done when / Result lines of the 34 tasks closed in that window, TEMPLATE.md.
+
+actions, in order:
+  - linted the 40 window EXPs against TEMPLATE.md by script (sample + SHA-256 or tool-only,
+    six sections, positive/negative control, falsifier, no ellipsis in commands): 40 of 40 pass.
+  - fetched the full EU2011 card (SHA-256 verified, kept outside the repo) to re-run the
+    firmware-level checks instead of reading them.
+  - re-ran Done-when commands, all as recorded: H97 (exit 0 / exit 1 with --require-covered),
+    H103 (fixture PASS, two runs byte-identical), H106, H110, H93, M1.24 (--parent-of gives
+    0x0041c7dc), M9.52/M9.13 (mount: state 2, 28 reads), M5.56 (padded tile mounts; the 0x9100
+    cut fails with two extra error-log calls), M9.14 (boot, 0 error-log calls), M9.17 (6/6),
+    M9.26 (9/9); gate.py 4 pass / 0 fail / 0 skip; claims_check --strict --count-check OK.
+  - defect fixed where found (rule 17): tools/ce_rom_parse.py did not compile (three pasted
+    shell lines after main) and forwarded "scan IMG" where cerom.py wants "IMG scan"; both
+    fixed, checked on IMG256; README now names tools/cerom.py.
+  - added H119 (C-6250-C-6259): task PRs conflict in the fn_audit snapshots; serves M9.55,
+    M3.29, M9.53 (retro action 2). Pair: required because it edits a standing gate.
+  - added M9.60 (C-6260-C-6269): first slice of the card gate (boot, sweep, mount with an exit
+    code) that does not wait for M9.55 -> M9.41 -> M9.31. Pair: required (L3 gate).
+
+findings left as notes, no task (rule 17):
+  - todo_check --strict: 10 ERROR on 4 tasks (M3.13, M3.29, M8.A8, M8.C); three are held by open
+    PRs. H53 closed with the lowered Done-when its Stop allows. For QA to report.
+  - l4_status.py lists M8.A3 and M8.A6 (both done) as F4 blockers: the list is a constant.
+  - l3check --build-corpus counts 1 runnable of 11 targets while map_signals counts 8 L3 rows:
+    the card-level tools run outside runner.py (M9.59 names it; M9.60 gates on them).
+  - card_ladder.py steps --check: 5 open tasks without Step, 4 stale pending rows. For the PO.
+  - M9.16's scope predates vcard_l3.py/datask_l3.py and is largely delivered. For the PO.
+  - no tool is compiled by a gate (how ce_rom_parse.py stayed broken). For QA.
+
+decisions / rejected:
+  - no task for the window's EXP UNKNOWN lines: each already has one (M9.57, M9.58 in PR #349,
+    M3.30, M3.32, M4.55, M5.60).
+  - did not edit blocks held by open PRs or by the running batches.
+  - 2 tasks added, not 8: every other candidate was a duplicate or housekeeping.
+
+handoff: PO — M9.60 and H119 into Priorities; rule 15 for M4.51; card-ladder tags.
+end: 2026-11-20 18:27 UTC
