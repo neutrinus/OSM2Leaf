@@ -278,6 +278,17 @@ def show_runs(rr, limit: int = 10) -> str:
     return text
 
 
+def reader_entry(key, offsets, want_bytes: bool) -> dict:
+    """One reader of a buffer: a function's own loads (key = fn), or the
+    loads of a memcpy/memmove model it called (key = (fn, "memmove"))."""
+    fn, via = key if isinstance(key, tuple) else (key, None)
+    rr = runs(offsets)
+    out = {"fn": fn, "bytes": len(set(offsets)), "runs": rr if want_bytes else rr[:10], "nruns": len(rr)}
+    if via:
+        out["via"] = via
+    return out
+
+
 def decode_request(raw: bytes) -> dict:
     """First 16 bytes of a read request: dst, sector, offset, length / 4."""
     dst, sector, off, words = struct.unpack_from("<IIII", raw)
@@ -592,13 +603,36 @@ class DataTask:
             e.watch(buf, buf + n, "r", "buffer")
             e.arm_watch()
         first = len(self.called)
+        copies: list[tuple[str, int, str, int, int]] = []
+        saved = {k: V.MODELS[k] for k in ("memcpy", "memmove") if k in V.MODELS}
+
+        def copy_logger(name, inner):
+            # memcpy/memmove are Python models (vcard_l3.py), so the engine's
+            # watch never sees their loads: log the source overlap here and
+            # charge it to the calling function.
+            def wrapped(mm):
+                src, cnt = mm.arg(1), mm.arg(2)
+                if e._watches_on and cnt:
+                    pc = (mm.reg("pr") - 4) & V.M32
+                    fn = self.fn_of(pc) or self.leaf_start(pc)
+                    for w in e._watches:
+                        lo, hi = max(src, w.lo), min(src + cnt, w.hi)
+                        if lo < hi:
+                            copies.append((w.name, fn, name, lo - w.lo, hi - w.lo))
+                return inner(mm)
+            return wrapped
+        for k, f in saved.items():
+            V.MODELS[k] = copy_logger(k, f)
         try:
             self.deliver(body)
         finally:
             e.disarm_watch()
-        by: dict[int, list[int]] = {}
-        rec: dict[int, list[int]] = {}
+            V.MODELS.update(saved)
+        by: dict = {}
+        rec: dict = {}
         out_lo = {w.name: w.lo for w in e._watches}
+        for wname, fn, via, lo, hi in copies:
+            (by if wname == "buffer" else rec).setdefault((fn, via), []).extend(range(lo, hi))
         for hit in e.watch_hits():
             if hit.kind != "r":
                 continue
@@ -616,12 +650,10 @@ class DataTask:
                "file": self.names.get(req.get("fid"), "?"), "pos": req.get("pos"),
                "handler": handler, "expected_handler": done_lookup(self.done_table, tag),
                "len_lookup": req.get("len_lookup"),
-               "readers": [{"fn": fn, "bytes": len(set(v)), "runs": runs(v) if want_bytes else runs(v)[:10],
-                            "nruns": len(runs(v))} for fn, v in by.items()]}
+               "readers": [reader_entry(k, v, want_bytes) for k, v in by.items()]}
         if self.inflated:
             row["inflated"] = self.inflated
-            row["record_readers"] = [{"fn": fn, "bytes": len(set(v)), "runs": runs(v)[:10], "nruns": len(runs(v))}
-                                     for fn, v in rec.items()]
+            row["record_readers"] = [reader_entry(k, v, False) for k, v in rec.items()]
         if self.request is not None:
             row["request"] = self.request
         self.rows.append(row)
@@ -693,11 +725,13 @@ def show_row(row: dict) -> None:
             lk["kind"], lk["column"], lk["value"], lk["value"] * 0x100, lk["from"],
             "" if lk["value"] * 0x100 == row["length"] else "  [not this read's length]"))
     for r in row["readers"]:
-        print("      fn %#010x loads %6d B: %s" % (r["fn"], r["bytes"], show_runs(r["runs"])))
+        print("      fn %#010x %s %6d B: %s" % (r["fn"], ("%s copies" % r["via"]) if r.get("via") else "loads",
+                                            r["bytes"], show_runs(r["runs"])))
     for z in row.get("inflated", []):
         print("      inflate %#010x: output window %#x bytes" % (DA_EU2011["inflate"], z["avail"]))
     for r in row.get("record_readers", []):
-        print("      fn %#010x loads %6d B of the inflated record: %s" % (r["fn"], r["bytes"], show_runs(r["runs"])))
+        print("      fn %#010x %s %6d B of the inflated record: %s" % (
+            r["fn"], ("%s copies" % r["via"]) if r.get("via") else "loads", r["bytes"], show_runs(r["runs"])))
 
 
 def is_tile(row: dict) -> bool:
@@ -811,8 +845,8 @@ def row_key(row: dict) -> tuple:
 def row_shape(row: dict) -> tuple:
     """What the firmware did with one read: handler and, per function, how
     many bytes it loaded and in how many runs."""
-    return (row["handler"], tuple(sorted((r["fn"], r["bytes"], r["nruns"]) for r in row["readers"])),
-            tuple(sorted((r["fn"], r["bytes"], r["nruns"]) for r in row.get("record_readers", []))))
+    return (row["handler"], tuple(sorted((r["fn"], r.get("via") or "", r["bytes"], r["nruns"]) for r in row["readers"])),
+            tuple(sorted((r["fn"], r.get("via") or "", r["bytes"], r["nruns"]) for r in row.get("record_readers", []))))
 
 
 def diff_rows(a: list[dict], b: list[dict], want: str | None = None) -> list[str]:
@@ -836,16 +870,15 @@ def diff_rows(a: list[dict], b: list[dict], want: str | None = None) -> list[str
         elif ra["status"] != rb["status"]:
             out.append("read %d (%s pos %#x) status A %d / B %d" % (i + 1, ra["file"], ra["pos"] or 0, ra["status"], rb["status"]))
         elif row_shape(ra) != row_shape(rb):
-            fa = {r["fn"]: (r["bytes"], r["nruns"]) for r in ra["readers"]}
-            fb = {r["fn"]: (r["bytes"], r["nruns"]) for r in rb["readers"]}
-            for r in ra.get("record_readers", []):
-                fa[("record", r["fn"])] = (r["bytes"], r["nruns"])
-            for r in rb.get("record_readers", []):
-                fb[("record", r["fn"])] = (r["bytes"], r["nruns"])
-            name = (lambda k: ("inflated record: fn %#010x" % k[1]) if isinstance(k, tuple) else ("fn %#010x" % k))
-            parts = ["%s A %s B %s" % (name(fn), fa.get(fn), fb.get(fn))
-                     for fn in sorted(set(fa) | set(fb), key=lambda k: (isinstance(k, tuple), k if isinstance(k, int) else k[1]))
-                     if fa.get(fn) != fb.get(fn)]
+            def keyed(row_):
+                d = {("", r["fn"], r.get("via") or ""): (r["bytes"], r["nruns"]) for r in row_["readers"]}
+                d.update({("inflated record: ", r["fn"], r.get("via") or ""): (r["bytes"], r["nruns"])
+                          for r in row_.get("record_readers", [])})
+                return d
+            fa, fb = keyed(ra), keyed(rb)
+            name = (lambda k: "%sfn %#010x%s" % (k[0], k[1], (" via " + k[2]) if k[2] else ""))
+            parts = ["%s A %s B %s" % (name(k), fa.get(k), fb.get(k))
+                     for k in sorted(set(fa) | set(fb)) if fa.get(k) != fb.get(k)]
             if ra["handler"] != rb["handler"]:
                 parts.insert(0, "handler A %s B %s" % (ra["handler"], rb["handler"]))
             out.append("read %d (%s pos %#x len %#x) parsed differently: %s" % (
@@ -863,6 +896,15 @@ def cmd_diff(args) -> int:
     diffs = diff_rows(a["rows"], b["rows"], args.file)
     for line in diffs:
         print("  " + line)
+    # the answers to map requests (M9.53): sub 3 = data served, sub 9 = no record
+    ra_, rb_ = a.get("requests", []), b.get("requests", [])
+    for i in range(max(len(ra_), len(rb_))):
+        xa = [(x["id"], x["sub"]) for x in ra_[i]["replies"]] if i < len(ra_) else None
+        xb = [(x["id"], x["sub"]) for x in rb_[i]["replies"]] if i < len(rb_) else None
+        if xa != xb:
+            diffs.append("request %d answered differently: A %s / B %s" % (
+                i + 1, ", ".join("%#06x sub %d" % r for r in xa or []) or "-",
+                ", ".join("%#06x sub %d" % r for r in xb or []) or "-"))
     same_end = (a["end"], a["state"], a["mesh_count"]) == (b["end"], b["state"], b["mesh_count"])
     if not same_end:
         print("  the runs end differently")
@@ -941,6 +983,9 @@ def selftest() -> int:
         + struct.pack("<HHI", 0x0D01, 0, 0x3333) + struct.pack("<HHI", 0, 0, 0)
     table = decode_table(blob, 4)
     rq = request_message(5, KIND_RENDER, 0x1234)
+    check("reader_entry marks a copy model's loads with 'via'",
+          reader_entry((0x404EE4, "memmove"), [4, 5, 6], False) == {"fn": 0x404EE4, "bytes": 3, "runs": [(4, 6)],
+                                                                     "nruns": 1, "via": "memmove"})
     check("a map request carries 0x14b5 sub 2, client at +0 and +12, kind, list, 2",
           struct.unpack_from("<IIHHIIII", rq) == (5, 0, 0x14B5, 2, 5, 4, 0x1234, 2))
     rl = request_list([0x26C18AB2], 7)
@@ -1088,7 +1133,7 @@ def selftest() -> int:
         try:                                   # M9.53: one map request after a full mount
             t = DataTask(str(head), V.make_card(None, str(card_img)), position=(51.70, 17.45))
             t.run()
-            mesh = 0x26C18AB2                  # y 2481, x -2642: directory row 77, column -83
+            mesh = 0xA6CDD6BE                  # the record's own parcel code (words 0-1 of slot 17 record 28)
             check("the firmware decodes the mesh to directory row 77, column -83",
                   tuple(v >> 5 for v in t.mesh_xy(mesh)) == (77, -83))
             r = t.request_mesh(mesh, client=7, open_client=False)
@@ -1101,8 +1146,14 @@ def selftest() -> int:
             check("the record block is inflated and its 11172 bytes are swapped by 0x003f6968",
                   len(row.get("inflated", [])) == 1
                   and any(x["fn"] == 0x003F6968 and x["bytes"] == 11172 for x in row.get("record_readers", [])))
-            check("the reply is 0x14b6 sub 9 naming the mesh",
-                  any(x["sub"] == 9 and x["words"][1] == mesh for x in r["replies"]))
+            check("0x00405078 loads the record's unit table and the reply is 0x14b6 sub 3 (data)",
+                  any(x["fn"] == 0x00405078 for x in row.get("record_readers", []))
+                  and [x["sub"] for x in r["replies"]] == [5, 3])
+            r = t.request_mesh(0x26C18AB2)     # same directory and record by the decoders, not the record's code
+            row = t.rows[-1] if r["rows"] else {}
+            check("an id that is not the record's code reads the record but gets sub 9 (no record served)",
+                  r["rows"] == 1 and [x["sub"] for x in r["replies"]] == [5, 9]
+                  and not any(x["fn"] == 0x00405078 for x in row.get("record_readers", [])))
             t.deliver(event_message(11, 16))
             r = t.request_mesh(mesh)
             check("in state 3 the same request is refused (status 9, no read)",

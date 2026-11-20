@@ -175,7 +175,7 @@
     "kind": "blocked",
     "program": null,
     "va": null,
-    "reason": "not callable from runner.py: tile bytes arrive as read completions handled by 0x0040b8b4 / 0x0040c308 / 0x0041597c (r4 = message; M3.25). The target runs as tools/datask_l3.py mount --position LAT,LON [--replace MAPAL001/<tile>=FILE] + diff; first verdicts in EXP-2026-11-20-M9.13 (factory-backed generated B48R058R: SAME as factory; fresh-container tile: directory read fails). Record blocks: M9.53"
+    "reason": "not callable from runner.py: tile bytes arrive as read completions handled by 0x0040b8b4 / 0x0040c308 / 0x0041597c (r4 = message; M3.25). The target runs as tools/datask_l3.py mount --position LAT,LON [--replace MAPAL001/<tile>=FILE] + diff; first verdicts in EXP-2026-11-20-M9.13 (factory-backed generated B48R058R: SAME as factory; fresh-container tile: directory read fails). Record blocks: since M9.53, datask_l3.py mount --request PARCEL_CODE reads, inflates and serves one record block (EXP-2026-11-20-M9.53-record-block-read); walking the roads is the client task (M9.58)"
    },
    "stubs": [
     "CreateFileW",
@@ -220,6 +220,22 @@
       "sha256": "1927c3a9f3c201331484361cab8f1cf16936c485bdf4443801eff55ef546f6a8",
       "verdict": "SAME",
       "detail": "mount, EU2011 PySh4: 28 reads equal to the factory; directory 0x9a1dc00 (y 76) is read and its slot table parsed (0x00414dbc, +0xa..+0x408b) over both changed pair entries; header-count flip control DIFFERENT. Record blocks not read (M9.53)"
+     },
+     "ran_on_our_generated_data": true
+    },
+    {
+     "id": "generated:m9.53:B48R058R",
+     "what": "factory B48R058R with three Krotoszyn parcels written in place in section-1 level-1 directory (77,941), slots 17 and 18 (tilewriter --factory, M9.53)",
+     "generator": "python3 tools/osm_ingest.py tools/fixtures/m9.53-krotoszyn.osm -o k.imf && python3 tools/mesh_split.py k.imf -o ksplit && python3 tools/roadclass_v0.py --class-table-out ctab.json && python3 tools/tilewriter.py ksplit --out OUT --cell B48R058R --factory FACTORY_ROOT/MAPAL001/B48R058R.DAT --class-table ctab.json --country 616 --level 1 --no-names --json",
+     "path": "MAPAL001/B48R058R.DAT",
+     "size": 289319168,
+     "sha256": "4fc1255692ab995c19bbae015d352190221795e47d227570b434124141b7fea4",
+     "run": "python3 tools/datask_l3.py mount archive/head256.img --card-image EU2011-CARD --position 51.70,17.45 --request 0xa6cdd6be --replace MAPAL001/B48R058R.DAT=FILE --bytes --json OUT.json; python3 tools/datask_l3.py diff FACTORY.json OUT.json",
+     "recorded": {
+      "exp": "EXP-2026-11-20-M9.53-record-block-read",
+      "sha256": "4fc1255692ab995c19bbae015d352190221795e47d227570b434124141b7fea4",
+      "verdict": "SERVED",
+      "detail": "mount + one map request 0x14b5 for parcel code 0xa6cdd6be, EU2011 PySh4: 28 mount reads equal to the factory; the request reads our record (slot 17 record 28, 112 B at 0xa1b45b6) from our pair entries, inflates it to 184 B (Adler-32 read), 0x00405078 loads the unit-table words +0xe/+0x28 and the reply is 0x14b6 sub 3 as for the factory record. Controls: pair-entry flip DIFFERENT (read 0x20000), record-byte flip DIFFERENT (inflate stops, reply sub 9). Roads not walked in the run (M9.58)"
      },
      "ran_on_our_generated_data": true
     },

@@ -2116,17 +2116,25 @@ position by the firmware's decoders `0x004089f4` (y) and `0x00408b0c` (x)
 (with the mode word at data VA `0x56389c` = `0x2000`); `y >> 5` and `x >> 5`
 are the directory row and column (`0x0040a33c` compares them with the tile
 boxes at data VA `0xd624a0`, 24 bytes per tile: `+8` y0, `+10` x0, `+12` y1,
-`+14` x1, from the `BxxRyyR` name read as hex, x negative). Mesh
-`0x26c18ab2` is y 2481, x −2642: `B48R058R`, directory `(77, −83)` at
-`0xa10b100`, slot 17, record 28 (51.70 N, 17.45 E; `y ≈ 48·lat`,
-`x ≈ 32·(lon − 100)` here).
+`+14` x1, from the `BxxRyyR` name read as hex, x negative). The parcel
+code `0xa6cdd6be` (words 0–1 of the record itself) is y 2481, x −2642:
+`B48R058R`, directory `(77, −83)` at `0xa10b100`, slot 17, record 28
+(51.70 N, 17.45 E; `y ≈ 48·lat`, `x ≈ 32·(lon − 100)` here). The request
+must carry the record's own code: `0x26c18ab2` decodes to the same place
+and the record is read, but the answer is "no record" (sub 9, C-5918).
 
 The record block comes back as a completion with tag class `0x09`, handler
-`0x00404ee4`: `0x003f6968` swaps the `u16` words of the buffer, `0x00542100`
+`0x00404ee4`: it moves the record to the buffer start (`memmove(buf, buf +
+skip, length)` at `0x00404f96`; the read itself is 256-aligned),
+`0x003f6968` swaps the `u16` words of the buffer, `0x00542100`
 → `0x0054233c` inflates it (zlib: method 8, header check mod 31, Adler-32
 read at the end; `0x0054331c` builds the code tables, `0x00545978` decodes),
-`0x003f6968` swaps the output words, `0x004048cc` reads its first 4 bytes.
-The answer is `0x14b6` sub 5 (`+12 = 1`) and sub 9 (`+12 = 4`, `+16` the
-mesh, `+20` the kind, `+24 = 0x303`) to the client. The data-access task
-does not walk the record: the client does (EXP-2026-11-20-M9.53-record-
-block-read, C-5910–C-5917).
+`0x003f6968` swaps the output words, `0x004048cc` reads its first 4 bytes
+(the code) and `0x00405078` reads the unit table (section 1: `+0xe`,
+`+0x28`). The answer is `0x14b6` sub 5 (`+12 = 1`) and **sub 3**, the data
+reply (`+12 = 1`, `+16` the kind, `+20` a pointer into the data-access
+task's tables). Sub 9 (`+12 = 4`, `+16` the code, `+20` the kind, `+24 =
+0x303`) means no record served: wrong code, or a record that does not
+inflate. The links of the record are walked by the client
+(EXP-2026-11-20-M9.53-record-block-read, C-5910–C-5918; M4.40's
+`datask_req_l3.py`, C-5920–C-5927).
