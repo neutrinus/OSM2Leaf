@@ -163,7 +163,7 @@ The task's `26f33cd` figures (`START 229, CORRECTED 25`; popped `INSIDE 5, CORRE
 
 **Second defect.** No pinned VA has an `INSIDE` row on either corpus. Both `grep -E '^0x(003f5fc2|00413af4|00542256) .*INSIDE'` searches print nothing. So no pin-resolved VA appears with a line that pairs a different start: **0 second defects**.
 
-**Frozen snapshots (corpus mode, the gate's input).** The docs base gives `CORRECTED 20 (12 line, 8 pin)` and the l3 overlay gives `CORRECTED 9 (2 line, 7 pin)`. Six of those 7 l3 `pin` rows sit in H63's own open block (`TODO.md:828–833`). Marking H63 done removes the block from the l3 open-block scope, and `--write-snapshot` re-freezes the overlay in the same commit. After that the overlay reads `START 1002, …, CORRECTED 3` and `fn_audit: CORRECTED 3 (2 line, 1 pin)`, with `CORPUS OK: L3 OVERLAY`. The split is re-derived from the image, because a snapshot row stores only the class.
+**Frozen snapshots (corpus mode, the gate's input).** The docs base gives `CORRECTED 20 (12 line, 8 pin)` and the l3 overlay gives `CORRECTED 9 (2 line, 7 pin)`. Six of those 7 l3 `pin` rows sit in H63's own open block (`TODO.md:828–833`). Marking H63 done removes the block from the l3 open-block scope, and `--write-snapshot` re-freezes the overlay in the same commit. After that the overlay reads (at the PR's final merge of `origin/main`; its `START` count moves with other merges) `fn_audit: CORRECTED 3 (2 line, 1 pin)`, with `CORPUS OK: L3 OVERLAY`. The split is re-derived from the image, because a snapshot row stores only the class.
 
 **Pin re-checks:**
 
