@@ -1,0 +1,32 @@
+{
+ "schema": "osm2leaf.l3.targets/v1",
+ "notes": [
+  "M1.19 scratch probes (EU2011 Navi.exe, build A): the M9.35 module probes re-run with",
+  "a rommap built by rommap.py --init-from-image. Empty args/context, probe-only verdict map:",
+  "a run records the next stop, never a reader verdict. Not part of targets.json."
+ ],
+ "targets": [
+  {
+   "name": "mmain_reader_probe",
+   "reader": "mmain",
+   "what": "M9.35/M1.19 probe: EU2011 Navi.exe 0x0041a438 (mmain_reader)",
+   "module": "Navi.exe",
+   "build": "eu2011",
+   "entry": {"kind": "module", "module": "Navi.exe", "va": "0x0041a438", "endian": "little",
+             "args": ["0x0"], "verdict_map": {"0x0": "ACCEPT"}, "note": "scratch probe"},
+   "stubs": [],
+   "expect": {"verdict": "ACCEPT", "rule": "probe only; records the next stop"}
+  },
+  {
+   "name": "drstr_sub_00419350_probe",
+   "reader": "drstr",
+   "what": "M9.35/M1.19 probe: EU2011 Navi.exe 0x00419350 (DRSTR parser sub_00419350)",
+   "module": "Navi.exe",
+   "build": "eu2011",
+   "entry": {"kind": "module", "module": "Navi.exe", "va": "0x00419350", "endian": "little",
+             "args": [], "verdict_map": {"0x0": "ACCEPT"}, "note": "scratch probe"},
+   "stubs": [],
+   "expect": {"verdict": "ACCEPT", "rule": "probe only; records the next stop"}
+  }
+ ]
+}

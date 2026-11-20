@@ -831,6 +831,8 @@ DECODE_TABLE: tuple[tuple[int, int, str, str], ...] = (
     (0xF0FF, 0x4019, "shlr8", "n"),
     (0xF0FF, 0x4020, "shal", "n"),
     (0xF0FF, 0x4021, "shar", "n"),
+    (0xF0FF, 0x4024, "rotcl", "n"),
+    (0xF0FF, 0x4025, "rotcr", "n"),
     (0xF0FF, 0x4028, "shll16", "n"),
     (0xF0FF, 0x4029, "shlr16", "n"),
     (0xF0FF, 0x4010, "dt", "n"),
@@ -1407,6 +1409,18 @@ class PySh4(Backend):
             self._arm = "shar"
             self._set_t(bool(rn & 1))
             regs["r%d" % n] = ((rn >> 1) | (rn & 0x80000000)) & M32
+        elif low == 0x24:                                # rotcl Rn
+            # SH-4 manual ROTCL: T <- Rn[31], Rn <- Rn << 1 | old T (M9.50).
+            self._arm = "rotcl"
+            t_in = regs["sr"] & 1
+            self._set_t(bool(rn & 0x80000000))
+            regs["r%d" % n] = ((rn << 1) | t_in) & M32
+        elif low == 0x25:                                # rotcr Rn
+            # SH-4 manual ROTCR: T <- Rn[0], Rn <- old T << 31 | Rn >> 1.
+            self._arm = "rotcr"
+            t_in = regs["sr"] & 1
+            self._set_t(bool(rn & 1))
+            regs["r%d" % n] = (rn >> 1) | (t_in << 31)
         elif low == 0x28:                                # shll16
             self._arm = "shll16"
             regs["r%d" % n] = (rn << 16) & M32
@@ -1522,18 +1536,39 @@ class PySh4(Backend):
                 result = rn >> (((~amount) & 0x1F) + 1)
             regs["r%d" % n] = result
         elif insn & 0xF == 0xF:                          # mac.w @Rm+,@Rn+
-            # 16x16 signed multiply of two memory words, accumulated into
-            # MACH:MACL; both pointer registers post-increment by 2.  Addresses
-            # are formed before either register is updated.
+            # SH-4 manual MACW: tempn = Read_Word(R[n]); R[n] += 2;
+            # tempm = Read_Word(R[m]); R[m] += 2.  Rm is bits 7-4 (M9.49: the
+            # arm read an undefined ``rm`` and raised a host NameError).  With
+            # n == m the second word is read at Rn+2 and Rn ends +4.  Both
+            # loads happen before any register is written, so a fault leaves
+            # the registers as they were (precise exception).
+            # S = 0: the signed product is added to the 64-bit MACH:MACL.
+            # S = 1: it is added to MACL alone, saturating at 32 bits; MACH is
+            # not changed (the manual's C code).
             self._arm = "mac.w"
-            left = self._load_signed(rn, 2)
-            right = self._load_signed(rm, 2)
-            mac = ((regs["mach"] << 32) | regs["macl"])
-            mac = (mac + left * right) & M64
-            regs["mach"] = (mac >> 32) & M32
-            regs["macl"] = mac & M32
-            regs["r%d" % n] = (rn + 2) & M32
-            regs["r%d" % m] = (rm + 2) & M32
+            rm = regs["r%d" % m]
+            # ``_load_signed`` returns the register image (& M32); the
+            # product needs the signed 16-bit value.
+            left = _sx(self._load(rn, 2), 16)
+            right = _sx(self._load((rn + 2) & M32 if n == m else rm, 2), 16)
+            product = left * right
+            if regs["sr"] & 0x2:
+                total = _sx(regs["macl"], 32) + product
+                if total > 0x7FFFFFFF:
+                    total = 0x7FFFFFFF
+                elif total < -0x80000000:
+                    total = -0x80000000
+                regs["macl"] = total & M32
+            else:
+                mac = ((regs["mach"] << 32) | regs["macl"])
+                mac = (mac + product) & M64
+                regs["mach"] = (mac >> 32) & M32
+                regs["macl"] = mac & M32
+            if n == m:
+                regs["r%d" % n] = (rn + 4) & M32
+            else:
+                regs["r%d" % n] = (rn + 2) & M32
+                regs["r%d" % m] = (rm + 2) & M32
         else:
             raise IllegalInstruction(
                 f"system opcode {px(insn)} at {px(pc)} is not modelled "
@@ -2855,6 +2890,21 @@ def test_distinct_register_forms():
         # div1 from Q=M=T=0: Rn = (VN<<1) - VM = 0x2366, no borrow -> Q=0, T=1.
         ("div1", rr(0x3, 0x4, N, M), (N, M),
          {"r%d" % N: ((VN << 1) - VM) & M32, "sr": 0x001}, []),
+        # rotcl/rotcr Rn (M9.50): T in = 1, so the carried-in bit shows; the
+        # bit shifted out (VN[31] = 0, VN[0] = 0) lands in T.
+        ("rotcl", rr(0x4, 0x4, N, 0x2), (N, None),
+         {"r%d" % N: ((VN << 1) | 1) & M32, "sr": 0x0}, [], {"sr": 0x1}),
+        ("rotcr", rr(0x4, 0x5, N, 0x2), (N, None),
+         {"r%d" % N: (VN >> 1) | 0x80000000, "sr": 0x0}, [], {"sr": 0x1}),
+        # mac.w @Rm+,@Rn+ (M9.49): words 0x1234 at @Rn and 0xFF02 (-254) at
+        # @Rm, MACH:MACL preset so the 64-bit add carries into MACH.
+        ("mac.w", rr(0x4, 0xF, N, M), (N, M),
+         {"macl": (0xFFFFFFF0 + 0x1234 * -254) & M32,
+          "mach": ((0x1_FFFFFFF0 + 0x1234 * -254) >> 32) & M32,
+          "r%d" % N: D + 0x22, "r%d" % M: D + 0x32},
+         [(D + 0x20, b"\x12\x34"), (D + 0x30, b"\xff\x02")],
+         {"r%d" % N: D + 0x20, "r%d" % M: D + 0x30,
+          "mach": 0x1, "macl": 0xFFFFFFF0}),
         ("mov.l Rm,@(R0,Rn)", rr(0x0, 0x6, N, M), (N, M), {},
          [(D + 0x110, VM.to_bytes(4, "big"))],
          {"r0": D + 0x10, "r%d" % N: 0x100}),
@@ -2920,6 +2970,45 @@ def test_distinct_register_forms():
     e._execute(rr(0x3, 0x4, N, N), 0x8C000000)
     _expect_equal(e.get_regs()["r%d" % N], 0x00000005, "div1 Rn,Rn: (5<<1)-5")
 
+    # rotcl/rotcr with T in = 0 and the outgoing bit set: T out = 1, the
+    # vacated bit is 0, other SR bits kept.
+    for word, rn_v, want in ((rr(0x4, 0x4, N, 0x2), 0x80000001, 0x00000002),
+                             (rr(0x4, 0x5, N, 0x2), 0x80000001, 0x40000000)):
+        e = fresh(sr=0x40000300, **{"r%d" % N: rn_v})
+        e._execute(word, 0x8C000000)
+        snap = e.get_regs()
+        _expect_equal((snap["r%d" % N], snap["sr"]), (want, 0x40000301),
+                      f"{e._arm} Rn={px(rn_v)} T=0")
+
+    # mac.w with n == m: the second word is read at Rn+2 and Rn ends +4.
+    e = fresh(**{"r%d" % N: D + 0x40})
+    e.write_mem(D + 0x40, b"\x00\x03\x00\x07")
+    e._execute(rr(0x4, 0xF, N, N), 0x8C000000)
+    snap = e.get_regs()
+    _expect_equal((snap["macl"], snap["r%d" % N]), (21, D + 0x44),
+                  "mac.w @Rn+,@Rn+: 3*7 and Rn+4")
+    # mac.w with S = 1 (SR bit 1): 32-bit saturation of MACL, MACH kept.
+    for macl, a, b, want in ((0x7FFFFFF0, 0x7FFF, 0x7FFF, 0x7FFFFFFF),
+                             (0x80000010, 0x8000, 0x7FFF, 0x80000000),
+                             (0x00000010, 0xFFFF, 0x0002, 0x0000000E)):
+        e = fresh(sr=0x2, mach=0x55, macl=macl,
+                  **{"r%d" % N: D + 0x50, "r%d" % M: D + 0x60})
+        e.write_mem(D + 0x50, a.to_bytes(2, "big"))
+        e.write_mem(D + 0x60, b.to_bytes(2, "big"))
+        e._execute(rr(0x4, 0xF, N, M), 0x8C000000)
+        snap = e.get_regs()
+        _expect_equal((snap["mach"], snap["macl"]), (0x55, want),
+                      f"mac.w S=1 MACL={px(macl)} {px(a)}*{px(b)}")
+    # A fault on the @Rm load leaves Rn unchanged (precise exception).
+    e = fresh(**{"r%d" % N: D + 0x40, "r%d" % M: 0x10})
+    try:
+        e._execute(rr(0x4, 0xF, N, M), 0x8C000000)
+    except EngineError:
+        pass
+    else:
+        raise AssertionError("mac.w from unmapped @Rm did not fault")
+    _expect_equal(e.get_regs()["r%d" % N], D + 0x40, "mac.w fault keeps Rn")
+
     # mov.w r0,@(disp,Rm): Rn is bits 7-4; r0 holds the value, not the base.
     engine = fresh(r0=0x0000_ABCD, **{"r%d" % M: D + 0x40})
     base = engine.get_regs()["r%d" % M]
@@ -2931,9 +3020,9 @@ def _divide_32(signed: bool, dividend: int, divisor: int, step=None) -> int:
     """Run the SH-4 manual's 32-bit divide sequence (div0u/div0s + 32 x
     ``rotcl; div1``) on PySh4 and return R2 (the quotient).
 
-    ``rotcl`` is not modelled by the engine, so this test applies it on the
-    host between engine steps; every div0*/div1/subc/addc/movt runs in the
-    engine.  *step* replaces ``_div1_step`` (the negative control).
+    Every instruction, ``rotcl`` included (modelled since M9.50; before it
+    the host applied it between engine steps), runs in the engine.  *step*
+    replaces ``_div1_step`` (the negative control).
     """
     e = PySh4(endian="big")
     e.map("code", 0x8C000000, 4, "rwx")
@@ -2945,10 +3034,7 @@ def _divide_32(signed: bool, dividend: int, divisor: int, step=None) -> int:
             e._execute(word, 0x8C000000)
 
         def rotcl(reg):
-            regs = e.get_regs()
-            value = regs[reg]
-            e.set_regs(**{reg: ((value << 1) | regs["t"]) & M32,
-                          "t": (value >> 31) & 1})
+            run(0x4024 | (int(reg[1:]) << 8))            # rotcl Rn
 
         e.set_regs(r0=divisor & M32, r2=dividend & M32, sr=0)
         if signed:
