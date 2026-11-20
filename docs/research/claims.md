@@ -3882,10 +3882,10 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5393 | `tools/point_pair_regen.py relocate` moves one chain to the next 0x100 boundary after the end of the `.DAT`, rewrites its table and base reference, zeroes the old chain, keeps unchanged outer chunks verbatim, and checks the pair through the locator, an independent `find_chains` scan (new base found, old base not), the requested names with `@`, and 0 bytes changed outside the old chain, table and reference; its selftest (37 checks) includes a stale-locator and a shuffled-address negative. | VERIFIED (tool) | H | EXP-2026-11-20-M4.47-point-chain-locator; `python3 tools/point_pair_regen.py --selftest` |
 | C-5394 | On the real pairs the M5.26 chain-slot limit is gone: all 44 name chains move verbatim (44/44 PASS) and with 1,000 real names moved between sites (44/44 PASS; EU 28,668 and US 11,000 names present with `@`; chains grow by up to 8,852 B where M5.26 had 24–248 B of slack; 0 bytes changed outside the old chain, table and reference) EU POINT010 takes 1,000 (632,548 → 638,444 B) and 6,199 (→ 655,532 B) real names that `regen` refused; `cmpind.py verify` decodes the result (`failed 0`). | OBSERVED | H | EXP-2026-11-20-M4.47-point-chain-locator; `python3 tools/point_pair_regen.py relocate CMP OUT --permute 1000 --libz L`, `python3 tools/point_pair_regen.py summarize DIR` |
 | C-5395 | The record that holds the 1000/400 references is the field-dictionary block the POINT name accessor reads (M3.11c: EU `0x6a7d00`, US `0x749500`); the 1000 base reference is at `D+4`, `D = C + 2*u16[C+2]`, the header whose `D+24/D+26` `fn 0x003f56bc` (EU2011) reads. The code that loads the block or reads `D+4` is not located; the `mov #11`+`shad` sites `0x003f6ae6`/`0x003f6d5c` (EU2011) are debug-log arguments (`jsr 0x003ec9fc`, flag `*0x00d5ffa0`). | OBSERVED | M | EXP-2026-11-20-M4.47-point-chain-locator; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x003f56bc --count 40` |
-| C-5396 | The firmware reaches a chain only through these references, so a relocated chain is read at its new base. | HYPOTHESIS | M | consistent with C-5391 (no other copy of a base in the file); needs an L3/L4 run of the POINT open path on a relocated pair (M4.51, rule 13) |
-| C-5397 | RESERVED (M4.51). | — | — | — |
-| C-5398 | RESERVED (M4.51). | — | — | — |
-| C-5399 | RESERVED (M4.51). | — | — | — |
+| C-5396 | The firmware reaches a chain only through these references, so a relocated chain is read at its new base. | HYPOTHESIS | M | consistent with C-5391 (no other copy of a base in the file); needs an L3/L4 run of the POINT open path on a relocated pair (M4.52, rule 13) |
+| C-5397 | RESERVED (M4.52). | — | — | — |
+| C-5398 | RESERVED (M4.52). | — | — | — |
+| C-5399 | RESERVED (M4.52). | — | — | — |
 
 ## M5.52 — `--resize` patches the field-5 length byte (C-5260–C-5269)
 | ID | Claim | Status | Confidence | Evidence |

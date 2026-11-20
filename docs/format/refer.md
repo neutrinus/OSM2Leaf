@@ -111,7 +111,7 @@ n × { u32 start_w,   // page offset from the chain base
 
 > **Status:** `OBSERVED` on EU 2011 (33 files, 99 chains) and US 2011 (11
 > files, 33 chains); the firmware code that reads the directory cell and the
-> base reference is not located (C-5390–C-5396, M4.51).
+> base reference is not located (C-5390–C-5396, M4.52).
 
 A POINT `.DAT` addresses its structures in 256-byte blocks with a **block
 address** (BE `u32`):
