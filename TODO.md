@@ -508,8 +508,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Claims: C-3490–C-3499
   - Result: EXP-2026-11-16-H52-fn-citations; C-3490–C-3499 (remaining stale VAs in `docs/research/fn-audit-2026-11-16.md`). Applied the `fn_audit --fix-list` table: `INSIDE` citations 33 → 0 (9 unique VAs → 0), exit 1 → 0, `--fix-list` empty. `chunk_decoder_l3.py` `FN_CHUNK` 0x0041c7e8 → 0x0041c7dc (DST_SLOT 40 → 16, same byte-identical PASS); `targets.json` `cmp_ind_reader` 0x0041c7dc; `firmware.md`/`cmp-ind.md`/`README.md`/`reader-coverage.md` labels corrected; `point_walk_l3.py` had no entry VA to fix (C-3496). `sh4xref` label audit: 36.5 % mismatch over 200 sites (C-3495). EXPs untouched.
 
-- [ ] **H53 — make the documented `--strict` mode honest: it is implemented but the board is not clean (69 errors)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H53 — make the documented `--strict` mode honest: it is implemented but the board is not clean (69 errors)**
+  - Status: done · Owner: task/h53-strict-honest-2 · Critical: no · Pair: solo
   - Depends: — (this task is the board cleanup; it is what H53's own Stop anticipated)
   - Goal: H53's original premise ("`main()` does not define the flag; `--strict` is an argparse error") is stale. The flag exists (commit `9733980`) and is wired: `python3 tools/todo_check.py --strict` exits 1 with 69 `ERROR` lines over 25 firmware/search tasks (3 missing fields each), while the default run exits 0 with those same lines as `WARN`. The gap is therefore not a missing flag but a board that has never satisfied rule 14: 25 firmware/search tasks (open, blocked or already `done`) lack `Precheck`/`Scope`/`Stop`; 11 of them are `Critical: yes`. `TODO.md:248` still lists H53 as a cheap fill task and Q1's "Take first" never mentions it, so nothing will close it unless a role owns it.
   - Precheck: `python3 tools/todo_check.py --strict 2>&1 | grep -cE '^  ERROR'` prints `69`; `python3 tools/todo_check.py --strict; echo $?` prints `1`; `python3 tools/todo_check.py; echo $?` prints `0` (default still green).
@@ -518,7 +518,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Done when: `python3 tools/todo_check.py --strict` exits 0 on `main`; `python3 tools/todo_check.py` exits 0 on the same tree; `python3 tools/selftest.py --only todo_check` passes; the EXP records the before/after ERROR count and which tasks were given fields vs marked blocked.
   - Stop: if the clean board needs a decision a role cannot make (e.g. an externally blocked task whose block owner is unknown), record those tasks under `Status: blocked · Unblock: <human>` and lower the Done-when to "no ERROR for tasks this cycle can own" — never lower the rule itself.
   - Claims: C-3650–C-3659
-  - Result: pending (this task is re-scoped, not done).
+  - Result: done with the lowered Done-when its Stop allows ("no ERROR for tasks this cycle can own") — `docs/experiments/EXP-2026-11-20-H53-strict-honest.md`, C-3650–C-3652. `--strict` works (no checker bug); 33 ERROR / 13 tasks at `ea15563` (69 was older) → 17 after backfilling `Precheck`/`Scope`/`Stop` on M3.16, M8.D1, M8.D2, M8.E3, M8.E4, M9.2. The 17 are all on tasks held by open PRs and not edited: M1.4 #370, M3.13 #351, M3.29 #341, M8.A8 #372, M8.B6 #379, M8.C #355, M8.E2 #371; they clear when those land `done`. Default run exit 0; `selftest --only todo_check` OK.
 
 - [ ] **H96 — L3 says "PASS" when nothing new ran (`runnable=1/7`), and no CI job runs `l3check --build-corpus` at all**
   - Status: open · Owner: — · Critical: yes · Pair: required
@@ -1103,8 +1103,8 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Result: `docs/experiments/EXP-2026-11-17-H101-pm-review.md` (C-4280–C-4289). 33 tasks closed in six days: 22 H, 10 M1, 1 M9, none in M3/M4/M5; of H51's twelve tasks two closed. New `tools/callgraph.py` (M3.23 core): `Navi.exe` EU2011 = 9,000 nodes, 22,867 direct edges, 589 unresolved indirect calls; the map-file layer is 117 functions with three stdio wrappers; the router reader `0x004266ec` reaches 48 functions. H51's C-3488 corrected (281 code pointers in sec1 `INIT`, not 6,052). Rule 17 added.
   - Claims: C-4280–C-4289
 
-- [ ] **H103 — `cardcheck` cannot check a tree we built: no `--generate-fixture`, so L1 can never be a CI row**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **H103 — `cardcheck` cannot check a tree we built: no `--generate-fixture`, so L1 can never be a CI row**
+  - Status: done · Owner: task/h103-cardcheck-fixture · Critical: yes · Pair: required
   - Depends: H26 (the registry); H40 calls it — this task is the primitive only, not the L1 row
   - Goal: retro 2026-11-18 action 3 closes H40, but H40 cannot start from zero: `cardcheck.py` only accepts `--image` (7.5 GB vendor card) or `--root` (a vendor-extracted tree), and the one no-vendor builder we have, `one_tile_pipeline.py --synthetic`, produces a tree QA measured at `cardcheck rc=1` (section 2 levels 2/4/5 and section 4 level 1 not in `MMAIN` — 2026-11-17-1851-53-qa.log, H40's Input). So on CI there is nothing to point `--root` at, and the L1 row stays NOT COVERED forever. A tiny in-process tree that `cardcheck` *accepts* is a ~200-line deterministic builder, not an OSM run; making it a `cardcheck` mode (not a second tool) keeps one validator and one exit code.
   - Precheck: `python3 tools/cardcheck.py --help | grep -c generate-fixture` prints `0`; `grep -n 'add_argument("--image"\|add_argument("--root"' tools/cardcheck.py` shows the two source flags and nothing that builds a tree; `python3 tools/one_tile_pipeline.py --selftest` prints the synthetic path's honest `cardcheck` line (not PASS).
@@ -1115,6 +1115,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Stop: if `cardcheck` turns out to require a real FAT32 geometry that cannot be produced deterministically in-process, split the builder into a committed tree under `tools/fixtures/` (a few KiB, `git add -f` under AGENTS' tiny-fixture rule) and keep `--root` as the only invocation; block the `--generate-fixture` half with the measured reason.
   - Falsifier: `cardcheck --generate-fixture` does not exist, so no L1 row can read a tree that no vendor produced.
   - Claims: C-4340–C-4349
+  - Result: EXP-2026-11-20-H103-cardcheck-fixture. `tools/cardcheck.py` gains `--generate-fixture DIR` (writes a no-vendor tree from `ze0_tile_header`/`tilewriter`/`drstr_ze0`/`cmpind_writer` and validates it in the same run) and `--selftest` (temp dir, no vendor data). Done-when passes: `--generate-fixture /tmp/opencode/h103-tree --json …` exits 0, `ok=true`, `counts={"pass":6,"fail":0,"skip":2}`, `fixture=none` in the JSON, six PASS (`tree`,`headers`,`cmp`,`drstr`,`mmain`,`version`) and `mbr`/`fat` SKIP with a reason; two runs are byte-identical on one interpreter; `--selftest` 18/18 ok and `selftest.py --only cardcheck` PASS. The byte-identity is per interpreter only (zlib-ng vs stock zlib change the tile and REFER `.cmp`/`.ind` bytes, not the verdicts). `--root`/`--image` behavior unchanged. H40 (CI row), H104 (baseline) and H105 (breaks) stay their own blocks.
 
 - [ ] **H104 — `cardcheck` has no committed baseline: a green L1 can silently lose a check**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -1719,6 +1720,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
   - Scope: build-A executable sections (all readable); `.data` tables only via
     a pointer found in code. `Stop:` after two signature families fail — then
     `blocked` + EXP listing the signatures tested.
+  - Stop: (H53 backfill of the Scope sentence as a field) when M3.29's per-family split hands over the INTER/FRWAY candidates, watch them in one L3 run on the factory INTER001 page; if none reads `0x1108`/`0x1110`, stay `blocked` with the watched list in an EXP — no fifth byte-signature family (H51).
   - Done when: the reader VAs and consumed fields are in `refer.md`.
   - Claims: C-2210–C-2219
   - Result: `EXP-2026-11-20-M3.16-inter-frway.md` (blocked; done-when not met). **Layout corrected:** the 12-byte record at `0x1108`/`0x1110` is big-endian (`u16 key` +0 `0xffff`=term, `u16 0` +2, `u8 id` +4, `u8 flag` +5, `u16 length` +6, `u16 b8` +8, `u16 offset` +10), all 10 factory shards conform (`tools/inter_table.py check`, exit 0); the old LE/11-byte/+8 form is refuted 0/177 (`tools/inter_table.py refute`), C-2215/C-2216. **Reader still not found:** four halfword signature families over Navi.exe sec0 (5,553,664 B, 0 compressed exec, C-2128) give only one f3 candidate `0x00392122`, a byte `@(1,Rm)`/`0xff` walker, not the u16-key table (`tools/inter_reader_scan.py scan`, C-2217); L3 watch of the 11 M3.23 candidates on the factory INTER001 page reads only context/`+0x0`, none touches `0x1108`/`0x1110` (LCTBL `0x0040de98` positive control PASS, C-2218). Consumed fields UNKNOWN (C-2219). Earlier `refer.md` + C-2211/C-2213 updated.
@@ -3837,6 +3839,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F1 stable kernel; see `todo-history-2026-11-05.md` §M8.D)
   - Goal: after F1, continue to F2/F3 only if L3 (M9) is blocked by runtime state, or an automatic regression loop without hardware is wanted; re-estimate F2–F4 and record the decision.
+  - Precheck: `grep -c '^- \[x\] \*\*M8.B5 — Milestone F1' TODO.md` prints `1` (the trigger, F1, is reached).
+  - Scope: the decision and the F2–F4 re-estimate, written into this block and the TODO critical path; no QEMU run, no code. The PO recommendation (critical path, "Decision due (Marek)") is input, not the decision.
+  - Stop: the decision is Marek's; if no answer from him is on record, write the recommendation and re-estimate into this block and set `Status: blocked · Unblock: Marek (human decision)` instead of deciding.
   - Done when: the decision and its re-estimate are written down; no code change implied.
   - Claims: C-1590–C-1594
 
@@ -3844,6 +3849,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F3 SD mounted; see `todo-history-2026-11-05.md` §M8.D)
   - Goal: after F3, go to F4 only if the micon/CAN handshake (M8.C4/C5) looks scriptable; F5 stays out of scope unless M8.C19 shows a simple frame-buffer path.
+  - Precheck: `python3 tools/l4_status.py --run-log RUN.log` prints `F3    PASS` for a boot log of the F3 run (without a log every row is `NOT RUN`, i.e. the trigger is not reached and the gate is not due).
+  - Scope: the F4 decision only, written into this block; inputs M8.C4/C5 (micon/CAN) and M8.C19 (frame buffer). No QEMU run, no code.
+  - Stop: the decision is Marek's; without his answer on record, write the recommendation here and set `Status: blocked · Unblock: Marek (human decision)`.
   - Done when: the decision is written down; no code change implied.
   - Claims: C-1595–C-1599
 
@@ -3901,6 +3909,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   for L3.
   - Status: open · Owner: — · Critical: no
   - Depends: M8.E4
+  - Precheck: `grep -c '^- \[x\] \*\*M8.E4 ' TODO.md` prints `1` (an emulated boot that loads `Navi.exe` exists), and `python3 tools/l4_status.py --run-log RUN.log` prints `F4    PASS` for that boot.
+  - Scope: the process images of `Navi.exe` and its DLLs after init, read out of one QEMU `-M ze0` boot (EU2011 IMG256) into `archive/work/` (vendor-derived, never committed); the repo gets only the dump tool, VA ranges, sizes and SHA-256s. Not: US2011, other processes.
+  - Stop: if F4 is not reached, stay `open`/`blocked` on M8.E4; if the dump differs from `nk_decomp.py`'s decoded sections in more than the IAT/BSS ranges `va_class.py` names, record the diff in an EXP instead of feeding the dump to L3.
   - Claims: C-1620–C-1629
 
 - [ ] **M8.E4 — Full `Navi.exe` on a generated card (F4 acceptance run)**
@@ -3911,6 +3922,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     every error screen it raises.
   - Done when: the factory US image and the S2 image both reach the map
     state with no error screen, with the file-open logs compared in an EXP.
+  - Precheck: `python3 tools/l4_status.py` lists `F4 BLOCKED (M8.A3, M8.A6, M9.16)`; the run is possible only once `grep -cE '^- \[x\] \*\*M9.16 ' TODO.md` prints `1` and a boot log gives `F3    PASS` (`python3 tools/l4_status.py --run-log RUN.log`).
+  - Scope: one QEMU `-M ze0` boot per card image (factory US2011 card, S2 card) to the map state, with the `Navi.exe` file-open log; the logs and screenshots stay in `archive/work/` (vendor-derived). Not: F5 (screen) beyond detecting an error screen, the car.
+  - Stop: if a boot stops short of the map state twice with the same log, record the last opened file and the stage in an EXP and set `blocked` on the M8.C row or M9.16 step that stops it.
   - Claims: C-2270–C-2279
 
 ---
@@ -3935,6 +3949,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: Ghidra shows `OBJDLL!MAL_DataVol_getOffset` at the EXP-50
     call sites and the `HDD_INFO` string xref at `0x004e7d28` (this also
     closes the M1.5 Ghidra check).
+  - Precheck: `python3 tools/l3_harness/ghidra_import.py --selftest` passes, and on the runner `command -v analyzeHeadless || python3 -c 'import pyghidra'` succeeds (in the Claude sandbox it fails: that is the `Runner: non-Claude` reason).
+  - Scope: `tools/l3_harness/ghidra_import.py` and its plan; the Ghidra project and every exported decompile live in `archive/work/` (vendor-derived, never committed). Build A (EU2011) `Navi.exe` first, then the A + B sections the Goal names.
+  - Stop: if Ghidra 12.2+/pyghidra is absent on the runner, the tool exits 3 `MISSING_GHIDRA` and the task stays `open` for a non-Claude runner; if the import runs but the two Done-when anchors are missing, record which section/VA is unmapped in an EXP and set `blocked`.
   - Blocker: Ghidra 12.2+ and the vendor image are absent; the tool writes and
     validates the two-phase plan (`--plan`, 13 checks) and exits 3
     `MISSING_GHIDRA`. Result: EXP-2026-11-06-M9.2-ghidra-import, C-1640.
@@ -4610,8 +4627,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5770–C-5779
 
 
-- [ ] **M9.52 — Finish the firmware's mount in `datask_l3.py`: who answers message `0x1507`**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M9.52 — Finish the firmware's mount in `datask_l3.py`: who answers message `0x1507`**
+  - Status: done · Owner: task/m9.52-mount-1507 · Critical: yes · Pair: solo
   - Step: P1
   - Depends: M3.25, M9.13 (done)
   - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image <EU card> --max-reads 40` ends with `state 2` and a `not delivered: {"kind": "send", "task": 0, "id": 5383, …}` line (5383 = `0x1507`).
@@ -4621,7 +4638,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: a `mount` run ends with state 3 (or the EXP names the next message the mount waits for, with sender, receiver and the function that would answer); `--selftest` covers the reply model; EXP + claims.
   - Stop: if the answer needs a task whose code is outside `Navi.exe`, name the module and export and stop.
   - Falsifier: the state word reaches 3 without any reply (then the wait is on something else: say what).
-  - Claims: none yet (take the next free block when claimed)
+  - Claims: C-5900–C-5909 (was none yet (take the next free block when claimed); fresh block for this run)
+  - Result: `docs/experiments/EXP-2026-11-20-M9.52-mount-1507.md` (C-5900–C-5907). `0x1507` goes to `SDL_task` (id global `0x11fff50`, entry `0x0039d854`, EU2011), which drops it at its gate `0x003c009c` (it takes a data-access message only as the answer to its own pending request) and answers nothing; the mount does not wait for it. The only writer of state 3 is `0x003f6b1c`, object-store event `0x07d0` sub 11 with `+28 = 16`; `datask_l3.py mount --sdl --event 11:16` (stand-in event) ends with state 3, progress 1; controls `11:15`, `12:16` stay at 2. The subscriber that delivers event 11 is not found in `Navi.exe`: M9.57.
 
 - [ ] **M9.53 — Make the firmware read a record block we wrote: one map request through `datask_l3.py`**
   - Status: open · Owner: — · Critical: yes · Pair: required
@@ -4635,6 +4653,17 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the request needs state the run cannot provide after M9.52, record the faulting read/branch and stop.
   - Falsifier: the firmware reads the record block but no function loads the inflated bytes (then the consumer is another task: name the message that carries the buffer away).
   - Claims: none yet (take the next free block when claimed)
+
+- [ ] **M9.57 — Find who subscribes the data-access task to object-store event 11 (state 3 of the mount)**
+  - Status: open · Owner: — · Critical: no
+  - Step: P1
+  - Depends: M9.52 (done)
+  - Goal: M9.52 showed the mount reaches state 3 only through `0x003f6b1c`, the handler of object-store event `0x07d0` sub 11 with `+28 = 16` (C-5904), and `datask_l3.py --event 11:16` delivers that event as a stand-in. Find the real subscription (subscriber task `*0x011fff58`, event id 11), the object it watches and what makes the event carry 16, so the stand-in can be replaced by the object call that fires it.
+  - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --sdl --event 11:16` ends with `state 3`; `python3 tools/sh4xref.py archive/head256.img Navi.exe --image-start 0x200200 --to 0x003d18b0` lists the 92 `OBJ_Event_setPrm` sites M9.52 read (none names sub 11 for the data-access task, C-5907).
+  - Scope: EU2011. (1) `Navi.exe` subscriptions with a non-literal event id (the 37 `OBJ_Event_setPrm` sites whose `r6` is not a `mov #imm`), and subscriptions made with `OBJ_Event_setPrmForMP` or a hand-filled block; (2) the other modules that import `OBJ_Event_setPrm` and could name the map task (`taskLibGetIDfromName("HDL_MapMainTask")`, the UTF-16 name is in `OSMDLL.dll`); (3) in `OBJDLL.dll`, which object's notifier puts 16 in the event's last word.
+  - Done when: the EXP names the subscribing call (module, VA, object call) and the value 16's source, and `datask_l3.py` fires the event from a model of that object instead of `--event`; or the search is counted and negative with a positive control (the sub-100 subscription at `0x003eb99c` must be found by the same method).
+  - Stop: if the subscriber is outside `Navi.exe` and needs that module's own task to run, name the module and export and stop.
+  - Claims: C-6000–C-6009
 
 - [ ] **M9.56 — The router computes a route on our graph in L3 (not only reads it)**
   - Status: blocked · Owner: — · Critical: yes · Pair: required
