@@ -732,6 +732,19 @@ in its first line.
   - Falsifier: `main` can still take a commit whose `CI quality gate` run is red and no local check refuses it.
   - Claims: C-4260–C-4269
 
+- [ ] **H117 — the push-to-main gate is a shadow run: 16 PRs merged in a 35-minute burst while `main` carried 4 red gate runs, and nothing refused a merge**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: H98 (the pre-merge gate; this is its observed cost), H108 (the QA CI check that should have caught the burst)
+  - Precheck: `gh run list --workflow "CI quality gate" --branch main --limit 60 --json conclusion,headSha,createdAt` lists 4 `failure` runs between `2026-11-20T04:12:10Z` and `2026-11-20T04:36:05Z` (`6270c0cc`, `b3333cde`, `a480a8a6`, `98e0e3eb`); `gh pr list --state merged --json number,mergedAt` lists 16 merges between `04:05Z` and `04:45Z`. The failures were real gate defects, not infra: `6270c0cc` `todo_check FAIL exit 1` (`duplicate task ID M4.48 at lines [2231, 2326]`), then `claims_check FAIL exit 1` on the next three (`b3333cde`, `a480a8a6`, `98e0e3eb`). The 16 PRs were merged without waiting for those runs to finish; the first green after the burst is `ac2a199` (#303, the dup-ID fix). The same pattern repeated at 08:45–09:30Z with 3 more `cancelled` runs shadowed by `success` runs.
+  - Goal: make each `push`-to-`main` run's verdict a condition of the *next* merge, not a log line a role reads later. Either policy: (a) rework `ci.yml` so a PR run and the post-merge push run are the same verdict the TL reads (required check on the PR, which H98's branch protection then enforces), or (b) a `main`-only watchdog (scheduled or `workflow_run`) that, when the tip run is red, opens a `fix:` issue / red board line naming the SHA and fails; the QA "check the runs, not the files" step reads that instead of a 40-row `gh run list`. Prefer (a) if H98 lands branch protection; (b) is the fallback if the owner declines.
+  - Scope: `.github/workflows/ci.yml` (or a new `main-watch.yml`), `docs/research/feedback-loop.md`/QA rows; no gate semantics change (`gate.py`, `claims_check`, `todo_check` untouched). Not: re-litigating H90 (the shallow-clone cause is fixed) nor H98 (branch protection).
+  - Input: the 4 red runs above, the 16-PR burst window, `.github/workflows/ci.yml`, H98/H108 blocks, `gh run view <id> --log-failed`.
+  - Hints: the burst is a *concurrency* effect — a push run is superseded by the next push (`cancelled`), so "main is green" can be true for a tip whose CI never actually ran the gate on it; a required-check-on-PR model fixes both the shadowing and the merge-on-red. Report the count delta (red runs on `main` per cycle) as the metrics line.
+  - Done when: a deliberately-red commit pushed to a scratch branch cannot reach `main` without a failing check blocking it (or the watchdog opens the named issue within one run of the red tip); the EXP counts the red `main` runs in the window before/after and names the policy chosen; `gh run list --workflow <gate> --branch main --limit 20` in the report has no red run that was *shadowed* by merge activity without a board line.
+  - Stop: if the owner declines both (a) and (b), record the refusal and the residual risk in the EXP, set `blocked` with `Unblock: <human>`, and do not re-open it each cycle.
+  - Falsifier: `git log origin/main` contains a merge whose immediately-preceding `CI quality gate` run for that tip is `failure`, and no issue/board line names it within a day.
+  - Claims: C-5750–C-5759
+
 - [ ] **H99 — `.github/workflows/README.md` still documents the pre-H85 hard gate (selftest + claims + todo), not `tools/gate.py`**
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Depends: H85 (the gate runner, done); H53 for the todo half of the policy text only

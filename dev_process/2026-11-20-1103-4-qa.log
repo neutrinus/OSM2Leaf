@@ -1,0 +1,48 @@
+role: QA (test engineer), cycle 17
+model: opencode deepseek-v4.1-flash-free (aggregate "strong")
+start: 2026-11-20T11:03Z
+origin/main at start: 3b5ed60
+
+inputs read:
+  prompt_common.txt, prompt_qa.txt, the cycle-17 SM retro, OBJECTIVE/WORKFLOW,
+  the QA prompt's "check the runs" step, gh run list (CI quality gate on main,
+  last 40), gh run view --log-failed on the 4 red runs, TODO H96-H111 + H98.
+
+actions:
+  - checked the runs, not the files: `gh run list --workflow "CI quality gate"
+    --branch main --limit 40` shows 4 failures 2026-11-20T04:12-04:36Z
+    (6270c0cc, b3333cde, a480a8a6, 98e0e3eb) and 9 cancelled runs in the same
+    window; main was green again from ac2a199 (#303).
+  - pinned each red run's failing step:
+    6270c0cc = todo_check FAIL (duplicate task ID M4.48 at 2231/2326, fixed by
+      #303);
+    b3333cde / a480a8a6 / 98e0e3eb = claims_check FAIL (pins moved under the
+      merged EXPs), same class as H90 but a different trigger.
+  - measured the merge burst: 16 PRs merged 04:05-04:45Z while those red runs
+    were the verifiable tip, i.e. merges did not wait for a green PR check.
+    That is H98's gap observed again, plus a *shadowing* effect: a push run is
+    superseded (cancelled) by the next push, so "main is green" can be true for
+    a tip whose gate never ran on it.
+  - checked local gate: green now (fn_audit_l3_image exit 0, todo_check OK,
+    claims_check OK). The PO pass's archive was reverted before this QA run;
+    that defect is H116 (archive-vs-DOCS-BASE) and is recorded, not a QA item.
+  - added H117 (Critical, pair required, C-5750-5759): make a red push run
+    block the next merge (PR required check with H98, or a main watchdog
+    fallback); count red shadowed runs per cycle as the metric.
+
+decisions / rejected:
+  - did not add a separate task per red run: the four are two causes (dup ID,
+    moved pins), both already teeth-tested by existing gates; H117 covers the
+    process gap that let them ride into main, not each symptom.
+  - did not duplicate H90 (shallow checkout) or H98 (branch protection): H117
+    depends on H98 and is the observed-cost case, scoped to preventing the
+    shadow/merge-on-red pattern.
+  - did not plan l1l2_fixtures / l3check CI work: H96/H97/H106/H107/H108 cover
+    them and are open; QA's job this pass was the run-vs-file check.
+
+handoff:
+  - TL: H117 is Critical, pair required; its Done-when needs H98's branch
+    protection or the fallback watchdog. Until then, re-read `gh pr checks`
+    before every merge (the burst is exactly what that step exists for).
+  - QA next: the H108 CI check should read the H117 output (red shadowed runs),
+    not a 40-row run list.
