@@ -150,6 +150,13 @@ L3_OWNER = "tools/build_targets.py"
 FIRMWARE_DOC = "docs/format/firmware.md"
 EXP_GLOB = "docs/experiments/EXP-*.md"
 OPEN_TASK_RE = re.compile(r"^- \[ \] \*\*[A-Za-z0-9]")
+# H116: a *live* TODO block is one whose Status is open/in progress/blocked.
+# A done block is history — its VAs were proven under that task and move with
+# it to a history page — so the DOCS BASE must not pin them, or archiving a
+# finished task reddens the standing gate.  A block runs from a header (either
+# box) to the next header, ``- [`` item or ``## `` section, as ``_open_blocks``.
+BLOCK_HEADER_RE = re.compile(r"^- \[[ x]\] \*\*[A-Za-z0-9]")
+STATUS_RE = re.compile(r"\bStatus:\s*(open|in progress|blocked|done)\b")
 
 # Bare VAs whose every remaining occurrence is correction prose that does not
 # spell the true start on that same line (the M1.29 Stop clause: an explicit,
@@ -247,7 +254,42 @@ def fenced_lines(text):
     return out
 
 
-def citations_markdown(paths, strict=False):
+def live_todo_lines(lines):
+    """0-based line numbers of the live (open/in progress/blocked) TODO blocks.
+
+    H116: the block header (``- [ ]``/``- [x]`` ``**<ID>``) starts a block that
+    ends at the next block header, a ``- [`` item or a ``## `` section, exactly
+    as ``_open_blocks``.  A block whose first ``Status:`` names ``done`` is
+    history and is excluded, so a done task's VAs never pin the DOCS BASE and
+    moving its block to a history page leaves the corpus at 0 new / 0 gone.  A
+    block with no ``Status:`` line (the fenced field template) is kept, so the
+    fence behaviour H77/H115 established is untouched.
+    """
+    live = set()
+    i = 0
+    while i < len(lines):
+        if not BLOCK_HEADER_RE.match(lines[i]):
+            i += 1
+            continue
+        end = i + 1
+        while (end < len(lines)
+               and not BLOCK_HEADER_RE.match(lines[end])
+               and not lines[end].startswith("- [")
+               and not lines[end].startswith("## ")):
+            end += 1
+        status = None
+        for k in range(i + 1, end):
+            sm = STATUS_RE.search(lines[k])
+            if sm:
+                status = sm.group(1)
+                break
+        if status != "done":
+            live.update(range(i, end))
+        i = end
+    return live
+
+
+def citations_markdown(paths, strict=False, mask=None):
     """``fn``/``sub_`` VAs from prose files, one Citation per occurrence.
 
     ``strict`` is the l3 discipline (M1.26 navigator): on a correction-marker
@@ -259,7 +301,9 @@ def citations_markdown(paths, strict=False):
     keeps the old rule (``strict=False``) so its frozen snapshot is unchanged.
 
     Both disciplines skip fenced code blocks (``fenced_lines``, H77): a VA
-    quoted inside a fence is not a live citation.
+    quoted inside a fence is not a live citation.  ``mask`` (H116) is an extra
+    set of 0-based lines to skip, so the ``TODO.md`` pass can drop every line
+    outside a live block while the docs/EXP passes stay whole-file.
     """
     for path in paths:
         text = open(path, encoding="utf-8", errors="replace").read()
@@ -306,6 +350,8 @@ def citations_markdown(paths, strict=False):
         for pos, va, kind, correction in sorted(hits):
             line = _line_of(text, pos)
             if line - 1 in fenced:
+                continue
+            if mask is not None and line - 1 in mask:
                 continue
             yield Citation(va, "%s:%d" % (rel, line), kind,
                            correction=correction)
@@ -499,7 +545,16 @@ def collect(scope="docs"):
     l3 = sorted(glob.glob(os.path.join(REPO, L3_GLOB)))
     l3.append(os.path.join(REPO, L3_OWNER))
     files.extend(l3)
-    cites = list(citations_markdown(md))
+    cites = []
+    for path in md:
+        if os.path.relpath(path, REPO) == "TODO.md":
+            # H116: TODO.md contributes only its live blocks; a done block is
+            # history and must not be pinned by the docs base.
+            todo_lines = open(path, encoding="utf-8", errors="replace").read().split("\n")
+            mask = set(range(len(todo_lines))) - live_todo_lines(todo_lines)
+            cites.extend(citations_markdown([path], mask=mask))
+        else:
+            cites.extend(citations_markdown([path]))
     cites.extend(citations_targets(os.path.join(REPO, TARGETS)))
     cites.extend(citations_l3_constants(l3))
     return cites, [os.path.relpath(p, REPO) for p in files]
@@ -1434,6 +1489,44 @@ def selftest():
               opened.get(0x003F5FC2) == ("ctx", None))
         check("open-block skips US-build starts",
               0x00444540 not in opened and 0x004446F4 not in opened)
+        # H116: the docs-base pass cites only live (open/in progress/blocked)
+        # blocks; a done block is history and must not pin the corpus, or
+        # archiving it reddens the gate.  A header with no Status line (the
+        # fenced template) stays in, as H77/H115 left it.
+        board = (
+            "- [x] **DONE1 — archived**\n"
+            "  - Status: done · Owner: —\n"
+            "  - walked fn 0x0041c001\n"
+            "\n"
+            "- [ ] **OPEN1 — live**\n"
+            "  - Status: open · Owner: —\n"
+            "  - walked fn 0x0041c002\n"
+            "\n"
+            "- [ ] **BUSY1 — in progress**\n"
+            "  - Status: in progress · Owner: b\n"
+            "  - walked fn 0x0041c003\n"
+            "\n"
+            "- [ ] **WAIT1 — blocked**\n"
+            "  - Status: blocked · Owner: —\n"
+            "  - walked fn 0x0041c004\n"
+            "\n"
+            "- [ ] **ID — title**\n"
+            "  - Status: open | in progress | blocked | done · Owner: —\n"
+        )
+        bpath = os.path.join(tmp, "board.md")
+        with open(bpath, "w", encoding="utf-8") as fh:
+            fh.write(board)
+        blines = board.split("\n")
+        mask = set(range(len(blines))) - live_todo_lines(blines)
+        live_vas = [c.va for c in citations_markdown([bpath], mask=mask)]
+        check("H116 done block is not cited by the live mask",
+              0x0041C001 not in live_vas)
+        check("H116 open/in progress/blocked blocks are cited",
+              {0x0041C002, 0x0041C003, 0x0041C004} <= set(live_vas))
+        check("H116 unmasked scan would cite the done block (control)",
+              0x0041C001 in {c.va for c in citations_markdown([bpath])})
+        check("H116 a block with no Status line stays live (template)",
+              16 in live_todo_lines(blines))
         tj = os.path.join(tmp, "t.json")
         json.dump({"targets": [
             {"name": "fw", "entry": {"kind": "firmware_call", "va": "0x0041c7e8"}},
