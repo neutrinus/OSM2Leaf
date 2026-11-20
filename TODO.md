@@ -2076,7 +2076,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-5260–C-5265 (C-5266–C-5269 handed to M9.54)
 
 - [ ] **M3.29 — Split the shared REFER candidate list per family at run time, and measure M3.23's recall**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.29-refer-family-split · Critical: no
   - Depends: M3.23 (done), M9.38 (read watch), M3.28 (`vcard_l3.py trace`)
   - Goal: M3.23 found that `ADDRE`, `INTER`/`FRWAY`, `ZCODE` and `COORD` go through one opener `0x003fbed8` whose family is ctx +124 at run time, so a static graph gives one shared candidate list (C-3546), and its ranking misses small walkers (C-3545). A run per family with the read watch turns the shared list into per-family readers.
   - Scope: for ctx +124 = 2, 3, 4, 11 (and 1 for `POINT`) run one caller of `0x003fbed8` on the card with M9.38's read watch over the page buffer; record the functions that load record bytes per family; compare them with M3.23's QC list and the POINT/ICODE lists (recall = confirmed readers in the top 10 / confirmed readers).
