@@ -3917,13 +3917,14 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-1600–C-1609
 
 
-- [ ] **M8.E2 — Registry as loaded** (`boot.hv`, `default.hv`, `user.hv`):
+- [x] **M8.E2 — Registry as loaded** (`boot.hv`, `default.hv`, `user.hv`):
   driver list, `IoBase`, `Irq`, load order. Two routes: static hive parser
   after M1.4, or a RAM dump after M8.B5. Done when the driver table is in
   `firmware.md`.
-  - Status: in progress · Owner: task/m8.e2-registry-loaded · Critical: no
+  - Status: done · Owner: task/m8.e2-registry-loaded · Critical: no
   - Depends: M1.4, M8.B5 (either route: static hive parser or RAM dump)
   - Claims: C-1610–C-1619
+  - Result: EXP-2026-11-20-M8.E2-registry-loaded; C-1610–C-1616 (C-1617–C-1619 reserved). Static route: new `tools/ce_drivers.py` decodes `boot.hv`/`default.hv` in memory (M1.4 kernel decode) and joins `Drivers\Launch` keys to M1.34's `AppLaunch.dll` records. EU2011 build B (`archive/head256.img`, `92aa525d…`): 9 `Drivers\BuiltIn` drivers (all `Order 0`, last `AppLaunch.dll`) + 63 `Drivers\Launch` keys = launch records #7–#69 (62 matched; load order = record index + waits, not hive `Order`); only `OHCI` (`MemBase 0x099a1000`, `SysIntr 0x1c`) and `WaveSSI1/2` (`SysIntr 0x24/0x25`) carry resources, no driver has `IoBase`/`Irq`; build C same 72 keys (table lacks `UART3`); US2011 build B identical. Table in `docs/format/firmware.md`.
 
 - [ ] **M8.E3 — Dump loaded process images** (`Navi.exe` + DLLs after init)
   for L3.
