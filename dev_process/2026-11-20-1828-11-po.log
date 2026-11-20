@@ -1,0 +1,45 @@
+role: PO (product owner), 21st pass, cycle 18
+model: Claude Fable 5.2
+start: 2026-11-20 18:28 UTC
+origin/main at start: 7b0457f
+
+inputs read: prompt_common.txt, prompt_po.txt, docs/retro/2026-11-20-2.md, the SM and SE logs of
+  this cycle, dev_process/2026-11-20-1019-8-po.log (20th pass), TODO Priorities, every blocked
+  task's Unblock line, the open PR list, card_ladder.py and map_signals.py output.
+
+actions, in order:
+  - archive first (TODO.md is 4896 lines): 62 done blocks are named by no live block, 0 of them
+    were ticked more than 24 h ago (git log -S on the tick line), so 0 moved. Not a fixpoint:
+    they move next pass.
+  - rule 15: re-opened M9.18 (its Unblock M9.53 merged as #349 at 18:28Z). Checked the other 24
+    blocked tasks: none has a done unblocker; M4.51 stays blocked on M8.E4 by its own note.
+  - added M9.61 (C-6300-C-6309, pair required): datask_l3.py on the US2011 build against the EU
+    card. Precheck was run: the US file layer (vcard_l3.py boot --build us2011) mounts the EU
+    card with the same volume-table hash as the EU build and 0 error-log calls.
+  - M9.16 narrowed by a note to M9.60 + M9.61 (its chain already runs on a card image).
+  - M5.35 Depends: M9.12 -> M9.60, so the one-command Poland proof no longer waits on the
+    four-task POI chain.
+  - Step tags on M4.55 (P2), M4.56 (P2), M9.59 (tooling); 4 stale pending rows removed from
+    docs/research/card-ladder.md. card_ladder.py steps --check: missing 0, stale 0.
+  - Priorities rewritten: queue first (5 ready PRs), then H119, M9.58, M9.61, M9.60, M4.55,
+    M5.61, the REFER group as one item, M9.18; in-flight list; a "For Marek" block.
+
+numbers (quoted from commands): map_signals readers located 18 partial 1 unlocated 1; l3-running
+  8; tile_bytes B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.29% (EU2011 tree extracted here);
+  card_step NOT RUN (no M5.34 report on this host). Board 75 open / 24 blocked / 0 in progress /
+  167 done; 29 open H.
+
+decisions / rejected:
+  - one new task, not eight: M9.58 (PR #349), M5.61, M2.20, M6.21 (PR #390) and the SE's H119 and
+    M9.60 already cover the other gaps I found; adding more would be filler.
+  - did not re-open M3.13/M3.14/M3.16/M3.18: their unblockers (M3.29, M3.30, M3.32) are open
+    or blocked; grouped them in Priorities instead.
+  - did not touch blocks held by open PRs (M9.55, M9.41, M3.29, H100, H114, H115 and the drafts).
+  - M9.16 kept open with a note rather than closed: M8.E4 and M5.35 still name it.
+
+for Marek: M8.D1 decision (recommendation unchanged); an OSM extract on files.viaaq.eu would let
+  cloud agents run M5.61, M4.2, M5.3; #229 and 45 stale remote branches.
+
+handoff: QA — verify.py prints RESULT: PASS with L2 SKIP when 7z is missing (seen on this
+  host); no gate compiles tools/*.py; todo_check --strict count.
+end: 2026-11-20 18:35 UTC

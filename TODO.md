@@ -248,49 +248,56 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-20, 20th pass; retro 2026-11-20, `origin/main` `738c1ef`)
+## Priorities (PO grooming 2026-11-20, 21st pass; retro 2026-11-20-2, `origin/main` `ae2cb0c`)
 
-**The firmware side is moving.** Readers **15/30 located** (was 6 on
-2026-11-19), L3 **6/30 running** (was 1). The firmware's own map client runs on
-a card image in PySh4 (`tools/vcard_l3.py`, `tools/datask_l3.py`) and reads a
-generated Poland tile read-for-read like the factory tile through header,
-section tables and directories (M9.13, C-3253). It has not yet read a road
-record we wrote: that is the next gate (**M9.52** → **M9.53**). Card ladder:
-**P0** built (card `b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237`),
-**P1** display-only card built (M5.49), routing golden in L2 (M5.36), section-2
-requester found in L3 (M4.40 → M4.55; M4.54's word mapping retracted, C-5924).
+**The firmware now reads a road record we wrote.** M9.53 (merged 2026-11-20 18:28Z, #349):
+on a generated Poland tile the EU2011 data-access task reads our record from
+our pair entries, checks the Adler-32, inflates it and answers the client as
+for the factory record (C-5910–C-5917). Readers **18 located** (15 this
+morning), L3 **8 running** (6). What is not shown yet: that the renderer walks
+the links of our record (**M9.58**), and that the **US** build in Marek's unit
+reads an EU-layout card at all (**M9.61**, new). Cards: **P0** built
+(`b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237`), **P1**
+display-only card built (M5.49); the first card a person would call a map is
+**M5.61**.
 
 **The four rule-17 numbers: run, do not retype.** `python3 tools/map_signals.py`
-(`--json -` for logs; `--factory-root` on a host with the factory tree, else
-`tile_bytes` and `card_step` print `NOT RUN`). Snapshot 2026-11-20, this
-sandbox, `738c1ef`: `readers: located 15 partial 2 unlocated 3`,
-`l3_rows: l3-running 6`, `tile_bytes: NOT RUN`, `card_step: NOT RUN`.
+(`--factory-root ROOT` for the tile bytes). Snapshot 2026-11-20, `ae2cb0c`,
+cloud sandbox with the EU2011 tree extracted: `readers: located 18 partial 1
+unlocated 1`, `l3_rows: l3-running 8`, `tile_bytes: B28R070R 99.98%,
+B30R048R 95.86%, B48R058R 76.29%` (flat), `card_step: NOT RUN` (no M5.34
+report on this host; last recorded step P1, M5.49).
+
+**First, the queue (retro 2026-11-20-2).** Finished PRs wait behind `main`
+and go stale: **#340 M9.55**, **#341 M3.29**, #338 H100, #339 H114, #344 H115.
+Merge them before launching anything. **H119** removes the cause (every task
+PR rewrites the two fn_audit snapshots).
 
 **Next for the TL (dependencies done, no owner, in this order):**
 
-1. **M9.52** → **M9.53** — finish the firmware's mount, then make it read a record block we wrote. This turns "the container is read" into "our roads are read".
-2. **M4.40** (blocked on **M4.55**) — the section-2 field table from the route path finder's reply handler (the router's reader fetches section 4, C-5921); it unblocks M4.23, M4.24, M4.3 (routing, P2).
-3. **M3.13** (re-opened this pass) — the `ADDRE` reader; M4.36, M5.18 and M9.15 wait on it (names and search).
-4. **M3.29**, then **M3.30** — split the shared REFER candidate list per family and drive the search path; M3.14, M3.16 and M3.18 are blocked on them.
-5. **M9.55** — the US POI runner row that unblocks M9.41 → M9.31 → **M9.12** (`l3check --card`, the gate before any car test).
-6. **M9.18** — L3 targets for `LEV3456R` and section 4; unblocks M5.16 (coarse levels).
-7. **M9.36**, then **M9.14** and **M9.16** — the map-load chain that M8.E4 and M5.35 need.
-8. **M8.C** row **C10** (SD host) — the next L4 blocker named by M8.B5.
+1. **H119** — task PRs stop conflicting in the fn_audit snapshots. Every map task below merges faster after it.
+2. **M9.58** — the renderer walks the links of our record. This turns "our record is inflated" into "our roads are read" (P1).
+3. **M9.61** — the US build's map client on the EU card. Software answer to "can Marek's unit read a Poland card"; the US file layer already mounts the EU card (Precheck in the task).
+4. **M9.60** — card gate, first slice (`boot`, `sweep`, `mount` with an exit code). Gates P0/P1 at L3 now and unblocks **M5.35**; M9.12 only adds the POI row later.
+5. **M4.55** — the section-2 reader in the route path finder. It re-opens **M4.40**, and with it M5.57, M9.56, M4.23, M4.24, M4.3 (routing, P2).
+6. **M5.61** — "Poland to look at": all section-1 directories of the 4 tiles. Needs an OSM extract on disk (see "For Marek").
+7. **M3.32** and **M3.30** — the two tasks the `REFER` family waits for. **M3.13, M3.14, M3.16 and M3.18 are one group** blocked on them and on M3.29 (#341 ends `blocked`): do not pick the four one by one again.
+8. **M9.18** (re-opened this pass, rule 15) — `LEV3456R` and section 4 at record level; unblocks M5.16.
 
-Cheap closures (one session each, results already exist): **M4.16** and
-**M4.31** (re-opened this pass). New this pass: **M3.31** (the rule for the
-directory read length) and **M5.56** (tiles without a factory container fail
-the firmware's directory read).
+**In flight (draft PRs, do not claim):** M9.10 #384, M5.59 #385, M5.60 #382,
+M3.33 #381, M4.35 #387, M4.27 #386, M5.32 #368, M8.C row C10 #355, M8.A8 #372,
+M8.A9 #383.
 
-**Concurrency:** a second TL batch (`dev_process/2026-11-20-1514-6-tl.log`)
-holds H97, H100, H103, H110, H114, H115, M3.29 and M9.55 in worktrees; check
-the open PR list before claiming those.
+**For Marek (decisions and one upload):**
 
-**Decision due (Marek): M8.D1.** F1 is reached (M8.B5: `filesys.exe` and
-`device.exe` run, no unhandled exception), which is this gate's trigger. PO
-recommendation: continue to F3 (SD mounted) only, through M8.C10, because the
-map-file layer is already covered at L3 by `datask_l3.py`; the remaining L4
-value is the launcher's card checks.
+- **M8.D1** — F1 is reached (M8.B5). PO recommendation, unchanged: continue
+  to F3 (SD mounted) only, through M8.C10; the map-file layer is covered at L3.
+- **An OSM extract on `files.viaaq.eu`.** It is the only data host the cloud
+  agents reach (rule 12). `dolnoslaskie-latest.osm.pbf` (then Poland) under
+  e.g. `https://files.viaaq.eu/osm/` lets Claude agents run **M5.61**, **M4.2**
+  and **M5.3**, which today wait for a runner with open internet.
+- **#229** (two days old, conflicting) can be closed, and 45 remote branches
+  without an open PR deleted (the cloud sessions get HTTP 403 on delete).
 
 ### By card-ladder step
 
@@ -298,37 +305,36 @@ The ladder ([content](docs/research/card-ladder.md), [gates](docs/format/card-la
 orders the map work; the live grouping is `python3 tools/card_ladder.py steps --check`
 (`*` = critical, `(page)` = tag held in the page while the owner's PR is open).
 
-- **P0 (built)** — L3: M9.13 done for the container; **M9.14** (`drstr_parser`); QA pin **M5.40**.
-- **P1 (display-only card built)** — **M5.61** ("Poland to look at": all section-1 directories of the 4 tiles); **M9.52**, **M9.53** (records read by the firmware); **M5.56** for tiles without a factory container.
-- **P2 (routing)** — **M4.55** → **M4.40** → M4.23, M4.24, M4.3 → M5.5; **M9.18** → M5.16; **M5.3** (waits on M4.2).
-- **P3 (names)** — **M3.13** → **M4.36**; **M3.29** → **M5.17**; **M4.16** → **M4.2**; **M9.15**.
-- **P4 (search)** — **M5.18** (waits on M3.13), M5.27 → **M5.32**, **M9.55** → M9.41 → **M9.10**.
-- **tooling** — **M9.36**, **M9.24**, **M9.2**, **M9.16**, M9.31 → **M9.12** → **M5.35**.
+- **P0 (built)** — container and `DRSTR001` parser accepted in L3 (M9.13, M9.14); QA pin **M5.40**; L3 gate **M9.60**.
+- **P1 (display-only card built)** — **M9.58** (the renderer walks our record), **M5.61** (the 4 Poland tiles), **M9.61** (the same reads on the US build).
+- **P2 (routing)** — **M4.55** → **M4.40** → **M5.57** → **M9.56**; M4.23, M4.24, M4.3 → M5.5; **M9.18** → M5.16; **M5.3** (waits on M4.2); M4.56 (section 4, route guidance).
+- **P3 (names)** — **M3.32** + **M3.30** → **M3.13** → **M4.36**; **M4.2**; **M9.15**; M5.60 (in flight).
+- **P4 (search)** — **M5.18** (waits on M3.13), **M5.32**, **M9.55** → M9.41 → **M9.10**.
+- **tooling** — **M9.60** → **M5.35**; **M9.61**; M9.59; M9.31 → **M9.12**; **M9.2** (Ghidra, needs a non-Claude runner). **M9.16** is split into M9.60 + M9.61.
 
 ### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
 
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
-- **L1 (ready for real cards, not for fixtures):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards. A vendor-free fixture is still missing: **H103** → **H40** → **H105** → **H41** → **H42**.
-- **L2 (the product path):** P0 and P1 cards built, routing golden (M5.36). Next **M5.35** (one command, waits on M9.12) → **M7.1** (all Dolnośląskie). Feature gaps by step are in the list above.
-- **L3 (the bottleneck that started to move):** tile container read: done (M9.13). Records: **M9.52** → **M9.53**. Routing: **M4.55** → **M4.40** → **M5.57** (section-2 writer) → **M9.56** (route computed in L3). Names: **M3.13**, **M3.29**/**M3.30**. Card gate: **M9.55** → M9.41 → M9.31 → **M9.12**. SKIP and BLOCKED are never PASS.
-- **L4 (QEMU `-M ze0`):** F1 reached (M8.A3, M8.A6, M8.B5). Next **M8.D1** (decision), **M8.C** row C10, then **M8.E4** (full `Navi.exe`, waits on M9.16). M8.A9 (port to current QEMU) is off the path.
-- **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes `l3check --card` (M9.12) first.
+- **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards. `cardcheck --generate-fixture` (H103, done) builds a vendor-free tree; next **H40** → **H105** → **H41** → **H42** make it a CI row with a baseline.
+- **L2 (the product path):** P0 and P1 cards built, routing golden (M5.36). Next **M5.61** (Poland to look at) and **M5.35** (one command, waits on M9.60) → **M7.1** (all Dolnośląskie).
+- **L3 (moving):** container read (M9.13), record read and inflated (M9.53): done. Next **M9.58** (record walked), **M9.61** (US build), **M9.60** (card gate). Routing: **M4.55** → **M4.40** → **M5.57** → **M9.56**. Names: **M3.32**/**M3.30** → **M3.13**. SKIP and BLOCKED are never PASS.
+- **L4 (QEMU `-M ze0`):** F1 reached (M8.A3, M8.A6, M8.B5). Next **M8.D1** (decision), **M8.C** row C10 (in flight), then **M8.E4** (full `Navi.exe`, waits on M9.60 + M9.61 through M9.16). M8.A9 is off the path.
+- **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes the L3 card gate (M9.60, later M9.12) first.
 
 ### Map signal (read first)
 
-Board after this pass: **91 open / 20 blocked / 0 in progress / 138 done** (block headers parsed 2026-11-20;
-the fenced task template is not counted, see H115). 34 of the open blocks
-are H. A cycle that moves none of the four numbers above says so in its first
-line.
+Board after this pass: **75 open / 24 blocked / 0 in progress / 167 done** (block headers parsed 2026-11-20; the
+fenced task template is not counted). 29 of the open blocks are H. A cycle
+that moves none of the four numbers above says so in its first line.
 
-**This pass:** archive **16 moved** (`M1.2e`, `M1.2g`, `M1.16`, `M1.23`, `M1.29`, `M3.19`, `M4.20`, `M5.10`, `M5.12b`, `M5.28`, `M5.45`, `M5.46`, `M8.E1b`, `M8.E1c`, `M9.29`, `M9.30` →
-`docs/research/todo-history-2026-11-20.md`); 48 more done blocks are
-named by no live task but were ticked less than 24 h ago and move next pass.
-Rule 15: **M3.13**, **M4.16**, **M4.31** re-opened. Added **M3.31**,
-**M5.56**. Card-ladder page: 9 stale pending rows removed, M9.55 added as
-pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
-192 lines to stay short; the 19th-pass text is in git (`738c1ef`).
+**This pass:** archive **0 moved** — 62 done blocks are named by no live
+block, all ticked 0–22 h ago; they move next pass (TODO.md 4896 lines before and after the archive step).
+Rule 15: **M9.18** re-opened (M9.53 merged). Added **M9.61**; the SE pass
+added **H119** and **M9.60**. **M9.16** narrowed to M9.60 + M9.61; **M5.35**
+now waits on M9.60 instead of the M9.12 chain. `Step:` set on M4.55, M4.56,
+M9.59; 4 stale pending rows removed from the card-ladder page. The 20th-pass
+text of this section is in git (`13cb0cf`).
 
 ---
 
@@ -2587,6 +2593,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
 
 - [ ] **M4.55 — Section-2 reader in the route path finder: drive the kind-8/`0x10` reply and read-watch unit 0**
   - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P2
   - Depends: M4.40 (blocked on this; requester and reply named)
   - Goal: M4.40 found that section 2 is not read by the router (`RGD_DATA` fetches section 4) but requested by the route path finder `RPF_PreMap_start` `0x00336bf0` (EU2011) with kinds 8 and `0x10`, and that the data-access task replies with pointers to units 0 and 2 of the level-1 record (C-5922, C-5923). Find the RPF code that receives that `0x14b6` reply and walks unit 0, and read the section-2 field table off it (M4.40's goal).
   - Precheck: `python3 tools/datask_req_l3.py request archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 51.70,17.45 0xa68cd68c:0:8` prints `+16 … word 27 = unit 0`; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x00336c88 --count 60` shows `mov #8` at `0x00336cba` and `mov #16` at `0x00336d06`; `python3 tools/callgraph.py callers G 0x00336bf0 --depth 3` names the RPF task loop.
@@ -2600,6 +2607,7 @@ pending, `Step:` set on M4.49, M4.51, M4.53. This section was rewritten from
 
 - [ ] **M4.56 — Tile section 4 (route guidance) grammar from the router consumer `0x00422eac`**
   - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: P2
   - Depends: M4.40 (section 4 is what the router's `RGD_DATA` request fetches)
   - Goal: M4.40 showed that the router's kind-`0x40` request fetches the parcel's section-4 record (signposts: `0=POZNAN:KALISZ:(36):RAWICZ`), that header word 6/7 are the name offset/length and that the reply points at word 9 (C-5921, C-5925). The router consumer `0x00422eac` reads `w[k+15]` (gate `& 0x0f00 == 0x0900`), `w[k+7]`, `w[k+6] = d` and `w[k+d]`, with `k` from `0x00424464(19, …)`, which reads the renderer's section-1 buffer (`*0xe8f604` slot table). Map the section-4 entry layout from word 9 and the source of `k`.
   - Precheck: `python3 tools/datask_req_l3.py request archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 51.70,17.45 0xa6bed6ee:0:0x40` reads `pos 0x113ca000` (section 4); `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x004240d8 --count 8` loads `0x00e8f604`.
@@ -3156,7 +3164,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 - [ ] **M5.35 — One-command Poland card proof: `mkpoland` runs compiler → L1 → L2 → L3 gate and writes the evidence bundle**
   - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: tooling
-  - Depends: M5.11, M5.30, M5.29 (gate report format), M9.12 (card gate, once unblocked)
+  - Depends: M5.11, M5.30, M5.29 (gate report format), M9.60 (card gate, first slice; was M9.12, which waits on M9.31 → M9.41 and only adds the POI row — PO 2026-11-20)
   - Goal: every Poland milestone so far is a chain of manual commands in EXPs; a bench card needs one reproducible command that names the input OSM extract, writes the card, runs `cardcheck`/`l2check`/`l3check --card` and emits a machine-readable bundle. This is the L1→L2→L3 evidence path the PO prioritises, and it makes each L5 run one variable.
   - Precheck: `python3 tools/l2check.py --help | grep -- --cmp-limit` and `python3 tools/mkcard.py --selftest` pass; M5.30 produces a card that differs from factory only in expected clusters. If M5.11's compiler entry point is not yet stable, name the current one in the EXP and gate the wrapper on it.
   - Scope: new `tools/mkpoland.py` (`--selftest`, synthetic no-vendor fixture): `--osm EXTRACT --factory IMAGE -o OUT.img` calls the Poland compiler, `cardcheck --image`, `l2check --root` on the extracted tree, and `l3check --card` when a runnable target set exists; writes `bundle/manifest.json` (input/OSM SHA-256, tool versions, per-stage PASS/FAIL/SKIP/NOT_RUNNABLE, changed-cluster list) and `bundle/report.md`. Never promotes SKIP/BLOCKED to PASS (rule 13). Not: automatic car/bench execution.
@@ -4321,6 +4329,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 - [ ] **M9.16 — L3 map-load chain: open a whole card the way `Navi.exe` does**
   - Status: open · Owner: — · Critical: yes
   - Step: tooling
+  - Note (PO 2026-11-20, 21st pass): most of this chain now runs on a card image instead of a tree: `vcard_l3.py boot`/`sweep` (`CMP.LST` → `MMAIN001` → `DRSTR001`, every file, EU2011 and the US2011 file layer, M9.14) and `datask_l3.py mount` (tiles and `REFER001`, EU2011, M9.13/M9.52/M9.53). What is left is two tasks, take those instead of this block: **M9.60** (one command with a verdict per step) and **M9.61** (the map client on the US build). This block closes when both are done; M8.E4 and M5.35 then name them directly.
   - Depends: M9.11, M9.13, M9.14 (M9.2 Ghidra helps to find the call order)
   - Precheck: component L3 targets for `.cmp`/DRSTR/tile/POINT path are
     runnable or explicitly reported not-yet-available by M9.12; factory US
@@ -4377,9 +4386,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5970–C-5979 (was C-2370–C-2379; fresh block for this run)
 
 - [ ] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
-  - Status: blocked · Owner: — · Critical: no
-  - Blocker: the mount reads no record block (state 2, `0x1507` undelivered), so coarse records and the section-4 name list cannot be compared; directory level is done.
-  - Unblock: M9.53 (a map request reads a record block; then rerun the EXP's G/F pair at record level with `lev3456.py decode_record` / `section4.py parse`).
+  - Status: open · Owner: — · Critical: no
+  - Re-opened (rule 15, PO 2026-11-20): M9.53 merged (#349) — `datask_l3.py mount --request MESH` reads and inflates a record block (C-5910–C-5917), so the record-level G/F pair below can run. The blocker line is kept as history.
+  - Blocker (history): the mount reads no record block (state 2, `0x1507` undelivered), so coarse records and the section-4 name list cannot be compared; directory level is done.
+  - Unblock (met): M9.53 (a map request reads a record block; then rerun the EXP's G/F pair at record level with `lev3456.py decode_record` / `section4.py parse`).
   - Result: EXP-2026-11-20-M9.18-lev3456r-sec4-l3 (C-2440–C-2446). New `tools/mount_dirs_l3.py` (`check`/`compare`/`changed`, selftest 11) checks each mount read against `lev3456.py`/`clarion_tile`: factory `LEV3456R` 9/9 and `B48R058R` 9/9 (incl. section-4 table + directory, parser `0x00415330`, typ `0x93`) MATCH; a `lev3456gen.py` file is SAME-RELOCATED; controls (L3 dir rows, s4 dir header, wrong model) MISMATCH. The level-3 directory read is the one under the start position (4 positions). Defect: `lev3456gen.py` writes L3 roads into the wrong directory (C-2445) → M5.59. Targets `lev3456_reader`, `tile_section4_reader` registered as blocked entries naming the tools; rows 18–20 updated.
   - Step: P2
   - Depends: M9.13 (matrix rows 18–20)
@@ -4828,6 +4838,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.59 — `l3_precond`: classify a target against its own build, and know targets that run outside `runner.py`**
   - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: tooling
   - Depends: H45 (done)
   - Goal: M9.33 found two gate gaps (EXP-2026-11-20-M9.33-rerun-prereqs-map, C-3401/C-3402). (1) `--all-targets --image archive/head256.img` classes the US2011 VAs of `cmp_ind_reader_us2011` against EU sections (`INIT` instead of `CODE sec0`). (2) `tile_reader`, `drstr_parser` and `mmain_reader` are `BLOCKED` ("entry kind blocked with no VA") although their `reason` names the tool that runs them (`datask_l3.py`, `vcard_l3.py`, `mmain_l3.py`). The gate should say what is true.
   - Precheck: `python3 tools/l3_precond.py --selftest` passes; `python3 tools/l3_precond.py --target cmp_ind_reader_us2011 --image archive/head256.img` prints `va_class.0x00565d94: INIT` (the defect).
@@ -4848,6 +4859,20 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if `sweep` on a full card takes more than 20 minutes, gate on `boot` + `mount` and record the sweep time.
   - Falsifier: a card that fails in the factory-compared mount but passes the gate.
   - Claims: C-6290–C-6299
+
+- [ ] **M9.61 — The US build's map client on an EU card: does the firmware in Marek's unit read Poland tiles**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: tooling
+  - Depends: M1.22, M1.22b (EU→US function map, done), M9.14 (US2011 file layer in `vcard_l3.py`, done), M9.13, M9.53 (the EU2011 run to compare with, done)
+  - Goal: the only hardware is a US unit and it runs the US `Navi.exe` (H51), but every map-client result (mount, directory reads, record read) is EU2011. Region is a property of the unit, not of the card (M2.7), so the Poland card will be read by US code. Run that code now, in L3: it either reads the EU card like the EU build does, or it names the first check or table that refuses a tile outside North America. This is the cheapest test of "a Poland card in Marek's car" that exists without the car.
+  - Precheck: `python3 tools/vcard_l3.py boot US256 --build us2011 --card-image EUCARD` ends with `volume table: 40 directories, 285 files` and `firmware error log calls: 0` (run 2026-11-20 on US256 `70d945d8…04da` and the EU2011 card `105e2032…76307`: the volume table SHA-256 equals the EU-build run, `58835fc7…6aad0`). `python3 tools/datask_l3.py mount --help` has no `--build` (the gap).
+  - Signature: the US VAs of the data-access task entry, its handler table and the client entry come from `fn_match` pairs of the EU functions `datask_l3.py` names (derived, M1.22b), each checked with `nk_decomp.py pdata` on the US image; a `TWIN`/`NOMATCH` pair is resolved by an executed call, not by address order (H114).
+  - Scope: `tools/datask_l3.py` gains `--build us2011` (per-build VA table next to `build_targets.py`, M1.32); runs: (1) US build on the US card at a US position (positive control: the factory pair), (2) US build on the EU card at 51.70,17.45, (3) US build on the EU card with the M5.11 generated tile, (4) `--request` on one mesh of (2). Compare (2) with the EU-build run read for read (file, position, length; handler VAs differ by build). Not covered: the launcher's map-code check (M2.5/M2.15), routing, the renderer (M9.58).
+  - Input: `tools/datask_l3.py`, `tools/vcard_l3.py` (`--build`), `tools/build_targets.py`, `docs/format/firmware.md` (US rows), US card `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` (SHA-256 `53342430…c5383`), EXP-2026-11-19-M3.25-tile-reader-entry, EXP-2026-11-20-M9.53-record-block-read.
+  - Done when: runs (1)–(4) are in an EXP with their end state and read lists; (2) is `SAME` as the EU-build run in file/position/length, or the first differing read and the US function that decides it are named with a control that flips it; `datask_l3.py --selftest` covers the build switch; `reader-coverage.md` says for which rows the verdict now holds on US2011.
+  - Stop: if fewer than 90 % of the functions the mount enters have a `UNIQUE` US pair, record the list of unpaired ones and stop (then the task is a `fn_match` task first).
+  - Falsifier: the US build mounts the US card but, on the EU card, stops before the first tile read with no error-log call — then the position/mesh table, not the file layer, is market-bound.
+  - Claims: C-6300–C-6309
 
 ## Retired leads
 
