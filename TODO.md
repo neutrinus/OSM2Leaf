@@ -3671,7 +3671,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   **intent** of each patch, not its diff: the per-hunk intent tables are in
   `tools/qemu-ze0/patches/README.md` §§1–6 and the measured delta is
   [`docs/research/qemu-ze0-port-delta.md`](docs/research/qemu-ze0-port-delta.md).
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.a9-qemu-11-port · Critical: no
   - Depends: — (M8.A2 is merged; this is a port, not a re-run)
   - Goal: `-M ze0` works on current QEMU, not only on the frozen 8.2.7 pin.
   - Precheck: reproduce the two application columns in the delta doc for
