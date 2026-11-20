@@ -237,6 +237,15 @@ buffer in the generic sector reader `0x00417618` — the lead for M4.51. The
 link-group layout above is therefore a data-side decode, not *confirmed*
 (rule 13).
 
+### Table codes and `TMC/reception.dat` (EU 2011, M4.16d)
+
+A header `table_code` is `ord(CC hex digit) << 8 | LTN`: high byte the ASCII
+hex digit of the RDS country code, low byte the TMC location table number
+(`0x3219` = CZ, CC 2, LTN 25; `0x4401` = DE, CC D, LTN 1). `TMC/reception.dat`
+(208 B, 8-byte rows) lists the same 14 pairs as `ff 0f CC LTN 00 ff ff ff`
+rows (GB as `03 0a 0c 0a …`); the first two rows are not decoded (C-2320–C-2322,
+`python3 tools/tmc_reception.py join reception.dat RDSTM001.DAT MAPAL001`).
+
 ### Table dump
 
 `0x003a0034` prints the twelve fields in order; its format strings are at

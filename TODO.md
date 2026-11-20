@@ -1753,6 +1753,7 @@ of the four numbers above says so in its first line.
   - Result: `EXP-2026-11-08-M3.13-addre-reader-2.md` (C-2180–C-2187, partial; refines `EXP-2026-11-06-M3.13-addre-reader.md`). Writer-implied native `u16` class-mask signature finds `fn 0x003f56bc` (Navi.exe sec0, `0x003f56ec`) — sole `*r5 & 0xe000 >= 0xc000` (`cmp/hs` literal `0xc000`, 1/82 loads) gate, accepts ADDRE `c0/c8/c1` (C-973 tag-class mapped). Resolves via `0x003f51e0` (`0x00d53500`, POINT family); callers `0x003f5d98`/`0x003f61bc`. C-970–C-972, C-974–C-977 + sequential `2*L`/token consumers not mapped (done-when not met). L3: `0x0040b358`→`-1`, `0x0040114e` FPU-unmodelled. `refer.md`/`firmware.md`/`reader-coverage.md`/`claims.md` updated.
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
+  - Unblock: M3.23 (2026-11-20) candidates. `ICODE` (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x00401e94`, `0x004082cc`, `0x00402690`, `0x003f6c88`, `0x003f0c7c`, `0x00407724`, `0x003f07f8`, `0x004078e4`, `0x003f08cc`, `0x00409ba0` (3 are C-4694 loaders). `ZCODE`/`COORD` have no static anchor of their own (ctx +124 = 11/12 in `0x003fbed8`; `COORD001` unnamed): shared REFER list `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (C-3546). Confirm with M9.38 / M3.29.
   - Status: blocked · Owner: claude/m3.14-reader-layout · Critical: yes
   - Note (M3.25, 2026-11-19): `ICODE001.DAT` and `ICADM001.DAT` are read during the mount run and the functions that load their bytes are listed in C-4694 (`datask_l3.py mount … --file REFER001`); positions are in the decompressed file.
   - Note (M3.28, 2026-11-19): openers found without M1.2f: `ZCODE` = `0x003fbed8` with search type 11/12; `ICODE001` = `0x003f2cc0`, reads through `0x003efe10`/`0x003f0400`/`0x003f2828`; `COORD001` has no name reference in `Navi.exe` at all (C-4666, C-4669, C-4677). The blocker on M1.2f no longer holds for the first two: reopen from these functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
@@ -1780,6 +1781,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2190–C-2199
 
 - [ ] **M3.15 — The `LCTBL001` name-table reader**
+  - Unblock: M3.23 (2026-11-20) candidates (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x0040dd40`, `0x0040de98` (rank 2; the M9.38 reader, C-3607), `0x004125a8`, `0x00409cc8`, `0x0040b358` — the whole loop set below `0x004125a8` is these five (C-3544). Next is the record walk behind `0x003fc0ec`/`0x003fc518` (search type 1), which only a run separates (M3.29).
   - Status: blocked · Owner: task/m3.15-lctbl-reader-reopen · Critical: yes
   - Note (M3.28, 2026-11-19): `LCTBL001.DAT` is opened by `0x003fbed8` when the search type is 1 and ctx +104 is `0x14e4` (run on the card, C-4667), besides the literal in `0x004125a8`. The record walk is behind the read issuers `0x003fc0ec`/`0x003fc518`. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (M9.38, 2026-11-19): dynamic reader list on the plain `RDSTM001/LCTBL001.DAT` (7,489,024 B): of the four candidates `0x003f020c`/`0x0040dd40`/`0x0040de98`/`0x0040b358` only `fn 0x0040de98` (`GAP@0x0040de96`) reads it — six reads, widths 4/4/2 at offsets `+0x8/+0x4/+0x2` (read twice, two passes) — plus the shared header read `0x004125a8` `+0x8` (2-byte). C-3607, EXP-2026-11-19-M9.38-read-watch.
@@ -1797,6 +1799,7 @@ of the four numbers above says so in its first line.
   - Claims: C-2200–C-2209
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
+  - Unblock: M3.23 (2026-11-20) candidates, shared with `ADDRE`/`ZCODE` because the family is ctx +124 at run time (`python3 tools/callgraph.py rank g.json --edges e.json --depth 6 --family REFER=0x00400014,0x004000e8,0x004001bc,0x004003f4,0x004005f8 --family POINT=0x003ffe80 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0`): `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (library `0x0054233c`/`0x005468d4`/`0x0054705c` dropped); the read issuer `0x003fc518` is rank 15 (C-3545, C-3546). Split per family with M3.29.
   - Status: blocked · Owner: task/m3.16-inter-frway-readers-r2 · Critical: no
   - Note (M3.28, 2026-11-19): openers run on the card: `0x003fbed8` with search type 4 (`INTER`) and 3 (`FRWAY`); the reads come from `0x003fc0ec` and `0x003fc518` (C-4666). The two signature searches that found nothing can be replaced by following those two functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
@@ -1817,6 +1820,7 @@ of the four numbers above says so in its first line.
   - Result: `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (negative/blocked; done-when not met). Shared REFER001 access path confirmed: `INTER0`/`FRWAY0` in volume-id table `0x00179338` (~VA `0x0017934c`/`0x00179354`, C-881), descriptor `0x14e8` `fn 0x004125a8` → `REFER001`+`INDEX003.DAT` via `jsr 0x0040b358`, name-builder `fn 0x003fbed8` path (C-880/C-2180/C-2210). Two writer-inverse signature families over Navi.exe sec0 (5.56 MB, 0 compressed exec, C-2128) found 0 content-reader candidates (C-2211); consumed fields `UNKNOWN` (C-2213). `refer.md` INTER/FRWAY sections and `claims.md` C-2210–C-2214 updated.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
+  - Unblock: M3.23 (2026-11-20): no static root of their own was ranked. `ICADM001` loads appear in the `ICODE` list below `0x003f2cc0` (C-4694 mixes both: `0x003f0c7c`, `0x003f07f8`, `0x003f08cc`, `0x003eff20`); the name builder `0x003f1640` (C-2381) is the root to rank next (`callgraph.py rank g.json --family ICADM=0x003f1640 …`). `ZIPFR001`: shared REFER list of C-3546. Confirm with M9.38 / M3.29.
   - Status: blocked · Owner: task/m3.18-icadm-zipfr-readers-r2 · Critical: no
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
@@ -1964,8 +1968,9 @@ of the four numbers above says so in its first line.
 
 ---
 
-- [ ] **M3.23 — Static call graph of `Navi.exe` (pdata + pools + dispatch tables), and readers found by reachability**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M3.23 — Static call graph of `Navi.exe` (pdata + pools + dispatch tables), and readers found by reachability**
+  - Status: done · Owner: — · Critical: yes
+  - Result: `docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md` (C-3540–C-3547). `callgraph.py` joins register state across branches (+668 direct edges, 0 removed; unresolved 395 → 204) and gains `loops` and `rank`; known edges and the `.cmp` chain from table `0x0017ab38` (`0x00419c38`) down to `fopen`/inflate reproduced. Stop not met (2.9 % unresolved). Ranked lists per family: `LCTBL` confirmed reader `0x0040de98` at rank 2; `ICODE` 3–4 of 10 are C-4694 loaders; `POINT` top 3 are known record functions, but the walker `0x003f5194` is 15–18 (weak recall). `ADDRE`/`INTER`/`FRWAY`/`ZCODE`/`COORD` share one list: the family is ctx +124 at run time. Follow-up M3.29.
   - Note (H112, 2026-11-19): **rebuild the graph before using it.** The first `callgraph.py` decoded literal-pool words as instructions: 2,201 of 22,867 EU edges were false (M3.26 and M3.27 each caught one by hand). Fixed, with a selftest case; corrected numbers in C-4620. Imports by ordinal are now named. What is left of this task: (a) table edges (M3.24), (b) the reachability report per file family — start it from the name loaders of C-4627 (M3.28), not from byte signatures.
   - Note (H101, 2026-11-17): **the core exists: `tools/callgraph.py`** (`build`, `callers`, `callees`, `reach`, `users`, `path`, `stats`; `--selftest` 6 cases). `Navi.exe` EU2011: 9,000 nodes (1,404 leaf targets), 22,867 direct edges, 7,721 import edges, 589 unresolved indirect calls, 956 functions with no static caller; US2011: 8,890 / 22,119 / 525 / 970. It reproduces `0x0041c044 → 0x0041c990 → 0x0041c7dc → … → 0x00542250`. What is left of this task: the `loops` query, the map DLLs, and the ranked reader candidates per family. Only 589 calls are indirect — the `Stop` condition (30 %) is far away: in the `REFER` subtree below `0x004125a8` it is 47 unresolved in 223 functions.
   - Depends: M1.20 (function table), M3.24 helps (indirect edges)
@@ -2093,6 +2098,16 @@ of the four numbers above says so in its first line.
   - Stop: if a record class other than 3/2 needs renaming and its length byte cannot be located, refuse it and record the class count.
   - Result: EXP-2026-11-19-M5.52-resize-field-len.md (done). `--resize` places field 5 like `fn 0x003f56bc`/`fn 0x003f5e10` (EU2011; length of field f = byte `loc+f`), requires the old text inside field 5, patches `len2` and the field-5 length byte, refuses odd deltas and unplaceable records; `--census`: 2000/2000 records class 3, all placeable. Accessor (US2011 `0x0041ec8c`, EU2011 `fn 0x003f632c`): US rec 0 −2/0/+2/+10 B and EU rec 0 −2/+2, rec 1 +2 → whole new name, address unchanged, `ok=1000 of 1000`, PASS; pre-fix +2 `mismatch=1` (precheck), old-name expectation FAIL, odd/address renames refused. The M9.39 US mutant `ea2d0e0f…` has the same stale byte at rec 500 (`mismatch=1`); the fixed CLI writes `34fb3aab…` (`ok=1000`) → new M9.54 (re-pin). selftest 17/17.
   - Claims: C-5260–C-5265 (C-5266–C-5269 handed to M9.54)
+
+- [ ] **M3.29 — Split the shared REFER candidate list per family at run time, and measure M3.23's recall**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M3.23 (done), M9.38 (read watch), M3.28 (`vcard_l3.py trace`)
+  - Goal: M3.23 found that `ADDRE`, `INTER`/`FRWAY`, `ZCODE` and `COORD` go through one opener `0x003fbed8` whose family is ctx +124 at run time, so a static graph gives one shared candidate list (C-3546), and its ranking misses small walkers (C-3545). A run per family with the read watch turns the shared list into per-family readers.
+  - Scope: for ctx +124 = 2, 3, 4, 11 (and 1 for `POINT`) run one caller of `0x003fbed8` on the card with M9.38's read watch over the page buffer; record the functions that load record bytes per family; compare them with M3.23's QC list and the POINT/ICODE lists (recall = confirmed readers in the top 10 / confirmed readers).
+  - Input: `docs/experiments/EXP-2026-11-20-M3.23-callgraph-readers.md`, `tools/callgraph.py rank`, `tools/vcard_l3.py trace`, C-4666, C-3607.
+  - Done when: each of `ADDRE`, `INTER`, `FRWAY`, `ZCODE` has a list of functions that read its record bytes (or a recorded reason none was read), and the EXP gives the recall of M3.23's ranking per family.
+  - Stop: if no family other than `POINT`/`LCTBL` reads its file in the run (message wait as in C-3259), record the message and stop.
+  - Claims: C-5620–C-5629
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -2285,8 +2300,10 @@ of the four numbers above says so in its first line.
     coordinate` with random-key control.
   - Claims: C-2310–C-2319 (was C-1950–C-1959, already used by M2.13b)
 
-- [ ] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
+  - Status: done · Owner: task/m4.16d-tmc-segment-placement · Critical: no
+  - Result: EXP-2026-11-20-M4.16d-tmc-reception-table-codes — `TMC/reception.dat` lists the card's 14 (CC, LTN) pairs, one per RDSTM table; a table code is `ord(CC hex digit) << 8 | LTN` (14/14 listed, 14/14 codes carry the RDS CC of the country their records land in; shuffled countries max 8/14). With M4.16b (C-5400/C-5402) the chain (CC, LTN, location code) → RDSTM table → record → MAPAL node is closed. `TFTBL001` is absent on 2011 cards (C-122), not tested. `tools/tmc_reception.py`. C-2320–C-2323.
+  - Done when (set at close, the block had none): every `reception.dat` (CC, LTN) maps to exactly one RDSTM table whose placed records lie in the country with that RDS CC, above a shuffled-country control — met.
   - Step: P3
   - Depends: M4.16b, M4.7
   - Goal: if `RDSTM001` is TMC (C-882), test placement through the TMC
@@ -2582,8 +2599,8 @@ of the four numbers above says so in its first line.
   - Claims: C-5157–C-5159
   - Result: EXP-2026-11-20-M4.46-addre-tt05-names (C-5157–C-5159). The `c0` name section sits at byte `4 + 2*rec[2] + 2*rec[3]` in 4,610,363/4,610,363 `c0` records of the 33 EU2011 shards (0 of 7,424,226 `c8`); `addre.parse_record` now places it there and names every `c0`, no `c8`. `TT` per record: `0x03` 2,531 / `0x04` 1,332,147 / `0x05` 3,275,685, constant in 26 shards, mixed in 7 (table in `refer.md`). The old `TT` 3/4 rule (`names --legacy`) missed 3,275,685 names (71.0 %) on 14 shards. New `addre.py names` census; `_zlib_at` no longer copies the file tail per stream (large shards now read in minutes).
 
-- [ ] **M4.47 — Find the POINT chain locator (where a chain base and its table are recorded)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.47 — Find the POINT chain locator (where a chain base and its table are recorded)**
+  - Status: done · Owner: task/m4.47-point-chain-locator · Critical: yes
   - Depends: — (M5.26 done: chain tables and `tools/point_pair_regen.py` on `main`)
   - Goal: M5.26 can re-pack a POINT page chain only inside its own slot (24–248 B of slack per name chain) because nothing known tells the reader where a chain base and its chain table are (C-2955). Find that locator so a regenerated chain can move or grow and mass OSM name sets fit.
   - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_pair_regen.py scan EU/REFER001` reports 99 tables / 0 unresolved; `python3 tools/point_pair_regen.py locator EU/REFER001` reproduces `NOT FOUND (best 4/33)` with control 33/33 (the search space already excluded).
@@ -2592,7 +2609,20 @@ of the four numbers above says so in its first line.
   - Hints: the three bases differ between files while the `0x1000` record's words do not scale with them — try differences between chains (base2000 − table1000 etc.), counts of records/pages (1000/page), and sums of `comp_w` of *other* chains. A differential is strongest: move one chain in a synthetic copy and run the L3 POINT walk path.
   - Done when: an EXP names the field(s) (offset, width, unit, base) that give each chain base and table offset in 44/44 files with a negative control (a shuffled value fails), and `point_pair_regen.py` gains a relocation mode that moves a chain to the end of the `.DAT` and updates that field, with its selftest; or the EXP shows the locator lives in firmware/another file with the reading VA (EU2011) and a control.
   - Stop: if neither the file search (directory + index chains) nor the firmware caller path of `fn 0x003f5194` yields it after both are searched, record the scopes searched and set blocked on the first M3 reader task that executes the POINT open path in L3.
-  - Claims: C-5390–C-5399
+  - Claims: C-5390–C-5396 (C-5397–C-5399 given to M4.52)
+  - Result: EXP-2026-11-20-M4.47-point-chain-locator (C-5390–C-5396). Structures are addressed by a BE `u32` block address `(off/0x800)<<8 | (off%0x800)/0x100`; directory cell `0x82a` (6-byte cells at `0x800..0xf06`) → the field-dictionary record holding base references (`addr, length_w`) at `+0x2e` (1000) / `+0x13c` (400) and table references (`addr, length_w, per_page`) at `+0x19a` / `+0x1b6`; cell `0xeba` → the 2000 chain's record `+0x24` / `+0x94`. One layout in 44/44 files, 264 references each unique, 132/132 chains verified through it; shuffled and plain-unit values reach 0 chains. `point_pair_regen.py relocate` moves a chain to the end of the `.DAT` (selftest 37 checks); EU POINT010 takes 1,000 and 6,199 real names M5.26 refused. Firmware reader of the reference not located → M4.52.
+
+- [ ] **M4.52 — Run the POINT open path on a relocated name chain (who reads the chain locator)**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: M4.47 (done)
+  - Goal: M4.47 found the chain locator in the file (directory cell `0x82a` → field-dictionary record → base reference `+0x2e`) and `point_pair_regen.py relocate` moves a chain to the end of the `.DAT`, but no firmware code was seen reading the reference (C-5396 is a hypothesis). Rule 13 needs the reader to read a relocated chain.
+  - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_name_accessor.py --selftest`; `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x0040ee4c` prints `START` or `INSIDE`.
+  - Scope: EU2011 `Navi.exe` (name the build next to every VA, then US2011): the loader that fills header-table entry `+44` (`0x0040ee4c`'s 100 × 80 table, `0x0140e240` EU2011, M3.11c) with the dictionary block, the code that reads the directory cell at `0x800` and the reference at dictionary `D+4` (`D = C + 2*u16[C+2]`, the header `fn 0x003f56bc` reads), and the code that turns `start_w` into a page read. No writer change.
+  - Input: EXP-2026-11-20-M4.47-point-chain-locator, EXP-2026-11-19-M3.11c-point-name-accessor-l3, `tools/d53500_writer.py`, `tools/point_name_accessor.py`, `tools/sh4xref.py`.
+  - Hints: the base reference is a block address: look for a `shlr8`/`shll8` pair or a byte load of `addr & 0xff` (the data is BE on an LE CPU, so the reader may build it from bytes); the `mov #11`+`shad` sites `0x003f6ae6`/`0x003f6d5c` (EU2011) log `(@(12,r) << 11) + @(16,r)`, a sector/offset pair of a request struct — its writer is a candidate.
+  - Done when: an EXP names the VA (EU2011 and US2011) that reads the base reference, and an L3 run of that path on `relocate` output reads record 1 of the moved name chain at its new base (positive) while a pair with the reference left at the old base does not (negative).
+  - Stop: if the loader is reached only through an IAT import that M9.35 cannot bind, record the call chain and set blocked on that binding task.
+  - Claims: C-5397–C-5399
 
 - [x] **M4.41 — Differential decoding: the same tile in 2011, 2014 and 2016**
   - Status: done · Owner: task/m4.41-diff-years · Critical: no · Pair: solo
