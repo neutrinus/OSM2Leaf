@@ -1500,7 +1500,7 @@ in its first line.
   - Falsifier: if narrowing the rule moves any row's non-null US address to a different non-null one, stop and record it (H113 Stop).
   - Done when: an EXP gives the before/after census and the count of rows the residual explains; the synthetic hw50 case no longer blanks hw122 (selftest) while the loaded-pool-word case still does not; `python3 tools/gate.py` green and the `fn_match_eu_us_2011.json` fixture replays `0 mismatch`.
   - Stop: if no narrowing rule keeps every H113 `UNIQUE` US address, record the negative with the count and leave the residual documented instead of merging a behaviour change.
-  - Claims: C-5760–C-5769
+  - Claims: C-5800–C-5809
 
 ## M2 — Map code, activation, updater
 
