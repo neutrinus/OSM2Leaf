@@ -600,8 +600,8 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-5750–C-5759
   - Result: EXP-2026-11-20-H117-main-shadow-run; policy (b) shipped (policy (a) parked on H98: `main` unprotected, `gh api …/protection` 404). `.github/workflows/main-watch.yml` + `.github/scripts/main_watch.py` fail on a salient red `main` run and open one `[H117] fix:` issue naming the SHA and the failed job/step; a later green covers a red (shadowed, counted), `cancelled` covers nothing, an empty list is exit 2. Offline selftest `OK (19 checks)`; `--replay` of the 100-run list prints 7 red-tip moments; today's tip `d2fb7b48` is `0 salient`; Done-when control: a deliberately red branch (duplicate claim row) shows `quality (py3.11)`/`(py3.13)` fail on its PR. Claims C-5750–C-5753.
 
-- [ ] **H99 — `.github/workflows/README.md` still documents the pre-H85 hard gate (selftest + claims + todo), not `tools/gate.py`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H99 — `.github/workflows/README.md` still documents the pre-H85 hard gate (selftest + claims + todo), not `tools/gate.py`**
+  - Status: done · Owner: task/h99-workflows-readme-gate · Critical: no · Pair: solo
   - Depends: H85 (the gate runner, done); H53 for the todo half of the policy text only
   - Goal: the workflow README is the contract a new agent reads, and it names three commands `ci.yml` no longer runs as three steps: `python tools/selftest.py --json`, `python tools/claims_check.py`, `python tools/todo_check.py TODO.md`. The actual gate is one step, `tools/gate.py`, with `claims_check --strict --count-check` and the PASS/FAIL/SKIP policy, and a SKIP that is never PASS. The README also does not say `fn_audit` is the step that SKIPs for the missing head, so a reader cannot tell what CI actually covers.
   - Precheck: `grep -n 'tools/gate.py' .github/workflows/README.md` prints nothing; `sed -n '7,14p' .github/workflows/README.md` lists the three old commands.
@@ -612,6 +612,7 @@ text of this section is in git (`13cb0cf`).
   - Stop: if H86's rewrite already names `tools/gate.py`, close this as superseded by H86 with a one-line `Result:` and keep the H86 task.
   - Falsifier: `README.md` still tells an agent that `ci.yml` runs `selftest.py --json` and `claims_check.py` as separate hard-gate steps.
   - Claims: C-4270–C-4279
+  - Result: EXP-2026-11-21-H99-workflows-readme. `.github/workflows/README.md`'s "Hard gate" list is now the one `python tools/gate.py` step with a four-row table matching `gate.py`'s `Gate(...)` names (`selftest`, `claims_check --strict --count-check`, `todo_check`, `fn_audit`), the SKIP-is-never-PASS rule, and the line that `fn_audit` SKIPs in PR CI but must PASS in H84's manual job; the pre-H85 three-command list is gone (`grep` of it exits 1). `tools/gate.py` line 30, old three-command list line 30–32 gone. No workflow logic changed. `python3 tools/todo_check.py` OK (0 errors, 156 warnings), `claims_check --strict --count-check` OK, `python3 tools/gate.py` `4 pass, 0 fail, 0 skip`. Claims C-4270–C-4274.
 
 - [x] **H100 — `claims.md` carries 285 `RESERVED (TASK).` placeholder rows, and no gate notices when the task is `done`**
   - Status: done · Owner: task/h100-claims-reserved · Critical: no · Pair: required

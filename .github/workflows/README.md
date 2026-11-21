@@ -25,11 +25,19 @@ Runs on `pull_request` and `push` to `main`. It is a deterministic **test-infras
 
 ### Hard gate (blocking merge check)
 
-On Python **3.11** and **3.13**:
+On Python **3.11** and **3.13** the one blocking step is:
 
-- `python tools/selftest.py --json` — repo/tool selftests. Policy: tools with no `--selftest` and environment-missing dependencies are reported as **SKIP** by `selftest.py`; **SKIP is not PASS**. A FAIL blocks the check.
-- `python tools/claims_check.py` — `docs/research/claims.md` ledger consistency.
-- `python tools/todo_check.py TODO.md` — `TODO.md` board structure/claim-allocation lint (H24). Errors fail; warnings are reported.
+- `python tools/gate.py` — the standing gate (H85). It runs four commands in a fixed order and applies one **PASS / FAIL / SKIP** policy:
+
+  | gate | command it runs |
+  | --- | --- |
+  | `selftest` | `python tools/selftest.py` |
+  | `claims_check` | `python tools/claims_check.py --strict --count-check` |
+  | `todo_check` | `python tools/todo_check.py` (strict on under `--board-clean`, red until H53) |
+  | `fn_audit` | `python tools/fn_audit.py archive/head256.img --corpus … --overlay …` |
+
+- **SKIP is never PASS.** Each gate is `PASS` (ran, exit 0), `FAIL` (ran, non-zero for a real defect) or `SKIP (reason)` (a vendor input is absent, so the gate never ran). The job summary prints the SKIPs and the step exits 1 only when a *runnable* gate FAILs — a SKIP-only image gate does not make the step green-as-passed.
+- `fn_audit` is the gate that **SKIPs in PR CI**: `archive/head256.img` is not on the runner. It must **PASS** in H84's manual IMG256 job, which has the image (`--require-image` turns a missing head into a FAIL there).
 
 ### Informational (non-blocking)
 
