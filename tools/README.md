@@ -630,9 +630,11 @@ harness `targets.json`, `docs/format/firmware.md`, every
 docs discipline, not "every hex token": a live `fn`/`sub_` label, a correction
 `ctx` with its own arrow pair, or a documented `CORRECTION_ONLY` pin is cited;
 a bare data address, path offset, range, string pointer or US-build start is
-skipped (it is not a citation a task can "fix"). `US_BUILD_STARTS` (the six
-US-2011 Navi VAs, M1.28/C-3487) are skipped for every kind in both scopes so
-the EU head never reports a valid US address as `INSIDE`. It reports
+skipped (it is not a citation a task can "fix"). `US_BUILD_STARTS` (33 before
+M9.61 + the 31 US data-access VAs of `build_targets._DATA_TASK_US`, 64 in all)
+are skipped for every kind in both scopes so the EU head never reports a valid
+US address as `INSIDE` (the M9.61 `datask_l3.py --build us2011` table is why
+the set grew; `python3 tools/build_targets.py --selftest` checks the count). It reports
 `NOT SCANNED <reason>` for a corpus whose parser or file is missing, and exits
 1 on any `INSIDE` (or an `AMBIGUOUS` whose candidates include one). The whole
 l3 citation set is frozen to `docs/research/fn-audit-l3-corpus-2026-11-20.json`
