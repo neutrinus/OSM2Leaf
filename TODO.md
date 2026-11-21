@@ -1839,7 +1839,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6520–C-6529
 
 - [ ] **H122 — `l3_harness/corpus.py --selftest` fails 4 `hdd_info` checks on main and the gate skips the suite**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h122-h122-corpus-selftest · Critical: no · Pair: solo
   - Depends: —
   - Goal: `python3 tools/l3_harness/corpus.py --selftest` ends `FAILED (4/14 checks)` on `main` (2026-11-20, also before PR #340): the factory `HDD_INFO.TXT` fixture is `REJECT` where the manifest expects `ACCEPT`, because `hddinfo.classify(...)["accepted"]` is false when the check-2 bounds are unknown (`verdict 'ACCEPT (check1); check2 BOUNDS_UNKNOWN'`). `python3 tools/selftest.py --only l3_harness.corpus` prints `SKIP no --selftest`, so `gate.py` never ran it. Found during M9.10 (C-2149).
   - Precheck: both commands above print what the Goal quotes.
