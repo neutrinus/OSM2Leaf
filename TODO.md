@@ -1352,14 +1352,15 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-20-M1.36-module-census-4-images (C-6280–C-6285): same five-segment SH-4 layout on all four; EU 2011 and US 2011 share kernels B/C byte for byte and differ only in A; 2014/2016 are platform `X212` with different kernels (`FlashManager2`, `fmmdrv_05/07`); `Audio.exe` +54 %, `Navi.exe` +4 % in 2014.
   - Claims: C-6280–C-6289
 
-- [ ] **M1.36b — `tools/rom_atlas.py`: one table of every module on every card image (the binary and data atlas)**
-  - Status: in progress · Owner: task/m1.36b-rom-atlas · Critical: no · Pair: solo
+- [x] **M1.36b — `tools/rom_atlas.py`: one table of every module on every card image (the binary and data atlas)**
+  - Status: done · Owner: task/m1.36b-rom-atlas · Critical: no · Pair: solo
   - Depends: M1.36 (done), M1.22b (`fn_match`, reloc-masked function hashes, done)
   - Goal: a committed, reproducible map of what is on a card: per image and ROM (A/B/C) every module with size, sections, reloc-masked code hash, imports/exports, COM class names and its role in one line; plus the data side (FAT tree families, TFAT16 tail, `FILESentry` files). M1.36 was a scratch script whose hashes include XIP relocation.
   - Precheck: `python3 tools/fetch_image.py --image EU2014 --part 256M -o X` verifies the size; `python3 tools/cerom.py --image-start 0x200200 X modules` lists 153 modules.
   - Scope: the four pinned images; output `docs/research/rom-atlas.md` (generated, with the command) + `--json`. Role lines only where a string/export supports them, else `unknown`. Pin the EU2014/EU2016 256M SHA-256 in `fetch_image.py`.
   - Done when: `rom_atlas.py --selftest` passes; the table reproduces M1.36's counts; for EU 2011 vs US 2011 it reports which A modules are equal after reloc masking (negative control: B/C all equal, C-6281).
   - Claims: C-6290–C-6299
+  - Result: EXP-2026-11-21-M1.36b-rom-atlas; census reproduced (A 149/151/153/153, B 91/91/95/96, C 88/88/92/92); EU2011 vs US2011 A equal 1 (atlce400.dll) with B 91/91, C 88/88 negative control; raw==masked equal on all 9 pairxROM rows (0 gained); C-6290-C-6299
 
 - [ ] **M1.37 — Changelog between builds, module by module (functions, strings, exports)**
   - Status: open · Owner: — · Critical: no · Pair: solo

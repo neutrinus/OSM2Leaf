@@ -167,8 +167,13 @@ def module_range(rom, mod):
     return lo, hi
 
 
-def module_digest(rom, mod):
-    """``(code_sha or None, exec_section_count, code_bytes)`` for one module."""
+def module_digest(rom, mod, mask=True):
+    """``(code_sha or None, exec_section_count, code_bytes)`` for one module.
+
+    ``mask=False`` hashes the raw executable-section bytes with the same
+    section-index/vsize key but **no** reloc masking, so the two digests differ
+    exactly on relocation. It is the control for the masking check.
+    """
     lo, hi = module_range(rom, mod)
     iat = frozenset(slot for _dll, slot, _n, _o in rom.imports(mod))
     d = rom.d
@@ -185,8 +190,12 @@ def module_digest(rom, mod):
         code_bytes += sec["psize"]
         off = rom.va2file(sec["dataptr"])
         blob = d[off:off + sec["psize"]]
-        words = [blob[i] | (blob[i + 1] << 8) for i in range(0, len(blob) - 1, 2)]
-        parts.append((digest_words(words, sec["realaddr"], blob, (lo, hi), iat), idx, sec["vsize"]))
+        if mask:
+            words = [blob[i] | (blob[i + 1] << 8) for i in range(0, len(blob) - 1, 2)]
+            parts.append((digest_words(words, sec["realaddr"], blob, (lo, hi), iat),
+                          idx, sec["vsize"]))
+        else:
+            parts.append((hashlib.sha256(blob).hexdigest(), idx, sec["vsize"]))
     if any(p[0] != "compressed" for p in parts):
         fp = hashlib.sha256()
         # Key by executable-section index and vsize, never by the section's
@@ -420,7 +429,7 @@ def read_image(path):
         return fh.read(READ_LIMIT)
 
 
-def rom_side(path, do_hash=True):
+def rom_side(path, do_hash=True, raw=False):
     data = read_image(path)
     segments, duplicates = cerom.find_segments(data)
     out = {"duplicates": duplicates, "segments": {}}
@@ -440,7 +449,7 @@ def rom_side(path, do_hash=True):
             exports = [name for _o, name, _r in seg.exports(m)] if do_hash else []
             imports = list(seg.imports(m))
             com = module_com_classes(seg, m) if do_hash else []
-            code_sha, exec_secs, code_bytes = module_digest(seg, m) if do_hash else (None, 0, 0)
+            code_sha, exec_secs, code_bytes = module_digest(seg, m, mask=not raw) if do_hash else (None, 0, 0)
             all_secs = list(seg.o32(m))
             role, basis = infer_role(m["name"], exports, com)
             seg_info["modules"].append({
@@ -498,6 +507,42 @@ def equal_modules(rom_a, rom_b, rom_key):
         "nocode": nocode,
         "only_a": sorted(a[k]["name"] for k in set(a) - set(b)),
         "only_b": sorted(b[k]["name"] for k in set(b) - set(a)),
+    }
+
+
+def maskcheck(rom_raw_a, rom_raw_b, rom_masked_a, rom_masked_b, rom_key):
+    """Raw vs reloc-masked equality for one ROM pair.
+
+    ``*_raw`` sides hash executable bytes with no mask, ``*_masked`` sides use
+    the reloc mask. ``gained`` names modules that raw bytes call *different*
+    but the mask calls *equal* -- a module that only moved. Zero gained means
+    the mask changed no final answer on this pair, which is the safety property
+    the atlas relies on.
+    """
+    def table(side):
+        return {m["name"].lower(): m for m in side["segments"][rom_key]["modules"]}
+
+    ra, rb = table(rom_raw_a), table(rom_raw_b)
+    ma, mb = table(rom_masked_a), table(rom_masked_b)
+    common = sorted(set(ra) & set(rb))
+    raw_equal = masked_equal = 0
+    gained = []
+    for k in common:
+        if not ra[k]["exec_sections"] or not rb[k]["exec_sections"]:
+            continue
+        if ra[k]["code_sha"] != rb[k]["code_sha"]:
+            if ma[k]["code_sha"] and ma[k]["code_sha"] == mb[k]["code_sha"]:
+                gained.append(ma[k]["name"])
+        else:
+            raw_equal += 1
+        if ma[k]["code_sha"] and ma[k]["code_sha"] == mb[k]["code_sha"]:
+            masked_equal += 1
+    return {
+        "rom": rom_key,
+        "common": len(common),
+        "raw_equal": raw_equal,
+        "masked_equal": masked_equal,
+        "gained": sorted(gained),
     }
 
 
@@ -652,8 +697,10 @@ def render_atlas(images, command="", pairs=(("EU2011", "US2011"), ("EU2011", "EU
 
 def selftest():
     failures = []
+    done = []
 
     def check(name, cond):
+        done.append(name)
         print(("ok   " if cond else "FAIL ") + name)
         if not cond:
             failures.append(name)
@@ -751,7 +798,21 @@ def selftest():
               eq2["different"] == ["NAVI.EXE"] and eq2["equal"] == []
               and eq2["nocode"] == ["NK.EXE"])
 
-    print("failures: %d" % len(failures))
+        # 5. raw-vs-mask characterization: same side raw==masked; a mutation
+        #    gives no "gained" module (masking does not hide a code change).
+        raw = rom_side(str(img), do_hash=True, raw=True)
+        mc_self = maskcheck(raw, raw, rom, rom, "A")
+        check("maskcheck: self-comparison raw-equal == masked-equal",
+              mc_self["raw_equal"] == mc_self["masked_equal"] == 1
+              and not mc_self["gained"])
+        raw2 = rom_side(str(mimg), do_hash=True, raw=True)
+        mc_mut = maskcheck(raw, raw2, rom, rom2, "A")
+        check("maskcheck: a changed code byte is not gained by masking",
+              mc_mut["raw_equal"] == 0 and mc_mut["masked_equal"] == 0
+              and not mc_mut["gained"])
+
+    print("rom_atlas selftest: %s (%d checks, %d failed)"
+          % ("FAIL" if failures else "OK", len(done), len(failures)))
     return 1 if failures else 0
 
 
@@ -834,6 +895,17 @@ def cmd_equal(args):
     report = {}
     for rk in rom_keys:
         report[rk] = equal_modules(rom_a, rom_b, rk)
+    if args.mask_check:
+        raw_a = rom_side(pa, do_hash=True, raw=True)
+        raw_b = rom_side(pb, do_hash=True, raw=True)
+        for rk in rom_keys:
+            mc = maskcheck(raw_a, raw_b, rom_a, rom_b, rk)
+            report[rk]["maskcheck"] = mc
+            print("%s vs %s, ROM %s: common %d raw-equal %d masked-equal %d gained %d"
+                  % (ka, kb, rk, mc["common"], mc["raw_equal"], mc["masked_equal"],
+                     len(mc["gained"])))
+            if mc["gained"]:
+                print("  gained by masking: %s" % ", ".join(mc["gained"]))
     if args.json:
         Path(args.json).write_text(json.dumps({"%s:%s" % (ka, kb): report}, indent=1) + "\n")
         print("wrote %s" % args.json, file=sys.stderr)
@@ -878,6 +950,8 @@ def build_parser():
     e.add_argument("--rom", choices=ROM_KEYS, help="only this ROM (default A/B/C)")
     e.add_argument("--negative-bcs", action="store_true",
                    help="also assert B and C are fully equal (the C-6281 control)")
+    e.add_argument("--mask-check", action="store_true",
+                   help="also report raw-byte vs reloc-masked equality per ROM")
     e.add_argument("--json", metavar="PATH")
     e.set_defaults(func=cmd_equal)
     return ap
