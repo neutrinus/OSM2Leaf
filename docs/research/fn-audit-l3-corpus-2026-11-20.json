@@ -476,6 +476,7 @@
   "docs/experiments/EXP-2026-11-20-M9.57-event11-subscriber.md",
   "docs/experiments/EXP-2026-11-21-H105-cardcheck-negative-control.md",
   "docs/experiments/EXP-2026-11-21-H119-snapshot-union-merge.md",
+  "docs/experiments/EXP-2026-11-21-H121-board-mergebase-check.md",
   "docs/experiments/EXP-2026-11-21-H123-board-tool.md",
   "docs/experiments/EXP-2026-11-21-H124-us256-claims-pin.md",
   "docs/experiments/EXP-2026-11-21-H99-workflows-readme.md",
@@ -508,6 +509,7 @@
  "summary": {"files": 487, "citations": 1341, "unique_va": 326, "start": 1177, "inside": 73, "corrected": 5, "gap": 78, "leaf": 78, "ambiguous": 6, "unmapped": 2},
  "summary": {"files": 490, "citations": 1406, "unique_va": 342, "start": 1240, "inside": 73, "corrected": 5, "gap": 80, "leaf": 80, "ambiguous": 6, "unmapped": 2},
  "summary": {"files": 492, "citations": 1412, "unique_va": 343, "start": 1246, "inside": 73, "corrected": 5, "gap": 80, "leaf": 80, "ambiguous": 6, "unmapped": 2},
+ "summary": {"files": 493, "citations": 1412, "unique_va": 343, "start": 1246, "inside": 73, "corrected": 5, "gap": 80, "leaf": 80, "ambiguous": 6, "unmapped": 2},
  "rows": [
   {"file": "TODO.md", "va": "0x003ad440", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x003ad680", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
