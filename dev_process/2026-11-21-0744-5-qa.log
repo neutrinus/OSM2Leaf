@@ -1,0 +1,77 @@
+role: QA (test engineer), cycle 20 (assess only; no implementation)
+model: Airouter Strong (opencode/deepseek-v4.1-flash-free)
+start: 2026-11-21 07:44 UTC
+origin/main at start: b67d1519 (stable through the pass; no concurrent writer)
+branch: main (primary checkout; commits from it)
+
+inputs read: AGENTS.md, prompt_common.txt, prompt_qa.txt, TODO.md rules 1-17 + Priorities,
+  docs/retro/2026-11-21.md (SM cycle 19), dev_process/2026-11-21-{0703-1-sm,0719-2-tl,
+  0722-3-se,0740-4-po}.log (my last run is 2026-11-20-1835-12-qa), the 10 open draft PRs,
+  .github/workflows/{ci,l1l2-fixtures,main-watch}.yml + README.md, docs/research/reader-coverage.md.
+
+what the test system shows today (each number from a command run this pass):
+  - gate.py 4 pass / 0 fail / 0 skip (selftest 133.08 s, claims_check 7.14 s, todo_check
+    0.06 s, fn_audit 5.12 s, PASS not SKIP: archive/head256.img present).
+  - todo_check --strict: exit 1, 8 ERROR over 4 tasks (M1.38, M3.13, M3.29, M8.C; 181 WARN).
+    H53's Result recorded 17 ERROR / 7 tasks at ea15563 "until those land done"; 3 of those
+    7 PRs are still open (#351/#341/#355), so it is open-PR debt, not a new regression.
+  - card_ladder steps --check: open=46 tagged=46 pending=0 missing=0 bad=0 stale=0 (holds).
+  - l3check --build-corpus: pass=3 runnable=3/13, 10 blocked; l1l2_fixtures --require-covered
+    exit 1 (L1 synthetic row still NOT COVERED — H40/H105 open in PRs).
+
+runs checked, not just files ("CI quality gate" on main, 12 latest read; next 80 for the window):
+  - tip b67d1519 GREEN; main_watch.py --branch main -> "0 salient, 5 shadowed, 9 cancelled,
+    40 runs", exit 0.
+  - red gate runs in the last ~24 h, all on "quality :: Standing gate (tools/gate.py)",
+    claims_check exit 1 (MISSING config fixed by f353a39c; later green covers each):
+      8e0f913c90 23:18Z, 28927eb43d 23:29Z, 13731fe9cf 23:58Z, c4b5a90279 00:10Z
+      (MISSING C-2141/C-2143/C-2144/C-2145 archive/us256.img), 6834e4b4eb 06:11Z.
+    [H117] issue #418 opened 23:20Z, closed 06:29Z by a later green. No task per run: the
+    class is fixed and covered; the *log* defect is H127 below.
+  - cancelled runs: 3e41dc89 (PO log, tip-1) and 9 older — concurrency de-dup, each covered.
+  - PR checks: all 10 open draft PRs green on l1l2 and quality (py3.11/3.13/3.14), EXCEPT
+    M8.C1 #394: `gh pr checks 394` -> "no checks reported", exit 1; head 99d0b54 has
+    check-runs total_count=0 (previous heads 6b55ccd/19748d2/738817d have 6 each) -> H126.
+
+the four rule-17 numbers (tools/map_signals.py, verbatim):
+  readers: located 18 partial 1 unlocated 1
+  l3_rows: l3-running 8
+  tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.29%
+  card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)
+  None of the four moved since cycle 18 (retro 2026-11-21 lead #1 stays true).
+
+tasks added (5; next-id/next-claims taken each time; claims C-6670-C-6719):
+  - H126 (C-6670-6679, Pair required): PR-head watchdog — a pushed PR head with 0
+    check-runs is reported and fails; fixture M8.C1 #394. Gives #394 a task (prompt rule).
+  - H127 (C-6680-6689, Pair required): gate.py prints only lines[-40:] for claims_check/
+    todo_check, so all 5 red runs name no failing claim -> per-gate FAIL-hint selection.
+  - M9.64 (C-6690-6699, Pair required): main_watch classifies a red gate as shadowed by a
+    green *L1/L2* run; shadowing must match workflow.
+  - H128 (C-6700-6709, Pair required): todo_check --strict debt ledger (baseline by
+    (task,field)) so "8 ERROR" is a measured number, not re-derived each pass.
+  - M5.67 (C-6710-6719, Pair required): l2check --features: per-feature rows
+    roads/names/POIs/geometry emitted-vs-manifest; an EMPTY road row FAILs. Closes the
+    prompt's "L2 per feature" gap that M5.61/M5.66 don't cover.
+
+decisions / rejected:
+  - Did NOT give each of the 5 red runs its own task: they are one fixed config
+    (f353a39c) and all shadowed; the durable defect is invisible-in-log (H127).
+  - Did NOT file H84/H86/H40/M9.62/M9.59 duplicates — all exist and are open; H44 already
+    owns the L5 readiness/registry half, so no new L5 task (prompt: prepare cheaply).
+  - Did NOT touch any in-progress task or open-PR task; all 5 IDs are fresh.
+  - Did NOT edit TODO/claims by hand; all rows via board.py add-task (TODO +65 lines, 0 dels).
+
+problems:
+  - my first `python3 tools/gate.py` exceeded the 120 s shell timeout mid-selftest; re-ran
+    with a 300 s timeout -> 4/0/0. No data lost.
+  - M8.C1 #394's 99d0b54 is a rebase of work authored on main; GitHub shows total_count=0,
+    gh says "no checks reported" — could not tell a coalesced run from a skipped trigger,
+    so H126's Stop covers both.
+
+handoff:
+  - TL: review/merge the 10 draft PRs, then H126 (it guards that queue) and H127 (red-log
+    legibility) are the two cheapest test-system wins; M5.67 waits on M5.61.
+  - QA next pass: re-read "CI quality gate" + "L1/L2 synthetic fixtures" on main, quote
+    main_watch, map_signals, todo_check --strict and card_ladder steps --check; M8.C1 #394
+    should now have runs (H126) or a recorded reason.
+end: 2026-11-21 07:59 UTC
