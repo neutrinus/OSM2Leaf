@@ -52,6 +52,20 @@ jobs:
           python -VV
           python -c "import sys, zlib; print('zlib', zlib.ZLIB_VERSION, zlib.ZLIB_RUNTIME_VERSION); print('implementation', sys.implementation.name)"
 
+      - name: Board merge base (H121)
+        shell: bash
+        run: |
+          # tools/gate.py's board_check row diffs the PR tree against origin/main
+          # (the merge base, or HEAD^1 on a pull_request's synthetic merge).
+          # actions/checkout fetches only the checked-out ref, so origin/main is
+          # fetched here; the block allows depth 200 for the time it adds.
+          start=$(date +%s%N)
+          git fetch --no-tags --depth=200 origin \
+            '+refs/heads/main:refs/remotes/origin/main'
+          ms=$(( ($(date +%s%N) - start) / 1000000 ))
+          echo "fetched origin/main in ${ms} ms (depth 200)"
+          git merge-base HEAD origin/main | sed 's/^/merge base with origin\/main: /'
+
       - name: Standing gate (tools/gate.py)
         id: gate
         shell: bash
@@ -94,7 +108,8 @@ jobs:
           {
             echo '## Gate policy'
             echo
-            echo '- Hard gate (blocking): `tools/gate.py` (`selftest.py` + `claims_check.py --strict --count-check` + `todo_check.py` + `fn_audit.py --corpus/--overlay`, one PASS/FAIL/SKIP policy) on Python 3.11 and 3.13.'
+            echo '- Hard gate (blocking): `tools/gate.py` (`selftest.py` + `claims_check.py --strict --count-check` + `todo_check.py` + `board.py check HEAD` + `fn_audit.py --corpus/--overlay`, one PASS/FAIL/SKIP policy) on Python 3.11 and 3.13.'
+            echo '- `board.py check HEAD` fails a PR that drops a claim row or task block it does not own (H121: PR #340 lost 42 blocks and 199 rows while every other gate passed); it diffs against `origin/main`, which the "Board merge base" step fetches with depth 200.'
             echo '- A SKIP (missing `archive/head256.img` here) is listed in the job summary and is never counted as PASS; the manual H84 job has the image and requires the l3 gate to PASS.'
             echo '- Informational (non-blocking): Python 3.14 job, because `zlib-ng` builds may diverge from stock zlib 1.3.1 byte-identical behavior (H9). This gate does not claim byte-identical recompression.'
             echo '- No vendor data, no IMG256/full card tree, no QEMU build, no L4 hardware tests.'
