@@ -1876,7 +1876,7 @@ text of this section is in git (`13cb0cf`).
   - Stop: one session. If `todo_check` cannot tell an archived ID from a ghost without the history files, ship the `done` case only, and file the archive case as its own task — do not guess.
   - Falsifier: a `blocked` task on `main` whose `Unblock` names a `done` task that the new rule does not print. Then the rule reads the wrong field, and the pair fixes the field, not the test.
   - Claims: C-6590–C-6599
-  - Result: EXP-2026-11-21-H125-unblock-done-target (C-6590–C-6593). `todo_check.py --strict` exits 1 and names M3.29 (Unblock M9.53 done) and M4.23 (Unblock M4.25/M4.26 archived); the class census is 5 blocked tasks / 9 refs (M3.16, M3.18, M4.51 are the same hole) = 8 prior + 9 new strict errors; default `todo_check` exit 0 and `gate.py` 4 pass / 0 fail / 0 skip (fn_audit PASS); selftest 36 checks covers done/archived ERROR + open no-error. Board repair is M3.36.
+  - Result: EXP-2026-11-21-H125-unblock-done-target (C-6590–C-6593). `todo_check.py --strict` exits 1 and names M3.29 (Unblock M9.53 done) and M4.23 (Unblock M4.25/M4.26 archived); the class census is 5 blocked tasks / 9 refs (M3.16, M3.18, M4.51 are the same hole) = 8 prior + 9 new strict errors; default `todo_check` exit 0 and `gate.py` 4 pass / 0 fail / 0 skip (fn_audit PASS); selftest 43 checks covers done/archived ERROR + open no-error. Board repair is M3.36.
 
 - [ ] **H126 — PR checks go stale: a push to a PR head after its last run leaves zero check-runs, and nothing re-runs or refuses the merge**
   - Status: open · Owner: — · Critical: yes · Pair: required
