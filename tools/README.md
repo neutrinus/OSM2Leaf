@@ -390,6 +390,22 @@ python3 tools/tile_drop_l3.py run archive/head256.img --card-image CARD --positi
 python3 tools/tile_drop_l3.py third-entry --card-image CARD B60R048R.DAT   # --flip arguments
 ```
 
+## `lctbl_kind.py` — what the `LCTBL001` kind code (`class_code`) encodes (M4.35)
+
+Tests field 0 of every record as the TMC location type `10000·class +
+100·type + subtype`: `census` checks that the reference columns obey the
+class (`liner ref` → linear, `area ref` → area, offsets → same class),
+`roadclass` compares the `L1.x` subtype with the road class that the syntax
+of the road number shows (Czechia, Germany, UK, USA). Both repeat the test
+with permuted codes as the control. Read-only.
+
+```bash
+python3 tools/lctbl_kind.py --selftest
+python3 tools/lctbl_kind.py census LCTBL001.DAT
+python3 tools/lctbl_kind.py roadclass LCTBL001.DAT --market eu
+python3 tools/lctbl_kind.py kinds LCTBL001.DAT
+```
+
 ## `lctbl_lookup_l3.py` — the firmware looks a TMC location code up in `LCTBL001.DAT` (M5.60)
 
 Runs the whole lookup of EU2011 `Navi.exe` in PySh4 on a card image: request

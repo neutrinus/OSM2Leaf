@@ -2668,8 +2668,8 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-2700–C-2709
   - Result: EXP-2026-11-08-M4.29-classcode-control-r2 (blocked). Non-motorway control reported on EU 2011/2014/2016 Dolnośląskie joins (6 scopes): no scope reaches M4.17's 3 sd LORO-vs-null falsifier (EU 2011 below null; EU 2014/2016 < 1 sd above). EU 2016 replication also negative (+0.13 sd). US LCTBL sampled (157k numbered, 0x4e8f-dominant distribution) but second-country LORO not computable — no US IMF in archive. C-1825 narrowed (remains HYPOTHESIS), not promoted/retracted on a true second-country class-label join.
 
-- [ ] **M4.35 — `class_code` hypothesis: second-country or firmware-reader deepening**
-  - Status: in progress · Owner: task/m4.35-classcode-reader · Critical: no · Pair: solo
+- [x] **M4.35 — `class_code` hypothesis: second-country or firmware-reader deepening**
+  - Status: done · Owner: task/m4.35-classcode-reader · Critical: no · Pair: solo
   - Step: P3
   - Depends: M4.29
   - Goal: test M4.17's `class_code` hypothesis (class-pure codes in-sample, LORO fails globally) with evidence that can separate "road class code" from "numbering/page/region code".
@@ -2679,6 +2679,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: EXP reports whether the pure `class_code` values recur for the same semantic class in the control sample (with counts and a negative control), or locates/denies a firmware reader path with VAs/evidence; updates claims as `HYPOTHESIS`/`OBSERVED`/`RETRACTED` only with reproducible commands.
   - Stop: after two control samples or two signature families fail to separate class from identity/region, record the negative and stop; do not promote `class_code` to a class mapping.
   - Claims: C-3200–C-3209
+  - Result: `docs/experiments/EXP-2026-11-21-M4.35-kind-code-second-country.md` (C-3200–C-3204). `class_code` is field 0 `kind code` = TMC location type `10000·class + 100·type + subtype` (first read so by M4.31, C-5961). New `tools/lctbl_kind.py` (`--selftest`) confirms it without OSM on both cards: US 2011 as the second country (303,023/303,023 records split), every resolvable reference obeys the class (1,667,631/1,667,631; permuted codes 36 %), and the `L1.x` subtype equals the road class shown by the road-number syntax in Czechia, Germany, UK and USA (7,831/7,852). It is a road class only for `L1.1`–`L1.4`; M4.17's `0x283c` is `L3.0`, a segment of any class, which is why LORO failed. Firmware: getter fn `0x003bbfe0` (`SDL_TMC_GetLocationCode`, EU2011) and its two callers named; the consumer after fn `0x004d197c` is not followed. C-1825 resolved.
 
 - [x] **M4.31 — RDSTM link-class hints from pure `LCTBL001` class codes and link attributes**
   - Status: done · Owner: task/m4.31-rdstm-lctbl-class · Critical: no · Pair: solo

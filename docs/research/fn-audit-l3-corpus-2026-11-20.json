@@ -472,11 +472,12 @@
   "docs/experiments/EXP-2026-11-20-M9.54-repin-m9.39-pair.md",
   "docs/experiments/EXP-2026-11-20-M9.55-us-poi-runner.md",
   "docs/experiments/EXP-2026-11-20-M9.57-event11-subscriber.md",
+  "docs/experiments/EXP-2026-11-21-M4.35-kind-code-second-country.md",
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json"
  ],
  "summary": {
-  "files": 469,
+  "files": 470,
   "citations": 1306,
   "unique_va": 309,
   "start": 1145,
@@ -698,7 +699,7 @@
   },
   {
    "file": "TODO.md",
-   "line": 4235,
+   "line": 4236,
    "va": "0x039bcedc",
    "kind": "fn",
    "class": "GAP",

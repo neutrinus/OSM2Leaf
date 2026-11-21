@@ -766,3 +766,16 @@ This matches the level-2 column of `fa_encode.CLASSES` (motorway 1, trunk 3,
 primary 4, secondary 5, tertiary and below 7) — HYPOTHESIS until a firmware
 reader or OSM-tagged roads confirm it. `python3 tools/rdstm_class_hint.py run
 LCTBL001.DAT RDSTM001.DAT MAPAL001`.
+
+**Second country and controls (M4.35, C-3200–C-3204).** The same reading
+holds on the US 2011 card (303,023/303,023 records). On both cards every
+resolvable reference obeys the class: `liner ref` names a linear, `area
+ref` an area, the offsets a record of the record's own class (1,667,631 of
+1,667,631; 36 % with permuted codes). For `L1.x` the subtype equals the
+road class that the road number shows (`D`/`I/`/`II/`/`III/` in Czechia,
+`A`/`B`/`L`/`K` in Germany, `M`/`A` in the UK, `I-`/`US-`/`CR-` in the USA):
+7,831 of 7,852. A generated table must give every record a valid type and
+keep these reference rules. In EU2011 `Navi.exe` the value is returned by
+fn `0x003bbfe0` (`SDL_TMC_GetLocationCode`; the firmware's name for the
+file's `kind code`). `tools/lctbl_kind.py`.
+
