@@ -1749,7 +1749,7 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-21-M1.43-vehicle-signals; 17 VCAN frames mapped, 10 with consumer+unit/flag/enum (Done-when 10>=10; 7 raw/unknown); energy-economy scaled for display at DriveComputerCC fn 0x02518f58, halfword 0xf463 fdiv FR6,FR4 @0x02519072
 
 - [ ] **M1.44 — Decompile map of the camera path (`CameraCC.dll`, `VIN.dll`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.44-camera-ioctl · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track. How the reversing camera image gets to the screen (video input driver, overlay of guide lines), what triggers it (reverse signal over CAN or GPIO), and whether the input can be shown on demand.
   - Scope: static, EU2011. Output `docs/firmware/camera.md` (template: `docs/firmware/README.md`).
