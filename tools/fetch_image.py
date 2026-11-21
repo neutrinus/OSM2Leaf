@@ -109,6 +109,8 @@ IMAGES: dict[str, Image] = {
 # with part 256M, the head that the firmware tasks have used since M1.2.
 # US256 is the same for the US 2011 card (H62); its hash must agree with
 # tools/fixtures/fn_match_eu_us_2011.json "us_head" (checked by --selftest).
+# EU2014/EU2016 256M heads are pinned for the ROM atlas (M1.36b): the first
+# 256 MiB hold all three CE ROM segments (A/B/C), so the atlas runs on heads.
 PART_PINS: dict[tuple[str, str], tuple[int, str]] = {
     ("EU2011", "256M"): (
         256 * MIB,
@@ -117,6 +119,14 @@ PART_PINS: dict[tuple[str, str], tuple[int, str]] = {
     ("US", "256M"): (
         256 * MIB,
         "70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da",
+    ),
+    ("EU2014", "256M"): (
+        256 * MIB,
+        "30da3dce5c63dc5813f9c8092a1bbb4de493846371254f6cad4809d2bd219b58",
+    ),
+    ("EU2016", "256M"): (
+        256 * MIB,
+        "208b4fdbe5b4cf7be5ffe14f82fc0444c98d295801331a0b4ca0f0a428eb135f",
     ),
 }
 ALIASES: dict[str, tuple[str, str | None]] = {
@@ -232,7 +242,6 @@ def fetch(key: str, part: str | None, out: Path, base_url: str = BASE_URL, force
     os.replace(part_path, out)
     return f"{out}: {size} bytes, {note}"
 
-
 def verify(path: Path, key: str | None, part: str | None) -> str:
     if not path.is_file():
         raise FetchError(f"{path} is not a file", 2)
@@ -265,6 +274,10 @@ def listing() -> str:
         if apart is not None and (akey, apart) in PART_PINS:
             psize, psha = PART_PINS[(akey, apart)]
             rows.append(f"{alias:8} {psize:>14}  {psha:64}  = {akey} --part {apart}")
+    rows.append("")
+    for key in ("EU2014", "EU2016"):
+        psize, psha = PART_PINS[(key, "256M")]
+        rows.append(f"{key + ' 256M':8} {psize:>14}  {psha:64}  = {key} --part 256M")
     rows.append(f"base URL: {BASE_URL}")
     return "\n".join(rows)
 
@@ -437,7 +450,14 @@ def selftest() -> int:
                image.key == "EU2011" and size == 256 * MIB and sha == PART_PINS[("EU2011", "256M")][1])
         expect("EU2016 full image is SHA-256 pinned",
                resolve("EU2016", None)[2] == IMAGES["EU2016"].sha256 and IMAGES["EU2016"].sha256 is not None)
-        expect("un-pinned part resolves with sha None", resolve("EU2014", "256M")[2] is None)
+        expect("EU2014 256M head is SHA-256 pinned",
+               resolve("EU2014", "256M")[2] == PART_PINS[("EU2014", "256M")][1]
+               and PART_PINS[("EU2014", "256M")][1].startswith("30da3dce"))
+        expect("EU2016 256M head is SHA-256 pinned",
+               resolve("EU2016", "256M")[2] == PART_PINS[("EU2016", "256M")][1]
+               and PART_PINS[("EU2016", "256M")][1].startswith("208b4fdb"))
+        expect("EU2014 head pin differs from EU2016 head pin",
+               PART_PINS[("EU2014", "256M")][1] != PART_PINS[("EU2016", "256M")][1])
         expect("listing names all six keys",
                all(k in listing() for k in ("IMG256", "US256", "EU2011", "US", "EU2014", "EU2016")))
 
