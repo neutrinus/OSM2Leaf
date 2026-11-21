@@ -4298,13 +4298,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-1590–C-1594
 
 - [ ] **M8.D2 — Decision gate after F3: go to F4?**
-  - Status: in progress · Owner: task/m8.d2-decision-after-f3 · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.d2-decision-after-f3 · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F3 SD mounted; see `todo-history-2026-11-05.md` §M8.D)
   - Goal: after F3, go to F4 only if the micon/CAN handshake (M8.C4/C5) looks scriptable; F5 stays out of scope unless M8.C19 shows a simple frame-buffer path.
   - Precheck: `python3 tools/l4_status.py --run-log RUN.log` prints `F3    PASS` for a boot log of the F3 run (without a log every row is `NOT RUN`, i.e. the trigger is not reached and the gate is not due).
   - Scope: the F4 decision only, written into this block; inputs M8.C4/C5 (micon/CAN) and M8.C19 (frame buffer). No QEMU run, no code.
   - Stop: the decision is Marek's; without his answer on record, write the recommendation here and set `Status: blocked · Unblock: Marek (human decision)`.
   - Done when: the decision is written down; no code change implied.
+  - Blocker (2026-11-21): the gate is not due — `python3 tools/l4_status.py --run-log RUN.log` prints `F3    NOT RUN` and `run log: none` (`summary: 0 PASS, 0 FAIL, 0 BLOCKED, 5 NOT RUN`), `grep -rl 'F3    PASS' docs/experiments archive dev_process | wc -l` prints `0`, and EXP-2026-11-20-M8.C10-sd-host says `F3 (the FAT partition mounted) is **not** reached` (next blocker M8.C1, HPB DMAC); in this `l4_status.py` revision F1–F4 are never scored from a log key (only F0 moves), so the literal `F3    PASS` is currently unreachable even with an F3 boot.
+  - Unblock: the M8.C row chain that produces an F3 boot log — next blocker **M8.C1** (HPB DMAC), then the FAT mount and its EXP — or **Marek (human decision)** to answer the recommendation below without an F3 run.
+  - Recommendation (for Marek; the decision is his, EXP-2026-11-21-M8.D2-decision-after-f3):
+    - **F4: conditional yes, only after F3.** `full-system-emulation.md` §4 prices F4 at 1–3 months with "unknown micon protocol; graphics init; watchdogs", so the F4 entry test is exactly this gate's test: M8.C4 (micon/power: ACC/ignition, "system ready") and M8.C5 (CAN: register block vs sub-micon, the frames `CAN.dll` waits for) must reduce to a finite, scripted handshake. Neither row exists on the board yet (`M8.C` is one open umbrella, `grep -c '^- \[ \] \*\*M8.C —' TODO.md` prints `1`; only C10 is done), so the test cannot be answered today.
+    - **F5: no.** §6 item 5 says "Do not plan for F5"; F5's only candidate frame-buffer path is M8.C19 (unstarted, area 4 undocumented), and the gate forbids F5 unless C19 shows a simple frame-buffer path. Visual acceptance stays on the bench.
+    - **Cheaper alternative while F3 is blocked:** §5's table already gives L3 the per-function answers F4 would give in context, so F4 is worth its months only for the boot-ordered file-access log and the `HDD_INFO` decision in situ (M8.E4) — not for format coverage.
+  - Result: EXP-2026-11-21-M8.D2-decision-after-f3; C-1595–C-1599. Negative gate record: trigger not reached, recommendation above, `blocked` on the F3 log.
   - Claims: C-1595–C-1599
 
 - [x] **M8.E1 — Run the kernel's ROM decompressor as a tool**
