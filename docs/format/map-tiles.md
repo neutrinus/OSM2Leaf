@@ -1176,6 +1176,43 @@ is `+0 u16` status (1 data, 2 pending — a read was queued and a second reply f
 separate: 9 = refused. A requester must have a row in the client table (data `0xd98fe0`, 24 × 64 B);
 an unknown one is refused with message status 9 and entry status 3 (C-5926).
 
+### The `LOC_map` walk of a served road record (M9.66, EU2011 build A)
+
+`tools/locmap_l3.py` runs the firmware's own chain: a position message
+(`0x0fa0` sub 119: mesh, x, y) makes the client task want four (mesh,
+quadrant) groups; on the request tick the requester `fn 0x00425f40` sends
+`0x14b5` kind 4; the data-access task reads the record and answers; the
+handler `fn 0x0042613c` copies `record + 0x2c` into the shape buffer and the
+client posts `0x0fa0` sub `0x019a` to `LOC_map`; its receiver
+`fn 0x00421548` calls the walk **`fn 0x0041f3dc`** (C-6770–C-6772).
+
+What the walk loads of the shape buffer (byte offsets from `record + 0x2c`,
+words little-endian after the firmware's swap; C-6774, C-6775):
+
+| Item | Where | Use |
+| --- | --- | --- |
+| 12 rows | bytes `2 + 4 i`: `u16` start, `u16` count | a row with count 0 is skipped; first shape at byte `4 * start` |
+| shape word 0 | | low 13 bits: length in words (next shape); top 3 bits: extra header words |
+| shape word 1 | | low 12 bits: point count |
+| shape words 2, 3 | | word 2 top nibble `0xa`/`0xb`: per-point block skipped; word 3 low 2 bits: more header words |
+| first point | word `7 + (w3 & 3) + (w0 >> 13)` | |
+| point | `u16` x, `u16` y, 11-bit coordinates | followed by one word for each of: x bits `0x1800` not both set, y bit `0x2000`, y bit `0x1000`, y bit `0x0800` |
+| point reference | byte `2 (p + ((y >> 13) & 1)) + 4` for a point at word index `p` | word index of another point, `0xffff` = none; only for coordinates neither 0 nor `0x7ff`; the walk loads the target's y and reference word and compares the latter with `p` |
+
+On the factory record of `B48R058R` (mesh `0xa6c1d6b2`) the walk makes 5,363
+loads (6,868 distinct bytes of 11,264); on the generated record of M9.53 it
+makes 49 (70 distinct bytes). The generated record's first reference word is
+`0x0100` (record word 58), which points past the 184 B record: the firmware
+then loads stale pool bytes (C-6776), and none of the generated shapes is
+counted in the result table `*0x00e8f5dc` (C-6778; cause open, M9.67; writer
+fix M5.72). Record word 59, which M9.58 took for the link id, is not loaded
+by this walk (C-6777). The record tail (`record + 4*w17`) is copied but not
+loaded in this run.
+
+> **Not run:** the divided-record branch `fn 0x004205b8`, positions that need
+> a neighbour mesh (`STDDLL!STD_MeshID_getAny`, M9.65), the consumer of the
+> result table, US2011.
+
 ## Cross-edition differential census (2011/2014/2016)
 
 `tools/diff_years_tiles.py` compares the same `BxxRyyR.DAT` in two EU editions
