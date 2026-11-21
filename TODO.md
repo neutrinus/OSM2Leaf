@@ -1738,7 +1738,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6440–C-6449
 
 - [ ] **M1.43 — Decompile map of the vehicle screens (`Vehicle.exe`, `DriveComputerCC`, `EvTimerCC`, `EvNoticeCC`, `HvacCC`, `ComfortCC`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.43-vehicle-signals · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track. Which CAN signals reach the SH-4 (through `CAN.dll` on `UAT3:`), in what units and resolution, and what the drive computer does with them: is energy shown rounded from a finer value (so a finer display or other aggregates are a UI change), or does the coarse value arrive already rounded.
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports CAN.dll` prints exports.
