@@ -4587,7 +4587,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     >= 10 (C-4323). EXP-2026-11-21-M8.A9-qemu-11-port.
 
 - [ ] **M8.A11 — One QEMU version: make 11.1.3 the only supported `ze0` base**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: Claude (task/m8.a11-qemu-single-version) · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.A9, M8.C1b
   - Goal: the `ze0` series is kept twice (`patches/` for 8.2.10, `patches/11.1/` for 11.1.3) and every patch is written, built and booted twice. Runs A and D of EXP-2026-11-21-M8.C1b give the same boot on both (C-6873). Marek, 2026-11-21: migrate fully to the new QEMU.
