@@ -49,6 +49,7 @@ hosts, not a validation of the vendor data.
 | <https://www.gtr.co.uk/threads/hack-the-hdd-for-euro-maps-on-us-car.249354/> | Same map tree on GT-R HDD / Renault Carminat | HYPOTHESIS | Secondary forum evidence. |
 | <https://www.goingelectric.de/forum/viewtopic.php?t=71081> | Partitions, `dd` cloning | HYPOTHESIS | Secondary forum evidence; cloning is not reproduced by us. |
 | <https://www.kiwi-w.org/index_eng.html> | KIWI/JIS mesh-code background | reference | Background for mesh codes, not Leaf-specific. |
+| <https://github.com/jharg/kiwiread> | C reader (GPL-3, 2014) for KIWI `ALLDATA.KWI`/`LOADING.KWI` from car-nav DVDs (Audi etc.): volume header `datavol_t`, 4-char-magic directory with `offset*2+0x800`, parcel data-management header `pdmdh_t`, Level Management Record, Road Distribution Header with multilinks, shapes/nodes; fields named after KIWI spec chapters | reference | Added 2026-11-21 (Marek); clones from the sandbox, commit `74741c5b`. Same concepts as our parcel/level/link records, different container — not ZE0 proof. Mapping is task M4.63. Link only; do not copy GPL code. |
 | <https://gist.github.com/developerfromjokela/0acf80b6292c22f7a2aa7a3227883e82> | Mesh-ID converter notes | reference | Notes/code; not independently verified. |
 | <https://gist.github.com/developerfromjokela/de143f2a0b05cd34c2e210b6edd6c650> | `.cmp` decompressor + `DRSTR` notes | reference | Cross-check against `tools/cmpind.py`; not used as proof. |
 
