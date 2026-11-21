@@ -1,0 +1,12 @@
+role: TL (team lead)  model: airouter/strong  start: 2026-11-20T15:14Z
+origin/main at start: 57666d9 (merge #328 M5.36)
+inputs: prompt_common.txt, prompt_tl.txt, TODO.md (Priorities, board scan), AGENTS.md, open PR list (#329 M3.14, #327 M4.54, #336 PO, #229 chore), wt list
+actions:
+- git fetch + fast-forward main (stays on main; nobody commits here)
+- scanned 267 task blocks; 93 open; computed deps-ready set (deps done/archived)
+- excluded tasks already claimed by an open PR (#329 M3.14, #327 M4.54) and hardware tasks (M6.*, M8.E4, M8.A9)
+- excluded L3-target tasks (M9.14/M9.17/M9.18/M9.10) from the batch: all edit tools/l3_harness/targets.json + corpus.py, which collide with M9.55 in the same batch
+- H96 excluded from the batch: edits tools/l3check.py, collides with M9.55
+- H98 (branch protection) not launched: its own Stop says owner refusal is the one human decision -> flag to Marek
+- launched 10 driver subagents in background (one per worktree), pair tasks; navigator dispatched per finished driver
+- H97: navigator APPROVE (negative-mutation B/C controls reproduced, numbers command-quoted); CI green; merged #342 (3d263f9); wt remove h97

@@ -1,0 +1,41 @@
+role: TL
+model: opencode/iceman-free
+start: 2026-11-20T20:36Z (approx)
+origin/main SHA at start: 4add6518 (main, up to date with origin/main)
+origin/main SHA now: 74234851 (includes #341 merge)
+
+inputs read (names only):
+- prompt_common.txt, prompt_tl.txt, AGENTS.md
+- TODO.md (head/priorities/task search), docs/research/claims.md (conflict resolution)
+- dev_process/2026-11-20-1623-7-tl.log, 2026-11-20-1514-6-tl.log, 2026-11-20-1835-12-qa.log (tail/context)
+- gh pr list/view/checks for open PRs 229,340,341,368,372,382-387
+- git fetch/pull, wt list, git worktree list
+- PR #368 commits/diffs (b3a0263f, 6aa8c0ef, 0b7f6f06, 97252185, 91ea8896) and conflicted claims/EXP files
+
+actions taken (in order):
+- git fetch origin --prune; git pull --ff-only (already up to date at start). Primary checkout stayed on main.
+- inventoried open PRs/worktrees; identified non-draft queue to clear (229,340,341,368).
+- closed PR #229 as superseded/stale with comment; removed remote/local branch and its worktree.
+- #340 (M9.55): fixed CI blockers (l3check corpus count, restored reader-coverage, integrated 439aef05, gate.py failure output, l3check selftest tolerant of missing us2011 head), rebased onto origin/main after #395 landed, got checks green, merged PR #340 (merge commit 119a74e7). Cleaned up worktree and local branch.
+- #341 (M3.29): created /home/marek/projekty/OSM2Leaf-wts/m3.29-rebase, rebased onto origin/main, resolved docs/research/claims.md and docs/research/reader-coverage.md conflicts (kept origin/main M9.55 C-5770–C-5779, added M3.29 C-5620–C-5629 and M3.29 annotations), verified (todo_check OK, claims_check --strict --count-check OK, python3 tools/m3_29_family_readers.py --selftest PASS), pushed --force-with-lease, waited for green checks, merged PR #341 (74234851). Fast-forwarded local main, removed task/m3.29-refer-family-split worktree.
+- #368 (M5.32, pair-required): created /home/marek/projekty/OSM2Leaf-wts/m5.32-rebase from origin/task/m5.32-unfit-poi-pages, reset to origin/main (74234851), cherry-picked 5 non-merge commits: 91ea8896->924b31f9, 97252185->61c5b07f (resolved claims conflict keeping M9.55 + adding M5.32 C-3190–C-3194 and C-2953 update), 0b7f6f06->c00cc59fc, 6aa8c0ef->b30e1200 (regenerated fn_audit snapshots: fn_audit.py --scope docs/l3 --write-snapshot), b3a0263f conflicted in claims.md.
+  - Resolved b3a0263f conflict: applied navigator-review fixes to M5.32 C-3191/C-3192/C-3194 (pinned US256 SHA, runnable regen commands, C-3194 status VERIFIED->OBSERVED run L3 to match EXP) and kept EXP edits from commit; removed M5.27/M9.36/M6.16/M9.53 claim blocks that were accidentally included by conflict hunk context (not part of M5.32 commits, introduced claims_check --strict RESERVED-on-done-task failures). Continued cherry-pick as 230ef355.
+  - Verification: python3 tools/todo_check.py OK (278 tasks, 0 errors, warnings only); python3 tools/claims_check.py --strict --count-check OK; python3 tools/point_pair_regen.py --selftest PASS (39 checks); python3 tools/selftest.py --only point_pair_regen PASS.
+  - git push --force-with-lease origin task/m5.32-unfit-poi-pages (230ef355). CI: l1l2 py3.11/3.13/informational py3.14 PASS, quality py3.11/3.13/informational py3.14 PASS. PR mergeable/clean but reviewDecision empty (no navigator review); PR body states pair-required, "ready for navigator review; not merged".
+  - Removed temporary rebase worktree /home/marek/projekty/OSM2Leaf-wts/m5.32-rebase (branch remains on origin for PR).
+
+task IDs added/changed/moved/blocked/re-opened:
+- M9.55 done via merged PR #340 (119a74e7); M9.41 re-open handled by #340.
+- M3.29 merged as blocked-result record via PR #341 (74234851) - Status remained blocked per task/PR intent.
+- M5.32 remains open PR #368 (rebased, CI green), not merged.
+
+PRs: #229 closed; #340 merged (119a74e7); #341 merged (74234851); #368 open/rebased/CI-green but not merged (awaiting required navigator review).
+commits (this session): 924b31f9, 61c5b07f, c00cc59fc, b30e1201, 230ef355 on task/m5.32-unfit-poi-pages (pushed, force-updated).
+decisions and alternatives rejected:
+- #340: restored reader-coverage from origin/main and reapplied M9.55 changes; made l3check selftest environment-tolerant rather than requiring vendor image in CI.
+- #341: kept origin/main claim/coverage state for M9.55 and appended M3.29 records/annotations (no duplicate C-5770-C-5779).
+- #368: cherry-picked task commits onto origin/main instead of rebasing merge commits; during conflict resolution dropped unrelated M5.27/M9.36/M6.16/M9.53 claim sections pulled in by hunk context to preserve M5.32 scope and satisfy claims_check --strict.
+problems/dead ends/time costs:
+- CI gate hid most selftest output earlier (#340); added gate.py failure-lines output to diagnose. origin/main moved during work requiring rebase + re-run checks.
+- #368 b3a0263f claims conflict included unrelated appended sections in incoming context; initial resolution introduced RESERVED-on-done-task strict failures, corrected by trimming to M5.32-only changes.
+handoff: non-draft queue NOT clear. #368 is the only remaining open non-draft PR: rebased, CI green, mergeable, but pair-required and has no navigator review - cannot be merged by TL alone. No developers launched (blocked until queue cleared). Primary checkout /home/marek/projekty/OSM2Leaf on main at 74234851.

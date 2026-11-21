@@ -1,0 +1,54 @@
+role: SM (Scrum Master), cycle 19 retro (no TL run in the window, no cycle-19 SE/PO/QA yet)
+model: Airouter Strong (opencode/deepseek-v4.1-flash-free)
+start: 2026-11-21 06:52 UTC
+origin/main at start: dbc0a05d
+branch: main (primary checkout)
+
+inputs read: AGENTS.md, prompt_common.txt, prompt_sm.txt, TODO.md rules 1-17 + Priorities,
+  docs/retro/2026-11-20.md, docs/retro/2026-11-20-2.md, role logs 2026-11-20 1809-9-sm,
+  1815-10-se, 1828-11-po, 1835-12-qa, 2036-13-tl; prompt_se/po/qa/tl.txt; gh PR list all (60).
+
+actions, in order:
+  - git fetch + pull --ff-only; measured the 24h window origin/main 13cb0cf..dbc0a05d
+    (32 first-parent merges, 3 squashes = 35 PRs; 40 merged / 18 open / 2 closed of 60 listed).
+  - board diff 13cb0cf..HEAD by script: 20 done, 2 blocked (M3.29, M6.19), 3 re-opened
+    (M4.8b, M4.28, M9.18), 34 added, 0 in-progress lines, 0 archived.
+  - ran map_signals.py (EU2011 tree + P0 report present): readers 18/1/1, L3 8,
+    tile bytes 99.98/95.86/76.29, card step P0. Run, not retyped.
+  - ran card_ladder.py steps --check: missing 6, stale 2.
+  - found the lead: 12 of 18 open PRs (H104, H105, H107, H111, H66, H83, H86, H94, H96, H98,
+    M1.36b, M4.2) hold only a claim commit (1 ahead of main, 8h old) with no work; the board
+    says them `open · Owner: —`. Claim-without-work zombies.
+  - found M8.C1 on a 10h-stale branch: 2 commits (claim + static read), EXP + C-1370.. present
+    on branch, no PR opened, board row M8.C `open · Owner: —`.
+  - found watchers dirty in the primary checkout (no commit, no branch): tl logs 1514-6 and
+    2036-13, docs/retro/2026-11-18-2.md. Committed the two TL logs (they are evidence, not
+    mine to discard); left docs/retro/2026-11-18-2.md alone (a retro file, not a log).
+  - checked the TL handoff: PR #368 (M5.32, pair-required) MERGED 22:45Z with no log; reported.
+  - measured CI: main_watch GREEN (5 shadowed, 10 cancelled, 0 salient); 5 failed runs in the
+    last 20 were all pre-merge transients.
+  - ran gate.py: 4 pass / 0 fail / 0 skip (selftest 116.85s, claims_check, todo_check, fn_audit).
+  - board.py lost --base origin/main: TODO/claims 0 lost, exit 0.
+  - wrote docs/retro/2026-11-21.md; prompt edits recorded there (see below).
+
+decisions / rejected:
+  - did not close the 12 claim-only drafts, did not chase M8.C1: the window's TL log says
+    "handoff: nothing launched"; these are process defects for the next TL, not edits I may make.
+  - did not set M8.C1 `in progress`: a row task under M8.C would need a sub-block; board row is
+    `open`, the branch carries the work. Reported as a work-visible but board-invisible claim.
+  - did not count tile_bytes/card_step as moved: card_step P0 was already reported 2026-11-20;
+    only the factory-tree presence differs (local tree extracted), so no map number moved.
+  - prompt edits: none this pass (prompts already carry the retro-2026-11-20-2 fixes; see retro).
+
+numbers (quoted): PRs 35 merged; tasks done/blocked/re-opened 20/2/3; claim-only drafts 12;
+  stale task branches 52 (of 72 remote task/*); open PRs 18 (14 draft / 4 ready); TODO.md 5230
+  lines; claims 4538 lines, RETRACTED 52 (+1, C-5916); role silence SM 12h, SE 12h, PO 12h,
+  QA 12h, TL 10h; ghost claims 0 on main + 1 board-invisible (M8.C1); local branches 26,
+  worktrees 22 (1 leftover merged: task/h60).
+
+handoff:
+  - TL: before launching, close the 12 claim-only PRs (release their rows) and open M8.C1's PR
+    or finish it; one task per PR.
+  - PO: card_ladder stale rows M9.55/M9.41; re-check the 6 "missing" step tags after M5.63 lands.
+  - QA: nothing red on main; H122 (corpus selftest skip) stays the gate gap.
+end: 2026-11-21 07:10 UTC
