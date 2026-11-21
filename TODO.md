@@ -748,8 +748,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the flag sweep has too many false positives (forwarded args), ship only the `bad_evidence()` prose/`…` rule (the H58 extension) and record the flag sweep as `NOT SHIPPED: <reason>` for a later task; do not suppress a real claim-evidence flag.
   - Claims: C-3870–C-3879
 
-- [ ] **H60 — `todo_check`: a `Depends`/`Unblock` ID must resolve to a live block or an archived one in `todo-history-*.md`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H60 — `todo_check`: a `Depends`/`Unblock` ID must resolve to a live block or an archived one in `todo-history-*.md`**
+  - Status: done · Owner: task/h60-todo-depends-resolution · Critical: no · Pair: solo
   - Depends: — (`tools/todo_check.py` is on `main`); coordinates H53 (owns `--strict`)
   - Goal: the PO archive pass (2026-11-15, 21 blocks) is a manual fixpoint run by a script, and its only guard was "all 21 present exactly once" after it had already dropped the H blocks from the history file. Board hygiene still cannot tell a *ghost* ID from an *archived* one: `todo_check.py` reports both as `Depends references unknown task ID`. On the current board that is 16 warnings (H24, H26 ×3, M9, M1.12, M1.2b/c, M3.1, M4.5, M4.7 ×2, M4.8c, M9.1, M9.3/M9.4) and a fresh archive can add more without any gate noticing.
   - Precheck: `python3 tools/todo_check.py | grep -c 'references unknown task ID'` prints `16`; `git ls-files docs/research/todo-history-*.md` is non-empty, so an archive exists to resolve against; `python3 tools/todo_check.py --strict` still exits `2` (H53 owns the flag — this task must not add a second one).
@@ -758,6 +758,7 @@ text of this section is in git (`13cb0cf`).
   - Hints: `H53` decides which warnings become errors; this task only makes the three cases distinguishable. Resolve `M8.C1…C22`-style range IDs to their base (`M8.C`) the way the block headers do, or they flood the report. If a history file is absent (fresh checkout), degrade to today's single warning, never to an error.
   - Done when: `python3 tools/todo_check.py` still exits 0 and prints the archived/ghost/blocked split with counts; the selftest's ghost fixture exits 1 under whatever flag H53 lands (or under `--selftest` if H53 is not merged); a temp copy of `TODO.md` with one archived ID changed to `H99` is reported as ghost; `selftest.py --only todo_check` passes.
   - Stop: if H53's `--strict` shape differs from the plan above, implement the classification as warnings only and record in the EXP which rule H53 must pick up; do not fork a second TODO checker.
+  - Result: `docs/experiments/EXP-2026-11-20-H60-depends-resolution.md` (C-3800–C-3809). `tools/todo_check.py` reads the `[x]` headers of every `docs/research/todo-history-*.md` and splits each unresolved `Depends`/`Unblock` reference into `archived` (informational), `ghost` (nowhere) and `blocked` (a live blocked block); the summary prints `refs archived 42 / ghost 0 / blocked 27 (174 archived IDs)` on the board at `434a2949`. With no archive a reference degrades to the old `unknown task ID` wording and still exits 0. The split exposed one real ghost — H43's `Depends: … M9 …` (a stream, not a task), now the five `M9.x` reader targets. Default exit stays 0 and `--strict`'s verdict set is untouched (its remaining 9 `ERROR` lines are H53's firmware fields); `--selftest` 18→24 checks; `gate: 4 pass, 0 fail, 0 skip`.
   - Claims: C-3800–C-3809
 
 - [x] **H76 — `selftest.py` pins `L3 OVERLAY: 0 moved`, so any TODO edit reddens the full suite (H69's exact-string residual)**
@@ -2040,7 +2041,7 @@ text of this section is in git (`13cb0cf`).
 
 - [ ] **H43 — L3 generated-fixture corpus and per-reader progress for "our data" (extends H28)**
   - Status: open · Owner: — · Critical: no
-  - Depends: H28, H40, M9.12 and runnable M9 reader targets
+  - Depends: H28, H40, M9.12 and runnable M9.2/M9.14/M9.17/M9.18/M9.24 reader targets
   - Goal: report "L3 which readers ran on our data and with what result" for generated (not only synthetic/vendor) data, without counting blocked/unrunnable as passes.
   - Scope: small L3 corpus from H40 generated artifacts via l3_harness conventions where feasible; run only runnable/prechecked targets with honest corpus mapping. Report per target `ran_on_our_generated_data,status,synthetic,l3_claim,reason`; BLOCKED/NOT RUNNABLE explicit. No-vendor CI respects H28 policy.
   - Input: `tools/l3check.py`, `tools/l3_harness/targets.json`/corpus, H40 artifacts, H28, reader-coverage L3 rows.

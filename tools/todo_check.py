@@ -26,10 +26,19 @@ Checks reported as errors (exit 1):
 - with ``--strict``: open/blocked firmware/search tasks missing
   ``Precheck``/``Scope``/``Stop``
 
-Warnings (printed, do not fail by default): ``Depends`` references to unknown
-task IDs, missing ``Precheck``/``Scope``/``Stop`` on firmware/search tasks
-(default mode; done tasks always warn, never error, to avoid retroactive
-false failures), actionable/done tasks missing standard fields.
+Warnings (printed, do not fail by default): ``Depends`` references to a
+*ghost* ID (in neither the board nor an archive), missing
+``Precheck``/``Scope``/``Stop`` on firmware/search tasks (default mode; done
+tasks always warn, never error, to avoid retroactive false failures),
+actionable/done tasks missing standard fields.
+
+``Depends``/``Unblock`` references are split into three classes (H60):
+``archived`` (a ``[x]`` block in ``docs/research/todo-history-*.md`` — H53's
+archive pass, informational), ``ghost`` (nowhere — the error case) and
+``blocked`` (a live block that is blocked). The summary line prints the counts.
+H53 owns the ``--strict`` switch that turns a ghost reference into an error;
+without that flag a ghost stays a warning, and a missing archive degrades to a
+single ``unknown`` warning, never an error.
 """
 from __future__ import annotations
 
@@ -66,6 +75,35 @@ VALID_CRITICAL = {"yes", "no"}
 REQUIRED_ALWAYS = ["Status", "Claims"]
 REQUIRED_ACTIONABLE = ["Depends", "Goal", "Done when"]  # open/blocked
 READER_STREAMS = ("M1", "M2", "M3", "M8", "M9")
+HISTORY_GLOB = "todo-history-*.md"
+# A ``[x]`` block header in a frozen archive; the same TASK_RE shape minus its
+# field body, so a duplicated/malformed archive line stays a non-match rather
+# than raising.
+# History files also carry prose bold headings ("**Checksums/validation …"),
+# so an archived ID must have the board's task-ID shape, not any word.
+HISTORY_HEADER_RE = re.compile(
+    r"^- \[x\] \*\*((?:H|M)\d+(?:\.[A-Za-z]?\d+[A-Za-z]?)*)\b")
+
+
+def _archived_ids(history_dir: Path | None = None) -> set[str]:
+    """Task IDs that a ``[x]`` block header in ``todo-history-*.md`` names.
+
+    Every frozen archive under ``docs/research/`` is read; a missing directory
+    or no file is an empty set, so a fresh checkout keeps today's behaviour.
+    """
+    root = (Path(history_dir) if history_dir is not None
+            else REPO_ROOT / "docs" / "research")
+    ids: set[str] = set()
+    for path in sorted(root.glob(HISTORY_GLOB)):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            m = HISTORY_HEADER_RE.match(line)
+            if m:
+                ids.add(m.group(1))
+    return ids
 
 
 def _unparsed_headers(text: str):
@@ -175,6 +213,41 @@ def _parse_depends(val: str):
     return DEP_ID_RE.findall(head)
 
 
+def _classify_refs(t, field, known_ids, archived_ids, status_of, counters,
+                   warnings):
+    """Classify one block's ``Depends``/``Unblock`` IDs (H60).
+
+    A live block's status decides ``blocked``; an archived ID is informational;
+    anything else is a ghost. With no archive at all the archived case is
+    indistinguishable from a ghost, so it keeps the old ``unknown`` wording and
+    is never an error (a fresh checkout must not false-fail).
+    """
+    value = t["fields"].get(field) if t["fields"] else None
+    if not value:
+        return
+    # A parenthetical annotation carries prose and example IDs (rule 16), so
+    # only the declared head is classified; Unblock often has none.
+    head = value.split("(", 1)[0].strip()
+    if head in ("", "—", "-", "–", "none", "None"):
+        return
+    for ref in DEP_ID_RE.findall(head):
+        where = f"TODO.md:{t['lineno']} {t['id']}: {field}"
+        if ref in known_ids:
+            if status_of.get(ref) == "blocked":
+                counters["blocked"] += 1
+                warnings.append(f"{where} references blocked task ID {ref!r}")
+            continue
+        if ref in archived_ids:
+            counters["archived"] += 1
+            warnings.append(f"{where} references archived task ID {ref!r}")
+            continue
+        counters["ghost"] += 1
+        if not archived_ids:
+            warnings.append(f"{where} references unknown task ID {ref!r}")
+        else:
+            warnings.append(f"{where} references ghost task ID {ref!r}")
+
+
 def _find_dep_cycles(tasks, known_ids):
     """Return a list of cycle descriptions (lists of task IDs)."""
     graph = {}
@@ -211,7 +284,7 @@ def _find_dep_cycles(tasks, known_ids):
     return cycles
 
 
-def check(text: str, *, strict_firmware: bool = False):
+def check(text: str, *, strict_firmware: bool = False, history_dir: Path | None = None):
     tasks = parse_tasks(text)
     errors = []
     warnings = []
@@ -240,6 +313,12 @@ def check(text: str, *, strict_firmware: bool = False):
             errors.append(f"TODO.md: duplicate task ID {tid} at lines {lines}")
 
     known_ids = set(seen)
+    archived_ids = _archived_ids(history_dir)
+    status_of = {t["id"]: _parse_status(t["fields"].get("Status", ""))
+                 for t in tasks if t["fields"]}
+    # H60 counters, printed in the summary so a reader sees the split without
+    # reading 46 warning lines.
+    dep_classes = {"archived": 0, "ghost": 0, "blocked": 0}
 
     # claim ranges
     ranges = []
@@ -314,10 +393,10 @@ def check(text: str, *, strict_firmware: bool = False):
                 if k not in f:
                     warnings.append(f"TODO.md:{t['lineno']} {t['id']}: done task missing {k}")
 
-        deps = _parse_depends(f.get("Depends", "—"))
-        for dep in deps:
-            if dep not in known_ids:
-                warnings.append(f"TODO.md:{t['lineno']} {t['id']}: Depends references unknown task ID {dep!r}")
+        _classify_refs(t, "Depends", known_ids, archived_ids, status_of,
+                       dep_classes, warnings)
+        _classify_refs(t, "Unblock", known_ids, archived_ids, status_of,
+                       dep_classes, warnings)
 
         if any(t["id"].startswith(s) for s in READER_STREAMS):
             for k in ("Precheck", "Scope", "Stop"):
@@ -340,6 +419,8 @@ def check(text: str, *, strict_firmware: bool = False):
         "warnings": warnings,
         "tasks": len(tasks),
         "strict_firmware": strict_firmware,
+        "dep_classes": dep_classes,
+        "archived_ids": len(archived_ids),
     }
 
 
@@ -364,9 +445,12 @@ def main(argv=None):
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
         mode = " [strict]" if args.strict else ""
+        dc = result["dep_classes"]
         print(
             f"todo_check{mode}: {result['tasks']} tasks, {len(result['errors'])} error(s), "
-            f"{len(result['warnings'])} warning(s)"
+            f"{len(result['warnings'])} warning(s); refs archived {dc['archived']} / "
+            f"ghost {dc['ghost']} / blocked {dc['blocked']} "
+            f"({result['archived_ids']} archived IDs)"
         )
         for e in result["errors"]:
             print(f"  ERROR {e}")
@@ -455,10 +539,13 @@ def run_selftest():
     r = check(contra)
     assert not r["ok"] and any("checkbox" in e for e in r["errors"]), r
 
-    # unknown depends (warning)
+    # unknown depends (warning). H60 renames the default wording to "ghost"
+    # whenever an archive exists (as here); a checkout without one says
+    # "unknown", so the test accepts either wording and never an error.
     unk = ok_doc.replace("Depends: T1", "Depends: H99")
     r = check(unk)
-    assert r["ok"] and any("unknown task ID 'H99'" in w for w in r["warnings"]), r
+    assert r["ok"] and any(("ghost task ID 'H99'" in w) or ("unknown task ID 'H99'" in w)
+                           for w in r["warnings"]), r
 
     # cyclic depends
     cycle = """# TODO
@@ -543,13 +630,92 @@ def run_selftest():
     r = check(sections)
     assert r["ok"] and r["tasks"] == 1, r
 
-    # real TODO.md parses cleanly
+    # --- H60: Depends references split into archived / ghost / blocked ------
+    # A temp board that depends on one live, one archived and one ghost ID, plus
+    # a live block that is blocked; a temp archive names the archived one.
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="todo-h60-") as td:
+        hist_dir = Path(td)
+        (hist_dir / "todo-history-2099-01-01.md").write_text(
+            "- [x] **M9.1 — archived one**\n  - Status: done · Owner: b · Critical: no\n",
+            encoding="utf-8")
+        board = """# TODO
+- [ ] **M1.1 — live**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-500–C-509
+- [ ] **M1.2 — blocked**
+  - Status: blocked · Owner: — · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Unblock: M1.1
+  - Claims: C-510–C-519
+- [ ] **M1.3 — refs**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.1, M9.1, H9999
+  - Goal: g
+  - Done when: d
+  - Claims: C-520–C-529
+- [ ] **M1.4 — uses a blocked dep**
+  - Status: open · Owner: — · Critical: no
+  - Depends: M1.2
+  - Goal: g
+  - Done when: d
+  - Claims: C-530–C-539
+- [ ] **M1.5 — Unblock names a ghost**
+  - Status: blocked · Owner: — · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Unblock: H9998
+  - Claims: C-540–C-549
+"""
+        r = check(board, history_dir=hist_dir)
+        assert r["ok"], r
+        # M1.3: 1 archived + 1 ghost; M1.4: 1 blocked; M1.5's Unblock: 1 ghost.
+        assert r["dep_classes"] == {"archived": 1, "ghost": 2, "blocked": 1}, r["dep_classes"]
+        # An Unblock reference is classified too, and the line names the field.
+        assert any("Unblock references ghost task ID 'H9998'" in w
+                   for w in r["warnings"]), r["warnings"]
+        assert any("archived task ID 'M9.1'" in w for w in r["warnings"]), r["warnings"]
+        assert any("ghost task ID 'H9999'" in w for w in r["warnings"]), r["warnings"]
+        assert any("blocked task ID 'M1.2'" in w for w in r["warnings"]), r["warnings"]
+        # Negative 1: with no archive at all, the archived ID degrades to the old
+        # wording and nothing errors (a fresh checkout must not false-fail).
+        with tempfile.TemporaryDirectory(prefix="todo-h60-empty-") as empty:
+            r2 = check(board, history_dir=Path(empty))
+        assert r2["ok"] and r2["archived_ids"] == 0, r2
+        assert any("unknown task ID 'M9.1'" in w for w in r2["warnings"]), r2["warnings"]
+        assert r2["dep_classes"]["ghost"] == 3, r2["dep_classes"]
+        # Negative 2: against the *real* archive set, a genuinely archived ID
+        # is classified archived, and the same board with it changed to H9999
+        # is classified ghost. This pins the classifier to the repo's own
+        # history files, not only to the temp fixture above.
+        real_archived = _archived_ids()
+        assert real_archived, "no archived IDs found in docs/research/todo-history-*.md"
+        probe = sorted(real_archived)[0]
+        real_board = ("# TODO\n- [ ] **M9.60 — probe**\n"
+                      "  - Status: open · Owner: — · Critical: no\n"
+                      f"  - Depends: {probe}\n"
+                      "  - Goal: g\n  - Done when: d\n  - Claims: C-540–C-549\n")
+        r_a = check(real_board, history_dir=REPO_ROOT / "docs" / "research")
+        assert r_a["dep_classes"] == {"archived": 1, "ghost": 0, "blocked": 0}, r_a["dep_classes"]
+        ghost_board = real_board.replace(f"Depends: {probe}", "Depends: H9999")
+        r_g = check(ghost_board, history_dir=REPO_ROOT / "docs" / "research")
+        assert r_g["dep_classes"] == {"archived": 0, "ghost": 1, "blocked": 0}, r_g["dep_classes"]
+        assert any("ghost task ID 'H9999'" in w for w in r_g["warnings"]), r_g["warnings"]
+
+    # real TODO.md parses cleanly and has no ghost reference
     real = TODO_PATH.read_text(encoding="utf-8")
     r = check(real)
     assert r["ok"], "real TODO.md:\n" + "\n".join(r["errors"])
     assert r["tasks"] > 100, r["tasks"]
+    assert r["dep_classes"]["ghost"] == 0, r["dep_classes"]
 
-    print(f"todo_check selftest: OK (18 checks, {r['tasks']} real tasks)")
+    print(f"todo_check selftest: OK (24 checks, {r['tasks']} real tasks)")
     return 0
 
 
