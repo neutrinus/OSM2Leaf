@@ -72,3 +72,22 @@ process finding: four of this batch's drivers (M9.60, M5.61, M9.58, M9.61) made 
 their branch but never set the board claim, so the tasks stayed `open` on origin/main — invisible claims
 (rule 2 failure). M4.55 claimed correctly. TL fixed it: `board.py claim` for the four in the primary checkout,
 committed + pushed 3bd0d39c, so they now show `Status: in progress · Owner: task/...` on origin.
+- M4.55 #428 RPF section-2 consumer — the driver ended with NO commit and NO EXP (PR #428, 1 commit = claim,
+  f4df46f5), but its scratch (~/leafre-work/scratch/m4.55/, ~75 min of probes) reached the RPF consumer.
+  TL finished the honest result instead of discarding it: ran the driver's last probe -> consumer 0x003367a0
+  faults at 0x003367c2 `jsr @r3` with r3 = [0x0033682c] = 0x003d1640 (STDDLL!STD_MeshPnt_isValid thunk, IAT
+  0x0055da88) before its first unit-0 read. Positive control: the same STDDLL exports run in poi_position_l3.py
+  (3/3 POINT010 records, controls 0/3), so it is a harness binding gap, not a firmware limit. Per M4.55's Stop
+  ("blocked on an M9 harness task") recorded a negative EXP + `blocked`, not a false `done`:
+  - new `docs/experiments/EXP-2026-11-21-M4.55-rpf-consumer-import-block.md` (with the committed repro
+    `docs/experiments/m4.55-repro.py`, both commands verified to print the fault and `unit0 reads: 0`);
+  - claims C-6020–C-6025 (FACT/FACT/FACT/HYPOTHESIS/UNKNOWN), section added via board.py;
+  - new task M9.65 (bind STDDLL exports in vcard_l3.py; +13 lines, claims C-6740–C-6749), rebased the branch
+    onto origin/main first (it was 27 behind; claims.md conflict resolved with board.py resolve, C-6720–6729
+    intact), gate 4/4, lost 0/0, CI 6/6 green. Merged bbacc60d. wt remove, scratch deleted.
+  - rule 15: M4.40 stays blocked; its `Unblock:` now names M9.65 (M4.55 is blocked on it), pushed 091a4888.
+
+process finding: this driver (M4.55) claimed correctly but produced no committed work — the second of the
+batch to end without pushing anything (M4.55 here; the other four are still live). Scratch-only work is not a
+result (AGENTS "a scratch directory left behind is a task that is not finished"); TL converted it to a
+negative EXP + blocked + unblock task, which is the rule-4/rule-15 outcome, not a ghost claim.
