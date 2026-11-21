@@ -5160,8 +5160,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the firmware route is unchanged when the only link between start and goal is removed.
   - Claims: C-5860–C-5869
 
-- [ ] **M9.59 — `l3_precond`: classify a target against its own build, and know targets that run outside `runner.py`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.59 — `l3_precond`: classify a target against its own build, and know targets that run outside `runner.py`**
+  - Status: done · Owner: task/m9.59-l3-precond-classify · Critical: no · Pair: solo
   - Step: tooling
   - Depends: H45 (done)
   - Goal: M9.33 found two gate gaps (EXP-2026-11-20-M9.33-rerun-prereqs-map, C-3401/C-3402). (1) `--all-targets --image archive/head256.img` classes the US2011 VAs of `cmp_ind_reader_us2011` against EU sections (`INIT` instead of `CODE sec0`). (2) `tile_reader`, `drstr_parser` and `mmain_reader` are `BLOCKED` ("entry kind blocked with no VA") although their `reason` names the tool that runs them (`datask_l3.py`, `vcard_l3.py`, `mmain_l3.py`). The gate should say what is true.
@@ -5170,6 +5170,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the two cases above print the corrected classes/verdicts on the real heads; a selftest case for each, plus a negative (a `blocked` reason naming a missing tool stays `BLOCKED`); `python3 tools/gate.py` green.
   - Stop: if a `RUNS-ELSEWHERE` state breaks `l3check`/`gate` consumers of the verdict enum, keep `BLOCKED` with a `runs_via` field instead and record why.
   - Claims: C-6060–C-6069
+  - Result: EXP-2026-11-21-M9.59-precond-build-runs-elsewhere; C-6060–C-6069; selftest 45 PASS; --all-targets 7 READY/2 BLOCKED/4 RUNS-ELSEWHERE; gate 4 pass/0 fail/0 skip
 
 - [ ] **M9.60 — Card gate, first slice: the firmware's own mount and file sweep as `l3check --card` rows with an exit code**
   - Status: open · Owner: — · Critical: yes · Pair: required
