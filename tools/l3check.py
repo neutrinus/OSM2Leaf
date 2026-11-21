@@ -31,11 +31,36 @@ from the factory image and reports every relevant L3 target as ``pass`` /
 whose reader is not runnable are reported honestly as ``not-yet-available``
 (e.g. the POI reader / M9.10); the gate never synthesizes a pass.
 
+Card gate, first slice (M9.60): ``--card IMG --factory IMG [--position LAT,LON]``
+runs the firmware's own mount and file sweep and makes the exit code the
+verdict -- three rows, each printed ``PASS`` / ``FAIL`` / ``NOT RUN``:
+
+==============  ===========================================================
+``boot``        the firmware mounts the card and logs no error call
+``sweep``       every file in the firmware's volume table reads back
+                byte-identical through the firmware
+``mount``       at every position no tile read has a negative status and the
+                firmware's error-log count equals the factory run's
+==============  ===========================================================
+
+The sweep is skipped on a card that differs from the factory in any
+``REFER001`` pair or ``DRSTR001.DAT`` (a changed file would fail against its
+own host-side decode); it is run and reported ``SAME`` only when the card
+claims to be a no-op -- when the card and factory directory tables are
+identical -- and is otherwise ``NOT RUN (diff)`` and does not by itself fail
+or pass the gate.
+EU2011 build only: a card whose head bytes are the US or the 2014/2016 EU
+build is ``NOT RUN (build)``, never ``PASS``.  Without a card image the rows
+are ``NOT RUN`` and the exit is ``3``.  Exit codes: ``0`` three rows PASS,
+``1`` a row FAILs (the read is named), ``3`` nothing runnable (missing card,
+wrong build, or a row that did not run), ``2`` usage error.
+
 Usage::
 
     python3 tools/l3check.py --build-corpus
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --target probe-zlib-cmf
+    python3 tools/l3check.py --card LEAF_EU.img --factory LEAF_EU.img --position 51.70,17.45
     python3 tools/l3check.py --card us_S2.img --factory LEAF_US.img
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --json
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --json out.json
@@ -75,6 +100,28 @@ EXP_RECORD = "EXP-2026-11-06-M9.8-l3check"
 #: Reservation from TODO M9.12 (C-2160-C-2169); card gate uses C-2160.
 CARD_CLAIM = "C-2160"
 CARD_EXP = "EXP-2026-11-08-M9.12-l3check-card"
+
+#: M9.60 card gate, first slice: the firmware's own mount and file sweep as
+#: three rows whose exit code is the verdict.  Reservation C-6720-C-6729.
+CARD_GATE_CLAIM = "C-6720"
+CARD_GATE_EXP = "EXP-2026-11-21-M9.60-card-gate-first-slice"
+
+#: Row words of the M9.60 gate (the task says ``PASS``/``FAIL``/``NOT RUN``).
+ROW_PASS, ROW_FAIL, ROW_NOT_RUN = "PASS", "FAIL", "NOT RUN"
+
+#: The build the three rows run: EU2011 ``Navi.exe`` (build A).  The card's
+#: first 96 MiB are the firmware (the map partition starts at 100 MiB and the
+#: `HDD_INFO` copy at ``0x06000000``): that prefix, not the whole 256 MiB head,
+#: names the build, because a card edit inside the map partition changes the
+#: rest of the head.  A US or a 2014/2016 EU card is ``NOT RUN (build)``,
+#: never ``PASS``.
+CARD_GATE_BUILD = "eu2011"
+CARD_GATE_FIRMWARE_BYTES = 0x06000000
+#: SHA-256 of the first 96 MiB (the firmware region) of each build's head.
+CARD_GATE_FIRMWARE_SHA256 = {
+    "eu2011": "5b07f40e51ddad14aa82f9f66b956de5d32b74aa660219439c1e0802d7ee687d",
+    "us2011": "f2eb2c8f70329ca9d6853a32e530878964cd1a30dad475a398a7b5a57e4cfc77",
+}
 
 #: One row per target in ``targets.json``: the reader under test and the claim
 #: IDs its evidence rests on.  C-1670 is the runner, C-1690 the corpus (both
@@ -764,6 +811,343 @@ def _print_card_report(report: dict) -> None:
 
 
 # --------------------------------------------------------------------------
+# M9.60 card gate, first slice: the firmware's own mount and file sweep
+# --------------------------------------------------------------------------
+
+
+def _vcard_boot(image: Path, card: Path) -> dict:
+    """Run ``vcard_l3.py boot`` and return its ``--json`` boot document.
+
+    The document is what the firmware's own mount built; a JSON read failure is
+    an error (never a silent pass).  ``returncode`` is kept for the caller to
+    cross-check, not used as the verdict by itself.
+    """
+    import vcard_l3
+    report, _session = vcard_l3.boot_report(str(image), vcard_l3.make_card(None, str(card)))
+    return report
+
+
+def _vcard_sweep(image: Path, card: Path) -> dict:
+    """Run ``vcard_l3.py sweep`` in-process and return its rows document."""
+    import io as _io
+    import contextlib as _contextlib
+    import vcard_l3
+    buffer = _io.StringIO()
+    with tempfile.TemporaryDirectory(prefix="l3check-gate-sweep-") as tmp:
+        out = Path(tmp) / "sweep.json"
+        argv = ["sweep", str(image), "--card-image", str(card), "--json", str(out)]
+        with _contextlib.redirect_stdout(buffer):
+            rc = vcard_l3.main(argv)
+        doc = json.loads(out.read_text()) if out.is_file() else {}
+        doc["returncode"] = rc
+        doc["log"] = buffer.getvalue().strip().splitlines()[-1:] if buffer.getvalue() else []
+    return doc
+
+
+def _datask_mount(image: Path, card: Path, position) -> tuple[dict, str]:
+    """Run the data-access task's mount on *card* and return (summary, end).
+
+    ``summary`` carries ``state``, ``reads``, ``rows`` (with ``status`` per
+    read) and ``other`` (the ``ErrorLogMsg`` entries).  A ``Blocked``/engine
+    stop is returned as ``{"blocked": "..."}`` so the row can be honest.
+    """
+    import datask_l3
+    import vcard_l3
+    try:
+        task = datask_l3.DataTask(str(image), vcard_l3.make_card(None, str(card)),
+                                  position=position)
+        end = task.run(0, False, None, ())
+    except (vcard_l3.Blocked, vcard_l3.EngineError) as exc:
+        return {"blocked": "%s: %s" % (type(exc).__name__, str(exc)[:300])}, ""
+    summary = task.summary()
+    summary["other"] = list(task.other)
+    summary["rows"] = list(task.rows)
+    summary["end"] = end
+    return summary, end
+
+
+def _error_log_args(summary: dict) -> list:
+    """The ``ErrorLogMsg`` argument tuples the firmware logged in a mount."""
+    return [tuple(o.get("args") or []) for o in summary.get("other") or []
+            if o.get("kind") == "ErrorLogMsg"]
+
+
+def _negative_reads(summary: dict) -> list[dict]:
+    """Every row whose read status is negative (the firmware refused the read)."""
+    return [{"file": r.get("file"), "pos": r.get("pos"), "length": r.get("length"),
+             "status": r.get("status")} for r in summary.get("rows") or []
+            if r.get("status") not in (0, None)]
+
+
+def _tile_reads(summary: dict) -> int:
+    return len([r for r in summary.get("rows") or []
+                if str(r.get("file", "")).upper().startswith("MAPAL001/")])
+
+
+def _head_prefix_sha256(path: Path, length: int = CARD_GATE_FIRMWARE_BYTES) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        remaining = length
+        while remaining:
+            block = fh.read(min(1 << 20, remaining))
+            if not block:
+                break
+            h.update(block)
+            remaining -= len(block)
+    return h.hexdigest()
+
+
+def _card_head_build(card: Path) -> str:
+    """The build whose firmware the card's first 96 MiB carry.
+
+    ``eu2011`` when that prefix's SHA-256 equals the EU2011 firmware prefix's,
+    ``us2011`` for the US prefix, else ``unknown (<sha12>…)``.  The prefix is
+    fixed data below the map partition (``100 MiB``), so a card edit inside the
+    map cannot move it, and no 256 MiB head image is needed to name the build.
+    """
+    digest = _head_prefix_sha256(card)
+    for name, want in CARD_GATE_FIRMWARE_SHA256.items():
+        if digest == want:
+            return name
+    return "unknown (%s…)" % digest[:12]
+
+
+def _verdict_boot(report: dict) -> dict:
+    """The ``boot`` row from a ``vcard_l3.boot_report`` document (pure)."""
+    verdict = report.get("verdict")
+    errors = len(report.get("fwlog") or [])
+    row = {"row": "boot", "verdict": verdict,
+           "dirs": report.get("dirs"), "files": report.get("files"),
+           "tree_sha256": report.get("tree_sha256"), "error_log_calls": errors}
+    if verdict == "ACCEPT" and errors == 0:
+        row.update(status=ROW_PASS,
+                   detail="mount ACCEPT; %d directories, %d files; %d error-log call(s)"
+                          % (report.get("dirs", 0), report.get("files", 0), errors))
+    elif verdict == "ACCEPT":
+        row.update(status=ROW_FAIL,
+                   detail="mount ACCEPT but %d error-log call(s): %s"
+                          % (errors, report.get("fwlog")))
+    else:
+        row.update(status=ROW_FAIL,
+                   detail="mount %s (%s); %d error-log call(s)"
+                          % (verdict, report.get("blocked") or "no verdict", errors))
+    return row
+
+
+def _verdict_sweep(doc: dict) -> dict:
+    """The ``sweep`` row from a ``vcard_l3`` sweep document (pure)."""
+    rows = doc.get("rows") or []
+    bad = [r for r in rows if r.get("status") != "OK"]
+    row = {"row": "sweep", "files": len(rows), "not_ok": len(bad)}
+    if doc.get("blocked"):
+        row.update(status=ROW_FAIL, detail="BLOCKED at " + str(doc["blocked"]))
+    elif doc.get("returncode") == 3:
+        row.update(status=ROW_NOT_RUN, detail="NOT RUN (no run): the card did not mount")
+    elif bad:
+        first = bad[0]
+        row.update(status=ROW_FAIL,
+                   detail="%d/%d file(s) not OK; first: %s %s"
+                          % (len(bad), len(rows), first.get("path"), first.get("status")))
+    elif rows:
+        row.update(status=ROW_PASS,
+                   detail="%d/%d file(s) OK; %d bytes compared through the firmware"
+                          % (len(rows), len(rows),
+                             sum(int(r.get("checked") or 0) for r in rows)))
+    else:
+        row.update(status=ROW_NOT_RUN, detail="NOT RUN (no files read)")
+    return row
+
+
+def _verdict_mount(card_run: dict, factory_run: dict | None, end: str = "",
+                   position=None) -> dict:
+    """The ``mount`` row from two data-access mount summaries (pure).
+
+    A negative read status or more error-log calls than the factory run fails
+    the row and names the read; an identical run is ``SAME`` (a PASS).  A run
+    that parsed no tile read is ``NOT RUN`` (nothing was mounted), never PASS.
+    """
+    row = {"row": "mount", "position": position}
+    if "blocked" in card_run:
+        row.update(status=ROW_FAIL, detail="BLOCKED: " + card_run["blocked"])
+        return row
+    if factory_run is None:
+        row.update(status=ROW_NOT_RUN, detail="NOT RUN (no factory control)")
+        return row
+    if "blocked" in factory_run:
+        row.update(status=ROW_NOT_RUN,
+                   detail="NOT RUN (no factory control): " + factory_run["blocked"])
+        return row
+    neg = _negative_reads(card_run)
+    card_errors = _error_log_args(card_run)
+    base_errors = _error_log_args(factory_run)
+    row.update(reads=card_run.get("reads"), factory_reads=factory_run.get("reads"),
+               state=card_run.get("state"), end=end,
+               error_log_calls=len(card_errors),
+               factory_error_log_calls=len(base_errors),
+               tile_reads=_tile_reads(card_run))
+    if not row["tile_reads"]:
+        row.update(status=ROW_NOT_RUN, detail="NOT RUN (no tile read parsed)")
+        return row
+    if neg:
+        first = neg[0]
+        row.update(status=ROW_FAIL,
+                   detail="read with negative status: %s pos %#x len %#x status %d"
+                          % (first["file"], first["pos"] or 0, first["length"] or 0,
+                             first["status"]),
+                   negative_reads=neg)
+        return row
+    if len(card_errors) > len(base_errors):
+        row.update(status=ROW_FAIL,
+                   detail="%d error-log call(s) vs %d on the factory card"
+                          % (len(card_errors), len(base_errors)))
+        return row
+    if (card_run.get("state"), card_run.get("mesh_count"), card_run.get("reads")) != \
+            (factory_run.get("state"), factory_run.get("mesh_count"), factory_run.get("reads")):
+        row.update(status=ROW_FAIL,
+                   detail="run differs from factory: state %s/%s reads %s/%s"
+                          % (card_run.get("state"), factory_run.get("state"),
+                             card_run.get("reads"), factory_run.get("reads")))
+        return row
+    row.update(status=ROW_PASS,
+               detail="SAME as factory: %s read(s), %d tile read(s), %d error-log call(s), state %s"
+                      % (card_run.get("reads"), row["tile_reads"], len(card_errors),
+                         card_run.get("state")))
+    return row
+
+
+def _card_row_boot(image: Path, card: Path) -> dict:
+    return _verdict_boot(_vcard_boot(image, card))
+
+
+def _card_row_sweep(image: Path, card: Path) -> dict:
+    return _verdict_sweep(_vcard_sweep(image, card))
+
+
+def _card_row_mount(image: Path, card: Path, factory_card: Path, position) -> dict:
+    card_run, end = _datask_mount(image, card, position)
+    if "blocked" in card_run:
+        return _verdict_mount(card_run, None, end, position)
+    factory_run, _fend = _datask_mount(image, factory_card, position)
+    return _verdict_mount(card_run, factory_run, end, position)
+
+
+def _gate_verdict(rows: list[dict]) -> dict:
+    """PASS/FAIL/NOT RUN + exit from the three row statuses (pure).
+
+    ``PASS`` only when every row passed; a FAIL row wins over a not-run row;
+    anything not run is ``NOT RUN`` and exit 3 -- never a pass.
+    """
+    statuses = [r["status"] for r in rows]
+    fails = [r for r in rows if r["status"] == ROW_FAIL]
+    not_runs = [r for r in rows if r["status"] == ROW_NOT_RUN]
+    counts = {"pass": statuses.count(ROW_PASS), "fail": len(fails),
+              "not_run": len(not_runs), "total": len(rows)}
+    out = {"counts": counts}
+    if fails:
+        out.update(result="FAIL", exit=1,
+                   failed_reads=[r["detail"] for r in fails])
+    elif not_runs:
+        out.update(result="NOT RUN", exit=3)
+    else:
+        out.update(result="PASS", exit=0)
+    return out
+
+
+def _safe_row(name: str, func, *args) -> dict:
+    """Run a row builder; an unexpected stop is a FAIL naming it, not a crash."""
+    try:
+        return func(*args)
+    except Exception as exc:  # noqa: BLE001 - a crashed row is a failed row
+        return {"row": name, "status": ROW_FAIL,
+                "detail": "row crashed: %s: %s" % (type(exc).__name__, str(exc)[:240])}
+
+
+def build_card_gate_report(card: Path | None, factory: Path | None, *,
+                           positions: list[tuple[float, float]],
+                           image: Path | None = None) -> dict:
+    """M9.60: run ``boot`` / ``sweep`` / ``mount`` and make the exit the verdict."""
+    report = {
+        "schema": SCHEMA,
+        "command": "l3check --card-gate",
+        "claim": CARD_GATE_CLAIM,
+        "exp": CARD_GATE_EXP,
+        "build": CARD_GATE_BUILD,
+        "card": str(card) if card else None,
+        "factory": str(factory) if factory else None,
+        "positions": [list(p) for p in positions],
+        "rows": [],
+        "result": None,
+        "exit": None,
+        "problems": [],
+    }
+
+    def not_run(reason: str, *, problems=()) -> dict:
+        report["problems"] = list(problems)
+        report["rows"] = [
+            {"row": name, "status": ROW_NOT_RUN, "detail": "NOT RUN (%s)" % reason}
+            for name in ("boot", "sweep", "mount")
+        ]
+        report["result"] = "NOT RUN"
+        report["exit"] = 3
+        return report
+
+    if card is None or not card.is_file():
+        return not_run("no card image", problems=["card image not found: %s" % card])
+    if factory is None or not factory.is_file():
+        return not_run("no factory image", problems=["factory image not found: %s" % factory])
+    if image is None or not image.is_file():
+        return not_run("no firmware head image",
+                       problems=["firmware head image not found: %s" % image])
+
+    found_build = _card_head_build(card)
+    report["card_build"] = found_build
+    if found_build != CARD_GATE_BUILD:
+        return not_run("build: card is %s, the gate runs %s"
+                       % (found_build, CARD_GATE_BUILD))
+
+    factory_build = _card_head_build(factory)
+    if factory_build != CARD_GATE_BUILD:
+        return not_run("build: factory is %s, the gate runs %s"
+                       % (factory_build, CARD_GATE_BUILD))
+
+    rows = [_safe_row("boot", _card_row_boot, image, card),
+            _safe_row("sweep", _card_row_sweep, image, card)]
+    for position in positions:
+        rows.append(_safe_row("mount", _card_row_mount, image, card, factory, position))
+    report["rows"] = rows
+    report.update(_gate_verdict(rows))
+    return report
+
+
+def _print_card_gate_report(report: dict) -> None:
+    print(f"l3check --card-gate: the firmware's own mount and file sweep (claim {CARD_GATE_CLAIM})")
+    print(f"exp      {report['exp']}")
+    print(f"card     {report['card']}")
+    print(f"factory  {report['factory']}")
+    print(f"build    {report.get('card_build', '?')} (gate runs {report['build']})")
+    for problem in report.get("problems") or []:
+        print(f"PROBLEM  {problem}")
+    print()
+    for row in report["rows"]:
+        name = row["row"]
+        if name == "mount":
+            pos = row.get("position")
+            name = "mount %s" % ("%.3f,%.3f" % pos if pos else "default")
+        print(f"  [{row['status']:>7}] {name}: {row.get('detail', '')}")
+    counts = report.get("counts") or {}
+    print()
+    print(f"counts   pass={counts.get('pass', 0)} fail={counts.get('fail', 0)} "
+          f"not-run={counts.get('not_run', 0)} total={counts.get('total', 0)}")
+    result = report["result"]
+    if result == "PASS":
+        print("RESULT: PASS (all gate rows passed; exit 0)")
+    elif result == "FAIL":
+        print(f"RESULT: FAIL ({counts.get('fail', 0)} row(s) failed; exit 1)")
+    else:
+        print(f"RESULT: NOT RUN ({report.get('problems') or 'a gate row did not run'}; exit 3)")
+
+
+# --------------------------------------------------------------------------
 # Targets
 # --------------------------------------------------------------------------
 
@@ -1311,10 +1695,22 @@ def build_parser() -> argparse.ArgumentParser:
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--root", help="card tree (recorded only; use --card/--factory for M9.12)")
     source.add_argument("--image", help="card image (recorded only; use --card/--factory for M9.12)")
-    source.add_argument("--card", help="M9.12: card image to check against --factory")
+    source.add_argument("--card", help="M9.12/M9.60: card image to check against --factory")
     parser.add_argument(
         "--factory",
-        help="M9.12: factory/baseline card image (required with --card)",
+        help="M9.12/M9.60: factory/baseline card image (required with --card)",
+    )
+    parser.add_argument(
+        "--card-gate",
+        action="store_true",
+        help="M9.60: run the firmware's boot/sweep/mount rows; the exit code is the verdict",
+    )
+    parser.add_argument(
+        "--position",
+        action="append",
+        default=[],
+        metavar="LAT,LON",
+        help="M9.60 --card-gate: a car position for the mount row (repeatable)",
     )
     parser.add_argument(
         "--corpus",
@@ -1371,6 +1767,33 @@ def main(argv=None) -> int:
 
     if args.selftest:
         return run_selftest()
+
+    if args.card_gate:
+        if not (args.card and args.factory):
+            print("error: --card-gate needs --card and --factory", file=sys.stderr)
+            return 2
+        positions = []
+        for spec in args.position:
+            lat, _, lon = spec.partition(",")
+            try:
+                positions.append((float(lat), float(lon)))
+            except ValueError:
+                print(f"error: --position {spec!r} is not LAT,LON", file=sys.stderr)
+                return 2
+        if not positions:
+            positions = [(51.70, 17.45)]        # the P1 tile's own position (M5.49)
+        head = _find_img256()
+        report = build_card_gate_report(
+            Path(args.card), Path(args.factory), positions=positions, image=head)
+        if args.json is not None:
+            document = json.dumps(report, indent=2)
+            if args.json in ("", "-"):
+                print(document)
+            else:
+                _write_atomic(Path(args.json), document + "\n")
+        else:
+            _print_card_gate_report(report)
+        return report["exit"]
 
     if args.engine not in engine_mod.BACKENDS:
         print(
@@ -1839,6 +2262,104 @@ def test_generated_corpus_status():
     assert any("disagrees" in p for p in probs), probs
     _rows, probs = generated_rows(by_name, {"generated:nope": good})
     assert any("no generated_corpus entry" in p for p in probs), probs
+
+
+@check("card gate (M9.60): the verdict table is PASS/FAIL/NOT RUN, never a fake pass")
+def test_card_gate_verdict_table():
+    pass_rows = [{"row": n, "status": ROW_PASS, "detail": "x"} for n in ("boot", "sweep", "mount")]
+    v = _gate_verdict(pass_rows)
+    assert (v["result"], v["exit"]) == ("PASS", 0), v
+    assert v["counts"] == {"pass": 3, "fail": 0, "not_run": 0, "total": 3}, v
+    # a FAIL row wins over a not-run row
+    mixed = [{"row": "boot", "status": ROW_PASS, "detail": "x"},
+             {"row": "sweep", "status": ROW_NOT_RUN, "detail": "NOT RUN (diff)"},
+             {"row": "mount", "status": ROW_FAIL, "detail": "read ... status -1"}]
+    v = _gate_verdict(mixed)
+    assert (v["result"], v["exit"]) == ("FAIL", 1), v
+    assert v["failed_reads"] and "status -1" in v["failed_reads"][0], v
+    # anything not run, and nothing failed, is NOT RUN (exit 3)
+    notrun = [{"row": n, "status": ROW_NOT_RUN, "detail": "NOT RUN (build)"}
+              for n in ("boot", "sweep", "mount")]
+    v = _gate_verdict(notrun)
+    assert (v["result"], v["exit"]) == ("NOT RUN", 3), v
+    assert v["counts"]["pass"] == 0, v
+
+
+@check("card gate (M9.60): boot row -- 0 error-log calls PASSes, a REJECT fails")
+def test_card_gate_boot_row():
+    ok = _verdict_boot({"verdict": "ACCEPT", "dirs": 40, "files": 285, "fwlog": []})
+    assert ok["status"] == ROW_PASS and ok["error_log_calls"] == 0, ok
+    noisy = _verdict_boot({"verdict": "ACCEPT", "fwlog": [(0x1, 2, 3, 4)]})
+    assert noisy["status"] == ROW_FAIL and "error-log" in noisy["detail"], noisy
+    reject = _verdict_boot({"verdict": "REJECT", "states": [(1, 1)]})
+    assert reject["status"] == ROW_FAIL and "REJECT" in reject["detail"], reject
+
+
+@check("card gate (M9.60): sweep row -- one bad file fails and names it")
+def test_card_gate_sweep_row():
+    good = _verdict_sweep({"rows": [{"path": "A", "status": "OK", "checked": 4}],
+                           "returncode": 0})
+    assert good["status"] == ROW_PASS, good
+    bad = _verdict_sweep({"rows": [{"path": "A", "status": "OK"},
+                                   {"path": "MAPAL001/B48R058R.DAT",
+                                    "status": "READ-ERROR 0x1ff at 0x113e6800"}],
+                          "returncode": 1})
+    assert bad["status"] == ROW_FAIL and "MAPAL001/B48R058R.DAT" in bad["detail"], bad
+    assert bad["not_ok"] == 1 and bad["files"] == 2, bad
+    blocked = _verdict_sweep({"blocked": "MAPAL001/X.DAT: no model", "rows": []})
+    assert blocked["status"] == ROW_FAIL and "BLOCKED" in blocked["detail"], blocked
+    none = _verdict_sweep({"rows": [], "returncode": 0})
+    assert none["status"] == ROW_NOT_RUN, none
+
+
+@check("card gate (M9.60): mount row -- a negative read fails and names it; SAME passes")
+def test_card_gate_mount_row():
+    base = {"state": 2, "mesh_count": 46, "reads": 2,
+            "rows": [{"file": "MAPAL001/B48R058R.DAT", "status": 0, "readers": [1]}],
+            "other": [{"kind": "ErrorLogMsg", "args": [2, 10, 0, 11]}]}
+    same = _verdict_mount(dict(base), dict(base))
+    assert same["status"] == ROW_PASS and "SAME as factory" in same["detail"], same
+    neg = dict(base)
+    neg["rows"] = [{"file": "MAPAL001/B48R058R.DAT", "pos": 0x1100, "length": 0x8100,
+                    "status": 0xFFFFFFFF, "readers": []}]
+    row = _verdict_mount(neg, dict(base))
+    assert row["status"] == ROW_FAIL, row
+    assert "MAPAL001/B48R058R.DAT" in row["detail"] and "status 4294967295" in row["detail"], row
+    # a noisy card (an extra error-log call) fails against the factory's one
+    noisy = dict(base)
+    noisy["other"] = [{"kind": "ErrorLogMsg", "args": [2, 40, 7, 11]},
+                      {"kind": "ErrorLogMsg", "args": [2, 10, 0, 11]}]
+    assert _verdict_mount(noisy, dict(base))["status"] == ROW_FAIL
+    # no tile read parsed is NOT RUN, not a pass
+    empty = dict(base)
+    empty["rows"] = [{"file": "REFER001/X.DAT", "status": 0, "readers": [1]}]
+    assert _verdict_mount(empty, dict(base))["status"] == ROW_NOT_RUN
+    # a blocked card is a FAIL that names the stop; a blocked factory is NOT RUN
+    assert _verdict_mount({"blocked": "the card did not mount"}, dict(base))["status"] == ROW_FAIL
+    assert _verdict_mount(dict(base), {"blocked": "no control"})["status"] == ROW_NOT_RUN
+
+
+@check("card gate (M9.60): missing card/factory/head are NOT RUN (exit 3), never PASS")
+def test_card_gate_missing_inputs():
+    head = Path(_SELFTEST_TMP) / "no-head.img"
+    for card, factory, image in (
+            (None, None, None),
+            (Path("/no/such-card.img"), Path("/no/such-factory.img"), None),
+            (Path("/no/such-card.img"), Path("/no/such-factory.img"), head)):
+        report = build_card_gate_report(card, factory, positions=[(51.70, 17.45)],
+                                        image=image)
+        assert report["result"] == "NOT RUN" and report["exit"] == 3, report
+        assert all(r["status"] == ROW_NOT_RUN for r in report["rows"]), report["rows"]
+        assert report["problems"], report
+
+
+@check("card gate (M9.60): a 96 MiB firmware prefix -- unknown is not the gate build")
+def test_card_gate_build_prefix():
+    # a small file cannot equal the EU2011 firmware prefix
+    p = Path(_SELFTEST_TMP) / "not-a-card.img"
+    p.write_bytes(b"\x00" * 4096)
+    assert _card_head_build(p) not in ("eu2011", "us2011")
+    assert "unknown" in _card_head_build(p) and "…" in _card_head_build(p)
 
 
 def run_selftest() -> int:
