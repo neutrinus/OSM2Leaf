@@ -247,8 +247,9 @@ M3.29/M4.23; default exit 0; gate 4/0/0):
   scratch commit. It is now the run at `719ae582`, a branch commit on
   `origin`, and `fn_audit` is PASS (not SKIP).
 
-No claim rows are edited here; C-6590 gains the open-door clause and C-6591's
-sample SHA is corrected in the same push (see Follow-ups).
+C-6590 gained the open-door clause and C-6591's sample SHA became
+`d585f8a7:TODO.md` in the same push; `claims_check --strict --count-check`
+stays `OK`.
 
 ## Follow-ups
 
