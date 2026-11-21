@@ -1149,8 +1149,8 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
   - Falsifier: a cardcheck run whose JSON omits a check today reported, compared against a committed baseline, still exits 0.
   - Claims: C-4350–C-4359
 
-- [ ] **H105 — H40's fixture has no negative control: a tree that passes but cannot fail proves nothing**
-  - Status: in progress · Owner: task/h105-cardcheck-negative-control · Critical: yes · Pair: required
+- [x] **H105 — H40's fixture has no negative control: a tree that passes but cannot fail proves nothing**
+  - Status: done · Owner: task/h105-cardcheck-negative-control · Critical: yes · Pair: required
   - Depends: H103 (the builder it breaks); H40's Done-when calls it
   - Goal: retro 2026-11-18 action 3's Done-when is "`l1l2-fixtures.yml` runs `cardcheck` on a generated tree **and fails on a broken one**". H103 gives the passing tree; the broken one is the control that makes the row a test. Without it, a check that silently degraded to `return PASS` passes both the tree and CI, and H40 closes on a no-op — exactly the B2/N1 defect class M5.34's reviewer found (out-only file, section-2 flip).
   - Precheck: `grep -c 'break\|corrupt\|negative' tools/one_tile_pipeline.py` counts only the reviewer-added `out == input` and section-2 checks — there is no builder that emits a *deliberately* broken card; H40's block has no negative clause today.
@@ -1161,6 +1161,7 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
   - Stop: if a break kind trips several checks at once and cannot be narrowed, keep it but assert only "the target id is among the FAILs" and say so in the row's reason.
   - Falsifier: the good tree passes and every `--break` kind also exits 0 (the checker never distinguishes them).
   - Claims: C-4360–C-4369
+  - Result: EXP-2026-11-21-H105-cardcheck-negative-control; C-4360–C-4369. --break (5 kinds) on H103's builder: `--generate-fixture DIR --break tile-level-not-in-mmain --json J` exits 1 with FAIL id `mmain`, the id the unbroken tree passes (good rc=0, 6 PASS/2 SKIP); all five kinds rc=1 with their target id among the FAILs (`mmain`,`mmain`,`drstr`,`headers`,`fat`), each an existing rule (no new validator rule). The `fat` kind needs clusters, so `--generate-fixture-image` adds a vendor-free sparse ~100 MiB FAT32 image the checker accepts 8/8 (mbr/fat PASS, not SKIP), byte-identical over two builds; a `--root` tree run exits 2 (lane limit). `cardcheck --selftest` runs every kind (30 ok, 0 fail); `l1l2_fixtures` `l1.synthetic.cardcheck` runs the good+break pair in one row (PASS, coverage_gaps []), `--selftest` OK (32 checks). Gate 4/4 PASS (run with TMPDIR on the home disk: `/tmp` was 97% full and `mkcard --selftest` hit ENOSPC there; `mkcard` passes with a roomy TMPDIR). H40 (CI row) and H104 (baseline) stay their blocks.
 
 - [x] **H106 — L3 never runs on the tile L2 actually writes: `tile_reader`'s only corpus is a factory `B28R070R`**
   - Status: done · Owner: task/h106-l3-on-l2-tile · Critical: no · Pair: required
