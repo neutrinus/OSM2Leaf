@@ -3291,7 +3291,7 @@ text of this section is in git (`13cb0cf`).
   - Step: tooling
 
 - [ ] **M4.58 — Skins: where they live and the `.skn` format (`ReleaseMain.skn`, the TFAT16 volume, `OPNG/`, ROM PNGs)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.58-skins-tfat16 · Critical: no · Pair: solo
   - Depends: — (M1.36b helps: the atlas lists `FILESentry` files per image)
   - Goal: Marek wants to change the unit's look. Three places hold skin data and none is decoded: `ReleaseMain.skn` (8,224 B, the only `FILESentry` of ROM A, C-3522) loaded by `multiskin.dll` (`Multiskin.Loader`), the TFAT16 volume at card offset `0x1C8400400` ("skin data", C-166, contents never listed), and PNG assets in ROM A (~`0x00df0000`) and `OPNG/`. Say which file decides what is drawn and what a skin id selects (`CApi_GetSkinID`/`SetSkinID`/`IsAvailableSpecifiedSkin` in `commondll.dll`).
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 files --extract <dir>` writes `ReleaseMain.skn`; the TFAT16 boot sector is at `0x1C8400400` of the full image (`7z l` or `mtools` on a slice lists it; this needs the full EU2011 image, not IMG256).
