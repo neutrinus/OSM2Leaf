@@ -101,3 +101,23 @@ negative EXP + blocked + unblock task, which is the rule-4/rule-15 outcome, not 
   Rebased onto origin/main (1 behind, clean), gate re-run 4/4, CI 6/6 green. Merged 441fe96d. wt remove,
   scratch m961-verify deleted. Rule 15: M9.61 unblocks no `Unblock:` line (M9.63 states it does not wait on
   M9.61); nothing to re-open.
+- M9.58 #424 renderer walk — the driver SELF-MERGED to main (d133b3aa) without TL review, after the PR had
+  been auto-closed MERGED with only the claim commit. TL reviewed it retroactively:
+  * Verdict is a NEGATIVE, honestly labelled: the sub-3 handler 0x0042613c copies the shape region
+    (rec+0x2c, 11264 B F / 512 B G) and tail (4*w17 for 4*w18), a one-link change (word 59) gives DIFFERENT
+    and an out-of-copy word (SAME), but the handler loads NO link word and no located draw function reads the
+    copies -> the Falsifier fires; the record's next hop is a 0x0fa0 sub 0x019a message to LOC_map. The EXP says
+    so in "Conclusion", and follow-up M9.66 continues the shape walk. Precedent for done-as-decisive-negative:
+    M3.11b is [x] with "Result: … (negative; done-when not met)". So the `done` is defensible under repo
+    convention (not a false done); C-6010–C-6017 exist in the ledger and match the EXP.
+  * DEFECT found and fixed: M9.66 (added by d133b3aa) declared `Claims: C-6750–C-6759`, but C-6750 is M1.44's
+    camera claim (a1279482, an ANCESTOR of d133b3aa — already on main when M9.58 merged) and C-6760 is H129's.
+    claims_check validates claim ROWS, not block-to-block range declarations, so both overlaps passed CI
+    silently. Fixed with board.py next-claims' range C-6770–C-6779: PR #456, merged b1b5ae70. This is the second
+    silent claim-range collision this cycle (after M9.60's C-6650/C-6520); a real tooling gap for H129.
+  * Commits landed while another TL run merged its 6-task batch (#431–435) and the PO/QA passes; M9.58 also
+    brought M9.66 and the GetSystemTime vcard model. TL did not revert the self-merge: content is correct, only
+    the claim range was wrong, now on main.
+
+remaining live task: M5.61 #423 (Poland card) — 4 h in, currently ingesting an 821 MB OSM cut with
+m5_61_build_tile.py; PR still carries only the claim commit, work is local, driver alive. Not abandoned.
