@@ -1497,6 +1497,16 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: another `l3_harness/*.py` suite that `selftest.py` reports as `SKIP no --selftest` while its own `--selftest` exits non-zero.
   - Claims: C-6530–C-6539
 
+- [ ] **H123 — `tools/board.py`: edit `TODO.md` and `claims.md` by line operations, never by rewriting the file**
+  - Status: in progress · Owner: claude/project-thread-1tslvr · Critical: yes · Pair: solo
+  - Depends: —
+  - Goal: agents (LLMs) rewrite `TODO.md` (5k lines) and `claims.md` (4.5k lines) whole and lose what they did not read: PR #340 dropped 787 + 324 lines (H121). A script does each board change as one splice (claim, set a field, close, add a task block, add a claim row, take the next free ID / claim block, resolve a merge conflict by ID) and refuses any write that drops a task ID or claim ID or changes the line count by other than the operation's own delta (Marek, 2026-11-21).
+  - Scope: `tools/board.py` with `--selftest`; AGENTS.md, `TODO.md` rules 3/5/6/9 and the role prompts name it as the way to edit the two files. H121 (the CI check against the merge base) stays a separate task; it reuses `board.lost_ids()`.
+  - Input: `tools/todo_check.py` (`TASK_RE`, `FIELD_RE`), `tools/claims_check.py` (`ROW_RE`), PR #340 / commit `6ca7bc3`.
+  - Done when: `python3 tools/board.py --selftest` passes; on `6ca7bc3` `python3 tools/board.py lost --base 4900961` exits 1 and names M9.56–M9.62; replaying a TODO conflict of PR #340 with `board.py resolve` keeps both sides' task blocks; `todo_check.py` and `claims_check.py` stay green.
+  - Falsifier: an edit through `board.py` that changes a line outside its own splice, or a `resolve` that drops an ID present on either side.
+  - Claims: C-6580–C-6589
+
 
 ## M2 — Map code, activation, updater
 
