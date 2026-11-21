@@ -154,7 +154,9 @@ change — that would mean the rule was not confined to `--strict`.
   ```
 
   The verdict (`4 pass, 0 fail, 0 skip`) is stable across runs; the SECS
-  column is host- and load-dependent, quoted from the run at `ece6408c`.
+  column is host- and load-dependent. The table above is the run at
+  `ece6408c`; a re-run at `f2601355` (HEAD after a 2-commit rebase on
+  `origin/main`) reproduces the same `gate: 4 pass, 0 fail, 0 skip`.
 
 ## Interpretation
 
