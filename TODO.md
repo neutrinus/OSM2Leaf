@@ -2343,8 +2343,8 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
   - Stop: one session.
   - Claims: C-6510–C-6519
   - Result: `docs/experiments/EXP-2026-11-21-M5.62-l2-tile-sections.md` (C-6510–C-6519). `tools/l2check.py` gains `tile_section_list` (via `tile_drop_l3.parse_section_list`): a `BxxRyyyR.DAT` named on `--tiles`/`--semantic-tiles`/`--class-tiles` must list three entries at `0x800`/`0x806`/`0x80c`, none `ff ff ff ff`; `LEV3456R.DAT` is out of scope. The unchanged `one_tile_pipeline.py --synthetic` `B48R058R` tile passes (`[tile_section_list] OK (B48R058R.DAT=3; …)`, exit 0), the same tile with `0x80c` blanked fails naming `0x80c` (exit 1); a tile identical to the new `--factory-root` file (factory verbatim) and an unnamed default-list tile are INFO, so the raw EU 2011 factory card stays `RESULT: PASS` (the 2/2/1-entry B28R070R/B30R060R/B58R070R are INFO, C-6085). `--selftest` holds all five cases (27 ok); `selftest.py --only l2check` passed=1; gate 4 pass, 0 fail, 0 skip. Claim block C-6510–C-6519 (C-6500–C-6509 is reserved by M4.58).
-- [ ] **M5.63 — POI writer: fine position, spatial-tree leaf and index records for a moved or added POI**
-  - Status: in progress · Owner: task/m5.63-poi-position-writer · Critical: yes · Pair: solo
+- [x] **M5.63 — POI writer: fine position, spatial-tree leaf and index records for a moved or added POI**
+  - Status: done · Owner: task/m5.63-poi-position-writer · Critical: yes · Pair: solo
   - Depends: M4.27 (done), M5.26 / M4.47 (chain regeneration and relocation, done); M3.34 strengthens the gate but does not block the build
   - Goal: the POI tools rename only (`mutate_refer_poi.py`, `point_pair_regen.py`). A POI for Poland needs a position: copy A with the `11xx` nibble, the two fine words, and the same values in the leaf of its category's spatial tree; a new POI also needs its index records, trie entries and (US) phone key. Build the first step: move one existing POI to a given lat/lon and keep every structure `point_census.py` checks consistent.
   - Precheck: `python3 tools/point_census.py --selftest` passes; `python3 tools/point_census.py joins DIR --files POINT010` prints `joins hold` on a factory pair.
@@ -2353,6 +2353,7 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
   - Done when: a tool with `--selftest` writes a pair in which the chosen POI decodes to the requested position within 2 m, `point_census.py census` and `joins` pass on the output, every other byte outside the touched page and leaf is unchanged, and a no-op run is byte-identical; negative control: a pair with the record moved but the leaf left is refused by `joins`.
   - Stop: one session.
   - Claims: C-6550–C-6559
+  - Result: EXP-2026-11-21-M5.63-poi-move (C-6550–C-6559): `tools/point_move_poi.py` (`--selftest`, 20 ok) moves record 0 of EU 2011 `POINT010` 1.95 m from the request (52.572276,-9.282440), census `unaccounted=0`, joins 15,378/15,378, 0 bytes changed outside the page slot and leaf, `cmpind verify` PASS; no-op byte-identical; `--control leave-leaf` refused by joins (15,377/15,378). Step 2 (another cell) and new POIs remain open.
   - Step: P4
 
 - [ ] **M3.32 — Who reads the bytes inside an `ADDRE` record's point block and house-range items**
