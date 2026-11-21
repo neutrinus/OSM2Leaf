@@ -4891,3 +4891,8 @@ into three printed classes.
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
 | C-6700 | `tools/todo_check.py` records the `--strict` rule-14 ERROR debt as a committed baseline `tools/fixtures/todo_strict_baseline.json` keyed by `(task ID, missing field)` (never line number): 8 entries over 4 tasks (`M1.38|Stop`, `M3.13|Precheck/Scope/Stop`, `M3.29|Precheck`, `M8.C|Precheck/Scope/Stop`) at `ba503549`. `--update-baseline PATH` writes the current keys with the HEAD revision and prints `+`/`-` rows; `--strict --baseline PATH` fails only on a new key (structural errors, no key, always fail) and prints `cleared: <task>` for baselined entries that resolved. Verified: clean main exits 0 with `8 error(s) over 4 task(s) (baseline 8, new 0)`; a temp TODO with a new firmware task missing `Stop` exits 1 naming `NEW M9.99|Stop`; completing `M3.13` prints `cleared: M3.13` and exits 0. No WARN suppressed, no firmware rule relaxed, no open task edited. | VERIFIED (tool) | H | EXP-2026-11-21-H128; `python3 tools/todo_check.py --strict --baseline tools/fixtures/todo_strict_baseline.json` → OK rc=0; `python3 tools/selftest.py --only todo_check` → PASS (31 checks) |
+
+## H127 - gate log failing row
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-6680 | gate FAIL tail keeps the MISSING/ERROR lines. | PROPOSED | - | EXP-2026-11-21-H127-h127-gate-log-failing-row |
