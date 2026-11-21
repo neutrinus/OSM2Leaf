@@ -37,6 +37,9 @@ Commands (``python3 tools/board.py CMD --help`` for each)::
     add-claims --section TITLE (--row ROW … | --file F) [--create]
     claim-status C-ID STATUS        change the Status cell of one claim row
     claim-row C-ID --text ROW       replace one whole claim row (no hand edit)
+    claim-set C-ID FIELD VALUE      set one `Key: Value` in a claim's body or
+                                    evidence (e.g. `claim-set C-1 Supersedes C-2`)
+    claim-body C-ID TEXT            replace only the claim body cell
     lost --base REF [--head REF] [FILE …]
                                     IDs present at REF and missing now (exit 1)
     check [REF] [--base REF]        H121: a PR must not drop IDs it does not own
@@ -767,6 +770,45 @@ def op_claim_row(bf: BoardFile, cid: str, text: str) -> tuple[str, int]:
     return bf.splice(hits[0], hits[0] + 1, [new])
 
 
+def _claim_row(bf: BoardFile, cid: str) -> tuple[int, list[str]]:
+    hits = [i for i, l in enumerate(bf.lines) if (m := ROW_RE.match(l)) and m.group(1) == cid]
+    if len(hits) != 1:
+        raise BoardError(f"{cid}: {len(hits)} rows (need exactly one)")
+    parts = re.split(r"(?<!\\)\|", bf.lines[hits[0]])
+    if len(parts) < 7:
+        raise BoardError(f"{cid}: row has fewer than 5 cells")
+    return hits[0], parts
+
+
+def op_claim_set(bf: BoardFile, cid: str, field: str, value: str) -> tuple[str, int]:
+    """Set one ``Key: Value`` inside a claim's body (cell 2) or evidence (cell 5).
+
+    Cells are ``['', id, body, status, confidence, evidence, '']`` — the row is
+    split on its pipes, so the body is index 2, not 1.  An existing
+    ``Key: …`` in the body is replaced, else the evidence tail gets
+    ``; Key: Value``, else the body gains it.
+    """
+    i, parts = _claim_row(bf, cid)
+    key = field.strip().rstrip(":").strip()
+    if not key or not value.strip():
+        raise BoardError("claim-set takes a key and a value")
+    pat = re.compile(rf"(?<![\w.]){re.escape(key)}:\s*[^|]*")
+    for ci in (2, 5):
+        m = pat.search(parts[ci])
+        if m:
+            parts[ci] = parts[ci][:m.start()] + f"{key}: {value.strip()}" + parts[ci][m.end():]
+            return bf.splice(i, i + 1, ["|".join(parts)])
+    parts[5] = parts[5].rstrip() + f"; {key}: {value.strip()} "
+    return bf.splice(i, i + 1, ["|".join(parts)])
+
+
+def op_claim_body(bf: BoardFile, cid: str, text: str) -> tuple[str, int]:
+    """Replace the claim body (cell 2) of one row; every other cell stays."""
+    i, parts = _claim_row(bf, cid)
+    parts[2] = f" {text.strip()} "
+    return bf.splice(i, i + 1, ["|".join(parts)])
+
+
 # ---------------------------------------------------------------- resolve
 
 def _units(text: str) -> list[tuple[tuple, list[str]]]:
@@ -928,6 +970,9 @@ def main(argv=None) -> int:
     p = sub.add_parser("claim-status"); p.add_argument("id"); p.add_argument("status")
     p = sub.add_parser("claim-row"); p.add_argument("id")
     p.add_argument("--text", required=True, help="the whole replacement row text")
+    p = sub.add_parser("claim-set"); p.add_argument("id"); p.add_argument("field")
+    p.add_argument("value")
+    p = sub.add_parser("claim-body"); p.add_argument("id"); p.add_argument("text")
     p = sub.add_parser("lost"); p.add_argument("--base", required=True)
     p.add_argument("--head", help="git ref (default: the working tree)")
     p.add_argument("files", nargs="*", default=list(DEFAULT_FILES))
@@ -1030,6 +1075,18 @@ def _dispatch(args) -> int:
         text, d = op_claim_row(bf, args.id, args.text)
         bf.write(text, delta=d, dry_run=dry)
         print(f"board: claim-row {args.id}: {d:+d} lines")
+        return 0
+    if c == "claim-set":
+        bf = BoardFile(args.claims)
+        text, d = op_claim_set(bf, args.id, args.field, args.value)
+        bf.write(text, delta=d, dry_run=dry)
+        print(f"board: {args.id} {args.field}: {args.value}")
+        return 0
+    if c == "claim-body":
+        bf = BoardFile(args.claims)
+        text, d = op_claim_body(bf, args.id, args.text)
+        bf.write(text, delta=d, dry_run=dry)
+        print(f"board: {args.id} body replaced")
         return 0
     if c == "lost":
         # The checkout the command runs in (any worktree), else this tool's.
@@ -1287,6 +1344,15 @@ def run_selftest() -> int:
         # claim-status keeps escaped pipes
         ok(run("claim-status", "C-101", "RETRACTED") == 0, "claim-status exit 0")
         ok("| C-101 | b \\| pipe | RETRACTED | M | y |" in claims.read_text(), "status cell replaced")
+
+        # claim-set / claim-body touch one cell, keep every ID
+        ok(run("claim-set", "C-101", "Supersedes", "C-999") == 0, "claim-set exit 0")
+        ok("Supersedes: C-999" in claims.read_text() and claim_ids(claims.read_text())
+           == ["C-100", "C-101", "C-102", "C-110", "C-200"], "claim-set keeps IDs")
+        ok(run("claim-body", "C-100", "replacement body") == 0
+           and "| C-100 | replacement body | VERIFIED | H | `x` |" in claims.read_text(),
+           "claim-body replaces only cell 1")
+        ok(run("claim-body", "C-404", "x") == 1, "claim-body refuses an unknown ID")
 
         # guard: refuses ID loss, wrong delta, collateral edits, concurrent writes
         refused(lambda: guard(SAMPLE_TODO, SAMPLE_TODO.replace("- [ ] **H2 — Second**", "- H2"),
