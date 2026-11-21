@@ -200,6 +200,13 @@ class FatGeometry:
     label: str
     oem: str
 
+    @property
+    def cluster_count(self) -> int:
+        """Data clusters the FAT geometry can address (2 .. cluster_count+1)."""
+        return ((self.partition_bytes // self.bytes_per_sector)
+                - self.reserved_sectors
+                - self.fat_count * self.fat_size_sectors) // self.sectors_per_cluster
+
 
 def _u16(data: bytes, off: int) -> int:
     return struct.unpack_from("<H", data, off)[0]
@@ -302,6 +309,11 @@ class Fat32Image:
         self._fat = self._read_fat()
         self._dir_cache: dict[str, list[Entry]] = {}
         self._entry_cache: dict[str, Entry] = {}
+        # H105: every out-of-range cluster the walker refused to read. A check
+        # that walks the tree turns this into a named failure (fat) instead of
+        # an empty tree, so a card whose FAT/DIRENT chain runs past the data
+        # area cannot pass by reading as "no files".
+        self.cluster_errors: list[str] = []
 
     def close(self) -> None:
         self.handle.close()
@@ -375,6 +387,12 @@ class Fat32Image:
 
     def _read_cluster(self, cluster: int) -> bytes:
         geo = self.geometry
+        if cluster >= 2 + geo.cluster_count:
+            msg = (f"cluster {cluster} out of range "
+                   f"(data area holds clusters 2..{geo.cluster_count + 1})")
+            if msg not in self.cluster_errors:
+                self.cluster_errors.append(msg)
+            return b""
         off = geo.partition_offset + (
             geo.reserved_sectors + geo.fat_count * geo.fat_size_sectors
         ) * geo.bytes_per_sector + (cluster - 2) * geo.cluster_bytes
@@ -740,6 +758,13 @@ def check_fat(source, report: Report) -> None:
         return
     geo = source.geometry
     check.stats.update(asdict(geo))
+    try:
+        for _entry in source.walk():
+            pass
+    except (OSError, ValueError):
+        pass
+    for message in getattr(source, "cluster_errors", ()):
+        check.error(message)
     if geo.cluster_bytes != 65536:
         check.warn(f"cluster size is {geo.cluster_bytes}, expected 65536")
     if geo.fat_count < 1:
@@ -1231,7 +1256,7 @@ def _fixture_tile_totals(root: Path) -> dict:
     return totals
 
 
-def generate_fixture(root) -> Path:
+def generate_fixture(root, break_kind: str | None = None) -> Path:
     """Write a deterministic, vendor-free card tree ``cardcheck`` accepts.
 
     The tree satisfies every L1 check a FAT32-root tree can (``tree``,
@@ -1244,6 +1269,10 @@ def generate_fixture(root) -> Path:
     for the box, and the tile headers themselves for the MMAIN counts and the
     DRSTR sizes via ``drstr_ze0.build``).  Fixed timestamps keep it
     byte-identical across runs.  No OSM input, no vendor bytes.
+
+    ``break_kind`` (H105) applies one deliberate defect after the tree is
+    otherwise complete; the matching cardcheck rule then fails. The FAT kind
+    needs clusters, so it lives in ``generate_fixture_image``.
     """
     import cmpind_writer
     import drstr_ze0
@@ -1281,7 +1310,246 @@ def generate_fixture(root) -> Path:
 
     # DRSTR001.DAT last: it sizes every file/dir actually on disk.
     (root / "DRSTR001.DAT").write_bytes(drstr_ze0.build(root))
+    if break_kind is not None:
+        if break_kind in IMAGE_ONLY_BREAKS:
+            raise ValueError(
+                f"break {break_kind!r} needs a FAT/MMAIN-aware image; use "
+                f"--generate-fixture-image instead of --generate-fixture")
+        _apply_break(root, break_kind)
     return root
+
+
+# ---------------------------------------------------------------------------
+# H105: deliberate breaks — the negative control for H103's fixture
+# ---------------------------------------------------------------------------
+#
+# A tree that passes but cannot fail proves nothing. Every kind below trips an
+# *existing* cardcheck rule on a tree the checker otherwise accepts, so
+# ``good rc=0 -> break rc=1 -> same check id`` tests the checker (a check that
+# degraded to ``return PASS`` would leave the broken tree at rc=0), not a new
+# rule. No new validator rule, no vendor bytes (H105 scope).
+
+BREAK_KINDS = (
+    "mmain-missing-tile-level",
+    "drstr-size-mismatch",
+    "tile-level-not-in-mmain",
+    "fat-cluster-out-of-range",
+    "header-magic",
+)
+
+# kind -> the check id the good fixture passes and the break must fail.
+BREAK_TARGET = {
+    "mmain-missing-tile-level": "mmain",
+    "drstr-size-mismatch": "drstr",
+    "tile-level-not-in-mmain": "mmain",
+    "fat-cluster-out-of-range": "fat",
+    "header-magic": "headers",
+}
+
+# The FAT kind reads the MBR/FAT/data-area geometry, which a ``--root`` tree
+# does not carry (``fat`` is SKIP there). It needs ``--generate-fixture-image``.
+IMAGE_ONLY_BREAKS = frozenset({"fat-cluster-out-of-range"})
+
+FIXTURE_IMAGE_LABEL = "TST-000-000"
+FIXTURE_IMAGE_PART_LBA = 2048             # 1 MiB: the MBR sits at sector 0
+FIXTURE_IMAGE_SECTORS_PER_CLUSTER = 128   # 64 KiB, the factory cluster size
+FIXTURE_IMAGE_TAIL_SECTORS = 8192         # room for a few 64 KiB clusters
+FIXTURE_IMAGE_HDD_SECTOR = HDD_COPY_OFFSET // SECTOR
+FIXTURE_IMAGE_TOTAL_SECTORS = FIXTURE_IMAGE_HDD_SECTOR + FIXTURE_IMAGE_TAIL_SECTORS
+
+
+def _fixture_level_table_positions(data: bytes, offset: int = 0x1AC):
+    """Yield (section, level, type, count, count_offset) from a level table."""
+    if offset + 2 > len(data):
+        raise ValueError("level table offset out of range")
+    count = _be16(data, offset)
+    pos = offset + 2
+    for _ in range(count):
+        if pos + 2 > len(data):
+            raise ValueError("truncated level table group")
+        section, rows = data[pos], data[pos + 1]
+        pos += 2
+        for _ in range(rows):
+            if pos + 4 > len(data):
+                raise ValueError("truncated level table rows")
+            level, kind, value = struct.unpack_from(">BBH", data, pos)
+            yield section, level, kind, value, pos + 2
+            pos += 4
+
+
+def _break_mmain_missing_section(root, section: int = 4) -> None:
+    """Drop one section's group from MMAIN001.DAT.
+
+    ``check_mmain`` then finds a tile level whose section is absent from the
+    master table (``tile table has section 4 level 1 not in MMAIN``) — mmain.
+    """
+    path = Path(root) / "MMAIN001.DAT"
+    data = bytearray(path.read_bytes())
+    groups = [g for g in parse_level_table(bytes(data), 0x1AC)
+              if g["section"] != section]
+    if len(groups) == _be16(data, 0x1AC):
+        raise ValueError(f"MMAIN has no section {section} to drop")
+    table = bytearray(struct.pack(">H", len(groups)))
+    for group in groups:
+        table += bytes([group["section"], len(group["rows"])])
+        for row in group["rows"]:
+            table += struct.pack(">BBH", row["level"], row["type"], row["count"])
+    data[0x1AC:0x1AC + len(table)] = table
+    path.write_bytes(bytes(data))
+
+
+def _break_drstr_size(root, delta: int = 1) -> None:
+    """Add ``delta`` to the first file entry's DRSTR size.
+
+    ``check_drstr`` compares each entry's logical size with the file on disk and
+    fails ``DRSTR size N != actual M`` — drstr.
+    """
+    path = Path(root) / "DRSTR001.DAT"
+    data = bytearray(path.read_bytes())
+    for node in drstr.parse(bytes(data))["nodes"]:
+        for entry in node["entries"]:
+            if entry["type"] != 0:
+                continue
+            off = node["listing_offset"] + entry["index"] * 32 + 0x1C
+            value = struct.unpack_from("<I", data, off)[0]
+            struct.pack_into("<I", data, off, (value + delta) & 0xFFFFFFFF)
+            path.write_bytes(bytes(data))
+            return
+    raise ValueError("DRSTR has no file entry to resize")
+
+
+def _break_tile_level_not_in_mmain(root, section: int = 4,
+                                   level: int = 1, count: int = 7) -> None:
+    """Raise one tile-header level count above the MMAIN total.
+
+    ``check_mmain`` compares the tile sum with the master count and fails
+    ``MMAIN section 4 level 1: count 1 != tile sum 7`` — mmain.
+    """
+    for path in sorted((Path(root) / "MAPAL001").glob("*.DAT")):
+        data = bytearray(path.read_bytes())
+        try:
+            rows = list(_fixture_level_table_positions(bytes(data), 0x1AC))
+        except ValueError:
+            continue
+        for sid, lvl, _kind, _value, count_off in rows:
+            if (sid, lvl) == (section, level):
+                struct.pack_into(">H", data, count_off, count)
+                path.write_bytes(bytes(data))
+                return
+    raise ValueError(f"no tile header lists section {section} level {level}")
+
+
+def _break_header_magic(root, rel: str = f"MAPAL001/{FIXTURE_CELL}.DAT") -> None:
+    """Overwrite the CLARION magic at 0x00 of one header.
+
+    ``check_headers`` asks every header for its identity strings and fails
+    ``header field 0x00 is ... expected 'CLARION'`` — headers.
+    """
+    path = Path(root) / rel
+    data = bytearray(path.read_bytes())
+    data[0x00:0x0C] = "XARION".encode("utf-16-be")
+    data[0x0C:0x0E] = b"\xff\xff"
+    path.write_bytes(bytes(data))
+
+
+def _break_fat_cluster_range(img) -> None:
+    """Point MAPAL001/LEV3456R.DAT's directory entry past the data area.
+
+    ``check_fat`` fails ``cluster N out of range`` — fat. The cluster is read
+    by ``check_mmain`` and ``check_headers`` too, so it also shows up as an
+    empty file there; the row asserts only that ``fat`` is among the FAILs
+    (H105 Stop rule).
+    """
+    img = Path(img)
+    source = Fat32Image(img)
+    try:
+        geo = source.geometry
+        bad = 2 + geo.cluster_count + 16
+        data_off = geo.partition_offset + (
+            geo.reserved_sectors + geo.fat_count * geo.fat_size_sectors
+        ) * geo.bytes_per_sector
+        listing_off = data_off + (geo.root_cluster - 2) * geo.cluster_bytes
+        with img.open("r+b") as handle:
+            handle.seek(listing_off)
+            listing = handle.read(geo.cluster_bytes)
+            for i in range(0, len(listing) - 31, 32):
+                slot = listing[i:i + 32]
+                if slot[0] in (0x00, 0xE5) or slot[11] == 0x08:
+                    continue
+                if slot[0:11] == b"MAPAL001   ":
+                    patched = bytearray(slot)
+                    struct.pack_into("<H", patched, 20, (bad >> 16) & 0xFFFF)
+                    struct.pack_into("<H", patched, 26, bad & 0xFFFF)
+                    handle.seek(listing_off + i)
+                    handle.write(patched)
+                    return
+    finally:
+        source.close()
+    raise ValueError("MAPAL001 directory entry not found in the image")
+
+
+def _apply_break(root, kind: str, img=None) -> None:
+    if kind == "mmain-missing-tile-level":
+        _break_mmain_missing_section(root)
+    elif kind == "drstr-size-mismatch":
+        _break_drstr_size(root)
+    elif kind == "tile-level-not-in-mmain":
+        _break_tile_level_not_in_mmain(root)
+    elif kind == "header-magic":
+        _break_header_magic(root)
+    elif kind == "fat-cluster-out-of-range":
+        if img is None:
+            raise ValueError("fat-cluster-out-of-range needs an image")
+        _break_fat_cluster_range(img)
+    else:
+        raise ValueError(
+            f"unknown break kind {kind!r}; choose from {', '.join(BREAK_KINDS)}")
+
+
+def _build_fixture_image(tree, img) -> Path:
+    """Write a FAT32 image carrying ``tree``, mirroring HDD_INFO at 0x06000000.
+
+    The partition sits after ``0x06000000`` (the copy ``check_version``
+    compares) and uses 64 KiB clusters, the factory geometry. The ~100 MiB file
+    is sparse (~8 MiB written) and holds no vendor bytes.
+    """
+    import mkcard
+
+    tree, img = Path(tree), Path(img)
+    template = img.with_name(img.name + ".tmpl")
+    mkcard.make_synthetic_image(
+        template, {"X.TXT": b"x" * 64},
+        part_lba=FIXTURE_IMAGE_PART_LBA,
+        total_sectors=FIXTURE_IMAGE_TOTAL_SECTORS,
+        spc=FIXTURE_IMAGE_SECTORS_PER_CLUSTER, label=FIXTURE_IMAGE_LABEL)
+    mkcard.mkcard(template, tree, img, explain=False,
+                  label=FIXTURE_IMAGE_LABEL)
+    template.unlink()
+    hdd = (tree / "VER_INFO" / "HDD_INFO.TXT").read_bytes()
+    with img.open("r+b") as handle:
+        handle.seek(HDD_COPY_OFFSET)
+        handle.write(hdd)
+    return img
+
+
+def generate_fixture_image(img, break_kind: str | None = None) -> Path:
+    """Write a vendor-free FAT32 image that ``cardcheck --image`` accepts.
+
+    The tree-level break kinds are applied to the tree before it is written, so
+    the image carries the same defect on disk; the FAT kind is applied to the
+    built image's directory entry (a tree has no clusters to repoint).
+    """
+    img = Path(img)
+    tree = img.with_name(img.name + ".tree")
+    generate_fixture(tree)
+    if break_kind not in (None, "fat-cluster-out-of-range"):
+        if break_kind not in BREAK_KINDS:
+            raise ValueError(f"unknown break kind {break_kind!r}")
+        _apply_break(tree, break_kind)
+    _build_fixture_image(tree, img)
+    if break_kind == "fat-cluster-out-of-range":
+        _apply_break(tree, break_kind, img=img)
+    return img
 
 
 def _run_checks(source, report: Report, *, partial: bool = False,
@@ -1314,6 +1582,16 @@ def build_parser() -> argparse.ArgumentParser:
     source.add_argument("--generate-fixture", metavar="DIR",
                         help="write a deterministic no-vendor tree to DIR and "
                              "validate it in the same run (H103)")
+    source.add_argument("--generate-fixture-image", metavar="IMG",
+                        help="write a deterministic no-vendor FAT32 image to IMG "
+                             "(with the HDD_INFO copy at 0x06000000) and validate "
+                             "it in the same run (H105)")
+    parser.add_argument("--break", dest="break_kind", metavar="KIND",
+                        choices=BREAK_KINDS,
+                        help="with --generate-fixture/--generate-fixture-image, "
+                             "inject one deliberate defect so the matching check "
+                             "FAILs (the negative control): "
+                             + ", ".join(BREAK_KINDS))
     parser.add_argument("--json", help="write a JSON report to this path")
     parser.add_argument("--json-only", action="store_true",
                         help="do not print the human summary")
@@ -1436,6 +1714,42 @@ def _selftest() -> int:
         ok("mmain" in {c["id"] for c in neg2["checks"] if c["status"] == "FAIL"},
            "the failing check is named mmain")
 
+        # H105: every --break kind is a negative control — rc=1 and the check
+        # the good tree passed is among the FAILs. A kind the checker ignores
+        # would leave rc=0 here (the exact defect H105 exists to catch).
+        def run_image(path: Path) -> dict:
+            source = Fat32Image(path)
+            try:
+                report = Report("L1", {"kind": "image", "path": str(path)},
+                                fixture="none")
+                return _run_checks(source, report)
+            finally:
+                source.close()
+
+        for kind in BREAK_KINDS:
+            target = BREAK_TARGET[kind]
+            if kind in IMAGE_ONLY_BREAKS:
+                img = base / f"break-{kind}.img"
+                generate_fixture_image(img, break_kind=kind)
+                bad = run_image(img)
+            else:
+                tree = base / f"break-{kind}"
+                generate_fixture(tree, break_kind=kind)
+                bad = run(tree)
+            failed = {c["id"] for c in bad["checks"] if c["status"] == "FAIL"}
+            ok(not bad["ok"], f"--break {kind}: L1 FAIL (rc=1)")
+            ok(target in failed,
+               f"--break {kind}: the failing check includes {target!r}")
+
+        # Positive control for the image path: the unbroken image passes, so
+        # the FAT break above is not passing only because images fail anyway.
+        image = base / "good.img"
+        generate_fixture_image(image)
+        good_img = run_image(image)
+        ok(good_img["ok"], "unbroken --generate-fixture-image passes all 8 (no SKIP)")
+        ok(good_img["counts"]["skip"] == 0,
+           "an image has no image-only SKIP: mbr/fat PASS, not SKIP")
+
     print(f"cardcheck selftest: {'PASS' if failures == 0 else 'FAIL'} "
           f"({failures} failure(s))")
     return 0 if failures == 0 else 1
@@ -1445,16 +1759,25 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.selftest:
         return _selftest()
-    if not (args.image or args.root or args.generate_fixture):
+    if not (args.image or args.root or args.generate_fixture
+            or args.generate_fixture_image):
         parser = build_parser()
         parser.error("one of the arguments --image --root --generate-fixture "
-                     "is required")
+                     "--generate-fixture-image is required")
+    if args.break_kind and not (args.break_kind in IMAGE_ONLY_BREAKS
+                                and args.generate_fixture_image):
+        if args.break_kind in IMAGE_ONLY_BREAKS:
+            build_parser().error(
+                f"--break {args.break_kind} needs --generate-fixture-image")
+        if not (args.generate_fixture or args.generate_fixture_image):
+            build_parser().error("--break needs --generate-fixture or "
+                                 "--generate-fixture-image")
     if args.expect_sha256 and not args.hash:
         args.hash = True
     fixture = None
     if args.generate_fixture:
         try:
-            generate_fixture(Path(args.generate_fixture))
+            generate_fixture(Path(args.generate_fixture), break_kind=args.break_kind)
         except (OSError, ValueError) as exc:
             print(f"error: --generate-fixture: {exc}", file=sys.stderr)
             return 2
@@ -1466,6 +1789,22 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
+    elif args.generate_fixture_image:
+        try:
+            generate_fixture_image(Path(args.generate_fixture_image),
+                                   break_kind=args.break_kind)
+        except (OSError, ValueError) as exc:
+            print(f"error: --generate-fixture-image: {exc}", file=sys.stderr)
+            return 2
+        image = str(Path(args.generate_fixture_image))
+        fixture = "none"
+        try:
+            source = Fat32Image(Path(image))
+        except (OSError, ValueError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        source_info = {"kind": "image", "path": image, "size": source.size,
+                       "fixture": fixture}
     else:
         try:
             if args.image:
@@ -1502,6 +1841,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"L1 whole-card validation: {source_info['path']}")
         if fixture is not None:
             print(f"fixture={fixture} (no vendor bytes)")
+        if args.break_kind:
+            print(f"break={args.break_kind} (expected to FAIL "
+                  f"{BREAK_TARGET[args.break_kind]})")
         for check in result["checks"]:
             status = {"PASS": "OK", "SKIP": "SKIP", "FAIL": "FAIL"}[check["status"]]
             details = []
