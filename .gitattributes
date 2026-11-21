@@ -1,0 +1,6 @@
+# H119: the fn_audit snapshots store one citation per line with no line
+# number, so two task PRs that each add an EXP citation add different lines.
+# A union merge keeps both sides' added rows instead of conflicting; the
+# summary is recomputed from the rows at load, so it never needs a merge.
+docs/research/fn-audit-corpus-2026-11-16.json merge=union
+docs/research/fn-audit-l3-corpus-2026-11-20.json merge=union

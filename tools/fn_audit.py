@@ -75,25 +75,27 @@ has no build A (nothing to audit).  ``--fix-list`` prints one sorted
 ``0x<mid> -> 0x<start>`` line per ``INSIDE`` VA and changes no file.
 
 A frozen corpus (M1.30) is a committed JSON snapshot written once by
-``--write-snapshot`` (one ``{file,line,va,kind,class,true_start}`` row per
+``--write-snapshot`` (one ``{file,va,kind,class,true_start}`` row per
 citation plus the exact summary the writer printed and the image's SHA-256).
-``--corpus`` takes the same image and re-derives every row's class from
-``.pdata`` — the frozen part is only ``file/line/va/kind`` — and by default
-also compares the snapshot against a live ``--scope docs`` scan.  A source
-line that moved without changing its ``(file,va,kind,class)`` identity is
-``CORPUS DRIFT``: it warns and exits 0 (H69, line moves are prose).  A line
-that was added or removed, or a verdict change at an unchanged key, is
-``CORPUS STALE`` and exits 1.  The standing gate (M1.26) runs on the
-snapshot so board prose cannot move the counts; a diff to the snapshot is the
-review artefact.
+H119 freezes **one row per physical line** with no ``line`` field, sorted by
+``(file, va, kind)`` and the row's canonical JSON, and the two snapshot files
+carry ``merge=union`` (``.gitattributes``): two task PRs that each add a
+citation add different lines, so their merge is a text union, not a conflict,
+and the summary is recomputed from the rows at load so it never has to be
+edited.  ``--corpus`` takes the same image and re-derives every row's class
+from ``.pdata`` — the frozen part is only ``file/va/kind`` — and by default
+also compares the snapshot against a live scan.  There is no ``line`` to
+drift: an added or removed citation, or a verdict change at an unchanged
+``(file,va,kind)``, is ``CORPUS STALE`` and exits 1.  The standing gate (M1.26)
+runs on the snapshot so board prose cannot move the counts; a diff to the
+snapshot is the review artefact.
 
 With ``--overlay PATH`` the l3 snapshot is read beside the docs base and each
-source gets its own live comparison and its own H69 verdict: a moved-only
-change in either layer warns and exits 0; ``new``/``gone``/a count delta/a
-verdict change in either layer is ``CORPUS STALE`` and exits 1.  The summary
-names both totals so an l3 line move can never fold into the docs ``moved``
-count, and an ``AMBIGUOUS`` row in the overlay exercises H72's candidate-set
-comparison.
+source gets its own live comparison and its own verdict: an added/removed
+citation or a verdict change in either layer is ``CORPUS STALE`` and exits 1
+(H119 removed the line moves that used to be ``CORPUS DRIFT``).  The summary
+names both totals so an l3 change can never fold into the docs count, and an
+``AMBIGUOUS`` row in the overlay exercises H72's candidate-set comparison.
 """
 
 import argparse
@@ -878,7 +880,14 @@ def corrected_only(kept):
 # Frozen corpus snapshot (M1.30): write once, audit the file, never re-scan
 # --------------------------------------------------------------------------
 
-SNAPSHOT_VERSION = 1
+# H119: version 2 stores one row per physical line with no ``line`` field, so
+# two task PRs that each add a citation merge as text (``merge=union`` on the
+# snapshot files, ``.gitattributes``) instead of both rewriting a fixture that
+# held ``line`` numbers.  The summary is recomputed from the rows at load.  A
+# version-1 snapshot (the frozen pre-H77 l3 overlay) is still *read*, never
+# written: ``--write-snapshot`` always emits version 2.
+SNAPSHOT_VERSION = 2
+SNAPSHOT_READ_VERSIONS = (1, 2)
 # A snapshot row keeps only what the gate needs to re-render the verdict; the
 # citation *kind* is stored so a hand-added ``const``/``ctx`` row is treated
 # like a live one when the tool recomputes ``unmapped``.
@@ -905,19 +914,24 @@ def _row_start(verdict):
 
 
 def snapshot_rows(kept):
-    """One ``{file,line,va,kind,class,true_start}`` row per kept citation.
+    """One ``{file,va,kind,class,true_start}`` row per kept citation.
 
-    ``GAP`` rows add ``leaf``, ``AMBIGUOUS`` rows add ``candidates``, and a
-    ``ctx`` row keeps the ``correction`` start its own line pairs it with, so
-    ``--corpus`` can re-derive the verdict from the image instead of trusting
-    the stored ``class``.
+    H119: no ``line`` field.  A row is identified only by ``(file, va, kind,
+    class, true_start)`` plus the class detail (``correction``, ``leaf``,
+    ``candidates``), so an added citation is one new line in the file and two
+    PRs' additions merge as text (``merge=union``).  Occurrences are a
+    multiset: two identical citations on the same file are two identical rows,
+    and a deleted duplicate is still a lost row (H69).  ``GAP`` rows add
+    ``leaf``, ``AMBIGUOUS`` rows add ``candidates``, and a ``ctx`` row keeps
+    the ``correction`` start its own line pairs it with, so ``--corpus`` can
+    re-derive the verdict from the image instead of trusting the stored
+    ``class``.
     """
     rows = []
     for cite, verdict in kept:
-        file, line = _split_where(cite.where)
+        file, _line = _split_where(cite.where)
         row = {
             "file": file,
-            "line": line,
             "va": "0x%08x" % verdict.va,
             "kind": cite.kind,
             "class": _row_class(verdict),
@@ -932,8 +946,82 @@ def snapshot_rows(kept):
         if verdict.klass == "AMBIGUOUS":
             row["candidates"] = [list(c) for c in verdict.candidates]
         rows.append(row)
-    rows.sort(key=lambda r: (r["file"], r["line"], r["va"], r["kind"]))
+    rows.sort(key=_row_sort_key)
     return rows
+
+
+def _row_sort_key(row):
+    """Deterministic order with no ``line``: ``(file, va, kind)`` then the
+    whole row as canonical JSON, so identical rows are adjacent and a
+    hand-written or union-merged file re-sorts to the same bytes (H119)."""
+    return (row.get("file", ""), _canon_va(row.get("va", "0x0")),
+            row.get("kind", ""),
+            json.dumps(row, sort_keys=True, separators=(",", ":")))
+
+
+def _json_compact(obj):
+    return json.dumps(obj, sort_keys=False, separators=(", ", ": "))
+
+
+def render_snapshot(doc):
+    """The snapshot as text: one JSON object per physical line for ``rows``.
+
+    H119: the ``rows`` array is written one compact object per physical line
+    (not ``indent``-expanded across several lines), so a git ``merge=union`` of
+    two branches that each add a citation is a text merge of whole lines: there
+    is no ``line`` field to conflict on and no JSON structure split across a
+    conflict.  Every list is multi-line and every object is one line, so
+    ``merge=union`` never has to merge inside an object.
+
+    **Comma-safe on purpose.**  In the ``rows`` array *every* row line ends in
+    a comma (the last one included) and the loader tolerates the trailing
+    comma.  A git union merge of two branches' added rows keeps both lines;
+    whichever way it resolves the comma between them, ``"[rowA, rowB]"`` or
+    ``"[rowA, , rowB]"``, ``json.loads`` after dropping the empty element still
+    reads both rows.  The same rule holds for ``files``.  The ``summary`` is a
+    single line (recomputed from the rows at load), so a union merge never has
+    to touch it.
+    """
+    order = ["tool", "snapshot_version", "scope", "image", "image_sha256",
+             "files", "summary", "rows", "not_scanned"]
+    keys = [k for k in order if k in doc]
+    lines = ["{"]
+    for i, key in enumerate(keys):
+        comma = "" if i + 1 == len(keys) else ","
+        value = doc[key]
+        if key == "files" and value:
+            lines.append(' "files": [')
+            for name in value:
+                lines.append("  %s," % json.dumps(name))
+            lines.append(" ]" + comma)
+        elif key == "rows" and value:
+            lines.append(' "rows": [')
+            for row in value:
+                lines.append("  %s," % _json_compact(row))
+            lines.append(" ]" + comma)
+        else:
+            lines.append(" %s: %s%s" % (json.dumps(key), _json_compact(value),
+                                        comma))
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+_TRAILING_COMMA_RE = re.compile(r",(\s*[\]}])")
+
+
+def _loads_comma_safe(text):
+    """``json.loads`` that tolerates the trailing commas the writer emits.
+
+    Every ``rows``/``files`` line ends in a comma so a git ``merge=union`` of
+    two branches' added lines is valid whether the merge keeps both commas or
+    collapses them; ``json.loads`` rejects the trailing comma, so drop a comma
+    that sits just before ``]``/``}`` (the snapshot stores no ``,]`` or ``,}``
+    inside a string, so the substitution cannot touch a value).
+    """
+    try:
+        return json.loads(text)
+    except ValueError:
+        return json.loads(_TRAILING_COMMA_RE.sub(r"\1", text))
 
 
 def write_snapshot(path, files, rows, summary, image_path, scope="docs",
@@ -952,8 +1040,7 @@ def write_snapshot(path, files, rows, summary, image_path, scope="docs",
         doc["not_scanned"] = list(not_scanned)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(doc, fh, indent=1, sort_keys=False)
-        fh.write("\n")
+        fh.write(render_snapshot(doc))
     os.replace(tmp, path)
     return doc
 
@@ -987,20 +1074,40 @@ def _image_sha_or_error(path):
 
 
 def load_corpus(path):
-    """The snapshot document, validated to the row schema ``--corpus`` needs."""
+    """The snapshot document, validated to the row schema ``--corpus`` needs.
+
+    H119: version 1 (with ``line``) is still read so the frozen pre-H77 l3
+    overlay keeps auditing; version 2 (one row per line, no ``line``) is what
+    ``--write-snapshot`` emits.  The ``summary`` is recomputed from the rows,
+    so a ``merge=union`` that merged two branches' added rows needs no summary
+    edit and a stale frozen summary can never fail the gate.  Two *identical*
+    rows stay two rows (a multiset, H69): a deleted duplicate is a lost row
+    and an added duplicate is a ``new`` row in ``compare_live``.  The file is
+    written comma-safe (every row ends in a comma, the loader tolerates the
+    trailing comma), so a union merge of two added lines parses whether it
+    keeps both commas or collapses them.
+    """
     with open(path, encoding="utf-8") as fh:
-        doc = json.load(fh)
+        text = fh.read()
+    try:
+        doc = _loads_comma_safe(text)
+    except ValueError as exc:
+        raise ValueError("not valid JSON (%s); an unresolved conflict "
+                         "marker in a snapshot is not a snapshot" % exc)
     if doc.get("tool") != "fn_audit":
         raise ValueError("not an fn_audit snapshot: tool=%r" % doc.get("tool"))
-    if doc.get("snapshot_version") != SNAPSHOT_VERSION:
-        raise ValueError("unsupported snapshot_version %r (want %d)"
-                         % (doc.get("snapshot_version"), SNAPSHOT_VERSION))
+    version = doc.get("snapshot_version")
+    if version not in SNAPSHOT_READ_VERSIONS:
+        raise ValueError("unsupported snapshot_version %r (want one of %s)"
+                         % (version, ", ".join(map(str, SNAPSHOT_READ_VERSIONS))))
     rows = doc.get("rows")
     if not isinstance(rows, list):
         raise ValueError("snapshot has no rows list")
     for i, row in enumerate(rows, 1):
-        missing = [k for k in ("file", "line", "va", "kind", "class", "class_sha256")
-                   if k not in row]
+        required = ("file", "va", "kind", "class", "class_sha256")
+        if version == 1:
+            required = required + ("line",)
+        missing = [k for k in required if k not in row]
         if missing:
             raise ValueError("row %d missing %s" % (i, ", ".join(missing)))
         if row["class"] not in SNAPSHOT_CLASSES:
@@ -1019,6 +1126,10 @@ def load_corpus(path):
     if not doc.get("image_sha256"):
         raise ValueError("snapshot has no image_sha256; --corpus re-classifies "
                          "each row against the image, so the image is required")
+    # H119: the summary is derived, never trusted.  Recompute it from the
+    # rows so a union merge (which cannot edit the summary) stays valid and a
+    # hand-edited summary cannot hide a row change.
+    doc["summary"] = snapshot_summary(doc)
     return doc
 
 
@@ -1089,15 +1200,21 @@ def _candidate_set(row):
 
 
 def _row_key(row):
-    return (row["file"], int(row["line"]), _canon_va(row["va"]), row["kind"])
+    """Identity of one citation occurrence for the live comparison (H69).
+
+    H119 version 2 has no ``line``, so the key is ``(file, va, kind)``; a
+    version-1 row keeps its line in the key but ``compare_live`` drops the
+    line for a v2 snapshot (a line is prose, never identity).  Two identical
+    citations are two identical keys -- a multiset, so a deleted duplicate is
+    still ``gone``.
+    """
+    return (row["file"], _canon_va(row["va"]), row["kind"])
 
 
-
-
-def _cite_from_row(row):
+def _cite_from_row(row, line=None):
     corr = int(row["correction"], 16) if row.get("correction") else None
-    return Citation(int(row["va"], 16), "%s:%s" % (row["file"], row["line"]),
-                    row["kind"], correction=corr)
+    where = "%s:%s" % (row["file"], row.get("line", line if line else 1))
+    return Citation(int(row["va"], 16), where, row["kind"], correction=corr)
 
 
 def reclassify_rows(doc, image):
@@ -1135,13 +1252,16 @@ def corpus_class_drift(doc, image):
 def compare_live(doc, image):
     """(new, gone, moved, changed) between the frozen rows and a live scan.
 
-    ``new``/``gone`` are ``(file,line,va,kind)`` keys and are computed over
-    occurrences, not over distinct keys: repeating the same key is a
-    multiset count, so a deleted duplicate is ``gone`` and an added duplicate
-    is ``new``.  ``moved`` pairs the frozen and live occurrence of the same
-    ``(file,va,kind)`` whose line changed and whose verdict did not;
-    ``changed`` is a row whose verdict changed, at an unchanged key or
-    together with a line move (H69: a move never masks a verdict change).
+    H119: a version-2 row has no ``line``, so a citation's identity is
+    ``(file, va, kind)`` and ``moved`` is always empty -- a line move is not a
+    corpus change at all (there is no line to move).  A version-1 row keeps its
+    line in the source key but line-only drift still cannot fail: ``moved`` is
+    never returned, and a line move is simply not a change.
+
+    ``new``/``gone`` are computed over occurrences, not distinct keys:
+    repeating the same key is a multiset count, so a deleted duplicate is
+    ``gone`` and an added duplicate is ``new`` (H69).  ``changed`` is a row
+    whose verdict changed at an unchanged identity.
 
     A verdict is ``(class, true_start)`` plus, for the two classes whose
     ``class`` alone hides the failure, the stored detail: the whole candidate
@@ -1152,7 +1272,7 @@ def compare_live(doc, image):
     against a fresh l3 scan and the docs base against a fresh docs scan; the
     two layers never mix (M1.26 per-source policy).
     """
-    from collections import Counter, defaultdict
+    from collections import Counter
 
     cites = collect(doc.get("scope", "docs"))[0]
     live_rows = snapshot_rows(audit(cites, image))
@@ -1175,48 +1295,24 @@ def compare_live(doc, image):
         return False
 
     # Occurrences are a multiset, not a set: a deleted duplicate and an added
-    # duplicate of an existing (file,line,va,kind) both have to count (H69
-    # navigator).  Leftovers per exact key are what moved/new/gone explain.
-    left_frozen, left_live = [], []
+    # duplicate of an existing (file,va,kind) both have to count (H69
+    # navigator).  A count delta is new/gone; the surviving occurrences may
+    # have changed verdict.
+    new, gone, changed = [], [], []
     for k in sorted(set(frozen_count) | set(live_count)):
         fc, lc = frozen_count.get(k, 0), live_count.get(k, 0)
+        paired = min(fc, lc)
         if fc > lc:
-            left_frozen.extend([k] * (fc - lc))
+            gone.extend([k] * (fc - lc))
         elif lc > fc:
-            left_live.extend([k] * (lc - fc))
-
-    def short(k):
-        return (k[0], k[2], k[3])
-
-    frozen_base, live_base = defaultdict(list), defaultdict(list)
-    for k in left_frozen:
-        frozen_base[short(k)].append(k)
-    for k in left_live:
-        live_base[short(k)].append(k)
-
-    moved, changed, new, gone = [], [], [], []
-    for b in sorted(set(frozen_base) | set(live_base)):
-        fl, ll = sorted(frozen_base.get(b, [])), sorted(live_base.get(b, []))
-        paired = min(len(fl), len(ll))
-        for i in range(paired):
-            a = frozen_by_key[fl[i]]
-            z = live_by_key[ll[i]]
+            new.extend([k] * (lc - fc))
+        if paired:
+            a, z = frozen_by_key[k], live_by_key[k]
             if verdict_differs(a, z):
-                changed.append((ll[i], a, z))
-            else:
-                moved.append((fl[i], ll[i]))
-        # A count delta is new/gone even when the identity also moved: the
-        # surviving occurrences may be moves, the extras are a lost or an
-        # invented citation.
-        gone.extend(fl[paired:])
-        new.extend(ll[paired:])
-    # A verdict change at an unchanged exact key never reaches the leftovers.
-    for k in sorted(set(frozen_count) & set(live_count)):
-        a, z = frozen_by_key[k], live_by_key[k]
-        if verdict_differs(a, z):
-            changed.append((k, a, z))
+                changed.append((k, a, z))
     changed.sort(key=lambda item: item[0])
-    return sorted(new), sorted(gone), moved, changed
+    # H119: no ``line`` in a version-2 identity, so nothing can be "moved".
+    return sorted(new), sorted(gone), [], changed
 
 
 def corpus_fix_list(doc):
@@ -1245,7 +1341,7 @@ def _source_problems(doc, image):
                 row["class"], row.get("true_start")):
             problems.append(("integrity", row, None))
     for row, want, start in corpus_class_drift(doc, image):
-        problems.append(("class", (row["file"], row["line"], row["va"],
+        problems.append(("class", (row["file"], row.get("line", 0), row["va"],
                                    row["class"], row.get("true_start")),
                          (want, start)))
     return got, problems
@@ -1261,7 +1357,7 @@ def _report_problems(problems):
                           % (key, a.get(key), b.get(key)))
         elif kind == "integrity":
             print("fn_audit: snapshot row failed its class_sha256: %s:%s %s"
-                  % (a["file"], a["line"], a["va"]))
+                  % (a["file"], a.get("line", "-"), a["va"]))
         else:
             print("fn_audit: row class disagrees with the image: "
                   "%s:%s %s frozen=%s/%s image=%s/%s" % (a[0], a[1], a[2],
@@ -1800,9 +1896,10 @@ def selftest():
         with contextlib.redirect_stdout(io.StringIO()):
             rc = audit_corpus(doc, stub, quiet=True, live_check=False)
         check("write-then-read snapshot exits 0", rc == 0)
-        check("snapshot rows are sorted by file:line:va",
-              rows == sorted(rows, key=lambda r: (r["file"], r["line"],
-                                                  r["va"], r["kind"])))
+        check("snapshot rows are sorted by file:va:kind (H119: no line)",
+              rows == sorted(rows, key=_row_sort_key))
+        check("H119 a version-2 row carries no line",
+              all("line" not in r for r in rows))
         check("snapshot keeps a GAP leaf flag",
               [r.get("leaf") for r in rows if r["class"] == "GAP"] == [True])
         check("snapshot stores the image SHA-256, not image bytes",
@@ -1817,7 +1914,7 @@ def selftest():
 
         # Negative control: relabel one CORRECTED row as INSIDE and re-sign
         # its fingerprint + summary; the image re-classification still fails.
-        mutated = json.loads(first.decode("utf-8"))
+        mutated = _loads_comma_safe(first.decode("utf-8"))
         for row in mutated["rows"]:
             if row["class"] == "CORRECTED":
                 row["class"] = "INSIDE"
@@ -1858,7 +1955,7 @@ def selftest():
         # C-3865/C-3864: --fix-list must not bypass the integrity checks; a
         # snapshot tampered INSIDE -> CORRECTED (fingerprint + summary
         # re-signed) prints no fix line and exits 1 via class drift.
-        tam = json.load(open(fpath, encoding="utf-8"))
+        tam = _loads_comma_safe(open(fpath, encoding="utf-8").read())
         for row in tam["rows"]:
             if row["class"] == "INSIDE":
                 row["class"] = "CORRECTED"
@@ -1877,7 +1974,7 @@ def selftest():
               tf == 1 and "->" not in buf.getvalue())
 
         # Negative control: a fingerprint that no longer matches its class.
-        tampered = json.loads(first.decode("utf-8"))
+        tampered = _loads_comma_safe(first.decode("utf-8"))
         for row in tampered["rows"]:
             if row["class"] == "CORRECTED":
                 row["class_sha256"] = "0" * 64
@@ -1919,19 +2016,18 @@ def selftest():
                 (live_cites[2], Verdict(0x900000, "UNMAPPED")),
                 (live_cites[3], Verdict(0x401100, "START", start=0x401100))]
             new, gone, moved, changed = compare_live(doc, stub)
-            check("compare_live reports moved/new/gone",
-                  len(new) == 1 and len(gone) == 1 and len(moved) == 1)
+            check("compare_live reports new/gone and no moved (H119: no line)",
+                  len(new) == 1 and len(gone) == 1 and len(moved) == 0)
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 sr = audit_corpus(doc, stub, live_check=True)
             out = buf.getvalue()
             check("a stale live corpus exits 1 and says CORPUS STALE",
-                  sr == 1 and "CORPUS STALE: 1 new / 1 gone / 1 moved" in out)
+                  sr == 1 and "CORPUS STALE: 1 new / 1 gone / 0 moved" in out)
 
-            # H69: moved-only is prose drift -> warn + exit 0.  The frozen doc
-            # rows are doc.md:1 (0x401040 fn), doc.md:1 (0x401048 ctx corr),
-            # doc.md:2 (0x401080 const), doc.md:3 (0x900000 const).  Move three
-            # of them to new lines, keeping (file,va,kind) and the verdict.
+            # H119: a version-2 row has no ``line``, so a line move is not a
+            # corpus change at all.  Moving every row to a new line keeps the
+            # identity set identical -> no drift, exit 0, never CORPUS STALE.
             moved_cites = [
                 Citation(0x401040, "doc.md:4", "fn"),
                 Citation(0x401048, "doc.md:4", "ctx", correction=0x401040),
@@ -1945,18 +2041,17 @@ def selftest():
                 (moved_cites[3], Verdict(0x900000, "UNMAPPED")),
             ]
             mr, mout = run_live(moved_cites, moved_kept)
-            check("moved-only drift exits 0 with a warning",
-                  mr == 0 and "CORPUS DRIFT: 0 new / 0 gone / 4 moved" in mout
-                  and "line-only drift" in mout)
-            # --fix-list on a moved-only snapshot: no '->' line (that mode is
-            # machine-readable; the moved detail is suppressed), exit 0.
+            check("H119 a line move is not a corpus change (exit 0, no drift)",
+                  mr == 0 and "CORPUS STALE" not in mout
+                  and "CORPUS DRIFT" not in mout)
+            # --fix-list on a line-moved snapshot: no '->' line, exit 0.
             glb["collect"] = lambda scope="docs": (moved_cites, snap_files)
             glb["audit"] = lambda c, i: list(moved_kept)
             fbuf = io.StringIO()
             with contextlib.redirect_stdout(fbuf):
                 fmoved = audit_corpus(doc, stub, live_check=True,
                                       fix_list_mode=True)
-            check("--fix-list on moved-only prints no '->' line and exits 0",
+            check("--fix-list on a line-moved snapshot prints no '->' and exits 0",
                   fmoved == 0 and "->" not in fbuf.getvalue())
             # new only -> exit 1
             nr, nout = run_live(moved_cites + [
@@ -1979,15 +2074,14 @@ def selftest():
             cr, cout = run_live(same_cites, same_kept)
             check("a verdict change at an unchanged key exits 1",
                   cr == 1 and "verdict change" in cout)
-            # a moved row whose verdict also changed is still a change, not a
-            # benign move -> exit 1
+            # A verdict change at an unchanged identity exits 1 (H119: there is
+            # no separate line move to mask it).
             mc2 = list(moved_cites)
             mk2 = list(moved_kept)
             mk2[2] = (mc2[2], Verdict(0x401080, "UNMAPPED"))
             mcr, mcout = run_live(mc2, mk2)
-            check("a verdict change on a moved row exits 1",
-                  mcr == 1 and "verdict change" in mcout
-                  and "3 moved" in mcout)
+            check("a verdict change at an unchanged identity exits 1",
+                  mcr == 1 and "verdict change" in mcout)
 
             # H69 navigator: occurrences are a multiset.  A snapshot with the
             # same (file,line,va,kind) twice must not collapse to one row.
@@ -2041,9 +2135,9 @@ def selftest():
             mv_kept = [(mv_cites[0], good), (mv_cites[1], good),
                        dup_kept[2], dup_kept[3], dup_kept[4]]
             mr2, mout2 = run_dup(mv_cites, mv_kept)
-            check("a moved duplicate pair is moved-only and exits 0",
-                  mr2 == 0 and "CORPUS DRIFT: 0 new / 0 gone / 2 moved" in mout2
-                  and "line-only drift" in mout2)
+            check("H119 a moved duplicate pair is not a change (exit 0)",
+                  mr2 == 0 and "CORPUS STALE" not in mout2
+                  and "CORPUS DRIFT" not in mout2)
 
             # H72: verdict_differs must also compare the AMBIGUOUS candidate
             # set and the GAP leaf flag, not just class/true_start.  A second
@@ -2087,8 +2181,8 @@ def selftest():
             r_ok, o_ok = run_h72(
                 apath, amb_img, [mc],
                 [(mc, Verdict(0x401048, "AMBIGUOUS", candidates=benign))])
-            check("H72 unchanged AMBIGUOUS candidates stay moved-only (exit 0)",
-                  r_ok == 0 and "CORPUS DRIFT: 0 new / 0 gone / 1 moved" in o_ok
+            check("H72 unchanged AMBIGUOUS candidates stay clean (H119: exit 0)",
+                  r_ok == 0 and "CORPUS STALE" not in o_ok
                   and "verdict change" not in o_ok)
             # (1) a live candidate set that gains INSIDE -> verdict change.
             r_gain, o_gain = run_h72(
@@ -2116,7 +2210,7 @@ def selftest():
 
             # unpadded `va` is the same VA: reject the spurious new/gone that
             # a raw-string _row_key printed (H72 padding).
-            updoc = json.load(open(apath, encoding="utf-8"))
+            updoc = _loads_comma_safe(open(apath, encoding="utf-8").read())
             updoc["rows"][0]["va"] = "0x401048"
             uppath = os.path.join(tmp, "fa-unpadded.json")
             json.dump(updoc, open(uppath, "w", encoding="utf-8"))
@@ -2174,9 +2268,9 @@ def selftest():
             move_cite = Citation(0x401048, "l3doc.md:9", "l3")
             r_ov, o_ov = run_overlay(
                 [move_cite], [(move_cite, Verdict(0x401048, "INSIDE", start=0x401040))])
-            check("M1.26 moved-only l3 drift warns and exits 0",
+            check("M1.26 a moved l3 line is not a change (H119: exit 0)",
                   r_ov == 0 and "L3 OVERLAY" in o_ov
-                  and "CORPUS DRIFT: L3 OVERLAY: 0 new / 0 gone / 1 moved" in o_ov)
+                  and "CORPUS STALE" not in o_ov)
             check("M1.26 both source totals are named",
                   "DOCS BASE" in o_ov and "CORPUS OK: DOCS BASE" in o_ov)
 
@@ -2242,7 +2336,7 @@ def selftest():
             glb["collect"], glb["audit"] = saved_collect, saved_audit
 
         # A snapshot from another tool is rejected by load_corpus.
-        wrong = json.loads(first.decode("utf-8"))
+        wrong = _loads_comma_safe(first.decode("utf-8"))
         wrong["tool"] = "not_fn_audit"
         wpath = os.path.join(tmp, "fa-wrong.json")
         json.dump(wrong, open(wpath, "w", encoding="utf-8"))
@@ -2269,6 +2363,166 @@ def selftest():
               and "No such file or directory" in msg)
         check("H88 --corpus + missing image names the path in the error",
               missing in msg)
+
+        # ================================================================
+        # H119: two task PRs that each add one citation must merge without a
+        # snapshot conflict, in both orders, and fn_audit must accept the
+        # merged file (no re-freeze).  Build two branches from one base, each
+        # appending one START row, and merge them with real ``git`` using the
+        # shipped ``merge=union`` attribute.  This is the Done-when test, so
+        # it runs a real merge, not a simulated one.
+        # ================================================================
+        def _h119_merge_test():
+            import shutil
+            import subprocess
+            gdir = os.path.join(tmp, "h119-merge")
+            os.makedirs(gdir)
+            attr = os.path.join(gdir, ".gitattributes")
+            with open(attr, "w", encoding="utf-8") as fh:
+                fh.write("snap.json merge=union\n")
+            base_rows = [
+                snap_cites[0], snap_cites[1], snap_cites[2], snap_cites[3]]
+            base_kept = [
+                (snap_cites[0], good),
+                (snap_cites[1], Verdict(0x401048, "CORRECTED",
+                                        start=0x401040)),
+                (snap_cites[2], gap_leaf),
+                (snap_cites[3], Verdict(0x900000, "UNMAPPED")),
+            ]
+            base_summary = summary_counts(
+                snap_files, base_cites := base_rows, {c.va for c in base_rows},
+                {"START": 1, "CORRECTED": 1, "GAP": 1, "UNMAPPED": 1}, 1,
+                base_kept)
+            base_path = os.path.join(gdir, "snap.json")
+            write_snapshot(base_path, snap_files, snapshot_rows(base_kept),
+                           base_summary, img)
+            # One added START citation per branch, a different VA each so the
+            # lines are distinct (a real PR adds a citation the other does not).
+            row_a = snapshot_rows([(Citation(0x401100, "EXP-a.md:1", "fn"),
+                                    Verdict(0x401100, "START",
+                                            start=0x401100))])[0]
+            row_b = snapshot_rows([(Citation(0x401200, "EXP-b.md:1", "fn"),
+                                    Verdict(0x401200, "START",
+                                            start=0x401200))])[0]
+            env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                       GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+            def run(*args):
+                return subprocess.run(["git", *args], cwd=gdir, env=env,
+                                      capture_output=True, text=True)
+
+            def add_row(path, row):
+                text = open(path, encoding="utf-8").read()
+                line = "  %s,\n" % _json_compact(row)
+                text = text.replace(' "rows": [\n',
+                                    ' "rows": [\n' + line, 1)
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+
+            run("init", "-q")
+            run("add", "-A")
+            run("commit", "-qm", "base")
+            run("branch", "a")
+            run("branch", "b")
+            # Order 1: branch a adds row_a, branch b adds row_b, merge b into a.
+            run("checkout", "-q", "a")
+            add_row(base_path, row_a)
+            run("commit", "-qam", "a-adds")
+            run("checkout", "-q", "b")
+            add_row(base_path, row_b)
+            run("commit", "-qam", "b-adds")
+            run("checkout", "-q", "a")
+            m1 = run("merge", "-q", "b", "-m", "merge1")
+            t1 = open(base_path, encoding="utf-8").read()
+            merged1 = _loads_comma_safe(t1)
+            has_both1 = ("EXP-a.md" in t1 and "EXP-b.md" in t1)
+            clean1 = m1.returncode == 0 and "<<<<<<<" not in t1
+            # The merged file is a valid snapshot with both rows and the
+            # summary recomputed, so fn_audit accepts it with no re-freeze.
+            doc1 = load_corpus(base_path)
+            both1 = any(r["va"].endswith("401100") for r in doc1["rows"]) and \
+                    any(r["va"].endswith("401200") for r in doc1["rows"])
+            summary_ok1 = doc1["summary"]["citations"] == 6
+
+            # Order 2: merge a into b (the other direction) from the base.
+            run("checkout", "-q", "b")
+            m2 = run("merge", "-q", "a", "-m", "merge2")
+            t2 = open(base_path, encoding="utf-8").read()
+            has_both2 = ("EXP-a.md" in t2 and "EXP-b.md" in t2)
+            clean2 = m2.returncode == 0 and "<<<<<<<" not in t2
+            doc2 = load_corpus(base_path)
+            both2 = any(r["va"].endswith("401100") for r in doc2["rows"]) and \
+                    any(r["va"].endswith("401200") for r in doc2["rows"])
+            return {
+                "clean1": clean1, "both1": has_both1 and both1,
+                "summary1": summary_ok1,
+                "clean2": clean2, "both2": has_both2 and both2,
+            }
+
+        try:
+            res = _h119_merge_test()
+            check("H119 order 1: two added citations merge with no conflict",
+                  res["clean1"])
+            check("H119 order 1: the merged snapshot holds both added rows",
+                  res["both1"])
+            check("H119 order 1: summary is recomputed (6 citations)",
+                  res["summary1"])
+            check("H119 order 2 (reverse): merge with no conflict",
+                  res["clean2"])
+            check("H119 order 2 (reverse): the merged snapshot holds both rows",
+                  res["both2"])
+        except (OSError, subprocess.CalledProcessError) as exc:  # noqa: F821
+            check("H119 merge test ran (%s)" % exc, False)
+
+        # Negative control 1: one cited START VA deleted from a snapshot that
+        # the live scan still finds -> ``gone`` -> CORPUS STALE exit 1.
+        # Negative control 2: a new citation of an INSIDE VA -> ``new`` ->
+        # CORPUS STALE exit 1.  Both are what H69 protects and must survive.
+        inside_cite = Citation(0x401048, "EXP-c.md:1", "fn")
+        saved_collect, saved_audit = collect, audit
+        glb = globals()
+        try:
+            # NC1: frozen has the row, the live scan no longer finds it.
+            full_rows = snapshot_rows([
+                (snap_cites[0], good), (snap_cites[2], gap_leaf)])
+            nc1_path = os.path.join(tmp, "h119-nc1.json")
+            write_snapshot(nc1_path, snap_files, full_rows, base_summary
+                           if False else summary_counts(
+                               snap_files, [snap_cites[0], snap_cites[2]],
+                               {snap_cites[0].va, snap_cites[2].va},
+                               {"START": 1, "GAP": 1}, 1,
+                               [(snap_cites[0], good),
+                                (snap_cites[2], gap_leaf)]), img)
+            glb["collect"] = lambda scope="docs": ([snap_cites[2]], snap_files)
+            glb["audit"] = lambda c, i: [(snap_cites[2], gap_leaf)]
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc1 = audit_corpus(load_corpus(nc1_path), stub, live_check=True)
+            out1 = buf.getvalue()
+            check("H119 negative: a deleted cited START VA exits 1 (gone)",
+                  rc1 == 1 and "CORPUS STALE: 0 new / 1 gone" in out1)
+            # NC2: the frozen file has no 0x401048, the live scan adds an
+            # INSIDE citation of it -> new + INSIDE -> exit 1.
+            glb["collect"] = lambda scope="docs": ([snap_cites[0]], snap_files)
+            glb["audit"] = lambda c, i: [(snap_cites[0], good)]
+            nc2_path = os.path.join(tmp, "h119-nc2.json")
+            write_snapshot(nc2_path, snap_files,
+                           snapshot_rows([(snap_cites[0], good)]),
+                           summary_counts(snap_files, [snap_cites[0]],
+                                          {snap_cites[0].va}, {"START": 1},
+                                          0, [(snap_cites[0], good)]), img)
+            glb["collect"] = lambda scope="docs": (
+                [snap_cites[0], inside_cite], snap_files)
+            glb["audit"] = lambda c, i: [(snap_cites[0], good),
+                                         (inside_cite, bad)]
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc2 = audit_corpus(load_corpus(nc2_path), stub, live_check=True)
+            out2 = buf.getvalue()
+            check("H119 negative: a new INSIDE citation exits 1 (new)",
+                  rc2 == 1 and "CORPUS STALE: 1 new" in out2)
+        finally:
+            glb["collect"], glb["audit"] = saved_collect, saved_audit
 
     print("selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))
