@@ -139,3 +139,28 @@ m5_61_build_tile.py; PR still carries only the claim commit, work is local, driv
 Totals: 7 done, 1 blocked (with one new task), 1 still running, plus 1 fix PR (#456). One self-merge
 (M9.58) reviewed retroactively. Two silent claim-range collisions found (M9.60's C-6650 tie with M5.65, and
 M9.66's C-6750/C-6760 overlap) — claims_check does not compare block declarations, only rows; recorded for H129.
+- M5.61 #458 Poland card — BLOCKED, merged 123134dd. The driver's PR moved to #458 (the old #423 had been
+  auto-merged with only the claim); branch was on origin/main (0 behind), CI 6/6, gate 5/5.
+  * Classification accepted: Done-when asks 4 tiles, but the Stop rule explicitly allows "stop at the largest
+    subset that passes". Only B50R050R (level 1) passes all five gates (cardcheck PASS, imgpatch outside:0
+    metadata:343, l2check --semantic-tiles PASS on the tile, 7z t OK, datask_l3 mount 28 reads/status 0); the
+    other three hit three tilewriter defects, not the card: B48R050R/B48R058R OOM (read_jsonl holds the whole
+    split, Max RSS 5.2 GB, signal 9); B50R058R 0x2046 pair splice not regenerated; B50R050R level 2 1,313
+    parcels with no even slot. Filed M5.68/M5.69/M5.70 (build) + M5.71 (the drop-parcel falsifier has no check,
+    tilewriter_rc 0). So blocked is honest, the negative is first-class.
+  * TL verified the sample-integrity incident (EXP §8): the template B50R050R.DAT is back to 79,221,504 B,
+    SHA-256 5205f779… (pristine); the card's generated tile reads back out of p1.img as 90,251,560 B,
+    SHA-256 7c6ea2118dc6fba92f27… = the EXP's claim. p1.img (8,057,257,984 B) is uncorrupted; the damage was
+    confined to the scratch template and repaired. The inode sharing (link count 3) is card-gen/card-neg scratch
+    copies, not the card. Accurate report.
+  * FIX: the driver set Status: blocked but left no Blocker/Unblock/Result — a blocked task with no Unblock
+    never re-opens (rule 4/15). Added the three fields (Unblock: M5.68/M5.69/M5.70, M5.71 as a falsifier gap)
+    via board.py, reordered before Claims, gate 5/5, CI 6/6, merged in the same PR (02d76e66).
+  * Rule 15: no Unblock: names M5.61 (M5.66 in progress, M5.67 open, both only Depends-reference it as a tile
+    source, already satisfied by the passing B50R050R tile) — nothing to re-open.
+
+## BATCH COMPLETE (cycle-20, 9 developers)
+7 done (M9.59, H105, M5.63, H119, M9.60, M9.61, M9.58), 2 blocked with first-class negatives and new unblock
+tasks (M4.55 -> M9.65; M5.61 -> M5.68/M5.69/M5.70), plus PR #456 (M9.66 claim-range fix) and this log. One
+self-merge reviewed retroactively (M9.58). Two silent claim-range collisions found (M9.60/C-6650, M9.66/C-6750)
+-> tooling note for H129. Four drivers never pushed their board claim -> fixed (3bd0d39c).
