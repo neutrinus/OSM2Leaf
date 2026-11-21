@@ -159,19 +159,20 @@ change — that would mean the rule was not confined to `--strict`.
 
   ```text
   $ git rev-parse --short HEAD
-  719ae582
+  0e04cb10
   GATE          RESULT    SECS  NOTE
   ------------  ------  ------  ----------------------------------------
-  selftest      PASS    120.36
-  claims_check  PASS      0.46
-  todo_check    PASS      0.06
-  fn_audit      PASS      4.25
+  selftest      PASS    103.53
+  claims_check  PASS      0.53
+  todo_check    PASS      0.07
+  fn_audit      PASS      4.74
   gate: 4 pass, 0 fail, 0 skip
   ```
 
-  The table is the run at `719ae582` (a branch commit, on `origin`); `fn_audit`
-  took the real-image path (PASS, not SKIP). The verdict (`4 pass, 0 fail, 0
-  skip`) is stable across runs; the SECS column is host- and load-dependent.
+  The table is the run at `0e04cb10` (the branch rebased onto `origin/main`
+  `01a67a6e`); `fn_audit` took the real-image path (PASS, not SKIP). The
+  verdict (`4 pass, 0 fail, 0 skip`) is stable across runs; the SECS column is
+  host- and load-dependent.
 
 ## Interpretation
 
@@ -209,7 +210,14 @@ b), M4.25 … M4.26` at `M4.24` and so never saw the archived M4.25/M4.26.
 
 ## Overtaken by a later commit
 
-none
+- `Observations` census "5 blocked tasks / 9 refs" | rebase onto `origin/main`
+  `01a67a6e` (H125 branch, merge prep) | the new rule now finds **6 tasks /
+  10 refs**: the 5 above plus `M4.59` (its `Unblock:` names a done task), so
+  `--strict` reports `18 error(s), 181 warning(s)` = 8 prior firmware-field +
+  10 new. The rule is unchanged; the drift is main adding one more instance of
+  the same class (`M4.59`), which M3.36's repair must also cover. Command:
+  `python3 tools/todo_check.py --strict | grep -cE '^  ERROR.*Unblock references'`
+  → `10`.
 
 ## Reproduction
 
