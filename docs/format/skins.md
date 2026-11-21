@@ -118,7 +118,11 @@ the only `FILESentry` of build A, C-3522). Build B's `UpdateNK.skn` shares the
 magic but is a different AUITK generation (C-6509) — see the last section.
 
 The container is a header, then an object tree, then 4-aligned section markers
-whose `u32` tag is `0x0402000N`:
+whose `u32` tag is `0x0402000N`. The alignment filter is **required**: a raw
+`d.find` for a tag over-counts (on EU2011, tag-2 and tag-4 each return 2 raw
+hits — one of each is an odd-offset coincidence inside §3's asset bytes); only
+the `%4 == 0` offset is a section marker (`python3 tools/skn_info.py --selftest`
+pins the odd-offset case).
 
 | Byte range | Field | Status |
 | --- | --- | --- |
@@ -134,10 +138,22 @@ whose `u32` tag is `0x0402000N`:
 | section 2 | tag `0x04020002`, `u32 count`, then `count` `u16` values, then zero fill to the section-3 tag (which sits on the next 4 KiB boundary) | count known, meaning of the values unknown |
 | section 3 | tag `0x04020003`, `u32 payload_len`, then **image assets** `[u32 len][bytes]`, each padded to 4 bytes | known |
 | asset `PNG` | bytes start `89 50 4e 47 0d 0a 1a 0a` | known |
-| asset `zlib` | bytes start `78 9c`; each decompresses to a plain 16-bit buffer | known (method = zlib) |
+| asset `zlib` | bytes start `78 9c`, standard zlib streams (`zlib.decompress` succeeds); each decodes to a plain 16-bit buffer | known (method = zlib) |
 | section 4 | tag `0x04020004`, immediately followed by the 32-byte trailer | known |
 | trailer `+0x00..0x0f` (last 32 B) | **part number**: `470-2826-34` (EU2011), `470-2820-33` (US2011), `470-3321-12` (EU2014), `470-3954-08` (EU2016); placeholder `XxX-yYyY-Zz` in `ReleaseMain.skn` | known |
 | trailer `+0x10..0x1f` (last 16 B) | tag + variant: `SKINSK10ECNI.158` (`SKIN`, `SK`, generation, family, version) | known |
+
+The trailer part number is printed by `python3 tools/skn_info.py skn <file>` as
+`part '<470-…>'` (no `--json` needed), so the reproduction command shows it.
+
+Length arithmetic (all four cards, `VERIFIED`): the section-3 *declared* length
+runs **12 B past** the section-4 tag — `(sec3+8)+declared = len−32 = sec4+12`
+(EU2011 `0x3f4000+8+4,579,328 = 0x852008`, and sec4 `0x851ffc`+12 `0x852008`;
+US2011 `0x6e0008`, EU2014/EU2016 `0xc5a008`). The overlapping 12 bytes at
+`sec4..sec4+12` are `04 00 02 04` plus the first 8 part-number chars
+(`470-2826`/`470-2820`/`470-3321`/`470-3954`), i.e. the declared length is not a
+strict upper bound on the tag position; the next tag at its 4-aligned offset
+is.
 
 Notes from the parse:
 
@@ -155,8 +171,11 @@ Notes from the parse:
   (17,520 / 8). Their meaning is open.
 - The asset framing was checked end-to-end on all five samples: every asset
   decodes, the PNG count equals the `89 50 4e 47` signatures inside section 3,
-  the asset walk stops exactly on the last asset's padding, and the rest of
-  the section is zeros up to the section-4 tag.
+  and the asset walk stops exactly on the last asset's padding; between that
+  `end` and the section-4 tag the bytes are all zeros (2,176 B on EU2011).
+  The *declared* length, however, overruns the tag by 12 B on every card (see
+  the length arithmetic above), the 12 bytes being the trailer prefix, not
+  asset padding.
 
 ### Image assets (section 3)
 
@@ -173,8 +192,10 @@ the PNG count). The `other=7` assets are raw **RGB565-ish pixel runs** (16-bit
 `RRRRRGGGGGGBBBBB` values such as `0xefbd`, `0x2404`, `0x03ff`, with
 `0x80/0x00` in the high byte of the final pairs) — small gradient/line
 patterns, not PNG and not zlib. The **109 zlib assets decompress on all four
-cards to the same 2,536,494 bytes** (same SHA-256 of the concatenation), a
-shared UI mask/colour resource.
+cards to the same 2,536,494 bytes** with concatenation SHA-256
+`30b187da570e5199e8db291f2c13ec47a78e2291b603c30ecf9483664dc658bf` (printed by
+`python3 tools/skn_info.py skn <file>` as `zlib 2536494 B sha256=…`), a shared
+UI mask/colour resource.
 
 On EU2011 the section-3 payload is 4.56 MB beside a 4.14 MB object tree
 (section 3 starts at `0x3f4000`), and the first PNG's `IHDR` is 282×170.

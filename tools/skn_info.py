@@ -45,6 +45,7 @@ import hashlib
 import json
 import struct
 import sys
+import zlib
 
 SECTION_TAG = 0x04020000
 SECTION_BASE = 0x04020001
@@ -132,7 +133,9 @@ def skn_parse(d):
         n_png = 0
         n_png_complete = 0
         n_zlib = 0
+        n_zlib_ok = 0
         total = 0
+        zcat = bytearray()
         while o + 4 <= limit:
             ln = u32(d, o)
             if ln == 0 or o + 4 + ln > len(d):
@@ -144,12 +147,23 @@ def skn_parse(d):
                     n_png_complete += 1
             elif blob[:2] == b"\x78\x9c":
                 n_zlib += 1
+                try:
+                    zcat += zlib.decompress(blob)
+                    n_zlib_ok += 1
+                except zlib.error:
+                    pass
             n_asset += 1
             total += ln
             o = (o + 4 + ln + 3) & ~3
+        declared_end = s3 + 8 + payload
         out["assets"] = {"declared_len": payload, "count": n_asset,
                          "png": n_png, "png_complete": n_png_complete,
-                         "zlib": n_zlib, "payload_bytes": total, "end": o}
+                         "zlib": n_zlib, "zlib_ok": n_zlib_ok,
+                         "zlib_bytes": len(zcat),
+                         "zlib_sha256": hashlib.sha256(bytes(zcat)).hexdigest(),
+                         "payload_bytes": total, "end": o,
+                         "declared_end": declared_end,
+                         "s4_overrun": declared_end - secs[4] if 4 in secs else None}
     # trailer: last 16 bytes (ASCII, may be NUL padded)
     out["trailer"] = d[-16:].rstrip(b"\x00").decode("latin1", "replace")
     if len(d) >= 32:
@@ -313,9 +327,10 @@ def selftest():
     d += struct.pack("<HH", 0x11, 0x22)         # footer values
     sec3 = len(d)
     png = ASSET_MAGIC + b"\x00" * 8 + b"IEND\xaeB`\x82"
-    zlib = b"\x78\x9c" + b"\x00" * 10
+    zbuf = b"abcdefgh"
+    zblob = zlib.compress(zbuf, 6)
     body = bytearray()
-    for blob in (png, zlib):
+    for blob in (png, zblob):
         body += struct.pack("<I", len(blob)) + blob
         while len(body) % 4:
             body += b"\x00"
@@ -339,6 +354,15 @@ def selftest():
     check("one PNG", info["assets"]["png"] == 1)
     check("PNG complete", info["assets"]["png_complete"] == 1)
     check("one zlib", info["assets"]["zlib"] == 1)
+    check("zlib decompressed", info["assets"]["zlib_ok"] == 1
+          and info["assets"]["zlib_bytes"] == len(zbuf))
+    check("zlib sha256", info["assets"]["zlib_sha256"]
+          == hashlib.sha256(zbuf).hexdigest())
+    check("sec3 declared end arithmetic",
+          info["assets"]["declared_end"] == sec3 + 8 + info["assets"]["declared_len"]
+          and info["assets"]["s4_overrun"] == -12)
+    # synthetic declared_len ends 12 B before sec4; on the real cards it ends
+    # 12 B past sec4 (s4_overrun=+12)
     check("trailer tag", info["trailer"] == "SKINSK10ECNI.158"
           and info["part_number"] == "ABC-1234-56")
     check("sec2 footer", info["section2_footer"] == {"count": 2,
@@ -519,11 +543,18 @@ def main(argv=None):
                                                ", ".join(o["names"][:8])))
         a3 = info["assets"]
         if a3:
-            print("assets    %d (png=%d png_complete=%d zlib=%d) payload=%d "
-                  "declared=%d" % (a3["count"], a3["png"],
-                                   a3["png_complete"], a3["zlib"],
-                                   a3["payload_bytes"], a3["declared_len"]))
+            print("assets    %d (png=%d png_complete=%d zlib=%d ok=%d) "
+                  "payload=%d declared=%d"
+                  % (a3["count"], a3["png"], a3["png_complete"], a3["zlib"],
+                     a3["zlib_ok"], a3["payload_bytes"], a3["declared_len"]))
+            print("zlib      %d B sha256=%s"
+                  % (a3["zlib_bytes"], a3["zlib_sha256"]))
+            if a3.get("s4_overrun") is not None:
+                print("sec3_end  0x%x (declared runs %d B past sec4)"
+                      % (a3["declared_end"], a3["s4_overrun"]))
         print("trailer   %r" % info["trailer"])
+        if info.get("part_number"):
+            print("part      %r" % info["part_number"])
         return 0
     if args.cmd == "tfat":
         try:
