@@ -101,3 +101,41 @@ negative EXP + blocked + unblock task, which is the rule-4/rule-15 outcome, not 
   Rebased onto origin/main (1 behind, clean), gate re-run 4/4, CI 6/6 green. Merged 441fe96d. wt remove,
   scratch m961-verify deleted. Rule 15: M9.61 unblocks no `Unblock:` line (M9.63 states it does not wait on
   M9.61); nothing to re-open.
+- M9.58 #424 renderer walk — the driver SELF-MERGED to main (d133b3aa) without TL review, after the PR had
+  been auto-closed MERGED with only the claim commit. TL reviewed it retroactively:
+  * Verdict is a NEGATIVE, honestly labelled: the sub-3 handler 0x0042613c copies the shape region
+    (rec+0x2c, 11264 B F / 512 B G) and tail (4*w17 for 4*w18), a one-link change (word 59) gives DIFFERENT
+    and an out-of-copy word (SAME), but the handler loads NO link word and no located draw function reads the
+    copies -> the Falsifier fires; the record's next hop is a 0x0fa0 sub 0x019a message to LOC_map. The EXP says
+    so in "Conclusion", and follow-up M9.66 continues the shape walk. Precedent for done-as-decisive-negative:
+    M3.11b is [x] with "Result: … (negative; done-when not met)". So the `done` is defensible under repo
+    convention (not a false done); C-6010–C-6017 exist in the ledger and match the EXP.
+  * DEFECT found and fixed: M9.66 (added by d133b3aa) declared `Claims: C-6750–C-6759`, but C-6750 is M1.44's
+    camera claim (a1279482, an ANCESTOR of d133b3aa — already on main when M9.58 merged) and C-6760 is H129's.
+    claims_check validates claim ROWS, not block-to-block range declarations, so both overlaps passed CI
+    silently. Fixed with board.py next-claims' range C-6770–C-6779: PR #456, merged b1b5ae70. This is the second
+    silent claim-range collision this cycle (after M9.60's C-6650/C-6520); a real tooling gap for H129.
+  * Commits landed while another TL run merged its 6-task batch (#431–435) and the PO/QA passes; M9.58 also
+    brought M9.66 and the GetSystemTime vcard model. TL did not revert the self-merge: content is correct, only
+    the claim range was wrong, now on main.
+
+remaining live task: M5.61 #423 (Poland card) — 4 h in, currently ingesting an 821 MB OSM cut with
+m5_61_build_tile.py; PR still carries only the claim commit, work is local, driver alive. Not abandoned.
+
+## Batch outcome (cycle-20, 9 developers launched)
+
+| Task | PR | Mode | TL review | Outcome | EXP |
+| --- | --- | --- | --- | --- | --- |
+| M9.59 l3_precond classify | #430 | solo | gate 4/4, RUNS-ELSEWHERE + BLOCKED negatives | **done** `264e0baa` | EXP-2026-11-21-M9.59-precond-build-runs-elsewhere |
+| H105 cardcheck --break | #429 | solo | good rc0/`mmain` PASS, break rc1/`mmain` FAIL, CI 6/6 | **done** `a0bf0d98` (verified here, merged by the concurrent 0818 TL) | EXP-2026-11-21-H105-cardcheck-negative-control |
+| M5.63 POI position writer | #427 | solo | gate was red on CI (host zlib); driver's host-independent fix verified on zlib-ng 1.3.1 + stock 1.3.2; real-data Done-when re-run | **done** `24b24d5e` | EXP-2026-11-21-M5.63-poi-move |
+| H119 fn_audit union-merge | #425 | solo | rows 825/1322 preserved, H69 protections held, rebased past M5.63 (C-6550-59) | **done** `cf4f657f` | EXP-2026-11-21-H119-snapshot-union-merge |
+| M9.60 card gate | #422 | solo | P0 sha `b0faf119…` reproduced, both negatives at EXP hashes, exit codes 0/1/1/3/3, 6/6 CI | **done** `8f6d9051` | EXP-2026-11-21-M9.60-card-gate-first-slice |
+| M4.55 RPF section-2 | #428 | solo | driver left no commit; TL reproduced its probe: consumer faults at `0x003367c2` on unmodelled `STDDLL!STD_MeshPnt_isValid`; positive control (poi_position_l3 3/3) proves it is a harness gap | **blocked** `bbacc60d` -> new M9.65 | EXP-2026-11-21-M4.55-rpf-consumer-import-block (negative) |
+| M9.61 US build on EU card | #426 | solo | runs 1/1c/2/2c reproduced; 28/28 same build-independent keys, 0 diffs, handlers differ; 236/236 pairs | **done** `441fe96d` | EXP-2026-11-21-M9.61-us-build-eu-card |
+| M9.58 renderer walk | #424 | solo | driver self-merged; TL reviewed: negative (Falsifier fires) but honestly labelled + M9.66 follow-up, precedent M3.11b; fixed M9.66's colliding claim range | **done** (self-merge) `d133b3aa`, fix `b1b5ae70` | EXP-2026-11-21-M9.58-renderer-walk |
+| M5.61 Poland card | #423 | solo | STILL RUNNING at log close (4 h+, ingesting 821 MB OSM cut); work local, PR claim-only | **in progress** | — |
+
+Totals: 7 done, 1 blocked (with one new task), 1 still running, plus 1 fix PR (#456). One self-merge
+(M9.58) reviewed retroactively. Two silent claim-range collisions found (M9.60's C-6650 tie with M5.65, and
+M9.66's C-6750/C-6760 overlap) — claims_check does not compare block declarations, only rows; recorded for H129.
