@@ -31,6 +31,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import re
 import struct
 import subprocess
@@ -656,12 +657,18 @@ def run_tool(suite: Suite, timeout: float = TOOL_TIMEOUT) -> Result:
 
     started = time.perf_counter()
     try:
+        # A tool whose --selftest would overrun the runner's budget can shorten
+        # itself when it sees this (datask_l3.py's firmware part takes ~55 s,
+        # close to the 60 s default and more on a loaded machine).  A direct
+        # --selftest still runs the full suite.
+        env = dict(os.environ, DATASK_L3_HOST_SELFTEST="1")
         proc = subprocess.run(
             [sys.executable, str(suite.path), SELFTEST_FLAG],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
             timeout=timeout,
+            env=env,
         )
     except subprocess.TimeoutExpired as exc:
         result.status = "FAIL"

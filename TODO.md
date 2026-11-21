@@ -5532,8 +5532,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6720–C-6729
   - Result: EXP-2026-11-21-M9.60-card-gate-first-slice; factory/P1/P0 3/3 PASS exit 0, US NOT RUN exit 3, neg9100 exit 1 (sweep+mount name the read), negdrstr exit 1 at boot, selftest 29 checks
 
-- [ ] **M9.61 — The US build's map client on an EU card: does the firmware in Marek's unit read Poland tiles**
-  - Status: in progress · Owner: task/m9.61-us-build-eu-card · Critical: yes · Pair: required
+- [x] **M9.61 — The US build's map client on an EU card: does the firmware in Marek's unit read Poland tiles**
+  - Status: done · Owner: task/m9.61-us-build-eu-card · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M1.22, M1.22b (EU→US function map, done), M9.14 (US2011 file layer in `vcard_l3.py`, done), M9.13, M9.53 (the EU2011 run to compare with, done)
   - Goal: the only hardware is a US unit and it runs the US `Navi.exe` (H51), but every map-client result (mount, directory reads, record read) is EU2011. Region is a property of the unit, not of the card (M2.7), so the Poland card will be read by US code. Run that code now, in L3: it either reads the EU card like the EU build does, or it names the first check or table that refuses a tile outside North America. This is the cheapest test of "a Poland card in Marek's car" that exists without the car.
@@ -5545,6 +5545,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if fewer than 90 % of the functions the mount enters have a `UNIQUE` US pair, record the list of unpaired ones and stop (then the task is a `fn_match` task first).
   - Falsifier: the US build mounts the US card but, on the EU card, stops before the first tile read with no error-log call — then the position/mesh table, not the file layer, is market-bound.
   - Claims: C-6360–C-6369
+  - Result: EXP-2026-11-21-M9.61-us-build-eu-card; 4 runs, 236/236 US pairs, 28/28-32/32 reads SAME
 
 - [ ] **M9.62 — One L3 number: a manifest of every card-level L3 run with its pinned verdict, and one command that re-runs it**
   - Status: open · Owner: — · Critical: no · Pair: required

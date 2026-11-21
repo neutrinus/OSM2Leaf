@@ -42,21 +42,30 @@ the roads in the record are walked there.
 Usage:
   datask_l3.py --selftest
   datask_l3.py tables IMG256
+  datask_l3.py port   IMG256 --us-image US256 --card-image CARD.img [--request MESH ...]
   datask_l3.py diff   A.json B.json [--file NAME]
   datask_l3.py mount  IMG256 --card-image CARD.img [--max-reads N] [--file NAME]
                       [--position LAT,LON] [--sdl] [--event SUB:VALUE ...]
                       [--request MESH ...] [--kind 4|0x40] [--client N] [--divid N]
                       [--bytes] [--json OUT] [--flip MAPAL001/LEV3456R.DAT@0x803:0x01]
 
+`port` is the M9.61 Stop gate: it runs the EU mount (+ its requests), hooks
+every EU `.pdata` START to record entry, and asks `fn_match` for the US pair
+of each entered EU function (content hash, then the ANCHOR pass).  It prints
+the verdict census and the unpaired list and exits 1 below `--min-percent`
+(default 90).
+
 Exit codes: mount: 0 the run finished and at least one tile read was parsed,
-1 no tile read was parsed; diff: 0 SAME, 1 DIFFERENT; 3 BLOCKED (missing
-model, engine stop); 2 usage or missing input.
+1 no tile read was parsed; port: 1 below --min-percent; diff: 0 SAME,
+1 DIFFERENT; 3 BLOCKED (missing model, engine stop); 2 usage or missing
+input.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import struct
 import sys
 from pathlib import Path
@@ -94,7 +103,7 @@ DA_EU2011 = {
     # leaf functions (no pdata record): header date reader, block-header reader,
     # u16 byte swap of a buffer (record block before and after inflate, M9.53)
     "leaves": (0x0040A8D0, 0x004144A8, 0x003F6968),
-    "position": (0xD94 << 12) + 0x0E4,   # u32: (lat code << 16) | lon code
+    "position": (0xD94 << 12) + 0x0E4,   # u32: (lat code << 16) | lon code (0x003F6908 names it)
     "default_position_fn": 0x0040B49C,   # (kind) -> start position from a per-area table, or -1
     # directory read length (M3.31): leaf (kind, column) -> u32 from a
     # 16-row table {u32 kind, u32 length / 0x100, u32 buffer size}; the
@@ -115,6 +124,52 @@ DA_EU2011 = {
     "mesh_y": 0x004089F4,         # (mesh id) -> y; y >> 5 is the directory row (B48R058R: 72..79)
     "mesh_x": 0x00408B0C,         # (mesh id) -> x; x >> 5 is the directory column (B48R058R: -88..-81)
 }
+# The same data-access task in the US2011 build A (`archive/us256.img`,
+# SHA-256 70d945d8…04da; M9.61).  Every function is the fn_match pair of the
+# EU function above and a pdata START in the US image (or a GAP leaf, for the
+# five `leaves`) ; the tables were read from the US image and hold the same
+# keys in the same order (handlers differ) ; data addresses are the pool value
+# at the same load index of the paired `init` function.  Handlers are the US
+# VAs of each role, not a fitted delta: the EU->US shift differs by handler
+# (+0x28100 for most, +0x28960, +0x27dd0, …), which is why one delta fails.
+DA_US2011 = {
+    "build": "US2011",
+    "task_entry": 0x00414AD4,     # fn_match pair of 0x003EBFB4, pdata START
+    "init": (0x0041F268, 0x00414598),   # 0x003F6908 -> 0x0041F268; 0x003EBA78 -> 0x00414598
+    "dispatch": 0x00414A08,       # pair of 0x003EBEE8
+    "msg_table": 0x15E9D0,        # 43 rows {u16 id, u16 defer, u32 handler}, same keys/order as EU
+    "msg_rows": 43,
+    "sub_tables": {0x07D0: (0x1600CC, 6), 0x00A0: (0x16009C, 5)},   # same subs as EU
+    "done_handler": 0x0041FC44,   # pair of 0x003F72E4: message 0x04a0
+    "done_table": 0x15F760,       # 20 rows {u16 tag class, u16 0, u32 handler}
+    "done_rows": 20,
+    "read_api": 0x00440180,       # pair of 0x0041841C (ANCHOR: 12-byte stub, same pdata offset)
+    "da_task_id": 0x011031BC,     # global: task id the reply goes to
+    "map_task_id": 0x0110321C,    # global: task id of the map-file task
+    "state": 0x00C90090,          # 2 = map ready, requests served; 3 = requests refused (M9.53)
+    "mesh_count": 0x00C918A0,     # tile files found in MAPAL001
+    "version": 0x00CB8920,        # map format version from the volume header
+    "mmain_buf": 0x00D518C0,      # the volume header the map-file layer read
+    "leaves": (0x004329D0, 0x0043C278, 0x0041F2C8),   # pairs of 0x0040A8D0, 0x004144A8, 0x003F6968
+    "position": (0x0CC1 << 12) + 0x0CE4,   # u32: (lat code << 16) | lon code (0x003EBA78 load 172)
+    "default_position_fn": 0x0043359C,   # pair of 0x0040B49C
+    "len_lookup": 0x0043111C,     # pair of 0x0040901C (GAP leaf, identical instructions)
+    "len_table": (0x1605E0, 16),  # the leaf's pool at 0x00431148 names it
+    "ready_msg": (0x07D0, 100),
+    "done_msg": 0x04A0,
+    "progress": 0x00CC6BCC,       # pair of 0xD98FCC
+    "event_msg": 0x07D0,          # object-store event; the sub is the subscriber's event id
+    "state3_sub": 11,             # 0x0041F47C: state 2 -> 3 when the event's +28 is 16
+    "state3_value": 16,
+    "request_msg": 0x14B5,
+    "reply_msg": 0x14B6,
+    "client_open": 0x00416208,    # pair of 0x003ED6E8
+    "inflate": 0x00564638,        # pair of 0x0054233C
+    "mesh_y": 0x00430AF4,         # pair of 0x004089F4
+    "mesh_x": 0x00430C0C,         # pair of 0x00408B0C
+}
+BUILDS = {"eu2011": DA_EU2011, "us2011": DA_US2011}
+
 DA_TASK, MAP_TASK, SDL_TASK = 2, 0x10, 3       # any three different non-zero ids
 CLIENT_TASK = 5                                 # the task that sends map requests (any id > 1)
 KIND_RENDER, KIND_ROUTE = 4, 0x40               # +16 kinds of the callers in C-5641
@@ -133,14 +188,36 @@ SDL_EU2011 = {
     "req_id": 0x6F4650,            # u32 id of the pending request; +4: u32 1 = pending
     "state": 0x9379B8,             # u16 state of the SDL machine (table at data VA 0x39e30)
 }
+# ... and in the US2011 build (M9.61).  Pairs from fn_match; the data cells are
+# the pool value at the same load index of the paired init function.  Only
+# --sdl runs this dict and M9.61 does not (the mount does not wait for 0x1507);
+# it is here so --sdl --build us2011 does not run EU addresses.
+SDL_US2011 = {
+    "task_id": 0x011031B4,         # pair of 0x11FFF50
+    "entry": 0x003CDCDC,           # pair of 0x0039D854
+    "init": 0x003EEE40,
+    "dispatch": 0x003CDB78,
+    "from_da": 0x003CD614,
+    "gate": 0x003EEEC0,
+    "machine": 0x003CCE88,
+    "req_id": 0x00733D00,
+    "state": 0x00977060,
+}
+SDL_BUILDS = {"eu2011": SDL_EU2011, "us2011": SDL_US2011}
 
-# what each completion handler is, from the reads it was seen to serve
+# what each completion handler is, from the reads it was seen to serve.  The
+# role is keyed by the EU function; the US table lists the US VA of each role.
 HANDLER_ROLE = {
     0x0040B8B4: "file header (first 0x1000 bytes)",
     0x0040C308: "section table",
     0x0041597C: "directory",
     0x003F72CC: "REFER001 search data",
 }
+HANDLER_ROLE_US = {0x004339B4: "file header (first 0x1000 bytes)",
+                   0x00434408: "section table",
+                   0x0043D74C: "directory",
+                   0x0041FC2C: "REFER001 search data"}
+HANDLER_ROLES = {"eu2011": HANDLER_ROLE, "us2011": HANDLER_ROLE_US}
 
 
 class State:
@@ -152,6 +229,7 @@ class State:
         self.datavol = None
         self.zeroed: list[str] = []
         self.ticks = 0
+        self.build = DA_EU2011           # the per-build table the models read
 
 
 def install_models(st: State) -> None:
@@ -206,7 +284,7 @@ def install_models(st: State) -> None:
         # not run here, so this model is the copy.
         data = st.datavol
         if data is None:
-            data = bytes(m.eng.read_mem(DA_EU2011["mmain_buf"], 0x1000))
+            data = bytes(m.eng.read_mem(st.build["mmain_buf"], 0x1000))
         m.put(m.arg(3), data)
         m.objects.append({"kind": "OBJ_DiscInfo_readDiscVol",
                           "args": [m.arg(i) for i in range(4)], "pr": m.reg("pr")})
@@ -309,9 +387,9 @@ def decode_position(code: int) -> tuple[float, float]:
     return (((code >> 16) - 32768) / 192.0, ((code & 0xFFFF) - 52742) / 128.0)
 
 
-def ready_message() -> bytes:
+def ready_message(build: dict = DA_EU2011) -> bytes:
     msg = bytearray(32)
-    struct.pack_into("<HH", msg, 8, *DA_EU2011["ready_msg"])
+    struct.pack_into("<HH", msg, 8, *build["ready_msg"])
     return bytes(msg)
 
 
@@ -392,8 +470,9 @@ class DataTask:
     def __init__(self, image: str, card, build: dict = DA_EU2011, position=None, sdl: bool = False):
         self.b = build
         self.st = State()
+        self.st.build = build
         install_models(self.st)
-        out, s = V.boot_report(image, card)
+        out, s = V.boot_report(image, card, build=V.BUILDS[build["build"].lower()])
         if s is None or out.get("verdict") != "ACCEPT":
             raise V.Blocked("the card did not mount: %s" % (out.get("blocked") or out.get("verdict")))
         self.s, self.m, self.card = s, s.m, card
@@ -410,7 +489,7 @@ class DataTask:
         self.sdl = None
         self.sdl_log: list[dict] = []
         if sdl:
-            self.sdl = SDL_EU2011
+            self.sdl = SDL_BUILDS[build["build"].lower()]
             m.put(self.sdl["task_id"], struct.pack("<I", SDL_TASK))
             self.st.task = SDL_TASK
             m.call(self.sdl["init"], [], max_insns=80_000_000)
@@ -714,8 +793,8 @@ class DataTask:
                 "zero_models": self.st.zeroed}
 
 
-def show_row(row: dict) -> None:
-    role = HANDLER_ROLE.get(row["handler"], "")
+def show_row(row: dict, handler_role: dict = HANDLER_ROLE, inflate: int = 0x0054233C) -> None:
+    role = handler_role.get(row["handler"], "")
     print("tag %#06x  %-28s pos %#10x len %#7x  handler %s  %s" % (
         row["tag"], row["file"], row["pos"] or 0, row["length"],
         ("%#010x" % row["handler"]) if row["handler"] else "-", role))
@@ -728,7 +807,7 @@ def show_row(row: dict) -> None:
         print("      fn %#010x %s %6d B: %s" % (r["fn"], ("%s copies" % r["via"]) if r.get("via") else "loads",
                                             r["bytes"], show_runs(r["runs"])))
     for z in row.get("inflated", []):
-        print("      inflate %#010x: output window %#x bytes" % (DA_EU2011["inflate"], z["avail"]))
+        print("      inflate %#010x: output window %#x bytes" % (inflate, z["avail"]))
     for r in row.get("record_readers", []):
         print("      fn %#010x %s %6d B of the inflated record: %s" % (
             r["fn"], ("%s copies" % r["via"]) if r.get("via") else "loads", r["bytes"], show_runs(r["runs"])))
@@ -739,17 +818,18 @@ def is_tile(row: dict) -> bool:
 
 
 def cmd_tables(args) -> int:
+    build = BUILDS[args.build]
     card = V.make_card(args.card_root, args.card_image) if (args.card_root or args.card_image) else None
     if card is None:
         # the tables are constant data: read them from the image alone
         m = V.load_machine(args.image, V.Card(V.MemorySource({})))
         rd = lambda va, n: bytes(m.eng.read_mem(va, n))
-        b = DA_EU2011
+        b = build
         msg = decode_table(rd(b["msg_table"], 8 * b["msg_rows"]), b["msg_rows"])
         done = decode_table(rd(b["done_table"], 8 * b["done_rows"]), b["done_rows"])
         subs = {k: decode_table(rd(va, 8 * n), n) for k, (va, n) in b["sub_tables"].items()}
     else:
-        t = DataTask(args.image, card)
+        t = DataTask(args.image, card, build=build)
         msg, done, subs = t.msg_table, t.done_table, t.sub_tables
     print("message table (%d rows): id  defer  handler" % len(msg))
     for key, flag, h in msg:
@@ -759,8 +839,9 @@ def cmd_tables(args) -> int:
         for key, _flag, h in rows:
             print("  %#06x  %#010x" % (key, h))
     print("read-completion table (%d rows): tag class  handler" % len(done))
+    roles = HANDLER_ROLES[args.build]
     for key, _flag, h in done:
-        print("  %#06x  %#010x  %s" % (key, h, HANDLER_ROLE.get(h, "")))
+        print("  %#06x  %#010x  %s" % (key, h, roles.get(h, "")))
     return 0
 
 
@@ -779,6 +860,7 @@ def card_record(args, card) -> dict:
 
 
 def cmd_mount(args) -> int:
+    build = BUILDS[args.build]
     card = V.make_card(args.card_root, args.card_image, V.parse_mods(args))
     served = card_record(args, card)
     for o in served["overlay"]:
@@ -790,18 +872,19 @@ def cmd_mount(args) -> int:
             lat, _, lon = args.position.partition(",")
             position = (float(lat), float(lon))
         events = [parse_event(e) for e in args.event]
-        t = DataTask(args.image, card, position=position, sdl=args.sdl)
+        t = DataTask(args.image, card, build=build, position=position, sdl=args.sdl)
         print("position: %s (default %.3f, %.3f)" % (
             ("%.3f, %.3f" % position) if position else "default", *decode_position(t.default_position)))
         want = args.file.upper() if args.file else None
+        roles = HANDLER_ROLES[args.build]
 
         def on_row(row):
             if want is None or want in row["file"].upper():
-                show_row(row)
+                show_row(row, roles, build["inflate"])
         end = t.run(args.max_reads, args.bytes, on_row, events)
         for mesh in args.request:
             print("map request %#06x for mesh %#010x (kind %#x, client %d):" % (
-                DA_EU2011["request_msg"], mesh, args.kind, args.client))
+                build["request_msg"], mesh, args.kind, args.client))
             r = t.request_mesh(mesh, args.kind, args.client, args.divid, args.bytes, on_row)
             print("  mesh y %d x %d (directory row %d, column %d); state %d; %d read(s); %s" % (
                 r["y"], r["x"], r["y"] >> 5, r["x"] >> 5, r["state"], r["rows"], r["end"]))
@@ -822,7 +905,7 @@ def cmd_mount(args) -> int:
             "dropped it" if e["gate_dropped"] else "passed it", e["sdl_state"], e["sent"], e["model"]))
     for e in t.events:
         print("event model (stand-in, sender not in the run): %#06x sub %d +28=%d: state %d -> %d" % (
-            DA_EU2011["event_msg"], e["sub"], e["value"], e["state_before"], e.get("state_after", -1)))
+            build["event_msg"], e["sub"], e["value"], e["state_before"], e.get("state_after", -1)))
     if out["zero_models"]:
         print("models that return 0 and write nothing: %s" % ", ".join(out["zero_models"]))
     tiles = [r for r in t.rows if is_tile(r)]
@@ -886,6 +969,75 @@ def diff_rows(a: list[dict], b: list[dict], want: str | None = None) -> list[str
     return out
 
 
+def port_census(rows: list[tuple], good=("UNIQUE", "ANCHOR", "DIFFERENT", "CALLORDER"),
+                min_percent: float = 90.0):
+    """Count fn_match verdicts of (eu, us, verdict) rows and decide the gate.
+
+    Returns (counts, unpaired, percent, ok).  An ``AMBIGUOUS``/``NOMATCH`` row
+    is unpaired: it has no US address (M9.61 Stop)."""
+    count: dict = {}
+    for _eu, _us, verdict in rows:
+        count[verdict] = count.get(verdict, 0) + 1
+    unpaired = [r for r in rows if r[2] not in good]
+    pct = 100.0 * (len(rows) - len(unpaired)) / len(rows) if rows else 0.0
+    return count, unpaired, pct, pct >= min_percent
+
+
+def cmd_port(args) -> int:
+    """M9.61 Stop gate: every EU function start the mount (+ requests) enters
+    gets a US pair from fn_match; exit 1 below --min-percent."""
+    import contextlib
+    import io
+    import fn_match
+
+    card = V.make_card(args.card_root, args.card_image, V.parse_mods(args))
+    position = None
+    if args.position:
+        lat, _, lon = args.position.partition(",")
+        position = (float(lat), float(lon))
+    t = DataTask(args.image, card, position=position, sdl=args.sdl)
+    import pdata
+    records, _meta = pdata.load_table(Path(args.image).read_bytes(), V.IMAGE_A, "Navi.exe")
+    starts = sorted({rec[0] for rec in records})
+    entered: set[int] = set()
+    for va in starts:
+        t.m.eng.on_exec(va, lambda e, v: (entered.add(v), None)[1])
+    t.run(args.max_reads)
+    for mesh in args.request:
+        t.request_mesh(mesh, args.kind, args.client, args.divid)
+    tries = fn_match.Matcher(args.image, args.us_image, "Navi.exe", V.IMAGE_A, 2, 2, None, None)
+    base = {}
+    with contextlib.redirect_stdout(io.StringIO()):
+        for f in tries.fa:
+            base[f[0]] = tries.verdict(f[0])
+    b_index = {f[0]: j for j, f in enumerate(tries.fb)}
+    amap = {}
+    for i, f in enumerate(tries.fa):
+        bva, verdict = base[f[0]][1], base[f[0]][2]
+        if verdict in fn_match.MATCHED and bva in b_index:
+            amap[i] = b_index[bva]
+    anchored, _owner = fn_match.anchor_verdicts(tries, base, sorted(amap), amap)
+    for va, bva in anchored.items():
+        base[va] = (va, bva, "ANCHOR", base[va][3])
+    rows, count = [], {}
+    for va in sorted(entered):
+        v = base.get(va)
+        if v is None:
+            with contextlib.redirect_stdout(io.StringIO()):
+                v = tries.verdict(va)
+        rows.append((va, v[1], v[2]))
+    count, unpaired, pct, ok = port_census(rows, min_percent=args.min_percent)
+    print("EU function starts entered during mount+request: %d" % len(rows))
+    print("verdicts: %s" % dict(sorted(count.items())))
+    print("unpaired: %d%s" % (len(unpaired), "".join(
+        "\n  %#010x  %s" % (va, verdict) for va, _b, verdict in unpaired)))
+    print("percent paired: %.1f%% of %d" % (pct, len(rows)))
+    if args.json:
+        Path(args.json).write_text(json.dumps(
+            [{"eu": va, "us": b, "verdict": verdict} for va, b, verdict in rows], indent=1))
+    return 0 if ok else 1
+
+
 def cmd_diff(args) -> int:
     a = json.loads(Path(args.a).read_text())
     b = json.loads(Path(args.b).read_text())
@@ -922,6 +1074,9 @@ def main(argv=None) -> int:
         p.add_argument("image")
         p.add_argument("--card-image")
         p.add_argument("--card-root")
+        p.add_argument("--build", choices=sorted(BUILDS), default="eu2011",
+                       help="Navi.exe build the VAs belong to (default eu2011); the image "
+                            "must be that build's head (vcard_l3.boot_report checks the SHA-256)")
         for opt in ("--hide", "--replace", "--flip", "--truncate"):
             p.add_argument(opt, action="append", default=[],
                            help="change one file of the card for this run (see vcard_l3.py)")
@@ -944,6 +1099,22 @@ def main(argv=None) -> int:
                            help="request kind at +16: 4 renderer (default), 0x40 router")
             p.add_argument("--client", type=int, default=CLIENT_TASK, help="client task id (> 1)")
             p.add_argument("--divid", type=lambda v: int(v, 0), default=0, help="DIVID u16 of the list entry")
+    p = sub.add_parser("port", help="M9.61 Stop gate: the US pair of every EU function the mount enters")
+    p.add_argument("image")
+    p.add_argument("--us-image", required=True, help="the US build's head (the other image of the pair)")
+    p.add_argument("--card-image")
+    p.add_argument("--card-root")
+    for opt in ("--hide", "--replace", "--flip", "--truncate"):
+        p.add_argument(opt, action="append", default=[])
+    p.add_argument("--position", metavar="LAT,LON")
+    p.add_argument("--sdl", action="store_true")
+    p.add_argument("--max-reads", type=int, default=0)
+    p.add_argument("--request", action="append", default=[], type=lambda v: int(v, 0), metavar="MESH")
+    p.add_argument("--kind", type=lambda v: int(v, 0), default=KIND_RENDER)
+    p.add_argument("--client", type=int, default=CLIENT_TASK)
+    p.add_argument("--divid", type=lambda v: int(v, 0), default=0)
+    p.add_argument("--min-percent", type=float, default=90.0)
+    p.add_argument("--json")
     p = sub.add_parser("diff", help="compare two mount --json runs read by read")
     p.add_argument("a")
     p.add_argument("b")
@@ -966,6 +1137,14 @@ def main(argv=None) -> int:
     if args.cmd == "mount" and not (args.card_image or args.card_root):
         print("mount needs --card-image or --card-root")
         return 2
+    if args.cmd == "port":
+        if not (args.card_image or args.card_root):
+            print("port needs --card-image or --card-root")
+            return 2
+        if not Path(args.us_image).is_file():
+            print("missing image: %s" % args.us_image)
+            return 2
+        return cmd_port(args)
     return {"tables": cmd_tables, "mount": cmd_mount}[args.cmd](args)
 
 
@@ -1016,6 +1195,23 @@ def selftest() -> int:
           encode_position(0, 0) == (32768 << 16) | 52742 and encode_position(48, 16) == ((32768 + 9216) << 16) | (52742 + 2048))
     check("a packed position decodes back", decode_position(encode_position(51.5, -0.25)) == (51.5, -0.25))
     check("the ready message is id 0x07d0 sub 100", struct.unpack_from("<HH", msg, 8) == (0x07D0, 100))
+    check("both builds name the same table entries, and no US VA is the EU one",
+          set(BUILDS) == {"eu2011", "us2011"} and set(DA_EU2011) == set(DA_US2011)
+          and set(SDL_EU2011) == set(SDL_US2011)
+          and all(DA_US2011[k] != DA_EU2011[k] for k in set(DA_EU2011) - {
+              "msg_rows", "done_rows", "ready_msg", "done_msg", "event_msg", "state3_sub",
+              "state3_value", "request_msg", "reply_msg"}))
+    check("a ready message is built from the named build",
+          struct.unpack_from("<HH", ready_message(DA_US2011), 8) == DA_US2011["ready_msg"])
+    # M9.61 Stop gate: the census, not the run
+    c_, u_, p_, ok_ = port_census([(1, 2, "UNIQUE"), (2, 3, "ANCHOR"), (3, 4, "DIFFERENT"),
+                                   (4, None, "AMBIGUOUS")])
+    check("port census: AMBIGUOUS/NOMATCH rows are unpaired and a 3/4 is below 90 %",
+          c_ == {"UNIQUE": 1, "ANCHOR": 1, "DIFFERENT": 1, "AMBIGUOUS": 1}
+          and len(u_) == 1 and u_[0][0] == 4 and abs(p_ - 75.0) < 1e-9 and not ok_)
+    check("port census: all paired rows pass and an empty run is 0 %",
+          port_census([(1, 2, "UNIQUE"), (2, 3, "ANCHOR")])[3]
+          and port_census([])[2] == 0.0)
     check("tile rows are MAPAL001 reads somebody parsed",
           is_tile({"file": "MAPAL001/B28R070R.DAT", "readers": [1]})
           and not is_tile({"file": "REFER001/POINT001.DAT", "readers": [1]})
@@ -1073,9 +1269,17 @@ def selftest() -> int:
                              {"path": "x/h.dat", "size": None, "sha256": None}]
           and rec["mods"]["replace"] == ["MAPAL001/T.DAT=host"])
     head = HERE.parent / "archive" / "head256.img"
+    us_head = HERE.parent / "archive" / "us256.img"
     card_img = HERE.parent / "archive" / "sd-images" / "LEAF_2011-2012_QSD-309-101_navi158_eu.img"
+    us_card = HERE.parent / "archive" / "sd-images" / "LEAF_2011-2012_US.img"
     if not (head.is_file() and card_img.is_file()):
         print("  firmware part skipped: archive/head256.img or the EU card image is not present")
+    elif os.environ.get("DATASK_L3_HOST_SELFTEST") == "1":
+        # tools/selftest.py runs every --selftest under one 60 s timeout; the
+        # firmware runs below take ~55 s, so that runner asks for the host
+        # logic only and the firmware part runs from a direct --selftest
+        # (CI's `python3 tools/datask_l3.py --selftest`, ~1 min).
+        print("  firmware part skipped: DATASK_L3_HOST_SELFTEST=1 (tools/selftest.py budget)")
     else:
         try:
             t = DataTask(str(head), V.make_card(None, str(card_img)))
@@ -1158,6 +1362,45 @@ def selftest() -> int:
             r = t.request_mesh(mesh)
             check("in state 3 the same request is refused (status 9, no read)",
                   r["state"] == 3 and r["rows"] == 0 and any(x["sub"] == 5 and x["words"][0] == 9 for x in r["replies"]))
+        except (V.Blocked, V.EngineError) as exc:
+            check("firmware run (%s)" % str(exc)[:80], False)
+        finally:
+            V.MODELS.clear()
+            V.MODELS.update(saved)
+
+    if not (us_head.is_file() and card_img.is_file() and us_card.is_file()):
+        print("  US-build part skipped: archive/us256.img or a card image is not present")
+    elif os.environ.get("DATASK_L3_HOST_SELFTEST") == "1":
+        print("  US-build part skipped: DATASK_L3_HOST_SELFTEST=1 (tools/selftest.py budget)")
+    else:
+        # M9.61: the US2011 build reads the EU card like the EU build does.
+        try:
+            eu_t = DataTask(str(head), V.make_card(None, str(card_img)), position=(51.70, 17.45))
+            us_t = DataTask(str(us_head), V.make_card(None, str(card_img)), build=DA_US2011,
+                            position=(51.70, 17.45))
+            check("the US completion table has the same 20 tag classes and the US handler of each role",
+                  [k for k, _f, _h in us_t.done_table] == [k for k, _f, _h in eu_t.done_table]
+                  and len([1 for _k, _f, h in us_t.done_table if h]) == 20
+                  and done_lookup(us_t.done_table, 0x0103) == 0x004339B4   # file header
+                  and done_lookup(us_t.done_table, 0x0600) == 0x00434408   # section table
+                  and done_lookup(us_t.done_table, 0x0700) == 0x0043D74C   # directory
+                  and done_lookup(us_t.done_table, 0x0D00) == 0x0041FC2C)  # REFER001
+            eu_t.run()
+            us_t.run()
+            key = lambda r: (r["file"].upper(), r["tag"], r["pos"], r["length"])
+            check("the US build asks for the same reads as the EU build on the EU card",
+                  [key(r) for r in us_t.rows] == [key(r) for r in eu_t.rows] and len(us_t.rows) >= 28)
+            check("the US build reaches state 2 with map version 0x802, like the EU build",
+                  us_t.summary()["state"] == eu_t.summary()["state"] == 2
+                  and us_t.summary()["version"] == eu_t.summary()["version"])
+            r = us_t.request_mesh(0xA6CDD6BE)
+            row = us_t.rows[-1] if r["rows"] else {}
+            check("a US map request reads the record block and is answered 0x14b6 sub 3",
+                  r["rows"] == 1 and row.get("tag") == 0x0900 and row.get("handler") == 0x0042CFE4
+                  and [x["sub"] for x in r["replies"]] == [5, 3])
+            r = us_t.request_mesh(0x26C18AB2)
+            check("the US build refuses a record whose code is not the mesh id (sub 9)",
+                  [x["sub"] for x in r["replies"]] == [5, 9])
         except (V.Blocked, V.EngineError) as exc:
             check("firmware run (%s)" % str(exc)[:80], False)
         finally:
