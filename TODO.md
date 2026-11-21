@@ -1737,8 +1737,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: the microcontroller's own firmware (`AudioMiconUpdate.exe` payload, V850) is out of scope.
   - Claims: C-6440–C-6449
 
-- [ ] **M1.43 — Decompile map of the vehicle screens (`Vehicle.exe`, `DriveComputerCC`, `EvTimerCC`, `EvNoticeCC`, `HvacCC`, `ComfortCC`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.43 — Decompile map of the vehicle screens (`Vehicle.exe`, `DriveComputerCC`, `EvTimerCC`, `EvNoticeCC`, `HvacCC`, `ComfortCC`)**
+  - Status: done · Owner: task/m1.43-vehicle-signals · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track. Which CAN signals reach the SH-4 (through `CAN.dll` on `UAT3:`), in what units and resolution, and what the drive computer does with them: is energy shown rounded from a finer value (so a finer display or other aggregates are a UI change), or does the coarse value arrive already rounded.
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports CAN.dll` prints exports.
@@ -1746,6 +1746,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: ≥ 10 signals with consumer and unit, and for the energy economy value the VA where it is scaled for display.
   - Stop: do not send anything to a car; this task is read-only knowledge.
   - Claims: C-6450–C-6459
+  - Result: EXP-2026-11-21-M1.43-vehicle-signals; 17 VCAN frames mapped, 10 with consumer+unit/flag/enum (Done-when 10>=10; 7 raw/unknown); energy-economy scaled for display at DriveComputerCC fn 0x02518f58, halfword 0xf463 fdiv FR6,FR4 @0x02519072
 
 - [ ] **M1.44 — Decompile map of the camera path (`CameraCC.dll`, `VIN.dll`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
