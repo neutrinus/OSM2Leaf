@@ -1,0 +1,46 @@
+---
+role: TL
+model: mimo-v2.6-flash-free (Airouter Medium)
+start: 2026-11-21 11:00Z (session), run after 0900-7
+origin/main at start: 01a67a6e (fetched ff; ended f62caa2b after my merges)
+inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md rules +
+  Priorities 22nd pass, retro 2026-11-21, dev_process/2026-11-21-0900-7-tl.log,
+  gh pr list, EXP-2026-11-21-H121 / H125 / M1.45
+
+actions taken, in order:
+- git fetch + ff primary checkout on main (stays on main, no commits)
+- queue clear: merged the three non-draft PRs after re-running their checks
+  myself (harness has no SendMessage for pair relays — deviation recorded):
+  #431 H121 (gate 5/0/0 incl. board_check, CI green) -> b88cc787
+  #436 M1.45 (rebased on 01a67a6e with board.py resolve claims.md, gate
+  5/0/0, selftest 177/0, CI green) -> d92eed6e
+  #435 H125 (todo_check --strict exit 1 names M3.29+M4.23, selftest 43,
+  gate 5/0/0, CI green after final rebase) -> f62caa2b
+- wt remove h121; h125 and m1.45 worktrees report "branch unmerged" (local
+  main stale at the time) — re-run wt remove -D after ff
+- 10 open draft PRs remain, all in flight from earlier TL/SM runs:
+  423 M5.61, 424 M9.58, 433 M1.44, 439-445 H122/H86/H94/H127/H128/H83/H66
+- NOT launched this run: Priorities "Next for the TL" list (M9.63, M3.36+H125
+  done now, M4.62, M5.64, M5.65, M5.66) — 10 PRs in flight, batch 2 deferred
+  to the next run per 0900-7's plan; no new claims (no ghost claims)
+- rule 15: H125 merged, but M3.29 is blocked on M9.53 (done) — M3.36 (the
+  board-repair task, open, unowned) is the named fix; re-open of the REFER
+  chain belongs to M3.36's merge, not to this checker merge
+
+decisions:
+- merged H121/H125 first (retro: the gate that protects the board, rule-17
+  exception) before the docs PR, even though all three were ready
+- skipped launching: no task qualified as batch while batch 1 (7 PRs) and
+  M1.44/M9.58/M5.61 were unmerged — rule 1 + disjoint-files check would
+  re-run them; M4.2/M5.61/M5.3 need the OSM upload (Marek), M6.x hardware
+
+problems:
+- gh merge repeatedly returned CONFLICTING after each rebase because other
+  roles kept merging to main (434, 436, 435 in a 15-minute window); each
+  needed one more board.py resolve + rebase cycle
+- no pair subagents possible in this harness (SendMessage unavailable);
+  every review round this run was done by the TL re-running the checks
+
+handoff: next run launches batch 2 (M9.63, M9.65, M9.62, M1.47, M9.64) once
+439-445 and 423/424/433 merge; re-check rule 1 right before claiming; Marek's
+OSM upload still gates M4.2/M5.61/M5.3.
