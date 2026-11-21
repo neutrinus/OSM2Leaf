@@ -27,16 +27,20 @@ tree.  What it models by hand: the block cache (``0x00407724`` lookup,
 file; ``memset``/``memmove``/``_modlu`` and the error logger are host
 functions; the search state the search set-up would have written (tree base
 block, origin mesh point, distance window, result buffers, no category
-filter) is written by the tool.  The two upper levels (``0x1002``,
-``0x1003``) are driven by the tool calling ``fn 0x004110dc`` once per entry;
-their firmware driver (``fn 0x00411fd4`` / ``fn 0x0041235c``) is not run.
+filter) is written by the tool.  The upper levels (root node ``0x1001``,
+level-1 node ``0x1002``, cell entry ``0x1003``) are driven by the tool
+calling ``fn 0x004110dc`` once per entry; their firmware driver
+(``fn 0x00411fd4`` / ``fn 0x0041235c``) is not run.
 
 Checks per level-1 node: the name-record ordinals the firmware stores equal
 the leaves ``point_census`` reads below that node, and its distances equal
 the distance computed on the host from ``point_census.fine_position`` of
-those name records (WGS 84 ellipsoid, within 3 m + 0.2 %).  Controls: a leaf with its fine word changed moves by the
-expected distance; a node cut by a ``0005`` terminator loses the leaves
-behind it.
+those name records (WGS 84 ellipsoid, within 3 m + 0.2 %).  Controls: a
+leaf with its fine word changed moves by the expected distance; a node cut
+by a ``0005`` terminator loses the leaves behind it; a leaf with the
+``0x0800`` flag cleared is dropped when it sits in the cell node; a leaf
+with a code other than 0 or 63 is kept only when ``*0x005638ec`` holds that
+code.
 
 Usage:
   point_tree_l3.py run IMG --dir PAIRS --file POINT010 [--tree N|all] [--cells 50] [--json OUT]
