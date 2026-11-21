@@ -1,0 +1,54 @@
+---
+role: TL
+model: mimo-v2.6-flash-free (Airouter Medium)
+start: 2026-11-21 (session time), run 1
+origin/main at start: d8419262 (later 01a67a6e after merges by other roles)
+inputs read: TODO.md rules 1-17 + Priorities 22nd pass, prompt_common.txt,
+  prompt_tl.txt, AGENTS.md worktree section, origin/main board via tools/board.py,
+  gh pr list (7 open PRs at start: 423, 424, 431, 433-436), board state
+  (278 tasks / 168 done / 83 open of which 31 free, 44 waiting on deps)
+
+actions taken, in order:
+- scanned TODO.md + origin/main + open PRs for free tasks (rule 1 right before claiming)
+- user decision: every free task gets its own subagent in its own worktrunk
+  worktree, maximum parallelism; Ghidra-unavailable task may be skipped
+- created 7 worktrees with `wt switch --create task/<id>-<slug> --base origin/main
+  --no-cd --yes`, made the claim commit (`todo: start <ID>`) and pushed each
+  branch, opened a draft PR per task (rules 2-3) BEFORE launching any agent
+- reserved one PROPOSED claim block per task in each worktree via
+  `tools/board.py add-claims` (batch 1: C-6530, C-4090, C-4200, C-6680,
+  C-6700, C-4060, C-3870 rows)
+- launched 7 background subagents (one per task, driver+driver pair because no
+  second agent is available in this harness; recorded as a deviation)
+
+task IDs launched (batch 1): H122 PR439, H86 PR440, H94 PR441, H127 PR442,
+  H128 PR443, H83 PR444, H66 PR445 - all draft, Owner set on origin/main
+task IDs deferred (not claimed, still open): M4.2 (Runner: non-Claude),
+  M6.9/M6.x (hardware + Marek), M9.2 (Runner: non-Claude, Ghidra - check first),
+  the 44 waiting-on-deps tasks
+
+decisions:
+- batch 1 = pure H-housekeeping that edits tools/* only (no format writers):
+  least file overlap with the 7 in-flight PRs (423/424/431/433-436)
+- batches 2-3 (tooling M9.x, M1.47, M5.6x/M4.61/M3.35) to be launched once
+  batch 1 merges, to keep TODO.md conflict surface small and to re-check
+  rule 1 (deps/claim state) right before each launch
+- every subagent gets the same protocol brief (/tmp/opencode/common_prompt.md):
+  task text is the spec, EXP template, board.py only, no merge
+
+problems:
+- first prep script used wrong worktree paths (missing `task-` prefix) and
+  wrong claim section titles; rerun fixed both
+- local TODO.md is 3h stale vs origin/main; all claims went through board.py
+  on worktree copies based on origin/main
+
+handoff (next role / next run): review batch-1 PRs 439-445 as they come in;
+batch 2 candidates (M9.63, M9.65, M9.62, M1.47, M9.64) after batch 1 merges.
+
+update (session): two subagents (H127 ses_…c6P4JEFcL, H86 ses_…ohGvDk11k) died
+with "Free usage limit reached" before any code; their worktrees hold only the
+claim + claims-reserve commits (local == pushed). All 7 background agents share
+one free-quota pool, so the remaining 5 will likely die the same way before
+finishing. Decision: do not re-launch against the same limit; the driver (this
+session) implements batch 1 directly, one task at a time, same protocol (EXP,
+controls, board.py, no merge until verified).
