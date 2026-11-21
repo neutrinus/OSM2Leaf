@@ -159,20 +159,19 @@ change — that would mean the rule was not confined to `--strict`.
 
   ```text
   $ git rev-parse --short HEAD
-  ece6408c
+  719ae582
   GATE          RESULT    SECS  NOTE
   ------------  ------  ------  ----------------------------------------
-  selftest      PASS    123.32
-  claims_check  PASS      8.51
+  selftest      PASS    120.36
+  claims_check  PASS      0.46
   todo_check    PASS      0.06
-  fn_audit      PASS      4.43
+  fn_audit      PASS      4.25
   gate: 4 pass, 0 fail, 0 skip
   ```
 
-  The verdict (`4 pass, 0 fail, 0 skip`) is stable across runs; the SECS
-  column is host- and load-dependent. The table above is the run at
-  `ece6408c`; a re-run at `f2601355` (HEAD after a 2-commit rebase on
-  `origin/main`) reproduces the same `gate: 4 pass, 0 fail, 0 skip`.
+  The table is the run at `719ae582` (a branch commit, on `origin`); `fn_audit`
+  took the real-image path (PASS, not SKIP). The verdict (`4 pass, 0 fail, 0
+  skip`) is stable across runs; the SECS column is host- and load-dependent.
 
 ## Interpretation
 
@@ -245,8 +244,8 @@ M3.29/M4.23; default exit 0; gate 4/0/0):
   M3.30-shaped WARN fixture and a not-open negative control in the selftest,
   and the Scope/Conclusion record both clauses.
 - **Gate SHA.** The gate table was quoted at `ece6408c`, an unreachable
-  scratch commit. It is now the run at this branch HEAD, whose short SHA is
-  in the block below.
+  scratch commit. It is now the run at `719ae582`, a branch commit on
+  `origin`, and `fn_audit` is PASS (not SKIP).
 
 No claim rows are edited here; C-6590 gains the open-door clause and C-6591's
 sample SHA is corrected in the same push (see Follow-ups).
