@@ -95,16 +95,16 @@ POI_NEW = b"OSM2LEAF5-NAME-01"
 
 #: ``hddinfo_variants.py`` default matrix: 73 content + 16 permutation files.
 HDD_VARIANTS = 89
-#: Model-M0 outcome of that matrix on the synthetic block (EXP-M9.7).
-HDD_VARIANTS_ACCEPT = 66
-HDD_VARIANTS_REJECT = 23
+#: Model-M2.15 outcome of that matrix on the synthetic block (EXP-H122).
+HDD_VARIANTS_ACCEPT = 69
+HDD_VARIANTS_REJECT = 20
 HDD_VARIANTS_DIR = "hdd_info/variants"
 
-#: Representative ``hddinfo_variants.py`` rejects, one per discriminator.
+#: Representative ``hddinfo_variants.py`` rejects, one per line-1
+#: discriminator that the M2.15 ``no_proven_failure`` rule still proves
+#: a failure on (the line-4 variants no longer do: see the EXP).
 HDD_MISMATCHES = (
     "line1_digits_4_002.HDD_INFO.TXT",  # userdata_type 3 -> 0
-    "line4_digits_3_00.HDD_INFO.TXT",   # manufacturer_id 8 -> 0
-    "line4_letters_6_XXXXX.HDD_INFO.TXT",  # destination token replaced
 )
 
 #: The full ``ind_mutate.py`` matrix; every variant must be rejected.
@@ -711,7 +711,15 @@ def verdict_hdd_info(root: Path, relative: str) -> str:
         card = hddinfo.HddInfo.parse((root / relative).read_bytes())
     except (OSError, ValueError):
         return "REJECT"
-    return "ACCEPT" if hddinfo.classify(system, card)["accepted"] else "REJECT"
+    result = hddinfo.classify(system, card)
+    # M2.15 semantics: ``accepted`` requires both checks to pass against
+    # explicit unit inputs; ``no_proven_failure`` is the model's "check 1
+    # passes and check 2 did not prove a failure", which is what the corpus
+    # cases exercise.  The unit +112/+114 bounds are unknown here, so every
+    # ``hdd_info`` corpus case is decided by check 1 (the M2.18 note,
+    # ``tools/hddinfo.py``): ACCEPT when check 1 passes, REJECT when it
+    # fails (``DIFFERENT MAP CODE``).
+    return "ACCEPT" if result["no_proven_failure"] else "REJECT"
 
 
 def verdict_point_walk(root: Path, relative: str) -> str:
@@ -984,8 +992,9 @@ def build_corpus(root) -> dict:
             specs.append((case, "hdd_info", path, None))
             notes[(case, path)] = (
                 f"hddinfo_variants.py {name}; "
-                + ("model M0 rejects the map code" if case == "hdd_info_mismatch"
-                   else "map code unchanged, model M0 still accepts")
+                + ("M2.15 no_proven_failure rejects (check 1 differs)"
+                   if case == "hdd_info_mismatch"
+                   else "M2.15 no_proven_failure accepts (check 1 passes)")
             )
 
     # ---- factory placeholder -----------------------------------------
@@ -1181,6 +1190,8 @@ def build_parser() -> argparse.ArgumentParser:
     check_cmd.add_argument("--json", action="store_true")
 
     sub.add_parser("selftest", help="run the corpus self-test")
+    parser.add_argument("--selftest", action="store_true",
+                        help="run the corpus self-test (alias for 'selftest')")
     return parser
 
 
@@ -1363,17 +1374,20 @@ def test_hdd_info_discriminators(tmp):
     system = hddinfo.HddInfo.parse((root / HDD_REFERENCE).read_bytes())
     base = hddinfo.HddInfo.parse((root / "hdd_info/factory/HDD_INFO.TXT").read_bytes())
     result = hddinfo.classify(system, base)
-    assert result["accepted"]
+    assert result["no_proven_failure"]
     causes = set()
     for name in HDD_MISMATCHES:
         record = hddinfo.HddInfo.parse(
             (root / HDD_VARIANTS_DIR / name).read_bytes()
         )
         verdict = hddinfo.classify(system, record)
-        assert not verdict["accepted"], name
+        assert not verdict["no_proven_failure"], name
         for reason in verdict["reasons"]:
             causes.add(reason.split(":")[0])
-    assert causes == {"manufacturer_id", "userdata_type", "destination_id"}, causes
+    # M2.15 check-1 discriminators: the line-1 variants that still prove
+    # a failure report DIFFERENT MAP CODE (the field-level names belong to
+    # the model-M0 check-1 sub-verdicts that the M2.15 rule does not use).
+    assert causes == {"DIFFERENT MAP CODE"}, causes
 
 
 @check("readers: the full hddinfo_variants.py matrix is in the manifest")
