@@ -33,3 +33,28 @@ actions, in order:
 - primary-checkout surprise: the concurrent PO 22nd pass (dev_process/2026-11-21-0740-4-po.log) ran in this checkout 07:30-07:40 and finished WITHOUT committing. Its TODO.md/card-ladder.md/todo-history-2026-11-21.md/log edits were the uncommitted diff. Verified (0 tick regressions vs origin/main apart from the 7 it archived, each in the new history; M5.65/M5.66 new; lost = exactly the 7 archived; todo_check/claims_check/card_ladder OK) and committed as 3e41dc89, pushed to main. Did NOT discard it.
 - also committed 3 stale role logs the SM found earlier (sm 0703-1, se 0722-3) with the PO log — evidence, not mine to drop.
 - final queue state (after PO handoff): 10 draft PRs to review = the 9 launched + M8.C1 #394 (kept, legit in-progress).
+
+review + merge log (cycle-20 batch, TL re-ran each Done-when before merge):
+- M9.59 #430 l3_precond — merged earlier (264e0baa); gate 4/4, RUNS-ELSEWHERE + BLOCKED negative confirmed.
+- H105 #429 cardcheck --break — Done-when reproduced by TL: good tree rc=0 with `mmain` PASS, `--break
+  tile-level-not-in-mmain` rc=1 with `mmain` FAIL (same id the good tree passed), 6/6 CI green. Merged a0bf0d98
+  (by the concurrent 0818 TL; I had verified it independently). wt remove.
+- M5.63 #427 POI position writer — TL found the standing gate red on CI (quality py3.11/3.13/3.14): the
+  "non-factory encoder is refused" selftest inherited the host python zlib version, so it passed locally
+  (zlib-ng 1.3.1) and failed where the runner's zlib is 1.3.1/stock-1.3.2. I wrote a host-independent control,
+  but the driver concurrently landed its own fix (2579f322: synthetic `0.0-host-independent` encoder +
+  `main()` driven with --libz under a monkeypatched regen.Encoder -> EXIT_UNVERIFIABLE before the pair is
+  read). Verified both `python3` (zlib-ng 1.3.1) and `python3.13` (stock 1.3.2): selftest OK; gate 4/4; 6/6 CI
+  green. Real-data Done-when was re-verified on the EU pair earlier (move 1.95 m, census unaccounted=0, joins
+  15378/15378, no-op byte-identical, `--control leave-leaf` VERDICT FAIL). Merged 24b24d5e. wt remove.
+- H119 #425 fn_audit snapshot union-merge — option (b): v2 one row per line, no `line`, sorted, merge=union,
+  summary recomputed at load. TL verified: snapshot rows preserved (825 / 1322, same set as main, only the
+  one-line->per-line format changed); H69 protections held (duplicate + INSIDE still fail, deleted cited START
+  exits 1); selftest 107/107; gate 4/4. Branch predated the M5.63 merge, so lost C-6550–C-6559; rebased onto
+  origin/main and `board.py resolve docs/research/claims.md` (0 markers), lost 0/0, gate 4/4 on the rebased
+  commit, CI 6/6 green. Merged cf4f657f. wt remove.
+
+concurrency note: a second TL session (dev_process/2026-11-21-0818-6-tl.log, "cycle 18") launched its own
+6-task batch while this one was mid-review: PRs #431 H121, #432 M4.58, #433 M1.44, #434 M1.43, #435 H125,
+#436 M1.45. Those are NOT this batch; left to that session. This batch's live drafts are #422 M9.60,
+#423 M5.61, #424 M9.58, #426 M9.61, #428 M4.55 (all still claim-commit only at 08:43 UTC, being worked).
