@@ -3344,7 +3344,7 @@ text of this section is in git (`13cb0cf`).
   - Step: P4
 
 - [ ] **M4.62 — TMC `0x14f4`: the dynamic tag writer (M4.51's continuation) and M4.49's truthful Unblock**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m4.62-tag-writer-dynamic · Critical: no · Pair: required
   - Step: P3
   - Depends: M4.53 (done — the `0x14f4` file half: it reads `REFER001` POINT/ADDRE/INTER by its sub word, C-5680), M4.51 (blocked — the **negative static** census; read its Result first, this task does the dynamic half it could not do offline).
   - Goal: M4.49 blocks with "no link-group signature in the TMC data-layer subtree", and its `Unblock: M4.51` points at a task that has since blocked too. M4.51's Result closed the static question negatively: `0x14f4` has **no static sender** — the only send wrapper has 25 callers, each with one id literal, and none is `0x14f4`; the request is built at run time. M4.53 then closed the file half. So the whole chain M4.49 → M4.51 → M4.53 now ends in a `blocked`→`blocked`→`done` that can never re-open by rule 15, and the one open question is narrow and dynamic: which code writes the tag word of a request to `0x14f4` at run time, and what buffer it then fills. This task answers that or records it as unreachable, so M4.49 gets a `Unblock:` that names a merge that can actually happen (this task) instead of a dead token.
