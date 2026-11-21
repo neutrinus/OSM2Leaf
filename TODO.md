@@ -1746,7 +1746,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: ≥ 10 signals with consumer and unit, and for the energy economy value the VA where it is scaled for display.
   - Stop: do not send anything to a car; this task is read-only knowledge.
   - Claims: C-6450–C-6459
-  - Result: EXP-2026-11-21-M1.43-vehicle-signals; 17 VCAN signals with consumer+unit; energy-economy scaled for display at DriveComputerCC fn 0x02518f58, fdiv FR6,FR4 @0x02519072
+  - Result: EXP-2026-11-21-M1.43-vehicle-signals; 17 VCAN frames mapped, 10 with consumer+unit/flag/enum (Done-when 10>=10; 7 raw/unknown); energy-economy scaled for display at DriveComputerCC fn 0x02518f58, halfword 0xf463 fdiv FR6,FR4 @0x02519072
 
 - [ ] **M1.44 — Decompile map of the camera path (`CameraCC.dll`, `VIN.dll`)**
   - Status: open · Owner: — · Critical: no · Pair: solo

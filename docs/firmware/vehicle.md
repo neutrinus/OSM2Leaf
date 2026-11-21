@@ -46,12 +46,14 @@ do).
 `VPRB_CallbackVcanMgr`; the id/name list is the block of `"N - NAME [0xID]"`
 strings at VAs `0x02217f`…`0x0223ff` (sec0). The per-frame `Set …` handlers
 below map a payload field to a named value. **Id and name** are VERIFIED (the
-literal strings). **Unit** is quoted from a format/scale literal with its VA
-when the module carries one (VERIFIED); `unknown` means the payload field is
-decoded but no unit literal exists in the modules read (OBSERVED field name
-only, scale not established). **Consumer** is the module whose exported
-COM property or screen label names the value (OBSERVED from the property
-tables; no call was executed).
+literal strings). **Unit** is a dimension for every row: a quantity with a
+scale (quoted from a format/scale literal with its VA when the module carries
+one, VERIFIED) **or** a `flag` (1-bit boolean) / `enum` (coded state such as a
+gear range or market code), which is a legitimate dimension with no numeric
+scale. `raw`/`unknown` means the field is decoded but no unit, flag or enum is
+established in the modules read (OBSERVED field name only). **Consumer** is the
+module whose exported COM property or screen label names the value (OBSERVED
+from the property tables; no call was executed).
 
 | CAN id | Frame (name string) | Signal / setter | Unit · scale | Consumer |
 | --- | --- | --- | --- | --- |
@@ -72,6 +74,13 @@ tables; no call was executed).
 | `0x5EB` | `VCM_ChargeHistoryData1` | `Charge_Data_No`, `Charge_Execution_Counter`, `Charge_Cycle_Counter`, `Charge_History_Data1…8` | raw (charging history) | `EvNoticeCC` charge history |
 | `0x60D` | `BCM_GeneralStatus7` | `FlashingIndicatorStatus`, `LowBeamStatus`, `HighBeamStatus`, `RearDefrostStatus` | flag | `ComfortCC`, lamps |
 | `0x625` | `USM_GeneralStatus` | ultrasonic / proximity status | raw | `Vehicle.exe` |
+
+**Done-when tally (honest):** 10 of the 17 frames carry a unit/flag/enum — the
+scaled `0x280` (km/h) and `0x5C5` (km/m), the temperature `0x54A` (°C/°F), the
+`flag`/`enum` frames `0x354`, `0x355`, `0x35D`, `0x421`, `0x50D`, `0x54B`,
+`0x60D`; all 10 also name a consumer, so "≥ 10 signals with consumer **and**
+unit" holds. The remaining 7 (`0x180`, `0x260`, `0x510`, `0x5B3`, `0x5C0`,
+`0x5EB`, `0x625`) are `unknown`/`raw` and are **not** counted toward the ten.
 
 Scaled values with a visible unit (VERIFIED by the literal at the VA):
 
@@ -132,11 +141,16 @@ formatter reached from the drive-computer getter table at `0x02511c50` /
 `0x02511d6c` (its pointer sits by `0x02518da0`, `0x02518e7c`, `0x02519160`…
 in the code-pointer table at `0x02511d6c`). Inside that function:
 
-- `0x02519072` — `fdiv FR6,FR4` (halfword `0xf463`): the incoming value is
+- `0x02519072` — halfword `0xf463`, `fdiv FR6,FR4`: the incoming value is
   divided by the property scale factor, producing the value that is printed;
-  **this is the VA where the energy-economy value is scaled for display**;
-- `0x02519080` — `fmul FR6,FR4` (halfword `0xf462`): a second factor (unit
-  conversion) applied in the metric/imperial branch;
+  **this is the VA where the energy-economy value is scaled for display**.
+  `tools/sh4dis.py` has no FPU decode and prints this as `.word 0xf463`; the
+  mnemonic/operands come from the SH-4 ISA (`0xF463`: `n=(>>8)&0xF=4`,
+  `m=(>>4)&0xF=6`, `sub=3` → `fdiv FR6,FR4`) and from executing it in
+  `tools/sh4fpu.py` (`FR4 = 90.0 / 10.0 = 9.0`);
+- `0x02519080` — halfword `0xf462`, `fmul FR6,FR4` (also executed in
+  `tools/sh4fpu.py`: `3.0 * 2.0 = 6.0`): a second factor (unit conversion)
+  applied in the metric/imperial branch;
 - `0x0251909c` loads the double constant `99.9` from `0x02519148` (loaded once
   by `mov.l @(disp,pc)`; the only such load of this pool word), a display
   clamp;
@@ -147,7 +161,8 @@ in the code-pointer table at `0x02511d6c`). Inside that function:
 
 Consequence for the task's question: because `electric_economy_avg` arrives
 as an integer (`%d`) and is converted to float only at display time
-(`float FPUL,FR0` at `0x02518fe4`/`0x02519000`), the one-decimal `%2.1f`
+(`float FPUL,FR0`, halfword `0xf02d`, at `0x02518ff2`/`0x02519000`), the
+one-decimal `%2.1f`
 display is **derived from an integer**, i.e. the coarse value arrives already
 rounded and the display adds no finer data. A finer economy display would need
 a change in `Vehicle.exe`'s stored value (the `%d` backup fields), not only a
