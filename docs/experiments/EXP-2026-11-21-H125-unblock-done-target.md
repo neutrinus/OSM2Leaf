@@ -122,6 +122,18 @@ change — that would mean the rule was not confined to `--strict`.
   M3.29 / Unblock / M9.53 / done
   M4.51 / Unblock / M4.53 / done
   ```
+- The Done-when escape hatch, on a temp copy of `TODO.md` with only the two
+  named offenders' `Unblock:` blanked:
+
+  ```text
+  test -f /tmp/opencode/todo_two.md   # M3.29 + M4.23 Unblock: blanked
+  python3 tools/todo_check.py /tmp/opencode/todo_two.md --strict   # 14 error(s), no M3.29/M4.23 Unblock row
+  python3 tools/todo_check.py /tmp/opencode/todo_two.md            # exit 0
+  ```
+
+  `--strict` drops 17 → 14 (the 3 references on the two named blocks) and no
+  longer names M3.29/M4.23; the default run stays exit 0. The 6 remaining
+  `Unblock` errors are the three extra offenders (`M3.16`, `M3.18`, `M4.51`).
 - `python3 tools/todo_check.py --selftest` → `todo_check selftest: OK (36
   checks, 305 real tasks)`; `python3 tools/selftest.py --only todo_check` →
   `PASS`.
