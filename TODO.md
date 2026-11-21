@@ -1297,8 +1297,8 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-17-H90-ci-shallow-count; C-4130–C-4137. CI was red on `main` since H85 (`c7a5529`…`3d79bcc`) because `actions/checkout` fetched only the tip: `_exp_revision` then resolved every claim to that one SHA and nine old selftest counts (`count mismatches: 9`) were measured against today's tools. A depth-1 clone reproduced 9, the same commit with full history printed 0. Fix: `fetch-depth: 0` in CI (pack is 3.2 MiB) plus `history_is_shallow` in `tools/claims_check.py` — a shallow history has no measurement revision, so the rule prints `count check: skipped (shallow clone …)` instead of guessing, and a full checkout still fails the C-3704 `26`→`25` mutation (`COUNT C-3704 claims 25 … prints 26`, exit 1). `--selftest` 25→28 checks (C-4015's number updated); gate `4 pass`.
   - Claims: C-4130–C-4139
 
-- [ ] **H86 — Make the claims half of the standing gate blocking in CI (todo half after H53)**
-  - Status: in progress · Owner: task/h86-h86-claims-gate-blocking · Critical: no · Pair: required
+- [x] **H86 — Make the claims half of the standing gate blocking in CI (todo half after H53)**
+  - Status: done · Owner: task/h86-h86-claims-gate-blocking · Critical: no · Pair: required
   - Depends: H78 (the count rule inside `--strict`, done), H85 (the runner, done); H53 only for the second half
   - Goal: cycle 9 was planned around `ci.yml` not running `claims_check --strict`, but **H85 already closed it**: the one standing-gate step runs `tools/gate.py`, whose `claims_check` gate is `claims_check.py --strict --count-check`. So `grep -cE 'claims_check\.py --strict|todo_check\.py --strict|--count-check' .github/workflows/ci.yml` now prints `1` (the string `--count-check` inside the gate step's comment/output), and `python3 tools/claims_check.py --strict --count-check` exits `0` on `main`. This task is now the **verification + documentation** half: prove a synthetic count mismatch fails the CI step, and that `.github/workflows/README.md`'s "Hard gate" list names `tools/gate.py`. The **second half** (`todo_check --strict` blocking) stays blocked on **H53** (66 strict errors), where `prompt_qa.txt` and H85's `--board-clean` already provide the switch.
   - Precheck: `python3 tools/gate.py` → `claims_check PASS`; `python3 tools/claims_check.py --strict --count-check` exits `0`; `grep -n "Hard gate" .github/workflows/README.md` shows the old selftest/claims/todo list.
@@ -1308,6 +1308,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: `.github/workflows/README.md`'s gate list names `tools/gate.py` and the SKIP policy; a local reproduction of the CI step (the `PIPESTATUS` command shape) fails on a synthetic count mismatch and passes on a SKIP-only run; `python3 tools/gate.py` green; `python3 tools/todo_check.py` OK.
   - Stop: if the README's contract already names the gate (it may, after H85), mark this done as "H85 closed the claims half; README updated" with a one-line Result and leave the todo half to H53's follow-up.
   - Claims: C-4090–C-4099
+  - Result: EXP-2026-11-21-H86-claims-gate-blocking (C-4090, C-4091): H85 already made the claims half blocking (ci.yml runs gate.py | tee PIPESTATUS[0], claims gate = claims_check --strict --count-check); README Hard gate names tools/gate.py + SKIP policy; new tools/ci_gate_repro.py --selftest (PASS) proves a synthetic count mismatch fails and SKIP-only stays 0; gate.py 4 pass/0 fail/0 skip; todo half stays on H53
 
 - [x] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
   - Status: done · Owner: task/m1.19-kernel-decomp-wiring · Critical: yes
