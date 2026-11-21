@@ -91,3 +91,13 @@ process finding: this driver (M4.55) claimed correctly but produced no committed
 batch to end without pushing anything (M4.55 here; the other four are still live). Scratch-only work is not a
 result (AGENTS "a scratch directory left behind is a task that is not finished"); TL converted it to a
 negative EXP + blocked + unblock task, which is the rule-4/rule-15 outcome, not a ghost claim.
+- M9.61 #426 US build map client on an EU card — TL verified independently, not just the EXP table: reproduced
+  runs 1/1c/2/2c on the real images (US on US 22 tile reads, US on EU 18 = EU on EU 18) and compared the saved
+  JSON by the build-independent keys — 28/28 same (file, tag, pos, length, status), 0 key diffs, 0
+  coverage-shape diffs, and all 28 handler VAs differ by build (so the raw `datask_l3.py diff` DIFFERENT (28) is
+  the expected handler-VA artefact, exactly as the EXP says). The Stop gate holds: 236/236 US pairs, 100 %.
+  `datask_l3.py --selftest` 0 failed; snapshots grew additively (825→891, 1322→1387, likely M8.C1's rebased
+  citations too); `reader-coverage.md` rows 10/17/18/19/20 carry the US2011 verdict; gate 4/4, lost 0/0.
+  Rebased onto origin/main (1 behind, clean), gate re-run 4/4, CI 6/6 green. Merged 441fe96d. wt remove,
+  scratch m961-verify deleted. Rule 15: M9.61 unblocks no `Unblock:` line (M9.63 states it does not wait on
+  M9.61); nothing to re-open.
