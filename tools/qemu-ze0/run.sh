@@ -70,7 +70,8 @@ Options:
                       needs ze0-0007). Default 0x880404f4 (EU2011 nk.exe
                       debug-string sink); off for older QEMU builds
   --sd FILE           -M ze0: SD card image on SD host port 0 (-drive
-                      if=sd,index=0, M8.C10; needs ze0-0008). The size must
+                      if=sd,index=0, M8.C10; needs ze0-0008; data transfers
+                      need ze0-0009, M8.C1b). The size must
                       be a power of two: give a qcow2 overlay over a card
                       image (qemu-img create -f qcow2 -b CARD -F raw F 8G)
   --icount SPEC       pass -icount SPEC (e.g. shift=0,sleep=off: guest time

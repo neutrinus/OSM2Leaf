@@ -924,7 +924,7 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 ## ze0 register table (M8.A8, EU2011)
 
-What the QEMU `-M ze0` machine (QEMU 8.2.10, patches up to `ze0-0008`)
+What the QEMU `-M ze0` machine (QEMU 8.2.10, patches up to `ze0-0009`)
 models, and which registers the EU2011 boot still touches outside those
 models. Source: EXP-2026-11-20-M8.A8-f0-registers (claims C-1300–C-1304).
 "Read from" names the EU2011 code that reads or programs the window
@@ -945,8 +945,9 @@ models. Source: EXP-2026-11-20-M8.A8-f0-registers (claims C-1300–C-1304).
 | `0xffc80000` | `0x100` | CPG stub: MSTPCR0–3 `+0x30`–`+0x3c`, MSTPACK `+0x44` = OR of MSTPCR0–3 | 0 | `nk.exe` | C-1270 |
 | `0xffd80000` (and A7 `0x1fd80000`) | TMU ch0–2 block | QEMU `tmu012` (Pphi 42 MHz) | TCR0 0 (kernel sets `0x0021`) | `fn 0x8803c9c6`, ISR `fn 0x8803cb34` | C-1311, M8.B2 |
 | `0xffe40000` + n·`0x1000`, n = 0–5, 7 (and A7) | `0x28` each | `sh_serial` (SCIF) stubs, TEND/TDFE set | QEMU `sh_serial` reset | `serial_scif.dll fn 0x0398e888` (SCFSR.TEND spin) | C-1463 |
-| `0xffe46000` (and A7) | `0x28` | debug SCIF, `sh_serial` on serial port 0 | QEMU `sh_serial` reset | `nk.exe` writer `0x8804cfa4` (AER only) | C-1280, C-1281 |
+| `0xffe46000` (and A7, the alias since `ze0-0009`) | `0x28` | debug SCIF, `sh_serial` on serial port 0 | QEMU `sh_serial` reset | `nk.exe` writer `0x8804cfa4` (AER only) | C-1280, C-1281 |
 | `0xffe4c000`, `0xffe4d000` (and A7) | `0x100` each | SDHI/TMIO host (`ze0-sdhi`) | SD_INFO1 0 (bit 5 set when a card is attached), SD_INFO2 `0x2080`, SD_INFO1_MASK `0x031d`, SD_INFO2_MASK `0x8b7f`, SD_CLK_CTRL `0x0020`, SD_SIZE `0x0200`, SD_OPTION `0x40ee`, SDIO_INFO1_MASK `0xc007` | `SDHC.dll fn 0x039bcedc` (card detect), `fn 0x039bcf20` (init) | C-1460 |
+| `0xffc08000` (and A7 `0x1fc08000`) | `0x900` | HPB-DMAC (`ze0-hpbdmac`, `ze0-0009`): per channel (0x40 bytes) source `+0x00`, destination `+0x04`, count `+0x08`, control `+0x28`, enable `+0x2c` bit 0, stop `+0x30`, running `+0x34` bit 0; common interrupt status `+0x80c`, clear `+0x810`, enable `+0x814`. Channels 8/9 move SD data (INTEVT `0xc60`/`0xc80`, INT2 bit 19); the others are storage | 0 | `SDHC.dll fn 0x039be010`; `nk.exe` ISRs `fn 0x8803e7f8`/`fn 0x8803e850`, `fn 0x8803e004` | C-6870, C-6872 |
 | `0xffe70000` | `0x1000` | read-back stub; `+0x808` forced `0xc0000000` | `+0x808` `0xc0000000`, others 0 | `nk.exe` boot poll on `+0x808` bits 31:30 | C-1270 |
 | `0xfff80000` (P4 only) | `0x100` | read-back stub | 0 | `nk.exe` | C-1270 |
 | `0x19300000` (area 6) | `0x100` | read-back stub | 0 | `nk.exe` | C-1270 |

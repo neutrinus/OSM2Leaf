@@ -1,6 +1,6 @@
 # `ze0` patch series for QEMU 11.x (TODO M8.A9)
 
-The same twelve patches as [`../`](../README.md), ported to **QEMU 11.1.3**
+The same thirteen patches as [`../`](../README.md), ported to **QEMU 11.1.3**
 (tag `v11.1.3`, tarball SHA-256
 `5a8289c7940dc77d3873c81a6c29ba3afe1446fc9d36e77fa1658cdbecb84b22`,
 141819712 bytes). File names are identical, so "patch N" means the same
@@ -47,7 +47,7 @@ Mechanical renames, applied to added lines and to context lines alike:
 The last three rows are **not** in
 [`qemu-ze0-port-delta.md`](../../../../docs/research/qemu-ze0-port-delta.md)
 §§2–5: that inventory was read from headers for the first five patches; these
-were found by compiling all twelve.
+were found by compiling all twelve (the thirteenth, `ze0-0009`, came later).
 
 Per patch, beyond the renames:
 
@@ -60,6 +60,7 @@ Per patch, beyond the renames:
 | `ze0-0001` (machine) | `config ZE0` gains `default y` + `depends on SH4` (the 11.x idiom, as `R2D`); `default.mak` gets the commented `# CONFIG_ZE0=n` line instead of `CONFIG_ZE0=y`; meson line re-anchored |
 | `ze0-0002` … `ze0-0007` | renames and offsets only (`target/sh4/{cpu.h,helper.h,op_helper.c,translate.c}` hunks land unchanged) |
 | `ze0-0008` (SD host) | `sdbus_do_command` and `Property` rows above; meson line re-anchored |
+| `ze0-0009` (HPB-DMAC) | written on 11.1.3 first and back-ported; renames and `Property` rows above. `hw/sd/sd.c` differs: 11.1.3 received the CMD42 data block as 512 bytes whatever `SET_BLOCKLEN` said (`sd_cmd_to_receivingdata(…, 0, 0)`), so the port passes `sd->blk_len`; 8.2.10 already counted `blk_len` bytes. The CMD6 and `pwd_len` fixes and the `pwd-tofu`/`start-locked` properties are the same in both |
 
 ## The one semantic decision: ITLB data-array write
 
@@ -78,7 +79,7 @@ difference is intended and recorded as C-4322.
 
 ## Regenerating the series
 
-The series is the `git diff` of twelve commits on a pristine 11.1.3 tree.
+The series is the `git diff` of thirteen commits on a pristine 11.1.3 tree.
 To rebase it on a newer release: extract the tarball, `git init && git add -A
 && git commit`, apply each patch here with `patch -p1`, fix what rejects,
 build (`configure --target-list=sh4-softmmu --disable-fdt`), commit per
