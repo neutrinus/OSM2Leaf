@@ -195,8 +195,9 @@ or XML-in-XML) is **not** decoded — only the envelope is XML (section 4b).
   (e.g. CreateSession `0x000b2320` → `0x000b3474`). Module `vbase` is
   `0x00010000` in both.
 * EU carries a `qa.nissan-gev.com` base-URL alternate (scheme `http://`) and a matching
-  `qa.nissan-gev.com` host entry; the US 16-needle scan did not find the QA base
-  URL (section 3). The rest of the endpoint table is the same entries.
+  `qa.nissan-gev.com` host entry; the US run of the 18-needle scan did not find
+  the QA base URL (section 3). The rest of the endpoint table is the same
+  entries.
 * `DCM_API.dll` is present in both builds with the same export names (EU
   `vbase=0x032c0000`, US `vbase=0x032a0000`).
 
