@@ -307,6 +307,10 @@ M3.33 #381, M4.35 #387, M4.27 #386, M5.32 #368, M8.C row C10 #355, M8.A8 #372.
 
 - **M8.D1** — F1 is reached (M8.B5). PO recommendation, unchanged: continue
   to F3 (SD mounted) only, through M8.C10; the map-file layer is covered at L3.
+  *Status (M8.D1, blocked — decision is Marek's):* C10 is merged, so the
+  remaining F3 step is **M8.C1** (#394); the re-estimate (F2 `2–4 w`, F3
+  `1–2 w`, F4 `1–3 mo`) and the fact that F3 unblocks no map task are in the
+  M8.D1 block and EXP-2026-11-21-M8.D1.
 - **An OSM extract on `files.viaaq.eu`.** It is the only data host the cloud
   agents reach (rule 12). `dolnoslaskie-latest.osm.pbf` (then Poland) under
   e.g. `https://files.viaaq.eu/osm/` lets Claude agents run **M5.61**, **M4.2**
@@ -334,7 +338,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 - **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards. `cardcheck --generate-fixture` (H103, done) builds a vendor-free tree; next **H40** → **H105** → **H41** → **H42** make it a CI row with a baseline.
 - **L2 (the product path):** P0 and P1 cards built, routing golden (M5.36). Next **M5.61** (Poland to look at) and **M5.35** (one command, waits on M9.60) → **M7.1** (all Dolnośląskie).
 - **L3 (moving):** container read (M9.13), record read and inflated (M9.53): done. Next **M9.58** (record walked), **M9.61** (US build), **M9.60** (card gate). Routing: **M4.55** → **M4.40** → **M5.57** → **M9.56**. Names: **M3.32**/**M3.30** → **M3.13**. SKIP and BLOCKED are never PASS.
-- **L4 (QEMU `-M ze0`):** F1 reached (M8.A3, M8.A6, M8.B5). Next **M8.D1** (decision), **M8.C** row C10 (in flight), then **M8.E4** (full `Navi.exe`, waits on M9.60 + M9.61 through M9.16). M8.A9 is off the path.
+- **L4 (QEMU `-M ze0`):** F1 reached (M8.A3, M8.A6, M8.B5). **M8.D1 is blocked on Marek** (EXP-2026-11-21-M8.D1): recommendation is not to open F2/F3 now, finish **M8.C1** (#394, HPB DMAC = the F3 data path and shared by three drivers), then hold F4 at **M8.D2**; re-estimate F2 `2–4 w`, F3 `1–2 w`, F4 `1–3 mo`. **M8.E4** (full `Navi.exe`) waits on M9.60 + M9.61 through M9.16. M8.A9 is off the path.
 - **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes the L3 card gate (M9.60, later M9.12) first.
 
 ### Map signal (read first)
@@ -4290,12 +4294,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     - C10 (SD host): done 2026-11-20 (task/m8.c-sd-host-c10). Result: EXP-2026-11-20-M8.C10-sd-host (C-1460–C-1464). Patch `ze0-0008`: SDHI/TMIO-style ports at `0xffe4c000`/`0xffe4d000` on QEMU's SD bus (card detect = SD_INFO1 bit 5, `SDHC.dll fn 0x039bcedc`, EU2011), IRQs INTEVT `0xae0`/`0xb00` (SYSINTR `0x1f`/`0x20`, INT2 bit 29), SCIF stubs for a kernel-mode TEND spin in `serial_scif.dll`; `run.sh --sd`; tool `ze0_sdhost.py`. The launcher's SD check passes, `ActivateSDCardDriver` runs the card identification on the EU card and its init returns `End(NG)` without hanging boot; the first data transfer (ACMD13) uses the HPB DMAC and times out, so F3 (FAT mount) waits on **C1** (HPB DMAC, channel registers at `0xffc08200`).
 
 - [ ] **M8.D1 — Decision gate after F1: continue to F2/F3?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F1 stable kernel; see `todo-history-2026-11-05.md` §M8.D)
   - Goal: after F1, continue to F2/F3 only if L3 (M9) is blocked by runtime state, or an automatic regression loop without hardware is wanted; re-estimate F2–F4 and record the decision.
   - Precheck: `grep -c '^- \[x\] \*\*M8.B5 — Milestone F1' TODO.md` prints `1` (the trigger, F1, is reached).
   - Scope: the decision and the F2–F4 re-estimate, written into this block and the TODO critical path; no QEMU run, no code. The PO recommendation (critical path, "Decision due (Marek)") is input, not the decision.
   - Stop: the decision is Marek's; if no answer from him is on record, write the recommendation and re-estimate into this block and set `Status: blocked · Unblock: Marek (human decision)` instead of deciding.
+  - Blocker: no answer from Marek on M8.D1 is on record — the pipe-free `grep -rniE -e 'marek.{0,80}\bF2\b' -e 'marek.{0,80}\bF3\b' -e 'marek.{0,80}M8\.D' docs/research/todo-history-*.md` exits 1, while the same search shape finds M6.14's recorded bench answer (`grep -n 'Marek decision: S0 is 1:1' TODO.md` prints it). F1 itself is reached (`grep -c '^- \[x\] \*\*M8.B5 — Milestone F1' TODO.md` prints `1`).
+  - Unblock: Marek (human decision)
+  - Recommendation (written for Marek; input, not the decision): **do not open F2 or F3 now.** No `Unblock:` line names F3, so F3 buys no map task; F4 (`M8.E4`) is the only L4 stage that unblocks anything (M4.51, M4.48, M8.E3) and it is the expensive one. Cheap order if Marek answers "continue":
+    1. **F3 first: 1–2 weeks on the model path after C1** (was `2–4 weeks (HLE: ~1 week)`; HLE would throw `ze0-0008` away to save one week). The SD identification already runs (C-1462: CMD0…ACMD42); only ACMD13 over the HPB DMAC is left, and that is **M8.C1** (#394, draft). The DMAC is shared by `serial_scif`/`SDHC`/`wavessi*`, so it pays even if F3 stops. *Done when* a `\Storage Card`-style volume lists the map tree; deps C1, C10.
+    2. **F2 only when a driver blocks the F3 boot: 2–4 weeks, unchanged.** 11 rows, none worked except C1/C2, which the `ze0-0008` patch already touches (C-1463); F2 loads `device.exe` drivers, it does not read a map file.
+    3. **F4 only after M8.D2: 1–3 months, unchanged.** Nine rows; C4 micon + C5 CAN are the "unknown protocol" risk and C18 the display. It is the only stage that feeds the map tasks, through M8.E4.
+    The automatic-regression-loop half of the Goal has no consumer today (no M9 task waits on F3); it pays only if a boot-run gate is wanted. Re-estimate: F2 `2–4 weeks` (unchanged), F3 `1–2 weeks` (was `2–4 weeks`, HLE `~1 week`), F4 `1–3 months` (unchanged).
+  - Result: EXP-2026-11-21-M8.D1-decision-after-f1 (negative, with positive control; recommendation and F2–F4 re-estimate in this block and the critical path). C-1590–C-1594.
   - Done when: the decision and its re-estimate are written down; no code change implied.
   - Claims: C-1590–C-1594
 
