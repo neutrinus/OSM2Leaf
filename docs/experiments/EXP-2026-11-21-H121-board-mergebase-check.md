@@ -171,6 +171,12 @@ widened, and which one named).
   `04872b50`) and are unchanged.
 - The four historical checks run unchanged in that shallow clone: `6ca7bc3`
   exit 1, `119a74e7` exit 1, `0d4916ab` exit 0, `73ff0da6` exit 0.
+- **Live CI (the oracle for the base path):** PR #431's `quality` job on run
+  `44887804569` (py3.11, py3.13, py3.14) is all `pass`; the log prints
+  `fetched origin/main in 207 ms (depth 200)` and
+  `merge base with origin/main: 04872b503c1cc196eb6b79be6cb6a97b4bcc1a3f`,
+  and the standing gate prints `board_check   PASS      0.16` and
+  `gate: 5 pass, 0 fail, 0 skip`.
 
 ## Interpretation
 
@@ -189,13 +195,12 @@ widened, and which one named).
   restore looks cleaner than the branch commit that made the loss. The
   branch-level shape (`6ca7bc3`) is the one the task's reproducer names and is
   the one that fails loudly.
-- **HYPOTHESIS (partly untested):** On GitHub's `pull_request` event the merge
-  base is a synthetic merge commit's first parent (the PR's base branch tip at
-  the run), and the depth-200 fetch puts the base in the window; the local
-  shallow-clone run supports this but a live Actions run is the oracle.
-  `board.py check` falls back to the merge base with `origin/main` when the
-  ref has one parent, and prints "no history to diff against" (exit 0) rather
-  than guessing when it cannot see the base.
+- **FACT (live runner):** On GitHub's `pull_request` checkout the depth-200
+  fetch puts `origin/main` in the window (207 ms) and the gate's `board_check`
+  row PASSes against the merge base `04872b503c1c`; the local shallow-clone
+  run predicted exactly this. `board.py check` falls back to the merge base
+  with `origin/main` when the ref has one parent, and prints "no history to
+  diff against" (exit 0) rather than guessing when it cannot see the base.
 - **UNKNOWN:** Whether a PR that deletes `TODO.md` or `claims.md` whole should
   also fail this row; today the row says "no FILE at ref; nothing to judge" and
   exits 0, and the two checkers already fail a missing board.
@@ -227,8 +232,8 @@ python3 tools/gate.py --selftest                           # expect "gate selfte
 
 ## Follow-ups
 
-- [ ] A live GitHub Actions run on this PR to confirm the `pull_request`
-  synthetic-merge path uses the depth-200 `origin/main` (the local shallow
-  clone supports it; the runner is the oracle).
+- [x] A live GitHub Actions run on this PR confirmed the `pull_request` path:
+  run `44887804569` fetches `origin/main` in `207 ms` (depth 200), merge base
+  `04872b503c1c`, `board_check PASS`, all three `quality` jobs green.
 - [ ] Decide whether a whole-file delete of `TODO.md`/`claims.md` should fail
   the `board_check` row (today it exits 0 and leaves it to the two checkers).
