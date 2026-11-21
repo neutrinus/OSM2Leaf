@@ -155,6 +155,54 @@ ROLES = (
     ("volume_root_w", "vcard_l3", "data", 0x10000 + 0x39FD4, 0x10000 + 0x46634,
      "L\"\\SystemSD\" (UTF-16), the prefix of every file name"),
 )
+# M9.61: the US2011 data-access task (`datask_l3.py`) names 43 US VAs that are
+# functions in the US image; the EU head sees 30 of them mid-function because
+# the US `Navi.exe` is a different binary.  They are ``start`` roles so
+# ``us_starts()`` skips them in the EU audit (the over-broad-skip rule keeps
+# data cells and constants out).  Every US value is the ``fn_match`` pair of
+# the EU function next to it (`datask_l3.py` ``DA_US2011``/``SDL_US2011``/
+# ``HANDLER_ROLE_US``), a `.pdata` START or GAP leaf in the US image.  A US
+# value that only *points into* an EU function (a table read, a data cell) is
+# skipped by address too, because the EU head classifies it ``INSIDE``; the
+# EU side of such a row is spelled 0 (the EU build uses a different table).
+_DATA_TASK_US = (
+    ("da_task_entry", 0x003EBFB4, 0x00414AD4, "data-access task entry"),
+    ("da_init_msg", 0x003F6908, 0x0041F268, "init: message table"),
+    ("da_init_state", 0x003EBA78, 0x00414598, "init: state word"),
+    ("da_dispatch", 0x003EBEE8, 0x00414A08, "dispatch by message id"),
+    ("da_done_handler", 0x003F72E4, 0x0041FC44, "message 0x04a0: a read finished"),
+    ("da_read_api", 0x0041841C, 0x00440180, "map-file layer: queue a read"),
+    ("da_leaf_header", 0x0040A8D0, 0x004329D0, "header date reader (leaf)"),
+    ("da_leaf_block", 0x004144A8, 0x0043C278, "block-header reader (leaf)"),
+    ("da_leaf_swap", 0x003F6968, 0x0041F2C8, "u16 buffer swap (leaf)"),
+    ("da_default_position", 0x0040B49C, 0x0043359C, "start position from per-area table"),
+    ("da_len_lookup", 0x0040901C, 0x0043111C, "directory read length (leaf)"),
+    ("da_client_open", 0x003ED6E8, 0x00416208, "open the map client slot"),
+    ("da_inflate", 0x0054233C, 0x00564638, "zlib inflate"),
+    ("da_mesh_y", 0x004089F4, 0x00430AF4, "mesh id -> directory row"),
+    ("da_mesh_x", 0x00408B0C, 0x00430C0C, "mesh id -> directory column"),
+    ("da_state3", 0x003F6B1C, 0x0041F47C, "state 2 -> 3 on event +28 = 16"),
+    ("sdl_task_entry", 0x0039D854, 0x003CDCDC, "SDL_task entry"),
+    ("sdl_init", 0x003C001C, 0x003EEE40, "SDL_task init"),
+    ("sdl_dispatch", 0x0039D6F0, 0x003CDB78, "SDL_task dispatch by sender"),
+    ("sdl_from_da", 0x0039D18C, 0x003CD614, "SDL_task: messages from the data task"),
+    ("sdl_gate", 0x003C009C, 0x003EEEC0, "SDL_task: drop an unanswered message"),
+    ("sdl_machine", 0x0039CA00, 0x003CCE88, "SDL_task state step"),
+    ("done_file_header", 0x0040B8B4, 0x004339B4, "completion: file header"),
+    ("done_section_table", 0x0040C308, 0x00434408, "completion: section table"),
+    ("done_directory", 0x0041597C, 0x0043D74C, "completion: directory"),
+    ("done_refer_search", 0x003F72CC, 0x0041FC2C, "completion: REFER001 search data"),
+    ("done_record_block", 0x00404EE4, 0x0042CFE4,
+     "completion: record block (M9.61 run 2 request)"),
+    # tables and data addresses the same code reads (EU side is not a start;
+    # no all-zero literal here, or fn_audit counts it as a const)
+    ("da_msg_table", None, 0x0015E9D0, "43-row message table"),
+    ("da_done_table", None, 0x0015F760, "20-row completion table"),
+    ("da_sub_07D0", None, 0x001600CC, "0x07d0 sub-handler table"),
+    ("da_sub_00A0", None, 0x0016009C, "0x00a0 sub-handler table"),
+    ("da_len_table", None, 0x001605E0, "16-row directory length table"),
+    ("da_len_table_pool", None, 0x00431148, "pool cell naming da_len_table"),
+)
 KINDS = ("start", "helper", "data", "const")
 
 # US 2011 Navi.exe entry point (C-3487); a start, but not an L3 reuse point.
@@ -194,9 +242,20 @@ def fixture_us_starts(path: Path = FIXTURE) -> set:
 
 
 def us_starts(fixture: Path = FIXTURE) -> frozenset:
-    """Every verified US 2011 ``Navi.exe`` function start the EU audit skips."""
+    """Every verified US 2011 ``Navi.exe`` function start the EU audit skips.
+
+    The ``start`` roles plus the M9.61 data-access set (functions, tables and
+    data cells a ``datask_l3.py`` run names; the EU head classifies them
+    ``INSIDE``) plus the frozen fixture and the US entry.
+    """
     return frozenset(set(roles("us2011", kinds=("start",)).values())
+                     | {us for _k, _eu, us, _w in _DATA_TASK_US}
                      | fixture_us_starts(fixture) | {US_ENTRY})
+
+
+def data_task_us() -> dict:
+    """``{key: us_va}`` of the M9.61 data-access set (tests and the doc)."""
+    return {k: us for k, _eu, us, _w in _DATA_TASK_US}
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +427,14 @@ def selftest() -> int:
     for r in ROLES:
         if r[2] != "start":
             check("non-start %s kept out of US starts" % r[0], r[4] not in starts)
-    check("US starts are 33 (15 at H91/C-4140, +9 M4.52, +9 new of 13 M9.14 layer starts)", len(starts) == 33)
+    check("US starts are 64 (33 before M9.61 + 31 new data-access VAs)",
+          len(starts) == 64)
+    check("every data-access US VA is a start to skip",
+          all(v in starts for v in data_task_us().values()))
+    check("data-access keys and US VAs are unique",
+          len({v for v in data_task_us().values()}) == len(_DATA_TASK_US))
+    check("no data-access EU side is a start (skip by US address only)",
+          all(eu is None or eu not in starts for _k, eu, _u, _w in _DATA_TASK_US))
     check("US entry is a start", US_ENTRY in starts)
     check("tool_map shape", set(tool_map("point_walk_l3")["us2011"]) ==
           {"nth", "skip", "dispatch", "global_count", "global_page",

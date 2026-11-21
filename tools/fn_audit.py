@@ -183,8 +183,11 @@ CORRECTION_ONLY = {
 # frozen EU->US fixture `tools/fixtures/fn_match_eu_us_2011.json` (M1.28's
 # UNIQUE rows, C-3740/C-3703, and M1.22b's six pool-only twins, C-3622) and
 # (c) the M1.22 `start` roles the L3 tools run (POINT nth/skip/dispatcher,
-# CMP chunk engine; M4.52 POINT locator path).  Helpers, data cells and constants are never in it (the
-# over-broad-skip bug).  33 entries (15 + the M4.52 locator path + the M9.14 map-file layer); `build_targets.py check` diffs it.
+# CMP chunk engine; M4.52 POINT locator path) and (d) the M9.61 US2011
+# data-access VAs `datask_l3.py --build us2011` names (`_DATA_TASK_US`).
+# Helpers, data cells and constants are never in it (the over-broad-skip bug).
+# 64 entries: 33 before M9.61 + 31 new in `_DATA_TASK_US`; `build_targets.py
+# check` diffs it.
 US_BUILD_STARTS = build_targets.us_starts()
 
 
