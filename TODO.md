@@ -368,6 +368,334 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
 
 ## H — Housekeeping
 
+## How to take a task
+
+1. **Pick.** Choose a task with `Status: open` whose `Depends` are all done
+   (`[x]` in this file or merged on `main`). Prefer tasks marked
+   `Critical: yes`, then the front with the fewest active owners.
+2. **Check for a claim.** A task is taken if its `Owner` is set, or an open PR
+   has the task ID in its title (`[M2.1] …`). Look at both right before
+   claiming, after `git fetch origin`, on `origin/main` and the open PR list,
+   never on a worktree's possibly stale copy of `TODO.md`.
+3. **First commit: mark the task `in progress`.** Immediately after creating
+   the branch/worktree (within a minute, before reading or planning), make a commit that changes **only** your
+   task's line to `Status: in progress · Owner: <branch>` (subject
+   `todo: start <ID>`; `python3 tools/board.py claim <ID> --owner <branch>`). **Push it at once** (`git push -u origin
+   <branch>`), before any other work: an unpushed in-progress commit is
+   invisible to the other agents and claims nothing. Then open a **draft PR** titled
+   `[ID] short title`. The draft PR makes the claim visible before it
+   merges. If two PRs claim the same ID, the lower PR number wins; the other
+   agent closes its PR and picks another task.
+4. **One task per PR, small PRs.** Touch only the files your task names, your
+   own EXP record(s), your claim rows, and your task block in `TODO.md`.
+   Do not reformat, reorder or "fix up" other tasks or other people's text.
+   A finding outside your task becomes a new task (rule 9), not an edit.
+5. **Rebase on `main` before you mark the PR ready**, and again if `main`
+   moved while it waits. In `TODO.md`, `claims.md` and index tables keep
+   both sides of a conflict; never drop another task's lines. For the two
+   board files use `python3 tools/board.py resolve <file>` (merge by ID), never
+   a pasted copy, and check `python3 tools/board.py lost --base origin/main`
+   exits 0 before the push (H123; PR #340 lost 42 tasks and 199 claim rows).
+6. **Last commit: the work plus `done`.** Commit the actual work, and in the
+   same commit set `Status: done`, tick `[x]` and add one line `Result:`
+   naming the EXP (`python3 tools/board.py done <ID> --result "…"`) (subject in the normal style, e.g. `tools: …`). Run `python3 tools/selftest.py` (and the task's
+   own check) and paste the result into the PR body. Mark the PR ready.
+   **Then merge it to `main` yourself** (merge the PR, or rebase on
+   `origin/main` and `git push origin HEAD:main`; on a rejected push rebase
+   and retry, never force-push `main`). A task is done only when its commits
+   are on `origin/main`. **Afterwards delete your branch** (remote and local)
+   and close any leftover draft PR.
+7. **Blocked or negative.** If the done-when cannot be reached, set
+   `Status: blocked`, write the exact blocker in one line, record the
+   negative result as an EXP (method, scope, positive control), and add the
+   follow-up tasks it suggests. A negative with a control is a result.
+   Merge it to `main` and clean up the branch as in rule 6.
+8. **Stale claims.** A claim with no push for 24 h may be released by the
+   coordinator (`Status: open`, `Owner: —`). Push work in progress often.
+9. **New tasks.** Add them at the end of the right workstream with the next
+   free ID of that stream, the full field set, and `Owner: —`
+   (`tools/board.py next-id <stream>`, `next-claims`, `add-task <file>`; every
+   edit of `TODO.md`/`claims.md` goes through `tools/board.py`, AGENTS.md). Before
+   assigning an ID, `grep` the file for it: parallel merges can add the same
+   ID on another branch, and a reused ID (even with different meaning) is a
+   board defect. Take the next free claim block from
+   [ID allocation](#id-allocation).
+10. **Methodology and data rules** in `AGENTS.md` apply to every task: start
+    from `tools/cerom.py` for any firmware address (never fitted deltas),
+    tools go in `tools/` with a synthetic self-test, observation and
+    interpretation stay apart, and **vendor bytes never enter the repo**
+    (only offsets, counts, hashes, short header bytes).
+11. **Run on the real image before you close.** A firmware or format task is
+    not `done` on synthetic data alone, and "no image in the checkout" is not
+    a blocker: `python3 tools/fetch_image.py --image IMG256 -o PATH` downloads
+    and verifies it in about a minute (see Shared inputs).
+    Run your tool on it and put the real counts in the EXP. EXP-2026-11-06-H5
+    found two tools that pass their self-test but match nothing on real bytes,
+    and one blocker that the image itself answers.
+12. **Network.** Only `files.viaaq.eu` (and package registries) are reachable
+    from the Claude cloud sandbox; OSM hosts fail there (C-1716). Tasks that
+    need such a host carry **`Runner: non-Claude`** in their status line:
+    they are open and meant for agents outside that sandbox (with normal
+    internet access). Claude sandbox agents skip them. Such a task records
+    the download URL, date and SHA-256 of what it fetched, and never commits
+    OSM extracts.
+    **The flag is a property of the runner, not of the task:** on a host with
+    normal internet (verified 2026-11-17: `api.openstreetmap.org` 200,
+    `download.geofabrik.de` 307, full EU card in `archive/sd-images/`), a
+    `Runner: non-Claude` task runs normally — do not treat the flag as a
+    blocker there, and do not re-add it to a task whose only need is network.
+
+13. **Firmware confirms every format we write (Marek, 2026-11-06).** A file
+    type we generate counts as *confirmed* only when its reader in the
+    firmware is located (an M3 task, VAs in `docs/format/`) and as
+    *accepted* only when an L3 target (firmware fragment harness) or L4
+    full-system emulator run (M8/QEMU) executes that reader on our generated
+    file and gets the expected values. Round-trip tools and L2 are necessary,
+    not sufficient; L5 (car/bench) is the final oracle when hardware is
+    available. Level mapping (2026-11-09): before 2026-11-09 L4=car/bench,
+    L5=full-system emulator; after 2026-11-09 L4=full-system emulator,
+    L5=car/bench. The live status of each file type is the matrix in
+    [`docs/research/reader-coverage.md`](docs/research/reader-coverage.md)
+    (H11); update its row in the same PR as your task.
+
+14. **A search task must pass its precheck before anyone searches (PM,
+    2026-11-06; premise corrected 2026-11-08).** Three reader tasks (M3.11,
+    M3.2b, M3.13) spent a session each reporting "not found in the
+    uncompressed sections", and the board blamed compression. That was wrong:
+    build A has **0 compressed executable sections** (22.8 MB of code, all
+    readable; the 245 compressed sections are `.data` — C-2128). The misses
+    were **heuristic**: the pattern came from the format doc, but the code
+    used a different one (M3.11's walker reads a packed `u16` with
+    `0x3ff`/`0xfc00` masks, no byte tag). So:
+    - every task whose subject is a firmware address or reader carries a
+      `Precheck:` line whose command can fail, and it separates **executable**
+      from data bytes (`tools/reader_precheck.py`, M1.12);
+    - state the **signature** the search tests and where it came from: an L3
+      run, the writer's inverse, or the format doc (weakest — say so);
+    - `Scope:` counts the corpus, `Stop:` says when to report `blocked`
+      instead of trying a fourth pattern;
+    - a negative never implies "impossible": M3.11's first verdict was
+      reversed in one session once the signature changed (C-2129).
+    - **"in compressed sec1" is not a blocker until `va_class.py` says
+      `INIT` (PM twelfth pass, 2026-11-10, H49).** 94.5 % of the compressed
+      bytes are BSS (zero at load) and `Navi.exe` sec1 starts with the 846-slot
+      import table (C-3440–C-3442). Run `python3 tools/va_class.py IMG
+      --module M --resolve-with 0x3e00200 VA`: `IAT` → bind a stub (M9.35),
+      `BSS` → find the writer (M3.22 pattern), only `INIT` → M1.2f.
+    - **`INIT` is readable, and a `fn` must be a function (PM thirteenth
+      pass, 2026-11-11, H51).** `python3 tools/nk_decomp.py section IMG
+      --module M --index N -o OUT` runs the kernel's own decompressor in
+      PySh4 (245/245 sections). Before a VA is searched for, called in L3 or
+      written into a doc as `fn`, run `python3 tools/nk_decomp.py pdata IMG
+      --module Navi.exe VA`: `START` is an entry, `INSIDE` gives the true
+      start (M3.2b lost two sessions to `0x0041c7e8`, which is 12 bytes into
+      `fn 0x0041c7dc`), `GAP` is a leaf or data.
+    - **Name the build (H51).** The EU and US cards carry different
+      `Navi.exe` builds; a VA is valid for one of them. Write `EU2011` or
+      `US2011` next to every VA and every L3 verdict (M1.22).
+
+15. **A merge re-opens what it unblocks (PM, 2026-11-06, seventh pass).** A
+    `blocked` task is not a dead task: it is a ticket waiting for one thing.
+    Every blocked task names it in `Unblock:`, and the PR that lands that task
+    sets the waiting ones back to `Status: open · Owner: —` in the same commit,
+    with the blocker line kept as a note. The negative EXP stays — it is the
+    reason the re-run has a `Precheck` and a `Scope`. So M3.13 returns to the
+    pool the day M1.2f merges, not before, and not with the same ticket.
+
+16. **Method is a spec, not a narrative (PM, 2026-11-06, eighth pass).** An
+    EXP must let another agent reproduce it from the repo plus the named
+    sample. Concretely: sample **and** SHA-256 (or `none (tool-only task)`);
+    the tool with its version; commands that run as written — a scan that
+    lives in a heredoc belongs in `tools/` with `--selftest` (AGENTS rule 7),
+    and `# ...` in a Method block is a defect; one positive control and one
+    negative control, or an explicit statement why none applies; the corpus
+    counted (`282 sections / 23.6 MB`), never "all"; and the falsifier before
+    the result. `docs/experiments/TEMPLATE.md` carries the five-part form.
+    A task's `Done when` is what makes it `done`: if the check did not pass,
+    the status is `blocked`, not `done`.
+
+17. **Map first (PM, 2026-11-17, fourteenth pass).** Between 2026-11-11 and
+    2026-11-17 the board closed 33 tasks: 22 housekeeping, 10 firmware
+    tooling, 1 L3, none in M3/M4/M5 (EXP-2026-11-17-H101). Review roles found
+    record defects faster than the TL closed them, and each defect became a
+    task. From now on:
+    - **Budget.** A TL batch holds at most one H task for every three tasks
+      from M3/M4/M5/M9. If fewer than three map tasks qualify, the batch is
+      smaller — never filled with H.
+    - **A record defect is fixed where it is found.** SE and QA correct a
+      wrong number, a dead command or a missing claim row in the same pass
+      (one commit, the EXP and `claims.md` only). A new H task is allowed only
+      when the defect is in a **tool** that a map task depends on, and it
+      names that map task in `Depends`.
+    - **One batch for the backlog.** H53–H100 that only repair a record or a
+      gate are closed in one TL pass or dropped; they are not picked one per
+      cycle.
+    - **Progress is counted on the map.** Each PO pass reports four numbers
+      before anything else: rows of `reader-coverage.md` with a located
+      reader, rows with a running L3 target, bytes of a factory tile
+      explained by `docs/format/` (sections 1/2/4), and the highest card
+      ladder step (M5.38) that passes its gate. A cycle that moves none of
+      them says so in its first line.
+    - **Big research tasks are split before they are skipped.** If a
+      critical task stays unowned for two cycles, the PO cuts a first slice
+      that one pair can finish in one session and puts it first.
+
+### ID allocation
+
+Parallel agents collided on `EXP-…-48` and on several claim IDs (C-520,
+C-521, C-528…C-533 were proposed twice). From now on:
+
+- **EXP records:** `docs/experiments/EXP-YYYY-MM-DD-<TASK>-<slug>.md`, for
+  example `EXP-2026-11-06-M1.2a-comp-header.md`. A second record for the
+  same task adds `-2`, `-3`. The task ID makes the name unique because each
+  task has one owner. Old numbered records keep their names.
+- **Claim IDs:** every task below has a reserved block of ten (`Claims:
+  C-600–C-609`). Use only your block. If you need more, or you add a new
+  task, take the next free block: the highest block in this file plus ten.
+- **Tool names:** a new tool states its file name in the task (`Input`
+  or `Done when`); if two tasks would create the same file, the later one
+  depends on the earlier.
+
+### Task fields
+
+```text
+- [ ] **ID — title**
+  - Status: open | in progress | blocked | done · Owner: — | <branch> · Critical: yes | no [· Runner: non-Claude]
+  - Depends: — | IDs
+  - Goal: one sentence.
+  - Precheck: the command that decides whether the task is possible at all
+    (mandatory for any task that searches firmware code or reads vendor data).
+  - Scope: the bytes/files the task covers, and what it deliberately excludes.
+  - Input: files, offsets, tools, samples.
+  - Done when: a check that can fail.
+  - Stop: when to set `blocked` and write the EXP instead of a fourth attempt.
+  - Unblock: only on `blocked` — the task that turns this one back to `open`.
+  - Claims: C-xxx–C-xxx
+```
+
+`Precheck`, `Scope` and `Stop` exist because of three sessions lost to
+M3.11/M3.2b/M3.13: each reported "not found in the uncompressed sections" — a
+true statement about 44 % of build A and 25 % of `Navi.exe` (rule 14).
+
+### Shared inputs
+
+| Name | How to get it | SHA-256 |
+| --- | --- | --- |
+| `IMG256` (firmware: A, B, C) | `python3 tools/fetch_image.py --image IMG256 -o PATH` (pinned, verified; `curl -r 0-268435455` also works) | `92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9` |
+| `IMG` (full EU 2011 card, 7.5 GB) | `python3 tools/fetch_image.py --image EU2011 -o PATH` (resumable) | `105e2032e480e8ba162a2a9d4b6624cb1dafee380379a9908f3f101b15076307` |
+| `ROOT` (extracted map tree) | `python3 tools/verify.py --image IMG` (extracts to `archive/work/`) | — |
+| `US` (Marek's US 2011 card, 7.5 GB) | `https://files.viaaq.eu/sd-images/LEAF_2011-2012_US.img` | `53342430…c5383` |
+| `US256` (US firmware head, 256 MiB) | `python3 tools/fetch_image.py --image US256 -o PATH` (pinned, verified, H62; `--image US --part 256M` is the same pin) | `70d945d823f93f04cae4e6c7113a723cae3a992ab7a6f9b24e94ce2e006a04da` |
+| `EU2014` (7.4 GB) | `https://files.viaaq.eu/sd-images/LEAF_2014_EU_QSD-357-101.img` | `tools/fetch_image.py --image EU2014` (sha256 `4a8a21f477e9fc511f94406976b8d67037842f9c043f49ab24e1adc82d6da89b`, H21 verified) |
+| `EU2016` (7.4 GB) | `https://files.viaaq.eu/sd-images/ENV200_2016_EU_QSD-390-100.img` | `tools/fetch_image.py --image EU2016` (sha256 `f53d55f159fd4232caa0b100b9b12e3910c8fe3849201871a71ee38ac19007fb`, H21 verified) |
+| Other years/markets | `https://files.viaaq.eu/maps/`, `docs/research/image-versions.md` | record per EXP |
+
+`https://files.viaaq.eu/sd-images/` is reachable from the sandbox; **H16** turns
+these rows into one command (`tools/fetch_image.py --list`, `--image KEY`,
+`--verify PATH`). Listing is not a
+blocker (rule 14 / rule 11).
+
+CE images inside the card image: **A** (apps, `Navi.exe`) `--image-start
+0x200200` (copy at `0x2000200`), **B** (kernel + updaters) `0x3e00200` (copy
+at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
+in the cloud environment: `apt-get install binutils-sh4-linux-gnu
+qemu-system-misc gdb-multiarch`.
+
+## Priorities (PO grooming 2026-11-20, 21st pass; retro 2026-11-20-2, `origin/main` `f3251f0`)
+
+**The firmware now reads a road record we wrote.** M9.53 (merged 2026-11-20 18:28Z, #349):
+on a generated Poland tile the EU2011 data-access task reads our record from
+our pair entries, checks the Adler-32, inflates it and answers the client as
+for the factory record (C-5910–C-5917). Readers **18 located** (15 this
+morning), L3 **8 running** (6). What is not shown yet: that the renderer walks
+the links of our record (**M9.58**), and that the **US** build in Marek's unit
+reads an EU-layout card at all (**M9.61**, new). Cards: **P0** built
+(`b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237`), **P1**
+display-only card built (M5.49); the first card a person would call a map is
+**M5.61**.
+
+**The four rule-17 numbers: run, do not retype.** `python3 tools/map_signals.py`
+(`--factory-root ROOT` for the tile bytes). Snapshot 2026-11-20, `ae2cb0c`,
+cloud sandbox with the EU2011 tree extracted: `readers: located 18 partial 1
+unlocated 1`, `l3_rows: l3-running 8`, `tile_bytes: B28R070R 99.98%,
+B30R048R 95.86%, B48R058R 76.29%` (flat), `card_step: NOT RUN` (no M5.34
+report on this host; last recorded step P1, M5.49).
+
+**First, the queue (retro 2026-11-20-2).** Finished PRs wait behind `main`
+and go stale: **#340 M9.55**, **#341 M3.29**, #338 H100, #339 H114, #344 H115.
+Merge them before launching anything. **H119** removes the cause (every task
+PR rewrites the two fn_audit snapshots).
+
+**Next for the TL (dependencies done, no owner, in this order):**
+
+1. **H119** — task PRs stop conflicting in the fn_audit snapshots. Every map task below merges faster after it.
+2. **M9.58** — the renderer walks the links of our record. This turns "our record is inflated" into "our roads are read" (P1).
+3. **M9.61** — the US build's map client on the EU card. Software answer to "can Marek's unit read a Poland card"; the US file layer already mounts the EU card (Precheck in the task).
+4. **M9.60** — card gate, first slice (`boot`, `sweep`, `mount` with an exit code). Gates P0/P1 at L3 now and unblocks **M5.35**; M9.12 only adds the POI row later.
+5. **M4.55** — the section-2 reader in the route path finder. It re-opens **M4.40**, and with it M5.57, M9.56, M4.23, M4.24, M4.3 (routing, P2).
+6. **M5.61** — "Poland to look at": all section-1 directories of the 4 tiles. Needs an OSM extract on disk (see "For Marek").
+7. **M3.32** and **M3.30** — the two tasks the `REFER` family waits for. **M3.13, M3.14, M3.16 and M3.18 are one group** blocked on them and on M3.29 (#341 ends `blocked`): do not pick the four one by one again.
+8. **M9.18** (re-opened this pass, rule 15) — `LEV3456R` and section 4 at record level; unblocks M5.16.
+
+**In flight (draft PRs, do not claim):** M5.60 #382,
+M3.33 #381, M4.35 #387, M4.27 #386, M5.32 #368, M8.C row C10 #355, M8.A8 #372.
+
+**For Marek (decisions and one upload):**
+
+- **M8.D1** — F1 is reached (M8.B5). PO recommendation, unchanged: continue
+  to F3 (SD mounted) only, through M8.C10; the map-file layer is covered at L3.
+  *Status (M8.D1, blocked — decision is Marek's):* C10 is merged, so the
+  remaining F3 step is **M8.C1** (#394); the re-estimate (F2 `2–4 w`, F3
+  `1–2 w`, F4 `1–3 mo`) and the fact that F3 unblocks no map task are in the
+  M8.D1 block and EXP-2026-11-21-M8.D1.
+- **An OSM extract on `files.viaaq.eu`.** It is the only data host the cloud
+  agents reach (rule 12). `dolnoslaskie-latest.osm.pbf` (then Poland) under
+  e.g. `https://files.viaaq.eu/osm/` lets Claude agents run **M5.61**, **M4.2**
+  and **M5.3**, which today wait for a runner with open internet.
+- **#229** (two days old, conflicting) can be closed, and 45 remote branches
+  without an open PR deleted (the cloud sessions get HTTP 403 on delete).
+
+### By card-ladder step
+
+The ladder ([content](docs/research/card-ladder.md), [gates](docs/format/card-ladder.md))
+orders the map work; the live grouping is `python3 tools/card_ladder.py steps --check`
+(`*` = critical, `(page)` = tag held in the page while the owner's PR is open).
+
+- **P0 (built)** — container and `DRSTR001` parser accepted in L3 (M9.13, M9.14); QA pin **M5.40**; L3 gate **M9.60**.
+- **P1 (display-only card built)** — **M9.58** (the renderer walks our record), **M5.61** (the 4 Poland tiles), **M9.61** (the same reads on the US build).
+- **P2 (routing)** — **M4.55** → **M4.40** → **M5.57** → **M9.56**; M4.23, M4.24, M4.3 → M5.5; **M9.18** → M5.16; **M5.3** (waits on M4.2); M4.56 (section 4, route guidance).
+- **P3 (names)** — **M3.32** + **M3.30** → **M3.13** → **M4.36**; **M4.2**; **M9.15**; M5.60 (in flight).
+- **P4 (search)** — **M5.18** (waits on M3.13), **M5.32**, **M9.55** → M9.41 → **M9.10**.
+- **tooling** — **M9.60** → **M5.35**; **M9.61**; M9.59; M9.31 → **M9.12**; **M9.2** (Ghidra, needs a non-Claude runner). **M9.16** is split into M9.60 + M9.61.
+
+### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
+
+> Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
+
+- **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards. `cardcheck --generate-fixture` (H103, done) builds a vendor-free tree; next **H40** → **H105** → **H41** → **H42** make it a CI row with a baseline.
+- **L2 (the product path):** P0 and P1 cards built, routing golden (M5.36). Next **M5.61** (Poland to look at) and **M5.35** (one command, waits on M9.60) → **M7.1** (all Dolnośląskie).
+- **L3 (moving):** container read (M9.13), record read and inflated (M9.53): done. Next **M9.58** (record walked), **M9.61** (US build), **M9.60** (card gate). Routing: **M4.55** → **M4.40** → **M5.57** → **M9.56**. Names: **M3.32**/**M3.30** → **M3.13**. SKIP and BLOCKED are never PASS.
+- **L4 (QEMU `-M ze0`):** F1 reached (M8.A3, M8.A6, M8.B5). **M8.D1 is blocked on Marek** (EXP-2026-11-21-M8.D1): recommendation is not to open F2/F3 now, finish **M8.C1** (#394, HPB DMAC = the F3 data path and shared by three drivers), then hold F4 at **M8.D2**; re-estimate F2 `2–4 w`, F3 `1–2 w`, F4 `1–3 mo`. **M8.E4** (full `Navi.exe`) waits on M9.60 + M9.61 through M9.16. M8.A9 is off the path.
+- **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes the L3 card gate (M9.60, later M9.12) first.
+
+### Map signal (read first)
+
+Board after this pass: **81 open / 24 blocked / 0 in progress / 168 done** (block headers parsed 2026-11-20 on `f3251f0`; the
+fenced task template is not counted). 30 of the open blocks are H. A cycle
+that moves none of the four numbers above says so in its first line.
+
+**This pass:** archive **0 moved** — 62 done blocks are named by no live
+block, all ticked 0–22 h ago; they move next pass (TODO.md 4896 lines before and after the archive step).
+Rule 15: **M9.18** re-opened (M9.53 merged). Added **M9.61**; the SE pass
+added **H119** and **M9.60**, the QA pass **H120** and **M9.62**. **M9.16** narrowed to M9.60 + M9.61; **M5.35**
+now waits on M9.60 instead of the M9.12 chain. `Step:` set on M4.55, M4.56,
+M9.59; 4 stale pending rows removed from the card-ladder page. The 20th-pass
+text of this section is in git (`13cb0cf`).
+
+---
+
+## H — Housekeeping
+
 - [x] **H19 — Re-verify the five thinnest records of the last 24 h**
   - Status: done · Owner: task/h19-reverify-thin-records · Critical: no
   - Depends: M3.19 (for the VAs that come from a scan)
@@ -3010,6 +3338,7 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
 
 - [ ] **M4.62 — TMC `0x14f4`: the dynamic tag writer (M4.51's continuation) and M4.49's truthful Unblock**
   - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P3
   - Depends: M4.53 (done — the `0x14f4` file half: it reads `REFER001` POINT/ADDRE/INTER by its sub word, C-5680), M4.51 (blocked — the **negative static** census; read its Result first, this task does the dynamic half it could not do offline).
   - Goal: M4.49 blocks with "no link-group signature in the TMC data-layer subtree", and its `Unblock: M4.51` points at a task that has since blocked too. M4.51's Result closed the static question negatively: `0x14f4` has **no static sender** — the only send wrapper has 25 callers, each with one id literal, and none is `0x14f4`; the request is built at run time. M4.53 then closed the file half. So the whole chain M4.49 → M4.51 → M4.53 now ends in a `blocked`→`blocked`→`done` that can never re-open by rule 15, and the one open question is narrow and dynamic: which code writes the tag word of a request to `0x14f4` at run time, and what buffer it then fills. This task answers that or records it as unreachable, so M4.49 gets a `Unblock:` that names a merge that can actually happen (this task) instead of a dead token.
   - Precheck: `python3 tools/tmc_req_l3.py --selftest` passes; `python3 tools/rdstm_reader_scan.py archive/head256.img --const 0x14f4` prints its 7 data-layer users (the negative census M4.51 quotes — do not re-run the static literal scan as work); a `tools/read_watch_l3.py` run over the `OSM_TaskSend` wrapper path records the request tag word (offset `+8`) for a synthetic `0x14f4` call; quote the value, and if the run cannot write the tag that is the finding, not a failure.
@@ -3019,7 +3348,6 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
   - Stop: one session. If `+8` is written from a value only the full system produces (a DLL state object, an L4-only path), record the writer chain to that object, name it and its producer, and stop `blocked` on M8.E4 — that is the honest close for M4.49.
   - Falsifier: a static `0x14f4` literal that M4.51's census missed (then M4.51's negative is retracted, not this task built on it), or `+8` proven equal to a value `0x14e4` also writes with no branch on it (then `0x14f4` is a dead alias and M4.49 is retired, not unblocked).
   - Claims: C-6620–C-6629
-  - Step: P3
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
@@ -3773,6 +4101,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [ ] **M5.64 — LCTBL: the real country/database table code for Poland, and whether the firmware actually keys LCTBL by country (the M5.60 open item)**
   - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P3
   - Depends: M5.60 (done), M5.17 (LCTBL builder, done), M4.16d (TMC reception table codes, done)
   - Goal: M5.60 built the first LCTBL ("names of places your card has") writer that the firmware's own lookup runs, but its Result leaves two things open that decide whether a Poland card's place names are found: "the real country/database numbers for Poland" and "an absent table is served from the first table (observed)" (`EXP-2026-11-20-M5.60-lctbl-index-l3`, C-6140–C-6149). M5.17's synthetic Polish set is written with a hand-picked table code; if a real unit looks up `(country 11, database 1)` and that is not the code in the file, the card's street names are not returned even though every byte round-trips. That makes this the format decision behind M5.61 ("Poland to look at") and M7.1.
   - Precheck: `python3 tools/lctbl_lookup_l3.py --selftest` prints `0 failed`; `python3 tools/lctbl_build.py synth --help` lists a table-code input; `python3 tools/tmc_reception.py table --help` resolves `(CC, LTN)` pairs (M4.16d, 14/14 on EU2011).
@@ -3782,7 +4111,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session. If the EU catalog has no Poland entry at all and the unit's request country cannot be read from a run, write the fallback rule (a generated file must also be reachable by the absent-table path) and stop.
   - Falsifier: a generated file with the "right" table code whose Polish records are not found by the firmware, or the absent-table fallback proven not to be the first table (then M5.60's "observed" line is retracted).
   - Claims: C-6610–C-6619
-  - Step: P3
 
 - [ ] **M5.65 — Section 4 place-name index from OSM (M4.21's `generate` left names empty)**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -4300,10 +4628,11 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   Claim one row at a time as `[M8.C10]` etc.; claim block: C-1360 +
   10 × row number (C1 → C-1370–C-1379, …, C22 → C-1580–C-1589). Priority
   rows: **C10 SD host**, C4 micon/power, C8 NOR flash, C18 display.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m8.c1-hpb-dmac · Critical: no
   - Depends: —
   - Claims: C-1360–C-1589 (per-row blocks, see above)
   - Row notes:
+    - C1 (HPB DMAC, `0xff801000` + mux/clock `0xffc08000`; F3/SD blocker): blocked 2026-11-21 (task/m8.c1-hpb-dmac). Static read: `SDHC.dll fn 0x039be010` (port 0 → ch 8) maps 0xffc08000 (ch 0–20, 0x40 stride) vs 0xff801000 (ch 21–22); ch8/ +0x0814 match C10 ACMD13 window `0x1fc08200`–`0x1fc08234`/`0x1fc08814` (C-1370–C-1372). `fn 0x039bafcc` waits >=4000 ms on `0x01f381c4` (C-1373). Helpers decoded (C-1376–C-1378): `sub_039be50c` SAR/DAR/TCR (+0x00/04/08 or +0x0C/10/14), `sub_039be4d0/59c/5d8` +0x24/28/2C, `sub_039be614` OR `(1<<ctx[0])` into common +0x0814 under 0x7530 ms sync, `sub_039be6b8` trigger +0x30/poll +0x34 bit 0; callers show two-layer completion (event wait + poll, EXP O8). DMARS ptr for ch8 computed as `0xffc0883c` (`ctx+96`) but no static runtime write/literal found; nk refs only +0x80c/810/814 (O9, C-1379). Blocker: DMARS request-source for SD ch 8 and nk ISR/INTC→event completion linkage unresolved; no `-M ze0` HPB-DMAC model/validation, so F3 remains blocked. Unblock: implement+validate HPB-DMAC in tools/qemu-ze0 and re-run C10 ACMD13 (or resolve DMARS/IRQ linkage by runtime trace). EXP: `docs/experiments/EXP-2026-11-20-M8.C1-hpb-dmac.md`. Claims C-1370–C-1379.
     - C10 (SD host): done 2026-11-20 (task/m8.c-sd-host-c10). Result: EXP-2026-11-20-M8.C10-sd-host (C-1460–C-1464). Patch `ze0-0008`: SDHI/TMIO-style ports at `0xffe4c000`/`0xffe4d000` on QEMU's SD bus (card detect = SD_INFO1 bit 5, `SDHC.dll fn 0x039bcedc`, EU2011), IRQs INTEVT `0xae0`/`0xb00` (SYSINTR `0x1f`/`0x20`, INT2 bit 29), SCIF stubs for a kernel-mode TEND spin in `serial_scif.dll`; `run.sh --sd`; tool `ze0_sdhost.py`. The launcher's SD check passes, `ActivateSDCardDriver` runs the card identification on the EU card and its init returns `End(NG)` without hanging boot; the first data transfer (ACMD13) uses the HPB DMAC and times out, so F3 (FAT mount) waits on **C1** (HPB DMAC, channel registers at `0xffc08200`).
 
 - [ ] **M8.D1 — Decision gate after F1: continue to F2/F3?**
@@ -5232,6 +5561,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.63 — US-build map client on an EU card: record what already runs at L3, so M9.61 is one small PR**
   - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: tooling
   - Depends: M1.22b (EU→US function map, done), M9.14 (US2011 file layer, done), M9.53 (EU2011 record read, done). **Does not wait on M9.61** (it is its first slice); M9.61 then keeps the remaining layers.
   - Goal: M9.61 is the cheapest software answer to "does Marek's US unit read a Poland card" but it is one `Pair: required` session covering four runs and a `--build` flag on `datask_l3.py`. Half of that surface already runs on `main` under the US build — `vcard_l3.py boot US256 --build us2011` (C-4651) and the US POI reader `runner.py run poi_record_decode` (M9.10) — while `datask_l3.py mount` has no `--build` at all (`python3 tools/datask_l3.py mount --help | grep -c -- --build` = 0, M9.61's own Precheck). Nobody has written down which layer of the US map client is already exercised and on what input, so M9.61 starts by rediscovering it and its Done-when mixes layers that are already green with one that is not. Record that boundary once, with a run per layer.
   - Precheck: `python3 tools/vcard_l3.py boot archive/us256.img --build us2011 --card-image <EU card>` ends `firmware error log calls: 0`; `python3 tools/poi_position_l3.py run archive/head256.img --dir <EU REFER001> --file POINT010` ends `RESULT: ACCEPT` (the EU control for the position arithmetic, M3.34); `python3 tools/datask_l3.py mount --help | grep -c -- --build` prints `0`.
@@ -5241,7 +5571,6 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: one session; if a US layer needs a VA that `fn_match` has no `UNIQUE` pair for, name it and leave it `NOT RUNNABLE (no pair)` — that is a result for M9.61.
   - Falsifier: a layer this EXP marks `NOT RUNNABLE` that turns out to have a runnable tool on `main` (M9.61 is then smaller than believed), or a `RUNNABLE` row whose US run disagrees with its EU control (then the layer is the answer, not M9.61).
   - Claims: C-6600–C-6609
-  - Step: tooling
 
 - [ ] **M9.64 — `main_watch` counts a green `L1/L2 synthetic fixtures` run as shadowing a red gate run: the two workflows test different things**
   - Status: open · Owner: — · Critical: no · Pair: required
