@@ -1759,7 +1759,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6460–C-6469
 
 - [ ] **M1.45 — Decompile map of telematics (`Telema.exe`, `ComMid.exe`, `Telema*CC`, `Cws_Apl`, `Prb_Apl`, `DCM_API`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.45-telematics-endpoints · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track. The Carwings client: how it reaches the TCU (`COM3:`/`COM4:` over USB) or a phone (`COM8:` Bluetooth dial-up), server names and URLs in the binary, the request types. Useful for OpenCarwings users: what the unit can fetch (points of interest, routes, charging spots) and in what format.
   - Precheck: UTF-16 and ASCII strings of `Telema.exe` contain a host name or `http`.
