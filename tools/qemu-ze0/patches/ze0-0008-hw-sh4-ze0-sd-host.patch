@@ -32,11 +32,16 @@ Evidence and controls: docs/experiments/EXP-2026-11-20-M8.C10-sd-host.md
 (C-1460..C-1464).  Base: QEMU 8.2.10 + the earlier patches (sorts after
 ze0-0007).
 
+This file is the QEMU 11.1.3 form of the patch (TODO M8.A11): the text
+above was written for the 8.2 series, where the patch was first made;
+API names in it that 11.x renamed are listed in PORT-11.1.md.  Base: tag
+v11.1.3 plus the earlier patches of this directory, in sorted order.
+
 diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
-index b2d6e87..c133962 100644
+index ad084fd3c..1d450cc50 100644
 --- a/hw/sh4/Kconfig
 +++ b/hw/sh4/Kconfig
-@@ -27,6 +27,7 @@ config ZE0
+@@ -25,6 +25,7 @@ config ZE0
      select SH_SCI
      select SH_TIMER
      select UNIMP
@@ -45,30 +50,29 @@ index b2d6e87..c133962 100644
  config SH7750
      bool
 diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
-index 53836fc..6d0cb75 100644
+index 3598a0883..67606c53a 100644
 --- a/hw/sh4/meson.build
 +++ b/hw/sh4/meson.build
-@@ -6,7 +6,7 @@ sh4_ss.add(files(
+@@ -6,6 +6,6 @@ sh4_ss.add(when: 'CONFIG_SH7750', if_true: files(
  sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
  sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
- sh4_ss.add(when: 'CONFIG_SHIX', if_true: files('shix.c'))
+ 
 -sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c'))
 +sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c'))
- 
  hw_arch += {'sh4': sh4_ss}
  sh4_ss.add(files('ze0_stubs.c'))
 diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
-index 3fd8095..c3d73ee 100644
+index 9ff5cdf08..9e858a3bd 100644
 --- a/hw/sh4/ze0.c
 +++ b/hw/sh4/ze0.c
 @@ -35,6 +35,8 @@
- #include "hw/sysbus.h"
- #include "hw/qdev-properties-system.h"
+ #include "hw/core/sysbus.h"
+ #include "hw/core/qdev-properties-system.h"
  #include "chardev/char.h"
 +#include "hw/sh4/ze0_sdhi.h"
-+#include "sysemu/blockdev.h"
- #include "sysemu/sysemu.h"
- #include "sysemu/reset.h"
++#include "system/blockdev.h"
+ #include "system/system.h"
+ #include "system/reset.h"
  #include "qemu/bswap.h"
 @@ -90,6 +92,18 @@
   */
@@ -245,7 +249,7 @@ index 3fd8095..c3d73ee 100644
      s->app_off = ZE0_DEFAULT_APP_OFF;
      s->tmu = true;
 diff --git a/hw/sh4/ze0_intc.c b/hw/sh4/ze0_intc.c
-index ec51b53..9b47a00 100644
+index bf30a677f..ca62381bc 100644
 --- a/hw/sh4/ze0_intc.c
 +++ b/hw/sh4/ze0_intc.c
 @@ -58,6 +58,7 @@
@@ -289,10 +293,10 @@ index ec51b53..9b47a00 100644
  
 diff --git a/hw/sh4/ze0_sdhi.c b/hw/sh4/ze0_sdhi.c
 new file mode 100644
-index 0000000..0a155e0
+index 000000000..b226602f3
 --- /dev/null
 +++ b/hw/sh4/ze0_sdhi.c
-@@ -0,0 +1,411 @@
+@@ -0,0 +1,410 @@
 +/*
 + * ZE0 SD host (TODO M8.C10): a minimal Renesas SDHI / TMIO-style
 + * controller for the EU2011 SDHC.dll, driving QEMU's SD card model.
@@ -320,9 +324,9 @@ index 0000000..0a155e0
 +#include "qemu/osdep.h"
 +#include "qemu/log.h"
 +#include "qapi/error.h"
-+#include "hw/sysbus.h"
-+#include "hw/irq.h"
-+#include "hw/qdev-properties.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/irq.h"
++#include "hw/core/qdev-properties.h"
 +#include "hw/sd/sd.h"
 +#include "hw/sh4/ze0_sdhi.h"
 +
@@ -425,7 +429,7 @@ index 0000000..0a155e0
 +        uint8_t r[16];
 +
 +        if (s->cmd_index == 18 || s->cmd_index == 25) {
-+            sdbus_do_command(&s->sdbus, &req, r);
++            sdbus_do_command(&s->sdbus, &req, r, sizeof(r));
 +        }
 +    }
 +}
@@ -461,10 +465,10 @@ index 0000000..0a155e0
 +        /* ACMD bit without a preceding CMD55: send it, RCA from CMD3 */
 +        SDRequest app = { .cmd = 55, .arg = (uint32_t)s->rca << 16 };
 +
-+        sdbus_do_command(&s->sdbus, &app, r);
++        sdbus_do_command(&s->sdbus, &app, r, sizeof(r));
 +    }
 +    s->info2 &= ~INFO2_ERRS;
-+    len = sdbus_do_command(&s->sdbus, &req, r);
++    len = sdbus_do_command(&s->sdbus, &req, r, sizeof(r));
 +    s->app_cmd = (req.cmd == 55 && len > 0);
 +    memset(s->rsp, 0, sizeof(s->rsp));
 +    if (len == 4) {
@@ -615,7 +619,7 @@ index 0000000..0a155e0
 +            SDRequest req = { .cmd = 12, .arg = 0 };
 +            uint8_t r[16];
 +
-+            sdbus_do_command(&s->sdbus, &req, r);
++            sdbus_do_command(&s->sdbus, &req, r, sizeof(r));
 +            s->xfer = XFER_NONE;
 +            s->info2 &= ~(INFO2_BRE | INFO2_BWE);
 +            s->info1 |= INFO1_ACCEND;
@@ -679,17 +683,16 @@ index 0000000..0a155e0
 +    sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
 +}
 +
-+static Property ze0_sdhi_props[] = {
++static const Property ze0_sdhi_props[] = {
 +    DEFINE_PROP_UINT8("port", Ze0SdhiState, port, 0),
 +    DEFINE_PROP_BOOL("trace", Ze0SdhiState, trace, false),
-+    DEFINE_PROP_END_OF_LIST(),
 +};
 +
-+static void ze0_sdhi_class_init(ObjectClass *oc, void *data)
++static void ze0_sdhi_class_init(ObjectClass *oc, const void *data)
 +{
 +    DeviceClass *dc = DEVICE_CLASS(oc);
 +
-+    dc->reset = ze0_sdhi_reset;
++    device_class_set_legacy_reset(dc, ze0_sdhi_reset);
 +    device_class_set_props(dc, ze0_sdhi_props);
 +}
 +
@@ -705,7 +708,7 @@ index 0000000..0a155e0
 +
 +DEFINE_TYPES(ze0_sdhi_types)
 diff --git a/include/hw/sh4/ze0_intc.h b/include/hw/sh4/ze0_intc.h
-index f844279..10dc2d3 100644
+index 2f2ec424d..9050c712b 100644
 --- a/include/hw/sh4/ze0_intc.h
 +++ b/include/hw/sh4/ze0_intc.h
 @@ -17,6 +17,8 @@ enum {
@@ -719,7 +722,7 @@ index f844279..10dc2d3 100644
  
 diff --git a/include/hw/sh4/ze0_sdhi.h b/include/hw/sh4/ze0_sdhi.h
 new file mode 100644
-index 0000000..e6bcae1
+index 000000000..981a79cd5
 --- /dev/null
 +++ b/include/hw/sh4/ze0_sdhi.h
 @@ -0,0 +1,41 @@
@@ -731,7 +734,7 @@ index 0000000..e6bcae1
 +#ifndef HW_SH4_ZE0_SDHI_H
 +#define HW_SH4_ZE0_SDHI_H
 +
-+#include "hw/sysbus.h"
++#include "hw/core/sysbus.h"
 +#include "hw/sd/sd.h"
 +#include "qom/object.h"
 +

@@ -2,7 +2,7 @@
 # Boot the ZE0 CE images under QEMU and leave a trace in a work directory.
 #
 # TODO M8.A7 (docs/research/full-system-emulation.md, stage F0). This script is
-# an orchestrator only: stock QEMU 8.2 with -M none is enough, and -M ze0 is
+# an orchestrator only: stock QEMU with -M none is enough, and -M ze0 is
 # picked automatically once tools/qemu-ze0/build.sh (M8.A1) has built a QEMU
 # that knows the machine. Nothing here is vendor data and nothing is written
 # outside the work directory.

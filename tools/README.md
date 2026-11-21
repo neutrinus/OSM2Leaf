@@ -1504,7 +1504,7 @@ Use it instead of `mkcard.py` when a test must change only the file under test
 ## `qemu-ze0/` — pinned QEMU for the `ze0` SH-4 machine
 
 Out-of-tree home of the M8 emulator work. No QEMU source is vendored: the
-directory holds `build.sh` (fetches the pinned QEMU 8.2.7 tarball, checks its
+directory holds `build.sh` (fetches the pinned QEMU 11.1.3 tarball, checks its
 SHA-256, applies `patches/*.patch`, builds the SH-4 target only and checks that
 `qemu-system-sh4 -M help` lists `ze0`), `run.sh` (boots the CE images in a
 work directory) and `gdb-ze0.py`. The pin and its SHA-256 are in
