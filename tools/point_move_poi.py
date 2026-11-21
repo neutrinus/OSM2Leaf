@@ -518,15 +518,17 @@ def selftest() -> int:
             ok(False, "a target in another cell is refused")
         except MoveError as exc:
             ok("step 2" in str(exc), "a target in another cell is refused and names step 2")
-        # refusal: a non-factory encoder
+        # refusal: a non-factory encoder is refused before any plan is made
         class Wrong(regen.Encoder):
             def compress(self, data):
                 return __import__("zlib").compress(data, 1)
+        plan_move(blob, chain, row, *target, enc, allow_nonreference=True)
         try:
             plan_move(blob, chain, row, *target, Wrong(None))
             ok(False, "a non-factory encoder is refused")
         except MoveError as exc:
-            ok("slot" in str(exc), "an encoder that does not fit the slot is refused")
+            ok("not the pinned reference" in str(exc),
+               "a non-factory encoder is refused before the slot check")
         # no leaf -> refused
         try:
             apply_move(blob, chain, plan, [], True, True)
