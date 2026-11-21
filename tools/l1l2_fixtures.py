@@ -103,27 +103,51 @@ def _zlib_runtime() -> tuple[str, bool]:
 # ---------------------------------------------------------------------------
 
 def check_l1_synthetic() -> tuple[str, str]:
-    """Attempt L1 on a generated synthetic tree; NOT COVERED if no valid builder."""
-    # cardcheck requires a coherent ZE0 card tree (DRSTR matching all top-level
-    # structure, MMAIN/tiles with cross-validated level tables, common headers,
-    # REFER001 pairs, etc.). Current tools (mkcard.make_synthetic_image makes a
-    # flat FAT image, not a ZE0 card; drstr_ze0 builds DRSTR but not MMAIN/tile
-    # semantics) do not produce a vendor-free minimal tree that passes full L1.
-    # Running cardcheck on an incomplete synthetic tree would report fixture
-    # construction gaps, not offline format acceptability — so we classify this
-    # path honestly.
-    cmd = "python3 tools/cardcheck.py --root <synthetic-ze0-tree> --partial --fast"
-    probe = [PY, str(TOOLS / "cardcheck.py"), "--help"]
+    """L1 on the H103 tree, with H105's break as the negative control.
+
+    PASS requires *both* halves: the generated tree passes (rc=0, no FAIL) and
+    a tree built with ``--break tile-level-not-in-mmain`` fails (rc=1) with the
+    check id the good tree passed among the FAILs. A checker that stopped
+    checking would pass the broken tree too and fail this row.
+    """
+    cardcheck = str(TOOLS / "cardcheck.py")
+    probe = [PY, cardcheck, "--help"]
     rc, out = _run_cmd(probe)
     if rc != 0:
         return FAIL, f"cardcheck --help failed (rc={rc}): {out[:300]}"
-    return NOT_COVERED, (
-        "no vendor-free synthetic ZE0 card builder: cardcheck L1 needs coherent "
-        "DRSTR+MMAIN+tile level tables+common headers+REFER001 pairs/top-level "
-        "dirs; mkcard/drstr_ze0 do not generate that full structure without a "
-        "vendor layout. L1 is exercised on real/vendor fixtures in M5/M6/H28 "
-        "contexts; add a synthetic builder as a new check when available."
-    )
+    break_kind = "tile-level-not-in-mmain"
+    with tempfile.TemporaryDirectory(prefix="h26-cardcheck-") as td:
+        td = Path(td)
+        good_json, bad_json = td / "good.json", td / "bad.json"
+        rc_good, out_good = _run_cmd([
+            PY, cardcheck, "--generate-fixture", str(td / "good"),
+            "--json", str(good_json), "--json-only"])
+        rc_bad, out_bad = _run_cmd([
+            PY, cardcheck, "--generate-fixture", str(td / "bad"),
+            "--break", break_kind,
+            "--json", str(bad_json), "--json-only"])
+        try:
+            good = json.loads(good_json.read_text())
+            bad = json.loads(bad_json.read_text())
+        except (OSError, ValueError) as exc:
+            return FAIL, (f"no JSON report: {exc}; good rc={rc_good} "
+                          f"({out_good[:160]}), bad rc={rc_bad} ({out_bad[:160]})")
+    if rc_good != 0 or not good.get("ok"):
+        failed = [c["id"] for c in good.get("checks", []) if c["status"] == "FAIL"]
+        return FAIL, f"good tree rc={rc_good} ok={good.get('ok')} FAIL={failed}"
+    passed = {c["id"] for c in good.get("checks", []) if c["status"] == "PASS"}
+    if "mmain" not in passed:
+        return FAIL, f"good tree did not PASS the target check mmain (passed={sorted(passed)})"
+    if rc_bad != 1 or bad.get("ok"):
+        return FAIL, (f"broken tree ({break_kind}) rc={rc_bad} ok={bad.get('ok')}; "
+                      f"the checker did not notice the break")
+    failed = {c["id"] for c in bad.get("checks", []) if c["status"] == "FAIL"}
+    if "mmain" not in failed:
+        return FAIL, (f"broken tree ({break_kind}) FAIL={sorted(failed)}; "
+                      f"expected the target check mmain")
+    return PASS, (
+        f"good rc=0 ({len(passed)} PASS, 0 FAIL); {break_kind}: rc=1, "
+        f"FAIL includes mmain (the id the good tree passed)")
 
 
 def check_l2_drstr_selftest() -> tuple[str, str]:
@@ -317,8 +341,10 @@ REGISTRY: list[CheckSpec] = [
     CheckSpec(
         id="l1.synthetic.cardcheck",
         category="L1 synthetic",
-        description="L1 cardcheck on a synthetic/generated ZE0 card tree/image",
-        command="python3 tools/cardcheck.py --root <synthetic-ze0-tree> --partial --fast",
+        description="L1 cardcheck on the generated ZE0 tree, with the H105 "
+                    "--break tree as its negative control",
+        command="python3 tools/cardcheck.py --generate-fixture DIR (rc=0) and "
+                "--generate-fixture DIR --break tile-level-not-in-mmain (rc=1)",
         run=check_l1_synthetic,
     ),
     CheckSpec(
@@ -509,7 +535,9 @@ def render_markdown(results: list[CheckResult], summary: dict) -> str:
         "",
         "## Coverage notes",
         "",
-        "- L1 synthetic: limited by lack of a vendor-free full ZE0 card builder (MMAIN/tile level-table coherence).",
+        "- L1 synthetic: `l1.synthetic.cardcheck` runs the H103 generated tree (rc=0) "
+        "and the H105 `--break tile-level-not-in-mmain` tree (rc=1, `mmain` FAIL); "
+        "a checker that cannot fail the broken tree fails the row.",
         "- L2 tile: harness selftest requires a tile fixture; real tile round-trips need vendor ROOT (out of scope).",
         "- L2 cmp/ind recompress: semantic round-trip is measured; byte-identical factory streams require stock zlib 1.3.1 (H9).",
         "- Golden EU2011 / full 194 REFER001 pairs / LEV3456R on real files: explicitly out of scope (vendor data).",
@@ -613,6 +641,14 @@ def _selftest() -> int:
     # Invalid status becomes FAIL (defensive).
     bad = run_checks([CheckSpec("x.bad", "L1 synthetic", "f", "c", lambda: ("WAT", "x"))])
     ok(bad[0].status == FAIL, "invalid status normalized to FAIL")
+
+    # H105: the L1 row is a *pair* — the generated tree passes and a tree built
+    # with --break fails on the check the good tree passed. Both halves are
+    # asserted here, so a checker that stopped checking the break fails too.
+    l1_status, l1_detail = check_l1_synthetic()
+    ok(l1_status == PASS, f"L1 synthetic row PASSes the good+break pair ({l1_detail})")
+    ok("rc=1" in l1_detail and "mmain" in l1_detail,
+       "L1 row detail names the break rc=1 and the target check id")
 
     if errors:
         print(f"l1l2_fixtures self-test: {errors} FAIL ({checks} checks)")
