@@ -130,7 +130,8 @@ widened, and which one named).
 - `python3 tools/board.py check origin/main` prints
   `board check: origin/main vs base 67d9fcbc62ba: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
   and exits 0; `check HEAD` on this branch prints the same with base
-  `3bd0d39c1ceb` (after rebasing onto the concurrent `origin/main`) and exits 0.
+  `04872b503c1c` (after rebasing onto the concurrent `origin/main`; the earlier
+  run before the M9.60 merge read base `3bd0d39c1ceb`, same verdict) and exits 0.
 - `python3 tools/board.py check 0d4916ab` prints
   `board check: 0d4916ab vs base 39600b6cd9ac: 2 task(s) and 0 claim row(s) lost, 2 exempt, 0 problem(s)`,
   both exempt as archived, exit 0.
@@ -165,7 +166,9 @@ widened, and which one named).
   then reports `5.860 s` in a clean `--depth 1` clone of the branch;
   `git rev-parse --is-shallow-repository` prints `true` and `check HEAD` still
   exits 0 with base `a0bf0d9815a3` (the merge base is in the window). A local
-  refetch of an already-present `origin/main` takes `0.854 s`.
+  refetch of an already-present `origin/main` takes `0.854 s`; the four
+  historical verdicts were re-read on the final rebase (`origin/main` at
+  `04872b50`) and are unchanged.
 - The four historical checks run unchanged in that shallow clone: `6ca7bc3`
   exit 1, `119a74e7` exit 1, `0d4916ab` exit 0, `73ff0da6` exit 0.
 

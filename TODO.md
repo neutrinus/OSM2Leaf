@@ -1839,6 +1839,7 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: a legitimate PR of the last 50 merged that the check would have failed (then widen the exemption and say which).
   - Claims: C-6520–C-6529
   - Result: EXP-2026-11-21-H121-board-mergebase-check; C-6520–C-6529. `board.py check 6ca7bc3` exits 1 naming 42 lost tasks and 199 lost claim rows; `check origin/main` and `check HEAD` exit 0; `board.py --selftest` OK (71 checks) covers a deleted row, a deleted task block, an archived task and a dropped RESERVED row; `gate.py --selftest` OK (15 checks); `gate: 5 pass, 0 fail, 0 skip`
+  - Note: The main check reads `board.py check <ref>`: the branch was rebased onto `04872b50` before the final run, so the final bases are `HEAD vs 04872b503c1c` (exit 0), `origin/main vs 8f6d90512ce9` (exit 0), `6ca7bc3 vs 49009617d2bc` (exit 1, 42 tasks / 199 claim rows).
 
 - [ ] **H122 — `l3_harness/corpus.py --selftest` fails 4 `hdd_info` checks on main and the gate skips the suite**
   - Status: open · Owner: — · Critical: no · Pair: solo
