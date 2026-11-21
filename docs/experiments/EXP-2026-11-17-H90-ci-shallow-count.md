@@ -3,9 +3,16 @@
 - **Status:** done
 - **Date:** 2026-11-17
 - **Sample:** `none (CI/tool task)`; the git history of `origin/main` at
-  `3d79bcc` (809 commits, pack 3.2 MiB) and a `--depth 1` clone of it.
-- **Tools:** git 2.5x, python3 3.15; `tools/claims_check.py`, `tools/gate.py`,
-  `.github/workflows/ci.yml`
+  `3d79bcc`. H94 measured it on 2026-11-21: `git rev-list --count 3d79bcc`
+  prints `108` and `git count-objects -vH | grep size-pack` prints
+  `size-pack: 19.74 MiB`. H90's original block quoted `809 commits, pack
+  3.2 MiB` for the same SHA on its own tree; that number is H90's and is not
+  re-typed here (H90's own measurement of `809` is pinned by C-4135).
+- **Tools:** H94's own environment measured 2026-11-21: `git --version`
+  prints `git version 2.56.0`, `python3 -V` prints `Python 3.15.0`; repo tools
+  `tools/claims_check.py`, `tools/gate.py`, `.github/workflows/ci.yml`. H90's
+  original block listed `git 2.5x, python3 3.15` as its own environment; that
+  string is left quoted as H90's, not retyped as a measurement.
 - **Claims:** C-4130–C-4139
 - **Supersedes:** none
 - **Superseded by:** none
@@ -36,21 +43,23 @@ revisions other than the tip, the history is not the cause.
 | Image / file | `none (CI/tool task)` |
 | SHA-256 | `none` |
 | Repo state | `origin/main` = `2b3d1b4`, the 12th consecutive red push (`1889340`…`2b3d1b4`); the last green is `3f9c0b2` |
-| Tool / version | python3 3.15, git 2.5x |
+| Tool / version | `python3 -V` → `Python 3.15.0`, `git --version` → `git version 2.56.0` (H94's own measurement, 2026-11-21; H90's `3.15`/`2.5x` quoted as H90's environment) |
 | Repo tools | `tools/claims_check.py`, `tools/gate.py`, `.github/workflows/ci.yml` |
 
 ## Method
 
-1. **Sample.** The five `main` pushes whose `CI quality gate` run failed, and
-   a depth-1 clone of the same tree.
+1. **Sample.** The twelve `main` pushes whose `CI quality gate` run failed
+   (1889340..2b3d1b4, last green 3f9c0b2), and a depth-1 clone of the same tree.
 2. **Commands.**
    ```bash
    gh run list --workflow "CI quality gate" --branch main --limit 12 \
      --json createdAt,headSha,conclusion
    gh run view <id> --log-failed        # the nine COUNT lines
-   git clone --depth 1 file://$PWD /tmp/x && cd /tmp/x
-   python3 tools/claims_check.py --strict --count-check
-   git fetch --unshallow && python3 tools/claims_check.py --strict --count-check
+   X=$(mktemp -d); R=$PWD
+   git clone --depth 1 file://$R "$X" && ( cd "$X" && \
+     python3 tools/claims_check.py --strict --count-check; \
+     git fetch -q --unshallow "$R" && \
+     python3 tools/claims_check.py --strict --count-check )
    ```
 3. **Controls.** *Positive*: a full checkout prints `count mismatches: 0`.
    *Negative 1*: in a full checkout, changing C-3704's `26` to `25` must still
