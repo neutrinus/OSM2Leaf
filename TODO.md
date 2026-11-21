@@ -4076,7 +4076,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-20-M5.56-no-factory-container. The firmware asks `min(0x100 * T[kind].n, size - pos)` with `size` from `DRSTR001.DAT`: the factory's last section-4 directories are read short (`0x2900`, `0x5d00`) and parsed. The run-S failure (C-3256) came from `--replace` keeping the factory DRSTR001 size; with the true size the unpadded tile mounts, with `0x100` too much it fails. `tilewriter.py` (fresh path only) now zero-pads to the longest directory read (`pad_directory_reads`, 22,272 → 37,376 B): Precheck run has no negative status, the one declared directory (section 1; sections 2/4 declare none) is read and parsed by `0x00414dbc` (16,514 B); cut `0x100` short → -1 (falsifier control); targeted `l2check` PASS, `tilewriter --selftest` 89/89; `--factory` F/G SAME (28 reads). New `dir_read_len.py drstr-size`. C-5830–C-5834.
 
 - [ ] **M5.61 — "Poland to look at": a display-only card with OSM roads in every section-1 directory of the 4 Poland tiles**
-  - Status: in progress · Owner: task/m5.61-poland-card · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m5.61-poland-card · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.53/M5.54 (all 20 directory kinds spliceable, done), M5.30 (relocation + manifest patch, done), M9.13 (container read in L3, done); M9.53 strengthens the gate (records read) but does not block the build
   - Goal: the ladder has P0 (one directory) and P1 as a census/one-tile row, but no task builds the first card a person would call a map of Poland: `profiles/poland-full.json`, tiles `B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`, every level-1 and level-2 section-1 directory that intersects the profile filled from OSM; sections 2/4, `LEV3456R`, `REFER001`, `RDSTM001` and assets factory. This is the nearest result that can be shown in a car, and it measures the size budget (M7.1/M7.2) on real data.
@@ -4088,6 +4088,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if a tile cannot hold its directories (FAT free space or a directory length the firmware does not read, M3.31), record the tile, the number and stop at the largest subset that passes.
   - Falsifier: the gate passes on a card where one directory was written with the ways of the neighbouring directory.
   - Claims: C-6250–C-6259
+  - Blocker: one of four tiles built at level 1 (B50R050R); B48R050R/B48R058R are killed by tilewriter.read_jsonl RAM (5.2 GB peak on a 7.7 GB host) and B50R058R/B48R058R by the 0x2046 pair splice; level 2 has no even slot
+  - Unblock: M5.68 (streaming read_jsonl), M5.69 (pair splice), M5.70 (level-2 even slot)
+  - Result: EXP-2026-11-21-M5.61-poland-card (partial, largest passing subset = 1 tile, B50R050R level 1: cardcheck --image PASS, imgpatch --check-diff outside: 0, l2check --semantic-tiles PASS, 7z t OK, L3 reads 28 statuses [0]); blocked on tilewriter, not the card
 
 - [x] **M5.59 — `lev3456gen.py`: put level-3 roads in the directory whose box holds them**
   - Status: done · Owner: task/m5.59-lev3-dir-box · Critical: no · Pair: solo
@@ -4167,6 +4170,58 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the generator does not yet write a manifest, add `--features` reading the existing `--class-emitted`/`one_tile_pipeline` record instead, and record the missing manifest as a one-line follow-up in M5.61 rather than blocking this task.
   - Falsifier: an L2 PASS on a generated card whose manifest has N road ways and whose tile decodes 0, still reported as one green `RESULT: PASS`.
   - Claims: C-6710–C-6719
+
+- [ ] **M5.68 — `tilewriter.read_jsonl` streams a way at a time: a 1.6 M-way split fits in RAM**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P1
+  - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
+  - Goal: M5.61 built `B50R050R` level 1 but could not build `B48R050R`: `tilewriter.read_jsonl` calls `_read_text(path).splitlines()`, so a 1,837,383,144 B split (1,641,585 single-cell ways) is one Python string plus a list of lines plus the parsed records. `/usr/bin/time -v` records `Maximum resident set size (kbytes): 5224528` and `Command terminated by signal 9` on a 7,735 MB host; a gzipped split peaks at `5,226,136` kB and is killed too. This is a tool limit, not a card or format limit, and it gates the other three Poland tiles.
+  - Precheck: `python3 tools/tilewriter.py --selftest` passes; `python3.13 -c "import json,sys;sys.path.insert(0,'tools');import tilewriter"` then `grep -n "def read_jsonl" -A 8 tools/tilewriter.py` shows `_read_text(path).splitlines()`; `wc -l $S/B48R050R-L1.single.split.jsonl` prints `14381110` (M5.61 scratch; regenerate with `tools/m5_61_build_tile.py` if absent).
+  - Scope: `tools/tilewriter.py` only — `read_jsonl` yields records from a line iterator and the callers that need the whole list are named and mapped (the M5.61 caller builds `parcel_ways`/`ways` dicts; that pass must stay O(parcels + ways) with no second full copy). Accept `.gz` by streaming the decompressor. No format change, no container change, no new CLI surface beyond what the callers already pass.
+  - Input: `tools/tilewriter.py` (`read_jsonl`, `_read_text`, `splice_factory`, `verify_factory`), `tools/m5_61_build_tile.py` (the driver that hit the limit), EXP-2026-11-21-M5.61-poland-card §6 and C-6255.
+  - Done when: `B48R050R` level 1 builds through `tools/m5_61_build_tile.py` from its cut PBF with a recorded `/usr/bin/time -v` peak (state the number; the same host has 7,735 MB) and the tile passes `tilewriter`'s own `verify_factory`; `--selftest` gains a streaming case (a synthetic split large enough to beat the old path's per-line cost, asserting the same records as `read_jsonl` on the small fixture); `tools/selftest.py --only tilewriter` PASS; an EXP records the peak before/after on the same input.
+  - Stop: if streaming alone does not fit (the driver's own `ways` dict is the remaining copy), record both peaks and open the next task on the driver's data structure instead of masking it with a class filter.
+  - Falsifier: a "streaming" reader that still returns a list of all records, or a build whose peak is unchanged on the same split.
+  - Claims: C-6790–C-6799
+
+- [ ] **M5.69 — the `0x2046` slot splice writes the even/odd pair together: `B50R058R` level 1 verifies**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P1
+  - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
+  - Goal: `B50R058R` level 1 reaches `tilewriter` with 429,120 single-cell ways and fails `verify_factory` with `section-1 record at (81, 941, 22, 59) changed but was not regenerated` (`tools/tilewriter.py:1182`); the same key at `c = 0` alone is clean while `c >= 1` changes the adjacent odd pair `2c+2`. A single-file tile must be able to hold its own records, so this is a writer defect that gates `B50R058R` and `B48R058R` and any city-centre tile.
+  - Precheck: `python3 tools/tilewriter.py --selftest` passes; `python3.13 tools/m5_61_build_tile.py --osm $S/cut-B50R058R.osm.pbf --cell B50R058R --level 1 --factory-root $FAC --out $S/x.tile.DAT --scratch $S --report $S/x.json` prints the same `(81, 941, 22, 59)` error (M5.61 scratch; cut the PBF with the EXP's `cut4.py`).
+  - Scope: `tools/tilewriter.py` only — the in-place splice region of a `0x2046` row and its even/odd partner pair (write the pair, or never rewrite a slot region whose trailing bytes belong to the partner). A fix that changes the container layout (append instead of in place) is allowed if `verify_factory` accepts it, and must keep the M5.53/M5.54 wide-row kinds passing.
+  - Input: `tools/tilewriter.py` (`splice_factory` line 879, `verify_factory` line 1129, the `(81,941,22,*)` key), EXP-2026-11-21-M5.61-poland-card §6 and C-6256, `docs/format/map-tiles.md` section-1 pair layout.
+  - Done when: the `B50R058R` level-1 build completes and its own `verify_factory` passes (quote the container line and the tile SHA-256), the same for one country tile as a control, `tools/tilewriter.py --selftest` keeps its current checks plus one that writes a parcel at `c >= 1` and reads the partner pair back, `python3 tools/selftest.py --only tilewriter` PASS, and `l2check --semantic-tiles` PASS on the swapped card.
+  - Stop: if the pair is inherently in-place (the factory's odd records have no room), record the two record shapes and set `blocked` on a directory-aware container change instead of special-casing one key.
+  - Falsifier: a fix that makes `verify_factory` skip the check, or one that passes `B50R058R` but breaks a M5.53/M5.54 wide-row kind.
+  - Claims: C-6800–C-6809
+
+- [ ] **M5.70 — level 2: the writer can create an even slot (1,313 `B50R050R` parcels have none)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P1
+  - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
+  - Goal: M5.61's level-2 run on `B50R050R` reports `l2_unwritable_parcels: 1313`, drops 2,624 ways for that reason (2,847 in total) and then fails with `tilewriter: check failed: no record at dir y=80 x=944 slot 5 pair 6` (`tools/tilewriter.py:1291`): the factory has no even slot for that parcel and the writer cannot create one. Without this, the second half of M5.61's Done-when (every level-1 **and level-2** directory) cannot be reached by any tile.
+  - Precheck: `python3 tools/tilewriter.py --selftest` passes; `python3.13 tools/m5_61_build_tile.py --osm $S/cut-B50R050R.osm.pbf --cell B50R050R --level 2 --factory-root $FAC --out $S/x2.tile.DAT --scratch $S --report $S/x2.json` prints `l2_unwritable_parcels: 1313` and the `slot 5 pair 6` error (M5.61 scratch).
+  - Scope: `tools/tilewriter.py` level-2 path only — allocate the missing even slot in the directory (the container already supports appending records, M5.30/M5.61 `appended=210`), or prove that a level-2 directory cannot grow and record it against `docs/format/tile.md`. One cell (`B50R050R`) and one factory kind first; the 20 directory kinds follow only if the first is clean.
+  - Input: `tools/tilewriter.py` (`cell_mesh`, `dir_x0`, `parcel_runs` level 2, line 1291), EXP-2026-11-21-M5.61-poland-card §6 and C-6257, `docs/format/tile.md` section-1 directory/parcel rows.
+  - Done when: the `B50R050R` level-2 build completes with 0 parcels left without a slot, `verify_factory` passes, the card passes `l2check --semantic-tiles` for the level-2 tiles named on `--tiles`, the L3 mount at 54.3,21.0 reads both levels with no negative status, and `--selftest` covers the created-slot case on a synthetic directory.
+  - Stop: if a level-2 directory is fixed-size in the factory for every cell, record the census (empty even slots per tile) and set `blocked` with the format question named, not a writer workaround.
+  - Falsifier: a build that reports 0 unwritable parcels by dropping every way that would need a slot.
+  - Claims: C-6810–C-6819
+
+- [ ] **M5.71 — `verify_factory` does not reject a legal-but-wrong parcel set (the M5.61 falsifier has no check)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P1
+  - Depends: — (`tools/tilewriter.py`/`tools/l2check.py` are on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §7)
+  - Goal: M5.61's falsifier is "the gate passes on a card where one directory was written with the ways of the neighbouring directory". The `--drop-parcel 80,944,5,3` control (a real parcel left factory) gives a tile of the same size (90,251,560 B) with a different SHA-256 (`6400851b…` vs `7c6ea211…`) and `tilewriter_rc: 0`, so `verify_factory` accepts it: it re-checks the splice it was handed, not "this parcel should differ from factory". No gate the task names reads the tile's parcel set against OSM, so a writer that puts a parcel's ways in the wrong slot passes every L1/L2/L3 check.
+  - Precheck: `python3 tools/m5_61_build_tile.py --osm $S/cut-B50R050R.osm.pbf --cell B50R050R --level 1 --factory-root $FAC --out $S/neg.tile.DAT --scratch $S --report $S/neg.json --drop-parcel 80,944,5,3` prints `"tilewriter_rc": 0` and `"sha256": "6400851bcf78…"`; `python3.13 tools/cardcheck.py --image $S/p1.img` on the real card is PASS, so the size/container gates cannot see either difference.
+  - Scope: one check in `tools/tilewriter.py --factory` (or a `--drop-guard` flag consumed by `tools/m5_61_build_tile.py`) that compares the generated section-1 record set with the factory's for the parcels the caller says it changed, and fails loudly when a parcel outside that set differs; plus `l2check --semantic-tiles` (or a new `tile_falsifier` row) that can name "parcel X holds ways not in its box". No new decoder; reuse `verify_factory`'s record walk.
+  - Input: `tools/tilewriter.py` (`verify_factory` 1129, `splice_factory` 879), `tools/l2check.py` (`tile_semantic`, `tile_mutation`), `tools/m5_61_build_tile.py` (`--drop-parcel`), EXP-2026-11-21-M5.61-poland-card §7 and C-6258.
+  - Done when: the `--drop-parcel` build FAILS with a message naming `80,944,5,3` and the record that changed, the real `B50R050R` build still PASSes, `--selftest` covers a synthetic parcel moved one slot (must FAIL) and the untouched factory (must PASS), and the same check is reachable from `l2check` for a swapped tile whose ways are in the neighbouring directory.
+  - Stop: if the factory cannot say which parcels a caller meant to change, record the two shapes and set `blocked` on a generator manifest instead of guessing from the diff.
+  - Falsifier: a check that passes the `--drop-parcel` tile, or one that fails the real `B50R050R` tile.
+  - Claims: C-6820–C-6829
 
 ## M6 — L5 bench/car: hardware and safety
 
