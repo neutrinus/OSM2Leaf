@@ -4761,7 +4761,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
 - [x] **M8.C1b — HPB-DMAC model on `-M ze0`: SD data transfers work, the card mounts (F3)**
   - Status: done · Owner: Claude (task/m8.c1b-hpb-dmac-model) · Critical: no · Pair: solo
   - Step: tooling
-  - Depends: M8.C
+  - Depends: M8.B5; rows C1 and C10 of the peripheral umbrella task
   - Goal: row C1 of M8.C read the DMA engine statically and stopped with no model: `SDHC.dll` programs HPB-DMAC channel 8 (`0xffc08200`, common `0xffc08814`) for every data transfer, and on `-M ze0` the first one (ACMD13, 64 B) times out (`EventID = 2`, 4000 ms; C-1462, C-1370–C-1379). Model the DMAC in the `ze0` machine so SD reads complete and the FAT volume of the card mounts (F3). Requested by Marek 2026-11-21.
   - Precheck: `bash tools/qemu-ze0/run.sh --image archive/head256.img --machine ze0 --icount shift=0,sleep=off --sd CARD.qcow2 --timeout 240 --qemu QEMU --workdir W --log /dev/null --no-summary; python3 tools/ze0_sdhost.py serial W/serial.log` prints `activate_ng 1` and `event2_timeout 2` with the current twelve patches.
   - Scope: a new patch `ze0-0009` in both series (`tools/qemu-ze0/patches/` for 8.2.10 and `patches/11.1/` for 11.1.3): HPB-DMAC channel and common registers as `SDHC.dll` uses them, the transfer between the SD host's data port and guest RAM, the completion signal the driver waits for (event 2) and its interrupt; `tools/ze0_sdhost.py` reports the transfers. EU2011 IMG256 with the EU 2011 card behind a qcow2 overlay.
