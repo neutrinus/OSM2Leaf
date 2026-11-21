@@ -479,6 +479,7 @@
   "docs/experiments/EXP-2026-11-21-H121-board-mergebase-check.md",
   "docs/experiments/EXP-2026-11-21-H123-board-tool.md",
   "docs/experiments/EXP-2026-11-21-H124-us256-claims-pin.md",
+  "docs/experiments/EXP-2026-11-21-H125-unblock-done-target.md",
   "docs/experiments/EXP-2026-11-21-H99-workflows-readme.md",
   "docs/experiments/EXP-2026-11-21-M1.36b-rom-atlas.md",
   "docs/experiments/EXP-2026-11-21-M1.43-vehicle-signals.md",
@@ -500,7 +501,7 @@
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json",
  ],
- "summary": {"files": 494, "citations": 1422, "unique_va": 349, "start": 1252, "inside": 73, "corrected": 5, "gap": 80, "leaf": 80, "ambiguous": 10, "unmapped": 2},
+ "summary": {"files": 495, "citations": 1422, "unique_va": 349, "start": 1252, "inside": 73, "corrected": 5, "gap": 80, "leaf": 80, "ambiguous": 10, "unmapped": 2},
  "rows": [
   {"file": "TODO.md", "va": "0x003ad440", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x003ad680", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
