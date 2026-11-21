@@ -2678,7 +2678,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6540–C-6549
   - Result: `docs/experiments/EXP-2026-11-21-M3.34-poi-position-firmware.md` (C-6540–C-6546). Conversion found and run: EU2011 `fn 0x003c032c` builds a mesh point (`id = bytes 2–5 & 0xfff3fff3`, `x`/`y` = words 6/8 `& 0x7ff`) and `STDDLL!STD_MeshPnt_chgMapPnt` gives 1/512″ units (mesh = 1/48° × 1/32°, 2048 steps). New `tools/poi_position_l3.py` (`--selftest`) runs both from the image: 15,469/15,469 records of `POINT010` and 9,483/9,483 of all 33 EU files equal `fine_position` within 1 unit (6 cm); controls 0 matches. New `tools/sh4fpu.py` (FPU for PySh4). `point_census.fine_fields` masks both fine words. **Negative part:** the spatial-tree reader was not found in one session → M3.35.
 - [ ] **M3.35 — Firmware reader of the POINT spatial tree (cell `0x85a`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m3.35-point-spatial-tree-reader · Critical: no · Pair: solo
   - Depends: M3.34 (done)
   - Goal: M3.34 tied the POI position to firmware code but did not find the code that reads the spatial tree (16-byte entries `0008, u32 ptr, u16 size_w, u16 kx, u16 ky, u32 fine`, node end `0005 ffffffff u32`, C-2678). Name it (EU2011), or name the message handler that receives the tree bytes, so M5.63 knows which leaf fields the unit really reads when a POI is moved or added.
   - Precheck: `python3 tools/poi_position_l3.py --selftest` passes; C-6546 lists what M3.34 ruled out.
