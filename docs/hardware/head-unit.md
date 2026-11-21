@@ -94,6 +94,42 @@ that hold the device name as a string (C-6413).
 The full register list is in
 [`docs/research/full-system-emulation.md`](../research/full-system-emulation.md).
 
+## Connectors (community pictures, not verified by us)
+
+Two pictures supplied by Marek on 2026-11-21. They come from the LEAF
+community, not from our own measurements, and their original authors are not
+recorded. Treat every pin as a lead until checked against the service manual
+of the exact model year.
+
+![Rear connectors of two head-unit generations](img/rear-connectors-two-units.jpg)
+
+Rear panels of two unit generations with the matching connectors boxed in
+the same colour: a 2-pin grey connector (light green box), two FAKRA coax
+sockets (brown and blue; antennas, which is GPS and which is radio is not
+stated), two mini-USB style sockets (brown and black), a 20-pin connector
+(pink) and a 40-pin connector (red). One socket of the lower unit has no
+counterpart (crossed out). Which of the two is the ZE0 2011–2012 unit is not
+stated in the picture.
+
+![Harness pinout, 2018 7-inch unit against 2020 8-inch Bose unit](img/harness-pinout-2018-7in-vs-2020-8in.png)
+
+Pin tables of the 20-pin and 40-pin harness connectors for the **2018 7-inch**
+and the **2020 8-inch (Bose)** LEAF units, with the rewiring between them.
+These are later cars (ZE1), **not the 2011–2012 unit** this page describes;
+the picture is kept as orientation for what a Nissan head-unit harness
+carries:
+
+- 20-pin: speaker outputs (four pairs), `ACC`, `BAT`, `GND`, `ILL` and
+  `ILL CONT`, `AMP ON`.
+- 40-pin: two CAN buses (`V CAN-H/L` vehicle, `M CAN-H/L` multimedia),
+  camera composite video with shield, `REVERSE SIG`, `PKB SIG` (parking
+  brake), `IGN`, `TCU TEL IN±` (phone audio from the telematics unit), AUX
+  audio in, microphone.
+
+This agrees with the firmware side of the 2011 unit in kind (CAN through a
+sub-microcontroller, a video input for the camera, a telematics unit beside
+the head unit), but no pin number here is claimed for the 2011 connector.
+
 ## What is not known
 
 - The exact SoC part and the chips on the board (flash, RAM, Bluetooth
