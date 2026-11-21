@@ -34,7 +34,11 @@ Warnings (printed, do not fail by default): ``Depends`` references to a
 *ghost* ID (in neither the board nor an archive), missing
 ``Precheck``/``Scope``/``Stop`` on firmware/search tasks (default mode; done
 tasks always warn, never error, to avoid retroactive false failures),
-actionable/done tasks missing standard fields.
+actionable/done tasks missing standard fields, and an ``open`` task whose
+``Depends``/``Unblock`` says it "cannot be taken" on an ID that is also
+``open`` (a chain of open doors; the M3.30 text is the fixture — H125). A
+``blocked`` task whose ``Unblock`` names a ``done``/archived task is the same
+reference as an ERROR under ``--strict``.
 
 ``Depends``/``Unblock`` references are split into three classes (H60):
 ``archived`` (a ``[x]`` block in ``docs/research/todo-history-*.md`` — H53's
@@ -267,6 +271,33 @@ def _unblock_points_at_done(t, archived_ids, status_of):
     return found
 
 
+def _open_door_ids(t, status_of):
+    """IDs an ``open`` task waits on behind a "cannot be taken" phrase (H125).
+
+    Rule 1 says an open task's ``Depends``/``Unblock`` that names another
+    *open* task is an open door onto an open room: neither is takeable until
+    the other moves. ``M3.30``'s ``Depends: M3.29 (open). **Follow-on: cannot be
+    taken until M3.29 merges done**`` is the fixture. Parenthetical spans are
+    stripped (they carry the note, not a second token); duplicates collapse.
+    Returns ``[(field, id), ...]`` for the IDs that are themselves still open.
+    """
+    found = []
+    for field in ("Depends", "Unblock"):
+        value = t["fields"].get(field) if t["fields"] else None
+        if not value or "cannot be taken" not in value.lower():
+            continue
+        seen = set()
+        for ref in DEP_ID_RE.findall(_strip_parens(value)):
+            # A Depends continuation that names the task itself (M3.30's whole
+            # note does) is not a door onto another room.
+            if ref in seen or ref == t["id"]:
+                continue
+            seen.add(ref)
+            if status_of.get(ref) == "open":
+                found.append((field, ref))
+    return found
+
+
 def _classify_refs(t, field, known_ids, archived_ids, status_of, counters,
                    warnings):
     """Classify one block's ``Depends``/``Unblock`` IDs (H60).
@@ -467,6 +498,16 @@ def check(text: str, *, strict_firmware: bool = False,
                     errors.append(msg)
                 else:
                     warnings.append(msg)
+
+        # H125 second clause: an open task whose Unblock/Depends says it
+        # "cannot be taken" on an ID that is also open is a chain of open
+        # doors (the M3.30 fixture). Always a WARN, never an ERROR: the target
+        # may still be legitimately pending, the wording is what is checked.
+        if status == "open":
+            for field, ref in _open_door_ids(t, status_of):
+                warnings.append(
+                    f"TODO.md:{t['lineno']} {t['id']}: {field} says 'cannot be "
+                    f"taken' on open task ID {ref!r} (open door onto an open room)")
 
         if any(t["id"].startswith(s) for s in READER_STREAMS):
             for k in ("Precheck", "Scope", "Stop"):
@@ -881,15 +922,58 @@ def run_selftest():
         r_clean = check(clean, strict_unblock=True, history_dir=hist)
         assert r_clean["ok"] and r_clean["fix_list"] == [], r_clean
 
-        # Parenthetical example IDs are prose, not the waited-on token: an
-        # Unblock whose only done ID sits inside parentheses must not error.
-        paren = clean.replace("  - Unblock: H5\n",
-                              "  - Unblock: H5 (not H6, which is done)\n")
-        r_paren = check(paren.replace("**H5 — open target**", "**H6 — done\n**"),
-                        strict_unblock=True, history_dir=hist)
-        # (H6 is not defined done here; the point is the parenthetical H6 does
-        # not become a blocked-Unblock error when H5 stays open.)
+        # Parenthetical example IDs are prose, not the waited-on token. H6 is a
+        # REAL done block: H4 is blocked on the open H5 and names the done H6
+        # only inside `(…)`, so H4 must NOT error; the same H6 outside the
+        # parentheses MUST error (otherwise paren-stripping is doing nothing and
+        # a _strip_parens = identity monkeypatch would pass this test).
+        paren_board = clean + """- [x] **H6 — done example**
+  - Status: done · Owner: b · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-650–C-659
+  - Result: r
+"""
+        paren_ok = paren_board.replace("  - Unblock: H5\n",
+                                       "  - Unblock: H5 (not H6, which is done)\n")
+        r_paren = check(paren_ok, strict_unblock=True, history_dir=hist)
         assert not any("H4: Unblock references" in e for e in r_paren["errors"]), r_paren["errors"]
+        # Positive control for the control: the SAME done H6 outside the
+        # parentheses must be flagged, so the paren case proves stripping.
+        outside = paren_board.replace("  - Unblock: H5\n", "  - Unblock: H5, H6\n")
+        r_out = check(outside, strict_unblock=True, history_dir=hist)
+        assert any("H4: Unblock references done task ID 'H6'" in e
+                   for e in r_out["errors"]), r_out["errors"]
+
+        # H125 second clause: an open task that "cannot be taken" until an
+        # open task moves is a WARN (never an ERROR), M3.30-shaped.
+        open_door = """# TODO
+- [ ] **H7 — follow-on**
+  - Status: open · Owner: — · Critical: no
+  - Depends: H8 (open). **Follow-on: cannot be taken until H8 merges `done`** — reuses H8's run.
+  - Goal: g
+  - Done when: d
+  - Claims: C-660–C-669
+- [ ] **H8 — upstream**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-670–C-679
+"""
+        r_door = check(open_door, history_dir=hist)
+        assert r_door["ok"], r_door["errors"]
+        assert any("H7: Depends says 'cannot be taken' on open task ID 'H8'" in w
+                   for w in r_door["warnings"]), r_door["warnings"]
+        # Negative: the same phrasing naming a task that is NOT open (H8 done)
+        # is not the open-door case.
+        moved = open_door.replace("- [ ] **H8 — upstream**", "- [x] **H8 — upstream**") \
+                          .replace("  - Status: open · Owner: — · Critical: no\n  - Depends: —\n  - Goal: g\n  - Done when: d\n  - Claims: C-670–C-679",
+                                   "  - Status: done · Owner: b · Critical: no\n  - Depends: —\n  - Goal: g\n  - Done when: d\n  - Claims: C-670–C-679\n  - Result: r")
+        r_moved = check(moved, history_dir=hist)
+        assert r_moved["ok"], r_moved["errors"]
+        assert not any("'cannot be taken'" in w for w in r_moved["warnings"]), r_moved["warnings"]
 
     # real TODO.md parses cleanly and has no ghost reference
     real = TODO_PATH.read_text(encoding="utf-8")
@@ -898,7 +982,7 @@ def run_selftest():
     assert r["tasks"] > 100, r["tasks"]
     assert r["dep_classes"]["ghost"] == 0, r["dep_classes"]
 
-    print(f"todo_check selftest: OK (36 checks, {r['tasks']} real tasks)")
+    print(f"todo_check selftest: OK (43 checks, {r['tasks']} real tasks)")
     return 0
 
 

@@ -38,7 +38,7 @@ change — that would mean the rule was not confined to `--strict`.
 
 | Item | Value |
 | --- | --- |
-| Image / file | `TODO.md` (305 tasks) and `docs/research/todo-history-*.md` (181 archived IDs) at the H125 claim commit `e1b71a75` |
+| Image / file | `TODO.md` (305 tasks) at the H125 claim commit `d585f8a7` and `docs/research/todo-history-*.md` (181 archived IDs); the tool is the branch head, not `d585f8a7` |
 | SHA-256 | `none (tool-only task)` |
 | Offset(s) / VA(s) | n/a |
 | Tool / version | `python3` 3.15.0 |
@@ -47,7 +47,7 @@ change — that would mean the rule was not confined to `--strict`.
 ## Method
 
 1. **Sample and hash.** `TODO.md` and the frozen archives only; no binary
-   sample. The board at the claim commit `e1b71a75` carries 305 task blocks
+   sample. The board at the claim commit `d585f8a7` carries 305 task blocks
    (printed by the tool's own summary line) and 181 archived IDs (`grep -c` of
    the `HISTORY_HEADER_RE` hits across `docs/research/todo-history-*.md`).
 
@@ -72,20 +72,29 @@ change — that would mean the rule was not confined to `--strict`.
      the parenthetical-example fixture where the only done ID sits inside
      `(…)` prose) must produce no error and an empty `--fix-list`.
 
-4. **Scope.** The rule reads every `blocked` task's `Unblock:` field
-   (parenthetical spans stripped, duplicates collapsed); it classifies each
-   ID against the live `Status` (`done`) and the archive set
-   (`docs/research/todo-history-*.md`). It does **not** edit any block and
-   does not judge `Depends:` (that is H60's classifier). `M3.36` repairs the
-   rows; this task ships the checker only.
+4. **Scope.** Two clauses, both shipped:
+   - Every `blocked` task's `Unblock:` (parenthetical spans stripped,
+     duplicates collapsed) is classified against the live `Status` (`done`)
+     and the archive set (`docs/research/todo-history-*.md`); a hit is an
+     ERROR under `--strict`, a WARN by default.
+   - Every `open` task whose `Depends:`/`Unblock:` says *cannot be taken* is
+     checked for an ID that is also `open`; a hit is a WARN (never an ERROR)
+     naming the task and the ID — the "open door onto an open room", with
+     M3.30's text as the fixture. A task's own ID in that text (M3.30's whole
+     continuation repeats it) is not a door onto another room and is skipped.
+
+   The rule does **not** edit any block and does not judge `Depends:` beyond
+   the open-door WARN (the archived/ghost/blocked split is H60's). `M3.36`
+   repairs the rows; this task ships the checker only.
 
 5. **Falsifier.** As above: a done/archived `Unblock` the rule misses, or a
    non-strict run that turns red.
 
 ## Observations
 
-- New rule under `--strict` on `main` at `e1b71a75` (tool changed, board
-  untouched):
+- New rule under `--strict`, new tool over the claim-commit board
+  `d585f8a7:TODO.md` (board untouched; the tool is the branch head, not the
+  old tool at that commit):
 
   ```text
   todo_check [strict]: 305 tasks, 17 error(s), 181 warning(s); refs archived 55 /
@@ -134,9 +143,16 @@ change — that would mean the rule was not confined to `--strict`.
   `--strict` drops 17 → 14 (the 3 references on the two named blocks) and no
   longer names M3.29/M4.23; the default run stays exit 0. The 6 remaining
   `Unblock` errors are the three extra offenders (`M3.16`, `M3.18`, `M4.51`).
-- `python3 tools/todo_check.py --selftest` → `todo_check selftest: OK (36
+- The open-door clause: on the real board at this commit no `open` task says
+  *cannot be taken* on an `open` ID (`grep "cannot be taken"` on the default
+  output: none), because M3.30's target M3.29 is `blocked`; its own-ID mention
+  in the continuation is skipped. The selftest covers the case with an
+  M3.30-shaped fixture (WARN) and a not-open negative control.
+- `python3 tools/todo_check.py --selftest` → `todo_check selftest: OK (43
   checks, 305 real tasks)`; `python3 tools/selftest.py --only todo_check` →
-  `PASS`.
+  `PASS`. Monkeypatching `_strip_parens = identity` makes the selftest raise
+  `AssertionError: ["TODO.md:2 H4: Unblock references done task ID 'H6'"]`, so
+  the paren case is live, not vacuous.
 - `python3 tools/claims_check.py` → `claims_check: OK` (exit 0).
 - `python3 tools/gate.py` (base gate; `todo_check` runs **non-strict**) stays
   green, with `fn_audit` PASS and not SKIP:
@@ -179,16 +195,18 @@ change — that would mean the rule was not confined to `--strict`.
 
 ## Conclusion
 
-`tools/todo_check.py` gained one rule: under `--strict`, a `blocked` task
-whose `Unblock:` names a `done` or archived task is an ERROR naming the task
-and the ID; a `--fix-list` prints `task / field / id / target-status` rows;
-default mode keeps the reference a warning so `gate.py` (non-strict) stays at
-4 pass / 0 fail / 0 skip. On the board at `e1b71a75` this correctly fails
-`--strict` (17 errors = 8 prior + 9 new over 5 tasks) and names M3.29 and
-M4.23; the board repair is M3.36 and is not done here. The rule is
-paren-stripping rather than the old split-at-first-`(`, which had silently
-truncated M4.23's `Unblock: M4.24 (part b), M4.25 … M4.26` at `M4.24` and so
-never saw the archived M4.25/M4.26.
+`tools/todo_check.py` gained two clauses of one rule. (a) Under `--strict`, a
+`blocked` task whose `Unblock:` names a `done` or archived task is an ERROR
+naming the task and the ID; default mode keeps it a warning so `gate.py`
+(non-strict) stays at 4 pass / 0 fail / 0 skip. (b) An `open` task whose
+`Depends:`/`Unblock:` says *cannot be taken* on an `open` ID is a WARN (never
+an ERROR) — the open-door chain, M3.30's text as fixture, its own-ID mention
+skipped. A `--fix-list` prints `task / field / id / target-status` rows. On the
+claim-commit board `d585f8a7` this correctly fails `--strict` (17 errors = 8
+prior + 9 new over 5 tasks) and names M3.29 and M4.23; the board repair is
+M3.36 and is not done here. The rule is paren-stripping rather than the old
+split-at-first-`(`, which had silently truncated M4.23's `Unblock: M4.24 (part
+b), M4.25 … M4.26` at `M4.24` and so never saw the archived M4.25/M4.26.
 
 ## Overtaken by a later commit
 
@@ -200,17 +218,47 @@ none
 python3 tools/todo_check.py --strict >/dev/null 2>&1; echo $?                 # expected: 1
 python3 tools/todo_check.py --strict 2>&1 | grep 'M3.29: Unblock references'  # expected: ... 'M9.53'
 python3 tools/todo_check.py            >/dev/null 2>&1; echo $?               # expected: 0
-python3 tools/todo_check.py --selftest                                        # expected: OK (36 checks …)
+python3 tools/todo_check.py --selftest                                        # expected: OK (43 checks …)
 ```
 
 ## Corrections after navigator review
 
-_To be completed from the navigator's review rounds; empty only until the
-review runs._
+Round 1 returned CHANGES; four fixes, rule unchanged (strict exit 1 names
+M3.29/M4.23; default exit 0; gate 4/0/0):
+
+- **Dead paren selftest.** The old case replaced `**H5 — open target**` with
+  `**H6 — done\n**`, a malformed header whose status stayed `open`, so no done
+  ID ever sat inside `(…)` and the assert was vacuous (with `_strip_parens =
+  identity` the selftest still passed). Now `H6` is a real `[x]` done block:
+  blocked `H4` on open `H5` naming done `H6` only inside `(…)` must not error,
+  and the same `H6` outside the parentheses **must** error. The identity
+  monkeypatch now raises `AssertionError: ["TODO.md:2 H4: Unblock references
+  done task ID 'H6'"]`. Selftest grew 36 → 43 checks.
+- **Sample SHA.** "at `e1b71a75`" was false — that commit carries the old
+  tool. The observation is the new tool over the claim-commit board
+  `d585f8a7:TODO.md` (17 errors / 181 warnings, exit 1); the sample row and
+  the observation now cite `d585f8a7`.
+- **Scope second clause.** The task's Scope also requires a WARN for an `open`
+  task whose `Unblock`/`Depends` says *cannot be taken* on an `open` ID
+  (M3.30 fixture); it was not implemented and unmentioned. It is now
+  implemented (`_open_door_ids`, self-reference skipped) with an
+  M3.30-shaped WARN fixture and a not-open negative control in the selftest,
+  and the Scope/Conclusion record both clauses.
+- **Gate SHA.** The gate table was quoted at `ece6408c`, an unreachable
+  scratch commit. It is now the run at this branch HEAD, whose short SHA is
+  in the block below.
+
+No claim rows are edited here; C-6590 gains the open-door clause and C-6591's
+sample SHA is corrected in the same push (see Follow-ups).
 
 ## Follow-ups
 
 - [ ] M3.36: repair the `Unblock:` rows that carry done/archived IDs. The
-  validator's census is 5 blocks — `M3.29`, `M4.23` (the two named in H125)
-  plus `M3.16`, `M3.18`, `M4.51` — so fixing only the first two leaves 4
-  `Unblock` ERRORs under `--strict`.
+  validator's census is 5 blocks / 9 references — `M3.29` (1), `M4.23` (2)
+  named in H125, plus `M3.16` (3), `M3.18` (2), `M4.51` (1) — so fixing only
+  the two named blocks leaves **6** `Unblock` ERRORs under `--strict`
+  (`M3.16`, `M3.18`, `M4.51`).
+- [ ] M3.36 (or a follow-up): when M3.29 is repaired, M3.30's `Depends` text
+  ("cannot be taken until M3.29 merges done", naming M3.29) becomes an
+  open-door WARN only if M3.29 is `open`; while it is `blocked` the WARN does
+  not fire, which matches the fixture's intent.
