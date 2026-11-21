@@ -2678,8 +2678,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: one session; if the conversion happens in another task's handler that the harness cannot reach, name the handler and block.
   - Claims: C-6540–C-6549
   - Result: `docs/experiments/EXP-2026-11-21-M3.34-poi-position-firmware.md` (C-6540–C-6546). Conversion found and run: EU2011 `fn 0x003c032c` builds a mesh point (`id = bytes 2–5 & 0xfff3fff3`, `x`/`y` = words 6/8 `& 0x7ff`) and `STDDLL!STD_MeshPnt_chgMapPnt` gives 1/512″ units (mesh = 1/48° × 1/32°, 2048 steps). New `tools/poi_position_l3.py` (`--selftest`) runs both from the image: 15,469/15,469 records of `POINT010` and 9,483/9,483 of all 33 EU files equal `fine_position` within 1 unit (6 cm); controls 0 matches. New `tools/sh4fpu.py` (FPU for PySh4). `point_census.fine_fields` masks both fine words. **Negative part:** the spatial-tree reader was not found in one session → M3.35.
-- [ ] **M3.35 — Firmware reader of the POINT spatial tree (cell `0x85a`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M3.35 — Firmware reader of the POINT spatial tree (cell `0x85a`)**
+  - Status: done · Owner: task/m3.35-point-spatial-tree-reader · Critical: no · Pair: solo
   - Depends: M3.34 (done)
   - Goal: M3.34 tied the POI position to firmware code but did not find the code that reads the spatial tree (16-byte entries `0008, u32 ptr, u16 size_w, u16 kx, u16 ky, u32 fine`, node end `0005 ffffffff u32`, C-2678). Name it (EU2011), or name the message handler that receives the tree bytes, so M5.63 knows which leaf fields the unit really reads when a POI is moved or added.
   - Precheck: `python3 tools/poi_position_l3.py --selftest` passes; C-6546 lists what M3.34 ruled out.
@@ -2687,7 +2687,20 @@ text of this section is in git (`13cb0cf`).
   - Input: EXP-2026-11-21-M3.34-poi-position-firmware, EXP-2026-11-20-M4.27-point-census-fine-position, `docs/format/refer.md` "Fine POI position".
   - Done when: a function that reads `kx`/`ky`/`fine` of a tree entry is named with its VA and run in L3 on one factory node (descent to a leaf whose ordinal equals the `point_census` one), or a negative EXP lists the handlers checked.
   - Stop: one session.
-  - Claims: none yet (take the next free block when claimed)
+  - Claims: C-6830–C-6839
+  - Result: the tree is read by the nearest-POI search of EU2011 `Navi.exe`: child loader `fn 0x0040f944`, step `fn 0x004110dc`, node walker `fn 0x004114dc`, distance `fn 0x00408ea4`. New `tools/point_tree_l3.py` runs them on factory trees: 5 files, 237/237 trees ACCEPT, 8,475/8,475 cells return the ordinals `point_census` reads (16,616 leaves), controls moved/cut/flag 237/237, code 33/33. A leaf needs flag `0x0800`, code 63 (or 0), ordinal, two 11-bit fine values and a `0005` terminator; leaves with other codes are skipped unless `*0x005638ec` holds the code. EXP-2026-11-21-M3.35-point-spatial-tree-reader, C-6830–C-6839; follow-up M3.37
+
+- [ ] **M3.37 — POI search set-up: upper-level drivers, the leaf code and `*0x005638ec` (EU2011, then US2011)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M3.35 (done)
+  - Goal: M3.35 runs the child loader, step, node walker and distance function of the nearest-POI search on factory trees, with the search state written by the tool. Three things are not known: who writes that state (root loader `fn 0x0040f674`, drivers `fn 0x00411fd4`/`fn 0x0041235c`, caller `0x003f383c`), what the leaf's 6-bit code means (a leaf with a code other than 0/63 is kept only when `*0x005638ec` holds it, C-6836), and whether the category filter (`0x00d5d7dc`) reads a field a writer must set.
+  - Precheck: `python3 tools/point_tree_l3.py --selftest` prints `selftest OK (14 checks)`.
+  - Scope: EU2011 static + L3 with `tools/point_tree_l3.py`. (1) writers of `*0x005638ec`, `*0x0056389c`, `*0x00d5d7e4` (`sh4xref.py --to`) and what value sets them (language? brand?); (2) census of leaf codes per file and category with `point_census.py`, and what differs between the name records of leaves that share a position but not a code; (3) run `fn 0x0040f674` and one upper-level driver so the tool no longer writes tree base and levels by hand; (4) the category filter on one tree with a category level; (5) locate the US2011 twins of the four functions by byte pattern.
+  - Input: EXP-2026-11-21-M3.35-point-spatial-tree-reader (C-6830–C-6839), `tools/point_tree_l3.py`, `tools/point_census.py`, `docs/format/refer.md`.
+  - Done when: the writer of `*0x005638ec` is named and the code's meaning is supported by a census (or stays HYPOTHESIS with the counter-examples listed), the root loader runs in L3 on one tree, and the US2011 VAs are listed or reported missing. EXP + claims; `docs/format/refer.md`.
+  - Stop: one session.
+  - Falsifier: no code writes `*0x005638ec` (then coded leaves are dead data for this build).
+  - Claims: C-6860–C-6869
 
 - [x] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
   - Status: done · Owner: task/m5.62-l2-tile-section-list · Critical: no · Pair: solo

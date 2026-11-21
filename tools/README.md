@@ -459,6 +459,23 @@ python3 tools/locmap_l3.py run archive/head256.img --card-image CARD.img --repla
 python3 tools/locmap_l3.py diff F.json G58.json
 ```
 
+## `point_tree_l3.py` — the firmware's nearest-POI walk on a POINT spatial tree (M3.35)
+
+Runs EU2011 `Navi.exe`'s child loader `fn 0x0040f944`, step
+`fn 0x004110dc`, node walker `fn 0x004114dc` and distance `fn 0x00408ea4`
+(with the image's `STDDLL.dll`) on the spatial trees of a decoded
+`POINTnnn` pair. Per sampled cell it compares the name-record ordinals and
+distances the firmware stores with `point_census`'s reading. Controls per
+tree: a moved leaf, a `0005` terminator, a cleared leaf flag `0x0800`, a
+leaf with a code other than 0/63. The block cache and the search state are
+modelled (see the docstring). Exit 0 ACCEPT, 1 mismatch, 3 BLOCKED.
+Read-only.
+
+```bash
+python3 tools/point_tree_l3.py --selftest
+python3 tools/point_tree_l3.py run archive/head256.img --dir /tmp/pt --file POINT010 --tree all --cells 60 --json out.json
+```
+
 ## `sh4fpu.py` — SH-4 floating point for the PySh4 engine (M3.34)
 
 `PySh4Fpu(PySh4)` adds the FPU instructions the firmware's coordinate code

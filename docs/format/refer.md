@@ -275,8 +275,9 @@ Still open:
 > **Status:** `OBSERVED` on EU 2011 (33 files, 937,131,520 B decoded) and
 > US 2011 (11 files, 2,608,416,256 B) (C-2676–C-2679). The position
 > formula is `VERIFIED` against the firmware on EU 2011 (M3.34,
-> C-6540–C-6545, below); the spatial-tree reader is not located (M3.35); a
-> writer does not use it yet (M5.63).
+> C-6540–C-6545, below); the spatial tree is read by the nearest-POI search
+> and that code agrees with this reading on 237 factory trees (M3.35,
+> C-6830–C-6839, below); a writer does not use it yet (M5.63).
 
 **Firmware reading (EU2011, M3.34).** `Navi.exe` fn `0x003c032c` builds a
 mesh point from a name record — `id = bytes 2–5 & 0xfff3fff3` (the `11` of
@@ -342,6 +343,24 @@ holds no position. The 9-word record ends with the ordinal of a 2000-chain
 A leaf (`size_w = 0`) has `ptr` = name-record ordinal and `fine` = that
 record's bytes 6–9 with flag bits on top (usually `0x8800 | fine_lon`,
 `0xf800 | fine_lat`). Checked for all 10,718,316 leaves of both builds.
+
+**Firmware reading of the tree (EU2011, M3.35).** The tree is read by the
+nearest-POI search of `Navi.exe` (`tools/point_tree_l3.py` runs it):
+
+| Function | What it reads |
+| --- | --- |
+| `fn 0x0040f944` child loader | inner entry `ptr` (`+2`), `size_w` (`+6`), key `kx`, `ky` (`+8`, `+10`); child = block `(ptr >> 7)` after the tree base, `((ptr & 0x7f) + size_w + 127) >> 7` blocks of 128 words |
+| `fn 0x004110dc` step | entry `index` of a node, each entry `2 * word 0` bytes; levels `0x1001` (root node) … `0x1005` (category node) |
+| `fn 0x004114dc` node walker | ends at the first entry with word 0 below 8 (`0005`); at the cell node an entry without `word 6 & 0x0800` is inner; leaf: `x = word 6 & 0x7ff`, `y = word 7 & 0x7ff`, code `((word 6 & 0x8000) \| (word 7 >> 1)) >> 10`, `ptr` = name-record ordinal |
+| `fn 0x00408ea4` distance | `STDDLL!STD_MeshLine_calcLength` from the search origin; results (at most 128) in `0x00d5d800` |
+
+A leaf is kept only when its code is 0, 63 or equal to the global
+`*0x005638ec`. The usual `0x8800 | fine_lon`, `0xf800 | fine_lat` is code
+63; factory trees also carry leaves with codes 2–10, which the search skips
+while the global is 0 (C-6836; meaning of the code open, M3.37). So a
+written leaf needs the `0x0800` flag, code 63, the ordinal, the two fine
+values, and a `0005` terminator after the node's last entry. Checked on 5
+files, 237 trees, 8,475 cells (C-6838).
 
 **Phone B-tree** (US only): 0x1000-byte nodes of 16-byte entries
 `u32 child_w, u32 name ordinal, 8-byte BCD number (f-padded)`. The number
