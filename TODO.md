@@ -1894,7 +1894,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6670–C-6679
 
 - [ ] **H127 — A red gate log names no claims_check row: the 5 red `main` runs print 2 gate lines and 40 NONRUN lines, never the failing rule**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h127-h127-gate-log-failing-row · Critical: no · Pair: required
   - Depends: — (serves H117's diagnosis: `main_watch` can name the SHA and the step, not the rule)
   - Goal: the five red `CI quality gate` runs on `main` since 2026-11-20 (`8e0f913c90`, `28927eb43d`, `13731fe9cf`, `c4b5a90279`, `6834e4b4eb`) all failed on `quality :: Standing gate (tools/gate.py)`, and every red log's `--- claims_check output (tail) ---` section holds only `NONRUN …`/`NOEXP …` warning rows — the actual failing line (`MISSING C-2141 archive/us256.img` for the first four; a `count-check`/evidence line for the fifth) is printed above the last 40 lines and cut off. `tools/gate.py` prints `"\n".join(lines[-40:])` for every non-selftest gate, so a claims_check output of ~500 lines hides its verdict. The weekly/manual README already promises "name the failing row" and cannot: a reader of a red run cannot tell which rule failed without re-running the tool at that SHA.
   - Precheck: `gh run view 44874389818 --log-failed | grep -aE 'claims_check +FAIL|NONRUN|MISSING'` prints the `claims_check FAIL` line plus ~40 `NONRUN` rows and no `MISSING`; `grep -n 'lines\[-40:\]' tools/gate.py` prints the single tail slice used for `claims_check`, `todo_check` and `fn_audit`.
