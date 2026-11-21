@@ -4886,3 +4886,8 @@ into three printed classes.
 | C-6891 | `build.sh --check-version 11.1.3` on the unified series prints `13 applied, 0 failed, 0 unpinned-tarball`, and the patched scratch tree is identical (`diff -rq` over `hw/sh4`, `include/hw/sh4`, `hw/sd`, `target/sh4`, `configs/devices/sh4-softmmu`, `hw/char`, `hw/timer`) to the tree of the binary that reaches F3 in EXP-2026-11-21-M8.C1b. | VERIFIED | H | EXP-2026-11-21-M8.A11-qemu-single-version; `bash tools/qemu-ze0/build.sh --check-version 11.1.3 --srcdir CACHE` |
 | C-6892 | Nothing measured depends on QEMU 8.2: runs A (11.1.3) and D (8.2.10) of M8.C1b agree in every `ze0_sdhost.py serial` and `dmatrace` count, and no repo tool takes a QEMU version. | VERIFIED | H | EXP-2026-11-21-M8.A11-qemu-single-version; C-6873 |
 | C-6893 | The one recorded behavioural difference between the two generations is C-4322 (an ITLB data-array write aborted 8.2 and is performed on 11.x); the measured boot to F3 does no such write on either. | OBSERVED | M | EXP-2026-11-21-M8.A11-qemu-single-version; C-4322 |
+
+## H128 - todo_check strict debt ledger
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-6700 | todo_check --strict --baseline ledger. | PROPOSED | - | EXP-2026-11-21-H128-h128-todo-strict-debt |
