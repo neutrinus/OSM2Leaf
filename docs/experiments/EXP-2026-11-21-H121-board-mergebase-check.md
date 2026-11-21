@@ -130,12 +130,16 @@ widened, and which one named).
   and exits 1; the named tasks are `M1.33` and 41 `M9.*` headers (`M9.11` …
   `M9.62`), the claim count is 199 rows.
 - `python3 tools/board.py check origin/main` prints
-  `board check: origin/main vs base 091a48880733: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
-  and exits 0; `check HEAD` on the final tree (`366da513`) prints
-  `board check: HEAD vs base 7b43d68bc57e: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
-  and exits 0. Both bases are the hashes those commands print on this branch
-  (`7b43d68b` is the `origin/main` tip it was rebased onto); they move as
-  `main` moves, so the revision in the command is the stable part.
+  `board check: origin/main vs base <the merge base>: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
+  and exits 0; `check HEAD` on this branch prints the same, exit 0. **Pin both
+  sides**, because the printed base moves with `main`: with
+  `origin/main` at `a8d4cf0a`, `python3 tools/board.py check a8d4cf0a --base 7b43d68b`
+  prints `board check: a8d4cf0a vs base 7b43d68b: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
+  and exits 0, and `python3 tools/board.py check HEAD --base a8d4cf0a` prints
+  `board check: HEAD vs base a8d4cf0a: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
+  and exits 0. Those two lines are reproducible on any later tree (a `HEAD`
+  and a hash are both accepted refs); an unpinned run only quotes the base it
+  happened to see.
 - `python3 tools/board.py check 0d4916ab` prints
   `board check: 0d4916ab vs base 39600b6cd9ac: 2 task(s) and 0 claim row(s) lost, 2 exempt, 0 problem(s)`,
   both exempt as archived, exit 0.
@@ -233,7 +237,8 @@ none
 
 ```bash
 python3 tools/board.py check 6ca7bc3 ; echo "exit=$?"      # expect exit=1, 42 tasks / 199 claims
-python3 tools/board.py check origin/main ; echo "exit=$?"  # expect exit=0
+python3 tools/board.py check a8d4cf0a --base 7b43d68b ; echo "exit=$?"  # pinned: expect exit=0
+python3 tools/board.py check HEAD --base a8d4cf0a ; echo "exit=$?"      # pinned: expect exit=0
 python3 tools/board.py --selftest                          # expect "board selftest: OK (74 checks)"
 python3 tools/gate.py --selftest                           # expect "gate selftest: OK (15 checks, 0 failed)"
 ```
@@ -264,18 +269,23 @@ tasks / 199 rows, `origin/main` and `HEAD` still exit 0.
    reason); it now drops it. `board.py --selftest` is `OK (74 checks)`
    (71 before).
 3. *(blocking)* **C-6521/C-6527 quoted base hashes their cited commands do not
-   print** (`67d9fcbc62ba`/`a0bf0d9815a3`, from an earlier rebase). Both rows
-   now quote the hashes `check origin/main` and `check HEAD` print on this
-   tree (`091a48880733` is what `check origin/main` prints; the branch merge
-   base is `7b43d68bc57e`) and state the revision as the stable part. Edited
-   through the new `board.py claim-row C-ID --text ROW` (a guarded one-line
-   splice; it was added so claim edits no longer need a hand edit, the same
-   reason every other board write is a `board.py` op) — both `+0 lines`.
+   print** (`67d9fcbc62ba`/`a0bf0d9815a3`, from an earlier rebase). Fixing that
+   surfaced the real cause: an unpinned `check origin/main`/`check HEAD`
+   prints whichever base `main` has moved to, so a quoted unpinned base is
+   stale the moment `main` moves (during this round it printed `091a48880733`,
+   then `7b43d68bc57e`, then `a8d4cf0a82b9`). Both rows now pin **both** sides
+   — `check a8d4cf0a --base 7b43d68b` and `check HEAD --base a8d4cf0a`, each
+   printing `0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`, exit
+   0 — so the quote reproduces on any later tree. Edited through the new
+   `board.py claim-row C-ID --text ROW` (a guarded one-line splice; it was
+   added so claim edits no longer need a hand edit, the same reason every
+   other board write is a `board.py` op) — both `+0 lines`.
 4. *(blocking)* **This section was `pending`.** It is filled above; H90/H93
    require it filled or `none`.
 
-The final ladder on `366da513` + these edits: `check 6ca7bc3` exit 1, `check
-origin/main` exit 0, `check HEAD` exit 0, `board.py --selftest OK (74 checks)`,
+The final ladder on the review tree: `check 6ca7bc3` exit 1, `check a8d4cf0a
+--base 7b43d68b` exit 0, `check HEAD --base a8d4cf0a` exit 0,
+`board.py --selftest OK (74 checks)`,
 `gate: 5 pass, 0 fail, 0 skip` (`board_check PASS`, `fn_audit PASS`, not
 SKIP), `claims_check --strict --count-check` and `todo_check` PASS,
 `board.py lost --base origin/main` exit 0.
