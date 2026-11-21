@@ -136,7 +136,7 @@ in `docs/format/firmware.md` row 56 lists `VideoIn`/`VIN.dll`/`VIN1`/`0xa`/
 | Process message `MSG_PROCESS_CAMERA` / `_CC` | `SystemEXE` `0x14b4dec`/`0x14b4e18`; queue ids in `SystemEXE` `0x14b32c0` block | VERIFIED |
 | Event timeout constant | CameraCC `0x035525d4` (`CAMERA_CC_EVENT_TIMEOUT`) | VERIFIED |
 | Device-open / IOCTL wrapper (`fn 0x0355fa30`, `0x0355fa64`) | referenced only from the object's own 5-instance literal tables (`0x035514e8` …); no `CreateFileW` on a device path | OBSERVED |
-| `VIN1:` / `LCD1:` / `CEN1:` / `GPI1:` string in module | none (0 hits over sec0 + decoded sec1/sec2 + sec3) | VERIFIED (negative) |
+| `VIN1:` / `LCD1:` / `CEN1:` / `GPI1:` string in module | none (0 hits: `ce_strfind` over sec0+sec3 — it prints sec1/sec2 `UNSUPPORTED` — and `sh4literal bytes` over sec1/sec2 decoded by `nk_decomp`) | VERIFIED (negative) |
 
 `CameraCC`'s only `CreateFileW` caller is `fn 0x0355fe40`, which builds the path
 `\StoreMgr\` (`0x035533d0`) and opens it — a storage path, not a device — then
