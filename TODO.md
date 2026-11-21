@@ -5673,7 +5673,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6740–C-6749
 
 - [ ] **M9.66 — Drive the `LOC_map`/`LOC_db`/`raw_rec` tasks and find the shape walk of a served record**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.66-loc-tasks-shape-walk · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.58 (done)
   - Goal: M9.58 shows the client task's sub-3 handler `0x0042613c` copies the record into the group buffers and then posts `LOC_map` a `0x0fa0` sub `0x019a` message (`0x004259bc` -> `0x0041ee14`, destination `*0x011fff74`), but no code in that run reads the copies and the `LOC_map` receiver `0x00421548` returns without touching them (C-6016, C-6017). The shape/link walk of a served record is therefore in one of the tasks the launcher `Navi_ctrl` starts (`LOC_db`, `LOC_map`, `RAW_rec`) or behind `0x00421548`'s branches that need that task's own state. Find it and run it on our record (rule 13: `docs/format/map-tiles.md` needs the walk, not only the copy).
