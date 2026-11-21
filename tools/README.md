@@ -438,6 +438,27 @@ python3 tools/poi_position_l3.py run archive/head256.img --dir /tmp/pt --file PO
 python3 tools/poi_position_l3.py mesh archive/head256.img 0x8b608b60 100 200
 ```
 
+## `locmap_l3.py` — the firmware's chain from a car position to the `LOC_map` shape walk (M9.66)
+
+Runs, in one PySh4 machine with the FPU engine, EU2011 `Navi.exe`'s own
+client: mount (`datask_l3.py`), client init `fn 0x00427a34`, the dispatcher
+`fn 0x00427144` with a position message and the request tick, the
+data-access task with the request the client sent, the reply handler
+`fn 0x0042613c`, and the `LOC_map` receiver `fn 0x00421548`. Prints the
+wanted groups, the request, the tile reads, and every load the walk
+`fn 0x0041f3dc` makes from the copied record (per instruction, distinct
+bytes, loads past the copy window), plus the result table. `--replace`
+serves a generated tile, `--patch WORD=VALUE` changes one record word before
+the copy, `diff` compares two `--json` results (copy, trace, result).
+Exit 0 walk ran, 1 no `LOC_map` message, 3 BLOCKED. Read-only.
+
+```bash
+python3 tools/locmap_l3.py --selftest
+python3 tools/locmap_l3.py run archive/head256.img --card-image CARD.img --json F.json
+python3 tools/locmap_l3.py run archive/head256.img --card-image CARD.img --replace MAPAL001/B48R058R.DAT=G.DAT --patch 58=0x0010 --json G58.json
+python3 tools/locmap_l3.py diff F.json G58.json
+```
+
 ## `sh4fpu.py` — SH-4 floating point for the PySh4 engine (M3.34)
 
 `PySh4Fpu(PySh4)` adds the FPU instructions the firmware's coordinate code

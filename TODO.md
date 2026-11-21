@@ -4224,6 +4224,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a check that passes the `--drop-parcel` tile, or one that fails the real `B50R050R` tile.
   - Claims: C-6820–C-6829
 
+- [ ] **M5.72 — Road writer: point reference words the `LOC_map` walk accepts**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M9.66 (done)
+  - Goal: the generated road record of M9.53 (`tilewriter.py --factory`, `fa_encode.py`) has `0x0100` in the word the firmware treats as a point's reference to another point (record word 58, shape-buffer byte `0x48`); the walk `fn 0x0041f3dc` follows it 330 bytes past the end of the 184 B record and loads stale pool bytes (C-6776). The writer must emit this word as the firmware reads it: a word index of another point inside the record, or `0xffff`.
+  - Precheck: `python3 tools/locmap_l3.py run archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --replace MAPAL001/B48R058R.DAT=G.DAT` (G built as in EXP-2026-11-21-M9.66) prints `loads beyond the 512 B window (stale pool bytes): offsets 0x202, 0x204`.
+  - Scope: `tools/ze0-viewer/tools_ze0/fa_encode.py` and `tools/tilewriter.py`: (1) census of the reference word on the factory records of one tile (value, target, whether the target's own reference points back: C-6775); (2) what `fa_encode` writes at that position today and why (`0x0100`, `0x0001` look like one byte-swapped field); (3) emit in-record references for connected shapes and `0xffff` otherwise; (4) gate with `locmap_l3.py` (no load beyond the window) and the existing L2 checks.
+  - Input: `tools/locmap_l3.py`, EXP-2026-11-21-M9.66-loc-map-shape-walk (C-6774–C-6777), `tools/ze0-viewer/tools_ze0/fa_encode.py`, `tools/tilewriter.py`, EXP-2026-11-20-M9.53-record-block-read.
+  - Done when: a regenerated G passes `locmap_l3.py` with no load beyond the copy window, the factory census explains the word on at least 95 % of points that carry it, and the L2 checks of `tilewriter.py` still pass. EXP + claims; `docs/format/map-tiles.md`.
+  - Stop: if the reference needs the result of M9.67 (the rule for counted shapes) to be testable, write the in-window part and set `blocked` on M9.67 for the rest.
+  - Falsifier: factory records carry reference words that leave the record too; then the word is not a plain in-record index and the EXP must show the counter-examples.
+  - Claims: C-6850–C-6859
+
 ## M6 — L5 bench/car: hardware and safety
 
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
@@ -5673,8 +5686,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: after binding, the consumer still faults before its first unit-0 read, or the `STDDLL` call returns a different verdict than `poi_position_l3.py`.
   - Claims: C-6740–C-6749
 
-- [ ] **M9.66 — Drive the `LOC_map`/`LOC_db`/`raw_rec` tasks and find the shape walk of a served record**
-  - Status: in progress · Owner: task/m9.66-loc-tasks-shape-walk · Critical: yes · Pair: required
+- [x] **M9.66 — Drive the `LOC_map`/`LOC_db`/`raw_rec` tasks and find the shape walk of a served record**
+  - Status: done · Owner: task/m9.66-loc-tasks-shape-walk · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.58 (done)
   - Goal: M9.58 shows the client task's sub-3 handler `0x0042613c` copies the record into the group buffers and then posts `LOC_map` a `0x0fa0` sub `0x019a` message (`0x004259bc` -> `0x0041ee14`, destination `*0x011fff74`), but no code in that run reads the copies and the `LOC_map` receiver `0x00421548` returns without touching them (C-6016, C-6017). The shape/link walk of a served record is therefore in one of the tasks the launcher `Navi_ctrl` starts (`LOC_db`, `LOC_map`, `RAW_rec`) or behind `0x00421548`'s branches that need that task's own state. Find it and run it on our record (rule 13: `docs/format/map-tiles.md` needs the walk, not only the copy).
@@ -5685,6 +5698,20 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if a task needs the display driver (`XGLDLL`/`MDP_draw`) to be mapped, record the missing export and stop; do not stub the draw.
   - Falsifier: the served record's link words are never loaded by any code, and the shape buffers are dead until the next map request overwrites them.
   - Claims: C-6770–C-6779
+  - Result: the shape walk is `fn 0x0041f3dc` (EU2011 build A) in `LOC_map`, reached through `fn 0x00421548`; new `tools/locmap_l3.py` runs the firmware's own chain (position message -> requester `fn 0x00425f40` -> data-access read -> `fn 0x0042613c` copy -> `LOC_map`). Loads: F 5,363 (10,726 B, 6,868 distinct), G 49 (98 B, 70 distinct); tail buffer 0. G's reference word (record word 58 = `0x0100`) points past the record; one changed reference word gives DIFFERENT on F and G; M9.58's word 59 is not read; G's shapes are counted 0 in the result table. No display code needed. EXP-2026-11-21-M9.66-loc-map-shape-walk, C-6770–C-6779; follow-ups M9.67, M5.72
+
+- [ ] **M9.67 — Host model of the `LOC_map` shape walk `fn 0x0041f3dc`, checked against the firmware trace**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M9.66 (done)
+  - Goal: M9.66 runs the firmware's own chain (position -> request -> record -> `LOC_map`) and shows `fn 0x0041f3dc` walks the shape words: rows, shape header, points with flag-dependent extra words, one reference word per point (C-6774, C-6775). It counts shapes of the factory record into the result table `*0x00e8f5dc` and counts nothing for our generated record (C-6778). Write the walk as a host function (rule 13: the writer needs the reader's rules) and find the rule that leaves a generated shape uncounted.
+  - Precheck: `python3 tools/locmap_l3.py run archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` prints `shape-buffer loads: 5363 (10726 B), 6868 distinct bytes` and `RESULT: walk ran`.
+  - Scope: EU2011. (1) decode `fn 0x0041f3dc` (0x11dc bytes) and `fn 0x0041f04c`/`fn 0x0041f26c` into a host model that predicts, for a shape buffer, the ordered list of loaded offsets and the four result entries; (2) check it against `locmap_l3.py` (`first_reads`, `trace_sha1`, `result_table`; add a full-trace dump if needed) on F, on G and on at least 20 other kind-4 records of `B48R058R` (other meshes: change `--mesh`); (3) name the condition that gives G zero counts and one record edit (`--patch`) that makes a count non-zero; (4) the divided-record branch `fn 0x004205b8` if a record with DIVID other than `0x0303` can be served.
+  - Input: `tools/locmap_l3.py`, EXP-2026-11-21-M9.66-loc-map-shape-walk (C-6770–C-6779), `tools/sh4dis.py`, `tools/ze0-viewer/tools_ze0/fa_encode.py`, `docs/format/map-tiles.md`.
+  - Done when: the host model reproduces trace and result table of the firmware on F, G and 20 more records (equal SHA-1), the zero-count cause on G is named with a patch control that turns it non-zero, and `docs/format/map-tiles.md` states the shape layout the walk requires. EXP + claims; `reader-coverage.md` row 17.
+  - Stop: if another mesh needs `STDDLL!STD_MeshID_getAny` (other quadrants do, C-6779), use only meshes and positions that do not, and name M9.65 as the unblock for the rest.
+  - Falsifier: the model matches F but cannot match G or the other records without per-record exceptions; then the walk depends on state outside the shape buffer and the EXP must name it.
+  - Claims: C-6840–C-6849
 
 ## Retired leads
 
