@@ -4087,10 +4087,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: an image whose `cardcheck --image` is PASS, `imgpatch --check-diff … --allow-metadata` reports `outside: 0` for the 4 tiles + `DRSTR001.DAT`, `l2check --semantic-tiles` PASS on all 4, `7z t` OK, and `datask_l3.py mount --position` at one point per tile reads every directory with no negative status; the EXP has the per-tile table and the image SHA-256 (image outside the repo).
   - Stop: if a tile cannot hold its directories (FAT free space or a directory length the firmware does not read, M3.31), record the tile, the number and stop at the largest subset that passes.
   - Falsifier: the gate passes on a card where one directory was written with the ways of the neighbouring directory.
+  - Blocker: tilewriter, not the card: (1) read_jsonl holds the whole split -> Max RSS 5.2 GB, signal 9 on B48R050R (1.6M single-cell ways) and B48R058R (M5.68); (2) the 0x2046 even/odd pair splice leaves the pair regenerated-but-unwritten, B50R058R level 1 fails (81,941,22,59): 1 changed but not regenerated (M5.69); (3) B50R050R level 2 has 1,313 parcels with no even slot (M5.70). B48R058R ingest was stopped, not attempted.
+  - Unblock: M5.68, M5.69, M5.70 (the M5.71 drop-parcel check is a falsifier gap, not a build blocker)
+  - Result: EXP-2026-11-21-M5.61-poland-card (negative; 1 of 4 tiles: B50R050R level 1 passes all gates, the other three hit tilewriter defects M5.68-M5.70); p1.img tile B50R050R = 7c6ea211…, template repaired
   - Claims: C-6250–C-6259
-  - Blocker: one of four tiles built at level 1 (B50R050R); B48R050R/B48R058R are killed by tilewriter.read_jsonl RAM (5.2 GB peak on a 7.7 GB host) and B50R058R/B48R058R by the 0x2046 pair splice; level 2 has no even slot
-  - Unblock: M5.68 (streaming read_jsonl), M5.69 (pair splice), M5.70 (level-2 even slot)
-  - Result: EXP-2026-11-21-M5.61-poland-card (partial, largest passing subset = 1 tile, B50R050R level 1: cardcheck --image PASS, imgpatch --check-diff outside: 0, l2check --semantic-tiles PASS, 7z t OK, L3 reads 28 statuses [0]); blocked on tilewriter, not the card
 
 - [x] **M5.59 — `lev3456gen.py`: put level-3 roads in the directory whose box holds them**
   - Status: done · Owner: task/m5.59-lev3-dir-box · Critical: no · Pair: solo
