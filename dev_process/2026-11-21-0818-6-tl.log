@@ -49,6 +49,32 @@ problems / time costs: a concurrent TL session is merging and launching in paral
 between listing and checking. gate.py on the M9.59 worktree took 131s + 8.6s (first run hit 120s timeout;
 re-ran with 240s). board.py resolve handled a claims.md conflict cleanly (0 markers left).
 
+batch outcome (all 6 tasks merged; each verified, reviewer rounds noted):
+ - H121 done  — PR #431, gate 5/0/0 with board_check PASS; 4 reviewer rounds (dead paren selftest,
+   M9.5-vs-M9.56 substring, stale base x2); final whole-token check + 74 selftest checks.
+ - H125 done  — PR #435; todo_check --strict now ERRORs on Unblock->done/archived (M3.29/M4.23);
+   `--strict` 18 errors/181 warn, default exit 0 so the gate stays green; 3 rounds (dead paren
+   selftest, wrong sample SHA, Scope second clause, stale Result 36->43).
+ - M1.43 done — PR #434; 17 VCAN signals, energy-economy fdiv at 0x02519072; 2 rounds (FPUL VA
+   0x02518fe4->0x02518ff2, fdiv cited via sh4fpu not sh4dis, 128MiB-vs-268MiB sample SHA, 10/17 tally).
+ - M1.44 done — PR #433; trigger EVENT_NAV_SENSOR_BACK, VIN1: IOCTLs actually from SystemCC (CameraCC
+   0/8); 3 rounds (stale base, ce_strfind sec1/sec2 UNSUPPORTED vs sh4literal, Supersedes cell).
+ - M1.45 done — PR #436; 17/16 endpoints, 5 builders; 3 rounds (19/18 hits not 17/16, cws_rcv.xml
+   0x23630->fn 0x000a7b10, Supersedes on C-6730/C-6731).
+ - M4.58 done — PR #432; TFAT16 3070 entries, .skn layout, skin id->Substance.skn; 2 rounds (SkinChange
+   6-vs-11 SystemSD2, zlib 2,536,494 B made reproducible, part print, 12-B tail).
+ merged by: this session (H105 #429 before the batch; then verified/merged #432, #434, #433) and a
+ concurrent TL session which merged #431/#435/#436 as they went green. main gate after all: 5 pass/0/0.
+
+defects the reviewers caught (SM pairing metric): 14 record/code defects across 6 tasks, 2 real tool
+bugs (H121 substring match, H125 dead selftest clause) and 1 post-merge tool bug in board.py claim-set
+(filed as H129, C-6760-C-6769). Pairing on the 2 gate tools caught logic bugs that solo docs tasks did
+not have; solo docs tasks were caught only by the post-hoc reviewer (M1.43/M1.45/M4.58 all needed
+2-3 rounds) — evidence the docs tasks are not lower risk than the tool tasks for record accuracy.
+
+task IDs added/blocked this pass: H129 added (board.py claim-set cell bug).
+PRs: #429,#431,#432,#433,#434,#435,#436 merged.
+
 handoff: when the 6 drivers report, verify each Done-when + controls + gate; merge one PR at a time
 (rebase conflicts in claims.md only via board.py resolve). Then SM->SE->PO->QA->TL again.
 next: verify batch, rule-15 re-opens for tasks the merges unblock.

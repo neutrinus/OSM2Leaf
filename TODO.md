@@ -1918,6 +1918,16 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: after this task a new firmware task with a missing `Precheck`/`Scope`/`Stop` still exits 0 under `--strict --baseline`.
   - Claims: C-6700–C-6709
 
+- [ ] **H129 — `board.py claim-set` writes `Supersedes:` to the evidence cell, and its selftest does not check the target cell**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: tooling
+  - Depends: — (found by the M1.44 round-3 reviewer after #433 merged; it is a tool bug, not a record defect)
+  - Goal: `python3 tools/board.py claim-set C-XXXX Supersedes C-YYYY` must put `Supersedes: C-YYYY` in the claim **body** (cell 2) when the body has no such key, matching every other ledger row's body form (C-6460's body itself says "Supersedes: C-6460"); it must not silently append `; Supersedes: …` to the evidence cell (cell 5). Evidence: M1.44 #433 merged as `47400e9b`; C-6750's `Supersedes` landed in the evidence tail (`| … status | … evidence …; Supersedes C-6460, whose scope… |`) and `claim-set` is a no-op on a second call.
+  - Input: `tools/board.py` `_claim_row`/`op_claim_set` (the `for ci in (2, 5)` order and the `else` fallback), the `claim-set` selftest's "claim-set keeps IDs" assertion, and the C-6750/C-6460 rows as the live specimen.
+  - Done when: `python3 tools/board.py claim-set C-6750 Supersedes C-6460` on the current ledger leaves one `C-6750` row with `Supersedes: C-6460` inside cell 2 and the evidence cell unchanged (print the row before/after, split on unescaped `|`); `python3 tools/board.py --selftest` has a case that fails if the field lands in cell 5 instead of cell 2; `python3 tools/claims_check.py --strict --count-check` OK; `python3 tools/gate.py` = 5 pass / 0 fail / 0 skip (`board_check` PASS, `fn_audit` not SKIP).
+  - Stop: if a real ledger convention turns out to be "Supersedes lives in evidence", record that with a counted corpus and close this task with a negative result rather than moving 199 rows.
+  - Claims: C-6760–C-6769
+
 
 ## M2 — Map code, activation, updater
 
