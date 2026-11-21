@@ -5628,7 +5628,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the function(s) that walk a served record's shape/link words are named with their VAs, the byte counts they load on F and on G, and a one-link change gives DIFFERENT; or the walk is shown to need the display/preview layer and the task records where it stops, with the positive control that the same harness runs one other `0x0fa0` subtype end to end. EXP + claims; `reader-coverage.md` row 17.
   - Stop: if a task needs the display driver (`XGLDLL`/`MDP_draw`) to be mapped, record the missing export and stop; do not stub the draw.
   - Falsifier: the served record's link words are never loaded by any code, and the shape buffers are dead until the next map request overwrites them.
-  - Claims: C-6750–C-6759
+  - Claims: C-6770–C-6779
 
 ## Retired leads
 
