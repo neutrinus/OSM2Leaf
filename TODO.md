@@ -2839,7 +2839,7 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
 - [ ] **M4.40 — Tile section 2 (route graph) grammar read from the router's reader, not guessed from bytes**
   - Status: blocked · Owner: task/m4.40-sec2-field-table · Critical: yes · Pair: required
   - Blocker (2026-11-20, second run): the router's reader does not read section 2 — `RGD_DATA READ` `0x004266ec` (EU2011) requests kind `0x40`, which the data-access task serves with the parcel's **section-4** record (L3 on the EU card, C-5921); section 2 is requested with kinds 8/`0x10` by the route path finder `RPF_PreMap_start` `0x00336bf0` (C-5923), whose reply points at units 0 and 2 of the record (C-5922). The section-2 field table must be read from the route path finder's reply handler (M4.55).
-  - Unblock: M4.55
+  - Unblock: M9.65 (M4.55 is blocked on the harness binding it needs: STDDLL exports for Navi.exe thunks)
   - Blocker (resolved 2026-11-20 by M4.54, kept as a note): the reply `0x14b6` is copied by `0x004268c0` into a per-slot buffer read by `0x00422eac`; M4.54 ran that path in L3 and mapped the four words it reads to part-a fields (C-5710–C-5717).
   - Start (from M4.54; premise retracted by C-5924, the buffer holds section 4): `0x00422eac` on factory `B48R058R` section-2 record `0xb91d078` (`k=221`, part-a node 7 header; `k+6` = entry 0 `id`, `k+7`/`k+15` = entry 0/1 `cls`, `k+d` = entry 0 `a`). Read the part-a table in `docs/format/map-tiles.md` §"What the four words are (M4.54, L3)" and extend it to the whole record; `k`'s real source `0x00424464(19, …)` is still unknown (the census shows `k` is not always a node header, C-5714/C-5716).
   - Step: P2
