@@ -1827,7 +1827,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6340–C-6349
 
 - [ ] **H121 — A PR must not delete claim rows or task blocks it does not own (main lost 199 claim rows and 7 tasks in PR #340)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/h121-board-mergebase-check · Critical: yes · Pair: required
   - Depends: —
   - Goal: commit `6ca7bc3` of PR #340 (M9.55, merged 2026-11-20 22:20 UTC) replaced the tail of `TODO.md` (from the M9 section on, 787 lines) and of `docs/research/claims.md` (324 lines, 28 sections) with an older copy after a conflict. Every gate passed: `todo_check` and `claims_check` judge the file they are given and cannot see what is gone. Main ran 100 minutes without M9.56–M9.62, with nine closed tasks open again and without the claims of 28 tasks, and three later PRs merged on top. The loss was restored by hand (this PR), found only because a 3-way merge deleted another branch's rows.
   - Precheck: `git diff --numstat 4900961 6ca7bc3 -- TODO.md docs/research/claims.md` prints `1 787` and `11 324`.
