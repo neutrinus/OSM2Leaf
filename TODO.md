@@ -4132,7 +4132,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6650–C-6659
 
 - [ ] **M5.66 — L2 visual map gate: render a generated tile to PNG and fail on a pixel diff**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.66-l2-render-gate · Critical: no · Pair: required
   - Step: P1
   - Depends: M5.61 (a generated Poland tile to render), M5.62 (section-count L2 refusal, done); reads the tile only — no writer dependency
   - Goal: every L2 check today is structural or semantic (`cardcheck`, `l2check`, `semantic-tiles`, the class golden) — none shows that the tile *looks* like a map, so a writer regression that keeps every field valid but moves the roads passes L2 and is only caught in the car (L5), which is expensive. The viewer already renders (`tools/ze0-viewer/harness.py render <tile> <out.png>`); make that a checked gate: a pinned render of a factory tile and of a generated tile, compared within a stated tolerance, so "roads in the right place" fails loudly at L2 and a human can look at a PNG before a card is cut.
