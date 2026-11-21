@@ -1758,8 +1758,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: static only; nothing is tried in a car.
   - Claims: C-6460–C-6469
 
-- [ ] **M1.45 — Decompile map of telematics (`Telema.exe`, `ComMid.exe`, `Telema*CC`, `Cws_Apl`, `Prb_Apl`, `DCM_API`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.45 — Decompile map of telematics (`Telema.exe`, `ComMid.exe`, `Telema*CC`, `Cws_Apl`, `Prb_Apl`, `DCM_API`)**
+  - Status: done · Owner: task/m1.45-telematics-endpoints · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track. The Carwings client: how it reaches the TCU (`COM3:`/`COM4:` over USB) or a phone (`COM8:` Bluetooth dial-up), server names and URLs in the binary, the request types. Useful for OpenCarwings users: what the unit can fetch (points of interest, routes, charging spots) and in what format.
   - Precheck: UTF-16 and ASCII strings of `Telema.exe` contain a host name or `http`.
@@ -1767,6 +1767,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: the page lists the endpoints and for ≥ 3 request types the builder function VA and the payload fields readable from strings.
   - Stop: do not contact any server; credentials or identifiers found in the binary are not copied into the repo.
   - Claims: C-6470–C-6479
+  - Result: EXP-2026-11-21-M1.45-telematics-endpoints; 5 request types (CreateSession/SendData/SetAPN/CloseSession/GetOperatorInfo) with EU+US builder VAs and string-readable payload fields; endpoint table both builds; gate 4 pass
 
 - [ ] **M1.46 — Subsystem map of `Navi.exe`: what a rewrite or a port would have to replace**
   - Status: open · Owner: — · Critical: no · Pair: solo
